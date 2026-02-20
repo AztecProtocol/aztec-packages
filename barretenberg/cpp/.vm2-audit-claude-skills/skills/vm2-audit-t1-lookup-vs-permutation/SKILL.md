@@ -68,13 +68,13 @@ sel_mem { addr, value } permute memory.sel { ... };
 sel { value } in range_check.sel { ... };
 ```
 
-## Example: TX Public Call Dispatch (PR #18336)
+## Illustrative Example: Dispatch Interaction Misuse
 ```pil
-// BEFORE: Could insert extra public call requests
-sel_dispatch { ... } in execution.sel { ... };
+// VULNERABLE: Could insert extra dispatch requests
+sel_dispatch { ... } in handler.sel { ... };
 
-// AFTER: Permutation enforces 1:1
-sel_dispatch { ... } permute execution.sel { ... };
+// SECURE: Permutation enforces 1:1
+sel_dispatch { ... } permute handler.sel { ... };
 ```
 
 ## Output Format

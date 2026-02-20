@@ -66,8 +66,8 @@ sel_err * (1 - sel_err) = 0;  // Boolean only - prover sets sel_err=0 despite er
 ### Commented-Out Aggregation (CRITICAL)
 ```pil
 // VULNERABLE: Aggregation disabled
-sel_parsing_err * (1 - sel_parsing_err) = 0;
-// FIXME: sel_parsing_err = pc_out_of_range + opcode_out_of_range;
+sel_stage_err * (1 - sel_stage_err) = 0;
+// FIXME: sel_stage_err = err_condition_alpha + err_condition_beta;
 ```
 
 ## Secure Patterns
@@ -89,17 +89,17 @@ err_b * (1 - sel_err) = 0;  // err_b => sel_err
 (1 - err_a) * (1 - err_b) * sel_err = 0;  // (~err_a & ~err_b) => ~sel_err
 ```
 
-## Real Example: Instruction Fetching
+## Illustrative Example: Missing Error Aggregation
 
 ```pil
-// BEFORE: Only boolean, no aggregation - CRITICAL BUG
-sel_parsing_err * (1 - sel_parsing_err) = 0;
-// FIXME: sel_parsing_err = pc_out_of_range + opcode_out_of_range + instr_out_of_range;
+// VULNERABLE: Only boolean, no aggregation - CRITICAL BUG
+sel_stage_err * (1 - sel_stage_err) = 0;
+// FIXME: sel_stage_err = err_condition_alpha + err_condition_beta + err_condition_gamma;
 
-// AFTER: Proper aggregation
-sel_parsing_err = pc_out_of_range + opcode_out_of_range + instr_out_of_range;
+// SECURE: Proper aggregation
+sel_stage_err = err_condition_alpha + err_condition_beta + err_condition_gamma;
 ```
-**Impact**: Complete bypass of instruction validation.
+**Impact**: Complete bypass of stage validation — prover sets aggregate flag to 0 regardless of individual errors.
 
 ## Output Format
 

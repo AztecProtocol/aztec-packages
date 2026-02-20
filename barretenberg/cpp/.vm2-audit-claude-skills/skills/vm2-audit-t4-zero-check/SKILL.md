@@ -55,11 +55,23 @@ For each pattern:
 - `e = 1` => `x` must be 0
 - `e = 0` => `x` must be non-zero
 
-### Step 4: Check Tracegen
+### Step 4: Check Tracegen Populates All Three Columns
+
+For each zero-check triple `(value, indicator, inverse)` found in PIL, verify ALL THREE are populated in tracegen:
+
 ```bash
-grep -rn "inverse\|inv =\|is_zero\|eq =" src/barretenberg/vm2/tracegen/<component>*.cpp
+# Find the tracegen file for the component
+grep -rn "<indicator_name>\|<inverse_name>" src/barretenberg/vm2/tracegen/ --include="*.cpp"
 ```
-Verify: `e = 1 iff x == 0`, `inv = 1/x` when `x != 0`
+
+**Check for each column**:
+1. **Value column**: Is it set? (Usually yes — it's the input to the check)
+2. **Indicator column** (`e`): Is it set to `1` when value is zero, `0` otherwise?
+3. **Inverse column** (`inv`): Is it set to `1/value` when value is non-zero?
+
+A zero-check formula can be structurally correct in PIL but still fail if tracegen never populates the inverse or indicator column. The default value (0) for an unpopulated inverse column will cause the honest prover to fail verification whenever the value is non-zero.
+
+**Severity**: Missing tracegen population of a zero-check column is a **completeness** bug — High or Critical if reachable on valid inputs.
 
 ## Vulnerable Patterns
 

@@ -51,7 +51,7 @@ sel_operation { input } in dest.sel { dest.input };
 
 > **PERFORMANCE RULE**: Do NOT iterate per-interaction with individual greps. Use batch collection to gather all interactions and error gating patterns first, then cross-reference in memory.
 
-### Phase 1: Batch Collection (3 parallel searches)
+### Phase 1: Batch Collection (4 parallel searches)
 
 **Search A — All interactions across all PIL files**:
 ```bash
@@ -67,6 +67,14 @@ grep -rn "(1 - sel_err)\|(1 - sel_tag_err)\|(1 - sel_opcode_error)\|(1 - error)"
 ```bash
 grep -rn "sel_err\|sel_tag_err\|sel_div_0\|sel_overflow" pil/vm2/ --include="*.pil"
 ```
+
+**Search D — Cross-file error flag survey** (catches non-ALU error gating gaps):
+```bash
+# Find error flags in ALL component files, not just ALU
+grep -rn "sel_opcode_error\|sel_err\|sel_bytecode_retrieval_failure\|sel_instruction_fetching_failure" pil/vm2/execution/*.pil pil/vm2/context*.pil pil/vm2/tx.pil pil/vm2/bytecode/*.pil --include="*.pil"
+```
+
+> **IMPORTANT**: Do not limit analysis to ALU/arithmetic files. Error gating bugs also occur in `execution.pil`, `internal_call.pil`, `context.pil`, bytecode retrieval, and other non-arithmetic components. Search D ensures cross-file coverage.
 
 ### Phase 2: Cross-Reference (identify ungated interactions)
 
@@ -105,20 +113,20 @@ pol SEL_DIV_NO_ERR = sel_div * (1 - sel_err) * (1 - sel_tag_err) * (1 - sel_div_
 SEL_DIV_NO_ERR { ... } in gt.sel { ... };
 ```
 
-## Real Example: ALU Lookups (PR #18192)
+## Illustrative Example: Ungated Arithmetic Lookup
 
 ```pil
-// BEFORE: Ungated - fires on tag mismatch!
-#[GT_DIV_REMAINDER]
-sel_div { ... } in gt.sel { ... };
+// VULNERABLE: Ungated — fires on tag mismatch!
+#[COMPARISON_CHECK]
+sel_arith_op { ... } in comparator.sel { ... };
 
-// AFTER: Properly gated
-pol SEL_DIV_NO_ERR = sel_div * (1 - sel_err) * (1 - sel_tag_err);
-#[GT_DIV_REMAINDER]
-SEL_DIV_NO_ERR { ... } in gt.sel { ... };
+// SECURE: Properly gated
+pol SEL_ARITH_NO_ERR = sel_arith_op * (1 - sel_err) * (1 - sel_tag_err);
+#[COMPARISON_CHECK]
+SEL_ARITH_NO_ERR { ... } in comparator.sel { ... };
 ```
 
-**Impact**: MUL, DIV, SHL, SHR failed on tag mismatch - lookups fired but destinations weren't emitted.
+**Impact**: Arithmetic operations fail on tag mismatch — lookups fire but destinations aren't emitted.
 
 ## Output Format
 

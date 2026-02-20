@@ -185,16 +185,14 @@ first_row * (input_column - expected) = 0;
 // If output_column and input_column are the same trace column: potential contradiction
 ```
 
-## Real Bug Examples
+## Illustrative Example: Call ID Contradiction on Error + Teardown
 
-### PR #19485: internal_call_id contradiction on error + teardown
-- `sel_execute_internal_return * (internal_call_id' - return_id) = 0` fired during error
-- Empty call stack meant `return_id = 0`, forcing `internal_call_id' = 0`
-- Teardown enqueued call required `internal_call_id = 1`
-- **Fix**: Changed selector to `sel_read_unwind_call_stack` which excludes error rows
+A return-from-call constraint forces `call_tracker' = restored_id` even during error, where `restored_id = 0` (empty stack). But the next enqueued call's initialization requires `call_tracker = 1`. These two constraints cannot be satisfied simultaneously on the boundary row.
 
-### Why single-call tests missed it
-The bug only manifests when there are multiple enqueued calls. With a single enqueued call, the row after an error is a padding/halt row where `internal_call_id = 0` is fine. The contradiction only appears when a teardown enqueued call follows.
+**Fix pattern**: Gate the return constraint by `(1 - sel_error)` or use a selector that excludes error rows.
+
+### Why single-call tests miss this
+The bug only manifests when there are multiple enqueued calls. With a single enqueued call, the row after an error is a padding/halt row where the default value is acceptable. The contradiction only appears when a subsequent enqueued call follows.
 
 ## Key Files
 - `pil/vm2/context.pil` - Context state, initialization, propagation

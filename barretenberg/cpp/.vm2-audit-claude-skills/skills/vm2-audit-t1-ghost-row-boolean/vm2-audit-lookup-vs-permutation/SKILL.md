@@ -150,18 +150,18 @@ sel { value } in range_check.sel { range_check.value };
 
 ## Examples
 
-### Example 1: TX Public Call Dispatch (PR #18336)
+### Example 1: Lookup Used Where Permutation Required for Side-Effectful Dispatch
 
 ```pil
-// BEFORE (vulnerable): Using lookups
-#[DISPATCH_PUBLIC_CALL]
-sel_dispatch { call_id, args... } in execution.sel { execution.call_id, execution.args... };
+// VULNERABLE: Using lookups for side-effectful dispatch
+#[OPERATION_DISPATCH]
+sel_trigger { op_id, args... } in handler.sel { handler.op_id, handler.args... };
 
-// AFTER (secure): Using permutations
-#[DISPATCH_PUBLIC_CALL]
-sel_dispatch { call_id, args... } permute execution.sel { execution.call_id, execution.args... };
+// SECURE: Using permutations enforces 1:1
+#[OPERATION_DISPATCH]
+sel_trigger { op_id, args... } permute handler.sel { handler.op_id, handler.args... };
 ```
-**Impact**: Could insert extra public call requests.
+**Impact**: Could insert extra dispatch requests or skip operations.
 
 ### Example 2: Memory Operations
 

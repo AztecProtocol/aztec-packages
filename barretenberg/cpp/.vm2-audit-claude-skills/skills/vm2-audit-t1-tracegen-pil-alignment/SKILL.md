@@ -109,7 +109,7 @@ Process components in this priority order (highest-risk first):
 After each component, output interim findings before moving to next. This ensures partial results are captured even if context runs low.
 
 ## Extended Examples
-Read `references/known-issues.md` for detailed examples from PRs #18864, #19001, #19254, #19471, #19527.
+See `references/known-issues.md` for detailed synthetic examples illustrating each misalignment type.
 
 ## Output Format
 

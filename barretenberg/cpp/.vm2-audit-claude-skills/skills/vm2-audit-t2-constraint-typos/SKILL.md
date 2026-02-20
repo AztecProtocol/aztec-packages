@@ -15,23 +15,23 @@ Detect typos where the wrong variable is constrained due to copy-paste errors or
 - **Completeness** (honest prover fails): Low to Critical based on reachability
 - Completeness bugs reachable via canonical simulation on valid inputs are **Critical**
 
-## Key Example (PR #19404)
+## Key Example: Transposed Variable Name in Constraint
 
 ```pil
-// VULNERABLE: constraint name says SIZE but constrains addr
-#[CD_SIZE_ENQUEUED_CALL_IS_ZERO]
-enqueued_call_start * parent_calldata_addr = 0;  // WRONG!
+// VULNERABLE: constraint name says TOTAL but constrains partial
+#[WIDGET_TOTAL_COUNT_IS_ZERO]
+widget_start * partial_count = 0;  // WRONG! Should be total_count
 
 // FIXED:
-enqueued_call_start * parent_calldata_size = 0;  // CORRECT
+widget_start * total_count = 0;  // CORRECT
 ```
 
 ## Typo Patterns
 
-### addr/size Confusion
-- `parent_calldata_addr` vs `parent_calldata_size`
-- `last_child_returndata_addr` vs `last_child_returndata_size`
-- `memory_addr` vs `memory_size`
+### offset/length Confusion
+- `region_offset` vs `region_length`
+- `buffer_offset` vs `buffer_length`
+- `segment_offset` vs `segment_length`
 
 ### index/length Confusion
 ```pil

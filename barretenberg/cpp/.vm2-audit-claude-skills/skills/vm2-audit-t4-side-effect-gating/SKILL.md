@@ -51,11 +51,16 @@ SHOULD_EMIT { data } is destination.write { destination.data };
 
 ## Workflow
 
-### Step 1: Find Side-Effect Interactions
+### Step 1: Find ALL Side-Effect Interactions
 ```bash
 # Permutations (writes use 'is' or 'permute')
-grep -rn "} is \|} permute " pil/vm2/ --include="*.pil" | grep -E "write|emit|append|store|log|msg"
+grep -rn "} is \|} permute " pil/vm2/ --include="*.pil" | grep -E "write|emit|append|store|log|msg|hash|nullif|public_input"
+
+# Also find ALL permutations — some side effects may not have obvious naming
+grep -rn "} is " pil/vm2/ --include="*.pil"
 ```
+
+> **IMPORTANT**: Do NOT rely solely on keyword filtering. Some side-effect interactions use generic names that don't contain "write" or "emit". Review ALL permutations (`} is`) and assess whether each modifies external state. If a permutation targets a tree check, public input, or accumulator trace, it is a side effect even if its name doesn't say so.
 
 ### Step 2: Identify Source Selector
 For each interaction `sel { ... } is dest { ... }`, extract `sel`.
@@ -76,6 +81,16 @@ grep -n "selector.*(1 - error)\|selector.*(1 - sel_opcode_error)" pil/vm2/<file>
 
 ### Step 5: Trace Selector Derivation
 If selector is derived (`pol SEL = expr`), check if `(1 - discard)` appears anywhere in the chain.
+
+### Step 6: Batch Ungated Detection
+```bash
+# Find ALL permutation source selectors and their definitions
+grep -rn "} is " pil/vm2/ --include="*.pil"
+# Cross-reference: which of these selectors include (1 - discard)?
+grep -rn "(1 - discard)" pil/vm2/ --include="*.pil"
+```
+
+Compare the two sets. Any permutation source selector that does NOT appear in a `(1 - discard)` gating expression is a candidate for investigation. This batch approach catches side effects that evade keyword-based filtering in Step 1.
 
 ## False Positive Avoidance
 
@@ -111,15 +126,19 @@ sel { context_id, data, discard } is dest.sel { dest.ctx, dest.data, dest.discar
 // Destination uses discard for its own gating - verify destination handles it
 ```
 
-## Real Bug: L2-L1 Message (PR #18606)
+## Illustrative Example: Side Effect Not Gated by Completion Flag
 
 ```pil
-// tx.pil
-tx_should_l2_l1_msg_append { ... } is public_inputs.sel { ... };
+// VULNERABLE: Write interaction fires even when context is discarded
+pol commit sel_should_write_output;
+sel_should_write_output { payload } is destination.sel { destination.data };
 // MISSING: * (1 - discard) in selector derivation
-```
+// Impact: Writes from reverted/failed contexts persist in outputs
 
-**Impact**: Messages from reverted contexts persist in public outputs.
+// SECURE: Properly gated selector
+pol SEL_GATED_WRITE = sel_should_write_output * (1 - sel_opcode_error) * (1 - discard);
+SEL_GATED_WRITE { payload } is destination.sel { destination.data };
+```
 
 ## Checklist
 

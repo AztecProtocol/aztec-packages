@@ -109,25 +109,26 @@ auto tag_diff = tag_a - tag_b;
 // Missing: TAG_MATCH * sel_tag_err = 0;  // Match => no error
 ```
 
-## Real Bug Examples
+## Illustrative Examples
 
-### SHA256 Batched Tag Checks (PR #19244)
+### Tag Difference Cast Overflow
 ```cpp
-// BUG: uint64_t cast loses precision for field tag differences
-auto tag_diff = static_cast<uint64_t>(tag_a - tag_b);
-// Tag::FF - Tag::U32 = p - 4, overflows!
+// VULNERABLE: uint64_t cast loses precision for field tag differences
+auto tag_diff = static_cast<uint64_t>(tag_x - tag_y);
+// When tag_x < tag_y, the result is ~p, overflows uint64_t!
 ```
 
-### Poseidon2 Missing Tag Check (PR #19300)
+### Missing Hash Input Tag Constraint
 ```pil
-// BUG: Inputs not validated to be FF type
+// VULNERABLE: Hash inputs not validated to be expected type
 // Could process non-field elements as field elements
 ```
 
-### ALU NOT Output Tag (PR #18192)
+### Unary Operation Output Tag Unconstrained
 ```pil
-// BUG: Output tag for NOT unconstrained for integer types
+// VULNERABLE: Output tag for unary op unconstrained for integer types
 // For field: output tag = FF; For integer: output tag = input tag
+// Missing constraint leaves output tag arbitrary
 ```
 
 ## Severity Assessment

@@ -1,6 +1,6 @@
 ---
 name: vm2-audit-t1-ghost-row-continuity
-description: Test if a selector-outside-active vulnerability is exploitable via ghost row injection. When a sub-selector can fire a PERMUTATION from inactive rows, test if an attacker can create legitimate destination rows to match the ghost source. This is the attack that succeeded against sstore.pil.
+description: Test if a selector-outside-active vulnerability is exploitable via ghost row injection. When a sub-selector can fire a PERMUTATION from inactive rows, test if an attacker can create legitimate destination rows to match the ghost source.
 allowed-tools: [Read, Glob, Grep, Bash, Write, Edit]
 version: 1.0.0
 ---
@@ -78,17 +78,17 @@ Permutation tuples often include clock:
 - **Exploitable**: CRITICAL - ghost rows can inject arbitrary operations
 - **Blocked**: Document specific constraint that prevents exploitation
 
-## Real-World Example: SSTORE Attack
+## Abstract Attack Example
 
 ```cpp
-// Ghost sstore row at row 0 with precomputed_clk=0
-// public_data_check write row at row 1 with clk=0
+// Ghost row at row 0 with precomputed_clk=0
+// Destination write row at row 1 with clk=0
 // Result: PERMUTATION PASSES - Attack SUCCEEDED
 ```
 
 Attack succeeded because:
-1. `sel_sstore` unconstrained when `main_sel=0`
-2. PublicDataTreeCheck gadget creates legitimate destination rows
+1. `sub_sel_op` unconstrained when `main_sel=0`
+2. Simulation gadget creates legitimate destination rows
 3. Ghost source at row 0 matched destination with `clk=0`
 
 ## Fix Pattern
@@ -106,7 +106,6 @@ sub_selector * (1 - main_sel) = 0;
 ## References
 
 - Prerequisite: `vm2-audit-t1-selector-outside-active`
-- SSTORE attack test: `src/barretenberg/vm2/constraining/relations/storage_write.test.cpp`
 
 ## Output Format
 

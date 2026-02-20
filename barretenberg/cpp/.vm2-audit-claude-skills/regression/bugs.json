@@ -139,6 +139,15 @@
             "boolean",
             "tag"
           ]
+        },
+        "vm2-audit-t0-opcode-tag-checks": {
+          "min_severity": "medium",
+          "keywords": [
+            "batched",
+            "diff",
+            "boolean",
+            "tag"
+          ]
         }
       }
     },
@@ -158,8 +167,7 @@
       "component": "context",
       "introduced_after_baseline": false,
       "skills": [
-        "vm2-audit-t1-lookup-vs-permutation",
-        "vm2-audit-t3-memory-row-injection"
+        "vm2-audit-t1-lookup-vs-permutation"
       ],
       "expected_findings": {
         "vm2-audit-t1-lookup-vs-permutation": {
@@ -168,14 +176,6 @@
             "context",
             "stack",
             "permutation"
-          ]
-        },
-        "vm2-audit-t3-memory-row-injection": {
-          "min_severity": "high",
-          "keywords": [
-            "context",
-            "stack",
-            "inject"
           ]
         }
       }
@@ -254,7 +254,8 @@
       "commit_before": "",
       "commit_after": "",
       "files": [
-        "pil/vm2/execution.pil"
+        "src/barretenberg/vm2/simulation/gadgets/sha256.cpp",
+        "src/barretenberg/vm2/simulation/execution.cpp"
       ],
       "description": "Sha256Compression was throwing std::runtime_error but the caller catches Sha256CompressionException. This leads to an irrecoverable error \u2014 a completeness issue.",
       "severity": "high",
@@ -310,6 +311,14 @@
             "pc",
             "initialized",
             "enqueued"
+          ]
+        },
+        "vm2-audit-t0-opcode-semantics": {
+          "min_severity": "critical",
+          "keywords": [
+            "next_pc",
+            "pc",
+            "unconstrained"
           ]
         }
       }
@@ -477,6 +486,15 @@
             "batched_tags_diff_inv",
             "tracegen"
           ]
+        },
+        "vm2-audit-t4-zero-check": {
+          "min_severity": "medium",
+          "keywords": [
+            "diff_inv",
+            "inverse",
+            "zero",
+            "batched_tags"
+          ]
         }
       }
     },
@@ -525,7 +543,8 @@
       "introduced_after_baseline": false,
       "skills": [
         "vm2-audit-t0-opcode-tag-updates",
-        "vm2-audit-t0-opcode-semantics"
+        "vm2-audit-t0-opcode-semantics",
+        "vm2-audit-t3-tag-validation"
       ],
       "expected_findings": {
         "vm2-audit-t0-opcode-tag-updates": {
@@ -534,6 +553,23 @@
             "NOT",
             "output tag",
             "constrained"
+          ]
+        },
+        "vm2-audit-t0-opcode-semantics": {
+          "min_severity": "high",
+          "keywords": [
+            "NOT",
+            "output tag",
+            "unconstrained",
+            "ib_tag"
+          ]
+        },
+        "vm2-audit-t3-tag-validation": {
+          "min_severity": "high",
+          "keywords": [
+            "output tag",
+            "NOT",
+            "tag"
           ]
         }
       }
@@ -553,8 +589,7 @@
       "component": "alu",
       "introduced_after_baseline": false,
       "skills": [
-        "vm2-audit-t1-unprotected-destination-selector",
-        "vm2-audit-t1-unprotected-destination-selector-take2"
+        "vm2-audit-t1-unprotected-destination-selector"
       ],
       "expected_findings": {
         "vm2-audit-t1-unprotected-destination-selector": {
@@ -565,14 +600,6 @@
             "SET",
             "CAST",
             "underconstrained"
-          ]
-        },
-        "vm2-audit-t1-unprotected-destination-selector-take2": {
-          "min_severity": "critical",
-          "keywords": [
-            "sel_op_truncate",
-            "SET",
-            "CAST"
           ]
         }
       }
@@ -803,7 +830,8 @@
       "introduced_after_baseline": false,
       "skills": [
         "vm2-audit-t1-operation-transition-continuity",
-        "vm2-audit-t2-missing-propagation"
+        "vm2-audit-t2-missing-propagation",
+        "vm2-audit-t4-irreversible-flags"
       ],
       "expected_findings": {
         "vm2-audit-t1-operation-transition-continuity": {
@@ -819,6 +847,15 @@
           "keywords": [
             "padding",
             "data_copy"
+          ]
+        },
+        "vm2-audit-t4-irreversible-flags": {
+          "min_severity": "high",
+          "keywords": [
+            "padding",
+            "monoton",
+            "irreversible",
+            "continuity"
           ]
         }
       }
@@ -1036,7 +1073,6 @@
       "introduced_after_baseline": false,
       "skills": [
         "vm2-audit-t1-unprotected-destination-selector",
-        "vm2-audit-t1-unprotected-destination-selector-take2",
         "vm2-audit-t1-ghost-row-boolean"
       ],
       "expected_findings": {
@@ -1046,14 +1082,6 @@
             "start",
             "sel",
             "merkle_check"
-          ]
-        },
-        "vm2-audit-t1-unprotected-destination-selector-take2": {
-          "min_severity": "critical",
-          "keywords": [
-            "start",
-            "sel",
-            "merkle"
           ]
         },
         "vm2-audit-t1-ghost-row-boolean": {
@@ -1232,8 +1260,7 @@
       "component": "tx",
       "introduced_after_baseline": false,
       "skills": [
-        "vm2-audit-t2-derived-value-constraints",
-        "vm2-audit-t1-operation-transition-continuity"
+        "vm2-audit-t2-derived-value-constraints"
       ],
       "expected_findings": {
         "vm2-audit-t2-derived-value-constraints": {
@@ -1242,16 +1269,6 @@
             "is_padded",
             "end_phase",
             "tx"
-          ]
-        },
-        "vm2-audit-t1-operation-transition-continuity": {
-          "min_severity": "high",
-          "keywords": [
-            "is_padded",
-            "end_phase",
-            "phase_value",
-            "transition",
-            "remaining_phase_counter"
           ]
         }
       }
@@ -1406,7 +1423,8 @@
       "introduced_after_baseline": false,
       "skills": [
         "vm2-audit-t4-discard-revert-handling",
-        "vm2-audit-t1-tracegen-pil-alignment"
+        "vm2-audit-t1-tracegen-pil-alignment",
+        "vm2-audit-t0-opcode-side-effects"
       ],
       "expected_findings": {
         "vm2-audit-t4-discard-revert-handling": {
@@ -1422,6 +1440,15 @@
           "keywords": [
             "l2_l1_msg",
             "discard"
+          ]
+        },
+        "vm2-audit-t0-opcode-side-effects": {
+          "min_severity": "high",
+          "keywords": [
+            "l2_l1_msg",
+            "discard",
+            "side effect",
+            "append"
           ]
         }
       }
@@ -1502,7 +1529,8 @@
       "commit_before": "",
       "commit_after": "",
       "files": [
-        "pil/vm2/to_radix.pil"
+        "pil/vm2/to_radix.pil",
+        "pil/vm2/to_radix_mem.pil"
       ],
       "description": "Soundness issue: malicious prover can raise sel_invalid_bitwise_radix even when radix == 2 and is_output_bits == 1, raising a non-genuine error.",
       "severity": "high",
@@ -1622,7 +1650,8 @@
       "introduced_after_baseline": false,
       "skills": [
         "vm2-audit-t1-tracegen-pil-alignment",
-        "vm2-audit-t0-opcode-tag-checks"
+        "vm2-audit-t0-opcode-tag-checks",
+        "vm2-audit-t3-tag-validation"
       ],
       "expected_findings": {
         "vm2-audit-t1-tracegen-pil-alignment": {
@@ -1632,6 +1661,25 @@
             "FF",
             "truncat",
             "tracegen"
+          ]
+        },
+        "vm2-audit-t0-opcode-tag-checks": {
+          "min_severity": "high",
+          "keywords": [
+            "bitwise",
+            "FF",
+            "truncat",
+            "error",
+            "sel"
+          ]
+        },
+        "vm2-audit-t3-tag-validation": {
+          "min_severity": "medium",
+          "keywords": [
+            "tag",
+            "truncat",
+            "field",
+            "bitwise"
           ]
         }
       }
@@ -1690,7 +1738,8 @@
       "introduced_after_baseline": false,
       "skills": [
         "vm2-audit-t2-skippable-condition-correctness",
-        "vm2-audit-t1-ghost-row-continuity"
+        "vm2-audit-t1-ghost-row-continuity",
+        "vm2-audit-t2-cross-constraint-contradiction"
       ],
       "expected_findings": {
         "vm2-audit-t2-skippable-condition-correctness": {
@@ -1711,6 +1760,15 @@
             "ghost",
             "continuity",
             "pc_increment"
+          ]
+        },
+        "vm2-audit-t2-cross-constraint-contradiction": {
+          "min_severity": "medium",
+          "keywords": [
+            "pc_increment",
+            "skippable",
+            "conflict",
+            "contradiction"
           ]
         }
       }
@@ -1779,6 +1837,16 @@
             "to_radix",
             "memory",
             "underflow",
+            "error"
+          ]
+        },
+        "vm2-audit-t3-memory-row-injection": {
+          "min_severity": "high",
+          "keywords": [
+            "to_radix",
+            "underflow",
+            "address",
+            "memory",
             "error"
           ]
         }
@@ -1872,8 +1940,7 @@
       "component": "keccak",
       "introduced_after_baseline": true,
       "skills": [
-        "vm2-audit-t1-lookup-vs-permutation",
-        "vm2-audit-t3-memory-row-injection"
+        "vm2-audit-t1-lookup-vs-permutation"
       ],
       "expected_findings": {
         "vm2-audit-t1-lookup-vs-permutation": {
@@ -1902,8 +1969,7 @@
       "component": "nullifier_tree_check",
       "introduced_after_baseline": true,
       "skills": [
-        "vm2-audit-t1-lookup-vs-permutation",
-        "vm2-audit-t3-memory-row-injection"
+        "vm2-audit-t1-lookup-vs-permutation"
       ],
       "expected_findings": {
         "vm2-audit-t1-lookup-vs-permutation": {
@@ -2150,7 +2216,8 @@
       "introduced_after_baseline": false,
       "skills": [
         "vm2-audit-t2-interaction-tuple-completeness",
-        "vm2-audit-t0-opcode-semantics"
+        "vm2-audit-t0-opcode-semantics",
+        "vm2-audit-t1-multi-phase-selector-mismatch"
       ],
       "expected_findings": {
         "vm2-audit-t2-interaction-tuple-completeness": {
@@ -2160,6 +2227,15 @@
             "perform_round",
             "last",
             "range",
+            "modulo"
+          ]
+        },
+        "vm2-audit-t1-multi-phase-selector-mismatch": {
+          "min_severity": "high",
+          "keywords": [
+            "perform_round",
+            "last",
+            "selector",
             "modulo"
           ]
         }
@@ -2212,8 +2288,7 @@
       "component": "context",
       "introduced_after_baseline": false,
       "skills": [
-        "vm2-audit-t1-lookup-vs-permutation",
-        "vm2-audit-t4-side-effect-gating"
+        "vm2-audit-t1-lookup-vs-permutation"
       ],
       "expected_findings": {
         "vm2-audit-t1-lookup-vs-permutation": {
@@ -2350,6 +2425,15 @@
             "exists",
             "boolean"
           ]
+        },
+        "vm2-audit-t4-zero-check": {
+          "min_severity": "high",
+          "keywords": [
+            "exists",
+            "boolean",
+            "zero_check",
+            "contract_instance"
+          ]
         }
       }
     },
@@ -2369,7 +2453,8 @@
       "introduced_after_baseline": false,
       "skills": [
         "vm2-audit-t2-commented-constraints",
-        "vm2-audit-t2-derived-value-constraints"
+        "vm2-audit-t2-derived-value-constraints",
+        "vm2-audit-t2-error-aggregation"
       ],
       "expected_findings": {
         "vm2-audit-t2-commented-constraints": {
@@ -2389,6 +2474,15 @@
             "unconstrained",
             "instr_fetching",
             "parsing"
+          ]
+        },
+        "vm2-audit-t2-error-aggregation": {
+          "min_severity": "critical",
+          "keywords": [
+            "sel_parsing_err",
+            "unconstrained",
+            "error",
+            "aggregat"
           ]
         }
       }
@@ -2419,6 +2513,15 @@
             "exists",
             "boolean"
           ]
+        },
+        "vm2-audit-t4-zero-check": {
+          "min_severity": "high",
+          "keywords": [
+            "exists",
+            "boolean",
+            "zero_check",
+            "l1_to_l2"
+          ]
         }
       }
     },
@@ -2447,6 +2550,15 @@
             "note_hash_tree_check",
             "exists",
             "boolean"
+          ]
+        },
+        "vm2-audit-t4-zero-check": {
+          "min_severity": "high",
+          "keywords": [
+            "exists",
+            "boolean",
+            "zero_check",
+            "note_hash"
           ]
         }
       }
@@ -2733,7 +2845,8 @@
       "introduced_after_baseline": false,
       "skills": [
         "vm2-audit-t2-error-state-constraint-firing",
-        "vm2-audit-t0-opcode-error-conditions"
+        "vm2-audit-t0-opcode-error-conditions",
+        "vm2-audit-t2-cross-constraint-contradiction"
       ],
       "expected_findings": {
         "vm2-audit-t2-error-state-constraint-firing": {
@@ -2743,6 +2856,15 @@
             "error",
             "empty",
             "callstack"
+          ]
+        },
+        "vm2-audit-t2-cross-constraint-contradiction": {
+          "min_severity": "high",
+          "keywords": [
+            "internal_return",
+            "empty",
+            "callstack",
+            "contradiction"
           ]
         }
       }
@@ -2773,6 +2895,15 @@
             "propagation",
             "continuity",
             "sha256"
+          ]
+        },
+        "vm2-audit-t0-opcode-memory-access-order": {
+          "min_severity": "high",
+          "keywords": [
+            "input_addr",
+            "increment",
+            "sha256",
+            "unconstrained"
           ]
         }
       }
@@ -2930,6 +3061,17 @@
             "start_sha256",
             "bitwise",
             "inactive"
+          ]
+        },
+        "vm2-audit-t3-memory-row-injection": {
+          "min_severity": "high",
+          "keywords": [
+            "bitwise",
+            "ghost",
+            "forged",
+            "injection",
+            "keccak",
+            "sha256"
           ]
         }
       }

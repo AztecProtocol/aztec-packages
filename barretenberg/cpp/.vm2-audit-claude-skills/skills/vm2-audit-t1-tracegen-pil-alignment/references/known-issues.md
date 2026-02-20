@@ -1,17 +1,17 @@
 # Known Tracegen-PIL Alignment Issues
 
-This file contains detailed examples of real issues found in the codebase. Use these as reference when auditing for similar patterns.
+This file contains synthetic examples illustrating each misalignment type. Use these as reference when auditing for similar patterns.
 
-## Example 1: Missing Column (PR #18864)
+## Example 1: Missing Column
 
 **Type**: Missing Column Assignment
 
 ```cpp
 // BEFORE: Column not set
-// execution_batched_tags_diff_inv was never set in tracegen
+// inverse_helper was never set in tracegen
 
 // AFTER: Properly set
-row.execution_batched_tags_diff_inv = compute_inv(...);
+row.inverse_helper = compute_inv(...);
 ```
 
 **Impact**: Constraint using this column always fails - the inverse column is needed for zero-check patterns but tracegen never computed it.
@@ -20,17 +20,17 @@ row.execution_batched_tags_diff_inv = compute_inv(...);
 
 ---
 
-## Example 2: Incorrect Boolean (PR #19001)
+## Example 2: Incorrect Boolean
 
 **Type**: Wrong Selector Condition
 
 ```cpp
 // BEFORE: Wrong boolean used for selector
-row.sel_batched_diff = some_condition;
+row.sel_diff_flag = some_condition;
 // Should have been: different_condition
 
 // AFTER: Correct condition
-row.sel_batched_diff = correct_condition;
+row.sel_diff_flag = correct_condition;
 ```
 
 **Impact**: Wrong selector toggled, lookup/constraint fails because the selector fires on wrong rows.
@@ -39,17 +39,17 @@ row.sel_batched_diff = correct_condition;
 
 ---
 
-## Example 3: Simulation-Tracegen Mismatch (PR #19254)
+## Example 3: Simulation-Tracegen Mismatch
 
 **Type**: Event Not Handled / Crash on Edge Case
 
 ```cpp
 // BEFORE: Simulation crashes on edge case
-const ContractInstance& instance = maybe_instance.value();
-// Crashes when maybe_instance is nullopt!
+const ContractData& data = maybe_data.value();
+// Crashes when maybe_data is nullopt!
 
 // AFTER: Handle missing case
-auto instance = maybe_instance.value_or(ContractInstance{});
+auto data = maybe_data.value_or(ContractData{});
 ```
 
 **Impact**: Valid execution crashes before trace generation even starts. This is a completeness bug that prevents honest provers from generating traces.
@@ -58,17 +58,17 @@ auto instance = maybe_instance.value_or(ContractInstance{});
 
 ---
 
-## Example 4: Wrong Error Event (PR #18864)
+## Example 4: Wrong Error Event
 
 **Type**: Exception Type Mismatch
 
 ```cpp
 // BEFORE: Wrong exception type thrown
-throw std::runtime_error("SHA256 error");
-// Caller catches Sha256CompressionException, not runtime_error!
+throw std::runtime_error("Gadget error");
+// Caller catches GadgetSpecificException, not runtime_error!
 
 // AFTER: Correct exception
-throw Sha256CompressionException("SHA256 error");
+throw GadgetSpecificException("Gadget error");
 ```
 
 **Impact**: Error handling path broken, trace not generated for valid error cases. The catch block never triggers because the wrong exception type is thrown.
@@ -77,33 +77,33 @@ throw Sha256CompressionException("SHA256 error");
 
 ---
 
-## Example 5: Wrong Partition Derivation - ECC add_predicate (PR #19471)
+## Example 5: Wrong Partition Derivation
 
 **Type**: Wrong Partition Derivation
 
 ```pil
 // PIL defines:
-sel = double_op + add_op + INFINITY_PRED
+sel = double_op + add_op + SPECIAL_PRED
 // Where:
-double_op = x_match * y_match
-INFINITY_PRED = x_match * (1 - y_match)
+double_op = match_x * match_y
+SPECIAL_PRED = match_x * (1 - match_y)
 ```
 
 **Algebraic derivation**:
 ```
-add_op = sel - double_op - INFINITY_PRED
-add_op = sel - x_match * y_match - x_match * (1 - y_match)
-add_op = sel - x_match * (y_match + 1 - y_match)
-add_op = sel - x_match
-// Therefore: add_op = 1 when sel = 1 and x_match = 0
+add_op = sel - double_op - SPECIAL_PRED
+add_op = sel - match_x * match_y - match_x * (1 - match_y)
+add_op = sel - match_x * (match_y + 1 - match_y)
+add_op = sel - match_x
+// Therefore: add_op = 1 when sel = 1 and match_x = 0
 ```
 
 ```cpp
 // WRONG (intuitive but incorrect):
-bool add_predicate = (!x_match && !y_match);
+bool add_predicate = (!match_x && !match_y);
 
 // CORRECT (algebraically derived):
-bool add_predicate = !x_match;
+bool add_predicate = !match_x;
 ```
 
 **Impact**: Selector fires on wrong rows, causing constraint failures.
@@ -112,41 +112,41 @@ bool add_predicate = !x_match;
 
 ---
 
-## Example 6: Conditional Assignment - GetContractInstance (PR #19527)
+## Example 6: Conditional Assignment
 
 **Type**: Missing Conditional Gating
 
 ```pil
-// PIL: member_write_offset = is_valid * (dst_offset + 1)
+// PIL: output_offset = is_valid * (dst_offset + 1)
 ```
 
 ```cpp
 // WRONG: Unconditional assignment
-row.member_write_offset = dst_offset + 1;
+row.output_offset = dst_offset + 1;
 
 // CORRECT: Apply same condition as PIL
-row.member_write_offset = is_valid ? (dst_offset + 1) : 0;
+row.output_offset = is_valid ? (dst_offset + 1) : 0;
 ```
 
-**Impact**: When `is_valid = 0`, PIL expects `member_write_offset = 0`, but tracegen sets it to `dst_offset + 1`. Constraint fails.
+**Impact**: When `is_valid = 0`, PIL expects `output_offset = 0`, but tracegen sets it to `dst_offset + 1`. Constraint fails.
 
 **Detection**: For each `col = flag * expr` in PIL, verify tracegen applies the same conditional.
 
 ---
 
-## Example 7: Wrong Selector in Accumulation (Commit 9fa812c)
+## Example 7: Wrong Selector in Accumulation
 
 **Type**: Wrong Selector Used
 
 ```cpp
-// PIL uses should_apply_indirection[i] for accumulation
-// Tracegen was using is_indirect_effective[i]
+// PIL uses apply_indirection[i] for accumulation
+// Tracegen was using is_effective[i]
 
 // WRONG:
-batched_tags_diff += FF(is_indirect_effective[i] ? 1 : 0) * ...;
+accumulated_diff += FF(is_effective[i] ? 1 : 0) * ...;
 
 // CORRECT:
-if (should_apply_indirection[i]) { batched_tags_diff += ...; }
+if (apply_indirection[i]) { accumulated_diff += ...; }
 ```
 
 **Impact**: Accumulator computed with wrong values, constraint fails.

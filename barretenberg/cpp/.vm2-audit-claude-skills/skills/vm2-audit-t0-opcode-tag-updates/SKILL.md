@@ -105,6 +105,23 @@ Copy operations may update tags for a range.
 
 ## Workflow
 
+### Step 0: Enumerate ALL Opcodes With Outputs
+
+Before diving into specific opcodes, build a complete inventory to ensure nothing is skipped:
+
+```bash
+# All opcodes that have Tag Updates documentation
+grep -l "## Tag Updates" yarn-project/simulator/docs/avm/opcodes/*.md
+
+# All opcode selectors in PIL that write to output registers
+grep -rn "mem_tag_reg\[.*\]" pil/vm2/ --include="*.pil"
+
+# All ALU operation selectors (each needs tag verification)
+grep -rn "sel_op_\|sel_alu_\|sel_execute_" pil/vm2/alu.pil
+```
+
+Build a checklist of every opcode that produces an output. Audit each one — do not stop after a few.
+
 ### Step 1: Select Target Opcode(s)
 ```bash
 # Find opcodes with Tag Updates section
@@ -177,6 +194,36 @@ Example constraint:
 sel_execute_sload * (constants.MEM_TAG_FF - mem_tag_reg[1]) = 0;
 ```
 
+### Step 5b: Verify Tag Constraint Universality
+
+For each output tag constraint found in Step 5, check whether it fires for ALL operation variants that use that output, or only some:
+
+```bash
+# Find the selector that gates the tag constraint
+# Then find ALL operations that share the same output column
+grep -n "ic_tag\|oc_tag\|mem_tag" pil/vm2/alu.pil pil/vm2/cast.pil pil/vm2/opcodes/*.pil
+```
+
+**Critical check**: If a tag constraint is gated by a specific operation selector (e.g., `sel_op_X * (tag - expected) = 0`), verify that ALL other operations using the same output also have tag constraints. A constraint that only fires for some operations leaves the output tag unconstrained for others.
+
+**Pattern to detect**:
+```pil
+// VULNERABLE: Tag only constrained for some operations
+sel_op_A * (output_tag - input_tag) = 0;
+// sel_op_B also writes output but has NO tag constraint
+// → malicious prover sets arbitrary tag on op_B outputs
+```
+
+```pil
+// SECURE: Tag constrained unconditionally for all operations
+sel_all_ops * (output_tag - input_tag) = 0;
+// OR: each operation has its own constraint
+sel_op_A * (output_tag - input_tag) = 0;
+sel_op_B * (output_tag - input_tag) = 0;
+```
+
+For ALU specifically: verify that the tag inheritance constraint covers EVERY operation selector in the ALU dispatch, not just a subset. Cross-reference the list of ALU selectors from Step 0 against selectors that participate in tag constraints.
+
 ### Step 6: Cross-Reference Findings
 
 | Opcode | Doc Tag Update | Simulation | Tracegen | PIL | Match? |
@@ -223,6 +270,16 @@ ALU: Returns value with fixed FF tag
 ```
 **Severity**: High - breaks integer arithmetic
 
+### 6. Conditional Tag Constraint (Should Be Universal)
+```markdown
+Doc: T[dst] = T[a] for ALL variants of an operation
+PIL: Tag constraint gated by variant-specific selector
+     → other variants leave output tag unconstrained
+```
+**Severity**: High - malicious prover sets arbitrary output tag for ungated variants
+
+This pattern applies to any component (ALU, gadgets, opcodes) where a shared output column has a tag constraint that only fires under certain selectors. Check that every operation writing to the output has a corresponding tag constraint.
+
 ## Opcodes by Tag Update Type
 
 ### Inherited Tag (T[dst] = T[input])
@@ -251,8 +308,8 @@ Before reporting a "missing constraint", verify it isn't enforced indirectly. A 
 ### 2. Comparison Operations Output UINT1
 EQ, LT, LTE always output UINT1 regardless of input tags. This is intentional, not a bug.
 
-### 3. ALU Handles Tag Inheritance
-For ALU operations, tag inheritance is handled in `alu.pil` via `ic_tag = ia_tag` when `ia_tag == ib_tag`. Don't report missing constraint in opcode-specific PIL.
+### 3. ALU Handles Tag Inheritance (Verify, Don't Assume)
+For ALU operations, tag inheritance is typically handled in `alu.pil` via `ic_tag = ia_tag` when `ia_tag == ib_tag`. Don't report missing constraint in opcode-specific PIL **IF** you have verified the ALU constraint covers the specific operation. However, you MUST verify that the ALU tag constraint's gating selector actually includes the operation in question — some ALU operations may not participate in the shared tag inheritance constraint.
 
 ### 4. Memory Trace Handles Write Tag
 The memory permutation includes the tag column. If memory trace is correct, PIL implicitly constrains the tag.

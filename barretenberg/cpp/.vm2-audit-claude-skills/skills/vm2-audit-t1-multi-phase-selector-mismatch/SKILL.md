@@ -97,11 +97,11 @@ last * (OUT_A - (output_a_lhs * 2**32 + output_a_rhs)) = 0;
 last { output_value } in range_check.sel { ... };
 ```
 
-## Real Bug: SHA256 Output Range Checks (PR #19262)
+## Illustrative Example: Output Range Checks on Wrong Phase
 
 Output modulo addition checks used `perform_round` instead of `last`:
-- **Impact**: Final output range checks never performed; lookup multiplicity mismatch caused verification failure
-- **Discovery**: Fuzzer found edge case where all 64 rounds overflowed, exposing multiplicity bug
+- **Impact**: Final output range checks fire on every round row instead of only the finalization row; lookup multiplicity mismatch causes verification failure
+- **Detection**: Fuzzing or edge cases where round overflow changes multiplicity expectations
 
 ## Key Files
 

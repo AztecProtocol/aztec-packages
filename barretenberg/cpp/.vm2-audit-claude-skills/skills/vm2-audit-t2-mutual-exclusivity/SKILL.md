@@ -121,16 +121,16 @@ Before reporting, verify NONE of these apply:
 5. Shared flag: opposite values forced on shared boolean?
 6. Caller-enforced: lookup deduplication with single caller per selector?
 
-## Real Bug Example
+## Illustrative Example: Non-Exclusive Selector Activation
 
-**PR #18192 - ALU Error States**
 ```pil
-// BEFORE: div_by_0 and sel_tag_err could both be 1
-// AFTER: sel_div_0_err * sel_tag_err = 0;
-```
+// VULNERABLE: Two error selectors summed without exclusivity
+pol ERR_SUM = sel_foo_err + sel_bar_err;
+// If both = 1: ERR_SUM = 2, breaks boolean assumption downstream
 
-## References
-- [PR #18192](https://github.com/AztecProtocol/aztec-packages/pull/18192) - ALU Pre-Audit
+// SECURE: Pairwise exclusivity constraint added
+sel_foo_err * sel_bar_err = 0;
+```
 
 ## Output Format
 

@@ -82,7 +82,31 @@ grep -rn "(1 - sel)\|sel.*(1 - " pil/vm2/memory*.pil pil/vm2/*mem*.pil
 grep -rn "addr'\|same_addr\|ordering\|context\|space_id\|call_id" pil/vm2/memory*.pil
 ```
 
-### Phase 2: Cross-Reference Analysis
+### Phase 2: Ghost-Row Implication Check
+
+This phase targets the most common class of memory injection bugs: sub-selectors that can be activated on ghost rows (rows where the component's main selector `sel = 0`).
+
+**Search E — All sub-selectors gating memory interactions**:
+```bash
+# Find all permutation/lookup selectors that interact with memory
+grep -rn "} is memory\.\|} in memory\." pil/vm2/ --include="*.pil"
+# For each source selector found, check if it implies the component's main sel
+```
+
+For each sub-selector `sel_X` gating a memory interaction:
+1. Find which component file defines `sel_X`
+2. Check whether `sel_X * (1 - sel) = 0` exists (sel_X implies component is active)
+3. If missing: a malicious prover can set `sel_X = 1` on ghost rows (`sel = 0`) where all computation constraints are vacuously true, injecting arbitrary memory operations
+
+**Also check non-memory interaction selectors that trigger memory writes indirectly**:
+```bash
+# Sub-selectors in opcode files that gate write permutations
+grep -rn "sel_should_write\|sel_write\|sel_.*_mem\|sel_perform\|sel_not_padding" pil/vm2/opcodes/*.pil pil/vm2/bytecode/*.pil pil/vm2/*.pil
+```
+
+For each such sub-selector, verify it implies the parent component's active selector.
+
+### Phase 3: Cross-Reference Analysis
 
 From the batch results, verify:
 

@@ -94,6 +94,24 @@ From the batch results:
 
 Typically yields **15-40 candidates**, not hundreds.
 
+### Phase 2.5: ALU Decomposition Deep Dive
+
+**Priority target**: `alu.pil` and any arithmetic gadgets (`ff_gt.pil`, `gt.pil`). These files contain decomposition variables (high/low limbs, quotients, remainders) that are the most exploitable unbounded witnesses.
+
+```bash
+# Find all decomposition-related committed columns in arithmetic files
+grep -n "pol commit" pil/vm2/alu.pil pil/vm2/ff_gt.pil pil/vm2/gt.pil
+# Find all range checks in arithmetic files
+grep -n "in range_check\|in precomputed" pil/vm2/alu.pil pil/vm2/ff_gt.pil pil/vm2/gt.pil
+```
+
+For each decomposition variable (names like `*_hi`, `*_lo`, `*_quotient`, `*_remainder`, `*_carry`, `*_limb*`):
+1. **Is it range-checked?** Look for `{ col } in range_check.sel_N { ... }`
+2. **Is the range check universal or conditional?** Check if the range check selector covers ALL operation variants, not just one specific type (e.g., only U128 but not U64)
+3. **Does every variant that uses it in a decomposition equation also range-check it?** Cross-reference: find all equations `sel * (... col ...) = 0` and verify each such `sel` has a corresponding range check
+
+**Critical pattern**: A decomposition variable range-checked under `sel_variant_A` but used in equations under `sel_variant_B` without a range check → **Critical** finding.
+
 ### Phase 3: Deep Analysis (only on candidates)
 
 For each candidate, read the relevant PIL file (group by file to minimize reads) and check:
@@ -103,6 +121,7 @@ For each candidate, read the relevant PIL file (group by file to minimize reads)
 4. **Incoming permutation**: Column in DESTINATION tuple from another file?
 5. **Inverse column**: Name contains `_inv` (algebraically determined)?
 6. **Conditional range check**: Range check gated by specific selector? → MEDIUM
+7. **Decomposition variable**: Used in arithmetic decomposition equation? → Check Phase 2.5 results
 
 ### Phase 4: Completeness Check
 
@@ -177,20 +196,23 @@ sel * (T_0_4 - (4 * T_0_1 + T_0_3)) = 0;  // Derived from other values
 // If T_0_1, T_0_3 bounded → T_0_4 transitively bounded
 ```
 
-## Real Bug: Multiplication c_hi (PR #18192)
+## Example Pattern: Unbounded Witness in Modular Reduction
+
+Consider a multiplication gadget that decomposes the product into low and high limbs:
 
 ```pil
-// alu.pil line 211
-pol commit c_hi;
+pol commit result_hi;  // High limb of decomposition
 
-// U128 case - HAS range check (line 247):
-sel_mul_u128 { c_hi, constant_64 } in range_check.sel_alu { ... };
+// One variant has a range check:
+sel_variant_A { result_hi } in range_check.sel_N { range_check.value };
 
-// Non-U128 case - NO range check:
-sel_op_mul * IS_NOT_U128 * (1 - sel_tag_err) * (ia * ib - ic - (max_value + 1) * c_hi) = 0;
+// Other variants use result_hi in a decomposition equation but never range-check it:
+sel_op * IS_OTHER_VARIANT * (input_a * input_b - output - (modulus + 1) * result_hi) = 0;
 ```
 
-**Attack**: For U64/U32/etc multiplication, set arbitrary c_hi to forge any output.
+**Pattern**: `result_hi` is range-checked only under a specific variant selector. For all other variants, a malicious prover can set `result_hi` to any field element, solving the decomposition equation for an arbitrary `output`. This is a **Critical** soundness bug because it allows forging arithmetic results.
+
+**Fix**: Add a universal range check covering all variants, or add per-variant range checks for each case.
 
 ## Checklist
 
@@ -228,14 +250,14 @@ For each `pol commit X`:
   "skill": "vm2-audit-t3-witness-boundedness",
   "status": "COMPLETED_WITH_FINDINGS",
   "findings": [{
-    "id": "vm2-audit-witness-boundedness-alu-211-c_hi",
+    "id": "vm2-audit-witness-boundedness-gadget-42-result_hi",
     "severity": "critical",
-    "file": "pil/vm2/alu.pil",
-    "line": 211,
-    "column": "c_hi",
-    "description": "Unbounded for non-U128 multiplication. Range check at line 247 only gates by sel_mul_u128.",
+    "file": "pil/vm2/gadget.pil",
+    "line": 42,
+    "column": "result_hi",
+    "description": "Unbounded for non-variant-A cases. Range check only gated by sel_variant_A.",
     "exploitability": "high",
-    "fix": "Add range check for all mul cases or constrain c_hi via decomposition"
+    "fix": "Add universal range check or per-variant range checks"
   }]
 }
 ```

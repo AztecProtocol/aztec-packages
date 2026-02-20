@@ -89,16 +89,16 @@ if (it == map.end()) return error;
 | `get_leaf(index)` | Leaf not found |
 | `get_bytecode(address)` | Contract without code |
 
-## Real Bug: PR #19254
+## Illustrative Example: Optional Used Without Presence Check
 
 ```cpp
-// BEFORE: Protocol contracts have 11 slots, only 6 used
-auto maybe = get_protocol_contract(address);
-auto& instance = maybe.value();  // CRASH on slots 7-11!
+// VULNERABLE: Registry has N slots, only some populated
+auto maybe = fetch_registry_entry(address);
+auto& entry = maybe.value();  // CRASH on unpopulated slots!
 
-// AFTER:
-return ContractInstanceEvent{
-    .contract_instance = maybe.value_or(ContractInstance{}),
+// SECURE:
+return RegistryResult{
+    .entry = maybe.value_or(RegistryEntry{}),
     .exists = maybe.has_value()
 };
 ```

@@ -99,22 +99,22 @@ throw std::runtime_error("Sibling path hint not found");
 throw std::runtime_error("Unknown opcode");
 ```
 
-## Real Bug Example (PR #18864)
+## Example: Exception Type Mismatch Between Gadget and Dispatcher
 
 ```cpp
 // BEFORE: Wrong type - caller never catches it
-void Sha256Compression::compress(...) {
-    throw std::runtime_error("SHA256 compression error");
+void GadgetFoo::execute(...) {
+    throw std::runtime_error("GadgetFoo processing error");
 }
 try {
-    sha256.compress(state, input);
-} catch (const Sha256CompressionException& e) {  // NEVER REACHED!
-    emit_error_event(ErrorType::Sha256Error);
+    gadget_foo.execute(args);
+} catch (const GadgetFooException& e) {  // NEVER REACHED!
+    emit_error_event(ErrorType::GadgetFooError);
 }
 // Result: Valid error cases crash simulation
 
 // AFTER: Correct type
-throw Sha256CompressionException("SHA256 compression error");
+throw GadgetFooException("GadgetFoo processing error");
 ```
 
 ## REQUIRED OUTPUT FORMAT

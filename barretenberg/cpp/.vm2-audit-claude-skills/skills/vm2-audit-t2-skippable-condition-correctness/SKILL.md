@@ -32,7 +32,7 @@ sel = 0;
 ## The Vulnerability Pattern
 
 ```pil
-namespace bitwise;
+namespace multi_row_gadget;
 
 #[skippable_if]
 sel = 0;
@@ -42,12 +42,12 @@ sel = 0;
 sel * (ctr' - ctr + 1) * (1 - last) = 0;   // OK: gated by sel
 
 // BUT these constraints are gated by `last`, not `sel`:
-#[BITW_INIT_A]
-last * (acc_ia - ia_byte) = 0;   // NOT gated by sel!
-#[BITW_INIT_B]
-last * (acc_ib - ib_byte) = 0;   // NOT gated by sel!
-#[BITW_INIT_C]
-last * (acc_ic - ic_byte) = 0;   // NOT gated by sel!
+#[INIT_X]
+last * (accum_x - byte_x) = 0;   // NOT gated by sel!
+#[INIT_Y]
+last * (accum_y - byte_y) = 0;   // NOT gated by sel!
+#[INIT_Z]
+last * (accum_z - byte_z) = 0;   // NOT gated by sel!
 ```
 
 **On error rows**: `err = 1` forces `last = 1` (via `err * (last - 1) = 0`), but `ctr = 0` forces `sel = 0` (via the ctr-sel equivalence). So `sel = 0` AND `last = 1` simultaneously.
@@ -211,17 +211,24 @@ These are active on ALL rows except the last. If the skip condition is `sel = 0`
 
 Constraints referencing shifted columns (`column'`) may need to be checked even when `sel = 0` on the current row if the NEXT row has `sel = 1`.
 
-## Real Bug Example (PR #20522)
+## Example Pattern: Skippable Initialization Condition
 
-**File**: `bitwise.pil`
+Consider a multi-row gadget with lifecycle selectors:
 
-**Bug**: `#[skippable_if] sel = 0` but constraints `BITW_INIT_A`, `BITW_INIT_B`, `BITW_INIT_C` are gated by `last` not `sel`.
+**Bug pattern**: `#[skippable_if] sel = 0` but some constraints are gated by a lifecycle selector (e.g., `last`, `start`, `end`) rather than `sel`. On error rows, the error flag forces `last = 1` while a counter reset forces `sel = 0`. The skip condition `sel = 0` is met, so ALL constraints are skipped -- including the lifecycle-gated ones that should still be checked.
 
-**Trigger**: Error row where `err = 1` forces `last = 1`, but `ctr = 0` forces `sel = 0`. The `last`-gated initialization constraints should fire but are skipped.
+```pil
+#[skippable_if]
+sel = 0;
 
-**Fix**: Changed to `#[skippable_if] sel + last = 0`.
+// These constraints are gated by `last`, not `sel`:
+last * (accum_x - byte_x) = 0;   // Skipped when sel=0, even if last=1!
+last * (accum_y - byte_y) = 0;   // Same problem
+```
 
-**Why tests missed it**: In normal (non-error) execution, `last = 1` implies `ctr = 1` implies `sel = 1`, so `sel = 0` and `last = 1` never co-occur. Only the error path creates this combination.
+**Why normal tests miss it**: In non-error execution, `last = 1` implies `ctr >= 1` implies `sel = 1`, so `sel = 0` and `last = 1` never co-occur. Only the error path creates this combination.
+
+**Fix**: Widen the skip condition to cover all independently-active selectors: `#[skippable_if] sel + last = 0;`
 
 ## Key Files
 - All PIL files in `pil/vm2/` that have `#[skippable_if]` declarations (~55 files)
@@ -282,16 +289,16 @@ For each `#[skippable_if]` declaration:
     }
   },
   "findings": [{
-    "id": "vm2-audit-t2-skippable-condition-correctness-bitwise-87-last",
+    "id": "vm2-audit-t2-skippable-condition-correctness-gadget-87-last",
     "severity": "medium",
-    "file": "pil/vm2/bitwise.pil",
+    "file": "pil/vm2/gadget.pil",
     "line": 87,
     "skip_condition": "sel = 0",
     "ungated_selector": "last",
-    "constraints_affected": ["BITW_INIT_A (line 203)", "BITW_INIT_B (line 205)", "BITW_INIT_C (line 207)"],
+    "constraints_affected": ["INIT_X (line 203)", "INIT_Y (line 205)"],
     "trigger_path": "Error row: err=1 forces last=1, ctr=0 forces sel=0",
-    "tracegen_check": "bitwise_trace.cpp error path sets acc_ia=ia_byte, acc_ib=ib_byte, acc_ic=ic_byte on error rows → constraints satisfied → not reachable by canonical tracegen",
-    "description": "skippable_if sel=0 causes last-gated initialization constraints to be skipped on error rows where last=1 but sel=0. Defense-in-depth issue only — tracegen satisfies the constraints on these rows.",
+    "tracegen_check": "gadget_trace.cpp error path sets accum values on error rows, constraints satisfied, not reachable by canonical tracegen",
+    "description": "skippable_if sel=0 causes last-gated initialization constraints to be skipped on error rows where last=1 but sel=0. Defense-in-depth issue only.",
     "exploitability": "completeness-latent",
     "fix": "Change to: #[skippable_if] sel + last = 0;"
   }]

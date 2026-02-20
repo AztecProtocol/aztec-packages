@@ -135,11 +135,11 @@ start * (context_id - expected) = 0;
 (1 - LATCH) * (context_id' - context_id) = 0;
 ```
 
-## Real Examples
+## Abstract Bug Patterns
 
-**TX Phase Attributes (PR #18336)**: Phase static attributes not propagated - could change gas limits mid-phase.
+**Missing propagation of inherited attribute**: Static attributes associated with a computation phase not propagated across rows -- could change resource limits mid-phase.
 
-**Data Copy (PR #17877)**: Missing propagation of context_id and clk - could change context mid-copy.
+**Missing propagation of identity columns in multi-row copy**: Identity and sequencing columns not propagated during a multi-row data transfer -- could change context mid-operation.
 
 ## REQUIRED OUTPUT FORMAT
 

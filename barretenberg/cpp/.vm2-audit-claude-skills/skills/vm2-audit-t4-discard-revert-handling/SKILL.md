@@ -61,13 +61,23 @@ grep -n "discard'\|dying_context\|DISCARD\|DYING" pil/vm2/<component>.pil
 
 Check: propagates to children, clears on resolution, failure implies discard.
 
-### Step 5: Check Interaction Tuples
+### Step 5: Check Interaction Tuples for Discard Field
 
 ```bash
 grep -n "} in \|} is " pil/vm2/<component>.pil
 ```
 
-Verify discard field included where relevant.
+For each cross-context interaction tuple (lookups/permutations between components that involve context state):
+1. **Extract the tuple columns**: List all fields in `{ field1, field2, ... }`
+2. **Check if `discard` is included**: If the interaction crosses context boundaries (e.g., execution ↔ tx, context_stack ↔ execution), the `discard` field MUST appear in both source and destination tuples
+3. **Verify both sides match**: The source tuple must include `discard` AND the destination tuple must include a corresponding `discard` column
+
+**Missing discard in cross-context tuples is Critical**: A malicious prover can set different discard values on source vs destination, bypassing revert semantics entirely.
+
+```bash
+# Specifically hunt for cross-context interactions missing discard
+grep -rn "} in \|} is " pil/vm2/ --include="*.pil" | grep -i "context\|call\|enqueue\|return\|stack"
+```
 
 ### Step 6: Review Tracegen
 
@@ -111,13 +121,16 @@ sel { context_id, success } in tx.sel { tx.context_id, tx.success };
 sel { context_id, success, discard } in tx.sel { tx.context_id, tx.success, tx.discard };
 ```
 
-## Real Bug Examples
+## Example Patterns: Reverted Side-Effect Not Discarded
 
-**PR #18606 - L2-to-L1 Count**: Count updated without checking discard. Fix: `pol SHOULD_APPEND = raw * (1 - discard);`
+**Pattern A - Ungated counter increment**: A side-effect counter (e.g., `num_appended`) is incremented using a raw selector without checking `(1 - discard)`. Reverted operations are counted, inflating the final tally.
+Fix: `pol SHOULD_APPEND = raw_append_sel * (1 - discard);` then use `SHOULD_APPEND` in the counter update.
 
-**PR #18606 - Tracegen**: `tx_should_l2_l1_msg_append` ignored discard. Fix: check `&& !discard`.
+**Pattern B - Tracegen missing discard check**: The trace generator populates a side-effect flag without checking the discard status. The C++ code sets the flag based on the opcode alone, ignoring whether the context was reverted.
+Fix: Add `&& !discard` to the condition that sets the flag in tracegen.
 
-**PR #19149 - Lookup Tuple**: End enqueued call missing discard field. Fix: include discard in tuple.
+**Pattern C - Lookup tuple missing discard**: An interaction tuple for a cross-context operation omits the discard field, allowing the prover to set different discard values on each side.
+Fix: Include the discard column in both source and destination tuples.
 
 ## Severity Assessment
 

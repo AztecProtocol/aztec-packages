@@ -175,10 +175,10 @@ x * (e * (1 - inv) + inv) - 1 + e = 0;
 // MUST have: e * (1 - e) = 0;  // Without this, check bypassed!
 ```
 
-## Historical Bugs
+## Historical Bug Patterns
 
-- **PR #19256**: ecc_mem.pil, to_radix_mem.pil - sel missing boolean constraint
-- **PR #18192**: ALU sel_op_shl, sel_op_shr, sel_shift_ops_no_overflow unconstrained
+- Missing boolean on memory sub-module selector columns
+- Missing boolean on ALU operation selectors
 
 ## Files with Good Boolean Hygiene (Typically No Findings)
 

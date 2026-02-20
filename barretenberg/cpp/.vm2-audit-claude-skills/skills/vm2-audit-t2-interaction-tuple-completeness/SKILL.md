@@ -10,10 +10,50 @@ allowed-tools: [Read, Glob, Grep, Bash, Write, Edit]
 Detect incomplete interaction tuples where missing columns allow: forged operations, arbitrary reordering (missing clock), cross-context access (missing context_id), or flag manipulation.
 
 ## Severity
+
+### Soundness vs Completeness
 - **Soundness** (prover exploits): Critical/High based on exploitability
 - **Completeness** (honest prover fails): Low to Critical based on reachability
 
 Completeness bugs reachable via canonical simulation on valid inputs are **Critical**.
+
+### Severity Calibration by Column Category
+
+When a column is missing from a lookup/permutation tuple, rate severity based on what the missing column *controls*:
+
+**Critical — Cryptographic semantics columns:**
+Missing columns that allow the prover to change *what cryptographic operation is computed*. This includes columns controlling:
+- Hash function initialization vectors, domain separators, or input lengths — these determine *which* hash is being computed. Without them, the prover can substitute a different-length hash that produces the same internal state progression, breaking all downstream derivations (addresses, storage slots, leaf hashes, class IDs).
+- Commitment blinding factors or randomness — altering these breaks hiding properties.
+- **Key rule**: If removing a column lets the prover change the *mathematical definition* of the cryptographic operation being invoked, this is **always Critical** regardless of downstream constraints. Downstream Merkle roots or signature checks do NOT mitigate this because the leaf/preimage computation itself is compromised — the prover controls both the forged input and the forged leaf.
+
+**Critical — Identity and isolation columns:**
+Missing columns that break execution isolation or enable row injection:
+- Context identifiers (context_id, call pointers) — allow cross-context data access.
+- Read/write flags (rw) — allow converting reads to writes or vice versa.
+- Clock/ordering columns (clk) — allow arbitrary reordering of operations.
+- Lifecycle flags (discard, success, revert) — allow manipulating transaction outcomes.
+
+**High — Dispatch and sequencing columns:**
+Missing columns that could cause incorrect operation routing or ordering:
+- Operation type selectors or opcode identifiers — allow one operation type to be confused for another.
+- Round counters or step indices (when not controlling cryptographic semantics) — allow skipping or reordering sub-steps.
+
+**Medium — Structural constraint columns:**
+Missing columns that weaken but don't break constraints:
+- Redundant range-check inputs where other constraints partially bound the value.
+- Auxiliary columns that mirror values already constrained elsewhere in the same interaction.
+
+**Low — Informational columns:**
+Missing columns that don't directly enable any exploit:
+- Debug or logging columns not consumed by any constraint.
+- Columns whose values are fully determined by other included columns via local constraints.
+
+### Common Severity Mistakes to Avoid
+
+1. **Do NOT downgrade because "other constraints exist downstream."** If a missing column lets the prover forge a cryptographic input (e.g., choose a different IV/domain separator), downstream constraints like Merkle root checks do not help — the prover controls the forged value that feeds *into* those checks.
+2. **Do NOT assume padding or round-count constraints substitute for input-length constraints.** A prover can often adjust padding to maintain a valid round count while using a completely different input length, changing the IV/domain separator.
+3. **Do NOT treat hash-input-controlling columns as "informational."** Columns like input length that feed into IV computation are *cryptographic semantics columns*, not bookkeeping.
 
 ## Workflow
 
@@ -67,16 +107,33 @@ sel { clk, context_id, addr, value, rw, tag }
 in memory.sel { memory.clk, memory.context_id, memory.addr, memory.value, memory.rw, memory.tag };
 ```
 
-## Real Bug: PR #19149
+## Example Pattern: Missing Column in Lookup Tuple
+
+### Pattern A: Missing cryptographic-semantics column (Critical)
 
 ```pil
-// BEFORE: Missing discard
-sel { context_id, success } in tx.sel { tx.context_id, tx.success };
+// VULNERABLE: Missing msg_length — prover can choose any domain separator
+sel { data_0, data_1, data_2, digest, round_count }
+in hash_gadget.start { hash_gadget.data_0, hash_gadget.data_1, hash_gadget.data_2,
+    hash_gadget.digest, hash_gadget.round_count };
 
-// AFTER: Fixed
-sel { context_id, success, discard } in tx.sel { tx.context_id, tx.success, tx.discard };
+// FIXED: msg_length included — domain separator is now constrained
+sel { data_0, data_1, data_2, digest, round_count, msg_length }
+in hash_gadget.start { hash_gadget.data_0, hash_gadget.data_1, hash_gadget.data_2,
+    hash_gadget.digest, hash_gadget.round_count, hash_gadget.msg_length };
 ```
-**Impact**: Prover could manipulate discard flag independently of success.
+**Pattern**: When a column controls the cryptographic definition of an operation (e.g., domain separation, initialization vector), omitting it from the lookup lets the prover substitute a different operation entirely. This is **Critical** because downstream integrity checks (Merkle roots, signatures) cannot catch it -- the prover controls both the forged input and the forged result.
+
+### Pattern B: Missing lifecycle/status column (High-Critical)
+
+```pil
+// VULNERABLE: Missing status_flag — prover can manipulate it independently
+sel { ctx_id, result } in target.sel { target.ctx_id, target.result };
+
+// FIXED: status_flag included
+sel { ctx_id, result, status_flag } in target.sel { target.ctx_id, target.result, target.status_flag };
+```
+**Pattern**: When a lifecycle or status column (e.g., discard, revert, success) is omitted from a tuple, the prover can set it to any value on one side without matching the other. This breaks transaction outcome isolation.
 
 ## Output Format
 

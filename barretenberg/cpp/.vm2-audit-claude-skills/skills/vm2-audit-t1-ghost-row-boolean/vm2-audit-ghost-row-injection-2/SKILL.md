@@ -1,6 +1,6 @@
 ---
 name: vm2-audit-ghost-row-injection
-description: Test if a selector-outside-active vulnerability is exploitable via ghost row injection. When a sub-selector can fire a PERMUTATION from inactive rows, test if an attacker can create legitimate destination rows to match the ghost source. This is the attack that succeeded against sstore.pil.
+description: Test if a selector-outside-active vulnerability is exploitable via ghost row injection. When a sub-selector can fire a PERMUTATION from inactive rows, test if an attacker can create legitimate destination rows to match the ghost source.
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
@@ -43,15 +43,13 @@ Check if attacker can create legitimate destination rows:
 - **START_CONDITION**: Destination trace builder handles automatically
 - **Crypto constraints**: Simulation gadgets produce valid hashes/proofs
 
-## Real-World Example: SSTORE Attack
+## Abstract Attack Example
 
 ```cpp
-// Ghost sstore row: sel_execute_sstore=0, sel_write_public_data=1
-// Legitimate public_data_check row created via simulation gadget
+// Ghost row: main_sel=0, sub_sel_write=1
+// Legitimate destination row created via simulation gadget
 // Ghost source matches legitimate destination → Attack SUCCEEDED
 ```
-
-**Test**: `storage_write.test.cpp:NegativeFullAttackWithAllTraces`
 
 ## Fix Pattern
 

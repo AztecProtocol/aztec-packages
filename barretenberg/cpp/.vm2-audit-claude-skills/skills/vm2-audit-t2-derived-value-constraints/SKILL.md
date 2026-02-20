@@ -35,7 +35,7 @@ Completeness bugs reachable via canonical simulation on valid inputs are **Criti
 
 > **PERFORMANCE RULE**: Do NOT analyze all ~1,730 committed columns individually. Use the filter-first approach below to narrow to suspicious candidates, then do deep analysis only on those. Per-column iteration will exhaust the context window.
 >
-> PIL files in `barretenberg/cpp/pil/vm2/`.
+> **FILE SCOPE**: Scan ALL `.pil` files under `barretenberg/cpp/pil/vm2/` **including all subdirectories**: `opcodes/`, `bytecode/`, `execution/`, `trees/`, and any others. Subdirectory files (e.g., opcode-specific PIL files) define committed columns and constraints that are just as critical as top-level files. Treat every PIL file equally regardless of directory depth.
 
 ### Phase 1: Filter to Suspicious Candidates (3 parallel batch searches)
 
@@ -89,15 +89,14 @@ For each candidate, read the relevant PIL file (group candidates by file to mini
 After analyzing candidates, verify nothing was missed by the batch filter:
 
 ```bash
-# Per-file column count: compare declared vs analyzed
-for f in pil/vm2/*.pil pil/vm2/**/*.pil; do
-  [ -f "$f" ] || continue
+# Per-file column count: compare declared vs analyzed (use find to ensure all subdirs are covered)
+find pil/vm2/ -name "*.pil" -type f | sort | while read f; do
   declared=$(grep -c "pol commit" "$f" 2>/dev/null || echo 0)
   echo "$f: $declared columns"
 done
 ```
 
-Cross-check: for any file with >10 columns where 0 candidates were found, do a quick manual scan of that file's constraint section to verify all columns are indeed constrained. This is O(files), not O(columns), so it stays bounded.
+Cross-check: for any file with >10 columns where 0 candidates were found, do a quick manual scan of that file's constraint section to verify all columns are indeed constrained. This is O(files), not O(columns), so it stays bounded. **Pay special attention to subdirectory files** (`opcodes/`, `bytecode/`, `trees/`, `execution/`) — these are easy to overlook but often contain critical constraints for derived values.
 
 Also check for any column categories not handled by the batch filter:
 - Array columns (`pol commit col[N]`) — may need loop constraint verification

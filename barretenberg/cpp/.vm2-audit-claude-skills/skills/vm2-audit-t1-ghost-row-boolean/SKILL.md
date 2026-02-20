@@ -1,6 +1,6 @@
 ---
 name: vm2-audit-t1-ghost-row-boolean
-description: Test if a selector-outside-active vulnerability is exploitable via ghost row injection. When a sub-selector can fire a PERMUTATION from inactive rows, test if an attacker can create legitimate destination rows to match the ghost source. This is the attack that succeeded against sstore.pil.
+description: Test if a selector-outside-active vulnerability is exploitable via ghost row injection. When a sub-selector can fire a PERMUTATION from inactive rows, test if an attacker can create legitimate destination rows to match the ghost source.
 allowed-tools: [Read, Glob, Grep, Bash, Write, Edit]
 version: 1.0.0
 ---
@@ -57,13 +57,13 @@ main_sel * (condition - sub_selector) = 0;
 sub_selector * (1 - main_sel) = 0;
 ```
 
-## Reference: SSTORE Attack
+## Reference: Abstract Ghost Row Attack Pattern
 
-The attack that proved this pattern (from `storage_write.test.cpp`):
-1. Used PublicDataTreeCheck simulation gadget with malicious slot/value/address
-2. Built public_data_check trace (legitimate destination rows)
-3. Injected ghost sstore row at row 0
-4. All relations and permutations PASSED - **Attack SUCCEEDED**
+The canonical attack shape for this vulnerability:
+1. Use a simulation gadget with attacker-controlled parameters to build legitimate destination rows
+2. Inject a ghost source row at an inactive row (main_sel=0) with sub_sel=1
+3. Ghost source matches legitimate destination via permutation tuple
+4. All relations and permutations PASS — **Attack SUCCEEDS**
 
 ## Severity Assessment
 

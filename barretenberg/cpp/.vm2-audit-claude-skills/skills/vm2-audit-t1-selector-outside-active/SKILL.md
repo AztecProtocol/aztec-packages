@@ -98,15 +98,13 @@ Also verify: for each PIL file that declares a `pol commit sel;`, confirm at lea
 
 ## Critical Examples
 
-### SSTORE Attack (2024) - CRITICAL
+### Ghost Write via Unconstrained Sub-Selector - CRITICAL
 ```pil
-pol commit sel_write_public_data;
-sel_execute_sstore * ((1 - sel_opcode_error) - sel_write_public_data) = 0;
-// Missing: sel_write_public_data * (1 - sel_execute_sstore) = 0;
+pol commit sel_do_write;
+sel_execute_op * ((1 - sel_opcode_error) - sel_do_write) = 0;
+// Missing: sel_do_write * (1 - sel_execute_op) = 0;
 ```
-**Attack**: Ghost row (`sel_execute_sstore=0, sel_write_public_data=1`) fires permutation. Attacker creates `public_data_check` rows via simulation. Ghost source matches legitimate destination -> arbitrary storage writes.
-
-**Test**: `storage_write.test.cpp:NegativeFullAttackWithAllTraces`
+**Attack**: Ghost row (`sel_execute_op=0, sel_do_write=1`) fires permutation. Attacker creates destination rows via simulation. Ghost source matches legitimate destination -> arbitrary state writes.
 
 ### False Positive - ECC
 ```pil

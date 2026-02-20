@@ -483,14 +483,22 @@ The JSON file MUST have this structure:
 
     local claude_args=(-p --model "$MODEL" --allowedTools "Read,Glob,Grep,Bash,Write,Edit" --output-format text --disable-slash-commands)
 
+    # Write prompt to a temp file to avoid pipe (pipes can cause zombie processes
+    # if claude spawns background children that inherit the pipe fd)
+    local prompt_file="$rdir/.prompt.txt"
+    echo "$task_prompt" > "$prompt_file"
+
     local start_time=$(date +%s)
-    if (cd "$wt_bb_cpp" && unset CLAUDECODE && echo "$task_prompt" | claude "${claude_args[@]}" > "$rdir/audit.md" 2>&1); then
-        local exit_status="success"
-    else
-        local exit_status="failed"
+    local exit_status="failed"
+    # Use timeout to prevent zombie runs. 30 min should be enough for any skill.
+    # Redirect from file (not pipe) to avoid fd inheritance issues.
+    if (cd "$wt_bb_cpp" && unset CLAUDECODE && timeout 1800 claude "${claude_args[@]}" < "$prompt_file" > "$rdir/audit.md" 2>&1); then
+        exit_status="success"
     fi
     local end_time=$(date +%s)
     local duration=$((end_time - start_time))
+
+    rm -f "$prompt_file"
 
     # Store run metadata
     echo "{\"status\": \"$exit_status\", \"duration_seconds\": $duration}" > "$rdir/run-meta.json"
@@ -569,8 +577,9 @@ EOF
 
         if [[ $num_findings -gt 0 ]]; then
             for f_idx in $(seq 0 $((num_findings - 1))); do
+                # Extract finding fields — tolerate both .files[] (array) and .file (string)
                 local finding_files
-                finding_files=$(jq -r ".findings[$f_idx].files[]?" "$audit_json" 2>/dev/null || true)
+                finding_files=$(jq -r "(.findings[$f_idx].files[]? // empty), (.findings[$f_idx].file // empty)" "$audit_json" 2>/dev/null || true)
                 local finding_title
                 finding_title=$(jq -r ".findings[$f_idx].title // \"\"" "$audit_json" 2>/dev/null)
                 local finding_desc
@@ -579,8 +588,11 @@ EOF
                 finding_id=$(jq -r ".findings[$f_idx].id // \"\"" "$audit_json" 2>/dev/null)
                 local finding_severity
                 finding_severity=$(jq -r ".findings[$f_idx].severity // \"\"" "$audit_json" 2>/dev/null)
+                # Also check extra fields skills may use (impact, destination_selector, etc.)
+                local finding_extra
+                finding_extra=$(jq -r "(.findings[$f_idx].impact // \"\"), (.findings[$f_idx].destination_selector // \"\")" "$audit_json" 2>/dev/null || true)
                 local combined_text
-                combined_text=$(echo "$finding_id $finding_title $finding_desc" | tr '[:upper:]' '[:lower:]')
+                combined_text=$(echo "$finding_id $finding_title $finding_desc $finding_extra" | tr '[:upper:]' '[:lower:]')
 
                 # Check file match (any bug file basename appears in any finding file)
                 local file_match=false

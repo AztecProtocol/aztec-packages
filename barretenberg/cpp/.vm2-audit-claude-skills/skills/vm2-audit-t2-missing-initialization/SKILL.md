@@ -98,37 +98,32 @@ sel * (1 - sel_jump) * (pc' - pc - instr_length) = 0;
 | Zero init | `precomputed.first_row * value = 0` |
 | Enqueued call PC | `sel_enter_enqueued_call * pc = 0` |
 
-## Real Bug Examples
+## Abstract Bug Patterns
 
-### TX Phase Value (PR #18336)
+### Uninitialized Phase Indicator at Trace Start
 ```pil
-// BEFORE: Could start at any phase, skipping earlier phases
-pol commit phase_value;
-
-// AFTER
-#[PHASE_VALUE_INIT]
-precomputed.first_row * (phase_value - SETUP_PHASE) = 0;
+// VULNERABLE: Could start at any phase, skipping earlier phases
+pol commit stage_indicator;
+// Missing: precomputed.first_row * (stage_indicator - FIRST_STAGE) = 0;
 ```
-**Impact**: Skip arbitrary transaction phases.
+**Impact**: Skip arbitrary computation phases.
 
-### Execution PC (PR #18864)
+### Uninitialized Counter at Context Entry
 ```pil
-// BEFORE: Could start execution at any address
-pol commit pc;
-
-// AFTER
-#[PC_INIT_ENQUEUED]
-sel_enter_enqueued_call * pc = 0;
+// VULNERABLE: Could start execution at any offset
+pol commit step_counter;
+// Missing: sel_enter_context * step_counter = 0;
 ```
 **Impact**: Complete control flow corruption.
 
-### start_tx Boolean (TX Pre-Audit)
+### Shifted-Only Initialization (Row 0 Gap)
 ```pil
-// start_tx only constrained via shifted column
-pol commit start_tx; // @boolean
-// Row 0 has unconstrained start_tx!
+// VULNERABLE: Only constrained via next-row relation
+pol commit begin_flag; // @boolean
+(1 - done) * (begin_flag' - ...) = 0;
+// Row 0 has unconstrained begin_flag!
 ```
-**Impact**: Theoretical - row 0 behavior undefined (mitigated by row 0 inactive).
+**Impact**: Theoretical - row 0 behavior undefined (mitigated if row 0 inactive).
 
 ## Output Format
 

@@ -104,16 +104,16 @@ sel * is_done * counter = 0;  // done only when counter=0
 // Therefore is_done is implicitly irreversible
 ```
 
-## Real Bug: Data Copy Padding (PR #17877)
+## Illustrative Example: Reversible Padding Flag
 
 ```pil
-// data_copy.pil
-pol commit is_padding;
-is_padding * (1 - is_padding) = 0;
-// MISSING: is_padding * (1 - is_padding') = 0
+// multi_row_gadget.pil
+pol commit is_fill_complete;
+is_fill_complete * (1 - is_fill_complete) = 0;
+// MISSING: is_fill_complete * (1 - is_fill_complete') = 0
 ```
 
-**Attack**: Enter padding, exit padding, continue reading/writing beyond intended region.
+**Attack**: Enter padding/fill-complete state, exit back to active, continue reading/writing beyond intended region.
 
 ## Flags to Check
 

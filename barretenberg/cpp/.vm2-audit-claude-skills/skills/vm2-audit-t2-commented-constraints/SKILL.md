@@ -54,14 +54,14 @@ sel_error * (1 - sel_error) = 0;  // Boolean only!
 ## Example Finding
 
 ```pil
-// instr_fetching.pil
-// FIXME: constrain this again once all execution opcodes are supported.
-// sel_parsing_err = pc_out_of_range + opcode_out_of_range + instr_out_of_range;
+// component.pil
+// FIXME: constrain this again once all operations are supported.
+// sel_aggregate_err = err_flag_a + err_flag_b + err_flag_c;
 
-sel_parsing_err * (1 - sel_parsing_err) = 0;  // Only this exists!
+sel_aggregate_err * (1 - sel_aggregate_err) = 0;  // Only this exists!
 ```
 
-**Impact**: CRITICAL - Prover can set `sel_parsing_err = 0` even when individual errors are 1.
+**Impact**: CRITICAL - Prover can set `sel_aggregate_err = 0` even when individual error flags are 1.
 
 ## Output Format
 

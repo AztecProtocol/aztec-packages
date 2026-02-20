@@ -104,32 +104,35 @@ err * (1 - sel_end) = 0;  // Missing sel_start!
 sel_start * err * (1 - sel_end) = 0;
 ```
 
-## Real Bug Examples
+## Illustrative Examples
 
-### Data Copy (PR #17877)
+### Missing Trace Continuity on Multi-Row Copy
 ```pil
+// VULNERABLE: sel can drop to 0 anytime
 // Missing: sel * (1 - sel') * (1 - sel_end) = 0
 ```
-**Impact**: Truncated copy operations.
+**Impact**: Truncated copy operations — prover skips remaining rows.
 
-### Merkle Check (PR #17771)
+### Missing Trace Continuity on Tree Proof
 ```pil
-// Added: sel * (1 - sel') * (1 - end) = 0
+// VULNERABLE: Merkle proof can be cut short
+// Need: sel * (1 - sel') * (1 - end) = 0
 ```
-**Impact**: Truncated Merkle proofs.
+**Impact**: Truncated proofs — prover provides fewer levels than required.
 
-### TX is_padded (PR #18336)
+### Counter Underflow via Missing Padding Guard
 ```pil
-// Added: is_padded * (1 - end_phase) = 0
+// VULNERABLE: padding flag not constrained to end at phase boundary
+// Need: is_fill * (1 - end_phase) = 0
 ```
-**Impact**: Infinite trace extension via counter underflow.
+**Impact**: Infinite trace extension via counter underflow in field arithmetic.
 
-### Data Copy sel_end (PR #17877)
+### Ungated Error Termination on Non-Start Rows
 ```pil
-// BEFORE: err * (1 - sel_end) = 0  // Missing sel_start!
-// AFTER: sel_start * err * (1 - sel_end) = 0
+// VULNERABLE: err * (1 - sel_end) = 0  // Missing sel_start gate!
+// SECURE: sel_start * err * (1 - sel_end) = 0
 ```
-**Impact**: Premature end on non-start rows.
+**Impact**: Premature end triggered on non-start rows corrupts multi-row operations.
 
 ## Output Format
 
