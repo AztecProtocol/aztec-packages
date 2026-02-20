@@ -56,7 +56,7 @@ function main {
   git commit -m "chore: regenerate chonk VKs
 
 VK-UPDATE acknowledged: ${explanation}"
-  git push
+  git push origin HEAD
 
   echo "VK update completed. A new CI run will be triggered."
 }
