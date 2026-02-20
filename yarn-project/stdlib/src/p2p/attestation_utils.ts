@@ -33,3 +33,59 @@ export function orderAttestations(
 
   return orderedAttestations;
 }
+
+/**
+ * Trims attestations to the minimum required number to save L1 calldata gas.
+ * Each signature costs 65 bytes of calldata vs 20 bytes for just an address.
+ *
+ * Priority order for keeping attestations:
+ * 1. The proposer's attestation (required by L1 contract - MissingProposerSignature revert)
+ * 2. Attestations from the local node's validator keys
+ * 3. Remaining attestations filled to reach the required count
+ */
+export function trimAttestations(
+  attestations: CheckpointAttestation[],
+  required: number,
+  proposerAddress: EthAddress,
+  localAddresses: EthAddress[],
+): CheckpointAttestation[] {
+  if (attestations.length <= required) {
+    return attestations;
+  }
+
+  const proposerAttestation: CheckpointAttestation[] = [];
+  const localAttestations: CheckpointAttestation[] = [];
+  const otherAttestations: CheckpointAttestation[] = [];
+
+  for (const attestation of attestations) {
+    const sender = attestation.getSender();
+    if (!sender) {
+      continue;
+    }
+    if (sender.equals(proposerAddress)) {
+      proposerAttestation.push(attestation);
+    } else if (localAddresses.some(addr => addr.equals(sender))) {
+      localAttestations.push(attestation);
+    } else {
+      otherAttestations.push(attestation);
+    }
+  }
+
+  const result: CheckpointAttestation[] = [...proposerAttestation];
+
+  for (const att of localAttestations) {
+    if (result.length >= required) {
+      break;
+    }
+    result.push(att);
+  }
+
+  for (const att of otherAttestations) {
+    if (result.length >= required) {
+      break;
+    }
+    result.push(att);
+  }
+
+  return result;
+}

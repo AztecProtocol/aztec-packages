@@ -1,4 +1,9 @@
-import { AVM_MAX_PROCESSABLE_L2_GAS, FIXED_DA_GAS, FIXED_L2_GAS } from '@aztec/constants';
+import {
+  MAX_PROCESSABLE_L2_GAS,
+  PRIVATE_TX_L2_GAS_OVERHEAD,
+  PUBLIC_TX_L2_GAS_OVERHEAD,
+  TX_DA_GAS_OVERHEAD,
+} from '@aztec/constants';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -73,7 +78,10 @@ export class GasTxValidator implements TxValidator<Tx> {
    */
   #validateGasLimit(tx: Tx): TxValidationResult {
     const gasLimits = tx.data.constants.txContext.gasSettings.gasLimits;
-    const minGasLimits = new Gas(FIXED_DA_GAS, FIXED_L2_GAS);
+    const minGasLimits = new Gas(
+      TX_DA_GAS_OVERHEAD,
+      tx.data.forPublic ? PUBLIC_TX_L2_GAS_OVERHEAD : PRIVATE_TX_L2_GAS_OVERHEAD,
+    );
 
     if (minGasLimits.gtAny(gasLimits)) {
       this.#log.verbose(`Rejecting transaction due to the gas limit(s) not being above the minimum gas limit`, {
@@ -83,7 +91,7 @@ export class GasTxValidator implements TxValidator<Tx> {
       return { result: 'invalid', reason: [TX_ERROR_INSUFFICIENT_GAS_LIMIT] };
     }
 
-    if (gasLimits.l2Gas > AVM_MAX_PROCESSABLE_L2_GAS) {
+    if (gasLimits.l2Gas > MAX_PROCESSABLE_L2_GAS) {
       this.#log.verbose(`Rejecting transaction due to the gas limit(s) being higher than the maximum processable gas`, {
         gasLimits,
         minGasLimits,

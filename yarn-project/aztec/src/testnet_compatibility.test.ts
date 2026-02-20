@@ -11,7 +11,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
  */
 describe('Testnet compatibility', () => {
   it('has expected VK tree root', () => {
-    const expectedRoots = [Fr.fromHexString('0x1e6494058514e655b4c479e25dc41590b7db8179f2fd71af38cee41f09b895c6')];
+    const expectedRoots = [Fr.fromHexString('0x1621e3d2e4f04a6f0318b2099cb1e0afd60261055402e2f3c9ceee28849fb014')];
     expect(expectedRoots).toContainEqual(getVKTreeRoot());
   });
   it('has expected Protocol Contracts hash', () => {
