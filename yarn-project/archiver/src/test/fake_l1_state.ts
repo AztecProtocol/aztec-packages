@@ -14,6 +14,7 @@ import { CommitteeAttestation, CommitteeAttestationsAndSigners, L2Block } from '
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
+import { ConsensusPayload, SignatureDomainSeparator } from '@aztec/stdlib/p2p';
 import {
   makeAndSignCommitteeAttestationsAndSigners,
   makeCheckpointAttestationFromCheckpoint,
@@ -22,7 +23,16 @@ import {
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
-import { type FormattedBlock, type Transaction, encodeFunctionData, multicall3Abi, toHex } from 'viem';
+import {
+  type AbiParameter,
+  type FormattedBlock,
+  type Transaction,
+  encodeAbiParameters,
+  encodeFunctionData,
+  keccak256,
+  multicall3Abi,
+  toHex,
+} from 'viem';
 
 import { updateRollingHash } from '../structs/inbox_message.js';
 
@@ -87,6 +97,10 @@ type CheckpointData = {
   blobHashes: `0x${string}`[];
   blobs: Blob[];
   signers: Secp256k1Signer[];
+  /** Hash of the packed attestations, matching what the L1 event emits. */
+  attestationsHash: Buffer32;
+  /** Payload digest, matching what the L1 event emits. */
+  payloadDigest: Buffer32;
   /** If true, archiveAt will ignore it */
   pruned?: boolean;
 };
@@ -194,8 +208,8 @@ export class FakeL1State {
     // Store the messages internally so they match the checkpoint's inHash
     this.addMessages(checkpointNumber, messagesL1BlockNumber, messages);
 
-    // Create the transaction and blobs
-    const tx = await this.makeRollupTx(checkpoint, signers);
+    // Create the transaction, blobs, and event hashes
+    const { tx, attestationsHash, payloadDigest } = await this.makeRollupTx(checkpoint, signers);
     const blobHashes = await this.makeVersionedBlobHashes(checkpoint);
     const blobs = await this.makeBlobsFromCheckpoint(checkpoint);
 
@@ -208,6 +222,8 @@ export class FakeL1State {
       blobHashes,
       blobs,
       signers,
+      attestationsHash,
+      payloadDigest,
     });
 
     // Update last archive for auto-chaining
@@ -510,10 +526,8 @@ export class FakeL1State {
           checkpointNumber: cpData.checkpointNumber,
           archive: cpData.checkpoint.archive.root,
           versionedBlobHashes: cpData.blobHashes.map(h => Buffer.from(h.slice(2), 'hex')),
-          // These are intentionally undefined to skip hash validation in the archiver
-          // (validation is skipped when these fields are falsy)
-          payloadDigest: undefined,
-          attestationsHash: undefined,
+          attestationsHash: cpData.attestationsHash,
+          payloadDigest: cpData.payloadDigest,
         },
       }));
   }
@@ -539,7 +553,10 @@ export class FakeL1State {
       }));
   }
 
-  private async makeRollupTx(checkpoint: Checkpoint, signers: Secp256k1Signer[]): Promise<Transaction> {
+  private async makeRollupTx(
+    checkpoint: Checkpoint,
+    signers: Secp256k1Signer[],
+  ): Promise<{ tx: Transaction; attestationsHash: Buffer32; payloadDigest: Buffer32 }> {
     const attestations = signers
       .map(signer => makeCheckpointAttestationFromCheckpoint(checkpoint, signer))
       .map(attestation => CommitteeAttestation.fromSignature(attestation.signature))
@@ -557,6 +574,8 @@ export class FakeL1State {
       signers[0],
     );
 
+    const packedAttestations = attestationsAndSigners.getPackedAttestations();
+
     const rollupInput = encodeFunctionData({
       abi: RollupAbi,
       functionName: 'propose',
@@ -566,7 +585,7 @@ export class FakeL1State {
           archive,
           oracleInput: { feeAssetPriceModifier: 0n },
         },
-        attestationsAndSigners.getPackedAttestations(),
+        packedAttestations,
         attestationsAndSigners.getSigners().map(signer => signer.toString()),
         attestationsAndSignersSignature.toViemSignature(),
         blobInput,
@@ -587,12 +606,43 @@ export class FakeL1State {
       ],
     });
 
-    return {
+    // Compute attestationsHash (same logic as CalldataRetriever)
+    const attestationsHash = Buffer32.fromString(
+      keccak256(encodeAbiParameters([this.getCommitteeAttestationsStructDef()], [packedAttestations])),
+    );
+
+    // Compute payloadDigest (same logic as CalldataRetriever)
+    const consensusPayload = ConsensusPayload.fromCheckpoint(checkpoint);
+    const payloadToSign = consensusPayload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation);
+    const payloadDigest = Buffer32.fromString(keccak256(payloadToSign));
+
+    const tx = {
       input: multiCallInput,
       hash: archive,
       blockHash: archive,
       to: MULTI_CALL_3_ADDRESS as `0x${string}`,
     } as Transaction<bigint, number>;
+
+    return { tx, attestationsHash, payloadDigest };
+  }
+
+  /** Extracts the CommitteeAttestations struct definition from RollupAbi for hash computation. */
+  private getCommitteeAttestationsStructDef(): AbiParameter {
+    const proposeFunction = RollupAbi.find(item => item.type === 'function' && item.name === 'propose') as
+      | { type: 'function'; name: string; inputs: readonly AbiParameter[] }
+      | undefined;
+
+    if (!proposeFunction) {
+      throw new Error('propose function not found in RollupAbi');
+    }
+
+    const attestationsParam = proposeFunction.inputs.find(param => param.name === '_attestations');
+    if (!attestationsParam) {
+      throw new Error('_attestations parameter not found in propose function');
+    }
+
+    const tupleParam = attestationsParam as unknown as { type: 'tuple'; components?: readonly AbiParameter[] };
+    return { type: 'tuple', components: tupleParam.components || [] } as AbiParameter;
   }
 
   private async makeVersionedBlobHashes(checkpoint: Checkpoint): Promise<`0x${string}`[]> {

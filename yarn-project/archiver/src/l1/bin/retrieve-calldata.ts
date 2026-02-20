@@ -5,7 +5,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
-import { type Hex, createPublicClient, getAbiItem, http, toEventSelector } from 'viem';
+import { type Hex, createPublicClient, decodeEventLog, getAbiItem, http, toEventSelector } from 'viem';
 import { mainnet } from 'viem/chains';
 
 import { CalldataRetriever } from '../calldata_retriever.js';
@@ -89,14 +89,6 @@ async function main() {
 
     logger.info(`Transaction found in block ${tx.blockNumber}`);
 
-    // For simplicity, use zero addresses for optional contract addresses
-    // In production, these would be fetched from the rollup contract or configuration
-    const slashingProposerAddress = EthAddress.ZERO;
-    const governanceProposerAddress = EthAddress.ZERO;
-    const slashFactoryAddress = undefined;
-
-    logger.info('Using zero addresses for governance/slashing (can be configured if needed)');
-
     // Create CalldataRetriever
     const retriever = new CalldataRetriever(
       publicClient as unknown as ViemPublicClient,
@@ -104,46 +96,67 @@ async function main() {
       targetCommitteeSize,
       undefined,
       logger,
-      {
-        rollupAddress,
-        governanceProposerAddress,
-        slashingProposerAddress,
-        slashFactoryAddress,
-      },
+      rollupAddress,
     );
 
-    // Extract checkpoint number from transaction logs
-    logger.info('Decoding transaction to extract checkpoint number...');
+    // Extract checkpoint number and hashes from transaction logs
+    logger.info('Decoding transaction to extract checkpoint number and hashes...');
     const receipt = await publicClient.getTransactionReceipt({ hash: txHash });
 
-    // Look for CheckpointProposed event (emitted when a checkpoint is proposed to the rollup)
-    // Event signature: CheckpointProposed(uint256 indexed checkpointNumber, bytes32 indexed archive, bytes32[], bytes32, bytes32)
-    // Hash: keccak256("CheckpointProposed(uint256,bytes32,bytes32[],bytes32,bytes32)")
-    const checkpointProposedEvent = receipt.logs.find(log => {
+    // Look for CheckpointProposed event
+    const checkpointProposedEventAbi = getAbiItem({ abi: RollupAbi, name: 'CheckpointProposed' });
+    const checkpointProposedLog = receipt.logs.find(log => {
       try {
         return (
           log.address.toLowerCase() === rollupAddress.toString().toLowerCase() &&
-          log.topics[0] === toEventSelector(getAbiItem({ abi: RollupAbi, name: 'CheckpointProposed' }))
+          log.topics[0] === toEventSelector(checkpointProposedEventAbi)
         );
       } catch {
         return false;
       }
     });
 
-    if (!checkpointProposedEvent || checkpointProposedEvent.topics[1] === undefined) {
+    if (!checkpointProposedLog || checkpointProposedLog.topics[1] === undefined) {
       throw new Error(`Checkpoint proposed event not found`);
     }
 
-    const checkpointNumber = CheckpointNumber.fromBigInt(BigInt(checkpointProposedEvent.topics[1]));
+    const checkpointNumber = CheckpointNumber.fromBigInt(BigInt(checkpointProposedLog.topics[1]));
+
+    // Decode the full event to extract attestationsHash and payloadDigest
+    const decodedEvent = decodeEventLog({
+      abi: RollupAbi,
+      data: checkpointProposedLog.data,
+      topics: checkpointProposedLog.topics,
+    });
+
+    const eventArgs = decodedEvent.args as {
+      checkpointNumber: bigint;
+      archive: Hex;
+      versionedBlobHashes: Hex[];
+      attestationsHash: Hex;
+      payloadDigest: Hex;
+    };
+
+    if (!eventArgs.attestationsHash || !eventArgs.payloadDigest) {
+      throw new Error(`CheckpointProposed event missing attestationsHash or payloadDigest`);
+    }
+
+    const expectedHashes = {
+      attestationsHash: eventArgs.attestationsHash,
+      payloadDigest: eventArgs.payloadDigest,
+    };
+
+    logger.info(`Checkpoint Number: ${checkpointNumber}`);
+    logger.info(`Attestations Hash: ${expectedHashes.attestationsHash}`);
+    logger.info(`Payload Digest: ${expectedHashes.payloadDigest}`);
 
     logger.info('');
     logger.info('Retrieving checkpoint from rollup transaction...');
     logger.info('');
 
-    // For this script, we don't have blob hashes or expected hashes, so pass empty arrays/objects
-    const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, {});
+    const result = await retriever.getCheckpointFromRollupTx(txHash, [], checkpointNumber, expectedHashes);
 
-    logger.info(' Successfully retrieved block header!');
+    logger.info(' Successfully retrieved block header!');
     logger.info('');
     logger.info('Block Header Details:');
     logger.info('====================');

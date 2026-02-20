@@ -278,7 +278,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     this.log.info(`Generating ClientIVC proof...`);
     const barretenberg = await Barretenberg.initSingleton({
       ...this.options,
-      logger: this.options.logger?.[(process.env.LOG_LEVEL as LogLevel) || 'verbose'],
+      logger: this.options.logger?.verbose,
     });
     const backend = new AztecClientBackend(
       executionSteps.map(step => ungzip(step.bytecode)),
