@@ -193,7 +193,64 @@ template <typename Settings> class GenericLookupRelationTest : public testing::T
 // Tests for SettingsBasicLookup
 // ============================================================================
 
-class BasicLookupTest : public GenericLookupRelationTest<SettingsBasicLookup> {};
+class BasicLookupTest : public GenericLookupRelationTest<SettingsBasicLookup> {
+  public:
+    /**
+     * @brief Build and evaluate a canonical two-row (lookup + table) trace.
+     *
+     * Row 0 is always a lookup row with f1=1, f2=2.
+     * Row 1 is always a table row with f1=9, f2=10 (dummies, lookup_pred=0).
+     * The table columns for row 1 and the read count are the varying parameters.
+     *
+     * The expected subrelation-2 sum is derived directly from the inputs:
+     *   acc[1] = 1/lookup_term0 - read_count/table_term1
+     * so passing table columns that match row 0 (t1=1, t2=2) with read_count=1 gives 0.
+     */
+    static void check_two_row_sum(const RelationParameters<FF>& params, FF t1_row1, FF t2_row1, FF read_count)
+    {
+        const FF beta = params.beta;
+        const FF gamma = params.gamma;
+
+        // Row 0: lookup row (fixed)
+        const FF f1 = FF(1);
+        const FF f2 = FF(2);
+        const FF t1_row0 = FF(3);
+        const FF t2_row0 = FF(4);
+        const FF lookup_term0 = f1 * beta + f2 + gamma;
+        const FF table_term_row0 = t1_row0 * beta + t2_row0 + gamma;
+
+        AllEntities row0{};
+        row0[0] = (lookup_term0 * table_term_row0).invert();
+        row0[2] = FF(1); // lookup predicate
+        row0[4] = f1;
+        row0[5] = f2;
+        row0[6] = t1_row0;
+        row0[7] = t2_row0;
+
+        // Row 1: table row (parametrized table columns and read count)
+        const FF f1_row1 = FF(9);
+        const FF f2_row1 = FF(10);
+        const FF lookup_term_row1 = f1_row1 * beta + f2_row1 + gamma;
+        const FF table_term1 = t1_row1 * beta + t2_row1 + gamma;
+
+        AllEntities row1{};
+        row1[0] = (lookup_term_row1 * table_term1).invert();
+        row1[1] = read_count; // read count
+        row1[3] = FF(1);      // table predicate
+        row1[4] = f1_row1;
+        row1[5] = f2_row1;
+        row1[6] = t1_row1;
+        row1[7] = t2_row1;
+
+        Accumulator acc{};
+        Relation::accumulate(acc, row0, params, FF(1));
+        EXPECT_EQ(acc[0], FF(0)); // subrelation 0 satisfied independently per row
+        Relation::accumulate(acc, row1, params, FF(1));
+
+        EXPECT_EQ(acc[0], FF(0));
+        EXPECT_EQ(acc[1], FF(1) / lookup_term0 - read_count / table_term1);
+    }
+};
 
 /**
  * @brief An all-zero row must leave both subrelations at zero.
@@ -285,68 +342,13 @@ TEST_F(BasicLookupTest, ValidTableRow)
 /**
  * @brief A two-row trace with matching lookup/table terms satisfies the log-derivative identity.
  *
- * Row 0 (lookup): f1=1, f2=2  → lookup_term0 = 1*beta + 2 + gamma
- * Row 1 (table):  t1=1, t2=2  → table_term1  = 1*beta + 2 + gamma  (matches lookup_term0)
- *
- * Subrelation 2 sums to:
- *   +1/lookup_term0  (from row 0, lookup_pred=1)
- *   -1/table_term1   (from row 1, table_pred=1, read_count=1)
- *   = 0  because lookup_term0 == table_term1
+ * t1=1, t2=2 on row 1 → table_term1 = 1*beta + 2 + gamma = lookup_term0, so acc[1] = 0.
  */
 TEST_F(BasicLookupTest, ValidTrace)
 {
     const auto params = RelationParameters<FF>::get_random();
-    const FF beta = params.beta;
-    const FF gamma = params.gamma;
-
-    // Row 0: lookup row  (lookup_pred=1, table_pred=0)
-    const FF f1 = FF(1);
-    const FF f2 = FF(2);
-    // Use arbitrary non-matching table columns — table_pred=0 so table_term is used only in the inverse denominator
-    const FF t1_row0 = FF(3);
-    const FF t2_row0 = FF(4);
-    const FF lookup_term0 = f1 * beta + f2 + gamma;
-    const FF table_term_row0 = t1_row0 * beta + t2_row0 + gamma;
-
-    AllEntities row0{};
-    row0[0] = (lookup_term0 * table_term_row0).invert();
-    row0[2] = FF(1); // lookup predicate
-    row0[4] = f1;
-    row0[5] = f2;
-    row0[6] = t1_row0;
-    row0[7] = t2_row0;
-
-    // Row 1: table row  (lookup_pred=0, table_pred=1, read_count=1)
-    // t1=1, t2=2 → table_term1 = 1*beta + 2 + gamma = lookup_term0
-    const FF t1_row1 = FF(1);
-    const FF t2_row1 = FF(2);
-    // Arbitrary lookup columns — lookup_pred=0 so they only contribute to the inverse denominator
-    const FF f1_row1 = FF(9);
-    const FF f2_row1 = FF(10);
-    const FF lookup_term_row1 = f1_row1 * beta + f2_row1 + gamma;
-    const FF table_term1 = t1_row1 * beta + t2_row1 + gamma;
-
-    AllEntities row1{};
-    row1[0] = (lookup_term_row1 * table_term1).invert();
-    row1[1] = FF(1); // read count
-    row1[3] = FF(1); // table predicate
-    row1[4] = f1_row1;
-    row1[5] = f2_row1;
-    row1[6] = t1_row1;
-    row1[7] = t2_row1;
-
-    // Accumulate both rows
-    Accumulator acc{};
-
-    Relation::accumulate(acc, row0, params, FF(1));
-    EXPECT_EQ(acc[0], FF(0)); // subrelation 0 is satisfied by each row independently
-
-    Relation::accumulate(acc, row1, params, FF(1));
-
-    // Subrelation 0 must be zero for both rows (each is independently satisfied)
-    // Subrelation 1 must sum to zero across the two rows (log-derivative identity)
-    EXPECT_EQ(acc[0], FF(0));
-    EXPECT_EQ(acc[1], FF(0));
+    // t1=1, t2=2 matches the lookup term (f1=1, f2=2) → valid lookup, sum = 0
+    check_two_row_sum(params, /*t1_row1=*/FF(1), /*t2_row1=*/FF(2), /*read_count=*/FF(1));
 }
 
 /**
@@ -386,130 +388,73 @@ TEST_F(BasicLookupTest, IncorrectInverse)
 }
 
 /**
- * @brief A two-row trace with invalid lookup/table terms doesn't satisfy the log-derivative identity.
- *
+ * @brief Table term mismatch: lookup_term0 = 1*beta+2+gamma, table_term1 = 2*beta+4+gamma → acc[1] ≠ 0.
  */
 TEST_F(BasicLookupTest, InvalidLookup)
 {
     const auto params = RelationParameters<FF>::get_random();
-    const FF beta = params.beta;
-    const FF gamma = params.gamma;
-
-    // Row 0: lookup row  (lookup_pred=1, table_pred=0)
-    const FF f1 = FF(1);
-    const FF f2 = FF(2);
-    // Use arbitrary non-matching table columns — table_pred=0 so table_term is used only in the inverse denominator
-    const FF t1_row0 = FF(3);
-    const FF t2_row0 = FF(4);
-    const FF lookup_term0 = f1 * beta + f2 + gamma;
-    const FF table_term_row0 = t1_row0 * beta + t2_row0 + gamma;
-
-    AllEntities row0{};
-    row0[0] = (lookup_term0 * table_term_row0).invert();
-    row0[2] = FF(1); // lookup predicate
-    row0[4] = f1;
-    row0[5] = f2;
-    row0[6] = t1_row0;
-    row0[7] = t2_row0;
-
-    // Row 1: table row  (lookup_pred=0, table_pred=1, read_count=1)
-    // t1=2, t2=4 → table_term1 = 2*beta + 4 + gamma ≠ lookup_term0
-    const FF t1_row1 = FF(2);
-    const FF t2_row1 = FF(4);
-    // Arbitrary lookup columns — lookup_pred=0 so they only contribute to the inverse denominator
-    const FF f1_row1 = FF(9);
-    const FF f2_row1 = FF(10);
-    const FF lookup_term_row1 = f1_row1 * beta + f2_row1 + gamma;
-    const FF table_term1 = t1_row1 * beta + t2_row1 + gamma;
-
-    AllEntities row1{};
-    row1[0] = (lookup_term_row1 * table_term1).invert();
-    row1[1] = FF(1); // read count
-    row1[3] = FF(1); // table predicate
-    row1[4] = f1_row1;
-    row1[5] = f2_row1;
-    row1[6] = t1_row1;
-    row1[7] = t2_row1;
-
-    // Accumulate both rows
-    Accumulator acc{};
-
-    Relation::accumulate(acc, row0, params, FF(1));
-    EXPECT_EQ(acc[0], FF(0)); // subrelation 0 is satisfied by each row independently
-
-    Relation::accumulate(acc, row1, params, FF(1));
-
-    // Subrelation 0 must be zero for both rows (each is independently satisfied)
-    // Subrelation 1 must not sum to zero across the two rows (log-derivative identity)
-    EXPECT_EQ(acc[0], FF(0));
-    EXPECT_EQ(acc[1], FF(1) / lookup_term0 - FF(1) / table_term1); // read_count=2 causes the mismatch
+    // t1=2, t2=4 gives table_term1 ≠ lookup_term0 (f1=1, f2=2)
+    check_two_row_sum(params, /*t1_row1=*/FF(2), /*t2_row1=*/FF(4), /*read_count=*/FF(1));
 }
 
 /**
- * @brief A two-row trace with invalid lookup/table terms doesn't satisfy the log-derivative identity.
- *
+ * @brief Read count mismatch: table_term1 = lookup_term0 but read_count=2 → acc[1] = -1/lookup_term0 ≠ 0.
  */
 TEST_F(BasicLookupTest, InvalidReadCount)
 {
     const auto params = RelationParameters<FF>::get_random();
-    const FF beta = params.beta;
-    const FF gamma = params.gamma;
-
-    // Row 0: lookup row  (lookup_pred=1, table_pred=0)
-    const FF f1 = FF(1);
-    const FF f2 = FF(2);
-    // Use arbitrary non-matching table columns — table_pred=0 so table_term is used only in the inverse denominator
-    const FF t1_row0 = FF(3);
-    const FF t2_row0 = FF(4);
-    const FF lookup_term0 = f1 * beta + f2 + gamma;
-    const FF table_term_row0 = t1_row0 * beta + t2_row0 + gamma;
-
-    AllEntities row0{};
-    row0[0] = (lookup_term0 * table_term_row0).invert();
-    row0[2] = FF(1); // lookup predicate
-    row0[4] = f1;
-    row0[5] = f2;
-    row0[6] = t1_row0;
-    row0[7] = t2_row0;
-
-    // Row 1: table row  (lookup_pred=0, table_pred=1, read_count=2)
-    // t1=1, t2=2 → table_term1 = 1*beta + 2 + gamma ≠ lookup_term0
-    const FF t1_row1 = FF(1);
-    const FF t2_row1 = FF(2);
-    // Arbitrary lookup columns — lookup_pred=0 so they only contribute to the inverse denominator
-    const FF f1_row1 = FF(9);
-    const FF f2_row1 = FF(10);
-    const FF lookup_term_row1 = f1_row1 * beta + f2_row1 + gamma;
-    const FF table_term1 = t1_row1 * beta + t2_row1 + gamma;
-
-    AllEntities row1{};
-    row1[0] = (lookup_term_row1 * table_term1).invert();
-    row1[1] = FF(2); // read count
-    row1[3] = FF(1); // table predicate
-    row1[4] = f1_row1;
-    row1[5] = f2_row1;
-    row1[6] = t1_row1;
-    row1[7] = t2_row1;
-
-    // Accumulate both rows
-    Accumulator acc{};
-
-    Relation::accumulate(acc, row0, params, FF(1));
-    EXPECT_EQ(acc[0], FF(0)); // subrelation 0 is satisfied by each row independently
-
-    Relation::accumulate(acc, row1, params, FF(1));
-
-    // Subrelation 0 must be zero for both rows (each is independently satisfied)
-    // Subrelation 1 must not sum to zero across the two rows (log-derivative identity)
-    EXPECT_EQ(acc[0], FF(0));
-    EXPECT_EQ(acc[1], FF(1) / lookup_term0 - FF(2) / table_term1); // read_count=2 causes the mismatch
+    // t1=1, t2=2 matches (table_term1 == lookup_term0) but read_count=2 makes the sum non-zero
+    check_two_row_sum(params, /*t1_row1=*/FF(1), /*t2_row1=*/FF(2), /*read_count=*/FF(2));
 }
 
 // ============================================================================
 // Tests for SettingsCustomizedLookup
 // ============================================================================
 
-class CustomizedLookupTest : public GenericLookupRelationTest<SettingsCustomizedLookup> {};
+class CustomizedLookupTest : public GenericLookupRelationTest<SettingsCustomizedLookup> {
+  public:
+    /**
+     * @brief Build and evaluate a canonical two-row (lookup + table) trace.
+     *
+     * Row 0 is always a lookup row with f=3 (lookup_term = 9).
+     * Row 1 is always a table row with f=5 (dummy, lookup_pred=0).
+     * The t column for row 1 and the read count are the varying parameters.
+     *
+     * The expected subrelation-2 sum is 1/lookup_term0 - read_count/table_term1,
+     * so passing table_t_value=9 (== v^2) with read_count=1 gives 0.
+     */
+    static void check_two_row_sum(const RelationParameters<FF>& params, FF table_t_value, FF read_count)
+    {
+        const FF v = FF(3);
+        const FF v_sq = v * v; // lookup_term0 = 9
+
+        // Row 0: lookup row (fixed)
+        const FF t_row0 = FF(1); // arbitrary table column for row 0 inverse denominator
+        AllEntities row0{};
+        row0[0] = (v_sq * t_row0).invert();
+        row0[2] = FF(1); // lookup predicate
+        row0[4] = v;     // f column → lookup_term = v^2
+        row0[5] = t_row0;
+
+        // Row 1: table row (parametrized t column and read count)
+        const FF f_row1 = FF(5);
+        const FF lookup_term_row1 = f_row1 * f_row1; // 25
+        AllEntities row1{};
+        row1[0] = (lookup_term_row1 * table_t_value).invert();
+        row1[1] = read_count; // read count
+        row1[3] = FF(1);      // table predicate
+        row1[4] = f_row1;
+        row1[5] = table_t_value; // t column → table_term = table_t_value
+
+        Accumulator acc{};
+        Relation::accumulate(acc, row0, params, FF(1));
+        EXPECT_EQ(acc[0], FF(0)); // subrelation 0 satisfied independently per row
+        Relation::accumulate(acc, row1, params, FF(1));
+
+        EXPECT_EQ(acc[0], FF(0));
+        EXPECT_EQ(acc[1], FF(1) / v_sq - read_count / table_t_value);
+    }
+};
 
 /**
  * @brief All-zero row → both subrelations are zero.
@@ -577,55 +522,12 @@ TEST_F(CustomizedLookupTest, ValidTableRow)
 /**
  * @brief Two-row trace with matching lookup/table terms satisfies the log-derivative identity.
  *
- * Row 0 (lookup): f = v  →  lookup_term0 = v^2
- * Row 1 (table):  t = v^2 → table_term1  = v^2  (matches lookup_term0)
- *
- * Subrelation 2 sums to:
- *   +1/lookup_term0  -  read_count/table_term1  =  1/T - 1/T  = 0
+ * table_t_value=9 (=v^2) matches lookup_term0=9, so acc[1] = 1/9 - 1/9 = 0.
  */
 TEST_F(CustomizedLookupTest, ValidTrace)
 {
     const auto params = RelationParameters<FF>::get_random();
-
-    // Choose v such that v^2 != 0
-    const FF v = FF(3);
-    const FF v_sq = v * v; // = 9
-
-    // Row 0: lookup row  (lookup_pred=1, table_pred=0)
-    // lookup_term = v^2
-    // table_term  = t_row0  (arbitrary, since table_pred=0)
-    const FF t_row0 = FF(1);
-    const FF lookup_term0 = v_sq;
-    const FF table_term_row0 = t_row0;
-
-    AllEntities row0{};
-    row0[0] = (lookup_term0 * table_term_row0).invert();
-    row0[2] = FF(1); // lookup predicate
-    row0[4] = v;     // f column → lookup_term = v^2
-    row0[5] = t_row0;
-
-    // Row 1: table row  (lookup_pred=0, table_pred=1, read_count=1)
-    // t = v^2 → table_term1 = v^2 = lookup_term0
-    // f_row1 is arbitrary since lookup_pred=0
-    const FF f_row1 = FF(5);
-    const FF lookup_term_row1 = f_row1 * f_row1;
-    const FF table_term1 = v_sq; // matches lookup_term0
-
-    AllEntities row1{};
-    row1[0] = (lookup_term_row1 * table_term1).invert();
-    row1[1] = FF(1); // read count
-    row1[3] = FF(1); // table predicate
-    row1[4] = f_row1;
-    row1[5] = v_sq; // t column → table_term = v^2
-
-    Accumulator acc{};
-    Relation::accumulate(acc, row0, params, FF(1));
-    EXPECT_EQ(acc[0], FF(0)); // subrelation 0 is satisfied by each row independently
-    Relation::accumulate(acc, row1, params, FF(1));
-
-    // After two rounds of accumulation both subrelations must be satisfied
-    EXPECT_EQ(acc[0], FF(0));
-    EXPECT_EQ(acc[1], FF(0));
+    check_two_row_sum(params, /*table_t_value=*/FF(9), /*read_count=*/FF(1));
 }
 
 /**
@@ -654,99 +556,19 @@ TEST_F(CustomizedLookupTest, IncorrectInverse)
 }
 
 /**
- * @brief Two-row trace with wrong lookup/table terms violates the log-derivative identity.
- *
+ * @brief Table term mismatch: lookup_term0=9, table_t_value=8 → acc[1] = 1/9 - 1/8 ≠ 0.
  */
 TEST_F(CustomizedLookupTest, InvalidLookup)
 {
     const auto params = RelationParameters<FF>::get_random();
-
-    // Choose v such that v^2 != 0
-    const FF v = FF(3);
-    const FF v_sq = v * v; // = 9
-
-    // Row 0: lookup row  (lookup_pred=1, table_pred=0)
-    // lookup_term = v^2
-    // table_term  = t_row0  (arbitrary, since table_pred=0)
-    const FF t_row0 = FF(1);
-    const FF lookup_term0 = v_sq;
-    const FF table_term_row0 = t_row0;
-
-    AllEntities row0{};
-    row0[0] = (lookup_term0 * table_term_row0).invert();
-    row0[2] = FF(1); // lookup predicate
-    row0[4] = v;     // f column → lookup_term = v^2
-    row0[5] = t_row0;
-
-    // Row 1: table row  (lookup_pred=0, table_pred=1, read_count=1)
-    // t = 8 → table_term1 = 8 != lookup_term0
-    // f_row1 is arbitrary since lookup_pred=0
-    const FF f_row1 = FF(5);
-    const FF lookup_term_row1 = f_row1 * f_row1;
-    const FF table_term1 = FF(8); // Different from lookup_term0 = 9
-
-    AllEntities row1{};
-    row1[0] = (lookup_term_row1 * table_term1).invert();
-    row1[1] = FF(1); // read count
-    row1[3] = FF(1); // table predicate
-    row1[4] = f_row1;
-    row1[5] = table_term1; // t column → table_term != v^2
-
-    Accumulator acc{};
-    Relation::accumulate(acc, row0, params, FF(1));
-    EXPECT_EQ(acc[0], FF(0)); // subrelation 0 is satisfied by each row independently
-    Relation::accumulate(acc, row1, params, FF(1));
-
-    // After two rounds of accumulation both subrelations must be satisfied
-    EXPECT_EQ(acc[0], FF(0));
-    EXPECT_EQ(acc[1], FF(1) / lookup_term0 - FF(1) / FF(8)); // read_count=1 causes the mismatch
+    check_two_row_sum(params, /*table_t_value=*/FF(8), /*read_count=*/FF(1));
 }
 
 /**
- * @brief Two-row trace with wrong read count violates the log-derivative identity.
- *
+ * @brief Read count mismatch: table_t_value=9 matches but read_count=2 → acc[1] = 1/9 - 2/9 ≠ 0.
  */
 TEST_F(CustomizedLookupTest, InvalidReadCount)
 {
     const auto params = RelationParameters<FF>::get_random();
-
-    // Choose v such that v^2 != 0
-    const FF v = FF(3);
-    const FF v_sq = v * v; // = 9
-
-    // Row 0: lookup row  (lookup_pred=1, table_pred=0)
-    // lookup_term = v^2
-    // table_term  = t_row0  (arbitrary, since table_pred=0)
-    const FF t_row0 = FF(1);
-    const FF lookup_term0 = v_sq;
-    const FF table_term_row0 = t_row0;
-
-    AllEntities row0{};
-    row0[0] = (lookup_term0 * table_term_row0).invert();
-    row0[2] = FF(1); // lookup predicate
-    row0[4] = v;     // f column → lookup_term = v^2
-    row0[5] = t_row0;
-
-    // Row 1: table row  (lookup_pred=0, table_pred=1, read_count=2)
-    // t = v^2 → table_term1 = v^2 = lookup_term0
-    // f_row1 is arbitrary since lookup_pred=0
-    const FF f_row1 = FF(5);
-    const FF lookup_term_row1 = f_row1 * f_row1;
-    const FF table_term1 = v_sq; // matches lookup_term0
-
-    AllEntities row1{};
-    row1[0] = (lookup_term_row1 * table_term1).invert();
-    row1[1] = FF(2); // read count
-    row1[3] = FF(1); // table predicate
-    row1[4] = f_row1;
-    row1[5] = v_sq; // t column → table_term = v^2
-
-    Accumulator acc{};
-    Relation::accumulate(acc, row0, params, FF(1));
-    EXPECT_EQ(acc[0], FF(0)); // subrelation 0 is satisfied by each row independently
-    Relation::accumulate(acc, row1, params, FF(1));
-
-    // After two rounds of accumulation both subrelations must be satisfied
-    EXPECT_EQ(acc[0], FF(0));
-    EXPECT_EQ(acc[1], FF(1) / lookup_term0 - FF(2) / v_sq); // read_count=2 causes the mismatch
+    check_two_row_sum(params, /*table_t_value=*/FF(9), /*read_count=*/FF(2));
 }
