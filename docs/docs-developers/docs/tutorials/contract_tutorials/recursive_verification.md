@@ -210,24 +210,30 @@ The contract demonstrates several important patterns:
 
 ### Create the Contract Project
 
-Use `aztec init` to generate the contract project structure:
+Use `aztec new` to generate the contract project structure:
 
 ```bash
-aztec init --contract contract
+aztec new contract --name ValueNotEqual
 ```
 
-This creates:
+This creates a workspace with two crates:
 
 ```tree
 contract/
-├── src/
-│   └── main.nr      # Contract code
-└── Nargo.toml       # Contract configuration
+├── Nargo.toml           # Workspace root
+├── contract/
+│   ├── src/
+│   │   └── main.nr      # Contract code
+│   └── Nargo.toml       # Contract configuration
+└── test/
+    ├── src/
+    │   └── lib.nr        # Test code
+    └── Nargo.toml        # Test configuration
 ```
 
 ### Contract Configuration
 
-Update `contract/Nargo.toml` with the required dependencies:
+Update `contract/contract/Nargo.toml` with the required dependencies:
 
 ```toml
 [package]
@@ -240,7 +246,7 @@ aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "#include_az
 bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "barretenberg/noir/bb_proof_verification" }
 ```
 
-**Key differences from the circuit's Nargo.toml**:
+**Key differences from the circuit's Nargo.toml** (in `contract/contract/Nargo.toml`):
 
 - `type = "contract"` (not `"bin"`)
 - Depends on `aztec` for Aztec-specific features
@@ -248,7 +254,7 @@ bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages
 
 ### Contract Structure
 
-Replace the contents of `contract/src/main.nr` with:
+Replace the contents of `contract/contract/src/main.nr` with:
 
 #include_code full_contract /docs/examples/contracts/recursive_verification_contract/src/main.nr rust
 
@@ -380,7 +386,7 @@ Create the following files in your project root directory.
   "name": "recursive-verification-tutorial",
   "type": "module",
   "scripts": {
-    "ccc": "cd contract && aztec compile && aztec codegen target -o artifacts",
+    "ccc": "cd contract && aztec compile && aztec codegen target -o contract/artifacts",
     "data": "tsx scripts/generate_data.ts",
     "recursion": "tsx scripts/run_recursion.ts"
   },
@@ -451,7 +457,7 @@ yarn ccc
 This generates:
 
 - `contract/target/ValueNotEqual.json` - Contract artifact (bytecode, ABI, etc.)
-- `contract/artifacts/ValueNotEqual.ts` - TypeScript class for deploying and interacting with the contract
+- `contract/contract/artifacts/ValueNotEqual.ts` - TypeScript class for deploying and interacting with the contract
 
 ### Proof Generation Script
 
@@ -584,7 +590,7 @@ import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
 import type { FieldLike } from "@aztec/aztec.js/abi";
 import { getSponsoredFPCInstance } from "./sponsored_fpc.ts";
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
-import { ValueNotEqualContract } from "../contract/artifacts/ValueNotEqual";
+import { ValueNotEqualContract } from "../contract/contract/artifacts/ValueNotEqual";
 import data from "../data.json";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
