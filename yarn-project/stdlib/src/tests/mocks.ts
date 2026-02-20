@@ -1,10 +1,11 @@
 import {
-  FIXED_DA_GAS,
-  FIXED_L2_GAS,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_TX_LIFETIME,
+  PRIVATE_TX_L2_GAS_OVERHEAD,
+  PUBLIC_TX_L2_GAS_OVERHEAD,
+  TX_DA_GAS_OVERHEAD,
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
@@ -205,8 +206,11 @@ export async function mockProcessedTx({
   feePayer,
   feePaymentPublicDataWrite,
   // The default gasUsed is the tx overhead.
-  gasUsed = Gas.from({ daGas: FIXED_DA_GAS, l2Gas: FIXED_L2_GAS }),
   privateOnly = false,
+  gasUsed = Gas.from({
+    daGas: TX_DA_GAS_OVERHEAD,
+    l2Gas: privateOnly ? PRIVATE_TX_L2_GAS_OVERHEAD : PUBLIC_TX_L2_GAS_OVERHEAD,
+  }),
   avmAccumulatedData,
   ...mockTxOpts
 }: {

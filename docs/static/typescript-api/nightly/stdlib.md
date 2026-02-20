@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v5.0.0-nightly.20260219
+Version: v5.0.0-nightly.20260220
 
 ## Quick Import Reference
 
@@ -3466,6 +3466,12 @@ type CheckpointId = unknown
 ```typescript
 type ChonkProofData = ProofData<T, typeof CHONK_PROOF_LENGTH>
 ```
+
+### ContractArtifactWithHash
+```typescript
+type ContractArtifactWithHash = ContractArtifact & { artifactHash: Fr }
+```
+Contract artifact including its artifact hash
 
 ### ContractClassIdPreimage
 ```typescript
