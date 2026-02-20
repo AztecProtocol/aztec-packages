@@ -113,6 +113,11 @@ export interface TXESessionStateHandler {
   enterPublicState(contractAddress?: AztecAddress): Promise<void>;
   enterPrivateState(contractAddress?: AztecAddress, anchorBlockNumber?: BlockNumber): Promise<PrivateContextInputs>;
   enterUtilityState(contractAddress?: AztecAddress): Promise<void>;
+  /**
+   * Commits the current job and begins a new one. Returns the new job ID.
+   * TODO(F-335): Drop this?
+   */
+  cycleJob(): Promise<string>;
 }
 
 /**
@@ -254,6 +259,13 @@ export class TXESession implements TXESessionStateHandler {
     }
   }
 
+  /** Commits the current job and begins a new one. Returns the new job ID. */
+  async cycleJob(): Promise<string> {
+    await this.jobCoordinator.commitJob(this.currentJobId);
+    this.currentJobId = this.jobCoordinator.beginJob();
+    return this.currentJobId;
+  }
+
   async enterTopLevelState() {
     switch (this.state.name) {
       case 'PRIVATE': {
@@ -277,8 +289,7 @@ export class TXESession implements TXESessionStateHandler {
     }
 
     // Commit all staged stores from the job that was just completed, then begin a new job
-    await this.jobCoordinator.commitJob(this.currentJobId);
-    this.currentJobId = this.jobCoordinator.beginJob();
+    await this.cycleJob();
 
     this.oracleHandler = new TXEOracleTopLevelContext(
       this.stateMachine,

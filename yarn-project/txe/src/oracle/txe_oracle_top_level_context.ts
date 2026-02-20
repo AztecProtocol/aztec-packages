@@ -172,6 +172,25 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return { txHash: txEffects.txHash, noteHashes: txEffects.noteHashes, nullifiers: txEffects.nullifiers };
   }
 
+  async txeSyncContract(contractAddress: AztecAddress, scope: AztecAddress) {
+    if (contractAddress.equals(DEFAULT_ADDRESS)) {
+      this.logger.debug(`Skipping sync in txeGetPrivateEvents because the events correspond to the default address.`);
+      return;
+    }
+
+    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    await this.stateMachine.contractSyncService.ensureContractSynced(
+      contractAddress,
+      null,
+      async (call, execScopes) => {
+        await this.executeUtilityCall(call, execScopes);
+      },
+      blockHeader,
+      this.jobId,
+      [scope],
+    );
+  }
+
   async txeGetPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress) {
     return (
       await this.privateEventStore.getPrivateEvents(selector, {
