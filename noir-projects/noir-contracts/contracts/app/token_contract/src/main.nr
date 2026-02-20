@@ -28,9 +28,6 @@ pub contract Token {
         protocol::{address::AztecAddress, traits::ToField},
         state_vars::{Map, Owned, PublicImmutable, PublicMutable, StateVariable},
     };
-    // use aztec::event::event_interface::EventInterface;
-    // use aztec::event::EventSelector;
-    // use aztec::protocol::traits::{Deserialize, Serialize};
 
     use uint_note::{PartialUintNote, UintNote};
 
@@ -49,23 +46,10 @@ pub contract Token {
 
     #[event]
     pub struct Transfer {
-        from: AztecAddress,
-        to: AztecAddress,
-        amount: u128,
+        pub from: AztecAddress,
+        pub to: AztecAddress,
+        pub amount: u128,
     }
-
-    // #[derive(Deserialize, Serialize)]
-    // pub struct Transfer {
-    //     from: AztecAddress,
-    //     to: AztecAddress,
-    //     amount: u128,
-    // }
-
-    // impl EventInterface for Transfer {
-    //     fn get_event_type_id() -> EventSelector {
-    //         EventSelector::from_signature("Transfer((Field),(Field),u128)")
-    //     }
-    // }
 
     // docs:start:storage_struct
     #[storage]

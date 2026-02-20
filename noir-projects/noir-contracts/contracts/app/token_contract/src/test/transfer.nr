@@ -2,7 +2,7 @@ use crate::test::utils;
 use crate::Token;
 
 #[test]
-unconstrained fn transfer_private_q() {
+unconstrained fn transfer_private() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient, mint_amount) =
         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
@@ -19,12 +19,7 @@ unconstrained fn transfer_private_q() {
     );
     utils::check_private_balance(env, token_contract_address, recipient, transfer_amount);
 
-    let events = aztec::test::helpers::txe_oracles::get_private_events::<Token::Transfer>(
-        token_contract_address,
-        recipient,
-    );
-
-    std::println(events);
+    utils::check_private_transfer_event(token_contract_address, owner, recipient, transfer_amount);
 }
 
 #[test]
@@ -39,6 +34,8 @@ unconstrained fn transfer_private_to_self() {
 
     // Check balances
     utils::check_private_balance(env, token_contract_address, owner, mint_amount);
+
+    utils::check_private_transfer_event(token_contract_address, owner, owner, transfer_amount);
 }
 
 #[test]
@@ -63,6 +60,13 @@ unconstrained fn transfer_private_to_non_deployed_account() {
         mint_amount - transfer_amount,
     );
     utils::check_private_balance(env, token_contract_address, not_deployed, transfer_amount);
+
+    utils::check_private_transfer_event(
+        token_contract_address,
+        owner,
+        not_deployed,
+        transfer_amount,
+    );
 }
 
 #[test(should_fail_with = "Balance too low")]

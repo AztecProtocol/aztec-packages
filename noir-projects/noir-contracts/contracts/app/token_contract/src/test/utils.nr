@@ -86,6 +86,26 @@ pub unconstrained fn check_private_balance(
     );
 }
 
+pub unconstrained fn check_private_transfer_event(
+    token_contract_address: AztecAddress,
+    from: AztecAddress,
+    to: AztecAddress,
+    amount: u128,
+) {
+    let events = aztec::test::helpers::txe_oracles::get_private_events::<Token::Transfer>(
+        token_contract_address,
+        to,
+    );
+
+    assert_eq(events.len(), 1);
+
+    let event = events.get(0);
+
+    assert_eq(event.from, from);
+    assert_eq(event.to, to);
+    assert_eq(event.amount, amount);
+}
+
 // While authwits authorize a contract to perform an action, spending private notes still requires
 // knowledge of the note secrets. For private tokens, the note owner must be involved in the
 // transaction -- they cannot simply give another user an authwit and have that user spend the notes
