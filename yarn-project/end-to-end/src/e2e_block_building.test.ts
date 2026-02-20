@@ -15,7 +15,9 @@ import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
+import { getAllFunctionAbis } from '@aztec/stdlib/abi';
 import { getProofSubmissionDeadlineEpoch } from '@aztec/stdlib/epoch-helpers';
+import { GasFees } from '@aztec/stdlib/gas';
 import { computeSiloedPrivateLogFirstField } from '@aztec/stdlib/hash';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
@@ -72,7 +74,12 @@ describe('e2e_block_building', () => {
     });
 
     afterEach(async () => {
-      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
+      await aztecNodeAdmin.setConfig({
+        fakeProcessingDelayPerTxMs: 0,
+        minTxsPerBlock: 1,
+        maxTxsPerBlock: undefined, // reset to default
+        enforceTimeTable: false, // reset to false (as it is in setup())
+      });
       // Clean up any mocks
       jest.restoreAllMocks();
     });
@@ -80,28 +87,40 @@ describe('e2e_block_building', () => {
     afterAll(() => teardown());
 
     it('processes txs until hitting timetable', async () => {
-      // We send enough txs so they are spread across multiple blocks, but not
-      // so many so that we don't end up hitting a reorg or timing out the tx wait().
-      const TX_COUNT = 16;
+      const DEADLINE_S = 0.5; // half a second of building per block
+      const DEADLINE_MS = DEADLINE_S * 1000;
+      const MAX_TXS_FIT_IN_DEADLINE = 5; // via deadline and fake delay, we force this maximum to be true
+      const FAKE_DELAY_PER_TX_MS = DEADLINE_MS / MAX_TXS_FIT_IN_DEADLINE; // e.g. 100ms if 5 txs per 0.5s
+
+      // the minimum number of blocks we want to see
+      const EXPECTED_BLOCKS = 3;
+      // choose a tx count should ensure that we use EXPECTED_BLOCKS or more
+      // Note that we don't need to ensure that last block is _full_
+      const TX_COUNT = MAX_TXS_FIT_IN_DEADLINE * (EXPECTED_BLOCKS - 1) + 1;
+
+      // print out the test parameters
+      logger.info(`multi-block timetable test parameters:`);
+      logger.info(`  Deadline per block: ${DEADLINE_MS} ms`);
+      logger.info(`  Fake delay per tx: ${FAKE_DELAY_PER_TX_MS} ms`);
+      logger.info(`  Max txs that should fit in deadline: ${MAX_TXS_FIT_IN_DEADLINE}`);
+      logger.info(`  Total txs to send: ${TX_COUNT}`);
+      logger.info(`  Expected minimum blocks: ${EXPECTED_BLOCKS}`);
 
       const contract = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress });
       logger.info(`Deployed stateful test contract at ${contract.address}`);
 
-      // We add a delay to every public tx processing
-      logger.info(`Updating aztec node config`);
+      // Configure sequencer with a small delay per tx and enforce timetable
       await aztecNodeAdmin.setConfig({
-        fakeProcessingDelayPerTxMs: 300,
+        fakeProcessingDelayPerTxMs: FAKE_DELAY_PER_TX_MS, // ensure that each tx takes at least this long
         minTxsPerBlock: 1,
-        maxTxsPerBlock: TX_COUNT,
+        maxTxsPerBlock: TX_COUNT, // intentionally large because we want to flex deadline, not this max
+        enforceTimeTable: true,
       });
 
-      // We also cheat the sequencer's timetable so it allocates little time to processing.
-      // This will leave the sequencer with just a few seconds to build the block, so it shouldn't
-      // be able to squeeze in more than a few txs in each. This is sensitive to the time it takes
-      // to pick up and validate the txs, so we may need to bump it to work on CI.
+      // Mock the timetable to limit time for block building.
       jest.spyOn(sequencer.sequencer.timetable, 'canStartNextBlock').mockImplementation((secondsIntoSlot: number) => ({
         canStart: true,
-        deadline: secondsIntoSlot + 1, // Give only 1 second for building
+        deadline: secondsIntoSlot + DEADLINE_S, // limit block-building time
         isLastBlock: true,
       }));
 
@@ -118,7 +137,7 @@ describe('e2e_block_building', () => {
       const receipts = await Promise.all(txHashes.map(txHash => waitForTx(aztecNode, txHash)));
       const blockNumbers = receipts.map(r => r.blockNumber!).sort((a, b) => a - b);
       logger.info(`Txs mined on blocks: ${unique(blockNumbers)}`);
-      expect(blockNumbers.at(-1)! - blockNumbers[0]).toBeGreaterThan(1);
+      expect(blockNumbers.at(-1)! - blockNumbers[0]).toBeGreaterThan(EXPECTED_BLOCKS - 1);
     });
 
     it('assembles a block with multiple txs', async () => {
@@ -225,7 +244,8 @@ describe('e2e_block_building', () => {
       logger.info(`Txs sent`);
     });
 
-    it.skip('can call public function from different tx in same block as deployed', async () => {
+    // Uses priority fees to guarantee the deploy tx is ordered before the call tx within the same block.
+    it('can call public function from different tx in same block as deployed', async () => {
       // Ensure both txs will land on the same block
       await aztecNodeAdmin.setConfig({ minTxsPerBlock: 2 });
 
@@ -239,13 +259,29 @@ describe('e2e_block_building', () => {
       const callInteraction = new ContractFunctionInteraction(
         wallet,
         deployerInstance.address,
-        TokenContract.artifact.functions.find(x => x.name === 'set_minter')!,
+        getAllFunctionAbis(TokenContract.artifact).find(x => x.name === 'set_minter')!,
         [minterAddress, true],
       );
 
+      // Use priority fees to guarantee ordering: deploy tx gets higher priority so the
+      // sequencer places it before the call tx in the block.
+      const highPriority = new GasFees(100, 100);
+      const lowPriority = new GasFees(1, 1);
+
+      const deployTxHash = await deployMethod.send({
+        from: ownerAddress,
+        fee: { gasSettings: { maxPriorityFeesPerGas: highPriority } },
+        wait: NO_WAIT,
+      });
+      const callTxHash = await callInteraction.send({
+        from: ownerAddress,
+        fee: { gasSettings: { maxPriorityFeesPerGas: lowPriority } },
+        wait: NO_WAIT,
+      });
+
       const [deployTxReceipt, callTxReceipt] = await Promise.all([
-        deployMethod.send({ from: ownerAddress, wait: { returnReceipt: true } }),
-        callInteraction.send({ from: ownerAddress }),
+        waitForTx(aztecNode, deployTxHash),
+        waitForTx(aztecNode, callTxHash),
       ]);
 
       expect(deployTxReceipt.blockNumber).toEqual(callTxReceipt.blockNumber);
