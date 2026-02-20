@@ -1,4 +1,4 @@
-# Accepts a release dispatch from a private fork.
+# Accepts a release dispatch from the private fork.
 # Checks out the fork's code and runs the standard release pipeline
 # using this (public) repo's secrets and publishing identity.
 # The tag is pushed here with [skip ci] to avoid triggering the normal ci3.yml release.
@@ -13,7 +13,7 @@ on:
         description: "Commit SHA from the source repo"
         required: true
       source_repo:
-        description: "Source repository to clone"
+        description: "Source repository (must be AztecProtocol/aztec-packages-private)"
         required: true
 
 jobs:
@@ -21,10 +21,17 @@ jobs:
     runs-on: ubuntu-latest
     environment: master
     steps:
+      - name: Validate source repo
+        run: |
+          if [[ "${{ inputs.source_repo }}" != "AztecProtocol/aztec-packages-private" ]]; then
+            echo "::error::source_repo must be AztecProtocol/aztec-packages-private, got '${{ inputs.source_repo }}'"
+            exit 1
+          fi
+
       - name: Checkout source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          repository: ${{ inputs.source_repo }}
+          repository: AztecProtocol/aztec-packages-private
           ref: ${{ inputs.commit }}
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           fetch-depth: 1
@@ -47,7 +54,7 @@ jobs:
           RELEASE_ALL: "1"
           REF_NAME: ${{ inputs.tag }}
           RUN_ID: ${{ github.run_id }}
-          SOURCE_REPOSITORY: ${{ inputs.source_repo }}
+          SOURCE_REPOSITORY: AztecProtocol/aztec-packages-private
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
