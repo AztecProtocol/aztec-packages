@@ -138,7 +138,6 @@ export async function createArchiver(
     debugClient,
     rollup,
     inbox,
-    { ...config.l1Contracts, slashingProposerAddress },
     archiverStore,
     archiverConfig,
     deps.blobClient,
