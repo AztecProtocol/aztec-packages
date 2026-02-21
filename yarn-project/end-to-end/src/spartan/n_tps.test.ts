@@ -384,7 +384,7 @@ describe('sustained N TPS test', () => {
       const tx = await (config.REAL_VERIFIER ? submitProven(wallet, fee) : submitUnproven(wallet, fee));
       const t1 = performance.now();
 
-      metrics.recordSentTx(tx, `high_value_${highValueTps}tps`);
+      metrics.recordSentTx(tx, 'tx_inclusion_time');
 
       const txHash = await tx.send({ wait: NO_WAIT });
       const t2 = performance.now();
@@ -461,8 +461,8 @@ describe('sustained N TPS test', () => {
         logger.warn(`Failed transaction ${idx + 1}: ${result.error}`);
       });
 
-    const highValueGroup = `high_value_${highValueTps}tps`;
-    const inclusionStats = metrics.inclusionTimeInSeconds(highValueGroup);
+    const txInclusionGroup = 'tx_inclusion_time';
+    const inclusionStats = metrics.inclusionTimeInSeconds(txInclusionGroup);
     logger.info(`Transaction inclusion summary: ${successCount} succeeded, ${failureCount} failed`);
     logger.info('Inclusion time stats', inclusionStats);
   });
