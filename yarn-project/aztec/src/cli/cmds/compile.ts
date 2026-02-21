@@ -79,7 +79,7 @@ async function getContractPackageNames(): Promise<Set<string>> {
 }
 
 /** Checks that no tests exist in contract crates and fails with a helpful message if they do. */
-async function checkNoTestsInContracts(nargo: string): Promise<void> {
+async function checkNoTestsInContracts(nargo: string, log: LogFn): Promise<void> {
   const contractPackages = await getContractPackageNames();
   if (contractPackages.size === 0) {
     return;
@@ -126,10 +126,10 @@ async function checkNoTestsInContracts(nargo: string): Promise<void> {
 
   if (testsInContracts.length > 0) {
     const details = testsInContracts.map(t => `  ${t.packageName}::${t.testName}`).join('\n');
-    throw new Error(
-      `Found tests in contract crate(s):\n${details}\n\n` +
+    log(
+      `WARNING: Found tests in contract crate(s):\n${details}\n\n` +
         `Tests should be in a dedicated test crate, not in the contract crate.\n` +
-        `Move these tests to your test crate (e.g. the "test" member of your workspace).`,
+        `Learn more: https://docs.aztec.network/errors/1`,
     );
   }
 }
@@ -142,7 +142,7 @@ async function compileAztecContract(nargoArgs: string[], log: LogFn): Promise<vo
   await run(nargo, ['compile', ...nargoArgs]);
 
   // Ensure contract crates contain no tests (tests belong in the test crate).
-  await checkNoTestsInContracts(nargo);
+  await checkNoTestsInContracts(nargo, log);
 
   const artifacts = await collectContractArtifacts();
 

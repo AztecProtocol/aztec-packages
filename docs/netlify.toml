@@ -759,7 +759,11 @@
 # Add new error codes sequentially (1, 2, 3, ...).
 # =============================================================================
 
+[[redirects]]
+    from = "/errors/1"
+    to = "/developers/docs/aztec-nr/testing_contracts#keep-tests-in-the-test-crate"
+
 # Example (uncomment and modify when adding error codes):
 # [[redirects]]
-#     from = "/errors/1"
+#     from = "/errors/2"
 #     to = "/developers/docs/aztec-nr/framework-description/functions/how_to_define_functions"
