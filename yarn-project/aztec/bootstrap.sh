@@ -9,9 +9,9 @@ export PROFILER_PATH=${PROFILER_PATH:-$repo_root/noir/noir-repo/target/release/n
 hash=$(../bootstrap.sh hash)
 
 function test_cmds {
-  for test in src/cli/**/*.test.ts; do
-    echo "$hash:ISOLATE=1:NAME=aztec/$test NARGO=$NARGO BB=$BB PROFILER_PATH=$PROFILER_PATH yarn-project/scripts/run_test.sh aztec/$test"
-  done
+  # All CLI tests share test/mixed-workspace/target so they must run sequentially
+  # in a single jest invocation (--runInBand is set by run_test.sh).
+  echo "$hash:ISOLATE=1:NAME=aztec/cli NARGO=$NARGO BB=$BB PROFILER_PATH=$PROFILER_PATH yarn-project/scripts/run_test.sh aztec/src/cli"
 }
 
 case "$cmd" in
