@@ -1,7 +1,6 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import { InboxContract, RollupContract } from '@aztec/ethereum/contracts';
-import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { L1BlockId } from '@aztec/ethereum/l1-types';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { maxBigint } from '@aztec/foundation/bigint';
@@ -9,7 +8,6 @@ import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/br
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
@@ -61,10 +59,6 @@ export class ArchiverL1Synchronizer implements Traceable {
     private readonly debugClient: ViemPublicDebugClient,
     private readonly rollup: RollupContract,
     private readonly inbox: InboxContract,
-    private readonly l1Addresses: Pick<
-      L1ContractAddresses,
-      'registryAddress' | 'governanceProposerAddress' | 'slashFactoryAddress'
-    > & { slashingProposerAddress: EthAddress },
     private readonly store: KVArchiverDataStore,
     private config: {
       batchSize: number;
@@ -708,7 +702,6 @@ export class ArchiverL1Synchronizer implements Traceable {
           this.blobClient,
           searchStartBlock, // TODO(palla/reorg): If the L2 reorg was due to an L1 reorg, we need to start search earlier
           searchEndBlock,
-          this.l1Addresses,
           this.instrumentation,
           this.log,
           !initialSyncComplete, // isHistoricalSync
@@ -801,6 +794,14 @@ export class ArchiverL1Synchronizer implements Traceable {
             blocks: published.checkpoint.blocks.map(b => b.getStats()),
           },
         );
+      }
+
+      for (const published of validCheckpoints) {
+        this.instrumentation.processCheckpointL1Timing({
+          slotNumber: published.checkpoint.header.slotNumber,
+          l1Timestamp: published.l1.timestamp,
+          l1Constants: this.l1Constants,
+        });
       }
 
       try {

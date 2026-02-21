@@ -350,6 +350,13 @@ export const ARCHIVER_BLOCK_PROPOSAL_TX_TARGET_COUNT: MetricDefinition = {
   valueType: ValueType.INT,
 };
 
+export const ARCHIVER_CHECKPOINT_L1_INCLUSION_DELAY: MetricDefinition = {
+  name: 'aztec.archiver.checkpoint_l1_inclusion_delay',
+  description: 'Seconds into the L2 slot when the checkpoint L1 tx was included',
+  unit: 's',
+  valueType: ValueType.INT,
+};
+
 export const NODE_RECEIVE_TX_DURATION: MetricDefinition = {
   name: 'aztec.node.receive_tx.duration',
   description: 'The duration of the receiveTx method',
