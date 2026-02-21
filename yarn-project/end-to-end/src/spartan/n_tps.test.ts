@@ -90,7 +90,7 @@ const mempoolTxMinedDelayQuery = (perc: string) =>
 const mempoolAttestationMinedDelayQuery = (perc: string) =>
   `histogram_quantile(${perc}, sum(rate(aztec_mempool_attestations_mined_delay_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[1m])) by (le))`;
 
-const peerCountQuery = () => `avg(aztec_peer_manager_peer_count{k8s_namespace_name="${config.NAMESPACE}"})`;
+const peerCountQuery = () => `avg(aztec_peer_manager_peer_count_peers{k8s_namespace_name="${config.NAMESPACE}"})`;
 
 const peerConnectionDurationQuery = (perc: string, windowSeconds: number) =>
   `histogram_quantile(${perc}, sum(rate(aztec_peer_manager_peer_connection_duration_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[${windowSeconds}s])) by (le))`;
