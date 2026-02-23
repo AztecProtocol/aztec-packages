@@ -242,19 +242,6 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
 
     size_t size() const { return std::get<0>(this->wires).size(); }
 
-    void reserve(size_t size_hint)
-    {
-        for (auto& w : wires) {
-            w.reserve(size_hint);
-        }
-        for (auto& p : get_selectors()) {
-            p.reserve(size_hint);
-        }
-#ifdef CHECK_CIRCUIT_STACKTRACES
-        stack_traces.stack_traces.reserve(size_hint);
-#endif
-    }
-
 #ifdef TRACY_HACK_GATES_AS_MEMORY
     ~ExecutionTraceBlock()
     {
