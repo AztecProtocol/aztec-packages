@@ -11,57 +11,33 @@
     .nav { margin: 8px 0 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .nav a { color: #58a6ff; font-size: 13px; }
     .nav a.active { color: #fff; border-bottom: 1px solid #58a6ff; }
-    .sep { color: #333; }
+    .sep { color: #30363d; }
     h2 { margin: 0 0 10px; color: #f0f6fc; font-size: 16px; font-weight: normal; }
 
-    /* Controls */
-    .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
-    .controls input, .controls select {
+    .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+    .controls select, .controls input {
       background: #161b22; border: 1px solid #30363d; color: #e6edf3;
       font-family: monospace; font-size: 13px; padding: 5px 10px;
     }
     .controls input:focus, .controls select:focus { outline: none; border-color: #58a6ff; }
-    .controls input#search { width: 240px; }
+    .controls input#search { width: 220px; }
     .type-btn {
       background: #161b22; border: 1px solid #30363d; color: #8b949e;
       font-family: monospace; font-size: 12px; padding: 4px 10px; cursor: pointer;
     }
     .type-btn:hover { color: #e6edf3; border-color: #58a6ff; }
-    .type-btn.active { color: #fff; }
-    .type-btn[data-t="feat"].active  { border-color: #58a6ff; color: #58a6ff; }
-    .type-btn[data-t="fix"].active   { border-color: #3fb950; color: #3fb950; }
-    .type-btn[data-t="chore"].active { border-color: #8b949e; color: #8b949e; }
-    .type-btn[data-t="refactor"].active { border-color: #d2a8ff; color: #d2a8ff; }
-    .type-btn[data-t="perf"].active  { border-color: #f0883e; color: #f0883e; }
-    .type-btn[data-t="docs"].active  { border-color: #e3b341; color: #e3b341; }
-    .type-btn[data-t="other"].active { border-color: #666; color: #ccc; }
+    .type-btn[data-t="feat"].active    { border-color: #58a6ff; color: #58a6ff; }
+    .type-btn[data-t="fix"].active     { border-color: #3fb950; color: #3fb950; }
+    .type-btn[data-t="chore"].active   { border-color: #8b949e; color: #8b949e; }
+    .type-btn[data-t="refactor"].active{ border-color: #d2a8ff; color: #d2a8ff; }
+    .type-btn[data-t="perf"].active    { border-color: #f0883e; color: #f0883e; }
+    .type-btn[data-t="docs"].active    { border-color: #e3b341; color: #e3b341; }
+    .type-btn[data-t="other"].active   { border-color: #666;    color: #ccc; }
 
-    /* Path filter row */
-    .path-controls { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
-    .path-label { color: #7d8590; font-size: 12px; margin-right: 2px; }
-    .path-btn {
-      background: #161b22; border: 1px solid #30363d; color: #8b949e;
-      font-family: monospace; font-size: 11px; padding: 3px 8px; cursor: pointer;
-    }
-    .path-btn:hover { color: #e6edf3; border-color: #58a6ff; }
-    .path-btn.active { border-color: #58a6ff; color: #58a6ff; }
-    .path-sep { color: #333; margin: 0 2px; }
-    .yp-subs { display: none; gap: 4px; align-items: center; flex-wrap: wrap; margin-left: 4px; padding-left: 8px; border-left: 1px solid #21262d; }
-    .yp-subs.visible { display: flex; }
-    .yp-sub-btn {
-      background: #0d1117; border: 1px solid #21262d; color: #7d8590;
-      font-family: monospace; font-size: 10px; padding: 2px 6px; cursor: pointer;
-    }
-    .yp-sub-btn:hover { color: #e6edf3; border-color: #58a6ff; }
-    .yp-sub-btn.active { border-color: #58a6ff; color: #58a6ff; }
-
-    /* Date group headers */
     .day-header {
       color: #8b949e; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
       padding: 10px 0 4px; border-bottom: 1px solid #21262d; margin-bottom: 2px;
     }
-
-    /* Commit rows */
     .commit-row {
       display: grid;
       grid-template-columns: 7ch 1fr auto;
@@ -72,15 +48,17 @@
     }
     .commit-row:hover { background: #161b22; }
 
-    .sha-col { color: #8b949e; font-size: 12px; flex-shrink: 0; }
+    .sha-col { color: #8b949e; font-size: 12px; }
     .sha-col a { color: #8b949e; }
     .sha-col a:hover { color: #e6edf3; }
 
     .msg-col { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .msg-col > a { color: #e6edf3; text-decoration: none; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .msg-col > a:hover { color: #fff; text-decoration: none; }
-    .msg-col > a:hover .scope, .msg-col > a:hover .pr-link { opacity: 0.8; }
-    .type-tag { font-weight: bold; margin-right: 1px; }
+    .msg-col > a {
+      color: #e6edf3; display: block; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; text-decoration: none;
+    }
+    .msg-col > a:hover { color: #fff; }
+    .type-tag { font-weight: bold; }
     .type-feat    { color: #58a6ff; }
     .type-fix     { color: #3fb950; }
     .type-chore   { color: #8b949e; }
@@ -94,29 +72,42 @@
     .type-revert  { color: #f85149; }
     .scope        { color: #8b949e; }
     .breaking-bang{ color: #f85149; font-weight: bold; }
-    .merge-tag    { background: #21262d; color: #8b949e; font-size: 10px;
-                    padding: 1px 5px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+    .merge-tag    {
+      background: #21262d; color: #8b949e; font-size: 10px;
+      padding: 1px 5px; border-radius: 3px; margin-right: 6px; vertical-align: middle;
+    }
+    .meta-col {
+      color: #8b949e; font-size: 12px; white-space: nowrap;
+      display: flex; align-items: center; gap: 6px; justify-content: flex-end;
+    }
+    .meta-col a { color: #8b949e; }
+    .meta-col a:hover { color: #e6edf3; }
+    .gh-icon { color: #484f58; display: inline-flex; align-items: center; }
+    .gh-icon:hover { color: #58a6ff; }
+    .gh-icon svg { fill: currentColor; vertical-align: middle; }
 
-    .meta-col { color: #8b949e; font-size: 12px; white-space: nowrap; text-align: right; display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
-    .meta-author a { color: #8b949e; }
-    .meta-author a:hover { color: #e6edf3; }
-    .gh-pr-link { color: #484f58; display: inline-flex; align-items: center; flex-shrink: 0; }
-    .gh-pr-link:hover { color: #58a6ff; }
-    .gh-pr-link svg { fill: currentColor; vertical-align: middle; }
+    .pagination {
+      display: flex; align-items: center; gap: 12px; margin-top: 14px;
+      color: #8b949e; font-size: 12px;
+    }
+    .pagination button {
+      background: #161b22; border: 1px solid #30363d; color: #e6edf3;
+      font-family: monospace; font-size: 12px; padding: 4px 12px; cursor: pointer;
+    }
+    .pagination button:hover:not(:disabled) { border-color: #58a6ff; color: #58a6ff; }
+    .pagination button:disabled { color: #484f58; cursor: default; border-color: #21262d; }
 
-    .empty { color: #8b949e; padding: 20px 0; }
-    .loading { color: #8b949e; padding: 12px 0; }
-    .loading-more { color: #8b949e; font-size: 12px; padding: 8px 0; text-align: center; }
-    #sentinel { height: 20px; }
+    .empty  { color: #8b949e; padding: 20px 0; }
+    .loading{ color: #8b949e; padding: 12px 0; }
   </style>
 </head>
 <body>
   <div class="nav">
     <a href="/">&lt; CI</a> <span class="sep">|</span>
-    <a href="/cost-overview">cost overview</a>
-    <a href="/namespace-billing">namespace billing</a>
-    <a href="/ci-insights">ci insights</a>
-    <a href="/flake-prs">flake prs</a>
+    <a href="/cost-overview">cost overview</a> <span class="sep">|</span>
+    <a href="/namespace-billing">namespace billing</a> <span class="sep">|</span>
+    <a href="/ci-insights">ci insights</a> <span class="sep">|</span>
+    <a href="/flake-prs">flake prs</a> <span class="sep">|</span>
     <a href="/commits" class="active">commits</a>
   </div>
 
@@ -129,45 +120,34 @@
       <option value="staging-public">staging-public</option>
     </select>
     <input id="search" type="text" placeholder="filter…" oninput="applyFilter()" />
-    <button class="type-btn" data-t="feat"    onclick="toggleType('feat')">feat</button>
-    <button class="type-btn" data-t="fix"     onclick="toggleType('fix')">fix</button>
-    <button class="type-btn" data-t="chore"   onclick="toggleType('chore')">chore</button>
-    <button class="type-btn" data-t="refactor"onclick="toggleType('refactor')">refactor</button>
-    <button class="type-btn" data-t="perf"    onclick="toggleType('perf')">perf</button>
-    <button class="type-btn" data-t="docs"    onclick="toggleType('docs')">docs</button>
-    <button class="type-btn" data-t="other"   onclick="toggleType('other')">other</button>
-    <button class="type-btn" onclick="clearFilters()" style="margin-left:6px">clear</button>
-  </div>
-
-  <div class="path-controls">
-    <span class="path-label">path:</span>
-    <button class="path-btn" data-p="barretenberg"  onclick="togglePath('barretenberg')">bb</button>
-    <button class="path-btn" data-p="avm2"          onclick="togglePath('avm2')">avm</button>
-    <button class="path-btn" data-p="yarn-project"  onclick="togglePath('yarn-project')" id="yp-path-btn">yp</button>
-    <button class="path-btn" data-p="noir-projects" onclick="togglePath('noir-projects')">np</button>
-    <button class="path-btn" data-p="l1-contracts"  onclick="togglePath('l1-contracts')">sol</button>
-    <div class="yp-subs" id="yp-subs">
-      <!-- populated dynamically from commit dirs/scopes -->
-    </div>
+    <button class="type-btn" data-t="feat"     onclick="toggleType('feat')">feat</button>
+    <button class="type-btn" data-t="fix"      onclick="toggleType('fix')">fix</button>
+    <button class="type-btn" data-t="chore"    onclick="toggleType('chore')">chore</button>
+    <button class="type-btn" data-t="refactor" onclick="toggleType('refactor')">refactor</button>
+    <button class="type-btn" data-t="perf"     onclick="toggleType('perf')">perf</button>
+    <button class="type-btn" data-t="docs"     onclick="toggleType('docs')">docs</button>
+    <button class="type-btn" data-t="other"    onclick="toggleType('other')">other</button>
+    <button class="type-btn" onclick="clearFilters()" style="margin-left:4px;color:#484f58">clear</button>
   </div>
 
   <div id="list" class="loading">Loading…</div>
-  <div id="sentinel"></div>
-  <div id="loading-more" class="loading-more" style="display:none">Loading more…</div>
+
+  <div class="pagination">
+    <button id="prev-btn" onclick="goPage(currentPage - 1)" disabled>← prev</button>
+    <span id="page-info">—</span>
+    <button id="next-btn" onclick="goPage(currentPage + 1)" disabled>next →</button>
+  </div>
 
 <script>
   const REPO = 'AztecProtocol/aztec-packages';
-  const BASE_URL = `https://github.com/${REPO}`;
-  const PAGE_SIZE = 50;
+  const BASE  = `https://github.com/${REPO}`;
 
-  let allCommits = [];
-  let activeTypes = new Set();
-  let activePaths = new Set();  // top-level paths like 'barretenberg', 'yarn-project'
-  let activeYPSubs = new Set(); // yarn-project sub-paths like 'yarn-project/pxe'
+  let allCommits  = [];   // page's commits (before filter)
+  let currentPage = 1;
+  let totalPages  = 1;
+  let totalCommits= 0;
   let currentBranch = 'next';
-  let currentPage = 0;
-  let loadingMore = false;
-  let noMoreData = false;
+  let activeTypes = new Set();
 
   const TYPE_CLASS = {
     feat:'type-feat', fix:'type-fix', chore:'type-chore', refactor:'type-refactor',
@@ -175,91 +155,51 @@
     build:'type-build', style:'type-style', revert:'type-revert',
   };
 
-  // Scope → path heuristic when dirs not available
-  const SCOPE_PATH_MAP = {
-    'barretenberg': 'barretenberg', 'bb': 'barretenberg',
-    'yarn-project': 'yarn-project', 'yp': 'yarn-project',
-    'pxe': 'yarn-project', 'sequencer': 'yarn-project', 'sequencer-client': 'yarn-project',
-    'archiver': 'yarn-project', 'node': 'yarn-project', 'aztec.js': 'yarn-project',
-    'aztec-js': 'yarn-project', 'foundation': 'yarn-project', 'ethereum': 'yarn-project',
-    'circuits': 'yarn-project', 'circuits.js': 'yarn-project', 'simulator': 'yarn-project',
-    'prover': 'yarn-project', 'prover-client': 'yarn-project', 'cli': 'yarn-project',
-    'bb.js': 'yarn-project', 'merkle-tree': 'yarn-project', 'telemetry': 'yarn-project',
-    'key-store': 'yarn-project', 'tx-pool': 'yarn-project', 'world-state': 'yarn-project',
-    'noir': 'noir-projects', 'nargo': 'noir-projects', 'noir-projects': 'noir-projects', 'np': 'noir-projects',
-    'l1-contracts': 'l1-contracts', 'contracts': 'l1-contracts', 'sol': 'l1-contracts',
-    'avm': 'avm2', 'avm2': 'avm2',
-  };
-
-  // YP sub-scope to sub-path
-  const YP_SCOPE_SUB_MAP = {
-    'pxe': 'yarn-project/pxe',
-    'sequencer': 'yarn-project/sequencer-client',
-    'sequencer-client': 'yarn-project/sequencer-client',
-    'archiver': 'yarn-project/archiver',
-    'node': 'yarn-project/node',
-    'aztec.js': 'yarn-project/aztec.js',
-    'foundation': 'yarn-project/foundation',
-    'ethereum': 'yarn-project/ethereum',
-    'circuits': 'yarn-project/circuits.js',
-    'circuits.js': 'yarn-project/circuits.js',
-    'simulator': 'yarn-project/simulator',
-    'prover-client': 'yarn-project/prover-client',
-    'cli': 'yarn-project/cli',
-    'bb.js': 'yarn-project/bb.js',
-    'merkle-tree': 'yarn-project/merkle-tree',
-    'telemetry': 'yarn-project/telemetry-client',
-    'key-store': 'yarn-project/key-store',
-    'tx-pool': 'yarn-project/tx-pool',
-    'world-state': 'yarn-project/world-state',
-    'stdlib': 'yarn-project/stdlib',
-  };
-
-  function fmtDate(iso) {
-    if (!iso) return '';
-    const d = new Date(iso);
-    if (isNaN(d)) return iso.slice(0, 10);
-    return d.toISOString().slice(0, 10);
+  function ghIcon() {
+    return `<svg aria-hidden="true" height="14" viewBox="0 0 16 16" width="14"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>`;
   }
 
-  function dayKey(iso) { return fmtDate(iso); }
+  function esc(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
 
   function relTime(iso) {
     if (!iso) return '';
     const diff = Date.now() - new Date(iso);
     const m = Math.floor(diff / 60000);
-    if (m < 1)  return 'just now';
-    if (m < 60) return m + 'm ago';
+    if (m < 1)  return 'now';
+    if (m < 60) return m + 'm';
     const h = Math.floor(m / 60);
-    if (h < 24) return h + 'h ago';
-    const dd = Math.floor(h / 24);
-    if (dd < 30) return dd + 'd ago';
-    return fmtDate(iso);
+    if (h < 24) return h + 'h';
+    return Math.floor(h / 24) + 'd';
   }
 
-  function ghIcon() {
-    return `<svg aria-hidden="true" height="14" viewBox="0 0 16 16" width="14"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>`;
+  function dayKey(iso) {
+    return iso ? iso.slice(0, 10) : '';
+  }
+
+  function abbrev(s) {
+    return s === 'barretenberg' ? 'bb' : s.length > 16 ? s.slice(0,14)+'…' : s;
   }
 
   function renderCommit(c) {
-    const sha7      = c.sha.slice(0, 7);
-    const ghCommit  = `${BASE_URL}/commit/${c.sha}`;
-    const ghPR      = c.pr ? `${BASE_URL}/pull/${c.pr}` : '';
-    const ghAuthor  = c.author
-      ? `${BASE_URL}/pulls?q=is:pr+author:${encodeURIComponent(c.author)}+sort:updated-desc`
+    const sha7     = c.sha.slice(0, 7);
+    const ghCommit = `${BASE}/commit/${c.sha}`;
+    const ghPR     = c.pr ? `${BASE}/pull/${c.pr}` : '';
+    const ghAuthor = c.author
+      ? `${BASE}/pulls?q=is:pr+author:${encodeURIComponent(c.author)}+sort:updated-desc`
       : '';
 
-    const typeMatch = c.subject.match(/^(fix|feat|chore|refactor|docs|style|test|perf|ci|build|revert)(\([^)]+\))?(!)?: (.*)/);
+    const tm = c.subject.match(/^(fix|feat|chore|refactor|docs|style|test|perf|ci|build|revert)(\([^)]+\))?(!)?: (.*)/);
     let msgHtml;
-    if (typeMatch) {
-      const typeStr  = typeMatch[1];
-      const scope    = typeMatch[2] || '';
-      const bang     = typeMatch[3] || '';
-      const rest     = typeMatch[4];
-      const cls      = TYPE_CLASS[typeStr] || '';
-      msgHtml = `<span class="type-tag ${cls}">${typeStr}</span>` +
-        (scope ? `<span class="scope">${scope}</span>` : '') +
-        (bang  ? `<span class="breaking-bang">!</span>` : '') +
+    if (tm) {
+      const cls  = TYPE_CLASS[tm[1]] || '';
+      const sc   = tm[2] || '';
+      const bang = tm[3] || '';
+      const rest = tm[4];
+      msgHtml = `<span class="type-tag ${cls}">${tm[1]}</span>` +
+        (sc   ? `<span class="scope">${sc}</span>` : '') +
+        (bang ? `<span class="breaking-bang">!</span>` : '') +
         `<span class="scope">: </span>${esc(rest)}`;
     } else {
       msgHtml = esc(c.subject);
@@ -270,96 +210,28 @@
       : (c.is_merge ? `<span class="merge-tag">merge</span>` : '');
 
     const prIcon = c.pr
-      ? `<a href="${ghPR}" target="_blank" class="gh-pr-link" title="PR #${c.pr}">${ghIcon()}</a>`
+      ? `<a href="${ghPR}" target="_blank" class="gh-icon" title="PR #${c.pr}">${ghIcon()}</a>`
       : '';
 
     const authorHtml = c.author
       ? `<a href="${ghAuthor}" target="_blank">${esc(c.author)}</a>`
       : esc(c.author || '');
 
-    return `<div class="commit-row" data-type="${c.type}" data-scope="${esc(c.scope||'')}" data-dirs="${(c.dirs||[]).join(',')}" data-subject="${esc(c.subject).toLowerCase()}" data-author="${(c.author||'').toLowerCase()}">
+    return `<div class="commit-row">
       <span class="sha-col"><a href="${ghCommit}" target="_blank">${sha7}</a></span>
       <span class="msg-col"><a href="${ghCommit}" target="_blank">${mergeTag}${msgHtml}</a></span>
-      <span class="meta-col"><span class="meta-author">${authorHtml}</span><span>· ${relTime(c.date)}</span>${prIcon}</span>
+      <span class="meta-col"><span>${authorHtml}</span><span>· ${relTime(c.date)}</span>${prIcon}</span>
     </div>`;
-  }
-
-  function esc(s) {
-    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-
-  function abbrev(s) {
-    return s === 'barretenberg' ? 'bb' : s.length > 16 ? s.slice(0, 14) + '…' : s;
-  }
-
-  function commitMatchesPath(c, pathSet, ypSubSet) {
-    if (pathSet.size === 0 && ypSubSet.size === 0) return true;
-
-    // Get effective paths: dirs (from Redis-cached PR files) or scope heuristic
-    const effectivePaths = new Set();
-
-    if (c.dirs && c.dirs.length > 0) {
-      c.dirs.forEach(d => effectivePaths.add(d));
-    } else {
-      // Scope heuristic fallback
-      const scope = (c.scope || '').toLowerCase();
-      if (scope && SCOPE_PATH_MAP[scope]) {
-        effectivePaths.add(SCOPE_PATH_MAP[scope]);
-        // Also check YP sub-scope
-        if (YP_SCOPE_SUB_MAP[scope]) effectivePaths.add(YP_SCOPE_SUB_MAP[scope]);
-      }
-    }
-
-    // Check top-level path filter
-    if (pathSet.size > 0) {
-      let topMatch = false;
-      for (const p of pathSet) {
-        if (effectivePaths.has(p)) { topMatch = true; break; }
-      }
-      if (!topMatch) return false;
-    }
-
-    // Check YP sub-path filter
-    if (ypSubSet.size > 0) {
-      let subMatch = false;
-      for (const sp of ypSubSet) {
-        if (effectivePaths.has(sp)) { subMatch = true; break; }
-      }
-      if (!subMatch) return false;
-    }
-
-    return true;
-  }
-
-  function renderList(commits) {
-    const container = document.getElementById('list');
-    if (!commits.length) {
-      container.innerHTML = '<div class="empty">No matching commits.</div>';
-      return;
-    }
-
-    // Group by day
-    const groups = {};
-    const keys = [];
-    commits.forEach(c => {
-      const k = dayKey(c.date);
-      if (!groups[k]) { groups[k] = []; keys.push(k); }
-      groups[k].push(c);
-    });
-
-    container.innerHTML = keys.map(k =>
-      `<div class="day-header">${k} — ${groups[k].length} commits</div>` +
-      groups[k].map(renderCommit).join('')
-    ).join('');
   }
 
   function applyFilter() {
     const q = document.getElementById('search').value.trim().toLowerCase();
+    const knownTypes = new Set(['feat','fix','chore','refactor','perf','docs','test','ci','build','style','revert']);
+
     let rows = allCommits.filter(c => c.pr);
 
     if (activeTypes.size > 0) {
       const wantOther = activeTypes.has('other');
-      const knownTypes = new Set(['feat','fix','chore','refactor','perf','docs','test','ci','build','style','revert']);
       rows = rows.filter(c => {
         if (activeTypes.has(c.type)) return true;
         if (wantOther && !knownTypes.has(c.type)) return true;
@@ -367,139 +239,93 @@
       });
     }
 
-    if (activePaths.size > 0 || activeYPSubs.size > 0) {
-      rows = rows.filter(c => commitMatchesPath(c, activePaths, activeYPSubs));
-    }
-
     if (q) {
       rows = rows.filter(c =>
         c.subject.toLowerCase().includes(q) ||
-        (c.author || '').toLowerCase().includes(q) ||
+        (c.author||'').toLowerCase().includes(q) ||
         (c.pr ? String(c.pr).includes(q) : false) ||
         c.sha.startsWith(q)
       );
     }
 
     renderList(rows);
-    updateYPSubs();
   }
 
-  function updateYPSubs() {
-    // Collect YP sub-paths from all loaded commits
-    const subs = new Map(); // subPath -> display label
-    allCommits.forEach(c => {
-      if (!c.pr) return;
-      if (c.dirs && c.dirs.length > 0) {
-        c.dirs.forEach(d => {
-          if (d.startsWith('yarn-project/')) {
-            const sub = d.split('/')[1];
-            if (sub) subs.set(`yarn-project/${sub}`, sub);
-          }
-        });
-      } else if (c.scope) {
-        const scope = c.scope.toLowerCase();
-        if (YP_SCOPE_SUB_MAP[scope]) {
-          const full = YP_SCOPE_SUB_MAP[scope];
-          const label = full.split('/')[1];
-          subs.set(full, label);
-        }
-      }
+  function renderList(commits) {
+    const el = document.getElementById('list');
+    if (!commits.length) {
+      el.innerHTML = '<div class="empty">No matching commits.</div>';
+      return;
+    }
+    const groups = {};
+    const keys = [];
+    commits.forEach(c => {
+      const k = dayKey(c.date);
+      if (!groups[k]) { groups[k] = []; keys.push(k); }
+      groups[k].push(c);
     });
-
-    const container = document.getElementById('yp-subs');
-    const isYPActive = activePaths.has('yarn-project');
-    container.classList.toggle('visible', isYPActive);
-
-    if (!isYPActive) return;
-
-    const sorted = [...subs.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-    container.innerHTML = sorted.map(([path, label]) => {
-      const active = activeYPSubs.has(path) ? ' active' : '';
-      return `<button class="yp-sub-btn${active}" data-sp="${path}" onclick="toggleYPSub('${path}')">${label}</button>`;
-    }).join('');
+    el.innerHTML = keys.map(k =>
+      `<div class="day-header">${k} — ${groups[k].length}</div>` +
+      groups[k].map(renderCommit).join('')
+    ).join('');
   }
 
   function toggleType(t) {
     if (activeTypes.has(t)) activeTypes.delete(t);
     else activeTypes.add(t);
-    document.querySelectorAll('.type-btn').forEach(b => {
-      if (b.dataset.t) b.classList.toggle('active', activeTypes.has(b.dataset.t));
+    document.querySelectorAll('.type-btn[data-t]').forEach(b => {
+      b.classList.toggle('active', activeTypes.has(b.dataset.t));
     });
-    applyFilter();
-  }
-
-  function togglePath(p) {
-    if (activePaths.has(p)) {
-      activePaths.delete(p);
-      // Clear YP subs if deactivating yp
-      if (p === 'yarn-project') activeYPSubs.clear();
-    } else {
-      activePaths.add(p);
-    }
-    document.querySelectorAll('.path-btn').forEach(b => {
-      b.classList.toggle('active', activePaths.has(b.dataset.p));
-    });
-    applyFilter();
-  }
-
-  function toggleYPSub(sp) {
-    if (activeYPSubs.has(sp)) activeYPSubs.delete(sp);
-    else activeYPSubs.add(sp);
     applyFilter();
   }
 
   function clearFilters() {
     activeTypes.clear();
-    activePaths.clear();
-    activeYPSubs.clear();
-    document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.path-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.type-btn[data-t]').forEach(b => b.classList.remove('active'));
     document.getElementById('search').value = '';
     applyFilter();
+  }
+
+  function updatePagination() {
+    document.getElementById('page-info').textContent =
+      `page ${currentPage} of ${totalPages} · ${totalCommits} cached`;
+    document.getElementById('prev-btn').disabled = currentPage <= 1;
+    document.getElementById('next-btn').disabled = currentPage >= totalPages;
+  }
+
+  async function goPage(page) {
+    if (page < 1 || page > totalPages) return;
+    document.getElementById('list').innerHTML = '<div class="loading">Loading…</div>';
+    document.getElementById('prev-btn').disabled = true;
+    document.getElementById('next-btn').disabled = true;
+    await loadPage(currentBranch, page);
+    window.scrollTo(0, 0);
+  }
+
+  async function loadPage(branch, page) {
+    try {
+      const resp = await fetch(`/api/commits?branch=${encodeURIComponent(branch)}&page=${page}`);
+      if (!resp.ok) throw new Error(resp.statusText);
+      const data = await resp.json();
+      allCommits   = data.commits || [];
+      currentPage  = data.page || page;
+      totalPages   = data.total_pages || 1;
+      totalCommits = data.total || allCommits.length;
+      applyFilter();
+      updatePagination();
+    } catch (e) {
+      document.getElementById('list').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+    }
   }
 
   function setBranch(branch) {
     currentBranch = branch;
     document.getElementById('branch-label').textContent = branch;
-    allCommits = [];
-    currentPage = 0;
-    noMoreData = false;
-    document.getElementById('list').innerHTML = '<div class="loading">Loading…</div>';
+    currentPage = 1;
+    clearFilters();
     loadPage(branch, 1);
   }
 
-  async function loadPage(branch, page) {
-    if (loadingMore) return;
-    loadingMore = true;
-    document.getElementById('loading-more').style.display = page > 1 ? 'block' : 'none';
-
-    try {
-      const resp = await fetch(`/api/commits?branch=${encodeURIComponent(branch)}&page=${page}`);
-      if (!resp.ok) throw new Error(resp.statusText);
-      const newCommits = await resp.json();
-
-      if (newCommits.length < PAGE_SIZE) noMoreData = true;
-      allCommits = [...allCommits, ...newCommits];
-      currentPage = page;
-      applyFilter();
-    } catch (e) {
-      document.getElementById('list').innerHTML = `<div class="empty">Error: ${e.message}</div>`;
-    }
-
-    loadingMore = false;
-    document.getElementById('loading-more').style.display = 'none';
-  }
-
-  // Infinite scroll via IntersectionObserver
-  const sentinel = document.getElementById('sentinel');
-  const io = new IntersectionObserver(entries => {
-    if (entries[0].isIntersecting && !loadingMore && !noMoreData) {
-      loadPage(currentBranch, currentPage + 1);
-    }
-  }, { rootMargin: '300px' });
-  io.observe(sentinel);
-
-  // Initial load
   loadPage('next', 1);
 </script>
 </body>
