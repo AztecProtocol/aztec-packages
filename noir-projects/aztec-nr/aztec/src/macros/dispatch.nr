@@ -1,8 +1,15 @@
 use crate::macros::internals_functions_generation::external_functions_registry::get_public_functions;
 use crate::protocol::meta::utils::get_params_len_quote;
 use crate::utils::cmap::CHashMap;
-use super::utils::compute_fn_selector;
-use std::panic;
+use super::utils::{compute_fn_selector, module_has_initializer};
+use std::meta::unquote;
+
+pub(crate) comptime fn compute_emit_public_init_nullifier_selector() -> Field {
+    let computation_quote = quote {
+        crate::protocol::traits::ToField::to_field(crate::protocol::abis::function_selector::FunctionSelector::from_signature("__emit_public_init_nullifier()"))
+    };
+    unquote!(computation_quote)
+}
 
 /// Returns an `fn public_dispatch(...)` function for the given module that's assumed to be an Aztec contract.
 pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
@@ -100,6 +107,27 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         // No dispatch function if there are no public functions
         quote {}
     } else {
+        // If the module has an initializer, add a dispatch case for the auto-generated
+        // __emit_public_init_nullifier function. This function is called by private initializers to emit
+        // the public init nullifier, ensuring public functions see the contract as initialized.
+        let emit_init_nullifier_case = if module_has_initializer(m) {
+            let emit_selector: Field = compute_emit_public_init_nullifier_selector();
+            quote {
+                if selector == $emit_selector {
+                    // This function takes no args, so the args_hash closure is unused (returns zero).
+                    let context = aztec::context::PublicContext::new(|| { 0 });
+                    assert(
+                        context.maybe_msg_sender().unwrap() == context.this_address(),
+                        "Function __emit_public_init_nullifier can only be called by the same contract",
+                    );
+                    aztec::macros::functions::initialization_utils::mark_as_initialized_public(context);
+                    aztec::oracle::avm::avm_return([]);
+                }
+            }
+        } else {
+            quote {}
+        };
+
         let ifs = ifs.push_back(quote { panic(f"Unknown selector {selector}") });
         let dispatch = ifs.join(quote {  });
 
@@ -107,6 +135,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             // We mark this as public because our whole system depends on public functions having this attribute.
             #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
             pub unconstrained fn public_dispatch(selector: Field) {
+                $emit_init_nullifier_case
                 $dispatch
             }
         };

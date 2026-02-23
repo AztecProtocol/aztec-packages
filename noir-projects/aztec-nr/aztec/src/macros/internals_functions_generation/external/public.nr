@@ -79,14 +79,16 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
     let (assert_initializer, mark_as_initialized) = if is_fn_initializer(f) {
         (
             quote { aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_public(self.context); },
-            quote { aztec::macros::functions::initialization_utils::mark_as_initialized_public(self.context); },
+            quote { aztec::macros::functions::initialization_utils::mark_as_initialized_from_public_initializer(self.context); },
         )
     } else {
         (quote {}, quote {})
     };
 
     // Initialization checks are not included in contracts that don't have initializers.
-    let init_check = if module_has_initializer & !fn_has_noinitcheck(f) & !is_fn_initializer(f) {
+    // `only_self` functions skip the check so constructors can call them via `call_self`.
+    // The msg_sender == this_address assertion already restricts them to internal calls.
+    let init_check = if module_has_initializer & !fn_has_noinitcheck(f) & !is_fn_initializer(f) & !is_fn_only_self(f) {
         quote { aztec::macros::functions::initialization_utils::assert_is_initialized_public(self.context); }
     } else {
         quote {}

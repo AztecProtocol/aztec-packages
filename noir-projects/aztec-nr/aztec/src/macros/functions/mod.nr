@@ -379,6 +379,12 @@ comptime fn assert_valid_public(f: FunctionDefinition) {
             f"The #[allow_phase_change] attribute cannot be applied to #[external(\"public\")] functions - {name}",
         );
     }
+
+    if f.name() == quote { __emit_public_init_nullifier } {
+        panic(
+            f"Function name '__emit_public_init_nullifier' is reserved for internal use",
+        );
+    }
 }
 
 comptime fn assert_valid_utility(f: FunctionDefinition) {

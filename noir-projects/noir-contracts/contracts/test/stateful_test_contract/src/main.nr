@@ -6,7 +6,7 @@ pub contract StatefulTest {
     use aztec::macros::{
         functions::{
             external, initialization_utils::assert_is_initialized_private, initializer, noinitcheck,
-            view,
+            only_self, view,
         },
         storage::storage,
     };
@@ -41,6 +41,39 @@ pub contract StatefulTest {
     #[initializer]
     fn public_constructor(owner: AztecAddress, value: Field) {
         self.call_self.increment_public_value_no_init_check(owner, value);
+    }
+
+    #[external("private")]
+    #[initializer]
+    fn constructor_self_calling_init_checked(owner: AztecAddress, value: Field) {
+        self.call_self.create_note(owner, value);
+    }
+
+    #[external("private")]
+    #[initializer]
+    fn constructor_enqueuing_public_self_call(owner: AztecAddress, value: Field) {
+        self.enqueue_self.increment_public_value(owner, value);
+    }
+
+    #[external("public")]
+    #[initializer]
+    fn public_constructor_self_calling_init_checked(owner: AztecAddress, value: Field) {
+        self.call_self.increment_public_value(owner, value);
+    }
+
+    #[external("private")]
+    #[only_self]
+    fn only_self_create_note(owner: AztecAddress, value: Field) {
+        if (value != 0) {
+            let note = FieldNote { value };
+            self.storage.notes.at(owner).insert(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        }
+    }
+
+    #[external("private")]
+    #[initializer]
+    fn constructor_calling_only_self(owner: AztecAddress, value: Field) {
+        self.call_self.only_self_create_note(owner, value);
     }
 
     #[external("private")]

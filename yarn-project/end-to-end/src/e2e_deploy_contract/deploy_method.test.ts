@@ -93,6 +93,27 @@ describe('e2e_deploy_contract deploy method', () => {
     expect(await contract.methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(30n);
   });
 
+  it('refuses to self-call an init-checked function during public initialization', async () => {
+    const owner = defaultAccountAddress;
+    await expect(
+      StatefulTestContract.deployWithOpts(
+        { wallet, method: 'public_constructor_self_calling_init_checked' },
+        owner,
+        42,
+      ).send({ from: defaultAccountAddress }),
+    ).rejects.toThrow(/app_logic_reverted/);
+  });
+
+  // Private functions execute before public functions, so the init check in create_note fails
+  // because the public constructor hasn't emitted the init nullifier yet.
+  it('refuses to call a private init-checked function in same tx as public initialization', async () => {
+    const owner = defaultAccountAddress;
+    const deployMethod = StatefulTestContract.deployWithOpts({ wallet, method: 'public_constructor' }, owner, 42);
+    const contract = await deployMethod.register();
+    const batch = new BatchCall(wallet, [deployMethod, contract.methods.create_note(owner, 10)]);
+    await expect(batch.send({ from: defaultAccountAddress })).rejects.toThrow(/Cannot find the leaf for nullifier/);
+  });
+
   it('deploys a contract with a default initializer not named constructor', async () => {
     logger.debug(`Deploying contract with a default initializer named initialize`);
     const opts = { skipClassPublication: true, skipInstancePublication: true, from: defaultAccountAddress };
