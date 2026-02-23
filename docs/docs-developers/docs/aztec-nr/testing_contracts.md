@@ -46,8 +46,10 @@ Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires 
 
 ## Basic test structure
 
+When you create a project with `aztec new` or `aztec init`, a separate `test` crate is created alongside the `contract` crate. Tests live in `test/src/lib.nr` and import the contract crate by name (not `crate::`):
+
 ```rust
-use crate::MyContract;
+use my_contract::MyContract;
 use aztec::{
     protocol::address::AztecAddress,
     test::helpers::test_environment::TestEnvironment,
@@ -72,12 +74,11 @@ unconstrained fn test_basic_flow() {
 :::
 
 :::tip Organizing test files
-You can organize tests in separate files:
+Tests live in the separate `test` crate that `aztec new` creates. You can organize them into modules:
 
-- Create `src/test.nr` with `mod utils;` to import helper functions
-- Split tests into modules like `src/test/transfer_tests.nr`, `src/test/auth_tests.nr`
-- Import the test module in `src/main.nr` with `mod test;`
-- Share setup functions in `src/test/utils.nr`
+- Split tests into modules like `test/src/transfer_tests.nr`, `test/src/auth_tests.nr`
+- Import them in `test/src/lib.nr` with `mod transfer_tests;`, `mod auth_tests;`
+- Share setup functions in `test/src/utils.nr`
   :::
 
 ## Deploying contracts

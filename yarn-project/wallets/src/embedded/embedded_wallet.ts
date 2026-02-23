@@ -180,10 +180,15 @@ export class EmbeddedWallet extends BaseWallet {
     const accountManager = await AccountManager.create(this, secret, contract, salt);
 
     const instance = accountManager.getInstance();
-    const artifact = await accountManager.getAccountContract().getContractArtifact();
-
-    await this.registerContract(instance, artifact, accountManager.getSecretKey());
-
+    const existingInstance = await this.pxe.getContractInstance(instance.address);
+    if (!existingInstance) {
+      const existingArtifact = await this.pxe.getContractArtifact(instance.currentContractClassId);
+      await this.registerContract(
+        instance,
+        !existingArtifact ? await accountManager.getAccountContract().getContractArtifact() : undefined,
+        accountManager.getSecretKey(),
+      );
+    }
     return accountManager;
   }
 
