@@ -21,6 +21,86 @@ import {
 
 import { getFeePayerClaimAmount, getTxFeeLimit } from './fee_payer_balance.js';
 
+/** Structural interface for types that carry gas limit data, used by {@link GasLimitsValidator}. */
+export interface HasGasLimitData {
+  txHash: { toString(): string };
+  data: {
+    // We just need to know whether there is something here or not
+    forPublic?: unknown;
+    constants: {
+      txContext: {
+        gasSettings: { gasLimits: Gas };
+      };
+    };
+  };
+}
+
+/**
+ * Validates that a transaction's gas limits are within acceptable bounds.
+ *
+ * Rejects transactions whose gas limits fall below the fixed minimums (FIXED_DA_GAS,
+ * FIXED_L2_GAS) or exceed the AVM's maximum processable L2 gas. This is a cheap,
+ * stateless check that operates on gas settings alone.
+ *
+ * Generic over T so it can validate both full {@link Tx} objects and {@link TxMetaData}
+ * (used during pending pool migration).
+ *
+ * Used by: pending pool migration (via factory), and indirectly by {@link GasTxValidator}.
+ */
+export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidator<T> {
+  #log: Logger;
+
+  constructor(bindings?: LoggerBindings) {
+    this.#log = createLogger('sequencer:tx_validator:tx_gas', bindings);
+  }
+
+  validateTx(tx: T): Promise<TxValidationResult> {
+    return Promise.resolve(this.validateGasLimit(tx));
+  }
+
+  /** Checks gas limits are >= fixed minimums and <= AVM max processable L2 gas. */
+  validateGasLimit(tx: T): TxValidationResult {
+    const gasLimits = tx.data.constants.txContext.gasSettings.gasLimits;
+    const minGasLimits = new Gas(
+      TX_DA_GAS_OVERHEAD,
+      tx.data.forPublic ? PUBLIC_TX_L2_GAS_OVERHEAD : PRIVATE_TX_L2_GAS_OVERHEAD,
+    );
+
+    if (minGasLimits.gtAny(gasLimits)) {
+      this.#log.verbose(`Rejecting transaction due to the gas limit(s) not being above the minimum gas limit`, {
+        gasLimits,
+        minGasLimits,
+      });
+      return { result: 'invalid', reason: [TX_ERROR_INSUFFICIENT_GAS_LIMIT] };
+    }
+
+    if (gasLimits.l2Gas > MAX_PROCESSABLE_L2_GAS) {
+      this.#log.verbose(`Rejecting transaction due to the gas limit(s) being higher than the maximum processable gas`, {
+        gasLimits,
+        minGasLimits,
+      });
+      return { result: 'invalid', reason: [TX_ERROR_GAS_LIMIT_TOO_HIGH] };
+    }
+
+    return { result: 'valid' };
+  }
+}
+
+/**
+ * Validates that a transaction can pay its gas fees.
+ *
+ * Runs three checks in order:
+ * 1. **Gas limits** (delegates to {@link GasLimitsValidator}) — rejects if limits are
+ *    out of bounds.
+ * 2. **Max fee per gas** — skips (not rejects) the tx if its maxFeesPerGas is below
+ *    the current block's gas fees. We skip rather than reject because the tx may
+ *    become eligible in a later block with lower fees.
+ * 3. **Fee payer balance** — reads the fee payer's FeeJuice balance from public state,
+ *    adds any pending claim from a setup-phase `_increase_public_balance` call, and
+ *    rejects if the total is less than the tx's fee limit (gasLimits * maxFeePerGas).
+ *
+ * Used by: gossip (stage 1), RPC, and block building validators.
+ */
 export class GasTxValidator implements TxValidator<Tx> {
   #log: Logger;
   #publicDataSource: PublicStateSource;
@@ -31,7 +111,7 @@ export class GasTxValidator implements TxValidator<Tx> {
     publicDataSource: PublicStateSource,
     feeJuiceAddress: AztecAddress,
     gasFees: GasFees,
-    bindings?: LoggerBindings,
+    private bindings?: LoggerBindings,
   ) {
     this.#log = createLogger('sequencer:tx_validator:tx_gas', bindings);
     this.#publicDataSource = publicDataSource;
@@ -40,7 +120,7 @@ export class GasTxValidator implements TxValidator<Tx> {
   }
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {
-    const gasLimitValidation = this.#validateGasLimit(tx);
+    const gasLimitValidation = new GasLimitsValidator(this.bindings).validateGasLimit(tx);
     if (gasLimitValidation.result === 'invalid') {
       return Promise.resolve(gasLimitValidation);
     }
@@ -74,34 +154,9 @@ export class GasTxValidator implements TxValidator<Tx> {
   }
 
   /**
-   * Check whether the tx's gas limit is above the minimum amount.
+   * Checks the fee payer has enough FeeJuice balance to cover the tx's fee limit.
+   * Accounts for any pending claim from a setup-phase `_increase_public_balance` call.
    */
-  #validateGasLimit(tx: Tx): TxValidationResult {
-    const gasLimits = tx.data.constants.txContext.gasSettings.gasLimits;
-    const minGasLimits = new Gas(
-      TX_DA_GAS_OVERHEAD,
-      tx.data.forPublic ? PUBLIC_TX_L2_GAS_OVERHEAD : PRIVATE_TX_L2_GAS_OVERHEAD,
-    );
-
-    if (minGasLimits.gtAny(gasLimits)) {
-      this.#log.verbose(`Rejecting transaction due to the gas limit(s) not being above the minimum gas limit`, {
-        gasLimits,
-        minGasLimits,
-      });
-      return { result: 'invalid', reason: [TX_ERROR_INSUFFICIENT_GAS_LIMIT] };
-    }
-
-    if (gasLimits.l2Gas > MAX_PROCESSABLE_L2_GAS) {
-      this.#log.verbose(`Rejecting transaction due to the gas limit(s) being higher than the maximum processable gas`, {
-        gasLimits,
-        minGasLimits,
-      });
-      return { result: 'invalid', reason: [TX_ERROR_GAS_LIMIT_TOO_HIGH] };
-    }
-
-    return { result: 'valid' };
-  }
-
   public async validateTxFee(tx: Tx): Promise<TxValidationResult> {
     const feePayer = tx.data.feePayer;
 
