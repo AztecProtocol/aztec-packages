@@ -22,6 +22,7 @@ static_assert(HIDING_KERNEL_PUBLIC_INPUTS_SIZE == 16,
 
 // Component proof lengths (used in Noir)
 static_assert(MERGE_PROOF_SIZE == 21, "MERGE_PROOF_SIZE changed - update constants.nr");
+static_assert(MERGE_PROOF_SIZE_HIDING_KERNEL == 41, "MERGE_PROOF_SIZE_HIDING_KERNEL changed - update constants.nr");
 static_assert(ECCVMFlavor::PROOF_LENGTH == 608, "ECCVM proof size changed - update constants.nr");
 static_assert(IPA_PROOF_LENGTH == 64, "IPA_PROOF_LENGTH changed - update constants.nr");
 static_assert(TranslatorFlavor::PROOF_LENGTH == 483, "Translator proof size changed - update constants.nr");
@@ -31,7 +32,7 @@ static_assert(
     ProofLength::Honk<UltraFlavor>::expected_proof_size<stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
         UltraFlavor::VIRTUAL_LOG_N) == 449,
     "RECURSIVE_PROOF_LENGTH changed - update constants.nr");
-static_assert(ChonkProof::PROOF_LENGTH == 1546, "CHONK_PROOF_LENGTH changed - update constants.nr");
+static_assert(ChonkProof::PROOF_LENGTH == 1566, "CHONK_PROOF_LENGTH changed - update constants.nr");
 static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH == 131,
               "MultilinearBatching proof size changed - update constants.nr");
 
@@ -42,6 +43,9 @@ TEST_F(MockVerifierInputsTest, MockMergeProofSize)
 {
     Goblin::MergeProof merge_proof = create_mock_merge_proof();
     EXPECT_EQ(merge_proof.size(), MERGE_PROOF_SIZE);
+
+    Goblin::MergeProof merge_proof_hiding = create_mock_merge_proof(true);
+    EXPECT_EQ(merge_proof_hiding.size(), MERGE_PROOF_SIZE_HIDING_KERNEL);
 }
 
 /**

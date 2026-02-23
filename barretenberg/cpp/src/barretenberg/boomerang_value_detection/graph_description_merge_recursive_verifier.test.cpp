@@ -19,9 +19,9 @@ namespace bb::stdlib::recursion::goblin {
 template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : public testing::Test {
 
     // Types for recursive verifier circuit
-    using RecursiveMergeVerifier = MergeRecursiveVerifier<RecursiveBuilder>;
-    using RecursiveTableCommitments = MergeRecursiveVerifier<RecursiveBuilder>::TableCommitments;
-    using RecursiveMergeCommitments = MergeRecursiveVerifier<RecursiveBuilder>::InputCommitments;
+    using RecursiveMergeVerifier = MergeRecursiveVerifier<1, RecursiveBuilder>;
+    using RecursiveTableCommitments = MergeRecursiveVerifier<1, RecursiveBuilder>::TableCommitments;
+    using RecursiveMergeCommitments = MergeRecursiveVerifier<1, RecursiveBuilder>::InputCommitments;
 
     // Define types relevant for inner circuit
     using InnerFlavor = MegaFlavor;
@@ -32,9 +32,9 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
     using Commitment = InnerFlavor::Commitment;
     using FF = InnerFlavor::FF;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
-    using MergeProof = MergeProver::MergeProof;
-    using TableCommitments = MergeVerifier::TableCommitments;
-    using MergeCommitments = MergeVerifier::InputCommitments;
+    using MergeProof = MergeProver<1>::MergeProof;
+    using TableCommitments = MergeVerifier<1>::TableCommitments;
+    using MergeCommitments = MergeVerifier<1>::InputCommitments;
 
   public:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
@@ -55,7 +55,7 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
         RecursiveBuilder outer_circuit;
 
         auto prover_transcript = std::make_shared<NativeTranscript>();
-        MergeProver merge_prover{ op_queue, prover_transcript, settings };
+        MergeProver<1> merge_prover{ op_queue, prover_transcript, settings };
         auto merge_proof = merge_prover.construct_proof();
 
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
@@ -80,7 +80,7 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
         auto merge_transcript = std::make_shared<StdlibTranscript<RecursiveBuilder>>();
         RecursiveMergeVerifier verifier{ settings, merge_transcript };
         const stdlib::Proof<RecursiveBuilder> stdlib_merge_proof(outer_circuit, merge_proof);
-        auto [pairing_points, merged_commitments, reduction_succeeded] =
+        auto [pairing_points, merged_commitments, _, reduction_succeeded] =
             verifier.reduce_to_pairing_check(stdlib_merge_proof, recursive_merge_commitments);
 
         // The pairing points are public outputs from the recursive verifier that will be verified externally via a

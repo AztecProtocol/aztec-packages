@@ -102,7 +102,7 @@ std::pair<bb::HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> cons
  * @brief Create a mock merge proof which has the correct structure but is not necessarily valid
  *
  */
-bb::Goblin::MergeProof create_mock_merge_proof();
+bb::Goblin::MergeProof create_mock_merge_proof(bool de_interleaving = false);
 
 /**
  * @brief Create a mock pre-ipa proof which has the correct structure but is not necessarily valid

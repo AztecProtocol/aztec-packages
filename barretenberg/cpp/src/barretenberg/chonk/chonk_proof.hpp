@@ -41,7 +41,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
      */
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
         /*mega_proof*/ HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS +
-        /*merge_proof*/ MERGE_PROOF_SIZE +
+        /*merge_proof*/ MERGE_PROOF_SIZE_HIDING_KERNEL +
         /*eccvm proof*/ ECCVMFlavor::PROOF_LENGTH +
         /*ipa proof*/ IPA_PROOF_LENGTH +
         /*translator*/ TranslatorFlavor::PROOF_LENGTH;

@@ -309,10 +309,10 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
     return std::pair(honk_proof, vk);
 }
 
-Goblin::MergeProof create_mock_merge_proof()
+Goblin::MergeProof create_mock_merge_proof(bool de_interleaving)
 {
     Goblin::MergeProof proof;
-    proof.reserve(MERGE_PROOF_SIZE);
+    proof.reserve(de_interleaving ? MERGE_PROOF_SIZE_HIDING_KERNEL : MERGE_PROOF_SIZE);
 
     uint32_t mock_shift_size = 5; // Must be smaller than 32, otherwise pow raises an error
 
@@ -322,8 +322,18 @@ Goblin::MergeProof create_mock_merge_proof()
     // Populate mock merged table commitments and batched degree check polynomial commitment
     populate_field_elements_for_mock_commitments(proof, GOBLIN_NUM_COLUMNS + 1);
 
+    if (de_interleaving) {
+        // Populate mock interleaved witness commitments for the hiding kernel merge proof
+        populate_field_elements_for_mock_commitments(proof, NUM_WIRES);
+    }
+
     // Populate evaluations (3 * NUM_WIRES + 1: left, right, and merged tables, plus batched degree check polynomial)
     populate_field_elements(proof, 3 * GOBLIN_NUM_COLUMNS + 1);
+
+    if (de_interleaving) {
+        // Populate mock interleaved witness evaluations for the hiding kernel merge proof
+        populate_field_elements(proof, NUM_WIRES);
+    }
 
     // Shplonk proof: commitment to the quotient
     populate_field_elements_for_mock_commitments(proof, 1);
@@ -331,7 +341,7 @@ Goblin::MergeProof create_mock_merge_proof()
     // KZG proof: commitment to W
     populate_field_elements_for_mock_commitments(proof, 1);
 
-    BB_ASSERT_EQ(proof.size(), MERGE_PROOF_SIZE);
+    BB_ASSERT_EQ(proof.size(), de_interleaving ? MERGE_PROOF_SIZE_HIDING_KERNEL : MERGE_PROOF_SIZE);
 
     return proof;
 }
@@ -507,7 +517,7 @@ template <typename Builder> HonkProof create_mock_chonk_proof(const size_t acir_
 
     HonkProof mega_proof = create_mock_honk_proof<MultiMegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<Builder>>(
         acir_public_inputs_size);
-    Goblin::MergeProof merge_proof = create_mock_merge_proof();
+    Goblin::MergeProof merge_proof = create_mock_merge_proof(true);
     HonkProof eccvm_proof{ create_mock_eccvm_proof() };
     HonkProof ipa_proof = create_mock_ipa_proof();
     HonkProof translator_proof = create_mock_translator_proof();

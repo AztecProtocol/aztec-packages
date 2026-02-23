@@ -22,8 +22,8 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
     using OuterVerifier = UltraRollupVerifier;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
-    using Commitment = MergeVerifier::Commitment;
-    using MergeCommitments = MergeVerifier::InputCommitments;
+    using Commitment = MergeVerifier<GOBLIN_BATCH_SIZE>::Commitment;
+    using MergeCommitments = MergeVerifier<GOBLIN_BATCH_SIZE>::InputCommitments;
     using RecursiveCommitment = GoblinRecursiveVerifier::MergeVerifier::Commitment;
     using RecursiveMergeCommitments = GoblinRecursiveVerifier::MergeVerifier::InputCommitments;
 

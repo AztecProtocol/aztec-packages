@@ -55,6 +55,7 @@ static constexpr uint32_t NUM_LIBRA_COMMITMENTS = 3;
 static constexpr uint32_t NUM_SMALL_IPA_EVALUATIONS = 4;
 
 static constexpr uint32_t MERGE_PROOF_SIZE = 21; // used to ensure mock proofs are generated correctly
+static constexpr uint32_t MERGE_PROOF_SIZE_HIDING_KERNEL = 41;
 
 static constexpr uint32_t GOBLIN_BATCH_SIZE = 4;
 static constexpr uint32_t NUM_WIRES = 4;

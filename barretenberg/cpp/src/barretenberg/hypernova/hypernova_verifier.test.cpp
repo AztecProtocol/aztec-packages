@@ -185,9 +185,6 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         }
         manifest.add_entry(round, "INTERLEAVED_WIRES", frs_per_G);
         manifest.add_entry(round, "INTERLEAVED_ECC_OP_WIRES", frs_per_G);
-        for (const auto& wire : { "ECC_OP_WIRE_1", "ECC_OP_WIRE_2", "ECC_OP_WIRE_3", "ECC_OP_WIRE_4" }) {
-            manifest.add_entry(round, wire, frs_per_G);
-        }
         manifest.add_entry(round, "INTERLEAVED_CALLDATA", frs_per_G);
         manifest.add_entry(round, "INTERLEAVED_SECONDARY_CALLDATA", frs_per_G);
         manifest.add_entry(round, "INTERLEAVED_DATABUS_TAGS", frs_per_G);

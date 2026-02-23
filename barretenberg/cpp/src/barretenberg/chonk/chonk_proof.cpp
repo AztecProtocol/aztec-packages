@@ -47,7 +47,7 @@ ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_field_elements(const std
 
     // Merge proof
     start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(MERGE_PROOF_SIZE);
+    end_idx += static_cast<std::ptrdiff_t>(MERGE_PROOF_SIZE_HIDING_KERNEL);
     goblin_proof.merge_proof.insert(goblin_proof.merge_proof.end(), start_idx, end_idx);
 
     // ECCVM proof
