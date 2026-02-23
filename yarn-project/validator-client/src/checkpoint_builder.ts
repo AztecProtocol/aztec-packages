@@ -28,7 +28,7 @@ import {
   type PublicProcessorLimits,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import type { DebugLog } from '@aztec/stdlib/logs';
+import { type DebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { type CheckpointGlobalVariables, GlobalVariables, StateReference, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -53,11 +53,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     private dateProvider: DateProvider,
     private telemetryClient: TelemetryClient,
     bindings?: LoggerBindings,
-    /**
-     * When populated, debug logs from public functions are collected in it and later served via getTxReceipt. Populated
-     * only when the node is started in test mode (config.realProofs set to false).
-     */
-    private debugLogStore?: Map<string, DebugLog[]>,
+    private debugLogStore: DebugLogStore = new NullDebugLogStore(),
   ) {
     this.log = createLogger('checkpoint-builder', {
       ...bindings,
@@ -158,9 +154,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     const contractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings());
     const guardedFork = new GuardedMerkleTreeOperations(fork);
 
-    // Debug log store has been set meaning we are in a test mode and hence we'll collect debug logs to later be served
-    // in the tx receipt
-    const collectDebugLogs = !!this.debugLogStore;
+    const collectDebugLogs = this.debugLogStore.isEnabled;
 
     const bindings = this.log.getBindings();
     const publicTxSimulator = createPublicTxSimulatorForBlockBuilding(
@@ -209,11 +203,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
     private contractDataSource: ContractDataSource,
     private dateProvider: DateProvider,
     private telemetryClient: TelemetryClient = getTelemetryClient(),
-    /**
-     * When populated, debug logs from public functions are collected in it and later served via getTxReceipt. Populated
-     * only when the node is started in test mode (config.realProofs set to false).
-     */
-    private debugLogStore?: Map<string, DebugLog[]>,
+    private debugLogStore: DebugLogStore = new NullDebugLogStore(),
   ) {
     this.log = createLogger('checkpoint-builder');
   }

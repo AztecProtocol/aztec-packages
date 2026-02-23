@@ -25,7 +25,7 @@ import type {
   PublicProcessorValidator,
   SequencerConfig,
 } from '@aztec/stdlib/interfaces/server';
-import type { DebugLog } from '@aztec/stdlib/logs';
+import { type DebugLog, type DebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
@@ -140,11 +140,7 @@ export class PublicProcessor implements Traceable {
     telemetryClient: TelemetryClient = getTelemetryClient(),
     private log: Logger,
     private opts: Pick<SequencerConfig, 'fakeProcessingDelayPerTxMs' | 'fakeThrowAfterProcessingTxCount'> = {},
-    /**
-     * When populated, debug logs from public functions are collected in it and later served via getTxReceipt. Populated
-     * only when the node is started in test mode (config.realProofs set to false).
-     */
-    private debugLogStore?: Map<string, DebugLog[]>,
+    private debugLogStore: DebugLogStore = new NullDebugLogStore(),
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
   }
@@ -298,10 +294,7 @@ export class PublicProcessor implements Traceable {
         returns = returns.concat(returnValues);
         debugLogs.push(...txDebugLogs);
 
-        // Store per-tx debug logs for later retrieval via getTxReceipt (test mode only)
-        if (this.debugLogStore && txDebugLogs.length > 0) {
-          this.debugLogStore.set(processedTx.hash.toString(), txDebugLogs);
-        }
+        this.debugLogStore.storeLogs(processedTx.hash.toString(), txDebugLogs);
 
         totalPublicGas = totalPublicGas.add(processedTx.gasUsed.publicGas);
         totalBlockGas = totalBlockGas.add(processedTx.gasUsed.totalGas);

@@ -70,7 +70,8 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
-import type { DebugLog, LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { DebugLogStore, LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Offense, SlashPayloadRound } from '@aztec/stdlib/slashing';
@@ -151,11 +152,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     private blobClient?: BlobClientInterface,
     private validatorClient?: ValidatorClient,
     private keyStoreManager?: KeystoreManager,
-    /**
-     * When populated, debug logs from public functions are collected in it and later served via getTxReceipt. Populated
-     * only when the node is started in test mode (config.realProofs set to false).
-     */
-    private debugLogStore?: Map<string, DebugLog[]>,
+    private debugLogStore: DebugLogStore = new NullDebugLogStore(),
   ) {
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
@@ -164,8 +161,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
 
     // A defensive check that protects us against introducing a bug in the complex `createAndSync` function.
-    if (debugLogStore && config.realProofs) {
-      throw new Error('debugLogStore should not be provided when realProofs is enabled');
+    if (debugLogStore.isEnabled && config.realProofs) {
+      throw new Error('debugLogStore should never be enabled when realProofs are set');
     }
   }
 
@@ -307,14 +304,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         ? await BBCircuitVerifier.new(config)
         : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
 
-    let debugLogStore: Map<string, DebugLog[]> | undefined = undefined;
+    let debugLogStore: DebugLogStore;
     if (!config.realProofs) {
       log.warn(`Aztec node is accepting fake proofs`);
 
-      debugLogStore = new Map();
+      debugLogStore = new InMemoryDebugLogStore();
       log.info(
         'Aztec node started in test mode (realProofs set to false) hence debug logs from public functions will be collected and served',
       );
+    } else {
+      debugLogStore = new NullDebugLogStore();
     }
 
     const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier);
@@ -864,14 +863,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       receipt = new TxReceipt(txHash, TxStatus.DROPPED, undefined, 'Tx dropped by P2P node');
     }
 
-    if (this.debugLogStore && receipt.isMined()) {
-      // Debug log store has been set meaning we are in a test mode and hence we'll serve debug logs in the receipt
-      // (if there are any)
-      const debugLogs = this.debugLogStore.get(txHash.toString());
-      if (debugLogs) {
-        receipt.debugLogs = debugLogs;
-      }
-    }
+    this.debugLogStore.decorateReceiptWithLogs(txHash.toString(), receipt);
 
     return receipt;
   }
