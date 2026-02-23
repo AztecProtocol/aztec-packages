@@ -422,6 +422,14 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
 
     QUEUE_TYPE queue_type = get_queue_type();
 
+    // Free circuit block memory (wires and selectors) now that they've been copied to prover polynomials.
+    // Skip for MEGA (hiding kernel) since it constructs a second ProverInstance from the same circuit.
+    if (queue_type != QUEUE_TYPE::MEGA) {
+        for (auto& block : circuit.blocks.get()) {
+            block.free_data();
+        }
+    }
+
     FoldingProver prover(prover_accumulation_transcript);
     HonkProof proof;
     switch (queue_type) {
