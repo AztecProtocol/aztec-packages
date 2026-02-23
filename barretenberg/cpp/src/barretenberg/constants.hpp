@@ -56,6 +56,8 @@ static constexpr uint32_t NUM_SMALL_IPA_EVALUATIONS = 4;
 
 static constexpr uint32_t MERGE_PROOF_SIZE = 42; // used to ensure mock proofs are generated correctly
 
+static constexpr uint32_t GOBLIN_BATCH_SIZE = 4;
+
 // There are 5 distinguished wires in ECCVM that have to be opened as univariates to establish the connection between
 // ECCVM and Translator
 static constexpr uint32_t NUM_TRANSLATION_EVALUATIONS = 5;

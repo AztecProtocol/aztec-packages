@@ -19,7 +19,8 @@ typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_
 {
     // Step 1: Verify the merge proof
     MergeVerifier merge_verifier{ merge_settings, transcript };
-    auto merge_result = merge_verifier.reduce_to_pairing_check(proof.merge_proof, merge_commitments);
+    auto merge_result =
+        merge_verifier.reduce_to_pairing_check(proof.merge_proof, merge_commitments, /*de_interleaving=*/true);
     vinfo("Goblin: Merge reduced to pairing check successfully: ", merge_result.reduction_succeeded ? "true" : "false");
 
     if constexpr (!IsRecursive) {
@@ -56,7 +57,7 @@ typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_
                                             translator_input.evaluation_challenge_x,
                                             translator_input.batching_challenge_v,
                                             translator_input.accumulated_result,
-                                            merge_result.merged_commitments };
+                                            merge_result.de_interleaved_merged_commitments };
     auto translator_result = translator_verifier.reduce_to_pairing_check();
     vinfo("Goblin: Translator reduced to pairing check successfully: ",
           translator_result.reduction_succeeded ? "true" : "false");

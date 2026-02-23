@@ -29,7 +29,7 @@ void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript, const Me
 {
     BB_BENCH_NAME("Goblin::prove_merge");
     MergeProver<BATCH_SIZE> merge_prover{ op_queue, transcript, merge_settings };
-    merge_verification_queue.push_back(merge_prover.construct_proof());
+    merge_verification_queue.push_back(merge_prover.construct_proof(/*de_interleaving=*/true));
 }
 
 void Goblin::prove_eccvm()

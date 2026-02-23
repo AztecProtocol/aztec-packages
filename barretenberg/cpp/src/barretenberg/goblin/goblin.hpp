@@ -23,7 +23,7 @@ class Goblin {
     using Commitment = MegaFlavor::Commitment;
     using FF = MegaFlavor::FF;
 
-    static constexpr size_t BATCH_SIZE = 1;
+    static constexpr size_t BATCH_SIZE = GOBLIN_BATCH_SIZE;
 
   protected:
     // In AVM we only use Goblin for a single circuit whose proof is not required to be zero-knowledge. While Translator

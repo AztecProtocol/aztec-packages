@@ -34,8 +34,10 @@ template <typename Curve> class GoblinVerifier_ {
   public:
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
 
+    static constexpr size_t BATCH_SIZE = GOBLIN_BATCH_SIZE;
+
     // Verifier types
-    using MergeVerifier = MergeVerifier_<1, Curve>;
+    using MergeVerifier = MergeVerifier_<BATCH_SIZE, Curve>;
     using ECCVMVerifier = ECCVMVerifier_<std::conditional_t<IsRecursive, ECCVMRecursiveFlavor, ECCVMFlavor>>;
     using TranslatorVerifier =
         TranslatorVerifier_<std::conditional_t<IsRecursive, TranslatorRecursiveFlavor, TranslatorFlavor>>;
