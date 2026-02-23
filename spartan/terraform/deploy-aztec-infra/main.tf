@@ -111,9 +111,18 @@ locals {
     "global.otelCollectorEndpoint"                             = var.OTEL_COLLECTOR_ENDPOINT
     "global.sponsoredFPC"                                      = var.SPONSORED_FPC
     "global.testAccounts"                                      = var.TEST_ACCOUNTS
-    "global.l1ConsensusHostApiKeys"                            = length(var.L1_CONSENSUS_HOST_API_KEYS) > 0 ? join(",", var.L1_CONSENSUS_HOST_API_KEYS) : null
-    "global.l1ConsensusHostApiKeyHeaders"                      = length(var.L1_CONSENSUS_HOST_API_KEY_HEADERS) > 0 ? join(",", var.L1_CONSENSUS_HOST_API_KEY_HEADERS) : null
   }
+
+  common_inline_values = yamlencode({
+    global = merge(
+      length(var.L1_CONSENSUS_HOST_API_KEYS) > 0 ? {
+        l1ConsensusHostApiKeys = join(",", var.L1_CONSENSUS_HOST_API_KEYS)
+      } : {},
+      length(var.L1_CONSENSUS_HOST_API_KEY_HEADERS) > 0 ? {
+        l1ConsensusHostApiKeyHeaders = join(",", var.L1_CONSENSUS_HOST_API_KEY_HEADERS)
+      } : {}
+    )
+  })
 
   common_list_settings = {
     "global.l1ExecutionUrls" = var.L1_RPC_URLS
@@ -682,6 +691,7 @@ resource "helm_release" "releases" {
 
   values = concat(
     [for v in each.value.values : file("./values/${v}")],
+    [local.common_inline_values],
     lookup(each.value, "inline_values", [])
   )
 
