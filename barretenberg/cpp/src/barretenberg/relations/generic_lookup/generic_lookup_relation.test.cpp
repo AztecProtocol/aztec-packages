@@ -324,9 +324,7 @@ TEST_F(BasicLookupTest, ValidLookupRow)
 
     AllEntities row{};
     row[0] = (lookup_term * table_term).invert(); // I
-    // row[1] = 0 (read count, unused on lookup row)
-    row[2] = FF(1); // lookup predicate
-    // row[3] = 0  (table predicate)
+    row[2] = FF(1);                               // lookup predicate
     row[4] = f1;
     row[5] = f2;
     row[6] = t1;
@@ -360,8 +358,7 @@ TEST_F(BasicLookupTest, ValidTableRow)
     AllEntities row{};
     row[0] = (lookup_term * table_term).invert(); // I
     row[1] = FF(1);                               // read count
-    // row[2] = 0 (lookup predicate)
-    row[3] = FF(1); // table predicate
+    row[3] = FF(1);                               // table predicate
     row[4] = f1;
     row[5] = f2;
     row[6] = t1;
