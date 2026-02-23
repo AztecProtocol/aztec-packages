@@ -34,18 +34,37 @@ export type EpochCommitteeInfo = {
 
 export type SlotTag = 'now' | 'next' | SlotNumber;
 
+export type SlotViewResolution = {
+  targetSlot: SlotNumber;
+  proposerSlot: SlotNumber;
+  submissionSlot: SlotNumber;
+  now: bigint;
+  slotStartTs: bigint;
+  isPreBoundary: boolean;
+};
+
 export interface EpochCacheInterface {
   getCommittee(slot: SlotTag | undefined): Promise<EpochCommitteeInfo>;
+  resolveSlotViews(slot: SlotNumber, opts?: { nowOverride?: bigint }): SlotViewResolution;
+  getCommitteeViews(slot: SlotNumber, opts?: { nowOverride?: bigint }): Promise<{
+    slots: SlotViewResolution;
+    proposer: EpochCommitteeInfo;
+    submission: EpochCommitteeInfo;
+  }>;
   getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint };
   getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint };
   getProposerIndexEncoding(epoch: EpochNumber, slot: SlotNumber, seed: bigint): `0x${string}`;
   computeProposerIndex(slot: SlotNumber, epoch: EpochNumber, seed: bigint, size: bigint): bigint;
   getCurrentAndNextSlot(): { currentSlot: SlotNumber; nextSlot: SlotNumber };
   getProposerAttesterAddressInSlot(slot: SlotNumber): Promise<EthAddress | undefined>;
+  getProposerAttesterAddressForSubmissionSlot(slot: SlotNumber, opts?: { nowOverride?: bigint }): Promise<
+    EthAddress | undefined
+  >;
   getRegisteredValidators(): Promise<EthAddress[]>;
   isInCommittee(slot: SlotTag, validator: EthAddress): Promise<boolean>;
   filterInCommittee(slot: SlotTag, validators: EthAddress[]): Promise<EthAddress[]>;
   getL1Constants(): L1RollupConstants;
+  setBuildAheadEnabled(enabled: boolean): void;
 }
 
 /**
@@ -63,6 +82,7 @@ export class EpochCache implements EpochCacheInterface {
   private allValidators: Set<string> = new Set();
   private lastValidatorRefresh = 0;
   private readonly log: Logger = createLogger('epoch-cache');
+  private buildAheadEnabled = false;
 
   constructor(
     private rollup: RollupContract,
@@ -71,10 +91,12 @@ export class EpochCache implements EpochCacheInterface {
       lagInEpochsForRandao: number;
     },
     private readonly dateProvider: DateProvider = new DateProvider(),
-    protected readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60 },
+    protected readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60, buildAheadEnabled: false },
   ) {
+    this.buildAheadEnabled = this.config.buildAheadEnabled;
     this.log.debug(`Initialized EpochCache`, {
       l1constants,
+      buildAheadEnabled: this.buildAheadEnabled,
     });
   }
 
@@ -131,11 +153,19 @@ export class EpochCache implements EpochCacheInterface {
       targetCommitteeSize: Number(targetCommitteeSize),
     };
 
-    return new EpochCache(rollup, l1RollupConstants, deps.dateProvider);
+    return new EpochCache(rollup, l1RollupConstants, deps.dateProvider, {
+      buildAheadEnabled: config.buildAheadEnabled ?? false,
+      cacheSize: 12,
+      validatorRefreshIntervalSeconds: 60,
+    });
   }
 
   public getL1Constants(): L1RollupConstants {
     return this.l1constants;
+  }
+
+  public setBuildAheadEnabled(enabled: boolean): void {
+    this.buildAheadEnabled = enabled;
   }
 
   public getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint } {
@@ -294,6 +324,34 @@ export class EpochCache implements EpochCacheInterface {
     };
   }
 
+  public resolveSlotViews(targetSlot: SlotNumber, opts?: { nowOverride?: bigint }): SlotViewResolution {
+    const now = opts?.nowOverride ?? this.nowInSeconds();
+    const slotStartTs = getTimestampForSlot(targetSlot, this.l1constants);
+    const isPreBoundary = this.buildAheadEnabled && now < slotStartTs;
+
+    return {
+      targetSlot,
+      proposerSlot: isPreBoundary ? SlotNumber(Math.max(0, Number(targetSlot) - 1)) : targetSlot,
+      submissionSlot: targetSlot,
+      now,
+      slotStartTs,
+      isPreBoundary,
+    };
+  }
+
+  public async getCommitteeViews(slot: SlotNumber, opts?: { nowOverride?: bigint }): Promise<{
+    slots: SlotViewResolution;
+    proposer: EpochCommitteeInfo;
+    submission: EpochCommitteeInfo;
+  }> {
+    const slots = this.resolveSlotViews(slot, opts);
+    const [proposer, submission] = await Promise.all([
+      this.getCommittee(slots.proposerSlot),
+      this.getCommittee(slots.submissionSlot),
+    ]);
+    return { slots, proposer, submission };
+  }
+
   /**
    * Get the proposer attester address in the given L2 slot
    * @returns The proposer attester address. If the committee does not exist, we throw a NoCommitteeError.
@@ -302,6 +360,14 @@ export class EpochCache implements EpochCacheInterface {
   public getProposerAttesterAddressInSlot(slot: SlotNumber): Promise<EthAddress | undefined> {
     const epochAndSlot = this.getEpochAndSlotAtSlot(slot);
     return this.getProposerAttesterAddressAt(epochAndSlot);
+  }
+
+  public getProposerAttesterAddressForSubmissionSlot(
+    slot: SlotNumber,
+    opts?: { nowOverride?: bigint },
+  ): Promise<EthAddress | undefined> {
+    const { proposerSlot } = this.resolveSlotViews(slot, opts);
+    return this.getProposerAttesterAddressInSlot(proposerSlot);
   }
 
   /**

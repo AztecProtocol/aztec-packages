@@ -118,6 +118,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       );
       this.config.enableBuildAhead = false;
     }
+    this.epochCache.setBuildAheadEnabled(this.config.enableBuildAhead);
     this.timetable = new SequencerTimetable(
       {
         ethereumSlotDuration: this.l1Constants.ethereumSlotDuration,
@@ -295,16 +296,18 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       isPendingChainValid: pick(syncedTo.pendingChainValidationStatus, 'valid', 'reason', 'invalidIndex'),
     };
 
+    const slotViews = this.epochCache.resolveSlotViews(slot, { nowOverride: now });
+
     // Boundary-only trigger in build-ahead mode:
     // before the boundary we only monitor predecessor activity and never start building.
-    if (this.config.enableBuildAhead && now < ts) {
+    if (slotViews.isPreBoundary) {
       this.setState(SequencerState.MONITORING_PREDECESSOR, slot);
       return undefined;
     }
 
     // Check that we are a proposer for the active proposer slot.
     this.setState(SequencerState.PROPOSER_CHECK, slot);
-    const [canPropose, proposer] = await this.checkCanPropose(slot, { now, slotStartTs: ts });
+    const [canPropose, proposer] = await this.checkCanPropose(slot, { now });
 
     // If we are not a proposer check if we should invalidate an invalid checkpoint, and bail
     if (!canPropose) {
@@ -565,13 +568,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    */
   protected async checkCanPropose(
     slot: SlotNumber,
-    options?: { now?: bigint; slotStartTs?: bigint },
+    options?: { now?: bigint },
   ): Promise<[boolean, EthAddress | undefined]> {
     let proposer: EthAddress | undefined;
-    const proposerSlot = this.getActiveProposerSlot(slot, options);
+    const proposerSlot = this.epochCache.resolveSlotViews(slot, { nowOverride: options?.now }).proposerSlot;
 
     try {
-      proposer = await this.epochCache.getProposerAttesterAddressInSlot(proposerSlot);
+      proposer = await this.epochCache.getProposerAttesterAddressForSubmissionSlot(slot, { nowOverride: options?.now });
     } catch (e) {
       if (e instanceof NoCommitteeError) {
         if (this.lastSlotForNoCommitteeWarning !== proposerSlot) {
@@ -643,7 +646,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Check if we're a proposer or proposal is open
     const [canPropose, proposer] = await this.checkCanPropose(slot, {
       now: this.dateProvider.nowInSeconds(),
-      slotStartTs: args.ts,
     });
     if (!canPropose) {
       this.log.trace(`Cannot vote in slot ${slot} since we are not a proposer`, { slot, proposer });
@@ -859,24 +861,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   private getSlotStartBuildTimestamp(slotNumber: SlotNumber): number {
     return getSlotStartBuildTimestamp(slotNumber, this.l1Constants);
-  }
-
-  private getActiveProposerSlot(slot: SlotNumber, options?: { now?: bigint; slotStartTs?: bigint }): SlotNumber {
-    if (!this.config.enableBuildAhead) {
-      return slot;
-    }
-
-    if (options?.now === undefined || options.slotStartTs === undefined) {
-      return slot;
-    }
-
-    // In build-ahead mode, proposer ownership flips at the slot boundary.
-    // Before boundary: predecessor-slot proposer is valid. At/after boundary: target-slot proposer.
-    if (options.now < options.slotStartTs) {
-      return SlotNumber(Math.max(0, Number(slot) - 1));
-    }
-
-    return slot;
   }
 
   private getSecondsIntoSlot(slotNumber: SlotNumber): number {

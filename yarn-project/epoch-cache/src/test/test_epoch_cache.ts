@@ -31,6 +31,7 @@ export class TestEpochCache implements EpochCacheInterface {
   private seed: bigint = 0n;
   private registeredValidators: EthAddress[] = [];
   private l1Constants: L1RollupConstants;
+  private buildAheadEnabled = false;
 
   constructor(l1Constants: Partial<L1RollupConstants> = {}) {
     this.l1Constants = { ...DEFAULT_L1_CONSTANTS, ...l1Constants };
@@ -103,6 +104,10 @@ export class TestEpochCache implements EpochCacheInterface {
     return this.l1Constants;
   }
 
+  setBuildAheadEnabled(enabled: boolean): void {
+    this.buildAheadEnabled = enabled;
+  }
+
   getCommittee(_slot?: SlotTag): Promise<EpochCommitteeInfo> {
     const epoch = getEpochAtSlot(this.currentSlot, this.l1Constants);
     return Promise.resolve({
@@ -147,7 +152,36 @@ export class TestEpochCache implements EpochCacheInterface {
     };
   }
 
+  resolveSlotViews(slot: SlotNumber, opts?: { nowOverride?: bigint }) {
+    const now = opts?.nowOverride ?? this.getEpochAndSlotNow().ts;
+    const slotStartTs = BigInt(slot) * BigInt(this.l1Constants.slotDuration) + this.l1Constants.l1GenesisTime;
+    const isPreBoundary = this.buildAheadEnabled && now < slotStartTs;
+
+    return {
+      targetSlot: slot,
+      proposerSlot: isPreBoundary ? SlotNumber(Math.max(0, Number(slot) - 1)) : slot,
+      submissionSlot: slot,
+      now,
+      slotStartTs,
+      isPreBoundary,
+    };
+  }
+
+  async getCommitteeViews(slot: SlotNumber, opts?: { nowOverride?: bigint }) {
+    const slots = this.resolveSlotViews(slot, opts);
+    const proposer = await this.getCommittee(slots.proposerSlot);
+    const submission = await this.getCommittee(slots.submissionSlot);
+    return { slots, proposer, submission };
+  }
+
   getProposerAttesterAddressInSlot(_slot: SlotNumber): Promise<EthAddress | undefined> {
+    return Promise.resolve(this.proposerAddress);
+  }
+
+  getProposerAttesterAddressForSubmissionSlot(
+    _slot: SlotNumber,
+    _opts?: { nowOverride?: bigint },
+  ): Promise<EthAddress | undefined> {
     return Promise.resolve(this.proposerAddress);
   }
 

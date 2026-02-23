@@ -63,7 +63,7 @@ export abstract class ProposalValidator<TProposal extends BlockProposal | Checkp
       }
 
       // Proposer check
-      const expectedProposer = await this.epochCache.getProposerAttesterAddressInSlot(slotNumber);
+      const expectedProposer = await this.epochCache.getProposerAttesterAddressForSubmissionSlot(slotNumber);
       if (expectedProposer !== undefined && !proposer.equals(expectedProposer)) {
         this.logger.warn(`Penalizing peer for invalid proposer for current slot ${slotNumber}`, {
           expectedProposer,

@@ -20,6 +20,10 @@ class TestEpochCache extends EpochCache {
   public setCacheSize(size: number): void {
     this.config.cacheSize = size;
   }
+
+  public setBuildAheadForTest(enabled: boolean): void {
+    this.setBuildAheadEnabled(enabled);
+  }
 }
 
 describe('EpochCache', () => {
@@ -142,6 +146,33 @@ describe('EpochCache', () => {
     const { currentSlot: nextNextSlot } = epochCache.getCurrentAndNextSlot();
     const nextNextProposer = await epochCache.getProposerAttesterAddressInSlot(nextNextSlot);
     expect(nextNextProposer).toEqual(testCommittee[0]);
+  });
+
+  it('resolves proposer and submission slot views at the boundary', () => {
+    const initialTime = Number(l1GenesisTime) * 1000;
+    jest.setSystemTime(initialTime);
+    epochCache.setBuildAheadForTest(true);
+
+    const targetSlot = SlotNumber(1);
+
+    const preBoundary = epochCache.resolveSlotViews(targetSlot, { nowOverride: l1GenesisTime + 11n });
+    expect(preBoundary.isPreBoundary).toBe(true);
+    expect(preBoundary.proposerSlot).toBe(SlotNumber(0));
+    expect(preBoundary.submissionSlot).toBe(targetSlot);
+
+    const atBoundary = epochCache.resolveSlotViews(targetSlot, { nowOverride: l1GenesisTime + 12n });
+    expect(atBoundary.isPreBoundary).toBe(false);
+    expect(atBoundary.proposerSlot).toBe(targetSlot);
+    expect(atBoundary.submissionSlot).toBe(targetSlot);
+  });
+
+  it('resolves proposer committee using the proposer view', async () => {
+    epochCache.setBuildAheadForTest(true);
+    const spy = jest.spyOn(epochCache, 'getProposerAttesterAddressInSlot');
+
+    await epochCache.getProposerAttesterAddressForSubmissionSlot(SlotNumber(1), { nowOverride: l1GenesisTime + 11n });
+
+    expect(spy).toHaveBeenCalledWith(SlotNumber(0));
   });
 
   it('should request to update the validator set when on the epoch boundary', async () => {

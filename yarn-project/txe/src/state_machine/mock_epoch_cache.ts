@@ -50,9 +50,37 @@ export class MockEpochCache implements EpochCacheInterface {
     };
   }
 
+  resolveSlotViews(slot: SlotNumber, opts?: { nowOverride?: bigint }) {
+    const now = opts?.nowOverride ?? 0n;
+    return {
+      targetSlot: slot,
+      proposerSlot: slot,
+      submissionSlot: slot,
+      now,
+      slotStartTs: 0n,
+      isPreBoundary: false,
+    };
+  }
+
+  async getCommitteeViews(slot: SlotNumber, opts?: { nowOverride?: bigint }) {
+    const slots = this.resolveSlotViews(slot, opts);
+    const proposer = await this.getCommittee(slots.proposerSlot);
+    const submission = await this.getCommittee(slots.submissionSlot);
+    return { slots, proposer, submission };
+  }
+
   getProposerAttesterAddressInSlot(_slot: SlotNumber): Promise<EthAddress | undefined> {
     return Promise.resolve(undefined);
   }
+
+  getProposerAttesterAddressForSubmissionSlot(
+    _slot: SlotNumber,
+    _opts?: { nowOverride?: bigint },
+  ): Promise<EthAddress | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  setBuildAheadEnabled(_enabled: boolean): void {}
 
   isInCommittee(_slot: SlotTag, _validator: EthAddress): Promise<boolean> {
     return Promise.resolve(false);

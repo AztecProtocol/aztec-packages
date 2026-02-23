@@ -72,7 +72,7 @@ describe('CheckpointAttestationValidator', () => {
       nowMs: 1000100n, // 100ms elapsed, within 500ms tolerance
     });
     (epochCache.isInCommittee as jest.Mock).mockResolvedValue(true);
-    (epochCache.getProposerAttesterAddressInSlot as jest.Mock).mockResolvedValue(proposer.address);
+    (epochCache.getProposerAttesterAddressForSubmissionSlot as jest.Mock).mockResolvedValue(proposer.address);
 
     const result = await validator.validate(mockAttestation);
     expect(result).toEqual({ result: 'ignore' });
@@ -113,7 +113,7 @@ describe('CheckpointAttestationValidator', () => {
       nextSlot: SlotNumber(101),
     });
     (epochCache.isInCommittee as jest.Mock).mockResolvedValue(true);
-    (epochCache.getProposerAttesterAddressInSlot as jest.Mock).mockResolvedValue(proposer.address);
+    (epochCache.getProposerAttesterAddressForSubmissionSlot as jest.Mock).mockResolvedValue(proposer.address);
 
     const result = await validator.validate(mockAttestation);
     expect(result).toEqual({ result: 'accept' });
@@ -134,7 +134,7 @@ describe('CheckpointAttestationValidator', () => {
       nextSlot: SlotNumber(101),
     });
     (epochCache.isInCommittee as jest.Mock).mockResolvedValue(true);
-    (epochCache.getProposerAttesterAddressInSlot as jest.Mock).mockResolvedValue(proposer.address);
+    (epochCache.getProposerAttesterAddressForSubmissionSlot as jest.Mock).mockResolvedValue(proposer.address);
 
     const result = await validator.validate(mockAttestation);
     expect(result).toEqual({ result: 'accept' });
@@ -175,7 +175,7 @@ describe('CheckpointAttestationValidator', () => {
       nextSlot: SlotNumber(101),
     });
     (epochCache.isInCommittee as jest.Mock).mockReturnValue(true);
-    (epochCache.getProposerAttesterAddressInSlot as jest.Mock).mockRejectedValue(new NoCommitteeError());
+    (epochCache.getProposerAttesterAddressForSubmissionSlot as jest.Mock).mockRejectedValue(new NoCommitteeError());
 
     const result = await validator.validate(mockAttestation);
     expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.LowToleranceError });

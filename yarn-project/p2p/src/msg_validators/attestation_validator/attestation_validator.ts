@@ -54,7 +54,7 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
       // We look up the proposer for the specific slot rather than using currentSlot/nextSlot
       // since timing differences could cause mismatches
       const proposer = message.getProposer();
-      const expectedProposer = await this.epochCache.getProposerAttesterAddressInSlot(slotNumber);
+      const expectedProposer = await this.epochCache.getProposerAttesterAddressForSubmissionSlot(slotNumber);
       if (!expectedProposer) {
         this.logger.warn(`No proposer defined for slot ${slotNumber}`);
         return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };

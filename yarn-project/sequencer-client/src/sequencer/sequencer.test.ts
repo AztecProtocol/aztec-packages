@@ -176,6 +176,17 @@ describe('sequencer', () => {
       epoch: EpochNumber(1),
       isEscapeHatchOpen: false,
     });
+    epochCache.resolveSlotViews.mockImplementation(slot => ({
+      targetSlot: slot,
+      proposerSlot: slot,
+      submissionSlot: slot,
+      now: 1000n,
+      slotStartTs: 1000n,
+      isPreBoundary: false,
+    }));
+    epochCache.getProposerAttesterAddressForSubmissionSlot.mockImplementation(slot =>
+      epochCache.getProposerAttesterAddressInSlot(slot),
+    );
 
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
@@ -882,27 +893,31 @@ describe('sequencer', () => {
     });
   });
 
-  describe('build-ahead proposer slot selection', () => {
-    it('uses previous slot proposer before boundary when build-ahead is enabled', async () => {
+  describe('build-ahead proposer lookup', () => {
+    it('delegates proposer lookup to epoch cache view resolution', async () => {
       const proposer = signer.address;
       validatorClient.getValidatorAddresses.mockReturnValue([proposer]);
-      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
+      epochCache.getProposerAttesterAddressForSubmissionSlot.mockResolvedValue(proposer);
       sequencer.setBuildAheadForTest(true);
 
-      await sequencer.checkCanProposeForTest(SlotNumber(1), { now: 1000n, slotStartTs: 1001n });
+      await sequencer.checkCanProposeForTest(SlotNumber(1), { now: 1000n });
 
-      expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(0));
+      expect(epochCache.getProposerAttesterAddressForSubmissionSlot).toHaveBeenCalledWith(SlotNumber(1), {
+        nowOverride: 1000n,
+      });
     });
 
-    it('uses current target slot proposer when build-ahead is disabled', async () => {
+    it('delegates proposer lookup when build-ahead is disabled', async () => {
       const proposer = signer.address;
       validatorClient.getValidatorAddresses.mockReturnValue([proposer]);
-      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
+      epochCache.getProposerAttesterAddressForSubmissionSlot.mockResolvedValue(proposer);
       sequencer.updateConfig({ enableBuildAhead: false });
 
-      await sequencer.checkCanProposeForTest(SlotNumber(1), { now: 1000n, slotStartTs: 1001n });
+      await sequencer.checkCanProposeForTest(SlotNumber(1), { now: 1000n });
 
-      expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(1));
+      expect(epochCache.getProposerAttesterAddressForSubmissionSlot).toHaveBeenCalledWith(SlotNumber(1), {
+        nowOverride: 1000n,
+      });
     });
   });
 });
@@ -921,12 +936,11 @@ class TestSequencer extends Sequencer {
     return super.work();
   }
 
-  public checkCanProposeForTest(slot: SlotNumber, options?: { now?: bigint; slotStartTs?: bigint }) {
+  public checkCanProposeForTest(slot: SlotNumber, options?: { now?: bigint }) {
     return this.checkCanPropose(slot, options);
   }
 
   public setBuildAheadForTest(enabled: boolean) {
-    this.config.publishTxsWithProposals = true;
-    this.config.enableBuildAhead = enabled;
+    this.updateConfig({ publishTxsWithProposals: true, enableBuildAhead: enabled });
   }
 }

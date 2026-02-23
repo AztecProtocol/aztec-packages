@@ -112,6 +112,7 @@ export class SequencerClient {
           l1ChainId: chainId,
           viemPollingIntervalMS: config.viemPollingIntervalMS,
           ethereumSlotDuration: config.ethereumSlotDuration,
+          buildAheadEnabled: config.enableBuildAhead,
         },
         { dateProvider: deps.dateProvider },
       ));

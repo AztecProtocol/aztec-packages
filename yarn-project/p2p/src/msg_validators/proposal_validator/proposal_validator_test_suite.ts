@@ -40,7 +40,7 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
     const nextSlot = getSlot(101);
 
     function mockGetProposer(currentProposer: EthAddress, nextProposer: EthAddress, previousProposer?: EthAddress) {
-      epochCache.getProposerAttesterAddressInSlot.mockImplementation(slot => {
+      epochCache.getProposerAttesterAddressForSubmissionSlot.mockImplementation(slot => {
         if (slot === currentSlot) {
           return Promise.resolve(currentProposer);
         }
@@ -75,12 +75,12 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
         nowMs: 1001000n, // 1000ms elapsed, outside 500ms tolerance
       });
 
-      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(getAddress());
+      epochCache.getProposerAttesterAddressForSubmissionSlot.mockResolvedValue(getAddress());
       const result = await validator.validate(mockProposal);
       expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.HighToleranceError });
 
       // Should not try to resolve proposers if base validation fails
-      expect(epochCache.getProposerAttesterAddressInSlot).not.toHaveBeenCalled();
+      expect(epochCache.getProposerAttesterAddressForSubmissionSlot).not.toHaveBeenCalled();
     });
 
     it('returns ignore if previous slot proposal is within clock tolerance', async () => {
