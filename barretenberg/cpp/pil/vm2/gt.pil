@@ -21,6 +21,8 @@ include "range_check.pil";
  *   All five sub-selectors are functionally identical; they exist solely to decouple
  *   inverse computation for performance. Each caller trace should use the selector
  *   assigned to it. If no dedicated selector exists for your trace, use sel_others.
+ *   Note: sub-selectors are set automatically by the lookup builder infrastructure,
+ *   not explicitly in tracegen code.
  *
  * TRACE SHAPE: 1 row per computation.
  *
@@ -64,15 +66,14 @@ namespace gt;
 
     // ==== GT COMPUTATION ====
 
-    // Below are two subtractions we constrain to not underflow via the constraints later in the file.
-    pol A_LTE_B = input_b - input_a; // constrained to not underflow when a <= b
-    pol A_GT_B = input_a - input_b - 1; // constrained to not underflow when a > b
-    pol commit abs_diff; // whichever of the above two subtractions is active on this row
+    // The absolute difference between the inputs, computed two ways depending on order.
+    // The constraints later in the file ensure the active subtraction didn't underflow.
+    pol A_LTE_B = input_b - input_a; // absolute difference when a <= b
+    pol A_GT_B = input_a - input_b - 1; // absolute difference minus 1 when a > b
+    pol commit abs_diff; // whichever of the above is active on this row
 
-    // num_bits is not directly constrained here. The range_check gadget (via GT_RANGE lookup below)
-    // enforces abs_diff < 2^num_bits with num_bits <= 128, so any valid choice of num_bits proves
-    // that abs_diff < 2^128 and therefore that the active subtraction (either A_LTE_B or A_GT_B)
-    // didn't underflow.
+    // The column num_bits is not directly constrained here. The range_check gadget (#[GT_RANGE])
+    // uses it to enforce that abs_diff (either A_LTE_B or A_GT_B) didn't underflow.
     //
     // In trace generation, we pick num_bits as the smallest multiple of 16 such that 2^num_bits > abs_diff.
     // We use a multiple of 16 because range_check decomposes values into 16-bit limbs, so a tighter
@@ -85,9 +86,10 @@ namespace gt;
 
     // When res = 1, GT_RESULT constrains abs_diff = a - b - 1.
     // When res = 0, GT_RESULT constrains abs_diff = b - a.
-    // GT_RANGE enforces abs_diff < 2^128, which means the subtraction didn't underflow.
-    // Together these constrain res to be 1 iff a > b.
     #[GT_RESULT]
     sel * ( (A_GT_B - A_LTE_B) * res + A_LTE_B - abs_diff ) = 0;
+    // Constrains that abs_diff < 2^num_bits with num_bits <= 128, proving it didn't underflow.
     #[GT_RANGE]
     sel { abs_diff, num_bits } in range_check.sel_gt { range_check.value, range_check.rng_chk_bits };
+
+    // Together, GT_RESULT and GT_RANGE constrain res to be 1 iff a > b.

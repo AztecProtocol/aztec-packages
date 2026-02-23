@@ -27,6 +27,9 @@ void GreaterThanTraceBuilder::process(
         FF a_ff = FF(event.a);
         FF b_ff = FF(event.b);
         FF abs_diff = event.result ? a_ff - b_ff - 1 : b_ff - a_ff;
+        // Compute the bit-size of abs_diff, rounded up to a multiple of 16.
+        // This must match the num_bits used in the range check event emitted by simulation
+        // so that the #[GT_RANGE] lookup between this trace and range_check succeeds.
         const uint8_t num_bits_bound = static_cast<uint8_t>(static_cast<uint256_t>(abs_diff).get_msb() + 1);
         const uint8_t num_bits_bound_16 =
             static_cast<uint8_t>(((num_bits_bound - 1) / 16 + 1) * 16); // round up to multiple of 16
