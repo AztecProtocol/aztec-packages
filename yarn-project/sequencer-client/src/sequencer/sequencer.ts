@@ -112,6 +112,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const filteredConfig = pickFromSchema(config, SequencerConfigSchema);
     this.log.info(`Updated sequencer config`, omit(filteredConfig, 'txPublicSetupAllowList'));
     this.config = merge(this.config, filteredConfig);
+    if (this.config.enableBuildAhead && !this.config.publishTxsWithProposals) {
+      this.log.error(
+        'Build-ahead requires publishTxsWithProposals to be enabled; refusing to enable build-ahead.',
+      );
+      this.config.enableBuildAhead = false;
+    }
     this.timetable = new SequencerTimetable(
       {
         ethereumSlotDuration: this.l1Constants.ethereumSlotDuration,

@@ -158,7 +158,13 @@ export class SequencerTimetable {
   }
 
   public getMaxAllowedTime(
-    state: Extract<SequencerState, SequencerState.STOPPED | SequencerState.IDLE | SequencerState.SYNCHRONIZING>,
+    state: Extract<
+      SequencerState,
+      | SequencerState.STOPPED
+      | SequencerState.IDLE
+      | SequencerState.SYNCHRONIZING
+      | SequencerState.MONITORING_PREDECESSOR
+    >,
   ): undefined;
   public getMaxAllowedTime(
     state: Exclude<SequencerState, SequencerState.STOPPED | SequencerState.IDLE | SequencerState.SYNCHRONIZING>,
@@ -170,6 +176,7 @@ export class SequencerTimetable {
       case SequencerState.STOPPING:
       case SequencerState.IDLE:
       case SequencerState.SYNCHRONIZING:
+      case SequencerState.MONITORING_PREDECESSOR:
         return; // We don't really care about times for this states
       case SequencerState.PROPOSER_CHECK:
       case SequencerState.INITIALIZING_CHECKPOINT:

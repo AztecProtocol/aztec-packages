@@ -19,6 +19,8 @@ export interface SequencerConfig {
   minValidTxsPerBlock?: number;
   /** Whether to publish txs with the block proposals */
   publishTxsWithProposals?: boolean;
+  /** Whether to enable build-ahead proposer pipelining. */
+  enableBuildAhead?: boolean;
   /** The maximum L2 block gas. */
   maxL2BlockGas?: number;
   /** The maximum DA block gas. */
@@ -85,6 +87,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     minTxsPerBlock: z.number().optional(),
     maxL2BlockGas: z.number().optional(),
     publishTxsWithProposals: z.boolean().optional(),
+    enableBuildAhead: z.boolean().optional(),
     maxDABlockGas: z.number().optional(),
     coinbase: schemas.EthAddress.optional(),
     feeRecipient: schemas.AztecAddress.optional(),
