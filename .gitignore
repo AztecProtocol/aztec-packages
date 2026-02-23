@@ -33,3 +33,6 @@ docs/docs/protocol-specs/public-vm/gen/
 __pycache__
 
 *.local.md
+
+# CI health report — local/server only, not in git
+ci3/ci-metrics/views/ci-health-report.html
