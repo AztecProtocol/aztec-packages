@@ -162,6 +162,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     this.log.info(`Aztec Node version: ${this.packageVersion}`);
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
+
+    // A defensive check that protects us against introducing a bug in the complex `createAndSync` function.
+    if (debugLogStore && config.realProofs) {
+      throw new Error('debugLogStore should not be provided when realProofs is enabled');
+    }
   }
 
   public async getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
