@@ -372,6 +372,29 @@ describe('TallySlasherClient', () => {
         expect(slasherContract.isPayloadVetoed).toHaveBeenCalledWith(payloadAddress);
       });
 
+      it('returns execute-slash again on a subsequent slot if the round was not executed', async () => {
+        // This tests the re-enqueueing invariant: if execute-slash was dropped from a bundle
+        // (e.g. due to gas budget overflow), the next slot's getProposerActions() call will
+        // produce it again because it queries on-chain state fresh each slot.
+        const currentRound = 5n;
+        const executableRound = 2n; // currentRound - delay(2) - 1 = 2
+
+        const slotN = currentRound * BigInt(roundSize);
+        const slotNplus1 = slotN + 1n;
+
+        // Both calls to getRound return the same unexecuted round (round was NOT executed)
+        tallySlashingProposer.getRound.mockResolvedValue(executableRoundData);
+
+        const actionsSlot1 = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(slotN));
+        expect(actionsSlot1).toHaveLength(1);
+        expectActionExecuteSlash(actionsSlot1[0], executableRound);
+
+        // Simulate the next slot without executing the round
+        const actionsSlot2 = await tallySlasherClient.getProposerActions(SlotNumber.fromBigInt(slotNplus1));
+        expect(actionsSlot2).toHaveLength(1);
+        expectActionExecuteSlash(actionsSlot2[0], executableRound);
+      });
+
       it('should not execute when slashing is disabled', async () => {
         const currentRound = 5n;
         const currentSlot = currentRound * BigInt(roundSize);

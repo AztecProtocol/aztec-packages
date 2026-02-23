@@ -25,7 +25,6 @@ import {
   WEI_CONST,
 } from '@aztec/ethereum/l1-tx-utils';
 import { FormattedViemError, formatViemError, mergeAbis, tryExtractEvent } from '@aztec/ethereum/utils';
-import { sumBigint } from '@aztec/foundation/bigint';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { pick } from '@aztec/foundation/collection';
@@ -330,7 +329,6 @@ export class SequencerPublisher {
     const currentL2Slot = this.getCurrentL2Slot();
     this.log.debug(`Sending requests on L2 slot ${currentL2Slot}`);
     const validRequests = requestsToProcess.filter(request => request.lastValidL2Slot >= currentL2Slot);
-    const validActions = validRequests.map(x => x.action);
     const expiredActions = requestsToProcess
       .filter(request => request.lastValidL2Slot < currentL2Slot)
       .map(x => x.action);
@@ -353,53 +351,68 @@ export class SequencerPublisher {
       return undefined;
     }
 
-    // @note - we can only have one blob config per bundle
-    // find requests with gas and blob configs
-    // See https://github.com/AztecProtocol/aztec-packages/issues/11513
-    const gasConfigs = requestsToProcess.filter(request => request.gasConfig).map(request => request.gasConfig);
-    const blobConfigs = requestsToProcess.filter(request => request.blobConfig).map(request => request.blobConfig);
+    // Sort the requests so that proposals always go first.
+    // This ensures the committee gets precomputed correctly, and that high-priority
+    // actions consume the gas budget before lower-priority ones.
+    validRequests.sort((a, b) => compareActions(a.action, b.action));
 
+    // Greedily pack requests into the gas budget (EIP-7825 protocol cap).
+    // Actions that don't fit are dropped with a warning -- they are re-evaluated
+    // next slot via getProposerActions() and will be retried until their on-chain
+    // lifetime expires. This avoids silently capping gas and risking OOG failures.
+    const droppedActions: Action[] = [];
+    const requestsToSend: RequestWithExpiry[] = [];
+    let gasAccumulator = 0n;
+    for (const request of validRequests) {
+      const actionGas = request.gasConfig?.gasLimit ?? 0n;
+      if (gasAccumulator + actionGas > MAX_L1_TX_LIMIT) {
+        droppedActions.push(request.action);
+      } else {
+        requestsToSend.push(request);
+        gasAccumulator += actionGas;
+      }
+    }
+
+    if (droppedActions.length > 0) {
+      this.log.warn('Dropping actions that exceed gas budget; they will be retried next slot', {
+        droppedActions,
+        gasAccumulator,
+        maxGas: MAX_L1_TX_LIMIT,
+      });
+    }
+
+    // @note - we can only have one blob config per bundle
+    // See https://github.com/AztecProtocol/aztec-packages/issues/11513
+    const blobConfigs = requestsToSend.filter(request => request.blobConfig).map(request => request.blobConfig);
     if (blobConfigs.length > 1) {
       throw new Error('Multiple blob configs found');
     }
-
     const blobConfig = blobConfigs[0];
 
-    // Merge gasConfigs. Yields the sum of gasLimits, and the earliest txTimeoutAt, or undefined if no gasConfig sets them.
-    const gasLimits = gasConfigs.map(g => g?.gasLimit).filter((g): g is bigint => g !== undefined);
-    let gasLimit = gasLimits.length > 0 ? sumBigint(gasLimits) : undefined; // sum
-    // Cap at L1 block gas limit so the node accepts the tx ("gas limit too high" otherwise).
-    const maxGas = MAX_L1_TX_LIMIT;
-    if (gasLimit !== undefined && gasLimit > maxGas) {
-      this.log.debug('Capping bundled tx gas limit to L1 max', {
-        requested: gasLimit,
-        capped: maxGas,
-      });
-      gasLimit = maxGas;
-    }
+    // Merge gasConfigs from the requests that will actually be sent.
+    // Yields the sum of gasLimits, and the earliest txTimeoutAt, or undefined if no gasConfig sets them.
+    const gasConfigs = requestsToSend.filter(request => request.gasConfig).map(request => request.gasConfig);
+    const gasLimit = gasAccumulator > 0n ? gasAccumulator : undefined;
     const txTimeoutAts = gasConfigs.map(g => g?.txTimeoutAt).filter((g): g is Date => g !== undefined);
     const txTimeoutAt = txTimeoutAts.length > 0 ? new Date(Math.min(...txTimeoutAts.map(g => g.getTime()))) : undefined; // earliest
     const txConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
 
-    // Sort the requests so that proposals always go first
-    // This ensures the committee gets precomputed correctly
-    validRequests.sort((a, b) => compareActions(a.action, b.action));
-
+    const sentActions = requestsToSend.map(r => r.action);
     try {
       this.log.debug('Forwarding transactions', {
-        validRequests: validRequests.map(request => request.action),
+        sentActions,
         txConfig,
       });
       const result = await Multicall3.forward(
-        validRequests.map(request => request.request),
+        requestsToSend.map(request => request.request),
         this.l1TxUtils,
         txConfig,
         blobConfig,
         this.rollupContract.address,
         this.log,
       );
-      const { successfulActions = [], failedActions = [] } = this.callbackBundledTransactions(validRequests, result);
-      return { result, expiredActions, sentActions: validActions, successfulActions, failedActions };
+      const { successfulActions = [], failedActions = [] } = this.callbackBundledTransactions(requestsToSend, result);
+      return { result, expiredActions, droppedActions, sentActions, successfulActions, failedActions };
     } catch (err) {
       const viemError = formatViemError(err);
       this.log.error(`Failed to publish bundled transactions`, viemError);

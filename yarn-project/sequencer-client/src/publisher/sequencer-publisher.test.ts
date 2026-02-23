@@ -12,6 +12,7 @@ import {
   type GasPrice,
   type L1TxUtils,
   type L1TxUtilsConfig,
+  MAX_L1_TX_LIMIT,
   defaultL1TxUtilsConfig,
 } from '@aztec/ethereum/l1-tx-utils';
 import { FormattedViemError } from '@aztec/ethereum/utils';
@@ -382,6 +383,80 @@ describe('SequencerPublisher', () => {
     expect(result).toEqual(undefined);
     expect(forwardSpy).not.toHaveBeenCalled();
     expect((publisher as any).requests.length).toEqual(0);
+  });
+
+  describe('gas budget packing in sendRequests', () => {
+    const currentSlot = SlotNumber(2); // matches the epochCache mock in beforeEach
+
+    const makeRequest = (action: Action, gasLimit: bigint) => ({
+      action,
+      request: { to: mockRollupAddress as `0x${string}`, data: '0x' as `0x${string}` },
+      lastValidL2Slot: currentSlot,
+      gasConfig: { gasLimit },
+      checkSuccess: () => true,
+    });
+
+    beforeEach(() => {
+      forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, errorMsg: undefined });
+    });
+
+    it('sends all actions when they fit within the gas budget', async () => {
+      publisher.addRequest(makeRequest('propose', 10_000_000n));
+      publisher.addRequest(makeRequest('execute-slash', 6_000_000n));
+
+      const result = await publisher.sendRequests();
+
+      expect(forwardSpy).toHaveBeenCalledTimes(1);
+      expect(forwardSpy.mock.calls[0][0]).toHaveLength(2);
+      expect(result?.droppedActions).toEqual([]);
+      expect(result?.sentActions).toEqual(['propose', 'execute-slash']);
+    });
+
+    it('drops execute-slash when it would push the bundle over MAX_L1_TX_LIMIT', async () => {
+      // propose takes almost all the budget; execute-slash cannot fit
+      publisher.addRequest(makeRequest('propose', MAX_L1_TX_LIMIT - 100n));
+      publisher.addRequest(makeRequest('execute-slash', 200n));
+
+      const result = await publisher.sendRequests();
+
+      expect(forwardSpy).toHaveBeenCalledTimes(1);
+      // Only propose should be forwarded
+      expect(forwardSpy.mock.calls[0][0]).toHaveLength(1);
+      expect(result?.droppedActions).toEqual(['execute-slash']);
+      expect(result?.sentActions).toEqual(['propose']);
+    });
+
+    it('respects action sort order so high-priority actions claim the budget first', async () => {
+      // execute-slash is enqueued first but should be sorted after propose.
+      // With only room for one action, propose (higher priority) must win.
+      publisher.addRequest(makeRequest('execute-slash', MAX_L1_TX_LIMIT - 100n));
+      publisher.addRequest(makeRequest('propose', MAX_L1_TX_LIMIT - 100n));
+
+      const result = await publisher.sendRequests();
+
+      expect(forwardSpy).toHaveBeenCalledTimes(1);
+      expect(forwardSpy.mock.calls[0][0]).toHaveLength(1);
+      expect(result?.sentActions).toEqual(['propose']);
+      expect(result?.droppedActions).toEqual(['execute-slash']);
+    });
+
+    it('includes actions without a gasConfig without consuming budget', async () => {
+      // governance-signal has no explicit gasConfig in this test
+      publisher.addRequest({
+        action: 'governance-signal',
+        request: { to: mockRollupAddress as `0x${string}`, data: '0x' as `0x${string}` },
+        lastValidL2Slot: currentSlot,
+        checkSuccess: () => true,
+      });
+      publisher.addRequest(makeRequest('execute-slash', MAX_L1_TX_LIMIT));
+
+      const result = await publisher.sendRequests();
+
+      // Both should be sent: governance-signal contributes 0 to accumulator
+      expect(result?.droppedActions).toEqual([]);
+      expect(result?.sentActions).toContain('governance-signal');
+      expect(result?.sentActions).toContain('execute-slash');
+    });
   });
 
   it('does not signal for payload when quorum is reached', async () => {
