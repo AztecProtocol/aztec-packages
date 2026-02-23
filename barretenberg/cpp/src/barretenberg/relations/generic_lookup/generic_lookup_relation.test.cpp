@@ -759,7 +759,7 @@ class MixedLookupTest : public GenericLookupRelationTest<SettingsMixedLookup> {
      * @brief Build and evaluate a canonical two-row mixed trace.
      *
      * Row 0: basic lookup (in[3]=1) + customized table (in[6]=1).
-     *   f1=1, f2=2, f3=3  ->  lookup_term_basic_row0  = 1*beta^2 + 2*beta + 3 + gamma
+     *   f1=1, f2=2, f3=3   ->  lookup_term_basic_row0  = 1*beta^2 + 2*beta + 3 + gamma
      *   custom_f=2         ->  lookup_term_custom_row0 = 8   (used only in the inverse product)
      *   Dummy basic table cols: 1,1,1
      *   custom_t_row0      ->  table_term_custom_row0 = custom_t_row0  (default 27)
@@ -883,14 +883,7 @@ TEST_F(MixedLookupTest, InactiveRow)
 }
 
 /**
- * @brief A correctly-set-up basic lookup row satisfies subrelation 0.
- *
- * in[3]=1, all other predicates 0:
- *   basic_term = OR(in[3], in[5]) = OR(1, 0) = 1
- *   customized_term = OR(in[4], in[6]) = OR(0, 0) = 0
- *   inverse_exists = OR(1, 0) = 1
- *   I = 1/(lookup_term_0 * lookup_term_1 * table_term_0 * table_term_1)
- *   subrel_0 = I * prod - 1 = 0
+ * @brief A correctly-set-up basic lookup row satisfies subrelation 0. in[3]=1 or in[4] = 1, all other predicates 0.
  */
 TEST_F(MixedLookupTest, ValidLookupRow)
 {
@@ -899,45 +892,45 @@ TEST_F(MixedLookupTest, ValidLookupRow)
     const FF beta_sq = params.beta_sqr;
     const FF gamma = params.gamma;
 
-    const FF f1 = FF(3);
-    const FF f2 = FF(5);
-    const FF f3 = FF(7);
-    const FF custom_f = FF(2); // lookup_term_1 = 8
-    // Dummy table cols on this row (table preds = 0, so they don't contribute to sum)
-    const FF t0_1 = FF(1);
-    const FF t0_2 = FF(1);
-    const FF t0_3 = FF(1);
-    const FF custom_t = FF(1);
-    const FF lookup_term_0 = f1 * beta_sq + f2 * beta + f3 + gamma;
-    const FF lookup_term_1 = custom_f * custom_f * custom_f; // 2^3
-    const FF table_term_0 = t0_1 * beta_sq + t0_2 * beta + t0_3 + gamma;
-    const FF table_term_1 = custom_t;
+    auto validate_row = [&](const size_t idx) {
+        const FF f1 = FF(3);
+        const FF f2 = FF(5);
+        const FF f3 = FF(7);
+        const FF custom_f = FF(2);
+        const FF t0_1 = FF(1);
+        const FF t0_2 = FF(1);
+        const FF t0_3 = FF(1);
+        const FF custom_t = FF(1);
+        const FF lookup_term_0 = f1 * beta_sq + f2 * beta + f3 + gamma;
+        const FF lookup_term_1 = custom_f * custom_f * custom_f; // 2^3
+        const FF table_term_0 = t0_1 * beta_sq + t0_2 * beta + t0_3 + gamma;
+        const FF table_term_1 = custom_t;
 
-    AllEntities row{};
-    row[0] = (lookup_term_0 * lookup_term_1 * table_term_0 * table_term_1).invert();
-    row[3] = FF(1); // turn on calculation of the inverse
-    row[7] = f1;
-    row[8] = f2;
-    row[9] = f3;
-    row[10] = t0_1;
-    row[11] = t0_2;
-    row[12] = t0_3;
-    row[13] = custom_f;
-    row[14] = custom_t;
+        AllEntities row{};
+        row[0] = (lookup_term_0 * lookup_term_1 * table_term_0 * table_term_1).invert();
+        row[idx] = FF(1); // turn on calculation of the inverse
+        row[7] = f1;
+        row[8] = f2;
+        row[9] = f3;
+        row[10] = t0_1;
+        row[11] = t0_2;
+        row[12] = t0_3;
+        row[13] = custom_f;
+        row[14] = custom_t;
 
-    auto acc = eval_row(row, params);
-    EXPECT_EQ(acc[0], FF(0));
+        auto acc = eval_row(row, params);
+        EXPECT_EQ(acc[0], FF(0));
+    };
+
+    // Validate basic lookup row
+    validate_row(3);
+
+    // Validate customized table row
+    validate_row(4);
 }
 
 /**
- * @brief A correctly-set-up table-0 row satisfies subrelation 0.
- *
- * in[5]=1, all other predicates 0:
- *   basic_term = OR(in[3], in[5]) = OR(0, 1) = 1
- *   customized_term = OR(in[4], in[6]) = OR(0, 0) = 0
- *   inverse_exists = OR(1, 0) = 1
- *   I = 1/(lookup_term_0 * lookup_term_1 * table_term_0 * table_term_1)
- *   subrel_0 = I * prod - 1 = 0
+ * @brief A correctly-set-up table-0 row satisfies subrelation 0. in[5]=1 or in[6] = 1, all other predicates 0
  */
 TEST_F(MixedLookupTest, ValidTableRow)
 {
@@ -946,41 +939,46 @@ TEST_F(MixedLookupTest, ValidTableRow)
     const FF beta_sq = params.beta_sqr;
     const FF gamma = params.gamma;
 
-    // Arbitrary lookup cols (lookup preds = 0, don't contribute to sum)
-    const FF f1 = FF(2);
-    const FF f2 = FF(4);
-    const FF f3 = FF(6);
-    const FF custom_f = FF(3); // lookup_term_1 = 27
-    const FF t0_1 = FF(5);
-    const FF t0_2 = FF(7);
-    const FF t0_3 = FF(9);
-    const FF custom_t = FF(1);
-    const FF lookup_term_0 = f1 * beta_sq + f2 * beta + f3 + gamma;
-    const FF lookup_term_1 = custom_f * custom_f * custom_f; // 3^3
-    const FF table_term_0 = t0_1 * beta_sq + t0_2 * beta + t0_3 + gamma;
-    const FF table_term_1 = custom_t;
+    auto validate_row = [&](const size_t idx) {
+        const FF f1 = FF(2);
+        const FF f2 = FF(4);
+        const FF f3 = FF(6);
+        const FF custom_f = FF(3);
+        const FF t0_1 = FF(5);
+        const FF t0_2 = FF(7);
+        const FF t0_3 = FF(9);
+        const FF custom_t = FF(1);
+        const FF lookup_term_0 = f1 * beta_sq + f2 * beta + f3 + gamma;
+        const FF lookup_term_1 = custom_f * custom_f * custom_f; // 3^3
+        const FF table_term_0 = t0_1 * beta_sq + t0_2 * beta + t0_3 + gamma;
+        const FF table_term_1 = custom_t;
 
-    AllEntities row{};
-    row[0] = (lookup_term_0 * lookup_term_1 * table_term_0 * table_term_1).invert();
-    row[5] = FF(1); // table predicate 0
-    row[7] = f1;
-    row[8] = f2;
-    row[9] = f3;
-    row[10] = t0_1;
-    row[11] = t0_2;
-    row[12] = t0_3;
-    row[13] = custom_f;
-    row[14] = custom_t;
+        AllEntities row{};
+        row[0] = (lookup_term_0 * lookup_term_1 * table_term_0 * table_term_1).invert();
+        row[idx] = FF(1); // turn on calculation of the inverse
+        row[7] = f1;
+        row[8] = f2;
+        row[9] = f3;
+        row[10] = t0_1;
+        row[11] = t0_2;
+        row[12] = t0_3;
+        row[13] = custom_f;
+        row[14] = custom_t;
 
-    auto acc = eval_row(row, params);
-    EXPECT_EQ(acc[0], FF(0));
+        auto acc = eval_row(row, params);
+        EXPECT_EQ(acc[0], FF(0));
+    };
+
+    // Validate basic table row
+    validate_row(5);
+
+    // Validate customized table row
+    validate_row(6);
 }
 
 /**
  * @brief A two-row trace where the basic lookup matches table 0 satisfies the log-derivative identity.
  *
- * t1=1, t2=2, t3=3 matches the basic lookup cols (f1=1, f2=2, f3=3), so
- * acc[1] = 1/lookup_term_0 - 1/table_term_0 = 0.
  */
 TEST_F(MixedLookupTest, ValidTrace)
 {
@@ -1031,7 +1029,7 @@ TEST_F(MixedLookupTest, IncorrectInverse)
 }
 
 /**
- * @brief Table term mismatch: t1=2, t2=4, t3=6 gives table_term_0 != lookup_term_0 -> acc[1] != 0.
+ * @brief Table term mismatch.
  */
 TEST_F(MixedLookupTest, InvalidLookup)
 {
@@ -1045,7 +1043,7 @@ TEST_F(MixedLookupTest, InvalidLookup)
 }
 
 /**
- * @brief Read count mismatch: table_0 matches the basic lookup term but read_count=2 -> acc[1] != 0.
+ * @brief Read count mismatch.
  */
 TEST_F(MixedLookupTest, InvalidReadCount)
 {
