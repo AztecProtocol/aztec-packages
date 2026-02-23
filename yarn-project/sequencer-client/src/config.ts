@@ -42,6 +42,7 @@ export const DefaultSequencerConfig: ResolvedSequencerConfig = {
   minTxsPerBlock: 1,
   buildCheckpointIfEmpty: false,
   publishTxsWithProposals: false,
+  enableBuildAhead: false,
   maxL2BlockGas: 10e9,
   maxDABlockGas: 10e9,
   maxBlockSizeInBytes: 1024 * 1024,
@@ -93,6 +94,11 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'SEQ_PUBLISH_TXS_WITH_PROPOSALS',
     description: 'Whether to publish txs with proposals.',
     ...booleanConfigHelper(DefaultSequencerConfig.publishTxsWithProposals),
+  },
+  enableBuildAhead: {
+    env: 'SEQ_ENABLE_BUILD_AHEAD',
+    description: 'Whether to enable build-ahead proposer pipelining.',
+    ...booleanConfigHelper(DefaultSequencerConfig.enableBuildAhead),
   },
   maxL2BlockGas: {
     env: 'SEQ_MAX_L2_BLOCK_GAS',
