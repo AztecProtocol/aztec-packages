@@ -881,6 +881,30 @@ describe('sequencer', () => {
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalled();
     });
   });
+
+  describe('build-ahead proposer slot selection', () => {
+    it('uses previous slot proposer before boundary when build-ahead is enabled', async () => {
+      const proposer = signer.address;
+      validatorClient.getValidatorAddresses.mockReturnValue([proposer]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
+      sequencer.setBuildAheadForTest(true);
+
+      await sequencer.checkCanProposeForTest(SlotNumber(1), { now: 1000n, slotStartTs: 1001n });
+
+      expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(0));
+    });
+
+    it('uses current target slot proposer when build-ahead is disabled', async () => {
+      const proposer = signer.address;
+      validatorClient.getValidatorAddresses.mockReturnValue([proposer]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
+      sequencer.updateConfig({ enableBuildAhead: false });
+
+      await sequencer.checkCanProposeForTest(SlotNumber(1), { now: 1000n, slotStartTs: 1001n });
+
+      expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(1));
+    });
+  });
 });
 
 class TestSequencer extends Sequencer {
@@ -895,5 +919,14 @@ class TestSequencer extends Sequencer {
   public override work() {
     this.setState(SequencerState.IDLE, undefined, { force: true });
     return super.work();
+  }
+
+  public checkCanProposeForTest(slot: SlotNumber, options?: { now?: bigint; slotStartTs?: bigint }) {
+    return this.checkCanPropose(slot, options);
+  }
+
+  public setBuildAheadForTest(enabled: boolean) {
+    this.config.publishTxsWithProposals = true;
+    this.config.enableBuildAhead = enabled;
   }
 }
