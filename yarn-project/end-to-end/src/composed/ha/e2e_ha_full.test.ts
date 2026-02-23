@@ -383,9 +383,13 @@ describe('HA Full Setup', () => {
     logger.info(`Found ${checkpointProposalDuties.length} checkpoint proposal duty`);
 
     // Check attestation duties
+    // All validators attest (tracked in DB), but the checkpoint posted to L1 is trimmed to quorum.
     const attestationDuties = allDuties.filter(d => d.dutyType === 'ATTESTATION');
-    expect(attestationDuties.length).toBe(attestations.length);
-    logger.info(`Found ${attestationDuties.length} attestation duties`);
+    expect(attestationDuties.length).toBe(VALIDATOR_COUNT);
+    expect(attestations.length).toBe(quorum);
+    logger.info(
+      `Found ${attestationDuties.length} attestation duties, ${attestations.length} in checkpoint (quorum: ${quorum})`,
+    );
 
     // Verify no duplicate attestations per validator (HA protection ensures 1 per validator address)
     const dutiesByValidator = verifyNoDuplicateAttestations(attestationDuties, logger);
@@ -403,8 +407,8 @@ describe('HA Full Setup', () => {
     const p2pAttestations = await p2p.getCheckpointAttestationsForSlot(slot);
     const p2pAttestationsWithSignatures = p2pAttestations.filter(a => !a.signature.isEmpty());
 
-    // Extract validator addresses from P2P attestations using getSender()
-    expect(p2pAttestationsWithSignatures.length).toBe(attestations.length);
+    // P2P pool has attestations from all committee members; checkpoint on L1 is trimmed to quorum
+    expect(p2pAttestationsWithSignatures.length).toBe(COMMITTEE_SIZE);
     const p2pValidatorAddresses = new Map<string, number>();
     for (const attestation of p2pAttestationsWithSignatures) {
       const sender = attestation.getSender();
@@ -788,13 +792,14 @@ describe('HA Full Setup', () => {
         (info: AttestationInfo) => info.status === 'recovered-from-signature' && info.address !== undefined,
       );
 
-      // Verify checkpoint has at least quorum attestations
+      // Verify checkpoint has exactly quorum attestations (trimmed to minimum required)
       const checkpointValidatorAddresses = new Set<string>(validAttestations.map(info => info.address!.toString()));
-      expect(checkpointValidatorAddresses.size).toBeGreaterThanOrEqual(quorum);
+      expect(checkpointValidatorAddresses.size).toBe(quorum);
 
-      // Verify checkpoint attestations match database records (each validator in DB should appear in checkpoint)
-      for (const validatorAddress of dutiesByValidator.keys()) {
-        expect(checkpointValidatorAddresses.has(validatorAddress)).toBe(true);
+      // Verify every validator in the checkpoint has a corresponding DB duty record
+      // (checkpoint is trimmed to quorum, so it's a subset of DB records)
+      for (const validatorAddress of checkpointValidatorAddresses) {
+        expect(dutiesByValidator.has(validatorAddress)).toBe(true);
       }
     }
   });

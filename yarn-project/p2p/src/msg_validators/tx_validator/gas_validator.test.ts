@@ -1,9 +1,9 @@
 import {
-  AVM_MAX_PROCESSABLE_L2_GAS,
   DEFAULT_DA_GAS_LIMIT,
   DEFAULT_TEARDOWN_DA_GAS_LIMIT,
-  FIXED_DA_GAS,
-  FIXED_L2_GAS,
+  MAX_PROCESSABLE_L2_GAS,
+  PUBLIC_TX_L2_GAS_OVERHEAD,
+  TX_DA_GAS_OVERHEAD,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Writeable } from '@aztec/foundation/types';
@@ -22,6 +22,7 @@ import {
   type Tx,
 } from '@aztec/stdlib/tx';
 
+import assert from 'assert';
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
 import { GasTxValidator } from './gas_validator.js';
@@ -112,16 +113,32 @@ describe('GasTxValidator', () => {
   });
 
   it('rejects txs if the DA gas limit is not above the minimum amount', async () => {
+    assert(!!tx.data.forPublic);
     tx.data.constants.txContext.gasSettings = GasSettings.default({
-      gasLimits: new Gas(1, FIXED_L2_GAS),
+      gasLimits: new Gas(1, PUBLIC_TX_L2_GAS_OVERHEAD),
       maxFeesPerGas: gasFees.clone(),
     });
     await expectInvalid(tx, TX_ERROR_INSUFFICIENT_GAS_LIMIT);
   });
 
-  it('rejects txs if the L2 gas limit is not above the minimum amount', async () => {
+  it('rejects txs if the L2 gas limit is not above the minimum amount in a public tx', async () => {
+    assert(!!tx.data.forPublic);
     tx.data.constants.txContext.gasSettings = GasSettings.default({
-      gasLimits: new Gas(FIXED_DA_GAS, 1),
+      gasLimits: new Gas(TX_DA_GAS_OVERHEAD, 1),
+      maxFeesPerGas: gasFees.clone(),
+    });
+    await expectInvalid(tx, TX_ERROR_INSUFFICIENT_GAS_LIMIT);
+  });
+
+  it('rejects txs if the L2 gas limit is not above the minimum amount in a private tx', async () => {
+    tx = await mockTx(1, {
+      numberOfNonRevertiblePublicCallRequests: 0,
+      numberOfRevertiblePublicCallRequests: 0,
+      hasPublicTeardownCallRequest: false,
+    });
+    assert(!tx.data.forPublic);
+    tx.data.constants.txContext.gasSettings = GasSettings.default({
+      gasLimits: new Gas(TX_DA_GAS_OVERHEAD, 1),
       maxFeesPerGas: gasFees.clone(),
     });
     await expectInvalid(tx, TX_ERROR_INSUFFICIENT_GAS_LIMIT);
@@ -147,7 +164,7 @@ describe('GasTxValidator', () => {
 
   it('rejects txs if the l2 gas limit is too high', async () => {
     tx.data.constants.txContext.gasSettings = GasSettings.default({
-      gasLimits: new Gas(DEFAULT_DA_GAS_LIMIT, AVM_MAX_PROCESSABLE_L2_GAS + 1),
+      gasLimits: new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1),
       maxFeesPerGas: gasFees.clone(),
       teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
     });

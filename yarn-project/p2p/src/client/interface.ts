@@ -141,14 +141,6 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]>;
 
   /**
-   * Returns transactions in the transaction pool by hash, requesting from the network if not found.
-   * @param txHashes  - Hashes of tx to return.
-   * @param pinnedPeerId - An optional peer id that will be used to request the tx from (in addition to other random peers).
-   * @returns An array of tx or undefined.
-   */
-  getTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId | undefined): Promise<(Tx | undefined)[]>;
-
-  /**
    * Returns an archived transaction from the transaction pool by its hash.
    * @param txHash  - Hash of tx to return.
    * @returns A single tx or undefined.
