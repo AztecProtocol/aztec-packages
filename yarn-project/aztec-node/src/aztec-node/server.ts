@@ -152,7 +152,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     private validatorClient?: ValidatorClient,
     private keyStoreManager?: KeystoreManager,
     /**
-     * When populated debug logs from public functions are collected in it and later served via getTxReceipt. Populated
+     * When populated, debug logs from public functions are collected in it and later served via getTxReceipt. Populated
      * only when the node is started in test mode (config.realProofs set to false).
      */
     private debugLogStore?: Map<string, DebugLog[]>,
@@ -309,10 +309,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     let debugLogStore: Map<string, DebugLog[]> | undefined = undefined;
     if (!config.realProofs) {
-      // In test mode, create an in-memory store for debug logs during block building
-      debugLogStore = new Map();
-
       log.warn(`Aztec node is accepting fake proofs`);
+
+      debugLogStore = new Map();
       log.info(
         'Aztec node started in test mode (realRoofs set to false) hence debug logs from public functions will be collected and served',
       );

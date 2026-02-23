@@ -54,7 +54,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     private telemetryClient: TelemetryClient,
     bindings?: LoggerBindings,
     /**
-     * When populated debug logs from public functions are collected in it and later served via getTxReceipt. Populated
+     * When populated, debug logs from public functions are collected in it and later served via getTxReceipt. Populated
      * only when the node is started in test mode (config.realProofs set to false).
      */
     private debugLogStore?: Map<string, DebugLog[]>,
@@ -210,7 +210,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
     private dateProvider: DateProvider,
     private telemetryClient: TelemetryClient = getTelemetryClient(),
     /**
-     * When populated debug logs from public functions are collected in it and later served via getTxReceipt. Populated
+     * When populated, debug logs from public functions are collected in it and later served via getTxReceipt. Populated
      * only when the node is started in test mode (config.realProofs set to false).
      */
     private debugLogStore?: Map<string, DebugLog[]>,
