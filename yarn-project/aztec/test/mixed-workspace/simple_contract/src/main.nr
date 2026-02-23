@@ -8,4 +8,9 @@ pub contract SimpleContract {
     fn private_function() -> Field {
         0
     }
+
+    #[external("private")]
+    fn another_private_function(x: Field) -> Field {
+        x
+    }
 }
