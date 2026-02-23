@@ -43,6 +43,9 @@ EOF
 # If the test has a verbose mode, we want it enabled.
 export VERBOSE=1
 
+# ELU monitor file path (e2e tests write event loop data here, uploaded after test finishes).
+export ELU_MONITOR_FILE=$HOME/.elu_monitor_$$.log
+
 # Run the test with timestamps via process substitution (preserves exit code)
 set +e
 if [ "${ISOLATE:-0}" -eq 1 ]; then
@@ -53,5 +56,12 @@ else
 fi
 code=$?
 set -e
+
+# Upload ELU data if present (written by e2e tests, absent for C++/Rust/Noir).
+if [ -s "$ELU_MONITOR_FILE" ]; then
+  echo "ELU file: $ELU_MONITOR_FILE ($(wc -l < "$ELU_MONITOR_FILE") lines, $(wc -c < "$ELU_MONITOR_FILE") bytes)"
+  cat "$ELU_MONITOR_FILE" | cache_log "elufile:${NAME:-unknown}"
+  rm -f "$ELU_MONITOR_FILE"
+fi
 
 exit $code
