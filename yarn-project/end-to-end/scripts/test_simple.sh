@@ -21,9 +21,6 @@ export LOG_LEVEL=${LOG_LEVEL:-verbose}
 export NODE_NO_WARNINGS=1
 export FORCE_COLOR=1
 
-# Capture per-test event loop utilization (uploaded by exec_test after test finishes).
-export ELU_MONITOR_FILE=$HOME/.elu_monitor_$$.log
-
 test_file=$1
 test_name=${2:-}
 
