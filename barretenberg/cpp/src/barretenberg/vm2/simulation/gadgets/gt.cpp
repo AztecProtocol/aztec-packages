@@ -53,6 +53,7 @@ bool GreaterThan::gt(const uint128_t& a, const uint128_t& b)
  * @param a The first memory value.
  * @param b The second memory value.
  * @return true if a > b, false otherwise.
+ * @note Asserts that neither input has FF tag when taking the integer comparison path.
  */
 bool GreaterThan::gt(const MemoryValue& a, const MemoryValue& b)
 {
