@@ -8,8 +8,22 @@
 /// Note that we accept ciphertext as a BoundedVec, not as an array. This is because this function is typically used
 /// when processing logs and at that point we don't have a comptime information about the length of the ciphertext as
 /// the log is not specific to any individual note.
+pub unconstrained fn aes128_decrypt<let N: u32>(
+    ciphertext: BoundedVec<u8, N>,
+    iv: [u8; 16],
+    sym_key: [u8; 16],
+) -> BoundedVec<u8, N> {
+    let result = aes128_decrypt_oracle(ciphertext, iv, sym_key);
+    // Assert that the oracle returned a well-formed BoundedVec (trailing elements must be zero).
+    let storage = result.storage();
+    for i in result.len()..N {
+        assert(storage[i] == 0, "aes128_decrypt oracle returned non-zero trailing elements");
+    }
+    result
+}
+
 #[oracle(utilityAes128Decrypt)]
-pub unconstrained fn aes128_decrypt_oracle<let N: u32>(
+unconstrained fn aes128_decrypt_oracle<let N: u32>(
     ciphertext: BoundedVec<u8, N>,
     iv: [u8; 16],
     sym_key: [u8; 16],
@@ -21,9 +35,10 @@ mod test {
         utils::{array::subarray::subarray, point::point_from_x_coord},
     };
     use crate::test::helpers::test_environment::TestEnvironment;
-    use super::aes128_decrypt_oracle;
+    use super::aes128_decrypt;
     use poseidon::poseidon2::Poseidon2;
     use std::aes128::aes128_encrypt;
+    use std::test::OracleMock;
 
     global TEST_PLAINTEXT_LENGTH: u32 = 10;
     global TEST_CIPHERTEXT_LENGTH: u32 = 16;
@@ -49,7 +64,7 @@ mod test {
             // ciphertext length is fixed. But we do it anyway to not have to have duplicate oracles.
             let ciphertext_bvec = BoundedVec::<u8, TEST_CIPHERTEXT_LENGTH>::from_array(ciphertext);
 
-            let received_plaintext = aes128_decrypt_oracle(ciphertext_bvec, iv, sym_key);
+            let received_plaintext = aes128_decrypt(ciphertext_bvec, iv, sym_key);
 
             assert_eq(received_plaintext.len(), TEST_PLAINTEXT_LENGTH);
             assert_eq(received_plaintext.max_len(), TEST_CIPHERTEXT_LENGTH);
@@ -123,7 +138,7 @@ mod test {
             // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's designed to
             // work with logs of unknown length.
             let ciphertext_bvec = BoundedVec::<u8, 48>::from_array(ciphertext);
-            let received_plaintext = aes128_decrypt_oracle(ciphertext_bvec, iv, bad_sym_key);
+            let received_plaintext = aes128_decrypt(ciphertext_bvec, iv, bad_sym_key);
 
             let extracted_mac_as_bytes: [u8; TEST_MAC_LENGTH] =
                 subarray(received_plaintext.storage(), TEST_PLAINTEXT_LENGTH);
@@ -131,5 +146,28 @@ mod test {
             // We expect this assertion to fail, because we used a bad sym key.
             assert_eq(mac_as_bytes, extracted_mac_as_bytes, "mac does not match");
         });
+    }
+
+    #[test(should_fail_with = "aes128_decrypt oracle returned non-zero trailing elements")]
+    unconstrained fn aes_decrypt_rejects_non_zero_trailing_elements() {
+        // Build a BoundedVec with non-zero trailing elements using from_parts_unchecked, which skips the zeroing that
+        // from_parts would do.
+        let mut bad_storage = [0 as u8; TEST_CIPHERTEXT_LENGTH];
+        for i in 0..TEST_PLAINTEXT_LENGTH {
+            bad_storage[i] = i as u8;
+        }
+        for i in TEST_PLAINTEXT_LENGTH..TEST_CIPHERTEXT_LENGTH {
+            bad_storage[i] = 0xff;
+        }
+        let bad_result = BoundedVec::from_parts_unchecked(bad_storage, TEST_PLAINTEXT_LENGTH);
+
+        // Mock the oracle to return the malformed BoundedVec
+        let _ = OracleMock::mock("utilityAes128Decrypt").returns(bad_result);
+
+        let ciphertext = BoundedVec::<u8, TEST_CIPHERTEXT_LENGTH>::from_array([0; TEST_CIPHERTEXT_LENGTH]);
+
+        // Should fail: we're simulating getting a BoundedVec with non zero trailing elements and there is now an
+        // assertion guarding against that.
+        let _ = aes128_decrypt(ciphertext, [0; 16], [0; 16]);
     }
 }

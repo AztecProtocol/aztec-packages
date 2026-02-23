@@ -18,7 +18,7 @@ use crate::{
             get_arr_of_size__message_bytes__from_PT, get_arr_of_size__message_bytes_padding__from_PT,
         },
     },
-    oracle::{aes128_decrypt::aes128_decrypt_oracle, random::random, shared_secret::get_shared_secret},
+    oracle::{aes128_decrypt::aes128_decrypt, random::random, shared_secret::get_shared_secret},
     utils::{
         array,
         conversion::{
@@ -361,7 +361,7 @@ impl MessageEncryption for AES128 {
                 BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(header_ciphertext);
 
             // Decrypt header
-            let header_plaintext = aes128_decrypt_oracle(header_ciphertext_bvec, header_iv, header_sym_key);
+            let header_plaintext = aes128_decrypt(header_ciphertext_bvec, header_iv, header_sym_key);
 
             // Extract ciphertext length from header (2 bytes, big-endian)
             let ciphertext_length = ((header_plaintext.get(0) as u32) << 8) | (header_plaintext.get(1) as u32);
@@ -374,7 +374,7 @@ impl MessageEncryption for AES128 {
                 BoundedVec::from_parts(ciphertext_with_padding, ciphertext_length);
 
             // Decrypt main ciphertext and return it
-            let plaintext_bytes = aes128_decrypt_oracle(ciphertext, body_iv, body_sym_key);
+            let plaintext_bytes = aes128_decrypt(ciphertext, body_iv, body_sym_key);
 
             // Each field of the original note message was serialized to 32 bytes so we convert the bytes back to
             // fields.
