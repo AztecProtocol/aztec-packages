@@ -30,6 +30,8 @@ DEPLOY_WORKFLOWS = [
 
 _CACHE_TTL = 3600  # 1 hour
 _pr_cache = {'data': [], 'ts': 0}
+_commits_cache: dict = {}  # keyed by branch
+_commits_lock = threading.Lock()
 _deploy_cache = {'data': [], 'ts': 0}
 _lag_cache = {'data': [], 'ts': 0}
 _pr_lock = threading.Lock()
@@ -849,3 +851,80 @@ def get_merge_queue_stats(date_from: str, date_to: str) -> dict:
             'days': len([r for r in rows if r['total'] > 0]),
         },
     }
+
+
+import re as _re
+
+_COMMIT_TYPE_RE = _re.compile(
+    r'^(fix|feat|chore|refactor|docs|style|test|perf|ci|build|revert)(\([^)]+\))?(!)?: '
+)
+_PR_NUM_RE = _re.compile(r'\(#(\d+)\)\s*$')
+_MERGE_TRAIN_RE = _re.compile(r'merge-train/([^\s]+)')
+
+
+def _parse_commit(raw: dict) -> dict:
+    """Normalise a GitHub REST commit object into a compact dict."""
+    sha = raw.get('sha', '')
+    msg = raw.get('commit', {}).get('message', '') or ''
+    subject = msg.split('\n')[0]
+    c_author = raw.get('commit', {}).get('author', {}) or {}
+    # Prefer committer login if available (shows GitHub username not git display name)
+    login = (raw.get('author') or {}).get('login', '')
+    author = login or c_author.get('name', '')
+    date = c_author.get('date', '')  # ISO-8601
+
+    # Parse conventional commit type
+    m = _COMMIT_TYPE_RE.match(subject)
+    commit_type = m.group(1) if m else 'other'
+    breaking = bool(m and m.group(3))
+
+    # Extract PR number from "(#NNNNN)" at end of subject
+    pr_m = _PR_NUM_RE.search(subject)
+    pr_number = int(pr_m.group(1)) if pr_m else None
+    clean_subject = _PR_NUM_RE.sub('', subject).rstrip()
+
+    # Detect merge-train commits
+    mt_m = _MERGE_TRAIN_RE.search(subject)
+    merge_train = mt_m.group(1) if mt_m else None
+    is_merge = len(raw.get('parents', [])) > 1
+
+    return {
+        'sha': sha,
+        'subject': clean_subject,
+        'type': commit_type,
+        'breaking': breaking,
+        'pr': pr_number,
+        'author': author,
+        'date': date,
+        'merge_train': merge_train,
+        'is_merge': is_merge,
+    }
+
+
+def get_recent_commits(branch: str = 'next', count: int = 100) -> list[dict]:
+    """Fetch recent commits from GitHub API with 5-minute in-memory cache."""
+    now = time.time()
+    with _commits_lock:
+        cached = _commits_cache.get(branch)
+        if cached and now - cached['ts'] < 300:
+            return cached['data']
+
+    commits: list[dict] = []
+    page = 1
+    per_page = min(count, 100)
+    while len(commits) < count:
+        data = _github_get(
+            f'repos/{REPO}/commits?sha={branch}&per_page={per_page}&page={page}'
+        )
+        if not data or not isinstance(data, list):
+            break
+        for raw in data:
+            commits.append(_parse_commit(raw))
+        if len(data) < per_page:
+            break
+        page += 1
+
+    result = commits[:count]
+    with _commits_lock:
+        _commits_cache[branch] = {'data': result, 'ts': now}
+    return result
