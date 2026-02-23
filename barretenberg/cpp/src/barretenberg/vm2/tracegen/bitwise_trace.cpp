@@ -1,16 +1,9 @@
 #include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
 
-#include <cstddef>
 #include <cstdint>
-#include <memory>
-#include <ranges>
-#include <stdexcept>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bitwise.hpp"
-#include "barretenberg/vm2/simulation/events/bitwise_event.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -18,17 +11,26 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
                                   TraceContainer& trace)
 {
     using C = Column;
-    // Important to not set last to 1 in the first row if there are no events. Otherwise, the skippable condition
-    // would be skipped wrongly as the sub-relation last * (1 - last) = 0 cannot be satisified (after the
-    // randomization process happening in the sumcheck protocol).
+    // When the trace is non-empty, we set last=1 at row 0 as a sentinel. This serves two purposes:
+    // 1) Skippable condition: ensures `sel + last = 0` does NOT hold, preventing the sub-relation
+    //    `last * (1 - last) = 0` from being skipped (which would fail after sumcheck randomization).
+    // 2) Boundary breaking: constraints like #[BITW_OP_ID_REL] and #[BITW_ACC_REL_*] use `(1 - last)`
+    //    as a guard. At row 0, the shifted columns reference row 1. Without last=1 here, these
+    //    constraints would force op_id_0 = op_id_1 and acc_ia_1 = 0, breaking the first event's trace.
+    // When there are no events, we must NOT set last=1.
     if (!events.empty()) {
-        // We activate last selector in the first row.
         trace.set(C::bitwise_last, 0, 1);
     }
 
     // Precomputed inverses ranges from 0 to 16. (for columns bitwise_ctr_inv, bitwise_ctr_min_one_inv)
-    std::array<FF, 17> precomputed_inverses = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
-    FF::batch_invert(precomputed_inverses);
+    static constexpr std::array<FF, 17> precomputed_inverses = [] {
+        std::array<FF, 17> inverses{ 0, 1 };
+        // skip 0 since it's not invertible, inverse(1) = 1 so we can skip it as well
+        for (size_t i = 2; i <= 16; i++) {
+            inverses[i] = FF(i).invert();
+        }
+        return inverses;
+    }();
 
     // Lambda to map the column selector of the op_id.
     const auto get_op_id_column_selector = [](BitwiseOperation op_id) {
@@ -108,7 +110,7 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
         // Note that for tag U1, we take only one bit. This is correctly
         // captured below since input_a/b and output_c are each a single bit
         // and the byte mask correctly extracts it.
-        const uint128_t mask_low_byte = (1 << 8) - 1;
+        constexpr uint128_t mask_low_byte = (1 << 8) - 1;
         const auto start_ctr = get_tag_bytes(tag);
 
         for (int ctr = start_ctr; ctr > 0; ctr--) {

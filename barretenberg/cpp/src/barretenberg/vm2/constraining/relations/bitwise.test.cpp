@@ -371,9 +371,10 @@ TEST(BitwiseConstrainingTest, NegativeChangeOpIDBeforeEnd)
         },
     });
 
-    check_relation<bitwise>(trace, bitwise::SR_BITW_OP_ID_REL);
+    check_relation<bitwise>(trace, bitwise::SR_BITW_OP_ID_REL_CONTINUITY);
     trace.set(C::bitwise_op_id, 1, static_cast<uint8_t>(BitwiseOperation::AND)); // Mutate to wrong value
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_OP_ID_REL), "BITW_OP_ID_REL");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_OP_ID_REL_CONTINUITY),
+                              "BITW_OP_ID_REL_CONTINUITY");
 }
 
 TEST(BitwiseConstrainingTest, NegativeWrongAccumulation)
@@ -404,6 +405,111 @@ TEST(BitwiseConstrainingTest, NegativeWrongAccumulation)
     EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_ACC_REL_A), "BITW_ACC_REL_A");
     EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_ACC_REL_B), "BITW_ACC_REL_B");
     EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_ACC_REL_C), "BITW_ACC_REL_C");
+}
+
+// Verify that #[INPUT_TAG_CANNOT_BE_FF] catches a prover who hides an FF tag error.
+// A malicious prover might set sel_tag_ff_err=0 when tag_a is actually FF (tag 0),
+// trying to bypass the error handling.
+TEST(BitwiseConstrainingTest, NegativeInputTagCannotBeFF)
+{
+    // Build a valid error trace with tag_a = FF
+    TestTraceContainer trace;
+    BitwiseTraceBuilder builder;
+    std::vector<simulation::BitwiseEvent> events = {
+        { .operation = BitwiseOperation::XOR,
+          .a = MemoryValue::from_tag(MemoryTag::FF, 1),
+          .b = MemoryValue::from_tag(MemoryTag::FF, 1),
+          .res = 0 },
+    };
+    builder.process(events, trace);
+
+    // Verify valid trace passes
+    check_relation<bitwise>(trace, bitwise::SR_INPUT_TAG_CANNOT_BE_FF);
+
+    // Mutate: hide the FF error by setting sel_tag_ff_err = 0
+    // Row 1 is the error row (row 0 is sentinel)
+    trace.set(C::bitwise_sel_tag_ff_err, 1, 0);
+    // Also need to fix err to be consistent (err = ff_err OR mismatch_err)
+    trace.set(C::bitwise_err, 1, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_INPUT_TAG_CANNOT_BE_FF),
+                              "INPUT_TAG_CANNOT_BE_FF");
+}
+
+// Verify that #[INPUT_TAGS_SHOULD_MATCH] catches a prover who hides a tag mismatch.
+// A malicious prover might set sel_tag_mismatch_err=0 when tag_a != tag_b,
+// trying to proceed with the computation on mismatched tags.
+TEST(BitwiseConstrainingTest, NegativeInputTagsShouldMatch)
+{
+    // Build a valid error trace with mismatched tags
+    TestTraceContainer trace;
+    BitwiseTraceBuilder builder;
+    std::vector<simulation::BitwiseEvent> events = {
+        { .operation = BitwiseOperation::AND,
+          .a = MemoryValue::from_tag(MemoryTag::U8, 1),
+          .b = MemoryValue::from_tag(MemoryTag::U16, 1),
+          .res = 0 },
+    };
+    builder.process(events, trace);
+
+    // Verify valid trace passes
+    check_relation<bitwise>(trace, bitwise::SR_INPUT_TAGS_SHOULD_MATCH);
+
+    // Mutate: hide the mismatch error
+    trace.set(C::bitwise_sel_tag_mismatch_err, 1, 0);
+    trace.set(C::bitwise_err, 1, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_INPUT_TAGS_SHOULD_MATCH),
+                              "INPUT_TAGS_SHOULD_MATCH");
+}
+
+// Verify that #[RES_TAG_SHOULD_MATCH_INPUT] catches tag_c != tag_a on a non-error start row.
+TEST(BitwiseConstrainingTest, NegativeResTagShouldMatchInput)
+{
+    // Build a valid trace with a U8 AND operation
+    TestTraceContainer trace;
+    BitwiseTraceBuilder builder;
+    std::vector<simulation::BitwiseEvent> events = {
+        { .operation = BitwiseOperation::AND,
+          .a = MemoryValue::from<uint8_t>(85),
+          .b = MemoryValue::from<uint8_t>(175),
+          .res = 5 },
+    };
+    builder.process(events, trace);
+
+    // Verify valid trace passes
+    check_relation<bitwise>(trace, bitwise::SR_RES_TAG_SHOULD_MATCH_INPUT);
+
+    // Row 1 is the start row (and also the last row for U8, since only 1 byte).
+    // Mutate: set tag_c to a different value than tag_a.
+    trace.set(C::bitwise_tag_c, 1, static_cast<uint8_t>(MemoryTag::U32));
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_RES_TAG_SHOULD_MATCH_INPUT),
+                              "RES_TAG_SHOULD_MATCH_INPUT");
+}
+
+// Verify that #[LAST_ON_ERROR] catches last=0 when err=1.
+// A malicious prover might try to continue computation after an error.
+TEST(BitwiseConstrainingTest, NegativeLastOnError)
+{
+    // Build a valid error trace
+    TestTraceContainer trace;
+    BitwiseTraceBuilder builder;
+    std::vector<simulation::BitwiseEvent> events = {
+        { .operation = BitwiseOperation::XOR,
+          .a = MemoryValue::from_tag(MemoryTag::FF, 1),
+          .b = MemoryValue::from_tag(MemoryTag::FF, 1),
+          .res = 0 },
+    };
+    builder.process(events, trace);
+
+    // Verify valid trace passes
+    check_relation<bitwise>(trace, bitwise::SR_LAST_ON_ERROR);
+
+    // Mutate: set last=0 on the error row (row 1)
+    trace.set(C::bitwise_last, 1, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_LAST_ON_ERROR), "LAST_ON_ERROR");
 }
 
 TEST(BitwiseConstrainingTest, MixedOperationsInteractions)

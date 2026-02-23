@@ -42,7 +42,7 @@ template <typename FF> class bitwise : public Relation<bitwiseImpl<FF>> {
     static constexpr size_t SR_RES_TAG_SHOULD_MATCH_INPUT = 11;
     static constexpr size_t SR_INPUT_TAG_CANNOT_BE_FF = 12;
     static constexpr size_t SR_INPUT_TAGS_SHOULD_MATCH = 13;
-    static constexpr size_t SR_BITW_OP_ID_REL = 14;
+    static constexpr size_t SR_BITW_OP_ID_REL_CONTINUITY = 14;
     static constexpr size_t SR_BITW_CTR_DECREMENT = 15;
     static constexpr size_t SR_BITW_SEL_CTR_NON_ZERO = 16;
     static constexpr size_t SR_BITW_LAST_FOR_CTR_ONE = 17;
@@ -66,8 +66,8 @@ template <typename FF> class bitwise : public Relation<bitwiseImpl<FF>> {
             return "INPUT_TAG_CANNOT_BE_FF";
         case SR_INPUT_TAGS_SHOULD_MATCH:
             return "INPUT_TAGS_SHOULD_MATCH";
-        case SR_BITW_OP_ID_REL:
-            return "BITW_OP_ID_REL";
+        case SR_BITW_OP_ID_REL_CONTINUITY:
+            return "BITW_OP_ID_REL_CONTINUITY";
         case SR_BITW_CTR_DECREMENT:
             return "BITW_CTR_DECREMENT";
         case SR_BITW_SEL_CTR_NON_ZERO:
