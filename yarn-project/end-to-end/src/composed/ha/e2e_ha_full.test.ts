@@ -598,8 +598,6 @@ describe('HA Full Setup', () => {
       const receipt = await deployer.deploy(ownerAddress, ownerAddress, 201).send({
         from: ownerAddress,
         contractAddressSalt: new Fr(201),
-        skipClassPublication: true,
-        skipInstancePublication: true,
         wait: { returnReceipt: true },
       });
       expect(receipt.blockNumber).toBeDefined();
@@ -643,8 +641,6 @@ describe('HA Full Setup', () => {
       const receipt = await deployer.deploy(ownerAddress, ownerAddress, i + 100).send({
         from: ownerAddress,
         contractAddressSalt: new Fr(BigInt(i + 100)),
-        skipClassPublication: true,
-        skipInstancePublication: true,
         wait: { returnReceipt: true },
       });
 
