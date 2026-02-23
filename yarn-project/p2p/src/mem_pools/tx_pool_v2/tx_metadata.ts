@@ -13,6 +13,8 @@ import { type PreAddResult, TxPoolRejectionCode } from './eviction/interfaces.js
 export type TxMetaValidationData = {
   getNonEmptyNullifiers(): Fr[];
   expirationTimestamp: bigint;
+  /** Whether the tx has public calls. Used to select the correct L2 gas minimum. */
+  forPublic?: unknown;
   constants: {
     anchorBlockHeader: {
       hash(): Promise<BlockHash>;
@@ -109,6 +111,7 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
     data: {
       getNonEmptyNullifiers: () => nullifierFrs,
       expirationTimestamp,
+      forPublic: !!tx.data.forPublic,
       constants: {
         anchorBlockHeader: {
           hash: () => Promise.resolve(anchorBlockHeaderHashFr),
