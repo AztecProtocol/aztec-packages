@@ -44,6 +44,14 @@
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3"
   },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/embedded/entrypoints/node.ts",
+      "./src/testing.ts"
+    ],
+    "name": "Wallets",
+    "tsconfig": "./tsconfig.json"
+  },
   "files": [
     "dest",
     "src",
