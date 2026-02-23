@@ -18,6 +18,9 @@ include "range_check.pil";
  * - Inputs: Integer values a and b, each bounded by 2^128.
  * - Output: `res` is 1 if input_a > input_b, 0 otherwise.
  * - Selector: sel_XXX is one of: sel_sha256, sel_addressing, sel_alu, sel_gas, sel_others.
+ *   All five sub-selectors are functionally identical; they exist solely to decouple
+ *   inverse computation for performance. Each caller trace should use the selector
+ *   assigned to it. If no dedicated selector exists for your trace, use sel_others.
  *
  * TRACE SHAPE: 1 row per computation.
  *
