@@ -71,11 +71,13 @@ export interface ITxeExecutionOracle {
     args: Fr[],
     argsHash: Fr,
     isStaticCall: boolean,
+    jobId: string,
   ): Promise<Fr[]>;
   txeExecuteUtilityFunction(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],
+    jobId: string,
   ): Promise<Fr[]>;
   txePublicCallNewFlow(
     from: AztecAddress,
@@ -83,4 +85,7 @@ export interface ITxeExecutionOracle {
     calldata: Fr[],
     isStaticCall: boolean,
   ): Promise<Fr[]>;
+  // TODO(F-335): Drop this from here as it's not a real oracle handler - it's only called from
+  // RPCTranslator::txeGetPrivateEvents and never from Noir.
+  syncContractNonOracleMethod(contractAddress: AztecAddress, scope: AztecAddress, jobId: string): Promise<void>;
 }

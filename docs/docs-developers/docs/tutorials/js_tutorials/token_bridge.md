@@ -86,25 +86,20 @@ aztec new contracts/aztec/nft
 cd contracts/aztec/nft
 ```
 
+This creates a workspace with two crates: a `contract` crate for the smart contract code and a `test` crate for Noir tests. The `aztec` dependency is already configured in `contract/Nargo.toml`.
+
 :::tip Noir Language Server
 
 If you're using VS Code, install the [Noir Language Support extension](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir) for syntax highlighting, error checking, and code completion while writing Noir contracts.
 
 :::
 
-Open `Nargo.toml` and make sure `aztec` is a dependency:
-
-```toml
-[dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "#include_aztec_version", directory = "aztec" }
-```
-
 ### Create the NFT Note
 
-First, let's create a custom note type for private NFT ownership. In the `src/` directory, create a new file called `nft.nr`:
+First, let's create a custom note type for private NFT ownership. In the `contract/src/` directory, create a new file called `nft.nr`:
 
 ```bash
-touch src/nft.nr
+touch contract/src/nft.nr
 ```
 
 In this file, you're going to create a **private note** that represents NFT ownership. This is a struct with macros that indicate it is a note that can be compared and packed:
@@ -121,7 +116,7 @@ Notes are powerful concepts. Learn more about how to use them in the [state mana
 
 ### Define Storage
 
-Back in `main.nr`, you can now build the contract storage. You need:
+Back in `contract/src/main.nr`, you can now build the contract storage. You need:
 
 - **admin**: Who controls the contract (set once, never changes)
 - **minter**: The bridge address (set once by admin)
@@ -130,7 +125,7 @@ Back in `main.nr`, you can now build the contract storage. You need:
 
 One interesting aspect of this storage configuration is the use of `DelayedPublicMutable`, which allows private functions to read and use public state. You're using it to publicly track which NFTs are already minted while keeping their owners private. Read more about `DelayedPublicMutable` in [the storage guide](../../aztec-nr/framework-description/state_variables.md).
 
-Write the storage struct and a simple [initializer](../../foundational-topics/contract_creation.md#initialization) to set the admin in the `main.nr` file:
+Write the storage struct and a simple [initializer](../../foundational-topics/contract_creation.md#initialization) to set the admin in the `contract/src/main.nr` file:
 
 <!-- wrapped in a code block to add a "}" at the end -->
 
@@ -218,12 +213,12 @@ aztec new nft_bridge
 cd nft_bridge
 ```
 
-And again, add the `aztec-nr` dependency to `Nargo.toml`. We also need to add the `NFTPunk` contract we just wrote above:
+Now add the `NFTPunk` contract dependency to `contract/Nargo.toml`. The `aztec` dependency is already there:
 
 ```toml
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-nr", tag = "#include_aztec_version", directory = "aztec" }
-NFTPunk = { path = "../nft" }
+NFTPunk = { path = "../../nft/contract" }
 ```
 
 ### Understanding Bridges
@@ -237,7 +232,7 @@ This means having knowledge about the L2 NFT contract, and the bridge on the L1 
 
 ### Bridge Storage
 
-Clean up `main.nr` which is just a placeholder, and let's write the storage struct and the constructor. We'll use `PublicImmutable` since these values never change:
+Clean up `contract/src/main.nr` which is just a placeholder, and let's write the storage struct and the constructor. We'll use `PublicImmutable` since these values never change:
 
 <!-- wrapped in a code block to add a "}" at the end -->
 

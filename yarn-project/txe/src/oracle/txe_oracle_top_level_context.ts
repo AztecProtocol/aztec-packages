@@ -107,7 +107,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private senderAddressBookStore: SenderAddressBookStore,
     private capsuleStore: CapsuleStore,
     private privateEventStore: PrivateEventStore,
-    private jobId: string,
     private nextBlockTimestamp: bigint,
     private version: Fr,
     private chainId: Fr,
@@ -170,6 +169,25 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const txEffects = block!.body.txEffects[0];
 
     return { txHash: txEffects.txHash, noteHashes: txEffects.noteHashes, nullifiers: txEffects.nullifiers };
+  }
+
+  async syncContractNonOracleMethod(contractAddress: AztecAddress, scope: AztecAddress, jobId: string) {
+    if (contractAddress.equals(DEFAULT_ADDRESS)) {
+      this.logger.debug(`Skipping sync in txeGetPrivateEvents because the events correspond to the default address.`);
+      return;
+    }
+
+    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    await this.stateMachine.contractSyncService.ensureContractSynced(
+      contractAddress,
+      null,
+      async (call, execScopes) => {
+        await this.executeUtilityCall(call, execScopes, jobId);
+      },
+      blockHeader,
+      jobId,
+      [scope],
+    );
   }
 
   async txeGetPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress) {
@@ -285,6 +303,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     args: Fr[],
     argsHash: Fr = Fr.zero(),
     isStaticCall: boolean = false,
+    jobId: string,
   ) {
     this.logger.verbose(
       `Executing external function ${await this.contractStore.getDebugFunctionName(targetContractAddress, functionSelector)}@${targetContractAddress} isStaticCall=${isStaticCall}`,
@@ -304,7 +323,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     // Sync notes before executing private function to discover notes from previous transactions
     const utilityExecutor = async (call: FunctionCall, execScopes: AccessScopes) => {
-      await this.executeUtilityCall(call, execScopes);
+      await this.executeUtilityCall(call, execScopes, jobId);
     };
 
     const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
@@ -313,7 +332,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       functionSelector,
       utilityExecutor,
       blockHeader,
-      this.jobId,
+      jobId,
       effectiveScopes,
     );
 
@@ -360,7 +379,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
-      jobId: this.jobId,
+      jobId,
       totalPublicCalldataCount: 0,
       sideEffectCounter: minRevertibleSideEffectCounter,
       scopes: effectiveScopes,
@@ -659,7 +678,12 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return returnValues ?? [];
   }
 
-  async txeExecuteUtilityFunction(targetContractAddress: AztecAddress, functionSelector: FunctionSelector, args: Fr[]) {
+  async txeExecuteUtilityFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+    jobId: string,
+  ) {
     const artifact = await this.contractStore.getFunctionArtifact(targetContractAddress, functionSelector);
     if (!artifact) {
       throw new Error(`Cannot call ${functionSelector} as there is no artifact found at ${targetContractAddress}.`);
@@ -671,10 +695,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       targetContractAddress,
       functionSelector,
       async (call, execScopes) => {
-        await this.executeUtilityCall(call, execScopes);
+        await this.executeUtilityCall(call, execScopes, jobId);
       },
       blockHeader,
-      this.jobId,
+      jobId,
       'ALL_SCOPES',
     );
 
@@ -689,10 +713,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       returnTypes: [],
     });
 
-    return this.executeUtilityCall(call, 'ALL_SCOPES');
+    return this.executeUtilityCall(call, 'ALL_SCOPES', jobId);
   }
 
-  private async executeUtilityCall(call: FunctionCall, scopes: AccessScopes): Promise<Fr[]> {
+  private async executeUtilityCall(call: FunctionCall, scopes: AccessScopes, jobId: string): Promise<Fr[]> {
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
@@ -719,7 +743,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         senderAddressBookStore: this.senderAddressBookStore,
         capsuleStore: this.capsuleStore,
         privateEventStore: this.privateEventStore,
-        jobId: this.jobId,
+        jobId,
         scopes,
       });
       const acirExecutionResult = await new WASMSimulator()
