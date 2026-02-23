@@ -326,8 +326,6 @@ describe('e2e_multi_validator_node', () => {
     return deployer.deploy(ownerAddress, sender, 1).send({
       from: ownerAddress,
       contractAddressSalt,
-      skipClassPublication: true,
-      skipInstancePublication: true,
       wait: NO_WAIT,
     });
   };

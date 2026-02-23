@@ -324,8 +324,6 @@ describe('HA Full Setup', () => {
     const receipt = await deployer.deploy(ownerAddress, sender, 1).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(BigInt(1)),
-      skipClassPublication: true,
-      skipInstancePublication: true,
       wait: { returnReceipt: true },
     });
 
