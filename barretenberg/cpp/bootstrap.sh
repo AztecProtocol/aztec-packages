@@ -71,7 +71,11 @@ function build_native {
     cache_upload barretenberg-$native_preset-$hash.zst build/{bin,lib}
   fi
   # Always inject version (even for cached binaries) to ensure correct version on release
-  inject_version build/bin/bb
+  if [ "${NATIVE_PRESET:-clang20}" == "clang20" ]; then
+    inject_version build/bin/bb
+  elif [ "${NATIVE_PRESET}" == "debug" ]; then
+    inject_version build-debug/bin/bb
+  fi
   if [ -f build/bin/bb-avm ]; then
     inject_version build/bin/bb-avm
   fi
