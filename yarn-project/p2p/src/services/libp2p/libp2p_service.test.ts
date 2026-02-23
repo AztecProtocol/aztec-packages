@@ -581,8 +581,8 @@ describe('LibP2PService', () => {
       mockEpochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot, nextSlot });
       mockEpochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
       mockEpochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: currentSlot,
+        epoch: { now: 1 as any, pipeline: 1 as any },
+        slot: { now: currentSlot, pipeline: currentSlot },
         ts: 1000n,
         nowMs: 1000100n, // 100ms elapsed, within tolerance
       });
@@ -820,8 +820,8 @@ describe('LibP2PService', () => {
       mockEpochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot, nextSlot });
       mockEpochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
       mockEpochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: currentSlot,
+        epoch: { now: 1 as any, pipeline: 1 as any },
+        slot: { now: currentSlot, pipeline: currentSlot },
         ts: 1000n,
         nowMs: 1000100n,
       });

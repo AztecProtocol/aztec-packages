@@ -8,7 +8,7 @@ import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/ep
  * Since in TXE we don't validate transactions, mock suffices here.
  */
 export class MockEpochCache implements EpochCacheInterface {
-  getCommittee(): Promise<EpochCommitteeInfo> {
+  getCommittee(_slot: SlotTag = 'now'): Promise<EpochCommitteeInfo> {
     return Promise.resolve({
       committee: undefined,
       seed: 0n,
@@ -19,19 +19,19 @@ export class MockEpochCache implements EpochCacheInterface {
 
   getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint } {
     return {
-      epoch: EpochNumber.ZERO,
-      slot: SlotNumber(0),
+      epoch: { now: EpochNumber.ZERO, pipeline: EpochNumber.ZERO },
+      slot: { now: SlotNumber(0), pipeline: SlotNumber(0) },
       ts: 0n,
       nowMs: 0n,
     };
   }
 
-  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint } {
+  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint } {
     return {
-      epoch: EpochNumber.ZERO,
-      slot: SlotNumber(0),
+      epoch: { now: EpochNumber.ZERO, pipeline: EpochNumber.ZERO },
+      slot: { now: SlotNumber(0), pipeline: SlotNumber(0) },
       ts: 0n,
-      now: 0n,
+      nowSeconds: 0n,
     };
   }
 

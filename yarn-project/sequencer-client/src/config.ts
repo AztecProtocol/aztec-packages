@@ -14,8 +14,10 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ChainConfig,
   DEFAULT_MAX_TXS_PER_BLOCK,
+  type PipelineConfig,
   type SequencerConfig,
   chainConfigMappings,
+  pipelineConfigMappings,
   sharedSequencerConfigMappings,
 } from '@aztec/stdlib/config';
 import type { ResolvedSequencerConfig } from '@aztec/stdlib/interfaces/server';
@@ -42,7 +44,6 @@ export const DefaultSequencerConfig: ResolvedSequencerConfig = {
   minTxsPerBlock: 1,
   buildCheckpointIfEmpty: false,
   publishTxsWithProposals: false,
-  enableBuildAhead: false,
   maxL2BlockGas: 10e9,
   maxDABlockGas: 10e9,
   maxBlockSizeInBytes: 1024 * 1024,
@@ -72,7 +73,8 @@ export type SequencerClientConfig = SequencerPublisherConfig &
   SequencerConfig &
   L1ReaderConfig &
   ChainConfig &
-  Pick<P2PConfig, 'txPublicSetupAllowListExtend'> &
+  PipelineConfig &
+  Pick<P2PConfig, 'txPublicSetupAllowList'> &
   Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
@@ -94,11 +96,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'SEQ_PUBLISH_TXS_WITH_PROPOSALS',
     description: 'Whether to publish txs with proposals.',
     ...booleanConfigHelper(DefaultSequencerConfig.publishTxsWithProposals),
-  },
-  enableBuildAhead: {
-    env: 'SEQ_ENABLE_BUILD_AHEAD',
-    description: 'Whether to enable build-ahead proposer pipelining.',
-    ...booleanConfigHelper(DefaultSequencerConfig.enableBuildAhead),
   },
   maxL2BlockGas: {
     env: 'SEQ_MAX_L2_BLOCK_GAS',
@@ -237,6 +234,7 @@ export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientCo
   ...sequencerTxSenderConfigMappings,
   ...sequencerPublisherConfigMappings,
   ...chainConfigMappings,
+  ...pipelineConfigMappings,
   ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration', 'aztecSlotDuration', 'aztecEpochDuration']),
 };
 

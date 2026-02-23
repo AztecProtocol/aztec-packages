@@ -285,8 +285,8 @@ describe('CheckpointVoter HA Integration', () => {
 
     const epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({
-      epoch: EpochNumber(1),
-      slot: slot,
+      epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+      slot: { now: slot, pipeline: slot },
       ts: BigInt(Math.floor(Date.now() / 1000)),
       nowMs: BigInt(Date.now()),
     });

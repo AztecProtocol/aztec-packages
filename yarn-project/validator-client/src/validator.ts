@@ -479,26 +479,26 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     proposal: CheckpointProposalCore,
     _proposalSender: PeerId,
   ): Promise<CheckpointAttestation[] | undefined> {
-    const slotNumber = proposal.slotNumber;
+    const proposalSlotNumber = proposal.slotNumber;
     const proposer = proposal.getSender();
 
     // If escape hatch is open for this slot's epoch, do not attest.
-    if (await this.epochCache.isEscapeHatchOpenAtSlot(slotNumber)) {
-      this.log.warn(`Escape hatch open for slot ${slotNumber}, skipping checkpoint attestation handling`);
+    if (await this.epochCache.isEscapeHatchOpenAtSlot(proposalSlotNumber)) {
+      this.log.warn(`Escape hatch open for slot ${proposalSlotNumber}, skipping checkpoint attestation handling`);
       return undefined;
     }
 
     // Reject proposals with invalid signatures
     if (!proposer) {
-      this.log.warn(`Received checkpoint proposal with invalid signature for slot ${slotNumber}`);
+      this.log.warn(`Received checkpoint proposal with invalid signature for proposal slot ${proposalSlotNumber}`);
       return undefined;
     }
 
     // Ignore proposals from ourselves (may happen in HA setups)
     if (this.getValidatorAddresses().some(addr => addr.equals(proposer))) {
-      this.log.warn(`Ignoring block proposal from self for slot ${slotNumber}`, {
+      this.log.warn(`Ignoring block proposal from self for slot ${proposalSlotNumber}`, {
         proposer: proposer.toString(),
-        slotNumber,
+        proposalSlotNumber,
       });
       return undefined;
     }
@@ -506,22 +506,24 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     // Validate fee asset price modifier is within allowed range
     if (!validateFeeAssetPriceModifier(proposal.feeAssetPriceModifier)) {
       this.log.warn(
-        `Received checkpoint proposal with invalid feeAssetPriceModifier ${proposal.feeAssetPriceModifier} for slot ${slotNumber}`,
+        `Received checkpoint proposal with invalid feeAssetPriceModifier ${proposal.feeAssetPriceModifier} for slot ${proposalSlotNumber}`,
       );
       return undefined;
     }
 
-    // Check that I have any address in current committee before attesting
-    const inCommittee = await this.epochCache.filterInCommittee(slotNumber, this.getValidatorAddresses());
+    // TODO(md): we check based on the slot number that is in the proposal - but not that the slot number makes sense?????
+
+    // Check that I have any address in the committee where this checkpoint will land before attesting
+    const inCommittee = await this.epochCache.filterInCommittee(proposalSlotNumber, this.getValidatorAddresses());
     const partOfCommittee = inCommittee.length > 0;
 
     const proposalInfo = {
-      slotNumber,
+      proposalSlotNumber,
       archive: proposal.archive.toString(),
       proposer: proposer.toString(),
       txCount: proposal.txHashes.length,
     };
-    this.log.info(`Received checkpoint proposal for slot ${slotNumber}`, {
+    this.log.info(`Received checkpoint proposal for slot ${proposalSlotNumber}`, {
       ...proposalInfo,
       txHashes: proposal.txHashes.map(t => t.toString()),
       fishermanMode: this.config.fishermanMode || false,
@@ -529,7 +531,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // Validate the checkpoint proposal before attesting (unless skipCheckpointProposalValidation is set)
     if (this.config.skipCheckpointProposalValidation) {
-      this.log.warn(`Skipping checkpoint proposal validation for slot ${slotNumber}`, proposalInfo);
+      this.log.warn(`Skipping checkpoint proposal validation for slot ${proposalSlotNumber}`, proposalInfo);
     } else {
       const validationResult = await this.validateCheckpointProposal(proposal, proposalInfo);
       if (!validationResult.isValid) {
@@ -551,11 +553,14 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     // Provided all of the above checks pass, we can attest to the proposal
-    this.log.info(`${partOfCommittee ? 'Attesting to' : 'Validated'} checkpoint proposal for slot ${slotNumber}`, {
-      ...proposalInfo,
-      inCommittee: partOfCommittee,
-      fishermanMode: this.config.fishermanMode || false,
-    });
+    this.log.info(
+      `${partOfCommittee ? 'Attesting to' : 'Validated'} checkpoint proposal for slot ${proposalSlotNumber}`,
+      {
+        ...proposalInfo,
+        inCommittee: partOfCommittee,
+        fishermanMode: this.config.fishermanMode || false,
+      },
+    );
 
     this.metrics.incSuccessfulAttestations(inCommittee.length);
 
@@ -588,7 +593,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     if (this.config.fishermanMode) {
       // bail out early and don't save attestations to the pool in fisherman mode
-      this.log.info(`Creating checkpoint attestations for slot ${slotNumber}`, {
+      this.log.info(`Creating checkpoint attestations for slot ${proposalSlotNumber}`, {
         ...proposalInfo,
         attestors: attestors.map(a => a.toString()),
       });

@@ -285,7 +285,7 @@ export class SequencerPublisher {
   }
 
   public getCurrentL2Slot(): SlotNumber {
-    return this.epochCache.getEpochAndSlotNow().slot;
+    return this.epochCache.getEpochAndSlotNow().slot.now;
   }
 
   /**
@@ -588,12 +588,13 @@ export class SequencerPublisher {
   /**
    * @notice  Will call `canProposeAtNextEthBlock` to make sure that it is possible to propose
    * @param tipArchive - The archive to check
+   * @param opts.additionalSlotOffset - Number of additional eth slots to look ahead (e.g. for pipelined proposers)
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
   public canProposeAtNextEthBlock(
     tipArchive: Fr,
     msgSender: EthAddress,
-    opts: { forcePendingCheckpointNumber?: CheckpointNumber } = {},
+    opts: { forcePendingCheckpointNumber?: CheckpointNumber; additionalSlotOffset?: number } = {},
   ) {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
@@ -601,6 +602,7 @@ export class SequencerPublisher {
     return this.rollupContract
       .canProposeAtNextEthBlock(tipArchive.toBuffer(), msgSender.toString(), Number(this.ethereumSlotDuration), {
         forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
+        additionalSlotOffset: opts.additionalSlotOffset,
       })
       .catch(err => {
         if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
@@ -613,6 +615,7 @@ export class SequencerPublisher {
         return undefined;
       });
   }
+
   /**
    * @notice  Will simulate `validateHeader` to make sure that the block header is valid
    * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header.
@@ -799,7 +802,7 @@ export class SequencerPublisher {
     checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    options: { forcePendingCheckpointNumber?: CheckpointNumber },
+    options: { forcePendingCheckpointNumber?: CheckpointNumber; additionalSlotOffset?: number },
   ): Promise<bigint> {
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
     const blobFields = checkpoint.toBlobFields();
@@ -1123,7 +1126,7 @@ export class SequencerPublisher {
     checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    opts: { txTimeoutAt?: Date; forcePendingCheckpointNumber?: CheckpointNumber } = {},
+    opts: { txTimeoutAt?: Date; forcePendingCheckpointNumber?: CheckpointNumber; additionalSlotOffset?: number } = {},
   ): Promise<void> {
     const checkpointHeader = checkpoint.header;
 
@@ -1294,7 +1297,7 @@ export class SequencerPublisher {
   private async prepareProposeTx(
     encodedData: L1ProcessArgs,
     timestamp: bigint,
-    options: { forcePendingCheckpointNumber?: CheckpointNumber },
+    options: { forcePendingCheckpointNumber?: CheckpointNumber; additionalSlotOffset?: number },
   ) {
     const kzg = Blob.getViemKzgInstance();
     const blobInput = getPrefixedEthBlobCommitments(encodedData.blobs);
@@ -1392,7 +1395,7 @@ export class SequencerPublisher {
       `0x${string}`,
     ],
     timestamp: bigint,
-    options: { forcePendingCheckpointNumber?: CheckpointNumber },
+    options: { forcePendingCheckpointNumber?: CheckpointNumber; additionalSlotOffset?: number },
   ) {
     const rollupData = encodeFunctionData({
       abi: RollupAbi,
@@ -1437,7 +1440,7 @@ export class SequencerPublisher {
         },
         {
           // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
-          time: timestamp + 1n,
+          time: timestamp + 1n + BigInt(options.additionalSlotOffset ?? 0) * BigInt(this.ethereumSlotDuration),
           // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit so we increase here
           gasLimit: MAX_L1_TX_LIMIT * 2n,
         },
@@ -1481,7 +1484,7 @@ export class SequencerPublisher {
   private async addProposeTx(
     checkpoint: Checkpoint,
     encodedData: L1ProcessArgs,
-    opts: { txTimeoutAt?: Date; forcePendingCheckpointNumber?: CheckpointNumber } = {},
+    opts: { txTimeoutAt?: Date; forcePendingCheckpointNumber?: CheckpointNumber; additionalSlotOffset?: number } = {},
     timestamp: bigint,
   ): Promise<void> {
     const slot = checkpoint.header.slotNumber;

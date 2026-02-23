@@ -181,6 +181,8 @@ export class SequencerTimetable {
       case SequencerState.ASSEMBLING_CHECKPOINT:
       case SequencerState.COLLECTING_ATTESTATIONS:
         return this.aztecSlotDuration - this.l1PublishingTime - 2 * this.p2pPropagationTime;
+
+      // TODO(md): when pipelining this needs to move into its own little thingy - its own entire slot - and not just be part of the existing slot
       case SequencerState.PUBLISHING_CHECKPOINT:
         return this.aztecSlotDuration - this.l1PublishingTime;
       default: {

@@ -25,8 +25,8 @@ describe('clock_tolerance', () => {
 
       // Slot started at 1000 seconds (1000000ms), now is 1000100ms (100ms elapsed)
       epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: currentSlot,
+        epoch: { now: 1 as any, pipeline: 1 as any },
+        slot: { now: currentSlot, pipeline: currentSlot },
         ts: 1000n, // seconds
         nowMs: 1000100n, // 100ms after slot start
       });
@@ -40,8 +40,8 @@ describe('clock_tolerance', () => {
 
       // 499ms elapsed - should be within tolerance (499 < 500)
       epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: currentSlot,
+        epoch: { now: 1 as any, pipeline: 1 as any },
+        slot: { now: currentSlot, pipeline: currentSlot },
         ts: 1000n,
         nowMs: 1000499n,
       });
@@ -55,8 +55,8 @@ describe('clock_tolerance', () => {
 
       // 500ms elapsed - should be outside tolerance (500 is NOT < 500)
       epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: currentSlot,
+        epoch: { now: 1 as any, pipeline: 1 as any },
+        slot: { now: currentSlot, pipeline: currentSlot },
         ts: 1000n,
         nowMs: 1000500n,
       });
@@ -70,8 +70,8 @@ describe('clock_tolerance', () => {
 
       // 501ms elapsed - clearly outside tolerance
       epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: currentSlot,
+        epoch: { now: 1 as any, pipeline: 1 as any },
+        slot: { now: currentSlot, pipeline: currentSlot },
         ts: 1000n,
         nowMs: 1000501n,
       });
@@ -85,8 +85,8 @@ describe('clock_tolerance', () => {
 
       // 1000ms elapsed - outside 500ms tolerance
       epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: currentSlot,
+        epoch: { now: 1 as any, pipeline: 1 as any },
+        slot: { now: currentSlot, pipeline: currentSlot },
         ts: 1000n,
         nowMs: 1001000n,
       });
@@ -100,8 +100,8 @@ describe('clock_tolerance', () => {
 
       // Even within time tolerance, should reject slots older than previous
       epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: currentSlot,
+        epoch: { now: 1 as any, pipeline: 1 as any },
+        slot: { now: currentSlot, pipeline: currentSlot },
         ts: 1000n,
         nowMs: 1000000n, // 0ms elapsed
       });
@@ -114,8 +114,8 @@ describe('clock_tolerance', () => {
       const messageSlot = SlotNumber(100); // current slot
 
       epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: currentSlot,
+        epoch: { now: 1 as any, pipeline: 1 as any },
+        slot: { now: currentSlot, pipeline: currentSlot },
         ts: 1000n,
         nowMs: 1000000n,
       });
@@ -129,8 +129,8 @@ describe('clock_tolerance', () => {
       const messageSlot = SlotNumber(101); // next slot
 
       epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: currentSlot,
+        epoch: { now: 1 as any, pipeline: 1 as any },
+        slot: { now: currentSlot, pipeline: currentSlot },
         ts: 1000n,
         nowMs: 1000000n,
       });
@@ -144,8 +144,8 @@ describe('clock_tolerance', () => {
       const messageSlot = SlotNumber(0);
 
       epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 0 as any,
-        slot: currentSlot,
+        epoch: { now: 0 as any, pipeline: 0 as any },
+        slot: { now: currentSlot, pipeline: currentSlot },
         ts: 0n,
         nowMs: 0n,
       });
@@ -159,8 +159,8 @@ describe('clock_tolerance', () => {
       const messageSlot = SlotNumber(105); // future slot
 
       epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: currentSlot,
+        epoch: { now: 1 as any, pipeline: 1 as any },
+        slot: { now: currentSlot, pipeline: currentSlot },
         ts: 1000n,
         nowMs: 1000000n,
       });
@@ -174,8 +174,8 @@ describe('clock_tolerance', () => {
 
       // 0ms elapsed - definitely within tolerance
       epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: currentSlot,
+        epoch: { now: 1 as any, pipeline: 1 as any },
+        slot: { now: currentSlot, pipeline: currentSlot },
         ts: 1000n,
         nowMs: 1000000n, // exactly at slot start
       });

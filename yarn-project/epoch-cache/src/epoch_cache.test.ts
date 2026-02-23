@@ -163,9 +163,7 @@ describe('EpochCache', () => {
 
     // generate a random slot greater than `epochDuration`
     const targetSlot = BigInt(epochDuration) + BigInt(Math.floor(Math.random() * 1000));
-    const targetEpoch = targetSlot / BigInt(epochDuration);
-    const epochStartSlot = targetEpoch * BigInt(epochDuration);
-    const epochStartTimestamp = l1GenesisTime + epochStartSlot * BigInt(slotDuration);
+    const slotTimestamp = l1GenesisTime + targetSlot * BigInt(slotDuration);
 
     const expectedCommittee = [EthAddress.fromString('0x000000000000000000000000000000000000BEEF')];
     const expectedSeed = Buffer32.fromBigInt(999n);
@@ -175,10 +173,10 @@ describe('EpochCache', () => {
     await epochCache.getCommittee(SlotNumber.fromBigInt(targetSlot));
 
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
-    expect(rollupContract.getCommitteeAt).toHaveBeenCalledWith(epochStartTimestamp);
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledWith(slotTimestamp);
 
     expect(rollupContract.getSampleSeedAt).toHaveBeenCalledTimes(1);
-    expect(rollupContract.getSampleSeedAt).toHaveBeenCalledWith(epochStartTimestamp);
+    expect(rollupContract.getSampleSeedAt).toHaveBeenCalledWith(slotTimestamp);
   });
 
   it('should cache multiple epochs', async () => {

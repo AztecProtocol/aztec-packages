@@ -3,7 +3,13 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { getEpochAtSlot, getSlotAtTimestamp, getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 
-import type { EpochAndSlot, EpochCacheInterface, EpochCommitteeInfo, SlotTag } from '../epoch_cache.js';
+import {
+  type EpochAndSlot,
+  type EpochCacheInterface,
+  type EpochCommitteeInfo,
+  PROPOSER_PIPELINING_SLOT_OFFSET,
+  type SlotTag,
+} from '../epoch_cache.js';
 
 /** Default L1 constants for testing. */
 const DEFAULT_L1_CONSTANTS: L1RollupConstants = {
@@ -31,6 +37,7 @@ export class TestEpochCache implements EpochCacheInterface {
   private seed: bigint = 0n;
   private registeredValidators: EthAddress[] = [];
   private l1Constants: L1RollupConstants;
+  private proposerPipeliningEnabled = false;
 
   constructor(l1Constants: Partial<L1RollupConstants> = {}) {
     this.l1Constants = { ...DEFAULT_L1_CONSTANTS, ...l1Constants };
@@ -103,6 +110,10 @@ export class TestEpochCache implements EpochCacheInterface {
     return this.l1Constants;
   }
 
+  setProposerPipeliningEnabled(enabled: boolean): void {
+    this.proposerPipeliningEnabled = enabled;
+  }
+
   getCommittee(_slot?: SlotTag): Promise<EpochCommitteeInfo> {
     const epoch = getEpochAtSlot(this.currentSlot, this.l1Constants);
     return Promise.resolve({
@@ -114,18 +125,36 @@ export class TestEpochCache implements EpochCacheInterface {
   }
 
   getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint } {
-    const epoch = getEpochAtSlot(this.currentSlot, this.l1Constants);
-    const ts = getTimestampRangeForEpoch(epoch, this.l1Constants)[0];
-    return { epoch, slot: this.currentSlot, ts, nowMs: ts * 1000n };
+    const epochNow = getEpochAtSlot(this.currentSlot, this.l1Constants);
+    const ts = getTimestampRangeForEpoch(epochNow, this.l1Constants)[0];
+    const pipelineSlot = this.proposerPipeliningEnabled
+      ? SlotNumber(this.currentSlot + PROPOSER_PIPELINING_SLOT_OFFSET)
+      : this.currentSlot;
+    const pipelineEpoch = getEpochAtSlot(pipelineSlot, this.l1Constants);
+    return {
+      epoch: { now: epochNow, pipeline: pipelineEpoch },
+      slot: { now: this.currentSlot, pipeline: pipelineSlot },
+      ts,
+      nowMs: ts * 1000n,
+    };
   }
 
-  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint } {
-    const now = getTimestampRangeForEpoch(getEpochAtSlot(this.currentSlot, this.l1Constants), this.l1Constants)[0];
-    const nextSlotTs = now + BigInt(this.l1Constants.ethereumSlotDuration);
+  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint } {
+    const nowTs = getTimestampRangeForEpoch(getEpochAtSlot(this.currentSlot, this.l1Constants), this.l1Constants)[0];
+    const nextSlotTs = nowTs + BigInt(this.l1Constants.ethereumSlotDuration);
     const nextSlot = getSlotAtTimestamp(nextSlotTs, this.l1Constants);
-    const epoch = getEpochAtSlot(nextSlot, this.l1Constants);
-    const ts = getTimestampRangeForEpoch(epoch, this.l1Constants)[0];
-    return { epoch, slot: nextSlot, ts, now };
+    const epochNow = getEpochAtSlot(nextSlot, this.l1Constants);
+    const ts = getTimestampRangeForEpoch(epochNow, this.l1Constants)[0];
+    const pipelineSlot = this.proposerPipeliningEnabled
+      ? SlotNumber(nextSlot + PROPOSER_PIPELINING_SLOT_OFFSET)
+      : nextSlot;
+    const pipelineEpoch = getEpochAtSlot(pipelineSlot, this.l1Constants);
+    return {
+      epoch: { now: epochNow, pipeline: pipelineEpoch },
+      slot: { now: nextSlot, pipeline: pipelineSlot },
+      ts,
+      nowSeconds: nowTs,
+    };
   }
 
   getProposerIndexEncoding(epoch: EpochNumber, slot: SlotNumber, seed: bigint): `0x${string}` {

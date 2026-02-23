@@ -23,7 +23,9 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
     const slotNumber = message.payload.header.slotNumber;
 
     try {
-      const { currentSlot, nextSlot } = this.epochCache.getCurrentAndNextSlot();
+      // Use pipeline slots since proposals target pipeline slots (slot + 1 when pipelining)
+      const currentSlot = this.epochCache.getEpochAndSlotNow().slot.pipeline;
+      const nextSlot = this.epochCache.getEpochAndSlotInNextL1Slot().slot.pipeline;
 
       if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
         // Check if message is for previous slot and within clock tolerance

@@ -1,4 +1,4 @@
-import type { EpochCache } from '@aztec/epoch-cache';
+import { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
@@ -78,7 +78,12 @@ describe('sentinel', () => {
       targetCommitteeSize: 48,
     };
 
-    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch, slot, ts, nowMs: ts * 1000n });
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch: { now: epoch, pipeline: epoch },
+      slot: { now: slot, pipeline: slot },
+      ts,
+      nowMs: ts * 1000n,
+    });
     epochCache.getL1Constants.mockReturnValue(l1Constants);
 
     sentinel = new TestSentinel(epochCache, archiver, p2p, store, config, blockStream);
@@ -584,8 +589,8 @@ describe('sentinel', () => {
       const [fromSlot, toSlot] = getSlotRangeForEpoch(epochNumber, l1Constants);
 
       epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: epochNumber,
-        slot,
+        epoch: { now: epochNumber, pipeline: epochNumber },
+        slot: { now: slot, pipeline: slot },
         ts,
         nowMs: ts * 1000n,
       });
@@ -928,7 +933,7 @@ class TestSentinel extends Sentinel {
   }
 
   public override init() {
-    this.initialSlot = this.epochCache.getEpochAndSlotNow().slot;
+    this.initialSlot = this.epochCache.getEpochAndSlotNow().slot.now;
     return Promise.resolve();
   }
 

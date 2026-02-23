@@ -1,6 +1,6 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { NoCommitteeError } from '@aztec/ethereum/contracts';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
@@ -33,16 +33,17 @@ describe('CheckpointAttestationValidator', () => {
     });
 
     // Mock epoch cache to return different slot numbers
-    (epochCache.getCurrentAndNextSlot as jest.Mock).mockReturnValue({
-      currentSlot: SlotNumber(98),
-      nextSlot: SlotNumber(99),
-    });
-    // Mock getEpochAndSlotNow to return time OUTSIDE clock tolerance (1000ms elapsed)
     (epochCache.getEpochAndSlotNow as jest.Mock).mockReturnValue({
-      epoch: 1,
-      slot: SlotNumber(98),
+      epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+      slot: { now: SlotNumber(98), pipeline: SlotNumber(98) },
       ts: 1000n, // slot started at 1000 seconds
       nowMs: 1001000n, // 1000ms elapsed, outside 500ms tolerance
+    });
+    (epochCache.getEpochAndSlotInNextL1Slot as jest.Mock).mockReturnValue({
+      epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+      slot: { now: SlotNumber(99), pipeline: SlotNumber(99) },
+      ts: 0n,
+      now: 0n,
     });
     (epochCache.isInCommittee as jest.Mock).mockResolvedValue(true);
 
@@ -60,16 +61,17 @@ describe('CheckpointAttestationValidator', () => {
     });
 
     // Mock epoch cache - attestation is for previous slot (97) when current is 98
-    (epochCache.getCurrentAndNextSlot as jest.Mock).mockReturnValue({
-      currentSlot: SlotNumber(98),
-      nextSlot: SlotNumber(99),
-    });
-    // Mock getEpochAndSlotNow to return time WITHIN clock tolerance (100ms elapsed)
     (epochCache.getEpochAndSlotNow as jest.Mock).mockReturnValue({
-      epoch: 1,
-      slot: SlotNumber(98),
+      epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+      slot: { now: SlotNumber(98), pipeline: SlotNumber(98) },
       ts: 1000n, // slot started at 1000 seconds
       nowMs: 1000100n, // 100ms elapsed, within 500ms tolerance
+    });
+    (epochCache.getEpochAndSlotInNextL1Slot as jest.Mock).mockReturnValue({
+      epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+      slot: { now: SlotNumber(99), pipeline: SlotNumber(99) },
+      ts: 0n,
+      now: 0n,
     });
     (epochCache.isInCommittee as jest.Mock).mockResolvedValue(true);
     (epochCache.getProposerAttesterAddressInSlot as jest.Mock).mockResolvedValue(proposer.address);
@@ -88,9 +90,17 @@ describe('CheckpointAttestationValidator', () => {
     });
 
     // Mock epoch cache to return matching slot number but invalid committee membership
-    (epochCache.getCurrentAndNextSlot as jest.Mock).mockReturnValue({
-      currentSlot: SlotNumber(100),
-      nextSlot: SlotNumber(101),
+    (epochCache.getEpochAndSlotNow as jest.Mock).mockReturnValue({
+      epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+      slot: { now: SlotNumber(100), pipeline: SlotNumber(100) },
+      ts: 0n,
+      nowMs: 0n,
+    });
+    (epochCache.getEpochAndSlotInNextL1Slot as jest.Mock).mockReturnValue({
+      epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+      slot: { now: SlotNumber(101), pipeline: SlotNumber(101) },
+      ts: 0n,
+      now: 0n,
     });
     (epochCache.isInCommittee as jest.Mock).mockResolvedValue(false);
 
@@ -108,9 +118,17 @@ describe('CheckpointAttestationValidator', () => {
     });
 
     // Mock epoch cache for valid case with current slot
-    (epochCache.getCurrentAndNextSlot as jest.Mock).mockReturnValue({
-      currentSlot: SlotNumber(100),
-      nextSlot: SlotNumber(101),
+    (epochCache.getEpochAndSlotNow as jest.Mock).mockReturnValue({
+      epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+      slot: { now: SlotNumber(100), pipeline: SlotNumber(100) },
+      ts: 0n,
+      nowMs: 0n,
+    });
+    (epochCache.getEpochAndSlotInNextL1Slot as jest.Mock).mockReturnValue({
+      epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+      slot: { now: SlotNumber(101), pipeline: SlotNumber(101) },
+      ts: 0n,
+      now: 0n,
     });
     (epochCache.isInCommittee as jest.Mock).mockResolvedValue(true);
     (epochCache.getProposerAttesterAddressInSlot as jest.Mock).mockResolvedValue(proposer.address);
@@ -129,9 +147,17 @@ describe('CheckpointAttestationValidator', () => {
     });
 
     // Mock epoch cache for valid case with next slot
-    (epochCache.getCurrentAndNextSlot as jest.Mock).mockReturnValue({
-      currentSlot: SlotNumber(100),
-      nextSlot: SlotNumber(101),
+    (epochCache.getEpochAndSlotNow as jest.Mock).mockReturnValue({
+      epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+      slot: { now: SlotNumber(100), pipeline: SlotNumber(100) },
+      ts: 0n,
+      nowMs: 0n,
+    });
+    (epochCache.getEpochAndSlotInNextL1Slot as jest.Mock).mockReturnValue({
+      epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+      slot: { now: SlotNumber(101), pipeline: SlotNumber(101) },
+      ts: 0n,
+      now: 0n,
     });
     (epochCache.isInCommittee as jest.Mock).mockResolvedValue(true);
     (epochCache.getProposerAttesterAddressInSlot as jest.Mock).mockResolvedValue(proposer.address);
@@ -150,9 +176,17 @@ describe('CheckpointAttestationValidator', () => {
     });
 
     // Mock epoch cache with different proposer
-    (epochCache.getCurrentAndNextSlot as jest.Mock).mockReturnValue({
-      currentSlot: SlotNumber(100),
-      nextSlot: SlotNumber(101),
+    (epochCache.getEpochAndSlotNow as jest.Mock).mockReturnValue({
+      epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+      slot: { now: SlotNumber(100), pipeline: SlotNumber(100) },
+      ts: 0n,
+      nowMs: 0n,
+    });
+    (epochCache.getEpochAndSlotInNextL1Slot as jest.Mock).mockReturnValue({
+      epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+      slot: { now: SlotNumber(101), pipeline: SlotNumber(101) },
+      ts: 0n,
+      now: 0n,
     });
     (epochCache.isInCommittee as jest.Mock).mockResolvedValue(true);
 
@@ -170,9 +204,17 @@ describe('CheckpointAttestationValidator', () => {
     });
 
     // Mock epoch cache to throw NoCommitteeError
-    (epochCache.getCurrentAndNextSlot as jest.Mock).mockReturnValue({
-      currentSlot: SlotNumber(100),
-      nextSlot: SlotNumber(101),
+    (epochCache.getEpochAndSlotNow as jest.Mock).mockReturnValue({
+      epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+      slot: { now: SlotNumber(100), pipeline: SlotNumber(100) },
+      ts: 0n,
+      nowMs: 0n,
+    });
+    (epochCache.getEpochAndSlotInNextL1Slot as jest.Mock).mockReturnValue({
+      epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+      slot: { now: SlotNumber(101), pipeline: SlotNumber(101) },
+      ts: 0n,
+      now: 0n,
     });
     (epochCache.isInCommittee as jest.Mock).mockReturnValue(true);
     (epochCache.getProposerAttesterAddressInSlot as jest.Mock).mockRejectedValue(new NoCommitteeError());

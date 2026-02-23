@@ -870,7 +870,9 @@ describe('L1Publisher integration', () => {
         await ethCheatCodes.mineEmptyBlock();
         await ethCheatCodes.syncDateProvider();
         const currentL2Slot = await rollup.getSlotNumber();
-        const { slot: nextL2Slot } = epochCache.getEpochAndSlotInNextL1Slot();
+        const {
+          slot: { now: nextL2Slot },
+        } = epochCache.getEpochAndSlotInNextL1Slot();
         logger.warn(`L2 slot in next L1 slot is ${nextL2Slot}`, { nextL2Slot, currentL2Slot, initialL2Slot });
 
         // Make sure we give enough time to the l1 tx utils to process
@@ -943,7 +945,9 @@ describe('L1Publisher integration', () => {
       while (true) {
         await ethCheatCodes.mineEmptyBlock();
         await ethCheatCodes.syncDateProvider();
-        const { slot: nextL2Slot } = epochCache.getEpochAndSlotInNextL1Slot();
+        const {
+          slot: { now: nextL2Slot },
+        } = epochCache.getEpochAndSlotInNextL1Slot();
 
         // Wait for state to transition and give the publisher time to process
         await sleep(1000);

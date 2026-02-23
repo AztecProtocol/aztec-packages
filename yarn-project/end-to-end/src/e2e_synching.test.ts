@@ -72,7 +72,10 @@ import { TestWallet } from './test-wallet/test_wallet.js';
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 const START_TIME = 1893456000; // 2030 01 01 00 00
 const RUN_THE_BIG_ONE = !!process.env.RUN_THE_BIG_ONE;
+
+// TODO(md): cleanup
 const ETHEREUM_SLOT_DURATION = getL1ContractsConfigEnvVars().ethereumSlotDuration;
+
 const MINT_AMOUNT = 1000n;
 
 enum TxComplexity {

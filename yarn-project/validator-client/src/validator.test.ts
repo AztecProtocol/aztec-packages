@@ -113,10 +113,12 @@ describe('ValidatorClient', () => {
     });
     worldState = mock<WorldStateSynchronizer>();
     epochCache = mock<EpochCache>();
+
     epochCache.filterInCommittee.mockImplementation((_slot, addresses) => Promise.resolve(addresses));
     epochCache.getL1Constants.mockReturnValue({ epochDuration: 8 } satisfies Parameters<
       typeof getEpochAtSlot
     >[1] as any);
+
     blockSource = mock<L2BlockSource & L2BlockSink>();
     blockSource.getCheckpointedBlocksForEpoch.mockResolvedValue([]);
     blockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);

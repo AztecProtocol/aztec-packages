@@ -11,16 +11,32 @@ import {
   getSlotAtTimestamp,
   getSlotRangeForEpoch,
   getTimestampForSlot,
-  getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
 
 import { createPublicClient, encodeAbiParameters, fallback, http, keccak256 } from 'viem';
 
 import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
 
+/** When proposer pipelining is enabled, the proposer builds one slot ahead. */
+export const PROPOSER_PIPELINING_SLOT_OFFSET = 1;
+
+/** Bundles a wall-clock value with its pipeline-offset equivalent. */
+export type PipelineView<T> = {
+  /** The current wall-clock value. */
+  now: T;
+  /** The value offset by the pipeline (e.g., slot + 1 when pipelining, same when not). */
+  pipeline: T;
+};
+
+/** SlotNumber applied to PipelineView */
+export type SlotView = PipelineView<SlotNumber>;
+/** EpochNumber applied to PipelineView */
+export type EpochView = PipelineView<EpochNumber>;
+
+/** Bundles wall-clock and pipeline slot/epoch with a timestamp. */
 export type EpochAndSlot = {
-  epoch: EpochNumber;
-  slot: SlotNumber;
+  slot: SlotView;
+  epoch: EpochView;
   ts: bigint;
 };
 
@@ -37,7 +53,7 @@ export type SlotTag = 'now' | 'next' | SlotNumber;
 export interface EpochCacheInterface {
   getCommittee(slot: SlotTag | undefined): Promise<EpochCommitteeInfo>;
   getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint };
-  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint };
+  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint };
   getProposerIndexEncoding(epoch: EpochNumber, slot: SlotNumber, seed: bigint): `0x${string}`;
   computeProposerIndex(slot: SlotNumber, epoch: EpochNumber, seed: bigint, size: bigint): bigint;
   getCurrentAndNextSlot(): { currentSlot: SlotNumber; nextSlot: SlotNumber };
@@ -64,6 +80,8 @@ export class EpochCache implements EpochCacheInterface {
   private lastValidatorRefresh = 0;
   private readonly log: Logger = createLogger('epoch-cache');
 
+  protected enableProposerPipelining: boolean;
+
   constructor(
     private rollup: RollupContract,
     private readonly l1constants: L1RollupConstants & {
@@ -71,10 +89,12 @@ export class EpochCache implements EpochCacheInterface {
       lagInEpochsForRandao: number;
     },
     private readonly dateProvider: DateProvider = new DateProvider(),
-    protected readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60 },
+    protected readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60, enableProposerPipelining: false },
   ) {
+    this.enableProposerPipelining = this.config.enableProposerPipelining;
     this.log.debug(`Initialized EpochCache`, {
       l1constants,
+      enableProposerPipelining: this.enableProposerPipelining,
     });
   }
 
@@ -131,11 +151,19 @@ export class EpochCache implements EpochCacheInterface {
       targetCommitteeSize: Number(targetCommitteeSize),
     };
 
-    return new EpochCache(rollup, l1RollupConstants, deps.dateProvider);
+    return new EpochCache(rollup, l1RollupConstants, deps.dateProvider, {
+      cacheSize: 12,
+      validatorRefreshIntervalSeconds: 60,
+      enableProposerPipelining: config.enableProposerPipelining,
+    });
   }
 
   public getL1Constants(): L1RollupConstants {
     return this.l1constants;
+  }
+
+  public isProposerPipeliningEnabled(): boolean {
+    return this.enableProposerPipelining;
   }
 
   public getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint } {
@@ -148,24 +176,31 @@ export class EpochCache implements EpochCacheInterface {
     return BigInt(Math.floor(this.dateProvider.now() / 1000));
   }
 
-  private getEpochAndSlotAtSlot(slot: SlotNumber): EpochAndSlot {
-    const epoch = getEpochAtSlot(slot, this.l1constants);
-    const ts = getTimestampRangeForEpoch(epoch, this.l1constants)[0];
-    return { epoch, ts, slot };
+  /** Computes the pipeline slot and epoch from a wall-clock slot. */
+  private getPipelineSlotAndEpoch(slotNow: SlotNumber): { pipelineSlot: SlotNumber; pipelineEpoch: EpochNumber } {
+    const offset = this.isProposerPipeliningEnabled() ? PROPOSER_PIPELINING_SLOT_OFFSET : 0;
+    const pipelineSlot = SlotNumber(slotNow + offset);
+    return { pipelineSlot, pipelineEpoch: getEpochAtSlot(pipelineSlot, this.l1constants) };
   }
 
-  public getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint } {
-    const now = this.nowInSeconds();
-    const nextSlotTs = now + BigInt(this.l1constants.ethereumSlotDuration);
-    return { ...this.getEpochAndSlotAtTimestamp(nextSlotTs), now };
+  private getEpochAndSlotAtSlot(slot: SlotNumber): EpochAndSlot {
+    return this.getEpochAndSlotAtTimestamp(getTimestampForSlot(slot, this.l1constants));
+  }
+
+  public getEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint } {
+    const nowSeconds = this.nowInSeconds();
+    const nextSlotTs = nowSeconds + BigInt(this.l1constants.ethereumSlotDuration);
+    return { ...this.getEpochAndSlotAtTimestamp(nextSlotTs), nowSeconds };
   }
 
   private getEpochAndSlotAtTimestamp(ts: bigint): EpochAndSlot {
-    const slot = getSlotAtTimestamp(ts, this.l1constants);
+    const slotNow = getSlotAtTimestamp(ts, this.l1constants);
+    const epochNow = getEpochNumberAtTimestamp(ts, this.l1constants);
+    const { pipelineSlot, pipelineEpoch } = this.getPipelineSlotAndEpoch(slotNow);
     return {
-      epoch: getEpochNumberAtTimestamp(ts, this.l1constants),
-      ts: getTimestampForSlot(slot, this.l1constants),
-      slot,
+      slot: { now: slotNow, pipeline: pipelineSlot },
+      epoch: { now: epochNow, pipeline: pipelineEpoch },
+      ts: getTimestampForSlot(slotNow, this.l1constants),
     };
   }
 
@@ -198,9 +233,9 @@ export class EpochCache implements EpochCacheInterface {
   public async isEscapeHatchOpenAtSlot(slot: SlotTag = 'now'): Promise<boolean> {
     const epoch =
       slot === 'now'
-        ? this.getEpochAndSlotNow().epoch
+        ? this.getEpochAndSlotNow().epoch.now
         : slot === 'next'
-          ? this.getEpochAndSlotInNextL1Slot().epoch
+          ? this.getEpochAndSlotInNextL1Slot().epoch.now
           : getEpochAtSlot(slot, this.l1constants);
 
     return await this.isEscapeHatchOpen(epoch);
@@ -213,17 +248,18 @@ export class EpochCache implements EpochCacheInterface {
    */
   public async getCommittee(slot: SlotTag = 'now'): Promise<EpochCommitteeInfo> {
     const { epoch, ts } = this.getEpochAndTimestamp(slot);
+    const epochNow = epoch.now;
 
-    if (this.cache.has(epoch)) {
-      return this.cache.get(epoch)!;
+    if (this.cache.has(epochNow)) {
+      return this.cache.get(epochNow)!;
     }
 
-    const epochData = await this.computeCommittee({ epoch, ts });
+    const epochData = await this.computeCommittee({ epoch: epochNow, ts });
     // If the committee size is 0 or undefined, then do not cache
     if (!epochData.committee || epochData.committee.length === 0) {
       return epochData;
     }
-    this.cache.set(epoch, epochData);
+    this.cache.set(epochNow, epochData);
 
     const toPurge = Array.from(this.cache.keys())
       .sort((a, b) => Number(b - a))
@@ -233,7 +269,7 @@ export class EpochCache implements EpochCacheInterface {
     return epochData;
   }
 
-  private getEpochAndTimestamp(slot: SlotTag = 'now') {
+  private getEpochAndTimestamp(slot: SlotTag = 'now'): { epoch: EpochView; ts: bigint } {
     if (slot === 'now') {
       return this.getEpochAndSlotNow();
     } else if (slot === 'next') {
@@ -289,8 +325,8 @@ export class EpochCache implements EpochCacheInterface {
     const next = this.getEpochAndSlotInNextL1Slot();
 
     return {
-      currentSlot: current.slot,
-      nextSlot: next.slot,
+      currentSlot: current.slot.now,
+      nextSlot: next.slot.now,
     };
   }
 
@@ -322,14 +358,14 @@ export class EpochCache implements EpochCacheInterface {
    */
   private async getProposerAttesterAddressAt(when: EpochAndSlot) {
     const { epoch, slot } = when;
-    const { committee, seed } = await this.getCommittee(slot);
+    const { committee, seed } = await this.getCommittee(slot.now);
     if (!committee) {
       throw new NoCommitteeError();
     } else if (committee.length === 0) {
       return undefined;
     }
 
-    const proposerIndex = this.computeProposerIndex(slot, epoch, seed, BigInt(committee.length));
+    const proposerIndex = this.computeProposerIndex(slot.now, epoch.now, seed, BigInt(committee.length));
     return committee[Number(proposerIndex)];
   }
 

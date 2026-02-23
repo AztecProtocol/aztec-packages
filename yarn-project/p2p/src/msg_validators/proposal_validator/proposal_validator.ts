@@ -24,8 +24,9 @@ export abstract class ProposalValidator<TProposal extends BlockProposal | Checkp
 
   public async validate(proposal: TProposal): Promise<ValidationResult> {
     try {
-      // Slot check
-      const { currentSlot, nextSlot } = this.epochCache.getCurrentAndNextSlot();
+      // Slot check: use pipeline slots since proposals target pipeline slots (slot + 1 when pipelining)
+      const currentSlot = this.epochCache.getEpochAndSlotNow().slot.pipeline;
+      const nextSlot = this.epochCache.getEpochAndSlotInNextL1Slot().slot.pipeline;
       const slotNumber = proposal.slotNumber;
       if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
         // Check if message is for previous slot and within clock tolerance

@@ -4,7 +4,7 @@ import {
   NUM_FIRST_BLOCK_END_BLOB_FIELDS,
 } from '@aztec/blob-lib/encoding';
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
-import type { EpochCache } from '@aztec/epoch-cache';
+import { EpochCache } from '@aztec/epoch-cache';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -523,8 +523,8 @@ describe('CheckpointProposalJob', () => {
     const eventEmitter = new EventEmitter() as TypedEventEmitter<SequencerEvents>;
 
     return new TestCheckpointProposalJob(
-      epoch,
-      SlotNumber(newSlotNumber),
+      { now: SlotNumber(newSlotNumber), pipeline: SlotNumber(newSlotNumber) },
+      { now: epoch, pipeline: epoch },
       checkpointNumber,
       lastBlockNumber,
       proposer,
