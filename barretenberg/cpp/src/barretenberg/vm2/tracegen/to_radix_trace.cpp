@@ -304,12 +304,13 @@ void ToRadixTraceBuilder::process_with_memory(
 
 const InteractionDefinition ToRadixTraceBuilder::interactions =
     InteractionDefinition()
+        // Non-Memory Aware To Radix (to_radix.pil)
         .add<lookup_to_radix_limb_range_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_to_radix_limb_less_than_radix_range_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_to_radix_fetch_safe_limbs_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_to_radix_fetch_p_limb_settings, InteractionType::LookupIntoPDecomposition>()
         .add<lookup_to_radix_limb_p_diff_range_settings, InteractionType::LookupIntoIndexedByRow>()
-        // Mem Aware To Radix
+        // Mem Aware To Radix (to_radix_mem.pil)
         // GT checks
         .add<lookup_to_radix_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(C::gt_sel)
         .add<lookup_to_radix_mem_check_radix_lt_2_settings, InteractionType::LookupGeneric>(C::gt_sel)
