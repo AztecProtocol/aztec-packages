@@ -211,8 +211,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     std::vector<cached_partial_non_native_field_multiplication> cached_partial_non_native_field_multiplications;
 
-    bool circuit_finalized = false;
-
     std::vector<fr> ipa_proof;
 
     void populate_public_inputs_block();
@@ -364,7 +362,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     size_t get_num_finalized_gates() const override
     {
-        BB_ASSERT(circuit_finalized);
+        BB_ASSERT(this->circuit_finalized);
         return this->num_gates();
     }
 
@@ -407,7 +405,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     size_t get_finalized_total_circuit_size() const
     {
-        BB_ASSERT(circuit_finalized);
+        BB_ASSERT(this->circuit_finalized);
         auto num_filled_gates = get_num_finalized_gates() + this->num_public_inputs();
         return std::max(get_tables_size(), num_filled_gates);
     }
