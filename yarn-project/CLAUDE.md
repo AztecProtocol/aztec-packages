@@ -110,6 +110,10 @@ LOG_LEVEL='info; debug:sequencer,archiver' yarn workspace @aztec/<package-name> 
 
 **IMPORTANT**: These commands are run from the root of `yarn-project`, NOT the git root.
 
+### Style
+
+- **Line width**: 120 characters (`printWidth: 120` in `.prettierrc.json`). Wrap comments and code at 120, not 80.
+
 ### Format
 
 ```bash
