@@ -873,10 +873,12 @@ def _parse_commit(raw: dict) -> dict:
     author = login or c_author.get('name', '')
     date = c_author.get('date', '')  # ISO-8601
 
-    # Parse conventional commit type
+    # Parse conventional commit type + scope
     m = _COMMIT_TYPE_RE.match(subject)
     commit_type = m.group(1) if m else 'other'
     breaking = bool(m and m.group(3))
+    scope_raw = m.group(2) if m else ''
+    scope = scope_raw[1:-1] if scope_raw else ''  # strip parens
 
     # Extract PR number from "(#NNNNN)" at end of subject
     pr_m = _PR_NUM_RE.search(subject)
@@ -892,39 +894,101 @@ def _parse_commit(raw: dict) -> dict:
         'sha': sha,
         'subject': clean_subject,
         'type': commit_type,
+        'scope': scope,
         'breaking': breaking,
         'pr': pr_number,
         'author': author,
         'date': date,
         'merge_train': merge_train,
         'is_merge': is_merge,
+        'dirs': None,  # populated by caller if Redis cache available
     }
 
 
-def get_recent_commits(branch: str = 'next', count: int = 100) -> list[dict]:
-    """Fetch recent commits from GitHub API with 5-minute in-memory cache."""
+_pr_dirs_cache: dict = {}  # {pr_number: [dirs]} in-memory cache (long TTL)
+_pr_dirs_lock = threading.Lock()
+_pr_dirs_fetch_queue: set = set()
+_pr_dirs_worker_started = False
+
+
+def _compute_pr_dirs(pr_number: int) -> list[str]:
+    """Fetch changed files for a PR and return 2-level path buckets."""
+    data = _github_get(f'repos/{REPO}/pulls/{pr_number}/files?per_page=100')
+    if not data or not isinstance(data, list):
+        return []
+    dirs: set[str] = set()
+    for f in data:
+        filename = f.get('filename', '')
+        if not filename:
+            continue
+        parts = filename.split('/')
+        top = parts[0]
+        dirs.add(top)
+        # For yarn-project, include 2nd level for sub-project drill-down
+        if top == 'yarn-project' and len(parts) > 1:
+            dirs.add(f'yarn-project/{parts[1]}')
+    return sorted(dirs)
+
+
+def _pr_dirs_worker():
+    """Background worker: drains the fetch queue, caches results."""
+    while True:
+        time.sleep(2)
+        with _pr_dirs_lock:
+            if not _pr_dirs_fetch_queue:
+                continue
+            pr_number = _pr_dirs_fetch_queue.pop()
+        try:
+            dirs = _compute_pr_dirs(pr_number)
+            with _pr_dirs_lock:
+                _pr_dirs_cache[pr_number] = dirs
+        except Exception as e:
+            print(f'[github_data] pr_dirs fetch error for #{pr_number}: {e}')
+
+
+def start_pr_dirs_worker():
+    """Start the background PR dirs fetcher (call once at startup)."""
+    global _pr_dirs_worker_started
+    if _pr_dirs_worker_started:
+        return
+    _pr_dirs_worker_started = True
+    t = threading.Thread(target=_pr_dirs_worker, daemon=True, name='pr-dirs-fetcher')
+    t.start()
+
+
+def get_pr_dirs(pr_number: int) -> list[str] | None:
+    """Return cached dirs for a PR, or None if not yet fetched (queues async fetch)."""
+    with _pr_dirs_lock:
+        if pr_number in _pr_dirs_cache:
+            return _pr_dirs_cache[pr_number]
+        _pr_dirs_fetch_queue.add(pr_number)
+    return None
+
+
+def get_recent_commits(branch: str = 'next', page: int = 1, per_page: int = 50) -> list[dict]:
+    """Fetch a page of commits from GitHub API with 5-minute in-memory cache."""
+    per_page = min(per_page, 100)
+    cache_key = f'{branch}:{page}:{per_page}'
     now = time.time()
     with _commits_lock:
-        cached = _commits_cache.get(branch)
+        cached = _commits_cache.get(cache_key)
         if cached and now - cached['ts'] < 300:
             return cached['data']
 
-    commits: list[dict] = []
-    page = 1
-    per_page = min(count, 100)
-    while len(commits) < count:
-        data = _github_get(
-            f'repos/{REPO}/commits?sha={branch}&per_page={per_page}&page={page}'
-        )
-        if not data or not isinstance(data, list):
-            break
-        for raw in data:
-            commits.append(_parse_commit(raw))
-        if len(data) < per_page:
-            break
-        page += 1
+    data = _github_get(
+        f'repos/{REPO}/commits?sha={branch}&per_page={per_page}&page={page}'
+    )
+    if not data or not isinstance(data, list):
+        result = []
+    else:
+        result = [_parse_commit(raw) for raw in data]
 
-    result = commits[:count]
     with _commits_lock:
-        _commits_cache[branch] = {'data': result, 'ts': now}
+        _commits_cache[cache_key] = {'data': result, 'ts': now}
+
+    # Enrich with cached dirs (non-blocking)
+    for c in result:
+        if c.get('pr'):
+            c['dirs'] = get_pr_dirs(c['pr'])
+
     return result
