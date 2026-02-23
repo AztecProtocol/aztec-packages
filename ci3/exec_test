@@ -54,4 +54,10 @@ fi
 code=$?
 set -e
 
+# Upload ELU data if present (written by e2e tests, absent for C++/Rust/Noir).
+if [ -s "$HOME/.elu_monitor.log" ]; then
+  cat "$HOME/.elu_monitor.log" | cache_log elufile
+  rm -f "$HOME/.elu_monitor.log"
+fi
+
 exit $code

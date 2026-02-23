@@ -21,13 +21,8 @@ export LOG_LEVEL=${LOG_LEVEL:-verbose}
 export NODE_NO_WARNINGS=1
 export FORCE_COLOR=1
 
-# Capture per-test event loop utilization in CI.
-if command -v cache_log &>/dev/null; then
-  export ELU_MONITOR_FILE=/tmp/elu_monitor_$$.log
-  touch $ELU_MONITOR_FILE
-  tail -f $ELU_MONITOR_FILE > >(cache_log elufile) 2>/dev/null &
-  elu_pid=$!
-fi
+# Capture per-test event loop utilization (uploaded by exec_test after test finishes).
+export ELU_MONITOR_FILE=$HOME/.elu_monitor.log
 
 test_file=$1
 test_name=${2:-}
@@ -48,6 +43,3 @@ else
   "${test_name_arg[@]}" \
   --runInBand "$1"
 fi
-
-# Kill ELU monitor tail if started.
-[ -n "${elu_pid:-}" ] && kill $elu_pid 2>/dev/null || true
