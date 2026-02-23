@@ -64,38 +64,6 @@ void scale_by_generator(Fr* coeffs,
         }
     });
 }
-/**
- * Compute multiplicative subgroup (g.X)^n.
- *
- * Compute the subgroup for X in roots of unity of (2^log2_subgroup_size)*n.
- * X^n will loop through roots of unity (2^log2_subgroup_size).
- *
- * @param log2_subgroup_size Log_2 of the subgroup size.
- * @param src_domain The domain of size n.
- * @param subgroup_roots Pointer to the array for saving subgroup members.
- * */
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void compute_multiplicative_subgroup(const size_t log2_subgroup_size,
-                                     const EvaluationDomain<Fr>& src_domain,
-                                     Fr* subgroup_roots)
-{
-    size_t subgroup_size = 1UL << log2_subgroup_size;
-    // Step 1: get primitive 4th root of unity
-    Fr subgroup_root = Fr::get_root_of_unity(log2_subgroup_size);
-
-    // Step 2: compute the cofactor term g^n
-    Fr accumulator = src_domain.generator;
-    for (size_t i = 0; i < src_domain.log2_size; ++i) {
-        accumulator.self_sqr();
-    }
-
-    // Step 3: fill array with subgroup_size values of (g.X)^n, scaled by the cofactor
-    subgroup_roots[0] = accumulator;
-    for (size_t i = 1; i < subgroup_size; ++i) {
-        subgroup_roots[i] = subgroup_roots[i - 1] * subgroup_root;
-    }
-}
 
 template <typename Fr>
     requires SupportsFFT<Fr>
@@ -249,13 +217,6 @@ void fft_inner_parallel(
         }
     });
 
-    // hard code exception for when the domain size is tiny - we won't execute the next loop, so need to manually
-    // reduce + copy
-    if (domain.size <= 2) {
-        coeffs[0] = target[0];
-        coeffs[1] = target[1];
-    }
-
     // outer FFT loop
     for (size_t m = 2; m < (domain.size); m <<= 1) {
         parallel_for(domain.num_threads, [&](size_t j) {
@@ -338,7 +299,7 @@ template <typename Fr>
     requires SupportsFFT<Fr>
 void fft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
 {
-    fft_inner_parallel<Fr>(coeffs, domain.size, domain.root, domain.get_round_roots());
+    fft_inner_parallel<Fr>(coeffs, domain, domain.root, domain.get_round_roots());
 }
 
 template <typename Fr>
@@ -392,7 +353,7 @@ template <typename Fr>
 void coset_fft(Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain)
 {
     scale_by_generator(coeffs, target, domain, Fr::one(), domain.generator, domain.generator_size);
-    fft(coeffs, target, domain);
+    fft(target, domain);
 }
 
 template <typename Fr>
@@ -410,67 +371,6 @@ void coset_fft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
         generator_start *= generator_pow_n;
     }
     fft(coeffs, domain);
-}
-
-template <typename Fr>
-    requires SupportsFFT<Fr>
-void coset_fft(Fr* coeffs,
-               const EvaluationDomain<Fr>& domain,
-               const EvaluationDomain<Fr>&,
-               const size_t domain_extension)
-{
-    const size_t log2_domain_extension = static_cast<size_t>(numeric::get_msb(domain_extension));
-    Fr primitive_root = Fr::get_root_of_unity(domain.log2_size + log2_domain_extension);
-
-    // Fr work_root = domain.generator.sqr();
-    // work_root = domain.generator.sqr();
-    auto scratch_space_ptr = get_scratch_space<Fr>(domain.size * domain_extension);
-    auto scratch_space = scratch_space_ptr.get();
-
-    // Fr* temp_memory = static_cast<Fr*>(aligned_alloc(64, sizeof(Fr) * domain.size *
-    // domain_extension));
-
-    std::vector<Fr> coset_generators(domain_extension);
-    coset_generators[0] = domain.generator;
-    for (size_t i = 1; i < domain_extension; ++i) {
-        coset_generators[i] = coset_generators[i - 1] * primitive_root;
-    }
-    for (size_t i = domain_extension - 1; i < domain_extension; --i) {
-        scale_by_generator(coeffs, coeffs + (i * domain.size), domain, Fr::one(), coset_generators[i], domain.size);
-    }
-
-    for (size_t i = 0; i < domain_extension; ++i) {
-        fft_inner_parallel(coeffs + (i * domain.size),
-                           scratch_space + (i * domain.size),
-                           domain,
-                           domain.root,
-                           domain.get_round_roots());
-    }
-
-    if (domain_extension == 4) {
-        parallel_for(domain.num_threads, [&](size_t j) {
-            const size_t start = j * domain.thread_size;
-            const size_t end = (j + 1) * domain.thread_size;
-            for (size_t i = start; i < end; ++i) {
-                Fr::__copy(scratch_space[i], coeffs[(i << 2UL)]);
-                Fr::__copy(scratch_space[i + (1UL << domain.log2_size)], coeffs[(i << 2UL) + 1UL]);
-                Fr::__copy(scratch_space[i + (2UL << domain.log2_size)], coeffs[(i << 2UL) + 2UL]);
-                Fr::__copy(scratch_space[i + (3UL << domain.log2_size)], coeffs[(i << 2UL) + 3UL]);
-            }
-        });
-
-        for (size_t i = 0; i < domain.size; ++i) {
-            for (size_t j = 0; j < domain_extension; ++j) {
-                Fr::__copy(scratch_space[i + (j << domain.log2_size)], coeffs[(i << log2_domain_extension) + j]);
-            }
-        }
-    } else {
-        for (size_t i = 0; i < domain.size; ++i) {
-            for (size_t j = 0; j < domain_extension; ++j) {
-                Fr::__copy(scratch_space[i + (j << domain.log2_size)], coeffs[(i << log2_domain_extension) + j]);
-            }
-        }
-    }
 }
 
 template <typename Fr>
@@ -555,59 +455,6 @@ template <typename Fr> Fr evaluate(const std::vector<Fr*> coeffs, const Fr& z, c
         r += eval;
     }
     return r;
-}
-
-// Computes r = \sum_{i=0}^{num_coeffs-1} (L_{i+1}(ʓ).f_i)
-//
-//                     (ʓ^n - 1)
-// Start with L_1(ʓ) = ---------
-//                     n.(ʓ - 1)
-//
-//                                 ʓ^n - 1
-// L_i(z) = L_1(ʓ.ω^{1-i}) = ------------------
-//                           n.(ʓ.ω^{1-i)} - 1)
-//
-fr compute_barycentric_evaluation(const fr* coeffs,
-                                  const size_t num_coeffs,
-                                  const fr& z,
-                                  const EvaluationDomain<fr>& domain)
-{
-    fr* denominators = static_cast<fr*>(aligned_alloc(64, sizeof(fr) * num_coeffs));
-
-    fr numerator = z;
-    for (size_t i = 0; i < domain.log2_size; ++i) {
-        numerator.self_sqr();
-    }
-    numerator -= fr::one();
-    numerator *= domain.domain_inverse; // (ʓ^n - 1) / n
-
-    denominators[0] = z - fr::one();
-    fr work_root = domain.root_inverse; // ω^{-1}
-    for (size_t i = 1; i < num_coeffs; ++i) {
-        denominators[i] =
-            work_root * z; // denominators[i] will correspond to L_[i+1] (since our 'commented maths' notation indexes
-                           // L_i from 1). So ʓ.ω^{-i} = ʓ.ω^{1-(i+1)} is correct for L_{i+1}.
-        denominators[i] -= fr::one(); // ʓ.ω^{-i} - 1
-        work_root *= domain.root_inverse;
-    }
-
-    fr::batch_invert(denominators, num_coeffs);
-
-    fr result = fr::zero();
-
-    for (size_t i = 0; i < num_coeffs; ++i) {
-        fr temp = coeffs[i] * denominators[i]; // f_i * 1/(ʓ.ω^{-i} - 1)
-        result = result + temp;
-    }
-
-    result = result *
-             numerator; //   \sum_{i=0}^{num_coeffs-1} f_i * [ʓ^n - 1]/[n.(ʓ.ω^{-i} - 1)]
-                        // = \sum_{i=0}^{num_coeffs-1} f_i * L_{i+1}
-                        // (with our somewhat messy 'commented maths' convention that L_1 corresponds to the 0th coeff).
-
-    aligned_free(denominators);
-
-    return result;
 }
 
 // This function computes sum of all scalars in a given array.
@@ -782,7 +629,6 @@ template void fft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
 template void coset_fft<fr>(fr*, const EvaluationDomain<fr>&);
 template void coset_fft<fr>(fr*, fr*, const EvaluationDomain<fr>&);
 template void coset_fft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
-template void coset_fft<fr>(fr*, const EvaluationDomain<fr>&, const EvaluationDomain<fr>&, const size_t);
 template void ifft<fr>(fr*, const EvaluationDomain<fr>&);
 template void ifft<fr>(fr*, fr*, const EvaluationDomain<fr>&);
 template void ifft<fr>(std::vector<fr*>, const EvaluationDomain<fr>&);
