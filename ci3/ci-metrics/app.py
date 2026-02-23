@@ -1044,5 +1044,34 @@ def ci_health_report():
     return "Report not found", 404
 
 
+@app.route('/flake-prs')
+@auth.login_required
+def flake_prs():
+    path = Path(__file__).parent / 'views' / 'flake-prs.html'
+    if path.exists():
+        return path.read_text()
+    return "Page not found", 404
+
+
+@app.route('/api/flake-prs')
+@auth.login_required
+def api_flake_prs():
+    rows = db.query('''
+        SELECT pa.pr_number, pa.author, pa.title, pa.branch,
+               pa.additions, pa.deletions, pa.fetched_at,
+               MIN(cr.timestamp_ms) as first_seen_ms
+        FROM pr_authors pa
+        LEFT JOIN ci_runs cr ON cr.pr_number = pa.pr_number
+        WHERE (
+            pa.title LIKE '%flake%' OR pa.title LIKE '%deflake%'
+            OR pa.branch LIKE '%flake%' OR pa.branch LIKE '%deflake%'
+        )
+        GROUP BY pa.pr_number
+        ORDER BY pa.pr_number DESC
+        LIMIT 200
+    ''')
+    return _json([dict(r) for r in rows])
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8081)

@@ -74,6 +74,7 @@
     <a href="/cost-overview" class="active">cost overview</a>
     <a href="/namespace-billing">namespace billing</a>
     <a href="/ci-insights">ci insights</a>
+    <a href="/flake-prs">flake prs</a>
   </div>
 
   <h2 style="margin:8px 0;color:#ccc;">cost overview <span id="period-label" style="font-size:12px;color:#666;font-weight:normal"></span></h2>
@@ -240,13 +241,21 @@
       const trendPct = firstHalf > 0 ? ((secondHalf - firstHalf) / firstHalf * 100) : 0;
       const trendStr = trendPct >= 0 ? `+${trendPct.toFixed(1)}%` : `${trendPct.toFixed(1)}%`;
 
-      // stats row
+      // stats row — show operational totals (exclude one-time Savings Plan / RI payments)
+      const ONE_TIME_CATS = new Set(['savings_plan_1yr_annual','savings_plan_3yr_annual',
+          'savings_plan_1yr_annual_partial','savings_plan_3yr_annual_partial','reserved_instance_monthly']);
+      const oneTime = totals.aws_one_time || 0;
+      const opCombined = totals.combined_operational ?? totals.combined;
+      const opDailyAvg = opCombined / days;
+      const oneTimeNote = oneTime > 0
+        ? ` &middot; <span style="color:#d2a8ff" title="Annual Savings Plan and monthly Reserved Instance payments — not operational spend">one-time: <b>${fmt(oneTime)}</b></span>`
+        : '';
       document.getElementById('stats').innerHTML =
-        `total: <span>${fmt(totals.combined)}</span> &middot; ` +
-        `daily avg: <span>${fmt(dailyAvg)}</span> &middot; ` +
-        `aws: <span>${fmt(totals.aws)}</span> &middot; ` +
+        `operational: <span>${fmt(opCombined)}</span> &middot; ` +
+        `daily avg: <span>${fmt(opDailyAvg)}</span> &middot; ` +
+        `aws: <span>${fmt(totals.aws_operational ?? totals.aws)}</span> &middot; ` +
         `gcp: <span>${fmt(totals.gcp)}</span> &middot; ` +
-        `trend: <span>${trendStr}</span>`;
+        `trend: <span>${trendStr}</span>` + oneTimeNote;
 
       // ---- compute service totals and filter insignificant (<1% of total) ----
       const svcTotals = {};
@@ -258,20 +267,24 @@
       const threshold = totals.combined * 0.01;
       const significantSvcs = svcKeys.filter(s => svcTotals[s.key] >= threshold);
       const minorSvcs = svcKeys.filter(s => svcTotals[s.key] > 0 && svcTotals[s.key] < threshold);
+      // For the stacked bar: exclude one-time contract payments so daily chart shows operational spend
+      const chartSvcs = significantSvcs.filter(s => !ONE_TIME_CATS.has(s.key));
+      const hasOtherChart = minorSvcs.filter(s => !ONE_TIME_CATS.has(s.key)).length > 0;
       const hasOther = minorSvcs.length > 0;
 
       // ---- stacked bar chart (full width) ----
       const dates = byDate.map(e => e.date);
-      const datasets = significantSvcs.map((s, i) => ({
+      const datasets = chartSvcs.map((s, i) => ({
         label: s.label,
         data: byDate.map(e => extractServices(e)[s.key]),
-        backgroundColor: COLORS[i % COLORS.length],
+        backgroundColor: COLORS[significantSvcs.indexOf(s) % COLORS.length],
         borderWidth: 0
       }));
-      if (hasOther) {
+      if (hasOtherChart) {
+        const minorChartSvcs = minorSvcs.filter(s => !ONE_TIME_CATS.has(s.key));
         datasets.push({
           label: 'Other',
-          data: byDate.map(e => { const svcs = extractServices(e); return minorSvcs.reduce((s, k) => s + svcs[k.key], 0); }),
+          data: byDate.map(e => { const svcs = extractServices(e); return minorChartSvcs.reduce((s, k) => s + svcs[k.key], 0); }),
           backgroundColor: '#555',
           borderWidth: 0
         });
