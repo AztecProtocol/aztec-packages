@@ -45,6 +45,7 @@ def _init():
         metrics.start_phase_listener(r)
         metrics.start_ci_run_sync(r)
         github_data.start_merge_queue_poller()
+        github_data.start_pr_dirs_worker()
         print("[ci-metrics] Background threads started")
     except Exception as e:
         print(f"[ci-metrics] Warning: startup failed: {e}")
@@ -1055,8 +1056,9 @@ def commits_page():
 @auth.login_required
 def api_commits():
     branch = request.args.get('branch', 'next')
-    count = min(int(request.args.get('count', 100)), 500)
-    return _json(github_data.get_recent_commits(branch, count))
+    page = max(1, int(request.args.get('page', 1)))
+    per_page = min(int(request.args.get('per_page', 50)), 100)
+    return _json(github_data.get_recent_commits(branch, page, per_page))
 
 
 @app.route('/flake-prs')

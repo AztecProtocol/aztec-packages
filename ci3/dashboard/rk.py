@@ -9,6 +9,7 @@ import requests
 import shlex
 import subprocess
 import threading
+import time as _time
 import uuid
 from ansi2html import Ansi2HTMLConverter
 from pathlib import Path
@@ -191,6 +192,8 @@ def root() -> str:
         f"{hyperlink('/cost-overview', 'cost overview (AWS + GCP)')}\n"
         f"{hyperlink('/namespace-billing', 'namespace billing')}\n"
         f"{hyperlink('/ci-insights', 'ci insights')}\n"
+        f"{hyperlink('/flake-prs', 'flake prs')}\n"
+        f"{hyperlink('/commits', 'commits')}\n"
         f"{RESET}"
     )
 
@@ -620,9 +623,166 @@ def _proxy(path):
 @app.route('/cost-overview')
 @app.route('/test-timings')
 @app.route('/ci-health-report')
+@app.route('/flake-prs')
+@app.route('/commits')
 @auth.login_required
 def proxy_dashboard():
     return _proxy(request.path)
+
+
+# ---- /api/commits: direct handler with Redis caching ----
+
+import re as _re
+
+_COMMIT_TYPE_RE = _re.compile(
+    r'^(fix|feat|chore|refactor|docs|style|test|perf|ci|build|revert)(\([^)]+\))?(!)?: '
+)
+_PR_NUM_RE = _re.compile(r'\(#(\d+)\)\s*$')
+_MERGE_TRAIN_RE = _re.compile(r'merge-train/([^\s]+)')
+
+_GH_TOKEN = os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN', '')
+_COMMITS_PAGE_SIZE = 50
+_PR_DIRS_QUEUE: set = set()
+_PR_DIRS_LOCK = threading.Lock()
+
+
+def _gh_get_commits(branch: str, page: int) -> list:
+    """Fetch a page of commits from GitHub, with Redis caching (5-min TTL).
+    Commit list is cached but dirs are always enriched fresh from pr_dirs cache."""
+    cache_key = f'commits:{branch}:{page}'
+    cached = r.get(cache_key)
+    if cached:
+        try:
+            commits = json.loads(cached)
+        except Exception:
+            commits = None
+
+    if not cached or commits is None:
+        headers = {'Accept': 'application/vnd.github+json'}
+        if _GH_TOKEN:
+            headers['Authorization'] = f'Bearer {_GH_TOKEN}'
+        try:
+            resp = requests.get(
+                f'https://api.github.com/repos/AztecProtocol/aztec-packages/commits',
+                headers=headers,
+                params={'sha': branch, 'per_page': _COMMITS_PAGE_SIZE, 'page': page},
+                timeout=20,
+            )
+            if resp.status_code != 200:
+                return []
+            commits = [_parse_rk_commit(c) for c in resp.json()]
+        except Exception as e:
+            print(f'[rk.py] commits fetch error: {e}')
+            return []
+        try:
+            r.set(cache_key, json.dumps(commits), ex=300)
+        except Exception:
+            pass
+
+    # Always enrich with pr_dirs (fetched async, may have arrived since last cache)
+    needs_fetch = []
+    for c in commits:
+        if c.get('pr'):
+            dirs = _get_pr_dirs_cached(c['pr'])
+            c['dirs'] = dirs  # None means not yet fetched
+            if dirs is None:
+                needs_fetch.append(c['pr'])
+    if needs_fetch:
+        with _PR_DIRS_LOCK:
+            _PR_DIRS_QUEUE.update(needs_fetch)
+
+    return commits
+
+
+def _parse_rk_commit(raw: dict) -> dict:
+    sha = raw.get('sha', '')
+    msg = (raw.get('commit', {}).get('message', '') or '').split('\n')[0]
+    login = (raw.get('author') or {}).get('login', '')
+    c_author = raw.get('commit', {}).get('author', {}) or {}
+    author = login or c_author.get('name', '')
+    date = c_author.get('date', '')
+    m = _COMMIT_TYPE_RE.match(msg)
+    ctype = m.group(1) if m else 'other'
+    scope_raw = m.group(2) if m else ''
+    scope = scope_raw[1:-1] if scope_raw else ''
+    breaking = bool(m and m.group(3))
+    pr_m = _PR_NUM_RE.search(msg)
+    pr_number = int(pr_m.group(1)) if pr_m else None
+    subject = _PR_NUM_RE.sub('', msg).rstrip()
+    mt_m = _MERGE_TRAIN_RE.search(msg)
+    merge_train = mt_m.group(1) if mt_m else None
+    is_merge = len(raw.get('parents', [])) > 1
+    return {
+        'sha': sha, 'subject': subject, 'type': ctype, 'scope': scope,
+        'breaking': breaking, 'pr': pr_number, 'author': author,
+        'date': date, 'merge_train': merge_train, 'is_merge': is_merge,
+        'dirs': None,
+    }
+
+
+def _get_pr_dirs_cached(pr_number: int) -> list | None:
+    """Return cached dirs for a PR from Redis, or None if not yet fetched."""
+    cache_key = f'pr_dirs:{pr_number}'
+    try:
+        cached = r.get(cache_key)
+        if cached is not None:
+            return json.loads(cached)
+    except Exception:
+        pass
+    return None
+
+
+def _fetch_and_cache_pr_dirs(pr_number: int):
+    """Fetch changed files for a PR and cache in Redis (7-day TTL)."""
+    cache_key = f'pr_dirs:{pr_number}'
+    headers = {'Accept': 'application/vnd.github+json'}
+    if _GH_TOKEN:
+        headers['Authorization'] = f'Bearer {_GH_TOKEN}'
+    try:
+        resp = requests.get(
+            f'https://api.github.com/repos/AztecProtocol/aztec-packages/pulls/{pr_number}/files',
+            headers=headers,
+            params={'per_page': 100},
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            return
+        files = resp.json()
+        dirs: set = set()
+        for f in files:
+            filename = f.get('filename', '')
+            if not filename:
+                continue
+            parts = filename.split('/')
+            dirs.add(parts[0])
+            if parts[0] == 'yarn-project' and len(parts) > 1:
+                dirs.add(f'yarn-project/{parts[1]}')
+        r.set(cache_key, json.dumps(sorted(dirs)), ex=86400 * 7)
+    except Exception as e:
+        print(f'[rk.py] pr_dirs fetch error for #{pr_number}: {e}')
+
+
+def _pr_dirs_worker():
+    while True:
+        _time.sleep(2)
+        with _PR_DIRS_LOCK:
+            if not _PR_DIRS_QUEUE:
+                continue
+            pr_number = _PR_DIRS_QUEUE.pop()
+        _fetch_and_cache_pr_dirs(pr_number)
+
+
+threading.Thread(target=_pr_dirs_worker, daemon=True, name='pr-dirs-fetcher').start()
+
+
+@app.route('/api/commits')
+@auth.login_required
+def api_commits_direct():
+    branch = request.args.get('branch', 'next')
+    page = max(1, int(request.args.get('page', 1)))
+    commits = _gh_get_commits(branch, page)
+    return Response(json.dumps(commits), mimetype='application/json')
+
 
 @app.route('/api/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 @auth.login_required
