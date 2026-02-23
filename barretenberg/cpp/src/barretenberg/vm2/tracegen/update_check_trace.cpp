@@ -1,10 +1,9 @@
 #include "barretenberg/vm2/tracegen/update_check_trace.hpp"
 
-#include <memory>
-
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_update_check.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 

@@ -1,6 +1,5 @@
 #include "barretenberg/vm2/simulation/gadgets/update_check.hpp"
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
@@ -8,8 +7,6 @@
 namespace bb::avm2::simulation {
 
 namespace {
-
-using UnconstrainedPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
 /**
  * @brief Read a leaf value from the public data tree at a given slot without emitting constrained events.

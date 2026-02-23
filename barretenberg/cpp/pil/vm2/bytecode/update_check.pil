@@ -2,6 +2,8 @@ include "../poseidon2_hash.pil";
 include "../range_check.pil";
 include "../public_inputs.pil";
 include "../constants_gen.pil";
+include "../precomputed.pil";
+include "../gt.pil";
 
 include "../trees/public_data_check.pil";
 
