@@ -20,7 +20,7 @@ class KernelIOSerde {
     using NativeG1 = curve::BN254::AffineElement;
     using NativeFq = curve::BN254::BaseField;
     using NativePairingPoints = bb::PairingPoints<curve::BN254>;
-    using NativeTableCommitments = std::array<NativeG1, MegaCircuitBuilder::NUM_WIRES>;
+    using NativeTableCommitments = std::array<NativeG1, GOBLIN_NUM_COLUMNS>;
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;
 
@@ -110,7 +110,7 @@ class HidingKernelIOSerde {
     using NativeG1 = curve::BN254::AffineElement;
     using NativeFq = curve::BN254::BaseField;
     using NativePairingPoints = bb::PairingPoints<curve::BN254>;
-    using NativeTableCommitments = std::array<NativeG1, MegaCircuitBuilder::NUM_WIRES>;
+    using NativeTableCommitments = std::array<NativeG1, GOBLIN_NUM_COLUMNS>;
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = HIDING_KERNEL_PUBLIC_INPUTS_SIZE;
 

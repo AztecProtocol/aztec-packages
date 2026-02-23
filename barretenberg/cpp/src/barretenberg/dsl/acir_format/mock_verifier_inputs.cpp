@@ -57,9 +57,7 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_oink_proof(
     // Populate mock witness polynomial commitments
     if constexpr (requires { Flavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS; }) {
         // MultiMega flavors send interleaved commitments + individual ecc_op_wire commitments
-        constexpr size_t NUM_INDIVIDUAL_COMMITMENTS = 4;
-        populate_field_elements_for_mock_commitments(
-            proof, Flavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS + NUM_INDIVIDUAL_COMMITMENTS);
+        populate_field_elements_for_mock_commitments(proof, Flavor::NUM_INTERLEAVED_WITNESS_COMMITMENTS);
     } else {
         populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES);
     }
@@ -322,10 +320,10 @@ Goblin::MergeProof create_mock_merge_proof()
     populate_field_elements<fr>(proof, 1, /*value=*/fr{ mock_shift_size });
 
     // Populate mock merged table commitments and batched degree check polynomial commitment
-    populate_field_elements_for_mock_commitments(proof, 5);
+    populate_field_elements_for_mock_commitments(proof, GOBLIN_NUM_COLUMNS + 1);
 
     // Populate evaluations (3 * NUM_WIRES + 1: left, right, and merged tables, plus batched degree check polynomial)
-    populate_field_elements(proof, 13);
+    populate_field_elements(proof, 3 * GOBLIN_NUM_COLUMNS + 1);
 
     // Shplonk proof: commitment to the quotient
     populate_field_elements_for_mock_commitments(proof, 1);

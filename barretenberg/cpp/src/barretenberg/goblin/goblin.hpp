@@ -78,7 +78,8 @@ class Goblin {
      * @param transcript
      */
     void prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
-                     const MergeSettings merge_settings = MergeSettings::PREPEND);
+                     const MergeSettings merge_settings = MergeSettings::PREPEND,
+                     bool de_interleaving = false);
 
     /**
      * @brief Construct an ECCVM proof and IPA opening proof.

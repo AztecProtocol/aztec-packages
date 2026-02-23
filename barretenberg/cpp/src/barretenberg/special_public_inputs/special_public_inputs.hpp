@@ -58,13 +58,13 @@ class HidingKernelIO {
   public:
     using FF = curve::BN254::ScalarField;
     using G1 = curve::BN254::AffineElement;
-    using TableCommitments = std::array<G1, MegaCircuitBuilder::NUM_WIRES>;
+    using TableCommitments = std::array<G1, GOBLIN_NUM_COLUMNS>;
 
     using PublicPairingPoints = PublicInputComponent<PairingPoints<curve::BN254>>;
     using PublicPoint = PublicInputComponent<G1>;
 
     static constexpr size_t PUBLIC_INPUTS_SIZE =
-        PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE * (1 + MegaCircuitBuilder::NUM_WIRES);
+        PairingPoints<curve::BN254>::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE * (1 + GOBLIN_NUM_COLUMNS);
     static constexpr bool HasIPA = false;
 
     PairingPoints<curve::BN254> pairing_inputs;

@@ -17,11 +17,11 @@ class MockVerifierInputsTest : public ::testing::Test {
 // Public input component sizes (used in Noir)
 static_assert(PAIRING_POINTS_SIZE == 8, "PAIRING_POINTS_SIZE changed - update constants.nr");
 static_assert(GRUMPKIN_OPENING_CLAIM_SIZE == 6, "IPA_CLAIM_SIZE changed - update constants.nr");
-static_assert(HIDING_KERNEL_PUBLIC_INPUTS_SIZE == 28,
+static_assert(HIDING_KERNEL_PUBLIC_INPUTS_SIZE == 16,
               "HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE changed - update constants.nr");
 
 // Component proof lengths (used in Noir)
-static_assert(MERGE_PROOF_SIZE == 42, "MERGE_PROOF_SIZE changed - update constants.nr");
+static_assert(MERGE_PROOF_SIZE == 21, "MERGE_PROOF_SIZE changed - update constants.nr");
 static_assert(ECCVMFlavor::PROOF_LENGTH == 608, "ECCVM proof size changed - update constants.nr");
 static_assert(IPA_PROOF_LENGTH == 64, "IPA_PROOF_LENGTH changed - update constants.nr");
 static_assert(TranslatorFlavor::PROOF_LENGTH == 483, "Translator proof size changed - update constants.nr");
@@ -31,7 +31,7 @@ static_assert(
     ProofLength::Honk<UltraFlavor>::expected_proof_size<stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
         UltraFlavor::VIRTUAL_LOG_N) == 449,
     "RECURSIVE_PROOF_LENGTH changed - update constants.nr");
-static_assert(ChonkProof::PROOF_LENGTH == 1595, "CHONK_PROOF_LENGTH changed - update constants.nr");
+static_assert(ChonkProof::PROOF_LENGTH == 1546, "CHONK_PROOF_LENGTH changed - update constants.nr");
 static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH == 131,
               "MultilinearBatching proof size changed - update constants.nr");
 

@@ -158,9 +158,8 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
     }
     }
 
-    // Extract the witness commitments, interleaved commitments, and public inputs from the incoming verifier instance
-    WitnessCommitments witness_commitments = std::move(verifier_instance->witness_commitments);
-    auto interleaved_commitments = std::move(verifier_instance->interleaved_commitments);
+    // Extract the interleaved commitments and public inputs from the incoming verifier instance
+    InterleavedCommitments interleaved_commitments = std::move(verifier_instance->interleaved_commitments);
     std::vector<StdlibFF> public_inputs = std::move(verifier_instance->public_inputs);
 
     if (verifier_inputs.is_kernel) {
@@ -223,7 +222,7 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
     }
 
     // Extract the commitments to the subtable corresponding to the incoming circuit
-    merge_commitments.t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
+    merge_commitments.t_commitments = interleaved_commitments.get_ecc_op_wires().get_copy();
 
     // Recursively verify the corresponding merge proof
     auto [merge_pairing_points, merged_table_commitments] =

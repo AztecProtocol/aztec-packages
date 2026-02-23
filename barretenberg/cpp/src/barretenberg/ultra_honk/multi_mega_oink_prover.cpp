@@ -139,20 +139,6 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_w
             commit_interleaved_and_send<4>(ecc_op_batch, interleaved_labels.interleaved_ecc_op_wires);
     }
 
-    // Individual ecc_op_wire commits for merge protocol compatibility.
-    // Not sound (not bound to W₂), but sufficient for benchmarking.
-    {
-        auto& comms = prover_instance->commitments;
-        comms.ecc_op_wire_1 = commitment_key.commit(polys.ecc_op_wire_1);
-        comms.ecc_op_wire_2 = commitment_key.commit(polys.ecc_op_wire_2);
-        comms.ecc_op_wire_3 = commitment_key.commit(polys.ecc_op_wire_3);
-        comms.ecc_op_wire_4 = commitment_key.commit(polys.ecc_op_wire_4);
-        transcript->send_to_verifier(domain_separator + commitment_labels.ecc_op_wire_1, comms.ecc_op_wire_1);
-        transcript->send_to_verifier(domain_separator + commitment_labels.ecc_op_wire_2, comms.ecc_op_wire_2);
-        transcript->send_to_verifier(domain_separator + commitment_labels.ecc_op_wire_3, comms.ecc_op_wire_3);
-        transcript->send_to_verifier(domain_separator + commitment_labels.ecc_op_wire_4, comms.ecc_op_wire_4);
-    }
-
     // W₃: [calldata, ZERO, ZERO, ZERO] - unshiftable
     {
         std::array<PolynomialSpan<const FF>, 1> batch = { PolynomialSpan<const FF>(polys.calldata) };

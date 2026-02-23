@@ -31,7 +31,7 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
     OpeningClaim<grumpkin<Builder>> ipa_claim;
     stdlib::Proof<Builder> ipa_proof;
     G1 kernel_return_data;
-    std::array<G1, Builder::NUM_WIRES> ecc_op_tables; // Ecc op tables' commitments (HidingKernel/Chonk only)
+    std::array<G1, GOBLIN_NUM_COLUMNS> ecc_op_tables; // Ecc op tables' commitments (HidingKernel/Chonk only)
     FF transcript_hash; // The final state of the transcript of the AVM recursive verifier (GoblinAvm only)
 
     UltraRecursiveVerifierOutput() = default;
@@ -61,7 +61,7 @@ template <typename Flavor> struct UltraVerifierOutput {
     using Commitment = typename Flavor::Commitment;
     bool result = false;
     typename Flavor::Commitment kernel_return_data;
-    std::array<Commitment, Flavor::NUM_WIRES> ecc_op_tables;
+    std::array<Commitment, GOBLIN_NUM_COLUMNS> ecc_op_tables;
 
     UltraVerifierOutput() = default;
 

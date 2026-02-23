@@ -133,7 +133,7 @@ template <IsMultiMegaFlavor Flavor_, class IO = DefaultIO> class MultiMegaVerifi
     /**
      * @brief Get ECC op wire commitments as an array (for merge protocol in Chonk).
      */
-    auto get_ecc_op_wires() const { return verifier_instance->witness_commitments.get_ecc_op_wires().get_copy(); }
+    auto get_ecc_op_wires() const { return verifier_instance->interleaved_commitments.get_ecc_op_wires().get_copy(); }
 
   private:
     std::shared_ptr<VKAndHash> vk_and_hash;

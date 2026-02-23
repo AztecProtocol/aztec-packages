@@ -25,11 +25,13 @@ Goblin::Goblin(const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
 {}
 
-void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript, const MergeSettings merge_settings)
+void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript,
+                         const MergeSettings merge_settings,
+                         bool de_interleaving)
 {
     BB_BENCH_NAME("Goblin::prove_merge");
     MergeProver<BATCH_SIZE> merge_prover{ op_queue, transcript, merge_settings };
-    merge_verification_queue.push_back(merge_prover.construct_proof(/*de_interleaving=*/true));
+    merge_verification_queue.push_back(merge_prover.construct_proof(de_interleaving));
 }
 
 void Goblin::prove_eccvm()
@@ -62,7 +64,7 @@ GoblinProof Goblin::prove()
 {
     BB_BENCH_NAME("Goblin::prove");
 
-    prove_merge(transcript, MergeSettings::APPEND); // Use shared transcript for merge proving
+    prove_merge(transcript, MergeSettings::APPEND, /*de_interleaving=*/true); // Use shared transcript for merge proving
     info("Goblin: num ultra ops = ", op_queue->get_ultra_ops_count());
 
     BB_ASSERT_EQ(merge_verification_queue.size(),

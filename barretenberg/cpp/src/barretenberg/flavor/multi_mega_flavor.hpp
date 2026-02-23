@@ -247,6 +247,7 @@ class MultiMegaFlavor : public MegaFlavor {
 
         auto get_shiftable() { return RefArray{ interleaved_wires, interleaved_w_4, interleaved_z_perm }; }
         auto get_shiftable() const { return RefArray{ interleaved_wires, interleaved_w_4, interleaved_z_perm }; }
+        auto get_ecc_op_wires() { return RefArray{ interleaved_ecc_op_wires }; }
     };
 
     // ZK: 12 interleaved witness commitments (11 base + masking)
@@ -269,6 +270,7 @@ class MultiMegaFlavor : public MegaFlavor {
             interleaved_z_perm)             // W₁₁: [z_perm, 0, 0, 0] - shiftable
 
         auto get_shiftable() { return RefArray{ interleaved_wires, interleaved_w_4, interleaved_z_perm }; }
+        auto get_ecc_op_wires() { return RefArray{ interleaved_ecc_op_wires }; }
     };
 
     // Default alias: non-ZK uses InterleavedWitnessCommitments_<DataType, false> (9 commits)

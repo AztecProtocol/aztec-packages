@@ -6,7 +6,7 @@ namespace bb::stdlib::recursion::honk {
 
 class SpecialPublicInputsTests : public testing::Test {
   public:
-    static void SetUpTestSuite() {}
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 // Demonstrates the basic functionality of the KernelIO class for propagating public inputs between circuits
@@ -21,13 +21,11 @@ TEST_F(SpecialPublicInputsTests, Basic)
     using G1Native = Curve::GroupNative::affine_element;
     using FFNative = Curve::ScalarFieldNative;
 
-    static constexpr size_t NUM_WIRES = Builder::NUM_WIRES;
-
     G1Native P0_val = G1Native::random_element();
     G1Native P1_val = G1Native::random_element();
     G1Native kernel_return_data_val = G1Native::random_element();
     G1Native app_return_data_val = G1Native::random_element();
-    std::array<G1Native, NUM_WIRES> ecc_op_tables_val;
+    std::array<G1Native, GOBLIN_NUM_COLUMNS> ecc_op_tables_val;
     for (auto& commitment : ecc_op_tables_val) {
         commitment = G1Native::random_element();
     }
@@ -261,12 +259,10 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
     using G1Native = Curve::GroupNative::affine_element;
     using FFNative = Curve::ScalarFieldNative;
 
-    static constexpr size_t NUM_WIRES = Builder::NUM_WIRES;
-
     G1Native P0_val = G1Native::random_element();
     G1Native P1_val = G1Native::random_element();
     G1Native return_data_val = G1Native::random_element();
-    std::array<G1Native, NUM_WIRES> ecc_op_tables_val;
+    std::array<G1Native, GOBLIN_NUM_COLUMNS> ecc_op_tables_val;
     for (auto& commitment : ecc_op_tables_val) {
         commitment = G1Native::random_element();
     }

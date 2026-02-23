@@ -70,9 +70,9 @@ class Chonk : public IVCBase {
     using HidingKernelIO = bb::stdlib::recursion::honk::HidingKernelIO<ClientCircuit>;
     using AppIO = bb::stdlib::recursion::honk::AppIO;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
-    using WitnessCommitments = RecursiveFlavor::WitnessCommitments;
+    using InterleavedCommitments = RecursiveVerifierInstance::InterleavedCommitmentsType;
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
-    using TableCommitments = std::array<RecursiveFlavor::Commitment, ClientCircuit::NUM_WIRES>;
+    using TableCommitments = Goblin::MergeRecursiveVerifier::TableCommitments;
     // Folding
     using FoldingProver = HypernovaFoldingProver;
     using FoldingVerifier = HypernovaFoldingVerifier<Flavor>;

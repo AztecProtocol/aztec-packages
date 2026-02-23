@@ -38,12 +38,12 @@ static constexpr bb::curve::BN254::AffineElement DEFAULT_ECC_COMMITMENT(DEFAULT_
  * of the merge is fixed.
  *
  * @param builder
- * @return std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES>
+ * @return std::array<typename bn254<Builder>::Group, GOBLIN_NUM_COLUMNS>
  */
 template <typename Builder>
-std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES> empty_ecc_op_tables(Builder& builder)
+std::array<typename bn254<Builder>::Group, GOBLIN_NUM_COLUMNS> empty_ecc_op_tables(Builder& builder)
 {
-    std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES> empty_tables;
+    std::array<typename bn254<Builder>::Group, GOBLIN_NUM_COLUMNS> empty_tables;
     for (auto& table_commitment : empty_tables) {
         table_commitment = bn254<Builder>::Group::constant_infinity(&builder);
         // Sanity check: Verify the native value is actually at infinity
@@ -65,7 +65,7 @@ class KernelIO {
     using G1 = Curve::Group;
     using FF = Curve::ScalarField;
     using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
-    using TableCommitments = std::array<G1, Builder::NUM_WIRES>;
+    using TableCommitments = std::array<G1, GOBLIN_NUM_COLUMNS>;
 
     using PublicPoint = stdlib::PublicInputComponent<G1>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
@@ -269,7 +269,7 @@ template <class Builder_> class HidingKernelIO {
     using G1 = Curve::Group;
     using FF = Curve::ScalarField;
     using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
-    using TableCommitments = std::array<G1, Builder::NUM_WIRES>;
+    using TableCommitments = std::array<G1, GOBLIN_NUM_COLUMNS>;
 
     using PublicPoint = stdlib::PublicInputComponent<G1>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
