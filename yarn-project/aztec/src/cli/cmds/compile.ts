@@ -1,25 +1,11 @@
 import type { LogFn } from '@aztec/foundation/log';
 
-import { execFileSync, spawn } from 'child_process';
+import { execFileSync } from 'child_process';
 import type { Command } from 'commander';
 import { readFile, writeFile } from 'fs/promises';
 
 import { readArtifactFiles } from './utils/artifacts.js';
-
-/** Spawns a command with inherited stdio and rejects on non-zero exit. */
-function run(cmd: string, args: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { stdio: 'inherit' });
-    child.on('error', reject);
-    child.on('close', code => {
-      if (code !== 0) {
-        reject(new Error(`${cmd} exited with code ${code}`));
-      } else {
-        resolve();
-      }
-    });
-  });
-}
+import { run } from './utils/spawn.js';
 
 /** Returns paths to contract artifacts in the target directory. */
 async function collectContractArtifacts(): Promise<string[]> {
