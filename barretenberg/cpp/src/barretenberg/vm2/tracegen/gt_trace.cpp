@@ -1,10 +1,9 @@
 #include "barretenberg/vm2/tracegen/gt_trace.hpp"
 
-#include <memory>
+#include <cstdint>
 
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gt.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
