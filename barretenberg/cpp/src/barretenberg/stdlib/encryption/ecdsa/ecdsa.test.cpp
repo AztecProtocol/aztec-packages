@@ -443,8 +443,6 @@ TYPED_TEST(EcdsaTests, InvalidS)
 
 TYPED_TEST(EcdsaTests, HighS)
 {
-    // Disable asserts because native ecdsa verification raises an error if s >= (n+1)/2
-    BB_DISABLE_ASSERTS();
     TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::HighS);
 }
 
@@ -460,24 +458,16 @@ TYPED_TEST(EcdsaTests, ZeroS)
 
 TYPED_TEST(EcdsaTests, InvalidPubKey)
 {
-    // Disable asserts because `validate_on_curve` raises an error in the `mult_madd` function:
-    // BB_ASSERT_EQ(remainder_1024.lo, uint512_t(0))
-    BB_DISABLE_ASSERTS();
     TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::InvalidPubKey);
 }
 
 TYPED_TEST(EcdsaTests, InfinityPubKey)
 {
-    // Disable asserts to avoid errors trying to invert zero
-    BB_DISABLE_ASSERTS();
     TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::InfinityPubKey);
 }
 
 TYPED_TEST(EcdsaTests, InfinityScalarMul)
 {
-    // Disable asserts because native ecdsa verification raises an error if the result of the scalar multiplication is
-    // the point at infinity
-    BB_DISABLE_ASSERTS();
     TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::InfinityScalarMul);
 }
 
@@ -507,9 +497,6 @@ TYPED_TEST(EcdsaTests, SignatureGenerator)
 
 TEST(EcdsaTests, Secp256k1PointAtInfinityRegression)
 {
-    // Disable asserts because native ecdsa verification raises an error if the result of the scalar multiplication is
-    // the point at infinity
-    BB_DISABLE_ASSERTS();
     using Curve = stdlib::secp256k1<UltraCircuitBuilder>;
 
     using FqNative = Curve::fq;
