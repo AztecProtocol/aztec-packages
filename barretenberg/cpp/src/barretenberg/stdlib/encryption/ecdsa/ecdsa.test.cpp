@@ -158,11 +158,6 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         // Natively verify that the tampering was successfull
         bool is_signature_valid = ecdsa_verify_signature<Sha256Hasher, FqNative, FrNative, G1Native>(
             message_string, account.public_key, signature);
-        if (mode == TamperingMode::HighS || mode == TamperingMode::InfinityScalarMul) {
-            // If either s >= (n+1)/2 or the result of the scalar multiplication is the point at infinity, then the
-            // verification function raises an error, we treat it as an invalid signature
-            is_signature_valid = false;
-        }
         if (mode == TamperingMode::XCoordinateOverflow || mode == TamperingMode::YCoordinateOverflow) {
             // In these tampering modes nothing has changed and the tampering happens in circuit, so we override the
             // result and set it to false

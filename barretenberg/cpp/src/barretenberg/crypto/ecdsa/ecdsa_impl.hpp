@@ -192,22 +192,28 @@ bool ecdsa_verify_signature(const std::string& message,
 
 template <typename Hash, typename Fr> Fr ecdsa_hash_message(const std::string& message)
 {
+    using serialize::read;
+    using serialize::write;
+
+    static_assert(Hash::OUTPUT_SIZE <= 32, "Hash output size is too large for our implementation of ECDSA.");
+
     constexpr size_t MODULUS_BIT_LENGTH = Fr::modulus.get_msb() + 1;
 
     std::vector<uint8_t> message_buffer;
     std::ranges::copy(message, std::back_inserter(message_buffer));
-    auto ev_array = Hash::hash(message_buffer);
-    std::vector<uint8_t> ev(ev_array.begin(), ev_array.end());
+    auto ev = Hash::hash(message_buffer);
 
     if (Hash::OUTPUT_SIZE * 8 > MODULUS_BIT_LENGTH) {
-        // Trim the hash output
-        size_t remainder = MODULUS_BIT_LENGTH % 8;
-        size_t bit_length = (MODULUS_BIT_LENGTH + 7) / 8;
-        ev.resize(bit_length);
-        if (remainder != 0) {
-            ev[0] &= (1 << remainder) - 1;
-        }
-        ev.insert(ev.begin(), Hash::OUTPUT_SIZE - bit_length, 0);
+        const uint8_t* ptr = ev.data();
+        uint256_t ev_uint;
+        read(ptr, ev_uint);
+
+        // Bit shift the hash output
+        ev_uint = ev_uint >> (Hash::OUTPUT_SIZE * 8 - MODULUS_BIT_LENGTH);
+
+        // Write the output to ev
+        uint8_t* ptr_write = ev.data();
+        write(ptr_write, ev_uint);
     }
 
     return Fr::serialize_from_buffer(&ev[0]);

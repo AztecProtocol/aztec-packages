@@ -123,14 +123,18 @@ Fr deterministic_nonce_rfc6979(const MessageContainer& message, const KeyContain
     requires(Hash::OUTPUT_SIZE == 32)
 {
     using serialize::read;
+    using serialize::write;
 
+    static_assert(Hash::OUTPUT_SIZE == 32,
+                  "Hash output size must be 32 bytes for our implementation of RFC6979 nonce generation");
     static constexpr size_t INITIAL_BUFFER_SIZE = 32; // Equal to 8 * (Hash::OUTPUT_SIZE + 7/ 8)
     static constexpr size_t MODULUS_BIT_LENGTH = Fr::modulus.get_msb() + 1;
 
-    // Hash the mesage, reduce it modulo Fr::modulus, and serialize it to a buffer
+    // Hash the message
     std::vector<uint8_t> message_buffer(message.begin(), message.end());
     auto hashed_message = Hash::hash(message_buffer);
     secure_erase(message_buffer);
+    // Round trip reduces the hash modulo Fr::modulus
     Fr hashed_message_fr = Fr::serialize_from_buffer(hashed_message.data());
     hashed_message = {};
     Fr::serialize_to_buffer(hashed_message_fr, &hashed_message[0]);
@@ -148,9 +152,10 @@ Fr deterministic_nonce_rfc6979(const MessageContainer& message, const KeyContain
     std::array<uint8_t, INITIAL_BUFFER_SIZE> key_buffer;
     key_buffer.fill(0x00);
 
-    // Temporary buffer for first HMAC round
-    std::vector<uint8_t> tmp_buffer(INITIAL_BUFFER_SIZE, 0x01);
+    // Temporary buffer for first HMAC round: V || 0x00 || seed_material
+    std::vector<uint8_t> tmp_buffer;
     tmp_buffer.reserve(INITIAL_BUFFER_SIZE + 1 + seed_material.size());
+    std::ranges::copy(v_buffer, std::back_inserter(tmp_buffer));
     tmp_buffer.emplace_back(0x00);
     std::ranges::copy(seed_material, std::back_inserter(tmp_buffer));
 
@@ -159,7 +164,7 @@ Fr deterministic_nonce_rfc6979(const MessageContainer& message, const KeyContain
     v_buffer = hmac<Hash, std::array<uint8_t, INITIAL_BUFFER_SIZE>, std::array<uint8_t, INITIAL_BUFFER_SIZE>>(
         v_buffer, key_buffer);
 
-    // Temporary buffer for second HMAC round
+    // Temporary buffer for second HMAC round: V || 0x01 || seed_material
     tmp_buffer.clear();
     tmp_buffer.reserve(INITIAL_BUFFER_SIZE + 1 + seed_material.size());
     std::ranges::copy(v_buffer, std::back_inserter(tmp_buffer));
@@ -178,19 +183,22 @@ Fr deterministic_nonce_rfc6979(const MessageContainer& message, const KeyContain
             v_buffer, key_buffer);
 
         // Trim the output if required
-        std::vector<uint8_t> trimmed_v_buffer(v_buffer.begin(), v_buffer.end());
         if (Hash::OUTPUT_SIZE * 8 > MODULUS_BIT_LENGTH) {
-            // Trim the hash output
-            size_t remainder = MODULUS_BIT_LENGTH % 8;
-            size_t bit_length = (MODULUS_BIT_LENGTH + 7) / 8;
-            trimmed_v_buffer.resize(bit_length);
-            if (remainder != 0) {
-                trimmed_v_buffer[0] &= (1 << remainder) - 1;
-            }
-            trimmed_v_buffer.insert(trimmed_v_buffer.begin(), Hash::OUTPUT_SIZE - bit_length, 0);
+            std::vector<uint8_t> trimmed_v_buffer(v_buffer.begin(), v_buffer.end());
+            // Read the hash output
+            const uint8_t* ptr = trimmed_v_buffer.data();
+            uint256_t trimmed_v;
+            read(ptr, trimmed_v);
+
+            // Bit shift the output
+            trimmed_v = trimmed_v >> (Hash::OUTPUT_SIZE * 8 - MODULUS_BIT_LENGTH);
+
+            // Set k
+            k = trimmed_v;
+        } else {
+            const uint8_t* ptr = v_buffer.data();
+            read(ptr, k);
         }
-        const uint8_t* ptr = trimmed_v_buffer.data();
-        read(ptr, k);
 
         if ((k > 0) && (k < static_cast<uint256_t>(Fr::modulus))) {
             break;

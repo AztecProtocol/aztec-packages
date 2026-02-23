@@ -58,6 +58,9 @@ ecdsa_signature ecdsa_construct_signature(const std::string& message, const ecds
  *  y is even  &&  |Fr| <= x < |Fq| --> 2
  *  y is odd   &&  |Fr| <= x < |Fq| --> 3
  *
+ * @note We enforce the signature to have low-s: meaning s < (Fr::modulus + 1) / 2. This means that if s is flipped, the
+ * effective nonce point R becomes -R, which has the opposite y-parity. We take this into account when generating the
+ * recovery_id.
  */
 template <typename Hash, typename Fq, typename Fr, typename G1>
 typename G1::affine_element ecdsa_recover_public_key(const std::string& message, const ecdsa_signature& sig);

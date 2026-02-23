@@ -42,6 +42,7 @@ The hashers module provides uniform wrapper interfaces around different hash fun
 3. `stdlib/encryption/ecdsa/ecdsa_tests_data.hpp`
 4. `crypto/hmac/hmac.test.cpp`
 5. `crypto/ecdsa/ecdsa.test.cpp`
+5. `crypto/ecdsa/hashers.test.cpp`
 
 ## Security Mechanisms
 
