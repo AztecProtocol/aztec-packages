@@ -144,8 +144,6 @@ TEST_F(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
         .next_available_leaf_index = AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE + 1,
     };
 
-    // MW note: combined these since old impl meant that second call replaced row 0 of the first rather than proceeding
-    // to row 1
     retrieved_bytecodes_tree_check_builder.process(
         { // Read the tree of the retrieved bytecodes
           RetrievedBytecodesTreeCheckEvent{

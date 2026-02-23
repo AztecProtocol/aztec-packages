@@ -37,6 +37,7 @@ struct BytecodeRetrievalEvent {
     AppendOnlyTreeSnapshot retrieved_bytecodes_snapshot_before;
     AppendOnlyTreeSnapshot retrieved_bytecodes_snapshot_after;
     bool is_new_class = false;
+    // TODO(MW): Better to have something like std::optional<BytecodeRetrievalEventEventError> error here?
     bool instance_not_found_error = false;
     bool limit_error = false;
 };

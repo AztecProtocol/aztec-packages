@@ -28,7 +28,8 @@ include "../trees/retrieved_bytecodes_tree_check.pil";
  * in instr_fetching.pil (via bc_deocmposition.pil).
  * Note: we don't need to silo and check the class id because the deployer contract guarantees that if a contract instance exists, the class has been registered.
  *
- * PRECONDITIONS: TODO(MW)
+ * PRECONDITIONS: All tree state in this trace (transient bytecode, nullifier, and public state) matches that of the tx tree state at the start of the relevant call.
+ * This is not enforced here; we rely on the execution trace to enforce that this circuit is looked up at the start of each context with the tx state (#[BYTECODE_RETRIEVAL_RESULT]).
  *
  * USAGE: Note for all lookups below: the correctness of bytecode_id (= public bytecode commitment) is not constrained in this trace, rather in
  * bc_hashing via a multipermutation with bc_decomposition.
@@ -174,7 +175,7 @@ sel {
 //                      (#[RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED] in execution.pil, #[RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY] in
 //                      context.pil/tx_context.pil), and linked to this trace in #[BYTECODE_RETRIEVAL_RESULT]. It is used to toggle the
 //                      error column.
-// Switching on the error column forces the class members to be zero (// TODO(MW): explain why - unused if should_retrieve is off <==> err is on)
+// Switching on the error column forces the class members to be zero.
 
 // Whether we have retrieved the bytecode for this class before (if not, is_new_class == 1 and we insert the bytecode into the tree).
 pol commit is_new_class; // @boolean (by lookup into retrieved_bytecodes_tree_check when instance_exists == 1; constrained to be 0 when instance_exists == 0)
