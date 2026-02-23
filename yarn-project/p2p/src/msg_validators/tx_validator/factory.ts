@@ -101,12 +101,22 @@ export function createFirstStageTxValidationsForGossipedTransactions(
   const merkleTree = worldStateSynchronizer.getCommitted();
 
   return {
+    timestampValidator: {
+      validator: new TimestampTxValidator<Tx>(
+        {
+          timestamp,
+          blockNumber,
+        },
+        bindings,
+      ),
+      severity: PeerErrorSeverity.HighToleranceError,
+    },
     txsPermittedValidator: {
       validator: new TxPermittedValidator(txsPermitted, bindings),
       severity: PeerErrorSeverity.MidToleranceError,
     },
-    dataValidator: {
-      validator: new DataTxValidator(bindings),
+    txSizeValidator: {
+      validator: new SizeTxValidator(bindings),
       severity: PeerErrorSeverity.MidToleranceError,
     },
     metadataValidator: {
@@ -121,14 +131,12 @@ export function createFirstStageTxValidationsForGossipedTransactions(
       ),
       severity: PeerErrorSeverity.MidToleranceError,
     },
-    timestampValidator: {
-      validator: new TimestampTxValidator<Tx>(
-        {
-          timestamp,
-          blockNumber,
-        },
-        bindings,
-      ),
+    phasesValidator: {
+      validator: new PhasesTxValidator(contractDataSource, allowedInSetup, timestamp, bindings),
+      severity: PeerErrorSeverity.MidToleranceError,
+    },
+    blockHeaderValidator: {
+      validator: new BlockHeaderTxValidator(new ArchiveCache(merkleTree), bindings),
       severity: PeerErrorSeverity.HighToleranceError,
     },
     doubleSpendValidator: {
@@ -153,13 +161,9 @@ export function createFirstStageTxValidationsForGossipedTransactions(
       ),
       severity: PeerErrorSeverity.MidToleranceError,
     },
-    phasesValidator: {
-      validator: new PhasesTxValidator(contractDataSource, allowedInSetup, timestamp, bindings),
+    dataValidator: {
+      validator: new DataTxValidator(bindings),
       severity: PeerErrorSeverity.MidToleranceError,
-    },
-    blockHeaderValidator: {
-      validator: new BlockHeaderTxValidator(new ArchiveCache(merkleTree), bindings),
-      severity: PeerErrorSeverity.HighToleranceError,
     },
   };
 }
@@ -288,8 +292,14 @@ export function createTxValidatorForAcceptingTxsOverRPC(
 ): TxValidator<Tx> {
   const validators: TxValidator<Tx>[] = [
     new TxPermittedValidator(txsPermitted, bindings),
+    new TimestampTxValidator(
+      {
+        timestamp,
+        blockNumber,
+      },
+      bindings,
+    ),
     new SizeTxValidator(bindings),
-    new DataTxValidator(bindings),
     new MetadataTxValidator(
       {
         l1ChainId: new Fr(l1ChainId),
@@ -299,16 +309,10 @@ export function createTxValidatorForAcceptingTxsOverRPC(
       },
       bindings,
     ),
-    new TimestampTxValidator(
-      {
-        timestamp,
-        blockNumber,
-      },
-      bindings,
-    ),
-    new DoubleSpendTxValidator(new NullifierCache(db), bindings),
     new PhasesTxValidator(contractDataSource, setupAllowList, timestamp, bindings),
     new BlockHeaderTxValidator(new ArchiveCache(db), bindings),
+    new DoubleSpendTxValidator(new NullifierCache(db), bindings),
+    new DataTxValidator(bindings),
   ];
 
   if (!skipFeeEnforcement) {
@@ -375,10 +379,10 @@ function createTxValidatorForValidatingAgainstCurrentState(
       },
       bindings,
     ),
-    new DoubleSpendTxValidator(nullifierSource, bindings),
     new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.timestamp, bindings),
-    new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, globalVariables.gasFees, bindings),
     new BlockHeaderTxValidator(archiveSource, bindings),
+    new DoubleSpendTxValidator(nullifierSource, bindings),
+    new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, globalVariables.gasFees, bindings),
   );
 }
 
@@ -415,9 +419,9 @@ export async function createTxValidatorForTransactionsEnteringPendingTxPool(
     },
   };
   return new AggregateTxValidator<TxMetaData>(
-    new DoubleSpendTxValidator<TxMetaData>(nullifierSource, bindings),
-    new BlockHeaderTxValidator<TxMetaData>(archiveSource, bindings),
     new GasLimitsValidator<TxMetaData>(bindings),
     new TimestampTxValidator<TxMetaData>({ timestamp, blockNumber }, bindings),
+    new DoubleSpendTxValidator<TxMetaData>(nullifierSource, bindings),
+    new BlockHeaderTxValidator<TxMetaData>(archiveSource, bindings),
   );
 }

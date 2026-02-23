@@ -64,14 +64,15 @@ describe('Validator factory functions', () => {
       );
 
       expect(Object.keys(validators)).toEqual([
-        'txsPermittedValidator',
-        'dataValidator',
-        'metadataValidator',
         'timestampValidator',
-        'doubleSpendValidator',
-        'gasValidator',
+        'txsPermittedValidator',
+        'txSizeValidator',
+        'metadataValidator',
         'phasesValidator',
         'blockHeaderValidator',
+        'doubleSpendValidator',
+        'gasValidator',
+        'dataValidator',
       ]);
     });
 
@@ -212,13 +213,13 @@ describe('Validator factory functions', () => {
       const aggregate = validator as AggregateTxValidator<unknown>;
       expect(getValidatorNames(aggregate)).toEqual([
         TxPermittedValidator.name,
-        SizeTxValidator.name,
-        DataTxValidator.name,
-        MetadataTxValidator.name,
         TimestampTxValidator.name,
-        DoubleSpendTxValidator.name,
+        SizeTxValidator.name,
+        MetadataTxValidator.name,
         PhasesTxValidator.name,
         BlockHeaderTxValidator.name,
+        DoubleSpendTxValidator.name,
+        DataTxValidator.name,
         GasTxValidator.name,
         TxProofValidator.name,
       ]);
@@ -278,10 +279,10 @@ describe('Validator factory functions', () => {
       const aggregate = result.preprocessValidator as AggregateTxValidator<unknown>;
       expect(getValidatorNames(aggregate)).toEqual([
         TimestampTxValidator.name,
-        DoubleSpendTxValidator.name,
         PhasesTxValidator.name,
-        GasTxValidator.name,
         BlockHeaderTxValidator.name,
+        DoubleSpendTxValidator.name,
+        GasTxValidator.name,
       ]);
     });
 
@@ -299,10 +300,10 @@ describe('Validator factory functions', () => {
 
       const aggregate = validator as AggregateTxValidator<unknown>;
       expect(getValidatorNames(aggregate)).toEqual([
-        DoubleSpendTxValidator.name,
-        BlockHeaderTxValidator.name,
         GasLimitsValidator.name,
         TimestampTxValidator.name,
+        DoubleSpendTxValidator.name,
+        BlockHeaderTxValidator.name,
       ]);
     });
 

@@ -917,7 +917,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         const { name } = firstStageOutcome.failure;
         let { severity } = firstStageOutcome.failure;
 
-        // Double spend validator has a special case handler
+        // Double spend validator has a special case handler. We perform more detailed examination
+        // as to how recently the nullifier was entered into the tree and if the transaction should
+        // have 'known' the nullifier existed. This determines the severity of the penalty applied to the peer.
         if (name === 'doubleSpendValidator') {
           const txBlockNumber = BlockNumber(currentBlockNumber + 1);
           severity = await this.handleDoubleSpendFailure(tx, txBlockNumber);

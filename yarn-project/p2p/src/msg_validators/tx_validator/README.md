@@ -81,19 +81,19 @@ Operates on `TxMetaData` (pre-built by the pool) rather than full `Tx` objects.
 
 ## Individual Validators
 
-| Validator | What it checks |
-|-----------|---------------|
-| `TxPermittedValidator` | Whether the system is accepting transactions (controlled by config flag) |
-| `DataTxValidator` | Transaction data integrity — correct structure, non-empty fields |
-| `SizeTxValidator` | Transaction does not exceed maximum size limits |
-| `MetadataTxValidator` | Chain ID, rollup version, protocol contracts hash, VK tree root |
-| `TimestampTxValidator` | Transaction has not expired (expiration timestamp vs next slot) |
-| `DoubleSpendTxValidator` | Nullifiers do not already exist in the nullifier tree |
-| `GasTxValidator` | Gas limits are within bounds (delegates to `GasLimitsValidator`), max fee per gas meets current block fees, and fee payer has sufficient FeeJuice balance |
-| `GasLimitsValidator` | Gas limits are >= fixed minimums and <= AVM max processable L2 gas. Used standalone in pool migration; also called internally by `GasTxValidator` |
-| `PhasesTxValidator` | Public function calls in setup phase are on the allow list |
-| `BlockHeaderTxValidator` | Transaction's anchor block hash exists in the archive tree |
-| `TxProofValidator` | Client proof verifies correctly |
+| Validator | What it checks | Benchmarked verification duration |
+|-----------|---------------|---------------|
+| `TxPermittedValidator` | Whether the system is accepting transactions (controlled by config flag) | 1.56 us |
+| `DataTxValidator` | Transaction data integrity — correct structure, non-empty fields | 4.10–18.18 ms |
+| `SizeTxValidator` | Transaction does not exceed maximum size limits | 2.28 us |
+| `MetadataTxValidator` | Chain ID, rollup version, protocol contracts hash, VK tree root | 4.18 us |
+| `TimestampTxValidator` | Transaction has not expired (expiration timestamp vs next slot) | 1.56 us |
+| `DoubleSpendTxValidator` | Nullifiers do not already exist in the nullifier tree | 106.08 us |
+| `GasTxValidator` | Gas limits are within bounds (delegates to `GasLimitsValidator`), max fee per gas meets current block fees, and fee payer has sufficient FeeJuice balance | 1.02 ms |
+| `GasLimitsValidator` | Gas limits are >= fixed minimums and <= AVM max processable L2 gas. Used standalone in pool migration; also called internally by `GasTxValidator` | 3–10 us |
+| `PhasesTxValidator` | Public function calls in setup phase are on the allow list | 10.12–13.12 us |
+| `BlockHeaderTxValidator` | Transaction's anchor block hash exists in the archive tree | 98.88 us |
+| `TxProofValidator` | Client proof verifies correctly | ~250ms |
 
 ## Validator Coverage by Entry Point
 
