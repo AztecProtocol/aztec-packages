@@ -315,7 +315,8 @@ describe('e2e_multi_validator_node', () => {
       1,
     );
 
-    await publishContractClass(wallet, StatefulTestContractArtifact);
+    const publishClass = await publishContractClass(wallet, StatefulTestContractArtifact);
+    await publishClass.send({ from: ownerAddress });
   });
 
   afterEach(async () => {
