@@ -216,8 +216,8 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
 
   updateP2PConfig(config: Partial<P2PConfig>): Promise<void>;
 
-  /** Validates a set of txs. */
-  validate(txs: Tx[]): Promise<void>;
+  /** Validates a set of txs received in a block proposal. */
+  validateTxsReceivedInBlockProposal(txs: Tx[]): Promise<void>;
 
   /** Clears the db. */
   clear(): Promise<void>;

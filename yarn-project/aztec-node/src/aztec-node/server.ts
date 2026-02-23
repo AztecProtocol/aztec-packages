@@ -20,7 +20,13 @@ import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { type KeyStore, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
 import { createForwarderL1TxUtilsFromSigners, createL1TxUtilsFromSigners } from '@aztec/node-lib/factories';
-import { type P2P, type P2PClientDeps, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
+import {
+  type P2P,
+  type P2PClientDeps,
+  createP2PClient,
+  createTxValidatorForAcceptingTxsOverRPC,
+  getDefaultAllowedSetupFunctions,
+} from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
 import { createKeyStoreForProver } from '@aztec/prover-node/config';
@@ -104,7 +110,6 @@ import {
   ValidatorClient,
   createBlockProposalHandler,
   createValidatorClient,
-  createValidatorForAcceptingTxs,
 } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
@@ -1267,7 +1272,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const blockNumber = BlockNumber((await this.blockSource.getBlockNumber()) + 1);
-    const validator = createValidatorForAcceptingTxs(
+    const validator = createTxValidatorForAcceptingTxsOverRPC(
       db,
       this.contractDataSource,
       verifier,

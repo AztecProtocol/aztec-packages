@@ -25,7 +25,7 @@ export class TxProvider implements ITxProvider {
   constructor(
     private txCollection: TxCollection,
     private txPool: TxPoolV2,
-    private txValidator: Pick<P2PClient, 'validate'>,
+    private blockProposalTransactionValidator: Pick<P2PClient, 'validateTxsReceivedInBlockProposal'>,
     private log: Logger = createLogger('p2p:tx-collector'),
     client: TelemetryClient = getTelemetryClient(),
   ) {
@@ -227,7 +227,7 @@ export class TxProvider implements ITxProvider {
     if (txs.length === 0) {
       return;
     }
-    await this.txValidator.validate(txs);
+    await this.blockProposalTransactionValidator.validateTxsReceivedInBlockProposal(txs);
     await this.txPool.addProtectedTxs(txs, blockHeader);
   }
 }
