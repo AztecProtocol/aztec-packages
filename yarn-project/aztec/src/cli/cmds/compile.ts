@@ -3,6 +3,7 @@ import type { LogFn } from '@aztec/foundation/log';
 import { execFileSync } from 'child_process';
 import type { Command } from 'commander';
 import { readFile, writeFile } from 'fs/promises';
+import { join } from 'path';
 
 import { readArtifactFiles } from './utils/artifacts.js';
 import { run } from './utils/spawn.js';
