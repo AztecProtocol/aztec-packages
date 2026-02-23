@@ -160,7 +160,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     this.log.info(`Aztec Node version: ${this.packageVersion}`);
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
 
-    // A defensive check that protects us against introducing a bug in the complex `createAndSync` function.
+    // A defensive check that protects us against introducing a bug in the complex `createAndSync` function. We must
+    // never have debugLogStore enabled when not in test mode because then we would be accumulating debug logs in
+    // memory which could be a DoS vector on the sequencer (since no fees are paid for debug logs).
     if (debugLogStore.isEnabled && config.realProofs) {
       throw new Error('debugLogStore should never be enabled when realProofs are set');
     }
