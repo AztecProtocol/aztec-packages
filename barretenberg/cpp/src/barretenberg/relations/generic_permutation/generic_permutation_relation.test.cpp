@@ -7,6 +7,14 @@
 using namespace bb;
 using FF = bb::fr;
 
+// ============================================================================
+// Generic Permutation Relation
+//
+// We define a simple permutation relation with lookup/table terms composed of the batching of two columns each. Then,
+// we test that:
+//  - Correctly set up lookup and table rows satisfy the first subrelation (inverse check)
+//  - A two row trace is satisfied if the lookup/table values are correct.
+//  - A two row trace is not satisfied if the lookup/table terms do not match.
 struct SettingsBasicPermutation {
     static constexpr size_t COLUMNS_PER_SET = 2;
     static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 2;
@@ -98,47 +106,48 @@ class BasicPermutationTest : public GenericPermutationRelationTest<SettingsBasic
      * @brief Build and evaluate a canonical two-row (lookup + table) trace.
      *
      * Row 0 is always a lookup row with f1=1, f2=2.
-     * Row 1 is always a table row with f1=9, f2=10 (dummies, lookup_pred=0).
-     * The table columns for row 1 and the read count are the varying parameters.
+     * Row 1 is always a table rows, optionally a lookup row
+     * The table columns and the lookup predicates for row 1 are the varying parameters.
      *
-     * The expected subrelation 1 sum is derived directly from the inputs:
-     *   acc[1] = 1/lookup_term0 - read_count/table_term1
-     * so passing table columns that match row 0 (t1=1, t2=2) with read_count=1 gives 0.
      */
-    static void check_two_row_sum(const RelationParameters<FF>& params, FF t1_row1, FF t2_row1)
+    static void check_two_row_sum(const RelationParameters<FF>& params,
+                                  FF t1_row1,
+                                  FF t2_row1,
+                                  FF lookup_predicate_row1)
     {
         const FF beta = params.beta;
         const FF gamma = params.gamma;
 
         auto construct_term = [&](FF col1, FF col2) { return col1 * beta + col2 + gamma; };
 
+        // Valid lookup terms
+        const FF valid_f1 = FF(1);
+        const FF valid_f2 = FF(2);
+        const FF valid_lookup_term = construct_term(valid_f1, valid_f2);
+
         // Row 0: lookup row (fixed)
-        const FF f1 = FF(1);
-        const FF f2 = FF(2);
         const FF t1_row0 = FF(3);
         const FF t2_row0 = FF(4);
-        const FF lookup_term0 = construct_term(f1, f2);
         const FF table_term_row0 = construct_term(t1_row0, t2_row0);
 
         AllEntities row0{};
-        row0[0] = (lookup_term0 * table_term_row0).invert();
+        row0[0] = (valid_lookup_term * table_term_row0).invert();
         row0[1] = FF(1); // lookup predicate
-        row0[3] = f1;
-        row0[4] = f2;
+        row0[3] = valid_f1;
+        row0[4] = valid_f2;
         row0[5] = t1_row0;
         row0[6] = t2_row0;
 
         // Row 1: table row (parametrized table columns and read count)
-        const FF f1_row1 = FF(9);
-        const FF f2_row1 = FF(10);
-        const FF lookup_term_row1 = construct_term(f1_row1, f2_row1);
+        const FF lookup_term_row1 = construct_term(valid_f1, valid_f2);
         const FF table_term1 = construct_term(t1_row1, t2_row1);
 
         AllEntities row1{};
         row1[0] = (lookup_term_row1 * table_term1).invert();
-        row1[2] = FF(1); // table predicate
-        row1[3] = f1_row1;
-        row1[4] = f2_row1;
+        row1[1] = lookup_predicate_row1; // lookup predicate
+        row1[2] = FF(1);                 // table predicate
+        row1[3] = valid_f1;
+        row1[4] = valid_f2;
         row1[5] = t1_row1;
         row1[6] = t2_row1;
 
@@ -148,7 +157,7 @@ class BasicPermutationTest : public GenericPermutationRelationTest<SettingsBasic
         Relation::accumulate(acc, row1, params, FF(1));
 
         EXPECT_EQ(acc[0], FF(0));
-        EXPECT_EQ(acc[1], FF(1) / lookup_term0 - FF(1) / table_term1);
+        EXPECT_EQ(acc[1], (FF(1) + lookup_predicate_row1) / valid_lookup_term - FF(1) / table_term1);
     }
 };
 
@@ -245,7 +254,7 @@ TEST_F(BasicPermutationTest, ValidTrace)
 {
     const auto params = RelationParameters<FF>::get_random();
     // t1=1, t2=2 matches the lookup term (f1=1, f2=2) → valid lookup, sum = 0
-    check_two_row_sum(params, /*t1_row1=*/FF(1), /*t2_row1=*/FF(2));
+    check_two_row_sum(params, /*t1_row1=*/FF(1), /*t2_row1=*/FF(2), /*lookup_predicate_row1=*/FF(0));
 }
 
 /**
@@ -291,5 +300,8 @@ TEST_F(BasicPermutationTest, InvalidLookup)
 {
     const auto params = RelationParameters<FF>::get_random();
     // t1=2, t2=4 gives table_term1 ≠ lookup_term0 (f1=1, f2=2)
-    check_two_row_sum(params, /*t1_row1=*/FF(2), /*t2_row1=*/FF(4));
+    check_two_row_sum(params, /*t1_row1=*/FF(2), /*t2_row1=*/FF(4), /*lookup_predicate_row1=*/FF(0));
+
+    // Invalid: more lookups than allowed
+    check_two_row_sum(params, /*t1_row1=*/FF(1), /*t2_row1=*/FF(2), /*lookup_predicate_row1=*/FF(1));
 }

@@ -434,6 +434,9 @@ TEST_F(BasicLookupTest, InvalidReadCount)
     const auto params = RelationParameters<FF>::get_random();
     // t1=1, t2=2 matches (table_term1 == lookup_term0) but read_count=2 makes the sum non-zero
     check_two_row_sum(params, /*t1_row1=*/FF(1), /*t2_row1=*/FF(2), /*read_count=*/FF(2));
+
+    // Invalid: more lookups than allowed
+    check_two_row_sum(params, /*t1_row1=*/FF(1), /*t2_row1=*/FF(2), /*read_count=*/FF(0));
 }
 
 // ============================================================================
@@ -602,6 +605,9 @@ TEST_F(CustomizedLookupTest, InvalidReadCount)
 {
     const auto params = RelationParameters<FF>::get_random();
     check_two_row_sum(params, /*table_t_value=*/FF(9), /*read_count=*/FF(2));
+
+    // Invalid: more lookups than allowed
+    check_two_row_sum(params, /*table_t_value=*/FF(9), /*read_count=*/FF(0));
 }
 
 // ============================================================================
@@ -1049,6 +1055,12 @@ TEST_F(MixedLookupTest, InvalidReadCount)
     // Invalid basic lookup
     check_two_row_sum(params, FF(1), FF(2), FF(3), FF(2));
 
+    // Invalid: more basic lookups than allowed
+    check_two_row_sum(params, FF(1), FF(2), FF(3), FF(0));
+
     // Invalid customized lookup
     check_two_row_sum(params, FF(1), FF(2), FF(3), FF(1), FF(27), FF(2));
+
+    // Invalid: more customized lookups than allowed
+    check_two_row_sum(params, FF(1), FF(2), FF(3), FF(1), FF(27), FF(0));
 }
