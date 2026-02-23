@@ -8,6 +8,18 @@
 
 namespace bb::avm2::tracegen {
 
+/**
+ * @brief Process the UpdateCheck events and populate the relevant columns in the trace.
+ *
+ * Events are emitted in the following flavors:
+ * - Hash is zero (never updated): preimage fields (metadata, pre_class_id, post_class_id) are all zero;
+ *   hash_not_zero is false and most conditional columns are inactive.
+ * - Hash is nonzero (update exists): all fields are populated; metadata is decomposed into
+ *   update_hi_metadata and timestamp_of_change, and the pre/post class ID zero flags are derived.
+ *
+ * @param events Container of UpdateCheckEvent to process.
+ * @param trace The trace container to populate.
+ */
 void UpdateCheckTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::UpdateCheckEvent>::Container& events, TraceContainer& trace)
 {

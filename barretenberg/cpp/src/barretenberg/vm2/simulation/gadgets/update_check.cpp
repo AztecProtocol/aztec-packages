@@ -11,6 +11,12 @@ namespace {
 
 using UnconstrainedPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
+/**
+ * @brief Read a leaf value from the public data tree at a given slot without emitting constrained events.
+ * @param merkle_db The low-level merkle database interface for unconstrained reads.
+ * @param leaf_slot The slot to read from in the public data tree.
+ * @return The leaf value if present, 0 otherwise.
+ */
 FF unconstrained_read(const LowLevelMerkleDBInterface& merkle_db, const FF& leaf_slot)
 {
     auto [present, index] = merkle_db.get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_slot);
@@ -20,6 +26,24 @@ FF unconstrained_read(const LowLevelMerkleDBInterface& merkle_db, const FF& leaf
 
 } // namespace
 
+/**
+ * @brief Validate that a contract's current class ID is consistent with the delayed public mutable update state.
+ *
+ * Reads the delayed public mutable hash from the public data tree. If the hash is zero, the contract was never
+ * updated and current_class_id must equal original_class_id. Otherwise, reads the preimage (metadata, pre, post)
+ * in unconstrained mode, verifies it against the hash, decomposes the metadata to extract the timestamp of change,
+ * and selects the pre or post class ID based on whether the update has taken effect yet.
+ *
+ * Emits a single UpdateCheckEvent on success with all fields populated. When the hash is zero, the preimage
+ * fields (metadata, pre_class_id, post_class_id) are all zero in the emitted event.
+ *
+ * @param address The contract address to check.
+ * @param instance The contract instance containing original and current class IDs to validate.
+ * @throws std::runtime_error If hash is zero and current_class_id does not match original_class_id.
+ * @throws std::runtime_error If the stored hash does not match the reconstructed preimage hash (sanity check).
+ * @throws std::runtime_error If the expected class ID (derived from update state and timestamp) does not match
+ *         current_class_id.
+ */
 void UpdateCheck::check_current_class_id(const AztecAddress& address, const ContractInstance& instance)
 {
     // Compute the public data tree slots
