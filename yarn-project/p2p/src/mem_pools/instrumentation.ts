@@ -114,20 +114,20 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
   }
 
   public transactionsAdded(transactions: Tx[]) {
-    transactions.forEach(tx => this.objectAdded(tx.txHash.toBigInt()));
+    transactions.forEach(tx => this.trackItemAdded(tx.txHash.toBigInt()));
   }
 
   public transactionsRemoved(hashes: Iterable<bigint> | Iterable<string>) {
     for (const hash of hashes) {
-      this.objectRemoved(BigInt(hash));
+      this.trackItemRemoved(BigInt(hash));
     }
   }
 
-  public objectAdded(key: bigint | string): void {
+  public trackItemAdded(key: bigint | string): void {
     this.txAddedTimestamp.set(key, Date.now());
   }
 
-  public objectRemoved(key: bigint | string): void {
+  public trackItemRemoved(key: bigint | string): void {
     const timestamp = Date.now();
     const addedAt = this.txAddedTimestamp.get(key);
     if (addedAt !== undefined) {
