@@ -90,6 +90,11 @@ jobs:
           persist-credentials: false
           submodules: recursive # Initialize git submodules for l1-contracts dependencies
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Validate inputs
         run: |
           # Validate network
