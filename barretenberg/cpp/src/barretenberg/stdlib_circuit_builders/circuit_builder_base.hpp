@@ -257,12 +257,6 @@ template <typename FF_> class CircuitBuilderBase {
      */
     virtual void set_variable_name(uint32_t index, const std::string& name);
 
-    /**
-     * @brief Export the existing circuit as msgpack compatible buffer
-     * @return msgpack compatible buffer
-     */
-    virtual msgpack::sbuffer export_circuit();
-
     bool failed() const;
     const std::string& err() const;
 

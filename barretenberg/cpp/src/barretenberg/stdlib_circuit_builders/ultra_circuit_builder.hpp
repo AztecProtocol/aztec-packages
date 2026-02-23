@@ -677,7 +677,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     // ========================================================================================
 
-    msgpack::sbuffer export_circuit() override;
+    msgpack::sbuffer export_circuit();
 };
 using UltraCircuitBuilder = UltraCircuitBuilder_<UltraExecutionTraceBlocks>;
 } // namespace bb

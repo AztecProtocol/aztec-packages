@@ -76,12 +76,6 @@ template <typename FF_> size_t CircuitBuilderBase<FF_>::get_circuit_subgroup_siz
     return 1UL << log2_n;
 }
 
-template <typename FF_> msgpack::sbuffer CircuitBuilderBase<FF_>::export_circuit()
-{
-    info("not implemented");
-    return { 0 };
-}
-
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_public_variable(const FF& in)
 {
     const uint32_t index = add_variable(in);
