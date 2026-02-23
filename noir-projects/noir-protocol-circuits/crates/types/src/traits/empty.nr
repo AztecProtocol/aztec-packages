@@ -1,6 +1,6 @@
 // Trait: is_empty
 //
-// The general is_empty trait checks if a data type is is empty,
+// The general is_empty trait checks if a data type is empty,
 // and it defines empty for the basic data types as 0.
 //
 // If a Field is equal to zero, then it is regarded as zero.
