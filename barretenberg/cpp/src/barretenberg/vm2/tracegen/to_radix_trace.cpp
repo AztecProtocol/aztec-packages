@@ -153,10 +153,10 @@ void ToRadixTraceBuilder::process_with_memory(
                   { {
                       { C::to_radix_mem_sel, 1 },
                       { C::to_radix_mem_start, 1 },
-                      // Dispatch (needed for PERM_EXECUTION_DISPATCH_TO_TO_RADIX)
+                      // Inputs from dispatch to to_radix (see #DISPATCH_TO_TO_RADIX in execution.pil)
+                      // must always be set unconditionally.
                       { C::to_radix_mem_execution_clk, event.execution_clk },
                       { C::to_radix_mem_space_id, event.space_id },
-                      // Unconditional Inputs
                       { C::to_radix_mem_dst_addr, dst_addr },
                       { C::to_radix_mem_value_to_decompose, event.value },
                       { C::to_radix_mem_radix, event.radix },

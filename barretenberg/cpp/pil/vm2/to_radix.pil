@@ -2,11 +2,12 @@ include "precomputed.pil";
 
 /*
  * Decomposes a field in radixes
- * Roughly, what we do is keep track of an accumulator where we reconstruct value using the limbs. We can end when the accumulator is equal to the value (found).
+ * Roughly, what we do is keep track of an accumulator where we reconstruct value using the limbs. We can end when the accumulator is equal to the value (`found`).
  * For overflow protection, we compare the limbs against the p limbs for the given radix. If we reach the last limb (is_unsafe) we assert that we are under p.
  * Overflow in the accumulator can only happen in the unsafe limb. After the unsafe limb we have padding limbs, that we assert to be zero. This is used
  * because users might want to decompose in more limbs that strictly needed for the radix. We also assert that the decomposition is complete, i.e., that the value
- * has been found. In other words, truncation error is not supported in this trace.
+ * has been found. In other words, this trace always perform a full decomposition but we indicate through `found` whether the decomposition is complete
+ * at a given index.
  *
  *
  * Usage:
