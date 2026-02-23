@@ -8,13 +8,29 @@ import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/ep
  * Since in TXE we don't validate transactions, mock suffices here.
  */
 export class MockEpochCache implements EpochCacheInterface {
-  getCommittee(): Promise<EpochCommitteeInfo> {
+  getCommittee(_slot: SlotTag = 'now'): Promise<EpochCommitteeInfo> {
     return Promise.resolve({
       committee: undefined,
       seed: 0n,
       epoch: EpochNumber.ZERO,
       isEscapeHatchOpen: false,
     });
+  }
+
+  getSlotNow(): SlotNumber {
+    return SlotNumber(0);
+  }
+
+  getTargetSlot(): SlotNumber {
+    return SlotNumber(0);
+  }
+
+  getEpochNow(): EpochNumber {
+    return EpochNumber.ZERO;
+  }
+
+  getTargetEpoch(): EpochNumber {
+    return EpochNumber.ZERO;
   }
 
   getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint } {
@@ -26,13 +42,21 @@ export class MockEpochCache implements EpochCacheInterface {
     };
   }
 
-  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint } {
+  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint } {
     return {
       epoch: EpochNumber.ZERO,
       slot: SlotNumber(0),
       ts: 0n,
-      now: 0n,
+      nowSeconds: 0n,
     };
+  }
+
+  getTargetEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint } {
+    return this.getEpochAndSlotInNextL1Slot();
+  }
+
+  isProposerPipeliningEnabled(): boolean {
+    return false;
   }
 
   getProposerIndexEncoding(_epoch: EpochNumber, _slot: SlotNumber, _seed: bigint): `0x${string}` {
@@ -46,6 +70,13 @@ export class MockEpochCache implements EpochCacheInterface {
   getCurrentAndNextSlot(): { currentSlot: SlotNumber; nextSlot: SlotNumber } {
     return {
       currentSlot: SlotNumber(0),
+      nextSlot: SlotNumber(0),
+    };
+  }
+
+  getTargetAndNextSlot(): { targetSlot: SlotNumber; nextSlot: SlotNumber } {
+    return {
+      targetSlot: SlotNumber(0),
       nextSlot: SlotNumber(0),
     };
   }
@@ -64,6 +95,14 @@ export class MockEpochCache implements EpochCacheInterface {
 
   filterInCommittee(_slot: SlotTag, _validators: EthAddress[]): Promise<EthAddress[]> {
     return Promise.resolve([]);
+  }
+
+  isEscapeHatchOpen(_epoch: EpochNumber): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
+  isEscapeHatchOpenAtSlot(_slot: SlotTag): Promise<boolean> {
+    return Promise.resolve(false);
   }
 
   getL1Constants(): L1RollupConstants {

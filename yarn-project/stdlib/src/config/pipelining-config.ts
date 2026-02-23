@@ -4,10 +4,10 @@ import { z } from 'zod';
 
 import { zodFor } from '../schemas/index.js';
 
-export interface PipelineConfig {
+export type PipelineConfig = {
   /** Whether to enable build-ahead proposer pipelining. */
   enableProposerPipelining: boolean;
-}
+};
 
 /**
  * Pipelining config mappings for fields that need to be shared across packages.
