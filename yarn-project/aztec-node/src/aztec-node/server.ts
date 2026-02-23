@@ -70,7 +70,7 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
-import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { DebugLog, LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Offense, SlashPayloadRound } from '@aztec/stdlib/slashing';
@@ -151,6 +151,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     private blobClient?: BlobClientInterface,
     private validatorClient?: ValidatorClient,
     private keyStoreManager?: KeystoreManager,
+    /**
+     * When populated debug logs from public functions are collected in it and later served via getTxReceipt. Populated
+     * only when the node is started in test mode (config.realProofs set to false).
+     */
+    private debugLogStore?: Map<string, DebugLog[]>,
   ) {
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
@@ -296,9 +301,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       config.realProofs || config.debugForceTxProofVerification
         ? await BBCircuitVerifier.new(config)
         : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+
+    let debugLogStore: Map<string, DebugLog[]> | undefined = undefined;
     if (!config.realProofs) {
+      // In test mode, create an in-memory store for debug logs during block building
+      debugLogStore = new Map();
+
       log.warn(`Aztec node is accepting fake proofs`);
+      log.info(
+        'Aztec node started in test mode (realRoofs set to false) hence debug logs from public functions will be collected and served',
+      );
     }
+
     const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier);
 
     // create the tx pool and the p2p client, which will need the l2 block source
@@ -457,6 +471,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         archiver,
         dateProvider,
         telemetry,
+        debugLogStore,
       );
 
       sequencer = await SequencerClient.new(config, {
@@ -538,6 +553,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       blobClient,
       validatorClient,
       keyStoreManager,
+      debugLogStore,
     );
 
     return node;
@@ -831,18 +847,29 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Then get the actual tx from the archiver, which tracks every tx in a mined block.
     const settledTxReceipt = await this.blockSource.getSettledTxReceipt(txHash);
 
+    let receipt: TxReceipt;
     if (settledTxReceipt) {
-      // If the archiver has the receipt then return it.
-      return settledTxReceipt;
+      receipt = settledTxReceipt;
     } else if (isKnownToPool) {
       // If the tx is in the pool but not in the archiver, it's pending.
       // This handles race conditions between archiver and p2p, where the archiver
       // has pruned the block in which a tx was mined, but p2p has not caught up yet.
-      return new TxReceipt(txHash, TxStatus.PENDING, undefined, undefined);
+      receipt = new TxReceipt(txHash, TxStatus.PENDING, undefined, undefined);
     } else {
       // Otherwise, if we don't know the tx, we consider it dropped.
-      return new TxReceipt(txHash, TxStatus.DROPPED, undefined, 'Tx dropped by P2P node');
+      receipt = new TxReceipt(txHash, TxStatus.DROPPED, undefined, 'Tx dropped by P2P node');
     }
+
+    if (this.debugLogStore && receipt.isMined()) {
+      // Debug log store has been set meaning we are in a test mode and hence we'll serve debug logs in the receipt
+      // (if there are any)
+      const debugLogs = this.debugLogStore.get(txHash.toString());
+      if (debugLogs) {
+        receipt.debugLogs = debugLogs;
+      }
+    }
+
+    return receipt;
   }
 
   public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {

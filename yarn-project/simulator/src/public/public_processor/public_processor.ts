@@ -140,6 +140,11 @@ export class PublicProcessor implements Traceable {
     telemetryClient: TelemetryClient = getTelemetryClient(),
     private log: Logger,
     private opts: Pick<SequencerConfig, 'fakeProcessingDelayPerTxMs' | 'fakeThrowAfterProcessingTxCount'> = {},
+    /**
+     * When populated debug logs from public functions are collected in it and later served via getTxReceipt. Populated
+     * only when the node is started in test mode (config.realProofs set to false).
+     */
+    private debugLogStore?: Map<string, DebugLog[]>,
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
   }
@@ -292,6 +297,11 @@ export class PublicProcessor implements Traceable {
         usedTxs.push(tx);
         returns = returns.concat(returnValues);
         debugLogs.push(...txDebugLogs);
+
+        // Store per-tx debug logs for later retrieval via getTxReceipt (test mode only)
+        if (this.debugLogStore && txDebugLogs.length > 0) {
+          this.debugLogStore.set(processedTx.hash.toString(), txDebugLogs);
+        }
 
         totalPublicGas = totalPublicGas.add(processedTx.gasUsed.publicGas);
         totalBlockGas = totalBlockGas.add(processedTx.gasUsed.totalGas);
