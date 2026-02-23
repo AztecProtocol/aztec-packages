@@ -630,7 +630,7 @@ def proxy_dashboard():
     return _proxy(request.path)
 
 
-# ---- /api/commits: direct handler with Redis caching ----
+# ---- /api/commits: disk-cached, paginated ----
 
 import re as _re
 
@@ -641,57 +641,11 @@ _PR_NUM_RE = _re.compile(r'\(#(\d+)\)\s*$')
 _MERGE_TRAIN_RE = _re.compile(r'merge-train/([^\s]+)')
 
 _GH_TOKEN = os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN', '')
-_COMMITS_PAGE_SIZE = 50
-_PR_DIRS_QUEUE: set = set()
-_PR_DIRS_LOCK = threading.Lock()
-
-
-def _gh_get_commits(branch: str, page: int) -> list:
-    """Fetch a page of commits from GitHub, with Redis caching (5-min TTL).
-    Commit list is cached but dirs are always enriched fresh from pr_dirs cache."""
-    cache_key = f'commits:{branch}:{page}'
-    cached = r.get(cache_key)
-    if cached:
-        try:
-            commits = json.loads(cached)
-        except Exception:
-            commits = None
-
-    if not cached or commits is None:
-        headers = {'Accept': 'application/vnd.github+json'}
-        if _GH_TOKEN:
-            headers['Authorization'] = f'Bearer {_GH_TOKEN}'
-        try:
-            resp = requests.get(
-                f'https://api.github.com/repos/AztecProtocol/aztec-packages/commits',
-                headers=headers,
-                params={'sha': branch, 'per_page': _COMMITS_PAGE_SIZE, 'page': page},
-                timeout=20,
-            )
-            if resp.status_code != 200:
-                return []
-            commits = [_parse_rk_commit(c) for c in resp.json()]
-        except Exception as e:
-            print(f'[rk.py] commits fetch error: {e}')
-            return []
-        try:
-            r.set(cache_key, json.dumps(commits), ex=300)
-        except Exception:
-            pass
-
-    # Always enrich with pr_dirs (fetched async, may have arrived since last cache)
-    needs_fetch = []
-    for c in commits:
-        if c.get('pr'):
-            dirs = _get_pr_dirs_cached(c['pr'])
-            c['dirs'] = dirs  # None means not yet fetched
-            if dirs is None:
-                needs_fetch.append(c['pr'])
-    if needs_fetch:
-        with _PR_DIRS_LOCK:
-            _PR_DIRS_QUEUE.update(needs_fetch)
-
-    return commits
+_COMMITS_PER_PAGE = 100
+_COMMITS_PREFETCH = 500   # fetch and cache this many from GitHub
+_COMMITS_TTL = 300        # 5-minute disk cache TTL
+_COMMITS_CACHE_DIR = '/data/commits'  # /data is mounted from /home/ubuntu/rk/data (root FS)
+_COMMITS_FETCH_LOCK = threading.Lock()
 
 
 def _parse_rk_commit(raw: dict) -> dict:
@@ -716,63 +670,73 @@ def _parse_rk_commit(raw: dict) -> dict:
         'sha': sha, 'subject': subject, 'type': ctype, 'scope': scope,
         'breaking': breaking, 'pr': pr_number, 'author': author,
         'date': date, 'merge_train': merge_train, 'is_merge': is_merge,
-        'dirs': None,
     }
 
 
-def _get_pr_dirs_cached(pr_number: int) -> list | None:
-    """Return cached dirs for a PR from Redis, or None if not yet fetched."""
-    cache_key = f'pr_dirs:{pr_number}'
+def _load_commits_disk(branch: str) -> list | None:
+    path = os.path.join(_COMMITS_CACHE_DIR, f'{branch}.json')
     try:
-        cached = r.get(cache_key)
-        if cached is not None:
-            return json.loads(cached)
+        if not os.path.exists(path):
+            return None
+        if _time.time() - os.path.getmtime(path) > _COMMITS_TTL:
+            return None
+        with open(path) as f:
+            return json.load(f)
     except Exception:
-        pass
-    return None
+        return None
 
 
-def _fetch_and_cache_pr_dirs(pr_number: int):
-    """Fetch changed files for a PR and cache in Redis (7-day TTL)."""
-    cache_key = f'pr_dirs:{pr_number}'
+def _save_commits_disk(branch: str, commits: list):
+    os.makedirs(_COMMITS_CACHE_DIR, exist_ok=True)
+    path = os.path.join(_COMMITS_CACHE_DIR, f'{branch}.json')
+    tmp = path + '.tmp'
+    with open(tmp, 'w') as f:
+        json.dump(commits, f)
+    os.replace(tmp, path)  # atomic
+
+
+def _fetch_commits_github(branch: str) -> list:
     headers = {'Accept': 'application/vnd.github+json'}
     if _GH_TOKEN:
         headers['Authorization'] = f'Bearer {_GH_TOKEN}'
-    try:
-        resp = requests.get(
-            f'https://api.github.com/repos/AztecProtocol/aztec-packages/pulls/{pr_number}/files',
-            headers=headers,
-            params={'per_page': 100},
-            timeout=15,
-        )
+    all_commits: list = []
+    page = 1
+    per_page = 100
+    while len(all_commits) < _COMMITS_PREFETCH:
+        try:
+            resp = requests.get(
+                'https://api.github.com/repos/AztecProtocol/aztec-packages/commits',
+                headers=headers,
+                params={'sha': branch, 'per_page': per_page, 'page': page},
+                timeout=20,
+            )
+        except Exception as e:
+            print(f'[rk.py] commits fetch error (page {page}): {e}')
+            break
         if resp.status_code != 200:
-            return
-        files = resp.json()
-        dirs: set = set()
-        for f in files:
-            filename = f.get('filename', '')
-            if not filename:
-                continue
-            parts = filename.split('/')
-            dirs.add(parts[0])
-            if parts[0] == 'yarn-project' and len(parts) > 1:
-                dirs.add(f'yarn-project/{parts[1]}')
-        r.set(cache_key, json.dumps(sorted(dirs)), ex=86400 * 7)
-    except Exception as e:
-        print(f'[rk.py] pr_dirs fetch error for #{pr_number}: {e}')
+            break
+        data = resp.json()
+        all_commits.extend(_parse_rk_commit(c) for c in data)
+        if len(data) < per_page:
+            break
+        page += 1
+    return all_commits[:_COMMITS_PREFETCH]
 
 
-def _pr_dirs_worker():
-    while True:
-        _time.sleep(2)
-        with _PR_DIRS_LOCK:
-            if not _PR_DIRS_QUEUE:
-                continue
-            pr_number = _PR_DIRS_QUEUE.pop()
-        _fetch_and_cache_pr_dirs(pr_number)
-
-
-threading.Thread(target=_pr_dirs_worker, daemon=True, name='pr-dirs-fetcher').start()
+def _get_commits(branch: str) -> list:
+    """Return cached commits or fetch fresh. Only one worker fetches at a time."""
+    cached = _load_commits_disk(branch)
+    if cached is not None:
+        return cached
+    with _COMMITS_FETCH_LOCK:
+        # Re-check inside lock (another worker may have just written)
+        cached = _load_commits_disk(branch)
+        if cached is not None:
+            return cached
+        commits = _fetch_commits_github(branch)
+        if commits:
+            _save_commits_disk(branch, commits)
+        return commits
 
 
 @app.route('/api/commits')
@@ -780,8 +744,17 @@ threading.Thread(target=_pr_dirs_worker, daemon=True, name='pr-dirs-fetcher').st
 def api_commits_direct():
     branch = request.args.get('branch', 'next')
     page = max(1, int(request.args.get('page', 1)))
-    commits = _gh_get_commits(branch, page)
-    return Response(json.dumps(commits), mimetype='application/json')
+    all_commits = _get_commits(branch)
+    offset = (page - 1) * _COMMITS_PER_PAGE
+    page_commits = all_commits[offset:offset + _COMMITS_PER_PAGE]
+    total = len(all_commits)
+    total_pages = max(1, (total + _COMMITS_PER_PAGE - 1) // _COMMITS_PER_PAGE)
+    return Response(json.dumps({
+        'commits': page_commits,
+        'page': page,
+        'total_pages': total_pages,
+        'total': total,
+    }), mimetype='application/json')
 
 
 @app.route('/api/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
