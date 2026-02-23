@@ -13,6 +13,7 @@ describe('NullifierConflictRule', () => {
     nullifiers: string[] = [`0x${txHash.slice(2)}null1`],
   ): TxMetaData => ({
     txHash,
+    txHashBigInt: BigInt(txHash),
     anchorBlockHeaderHash: '0x1234',
     priorityFee,
     feePayer: '0xfeepayer',

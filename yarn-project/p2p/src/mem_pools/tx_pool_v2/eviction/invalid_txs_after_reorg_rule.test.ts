@@ -23,6 +23,7 @@ describe('InvalidTxsAfterReorgRule', () => {
   // Helper to create TxMetaData for testing
   const createMeta = (txHash: string, anchorBlockHeaderHash: string): TxMetaData => ({
     txHash,
+    txHashBigInt: BigInt(txHash),
     anchorBlockHeaderHash,
     priorityFee: 100n,
     feePayer: '0xfeepayer',

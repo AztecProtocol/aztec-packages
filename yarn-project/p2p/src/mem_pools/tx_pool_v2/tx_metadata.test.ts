@@ -41,6 +41,7 @@ describe('TxMetaData', () => {
   describe('comparePriority', () => {
     const makeMeta = (fee: bigint, txHash = '0x1234'): TxMetaData => ({
       txHash,
+      txHashBigInt: BigInt(txHash),
       anchorBlockHeaderHash: '0x5678',
       priorityFee: fee,
       feePayer: '0xabcd',
@@ -75,6 +76,7 @@ describe('TxMetaData', () => {
   describe('checkNullifierConflict', () => {
     const makeMeta = (txHash: string, priorityFee: bigint, nullifiers: string[]): TxMetaData => ({
       txHash,
+      txHashBigInt: BigInt(txHash),
       anchorBlockHeaderHash: '0x5678',
       priorityFee,
       feePayer: '0xabcd',

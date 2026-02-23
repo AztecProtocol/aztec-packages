@@ -87,7 +87,7 @@ export class Bn254G1Point {
    * in the most significant bit (bit 255).
    */
   compress(): Buffer {
-    const xBytes = this.x.toBuffer();
+    const xBytes = Buffer.from(this.x.toBuffer());
     // Get the least significant bit of y to determine the sign
     const yLsb = this.y.toBigInt() & 1n;
     // If y is odd, set the most significant bit (bit 255) of the output

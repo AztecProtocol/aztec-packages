@@ -57,6 +57,8 @@ export class Tx extends Gossipable {
      * the tx's public inputs (`this.data`)), in data_validator.ts.
      */
     public readonly publicFunctionCalldata: HashedValues[],
+
+    private buffer_?: Buffer,
   ) {
     super();
   }
@@ -119,6 +121,7 @@ export class Tx extends Gossipable {
       reader.readObject(ChonkProof),
       reader.readVectorUint8Prefix(ContractClassLogFields),
       reader.readVectorUint8Prefix(HashedValues),
+      Buffer.isBuffer(buffer) ? buffer : undefined,
     );
   }
 
@@ -127,13 +130,16 @@ export class Tx extends Gossipable {
    * @returns Buffer representation of the Tx object.
    */
   toBuffer() {
-    return serializeToBuffer([
-      this.txHash,
-      this.data,
-      this.chonkProof,
-      serializeArrayOfBufferableToVector(this.contractClassLogFields, 1),
-      serializeArrayOfBufferableToVector(this.publicFunctionCalldata, 1),
-    ]);
+    if (this.buffer_ === undefined) {
+      this.buffer_ = serializeToBuffer([
+        this.txHash,
+        this.data,
+        this.chonkProof,
+        serializeArrayOfBufferableToVector(this.contractClassLogFields, 1),
+        serializeArrayOfBufferableToVector(this.publicFunctionCalldata, 1),
+      ]);
+    }
+    return this.buffer_;
   }
 
   static get schema(): ZodFor<Tx> {

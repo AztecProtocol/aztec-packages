@@ -19,14 +19,16 @@ describe('Fr Modulus Validation', () => {
     expect(() => new Fr(-1n)).toThrow('is negative');
   });
 
-  it('throws when constructing from Buffer with value >= modulus', () => {
+  it('defers validation for buffer-constructed fields until bigint is accessed', () => {
     const buf = Buffer.from(Fr.MODULUS.toString(16).padStart(64, '0'), 'hex');
-    expect(() => new Fr(buf)).toThrow('greater or equal to field modulus');
+    const field = new Fr(buf);
+    expect(() => field.toBigInt()).toThrow('greater or equal to field modulus');
   });
 
-  it('throws when using fromBuffer with value >= modulus', () => {
+  it('defers validation for fromBuffer fields until bigint is accessed', () => {
     const buf = Buffer.from(Fr.MODULUS.toString(16).padStart(64, '0'), 'hex');
-    expect(() => Fr.fromBuffer(buf)).toThrow('greater or equal to field modulus');
+    const field = Fr.fromBuffer(buf);
+    expect(() => field.toBigInt()).toThrow('greater or equal to field modulus');
   });
 
   it('throws when using fromString with numeric string >= modulus', () => {
@@ -52,14 +54,16 @@ describe('Fq Modulus Validation', () => {
     expect(() => new Fq(-1n)).toThrow('is negative');
   });
 
-  it('throws when constructing from Buffer with value >= modulus', () => {
+  it('defers validation for buffer-constructed fields until bigint is accessed', () => {
     const buf = Buffer.from(Fq.MODULUS.toString(16).padStart(64, '0'), 'hex');
-    expect(() => new Fq(buf)).toThrow('greater or equal to field modulus');
+    const field = new Fq(buf);
+    expect(() => field.toBigInt()).toThrow('greater or equal to field modulus');
   });
 
-  it('throws when using fromBuffer with value >= modulus', () => {
+  it('defers validation for fromBuffer fields until bigint is accessed', () => {
     const buf = Buffer.from(Fq.MODULUS.toString(16).padStart(64, '0'), 'hex');
-    expect(() => Fq.fromBuffer(buf)).toThrow('greater or equal to field modulus');
+    const field = Fq.fromBuffer(buf);
+    expect(() => field.toBigInt()).toThrow('greater or equal to field modulus');
   });
 
   it('throws when using fromString with numeric string >= modulus', () => {

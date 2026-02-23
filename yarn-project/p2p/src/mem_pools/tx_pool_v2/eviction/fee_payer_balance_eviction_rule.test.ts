@@ -7,7 +7,7 @@ import { BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type TxMetaData, stubTxMetaValidationData } from '../tx_metadata.js';
+import { type TxMetaData, comparePriority, stubTxMetaValidationData } from '../tx_metadata.js';
 import { FeePayerBalanceEvictionRule } from './fee_payer_balance_eviction_rule.js';
 import type { EvictionContext, PoolOperations } from './interfaces.js';
 import { EvictionEvent } from './interfaces.js';
@@ -35,6 +35,7 @@ describe('FeePayerBalanceEvictionRule', () => {
     } = {},
   ): TxMetaData => ({
     txHash,
+    txHashBigInt: BigInt(txHash),
     anchorBlockHeaderHash: '0x1234',
     priorityFee: opts.priorityFee ?? 100n,
     feePayer: opts.feePayer ?? feePayer1,
@@ -49,12 +50,20 @@ describe('FeePayerBalanceEvictionRule', () => {
 
   // Create mock pool operations
   const createPoolOps = (txsByFeePayer: Map<string, TxMetaData[]>): PoolOperations => {
+    // Sort each fee payer's txs by priority descending, matching the real getFeePayerPendingTxs contract
+    const sortedByFeePayer = new Map<string, TxMetaData[]>();
+    for (const [feePayer, txs] of txsByFeePayer) {
+      sortedByFeePayer.set(
+        feePayer,
+        [...txs].sort((a, b) => comparePriority(b, a)),
+      );
+    }
     deleteTxsMock = jest.fn(() => Promise.resolve());
     return {
-      getPendingTxs: () => [...txsByFeePayer.values()].flat(),
-      getPendingFeePayers: () => [...txsByFeePayer.keys()],
-      getFeePayerPendingTxs: (feePayer: string) => txsByFeePayer.get(feePayer) ?? [],
-      getPendingTxCount: () => [...txsByFeePayer.values()].flat().length,
+      getPendingTxs: () => [...sortedByFeePayer.values()].flat(),
+      getPendingFeePayers: () => [...sortedByFeePayer.keys()],
+      getFeePayerPendingTxs: (feePayer: string) => sortedByFeePayer.get(feePayer) ?? [],
+      getPendingTxCount: () => [...sortedByFeePayer.values()].flat().length,
       getLowestPriorityPending: () => [],
       deleteTxs: deleteTxsMock as (txHashes: string[]) => Promise<void>,
     };

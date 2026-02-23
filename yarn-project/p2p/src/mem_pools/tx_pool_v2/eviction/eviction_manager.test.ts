@@ -176,6 +176,7 @@ describe('EvictionManager', () => {
 
     const createMeta = (txHash: string, priorityFee: bigint): TxMetaData => ({
       txHash,
+      txHashBigInt: BigInt(txHash),
       anchorBlockHeaderHash: '0x1234',
       priorityFee,
       feePayer: '0xfeepayer',
@@ -332,6 +333,7 @@ describe('EvictionManager', () => {
 
       const createMeta = (txHash: string, priorityFee: bigint): TxMetaData => ({
         txHash,
+        txHashBigInt: BigInt(txHash),
         anchorBlockHeaderHash: '0x1234',
         priorityFee,
         feePayer: '0xfeepayer',

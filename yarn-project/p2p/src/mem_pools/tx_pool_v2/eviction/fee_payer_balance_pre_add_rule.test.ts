@@ -1,4 +1,4 @@
-import { type TxMetaData, stubTxMetaValidationData } from '../tx_metadata.js';
+import { type TxMetaData, comparePriority, stubTxMetaValidationData } from '../tx_metadata.js';
 import { FeePayerBalancePreAddRule } from './fee_payer_balance_pre_add_rule.js';
 import { type PreAddPoolAccess, TxPoolRejectionCode } from './interfaces.js';
 
@@ -16,6 +16,7 @@ describe('FeePayerBalancePreAddRule', () => {
     } = {},
   ): TxMetaData => ({
     txHash,
+    txHashBigInt: BigInt(txHash),
     anchorBlockHeaderHash: '0x1234',
     priorityFee: opts.priorityFee ?? 100n,
     feePayer: opts.feePayer ?? '0xfeepayer',
@@ -29,15 +30,19 @@ describe('FeePayerBalancePreAddRule', () => {
   });
 
   // Mock pool access with configurable behavior
-  const createPoolAccess = (balance: bigint, existingTxs: TxMetaData[] = []): PreAddPoolAccess => ({
-    getMetadata: (txHashStr: string) => existingTxs.find(t => t.txHash === txHashStr),
-    getTxHashByNullifier: () => undefined,
-    getFeePayerBalance: () => Promise.resolve(balance),
-    getFeePayerPendingTxs: () => existingTxs,
-    getPendingTxCount: () => existingTxs.length,
-    getLowestPriorityPendingTx: () =>
-      existingTxs.length > 0 ? existingTxs.reduce((min, t) => (t.priorityFee < min.priorityFee ? t : min)) : undefined,
-  });
+  const createPoolAccess = (balance: bigint, existingTxs: TxMetaData[] = []): PreAddPoolAccess => {
+    // Sort by priority descending, matching the real getFeePayerPendingTxs contract
+    const sorted = [...existingTxs].sort((a, b) => comparePriority(b, a));
+    return {
+      getMetadata: (txHashStr: string) => sorted.find(t => t.txHash === txHashStr),
+      getTxHashByNullifier: () => undefined,
+      getFeePayerBalance: () => Promise.resolve(balance),
+      getFeePayerPendingTxs: () => sorted,
+      getPendingTxCount: () => sorted.length,
+      getLowestPriorityPendingTx: () =>
+        sorted.length > 0 ? sorted.reduce((min, t) => (t.priorityFee < min.priorityFee ? t : min)) : undefined,
+    };
+  };
 
   beforeEach(() => {
     rule = new FeePayerBalancePreAddRule();

@@ -2,7 +2,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { BlockHash, type L2BlockId } from '@aztec/stdlib/block';
-import type { Tx } from '@aztec/stdlib/tx';
+import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { getFeePayerBalanceDelta } from '../../msg_validators/tx_validator/fee_payer_balance.js';
 import { getTxPriorityFee } from '../tx_pool/priority.js';
@@ -33,6 +33,9 @@ export type TxMetaValidationData = {
 export type TxMetaData = {
   /** The transaction hash as hex string */
   readonly txHash: string;
+
+  /** The transaction hash as a bigint for efficient comparison */
+  readonly txHashBigInt: bigint;
 
   /** Block ID (number and hash) in which the transaction was mined (undefined if not mined) */
   minedL2BlockId?: L2BlockId;
@@ -77,7 +80,7 @@ export type TxState = 'pending' | 'protected' | 'mined' | 'deleted';
  * Fr values are captured in closures for zero-cost re-validation.
  */
 export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
-  const txHash = tx.getTxHash().toString();
+  const txHash = tx.getTxHash();
   const nullifierFrs = tx.data.getNonEmptyNullifiers();
   const nullifiers = nullifierFrs.map(n => n.toString());
   const anchorBlockHeaderHashFr = await tx.data.constants.anchorBlockHeader.hash();
@@ -92,7 +95,8 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
   const estimatedSizeBytes = estimateTxMetaDataSize(nullifiers.length);
 
   return {
-    txHash,
+    txHash: txHash.toString(),
+    txHashBigInt: txHash.toBigInt(),
     anchorBlockHeaderHash,
     priorityFee,
     feePayer,
@@ -124,11 +128,11 @@ const HEX_STRING_BYTES = 98;
 const BIGINT_BYTES = 32;
 const FR_BYTES = 80;
 // Fixed cost: object shell + txHash + anchorBlockHeaderHash + feePayer (3 hex strings)
-// + priorityFee + claimAmount + feeLimit + includeByTimestamp (4 bigints)
+// + priorityFee + claimAmount + feeLimit + includeByTimestamp + txHashBigInt (5 bigints)
 // + receivedAt (number, 8 bytes) + estimatedSizeBytes (number, 8 bytes)
 // + data closure object (~OBJECT_OVERHEAD + anchorBlockHeaderHashFr Fr + anchorBlockNumber number)
 const FIXED_METADATA_BYTES =
-  OBJECT_OVERHEAD + 3 * HEX_STRING_BYTES + 4 * BIGINT_BYTES + 8 + 8 + OBJECT_OVERHEAD + FR_BYTES + 8;
+  OBJECT_OVERHEAD + 3 * HEX_STRING_BYTES + 5 * BIGINT_BYTES + 8 + 8 + OBJECT_OVERHEAD + FR_BYTES + 8;
 
 /** Estimates the in-memory size of a TxMetaData object based on the number of nullifiers. */
 function estimateTxMetaDataSize(nullifierCount: number): number {
@@ -137,7 +141,7 @@ function estimateTxMetaDataSize(nullifierCount: number): number {
 }
 
 /** Minimal fields required for priority comparison. */
-type PriorityComparable = Pick<TxMetaData, 'txHash' | 'priorityFee'>;
+type PriorityComparable = Pick<TxMetaData, 'txHashBigInt' | 'priorityFee'>;
 
 /**
  * Compares two priority fees in ascending order.
@@ -148,13 +152,12 @@ export function compareFee(a: bigint, b: bigint): number {
 }
 
 /**
- * Compares two tx hashes in ascending order.
- * Uses field element comparison for deterministic ordering.
+ * Compares two tx hashes (as bigints) in ascending order.
  * Returns negative if a < b, positive if a > b, 0 if equal.
  */
-export function compareTxHash(a: string, b: string): number {
-  const fieldA = Fr.fromHexString(a);
-  const fieldB = Fr.fromHexString(b);
+export function compareTxHash(a: bigint, b: bigint): number {
+  const fieldA = new Fr(a);
+  const fieldB = new Fr(b);
   return fieldA.cmp(fieldB);
 }
 
@@ -168,7 +171,7 @@ export function comparePriority(a: PriorityComparable, b: PriorityComparable): n
   if (feeComparison !== 0) {
     return feeComparison;
   }
-  return compareTxHash(a.txHash, b.txHash);
+  return compareTxHash(a.txHashBigInt, b.txHashBigInt);
 }
 
 /**

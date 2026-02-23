@@ -47,7 +47,8 @@ export function msgIdToStrFn(msgId: Uint8Array): string {
 export function getMsgIdFn(message: Message) {
   const { topic } = message;
 
-  const vec = [Buffer.from(topic), message.data];
+  const data = message.data.length > 1024 ? message.data.subarray(0, 1024) : message.data;
+  const vec = [Buffer.from(topic), data];
   return sha256(Buffer.concat(vec)).subarray(0, 20);
 }
 

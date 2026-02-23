@@ -29,6 +29,7 @@ describe('InvalidTxsAfterMiningRule', () => {
     const expirationTimestamp = opts.expirationTimestamp ?? DEFAULT_EXPIRATION_TIMESTAMP;
     return {
       txHash,
+      txHashBigInt: BigInt(txHash),
       anchorBlockHeaderHash: '0x1234',
       priorityFee: 100n,
       feePayer: '0xfeepayer',

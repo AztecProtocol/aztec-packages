@@ -8,6 +8,7 @@ describe('LowPriorityPreAddRule', () => {
   // Helper to create TxMetaData for testing
   const createMeta = (txHash: string, priorityFee: bigint): TxMetaData => ({
     txHash,
+    txHashBigInt: BigInt(txHash),
     anchorBlockHeaderHash: '0x1234',
     priorityFee,
     feePayer: '0xfeepayer',

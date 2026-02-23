@@ -5,7 +5,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { DatabasePublicStateSource, type MerkleTreeReadOperations } from '@aztec/stdlib/trees';
 
-import { type TxMetaData, comparePriority } from '../tx_metadata.js';
+import type { TxMetaData } from '../tx_metadata.js';
 import type { EvictionContext, EvictionResult, EvictionRule, PoolOperations } from './interfaces.js';
 import { EvictionEvent } from './interfaces.js';
 
@@ -93,7 +93,8 @@ export class FeePayerBalanceEvictionRule implements EvictionRule {
       )
     ).toBigInt();
 
-    const txs: TxMetaData[] = pool.getFeePayerPendingTxs(feePayerStr);
+    // Pre-sorted by priority descending
+    const txs = pool.getFeePayerPendingTxs(feePayerStr);
 
     if (txs.length === 0) {
       return [];
@@ -101,9 +102,6 @@ export class FeePayerBalanceEvictionRule implements EvictionRule {
 
     const txsToEvict: string[] = [];
     let balance = initialBalance;
-
-    // Sort by priority descending (highest first), with hash as tiebreaker
-    txs.sort((a, b) => comparePriority(b, a));
 
     for (const tx of txs) {
       const available = balance + tx.claimAmount;

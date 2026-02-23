@@ -29,35 +29,47 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
     // Get fee payer's on-chain balance
     const initialBalance = await poolAccess.getFeePayerBalance(incomingMeta.feePayer);
 
-    // Get existing pending txs for this fee payer
+    // Get existing pending txs for this fee payer (pre-sorted by priority descending)
     const existingTxs = poolAccess.getFeePayerPendingTxs(incomingMeta.feePayer);
 
-    // Create combined list with incoming tx
+    // Map existing txs and binary-search insert the incoming tx in priority order
     const allTxs: Array<{
       txHash: string;
+      txHashBigInt: bigint;
       priorityFee: bigint;
       feeLimit: bigint;
       claimAmount: bigint;
       isIncoming: boolean;
-    }> = [
-      ...existingTxs.map(t => ({
-        txHash: t.txHash,
-        priorityFee: t.priorityFee,
-        feeLimit: t.feeLimit,
-        claimAmount: t.claimAmount,
-        isIncoming: false,
-      })),
-      {
-        txHash: incomingMeta.txHash,
-        priorityFee: incomingMeta.priorityFee,
-        feeLimit: incomingMeta.feeLimit,
-        claimAmount: incomingMeta.claimAmount,
-        isIncoming: true,
-      },
-    ];
+    }> = existingTxs.map(t => ({
+      txHash: t.txHash,
+      txHashBigInt: t.txHashBigInt,
+      priorityFee: t.priorityFee,
+      feeLimit: t.feeLimit,
+      claimAmount: t.claimAmount,
+      isIncoming: false,
+    }));
 
-    // Sort by priority descending (highest first), with hash as tiebreaker
-    allTxs.sort((a, b) => comparePriority(b, a));
+    const incoming = {
+      txHash: incomingMeta.txHash,
+      txHashBigInt: incomingMeta.txHashBigInt,
+      priorityFee: incomingMeta.priorityFee,
+      feeLimit: incomingMeta.feeLimit,
+      claimAmount: incomingMeta.claimAmount,
+      isIncoming: true,
+    };
+
+    // Binary search for descending insertion point
+    let lo = 0,
+      hi = allTxs.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (comparePriority(allTxs[mid], incoming) > 0) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    allTxs.splice(lo, 0, incoming);
 
     // Walk through in priority order, tracking balance
     let balance = initialBalance;

@@ -23,12 +23,15 @@ type DerivedField<T extends BaseField> = {
 
 /**
  * Base field class.
- * Uses bigint as the internal representation.
- * Buffers are generated on demand from the bigint value.
+ * Stores buffer and bigint lazily, converting on first access.
+ * When constructed from a buffer, defers bigint conversion until toBigInt() is called.
+ * When constructed from a bigint, defers buffer generation until toBuffer() is called.
  */
 abstract class BaseField {
   static SIZE_IN_BYTES = 32;
-  private readonly asBigInt: bigint;
+  private static ZERO_BUFFER = Buffer.alloc(32);
+  private _asBigInt: bigint | undefined;
+  private _asBuffer: Buffer | undefined;
 
   /**
    * Return bigint representation.
@@ -48,41 +51,58 @@ abstract class BaseField {
       if (value.length > BaseField.SIZE_IN_BYTES) {
         throw new Error(`Value length ${value.length} exceeds ${BaseField.SIZE_IN_BYTES}`);
       }
-      this.asBigInt = toBigIntBE(value);
+      if (value.length < BaseField.SIZE_IN_BYTES) {
+        const padded = Buffer.alloc(BaseField.SIZE_IN_BYTES);
+        value.copy(padded, BaseField.SIZE_IN_BYTES - value.length);
+        this._asBuffer = padded;
+      } else {
+        this._asBuffer = value;
+      }
     } else if (typeof value === 'bigint' || typeof value === 'number' || typeof value === 'boolean') {
-      this.asBigInt = BigInt(value);
+      this._asBigInt = BigInt(value);
+      if (this._asBigInt < 0n) {
+        throw new Error(`Value 0x${this._asBigInt.toString(16)} is negative.`);
+      } else if (this._asBigInt >= this.modulus()) {
+        throw new Error(`Value 0x${this._asBigInt.toString(16)} is greater or equal to field modulus.`);
+      }
     } else if (value instanceof BaseField) {
-      this.asBigInt = value.asBigInt;
+      this._asBigInt = value._asBigInt;
+      this._asBuffer = value._asBuffer;
     } else {
       throw new Error(`Type '${typeof value}' with value '${value}' passed to BaseField ctor.`);
-    }
-
-    if (this.asBigInt < 0n) {
-      throw new Error(`Value 0x${this.asBigInt.toString(16)} is negative.`);
-    } else if (this.asBigInt >= this.modulus()) {
-      throw new Error(`Value 0x${this.asBigInt.toString(16)} is greater or equal to field modulus.`);
     }
   }
 
   protected abstract modulus(): bigint;
 
-  /**
-   * Converts the bigint to a Buffer.
-   */
+  /** Converts to a Buffer, lazily generating from bigint on first access. */
   toBuffer(): Buffer {
-    return toBufferBE(this.asBigInt, 32);
+    if (this._asBuffer === undefined) {
+      this._asBuffer = toBufferBE(this._asBigInt!, 32);
+    }
+    return this._asBuffer;
   }
 
   toString(): `0x${string}` {
-    return `0x${this.asBigInt.toString(16).padStart(64, '0')}`;
+    if (this._asBuffer !== undefined) {
+      return `0x${this._asBuffer.toString('hex')}`;
+    }
+    return `0x${this._asBigInt!.toString(16).padStart(64, '0')}`;
   }
 
+  /** Returns bigint representation, lazily converting from buffer on first access. */
   toBigInt(): bigint {
-    return this.asBigInt;
+    if (this._asBigInt === undefined) {
+      this._asBigInt = toBigIntBE(this._asBuffer!);
+      if (this._asBigInt >= this.modulus()) {
+        throw new Error(`Value 0x${this._asBigInt.toString(16)} is greater or equal to field modulus.`);
+      }
+    }
+    return this._asBigInt;
   }
 
   toBool(): boolean {
-    return this.asBigInt !== 0n;
+    return !this.isZero();
   }
 
   /**
@@ -90,10 +110,11 @@ abstract class BaseField {
    * Throws if the underlying value is greater than MAX_SAFE_INTEGER.
    */
   toNumber(): number {
-    if (this.asBigInt > Number.MAX_SAFE_INTEGER) {
-      throw new Error(`Value ${this.asBigInt.toString(16)} greater than than max safe integer`);
+    const val = this.toBigInt();
+    if (val > Number.MAX_SAFE_INTEGER) {
+      throw new Error(`Value ${val.toString(16)} greater than than max safe integer`);
     }
-    return Number(this.asBigInt);
+    return Number(val);
   }
 
   /**
@@ -101,7 +122,7 @@ abstract class BaseField {
    * May cause loss of precision if the underlying value is greater than MAX_SAFE_INTEGER.
    */
   toNumberUnsafe(): number {
-    return Number(this.asBigInt);
+    return Number(this.toBigInt());
   }
 
   toShortString(): string {
@@ -110,16 +131,20 @@ abstract class BaseField {
   }
 
   equals(rhs: BaseField): boolean {
-    return this.asBigInt === rhs.asBigInt;
+    if (this._asBuffer !== undefined && rhs._asBuffer !== undefined) {
+      return this._asBuffer.equals(rhs._asBuffer);
+    }
+    return this.toBigInt() === rhs.toBigInt();
   }
 
   lt(rhs: BaseField): boolean {
-    return this.asBigInt < rhs.asBigInt;
+    return this.toBigInt() < rhs.toBigInt();
   }
 
   cmp(rhs: BaseField): -1 | 0 | 1 {
-    const rhsBigInt = rhs.asBigInt;
-    return this.asBigInt === rhsBigInt ? 0 : this.asBigInt < rhsBigInt ? -1 : 1;
+    const lhs = this.toBigInt();
+    const rhsBigInt = rhs.toBigInt();
+    return lhs === rhsBigInt ? 0 : lhs < rhsBigInt ? -1 : 1;
   }
 
   static cmp(lhs: BaseField, rhs: BaseField): -1 | 0 | 1 {
@@ -127,7 +152,8 @@ abstract class BaseField {
   }
 
   isZero(): boolean {
-    return this.asBigInt === 0n;
+    if (this._asBigInt !== undefined) return this._asBigInt === 0n;
+    return this._asBuffer!.equals(BaseField.ZERO_BUFFER);
   }
 
   isEmpty(): boolean {
@@ -242,7 +268,7 @@ export class Fr extends BaseField {
    */
   static fromString(buf: string) {
     if (buf.match(/^\d+$/) !== null) {
-      return new Fr(toBufferBE(BigInt(buf), 32));
+      return new Fr(BigInt(buf));
     }
     if (buf.match(/^0x/i) !== null) {
       return fromHexString(buf, Fr);
@@ -409,7 +435,7 @@ export class Fq extends BaseField {
    */
   static fromString(buf: string) {
     if (buf.match(/^\d+$/) !== null) {
-      return new Fq(toBufferBE(BigInt(buf), 32));
+      return new Fq(BigInt(buf));
     }
     if (buf.match(/^0x/i) !== null) {
       return fromHexString(buf, Fq);
