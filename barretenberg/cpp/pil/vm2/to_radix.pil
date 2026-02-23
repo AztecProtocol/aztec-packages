@@ -117,7 +117,7 @@ namespace to_radix;
     pol commit acc;
 
     // Limb index starts at zero
-    start * (limb_index - 0) = 0;
+    start * limb_index = 0;
 
     // Limb index must increase
     NOT_END * (limb_index + 1 - limb_index') = 0;
