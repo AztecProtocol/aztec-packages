@@ -8,6 +8,36 @@ using namespace bb;
 using FF = bb::fr;
 
 // ============================================================================
+// Generic Lookup Relation — test overview
+//
+// Three test environments are defined to cover the main configuration modes:
+//
+//   BasicLookupTest       — BASIC_LOOKUP / BASIC_TABLE (LOOKUP_TUPLE_SIZE = 2)
+//                           The relation auto-batches columns into a single term
+//                           via beta-encoding: term = c1*beta + c2 + gamma.
+//
+//   CustomizedLookupTest  — CUSTOMIZED_LOOKUP / CUSTOMIZED_TABLE
+//                           The user supplies compute_lookup_term / compute_table_term
+//                           (here: lookup = f^2, table = t).
+//
+//   MixedLookupTest       — Two lookup terms (BASIC + CUSTOMIZED) and two table
+//                           terms (BASIC + CUSTOMIZED), exercising both modes
+//                           simultaneously in the same relation instance.
+//
+// For each environment the following tests are created:
+//
+//   InactiveRow           — All-zero row: both subrelations accumulate to zero.
+//   ValidLookupRow        — Correctly-set-up lookup row satisfies subrelation 0
+//                           (the inverse check: I * prod - inverse_exists = 0).
+//   ValidTableRow         — Correctly-set-up table row satisfies subrelation 0.
+//   ValidTrace            — Two-row trace where the lookup term matches the table
+//                           term: subrelation 1 (the log-derivative sum) equals zero.
+//   IncorrectInverse      — Wrong I value on an active row: subrelation 0 ≠ 0.
+//   InvalidLookup         — Lookup/table term mismatch: subrelation 1 ≠ 0.
+//   InvalidReadCount      — Read count mismatch with a matching term: subrelation 1 ≠ 0.
+// ============================================================================
+
+// ============================================================================
 // SettingsBasicLookup
 //
 // Uses BASIC_LOOKUP / BASIC_TABLE so the relation auto-batches polynomial
@@ -81,8 +111,8 @@ struct SettingsBasicLookup {
 //
 // Uses CUSTOMIZED_LOOKUP / CUSTOMIZED_TABLE so no polynomial columns are
 // auto-added for batching. Two extra columns are added manually:
-//   [4] f column   →  lookup_term = f^2 + gamma   (degree 2)
-//   [5] t column   →  table_term  = t   + gamma   (degree 1)
+//   [4] f column   →  lookup_term = f^2   (degree 2)
+//   [5] t column   →  table_term  = t     (degree 1)
 //
 // Polynomial index map (NUM_POLYS = 6):
 //   [0] Inverse polynomial   (I)
@@ -131,7 +161,7 @@ struct SettingsCustomizedLookup {
     }
 
     /**
-     * @brief Custom table term: t + gamma  (degree 1)
+     * @brief Custom table term: t  (degree 1)
      */
     template <typename Accumulator, size_t /*table_index*/, typename Parameters>
     static Accumulator compute_table_term(const AllEntities& in, [[maybe_unused]] const Parameters& params)
@@ -202,7 +232,7 @@ class BasicLookupTest : public GenericLookupRelationTest<SettingsBasicLookup> {
      * Row 1 is always a table row with f1=9, f2=10 (dummies, lookup_pred=0).
      * The table columns for row 1 and the read count are the varying parameters.
      *
-     * The expected subrelation-2 sum is derived directly from the inputs:
+     * The expected subrelation 1 sum is derived directly from the inputs:
      *   acc[1] = 1/lookup_term0 - read_count/table_term1
      * so passing table columns that match row 0 (t1=1, t2=2) with read_count=1 gives 0.
      */
@@ -211,13 +241,15 @@ class BasicLookupTest : public GenericLookupRelationTest<SettingsBasicLookup> {
         const FF beta = params.beta;
         const FF gamma = params.gamma;
 
+        auto construct_term = [&](FF col1, FF col2) { return col1 * beta + col2 + gamma; };
+
         // Row 0: lookup row (fixed)
         const FF f1 = FF(1);
         const FF f2 = FF(2);
         const FF t1_row0 = FF(3);
         const FF t2_row0 = FF(4);
-        const FF lookup_term0 = f1 * beta + f2 + gamma;
-        const FF table_term_row0 = t1_row0 * beta + t2_row0 + gamma;
+        const FF lookup_term0 = construct_term(f1, f2);
+        const FF table_term_row0 = construct_term(t1_row0, t2_row0);
 
         AllEntities row0{};
         row0[0] = (lookup_term0 * table_term_row0).invert();
@@ -230,8 +262,8 @@ class BasicLookupTest : public GenericLookupRelationTest<SettingsBasicLookup> {
         // Row 1: table row (parametrized table columns and read count)
         const FF f1_row1 = FF(9);
         const FF f2_row1 = FF(10);
-        const FF lookup_term_row1 = f1_row1 * beta + f2_row1 + gamma;
-        const FF table_term1 = t1_row1 * beta + t2_row1 + gamma;
+        const FF lookup_term_row1 = construct_term(f1_row1, f2_row1);
+        const FF table_term1 = construct_term(t1_row1, t2_row1);
 
         AllEntities row1{};
         row1[0] = (lookup_term_row1 * table_term1).invert();
@@ -269,7 +301,7 @@ TEST_F(BasicLookupTest, InactiveRow)
 }
 
 /**
- * @brief A correctly-set-up lookup row satisfies subrelation 1.
+ * @brief A correctly-set-up lookup row satisfies subrelation 0.
  *
  * With lookup_predicate=1, table_predicate=0:
  *   inverse_exists = 1
@@ -305,7 +337,7 @@ TEST_F(BasicLookupTest, ValidLookupRow)
 }
 
 /**
- * @brief A correctly-set-up table row satisfies subrelation 1.
+ * @brief A correctly-set-up table row satisfies subrelation 0.
  *
  * With lookup_predicate=0, table_predicate=1, read_count=1:
  *   inverse_exists = 1
@@ -352,9 +384,9 @@ TEST_F(BasicLookupTest, ValidTrace)
 }
 
 /**
- * @brief An active lookup row with an incorrect inverse violates subrelation 1.
+ * @brief An active lookup row with an incorrect inverse violates subrelation 0.
  *
- * We set I to a wrong value (not the product-inverse) and confirm subrelation 1 ≠ 0.
+ * We set I to a wrong value (not the product-inverse) and confirm subrelation 0 ≠ 0.
  */
 TEST_F(BasicLookupTest, IncorrectInverse)
 {
@@ -420,13 +452,15 @@ class CustomizedLookupTest : public GenericLookupRelationTest<SettingsCustomized
      * Row 1 is always a table row with f=5 (dummy, lookup_pred=0).
      * The t column for row 1 and the read count are the varying parameters.
      *
-     * The expected subrelation-2 sum is 1/lookup_term0 - read_count/table_term1,
+     * The expected subrelation 1 sum is 1/lookup_term0 - read_count/table_term1,
      * so passing table_t_value=9 (== v^2) with read_count=1 gives 0.
      */
     static void check_two_row_sum(const RelationParameters<FF>& params, FF table_t_value, FF read_count)
     {
+        auto construct_term = [&](FF col) { return col * col; };
+
         const FF v = FF(3);
-        const FF v_sq = v * v; // lookup_term0 = 9
+        const FF v_sq = construct_term(v); // lookup_term0 = 9
 
         // Row 0: lookup row (fixed)
         const FF t_row0 = FF(1); // arbitrary table column for row 0 inverse denominator
@@ -438,7 +472,7 @@ class CustomizedLookupTest : public GenericLookupRelationTest<SettingsCustomized
 
         // Row 1: table row (parametrized t column and read count)
         const FF f_row1 = FF(5);
-        const FF lookup_term_row1 = f_row1 * f_row1; // 25
+        const FF lookup_term_row1 = construct_term(f_row1); // 25
         AllEntities row1{};
         row1[0] = (lookup_term_row1 * table_t_value).invert();
         row1[1] = read_count; // read count
@@ -469,7 +503,7 @@ TEST_F(CustomizedLookupTest, InactiveRow)
 }
 
 /**
- * @brief Correctly-set-up lookup row satisfies subrelation 1.
+ * @brief Correctly-set-up lookup row satisfies subrelation 0.
  *
  * lookup_term = f^2,  f = in[4]
  * table_term  = t  ,  t = in[5]  (arbitrary, since table_pred=0)
@@ -494,7 +528,7 @@ TEST_F(CustomizedLookupTest, ValidLookupRow)
 }
 
 /**
- * @brief Correctly-set-up table row satisfies subrelation 1.
+ * @brief Correctly-set-up table row satisfies subrelation 0.
  *
  * lookup_term = f^2,  f = in[4]  (arbitrary)
  * table_term  = t  ,  t = in[5]
@@ -531,7 +565,7 @@ TEST_F(CustomizedLookupTest, ValidTrace)
 }
 
 /**
- * @brief Wrong inverse on a customized active row violates subrelation 1.
+ * @brief Wrong inverse on a customized active row violates subrelation 0.
  */
 TEST_F(CustomizedLookupTest, IncorrectInverse)
 {
@@ -577,9 +611,9 @@ TEST_F(CustomizedLookupTest, InvalidReadCount)
 // SettingsMixedLookup
 //
 // Combines two lookup terms (BASIC_LOOKUP + CUSTOMIZED_LOOKUP) and two table
-// terms (both BASIC_TABLE), giving two read counts and two table predicates.
+// terms (BASIC_TABLE + CUSTOMIZED_TABLE), giving two read counts and two table predicates.
 //
-// Polynomial index map (NUM_POLYS = 17):
+// Polynomial index map (NUM_POLYS = 15):
 //   [0]  Inverse polynomial
 //   [1]  Read count 0  (table term 0)
 //   [2]  Read count 1  (table term 1)
@@ -594,7 +628,7 @@ TEST_F(CustomizedLookupTest, InvalidReadCount)
 //   [11] Basic table col t2 (table 0)
 //   [12] Basic table col t3 (table 0)  ->  table_term_0 = t1*beta^2 + t2*beta + t3 + gamma
 //   [13] Custom f column               ->  lookup_term_1 = f^3  (degree 3)
-//   [14] Custom t column               ->  table_term_1 = t  (degree 3)
+//   [14] Custom t column               ->  table_term_1 = t     (degree 1)
 //
 // ============================================================================
 struct SettingsMixedLookup {
@@ -609,8 +643,8 @@ struct SettingsMixedLookup {
     static constexpr std::array<size_t, NUM_TABLE_TERMS> TABLE_TERM_DEGREES = { 1, 1 };
 
     // 1 (inv) + 2 (counts) + 2 (lookup preds) + 2 (table preds)
-    // + 3 (basic lookup cols) + 3 (basic table 0 cols) + 3 (basic table 1 cols) + 1 (custom f col)
-    static constexpr size_t NUM_POLYS = 17;
+    // + 3 (basic lookup cols) + 3 (basic table 0 cols) + 1 (custom f col) + 1 (custom t col)
+    static constexpr size_t NUM_POLYS = 15;
 
     // Index map:
     //   [0]  Inverse, [1] Read count 0, [2] Read count 1
@@ -619,17 +653,15 @@ struct SettingsMixedLookup {
     //   [5]  Table predicate 0, [6] Table predicate 1
     //   [7..9]   Basic lookup cols f1,f2,f3
     //   [10..12] Basic table 0 cols t1,t2,t3
-    //   [13..15] Basic table 1 cols t1',t2',t3'
-    //   [16] Custom f column  ->  lookup_term_1 = f^3
+    //   [13] Custom f column  ->  lookup_term_1 = f^3
+    //   [14] Custom t column  ->  table_term_1  = t
     using AllEntities = std::array<FF, NUM_POLYS>;
 
     /**
-     * @brief Returns false only when in[3]==0 AND in[4]==1.
+     * @brief Returns true if any predicate is active, meaning the inverse must be computed at this row.
      *
-     * The formula OR(in[3]^2, (1-in[4])^2) is zero iff in[3]=0 AND in[4]=1.
-     * Note: in[4]=0 means the customized lookup IS active in the formula sense
-     * (contributing (1-0)^2=1), whereas in[4]=1 means it is inactive in the formula.
-     * This is the opposite of the standard subrelation-2 predicate convention.
+     * Active predicates: basic lookup (in[3]), customized lookup (in[4]),
+     * basic table (in[5]), customized table (in[6]).
      */
     static bool inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -637,8 +669,12 @@ struct SettingsMixedLookup {
     }
 
     /**
-     * @brief OR between the two predicates (basic and customized lookup). Degree 6.
+     * @brief OR of all four predicates via inclusion-exclusion.
      *
+     * Groups basic and customized pairs, then ORs the groups:
+     *   basic_term       = OR(lookup_pred_0, table_pred_0) = OR(in[3], in[5])
+     *   customized_term  = OR(lookup_pred_1, table_pred_1) = OR(in[4], in[6])
+     *   result           = OR(basic_term, customized_term)        (degree 4)
      */
     template <typename Accumulator> static Accumulator compute_inverse_exists(const AllEntities& in)
     {
@@ -652,7 +688,7 @@ struct SettingsMixedLookup {
     }
 
     /**
-     * @brief Custom lookup term: f^3  (degree 3), f = in[16].
+     * @brief Custom lookup term: f^3  (degree 3), f = in[13].
      * Called only for the CUSTOMIZED_LOOKUP term (lookup_index=1).
      */
     template <typename Accumulator, size_t /*lookup_index*/, typename Parameters>
@@ -720,77 +756,101 @@ struct SettingsMixedLookup {
 class MixedLookupTest : public GenericLookupRelationTest<SettingsMixedLookup> {
   public:
     /**
-     * @brief Build and evaluate a canonical two-row (basic-lookup + table-0) trace.
+     * @brief Build and evaluate a canonical two-row mixed trace.
      *
-     * Row 0 is a basic lookup row: in[3]=1, in[4]=0, no table active.
-     *   f1=1, f2=2, f3=3 -> lookup_term_0 = 1*beta^2 + 2*beta + 3 + gamma
-     *   custom_f=2        -> lookup_term_1 = 8  (non-zero for inverse product)
-     *   Dummy table cols on row 0: 1,1,1 for both table 0 and table 1
+     * Row 0: basic lookup (in[3]=1) + customized table (in[6]=1).
+     *   f1=1, f2=2, f3=3  ->  lookup_term_basic_row0  = 1*beta^2 + 2*beta + 3 + gamma
+     *   custom_f=2         ->  lookup_term_custom_row0 = 8   (used only in the inverse product)
+     *   Dummy basic table cols: 1,1,1
+     *   custom_t_row0      ->  table_term_custom_row0 = custom_t_row0  (default 27)
+     *   read_count_customized = count for the customized table on row 0
      *
-     * Row 1 is a table-0 row: in[3]=0, in[4]=0, in[5]=1, in[6]=0, read_count_0=read_count.
-     *   Dummy lookup cols: 4,5,6; custom_f=3; dummy table 1 cols: 2,2,2
-     *   table_term_0_row1 = t1*beta^2 + t2*beta + t3 + gamma  (parametrized)
+     * Row 1: customized lookup (in[4]=1) + basic table (in[5]=1).
+     *   Dummy basic lookup cols: 4,5,6
+     *   custom_f=3         ->  lookup_term_custom_row1 = 27
+     *   t1,t2,t3           ->  table_term_basic_row1   = t1*beta^2 + t2*beta + t3 + gamma  (parametrized)
+     *   read_count = count for the basic table on row 1
      *
-     * acc[1] = 1/lookup_term_0_row0 - read_count/table_term_0_row1.
-     * Passing t1=1, t2=2, t3=3 (matching the lookup cols) with read_count=1 gives 0.
+     * acc[1] = 1/lookup_term_basic_row0 - read_count/table_term_basic_row1
+     *        + 1/lookup_term_custom_row1 - read_count_customized/table_term_custom_row0
+     *
+     * Default (valid) parameters: t1=1, t2=2, t3=3 (matching lookup_term_basic_row0),
+     * custom_t_row0=27 (= 3^3, matching lookup_term_custom_row1), both read_counts=1 -> acc[1]=0.
      */
-    static void check_two_row_sum(
-        const RelationParameters<FF>& params, FF t1_row1, FF t2_row1, FF t3_row1, FF read_count)
+    static void check_two_row_sum(const RelationParameters<FF>& params,
+                                  FF t1_row1 = FF(1),
+                                  FF t2_row1 = FF(2),
+                                  FF t3_row1 = FF(3),
+                                  FF read_count = FF(1),
+                                  FF custom_t_row0 = FF(27),
+                                  FF read_count_customized = FF(1))
     {
         const FF beta = params.beta;
         const FF beta_sq = params.beta_sqr;
         const FF gamma = params.gamma;
 
-        // Row 0: basic lookup active (in[3]=1, in[4]=0, in[5]=0, in[6]=0)
-        const FF f1 = FF(1);
-        const FF f2 = FF(2);
-        const FF f3 = FF(3);
-        const FF custom_f_row0 = FF(2); // lookup_term_1 = 8
-        // Dummy table cols on row 0 (predicates off, only needed for non-zero inverse product)
-        const FF tb0_1 = FF(1);
-        const FF tb0_2 = FF(1);
-        const FF tb0_3 = FF(1);
-        const FF custom_t_row0 = FF(1);
-        const FF lookup_term_0_row0 = f1 * beta_sq + f2 * beta + f3 + gamma;
-        const FF lookup_term_1_row0 = custom_f_row0 * custom_f_row0 * custom_f_row0; // 2^3
-        const FF table_term_0_row0 = tb0_1 * beta_sq + tb0_2 * beta + tb0_3 + gamma;
-        const FF table_term_1_row0 = custom_t_row0;
+        auto compute_basic_term = [&](FF f1, FF f2, FF f3) { return f1 * beta_sq + f2 * beta + f3 + gamma; };
+        auto compute_custom_term = [&](FF f) { return f * f * f; };
+
+        // Valid values for the test
+        const FF valid_t1_row1 = FF(1);
+        const FF valid_t2_row1 = FF(2);
+        const FF valid_t3_row1 = FF(3);
+        const FF valid_custom_f_row_1 = FF(3);
+
+        // Row 0: basic lookup and customized table active (in[3]=1, in[4]=0, in[5]=0, in[6]=1)
+        const FF custom_f_row0 = FF(2); // Dummy value, predicate is off
+        const FF dummy_t1_row0 = FF(1);
+        const FF dummy_t2_row0 = FF(1);
+        const FF dummy_t3_row0 = FF(1);
+
+        // Construct terms
+        const FF lookup_term_basic_row0 = compute_basic_term(valid_t1_row1, valid_t2_row1, valid_t3_row1);
+        const FF lookup_term_custom_row0 = compute_custom_term(custom_f_row0);
+        const FF table_term_basic_row0 = compute_basic_term(dummy_t1_row0, dummy_t2_row0, dummy_t3_row0);
+        const FF table_term_custom_row0 = custom_t_row0;
 
         AllEntities row0{};
-        row0[0] = (lookup_term_0_row0 * lookup_term_1_row0 * table_term_0_row0 * table_term_1_row0).invert();
-        row0[3] = FF(1); // basic lookup predicate (in[4] stays 0)
-        row0[7] = f1;
-        row0[8] = f2;
-        row0[9] = f3;
-        row0[10] = tb0_1;
-        row0[11] = tb0_2;
-        row0[12] = tb0_3;
+        row0[0] = (lookup_term_basic_row0 * lookup_term_custom_row0 * table_term_basic_row0 * table_term_custom_row0)
+                      .invert();
+        row0[2] = read_count_customized; // read count customized table
+        row0[3] = FF(1);                 // basic lookup predicate
+        row0[6] = FF(1);                 // customized table predicate
+        row0[7] = valid_t1_row1;
+        row0[8] = valid_t2_row1;
+        row0[9] = valid_t3_row1;
+        row0[10] = dummy_t1_row0;
+        row0[11] = dummy_t2_row0;
+        row0[12] = dummy_t3_row0;
         row0[13] = custom_f_row0;
-        row0[14] = table_term_1_row0;
+        row0[14] = table_term_custom_row0;
 
-        // Row 1: table 0 active (in[3]=0, in[4]=0, in[5]=1, in[6]=0)
-        const FF f1_row1 = FF(4);
-        const FF f2_row1 = FF(5);
-        const FF f3_row1 = FF(6);
-        const FF custom_f_row1 = FF(3); // lookup_term_1 = 27
-        const FF custom_t_row1 = FF(1);
-        const FF lookup_term_0_row1 = f1_row1 * beta_sq + f2_row1 * beta + f3_row1 + gamma;
-        const FF lookup_term_1_row1 = custom_f_row1 * custom_f_row1 * custom_f_row1; // 3^3
-        const FF table_term_0_row1 = t1_row1 * beta_sq + t2_row1 * beta + t3_row1 + gamma;
-        const FF table_term_1_row1 = custom_t_row1;
+        // Row 1: basic table and customized lookup active (in[3]=0, in[4]=1, in[5]=1, in[6]=0)
+        const FF dummy_f1_row1 = FF(4);       // Dummy value, predicate is off
+        const FF dummy_f2_row1 = FF(5);       // Dummy value, predicate is off
+        const FF dummy_f3_row1 = FF(6);       // Dummy value, predicate is off
+        const FF dummy_custom_t_row1 = FF(1); // Dummy value, predicate is off
+
+        // Construct terms
+        const FF lookup_term_basic_row1 = compute_basic_term(dummy_f1_row1, dummy_f2_row1, dummy_f3_row1);
+        const FF lookup_term_custom_row1 = compute_custom_term(valid_custom_f_row_1); // 3^3
+        const FF table_term_basic_row1 = compute_basic_term(t1_row1, t2_row1, t3_row1);
+        const FF table_term_custom_row1 = dummy_custom_t_row1;
 
         AllEntities row1{};
-        row1[0] = (lookup_term_0_row1 * lookup_term_1_row1 * table_term_0_row1 * table_term_1_row1).invert();
-        row1[1] = read_count; // read count 0
-        row1[5] = FF(1);      // table predicate 0
-        row1[7] = f1_row1;
-        row1[8] = f2_row1;
-        row1[9] = f3_row1;
+        row1[0] = (lookup_term_basic_row1 * lookup_term_custom_row1 * table_term_basic_row1 * table_term_custom_row1)
+                      .invert();
+        row1[1] = read_count; // read count basic table
+        row1[4] = FF(1);      // customized lookup predicate
+        row1[5] = FF(1);      // basic table predicate
+        row1[7] = dummy_f1_row1;
+        row1[8] = dummy_f2_row1;
+        row1[9] = dummy_f3_row1;
         row1[10] = t1_row1;
         row1[11] = t2_row1;
         row1[12] = t3_row1;
-        row1[13] = custom_f_row1;
-        row1[14] = custom_t_row1;
+        row1[13] = valid_custom_f_row_1;
+        row1[14] = dummy_custom_t_row1;
 
         Accumulator acc{};
         Relation::accumulate(acc, row0, params, FF(1));
@@ -798,7 +858,9 @@ class MixedLookupTest : public GenericLookupRelationTest<SettingsMixedLookup> {
         Relation::accumulate(acc, row1, params, FF(1));
 
         EXPECT_EQ(acc[0], FF(0));
-        EXPECT_EQ(acc[1], FF(1) / lookup_term_0_row0 - read_count / table_term_0_row1);
+        EXPECT_EQ(acc[1],
+                  FF(1) / lookup_term_basic_row0 - read_count / table_term_basic_row1 +
+                      FF(1) / lookup_term_custom_row1 - read_count_customized / table_term_custom_row0);
     }
 };
 
@@ -810,7 +872,7 @@ class MixedLookupTest : public GenericLookupRelationTest<SettingsMixedLookup> {
  *   subrel_0 = 0*prod - 0 = 0
  *   subrel_1 = all predicate contributions = 0
  */
-TEST_F(MixedLookupTest, CustomizedOnlyRow)
+TEST_F(MixedLookupTest, InactiveRow)
 {
     const auto params = RelationParameters<FF>::get_random();
     AllEntities row{};
@@ -821,7 +883,7 @@ TEST_F(MixedLookupTest, CustomizedOnlyRow)
 }
 
 /**
- * @brief A correctly-set-up basic lookup row satisfies subrelation 1.
+ * @brief A correctly-set-up basic lookup row satisfies subrelation 0.
  *
  * in[3]=1, all other predicates 0:
  *   basic_term = OR(in[3], in[5]) = OR(1, 0) = 1
@@ -868,14 +930,14 @@ TEST_F(MixedLookupTest, ValidLookupRow)
 }
 
 /**
- * @brief A correctly-set-up table-0 row satisfies subrelation 1.
+ * @brief A correctly-set-up table-0 row satisfies subrelation 0.
  *
  * in[5]=1, all other predicates 0:
  *   basic_term = OR(in[3], in[5]) = OR(0, 1) = 1
  *   customized_term = OR(in[4], in[6]) = OR(0, 0) = 0
  *   inverse_exists = OR(1, 0) = 1
  *   I = 1/(lookup_term_0 * lookup_term_1 * table_term_0 * table_term_1)
- *   subrel_0 = 0
+ *   subrel_0 = I * prod - 1 = 0
  */
 TEST_F(MixedLookupTest, ValidTableRow)
 {
@@ -923,11 +985,11 @@ TEST_F(MixedLookupTest, ValidTableRow)
 TEST_F(MixedLookupTest, ValidTrace)
 {
     const auto params = RelationParameters<FF>::get_random();
-    check_two_row_sum(params, FF(1), FF(2), FF(3), FF(1));
+    check_two_row_sum(params);
 }
 
 /**
- * @brief Wrong inverse on an active basic lookup row violates subrelation 1.
+ * @brief Wrong inverse on an active basic lookup row violates subrelation 0.
  */
 TEST_F(MixedLookupTest, IncorrectInverse)
 {
@@ -974,7 +1036,12 @@ TEST_F(MixedLookupTest, IncorrectInverse)
 TEST_F(MixedLookupTest, InvalidLookup)
 {
     const auto params = RelationParameters<FF>::get_random();
+
+    // Invalid basic lookup
     check_two_row_sum(params, FF(2), FF(4), FF(6), FF(1));
+
+    // Invalid customized lookup
+    check_two_row_sum(params, FF(1), FF(2), FF(3), FF(1), FF(10));
 }
 
 /**
@@ -983,5 +1050,10 @@ TEST_F(MixedLookupTest, InvalidLookup)
 TEST_F(MixedLookupTest, InvalidReadCount)
 {
     const auto params = RelationParameters<FF>::get_random();
+
+    // Invalid basic lookup
     check_two_row_sum(params, FF(1), FF(2), FF(3), FF(2));
+
+    // Invalid customized lookup
+    check_two_row_sum(params, FF(1), FF(2), FF(3), FF(1), FF(27), FF(2));
 }
