@@ -313,7 +313,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
       debugLogStore = new Map();
       log.info(
-        'Aztec node started in test mode (realRoofs set to false) hence debug logs from public functions will be collected and served',
+        'Aztec node started in test mode (realProofs set to false) hence debug logs from public functions will be collected and served',
       );
     }
 
