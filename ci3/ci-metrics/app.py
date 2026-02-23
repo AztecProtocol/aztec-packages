@@ -1044,6 +1044,21 @@ def ci_health_report():
     return "Report not found", 404
 
 
+@app.route('/commits')
+@auth.login_required
+def commits_page():
+    path = Path(__file__).parent / 'views' / 'commits.html'
+    return path.read_text()
+
+
+@app.route('/api/commits')
+@auth.login_required
+def api_commits():
+    branch = request.args.get('branch', 'next')
+    count = min(int(request.args.get('count', 100)), 500)
+    return _json(github_data.get_recent_commits(branch, count))
+
+
 @app.route('/flake-prs')
 @auth.login_required
 def flake_prs():
