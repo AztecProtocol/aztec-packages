@@ -9,6 +9,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+<<<<<<< HEAD
 ### [Aztec.js] `getPublicEvents` now returns an object instead of an array
 
 `getPublicEvents` now returns a `GetPublicEventsResult<T>` object with `events` and `maxLogsHit` fields instead of a plain array. This enables pagination through large result sets using the new `afterLog` filter option.
@@ -156,6 +157,8 @@ The `--name` flag has been removed from both `aztec new` and `aztec init`. For `
 
 **Impact**: If you were using `--name` to set a contract name different from the directory name, rename your directory or use `aztec new` with the desired contract name directly.
 
+=======
+>>>>>>> 98363a7aab (fix: remove insecure SchnorrSingleKeyAccount contract (#20766))
 ### [Aztec.js] Removed `SingleKeyAccountContract`
 
 The `SchnorrSingleKeyAccount` contract and its TypeScript wrapper `SingleKeyAccountContract` have been removed. This contract was insecure: it used `ivpk_m` (incoming viewing public key) as its Schnorr signing key, meaning anyone who received a user's viewing key could sign transactions on their behalf.
