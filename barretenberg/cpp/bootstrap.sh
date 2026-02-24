@@ -7,6 +7,7 @@ else
   export native_preset=${NATIVE_PRESET:-clang20-no-avm}
 fi
 export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+export native_build_dir=$(scripts/native-preset-build-dir)
 
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
@@ -68,13 +69,13 @@ function build_native {
     build_preset $native_preset
     # Build bb-external for barretenberg-rs FFI backend (not part of default targets)
     cmake --build --preset $native_preset --target bb-external
-    cache_upload barretenberg-$native_preset-$hash.zst build/{bin,lib}
+    cache_upload barretenberg-$native_preset-$hash.zst ${native_build_dir}/{bin,lib}
   fi
   # Always inject version (even for cached binaries) to ensure correct version on release
-  inject_version $(scripts/native-preset-build-dir)/bin/bb
+  inject_version $native_build_dir/bin/bb
 
-  if [ -f $(scripts/native-preset-build-dir)/bin/bb-avm ]; then
-    inject_version $(scripts/native-preset-build-dir)/bin/bb-avm
+  if [ -f $native_build_dir/bin/bb-avm ]; then
+    inject_version $native_build_dir/bin/bb-avm
   fi
 }
 
@@ -235,8 +236,8 @@ function build_release_dir {
   mkdir build-release
 
   # Version is injected in build_native/build_cross (always, even for cached binaries)
-  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build/bin bb
-  tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C build/bin bb-avm
+  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C $native_build_dir/bin bb
+  tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C $native_build_dir/bin bb-avm
 
   tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
   tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
@@ -253,8 +254,8 @@ function build_release_dir {
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-zig-amd64-macos/bin bb
 
   # Package static libraries for FFI bindings
-  if [ -f build/lib/libbb-external.a ]; then
-    tar -czf build-release/barretenberg-static-amd64-linux.tar.gz -C build/lib libbb-external.a
+  if [ -f $native_build_dir/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-static-amd64-linux.tar.gz -C $native_build_dir/lib libbb-external.a
   fi
   if [ -f build-zig-arm64-linux/lib/libbb-external.a ]; then
     tar -czf build-release/barretenberg-static-arm64-linux.tar.gz -C build-zig-arm64-linux/lib libbb-external.a
@@ -341,7 +342,7 @@ function build_with_makefile {
 
 function test_cmds_native {
   # E.g. build, build-debug or build-coverage
-  cd $(scripts/native-preset-build-dir)
+  cd $native_build_dir
 
   for bin in ./bin/*_tests; do
     local bin_name=$(basename $bin)
@@ -419,20 +420,21 @@ function build_bench {
       "build_preset $native_preset --target ultra_honk_bench --target chonk_bench --target bb --target honk_solidity_proof_gen" \
       "build_preset wasm-threads --target ultra_honk_bench --target chonk_bench --target bb"
     cache_upload barretenberg-benchmarks-$hash.zst \
-      {build,build-wasm-threads}/bin/{ultra_honk_bench,chonk_bench,bb}
+      ${native_build_dir}/bin/{ultra_honk_bench,chonk_bench,bb} \
+      build-wasm-threads/bin/{ultra_honk_bench,chonk_bench,bb}
   fi
 }
 
 function bench_cmds {
   prefix="$hash:CPUS=8"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk build/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk_zk build/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk build/bin/chonk_bench ChonkBench/Full/5$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk $native_build_dir/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk_zk $native_build_dir/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk $native_build_dir/bin/chonk_bench ChonkBench/Full/5$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk_zk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/chonk build-wasm-threads/bin/chonk_bench ChonkBench/Full/5$"
   prefix="$hash:CPUS=1"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk_verify build/bin/chonk_bench VerificationOnly$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk_verify $native_build_dir/bin/chonk_bench VerificationOnly$"
 }
 
 # Runs benchmarks sharded over machine cores.
