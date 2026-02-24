@@ -39,6 +39,9 @@ function build_cross {
     # Determine rust target outside of subshell
     local rust_target
     case "$target" in
+      arm64-linux)
+        rust_target=aarch64-unknown-linux-gnu
+        ;;
       amd64-macos)
         rust_target=x86_64-apple-darwin
         ;;
@@ -75,6 +78,7 @@ function build {
   if [ "$CI_FULL" -eq 1 ]; then
     build_cross amd64-macos
     build_cross arm64-macos
+    build_cross arm64-linux
   fi
 }
 
