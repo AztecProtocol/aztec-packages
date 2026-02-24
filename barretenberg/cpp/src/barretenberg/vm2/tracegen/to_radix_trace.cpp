@@ -235,12 +235,11 @@ void ToRadixTraceBuilder::process_with_memory(
                       { {
                           { C::to_radix_mem_last, 1 },
                           { C::to_radix_mem_err, 1 },
-                          { C::to_radix_mem_sel_truncation_error, 1 },
                           // Decomposition
                           { C::to_radix_mem_sel_should_decompose, 1 },
                           { C::to_radix_mem_limb_index_to_lookup, num_limbs - 1 },
                           { C::to_radix_mem_limb_value, event.limbs[0].as_ff() },
-                          { C::to_radix_mem_value_found, 0 },
+                          // Default C::to_radix_mem_value_found to zero.
                       } });
 
             row++;

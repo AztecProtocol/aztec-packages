@@ -56,7 +56,7 @@ namespace to_radix;
     #[skippable_if]
     sel = 0;
 
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     // Inputs to to_radix
@@ -65,15 +65,15 @@ namespace to_radix;
     pol commit limb_index;
 
     // Outputs of to_radix
-    pol commit limb;
-    pol commit found;
+    pol commit limb; // 8-bit value smaller than radix
+    pol commit found; // @boolean
     found * (1 - found) = 0;
 
     // ==== Multi-row Computation Selectors ====
     // See recipe in https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Contiguous-Multi-Rows-Computation-Trace
-    pol commit start;
+    pol commit start; // @boolean
     start * (1 - start) = 0;
-    pol commit end;
+    pol commit end; // @boolean
     end * (1 - end) = 0;
 
     pol LATCH_CONDITION = end + precomputed.first_row;
@@ -88,13 +88,13 @@ namespace to_radix;
     sel' * (start' - LATCH_CONDITION) = 0;
 
     // `sel * (1 - end) = sel - end * sel` and since `end == 1 ==> sel == 1` we have `end * sel = end`.
-    pol NOT_END = sel - end;
+    pol NOT_END = sel - end; // @boolean
 
     // ===== RADIX POWERS COMPUTATION =====
 
     pol commit power;
     // We commit not_padding_limb instead of the more natural padding_limb because it's going to be used as a lookup selector.
-    pol commit not_padding_limb;
+    pol commit not_padding_limb; // @boolean
     not_padding_limb * (1 - not_padding_limb) = 0;
 
     // not_padding_limb starts at 1
@@ -171,7 +171,7 @@ namespace to_radix;
     precomputed.sel_to_radix_p_limb_counts
         { precomputed.idx, precomputed.to_radix_safe_limbs };
 
-    pol commit is_unsafe_limb;
+    pol commit is_unsafe_limb; // @boolean
     is_unsafe_limb * (1 - is_unsafe_limb) = 0;
 
     // `is_unsafe_limb == 1` iff `limb_index == safe_limbs`
@@ -197,14 +197,14 @@ namespace to_radix;
     (1 - not_padding_limb) * p_limb = 0;
 
     // We carry wether the accumulator is under p. If we reach the unsafe limb, we need to ensure that this is true.
-    pol commit acc_under_p;
+    pol commit acc_under_p; // @boolean
     acc_under_p * (1 - acc_under_p) = 0;
 
     // 1 iff `limb < p_limb`
-    pol commit limb_lt_p;
+    pol commit limb_lt_p; // @boolean
     limb_lt_p * (1 - limb_lt_p) = 0;
 
-    pol commit limb_eq_p;
+    pol commit limb_eq_p; // @boolean
     limb_eq_p * (1 - limb_eq_p) = 0;
 
     // limb_eq_p and limb_lt_p are NAND

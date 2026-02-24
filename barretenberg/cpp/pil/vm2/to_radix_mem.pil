@@ -59,7 +59,7 @@ include "memory.pil";
 
 namespace to_radix_mem;
 
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
@@ -68,20 +68,20 @@ namespace to_radix_mem;
     // Memory Inputs
     pol commit execution_clk;
     pol commit space_id;
-    pol commit dst_addr;
+    pol commit dst_addr; // 32-bit (guaranteed by addressing resolution constraints in addressing.pil)
 
     // To Radix Inputs
     pol commit value_to_decompose;
-    pol commit radix;
-    pol commit num_limbs;
-    pol commit is_output_bits;
+    pol commit radix; // U32 (by execution trace tag validation)
+    pol commit num_limbs; // U32 (by execution trace tag validation)
+    pol commit is_output_bits; // @boolean (U1 by execution trace tag validation)
 
     // == Multi-row Computation Selectors ==
     // See recipe in https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Contiguous-Multi-Rows-Computation-Trace
     // whereby `end` is denoted as `last` below.
-    pol commit start;
+    pol commit start; // @boolean
     start * (1 - start) = 0;
-    pol commit last; // Constrained in the Control flow section as depends on error
+    pol commit last; // @boolean (Constrained in the Control flow section as depends on error)
     last * (1 - last) = 0;
 
     pol LATCH_CONDITION = last + precomputed.first_row;
@@ -110,7 +110,7 @@ namespace to_radix_mem;
     ////////////////////////////////////////////////
     // Error Handling - Out of Range Memory Access
     ////////////////////////////////////////////////
-    pol commit sel_dst_out_of_range_err; // Constrained to be boolean by the lookup into gt. (provided that start == 1).
+    pol commit sel_dst_out_of_range_err; // @boolean (only when `start == 1` by lookup into gt.pil)
 
     // Use the comparison gadget to check that the max addresses are within range
     // The comparison gadget provides the ability to test GreaterThan so we check
@@ -131,11 +131,11 @@ namespace to_radix_mem;
     ////////////////////////////////////////////////
     // To check that 2 <= radix <= 256, we raise error flags if 2 > radix or radix > 256.
     // We formulate them like this since we have access to a GT gadget.
-    pol commit sel_radix_lt_2_err; // Radix is < 2 (Constrained to be boolean by the lookup into gt. (provided that start == 1).)
+    pol commit sel_radix_lt_2_err; // @boolean Radix is < 2 (only when `start == 1` by lookup into gt.pil)
 
-    pol commit sel_radix_gt_256_err; // Radix is > 256 (Constrained to be boolean by the lookup into gt. (provided that start == 1).)
+    pol commit sel_radix_gt_256_err; // @boolean Radix is > 256 (only when `start == 1` by lookup into gt.pil)
 
-    pol commit sel_invalid_bitwise_radix; // Radix != 2 if output_bits = 1
+    pol commit sel_invalid_bitwise_radix; // @boolean Radix != 2 if output_bits = 1
     sel_invalid_bitwise_radix * (1 - sel_invalid_bitwise_radix) = 0;
 
     pol commit two; // While we do not have constants in lookups
@@ -154,7 +154,7 @@ namespace to_radix_mem;
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     // Check whether radix == 2
-    pol commit sel_radix_eq_2;
+    pol commit sel_radix_eq_2; // @boolean
     sel_radix_eq_2 * (1 - sel_radix_eq_2) = 0;
     pol RADIX_MIN_TWO = radix - 2;
     // sel_radix_eq_2 == 1 iff RADIX_MIN_TWO == 0 (only on `start == 1`)
@@ -170,7 +170,7 @@ namespace to_radix_mem;
     // Error Handling - Check Num Limbs and Value are valid
     /////////////////////////////////////////////////////////
     // If num_limbs = 0, and value_to_decompose != 0, we throw an error
-    pol commit sel_num_limbs_is_zero; // We will re-use this later when gating dispatch to the to_radix gadget
+    pol commit sel_num_limbs_is_zero; // @boolean We will re-use this later when gating dispatch to the to_radix gadget
     sel_num_limbs_is_zero * (1 - sel_num_limbs_is_zero) = 0;
     pol commit num_limbs_inv;
     #[ZERO_CHECK_NUM_LIMBS] // sel_num_limbs_is_zero = 1 if num_limbs = 0
@@ -189,7 +189,7 @@ namespace to_radix_mem;
     /////////////////////////////////////////////////////
     // Dispatch inputs to to_radix
     /////////////////////////////////////////////////////
-    pol commit input_validation_error;
+    pol commit input_validation_error; // @boolean (only when `start == 1`)
     input_validation_error = 1 - (1 - sel_dst_out_of_range_err) * (1 - sel_radix_lt_2_err)
         * (1 - sel_radix_gt_256_err) * (1 - sel_invalid_bitwise_radix)
         * (1 - sel_invalid_num_limbs_err);
@@ -197,9 +197,10 @@ namespace to_radix_mem;
     pol commit limb_value;
     // In the low level to_radix gadget, `found == 1` the number has been reconstructed with the current limbs.
     // Refer to the table in the low level to_radix gadget for a visual example.
-    pol commit value_found;
-    pol commit sel_should_decompose;
-    sel_should_decompose * (1 - sel_should_decompose) = 0;
+    pol commit value_found; // @boolean (only when `sel_should_decompose == 1` by lookup into to_radix.pil)
+    pol commit sel_should_decompose; // @boolean (on active rows)
+    // At `start == 1`, `sel_should_decompose` is boolean by definition. On the other active rows,
+    // it is propagated from the start row. (see #[SEL_SHOULD_DECOMPOSE_CONTINUITY])
 
     // On the start row, we define sel_should_decompose as !input_validation_error && !num_limbs_is_zero
     // We can't inline input_validation_error because of the degree.
@@ -220,24 +221,22 @@ namespace to_radix_mem;
     /////////////////////////////////////////////////////
     // Error Handling - Check no truncation error
     /////////////////////////////////////////////////////
-    pol commit sel_truncation_error;
-    sel_truncation_error * (1 - sel_truncation_error) = 0;
+    pol SEL_TRUNCATION_ERROR = sel_should_decompose * (1 - value_found); // @boolean by definition
     // A truncation error happens if in the start row, we look up the to_radix gadget and value_found is off.
     // The to_radix gadget is little endian, so the first row that we lookup is the last limb. If it's not found in the last limb,
     // it means that the number is truncated with the given number of limbs.
-    #[TRUNCATION_ERROR]
-    sel_truncation_error = start * sel_should_decompose * (1 - value_found);
 
     /////////////////////////////////////////////////////
     // Error Handling - Consolidated error flag
     /////////////////////////////////////////////////////
-    pol commit err;
-    err = start * (1 - (1 - input_validation_error) * (1 - sel_truncation_error));
+    pol commit err; // @boolean by definition
+    #[ERR_COMPUTATION]
+    err = start * (1 - (1 - input_validation_error) * (1 - SEL_TRUNCATION_ERROR));
 
     /////////////////////////////////////////////////////
     // Control flow management and terminating trace
     /////////////////////////////////////////////////////
-    pol NOT_LAST = sel - last;
+    pol NOT_LAST = sel - last; // @boolean
     // Equivalent to sel * (1 - LATCH_CONDITION) because from #[SEL_ON_START_OR_END]
     // we have `last * (1 - sel) == 0`, i.e., `sel * last == last`
     // which implies that `sel * (1 - LATCH_CONDITION) == sel - first_row * sel - last`
@@ -279,7 +278,7 @@ namespace to_radix_mem;
     ////////////////////////////////////////////////
     // Write output to memory
     ////////////////////////////////////////////////
-    pol commit sel_should_write_mem;
+    pol commit sel_should_write_mem; // @boolean (definition on `start ==1` and then by propagation on active rows)
     // We compute sel_should_write_mem in the start row, as no error at all and num_limbs != 0.
     start * ((1 - err) * (1 - sel_num_limbs_is_zero) - sel_should_write_mem) = 0;
     // On following rows, we propagate sel_should_write_mem.
