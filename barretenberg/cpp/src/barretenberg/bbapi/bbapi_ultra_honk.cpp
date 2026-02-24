@@ -220,7 +220,7 @@ MegaVkAsFields::Response MegaVkAsFields::execute(BB_UNUSED const BBApiRequest& r
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
 
-    using VK = MegaFlavor::VerificationKey;
+    using VK = MultiMegaFlavor::VerificationKey;
     validate_vk_size<VK>(verification_key);
 
     // MegaFlavor for private function verification keys
