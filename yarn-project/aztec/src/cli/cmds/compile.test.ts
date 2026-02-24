@@ -80,3 +80,22 @@ function runCodegen() {
     throw new Error(`codegen failed:\n${e.stderr?.toString() ?? e.message}`);
   }
 }
+
+// Validates that aztec compile warns when contract crates contain tests. We want tests to be in a separate `lib` crate.
+describe('aztec compile warns about tests in contract crates', () => {
+  const CONTRACT_WITH_TESTS_WORKSPACE = join(PACKAGE_ROOT, 'test/contract-with-tests');
+  const CONTRACT_WITH_TESTS_TARGET = join(CONTRACT_WITH_TESTS_WORKSPACE, 'target');
+
+  afterAll(() => {
+    rmSync(CONTRACT_WITH_TESTS_TARGET, { recursive: true, force: true });
+  });
+
+  it('warns when a contract crate contains tests', () => {
+    const result = execFileSync('node', [CLI, 'compile'], {
+      cwd: CONTRACT_WITH_TESTS_WORKSPACE,
+      stdio: 'pipe',
+      encoding: 'utf-8',
+    });
+    expect(result).toMatch(/Found tests in contract crate/);
+  }, 120_000);
+});

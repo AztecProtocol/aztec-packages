@@ -46,7 +46,7 @@ Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires 
 
 ## Keep tests in the test crate
 
-When you create a project with `aztec new` or `aztec init`, the generated workspace has two crates: `<name>_contract` and `<name>_test`. It is important that all tests live in the `<name>_test` crate, **not** in the `<name>_contract` crate.
+When you create a project with `aztec new` or `aztec init`, the generated workspace has two crates: `contract` and `test`. It is important that all tests live in the `test` crate, **not** in the `contract` crate.
 
 If you place `#[test]` functions inside the contract crate, `aztec compile` will emit a warning:
 
@@ -60,7 +60,7 @@ The reason is **unnecessary recompilation**: the contract artifact depends on ev
 
 ## Basic test structure
 
-When you create a project with `aztec new` or `aztec init`, a separate `test` crate is created alongside the `contract` crate. Tests live in `test/src/lib.nr` and import the contract crate by name (not `crate::`):
+Tests live in `test/src/lib.nr` and import the contract crate by name (not `crate::`):
 
 ```rust
 use my_contract::MyContract;
