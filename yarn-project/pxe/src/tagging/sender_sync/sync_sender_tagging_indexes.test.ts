@@ -12,7 +12,6 @@ import { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_s
 import {
   type ExtendedDirectionalAppTaggingSecret,
   SiloedTag,
-  Tag,
   UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN,
 } from '../index.js';
 import { syncSenderTaggingIndexes } from './sync_sender_tagging_indexes.js';
@@ -26,9 +25,8 @@ describe('syncSenderTaggingIndexes', () => {
   let aztecNode: MockProxy<AztecNode>;
   let taggingStore: SenderTaggingStore;
 
-  async function computeSiloedTagForIndex(index: number) {
-    const tag = await Tag.compute({ extendedSecret: secret, index });
-    return SiloedTag.compute(tag, secret.app);
+  function computeSiloedTagForIndex(index: number) {
+    return SiloedTag.compute({ extendedSecret: secret, index });
   }
 
   function makeLog(txHash: TxHash, tag: Fr) {
