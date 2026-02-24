@@ -604,12 +604,12 @@ describe('HA Full Setup', () => {
         skipInstancePublication: true,
         wait: { returnReceipt: true },
       });
-      expect(receipt.blockNumber).toBeDefined();
-      const [block] = await aztecNode.getCheckpointedBlocks(receipt.blockNumber!, 1);
+      expect(receipt.receipt.blockNumber).toBeDefined();
+      const [block] = await aztecNode.getCheckpointedBlocks(receipt.receipt.blockNumber!, 1);
       const [cp] = await aztecNode.getCheckpoints(block!.checkpointNumber, 1);
       const att = cp.attestations.filter(a => !a.signature.isEmpty());
       expect(att.length).toBeGreaterThanOrEqual(quorum);
-      logger.info(`Phase 2: block ${receipt.blockNumber}, ${att.length} attestations (quorum ${quorum})`);
+      logger.info(`Phase 2: block ${receipt.receipt.blockNumber}, ${att.length} attestations (quorum ${quorum})`);
     } finally {
       // Restore each node's saved initial keystore so subsequent tests see original state
       for (let i = 0; i < NODE_COUNT; i++) {
