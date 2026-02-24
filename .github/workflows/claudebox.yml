@@ -32,10 +32,9 @@ jobs:
       - name: Parse command
         id: parse
         run: |
-          # Extract the command after @AztecBot
           BODY="${{ github.event.comment.body }}"
-          # Get first line, strip @AztecBot prefix
-          CMD=$(echo "$BODY" | head -1 | sed 's/^/claudebox[[:space:]]*//')
+          # Get first line, strip /claudebox prefix
+          CMD=$(echo "$BODY" | head -1 | sed 's|^/claudebox[[:space:]]*||')
 
           # First word is the script name
           SCRIPT_NAME=$(echo "$CMD" | awk '{print $1}')
