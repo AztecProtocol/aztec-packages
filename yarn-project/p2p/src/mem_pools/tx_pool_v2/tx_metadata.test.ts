@@ -36,6 +36,35 @@ describe('TxMetaData', () => {
         expect(nullifier).toMatch(/^0x[0-9a-f]+$/i);
       }
     });
+
+    it('sets forPublic to truthy for public transactions', async () => {
+      const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+      expect(tx.data.forPublic).toBeDefined();
+      const meta = await buildTxMetaData(tx);
+
+      expect(meta.data.forPublic).toBeTruthy();
+    });
+
+    it('sets forPublic to falsy for private transactions', async () => {
+      const tx = await mockTx(1, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 0,
+        hasPublicTeardownCallRequest: false,
+      });
+      expect(tx.data.forPublic).not.toBeDefined();
+      const meta = await buildTxMetaData(tx);
+
+      expect(meta.data.forPublic).toBeFalsy();
+    });
+
+    it('preserves gas limits in validation data', async () => {
+      const tx = await mockTx(1);
+      const meta = await buildTxMetaData(tx);
+
+      expect(meta.data.constants.txContext.gasSettings.gasLimits).toEqual(
+        tx.data.constants.txContext.gasSettings.gasLimits,
+      );
+    });
   });
 
   describe('comparePriority', () => {

@@ -6,8 +6,8 @@ global:
 
   l1ExecutionUrls: []
   l1ConsensusUrls: []
-  l1ConsensusHostApiKeys: []
-  l1ConsensusHostApiKeyHeaders: []
+  l1ConsensusHostApiKeys: ""
+  l1ConsensusHostApiKeyHeaders: ""
 
 validator:
   nodeType: "sequencer-node"

@@ -69,9 +69,11 @@ import {
 } from '../../msg_validators/index.js';
 import { MessageSeenValidator } from '../../msg_validators/msg_seen_validator/msg_seen_validator.js';
 import {
-  type MessageValidator,
-  createTxMessageValidators,
-  createTxReqRespValidator,
+  type TransactionValidator,
+  createFirstStageTxValidationsForGossipedTransactions,
+  createSecondStageTxValidationsForGossipedTransactions,
+  createTxValidatorForBlockProposalReceivedTxs,
+  createTxValidatorForReqResponseReceivedTxs,
 } from '../../msg_validators/tx_validator/factory.js';
 import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
@@ -87,6 +89,9 @@ import { PeerScoring } from '../peer-manager/peer_scoring.js';
 import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
 import type { P2PReqRespConfig } from '../reqresp/config.js';
 import {
+  AuthRequest,
+  BlockTxsRequest,
+  BlockTxsResponse,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
   type ReqRespResponse,
@@ -94,14 +99,9 @@ import {
   type ReqRespSubProtocolHandler,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolValidators,
+  StatusMessage,
   type SubProtocolMap,
   ValidationError,
-} from '../reqresp/index.js';
-import {
-  AuthRequest,
-  BlockTxsRequest,
-  BlockTxsResponse,
-  StatusMessage,
   pingHandler,
   reqGoodbyeHandler,
   reqRespBlockHandler,
@@ -906,15 +906,45 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   protected async handleGossipedTx(payloadData: Buffer, msgId: string, source: PeerId) {
     const validationFunc: () => Promise<ReceivedMessageValidationResult<Tx>> = async () => {
       const tx = Tx.fromBuffer(payloadData);
-      const isValid = await this.validatePropagatedTx(tx, source);
-      if (!isValid) {
-        this.logger.trace(`Rejecting invalid propagated tx`, {
-          [Attributes.P2P_ID]: source.toString(),
-        });
+
+      const currentBlockNumber = await this.archiver.getBlockNumber();
+      const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
+
+      // Stage 1: fast validators (metadata, data, timestamps, double-spend, gas, phases, block header)
+      const firstStageValidators = await this.createFirstStageMessageValidators(currentBlockNumber, nextSlotTimestamp);
+      const firstStageOutcome = await this.runValidations(tx, firstStageValidators);
+      if (!firstStageOutcome.allPassed) {
+        const { name } = firstStageOutcome.failure;
+        let { severity } = firstStageOutcome.failure;
+
+        // Double spend validator has a special case handler. We perform more detailed examination
+        // as to how recently the nullifier was entered into the tree and if the transaction should
+        // have 'known' the nullifier existed. This determines the severity of the penalty applied to the peer.
+        if (name === 'doubleSpendValidator') {
+          const txBlockNumber = BlockNumber(currentBlockNumber + 1);
+          severity = await this.handleDoubleSpendFailure(tx, txBlockNumber);
+        }
+
+        this.peerManager.penalizePeer(source, severity);
         return { result: TopicValidatorResult.Reject };
       }
 
-      // Propagate only on pool acceptance
+      // Pool pre-check: see if the pool would accept this tx before doing expensive proof verification
+      const canAdd = await this.mempools.txPool.canAddPendingTx(tx);
+      if (canAdd === 'ignored') {
+        return { result: TopicValidatorResult.Ignore, obj: tx };
+      }
+
+      // Stage 2: expensive proof verification
+      const secondStageValidators = this.createSecondStageMessageValidators();
+      const secondStageOutcome = await this.runValidations(tx, secondStageValidators);
+      if (!secondStageOutcome.allPassed) {
+        const { severity } = secondStageOutcome.failure;
+        this.peerManager.penalizePeer(source, severity);
+        return { result: TopicValidatorResult.Reject };
+      }
+
+      // Pool add: persist the tx
       const txHash = tx.getTxHash();
       const addResult = await this.mempools.txPool.addPendingTxs([tx], { source: 'gossip' });
 
@@ -922,7 +952,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       const wasIgnored = addResult.ignored.some(h => h.equals(txHash));
 
       this.logger.trace(`Validate propagated tx`, {
-        isValid,
         wasAccepted,
         wasIgnored,
         [Attributes.P2P_ID]: source.toString(),
@@ -1537,41 +1566,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   protected createRequestedTxValidator(): TxValidator {
-    return createTxReqRespValidator(this.proofVerifier, {
+    return createTxValidatorForReqResponseReceivedTxs(this.proofVerifier, {
       l1ChainId: this.config.l1ChainId,
       rollupVersion: this.config.rollupVersion,
     });
-  }
-
-  @trackSpan('Libp2pService.validatePropagatedTx', tx => ({
-    [Attributes.TX_HASH]: tx.getTxHash().toString(),
-  }))
-  protected async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
-    const currentBlockNumber = await this.archiver.getBlockNumber();
-
-    // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
-    const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
-    const messageValidators = await this.createMessageValidators(currentBlockNumber, nextSlotTimestamp);
-
-    for (const validator of messageValidators) {
-      const outcome = await this.runValidations(tx, validator);
-
-      if (outcome.allPassed) {
-        continue;
-      }
-      const { name } = outcome.failure;
-      let { severity } = outcome.failure;
-
-      // Double spend validator has a special case handler
-      if (name === 'doubleSpendValidator') {
-        const txBlockNumber = BlockNumber(currentBlockNumber + 1); // tx is expected to be in the next block
-        severity = await this.handleDoubleSpendFailure(tx, txBlockNumber);
-      }
-
-      this.peerManager.penalizePeer(peerId, severity);
-      return false;
-    }
-    return true;
   }
 
   private async getGasFees(blockNumber: BlockNumber): Promise<GasFees> {
@@ -1601,58 +1599,51 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     };
   }
 
-  public async validate(txs: Tx[]): Promise<void> {
-    const currentBlockNumber = await this.archiver.getBlockNumber();
+  public async validateTxsReceivedInBlockProposal(txs: Tx[]): Promise<void> {
+    const validator = createTxValidatorForBlockProposalReceivedTxs(
+      this.proofVerifier,
+      { l1ChainId: this.config.l1ChainId, rollupVersion: this.config.rollupVersion },
+      this.logger.getBindings(),
+    );
 
-    // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
-    const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
-    const messageValidators = await this.createMessageValidators(currentBlockNumber, nextSlotTimestamp);
-
-    await Promise.all(
+    const results = await Promise.all(
       txs.map(async tx => {
-        for (const validator of messageValidators) {
-          const outcome = await this.runValidations(tx, validator);
-          if (!outcome.allPassed) {
-            throw new Error('Invalid tx detected', { cause: { outcome } });
-          }
-        }
+        const result = await validator.validateTx(tx);
+        return result.result !== 'invalid';
       }),
     );
+    if (results.some(value => value === false)) {
+      throw new Error('Invalid tx detected');
+    }
   }
 
-  /**
-   * Create message validators for the given block number and timestamp.
-   *
-   * Each validator is a pair of a validator and a severity.
-   * If a validator fails, the peer is penalized with the severity of the validator.
-   *
-   * @param currentBlockNumber - The current synced block number.
-   * @param nextSlotTimestamp - The timestamp of the next slot (used to validate txs are not expired).
-   * @returns The message validators.
-   */
-  private async createMessageValidators(
+  /** Creates the first stage (fast) validators for gossiped transactions. */
+  protected async createFirstStageMessageValidators(
     currentBlockNumber: BlockNumber,
     nextSlotTimestamp: UInt64,
-  ): Promise<Record<string, MessageValidator>[]> {
+  ): Promise<Record<string, TransactionValidator>> {
     const gasFees = await this.getGasFees(currentBlockNumber);
     const allowedInSetup = this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
+    const blockNumber = BlockNumber(currentBlockNumber + 1);
 
-    const blockNumberInWhichTheTxIsConsideredToBeIncluded = BlockNumber(currentBlockNumber + 1);
-
-    return createTxMessageValidators(
+    return createFirstStageTxValidationsForGossipedTransactions(
       nextSlotTimestamp,
-      blockNumberInWhichTheTxIsConsideredToBeIncluded,
+      blockNumber,
       this.worldStateSynchronizer,
       gasFees,
       this.config.l1ChainId,
       this.config.rollupVersion,
       protocolContractsHash,
       this.archiver,
-      this.proofVerifier,
       !this.config.disableTransactions,
       allowedInSetup,
       this.logger.getBindings(),
     );
+  }
+
+  /** Creates the second stage (expensive proof verification) validators for gossiped transactions. */
+  protected createSecondStageMessageValidators(): Record<string, TransactionValidator> {
+    return createSecondStageTxValidationsForGossipedTransactions(this.proofVerifier, this.logger.getBindings());
   }
 
   /**
@@ -1663,7 +1654,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    */
   private async runValidations(
     tx: Tx,
-    messageValidators: Record<string, MessageValidator>,
+    messageValidators: Record<string, TransactionValidator>,
   ): Promise<ValidationOutcome> {
     const validationPromises = Object.entries(messageValidators).map(async ([name, { validator, severity }]) => {
       const { result } = await validator.validateTx(tx);
