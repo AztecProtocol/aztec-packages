@@ -8,7 +8,6 @@ import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
-import { peerIdFromString } from '@libp2p/peer-id';
 
 import type { IMissingTxsTracker } from '../../tx_collection/missing_txs_tracker.js';
 import { ReqRespSubProtocol } from '.././interface.js';
@@ -90,10 +89,9 @@ export class BatchTxRequester {
     if (this.opts.peerCollection) {
       this.peers = this.opts.peerCollection;
     } else {
-      const initialPeers = this.p2pService.connectionSampler.getPeerListSortedByConnectionCountAsc();
       const badPeerThreshold = this.opts.badPeerThreshold ?? DEFAULT_BATCH_TX_REQUESTER_BAD_PEER_THRESHOLD;
       this.peers = new PeerCollection(
-        initialPeers,
+        this.p2pService.connectionSampler,
         this.pinnedPeer,
         this.dateProvider,
         badPeerThreshold,
@@ -227,7 +225,6 @@ export class BatchTxRequester {
    * Starts dumb worker loops
    * */
   private async dumbRequester() {
-    const nextPeerIndex = this.makeRoundRobinIndexer();
     const nextBatchIndex = this.makeRoundRobinIndexer();
 
     // Chunk missing tx hashes into batches of txBatchSize, wrapping around to ensure no peer gets less than txBatchSize
@@ -263,15 +260,9 @@ export class BatchTxRequester {
       return { blockRequest, txs };
     };
 
-    const nextPeer = () => {
-      const peers = this.peers.getDumbPeersToQuery();
-      const idx = nextPeerIndex(() => peers.length);
-      return idx === undefined ? undefined : peerIdFromString(peers[idx]);
-    };
-
-    const workerCount = Math.min(this.dumbParallelWorkerCount, this.peers.getAllPeers().size);
+    const workerCount = this.dumbParallelWorkerCount;
     const workers = Array.from({ length: workerCount }, (_, index) =>
-      this.dumbWorkerLoop(nextPeer, makeRequest, index + 1),
+      this.dumbWorkerLoop(this.peers.nextDumbPeerToQuery.bind(this.peers), makeRequest, index + 1),
     );
 
     await Promise.allSettled(workers);
@@ -332,14 +323,6 @@ export class BatchTxRequester {
    * Starts smart worker loops
    * */
   private async smartRequester() {
-    const nextPeerIndex = this.makeRoundRobinIndexer();
-
-    const nextPeer = () => {
-      const peers = this.peers.getSmartPeersToQuery();
-      const idx = nextPeerIndex(() => peers.length);
-      return idx === undefined ? undefined : peerIdFromString(peers[idx]);
-    };
-
     const makeRequest = (pid: PeerId) => {
       const txs = this.txsMetadata.getTxsToRequestFromThePeer(pid);
       const blockRequest = BlockTxsRequest.fromTxsSourceAndMissingTxs(this.blockTxsSource, txs);
@@ -350,9 +333,8 @@ export class BatchTxRequester {
       return { blockRequest, txs };
     };
 
-    const workers = Array.from(
-      { length: Math.min(this.smartParallelWorkerCount, this.peers.getAllPeers().size) },
-      (_, index) => this.smartWorkerLoop(nextPeer, makeRequest, index + 1),
+    const workers = Array.from({ length: this.smartParallelWorkerCount }, (_, index) =>
+      this.smartWorkerLoop(this.peers.nextSmartPeerToQuery.bind(this.peers), makeRequest, index + 1),
     );
 
     await Promise.allSettled(workers);
@@ -387,26 +369,18 @@ export class BatchTxRequester {
         if (weRanOutOfPeersToQuery) {
           this.logger.debug(`Worker loop smart: No more peers to query`);
 
-          // If there are no more dumb peers to query then none of our peers can become smart,
-          // thus we can simply exit this worker
-          const noMoreDumbPeersToQuery = this.peers.getDumbPeersToQuery().length === 0;
-          if (noMoreDumbPeersToQuery) {
-            // These might be either smart peers that will get unblocked after _some time_
-            const nextSmartPeerDelay = this.peers.getNextSmartPeerAvailabilityDelayMs();
-            const thereAreSomeRateLimitedSmartPeers = nextSmartPeerDelay !== undefined;
-            if (thereAreSomeRateLimitedSmartPeers) {
-              await this.sleepClampedToDeadline(nextSmartPeerDelay);
-              continue;
-            }
-
-            this.logger.debug(`Worker loop smart: No more smart peers to query killing ${workerIndex}`);
-            break;
+          // If we have rate limited peers wait for them.
+          const nextSmartPeerDelay = this.peers.getNextSmartPeerAvailabilityDelayMs();
+          const thereAreSomeRateLimitedSmartPeers = nextSmartPeerDelay !== undefined;
+          if (thereAreSomeRateLimitedSmartPeers) {
+            await this.sleepClampedToDeadline(nextSmartPeerDelay);
+            continue;
           }
 
-          // Otherwise there are still some dumb peers that could become smart.
           // We end up here when all known smart peers became temporarily unavailable via combination of
           // (bad, in-flight, or rate-limited) or in some weird scenario all current smart peers turn bad which is permanent
-          // but dumb peers still exist that could become smart.
+          // but there are dumb peers that could be promoted
+          // or new peer can join as dumb and be promoted later
           //
           // When a dumb peer responds with valid txIndices, it gets
           // promoted to smart and releases the semaphore, waking this worker.
@@ -599,9 +573,7 @@ export class BatchTxRequester {
     this.markTxsPeerHas(peerId, response);
 
     // Unblock smart workers
-    if (this.peers.getSmartPeersToQuery().length <= this.smartParallelWorkerCount) {
-      this.smartRequesterSemaphore.release();
-    }
+    this.smartRequesterSemaphore.release();
   }
 
   private isBlockResponseValid(response: BlockTxsResponse): boolean {

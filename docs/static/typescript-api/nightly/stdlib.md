@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v5.0.0-nightly.20260223
+Version: v5.0.0-nightly.20260224
 
 ## Quick Import Reference
 
@@ -961,6 +961,23 @@ new HashedValues(values: Fr[], hash: Fr)
 - `static random() => HashedValues`
 - `toBuffer() => Buffer<ArrayBufferLike>`
 
+### InMemoryDebugLogStore
+
+In-memory implementation for test mode that stores and serves debug logs.
+Implements: `DebugLogStore`
+
+**Constructor**
+```typescript
+new InMemoryDebugLogStore()
+```
+
+**Properties**
+- `isEnabled: unknown` - Whether debug log collection is enabled.
+
+**Methods**
+- `decorateReceiptWithLogs(txHash: string, receipt: TxReceipt) => void` - Decorate a TxReceipt with any stored debug logs for the given tx.
+- `storeLogs(txHash: string, logs: DebugLog[]) => void` - Store debug logs for a processed transaction.
+
 ### L2Block
 
 An L2 block with a header and a body.
@@ -1264,6 +1281,23 @@ new NoteSelector(value: number)
 - `toField() => Fr` - Returns a new field with the same contents as this EthAddress.
 - `toJSON() => string`
 - `toString() => string` - Serialize as a hex string.
+
+### NullDebugLogStore
+
+No-op implementation for production mode.
+Implements: `DebugLogStore`
+
+**Constructor**
+```typescript
+new NullDebugLogStore()
+```
+
+**Properties**
+- `isEnabled: unknown` - Whether debug log collection is enabled.
+
+**Methods**
+- `decorateReceiptWithLogs(_txHash: string, _receipt: TxReceipt) => void` - Decorate a TxReceipt with any stored debug logs for the given tx.
+- `storeLogs(_txHash: string, _logs: DebugLog[]) => void` - Store debug logs for a processed transaction.
 
 ### PartialStateReference
 
@@ -2101,12 +2135,13 @@ Represents a transaction receipt in the Aztec network. Contains essential inform
 
 **Constructor**
 ```typescript
-new TxReceipt(txHash: TxHash, status: TxStatus, executionResult: TxExecutionResult | undefined, error: string | undefined, transactionFee?: bigint, blockHash?: BlockHash, blockNumber?: BlockNumber)
+new TxReceipt(txHash: TxHash, status: TxStatus, executionResult: TxExecutionResult | undefined, error: string | undefined, transactionFee?: bigint, blockHash?: BlockHash, blockNumber?: BlockNumber, debugLogs?: DebugLog[])
 ```
 
 **Properties**
 - `blockHash?: BlockHash` - The hash of the block containing the transaction.
 - `blockNumber?: BlockNumber` - The block number in which the transaction was included.
+- `debugLogs?: DebugLog[]` - Debug logs collected during public function execution. Served only when the node is in test mode and placed on the receipt only because it's a convenient place for it (the logs are printed out by the wallet when a mined tx receipt is obtained).
 - `error: string | undefined` - Description of transaction error, if any.
 - `executionResult: TxExecutionResult | undefined` - The execution result of the transaction, only set when tx is in a block.
 - `static schema: unknown`
@@ -2321,6 +2356,17 @@ The debug information for a given function.
 - `acir_locations: OpcodeToLocationsMap`
 - `brillig_locations: Record<BrilligFunctionId, OpcodeToLocationsMap>` - For each Brillig function, we have a map of the opcode location to the source code location.
 - `location_tree: LocationTree` - A map of the opcode location to the source code location.
+
+### DebugLogStore
+
+Store for debug logs emitted by public functions during transaction execution. Uses the Null Object pattern: production code uses NullDebugLogStore (no-op), while test mode uses InMemoryDebugLogStore (stores and serves logs).
+
+**Properties**
+- `readonly isEnabled: boolean` - Whether debug log collection is enabled.
+
+**Methods**
+- `decorateReceiptWithLogs(txHash: string, receipt: TxReceipt) => void` - Decorate a TxReceipt with any stored debug logs for the given tx.
+- `storeLogs(txHash: string, logs: DebugLog[]) => void` - Store debug logs for a processed transaction.
 
 ### ExecutablePrivateFunction
 

@@ -327,7 +327,7 @@ export class TxPoolV2Impl {
     return { status: 'accepted' };
   }
 
-  async canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored' | 'rejected'> {
+  async canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored'> {
     const txHashStr = tx.getTxHash().toString();
 
     // Check if already in pool
@@ -335,14 +335,8 @@ export class TxPoolV2Impl {
       return 'ignored';
     }
 
-    // Build metadata and validate using metadata
+    // Build metadata and check pre-add rules
     const meta = await buildTxMetaData(tx);
-    const validationResult = await this.#validateMeta(meta, undefined, 'can add pending');
-    if (validationResult !== true) {
-      return 'rejected';
-    }
-
-    // Use pre-add rules
     const poolAccess = this.#createPreAddPoolAccess();
     const preAddResult = await this.#evictionManager.runPreAddRules(meta, poolAccess);
 

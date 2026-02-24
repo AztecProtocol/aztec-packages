@@ -67,8 +67,7 @@ LABS_INFRA_INDICES=${LABS_INFRA_INDICES:-0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1
 ########################
 # ROLLUP VARIABLES
 ########################
-REDEPLOY_ROLLUP_CONTRACTS=${REDEPLOY_ROLLUP_CONTRACTS:-false}
-CREATE_ROLLUP_CONTRACTS=${CREATE_ROLLUP_CONTRACTS:-true}
+CREATE_ROLLUP_CONTRACTS=${CREATE_ROLLUP_CONTRACTS:-false}
 SPONSORED_FPC=${SPONSORED_FPC:-true}
 TEST_ACCOUNTS=${TEST_ACCOUNTS:-false}
 REAL_VERIFIER=${REAL_VERIFIER:-true}
@@ -361,7 +360,7 @@ fi
 # Check for ETHERSCAN_API_KEY when VERIFY_CONTRACTS is enabled
 # Contract verification happens automatically in the yarn-project code when on mainnet/sepolia
 # and ETHERSCAN_API_KEY is set. This check ensures we fail early if verification is expected.
-if [[ "${VERIFY_CONTRACTS:-}" == "true" && ("${CREATE_ROLLUP_CONTRACTS}" == "true" || "${REDEPLOY_ROLLUP_CONTRACTS}" == "true") && -z "${ETHERSCAN_API_KEY:-}" ]]; then
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" && -z "${ETHERSCAN_API_KEY:-}" ]]; then
   die "Error: ETHERSCAN_API_KEY is not set but VERIFY_CONTRACTS=true. Contract verification requires an Etherscan API key. Set ETHERSCAN_API_KEY environment variable."
 fi
 
@@ -370,7 +369,7 @@ DEPLOY_ROLLUP_CONTRACTS_DIR="${SCRIPT_DIR}/../terraform/deploy-rollup-contracts"
 "${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-rollup-contracts"
 
 # Handle ETHERSCAN_API_KEY - only set when deploying or redeploying contracts
-if [[ "${VERIFY_CONTRACTS:-}" == "true" && ("${CREATE_ROLLUP_CONTRACTS}" == "true" || "${REDEPLOY_ROLLUP_CONTRACTS}" == "true") ]]; then
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" ]]; then
   ETHERSCAN_API_KEY_TF="\"${ETHERSCAN_API_KEY:-}\""
 else
   ETHERSCAN_API_KEY_TF=null
@@ -428,11 +427,11 @@ EXISTING_REGISTRY=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -ra
 if [[ "${USE_NETWORK_CONFIG:-false}" == "true" ]]; then
     log "Using network configuration, skipping contracts deployment"
 else
-  if [[ -n "${EXISTING_REGISTRY}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
+  if [[ -n "${EXISTING_REGISTRY}" && "${CREATE_ROLLUP_CONTRACTS}" != "true" ]]; then
     log "Contracts already deployed (registry=${EXISTING_REGISTRY}), skipping deployment"
   else
-    if [[ "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" ]]; then
-      log "REDEPLOY_ROLLUP_CONTRACTS=true, destroying existing deployment"
+    if [[ "${CREATE_ROLLUP_CONTRACTS}" == "true" ]]; then
+      log "CREATE_ROLLUP_CONTRACTS=true, destroying existing deployment"
       k8s_denoise "terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" destroy -auto-approve"
     fi
     k8s_denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} plan -out=tfplan"
