@@ -29,9 +29,9 @@ global:
   l1ConsensusUrls: []
   ## Only when api key is required via header, otherwise just provide in l1ConsensusHostUrls
   ## Example: "1234abcd"
-  l1ConsensusHostApiKeys: []
+  l1ConsensusHostApiKeys: ""
   ## Example: "X-API-KEY"
-  l1ConsensusHostApiKeyHeaders: []
+  l1ConsensusHostApiKeyHeaders: ""
 
   aztecImage:
     repository: aztecprotocol/aztec
