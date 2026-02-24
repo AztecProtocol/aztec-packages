@@ -271,10 +271,10 @@ describe('NullifierConflictRule', () => {
     });
 
     describe('with priceBumpPercentage context', () => {
-      it('accepts tx when fee meets 10% bump threshold', async () => {
+      it('accepts tx when fee exceeds 10% bump threshold', async () => {
         const sharedNullifier = '0xshared_null';
         const existingMeta = createMeta('0x2222', 100n, [sharedNullifier]);
-        const incomingMeta = createMeta('0x1111', 110n, [sharedNullifier]); // Exactly 10%
+        const incomingMeta = createMeta('0x1111', 111n, [sharedNullifier]); // Above 10%
 
         const metadataMap = new Map<string, TxMetaData>([['0x2222', existingMeta]]);
         const nullifierMap = new Map<string, string>([[sharedNullifier, '0x2222']]);
@@ -285,6 +285,26 @@ describe('NullifierConflictRule', () => {
 
         expect(result.shouldIgnore).toBe(false);
         expect(result.txHashesToEvict).toContain('0x2222');
+      });
+
+      it('rejects tx when fee is exactly at 10% bump threshold', async () => {
+        const sharedNullifier = '0xshared_null';
+        const existingMeta = createMeta('0x2222', 100n, [sharedNullifier]);
+        const incomingMeta = createMeta('0x1111', 110n, [sharedNullifier]); // Exactly 10% — not enough
+
+        const metadataMap = new Map<string, TxMetaData>([['0x2222', existingMeta]]);
+        const nullifierMap = new Map<string, string>([[sharedNullifier, '0x2222']]);
+        poolAccess = createPoolAccess(nullifierMap, metadataMap);
+
+        const context: PreAddContext = { feeComparisonOnly: true, priceBumpPercentage: 10 };
+        const result = await rule.check(incomingMeta, poolAccess, context);
+
+        expect(result.shouldIgnore).toBe(true);
+        expect(result.reason?.code).toBe(TxPoolRejectionCode.NULLIFIER_CONFLICT);
+        if (result.reason?.code === TxPoolRejectionCode.NULLIFIER_CONFLICT) {
+          expect(result.reason.minimumPriceBumpFee).toBe(110n);
+          expect(result.reason.txPriorityFee).toBe(110n);
+        }
       });
 
       it('rejects tx when fee is below 10% bump threshold', async () => {
@@ -339,7 +359,7 @@ describe('NullifierConflictRule', () => {
         expect(result.txHashesToEvict).toContain('0x2222');
       });
 
-      it('with 0% price bump, accepts equal fee', async () => {
+      it('with 0% price bump, rejects equal fee (strict >)', async () => {
         const sharedNullifier = '0xshared_null';
         const existingMeta = createMeta('0x2222', 100n, [sharedNullifier]);
         const incomingMeta = createMeta('0x1111', 100n, [sharedNullifier]);
@@ -351,8 +371,8 @@ describe('NullifierConflictRule', () => {
         const context: PreAddContext = { feeComparisonOnly: true, priceBumpPercentage: 0 };
         const result = await rule.check(incomingMeta, poolAccess, context);
 
-        expect(result.shouldIgnore).toBe(false);
-        expect(result.txHashesToEvict).toContain('0x2222');
+        expect(result.shouldIgnore).toBe(true);
+        expect(result.txHashesToEvict).toHaveLength(0);
       });
     });
 

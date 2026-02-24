@@ -223,16 +223,32 @@ describe('LowPriorityPreAddRule', () => {
     });
 
     describe('with priceBumpPercentage', () => {
-      it('evicts when incoming fee meets the bump threshold', async () => {
+      it('evicts when incoming fee exceeds the bump threshold', async () => {
         const lowestPriorityMeta = createMeta('0x2222', 100n);
         const poolAccess = createPoolAccess(100, lowestPriorityMeta);
-        const incomingMeta = createMeta('0x1111', 110n); // Exactly 10% bump
+        const incomingMeta = createMeta('0x1111', 111n); // Above 10% bump
 
         const context: PreAddContext = { feeComparisonOnly: true, priceBumpPercentage: 10 };
         const result = await rule.check(incomingMeta, poolAccess, context);
 
         expect(result.shouldIgnore).toBe(false);
         expect(result.txHashesToEvict).toContain('0x2222');
+      });
+
+      it('ignores when incoming fee is exactly at the bump threshold', async () => {
+        const lowestPriorityMeta = createMeta('0x2222', 100n);
+        const poolAccess = createPoolAccess(100, lowestPriorityMeta);
+        const incomingMeta = createMeta('0x1111', 110n); // Exactly 10% bump — not enough
+
+        const context: PreAddContext = { feeComparisonOnly: true, priceBumpPercentage: 10 };
+        const result = await rule.check(incomingMeta, poolAccess, context);
+
+        expect(result.shouldIgnore).toBe(true);
+        expect(result.reason?.code).toBe(TxPoolRejectionCode.LOW_PRIORITY_FEE);
+        if (result.reason?.code === TxPoolRejectionCode.LOW_PRIORITY_FEE) {
+          expect(result.reason.minimumPriorityFee).toBe(111n);
+          expect(result.reason.txPriorityFee).toBe(110n);
+        }
       });
 
       it('ignores when incoming fee is below the bump threshold', async () => {
@@ -246,7 +262,7 @@ describe('LowPriorityPreAddRule', () => {
         expect(result.shouldIgnore).toBe(true);
         expect(result.reason?.code).toBe(TxPoolRejectionCode.LOW_PRIORITY_FEE);
         if (result.reason?.code === TxPoolRejectionCode.LOW_PRIORITY_FEE) {
-          expect(result.reason.minimumPriorityFee).toBe(110n);
+          expect(result.reason.minimumPriorityFee).toBe(111n);
           expect(result.reason.txPriorityFee).toBe(109n);
         }
       });
@@ -263,7 +279,7 @@ describe('LowPriorityPreAddRule', () => {
         expect(result.txHashesToEvict).toContain('0x2222');
       });
 
-      it('with 0% bump, accepts equal fee (>= check)', async () => {
+      it('with 0% bump, rejects equal fee (strict >)', async () => {
         const lowestPriorityMeta = createMeta('0x2222', 100n);
         const poolAccess = createPoolAccess(100, lowestPriorityMeta);
         const incomingMeta = createMeta('0x1111', 100n);
@@ -271,8 +287,8 @@ describe('LowPriorityPreAddRule', () => {
         const context: PreAddContext = { feeComparisonOnly: true, priceBumpPercentage: 0 };
         const result = await rule.check(incomingMeta, poolAccess, context);
 
-        expect(result.shouldIgnore).toBe(false);
-        expect(result.txHashesToEvict).toContain('0x2222');
+        expect(result.shouldIgnore).toBe(true);
+        expect(result.txHashesToEvict).toHaveLength(0);
       });
     });
   });

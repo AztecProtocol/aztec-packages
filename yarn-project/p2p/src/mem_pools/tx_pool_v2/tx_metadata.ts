@@ -233,7 +233,7 @@ export function checkNullifierConflict(
     // Otherwise (P2P path), use full comparePriority with tx hash tiebreaker.
     const isHigherPriority =
       priceBumpPercentage !== undefined
-        ? incomingMeta.priorityFee >= getMinimumPriceBumpFee(conflictingMeta.priorityFee, priceBumpPercentage)
+        ? incomingMeta.priorityFee > getMinimumPriceBumpFee(conflictingMeta.priorityFee, priceBumpPercentage)
         : comparePriority(incomingMeta, conflictingMeta) > 0;
 
     if (isHigherPriority) {

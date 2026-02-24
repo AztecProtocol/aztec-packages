@@ -291,9 +291,9 @@ describe('TxMetaData', () => {
     });
 
     describe('with priceBumpPercentage', () => {
-      it('accepts incoming tx when fee meets the bump threshold', () => {
+      it('accepts incoming tx when fee exceeds the bump threshold', () => {
         const existing = makeMeta('0x2222', 100n, ['0xnull1']);
-        const incoming = makeMeta('0x1111', 110n, ['0xnull1']); // Exactly 10% bump
+        const incoming = makeMeta('0x1111', 111n, ['0xnull1']); // Above 10% bump
 
         const result = checkNullifierConflict(
           incoming,
@@ -304,6 +304,26 @@ describe('TxMetaData', () => {
 
         expect(result.shouldIgnore).toBe(false);
         expect(result.txHashesToEvict).toEqual([existing.txHash]);
+      });
+
+      it('rejects incoming tx when fee is exactly at the bump threshold', () => {
+        const existing = makeMeta('0x2222', 100n, ['0xnull1']);
+        const incoming = makeMeta('0x1111', 110n, ['0xnull1']); // Exactly 10% bump — not enough
+
+        const result = checkNullifierConflict(
+          incoming,
+          () => existing.txHash,
+          () => existing,
+          10,
+        );
+
+        expect(result.shouldIgnore).toBe(true);
+        expect(result.txHashesToEvict).toEqual([]);
+        expect(result.reason?.code).toBe(TxPoolRejectionCode.NULLIFIER_CONFLICT);
+        if (result.reason?.code === TxPoolRejectionCode.NULLIFIER_CONFLICT) {
+          expect(result.reason.minimumPriceBumpFee).toBe(110n);
+          expect(result.reason.txPriorityFee).toBe(110n);
+        }
       });
 
       it('rejects incoming tx when fee is below the bump threshold', () => {
@@ -341,7 +361,7 @@ describe('TxMetaData', () => {
         expect(result.txHashesToEvict).toEqual([existing.txHash]);
       });
 
-      it('with 0% bump, accepts equal fee (>= check)', () => {
+      it('with 0% bump, rejects equal fee (strict >)', () => {
         const existing = makeMeta('0x2222', 100n, ['0xnull1']);
         const incoming = makeMeta('0x1111', 100n, ['0xnull1']);
 
@@ -352,8 +372,8 @@ describe('TxMetaData', () => {
           0, // 0% bump
         );
 
-        expect(result.shouldIgnore).toBe(false);
-        expect(result.txHashesToEvict).toEqual([existing.txHash]);
+        expect(result.shouldIgnore).toBe(true);
+        expect(result.txHashesToEvict).toEqual([]);
       });
 
       it('without price bump, uses comparePriority (P2P path unchanged)', () => {

@@ -239,7 +239,7 @@ When a transaction is submitted via RPC and clashes on nullifiers with an existi
 
 - **Env var**: `P2P_RPC_PRICE_BUMP_PERCENTAGE` (default: 10)
 - **Scope**: RPC submissions only. P2P gossip uses `comparePriority` (fee + hash tiebreaker) with no bump.
-- Set to 0 to require only equal-or-higher fees (no minimum increment).
+- Set to 0 to disable the percentage-based bump (still requires strictly higher fee).
 
 ## Return Values
 
