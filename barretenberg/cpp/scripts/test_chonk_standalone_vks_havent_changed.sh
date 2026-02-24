@@ -16,7 +16,7 @@ cd ..
 pinned_short_hash="189f0026"
 pinned_chonk_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-chonk-inputs-${pinned_short_hash}.tar.gz"
 
-script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")/scripts" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 
 function update_pinned_hash_in_script {
     local new_hash=$1
@@ -229,7 +229,14 @@ else
       echo "No VK changes detected. Short hash is: ${pinned_short_hash}"
     elif [[ $exit_code -eq 1 ]]; then
       # All flows had VK changes
-      echo "VK changes detected. Please re-run the script with --update_inputs"
+      echo ""
+      echo "VK changes detected!"
+      echo "To acknowledge and auto-regenerate, add a commit to your PR:"
+      echo '  git commit --allow-empty -m "VK-UPDATE: <explanation of why VKs changed>"'
+      echo ""
+      echo "CI will automatically regenerate and commit the updated VKs on the next ci-fast/ci-full run."
+      echo "If running ci-barretenberg, add the ci-full label to trigger a full CI run."
+      echo "To update locally instead, re-run with --update_inputs."
       exit 1
     else
       # At least one real error
