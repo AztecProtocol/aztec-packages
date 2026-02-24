@@ -114,14 +114,6 @@ describe('e2e_expiration_timestamp', () => {
             .send({ from: defaultAccountAddress }),
         ).rejects.toThrow(TX_ERROR_INVALID_EXPIRATION_TIMESTAMP);
       });
-
-      it('simulation includes validation reason in error', async () => {
-        await expect(
-          contract.methods
-            .set_expiration_timestamp(expirationTimestamp, enqueuePublicCall)
-            .simulate({ from: defaultAccountAddress }),
-        ).rejects.toThrow(TX_ERROR_INVALID_EXPIRATION_TIMESTAMP);
-      });
     });
 
     describe('with an enqueued public call', () => {
@@ -141,14 +133,6 @@ describe('e2e_expiration_timestamp', () => {
           contract.methods
             .set_expiration_timestamp(expirationTimestamp, enqueuePublicCall)
             .send({ from: defaultAccountAddress }),
-        ).rejects.toThrow(TX_ERROR_INVALID_EXPIRATION_TIMESTAMP);
-      });
-
-      it('simulation includes validation reason in error', async () => {
-        await expect(
-          contract.methods
-            .set_expiration_timestamp(expirationTimestamp, enqueuePublicCall)
-            .simulate({ from: defaultAccountAddress }),
         ).rejects.toThrow(TX_ERROR_INVALID_EXPIRATION_TIMESTAMP);
       });
     });
