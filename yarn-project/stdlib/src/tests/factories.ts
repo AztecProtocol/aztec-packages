@@ -1759,13 +1759,10 @@ export function makeL2Tips(
   };
 }
 
-/**
- * Creates a random ExtendedDirectionalAppTaggingSecret.
- * @param app - Optional app (contract) address. If not provided, a random one is generated.
- */
-export async function randomExtendedDirectionalAppTaggingSecret(
-  app?: AztecAddress,
-): Promise<ExtendedDirectionalAppTaggingSecret> {
-  const resolvedApp = app ?? (await AztecAddress.random());
+export async function randomExtendedDirectionalAppTaggingSecret(): Promise<ExtendedDirectionalAppTaggingSecret> {
+  const resolvedApp = await AztecAddress.random();
+  // Using the fromString method like this is messy as it leaks the underlying serialization format but I don't want to
+  // expose the type's constructor just for tests since in prod the secret is always constructed via compute. Also this
+  // method is tested in extended_directional_app_tagging_secret.test.ts hence all should be fine.
   return ExtendedDirectionalAppTaggingSecret.fromString(`${Fr.random().toString()}:${resolvedApp.toString()}`);
 }
