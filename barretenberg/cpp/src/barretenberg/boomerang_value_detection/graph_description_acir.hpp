@@ -46,6 +46,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
     bool process_embedded_curve_add_constraints(const ConstraintPtr& ptr,
                                                 const std::unordered_set<uint32_t>& next_constraint_witnesses);
     bool process_block_constraint(const ConstraintPtr& ptr);
+    bool process_keccak_permutation_constraints(const ConstraintPtr& ptr);
 
     bool process_ec_add_constraint(const ConstraintPtr& ptr);
     bool validate_rom_constraint(const BlockConstraint& constraint,

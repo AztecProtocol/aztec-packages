@@ -630,6 +630,33 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     const std::unordered_set<uint32_t>& get_finalize_witnesses() const { return finalize_witnesses; }
 
     /**
+     * @brief Tracks the mapping from stdlib opcode inputs to outputs (by witness index).
+     * @details Used by boomerang value detection to trace witness flow through opaque stdlib
+     * operations (e.g. keccak) whose internal gate structure is hard to follow statically.
+     */
+    struct stdlib_opcode_io_record {
+        struct VectorHash {
+            size_t operator()(const std::vector<uint32_t>& v) const
+            {
+                size_t seed = 0;
+                for (const auto& elem : v) {
+                    seed ^= std::hash<uint32_t>()(elem) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+                }
+                return seed;
+            }
+        };
+
+        std::unordered_map<std::vector<uint32_t>, std::vector<std::vector<uint32_t>>, VectorHash> io_map;
+
+        void register_io(const std::vector<uint32_t>& inputs, const std::vector<uint32_t>& outputs)
+        {
+            io_map[inputs].emplace_back(outputs);
+        }
+    };
+
+    stdlib_opcode_io_record stdlib_opcode_io;
+
+    /**
      * @brief Add a witness index to the boomerang exclusion list
      * @param var_idx Witness index to add to the boomerang exclusion list
      * @details Barretenberg has special boomerang value detection logic that detects variables that are used in one

@@ -394,6 +394,9 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_constraint_system()
         case AcirConstraintType::ECDSA_R1:
             result = process_ecdsa_constraints(constraint_info.ptr, next_constraint_witnesses);
             break;
+        case AcirConstraintType::KECCAK_PERMUTATION:
+            result = process_keccak_permutation_constraints(constraint_info.ptr);
+            break;
         default:
             // Constraint type not yet implemented - mark as not processed
             result = false;
@@ -1070,6 +1073,62 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ecdsa_constraints(
     condition &= is_ecdsa_result_constrained<FF>(analyzer, builder, constraint->result, predicate_field);
 
     return condition;
+}
+
+/**
+ * @brief Verify keccak permutation constraint by checking that stdlib outputs are connected to ACIR results.
+ * @details The keccak stdlib registers its input->output witness mapping in builder.stdlib_opcode_io.
+ * We look up the ACIR constraint's input indices in that map to find the actual output witness indices
+ * produced by keccak, then verify that each output is connected to the corresponding constraint.result[i]
+ * via assert_equal (i.e. they share the same real variable index).
+ * Constant inputs use IS_CONSTANT as their key element (matching keccak::permutation_opcode behavior).
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_keccak_permutation_constraints(const ConstraintPtr& ptr)
+{
+    using field_ct = bb::stdlib::field_t<CircuitBuilder>;
+
+    const auto* constraint = std::get<const acir_format::Keccakf1600*>(ptr);
+
+    // Build the input witness indices vector matching what keccak::permutation_opcode registered.
+    // Constants get IS_CONSTANT (matching field_t::get_witness_index() behavior).
+    std::vector<uint32_t> input_indices;
+    input_indices.reserve(constraint->state.size());
+    for (const auto& state_elem : constraint->state) {
+        input_indices.push_back(state_elem.is_constant ? bb::stdlib::IS_CONSTANT : state_elem.index);
+    }
+
+    // Look up the registered outputs for these inputs
+    const auto& io_map = builder.stdlib_opcode_io.io_map;
+    auto it = io_map.find(input_indices);
+    if (it == io_map.end()) {
+        return false;
+    }
+
+    const auto& all_outputs = it->second;
+    if (all_outputs.empty()) {
+        return false;
+    }
+
+    // Use the last registered output (in case of multiple calls with same inputs)
+    const auto& output_indices = all_outputs.back();
+    if (output_indices.size() != constraint->result.size()) {
+        return false;
+    }
+
+    // Verify each output is connected to the corresponding constraint result via assert_equal.
+    // Outputs are always witnesses (never IS_CONSTANT) since keccak creates plookup gates.
+    for (size_t i = 0; i < output_indices.size(); i++) {
+        Field<CircuitBuilder> output_field{ output_indices[i],
+                                            field_ct::from_witness_index(&builder, output_indices[i]) };
+        Field<CircuitBuilder> result_field{ constraint->result[i],
+                                            field_ct::from_witness_index(&builder, constraint->result[i]) };
+        if (!is_assert_equal_exists<FF>(analyzer, builder, output_field, result_field)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 template class StaticAnalyzerAcir_<fr, MegaCircuitBuilder>;
