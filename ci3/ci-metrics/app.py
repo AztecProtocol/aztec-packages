@@ -118,14 +118,17 @@ def _json(data):
     return Response(json.dumps(data), mimetype='application/json')
 
 
-def _cached(cache_key: str, ttl_secs: int, compute):
-    """Return cached JSON response, or compute, store, and return it."""
-    cached = db.cache_get(cache_key)
-    if cached is not None:
-        return _json(cached)
-    result = compute()
-    db.cache_set(cache_key, result, ttl_secs)
-    return _json(result)
+_TEN_DAYS = 10 * 24 * 3600
+
+
+def _cache_ttl(date_to: str) -> int | None:
+    """Return 10-day TTL for historical ranges (date_to < today), else None (no cache)."""
+    try:
+        if datetime.strptime(date_to, '%Y-%m-%d').date() < datetime.now().date():
+            return _TEN_DAYS
+    except ValueError:
+        pass
+    return None
 
 
 # ---- Author mapping: git display name → GitHub username ----
@@ -585,7 +588,8 @@ def api_ci_performance():
     dashboard = request.args.get('dashboard', '')
     granularity = request.args.get('granularity', 'daily')
     _ck = f'perf:{date_from}:{date_to}:{dashboard}:{granularity}'
-    if (cached := db.cache_get(_ck)) is not None:
+    _ttl = _cache_ttl(date_to)
+    if _ttl and (cached := db.cache_get(_ck)) is not None:
         return _json(cached)
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
@@ -759,7 +763,8 @@ def api_ci_performance():
             'total_test_successes': tpc,
         },
     }
-    db.cache_set(_ck, _result, 300)
+    if _ttl:
+        db.cache_set(_ck, _result, _ttl)
     return _json(_result)
 
 
@@ -796,13 +801,15 @@ def api_pr_metrics():
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     author = request.args.get('author', '')
     _ck = f'pr_metrics:{date_from}:{date_to}:{author}'
-    if (cached := db.cache_get(_ck)) is not None:
+    _ttl = _cache_ttl(date_to)
+    if _ttl and (cached := db.cache_get(_ck)) is not None:
         return _json(cached)
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
     ci_runs = metrics.get_ci_runs(ts_from, ts_to)
     _result = github_data.get_pr_metrics(date_from, date_to, author, ci_runs)
-    db.cache_set(_ck, _result, 300)
+    if _ttl:
+        db.cache_set(_ck, _result, _ttl)
     return _json(_result)
 
 
@@ -811,8 +818,14 @@ def api_pr_metrics():
 def api_merge_queue_stats():
     date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
-    return _cached(f'mq_stats:{date_from}:{date_to}', 300,
-                   lambda: github_data.get_merge_queue_stats(date_from, date_to))
+    _ck = f'mq_stats:{date_from}:{date_to}'
+    _ttl = _cache_ttl(date_to)
+    if _ttl and (cached := db.cache_get(_ck)) is not None:
+        return _json(cached)
+    _result = github_data.get_merge_queue_stats(date_from, date_to)
+    if _ttl:
+        db.cache_set(_ck, _result, _ttl)
+    return _json(_result)
 
 
 @app.route('/api/test-history/<test_hash>')
@@ -839,11 +852,13 @@ def api_flakes_by_command():
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     dashboard = request.args.get('dashboard', '')
     _ck = f'flakes:{date_from}:{date_to}:{dashboard}'
-    if (cached := db.cache_get(_ck)) is not None:
+    _ttl = _cache_ttl(date_to)
+    if _ttl and (cached := db.cache_get(_ck)) is not None:
         return _json(cached)
     metrics.sync_failed_tests_to_sqlite(r)
     _result = metrics.get_flakes_by_command(date_from, date_to, dashboard)
-    db.cache_set(_ck, _result, 600)
+    if _ttl:
+        db.cache_set(_ck, _result, _ttl)
     return _json(_result)
 
 
@@ -857,8 +872,14 @@ def api_ci_phases():
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     dashboard = request.args.get('dashboard', '')
     run_id = request.args.get('run_id', '')
-    return _cached(f'phases:{date_from}:{date_to}:{dashboard}:{run_id}', 300,
-                   lambda: metrics.get_phases(date_from, date_to, dashboard, run_id))
+    _ck = f'phases:{date_from}:{date_to}:{dashboard}:{run_id}'
+    _ttl = _cache_ttl(date_to)
+    if _ttl and (cached := db.cache_get(_ck)) is not None:
+        return _json(cached)
+    _result = metrics.get_phases(date_from, date_to, dashboard, run_id)
+    if _ttl:
+        db.cache_set(_ck, _result, _ttl)
+    return _json(_result)
 
 
 # ---- Test timings ----
@@ -873,7 +894,8 @@ def api_test_timings():
     status = request.args.get('status', '')  # filter to specific status
     test_cmd = request.args.get('test_cmd', '')  # filter to specific test
     _ck = f'timings:{date_from}:{date_to}:{dashboard}:{status}:{test_cmd}'
-    if (cached := db.cache_get(_ck)) is not None:
+    _ttl = _cache_ttl(date_to)
+    if _ttl and (cached := db.cache_get(_ck)) is not None:
         return _json(cached)
 
     conditions = ['duration_secs IS NOT NULL', 'duration_secs > 0',
@@ -1036,7 +1058,8 @@ def api_test_timings():
             'flaked': flaked,
         },
     }
-    db.cache_set(_ck, _result, 600)
+    if _ttl:
+        db.cache_set(_ck, _result, _ttl)
     return _json(_result)
 
 

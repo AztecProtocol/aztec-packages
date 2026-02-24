@@ -85,6 +85,8 @@
     .gh-icon { color: #484f58; display: inline-flex; align-items: center; }
     .gh-icon:hover { color: #58a6ff; }
     .gh-icon svg { fill: currentColor; vertical-align: middle; }
+    .ci-link { color: #484f58; font-size: 11px; letter-spacing: 0.5px; }
+    .ci-link:hover { color: #3fb950; text-decoration: none; }
 
     .pagination {
       display: flex; align-items: center; gap: 12px; margin-top: 14px;
@@ -119,7 +121,7 @@
       <option value="master">master</option>
       <option value="staging-public">staging-public</option>
     </select>
-    <input id="search" type="text" placeholder="filter…" oninput="applyFilter()" />
+    <input id="search" type="text" placeholder="filter or SHA…" oninput="applyFilter()" onkeydown="searchKeydown(event)" />
     <button class="type-btn" data-t="feat"     onclick="toggleType('feat')">feat</button>
     <button class="type-btn" data-t="fix"      onclick="toggleType('fix')">fix</button>
     <button class="type-btn" data-t="chore"    onclick="toggleType('chore')">chore</button>
@@ -213,6 +215,8 @@
       ? `<a href="${ghPR}" target="_blank" class="gh-icon" title="PR #${c.pr}">${ghIcon()}</a>`
       : '';
 
+    const ciLink = `<a href="/commit/${c.sha}" class="ci-link" title="CI logs for this commit">ci</a>`;
+
     const authorHtml = c.author
       ? `<a href="${ghAuthor}" target="_blank">${esc(c.author)}</a>`
       : esc(c.author || '');
@@ -220,8 +224,17 @@
     return `<div class="commit-row">
       <span class="sha-col"><a href="${ghCommit}" target="_blank">${sha7}</a></span>
       <span class="msg-col"><a href="${ghCommit}" target="_blank">${mergeTag}${msgHtml}</a></span>
-      <span class="meta-col"><span>${authorHtml}</span><span>· ${relTime(c.date)}</span>${prIcon}</span>
+      <span class="meta-col"><span>${authorHtml}</span><span>· ${relTime(c.date)}</span>${ciLink}${prIcon}</span>
     </div>`;
+  }
+
+  function searchKeydown(e) {
+    if (e.key !== 'Enter') return;
+    const q = document.getElementById('search').value.trim();
+    // If it looks like a hex SHA (7-40 hex chars), navigate to commit detail
+    if (/^[0-9a-f]{7,40}$/i.test(q)) {
+      window.location.href = '/commit/' + q;
+    }
   }
 
   function applyFilter() {
