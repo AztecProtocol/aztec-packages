@@ -39,7 +39,6 @@ jobs:
           PROMPT=$(echo "$CMD" | sed "s|^$SCRIPT_NAME[[:space:]]*||")
 
           echo "script_name=$SCRIPT_NAME" >> "$GITHUB_OUTPUT"
-          # Use heredoc delimiter for multi-line prompt safety
           {
             echo "prompt<<PROMPT_EOF"
             echo "$PROMPT"
@@ -72,14 +71,13 @@ jobs:
           ssh-keyscan -H "${{ vars.CLAUDEBOX_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Run ClaudeBox
-        # Support 2 hour runs in case a claude command wants to wait on a long job.
         timeout-minutes: 120
         env:
           CLAUDEBOX_HOST: ${{ vars.CLAUDEBOX_HOST }}
           CLAUDEBOX_USER: ${{ vars.CLAUDEBOX_USER || 'claude' }}
         run: |
-          # Claude handles its own communication (gh comments, PRs, etc.)
-          # We just fire the SSH call and let it run.
-          ssh -o ConnectTimeout=10 -o ServerAliveInterval=30 \
-            "${CLAUDEBOX_USER}@${CLAUDEBOX_HOST}" \
-            "~/claudeentry.sh '${{ steps.parse.outputs.script_name }}' --comment-id=${{ github.event.comment.id }} --repo=${{ github.repository }} --prompt='${{ steps.parse.outputs.prompt }}'"
+          # Pipe prompt via stdin to avoid quoting issues
+          echo '${{ steps.parse.outputs.prompt }}' | \
+            ssh -o ConnectTimeout=10 -o ServerAliveInterval=30 \
+              "${CLAUDEBOX_USER}@${CLAUDEBOX_HOST}" \
+              "~/claudeentry.sh '${{ steps.parse.outputs.script_name }}' --comment-id=${{ github.event.comment.id }} --repo=${{ github.repository }}"
