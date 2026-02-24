@@ -177,9 +177,20 @@ def _fetch_and_process_prs() -> list[dict]:
 
 
 def _ensure_prs():
+    import db as _db
     now = time.time()
     if _pr_cache['data'] and now - _pr_cache['ts'] < _CACHE_TTL:
         return
+    # Try SQLite cache before hitting GitHub
+    if not _pr_cache['data']:
+        try:
+            rows = _db.query("SELECT value, updated_at FROM pr_cache WHERE key = 'prs'")
+            if rows and now - rows[0]['updated_at'] < _CACHE_TTL:
+                _pr_cache['data'] = json.loads(rows[0]['value'])
+                _pr_cache['ts'] = rows[0]['updated_at']
+                return
+        except Exception:
+            pass
     if not _pr_lock.acquire(blocking=False):
         return
     try:
@@ -187,6 +198,13 @@ def _ensure_prs():
         if prs:
             _pr_cache['data'] = prs
             _pr_cache['ts'] = now
+            try:
+                _db.execute(
+                    "INSERT OR REPLACE INTO pr_cache (key, value, updated_at) VALUES ('prs', ?, ?)",
+                    (json.dumps(prs, default=str), now),
+                )
+            except Exception:
+                pass
     finally:
         _pr_lock.release()
 

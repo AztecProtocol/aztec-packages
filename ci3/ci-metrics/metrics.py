@@ -170,17 +170,30 @@ def _ts_to_date(ts_ms):
 
 # ---- Test event handling (only thing needing SQLite) ----
 
-def _upsert_daily_stats(status: str, test_cmd: str, dashboard: str, timestamp: str):
+def _upsert_daily_stats(status: str, test_cmd: str, dashboard: str, timestamp: str, duration_secs=None):
     """Increment the daily counter for a test status."""
     date = timestamp[:10]  # 'YYYY-MM-DD'
     col = status if status in ('passed', 'failed', 'flaked') else None
     if not col:
         return
-    db.execute(f'''
-        INSERT INTO test_daily_stats (date, test_cmd, dashboard, {col})
-        VALUES (?, ?, ?, 1)
-        ON CONFLICT(date, test_cmd, dashboard) DO UPDATE SET {col} = {col} + 1
-    ''', (date, test_cmd, dashboard))
+    d = duration_secs if duration_secs and duration_secs > 0 else None
+    if d:
+        db.execute(f'''
+            INSERT INTO test_daily_stats (date, test_cmd, dashboard, {col}, total_secs, count_timed, min_secs, max_secs)
+            VALUES (?, ?, ?, 1, ?, 1, ?, ?)
+            ON CONFLICT(date, test_cmd, dashboard) DO UPDATE SET
+                {col} = {col} + 1,
+                total_secs = total_secs + excluded.total_secs,
+                count_timed = count_timed + 1,
+                min_secs = CASE WHEN min_secs IS NULL OR excluded.min_secs < min_secs THEN excluded.min_secs ELSE min_secs END,
+                max_secs = CASE WHEN max_secs IS NULL OR excluded.max_secs > max_secs THEN excluded.max_secs ELSE max_secs END
+        ''', (date, test_cmd, dashboard, d, d, d))
+    else:
+        db.execute(f'''
+            INSERT INTO test_daily_stats (date, test_cmd, dashboard, {col})
+            VALUES (?, ?, ?, 1)
+            ON CONFLICT(date, test_cmd, dashboard) DO UPDATE SET {col} = {col} + 1
+        ''', (date, test_cmd, dashboard))
 
 
 def _handle_test_event(channel: str, data: dict):
@@ -196,7 +209,7 @@ def _handle_test_event(channel: str, data: dict):
     test_hash = hash_str_orig(test_cmd) if test_cmd else None
 
     # Always update daily stats (lightweight aggregate)
-    _upsert_daily_stats(status, test_cmd, dashboard, timestamp)
+    _upsert_daily_stats(status, test_cmd, dashboard, timestamp, data.get('duration_secs'))
 
     db.execute('''
         INSERT INTO test_events
