@@ -42,14 +42,14 @@ template <typename Flavor_> class MultilinearBatchingVerifier {
     explicit MultilinearBatchingVerifier(const std::shared_ptr<Transcript>& transcript);
 
     /**
-     * @brief Verify proof with pre-batched instance evaluations and commitments.
-     * @details The HypernovaFoldingVerifier computes the batched instance values (via interleaved
-     * batching) before calling this method.
+     * @brief Verify proof
      */
     std::pair<bool, VerifierClaim> verify_proof(const FF& batched_unshifted_instance_eval,
                                                 const FF& batched_shifted_instance_eval,
-                                                const Commitment& batched_unshifted_instance_commitment,
-                                                const Commitment& batched_shifted_instance_commitment,
+                                                const std::vector<Commitment>& unshifted_instance_commitments,
+                                                const std::vector<Commitment>& shifted_instance_commitments,
+                                                const std::vector<FF>& unshifted_challenges,
+                                                const std::vector<FF>& shifted_challenges,
                                                 const std::vector<FF>& instance_challenge);
 
   private:
@@ -68,8 +68,10 @@ template <typename Flavor_> class MultilinearBatchingVerifier {
      * @brief Compute the new claim after the batching sumcheck from pre-batched commitments.
      */
     VerifierClaim compute_new_claim(const SumcheckOutput<Flavor>& sumcheck_result,
-                                    const Commitment& batched_unshifted_instance_commitment,
-                                    const Commitment& batched_shifted_instance_commitment,
+                                    const std::vector<Commitment>& unshifted_instance_commitments,
+                                    const std::vector<Commitment>& shifted_instance_commitments,
+                                    const std::vector<FF>& unshifted_challenges,
+                                    const std::vector<FF>& shifted_challenges,
                                     const Commitment& non_shifted_accumulator_commitment,
                                     const Commitment& shifted_accumulator_commitment,
                                     const FF& batching_challenge);

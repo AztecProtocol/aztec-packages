@@ -168,17 +168,12 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
     }
 
     // Batch commitments and evaluations using shared module
-    auto [batched_unshifted_instance_commitment,
-          batched_shifted_instance_commitment,
-          batched_unshifted_instance_eval,
-          batched_shifted_instance_eval] =
-        batch_interleaved_verifier_claims(all_unshifted_comms,
-                                          shiftable_comms,
-                                          Flavor::get_unshifted_groups(sumcheck_output.claimed_evaluations),
-                                          Flavor::get_shifted_groups(sumcheck_output.claimed_evaluations),
-                                          unshifted_challenges,
-                                          shifted_challenges,
-                                          lagrange_basis);
+    auto [batched_unshifted_instance_eval, batched_shifted_instance_eval] =
+        batch_interleaved_evals(Flavor::get_unshifted_groups(sumcheck_output.claimed_evaluations),
+                                Flavor::get_shifted_groups(sumcheck_output.claimed_evaluations),
+                                unshifted_challenges,
+                                shifted_challenges,
+                                lagrange_basis);
 
     // Build full instance challenge: prepend interleaving challenges to sumcheck challenges
     std::vector<FF> instance_challenge;
@@ -189,12 +184,13 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
         instance_challenge.end(), sumcheck_output.challenge.begin(), sumcheck_output.challenge.end());
 
     MultilinearBatchingVerifier batching_verifier(transcript);
-    auto [sumcheck_batching_result, new_accumulator] =
-        batching_verifier.verify_proof(batched_unshifted_instance_eval,
-                                       batched_shifted_instance_eval,
-                                       batched_unshifted_instance_commitment,
-                                       batched_shifted_instance_commitment,
-                                       instance_challenge);
+    auto [sumcheck_batching_result, new_accumulator] = batching_verifier.verify_proof(batched_unshifted_instance_eval,
+                                                                                      batched_shifted_instance_eval,
+                                                                                      all_unshifted_comms,
+                                                                                      shiftable_comms,
+                                                                                      unshifted_challenges,
+                                                                                      shifted_challenges,
+                                                                                      instance_challenge);
 
     if (sumcheck_output.verified && sumcheck_batching_result) {
         vinfo("HypernovaFoldingVerifier: successfully verified folding proof.");

@@ -169,4 +169,37 @@ InterleavedBatchResult<Commitment, FF> batch_interleaved_verifier_claims(
     return { batched_unshifted_comm, batched_shifted_comm, batched_unshifted_eval, batched_shifted_eval };
 }
 
+/**
+ * @brief Batch interleaved evaluations for verification.
+ */
+template <typename FF>
+std::pair<FF, FF> batch_interleaved_evals(const std::vector<std::vector<FF const*>>& unshifted_eval_groups,
+                                          const std::vector<std::vector<FF const*>>& shifted_eval_groups,
+                                          const std::vector<FF>& unshifted_challenges,
+                                          const std::vector<FF>& shifted_challenges,
+                                          const std::array<FF, 4>& lagrange_basis)
+{
+    // Compute batched evaluations from individual evaluation groups via Lagrange basis
+    auto compute_group_eval = [&lagrange_basis](const std::vector<FF const*>& group) -> FF {
+        FF result(0);
+        for (size_t j = 0; j < 4; ++j) {
+            FF val = (j < group.size() && group[j] != nullptr) ? *group[j] : FF(0);
+            result += val * lagrange_basis[j];
+        }
+        return result;
+    };
+
+    FF batched_unshifted_eval(0);
+    for (size_t i = 0; i < unshifted_eval_groups.size(); i++) {
+        batched_unshifted_eval += compute_group_eval(unshifted_eval_groups[i]) * unshifted_challenges[i];
+    }
+
+    FF batched_shifted_eval(0);
+    for (size_t i = 0; i < shifted_eval_groups.size(); i++) {
+        batched_shifted_eval += compute_group_eval(shifted_eval_groups[i]) * shifted_challenges[i];
+    }
+
+    return { batched_unshifted_eval, batched_shifted_eval };
+}
+
 } // namespace bb

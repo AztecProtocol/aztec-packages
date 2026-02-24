@@ -72,10 +72,6 @@ class MultiMegaHonkTests : public ::testing::Test {
         // Round 1: 7 interleaved witness commitments + 4 individual ecc_op_wires for merge protocol
         manifest_expected.add_entry(round, "INTERLEAVED_WIRES", frs_per_G);
         manifest_expected.add_entry(round, "INTERLEAVED_ECC_OP_WIRES", frs_per_G);
-        manifest_expected.add_entry(round, "ECC_OP_WIRE_1", frs_per_G);
-        manifest_expected.add_entry(round, "ECC_OP_WIRE_2", frs_per_G);
-        manifest_expected.add_entry(round, "ECC_OP_WIRE_3", frs_per_G);
-        manifest_expected.add_entry(round, "ECC_OP_WIRE_4", frs_per_G);
         manifest_expected.add_entry(round, "INTERLEAVED_CALLDATA", frs_per_G);
         manifest_expected.add_entry(round, "INTERLEAVED_SECONDARY_CALLDATA", frs_per_G);
         manifest_expected.add_entry(round, "INTERLEAVED_DATABUS_TAGS", frs_per_G);

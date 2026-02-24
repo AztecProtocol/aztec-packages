@@ -45,20 +45,37 @@ MultilinearBatchingVerifier<Flavor_>::FF MultilinearBatchingVerifier<Flavor_>::c
 template <typename Flavor_>
 MultilinearBatchingVerifier<Flavor_>::VerifierClaim MultilinearBatchingVerifier<Flavor_>::compute_new_claim(
     const SumcheckOutput<Flavor>& sumcheck_result,
-    const Commitment& batched_unshifted_instance_commitment,
-    const Commitment& batched_shifted_instance_commitment,
+    const std::vector<Commitment>& unshifted_instance_commitments,
+    const std::vector<Commitment>& shifted_instance_commitments,
+    const std::vector<FF>& unshifted_challenges,
+    const std::vector<FF>& shifted_challenges,
     const Commitment& non_shifted_accumulator_commitment,
     const Commitment& shifted_accumulator_commitment,
     const FF& batching_challenge)
 {
     // Compute new claim commitments as: instance + batching_challenge * accumulator
-    std::vector<Commitment> non_shifted_points = { batched_unshifted_instance_commitment,
-                                                   non_shifted_accumulator_commitment };
-    std::vector<FF> non_shifted_scalars = { FF(1), batching_challenge };
+    std::vector<Commitment> non_shifted_points;
+    non_shifted_points.reserve(unshifted_instance_commitments.size() + 1);
+    non_shifted_points.insert(
+        non_shifted_points.end(), unshifted_instance_commitments.begin(), unshifted_instance_commitments.end());
+    non_shifted_points.push_back(non_shifted_accumulator_commitment);
+
+    std::vector<FF> non_shifted_scalars;
+    non_shifted_scalars.reserve(unshifted_instance_commitments.size() + 1);
+    non_shifted_scalars.insert(non_shifted_scalars.end(), unshifted_challenges.begin(), unshifted_challenges.end());
+    non_shifted_scalars.push_back(batching_challenge);
     Commitment non_shifted_commitment = Curve::Element::batch_mul(non_shifted_points, non_shifted_scalars);
 
-    std::vector<Commitment> shifted_points = { batched_shifted_instance_commitment, shifted_accumulator_commitment };
-    std::vector<FF> shifted_scalars = { FF(1), batching_challenge };
+    std::vector<Commitment> shifted_points;
+    shifted_points.reserve(shifted_instance_commitments.size() + 1);
+    shifted_points.insert(
+        shifted_points.end(), shifted_instance_commitments.begin(), shifted_instance_commitments.end());
+    shifted_points.push_back(shifted_accumulator_commitment);
+
+    std::vector<FF> shifted_scalars;
+    shifted_scalars.reserve(shifted_instance_commitments.size() + 1);
+    shifted_scalars.insert(shifted_scalars.end(), shifted_challenges.begin(), shifted_challenges.end());
+    shifted_scalars.push_back(batching_challenge);
     Commitment shifted_commitment = Curve::Element::batch_mul(shifted_points, shifted_scalars);
 
     FF shifted_evaluation = sumcheck_result.claimed_evaluations.batched_shifted_instance +
@@ -80,8 +97,10 @@ template <typename Flavor_>
 std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::VerifierClaim> MultilinearBatchingVerifier<
     Flavor_>::verify_proof(const FF& batched_unshifted_instance_eval,
                            const FF& batched_shifted_instance_eval,
-                           const Commitment& batched_unshifted_instance_commitment,
-                           const Commitment& batched_shifted_instance_commitment,
+                           const std::vector<Commitment>& unshifted_instance_commitments,
+                           const std::vector<Commitment>& shifted_instance_commitments,
+                           const std::vector<FF>& unshifted_challenges,
+                           const std::vector<FF>& shifted_challenges,
                            const std::vector<FF>& instance_challenge)
 {
     // Receive commitments
@@ -119,8 +138,10 @@ std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::VerifierClaim> Mu
     // Construct new claim
     auto claim_batching_challenge = transcript->template get_challenge<FF>("claim_batching_challenge");
     VerifierClaim verifier_claim = compute_new_claim(sumcheck_result,
-                                                     batched_unshifted_instance_commitment,
-                                                     batched_shifted_instance_commitment,
+                                                     unshifted_instance_commitments,
+                                                     shifted_instance_commitments,
+                                                     unshifted_challenges,
+                                                     shifted_challenges,
                                                      non_shifted_accumulator_commitment,
                                                      shifted_accumulator_commitment,
                                                      claim_batching_challenge);
