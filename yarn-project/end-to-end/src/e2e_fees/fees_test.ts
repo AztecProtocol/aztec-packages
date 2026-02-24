@@ -275,7 +275,7 @@ export class FeesTest {
 
       // @todo @lherskind As we deal with #13601
       // Right now the value is from `FeeLib.sol`
-      const L1_GAS_PER_EPOCH_VERIFIED = 1000000n;
+      const L1_GAS_PER_EPOCH_VERIFIED = 3600000n;
 
       // We round up
       const mulDiv = (a: bigint, b: bigint, c: bigint) => (a * b) / c + ((a * b) % c > 0n ? 1n : 0n);
