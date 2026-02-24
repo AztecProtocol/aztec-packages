@@ -157,8 +157,8 @@ container_script=$(
 
     # Background monitors. cache_log and add_timestamps both close inherited pipeline
     # fds internally, so these long-running processes won't block the outer pipeline.
-    mpstat 2>&1 | cache_log cpufile &
-    vmstat -w -S M 2>&1 | add_timestamps | cache_log memfile &
+    mpstat 2 2>&1 | cache_log cpufile &
+    vmstat -w -S M 2 2>&1 | add_timestamps | cache_log memfile &
     bash -c "while true; do pstree -agl; echo; echo; sleep 10; done" 2>&1 | add_timestamps | cache_log processes &
 
     # For debugging fd leaks that prevent run from exiting.
