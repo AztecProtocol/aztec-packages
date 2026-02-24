@@ -155,17 +155,16 @@ container_script=$(
       echo "Performing a release because \$REF_NAME is a semver."
     fi
 
-    # Capture cpu load.
-    mpstat 2 > >(cache_log cpufile) 2>&1 &
-    cpu_pid=\$!
+    # Background monitors. cache_log and add_timestamps both close inherited pipeline
+    # fds internally, so these long-running processes won't block the outer pipeline.
+    mpstat 2>&1 | cache_log cpufile &
+    vmstat -w -S M 2>&1 | add_timestamps | cache_log memfile &
+    bash -c "while true; do pstree -agl; echo; echo; sleep 10; done" 2>&1 | add_timestamps | cache_log processes &
 
-    # Capture mem load.
-    vmstat -w -S M 2 > >(add_timestamps | cache_log memfile) 2>&1 &
-    mem_pid=\$!
-
-    # Dump process tree every 10s.
-    bash -c "while true; do pstree -agl; echo; echo; sleep 10; done" > >(add_timestamps | cache_log processes) 2>&1 &
-    pstree_pid=\$!
+    # For debugging fd leaks that prevent run from exiting.
+    # outer_pipe_1=\$(readlink /proc/self/fd/1)
+    # outer_pipe_2=\$(readlink /proc/self/fd/2)
+    # ci3/fd_monitor "\$outer_pipe_1" "\$outer_pipe_2" | add_timestamps | cache_log fdinfo &
 
     set +e
     set -x
@@ -173,7 +172,6 @@ container_script=$(
     local code=\${PIPESTATUS[0]}
 
     sudo dmesg 2>&1 | cache_log 'dmesg'
-    kill \$cpu_pid \$mem_pid \$pstree_pid &>/dev/null
 
     return \$code
   }
@@ -237,6 +235,21 @@ function run {
     sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
     sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
 
+    # Pin host processes to top CPU cores to keep benchmark cores clean.
+    # CPU layout: physical cores 0..N/2-1, hyperthreads N/2..N-1.
+    # OS gets top 8 physical cores + their hyperthread siblings.
+    # Skip dockerd so containers it spawns can use all CPUs for build/test.
+    total_cpus=\$(nproc)
+    total_physical=\$((total_cpus / 2))
+    os_start=\$((total_physical - 8))
+    os_ht_start=\$((total_cpus - 8))
+    os_cpu_list=\"\$os_start-\$((total_physical - 1)),\$os_ht_start-\$((total_cpus - 1))\"
+    for pid in \$(ps -eo pid= 2>/dev/null); do
+      comm=\$(cat /proc/\$pid/comm 2>/dev/null) || continue
+      [ \"\$comm\" = \"dockerd\" ] && continue
+      sudo taskset -apc \"\$os_cpu_list\" \$pid &>/dev/null || true
+    done
+    echo \"Host processes pinned to OS CPUs: \$os_cpu_list\"
 
     aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
 
