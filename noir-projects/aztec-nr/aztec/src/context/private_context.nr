@@ -187,7 +187,7 @@ impl PrivateContext {
             is_fee_payer: false,
             args_hash,
             return_hash: 0,
-            expiration_timestamp: inputs.anchor_block_header.global_variables.timestamp + MAX_TX_LIFETIME,
+            expiration_timestamp: inputs.anchor_block_header.timestamp() + MAX_TX_LIFETIME,
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             key_validation_requests_and_separators: BoundedVec::new(),
