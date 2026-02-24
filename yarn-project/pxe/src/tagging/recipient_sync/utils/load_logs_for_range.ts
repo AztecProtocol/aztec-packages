@@ -8,11 +8,11 @@ import { getAllPrivateLogsByTags } from '../../get_all_logs_by_tags.js';
 
 /**
  * Gets private logs with their corresponding block timestamps and tagging indexes for the given index range and
- * `secret`. At most load logs from blocks up to and including `anchorBlockNumber`. `start` is inclusive and `end` is
- * exclusive.
+ * `extendedSecret`. At most load logs from blocks up to and including `anchorBlockNumber`. `start` is inclusive and
+ * `end` is exclusive.
  */
 export async function loadLogsForRange(
-  secret: ExtendedDirectionalAppTaggingSecret,
+  extendedSecret: ExtendedDirectionalAppTaggingSecret,
   aztecNode: AztecNode,
   start: number,
   end: number,
@@ -22,9 +22,9 @@ export async function loadLogsForRange(
   // Derive tags for the window
   const preTags: PreTag[] = Array(end - start)
     .fill(0)
-    .map((_, i) => ({ extendedSecret: secret, index: start + i }));
+    .map((_, i) => ({ extendedSecret, index: start + i }));
   const siloedTags = await Promise.all(preTags.map(preTag => Tag.compute(preTag))).then(tags =>
-    Promise.all(tags.map(tag => SiloedTag.compute(tag, secret.app))),
+    Promise.all(tags.map(tag => SiloedTag.compute(tag, extendedSecret.app))),
   );
 
   // We use the utility function below to retrieve all logs for the tags across all pages, so we don't need to handle
