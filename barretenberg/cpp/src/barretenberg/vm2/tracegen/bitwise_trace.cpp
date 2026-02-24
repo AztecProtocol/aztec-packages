@@ -11,22 +11,14 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
                                   TraceContainer& trace)
 {
     using C = Column;
-    // When the trace is non-empty, we set last=1 at row 0 as a sentinel. This serves two purposes:
-    // 1) Skippable condition: ensures `sel + last = 0` does NOT hold, preventing the sub-relation
-    //    `last * (1 - last) = 0` from being skipped (which would fail after sumcheck randomization).
-    // 2) Boundary breaking: constraints like #[BITW_OP_ID_REL] and #[BITW_ACC_REL_*] use `(1 - last)`
-    //    as a guard. At row 0, the shifted columns reference row 1. Without last=1 here, these
-    //    constraints would force op_id_0 = op_id_1 and acc_ia_1 = 0, breaking the first event's trace.
-    // When there are no events, we must NOT set last=1.
-    if (!events.empty()) {
-        trace.set(C::bitwise_last, 0, 1);
-    }
 
-    // Precomputed inverses ranges from 0 to 16. (for columns bitwise_ctr_inv, bitwise_ctr_min_one_inv)
-    static constexpr std::array<FF, 17> precomputed_inverses = [] {
-        std::array<FF, 17> inverses{ 0, 1 };
+    // Precomputed inverses ranges from 0 to 15. (for columns bitwise_ctr_min_one_inv, tag inverses)
+    // The max ctr value is 16 since the largest tag is U128 which has 16 bytes, we need inverses up to 15 for the ctr
+    // since we use ctr-1 in the bitwise_ctr_min_one_inv column.
+    static constexpr std::array<FF, 16> precomputed_inverses = [] {
+        std::array<FF, 16> inverses{ 0, 1 };
         // skip 0 since it's not invertible, inverse(1) = 1 so we can skip it as well
-        for (size_t i = 2; i <= 16; i++) {
+        for (size_t i = 2; i <= 15; i++) {
             inverses[i] = FF(i).invert();
         }
         return inverses;
@@ -52,6 +44,8 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
 
         // We start with full inputs and output and we shift
         // them byte-per-byte to the right.
+        // In the event of an error, the truncation caused by this casting does not matter since we will not use these
+        // in the error case (see below for details).
         uint128_t input_a = static_cast<uint128_t>(event.a.as_ff());
         uint128_t input_b = static_cast<uint128_t>(event.b.as_ff());
         uint128_t output_c = event.res;
@@ -77,12 +71,14 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
 
         if (is_tag_ff || is_tag_mismatch) {
             // There is an error, fill in values that are still needed to satisfy constraints despite the error.
+            // Error rows are single-row blocks: start=1, end=1, sel=1, err=1, sel_compute=0.
             trace.set(row,
                       { {
+                          { C::bitwise_sel, 1 },
                           { C::bitwise_op_id, static_cast<uint8_t>(event.operation) },
                           { C::bitwise_start, 1 },
                           { C::bitwise_sel_get_ctr, 0 },
-                          { C::bitwise_last, 1 }, // Error triggers a last
+                          { C::bitwise_end, 1 }, // Error triggers end
                           { C::bitwise_acc_ia, event.a.as_ff() },
                           { C::bitwise_acc_ib, event.b.as_ff() },
                           { C::bitwise_acc_ic, output_c },
@@ -119,6 +115,7 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
             uint8_t ib_byte = input_b & mask_low_byte;
             trace.set(row,
                       { { { C::bitwise_sel, 1 },
+                          { C::bitwise_sel_compute, 1 },
                           { get_op_id_column_selector(event.operation), 1 },
                           { C::bitwise_op_id, static_cast<uint8_t>(event.operation) },
                           // It is fine to use the truncated input_a/b here instead of event.a/b because if event.a/b
@@ -136,9 +133,8 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
                           { C::bitwise_tag_b, is_start ? tag_b_u8 : 0 },
                           { C::bitwise_tag_c, is_start ? tag_a_u8 : 0 }, // same as tag_a
                           { C::bitwise_ctr, ctr },
-                          { C::bitwise_ctr_inv, precomputed_inverses[static_cast<uint8_t>(ctr)] },
                           { C::bitwise_ctr_min_one_inv, precomputed_inverses[static_cast<uint8_t>(ctr - 1)] },
-                          { C::bitwise_last, ctr == 1 ? 1 : 0 },
+                          { C::bitwise_end, ctr == 1 ? 1 : 0 },
                           { C::bitwise_start, is_start ? 1 : 0 },
                           { C::bitwise_sel_get_ctr, is_start ? 1 : 0 }, // Same as bitwise_start but in non-error case
                           // Err Helpers, in the happy path we still need to prove we would not have errored
