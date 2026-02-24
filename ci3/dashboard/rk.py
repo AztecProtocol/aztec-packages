@@ -1,6 +1,8 @@
 from flask import Flask, render_template_string, request, Response, redirect
 from flask_compress import Compress
 from flask_httpauth import HTTPBasicAuth
+import boto3
+from botocore.exceptions import ClientError
 import gzip
 import json
 import os
@@ -20,6 +22,10 @@ from rk_core import (
     hyperlink, r, get_section_data, get_list_as_string
 )
 LOGS_DISK_PATH = os.getenv('LOGS_DISK_PATH', '/logs-disk')
+S3_LOGS_BUCKET = os.getenv('S3_LOGS_BUCKET', 'aztec-ci-artifacts')
+S3_LOGS_PREFIX = os.getenv('S3_LOGS_PREFIX', 'logs')
+
+_s3 = boto3.client('s3', region_name='us-east-2')
 DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD', 'password')
 CI_METRICS_PORT = int(os.getenv('CI_METRICS_PORT', '8081'))
 CI_METRICS_URL = os.getenv('CI_METRICS_URL', f'http://localhost:{CI_METRICS_PORT}')
@@ -67,17 +73,29 @@ if os.path.isdir(_ci_metrics_dir):
         pass
 
 def read_from_disk(key):
-    """Read log from disk as fallback when Redis key not found."""
+    """Read log from disk."""
     try:
-        # Use first 4 chars as subdirectory
         prefix = key[:4]
-        log_file = f"/logs-disk/{prefix}/{key}.log.gz"
         log_file = f"{LOGS_DISK_PATH}/{prefix}/{key}.log.gz"
         if os.path.exists(log_file):
             with gzip.open(log_file, 'rb') as f:
                 return f.read().decode('utf-8', errors='replace')
     except Exception as e:
         print(f"Error reading from disk: {e}")
+    return None
+
+def read_from_s3(key):
+    """Read log from S3 (fallback when Redis and disk both miss)."""
+    try:
+        prefix = key[:4]
+        s3_key = f"{S3_LOGS_PREFIX}/{prefix}/{key}.log.gz"
+        obj = _s3.get_object(Bucket=S3_LOGS_BUCKET, Key=s3_key)
+        return gzip.decompress(obj['Body'].read()).decode('utf-8', errors='replace')
+    except ClientError as e:
+        if e.response['Error']['Code'] != 'NoSuchKey':
+            print(f"S3 error reading {key}: {e}")
+    except Exception as e:
+        print(f"Error reading from S3: {e}")
     return None
 
 def read_breakdown_from_disk(runtime, flow_name, sha):
@@ -192,8 +210,6 @@ def root() -> str:
         f"{hyperlink('/cost-overview', 'cost overview (AWS + GCP)')}\n"
         f"{hyperlink('/namespace-billing', 'namespace billing')}\n"
         f"{hyperlink('/ci-insights', 'ci insights')}\n"
-        f"{hyperlink('/flake-prs', 'flake prs')}\n"
-        f"{hyperlink('/commits', 'commits')}\n"
         f"{RESET}"
     )
 
@@ -624,14 +640,24 @@ def _proxy(path):
 @app.route('/test-timings')
 @app.route('/ci-health-report')
 @app.route('/flake-prs')
-@app.route('/commits')
 @auth.login_required
 def proxy_dashboard():
     return _proxy(request.path)
 
 
+@app.route('/commits')
+@auth.login_required
+def commits_page():
+    """Serve commits.html directly — avoids proxy timeout on slow ci-metrics starts."""
+    path = Path(__file__).parent / 'ci-metrics' / 'views' / 'commits.html'
+    if path.exists():
+        return path.read_text()
+    return _proxy('/commits')
+
+
 # ---- /api/commits: disk-cached, paginated ----
 
+import html as _html
 import re as _re
 
 _COMMIT_TYPE_RE = _re.compile(
@@ -757,6 +783,164 @@ def api_commits_direct():
     }), mimetype='application/json')
 
 
+def _fetch_commit_from_github(sha: str) -> dict | None:
+    headers = {'Accept': 'application/vnd.github+json'}
+    if _GH_TOKEN:
+        headers['Authorization'] = f'Bearer {_GH_TOKEN}'
+    try:
+        resp = requests.get(
+            f'https://api.github.com/repos/AztecProtocol/aztec-packages/commits/{sha}',
+            headers=headers,
+            timeout=20,
+        )
+        if resp.status_code == 200:
+            return _parse_rk_commit(resp.json())
+    except Exception:
+        pass
+    return None
+
+
+def _fmt_duration(ts_ms, complete_ms):
+    if not complete_ms or not ts_ms:
+        return 'running'
+    m = int((complete_ms - ts_ms) / 60000)
+    return f'{m // 60}h{m % 60:02d}m' if m >= 60 else f'{m}m'
+
+
+@app.route('/commit/<sha>')
+@auth.login_required
+def commit_detail(sha):
+    from datetime import datetime as _dt
+
+    # Search cached commits for a SHA prefix match
+    commit = None
+    for branch in ['next', 'master', 'staging-public']:
+        commits = _load_commits_disk(branch)
+        if commits:
+            for c in commits:
+                if c['sha'].startswith(sha):
+                    commit = c
+                    break
+        if commit:
+            break
+
+    # Fall back to GitHub API
+    if not commit:
+        commit = _fetch_commit_from_github(sha)
+
+    if not commit:
+        return (
+            f'<html><body style="background:#0d1117;color:#e6edf3;font-family:monospace;padding:16px">'
+            f'Commit <code>{_html.escape(sha[:40])}</code> not found.</body></html>'
+        ), 404
+
+    full_sha = commit.get('sha', '')
+    sha7 = full_sha[:7]
+    subject = _html.escape(commit.get('subject', ''))
+    author = commit.get('author', '')
+    date = (commit.get('date', '') or '')[:10]
+    pr = commit.get('pr')
+    gh_commit = f'https://github.com/AztecProtocol/aztec-packages/commit/{full_sha}'
+    gh_pr = f'https://github.com/AztecProtocol/aztec-packages/pull/{pr}' if pr else ''
+    author_gh = (
+        f'https://github.com/AztecProtocol/aztec-packages/pulls?q=is:pr+author:'
+        f'{_html.escape(author)}+sort:updated-desc'
+    )
+
+    # Fetch CI runs for this PR
+    runs = []
+    if pr:
+        try:
+            resp = _proxy_session.get(
+                f'{CI_METRICS_URL}/api/ci/runs/pr/{pr}',
+                auth=(request.authorization.username, request.authorization.password),
+                timeout=20,
+            )
+            if resp.status_code == 200:
+                runs = resp.json()
+        except Exception as e:
+            print(f'[rk.py] CI runs fetch error: {e}')
+
+    # Build runs table rows
+    run_rows = []
+    for run in runs:
+        status = run.get('status', '')
+        name = _html.escape(run.get('name', ''))
+        ts = run.get('timestamp', 0)
+        complete = run.get('complete', 0)
+        cost = run.get('cost_usd')
+        job_id = run.get('job_id', '')
+        dashboard = _html.escape(run.get('dashboard', ''))
+
+        date_str = _dt.utcfromtimestamp(ts / 1000).strftime('%Y-%m-%d %H:%M') if ts else ''
+        dur = _fmt_duration(ts, complete)
+        cost_str = f'${cost:.2f}' if cost else '—'
+        status_color = '#3fb950' if status == 'PASSED' else ('#f85149' if status == 'FAILED' else '#e3b341')
+        log_link = f'<a href="/{_html.escape(job_id)}">view log</a>' if job_id else ''
+
+        run_rows.append(
+            f'<div class="run-row">'
+            f'<span style="color:{status_color};font-weight:bold">{_html.escape(status)}</span>'
+            f'<span class="dim">{dashboard}</span>'
+            f'<span class="dim trunc" title="{name}">{name}</span>'
+            f'<span class="dim">{dur}</span>'
+            f'<span class="dim">{cost_str}</span>'
+            f'<span class="dim">{date_str}</span>'
+            f'<span>{log_link}</span>'
+            f'</div>'
+        )
+
+    runs_html = '\n'.join(run_rows) if run_rows else '<div class="dim" style="padding:16px 0">No CI runs found in database for this PR.</div>'
+    pr_html = f'<a href="{gh_pr}" target="_blank">#{pr}</a>' if pr else 'none'
+    heading = f'CI Runs — PR #{pr}' if pr else 'CI Runs'
+
+    page = f'''<!DOCTYPE html>
+<html><head>
+  <meta charset="utf-8"/>
+  <title>commit {sha7} — aztec-packages</title>
+  <style>
+    *{{box-sizing:border-box}}
+    body{{background:#0d1117;color:#e6edf3;font-family:monospace;font-size:13px;padding:16px;margin:0}}
+    a{{color:#58a6ff;text-decoration:none}}
+    a:hover{{text-decoration:underline}}
+    .nav{{margin:8px 0 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}}
+    .nav a{{color:#58a6ff;font-size:13px}}
+    .sep{{color:#30363d}}
+    .box{{border:1px solid #21262d;padding:14px;margin-bottom:18px}}
+    .sha-line{{color:#8b949e;font-size:11px;margin-bottom:6px}}
+    .sha-line a{{color:#8b949e}}
+    .subject{{font-size:15px;color:#f0f6fc;margin-bottom:10px}}
+    .meta{{color:#8b949e;font-size:12px;display:flex;gap:16px;flex-wrap:wrap}}
+    h3{{color:#f0f6fc;font-size:14px;font-weight:normal;margin:0 0 10px;border-bottom:1px solid #21262d;padding-bottom:8px}}
+    .run-row{{display:grid;grid-template-columns:7ch 5ch 1fr 6ch 5ch 14ch auto;gap:0 12px;align-items:center;padding:5px 2px;border-bottom:1px solid #161b22}}
+    .run-row:hover{{background:#161b22}}
+    .dim{{color:#8b949e;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+    .trunc{{max-width:280px}}
+  </style>
+</head><body>
+  <div class="nav">
+    <a href="/">&lt; CI</a> <span class="sep">|</span>
+    <a href="/cost-overview">cost overview</a> <span class="sep">|</span>
+    <a href="/namespace-billing">namespace billing</a> <span class="sep">|</span>
+    <a href="/ci-insights">ci insights</a> <span class="sep">|</span>
+    <a href="/flake-prs">flake prs</a> <span class="sep">|</span>
+    <a href="/commits">commits</a>
+  </div>
+  <div class="box">
+    <div class="sha-line"><a href="{gh_commit}" target="_blank">{full_sha}</a></div>
+    <div class="subject">{subject}</div>
+    <div class="meta">
+      <span>author: <a href="{author_gh}" target="_blank">{_html.escape(author)}</a></span>
+      <span>date: {date}</span>
+      <span>pr: {pr_html}</span>
+    </div>
+  </div>
+  <h3>{heading}</h3>
+  {runs_html}
+</body></html>'''
+    return Response(page, mimetype='text/html')
+
+
 @app.route('/api/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 @auth.login_required
 def proxy_api(path):
@@ -772,11 +956,13 @@ def get_value(key):
 
     value = r.get(key)
     if value is None:
-        # Try disk fallback
         value = read_from_disk(key)
-        if value is None:
-            value = "Key not found"
-    else:
+    if value is None:
+        value = read_from_s3(key)
+    if value is None:
+        value = "Key not found"
+    elif isinstance(value, bytes):
+        # Redis returns raw bytes — decompress if gzip.
         try:
             if value.startswith(b"\x1f\x8b"):
                 value = gzip.decompress(value).decode()
