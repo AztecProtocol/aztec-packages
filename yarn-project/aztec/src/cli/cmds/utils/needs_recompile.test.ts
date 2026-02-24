@@ -1,0 +1,270 @@
+import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
+import { mkdir, rm, utimes, writeFile } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
+
+import { needsRecompile } from './needs_recompile.js';
+
+/** Create a file and backdate it to the given timestamp (seconds since epoch). */
+async function touch(filePath: string, timeSec: number) {
+  await writeFile(filePath, '');
+  await utimes(filePath, timeSec, timeSec);
+}
+
+/** Create a directory (recursively). */
+async function mkdirp(dir: string) {
+  await mkdir(dir, { recursive: true });
+}
+
+describe('needsRecompile', () => {
+  let tempDir: string;
+  let originalCwd: string;
+
+  beforeEach(async () => {
+    originalCwd = process.cwd();
+    // Create a unique temp directory and chdir into it so needsRecompile()
+    // resolves its relative paths ('target', '.') against our test fixtures.
+    tempDir = join(tmpdir(), `needs-recompile-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    await mkdirp(tempDir);
+    process.chdir(tempDir);
+  });
+
+  afterEach(async () => {
+    process.chdir(originalCwd);
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it('returns true when target directory does not exist', async () => {
+    // No target/ at all — always needs recompile.
+    await writeFile('Nargo.toml', '[package]\nname = "test"\ntype = "contract"\n');
+    expect(await needsRecompile()).toBe(true);
+  });
+
+  it('returns true when target directory is empty (no .json artifacts)', async () => {
+    await mkdirp('target');
+    await writeFile('Nargo.toml', '[package]\nname = "test"\ntype = "contract"\n');
+    expect(await needsRecompile()).toBe(true);
+  });
+
+  it('returns true when target has only non-json files', async () => {
+    await mkdirp('target');
+    await touch(join('target', 'something.txt'), 1000);
+    await writeFile('Nargo.toml', '[package]\nname = "test"\ntype = "contract"\n');
+    expect(await needsRecompile()).toBe(true);
+  });
+
+  it('returns false when artifacts are newer than all sources', async () => {
+    // Source files at t=1000, artifact at t=2000.
+    await mkdirp('src');
+    await mkdirp('target');
+
+    await writeFile('Nargo.toml', '[package]\nname = "test"\ntype = "contract"\n');
+    await utimes('Nargo.toml', 1000, 1000);
+
+    await touch(join('src', 'main.nr'), 1000);
+    await touch(join('target', 'artifact.json'), 2000);
+
+    expect(await needsRecompile()).toBe(false);
+  });
+
+  it('returns true when a .nr source file is newer than the newest artifact', async () => {
+    await mkdirp('src');
+    await mkdirp('target');
+
+    await writeFile('Nargo.toml', '[package]\nname = "test"\ntype = "contract"\n');
+    await utimes('Nargo.toml', 1000, 1000);
+
+    await touch(join('target', 'artifact.json'), 2000);
+    await touch(join('src', 'main.nr'), 3000);
+
+    expect(await needsRecompile()).toBe(true);
+  });
+
+  it('returns true when Nargo.toml is newer than the newest artifact', async () => {
+    await mkdirp('src');
+    await mkdirp('target');
+
+    await touch(join('src', 'main.nr'), 1000);
+    await touch(join('target', 'artifact.json'), 2000);
+
+    await writeFile('Nargo.toml', '[package]\nname = "test"\ntype = "contract"\n');
+    await utimes('Nargo.toml', 3000, 3000);
+
+    expect(await needsRecompile()).toBe(true);
+  });
+
+  it('follows path-based dependencies and detects newer sources in them', async () => {
+    // Main project depends on a local library via path.
+    const libDir = join(tempDir, 'lib', 'my_dep');
+    await mkdirp(join(libDir, 'src'));
+    await mkdirp('src');
+    await mkdirp('target');
+
+    // Main project Nargo.toml with a path dependency.
+    const mainToml = `[package]
+name = "test"
+type = "contract"
+
+[dependencies]
+my_dep = { path = "lib/my_dep" }
+`;
+    await writeFile('Nargo.toml', mainToml);
+    await utimes('Nargo.toml', 1000, 1000);
+
+    // Dependency Nargo.toml
+    await writeFile(join(libDir, 'Nargo.toml'), '[package]\nname = "my_dep"\ntype = "lib"\n');
+    await utimes(join(libDir, 'Nargo.toml'), 1000, 1000);
+
+    // Source files — all old.
+    await touch(join('src', 'main.nr'), 1000);
+    await touch(join(libDir, 'src', 'lib.nr'), 1000);
+
+    // Artifact is newer than all sources.
+    await touch(join('target', 'artifact.json'), 2000);
+
+    expect(await needsRecompile()).toBe(false);
+
+    // Now update a source file in the dependency.
+    await utimes(join(libDir, 'src', 'lib.nr'), 3000, 3000);
+
+    expect(await needsRecompile()).toBe(true);
+  });
+
+  it('ignores git-based dependencies (no path field)', async () => {
+    await mkdirp('src');
+    await mkdirp('target');
+
+    // Nargo.toml with a git dependency only.
+    const toml = `[package]
+name = "test"
+type = "contract"
+
+[dependencies]
+aztec = { git = "https://github.com/example/repo", tag = "v1.0" }
+`;
+    await writeFile('Nargo.toml', toml);
+    await utimes('Nargo.toml', 1000, 1000);
+
+    await touch(join('src', 'main.nr'), 1000);
+    await touch(join('target', 'artifact.json'), 2000);
+
+    // Should return false and not error out because of invalid links — git deps are not searched through since they
+    // are fixed to a tag in Nargo.toml (and if Nargo.toml got modified we would detect it).
+    expect(await needsRecompile()).toBe(false);
+  });
+
+  it('skips target/ directories when scanning for source files', async () => {
+    await mkdirp('src');
+    await mkdirp('target');
+
+    await writeFile('Nargo.toml', '[package]\nname = "test"\ntype = "contract"\n');
+    await utimes('Nargo.toml', 1000, 1000);
+
+    await touch(join('src', 'main.nr'), 1000);
+    await touch(join('target', 'artifact.json'), 2000);
+
+    // Place a newer .nr file inside a nested target/ directory.
+    // This should be ignored.
+    await mkdirp(join('src', 'target'));
+    await touch(join('src', 'target', 'cached.nr'), 5000);
+
+    expect(await needsRecompile()).toBe(false);
+  });
+
+  it('compares against the oldest artifact when multiple exist', async () => {
+    await mkdirp('src');
+    await mkdirp('target');
+
+    await writeFile('Nargo.toml', '[package]\nname = "test"\ntype = "contract"\n');
+    await utimes('Nargo.toml', 1000, 1000);
+
+    await touch(join('src', 'main.nr'), 2500);
+    // Two artifacts: one old, one very new.
+    await touch(join('target', 'old_artifact.json'), 2000);
+    await touch(join('target', 'new_artifact.json'), 3000);
+
+    // Source (2500) is newer than the oldest artifact (2000), so recompile.
+    expect(await needsRecompile()).toBe(true);
+  });
+
+  it('returns true when source is newer than the oldest but older than newest artifact', async () => {
+    // The comparison is against the oldest artifact so that a source change
+    // between the oldest and newest compilation still triggers a recompile.
+    await mkdirp('src');
+    await mkdirp('target');
+
+    await writeFile('Nargo.toml', '[package]\nname = "test"\ntype = "contract"\n');
+    await utimes('Nargo.toml', 1000, 1000);
+
+    await touch(join('target', 'old_artifact.json'), 1500);
+    await touch(join('target', 'new_artifact.json'), 3000);
+    await touch(join('src', 'main.nr'), 2000);
+
+    // Source (2000) > oldest artifact (1500), so recompile needed.
+    expect(await needsRecompile()).toBe(true);
+  });
+
+  it('returns false when all sources are older than the oldest artifact', async () => {
+    await mkdirp('src');
+    await mkdirp('target');
+
+    await writeFile('Nargo.toml', '[package]\nname = "test"\ntype = "contract"\n');
+    await utimes('Nargo.toml', 1000, 1000);
+
+    await touch(join('src', 'main.nr'), 1000);
+    await touch(join('target', 'old_artifact.json'), 2000);
+    await touch(join('target', 'new_artifact.json'), 3000);
+
+    // Source (1000) < oldest artifact (2000), no recompile.
+    expect(await needsRecompile()).toBe(false);
+  });
+
+  it('handles deeply nested .nr source files', async () => {
+    await mkdirp('src/nested/deep');
+    await mkdirp('target');
+
+    await writeFile('Nargo.toml', '[package]\nname = "test"\ntype = "contract"\n');
+    await utimes('Nargo.toml', 1000, 1000);
+
+    await touch(join('src', 'nested', 'deep', 'module.nr'), 3000);
+    await touch(join('target', 'artifact.json'), 2000);
+
+    expect(await needsRecompile()).toBe(true);
+  });
+
+  it('does not follow circular path dependencies', async () => {
+    // Two projects that depend on each other via path.
+    const libDir = join(tempDir, 'lib');
+    await mkdirp(join(libDir, 'src'));
+    await mkdirp('src');
+    await mkdirp('target');
+
+    const mainToml = `[package]
+name = "main"
+type = "contract"
+
+[dependencies]
+lib = { path = "lib" }
+`;
+    await writeFile('Nargo.toml', mainToml);
+    await utimes('Nargo.toml', 1000, 1000);
+
+    // lib depends back on the main project.
+    const libToml = `[package]
+name = "lib"
+type = "lib"
+
+[dependencies]
+main = { path = ".." }
+`;
+    await writeFile(join(libDir, 'Nargo.toml'), libToml);
+    await utimes(join(libDir, 'Nargo.toml'), 1000, 1000);
+
+    await touch(join('src', 'main.nr'), 1000);
+    await touch(join(libDir, 'src', 'lib.nr'), 1000);
+    await touch(join('target', 'artifact.json'), 2000);
+
+    // Should not infinite-loop; should return false since all sources are old.
+    expect(await needsRecompile()).toBe(false);
+  });
+});
