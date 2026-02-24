@@ -114,7 +114,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const filteredConfig = pickFromSchema(config, SequencerConfigSchema);
     this.log.info(`Updated sequencer config`, omit(filteredConfig, 'txPublicSetupAllowList'));
     this.config = merge(this.config, filteredConfig);
-    // TODO: this should probably be in the config way earlier
     this.epochCache.setProposerPipeliningEnabled(this.config.enableProposerPipelining);
     this.timetable = new SequencerTimetable(
       {

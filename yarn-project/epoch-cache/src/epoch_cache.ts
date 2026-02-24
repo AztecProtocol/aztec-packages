@@ -103,7 +103,6 @@ export class EpochCache implements EpochCacheInterface {
 
   static async create(
     rollupOrAddress: EthAddress | RollupContract,
-    enableProposerPipelining: boolean,
     config?: EpochCacheConfig,
     deps: { dateProvider?: DateProvider } = {},
   ) {
@@ -158,7 +157,7 @@ export class EpochCache implements EpochCacheInterface {
     return new EpochCache(rollup, l1RollupConstants, deps.dateProvider, {
       cacheSize: 12,
       validatorRefreshIntervalSeconds: 60,
-      enableProposerPipelining: enableProposerPipelining ?? false,
+      enableProposerPipelining: config.enableProposerPipelining,
     });
   }
 
