@@ -141,6 +141,29 @@ def get_ci_runs(date_from_ms=None, date_to_ms=None):
     return _get_ci_runs_from_sqlite(date_from_ms, date_to_ms)
 
 
+def get_ci_runs_for_pr(pr_number: int, limit: int = 100) -> list:
+    """Return CI runs for a specific PR, most recent first."""
+    rows = db.query(
+        'SELECT * FROM ci_runs WHERE pr_number = ? ORDER BY timestamp_ms DESC LIMIT ?',
+        (pr_number, limit)
+    )
+    return [{
+        'dashboard': row['dashboard'],
+        'name': row['name'],
+        'timestamp': row['timestamp_ms'],
+        'complete': row['complete_ms'],
+        'status': row['status'],
+        'author': row['author'],
+        'pr_number': row['pr_number'],
+        'instance_type': row['instance_type'],
+        'instance_vcpus': row.get('instance_vcpus'),
+        'spot': bool(row['spot']),
+        'cost_usd': row['cost_usd'],
+        'job_id': row.get('job_id', ''),
+        'arch': row.get('arch', ''),
+    } for row in rows]
+
+
 def _ts_to_date(ts_ms):
     return datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc).strftime('%Y-%m-%d')
 
@@ -558,6 +581,8 @@ def sync_failed_tests_to_sqlite(redis_conn):
     conn.commit()
     if total:
         print(f"[rk_metrics] Synced {total} test events from Redis lists")
+        db.cache_invalidate_prefix('flakes:')
+        db.cache_invalidate_prefix('timings:')
 
 
 # ---- Seed loading ----
@@ -722,6 +747,7 @@ def sync_ci_runs_to_sqlite(redis_conn):
             print(f"[rk_metrics] Error syncing run: {e}")
     conn.commit()
     print(f"[rk_metrics] Synced {count} CI runs to SQLite")
+    db.cache_invalidate_prefix('perf:')
 
 
 def _backfill_daily_stats():
@@ -1086,6 +1112,7 @@ def start_ci_run_sync(redis_conn):
                 sync_failed_tests_to_sqlite(redis_conn)
                 resolve_unknown_instance_types()
                 _materialize_ci_run_daily_stats()
+                db.cache_cleanup()
             except Exception as e:
                 print(f"[rk_metrics] sync error: {e}")
             time.sleep(600)  # check every 10 min (TTL gates actual work)

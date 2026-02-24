@@ -118,6 +118,16 @@ def _json(data):
     return Response(json.dumps(data), mimetype='application/json')
 
 
+def _cached(cache_key: str, ttl_secs: int, compute):
+    """Return cached JSON response, or compute, store, and return it."""
+    cached = db.cache_get(cache_key)
+    if cached is not None:
+        return _json(cached)
+    result = compute()
+    db.cache_set(cache_key, result, ttl_secs)
+    return _json(result)
+
+
 # ---- Author mapping: git display name → GitHub username ----
 
 _author_map = {}
@@ -574,6 +584,9 @@ def api_ci_performance():
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     dashboard = request.args.get('dashboard', '')
     granularity = request.args.get('granularity', 'daily')
+    _ck = f'perf:{date_from}:{date_to}:{dashboard}:{granularity}'
+    if (cached := db.cache_get(_ck)) is not None:
+        return _json(cached)
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
 
@@ -729,7 +742,7 @@ def api_ci_performance():
     tpc = ds_s.get('passed', 0) or 0
     tc = fc + tfc + tpc
 
-    return _json({
+    _result = {
         'by_date': by_date,
         'duration_by_dashboard': duration_by_dashboard,
         'top_flakes': top_flakes,
@@ -745,7 +758,9 @@ def api_ci_performance():
             'total_test_failures': tfc,
             'total_test_successes': tpc,
         },
-    })
+    }
+    db.cache_set(_ck, _result, 300)
+    return _json(_result)
 
 
 # ---- GitHub integration ----
@@ -780,10 +795,15 @@ def api_pr_metrics():
     date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     author = request.args.get('author', '')
+    _ck = f'pr_metrics:{date_from}:{date_to}:{author}'
+    if (cached := db.cache_get(_ck)) is not None:
+        return _json(cached)
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
     ci_runs = metrics.get_ci_runs(ts_from, ts_to)
-    return _json(github_data.get_pr_metrics(date_from, date_to, author, ci_runs))
+    _result = github_data.get_pr_metrics(date_from, date_to, author, ci_runs)
+    db.cache_set(_ck, _result, 300)
+    return _json(_result)
 
 
 @app.route('/api/merge-queue/stats')
@@ -791,7 +811,8 @@ def api_pr_metrics():
 def api_merge_queue_stats():
     date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
-    return _json(github_data.get_merge_queue_stats(date_from, date_to))
+    return _cached(f'mq_stats:{date_from}:{date_to}', 300,
+                   lambda: github_data.get_merge_queue_stats(date_from, date_to))
 
 
 @app.route('/api/test-history/<test_hash>')
@@ -804,14 +825,26 @@ def api_test_history(test_hash):
     return _json(rows)
 
 
+@app.route('/api/ci/runs/pr/<int:pr_number>')
+@auth.login_required
+def api_ci_runs_for_pr(pr_number):
+    limit = min(int(request.args.get('limit', 100)), 500)
+    return _json(metrics.get_ci_runs_for_pr(pr_number, limit))
+
+
 @app.route('/api/ci/flakes-by-command')
 @auth.login_required
 def api_flakes_by_command():
     date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     dashboard = request.args.get('dashboard', '')
+    _ck = f'flakes:{date_from}:{date_to}:{dashboard}'
+    if (cached := db.cache_get(_ck)) is not None:
+        return _json(cached)
     metrics.sync_failed_tests_to_sqlite(r)
-    return _json(metrics.get_flakes_by_command(date_from, date_to, dashboard))
+    _result = metrics.get_flakes_by_command(date_from, date_to, dashboard)
+    db.cache_set(_ck, _result, 600)
+    return _json(_result)
 
 
 # ---- CI Phase timing ----
@@ -824,7 +857,8 @@ def api_ci_phases():
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     dashboard = request.args.get('dashboard', '')
     run_id = request.args.get('run_id', '')
-    return _json(metrics.get_phases(date_from, date_to, dashboard, run_id))
+    return _cached(f'phases:{date_from}:{date_to}:{dashboard}:{run_id}', 300,
+                   lambda: metrics.get_phases(date_from, date_to, dashboard, run_id))
 
 
 # ---- Test timings ----
@@ -838,6 +872,9 @@ def api_test_timings():
     dashboard = request.args.get('dashboard', '')
     status = request.args.get('status', '')  # filter to specific status
     test_cmd = request.args.get('test_cmd', '')  # filter to specific test
+    _ck = f'timings:{date_from}:{date_to}:{dashboard}:{status}:{test_cmd}'
+    if (cached := db.cache_get(_ck)) is not None:
+        return _json(cached)
 
     conditions = ['duration_secs IS NOT NULL', 'duration_secs > 0',
                   'timestamp >= ?', "timestamp < ? || 'T23:59:59'"]
@@ -984,7 +1021,7 @@ def api_test_timings():
         LIMIT 50
     ''', params)
 
-    return _json({
+    _result = {
         'by_test': by_test,
         'by_date': by_date,
         'slowest': slowest,
@@ -998,7 +1035,9 @@ def api_test_timings():
             'failed': failed,
             'flaked': flaked,
         },
-    })
+    }
+    db.cache_set(_ck, _result, 600)
+    return _json(_result)
 
 
 # ---- Dashboard views ----
