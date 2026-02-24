@@ -35,7 +35,8 @@ if [ -z "$key" ]; then
   author="$(git log -1 --pretty=format:"%an")"
   name=$REF_NAME
   [ "$(aws_get_meta_data instance-life-cycle)" == "spot" ] && spot=true || spot=false
-  instance_type=$(aws_get_meta_data instance-type 2>/dev/null || echo "unknown")
+  instance_type=${EC2_INSTANCE_TYPE:-$(aws_get_meta_data instance-type 2>/dev/null)}
+  instance_type=${instance_type:-unknown}
   instance_vcpus=$(nproc 2>/dev/null || echo 0)
 
   # Extract PR number from branch name or merge queue ref

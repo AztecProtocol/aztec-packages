@@ -6,6 +6,7 @@ import json
 import os
 import re
 import redis
+import time
 import threading
 from pathlib import Path
 
@@ -37,14 +38,29 @@ def verify_password(username, password):
 
 
 def _init():
-    """Initialize SQLite and start background threads."""
+    """Initialize SQLite, warm caches, and start background threads."""
     try:
         db.get_db()
         metrics.start_test_listener(r)
+        metrics.start_phase_listener(r)
         metrics.start_ci_run_sync(r)
+        github_data.start_merge_queue_poller()
         print("[ci-metrics] Background threads started")
     except Exception as e:
         print(f"[ci-metrics] Warning: startup failed: {e}")
+    # Warm billing caches so first request isn't slow
+    try:
+        from billing.gcp import _ensure_cached as _warm_gcp
+        _warm_gcp()
+        print("[ci-metrics] GCP billing cache warmed")
+    except Exception as e:
+        print(f"[ci-metrics] GCP billing warmup failed: {e}")
+    try:
+        from billing.aws import _ensure_cached as _warm_aws
+        _warm_aws()
+        print("[ci-metrics] AWS costs cache warmed")
+    except Exception as e:
+        print(f"[ci-metrics] AWS costs warmup failed: {e}")
 
 threading.Thread(target=_init, daemon=True, name='metrics-init').start()
 
@@ -99,6 +115,61 @@ def _aggregate_dates(by_date_list, granularity, sum_fields, avg_fields=None):
 
 def _json(data):
     return Response(json.dumps(data), mimetype='application/json')
+
+
+# ---- Author mapping: git display name → GitHub username ----
+
+_author_map = {}
+_author_map_ts = 0
+
+
+def _get_author_map() -> dict:
+    """Build git display name → GitHub username mapping from ci_runs + pr_authors."""
+    global _author_map, _author_map_ts
+    now = time.time()
+    if now - _author_map_ts < 3600 and _author_map:
+        return _author_map
+    rows = db.query('''
+        SELECT cr.author as git_name, pa.author as github_user, COUNT(*) as c
+        FROM ci_runs cr
+        JOIN pr_authors pa ON cr.pr_number = pa.pr_number
+        WHERE cr.author IS NOT NULL AND cr.author != ''
+        AND pa.author IS NOT NULL AND pa.author != ''
+        GROUP BY cr.author, pa.author
+    ''')
+    name_to_gh = {}
+    for row in rows:
+        gn = row['git_name']
+        gh = row['github_user']
+        if gn not in name_to_gh:
+            name_to_gh[gn] = {}
+        name_to_gh[gn][gh] = name_to_gh[gn].get(gh, 0) + row['c']
+    result = {}
+    for gn, gh_counts in name_to_gh.items():
+        best = max(gh_counts, key=gh_counts.get)
+        result[gn] = best
+        result[best] = best  # identity mapping for usernames used as commit_author
+    _author_map = result
+    _author_map_ts = now
+    return result
+
+
+def _normalize_authors(authors_str: str) -> str:
+    """Normalize comma-separated git names to deduplicated GitHub usernames."""
+    if not authors_str:
+        return ''
+    amap = _get_author_map()
+    seen = set()
+    result = []
+    for name in authors_str.split(','):
+        name = name.strip()
+        if not name:
+            continue
+        gh = amap.get(name, name)
+        if gh not in seen:
+            seen.add(gh)
+            result.append(gh)
+    return ','.join(result)
 
 
 # ---- Namespace billing ----
@@ -166,7 +237,7 @@ def api_ci_runs():
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000) if date_from else None
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000) if date_to else None
 
-    runs = metrics.get_ci_runs(r, ts_from, ts_to)
+    runs = metrics.get_ci_runs(ts_from, ts_to)
 
     if status_filter:
         runs = [run for run in runs if run.get('status') == status_filter]
@@ -185,7 +256,7 @@ def api_ci_runs():
 @auth.login_required
 def api_ci_stats():
     ts_from = int((datetime.now() - timedelta(days=7)).timestamp() * 1000)
-    runs = metrics.get_ci_runs(r, ts_from)
+    runs = metrics.get_ci_runs(ts_from)
 
     total = len(runs)
     passed = sum(1 for run in runs if run.get('status') == 'PASSED')
@@ -233,6 +304,7 @@ def api_costs_overview():
             buckets[key]['aws_total'] += entry.get('aws_total', 0)
             buckets[key]['gcp_total'] += entry.get('gcp_total', 0)
         result['by_date'] = sorted(buckets.values(), key=lambda x: x['date'])
+    result['period'] = {'from': date_from, 'to': date_to}
     return _json(result)
 
 
@@ -287,7 +359,7 @@ def api_costs_attribution():
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
 
-    runs = metrics.get_ci_runs(r, ts_from, ts_to)
+    runs = metrics.get_ci_runs(ts_from, ts_to)
     runs_with_cost = [run for run in runs if run.get('cost_usd') is not None]
 
     # Enrich merge queue runs with PR author from GitHub
@@ -311,6 +383,9 @@ def api_costs_attribution():
         prn = info['pr_number']
         if prn and int(prn) in pr_authors:
             author = pr_authors[int(prn)]['author']
+        # Attribute nightly / release runs to a special 'release' actor
+        if info['type'] in ('nightly', 'releases'):
+            author = 'release'
 
         inst_type = run.get('instance_type', 'unknown')
         vcpus = run.get('instance_vcpus')
@@ -383,14 +458,17 @@ def api_costs_attribution():
     instances.sort(key=lambda x: -(x['cost_usd'] or 0))
 
     all_types = sorted(by_type.keys())
+    # Pre-compute runs-per-date to avoid O(dates × instances)
+    runs_per_date = {}
+    for inst in instances:
+        runs_per_date[inst['date']] = runs_per_date.get(inst['date'], 0) + 1
     by_date_list = []
     for date in sorted(by_date_type):
-        entry = {'date': date, 'total': 0, 'runs': 0}
+        entry = {'date': date, 'total': 0, 'runs': runs_per_date.get(date, 0)}
         for rt in all_types:
             entry[rt] = round(by_date_type[date].get(rt, 0), 2)
             entry['total'] += by_date_type[date].get(rt, 0)
         entry['total'] = round(entry['total'], 2)
-        entry['runs'] = sum(1 for inst in instances if inst['date'] == date)
         by_date_list.append(entry)
 
     by_date_list = _aggregate_dates(by_date_list, granularity,
@@ -405,6 +483,7 @@ def api_costs_attribution():
         'by_date': by_date_list,
         'run_types': all_types,
         'instances': instances[:500],
+        'period': {'from': date_from, 'to': date_to},
         'totals': {'aws': round(total_aws, 2), 'gcp': round(gcp_total, 2),
                    'gcp_unattributed': round(gcp_total, 2),
                    'combined': round(total_aws + gcp_total, 2)},
@@ -421,7 +500,7 @@ def api_costs_runners():
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
 
-    runs = metrics.get_ci_runs(r, ts_from, ts_to)
+    runs = metrics.get_ci_runs(ts_from, ts_to)
     runs_with_cost = [run for run in runs if run.get('cost_usd') is not None]
     if dashboard:
         runs_with_cost = [run for run in runs_with_cost if run.get('dashboard') == dashboard]
@@ -475,6 +554,7 @@ def api_costs_runners():
         'by_date': by_date,
         'by_instance_type': by_instance,
         'by_dashboard': by_dashboard,
+        'period': {'from': date_from, 'to': date_to},
         'summary': {
             'total_cost': round(total_cost, 2),
             'spot_pct': round(100.0 * spot_cost / max(total_cost, 0.01), 1),
@@ -496,7 +576,7 @@ def api_ci_performance():
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
 
-    runs = metrics.get_ci_runs(r, ts_from, ts_to)
+    runs = metrics.get_ci_runs(ts_from, ts_to)
     runs = [run for run in runs if run.get('status') in ('PASSED', 'FAILED')]
     if dashboard:
         runs = [run for run in runs if run.get('dashboard') == dashboard]
@@ -519,6 +599,7 @@ def api_ci_performance():
     by_date = []
     for date in sorted(by_date_map):
         d = by_date_map[date]
+        durs = sorted(d['durations'])
         by_date.append({
             'date': date,
             'total': d['total'],
@@ -526,74 +607,104 @@ def api_ci_performance():
             'failed': d['failed'],
             'pass_rate': round(100.0 * d['passed'] / max(d['total'], 1), 1),
             'failure_rate': round(100.0 * d['failed'] / max(d['total'], 1), 1),
-            'avg_duration_mins': round(sum(d['durations']) / len(d['durations']), 1) if d['durations'] else None,
+            'avg_duration_mins': round(sum(durs) / len(durs), 1) if durs else None,
+            'p50_duration_mins': round(durs[len(durs) // 2], 1) if durs else None,
+            'p95_duration_mins': round(durs[int(len(durs) * 0.95)], 1) if durs else None,
+            'max_duration_mins': round(max(durs), 1) if durs else None,
         })
 
+    # Merge test outcome counts from test_daily_stats before aggregation
+    ds_conditions = ['date >= ?', 'date <= ?']
+    ds_params = [date_from, date_to]
+    if dashboard:
+        ds_conditions.append('dashboard = ?')
+        ds_params.append(dashboard)
+    ds_where = 'WHERE ' + ' AND '.join(ds_conditions)
+
+    daily_test_counts = db.query(f'''
+        SELECT date, SUM(passed) as passed, SUM(failed) as failed, SUM(flaked) as flaked
+        FROM test_daily_stats {ds_where}
+        GROUP BY date
+    ''', ds_params)
+    daily_test_map = {r['date']: r for r in daily_test_counts}
+    for d in by_date:
+        tc = daily_test_map.get(d['date'], {})
+        d['flake_count'] = tc.get('flaked', 0) or 0
+        d['test_failure_count'] = tc.get('failed', 0) or 0
+        d['test_success_count'] = tc.get('passed', 0) or 0
+
     by_date = _aggregate_dates(by_date, granularity,
-                               sum_fields=['total', 'passed', 'failed'],
-                               avg_fields=['avg_duration_mins'])
+                               sum_fields=['total', 'passed', 'failed',
+                                           'flake_count', 'test_failure_count', 'test_success_count'],
+                               avg_fields=['avg_duration_mins', 'p50_duration_mins',
+                                           'p95_duration_mins', 'max_duration_mins'])
     for d in by_date:
         d['pass_rate'] = round(100.0 * d['passed'] / max(d['total'], 1), 1)
         d['failure_rate'] = round(100.0 * d['failed'] / max(d['total'], 1), 1)
 
-    # Daily flake/failure counts from test_events
-    if dashboard:
-        flake_daily = db.query('''
-            SELECT substr(timestamp, 1, 10) as date, COUNT(*) as count
-            FROM test_events WHERE status = 'flaked' AND dashboard = ?
-            AND timestamp >= ? AND timestamp < ?
-            GROUP BY substr(timestamp, 1, 10)
-        ''', (dashboard, date_from, date_to + 'T23:59:59'))
-        fail_test_daily = db.query('''
-            SELECT substr(timestamp, 1, 10) as date, COUNT(*) as count
-            FROM test_events WHERE status = 'failed' AND dashboard = ?
-            AND timestamp >= ? AND timestamp < ?
-            GROUP BY substr(timestamp, 1, 10)
-        ''', (dashboard, date_from, date_to + 'T23:59:59'))
-    else:
-        flake_daily = db.query('''
-            SELECT substr(timestamp, 1, 10) as date, COUNT(*) as count
-            FROM test_events WHERE status = 'flaked'
-            AND timestamp >= ? AND timestamp < ?
-            GROUP BY substr(timestamp, 1, 10)
-        ''', (date_from, date_to + 'T23:59:59'))
-        fail_test_daily = db.query('''
-            SELECT substr(timestamp, 1, 10) as date, COUNT(*) as count
-            FROM test_events WHERE status = 'failed'
-            AND timestamp >= ? AND timestamp < ?
-            GROUP BY substr(timestamp, 1, 10)
-        ''', (date_from, date_to + 'T23:59:59'))
-    flake_daily_map = {r['date']: r['count'] for r in flake_daily}
-    fail_test_daily_map = {r['date']: r['count'] for r in fail_test_daily}
-    for d in by_date:
-        d['flake_count'] = flake_daily_map.get(d['date'], 0)
-        d['test_failure_count'] = fail_test_daily_map.get(d['date'], 0)
+    # Duration by dashboard (pipeline) — from pre-aggregated ci_run_daily_stats
+    dbd_rows = db.query('''
+        SELECT date, dashboard, run_count, passed, failed,
+               sum_duration, min_duration, max_duration, p50_duration, p95_duration
+        FROM ci_run_daily_stats
+        WHERE date >= ? AND date <= ?
+        ORDER BY date
+    ''', (date_from, date_to))
 
-    # Top flakes/failures
+    dbd_map = {}  # {dashboard: [{date, avg_duration_mins, ...}]}
+    for r in dbd_rows:
+        dbd_map.setdefault(r['dashboard'], []).append({
+            'date': r['date'],
+            'avg_duration_mins': round(r['sum_duration'] / max(r['run_count'], 1), 1),
+            'total_duration_mins': round(r['sum_duration'], 1),
+            'p50_duration_mins': r['p50_duration'],
+            'p95_duration_mins': r['p95_duration'],
+            'count': r['run_count'],
+        })
+
+    duration_by_dashboard = {}
+    for db_name, entries in dbd_map.items():
+        duration_by_dashboard[db_name] = _aggregate_dates(
+            entries, granularity,
+            sum_fields=['count', 'total_duration_mins'],
+            avg_fields=['avg_duration_mins', 'p50_duration_mins', 'p95_duration_mins'])
+
+    # Top flakes/failures (with affected authors — filter out empty/NULL)
+    _author_concat = "GROUP_CONCAT(DISTINCT CASE WHEN commit_author IS NOT NULL AND commit_author != '' THEN commit_author END)"
     if dashboard:
-        top_flakes = db.query('''
-            SELECT test_cmd, COUNT(*) as count, ref_name
+        top_flakes = db.query(f'''
+            SELECT test_cmd, COUNT(*) as count, dashboard,
+                   {_author_concat} as authors
             FROM test_events WHERE status='flaked' AND dashboard = ?
             AND timestamp >= ? AND timestamp <= ?
-            GROUP BY test_cmd ORDER BY count DESC LIMIT 15
+            GROUP BY test_cmd ORDER BY count DESC LIMIT 20
         ''', (dashboard, date_from, date_to + 'T23:59:59'))
-        top_failures = db.query('''
-            SELECT test_cmd, COUNT(*) as count
+        top_failures = db.query(f'''
+            SELECT test_cmd, COUNT(*) as count, dashboard,
+                   {_author_concat} as authors
             FROM test_events WHERE status='failed' AND dashboard = ?
             AND timestamp >= ? AND timestamp <= ?
-            GROUP BY test_cmd ORDER BY count DESC LIMIT 15
+            GROUP BY test_cmd ORDER BY count DESC LIMIT 20
         ''', (dashboard, date_from, date_to + 'T23:59:59'))
     else:
-        top_flakes = db.query('''
-            SELECT test_cmd, COUNT(*) as count, ref_name
+        top_flakes = db.query(f'''
+            SELECT test_cmd, COUNT(*) as count, dashboard,
+                   {_author_concat} as authors
             FROM test_events WHERE status='flaked' AND timestamp >= ? AND timestamp <= ?
-            GROUP BY test_cmd ORDER BY count DESC LIMIT 15
+            GROUP BY test_cmd ORDER BY count DESC LIMIT 20
         ''', (date_from, date_to + 'T23:59:59'))
-        top_failures = db.query('''
-            SELECT test_cmd, COUNT(*) as count
+        top_failures = db.query(f'''
+            SELECT test_cmd, COUNT(*) as count, dashboard,
+                   {_author_concat} as authors
             FROM test_events WHERE status='failed' AND timestamp >= ? AND timestamp <= ?
-            GROUP BY test_cmd ORDER BY count DESC LIMIT 15
+            GROUP BY test_cmd ORDER BY count DESC LIMIT 20
         ''', (date_from, date_to + 'T23:59:59'))
+
+    # Normalize git display names → GitHub usernames
+    for row in top_flakes:
+        row['authors'] = _normalize_authors(row.get('authors', ''))
+    for row in top_failures:
+        row['authors'] = _normalize_authors(row.get('authors', ''))
 
     # Summary
     total = len(runs)
@@ -606,38 +717,23 @@ def api_ci_performance():
         if complete and ts:
             durations.append((complete - ts) / 60000.0)
 
-    if dashboard:
-        flake_count = db.query('''
-            SELECT COUNT(*) as c FROM test_events WHERE status='flaked' AND dashboard = ?
-            AND timestamp >= ? AND timestamp <= ?
-        ''', (dashboard, date_from, date_to + 'T23:59:59'))
-        total_tests = db.query('''
-            SELECT COUNT(*) as c FROM test_events WHERE status IN ('failed','flaked') AND dashboard = ?
-            AND timestamp >= ? AND timestamp <= ?
-        ''', (dashboard, date_from, date_to + 'T23:59:59'))
-        total_failures_count = db.query('''
-            SELECT COUNT(*) as c FROM test_events WHERE status='failed' AND dashboard = ?
-            AND timestamp >= ? AND timestamp <= ?
-        ''', (dashboard, date_from, date_to + 'T23:59:59'))
-    else:
-        flake_count = db.query('''
-            SELECT COUNT(*) as c FROM test_events WHERE status='flaked' AND timestamp >= ? AND timestamp <= ?
-        ''', (date_from, date_to + 'T23:59:59'))
-        total_tests = db.query('''
-            SELECT COUNT(*) as c FROM test_events WHERE status IN ('failed','flaked') AND timestamp >= ? AND timestamp <= ?
-        ''', (date_from, date_to + 'T23:59:59'))
-        total_failures_count = db.query('''
-            SELECT COUNT(*) as c FROM test_events WHERE status='failed' AND timestamp >= ? AND timestamp <= ?
-        ''', (date_from, date_to + 'T23:59:59'))
-
-    fc = flake_count[0]['c'] if flake_count else 0
-    tc = total_tests[0]['c'] if total_tests else 0
-    tfc = total_failures_count[0]['c'] if total_failures_count else 0
+    # Test outcome summary from test_daily_stats
+    ds_summary = db.query(f'''
+        SELECT SUM(passed) as passed, SUM(failed) as failed, SUM(flaked) as flaked
+        FROM test_daily_stats {ds_where}
+    ''', ds_params)
+    ds_s = ds_summary[0] if ds_summary else {}
+    fc = ds_s.get('flaked', 0) or 0
+    tfc = ds_s.get('failed', 0) or 0
+    tpc = ds_s.get('passed', 0) or 0
+    tc = fc + tfc + tpc
 
     return _json({
         'by_date': by_date,
+        'duration_by_dashboard': duration_by_dashboard,
         'top_flakes': top_flakes,
         'top_failures': top_failures,
+        'period': {'from': date_from, 'to': date_to},
         'summary': {
             'total_runs': total,
             'pass_rate': round(100.0 * passed / max(total, 1), 1),
@@ -646,6 +742,7 @@ def api_ci_performance():
             'flake_rate': round(100.0 * fc / max(tc, 1), 1) if tc else 0,
             'total_flakes': fc,
             'total_test_failures': tfc,
+            'total_test_successes': tpc,
         },
     })
 
@@ -684,7 +781,7 @@ def api_pr_metrics():
     author = request.args.get('author', '')
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
-    ci_runs = metrics.get_ci_runs(r, ts_from, ts_to)
+    ci_runs = metrics.get_ci_runs(ts_from, ts_to)
     return _json(github_data.get_pr_metrics(date_from, date_to, author, ci_runs))
 
 
@@ -696,6 +793,16 @@ def api_merge_queue_stats():
     return _json(github_data.get_merge_queue_stats(date_from, date_to))
 
 
+@app.route('/api/test-history/<test_hash>')
+@auth.login_required
+def api_test_history(test_hash):
+    """Test event history by hash — SQLite backing for Redis history_ lists."""
+    branch = request.args.get('branch', '')
+    limit = min(int(request.args.get('limit', 1000)), 5000)
+    rows = metrics.get_test_history(test_hash, branch, limit)
+    return _json(rows)
+
+
 @app.route('/api/ci/flakes-by-command')
 @auth.login_required
 def api_flakes_by_command():
@@ -704,6 +811,19 @@ def api_flakes_by_command():
     dashboard = request.args.get('dashboard', '')
     metrics.sync_failed_tests_to_sqlite(r)
     return _json(metrics.get_flakes_by_command(date_from, date_to, dashboard))
+
+
+# ---- CI Phase timing ----
+
+@app.route('/api/ci/phases')
+@auth.login_required
+def api_ci_phases():
+    """CI phase timing breakdown: avg time per phase, by date, and per run."""
+    date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+    date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
+    dashboard = request.args.get('dashboard', '')
+    run_id = request.args.get('run_id', '')
+    return _json(metrics.get_phases(date_from, date_to, dashboard, run_id))
 
 
 # ---- Test timings ----
@@ -734,55 +854,125 @@ def api_test_timings():
 
     where = 'WHERE ' + ' AND '.join(conditions)
 
-    # Per-test stats
+    # Per-test timing from test_events (all statuses including passed)
     by_test = db.query(f'''
         SELECT test_cmd,
-               COUNT(*) as count,
+               COUNT(*) as event_count,
                ROUND(AVG(duration_secs), 1) as avg_secs,
                ROUND(MIN(duration_secs), 1) as min_secs,
                ROUND(MAX(duration_secs), 1) as max_secs,
-               SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) as passed,
-               SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
-               SUM(CASE WHEN status = 'flaked' THEN 1 ELSE 0 END) as flaked,
                dashboard
         FROM test_events {where}
         GROUP BY test_cmd
-        ORDER BY count DESC
+        ORDER BY event_count DESC
         LIMIT 200
     ''', params)
 
-    # Add pass rate
-    for row in by_test:
-        total = row['passed'] + row['failed'] + row['flaked']
-        row['pass_rate'] = round(100.0 * row['passed'] / max(total, 1), 1)
-        row['total_time_secs'] = round(row['avg_secs'] * row['count'], 0)
+    # Per-test counts from daily stats (includes passed)
+    ds_conditions = ['date >= ?', 'date <= ?']
+    ds_params = [date_from, date_to]
+    if dashboard:
+        ds_conditions.append('dashboard = ?')
+        ds_params.append(dashboard)
+    if test_cmd:
+        ds_conditions.append('test_cmd = ?')
+        ds_params.append(test_cmd)
+    ds_where = 'WHERE ' + ' AND '.join(ds_conditions)
 
-    # Daily time series (aggregate across all tests or filtered test)
-    by_date = db.query(f'''
+    daily_stats_by_test = {r['test_cmd']: r for r in db.query(f'''
+        SELECT test_cmd,
+               SUM(passed) as passed, SUM(failed) as failed, SUM(flaked) as flaked
+        FROM test_daily_stats {ds_where}
+        GROUP BY test_cmd
+        ORDER BY SUM(passed) + SUM(failed) + SUM(flaked) DESC
+        LIMIT 500
+    ''', ds_params)}
+
+    # Merge counts into timing data
+    for row in by_test:
+        ds = daily_stats_by_test.get(row['test_cmd'], {})
+        row['passed'] = ds.get('passed', 0) or 0
+        row['failed'] = ds.get('failed', 0) or row['event_count']
+        row['flaked'] = ds.get('flaked', 0) or 0
+        row['count'] = row['passed'] + row['failed'] + row['flaked']
+        total = max(row['count'], 1)
+        row['pass_rate'] = round(100.0 * row['passed'] / total, 1)
+        row['total_time_secs'] = round(row['avg_secs'] * row['event_count'], 0)
+        del row['event_count']
+
+    # Also add tests that only have daily stats (all passed, no individual events)
+    existing_cmds = {r['test_cmd'] for r in by_test}
+    for cmd, ds in daily_stats_by_test.items():
+        if cmd not in existing_cmds and not status:
+            passed = ds.get('passed', 0) or 0
+            failed = ds.get('failed', 0) or 0
+            flaked = ds.get('flaked', 0) or 0
+            total = passed + failed + flaked
+            if total > 0:
+                by_test.append({
+                    'test_cmd': cmd, 'count': total,
+                    'avg_secs': None, 'min_secs': None, 'max_secs': None,
+                    'passed': passed, 'failed': failed, 'flaked': flaked,
+                    'pass_rate': round(100.0 * passed / total, 1),
+                    'total_time_secs': 0, 'dashboard': '',
+                })
+    by_test.sort(key=lambda r: r['count'], reverse=True)
+    by_test = by_test[:500]
+
+    # Daily time series: merge daily_stats (has passed counts) with test_events
+    # (has timing + failed/flaked for dates where daily_stats may be missing)
+    ds_by_date = {r['date']: r for r in db.query(f'''
+        SELECT date,
+               SUM(passed) as passed, SUM(failed) as failed, SUM(flaked) as flaked,
+               SUM(passed) + SUM(failed) + SUM(flaked) as count
+        FROM test_daily_stats {ds_where}
+        GROUP BY date
+        ORDER BY date
+    ''', ds_params)}
+
+    # Timing + counts from test_events (all statuses)
+    te_by_date = {r['date']: r for r in db.query(f'''
         SELECT substr(timestamp, 1, 10) as date,
-               COUNT(*) as count,
                ROUND(AVG(duration_secs), 1) as avg_secs,
                ROUND(MAX(duration_secs), 1) as max_secs,
-               SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) as passed,
-               SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
-               SUM(CASE WHEN status = 'flaked' THEN 1 ELSE 0 END) as flaked
+               SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as te_failed,
+               SUM(CASE WHEN status = 'flaked' THEN 1 ELSE 0 END) as te_flaked
         FROM test_events {where}
         GROUP BY substr(timestamp, 1, 10)
-        ORDER BY date
-    ''', params)
+    ''', params)}
 
-    # Summary
-    summary_rows = db.query(f'''
-        SELECT COUNT(*) as count,
-               ROUND(AVG(duration_secs), 1) as avg_secs,
+    # Merge: prefer daily_stats counts but fill gaps from test_events
+    all_dates = sorted(set(ds_by_date.keys()) | set(te_by_date.keys()))
+    by_date = []
+    for date in all_dates:
+        ds = ds_by_date.get(date, {})
+        te = te_by_date.get(date, {})
+        passed = ds.get('passed', 0) or 0
+        failed = ds.get('failed') or te.get('te_failed', 0) or 0
+        flaked = ds.get('flaked') or te.get('te_flaked', 0) or 0
+        by_date.append({
+            'date': date,
+            'passed': passed,
+            'failed': failed,
+            'flaked': flaked,
+            'count': passed + failed + flaked,
+            'avg_secs': te.get('avg_secs'),
+            'max_secs': te.get('max_secs'),
+        })
+
+    # Summary: aggregate from merged by_date (which already combines both sources)
+    passed = sum(d['passed'] for d in by_date)
+    failed = sum(d['failed'] for d in by_date)
+    flaked = sum(d['flaked'] for d in by_date)
+
+    # Timing summary from test_events
+    timing_summary = db.query(f'''
+        SELECT ROUND(AVG(duration_secs), 1) as avg_secs,
                ROUND(MAX(duration_secs), 1) as max_secs,
-               SUM(duration_secs) as total_secs,
-               SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) as passed,
-               SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
-               SUM(CASE WHEN status = 'flaked' THEN 1 ELSE 0 END) as flaked
+               SUM(duration_secs) as total_secs
         FROM test_events {where}
     ''', params)
-    s = summary_rows[0] if summary_rows else {}
+    ts = timing_summary[0] if timing_summary else {}
 
     # Slowest individual test runs
     slowest = db.query(f'''
@@ -797,14 +987,15 @@ def api_test_timings():
         'by_test': by_test,
         'by_date': by_date,
         'slowest': slowest,
+        'period': {'from': date_from, 'to': date_to},
         'summary': {
-            'total_runs': s.get('count', 0),
-            'avg_duration_secs': s.get('avg_secs'),
-            'max_duration_secs': s.get('max_secs'),
-            'total_compute_secs': round(s.get('total_secs', 0) or 0, 0),
-            'passed': s.get('passed', 0),
-            'failed': s.get('failed', 0),
-            'flaked': s.get('flaked', 0),
+            'total_runs': passed + failed + flaked,
+            'avg_duration_secs': ts.get('avg_secs'),
+            'max_duration_secs': ts.get('max_secs'),
+            'total_compute_secs': round(ts.get('total_secs', 0) or 0, 0),
+            'passed': passed,
+            'failed': failed,
+            'flaked': flaked,
         },
     })
 

@@ -1,3 +1,4 @@
+// CI phase timing: cache invalidation trigger
 #include "barretenberg/bb/cli.hpp"
 
 int main(int argc, char* argv[])

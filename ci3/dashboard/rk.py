@@ -27,30 +27,43 @@ app = Flask(__name__)
 Compress(app)
 auth = HTTPBasicAuth()
 
-# Start the ci-metrics server as a subprocess
-# Check sibling dir (repo layout) then subdirectory (Docker layout)
+# Start the ci-metrics server as a subprocess (once across all workers).
+# Uses a file lock so only the first gunicorn worker to import this module
+# actually spawns the process; the rest skip silently.
+import fcntl
+import signal
+import time as _time
+
 _ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ci-metrics')
 if not os.path.isdir(_ci_metrics_dir):
     _ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ci-metrics')
 if os.path.isdir(_ci_metrics_dir):
-    # Kill any stale process on the port (e.g. leftover from previous reload)
-    import signal
+    _lock_path = f'/tmp/ci-metrics-{CI_METRICS_PORT}.lock'
     try:
-        out = subprocess.check_output(
-            ['lsof', '-ti', f':{CI_METRICS_PORT}'], stderr=subprocess.DEVNULL, text=True)
-        for pid in out.strip().split('\n'):
-            if pid:
-                os.kill(int(pid), signal.SIGTERM)
-        import time; time.sleep(0.5)
-    except (subprocess.CalledProcessError, OSError):
+        _lock_fd = open(_lock_path, 'w')
+        fcntl.flock(_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        # We hold the lock — kill stale process and spawn fresh one
+        try:
+            out = subprocess.check_output(
+                ['lsof', '-ti', f':{CI_METRICS_PORT}'], stderr=subprocess.DEVNULL, text=True)
+            for pid in out.strip().split('\n'):
+                if pid:
+                    os.kill(int(pid), signal.SIGTERM)
+            _time.sleep(0.5)
+        except (subprocess.CalledProcessError, OSError):
+            pass
+        _ci_metrics_env = {**os.environ, 'CI_METRICS_PORT': str(CI_METRICS_PORT)}
+        subprocess.Popen(
+            ['gunicorn', '-w', '1', '-b', f'0.0.0.0:{CI_METRICS_PORT}',
+             '--timeout', '120', 'app:app'],
+            cwd=_ci_metrics_dir,
+            env=_ci_metrics_env,
+        )
+        print(f"[rk.py] ci-metrics server started on port {CI_METRICS_PORT}")
+        # Hold the lock until this process exits so other workers skip
+    except OSError:
+        # Another worker already holds the lock — nothing to do
         pass
-    _ci_metrics_env = {**os.environ, 'CI_METRICS_PORT': str(CI_METRICS_PORT)}
-    subprocess.Popen(
-        ['gunicorn', '-w', '4', '-b', f'0.0.0.0:{CI_METRICS_PORT}', '--timeout', '120', 'app:app'],
-        cwd=_ci_metrics_dir,
-        env=_ci_metrics_env,
-    )
-    print(f"[rk.py] ci-metrics server started on port {CI_METRICS_PORT}")
 
 def read_from_disk(key):
     """Read log from disk as fallback when Redis key not found."""
@@ -178,7 +191,6 @@ def root() -> str:
         f"{hyperlink('/cost-overview', 'cost overview (AWS + GCP)')}\n"
         f"{hyperlink('/namespace-billing', 'namespace billing')}\n"
         f"{hyperlink('/ci-insights', 'ci insights')}\n"
-        f"{hyperlink('/test-timings', 'test timings')}\n"
         f"{RESET}"
     )
 
@@ -363,10 +375,53 @@ def show_section(section):
         follow='top'
     )
 
+def _history_from_api(key):
+    """Fallback: fetch test history from ci-metrics API when Redis list is empty."""
+    # Key format: history_<16-char-hash>[_<branch>]
+    rest = key[len('history_'):]
+    test_hash = rest[:16]
+    branch = rest[17:] if len(rest) > 16 and rest[16] == '_' else ''
+    try:
+        params = {'branch': branch} if branch else {}
+        resp = _proxy_session.get(
+            f'{CI_METRICS_URL}/api/test-history/{test_hash}',
+            params=params,
+            auth=(request.authorization.username, request.authorization.password),
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return ''
+        rows = resp.json()
+        if not rows:
+            return ''
+        lines = []
+        for row in rows:
+            ts = row.get('timestamp', '')[:19].replace('T', ' ')
+            if len(ts) > 5:
+                ts = ts[5:]  # Strip year → "MM-DD HH:MM:SS"
+            status = (row.get('status') or '').upper()
+            color = GREEN if status == 'PASSED' else (RED if status == 'FAILED' else YELLOW)
+            cmd = row.get('test_cmd', '')
+            dur = row.get('duration_secs')
+            dur_str = f' ({int(dur)}s)' if dur else ''
+            author = row.get('commit_author', '')
+            msg = row.get('commit_msg', '')
+            author_str = f' ({author}: {msg})' if author else ''
+            log_url = row.get('log_url', '')
+            log_link = f' {hyperlink(log_url, log_url.split("/")[-1])}' if log_url else ''
+            lines.append(f'{ts}: {color}{BOLD}{status}{RESET}{log_link} {cmd}{dur_str}{author_str}')
+        return '\n'.join(lines)
+    except Exception as e:
+        print(f"[rk.py] history fallback error: {e}")
+        return ''
+
+
 @app.route('/list/<key>')
 @auth.login_required
 def get_list(key):
     value = get_list_as_string(key)
+    if not value.strip() and key.startswith('history_'):
+        value = _history_from_api(key)
     follow = request.args.get('follow', 'top')
     return render_template_string(TEMPLATE, value=ansi_to_html(value), follow=follow, filter_str='', filter_prop='')
 
@@ -528,32 +583,32 @@ def trigger_grind():
 _proxy_session = requests.Session()
 _HOP_BY_HOP = frozenset([
     'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
-    'te', 'trailers', 'transfer-encoding', 'upgrade', 'content-length',
-    # `requests` auto-decompresses gzip responses, so Content-Encoding is
-    # stale — strip it so the browser doesn't try to decompress plain content.
-    # Flask-Compress on rkapp handles browser compression.
-    'content-encoding',
+    'te', 'trailers', 'transfer-encoding', 'upgrade',
 ])
-# Don't forward Accept-Encoding — let `requests` negotiate with ci-metrics
-# (it adds its own and auto-decompresses).
-_STRIP_REQUEST_HEADERS = frozenset(['host', 'accept-encoding'])
+_STRIP_REQUEST_HEADERS = frozenset(['host'])
 
 def _proxy(path):
-    """Forward request to ci-metrics, streaming the response back."""
+    """Forward request to ci-metrics, streaming the response back.
+
+    Passes the browser's Accept-Encoding through to ci-metrics so it
+    compresses directly for the browser.  We stream the raw (still
+    compressed) bytes back without decompression.
+    """
     url = f'{CI_METRICS_URL}/{path.lstrip("/")}'
     try:
+        fwd_headers = {k: v for k, v in request.headers if k.lower() not in _STRIP_REQUEST_HEADERS}
         resp = _proxy_session.request(
             method=request.method,
             url=url,
             params=request.args,
             data=request.get_data(),
-            headers={k: v for k, v in request.headers if k.lower() not in _STRIP_REQUEST_HEADERS},
+            headers=fwd_headers,
             stream=True,
-            timeout=60,
+            timeout=180,
         )
-        # Strip hop-by-hop headers
+        # Stream raw bytes (skip requests auto-decompression)
         headers = {k: v for k, v in resp.headers.items() if k.lower() not in _HOP_BY_HOP}
-        return Response(resp.iter_content(chunk_size=8192),
+        return Response(resp.raw.stream(8192),
                         status=resp.status_code, headers=headers)
     except Exception as e:
         return Response(json.dumps({'error': f'ci-metrics unavailable: {e}'}),
