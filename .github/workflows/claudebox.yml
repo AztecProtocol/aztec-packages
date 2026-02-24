@@ -32,18 +32,19 @@ jobs:
       - name: Parse command
         id: parse
         run: |
+          # Strip /claudebox prefix, first word = script name, rest = raw prompt
           BODY="${{ github.event.comment.body }}"
-          # Get first line, strip /claudebox prefix
-          CMD=$(echo "$BODY" | head -1 | sed 's|^/claudebox[[:space:]]*||')
-
-          # First word is the script name
+          CMD=$(echo "$BODY" | sed 's|^/claudebox[[:space:]]*||')
           SCRIPT_NAME=$(echo "$CMD" | awk '{print $1}')
-          # Rest are arguments
-          SCRIPT_ARGS=$(echo "$CMD" | sed "s/^$SCRIPT_NAME[[:space:]]*//" || true)
+          PROMPT=$(echo "$CMD" | sed "s|^$SCRIPT_NAME[[:space:]]*||")
 
           echo "script_name=$SCRIPT_NAME" >> "$GITHUB_OUTPUT"
-          echo "script_args=$SCRIPT_ARGS" >> "$GITHUB_OUTPUT"
-          echo "Parsed: script=$SCRIPT_NAME args=$SCRIPT_ARGS"
+          {
+            echo "prompt<<PROMPT_EOF"
+            echo "$PROMPT"
+            echo "PROMPT_EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Parsed: script=$SCRIPT_NAME prompt=$PROMPT"
 
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -62,6 +63,22 @@ jobs:
           fi
           echo "Script validated: $SCRIPT"
 
+      - name: Post status comment
+        id: status_comment
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          ISSUE_NUM="${{ github.event.issue.number }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          BODY="**ClaudeBox** is running \`${{ steps.parse.outputs.script_name }}\`... [workflow run]($RUN_URL)"
+
+          COMMENT_ID=$(gh api \
+            repos/${{ github.repository }}/issues/$ISSUE_NUM/comments \
+            -f body="$BODY" \
+            --jq '.id')
+          echo "run_comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
+          echo "Posted status comment: $COMMENT_ID"
+
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -70,14 +87,13 @@ jobs:
           ssh-keyscan -H "${{ vars.CLAUDEBOX_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Run ClaudeBox
-        # Support 2 hour runs in case a claude command wants to wait on a long job.
         timeout-minutes: 120
         env:
           CLAUDEBOX_HOST: ${{ vars.CLAUDEBOX_HOST }}
           CLAUDEBOX_USER: ${{ vars.CLAUDEBOX_USER || 'claude' }}
         run: |
-          # Claude handles its own communication (gh comments, PRs, etc.)
-          # We just fire the SSH call and let it run.
-          ssh -o ConnectTimeout=10 -o ServerAliveInterval=30 \
-            "${CLAUDEBOX_USER}@${CLAUDEBOX_HOST}" \
-            "~/claudeentry.sh '${{ steps.parse.outputs.script_name }}' ${{ steps.parse.outputs.script_args }} --comment-id=${{ github.event.comment.id }} --repo=${{ github.repository }}"
+          # Pipe prompt via stdin to avoid quoting issues
+          echo '${{ steps.parse.outputs.prompt }}' | \
+            ssh -o ConnectTimeout=10 -o ServerAliveInterval=30 \
+              "${CLAUDEBOX_USER}@${CLAUDEBOX_HOST}" \
+              "~/claudeentry.sh '${{ steps.parse.outputs.script_name }}' --comment-id=${{ github.event.comment.id }} --run-comment-id=${{ steps.status_comment.outputs.run_comment_id }} --repo=${{ github.repository }}"
