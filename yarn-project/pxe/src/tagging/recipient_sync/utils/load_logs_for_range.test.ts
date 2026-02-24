@@ -1,10 +1,8 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { DirectionalAppTaggingSecret, SiloedTag, Tag } from '@aztec/stdlib/logs';
-import { randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
+import { type ExtendedDirectionalAppTaggingSecret, SiloedTag, Tag } from '@aztec/stdlib/logs';
+import { randomExtendedDirectionalAppTaggingSecret, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -18,14 +16,13 @@ const MOCK_ANCHOR_BLOCK_HASH = BlockHash.random();
 
 describe('loadLogsForRange', () => {
   // App contract address and secret to be used on the input of the loadLogsForRange function.
-  let secret: DirectionalAppTaggingSecret;
-  let app: AztecAddress;
+  let secret: ExtendedDirectionalAppTaggingSecret;
 
   let aztecNode: MockProxy<AztecNode>;
 
   async function computeSiloedTagForIndex(index: number) {
-    const tag = await Tag.compute({ secret, index });
-    return SiloedTag.compute(tag, app);
+    const tag = await Tag.compute({ extendedSecret: secret, index });
+    return SiloedTag.compute(tag, secret.app);
   }
 
   function makeLog(txHash: TxHash, blockNumber: number, blockTimestamp: bigint, tag: SiloedTag) {
@@ -33,8 +30,7 @@ describe('loadLogsForRange', () => {
   }
 
   beforeAll(async () => {
-    secret = DirectionalAppTaggingSecret.fromString(Fr.random().toString());
-    app = await AztecAddress.random();
+    secret = await randomExtendedDirectionalAppTaggingSecret();
     aztecNode = mock<AztecNode>();
   });
 
@@ -49,7 +45,7 @@ describe('loadLogsForRange', () => {
     });
 
     expect(
-      await loadLogsForRange(secret, app, aztecNode, 0, 10, FAR_FUTURE_BLOCK_NUMBER, MOCK_ANCHOR_BLOCK_HASH),
+      await loadLogsForRange(secret, aztecNode, 0, 10, FAR_FUTURE_BLOCK_NUMBER, MOCK_ANCHOR_BLOCK_HASH),
     ).toHaveLength(0);
   });
 
@@ -78,15 +74,7 @@ describe('loadLogsForRange', () => {
       );
     });
 
-    const result = await loadLogsForRange(
-      secret,
-      app,
-      aztecNode,
-      0,
-      10,
-      FAR_FUTURE_BLOCK_NUMBER,
-      MOCK_ANCHOR_BLOCK_HASH,
-    );
+    const result = await loadLogsForRange(secret, aztecNode, 0, 10, FAR_FUTURE_BLOCK_NUMBER, MOCK_ANCHOR_BLOCK_HASH);
 
     expect(result).toHaveLength(2);
     const resultByIndex = result.sort((a, b) => a.taggingIndex - b.taggingIndex);
@@ -118,15 +106,7 @@ describe('loadLogsForRange', () => {
       );
     });
 
-    const result = await loadLogsForRange(
-      secret,
-      app,
-      aztecNode,
-      0,
-      10,
-      FAR_FUTURE_BLOCK_NUMBER,
-      MOCK_ANCHOR_BLOCK_HASH,
-    );
+    const result = await loadLogsForRange(secret, aztecNode, 0, 10, FAR_FUTURE_BLOCK_NUMBER, MOCK_ANCHOR_BLOCK_HASH);
 
     expect(result).toHaveLength(2);
     expect(result[0].taggingIndex).toBe(index);
@@ -159,15 +139,7 @@ describe('loadLogsForRange', () => {
       );
     });
 
-    const result = await loadLogsForRange(
-      secret,
-      app,
-      aztecNode,
-      0,
-      10,
-      FAR_FUTURE_BLOCK_NUMBER,
-      MOCK_ANCHOR_BLOCK_HASH,
-    );
+    const result = await loadLogsForRange(secret, aztecNode, 0, 10, FAR_FUTURE_BLOCK_NUMBER, MOCK_ANCHOR_BLOCK_HASH);
 
     expect(result).toHaveLength(2);
 
@@ -203,7 +175,6 @@ describe('loadLogsForRange', () => {
 
     const result = await loadLogsForRange(
       secret,
-      app,
       aztecNode,
       start,
       end,
@@ -240,7 +211,6 @@ describe('loadLogsForRange', () => {
 
     const result = await loadLogsForRange(
       secret,
-      app,
       aztecNode,
       0,
       10,

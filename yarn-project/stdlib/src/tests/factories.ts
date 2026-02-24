@@ -128,6 +128,7 @@ import {
   PublicCallRequestArrayLengths,
 } from '../kernel/public_call_request.js';
 import { PublicKeys, computeAddress } from '../keys/index.js';
+import { ExtendedDirectionalAppTaggingSecret } from '../logs/extended_directional_app_tagging_secret.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
@@ -1756,4 +1757,15 @@ export function makeL2Tips(
       checkpoint: { number: cpn, hash: cph },
     },
   };
+}
+
+/**
+ * Creates a random ExtendedDirectionalAppTaggingSecret.
+ * @param app - Optional app (contract) address. If not provided, a random one is generated.
+ */
+export async function randomExtendedDirectionalAppTaggingSecret(
+  app?: AztecAddress,
+): Promise<ExtendedDirectionalAppTaggingSecret> {
+  const resolvedApp = app ?? (await AztecAddress.random());
+  return ExtendedDirectionalAppTaggingSecret.fromString(`${Fr.random().toString()}:${resolvedApp.toString()}`);
 }
