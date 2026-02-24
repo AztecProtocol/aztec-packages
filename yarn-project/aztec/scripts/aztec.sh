@@ -53,8 +53,12 @@ case $cmd in
 
     aztec start "$@"
     ;;
-  new|init|flamegraph)
+  new|init)
     $script_dir/${cmd}.sh "$@"
+    ;;
+  flamegraph)
+    echo "Warning: 'aztec flamegraph' is deprecated. Use 'aztec profile flamegraph' instead." >&2
+    aztec profile flamegraph "$@"
     ;;
   *)
     aztec $cmd "$@"

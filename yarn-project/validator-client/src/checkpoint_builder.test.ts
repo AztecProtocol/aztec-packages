@@ -87,7 +87,7 @@ describe('CheckpointBuilder', () => {
       lightweightCheckpointBuilder.getBlockCount.mockReturnValue(0);
 
       const expectedBlock = await L2Block.random(blockNumber);
-      lightweightCheckpointBuilder.addBlock.mockResolvedValue(expectedBlock);
+      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
 
       processor.process.mockResolvedValue([
         [{ hash: Fr.random(), gasUsed: { publicGas: Gas.empty() } } as unknown as ProcessedTx],
@@ -110,7 +110,7 @@ describe('CheckpointBuilder', () => {
       lightweightCheckpointBuilder.getBlockCount.mockReturnValue(0);
 
       const expectedBlock = await L2Block.random(blockNumber, { txsPerBlock: 0 });
-      lightweightCheckpointBuilder.addBlock.mockResolvedValue(expectedBlock);
+      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
 
       // No transactions processed
       processor.process.mockResolvedValue([

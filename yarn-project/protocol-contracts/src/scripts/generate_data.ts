@@ -1,3 +1,7 @@
+// Reads compiled Noir artifacts for each protocol contract and derives their addresses, class IDs,
+// bytecode commitments, and other deployment data, emitting everything as precomputed constants into
+// `protocol_contract_data.ts`. This avoids clients repeating the expensive hashing at runtime and
+// ensures a single source of truth for the protocol contracts hash enforced by circuits, P2P, and L1.
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,

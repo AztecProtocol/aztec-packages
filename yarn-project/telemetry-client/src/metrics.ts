@@ -1048,6 +1048,11 @@ export const PROVING_QUEUE_REJECTED_JOBS: MetricDefinition = {
   description: 'Number of rejected proving jobs',
   valueType: ValueType.INT,
 };
+export const PROVING_QUEUE_ABORTED_JOBS: MetricDefinition = {
+  name: 'aztec.proving_queue.aborted_jobs_count',
+  description: 'Number of aborted proving jobs',
+  valueType: ValueType.INT,
+};
 export const PROVING_QUEUE_RETRIED_JOBS: MetricDefinition = {
   name: 'aztec.proving_queue.retried_jobs_count',
   description: 'Number of retried proving jobs',

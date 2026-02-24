@@ -1340,3 +1340,88 @@ groups:
           labels:
             "": ""
           isPaused: false
+        - uid: pcomdgyzwtlaxv
+          title: Proof failed
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: sum by (k8s_namespace_name) (increase(aztec_proving_queue_rejected_jobs_count[$__rate_interval]))
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 0
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 5m
+          annotations:
+            summary: Proof failed
+            description: One or more proving jobs were rejected in {{ ` {{ $labels.k8s_namespace_name }} ` }}.
+          labels:
+            <<: *common_labels
+          isPaused: false
