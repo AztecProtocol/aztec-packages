@@ -40,7 +40,7 @@ l1-contracts: &l1-contracts-defaults
   # How many seconds an L1 slot lasts (Ethereum consensus layer).
   ETHEREUM_SLOT_DURATION: 12
   # How many seconds an L2 slot lasts (must be multiple of L1 slot duration).
-  AZTEC_SLOT_DURATION: 36
+  AZTEC_SLOT_DURATION: 72
   # How many L2 slots in an epoch.
   AZTEC_EPOCH_DURATION: 32
 
@@ -171,8 +171,13 @@ _prodlike: &prodlike
   #---------------------------------------------------------------------------
   # Minimum transactions to include in a block.
   SEQ_MIN_TX_PER_BLOCK: 0
+  # Maximum transactions to include in a block
   # Build checkpoint even if block is empty.
   SEQ_BUILD_CHECKPOINT_IF_EMPTY: true
+  # 6 second block times
+  SEQ_BLOCK_DURATION_MS: 6000
+  # Time allocated for publishing to L1
+  SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT: 36 # 3 Ethereum slots
 
   #---------------------------------------------------------------------------
   # Database Map Sizes (in KB)
@@ -216,7 +221,7 @@ networks:
     SPONSORED_FPC: true     # Fund sponsored FPC with fee juice
     TRANSACTIONS_DISABLED: false
     # Sequencer
-    SEQ_MAX_TX_PER_BLOCK: 32
+    SEQ_MAX_TX_PER_BLOCK: 18
     # Prover
     PROVER_REAL_PROOFS: false   # Use mock proofs
     PXE_PROVER_ENABLED: false   # Disable PXE proving
@@ -268,7 +273,8 @@ networks:
     SPONSORED_FPC: true
     TRANSACTIONS_DISABLED: false
     # Sequencer
-    SEQ_MAX_TX_PER_BLOCK: 8
+    # Gives ~0.1 TPS @ 72s slot time, 36s publish time, 6s block time - max 4 blocks per slot
+    SEQ_MAX_TX_PER_BLOCK: 2
     # Prover
     PROVER_REAL_PROOFS: true
     # P2P
