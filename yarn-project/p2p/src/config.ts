@@ -38,7 +38,7 @@ export interface P2PConfig
     ChainConfig,
     TxCollectionConfig,
     TxFileStoreConfig,
-    Pick<SequencerConfig, 'blockDurationMs' | 'expectedBlockProposalsPerSlot'> {
+    Pick<SequencerConfig, 'blockDurationMs' | 'expectedBlockProposalsPerSlot' | 'maxTxsPerBlock'> {
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
@@ -463,6 +463,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_MIN_TX_POOL_AGE_MS',
     description: 'Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.',
     ...numberConfigHelper(2_000),
+  },
+  maxTxsPerBlock: {
+    env: 'SEQ_MAX_TX_PER_BLOCK',
+    description: 'The maximum number of txs to include in a block. Used for validating proposals from peers.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
   ...sharedSequencerConfigMappings,
   ...p2pReqRespConfigMappings,
