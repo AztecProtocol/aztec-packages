@@ -207,7 +207,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     std::vector<uint32_t> memory_read_records;
     // Stores gate index of RAM writes (required by proving key)
     std::vector<uint32_t> memory_write_records;
-    std::map<uint64_t, RangeList> range_lists; // DOCTODO: explain this.
+    // Range constraints to be batched, keyed by target_range. See create_small_range_constraint() for details.
+    std::map<uint64_t, RangeList> range_lists;
 
     std::vector<cached_partial_non_native_field_multiplication> cached_partial_non_native_field_multiplications;
 
@@ -307,7 +308,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     /**
      * @brief Range-constraints for small ranges, where the upper bound (`target_range`) need not be dyadic. Max
      * possible value is 2^16 - 1. Adds variable to a RangeList for batched processing.
-     * @details Constrains variable to [0, target_range], where `target_range < 2^14`. The constraint is deferred:
+     * @details Constrains variable to [0, target_range], where `target_range <= MAX_SMALL_RANGE_CONSTRAINT_VAL`
+     * (2^16 - 1). The constraint is deferred:
      * variables are collected into RangeLists (grouped by target_range), then processed together in
      * `process_range_lists()` which creates the actual delta-range gates. This batching is efficient because multiple
      * variables sharing the same range can share the "staircase" of multiples-of-3 values.
