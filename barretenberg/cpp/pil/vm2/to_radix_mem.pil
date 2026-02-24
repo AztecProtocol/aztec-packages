@@ -157,6 +157,8 @@ namespace to_radix_mem;
     pol commit write_addr_upper_bound;
     start * (write_addr_upper_bound - dst_addr - num_limbs) = 0;
 
+    // Both inputs inputs (write_addr_upper_bound, max_mem_size) are smaller than 2^33 < 2^128 which
+    // satisifies the precondition of the gt gadget.
     #[CHECK_DST_ADDR_IN_RANGE]
     start { write_addr_upper_bound, max_mem_size, sel_dst_out_of_range_err }
     in
@@ -179,11 +181,13 @@ namespace to_radix_mem;
     pol commit two_five_six; // While we do not have constants in lookups
     start * (two_five_six - 256) = 0;
 
+    // `radix` and `2` are bounded by 2^32 < 2^128 which satisifies the precondition of the gt gadget.
     #[CHECK_RADIX_LT_2]
     start { two, radix, sel_radix_lt_2_err }
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
+    // `radix` and `256` are bounded by 2^32 < 2^128 which satisifies the precondition of the gt gadget.
     #[CHECK_RADIX_GT_256]
     start { radix, two_five_six, sel_radix_gt_256_err }
     in
@@ -248,6 +252,8 @@ namespace to_radix_mem;
     pol commit limb_index_to_lookup; // Need this since we want Big-Endian but the gadget is Little-Endian
     limb_index_to_lookup = sel_should_decompose * (num_limbs - 1);
 
+    // For `sel_should_decompose == 1`, `radix` lies in [2, 256] which satisifies the precondition
+    // of the to_radix gadget.
     #[INPUT_OUTPUT_TO_RADIX]
     sel_should_decompose { value_to_decompose, limb_index_to_lookup, radix, limb_value, value_found }
     in
