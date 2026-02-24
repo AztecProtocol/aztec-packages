@@ -184,12 +184,13 @@ namespace update_check;
     // ==== DELAYED PUBLIC MUTABLE PREIMAGE CONSTRAINING ====
 
     // Determine whether the update hash is zero (never written) or nonzero (update exists).
-    // Uses the standard is-zero idiom: hash_not_zero = 1 iff update_hash != 0.
+    // Uses the zero check recipe: hash_not_zero = 1 iff update_hash != 0.
     pol commit update_hash_inv;
     pol commit hash_not_zero; // @boolean
     hash_not_zero * (1 - hash_not_zero) = 0;
     pol HASH_IS_ZERO = 1 - hash_not_zero;
 
+    // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw#With-Error-Support.
     #[HASH_IS_ZERO_CHECK]
     update_hash * (HASH_IS_ZERO * (1 - update_hash_inv) + update_hash_inv) - 1 + HASH_IS_ZERO = 0;
 
@@ -263,10 +264,11 @@ namespace update_check;
 
     // Determine whether pre_class_id and post_class_id are zero.
     // Zero means "use original_class_id" (no override for that direction).
-    // Uses the standard is-zero idiom for each.
+    // Uses the zero check recipe for each.
     pol commit update_pre_class_id_is_zero; // @boolean
     update_pre_class_id_is_zero * (1 - update_pre_class_id_is_zero) = 0;
     pol commit update_pre_class_inv;
+    // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw#With-Error-Support.
     // When hash_not_zero = 1: update_preimage_pre_class_id == 0 <==> update_pre_class_id_is_zero = 1
     #[UPDATE_PRE_CLASS_IS_ZERO]
     hash_not_zero * (update_preimage_pre_class_id * (update_pre_class_id_is_zero * (1 - update_pre_class_inv) + update_pre_class_inv) - 1 + update_pre_class_id_is_zero) = 0;
@@ -274,6 +276,7 @@ namespace update_check;
     pol commit update_post_class_id_is_zero; // @boolean
     update_post_class_id_is_zero * (1 - update_post_class_id_is_zero) = 0;
     pol commit update_post_class_inv;
+    // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw#With-Error-Support.
     // When hash_not_zero = 1: update_preimage_post_class_id == 0 <==> update_post_class_id_is_zero = 1
     #[UPDATE_POST_CLASS_IS_ZERO]
     hash_not_zero * (update_preimage_post_class_id * (update_post_class_id_is_zero * (1 - update_post_class_inv) + update_post_class_inv) - 1 + update_post_class_id_is_zero) = 0;
