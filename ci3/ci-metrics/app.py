@@ -111,6 +111,19 @@ def _cached(cache_key: str, ttl_secs: int, compute):
     return _json(result)
 
 
+_TEN_DAYS = 10 * 24 * 3600
+
+
+def _cache_ttl(date_to: str, default: int) -> int:
+    """Return 10-day TTL if date_to is strictly in the past, else default."""
+    try:
+        if datetime.strptime(date_to, '%Y-%m-%d').date() < datetime.now().date():
+            return _TEN_DAYS
+    except ValueError:
+        pass
+    return default
+
+
 # ---- Namespace billing ----
 
 @app.route('/namespace-billing')
@@ -661,7 +674,7 @@ def api_ci_performance():
             'total_test_failures': tfc,
         },
     }
-    db.cache_set(_ck, _result, 300)
+    db.cache_set(_ck, _result, _cache_ttl(date_to, 300))
     return _json(_result)
 
 
@@ -704,7 +717,7 @@ def api_pr_metrics():
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
     ci_runs = metrics.get_ci_runs(r, ts_from, ts_to)
     _result = github_data.get_pr_metrics(date_from, date_to, author, ci_runs)
-    db.cache_set(_ck, _result, 300)
+    db.cache_set(_ck, _result, _cache_ttl(date_to, 300))
     return _json(_result)
 
 
@@ -713,7 +726,7 @@ def api_pr_metrics():
 def api_merge_queue_stats():
     date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
-    return _cached(f'mq_stats:{date_from}:{date_to}', 300,
+    return _cached(f'mq_stats:{date_from}:{date_to}', _cache_ttl(date_to, 300),
                    lambda: github_data.get_merge_queue_stats(date_from, date_to))
 
 
@@ -728,7 +741,7 @@ def api_flakes_by_command():
         return _json(cached)
     metrics.sync_failed_tests_to_sqlite(r)
     _result = metrics.get_flakes_by_command(date_from, date_to, dashboard)
-    db.cache_set(_ck, _result, 600)
+    db.cache_set(_ck, _result, _cache_ttl(date_to, 600))
     return _json(_result)
 
 
@@ -836,7 +849,7 @@ def api_test_timings():
             'flaked': s.get('flaked', 0),
         },
     }
-    db.cache_set(_ck, _result, 600)
+    db.cache_set(_ck, _result, _cache_ttl(date_to, 600))
     return _json(_result)
 
 
