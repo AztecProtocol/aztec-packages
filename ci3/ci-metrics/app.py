@@ -118,19 +118,6 @@ def _json(data):
     return Response(json.dumps(data), mimetype='application/json')
 
 
-_TEN_DAYS = 10 * 24 * 3600
-
-
-def _cache_ttl(date_to: str) -> int | None:
-    """Return 10-day TTL for historical ranges (date_to < today), else None (no cache)."""
-    try:
-        if datetime.strptime(date_to, '%Y-%m-%d').date() < datetime.now().date():
-            return _TEN_DAYS
-    except ValueError:
-        pass
-    return None
-
-
 # ---- Author mapping: git display name → GitHub username ----
 
 _author_map = {}
@@ -587,10 +574,7 @@ def api_ci_performance():
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     dashboard = request.args.get('dashboard', '')
     granularity = request.args.get('granularity', 'daily')
-    _ck = f'perf:{date_from}:{date_to}:{dashboard}:{granularity}'
-    _ttl = _cache_ttl(date_to)
-    if _ttl and (cached := db.cache_get(_ck)) is not None:
-        return _json(cached)
+    _t0 = time.perf_counter()
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
 
@@ -598,6 +582,7 @@ def api_ci_performance():
     runs = [run for run in runs if run.get('status') in ('PASSED', 'FAILED')]
     if dashboard:
         runs = [run for run in runs if run.get('dashboard') == dashboard]
+    _t1 = time.perf_counter()
 
     by_date_map = {}
     for run in runs:
@@ -631,6 +616,7 @@ def api_ci_performance():
             'max_duration_mins': round(max(durs), 1) if durs else None,
         })
 
+    _t2 = time.perf_counter()
     # Merge test outcome counts from test_daily_stats before aggregation
     ds_conditions = ['date >= ?', 'date <= ?']
     ds_params = [date_from, date_to]
@@ -687,6 +673,7 @@ def api_ci_performance():
             sum_fields=['count', 'total_duration_mins'],
             avg_fields=['avg_duration_mins', 'p50_duration_mins', 'p95_duration_mins'])
 
+    _t3 = time.perf_counter()
     # Top flakes/failures (with affected authors — filter out empty/NULL)
     _author_concat = "GROUP_CONCAT(DISTINCT CASE WHEN commit_author IS NOT NULL AND commit_author != '' THEN commit_author END)"
     if dashboard:
@@ -746,6 +733,7 @@ def api_ci_performance():
     tpc = ds_s.get('passed', 0) or 0
     tc = fc + tfc + tpc
 
+    _t4 = time.perf_counter()
     _result = {
         'by_date': by_date,
         'duration_by_dashboard': duration_by_dashboard,
@@ -763,8 +751,7 @@ def api_ci_performance():
             'total_test_successes': tpc,
         },
     }
-    if _ttl:
-        db.cache_set(_ck, _result, _ttl)
+    print(f"[perf] ci_performance {date_from}..{date_to} | get_ci_runs={_t1-_t0:.3f}s db_queries={_t2-_t1:.3f}s agg={_t3-_t2:.3f}s top_flakes={_t4-_t3:.3f}s total={_t4-_t0:.3f}s", flush=True)
     return _json(_result)
 
 
@@ -800,16 +787,14 @@ def api_pr_metrics():
     date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     author = request.args.get('author', '')
-    _ck = f'pr_metrics:{date_from}:{date_to}:{author}'
-    _ttl = _cache_ttl(date_to)
-    if _ttl and (cached := db.cache_get(_ck)) is not None:
-        return _json(cached)
+    _t0 = time.perf_counter()
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
     ci_runs = metrics.get_ci_runs(ts_from, ts_to)
+    _t1 = time.perf_counter()
     _result = github_data.get_pr_metrics(date_from, date_to, author, ci_runs)
-    if _ttl:
-        db.cache_set(_ck, _result, _ttl)
+    _t2 = time.perf_counter()
+    print(f"[perf] pr_metrics {date_from}..{date_to} | get_ci_runs={_t1-_t0:.3f}s get_pr_metrics={_t2-_t1:.3f}s total={_t2-_t0:.3f}s", flush=True)
     return _json(_result)
 
 
@@ -818,13 +803,10 @@ def api_pr_metrics():
 def api_merge_queue_stats():
     date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
-    _ck = f'mq_stats:{date_from}:{date_to}'
-    _ttl = _cache_ttl(date_to)
-    if _ttl and (cached := db.cache_get(_ck)) is not None:
-        return _json(cached)
+    _t0 = time.perf_counter()
     _result = github_data.get_merge_queue_stats(date_from, date_to)
-    if _ttl:
-        db.cache_set(_ck, _result, _ttl)
+    _t1 = time.perf_counter()
+    print(f"[perf] merge_queue_stats {date_from}..{date_to} | get_merge_queue_stats={_t1-_t0:.3f}s total={_t1-_t0:.3f}s", flush=True)
     return _json(_result)
 
 
@@ -851,14 +833,12 @@ def api_flakes_by_command():
     date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     dashboard = request.args.get('dashboard', '')
-    _ck = f'flakes:{date_from}:{date_to}:{dashboard}'
-    _ttl = _cache_ttl(date_to)
-    if _ttl and (cached := db.cache_get(_ck)) is not None:
-        return _json(cached)
+    _t0 = time.perf_counter()
     metrics.sync_failed_tests_to_sqlite(r)
+    _t1 = time.perf_counter()
     _result = metrics.get_flakes_by_command(date_from, date_to, dashboard)
-    if _ttl:
-        db.cache_set(_ck, _result, _ttl)
+    _t2 = time.perf_counter()
+    print(f"[perf] flakes_by_command {date_from}..{date_to} | sync={_t1-_t0:.3f}s get_flakes={_t2-_t1:.3f}s total={_t2-_t0:.3f}s", flush=True)
     return _json(_result)
 
 
@@ -872,13 +852,10 @@ def api_ci_phases():
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     dashboard = request.args.get('dashboard', '')
     run_id = request.args.get('run_id', '')
-    _ck = f'phases:{date_from}:{date_to}:{dashboard}:{run_id}'
-    _ttl = _cache_ttl(date_to)
-    if _ttl and (cached := db.cache_get(_ck)) is not None:
-        return _json(cached)
+    _t0 = time.perf_counter()
     _result = metrics.get_phases(date_from, date_to, dashboard, run_id)
-    if _ttl:
-        db.cache_set(_ck, _result, _ttl)
+    _t1 = time.perf_counter()
+    print(f"[perf] ci_phases {date_from}..{date_to} | get_phases={_t1-_t0:.3f}s total={_t1-_t0:.3f}s", flush=True)
     return _json(_result)
 
 
@@ -893,174 +870,151 @@ def api_test_timings():
     dashboard = request.args.get('dashboard', '')
     status = request.args.get('status', '')  # filter to specific status
     test_cmd = request.args.get('test_cmd', '')  # filter to specific test
-    _ck = f'timings:{date_from}:{date_to}:{dashboard}:{status}:{test_cmd}'
-    _ttl = _cache_ttl(date_to)
-    if _ttl and (cached := db.cache_get(_ck)) is not None:
-        return _json(cached)
+    _t0 = time.perf_counter()
 
-    conditions = ['duration_secs IS NOT NULL', 'duration_secs > 0',
-                  'timestamp >= ?', "timestamp < ? || 'T23:59:59'"]
-    params = [date_from, date_to]
-
-    if dashboard:
-        conditions.append('dashboard = ?')
-        params.append(dashboard)
-    if status:
-        conditions.append('status = ?')
-        params.append(status)
-    if test_cmd:
-        conditions.append('test_cmd = ?')
-        params.append(test_cmd)
-
-    where = 'WHERE ' + ' AND '.join(conditions)
-
-    # Per-test timing from test_events (all statuses including passed)
-    by_test = db.query(f'''
-        SELECT test_cmd,
-               COUNT(*) as event_count,
-               ROUND(AVG(duration_secs), 1) as avg_secs,
-               ROUND(MIN(duration_secs), 1) as min_secs,
-               ROUND(MAX(duration_secs), 1) as max_secs,
-               dashboard
-        FROM test_events {where}
-        GROUP BY test_cmd
-        ORDER BY event_count DESC
-        LIMIT 200
-    ''', params)
-
-    # Per-test counts from daily stats (includes passed)
-    ds_conditions = ['date >= ?', 'date <= ?']
+    # Base WHERE for test_daily_stats
+    ds_conds = ['date >= ?', 'date <= ?']
     ds_params = [date_from, date_to]
     if dashboard:
-        ds_conditions.append('dashboard = ?')
+        ds_conds.append('dashboard = ?')
         ds_params.append(dashboard)
     if test_cmd:
-        ds_conditions.append('test_cmd = ?')
+        ds_conds.append('test_cmd = ?')
         ds_params.append(test_cmd)
-    ds_where = 'WHERE ' + ' AND '.join(ds_conditions)
+    ds_where = 'WHERE ' + ' AND '.join(ds_conds)
 
-    daily_stats_by_test = {r['test_cmd']: r for r in db.query(f'''
-        SELECT test_cmd,
-               SUM(passed) as passed, SUM(failed) as failed, SUM(flaked) as flaked
-        FROM test_daily_stats {ds_where}
-        GROUP BY test_cmd
-        ORDER BY SUM(passed) + SUM(failed) + SUM(flaked) DESC
-        LIMIT 500
-    ''', ds_params)}
+    if not status:
+        # Fast path: push GROUP BY into SQL — returns N_tests + N_dates rows, not N_tests*N_dates rows
+        by_test_rows = db.query(f'''
+            SELECT test_cmd, MAX(dashboard) as dashboard,
+                   SUM(passed) as passed, SUM(failed) as failed, SUM(flaked) as flaked,
+                   SUM(total_secs) as total_secs, SUM(count_timed) as count_timed,
+                   MIN(min_secs) as min_secs, MAX(max_secs) as max_secs
+            FROM test_daily_stats {ds_where}
+            GROUP BY test_cmd
+            ORDER BY SUM(passed)+SUM(failed)+SUM(flaked) DESC LIMIT 500
+        ''', ds_params)
+        _t1 = time.perf_counter()
 
-    # Merge counts into timing data
-    for row in by_test:
-        ds = daily_stats_by_test.get(row['test_cmd'], {})
-        row['passed'] = ds.get('passed', 0) or 0
-        row['failed'] = ds.get('failed', 0) or row['event_count']
-        row['flaked'] = ds.get('flaked', 0) or 0
-        row['count'] = row['passed'] + row['failed'] + row['flaked']
-        total = max(row['count'], 1)
-        row['pass_rate'] = round(100.0 * row['passed'] / total, 1)
-        row['total_time_secs'] = round(row['avg_secs'] * row['event_count'], 0)
-        del row['event_count']
+        by_date_rows = db.query(f'''
+            SELECT date,
+                   SUM(passed) as passed, SUM(failed) as failed, SUM(flaked) as flaked,
+                   SUM(total_secs) as total_secs, SUM(count_timed) as count_timed
+            FROM test_daily_stats {ds_where}
+            GROUP BY date ORDER BY date
+        ''', ds_params)
+        _t2 = time.perf_counter()
 
-    # Also add tests that only have daily stats (all passed, no individual events)
-    existing_cmds = {r['test_cmd'] for r in by_test}
-    for cmd, ds in daily_stats_by_test.items():
-        if cmd not in existing_cmds and not status:
-            passed = ds.get('passed', 0) or 0
-            failed = ds.get('failed', 0) or 0
-            flaked = ds.get('flaked', 0) or 0
-            total = passed + failed + flaked
-            if total > 0:
-                by_test.append({
-                    'test_cmd': cmd, 'count': total,
-                    'avg_secs': None, 'min_secs': None, 'max_secs': None,
-                    'passed': passed, 'failed': failed, 'flaked': flaked,
-                    'pass_rate': round(100.0 * passed / total, 1),
-                    'total_time_secs': 0, 'dashboard': '',
-                })
-    by_test.sort(key=lambda r: r['count'], reverse=True)
-    by_test = by_test[:500]
+        by_test = []
+        for t in by_test_rows:
+            count = (t['passed'] or 0) + (t['failed'] or 0) + (t['flaked'] or 0)
+            avg_secs = round(t['total_secs'] / t['count_timed'], 1) if t['count_timed'] else None
+            by_test.append({
+                'test_cmd': t['test_cmd'], 'dashboard': t['dashboard'], 'count': count,
+                'passed': t['passed'] or 0, 'failed': t['failed'] or 0, 'flaked': t['flaked'] or 0,
+                'pass_rate': round(100.0 * (t['passed'] or 0) / max(count, 1), 1),
+                'avg_secs': avg_secs, 'min_secs': t['min_secs'], 'max_secs': t['max_secs'],
+                'total_time_secs': round(t['total_secs'] or 0, 0),
+            })
 
-    # Daily time series: merge daily_stats (has passed counts) with test_events
-    # (has timing + failed/flaked for dates where daily_stats may be missing)
-    ds_by_date = {r['date']: r for r in db.query(f'''
-        SELECT date,
-               SUM(passed) as passed, SUM(failed) as failed, SUM(flaked) as flaked,
-               SUM(passed) + SUM(failed) + SUM(flaked) as count
-        FROM test_daily_stats {ds_where}
-        GROUP BY date
-        ORDER BY date
-    ''', ds_params)}
+        by_date = []
+        for d in by_date_rows:
+            count = (d['passed'] or 0) + (d['failed'] or 0) + (d['flaked'] or 0)
+            avg_secs = round(d['total_secs'] / d['count_timed'], 1) if d['count_timed'] else None
+            by_date.append({
+                'date': d['date'], 'passed': d['passed'] or 0,
+                'failed': d['failed'] or 0, 'flaked': d['flaked'] or 0,
+                'count': count, 'avg_secs': avg_secs,
+            })
 
-    # Timing + counts from test_events (all statuses)
-    te_by_date = {r['date']: r for r in db.query(f'''
-        SELECT substr(timestamp, 1, 10) as date,
-               ROUND(AVG(duration_secs), 1) as avg_secs,
-               ROUND(MAX(duration_secs), 1) as max_secs,
-               SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as te_failed,
-               SUM(CASE WHEN status = 'flaked' THEN 1 ELSE 0 END) as te_flaked
-        FROM test_events {where}
-        GROUP BY substr(timestamp, 1, 10)
-    ''', params)}
+        total_passed = sum(d['passed'] for d in by_date)
+        total_failed = sum(d['failed'] for d in by_date)
+        total_flaked = sum(d['flaked'] for d in by_date)
+        total_secs_all = sum(d['total_secs'] or 0 for d in by_date_rows)
+        count_timed_all = sum(d['count_timed'] or 0 for d in by_date_rows)
+    else:
+        # Slow fallback: status filter requires scanning test_events
+        te_conds = ['duration_secs IS NOT NULL', 'duration_secs > 0',
+                    'timestamp >= ?', "timestamp < ? || 'T23:59:59'"]
+        te_params = [date_from, date_to]
+        if dashboard:
+            te_conds.append('dashboard = ?')
+            te_params.append(dashboard)
+        te_conds.append('status = ?')
+        te_params.append(status)
+        if test_cmd:
+            te_conds.append('test_cmd = ?')
+            te_params.append(test_cmd)
+        te_where = 'WHERE ' + ' AND '.join(te_conds)
 
-    # Merge: prefer daily_stats counts but fill gaps from test_events
-    all_dates = sorted(set(ds_by_date.keys()) | set(te_by_date.keys()))
-    by_date = []
-    for date in all_dates:
-        ds = ds_by_date.get(date, {})
-        te = te_by_date.get(date, {})
-        passed = ds.get('passed', 0) or 0
-        failed = ds.get('failed') or te.get('te_failed', 0) or 0
-        flaked = ds.get('flaked') or te.get('te_flaked', 0) or 0
-        by_date.append({
-            'date': date,
-            'passed': passed,
-            'failed': failed,
-            'flaked': flaked,
-            'count': passed + failed + flaked,
-            'avg_secs': te.get('avg_secs'),
-            'max_secs': te.get('max_secs'),
-        })
+        raw = db.query(f'''
+            SELECT test_cmd, dashboard,
+                   COUNT(*) as count,
+                   ROUND(AVG(duration_secs),1) as avg_secs,
+                   ROUND(MIN(duration_secs),1) as min_secs,
+                   ROUND(MAX(duration_secs),1) as max_secs,
+                   SUM(duration_secs) as total_secs,
+                   substr(timestamp,1,10) as date
+            FROM test_events {te_where}
+            GROUP BY test_cmd
+            ORDER BY count DESC LIMIT 200
+        ''', te_params)
+        _t1 = time.perf_counter()
+        by_test = [dict(r, pass_rate=0, passed=0, failed=r['count'] if status=='failed' else 0,
+                        flaked=r['count'] if status=='flaked' else 0,
+                        total_time_secs=round(r['total_secs'] or 0, 0)) for r in raw]
 
-    # Summary: aggregate from merged by_date (which already combines both sources)
-    passed = sum(d['passed'] for d in by_date)
-    failed = sum(d['failed'] for d in by_date)
-    flaked = sum(d['flaked'] for d in by_date)
+        by_date_raw = db.query(f'''
+            SELECT substr(timestamp,1,10) as date, COUNT(*) as count
+            FROM test_events {te_where}
+            GROUP BY substr(timestamp,1,10) ORDER BY date
+        ''', te_params)
+        by_date = [{'date': r['date'], 'count': r['count'], 'passed': 0,
+                    'failed': r['count'] if status=='failed' else 0,
+                    'flaked': r['count'] if status=='flaked' else 0} for r in by_date_raw]
 
-    # Timing summary from test_events
-    timing_summary = db.query(f'''
-        SELECT ROUND(AVG(duration_secs), 1) as avg_secs,
-               ROUND(MAX(duration_secs), 1) as max_secs,
-               SUM(duration_secs) as total_secs
-        FROM test_events {where}
-    ''', params)
-    ts = timing_summary[0] if timing_summary else {}
+        total_passed = 0
+        total_failed = sum(r['count'] for r in by_date) if status == 'failed' else 0
+        total_flaked = sum(r['count'] for r in by_date) if status == 'flaked' else 0
+        total_secs_all = sum(r.get('total_secs') or 0 for r in raw)
+        count_timed_all = sum(r['count'] for r in raw)
+        _t2 = time.perf_counter()
 
-    # Slowest individual test runs
+    # Slowest individual runs — uses idx_test_events_duration index
+    sl_conds = ['duration_secs IS NOT NULL', 'duration_secs > 0',
+                'timestamp >= ?', "timestamp <= ? || 'T23:59:59'"]
+    sl_params = [date_from, date_to]
+    if dashboard:
+        sl_conds.append('dashboard = ?')
+        sl_params.append(dashboard)
+    if test_cmd:
+        sl_conds.append('test_cmd = ?')
+        sl_params.append(test_cmd)
+    sl_where = 'WHERE ' + ' AND '.join(sl_conds)
     slowest = db.query(f'''
         SELECT test_cmd, status, duration_secs, dashboard,
-               substr(timestamp, 1, 10) as date, commit_author, log_url
-        FROM test_events {where}
-        ORDER BY duration_secs DESC
-        LIMIT 50
-    ''', params)
+               substr(timestamp,1,10) as date, commit_author, log_url
+        FROM test_events {sl_where}
+        ORDER BY duration_secs DESC LIMIT 50
+    ''', sl_params)
+    _t3 = time.perf_counter()
 
-    _result = {
+    print(f"[perf] test_timings {date_from}..{date_to} | by_test={_t1-_t0:.3f}s by_date={_t2-_t1:.3f}s slowest={_t3-_t2:.3f}s total={_t3-_t0:.3f}s", flush=True)
+    return _json({
         'by_test': by_test,
         'by_date': by_date,
         'slowest': slowest,
         'period': {'from': date_from, 'to': date_to},
         'summary': {
-            'total_runs': passed + failed + flaked,
-            'avg_duration_secs': ts.get('avg_secs'),
-            'max_duration_secs': ts.get('max_secs'),
-            'total_compute_secs': round(ts.get('total_secs', 0) or 0, 0),
-            'passed': passed,
-            'failed': failed,
-            'flaked': flaked,
+            'total_runs': total_passed + total_failed + total_flaked,
+            'avg_duration_secs': round(total_secs_all / count_timed_all, 1) if count_timed_all > 0 else None,
+            'max_duration_secs': slowest[0]['duration_secs'] if slowest else None,
+            'total_compute_secs': round(total_secs_all, 0),
+            'passed': total_passed,
+            'failed': total_failed,
+            'flaked': total_flaked,
         },
-    }
-    if _ttl:
-        db.cache_set(_ck, _result, _ttl)
-    return _json(_result)
+    })
 
 
 # ---- Dashboard views ----

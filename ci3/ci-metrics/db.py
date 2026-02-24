@@ -76,6 +76,10 @@ CREATE TABLE IF NOT EXISTS test_daily_stats (
     passed        INTEGER NOT NULL DEFAULT 0,
     failed        INTEGER NOT NULL DEFAULT 0,
     flaked        INTEGER NOT NULL DEFAULT 0,
+    total_secs    REAL NOT NULL DEFAULT 0,
+    count_timed   INTEGER NOT NULL DEFAULT 0,
+    min_secs      REAL,
+    max_secs      REAL,
     PRIMARY KEY (date, test_cmd, dashboard)
 );
 CREATE INDEX IF NOT EXISTS idx_tds_date ON test_daily_stats(date);
@@ -136,6 +140,12 @@ CREATE TABLE IF NOT EXISTS api_cache (
     created_at REAL NOT NULL,
     ttl_secs   INTEGER NOT NULL DEFAULT 300
 );
+
+CREATE TABLE IF NOT EXISTS pr_cache (
+    key        TEXT PRIMARY KEY,
+    value      TEXT NOT NULL,
+    updated_at REAL NOT NULL
+);
 """
 
 
@@ -150,6 +160,11 @@ _MIGRATIONS = [
     "ALTER TABLE merge_queue_daily ADD COLUMN avg_depth REAL",
     "ALTER TABLE merge_queue_daily ADD COLUMN peak_depth INTEGER",
     "CREATE INDEX IF NOT EXISTS idx_test_events_duration_ts ON test_events(timestamp) WHERE duration_secs IS NOT NULL AND duration_secs > 0",
+    "ALTER TABLE test_daily_stats ADD COLUMN total_secs REAL NOT NULL DEFAULT 0",
+    "ALTER TABLE test_daily_stats ADD COLUMN count_timed INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE test_daily_stats ADD COLUMN min_secs REAL",
+    "ALTER TABLE test_daily_stats ADD COLUMN max_secs REAL",
+    "CREATE INDEX IF NOT EXISTS idx_test_events_duration ON test_events(duration_secs DESC) WHERE duration_secs IS NOT NULL AND duration_secs > 0",
 ]
 
 
