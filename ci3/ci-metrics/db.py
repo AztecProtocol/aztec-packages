@@ -223,5 +223,5 @@ def cache_invalidate_prefix(prefix: str) -> None:
 def cache_cleanup() -> None:
     """Remove expired entries."""
     execute(
-        "DELETE FROM api_cache WHERE cast(strftime('%s','now') as real) - created_at > ttl_secs"
+        "DELETE FROM api_cache WHERE created_at + ttl_secs < unixepoch('now')"
     )

@@ -27,10 +27,11 @@ def hash_str_orig(s: str) -> str:
     """Replicate bash's `echo "$s" | git hash-object --stdin | cut -c1-16`.
 
     git hash-object computes SHA-1 of "blob <len>\\0<content>" where content
-    includes the trailing newline from echo.
+    includes the trailing newline from echo. Length is byte length, not
+    Unicode code points.
     """
-    content = s + "\n"
-    blob = f"blob {len(content)}\0{content}".encode()
+    content = (s + "\n").encode('utf-8')
+    blob = f"blob {len(content)}\0".encode('utf-8') + content
     return hashlib.sha1(blob).hexdigest()[:16]
 
 
