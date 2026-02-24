@@ -378,6 +378,8 @@ def sync_failed_tests_to_sqlite(redis_conn):
     conn.commit()
     if total:
         print(f"[rk_metrics] Synced {total} test events from Redis lists")
+        db.cache_invalidate_prefix('flakes:')
+        db.cache_invalidate_prefix('timings:')
 
 
 # ---- Seed loading ----
@@ -514,6 +516,7 @@ def sync_ci_runs_to_sqlite(redis_conn):
             print(f"[rk_metrics] Error syncing run: {e}")
     conn.commit()
     print(f"[rk_metrics] Synced {count} CI runs to SQLite")
+    db.cache_invalidate_prefix('perf:')
 
 
 def start_ci_run_sync(redis_conn):
@@ -525,6 +528,7 @@ def start_ci_run_sync(redis_conn):
             try:
                 sync_ci_runs_to_sqlite(redis_conn)
                 sync_failed_tests_to_sqlite(redis_conn)
+                db.cache_cleanup()
             except Exception as e:
                 print(f"[rk_metrics] sync error: {e}")
             time.sleep(600)  # check every 10 min (TTL gates actual work)
