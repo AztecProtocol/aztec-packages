@@ -7,7 +7,7 @@
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
 
-namespace bb::stdlib {
+namespace bb::crypto {
 
 using namespace bb;
 using namespace bb::curve;
@@ -25,9 +25,7 @@ template <class Curve> struct WycherproofTest {
     Fr r;
     Fr s;
     bool is_valid_signature;
-    bool is_circuit_satisfied;
     std::string comment;
-    std::string failure_msg;
 };
 
 using WycherproofSecp256k1 = WycherproofTest<bb::curve::SECP256K1>;
@@ -46,7 +44,6 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .r = WycherproofSecp256k1::Fr("0x0000000000000000000000000000000000000000000000000000000000000101"),
         .s = WycherproofSecp256k1::Fr("0xc58b162c58b162c58b162c58b162c58a1b242973853e16db75c8a1a71da4d39d"),
         .is_valid_signature = false,
-        .is_circuit_satisfied = true,
         .comment = "Arithmetic error, s is larger than (n+1)/2",
     },
     WycherproofSecp256k1{
@@ -56,7 +53,6 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .r = WycherproofSecp256k1::Fr("0x00000000000000000000000000000000000000062522bbd3ecbe7c39e93e7c26"),
         .s = WycherproofSecp256k1::Fr("0x783266e90f43dafe5cd9b3b0be86de22f9de83677d0f50713a468ec72fcf5d57"),
         .is_valid_signature = true,
-        .is_circuit_satisfied = true,
         .comment = "Arithmetic error, r component is small",
     },
     // Point duplication tests
@@ -67,7 +63,6 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .r = WycherproofSecp256k1::Fr("0xbb5a52f42f9c9261ed4361f59422a1e30036e7c32b270c8807a419feca605023"),
         .s = WycherproofSecp256k1::Fr("0x2492492492492492492492492492492463cfd66a190a6008891e0d81d49a0952"),
         .is_valid_signature = false,
-        .is_circuit_satisfied = true,
         .comment = "Point duplication, public key shares x-coordinates with generator",
     },
     // Edge case public key tests
@@ -78,7 +73,6 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .r = WycherproofSecp256k1::Fr("0x6d6a4f556ccce154e7fb9f19e76c3deca13d59cc2aeb4ecad968aab2ded45965"),
         .s = WycherproofSecp256k1::Fr("0x53b9fa74803ede0fc4441bf683d56c564d3e274e09ccf47390badd1471c05fb7"),
         .is_valid_signature = true,
-        .is_circuit_satisfied = true,
         .comment = "Edge case public key, y coordinate is small",
     },
     // Modular inverse edge case
@@ -89,7 +83,6 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .r = WycherproofSecp256k1::Fr("0x55555555555555555555555555555554e8e4f44ce51835693ff0ca2ef01215c1"),
         .s = WycherproofSecp256k1::Fr("0x2736d76e412246e097148e2bf62915614eb7c428913a58eb5e9cd4674a9423de"),
         .is_valid_signature = true,
-        .is_circuit_satisfied = true,
         .comment = "Modular inverse edge case",
     },
 };
@@ -107,7 +100,6 @@ const std::vector<WycherproofSecp256r1> secp256r1_tests{
         .r = WycherproofSecp256r1::Fr("0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296"),
         .s = WycherproofSecp256r1::Fr("0x16a4502e2781e11ac82cbc9d1edd8c981584d13e18411e2f6e0478c34416e3bb"),
         .is_valid_signature = true,
-        .is_circuit_satisfied = true,
         .comment = "Arithmetic error",
     },
     // Point duplication test
@@ -118,8 +110,6 @@ const std::vector<WycherproofSecp256r1> secp256r1_tests{
         .r = WycherproofSecp256r1::Fr("0xbb5a52f42f9c9261ed4361f59422a1e30036e7c32b270c8807a419feca605023"),
         .s = WycherproofSecp256r1::Fr("0x249249246db6db6ddb6db6db6db6db6dad4591868595a8ee6bf5f864ff7be0c2"),
         .is_valid_signature = false,
-        .is_circuit_satisfied =
-            false, // When the public key is equal to ±G, the circuit fails because of the generation of lookup tables
         .comment = "Point duplication, public key shares x-coordinates with generator",
     },
     // Edge case public key test
@@ -130,7 +120,6 @@ const std::vector<WycherproofSecp256r1> secp256r1_tests{
         .r = WycherproofSecp256r1::Fr("0x0fe774355c04d060f76d79fd7a772e421463489221bf0a33add0be9b1979110b"),
         .s = WycherproofSecp256r1::Fr("0x500dcba1c69a8fbd43fa4f57f743ce124ca8b91a1f325f3fac6181175df55737"),
         .is_valid_signature = true,
-        .is_circuit_satisfied = true,
         .comment = "Edge case public key, x-coordinate has many trailing zeros",
     },
     // Edge case public key test
@@ -141,8 +130,7 @@ const std::vector<WycherproofSecp256r1> secp256r1_tests{
         .r = WycherproofSecp256r1::Fr("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551"),
         .s = WycherproofSecp256r1::Fr("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632550"),
         .is_valid_signature = false,
-        .is_circuit_satisfied = true,
         .comment = "Signature with special case values r=n and s=n - 1",
     },
 };
-} // namespace bb::stdlib
+} // namespace bb::crypto
