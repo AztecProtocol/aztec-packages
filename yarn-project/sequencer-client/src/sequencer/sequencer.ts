@@ -114,7 +114,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const filteredConfig = pickFromSchema(config, SequencerConfigSchema);
     this.log.info(`Updated sequencer config`, omit(filteredConfig, 'txPublicSetupAllowList'));
     this.config = merge(this.config, filteredConfig);
-    this.epochCache.setProposerPipeliningEnabled(this.config.enableProposerPipelining);
     this.timetable = new SequencerTimetable(
       {
         ethereumSlotDuration: this.l1Constants.ethereumSlotDuration,
@@ -632,7 +631,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     // Check if we're a proposer or proposal is open
     const [canPropose, proposer] = await this.checkCanPropose(slot, {
-      now: this.dateProvider.nowInSeconds(),
+      now: BigInt(this.dateProvider.nowInSeconds()),
     });
     if (!canPropose) {
       this.log.trace(`Cannot vote in slot ${slot} since we are not a proposer`, { slot, proposer });

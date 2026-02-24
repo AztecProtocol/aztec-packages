@@ -33,7 +33,7 @@ export class MockEpochCache implements EpochCacheInterface {
     };
   }
 
-  getCommittee(): Promise<EpochCommitteeInfo> {
+  getCommittee(_slot: SlotTag = 'now'): Promise<EpochCommitteeInfo> {
     return Promise.resolve({
       committee: undefined,
       seed: 0n,

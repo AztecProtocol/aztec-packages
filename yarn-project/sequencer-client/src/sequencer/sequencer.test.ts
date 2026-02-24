@@ -1,5 +1,6 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
+import type { SlotTag } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
@@ -177,27 +178,36 @@ describe('sequencer', () => {
       isEscapeHatchOpen: false,
     });
     epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(undefined);
+
     let proposerPipeliningEnabled = true;
     epochCache.setProposerPipeliningEnabled.mockImplementation(enabled => {
       proposerPipeliningEnabled = enabled;
     });
-    const toBaseSlot = (slot: SlotNumber, offset: number) => SlotNumber(Math.max(0, Number(slot) + offset));
-    const mapSlot = (slot: SlotNumber | 'now' | 'next' | undefined, offset: number) =>
-      typeof slot === 'number' ? toBaseSlot(slot, offset) : slot;
-    const makeView = (getOffset: () => number) => ({
-      getCommittee: (slot: SlotNumber | 'now' | 'next' | undefined) =>
-        epochCache.getCommittee(mapSlot(slot, getOffset())),
-      getProposerAttesterAddressInSlot: (slot: SlotNumber) =>
-        epochCache.getProposerAttesterAddressInSlot(toBaseSlot(slot, getOffset())),
-      isInCommittee: (slot: SlotNumber | 'now' | 'next', validator: EthAddress) =>
-        epochCache.isInCommittee(mapSlot(slot, getOffset()), validator),
-      filterInCommittee: (slot: SlotNumber | 'now' | 'next', validators: EthAddress[]) =>
-        epochCache.filterInCommittee(mapSlot(slot, getOffset()), validators),
-      toBaseSlot: (slot: SlotNumber) => toBaseSlot(slot, getOffset()),
-    });
+
+    const offsetSlot = (slot: number, offset: number) => SlotNumber(Math.max(0, Number(slot) + offset));
+
+    const maybeOffsetSlot = (slot: SlotNumber | 'now' | 'next' | undefined, offset: number) =>
+      typeof slot === 'number' ? offsetSlot(slot, offset) : slot;
+    const maybeOffsetSlotTag = (slot: SlotTag, offset: number): SlotTag =>
+      typeof slot === 'number' ? offsetSlot(slot, offset) : slot;
+
+    function makeEpochView(offset: number = 0) {
+      return {
+        getCommittee: (slot: SlotNumber | 'now' | 'next' | undefined) =>
+          epochCache.getCommittee(maybeOffsetSlot(slot, offset)),
+        getProposerAttesterAddressInSlot: (slot: SlotNumber) =>
+          epochCache.getProposerAttesterAddressInSlot(offsetSlot(slot, offset)),
+        isInCommittee: (slot: SlotTag, validator: EthAddress) =>
+          epochCache.isInCommittee(maybeOffsetSlotTag(slot, offset), validator),
+        filterInCommittee: (slot: SlotTag, validators: EthAddress[]) =>
+          epochCache.filterInCommittee(maybeOffsetSlotTag(slot, offset), validators),
+        toBaseSlot: (slot: SlotNumber) => offsetSlot(slot, offset),
+      };
+    }
+
     epochCache.getViewFactory.mockReturnValue({
-      withProposerView: () => makeView(() => (proposerPipeliningEnabled ? 0 : -1)),
-      withSubmissionView: () => makeView(() => 0),
+      withProposerView: () => makeEpochView(proposerPipeliningEnabled ? 0 : -1),
+      withSubmissionView: () => makeEpochView(0),
     });
 
     publisher = mockDeep<SequencerPublisher>();
@@ -949,6 +959,6 @@ class TestSequencer extends Sequencer {
   }
 
   public setBuildAheadForTest(enabled: boolean) {
-    this.updateConfig({ publishTxsWithProposals: true, enableBuildAhead: enabled });
+    this.epochCache.setProposerPipeliningEnabled(!enabled);
   }
 }

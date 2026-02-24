@@ -1,5 +1,6 @@
-import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import type { EpochCacheInterface, SlotTag } from '@aztec/epoch-cache';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import type { L2Block, L2BlockId } from '@aztec/stdlib/block';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -273,6 +274,33 @@ export class InMemoryAttestationPool {
  * Creates a mock EpochCache for testing.
  */
 export function createMockEpochCache(): EpochCacheInterface {
+  let proposerPipeliningEnabled = true;
+  const mapSlotForProposerView = (slot: SlotTag): SlotTag => {
+    if (typeof slot !== 'number') {
+      return slot;
+    }
+    const offset = proposerPipeliningEnabled ? 0 : -1;
+    return SlotNumber(Math.max(0, Number(slot) + offset));
+  };
+  const makeView = (mapSlot: (slot: SlotTag) => SlotTag, toBaseSlot: (slot: SlotNumber) => SlotNumber) => ({
+    getCommittee: (slot: SlotTag = 'now') => {
+      mapSlot(slot);
+      return Promise.resolve({ committee: [], seed: 1n, epoch: EpochNumber.ZERO, isEscapeHatchOpen: false });
+    },
+    getProposerAttesterAddressInSlot: (slot: SlotNumber) => {
+      toBaseSlot(slot);
+      return Promise.resolve(undefined);
+    },
+    isInCommittee: (slot: SlotTag, _validator: EthAddress) => {
+      mapSlot(slot);
+      return Promise.resolve(false);
+    },
+    filterInCommittee: (slot: SlotTag, _validators: EthAddress[]) => {
+      mapSlot(slot);
+      return Promise.resolve([]);
+    },
+    toBaseSlot,
+  });
   return {
     getCommittee: () => Promise.resolve({ committee: [], seed: 1n, epoch: EpochNumber.ZERO, isEscapeHatchOpen: false }),
     getProposerIndexEncoding: () => '0x' as `0x${string}`,
@@ -284,6 +312,21 @@ export function createMockEpochCache(): EpochCacheInterface {
     isInCommittee: () => Promise.resolve(false),
     getRegisteredValidators: () => Promise.resolve([]),
     filterInCommittee: () => Promise.resolve([]),
+    getViewFactory: () => ({
+      withProposerView: () =>
+        makeView(
+          slot => mapSlotForProposerView(slot),
+          slot => mapSlotForProposerView(slot) as SlotNumber,
+        ),
+      withSubmissionView: () =>
+        makeView(
+          slot => slot,
+          slot => slot,
+        ),
+    }),
+    setProposerPipeliningEnabled: (enabled: boolean) => {
+      proposerPipeliningEnabled = enabled;
+    },
     getL1Constants: () => ({
       l1StartBlock: 0n,
       l1GenesisTime: 0n,
