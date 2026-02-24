@@ -83,4 +83,29 @@ describe('AbiTypes', () => {
       { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
     ]);
   });
+
+  it('passes utility parameters', async () => {
+    const minResult = await abiTypesContract.methods
+      .return_utility_parameters(false, 0n, 0n, I64_MIN, { w: 0n, x: false, y: 0n, z: I64_MIN })
+      .simulate({ from: defaultAccountAddress });
+
+    expect(minResult).toEqual([false, 0n, 0n, I64_MIN, { w: 0n, x: false, y: 0n, z: I64_MIN }]);
+
+    const maxResult = await abiTypesContract.methods
+      .return_utility_parameters(true, MAX_FIELD_VALUE, U64_MAX, I64_MAX, {
+        w: MAX_FIELD_VALUE,
+        x: true,
+        y: U64_MAX,
+        z: I64_MAX,
+      })
+      .simulate({ from: defaultAccountAddress });
+
+    expect(maxResult).toEqual([
+      true,
+      MAX_FIELD_VALUE,
+      U64_MAX,
+      I64_MAX,
+      { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
+    ]);
+  });
 });

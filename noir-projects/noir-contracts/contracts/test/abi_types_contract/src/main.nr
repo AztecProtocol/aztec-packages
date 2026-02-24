@@ -1,5 +1,5 @@
-// A contract used for testing that different types are supported as types on external function functions (both public
-// and private).
+// A contract used for testing that different types are supported as types on external functions (both public, private
+// and utility).
 
 mod test;
 
@@ -30,6 +30,17 @@ pub contract AbiTypes {
 
     #[external("private")]
     fn return_private_parameters(
+        a: bool,
+        b: Field,
+        c: u64,
+        d: i64,
+        e: CustomStruct,
+    ) -> (bool, Field, u64, i64, CustomStruct) {
+        (a, b, c, d, e)
+    }
+
+    #[external("utility")]
+    unconstrained fn return_utility_parameters(
         a: bool,
         b: Field,
         c: u64,
