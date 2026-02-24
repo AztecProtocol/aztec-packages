@@ -269,6 +269,11 @@ tests:
       - *charlie
       - *adam
 
+  - regex: "src/e2e_epochs/epochs_l1_reorgs.parallel.test.ts"
+    skip: true
+    owners:
+      - *phil
+
   # Blanket flake patterns for unstable p2p, epoch, and l1 tx utils tests
   # This is a temporary measure while team bandwidth is constrained
   # Replaced many specific patterns - see https://github.com/AztecProtocol/aztec-packages/pull/17962 for historical context
@@ -309,7 +314,7 @@ tests:
     owners:
       - *palla
 
-  - regex: "src/e2e_block_building.test.ts"
+  - regex: "e2e_block_building"
     error_regex: "✕ processes txs until hitting timetable"
     owners:
       - *palla
