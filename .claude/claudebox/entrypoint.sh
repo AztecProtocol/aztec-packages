@@ -13,12 +13,16 @@ REPO_DIR="${CLAUDE_REPO_DIR:-$HOME/aztec-packages}"
 # ── Parse arguments ──────────────────────────────────────────────
 SCRIPT_NAME=""
 COMMENT_ID=""
+RUN_COMMENT_ID=""
 REPO=""
 
 for arg in "$@"; do
     case "$arg" in
         --comment-id=*)
             COMMENT_ID="${arg#--comment-id=}"
+            ;;
+        --run-comment-id=*)
+            RUN_COMMENT_ID="${arg#--run-comment-id=}"
             ;;
         --repo=*)
             REPO="${arg#--repo=}"
@@ -73,6 +77,7 @@ PROMPT="$PROMPT
 ---
 Metadata:
 - Comment ID: ${COMMENT_ID:-none}
+- Run Comment ID: ${RUN_COMMENT_ID:-none}
 - Repository: ${REPO:-none}
 - Script: $SCRIPT_NAME"
 

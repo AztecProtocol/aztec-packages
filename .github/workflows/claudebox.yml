@@ -63,6 +63,22 @@ jobs:
           fi
           echo "Script validated: $SCRIPT"
 
+      - name: Post status comment
+        id: status_comment
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          ISSUE_NUM="${{ github.event.issue.number }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          BODY="**ClaudeBox** is running \`${{ steps.parse.outputs.script_name }}\`... [workflow run]($RUN_URL)"
+
+          COMMENT_ID=$(gh api \
+            repos/${{ github.repository }}/issues/$ISSUE_NUM/comments \
+            -f body="$BODY" \
+            --jq '.id')
+          echo "run_comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
+          echo "Posted status comment: $COMMENT_ID"
+
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -80,4 +96,4 @@ jobs:
           echo '${{ steps.parse.outputs.prompt }}' | \
             ssh -o ConnectTimeout=10 -o ServerAliveInterval=30 \
               "${CLAUDEBOX_USER}@${CLAUDEBOX_HOST}" \
-              "~/claudeentry.sh '${{ steps.parse.outputs.script_name }}' --comment-id=${{ github.event.comment.id }} --repo=${{ github.repository }}"
+              "~/claudeentry.sh '${{ steps.parse.outputs.script_name }}' --comment-id=${{ github.event.comment.id }} --run-comment-id=${{ steps.status_comment.outputs.run_comment_id }} --repo=${{ github.repository }}"
