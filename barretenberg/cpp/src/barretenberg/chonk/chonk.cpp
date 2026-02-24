@@ -532,6 +532,11 @@ HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
 {
     auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit);
 
+    // Free circuit block memory now that trace data has been copied to prover polynomials
+    for (auto& block : circuit.blocks.get()) {
+        block.free_data();
+    }
+
     // Hiding kernel is proven by a MegaZKProver
     MegaZKProver prover(hiding_prover_inst, verification_key, transcript);
     HonkProof proof = prover.construct_proof();
