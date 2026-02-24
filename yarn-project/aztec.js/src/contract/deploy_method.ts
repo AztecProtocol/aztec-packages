@@ -13,10 +13,8 @@ import {
   type Capsule,
   HashedValues,
   type OffchainEffect,
-  TxHash,
   type TxProfileResult,
   type TxReceipt,
-  collectOffchainEffects,
 } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
