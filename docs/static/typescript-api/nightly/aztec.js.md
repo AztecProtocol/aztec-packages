@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: v5.0.0-nightly.20260223
+Version: v5.0.0-nightly.20260224
 
 ## Quick Import Reference
 
@@ -247,7 +247,7 @@ Extends: `BaseContractInteraction`
 
 **Constructor**
 ```typescript
-new DeployMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: ContractArtifact, postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract, args: any[], constructorNameOrArtifact?: string | FunctionArtifact, authWitnesses: AuthWitness[], capsules: Capsule[])
+new DeployMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: ContractArtifact, postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract, args: any[], constructorNameOrArtifact?: string | FunctionArtifact, authWitnesses: AuthWitness[], capsules: Capsule[], extraHashedArgs: HashedValues[])
 ```
 
 **Properties**
@@ -270,7 +270,7 @@ new DeployMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: ContractArtif
 - `getPublicationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns an execution payload for: - publication of the contract class and - publication of the contract instance to enable public execution depending on the provided options.
 - `profile(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
 - `register(options?: RequestDeployOptions) => Promise<TContract>` - Adds this contract to the wallet and returns the Contract object.
-- `request(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain.
+- `request(options: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain.
 - `send(options: DeployOptionsWithoutWait) => Promise<TContract>` - Send a contract deployment transaction (initialize and/or publish) using the provided options. By default, waits for the transaction to be mined and returns the deployed contract instance.
 - `simulate(options: SimulateDeployOptions) => Promise<{ estimatedGas: Pick<GasSettings, "gasLimits" | "teardownGasLimits">; offchainEffects: OffchainEffect[]; ... }>` - Simulate the deployment
 - `with(options: { authWitnesses?: AuthWitness[]; capsules?: Capsule[] }) => DeployMethod` - Augments this DeployMethod with additional metadata, such as authWitnesses and capsules.
@@ -959,12 +959,13 @@ Represents a transaction receipt in the Aztec network. Contains essential inform
 
 **Constructor**
 ```typescript
-new TxReceipt(txHash: TxHash, status: TxStatus, executionResult: TxExecutionResult | undefined, error: string | undefined, transactionFee?: bigint, blockHash?: BlockHash, blockNumber?: BlockNumber)
+new TxReceipt(txHash: TxHash, status: TxStatus, executionResult: TxExecutionResult | undefined, error: string | undefined, transactionFee?: bigint, blockHash?: BlockHash, blockNumber?: BlockNumber, debugLogs?: DebugLog[])
 ```
 
 **Properties**
 - `blockHash?: BlockHash` - The hash of the block containing the transaction.
 - `blockNumber?: BlockNumber` - The block number in which the transaction was included.
+- `debugLogs?: DebugLog[]` - Debug logs collected during public function execution. Served only when the node is in test mode and placed on the receipt only because it's a convenient place for it (the logs are printed out by the wallet when a mined tx receipt is obtained).
 - `error: string | undefined` - Description of transaction error, if any.
 - `executionResult: TxExecutionResult | undefined` - The execution result of the transaction, only set when tx is in a block.
 - `static schema: unknown`
@@ -1876,4 +1877,4 @@ This package references types from other Aztec packages:
 - `BaseField`, `BlockNumber`, `Branded`, `Buffer32`, `BufferReader`, `CheckpointNumber`, `EpochNumber`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `Logger`, `Point`, `SiblingPath`, `SlotNumber`
 
 **@aztec/stdlib**
-- `ABIParameterSchema`, `AbiDecoded`, `AbiErrorType`, `AbiType`, `AbiValue`, `ArrayType`, `AuthWitness`, `AztecAddress`, `AztecNode`, `BasicType`, `BlockHash`, `Capsule`, `ChonkProof`, `CompleteAddress`, `ContractArtifact`, `ContractArtifactWithHash`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractClassLog`, `ContractClassLogFields`, `ContractInstance`, `ContractInstanceWithAddress`, `ContractInstantiationData`, `DebugFileMap`, `EventSelector`, `ExecutionPayload`, `FieldLayout`, `FunctionAbi`, `FunctionArtifact`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `FunctionType`, `Gas`, `GasFees`, `GasSettings`, `GetPublicLogsResponse`, `GlobalVariables`, `Gossipable`, `HashedValues`, `IntegerType`, `L2LogsSource`, `NoirCompiledContract`, `NoirFunctionEntry`, `NoteSelector`, `OffchainEffect`, `PrivateExecutionStep`, `PrivateKernelTailCircuitPublicInputs`, `ProtocolContractAddresses`, `ProvingStats`, `PublicCallRequestWithCalldata`, `PublicKeys`, `RevertCode`, `Selector`, `SimulationStats`, `StringType`, `StructType`, `TopicType`, `TupleType`, `Tx`, `TxContext`, `TxExecutionRequest`, `TxExecutionResult`, `TxHash`, `TxProfileResult`, `TxReceipt`, `TxRequest`, `TxSimulationResult`, `TxStats`, `TxStatus`
+- `ABIParameterSchema`, `AbiDecoded`, `AbiErrorType`, `AbiType`, `AbiValue`, `ArrayType`, `AuthWitness`, `AztecAddress`, `AztecNode`, `BasicType`, `BlockHash`, `Capsule`, `ChonkProof`, `CompleteAddress`, `ContractArtifact`, `ContractArtifactWithHash`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractClassLog`, `ContractClassLogFields`, `ContractInstance`, `ContractInstanceWithAddress`, `ContractInstantiationData`, `DebugFileMap`, `DebugLog`, `EventSelector`, `ExecutionPayload`, `FieldLayout`, `FunctionAbi`, `FunctionArtifact`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `FunctionType`, `Gas`, `GasFees`, `GasSettings`, `GetPublicLogsResponse`, `GlobalVariables`, `Gossipable`, `HashedValues`, `IntegerType`, `L2LogsSource`, `NoirCompiledContract`, `NoirFunctionEntry`, `NoteSelector`, `OffchainEffect`, `PrivateExecutionStep`, `PrivateKernelTailCircuitPublicInputs`, `ProtocolContractAddresses`, `ProvingStats`, `PublicCallRequestWithCalldata`, `PublicKeys`, `RevertCode`, `Selector`, `SimulationStats`, `StringType`, `StructType`, `TopicType`, `TupleType`, `Tx`, `TxContext`, `TxExecutionRequest`, `TxExecutionResult`, `TxHash`, `TxProfileResult`, `TxReceipt`, `TxRequest`, `TxSimulationResult`, `TxStats`, `TxStatus`
