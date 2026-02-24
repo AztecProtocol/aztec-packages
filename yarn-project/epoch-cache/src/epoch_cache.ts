@@ -60,11 +60,6 @@ export interface EpochCacheInterface {
   filterInCommittee(slot: SlotTag, validators: EthAddress[]): Promise<EthAddress[]>;
   getL1Constants(): L1RollupConstants;
   getViewFactory(): EpochCacheViewFactory;
-
-  /**
-   * Compatibility shim for existing sequencer view flow.
-   */
-  setProposerPipeliningEnabled(enabled: boolean): void;
 }
 
 /**
@@ -83,7 +78,7 @@ export class EpochCache implements EpochCacheInterface {
   private lastValidatorRefresh = 0;
   private readonly log: Logger = createLogger('epoch-cache');
 
-  private enableProposerPipelining;
+  private enableProposerPipelining: boolean;
 
   constructor(
     private rollup: RollupContract,
@@ -163,10 +158,6 @@ export class EpochCache implements EpochCacheInterface {
 
   public getL1Constants(): L1RollupConstants {
     return this.l1constants;
-  }
-
-  public setProposerPipeliningEnabled(enabled: boolean): void {
-    this.enableProposerPipelining = enabled;
   }
 
   public isProposerPipeliningEnabled(): boolean {
@@ -435,8 +426,12 @@ class EpochCacheViewImpl implements EpochCacheView {
     return SlotNumber(Math.max(0, Number(slot) + this.slotOffset));
   }
 
+  mapSlot(slot: SlotTag): SlotTag {
+    return typeof slot === 'number' ? this.toBaseSlot(slot) : slot;
+  }
+
   getCommittee(slot: SlotTag = 'now'): Promise<EpochCommitteeInfo> {
-    return this.epochCache.getCommittee(typeof slot === 'number' ? this.toBaseSlot(slot) : slot);
+    return this.epochCache.getCommittee(this.mapSlot(slot));
   }
 
   getProposerAttesterAddressInSlot(slot: SlotNumber): Promise<EthAddress | undefined> {
@@ -444,11 +439,11 @@ class EpochCacheViewImpl implements EpochCacheView {
   }
 
   isInCommittee(slot: SlotTag, validator: EthAddress): Promise<boolean> {
-    return this.epochCache.isInCommittee(typeof slot === 'number' ? this.toBaseSlot(slot) : slot, validator);
+    return this.epochCache.isInCommittee(this.mapSlot(slot), validator);
   }
 
   filterInCommittee(slot: SlotTag, validators: EthAddress[]): Promise<EthAddress[]> {
-    return this.epochCache.filterInCommittee(typeof slot === 'number' ? this.toBaseSlot(slot) : slot, validators);
+    return this.epochCache.filterInCommittee(this.mapSlot(slot), validators);
   }
 }
 
@@ -456,7 +451,7 @@ class EpochCacheViewFactoryImpl implements EpochCacheViewFactory {
   constructor(private readonly epochCache: EpochCache) {}
 
   withProposerView(): EpochCacheView {
-    const slotOffset = this.epochCache.isProposerPipeliningEnabled() ? 0 : -1;
+    const slotOffset = this.epochCache.isProposerPipeliningEnabled() ? -1 : 0;
     return new EpochCacheViewImpl(this.epochCache, slotOffset);
   }
 

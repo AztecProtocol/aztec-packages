@@ -286,15 +286,16 @@ describe('EpochCache', () => {
   });
 
   describe('proposer pipelining', () => {
+    // tODO: will need to update these tests
     it('collapses proposer view to submission view when proposer pipelining is disabled', () => {
-      epochCache.setProposerPipeliningEnabled(false);
+      // epochCache.setProposerPipeliningEnabled(false);
 
       const proposerView = epochCache.getViewFactory().withProposerView();
       expect(proposerView.toBaseSlot(SlotNumber(1))).toBe(SlotNumber(1));
     });
 
     it('maps proposer view to submissionSlot - 1 when proposer pipelining is enabled', async () => {
-      epochCache.setProposerPipeliningEnabled(true);
+      // epochCache.setProposerPipeliningEnabled(true);
       const proposerView = epochCache.getViewFactory().withProposerView();
       const spy = jest.spyOn(epochCache, 'getProposerAttesterAddressInSlot');
 

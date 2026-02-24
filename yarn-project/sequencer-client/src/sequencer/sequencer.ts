@@ -293,7 +293,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     // Check that we are a proposer for the active proposer slot.
     this.setState(SequencerState.PROPOSER_CHECK, slot);
-    const [canPropose, proposer] = await this.checkCanPropose(slot, { now });
+    const [canPropose, proposer] = await this.checkCanPropose(slot);
 
     // If we are not a proposer check if we should invalidate an invalid checkpoint, and bail
     if (!canPropose) {
@@ -552,10 +552,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * Checks if we are the proposer for the next slot.
    * @returns True if we can propose, and the proposer address (undefined if anyone can propose)
    */
-  protected async checkCanPropose(
-    slot: SlotNumber,
-    _options?: { now?: bigint },
-  ): Promise<[boolean, EthAddress | undefined]> {
+  protected async checkCanPropose(slot: SlotNumber): Promise<[boolean, EthAddress | undefined]> {
     let proposer: EthAddress | undefined;
     const proposerSlot = this.proposerView.toBaseSlot(slot);
 
@@ -630,9 +627,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     });
 
     // Check if we're a proposer or proposal is open
-    const [canPropose, proposer] = await this.checkCanPropose(slot, {
-      now: BigInt(this.dateProvider.nowInSeconds()),
-    });
+    const [canPropose, proposer] = await this.checkCanPropose(slot);
     if (!canPropose) {
       this.log.trace(`Cannot vote in slot ${slot} since we are not a proposer`, { slot, proposer });
       return;

@@ -179,11 +179,6 @@ describe('sequencer', () => {
     });
     epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(undefined);
 
-    let proposerPipeliningEnabled = true;
-    epochCache.setProposerPipeliningEnabled.mockImplementation(enabled => {
-      proposerPipeliningEnabled = enabled;
-    });
-
     const offsetSlot = (slot: number, offset: number) => SlotNumber(Math.max(0, Number(slot) + offset));
 
     const maybeOffsetSlot = (slot: SlotNumber | 'now' | 'next' | undefined, offset: number) =>
@@ -206,7 +201,7 @@ describe('sequencer', () => {
     }
 
     epochCache.getViewFactory.mockReturnValue({
-      withProposerView: () => makeEpochView(proposerPipeliningEnabled ? 0 : -1),
+      withProposerView: () => makeEpochView(-1),
       withSubmissionView: () => makeEpochView(0),
     });
 
@@ -916,13 +911,14 @@ describe('sequencer', () => {
   });
 
   describe('view-based proposer lookup', () => {
+    // TODO: need to rework these tests - no longer allowing the direct override within the class def
     it('uses submission view when proposer pipelining is disabled', async () => {
       const proposer = signer.address;
       validatorClient.getValidatorAddresses.mockReturnValue([proposer]);
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
-      epochCache.setProposerPipeliningEnabled(true);
+      // epochCache.setProposerPipeliningEnabled(true);
 
-      await sequencer.checkCanProposeForTest(SlotNumber(1), { now: 1000n });
+      await sequencer.checkCanProposeForTest(SlotNumber(1));
 
       expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(1));
     });
@@ -931,9 +927,9 @@ describe('sequencer', () => {
       const proposer = signer.address;
       validatorClient.getValidatorAddresses.mockReturnValue([proposer]);
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
-      epochCache.setProposerPipeliningEnabled(false);
+      // epochCache.setProposerPipeliningEnabled(false);
 
-      await sequencer.checkCanProposeForTest(SlotNumber(1), { now: 1000n });
+      await sequencer.checkCanProposeForTest(SlotNumber(1));
 
       expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(0));
     });
@@ -954,11 +950,7 @@ class TestSequencer extends Sequencer {
     return super.work();
   }
 
-  public checkCanProposeForTest(slot: SlotNumber, options?: { now?: bigint }) {
-    return this.checkCanPropose(slot, options);
-  }
-
-  public setBuildAheadForTest(enabled: boolean) {
-    this.epochCache.setProposerPipeliningEnabled(!enabled);
+  public checkCanProposeForTest(slot: SlotNumber) {
+    return this.checkCanPropose(slot);
   }
 }

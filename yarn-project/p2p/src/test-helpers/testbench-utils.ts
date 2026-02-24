@@ -324,9 +324,6 @@ export function createMockEpochCache(): EpochCacheInterface {
           slot => slot,
         ),
     }),
-    setProposerPipeliningEnabled: (enabled: boolean) => {
-      proposerPipeliningEnabled = enabled;
-    },
     getL1Constants: () => ({
       l1StartBlock: 0n,
       l1GenesisTime: 0n,
