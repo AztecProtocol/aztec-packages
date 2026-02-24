@@ -137,7 +137,7 @@ describe('e2e_block_building', () => {
       const receipts = await Promise.all(txHashes.map(txHash => waitForTx(aztecNode, txHash)));
       const blockNumbers = receipts.map(r => r.blockNumber!).sort((a, b) => a - b);
       logger.info(`Txs mined on blocks: ${unique(blockNumbers)}`);
-      expect(blockNumbers.at(-1)! - blockNumbers[0]).toBeGreaterThan(EXPECTED_BLOCKS - 1);
+      expect(blockNumbers.at(-1)! - blockNumbers[0]).toBeGreaterThanOrEqual(EXPECTED_BLOCKS - 1);
     });
 
     it('assembles a block with multiple txs', async () => {

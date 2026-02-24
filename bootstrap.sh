@@ -13,7 +13,13 @@ export DENOISE=${DENOISE:-1}
 # Number of TXE servers to run when testing.
 export NUM_TXES=1
 
+# Number of jobs for make. Defaults to number of CPUs.
+# TODO: We should dial this back on consumer hardware, maybe to just 1.
 export MAKEFLAGS="-j${MAKE_JOBS:-$(get_num_cpus)}"
+
+# We append all test commands to this file as they become available during build.
+# The test engine feeds it into parallel.
+export test_cmds_file="/tmp/test_cmds"
 
 # Cleanup function. Called on script exit.
 function cleanup {
@@ -30,12 +36,7 @@ function cleanup {
     wait $make_pid
     make_pid=
   fi
-  if [ -n "${txe_pids:-}" ]; then
-    echo "Sending SIGTERM to TXE processes..."
-    kill -SIGTERM $txe_pids &>/dev/null
-    wait $txe_pids
-    txe_pids=
-  fi
+  stop_txes
 }
 trap cleanup EXIT
 
@@ -201,31 +202,14 @@ EOF
   chmod +x $hooks_dir/post-merge
 }
 
-function sort_by_cpus {
-  awk '
-    {
-      cpus = 0;  # Default value
-      # Split line on space, take first field ($1)
-      split($1, subfields, ":");  # Split first field on :
-      for (i in subfields) {
-        split(subfields[i], arr, "=");
-        if (arr[1] == "CPUS") {
-          cpus = arr[2];
-          break;
-        }
-      }
-      # Print padded CPUS value followed by original line
-      printf "%010d %s\n", cpus, $0
-    }
-  ' | sort -s -r -n -k1,1 | cut -d' ' -f2-
-}
-
-function test_cmds {
-  if [ "$#" -eq 0 ]; then
-    # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts docs ci3 release-image
+function pull_submodules {
+  echo_header "pull submodules"
+  # If it's an old standalone noir clone, nuke it.
+  if [ -d "noir/noir-repo/.git" ]; then
+    echo "Removing old noir clone..."
+    rm -rf noir/noir-repo
   fi
-  parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
+  denoise "git submodule update --init --recursive --depth 1 --jobs 8 && git -C noir/noir-repo fetch --tags"
 }
 
 function start_txes {
@@ -263,21 +247,28 @@ function start_txes {
   done
 }
 
-export test_cmds_file="/tmp/test_cmds"
+function stop_txes {
+  if [ -n "${txe_pids:-}" ]; then
+    echo "Stopping TXE processes..."
+    kill -SIGTERM $txe_pids &>/dev/null || true
+    wait $txe_pids || true
+    txe_pids=
+  fi
+}
 
 function prep {
-  pull_submodules
   check_toolchains
-
-  # Ensure we have yarn set up.
-  corepack enable
-
+  pull_submodules
   rm -f $test_cmds_file
 }
 
-function build_and_test {
-  local target=${1:-}
+function build {
+  prep
+  echo_header "build"
+  make ${1:-fast}
+}
 
+function build_and_test {
   prep
   echo_header "build and test"
 
@@ -287,14 +278,11 @@ function build_and_test {
   # put it in it's own process group, we can terminate on cleanup.
   setsid color_prefix "test-engine" "denoise \"test_engine $test_cmds_file\"" &
   test_engine_pid=$!
-  test_engine_pgid=$(ps -o pgid= -p $test_engine_pid)
+  test_engine_pgid=$(ps -o pgid= -p $test_engine_pid | tr -d ' ')
   echo "Started test engine with $test_engine_pid in PGID $test_engine_pgid."
 
   # Start the build.
-  if [ -z "$target" ]; then
-    [ "$CI_FULL" -eq 0 ] && target="all" || target="full"
-  fi
-  make $target &
+  make $1 &
   make_pid=$!
 
   # As soon as one of the above fails, terminate the other (as part of exit cleanup).
@@ -305,6 +293,7 @@ function build_and_test {
 
     # If make succeeded, start txes and add tests that depend on them.
     if [ "$finished" == "$make_pid" ]; then
+      echo "Makefile build complete, starting TXEs and adding dependent tests..."
       make_pid=
 
       if [ -z "${1:-}" ]; then
@@ -318,97 +307,21 @@ function build_and_test {
     fi
 
     if [ "$finished" == "$test_engine_pid" ]; then
+      echo "Test engine completed successfully."
       test_engine_pid=
     fi
   done
 
+  stop_txes
+
   return 0
-}
-
-function test {
-  echo_header "test all"
-
-  start_txes
-
-  # We will start half as many jobs as we have cpu's.
-  # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
-  # and also that half the cpus are logical, not physical.
-  echo "Gathering tests to run..."
-  tests=$(test_cmds $@)
-
-  # Note: Capturing strips last newline. The echo re-adds it.
-  local num
-  [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
-  echo "Gathered $num tests."
-
-  echo "$tests" | parallelize
-}
-
-function pull_submodules {
-  echo_header "pull submodules"
-  # If it's an old standalone noir clone, nuke it.
-  if [ -d "noir/noir-repo/.git" ]; then
-    echo "Removing old noir clone..."
-    rm -rf noir/noir-repo
-  fi
-  denoise "git submodule update --init --recursive --depth 1 --jobs 8 && git -C noir/noir-repo fetch --tags"
-}
-
-function build {
-  prep
-
-  # These projects are dependent on each other and must be built linearly.
-  serial_projects=(
-    noir
-    avm-transpiler
-    barretenberg
-    noir-projects
-    l1-contracts
-    yarn-project
-    release-image
-  )
-  # These projects can be built in parallel.
-  parallel_cmds=(
-    yarn-project/end-to-end/bootstrap.sh
-    boxes/bootstrap.sh
-    playground/bootstrap.sh
-    docs/bootstrap.sh
-    aztec-up/bootstrap.sh
-  )
-
-  local start_building=false
-  for project in "${serial_projects[@]}"; do
-    # BOOTSTRAP_AFTER and BOOTSTRAP_TO are used to control the order of building.
-    # If BOOTSTRAP_AFTER is set, it should be one of our serial projects and we will only build projects after it.
-    # If BOOTSTRAP_TO is set, it should be one of our serial projects and we will only build projects up to it. We will skip parallel_cmds.
-
-    # Start building after we've seen BOOTSTRAP_AFTER, skipping BOOTSTRAP_AFTER itself.
-    if [ "$project" == "${BOOTSTRAP_AFTER:-}" ]; then
-      start_building=true
-      continue
-    fi
-
-    # Build the project if we should be building
-    if [[ -z "${BOOTSTRAP_AFTER:-}" || "$start_building" = true ]]; then
-      $project/bootstrap.sh ${1:-}
-    fi
-
-    # Stop the build if we've reached BOOTSTRAP_TO
-    # We therefore don't run parallel commands if BOOTSTRAP_TO is set.
-    if [ "$project" = "${BOOTSTRAP_TO:-}" ]; then
-      return
-    fi
-  done
-
-  parallel --line-buffer --tag --halt now,fail=1 "denoise '{}'" ::: ${parallel_cmds[@]}
 }
 
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
-    # Ordered with longest running first, to ensure they get scheduled earliest.
     set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp,sol} noir-projects/noir-protocol-circuits l1-contracts
   fi
-  parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@ | sort_by_cpus
+  parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
 }
 
 function build_bench {
@@ -433,6 +346,50 @@ function bench_merge {
 
 }
 
+function isolate_bench_cpus {
+  [ "${CI:-0}" -eq 0 ] && return
+
+  # CPU layout assumption: physical cores are 0..N/2-1, hyperthreads are N/2..N-1.
+  local total_cpus=$(nproc)
+  local total_physical=$((total_cpus / 2))
+  local os_reserve=8
+  local bench_count=$((total_physical - os_reserve))
+
+  # Disable hyperthread siblings of benchmark cores (N/2 .. N/2+bench_count-1).
+  # OS cores' hyperthreads (N/2+bench_count .. N-1) stay on for extra OS capacity.
+  for cpu in $(seq $total_physical $((total_physical + bench_count - 1))); do
+    sudo sh -c "echo 0 > /sys/devices/system/cpu/cpu$cpu/online" 2>/dev/null || true
+  done
+
+  # Pin all container processes to OS CPUs so they can't land on benchmark cores.
+  # exec_test's taskset overrides this for each benchmark with its allocated CPUs.
+  local os_cpu_list="$bench_count-$((total_physical - 1)),$((total_physical + bench_count))-$((total_cpus - 1))"
+  echo "Pinning container processes to OS CPUs ($os_cpu_list)..."
+  for pid in $(ps -eo pid= 2>/dev/null); do
+    taskset -apc "$os_cpu_list" $pid &>/dev/null || true
+  done
+
+  export BENCH_CPU_COUNT=$bench_count
+
+  echo "Benchmark CPU isolation: CPUs 0-$((bench_count - 1)) ($bench_count cores, hyperthreads off) for benchmarks."
+  echo "OS CPUs: $os_cpu_list."
+}
+
+function unisolate_bench_cpus {
+  [ "${CI:-0}" -eq 0 ] && return
+
+  echo "Re-enabling all CPUs..."
+  local total_cpus=$(nproc --all)
+  for cpu in $(seq 1 $((total_cpus - 1))); do
+    sudo sh -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online" 2>/dev/null || true
+  done
+  # Unpin all processes (were pinned to OS CPUs during bench).
+  for pid in $(ps -eo pid= 2>/dev/null); do
+    taskset -apc 0-$((total_cpus - 1)) $pid &>/dev/null || true
+  done
+  echo "All CPUs re-enabled. Online CPUs: $(nproc)"
+}
+
 function bench {
   # TODO bench for arm64.
   if [ $(arch) == arm64 ]; then
@@ -440,8 +397,10 @@ function bench {
   fi
   echo_header "bench all"
   build_bench
+  isolate_bench_cpus
   find . -type d -iname bench-out | xargs rm -rf
   bench_cmds | STRICT_SCHEDULING=1 parallelize
+  unisolate_bench_cpus
   rm -rf bench-out
   mkdir -p bench-out
   bench_merge
@@ -569,30 +528,20 @@ case "$cmd" in
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=0
-    build
-    test
+    build_and_test fast
     ;;
   "ci-full")
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=1
-    build
-    test
+    build_and_test full
     bench
     ;;
   "ci-full-no-test-cache")
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
-    build
-    test
-    bench
-    ;;
-  "ci-full-no-test-cache-makefile")
-    export CI=1
-    export USE_TEST_CACHE=0
-    export CI_FULL=1
-    build_and_test
+    build_and_test full
     bench
     ;;
   "ci-grind-test")
@@ -724,7 +673,7 @@ case "$cmd" in
     if ! semver check $REF_NAME; then
       exit 1
     fi
-    build
+    build release
     release
     ;;
 

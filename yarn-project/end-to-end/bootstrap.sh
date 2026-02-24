@@ -27,20 +27,10 @@ function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   local prefix="$hash:ISOLATE=1"
 
-  # Longest-running tests first
-  # Can't run full prover tests on ARM because AVM is disabled.
-  if ../../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm; then
-    if [ "$CI_FULL" -eq 1 ]; then
-      echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_client_real $run_test_script simple e2e_prover/client"
-    else
-      echo "$prefix:NAME=e2e_prover_client_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/client"
-    fi
+  if [ "$CI_FULL" -eq 1 ]; then
+    echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
   else
-    if [ "$CI_FULL" -eq 1 ]; then
-      echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
-    else
-      echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
-    fi
+    echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
   fi
   echo "$prefix:TIMEOUT=15m:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
 
