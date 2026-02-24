@@ -84,7 +84,7 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown") {
   const nightlyTag =
     process.env.NIGHTLY_TAG || process.env.COMMIT_TAG || "0.0.0-nightly.0";
   const testnetTag = process.env.TESTNET_TAG || "2.1.11";
-  const devnetTag = process.env.DEVNET_TAG || "4.0.0-devnet.2-patch.0";
+  const devnetTag = process.env.DEVNET_TAG || "4.0.0-devnet.2-patch.1";
   const mainnetTag = process.env.MAINNET_TAG || "2.1.11";
   const releaseType = process.env.RELEASE_TYPE || "nightly";
   // COMMIT_TAG kept for backwards compatibility
