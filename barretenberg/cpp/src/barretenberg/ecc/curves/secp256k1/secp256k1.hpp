@@ -217,15 +217,14 @@ struct FrParams {
     static constexpr uint64_t endo_b2_lo = 0xe86c90e49284eb15ULL;
     static constexpr uint64_t endo_b2_mid = 0x3086d221a7d46bcdULL;
 
-    static constexpr uint64_t endo_g1_lo = 0xE893209A45DBB031ULL;
-    static constexpr uint64_t endo_g1_mid = 0x3DAA8A1471E8CA7FULL;
-    static constexpr uint64_t endo_g1_hi = 0xE86C90E49284EB15ULL;
-    static constexpr uint64_t endo_g1_hihi = 0x3086D221A7D46BCDULL;
+    // 256-bit-shift constants: g1 = floor((-b1) * 2^256 / r), g2 = floor(b2 * 2^256 / r)
+    // See endomorphism_scalars.py compute_splitting_constants() for derivation.
+    static constexpr uint64_t endo_g1_lo = 0x6F547FA90ABFE4C4ULL;
+    static constexpr uint64_t endo_g1_mid = 0xE4437ED6010E8828ULL;
+    static constexpr uint64_t endo_g1_hi = 0x0ULL;
 
-    static constexpr uint64_t endo_g2_lo = 0x1571B4AE8AC47F71ULL;
-    static constexpr uint64_t endo_g2_mid = 0x221208AC9DF506C6ULL;
-    static constexpr uint64_t endo_g2_hi = 0x6F547FA90ABFE4C4ULL;
-    static constexpr uint64_t endo_g2_hihi = 0xE4437ED6010E8828ULL;
+    static constexpr uint64_t endo_g2_lo = 0xE86C90E49284EB15ULL;
+    static constexpr uint64_t endo_g2_mid = 0x3086D221A7D46BCDULL;
 
     // Not used in secp256k1
     static constexpr uint64_t primitive_root_0 = 0UL;
