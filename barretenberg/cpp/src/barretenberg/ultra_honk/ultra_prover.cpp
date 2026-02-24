@@ -65,7 +65,9 @@ template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Fla
     // have backing ≤ max_end_index, Gemini fold polys have size ≤ dyadic_size/2 < max_end_index,
     // Shplonk quotient Q is sized at max(claim sizes), and KZG opening proof is sized at Q.size().
     // For ZK, the gemini_masking_poly (at dyadic_size) is already reflected in max_end_index.
-    // The SmallSubgroupIPA protocol requires a minimum CRS of 2*SUBGROUP_SIZE for tiny circuits.
+    // SmallSubgroupIPA commits polynomials up to size SUBGROUP_SIZE + 3 (~259 for BN254); the
+    // guard below ensures the CRS is large enough for tiny test circuits where max_end_index
+    // could otherwise be smaller than those fixed-size commitments.
     size_t key_size = prover_instance->polynomials.max_end_index();
     if constexpr (Flavor::HasZK) {
         constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
