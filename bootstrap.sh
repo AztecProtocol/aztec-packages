@@ -570,14 +570,18 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export CI_FULL=0
     build
-    test
+    if ! test; then
+      scripts/ci_vk_update.sh
+    fi
     ;;
   "ci-full")
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=1
     build
-    test
+    if ! test; then
+      scripts/ci_vk_update.sh
+    fi
     bench
     ;;
   "ci-full-no-test-cache")
