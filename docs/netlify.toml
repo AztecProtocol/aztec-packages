@@ -761,6 +761,7 @@
 
 [[redirects]]
     from = "/errors/1"
+    # A warning that is shown when `aztec compile` is run and the contract crate contains tests
     to = "/developers/docs/aztec-nr/testing_contracts#keep-tests-in-the-test-crate"
 
 # Example (uncomment and modify when adding error codes):
