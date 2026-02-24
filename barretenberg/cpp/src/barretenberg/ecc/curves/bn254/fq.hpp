@@ -91,8 +91,9 @@ class Bn254FqParams {
 
     // -(Modulus^-1) mod 2^64
     // This is used to compute k = r_inv * lower_limb(scalar), such that scalar + k*modulus in integers would have 0 in
-    // the lowest limb By performing this sequentially for 4 limbs, we get an 8-limb representation of the scalar, where
-    // the lowest 4 limbs are zeros. Then we can immediately divide by 2^256 by simply getting rid of the lowest 4 limbs
+    // the lowest limb. By performing this sequentially for 4 limbs, we get an 8-limb representation of the scalar,
+    // where the lowest 4 limbs are zeros. Then we can immediately divide by 2^256 by simply getting rid of the lowest 4
+    // limbs
     static constexpr uint64_t r_inv = 0x87d20782e4866389UL;
 
     // 2^(-64) mod Modulus

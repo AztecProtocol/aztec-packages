@@ -88,11 +88,19 @@ export async function deploySponsoredTestAccountsWithTokens(
 
   const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
   const recipientDeployMethod = await recipientAccount.getDeployMethod();
-  await recipientDeployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod }, wait: { timeout: 2400 } });
+  await recipientDeployMethod.send({
+    from: AztecAddress.ZERO,
+    fee: { paymentMethod },
+    wait: { timeout: 2400 },
+  });
   await Promise.all(
     fundedAccounts.map(async a => {
       const deployMethod = await a.getDeployMethod();
-      await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod }, wait: { timeout: 2400 } }); // increase timeout on purpose in order to account for two empty epochs
+      await deployMethod.send({
+        from: AztecAddress.ZERO,
+        fee: { paymentMethod },
+        wait: { timeout: 2400 },
+      }); // increase timeout on purpose in order to account for two empty epochs
       logger.info(`Account deployed at ${a.address}`);
     }),
   );

@@ -29,9 +29,9 @@ global:
   l1ConsensusUrls: []
   ## Only when api key is required via header, otherwise just provide in l1ConsensusHostUrls
   ## Example: "1234abcd"
-  l1ConsensusHostApiKeys: []
+  l1ConsensusHostApiKeys: ""
   ## Example: "X-API-KEY"
-  l1ConsensusHostApiKeyHeaders: []
+  l1ConsensusHostApiKeyHeaders: ""
 
   aztecImage:
     repository: aztecprotocol/aztec
@@ -106,7 +106,7 @@ node:
 
   # -- Disable admin API key authentication.
   # Set to false in production to enable API key auth.
-  noAdminApiKey: true
+  disableAdminApiKey: true
 
   # the address that will receive block or proof rewards
   coinbase:

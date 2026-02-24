@@ -29,7 +29,8 @@ mod test;
 ///
 /// Unlike [`PublicMutable`](crate::state_vars::PublicMutable) it is **also** possible to read a `PublicImmutable` from
 /// a private contract function, though it is not possible to initialize one. A common pattern is to have these
-/// functions [enqueue a public self calls](crate::contract_self::ContractSelf::enqueue_self) in which the
+/// functions [enqueue a public self calls](crate::contract_self::ContractSelfPrivate::enqueue)
+/// in which the
 /// initialization operation is performed.
 ///
 /// For a mutable (with restrictions) variant which also can be read from private functions see
@@ -286,11 +287,10 @@ impl<T> PublicImmutable<T, &mut PrivateContext> {
     /// ## Cost
     ///
     /// A nullifier existence request is pushed to the context, which will be verified by the kernel circuit.
-    /// Additionally, a historical public storage read at the anchor block is performed for a single storage slot,
-    /// **regardless of `T`'s packed length**. This is because [`PublicImmutable::initialize`] stores not just the
-    /// value
-    /// but also its hash: this function obtains the preimage from an oracle and proves that it matches the hash from
-    /// public storage.
+    /// Additionally, a historical public storage read at the anchor block (which is on the order of 4k gates) is
+    /// performed for a single storage slot, **regardless of `T`'s packed length**. This is because
+    /// [`PublicImmutable::initialize`] stores not just the value but also its hash: this function obtains the preimage
+    /// from an oracle and proves that it matches the hash from public storage.
     ///
     /// Because of this reason it is convenient to group together all of a contract's public immutable values that are
     /// read privately in a single type `T`:

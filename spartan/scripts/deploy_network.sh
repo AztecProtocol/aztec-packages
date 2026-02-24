@@ -17,6 +17,18 @@ k8s_denoise() {
   "${SCRIPT_DIR}/k8s_enriched_denoise" "${NAMESPACE}" "$1"
 }
 
+tf_str() {
+  local value="${1:-}"
+  local default_value="${2:-null}"
+  if [[ -n "$value" ]]; then
+    value="${value//\\/\\\\}"  # escape backslashes first
+    value="${value//\"/\\\"}"  # then escape double quotes
+    echo "\"${value}\""
+  else
+    echo "$default_value"
+  fi
+}
+
 # We want to separate out these logs.
 export DENOISE=1
 ########################
@@ -55,8 +67,7 @@ LABS_INFRA_INDICES=${LABS_INFRA_INDICES:-0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1
 ########################
 # ROLLUP VARIABLES
 ########################
-REDEPLOY_ROLLUP_CONTRACTS=${REDEPLOY_ROLLUP_CONTRACTS:-false}
-CREATE_ROLLUP_CONTRACTS=${CREATE_ROLLUP_CONTRACTS:-true}
+CREATE_ROLLUP_CONTRACTS=${CREATE_ROLLUP_CONTRACTS:-false}
 SPONSORED_FPC=${SPONSORED_FPC:-true}
 TEST_ACCOUNTS=${TEST_ACCOUNTS:-false}
 REAL_VERIFIER=${REAL_VERIFIER:-true}
@@ -97,6 +108,7 @@ SEQ_MIN_TX_PER_BLOCK=${SEQ_MIN_TX_PER_BLOCK:-0}
 SEQ_MAX_TX_PER_BLOCK=${SEQ_MAX_TX_PER_BLOCK:-8}
 SEQ_BLOCK_DURATION_MS=${SEQ_BLOCK_DURATION_MS:-}
 SEQ_BUILD_CHECKPOINT_IF_EMPTY=${SEQ_BUILD_CHECKPOINT_IF_EMPTY:-}
+SEQ_ENFORCE_TIME_TABLE=${SEQ_ENFORCE_TIME_TABLE:-}
 SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT=${SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT:-0}
 PROVER_REPLICAS=${PROVER_REPLICAS:-4}
 PROVER_AGENTS_PER_PROVER=${PROVER_AGENTS_PER_PROVER:-1}
@@ -182,7 +194,6 @@ P2P_GOSSIPSUB_D=${P2P_GOSSIPSUB_D:-6}
 P2P_GOSSIPSUB_DLO=${P2P_GOSSIPSUB_DLO:-4}
 P2P_GOSSIPSUB_DHI=${P2P_GOSSIPSUB_DHI:-12}
 
-P2P_DROP_TX=${P2P_DROP_TX:-false}
 P2P_DROP_TX_CHANCE=${P2P_DROP_TX_CHANCE:-0}
 
 # Compute validator addresses (skip if no validators)
@@ -349,7 +360,7 @@ fi
 # Check for ETHERSCAN_API_KEY when VERIFY_CONTRACTS is enabled
 # Contract verification happens automatically in the yarn-project code when on mainnet/sepolia
 # and ETHERSCAN_API_KEY is set. This check ensures we fail early if verification is expected.
-if [[ "${VERIFY_CONTRACTS:-}" == "true" && ("${CREATE_ROLLUP_CONTRACTS}" == "true" || "${REDEPLOY_ROLLUP_CONTRACTS}" == "true") && -z "${ETHERSCAN_API_KEY:-}" ]]; then
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" && -z "${ETHERSCAN_API_KEY:-}" ]]; then
   die "Error: ETHERSCAN_API_KEY is not set but VERIFY_CONTRACTS=true. Contract verification requires an Etherscan API key. Set ETHERSCAN_API_KEY environment variable."
 fi
 
@@ -357,15 +368,8 @@ ROLLUP_CONTRACTS_START=$(date +%s)
 DEPLOY_ROLLUP_CONTRACTS_DIR="${SCRIPT_DIR}/../terraform/deploy-rollup-contracts"
 "${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-rollup-contracts"
 
-# Handle NETWORK variable - needs quotes for string values, null for unset
-if [[ -n "${NETWORK:-}" ]]; then
-  NETWORK_TF="\"${NETWORK}\""
-else
-  NETWORK_TF=null
-fi
-
 # Handle ETHERSCAN_API_KEY - only set when deploying or redeploying contracts
-if [[ "${VERIFY_CONTRACTS:-}" == "true" && ("${CREATE_ROLLUP_CONTRACTS}" == "true" || "${REDEPLOY_ROLLUP_CONTRACTS}" == "true") ]]; then
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" ]]; then
   ETHERSCAN_API_KEY_TF="\"${ETHERSCAN_API_KEY:-}\""
 else
   ETHERSCAN_API_KEY_TF=null
@@ -409,7 +413,7 @@ AZTEC_MANA_TARGET = ${AZTEC_MANA_TARGET:-null}
 AZTEC_PROVING_COST_PER_MANA = ${AZTEC_PROVING_COST_PER_MANA:-null}
 AZTEC_EXIT_DELAY_SECONDS = ${AZTEC_EXIT_DELAY_SECONDS:-null}
 ETHERSCAN_API_KEY = ${ETHERSCAN_API_KEY_TF}
-NETWORK = ${NETWORK_TF}
+NETWORK = $(tf_str "${NETWORK:-}")
 JOB_NAME = "deploy-rollup-contracts"
 JOB_BACKOFF_LIMIT = 3
 JOB_TTL_SECONDS_AFTER_FINISHED = 3600
@@ -423,11 +427,11 @@ EXISTING_REGISTRY=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -ra
 if [[ "${USE_NETWORK_CONFIG:-false}" == "true" ]]; then
     log "Using network configuration, skipping contracts deployment"
 else
-  if [[ -n "${EXISTING_REGISTRY}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
+  if [[ -n "${EXISTING_REGISTRY}" && "${CREATE_ROLLUP_CONTRACTS}" != "true" ]]; then
     log "Contracts already deployed (registry=${EXISTING_REGISTRY}), skipping deployment"
   else
-    if [[ "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" ]]; then
-      log "REDEPLOY_ROLLUP_CONTRACTS=true, destroying existing deployment"
+    if [[ "${CREATE_ROLLUP_CONTRACTS}" == "true" ]]; then
+      log "CREATE_ROLLUP_CONTRACTS=true, destroying existing deployment"
       k8s_denoise "terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" destroy -auto-approve"
     fi
     k8s_denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} plan -out=tfplan"
@@ -508,6 +512,7 @@ SEQ_MIN_TX_PER_BLOCK = ${SEQ_MIN_TX_PER_BLOCK}
 SEQ_MAX_TX_PER_BLOCK = ${SEQ_MAX_TX_PER_BLOCK}
 SEQ_BLOCK_DURATION_MS = ${SEQ_BLOCK_DURATION_MS:-null}
 SEQ_BUILD_CHECKPOINT_IF_EMPTY = ${SEQ_BUILD_CHECKPOINT_IF_EMPTY:-null}
+SEQ_ENFORCE_TIME_TABLE = ${SEQ_ENFORCE_TIME_TABLE:-null}
 SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT = ${SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT}
 PROVER_MNEMONIC = "${LABS_INFRA_MNEMONIC}"
 PROVER_PUBLISHER_MNEMONIC_START_INDEX = ${PROVER_PUBLISHER_MNEMONIC_START_INDEX}
@@ -531,7 +536,7 @@ OTEL_COLLECTOR_ENDPOINT = "${OTEL_COLLECTOR_ENDPOINT}"
 DEPLOY_INTERNAL_BOOTNODE = ${DEPLOY_INTERNAL_BOOTNODE:-true}
 PROVER_REAL_PROOFS = ${PROVER_REAL_PROOFS}
 TRANSACTIONS_DISABLED = ${TRANSACTIONS_DISABLED:-null}
-NETWORK = ${NETWORK_TF}
+NETWORK = $(tf_str "${NETWORK:-}")
 STORE_SNAPSHOT_URL = ${STORE_SNAPSHOT_URL_TF}
 BOT_RESOURCE_PROFILE = "${BOT_RESOURCE_PROFILE}"
 BOT_MNEMONIC = "${LABS_INFRA_MNEMONIC}"
@@ -594,8 +599,8 @@ DEBUG_P2P_INSTRUMENT_MESSAGES = ${DEBUG_P2P_INSTRUMENT_MESSAGES:-false}
 PROVER_AGENT_INCLUDE_METRICS = "${PROVER_AGENT_INCLUDE_METRICS-null}"
 FULL_NODE_INCLUDE_METRICS = "${FULL_NODE_INCLUDE_METRICS-null}"
 
-LOG_LEVEL = "${LOG_LEVEL}"
-FISHERMAN_LOG_LEVEL = "${FISHERMAN_LOG_LEVEL}"
+LOG_LEVEL = $(tf_str "$LOG_LEVEL")
+FISHERMAN_LOG_LEVEL = $(tf_str "$FISHERMAN_LOG_LEVEL")
 
 WS_NUM_HISTORIC_CHECKPOINTS = ${WS_NUM_HISTORIC_CHECKPOINTS:-null}
 

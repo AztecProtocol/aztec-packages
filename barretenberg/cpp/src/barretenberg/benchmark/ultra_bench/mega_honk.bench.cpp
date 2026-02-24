@@ -30,7 +30,10 @@ static void get_row_power_of_2(State& state) noexcept
 {
     auto log2_of_gates = static_cast<size_t>(state.range(0));
     size_t gates = 1 << log2_of_gates;
-    MegaFlavor::ProverPolynomials polynomials{ gates };
+    MegaFlavor::ProverPolynomials polynomials;
+    for (auto& poly : polynomials.get_all()) {
+        poly = bb::Polynomial<bb::fr>(gates);
+    }
     for (auto _ : state) {
         for (size_t i = 0; i < gates; i++) {
             benchmark::DoNotOptimize(polynomials.get_row(i));

@@ -1,7 +1,13 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress, L2BlockId } from '@aztec/stdlib/block';
 import type { ITxProvider, P2PApiFull } from '@aztec/stdlib/interfaces/server';
-import type { BlockProposal, CheckpointAttestation, CheckpointProposal, P2PClientType } from '@aztec/stdlib/p2p';
+import type {
+  BlockProposal,
+  CheckpointAttestation,
+  CheckpointProposal,
+  P2PClientType,
+  TopicType,
+} from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -135,14 +141,6 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]>;
 
   /**
-   * Returns transactions in the transaction pool by hash, requesting from the network if not found.
-   * @param txHashes  - Hashes of tx to return.
-   * @param pinnedPeerId - An optional peer id that will be used to request the tx from (in addition to other random peers).
-   * @returns An array of tx or undefined.
-   */
-  getTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId | undefined): Promise<(Tx | undefined)[]>;
-
-  /**
    * Returns an archived transaction from the transaction pool by its hash.
    * @param txHash  - Hash of tx to return.
    * @returns A single tx or undefined.
@@ -218,8 +216,8 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
 
   updateP2PConfig(config: Partial<P2PConfig>): Promise<void>;
 
-  /** Validates a set of txs. */
-  validate(txs: Tx[]): Promise<void>;
+  /** Validates a set of txs received in a block proposal. */
+  validateTxsReceivedInBlockProposal(txs: Tx[]): Promise<void>;
 
   /** Clears the db. */
   clear(): Promise<void>;
@@ -237,4 +235,7 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
 
   /** If node running this P2P stack is validator, passes in validator address to P2P layer */
   registerThisValidatorAddresses(address: EthAddress[]): void;
+
+  /** Returns the number of peers in the GossipSub mesh for a given topic type. */
+  getGossipMeshPeerCount(topicType: TopicType): Promise<number>;
 };

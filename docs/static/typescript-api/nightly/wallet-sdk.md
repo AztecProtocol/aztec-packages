@@ -1,6 +1,6 @@
 # @aztec/wallet-sdk
 
-Version: v4.0.0-nightly.20260218
+Version: v5.0.0-nightly.20260224
 
 ## Quick Import Reference
 
@@ -68,21 +68,22 @@ new BaseWallet(pxe: PXE, aztecNode: AztecNode, log: Logger)
 - `contextualizeError(err: Error, ...context: string[]) => Error`
 - `createAuthWit(from: AztecAddress, messageHashOrIntent: IntentInnerHash | CallIntent) => Promise<AuthWitness>`
 - `createTxExecutionRequestFromPayloadAndFee(executionPayload: ExecutionPayload, from: AztecAddress, feeOptions: FeeOptions) => Promise<TxExecutionRequest>`
+- `executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions) => Promise<UtilityExecutionResult>`
 - `getAccountFromAddress(address: AztecAddress) => Promise<Account>`
 - `getAccounts() => Promise<Aliased<AztecAddress>[]>`
 - `getAddressBook() => Promise<Aliased<AztecAddress>[]>` - Returns the list of aliased contacts associated with the wallet. This base implementation directly returns PXE's senders, but note that in general contacts are a superset of senders. - Senders: Addresses we check during synching in case they sent us notes, - Contacts: more general concept akin to a phone's contact list.
 - `getChainInfo() => Promise<ChainInfo>`
 - `getContractClassMetadata(id: Fr) => Promise<{ isArtifactRegistered: boolean; isContractClassPubliclyRegistered: boolean }>`
 - `getContractMetadata(address: AztecAddress) => Promise<{ instance: ContractInstanceWithAddress | undefined; isContractInitialized: boolean; ... }>`
+- `getContractName(address: AztecAddress) => Promise<string | undefined>` - Resolves a contract address to a human-readable name via PXE, if available.
 - `getPrivateEvents<T>(eventDef: EventMetadataDefinition, eventFilter: PrivateEventFilter) => Promise<PrivateEvent<T>[]>`
 - `profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions) => Promise<TxProfileResult>`
 - `registerContract(instance: ContractInstanceWithAddress, artifact?: ContractArtifact, secretKey?: Fr) => Promise<ContractInstanceWithAddress>`
 - `registerSender(address: AztecAddress, _alias: string) => Promise<AztecAddress>`
 - `requestCapabilities(_manifest: AppCapabilities) => Promise<WalletCapabilities>` - Request capabilities from the wallet. This method is wallet-implementation-dependent and must be provided by classes extending BaseWallet. Embedded wallets typically don't support capability-based authorization (no user authorization flow), while external wallets (browser extensions, hardware wallets) implement this to reduce authorization friction by allowing apps to request permissions upfront. Consider making it abstract so implementing it is a conscious decision. Leaving it as-is while the feature stabilizes.
-- `scopesFor(from: AztecAddress) => AztecAddress[]`
+- `scopesFrom(from: AztecAddress, additionalScopes: AztecAddress[]) => AztecAddress[]`
 - `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>`
 - `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResult>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
-- `simulateUtility(call: FunctionCall, opts: SimulateUtilityOptions) => Promise<UtilitySimulationResult>`
 - `simulateViaEntrypoint(executionPayload: ExecutionPayload, from: AztecAddress, feeOptions: FeeOptions, scopes: AccessScopes, skipTxValidation?: boolean, skipFeeEnforcement?: boolean) => Promise<TxSimulationResult>` - Simulates calls through the standard PXE path (account entrypoint).
 
 ### ContentScriptConnectionHandler
@@ -501,7 +502,7 @@ Imports a public key from JWK format. Used to import the other party's public ke
 
 ### simulateViaNode
 ```typescript
-function simulateViaNode(node: AztecNode, publicStaticCalls: FunctionCall[], from: AztecAddress, chainInfo: ChainInfo, gasSettings: GasSettings, blockHeader: BlockHeader, skipFeeEnforcement: boolean) => Promise<TxSimulationResult[]>
+function simulateViaNode(node: AztecNode, publicStaticCalls: FunctionCall[], from: AztecAddress, chainInfo: ChainInfo, gasSettings: GasSettings, blockHeader: BlockHeader, skipFeeEnforcement: boolean, getContractName: ContractNameResolver) => Promise<TxSimulationResult[]>
 ```
 Simulates public static calls by splitting them into batches of MAX_ENQUEUED_CALLS_PER_CALL and sending each batch directly to the node.
 
@@ -567,7 +568,7 @@ Values: `aztec-wallet-disconnect`, `aztec-wallet-discovery`, `aztec-wallet-disco
 This package references types from other Aztec packages:
 
 **@aztec/aztec.js**
-- `Account`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `FeePaymentMethod`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `SimulateUtilityOptions`, `Wallet`, `WalletCapabilities`
+- `Account`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `ExecuteUtilityOptions`, `FeePaymentMethod`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `Wallet`, `WalletCapabilities`
 
 **@aztec/entrypoints**
 - `AccountFeePaymentMethodOptions`, `ChainInfo`
@@ -576,7 +577,7 @@ This package references types from other Aztec packages:
 - `FieldsOf`, `Fr`, `Logger`
 
 **@aztec/pxe**
-- `AccessScopes`, `PXE`
+- `AccessScopes`, `ContractNameResolver`, `PXE`
 
 **@aztec/stdlib**
-- `AuthWitness`, `AztecAddress`, `AztecNode`, `BlockHeader`, `ContractArtifact`, `ContractInstanceWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `GasSettings`, `TxExecutionRequest`, `TxProfileResult`, `TxSimulationResult`, `UtilitySimulationResult`
+- `AuthWitness`, `AztecAddress`, `AztecNode`, `BlockHeader`, `ContractArtifact`, `ContractInstanceWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `GasSettings`, `TxExecutionRequest`, `TxProfileResult`, `TxSimulationResult`, `UtilityExecutionResult`

@@ -29,6 +29,7 @@
 <li><a href="#deploy">deploy</a></li>
 <li><a href="#discover_note">discover_note</a></li>
 <li><a href="#discover_note_at">discover_note_at</a></li>
+<li><a href="#execute_utility">execute_utility</a></li>
 <li><a href="#last_block_number">last_block_number</a></li>
 <li><a href="#last_block_timestamp">last_block_timestamp</a></li>
 <li><a href="#mine_block">mine_block</a></li>
@@ -41,7 +42,6 @@
 <li><a href="#public_context">public_context</a></li>
 <li><a href="#public_context_at">public_context_at</a></li>
 <li><a href="#set_next_block_timestamp">set_next_block_timestamp</a></li>
-<li><a href="#simulate_utility">simulate_utility</a></li>
 <li><a href="#utility_context">utility_context</a></li>
 <li><a href="#utility_context_at">utility_context_at</a></li>
 <li><a href="#view_private">view_private</a></li>
@@ -342,7 +342,7 @@ executable in a static context, and these produce no side effects).</p>
 <p>The <code>from</code> parameter specifies the account from whose perspective the view is executed. This affects
 scope isolation - only notes scoped to this account will be visible during execution.</p>
 </div>
-</div><code id="simulate_utility" class="code-header">pub unconstrained fn <a href="#simulate_utility"><span class="fn">simulate_utility</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+</div><code id="execute_utility" class="code-header">pub unconstrained fn <a href="#execute_utility"><span class="fn">execute_utility</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     _self: Self,
     call: <a href="../../../../noir_aztec/context/calls/struct.UtilityCall.html" class="struct">UtilityCall</a>&lt;M, N, T&gt;,
 ) -> T
@@ -354,7 +354,7 @@ scope isolation - only notes scoped to this account will be visible during execu
 <p>The <code>call</code> value can be obtained by calling the appropriate method on a contract type. E.g.:</p>
 <pre><code><span class="kw">let</span> caller = env.create_light_account();
 <span class="kw">let</span> contract_addr = env.deploy(<span class="string">"SampleContract"</span>).without_initializer();
-<span class="kw">let</span> return_value = env.simulate_utility(SampleContract::at(contract_addr).sample_utility_function());</code></pre></div>
+<span class="kw">let</span> return_value = env.execute_utility(SampleContract::at(contract_addr).sample_utility_function());</code></pre></div>
 </div><code id="call_public" class="code-header">pub unconstrained fn <a href="#call_public"><span class="fn">call_public</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     _self: Self,
     from: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,

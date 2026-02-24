@@ -350,6 +350,13 @@ export const ARCHIVER_BLOCK_PROPOSAL_TX_TARGET_COUNT: MetricDefinition = {
   valueType: ValueType.INT,
 };
 
+export const ARCHIVER_CHECKPOINT_L1_INCLUSION_DELAY: MetricDefinition = {
+  name: 'aztec.archiver.checkpoint_l1_inclusion_delay',
+  description: 'Seconds into the L2 slot when the checkpoint L1 tx was included',
+  unit: 's',
+  valueType: ValueType.INT,
+};
+
 export const NODE_RECEIVE_TX_DURATION: MetricDefinition = {
   name: 'aztec.node.receive_tx.duration',
   description: 'The duration of the receiveTx method',
@@ -1041,6 +1048,11 @@ export const PROVING_QUEUE_REJECTED_JOBS: MetricDefinition = {
   description: 'Number of rejected proving jobs',
   valueType: ValueType.INT,
 };
+export const PROVING_QUEUE_ABORTED_JOBS: MetricDefinition = {
+  name: 'aztec.proving_queue.aborted_jobs_count',
+  description: 'Number of aborted proving jobs',
+  valueType: ValueType.INT,
+};
 export const PROVING_QUEUE_RETRIED_JOBS: MetricDefinition = {
   name: 'aztec.proving_queue.retried_jobs_count',
   description: 'Number of retried proving jobs',
@@ -1472,4 +1484,52 @@ export const IVC_VERIFIER_AGG_DURATION_AVG: MetricDefinition = {
   description: 'AVG ivc verification',
   unit: 'ms',
   valueType: ValueType.DOUBLE,
+};
+
+// HA Signer metrics
+export const HA_SIGNER_SIGNING_DURATION: MetricDefinition = {
+  name: 'aztec.ha_signer.signing_duration',
+  description: 'End-to-end duration for signing with HA protection (lock + sign + record)',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const HA_SIGNER_SIGNING_SUCCESS_COUNT: MetricDefinition = {
+  name: 'aztec.ha_signer.signing_success_count',
+  description: 'Count of successful signing operations',
+  valueType: ValueType.INT,
+};
+export const HA_SIGNER_DUTY_ALREADY_SIGNED_COUNT: MetricDefinition = {
+  name: 'aztec.ha_signer.duty_already_signed_count',
+  description: 'Count of DutyAlreadySignedError (expected in HA; another node signed first)',
+  valueType: ValueType.INT,
+};
+export const HA_SIGNER_SLASHING_PROTECTION_COUNT: MetricDefinition = {
+  name: 'aztec.ha_signer.slashing_protection_count',
+  description: 'Count of SlashingProtectionError (attempted to sign different data)',
+  valueType: ValueType.INT,
+};
+export const HA_SIGNER_SIGNING_ERROR_COUNT: MetricDefinition = {
+  name: 'aztec.ha_signer.signing_error_count',
+  description: 'Count of signing function failures (lock deleted for retry)',
+  valueType: ValueType.INT,
+};
+export const HA_SIGNER_LOCK_ACQUIRED_COUNT: MetricDefinition = {
+  name: 'aztec.ha_signer.lock_acquired_count',
+  description: 'Count of lock acquisitions (new lock acquired vs existing record found)',
+  valueType: ValueType.INT,
+};
+export const HA_SIGNER_CLEANUP_STUCK_DUTIES_COUNT: MetricDefinition = {
+  name: 'aztec.ha_signer.cleanup_stuck_duties_count',
+  description: 'Number of stuck duties cleaned up per cleanup run',
+  valueType: ValueType.INT,
+};
+export const HA_SIGNER_CLEANUP_OLD_DUTIES_COUNT: MetricDefinition = {
+  name: 'aztec.ha_signer.cleanup_old_duties_count',
+  description: 'Number of old duties cleaned up',
+  valueType: ValueType.INT,
+};
+export const HA_SIGNER_CLEANUP_OUTDATED_ROLLUP_DUTIES_COUNT: MetricDefinition = {
+  name: 'aztec.ha_signer.cleanup_outdated_rollup_duties_count',
+  description: 'Number of duties cleaned due to rollup upgrade',
+  valueType: ValueType.INT,
 };

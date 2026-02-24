@@ -28,26 +28,26 @@ uint128_t generate_u128(std::mt19937_64& rng, uint128_t min = 0, uint128_t max =
 
 namespace bb::avm2::fuzzer {
 
-Gas generate_gas(std::mt19937_64& rng)
+Gas generate_gas(std::mt19937_64& rng, const Gas& min, const Gas& max)
 {
-    uint32_t l2_gas = std::uniform_int_distribution<uint32_t>(MIN_GAS, AVM_MAX_PROCESSABLE_L2_GAS)(rng);
-    uint32_t da_gas = std::uniform_int_distribution<uint32_t>(MIN_GAS, AVM_MAX_PROCESSABLE_DA_GAS)(rng);
+    uint32_t l2_gas = std::uniform_int_distribution<uint32_t>(min.l2_gas, max.l2_gas)(rng);
+    uint32_t da_gas = std::uniform_int_distribution<uint32_t>(min.da_gas, max.da_gas)(rng);
 
     return Gas{ l2_gas, da_gas };
 }
 
-void mutate_gas(Gas& gas, std::mt19937_64& rng, const Gas& max)
+void mutate_gas(Gas& gas, std::mt19937_64& rng, const Gas& min, const Gas& max)
 {
     auto choice = std::uniform_int_distribution<uint8_t>(0, 1)(rng);
 
     switch (choice) {
     case 0:
         // Mutate l2_gas
-        gas.l2_gas = std::uniform_int_distribution<uint32_t>(MIN_GAS, max.l2_gas)(rng);
+        gas.l2_gas = std::uniform_int_distribution<uint32_t>(min.l2_gas, max.l2_gas)(rng);
         break;
     case 1:
         // Mutate da_gas
-        gas.da_gas = std::uniform_int_distribution<uint32_t>(MIN_GAS, max.da_gas)(rng);
+        gas.da_gas = std::uniform_int_distribution<uint32_t>(min.da_gas, max.da_gas)(rng);
         break;
     }
 }

@@ -44,6 +44,8 @@ export type TxPoolV2Config = {
   minTxPoolAgeMs: number;
   /** Maximum number of evicted tx hashes to remember for metrics tracking */
   evictedTxCacheSize: number;
+  /** The probability (0-1) that a transaction is discarded. 0 disables dropping. For testing purposes only. */
+  dropTransactionsProbability: number;
 };
 
 /**
@@ -54,6 +56,7 @@ export const DEFAULT_TX_POOL_V2_CONFIG: TxPoolV2Config = {
   archivedTxLimit: 0, // 0 = disabled
   minTxPoolAgeMs: 2_000,
   evictedTxCacheSize: 10_000,
+  dropTransactionsProbability: 0,
 };
 
 /**
@@ -107,12 +110,12 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
   addPendingTxs(txs: Tx[], opts?: { source?: string; feeComparisonOnly?: boolean }): Promise<AddTxsResult>;
 
   /**
-   * Checks if a transaction can be added without modifying the pool.
-   * Performs the same validation as addPendingTxs but doesn't persist changes.
+   * Checks if the pool would accept a transaction without modifying state.
+   * Used as a pre-check before expensive proof verification.
    * @param tx - Transaction to check
-   * @returns Result: 'accepted', 'ignored' (if already in pool or undesirable), or 'rejected' (if validation fails)
+   * @returns 'accepted' if the pool would accept, 'ignored' if already in pool or undesirable
    */
-  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored' | 'rejected'>;
+  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored'>;
 
   /**
    * Adds transactions as immediately protected for a given slot.

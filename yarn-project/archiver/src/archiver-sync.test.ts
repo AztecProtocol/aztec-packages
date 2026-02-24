@@ -126,7 +126,6 @@ describe('Archiver Sync', () => {
       publicClient,
       rollupContract,
       inboxContract,
-      contractAddresses,
       archiverStore,
       config,
       blobClient,

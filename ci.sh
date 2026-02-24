@@ -72,9 +72,21 @@ case "$cmd" in
   dash)
     watch_ci -s next,prs --user --watch
     ;;
-  fast|full|full-no-test-cache|full-no-test-cache-makefile|docs|barretenberg|barretenberg-full)
+  fast|docs|barretenberg|barretenberg-full)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-$cmd"
+    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    ;;
+  full|full-no-test-cache|full-no-test-cache-makefile)
+    export CI_DASHBOARD="prs"
+    export JOB_ID="x-$cmd"
+    export AWS_SHUTDOWN_TIME=75
+    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    ;;
+  barretenberg-debug)
+    export CI_DASHBOARD="nightly"
+    export JOB_ID="x-$cmd"
+    export CPUS=16
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   avm-inputs-collection|avm-check-circuit)
@@ -101,6 +113,8 @@ case "$cmd" in
     else
       export CI_DASHBOARD="prs"
     fi
+    export AWS_SHUTDOWN_TIME=75
+    export AWS_SHUTDOWN_TIME_ARM=90
     export DENOISE=1
     export DENOISE_WIDTH=32
     run() {
@@ -122,6 +136,8 @@ case "$cmd" in
     else
       export CI_DASHBOARD="prs"
     fi
+    export AWS_SHUTDOWN_TIME=75
+    export AWS_SHUTDOWN_TIME_ARM=90
     export DENOISE=1
     export DENOISE_WIDTH=32
     run() {
@@ -261,6 +277,7 @@ case "$cmd" in
   release)
     # Spin up ec2 instance and run the release flow.
     export CI_DASHBOARD="releases"
+    export AWS_SHUTDOWN_TIME=75
     export DENOISE=1
     export DENOISE_WIDTH=32
     run() {

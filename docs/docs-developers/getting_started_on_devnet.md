@@ -51,8 +51,8 @@ Set the required environment variables:
 
 ```bash
 export VERSION=#include_devnet_version
-export NODE_URL=https://devnet.aztec-labs.com/
-export SPONSORED_FPC_ADDRESS=0x280e5686a148059543f4d0968f9a18cd4992520fcd887444b8689bf2726a1f97
+export NODE_URL=https://v4-devnet-2.aztec-labs.com/
+export SPONSORED_FPC_ADDRESS=0x09a4df73aa47f82531a038d1d51abfc85b27665c4b7ca751e2d4fa9f19caffb2
 ```
 
 ### Step 2: Create and deploy an account
@@ -116,7 +116,7 @@ If you have an existing app running on your local network, here's how to migrate
 Instead of running a local network, connect to the devnet node:
 
 ```sh
-export NODE_URL=https://devnet-6.aztec-labs.com/
+export NODE_URL=https://v4-devnet-2.aztec-labs.com/
 ```
 
 When running `aztec-wallet` commands, include the node URL:
@@ -130,12 +130,10 @@ aztec-wallet create-account -a main --node-url $NODE_URL
 You can connect to devnet directly from your app using AztecJS:
 
 ```javascript
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 
-const NODE_URL = "https://devnet.aztec-labs.com";
-const node = createAztecNodeClient(NODE_URL);
-const wallet = await EmbeddedWallet.create(node);
+const NODE_URL = "https://v4-devnet-2.aztec-labs.com/";
+const wallet = await EmbeddedWallet.create(NODE_URL);
 ```
 
 ### 3. Handle Fees on Devnet

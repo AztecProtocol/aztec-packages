@@ -4,6 +4,7 @@ import type { Tuple } from '@aztec/foundation/serialize';
 import type { ClaimedLengthArray } from '../claimed_length_array.js';
 import type { ScopedNoteHash } from '../note_hash.js';
 import type { ScopedNullifier } from '../nullifier.js';
+import type { PrivateLogData, ScopedPrivateLogData } from '../private_log_data.js';
 import { isValidNoteHashReadRequest } from './build_note_hash_read_request_hints.js';
 import { isValidNullifierReadRequest } from './build_nullifier_read_request_hints.js';
 import type { ScopedReadRequest } from './read_request.js';
@@ -15,11 +16,13 @@ export function buildTransientDataHints<NOTE_HASHES_LEN extends number, NULLIFIE
   nullifiers: ClaimedLengthArray<ScopedNullifier, NULLIFIERS_LEN>,
   futureNoteHashReads: ScopedReadRequest[],
   futureNullifierReads: ScopedReadRequest[],
+  futureLogs: PrivateLogData[],
   noteHashNullifierCounterMap: Map<number, number>,
   splitCounter: number,
 ): { numTransientData: number; hints: Tuple<TransientDataSquashingHint, NULLIFIERS_LEN> } {
   const futureNoteHashReadsMap = new ScopedValueCache(futureNoteHashReads);
   const futureNullifierReadsMap = new ScopedValueCache(futureNullifierReads);
+  const futureLogNoteHashCounters = new Set(futureLogs.filter(l => l.noteHashCounter > 0).map(l => l.noteHashCounter));
 
   const nullifierIndexMap: Map<number, number> = new Map();
   nullifiers.getActiveItems().forEach((n, i) => nullifierIndexMap.set(n.counter, i));
@@ -28,10 +31,12 @@ export function buildTransientDataHints<NOTE_HASHES_LEN extends number, NULLIFIE
   for (let noteHashIndex = 0; noteHashIndex < noteHashes.claimedLength; noteHashIndex++) {
     const noteHash = noteHashes.array[noteHashIndex];
     const noteHashNullifierCounter = noteHashNullifierCounterMap.get(noteHash.counter);
-    // The note hash might not be linked to a nullifier or it might be read in the future
+    // The note hash might not be linked to a nullifier, or it might be read in the future, or a future log might be
+    // linked to it.
     if (
       !noteHashNullifierCounter ||
-      futureNoteHashReadsMap.get(noteHash).find(read => isValidNoteHashReadRequest(read, noteHash))
+      futureNoteHashReadsMap.get(noteHash).find(read => isValidNoteHashReadRequest(read, noteHash)) ||
+      futureLogNoteHashCounters.has(noteHash.counter)
     ) {
       continue;
     }
@@ -76,4 +81,14 @@ export function buildTransientDataHints<NOTE_HASHES_LEN extends number, NULLIFIE
     numTransientData: hints.length,
     hints: padArrayEnd(hints, noActionHint, nullifiers.array.length as NULLIFIERS_LEN),
   };
+}
+
+/** Counts private logs that are linked to squashed note hashes and would be removed along with them. */
+export function countSquashedLogs<NOTE_HASHES_LEN extends number, LOGS_LEN extends number>(
+  noteHashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
+  privateLogs: ClaimedLengthArray<ScopedPrivateLogData, LOGS_LEN>,
+  squashingHints: TransientDataSquashingHint[],
+): number {
+  const squashedNoteHashCounters = new Set(squashingHints.map(h => noteHashes.array[h.noteHashIndex].counter));
+  return privateLogs.getActiveItems().filter(l => squashedNoteHashCounters.has(l.inner.noteHashCounter)).length;
 }

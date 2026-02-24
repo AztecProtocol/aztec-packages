@@ -34,6 +34,7 @@ import {
 } from '../../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../../mem_pools/interface.js';
 import type { TxPoolV2 } from '../../mem_pools/tx_pool_v2/interfaces.js';
+import type { TransactionValidator } from '../../msg_validators/tx_validator/factory.js';
 import type { PubSubLibp2p } from '../../util.js';
 import type { PeerManagerInterface } from '../peer-manager/interface.js';
 import type { ReqRespInterface } from '../reqresp/interface.js';
@@ -149,13 +150,25 @@ describe('LibP2PService', () => {
         },
       } as any;
 
+      const txArchiver = mock<L2BlockSource & ContractDataSource>();
+      txArchiver.getBlockNumber.mockResolvedValue(BlockNumber(1));
+
+      const txEpochCache = mock<EpochCacheInterface>();
+      txEpochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: 0n,
+        slot: 1n,
+        ts: 100n,
+      } as any);
+
       txService = createTestLibP2PService({
         peerManager: txPeerManager,
         node: txNode,
         txPool,
+        archiver: txArchiver,
+        epochCache: txEpochCache,
       });
-      // Make validatePropagatedTx pass by default
-      txService.validatePropagatedTxMock.mockResolvedValue(true);
+      // By default, canAddPendingTx returns 'accepted' so the flow proceeds to pool add
+      txPool.canAddPendingTx.mockResolvedValue('accepted');
     });
 
     it('should propagate (Accept) when pool accepts the transaction', async () => {
@@ -209,12 +222,93 @@ describe('LibP2PService', () => {
     it('should NOT propagate (Reject) when gossip validation fails', async () => {
       const tx = await mockTx();
 
-      txService.validatePropagatedTxMock.mockResolvedValue(false);
+      txService.firstStageValidationPasses = false;
 
       await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
 
       expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Reject);
       expect(txPool.addPendingTxs).not.toHaveBeenCalled();
+    });
+
+    it('should Ignore and skip proof verification when canAddPendingTx returns ignored', async () => {
+      const tx = await mockTx();
+
+      txPool.canAddPendingTx.mockResolvedValue('ignored');
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Ignore);
+      // Pool pre-check was called
+      expect(txPool.canAddPendingTx).toHaveBeenCalled();
+      // addPendingTxs should NOT be called — we short-circuited before it
+      expect(txPool.addPendingTxs).not.toHaveBeenCalled();
+    });
+
+    it('should not call canAddPendingTx when first-stage validation fails', async () => {
+      const tx = await mockTx();
+
+      txService.firstStageValidationPasses = false;
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      expect(txPool.canAddPendingTx).not.toHaveBeenCalled();
+      expect(txPool.addPendingTxs).not.toHaveBeenCalled();
+    });
+
+    it('should Reject and penalize peer when second-stage (proof) validation fails', async () => {
+      const tx = await mockTx();
+
+      txService.secondStageValidationPasses = false;
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Reject);
+      expect(txPeerManager.penalizePeer).toHaveBeenCalledWith(txPeerId, PeerErrorSeverity.LowToleranceError);
+      // canAddPendingTx was called (first stage passed), but addPendingTxs was NOT (second stage failed)
+      expect(txPool.canAddPendingTx).toHaveBeenCalled();
+      expect(txPool.addPendingTxs).not.toHaveBeenCalled();
+    });
+
+    it('should penalize peer with the severity from the failing first-stage validator', async () => {
+      const tx = await mockTx();
+
+      txService.firstStageValidationPasses = false;
+      txService.firstStageSeverity = PeerErrorSeverity.MidToleranceError;
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      expect(txPeerManager.penalizePeer).toHaveBeenCalledWith(txPeerId, PeerErrorSeverity.MidToleranceError);
+    });
+
+    it('should not penalize peer when canAddPendingTx returns ignored', async () => {
+      const tx = await mockTx();
+
+      txPool.canAddPendingTx.mockResolvedValue('ignored');
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      expect(txPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    it('should call addPendingTxs only after both validation stages pass and pool pre-check accepts', async () => {
+      const tx = await mockTx();
+      const txHash = tx.getTxHash();
+
+      txPool.canAddPendingTx.mockResolvedValue('accepted');
+      txPool.addPendingTxs.mockResolvedValue({
+        accepted: [txHash],
+        ignored: [],
+        rejected: [],
+      });
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      // Verify the full happy path: canAddPendingTx → addPendingTxs → Accept
+      expect(txPool.canAddPendingTx).toHaveBeenCalled();
+      expect(txPool.addPendingTxs).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({})]), {
+        source: 'gossip',
+      });
+      expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Accept);
     });
   });
 
@@ -976,8 +1070,17 @@ class TestLibP2PService extends LibP2PService {
   /** Mocked validateRequestedTx for testing. */
   public validateRequestedTxMock: jest.Mock;
 
-  /** Mocked validatePropagatedTx for testing gossip tx handling. */
-  public validatePropagatedTxMock: jest.Mock<(tx: Tx, peerId: PeerId) => Promise<boolean>>;
+  /** Controls whether first-stage gossip validation passes. Set to false to simulate first-stage failure. */
+  public firstStageValidationPasses = true;
+
+  /** Controls whether second-stage gossip validation passes. Set to false to simulate proof verification failure. */
+  public secondStageValidationPasses = true;
+
+  /** Controls the name of the failing first-stage validator (e.g., 'doubleSpendValidator' to trigger special handling). */
+  public firstStageFailingValidatorName = 'failingValidator';
+
+  /** Controls the severity returned by the failing first-stage validator. */
+  public firstStageSeverity: PeerErrorSeverity = PeerErrorSeverity.LowToleranceError;
 
   /** Stub validator returned by createRequestedTxValidator. */
   private stubValidator: TxValidator;
@@ -1032,7 +1135,6 @@ class TestLibP2PService extends LibP2PService {
 
     this.testEpochCache = epochCache;
     this.validateRequestedTxMock = jest.fn(() => Promise.resolve());
-    this.validatePropagatedTxMock = jest.fn(() => Promise.resolve(true));
     this.stubValidator = {
       validateTx: () => Promise.resolve({ result: 'valid' as const }),
     };
@@ -1048,9 +1150,30 @@ class TestLibP2PService extends LibP2PService {
     return super.handleGossipedTx(payloadData, msgId, source);
   }
 
-  /** Override to use the mock for validatePropagatedTx. */
-  protected override validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
-    return this.validatePropagatedTxMock(tx, peerId);
+  /** Override to use test flag for first-stage validators. Returns a failing validator when firstStageValidationPasses is false. */
+  protected override createFirstStageMessageValidators(): Promise<Record<string, TransactionValidator>> {
+    if (this.firstStageValidationPasses) {
+      return Promise.resolve({});
+    }
+    return Promise.resolve({
+      [this.firstStageFailingValidatorName]: {
+        validator: { validateTx: () => Promise.resolve({ result: 'invalid' as const, reason: ['Test failure'] }) },
+        severity: this.firstStageSeverity,
+      },
+    });
+  }
+
+  /** Override to use test flag for second-stage validators. Returns a failing validator when secondStageValidationPasses is false. */
+  protected override createSecondStageMessageValidators(): Record<string, TransactionValidator> {
+    if (this.secondStageValidationPasses) {
+      return {};
+    }
+    return {
+      proofValidator: {
+        validator: { validateTx: () => Promise.resolve({ result: 'invalid' as const, reason: ['Proof failure'] }) },
+        severity: PeerErrorSeverity.LowToleranceError,
+      },
+    };
   }
 
   /** Exposes the protected validateRequestedBlock for testing. */

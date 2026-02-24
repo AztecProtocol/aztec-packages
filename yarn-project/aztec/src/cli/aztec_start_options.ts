@@ -150,12 +150,13 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       env: 'AZTEC_ADMIN_API_KEY_HASH',
     },
     {
-      flag: '--no-admin-api-key',
+      flag: '--disable-admin-api-key',
       description:
         'Disable API key authentication on the admin RPC endpoint. By default, a key is auto-generated, displayed once, and its hash is persisted.',
       defaultValue: false,
-      env: 'AZTEC_NO_ADMIN_API_KEY',
-      parseVal: val => val === 'true' || val === '1',
+      env: 'AZTEC_DISABLE_ADMIN_API_KEY',
+      // undefined means the flag was passed without a value (boolean toggle), treat as true.
+      parseVal: val => val === undefined || val === 'true' || val === '1',
     },
     {
       flag: '--reset-admin-api-key',

@@ -37,11 +37,11 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
         l1RpcUrls: options.l1RpcUrls,
         testAccounts: localNetwork.testAccounts,
         realProofs: false,
-        // Setting the epoch duration to 4 by default for local network. This allows the epoch to be "proven" faster, so
+        // Setting the epoch duration to 2 by default for local network. This allows the epoch to be "proven" faster, so
         // the users can consume out hash without having to wait for a long time.
         // Note: We are not proving anything in the local network (realProofs == false). But in `createLocalNetwork`,
         // the EpochTestSettler will set the out hash to the outbox when an epoch is complete.
-        aztecEpochDuration: 4,
+        aztecEpochDuration: 2,
       },
       userLog,
     );
@@ -109,7 +109,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     const apiKeyResolution = await resolveAdminApiKey(
       {
         adminApiKeyHash: options.adminApiKeyHash,
-        noAdminApiKey: options.noAdminApiKey,
+        disableAdminApiKey: options.disableAdminApiKey,
         resetAdminApiKey: options.resetAdminApiKey,
         dataDirectory: options.dataDirectory,
       },
@@ -148,7 +148,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
         userLog('  The key hash has been persisted — on next restart, the same key will be used.');
       }
       userLog('');
-      userLog('  To disable admin auth: --no-admin-api-key or AZTEC_NO_ADMIN_API_KEY=true');
+      userLog('  To disable admin auth: --disable-admin-api-key or AZTEC_DISABLE_ADMIN_API_KEY=true');
       userLog(separator);
       userLog('');
     }

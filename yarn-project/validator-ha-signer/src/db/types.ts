@@ -1,6 +1,7 @@
 import type { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
+import { DutyType } from '@aztec/stdlib/ha-signing';
 
 /**
  * Row type from PostgreSQL query
@@ -30,26 +31,15 @@ export interface InsertOrGetRow extends DutyRow {
 }
 
 /**
- * Type of validator duty being performed
- */
-export enum DutyType {
-  BLOCK_PROPOSAL = 'BLOCK_PROPOSAL',
-  CHECKPOINT_PROPOSAL = 'CHECKPOINT_PROPOSAL',
-  ATTESTATION = 'ATTESTATION',
-  ATTESTATIONS_AND_SIGNERS = 'ATTESTATIONS_AND_SIGNERS',
-  GOVERNANCE_VOTE = 'GOVERNANCE_VOTE',
-  SLASHING_VOTE = 'SLASHING_VOTE',
-  AUTH_REQUEST = 'AUTH_REQUEST',
-  TXS = 'TXS',
-}
-
-/**
  * Status of a duty in the database
  */
 export enum DutyStatus {
   SIGNING = 'signing',
   SIGNED = 'signed',
 }
+
+// Re-export DutyType from stdlib
+export { DutyType };
 
 /**
  * Record of a validator duty in the database

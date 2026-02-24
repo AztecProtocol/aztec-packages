@@ -30,7 +30,9 @@ describe('docs_examples', () => {
     const prefundedAccount = await wallet.createSchnorrAccount(accountData.secret, accountData.salt);
     const newAccountManager = await wallet.createSchnorrAccount(secretKey, Fr.random(), signingPrivateKey);
     const newAccountDeployMethod = await newAccountManager.getDeployMethod();
-    await newAccountDeployMethod.send({ from: prefundedAccount.address });
+    await newAccountDeployMethod.send({
+      from: prefundedAccount.address,
+    });
     const newAccountAddress = newAccountManager.address;
     const defaultAccountAddress = prefundedAccount.address;
 
