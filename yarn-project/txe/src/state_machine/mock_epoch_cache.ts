@@ -1,4 +1,10 @@
-import type { EpochAndSlot, EpochCacheInterface, EpochCommitteeInfo, SlotTag } from '@aztec/epoch-cache';
+import type {
+  EpochAndSlot,
+  EpochCacheInterface,
+  EpochCacheViewFactory,
+  EpochCommitteeInfo,
+  SlotTag,
+} from '@aztec/epoch-cache';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -8,6 +14,25 @@ import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/ep
  * Since in TXE we don't validate transactions, mock suffices here.
  */
 export class MockEpochCache implements EpochCacheInterface {
+  private proposerPipeliningEnabled = true;
+  private mapSlotForProposerView(slot: SlotTag): SlotTag {
+    if (typeof slot !== 'number') {
+      return slot;
+    }
+    const offset = this.proposerPipeliningEnabled ? 0 : -1;
+    return SlotNumber(Math.max(0, Number(slot) + offset));
+  }
+
+  private makeView(mapSlot: (slot: SlotTag) => SlotTag, toBaseSlot: (slot: SlotNumber) => SlotNumber) {
+    return {
+      getCommittee: (slot: SlotTag = 'now') => this.getCommittee(mapSlot(slot)),
+      getProposerAttesterAddressInSlot: (slot: SlotNumber) => this.getProposerAttesterAddressInSlot(toBaseSlot(slot)),
+      isInCommittee: (slot: SlotTag, validator: EthAddress) => this.isInCommittee(mapSlot(slot), validator),
+      filterInCommittee: (slot: SlotTag, validators: EthAddress[]) => this.filterInCommittee(mapSlot(slot), validators),
+      toBaseSlot,
+    };
+  }
+
   getCommittee(): Promise<EpochCommitteeInfo> {
     return Promise.resolve({
       committee: undefined,
@@ -50,37 +75,13 @@ export class MockEpochCache implements EpochCacheInterface {
     };
   }
 
-  resolveSlotViews(slot: SlotNumber, opts?: { nowOverride?: bigint }) {
-    const now = opts?.nowOverride ?? 0n;
-    return {
-      targetSlot: slot,
-      proposerSlot: slot,
-      submissionSlot: slot,
-      now,
-      slotStartTs: 0n,
-      isPreBoundary: false,
-    };
-  }
-
-  async getCommitteeViews(slot: SlotNumber, opts?: { nowOverride?: bigint }) {
-    const slots = this.resolveSlotViews(slot, opts);
-    const proposer = await this.getCommittee(slots.proposerSlot);
-    const submission = await this.getCommittee(slots.submissionSlot);
-    return { slots, proposer, submission };
-  }
-
   getProposerAttesterAddressInSlot(_slot: SlotNumber): Promise<EthAddress | undefined> {
     return Promise.resolve(undefined);
   }
 
-  getProposerAttesterAddressForSubmissionSlot(
-    _slot: SlotNumber,
-    _opts?: { nowOverride?: bigint },
-  ): Promise<EthAddress | undefined> {
-    return Promise.resolve(undefined);
+  setProposerPipeliningEnabled(enabled: boolean): void {
+    this.proposerPipeliningEnabled = enabled;
   }
-
-  setBuildAheadEnabled(_enabled: boolean): void {}
 
   isInCommittee(_slot: SlotTag, _validator: EthAddress): Promise<boolean> {
     return Promise.resolve(false);
@@ -96,5 +97,17 @@ export class MockEpochCache implements EpochCacheInterface {
 
   getL1Constants(): L1RollupConstants {
     return EmptyL1RollupConstants;
+  }
+
+  getViewFactory(): EpochCacheViewFactory {
+    const proposerToBaseSlot = (slot: SlotNumber) => this.mapSlotForProposerView(slot) as SlotNumber;
+    return {
+      withProposerView: () => this.makeView(slot => this.mapSlotForProposerView(slot), proposerToBaseSlot),
+      withSubmissionView: () =>
+        this.makeView(
+          slot => slot,
+          slot => slot,
+        ),
+    };
   }
 }
