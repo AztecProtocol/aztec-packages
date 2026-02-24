@@ -1,7 +1,7 @@
 import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import type { ExtendedDirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
-import { SiloedTag, Tag } from '@aztec/stdlib/logs';
+import type { ExtendedDirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
+import { SiloedTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { SenderTaggingStore } from '../../../storage/tagging_store/sender_tagging_store.js';
@@ -29,15 +29,12 @@ export async function loadAndStoreNewTaggingIndexes(
   jobId: string,
 ) {
   // We compute the tags for the current window of indexes
-  const preTagsForWindow: PreTag[] = Array(end - start)
-    .fill(0)
-    .map((_, i) => ({ extendedSecret, index: start + i }));
   const siloedTagsForWindow = await Promise.all(
-    preTagsForWindow.map(async preTag => SiloedTag.compute(await Tag.compute(preTag), extendedSecret.app)),
+    Array.from({ length: end - start }, (_, i) => SiloedTag.compute({ extendedSecret, index: start + i })),
   );
 
   const txsForTags = await getTxsContainingTags(siloedTagsForWindow, aztecNode, anchorBlockHash);
-  const highestIndexMap = getTxHighestIndexMap(txsForTags, preTagsForWindow);
+  const highestIndexMap = getTxHighestIndexMap(txsForTags, start, siloedTagsForWindow.length);
 
   // Now we iterate over the map, reconstruct the preTags and tx hash and store them in the db.
   for (const [txHashStr, highestIndex] of highestIndexMap.entries()) {
@@ -60,16 +57,14 @@ async function getTxsContainingTags(
 }
 
 // Returns a map of txHash to the highest index for that txHash.
-function getTxHighestIndexMap(txHashesForTags: TxHash[][], preTagsForWindow: PreTag[]): Map<string, number> {
-  if (txHashesForTags.length !== preTagsForWindow.length) {
-    throw new Error(
-      `Number of tx hashes arrays does not match number of pre-tags. ${txHashesForTags.length} !== ${preTagsForWindow.length}`,
-    );
+function getTxHighestIndexMap(txHashesForTags: TxHash[][], start: number, count: number): Map<string, number> {
+  if (txHashesForTags.length !== count) {
+    throw new Error(`Number of tx hashes arrays does not match number of tags. ${txHashesForTags.length} !== ${count}`);
   }
 
   const highestIndexMap = new Map<string, number>();
   for (let i = 0; i < txHashesForTags.length; i++) {
-    const taggingIndex = preTagsForWindow[i].index;
+    const taggingIndex = start + i;
     const txHashesForTag = txHashesForTags[i];
     for (const txHash of txHashesForTag) {
       const key = txHash.toString();

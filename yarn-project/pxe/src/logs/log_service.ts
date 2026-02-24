@@ -47,7 +47,7 @@ export class LogService {
       logRetrievalRequests.map(async request => {
         const [publicLog, privateLog] = await Promise.all([
           this.#getPublicLogByTag(request.tag, request.contractAddress),
-          this.#getPrivateLogByTag(await SiloedTag.compute(request.tag, request.contractAddress)),
+          this.#getPrivateLogByTag(await SiloedTag.computeFromTagAndApp(request.tag, request.contractAddress)),
         ]);
 
         if (publicLog !== null && privateLog !== null) {
