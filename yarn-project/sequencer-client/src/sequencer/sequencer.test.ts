@@ -176,17 +176,29 @@ describe('sequencer', () => {
       epoch: EpochNumber(1),
       isEscapeHatchOpen: false,
     });
-    epochCache.resolveSlotViews.mockImplementation(slot => ({
-      targetSlot: slot,
-      proposerSlot: slot,
-      submissionSlot: slot,
-      now: 1000n,
-      slotStartTs: 1000n,
-      isPreBoundary: false,
-    }));
-    epochCache.getProposerAttesterAddressForSubmissionSlot.mockImplementation(slot =>
-      epochCache.getProposerAttesterAddressInSlot(slot),
-    );
+    epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(undefined);
+    let proposerPipeliningEnabled = true;
+    epochCache.setProposerPipeliningEnabled.mockImplementation(enabled => {
+      proposerPipeliningEnabled = enabled;
+    });
+    const toBaseSlot = (slot: SlotNumber, offset: number) => SlotNumber(Math.max(0, Number(slot) + offset));
+    const mapSlot = (slot: SlotNumber | 'now' | 'next' | undefined, offset: number) =>
+      typeof slot === 'number' ? toBaseSlot(slot, offset) : slot;
+    const makeView = (getOffset: () => number) => ({
+      getCommittee: (slot: SlotNumber | 'now' | 'next' | undefined) =>
+        epochCache.getCommittee(mapSlot(slot, getOffset())),
+      getProposerAttesterAddressInSlot: (slot: SlotNumber) =>
+        epochCache.getProposerAttesterAddressInSlot(toBaseSlot(slot, getOffset())),
+      isInCommittee: (slot: SlotNumber | 'now' | 'next', validator: EthAddress) =>
+        epochCache.isInCommittee(mapSlot(slot, getOffset()), validator),
+      filterInCommittee: (slot: SlotNumber | 'now' | 'next', validators: EthAddress[]) =>
+        epochCache.filterInCommittee(mapSlot(slot, getOffset()), validators),
+      toBaseSlot: (slot: SlotNumber) => toBaseSlot(slot, getOffset()),
+    });
+    epochCache.getViewFactory.mockReturnValue({
+      withProposerView: () => makeView(() => (proposerPipeliningEnabled ? 0 : -1)),
+      withSubmissionView: () => makeView(() => 0),
+    });
 
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
@@ -893,31 +905,27 @@ describe('sequencer', () => {
     });
   });
 
-  describe('build-ahead proposer lookup', () => {
-    it('delegates proposer lookup to epoch cache view resolution', async () => {
+  describe('view-based proposer lookup', () => {
+    it('uses submission view when proposer pipelining is disabled', async () => {
       const proposer = signer.address;
       validatorClient.getValidatorAddresses.mockReturnValue([proposer]);
-      epochCache.getProposerAttesterAddressForSubmissionSlot.mockResolvedValue(proposer);
-      sequencer.setBuildAheadForTest(true);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
+      epochCache.setProposerPipeliningEnabled(true);
 
       await sequencer.checkCanProposeForTest(SlotNumber(1), { now: 1000n });
 
-      expect(epochCache.getProposerAttesterAddressForSubmissionSlot).toHaveBeenCalledWith(SlotNumber(1), {
-        nowOverride: 1000n,
-      });
+      expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(1));
     });
 
-    it('delegates proposer lookup when build-ahead is disabled', async () => {
+    it('uses submissionSlot - 1 in proposer view when proposer pipelining is enabled', async () => {
       const proposer = signer.address;
       validatorClient.getValidatorAddresses.mockReturnValue([proposer]);
-      epochCache.getProposerAttesterAddressForSubmissionSlot.mockResolvedValue(proposer);
-      sequencer.updateConfig({ enableBuildAhead: false });
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
+      epochCache.setProposerPipeliningEnabled(false);
 
       await sequencer.checkCanProposeForTest(SlotNumber(1), { now: 1000n });
 
-      expect(epochCache.getProposerAttesterAddressForSubmissionSlot).toHaveBeenCalledWith(SlotNumber(1), {
-        nowOverride: 1000n,
-      });
+      expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(0));
     });
   });
 });

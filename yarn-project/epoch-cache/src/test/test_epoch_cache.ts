@@ -3,7 +3,13 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { getEpochAtSlot, getSlotAtTimestamp, getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 
-import type { EpochAndSlot, EpochCacheInterface, EpochCommitteeInfo, SlotTag } from '../epoch_cache.js';
+import type {
+  EpochAndSlot,
+  EpochCacheInterface,
+  EpochCacheViewFactory,
+  EpochCommitteeInfo,
+  SlotTag,
+} from '../epoch_cache.js';
 
 /** Default L1 constants for testing. */
 const DEFAULT_L1_CONSTANTS: L1RollupConstants = {
@@ -31,7 +37,25 @@ export class TestEpochCache implements EpochCacheInterface {
   private seed: bigint = 0n;
   private registeredValidators: EthAddress[] = [];
   private l1Constants: L1RollupConstants;
-  private buildAheadEnabled = false;
+  private proposerPipeliningEnabled = true;
+
+  private mapSlotForProposerView(slot: SlotTag): SlotTag {
+    if (typeof slot !== 'number') {
+      return slot;
+    }
+    const offset = this.proposerPipeliningEnabled ? 0 : -1;
+    return SlotNumber(Math.max(0, Number(slot) + offset));
+  }
+
+  private makeView(mapSlot: (slot: SlotTag) => SlotTag, toBaseSlot: (slot: SlotNumber) => SlotNumber) {
+    return {
+      getCommittee: (slot: SlotTag = 'now') => this.getCommittee(mapSlot(slot)),
+      getProposerAttesterAddressInSlot: (slot: SlotNumber) => this.getProposerAttesterAddressInSlot(toBaseSlot(slot)),
+      isInCommittee: (slot: SlotTag, validator: EthAddress) => this.isInCommittee(mapSlot(slot), validator),
+      filterInCommittee: (slot: SlotTag, validators: EthAddress[]) => this.filterInCommittee(mapSlot(slot), validators),
+      toBaseSlot,
+    };
+  }
 
   constructor(l1Constants: Partial<L1RollupConstants> = {}) {
     this.l1Constants = { ...DEFAULT_L1_CONSTANTS, ...l1Constants };
@@ -104,8 +128,8 @@ export class TestEpochCache implements EpochCacheInterface {
     return this.l1Constants;
   }
 
-  setBuildAheadEnabled(enabled: boolean): void {
-    this.buildAheadEnabled = enabled;
+  setProposerPipeliningEnabled(enabled: boolean): void {
+    this.proposerPipeliningEnabled = enabled;
   }
 
   getCommittee(_slot?: SlotTag): Promise<EpochCommitteeInfo> {
@@ -152,37 +176,20 @@ export class TestEpochCache implements EpochCacheInterface {
     };
   }
 
-  resolveSlotViews(slot: SlotNumber, opts?: { nowOverride?: bigint }) {
-    const now = opts?.nowOverride ?? this.getEpochAndSlotNow().ts;
-    const slotStartTs = BigInt(slot) * BigInt(this.l1Constants.slotDuration) + this.l1Constants.l1GenesisTime;
-    const isPreBoundary = this.buildAheadEnabled && now < slotStartTs;
-
-    return {
-      targetSlot: slot,
-      proposerSlot: isPreBoundary ? SlotNumber(Math.max(0, Number(slot) - 1)) : slot,
-      submissionSlot: slot,
-      now,
-      slotStartTs,
-      isPreBoundary,
-    };
-  }
-
-  async getCommitteeViews(slot: SlotNumber, opts?: { nowOverride?: bigint }) {
-    const slots = this.resolveSlotViews(slot, opts);
-    const proposer = await this.getCommittee(slots.proposerSlot);
-    const submission = await this.getCommittee(slots.submissionSlot);
-    return { slots, proposer, submission };
-  }
-
   getProposerAttesterAddressInSlot(_slot: SlotNumber): Promise<EthAddress | undefined> {
     return Promise.resolve(this.proposerAddress);
   }
 
-  getProposerAttesterAddressForSubmissionSlot(
-    _slot: SlotNumber,
-    _opts?: { nowOverride?: bigint },
-  ): Promise<EthAddress | undefined> {
-    return Promise.resolve(this.proposerAddress);
+  getViewFactory(): EpochCacheViewFactory {
+    const proposerToBaseSlot = (slot: SlotNumber) => this.mapSlotForProposerView(slot) as SlotNumber;
+    return {
+      withProposerView: () => this.makeView(slot => this.mapSlotForProposerView(slot), proposerToBaseSlot),
+      withSubmissionView: () =>
+        this.makeView(
+          slot => slot,
+          slot => slot,
+        ),
+    };
   }
 
   getRegisteredValidators(): Promise<EthAddress[]> {

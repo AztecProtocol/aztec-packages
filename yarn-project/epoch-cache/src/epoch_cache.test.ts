@@ -20,10 +20,6 @@ class TestEpochCache extends EpochCache {
   public setCacheSize(size: number): void {
     this.config.cacheSize = size;
   }
-
-  public setBuildAheadForTest(enabled: boolean): void {
-    this.setBuildAheadEnabled(enabled);
-  }
 }
 
 describe('EpochCache', () => {
@@ -148,29 +144,17 @@ describe('EpochCache', () => {
     expect(nextNextProposer).toEqual(testCommittee[0]);
   });
 
-  it('resolves proposer and submission slot views at the boundary', () => {
-    const initialTime = Number(l1GenesisTime) * 1000;
-    jest.setSystemTime(initialTime);
-    epochCache.setBuildAheadForTest(true);
-
-    const targetSlot = SlotNumber(1);
-
-    const preBoundary = epochCache.resolveSlotViews(targetSlot, { nowOverride: l1GenesisTime + 11n });
-    expect(preBoundary.isPreBoundary).toBe(true);
-    expect(preBoundary.proposerSlot).toBe(SlotNumber(0));
-    expect(preBoundary.submissionSlot).toBe(targetSlot);
-
-    const atBoundary = epochCache.resolveSlotViews(targetSlot, { nowOverride: l1GenesisTime + 12n });
-    expect(atBoundary.isPreBoundary).toBe(false);
-    expect(atBoundary.proposerSlot).toBe(targetSlot);
-    expect(atBoundary.submissionSlot).toBe(targetSlot);
+  it('collapses proposer view to submission view when proposer pipelining is disabled', () => {
+    const proposerView = epochCache.getViewFactory().withProposerView();
+    expect(proposerView.toBaseSlot(SlotNumber(1))).toBe(SlotNumber(1));
   });
 
-  it('resolves proposer committee using the proposer view', async () => {
-    epochCache.setBuildAheadForTest(true);
+  it('maps proposer view to submissionSlot - 1 when proposer pipelining is enabled', async () => {
+    epochCache.setProposerPipeliningEnabled(false);
+    const proposerView = epochCache.getViewFactory().withProposerView();
     const spy = jest.spyOn(epochCache, 'getProposerAttesterAddressInSlot');
 
-    await epochCache.getProposerAttesterAddressForSubmissionSlot(SlotNumber(1), { nowOverride: l1GenesisTime + 11n });
+    await proposerView.getProposerAttesterAddressInSlot(SlotNumber(1));
 
     expect(spy).toHaveBeenCalledWith(SlotNumber(0));
   });

@@ -5,7 +5,7 @@ export type EpochCacheConfig = Pick<
   L1ReaderConfig & L1ContractsConfig,
   'l1RpcUrls' | 'l1ChainId' | 'viemPollingIntervalMS' | 'ethereumSlotDuration'
 > & {
-  buildAheadEnabled?: boolean;
+  enableProposerPipelining?: boolean;
 };
 
 export function getEpochCacheConfigEnvVars(): EpochCacheConfig {

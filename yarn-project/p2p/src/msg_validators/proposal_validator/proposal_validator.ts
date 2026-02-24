@@ -1,4 +1,4 @@
-import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import type { EpochCacheInterface, EpochCacheView } from '@aztec/epoch-cache';
 import { NoCommitteeError } from '@aztec/ethereum/contracts';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { BlockProposal, CheckpointProposal, PeerErrorSeverity, type ValidationResult } from '@aztec/stdlib/p2p';
@@ -7,11 +7,13 @@ import { isWithinClockTolerance } from '../clock_tolerance.js';
 
 export abstract class ProposalValidator<TProposal extends BlockProposal | CheckpointProposal> {
   protected epochCache: EpochCacheInterface;
+  protected proposerView: EpochCacheView;
   protected logger: Logger;
   protected txsPermitted: boolean;
 
   constructor(epochCache: EpochCacheInterface, opts: { txsPermitted: boolean }, loggerName: string) {
     this.epochCache = epochCache;
+    this.proposerView = epochCache.getViewFactory().withProposerView();
     this.txsPermitted = opts.txsPermitted;
     this.logger = createLogger(loggerName);
   }
@@ -63,7 +65,7 @@ export abstract class ProposalValidator<TProposal extends BlockProposal | Checkp
       }
 
       // Proposer check
-      const expectedProposer = await this.epochCache.getProposerAttesterAddressForSubmissionSlot(slotNumber);
+      const expectedProposer = await this.proposerView.getProposerAttesterAddressInSlot(slotNumber);
       if (expectedProposer !== undefined && !proposer.equals(expectedProposer)) {
         this.logger.warn(`Penalizing peer for invalid proposer for current slot ${slotNumber}`, {
           expectedProposer,

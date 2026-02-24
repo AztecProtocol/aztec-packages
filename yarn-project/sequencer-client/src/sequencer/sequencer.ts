@@ -1,6 +1,6 @@
 import { getKzg } from '@aztec/blob-lib';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import type { EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache, EpochCacheView } from '@aztec/epoch-cache';
 import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, omit, pick } from '@aztec/foundation/collection';
@@ -77,6 +77,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   /** Config for the sequencer */
   protected config: ResolvedSequencerConfig = DefaultSequencerConfig;
+  private readonly proposerView: EpochCacheView;
 
   constructor(
     protected publisherFactory: SequencerPublisherFactory,
@@ -97,6 +98,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected log = createLogger('sequencer'),
   ) {
     super();
+    this.proposerView = this.epochCache.getViewFactory().withProposerView();
 
     // Add [FISHERMAN] prefix to logger if in fisherman mode
     if (config.fishermanMode) {
@@ -112,13 +114,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const filteredConfig = pickFromSchema(config, SequencerConfigSchema);
     this.log.info(`Updated sequencer config`, omit(filteredConfig, 'txPublicSetupAllowList'));
     this.config = merge(this.config, filteredConfig);
-    if (this.config.enableBuildAhead && !this.config.publishTxsWithProposals) {
-      this.log.error(
-        'Build-ahead requires publishTxsWithProposals to be enabled; refusing to enable build-ahead.',
-      );
-      this.config.enableBuildAhead = false;
-    }
-    this.epochCache.setBuildAheadEnabled(this.config.enableBuildAhead);
+    // TODO: this should probably be in the config way earlier
+    this.epochCache.setProposerPipeliningEnabled(this.config.enableProposerPipelining);
     this.timetable = new SequencerTimetable(
       {
         ethereumSlotDuration: this.l1Constants.ethereumSlotDuration,
@@ -295,15 +292,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       checkpointNumber,
       isPendingChainValid: pick(syncedTo.pendingChainValidationStatus, 'valid', 'reason', 'invalidIndex'),
     };
-
-    const slotViews = this.epochCache.resolveSlotViews(slot, { nowOverride: now });
-
-    // Boundary-only trigger in build-ahead mode:
-    // before the boundary we only monitor predecessor activity and never start building.
-    if (slotViews.isPreBoundary) {
-      this.setState(SequencerState.MONITORING_PREDECESSOR, slot);
-      return undefined;
-    }
 
     // Check that we are a proposer for the active proposer slot.
     this.setState(SequencerState.PROPOSER_CHECK, slot);
@@ -568,13 +556,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    */
   protected async checkCanPropose(
     slot: SlotNumber,
-    options?: { now?: bigint },
+    _options?: { now?: bigint },
   ): Promise<[boolean, EthAddress | undefined]> {
     let proposer: EthAddress | undefined;
-    const proposerSlot = this.epochCache.resolveSlotViews(slot, { nowOverride: options?.now }).proposerSlot;
+    const proposerSlot = this.proposerView.toBaseSlot(slot);
 
     try {
-      proposer = await this.epochCache.getProposerAttesterAddressForSubmissionSlot(slot, { nowOverride: options?.now });
+      proposer = await this.proposerView.getProposerAttesterAddressInSlot(slot);
     } catch (e) {
       if (e instanceof NoCommitteeError) {
         if (this.lastSlotForNoCommitteeWarning !== proposerSlot) {

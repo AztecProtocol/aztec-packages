@@ -1,4 +1,4 @@
-import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import type { EpochCacheInterface, EpochCacheView } from '@aztec/epoch-cache';
 import { NoCommitteeError } from '@aztec/ethereum/contracts';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
@@ -12,10 +12,12 @@ import { isWithinClockTolerance } from '../clock_tolerance.js';
 
 export class CheckpointAttestationValidator implements P2PValidator<CheckpointAttestation> {
   protected epochCache: EpochCacheInterface;
+  protected proposerView: EpochCacheView;
   protected logger: Logger;
 
   constructor(epochCache: EpochCacheInterface) {
     this.epochCache = epochCache;
+    this.proposerView = epochCache.getViewFactory().withProposerView();
     this.logger = createLogger('p2p:checkpoint-attestation-validator');
   }
 
@@ -54,7 +56,7 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
       // We look up the proposer for the specific slot rather than using currentSlot/nextSlot
       // since timing differences could cause mismatches
       const proposer = message.getProposer();
-      const expectedProposer = await this.epochCache.getProposerAttesterAddressForSubmissionSlot(slotNumber);
+      const expectedProposer = await this.proposerView.getProposerAttesterAddressInSlot(slotNumber);
       if (!expectedProposer) {
         this.logger.warn(`No proposer defined for slot ${slotNumber}`);
         return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };

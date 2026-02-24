@@ -18,6 +18,24 @@ describe('CheckpointAttestationValidator', () => {
 
   beforeEach(() => {
     epochCache = mock<EpochCache>();
+    (epochCache.getViewFactory as jest.Mock).mockReturnValue({
+      withProposerView: () => ({
+        getCommittee: (slot: SlotNumber | 'now' | 'next' | undefined) => epochCache.getCommittee(slot),
+        getProposerAttesterAddressInSlot: (slot: SlotNumber) => epochCache.getProposerAttesterAddressInSlot(slot),
+        isInCommittee: (slot: SlotNumber | 'now' | 'next', validator) => epochCache.isInCommittee(slot, validator),
+        filterInCommittee: (slot: SlotNumber | 'now' | 'next', validators) =>
+          epochCache.filterInCommittee(slot, validators),
+        toBaseSlot: (slot: SlotNumber) => slot,
+      }),
+      withSubmissionView: () => ({
+        getCommittee: (slot: SlotNumber | 'now' | 'next' | undefined) => epochCache.getCommittee(slot),
+        getProposerAttesterAddressInSlot: (slot: SlotNumber) => epochCache.getProposerAttesterAddressInSlot(slot),
+        isInCommittee: (slot: SlotNumber | 'now' | 'next', validator) => epochCache.isInCommittee(slot, validator),
+        filterInCommittee: (slot: SlotNumber | 'now' | 'next', validators) =>
+          epochCache.filterInCommittee(slot, validators),
+        toBaseSlot: (slot: SlotNumber) => slot,
+      }),
+    });
     validator = new CheckpointAttestationValidator(epochCache);
     proposer = Secp256k1Signer.random();
     attester = Secp256k1Signer.random();
@@ -72,7 +90,7 @@ describe('CheckpointAttestationValidator', () => {
       nowMs: 1000100n, // 100ms elapsed, within 500ms tolerance
     });
     (epochCache.isInCommittee as jest.Mock).mockResolvedValue(true);
-    (epochCache.getProposerAttesterAddressForSubmissionSlot as jest.Mock).mockResolvedValue(proposer.address);
+    (epochCache.getProposerAttesterAddressInSlot as jest.Mock).mockResolvedValue(proposer.address);
 
     const result = await validator.validate(mockAttestation);
     expect(result).toEqual({ result: 'ignore' });
@@ -113,7 +131,7 @@ describe('CheckpointAttestationValidator', () => {
       nextSlot: SlotNumber(101),
     });
     (epochCache.isInCommittee as jest.Mock).mockResolvedValue(true);
-    (epochCache.getProposerAttesterAddressForSubmissionSlot as jest.Mock).mockResolvedValue(proposer.address);
+    (epochCache.getProposerAttesterAddressInSlot as jest.Mock).mockResolvedValue(proposer.address);
 
     const result = await validator.validate(mockAttestation);
     expect(result).toEqual({ result: 'accept' });
@@ -134,7 +152,7 @@ describe('CheckpointAttestationValidator', () => {
       nextSlot: SlotNumber(101),
     });
     (epochCache.isInCommittee as jest.Mock).mockResolvedValue(true);
-    (epochCache.getProposerAttesterAddressForSubmissionSlot as jest.Mock).mockResolvedValue(proposer.address);
+    (epochCache.getProposerAttesterAddressInSlot as jest.Mock).mockResolvedValue(proposer.address);
 
     const result = await validator.validate(mockAttestation);
     expect(result).toEqual({ result: 'accept' });
@@ -175,7 +193,7 @@ describe('CheckpointAttestationValidator', () => {
       nextSlot: SlotNumber(101),
     });
     (epochCache.isInCommittee as jest.Mock).mockReturnValue(true);
-    (epochCache.getProposerAttesterAddressForSubmissionSlot as jest.Mock).mockRejectedValue(new NoCommitteeError());
+    (epochCache.getProposerAttesterAddressInSlot as jest.Mock).mockRejectedValue(new NoCommitteeError());
 
     const result = await validator.validate(mockAttestation);
     expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.LowToleranceError });

@@ -40,7 +40,7 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
     const nextSlot = getSlot(101);
 
     function mockGetProposer(currentProposer: EthAddress, nextProposer: EthAddress, previousProposer?: EthAddress) {
-      epochCache.getProposerAttesterAddressForSubmissionSlot.mockImplementation(slot => {
+      epochCache.getProposerAttesterAddressInSlot.mockImplementation(slot => {
         if (slot === currentSlot) {
           return Promise.resolve(currentProposer);
         }
@@ -56,6 +56,22 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
 
     beforeEach(() => {
       epochCache = epochCacheMock();
+      epochCache.getViewFactory.mockReturnValue({
+        withProposerView: () => ({
+          getCommittee: slot => epochCache.getCommittee(slot),
+          getProposerAttesterAddressInSlot: slot => epochCache.getProposerAttesterAddressInSlot(slot),
+          isInCommittee: (slot, validator) => epochCache.isInCommittee(slot, validator),
+          filterInCommittee: (slot, validators) => epochCache.filterInCommittee(slot, validators),
+          toBaseSlot: slot => slot,
+        }),
+        withSubmissionView: () => ({
+          getCommittee: slot => epochCache.getCommittee(slot),
+          getProposerAttesterAddressInSlot: slot => epochCache.getProposerAttesterAddressInSlot(slot),
+          isInCommittee: (slot, validator) => epochCache.isInCommittee(slot, validator),
+          filterInCommittee: (slot, validators) => epochCache.filterInCommittee(slot, validators),
+          toBaseSlot: slot => slot,
+        }),
+      });
       validator = validatorFactory(epochCache, { txsPermitted: true });
       epochCache.getCurrentAndNextSlot.mockReturnValue({
         currentSlot: currentSlot,
@@ -75,12 +91,12 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
         nowMs: 1001000n, // 1000ms elapsed, outside 500ms tolerance
       });
 
-      epochCache.getProposerAttesterAddressForSubmissionSlot.mockResolvedValue(getAddress());
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(getAddress());
       const result = await validator.validate(mockProposal);
       expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.HighToleranceError });
 
       // Should not try to resolve proposers if base validation fails
-      expect(epochCache.getProposerAttesterAddressForSubmissionSlot).not.toHaveBeenCalled();
+      expect(epochCache.getProposerAttesterAddressInSlot).not.toHaveBeenCalled();
     });
 
     it('returns ignore if previous slot proposal is within clock tolerance', async () => {
