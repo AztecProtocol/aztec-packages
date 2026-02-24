@@ -824,7 +824,6 @@ TEST(ToRadixMemoryConstrainingTest, InvalidNumLimbsForValue)
             { C::to_radix_mem_num_limbs, num_limbs },
             { C::to_radix_mem_is_output_bits, is_output_bits ? 1 : 0 },
             // Errors
-            { C::to_radix_mem_sel_invalid_num_limbs_err, 1 }, // num_limbs should not be 0 if value != 0
             { C::to_radix_mem_input_validation_error, 1 },
             { C::to_radix_mem_err, 1 },
             // Control Flow

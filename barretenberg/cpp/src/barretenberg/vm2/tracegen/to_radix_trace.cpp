@@ -130,8 +130,8 @@ void ToRadixTraceBuilder::process_with_memory(
     for (const auto& event : events) {
         // Helpers
         const uint32_t num_limbs = event.num_limbs;
-        uint8_t num_limbs_is_zero = num_limbs == 0 ? 1 : 0;
-        uint8_t value_is_zero = event.value == FF(0) ? 1 : 0;
+        bool num_limbs_is_zero = num_limbs == 0;
+        bool value_is_zero = event.value == FF(0);
 
         // Error Handling - Out of Memory Access
         uint64_t dst_addr = static_cast<uint64_t>(event.dst_addr); // Will be incremented in the loop below.
@@ -146,7 +146,7 @@ void ToRadixTraceBuilder::process_with_memory(
         bool invalid_bitwise_radix = event.is_output_bits && !radix_eq_2;
 
         // Error Handling - Num Limbs and Value
-        bool invalid_num_limbs = num_limbs == 0 && !(event.value == FF(0));
+        bool invalid_num_limbs = num_limbs_is_zero && !value_is_zero;
 
         // Common values for the first row
         trace.set(row,
@@ -167,9 +167,9 @@ void ToRadixTraceBuilder::process_with_memory(
                       { C::to_radix_mem_write_addr_upper_bound, write_addr_upper_bound },
                       { C::to_radix_mem_two, 2 },
                       { C::to_radix_mem_two_five_six, 256 },
-                      { C::to_radix_mem_sel_num_limbs_is_zero, num_limbs_is_zero },
+                      { C::to_radix_mem_sel_num_limbs_is_zero, num_limbs_is_zero ? 1 : 0 },
                       { C::to_radix_mem_num_limbs_inv, num_limbs }, // Will be inverted in batch later
-                      { C::to_radix_mem_sel_value_is_zero, value_is_zero },
+                      { C::to_radix_mem_sel_value_is_zero, value_is_zero ? 1 : 0 },
                       { C::to_radix_mem_value_inv, event.value }, // Will be inverted in batch later
                       { C::to_radix_mem_sel_radix_eq_2, radix_eq_2 ? 1 : 0 },
                       { C::to_radix_mem_radix_min_two_inv, FF(event.radix) - FF(2) }, // Will be inverted in batch later
@@ -186,7 +186,6 @@ void ToRadixTraceBuilder::process_with_memory(
                           { C::to_radix_mem_sel_radix_lt_2_err, event.radix < 2 ? 1 : 0 },
                           { C::to_radix_mem_sel_radix_gt_256_err, event.radix > 256 ? 1 : 0 },
                           { C::to_radix_mem_sel_invalid_bitwise_radix, invalid_bitwise_radix ? 1 : 0 },
-                          { C::to_radix_mem_sel_invalid_num_limbs_err, invalid_num_limbs ? 1 : 0 },
                       } });
             row++;
             continue;
