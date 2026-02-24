@@ -18,20 +18,19 @@
 namespace sha256_helpers {
 
 // Block names matching UltraTraceBlockData::get() order
-inline const std::array<std::string, 9> BLOCK_NAMES = { "pub_inputs",        "lookup",  "arithmetic",
-                                                         "delta_range",       "elliptic", "memory",
-                                                         "nnf",              "poseidon2_external",
-                                                         "poseidon2_internal" };
+inline const std::array<std::string, 9> BLOCK_NAMES = {
+    "pub_inputs", "lookup", "arithmetic",         "delta_range",       "elliptic",
+    "memory",     "nnf",    "poseidon2_external", "poseidon2_internal"
+};
 
 /**
  * @brief Classification of arithmetic gates by selector pattern
  */
 enum class GateClassification {
-    UNCONSTRAINED,  // all selectors zero (padding from range list processing)
-    FIX_WITNESS,    // q_1=1, q_arith=1, others zero (from put_constant_variable)
-    ASSERT_EQUAL,   // q_1=1, q_2=-1, q_arith=1, others zero (copy constraint)
-    BIG_MUL_ADD,    // q_arith!=0, q_m!=0, q_4!=0 (big_mul_add_gate)
-    ADD,            // q_arith=1, q_3=-1, q_m=0 (linear combination into w_o)
+    UNCONSTRAINED, // all selectors zero (padding from range list processing)
+    FIX_WITNESS,   // q_1=1, q_arith=1, others zero (from put_constant_variable)
+    BIG_MUL_ADD,   // q_arith!=0, q_m!=0, q_4!=0 (big_mul_add_gate)
+    ADD,           // q_arith=1, q_3=-1, q_m=0 (linear combination into w_o)
     OTHER
 };
 
@@ -42,8 +41,6 @@ inline std::string gate_classification_to_string(GateClassification c)
         return "UNCONSTRAINED";
     case GateClassification::FIX_WITNESS:
         return "FIX_WITNESS";
-    case GateClassification::ASSERT_EQUAL:
-        return "ASSERT_EQUAL";
     case GateClassification::BIG_MUL_ADD:
         return "BIG_MUL_ADD";
     case GateClassification::ADD:
@@ -80,8 +77,7 @@ struct WitnessGateInfo {
  * @param gate_idx Gate index within the arithmetic block
  * @return GateClassification enum value
  */
-template <typename Builder>
-GateClassification classify_arithmetic_gate(Builder& builder, size_t gate_idx)
+template <typename Builder> GateClassification classify_arithmetic_gate(Builder& builder, size_t gate_idx)
 {
     using FF = typename Builder::FF;
     auto& arith = builder.blocks.arithmetic;
@@ -91,32 +87,20 @@ GateClassification classify_arithmetic_gate(Builder& builder, size_t gate_idx)
     FF q_2 = arith.q_2()[gate_idx];
     FF q_3 = arith.q_3()[gate_idx];
     FF q_4 = arith.q_4()[gate_idx];
-    FF q_c = arith.q_c()[gate_idx];
     FF q_arith = arith.q_arith()[gate_idx];
 
-    // 1. All selectors zero -> UNCONSTRAINED
     if (q_m.is_zero() && q_1.is_zero() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() && q_arith.is_zero()) {
         return GateClassification::UNCONSTRAINED;
     }
 
-    // 2. fix_witness pattern: q_arith=1, q_1=1, q_2=0, q_3=0, q_4=0, q_m=0
-    if (q_arith == FF::one() && q_1 == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() &&
-        q_m.is_zero()) {
+    if (q_arith == FF::one() && q_1 == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() && q_m.is_zero()) {
         return GateClassification::FIX_WITNESS;
     }
 
-    // 3. assert_equal pattern: q_arith=1, q_1=1, q_2=-1, q_3=0, q_4=0, q_m=0, q_c=0
-    if (q_arith == FF::one() && q_1 == FF::one() && q_2 == FF::neg_one() && q_3.is_zero() && q_4.is_zero() &&
-        q_m.is_zero() && q_c.is_zero()) {
-        return GateClassification::ASSERT_EQUAL;
-    }
-
-    // 4. big_mul_add: q_arith!=0, q_m!=0, q_4!=0
     if (!q_arith.is_zero() && !q_m.is_zero() && !q_4.is_zero()) {
         return GateClassification::BIG_MUL_ADD;
     }
 
-    // 5. add: q_arith=1, q_3=-1 (w_o = linear combination)
     if (q_arith == FF::one() && q_3 == FF::neg_one() && q_m.is_zero()) {
         return GateClassification::ADD;
     }
@@ -177,9 +161,9 @@ WitnessGateInfo map_witness_to_gates(cdg::StaticAnalyzer_<FF, CircuitBuilder>& a
 
         // Check which wire(s) match
         std::array<std::pair<std::string, uint32_t>, 4> wires = { { { "w_l", block.w_l()[gate_idx] },
-                                                                     { "w_r", block.w_r()[gate_idx] },
-                                                                     { "w_o", block.w_o()[gate_idx] },
-                                                                     { "w_4", block.w_4()[gate_idx] } } };
+                                                                    { "w_r", block.w_r()[gate_idx] },
+                                                                    { "w_o", block.w_o()[gate_idx] },
+                                                                    { "w_4", block.w_4()[gate_idx] } } };
 
         for (const auto& [wire_name, wire_idx] : wires) {
             if (builder.real_variable_index[wire_idx] == witness_real_idx) {
@@ -295,8 +279,7 @@ struct RangeListFillerInfo {
  * @param target_range The target range value to validate
  * @return RangeListFillerInfo with validation results
  */
-template <typename Builder>
-RangeListFillerInfo validate_range_list_fillers(Builder& builder, uint64_t target_range)
+template <typename Builder> RangeListFillerInfo validate_range_list_fillers(Builder& builder, uint64_t target_range)
 {
     constexpr uint64_t STEP = Builder::DEFAULT_PLOOKUP_RANGE_STEP_SIZE; // 3
     constexpr size_t GATE_WIDTH = Builder::NUM_WIRES;                   // 4
@@ -331,10 +314,9 @@ RangeListFillerInfo validate_range_list_fillers(Builder& builder, uint64_t targe
 
     auto& arith = builder.blocks.arithmetic;
     for (size_t gate_idx : unconstrained_gates) {
-        std::array<uint32_t, 4> wire_indices = { arith.w_l()[gate_idx],
-                                                  arith.w_r()[gate_idx],
-                                                  arith.w_o()[gate_idx],
-                                                  arith.w_4()[gate_idx] };
+        std::array<uint32_t, 4> wire_indices = {
+            arith.w_l()[gate_idx], arith.w_r()[gate_idx], arith.w_o()[gate_idx], arith.w_4()[gate_idx]
+        };
         bool gate_has_tagged_wire = false;
         for (uint32_t wire_idx : wire_indices) {
             uint32_t real_idx = builder.real_variable_index[wire_idx];
@@ -361,8 +343,8 @@ inline void print_range_list_filler_info(const RangeListFillerInfo& info)
     std::cout << "  target_range=" << info.target_range << ": exists=" << info.range_list_exists
               << " expected_fillers=" << info.expected_filler_count << " found_fillers=" << info.found_filler_count
               << " expected_gates=" << info.expected_gate_count << " found_gates=" << info.found_gate_count
-              << " total_unconstrained=" << info.total_unconstrained_gates
-              << " count_matches=" << info.count_matches << std::endl;
+              << " total_unconstrained=" << info.total_unconstrained_gates << " count_matches=" << info.count_matches
+              << std::endl;
 }
 
 } // namespace sha256_helpers

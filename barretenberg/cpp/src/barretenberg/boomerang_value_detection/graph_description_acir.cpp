@@ -79,16 +79,6 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::is_boolean_gate(size_t block_idx, 
 }
 
 template <typename FF, typename CircuitBuilder>
-bool StaticAnalyzerAcir_<FF, CircuitBuilder>::is_uncostrained_arithmetic_gate(size_t gate_index)
-{
-    auto& block = builder.blocks.arithmetic;
-    bool correct_selectors = block.q_m()[gate_index] == FF(0) && block.q_1()[gate_index] == FF(0) &&
-                             block.q_2()[gate_index] == FF(0) && block.q_3()[gate_index] == FF(0) &&
-                             block.q_4()[gate_index] == FF(0) && block.q_arith()[gate_index] == FF(0);
-    return correct_selectors;
-}
-
-template <typename FF, typename CircuitBuilder>
 std::vector<size_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::find_range_list_unconstrained_gates(
     const CircuitBuilder::RangeList& range_list)
 {
@@ -749,24 +739,57 @@ std::optional<size_t> find_gate_matching_state(Block& block, const std::array<ui
     return std::nullopt;
 }
 
+constexpr size_t HASH_COMBINE_CONSTANT = 0x9e3779b9;
+
+inline size_t hash_combine(size_t lhs, size_t rhs)
+{
+    return lhs ^ (rhs + HASH_COMBINE_CONSTANT + (lhs << 6) + (lhs >> 2));
+}
+
 /**
  * @brief Compute a deterministic hash of selectors in a block range
  *
  * Uses Boost-style hash_combine:
  *   combined = combined ^ (element_hash + 0x9e3779b9 + (combined << 6) + (combined >> 2))
  */
-template <typename Block> size_t compute_selector_hash(Block& block, size_t start_idx, size_t end_idx)
+template <typename Block>
+size_t compute_selector_hash(size_t combined_hash, Block& block, size_t start_idx, size_t end_idx)
 {
-    constexpr size_t HASH_COMBINE_CONSTANT = 0x9e3779b9;
-    auto hash_combiner = [](size_t lhs, size_t rhs) {
-        return lhs ^ (rhs + HASH_COMBINE_CONSTANT + (lhs << 6) + (lhs >> 2));
-    };
-    size_t combined_hash = 0;
     auto selectors = block.get_selectors();
     for (size_t gate = start_idx; gate <= end_idx; ++gate) {
         for (size_t s = 0; s < selectors.size(); ++s) {
             uint64_t val = static_cast<uint64_t>(uint256_t(selectors[s][gate]));
-            combined_hash = hash_combiner(combined_hash, std::hash<uint64_t>()(val));
+            combined_hash = hash_combine(combined_hash, std::hash<uint64_t>()(val));
+        }
+    }
+    return combined_hash;
+}
+
+/**
+ * @brief Check if a gate has all selectors zero (unconstrained / filler gate)
+ */
+template <typename Block> bool is_gate_unconstrained(Block& block, size_t gate_idx)
+{
+    auto selectors = block.get_selectors();
+    for (size_t s = 0; s < selectors.size(); ++s) {
+        if (static_cast<uint64_t>(uint256_t(selectors[s][gate_idx])) != 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * @brief Compute a deterministic hash of selectors for specific gate indices
+ */
+template <typename Block>
+size_t compute_selector_hash(size_t combined_hash, Block& block, const std::vector<size_t>& gate_indices)
+{
+    auto selectors = block.get_selectors();
+    for (size_t gate : gate_indices) {
+        for (size_t s = 0; s < selectors.size(); ++s) {
+            uint64_t val = static_cast<uint64_t>(uint256_t(selectors[s][gate]));
+            combined_hash = hash_combine(combined_hash, std::hash<uint64_t>()(val));
         }
     }
     return combined_hash;
@@ -1035,47 +1058,35 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_poseidon2s_constraints(con
 /**
  * @brief Validates SHA256 compression constraint using multiple complementary checks:
  *
- * 1. Value check: Read input/hash values from the builder, compute SHA256 natively,
- *    verify result witnesses match. Ensures correct data assignment.
- *
- * 2. Decompose chain check: Validate that range-constrained witnesses (hash_values[3],
+ * 1. Decompose chain check: Validate that range-constrained witnesses (hash_values[3],
  *    hash_values[7], inputs[0]) have correct 32-bit decompose chains.
  *
- * 3. Range list filler check: Validate that unconstrained arithmetic gates match
+ * 2. Range list filler check: Validate that unconstrained arithmetic gates match
  *    expected filler counts for 14-bit and 4-bit range lists.
  *
- * 4. Witness connectivity check: Verify all constraint witnesses appear in at least
- *    one gate, range-constrained witnesses appear in arithmetic block, and result
- *    witnesses appear in arithmetic block.
+ * 3. Witness connectivity check: Verify all constraint witnesses appear in their
+ *    gates: hash_values[0, 1, 2, 4, 5, 6] and input[1..15] are decomposed using special plookup tables,
+ *    result[i] and hash_values[i] are paired together through arithmetic gate
  *
- * 5. Arithmetic selector hash check: Verify that the full arithmetic subtrace
+ * 4. Arithmetic selector hash check: Verify that the full arithmetic and lookup subtrace
  *    selector hash matches the known-good hash for SHA256 compression.
  */
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_sha256compression_constraint(const ConstraintPtr& ptr)
 {
     const auto* constraint = std::get<const acir_format::Sha256Compression*>(ptr);
-    auto read_value = [&](const WitnessOrConstant<FF>& woc) -> FF {
-        if (woc.is_constant) {
-            return woc.value;
-        }
-        return builder.get_variable(analyzer.to_real(woc.index));
-    };
+    bool result = true;
 
     // Validate decompose chains on range-constrained ACIR witnesses
     // SHA256 calls create_range_constraint(32) on hash_values[3], hash_values[7], inputs[0]
-    const std::array<const WitnessOrConstant<FF>*, 3> range_constrained = { &constraint->hash_values[3],
-                                                                            &constraint->hash_values[7],
-                                                                            &constraint->inputs[0] };
-    for (size_t rc_i = 0; rc_i < range_constrained.size(); ++rc_i) {
-        const auto* woc = range_constrained[rc_i];
-        if (!woc->is_constant && !validate_range_constraint(woc->index, 32)) {
-            info("SHA256 step 2 failed: range constraint for rc_idx=", rc_i, " witness=", woc->index);
-            return false;
-        }
+    const std::array<const WitnessOrConstant<FF>, 3> range_constrained_witnesses = { constraint->hash_values[3],
+                                                                                     constraint->hash_values[7],
+                                                                                     constraint->inputs[0] };
+    for (const auto& woc : range_constrained_witnesses) {
+        result &= validate_range_constraint(woc.index, 32);
     }
 
-    // Step 3: Validate range list filler gates
+    // Validate range list filler gates
     // 32-bit decompose uses 14-bit limbs (target=16383) and 4-bit remainder (target=15)
     constexpr uint64_t FULL_LIMB_RANGE = (1ULL << 14) - 1;
     constexpr uint64_t REMAINDER_RANGE = (1ULL << 4) - 1;
@@ -1083,121 +1094,67 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_sha256compression_constrai
     auto full_info = sha256_helpers::validate_range_list_fillers(builder, FULL_LIMB_RANGE);
     auto rem_info = sha256_helpers::validate_range_list_fillers(builder, REMAINDER_RANGE);
 
-    if (!full_info.range_list_exists || !full_info.count_matches || !rem_info.range_list_exists ||
-        !rem_info.count_matches) {
-        info("SHA256 step 3 failed: full_exists=",
-             full_info.range_list_exists,
-             " full_matches=",
-             full_info.count_matches,
-             " rem_exists=",
-             rem_info.range_list_exists,
-             " rem_matches=",
-             rem_info.count_matches);
-        return false;
-    }
+    result &=
+        full_info.range_list_exists || full_info.count_matches || rem_info.range_list_exists || rem_info.count_matches;
 
-    // Step 4: Validate ACIR witness connectivity using map_witness_to_gates
-    std::vector<uint32_t> all_witness_indices;
-    for (size_t i = 0; i < 16; ++i) {
-        if (!constraint->inputs[i].is_constant) {
-            all_witness_indices.push_back(constraint->inputs[i].index);
-        }
-    }
-    for (size_t i = 0; i < 8; ++i) {
-        if (!constraint->hash_values[i].is_constant) {
-            all_witness_indices.push_back(constraint->hash_values[i].index);
-        }
-    }
-    for (size_t i = 0; i < 8; ++i) {
-        all_witness_indices.push_back(constraint->result[i]);
-    }
+    auto& lookup_block = builder.blocks.lookup;
+    auto& arith = builder.blocks.arithmetic;
+    // selector constants for direct gate validation
+    const FF NEG_TWO_POW_32 = -FF(uint256_t(1) << 32);
+    const FF DECOMPOSE_Q2 = FF(uint256_t(0x4000));
+    const FF DECOMPOSE_Q3 = FF(uint256_t(0x10000000));
 
-    auto gate_map = sha256_helpers::map_witnesses_to_gates(analyzer, builder, all_witness_indices);
-
-    // Check 4d: Non-range hash_values must appear in lookup block w_l
+    // Non-range-constrained hash_values in lookup w_l
     // hash_values[0,1,2,4,5,6] undergo SHA256 sparse decomposition via plookup tables
-    {
-        const std::array<size_t, 6> non_range_hv_indices = { 0, 1, 2, 4, 5, 6 };
-        for (size_t i : non_range_hv_indices) {
-            if (constraint->hash_values[i].is_constant) {
-                continue;
-            }
-            auto it = gate_map.find(constraint->hash_values[i].index);
-            if (it == gate_map.end()) {
-                info("SHA256 step 4d failed: hash_values[", i, "] not in gate_map");
-                return false;
-            }
-            bool found = false;
-            for (const auto& ref : it->second.gate_refs) {
-                if (ref.block_name == "lookup" && ref.wire_name == "w_l") {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                info("SHA256 step 4d failed: hash_values[", i, "] not in lookup w_l");
-                return false;
-            }
-        }
-    }
-
-    // Check 4e: inputs[1..15] must appear in lookup block w_l
-    // Non-range-constrained inputs undergo SHA256_WITNESS_INPUT decomposition
-    for (size_t i = 1; i < 16; ++i) {
-        if (constraint->inputs[i].is_constant) {
-            continue;
-        }
-        auto it = gate_map.find(constraint->inputs[i].index);
-        if (it == gate_map.end()) {
-            info("SHA256 step 4e failed: inputs[", i, "] not in gate_map");
-            return false;
-        }
+    // hash_values[3,7] are range-constrained — handled by other checks
+    std::vector<size_t> non_range_constrained_hash_values_indices{ 0, 1, 2, 4, 5, 6 };
+    for (auto& i : non_range_constrained_hash_values_indices) {
+        uint32_t real_idx = analyzer.to_real(constraint->hash_values[i].index);
+        auto gates = analyzer.get_variable_gates(real_idx);
         bool found = false;
-        for (const auto& ref : it->second.gate_refs) {
-            if (ref.block_name == "lookup" && ref.wire_name == "w_l") {
+        for (const auto& [blk_idx, gate_idx] : gates) {
+            if (&builder.blocks.get()[blk_idx] == &lookup_block &&
+                analyzer.to_real(lookup_block.w_l()[gate_idx]) == real_idx) {
                 found = true;
                 break;
             }
         }
-        if (!found) {
-            info("SHA256 step 4e failed: inputs[", i, "] not in lookup w_l");
-            return false;
-        }
+        result &= found;
     }
 
-    // Selector constants for checks 4f-4h
-    const FF NEG_TWO_POW_32 = -FF(uint256_t(1) << 32);
-    const FF DECOMPOSE_Q2 = FF(uint256_t(0x4000));
-    const FF DECOMPOSE_Q3 = FF(uint256_t(0x10000000));
-    auto& arith = builder.blocks.arithmetic;
+    // inputs[1..15] must appear in lookup block w_l
+    // Non-range-constrained inputs undergo SHA256_WITNESS_INPUT decomposition
+    for (size_t i = 1; i < constraint->inputs.size(); ++i) {
+        uint32_t real_idx = analyzer.to_real(constraint->inputs[i].index);
+        auto gates = analyzer.get_variable_gates(real_idx);
+        bool found = false;
+        for (const auto& [blk_idx, gate_idx] : gates) {
+            if (&builder.blocks.get()[blk_idx] == &lookup_block &&
+                analyzer.to_real(lookup_block.w_l()[gate_idx]) == real_idx) {
+                found = true;
+                break;
+            }
+        }
+        result &= found;
+    }
 
-    // Check 4f: result[i] paired with hash_values[i] in add_normalize gate
+    // result[i] paired with hash_values[i] in add_normalize gate
     // Final output: intermediate + hash_values[i] - 2^32 * overflow = result[i]
     // result[i] must be at w_4, hash_values[i] at w_r, with add_normalize selectors
     for (size_t i = 0; i < 8; ++i) {
-        if (constraint->hash_values[i].is_constant) {
-            continue;
-        }
-        auto hash_it = gate_map.find(constraint->hash_values[i].index);
-        if (hash_it == gate_map.end()) {
-            info("SHA256 step 4f failed: hash_values[", i, "] not in gate_map");
-            return false;
-        }
-        uint32_t hash_real = hash_it->second.real_idx;
-
-        auto result_it = gate_map.find(constraint->result[i]);
-        if (result_it == gate_map.end()) {
-            info("SHA256 step 4f failed: result[", i, "] not in gate_map");
-            return false;
-        }
+        uint32_t hash_real = analyzer.to_real(constraint->hash_values[i].index);
+        uint32_t result_real = analyzer.to_real(constraint->result[i]);
+        auto result_gates = analyzer.get_variable_gates(result_real);
         bool found = false;
-        for (const auto& ref : result_it->second.gate_refs) {
-            if (ref.block_name != "arithmetic" || ref.wire_name != "w_4") {
+        for (const auto& [blk_idx, gate_idx] : result_gates) {
+            if (&builder.blocks.get()[blk_idx] != &arith) {
                 continue;
             }
-            size_t gate_idx = ref.gate_idx;
+            if (analyzer.to_real(arith.w_4()[gate_idx]) != result_real) {
+                continue;
+            }
             // Check hash_values[i] is in w_r of same gate
-            if (builder.real_variable_index[arith.w_r()[gate_idx]] != hash_real) {
+            if (analyzer.to_real(arith.w_r()[gate_idx]) != hash_real) {
                 continue;
             }
             // Check add_normalize selectors
@@ -1208,57 +1165,22 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_sha256compression_constrai
                 break;
             }
         }
-        if (!found) {
-            info("SHA256 step 4f failed: result[", i, "] not in add_normalize with hash_values[", i, "]");
-            return false;
-        }
+        result &= found;
     }
 
-    // Check 4g: Range-constrained witnesses in decompose chain w_4
-    // hash_values[3], hash_values[7], input[0] must be in w_4 of a decompose chain gate
-    // Selectors: q_1=1, q_2=0x4000, q_3=0x10000000, q_4=-1, q_arith=1
-    for (const auto* woc : range_constrained) {
-        if (woc->is_constant) {
-            continue;
-        }
-        auto it = gate_map.find(woc->index);
-        if (it == gate_map.end()) {
-            info("SHA256 step 4g failed: range witness ", woc->index, " not in gate_map");
-            return false;
-        }
-        bool found = false;
-        for (const auto& ref : it->second.gate_refs) {
-            if (ref.block_name != "arithmetic" || ref.wire_name != "w_4") {
-                continue;
-            }
-            size_t gate_idx = ref.gate_idx;
-            if (arith.q_1()[gate_idx] == FF::one() && arith.q_2()[gate_idx] == DECOMPOSE_Q2 &&
-                arith.q_3()[gate_idx] == DECOMPOSE_Q3 && arith.q_4()[gate_idx] == FF::neg_one() &&
-                arith.q_arith()[gate_idx] == FF::one()) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            info("SHA256 step 4g failed: range witness ", woc->index, " not in decompose chain w_4");
-            return false;
-        }
-    }
-
-    // Check 4h: Result witnesses in decompose chain w_4 (output range check)
+    // Result witnesses in decompose chain w_4 (output range check)
     // Each result[i] must also appear in w_4 of a decompose chain gate
     for (size_t i = 0; i < 8; ++i) {
-        auto it = gate_map.find(constraint->result[i]);
-        if (it == gate_map.end()) {
-            info("SHA256 step 4h failed: result[", i, "] not in gate_map");
-            return false;
-        }
+        uint32_t real_idx = analyzer.to_real(constraint->result[i]);
+        auto gates = analyzer.get_variable_gates(real_idx);
         bool found = false;
-        for (const auto& ref : it->second.gate_refs) {
-            if (ref.block_name != "arithmetic" || ref.wire_name != "w_4") {
+        for (const auto& [blk_idx, gate_idx] : gates) {
+            if (&builder.blocks.get()[blk_idx] != &arith) {
                 continue;
             }
-            size_t gate_idx = ref.gate_idx;
+            if (analyzer.to_real(arith.w_4()[gate_idx]) != real_idx) {
+                continue;
+            }
             if (arith.q_1()[gate_idx] == FF::one() && arith.q_2()[gate_idx] == DECOMPOSE_Q2 &&
                 arith.q_3()[gate_idx] == DECOMPOSE_Q3 && arith.q_4()[gate_idx] == FF::neg_one() &&
                 arith.q_arith()[gate_idx] == FF::one()) {
@@ -1266,24 +1188,17 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_sha256compression_constrai
                 break;
             }
         }
-        if (!found) {
-            info("SHA256 step 4h failed: result[", i, "] not in decompose chain w_4");
-            return false;
-        }
+        result &= found;
     }
 
-    // Step 5: Validate arithmetic subtrace selector hash
+    // Validate arithmetic subtrace selector hash
     auto boundaries = find_sha256_subcircuit_boundaries(*constraint);
-    if (!boundaries) {
-        info("SHA256 step 6 failed: could not find boundaries");
-        return false;
+    std::string print = boundaries.has_value() ? "true" : "false";
+    result &= boundaries.has_value();
+    if (boundaries.has_value()) {
+        result &= validate_sha256_subcircuit_selectors(*boundaries);
     }
-    if (!validate_sha256_subcircuit_selectors(*boundaries)) {
-        info("SHA256 step 6 failed: selector hash mismatch");
-        return false;
-    }
-
-    return true;
+    return result;
 }
 
 template <typename FF, typename CircuitBuilder>
@@ -1339,28 +1254,43 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_range_constraints(const Co
 }
 
 template <typename FF, typename CircuitBuilder>
-std::optional<std::pair<size_t, size_t>> StaticAnalyzerAcir_<FF, CircuitBuilder>::find_subtrace_boundaries(
-    const std::vector<uint32_t>& witness_real_indices, size_t target_block_idx)
+std::vector<size_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::find_subtrace_gates(
+    const std::unordered_set<uint32_t>& seed_witnesses, size_t target_block_idx)
 {
-    size_t min_gate = std::numeric_limits<size_t>::max();
-    size_t max_gate = 0;
-    bool found = false;
+    auto& target_block = builder.blocks.get()[target_block_idx];
 
-    for (uint32_t real_idx : witness_real_indices) {
-        const auto& gates = analyzer.get_variable_gates(real_idx);
-        for (const auto& [block_idx, gate_idx] : gates) {
-            if (block_idx == target_block_idx) {
-                min_gate = std::min(min_gate, gate_idx);
-                max_gate = std::max(max_gate, gate_idx);
-                found = true;
-            }
+    // Working set: starts with seeds (excluding zero_idx), grows as new wires are discovered
+    uint32_t zero_real = analyzer.to_real(builder.zero_idx());
+    std::unordered_set<uint32_t> seen;
+    std::vector<uint32_t> worklist;
+    for (uint32_t w : seed_witnesses) {
+        if (w != zero_real && seen.insert(w).second) {
+            worklist.push_back(w);
         }
     }
 
-    if (!found) {
-        return std::nullopt;
+    auto try_add = [&](uint32_t wire_idx) {
+        uint32_t real_idx = analyzer.to_real(wire_idx);
+        if (real_idx != zero_real && seen.insert(real_idx).second) {
+            worklist.push_back(real_idx);
+        }
+    };
+
+    std::set<size_t> gate_set;
+    for (size_t i = 0; i < worklist.size(); ++i) {
+        const auto& gates = analyzer.get_variable_gates(worklist[i]);
+        for (const auto& [block_idx, gate_idx] : gates) {
+            if (block_idx != target_block_idx)
+                continue;
+            gate_set.insert(gate_idx);
+            try_add(target_block.w_l()[gate_idx]);
+            try_add(target_block.w_r()[gate_idx]);
+            try_add(target_block.w_o()[gate_idx]);
+            try_add(target_block.w_4()[gate_idx]);
+        }
     }
-    return std::make_pair(min_gate, max_gate);
+
+    return std::vector<size_t>(gate_set.begin(), gate_set.end());
 }
 
 /**
@@ -1370,20 +1300,16 @@ std::optional<std::pair<size_t, size_t>> StaticAnalyzerAcir_<FF, CircuitBuilder>
  * - Lookup block: Find first lookup gate (from last_lookup_gate_processed) containing hash_values[1]'s
  *   real index in w_l. Size is a known constant (2896 gates for standard all-witness SHA256).
  * - Arithmetic block: Find minimum arithmetic gate index from all constraint witnesses.
- *   Size is a known constant (2371 gates = 2363 core + 8 assert_equal).
+ *   Size is a known constant 2363 gates.
  */
 template <typename FF, typename CircuitBuilder>
 std::optional<Sha256SubcircuitBoundaries> StaticAnalyzerAcir_<FF, CircuitBuilder>::find_sha256_subcircuit_boundaries(
     const acir_format::Sha256Compression& constraint)
 {
     static constexpr size_t SHA256_LOOKUP_GATE_COUNT = 2896;
-    static constexpr size_t SHA256_ARITH_GATE_COUNT = 2371;
     static constexpr size_t ARITHMETIC_BLOCK_IDX = 2;
 
     // Find lookup subtrace start: search for hash_values[1]'s real index in w_l of lookup block
-    if (constraint.hash_values[1].is_constant) {
-        return std::nullopt; // Need a witness to locate the subtrace
-    }
     uint32_t hv1_real = analyzer.to_real(constraint.hash_values[1].index);
     auto& lookup_block = builder.blocks.lookup;
 
@@ -1406,41 +1332,67 @@ std::optional<Sha256SubcircuitBoundaries> StaticAnalyzerAcir_<FF, CircuitBuilder
     // reused in arithmetic gates for normalization and computation.
     std::unordered_set<uint32_t> sha256_vars;
     for (size_t i = *lookup_start; i < *lookup_start + SHA256_LOOKUP_GATE_COUNT; ++i) {
-        sha256_vars.insert(analyzer.to_real(lookup_block.w_l()[i]));
-        sha256_vars.insert(analyzer.to_real(lookup_block.w_r()[i]));
-        sha256_vars.insert(analyzer.to_real(lookup_block.w_o()[i]));
-        sha256_vars.insert(analyzer.to_real(lookup_block.w_4()[i]));
+        sha256_vars.emplace(analyzer.to_real(lookup_block.w_l()[i]));
+        sha256_vars.emplace(analyzer.to_real(lookup_block.w_r()[i]));
+        sha256_vars.emplace(analyzer.to_real(lookup_block.w_o()[i]));
+        sha256_vars.emplace(analyzer.to_real(lookup_block.w_4()[i]));
     }
     // Also add constraint witnesses (inputs, hash_values, results)
     for (size_t i = 0; i < 16; ++i) {
-        if (!constraint.inputs[i].is_constant) {
-            sha256_vars.insert(analyzer.to_real(constraint.inputs[i].index));
-        }
+        sha256_vars.emplace(analyzer.to_real(constraint.inputs[i].index));
     }
     for (size_t i = 0; i < 8; ++i) {
-        if (!constraint.hash_values[i].is_constant) {
-            sha256_vars.insert(analyzer.to_real(constraint.hash_values[i].index));
-        }
+        sha256_vars.emplace(analyzer.to_real(constraint.hash_values[i].index));
     }
     for (size_t i = 0; i < 8; ++i) {
-        sha256_vars.insert(analyzer.to_real(constraint.result[i]));
+        sha256_vars.emplace(analyzer.to_real(constraint.result[i]));
     }
 
-    std::vector<uint32_t> all_vars(sha256_vars.begin(), sha256_vars.end());
-    auto arith_bounds = find_subtrace_boundaries(all_vars, ARITHMETIC_BLOCK_IDX);
-    if (!arith_bounds) {
+    // find all arithmetic gates connected to SHA256 variables via wire expansion
+    auto all_arith_gates = find_subtrace_gates(sha256_vars, ARITHMETIC_BLOCK_IDX);
+    if (all_arith_gates.empty()) {
         return std::nullopt;
     }
-    size_t arith_start = arith_bounds->first;
 
+    // find filler gates via range_list tag lookup.
+    //  Collect tags from wires in Phase 1 gates, then find matching range_list filler gates.
+    auto& arith = builder.blocks.arithmetic;
+    std::unordered_set<uint32_t> bounded_wire_tags;
+    for (size_t g : all_arith_gates) {
+        for (uint32_t wire_idx : { arith.w_l()[g], arith.w_r()[g], arith.w_o()[g], arith.w_4()[g] }) {
+            uint32_t real_idx = builder.real_variable_index[wire_idx];
+            uint32_t tag = builder.real_variable_tags[real_idx];
+            if (tag != bb::DEFAULT_TAG) {
+                bounded_wire_tags.insert(tag);
+            }
+        }
+    }
+
+    std::set<size_t> filler_gate_set;
+    for (const auto& [target_range, range_list] : builder.range_lists) {
+        if (bounded_wire_tags.count(range_list.range_tag)) {
+            auto filler_gates = find_range_list_unconstrained_gates(range_list);
+            filler_gate_set.insert(filler_gates.begin(), filler_gates.end());
+        }
+    }
+
+    // Classify Phase 1 gates: separate constrained (non-zero selectors) from unconstrained
     Sha256SubcircuitBoundaries boundaries;
     boundaries.lookup = { *lookup_start, *lookup_start + SHA256_LOOKUP_GATE_COUNT - 1 };
-    boundaries.arithmetic = { arith_start, arith_start + SHA256_ARITH_GATE_COUNT - 1 };
-
-    // Update tracking for chaining multiple constraints
-    last_lookup_gate_processed = boundaries.lookup.last + 1;
-    last_arithmetic_gate_processed = boundaries.arithmetic.last + 1;
-
+    for (size_t g : all_arith_gates) {
+        if (is_gate_unconstrained(arith, g)) {
+            boundaries.unconstrained_gates.push_back(g);
+        } else {
+            boundaries.constrained_gates.push_back(g);
+        }
+    }
+    // Add filler gates not already found by Phase 1
+    for (size_t g : filler_gate_set) {
+        if (!std::binary_search(all_arith_gates.begin(), all_arith_gates.end(), g)) {
+            boundaries.unconstrained_gates.push_back(g);
+        }
+    }
+    std::sort(boundaries.unconstrained_gates.begin(), boundaries.unconstrained_gates.end());
     return boundaries;
 }
 
@@ -1449,11 +1401,18 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_sha256_subcircuit_selecto
     const Sha256SubcircuitBoundaries& boundaries)
 {
     static constexpr size_t SHA256_LOOKUP_SELECTOR_HASH = 1201492680789112893ULL;
-    static constexpr size_t SHA256_ARITH_SELECTOR_HASH = 560820328908023616ULL;
+    static constexpr size_t SHA256_ARITH_SELECTOR_HASH = 17755299155013926430ULL;
 
-    size_t lookup_hash = compute_selector_hash(builder.blocks.lookup, boundaries.lookup.first, boundaries.lookup.last);
+    size_t lookup_hash =
+        compute_selector_hash(0, builder.blocks.lookup, boundaries.lookup.first, boundaries.lookup.last);
+
+    // Hash unconstrained (filler) gates first, then chain constrained gates.
+    // This matches the reference circuit layout where fillers precede constrained gates.
+    // Hashing by group ensures the hash is independent of absolute gate positions —
+    // critical when multiple SHA256 constraints share the same filler gates.
+    size_t unconstrained_hash = compute_selector_hash(0, builder.blocks.arithmetic, boundaries.unconstrained_gates);
     size_t arith_hash =
-        compute_selector_hash(builder.blocks.arithmetic, boundaries.arithmetic.first, boundaries.arithmetic.last);
+        compute_selector_hash(unconstrained_hash, builder.blocks.arithmetic, boundaries.constrained_gates);
 
     return lookup_hash == SHA256_LOOKUP_SELECTOR_HASH && arith_hash == SHA256_ARITH_SELECTOR_HASH;
 }

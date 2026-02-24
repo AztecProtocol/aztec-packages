@@ -19,8 +19,7 @@ WitnessOrConstant<fr> witness_from_index(uint32_t idx)
 }
 
 // Helper to build AcirFormat from individual constraints through the full ACIR serde flow
-template <typename... Constraints>
-AcirFormat build_acir_format(const Constraints&... constraints)
+template <typename... Constraints> AcirFormat build_acir_format(const Constraints&... constraints)
 {
     std::vector<Acir::Opcode> opcodes;
     auto collect = [&opcodes](const auto& constraint) {
@@ -908,8 +907,8 @@ TEST_F(BoomerangPoseidon2ConstraintsTests, Poseidon2MixedWithQuadAndBigQuad)
     // QUAD (8-11): a=2, b=3, c=4, d = 2*3 + 2 + 3 + 4 = 15
     // BigQuad gate 0 (12-15): a=2, b=3, c=4, d=5 => intermediate = 15
     // BigQuad gate 1 (16-19): a=1, b=2, c=3, d = 2 + 1 + 2 + 3 + 15 = 23
-    WitnessVector witness = { fr(1),  fr(2),  fr(3),  fr(4), fr(0), fr(0), fr(0), fr(0), fr(2), fr(3),
-                              fr(4),  fr(15), fr(2),  fr(3), fr(4), fr(5), fr(1), fr(2), fr(3), fr(23) };
+    WitnessVector witness = { fr(1), fr(2),  fr(3), fr(4), fr(0), fr(0), fr(0), fr(0), fr(2), fr(3),
+                              fr(4), fr(15), fr(2), fr(3), fr(4), fr(5), fr(1), fr(2), fr(3), fr(23) };
     AcirProgram program{ constraint_system, witness };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
 

@@ -6,14 +6,15 @@
 namespace cdg {
 
 struct BlockRange {
-    size_t first; // inclusive
-    size_t last;  // inclusive
+    size_t first;
+    size_t last;
     size_t size() const { return last - first + 1; }
 };
 
 struct Sha256SubcircuitBoundaries {
     BlockRange lookup;
-    BlockRange arithmetic;
+    std::vector<size_t> constrained_gates;   // sorted arithmetic gate indices with non-zero selectors
+    std::vector<size_t> unconstrained_gates; // sorted arithmetic filler gate indices (all selectors zero)
 };
 
 template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
@@ -58,13 +59,15 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
     bool validate_sha256_subcircuit_selectors(const Sha256SubcircuitBoundaries& boundaries);
 
     /**
-     * @brief Find min and max gate indices for a set of witnesses in a specific block.
-     * @param witness_real_indices Real variable indices to search for
+     * @brief Find all gate indices for a set of witnesses in a specific block.
+     * Iteratively expands: when a gate is found, all wire indices from that gate
+     * are added to the search set, discovering transitively connected gates.
+     * @param seed_witnesses Real variable indices to start from
      * @param target_block_idx Block index (0=pub_inputs, 1=lookup, 2=arithmetic, 3=delta_range, ...)
-     * @return {min_gate_idx, max_gate_idx} or nullopt if no gates found
+     * @return Sorted vector of gate indices, empty if none found
      */
-    std::optional<std::pair<size_t, size_t>> find_subtrace_boundaries(
-        const std::vector<uint32_t>& witness_real_indices, size_t target_block_idx);
+    std::vector<size_t> find_subtrace_gates(const std::unordered_set<uint32_t>& seed_witnesses,
+                                            size_t target_block_idx);
     bool process_blake2s_constraints(const ConstraintPtr& ptr,
                                      const std::unordered_set<uint32_t>& next_constraint_witnesses);
     bool process_blake3s_constraints(const ConstraintPtr& ptr,
@@ -141,8 +144,6 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
     UltraStaticAnalyzer analyzer;
     mutable OpcodeConstraintMap opcode_constraint_map;
     mutable bool opcode_constraint_map_built = false;
-    size_t last_lookup_gate_processed = 0;
-    size_t last_arithmetic_gate_processed = 0;
 };
 
 using StaticAnalyzerAcir = StaticAnalyzerAcir_<bb::fr, bb::UltraCircuitBuilder>;
