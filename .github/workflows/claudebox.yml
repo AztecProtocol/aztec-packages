@@ -1,0 +1,83 @@
+name: ClaudeBox
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  claudebox:
+    if: startsWith(github.event.comment.body, '/claudebox')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check write access
+        run: |
+          ASSOCIATION="${{ github.event.comment.author_association }}"
+          echo "Author association: $ASSOCIATION"
+          if [[ "$ASSOCIATION" != "OWNER" && "$ASSOCIATION" != "MEMBER" && "$ASSOCIATION" != "COLLABORATOR" ]]; then
+            echo "ERROR: User does not have write access (association: $ASSOCIATION)"
+            exit 1
+          fi
+          echo "Access granted."
+
+      - name: Add reaction
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          gh api \
+            repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
+            -f content='eyes' || true
+
+      - name: Parse command
+        id: parse
+        run: |
+          BODY="${{ github.event.comment.body }}"
+          # Get first line, strip /claudebox prefix
+          CMD=$(echo "$BODY" | head -1 | sed 's|^/claudebox[[:space:]]*||')
+
+          # First word is the script name
+          SCRIPT_NAME=$(echo "$CMD" | awk '{print $1}')
+          # Rest are arguments
+          SCRIPT_ARGS=$(echo "$CMD" | sed "s/^$SCRIPT_NAME[[:space:]]*//" || true)
+
+          echo "script_name=$SCRIPT_NAME" >> "$GITHUB_OUTPUT"
+          echo "script_args=$SCRIPT_ARGS" >> "$GITHUB_OUTPUT"
+          echo "Parsed: script=$SCRIPT_NAME args=$SCRIPT_ARGS"
+
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          sparse-checkout: .claude/scripts
+          sparse-checkout-cone-mode: false
+
+      - name: Validate script exists
+        run: |
+          SCRIPT=".claude/scripts/${{ steps.parse.outputs.script_name }}"
+          if [ ! -f "$SCRIPT" ]; then
+            echo "ERROR: Script not found: $SCRIPT"
+            echo "Available scripts:"
+            ls .claude/scripts/ | grep -v '\.py$' || echo "  (none)"
+            exit 1
+          fi
+          echo "Script validated: $SCRIPT"
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.CLAUDEBOX_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ vars.CLAUDEBOX_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run ClaudeBox
+        # Support 2 hour runs in case a claude command wants to wait on a long job.
+        timeout-minutes: 120
+        env:
+          CLAUDEBOX_HOST: ${{ vars.CLAUDEBOX_HOST }}
+          CLAUDEBOX_USER: ${{ vars.CLAUDEBOX_USER || 'claude' }}
+        run: |
+          # Claude handles its own communication (gh comments, PRs, etc.)
+          # We just fire the SSH call and let it run.
+          ssh -o ConnectTimeout=10 -o ServerAliveInterval=30 \
+            "${CLAUDEBOX_USER}@${CLAUDEBOX_HOST}" \
+            "~/claudeentry.sh '${{ steps.parse.outputs.script_name }}' ${{ steps.parse.outputs.script_args }} --comment-id=${{ github.event.comment.id }} --repo=${{ github.repository }}"
