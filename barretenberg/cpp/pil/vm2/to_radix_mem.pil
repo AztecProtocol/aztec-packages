@@ -4,6 +4,42 @@ include "precomputed.pil";
 include "memory.pil";
 
 /**
+ * This is not a re-usable gadget but is dedicated to implement the TORADIXBE opcode logic. The only
+ * caller is the execution trace ([DISPATCH_TO_TO_RADIX_MEM] in execution.pil).
+ *
+ * Usage:
+ *
+ * sel_exec_dispatch_to_radix {
+ *       clk,
+ *       context_id,
+ *       register[0],
+ *       register[1],
+ *       register[2],
+ *       register[3],
+ *       rop[4],
+ *       sel_opcode_error
+ * } is to_radix_mem.start {
+ *       to_radix_mem.execution_clk,
+ *       to_radix_mem.space_id,
+ *       to_radix_mem.value_to_decompose,
+ *       to_radix_mem.radix,
+ *       to_radix_mem.num_limbs,
+ *       to_radix_mem.is_output_bits,
+ *       to_radix_mem.dst_addr,
+ *       to_radix_mem.err
+ * };
+ *
+ * Inputs:
+ * - clk: Clock cycle. (32-bit) Row index of corresponding opcode in the execution trace.
+ * - context_id: Context identifier. (16-bit) Identifier for the context of the opcode.
+ * - register[0]: value_to_decompose (FF value to be decomposed)
+ * - register[1]: radix (U32 radix to decompose value by)
+ * - register[2]: num_limbs (U32 number of limbs to decompose into)
+ * - register[3]: is_output_bits (boolean telling whether output should be U1 or U8)
+ * - rop[4]: dst_addr (destination address to write the decomposition to)
+ * Output:
+ * - sel_opcode_error: Error selector.Boolean selector for the error.
+ *
  * This handles the memory writes when the TORADIXBE opcode is executed by user code.
  * The reads are loaded and tag validated by the registers in the execution trace.
  * This trace writes a sequence of U1s or U8s (depending on the boolean is_output_bits) to the addresses
