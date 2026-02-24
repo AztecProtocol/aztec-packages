@@ -6,3 +6,4 @@ Flask-HTTPAuth
 requests
 google-cloud-bigquery
 boto3
+pytest
