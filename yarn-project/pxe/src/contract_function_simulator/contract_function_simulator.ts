@@ -689,6 +689,7 @@ function squashTransientSideEffects(
     scopedNullifiersCLA,
     /*futureNoteHashReads=*/ [],
     /*futureNullifierReads=*/ [],
+    /*futureLogs=*/ [],
     noteHashNullifierCounterMap,
     minRevertibleSideEffectCounter,
   );
@@ -731,16 +732,8 @@ async function verifyReadRequests(
     nullifierReadRequests.length,
   );
 
-  const noteHashResetActions = getNoteHashReadRequestResetActions(
-    noteHashReadRequestsCLA,
-    scopedNoteHashesCLA,
-    /*futureNoteHashes=*/ [],
-  );
-  const nullifierResetActions = getNullifierReadRequestResetActions(
-    nullifierReadRequestsCLA,
-    scopedNullifiersCLA,
-    /*futureNullifiers=*/ [],
-  );
+  const noteHashResetActions = getNoteHashReadRequestResetActions(noteHashReadRequestsCLA, scopedNoteHashesCLA);
+  const nullifierResetActions = getNullifierReadRequestResetActions(nullifierReadRequestsCLA, scopedNullifiersCLA);
 
   const settledNoteHashReads: { index: number; value: Fr }[] = [];
   for (let i = 0; i < noteHashResetActions.actions.length; i++) {
