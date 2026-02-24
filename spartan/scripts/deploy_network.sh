@@ -67,7 +67,6 @@ LABS_INFRA_INDICES=${LABS_INFRA_INDICES:-0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1
 ########################
 # ROLLUP VARIABLES
 ########################
-REDEPLOY_ROLLUP_CONTRACTS=${REDEPLOY_ROLLUP_CONTRACTS:-false}
 CREATE_ROLLUP_CONTRACTS=${CREATE_ROLLUP_CONTRACTS:-true}
 SPONSORED_FPC=${SPONSORED_FPC:-true}
 TEST_ACCOUNTS=${TEST_ACCOUNTS:-false}
@@ -196,6 +195,12 @@ P2P_GOSSIPSUB_DLO=${P2P_GOSSIPSUB_DLO:-4}
 P2P_GOSSIPSUB_DHI=${P2P_GOSSIPSUB_DHI:-12}
 
 P2P_DROP_TX_CHANCE=${P2P_DROP_TX_CHANCE:-0}
+
+# Chaos mesh scenarios values file (e.g., "network-requirements.yaml")
+# If set, the experiment is installed after Aztec infra, rules are injected,
+# then all pods are restarted so they come up clean with partition rules active.
+# Requires the chaos mesh operator to already be running (see deploy_chaos_mesh.sh).
+CHAOS_MESH_SCENARIOS_FILE=${CHAOS_MESH_SCENARIOS_FILE:-}
 
 # Compute validator addresses (skip if no validators)
 if [[ $VALIDATOR_REPLICAS -gt 0 ]]; then
@@ -361,7 +366,7 @@ fi
 # Check for ETHERSCAN_API_KEY when VERIFY_CONTRACTS is enabled
 # Contract verification happens automatically in the yarn-project code when on mainnet/sepolia
 # and ETHERSCAN_API_KEY is set. This check ensures we fail early if verification is expected.
-if [[ "${VERIFY_CONTRACTS:-}" == "true" && ("${CREATE_ROLLUP_CONTRACTS}" == "true" || "${REDEPLOY_ROLLUP_CONTRACTS}" == "true") && -z "${ETHERSCAN_API_KEY:-}" ]]; then
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" && -z "${ETHERSCAN_API_KEY:-}" ]]; then
   die "Error: ETHERSCAN_API_KEY is not set but VERIFY_CONTRACTS=true. Contract verification requires an Etherscan API key. Set ETHERSCAN_API_KEY environment variable."
 fi
 
@@ -370,7 +375,7 @@ DEPLOY_ROLLUP_CONTRACTS_DIR="${SCRIPT_DIR}/../terraform/deploy-rollup-contracts"
 "${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-rollup-contracts"
 
 # Handle ETHERSCAN_API_KEY - only set when deploying or redeploying contracts
-if [[ "${VERIFY_CONTRACTS:-}" == "true" && ("${CREATE_ROLLUP_CONTRACTS}" == "true" || "${REDEPLOY_ROLLUP_CONTRACTS}" == "true") ]]; then
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" ]]; then
   ETHERSCAN_API_KEY_TF="\"${ETHERSCAN_API_KEY:-}\""
 else
   ETHERSCAN_API_KEY_TF=null
@@ -428,11 +433,11 @@ EXISTING_REGISTRY=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -ra
 if [[ "${USE_NETWORK_CONFIG:-false}" == "true" ]]; then
     log "Using network configuration, skipping contracts deployment"
 else
-  if [[ -n "${EXISTING_REGISTRY}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
+  if [[ -n "${EXISTING_REGISTRY}" && "${CREATE_ROLLUP_CONTRACTS}" != "true" ]]; then
     log "Contracts already deployed (registry=${EXISTING_REGISTRY}), skipping deployment"
   else
-    if [[ "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" ]]; then
-      log "REDEPLOY_ROLLUP_CONTRACTS=true, destroying existing deployment"
+    if [[ "${CREATE_ROLLUP_CONTRACTS}" == "true" ]]; then
+      log "CREATE_ROLLUP_CONTRACTS=true, destroying existing deployment"
       k8s_denoise "terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" destroy -auto-approve"
     fi
     k8s_denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} plan -out=tfplan"
@@ -617,6 +622,47 @@ EOF
 k8s_denoise "tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}""
 STAGE_TIMINGS[aztec_infra]=$(($(date +%s) - AZTEC_INFRA_START))
 log "Deployed aztec infra"
+
+# -------------------------------------------------------
+# Optionally install chaos mesh scenarios after Aztec infra
+# -------------------------------------------------------
+# Chaos Mesh resolves pod selectors at experiment creation time, so the target
+# pods must already exist. The chaos-daemon injects iptables DROP rules into
+# each matched pod's network namespace. For partition experiments, this
+# immediately blocks packets between the partitioned pods, causing existing
+# TCP connections to timeout and preventing new ones from forming.
+#
+# IMPORTANT: Do NOT restart pods after chaos injection. Chaos Mesh does not
+# automatically re-inject rules into recreated pods, leaving them unpartitioned.
+if [[ -n "${CHAOS_MESH_SCENARIOS_FILE}" ]]; then
+  CHAOS_SCENARIOS_DIR="${SCRIPT_DIR}/../aztec-chaos-scenarios"
+  log "Installing chaos mesh scenarios from ${CHAOS_MESH_SCENARIOS_FILE}"
+  helm upgrade --install network-shaping "${CHAOS_SCENARIOS_DIR}" \
+    --namespace "${NAMESPACE}" \
+    --values "${CHAOS_SCENARIOS_DIR}/values/${CHAOS_MESH_SCENARIOS_FILE}" \
+    --set "global.targetNamespace=${NAMESPACE}" \
+    --wait --timeout=5m
+  log "Chaos mesh scenarios installed, waiting for rules to be injected..."
+
+  # Wait for all NetworkChaos experiments to have their rules injected.
+  # The AllInjected condition confirms iptables rules are active on every matched pod.
+  CHAOS_WAIT_TIMEOUT=120
+  CHAOS_WAITED=0
+  while true; do
+    NOT_INJECTED=$(kubectl get networkchaos -n "${NAMESPACE}" -o jsonpath='{range .items[*]}{.status.conditions[?(@.type=="AllInjected")].status}{"\n"}{end}' 2>/dev/null | grep -c "False" || true)
+    if [[ "${NOT_INJECTED}" -eq 0 ]]; then
+      log "All chaos mesh rules injected"
+      break
+    fi
+    if [[ "${CHAOS_WAITED}" -ge "${CHAOS_WAIT_TIMEOUT}" ]]; then
+      log "WARNING: Timed out waiting for chaos mesh injection after ${CHAOS_WAIT_TIMEOUT}s (${NOT_INJECTED} experiments not yet injected)"
+      break
+    fi
+    sleep 5
+    CHAOS_WAITED=$((CHAOS_WAITED + 5))
+  done
+  log "Chaos mesh partition active — existing connections will break as packets are dropped"
+fi
 
 # Calculate total deployment time
 DEPLOY_END_TIME=$(date +%s)

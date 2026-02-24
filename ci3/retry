@@ -20,7 +20,7 @@ for i in $(seq 1 $ATTEMPTS); do
   wait $pid
   code=$?
   [ $code -eq 0 ] || [ $code -eq 143 ] && exit 0
-  [ "$i" != "$ATTEMPTS" ] && sleep 5
+  [ "$i" != "$ATTEMPTS" ] && sleep ${RETRY_SLEEP:-5}
 done
 
 >&2 echo "Failed after $ATTEMPTS attempts: $1"

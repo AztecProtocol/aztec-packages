@@ -59,10 +59,11 @@ import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
+import {TestConstants} from "../harnesses/TestConstants.sol";
 
 // solhint-disable comprehensive-interface
 
-uint256 constant MANA_TARGET = 100_000_000;
+uint256 constant MANA_TARGET = TestConstants.AZTEC_MANA_TARGET;
 
 contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   using stdStorage for StdStorage;

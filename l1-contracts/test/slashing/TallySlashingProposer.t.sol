@@ -605,9 +605,8 @@ contract TallySlashingProposerTest is TestBase {
 
   function test_getVotesRevertsForOutOfRangeRound() public {
     // Test that getVotes reverts for rounds outside the valid roundabout range.
-    // Before the range check was added to _getRoundVotes, getVotes would silently
-    // return whatever stale data was at the storage slot - potentially data from
-    // a completely different round that mapped to the same circular index.
+    // getVotes routes through _getRoundData for range validation before loading
+    // vote slots, so out-of-range round reads should always revert.
     _jumpToSlashRound(10);
     SlashRound baseRound = slashingProposer.getCurrentRound();
 
@@ -668,6 +667,47 @@ contract TallySlashingProposerTest is TestBase {
     bytes memory emptyVote = new bytes(expectedLength);
     bytes memory result = slashingProposer.getVotes(staleRound, 0);
     assertEq(result, emptyVote, "getVotes should return empty bytes for stale round");
+  }
+
+  function test_getVotesReturnsEmptyForUnwrittenIndexInCurrentRound() public {
+    // Populate two vote indices in a base round.
+    _jumpToSlashRound(10);
+    SlashRound baseRound = slashingProposer.getCurrentRound();
+
+    uint8[] memory firstVote = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+    firstVote[0] = 3;
+    _castVote(firstVote);
+
+    timeCheater.cheat__progressSlot();
+
+    uint8[] memory secondVote = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+    secondVote[1] = 2;
+    secondVote[2] = 1;
+    _castVote(secondVote);
+
+    bytes memory secondVoteData = _createVoteData(secondVote);
+    assertEq(slashingProposer.getVotes(baseRound, 1), secondVoteData, "Base round index 1 should be populated");
+
+    // Jump to a round that maps to the same circular slot and cast only one vote.
+    uint256 roundaboutSize = slashingProposer.ROUNDABOUT_SIZE();
+    SlashRound overlappingRound = SlashRound.wrap(SlashRound.unwrap(baseRound) + roundaboutSize);
+    _jumpToSlashRound(SlashRound.unwrap(overlappingRound));
+
+    uint8[] memory overlappingVote = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+    overlappingVote[0] = 1;
+    _castVote(overlappingVote);
+
+    (, uint256 voteCount) = slashingProposer.getRound(overlappingRound);
+    assertEq(voteCount, 1, "Overlapping round should have exactly one vote");
+
+    // Reading index 1 must return empty bytes, not stale bytes from baseRound index 1.
+    uint256 expectedLength = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4;
+    bytes memory emptyVote = new bytes(expectedLength);
+    assertEq(
+      slashingProposer.getVotes(overlappingRound, 1),
+      emptyVote,
+      "getVotes should return empty bytes for unwritten vote index"
+    );
   }
 
   function test_getVotesRevertsForFutureRound() public {

@@ -48,6 +48,8 @@ export type PublisherConfig = L1TxUtilsConfig &
     fishermanMode?: boolean;
     /** Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only) */
     publisherForwarderAddress?: EthAddress;
+    /** Store for failed L1 transaction inputs (test networks only). Format: gs://bucket/path */
+    l1TxFailedStore?: string;
   };
 
 export type ProverPublisherConfig = L1TxUtilsConfig &
@@ -62,6 +64,8 @@ export type SequencerPublisherConfig = L1TxUtilsConfig &
     fishermanMode?: boolean;
     sequencerPublisherAllowInvalidStates?: boolean;
     sequencerPublisherForwarderAddress?: EthAddress;
+    /** Store for failed L1 transaction inputs (test networks only). Format: gs://bucket/path */
+    l1TxFailedStore?: string;
   };
 
 export function getPublisherConfigFromProverConfig(config: ProverPublisherConfig): PublisherConfig {
@@ -77,6 +81,7 @@ export function getPublisherConfigFromSequencerConfig(config: SequencerPublisher
     ...config,
     publisherAllowInvalidStates: config.sequencerPublisherAllowInvalidStates,
     publisherForwarderAddress: config.sequencerPublisherForwarderAddress,
+    l1TxFailedStore: config.l1TxFailedStore,
   };
 }
 
@@ -132,6 +137,10 @@ export const sequencerPublisherConfigMappings: ConfigMappingsType<SequencerPubli
     env: `SEQ_PUBLISHER_FORWARDER_ADDRESS`,
     description: 'Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)',
     parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
+  },
+  l1TxFailedStore: {
+    env: 'L1_TX_FAILED_STORE',
+    description: 'Store for failed L1 transaction inputs (test networks only). Format: gs://bucket/path',
   },
 };
 
