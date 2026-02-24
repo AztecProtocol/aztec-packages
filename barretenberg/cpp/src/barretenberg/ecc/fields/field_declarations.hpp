@@ -483,8 +483,11 @@ template <class Params_> struct alignas(32) field {
      * hold k2. This function will be called in either the BN254 base/scalar field
      * or the generic, secp256k1 branch.
      */
-    static field compute_endomorphism_k2(const field& input)
+    static field compute_endomorphism_k2(const field& k)
     {
+        // force into strict form.
+        field input = k.reduce_once();
+
         constexpr field endo_g1 = { Params::endo_g1_lo, Params::endo_g1_mid, Params::endo_g1_hi, 0 };
         constexpr field endo_g2 = { Params::endo_g2_lo, Params::endo_g2_mid, 0, 0 };
         constexpr field endo_minus_b1 = { Params::endo_minus_b1_lo, Params::endo_minus_b1_mid, 0, 0 };
@@ -523,17 +526,16 @@ template <class Params_> struct alignas(32) field {
      */
     static void split_into_endomorphism_scalars(const field& k, field& k1, field& k2)
     {
-        field input = k.reduce_once();
         if constexpr (Params::modulus_3 < MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
-            // BN254 base or scalar field: use 128-bit path with negative-k2 fix.
-            auto ret = split_into_endomorphism_scalars(input);
+            // BN254 base or scalar field: use path that corresponds to 128-bit outputs.
+            auto ret = split_into_endomorphism_scalars(k);
             k1 = { ret.first[0], ret.first[1], 0, 0 };
             k2 = { ret.second[0], ret.second[1], 0, 0 };
         } else {
             // Large modulus (secp256k1): full-width path.
-            field t1 = compute_endomorphism_k2(input);
+            field t1 = compute_endomorphism_k2(k);
             k2 = t1;
-            k1 = ((t1 * cube_root_of_unity()) + input).reduce_once();
+            k1 = ((t1 * cube_root_of_unity()) + k).reduce_once();
         }
     }
 
@@ -549,7 +551,7 @@ template <class Params_> struct alignas(32) field {
      * are just the base and scalar fields of BN254. These are the only "small modulus" fields, so we use a static
      * assert to force this.
      *
-     * Assumes that the input is in strict form, i.e., in the range [0, p).
+     * Does NOT assume that the input is reduced
      */
     static std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>> split_into_endomorphism_scalars(const field& k)
     {
