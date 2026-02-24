@@ -15,7 +15,7 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 
 | Parameter | Ignition (Mainnet) | Testnet | Devnet |
 |-----------|-------------------|---------|--------|
-| **Version** | `2.1.11` | `3.0.3` | `4.0.0-devnet.2-patch.0` |
+| **Version** | `2.1.11` | `3.0.3` | `4.0.0-devnet.2-patch.1` |
 | **L1 Chain ID** | `1` (Mainnet) | `11155111` (Sepolia) | `11155111` (Sepolia) |
 | **Rollup Version** | `0` | `2500495677` | `615022430` |
 | **RPC Endpoint** | N/A | `https://rpc.testnet.aztec-labs.com` | `https://v4-devnet-2.aztec-labs.com/` |
