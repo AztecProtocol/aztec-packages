@@ -76,7 +76,7 @@ EOF
       echo $root/barretenberg/ts
       $root/noir/bootstrap.sh get_projects
       $root/yarn-project/bootstrap.sh get_projects
-    } | parallel --tag -k --line-buffer --halt now,fail=1 "retry 'cd {} && dump_fail \"deploy_npm latest $version\"'"
+    } | parallel --tag --line-buffer --halt now,fail=1 "retry 'cd {} && dump_fail \"deploy_npm latest $version\" >/dev/null'"
 
     # Prime the verdaccio cache by installing the packages we'll use in tests.
     # This fetches all transitive dependencies from npmjs and caches them locally.
