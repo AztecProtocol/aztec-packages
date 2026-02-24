@@ -118,6 +118,19 @@ def _json(data):
     return Response(json.dumps(data), mimetype='application/json')
 
 
+_TEN_DAYS = 10 * 24 * 3600
+
+
+def _cache_ttl(date_to: str) -> int:
+    """Return 10-day TTL for historical ranges (date_to < today), else 5 min."""
+    try:
+        if datetime.strptime(date_to, '%Y-%m-%d').date() < datetime.now().date():
+            return _TEN_DAYS
+    except ValueError:
+        pass
+    return 300
+
+
 # ---- Author mapping: git display name → GitHub username ----
 
 _author_map = {}
@@ -574,6 +587,9 @@ def api_ci_performance():
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     dashboard = request.args.get('dashboard', '')
     granularity = request.args.get('granularity', 'daily')
+    _ck = f'perf:{date_from}:{date_to}:{dashboard}:{granularity}'
+    if cached := db.cache_get(_ck):
+        return _json(cached)
     _t0 = time.perf_counter()
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
@@ -752,6 +768,7 @@ def api_ci_performance():
         },
     }
     print(f"[perf] ci_performance {date_from}..{date_to} | get_ci_runs={_t1-_t0:.3f}s db_queries={_t2-_t1:.3f}s agg={_t3-_t2:.3f}s top_flakes={_t4-_t3:.3f}s total={_t4-_t0:.3f}s", flush=True)
+    db.cache_set(_ck, _result, _cache_ttl(date_to))
     return _json(_result)
 
 
@@ -787,6 +804,9 @@ def api_pr_metrics():
     date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     author = request.args.get('author', '')
+    _ck = f'pr_metrics:{date_from}:{date_to}:{author}'
+    if cached := db.cache_get(_ck):
+        return _json(cached)
     _t0 = time.perf_counter()
     ts_from = int(datetime.strptime(date_from, '%Y-%m-%d').timestamp() * 1000)
     ts_to = int((datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)).timestamp() * 1000)
@@ -795,6 +815,7 @@ def api_pr_metrics():
     _result = github_data.get_pr_metrics(date_from, date_to, author, ci_runs)
     _t2 = time.perf_counter()
     print(f"[perf] pr_metrics {date_from}..{date_to} | get_ci_runs={_t1-_t0:.3f}s get_pr_metrics={_t2-_t1:.3f}s total={_t2-_t0:.3f}s", flush=True)
+    db.cache_set(_ck, _result, _cache_ttl(date_to))
     return _json(_result)
 
 
@@ -803,10 +824,14 @@ def api_pr_metrics():
 def api_merge_queue_stats():
     date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
+    _ck = f'mq_stats:{date_from}:{date_to}'
+    if cached := db.cache_get(_ck):
+        return _json(cached)
     _t0 = time.perf_counter()
     _result = github_data.get_merge_queue_stats(date_from, date_to)
     _t1 = time.perf_counter()
     print(f"[perf] merge_queue_stats {date_from}..{date_to} | get_merge_queue_stats={_t1-_t0:.3f}s total={_t1-_t0:.3f}s", flush=True)
+    db.cache_set(_ck, _result, _cache_ttl(date_to))
     return _json(_result)
 
 
@@ -833,12 +858,16 @@ def api_flakes_by_command():
     date_from = request.args.get('from', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     dashboard = request.args.get('dashboard', '')
+    _ck = f'flakes:{date_from}:{date_to}:{dashboard}'
     _t0 = time.perf_counter()
     metrics.sync_failed_tests_to_sqlite(r)
     _t1 = time.perf_counter()
+    if cached := db.cache_get(_ck):
+        return _json(cached)
     _result = metrics.get_flakes_by_command(date_from, date_to, dashboard)
     _t2 = time.perf_counter()
     print(f"[perf] flakes_by_command {date_from}..{date_to} | sync={_t1-_t0:.3f}s get_flakes={_t2-_t1:.3f}s total={_t2-_t0:.3f}s", flush=True)
+    db.cache_set(_ck, _result, _cache_ttl(date_to))
     return _json(_result)
 
 
@@ -852,10 +881,14 @@ def api_ci_phases():
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     dashboard = request.args.get('dashboard', '')
     run_id = request.args.get('run_id', '')
+    _ck = f'phases:{date_from}:{date_to}:{dashboard}:{run_id}'
+    if cached := db.cache_get(_ck):
+        return _json(cached)
     _t0 = time.perf_counter()
     _result = metrics.get_phases(date_from, date_to, dashboard, run_id)
     _t1 = time.perf_counter()
     print(f"[perf] ci_phases {date_from}..{date_to} | get_phases={_t1-_t0:.3f}s total={_t1-_t0:.3f}s", flush=True)
+    db.cache_set(_ck, _result, _cache_ttl(date_to))
     return _json(_result)
 
 
@@ -870,6 +903,10 @@ def api_test_timings():
     dashboard = request.args.get('dashboard', '')
     status = request.args.get('status', '')  # filter to specific status
     test_cmd = request.args.get('test_cmd', '')  # filter to specific test
+    _ck = f'timings:{date_from}:{date_to}:{dashboard}:{status}:{test_cmd}'
+    _ttl = _cache_ttl(date_to)
+    if cached := db.cache_get(_ck):
+        return _json(cached)
     _t0 = time.perf_counter()
 
     # Base WHERE for test_daily_stats
@@ -1000,7 +1037,7 @@ def api_test_timings():
     _t3 = time.perf_counter()
 
     print(f"[perf] test_timings {date_from}..{date_to} | by_test={_t1-_t0:.3f}s by_date={_t2-_t1:.3f}s slowest={_t3-_t2:.3f}s total={_t3-_t0:.3f}s", flush=True)
-    return _json({
+    _result = {
         'by_test': by_test,
         'by_date': by_date,
         'slowest': slowest,
@@ -1014,7 +1051,9 @@ def api_test_timings():
             'failed': total_failed,
             'flaked': total_flaked,
         },
-    })
+    }
+    db.cache_set(_ck, _result, _ttl)
+    return _json(_result)
 
 
 # ---- Dashboard views ----
