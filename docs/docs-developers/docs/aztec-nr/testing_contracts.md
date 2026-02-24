@@ -44,9 +44,23 @@ aztec test
 Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires the TXE (Test eXecution Environment) oracle resolver.
 :::
 
+## Keep tests in the test crate
+
+When you create a project with `aztec new` or `aztec init`, the generated workspace has two crates: `contract` and `test`. It is important that all tests live in the `test` crate, **not** in the `contract` crate.
+
+If you place `#[test]` functions inside the contract crate, `aztec compile` will emit a warning:
+
+```
+WARNING: Found tests in contract crate(s):
+  my_contract::test_something
+Tests should be in a dedicated test crate, not in the contract crate.
+```
+
+The reason is **unnecessary recompilation**: the contract artifact depends on everything inside the contract crate. If tests live there too, editing a test changes the crate and forces the contract to be recompiled and reprocessed, even though the contract logic itself has not changed. By keeping tests in a separate crate, you can iterate on tests without triggering a full contract rebuild.
+
 ## Basic test structure
 
-When you create a project with `aztec new` or `aztec init`, a separate `test` crate is created alongside the `contract` crate. Tests live in `test/src/lib.nr` and import the contract crate by name (not `crate::`):
+Tests live in `test/src/lib.nr` and import the contract crate by name (not `crate::`):
 
 ```rust
 use my_contract::MyContract;

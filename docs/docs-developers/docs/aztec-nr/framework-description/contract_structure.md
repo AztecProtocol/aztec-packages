@@ -27,6 +27,10 @@ When you create a new project with `aztec new`, it generates a workspace with tw
 
 The workspace root `Nargo.toml` declares both crates as workspace members. The contract code lives in `contract/src/main.nr`, and tests live in a separate `test` crate that depends on the contract crate.
 
+:::warning Keep tests out of the contract crate
+Do not add `#[test]` functions to the `contract` crate. Because the contract artifact depends on everything in its crate, any change — including a test-only change — forces a full recompilation of the contract. The separate `test` crate lets you iterate on tests without rebuilding the contract. See [Testing Contracts](../testing_contracts.md#keep-tests-in-the-test-crate) for details.
+:::
+
 See the vanilla Noir docs for [more info on packages](https://noir-lang.org/docs/noir/modules_packages_crates/crates_and_packages).
 
 ## Contract block
