@@ -56,21 +56,16 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
 
     beforeEach(() => {
       epochCache = epochCacheMock();
+      const mockView = {
+        getCommittee: (slot: any) => epochCache.getCommittee(slot),
+        getProposerAttesterAddressInSlot: (slot: any) => epochCache.getProposerAttesterAddressInSlot(slot),
+        isInCommittee: (slot: any, validator: any) => epochCache.isInCommittee(slot, validator),
+        filterInCommittee: (slot: any, validators: any[]) => epochCache.filterInCommittee(slot, validators),
+        toBaseSlot: (slot: any) => slot,
+      };
       epochCache.getViewFactory.mockReturnValue({
-        withProposerView: () => ({
-          getCommittee: slot => epochCache.getCommittee(slot),
-          getProposerAttesterAddressInSlot: slot => epochCache.getProposerAttesterAddressInSlot(slot),
-          isInCommittee: (slot, validator) => epochCache.isInCommittee(slot, validator),
-          filterInCommittee: (slot, validators) => epochCache.filterInCommittee(slot, validators),
-          toBaseSlot: slot => slot,
-        }),
-        withSubmissionView: () => ({
-          getCommittee: slot => epochCache.getCommittee(slot),
-          getProposerAttesterAddressInSlot: slot => epochCache.getProposerAttesterAddressInSlot(slot),
-          isInCommittee: (slot, validator) => epochCache.isInCommittee(slot, validator),
-          filterInCommittee: (slot, validators) => epochCache.filterInCommittee(slot, validators),
-          toBaseSlot: slot => slot,
-        }),
+        withProposerView: () => mockView,
+        withSubmissionView: () => mockView,
       });
       validator = validatorFactory(epochCache, { txsPermitted: true });
       epochCache.getCurrentAndNextSlot.mockReturnValue({

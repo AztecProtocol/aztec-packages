@@ -18,23 +18,16 @@ describe('CheckpointAttestationValidator', () => {
 
   beforeEach(() => {
     epochCache = mock<EpochCache>();
+    const view = {
+      getCommittee: epochCache.getCommittee,
+      getProposerAttesterAddressInSlot: epochCache.getProposerAttesterAddressInSlot,
+      isInCommittee: epochCache.isInCommittee,
+      filterInCommittee: epochCache.filterInCommittee,
+      toBaseSlot: (slot: SlotNumber) => slot,
+    };
     (epochCache.getViewFactory as jest.Mock).mockReturnValue({
-      withProposerView: () => ({
-        getCommittee: (slot: SlotNumber | 'now' | 'next' | undefined) => epochCache.getCommittee(slot),
-        getProposerAttesterAddressInSlot: (slot: SlotNumber) => epochCache.getProposerAttesterAddressInSlot(slot),
-        isInCommittee: (slot: SlotNumber | 'now' | 'next', validator) => epochCache.isInCommittee(slot, validator),
-        filterInCommittee: (slot: SlotNumber | 'now' | 'next', validators) =>
-          epochCache.filterInCommittee(slot, validators),
-        toBaseSlot: (slot: SlotNumber) => slot,
-      }),
-      withSubmissionView: () => ({
-        getCommittee: (slot: SlotNumber | 'now' | 'next' | undefined) => epochCache.getCommittee(slot),
-        getProposerAttesterAddressInSlot: (slot: SlotNumber) => epochCache.getProposerAttesterAddressInSlot(slot),
-        isInCommittee: (slot: SlotNumber | 'now' | 'next', validator) => epochCache.isInCommittee(slot, validator),
-        filterInCommittee: (slot: SlotNumber | 'now' | 'next', validators) =>
-          epochCache.filterInCommittee(slot, validators),
-        toBaseSlot: (slot: SlotNumber) => slot,
-      }),
+      withProposerView: () => view,
+      withSubmissionView: () => view,
     });
     validator = new CheckpointAttestationValidator(epochCache);
     proposer = Secp256k1Signer.random();
