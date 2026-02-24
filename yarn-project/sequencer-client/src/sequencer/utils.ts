@@ -7,8 +7,6 @@ export enum SequencerState {
   IDLE = 'IDLE',
   /** Synchronizing with the L2 chain. */
   SYNCHRONIZING = 'SYNCHRONIZING',
-  /** Monitoring predecessor checkpoint data before starting build-ahead. */
-  MONITORING_PREDECESSOR = 'MONITORING_PREDECESSOR',
   /** Checking if we are the proposer for the current slot. */
   PROPOSER_CHECK = 'PROPOSER_CHECK',
   /** Initializing the checkpoint proposal. */
@@ -35,8 +33,7 @@ export type SequencerStateWithSlot =
   | SequencerState.COLLECTING_ATTESTATIONS
   | SequencerState.PUBLISHING_CHECKPOINT
   | SequencerState.PROPOSER_CHECK
-  | SequencerState.ASSEMBLING_CHECKPOINT
-  | SequencerState.MONITORING_PREDECESSOR;
+  | SequencerState.ASSEMBLING_CHECKPOINT;
 
 export type SequencerStateCallback = () => SequencerState;
 

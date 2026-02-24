@@ -504,14 +504,14 @@ export const SEQUENCER_CHECKPOINT_SUCCESS_COUNT: MetricDefinition = {
   description: 'The number of times checkpoint publishing succeeded',
   valueType: ValueType.INT,
 };
-export const SEQUENCER_BUILD_AHEAD_SPECULATIVE_DEPTH: MetricDefinition = {
-  name: 'aztec.sequencer.build_ahead.speculative_depth',
-  description: 'Current speculative depth when build-ahead is enabled',
+export const SEQUENCER_PIPELINE_DEPTH: MetricDefinition = {
+  name: 'aztec.sequencer.pipeline.depth',
+  description: 'Current pipeline depth when builder pipelining is enabled',
   valueType: ValueType.INT,
 };
 export const SEQUENCER_BUILD_AHEAD_SPECULATIVE_DISCARDS_COUNT: MetricDefinition = {
-  name: 'aztec.sequencer.build_ahead.speculative_discards_count',
-  description: 'The number of times speculative blocks were discarded',
+  name: 'aztec.sequencer.pipeline.discards_count',
+  description: 'The number of times a pipeline was discarded',
   valueType: ValueType.INT,
 };
 
