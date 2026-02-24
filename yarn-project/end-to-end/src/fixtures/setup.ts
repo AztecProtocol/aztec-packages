@@ -277,8 +277,7 @@ export async function setup(
     opts.aztecTargetCommitteeSize ??= 0;
     opts.slasherFlavor ??= 'none';
 
-    const ciOverride = getCITimingOverride();
-    const config: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts, ...ciOverride };
+    const config: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
     // use initialValidators for the node config
     config.validatorPrivateKeys = new SecretValue(opts.initialValidators?.map(v => v.privateKey) ?? []);
 
