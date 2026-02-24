@@ -77,6 +77,7 @@ cid=$(docker run -d \
   -e TMPFS_SIZE \
   -e USE_HOME_TMP \
   -e AVM \
+  -e ELU_MONITOR_FILE \
   "${arg_env_vars[@]}" \
   aztecprotocol/build:3.0 \
   /bin/bash -c "$cmd")
