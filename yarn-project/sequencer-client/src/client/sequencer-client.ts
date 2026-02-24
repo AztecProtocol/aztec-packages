@@ -107,12 +107,12 @@ export class SequencerClient {
       deps.epochCache ??
       (await EpochCache.create(
         config.l1Contracts.rollupAddress,
+        config.enableProposerPipelining ?? false,
         {
           l1RpcUrls: rpcUrls,
           l1ChainId: chainId,
           viemPollingIntervalMS: config.viemPollingIntervalMS,
           ethereumSlotDuration: config.ethereumSlotDuration,
-          enableProposerPipelining: config.enableProposerPipelining,
         },
         { dateProvider: deps.dateProvider },
       ));

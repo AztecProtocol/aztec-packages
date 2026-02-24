@@ -144,21 +144,6 @@ describe('EpochCache', () => {
     expect(nextNextProposer).toEqual(testCommittee[0]);
   });
 
-  it('collapses proposer view to submission view when proposer pipelining is disabled', () => {
-    const proposerView = epochCache.getViewFactory().withProposerView();
-    expect(proposerView.toBaseSlot(SlotNumber(1))).toBe(SlotNumber(1));
-  });
-
-  it('maps proposer view to submissionSlot - 1 when proposer pipelining is enabled', async () => {
-    epochCache.setProposerPipeliningEnabled(false);
-    const proposerView = epochCache.getViewFactory().withProposerView();
-    const spy = jest.spyOn(epochCache, 'getProposerAttesterAddressInSlot');
-
-    await proposerView.getProposerAttesterAddressInSlot(SlotNumber(1));
-
-    expect(spy).toHaveBeenCalledWith(SlotNumber(0));
-  });
-
   it('should request to update the validator set when on the epoch boundary', async () => {
     // Set initial time to a known slot
     const initialTime = Number(l1GenesisTime) * 1000; // Convert to milliseconds
@@ -298,5 +283,24 @@ describe('EpochCache', () => {
     await expect(epochCache.getCommittee(SlotNumber.fromBigInt(futureSlot))).rejects.toThrow(
       /Cannot query committee for future epoch.*with timestamp.*\(current L1 time is/,
     );
+  });
+
+  describe('proposer pipelining', () => {
+    it('collapses proposer view to submission view when proposer pipelining is disabled', () => {
+      epochCache.setProposerPipeliningEnabled(false);
+
+      const proposerView = epochCache.getViewFactory().withProposerView();
+      expect(proposerView.toBaseSlot(SlotNumber(1))).toBe(SlotNumber(1));
+    });
+
+    it('maps proposer view to submissionSlot - 1 when proposer pipelining is enabled', async () => {
+      epochCache.setProposerPipeliningEnabled(true);
+      const proposerView = epochCache.getViewFactory().withProposerView();
+      const spy = jest.spyOn(epochCache, 'getProposerAttesterAddressInSlot');
+
+      await proposerView.getProposerAttesterAddressInSlot(SlotNumber(1));
+
+      expect(spy).toHaveBeenCalledWith(SlotNumber(0));
+    });
   });
 });

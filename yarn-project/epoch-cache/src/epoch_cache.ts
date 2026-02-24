@@ -83,7 +83,7 @@ export class EpochCache implements EpochCacheInterface {
   private lastValidatorRefresh = 0;
   private readonly log: Logger = createLogger('epoch-cache');
 
-  private enableProposerPipelining = true;
+  private enableProposerPipelining;
 
   constructor(
     private rollup: RollupContract,
@@ -92,7 +92,7 @@ export class EpochCache implements EpochCacheInterface {
       lagInEpochsForRandao: number;
     },
     private readonly dateProvider: DateProvider = new DateProvider(),
-    protected readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60, enableProposerPipelining: true },
+    protected readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60, enableProposerPipelining: false },
   ) {
     this.enableProposerPipelining = this.config.enableProposerPipelining;
     this.log.debug(`Initialized EpochCache`, {
@@ -103,6 +103,7 @@ export class EpochCache implements EpochCacheInterface {
 
   static async create(
     rollupOrAddress: EthAddress | RollupContract,
+    enableProposerPipelining: boolean,
     config?: EpochCacheConfig,
     deps: { dateProvider?: DateProvider } = {},
   ) {
@@ -157,7 +158,7 @@ export class EpochCache implements EpochCacheInterface {
     return new EpochCache(rollup, l1RollupConstants, deps.dateProvider, {
       cacheSize: 12,
       validatorRefreshIntervalSeconds: 60,
-      enableProposerPipelining: config.enableProposerPipelining ?? true,
+      enableProposerPipelining: enableProposerPipelining ?? false,
     });
   }
 
@@ -420,6 +421,11 @@ export class EpochCache implements EpochCacheInterface {
   }
 }
 
+/**
+ * We have two views of the proposer schedule depending on which view we are looking at
+ * There is the Proposer View - this is pipelinined and one slot ahead of the Submission View
+ * There is the Submission View - the schedule according to L1
+ */
 class EpochCacheViewImpl implements EpochCacheView {
   constructor(
     private readonly epochCache: EpochCacheInterface,
