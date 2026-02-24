@@ -190,6 +190,9 @@ export interface P2PConfig
 
   /** Minimum age (ms) a transaction must have been in the pool before it's eligible for block building. */
   minTxPoolAgeMs: number;
+
+  /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
+  priceBumpPercentage: number;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -463,6 +466,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_MIN_TX_POOL_AGE_MS',
     description: 'Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.',
     ...numberConfigHelper(2_000),
+  },
+  priceBumpPercentage: {
+    env: 'P2P_RPC_PRICE_BUMP_PERCENTAGE',
+    description:
+      'Minimum percentage fee increase required to replace an existing tx via RPC. Set to 0 to disable price bumps.',
+    ...numberConfigHelper(10),
   },
   ...sharedSequencerConfigMappings,
   ...p2pReqRespConfigMappings,
