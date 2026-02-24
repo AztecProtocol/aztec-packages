@@ -29,8 +29,8 @@ import db
 # Basic-auth header for 'test:test'
 _AUTH = {'Authorization': 'Basic ' + base64.b64encode(b'test:test').decode()}
 
-YEAR_FROM = '2025-02-24'
-YEAR_TO = '2026-02-24'
+YEAR_FROM = '2025-02-23'
+YEAR_TO = '2026-02-23'
 
 ENDPOINTS = [
     f'/api/ci/performance?from={YEAR_FROM}&to={YEAR_TO}&granularity=daily',
@@ -45,8 +45,8 @@ def _seed():
     """Insert one year of synthetic data covering all 6 ci-insights endpoints."""
     conn = db.get_db()
     dashboards = ['next', 'prs', 'master']
-    start = date(2025, 2, 24)
-    end = date(2026, 2, 24)
+    start = date(2025, 2, 23)
+    end = date(2026, 2, 23)
     ts_base = int(time.mktime(start.timetuple())) * 1000
     ms_per_day = 86_400_000
 
