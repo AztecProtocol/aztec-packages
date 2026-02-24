@@ -9,7 +9,13 @@ import {
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import { type Capsule, HashedValues, type OffchainEffect, type TxProfileResult, type TxReceipt } from '@aztec/stdlib/tx';
+import {
+  type Capsule,
+  HashedValues,
+  type OffchainEffect,
+  type TxProfileResult,
+  type TxReceipt,
+} from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import { publishContractClass } from '../deployment/publish_class.js';
