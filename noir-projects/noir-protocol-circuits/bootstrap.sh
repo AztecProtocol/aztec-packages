@@ -174,7 +174,7 @@ function build {
       fi
     done | \
     parallel -v --line-buffer --tag --halt now,fail=1 --memsuspend $(memsuspend_limit) \
-      --joblog joblog.txt ci_phase "circuit:{}" compile {}
+      --joblog joblog.txt compile {}
   code=$?
   cat joblog.txt
   return $code
