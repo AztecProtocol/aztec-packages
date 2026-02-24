@@ -366,7 +366,7 @@ fi
 # Check for ETHERSCAN_API_KEY when VERIFY_CONTRACTS is enabled
 # Contract verification happens automatically in the yarn-project code when on mainnet/sepolia
 # and ETHERSCAN_API_KEY is set. This check ensures we fail early if verification is expected.
-if [[ "${VERIFY_CONTRACTS:-}" == "true" && ("${CREATE_ROLLUP_CONTRACTS}" == "true") && -z "${ETHERSCAN_API_KEY:-}" ]]; then
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" && -z "${ETHERSCAN_API_KEY:-}" ]]; then
   die "Error: ETHERSCAN_API_KEY is not set but VERIFY_CONTRACTS=true. Contract verification requires an Etherscan API key. Set ETHERSCAN_API_KEY environment variable."
 fi
 
@@ -375,7 +375,7 @@ DEPLOY_ROLLUP_CONTRACTS_DIR="${SCRIPT_DIR}/../terraform/deploy-rollup-contracts"
 "${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-rollup-contracts"
 
 # Handle ETHERSCAN_API_KEY - only set when deploying or redeploying contracts
-if [[ "${VERIFY_CONTRACTS:-}" == "true" && ("${CREATE_ROLLUP_CONTRACTS}" == "true") ]]; then
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" ]]; then
   ETHERSCAN_API_KEY_TF="\"${ETHERSCAN_API_KEY:-}\""
 else
   ETHERSCAN_API_KEY_TF=null
