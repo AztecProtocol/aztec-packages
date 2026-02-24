@@ -196,7 +196,30 @@ transactions are interacting with this soon-to-change variable.</p>
     <span class="comment">// do the action</span>
 }</code></pre>
 <h4>Cost</h4>
-<p>This function performs a single merkle tree inclusion proof, which is in the order of 4k gates.</p></div>
+<p>This function performs a historical public storage read (which is in the order of 4k gates), <strong>regardless of
+<code>T</code>'s packed length</strong>. This is because <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#schedule_value_change"><code>DelayedPublicMutable::schedule_value_change</code></a> stores not just the
+value but also its hash: this function obtains the preimage from an oracle and proves that it matches the hash
+from public storage.</p>
+<p>Because of this reason, if two mutable values are often privately read together it can be convenient to group
+them in a single type <code>T</code>. Note however that this will result in them sharing the mutation delay:</p>
+<pre><code><span class="comment">// Bad: reading both `paused` and `fee` will require two historical public storage reads</span>
+#[storage]
+<span class="kw">struct</span> Storage&lt;C&gt; {
+    paused: DelayedPublicMutable&lt;bool, INITIAL_DELAY_S, C&gt;,
+    fee: DelayedPublicMutable&lt;Field, INITIAL_DELAY_S, C&gt;,
+}
+
+<span class="comment">// Good: both `paused` and `fee` are retrieved in a single historical public storage read</span>
+#[derive(Packable)]
+<span class="kw">struct</span> Config {
+    paused: bool,
+    fee: Field,
+}
+
+#[storage]
+<span class="kw">struct</span> Storage&lt;Context&gt; {
+    config: DelayedPublicMutable&lt;Config, INITIAL_DELAY_S, Context&gt;,
+}</code></pre></div>
 </div></div><h3><code class="code-header">impl&lt;let InitialDelay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, T&gt; <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, <a href="../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="schedule_value_change" class="code-header">pub fn <a href="#schedule_value_change"><span class="fn">schedule_value_change</span></a>(self, new_value: T)
