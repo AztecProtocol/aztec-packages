@@ -61,9 +61,6 @@ template <typename Curve> class ShplonkProver_ {
                 max_poly_size = std::max(max_poly_size, claim.polynomial.size());
             }
         }
-        // No rounding needed: all operations on the quotient Q (factor_roots, add_scaled)
-        // are coefficient-wise and do not require dyadic polynomial sizes.
-
         // Q(X) = ∑ⱼ νʲ ⋅ ( fⱼ(X) − vⱼ) / ( X − xⱼ )
         Polynomial Q(max_poly_size);
         Polynomial tmp(max_poly_size);

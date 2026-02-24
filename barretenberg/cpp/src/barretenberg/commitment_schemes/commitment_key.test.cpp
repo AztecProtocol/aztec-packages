@@ -69,7 +69,7 @@ template <typename Curve> class CommitmentKeyTest : public ::testing::Test {
         for (size_t n : { size_t{ 10 }, size_t{ 100 }, size_t{ 1000 }, size_t{ 1234 } }) {
             CK ck(n);
 
-            EXPECT_EQ(ck.srs_size, n);
+            EXPECT_EQ(ck.srs_size, std::max(n, CK::minimum_crs_size()));
             // Note: get_monomial_size() may be >= n since it returns the underlying SRS size
             EXPECT_GE(ck.get_monomial_size(), n);
 
