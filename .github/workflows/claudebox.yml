@@ -32,18 +32,20 @@ jobs:
       - name: Parse command
         id: parse
         run: |
+          # Strip /claudebox prefix, first word = script name, rest = raw prompt
           BODY="${{ github.event.comment.body }}"
-          # Get first line, strip /claudebox prefix
-          CMD=$(echo "$BODY" | head -1 | sed 's|^/claudebox[[:space:]]*||')
-
-          # First word is the script name
+          CMD=$(echo "$BODY" | sed 's|^/claudebox[[:space:]]*||')
           SCRIPT_NAME=$(echo "$CMD" | awk '{print $1}')
-          # Rest are arguments
-          SCRIPT_ARGS=$(echo "$CMD" | sed "s/^$SCRIPT_NAME[[:space:]]*//" || true)
+          PROMPT=$(echo "$CMD" | sed "s|^$SCRIPT_NAME[[:space:]]*||")
 
           echo "script_name=$SCRIPT_NAME" >> "$GITHUB_OUTPUT"
-          echo "script_args=$SCRIPT_ARGS" >> "$GITHUB_OUTPUT"
-          echo "Parsed: script=$SCRIPT_NAME args=$SCRIPT_ARGS"
+          # Use heredoc delimiter for multi-line prompt safety
+          {
+            echo "prompt<<PROMPT_EOF"
+            echo "$PROMPT"
+            echo "PROMPT_EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Parsed: script=$SCRIPT_NAME prompt=$PROMPT"
 
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -80,4 +82,4 @@ jobs:
           # We just fire the SSH call and let it run.
           ssh -o ConnectTimeout=10 -o ServerAliveInterval=30 \
             "${CLAUDEBOX_USER}@${CLAUDEBOX_HOST}" \
-            "~/claudeentry.sh '${{ steps.parse.outputs.script_name }}' ${{ steps.parse.outputs.script_args }} --comment-id=${{ github.event.comment.id }} --repo=${{ github.repository }}"
+            "~/claudeentry.sh '${{ steps.parse.outputs.script_name }}' --comment-id=${{ github.event.comment.id }} --repo=${{ github.repository }} --prompt='${{ steps.parse.outputs.prompt }}'"
