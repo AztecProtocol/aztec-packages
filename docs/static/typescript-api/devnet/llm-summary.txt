@@ -1,5 +1,5 @@
 # Aztec TypeScript API Summary
-Version: v4.0.0-devnet.2-patch.0
+Version: v4.0.0-devnet.2-patch.1
 Generated: 2026-02-19T01:19:18.718Z
 
 This file provides an index of the Aztec TypeScript API packages.

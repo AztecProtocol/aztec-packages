@@ -1,6 +1,6 @@
 # @aztec/pxe
 
-Version: v4.0.0-devnet.2-patch.0
+Version: v4.0.0-devnet.2-patch.1
 
 ## Quick Import Reference
 
@@ -12,7 +12,7 @@ import {
   ContractStore,
   ContractSyncService,
   // ... and more
-} from '@aztec/pxe';
+} from "@aztec/pxe";
 ```
 
 ## Classes
@@ -20,11 +20,13 @@ import {
 ### AddressStore
 
 **Constructor**
+
 ```typescript
 new AddressStore(store: AztecAsyncKVStore)
 ```
 
 **Methods**
+
 - `addCompleteAddress(completeAddress: CompleteAddress) => Promise<boolean>`
 - `getCompleteAddress(account: AztecAddress) => Promise<CompleteAddress | undefined>`
 - `getCompleteAddresses() => Promise<CompleteAddress[]>`
@@ -32,27 +34,33 @@ new AddressStore(store: AztecAsyncKVStore)
 ### AnchorBlockStore
 
 **Constructor**
+
 ```typescript
 new AnchorBlockStore(store: AztecAsyncKVStore)
 ```
 
 **Methods**
+
 - `getBlockHeader() => Promise<BlockHeader>`
 - `setHeader(header: BlockHeader) => Promise<void>` - Sets the currently synchronized block Important: this method is only called from BlockSynchronizer, and since we need it to run atomically with other stores in the case of a reorg, it MUST NOT be wrapped in a `transactionAsync` call. Doing so would result in a deadlock when the backend is IndexedDB, because `transactionAsync` is not designed to support reentrancy.
 
 ### CapsuleStore
+
 Implements: `StagedStore`
 
 **Constructor**
+
 ```typescript
 new CapsuleStore(store: AztecAsyncKVStore)
 ```
 
 **Properties**
+
 - `logger: Logger`
 - `readonly storeName: "capsule"` - Unique name identifying this store (used for tracking staged stores from JobCoordinator)
 
 **Methods**
+
 - `appendToCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][], jobId: string) => Promise<void>` - Appends multiple capsules to a capsule array stored at the base slot. The array length is stored at the base slot, and elements are stored in consecutive slots after it. All operations are performed in a single transaction.
 - `commit(jobId: string) => Promise<void>` - Commits staged data to main storage. Called by JobCoordinator when a job completes successfully. Note: JobCoordinator wraps all commits in a single transaction, so we don't need our own transactionAsync here (and using one would deadlock on IndexedDB).
 - `copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number, jobId: string) => Promise<void>` - Copies a number of contiguous entries in the per-contract non-volatile database. This allows for efficient data structures by avoiding repeated calls to `loadCapsule` and `storeCapsule`. Supports overlapping source and destination regions (which will result in the overlapped source values being overwritten). All copied slots must exist in the database (i.e. have been stored and not deleted)
@@ -61,18 +69,20 @@ new CapsuleStore(store: AztecAsyncKVStore)
 - `loadCapsule(contractAddress: AztecAddress, slot: Fr, jobId: string) => Promise<Fr[] | null>` - Returns data previously stored via `storeCapsule` in the per-contract non-volatile database.
 - `readCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, jobId: string) => Promise<Fr[][]>`
 - `setCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][], jobId: string) => Promise<void>`
-- `storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], jobId: string) => void` - Stores arbitrary information in a per-contract non-volatile database, which can later be retrieved with `loadCapsule`. * If data was already stored at this slot, it is overwritten.
+- `storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], jobId: string) => void` - Stores arbitrary information in a per-contract non-volatile database, which can later be retrieved with `loadCapsule`. \* If data was already stored at this slot, it is overwritten.
 
 ### ContractStore
 
 ContractStore serves as a data manager and retriever for Aztec.nr contracts. It provides methods to obtain contract addresses, function ABI, bytecode, and membership witnesses from a given contract address and function selector. The class maintains a cache of ContractTree instances to efficiently serve the requested data. It interacts with the ContractDatabase and AztecNode to fetch the required information and facilitate cryptographic proof generation.
 
 **Constructor**
+
 ```typescript
 new ContractStore(store: AztecAsyncKVStore)
 ```
 
 **Methods**
+
 - `addContractArtifact(id: Fr, contract: ContractArtifact) => Promise<void>`
 - `addContractInstance(contract: ContractInstanceWithAddress) => Promise<void>`
 - `getContract(address: AztecAddress) => Promise<ContractInstance & { address: AztecAddress } & ContractArtifact | undefined>`
@@ -97,14 +107,17 @@ Service for syncing the private state of contracts and verifying that the PXE ho
 Implements: `StagedStore`
 
 **Constructor**
+
 ```typescript
 new ContractSyncService(aztecNode: AztecNode, contractStore: ContractStore, noteStore: NoteStore, log: Logger)
 ```
 
 **Properties**
+
 - `readonly storeName: "contract_sync"` - Unique name identifying this store (used for tracking staged stores from JobCoordinator)
 
 **Methods**
+
 - `commit(jobId: string) => Promise<void>` - Commits staged data to main storage. Should be called within a transaction for atomicity.
 - `discardStaged(jobId: string) => Promise<void>` - Discards staged data without committing. Called on abort.
 - `ensureContractSynced(contractAddress: AztecAddress, functionToInvokeAfterSync: FunctionSelector | null, utilityExecutor: (call: FunctionCall, scopes: AccessScopes) => Promise<any>, anchorBlockHeader: BlockHeader, jobId: string, scopes: AccessScopes) => Promise<void>` - Ensures a contract's private state is synchronized and that the PXE holds the current class artifact. Uses a cache to avoid redundant sync operations - the cache is wiped when the anchor block changes.
@@ -116,14 +129,17 @@ new ContractSyncService(aztecNode: AztecNode, contractStore: ContractStore, note
 JobCoordinator manages job lifecycle and provides crash resilience for PXE operations. It uses a staged writes pattern: 1. When a job begins, a unique job ID is created 2. During the job, all writes go to staging (keyed by job ID) 3. On commit, staging is promoted to main storage 4. On abort, staged data is discarded Note: PXE should only rely on a single JobCoordinator instance, so it can eventually orchestrate concurrent jobs. Right now it doesn't make a difference because we're using a job queue with concurrency=1.
 
 **Constructor**
+
 ```typescript
 new JobCoordinator(kvStore: AztecAsyncKVStore, bindings?: LoggerBindings)
 ```
 
 **Properties**
+
 - `kvStore: AztecAsyncKVStore` - The underlying KV store
 
 **Methods**
+
 - `abortJob(jobId: string) => Promise<void>` - Aborts a job by discarding all staged data.
 - `beginJob() => string` - Begins a new job and returns a job ID for staged writes.
 - `commitJob(jobId: string) => Promise<void>` - Commits a job by promoting all staged data to main storage.
@@ -136,11 +152,13 @@ new JobCoordinator(kvStore: AztecAsyncKVStore, bindings?: LoggerBindings)
 A Note Data Access Object, representing a note that was committed to the note hash tree, holding all of the information required to use it during execution and manage its state.
 
 **Constructor**
+
 ```typescript
 new NoteDao(note: Note, contractAddress: AztecAddress, owner: AztecAddress, storageSlot: Fr, randomness: Fr, noteNonce: Fr, noteHash: Fr, siloedNullifier: Fr, txHash: TxHash, l2BlockNumber: BlockNumber, l2BlockHash: string, txIndexInBlock: number, noteIndexInTx: number)
 ```
 
 **Properties**
+
 - `contractAddress: AztecAddress` - The address of the contract that created the note (i.e. the address used by the kernel during siloing).
 - `l2BlockHash: string` - The L2 block hash in which the tx with this note was included. Used for note management while processing reorgs.
 - `l2BlockNumber: BlockNumber` - The L2 block number in which the tx with this note was included. Used for note management while processing reorgs.
@@ -156,6 +174,7 @@ new NoteDao(note: Note, contractAddress: AztecAddress, owner: AztecAddress, stor
 - `txIndexInBlock: number` - The index of the tx within the block, used for ordering notes.
 
 **Methods**
+
 - `equals(other: NoteDao) => boolean` - Returns true if this note is equal to the `other` one.
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => NoteDao`
 - `static fromString(str: string) => NoteDao`
@@ -167,11 +186,13 @@ new NoteDao(note: Note, contractAddress: AztecAddress, owner: AztecAddress, stor
 ### NoteService
 
 **Constructor**
+
 ```typescript
 new NoteService(noteStore: NoteStore, aztecNode: AztecNode, anchorBlockHeader: BlockHeader, jobId: string)
 ```
 
 **Methods**
+
 - `getNotes(contractAddress: AztecAddress, owner: AztecAddress | undefined, storageSlot: Fr, status: NoteStatus, scopes: AccessScopes) => Promise<{ contractAddress: AztecAddress; isPending: boolean; ... }[]>` - Retrieves a set of notes stored in the database for a given contract address and storage slot. The query result is paginated using 'limit' and 'offset' values. Returns an object containing an array of note data.
 - `syncNoteNullifiers(contractAddress: AztecAddress, scopes: AccessScopes) => Promise<void>` - Looks for nullifiers of active contract notes and marks them as nullified if a nullifier is found. Fetches notes from the NoteStore and checks which nullifiers are present in the onchain nullifier Merkle tree - up to the latest locally synced block. We use the locally synced block instead of querying the chain's 'latest' block to ensure correctness: notes are only marked nullified once their corresponding nullifier has been included in a block up to which the PXE has synced. This allows recent nullifications to be processed even if the node is not an archive node.
 - `validateAndStoreNote(contractAddress: AztecAddress, owner: AztecAddress, storageSlot: Fr, randomness: Fr, noteNonce: Fr, content: Fr[], noteHash: Fr, nullifier: Fr, txHash: TxHash, recipient: AztecAddress) => Promise<void>`
@@ -182,14 +203,17 @@ NoteStore manages the storage and retrieval of notes. Notes can be active or nul
 Implements: `StagedStore`
 
 **Constructor**
+
 ```typescript
 new NoteStore(store: AztecAsyncKVStore)
 ```
 
 **Properties**
+
 - `readonly storeName: string` - Unique name identifying this store (used for tracking staged stores from JobCoordinator)
 
 **Methods**
+
 - `addNotes(notes: NoteDao[], scope: AztecAddress, jobId: string) => Promise<void[]>` - Adds multiple notes to the notes store under the specified scope. Notes are stored using their siloedNullifier as the key, which provides uniqueness. Each note is indexed by multiple criteria for efficient retrieval.
 - `applyNullifiers(nullifiers: DataInBlock<Fr>[], jobId: string) => Promise<NoteDao[]>` - Transitions notes from "active" to "nullified" state. This operation processes a batch of nullifiers to mark the corresponding notes as spent/nullified. The operation is atomic - if any nullifier is not found, the entire operation fails and no notes are modified. applyNullifiers is idempotent: the same nullifier can be applied multiple times without error. This relaxes constraints on usage of NoteService#validateAndStoreNote, which can then be run concurrently in a Promise.all context without risking unnecessarily defensive checks failing.
 - `commit(jobId: string) => Promise<void>` - Commits in memory job data to persistent storage. Called by JobCoordinator when a job completes successfully. Note: JobCoordinator wraps all commits in a single transaction, so we don't need our own transactionAsync here (and using one would throw on IndexedDB as it does not support nested txs).
@@ -202,9 +226,11 @@ new NoteStore(store: AztecAsyncKVStore)
 Private eXecution Environment (PXE) is a library used by wallets to simulate private phase of transactions and to manage private state of users.
 
 **Properties**
+
 - `debug: PXEDebugUtils`
 
 **Methods**
+
 - `static create(__namedParameters: PXECreateArgs) => Promise<PXE>` - Creates an instance of a PXE by instantiating all the necessary data providers and services. Also triggers the registration of the protocol contracts and makes sure the provided node can be contacted.
 - `getContractArtifact(id: Fr) => Promise<ContractArtifact | undefined>` - Returns the contract artifact for a given contract class id, if it's registered in the PXE.
 - `getContractInstance(address: AztecAddress) => Promise<ContractInstanceWithAddress | undefined>` - Returns the contract instance for a given address, if it's registered in the PXE.
@@ -231,15 +257,18 @@ Stores decrypted private event logs.
 Implements: `StagedStore`
 
 **Constructor**
+
 ```typescript
 new PrivateEventStore(store: AztecAsyncKVStore)
 ```
 
 **Properties**
+
 - `logger: Logger`
 - `readonly storeName: string` - Unique name identifying this store (used for tracking staged stores from JobCoordinator)
 
 **Methods**
+
 - `commit(jobId: string) => Promise<void>` - Commits in memory job data to persistent storage. Called by JobCoordinator when a job completes successfully. Note: JobCoordinator wraps all commits in a single transaction, so we don't need our own transactionAsync here (and using one would throw on IndexedDB as it does not support nested txs).
 - `discardStaged(jobId: string) => Promise<void>` - Discards in memory job data without persisting it.
 - `getPrivateEvents(eventSelector: EventSelector, filter: PrivateEventStoreFilter) => Promise<PackedPrivateEvent[]>` - Returns the private events given search parameters.
@@ -252,14 +281,17 @@ Data provider of tagging data used when syncing the logs as a recipient. The sen
 Implements: `StagedStore`
 
 **Constructor**
+
 ```typescript
 new RecipientTaggingStore(store: AztecAsyncKVStore)
 ```
 
 **Properties**
+
 - `storeName: string` - Unique name identifying this store (used for tracking staged stores from JobCoordinator)
 
 **Methods**
+
 - `commit(jobId: string) => Promise<void>` - Writes all job-specific in-memory data to persistent storage.
 - `discardStaged(jobId: string) => Promise<void>` - Discards staged data without committing. Called on abort.
 - `getHighestAgedIndex(secret: DirectionalAppTaggingSecret, jobId: string) => Promise<number | undefined>`
@@ -272,11 +304,13 @@ new RecipientTaggingStore(store: AztecAsyncKVStore)
 Stores sender addresses. During recipient log synchronization, these senders are used, along with a given recipient, to derive directional app tagging secrets that are then used to sync the logs.
 
 **Constructor**
+
 ```typescript
 new SenderAddressBookStore(store: AztecAsyncKVStore)
 ```
 
 **Methods**
+
 - `addSender(address: AztecAddress) => Promise<boolean>`
 - `getSenders() => Promise<AztecAddress[]>`
 - `removeSender(address: AztecAddress) => Promise<boolean>`
@@ -287,14 +321,17 @@ Data provider of tagging data used when syncing the sender tagging indexes. The 
 Implements: `StagedStore`
 
 **Constructor**
+
 ```typescript
 new SenderTaggingStore(store: AztecAsyncKVStore)
 ```
 
 **Properties**
+
 - `readonly storeName: "sender_tagging"` - Unique name identifying this store (used for tracking staged stores from JobCoordinator)
 
 **Methods**
+
 - `commit(jobId: string) => Promise<void>` - Writes all job-specific in-memory data to persistent storage.
 - `discardStaged(jobId: string) => Promise<void>` - Discards staged data without committing. Called on abort.
 - `dropPendingIndexes(txHashes: TxHash[], jobId: string) => Promise<void>` - Drops all pending indexes corresponding to the given transaction hashes.
@@ -311,6 +348,7 @@ new SenderTaggingStore(store: AztecAsyncKVStore)
 Configuration settings for the block synchronizer.
 
 **Properties**
+
 - `l2BlockBatchSize: number` - Maximum amount of blocks to pull from the stream in one request when synchronizing
 - `syncChainTip?: "proposed" | "checkpointed" | "proven" | "finalized"` - Which chain tip to sync to (proposed, checkpointed, proven, finalized)
 
@@ -319,39 +357,49 @@ Configuration settings for the block synchronizer.
 Configuration settings for the prover factory
 
 **Properties**
+
 - `proverEnabled?: boolean` - Whether we are running with real proofs
 
 ## Functions
 
 ### createPXE
+
 ```typescript
 function createPXE(aztecNode: AztecNode, config: PXEConfigWithoutDefaults, options: PXECreationOptions) => Promise<PXE>
 ```
 
 ### enrichPublicSimulationError
+
 ```typescript
 function enrichPublicSimulationError(err: SimulationError, contractStore: ContractStore, logger: Logger) => Promise<void>
 ```
 
 ### enrichSimulationError
+
 ```typescript
 function enrichSimulationError(err: SimulationError, contractStore: ContractStore, logger: Logger) => Promise<void>
 ```
+
 Adds contract and function names to a simulation error, if they can be found in the PXE database
 
 ### getCliPXEOptions
+
 ```typescript
 function getCliPXEOptions() => CliPXEOptions & KernelProverConfig & DataStoreConfig & ChainConfig & BlockSynchronizerConfig
 ```
+
 Creates an instance of CliPxeOptions out of environment variables
 
 ### getPXEConfig
+
 ```typescript
 function getPXEConfig() => PXEConfig
 ```
+
 Creates an instance of PXEConfig out of environment variables using sensible defaults for integration testing if not set.
 
 ### getPackageInfo
+
 ```typescript
 function getPackageInfo() => { name: string; version: string }
 ```
@@ -359,89 +407,117 @@ function getPackageInfo() => { name: string; version: string }
 ## Types
 
 ### AccessScopes
+
 ```typescript
-type AccessScopes = "ALL_SCOPES" | AztecAddress[]
+type AccessScopes = "ALL_SCOPES" | AztecAddress[];
 ```
+
 Controls which accounts' private state and keys are accessible during execution. - `'ALL_SCOPES'`: All registered accounts' private state and keys are accessible. - `AztecAddress[]` with entries: Only the specified accounts' private state and keys are accessible. - `[]` (empty array): Deny-all. No private state is visible and no keys are accessible.
 
 ### CliPXEOptions
+
 ```typescript
-type CliPXEOptions = unknown
+type CliPXEOptions = unknown;
 ```
 
 ### NotesFilter
+
 ```typescript
-type NotesFilter = unknown
+type NotesFilter = unknown;
 ```
+
 A filter used to fetch notes.
 
 ### ORACLE_VERSION
+
 ```typescript
-type ORACLE_VERSION = 12
+type ORACLE_VERSION = 12;
 ```
 
 ### PXEConfig
+
 ```typescript
-type PXEConfig = KernelProverConfig & DataStoreConfig & ChainConfig & BlockSynchronizerConfig
+type PXEConfig = KernelProverConfig &
+  DataStoreConfig &
+  ChainConfig &
+  BlockSynchronizerConfig;
 ```
 
 ### PXECreateArgs
+
 ```typescript
-type PXECreateArgs = unknown
+type PXECreateArgs = unknown;
 ```
+
 Args for PXE.create.
 
 ### PXECreationOptions
+
 ```typescript
-type PXECreationOptions = unknown
+type PXECreationOptions = unknown;
 ```
 
 ### PXE_DATA_SCHEMA_VERSION
+
 ```typescript
-type PXE_DATA_SCHEMA_VERSION = 3
+type PXE_DATA_SCHEMA_VERSION = 3;
 ```
 
 ### PackedPrivateEvent
+
 ```typescript
-type PackedPrivateEvent = InTx & { eventSelector: EventSelector; packedEvent: Fr[] }
+type PackedPrivateEvent = InTx & {
+  eventSelector: EventSelector;
+  packedEvent: Fr[];
+};
 ```
 
 ### PrivateEventStoreFilter
+
 ```typescript
-type PrivateEventStoreFilter = unknown
+type PrivateEventStoreFilter = unknown;
 ```
 
 ### ProfileTxOpts
+
 ```typescript
-type ProfileTxOpts = unknown
+type ProfileTxOpts = unknown;
 ```
+
 Options for PXE.profileTx.
 
 ### SimulateTxOpts
+
 ```typescript
-type SimulateTxOpts = unknown
+type SimulateTxOpts = unknown;
 ```
+
 Options for PXE.simulateTx.
 
 ### SimulateUtilityOpts
+
 ```typescript
-type SimulateUtilityOpts = unknown
+type SimulateUtilityOpts = unknown;
 ```
+
 Options for PXE.simulateUtility.
 
 ### allPxeConfigMappings
+
 ```typescript
-type allPxeConfigMappings = ConfigMappingsType<CliPXEOptions & PXEConfig>
+type allPxeConfigMappings = ConfigMappingsType<CliPXEOptions & PXEConfig>;
 ```
 
 ### pxeCliConfigMappings
+
 ```typescript
-type pxeCliConfigMappings = ConfigMappingsType<CliPXEOptions>
+type pxeCliConfigMappings = ConfigMappingsType<CliPXEOptions>;
 ```
 
 ### pxeConfigMappings
+
 ```typescript
-type pxeConfigMappings = ConfigMappingsType<PXEConfig>
+type pxeConfigMappings = ConfigMappingsType<PXEConfig>;
 ```
 
 ## Cross-Package References
@@ -449,13 +525,17 @@ type pxeConfigMappings = ConfigMappingsType<PXEConfig>
 This package references types from other Aztec packages:
 
 **@aztec/aztec.js**
+
 - `PrivateEventFilter`
 
 **@aztec/foundation**
+
 - `BlockNumber`, `BufferReader`, `ConfigMappingsType`, `Fr`, `Logger`, `LoggerBindings`, `MembershipWitness`
 
 **@aztec/kv-store**
+
 - `AztecAsyncKVStore`, `DataStoreConfig`
 
 **@aztec/stdlib**
+
 - `AztecAddress`, `AztecNode`, `BlockHeader`, `ChainConfig`, `CompleteAddress`, `ContractArtifact`, `ContractClass`, `ContractInstance`, `ContractInstanceWithAddress`, `DataInBlock`, `DirectionalAppTaggingSecret`, `EventSelector`, `FunctionAbi`, `FunctionArtifactWithContractName`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `InTx`, `Note`, `NoteDao`, `NoteStatus`, `PreTag`, `SimulationError`, `TxExecutionRequest`, `TxHash`, `TxProfileResult`, `TxProvingResult`, `TxSimulationResult`, `UtilitySimulationResult`
