@@ -224,7 +224,6 @@ template <typename Fr> class Polynomial {
      */
     void factor_roots(const Fr& root) { polynomial_arithmetic::factor_roots(coeffs(), root); };
 
-    Fr evaluate(const Fr& z, size_t target_size) const;
     Fr evaluate(const Fr& z) const;
 
     /**

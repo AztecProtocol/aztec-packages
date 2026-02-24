@@ -184,17 +184,6 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan
     return *this;
 }
 
-template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z, const size_t target_size) const
-{
-    // Evaluate only the backing data; virtual zeroes beyond backing contribute nothing.
-    // When start_index > 0, multiply by z^start_index to account for the offset.
-    Fr result = polynomial_arithmetic::evaluate(data(), z, std::min(target_size, size()));
-    if (start_index() > 0) {
-        result *= z.pow(start_index());
-    }
-    return result;
-}
-
 template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z) const
 {
     // Evaluate only the backing data; virtual zeroes beyond backing contribute nothing.
