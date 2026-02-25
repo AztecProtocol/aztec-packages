@@ -114,6 +114,11 @@ template <typename FF> class Selector {
      * @param value Field element.
      */
     virtual void set(size_t idx, const FF& value) = 0;
+
+    /**
+     * @brief Release all memory held by this selector.
+     */
+    virtual void free_memory() {}
 };
 
 /**
@@ -157,6 +162,8 @@ template <typename FF> class ZeroSelector : public Selector<FF> {
 
     bool empty() const override { return size_ == 0; }
 
+    void free_memory() override { size_ = 0; }
+
   private:
     static constexpr FF zero = 0;
     size_t size_ = 0;
@@ -185,6 +192,12 @@ template <typename FF> class SlabVectorSelector : public Selector<FF> {
 
     size_t size() const override { return data.size(); }
     bool empty() const override { return data.empty(); }
+
+    void free_memory() override
+    {
+        data.clear();
+        data.shrink_to_fit();
+    }
 
   private:
     std::vector<FF> data;
@@ -230,6 +243,8 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
     }
 
     Wires wires;                                                   // vectors of indices into a witness variables array
+    size_t cached_size_ = 0;                                       // set by free_data() so size() works after freeing
+    bool data_freed_ = false;                                      // true after free_data() has been called
     uint32_t trace_offset_ = std::numeric_limits<uint32_t>::max(); // where this block starts in the trace
 
     uint32_t trace_offset() const
@@ -240,7 +255,7 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
 
     bool operator==(const ExecutionTraceBlock& other) const = default;
 
-    size_t size() const { return std::get<0>(this->wires).size(); }
+    size_t size() const { return data_freed_ ? cached_size_ : std::get<0>(this->wires).size(); }
 
 #ifdef TRACY_HACK_GATES_AS_MEMORY
     ~ExecutionTraceBlock()
@@ -256,6 +271,23 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
 #endif
 
     virtual RefVector<Selector<FF>> get_selectors() = 0;
+
+    /**
+     * @brief Release wire and selector memory. Caches block size so size() still works.
+     * @details Called after trace data has been copied to prover polynomials.
+     */
+    void free_data()
+    {
+        cached_size_ = std::get<0>(wires).size();
+        data_freed_ = true;
+        for (auto& wire : wires) {
+            wire.clear();
+            wire.shrink_to_fit();
+        }
+        for (auto& sel : get_selectors()) {
+            sel.free_memory();
+        }
+    }
 
     void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
     {
