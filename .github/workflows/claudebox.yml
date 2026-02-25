@@ -51,11 +51,9 @@ jobs:
           INPUT_LINK: ${{ inputs.link || '' }}
         run: |
           if [ -n "$INPUT_PROMPT" ]; then
-            # workflow_dispatch
             PROMPT="$INPUT_PROMPT"
             LINK="$INPUT_LINK"
           else
-            # issue_comment: strip /claudebox prefix
             PROMPT=$(printf '%s' "$COMMENT_BODY" | sed 's|^/claudebox[[:space:]]*||')
             LINK=""
           fi
@@ -87,32 +85,11 @@ jobs:
           echo "run_comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
           echo "Posted status comment: $COMMENT_ID"
 
-      - name: Setup SSH
-        env:
-          JUMP_HOST: ${{ vars.CLAUDEBOX_JUMP_HOST }}
-          JUMP_USER: ${{ vars.CLAUDEBOX_JUMP_USER }}
-          CB_HOST: ${{ vars.CLAUDEBOX_HOST }}
-          CB_USER: ${{ vars.CLAUDEBOX_USER }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.CLAUDEBOX_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          printf '%s\n' \
-            "Host claudebox-jump" \
-            "  HostName ${JUMP_HOST}" \
-            "  User ${JUMP_USER}" \
-            "  StrictHostKeyChecking no" \
-            "" \
-            "Host claudebox" \
-            "  HostName ${CB_HOST}" \
-            "  User ${CB_USER}" \
-            "  ProxyJump claudebox-jump" \
-            "  StrictHostKeyChecking no" \
-            > ~/.ssh/config
-
       - name: Run ClaudeBox
         timeout-minutes: 120
         env:
+          CLAUDEBOX_URL: ${{ vars.CLAUDEBOX_URL }}
+          CLAUDEBOX_API_SECRET: ${{ secrets.CLAUDEBOX_API_SECRET }}
           CLAUDEBOX_PROMPT: ${{ steps.parse.outputs.prompt }}
           CLAUDEBOX_LINK: ${{ steps.parse.outputs.link }}
           COMMENT_ID: ${{ github.event.comment.id || '' }}
@@ -121,21 +98,29 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           AUTHOR: ${{ github.event.comment.user.login || github.actor }}
         run: |
-          # Build flags array
-          FLAGS=("--user=${AUTHOR}")
-          [ -n "$COMMENT_ID" ] && FLAGS+=("--comment-id=${COMMENT_ID}")
-          [ -n "$RUN_COMMENT_ID" ] && FLAGS+=("--run-comment-id=${RUN_COMMENT_ID}")
-          [ -n "$REPO" ] && FLAGS+=("--repo=${REPO}")
-          [ -n "$RUN_URL" ] && FLAGS+=("--run-url=${RUN_URL}")
-          [ -n "$CLAUDEBOX_LINK" ] && FLAGS+=("--link=${CLAUDEBOX_LINK}")
+          # Build JSON payload
+          PAYLOAD=$(jq -n \
+            --arg prompt "$CLAUDEBOX_PROMPT" \
+            --arg user "$AUTHOR" \
+            --arg comment_id "$COMMENT_ID" \
+            --arg run_comment_id "$RUN_COMMENT_ID" \
+            --arg repo "$REPO" \
+            --arg run_url "$RUN_URL" \
+            --arg link "$CLAUDEBOX_LINK" \
+            '{prompt: $prompt, user: $user, comment_id: $comment_id, run_comment_id: $run_comment_id, repo: $repo, run_url: $run_url, link: $link}')
 
-          # Build a properly quoted remote command
-          REMOTE_CMD="~/claudeentry.sh"
-          for flag in "${FLAGS[@]}"; do
-            REMOTE_CMD="$REMOTE_CMD '${flag}'"
-          done
+          # POST to ClaudeBox server, stream output
+          HTTP_CODE=$(curl -sS --no-buffer \
+            -w "\n%{http_code}" \
+            -H "Authorization: Bearer ${CLAUDEBOX_API_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            "${CLAUDEBOX_URL}/run" | tee /tmp/claudebox_output | tail -1)
 
-          printf '%s' "$CLAUDEBOX_PROMPT" | \
-            ssh -o ConnectTimeout=10 -o ServerAliveInterval=30 \
-              claudebox \
-              "$REMOTE_CMD"
+          # Show output (everything except the last line which is the HTTP code)
+          head -n -1 /tmp/claudebox_output
+
+          if [ "$HTTP_CODE" -ge 400 ] 2>/dev/null; then
+            echo "ClaudeBox returned HTTP $HTTP_CODE"
+            exit 1
+          fi
