@@ -3,6 +3,8 @@ source $(git rev-parse --show-toplevel)/ci3/source
 
 # export bb as it is needed when using exported functions
 export bb="$root/barretenberg/cpp/$(./native-preset-build-dir)/bin/bb"
+script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+
 cd ..
 
 # NOTE: We pin the captured IVC inputs to a known master commit, exploiting that there won't be frequent changes.
@@ -15,8 +17,6 @@ cd ..
 # Note: In case of the "Test suite failed to run ... Unexpected token 'with' " error, need to run: docker pull aztecprotocol/build:3.0
 pinned_short_hash="189f0026"
 pinned_chonk_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-chonk-inputs-${pinned_short_hash}.tar.gz"
-
-script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")/scripts" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 
 function update_pinned_hash_in_script {
     local new_hash=$1
