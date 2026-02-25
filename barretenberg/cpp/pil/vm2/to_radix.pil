@@ -50,6 +50,9 @@ include "precomputed.pil";
  * the number of "padding" rows for the extra high limbs depending on the need of the subtraces invoking this gadget. Note that
  * it does not pose a soundness isssue because this trace ensures that a present row is correct. If a row is not present, then
  * we have a completeness issue because the lookup will fail.
+ *
+ * Interactions: This subtrace has only lookups against precomputed tables.
+ *
  */
 namespace to_radix;
 

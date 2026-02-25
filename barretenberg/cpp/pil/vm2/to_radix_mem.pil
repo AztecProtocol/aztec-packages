@@ -40,6 +40,20 @@ include "memory.pil";
  * Output:
  * - sel_opcode_error: Error selector.Boolean selector for the error.
  *
+ * Preconditions: We rely on properties guaranteed by the execution trace such as the register mechanism
+ *                which guarantees the tag validation of the inputs. This subtrace should not be used
+ *                by other subtraces as we rely on too many assumptions provided by the execution trace.
+ *
+ * Interactions:
+ * - to_radix.pil: To perform the decomposition in LITTLE ENDIAN.
+ * - memory.pil: To write the output to memory.
+ * - gt.pil: For multiple error checks such as radix range checks, dst address range checks, etc.
+ *
+ * Trace shape: If an error occurs or the `num_limbs` is 0, a computation consists in a single row.
+ *              Otherwise, a computation consists in a number of rows equal to `num_limbs`.
+ *
+ * Explanations:
+ *
  * This handles the memory writes when the TORADIXBE opcode is executed by user code.
  * The reads are loaded and tag validated by the registers in the execution trace.
  * This trace writes a sequence of U1s or U8s (depending on the boolean is_output_bits) to the addresses
@@ -71,12 +85,16 @@ include "memory.pil";
  *     - guaranteed by this gadget to be U8 or U1 depending on is_output_bits
  *
  * ERROR HANDLING:
- * The following errors needs to be handled as part of this trace,
- * (1) INVALID_RADIX_VALUE: The radix must be in the range [2, 256], if is_output_bits = 1, radix must be 2
- * (2) INVALID_NUM_LIMBS: If num_limbs = 0 while value_to_decompose != 0.
- * (3) DST_OUT_OF_BOUNDS_ACCESS: If the writes would access a memory address outside
- *     of the max AVM memory address (AVM_HIGHEST_MEM_ADDRESS).
- * (4) TRUNCATION_ERROR: If the value can't be fully decomposed in the given number of limbs.
+ * The following errors needs to be handled as part of this trace. The following error selectors are defined:
+ * (1) sel_dst_out_of_range_err: The destination slice is out of range. (dst_addr + num_limbs > AVM_MEMORY_SIZE)
+ * (2) sel_radix_lt_2_err: The radix is less than 2.
+ * (3) sel_radix_gt_256_err: The radix is greater than 256.
+ * (4) sel_invalid_bitwise_radix: The radix is not 2 and is_output_bits is 1.
+ * (5) SEL_INVALID_NUM_LIMBS_ERR: The number of limbs is 0 while the value is not zero.
+ * (6) SEL_TRUNCATION_ERROR: If the value can't be fully decomposed in the given number of limbs.
+ *
+ * We use as alias for any error from (1) to (5) the error selector `input_validation_error`.
+ * The consolidated error flag is `err`. (Any error from (1) to (6) will set `err` to 1.)
  *
  * N.B The radix is checked to be <= 256 in the execution trace (for dynamic gas computation)
  *     we do not currently take advantage of any partial checks done but is a future optimisation
