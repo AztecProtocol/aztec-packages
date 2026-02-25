@@ -19,7 +19,7 @@ import { z } from 'zod';
 export enum RevertCodeEnum {
   /** All phases completed successfully; no state was rolled back. */
   OK = 0,
-  /** APP_LOGIC reverted; its state changes were discarded. TEARDOWN still ran and succeeded. */
+  /** APP_LOGIC reverted; its state changes were discarded. If present, TEARDOWN still ran and succeeded. */
   APP_LOGIC_REVERTED = 1,
   /** TEARDOWN reverted; its state changes were discarded. APP_LOGIC succeeded. */
   TEARDOWN_REVERTED = 2,
