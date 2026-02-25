@@ -564,11 +564,11 @@ async function runContainerSession(
 
 // ── Slack helpers ───────────────────────────────────────────────
 
-/** Parse "new" keyword and return effective prompt. */
+/** Parse "new-session" keyword and return effective prompt. */
 function parseNewKeyword(parsed: ParseResult): { forceNew: boolean; prompt: string } {
   const prompt = parsed.type === "prompt" ? parsed.prompt : parsed.prompt;
-  const forceNew = /^new\b/i.test(prompt);
-  return { forceNew, prompt: forceNew ? prompt.replace(/^new\s+/i, "") : prompt };
+  const forceNew = /^new-session\b/i.test(prompt);
+  return { forceNew, prompt: forceNew ? prompt.replace(/^new-session\s*/i, "") : prompt };
 }
 
 /** Validate a session for resume. Returns error message or null if OK. */
@@ -724,7 +724,7 @@ slackApp.event("app_mention", async ({ event, client, say }) => {
     return;
   }
 
-  // Implicit resume: thread reply with a previous session (unless "new")
+  // Implicit resume: thread reply with a previous session (unless "new-session")
   if (!forceNew && isReply) {
     const prevSession = findLastSessionInThread(channel, threadTs);
     if (prevSession?.status === "running") {
@@ -738,7 +738,7 @@ slackApp.event("app_mention", async ({ event, client, say }) => {
     }
   }
 
-  // Fresh session: top-level, "new", or no previous session in thread
+  // Fresh session: top-level, "new-session", or no previous session in thread
   const threadContext = isReply ? await getThreadContext(client, channel, threadTs) : "";
   await startNewSession(client, channel, threadTs, effectivePrompt, threadContext, userName);
 });
