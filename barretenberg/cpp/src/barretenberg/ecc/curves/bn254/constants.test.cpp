@@ -50,7 +50,9 @@ TEST(FqConstants, RSquared)
     uint256_t actual_r_sqr_mod_q{
         Bn254FqParams::r_squared_0, Bn254FqParams::r_squared_1, Bn254FqParams::r_squared_2, Bn254FqParams::r_squared_3
     };
+
     EXPECT_EQ(expected_r_sqr_mod_q.lo, actual_r_sqr_mod_q);
+    EXPECT_EQ(expected_r_sqr_mod_q.hi, uint256_t(0));
 }
 
 TEST(FqConstants, RInv)
@@ -61,6 +63,7 @@ TEST(FqConstants, RInv)
     uint256_t q_inv = q.invmod(r).lo;
     uint64_t expected = q_inv.data[0];
     uint64_t result = Bn254FqParams::r_inv;
+
     EXPECT_EQ(result, expected);
 }
 
@@ -186,18 +189,35 @@ TEST(FrConstants, RSquared)
     uint256_t actual_r_sqr_mod_r{
         Bn254FrParams::r_squared_0, Bn254FrParams::r_squared_1, Bn254FrParams::r_squared_2, Bn254FrParams::r_squared_3
     };
+
     EXPECT_EQ(expected_r_sqr_mod_r.lo, actual_r_sqr_mod_r);
+    EXPECT_EQ(expected_r_sqr_mod_r.hi, uint256_t(0));
 }
 
 TEST(FrConstants, RInv)
 {
     // r_inv = -r^{-1} mod 2^64
-    uint512_t two_64{ 0, 1 };
+    uint512_t two_64 = uint512_t(1) << 64;
     uint512_t neg_r{ -native_r, 0 };
     uint256_t r_inv = neg_r.invmod(two_64).lo;
     uint64_t expected = r_inv.data[0];
     uint64_t result = Bn254FrParams::r_inv;
+
     EXPECT_EQ(result, expected);
+}
+
+TEST(FrConstants, PowMinus64)
+{
+    // Compute 2^(-64) mod r
+    uint512_t two_64 = uint512_t(1) << 64;
+    uint256_t expected = two_64.invmod(native_r).lo;
+
+    // Note that the following test ensures r_inv (as reconstructed from its limbs) is smaller than r because it is
+    // equal to 2^(-64) mod r
+    EXPECT_EQ(expected.data[0], Bn254FrParams::r_inv_0);
+    EXPECT_EQ(expected.data[1], Bn254FrParams::r_inv_1);
+    EXPECT_EQ(expected.data[2], Bn254FrParams::r_inv_2);
+    EXPECT_EQ(expected.data[3], Bn254FrParams::r_inv_3);
 }
 
 TEST(FrConstants, CubeRootOfUnity)
@@ -207,6 +227,22 @@ TEST(FrConstants, CubeRootOfUnity)
     // Verify beta^3 = 1 and beta != 1
     EXPECT_EQ(beta * beta * beta, fr::one());
     EXPECT_NE(beta, fr::one());
+}
+
+TEST(FrConstants, PrimitiveRootOfUnity)
+{
+    size_t order = fr::primitive_root_log_size();
+    fr root = fr::get_root_of_unity(order);
+
+    // Check that root^{2^i} != 1 for i < order
+    for (size_t i = 0; i < order; i++) {
+        EXPECT_NE(root, fr::one());
+        root = root.sqr();
+    }
+
+    // Check that root^{2^order} = 1, this implies order(root) = 2^order because the order of root must divide 2^order
+    // but all previous powers of 2 were not the order
+    EXPECT_EQ(root, fr::one());
 }
 
 // ================================
@@ -245,6 +281,32 @@ TEST(FrConstants, WasmRSquared)
                                      Bn254FrParams::r_squared_wasm_3 };
 
     EXPECT_EQ(expected_r_squared_wasm.lo, actual_r_squared_wasm);
+    EXPECT_EQ(expected_r_squared_wasm.hi, uint256_t(0));
+}
+
+TEST(FrConstants, WasmPowMinus29)
+{
+    // Verify that when reconstructed as a uint512_t, it is less than the modulus r
+    constexpr std::array<uint64_t, 9> r_inv_wasm_limbs = { Bn254FrParams::r_inv_wasm_0, Bn254FrParams::r_inv_wasm_1,
+                                                           Bn254FrParams::r_inv_wasm_2, Bn254FrParams::r_inv_wasm_3,
+                                                           Bn254FrParams::r_inv_wasm_4, Bn254FrParams::r_inv_wasm_5,
+                                                           Bn254FrParams::r_inv_wasm_6, Bn254FrParams::r_inv_wasm_7,
+                                                           Bn254FrParams::r_inv_wasm_8 };
+
+    uint512_t r_inv_wasm = 0;
+    for (size_t i = 0; i < 9; i++) {
+        r_inv_wasm += uint512_t(r_inv_wasm_limbs[i]) << (29UL * i);
+        // Verify each limb fits in 29 bits
+        EXPECT_LT(r_inv_wasm_limbs[i], uint64_t(1) << 29);
+    }
+
+    // r_inv_wasm actually is less than r / 2, so we test this
+    EXPECT_LT(r_inv_wasm, uint512_t(native_r) / 2);
+
+    // Verify that r_inv_wasm = 2^(-29) mod r
+    uint512_t two_29 = uint512_t(1) << 29;
+    uint512_t expected_r_inv_wasm = two_29.invmod(native_r);
+    EXPECT_EQ(r_inv_wasm, expected_r_inv_wasm);
 }
 
 TEST(FrConstants, WasmCubeRootConsistency)
@@ -264,26 +326,26 @@ TEST(FrConstants, WasmCubeRootConsistency)
     uint512_t expected_cube_root_wasm = (uint512_t(cube_root_native) * 32) % native_r;
 
     EXPECT_EQ(expected_cube_root_wasm.lo, cube_root_wasm);
+    EXPECT_EQ(expected_cube_root_wasm.hi, uint256_t(0));
 }
 
-// r_inv_wasm represents 2^(-29) mod r in 9 x 29-bit limbs
-// this tests verifies that r_inv_wasm < r/2.
-TEST(FrConstants, WasmRInvLessThanModulus)
+TEST(FrConstants, WasmPrimitiveRootConsistency)
 {
-    // Verify that when reconstructed as a uint512_t, it is less than the modulus r
-    constexpr std::array<uint64_t, 9> r_inv_wasm_limbs = { Bn254FrParams::r_inv_wasm_0, Bn254FrParams::r_inv_wasm_1,
-                                                           Bn254FrParams::r_inv_wasm_2, Bn254FrParams::r_inv_wasm_3,
-                                                           Bn254FrParams::r_inv_wasm_4, Bn254FrParams::r_inv_wasm_5,
-                                                           Bn254FrParams::r_inv_wasm_6, Bn254FrParams::r_inv_wasm_7,
-                                                           Bn254FrParams::r_inv_wasm_8 };
+    // The primitive root in WASM Montgomery form should represent the same field element
+    // as the primitive root in native Montgomery form.
+    uint256_t primitive_root_native{ Bn254FrParams::primitive_root_0,
+                                     Bn254FrParams::primitive_root_1,
+                                     Bn254FrParams::primitive_root_2,
+                                     Bn254FrParams::primitive_root_3 };
 
-    uint512_t r_inv_wasm = 0;
-    for (size_t i = 0; i < 9; i++) {
-        r_inv_wasm += uint512_t(r_inv_wasm_limbs[i]) << (29UL * i);
-        // Verify each limb fits in 29 bits
-        EXPECT_LT(r_inv_wasm_limbs[i], uint64_t(1) << 29);
-    }
+    uint256_t primitive_root_wasm{ Bn254FrParams::primitive_root_wasm_0,
+                                   Bn254FrParams::primitive_root_wasm_1,
+                                   Bn254FrParams::primitive_root_wasm_2,
+                                   Bn254FrParams::primitive_root_wasm_3 };
 
-    // Verify r_inv_wasm < r/2
-    EXPECT_LT(r_inv_wasm, uint512_t(native_r) / 2);
+    // R_wasm / R_native = 2^261 / 2^256 = 2^5 = 32
+    uint512_t expected_primitive_root_wasm = (uint512_t(primitive_root_native) * 32) % native_r;
+
+    EXPECT_EQ(expected_primitive_root_wasm.lo, primitive_root_wasm);
+    EXPECT_EQ(expected_primitive_root_wasm.hi, uint256_t(0));
 }

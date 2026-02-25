@@ -17,13 +17,18 @@
 
 namespace bb {
 
+/**
+ * @brief Parameters defining the scalar field of the BN254 curve.
+ *
+ * @details When split into 4 64-bit words, the parameters are represented in little-endian, i.e. the least significant
+ * bit comes first. For example, to recover the modulus from the 64-bit words we concatenate:
+ *      modulus_3 || modulus_2 || modulus_1 || modulus_0 =
+ *           0x30644E72E131A029B85045B68181585D2833E84879B9709143E1F593F0000001
+ *
+ * @note These parameters can be extracted by running the script parameter_helper.py in ecc/fields
+ */
 class Bn254FrParams {
-    // There is a helper script in ecc/fields/parameter_helper.py that can be used to extract these parameters from the
   public:
-    // Note: limbs here are combined as concat(_3, _2, _1, _0)
-    // E.g. this modulus forms the value:
-    // 0x30644E72E131A029B85045B68181585D2833E84879B9709143E1F593F0000001
-    // = 21888242871839275222246405745257275088548364400416034343698204186575808495617
     // A little-endian representation of the modulus split into 4 64-bit words
     static constexpr uint64_t modulus_0 = 0x43E1F593F0000001UL;
     static constexpr uint64_t modulus_1 = 0x2833E84879B97091UL;
@@ -42,12 +47,14 @@ class Bn254FrParams {
     static constexpr uint64_t cube_root_2 = 0x8be4ba08b19a750aUL;
     static constexpr uint64_t cube_root_3 = 0x1cbd5653a5661c25UL;
 
-    // A little-endian representation of the primitive root of 1 Fr split into 4 64-bit words in Montgomery form
-    // (R=2^256 mod modulus) This is a root of unity in a large power of 2 subgroup of Fr
+    // A little-endian representation of the primitive root of 1 in Fr split into 4 64-bit words in Montgomery form
+    // (R=2^256 mod modulus). This is a root of unity in a large power of 2 (order 28) subgroup of Fr.
     static constexpr uint64_t primitive_root_0 = 0x636e735580d13d9cUL;
     static constexpr uint64_t primitive_root_1 = 0xa22bf3742445ffd6UL;
     static constexpr uint64_t primitive_root_2 = 0x56452ac01eb203d8UL;
     static constexpr uint64_t primitive_root_3 = 0x1860ef942963f9e7UL;
+
+    ///// TO BE CHECKED!!!!!
 
     // Parameters used for quickly splitting a scalar into two endomorphism scalars for faster scalar multiplication
     // For specifics on how these have been derived, ask @zac-williamson
@@ -62,9 +69,10 @@ class Bn254FrParams {
     static constexpr uint64_t endo_b2_mid = 0UL;
 
     // -(Modulus^-1) mod 2^64
-    // This is used to compute k = r_inv * lower_limb(scalar), such that scalar + k*modulus in integers would have 0 in
-    // the lowest limb By performing this sequentially for 4 limbs, we get an 8-limb representation of the scalar, where
-    // the lowest 4 limbs are zeros. Then we can immediately divide by 2^256 by simply getting rid of the lowest 4 limbs
+    // This constant is used during multiplication: given an 8-limb representation of the multiplication of two field
+    // elements, for each of the lowest four limbs we compute: k_i = r_inv * limb_i and we add 2^{64 * i} * k_i * p to
+    // the result of the multiplication. In this way we zero out the lowest four limbs of the multiplication and we can
+    // divide by 2^256 by taking the highest four limbs. See field_docs.hpp for more details.
     static constexpr uint64_t r_inv = 0xc2e1f593efffffffUL;
 
     // 2^(-64) mod Modulus
@@ -121,7 +129,7 @@ class Bn254FrParams {
     static constexpr uint64_t modulus_wasm_8 = 0x30644e;
 
     // A little-endian representation of R^2 modulo the modulus (R=2^261 mod modulus) split into 4 64-bit words
-    // We use 2^261 in wasm, because 261=29*9, the 9 29-bit limbs used for arithmetic in
+    // We use 2^261 in wasm, because 261=29*9, the 9 29-bit limbs used for arithmetic
     static constexpr uint64_t r_squared_wasm_0 = 0x38c2e14b45b69bd4UL;
     static constexpr uint64_t r_squared_wasm_1 = 0x0ffedb1885883377UL;
     static constexpr uint64_t r_squared_wasm_2 = 0x7840f9f0abc6e54dUL;
