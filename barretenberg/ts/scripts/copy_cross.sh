@@ -11,13 +11,8 @@ if [ -n "${1:-}" ]; then
   cp ../cpp/build-zig-$arch/bin/bb ./build/$arch
   cp ../cpp/build-zig-$arch/lib/nodejs_module.node ./build/$arch
 elif semver check "${REF_NAME:-}" && [[ "$(arch)" == "amd64" ]]; then
-  # We're building a release.
-  # amd64-linux comes from native build (zig-native-linux preset, targets glibc 2.35).
-  mkdir -p ./build/amd64-linux
-  cp ../cpp/build/bin/bb ./build/amd64-linux
-  cp ../cpp/build/lib/nodejs_module.node ./build/amd64-linux
-
-  for arch in arm64-linux amd64-macos arm64-macos; do
+  # Release: all architectures come from zig cross-builds (including amd64-linux for glibc 2.35).
+  for arch in amd64-linux arm64-linux amd64-macos arm64-macos; do
     mkdir -p ./build/$arch
     cp ../cpp/build-zig-$arch/bin/bb ./build/$arch
     cp ../cpp/build-zig-$arch/lib/nodejs_module.node ./build/$arch

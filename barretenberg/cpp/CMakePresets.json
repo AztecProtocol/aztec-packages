@@ -472,21 +472,6 @@
       }
     },
     {
-      "name": "zig-native-linux",
-      "displayName": "Native Linux build with Zig (glibc 2.35)",
-      "description": "Build for the host architecture targeting glibc 2.35 (Ubuntu 22.04+)",
-      "inherits": "zig-base",
-      "binaryDir": "build",
-      "environment": {
-        "CC": "zig cc -target native-linux-gnu.2.35",
-        "CXX": "zig c++ -target native-linux-gnu.2.35",
-        "LDFLAGS": "-s"
-      },
-      "cacheVariables": {
-        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/release/libavm_transpiler.a"
-      }
-    },
-    {
       "name": "zig-amd64-linux",
       "displayName": "Cross-compile for linux amd64 with Zig (glibc 2.35)",
       "inherits": "zig-base",
