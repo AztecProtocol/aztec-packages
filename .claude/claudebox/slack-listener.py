@@ -84,7 +84,7 @@ def parse_command(text):
     return DEFAULT_SCRIPT, text
 
 
-def run_claudebox(channel, thread_ts, message_ts, script_name, prompt, thread_context):
+def run_claudebox(channel, thread_ts, message_ts, script_name, prompt, thread_context, user_name=""):
     """Spawn claudeentry.sh in a subprocess."""
     cmd = [
         os.path.expanduser("~/claudeentry.sh"),
@@ -93,6 +93,8 @@ def run_claudebox(channel, thread_ts, message_ts, script_name, prompt, thread_co
         f"--slack-thread-ts={thread_ts}",
         f"--slack-message-ts={message_ts}",
     ]
+    if user_name:
+        cmd.append(f"--user={user_name}")
 
     stdin_text = ""
     if thread_context:
@@ -122,7 +124,7 @@ def truncate(text, max_len=80):
     return text[: max_len - 3] + "..."
 
 
-def start_run(client, channel, thread_ts, script_name, prompt, thread_context):
+def start_run(client, channel, thread_ts, script_name, prompt, thread_context, user_name=""):
     """Post status message and spawn ClaudeBox in a background thread."""
     # Build status with quoted prompt
     status = f"ClaudeBox `{script_name}`"
@@ -144,7 +146,7 @@ def start_run(client, channel, thread_ts, script_name, prompt, thread_context):
 
     t = threading.Thread(
         target=run_claudebox,
-        args=(channel, thread_ts, message_ts, script_name, prompt, thread_context),
+        args=(channel, thread_ts, message_ts, script_name, prompt, thread_context, user_name),
         daemon=True,
     )
     t.start()
@@ -166,7 +168,17 @@ def handle_mention(event, client, say):
 
     script_name, prompt = parse_command(cmd)
     thread_context = get_thread_context(client, channel, thread_ts)
-    start_run(client, channel, thread_ts, script_name, prompt, thread_context)
+
+    # Resolve user name
+    user_id = event.get("user", "")
+    user_name = user_id
+    try:
+        info = client.users_info(user=user_id)
+        user_name = info["user"].get("real_name", user_id)
+    except Exception:
+        pass
+
+    start_run(client, channel, thread_ts, script_name, prompt, thread_context, user_name)
 
 
 # ── Slash command handler ────────────────────────────────────────
@@ -183,8 +195,17 @@ def handle_claudebox(ack, command, client):
         return
 
     script_name, prompt = parse_command(text)
+
+    # Resolve user name
+    user_name = user
+    try:
+        info = client.users_info(user=user)
+        user_name = info["user"].get("real_name", user)
+    except Exception:
+        pass
+
     ack(text=f"ClaudeBox is starting `{script_name}`: _{truncate(prompt)}_")
-    start_run(client, channel, None, script_name, prompt, "")
+    start_run(client, channel, None, script_name, prompt, "", user_name)
 
 
 if __name__ == "__main__":

@@ -18,6 +18,7 @@ REPO=""
 SLACK_CHANNEL=""
 SLACK_THREAD_TS=""
 SLACK_MESSAGE_TS=""
+USER_NAME=""
 
 for arg in "$@"; do
     case "$arg" in
@@ -38,6 +39,9 @@ for arg in "$@"; do
             ;;
         --slack-message-ts=*)
             SLACK_MESSAGE_TS="${arg#--slack-message-ts=}"
+            ;;
+        --user=*)
+            USER_NAME="${arg#--user=}"
             ;;
         *)
             if [ -z "$SCRIPT_NAME" ]; then
@@ -160,8 +164,9 @@ LOG_ID=""
 USE_CACHE_LOG=0
 if [ "${GITHUB_ACTIONS:-}" != "true" ]; then
     # Source ci3 to get uuid function and redis setup
-    NO_CD=1 source "$REPO_DIR/ci3/source" 2>/dev/null || true
-    source "$REPO_DIR/ci3/source_redis" 2>/dev/null || true
+    NO_CD=1 source "$REPO_DIR/ci3/source" || true
+    source "$REPO_DIR/ci3/source_redis" || true
+    echo "Redis available: ${CI_REDIS_AVAILABLE:-0}" >&2
     if [ "${CI_REDIS_AVAILABLE:-0}" -eq 1 ]; then
         LOG_ID=$(cat /dev/urandom | head -c 16 | xxd -p)
         USE_CACHE_LOG=1
@@ -201,30 +206,84 @@ echo ""
 bash "$REPO_DIR/.claude/claudebox/stream-session.sh" "$WORKTREE_NAME" &
 STREAM_PID=$!
 
-# ── Start Claude (foreground, streamer runs alongside) ───────────
+# ── Start Claude in tmux (or foreground for GHA) ─────────────────
 # Allow running inside another Claude session (local testing)
 unset CLAUDECODE 2>/dev/null || true
 
 # NOTE: We run this in a sandboxed environment with appropriately-scoped permissions.
 DANGEROUS_FLAGS=--dangerously-skip-permissions
 
+# Session name for tmux (LOG_ID if available, else worktree name)
+TMUX_SESSION="${LOG_ID:-$WORKTREE_NAME}"
+
+# Write prompt to a temp file (avoids shell quoting issues in tmux)
+PROMPT_FILE="/tmp/claudebox-prompt-$$"
+EXIT_FILE="/tmp/claudebox-exit-$$"
+echo "$PROMPT" > "$PROMPT_FILE"
+
+# Build the claude command
+CLAUDE_CMD="claude --print --worktree '$WORKTREE_NAME' $DANGEROUS_FLAGS -p \"\$(cat $PROMPT_FILE)\""
+
 # Don't error on bad exit code
 set +e
-if [ "$USE_CACHE_LOG" -eq 1 ]; then
-    # Pipe through cache_log for live URL; DUP=1 to also print to stdout
-    claude \
-        --print \
-        --worktree "$WORKTREE_NAME" \
-        $DANGEROUS_FLAGS \
-        -p "$PROMPT" 2>&1 | DUP=1 "$REPO_DIR/ci3/cache_log" "claudebox-$SCRIPT_NAME" "$LOG_ID"
-    CLAUDE_EXIT=${PIPESTATUS[0]}
-else
+if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+    # GHA: run directly (no tmux, logs go to Actions UI)
     claude \
         --print \
         --worktree "$WORKTREE_NAME" \
         $DANGEROUS_FLAGS \
         -p "$PROMPT"
     CLAUDE_EXIT=$?
+else
+    # Slack/local: run in tmux so sessions are attachable
+    if [ "$USE_CACHE_LOG" -eq 1 ]; then
+        TMUX_CMD="$CLAUDE_CMD 2>&1 | DUP=1 $REPO_DIR/ci3/cache_log claudebox-$SCRIPT_NAME $LOG_ID; echo \${PIPESTATUS[0]} > $EXIT_FILE"
+    else
+        TMUX_CMD="$CLAUDE_CMD; echo \$? > $EXIT_FILE"
+    fi
+
+    echo "Starting tmux session: $TMUX_SESSION"
+
+    # Write session metadata for the console
+    SESSIONS_DIR="$REPO_DIR/.claude/claudebox/sessions"
+    mkdir -p "$SESSIONS_DIR"
+    SESSION_FILE="$SESSIONS_DIR/$TMUX_SESSION.json"
+    cat > "$SESSION_FILE" <<METAEOF
+{
+  "tmux": "$TMUX_SESSION",
+  "script": "$SCRIPT_NAME",
+  "prompt": $(echo "$USER_PROMPT" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().strip()))'),
+  "user": "${USER_NAME:-unknown}",
+  "worktree": "$WORKTREE_NAME",
+  "log_url": "${LOG_URL:-}",
+  "slack_channel": "${SLACK_CHANNEL:-}",
+  "github_comment": "${COMMENT_ID:-}",
+  "started": "$(date -Iseconds)",
+  "status": "running"
+}
+METAEOF
+
+    tmux new-session -d -s "$TMUX_SESSION" "$TMUX_CMD"
+
+    # Wait for tmux session to finish
+    while tmux has-session -t "$TMUX_SESSION" 2>/dev/null; do
+        sleep 2
+    done
+    CLAUDE_EXIT=$(cat "$EXIT_FILE" 2>/dev/null || echo 1)
+
+    # Update session metadata with completion
+    python3 -c "
+import json, sys
+with open('$SESSION_FILE') as f:
+    d = json.load(f)
+d['status'] = 'completed'
+d['finished'] = '$(date -Iseconds)'
+d['exit_code'] = $CLAUDE_EXIT
+with open('$SESSION_FILE', 'w') as f:
+    json.dump(d, f, indent=2)
+" 2>/dev/null || true
+
+    rm -f "$PROMPT_FILE" "$EXIT_FILE"
 fi
 set -e
 

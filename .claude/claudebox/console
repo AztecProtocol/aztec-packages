@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+"""
+ClaudeBox Console — shows active and recent sessions.
+
+Usage: ./console [--watch]
+"""
+
+import json
+import glob
+import os
+import sys
+import time
+from datetime import datetime
+
+SESSIONS_DIR = os.path.join(
+    os.environ.get("CLAUDE_REPO_DIR", os.path.expanduser("~/aztec-packages")),
+    ".claude", "claudebox", "sessions",
+)
+
+# ANSI colors
+BOLD = "\033[1m"
+DIM = "\033[2m"
+GREEN = "\033[32m"
+YELLOW = "\033[33m"
+RED = "\033[31m"
+CYAN = "\033[36m"
+RESET = "\033[0m"
+
+
+def load_sessions():
+    """Load all session JSON files."""
+    sessions = []
+    for path in glob.glob(os.path.join(SESSIONS_DIR, "*.json")):
+        try:
+            with open(path) as f:
+                s = json.load(f)
+            s["_file"] = path
+            sessions.append(s)
+        except (json.JSONDecodeError, IOError):
+            pass
+    # Sort by start time, newest first
+    sessions.sort(key=lambda s: s.get("started", ""), reverse=True)
+    return sessions
+
+
+def format_time(iso_str):
+    """Format ISO timestamp to short form."""
+    if not iso_str:
+        return "-"
+    try:
+        dt = datetime.fromisoformat(iso_str)
+        return dt.strftime("%H:%M:%S")
+    except Exception:
+        return iso_str[:19]
+
+
+def format_duration(started, finished):
+    """Calculate and format duration."""
+    if not started:
+        return "-"
+    try:
+        start = datetime.fromisoformat(started)
+        end = datetime.fromisoformat(finished) if finished else datetime.now().astimezone()
+        delta = end - start
+        mins, secs = divmod(int(delta.total_seconds()), 60)
+        if mins > 0:
+            return f"{mins}m{secs}s"
+        return f"{secs}s"
+    except Exception:
+        return "-"
+
+
+def status_color(status):
+    if status == "running":
+        return YELLOW
+    if status == "completed":
+        return GREEN
+    return RED
+
+
+def render(sessions):
+    """Render the console output."""
+    lines = []
+    lines.append(f"\n{BOLD}ClaudeBox Console{RESET}")
+    lines.append(f"{DIM}{'─' * 120}{RESET}")
+
+    if not sessions:
+        lines.append("  No sessions found.")
+        lines.append(f"  Sessions dir: {SESSIONS_DIR}")
+        return "\n".join(lines)
+
+    # Header
+    lines.append(
+        f"  {BOLD}{'Status':<12} {'User':<18} {'Script':<12} {'Prompt':<30} "
+        f"{'Started':<10} {'Duration':<10} {'Log':<40} {'Tmux'}{RESET}"
+    )
+    lines.append(f"  {'─' * 116}")
+
+    for s in sessions[:20]:  # Show last 20
+        status = s.get("status", "unknown")
+        color = status_color(status)
+        user = s.get("user", "unknown")[:16]
+        script = s.get("script", "-")[:10]
+        prompt = s.get("prompt", "")[:28]
+        started = format_time(s.get("started"))
+        duration = format_duration(s.get("started"), s.get("finished"))
+        log_url = s.get("log_url", "-")
+        if log_url and len(log_url) > 38:
+            log_url = log_url[:38]
+        tmux = s.get("tmux", "-")
+
+        # Check if tmux session actually exists (for "running" status)
+        if status == "running":
+            ret = os.system(f"tmux has-session -t {tmux} 2>/dev/null")
+            if ret != 0:
+                status = "dead?"
+                color = RED
+
+        lines.append(
+            f"  {color}{status:<12}{RESET} {CYAN}{user:<18}{RESET} {script:<12} {prompt:<30} "
+            f"{started:<10} {duration:<10} {DIM}{log_url:<40}{RESET} {DIM}{tmux}{RESET}"
+        )
+
+    running = sum(1 for s in sessions if s.get("status") == "running")
+    lines.append(f"\n  {BOLD}{running}{RESET} running, {BOLD}{len(sessions)}{RESET} total")
+    return "\n".join(lines)
+
+
+def main():
+    watch = "--watch" in sys.argv or "-w" in sys.argv
+
+    if watch:
+        try:
+            while True:
+                os.system("clear")
+                sessions = load_sessions()
+                print(render(sessions))
+                print(f"\n  {DIM}Refreshing every 5s... (Ctrl+C to exit){RESET}")
+                time.sleep(5)
+        except KeyboardInterrupt:
+            print()
+    else:
+        sessions = load_sessions()
+        print(render(sessions))
+
+
+if __name__ == "__main__":
+    main()
