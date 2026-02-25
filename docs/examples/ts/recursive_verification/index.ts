@@ -110,9 +110,7 @@ async function main() {
   );
 
   // Step 5: Send transaction and wait for inclusion
-  // wait() blocks until the transaction is included in a block
-  const sentTx = await interaction.send(opts);
-  await sentTx.wait();
+  await interaction.send(opts);
 
   // Step 6: Read updated counter
   counterValue = await valueNotEqual.methods
