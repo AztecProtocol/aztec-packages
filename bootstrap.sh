@@ -694,6 +694,7 @@ case "$cmd" in
     barretenberg/cpp/bootstrap.sh build
     ;;
   "ci-barretenberg")
+    export BUILD_SYSTEM_DEBUG=1
     export CI=1
     export USE_TEST_CACHE=1
     export AVM=0
