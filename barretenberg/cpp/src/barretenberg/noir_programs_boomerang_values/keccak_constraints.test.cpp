@@ -5,7 +5,6 @@
 #include "barretenberg/boomerang_value_detection/graph_description_acir.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/crypto/keccak/keccak.hpp"
-#include "barretenberg/crypto/keccak/keccakf1600.cpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/keccak_constraint.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
