@@ -1099,7 +1099,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_keccak_permutation_constra
     }
 
     // Look up the registered outputs for these inputs
-    const auto& io_map = builder.stdlib_opcode_io.io_map;
+    const auto& io_map = builder.acir_opcode_io.io_map;
     auto it = io_map.find(input_indices);
     if (it == io_map.end()) {
         return false;

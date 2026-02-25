@@ -630,11 +630,25 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     const std::unordered_set<uint32_t>& get_finalize_witnesses() const { return finalize_witnesses; }
 
     /**
-     * @brief Tracks the mapping from stdlib opcode inputs to outputs (by witness index).
-     * @details Used by boomerang value detection to trace witness flow through opaque stdlib
-     * operations (e.g. keccak) whose internal gate structure is hard to follow statically.
+     * @brief Used for ACIR static analysis. Records witness-index-level input→output mappings for stdlib functions
+     * whose internal gate structure cannot be followed by static analysis alone.
+     *
+     * @details Some stdlib operations (e.g. batch_mul in msm) create complex internal
+     *          gate patterns that make it impractical for the static analyzer to trace which output witnesses
+     *          correspond to which inputs by inspecting gates alone.
+     *
+     *          Instead, the stdlib operation itself records its (input_witnesses → output_witnesses)
+     *          mapping here during circuit construction (guarded by is_write_vk_mode()).
+     *          The static analyzer then looks up these mappings to verify that the ACIR
+     *          constraint is actually processed.
+     *
+     *          The map key is the vector of input witness indices (using IS_CONSTANT for constant
+     *          inputs). The value is a list of output vectors, supporting repeated calls with
+     *          identical inputs.
+     *
+     * @see StaticAnalyzerAcir_
      */
-    struct stdlib_opcode_io_record {
+    struct acir_opcode_io_record {
         struct VectorHash {
             size_t operator()(const std::vector<uint32_t>& v) const
             {
@@ -654,7 +668,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         }
     };
 
-    stdlib_opcode_io_record stdlib_opcode_io;
+    acir_opcode_io_record acir_opcode_io;
 
     /**
      * @brief Add a witness index to the boomerang exclusion list

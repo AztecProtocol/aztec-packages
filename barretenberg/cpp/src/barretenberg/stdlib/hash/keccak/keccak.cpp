@@ -485,16 +485,15 @@ std::array<field_t<Builder>, keccak<Builder>::NUM_KECCAK_LANES> keccak<Builder>:
     // we convert back to the normal lanes
     auto permutation_result = extended_2_normal(internal);
 
-    // Register input->output witness mapping for boomerang value detection.
-    // For constant inputs, get_witness_index() returns IS_CONSTANT; outputs are always witnesses.
     if (ctx->is_write_vk_mode()) {
+        // Register input->output witness mapping for ACIR static analysis.
         auto to_witness_indices = [](const auto& fields) {
             std::vector<uint32_t> indices(fields.size());
             std::transform(
                 fields.begin(), fields.end(), indices.begin(), [](const auto& f) { return f.get_witness_index(); });
             return indices;
         };
-        ctx->stdlib_opcode_io.register_io(to_witness_indices(state), to_witness_indices(permutation_result));
+        ctx->acir_opcode_io.register_io(to_witness_indices(state), to_witness_indices(permutation_result));
     }
 
     return permutation_result;
