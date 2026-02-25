@@ -1,5 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
+import { mockTx, mockTxForRollup, txWithDataOverrides } from '@aztec/stdlib/testing';
 import { TX_ERROR_INVALID_EXPIRATION_TIMESTAMP, type Tx } from '@aztec/stdlib/tx';
 
 import { TimestampTxValidator } from './timestamp_validator.js';
@@ -38,24 +38,24 @@ describe('TimestampTxValidator', () => {
   };
 
   it.each([10n, 11n])('allows txs with valid expiration timestamp', async expirationTimestamp => {
-    const [goodTx] = await makeTxs();
-    goodTx.data.expirationTimestamp = expirationTimestamp;
+    let [goodTx] = await makeTxs();
+    goodTx = txWithDataOverrides(goodTx, { expirationTimestamp });
 
     await expectValid(goodTx);
   });
 
   it('allows txs with equal or greater expiration timestamp', async () => {
-    const [goodTx1, goodTx2] = await makeTxs();
-    goodTx1.data.expirationTimestamp = timestamp;
-    goodTx2.data.expirationTimestamp = timestamp + 1n;
+    let [goodTx1, goodTx2] = await makeTxs();
+    goodTx1 = txWithDataOverrides(goodTx1, { expirationTimestamp: timestamp });
+    goodTx2 = txWithDataOverrides(goodTx2, { expirationTimestamp: timestamp + 1n });
 
     await expectValid(goodTx1);
     await expectValid(goodTx2);
   });
 
   it('rejects txs with lower expiration timestamp', async () => {
-    const [badTx] = await makeTxs();
-    badTx.data.expirationTimestamp = timestamp - 1n;
+    let [badTx] = await makeTxs();
+    badTx = txWithDataOverrides(badTx, { expirationTimestamp: timestamp - 1n });
 
     await expectInvalid(badTx, TX_ERROR_INVALID_EXPIRATION_TIMESTAMP);
   });
@@ -67,8 +67,8 @@ describe('TimestampTxValidator', () => {
     // `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
     setValidatorAtBlock(BlockNumber(1));
 
-    const [badTx] = await makeTxs();
-    badTx.data.expirationTimestamp = timestamp - 1n;
+    let [badTx] = await makeTxs();
+    badTx = txWithDataOverrides(badTx, { expirationTimestamp: timestamp - 1n });
 
     await expectValid(badTx);
   });

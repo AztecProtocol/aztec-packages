@@ -52,6 +52,16 @@ export class BufferReader {
     return this.index === this.buffer.length;
   }
 
+  /** Returns the current read position in the buffer. */
+  public get currentPosition(): number {
+    return this.index;
+  }
+
+  /** Returns a subarray view of the underlying buffer from start to the current position. */
+  public getSlice(start: number): Buffer {
+    return this.buffer.subarray(start, this.index);
+  }
+
   /**
    * Reads a 32-bit unsigned integer from the buffer at the current index position.
    * Updates the index position by 4 bytes after reading the number.

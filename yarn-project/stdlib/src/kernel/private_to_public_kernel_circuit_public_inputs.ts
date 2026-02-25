@@ -14,14 +14,16 @@ import { PrivateToPublicAccumulatedData } from './private_to_public_accumulated_
 import { PublicCallRequest } from './public_call_request.js';
 
 export class PrivateToPublicKernelCircuitPublicInputs {
+  #cachedHash: Promise<Fr> | undefined;
+
   constructor(
-    public constants: TxConstantData,
-    public nonRevertibleAccumulatedData: PrivateToPublicAccumulatedData,
-    public revertibleAccumulatedData: PrivateToPublicAccumulatedData,
-    public publicTeardownCallRequest: PublicCallRequest,
-    public gasUsed: Gas,
-    public feePayer: AztecAddress,
-    public expirationTimestamp: UInt64,
+    public readonly constants: TxConstantData,
+    public readonly nonRevertibleAccumulatedData: PrivateToPublicAccumulatedData,
+    public readonly revertibleAccumulatedData: PrivateToPublicAccumulatedData,
+    public readonly publicTeardownCallRequest: PublicCallRequest,
+    public readonly gasUsed: Gas,
+    public readonly feePayer: AztecAddress,
+    public readonly expirationTimestamp: UInt64,
   ) {}
 
   toBuffer() {
@@ -91,8 +93,11 @@ export class PrivateToPublicKernelCircuitPublicInputs {
     return fields;
   }
 
-  hash() {
-    return poseidon2HashWithSeparator(this.toFields(), DomainSeparator.PUBLIC_TX_HASH);
+  hash(): Promise<Fr> {
+    if (!this.#cachedHash) {
+      this.#cachedHash = poseidon2HashWithSeparator(this.toFields(), DomainSeparator.PUBLIC_TX_HASH);
+    }
+    return this.#cachedHash;
   }
 
   toJSON() {

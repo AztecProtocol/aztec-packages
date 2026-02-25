@@ -10,8 +10,15 @@ import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { BlockProposal, CheckpointAttestation, CheckpointProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { makeAppendOnlyTreeSnapshot, mockTxForRollup } from '@aztec/stdlib/testing';
-import { BlockHeader, GlobalVariables, type Tx, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
+import { makeAppendOnlyTreeSnapshot, mockTxForRollup, txWithDataOverrides } from '@aztec/stdlib/testing';
+import {
+  BlockHeader,
+  GlobalVariables,
+  type Tx,
+  TxConstantData,
+  TxContext,
+  makeProcessedTxFromPrivateOnlyTx,
+} from '@aztec/stdlib/tx';
 
 import type { MockProxy } from 'jest-mock-extended';
 
@@ -22,9 +29,20 @@ export { MockCheckpointBuilder, MockCheckpointsBuilder } from './mock_checkpoint
  * Creates a mock transaction with a specific seed for deterministic testing
  */
 export async function makeTx(seed?: number, chainId?: Fr): Promise<Tx> {
-  const tx = await mockTxForRollup(seed);
+  let tx = await mockTxForRollup(seed);
   if (chainId) {
-    tx.data.constants.txContext.chainId = chainId;
+    const newTxContext = new TxContext(
+      chainId,
+      tx.data.constants.txContext.version,
+      tx.data.constants.txContext.gasSettings,
+    );
+    const newConstants = new TxConstantData(
+      tx.data.constants.anchorBlockHeader,
+      newTxContext,
+      tx.data.constants.vkTreeRoot,
+      tx.data.constants.protocolContractsHash,
+    );
+    tx = txWithDataOverrides(tx, { constants: newConstants });
   }
   return tx;
 }

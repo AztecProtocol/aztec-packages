@@ -13,7 +13,7 @@ import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
-import { mockTx } from '@aztec/stdlib/testing';
+import { mockTx, txWithDataOverrides } from '@aztec/stdlib/testing';
 import type { PublicStateSource } from '@aztec/stdlib/trees';
 import {
   TX_ERROR_GAS_LIMIT_TOO_HIGH,
@@ -21,6 +21,8 @@ import {
   TX_ERROR_INSUFFICIENT_FEE_PER_GAS,
   TX_ERROR_INSUFFICIENT_GAS_LIMIT,
   type Tx,
+  TxConstantData,
+  TxContext,
 } from '@aztec/stdlib/tx';
 
 import assert from 'assert';
@@ -40,6 +42,21 @@ describe('GasTxValidator', () => {
   let expectedBalanceSlot: Fr;
   let feeLimit: bigint;
 
+  const withGasSettings = (t: Tx, newGasSettings: GasSettings): Tx => {
+    const newTxContext = new TxContext(
+      t.data.constants.txContext.chainId,
+      t.data.constants.txContext.version,
+      newGasSettings,
+    );
+    const newConstants = new TxConstantData(
+      t.data.constants.anchorBlockHeader,
+      newTxContext,
+      t.data.constants.vkTreeRoot,
+      t.data.constants.protocolContractsHash,
+    );
+    return txWithDataOverrides(t, { constants: newConstants });
+  };
+
   beforeEach(async () => {
     publicStateSource = mock<PublicStateSource>({
       storageRead: mockFn().mockImplementation((_address: AztecAddress, _slot: Fr) => Fr.ZERO),
@@ -47,9 +64,11 @@ describe('GasTxValidator', () => {
     feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     gasFees = new GasFees(11, 22);
 
+    const newPayer = await AztecAddress.random();
+    const newGasSettings = GasSettings.default({ maxFeesPerGas: gasFees.clone() });
     tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
-    tx.data.feePayer = await AztecAddress.random();
-    tx.data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: gasFees.clone() });
+    tx = txWithDataOverrides(tx, { feePayer: newPayer });
+    tx = withGasSettings(tx, newGasSettings);
     payer = tx.data.feePayer;
     expectedBalanceSlot = await computeFeePayerBalanceStorageSlot(payer);
     feeLimit = tx.data.constants.txContext.gasSettings.getFeeLimit().toBigInt();
@@ -114,98 +133,125 @@ describe('GasTxValidator', () => {
   });
 
   const makePrivateTx = async () => {
-    const privateTx = await mockTx(1, {
+    let privateTx = await mockTx(1, {
       numberOfNonRevertiblePublicCallRequests: 0,
       numberOfRevertiblePublicCallRequests: 0,
       hasPublicTeardownCallRequest: false,
     });
     assert(!privateTx.data.forPublic);
-    privateTx.data.feePayer = payer;
-    privateTx.data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: gasFees.clone() });
+    privateTx = txWithDataOverrides(privateTx, { feePayer: payer });
+    privateTx = withGasSettings(privateTx, GasSettings.default({ maxFeesPerGas: gasFees.clone() }));
     return privateTx;
   };
 
   describe('gas limits', () => {
     it('accepts public tx at exactly the minimum gas limits', async () => {
       assert(!!tx.data.forPublic);
-      tx.data.constants.txContext.gasSettings = GasSettings.default({
-        gasLimits: new Gas(TX_DA_GAS_OVERHEAD, PUBLIC_TX_L2_GAS_OVERHEAD),
-        maxFeesPerGas: gasFees.clone(),
-      });
+      tx = withGasSettings(
+        tx,
+        GasSettings.default({
+          gasLimits: new Gas(TX_DA_GAS_OVERHEAD, PUBLIC_TX_L2_GAS_OVERHEAD),
+          maxFeesPerGas: gasFees.clone(),
+        }),
+      );
       mockBalance(tx.data.constants.txContext.gasSettings.getFeeLimit().toBigInt());
       await expectValid(tx);
     });
 
     it('accepts private tx at exactly the minimum gas limits', async () => {
-      const privateTx = await makePrivateTx();
-      privateTx.data.constants.txContext.gasSettings = GasSettings.default({
-        gasLimits: new Gas(TX_DA_GAS_OVERHEAD, PRIVATE_TX_L2_GAS_OVERHEAD),
-        maxFeesPerGas: gasFees.clone(),
-      });
+      let privateTx = await makePrivateTx();
+      privateTx = withGasSettings(
+        privateTx,
+        GasSettings.default({
+          gasLimits: new Gas(TX_DA_GAS_OVERHEAD, PRIVATE_TX_L2_GAS_OVERHEAD),
+          maxFeesPerGas: gasFees.clone(),
+        }),
+      );
       mockBalance(privateTx.data.constants.txContext.gasSettings.getFeeLimit().toBigInt());
       await expectValid(privateTx);
     });
 
     it('rejects public tx below the public L2 gas minimum', async () => {
       assert(!!tx.data.forPublic);
-      tx.data.constants.txContext.gasSettings = GasSettings.default({
-        gasLimits: new Gas(TX_DA_GAS_OVERHEAD, PUBLIC_TX_L2_GAS_OVERHEAD - 1),
-        maxFeesPerGas: gasFees.clone(),
-      });
+      tx = withGasSettings(
+        tx,
+        GasSettings.default({
+          gasLimits: new Gas(TX_DA_GAS_OVERHEAD, PUBLIC_TX_L2_GAS_OVERHEAD - 1),
+          maxFeesPerGas: gasFees.clone(),
+        }),
+      );
       await expectInvalid(tx, TX_ERROR_INSUFFICIENT_GAS_LIMIT);
     });
 
     it('rejects private tx below the private L2 gas minimum', async () => {
-      const privateTx = await makePrivateTx();
-      privateTx.data.constants.txContext.gasSettings = GasSettings.default({
-        gasLimits: new Gas(TX_DA_GAS_OVERHEAD, PRIVATE_TX_L2_GAS_OVERHEAD - 1),
-        maxFeesPerGas: gasFees.clone(),
-      });
+      let privateTx = await makePrivateTx();
+      privateTx = withGasSettings(
+        privateTx,
+        GasSettings.default({
+          gasLimits: new Gas(TX_DA_GAS_OVERHEAD, PRIVATE_TX_L2_GAS_OVERHEAD - 1),
+          maxFeesPerGas: gasFees.clone(),
+        }),
+      );
       await expectInvalid(privateTx, TX_ERROR_INSUFFICIENT_GAS_LIMIT);
     });
 
     it('rejects public tx at private L2 gas minimum (between the two thresholds)', async () => {
       assert(!!tx.data.forPublic);
       // PRIVATE_TX_L2_GAS_OVERHEAD is enough for a private tx but not for a public tx.
-      tx.data.constants.txContext.gasSettings = GasSettings.default({
-        gasLimits: new Gas(TX_DA_GAS_OVERHEAD, PRIVATE_TX_L2_GAS_OVERHEAD),
-        maxFeesPerGas: gasFees.clone(),
-      });
+      tx = withGasSettings(
+        tx,
+        GasSettings.default({
+          gasLimits: new Gas(TX_DA_GAS_OVERHEAD, PRIVATE_TX_L2_GAS_OVERHEAD),
+          maxFeesPerGas: gasFees.clone(),
+        }),
+      );
       await expectInvalid(tx, TX_ERROR_INSUFFICIENT_GAS_LIMIT);
     });
 
     it('rejects tx below DA gas minimum', async () => {
-      tx.data.constants.txContext.gasSettings = GasSettings.default({
-        gasLimits: new Gas(TX_DA_GAS_OVERHEAD - 1, PUBLIC_TX_L2_GAS_OVERHEAD),
-        maxFeesPerGas: gasFees.clone(),
-      });
+      tx = withGasSettings(
+        tx,
+        GasSettings.default({
+          gasLimits: new Gas(TX_DA_GAS_OVERHEAD - 1, PUBLIC_TX_L2_GAS_OVERHEAD),
+          maxFeesPerGas: gasFees.clone(),
+        }),
+      );
       await expectInvalid(tx, TX_ERROR_INSUFFICIENT_GAS_LIMIT);
     });
 
     it('rejects tx below both DA and L2 gas minimums', async () => {
-      tx.data.constants.txContext.gasSettings = GasSettings.default({
-        gasLimits: new Gas(1, 1),
-        maxFeesPerGas: gasFees.clone(),
-      });
+      tx = withGasSettings(
+        tx,
+        GasSettings.default({
+          gasLimits: new Gas(1, 1),
+          maxFeesPerGas: gasFees.clone(),
+        }),
+      );
       await expectInvalid(tx, TX_ERROR_INSUFFICIENT_GAS_LIMIT);
     });
 
     it('rejects public tx if L2 gas limit is too high', async () => {
-      tx.data.constants.txContext.gasSettings = GasSettings.default({
-        gasLimits: new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1),
-        maxFeesPerGas: gasFees.clone(),
-        teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
-      });
+      tx = withGasSettings(
+        tx,
+        GasSettings.default({
+          gasLimits: new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1),
+          maxFeesPerGas: gasFees.clone(),
+          teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
+        }),
+      );
       await expectInvalid(tx, TX_ERROR_GAS_LIMIT_TOO_HIGH);
     });
 
     it('rejects private tx if L2 gas limit is too high', async () => {
-      const privateTx = await makePrivateTx();
-      privateTx.data.constants.txContext.gasSettings = GasSettings.default({
-        gasLimits: new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1),
-        maxFeesPerGas: gasFees.clone(),
-        teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
-      });
+      let privateTx = await makePrivateTx();
+      privateTx = withGasSettings(
+        privateTx,
+        GasSettings.default({
+          gasLimits: new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1),
+          maxFeesPerGas: gasFees.clone(),
+          teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
+        }),
+      );
       await expectInvalid(privateTx, TX_ERROR_GAS_LIMIT_TOO_HIGH);
     });
   });

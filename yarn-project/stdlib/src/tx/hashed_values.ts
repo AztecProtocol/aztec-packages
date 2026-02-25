@@ -12,6 +12,8 @@ import { Vector } from '../types/index.js';
  * A container for storing a list of values and their hash.
  */
 export class HashedValues {
+  #cachedBuf: Buffer | undefined;
+
   constructor(
     /**
      *  Raw values.
@@ -49,12 +51,18 @@ export class HashedValues {
   }
 
   toBuffer() {
-    return serializeToBuffer(new Vector(this.values), this.hash);
+    if (!this.#cachedBuf) {
+      this.#cachedBuf = serializeToBuffer(new Vector(this.values), this.hash);
+    }
+    return Buffer.from(this.#cachedBuf);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): HashedValues {
     const reader = BufferReader.asReader(buffer);
-    return new HashedValues(reader.readVector(Fr), Fr.fromBuffer(reader));
+    const startPos = reader.currentPosition;
+    const result = new HashedValues(reader.readVector(Fr), Fr.fromBuffer(reader));
+    result.#cachedBuf = reader.getSlice(startPos);
+    return result;
   }
 
   // Computes the hash of input arguments or return values for private functions, or for authwit creation.

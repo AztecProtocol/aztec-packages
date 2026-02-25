@@ -12,7 +12,7 @@ import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import { LogHash } from '@aztec/stdlib/kernel';
 import { ContractClassLogFields } from '@aztec/stdlib/logs';
-import { makeContractClassPublic, mockTx } from '@aztec/stdlib/testing';
+import { makeContractClassPublic, mockTx, txWithDataOverrides } from '@aztec/stdlib/testing';
 import { type MerkleTreeWriteOperations, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { GlobalVariables, StateReference, Tx, type TxValidator } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
@@ -262,12 +262,12 @@ describe('public_processor', () => {
     });
 
     it('injects balance update with no public calls', async function () {
-      const tx = await mockPrivateOnlyTx({
+      let tx = await mockPrivateOnlyTx({
         feePayer,
       });
 
       const privateGasUsed = new Gas(12, 34);
-      tx.data.gasUsed = privateGasUsed;
+      tx = txWithDataOverrides(tx, { gasUsed: privateGasUsed });
 
       const txFee = privateGasUsed.computeFee(globalVariables.gasFees);
 
@@ -284,7 +284,7 @@ describe('public_processor', () => {
     });
 
     it('rejects tx if fee payer has not enough balance', async function () {
-      const tx = await mockPrivateOnlyTx({
+      let tx = await mockPrivateOnlyTx({
         feePayer,
       });
 
@@ -292,7 +292,7 @@ describe('public_processor', () => {
       if (privateGasUsed.computeFee(gasFees) < initialBalance) {
         throw new Error('Test setup error: gas fees are too low');
       }
-      tx.data.gasUsed = privateGasUsed;
+      tx = txWithDataOverrides(tx, { gasUsed: privateGasUsed });
 
       const [processed, failed] = await processor.process([tx]);
 

@@ -21,7 +21,13 @@ import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type BlockProposal, P2PClientType, P2PMessage } from '@aztec/stdlib/p2p';
 import { ChonkProof } from '@aztec/stdlib/proofs';
-import { makeAztecAddress, makeBlockHeader, makeBlockProposal, mockTx } from '@aztec/stdlib/testing';
+import {
+  makeAztecAddress,
+  makeBlockHeader,
+  makeBlockProposal,
+  mockTx,
+  txWithDataOverrides,
+} from '@aztec/stdlib/testing';
 import { Tx, TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -179,9 +185,9 @@ async function generateDeterministicTxs(txCount: number, seed: number, config: P
       hasPublicTeardownCallRequest: false,
       publicCalldataSize: 0,
     });
-    tx.data.expirationTimestamp = expirationTimestampBase + BigInt(i);
-    await tx.recomputeHash();
-    cached.push(tx);
+    const txWithExpiration = txWithDataOverrides(tx, { expirationTimestamp: expirationTimestampBase + BigInt(i) });
+    await txWithExpiration.recomputeHash();
+    cached.push(txWithExpiration);
   }
 
   txCache.set(seed, cached);

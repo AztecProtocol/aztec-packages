@@ -11,9 +11,11 @@ import { z } from 'zod';
 import { AztecAddress } from '../aztec-address/index.js';
 
 export class ContractClassLogFields {
+  #cachedBuf: Buffer | undefined;
+
   // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
   // public fields: Tuple<Fr, typeof CONTRACT_CLASS_LOG_SIZE_IN_FIELDS>
-  constructor(public fields: Fr[]) {
+  constructor(public readonly fields: Fr[]) {
     if (fields.length !== CONTRACT_CLASS_LOG_SIZE_IN_FIELDS) {
       throw new Error(
         `Invalid number of fields for ContractClassLog. Expected ${CONTRACT_CLASS_LOG_SIZE_IN_FIELDS}, got ${fields.length}`,
@@ -57,16 +59,22 @@ export class ContractClassLogFields {
   }
 
   toBuffer() {
-    return serializeToBuffer(this.fields);
+    if (!this.#cachedBuf) {
+      this.#cachedBuf = serializeToBuffer(this.fields);
+    }
+    return Buffer.from(this.#cachedBuf);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
+    const startPos = reader.currentPosition;
     // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
     // reader.readArray(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, Fr)
-    return new ContractClassLogFields(
+    const result = new ContractClassLogFields(
       Array.from({ length: CONTRACT_CLASS_LOG_SIZE_IN_FIELDS }, () => reader.readObject(Fr)),
     );
+    result.#cachedBuf = reader.getSlice(startPos);
+    return result;
   }
 
   equals(other: ContractClassLogFields) {

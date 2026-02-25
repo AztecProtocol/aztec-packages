@@ -27,6 +27,7 @@ import { TxHash } from './tx_hash.js';
 export class Tx extends Gossipable {
   static override p2pTopic = TopicType.tx;
 
+  #cachedBuf: Buffer | undefined;
   private calldataMap: Map<string, Fr[]> | undefined;
 
   constructor(
@@ -113,13 +114,16 @@ export class Tx extends Gossipable {
    */
   static fromBuffer(buffer: Buffer | BufferReader): Tx {
     const reader = BufferReader.asReader(buffer);
-    return new Tx(
+    const startPos = reader.currentPosition;
+    const result = new Tx(
       reader.readObject(TxHash),
       reader.readObject(PrivateKernelTailCircuitPublicInputs),
       reader.readObject(ChonkProof),
       reader.readVectorUint8Prefix(ContractClassLogFields),
       reader.readVectorUint8Prefix(HashedValues),
     );
+    result.#cachedBuf = reader.getSlice(startPos);
+    return result;
   }
 
   /**
@@ -127,13 +131,16 @@ export class Tx extends Gossipable {
    * @returns Buffer representation of the Tx object.
    */
   toBuffer() {
-    return serializeToBuffer([
-      this.txHash,
-      this.data,
-      this.chonkProof,
-      serializeArrayOfBufferableToVector(this.contractClassLogFields, 1),
-      serializeArrayOfBufferableToVector(this.publicFunctionCalldata, 1),
-    ]);
+    if (!this.#cachedBuf) {
+      this.#cachedBuf = serializeToBuffer([
+        this.txHash,
+        this.data,
+        this.chonkProof,
+        serializeArrayOfBufferableToVector(this.contractClassLogFields, 1),
+        serializeArrayOfBufferableToVector(this.publicFunctionCalldata, 1),
+      ]);
+    }
+    return Buffer.from(this.#cachedBuf);
   }
 
   static get schema(): ZodFor<Tx> {
@@ -254,13 +261,11 @@ export class Tx extends Gossipable {
     };
   }
 
-  private sizeCache: number | undefined;
-
   getSize(): number {
-    if (this.sizeCache == undefined) {
-      this.sizeCache = this.toBuffer().length;
+    if (this.#cachedBuf) {
+      return this.#cachedBuf.length;
     }
-    return this.sizeCache;
+    return this.toBuffer().length;
   }
 
   /**

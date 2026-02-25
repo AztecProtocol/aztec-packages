@@ -13,10 +13,10 @@ import { TxContext } from './tx_context.js';
  */
 export class TxConstantData {
   constructor(
-    public anchorBlockHeader: BlockHeader,
-    public txContext: TxContext,
-    public vkTreeRoot: Fr,
-    public protocolContractsHash: Fr,
+    public readonly anchorBlockHeader: BlockHeader,
+    public readonly txContext: TxContext,
+    public readonly vkTreeRoot: Fr,
+    public readonly protocolContractsHash: Fr,
   ) {}
 
   static from(fields: FieldsOf<TxConstantData>) {

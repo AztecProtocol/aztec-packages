@@ -22,7 +22,7 @@ import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { mockTx } from '@aztec/stdlib/testing';
+import { mockTx, txWithDataOverrides } from '@aztec/stdlib/testing';
 import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
@@ -35,6 +35,8 @@ import {
   TX_ERROR_INVALID_EXPIRATION_TIMESTAMP,
   TX_ERROR_SIZE_ABOVE_LIMIT,
   Tx,
+  TxConstantData,
+  TxContext,
 } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { ValidatorClient } from '@aztec/validator-client';
@@ -231,22 +233,46 @@ describe('aztec node', () => {
     });
 
     it('tests that the node correctly validates chain id', async () => {
-      const tx = await mockTxForRollup(0x10000);
+      let tx = await mockTxForRollup(0x10000);
       expect(await node.isValidTx(tx)).toEqual({ result: 'valid' });
 
       // We make the chain id on the tx not equal to the configured chain id
-      tx.data.constants.txContext.chainId = new Fr(1n + chainId.toBigInt());
+      const newChainId = new Fr(1n + chainId.toBigInt());
+      const newTxContext = new TxContext(
+        newChainId,
+        tx.data.constants.txContext.version,
+        tx.data.constants.txContext.gasSettings,
+      );
+      const newConstants = new TxConstantData(
+        tx.data.constants.anchorBlockHeader,
+        newTxContext,
+        tx.data.constants.vkTreeRoot,
+        tx.data.constants.protocolContractsHash,
+      );
+      tx = txWithDataOverrides(tx, { constants: newConstants });
       await tx.recomputeHash();
 
       expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: [TX_ERROR_INCORRECT_L1_CHAIN_ID] });
     });
 
     it('tests that the node correctly validates rollup version', async () => {
-      const tx = await mockTxForRollup(0x10000);
+      let tx = await mockTxForRollup(0x10000);
       expect(await node.isValidTx(tx)).toEqual({ result: 'valid' });
 
-      // We make the chain id on the tx not equal to the configured chain id
-      tx.data.constants.txContext.version = new Fr(1n + rollupVersion.toBigInt());
+      // We make the version on the tx not equal to the configured rollup version
+      const newVersion = new Fr(1n + rollupVersion.toBigInt());
+      const newTxContext = new TxContext(
+        tx.data.constants.txContext.chainId,
+        newVersion,
+        tx.data.constants.txContext.gasSettings,
+      );
+      const newConstants = new TxConstantData(
+        tx.data.constants.anchorBlockHeader,
+        newTxContext,
+        tx.data.constants.vkTreeRoot,
+        tx.data.constants.protocolContractsHash,
+      );
+      tx = txWithDataOverrides(tx, { constants: newConstants });
       await tx.recomputeHash();
 
       expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: [TX_ERROR_INCORRECT_ROLLUP_VERSION] });
@@ -271,13 +297,17 @@ describe('aztec node', () => {
 
     it('tests that the node correctly validates expiration timestamps', async () => {
       const txs = await Promise.all([mockTxForRollup(0x10000), mockTxForRollup(0x20000)]);
-      const invalidExpirationTimestampMetadata = txs[0];
-      const validExpirationTimestampMetadata = txs[1];
+      let invalidExpirationTimestampMetadata = txs[0];
+      let validExpirationTimestampMetadata = txs[1];
 
-      invalidExpirationTimestampMetadata.data.expirationTimestamp = BigInt(NOW_S);
+      invalidExpirationTimestampMetadata = txWithDataOverrides(invalidExpirationTimestampMetadata, {
+        expirationTimestamp: BigInt(NOW_S),
+      });
       await invalidExpirationTimestampMetadata.recomputeHash();
 
-      validExpirationTimestampMetadata.data.expirationTimestamp = BigInt(NOW_S + 1);
+      validExpirationTimestampMetadata = txWithDataOverrides(validExpirationTimestampMetadata, {
+        expirationTimestamp: BigInt(NOW_S + 1),
+      });
       await validExpirationTimestampMetadata.recomputeHash();
 
       // We need to set the last block number to get this working properly because if it was set to 0, it would mean

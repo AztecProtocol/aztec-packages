@@ -1,6 +1,6 @@
 import { MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import { Gas } from '@aztec/stdlib/gas';
-import { mockSimulatedTx, mockTxForRollup } from '@aztec/stdlib/testing';
+import { mockSimulatedTx, mockTxForRollup, txWithDataOverrides } from '@aztec/stdlib/testing';
 import type { TxSimulationResult } from '@aztec/stdlib/tx';
 
 import { getGasLimits } from './get_gas_limits.js';
@@ -11,8 +11,8 @@ describe('getGasLimits', () => {
   beforeEach(async () => {
     txSimulationResult = await mockSimulatedTx();
 
-    const tx = await mockTxForRollup();
-    tx.data.gasUsed = Gas.from({ daGas: 100, l2Gas: 200 });
+    let tx = await mockTxForRollup();
+    tx = txWithDataOverrides(tx, { gasUsed: Gas.from({ daGas: 100, l2Gas: 200 }) });
     txSimulationResult.publicInputs = tx.data;
 
     txSimulationResult.publicOutput!.gasUsed = {

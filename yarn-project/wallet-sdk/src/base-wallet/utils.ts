@@ -14,6 +14,7 @@ import {
   ClaimedLengthArray,
   CountedPublicCallRequest,
   PrivateCircuitPublicInputs,
+  PrivateKernelTailCircuitPublicInputs,
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
 import { ChonkProof } from '@aztec/stdlib/proofs';
@@ -133,10 +134,17 @@ async function simulateBatchViaNode(
     1, // minRevertibleSideEffectCounter
   );
 
-  provingResult.publicInputs.feePayer = from;
+  const dataWithFeePayer = new PrivateKernelTailCircuitPublicInputs(
+    provingResult.publicInputs.constants,
+    provingResult.publicInputs.gasUsed,
+    from,
+    provingResult.publicInputs.expirationTimestamp,
+    provingResult.publicInputs.forPublic,
+    provingResult.publicInputs.forRollup,
+  );
 
   const tx = await Tx.create({
-    data: provingResult.publicInputs,
+    data: dataWithFeePayer,
     chonkProof: ChonkProof.empty(),
     contractClassLogFields: [],
     publicFunctionCalldata: publicFunctionCalldata,

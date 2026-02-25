@@ -21,6 +21,8 @@ import {
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
   PrivateKernelTailCircuitPublicInputs,
+  PrivateToPublicAccumulatedData,
+  PublicCallRequest,
   countAccumulatedItems,
 } from '@aztec/stdlib/kernel';
 import { ContractClassLogFields, PrivateLog } from '@aztec/stdlib/logs';
@@ -70,7 +72,9 @@ export async function createTxForPublicCalls(
   // use max limits
   const gasLimits = new Gas(DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT);
 
-  const forPublic = PartialPrivateTailPublicInputsForPublic.empty();
+  // Build accumulated data objects (their array elements are still mutable).
+  const nonRevertibleAccumulatedData = PrivateToPublicAccumulatedData.empty();
+  const revertibleAccumulatedData = PrivateToPublicAccumulatedData.empty();
 
   // Non revertible private insertions
   if (!privateInsertions.nonRevertible?.nullifiers?.length) {
@@ -78,19 +82,19 @@ export async function createTxForPublicCalls(
   }
 
   for (let i = 0; i < privateInsertions.nonRevertible.nullifiers.length; i++) {
-    assert(i < forPublic.nonRevertibleAccumulatedData.nullifiers.length, 'Nullifier index out of bounds');
-    forPublic.nonRevertibleAccumulatedData.nullifiers[i] = privateInsertions.nonRevertible.nullifiers[i];
+    assert(i < nonRevertibleAccumulatedData.nullifiers.length, 'Nullifier index out of bounds');
+    nonRevertibleAccumulatedData.nullifiers[i] = privateInsertions.nonRevertible.nullifiers[i];
   }
   if (privateInsertions.nonRevertible.noteHashes) {
     for (let i = 0; i < privateInsertions.nonRevertible.noteHashes.length; i++) {
-      assert(i < forPublic.nonRevertibleAccumulatedData.noteHashes.length, 'Note hash index out of bounds');
-      forPublic.nonRevertibleAccumulatedData.noteHashes[i] = privateInsertions.nonRevertible.noteHashes[i];
+      assert(i < nonRevertibleAccumulatedData.noteHashes.length, 'Note hash index out of bounds');
+      nonRevertibleAccumulatedData.noteHashes[i] = privateInsertions.nonRevertible.noteHashes[i];
     }
   }
   if (privateInsertions.nonRevertible.l2ToL1Msgs) {
     for (let i = 0; i < privateInsertions.nonRevertible.l2ToL1Msgs.length; i++) {
-      assert(i < forPublic.nonRevertibleAccumulatedData.l2ToL1Msgs.length, 'L2 to L1 message index out of bounds');
-      forPublic.nonRevertibleAccumulatedData.l2ToL1Msgs[i] = privateInsertions.nonRevertible.l2ToL1Msgs[i];
+      assert(i < nonRevertibleAccumulatedData.l2ToL1Msgs.length, 'L2 to L1 message index out of bounds');
+      nonRevertibleAccumulatedData.l2ToL1Msgs[i] = privateInsertions.nonRevertible.l2ToL1Msgs[i];
     }
   }
 
@@ -98,33 +102,36 @@ export async function createTxForPublicCalls(
   if (privateInsertions.revertible) {
     if (privateInsertions.revertible.noteHashes) {
       for (let i = 0; i < privateInsertions.revertible.noteHashes.length; i++) {
-        assert(i < forPublic.revertibleAccumulatedData.noteHashes.length, 'Note hash index out of bounds');
-        forPublic.revertibleAccumulatedData.noteHashes[i] = privateInsertions.revertible.noteHashes[i];
+        assert(i < revertibleAccumulatedData.noteHashes.length, 'Note hash index out of bounds');
+        revertibleAccumulatedData.noteHashes[i] = privateInsertions.revertible.noteHashes[i];
       }
     }
     if (privateInsertions.revertible.nullifiers) {
       for (let i = 0; i < privateInsertions.revertible.nullifiers.length; i++) {
-        assert(i < forPublic.revertibleAccumulatedData.nullifiers.length, 'Nullifier index out of bounds');
-        forPublic.revertibleAccumulatedData.nullifiers[i] = privateInsertions.revertible.nullifiers[i];
+        assert(i < revertibleAccumulatedData.nullifiers.length, 'Nullifier index out of bounds');
+        revertibleAccumulatedData.nullifiers[i] = privateInsertions.revertible.nullifiers[i];
       }
     }
     if (privateInsertions.revertible.l2ToL1Msgs) {
       for (let i = 0; i < privateInsertions.revertible.l2ToL1Msgs.length; i++) {
-        assert(i < forPublic.revertibleAccumulatedData.l2ToL1Msgs.length, 'L2 to L1 message index out of bounds');
-        forPublic.revertibleAccumulatedData.l2ToL1Msgs[i] = privateInsertions.revertible.l2ToL1Msgs[i];
+        assert(i < revertibleAccumulatedData.l2ToL1Msgs.length, 'L2 to L1 message index out of bounds');
+        revertibleAccumulatedData.l2ToL1Msgs[i] = privateInsertions.revertible.l2ToL1Msgs[i];
       }
     }
   }
 
   for (let i = 0; i < setupCallRequests.length; i++) {
-    forPublic.nonRevertibleAccumulatedData.publicCallRequests[i] = setupCallRequests[i].request;
+    nonRevertibleAccumulatedData.publicCallRequests[i] = setupCallRequests[i].request;
   }
   for (let i = 0; i < appCallRequests.length; i++) {
-    forPublic.revertibleAccumulatedData.publicCallRequests[i] = appCallRequests[i].request;
+    revertibleAccumulatedData.publicCallRequests[i] = appCallRequests[i].request;
   }
-  if (teardownCallRequest) {
-    forPublic.publicTeardownCallRequest = teardownCallRequest.request;
-  }
+
+  const forPublic = new PartialPrivateTailPublicInputsForPublic(
+    nonRevertibleAccumulatedData,
+    revertibleAccumulatedData,
+    teardownCallRequest?.request ?? PublicCallRequest.empty(),
+  );
 
   const maxFeesPerGas = feePayer.isZero() ? GasFees.empty() : new GasFees(10, 10);
   const teardownGasLimits = teardownCallRequest

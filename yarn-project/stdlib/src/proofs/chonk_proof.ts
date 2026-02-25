@@ -7,11 +7,13 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
 export class ChonkProof {
+  #cachedBuf: Buffer | undefined;
+
   constructor(
     // The proof fields.
     // For native verification, attach public inputs via `attachPublicInputs(publicInputs)`.
     // Not using Tuple here due to the length being too high.
-    public fields: Fr[],
+    public readonly fields: Fr[],
   ) {
     if (fields.length !== CHONK_PROOF_LENGTH) {
       throw new Error(`Invalid ChonkProof length: ${fields.length}`);
@@ -55,21 +57,29 @@ export class ChonkProof {
 
   static fromBuffer(buffer: Buffer | BufferReader): ChonkProof {
     const reader = BufferReader.asReader(buffer);
+    const startPos = reader.currentPosition;
     const proofLength = reader.readNumber();
     const proof = reader.readArray(proofLength, Fr);
-    return new ChonkProof(proof);
+    const result = new ChonkProof(proof);
+    result.#cachedBuf = reader.getSlice(startPos);
+    return result;
   }
 
   public toBuffer() {
-    return serializeToBuffer(this.fields.length, this.fields);
+    if (!this.#cachedBuf) {
+      this.#cachedBuf = serializeToBuffer(this.fields.length, this.fields);
+    }
+    return Buffer.from(this.#cachedBuf);
   }
 }
 
 export class ChonkProofWithPublicInputs {
+  #cachedBuf: Buffer | undefined;
+
   constructor(
     // The proof fields with public inputs.
     // For recursive verification, use without public inputs via `removePublicInputs()`.
-    public fieldsWithPublicInputs: Fr[],
+    public readonly fieldsWithPublicInputs: Fr[],
   ) {
     if (fieldsWithPublicInputs.length < CHONK_PROOF_LENGTH) {
       throw new Error(`Invalid ChonkProofWithPublicInputs length: ${fieldsWithPublicInputs.length}`);
@@ -105,13 +115,19 @@ export class ChonkProofWithPublicInputs {
 
   static fromBuffer(buffer: Buffer | BufferReader): ChonkProofWithPublicInputs {
     const reader = BufferReader.asReader(buffer);
+    const startPos = reader.currentPosition;
     const proofLength = reader.readNumber();
     const proof = reader.readArray(proofLength, Fr);
-    return new ChonkProofWithPublicInputs(proof);
+    const result = new ChonkProofWithPublicInputs(proof);
+    result.#cachedBuf = reader.getSlice(startPos);
+    return result;
   }
 
   public toBuffer() {
-    return serializeToBuffer(this.fieldsWithPublicInputs.length, this.fieldsWithPublicInputs);
+    if (!this.#cachedBuf) {
+      this.#cachedBuf = serializeToBuffer(this.fieldsWithPublicInputs.length, this.fieldsWithPublicInputs);
+    }
+    return Buffer.from(this.#cachedBuf);
   }
 
   // Called when constructing from bb proving results.

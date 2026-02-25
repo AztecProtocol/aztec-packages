@@ -12,8 +12,8 @@ import { GasSettings } from '../gas/gas_settings.js';
  * Transaction context.
  */
 export class TxContext {
-  public chainId: Fr;
-  public version: Fr;
+  public readonly chainId: Fr;
+  public readonly version: Fr;
 
   constructor(
     /** Chain ID of the transaction. Here for replay protection. */
@@ -21,7 +21,7 @@ export class TxContext {
     /** Version of the transaction. Here for replay protection. */
     version: Fr | number | bigint,
     /** Gas limits for this transaction. */
-    public gasSettings: GasSettings,
+    public readonly gasSettings: GasSettings,
   ) {
     this.chainId = new Fr(chainId);
     this.version = new Fr(version);

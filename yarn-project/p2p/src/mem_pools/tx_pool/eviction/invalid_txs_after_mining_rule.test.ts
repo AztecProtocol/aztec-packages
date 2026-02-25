@@ -1,6 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { mockTx } from '@aztec/stdlib/testing';
+import { mockTx, txWithDataOverrides } from '@aztec/stdlib/testing';
 import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -113,17 +113,17 @@ describe('InvalidTxsAfterMiningRule', () => {
         const tx1 = TxHash.random();
         const tx2 = TxHash.random();
 
-        const mockTx1 = await mockTx(1, {
+        let mockTx1 = await mockTx(1, {
           numberOfNonRevertiblePublicCallRequests: 0,
           numberOfRevertiblePublicCallRequests: 0,
         });
-        const mockTx2 = await mockTx(2, {
+        let mockTx2 = await mockTx(2, {
           numberOfNonRevertiblePublicCallRequests: 0,
           numberOfRevertiblePublicCallRequests: 0,
         });
 
-        mockTx1.data.expirationTimestamp = 500n;
-        mockTx2.data.expirationTimestamp = 1500n;
+        mockTx1 = txWithDataOverrides(mockTx1, { expirationTimestamp: 500n });
+        mockTx2 = txWithDataOverrides(mockTx2, { expirationTimestamp: 1500n });
 
         const pendingTxs: PendingTxInfo[] = [
           { blockHash: Fr.ZERO, txHash: tx1, isEvictable: true },

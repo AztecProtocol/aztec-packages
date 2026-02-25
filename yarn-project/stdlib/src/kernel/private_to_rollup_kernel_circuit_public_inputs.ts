@@ -17,27 +17,29 @@ import { PrivateToRollupAccumulatedData } from './private_to_rollup_accumulated_
  * All Public kernels use this shape for outputs.
  */
 export class PrivateToRollupKernelCircuitPublicInputs {
+  #cachedHash: Promise<Fr> | undefined;
+
   constructor(
     /**
      * Data which is not modified by the circuits.
      */
-    public constants: TxConstantData,
+    public readonly constants: TxConstantData,
     /**
      * Data accumulated from both public and private circuits.
      */
-    public end: PrivateToRollupAccumulatedData,
+    public readonly end: PrivateToRollupAccumulatedData,
     /**
      * Gas used during this transaction
      */
-    public gasUsed: Gas,
+    public readonly gasUsed: Gas,
     /**
      * The address of the fee payer for the transaction.
      */
-    public feePayer: AztecAddress,
+    public readonly feePayer: AztecAddress,
     /**
      * The timestamp by which the transaction must be included in a block.
      */
-    public expirationTimestamp: UInt64,
+    public readonly expirationTimestamp: UInt64,
   ) {}
 
   getNonEmptyNullifiers() {
@@ -112,7 +114,10 @@ export class PrivateToRollupKernelCircuitPublicInputs {
     return fields;
   }
 
-  hash() {
-    return poseidon2HashWithSeparator(this.toFields(), DomainSeparator.PRIVATE_TX_HASH);
+  hash(): Promise<Fr> {
+    if (!this.#cachedHash) {
+      this.#cachedHash = poseidon2HashWithSeparator(this.toFields(), DomainSeparator.PRIVATE_TX_HASH);
+    }
+    return this.#cachedHash;
   }
 }

@@ -16,14 +16,23 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Body, L2Block, type L2BlockId, type L2BlockSource } from '@aztec/stdlib/block';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { mockTx } from '@aztec/stdlib/testing';
+import { mockTx, txWithDataOverrides } from '@aztec/stdlib/testing';
 import {
   AppendOnlyTreeSnapshot,
   MerkleTreeId,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
 } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, type Tx, TxEffect, TxHash, type TxValidator } from '@aztec/stdlib/tx';
+import {
+  BlockHeader,
+  GlobalVariables,
+  type Tx,
+  TxConstantData,
+  TxContext,
+  TxEffect,
+  TxHash,
+  type TxValidator,
+} from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -665,25 +674,46 @@ describe('TxPoolV2', () => {
       await gasArchiveStore.delete();
     });
 
+    const withGasSettings = (t: MockTx, newGasSettings: GasSettings): MockTx => {
+      const newTxContext = new TxContext(
+        t.data.constants.txContext.chainId,
+        t.data.constants.txContext.version,
+        newGasSettings,
+      );
+      const newConstants = new TxConstantData(
+        t.data.constants.anchorBlockHeader,
+        newTxContext,
+        t.data.constants.vkTreeRoot,
+        t.data.constants.protocolContractsHash,
+      );
+      return txWithDataOverrides(t, { constants: newConstants });
+    };
+
     const makePublicTxWithGas = async (seed: number, gasLimits: Gas) => {
-      const tx = await mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 1 });
-      tx.data.constants.txContext.gasSettings = GasSettings.default({
-        gasLimits,
-        maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
-      });
+      let tx = await mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 1 });
+      tx = withGasSettings(
+        tx,
+        GasSettings.default({
+          gasLimits,
+          maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
+        }),
+      );
       return tx;
     };
 
     const makePrivateTxWithGas = async (seed: number, gasLimits: Gas) => {
-      const tx = await mockTx(seed, {
+      let tx = await mockTx(seed, {
         numberOfNonRevertiblePublicCallRequests: 0,
         numberOfRevertiblePublicCallRequests: 0,
         hasPublicTeardownCallRequest: false,
       });
-      tx.data.constants.txContext.gasSettings = GasSettings.default({
-        gasLimits,
-        maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
-      });
+      tx = withGasSettings(
+        tx,
+        GasSettings.default({
+          gasLimits,
+          maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
+        }),
+      );
       return tx;
     };
 
@@ -730,24 +760,30 @@ describe('TxPoolV2', () => {
     });
 
     it('rejects public tx if L2 gas limit is too high', async () => {
-      const tx = await makePublicTxWithGas(1, new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1));
-      tx.data.constants.txContext.gasSettings = GasSettings.default({
-        gasLimits: new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1),
-        maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
-        teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
-      });
+      let tx = await makePublicTxWithGas(1, new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1));
+      tx = withGasSettings(
+        tx,
+        GasSettings.default({
+          gasLimits: new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1),
+          maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
+          teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
+        }),
+      );
       const result = await gasPool.addPendingTxs([tx]);
       expect(result.accepted).toHaveLength(0);
       expect(toStrings(result.rejected)).toContain(hashOf(tx));
     });
 
     it('rejects private tx if L2 gas limit is too high', async () => {
-      const tx = await makePrivateTxWithGas(1, new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1));
-      tx.data.constants.txContext.gasSettings = GasSettings.default({
-        gasLimits: new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1),
-        maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
-        teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
-      });
+      let tx = await makePrivateTxWithGas(1, new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1));
+      tx = withGasSettings(
+        tx,
+        GasSettings.default({
+          gasLimits: new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1),
+          maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
+          teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
+        }),
+      );
       const result = await gasPool.addPendingTxs([tx]);
       expect(result.accepted).toHaveLength(0);
       expect(toStrings(result.rejected)).toContain(hashOf(tx));
@@ -3294,14 +3330,21 @@ describe('TxPoolV2', () => {
 
     it('handles mixed valid/invalid anchor blocks in batch', async () => {
       const txValid = await mockTx(1);
-      const txInvalid = await mockTx(2);
+      let txInvalid = await mockTx(2);
 
       // Give txInvalid a different anchor block header
-      txInvalid.data.constants.anchorBlockHeader = BlockHeader.empty({
+      const newAnchor = BlockHeader.empty({
         globalVariables: GlobalVariables.empty({
           blockNumber: BlockNumber(999),
         }),
       });
+      const newConstants = new TxConstantData(
+        newAnchor,
+        txInvalid.data.constants.txContext,
+        txInvalid.data.constants.vkTreeRoot,
+        txInvalid.data.constants.protocolContractsHash,
+      );
+      txInvalid = txWithDataOverrides(txInvalid, { constants: newConstants });
 
       await pool.addPendingTxs([txValid, txInvalid]);
       await pool.handleMinedBlock(makeBlock([txValid, txInvalid], slot1Header));
@@ -4064,10 +4107,22 @@ describe('TxPoolV2', () => {
       // Create a tx with very high maxFeesPerGas so fee limit exceeds 1e18 balance
       // Fee limit = gasLimits.l2 * maxFees.l2 + gasLimits.da * maxFees.da
       // Default gas limits are ~1e7 each, so with maxFees of 1e12 we get ~1e19 fee limit
-      const highFeeTx = await mockTx(4, { numberOfNonRevertiblePublicCallRequests: 1 });
-      highFeeTx.data.constants.txContext.gasSettings = GasSettings.default({
+      let highFeeTx = await mockTx(4, { numberOfNonRevertiblePublicCallRequests: 1 });
+      const highFeeGasSettings = GasSettings.default({
         maxFeesPerGas: new GasFees(1e12, 1e12),
       });
+      const highFeeTxContext = new TxContext(
+        highFeeTx.data.constants.txContext.chainId,
+        highFeeTx.data.constants.txContext.version,
+        highFeeGasSettings,
+      );
+      const highFeeConstants = new TxConstantData(
+        highFeeTx.data.constants.anchorBlockHeader,
+        highFeeTxContext,
+        highFeeTx.data.constants.vkTreeRoot,
+        highFeeTx.data.constants.protocolContractsHash,
+      );
+      highFeeTx = txWithDataOverrides(highFeeTx, { constants: highFeeConstants });
 
       // Give conflictingTx a nullifier conflict with existingTx
       setNullifier(conflictingTx, 0, getNullifier(existingTx, 0));

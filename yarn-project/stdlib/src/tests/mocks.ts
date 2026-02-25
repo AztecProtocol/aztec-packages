@@ -41,11 +41,13 @@ import { Nullifier } from '../kernel/nullifier.js';
 import { PrivateCircuitPublicInputs } from '../kernel/private_circuit_public_inputs.js';
 import {
   PartialPrivateTailPublicInputsForPublic,
+  PartialPrivateTailPublicInputsForRollup,
   PrivateKernelTailCircuitPublicInputs,
 } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { PrivateToAvmAccumulatedData } from '../kernel/private_to_avm_accumulated_data.js';
 import { PrivateToPublicAccumulatedDataBuilder } from '../kernel/private_to_public_accumulated_data_builder.js';
-import { PublicCallRequestArrayLengths } from '../kernel/public_call_request.js';
+import { PrivateToRollupAccumulatedData } from '../kernel/private_to_rollup_accumulated_data.js';
+import { PublicCallRequest, PublicCallRequestArrayLengths } from '../kernel/public_call_request.js';
 import { computeInHashFromL1ToL2Messages } from '../messaging/in_hash.js';
 import { BlockProposal } from '../p2p/block_proposal.js';
 import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
@@ -65,6 +67,7 @@ import {
   ProtocolContracts,
   Tx,
   TxConstantData,
+  TxContext,
   makeProcessedTxFromPrivateOnlyTx,
   makeProcessedTxFromTxWithPublicCalls,
 } from '../tx/index.js';
@@ -88,6 +91,32 @@ import {
 
 export const randomTxHash = (): TxHash => TxHash.random();
 
+/** Creates a copy of the tx with overridden data fields. For testing only. */
+export function txWithDataOverrides(
+  tx: Tx,
+  overrides: Partial<
+    Pick<
+      {
+        constants: TxConstantData;
+        gasUsed: Gas;
+        feePayer: AztecAddress;
+        expirationTimestamp: bigint;
+      },
+      'feePayer' | 'gasUsed' | 'expirationTimestamp' | 'constants'
+    >
+  >,
+): Tx {
+  const data = new PrivateKernelTailCircuitPublicInputs(
+    overrides.constants ?? tx.data.constants,
+    overrides.gasUsed ?? tx.data.gasUsed,
+    overrides.feePayer ?? tx.data.feePayer,
+    overrides.expirationTimestamp ?? tx.data.expirationTimestamp,
+    tx.data.forPublic,
+    tx.data.forRollup,
+  );
+  return new Tx(tx.txHash, data, tx.chonkProof, tx.contractClassLogFields, tx.publicFunctionCalldata);
+}
+
 export const mockTx = async (
   seed = 1,
   {
@@ -98,6 +127,7 @@ export const mockTx = async (
     publicCalldataSize = 2,
     feePayer,
     chonkProof = ChonkProof.random(),
+    gasSettings,
     maxFeesPerGas = new GasFees(10, 10),
     maxPriorityFeesPerGas,
     gasUsed = Gas.empty(),
@@ -114,6 +144,7 @@ export const mockTx = async (
     publicCalldataSize?: number;
     feePayer?: AztecAddress;
     chonkProof?: ChonkProof;
+    gasSettings?: GasSettings;
     maxFeesPerGas?: GasFees;
     maxPriorityFeesPerGas?: GasFees;
     gasUsed?: Gas;
@@ -129,27 +160,24 @@ export const mockTx = async (
     numberOfRevertiblePublicCallRequests +
     (hasPublicTeardownCallRequest ? 1 : 0);
   const isForPublic = totalPublicCallRequests > 0;
-  const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), Fr.ZERO, 0);
-  data.constants.anchorBlockHeader = anchorBlockHeader;
-  data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas, maxPriorityFeesPerGas });
-  data.feePayer = feePayer ?? (await AztecAddress.random());
-  data.gasUsed = gasUsed;
-  data.constants.txContext.chainId = chainId;
-  data.constants.txContext.version = version;
-  data.constants.vkTreeRoot = vkTreeRoot;
-  data.constants.protocolContractsHash = protocolContractsHash;
 
-  // Set expirationTimestamp to the maximum allowed duration from the current time.
-  data.expirationTimestamp = BigInt(Math.floor(Date.now() / 1000) + MAX_TX_LIFETIME);
+  // Build constants bottom-up (all properties are readonly).
+  const actualGasSettings = gasSettings ?? GasSettings.default({ maxFeesPerGas, maxPriorityFeesPerGas });
+  const txContext = new TxContext(chainId, version, actualGasSettings);
+  const constants = new TxConstantData(anchorBlockHeader, txContext, vkTreeRoot, protocolContractsHash);
+  const actualFeePayer = feePayer ?? (await AztecAddress.random());
+  const expirationTimestamp = BigInt(Math.floor(Date.now() / 1000) + MAX_TX_LIFETIME);
 
   const publicFunctionCalldata: HashedValues[] = [];
-  if (!isForPublic) {
-    data.forRollup!.end.nullifiers[0] = firstNullifier.value;
-  } else {
-    data.forRollup = undefined;
-    data.forPublic = PartialPrivateTailPublicInputsForPublic.empty();
+  let forPublic: PartialPrivateTailPublicInputsForPublic | undefined;
+  let forRollup: PartialPrivateTailPublicInputsForRollup | undefined;
 
+  if (!isForPublic) {
+    const rollupData = PrivateToRollupAccumulatedData.empty();
+    rollupData.nullifiers[0] = firstNullifier.value;
+    forRollup = new PartialPrivateTailPublicInputsForRollup(rollupData);
+  } else {
     const revertibleBuilder = new PrivateToPublicAccumulatedDataBuilder();
     const nonRevertibleBuilder = new PrivateToPublicAccumulatedDataBuilder();
 
@@ -161,11 +189,11 @@ export const mockTx = async (
       publicCallRequests[i].calldataHash = hashedCalldata.hash;
     }
 
-    if (hasPublicTeardownCallRequest) {
-      data.forPublic.publicTeardownCallRequest = publicCallRequests.pop()!;
-    }
+    const publicTeardownCallRequest = hasPublicTeardownCallRequest
+      ? publicCallRequests.pop()!
+      : PublicCallRequest.empty();
 
-    data.forPublic.nonRevertibleAccumulatedData = nonRevertibleBuilder
+    const nonRevertibleAccumulatedData = nonRevertibleBuilder
       .pushNullifier(firstNullifier.value)
       .withPublicCallRequests(publicCallRequests.slice(numberOfRevertiblePublicCallRequests))
       .build();
@@ -175,10 +203,25 @@ export const mockTx = async (
       revertibleBuilder.pushNullifier(revertibleNullifier.value);
     }
 
-    data.forPublic.revertibleAccumulatedData = revertibleBuilder
+    const revertibleAccumulatedData = revertibleBuilder
       .withPublicCallRequests(publicCallRequests.slice(0, numberOfRevertiblePublicCallRequests))
       .build();
+
+    forPublic = new PartialPrivateTailPublicInputsForPublic(
+      nonRevertibleAccumulatedData,
+      revertibleAccumulatedData,
+      publicTeardownCallRequest,
+    );
   }
+
+  const data = new PrivateKernelTailCircuitPublicInputs(
+    constants,
+    gasUsed,
+    actualFeePayer,
+    expirationTimestamp,
+    forPublic,
+    forRollup,
+  );
 
   return await Tx.create({
     data,
@@ -230,43 +273,77 @@ export async function mockProcessedTx({
   feePayer ??= makeAztecAddress(seed + 0x100);
   feePaymentPublicDataWrite ??= makePublicDataWrite(seed + 0x200);
 
-  const txConstantData = TxConstantData.empty();
-  txConstantData.anchorBlockHeader = anchorBlockHeader;
-  txConstantData.txContext.chainId = chainId;
-  txConstantData.txContext.version = version;
-  txConstantData.txContext.gasSettings = gasSettings;
-  txConstantData.vkTreeRoot = vkTreeRoot;
-  txConstantData.protocolContractsHash = await protocolContracts.hash();
+  const protocolContractsHashValue = await protocolContracts.hash();
 
-  const tx = !privateOnly
-    ? await mockTx(seed, { feePayer, gasUsed, ...mockTxOpts })
+  let tx = !privateOnly
+    ? await mockTx(seed, {
+        ...mockTxOpts,
+        feePayer,
+        gasUsed,
+        anchorBlockHeader,
+        chainId,
+        version,
+        vkTreeRoot,
+        protocolContractsHash: protocolContractsHashValue,
+        gasSettings,
+      })
     : await mockTx(seed, {
         numberOfNonRevertiblePublicCallRequests: 0,
         numberOfRevertiblePublicCallRequests: 0,
+        ...mockTxOpts,
         feePayer,
         gasUsed,
-        ...mockTxOpts,
+        anchorBlockHeader,
+        chainId,
+        version,
+        vkTreeRoot,
+        protocolContractsHash: protocolContractsHashValue,
+        gasSettings,
       });
-  tx.data.constants = txConstantData;
 
   const transactionFee = tx.data.gasUsed.computeFee(globalVariables.gasFees);
 
   if (privateOnly) {
-    const data = makePrivateToRollupAccumulatedData(seed + 0x1000, { numContractClassLogs: 0 });
+    const rollupEndData = makePrivateToRollupAccumulatedData(seed + 0x1000, { numContractClassLogs: 0 });
 
-    tx.data.forRollup!.end = data;
+    // Reconstruct forRollup with new end data (avoids stale caches on PrivateKernelTailCircuitPublicInputs).
+    const newForRollup = new PartialPrivateTailPublicInputsForRollup(rollupEndData);
+    const newData = new PrivateKernelTailCircuitPublicInputs(
+      tx.data.constants,
+      tx.data.gasUsed,
+      tx.data.feePayer,
+      tx.data.expirationTimestamp,
+      undefined,
+      newForRollup,
+    );
+    tx = new Tx(tx.txHash, newData, tx.chonkProof, tx.contractClassLogFields, tx.publicFunctionCalldata);
 
     await tx.recomputeHash();
     return makeProcessedTxFromPrivateOnlyTx(tx, transactionFee, feePaymentPublicDataWrite, globalVariables);
   } else {
-    const dataFromPrivate = tx.data.forPublic!;
+    const oldForPublic = tx.data.forPublic!;
 
-    const nonRevertibleData = dataFromPrivate.nonRevertibleAccumulatedData;
+    const nonRevertibleData = oldForPublic.nonRevertibleAccumulatedData;
 
     // Create revertible data.
     const revertibleData = makePrivateToPublicAccumulatedData(seed + 0x1000, { numContractClassLogs: 0 });
     revertibleData.nullifiers[MAX_NULLIFIERS_PER_TX - 1] = Fr.ZERO; // Leave one space for the tx hash nullifier in nonRevertibleAccumulatedData.
-    dataFromPrivate.revertibleAccumulatedData = revertibleData;
+
+    // Reconstruct forPublic with new revertible data (readonly properties).
+    const newForPublic = new PartialPrivateTailPublicInputsForPublic(
+      nonRevertibleData,
+      revertibleData,
+      oldForPublic.publicTeardownCallRequest,
+    );
+    const newData = new PrivateKernelTailCircuitPublicInputs(
+      tx.data.constants,
+      tx.data.gasUsed,
+      tx.data.feePayer,
+      tx.data.expirationTimestamp,
+      newForPublic,
+    );
+    tx = new Tx(tx.txHash, newData, tx.chonkProof, tx.contractClassLogFields, tx.publicFunctionCalldata);
+    const dataFromPrivate = tx.data.forPublic!;
 
     // Create avm output.
     const avmOutput = AvmCircuitPublicInputs.empty();

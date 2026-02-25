@@ -20,15 +20,15 @@ export class PartialPrivateTailPublicInputsForPublic {
     /**
      * Accumulated side effects and enqueued calls that are not revertible.
      */
-    public nonRevertibleAccumulatedData: PrivateToPublicAccumulatedData,
+    public readonly nonRevertibleAccumulatedData: PrivateToPublicAccumulatedData,
     /**
      * Data accumulated from both public and private circuits.
      */
-    public revertibleAccumulatedData: PrivateToPublicAccumulatedData,
+    public readonly revertibleAccumulatedData: PrivateToPublicAccumulatedData,
     /**
      * Call request for the public teardown function.
      */
-    public publicTeardownCallRequest: PublicCallRequest,
+    public readonly publicTeardownCallRequest: PublicCallRequest,
   ) {}
 
   getSize() {
@@ -99,27 +99,31 @@ export class PartialPrivateTailPublicInputsForRollup {
 }
 
 export class PrivateKernelTailCircuitPublicInputs {
+  #cachedBuf: Buffer | undefined;
+  #cachedPublicInputs: PrivateToPublicKernelCircuitPublicInputs | undefined;
+  #cachedRollupInputs: PrivateToRollupKernelCircuitPublicInputs | undefined;
+
   constructor(
     /**
      * Data which is not modified by the circuits.
      */
-    public constants: TxConstantData,
+    public readonly constants: TxConstantData,
     /**
      * The accumulated gas used after private execution.
      * If the tx has a teardown call request, the teardown gas limits will also be included.
      */
-    public gasUsed: Gas,
+    public readonly gasUsed: Gas,
     /**
      * The address of the fee payer for the transaction.
      */
-    public feePayer: AztecAddress,
+    public readonly feePayer: AztecAddress,
     /**
      * The timestamp by which the transaction must be included in a block.
      */
-    public expirationTimestamp: UInt64,
+    public readonly expirationTimestamp: UInt64,
 
-    public forPublic?: PartialPrivateTailPublicInputsForPublic,
-    public forRollup?: PartialPrivateTailPublicInputsForRollup,
+    public readonly forPublic?: PartialPrivateTailPublicInputsForPublic,
+    public readonly forRollup?: PartialPrivateTailPublicInputsForRollup,
   ) {
     if (!forPublic && !forRollup) {
       throw new Error('Missing partial public inputs for private tail circuit.');
@@ -151,37 +155,37 @@ export class PrivateKernelTailCircuitPublicInputs {
   }
 
   toPrivateToPublicKernelCircuitPublicInputs() {
-    if (!this.forPublic) {
-      throw new Error('Private tail public inputs is not for public circuit.');
+    if (!this.#cachedPublicInputs) {
+      if (!this.forPublic) {
+        throw new Error('Private tail public inputs is not for public circuit.');
+      }
+      this.#cachedPublicInputs = new PrivateToPublicKernelCircuitPublicInputs(
+        this.constants,
+        this.forPublic.nonRevertibleAccumulatedData,
+        this.forPublic.revertibleAccumulatedData,
+        this.forPublic.publicTeardownCallRequest,
+        this.gasUsed,
+        this.feePayer,
+        this.expirationTimestamp,
+      );
     }
-    return new PrivateToPublicKernelCircuitPublicInputs(
-      this.constants,
-      this.forPublic.nonRevertibleAccumulatedData,
-      this.forPublic.revertibleAccumulatedData,
-      this.forPublic.publicTeardownCallRequest,
-      this.gasUsed,
-      this.feePayer,
-      this.expirationTimestamp,
-    );
+    return this.#cachedPublicInputs;
   }
 
   toPrivateToRollupKernelCircuitPublicInputs() {
-    if (!this.forRollup) {
-      throw new Error('Private tail public inputs is not for rollup circuit.');
+    if (!this.#cachedRollupInputs) {
+      if (!this.forRollup) {
+        throw new Error('Private tail public inputs is not for rollup circuit.');
+      }
+      this.#cachedRollupInputs = new PrivateToRollupKernelCircuitPublicInputs(
+        this.constants,
+        this.forRollup.end,
+        this.gasUsed,
+        this.feePayer,
+        this.expirationTimestamp,
+      );
     }
-    const constants = new TxConstantData(
-      this.constants.anchorBlockHeader,
-      this.constants.txContext,
-      this.constants.vkTreeRoot,
-      this.constants.protocolContractsHash,
-    );
-    return new PrivateToRollupKernelCircuitPublicInputs(
-      constants,
-      this.forRollup.end,
-      this.gasUsed,
-      this.feePayer,
-      this.expirationTimestamp,
-    );
+    return this.#cachedRollupInputs;
   }
 
   publicInputs(): PrivateToPublicKernelCircuitPublicInputs | PrivateToRollupKernelCircuitPublicInputs {
@@ -280,8 +284,9 @@ export class PrivateKernelTailCircuitPublicInputs {
 
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelTailCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
+    const startPos = reader.currentPosition;
     const isForPublic = reader.readBoolean();
-    return new PrivateKernelTailCircuitPublicInputs(
+    const result = new PrivateKernelTailCircuitPublicInputs(
       reader.readObject(TxConstantData),
       reader.readObject(Gas),
       reader.readObject(AztecAddress),
@@ -289,18 +294,23 @@ export class PrivateKernelTailCircuitPublicInputs {
       isForPublic ? reader.readObject(PartialPrivateTailPublicInputsForPublic) : undefined,
       !isForPublic ? reader.readObject(PartialPrivateTailPublicInputsForRollup) : undefined,
     );
+    result.#cachedBuf = reader.getSlice(startPos);
+    return result;
   }
 
   toBuffer() {
-    const isForPublic = !!this.forPublic;
-    return serializeToBuffer(
-      isForPublic,
-      this.constants,
-      this.gasUsed,
-      this.feePayer,
-      bigintToUInt64BE(this.expirationTimestamp),
-      isForPublic ? this.forPublic!.toBuffer() : this.forRollup!.toBuffer(),
-    );
+    if (!this.#cachedBuf) {
+      const isForPublic = !!this.forPublic;
+      this.#cachedBuf = serializeToBuffer(
+        isForPublic,
+        this.constants,
+        this.gasUsed,
+        this.feePayer,
+        bigintToUInt64BE(this.expirationTimestamp),
+        isForPublic ? this.forPublic!.toBuffer() : this.forRollup!.toBuffer(),
+      );
+    }
+    return Buffer.from(this.#cachedBuf);
   }
 
   static empty() {

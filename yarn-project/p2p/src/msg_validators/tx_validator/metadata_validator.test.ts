@@ -1,11 +1,13 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
+import { mockTx, mockTxForRollup, txWithDataOverrides } from '@aztec/stdlib/testing';
 import type { AnyTx, Tx } from '@aztec/stdlib/tx';
 import {
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
   TX_ERROR_INCORRECT_PROTOCOL_CONTRACTS_HASH,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
   TX_ERROR_INCORRECT_VK_TREE_ROOT,
+  TxConstantData,
+  TxContext,
 } from '@aztec/stdlib/tx';
 
 import { MetadataTxValidator } from './metadata_validator.js';
@@ -55,10 +57,22 @@ describe('MetadataTxValidator', () => {
 
   it('allows only transactions for the right chain', async () => {
     const goodTxs = await makeTxs();
-    const badTxs = await makeTxs();
+    let badTxs = await makeTxs();
 
-    badTxs.forEach(tx => {
-      tx.data.constants.txContext.chainId = chainId.add(new Fr(1));
+    badTxs = badTxs.map(tx => {
+      const wrongChainId = chainId.add(new Fr(1));
+      const newTxContext = new TxContext(
+        wrongChainId,
+        tx.data.constants.txContext.version,
+        tx.data.constants.txContext.gasSettings,
+      );
+      const newConstants = new TxConstantData(
+        tx.data.constants.anchorBlockHeader,
+        newTxContext,
+        tx.data.constants.vkTreeRoot,
+        tx.data.constants.protocolContractsHash,
+      );
+      return txWithDataOverrides(tx, { constants: newConstants });
     });
 
     await expectValid(goodTxs[0]);
@@ -69,10 +83,22 @@ describe('MetadataTxValidator', () => {
 
   it('allows only transactions for the right rollup', async () => {
     const goodTxs = await makeTxs();
-    const badTxs = await makeTxs();
+    let badTxs = await makeTxs();
 
-    badTxs.forEach(tx => {
-      tx.data.constants.txContext.version = rollupVersion.add(Fr.ONE);
+    badTxs = badTxs.map(tx => {
+      const wrongVersion = rollupVersion.add(Fr.ONE);
+      const newTxContext = new TxContext(
+        tx.data.constants.txContext.chainId,
+        wrongVersion,
+        tx.data.constants.txContext.gasSettings,
+      );
+      const newConstants = new TxConstantData(
+        tx.data.constants.anchorBlockHeader,
+        newTxContext,
+        tx.data.constants.vkTreeRoot,
+        tx.data.constants.protocolContractsHash,
+      );
+      return txWithDataOverrides(tx, { constants: newConstants });
     });
 
     await expectValid(goodTxs[0]);
@@ -85,8 +111,23 @@ describe('MetadataTxValidator', () => {
     const goodTxs = await makeTxs();
     const badTxs = await makeTxs();
 
-    badTxs[0].data.constants.vkTreeRoot = vkTreeRoot.add(new Fr(1));
-    badTxs[1].data.constants.protocolContractsHash = protocolContractsHash.add(new Fr(1));
+    const wrongVkTreeRoot = vkTreeRoot.add(new Fr(1));
+    const newConstants0 = new TxConstantData(
+      badTxs[0].data.constants.anchorBlockHeader,
+      badTxs[0].data.constants.txContext,
+      wrongVkTreeRoot,
+      badTxs[0].data.constants.protocolContractsHash,
+    );
+    badTxs[0] = txWithDataOverrides(badTxs[0], { constants: newConstants0 });
+
+    const wrongProtocolContractsHash = protocolContractsHash.add(new Fr(1));
+    const newConstants1 = new TxConstantData(
+      badTxs[1].data.constants.anchorBlockHeader,
+      badTxs[1].data.constants.txContext,
+      badTxs[1].data.constants.vkTreeRoot,
+      wrongProtocolContractsHash,
+    );
+    badTxs[1] = txWithDataOverrides(badTxs[1], { constants: newConstants1 });
 
     await expectValid(goodTxs[0]);
     await expectValid(goodTxs[1]);

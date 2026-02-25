@@ -19,9 +19,9 @@ import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { countAccumulatedItems } from '@aztec/stdlib/kernel';
 import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
-import { fr, mockTx } from '@aztec/stdlib/testing';
+import { fr, mockTx, txWithDataOverrides } from '@aztec/stdlib/testing';
 import { MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
-import { GlobalVariables } from '@aztec/stdlib/tx';
+import { GlobalVariables, TxConstantData, TxContext } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
@@ -85,17 +85,28 @@ describe('public_tx_simulator', () => {
     feePayer?: AztecAddress;
   }) => {
     // seed with min nullifier to prevent insertion of a nullifier < min
-    const tx = await mockTx(/*seed=*/ MIN_NULLIFIER, {
+    let tx = await mockTx(/*seed=*/ MIN_NULLIFIER, {
       numberOfNonRevertiblePublicCallRequests: numberOfSetupCalls,
       numberOfRevertiblePublicCallRequests: numberOfAppLogicCalls,
       hasPublicTeardownCallRequest: hasPublicTeardownCall,
     });
-    tx.data.constants.txContext.gasSettings = GasSettings.from({
+    const newGasSettings = GasSettings.from({
       gasLimits,
       teardownGasLimits,
       maxFeesPerGas,
       maxPriorityFeesPerGas,
     });
+    const newTxContext = new TxContext(
+      tx.data.constants.txContext.chainId,
+      tx.data.constants.txContext.version,
+      newGasSettings,
+    );
+    const newConstants = new TxConstantData(
+      tx.data.constants.anchorBlockHeader,
+      newTxContext,
+      tx.data.constants.vkTreeRoot,
+      tx.data.constants.protocolContractsHash,
+    );
 
     tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] = new Fr(0x7777);
     tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[1] = new Fr(0x8888);
@@ -117,12 +128,12 @@ describe('public_tx_simulator', () => {
       AztecAddress.fromField(new Fr(0x8888)),
     );
 
-    tx.data.gasUsed = privateGasUsed;
+    let gasUsed = privateGasUsed;
     if (hasPublicTeardownCall) {
-      tx.data.gasUsed = tx.data.gasUsed.add(teardownGasLimits);
+      gasUsed = gasUsed.add(teardownGasLimits);
     }
 
-    tx.data.feePayer = feePayer;
+    tx = txWithDataOverrides(tx, { constants: newConstants, gasUsed, feePayer });
 
     return tx;
   };

@@ -14,7 +14,7 @@ import { RevertCode } from '@aztec/stdlib/avm';
 import { Body, L2Block, type L2BlockId, type L2BlockSource } from '@aztec/stdlib/block';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { mockTx } from '@aztec/stdlib/testing';
+import { mockTx, txWithDataOverrides } from '@aztec/stdlib/testing';
 import {
   AppendOnlyTreeSnapshot,
   MerkleTreeId,
@@ -23,7 +23,15 @@ import {
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
 } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, type Tx, TxEffect, TxHash, type TxValidator } from '@aztec/stdlib/tx';
+import {
+  BlockHeader,
+  GlobalVariables,
+  type Tx,
+  TxConstantData,
+  TxEffect,
+  TxHash,
+  type TxValidator,
+} from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -545,13 +553,13 @@ describe('TxPoolV2 Compatibility Tests', () => {
   });
 
   it('Evicts txs with an insufficient fee payer balance after a block is mined', async () => {
-    const tx1 = await mockTx(1);
+    let tx1 = await mockTx(1);
     const tx2 = await mockTx(2);
     const tx3 = await mockTx(3);
     const tx4 = await mockTx(4);
 
     // modify tx1 to have the same fee payer as the mined tx and an insufficient fee payer balance
-    tx1.data.feePayer = tx4.data.feePayer;
+    tx1 = txWithDataOverrides(tx1, { feePayer: tx4.data.feePayer });
     const prev = db.getLeafPreimage.getMockImplementation()!;
     const expectedSlot = await computeFeePayerBalanceLeafSlot(tx1.data.feePayer);
     db.getLeafPreimage.mockImplementation((tree, index) => {
@@ -574,12 +582,21 @@ describe('TxPoolV2 Compatibility Tests', () => {
   });
 
   it('Evicts txs with invalid archive roots after a reorg', async () => {
-    const tx1 = await mockTx(1);
+    let tx1 = await mockTx(1);
     const tx2 = await mockTx(2);
     const tx3 = await mockTx(3);
 
     // modify tx1 to return no archive indices
-    tx1.data.constants.anchorBlockHeader.globalVariables.blockNumber = BlockNumber(1);
+    const newAnchorBlockHeader = BlockHeader.empty({
+      globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(1) }),
+    });
+    const newConstants = new TxConstantData(
+      newAnchorBlockHeader,
+      tx1.data.constants.txContext,
+      tx1.data.constants.vkTreeRoot,
+      tx1.data.constants.protocolContractsHash,
+    );
+    tx1 = txWithDataOverrides(tx1, { constants: newConstants });
     const tx1HeaderHash = await tx1.data.constants.anchorBlockHeader.hash();
     db.findLeafIndices.mockImplementation((tree, leaves) => {
       if (tree === MerkleTreeId.ARCHIVE) {

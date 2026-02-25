@@ -6,7 +6,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { mockTx } from '@aztec/stdlib/testing';
+import { mockTx, txWithDataOverrides } from '@aztec/stdlib/testing';
 import {
   MerkleTreeId,
   NullifierLeaf,
@@ -14,7 +14,7 @@ import {
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
 } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, TxConstantData, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -273,13 +273,13 @@ describe('KV TX pool', () => {
   });
 
   it('Evicts txs with an insufficient fee payer balance after a block is mined', async () => {
-    const tx1 = await mockTx(1);
+    let tx1 = await mockTx(1);
     const tx2 = await mockTx(2);
     const tx3 = await mockTx(3);
     const tx4 = await mockTx(4);
 
     // modify tx1 to have the same fee payer as the mined tx and an insufficient fee payer balance
-    tx1.data.feePayer = tx4.data.feePayer;
+    tx1 = txWithDataOverrides(tx1, { feePayer: tx4.data.feePayer });
     const prev = db.getLeafPreimage.getMockImplementation()!;
     const expectedSlot = await computeFeePayerBalanceLeafSlot(tx1.data.feePayer);
     db.getLeafPreimage.mockImplementation((tree, index) => {
@@ -302,12 +302,12 @@ describe('KV TX pool', () => {
   });
 
   it('Evicts txs with an expiration timestamp lower than or equal to the timestamp of the mined block', async () => {
-    const tx1 = await mockTx(1);
-    tx1.data.expirationTimestamp = 0n;
-    const tx2 = await mockTx(2);
-    tx2.data.expirationTimestamp = 32n;
-    const tx3 = await mockTx(3);
-    tx3.data.expirationTimestamp = 64n;
+    let tx1 = await mockTx(1);
+    tx1 = txWithDataOverrides(tx1, { expirationTimestamp: 0n });
+    let tx2 = await mockTx(2);
+    tx2 = txWithDataOverrides(tx2, { expirationTimestamp: 32n });
+    let tx3 = await mockTx(3);
+    tx3 = txWithDataOverrides(tx3, { expirationTimestamp: 64n });
 
     await txPool.addTxs([tx1, tx2, tx3]);
     await txPool.markAsMined([tx1.getTxHash()], block2Header);
@@ -315,12 +315,21 @@ describe('KV TX pool', () => {
   });
 
   it('Evicts txs with invalid archive roots after a reorg', async () => {
-    const tx1 = await mockTx(1);
+    let tx1 = await mockTx(1);
     const tx2 = await mockTx(2);
     const tx3 = await mockTx(3);
 
     // modify tx1 to return no archive indices
-    tx1.data.constants.anchorBlockHeader.globalVariables.blockNumber = BlockNumber(1);
+    const newAnchorBlockHeader = BlockHeader.empty({
+      globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(1) }),
+    });
+    const newConstants = new TxConstantData(
+      newAnchorBlockHeader,
+      tx1.data.constants.txContext,
+      tx1.data.constants.vkTreeRoot,
+      tx1.data.constants.protocolContractsHash,
+    );
+    tx1 = txWithDataOverrides(tx1, { constants: newConstants });
     const tx1HeaderHash = await tx1.data.constants.anchorBlockHeader.hash();
     const tx1HeaderHashFr = tx1HeaderHash;
     db.findLeafIndices.mockImplementation((tree, leaves) => {

@@ -2,7 +2,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { mockTx } from '@aztec/stdlib/testing';
+import { mockTx, txWithDataOverrides } from '@aztec/stdlib/testing';
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { BlockHeader, type Tx, type TxHash } from '@aztec/stdlib/tx';
 
@@ -190,11 +190,11 @@ describe('FeePayerBalanceEvictionRule', () => {
 
     it('evicts low priority txs when fee payer balance cannot cover total fee limit', async () => {
       const tx1 = await mockTx(1);
-      const tx2 = await mockTx(2);
-      const tx3 = await mockTx(3);
+      let tx2 = await mockTx(2);
+      let tx3 = await mockTx(3);
 
-      tx2.data.feePayer = tx1.data.feePayer;
-      tx3.data.feePayer = tx1.data.feePayer;
+      tx2 = txWithDataOverrides(tx2, { feePayer: tx1.data.feePayer });
+      tx3 = txWithDataOverrides(tx3, { feePayer: tx1.data.feePayer });
 
       mockTxLookup(tx1, tx2, tx3);
 
@@ -281,8 +281,8 @@ describe('FeePayerBalanceEvictionRule', () => {
 
     it('keeps txs when fee payer claims enough balance during setup', async () => {
       const tx1 = await mockTx(1);
-      const tx2 = await mockTx(2);
-      tx2.data.feePayer = tx1.data.feePayer;
+      let tx2 = await mockTx(2);
+      tx2 = txWithDataOverrides(tx2, { feePayer: tx1.data.feePayer });
 
       mockTxLookup(tx1, tx2);
 
@@ -312,8 +312,8 @@ describe('FeePayerBalanceEvictionRule', () => {
 
     it('does not fund later txs with claims from evicted txs', async () => {
       const tx1 = await mockTx(1);
-      const tx2 = await mockTx(2);
-      tx2.data.feePayer = tx1.data.feePayer;
+      let tx2 = await mockTx(2);
+      tx2 = txWithDataOverrides(tx2, { feePayer: tx1.data.feePayer });
 
       mockBalanceEntries([
         ...buildBalanceEntries(txHashes(tx1), 20n, { claimAmount: 10n, priority: 2n }),
@@ -340,11 +340,11 @@ describe('FeePayerBalanceEvictionRule', () => {
 
     it('keeps multiple lower-priority txs funded by higher-priority claims', async () => {
       const tx1 = await mockTx(1);
-      const tx2 = await mockTx(2);
-      const tx3 = await mockTx(3);
+      let tx2 = await mockTx(2);
+      let tx3 = await mockTx(3);
 
-      tx2.data.feePayer = tx1.data.feePayer;
-      tx3.data.feePayer = tx1.data.feePayer;
+      tx2 = txWithDataOverrides(tx2, { feePayer: tx1.data.feePayer });
+      tx3 = txWithDataOverrides(tx3, { feePayer: tx1.data.feePayer });
 
       mockBalanceEntries([
         ...buildBalanceEntries(txHashes(tx1), 1n, { claimAmount: 100n, priority: 3n }),
@@ -372,8 +372,8 @@ describe('FeePayerBalanceEvictionRule', () => {
 
     it('handles equal priority ties deterministically', async () => {
       const txClaim = await mockTx(1);
-      const txSpend = await mockTx(2);
-      txSpend.data.feePayer = txClaim.data.feePayer;
+      let txSpend = await mockTx(2);
+      txSpend = txWithDataOverrides(txSpend, { feePayer: txClaim.data.feePayer });
 
       mockBalanceEntries([
         ...buildBalanceEntries(txHashes(txClaim), 10n, { claimAmount: 100n, priority: 1n }),
@@ -408,11 +408,11 @@ describe('FeePayerBalanceEvictionRule', () => {
 
     it('evicts all txs when balance is too low', async () => {
       const tx1 = await mockTx(1);
-      const tx2 = await mockTx(2);
-      const tx3 = await mockTx(3);
+      let tx2 = await mockTx(2);
+      let tx3 = await mockTx(3);
 
-      tx2.data.feePayer = tx1.data.feePayer;
-      tx3.data.feePayer = tx1.data.feePayer;
+      tx2 = txWithDataOverrides(tx2, { feePayer: tx1.data.feePayer });
+      tx3 = txWithDataOverrides(tx3, { feePayer: tx1.data.feePayer });
 
       const feeLimit = 50n;
       mockBalanceEntries(buildBalanceEntries(txHashes(tx1, tx2, tx3), feeLimit, { priority: [3n, 2n, 1n] }));
@@ -437,8 +437,8 @@ describe('FeePayerBalanceEvictionRule', () => {
 
     it('evicts later txs when balance is exactly exhausted', async () => {
       const tx1 = await mockTx(1);
-      const tx2 = await mockTx(2);
-      tx2.data.feePayer = tx1.data.feePayer;
+      let tx2 = await mockTx(2);
+      tx2 = txWithDataOverrides(tx2, { feePayer: tx1.data.feePayer });
 
       mockBalanceEntries([
         ...buildBalanceEntries(txHashes(tx1), 10n, { priority: 2n }),
@@ -464,8 +464,8 @@ describe('FeePayerBalanceEvictionRule', () => {
 
     it('keeps non-evictable txs even when over balance', async () => {
       const tx1 = await mockTx(1);
-      const tx2 = await mockTx(2);
-      tx2.data.feePayer = tx1.data.feePayer;
+      let tx2 = await mockTx(2);
+      tx2 = txWithDataOverrides(tx2, { feePayer: tx1.data.feePayer });
 
       mockBalanceEntries([
         ...buildBalanceEntries(txHashes(tx1), 10n, { isEvictable: false, priority: 2n }),
@@ -492,8 +492,8 @@ describe('FeePayerBalanceEvictionRule', () => {
 
     it('evicts only evictable txs when the top tx is non-evictable and unfunded', async () => {
       const tx1 = await mockTx(1);
-      const tx2 = await mockTx(2);
-      tx2.data.feePayer = tx1.data.feePayer;
+      let tx2 = await mockTx(2);
+      tx2 = txWithDataOverrides(tx2, { feePayer: tx1.data.feePayer });
 
       mockBalanceEntries([
         ...buildBalanceEntries(txHashes(tx1), 10n, { isEvictable: false, priority: 2n }),
@@ -519,8 +519,8 @@ describe('FeePayerBalanceEvictionRule', () => {
 
     it('respects non-evictable txs when fee payer balance is exceeded', async () => {
       const tx1 = await mockTx(1);
-      const tx2 = await mockTx(2);
-      tx2.data.feePayer = tx1.data.feePayer;
+      let tx2 = await mockTx(2);
+      tx2 = txWithDataOverrides(tx2, { feePayer: tx1.data.feePayer });
 
       const feeLimit = 100n;
       mockBalanceEntries([
@@ -547,8 +547,8 @@ describe('FeePayerBalanceEvictionRule', () => {
 
     it('evicts higher-priority spends that rely on lower-priority claims', async () => {
       const tx1 = await mockTx(1);
-      const tx2 = await mockTx(2);
-      tx2.data.feePayer = tx1.data.feePayer;
+      let tx2 = await mockTx(2);
+      tx2 = txWithDataOverrides(tx2, { feePayer: tx1.data.feePayer });
 
       const feeLimit = 100n;
       mockBalanceEntries([

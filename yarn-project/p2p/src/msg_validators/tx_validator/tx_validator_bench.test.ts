@@ -11,9 +11,9 @@ import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { LogHash } from '@aztec/stdlib/kernel';
 import { ContractClassLogFields } from '@aztec/stdlib/logs';
-import { makeSelector, mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
+import { makeSelector, mockTx, mockTxForRollup, txWithDataOverrides } from '@aztec/stdlib/testing';
 import { DatabasePublicStateSource, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
-import type { Tx } from '@aztec/stdlib/tx';
+import { type Tx, TxConstantData } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
@@ -124,7 +124,9 @@ describe('TxValidator: Benchmarks', () => {
 
     // TimestampTxValidator
     timestampTx = await mockTx(5);
-    timestampTx.data.expirationTimestamp = BigInt(Math.floor(Date.now() / 1000)) + 3600n;
+    timestampTx = txWithDataOverrides(timestampTx, {
+      expirationTimestamp: BigInt(Math.floor(Date.now() / 1000)) + 3600n,
+    });
     timestampValidator = new TimestampTxValidator({
       timestamp: BigInt(Math.floor(Date.now() / 1000)),
       blockNumber: BlockNumber(3),
@@ -187,7 +189,13 @@ describe('TxValidator: Benchmarks', () => {
 
     // BlockHeaderTxValidator
     blockHeaderTx = await mockTx(12);
-    blockHeaderTx.data.constants.anchorBlockHeader = worldStateService.getInitialHeader();
+    const newBhConstants = new TxConstantData(
+      worldStateService.getInitialHeader(),
+      blockHeaderTx.data.constants.txContext,
+      blockHeaderTx.data.constants.vkTreeRoot,
+      blockHeaderTx.data.constants.protocolContractsHash,
+    );
+    blockHeaderTx = txWithDataOverrides(blockHeaderTx, { constants: newBhConstants });
     await blockHeaderTx.recomputeHash();
     blockHeaderValidator = new BlockHeaderTxValidator(new ArchiveCache(merkleTree));
 
@@ -399,7 +407,13 @@ describe('TxValidator: Benchmarks', () => {
 
       // BlockHeaderTx needs anchorBlockHeader matching the inner world state's initial header
       localBlockHeaderTx = await mockTx(1000 + dbSize);
-      localBlockHeaderTx.data.constants.anchorBlockHeader = localWs.getInitialHeader();
+      const localBhConstants = new TxConstantData(
+        localWs.getInitialHeader(),
+        localBlockHeaderTx.data.constants.txContext,
+        localBlockHeaderTx.data.constants.vkTreeRoot,
+        localBlockHeaderTx.data.constants.protocolContractsHash,
+      );
+      localBlockHeaderTx = txWithDataOverrides(localBlockHeaderTx, { constants: localBhConstants });
       await localBlockHeaderTx.recomputeHash();
     });
 
