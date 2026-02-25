@@ -292,6 +292,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       getSecondsIntoSlot,
       epoch,
       slotNumber,
+      slotNumber, // submissionSlot (same as slot when not pipelining)
       checkpointNumber,
       BlockNumber.ZERO,
       proposer,

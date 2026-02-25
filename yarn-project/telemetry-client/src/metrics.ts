@@ -509,7 +509,7 @@ export const SEQUENCER_PIPELINE_DEPTH: MetricDefinition = {
   description: 'Current pipeline depth when builder pipelining is enabled',
   valueType: ValueType.INT,
 };
-export const SEQUENCER_BUILD_AHEAD_SPECULATIVE_DISCARDS_COUNT: MetricDefinition = {
+export const SEQUENCER_PIPELINE_DISCARDS_COUNT: MetricDefinition = {
   name: 'aztec.sequencer.pipeline.discards_count',
   description: 'The number of times a pipeline was discarded',
   valueType: ValueType.INT,

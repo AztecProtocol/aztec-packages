@@ -12,12 +12,15 @@ import { isWithinClockTolerance } from '../clock_tolerance.js';
 
 export class CheckpointAttestationValidator implements P2PValidator<CheckpointAttestation> {
   protected epochCache: EpochCacheInterface;
+
+  // TODO(md): thinking, should these really be the other way around? everything works on slots at this point in time, so this should be fine
   protected proposerView: EpochCacheView;
   protected logger: Logger;
 
   constructor(epochCache: EpochCacheInterface) {
     this.epochCache = epochCache;
-    this.proposerView = epochCache.getViewFactory().withProposerView();
+    const viewFactory = epochCache.getViewFactory();
+    this.proposerView = viewFactory.withProposerView();
     this.logger = createLogger('p2p:checkpoint-attestation-validator');
   }
 
@@ -25,11 +28,14 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
     const slotNumber = message.payload.header.slotNumber;
 
     try {
-      const { currentSlot, nextSlot } = this.epochCache.getCurrentAndNextSlot();
+      // TODO(md): This really depends on the time in which we made the checkpoint
+      //           if the last checkpoint proposal was received at the end of one slot
+      //           we should really have enough time to verify it here
+      const { currentSlot, nextSlot } = this.proposerView.getCurrentAndNextSlot();
 
       if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
         // Check if message is for previous slot and within clock tolerance
-        if (!isWithinClockTolerance(slotNumber, currentSlot, this.epochCache)) {
+        if (!isWithinClockTolerance(slotNumber, currentSlot, this.proposerView)) {
           this.logger.warn(
             `Checkpoint attestation slot ${slotNumber} is not current (${currentSlot}) or next (${nextSlot}) slot`,
           );
@@ -47,7 +53,7 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
       }
 
       // Verify the attester is in the committee for this slot
-      if (!(await this.proposerView.isInCommittee(slotNumber, attester))) {
+      if (!(await this.epochCache.isInCommittee(slotNumber, attester))) {
         this.logger.warn(`Attester ${attester.toString()} is not in committee for slot ${slotNumber}`);
         return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
       }
@@ -56,7 +62,7 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
       // We look up the proposer for the specific slot rather than using currentSlot/nextSlot
       // since timing differences could cause mismatches
       const proposer = message.getProposer();
-      const expectedProposer = await this.proposerView.getProposerAttesterAddressInSlot(slotNumber);
+      const expectedProposer = await this.epochCache.getProposerAttesterAddressInSlot(slotNumber);
       if (!expectedProposer) {
         this.logger.warn(`No proposer defined for slot ${slotNumber}`);
         return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };

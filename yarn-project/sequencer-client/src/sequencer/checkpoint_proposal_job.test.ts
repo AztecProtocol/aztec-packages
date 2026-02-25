@@ -155,7 +155,6 @@ describe('CheckpointProposalJob', () => {
     const slotStartTime = Number(l1GenesisTime) + newSlotNumber * slotDuration - ethereumSlotDuration;
     dateProvider.setTime(slotStartTime * 1000); // Convert to milliseconds
 
-    epochCache = mockDeep<EpochCache>();
     epochCache = createMockDeepEpochCache();
     epochCache.getCommittee.mockResolvedValue({
       committee,
@@ -527,6 +526,7 @@ describe('CheckpointProposalJob', () => {
     return new TestCheckpointProposalJob(
       epoch,
       SlotNumber(newSlotNumber),
+      SlotNumber(newSlotNumber), // submissionSlot (same as slot when not pipelining)
       checkpointNumber,
       lastBlockNumber,
       proposer,

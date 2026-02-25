@@ -21,7 +21,7 @@ export abstract class ProposalValidator<TProposal extends BlockProposal | Checkp
   public async validate(proposal: TProposal): Promise<ValidationResult> {
     try {
       // Slot check
-      const { currentSlot, nextSlot } = this.epochCache.getCurrentAndNextSlot();
+      const { currentSlot, nextSlot } = this.proposerView.getCurrentAndNextSlot();
       const slotNumber = proposal.slotNumber;
       if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
         // Check if message is for previous slot and within clock tolerance
@@ -65,7 +65,7 @@ export abstract class ProposalValidator<TProposal extends BlockProposal | Checkp
       }
 
       // Proposer check
-      const expectedProposer = await this.proposerView.getProposerAttesterAddressInSlot(slotNumber);
+      const expectedProposer = await this.epochCache.getProposerAttesterAddressInSlot(slotNumber);
       if (expectedProposer !== undefined && !proposer.equals(expectedProposer)) {
         this.logger.warn(`Penalizing peer for invalid proposer for current slot ${slotNumber}`, {
           expectedProposer,

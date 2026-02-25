@@ -214,6 +214,8 @@ export class BlockProposalHandler {
     let reexecutionResult;
     if (shouldReexecute) {
       // Collect the out hashes of all the checkpoints before this one in the same epoch
+
+      // TODO(md): getEpochAtSlot should probably be in here? - this can drift if in a different view
       const epoch = getEpochAtSlot(slotNumber, this.epochCache.getL1Constants());
       const previousCheckpointOutHashes = (await this.blockSource.getCheckpointsDataForEpoch(epoch))
         .filter(c => c.checkpointNumber < checkpointNumber)

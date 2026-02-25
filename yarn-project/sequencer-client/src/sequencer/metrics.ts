@@ -146,10 +146,7 @@ export class SequencerMetrics {
     this.slashingAttempts = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_SLASHING_ATTEMPTS_COUNT);
 
     this.pipelineDepth = this.meter.createGauge(Metrics.SEQUENCER_PIPELINE_DEPTH);
-    this.pipelineDiscards = createUpDownCounterWithDefault(
-      this.meter,
-      Metrics.SEQUENCER_BUILD_AHEAD_SPECULATIVE_DISCARDS_COUNT,
-    );
+    this.pipelineDiscards = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_PIPELINE_DISCARDS_COUNT);
     this.pipelineDepth.record(0);
 
     // Fisherman fee analysis metrics

@@ -36,10 +36,10 @@ export function isWithinClockTolerance(
   }
 
   // Check how far we are into the current slot (in milliseconds)
-  const { ts: slotStartTs, nowMs, slot } = epochCache.getEpochAndSlotNow();
+  const { ts: slotStartTs, nowMs, proposalSlot } = epochCache.getEpochAndSlotNow();
 
   // Sanity check: ensure the epoch cache's current slot matches the expected current slot
-  if (slot !== currentSlot) {
+  if (proposalSlot !== currentSlot) {
     return false;
   }
 

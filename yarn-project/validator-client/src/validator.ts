@@ -96,6 +96,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private lastAttestedProposal?: CheckpointProposalCore;
 
   private readonly proposerView: EpochCacheView;
+  private readonly submissionView: EpochCacheView;
 
   protected constructor(
     private keyStore: ExtendedValidatorKeyStore,
@@ -122,6 +123,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     this.metrics = new ValidatorMetrics(telemetry);
 
     this.proposerView = epochCache.getViewFactory().withProposerView();
+    this.submissionView = epochCache.getViewFactory().withSubmissionView();
+
     this.validationService = new ValidationService(keyStore, this.log.createChild('validation-service'));
 
     // Refresh epoch cache every second to trigger alert if participation in committee changes
@@ -510,8 +513,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return undefined;
     }
 
-    // Check that I have any address in current committee before attesting
-    const inCommittee = await this.proposerView.filterInCommittee(slotNumber, this.getValidatorAddresses());
+    // TODO(md): we check based on the slot number that is in the proposal - but not that the slot number makes sense?????
+
+    // Check that I have any address in the committee where this checkpoint will land before attesting
+    const inCommittee = await this.submissionView.filterInCommittee(slotNumber, this.getValidatorAddresses());
     const partOfCommittee = inCommittee.length > 0;
 
     const proposalInfo = {

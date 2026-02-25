@@ -279,7 +279,7 @@ export function createMockEpochCache(): EpochCacheInterface {
     if (typeof slot !== 'number') {
       return slot;
     }
-    const offset = proposerPipeliningEnabled ? 0 : -1;
+    const offset = proposerPipeliningEnabled ? 1 : 0;
     return SlotNumber(Math.max(0, Number(slot) + offset));
   };
   const makeView = (mapSlot: (slot: SlotTag) => SlotTag, toBaseSlot: (slot: SlotNumber) => SlotNumber) => ({

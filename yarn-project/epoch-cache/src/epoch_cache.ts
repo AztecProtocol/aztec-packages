@@ -21,6 +21,8 @@ import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
 export type EpochAndSlot = {
   epoch: EpochNumber;
   slot: SlotNumber;
+  proposalEpoch: EpochNumber;
+  proposalSlot: SlotNumber;
   ts: bigint;
 };
 
@@ -35,6 +37,7 @@ export type EpochCommitteeInfo = {
 export type SlotTag = 'now' | 'next' | SlotNumber;
 
 export interface EpochCacheView {
+  getCurrentAndNextSlot(): { currentSlot: SlotNumber; nextSlot: SlotNumber };
   getCommittee(slot: SlotTag | undefined): Promise<EpochCommitteeInfo>;
   getProposerAttesterAddressInSlot(slot: SlotNumber): Promise<EthAddress | undefined>;
   isInCommittee(slot: SlotTag, validator: EthAddress): Promise<boolean>;
@@ -180,8 +183,13 @@ export class EpochCache implements EpochCacheInterface {
 
   private getEpochAndSlotAtSlot(slot: SlotNumber): EpochAndSlot {
     const epoch = getEpochAtSlot(slot, this.l1constants);
+
+    const pipelineOffset = this.isProposerPipeliningEnabled() ? 1 : 0;
+    const proposalSlot = SlotNumber(slot + pipelineOffset);
+    const proposalEpoch = getEpochAtSlot(proposalSlot, this.l1constants);
+
     const ts = getTimestampRangeForEpoch(epoch, this.l1constants)[0];
-    return { epoch, ts, slot };
+    return { epoch, ts, slot, proposalEpoch, proposalSlot };
   }
 
   public getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint } {
@@ -192,10 +200,17 @@ export class EpochCache implements EpochCacheInterface {
 
   private getEpochAndSlotAtTimestamp(ts: bigint): EpochAndSlot {
     const slot = getSlotAtTimestamp(ts, this.l1constants);
+
+    // TODO(md): can clean this up - but we have the correct sweep here
+    const pipelineOffset = this.isProposerPipeliningEnabled() ? 1 : 0;
+    const proposalSlot = SlotNumber(slot + pipelineOffset);
+    const proposalEpoch = getEpochAtSlot(proposalSlot, this.l1constants);
     return {
       epoch: getEpochNumberAtTimestamp(ts, this.l1constants),
       ts: getTimestampForSlot(slot, this.l1constants),
       slot,
+      proposalSlot,
+      proposalEpoch,
     };
   }
 
@@ -428,6 +443,14 @@ class EpochCacheViewImpl implements EpochCacheView {
 
   mapSlot(slot: SlotTag): SlotTag {
     return typeof slot === 'number' ? this.toBaseSlot(slot) : slot;
+  }
+
+  getCurrentAndNextSlot(): { currentSlot: SlotNumber; nextSlot: SlotNumber } {
+    const currentAndNext = this.epochCache.getCurrentAndNextSlot();
+    return {
+      currentSlot: this.toBaseSlot(currentAndNext.currentSlot),
+      nextSlot: this.toBaseSlot(currentAndNext.nextSlot),
+    };
   }
 
   getCommittee(slot: SlotTag = 'now'): Promise<EpochCommitteeInfo> {
