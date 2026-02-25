@@ -25,7 +25,7 @@ include "../trees/retrieved_bytecodes_tree_check.pil";
  *
  * The general idea is that, for each context, execution.pil refers to this trace to retrieve a bytecode for that context's address. As long as the bytecode exists
  * it proceeds to instruction fetching. This trace is responsible for proving success or failure of retrieval, whereas bytecode values themselves are accessed
- * in instr_fetching.pil (via bc_deocmposition.pil).
+ * in instr_fetching.pil (via bc_decomposition.pil).
  * Note: we don't need to silo and check the class id because the deployer contract guarantees that if a contract instance exists, the class has been registered.
  *
  * PRECONDITIONS: All tree state in this trace (transient bytecode, nullifier, and public state) matches that of the tx tree state at the start of the relevant call.
@@ -88,7 +88,7 @@ include "../trees/retrieved_bytecodes_tree_check.pil";
  *                                    (#[CONTRACT_INSTANCE_RETRIEVAL]). Additionally links the state tree roots. This lookup is crucial since we defer the
  *                                    nullifier, address, and update checks to the contract instance retrieval trace.
  * - retrieved_bytecodes_tree_check.pil: If an instance exists, to constrain whether it is a new class id not yet accessed by this tx (#[IS_NEW_CLASS_CHECK]).
- *                                       If there is no error, to insert the class id into the retrieved bytecodes tree #[RETRIEVED_BYTECODES_INSERTION]).
+ *                                       If there is no error, to insert the class id into the retrieved bytecodes tree (#[RETRIEVED_BYTECODES_INSERTION]).
  *                                       These cases must form separate lookups to ensure we do not add to the tree when we have hit the bytecode limit.
  * - class_id_derivation.pil: If there is no error, to constrain correctness of the class id against the contract class member columns (artifact hash,
  *                            private functions root, and bytecode id) of this trace (#[CLASS_ID_DERIVATION]).
