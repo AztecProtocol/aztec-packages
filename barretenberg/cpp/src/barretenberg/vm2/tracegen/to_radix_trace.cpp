@@ -256,6 +256,8 @@ void ToRadixTraceBuilder::process_with_memory(
             bool last = i == (num_limbs - 1);
 
             // Note that the following columns at i == 0 were already set above but code is simpler this way:
+            // - C::to_radix_mem_execution_clk
+            // - C::to_radix_mem_space_id
             // - C::to_radix_mem_dst_addr
             // - C::to_radix_mem_value_to_decompose
             // - C::to_radix_mem_radix

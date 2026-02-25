@@ -173,9 +173,6 @@ namespace to_radix_mem;
 
     pol commit sel_radix_gt_256_err; // @boolean Radix is > 256 (only when `start == 1` by lookup into gt.pil)
 
-    pol commit sel_invalid_bitwise_radix; // @boolean Radix != 2 if output_bits = 1
-    sel_invalid_bitwise_radix * (1 - sel_invalid_bitwise_radix) = 0;
-
     pol commit two; // While we do not have constants in lookups
     start * (two - 2) = 0;
     pol commit two_five_six; // While we do not have constants in lookups
@@ -202,6 +199,10 @@ namespace to_radix_mem;
     // @zero-check
     start * (RADIX_MIN_TWO * (sel_radix_eq_2 * (1 - radix_min_two_inv) + radix_min_two_inv) - 1 + sel_radix_eq_2) = 0;
 
+    // Radix != 2 && output_bits == 1
+    // sel_invalid_bitwise_radix is not defined as an alias to avoid `input_validation_error` relation
+    // below to have a degree > 7.
+    pol commit sel_invalid_bitwise_radix; // @boolean (by definition)
     // is_output_bits already guaranteed to be boolean by execution trace tag validation
     #[IS_OUTPUT_BITS_IMPLY_RADIX_2]
     sel_invalid_bitwise_radix = start * is_output_bits * (1 - sel_radix_eq_2);
@@ -271,6 +272,7 @@ namespace to_radix_mem;
     // Error Handling - Consolidated error flag
     /////////////////////////////////////////////////////
     pol commit err; // @boolean by definition
+    // Crucial to gate by `start` because `input_validation_error` is only constrained on the start row.
     #[ERR_COMPUTATION]
     err = start * (1 - (1 - input_validation_error) * (1 - SEL_TRUNCATION_ERROR));
 
@@ -301,7 +303,9 @@ namespace to_radix_mem;
     err * (last - 1) = 0;
     // The implication of the above condition is that LATCH_CONDITION = 1 if there is an error
 
-    #[LAST_ROW_NUM_LIMBS_ZERO] // last == 1 if num_limbs == 0 (can only occur on the start row)
+    // `last == 1` if num_limbs == 0 (can only occur on the start row)
+    // Crucial to gate by `start` because `sel_num_limbs_is_zero` is only constrained on the start row.
+    #[LAST_ROW_NUM_LIMBS_ZERO]
     start * sel_num_limbs_is_zero * (last - 1) = 0;
 
     // Introduce a selector covering all active rows except the start row with an error or the start row
@@ -312,7 +316,7 @@ namespace to_radix_mem;
     pol NUM_LIMBS_MINUS_ONE = num_limbs - 1;
     pol commit num_limbs_minus_one_inv;
 
-    // If [start == 1 && err = 0 && num_limbs != 0] || [start == 0], we constrain: last = 1 iff num_limbs = 1
+    // If [start == 1 && err = 0 && num_limbs != 0] || [start == 0], we constrain: `last == 1` iff `num_limbs == 1`
     #[LAST_ROW_VALID_COMPUTATION]
     NO_ERR_NOR_NUM_LIMBS_ZERO * (NUM_LIMBS_MINUS_ONE * (last * (1 - num_limbs_minus_one_inv) + num_limbs_minus_one_inv) - 1 + last) = 0;
 
