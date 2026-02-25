@@ -33,8 +33,8 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
                                                const std::unordered_set<uint32_t>& next_constraint_witnesses);
     bool process_blake2s_constraints(const ConstraintPtr& ptr,
                                      const std::unordered_set<uint32_t>& next_constraint_witnesses);
-    bool process_blake3s_constraints(const ConstraintPtr& ptr,
-                                     const std::unordered_set<uint32_t>& next_constraint_witnesses);
+    bool process_blake3_constraints(const ConstraintPtr& ptr,
+                                    const std::unordered_set<uint32_t>& next_constraint_witnesses);
     bool process_poseidon2s_constraints(const ConstraintPtr& ptr,
                                         const std::unordered_set<uint32_t>& next_constraint_witnesses);
     bool process_recursion_constraints(const ConstraintPtr& ptr,

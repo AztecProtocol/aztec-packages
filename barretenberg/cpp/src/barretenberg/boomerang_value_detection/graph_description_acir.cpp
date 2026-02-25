@@ -394,6 +394,12 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_constraint_system()
         case AcirConstraintType::ECDSA_R1:
             result = process_ecdsa_constraints(constraint_info.ptr, next_constraint_witnesses);
             break;
+        case AcirConstraintType::BLAKE2S:
+            result = process_blake2s_constraints(constraint_info.ptr, next_constraint_witnesses);
+            break;
+        case AcirConstraintType::BLAKE3:
+            result = process_blake3_constraints(constraint_info.ptr, next_constraint_witnesses);
+            break;
         case AcirConstraintType::KECCAK_PERMUTATION:
             result = process_keccak_permutation_constraints(constraint_info.ptr);
             break;
@@ -1073,6 +1079,127 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ecdsa_constraints(
     condition &= is_ecdsa_result_constrained<FF>(analyzer, builder, constraint->result, predicate_field);
 
     return condition;
+}
+
+/**
+ * @brief Verify blake2s constraint: input bytes have 8-bit range constraints, outputs match stdlib IO.
+ * @details Blake2s inputs are bytes (8-bit values). For each non-constant input, we verify that an 8-bit
+ * range constraint exists via limb lookup. For outputs, we use the IO registry (acir_opcode_io) to verify
+ * that each output byte produced by the stdlib is connected to the corresponding constraint.result[i]
+ * via assert_equal.
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_blake2s_constraints(
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
+{
+    using field_ct = bb::stdlib::field_t<CircuitBuilder>;
+
+    const auto* constraint = std::get<const acir_format::Blake2sConstraint*>(ptr);
+
+    // 1. Verify input byte range constraints
+    std::vector<uint32_t> input_indices;
+    input_indices.reserve(constraint->inputs.size());
+    for (const auto& input : constraint->inputs) {
+        if (input.is_constant) {
+            input_indices.push_back(bb::stdlib::IS_CONSTANT);
+        } else {
+            input_indices.push_back(input.index);
+            // Each non-constant input byte must have an 8-bit range constraint
+            if (!is_range_constrained_via_limb_lookup<FF>(analyzer, builder, input.index, 255)) {
+                return false;
+            }
+        }
+    }
+
+    // 2. Look up the registered outputs for these inputs
+    const auto& io_map = builder.acir_opcode_io.io_map;
+    auto it = io_map.find(input_indices);
+    if (it == io_map.end()) {
+        return false;
+    }
+
+    const auto& all_outputs = it->second;
+    if (all_outputs.empty()) {
+        return false;
+    }
+
+    // Use the last registered output (in case of multiple calls with same inputs)
+    const auto& output_indices = all_outputs.back();
+    if (output_indices.size() != constraint->result.size()) {
+        return false;
+    }
+
+    // 3. Verify each output is connected to the corresponding constraint result via assert_equal
+    for (size_t i = 0; i < output_indices.size(); i++) {
+        Field<CircuitBuilder> output_field{ output_indices[i],
+                                            field_ct::from_witness_index(&builder, output_indices[i]) };
+        Field<CircuitBuilder> result_field{ constraint->result[i],
+                                            field_ct::from_witness_index(&builder, constraint->result[i]) };
+        if (!is_assert_equal_exists<FF>(analyzer, builder, output_field, result_field)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * @brief Verify blake3 constraint: input bytes have 8-bit range constraints, outputs match stdlib IO.
+ * @details Same approach as blake2s: verify input byte range constraints, then verify outputs via IO registry.
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_blake3_constraints(
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
+{
+    using field_ct = bb::stdlib::field_t<CircuitBuilder>;
+
+    const auto* constraint = std::get<const acir_format::Blake3Constraint*>(ptr);
+
+    // 1. Verify input byte range constraints
+    std::vector<uint32_t> input_indices;
+    input_indices.reserve(constraint->inputs.size());
+    for (const auto& input : constraint->inputs) {
+        if (input.is_constant) {
+            input_indices.push_back(bb::stdlib::IS_CONSTANT);
+        } else {
+            input_indices.push_back(input.index);
+            // Each non-constant input byte must have an 8-bit range constraint
+            if (!is_range_constrained_via_limb_lookup<FF>(analyzer, builder, input.index, 255)) {
+                return false;
+            }
+        }
+    }
+
+    // 2. Look up the registered outputs for these inputs
+    const auto& io_map = builder.acir_opcode_io.io_map;
+    auto it = io_map.find(input_indices);
+    if (it == io_map.end()) {
+        return false;
+    }
+
+    const auto& all_outputs = it->second;
+    if (all_outputs.empty()) {
+        return false;
+    }
+
+    // Use the last registered output (in case of multiple calls with same inputs)
+    const auto& output_indices = all_outputs.back();
+    if (output_indices.size() != constraint->result.size()) {
+        return false;
+    }
+
+    // 3. Verify each output is connected to the corresponding constraint result via assert_equal
+    for (size_t i = 0; i < output_indices.size(); i++) {
+        Field<CircuitBuilder> output_field{ output_indices[i],
+                                            field_ct::from_witness_index(&builder, output_indices[i]) };
+        Field<CircuitBuilder> result_field{ constraint->result[i],
+                                            field_ct::from_witness_index(&builder, constraint->result[i]) };
+        if (!is_assert_equal_exists<FF>(analyzer, builder, output_field, result_field)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 /**
