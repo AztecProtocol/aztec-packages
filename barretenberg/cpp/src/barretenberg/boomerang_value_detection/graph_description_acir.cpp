@@ -1090,7 +1090,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ecdsa_constraints(
  */
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_blake_constraint_internal(
-    std::vector<WitnessOrConstant<bb::fr>> inputs, std::array<uint32_t, 32> result)
+    const std::vector<WitnessOrConstant<bb::fr>>& inputs, const std::array<uint32_t, 32>& result)
 {
     using field_ct = bb::stdlib::field_t<CircuitBuilder>;
 
