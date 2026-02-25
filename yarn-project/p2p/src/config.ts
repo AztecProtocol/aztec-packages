@@ -464,11 +464,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.',
     ...numberConfigHelper(2_000),
   },
-  maxTxsPerBlock: {
-    env: 'SEQ_MAX_TX_PER_BLOCK',
-    description: 'The maximum number of txs to include in a block. Used for validating proposals from peers.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
-  },
   ...sharedSequencerConfigMappings,
   ...p2pReqRespConfigMappings,
   ...batchTxRequesterConfigMappings,

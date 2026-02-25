@@ -77,11 +77,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'The number of ms to wait between polling for checking to build on the next slot.',
     ...numberConfigHelper(DefaultSequencerConfig.sequencerPollingIntervalMS),
   },
-  maxTxsPerBlock: {
-    env: 'SEQ_MAX_TX_PER_BLOCK',
-    description: 'The maximum number of txs to include in a block.',
-    ...numberConfigHelper(DefaultSequencerConfig.maxTxsPerBlock),
-  },
   minTxsPerBlock: {
     env: 'SEQ_MIN_TX_PER_BLOCK',
     description: 'The minimum number of txs to include in a block.',
