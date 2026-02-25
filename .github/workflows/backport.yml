@@ -100,7 +100,7 @@ jobs:
 
           data=$(cat <<EOF
           {
-            "channel": "#team-alpha",
+            "channel": "#backports",
             "text": "⚠️ Automatic backport failed\n• PR #$PR_NUMBER - $PR_TITLE\n• Target: $TARGET_BRANCH\n• Reason: Cherry-pick conflicts\n\nAction needed: Manual backport required\n<$WORKFLOW_URL|View Run>"
           }
           EOF

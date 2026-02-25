@@ -53,8 +53,8 @@ if [ "$CI" -eq 1 ]; then
     track_test_history=1
   fi
 
-  # Notify on flakes if in merge queue or backport-to-v2-staging.
-  [[ "$is_merge_queue" -eq 1 || "$REF_NAME" == "backport-to-v2-staging" ]] && slack_notify_flake=1
+  # Notify on flakes if in merge queue or backport staging branch.
+  [[ "$is_merge_queue" -eq 1 || "$REF_NAME" == backport-to-*-staging ]] && slack_notify_flake=1
 
   # Notify on fails for scenario tests.
   [[ ${SCENARIO_TESTS:-0} -eq 1 ]] && slack_notify_fail=1
