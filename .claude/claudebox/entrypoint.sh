@@ -15,6 +15,9 @@ SCRIPT_NAME=""
 COMMENT_ID=""
 RUN_COMMENT_ID=""
 REPO=""
+SLACK_CHANNEL=""
+SLACK_THREAD_TS=""
+SLACK_MESSAGE_TS=""
 
 for arg in "$@"; do
     case "$arg" in
@@ -26,6 +29,15 @@ for arg in "$@"; do
             ;;
         --repo=*)
             REPO="${arg#--repo=}"
+            ;;
+        --slack-channel=*)
+            SLACK_CHANNEL="${arg#--slack-channel=}"
+            ;;
+        --slack-thread-ts=*)
+            SLACK_THREAD_TS="${arg#--slack-thread-ts=}"
+            ;;
+        --slack-message-ts=*)
+            SLACK_MESSAGE_TS="${arg#--slack-message-ts=}"
             ;;
         *)
             if [ -z "$SCRIPT_NAME" ]; then
@@ -75,11 +87,17 @@ fi
 PROMPT="$PROMPT
 
 ---
-Metadata:
+Metadata (GitHub):
 - Comment ID: ${COMMENT_ID:-none}
 - Run Comment ID: ${RUN_COMMENT_ID:-none}
 - Repository: ${REPO:-none}
-- Script: $SCRIPT_NAME"
+
+Metadata (Slack):
+- Channel: ${SLACK_CHANNEL:-none}
+- Thread TS: ${SLACK_THREAD_TS:-none}
+- Message TS: ${SLACK_MESSAGE_TS:-none}
+
+Script: $SCRIPT_NAME"
 
 # ── Generate worktree name ───────────────────────────────────────
 TIMESTAMP=$(date +%s)
@@ -95,6 +113,7 @@ export CLAUDE_WORKTREE_PATH="$WORKTREE_PATH"
 export CLAUDE_REPO_DIR="$REPO_DIR"
 # GH_TOKEN must be set in the environment (e.g. in ~/claudeentry.sh on the box)
 export GITHUB_TOKEN="${GH_TOKEN:-}"
+export SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN:-}"
 
 # ── Cleanup on exit ──────────────────────────────────────────────
 STREAM_PID=""
