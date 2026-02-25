@@ -2,7 +2,7 @@
 # ClaudeBox Console — live-updating session dashboard.
 # Usage: ./console        (live, refreshes every 3s)
 #        ./console --once  (print once and exit)
-set -euo pipefail
+set -uo pipefail
 
 SESSIONS_DIR="${CLAUDE_REPO_DIR:-$HOME/aztec-packages}/.claude/claudebox/sessions"
 B='\033[1m' D='\033[2m' G='\033[32m' Y='\033[33m' R='\033[31m' C='\033[36m' X='\033[0m'
@@ -22,7 +22,9 @@ render() {
   echo -e "  Active: ${B}${containers}${X} containers"
   echo ""
 
-  if [ ! -d "$SESSIONS_DIR" ] || [ -z "$(ls -A "$SESSIONS_DIR" 2>/dev/null)" ]; then
+  local files
+  files=$(ls -t "$SESSIONS_DIR"/*.json 2>/dev/null | head -20) || true
+  if [ -z "$files" ]; then
     echo "  No sessions."
     return
   fi
@@ -30,44 +32,33 @@ render() {
   printf "  ${B}%-10s %-16s %-40s %-9s %-8s %s${X}\n" "Status" "User" "Prompt" "Started" "Dur" "Log"
   echo -e "  ${D}$(printf '─%.0s' {1..96})${X}"
 
-  # Process all files at once with jq, pre-sorted by mtime via ls -t
-  local count=0
-  for f in $(ls -t "$SESSIONS_DIR"/*.json 2>/dev/null); do
-    [ $count -ge 20 ] && break
-    # Single jq call outputs 6 lines
-    local out
-    out=$(jq -r '
+  # Single jq call processes all files, outputs one tab-delimited line per session
+  local now_s
+  now_s=$(date +%s)
+  echo "$files" | xargs jq -r --argjson now "$now_s" '
+    def norm: sub("\\.[0-9]+"; "") | sub("\\+00:00$"; "Z");
+    def dur(s; e):
+      if s == null then "-"
+      else
+        ((if e then (e | norm | fromdateiso8601) else $now end) - (s | norm | fromdateiso8601)) as $d |
+        if $d >= 3600 then "\($d/3600|floor)h\($d%3600/60|floor)m"
+        elif $d >= 60 then "\($d/60|floor)m\($d%60|floor)s"
+        else "\($d)s" end
+      end;
+    def ts: if . then (norm | fromdateiso8601 | strftime("%H:%M:%S")) else "-" end;
+    [
       .status // "?",
       (.user // "?")[:14],
       ((.prompt // "") | split("\n\n") | last | gsub("\n"; " "))[:38],
-      .started // "",
-      .finished // "",
+      (.started | ts),
+      dur(.started; .finished),
       (.log_url // "")[-10:]
-    ' "$f" 2>/dev/null) || continue
-
-    local status user prompt started finished log_id
-    { read -r status; read -r user; read -r prompt; read -r started; read -r finished; read -r log_id; } <<< "$out"
-
-    local time_str="-" duration="-"
-    if [ -n "$started" ]; then
-      time_str=$(date -d "$started" +%H:%M:%S 2>/dev/null || echo "-")
-      local now_s start_s end_s delta
-      now_s=$(date +%s)
-      start_s=$(date -d "$started" +%s 2>/dev/null || echo "$now_s")
-      end_s=${finished:+$(date -d "$finished" +%s 2>/dev/null || echo "$now_s")}
-      end_s=${end_s:-$now_s}
-      delta=$((end_s - start_s))
-      if [ $delta -ge 3600 ]; then duration="$((delta/3600))h$((delta%3600/60))m"
-      elif [ $delta -ge 60 ]; then duration="$((delta/60))m$((delta%60))s"
-      else duration="${delta}s"; fi
-    fi
-
+    ] | @tsv
+  ' 2>/dev/null | while IFS=$'\t' read -r status user prompt started duration log_id; do
     local color="$R"
     case "$status" in running) color="$Y";; completed) color="$G";; esac
-
     printf "  ${color}%-10s${X} ${C}%-16s${X} %-40s %-9s %-8s ${D}%s${X}\n" \
-      "$status" "$user" "$prompt" "$time_str" "$duration" "$log_id"
-    count=$((count + 1))
+      "$status" "$user" "$prompt" "$started" "$duration" "$log_id"
   done
 }
 
