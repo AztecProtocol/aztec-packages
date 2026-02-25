@@ -411,13 +411,7 @@ function test_cmds {
 function test {
   set -x
   echo_header "bb test"
-  # Write test commands to a temp file first to avoid SIGPIPE: test_cmds_native runs
-  # each binary with --gtest_list_tests (slow), and if all tests are cached the downstream
-  # exits before enumeration completes. Writing to a file is immune to this.
-  local cmds_file=$(mktemp)
-  trap "rm -f $cmds_file" RETURN
-  test_cmds > $cmds_file
-  cat $cmds_file | filter_test_cmds | parallelize
+  test_cmds | filter_test_cmds | parallelize
 }
 
 function build_bench {
