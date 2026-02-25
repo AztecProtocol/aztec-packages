@@ -129,8 +129,6 @@ class Bn254FrParams {
     static constexpr uint64_t coset_generator_wasm_2 = 0xe6b99ee0068dfc25ULL;
     static constexpr uint64_t coset_generator_wasm_3 = 0x1484c05bce00b620ULL;
 
-    ///// TO BE CHECKED!!!!!
-
     // Parameters used for quickly splitting a scalar into two endomorphism scalars for faster scalar multiplication
     // For specifics on how these have been derived, see ecc/fields/endomorphim_scalars.py
     static constexpr uint64_t endo_g1_lo = 0x7a7bd9d4391eb18dUL;

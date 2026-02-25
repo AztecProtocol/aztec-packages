@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -16,9 +16,17 @@
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
 namespace bb {
 
+/**
+ * @brief Parameters defining the base field of the BN254 curve.
+ *
+ * @details When split into 4 64-bit words, the parameters are represented in little-endian, i.e. the least significant
+ * bit comes first. For example, to recover the modulus from the 64-bit words we concatenate:
+ *      modulus_3 || modulus_2 || modulus_1 || modulus_0 =
+ *           0x30644e72e131a029b85045b68181585d97816a916871ca8d3C208C16D87CFD47
+ *
+ * @note These parameters can be extracted by running the script parameter_helper.py in ecc/fields
+ */
 class Bn254FqParams {
-    // There is a helper script in ecc/fields/parameter_helper.py that can be used to extract these parameters from the
-    // source code
   public:
     // A little-endian representation of the modulus split into 4 64-bit words
     static constexpr uint64_t modulus_0 = 0x3C208C16D87CFD47UL;
@@ -33,11 +41,39 @@ class Bn254FqParams {
     static constexpr uint64_t r_squared_2 = 0x47AB1EFF0A417FF6UL;
     static constexpr uint64_t r_squared_3 = 0x06D89F71CAB8351FUL;
 
+    // -(Modulus^-1) mod 2^64
+    // This constant is used during multiplication: given an 8-limb representation of the multiplication of two field
+    // elements, for each of the lowest four limbs we compute: k_i = r_inv * limb_i and we add 2^{64 * i} * k_i * p to
+    // the result of the multiplication. In this way we zero out the lowest four limbs of the multiplication and we can
+    // divide by 2^256 by taking the highest four limbs. See field_docs.hpp for more details.
+    static constexpr uint64_t r_inv = 0x87d20782e4866389UL;
+
+    // 2^(-64) mod Modulus
+    // Used in the reduction mechanism from https://hackmd.io/@Ingonyama/Barret-Montgomery
+    // Instead of computing k, we multiply the lowest limb by this value and then add to the following 5 limbs.
+    // This saves us from having to compute k
+    static constexpr uint64_t r_inv_0 = 0x327d7c1b18f7bd41UL;
+    static constexpr uint64_t r_inv_1 = 0xdb8ed52f824ed32fUL;
+    static constexpr uint64_t r_inv_2 = 0x29b67b05eb29a6a1UL;
+    static constexpr uint64_t r_inv_3 = 0x19ac99126b459ddaUL;
+
     // A little-endian representation of the cube root of 1 in Fq in Montgomery form split into 4 64-bit words
     static constexpr uint64_t cube_root_0 = 0x71930c11d782e155UL;
     static constexpr uint64_t cube_root_1 = 0xa6bb947cffbe3323UL;
     static constexpr uint64_t cube_root_2 = 0xaa303344d4741444UL;
     static constexpr uint64_t cube_root_3 = 0x2c3b3f0d26594943UL;
+
+    // Not used for Fq, but required for all field types
+    static constexpr uint64_t primitive_root_0 = 0UL;
+    static constexpr uint64_t primitive_root_1 = 0UL;
+    static constexpr uint64_t primitive_root_2 = 0UL;
+    static constexpr uint64_t primitive_root_3 = 0UL;
+
+    // Coset generators in Montgomery form for R=2^256 mod Modulus. Used in FFT-based proving systems
+    static constexpr uint64_t coset_generator_0 = 0x7a17caa950ad28d7ULL;
+    static constexpr uint64_t coset_generator_1 = 0x1f6ac17ae15521b9ULL;
+    static constexpr uint64_t coset_generator_2 = 0x334bea4e696bd284ULL;
+    static constexpr uint64_t coset_generator_3 = 0x2a1f6744ce179d8eULL;
 
     // A little-endian representation of the modulus split into 9 29-bit limbs
     // This is used in wasm because we can only do multiplication with 64-bit result instead of 128-bit like in x86_64
@@ -58,53 +94,6 @@ class Bn254FqParams {
     static constexpr uint64_t r_squared_wasm_2 = 0xff54c5802d3e2632UL;
     static constexpr uint64_t r_squared_wasm_3 = 0x2a11a68c34ea65a6UL;
 
-    // A little-endian representation of the cube root of 1 in Fq in Montgomery form for wasm (R=2^261 mod modulus)
-    // split into 4 64-bit words
-    static constexpr uint64_t cube_root_wasm_0 = 0x62b1a3a46a337995UL;
-    static constexpr uint64_t cube_root_wasm_1 = 0xadc97d2722e2726eUL;
-    static constexpr uint64_t cube_root_wasm_2 = 0x64ee82ede2db85faUL;
-    static constexpr uint64_t cube_root_wasm_3 = 0x0c0afea1488a03bbUL;
-
-    // Not used for Fq, but required for all field types
-    static constexpr uint64_t primitive_root_0 = 0UL;
-    static constexpr uint64_t primitive_root_1 = 0UL;
-    static constexpr uint64_t primitive_root_2 = 0UL;
-    static constexpr uint64_t primitive_root_3 = 0UL;
-
-    // Not used for Fq, but required for all field types
-    static constexpr uint64_t primitive_root_wasm_0 = 0x0000000000000000UL;
-    static constexpr uint64_t primitive_root_wasm_1 = 0x0000000000000000UL;
-    static constexpr uint64_t primitive_root_wasm_2 = 0x0000000000000000UL;
-    static constexpr uint64_t primitive_root_wasm_3 = 0x0000000000000000UL;
-
-    // Parameters used for quickly splitting a scalar into two endomorphism scalars for faster scalar multiplication
-    // For specifics on how these have been derived, ask @zac-williamson
-    static constexpr uint64_t endo_g1_lo = 0x7a7bd9d4391eb18d;
-    static constexpr uint64_t endo_g1_mid = 0x4ccef014a773d2cfUL;
-    static constexpr uint64_t endo_g1_hi = 0x0000000000000002UL;
-    static constexpr uint64_t endo_g2_lo = 0xd91d232ec7e0b3d2UL;
-    static constexpr uint64_t endo_g2_mid = 0x0000000000000002UL;
-    static constexpr uint64_t endo_minus_b1_lo = 0x8211bbeb7d4f1129UL;
-    static constexpr uint64_t endo_minus_b1_mid = 0x6f4d8248eeb859fcUL;
-    static constexpr uint64_t endo_b2_lo = 0x89d3256894d213e2UL;
-    static constexpr uint64_t endo_b2_mid = 0UL;
-
-    // -(Modulus^-1) mod 2^64
-    // This is used to compute k = r_inv * lower_limb(scalar), such that scalar + k*modulus in integers would have 0 in
-    // the lowest limb. By performing this sequentially for 4 limbs, we get an 8-limb representation of the scalar,
-    // where the lowest 4 limbs are zeros. Then we can immediately divide by 2^256 by simply getting rid of the lowest 4
-    // limbs
-    static constexpr uint64_t r_inv = 0x87d20782e4866389UL;
-
-    // 2^(-64) mod Modulus
-    // Used in the reduction mechanism from https://hackmd.io/@Ingonyama/Barret-Montgomery
-    // Instead of computing k, we multiply the lowest limb by this value and then add to the following 5 limbs.
-    // This saves us from having to compute k
-    static constexpr uint64_t r_inv_0 = 0x327d7c1b18f7bd41UL;
-    static constexpr uint64_t r_inv_1 = 0xdb8ed52f824ed32fUL;
-    static constexpr uint64_t r_inv_2 = 0x29b67b05eb29a6a1UL;
-    static constexpr uint64_t r_inv_3 = 0x19ac99126b459ddaUL;
-
     // 2^(-29) mod Modulus
     // Used in the reduction mechanism from https://hackmd.io/@Ingonyama/Barret-Montgomery
     // Instead of computing k, we multiply the lowest limb by this value and then add to the following 10 limbs.
@@ -119,17 +108,36 @@ class Bn254FqParams {
     static constexpr uint64_t r_inv_wasm_7 = 0xb8bab0f;
     static constexpr uint64_t r_inv_wasm_8 = 0x6d7c4;
 
-    // Coset generators in Montgomery form for R=2^256 mod Modulus. Used in FFT-based proving systems
-    static constexpr uint64_t coset_generator_0 = 0x7a17caa950ad28d7ULL;
-    static constexpr uint64_t coset_generator_1 = 0x1f6ac17ae15521b9ULL;
-    static constexpr uint64_t coset_generator_2 = 0x334bea4e696bd284ULL;
-    static constexpr uint64_t coset_generator_3 = 0x2a1f6744ce179d8eULL;
+    // A little-endian representation of the cube root of 1 in Fq in Montgomery form for wasm (R=2^261 mod modulus)
+    // split into 4 64-bit words
+    static constexpr uint64_t cube_root_wasm_0 = 0x62b1a3a46a337995UL;
+    static constexpr uint64_t cube_root_wasm_1 = 0xadc97d2722e2726eUL;
+    static constexpr uint64_t cube_root_wasm_2 = 0x64ee82ede2db85faUL;
+    static constexpr uint64_t cube_root_wasm_3 = 0x0c0afea1488a03bbUL;
+
+    // Not used for Fq, but required for all field types
+    static constexpr uint64_t primitive_root_wasm_0 = 0x0000000000000000UL;
+    static constexpr uint64_t primitive_root_wasm_1 = 0x0000000000000000UL;
+    static constexpr uint64_t primitive_root_wasm_2 = 0x0000000000000000UL;
+    static constexpr uint64_t primitive_root_wasm_3 = 0x0000000000000000UL;
 
     // Coset generators in Montgomery form for R=2^261 mod Modulus. Used in FFT-based proving systems
     static constexpr uint64_t coset_generator_wasm_0 = 0xeb8a8ec140766463ULL;
     static constexpr uint64_t coset_generator_wasm_1 = 0xf2b1f20626a3da49ULL;
     static constexpr uint64_t coset_generator_wasm_2 = 0xf905ef8d84d5fea4ULL;
     static constexpr uint64_t coset_generator_wasm_3 = 0x2958a27c02b7cd5fULL;
+
+    // Parameters used for quickly splitting a scalar into two endomorphism scalars for faster scalar multiplication
+    // For specifics on how these have been derived, see ecc/fields/endomorphim_scalars.py
+    static constexpr uint64_t endo_g1_lo = 0x7a7bd9d4391eb18d;
+    static constexpr uint64_t endo_g1_mid = 0x4ccef014a773d2cfUL;
+    static constexpr uint64_t endo_g1_hi = 0x0000000000000002UL;
+    static constexpr uint64_t endo_g2_lo = 0xd91d232ec7e0b3d2UL;
+    static constexpr uint64_t endo_g2_mid = 0x0000000000000002UL;
+    static constexpr uint64_t endo_minus_b1_lo = 0x8211bbeb7d4f1129UL;
+    static constexpr uint64_t endo_minus_b1_mid = 0x6f4d8248eeb859fcUL;
+    static constexpr uint64_t endo_b2_lo = 0x89d3256894d213e2UL;
+    static constexpr uint64_t endo_b2_mid = 0UL;
 
     // used in msgpack schema serialization
     static constexpr char schema_name[] = "fq";

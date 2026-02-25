@@ -52,19 +52,32 @@ TEST(FqConstants, RSquared)
     };
 
     EXPECT_EQ(expected_r_sqr_mod_q.lo, actual_r_sqr_mod_q);
-    EXPECT_EQ(expected_r_sqr_mod_q.hi, uint256_t(0));
 }
 
 TEST(FqConstants, RInv)
 {
     // r_inv = -q^{-1} mod 2^64
-    uint512_t r{ 0, 1 };
+    uint512_t r = uint512_t(1) << 64;
     uint512_t q{ -native_q, 0 };
     uint256_t q_inv = q.invmod(r).lo;
     uint64_t expected = q_inv.data[0];
     uint64_t result = Bn254FqParams::r_inv;
 
     EXPECT_EQ(result, expected);
+}
+
+TEST(FqConstants, PowMinus64)
+{
+    // Compute 2^(-64) mod q
+    uint512_t two_64 = uint512_t(1) << 64;
+    uint256_t expected = two_64.invmod(native_q).lo;
+
+    // Note that the following test ensures r_inv (as reconstructed from its limbs) is smaller than r because it is
+    // equal to 2^(-64) mod q
+    EXPECT_EQ(expected.data[0], Bn254FqParams::r_inv_0);
+    EXPECT_EQ(expected.data[1], Bn254FqParams::r_inv_1);
+    EXPECT_EQ(expected.data[2], Bn254FqParams::r_inv_2);
+    EXPECT_EQ(expected.data[3], Bn254FqParams::r_inv_3);
 }
 
 TEST(FqConstants, CubeRootOfUnity)
@@ -74,6 +87,19 @@ TEST(FqConstants, CubeRootOfUnity)
     // Verify beta^3 = 1 and beta != 1
     EXPECT_EQ(beta * beta * beta, fq::one());
     EXPECT_NE(beta, fq::one());
+}
+
+TEST(FqConstants, PrimitiveRootOfUnity)
+{
+    GTEST_SKIP() << "The primitive root of unity is not used for Fq";
+}
+
+TEST(FqConstants, CosetGenerator)
+{
+    fq coset_generator = fq::coset_generator();
+
+    // Verify that coset_generator is not a quadratic residue
+    EXPECT_NE(coset_generator.pow((native_r - 1) / 2), fq::one());
 }
 
 // ================================
@@ -117,6 +143,31 @@ TEST(FqConstants, WasmRSquared)
     EXPECT_EQ(expected_r_squared_wasm.lo, actual_r_squared_wasm);
 }
 
+TEST(FqConstants, WasmPowMinus29)
+{
+    // Verify that when reconstructed as a uint512_t, it is less than the modulus q
+    constexpr std::array<uint64_t, 9> r_inv_wasm_limbs = { Bn254FqParams::r_inv_wasm_0, Bn254FqParams::r_inv_wasm_1,
+                                                           Bn254FqParams::r_inv_wasm_2, Bn254FqParams::r_inv_wasm_3,
+                                                           Bn254FqParams::r_inv_wasm_4, Bn254FqParams::r_inv_wasm_5,
+                                                           Bn254FqParams::r_inv_wasm_6, Bn254FqParams::r_inv_wasm_7,
+                                                           Bn254FqParams::r_inv_wasm_8 };
+
+    uint512_t r_inv_wasm = 0;
+    for (size_t i = 0; i < 9; i++) {
+        r_inv_wasm += uint512_t(r_inv_wasm_limbs[i]) << (29UL * i);
+        // Verify each limb fits in 29 bits
+        EXPECT_LT(r_inv_wasm_limbs[i], uint64_t(1) << 29);
+    }
+
+    // Verify r_inv_wasm < q/2
+    EXPECT_LT(r_inv_wasm, uint512_t(native_q) / 2);
+
+    // Verify that r_inv_wasm = 2^(-29) mod r
+    uint512_t two_29 = uint512_t(1) << 29;
+    uint512_t expected_r_inv_wasm = two_29.invmod(native_q);
+    EXPECT_EQ(r_inv_wasm, expected_r_inv_wasm);
+}
+
 TEST(FqConstants, WasmCubeRootConsistency)
 {
     // The cube root in WASM Montgomery form should represent the same field element
@@ -142,26 +193,42 @@ TEST(FqConstants, WasmCubeRootConsistency)
 
     EXPECT_EQ(expected_cube_root_wasm.lo, cube_root_wasm);
 }
-// r_inv_wasm represents 2^(-29) mod q in 9 x 29-bit limbs
-// this tests checks that that r_inv_wasm < q/2 (and in particular less than q).
-TEST(FqConstants, WasmRInvLessThanModulus)
+
+TEST(FqConstants, WasmPrimitiveRootConsistency)
 {
-    // Verify that when reconstructed as a uint512_t, it is less than the modulus q
-    constexpr std::array<uint64_t, 9> r_inv_wasm_limbs = { Bn254FqParams::r_inv_wasm_0, Bn254FqParams::r_inv_wasm_1,
-                                                           Bn254FqParams::r_inv_wasm_2, Bn254FqParams::r_inv_wasm_3,
-                                                           Bn254FqParams::r_inv_wasm_4, Bn254FqParams::r_inv_wasm_5,
-                                                           Bn254FqParams::r_inv_wasm_6, Bn254FqParams::r_inv_wasm_7,
-                                                           Bn254FqParams::r_inv_wasm_8 };
+    // The primitive root in WASM Montgomery form should represent the same field element
+    // as the primitive root in native Montgomery form.
+    uint256_t primitive_root_native{ Bn254FqParams::primitive_root_0,
+                                     Bn254FqParams::primitive_root_1,
+                                     Bn254FqParams::primitive_root_2,
+                                     Bn254FqParams::primitive_root_3 };
 
-    uint512_t r_inv_wasm = 0;
-    for (size_t i = 0; i < 9; i++) {
-        r_inv_wasm += uint512_t(r_inv_wasm_limbs[i]) << (29UL * i);
-        // Verify each limb fits in 29 bits
-        EXPECT_LT(r_inv_wasm_limbs[i], uint64_t(1) << 29);
-    }
+    uint256_t primitive_root_wasm{ Bn254FqParams::primitive_root_wasm_0,
+                                   Bn254FqParams::primitive_root_wasm_1,
+                                   Bn254FqParams::primitive_root_wasm_2,
+                                   Bn254FqParams::primitive_root_wasm_3 };
 
-    // Verify r_inv_wasm < q/2
-    EXPECT_LT(r_inv_wasm, uint512_t(native_q) / 2);
+    // R_wasm / R_native = 2^261 / 2^256 = 2^5 = 32
+    uint512_t expected_primitive_root_wasm = (uint512_t(primitive_root_native) * 32) % native_r;
+
+    EXPECT_EQ(expected_primitive_root_wasm.lo, primitive_root_wasm);
+}
+
+TEST(FqConstants, CosetGeneratorConsistency)
+{
+    uint256_t coset_generator_native{ Bn254FqParams::coset_generator_0,
+                                      Bn254FqParams::coset_generator_1,
+                                      Bn254FqParams::coset_generator_2,
+                                      Bn254FqParams::coset_generator_3 };
+
+    uint256_t coset_generator_wasm{ Bn254FqParams::coset_generator_wasm_0,
+                                    Bn254FqParams::coset_generator_wasm_1,
+                                    Bn254FqParams::coset_generator_wasm_2,
+                                    Bn254FqParams::coset_generator_wasm_3 };
+
+    uint512_t balanced_coset_generator_native = (static_cast<uint512_t>(coset_generator_native) * 32) % native_q;
+
+    EXPECT_EQ(balanced_coset_generator_native, static_cast<uint512_t>(coset_generator_wasm));
 }
 
 // ================================
@@ -191,7 +258,6 @@ TEST(FrConstants, RSquared)
     };
 
     EXPECT_EQ(expected_r_sqr_mod_r.lo, actual_r_sqr_mod_r);
-    EXPECT_EQ(expected_r_sqr_mod_r.hi, uint256_t(0));
 }
 
 TEST(FrConstants, RInv)
