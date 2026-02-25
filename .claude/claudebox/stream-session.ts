@@ -10,7 +10,7 @@
  * Runs until killed by the parent process.
  */
 
-import { readdirSync, statSync, readFileSync, existsSync } from "fs";
+import { readdirSync, statSync, readFileSync, existsSync, watch, openSync, readSync, closeSync, fstatSync } from "fs";
 import { join, basename } from "path";
 import { homedir } from "os";
 import { spawnSync, execFileSync } from "child_process";
@@ -244,83 +244,195 @@ function findNewestJsonl(dir: string): string | null {
     const walk = (d: string) => {
       for (const entry of readdirSync(d, { withFileTypes: true })) {
         const full = join(d, entry.name);
-        if (entry.isDirectory()) {
-          walk(full);
-        } else if (entry.name.endsWith(".jsonl")) {
+        if (entry.isDirectory()) walk(full);
+        else if (entry.name.endsWith(".jsonl"))
           results.push({ path: full, mtime: statSync(full).mtimeMs });
-        }
       }
     };
     walk(dir);
     results.sort((a, b) => b.mtime - a.mtime);
-    return results.length > 0 ? results[0].path : null;
-  } catch {
-    return null;
-  }
+    return results[0]?.path ?? null;
+  } catch { return null; }
 }
 
-function readLines(file: string, fromLine: number): string[] {
-  try {
-    const content = readFileSync(file, "utf-8");
-    const lines = content.split("\n");
-    return lines.slice(fromLine);
-  } catch {
-    return [];
+/** Tracks a single JSONL file with fd-based tailing. */
+class JsonlTailer {
+  fd: number;
+  offset = 0;
+  leftover = "";
+  label: string;
+
+  constructor(public path: string, label: string) {
+    this.fd = openSync(path, "r");
+    this.label = label;
   }
-}
 
-// ── Main loop ─────────────────────────────────────────────────────
-async function main() {
-  // Wait for project directory
-  logInfo("Waiting for session directory...");
-  let waitCount = 0;
-  while (!existsSync(projectDir)) {
-    await sleep(1000);
-    waitCount++;
-    if (waitCount >= 120) {
-      console.error(`${R}ERROR: Session directory never appeared after 120s${X}`);
-      process.exit(1);
-    }
-  }
-  logInfo("Session directory found.");
-
-  let currentFile = "";
-  let currentLine = 0;
-
-  logInfo("Streaming session output...");
-  console.log(`\n${B}${G}━━━ Claude Session Output ━━━${X}`);
-
-  while (true) {
-    const newestFile = findNewestJsonl(projectDir);
-
-    if (!newestFile) {
-      await sleep(1000);
-      continue;
-    }
-
-    if (newestFile !== currentFile) {
-      if (currentFile) logInfo("New session file detected, switching...");
-      currentFile = newestFile;
-      currentLine = 0;
-      logInfo(`Streaming: ${basename(currentFile)}`);
-    }
-
-    const newLines = readLines(currentFile, currentLine);
-    let parsed = 0;
-    for (const line of newLines) {
+  /** Read new bytes, parse complete lines, call printEntry on each. Returns true if new lines were found. */
+  drain(): boolean {
+    const size = fstatSync(this.fd).size;
+    if (size <= this.offset) return false;
+    const buf = Buffer.alloc(size - this.offset);
+    readSync(this.fd, buf, 0, buf.length, this.offset);
+    const text = this.leftover + buf.toString("utf-8");
+    const parts = text.split("\n");
+    this.leftover = parts.pop() ?? "";
+    this.offset = size;
+    let found = false;
+    for (const line of parts) {
       if (!line.trim()) continue;
       try {
         const d = JSON.parse(line);
-        printEntry(d);
-        parsed++;
-      } catch {
-        // skip malformed lines
+        if (this.label) {
+          // Prefix subagent output
+          const p = prefix(d.timestamp ?? "");
+          const t = d.type ?? "";
+          if (t === "assistant") {
+            for (const item of (d.message?.content ?? [])) {
+              if (item.type === "text" && item.text?.trim()) {
+                console.log(`\n${p}${D}  [${this.label}]${X} ${B}${G}CLAUDE:${X}`);
+                for (const ln of item.text.split("\n")) console.log(`    ${ln}`);
+              } else if (item.type === "tool_use") {
+                const name = item.name ?? "?";
+                const inp = item.input ?? {};
+                const desc = inp.description ?? inp.command ?? inp.file_path ?? inp.pattern ?? "";
+                console.log(`${p}${D}  [${this.label}]${X} ${Y}TOOL:${X} ${B}${name}${X} ${GR}${trunc(String(desc), 120)}${X}`);
+              } else if (item.type === "thinking" && item.thinking?.trim()) {
+                console.log(`${p}${D}  [${this.label}] THINKING: ${trunc(item.thinking.replace(/\n/g, " "), 120)}${X}`);
+              }
+            }
+          } else if (t === "user") {
+            const content = d.message?.content;
+            if (Array.isArray(content)) {
+              for (const item of content) {
+                if (item.type === "tool_result") {
+                  const err = item.is_error ?? false;
+                  let res = item.content ?? "";
+                  if (Array.isArray(res)) res = res.filter((r: any) => r.type === "text").map((r: any) => r.text ?? "").join("\n");
+                  const color = err ? R : G;
+                  const label2 = err ? "ERROR" : "RESULT";
+                  console.log(`${p}${D}  [${this.label}]${X} ${color}${label2}${X} ${GR}${trunc(String(res), 120)}${X}`);
+                }
+              }
+            }
+          }
+        } else {
+          printEntry(d);
+        }
+        found = true;
+      } catch {}
+    }
+    return found;
+  }
+
+  flush() {
+    if (this.leftover.trim()) {
+      try { printEntry(JSON.parse(this.leftover)); } catch {}
+    }
+    closeSync(this.fd);
+  }
+}
+
+/** Find all JSONL files in dir (recursive). */
+function findAllJsonl(dir: string): string[] {
+  const results: string[] = [];
+  try {
+    const walk = (d: string) => {
+      for (const entry of readdirSync(d, { withFileTypes: true })) {
+        const full = join(d, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (entry.name.endsWith(".jsonl")) results.push(full);
+      }
+    };
+    walk(dir);
+  } catch {}
+  return results;
+}
+
+// ── Main ─────────────────────────────────────────────────────────
+async function main() {
+  // Wait for JSONL to appear (Claude takes a moment to start writing)
+  logInfo("Waiting for session JSONL...");
+  let jsonlPath: string | null = null;
+  for (let i = 0; i < 120 && !jsonlPath; i++) {
+    await sleep(1000);
+    if (existsSync(projectDir)) jsonlPath = findNewestJsonl(projectDir);
+  }
+  if (!jsonlPath) {
+    console.error(`${R}ERROR: No JSONL found after 120s${X}`);
+    process.exit(1);
+  }
+
+  logInfo(`Streaming: ${basename(jsonlPath)}`);
+  console.log(`\n${B}${G}━━━ Claude Session Output ━━━${X}`);
+
+  // Track all JSONL files (main session + subagents)
+  const tailers = new Map<string, JsonlTailer>();
+  const mainTailer = new JsonlTailer(jsonlPath, "");
+  tailers.set(jsonlPath, mainTailer);
+
+  // Initial read
+  mainTailer.drain();
+
+  // Discover and tail new JSONL files (subagents)
+  const discoverNewFiles = () => {
+    if (!existsSync(projectDir)) return;
+    for (const f of findAllJsonl(projectDir)) {
+      if (!tailers.has(f)) {
+        const isSubagent = f.includes("/subagents/");
+        const label = isSubagent ? basename(f, ".jsonl").replace(/^agent-/, "subagent-").slice(0, 20) : "";
+        logInfo(`New file: ${basename(f)}${label ? ` (${label})` : ""}`);
+        tailers.set(f, new JsonlTailer(f, label));
       }
     }
-    currentLine += newLines.length;
+  };
 
-    await sleep(500);
-  }
+  // Drain all tailers, return true if any had new content
+  const drainAll = (): boolean => {
+    discoverNewFiles();
+    let anyNew = false;
+    for (const t of tailers.values()) {
+      if (t.drain()) anyNew = true;
+    }
+    return anyNew;
+  };
+
+  // Watch for changes
+  await new Promise<void>((resolve) => {
+    let idleTimer: ReturnType<typeof setTimeout> | null = null;
+    let done = false;
+
+    const resetIdle = () => {
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        if (done) return;
+        done = true;
+        logInfo("No new output for 10s, finishing.");
+        finish();
+      }, 10_000);
+    };
+
+    const onChange = () => {
+      if (done) return;
+      if (drainAll()) resetIdle();
+    };
+
+    // Watch the whole project dir recursively
+    const watcher = watch(projectDir, { recursive: true, persistent: true }, () => onChange());
+    const pollInterval = setInterval(() => onChange(), 2000);
+    resetIdle();
+
+    const finish = () => {
+      watcher.close();
+      clearInterval(pollInterval);
+      if (idleTimer) clearTimeout(idleTimer);
+      // Final drain + flush
+      drainAll();
+      for (const t of tailers.values()) t.flush();
+      resolve();
+    };
+  });
+
+  console.log(`\n${B}${G}━━━ End of Session Output ━━━${X}`);
 }
 
 main();

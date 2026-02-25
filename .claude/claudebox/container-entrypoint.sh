@@ -101,13 +101,25 @@ if [ -n "$RESUME_ID" ]; then
         --mcp-config /tmp/mcp.json \
         --resume "$RESUME_ID" --fork-session \
         -p "$PROMPT"
+    exit_code=$?
+    # Fall back to fresh session if resume fails (e.g. JSONL from old mount path)
+    if [ "$exit_code" -ne 0 ]; then
+        echo ""
+        echo "━━━ Resume failed (exit $exit_code), starting fresh session ━━━"
+        echo ""
+        claude --print --dangerously-skip-permissions \
+            --mcp-config /tmp/mcp.json \
+            --session-id "$SESSION_UUID" \
+            -p "$PROMPT"
+        exit_code=$?
+    fi
 else
     claude --print --dangerously-skip-permissions \
         --mcp-config /tmp/mcp.json \
         --session-id "$SESSION_UUID" \
         -p "$PROMPT"
+    exit_code=$?
 fi
-exit_code=$?
 set -e
 
 echo ""
