@@ -28,12 +28,13 @@ void UpdateCheckTraceBuilder::process(
 
     for (const auto& event : events) {
         uint256_t update_metadata = static_cast<uint256_t>(event.update_preimage_metadata);
-        uint256_t update_metadata_hi = update_metadata >> 32;
+        uint256_t update_metadata_hi = update_metadata >> TIMESTAMP_OF_CHANGE_BIT_SIZE;
 
         // Note that the code below no longer works after 2106 as by that time the timestamp will overflow u32. The 64
         // bit timestamp being packed in 32 bits is a tech debt that is not worth tackling.
         uint64_t timestamp_of_change = static_cast<uint64_t>(static_cast<uint32_t>(update_metadata & 0xffffffff));
 
+        bool hash_not_zero = event.update_hash != 0;
         bool timestamp_is_lt_timestamp_of_change = event.current_timestamp < timestamp_of_change;
         bool update_pre_class_id_is_zero = event.update_preimage_pre_class_id == 0;
         bool update_post_class_id_is_zero = event.update_preimage_post_class_id == 0;
@@ -51,7 +52,7 @@ void UpdateCheckTraceBuilder::process(
                 { C::update_check_timestamp_pi_offset, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX },
                 { C::update_check_update_hash, event.update_hash },
                 { C::update_check_update_hash_inv, event.update_hash }, // Will be inverted in batch later
-                { C::update_check_hash_not_zero, event.update_hash != 0 },
+                { C::update_check_hash_not_zero, hash_not_zero },
                 { C::update_check_update_preimage_metadata, event.update_preimage_metadata },
                 { C::update_check_update_preimage_pre_class_id, event.update_preimage_pre_class_id },
                 { C::update_check_update_preimage_post_class_id, event.update_preimage_post_class_id },

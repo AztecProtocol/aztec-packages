@@ -51,7 +51,8 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
     // where we store in one public data tree slot the hash of the whole structure. This is nice because in circuits you
     // can receive the preimage as a hint and just read 1 storage slot instead of 3. We do that here, we will constrain
     // the hash read but then read in unconstrained mode the preimage. The PIL for this gadget constrains the hash.
-    FF hash = merkle_db.storage_read(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, delayed_public_mutable_hash_slot);
+    FF update_hash =
+        merkle_db.storage_read(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, delayed_public_mutable_hash_slot);
 
     uint256_t update_preimage_metadata = 0;
     FF update_preimage_pre_class_id = 0;
@@ -59,10 +60,11 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
 
     uint64_t current_timestamp = globals.timestamp;
 
-    if (hash == 0) {
+    if (update_hash == 0) {
         // If the delayed public mutable has never been written, then the contract was never updated. We short circuit
         // early.
         if (instance.original_contract_class_id != instance.current_contract_class_id) {
+            // Should not happen!
             throw std::runtime_error("Current class id does not match expected class id");
         }
     } else {
@@ -80,7 +82,8 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         // Double check that the unconstrained reads match the hash. This is just a sanity check, if slow, can be
         // removed.
         FF reconstructed_hash = poseidon2.hash(update_preimage);
-        if (hash != reconstructed_hash) {
+        if (update_hash != reconstructed_hash) {
+            // Should not happen!
             throw std::runtime_error("Stored hash does not match preimage hash");
         }
 
@@ -94,11 +97,14 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         // bit timestamp being packed in 32 bits is a tech debt that is not worth tackling.
         uint64_t timestamp_of_change =
             static_cast<uint64_t>(static_cast<uint32_t>(update_preimage_metadata & 0xffffffff));
+        // Constrain that these items fit in their respective bit-sizes so that malicious prover
+        // cannot provide larger values.
         range_check.assert_range(update_metadata_hi,
                                  UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE - TIMESTAMP_OF_CHANGE_BIT_SIZE);
         range_check.assert_range(timestamp_of_change, TIMESTAMP_OF_CHANGE_BIT_SIZE);
 
-        // pre and post can be zero, if they have never been touched. In that case we need to use the original class id.
+        // pre and post can be zero, if they have never been touched (or have been reset). In that case we need to use
+        // the original class id.
         FF pre_class =
             update_preimage_pre_class_id == 0 ? instance.original_contract_class_id : update_preimage_pre_class_id;
         FF post_class =
@@ -107,6 +113,7 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         FF expected_current_class_id = gt.gt(timestamp_of_change, current_timestamp) ? pre_class : post_class;
 
         if (expected_current_class_id != instance.current_contract_class_id) {
+            // Should not happen!
             throw std::runtime_error(
                 "Current class id: " + field_to_string(instance.current_contract_class_id) +
                 " does not match expected class id: " + field_to_string(expected_current_class_id));
@@ -119,7 +126,7 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         .original_class_id = instance.original_contract_class_id,
         .public_data_tree_root = merkle_db.get_tree_state().public_data_tree.tree.root,
         .current_timestamp = current_timestamp,
-        .update_hash = hash,
+        .update_hash = update_hash,
         .update_preimage_metadata = update_preimage_metadata,
         .update_preimage_pre_class_id = update_preimage_pre_class_id,
         .update_preimage_post_class_id = update_preimage_post_class_id,
