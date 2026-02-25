@@ -1,7 +1,9 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
@@ -16,14 +18,24 @@ import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-ju
 import type { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import { type BlockData, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
-import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type {
+  L2LogsSource,
+  MerkleTreeReadOperations,
+  MerkleTreeWriteOperations,
+  WorldStateSynchronizer,
+} from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { mockTx } from '@aztec/stdlib/testing';
-import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import {
+  AppendOnlyTreeSnapshot,
+  MerkleTreeId,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
+} from '@aztec/stdlib/trees';
 import {
   BlockHeader,
   GlobalVariables,
@@ -67,6 +79,8 @@ describe('aztec node', () => {
   let globalVariablesBuilder: MockProxy<GlobalVariableBuilder>;
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let l2BlockSource: MockProxy<L2BlockSource>;
+  let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
+  let worldState: MockProxy<WorldStateSynchronizer>;
   let lastBlockNumber: BlockNumber;
   let node: AztecNodeService;
   let feePayer: AztecAddress;
@@ -130,7 +144,7 @@ describe('aztec node', () => {
       }
     });
 
-    const worldState = mock<WorldStateSynchronizer>({
+    worldState = mock<WorldStateSynchronizer>({
       getCommitted: () => merkleTreeOps,
     });
 
@@ -139,7 +153,7 @@ describe('aztec node', () => {
 
     const l2LogsSource = mock<L2LogsSource>();
 
-    const l1ToL2MessageSource = mock<L1ToL2MessageSource>();
+    l1ToL2MessageSource = mock<L1ToL2MessageSource>();
 
     // all txs use the same allowed FPC class
     const contractSource = mock<ContractDataSource>();
@@ -397,6 +411,79 @@ describe('aztec node', () => {
       const tx = await mockTxForRollup(0x10000);
       unfreeze(tx.data.constants.txContext.gasSettings.gasLimits).l2Gas = 1e12;
       await expect(node.simulatePublicCalls(tx)).rejects.toThrow(/gas/i);
+    });
+
+    it('appends pending L1-to-L2 messages to the simulation fork', async () => {
+      lastBlockNumber = BlockNumber(5);
+
+      // Mock buildGlobalVariables so the method doesn't crash before reaching the fork
+      globalVariablesBuilder.buildGlobalVariables.mockResolvedValue(
+        GlobalVariables.empty({ blockNumber: BlockNumber(6) }),
+      );
+
+      // Mock getBlockData to return block data with a checkpoint number
+      const blockData: BlockData = {
+        header: BlockHeader.empty(),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        blockHash: Fr.ZERO,
+        checkpointNumber: CheckpointNumber(5),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      };
+      l2BlockSource.getBlockData.mockResolvedValue(blockData);
+
+      // Mock L1-to-L2 messages for the next checkpoint
+      const pendingMessages = [Fr.random(), Fr.random(), Fr.random()];
+      l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue(pendingMessages);
+
+      // Mock the fork to track appendLeaves calls
+      const merkleTreeFork = mock<MerkleTreeWriteOperations>();
+      worldState.fork.mockResolvedValue(merkleTreeFork);
+
+      // simulatePublicCalls will fail during actual processing since we don't set up a
+      // full processor, but we only care about verifying that appendLeaves was called
+      const tx = await mockTxForRollup(0x10000);
+      await node.simulatePublicCalls(tx).catch(() => {});
+
+      // Verify that appendLeaves was called with the pending messages padded to the correct size
+      expect(merkleTreeFork.appendLeaves).toHaveBeenCalledWith(
+        MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+        padArrayEnd<Fr, number>(pendingMessages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+      );
+
+      // Verify the messages were fetched for the NEXT checkpoint (current + 1)
+      expect(l1ToL2MessageSource.getL1ToL2Messages).toHaveBeenCalledWith(CheckpointNumber(6));
+
+      // Verify fork was closed
+      expect(merkleTreeFork.close).toHaveBeenCalled();
+    });
+
+    it('skips appending when there are no pending L1-to-L2 messages', async () => {
+      lastBlockNumber = BlockNumber(3);
+
+      globalVariablesBuilder.buildGlobalVariables.mockResolvedValue(
+        GlobalVariables.empty({ blockNumber: BlockNumber(4) }),
+      );
+
+      const blockData: BlockData = {
+        header: BlockHeader.empty(),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        blockHash: Fr.ZERO,
+        checkpointNumber: CheckpointNumber(3),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      };
+      l2BlockSource.getBlockData.mockResolvedValue(blockData);
+
+      // No pending messages for the next checkpoint
+      l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
+
+      const merkleTreeFork = mock<MerkleTreeWriteOperations>();
+      worldState.fork.mockResolvedValue(merkleTreeFork);
+
+      const tx = await mockTxForRollup(0x10000);
+      await node.simulatePublicCalls(tx).catch(() => {});
+
+      // appendLeaves should NOT be called when there are no messages
+      expect(merkleTreeFork.appendLeaves).not.toHaveBeenCalled();
     });
   });
 

@@ -2,14 +2,19 @@ import { Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { Blob } from '@aztec/blob-lib';
-import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
+import {
+  ARCHIVE_HEIGHT,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+  type NOTE_HASH_TREE_HEIGHT,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+} from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { compactArray, pick, unique } from '@aztec/foundation/collection';
+import { compactArray, padArrayEnd, pick, unique } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
@@ -1254,6 +1259,26 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     await this.worldStateSynchronizer.syncImmediate(latestBlockNumber);
     const merkleTreeFork = await this.worldStateSynchronizer.fork();
     try {
+      // Append pending L1-to-L2 messages for the next checkpoint to the simulation fork.
+      // This mirrors what the sequencer does in LightweightCheckpointBuilder.startNewCheckpoint():
+      // it appends messages to the L1_TO_L2_MESSAGE_TREE BEFORE executing block TXs. Without this,
+      // simulations that consume L1-to-L2 messages fail because the messages aren't in the tree yet.
+      // See https://linear.app/aztec-labs/issue/A-548 for details.
+      const blockData = await this.blockSource.getBlockData(latestBlockNumber);
+      if (blockData) {
+        const nextCheckpointNumber = CheckpointNumber(blockData.checkpointNumber + 1);
+        const pendingL1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(nextCheckpointNumber);
+        if (pendingL1ToL2Messages.length > 0) {
+          await merkleTreeFork.appendLeaves(
+            MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+            padArrayEnd<Fr, number>(pendingL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+          );
+          this.log.verbose(
+            `Appended ${pendingL1ToL2Messages.length} pending L1-to-L2 messages for checkpoint ${nextCheckpointNumber} to simulation fork`,
+          );
+        }
+      }
+
       const config = PublicSimulatorConfig.from({
         skipFeeEnforcement,
         collectDebugLogs: true,

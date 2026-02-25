@@ -162,6 +162,57 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     120_000,
   );
 
+  // Regression test for A-548: when isL1ToL2MessageReady returns true with forPublicConsumption: true,
+  // the simulator should be able to simulate a tx that consumes the message. Before the fix,
+  // simulation would revert because the public VM ran against the current world state which didn't
+  // yet contain the message (it would only be added by the sequencer when building the next block).
+  it('can simulate public consumption of L1 to L2 message when forPublicConsumption is true', async () => {
+    // Send L1 to L2 message
+    const [secret, secretHash] = await generateClaimSecret();
+    const message = { recipient: testContract.address, content: Fr.random(), secretHash };
+    const { msgHash, globalLeafIndex } = await sendL1ToL2Message(message, crossChainTestHarness);
+
+    // Wait for the archiver to sync the message and get the target block number
+    const msgBlockNumber = await waitForMessageFetched(msgHash);
+    log.warn(`Message fetched, target block: ${msgBlockNumber}, current: ${await aztecNode.getBlockNumber()}`);
+
+    // Advance to exactly msgBlockNumber - 1. At this point:
+    // - forPublicConsumption: true returns true  (blockNumber + 1 >= messageBlockNumber)
+    // - forPublicConsumption: false returns false (blockNumber < messageBlockNumber)
+    // This is the window where the bug manifests: the readiness check says "go" but the
+    // message isn't in the current world state yet.
+    let currentBlock = await aztecNode.getBlockNumber();
+    while (currentBlock < msgBlockNumber - 1) {
+      await advanceBlock();
+      currentBlock = await aztecNode.getBlockNumber();
+    }
+
+    // Verify we're in the interesting window (not past it)
+    expect(currentBlock).toBe(msgBlockNumber - 1);
+
+    const readyForPublic = await isL1ToL2MessageReady(aztecNode, msgHash, { forPublicConsumption: true });
+    const readyForPrivate = await isL1ToL2MessageReady(aztecNode, msgHash, { forPublicConsumption: false });
+    log.warn(`At block ${currentBlock}: readyForPublic=${readyForPublic}, readyForPrivate=${readyForPrivate}`);
+    expect(readyForPublic).toBe(true);
+    expect(readyForPrivate).toBe(false);
+
+    // Simulate public consumption. Before A-548 fix, this fails with:
+    //   "Assertion failed: Tried to consume nonexistent L1-to-L2 message"
+    // because the simulator runs against the current world state which doesn't have the message.
+    // After the fix, the simulator includes pending L1-to-L2 messages in the fork.
+    const consume = testContract.methods.consume_message_from_arbitrary_sender_public(
+      message.content,
+      secret,
+      crossChainTestHarness.ethAccount,
+      globalLeafIndex,
+    );
+
+    await consume.simulate({ from: user1Address });
+
+    // Also verify the message can actually be consumed by sending the tx
+    await consume.send({ from: user1Address });
+  }, 120_000);
+
   // Inbox block number can drift on two scenarios: if the rollup reorgs and rolls back its own
   // block number, or if the inbox receives too many messages and they are inserted faster than
   // they are consumed. In this test, we mine several blocks without marking them as proven until
