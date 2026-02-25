@@ -23,7 +23,7 @@ render() {
   echo ""
 
   local files
-  files=$(ls -t "$SESSIONS_DIR"/*.json 2>/dev/null | head -20) || true
+  files=$(ls -t "$SESSIONS_DIR"/*.json 2>/dev/null) || true
   if [ -z "$files" ]; then
     echo "  No sessions."
     return

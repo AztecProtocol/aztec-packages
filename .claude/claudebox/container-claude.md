@@ -47,6 +47,7 @@ Do NOT use `gh api`, `gh pr`, or any `gh` commands — they will fail.
 
 | Tool | Purpose |
 |------|---------|
+| `respond_to_user` | **REQUIRED** — send your final response. Posts to Slack thread + GitHub comment. |
 | `get_context` | Session metadata (user, repo, comment_id, log_url, thread, etc.) |
 | `session_status` | Update Slack + GitHub status (log link auto-appended) |
 | `github_api` | GitHub REST API proxy — scoped to `AztecProtocol/aztec-packages` only |
@@ -90,21 +91,18 @@ update_pr(pr_number=12345, state="closed")
 3. Do your work (checkout code, build, fix, etc.)
 4. `github_api` / `slack_api` — communicate results
 5. `create_pr` — if you made changes worth PRing
-6. End with a concise text summary of what you did
+6. **`respond_to_user`** — send your final response (REQUIRED, see below)
 
-### Final response = Slack/GitHub reply
+### Final response — `respond_to_user` (REQUIRED)
 
-Your **last text response** is automatically posted as a reply to the Slack thread and/or GitHub comment that triggered this session. Long responses are spilled to a log link automatically.
+You **MUST** call `respond_to_user` with your final message before ending your session. This is how the user sees your response — it posts to their Slack thread and/or GitHub comment.
 
-So **don't** post your own summary via `slack_api` — just end your session with a clear, concise text summary. Keep it brief (a few sentences). Include links to any PRs you created. Use `cache_log` for any long artifacts you want to share:
-```bash
-echo "<long content>" | /workspace/aztec-packages/ci3/cache_log claudebox-reply "$(head -c 16 /dev/urandom | xxd -p)"
-# Returns http://ci.aztec-labs.com/<hash>
-```
-Then reference the link in your final summary.
+Keep it concise (a few sentences). Include links to any PRs you created. The log link is auto-appended.
+
+**Do NOT** just end with a text message — the user won't see it unless you call `respond_to_user`.
 
 ### Log links
-`session_status` auto-appends the log link. For direct `github_api`/`slack_api` calls, include the log URL from `get_context`.
+`session_status` and `respond_to_user` auto-append the log link. For direct `github_api`/`slack_api` calls, include the log URL from `get_context`.
 
 ## Rules
 - Stay within `/workspace/aztec-packages`

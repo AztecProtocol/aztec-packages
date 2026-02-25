@@ -151,57 +151,6 @@ function truncate(s: string, n = 80): string {
   return s.length <= n ? s : s.slice(0, n - 3) + "...";
 }
 
-/** Spill long content to cache_log; return truncated text with link, or truncated-only on failure. */
-function spillOrTruncate(text: string, inlineLimit: number, fallbackLimit: number, linkFmt: (url: string) => string): string {
-  if (text.length <= fallbackLimit) return text;
-  try {
-    const spillId = execSync("head -c 16 /dev/urandom | xxd -p", { encoding: "utf-8" }).trim();
-    execSync(`"${join(REPO_DIR, "ci3", "cache_log")}" claudebox-reply "${spillId}"`, {
-      input: text, encoding: "utf-8", timeout: 10_000,
-    });
-    return truncate(text, inlineLimit) + "\n\n" + linkFmt(`http://ci.aztec-labs.com/${spillId}`);
-  } catch {
-    return truncate(text, fallbackLimit);
-  }
-}
-
-/** Read JSONL files in a claude-projects dir and return the last assistant text message. */
-function extractLastAssistantText(projectsDir: string): string | null {
-  try {
-    // Find newest JSONL recursively
-    let newest = { path: "", mtime: 0 };
-    const walk = (dir: string) => {
-      for (const ent of readdirSync(dir, { withFileTypes: true })) {
-        const p = join(dir, ent.name);
-        if (ent.isDirectory()) walk(p);
-        else if (ent.name.endsWith(".jsonl")) {
-          const mt = statSync(p).mtimeMs;
-          if (mt > newest.mtime) newest = { path: p, mtime: mt };
-        }
-      }
-    };
-    walk(projectsDir);
-    if (!newest.path) return null;
-
-    const lines = readFileSync(newest.path, "utf-8").split("\n");
-    let lastText = "";
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      try {
-        const d = JSON.parse(line);
-        if (d.type === "assistant" && Array.isArray(d.message?.content)) {
-          for (const item of d.message.content) {
-            if (item.type === "text" && item.text?.trim()) lastText = item.text;
-          }
-        }
-      } catch {}
-    }
-    return lastText || null;
-  } catch {
-    return null;
-  }
-}
-
 // ── Docker container session runner ─────────────────────────────
 
 interface ContainerSessionOpts {
@@ -503,9 +452,7 @@ async function runContainerSession(
           writeFileSync(metadataFile, JSON.stringify(meta, null, 2));
         } catch {}
 
-        // Post completion updates (Slack + GitHub)
-        const summary = extractLastAssistantText(claudeProjectsDir);
-
+        // Update Slack status message (completed/error). Response is handled by respond_to_user MCP tool.
         if (SLACK_BOT_TOKEN && opts.slackChannel && opts.slackMessageTs) {
           const finalText = exitCode === 0
             ? `ClaudeBox completed <${logUrl}|log>`
@@ -515,24 +462,6 @@ async function runContainerSession(
             headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
             body: JSON.stringify({ channel: opts.slackChannel, ts: opts.slackMessageTs, text: finalText }),
           }).catch((e) => console.warn(`[WARN] Slack status update failed: ${e}`));
-
-          if (summary && opts.slackThreadTs) {
-            const replyText = spillOrTruncate(summary, 500, 1500, (u) => `Full response: ${u}`) + `\n<${logUrl}|session log>`;
-            fetch("https://slack.com/api/chat.postMessage", {
-              method: "POST",
-              headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
-              body: JSON.stringify({ channel: opts.slackChannel, thread_ts: opts.slackThreadTs, text: replyText }),
-            }).catch((e) => console.warn(`[WARN] Slack reply failed: ${e}`));
-          }
-        }
-
-        if (GH_TOKEN && opts.runCommentId && summary) {
-          const body = spillOrTruncate(summary, 1000, 3000, (u) => `[Full response](${u})`) + `\n\n[Session log](${logUrl})`;
-          fetch(`https://api.github.com/repos/AztecProtocol/aztec-packages/issues/comments/${opts.runCommentId}`, {
-            method: "PATCH",
-            headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: "application/vnd.github.v3+json", "Content-Type": "application/json" },
-            body: JSON.stringify({ body }),
-          }).catch((e) => console.warn(`[WARN] GitHub comment update failed: ${e}`));
         }
 
         resolve(exitCode);

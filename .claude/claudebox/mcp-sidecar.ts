@@ -62,10 +62,18 @@ const GH_WHITELIST: Array<{ method: string; pattern: RegExp }> = [
   { method: "POST",  pattern: new RegExp(`^${R}/issues/\\d+/comments$`) },
   // Reactions
   { method: "POST",  pattern: new RegExp(`^${R}/issues/comments/\\d+/reactions$`) },
+  // PRs — commits list
+  { method: "GET",   pattern: new RegExp(`^${R}/pulls/\\d+/commits(\\?.*)?$`) },
   // Actions / CI
+  { method: "GET",   pattern: new RegExp(`^${R}/actions/runs(\\?.*)?$`) },
   { method: "GET",   pattern: new RegExp(`^${R}/actions/runs/\\d+(/jobs|/logs)?$`) },
   { method: "GET",   pattern: new RegExp(`^${R}/check-runs/\\d+$`) },
-  { method: "GET",   pattern: new RegExp(`^${R}/check-suites/\\d+/check-runs$`) },
+  { method: "GET",   pattern: new RegExp(`^${R}/check-suites/\\d+/check-runs(\\?.*)?$`) },
+  // Commit statuses and check-runs
+  { method: "GET",   pattern: new RegExp(`^${R}/commits/[a-f0-9]+/status(\\?.*)?$`) },
+  { method: "GET",   pattern: new RegExp(`^${R}/commits/[a-f0-9]+/check-runs(\\?.*)?$`) },
+  { method: "GET",   pattern: new RegExp(`^${R}/commits/[a-f0-9]+/check-suites(\\?.*)?$`) },
+  { method: "GET",   pattern: new RegExp(`^${R}/statuses/[a-f0-9]+(\\?.*)?$`) },
   // Contents, commits, compare, branches
   { method: "GET",   pattern: new RegExp(`^${R}/contents/.*$`) },
   { method: "GET",   pattern: new RegExp(`^${R}/commits(/[^/]+)?$`) },
@@ -81,12 +89,66 @@ function isGhAllowed(method: string, path: string): boolean {
 
 // ── Slack API whitelist ─────────────────────────────────────────
 
-const SLACK_WHITELIST = new Set(["chat.postMessage", "chat.update", "reactions.add"]);
+const SLACK_WHITELIST = new Set(["chat.postMessage", "chat.update", "reactions.add", "conversations.replies", "conversations.history"]);
 
 // ── Git helper (runs locally in sidecar container) ──────────────
 
 function git(...args: string[]): string {
   return execFileSync("git", args, { cwd: WORKSPACE, encoding: "utf-8", timeout: 60000 });
+}
+
+// ── Root comment state (accumulated across tool calls) ──────────
+let lastStatus = "";
+const sessionArtifacts: string[] = [];
+
+function buildGhBody(status: string): string {
+  let body = status;
+  if (sessionArtifacts.length > 0) body += "\n\n---\n" + sessionArtifacts.join("\n");
+  if (SESSION_META.log_url) body += `\n\n[View log](${SESSION_META.log_url})`;
+  return body;
+}
+
+function buildSlackText(status: string): string {
+  let text = status;
+  if (sessionArtifacts.length > 0) text += "\n" + sessionArtifacts.join("\n");
+  if (SESSION_META.log_url) text += ` <${SESSION_META.log_url}|log>`;
+  return text;
+}
+
+async function updateRootComment(status?: string): Promise<string[]> {
+  const s = status ?? lastStatus;
+  if (status) lastStatus = status;
+  const results: string[] = [];
+
+  if (SLACK_BOT_TOKEN && SESSION_META.slack_channel && SESSION_META.slack_message_ts) {
+    try {
+      const r = await fetch("https://slack.com/api/chat.update", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channel: SESSION_META.slack_channel, ts: SESSION_META.slack_message_ts,
+          text: buildSlackText(s),
+        }),
+      });
+      const d = await r.json() as any;
+      results.push(d.ok ? "Slack updated" : `Slack: ${d.error}`);
+    } catch (e: any) { results.push(`Slack: ${e.message}`); }
+  }
+
+  if (GH_TOKEN && SESSION_META.run_comment_id) {
+    try {
+      const r = await fetch(
+        `https://api.github.com/repos/${SESSION_META.repo}/issues/comments/${SESSION_META.run_comment_id}`,
+        {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: "application/vnd.github.v3+json", "Content-Type": "application/json" },
+          body: JSON.stringify({ body: buildGhBody(s) }),
+        });
+      results.push(r.ok ? "GitHub updated" : `GitHub: ${r.status}`);
+    } catch (e: any) { results.push(`GitHub: ${e.message}`); }
+  }
+
+  return results;
 }
 
 // ── Create MCP Server ───────────────────────────────────────────
@@ -102,47 +164,61 @@ function createMcpServerWithTools(): McpServer {
       for (const [k, v] of Object.entries(SESSION_META)) {
         if (v) ctx[k] = v;
       }
-      ctx.tools = "get_context, session_status, github_api, slack_api, create_pr, update_pr, linear_get_issue, linear_create_issue";
+      ctx.tools = "respond_to_user, get_context, session_status, github_api, slack_api, create_pr, update_pr, linear_get_issue, linear_create_issue";
       return { content: [{ type: "text", text: JSON.stringify(ctx, null, 2) }] };
     });
 
   // ── session_status ─────────────────────────────────────────────
   server.tool("session_status",
-    "Update status in both Slack and GitHub. Log link auto-appended.",
+    "Update status in both Slack and GitHub. Log link + accumulated PR/issue links auto-appended.",
     { status: z.string().describe("Status text") },
     async ({ status }) => {
-      const results: string[] = [];
-      const logLink = SESSION_META.log_url;
+      const results = await updateRootComment(status);
+      return { content: [{ type: "text", text: results.length ? results.join("\n") : "No channels configured" }] };
+    });
 
-      if (SLACK_BOT_TOKEN && SESSION_META.slack_channel && SESSION_META.slack_message_ts) {
+  // ── respond_to_user ───────────────────────────────────────────
+  server.tool("respond_to_user",
+    "Send your final response to the user. Posts as a reply in the Slack thread and/or GitHub comment. You MUST call this before ending your session.",
+    { message: z.string().describe("Your response to the user. Markdown supported. Be concise.") },
+    async ({ message }) => {
+      const results: string[] = [];
+
+      if (SLACK_BOT_TOKEN && SESSION_META.slack_channel && SESSION_META.slack_thread_ts) {
         try {
-          const r = await fetch("https://slack.com/api/chat.update", {
+          let text = message;
+          if (SESSION_META.log_url) text += `\n<${SESSION_META.log_url}|log>`;
+          const r = await fetch("https://slack.com/api/chat.postMessage", {
             method: "POST",
             headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-              channel: SESSION_META.slack_channel, ts: SESSION_META.slack_message_ts,
-              text: logLink ? `${status} <${logLink}|log>` : status,
+              channel: SESSION_META.slack_channel,
+              thread_ts: SESSION_META.slack_thread_ts,
+              text,
             }),
           });
           const d = await r.json() as any;
-          results.push(d.ok ? "Slack updated" : `Slack: ${d.error}`);
+          results.push(d.ok ? "Slack reply posted" : `Slack: ${d.error}`);
         } catch (e: any) { results.push(`Slack: ${e.message}`); }
       }
 
       if (GH_TOKEN && SESSION_META.run_comment_id) {
         try {
+          let body = message;
+          if (sessionArtifacts.length > 0) body += "\n\n---\n" + sessionArtifacts.join("\n");
+          if (SESSION_META.log_url) body += `\n\n[View log](${SESSION_META.log_url})`;
           const r = await fetch(
             `https://api.github.com/repos/${SESSION_META.repo}/issues/comments/${SESSION_META.run_comment_id}`,
             {
               method: "PATCH",
               headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: "application/vnd.github.v3+json", "Content-Type": "application/json" },
-              body: JSON.stringify({ body: logLink ? `${status}\n\n[View log](${logLink})` : status }),
+              body: JSON.stringify({ body }),
             });
-          results.push(r.ok ? "GitHub updated" : `GitHub: ${r.status}`);
+          results.push(r.ok ? "GitHub comment updated" : `GitHub: ${r.status}`);
         } catch (e: any) { results.push(`GitHub: ${e.message}`); }
       }
 
-      return { content: [{ type: "text", text: results.length ? results.join("\n") : "No channels configured" }] };
+      return { content: [{ type: "text", text: results.length ? results.join("\n") : "No channels configured — message printed to log only" }] };
     });
 
   // ── github_api ─────────────────────────────────────────────────
@@ -284,6 +360,10 @@ channel and thread_ts auto-injected from session if not provided.`,
             body: JSON.stringify({ labels: ["claudebox"] }),
           });
         } catch {}
+
+        // Auto-post PR to root comment
+        sessionArtifacts.push(`- [PR #${pr.number}: ${title}](${pr.html_url})`);
+        await updateRootComment();
 
         return { content: [{ type: "text", text: `${pr.html_url}\nBranch: ${branch}\n#${pr.number}` }] };
       } catch (e: any) {
@@ -454,6 +534,11 @@ channel and thread_ts auto-injected from session if not provided.`,
         const json = await res.json() as any;
         const result = json?.data?.issueCreate;
         if (!result?.success) return { content: [{ type: "text", text: `Failed: ${JSON.stringify(json.errors || json)}` }], isError: true };
+
+        // Auto-post issue to root comment
+        sessionArtifacts.push(`- [${result.issue.identifier}: ${result.issue.title}](${result.issue.url})`);
+        await updateRootComment();
+
         return { content: [{ type: "text", text: `${result.issue.identifier}: ${result.issue.title}\n${result.issue.url}` }] };
       } catch (e: any) {
         return { content: [{ type: "text", text: `Linear API error: ${e.message}` }], isError: true };

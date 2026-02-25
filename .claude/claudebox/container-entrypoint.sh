@@ -53,6 +53,8 @@ EOF
 if [ -f "$CLAUDE_MD_TEMPLATE" ]; then
     mkdir -p "$WORKSPACE/.claude"
     cp "$CLAUDE_MD_TEMPLATE" "$WORKSPACE/.claude/CLAUDE.md"
+    # Exclude from git so create_pr's `git add -A` doesn't commit it
+    echo ".claude/CLAUDE.md" >> "$WORKSPACE/.git/info/exclude"
 fi
 
 # ── Step 4: Read prompt ──────────────────────────────────────────
