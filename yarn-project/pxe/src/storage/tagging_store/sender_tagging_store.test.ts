@@ -79,7 +79,8 @@ describe('SenderTaggingStore', () => {
 
       await taggingStore.storePendingIndexes([range(secret1, 3, 7)], txHash, 'test');
 
-      // Only the highestIndex (7) matters for getTxHashesOfPendingIndexes queries
+      // By design the txs are filtered based on the highestIndex (7) in getTxHashesOfPendingIndexes so we shouldn't
+      // receive the tx only in the second query.
       const txHashesNotContainingHighest = await taggingStore.getTxHashesOfPendingIndexes(secret1, 3, 4, 'test');
       expect(txHashesNotContainingHighest).toHaveLength(0);
 
