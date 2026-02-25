@@ -38,9 +38,3 @@ else
   # Noop.
   cat
 fi
-
-# Always emit an empty sentinel line so that 'parallelize' always receives at least one
-# line of input. Without this, when all tests are cache-filtered out, GNU parallel receives
-# empty stdin and the upstream pipeline gets SIGPIPE (exit 141). run_test_cmd handles
-# empty commands with an early exit 0, and parallelize already excludes them from the count.
-echo ""

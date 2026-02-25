@@ -411,7 +411,22 @@ function test_cmds {
 function test {
   set -x
   echo_header "bb test"
+  # test_cmds_native runs each test binary with --gtest_list_tests to enumerate tests.
+  # When all tests are cache-hits, the downstream (parallelize) exits early, causing
+  # test_cmds_native's echo calls to receive SIGPIPE (exit 141). This is expected and OK.
+  # We use set +o pipefail + PIPESTATUS to distinguish this from genuine failures.
+  set +o pipefail
   test_cmds | filter_test_cmds | parallelize
+  local -a ps=("${PIPESTATUS[@]}")
+  set -o pipefail
+  # ps[0]=test_cmds, ps[1]=filter_test_cmds, ps[2]=parallelize
+  if [ "${ps[0]}" -ne 0 ] && [ "${ps[0]}" -ne 141 ]; then
+    echo "test_cmds failed (exit ${ps[0]})"
+    exit "${ps[0]}"
+  fi
+  if [ "${ps[2]}" -ne 0 ]; then
+    exit "${ps[2]}"
+  fi
 }
 
 function build_bench {
