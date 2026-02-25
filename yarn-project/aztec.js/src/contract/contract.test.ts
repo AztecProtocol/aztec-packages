@@ -1,3 +1,4 @@
+import { CHONK_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -62,7 +63,7 @@ describe('Contract Class', () => {
         returnTypes: [],
         errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfa),
-        verificationKey: Buffer.alloc(1120).toString('base64'),
+        verificationKey: Buffer.alloc(CHONK_VK_LENGTH_IN_FIELDS * 32).toString('base64'),
       },
       {
         name: 'public_dispatch',
