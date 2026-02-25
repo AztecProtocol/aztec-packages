@@ -287,6 +287,7 @@ function build_release_dir {
 export -f build_preset build_native_objects build_cross_objects build_native build_cross build_ios build_android build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version
 
 function build {
+  set -x
   echo_header "bb cpp build"
 
   if [ "$CI_FULL" -eq 1 ]; then
@@ -408,6 +409,7 @@ function test_cmds {
 
 # This is not called in ci. It is just for a developer to run the tests.
 function test {
+  set -x
   echo_header "bb test"
   test_cmds | filter_test_cmds | parallelize
 }
@@ -501,6 +503,7 @@ case "$cmd" in
     build
     ;;
   "ci")
+    set -x
     build
     test
     ;;
