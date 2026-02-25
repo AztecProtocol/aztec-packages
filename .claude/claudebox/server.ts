@@ -714,17 +714,18 @@ slackApp.event("app_mention", async ({ event, client, say }) => {
   const parsed = parseMessage(cmd);
   const { forceNew, prompt: effectivePrompt } = parseNewKeyword(parsed);
 
-  // Resume logic only applies to thread replies, not top-level messages
-  if (!forceNew && isReply) {
-    if (parsed.type === "reply-hash") {
-      const session = findSessionByHash(parsed.hash);
-      const err = validateResumeSession(session, parsed.hash);
-      if (err) { await say({ text: err, thread_ts: threadTs }); return; }
-      console.log(`[REPLY-HASH] Resuming session ${parsed.hash}`);
-      await startReplySession(client, channel, threadTs, parsed.prompt, session!, userName);
-      return;
-    }
+  // Explicit hash-based resume
+  if (!forceNew && parsed.type === "reply-hash") {
+    const session = findSessionByHash(parsed.hash);
+    const err = validateResumeSession(session, parsed.hash);
+    if (err) { await say({ text: err, thread_ts: threadTs }); return; }
+    console.log(`[REPLY-HASH] Resuming session ${parsed.hash}`);
+    await startReplySession(client, channel, threadTs, parsed.prompt, session!, userName);
+    return;
+  }
 
+  // Implicit resume: thread reply with a previous session (unless "new")
+  if (!forceNew && isReply) {
     const prevSession = findLastSessionInThread(channel, threadTs);
     if (prevSession?.status === "running") {
       await say({ text: "Replies to ongoing conversations are not supported currently.", thread_ts: threadTs });
@@ -737,7 +738,7 @@ slackApp.event("app_mention", async ({ event, client, say }) => {
     }
   }
 
-  // New session (top-level message, forced new, or no resumable session in thread)
+  // Fresh session: top-level, "new", or no previous session in thread
   const threadContext = isReply ? await getThreadContext(client, channel, threadTs) : "";
   await startNewSession(client, channel, threadTs, effectivePrompt, threadContext, userName);
 });
@@ -835,10 +836,14 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
     // Auto-detect reply from prompt (e.g. "/claudebox <log_link> follow up")
     if (!resumeSessionId && parsed?.type === "reply-hash") {
       const prevSession = findSessionByHash(parsed.hash);
-      if (prevSession?.claude_session_id) {
-        resumeSessionId = prevSession.claude_session_id;
-        prevLogId = parsed.hash;
+      const err = validateResumeSession(prevSession, parsed.hash);
+      if (err) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err }));
+        return;
       }
+      resumeSessionId = prevSession!.claude_session_id!;
+      prevLogId = parsed.hash;
     }
 
     console.log(`[HTTP] POST /run user=${body.user ?? "?"} prompt=${truncate(prompt, 120)}${resumeSessionId ? " (resume)" : ""}`);
