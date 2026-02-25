@@ -232,6 +232,7 @@ locals {
     "validator.node.env.WS_NUM_HISTORIC_CHECKPOINTS"           = var.WS_NUM_HISTORIC_CHECKPOINTS
     "validator.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
     "validator.node.env.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT"   = var.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT
+    "validator.node.adminApiKeyHash"                            = var.ADMIN_API_KEY_HASH
   }
 
   # Note: nonsensitive() is required here because helm_releases is used in for_each,

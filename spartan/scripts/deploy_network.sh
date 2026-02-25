@@ -465,6 +465,20 @@ fi
 
 
 # -------------------------------
+# Generate admin API key
+# -------------------------------
+# Generate a fresh key on every deploy; the hash goes to validators and the
+# raw key is stored as a K8s Secret for the test runner to retrieve later.
+# The raw key is never logged.
+ADMIN_API_KEY=$(openssl rand -hex 32)
+ADMIN_API_KEY_HASH=$(printf '%s' "$ADMIN_API_KEY" | sha256sum | cut -d' ' -f1)
+kubectl create secret generic aztec-admin-api-key \
+  --from-literal=key="$ADMIN_API_KEY" \
+  --namespace "${NAMESPACE}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+unset ADMIN_API_KEY
+
+# -------------------------------
 # Deploy Aztec infra
 # -------------------------------
 AZTEC_INFRA_START=$(date +%s)
@@ -617,6 +631,7 @@ PROVER_AGENT_PROOF_TYPES = ${PROVER_AGENT_PROOF_TYPES:-[]}
 DEBUG_FORCE_TX_PROOF_VERIFICATION = ${DEBUG_FORCE_TX_PROOF_VERIFICATION:-false}
 
 WAIT_FOR_PROVER_DEPLOY = ${WAIT_FOR_PROVER_DEPLOY:-null}
+ADMIN_API_KEY_HASH = "${ADMIN_API_KEY_HASH}"
 EOF
 
 k8s_denoise "tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}""
