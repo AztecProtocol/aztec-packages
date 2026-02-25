@@ -16,13 +16,12 @@ import {
   CheckpointProposal,
   type CheckpointProposalCore,
   type Gossipable,
-  P2PClientType,
   P2PMessage,
   type ValidationResult as P2PValidationResult,
   PeerErrorSeverity,
   TopicType,
   createTopicString,
-  getTopicsForClientAndConfig,
+  getTopicsForConfig,
   metricsTopicStrToLabels,
 } from '@aztec/stdlib/p2p';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -135,7 +134,7 @@ type ReceivedMessageValidationResult<T, M = undefined> =
 /**
  * Lib P2P implementation of the P2PService interface.
  */
-export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends WithTracer implements P2PService {
+export class LibP2PService extends WithTracer implements P2PService {
   private discoveryRunningPromise?: RunningPromise;
   private msgIdSeenValidators: Record<TopicType, MessageSeenValidator> = {} as Record<TopicType, MessageSeenValidator>;
 
@@ -182,7 +181,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   protected logger: Logger;
 
   constructor(
-    private clientType: T,
     private config: P2PConfig,
     protected node: PubSubLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
@@ -262,8 +260,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param txPool - The transaction pool to be accessed by the service.
    * @returns The new service.
    */
-  public static async new<T extends P2PClientType>(
-    clientType: T,
+  public static async new(
     config: P2PConfig,
     peerId: PeerId,
     deps: {
@@ -475,7 +472,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       peerManager.shouldDisableP2PGossip(peerId) ? -Infinity : peerManager.getPeerScore(peerId);
 
     return new LibP2PService(
-      clientType,
       config,
       node,
       peerDiscoveryService,
@@ -549,7 +545,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     await this.node.start();
 
     // Subscribe to standard GossipSub topics by default
-    for (const topic of getTopicsForClientAndConfig(this.clientType, this.config.disableTransactions)) {
+    for (const topic of getTopicsForConfig(this.config.disableTransactions)) {
       this.subscribeToTopic(this.topicStrings[topic]);
     }
 
@@ -818,9 +814,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       if (msg.topic === this.topicStrings[TopicType.tx]) {
         await this.handleGossipedTx(p2pMessage.payload, msgId, source);
       } else if (msg.topic === this.topicStrings[TopicType.checkpoint_attestation]) {
-        if (this.clientType === P2PClientType.Full) {
-          await this.processCheckpointAttestationFromPeer(p2pMessage.payload, msgId, source);
-        }
+        await this.processCheckpointAttestationFromPeer(p2pMessage.payload, msgId, source);
       } else if (msg.topic === this.topicStrings[TopicType.block_proposal]) {
         await this.processBlockFromPeer(p2pMessage.payload, msgId, source);
       } else if (msg.topic === this.topicStrings[TopicType.checkpoint_proposal]) {

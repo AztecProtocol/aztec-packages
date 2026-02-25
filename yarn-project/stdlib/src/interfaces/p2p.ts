@@ -3,7 +3,6 @@ import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { z } from 'zod';
 
 import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
-import type { P2PClientType } from '../p2p/client_type.js';
 import { type ApiSchemaFor, optional, schemas } from '../schemas/index.js';
 import { Tx } from '../tx/tx.js';
 import { TxHash } from '../tx/tx_hash.js';
@@ -27,7 +26,7 @@ const PeerInfoSchema = z.discriminatedUnion('status', [
 ]);
 
 /** Exposed API to the P2P module. */
-export interface P2PApiWithoutAttestations {
+export interface P2PApi {
   /**
    * Returns all pending transactions in the transaction pool.
    * @param limit - The number of items to returns
@@ -48,9 +47,7 @@ export interface P2PApiWithoutAttestations {
    * Returns info for all connected, dialing, and cached peers.
    */
   getPeers(includePending?: boolean): Promise<PeerInfo[]>;
-}
 
-export interface P2PApiWithAttestations extends P2PApiWithoutAttestations {
   /**
    * Queries the Attestation pool for checkpoint attestations for the given slot
    *
@@ -61,18 +58,10 @@ export interface P2PApiWithAttestations extends P2PApiWithoutAttestations {
   getCheckpointAttestationsForSlot(slot: SlotNumber, proposalId?: string): Promise<CheckpointAttestation[]>;
 }
 
-export interface P2PClient extends P2PApiWithAttestations {
+export interface P2PClient extends P2PApi {
   /** Manually adds checkpoint attestations to the p2p client attestation pool. */
   addOwnCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void>;
 }
-
-export type P2PApi<T extends P2PClientType = P2PClientType.Full> = T extends P2PClientType.Full
-  ? P2PApiWithAttestations
-  : P2PApiWithoutAttestations;
-
-export type P2PApiFull<T extends P2PClientType = P2PClientType.Full> = T extends P2PClientType.Full
-  ? P2PApiWithAttestations & P2PClient
-  : P2PApiWithoutAttestations;
 
 export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
   getCheckpointAttestationsForSlot: z
