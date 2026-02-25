@@ -34,6 +34,8 @@ const CLAUDE_BINARY = process.env.CLAUDE_BINARY ?? join(homedir(), ".local", "bi
 const BASTION_SSH_KEY = join(homedir(), ".ssh", "build_instance_key");
 
 const CLAUDEBOX_HOST = process.env.CLAUDEBOX_HOST || "claudebox.work";
+const SESSION_PAGE_USER = process.env.CLAUDEBOX_SESSION_USER || "aztec";
+const SESSION_PAGE_PASS = process.env.CLAUDEBOX_SESSION_PASS || "cB!4z73c-xT9mR2q";
 
 let activeSessions = 0;
 
@@ -179,20 +181,30 @@ function reconcileSessions(): void {
       try { dockerExec("rm", "-f", sidecarName); } catch {}
       try { dockerExec("network", "rm", networkName); } catch {}
 
-      // If resumable (has session ID + workspace), mark as restart_pending
-      const canResume = !!meta.claude_session_id && !!meta.slack_channel;
+      // Only consider for auto-resume if:
+      //  - has session ID + Slack channel (so we can resume and notify)
+      //  - started less than 1 hour ago (stale sessions aren't worth resuming)
+      //  - exited abnormally (exit 0 means it finished its work)
+      //  - hasn't already been auto-resumed once (never restart a session twice)
+      const ageMs = meta.started ? Date.now() - new Date(meta.started).getTime() : Infinity;
+      const alreadyResumed = !!meta.auto_resumed;
+      const canResume = !!meta.claude_session_id && !!meta.slack_channel
+        && ageMs < 60 * 60_000
+        && exitCode !== 0
+        && !alreadyResumed;
       if (canResume) {
         meta.status = "restart_pending";
         meta.exit_code = exitCode;
         meta.finished = new Date().toISOString();
         writeFileSync(path, JSON.stringify(meta, null, 2));
-        console.log(`[RECONCILE] ${logId}: running → restart_pending (exit=${exitCode})`);
+        console.log(`[RECONCILE] ${logId}: running → restart_pending (exit=${exitCode}, age=${Math.round(ageMs / 60_000)}m)`);
       } else {
         meta.status = "cancelled";
         meta.exit_code = exitCode;
         meta.finished = new Date().toISOString();
         writeFileSync(path, JSON.stringify(meta, null, 2));
-        console.log(`[RECONCILE] ${logId}: running → cancelled (exit=${exitCode}, not resumable)`);
+        const reason = exitCode === 0 ? "completed normally" : ageMs >= 60 * 60_000 ? "too old" : "not resumable";
+        console.log(`[RECONCILE] ${logId}: running → cancelled (exit=${exitCode}, ${reason})`);
       }
     } catch {}
   }
@@ -246,9 +258,10 @@ async function resumePendingSessions(slackClient: any): Promise<void> {
       const result = await slackClient.chat.postMessage(postArgs);
       const messageTs = result.ts;
 
-      // Mark as resumed (no longer restart_pending)
+      // Mark as resumed (no longer restart_pending) + flag to prevent double-resume
       const metaPath = join(SESSIONS_DIR, `${logId}.json`);
       meta.status = "resumed";
+      meta.auto_resumed = true;
       writeFileSync(metaPath, JSON.stringify(meta, null, 2));
 
       runContainerSession({
@@ -359,13 +372,33 @@ async function runContainerSession(
 
   onStart?.(logUrl);
 
-  // Create workspace directory (or reuse from previous session)
+  // Create workspace directory (or reuse from previous session).
+  // Follow the workspace chain: if prevLogId's workspace doesn't exist,
+  // check its metadata for workspace_log_id (the session that owns the actual workspace).
   let workspaceDir: string;
+  let workspaceLogId = logId;
   if (opts.prevLogId) {
     workspaceDir = join(CLAUDEBOX_SESSIONS_DIR, opts.prevLogId, "workspace");
-    if (!existsSync(workspaceDir)) {
-      console.warn(`[DOCKER] Previous workspace not found: ${workspaceDir}, creating new`);
-      workspaceDir = join(CLAUDEBOX_SESSIONS_DIR, logId, "workspace");
+    if (existsSync(workspaceDir)) {
+      workspaceLogId = opts.prevLogId;
+    } else {
+      // Follow the chain: previous session may have reused an even earlier workspace
+      const prevMeta = findSessionByHash(opts.prevLogId);
+      const chainId = prevMeta?.workspace_log_id;
+      if (chainId) {
+        const chainDir = join(CLAUDEBOX_SESSIONS_DIR, chainId, "workspace");
+        if (existsSync(chainDir)) {
+          console.log(`[DOCKER] Followed workspace chain: ${opts.prevLogId} → ${chainId}`);
+          workspaceDir = chainDir;
+          workspaceLogId = chainId;
+        } else {
+          console.warn(`[DOCKER] Workspace chain broken at ${chainId}, creating new`);
+          workspaceDir = join(CLAUDEBOX_SESSIONS_DIR, logId, "workspace");
+        }
+      } else {
+        console.warn(`[DOCKER] Previous workspace not found: ${workspaceDir}, creating new`);
+        workspaceDir = join(CLAUDEBOX_SESSIONS_DIR, logId, "workspace");
+      }
     }
   } else {
     workspaceDir = join(CLAUDEBOX_SESSIONS_DIR, logId, "workspace");
@@ -412,6 +445,7 @@ async function runContainerSession(
     slack_thread_ts: opts.slackThreadTs || "",
     claude_session_id: sessionUuid,
     resume_of: opts.resumeSessionId || "",
+    workspace_log_id: workspaceLogId,
     started: new Date().toISOString(),
     status: "running",
   };

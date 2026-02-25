@@ -97,6 +97,15 @@ function git(...args: string[]): string {
   return execFileSync("git", args, { cwd: WORKSPACE, encoding: "utf-8", timeout: 60000 });
 }
 
+// ── Helpers ──────────────────────────────────────────────────────
+
+/** Truncate text for Slack messages; append log link if truncated. */
+function truncateForSlack(text: string, maxLen = 200): string {
+  if (text.length <= maxLen) return text;
+  const logSuffix = SESSION_META.log_url ? ` <${SESSION_META.log_url}|…full log>` : "…";
+  return text.slice(0, maxLen - 3) + logSuffix;
+}
+
 // ── Root comment state (accumulated across tool calls) ──────────
 let lastStatus = "";
 const sessionArtifacts: string[] = [];
@@ -109,7 +118,7 @@ function buildGhBody(status: string): string {
 }
 
 function buildSlackText(status: string): string {
-  let text = status;
+  let text = truncateForSlack(status);
   if (sessionArtifacts.length > 0) text += "\n" + sessionArtifacts.join("\n");
   if (SESSION_META.log_url) text += ` <${SESSION_META.log_url}|log>`;
   return text;
@@ -179,14 +188,20 @@ function createMcpServerWithTools(): McpServer {
 
   // ── respond_to_user ───────────────────────────────────────────
   server.tool("respond_to_user",
-    "Send your final response to the user. Posts as a reply in the Slack thread and/or GitHub comment. You MUST call this before ending your session.",
-    { message: z.string().describe("Your response to the user. Markdown supported. Be concise.") },
+    `Send your final response to the user. Posts as a reply in the Slack thread and/or GitHub comment. You MUST call this before ending your session.
+
+IMPORTANT — Slack messages over ~200 chars get truncated with a log link. To keep your response readable:
+- Keep it SHORT: 1-3 sentences summarizing what you did + links to PRs/issues.
+- For detailed reports: post a short summary, then say "Full details in log" — the log link is auto-appended.
+- Example: "Analyzed 10 failed backport PRs. 3 need manual backport, 7 are stale. Created #1234 for the fix. Full analysis in the log."
+- Do NOT paste tables, full reports, or multi-paragraph text — it will be cut off in Slack.`,
+    { message: z.string().describe("Your response to the user. Keep under 200 chars for Slack. Use the log for details.") },
     async ({ message }) => {
       const results: string[] = [];
 
       if (SLACK_BOT_TOKEN && SESSION_META.slack_channel && SESSION_META.slack_thread_ts) {
         try {
-          let text = message;
+          let text = truncateForSlack(message);
           if (SESSION_META.log_url) text += `\n<${SESSION_META.log_url}|log>`;
           const r = await fetch("https://slack.com/api/chat.postMessage", {
             method: "POST",
@@ -276,6 +291,9 @@ channel and thread_ts auto-injected from session if not provided.`,
         payload.thread_ts = SESSION_META.slack_thread_ts;
       if (!payload.ts && SESSION_META.slack_message_ts && method === "chat.update")
         payload.ts = SESSION_META.slack_message_ts;
+      // conversations.replies needs 'ts' (thread parent) — auto-inject from session
+      if (!payload.ts && SESSION_META.slack_thread_ts && method === "conversations.replies")
+        payload.ts = SESSION_META.slack_thread_ts;
 
       try {
         const res = await fetch(`https://slack.com/api/${method}`, {
@@ -285,6 +303,14 @@ channel and thread_ts auto-injected from session if not provided.`,
         });
         const d = await res.json() as any;
         if (!d.ok) return { content: [{ type: "text", text: `${method}: ${d.error}` }], isError: true };
+        // For read methods, return the full response (messages, etc.)
+        // For write methods, just return OK + ts
+        const READ_METHODS = new Set(["conversations.replies", "conversations.history"]);
+        if (READ_METHODS.has(method)) {
+          const text = JSON.stringify(d, null, 2);
+          const maxLen = 50_000;
+          return { content: [{ type: "text", text: text.length > maxLen ? text.slice(0, maxLen) + "\n...(truncated)" : text }] };
+        }
         return { content: [{ type: "text", text: `OK${d.ts ? ` (ts: ${d.ts})` : ""}` }] };
       } catch (e: any) {
         return { content: [{ type: "text", text: e.message }], isError: true };
