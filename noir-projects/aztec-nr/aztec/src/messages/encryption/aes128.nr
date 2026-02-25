@@ -376,9 +376,13 @@ impl MessageEncryption for AES128 {
             // Decrypt main ciphertext and return it
             let plaintext_bytes = aes128_decrypt_oracle(ciphertext, body_iv, body_sym_key);
 
-            // Each field of the original note message was serialized to 32 bytes so we convert the bytes back to
-            // fields.
-            fields_from_bytes(plaintext_bytes)
+            // Each field of the original message was serialized to 32 bytes so we convert back to fields.
+            // `fields_from_bytes` returns BoundedVec<Field, MESSAGE_PLAINTEXT_SIZE_IN_BYTES / 32> which
+            // may be larger than MESSAGE_PLAINTEXT_LEN, because MESSAGE_PLAINTEXT_SIZE_IN_BYTES is the
+            // raw byte capacity *before* subtracting AES PKCS#7 padding. After decryption the padding is
+            // stripped, so the actual content always fits in MESSAGE_PLAINTEXT_LEN fields. We shrink the
+            // capacity with subbvec to match the return type.
+            array::subbvec(fields_from_bytes(plaintext_bytes), 0)
         })
     }
 }
@@ -407,6 +411,7 @@ mod test {
         keys::ecdh_shared_secret::derive_ecdh_shared_secret,
         messages::{encoding::MESSAGE_PLAINTEXT_LEN, encryption::message_encryption::MessageEncryption},
         test::helpers::test_environment::TestEnvironment,
+        utils::conversion::fields_to_bytes::fields_to_bytes,
     };
     use crate::protocol::{address::AztecAddress, traits::FromField};
     use super::{AES128, random_address_point};
@@ -487,6 +492,35 @@ mod test {
         // We just test that we produced some output and did not crash - the result is gibberish as it is encrypted
         // using a public key for which we do not know the private key.
         let _ = AES128::encrypt([1, 2, 3, 4], invalid_address);
+    }
+
+    #[test]
+    fn aes128_pkcs7_adds_full_block_for_field_aligned_input() {
+        // `fields_to_bytes` serializes each field to exactly 32 bytes, which is a multiple of
+        // the 16-byte AES block size. PKCS#7 therefore always appends a full 16-byte padding
+        // block.
+        let key = [0 as u8; 16];
+        let iv = [0 as u8; 16];
+
+        let one_field_bytes = fields_to_bytes([0; 1]);
+        assert_eq(std::aes128::aes128_encrypt(one_field_bytes, iv, key).len(), 32 + 16);
+
+        let two_field_bytes = fields_to_bytes([0; 2]);
+        assert_eq(std::aes128::aes128_encrypt(two_field_bytes, iv, key).len(), 64 + 16);
+    }
+
+    #[test]
+    unconstrained fn encrypt_max_size_plaintext() {
+        let address = AztecAddress { inner: 3 };
+        let plaintext: [Field; MESSAGE_PLAINTEXT_LEN] = [0; MESSAGE_PLAINTEXT_LEN];
+        let _ = AES128::encrypt(plaintext, address);
+    }
+
+    #[test(should_fail)]
+    unconstrained fn encrypt_oversized_plaintext() {
+        let address = AztecAddress { inner: 3 };
+        let plaintext: [Field; MESSAGE_PLAINTEXT_LEN + 1] = [0; MESSAGE_PLAINTEXT_LEN + 1];
+        let _ = AES128::encrypt(plaintext, address);
     }
 
     #[test]
