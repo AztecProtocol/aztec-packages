@@ -265,6 +265,9 @@ async function processCheckpointProposedLogs(
         checkpointNumber,
         expectedHashes,
       );
+      const { timestamp, parentBeaconBlockRoot } = await getL1Block(publicClient, log.l1BlockNumber);
+      const l1 = new L1PublishedData(log.l1BlockNumber, timestamp, log.l1BlockHash.toString());
+
       const checkpointBlobData = await getCheckpointBlobDataFromBlobs(
         blobClient,
         checkpoint.blockHash,
@@ -272,12 +275,8 @@ async function processCheckpointProposedLogs(
         checkpointNumber,
         logger,
         isHistoricalSync,
-      );
-
-      const l1 = new L1PublishedData(
-        log.l1BlockNumber,
-        await getL1BlockTime(publicClient, log.l1BlockNumber),
-        log.l1BlockHash.toString(),
+        parentBeaconBlockRoot,
+        timestamp,
       );
 
       retrievedCheckpoints.push({ ...checkpoint, checkpointBlobData, l1, chainId, version });
@@ -298,9 +297,12 @@ async function processCheckpointProposedLogs(
   return retrievedCheckpoints;
 }
 
-export async function getL1BlockTime(publicClient: ViemPublicClient, blockNumber: bigint): Promise<bigint> {
+export async function getL1Block(
+  publicClient: ViemPublicClient,
+  blockNumber: bigint,
+): Promise<{ timestamp: bigint; parentBeaconBlockRoot: string | undefined }> {
   const block = await publicClient.getBlock({ blockNumber, includeTransactions: false });
-  return block.timestamp;
+  return { timestamp: block.timestamp, parentBeaconBlockRoot: block.parentBeaconBlockRoot };
 }
 
 export async function getCheckpointBlobDataFromBlobs(
@@ -310,8 +312,14 @@ export async function getCheckpointBlobDataFromBlobs(
   checkpointNumber: CheckpointNumber,
   logger: Logger,
   isHistoricalSync: boolean,
+  parentBeaconBlockRoot?: string,
+  l1BlockTimestamp?: bigint,
 ): Promise<CheckpointBlobData> {
-  const blobBodies = await blobClient.getBlobSidecar(blockHash, blobHashes, { isHistoricalSync });
+  const blobBodies = await blobClient.getBlobSidecar(blockHash, blobHashes, {
+    isHistoricalSync,
+    parentBeaconBlockRoot,
+    l1BlockTimestamp,
+  });
   if (blobBodies.length === 0) {
     throw new NoBlobBodiesFoundError(checkpointNumber);
   }
