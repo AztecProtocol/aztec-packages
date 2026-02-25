@@ -61,7 +61,7 @@ jobs:
             ls .claude/scripts/ | grep -v '\.py$' || echo "  (none)"
             exit 1
           fi
-          echo "Script validated: $SCRIPT"
+          echo "Script validated: $SCRIPTok "
 
       - name: Post status comment
         id: status_comment
