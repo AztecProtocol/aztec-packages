@@ -13,7 +13,7 @@
 import { readdirSync, statSync, readFileSync, existsSync, watch, openSync, readSync, closeSync, fstatSync } from "fs";
 import { join, basename } from "path";
 import { homedir } from "os";
-import { spawnSync, execFileSync } from "child_process";
+import { spawnSync, execFileSync, spawn } from "child_process";
 import { randomBytes } from "crypto";
 
 // ── Args ──────────────────────────────────────────────────────────
@@ -72,6 +72,15 @@ function spillToLog(content: string, label: string): string | null {
   } catch {
     return null;
   }
+}
+
+/** Capture console.log output from a function as a string. */
+function captureOutput(fn: () => void): string {
+  const lines: string[] = [];
+  const orig = console.log;
+  console.log = (...args: any[]) => lines.push(args.map(a => typeof a === "string" ? a : String(a)).join(" "));
+  try { fn(); } finally { console.log = orig; }
+  return lines.join("\n");
 }
 
 function smartTrunc(s: string, label: string, inlineLimit = 200): string {
@@ -261,6 +270,8 @@ class JsonlTailer {
   offset = 0;
   leftover = "";
   label: string;
+  subLogProc: ReturnType<typeof spawn> | null = null;
+  subLogUrl: string | null = null;
 
   constructor(public path: string, label: string) {
     this.fd = openSync(path, "r");
@@ -283,7 +294,12 @@ class JsonlTailer {
       try {
         const d = JSON.parse(line);
         if (this.label) {
-          // Prefix subagent output
+          // Write full output to subagent's own cache_log
+          if (this.subLogProc?.stdin?.writable) {
+            const full = captureOutput(() => printEntry(d));
+            if (full) this.subLogProc.stdin.write(full + "\n");
+          }
+          // Condensed rendering to main stdout
           const p = prefix(d.timestamp ?? "");
           const t = d.type ?? "";
           if (t === "assistant") {
@@ -326,9 +342,19 @@ class JsonlTailer {
 
   flush() {
     if (this.leftover.trim()) {
-      try { printEntry(JSON.parse(this.leftover)); } catch {}
+      try {
+        const d = JSON.parse(this.leftover);
+        if (this.subLogProc?.stdin?.writable) {
+          const full = captureOutput(() => printEntry(d));
+          if (full) this.subLogProc.stdin.write(full + "\n");
+        }
+        if (!this.label) printEntry(d);
+      } catch {}
     }
     closeSync(this.fd);
+    if (this.subLogProc?.stdin?.writable) {
+      this.subLogProc.stdin.end();
+    }
   }
 }
 
@@ -380,8 +406,27 @@ async function main() {
       if (!tailers.has(f)) {
         const isSubagent = f.includes("/subagents/");
         const label = isSubagent ? basename(f, ".jsonl").replace(/^agent-/, "subagent-").slice(0, 20) : "";
-        logInfo(`New file: ${basename(f)}${label ? ` (${label})` : ""}`);
-        tailers.set(f, new JsonlTailer(f, label));
+        const tailer = new JsonlTailer(f, label);
+
+        if (isSubagent) {
+          // Spawn a dedicated cache_log for this subagent
+          try {
+            const subLogId = randomBytes(16).toString("hex");
+            const subLogUrl = `http://ci.aztec-labs.com/${subLogId}`;
+            const proc = spawn("bash", ["-c", `DUP=1 "${cacheLogBin}" claudebox-subagent "${subLogId}"`], {
+              stdio: ["pipe", "ignore", "ignore"],
+            });
+            tailer.subLogProc = proc;
+            tailer.subLogUrl = subLogUrl;
+            console.log(`\n${C}[stream]${X} ${Y}SUBAGENT${X} ${B}${label}${X} → ${C}${subLogUrl}${X}`);
+          } catch (e) {
+            logInfo(`Failed to create subagent log: ${e}`);
+          }
+        } else {
+          logInfo(`New file: ${basename(f)}`);
+        }
+
+        tailers.set(f, tailer);
       }
     }
   };

@@ -101,29 +101,21 @@ function reconcileSessions(): void {
         console.log(`[RECONCILE] ${basename(name, ".json")}: running → cancelled (no container)`);
         continue;
       }
-      // Check if container is actually running
-      let isRunning = false;
+      // Single docker inspect for both running state and exit code
+      let running = false, exitCode = 1;
       try {
-        const state = execFileSync("docker", ["inspect", "-f", "{{.State.Running}}", containerName], {
+        const out = execFileSync("docker", ["inspect", "-f", "{{.State.Running}} {{.State.ExitCode}}", containerName], {
           encoding: "utf-8", timeout: 5_000,
-        }).trim();
-        isRunning = state === "true";
-      } catch {
-        // Container doesn't exist → definitely not running
-      }
-      if (!isRunning) {
-        // Get exit code if container exists but stopped
-        let exitCode = 1;
-        try {
-          exitCode = parseInt(execFileSync("docker", ["inspect", "-f", "{{.State.ExitCode}}", containerName], {
-            encoding: "utf-8", timeout: 5_000,
-          }).trim(), 10) || 1;
-        } catch {}
+        }).trim().split(" ");
+        running = out[0] === "true";
+        exitCode = parseInt(out[1], 10) || 1;
+      } catch {} // container doesn't exist → not running
+      if (!running) {
         meta.status = "cancelled";
         meta.exit_code = exitCode;
         meta.finished = new Date().toISOString();
         writeFileSync(path, JSON.stringify(meta, null, 2));
-        console.log(`[RECONCILE] ${basename(name, ".json")}: running → cancelled (container stopped, exit=${exitCode})`);
+        console.log(`[RECONCILE] ${basename(name, ".json")}: running → cancelled (exit=${exitCode})`);
       }
     } catch {}
   }
@@ -161,6 +153,20 @@ function truncate(s: string, n = 80): string {
   return s.length <= n ? s : s.slice(0, n - 3) + "...";
 }
 
+/** Spill long content to cache_log; return truncated text with link, or truncated-only on failure. */
+function spillOrTruncate(text: string, inlineLimit: number, fallbackLimit: number, linkFmt: (url: string) => string): string {
+  if (text.length <= fallbackLimit) return text;
+  try {
+    const spillId = execSync("head -c 16 /dev/urandom | xxd -p", { encoding: "utf-8" }).trim();
+    execSync(`"${join(REPO_DIR, "ci3", "cache_log")}" claudebox-reply "${spillId}"`, {
+      input: text, encoding: "utf-8", timeout: 10_000,
+    });
+    return truncate(text, inlineLimit) + "\n\n" + linkFmt(`http://ci.aztec-labs.com/${spillId}`);
+  } catch {
+    return truncate(text, fallbackLimit);
+  }
+}
+
 /** Read JSONL files in a claude-projects dir and return the last assistant text message. */
 function extractLastAssistantText(projectsDir: string): string | null {
   try {
@@ -171,7 +177,7 @@ function extractLastAssistantText(projectsDir: string): string | null {
         const p = join(dir, ent.name);
         if (ent.isDirectory()) walk(p);
         else if (ent.name.endsWith(".jsonl")) {
-          const mt = require("fs").statSync(p).mtimeMs;
+          const mt = statSync(p).mtimeMs;
           if (mt > newest.mtime) newest = { path: p, mtime: mt };
         }
       }
@@ -502,78 +508,36 @@ async function runContainerSession(
           writeFileSync(metadataFile, JSON.stringify(meta, null, 2));
         } catch {}
 
-        // Update Slack status + post summary reply on completion
+        // Post completion updates (Slack + GitHub)
+        const summary = extractLastAssistantText(claudeProjectsDir);
+
         if (SLACK_BOT_TOKEN && opts.slackChannel && opts.slackMessageTs) {
           const finalText = exitCode === 0
             ? `ClaudeBox completed <${logUrl}|log>`
             : `ClaudeBox exited with error (code ${exitCode}) <${logUrl}|log>`;
           fetch("https://slack.com/api/chat.update", {
             method: "POST",
-            headers: {
-              Authorization: `Bearer ${SLACK_BOT_TOKEN}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              channel: opts.slackChannel,
-              ts: opts.slackMessageTs,
-              text: finalText,
-            }),
-          }).catch(() => {});
+            headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ channel: opts.slackChannel, ts: opts.slackMessageTs, text: finalText }),
+          }).catch((e) => console.warn(`[WARN] Slack status update failed: ${e}`));
 
-          // Post Claude's last response as a thread reply (with cache_log for long content)
-          const summary = extractLastAssistantText(claudeProjectsDir);
           if (summary && opts.slackThreadTs) {
-            let replyText: string;
-            if (summary.length <= 1500) {
-              replyText = summary;
-            } else {
-              // Spill long content to cache_log
-              try {
-                const spillId = execSync("head -c 16 /dev/urandom | xxd -p", { encoding: "utf-8" }).trim();
-                const cacheLogBin = join(REPO_DIR, "ci3", "cache_log");
-                execSync(`"${cacheLogBin}" claudebox-reply "${spillId}"`, {
-                  input: summary, encoding: "utf-8", timeout: 10_000,
-                });
-                replyText = truncate(summary, 500) + `\n\nFull response: http://ci.aztec-labs.com/${spillId}`;
-              } catch {
-                replyText = truncate(summary, 1500);
-              }
-            }
-            replyText += `\n<${logUrl}|session log>`;
+            const replyText = spillOrTruncate(summary, 500, 1500, (u) => `Full response: ${u}`) + `\n<${logUrl}|session log>`;
             fetch("https://slack.com/api/chat.postMessage", {
               method: "POST",
               headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
               body: JSON.stringify({ channel: opts.slackChannel, thread_ts: opts.slackThreadTs, text: replyText }),
-            }).catch(() => {});
+            }).catch((e) => console.warn(`[WARN] Slack reply failed: ${e}`));
           }
         }
 
-        // Post summary as GitHub comment if we have a comment context
-        if (GH_TOKEN && opts.runCommentId) {
-          const summary = extractLastAssistantText(claudeProjectsDir);
-          if (summary) {
-            let body: string;
-            if (summary.length <= 3000) {
-              body = summary;
-            } else {
-              try {
-                const spillId = execSync("head -c 16 /dev/urandom | xxd -p", { encoding: "utf-8" }).trim();
-                const cacheLogBin = join(REPO_DIR, "ci3", "cache_log");
-                execSync(`"${cacheLogBin}" claudebox-reply "${spillId}"`, {
-                  input: summary, encoding: "utf-8", timeout: 10_000,
-                });
-                body = truncate(summary, 1000) + `\n\n[Full response](http://ci.aztec-labs.com/${spillId})`;
-              } catch {
-                body = truncate(summary, 3000);
-              }
-            }
-            body += `\n\n[Session log](${logUrl})`;
-            fetch(`https://api.github.com/repos/AztecProtocol/aztec-packages/issues/comments/${opts.runCommentId}`, {
-              method: "PATCH",
-              headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: "application/vnd.github.v3+json", "Content-Type": "application/json" },
-              body: JSON.stringify({ body }),
-            }).catch(() => {});
-          }
+        if (GH_TOKEN && opts.runCommentId && summary) {
+          const body = spillOrTruncate(summary, 1000, 3000, (u) => `[Full response](${u})`) + `\n\n[Session log](${logUrl})`;
+          fetch(`https://api.github.com/repos/AztecProtocol/aztec-packages/issues/comments/${opts.runCommentId}`, {
+            method: "PATCH",
+            headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: "application/vnd.github.v3+json", "Content-Type": "application/json" },
+            body: JSON.stringify({ body }),
+          }).catch((e) => console.warn(`[WARN] GitHub comment update failed: ${e}`));
         }
 
         resolve(exitCode);
@@ -599,6 +563,21 @@ async function runContainerSession(
 
 
 // ── Slack helpers ───────────────────────────────────────────────
+
+/** Parse "new" keyword and return effective prompt. */
+function parseNewKeyword(parsed: ParseResult): { forceNew: boolean; prompt: string } {
+  const prompt = parsed.type === "prompt" ? parsed.prompt : parsed.prompt;
+  const forceNew = /^new\b/i.test(prompt);
+  return { forceNew, prompt: forceNew ? prompt.replace(/^new\s+/i, "") : prompt };
+}
+
+/** Validate a session for resume. Returns error message or null if OK. */
+function validateResumeSession(session: SessionMeta | null, hash: string): string | null {
+  if (!session) return `Session \`${hash}\` not found.`;
+  if (session.status === "running") return "Replies to ongoing conversations are not supported currently.";
+  if (!session.claude_session_id || session.exit_code !== 0) return `Session \`${hash}\` is not resumable.`;
+  return null;
+}
 
 function resolveUserName(client: any, userId: string): Promise<string> {
   return client.users
@@ -733,34 +712,19 @@ slackApp.event("app_mention", async ({ event, client, say }) => {
 
   const userName = await resolveUserName(client, event.user ?? "");
   const parsed = parseMessage(cmd);
-
-  // "new" keyword forces a fresh session, even in an existing thread
-  const forceNew = /^new\b/i.test(parsed.type === "prompt" ? parsed.prompt : "");
-  const effectivePrompt = forceNew ? parsed.prompt.replace(/^new\s+/i, "") : parsed.prompt;
+  const { forceNew, prompt: effectivePrompt } = parseNewKeyword(parsed);
 
   // Resume logic only applies to thread replies, not top-level messages
   if (!forceNew && isReply) {
-    // Explicit hash-based resume
     if (parsed.type === "reply-hash") {
       const session = findSessionByHash(parsed.hash);
-      if (!session) {
-        await say({ text: `Session \`${parsed.hash}\` not found.`, thread_ts: threadTs });
-        return;
-      }
-      if (session.status === "running") {
-        await say({ text: "Replies to ongoing conversations are not supported currently.", thread_ts: threadTs });
-        return;
-      }
-      if (!session.claude_session_id || session.exit_code !== 0) {
-        await say({ text: `Session \`${parsed.hash}\` is not resumable.`, thread_ts: threadTs });
-        return;
-      }
+      const err = validateResumeSession(session, parsed.hash);
+      if (err) { await say({ text: err, thread_ts: threadTs }); return; }
       console.log(`[REPLY-HASH] Resuming session ${parsed.hash}`);
-      await startReplySession(client, channel, threadTs, parsed.prompt, session, userName);
+      await startReplySession(client, channel, threadTs, parsed.prompt, session!, userName);
       return;
     }
 
-    // Implicit resume: check for previous session in this thread
     const prevSession = findLastSessionInThread(channel, threadTs);
     if (prevSession?.status === "running") {
       await say({ text: "Replies to ongoing conversations are not supported currently.", thread_ts: threadTs });
@@ -797,25 +761,14 @@ slackApp.command("/claudebox", async ({ ack, command, client }) => {
 
   const userName = await resolveUserName(client, userId);
   const parsed = parseMessage(text);
-  const forceNew = /^new\b/i.test(parsed.type === "prompt" ? parsed.prompt : "");
-  const effectivePrompt = forceNew ? parsed.prompt.replace(/^new\s+/i, "") : parsed.prompt;
+  const { forceNew, prompt: effectivePrompt } = parseNewKeyword(parsed);
 
   if (!forceNew && parsed.type === "reply-hash") {
     const session = findSessionByHash(parsed.hash);
-    if (!session) {
-      await ack({ text: `Session \`${parsed.hash}\` not found.` });
-      return;
-    }
-    if (session.status === "running") {
-      await ack({ text: "Replies to ongoing conversations are not supported currently." });
-      return;
-    }
-    if (!session.claude_session_id || session.exit_code !== 0) {
-      await ack({ text: `Session \`${parsed.hash}\` is not resumable.` });
-      return;
-    }
+    const err = validateResumeSession(session, parsed.hash);
+    if (err) { await ack({ text: err }); return; }
     await ack({ text: `ClaudeBox replying to session \`${parsed.hash.slice(0, 8)}...\`: _${truncate(parsed.prompt)}_` });
-    await startReplySession(client, channel, null, parsed.prompt, session, userName);
+    await startReplySession(client, channel, null, parsed.prompt, session!, userName);
   } else {
     await ack({ text: `ClaudeBox starting: _${truncate(effectivePrompt)}_` });
     await startNewSession(client, channel, null, effectivePrompt, "", userName);

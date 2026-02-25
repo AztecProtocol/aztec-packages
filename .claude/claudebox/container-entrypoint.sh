@@ -7,6 +7,7 @@
 # Optional env:  CLAUDEBOX_TARGET_REF, CLAUDEBOX_EXTRA_PATHS, CLAUDEBOX_RESUME_ID
 
 set -euxo pipefail
+trap 'echo ""; echo "━━━ Process exited ━━━"' EXIT
 
 WORKSPACE="/workspace/aztec-packages"
 REFERENCE_GIT="/reference-repo/.git"
@@ -95,29 +96,22 @@ echo "━━━ Launching Claude ━━━"
 echo ""
 
 # ── Step 5: Run Claude ───────────────────────────────────────────
+COMMON_ARGS=(--print --dangerously-skip-permissions --mcp-config /tmp/mcp.json -p "$PROMPT")
+
 set +e
 if [ -n "$RESUME_ID" ]; then
-    claude --print --dangerously-skip-permissions \
-        --mcp-config /tmp/mcp.json \
-        --resume "$RESUME_ID" --fork-session \
-        -p "$PROMPT"
+    claude "${COMMON_ARGS[@]}" --resume "$RESUME_ID" --fork-session
     exit_code=$?
     # Fall back to fresh session if resume fails (e.g. JSONL from old mount path)
     if [ "$exit_code" -ne 0 ]; then
         echo ""
         echo "━━━ Resume failed (exit $exit_code), starting fresh session ━━━"
         echo ""
-        claude --print --dangerously-skip-permissions \
-            --mcp-config /tmp/mcp.json \
-            --session-id "$SESSION_UUID" \
-            -p "$PROMPT"
-        exit_code=$?
+        RESUME_ID=""
     fi
-else
-    claude --print --dangerously-skip-permissions \
-        --mcp-config /tmp/mcp.json \
-        --session-id "$SESSION_UUID" \
-        -p "$PROMPT"
+fi
+if [ -z "$RESUME_ID" ]; then
+    claude "${COMMON_ARGS[@]}" --session-id "$SESSION_UUID"
     exit_code=$?
 fi
 set -e
