@@ -64,7 +64,41 @@ function printEntry(d: any) {
   const t = d.type ?? "";
   const p = prefix(d.timestamp ?? "");
 
-  if (["progress", "queue-operation", "file-history-snapshot"].includes(t)) return;
+  if (["file-history-snapshot", "system"].includes(t)) return;
+
+  if (t === "progress") {
+    const data = d.data ?? {};
+    // Hook progress
+    if (data.type === "hook_progress") {
+      return; // too noisy, skip
+    }
+    // Subagent messages
+    const msg = data.message ?? {};
+    const msgType = msg.type ?? "";
+    const content = msg.message?.content;
+    if (msgType === "assistant" && Array.isArray(content)) {
+      for (const item of content) {
+        if (item.type === "tool_use") {
+          const name = item.name ?? "?";
+          const inp = item.input ?? {};
+          const desc = inp.description ?? inp.command ?? inp.file_path ?? inp.pattern ?? "";
+          console.log(`${p}  ${D}subagent ${Y}${name}${X}${D} ${trunc(desc, 120)}${X}`);
+        } else if (item.type === "text" && item.text?.trim()) {
+          console.log(`${p}  ${D}subagent: ${trunc(item.text.replace(/\n/g, " "), 120)}${X}`);
+        }
+      }
+    }
+    return;
+  }
+
+  if (t === "queue-operation") {
+    const op = d.operation ?? "";
+    const content = d.content ?? "";
+    if (op === "enqueue" && content) {
+      console.log(`${p}${GR}[queued] ${trunc(content.replace(/\n/g, " "), 120)}${X}`);
+    }
+    return;
+  }
 
   if (t === "user") {
     const msg = d.message ?? {};
@@ -108,7 +142,12 @@ function printEntry(d: any) {
 
     for (const item of content) {
       const it = item.type ?? "";
-      if (it === "text") {
+      if (it === "thinking") {
+        const thinking = item.thinking ?? "";
+        if (thinking.trim()) {
+          console.log(`\n${p}${D}THINKING: ${trunc(thinking.replace(/\n/g, " "), 300)}${X}`);
+        }
+      } else if (it === "text") {
         const txt = item.text ?? "";
         if (txt.trim()) {
           console.log(`\n${p}${B}${G}CLAUDE:${X}`);
