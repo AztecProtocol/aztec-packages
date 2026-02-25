@@ -17,19 +17,26 @@ The side-effect machine deploys custom contracts that must be version-compatible
 sandbox (PXE, sequencer, L1 contracts), the wallet CLI, and the compiled artifact format.
 
 The `latest` Docker image ships an older nargo that stack-overflows on current aztec-nr.
-The `nightly` image has a matching nargo but its wallet is broken (missing `inquirer` npm
-package). The contracts must be compiled against the **nightly's aztec-nr**, not the repo's
-current branch, because oracle interfaces differ between versions.
+Dated nightly images (e.g. `5.0.0-nightly.20260224`) have a matching nargo but the wallet
+is broken (missing `inquirer` npm package). The contracts must be compiled against the
+**nightly's aztec-nr**, not the repo's current branch, because oracle interfaces may differ
+between versions (the setup script auto-detects when they match).
 
 ## Quick Start (automated)
 
-`setup-nightly-sandbox.sh` handles everything: starts the container, fixes the wallet,
-identifies the nightly commit, compiles both contracts, imports test accounts, and installs
-the wallet wrapper.
+`setup-nightly-sandbox.sh` handles everything: starts the container with fast 6-second
+slots, fixes the wallet, identifies the nightly commit, compiles both contracts, imports
+test accounts, and installs the wallet wrapper.
 
 ```bash
 cd noir-projects/protocol-fuzzer
 bash setup-nightly-sandbox.sh
+```
+
+To use a specific image version:
+
+```bash
+NIGHTLY_IMAGE=aztecprotocol/aztec:5.0.0-nightly.20260224 bash setup-nightly-sandbox.sh
 ```
 
 Then run the fuzzer:
@@ -51,6 +58,23 @@ To replay a specific failure seed:
 cargo run -- side-effect --max-steps 100000 --seed 0x5a7211231dcd6500
 ```
 
+## Performance: Fast Slots
+
+The setup script configures 6-second L2 slot durations (default is 36 seconds) and disables
+client-side proof generation (the sandbox uses simulated proofs anyway). This reduces
+per-transaction time from ~35 seconds to ~6-8 seconds — a **5x speedup**.
+
+| Setting | Default | Fast |
+|---------|---------|------|
+| L2 slot duration | 36s | 6s |
+| L1 slot duration | 12s | 6s |
+| Client-side proofs | native | none (simulated) |
+| Per-send time | ~35s | ~6-8s |
+
+The fast slot configuration requires a dated nightly image (`5.0.0-nightly.YYYYMMDD`) that
+supports the `AZTEC_SLOT_DURATION` and `ETHEREUM_SLOT_DURATION` environment variables. The
+generic `nightly` tag points to an older image (Jan 2026) that doesn't support these.
+
 ## Manual Step-by-Step Setup
 
 If the automated script doesn't work, follow these steps.
@@ -60,19 +84,27 @@ If the automated script doesn't work, follow these steps.
 Match the nightly image's nargo hash to an aztec-packages commit:
 
 ```bash
-docker run --rm --entrypoint "" aztecprotocol/aztec:nightly \
+docker run --rm --entrypoint "" aztecprotocol/aztec:5.0.0-nightly.20260224 \
   /usr/src/noir/noir-repo/target/release/nargo --version
-# e.g. 67478b2f9d7c6239686e8de8a82f2719e54fbd40
+# e.g. 7d07e187fb04d79f5a7cf41501d2c12bc2b1d5d2
 
-NIGHTLY_NOIR_HASH="67478b2f9d7c6239686e8de8a82f2719e54fbd40"
-git log --all --oneline --diff-filter=M -- noir/noir-repo | while read hash msg; do
-  sub=$(git ls-tree $hash noir/noir-repo 2>/dev/null | awk '{print $3}')
-  if [ "$sub" = "$NIGHTLY_NOIR_HASH" ]; then
-    echo "MATCH: $hash $msg"
-    break
-  fi
-done
-# As of 2026-02-18, the match is commit 681ca9b5c9
+NIGHTLY_NOIR_HASH="7d07e187fb04d79f5a7cf41501d2c12bc2b1d5d2"
+
+# If it matches your repo's noir submodule, use HEAD directly:
+REPO_HASH=$(git ls-tree HEAD noir/noir-repo | awk '{print $3}')
+if [ "$REPO_HASH" = "$NIGHTLY_NOIR_HASH" ]; then
+  echo "Match! Use HEAD for aztec-nr"
+  NIGHTLY_COMMIT=HEAD
+else
+  # Search for matching commit
+  git log --all --oneline --diff-filter=M -- noir/noir-repo | while read hash msg; do
+    sub=$(git ls-tree $hash noir/noir-repo 2>/dev/null | awk '{print $3}')
+    if [ "$sub" = "$NIGHTLY_NOIR_HASH" ]; then
+      echo "MATCH: $hash $msg"
+      break
+    fi
+  done
+fi
 ```
 
 ### 2. Start the nightly sandbox
@@ -81,11 +113,20 @@ done
 docker run -d --rm --name aztec-sandbox-nightly \
   -p 8080:8080 -p 8545:8545 \
   -e LOG_LEVEL=info \
+  -e ETHEREUM_SLOT_DURATION=6 \
+  -e AZTEC_SLOT_DURATION=6 \
+  -e AZTEC_EPOCH_DURATION=4 \
+  -e SEQ_ENFORCE_TIME_TABLE=false \
   --entrypoint "" \
-  aztecprotocol/aztec:nightly \
+  aztecprotocol/aztec:5.0.0-nightly.20260224 \
   bash -c '/opt/foundry/bin/anvil --host 0.0.0.0 --port 8545 & \
   sleep 2 && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --local-network --l1-rpc-urls http://127.0.0.1:8545'
 ```
+
+**Important:** Do NOT pass `--block-time` to anvil. The L1 deployment script sets
+`anvil_setBlockTimestampInterval` to match `ETHEREUM_SLOT_DURATION`. Passing `--block-time`
+with a different value causes chain time to race ahead of wall-clock time, breaking the
+sequencer.
 
 Wait for PXE startup:
 
@@ -121,12 +162,12 @@ docker exec aztec-sandbox-nightly node --no-warnings \
 
 Compile both contracts inside the container.
 
-#### 5a. Extract nightly aztec-nr and copy contract sources
+#### 5a. Extract aztec-nr and copy contract sources
 
 ```bash
-NIGHTLY_COMMIT=681ca9b5c9
+NIGHTLY_COMMIT=HEAD  # or the commit hash from step 1
 
-# Extract aztec-nr and protocol-circuits from the nightly commit
+# Extract aztec-nr and protocol-circuits
 mkdir -p /tmp/nightly-build/side_effect_contract/src
 mkdir -p /tmp/nightly-build/parent_contract/src
 git archive $NIGHTLY_COMMIT -- noir-projects/aztec-nr/ noir-projects/noir-protocol-circuits/ \
@@ -192,8 +233,11 @@ inside the container. Create a wrapper at `~/.local/bin/aztec-wallet`:
 ```bash
 #!/usr/bin/env bash
 exec docker exec aztec-sandbox-nightly node --no-warnings \
-  /usr/src/yarn-project/cli-wallet/dest/bin/index.js "$@"
+  /usr/src/yarn-project/cli-wallet/dest/bin/index.js -p none "$@"
 ```
+
+The `-p none` flag disables client-side proof generation, saving ~8 seconds per
+transaction. The sandbox uses simulated proofs, so this has no effect on correctness.
 
 Make it executable and ensure `~/.local/bin` is on PATH before `~/.aztec/bin`.
 
@@ -261,6 +305,15 @@ Run step 3.
 Using the host `aztec-wallet` (`~/.aztec/bin/`) which is the `latest` version. Use the
 container wallet via the wrapper (step 6).
 
+### "Slot mismatch with rollup contract"
+The L1 contracts were deployed with different slot durations than the node expects. This
+happens when using the old `nightly` tag (Jan 2026) with `AZTEC_SLOT_DURATION` env vars.
+Use a dated nightly (`5.0.0-nightly.YYYYMMDD`) instead.
+
+### "Block proposal initialize deadline cannot be negative"
+The slot duration is too short. Minimum is ~5 seconds due to sequencer timetable
+constraints (`slotDuration > l1PublishingTime + attestationPropagationTime`).
+
 ## Architecture Notes
 
 ### Build pipeline
@@ -269,13 +322,14 @@ container wallet via the wrapper (step 6).
 2. `bb-avm aztec_process` — transpiles public bytecode to AVM + generates private VKs
 3. `jq` strip prefix — removes `__aztec_nr_internals__` from function names
 
-### Version matrix (as of 2026-02-18)
+### Version matrix (as of 2026-02-25)
 
-| Component | latest image | nightly image | repo (next branch) |
-|-----------|-------------|---------------|-------------------|
-| nargo | beta.11 | beta.18 | beta.18 |
-| aztec-nr API | old | RetrievedNote, destroy_note_unsafe | ConfirmedNote, destroy_note |
+| Component | latest image | dated nightly (20260224) | repo (next branch) |
+|-----------|-------------|--------------------------|-------------------|
+| nargo | beta.11 | beta.19 | beta.19 |
+| aztec-nr API | old | current | current |
 | wallet CLI | works | broken (missing inquirer) | N/A |
+| slot duration env vars | untested | supported | N/A |
 
 ### Key paths inside the nightly container
 

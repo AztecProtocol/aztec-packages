@@ -3,19 +3,20 @@
 # Sets up the nightly Aztec sandbox for use with the protocol fuzzer.
 #
 # What this script does:
-#   1. Starts the nightly sandbox Docker container (anvil + node)
+#   1. Starts a dated nightly sandbox Docker container (anvil + node)
+#      with 6-second L2 slots for faster fuzzing (~6s/tx vs ~35s default)
 #   2. Waits for the PXE to become ready
 #   3. Fixes the wallet CLI (installs missing inquirer npm package)
-#   4. Extracts the nightly commit's aztec-nr source for contract compilation
+#   4. Extracts aztec-nr source for contract compilation
 #   5. Compiles both contracts inside the container (nargo + bb-avm)
 #   6. Imports test accounts
 #   7. Installs an aztec-wallet wrapper script so CLI calls are forwarded
-#      into the container transparently
+#      into the container transparently (with client-side proofs disabled)
 #
 set -euo pipefail
 
 CONTAINER_NAME="aztec-sandbox-nightly"
-IMAGE="aztecprotocol/aztec:nightly"
+IMAGE="${NIGHTLY_IMAGE:-aztecprotocol/aztec:5.0.0-nightly.20260224}"
 WRAPPER_DIR="${HOME}/.local/bin"
 WRAPPER_PATH="${WRAPPER_DIR}/aztec-wallet"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -34,7 +35,11 @@ wait_for_pxe() {
     local elapsed=0
     log "Waiting up to ${max_wait}s for PXE to start..."
     while [ $elapsed -lt $max_wait ]; do
-        if docker logs "$CONTAINER_NAME" 2>&1 | grep -q "Started PXE connected to chain"; then
+        # grep -q with pipefail causes SIGPIPE (exit 141) on docker logs;
+        # capture logs first to avoid the broken-pipe issue.
+        local logs
+        logs=$(docker logs "$CONTAINER_NAME" 2>&1 || true)
+        if echo "$logs" | grep -q "Started PXE connected to chain"; then
             log "PXE is ready (${elapsed}s)"
             return 0
         fi
@@ -54,10 +59,21 @@ if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     sleep 2
 fi
 
-log "Starting nightly sandbox container..."
+# Remove leftover stopped container (if not using --rm)
+docker rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
+
+log "Starting nightly sandbox container (${IMAGE})..."
+# Fast slots: AZTEC_SLOT_DURATION=6 (default 36) reduces block mining wait
+# from ~35s to ~3s. The L1 deployment script sets anvil's block timestamp
+# interval to match ETHEREUM_SLOT_DURATION, so we don't pass --block-time
+# to anvil (automine handles it).
 docker run -d --rm --name "$CONTAINER_NAME" \
     -p 8080:8080 -p 8545:8545 \
     -e LOG_LEVEL=info \
+    -e ETHEREUM_SLOT_DURATION=6 \
+    -e AZTEC_SLOT_DURATION=6 \
+    -e AZTEC_EPOCH_DURATION=4 \
+    -e SEQ_ENFORCE_TIME_TABLE=false \
     --entrypoint "" \
     "$IMAGE" \
     bash -c '/opt/foundry/bin/anvil --host 0.0.0.0 --port 8545 & \
@@ -103,15 +119,31 @@ fi
 log "Nightly noir hash: ${NIGHTLY_NOIR_HASH}"
 
 cd "$REPO_ROOT"
+
+# Find the latest commit on origin/next that has the matching noir submodule.
+# We search from newest to oldest so we get a commit where aztec-nr and
+# protocol-circuits have had time to stabilize after a noir update.
 NIGHTLY_COMMIT=""
-while read -r hash msg; do
+while read -r hash; do
     sub=$(git ls-tree "$hash" noir/noir-repo 2>/dev/null | awk '{print $3}')
     if [ "$sub" = "$NIGHTLY_NOIR_HASH" ]; then
         NIGHTLY_COMMIT="$hash"
-        log "Matched nightly commit: $hash $msg"
+        log "Matched nightly commit: $(git log --oneline -1 "$hash")"
         break
     fi
-done < <(git log --all --oneline --diff-filter=M -- noir/noir-repo)
+done < <(git log origin/next --format='%H' -200)
+
+if [ -z "$NIGHTLY_COMMIT" ]; then
+    # Fallback: search all branches for the commit that introduced the hash
+    while read -r hash msg; do
+        sub=$(git ls-tree "$hash" noir/noir-repo 2>/dev/null | awk '{print $3}')
+        if [ "$sub" = "$NIGHTLY_NOIR_HASH" ]; then
+            NIGHTLY_COMMIT="$hash"
+            log "Matched nightly commit (fallback): $hash $msg"
+            break
+        fi
+    done < <(git log --all --oneline --diff-filter=M -- noir/noir-repo)
+fi
 
 if [ -z "$NIGHTLY_COMMIT" ]; then
     die "Could not find aztec-packages commit matching noir hash ${NIGHTLY_NOIR_HASH}.
@@ -222,10 +254,12 @@ if [ -f "$WRAPPER_PATH" ]; then
     fi
 fi
 
+# The wrapper disables client-side proof generation (-p none) since the sandbox
+# uses simulated proofs anyway. This cuts ~8s off each transaction.
 cat > "$WRAPPER_PATH" <<WRAPPER
 #!/usr/bin/env bash
 exec docker exec ${CONTAINER_NAME} node --no-warnings \\
-    /usr/src/yarn-project/cli-wallet/dest/bin/index.js "\$@"
+    /usr/src/yarn-project/cli-wallet/dest/bin/index.js -p none "\$@"
 WRAPPER
 chmod +x "$WRAPPER_PATH"
 
@@ -237,9 +271,11 @@ echo ""
 log "Nightly sandbox is ready!"
 echo ""
 echo "  Container:  ${CONTAINER_NAME}"
+echo "  Image:      ${IMAGE}"
 echo "  Wallet:     ${WRAPPER_PATH}"
 echo "  Artifacts:  /tmp/side_effect_contract-SideEffect.json (container)"
 echo "              /tmp/parent_contract-Parent.json (container)"
+echo "  Slot time:  6s (default 36s) — ~5x faster fuzzing"
 echo ""
 echo "Make sure ${WRAPPER_DIR} is on your PATH (before ~/.aztec/bin):"
 echo ""

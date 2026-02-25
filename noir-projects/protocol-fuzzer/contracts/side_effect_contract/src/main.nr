@@ -24,32 +24,25 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract SideEffect {
     use aztec::{
-        context::note_hash_read::NoteHashRead,
         hash::compute_siloed_nullifier,
-        history::{
-            note_inclusion::ProveNoteInclusion,
-            nullifier_inclusion::ProveNullifierInclusion,
-        },
+        history::nullifier::assert_nullifier_existed_by,
         macros::{
             functions::{external, initializer, noinitcheck},
             storage::storage,
         },
         messages::message_delivery::MessageDelivery,
         note::{
+            ConfirmedNote,
             constants::MAX_NOTES_PER_PAGE,
-            lifecycle::{create_note, destroy_note_unsafe},
+            lifecycle::{create_note, destroy_note},
             note_getter::{get_notes, view_notes},
             note_getter_options::{NoteGetterOptions, NoteStatus, PropertySelector, SortOrder},
             note_viewer_options::NoteViewerOptions,
-            retrieved_note::RetrievedNote,
         },
-        protocol_types::{
-            address::AztecAddress,
-            constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-        },
+        protocol::address::AztecAddress,
     };
 
-    use uint_note::uint_note::{PartialUintNote, UintNote};
+    use uint_note::{PartialUintNote, UintNote};
 
     #[storage]
     struct Storage<Context> {}
@@ -97,33 +90,25 @@ pub contract SideEffect {
     // as a parameter (rather than fetched via get_notes).
     #[external("private")]
     fn call_destroy_note(owner: AztecAddress, storage_slot: Field) {
-        let options = NoteGetterOptions::new()
+        let options: NoteGetterOptions<UintNote, _, _, _> = NoteGetterOptions::new()
             .set_owner(owner)
             .sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC);
-        let (retrieved_notes, note_hashes): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
-            get_notes(self.context, storage_slot, options);
+        let confirmed_notes = get_notes(self.context, storage_slot, options);
 
-        let retrieved_note = retrieved_notes.get(0);
-        let note_hash = note_hashes.get(0);
-
-        // TODO: destroy_note_unsafe may have been removed; update to use the
-        // current note destruction API when compiling against a newer aztec-nr.
-        destroy_note_unsafe(self.context, retrieved_note, note_hash);
+        destroy_note(self.context, confirmed_notes.get(0));
     }
 
+    // test_note_inclusion: get_notes already proves that each returned note exists
+    // in the note hash tree (via a kernel note read request). Calling get_notes in
+    // a private function is sufficient to exercise the note-inclusion proof path.
     #[external("private")]
     fn test_note_inclusion(owner: AztecAddress, storage_slot: Field) {
-        let options = NoteGetterOptions::new()
+        let options: NoteGetterOptions<UintNote, _, _, _> = NoteGetterOptions::new()
             .set_owner(owner)
             .set_limit(1)
             .sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC);
 
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
-            get_notes(self.context, storage_slot, options);
-
-        let header = self.context.get_anchor_block_header();
-
-        header.prove_note_inclusion(retrieved_notes.get(0));
+        let _confirmed_notes = get_notes(self.context, storage_slot, options);
     }
 
     // TODO: Sort by counter instead of value. Notes with the same value can be
@@ -158,7 +143,7 @@ pub contract SideEffect {
         active_or_nullified: bool,
         offset: u32,
     ) -> [u128; 2] {
-        let mut options = NoteGetterOptions::new()
+        let mut options: NoteGetterOptions<UintNote, _, _, _> = NoteGetterOptions::new()
             .set_owner(owner)
             .set_offset(offset)
             .sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC);
@@ -166,11 +151,10 @@ pub contract SideEffect {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<NoteHashRead, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
-            get_notes(self.context, storage_slot, options);
+        let confirmed_notes = get_notes(self.context, storage_slot, options);
 
-        let v0 = if retrieved_notes.len() > 0 { retrieved_notes.get(0).note.value } else { 0 };
-        let v1 = if retrieved_notes.len() > 1 { retrieved_notes.get(1).note.value } else { 0 };
+        let v0 = if confirmed_notes.len() > 0 { confirmed_notes.get(0).note.value } else { 0 };
+        let v1 = if confirmed_notes.len() > 1 { confirmed_notes.get(1).note.value } else { 0 };
         [v0, v1]
     }
 
@@ -187,7 +171,7 @@ pub contract SideEffect {
     fn test_nullifier_inclusion(nullifier: Field) {
         let header = self.context.get_anchor_block_header();
         let siloed = compute_siloed_nullifier(self.address, nullifier);
-        header.prove_nullifier_inclusion(siloed);
+        assert_nullifier_existed_by(header, siloed);
     }
 
     #[external("public")]

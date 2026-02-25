@@ -4,7 +4,7 @@ use aztec::macros::aztec;
 pub contract Parent {
     use aztec::{
         macros::functions::{external, initializer},
-        protocol_types::{
+        protocol::{
             abis::function_selector::FunctionSelector,
             address::AztecAddress,
             traits::ToField,
