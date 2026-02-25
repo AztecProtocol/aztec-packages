@@ -124,9 +124,6 @@ bb-cpp-wasm-threads-benches: bb-cpp-wasm-threads
 	$(call build,$@,barretenberg/cpp,build_wasm_threads_benches)
 
 # Cross-compile object phases (parallel with avm-transpiler cross-compile)
-bb-cpp-cross-amd64-linux-objects:
-	$(call build,$@,barretenberg/cpp,build_cross_objects amd64-linux)
-
 bb-cpp-cross-arm64-linux-objects:
 	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-linux)
 
@@ -135,9 +132,6 @@ bb-cpp-cross-amd64-macos-objects:
 
 bb-cpp-cross-arm64-macos-objects:
 	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-macos)
-
-bb-cpp-cross-amd64-linux: bb-cpp-cross-amd64-linux-objects avm-transpiler-native
-	$(call build,$@,barretenberg/cpp,build_cross amd64-linux)
 
 bb-cpp-cross-arm64-linux: bb-cpp-cross-arm64-linux-objects avm-transpiler-native
 	$(call build,$@,barretenberg/cpp,build_cross arm64-linux)
@@ -150,7 +144,7 @@ bb-cpp-cross-amd64-macos: bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-
 bb-cpp-cross-arm64-macos: bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos
 	$(call build,$@,barretenberg/cpp,build_cross arm64-macos)
 
-bb-cpp-cross: bb-cpp-cross-amd64-linux bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos
+bb-cpp-cross: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos
 
 # GCC syntax check (CI only, non-release)
 bb-cpp-gcc:

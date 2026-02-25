@@ -302,9 +302,10 @@ function build {
   (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
 
   if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
-    # Use Zig for native build to target glibc 2.35 (Ubuntu 22.04+).
-    export native_preset=zig-amd64-linux
-    export native_build_dir=build-zig-amd64-linux
+    # Use zig-native-linux preset to target glibc 2.35 (Ubuntu 22.04+).
+    # Uses native arch detection — no hardcoded x86_64/aarch64.
+    export native_preset=zig-native-linux
+    export native_build_dir=build
     # Download mobile SDKs before parallel builds (shared across presets)
     bash scripts/download-ios-sdk.sh
     bash scripts/download-android-sysroot.sh
