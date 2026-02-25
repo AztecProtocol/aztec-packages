@@ -28,10 +28,16 @@ Post a thread reply:
     "https://slack.com/api/chat.postMessage" \
     -d '{"channel":"CHANNEL","thread_ts":"THREAD_TS","text":"your message"}'
 
-### Log URL
+### Log links
 
-If a `LOG_URL` environment variable is set, your stdout is being streamed to a live log at that URL.
-Include it in your Slack status updates so users can follow along.
+Check your metadata for a Log URL (ci.aztec-labs.com link) or a GitHub Actions run link.
+**IMPORTANT:** Every time you update a status message (GitHub comment or Slack message),
+you MUST keep the log/run link visible. Append it to every status update. For example:
+
+- Slack: `"Implementing changes... <LOG_URL|View log>"`
+- GitHub: `"Implementing changes...\n\n[View run](RUN_URL)"`
+
+Never overwrite a status message without preserving the link.
 
 ## Rules
 
