@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+read -r -d '' TEMPLATE <<'EOF' || true
 You are being tested as part of the ClaudeBox CI system. Confirm you are running correctly by performing these steps in order:
 
 1. Run `echo "ClaudeBox is alive"` via Bash
@@ -6,4 +8,6 @@ You are being tested as part of the ClaudeBox CI system. Confirm you are running
 4. List the first 10 files/directories with `ls | head -10`
 5. Print a short summary confirming everything works
 
-If any arguments were passed to you, echo them back: $ARGS
+If any arguments were passed to you, echo them back.
+EOF
+source "$(dirname "$0")/run.sh" "$@"

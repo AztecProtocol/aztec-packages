@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# entrypoint.sh - Entry point for ClaudeBox sessions
+# entrypoint.sh - CI runner for ClaudeBox sessions
 #
-# Usage: entrypoint.sh <script-name> [args...] [--comment-id=<id>] [--repo=<owner/repo>]
+# Usage: <script> "prompt" [--flags...]   (script calls entrypoint via run.sh)
+#        entrypoint.sh <name> [--flags...] <<< "prompt"  (direct, for resume)
 #
-# Starts Claude in an isolated worktree, streams session output,
-# and cleans up on exit. Prompt is read from stdin.
+# Reads prompt from stdin. Sets up worktree, cache_log, session metadata,
+# and runs Claude. For local use (no CI flags), passes through to claude directly.
 
 set -euo pipefail
 
@@ -23,6 +24,7 @@ run_url=""
 resume_session_id=""
 prev_log_url=""
 prev_worktree=""
+link=""
 
 for arg in "$@"; do
     case "$arg" in
@@ -34,6 +36,7 @@ for arg in "$@"; do
         --slack-message-ts=*)   slack_message_ts="${arg#--slack-message-ts=}" ;;
         --user=*)               user_name="${arg#--user=}" ;;
         --run-url=*)            run_url="${arg#--run-url=}" ;;
+        --link=*)               link="${arg#--link=}" ;;
         --resume-session-id=*)  resume_session_id="${arg#--resume-session-id=}" ;;
         --prev-log-url=*)       prev_log_url="${arg#--prev-log-url=}" ;;
         --prev-worktree=*)      prev_worktree="${arg#--prev-worktree=}" ;;
@@ -43,14 +46,13 @@ done
 
 if [ -z "$script_name" ]; then
     echo "ERROR: No script name provided" >&2
-    echo "Usage: entrypoint.sh <script-name> [--comment-id=<id>] [--repo=<owner/repo>]" >&2
     exit 1
 fi
 
-# Read prompt from stdin
-user_prompt=""
+# ── Read prompt from stdin ───────────────────────────────────────
+stdin_prompt=""
 if [ ! -t 0 ]; then
-    user_prompt=$(cat)
+    stdin_prompt=$(cat)
 fi
 
 # ── Update repo ──────────────────────────────────────────────────
@@ -59,7 +61,7 @@ git fetch origin --quiet 2>/dev/null || true
 
 # ── Build prompt ─────────────────────────────────────────────────
 if [ -n "$resume_session_id" ]; then
-    # Resume: just the user's follow-up message with a preamble
+    # Resume: user follow-up message with preamble
     prompt="The user is following up on a previous conversation. They expect a reply in the Slack thread or GitHub comment. Address their message directly.
 
 Metadata (Slack):
@@ -68,39 +70,15 @@ Metadata (Slack):
 - Message TS: ${slack_message_ts:-none}
 
 "
-    if [ -n "$prev_log_url" ]; then
-        prompt="${prompt}Previous session log: $prev_log_url
+    [ -n "$prev_log_url" ] && prompt="${prompt}Previous session log: $prev_log_url
 "
-    fi
     prompt="${prompt}
-User follow-up: $user_prompt"
+User follow-up: $stdin_prompt"
 else
-    # New session: validate script and build full prompt
-    script_file="$repo_dir/.claude/scripts/$script_name"
-    if [ ! -f "$script_file" ]; then
-        echo "ERROR: Script not found: .claude/scripts/$script_name" >&2
-        echo "Available scripts:" >&2
-        ls "$repo_dir/.claude/scripts/" 2>/dev/null | grep -v '\.py$' >&2 || echo "  (none)" >&2
-        exit 1
-    fi
+    # New session: prompt from stdin (built by the calling script)
+    prompt="$stdin_prompt"
 
-    common_file="$repo_dir/.claude/scripts/common.md"
-    prompt=""
-    if [ -f "$common_file" ]; then
-        prompt="$(cat "$common_file")
-
----
-
-"
-    fi
-    prompt="$prompt$(cat "$script_file")"
-
-    if [ -n "$user_prompt" ]; then
-        prompt="$prompt
-
-User request: $user_prompt"
-    fi
-
+    # Append metadata
     prompt="$prompt
 
 ---
@@ -115,6 +93,11 @@ Metadata (Slack):
 - Message TS: ${slack_message_ts:-none}
 
 Script: $script_name"
+fi
+
+# ── Local passthrough (no CI infrastructure) ─────────────────────
+if [ -z "$slack_channel" ] && [ -z "$comment_id" ] && [ -z "$run_url" ] && [ -z "$link" ]; then
+    exec claude --print --dangerously-skip-permissions -p "$prompt"
 fi
 
 # ── Generate worktree name ───────────────────────────────────────
@@ -175,6 +158,15 @@ elif [ -n "$slack_channel" ] && [ -n "$slack_thread_ts" ]; then
     slack_link="https://aztecprotocol.slack.com/archives/${slack_channel}/p${slack_thread_ts//.}?thread_ts=${slack_thread_ts}&cid=${slack_channel}"
 fi
 
+# Build link for session metadata (explicit --link, or Slack, or GitHub)
+if [ -z "$link" ]; then
+    if [ -n "$run_url" ]; then
+        link="$run_url"
+    elif [ -n "$slack_link" ]; then
+        link="$slack_link"
+    fi
+fi
+
 if [ -n "$slack_channel" ] && [ -n "$slack_message_ts" ] && [ -n "${SLACK_BOT_TOKEN:-}" ]; then
     if [ -n "$resume_session_id" ]; then
         status_text="ClaudeBox running, treating your message as a reply... <$LOG_URL|log>"
@@ -189,22 +181,22 @@ if [ -n "$slack_channel" ] && [ -n "$slack_message_ts" ] && [ -n "${SLACK_BOT_TO
         >/dev/null 2>&1 || true
 fi
 
+# Append log URL to prompt
 prompt="$prompt
 
 Log URL: $LOG_URL"
-
-if [ -n "$run_url" ]; then
-    prompt="$prompt
+[ -n "$run_url" ] && prompt="$prompt
 Run URL: $run_url"
-fi
+[ -n "$link" ] && prompt="$prompt
+Link: $link"
 
 # ── Print header ─────────────────────────────────────────────────
 echo "━━━ ClaudeBox Starting ━━━"
 echo "Script:    $script_name"
-echo "Prompt:    ${user_prompt:-<none>}"
 echo "Worktree:  $worktree_name"
 [ -n "$resume_session_id" ] && echo "Resume:    $resume_session_id"
 [ -n "$prev_log_url" ] && echo "Prev log:  $prev_log_url"
+[ -n "$link" ] && echo "Link:      $link"
 echo "Log:       $LOG_URL"
 echo ""
 
@@ -219,6 +211,7 @@ export PARENT_LOG_ID="${prev_log_url##*/}"
 {
     [ -n "$slack_link" ] && echo "Slack: $slack_link"
     [ -n "$run_url" ] && echo "GitHub: $run_url"
+    [ -n "$link" ] && [ "$link" != "$run_url" ] && [ "$link" != "$slack_link" ] && echo "Link: $link"
     echo "User: ${user_name:-unknown}"
     echo ""
     "$repo_dir/.claude/claudebox/stream-session.ts" "$worktree_name" 2>&1
@@ -233,19 +226,10 @@ session_file="$sessions_dir/$log_id.json"
 # Generate Claude session UUID for resume capability
 claude_session_uuid=$(python3 -c "import uuid; print(uuid.uuid4())")
 
-# Build link based on session source
-if [ -n "$run_url" ]; then
-    link="$run_url"
-elif [ -n "$slack_link" ]; then
-    link="$slack_link"
-else
-    link=""
-fi
-
 cat > "$session_file" <<METAEOF
 {
   "script": "$script_name",
-  "prompt": $(printf '%s' "$user_prompt" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().strip()))'),
+  "prompt": $(printf '%s' "$stdin_prompt" | head -c 500 | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().strip()))'),
   "user": "${user_name:-unknown}",
   "worktree": "$worktree_name",
   "log_url": "${LOG_URL:-}",
