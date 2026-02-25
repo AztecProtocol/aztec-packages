@@ -81,6 +81,54 @@ function findLastSessionInThread(channel: string, threadTs: string): SessionMeta
   return null;
 }
 
+/**
+ * Reconcile "running" sessions against Docker container state.
+ * If a session says "running" but its container is stopped/gone, mark it cancelled.
+ */
+function reconcileSessions(): void {
+  if (!existsSync(SESSIONS_DIR)) return;
+  for (const name of readdirSync(SESSIONS_DIR).filter((f) => f.endsWith(".json"))) {
+    try {
+      const path = join(SESSIONS_DIR, name);
+      const meta = JSON.parse(readFileSync(path, "utf-8"));
+      if (meta.status !== "running") continue;
+      const containerName = meta.container;
+      if (!containerName) {
+        // Legacy worktree session or missing container — mark as cancelled
+        meta.status = "cancelled";
+        meta.finished = new Date().toISOString();
+        writeFileSync(path, JSON.stringify(meta, null, 2));
+        console.log(`[RECONCILE] ${basename(name, ".json")}: running → cancelled (no container)`);
+        continue;
+      }
+      // Check if container is actually running
+      let isRunning = false;
+      try {
+        const state = execFileSync("docker", ["inspect", "-f", "{{.State.Running}}", containerName], {
+          encoding: "utf-8", timeout: 5_000,
+        }).trim();
+        isRunning = state === "true";
+      } catch {
+        // Container doesn't exist → definitely not running
+      }
+      if (!isRunning) {
+        // Get exit code if container exists but stopped
+        let exitCode = 1;
+        try {
+          exitCode = parseInt(execFileSync("docker", ["inspect", "-f", "{{.State.ExitCode}}", containerName], {
+            encoding: "utf-8", timeout: 5_000,
+          }).trim(), 10) || 1;
+        } catch {}
+        meta.status = "cancelled";
+        meta.exit_code = exitCode;
+        meta.finished = new Date().toISOString();
+        writeFileSync(path, JSON.stringify(meta, null, 2));
+        console.log(`[RECONCILE] ${basename(name, ".json")}: running → cancelled (container stopped, exit=${exitCode})`);
+      }
+    } catch {}
+  }
+}
+
 function extractHashFromUrl(text: string): string | null {
   const m = text.match(/^<?https?:\/\/ci\.aztec-labs\.com\/([a-f0-9]+)>?/);
   return m ? m[1] : null;
@@ -428,10 +476,19 @@ async function runContainerSession(
         const exitCode = code ?? 1;
         console.log(`[DOCKER] Claude container ${claudeName} exited: ${exitCode} (${activeSessions}/${MAX_CONCURRENT} active)`);
 
-        // Close stream-session + cache_log
-        streamSessionProc?.kill();
-        // Give stream-session a moment to flush final output
-        setTimeout(() => { cacheLogProc?.stdin?.end(); }, 1000);
+        // stream-session.ts self-terminates after 10s idle.
+        // Give it time to finish, then close cache_log.
+        const finishStreaming = () => {
+          streamSessionProc?.kill();
+          setTimeout(() => { cacheLogProc?.stdin?.end(); }, 500);
+        };
+        if (streamSessionProc) {
+          streamSessionProc.on("close", finishStreaming);
+          // Safety: force-close after 15s if stream-session hangs
+          setTimeout(finishStreaming, 15_000);
+        } else {
+          setTimeout(() => { cacheLogProc?.stdin?.end(); }, 500);
+        }
 
         // Tear down sidecar + network
         cleanup();
@@ -871,6 +928,12 @@ async function main() {
   console.log(`  Slack: Socket Mode`);
   console.log(`  HTTP:  port ${HTTP_PORT}`);
   console.log(`  Max concurrent: ${MAX_CONCURRENT}`);
+
+  // Reconcile stale "running" sessions from before this process started
+  reconcileSessions();
+
+  // Periodically reconcile (catches missed container exits)
+  setInterval(reconcileSessions, 60_000);
 
   await slackApp.start();
   console.log("  Slack connected.");

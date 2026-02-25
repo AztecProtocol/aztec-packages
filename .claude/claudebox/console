@@ -32,6 +32,10 @@ render() {
   printf "  ${B}%-10s %-16s %-40s %-9s %-8s %s${X}\n" "Status" "User" "Prompt" "Started" "Dur" "Log"
   echo -e "  ${D}$(printf '─%.0s' {1..96})${X}"
 
+  # Get list of actually-running Docker containers (one docker call for all)
+  local running_containers
+  running_containers=$(docker ps --filter "name=claudebox-" --format '{{.Names}}' 2>/dev/null || true)
+
   # Single jq call processes all files, outputs one tab-delimited line per session
   local now_s
   now_s=$(date +%s)
@@ -52,11 +56,18 @@ render() {
       ((.prompt // "") | split("\n\n") | last | gsub("\n"; " "))[:38],
       (.started | ts),
       dur(.started; .finished),
-      (.log_url // "")[-10:]
+      (.log_url // "")[-10:],
+      .container // ""
     ] | @tsv
-  ' 2>/dev/null | while IFS=$'\t' read -r status user prompt started duration log_id; do
+  ' 2>/dev/null | while IFS=$'\t' read -r status user prompt started duration log_id container; do
+    # Cross-reference: if metadata says "running" but container is gone/missing, show "stale"
+    if [ "$status" = "running" ]; then
+      if [ -z "$container" ] || ! echo "$running_containers" | grep -qF "$container"; then
+        status="stale"
+      fi
+    fi
     local color="$R"
-    case "$status" in running) color="$Y";; completed) color="$G";; esac
+    case "$status" in running) color="$Y";; completed) color="$G";; cancelled) color="$D";; esac
     printf "  ${color}%-10s${X} ${C}%-16s${X} %-40s %-9s %-8s ${D}%s${X}\n" \
       "$status" "$user" "$prompt" "$started" "$duration" "$log_id"
   done
