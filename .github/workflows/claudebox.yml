@@ -97,9 +97,11 @@ jobs:
           COMMENT_ID: ${{ github.event.comment.id }}
           RUN_COMMENT_ID: ${{ steps.status_comment.outputs.run_comment_id }}
           REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ISSUE_NUM: ${{ github.event.issue.number }}
+          AUTHOR: ${{ github.event.comment.user.login }}
         run: |
-          # Pipe prompt via stdin
           printf '%s' "$CLAUDEBOX_PROMPT" | \
             ssh -o ConnectTimeout=10 -o ServerAliveInterval=30 \
               "${CLAUDEBOX_USER}@${CLAUDEBOX_HOST}" \
-              "~/claudeentry.sh '${CLAUDEBOX_SCRIPT}' --comment-id=${COMMENT_ID} --run-comment-id=${RUN_COMMENT_ID} --repo=${REPO}"
+              "~/claudeentry.sh '${CLAUDEBOX_SCRIPT}' --comment-id=${COMMENT_ID} --run-comment-id=${RUN_COMMENT_ID} --repo=${REPO} --run-url=${RUN_URL} --user=${AUTHOR}"

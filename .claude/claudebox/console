@@ -8,7 +8,6 @@ Usage: ./console [--watch]
 import json
 import glob
 import os
-import subprocess
 import sys
 import time
 from datetime import datetime
@@ -93,7 +92,7 @@ def render(sessions):
     # Header
     lines.append(
         f"  {BOLD}{'Status':<12} {'User':<18} {'Script':<12} {'Prompt':<30} "
-        f"{'Started':<10} {'Duration':<10} {'Log':<40} {'Tmux'}{RESET}"
+        f"{'Started':<10} {'Duration':<10} {'Link'}{RESET}"
     )
     lines.append(f"  {'─' * 116}")
 
@@ -102,27 +101,20 @@ def render(sessions):
         color = status_color(status)
         user = s.get("user", "unknown")[:16]
         script = s.get("script", "-")[:10]
-        prompt = s.get("prompt", "")[:28]
+        prompt = s.get("prompt", "")
+        # Strip thread context prefix to show only the user's actual prompt
+        if "Slack thread context:" in prompt:
+            prompt = prompt.split("\n\n", 1)[-1]
+        prompt = prompt.replace("\n", " ")[:28]
         started = format_time(s.get("started"))
         duration = format_duration(s.get("started"), s.get("finished"))
         log_url = s.get("log_url", "-")
-        if log_url and len(log_url) > 38:
-            log_url = log_url[:38]
-        tmux = s.get("tmux", "-")
 
-        # Check if tmux session actually exists (for "running" status)
-        if status == "running":
-            ret = subprocess.run(
-                ["tmux", "has-session", "-t", tmux],
-                capture_output=True,
-            )
-            if ret.returncode != 0:
-                status = "dead?"
-                color = RED
+        link = s.get("link", "-")
 
         lines.append(
             f"  {color}{status:<12}{RESET} {CYAN}{user:<18}{RESET} {script:<12} {prompt:<30} "
-            f"{started:<10} {duration:<10} {DIM}{log_url:<40}{RESET} {DIM}{tmux}{RESET}"
+            f"{started:<10} {duration:<10} {DIM}{link}{RESET}"
         )
 
     running = sum(1 for s in sessions if s.get("status") == "running")
