@@ -766,17 +766,17 @@ export class PXE {
         // transaction before this one is included in a block from this PXE, and that transaction contains a log with
         // a tag derived from the same secret, we would reuse the tag and the transactions would be linked. Hence
         // storing the tags here prevents linkage of txs sent from the same PXE.
-        const preTagsUsedInTheTx = privateExecutionResult.entrypoint.preTags;
-        if (preTagsUsedInTheTx.length > 0) {
+        const taggingIndexRangesUsedInTheTx = privateExecutionResult.entrypoint.taggingIndexRanges;
+        if (taggingIndexRangesUsedInTheTx.length > 0) {
           // TODO(benesjan): The following is an expensive operation. Figure out a way to avoid it.
           const txHash = (await txProvingResult.toTx()).txHash;
 
-          await this.senderTaggingStore.storePendingIndexes(preTagsUsedInTheTx, txHash, jobId);
-          this.log.debug(`Stored used pre-tags as sender for the tx`, {
-            preTagsUsedInTheTx,
+          await this.senderTaggingStore.storePendingIndexes(taggingIndexRangesUsedInTheTx, txHash, jobId);
+          this.log.debug(`Stored used tagging index ranges as sender for the tx`, {
+            taggingIndexRangesUsedInTheTx,
           });
         } else {
-          this.log.debug(`No pre-tags used in the tx`);
+          this.log.debug(`No tagging index ranges used in the tx`);
         }
 
         return txProvingResult;
