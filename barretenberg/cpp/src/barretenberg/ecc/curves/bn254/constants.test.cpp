@@ -245,6 +245,14 @@ TEST(FrConstants, PrimitiveRootOfUnity)
     EXPECT_EQ(root, fr::one());
 }
 
+TEST(FrConstants, CosetGenerator)
+{
+    fr coset_generator = fr::coset_generator();
+
+    // Verify that coset_generator is not a quadratic residue
+    EXPECT_NE(coset_generator.pow((native_r - 1) / 2), fr::one());
+}
+
 // ================================
 // Fr WASM Consistency Tests
 // ================================
@@ -348,4 +356,21 @@ TEST(FrConstants, WasmPrimitiveRootConsistency)
 
     EXPECT_EQ(expected_primitive_root_wasm.lo, primitive_root_wasm);
     EXPECT_EQ(expected_primitive_root_wasm.hi, uint256_t(0));
+}
+
+TEST(FrConstants, CosetGeneratorConsistency)
+{
+    uint256_t coset_generator_native{ Bn254FrParams::coset_generator_0,
+                                      Bn254FrParams::coset_generator_1,
+                                      Bn254FrParams::coset_generator_2,
+                                      Bn254FrParams::coset_generator_3 };
+
+    uint256_t coset_generator_wasm{ Bn254FrParams::coset_generator_wasm_0,
+                                    Bn254FrParams::coset_generator_wasm_1,
+                                    Bn254FrParams::coset_generator_wasm_2,
+                                    Bn254FrParams::coset_generator_wasm_3 };
+
+    uint512_t balanced_coset_generator_native = (static_cast<uint512_t>(coset_generator_native) * 32) % native_r;
+
+    EXPECT_EQ(balanced_coset_generator_native, static_cast<uint512_t>(coset_generator_wasm));
 }

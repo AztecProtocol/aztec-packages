@@ -30,19 +30,10 @@ struct FqParams {
     static constexpr uint64_t r_squared_3 = 0;
 
     // Coset generators in Montgomery form for R=2^256 mod Modulus. Used in FFT-based proving systems
-    static constexpr uint64_t coset_generators_0[8]{
-        0x300000b73ULL, 0x400000f44ULL, 0x500001315ULL, 0x6000016e6ULL,
-        0x700001ab7ULL, 0x800001e88ULL, 0x900002259ULL, 0xa0000262aULL,
-    };
-    static constexpr uint64_t coset_generators_1[8]{
-        0, 0, 0, 0, 0, 0, 0, 0,
-    };
-    static constexpr uint64_t coset_generators_2[8]{
-        0, 0, 0, 0, 0, 0, 0, 0,
-    };
-    static constexpr uint64_t coset_generators_3[8]{
-        0, 0, 0, 0, 0, 0, 0, 0,
-    };
+    static constexpr uint64_t coset_generator_0 = 0x300000b73ULL;
+    static constexpr uint64_t coset_generator_1 = 0;
+    static constexpr uint64_t coset_generator_2 = 0;
+    static constexpr uint64_t coset_generator_3 = 0;
 
     // -(Modulus^-1) mod 2^64
     // This is used to compute k = r_inv * lower_limb(scalar), such that scalar + k*modulus in integers would have 0 in
@@ -119,22 +110,10 @@ struct FqParams {
 
     // Coset generators in Montgomery form for R=2^261 mod Modulus. Used in FFT-based proving systems, don't really need
     // them here
-    static constexpr uint64_t coset_generators_wasm_0[8] = { 0x0000006000016e60ULL, 0x000000800001e880ULL,
-                                                             0x000000a0000262a0ULL, 0x000000c00002dcc0ULL,
-                                                             0x000000e0000356e0ULL, 0x000001000003d100ULL,
-                                                             0x0000012000044b20ULL, 0x000001400004c540ULL };
-    static constexpr uint64_t coset_generators_wasm_1[8] = { 0x0000000000000000ULL, 0x0000000000000000ULL,
-                                                             0x0000000000000000ULL, 0x0000000000000000ULL,
-                                                             0x0000000000000000ULL, 0x0000000000000000ULL,
-                                                             0x0000000000000000ULL, 0x0000000000000000ULL };
-    static constexpr uint64_t coset_generators_wasm_2[8] = { 0x0000000000000000ULL, 0x0000000000000000ULL,
-                                                             0x0000000000000000ULL, 0x0000000000000000ULL,
-                                                             0x0000000000000000ULL, 0x0000000000000000ULL,
-                                                             0x0000000000000000ULL, 0x0000000000000000ULL };
-    static constexpr uint64_t coset_generators_wasm_3[8] = { 0x0000000000000000ULL, 0x0000000000000000ULL,
-                                                             0x0000000000000000ULL, 0x0000000000000000ULL,
-                                                             0x0000000000000000ULL, 0x0000000000000000ULL,
-                                                             0x0000000000000000ULL, 0x0000000000000000ULL };
+    static constexpr uint64_t coset_generator_wasm_0 = 0x0000006000016e60ULL;
+    static constexpr uint64_t coset_generator_wasm_1 = 0;
+    static constexpr uint64_t coset_generator_wasm_2 = 0;
+    static constexpr uint64_t coset_generator_wasm_3 = 0;
 
     // For consistency with bb::fq, if we ever represent an element of bb::secp256k1::fq in the public inputs, we do so
     // as a bigfield element, so with 4 public inputs

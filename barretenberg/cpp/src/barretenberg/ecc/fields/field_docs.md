@@ -135,7 +135,7 @@ Conversion from field elements exists only to unsigned integers and bools. The v
 
 ## Field parameters
 
-The field template is instantiated with field parameter classes, for example, class bb::Bn254FqParams. Each such class contains at least the modulus (in 64-bit and 29-bit form), r_inv (used to efficient reductions) and 2 versions of r_squared used for converting to Montgomery form (64-bit and WASM/29-bit version). r_squared and other parameters (such as cube_root, primitive_root and coset_generators) are defined for wasm separately, because the values represent an element already in Montgomery form.
+The field template is instantiated with field parameter classes, for example, class bb::Bn254FqParams. Each such class contains at least the modulus (in 64-bit and 29-bit form), r_inv (used to efficient reductions) and 2 versions of r_squared used for converting to Montgomery form (64-bit and WASM/29-bit version). r_squared and other parameters (such as cube_root, primitive_root and coset_generator) are defined for wasm separately, because the values represent an element already in Montgomery form.
 
 ## Helpful python snippets
 

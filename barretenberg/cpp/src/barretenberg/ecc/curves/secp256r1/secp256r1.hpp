@@ -57,21 +57,10 @@ struct FqParams {
 
     // Coset generators in Montgomery form for R=2^256 mod Modulus. Used in FFT-based proving systems, don't really need
     // them here
-    static constexpr uint64_t coset_generators_0[8]{
-        0x3ULL, 0x4ULL, 0x5ULL, 0x6ULL, 0x7ULL, 0x8ULL, 0x9ULL, 0xaULL,
-    };
-    static constexpr uint64_t coset_generators_1[8]{
-        0xfffffffd00000000ULL, 0xfffffffc00000000ULL, 0xfffffffb00000000ULL, 0xfffffffa00000000ULL,
-        0xfffffff900000000ULL, 0xfffffff800000000ULL, 0xfffffff700000000ULL, 0xfffffff600000000ULL,
-    };
-    static constexpr uint64_t coset_generators_2[8]{
-        0xffffffffffffffffULL, 0xffffffffffffffffULL, 0xffffffffffffffffULL, 0xffffffffffffffffULL,
-        0xffffffffffffffffULL, 0xffffffffffffffffULL, 0xffffffffffffffffULL, 0xffffffffffffffffULL,
-    };
-    static constexpr uint64_t coset_generators_3[8]{
-        0x2fffffffcULL, 0x3fffffffbULL, 0x4fffffffaULL, 0x5fffffff9ULL,
-        0x6fffffff8ULL, 0x7fffffff7ULL, 0x8fffffff6ULL, 0x9fffffff5ULL,
-    };
+    static constexpr uint64_t coset_generator_0 = 0x3ULL;
+    static constexpr uint64_t coset_generator_1 = 0xfffffffd00000000ULL;
+    static constexpr uint64_t coset_generator_2 = 0xffffffffffffffffULL;
+    static constexpr uint64_t coset_generator_3 = 0x2fffffffcULL;
 
     // Not used for secp256r1
     static constexpr uint64_t cube_root_0 = 0UL;
@@ -118,22 +107,10 @@ struct FqParams {
 
     // Coset generators in Montgomery form for R=2^261 mod Modulus. Used in FFT-based proving systems, don't really need
     // them here
-    static constexpr uint64_t coset_generators_wasm_0[8] = { 0x0000000000000060ULL, 0x0000000000000080ULL,
-                                                             0x00000000000000a0ULL, 0x00000000000000c0ULL,
-                                                             0x00000000000000e0ULL, 0x0000000000000100ULL,
-                                                             0x0000000000000120ULL, 0x0000000000000140ULL };
-    static constexpr uint64_t coset_generators_wasm_1[8] = { 0xffffffa000000000ULL, 0xffffff8000000000ULL,
-                                                             0xffffff6000000000ULL, 0xffffff4000000000ULL,
-                                                             0xffffff2000000000ULL, 0xffffff0000000000ULL,
-                                                             0xfffffee000000000ULL, 0xfffffec000000000ULL };
-    static constexpr uint64_t coset_generators_wasm_2[8] = { 0xffffffffffffffffULL, 0xffffffffffffffffULL,
-                                                             0xffffffffffffffffULL, 0xffffffffffffffffULL,
-                                                             0xffffffffffffffffULL, 0xffffffffffffffffULL,
-                                                             0xffffffffffffffffULL, 0xffffffffffffffffULL };
-    static constexpr uint64_t coset_generators_wasm_3[8] = { 0x0000005fffffff9fULL, 0x0000007fffffff7fULL,
-                                                             0x0000009fffffff5fULL, 0x000000bfffffff3fULL,
-                                                             0x000000dfffffff1fULL, 0x000000fffffffeffULL,
-                                                             0x0000011ffffffedfULL, 0x0000013ffffffebfULL };
+    static constexpr uint64_t coset_generator_wasm_0 = 0x0000000000000060ULL;
+    static constexpr uint64_t coset_generator_wasm_1 = 0xffffffa000000000ULL;
+    static constexpr uint64_t coset_generator_wasm_2 = 0xffffffffffffffffULL;
+    static constexpr uint64_t coset_generator_wasm_3 = 0x0000005fffffff9fULL;
 
     // For consistency with bb::fq, if we ever represent an element of bb::secp256r1::fq in the public inputs, we do so
     // as a bigfield element, so with 4 public inputs
