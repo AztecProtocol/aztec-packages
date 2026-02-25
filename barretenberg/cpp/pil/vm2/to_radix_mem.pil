@@ -291,6 +291,7 @@ namespace to_radix_mem;
     /////////////////////////////////////////////////////
     pol commit err; // @boolean by definition
     // Crucial to gate by `start` because `input_validation_error` is only constrained on the start row.
+    // This also provents to inject an error on a non-start row and interrupt the computation.
     #[ERR_COMPUTATION]
     err = start * (1 - (1 - input_validation_error) * (1 - SEL_TRUNCATION_ERROR));
 
