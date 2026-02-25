@@ -9,7 +9,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
  */
 describe('Mainnet compatibility', () => {
   it('has expected VK tree root', () => {
-    const expectedRoots = [Fr.fromHexString('0x1621e3d2e4f04a6f0318b2099cb1e0afd60261055402e2f3c9ceee28849fb014')];
+    const expectedRoots = [Fr.fromHexString('0x2d0b15497929f5150c4c383993555456e60d27121f4ac2cb9ef880319f5f9a6f')];
     expect(expectedRoots).toContainEqual(getVKTreeRoot());
   });
   it('has expected Protocol Contracts tree root', () => {
