@@ -5,7 +5,7 @@
 // =====================
 
 #include "barretenberg/chonk/chonk.hpp"
-#ifdef __linux__
+#if defined(__GLIBC__)
 #include <malloc.h>
 #endif
 #include "barretenberg/chonk/chonk_verifier.hpp"
@@ -454,8 +454,8 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
             prover.fold(std::move(prover_accumulator), prover_instance, precomputed_vk);
         // Free proving key before decider PCS allocations
         prover_instance.reset();
-#ifdef __linux__
-        malloc_trim(0);
+#if defined(__GLIBC__)
+        [[maybe_unused]] int trimmed = malloc_trim(0);
 #endif
         // Decider uses the NEW prover_accumulator (result of fold)
         DeciderProver decider(prover_accumulation_transcript);
