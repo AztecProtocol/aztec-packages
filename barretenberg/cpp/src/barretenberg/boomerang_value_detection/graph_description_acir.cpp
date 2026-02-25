@@ -1,4 +1,5 @@
 #include "./graph_description_acir.hpp"
+#include "barretenberg/boomerang_value_detection/helpers/aes_helpers.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/cycle_group_helpers.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/cycle_scalar_helpers.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/ecdsa_helpers.hpp"
@@ -639,13 +640,10 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(const Co
 
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_aes128_constraints(
-    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& next_constraint_witnesses)
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
 {
-    // AES128 constraint processing
-    // TODO: Implement validation logic
-    (void)ptr;
-    (void)next_constraint_witnesses;
-    return false; // Not yet implemented
+    const auto* constraint = std::get<const acir_format::AES128Constraint*>(ptr);
+    return validate_aes<FF>(analyzer, builder, *constraint);
 }
 
 template <typename FF, typename CircuitBuilder>

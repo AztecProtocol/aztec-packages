@@ -73,6 +73,27 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
     const std::vector<field_ct> output_bytes = bb::stdlib::aes128::encrypt_buffer_cbc<Builder>(
         converted_inputs, convert_input(constraint.iv, builder), convert_input(constraint.key, builder));
 
+    if (builder.is_write_vk_mode()) {
+        // Register input->output witness mapping for ACIR static analysis.
+        // Key: all input/iv/key byte witness indices. Value: packed encrypt output witness indices.
+        std::vector<uint32_t> input_indices;
+        input_indices.reserve(constraint.inputs.size() + constraint.iv.size() + constraint.key.size());
+        for (const auto& input : constraint.inputs) {
+            input_indices.push_back(input.is_constant ? bb::stdlib::IS_CONSTANT : input.index);
+        }
+        for (const auto& iv_elem : constraint.iv) {
+            input_indices.push_back(iv_elem.is_constant ? bb::stdlib::IS_CONSTANT : iv_elem.index);
+        }
+        for (const auto& key_elem : constraint.key) {
+            input_indices.push_back(key_elem.is_constant ? bb::stdlib::IS_CONSTANT : key_elem.index);
+        }
+        std::vector<uint32_t> output_indices(output_bytes.size());
+        std::transform(output_bytes.begin(), output_bytes.end(), output_indices.begin(), [](const auto& f) {
+            return f.get_witness_index();
+        });
+        builder.acir_opcode_io.register_io(std::move(input_indices), std::move(output_indices));
+    }
+
     for (size_t i = 0; i < output_bytes.size(); ++i) {
         output_bytes[i].assert_equal(converted_outputs[i]);
     }
