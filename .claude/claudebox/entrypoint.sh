@@ -1,155 +1,130 @@
 #!/usr/bin/env bash
-# claudeentry.sh - Entry point for ClaudeBox SSH sessions
+# entrypoint.sh - Entry point for ClaudeBox sessions
 #
-# Usage: claudeentry.sh <script-name> [args...] [--comment-id=<id>] [--repo=<owner/repo>]
+# Usage: entrypoint.sh <script-name> [args...] [--comment-id=<id>] [--repo=<owner/repo>]
 #
 # Starts Claude in an isolated worktree, streams session output,
-# and cleans up on exit.
+# and cleans up on exit. Prompt is read from stdin.
 
 set -euo pipefail
 
-REPO_DIR="${CLAUDE_REPO_DIR:-$HOME/aztec-packages}"
+repo_dir="${CLAUDE_REPO_DIR:-$HOME/aztec-packages}"
 
 # ── Parse arguments ──────────────────────────────────────────────
-SCRIPT_NAME=""
-COMMENT_ID=""
-RUN_COMMENT_ID=""
-REPO=""
-SLACK_CHANNEL=""
-SLACK_THREAD_TS=""
-SLACK_MESSAGE_TS=""
-USER_NAME=""
+script_name=""
+comment_id=""
+run_comment_id=""
+repo=""
+slack_channel=""
+slack_thread_ts=""
+slack_message_ts=""
+user_name=""
 
 for arg in "$@"; do
     case "$arg" in
-        --comment-id=*)
-            COMMENT_ID="${arg#--comment-id=}"
-            ;;
-        --run-comment-id=*)
-            RUN_COMMENT_ID="${arg#--run-comment-id=}"
-            ;;
-        --repo=*)
-            REPO="${arg#--repo=}"
-            ;;
-        --slack-channel=*)
-            SLACK_CHANNEL="${arg#--slack-channel=}"
-            ;;
-        --slack-thread-ts=*)
-            SLACK_THREAD_TS="${arg#--slack-thread-ts=}"
-            ;;
-        --slack-message-ts=*)
-            SLACK_MESSAGE_TS="${arg#--slack-message-ts=}"
-            ;;
-        --user=*)
-            USER_NAME="${arg#--user=}"
-            ;;
-        *)
-            if [ -z "$SCRIPT_NAME" ]; then
-                SCRIPT_NAME="$arg"
-            fi
-            ;;
+        --comment-id=*)      comment_id="${arg#--comment-id=}" ;;
+        --run-comment-id=*)  run_comment_id="${arg#--run-comment-id=}" ;;
+        --repo=*)            repo="${arg#--repo=}" ;;
+        --slack-channel=*)   slack_channel="${arg#--slack-channel=}" ;;
+        --slack-thread-ts=*) slack_thread_ts="${arg#--slack-thread-ts=}" ;;
+        --slack-message-ts=*)slack_message_ts="${arg#--slack-message-ts=}" ;;
+        --user=*)            user_name="${arg#--user=}" ;;
+        *)                   [ -z "$script_name" ] && script_name="$arg" ;;
     esac
 done
 
-if [ -z "$SCRIPT_NAME" ]; then
+if [ -z "$script_name" ]; then
     echo "ERROR: No script name provided" >&2
-    echo "Usage: claudeentry.sh <script-name> [--comment-id=<id>] [--repo=<owner/repo>]" >&2
-    echo "Prompt is read from stdin." >&2
+    echo "Usage: entrypoint.sh <script-name> [--comment-id=<id>] [--repo=<owner/repo>]" >&2
     exit 1
 fi
 
-# Read prompt from stdin (piped from GHA workflow)
-USER_PROMPT=""
+# Read prompt from stdin
+user_prompt=""
 if [ ! -t 0 ]; then
-    USER_PROMPT=$(cat)
+    user_prompt=$(cat)
 fi
 
 # ── Update repo ──────────────────────────────────────────────────
-cd "$REPO_DIR"
+cd "$repo_dir"
 git fetch origin --quiet 2>/dev/null || true
 
 # ── Validate script exists ───────────────────────────────────────
-SCRIPT_FILE="$REPO_DIR/.claude/scripts/$SCRIPT_NAME"
-if [ ! -f "$SCRIPT_FILE" ]; then
-    echo "ERROR: Script not found: .claude/scripts/$SCRIPT_NAME" >&2
+script_file="$repo_dir/.claude/scripts/$script_name"
+if [ ! -f "$script_file" ]; then
+    echo "ERROR: Script not found: .claude/scripts/$script_name" >&2
     echo "Available scripts:" >&2
-    ls "$REPO_DIR/.claude/scripts/" 2>/dev/null | grep -v '\.py$' >&2 || echo "  (none)" >&2
+    ls "$repo_dir/.claude/scripts/" 2>/dev/null | grep -v '\.py$' >&2 || echo "  (none)" >&2
     exit 1
 fi
 
 # ── Build prompt ─────────────────────────────────────────────────
-COMMON_FILE="$REPO_DIR/.claude/scripts/common.md"
-PROMPT=""
-if [ -f "$COMMON_FILE" ]; then
-    PROMPT=$(cat "$COMMON_FILE")
-    PROMPT="$PROMPT
+common_file="$repo_dir/.claude/scripts/common.md"
+prompt=""
+if [ -f "$common_file" ]; then
+    prompt="$(cat "$common_file")
 
 ---
 
 "
 fi
-PROMPT="$PROMPT$(cat "$SCRIPT_FILE")"
+prompt="$prompt$(cat "$script_file")"
 
-# Append user prompt if provided
-if [ -n "$USER_PROMPT" ]; then
-    PROMPT="$PROMPT
+if [ -n "$user_prompt" ]; then
+    prompt="$prompt
 
-User request: $USER_PROMPT"
+User request: $user_prompt"
 fi
 
-# Add metadata
-PROMPT="$PROMPT
+prompt="$prompt
 
 ---
 Metadata (GitHub):
-- Comment ID: ${COMMENT_ID:-none}
-- Run Comment ID: ${RUN_COMMENT_ID:-none}
-- Repository: ${REPO:-none}
+- Comment ID: ${comment_id:-none}
+- Run Comment ID: ${run_comment_id:-none}
+- Repository: ${repo:-none}
 
 Metadata (Slack):
-- Channel: ${SLACK_CHANNEL:-none}
-- Thread TS: ${SLACK_THREAD_TS:-none}
-- Message TS: ${SLACK_MESSAGE_TS:-none}
+- Channel: ${slack_channel:-none}
+- Thread TS: ${slack_thread_ts:-none}
+- Message TS: ${slack_message_ts:-none}
 
-Script: $SCRIPT_NAME"
+Script: $script_name"
 
 # ── Generate worktree name ───────────────────────────────────────
-TIMESTAMP=$(date +%s)
-if [ -n "$COMMENT_ID" ]; then
-    WORKTREE_NAME="bot-gh-${COMMENT_ID}-${TIMESTAMP}"
-elif [ -n "$SLACK_CHANNEL" ]; then
-    WORKTREE_NAME="bot-slack-${TIMESTAMP}"
+ts=$(date +%s)
+if [ -n "$comment_id" ]; then
+    worktree_name="bot-gh-${comment_id}-${ts}"
+elif [ -n "$slack_channel" ]; then
+    worktree_name="bot-slack-${ts}"
 else
-    WORKTREE_NAME="bot-local-${TIMESTAMP}"
+    worktree_name="bot-local-${ts}"
 fi
 
 # ── Set up environment ────────────────────────────────────────────
-WORKTREE_PATH="$REPO_DIR/.claude/worktrees/$WORKTREE_NAME"
-export CLAUDE_WORKTREE_PATH="$WORKTREE_PATH"
-export CLAUDE_REPO_DIR="$REPO_DIR"
-# GH_TOKEN must be set in the environment (e.g. in ~/claudeentry.sh on the box)
+worktree_path="$repo_dir/.claude/worktrees/$worktree_name"
+export CLAUDE_WORKTREE_PATH="$worktree_path"
+export CLAUDE_REPO_DIR="$repo_dir"
 export GITHUB_TOKEN="${GH_TOKEN:-}"
 export SLACK_BOT_TOKEN="${SLACK_BOT_TOKEN:-}"
 
 # ── Cleanup on exit ──────────────────────────────────────────────
-STREAM_PID=""
+stream_pid=""
 cleanup() {
     local exit_code=$?
     echo ""
     echo "━━━ Cleanup ━━━"
 
-    # Kill streamer
-    if [ -n "$STREAM_PID" ] && kill -0 "$STREAM_PID" 2>/dev/null; then
-        kill "$STREAM_PID" 2>/dev/null || true
-        wait "$STREAM_PID" 2>/dev/null || true
+    if [ -n "$stream_pid" ] && kill -0 "$stream_pid" 2>/dev/null; then
+        kill "$stream_pid" 2>/dev/null || true
+        wait "$stream_pid" 2>/dev/null || true
     fi
 
-    # Remove worktree
-    if [ -d "$WORKTREE_PATH" ]; then
-        echo "Removing worktree: $WORKTREE_NAME"
-        cd "$REPO_DIR"
-        git worktree remove "$WORKTREE_PATH" --force 2>/dev/null || true
-        git branch -D "worktree-$WORKTREE_NAME" 2>/dev/null || true
+    if [ -d "$worktree_path" ]; then
+        echo "Removing worktree: $worktree_name"
+        cd "$repo_dir"
+        git worktree remove "$worktree_path" --force 2>/dev/null || true
+        git branch -D "worktree-$worktree_name" 2>/dev/null || true
     fi
 
     echo "Exit code: $exit_code"
@@ -158,161 +133,132 @@ cleanup() {
 trap cleanup EXIT
 
 # ── Set up cache_log for non-GHA runs ────────────────────────────
-# When not running in GitHub Actions, pipe output through ci3/cache_log
-# to get a live log URL (http://ci.aztec-labs.com/<id>).
-LOG_ID=""
-USE_CACHE_LOG=0
+# Pipe output through ci3/cache_log for a live log URL.
+log_id=""
+use_cache_log=0
 if [ "${GITHUB_ACTIONS:-}" != "true" ]; then
-    # Source ci3 to get uuid function and redis setup
-    NO_CD=1 source "$REPO_DIR/ci3/source" || true
-    source "$REPO_DIR/ci3/source_redis" || true
-    echo "Redis available: ${CI_REDIS_AVAILABLE:-0}" >&2
-    if [ "${CI_REDIS_AVAILABLE:-0}" -eq 1 ]; then
-        LOG_ID=$(head -c 16 /dev/urandom | xxd -p)
-        USE_CACHE_LOG=1
-        LOG_URL="http://ci.aztec-labs.com/$LOG_ID"
-        echo "Log URL: $LOG_URL" >&2
+    NO_CD=1 source "$repo_dir/ci3/source" || true
+    source "$repo_dir/ci3/source_redis" || true
+    log_id=$(head -c 16 /dev/urandom | xxd -p)
+    use_cache_log=1
+    export LOG_URL="http://ci.aztec-labs.com/$log_id"
+    echo "Log URL: $LOG_URL" >&2
 
-        # Update Slack status message with the log link
-        if [ -n "$SLACK_CHANNEL" ] && [ -n "$SLACK_MESSAGE_TS" ] && [ -n "${SLACK_BOT_TOKEN:-}" ]; then
-            curl -s -X POST -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-                -H "Content-type: application/json" \
-                "https://slack.com/api/chat.update" \
-                -d "{\"channel\":\"$SLACK_CHANNEL\",\"ts\":\"$SLACK_MESSAGE_TS\",\"text\":\"ClaudeBox is running \`$SCRIPT_NAME\`... <$LOG_URL|View live log>\"}" \
-                >/dev/null 2>&1 || true
-        fi
+    if [ -n "$slack_channel" ] && [ -n "$slack_message_ts" ] && [ -n "${SLACK_BOT_TOKEN:-}" ]; then
+        curl -s -X POST -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-type: application/json" \
+            "https://slack.com/api/chat.update" \
+            -d "{\"channel\":\"$slack_channel\",\"ts\":\"$slack_message_ts\",\"text\":\"ClaudeBox is running \`$script_name\`... <$LOG_URL|Claude session log>\"}" \
+            >/dev/null 2>&1 || true
     fi
+else
+    export LOG_URL=""
 fi
-export LOG_URL="${LOG_URL:-}"
 
-# Append log URL to prompt if available
 if [ -n "$LOG_URL" ]; then
-    PROMPT="$PROMPT
+    prompt="$prompt
 
 Log URL: $LOG_URL"
 fi
 
 # ── Print header ─────────────────────────────────────────────────
 echo "━━━ ClaudeBox Starting ━━━"
-echo "Script:    $SCRIPT_NAME"
-echo "Prompt:    ${USER_PROMPT:-<none>}"
-echo "Worktree:  $WORKTREE_NAME"
-echo "Comment:   ${COMMENT_ID:-<local>}"
-echo "Repo:      ${REPO:-<local>}"
+echo "Script:    $script_name"
+echo "Prompt:    ${user_prompt:-<none>}"
+echo "Worktree:  $worktree_name"
+echo "Comment:   ${comment_id:-<local>}"
+echo "Repo:      ${repo:-<local>}"
 [ -n "$LOG_URL" ] && echo "Log:       $LOG_URL"
 echo ""
 
 # ── Start session streamer in background ─────────────────────────
-bash "$REPO_DIR/.claude/claudebox/stream-session.sh" "$WORKTREE_NAME" &
-STREAM_PID=$!
+"$repo_dir/.claude/claudebox/stream-session.ts" "$worktree_name" &
+stream_pid=$!
 
-# ── Start Claude in tmux (or foreground for GHA) ─────────────────
-# Allow running inside another Claude session (local testing)
+# ── Start Claude ─────────────────────────────────────────────────
 unset CLAUDECODE 2>/dev/null || true
 
 # NOTE: We run this in a sandboxed environment with appropriately-scoped permissions.
-DANGEROUS_FLAGS=--dangerously-skip-permissions
+dangerous_flags=--dangerously-skip-permissions
+tmux_session="${log_id:-$worktree_name}"
 
-# Session name for tmux (LOG_ID if available, else worktree name)
-TMUX_SESSION="${LOG_ID:-$WORKTREE_NAME}"
+prompt_file="/tmp/claudebox-prompt-$$"
+exit_file="/tmp/claudebox-exit-$$"
+printf '%s' "$prompt" > "$prompt_file"
 
-# Write prompt to a temp file (avoids shell quoting issues in tmux)
-PROMPT_FILE="/tmp/claudebox-prompt-$$"
-EXIT_FILE="/tmp/claudebox-exit-$$"
-printf '%s' "$PROMPT" > "$PROMPT_FILE"
-
-# Build a wrapper script for tmux (avoids nested quoting hell)
-RUNNER_SCRIPT="/tmp/claudebox-run-$$.sh"
-cat > "$RUNNER_SCRIPT" <<RUNEOF
+# Build wrapper script for tmux (avoids nested quoting)
+runner_script="/tmp/claudebox-run-$$.sh"
+cat > "$runner_script" <<RUNEOF
 #!/usr/bin/env bash
 export PATH="$PATH"
 set -uo pipefail
-PROMPT=\$(cat "$PROMPT_FILE")
-claude --print --worktree "$WORKTREE_NAME" $DANGEROUS_FLAGS -p "\$PROMPT"
-CLAUDE_EXIT=\$?
-echo "\$CLAUDE_EXIT" > "$EXIT_FILE"
-exit \$CLAUDE_EXIT
-RUNEOF
-
-RUNNER_SCRIPT_CACHELOG="/tmp/claudebox-run-cachelog-$$.sh"
-cat > "$RUNNER_SCRIPT_CACHELOG" <<RUNEOF
-#!/usr/bin/env bash
-export PATH="$PATH"
-set -uo pipefail
-PROMPT=\$(cat "$PROMPT_FILE")
-claude --print --worktree "$WORKTREE_NAME" $DANGEROUS_FLAGS -p "\$PROMPT" 2>&1 | DUP=1 "$REPO_DIR/ci3/cache_log" "claudebox-$SCRIPT_NAME" "$LOG_ID"
-CLAUDE_EXIT=\${PIPESTATUS[0]}
-echo "\$CLAUDE_EXIT" > "$EXIT_FILE"
-exit \$CLAUDE_EXIT
-RUNEOF
-chmod +x "$RUNNER_SCRIPT" "$RUNNER_SCRIPT_CACHELOG"
-
-# Don't error on bad exit code
-set +e
-if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
-    # GHA: run directly (no tmux, logs go to Actions UI)
-    claude \
-        --print \
-        --worktree "$WORKTREE_NAME" \
-        $DANGEROUS_FLAGS \
-        -p "$PROMPT"
-    CLAUDE_EXIT=$?
+prompt=\$(cat "$prompt_file")
+if [ "$use_cache_log" -eq 1 ]; then
+    claude --print --worktree "$worktree_name" $dangerous_flags -p "\$prompt" 2>&1 | DUP=1 "$repo_dir/ci3/cache_log" "claudebox-$script_name" "$log_id"
+    claude_exit=\${PIPESTATUS[0]}
 else
-    # Slack/local: run in tmux so sessions are attachable
-    echo "Starting tmux session: $TMUX_SESSION"
+    claude --print --worktree "$worktree_name" $dangerous_flags -p "\$prompt"
+    claude_exit=\$?
+fi
+echo "\$claude_exit" > "$exit_file"
+exit \$claude_exit
+RUNEOF
+chmod +x "$runner_script"
 
-    # Write session metadata for the console
-    SESSIONS_DIR="$REPO_DIR/.claude/claudebox/sessions"
-    mkdir -p "$SESSIONS_DIR"
-    SESSION_FILE="$SESSIONS_DIR/$TMUX_SESSION.json"
-    cat > "$SESSION_FILE" <<METAEOF
+set +e
+if [ "${GITHUB_ACTIONS:-}" != "true" ]; then
+    # Slack/local: write session metadata, run in tmux
+    echo "Starting tmux session: $tmux_session"
+
+    sessions_dir="$repo_dir/.claude/claudebox/sessions"
+    mkdir -p "$sessions_dir"
+    session_file="$sessions_dir/$tmux_session.json"
+    cat > "$session_file" <<METAEOF
 {
-  "tmux": "$TMUX_SESSION",
-  "script": "$SCRIPT_NAME",
-  "prompt": $(printf '%s' "$USER_PROMPT" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().strip()))'),
-  "user": "${USER_NAME:-unknown}",
-  "worktree": "$WORKTREE_NAME",
+  "tmux": "$tmux_session",
+  "script": "$script_name",
+  "prompt": $(printf '%s' "$user_prompt" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().strip()))'),
+  "user": "${user_name:-unknown}",
+  "worktree": "$worktree_name",
   "log_url": "${LOG_URL:-}",
-  "slack_channel": "${SLACK_CHANNEL:-}",
-  "github_comment": "${COMMENT_ID:-}",
+  "slack_channel": "${slack_channel:-}",
+  "github_comment": "${comment_id:-}",
   "started": "$(date -Iseconds)",
   "status": "running"
 }
 METAEOF
 
-    if [ "$USE_CACHE_LOG" -eq 1 ]; then
-        tmux new-session -d -s "$TMUX_SESSION" "bash $RUNNER_SCRIPT_CACHELOG"
-    else
-        tmux new-session -d -s "$TMUX_SESSION" "bash $RUNNER_SCRIPT"
-    fi
+    tmux new-session -d -s "$tmux_session" "bash $runner_script"
 
-    # Wait for tmux session to finish
-    while tmux has-session -t "$TMUX_SESSION" 2>/dev/null; do
+    while tmux has-session -t "$tmux_session" 2>/dev/null; do
         sleep 2
     done
-    CLAUDE_EXIT=$(cat "$EXIT_FILE" 2>/dev/null || echo 1)
-    # Handle empty exit file
-    [ -z "$CLAUDE_EXIT" ] && CLAUDE_EXIT=1
+    claude_exit=$(cat "$exit_file" 2>/dev/null || echo 1)
+    [ -z "$claude_exit" ] && claude_exit=1
 
-    # Update session metadata with completion
     python3 -c "
 import json
-with open('$SESSION_FILE') as f:
+with open('$session_file') as f:
     d = json.load(f)
 d['status'] = 'completed'
 d['finished'] = '$(date -Iseconds)'
-d['exit_code'] = int('${CLAUDE_EXIT}')
-with open('$SESSION_FILE', 'w') as f:
+d['exit_code'] = int('${claude_exit}')
+with open('$session_file', 'w') as f:
     json.dump(d, f, indent=2)
 " 2>/dev/null || true
 
-    rm -f "$PROMPT_FILE" "$EXIT_FILE" "$RUNNER_SCRIPT" "$RUNNER_SCRIPT_CACHELOG"
+    rm -f "$prompt_file" "$exit_file" "$runner_script"
+else
+    # GHA: run directly (logs go to Actions UI)
+    bash "$runner_script"
+    claude_exit=$(cat "$exit_file" 2>/dev/null || echo 1)
+    [ -z "$claude_exit" ] && claude_exit=1
+    rm -f "$prompt_file" "$exit_file" "$runner_script"
 fi
 set -e
 
-# Give streamer a moment to catch final output
 sleep 2
 
 echo ""
-echo "━━━ Claude exited with code: $CLAUDE_EXIT ━━━"
-exit "$CLAUDE_EXIT"
+echo "━━━ Claude exited with code: $claude_exit ━━━"
+exit "$claude_exit"
