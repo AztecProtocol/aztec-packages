@@ -74,7 +74,17 @@ if [ ! -f "$SCRIPT_FILE" ]; then
 fi
 
 # ── Build prompt ─────────────────────────────────────────────────
-PROMPT=$(cat "$SCRIPT_FILE")
+COMMON_FILE="$REPO_DIR/.claude/scripts/common.md"
+PROMPT=""
+if [ -f "$COMMON_FILE" ]; then
+    PROMPT=$(cat "$COMMON_FILE")
+    PROMPT="$PROMPT
+
+---
+
+"
+fi
+PROMPT="$PROMPT$(cat "$SCRIPT_FILE")"
 
 # Append user prompt if provided
 if [ -n "$USER_PROMPT" ]; then
