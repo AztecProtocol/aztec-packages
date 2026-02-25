@@ -397,12 +397,17 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
 
     QUEUE_TYPE queue_type = get_queue_type();
 
-    // For the hiding kernel (MEGA), skip straight to the ZK prover — no non-ZK ProverInstance needed.
+    // Construct a (non-ZK) prover instance for all queue types. For MEGA this is only used for
+    // the debug VK comparison check and is freed before the ZK proving key is constructed.
+    std::shared_ptr<ProverInstance> prover_instance = std::make_shared<ProverInstance>(circuit);
+
+#ifndef NDEBUG
+    debug_incoming_circuit(circuit, prover_instance, precomputed_vk);
+#endif
+
     if (queue_type == QUEUE_TYPE::MEGA) {
         vinfo("Generating proof for hiding kernel");
-#ifndef NDEBUG
-        debug_incoming_circuit(circuit, std::make_shared<ProverInstance>(circuit), precomputed_vk);
-#endif
+        prover_instance.reset(); // Free non-ZK instance before constructing ZK proving key
         HonkProof proof = construct_honk_proof_for_hiding_kernel(circuit, precomputed_vk);
         VerifierInputs queue_entry{ std::move(proof), precomputed_vk, queue_type, /*is_kernel=*/true };
         verification_queue.push_back(queue_entry);
@@ -410,17 +415,10 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
         return;
     }
 
-    // Construct the prover instance for circuit
-    std::shared_ptr<ProverInstance> prover_instance = std::make_shared<ProverInstance>(circuit);
-
     // Free circuit block memory (wires and selectors) now that they've been copied to prover polynomials
     for (auto& block : circuit.blocks.get()) {
         block.free_data();
     }
-
-#ifndef NDEBUG
-    debug_incoming_circuit(circuit, prover_instance, precomputed_vk);
-#endif
 
     // We're accumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
     // verifiers for all the entries previously present in the verification queue) and if it's not the first accumulate
