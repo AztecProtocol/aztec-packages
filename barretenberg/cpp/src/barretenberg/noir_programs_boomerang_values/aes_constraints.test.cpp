@@ -119,6 +119,12 @@ TEST_F(AESConstraintsTests, ValidMultiBlock)
     EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
 }
 
+/**
+ * @brief Swaps two output indices after circuit construction.
+ * Exercises Step 3 (output byte packing trace): the swapped wire indices don't match
+ * the add gates the circuit created, so trace_aes_byte_packing returns nullopt.
+ * CircuitChecker cannot detect this (constraint metadata changed, not circuit gates).
+ */
 TEST_F(AESConstraintsTests, DetectCorruptedOutputConnection)
 {
     auto [aes_constraint, witness_values] = generate_aes_constraint();
@@ -126,7 +132,6 @@ TEST_F(AESConstraintsTests, DetectCorruptedOutputConnection)
     AcirProgram program{ constraint_system };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
 
-    // Corrupt: swap two output indices after circuit was built
     std::swap(constraint_system.aes128_constraints[0].outputs[0], constraint_system.aes128_constraints[0].outputs[1]);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system), std::move(builder));
@@ -143,6 +148,108 @@ TEST_F(AESConstraintsTests, DetectCorruptedOutputConnectionMega)
     std::swap(constraint_system.aes128_constraints[0].outputs[0], constraint_system.aes128_constraints[0].outputs[1]);
 
     auto analyzer = StaticAnalyzerAcirMega(std::move(constraint_system), std::move(builder));
+    EXPECT_FALSE(analyzer.get_incorrect_opcodes().empty());
+}
+
+/**
+ * @brief Swaps two input byte indices after circuit construction.
+ * Exercises Step 2 (input byte packing trace): the swapped wire order doesn't match
+ * the add gates, so trace_aes_byte_packing for the input chunk fails.
+ * CircuitChecker cannot detect this (constraint metadata changed, not circuit gates).
+ */
+TEST_F(AESConstraintsTests, DetectCorruptedInputPacking)
+{
+    auto [aes_constraint, witness_values] = generate_aes_constraint();
+    auto constraint_system = constraint_to_acir_format(aes_constraint);
+    AcirProgram program{ constraint_system };
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
+
+    std::swap(constraint_system.aes128_constraints[0].inputs[0], constraint_system.aes128_constraints[0].inputs[1]);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system), std::move(builder));
+    EXPECT_FALSE(analyzer.get_incorrect_opcodes().empty());
+}
+
+/**
+ * @brief Swaps two IV byte indices after circuit construction.
+ * Exercises Step 2 (IV byte packing trace).
+ * CircuitChecker cannot detect this (constraint metadata changed, not circuit gates).
+ */
+TEST_F(AESConstraintsTests, DetectCorruptedIVPacking)
+{
+    auto [aes_constraint, witness_values] = generate_aes_constraint();
+    auto constraint_system = constraint_to_acir_format(aes_constraint);
+    AcirProgram program{ constraint_system };
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
+
+    std::swap(constraint_system.aes128_constraints[0].iv[0], constraint_system.aes128_constraints[0].iv[1]);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system), std::move(builder));
+    EXPECT_FALSE(analyzer.get_incorrect_opcodes().empty());
+}
+
+/**
+ * @brief Swaps two key byte indices after circuit construction.
+ * Exercises Step 2 (key byte packing trace).
+ * CircuitChecker cannot detect this (constraint metadata changed, not circuit gates).
+ */
+TEST_F(AESConstraintsTests, DetectCorruptedKeyPacking)
+{
+    auto [aes_constraint, witness_values] = generate_aes_constraint();
+    auto constraint_system = constraint_to_acir_format(aes_constraint);
+    AcirProgram program{ constraint_system };
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
+
+    std::swap(constraint_system.aes128_constraints[0].key[0], constraint_system.aes128_constraints[0].key[1]);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system), std::move(builder));
+    EXPECT_FALSE(analyzer.get_incorrect_opcodes().empty());
+}
+
+/**
+ * @brief Corrupts the IO map's stdlib output witness index.
+ * Output byte packing trace succeeds (circuit gates unchanged), but is_assert_equal_exists
+ * fails because the corrupted stdlib output has no assert_equal gate to the packed ACIR output.
+ * This specifically exercises the Step 3 assert_equal check in isolation.
+ * CircuitChecker cannot detect this (acir_opcode_io is metadata, not a gate).
+ */
+TEST_F(AESConstraintsTests, DetectCorruptedStdlibOutputConnection)
+{
+    auto [aes_constraint, witness_values] = generate_aes_constraint();
+    auto constraint_system = constraint_to_acir_format(aes_constraint);
+    AcirProgram program{ constraint_system };
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
+
+    // Corrupt: change every stdlib output index in the IO map to zero_idx
+    for (auto& [key, outputs_vec] : builder.acir_opcode_io.io_map) {
+        for (auto& output_set : outputs_vec) {
+            for (auto& idx : output_set) {
+                idx = builder.zero_idx();
+            }
+        }
+    }
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system), std::move(builder));
+    EXPECT_FALSE(analyzer.get_incorrect_opcodes().empty());
+}
+
+/**
+ * @brief Corrupts outputs in the second block of a multi-block AES constraint.
+ * Verifies the block iteration logic correctly validates each block independently.
+ * CircuitChecker cannot detect this (constraint metadata changed, not circuit gates).
+ */
+TEST_F(AESConstraintsTests, DetectMultiBlockOutputCorruption)
+{
+    auto [aes_constraint, witness_values] = generate_aes_constraint(/*num_blocks=*/2);
+    auto constraint_system = constraint_to_acir_format(aes_constraint);
+    AcirProgram program{ constraint_system };
+    auto builder = create_circuit<UltraCircuitBuilder>(program);
+
+    // Corrupt: swap two outputs in the second 16-byte block
+    auto& outputs = constraint_system.aes128_constraints[0].outputs;
+    std::swap(outputs[16], outputs[17]);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system), std::move(builder));
     EXPECT_FALSE(analyzer.get_incorrect_opcodes().empty());
 }
 
