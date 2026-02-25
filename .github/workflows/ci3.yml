@@ -112,6 +112,24 @@ jobs:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: ./.github/ci3_success.sh
 
+      - name: Notify Slack on backport CI failure
+        if: failure() && startsWith(github.event.pull_request.head.ref, 'backport-to-') && endsWith(github.event.pull_request.head.ref, '-staging')
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          if [ -n "${SLACK_BOT_TOKEN}" ]; then
+            read -r -d '' data <<EOF || true
+            {
+              "channel": "#team-alpha",
+              "text": "CI3 failed on backport PR: <${{ github.event.pull_request.html_url }}|#${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}>\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
+            }
+          EOF
+            curl -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              --data "$data"
+          fi
+
       - name: Upload benchmarks
         if: env.SHOULD_UPLOAD_BENCHMARKS == '1'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
