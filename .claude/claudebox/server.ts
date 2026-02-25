@@ -474,16 +474,17 @@ async function runContainerSession(
         const exitCode = code ?? 1;
         console.log(`[DOCKER] Claude container ${claudeName} exited: ${exitCode} (${activeSessions}/${MAX_CONCURRENT} active)`);
 
-        // stream-session.ts self-terminates after 10s idle.
-        // Give it time to finish, then close cache_log.
-        const finishStreaming = () => {
-          streamSessionProc?.kill();
-          setTimeout(() => { cacheLogProc?.stdin?.end(); }, 500);
-        };
+        // Signal stream-session to drain remaining JSONL and exit
         if (streamSessionProc) {
-          streamSessionProc.on("close", finishStreaming);
+          streamSessionProc.kill("SIGTERM");
+          streamSessionProc.on("close", () => {
+            setTimeout(() => { cacheLogProc?.stdin?.end(); }, 500);
+          });
           // Safety: force-close after 15s if stream-session hangs
-          setTimeout(finishStreaming, 15_000);
+          setTimeout(() => {
+            streamSessionProc?.kill("SIGKILL");
+            setTimeout(() => { cacheLogProc?.stdin?.end(); }, 500);
+          }, 15_000);
         } else {
           setTimeout(() => { cacheLogProc?.stdin?.end(); }, 500);
         }
@@ -731,6 +732,59 @@ slackApp.event("app_mention", async ({ event, client, say }) => {
   }
 
   // Fresh session: top-level, "new-session", or no previous session in thread
+  const threadContext = isReply ? await getThreadContext(client, channel, threadTs) : "";
+  await startNewSession(client, channel, threadTs, effectivePrompt, threadContext, userName);
+});
+
+// Direct messages — no @mention needed
+slackApp.event("message", async ({ event, client, say }) => {
+  // Only handle DMs (im), ignore channels/groups and bot messages
+  if ((event as any).channel_type !== "im") return;
+  if ((event as any).bot_id || (event as any).subtype) return;
+
+  const channel = event.channel;
+  const text = (event as any).text ?? "";
+  const isReply = !!(event as any).thread_ts;
+  const threadTs = (event as any).thread_ts ?? (event as any).ts;
+
+  console.log(`[DM] channel=${channel} isReply=${isReply} text=${text.slice(0, 100)}`);
+
+  const cmd = text.trim();
+  if (!cmd) return;
+
+  if (activeSessions >= MAX_CONCURRENT) {
+    await say({ text: `ClaudeBox is at capacity (${MAX_CONCURRENT} sessions). Try again later.`, thread_ts: threadTs });
+    return;
+  }
+
+  const userName = await resolveUserName(client, (event as any).user ?? "");
+  const parsed = parseMessage(cmd);
+  const { forceNew, prompt: effectivePrompt } = parseNewKeyword(parsed);
+
+  // Explicit hash-based resume
+  if (!forceNew && parsed.type === "reply-hash") {
+    const session = findSessionByHash(parsed.hash);
+    const err = validateResumeSession(session, parsed.hash);
+    if (err) { await say({ text: err, thread_ts: threadTs }); return; }
+    console.log(`[DM-REPLY] Resuming session ${parsed.hash}`);
+    await startReplySession(client, channel, threadTs, parsed.prompt, session!, userName);
+    return;
+  }
+
+  // Implicit resume in DM thread
+  if (!forceNew && isReply) {
+    const prevSession = findLastSessionInThread(channel, threadTs);
+    if (prevSession?.status === "running") {
+      await say({ text: "Replies to ongoing conversations are not supported currently.", thread_ts: threadTs });
+      return;
+    }
+    if (prevSession?.claude_session_id && prevSession.exit_code === 0) {
+      console.log(`[DM-REPLY] Resuming last session in thread: ${prevSession._log_id}`);
+      await startReplySession(client, channel, threadTs, effectivePrompt, prevSession, userName);
+      return;
+    }
+  }
+
   const threadContext = isReply ? await getThreadContext(client, channel, threadTs) : "";
   await startNewSession(client, channel, threadTs, effectivePrompt, threadContext, userName);
 });
