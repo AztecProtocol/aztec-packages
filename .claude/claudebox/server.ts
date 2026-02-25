@@ -218,7 +218,6 @@ interface ContainerSessionOpts {
   resumeSessionId?: string;
   prevLogId?: string;
   targetRef?: string;
-  extraPaths?: string;
 }
 
 /** Quietly run a docker command, returning stdout. Throws on failure. */
@@ -249,12 +248,11 @@ async function runContainerSession(
   activeSessions++;
   const logId = execSync("head -c 16 /dev/urandom | xxd -p", { encoding: "utf-8" }).trim();
   const sessionUuid = randomUUID();
-  const mcpAuthToken = randomUUID();
   const networkName = `claudebox-net-${logId}`;
   const sidecarName = `claudebox-sidecar-${logId}`;
   const claudeName = `claudebox-${logId}`;
   const logUrl = `http://ci.aztec-labs.com/${logId}`;
-  const mcpUrl = `http://${sidecarName}:9801/mcp/${mcpAuthToken}`;
+  const mcpUrl = `http://${sidecarName}:9801/mcp`;
 
   onStart?.(logUrl);
 
@@ -354,7 +352,6 @@ async function runContainerSession(
       "-v", `${BASTION_SSH_KEY}:/tmp/claudehome/.ssh/build_instance_key:ro`,
       // Environment — sidecar holds all secrets
       "-e", `MCP_PORT=9801`,
-      "-e", `MCP_AUTH_TOKEN=${mcpAuthToken}`,
       "-e", `GH_TOKEN=${GH_TOKEN}`,
       "-e", `SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}`,
       "-e", `LINEAR_API_KEY=${process.env.LINEAR_API_KEY || ""}`,
@@ -404,11 +401,10 @@ async function runContainerSession(
       "-e", `CLAUDEBOX_MCP_URL=${mcpUrl}`,
       "-e", `CLAUDEBOX_TARGET_REF=${opts.targetRef || "origin/next"}`,
       "-e", `SESSION_UUID=${sessionUuid}`,
+      // Docker-in-Docker via proxy socket on shared /workspace volume
+      "-e", `DOCKER_HOST=unix:///workspace/docker.sock`,
     ];
 
-    if (opts.extraPaths) {
-      claudeArgs.push("-e", `CLAUDEBOX_EXTRA_PATHS=${opts.extraPaths}`);
-    }
     if (opts.resumeSessionId) {
       claudeArgs.push("-e", `CLAUDEBOX_RESUME_ID=${opts.resumeSessionId}`);
     }

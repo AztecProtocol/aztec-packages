@@ -12,14 +12,15 @@
  */
 
 import { createServer, IncomingMessage, ServerResponse } from "http";
-import { execFileSync } from "child_process";
+import { execFileSync, spawn } from "child_process";
+import { existsSync } from "fs";
+import { join, dirname } from "path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 
 // ── Config ──────────────────────────────────────────────────────
 const PORT = parseInt(process.env.MCP_PORT || "9801", 10);
-const AUTH_TOKEN = process.env.MCP_AUTH_TOKEN || "";
 const GH_TOKEN = process.env.GH_TOKEN || "";
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN || "";
 const LINEAR_API_KEY = process.env.LINEAR_API_KEY || "";
@@ -473,7 +474,7 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-const MCP_PATH = AUTH_TOKEN ? `/mcp/${AUTH_TOKEN}` : "/mcp";
+const MCP_PATH = "/mcp";
 
 const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   if (req.method === "GET" && req.url === "/health") {
@@ -501,12 +502,35 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
     return;
   }
 
-  res.writeHead(req.url?.startsWith("/mcp") ? 403 : 404, { "Content-Type": "application/json" });
-  res.end(JSON.stringify({ error: req.url?.startsWith("/mcp") ? "forbidden" : "not found" }));
+  res.writeHead(404, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ error: "not found" }));
 });
+
+// ── Start docker-proxy as a child process ────────────────────────
+const SIDECAR_DIR = dirname(new URL(import.meta.url).pathname);
+const DOCKER_PROXY_SCRIPT = join(SIDECAR_DIR, "docker-proxy.ts");
+let dockerProxyProc: ReturnType<typeof spawn> | null = null;
+
+if (existsSync("/var/run/docker.sock") && existsSync(DOCKER_PROXY_SCRIPT)) {
+  console.log(`[Sidecar] Starting docker-proxy: ${DOCKER_PROXY_SCRIPT}`);
+  dockerProxyProc = spawn("node", ["--experimental-strip-types", "--no-warnings", DOCKER_PROXY_SCRIPT], {
+    stdio: ["ignore", "inherit", "inherit"],
+    env: { ...process.env, DOCKER_PROXY_SOCK: "/workspace/docker.sock" },
+  });
+  dockerProxyProc.on("exit", (code) => {
+    console.warn(`[Sidecar] docker-proxy exited with code ${code}`);
+    dockerProxyProc = null;
+  });
+} else {
+  console.log(`[Sidecar] docker-proxy skipped (no Docker socket or script not found)`);
+}
 
 httpServer.listen(PORT, "0.0.0.0", () => {
-  console.log(`[Sidecar] :${PORT} auth=${AUTH_TOKEN ? "yes" : "no"} gh=${GH_TOKEN ? "yes" : "no"} slack=${SLACK_BOT_TOKEN ? "yes" : "no"} linear=${LINEAR_API_KEY ? "yes" : "no"}`);
+  console.log(`[Sidecar] :${PORT} gh=${GH_TOKEN ? "yes" : "no"} slack=${SLACK_BOT_TOKEN ? "yes" : "no"} linear=${LINEAR_API_KEY ? "yes" : "no"}`);
 });
 
-process.on("SIGTERM", () => { httpServer.close(); process.exit(0); });
+process.on("SIGTERM", () => {
+  dockerProxyProc?.kill();
+  httpServer.close();
+  process.exit(0);
+});

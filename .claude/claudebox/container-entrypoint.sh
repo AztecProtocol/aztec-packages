@@ -4,7 +4,7 @@
 #
 # Required env:  CLAUDEBOX_MCP_URL, SESSION_UUID
 # Prompt:        /workspace/prompt.txt (mounted by host)
-# Optional env:  CLAUDEBOX_TARGET_REF, CLAUDEBOX_EXTRA_PATHS, CLAUDEBOX_RESUME_ID
+# Optional env:  CLAUDEBOX_TARGET_REF, CLAUDEBOX_RESUME_ID
 
 set -euxo pipefail
 trap 'echo ""; echo "━━━ Process exited ━━━"' EXIT
@@ -14,7 +14,6 @@ REFERENCE_GIT="/reference-repo/.git"
 MCP_URL="${CLAUDEBOX_MCP_URL:?required}"
 SESSION_UUID="${SESSION_UUID:?required}"
 TARGET_REF="${CLAUDEBOX_TARGET_REF:-origin/next}"
-EXTRA_PATHS="${CLAUDEBOX_EXTRA_PATHS:-}"
 RESUME_ID="${CLAUDEBOX_RESUME_ID:-}"
 PROMPT_FILE="/workspace/prompt.txt"
 CLAUDE_MD_TEMPLATE="${CLAUDEBOX_CONTAINER_CLAUDE_MD:-/opt/claudebox/container-claude.md}"
