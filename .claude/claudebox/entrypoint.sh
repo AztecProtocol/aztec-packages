@@ -102,7 +102,9 @@ Script: $SCRIPT_NAME"
 # ── Generate worktree name ───────────────────────────────────────
 TIMESTAMP=$(date +%s)
 if [ -n "$COMMENT_ID" ]; then
-    WORKTREE_NAME="bot-${COMMENT_ID}-${TIMESTAMP}"
+    WORKTREE_NAME="bot-gh-${COMMENT_ID}-${TIMESTAMP}"
+elif [ -n "$SLACK_CHANNEL" ]; then
+    WORKTREE_NAME="bot-slack-${TIMESTAMP}"
 else
     WORKTREE_NAME="bot-local-${TIMESTAMP}"
 fi
