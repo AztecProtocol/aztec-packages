@@ -109,12 +109,6 @@ template <typename FF> class Selector {
     virtual void set(size_t idx, int value) = 0;
 
     /**
-     * @brief Set the last value using integer.
-     * @param value Integer value.
-     */
-    virtual void set_back(int value) = 0;
-
-    /**
      * @brief Set the value at index using a field element.
      * @param idx Index.
      * @param value Field element.
@@ -144,24 +138,8 @@ template <typename FF> class ZeroSelector : public Selector<FF> {
         size_++;
     }
 
-    void set_back(int value) override
-    {
-        BB_ASSERT_EQ(value, 0, "Calling ZeroSelector::set_back with a non zero value.");
-        BB_ASSERT_GT(size_, 0U);
-    }
-
-    void set(size_t idx, int value) override
-    {
-        BB_ASSERT_DEBUG(idx < size_);
-        BB_ASSERT_EQ(value, 0, "Calling ZeroSelector::set with a non zero value.");
-    }
-
-    void set(size_t idx, const FF& value) override
-    {
-        BB_ASSERT_DEBUG(idx < size_);
-        BB_ASSERT(value.is_zero());
-        size_++;
-    }
+    void set(size_t, int) override { BB_ASSERT(false, "ZeroSelector::set should not be called"); }
+    void set(size_t, const FF&) override { BB_ASSERT(false, "ZeroSelector::set should not be called"); }
 
     void resize(size_t new_size) override { size_ = new_size; }
 
@@ -196,7 +174,6 @@ template <typename FF> class SlabVectorSelector : public Selector<FF> {
 
     void emplace_back(int i) override { data.emplace_back(i); }
     void push_back(const FF& value) override { data.push_back(value); }
-    void set_back(int value) override { data.back() = value; }
     void set(size_t idx, int i) override { data[idx] = i; }
     void set(size_t idx, const FF& value) override { data[idx] = value; }
     void resize(size_t new_size) override { data.resize(new_size); }
@@ -264,19 +241,6 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
     bool operator==(const ExecutionTraceBlock& other) const = default;
 
     size_t size() const { return std::get<0>(this->wires).size(); }
-
-    void reserve(size_t size_hint)
-    {
-        for (auto& w : wires) {
-            w.reserve(size_hint);
-        }
-        for (auto& p : get_selectors()) {
-            p.reserve(size_hint);
-        }
-#ifdef CHECK_CIRCUIT_STACKTRACES
-        stack_traces.stack_traces.reserve(size_hint);
-#endif
-    }
 
 #ifdef TRACY_HACK_GATES_AS_MEMORY
     ~ExecutionTraceBlock()

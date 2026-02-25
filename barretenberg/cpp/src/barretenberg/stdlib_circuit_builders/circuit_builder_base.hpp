@@ -122,6 +122,8 @@ template <typename FF_> class CircuitBuilderBase {
     std::vector<uint32_t> real_variable_tags;
     uint32_t current_tag = DEFAULT_TAG;
 
+    bool circuit_finalized = false;
+
     CircuitBuilderBase(bool is_write_vk_mode = false);
 
     CircuitBuilderBase(const CircuitBuilderBase& other) = default;
@@ -139,7 +141,11 @@ template <typename FF_> class CircuitBuilderBase {
     size_t num_gates() const { return _num_gates; }
 
     // Increment the gate count by the specified amount
-    void increment_num_gates(size_t count = 1) { _num_gates += count; }
+    void increment_num_gates(size_t count = 1)
+    {
+        BB_ASSERT_DEBUG(!circuit_finalized, "Cannot add gates after circuit is finalized");
+        _num_gates += count;
+    }
 
     // Get the permutation on variable tags
     const std::unordered_map<uint32_t, uint32_t>& tau() const { return _tau; }
@@ -256,12 +262,6 @@ template <typename FF_> class CircuitBuilderBase {
      * @param name Name of the variable
      */
     virtual void set_variable_name(uint32_t index, const std::string& name);
-
-    /**
-     * @brief Export the existing circuit as msgpack compatible buffer
-     * @return msgpack compatible buffer
-     */
-    virtual msgpack::sbuffer export_circuit();
 
     bool failed() const;
     const std::string& err() const;
