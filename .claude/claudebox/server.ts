@@ -264,7 +264,7 @@ async function resumePendingSessions(slackClient: any): Promise<void> {
         resumeSessionId: meta.claude_session_id,
         prevLogId: logId,
       }, undefined, (logUrl) => {
-        const text = `ClaudeBox resuming after restart: _${truncate(prompt)}_ <${logUrl}|log>`;
+        const text = `ClaudeBox resuming after restart: _${truncate(prompt)}_ <${logUrl}|log> <${cancelUrl(hashFromLogUrl(logUrl))}|cancel>`;
         slackClient.chat.update({ channel, ts: messageTs, text }).catch(() => {});
       });
     } catch (e) {
@@ -631,17 +631,12 @@ async function runContainerSession(
           writeFileSync(metadataFile, JSON.stringify(meta, null, 2));
         } catch {}
 
-        // Update Slack status message (completed/error). Response is handled by respond_to_user MCP tool.
+        // Update Slack status message — preserve existing text (artifacts, links),
+        // only append/update the final status line.
         if (SLACK_BOT_TOKEN && opts.slackChannel && opts.slackMessageTs) {
-          const termLink = `<${sessionUrl(logId)}|terminal>`;
-          const finalText = exitCode === 0
-            ? `ClaudeBox completed <${logUrl}|log> ${termLink}`
-            : `ClaudeBox exited with error (code ${exitCode}) <${logUrl}|log> ${termLink}`;
-          fetch("https://slack.com/api/chat.update", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ channel: opts.slackChannel, ts: opts.slackMessageTs, text: finalText }),
-          }).catch((e) => console.warn(`[WARN] Slack status update failed: ${e}`));
+          const statusSuffix = exitCode === 0 ? "completed" : `error (exit ${exitCode})`;
+          updateSlackStatus(opts.slackChannel, opts.slackMessageTs, statusSuffix, logUrl)
+            .catch((e) => console.warn(`[WARN] Slack status update failed: ${e}`));
         }
 
         resolve(exitCode);
@@ -715,6 +710,56 @@ async function getThreadContext(client: any, channel: string, threadTs: string):
 /** Build the interactive session URL for a given hash. */
 function sessionUrl(hash: string): string {
   return `https://${CLAUDEBOX_HOST}/s/${hash}`;
+}
+
+function cancelUrl(hash: string): string {
+  return `https://${CLAUDEBOX_HOST}/s/${hash}/cancel`;
+}
+
+/** Extract hash from a log URL like http://ci.aztec-labs.com/<hash> */
+function hashFromLogUrl(logUrl: string): string {
+  const m = logUrl.match(/\/([a-f0-9]{32})$/);
+  return m ? m[1] : "";
+}
+
+/**
+ * Update the Slack status message on session exit.
+ * Reads the current message to preserve artifacts/links set by the sidecar,
+ * then replaces the first line (status) and removes cancel links.
+ */
+async function updateSlackStatus(channel: string, messageTs: string, status: string, logUrl: string): Promise<void> {
+  // Read current message
+  let currentText = "";
+  try {
+    const r = await fetch(`https://slack.com/api/conversations.history?channel=${channel}&oldest=${messageTs}&latest=${messageTs}&inclusive=true&limit=1`, {
+      headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}` },
+    });
+    const d = await r.json() as any;
+    if (d.ok && d.messages?.[0]?.text) currentText = d.messages[0].text;
+  } catch {}
+
+  let finalText: string;
+  if (currentText) {
+    // Remove cancel links, update first line with final status
+    let lines = currentText.split("\n");
+    // Strip cancel link from first line
+    lines[0] = lines[0].replace(/<[^>]*\|cancel>/g, "").trim();
+    // Replace "running"/"starting" status indicators on first line
+    lines[0] = lines[0].replace(/\.\.\.\s*$/, "").trim();
+    // Append final status
+    lines[0] += ` — *${status}*`;
+    // Ensure log link is present
+    if (!currentText.includes(logUrl)) lines[0] += ` <${logUrl}|log>`;
+    finalText = lines.join("\n");
+  } else {
+    finalText = `ClaudeBox ${status} <${logUrl}|log>`;
+  }
+
+  await fetch("https://slack.com/api/chat.update", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ channel, ts: messageTs, text: finalText }),
+  });
 }
 
 /**
@@ -793,8 +838,8 @@ async function startNewSession(
       slackMessageTs: messageTs,
     }, undefined, (logUrl) => {
       const text = prompt
-        ? `ClaudeBox: _${truncate(prompt)}_ <${logUrl}|log>`
-        : `ClaudeBox starting... <${logUrl}|log>`;
+        ? `ClaudeBox: _${truncate(prompt)}_ <${logUrl}|log> <${cancelUrl(hashFromLogUrl(logUrl))}|cancel>`
+        : `ClaudeBox starting... <${logUrl}|log> <${cancelUrl(hashFromLogUrl(logUrl))}|cancel>`;
       client.chat.update({ channel, ts: messageTs, text }).catch(() => {});
     });
   } catch (e) {
@@ -834,7 +879,7 @@ async function startReplySession(
     }, undefined, (logUrl) => {
       let text = "ClaudeBox replying";
       if (message) text += `: _${truncate(message)}_`;
-      text += ` <${logUrl}|log>`;
+      text += ` <${logUrl}|log> <${cancelUrl(hashFromLogUrl(logUrl))}|cancel>`;
       client.chat.update({ channel, ts: messageTs, text }).catch(() => {});
     });
   } catch (e) {
