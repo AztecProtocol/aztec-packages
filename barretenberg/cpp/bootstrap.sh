@@ -236,7 +236,7 @@ function build_release_dir {
   mkdir build-release
 
   # Version is injected in build_native/build_cross (always, even for cached binaries)
-  # bb-avm is still from native build (not cross-compiled)
+  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C $native_build_dir/bin bb
   tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C $native_build_dir/bin bb-avm
 
   tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
@@ -244,8 +244,6 @@ function build_release_dir {
   tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
   tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 
-  # Package Linux binaries from Zig cross-compilation
-  tar -czf build-release/barretenberg-amd64-linux.tar.gz -C build-zig-amd64-linux/bin bb
   tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-zig-arm64-linux/bin bb
 
   # Package arm64-macos
@@ -255,8 +253,8 @@ function build_release_dir {
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-zig-amd64-macos/bin bb
 
   # Package static libraries for FFI bindings
-  if [ -f build-zig-amd64-linux/lib/libbb-external.a ]; then
-    tar -czf build-release/barretenberg-static-amd64-linux.tar.gz -C build-zig-amd64-linux/lib libbb-external.a
+  if [ -f $native_build_dir/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-static-amd64-linux.tar.gz -C $native_build_dir/lib libbb-external.a
   fi
   if [ -f build-zig-arm64-linux/lib/libbb-external.a ]; then
     tar -czf build-release/barretenberg-static-arm64-linux.tar.gz -C build-zig-arm64-linux/lib libbb-external.a
@@ -287,7 +285,7 @@ function build_release_dir {
   # Verify glibc compatibility of all Linux release binaries
   echo "Verifying glibc compatibility of Linux release binaries..."
   scripts/check_glibc_compat.ts 2.35 \
-    build-zig-amd64-linux/bin/bb \
+    $native_build_dir/bin/bb \
     build-zig-arm64-linux/bin/bb
 }
 
@@ -304,16 +302,16 @@ function build {
   (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
 
   if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
+    # Use Zig for native build to target glibc 2.35 (Ubuntu 22.04+).
+    export native_preset=zig-amd64-linux
+    export native_build_dir=build-zig-amd64-linux
     # Download mobile SDKs before parallel builds (shared across presets)
     bash scripts/download-ios-sdk.sh
     bash scripts/download-android-sysroot.sh
-    # Perform release builds of bb and napi module, for all architectures.
-    # Linux targets use Zig cross-compilation to target glibc 2.35 (Ubuntu 22.04+).
     parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: \
       "build_native" \
       "build_wasm" \
       "build_wasm_threads" \
-      "build_cross amd64-linux" \
       "build_cross arm64-linux" \
       "build_cross amd64-macos true" \
       "build_cross arm64-macos true" \

@@ -483,7 +483,7 @@
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Linux",
         "TARGET_ARCH": "skylake",
-        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/x86_64-apple-darwin/release/libavm_transpiler.a"
+        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/release/libavm_transpiler.a"
       }
     },
     {
