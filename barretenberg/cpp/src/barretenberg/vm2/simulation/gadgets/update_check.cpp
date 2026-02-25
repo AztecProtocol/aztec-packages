@@ -68,7 +68,12 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
             throw std::runtime_error("Current class id does not match expected class id");
         }
     } else {
-        // Read the preimage from the tree in unconstrained mode
+        // The preimage (metadata, pre_class_id, post_class_id) is read in unconstrained mode because
+        // the PIL constrains hash(metadata, pre, post) == stored_hash, making a single constrained
+        // hash read sufficient. The preimage slots are guaranteed to be consistent with the hash:
+        // all writes go through DelayedPublicMutable::write(), which atomically writes all 4 slots
+        // (3 preimage + hash) in a single storage_write call, and storage is siloed to the
+        // ContractInstanceRegistry contract so no external contract/actor can tamper with these slots.
         LowLevelMerkleDBInterface& unconstrained_merkle_db = merkle_db.as_unconstrained();
 
         std::vector<FF> update_preimage(3);

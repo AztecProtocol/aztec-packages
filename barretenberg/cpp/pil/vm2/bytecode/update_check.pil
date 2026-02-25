@@ -161,6 +161,7 @@ namespace update_check;
     };
 
     // The hash is stored at slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN (i.e., slot+3).
+    // Cannot overflow: delayed_public_mutable_slot is a Poseidon2 output, so landing near the field modulus (within 3) has negligible probability (~2^{-252}).
     pol commit delayed_public_mutable_hash_slot;
     sel * (delayed_public_mutable_slot + constants.UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN - delayed_public_mutable_hash_slot) = 0;
 
