@@ -3,9 +3,10 @@ source $(git rev-parse --show-toplevel)/ci3/source
 
 # export bb as it is needed when using exported functions
 export bb="$root/barretenberg/cpp/$(./native-preset-build-dir)/bin/bb"
-script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 
-cd ..
+# script path to auto update short hash
+script_path="$root/barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh"
+
 
 # NOTE: We pin the captured IVC inputs to a known master commit, exploiting that there won't be frequent changes.
 # This allows us to compare the generated VKs here with ones we compute freshly, detecting breaking protocol changes.
@@ -139,7 +140,7 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 EOF
   exit 0
 elif [[ "${1:-}" == "--update_inputs" ]]; then
-    export inputs_dir="../../yarn-project/end-to-end/example-app-ivc-inputs-out"
+    export inputs_dir="$root/yarn-project/end-to-end/example-app-ivc-inputs-out"
 
     # For easily rerunning the inputs generation
     set -eu
