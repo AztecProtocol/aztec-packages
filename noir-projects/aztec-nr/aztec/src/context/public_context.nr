@@ -158,15 +158,15 @@ impl PublicContext {
     ///
     /// ## Public vs Private
     ///
-    /// In general, it is unsafe to check for nullifier non-existence in private, as that will not consider the
+    /// In general, one should not attempt to prove nullifier non-existence in private, as that will not consider the
     /// possibility of the nullifier having been emitted in any transaction between the anchor block and the inclusion
     /// block. Private functions instead prove existence via
     /// [`crate::context::PrivateContext::assert_nullifier_exists`]
     /// and 'prove' non-existence by _emitting_ the nullifer, which would cause the transaction to fail if the
     /// nullifier existed.
     ///
-    /// This is not the case in public functions, which do have access to the tip of the blockchain and so can reliably
-    /// prove whether a nullifier exists or not.
+    /// This is not the case in public functions, which **do** have access to the tip of the blockchain and so can
+    /// reliably prove whether a nullifier exists or not.
     ///
     /// ## Safety
     ///
@@ -175,7 +175,11 @@ impl PublicContext {
     /// existence of a nullifier emitted from a private function implies that all other side-effects of said private
     /// execution have been completed, more concretely that any enqueued public calls have been executed.
     ///
-    /// This is because all private transaction effects are committed _before_ enqueued public functions are run (in
+    /// For example, if a function in contract `A` privately emits nullifier `X` and then enqueues public function `Y`,
+    /// then it is **unsafe** for a contract `B` to infer that `Y` has alredy executed simply because `X` exists.
+    ///
+    /// This is because **all** private transaction effects are committed _before_ enqueued public functions are run
+    /// (in
     /// order to not reveal detailed timing information about the transaction), so it is possible to observe a
     /// nullifier that was emitted alongside the enqueuing of a public call **before** said call has been completed.
     ///
