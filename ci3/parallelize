@@ -3,7 +3,6 @@
 # Commands are read from stdin.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
-set -x
 [ "${STRICT_SCHEDULING:-0}" -eq 1 ] && exec parallelize_strict "$@"
 
 cd $root

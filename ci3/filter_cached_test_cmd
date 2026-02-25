@@ -29,11 +29,14 @@ function process_batch {
 export -f process_batch
 
 if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  set -x
   exec 3> >(cache_log "Skipped tests")
   # Process stdin in batches of 50.
   parallel --pipe -N50 --keep-order process_batch
+  echo "parallel exit: $?"
   exec 3>&-
   wait
+  echo "wait exit: $?"
 else
   # Noop.
   cat
