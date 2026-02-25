@@ -17,7 +17,7 @@ TARGET_REF="${CLAUDEBOX_TARGET_REF:-origin/next}"
 EXTRA_PATHS="${CLAUDEBOX_EXTRA_PATHS:-}"
 RESUME_ID="${CLAUDEBOX_RESUME_ID:-}"
 PROMPT_FILE="/workspace/prompt.txt"
-CLAUDE_MD_TEMPLATE="${CLAUDEBOX_CONTAINER_CLAUDE_MD:-/entrypoint-assets/container-claude.md}"
+CLAUDE_MD_TEMPLATE="${CLAUDEBOX_CONTAINER_CLAUDE_MD:-/opt/claudebox/container-claude.md}"
 
 echo "━━━ Container Bootstrap ━━━"
 echo "MCP:     $MCP_URL"
@@ -25,33 +25,13 @@ echo "Ref:     $TARGET_REF"
 echo "Session: $SESSION_UUID"
 [ -n "$RESUME_ID" ] && echo "Resume:  $RESUME_ID"
 
-# ── Step 0: Set up writable $HOME ──
-# Claude Code refuses --dangerously-skip-permissions as root, so we run as
-# a non-root user. ~/.claude is bind-mounted writable from the host.
-mkdir -p "$HOME/.ssh"
-[ -f /tmp/staged-ssh-key ] && cp /tmp/staged-ssh-key "$HOME/.ssh/build_instance_key" && chmod 600 "$HOME/.ssh/build_instance_key"
-
-git config --global --add safe.directory "$WORKSPACE"
-
-# ── Step 1: Full checkout via git alternates (zero-copy objects) ──
+# ── Step 1: Full checkout via git clone --shared (zero-copy objects) ──
 if [ ! -d "$WORKSPACE/.git" ]; then
-    mkdir -p "$WORKSPACE" && cd "$WORKSPACE"
-    git init --quiet
-
-    # Alternates: all objects from host's .git, zero copy
-    mkdir -p .git/objects/info
-    echo "$REFERENCE_GIT/objects" > .git/objects/info/alternates
-
-    # Copy refs so we know branch names
-    [ -f "$REFERENCE_GIT/packed-refs" ] && cp "$REFERENCE_GIT/packed-refs" .git/packed-refs
-    if [ -d "$REFERENCE_GIT/refs/remotes" ]; then
-        mkdir -p .git/refs/remotes
-        cp -r "$REFERENCE_GIT/refs/remotes/"* .git/refs/remotes/ 2>/dev/null || true
-    fi
-
-    git remote add origin https://github.com/AztecProtocol/aztec-packages.git 2>/dev/null || true
-
-    echo "Checking out $TARGET_REF..."
+    git config --global --add safe.directory "$REFERENCE_GIT"
+    git config --global --add safe.directory "$WORKSPACE"
+    git clone --shared "$REFERENCE_GIT" "$WORKSPACE"
+    cd "$WORKSPACE"
+    git remote set-url origin https://github.com/AztecProtocol/aztec-packages.git
     git checkout --detach "$TARGET_REF" 2>/dev/null || git checkout --detach origin/next
 else
     cd "$WORKSPACE"

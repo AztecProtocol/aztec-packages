@@ -25,12 +25,10 @@ const HTTP_PORT = parseInt(process.env.CLAUDEBOX_PORT || "3000", 10);
 const MAX_CONCURRENT = 10;
 const REPO_DIR = process.env.CLAUDE_REPO_DIR ?? join(homedir(), "aztec-packages");
 const SESSIONS_DIR = join(REPO_DIR, ".claude", "claudebox", "sessions");
-const DOCKER_IMAGE = process.env.CLAUDEBOX_DOCKER_IMAGE || "aztecprotocol/devbox:3.0";
+const DOCKER_IMAGE = process.env.CLAUDEBOX_DOCKER_IMAGE || "claudebox:latest";
 const CLAUDEBOX_DIR = join(homedir(), ".claudebox");
 const CLAUDEBOX_SESSIONS_DIR = join(CLAUDEBOX_DIR, "sessions");
 const CLAUDEBOX_CODE_DIR = dirname(import.meta.url.replace("file://", ""));
-const CONTAINER_ENTRYPOINT_PATH = join(CLAUDEBOX_CODE_DIR, "container-entrypoint.sh");
-const CONTAINER_CLAUDE_MD_PATH = join(CLAUDEBOX_CODE_DIR, "container-claude.md");
 const CLAUDE_BINARY = process.env.CLAUDE_BINARY ?? join(homedir(), ".local", "bin", "claude");
 const BASTION_SSH_KEY = join(homedir(), ".ssh", "build_instance_key");
 
@@ -343,13 +341,17 @@ async function runContainerSession(
       "run", "-d",
       "--name", sidecarName,
       "--network", networkName,
-      // Shared mounts (same as Claude container)
+      "--user", `${process.getuid!()}:${process.getgid!()}`,
+      "-e", `HOME=/tmp/claudehome`,
+      // Shared mounts
       "-v", `${join(REPO_DIR, ".git")}:/reference-repo/.git:ro`,
       "-v", `${workspaceDir}:/workspace:rw`,
       // Sidecar code + node_modules (mounted from host)
       "-v", `${CLAUDEBOX_CODE_DIR}:/opt/claudebox:ro`,
-      // SSH key for bastion/redis cache (mapped to build_instance_key path for ci3 compat)
-      "-v", `${BASTION_SSH_KEY}:/root/.ssh/build_instance_key:ro`,
+      // Docker socket for docker-proxy (sidecar proxies filtered Docker API to Claude)
+      "-v", "/var/run/docker.sock:/var/run/docker.sock",
+      // SSH key for bastion/redis cache
+      "-v", `${BASTION_SSH_KEY}:/tmp/claudehome/.ssh/build_instance_key:ro`,
       // Environment — sidecar holds all secrets
       "-e", `MCP_PORT=9801`,
       "-e", `MCP_AUTH_TOKEN=${mcpAuthToken}`,
@@ -386,29 +388,22 @@ async function runContainerSession(
       "--network", networkName,
       "--user", `${process.getuid!()}:${process.getgid!()}`,
       "-e", `HOME=/tmp/claudehome`,
-      // tmpfs gives the non-root user a writable $HOME
-      "--tmpfs", "/tmp/claudehome:exec,uid=" + process.getuid!(),
       // Shared mounts
       "-v", `${join(REPO_DIR, ".git")}:/reference-repo/.git:ro`,
       "-v", `${workspaceDir}:/workspace:rw`,
-      // Entrypoint + CLAUDE.md template
-      "-v", `${CONTAINER_ENTRYPOINT_PATH}:/entrypoint.sh:ro`,
-      "-v", `${CONTAINER_CLAUDE_MD_PATH}:/entrypoint-assets/container-claude.md:ro`,
       // Claude session persistence — mount at the exact project subdir Claude will use
       // Claude encodes /workspace/aztec-packages → -workspace-aztec-packages
       "-v", `${claudeProjectsDir}:/tmp/claudehome/.claude/projects/-workspace-aztec-packages:rw`,
-      // Claude binary
+      // Claude binary + config (writable so Claude can refresh OAuth tokens)
       "-v", `${realpathSync(CLAUDE_BINARY)}:/usr/local/bin/claude:ro`,
-      // Claude config (writable so Claude can refresh OAuth tokens)
       "-v", `${join(homedir(), ".claude")}:/tmp/claudehome/.claude:rw`,
       "-v", `${join(homedir(), ".claude.json")}:/tmp/claudehome/.claude.json:rw`,
       // SSH key for bastion/redis cache
-      "-v", `${BASTION_SSH_KEY}:/tmp/staged-ssh-key:ro`,
+      "-v", `${BASTION_SSH_KEY}:/tmp/claudehome/.ssh/build_instance_key:ro`,
       // Environment
       "-e", `CLAUDEBOX_MCP_URL=${mcpUrl}`,
       "-e", `CLAUDEBOX_TARGET_REF=${opts.targetRef || "origin/next"}`,
       "-e", `SESSION_UUID=${sessionUuid}`,
-      "-e", `CI_PASSWORD=${process.env.CI_PASSWORD || ""}`,
     ];
 
     if (opts.extraPaths) {
@@ -418,7 +413,7 @@ async function runContainerSession(
       claudeArgs.push("-e", `CLAUDEBOX_RESUME_ID=${opts.resumeSessionId}`);
     }
 
-    claudeArgs.push("--entrypoint", "bash", DOCKER_IMAGE, "/entrypoint.sh");
+    claudeArgs.push("--entrypoint", "bash", DOCKER_IMAGE, "/opt/claudebox/entrypoint.sh");
 
     console.log(`[DOCKER] Starting Claude container: ${claudeName}`);
 
@@ -869,6 +864,8 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
 
     const exitCode = await runContainerSession(sessionOpts, (data) => {
       res.write(data);
+    }, (logUrl) => {
+      res.write(`ClaudeBox session: ${logUrl}\n\n`);
     });
 
     res.end(`\n--- exit code: ${exitCode} ---\n`);

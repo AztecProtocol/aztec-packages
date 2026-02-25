@@ -49,6 +49,9 @@ const GH_WHITELIST: Array<{ method: string; pattern: RegExp }> = [
   { method: "GET",   pattern: new RegExp(`^${R}/pulls(\\?.*)?$`) },
   { method: "GET",   pattern: new RegExp(`^${R}/pulls/\\d+(/files)?$`) },
   { method: "POST",  pattern: new RegExp(`^${R}/pulls$`) },
+  { method: "PATCH", pattern: new RegExp(`^${R}/pulls/\\d+$`) },
+  // Labels
+  { method: "POST",  pattern: new RegExp(`^${R}/issues/\\d+/labels$`) },
   // Issues & comments
   { method: "GET",   pattern: new RegExp(`^${R}/issues(\\?.*)?$`) },
   { method: "GET",   pattern: new RegExp(`^${R}/issues/\\d+$`) },
@@ -91,8 +94,16 @@ function createMcpServerWithTools(): McpServer {
   const server = new McpServer({ name: "claudebox-sidecar", version: "1.0.0" });
 
   // ── get_context ────────────────────────────────────────────────
-  server.tool("get_context", "Session metadata: user, repo, log_url, comment_id, thread, etc.", {},
-    async () => ({ content: [{ type: "text", text: JSON.stringify(SESSION_META, null, 2) }] }));
+  server.tool("get_context", "Session metadata: user, repo, log_url, trigger source, git ref, available tools.", {},
+    async () => {
+      // Strip empty values — only show what's relevant
+      const ctx: Record<string, string> = {};
+      for (const [k, v] of Object.entries(SESSION_META)) {
+        if (v) ctx[k] = v;
+      }
+      ctx.tools = "get_context, session_status, github_api, slack_api, create_pr, update_pr, linear_get_issue, linear_create_issue";
+      return { content: [{ type: "text", text: JSON.stringify(ctx, null, 2) }] };
+    });
 
   // ── session_status ─────────────────────────────────────────────
   server.tool("session_status",
@@ -264,9 +275,94 @@ channel and thread_ts auto-injected from session if not provided.`,
         if (!prRes.ok)
           return { content: [{ type: "text", text: `PR failed: ${pr.message || JSON.stringify(pr)}` }], isError: true };
 
+        // Add claudebox label
+        try {
+          await fetch(`https://api.github.com/repos/${SESSION_META.repo}/issues/${pr.number}/labels`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: "application/vnd.github.v3+json", "Content-Type": "application/json" },
+            body: JSON.stringify({ labels: ["claudebox"] }),
+          });
+        } catch {}
+
         return { content: [{ type: "text", text: `${pr.html_url}\nBranch: ${branch}\n#${pr.number}` }] };
       } catch (e: any) {
         return { content: [{ type: "text", text: `create_pr: ${e.message}` }], isError: true };
+      }
+    });
+
+  // ── update_pr ────────────────────────────────────────────────
+  server.tool("update_pr",
+    "Push workspace commits and/or update an existing PR. Only works on PRs with the 'claudebox' label. Use push=true to push current commits to the PR branch.",
+    {
+      pr_number: z.number().describe("PR number"),
+      push: z.boolean().optional().describe("Push current workspace commits to the PR's branch"),
+      title: z.string().optional().describe("New title"),
+      body: z.string().optional().describe("New body"),
+      base: z.string().optional().describe("New base branch"),
+      state: z.enum(["open", "closed"]).optional().describe("PR state"),
+    },
+    async ({ pr_number, push, title, body, base, state }) => {
+      if (!GH_TOKEN) return { content: [{ type: "text", text: "No GH_TOKEN" }], isError: true };
+
+      try {
+        // Fetch PR and verify claudebox label
+        const prRes = await fetch(`https://api.github.com/repos/${SESSION_META.repo}/pulls/${pr_number}`, {
+          headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: "application/vnd.github.v3+json" },
+        });
+        if (!prRes.ok) return { content: [{ type: "text", text: `PR #${pr_number} not found` }], isError: true };
+        const prData = await prRes.json() as any;
+        const labels: string[] = (prData.labels || []).map((l: any) => l.name);
+        if (!labels.includes("claudebox"))
+          return { content: [{ type: "text", text: `PR #${pr_number} does not have the 'claudebox' label. Can only update claudebox PRs.` }], isError: true };
+
+        const results: string[] = [];
+
+        // Push commits to the PR's branch
+        if (push) {
+          const branch = prData.head?.ref;
+          if (!branch) return { content: [{ type: "text", text: "Cannot determine PR branch" }], isError: true };
+
+          // Auto-commit uncommitted changes
+          try {
+            git("add", "-A");
+            git("diff", "--cached", "--quiet");
+          } catch {
+            git("commit", "-m", title || `update PR #${pr_number}`);
+          }
+
+          const pushUrl = `https://x-access-token:${GH_TOKEN}@github.com/${SESSION_META.repo}.git`;
+          execFileSync("git", ["push", pushUrl, `HEAD:refs/heads/${branch}`], {
+            cwd: WORKSPACE, encoding: "utf-8", timeout: 120000,
+            env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+          });
+          results.push(`Pushed to ${branch}`);
+        }
+
+        // Update PR metadata
+        const update: any = {};
+        if (title) update.title = title;
+        if (body) update.body = body;
+        if (base) update.base = base;
+        if (state) update.state = state;
+
+        if (Object.keys(update).length > 0) {
+          const res = await fetch(`https://api.github.com/repos/${SESSION_META.repo}/pulls/${pr_number}`, {
+            method: "PATCH",
+            headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: "application/vnd.github.v3+json", "Content-Type": "application/json" },
+            body: JSON.stringify(update),
+          });
+          const result = await res.json() as any;
+          if (!res.ok)
+            return { content: [{ type: "text", text: `Update failed: ${result.message || JSON.stringify(result)}` }], isError: true };
+          results.push(`Updated PR metadata`);
+        }
+
+        if (results.length === 0)
+          return { content: [{ type: "text", text: "Nothing to do — specify push=true or fields to update" }], isError: true };
+
+        return { content: [{ type: "text", text: `PR #${pr_number}: ${results.join(", ")}\n${prData.html_url}` }] };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `update_pr: ${e.message}` }], isError: true };
       }
     });
 

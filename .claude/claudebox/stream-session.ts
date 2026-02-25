@@ -266,14 +266,17 @@ function findNewestJsonl(dir: string): string | null {
 
 /** Tracks a single JSONL file with fd-based tailing. */
 class JsonlTailer {
+  path: string;
   fd: number;
   offset = 0;
   leftover = "";
   label: string;
   subLogProc: ReturnType<typeof spawn> | null = null;
   subLogUrl: string | null = null;
+  mainLogLines = 0;
 
-  constructor(public path: string, label: string) {
+  constructor(path: string, label: string) {
+    this.path = path;
     this.fd = openSync(path, "r");
     this.label = label;
   }
@@ -299,38 +302,8 @@ class JsonlTailer {
             const full = captureOutput(() => printEntry(d));
             if (full) this.subLogProc.stdin.write(full + "\n");
           }
-          // Condensed rendering to main stdout
-          const p = prefix(d.timestamp ?? "");
-          const t = d.type ?? "";
-          if (t === "assistant") {
-            for (const item of (d.message?.content ?? [])) {
-              if (item.type === "text" && item.text?.trim()) {
-                console.log(`\n${p}${D}  [${this.label}]${X} ${B}${G}CLAUDE:${X}`);
-                for (const ln of item.text.split("\n")) console.log(`    ${ln}`);
-              } else if (item.type === "tool_use") {
-                const name = item.name ?? "?";
-                const inp = item.input ?? {};
-                const desc = inp.description ?? inp.command ?? inp.file_path ?? inp.pattern ?? "";
-                console.log(`${p}${D}  [${this.label}]${X} ${Y}TOOL:${X} ${B}${name}${X} ${GR}${trunc(String(desc), 120)}${X}`);
-              } else if (item.type === "thinking" && item.thinking?.trim()) {
-                console.log(`${p}${D}  [${this.label}] THINKING: ${trunc(item.thinking.replace(/\n/g, " "), 120)}${X}`);
-              }
-            }
-          } else if (t === "user") {
-            const content = d.message?.content;
-            if (Array.isArray(content)) {
-              for (const item of content) {
-                if (item.type === "tool_result") {
-                  const err = item.is_error ?? false;
-                  let res = item.content ?? "";
-                  if (Array.isArray(res)) res = res.filter((r: any) => r.type === "text").map((r: any) => r.text ?? "").join("\n");
-                  const color = err ? R : G;
-                  const label2 = err ? "ERROR" : "RESULT";
-                  console.log(`${p}${D}  [${this.label}]${X} ${color}${label2}${X} ${GR}${trunc(String(res), 120)}${X}`);
-                }
-              }
-            }
-          }
+          // Only show the final summary in main log; full output goes to subagent cache_log
+          this.mainLogLines++;
         } else {
           printEntry(d);
         }
@@ -348,10 +321,16 @@ class JsonlTailer {
           const full = captureOutput(() => printEntry(d));
           if (full) this.subLogProc.stdin.write(full + "\n");
         }
-        if (!this.label) printEntry(d);
+        if (this.label) this.mainLogLines++;
+        else printEntry(d);
       } catch {}
     }
     closeSync(this.fd);
+    // Print subagent summary in main log
+    if (this.label && this.mainLogLines > 0) {
+      const link = this.subLogUrl ? `  Full subagent log: ${C}${this.subLogUrl}${X}` : "";
+      console.log(`${D}  [${this.label}]${X} ${GR}Done (${this.mainLogLines} entries)${X}${link}`);
+    }
     if (this.subLogProc?.stdin?.writable) {
       this.subLogProc.stdin.end();
     }
@@ -418,7 +397,7 @@ async function main() {
             });
             tailer.subLogProc = proc;
             tailer.subLogUrl = subLogUrl;
-            console.log(`\n${C}[stream]${X} ${Y}SUBAGENT${X} ${B}${label}${X} → ${C}${subLogUrl}${X}`);
+            console.log(`\n${C}[stream]${X} ${Y}SUBAGENT${X} ${B}${label}${X} started`);
           } catch (e) {
             logInfo(`Failed to create subagent log: ${e}`);
           }
