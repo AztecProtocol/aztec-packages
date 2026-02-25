@@ -153,6 +153,40 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# ── Set up cache_log for non-GHA runs ────────────────────────────
+# When not running in GitHub Actions, pipe output through ci3/cache_log
+# to get a live log URL (http://ci.aztec-labs.com/<id>).
+LOG_ID=""
+USE_CACHE_LOG=0
+if [ "${GITHUB_ACTIONS:-}" != "true" ]; then
+    # Source ci3 to get uuid function and redis setup
+    NO_CD=1 source "$REPO_DIR/ci3/source" 2>/dev/null || true
+    source "$REPO_DIR/ci3/source_redis" 2>/dev/null || true
+    if [ "${CI_REDIS_AVAILABLE:-0}" -eq 1 ]; then
+        LOG_ID=$(cat /dev/urandom | head -c 16 | xxd -p)
+        USE_CACHE_LOG=1
+        LOG_URL="http://ci.aztec-labs.com/$LOG_ID"
+        echo "Log URL: $LOG_URL" >&2
+
+        # Update Slack status message with the log link
+        if [ -n "$SLACK_CHANNEL" ] && [ -n "$SLACK_MESSAGE_TS" ] && [ -n "${SLACK_BOT_TOKEN:-}" ]; then
+            curl -s -X POST -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+                -H "Content-type: application/json" \
+                "https://slack.com/api/chat.update" \
+                -d "{\"channel\":\"$SLACK_CHANNEL\",\"ts\":\"$SLACK_MESSAGE_TS\",\"text\":\"ClaudeBox is running \`$SCRIPT_NAME\`... <$LOG_URL|View live log>\"}" \
+                >/dev/null 2>&1 || true
+        fi
+    fi
+fi
+export LOG_URL="${LOG_URL:-}"
+
+# Append log URL to prompt if available
+if [ -n "$LOG_URL" ]; then
+    PROMPT="$PROMPT
+
+Log URL: $LOG_URL"
+fi
+
 # ── Print header ─────────────────────────────────────────────────
 echo "━━━ ClaudeBox Starting ━━━"
 echo "Script:    $SCRIPT_NAME"
@@ -160,6 +194,7 @@ echo "Prompt:    ${USER_PROMPT:-<none>}"
 echo "Worktree:  $WORKTREE_NAME"
 echo "Comment:   ${COMMENT_ID:-<local>}"
 echo "Repo:      ${REPO:-<local>}"
+[ -n "$LOG_URL" ] && echo "Log:       $LOG_URL"
 echo ""
 
 # ── Start session streamer in background ─────────────────────────
@@ -173,14 +208,24 @@ unset CLAUDECODE 2>/dev/null || true
 # NOTE: We run this in a sandboxed environment with appropriately-scoped permissions.
 DANGEROUS_FLAGS=--dangerously-skip-permissions
 
-# Don't error our on bad exit code
+# Don't error on bad exit code
 set +e
-claude \
-    --print \
-    --worktree "$WORKTREE_NAME" \
-    $DANGEROUS_FLAGS \
-    -p "$PROMPT"
-CLAUDE_EXIT=$?
+if [ "$USE_CACHE_LOG" -eq 1 ]; then
+    # Pipe through cache_log for live URL; DUP=1 to also print to stdout
+    claude \
+        --print \
+        --worktree "$WORKTREE_NAME" \
+        $DANGEROUS_FLAGS \
+        -p "$PROMPT" 2>&1 | DUP=1 "$REPO_DIR/ci3/cache_log" "claudebox-$SCRIPT_NAME" "$LOG_ID"
+    CLAUDE_EXIT=${PIPESTATUS[0]}
+else
+    claude \
+        --print \
+        --worktree "$WORKTREE_NAME" \
+        $DANGEROUS_FLAGS \
+        -p "$PROMPT"
+    CLAUDE_EXIT=$?
+fi
 set -e
 
 # Give streamer a moment to catch final output

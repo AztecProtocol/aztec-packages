@@ -28,6 +28,11 @@ Post a thread reply:
     "https://slack.com/api/chat.postMessage" \
     -d '{"channel":"CHANNEL","thread_ts":"THREAD_TS","text":"your message"}'
 
+### Log URL
+
+If a `LOG_URL` environment variable is set, your stdout is being streamed to a live log at that URL.
+Include it in your Slack status updates so users can follow along.
+
 ## Rules
 
 - Stay within your worktree. Do not modify files outside of it.
