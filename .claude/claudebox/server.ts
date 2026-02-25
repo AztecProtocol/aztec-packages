@@ -139,7 +139,10 @@ function findLastSessionInThread(channel: string, threadTs: string): SessionMeta
 
 /**
  * Reconcile "running" sessions against Docker container state.
- * If a session says "running" but its container is stopped/gone, mark it cancelled.
+ * If a session says "running" but its container is stopped/gone:
+ *   - Clean up orphaned sidecars + networks
+ *   - Mark resumable sessions as "restart_pending" (will be auto-resumed)
+ *   - Mark non-resumable sessions as "cancelled"
  */
 function reconcileSessions(): void {
   if (!existsSync(SESSIONS_DIR)) return;
@@ -148,16 +151,16 @@ function reconcileSessions(): void {
       const path = join(SESSIONS_DIR, name);
       const meta = JSON.parse(readFileSync(path, "utf-8"));
       if (meta.status !== "running") continue;
+      const logId = basename(name, ".json");
       const containerName = meta.container;
       if (!containerName) {
-        // Legacy worktree session or missing container — mark as cancelled
         meta.status = "cancelled";
         meta.finished = new Date().toISOString();
         writeFileSync(path, JSON.stringify(meta, null, 2));
-        console.log(`[RECONCILE] ${basename(name, ".json")}: running → cancelled (no container)`);
+        console.log(`[RECONCILE] ${logId}: running → cancelled (no container)`);
         continue;
       }
-      // Single docker inspect for both running state and exit code
+      // Check if container is still running
       let running = false, exitCode = 1;
       try {
         const out = execFileSync("docker", ["inspect", "-f", "{{.State.Running}} {{.State.ExitCode}}", containerName], {
@@ -166,14 +169,107 @@ function reconcileSessions(): void {
         running = out[0] === "true";
         exitCode = parseInt(out[1], 10) || 1;
       } catch {} // container doesn't exist → not running
-      if (!running) {
+      if (running) continue; // Still running, nothing to do
+
+      // Clean up orphaned sidecar + network + main container
+      const sidecarName = meta.sidecar || `claudebox-sidecar-${logId}`;
+      const networkName = `claudebox-net-${logId}`;
+      try { dockerExec("rm", "-f", containerName); } catch {}
+      try { dockerExec("stop", "-t", "3", sidecarName); } catch {}
+      try { dockerExec("rm", "-f", sidecarName); } catch {}
+      try { dockerExec("network", "rm", networkName); } catch {}
+
+      // If resumable (has session ID + workspace), mark as restart_pending
+      const canResume = !!meta.claude_session_id && !!meta.slack_channel;
+      if (canResume) {
+        meta.status = "restart_pending";
+        meta.exit_code = exitCode;
+        meta.finished = new Date().toISOString();
+        writeFileSync(path, JSON.stringify(meta, null, 2));
+        console.log(`[RECONCILE] ${logId}: running → restart_pending (exit=${exitCode})`);
+      } else {
         meta.status = "cancelled";
         meta.exit_code = exitCode;
         meta.finished = new Date().toISOString();
         writeFileSync(path, JSON.stringify(meta, null, 2));
-        console.log(`[RECONCILE] ${basename(name, ".json")}: running → cancelled (exit=${exitCode})`);
+        console.log(`[RECONCILE] ${logId}: running → cancelled (exit=${exitCode}, not resumable)`);
       }
     } catch {}
+  }
+}
+
+/**
+ * Resume sessions that were killed by a server restart.
+ * Called once on startup, after reconcileSessions() has marked them as "restart_pending".
+ */
+async function resumePendingSessions(slackClient: any): Promise<void> {
+  if (!existsSync(SESSIONS_DIR)) return;
+  const pending: Array<{ logId: string; meta: any }> = [];
+  for (const name of readdirSync(SESSIONS_DIR).filter((f) => f.endsWith(".json"))) {
+    try {
+      const meta = JSON.parse(readFileSync(join(SESSIONS_DIR, name), "utf-8"));
+      if (meta.status === "restart_pending") {
+        pending.push({ logId: basename(name, ".json"), meta });
+      }
+    } catch {}
+  }
+  if (pending.length === 0) return;
+  console.log(`[RESUME] Found ${pending.length} session(s) to resume after restart`);
+
+  for (let i = 0; i < pending.length; i++) {
+    const { logId, meta } = pending[i];
+    if (activeSessions >= MAX_CONCURRENT) {
+      console.log(`[RESUME] At capacity, cancelling remaining ${pending.length - i} session(s)`);
+      // Mark remaining as cancelled
+      for (let j = i; j < pending.length; j++) {
+        const rem = pending[j];
+        rem.meta.status = "cancelled";
+        rem.meta.finished = new Date().toISOString();
+        writeFileSync(join(SESSIONS_DIR, `${rem.logId}.json`), JSON.stringify(rem.meta, null, 2));
+      }
+      break;
+    }
+
+    console.log(`[RESUME] Auto-resuming session ${logId} (user=${meta.user}, channel=${meta.slack_channel})`);
+
+    // Post a new Slack message about the restart
+    const channel = meta.slack_channel;
+    const threadTs = meta.slack_thread_ts;
+    const prompt = meta.prompt || "Continue from where you left off.";
+
+    try {
+      const postArgs: any = {
+        channel,
+        text: `ClaudeBox restarting interrupted session: _${truncate(prompt)}_ ...`,
+      };
+      if (threadTs) postArgs.thread_ts = threadTs;
+      const result = await slackClient.chat.postMessage(postArgs);
+      const messageTs = result.ts;
+
+      // Mark as resumed (no longer restart_pending)
+      const metaPath = join(SESSIONS_DIR, `${logId}.json`);
+      meta.status = "resumed";
+      writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+
+      runContainerSession({
+        prompt: `You were interrupted by a server restart mid-task. Continue from where you left off.\n\nOriginal prompt: ${prompt}`,
+        userName: meta.user,
+        slackChannel: channel,
+        slackThreadTs: threadTs || messageTs,
+        slackMessageTs: messageTs,
+        resumeSessionId: meta.claude_session_id,
+        prevLogId: logId,
+      }, undefined, (logUrl) => {
+        const text = `ClaudeBox resuming after restart: _${truncate(prompt)}_ <${logUrl}|log>`;
+        slackClient.chat.update({ channel, ts: messageTs, text }).catch(() => {});
+      });
+    } catch (e) {
+      console.error(`[RESUME] Failed to resume session ${logId}: ${e}`);
+      // Mark as cancelled so we don't retry on next reconcile
+      const metaPath = join(SESSIONS_DIR, `${logId}.json`);
+      meta.status = "cancelled";
+      writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+    }
   }
 }
 
@@ -512,9 +608,10 @@ async function runContainerSession(
 
         // Update Slack status message (completed/error). Response is handled by respond_to_user MCP tool.
         if (SLACK_BOT_TOKEN && opts.slackChannel && opts.slackMessageTs) {
+          const termLink = `<${sessionUrl(logId)}|terminal>`;
           const finalText = exitCode === 0
-            ? `ClaudeBox completed <${logUrl}|log>`
-            : `ClaudeBox exited with error (code ${exitCode}) <${logUrl}|log>`;
+            ? `ClaudeBox completed <${logUrl}|log> ${termLink}`
+            : `ClaudeBox exited with error (code ${exitCode}) <${logUrl}|log> ${termLink}`;
           fetch("https://slack.com/api/chat.update", {
             method: "POST",
             headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
@@ -588,6 +685,59 @@ async function getThreadContext(client: any, channel: string, threadTs: string):
     console.warn(`[WARN] Could not fetch thread context: ${e}`);
     return "";
   }
+}
+
+/** Build the interactive session URL for a given hash. */
+function sessionUrl(hash: string): string {
+  return `https://${CLAUDEBOX_HOST}/s/${hash}`;
+}
+
+/**
+ * Handle "terminal" command: reply with interactive session link.
+ * Supports: "terminal", "terminal <hash>", "terminal <ci-log-url>"
+ * Returns true if handled, false if not a terminal command.
+ */
+async function handleTerminalCommand(
+  cmd: string, channel: string, threadTs: string, isReply: boolean,
+  say: (msg: any) => Promise<any>,
+): Promise<boolean> {
+  // Match: "terminal", "terminal <hash>", "terminal <url>"
+  const m = cmd.match(/^terminal(?:\s+(.+))?$/i);
+  if (!m) return false;
+
+  const arg = (m[1] || "").trim();
+  let hash: string | null = null;
+  let session: SessionMeta | null = null;
+
+  if (arg) {
+    // Explicit hash or CI log URL
+    const urlHash = extractHashFromUrl(arg);
+    if (urlHash) {
+      hash = urlHash;
+    } else if (/^[a-f0-9]{32}$/.test(arg)) {
+      hash = arg;
+    }
+    if (hash) session = findSessionByHash(hash);
+  }
+
+  // Fall back to last session in thread
+  if (!session && isReply) {
+    session = findLastSessionInThread(channel, threadTs);
+    if (session) hash = session._log_id || null;
+  }
+
+  if (!session || !hash) {
+    await say({ text: "No session found. Usage: `terminal` (in thread) or `terminal <hash>`", thread_ts: threadTs });
+    return true;
+  }
+
+  const url = sessionUrl(hash);
+  const statusEmoji = session.status === "completed" && session.exit_code === 0 ? ":white_check_mark:" : ":warning:";
+  await say({
+    text: `${statusEmoji} <${url}|Join interactive session>\nSession \`${hash.slice(0, 8)}...\` — ${session.status}${session.exit_code != null ? ` (exit ${session.exit_code})` : ""}`,
+    thread_ts: threadTs,
+  });
+  return true;
 }
 
 async function startNewSession(
@@ -689,6 +839,9 @@ slackApp.event("app_mention", async ({ event, client, say }) => {
     return;
   }
 
+  // "terminal" command — return interactive session link
+  if (await handleTerminalCommand(cmd, channel, threadTs, isReply, say)) return;
+
   if (activeSessions >= MAX_CONCURRENT) {
     await say({ text: `ClaudeBox is at capacity (${MAX_CONCURRENT} sessions). Try again later.`, thread_ts: threadTs });
     return;
@@ -750,6 +903,9 @@ slackApp.event("message", async ({ event, client, say }) => {
   const cmd = text.trim();
   if (!cmd) return;
 
+  // "terminal" command — return interactive session link
+  if (await handleTerminalCommand(cmd, channel, threadTs, isReply, say)) return;
+
   if (activeSessions >= MAX_CONCURRENT) {
     await say({ text: `ClaudeBox is at capacity (${MAX_CONCURRENT} sessions). Try again later.`, thread_ts: threadTs });
     return;
@@ -802,6 +958,26 @@ slackApp.command("/claudebox", async ({ ack, command, client }) => {
 
   if (!text) {
     await ack({ text: "Usage: `/claudebox <prompt>`" });
+    return;
+  }
+
+  // "terminal" command via slash command
+  const termMatch = text.match(/^terminal(?:\s+(.+))?$/i);
+  if (termMatch) {
+    const arg = (termMatch[1] || "").trim();
+    let hash: string | null = null;
+    let session: SessionMeta | null = null;
+    if (arg) {
+      const urlHash = extractHashFromUrl(arg);
+      hash = urlHash || (/^[a-f0-9]{32}$/.test(arg) ? arg : null);
+      if (hash) session = findSessionByHash(hash);
+    }
+    if (!session || !hash) {
+      await ack({ text: "Usage: `/claudebox terminal <hash>` or `/claudebox terminal <ci-log-url>`" });
+      return;
+    }
+    const url = sessionUrl(hash);
+    await ack({ text: `<${url}|Join interactive session> — ${session.status}${session.exit_code != null ? ` (exit ${session.exit_code})` : ""}` });
     return;
   }
 
@@ -996,6 +1172,429 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
   res.end(JSON.stringify({ error: "not found" }));
 });
 
+// ── WebSocket server for interactive sessions ───────────────────
+
+const wss = new WebSocketServer({ noServer: true });
+
+httpServer.on("upgrade", (req: IncomingMessage, socket, head) => {
+  const m = req.url?.match(/^\/s\/([a-f0-9]{32})\/ws$/);
+  if (!m) {
+    socket.destroy();
+    return;
+  }
+  const hash = m[1];
+  wss.handleUpgrade(req, socket as any, head, (ws) => {
+    handleInteractiveWs(hash, ws).catch((e) => {
+      console.error(`[INTERACTIVE] WS error for ${hash}: ${e.message}`);
+      ws.close(1011, e.message);
+    });
+  });
+});
+
+async function handleInteractiveWs(hash: string, ws: WebSocket): Promise<void> {
+  const session = findSessionByHash(hash);
+  if (!session) {
+    ws.close(1008, "Session not found");
+    return;
+  }
+  if (session.status === "running") {
+    ws.close(1008, "Session is still running");
+    return;
+  }
+  if (interactiveSessions.has(hash)) {
+    // Already active — attach to existing
+    const existing = interactiveSessions.get(hash)!;
+    if (existing.ws && existing.ws.readyState === WebSocket.OPEN) {
+      ws.close(1008, "Session already has an active connection");
+      return;
+    }
+    existing.ws = ws;
+  }
+
+  console.log(`[INTERACTIVE] Starting interactive session for ${hash}`);
+
+  // Update session metadata
+  const metaPath = join(SESSIONS_DIR, `${hash}.json`);
+  try {
+    const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
+    meta.status = "interactive";
+    writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+  } catch {}
+
+  // Start containers if not already running
+  if (!interactiveSessions.has(hash)) {
+    const { container, sidecar, network } = await startInteractiveContainer(hash, session);
+    // Wait for entrypoint script to finish setup (installs tools, writes configs)
+    await waitForEntrypoint(container);
+    const isess: InteractiveSession = {
+      timer: setTimeout(() => {}, 0), // placeholder
+      container, sidecar, network,
+      ws, hash,
+      deadline: 0,
+    };
+    interactiveSessions.set(hash, isess);
+    resetKeepalive(hash, 5);
+  }
+
+  const isess = interactiveSessions.get(hash)!;
+  isess.ws = ws;
+
+  // Docker exec create + start with TTY hijack
+  await bridgeDockerExec(isess, ws);
+}
+
+/** Wait for the interactive container's entrypoint to finish setup. */
+async function waitForEntrypoint(containerName: string, timeoutMs = 15_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      execFileSync("docker", ["exec", containerName, "test", "-f", "/usr/local/bin/keepalive"], { timeout: 3000 });
+      return; // File exists — setup complete
+    } catch {}
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  console.warn(`[INTERACTIVE] Entrypoint wait timed out for ${containerName}, proceeding anyway`);
+}
+
+async function startInteractiveContainer(
+  hash: string, session: SessionMeta,
+): Promise<{ container: string; sidecar: string; network: string }> {
+  const networkName = `claudebox-int-${hash.slice(0, 12)}`;
+  const sidecarName = `claudebox-int-sidecar-${hash.slice(0, 12)}`;
+  const containerName = `claudebox-int-${hash.slice(0, 12)}`;
+
+  // Workspace: reuse the session's workspace
+  const logId = session._log_id || hash;
+  let workspaceDir = join(CLAUDEBOX_SESSIONS_DIR, logId, "workspace");
+  if (!existsSync(workspaceDir)) {
+    workspaceDir = join(CLAUDEBOX_SESSIONS_DIR, hash, "workspace");
+    mkdirSync(workspaceDir, { recursive: true });
+  }
+
+  const claudeProjectsDir = join(dirname(workspaceDir), "claude-projects");
+  mkdirSync(claudeProjectsDir, { recursive: true });
+
+  const mcpUrl = `http://${sidecarName}:9801/mcp`;
+  const keepaliveUrl = `http://host.docker.internal:${HTTP_PORT}/s/${hash}/keepalive`;
+
+  console.log(`[INTERACTIVE] Network: ${networkName}`);
+  console.log(`[INTERACTIVE] Sidecar: ${sidecarName}`);
+  console.log(`[INTERACTIVE] Container: ${containerName}`);
+  console.log(`[INTERACTIVE] Workspace: ${workspaceDir}`);
+
+  // 1. Create network
+  dockerExec("network", "create", networkName);
+
+  try {
+    // 2. Start sidecar
+    const sidecarArgs: string[] = [
+      "run", "-d",
+      "--name", sidecarName,
+      "--network", networkName,
+      "--user", `${process.getuid!()}:${process.getgid!()}`,
+      "-e", `HOME=/tmp/claudehome`,
+      "-v", `${join(REPO_DIR, ".git")}:/reference-repo/.git:ro`,
+      "-v", `${workspaceDir}:/workspace:rw`,
+      "-v", `${CLAUDEBOX_CODE_DIR}:/opt/claudebox:ro`,
+      "-v", "/var/run/docker.sock:/var/run/docker.sock",
+      "-v", `${BASTION_SSH_KEY}:/tmp/claudehome/.ssh/build_instance_key:ro`,
+      "-e", `MCP_PORT=9801`,
+      "-e", `GH_TOKEN=${GH_TOKEN}`,
+      "-e", `SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}`,
+      "-e", `LINEAR_API_KEY=${process.env.LINEAR_API_KEY || ""}`,
+      "-e", `CLAUDEBOX_LOG_ID=${logId}`,
+      "-e", `CLAUDEBOX_LOG_URL=${session.log_url || ""}`,
+      "-e", `CLAUDEBOX_USER=${session.user || ""}`,
+      "-e", `CLAUDEBOX_SLACK_CHANNEL=${session.slack_channel || ""}`,
+      "-e", `CLAUDEBOX_SLACK_THREAD_TS=${session.slack_thread_ts || ""}`,
+      "--entrypoint", "/opt/claudebox/mcp-sidecar.ts",
+      DOCKER_IMAGE,
+    ];
+    dockerExec(...sidecarArgs);
+    await waitForHealth(sidecarName);
+
+    // 3. Start interactive container
+    const interactiveArgs: string[] = [
+      "run", "-d",
+      "--name", containerName,
+      "--network", networkName,
+      "--user", `${process.getuid!()}:${process.getgid!()}`,
+      "--add-host=host.docker.internal:host-gateway",
+      "-e", `HOME=/tmp/claudehome`,
+      "-v", `${join(REPO_DIR, ".git")}:/reference-repo/.git:ro`,
+      "-v", `${workspaceDir}:/workspace:rw`,
+      "-v", `${claudeProjectsDir}:/tmp/claudehome/.claude/projects/-workspace-aztec-packages:rw`,
+      "-v", `${realpathSync(CLAUDE_BINARY)}:/usr/local/bin/claude:ro`,
+      "-v", `${join(homedir(), ".claude")}:/tmp/claudehome/.claude:rw`,
+      "-v", `${join(homedir(), ".claude.json")}:/tmp/claudehome/.claude.json:rw`,
+      "-v", `${BASTION_SSH_KEY}:/tmp/claudehome/.ssh/build_instance_key:ro`,
+      "-v", `${CLAUDEBOX_CODE_DIR}:/opt/claudebox:ro`,
+      "-e", `CLAUDEBOX_MCP_URL=${mcpUrl}`,
+      "-e", `CLAUDEBOX_SESSION_HASH=${hash}`,
+      "-e", `CLAUDEBOX_LOG_URL=${session.log_url || ""}`,
+      "-e", `CLAUDEBOX_RESUME_ID=${session.claude_session_id || ""}`,
+      "-e", `CLAUDEBOX_TARGET_REF=origin/next`,
+      "-e", `CLAUDEBOX_KEEPALIVE_URL=${keepaliveUrl}`,
+      "-e", `DOCKER_HOST=unix:///workspace/docker.sock`,
+      "-e", `CI_PASSWORD=${process.env.CI_PASSWORD || ""}`,
+      "--entrypoint", "bash",
+      DOCKER_IMAGE,
+      "/opt/claudebox/container-interactive.sh",
+    ];
+    dockerExec(...interactiveArgs);
+    console.log(`[INTERACTIVE] Container started: ${containerName}`);
+
+    return { container: containerName, sidecar: sidecarName, network: networkName };
+  } catch (e: any) {
+    try { dockerExec("rm", "-f", containerName); } catch {}
+    try { dockerExec("rm", "-f", sidecarName); } catch {}
+    try { dockerExec("network", "rm", networkName); } catch {}
+    throw e;
+  }
+}
+
+/**
+ * Bridge a WebSocket to a Docker exec TTY session.
+ * Uses Docker Engine API directly over unix socket for the exec hijack.
+ */
+async function bridgeDockerExec(isess: InteractiveSession, ws: WebSocket): Promise<void> {
+  const { container } = isess;
+
+  // 1. Create exec instance
+  const execCreateBody = JSON.stringify({
+    AttachStdin: true, AttachStdout: true, AttachStderr: true,
+    Tty: true,
+    Cmd: ["bash", "--login"],
+    WorkingDir: "/workspace/aztec-packages",
+  });
+
+  const execId = await new Promise<string>((resolve, reject) => {
+    const req = httpRequest({
+      socketPath: "/var/run/docker.sock",
+      path: `/containers/${container}/exec`,
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(execCreateBody) },
+    }, (res) => {
+      let data = "";
+      res.on("data", (chunk: Buffer) => data += chunk.toString());
+      res.on("end", () => {
+        if (res.statusCode !== 201) {
+          reject(new Error(`exec create failed: ${res.statusCode} ${data}`));
+          return;
+        }
+        try { resolve(JSON.parse(data).Id); }
+        catch (e) { reject(new Error(`exec create parse failed: ${data}`)); }
+      });
+    });
+    req.on("error", reject);
+    req.end(execCreateBody);
+  });
+
+  // 2. Start exec with hijack (upgrade to raw TCP stream)
+  const startBody = JSON.stringify({ Detach: false, Tty: true });
+
+  const dockerSocket = await new Promise<import("net").Socket>((resolve, reject) => {
+    const req = httpRequest({
+      socketPath: "/var/run/docker.sock",
+      path: `/exec/${execId}/start`,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Connection": "Upgrade",
+        "Upgrade": "tcp",
+        "Content-Length": Buffer.byteLength(startBody),
+      },
+    });
+
+    req.on("upgrade", (_res, socket, _head) => {
+      resolve(socket as import("net").Socket);
+    });
+
+    req.on("response", (res) => {
+      let data = "";
+      res.on("data", (chunk: Buffer) => data += chunk.toString());
+      res.on("end", () => reject(new Error(`exec start no upgrade: ${res.statusCode} ${data}`)));
+    });
+
+    req.on("error", reject);
+    req.end(startBody);
+  });
+
+  console.log(`[INTERACTIVE] PTY bridge established for ${isess.hash}`);
+
+  // 3. Bridge: Docker socket ↔ WebSocket
+  dockerSocket.on("data", (data: Buffer) => {
+    if (ws.readyState === WebSocket.OPEN) ws.send(data);
+  });
+
+  ws.on("message", (data: Buffer | string, isBinary: boolean) => {
+    if (typeof data === "string") {
+      try {
+        const msg = JSON.parse(data);
+        if (msg.type === "resize" && msg.cols && msg.rows) {
+          const resizeReq = httpRequest({
+            socketPath: "/var/run/docker.sock",
+            path: `/exec/${execId}/resize?h=${msg.rows}&w=${msg.cols}`,
+            method: "POST",
+          });
+          resizeReq.on("error", () => {});
+          resizeReq.end();
+          return;
+        }
+      } catch {}
+      dockerSocket.write(data);
+    } else {
+      dockerSocket.write(data);
+    }
+    resetKeepalive(isess.hash, 5);
+  });
+
+  dockerSocket.on("end", () => {
+    console.log(`[INTERACTIVE] Docker socket closed for ${isess.hash}`);
+    if (ws.readyState === WebSocket.OPEN) ws.close(1000, "Container exited");
+    cleanupInteractive(isess.hash);
+  });
+
+  dockerSocket.on("error", (err) => {
+    console.error(`[INTERACTIVE] Docker socket error: ${err.message}`);
+    if (ws.readyState === WebSocket.OPEN) ws.close(1011, "Docker error");
+    cleanupInteractive(isess.hash);
+  });
+
+  ws.on("close", () => {
+    console.log(`[INTERACTIVE] WebSocket closed for ${isess.hash}`);
+    dockerSocket.end();
+    const s = interactiveSessions.get(isess.hash);
+    if (s) s.ws = null;
+  });
+
+  ws.on("error", (err) => {
+    console.error(`[INTERACTIVE] WebSocket error: ${err.message}`);
+    dockerSocket.end();
+  });
+}
+
+// ── Interactive session HTML page ───────────────────────────────
+
+function interactiveSessionHTML(hash: string, session: SessionMeta): string {
+  const started = session.started || "?";
+  const finished = session.finished || "—";
+  const exitCode = session.exit_code ?? "—";
+  const user = session.user || "unknown";
+  const prompt = (session.prompt || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const logUrl = session.log_url || "";
+  const resumeId = session.claude_session_id || "";
+  const status = session.status || "unknown";
+  const canJoin = status !== "running";
+  const wsUrl = `wss://${CLAUDEBOX_HOST}/s/${hash}/ws`;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClaudeBox Session</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#1a1a2e; color:#e0e0e0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,monospace; }
+.header { padding:16px 20px; background:#16213e; border-bottom:1px solid #0f3460; }
+.header h1 { font-size:18px; color:#e94560; margin-bottom:8px; }
+.meta { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:4px 16px; font-size:13px; color:#a0a0b0; }
+.meta span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.meta b { color:#c0c0d0; }
+.meta a { color:#539bf5; }
+.prompt-line { margin-top:6px; font-size:13px; color:#a0a0b0; max-height:40px; overflow:hidden; }
+.controls { padding:8px 20px; background:#16213e; display:flex; align-items:center; gap:12px; }
+.controls button { padding:8px 20px; border:none; border-radius:4px; font-size:14px; cursor:pointer; font-weight:600; }
+#join-btn { background:#e94560; color:white; }
+#join-btn:hover { background:#c73e55; }
+#join-btn:disabled { background:#555; cursor:not-allowed; }
+.status-pill { font-size:12px; padding:3px 10px; border-radius:12px; font-weight:600; }
+.status-running { background:#1a4d2e; color:#4ae168; }
+.status-completed { background:#1a3a4d; color:#4ac1e1; }
+.status-error { background:#4d1a1a; color:#e14a4a; }
+.status-interactive { background:#4d3a1a; color:#e1a14a; }
+.status-cancelled { background:#3a3a3a; color:#a0a0a0; }
+#timer { font-size:13px; color:#a0a0b0; }
+#terminal-container { flex:1; padding:4px; }
+.main { display:flex; flex-direction:column; height:calc(100vh - 120px); }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>ClaudeBox Session <span style="font-size:13px;color:#a0a0b0">${hash.slice(0, 8)}...</span></h1>
+  <div class="meta">
+    <span><b>User:</b> ${user}</span>
+    <span><b>Started:</b> ${started}</span>
+    <span><b>Finished:</b> ${finished}</span>
+    <span><b>Exit:</b> ${exitCode} <span class="status-pill status-${status}">${status}</span></span>
+    ${logUrl ? `<span><b>Log:</b> <a href="${logUrl}" target="_blank">${logUrl}</a></span>` : ""}
+    ${resumeId ? `<span><b>Resume:</b> <code style="font-size:11px">${resumeId}</code></span>` : ""}
+  </div>
+  ${prompt ? `<div class="prompt-line"><b>Prompt:</b> ${prompt.slice(0, 200)}</div>` : ""}
+</div>
+<div class="controls">
+  <button id="join-btn" ${canJoin ? "" : "disabled"}>Join Session</button>
+  <span id="timer"></span>
+</div>
+<div class="main">
+  <div id="terminal-container"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+<script>
+(function(){
+  var WS_URL="${wsUrl}", HASH="${hash}";
+  var term,fitAddon,ws,keepaliveInterval;
+  var joinBtn=document.getElementById("join-btn");
+  var timerEl=document.getElementById("timer");
+  var deadline=0;
+  joinBtn.addEventListener("click",function(){joinBtn.disabled=true;joinBtn.textContent="Connecting...";startTerminal();});
+  function startTerminal(){
+    term=new window.Terminal({cursorBlink:true,fontSize:14,fontFamily:"'JetBrains Mono','Fira Code',Menlo,monospace",
+      theme:{background:"#1a1a2e",foreground:"#e0e0e0",cursor:"#e94560",selectionBackground:"#3a3a5e"}});
+    fitAddon=new window.FitAddon.FitAddon();term.loadAddon(fitAddon);
+    term.open(document.getElementById("terminal-container"));fitAddon.fit();
+    ws=new WebSocket(WS_URL);ws.binaryType="arraybuffer";
+    ws.onopen=function(){
+      joinBtn.textContent="Connected";joinBtn.style.background="#1a4d2e";
+      ws.send(JSON.stringify({type:"resize",cols:term.cols,rows:term.rows}));
+      deadline=Date.now()+5*60*1000;updateTimer();keepaliveInterval=setInterval(updateTimer,1000);
+    };
+    ws.onmessage=function(ev){
+      if(ev.data instanceof ArrayBuffer)term.write(new Uint8Array(ev.data));else term.write(ev.data);
+    };
+    ws.onclose=function(){
+      term.write("\\r\\n\\x1b[1;31m[Disconnected]\\x1b[0m\\r\\n");
+      joinBtn.textContent="Reconnect";joinBtn.style.background="#e94560";joinBtn.disabled=false;
+      joinBtn.onclick=function(){term.dispose();startTerminal();};
+      clearInterval(keepaliveInterval);timerEl.textContent="";
+    };
+    ws.onerror=function(){term.write("\\r\\n\\x1b[1;31m[Connection error]\\x1b[0m\\r\\n");};
+    term.onData(function(data){if(ws.readyState===WebSocket.OPEN)ws.send(data);});
+    term.onResize(function(e){if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:"resize",cols:e.cols,rows:e.rows}));});
+    window.addEventListener("resize",function(){fitAddon.fit();});
+  }
+  function updateTimer(){
+    var rem=Math.max(0,Math.floor((deadline-Date.now())/1000));
+    var m=Math.floor(rem/60),s=rem%60;
+    timerEl.textContent="Keepalive: "+m+":"+(s<10?"0":"")+s;
+    if(rem<=0)timerEl.textContent="Session expiring...";
+  }
+  setInterval(function(){
+    if(ws&&ws.readyState===WebSocket.OPEN){
+      fetch("/s/"+HASH+"/keepalive",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({minutes:5})}).then(function(r){return r.json();}).then(function(d){
+        if(d.deadline)deadline=d.deadline;else deadline=Date.now()+5*60*1000;
+      }).catch(function(){});
+    }
+  },120000);
+})();
+</script>
+</body></html>`;
+}
+
 // ── Start ───────────────────────────────────────────────────────
 
 async function main() {
@@ -1008,11 +1607,21 @@ async function main() {
   // Reconcile stale "running" sessions from before this process started
   reconcileSessions();
 
-  // Periodically reconcile (catches missed container exits)
-  setInterval(reconcileSessions, 60_000);
-
   await slackApp.start();
   console.log("  Slack connected.");
+
+  // Resume sessions that were killed by the previous server restart
+  await resumePendingSessions(slackApp.client).catch((e) =>
+    console.error(`[RESUME] Failed: ${e}`),
+  );
+
+  // Periodically reconcile + resume (catches mid-session container crashes)
+  setInterval(() => {
+    reconcileSessions();
+    resumePendingSessions(slackApp.client).catch((e) =>
+      console.error(`[RESUME] Periodic resume failed: ${e}`),
+    );
+  }, 60_000);
 
   httpServer.listen(HTTP_PORT, () => {
     console.log(`  HTTP listening on :${HTTP_PORT}`);
