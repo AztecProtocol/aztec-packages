@@ -13,6 +13,8 @@
 import { readdirSync, statSync, readFileSync, existsSync } from "fs";
 import { join, basename } from "path";
 import { homedir } from "os";
+import { spawnSync, execFileSync } from "child_process";
+import { randomBytes } from "crypto";
 
 // ── Args ──────────────────────────────────────────────────────────
 const worktreeName = process.argv[2];
@@ -40,8 +42,43 @@ function logInfo(msg: string) {
   console.log(`${C}[stream]${X} ${msg}`);
 }
 
-function trunc(s: string, n = 2000): string {
-  return s.length <= n ? s : s.slice(0, n) + ` ...(${s.length - n} more)`;
+const SPILL_THRESHOLD = 1500; // chars before we create a sub-log link
+const cacheLogBin = join(repoDir, "ci3", "cache_log");
+
+function trunc(s: string, n = 200): string {
+  return s.length <= n ? s : s.slice(0, n) + "...";
+}
+
+function spillToLog(content: string, label: string): string | null {
+  /**
+   * Write long content to its own cache_log and return the URL.
+   * Returns null if cache_log is unavailable.
+   */
+  const spillId = randomBytes(16).toString("hex");
+  const url = `http://ci.aztec-labs.com/${spillId}`;
+  try {
+    spawnSync(cacheLogBin, [`claudebox-${label}`, spillId], {
+      input: content,
+      timeout: 10_000,
+      stdio: ["pipe", "ignore", "ignore"],
+    });
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+function smartTrunc(s: string, label: string, inlineLimit = 200): string {
+  /**
+   * If content is short, return it inline.
+   * If long, spill to a sub-log and return a short preview + link.
+   */
+  if (s.length <= SPILL_THRESHOLD) return s;
+  const url = spillToLog(s, label);
+  if (url) {
+    return trunc(s, inlineLimit) + `\n    ${C}full output: ${url}${X}`;
+  }
+  return trunc(s, inlineLimit);
 }
 
 function formatTimestamp(t: string): string {
@@ -104,7 +141,7 @@ function printEntry(d: any) {
     const msg = d.message ?? {};
     const content = msg.content ?? "";
     if (typeof content === "string") {
-      console.log(`\n${p}${B}${C}USER:${X} ${trunc(content, 300)}`);
+      console.log(`\n${p}${B}${C}USER:${X} ${smartTrunc(content, "user-msg")}`);
     } else if (Array.isArray(content)) {
       for (const item of content) {
         if (item.type === "tool_result") {
@@ -121,13 +158,13 @@ function printEntry(d: any) {
           }
           const color = err ? R : G;
           const label = err ? "ERROR" : "RESULT";
-          const disp = trunc(res, 4000).replace(/\n/g, "\n    ");
+          const disp = smartTrunc(res, "tool-result").replace(/\n/g, "\n    ");
           console.log(`${p}  ${color}${label}${X} ${GR}(${tid})${X}`);
           if (disp.trim()) console.log(`    ${disp}`);
         } else if (item.type === "text") {
           const txt = item.text ?? "";
           if (txt.trim()) {
-            console.log(`${p}${B}${C}USER:${X} ${trunc(txt, 300)}`);
+            console.log(`${p}${B}${C}USER:${X} ${smartTrunc(txt, "user-msg")}`);
           }
         }
       }
@@ -145,7 +182,7 @@ function printEntry(d: any) {
       if (it === "thinking") {
         const thinking = item.thinking ?? "";
         if (thinking.trim()) {
-          console.log(`\n${p}${D}THINKING: ${trunc(thinking.replace(/\n/g, " "), 300)}${X}`);
+          console.log(`\n${p}${D}THINKING: ${smartTrunc(thinking.replace(/\n/g, " "), "thinking")}${X}`);
         }
       } else if (it === "text") {
         const txt = item.text ?? "";
@@ -162,7 +199,7 @@ function printEntry(d: any) {
           const cmd = inp.command ?? "";
           const desc = inp.description ?? "";
           console.log(`\n${p}${Y}TOOL:${X} ${B}${name}${X} ${GR}${desc}${X}`);
-          console.log(`  ${D}$ ${trunc(cmd, 400)}${X}`);
+          console.log(`  ${D}$ ${smartTrunc(cmd, "bash-cmd", 400)}${X}`);
         } else if (name === "Edit" || name === "Write") {
           console.log(`\n${p}${Y}TOOL:${X} ${B}${name}${X} ${inp.file_path ?? ""}`);
         } else if (name === "Read" || name === "Glob" || name === "Grep") {

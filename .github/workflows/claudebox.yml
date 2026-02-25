@@ -5,11 +5,6 @@ on:
     types: [created]
   workflow_dispatch:
     inputs:
-      script:
-        description: 'Script name (e.g., new-pr, default, test)'
-        required: true
-        default: 'default'
-        type: string
       prompt:
         description: 'Prompt / instructions for Claude'
         required: true
@@ -48,61 +43,42 @@ jobs:
             repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
             -f content='eyes' || true
 
-      - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          sparse-checkout: .claude/scripts
-          sparse-checkout-cone-mode: false
-
       - name: Parse command
         id: parse
         env:
           COMMENT_BODY: ${{ github.event.comment.body || '' }}
-          INPUT_SCRIPT: ${{ inputs.script || '' }}
           INPUT_PROMPT: ${{ inputs.prompt || '' }}
           INPUT_LINK: ${{ inputs.link || '' }}
         run: |
-          if [ -n "$INPUT_SCRIPT" ]; then
+          if [ -n "$INPUT_PROMPT" ]; then
             # workflow_dispatch
-            SCRIPT_NAME="$INPUT_SCRIPT"
             PROMPT="$INPUT_PROMPT"
             LINK="$INPUT_LINK"
           else
-            # issue_comment: strip /claudebox prefix, parse /script
-            CMD=$(printf '%s' "$COMMENT_BODY" | sed 's|^/claudebox[[:space:]]*||')
-            FIRST_WORD=$(echo "$CMD" | awk '{print $1}')
-
-            if [[ "$FIRST_WORD" == /* ]] && [ -f ".claude/scripts/${FIRST_WORD#/}" ]; then
-              SCRIPT_NAME="${FIRST_WORD#/}"
-              PROMPT=$(echo "$CMD" | sed "s|^${FIRST_WORD}[[:space:]]*||")
-            else
-              SCRIPT_NAME="default"
-              PROMPT="$CMD"
-            fi
+            # issue_comment: strip /claudebox prefix
+            PROMPT=$(printf '%s' "$COMMENT_BODY" | sed 's|^/claudebox[[:space:]]*||')
             LINK=""
           fi
 
-          echo "script_name=$SCRIPT_NAME" >> "$GITHUB_OUTPUT"
           echo "link=$LINK" >> "$GITHUB_OUTPUT"
           {
             echo "prompt<<PROMPT_EOF"
             echo "$PROMPT"
             echo "PROMPT_EOF"
           } >> "$GITHUB_OUTPUT"
-          echo "Parsed: script=$SCRIPT_NAME prompt=${PROMPT:0:120}"
+          echo "Parsed: prompt=${PROMPT:0:120}"
 
       - name: Post status comment
         id: status_comment
         if: github.event_name == 'issue_comment'
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          SCRIPT_NAME: ${{ steps.parse.outputs.script_name }}
           PROMPT_TEXT: ${{ steps.parse.outputs.prompt }}
         run: |
           ISSUE_NUM="${{ github.event.issue.number }}"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           SHORT_PROMPT=$(printf '%.120s' "$PROMPT_TEXT")
-          BODY="**ClaudeBox** \`${SCRIPT_NAME}\`: _${SHORT_PROMPT}_ ... [workflow run]($RUN_URL)"
+          BODY="**ClaudeBox**: _${SHORT_PROMPT}_ ... [workflow run]($RUN_URL)"
 
           COMMENT_ID=$(gh api \
             repos/${{ github.repository }}/issues/$ISSUE_NUM/comments \
@@ -116,15 +92,23 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.CLAUDEBOX_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "${{ vars.CLAUDEBOX_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          cat >> ~/.ssh/config <<'SSHEOF'
+          Host claudebox-jump
+            HostName ${{ vars.CLAUDEBOX_JUMP_HOST }}
+            User ${{ vars.CLAUDEBOX_JUMP_USER || 'claude' }}
+            StrictHostKeyChecking no
+
+          Host claudebox
+            HostName ${{ vars.CLAUDEBOX_HOST }}
+            User ${{ vars.CLAUDEBOX_USER || 'claude' }}
+            ProxyJump claudebox-jump
+            StrictHostKeyChecking no
+          SSHEOF
 
       - name: Run ClaudeBox
         timeout-minutes: 120
         env:
-          CLAUDEBOX_HOST: ${{ vars.CLAUDEBOX_HOST }}
-          CLAUDEBOX_USER: ${{ vars.CLAUDEBOX_USER || 'claude' }}
           CLAUDEBOX_PROMPT: ${{ steps.parse.outputs.prompt }}
-          CLAUDEBOX_SCRIPT: ${{ steps.parse.outputs.script_name }}
           CLAUDEBOX_LINK: ${{ steps.parse.outputs.link }}
           COMMENT_ID: ${{ github.event.comment.id || '' }}
           RUN_COMMENT_ID: ${{ steps.status_comment.outputs.run_comment_id || '' }}
@@ -132,7 +116,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           AUTHOR: ${{ github.event.comment.user.login || github.actor }}
         run: |
-          # Build flags array — values are safe (GH context, no user-controlled content in flag values)
+          # Build flags array
           FLAGS=("--user=${AUTHOR}")
           [ -n "$COMMENT_ID" ] && FLAGS+=("--comment-id=${COMMENT_ID}")
           [ -n "$RUN_COMMENT_ID" ] && FLAGS+=("--run-comment-id=${RUN_COMMENT_ID}")
@@ -141,12 +125,12 @@ jobs:
           [ -n "$CLAUDEBOX_LINK" ] && FLAGS+=("--link=${CLAUDEBOX_LINK}")
 
           # Build a properly quoted remote command
-          REMOTE_CMD="~/claudeentry.sh '${CLAUDEBOX_SCRIPT}'"
+          REMOTE_CMD="~/claudeentry.sh"
           for flag in "${FLAGS[@]}"; do
             REMOTE_CMD="$REMOTE_CMD '${flag}'"
           done
 
           printf '%s' "$CLAUDEBOX_PROMPT" | \
             ssh -o ConnectTimeout=10 -o ServerAliveInterval=30 \
-              "${CLAUDEBOX_USER}@${CLAUDEBOX_HOST}" \
+              claudebox \
               "$REMOTE_CMD"

@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
 # entrypoint.sh - CI runner for ClaudeBox sessions
 #
-# Usage: <script> "prompt" [--flags...]   (script calls entrypoint via run.sh)
-#        entrypoint.sh <name> [--flags...] <<< "prompt"  (direct, for resume)
+# Usage: entrypoint.sh [--flags...] <<< "prompt"
 #
-# Reads prompt from stdin. Sets up worktree, cache_log, session metadata,
-# and runs Claude. For local use (no CI flags), passes through to claude directly.
+# Reads raw prompt from stdin, prepends common.md, sets up worktree,
+# cache_log, session metadata, and runs Claude.
+# For local use (no CI flags), passes through to claude directly.
 
 set -euo pipefail
 
 repo_dir="${CLAUDE_REPO_DIR:-$HOME/aztec-packages}"
 
 # ── Parse arguments ──────────────────────────────────────────────
-script_name=""
 comment_id=""
 run_comment_id=""
 repo=""
@@ -40,14 +39,8 @@ for arg in "$@"; do
         --resume-session-id=*)  resume_session_id="${arg#--resume-session-id=}" ;;
         --prev-log-url=*)       prev_log_url="${arg#--prev-log-url=}" ;;
         --prev-worktree=*)      prev_worktree="${arg#--prev-worktree=}" ;;
-        *)                      [ -z "$script_name" ] && script_name="$arg" ;;
     esac
 done
-
-if [ -z "$script_name" ]; then
-    echo "ERROR: No script name provided" >&2
-    exit 1
-fi
 
 # ── Read prompt from stdin ───────────────────────────────────────
 stdin_prompt=""
@@ -60,6 +53,8 @@ cd "$repo_dir"
 git fetch origin --quiet 2>/dev/null || true
 
 # ── Build prompt ─────────────────────────────────────────────────
+common="$repo_dir/.claude/scripts/common.md"
+
 if [ -n "$resume_session_id" ]; then
     # Resume: user follow-up message with preamble
     prompt="The user is following up on a previous conversation. They expect a reply in the Slack thread or GitHub comment. Address their message directly.
@@ -75,11 +70,14 @@ Metadata (Slack):
     prompt="${prompt}
 User follow-up: $stdin_prompt"
 else
-    # New session: prompt from stdin (built by the calling script)
-    prompt="$stdin_prompt"
+    # New session: common.md preamble + raw user prompt + metadata
+    prompt=""
+    [ -f "$common" ] && prompt="$(cat "$common")
 
-    # Append metadata
-    prompt="$prompt
+---
+
+"
+    prompt="$prompt$stdin_prompt
 
 ---
 Metadata (GitHub):
@@ -90,9 +88,7 @@ Metadata (GitHub):
 Metadata (Slack):
 - Channel: ${slack_channel:-none}
 - Thread TS: ${slack_thread_ts:-none}
-- Message TS: ${slack_message_ts:-none}
-
-Script: $script_name"
+- Message TS: ${slack_message_ts:-none}"
 fi
 
 # ── Local passthrough (no CI infrastructure) ─────────────────────
@@ -172,7 +168,7 @@ if [ -n "$slack_channel" ] && [ -n "$slack_message_ts" ] && [ -n "${SLACK_BOT_TO
         status_text="ClaudeBox running, treating your message as a reply... <$LOG_URL|log>"
         [ -n "$prev_log_url" ] && status_text="$status_text (previous: <$prev_log_url|log>)"
     else
-        status_text="ClaudeBox is running \`$script_name\`... <$LOG_URL|Claude session log>"
+        status_text="ClaudeBox is running... <$LOG_URL|log>"
     fi
     curl -s -X POST -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
         -H "Content-type: application/json" \
@@ -192,7 +188,6 @@ Link: $link"
 
 # ── Print header ─────────────────────────────────────────────────
 echo "━━━ ClaudeBox Starting ━━━"
-echo "Script:    $script_name"
 echo "Worktree:  $worktree_name"
 [ -n "$resume_session_id" ] && echo "Resume:    $resume_session_id"
 [ -n "$prev_log_url" ] && echo "Prev log:  $prev_log_url"
@@ -201,7 +196,7 @@ echo "Log:       $LOG_URL"
 echo ""
 
 # ── Start session streamer in background ─────────────────────────
-cache_log_name="claudebox-$script_name"
+cache_log_name="claudebox"
 [ -n "$resume_session_id" ] && cache_log_name="claudebox-reply"
 
 # Set PARENT_LOG_ID for chaining reply logs
@@ -228,7 +223,6 @@ claude_session_uuid=$(python3 -c "import uuid; print(uuid.uuid4())")
 
 cat > "$session_file" <<METAEOF
 {
-  "script": "$script_name",
   "prompt": $(printf '%s' "$stdin_prompt" | head -c 500 | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().strip()))'),
   "user": "${user_name:-unknown}",
   "worktree": "$worktree_name",

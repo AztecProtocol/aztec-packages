@@ -112,7 +112,7 @@ def render(sessions):
 
     # Header
     lines.append(
-        f"  {BOLD}{'Status':<12} {'User':<18} {'Script':<12} {'Prompt':<30} "
+        f"  {BOLD}{'Status':<12} {'User':<18} {'Prompt':<40} "
         f"{'Started':<10} {'Duration':<10} {'Link'}{RESET}"
     )
     lines.append(f"  {'─' * 116}")
@@ -121,20 +121,18 @@ def render(sessions):
         status = s.get("status", "unknown")
         color = status_color(status)
         user = s.get("user", "unknown")[:16]
-        script = s.get("script", "-")[:10]
         prompt = s.get("prompt", "")
         # Strip thread context prefix to show only the user's actual prompt
         if "Slack thread context:" in prompt:
             prompt = prompt.split("\n\n", 1)[-1]
-        prompt = prompt.replace("\n", " ")[:28]
+        prompt = prompt.replace("\n", " ")[:38]
         started = format_time(s.get("started"))
         duration = format_duration(s.get("started"), s.get("finished"))
-        log_url = s.get("log_url", "-")
 
         link = s.get("link", "-")
 
         lines.append(
-            f"  {color}{status:<12}{RESET} {CYAN}{user:<18}{RESET} {script:<12} {prompt:<30} "
+            f"  {color}{status:<12}{RESET} {CYAN}{user:<18}{RESET} {prompt:<40} "
             f"{started:<10} {duration:<10} {DIM}{link}{RESET}"
         )
 

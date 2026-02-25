@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-read -r -d '' TEMPLATE <<'EOF' || true
-You are a helpful assistant for the aztec-packages repository.
-Handle the user's request to the best of your ability.
-Update your status as you work. When done, post your findings or results back.
-EOF
-source "$(dirname "$0")/run.sh" "$@"

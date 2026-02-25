@@ -8,11 +8,9 @@ Supports two triggers:
   2. /claudebox <prompt>  (slash command — works anywhere)
 
 Routing:
-  - /script prompt → run named script (e.g., /new-pr, /default)
-  - /unknown → error with list of available scripts
   - ci.aztec-labs.com URL or bare hex hash → reply to that session
   - In a thread with a previous ClaudeBox session → resume that session
-  - Otherwise → run the "default" script
+  - Otherwise → new session with the raw prompt
 """
 
 import glob as glob_mod
@@ -31,9 +29,7 @@ logging.basicConfig(level=logging.INFO)
 SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
 SLACK_APP_TOKEN = os.environ["SLACK_APP_TOKEN"]
 REPO_DIR = os.environ.get("CLAUDE_REPO_DIR", os.path.expanduser("~/aztec-packages"))
-SCRIPTS_DIR = os.path.join(REPO_DIR, ".claude", "scripts")
 SESSIONS_DIR = os.path.join(REPO_DIR, ".claude", "claudebox", "sessions")
-DEFAULT_SCRIPT = "default"
 
 app = App(token=SLACK_BOT_TOKEN, logger=logging.getLogger("bolt"))
 
@@ -79,33 +75,18 @@ def extract_hash_from_url(text):
     return m.group(1) if m else None
 
 
-def list_available_scripts():
-    """List available script names (excludes helpers, directories, extensions)."""
-    try:
-        return [
-            f for f in os.listdir(SCRIPTS_DIR)
-            if os.path.isfile(os.path.join(SCRIPTS_DIR, f))
-            and not f.endswith((".sh", ".py", ".md"))
-            and not f.startswith(".")
-        ]
-    except OSError:
-        return []
-
-
 # ── Command parsing ──────────────────────────────────────────────
 
-def parse_command(text):
-    """Parse text into a command type and data.
+def parse_message(text):
+    """Parse text into a message type and data.
 
-    Returns: (cmd_type, data) where cmd_type is one of:
-      - "script": data = (script_name, prompt)  — /foo matched a script file
-      - "unknown-script": data = cmd_name        — /foo didn't match any script
+    Returns: (msg_type, data) where msg_type is one of:
       - "reply-hash": data = (log_hash, prompt)  — reply to specific session
-      - "freeform": data = prompt                — reply in thread or new default
+      - "prompt": data = prompt                   — raw prompt for Claude
     """
     parts = text.split(None, 1)
     if not parts:
-        return "freeform", ""
+        return "prompt", ""
 
     first = parts[0]
     rest = parts[1] if len(parts) > 1 else ""
@@ -119,16 +100,8 @@ def parse_command(text):
     if re.match(r"^[a-f0-9]{32}$", first) and find_session_by_hash(first):
         return "reply-hash", (first, rest)
 
-    # /foo → script if file exists, otherwise unknown
-    if first.startswith("/"):
-        cmd_name = first[1:]  # strip leading /
-        script_path = os.path.join(SCRIPTS_DIR, cmd_name)
-        if os.path.isfile(script_path):
-            return "script", (cmd_name, rest)
-        return "unknown-script", cmd_name
-
-    # Everything else is freeform (reply in thread, or new default session)
-    return "freeform", text
+    # Everything else is a raw prompt
+    return "prompt", text
 
 
 # ── Thread context ───────────────────────────────────────────────
@@ -194,11 +167,9 @@ def spawn_entrypoint(cmd, stdin_text):
     print(f"[RUN] Exit code: {proc.returncode}", flush=True)
 
 
-def start_new_session(client, channel, thread_ts, script_name, prompt, thread_context, user_name=""):
+def start_new_session(client, channel, thread_ts, prompt, thread_context, user_name=""):
     """Post status and spawn a new ClaudeBox session."""
-    status = f"ClaudeBox `{script_name}`"
-    if prompt:
-        status += f": _{truncate(prompt)}_"
+    status = f"ClaudeBox: _{truncate(prompt)}_" if prompt else "ClaudeBox starting..."
     status += " ..."
 
     try:
@@ -216,7 +187,6 @@ def start_new_session(client, channel, thread_ts, script_name, prompt, thread_co
     def _run():
         cmd = [
             os.path.expanduser("~/claudeentry.sh"),
-            script_name,
             f"--slack-channel={channel}",
             f"--slack-thread-ts={thread_ts}",
             f"--slack-message-ts={message_ts}",
@@ -240,7 +210,6 @@ def start_reply_session(client, channel, thread_ts, message, session, user_name=
     claude_session_id = session.get("claude_session_id")
     prev_log_url = session.get("log_url", "")
     prev_worktree = session.get("worktree", "")
-    prev_script = session.get("script", DEFAULT_SCRIPT)
 
     status = "ClaudeBox running, treating your message as a reply"
     if message:
@@ -260,7 +229,6 @@ def start_reply_session(client, channel, thread_ts, message, session, user_name=
     def _run():
         cmd = [
             os.path.expanduser("~/claudeentry.sh"),
-            prev_script,
             f"--slack-channel={channel}",
             f"--slack-thread-ts={thread_ts}",
             f"--slack-message-ts={message_ts}",
@@ -301,13 +269,13 @@ def handle_mention(event, client, say):
 
     cmd = re.sub(r"<@[A-Z0-9]+>\s*", "", text).strip()
     if not cmd:
-        say(text="Usage: `@ClaudeBox /script <prompt>` or `@ClaudeBox <message>`", thread_ts=thread_ts)
+        say(text="Usage: `@ClaudeBox <prompt>`", thread_ts=thread_ts)
         return
 
     user_name = resolve_user_name(client, event.get("user", ""))
-    cmd_type, data = parse_command(cmd)
+    msg_type, data = parse_message(cmd)
 
-    if cmd_type == "reply-hash":
+    if msg_type == "reply-hash":
         log_hash, message = data
         session = find_session_by_hash(log_hash)
         if not session:
@@ -320,27 +288,16 @@ def handle_mention(event, client, say):
         start_reply_session(client, channel, thread_ts, message, session, user_name)
         return
 
-    if cmd_type == "script":
-        script_name, prompt = data
-        thread_context = get_thread_context(client, channel, thread_ts)
-        start_new_session(client, channel, thread_ts, script_name, prompt, thread_context, user_name)
-        return
-
-    if cmd_type == "unknown-script":
-        available = list_available_scripts()
-        say(text=f"Unknown script `/{data}`. Available: {', '.join(f'`/{s}`' for s in sorted(available))}", thread_ts=thread_ts)
-        return
-
-    # freeform: check if there's a previous session in this thread to resume
+    # Check if there's a previous session in this thread to resume
     prompt = data
     prev_session = find_last_session_in_thread(channel, thread_ts)
     if prev_session and prev_session.get("claude_session_id"):
         print(f"[REPLY] Resuming last session in thread: {prev_session.get('_log_id')}", flush=True)
         start_reply_session(client, channel, thread_ts, prompt, prev_session, user_name)
     else:
-        # No previous session — start fresh with default script
+        # No previous session — start fresh
         thread_context = get_thread_context(client, channel, thread_ts)
-        start_new_session(client, channel, thread_ts, DEFAULT_SCRIPT, prompt, thread_context, user_name)
+        start_new_session(client, channel, thread_ts, prompt, thread_context, user_name)
 
 
 # ── Slash command handler ────────────────────────────────────────
@@ -354,13 +311,13 @@ def handle_claudebox(ack, command, client):
     print(f"[CMD] /claudebox from user={user} channel={channel} text={text}", flush=True)
 
     if not text:
-        ack(text="Usage: `/claudebox /script <prompt>` or `/claudebox <prompt>`")
+        ack(text="Usage: `/claudebox <prompt>`")
         return
 
     user_name = resolve_user_name(client, user)
-    cmd_type, data = parse_command(text)
+    msg_type, data = parse_message(text)
 
-    if cmd_type == "reply-hash":
+    if msg_type == "reply-hash":
         log_hash, message = data
         session = find_session_by_hash(log_hash)
         if not session or not session.get("claude_session_id"):
@@ -368,18 +325,10 @@ def handle_claudebox(ack, command, client):
             return
         ack(text=f"ClaudeBox replying to session `{log_hash[:8]}...`: _{truncate(message)}_")
         start_reply_session(client, channel, None, message, session, user_name)
-    elif cmd_type == "script":
-        script_name, prompt = data
-        ack(text=f"ClaudeBox starting `/{script_name}`: _{truncate(prompt)}_")
-        start_new_session(client, channel, None, script_name, prompt, "", user_name)
-    elif cmd_type == "unknown-script":
-        available = list_available_scripts()
-        ack(text=f"Unknown script `/{data}`. Available: {', '.join(f'`/{s}`' for s in sorted(available))}")
-        return
     else:
-        prompt = data if cmd_type == "freeform" else f"{data[0]} {data[1]}"
+        prompt = data
         ack(text=f"ClaudeBox starting: _{truncate(prompt)}_")
-        start_new_session(client, channel, None, DEFAULT_SCRIPT, prompt, "", user_name)
+        start_new_session(client, channel, None, prompt, "", user_name)
 
 
 if __name__ == "__main__":
