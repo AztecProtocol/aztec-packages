@@ -15,6 +15,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[1]}")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR" && git rev-parse --show-toplevel)"
 script_name="$(basename "${BASH_SOURCE[1]}")"
 
 # ── Parse args: first non-flag arg is user prompt, rest are flags ──
@@ -35,7 +36,7 @@ fi
 
 # ── Build full prompt ──────────────────────────────────────────────
 prompt=""
-common="$SCRIPT_DIR/common.md"
+common="$REPO_DIR/.claude/scripts/common.md"
 [ -f "$common" ] && prompt="$(cat "$common")
 
 ---
@@ -50,4 +51,4 @@ User request: $user_prompt"
 fi
 
 # ── Call entrypoint ────────────────────────────────────────────────
-printf '%s' "$prompt" | exec "$SCRIPT_DIR/../claudebox/entrypoint.sh" "$script_name" "${flags[@]}"
+printf '%s' "$prompt" | "$REPO_DIR/.claude/claudebox/entrypoint.sh" "$script_name" "${flags[@]+"${flags[@]}"}"

@@ -40,7 +40,7 @@ function logInfo(msg: string) {
   console.log(`${C}[stream]${X} ${msg}`);
 }
 
-function trunc(s: string, n = 500): string {
+function trunc(s: string, n = 2000): string {
   return s.length <= n ? s : s.slice(0, n) + ` ...(${s.length - n} more)`;
 }
 
@@ -121,7 +121,7 @@ function printEntry(d: any) {
           }
           const color = err ? R : G;
           const label = err ? "ERROR" : "RESULT";
-          const disp = trunc(res, 800).replace(/\n/g, "\n    ");
+          const disp = trunc(res, 4000).replace(/\n/g, "\n    ");
           console.log(`${p}  ${color}${label}${X} ${GR}(${tid})${X}`);
           if (disp.trim()) console.log(`    ${disp}`);
         } else if (item.type === "text") {

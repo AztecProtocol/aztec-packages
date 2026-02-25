@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SCHEDULE: 60  (run every 60 minutes)
 #
-# Cron jobs run on a schedule via the cron poller.
+# Cron jobs run on a schedule via GitHub Actions workflow_dispatch.
 # They can also be invoked manually: ./cron/example "optional extra prompt"
 
 read -r -d '' TEMPLATE <<'EOF' || true

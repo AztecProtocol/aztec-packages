@@ -79,6 +79,19 @@ def extract_hash_from_url(text):
     return m.group(1) if m else None
 
 
+def list_available_scripts():
+    """List available script names (excludes helpers, directories, extensions)."""
+    try:
+        return [
+            f for f in os.listdir(SCRIPTS_DIR)
+            if os.path.isfile(os.path.join(SCRIPTS_DIR, f))
+            and not f.endswith((".sh", ".py", ".md"))
+            and not f.startswith(".")
+        ]
+    except OSError:
+        return []
+
+
 # ── Command parsing ──────────────────────────────────────────────
 
 def parse_command(text):
@@ -164,20 +177,21 @@ def truncate(text, max_len=80):
 
 
 def spawn_entrypoint(cmd, stdin_text):
-    """Run entrypoint and log results."""
+    """Run entrypoint without buffering output (avoids memory bomb on long sessions)."""
     print(f"[RUN] Spawning: {' '.join(cmd)}", flush=True)
-    result = subprocess.run(
+    proc = subprocess.Popen(
         cmd,
-        input=stdin_text,
+        stdin=subprocess.PIPE,
+        stdout=None,  # inherit parent stdout
+        stderr=None,  # inherit parent stderr
         text=True,
-        capture_output=True,
         env={**os.environ, "CLAUDECODE": ""},
     )
-    print(f"[RUN] Exit code: {result.returncode}", flush=True)
-    if result.stdout:
-        print(f"[RUN] stdout (last 500): {result.stdout[-500:]}", flush=True)
-    if result.stderr:
-        print(f"[RUN] stderr (last 500): {result.stderr[-500:]}", flush=True)
+    if stdin_text:
+        proc.stdin.write(stdin_text)
+    proc.stdin.close()
+    proc.wait()
+    print(f"[RUN] Exit code: {proc.returncode}", flush=True)
 
 
 def start_new_session(client, channel, thread_ts, script_name, prompt, thread_context, user_name=""):
@@ -313,7 +327,7 @@ def handle_mention(event, client, say):
         return
 
     if cmd_type == "unknown-script":
-        available = [f for f in os.listdir(SCRIPTS_DIR) if not f.endswith(".py") and not f.endswith(".md")]
+        available = list_available_scripts()
         say(text=f"Unknown script `/{data}`. Available: {', '.join(f'`/{s}`' for s in sorted(available))}", thread_ts=thread_ts)
         return
 
@@ -346,12 +360,20 @@ def handle_claudebox(ack, command, client):
     user_name = resolve_user_name(client, user)
     cmd_type, data = parse_command(text)
 
-    if cmd_type == "script":
+    if cmd_type == "reply-hash":
+        log_hash, message = data
+        session = find_session_by_hash(log_hash)
+        if not session or not session.get("claude_session_id"):
+            ack(text=f"Session `{log_hash}` not found or has no Claude session ID.")
+            return
+        ack(text=f"ClaudeBox replying to session `{log_hash[:8]}...`: _{truncate(message)}_")
+        start_reply_session(client, channel, None, message, session, user_name)
+    elif cmd_type == "script":
         script_name, prompt = data
         ack(text=f"ClaudeBox starting `/{script_name}`: _{truncate(prompt)}_")
         start_new_session(client, channel, None, script_name, prompt, "", user_name)
     elif cmd_type == "unknown-script":
-        available = [f for f in os.listdir(SCRIPTS_DIR) if not f.endswith(".py") and not f.endswith(".md")]
+        available = list_available_scripts()
         ack(text=f"Unknown script `/{data}`. Available: {', '.join(f'`/{s}`' for s in sorted(available))}")
         return
     else:

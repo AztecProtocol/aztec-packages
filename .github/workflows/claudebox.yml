@@ -132,14 +132,21 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           AUTHOR: ${{ github.event.comment.user.login || github.actor }}
         run: |
-          FLAGS="--user=${AUTHOR}"
-          [ -n "$COMMENT_ID" ] && FLAGS="$FLAGS --comment-id=${COMMENT_ID}"
-          [ -n "$RUN_COMMENT_ID" ] && FLAGS="$FLAGS --run-comment-id=${RUN_COMMENT_ID}"
-          [ -n "$REPO" ] && FLAGS="$FLAGS --repo=${REPO}"
-          [ -n "$RUN_URL" ] && FLAGS="$FLAGS --run-url=${RUN_URL}"
-          [ -n "$CLAUDEBOX_LINK" ] && FLAGS="$FLAGS --link=${CLAUDEBOX_LINK}"
+          # Build flags array — values are safe (GH context, no user-controlled content in flag values)
+          FLAGS=("--user=${AUTHOR}")
+          [ -n "$COMMENT_ID" ] && FLAGS+=("--comment-id=${COMMENT_ID}")
+          [ -n "$RUN_COMMENT_ID" ] && FLAGS+=("--run-comment-id=${RUN_COMMENT_ID}")
+          [ -n "$REPO" ] && FLAGS+=("--repo=${REPO}")
+          [ -n "$RUN_URL" ] && FLAGS+=("--run-url=${RUN_URL}")
+          [ -n "$CLAUDEBOX_LINK" ] && FLAGS+=("--link=${CLAUDEBOX_LINK}")
+
+          # Build a properly quoted remote command
+          REMOTE_CMD="~/claudeentry.sh '${CLAUDEBOX_SCRIPT}'"
+          for flag in "${FLAGS[@]}"; do
+            REMOTE_CMD="$REMOTE_CMD '${flag}'"
+          done
 
           printf '%s' "$CLAUDEBOX_PROMPT" | \
             ssh -o ConnectTimeout=10 -o ServerAliveInterval=30 \
               "${CLAUDEBOX_USER}@${CLAUDEBOX_HOST}" \
-              "~/claudeentry.sh '${CLAUDEBOX_SCRIPT}' $FLAGS"
+              "$REMOTE_CMD"

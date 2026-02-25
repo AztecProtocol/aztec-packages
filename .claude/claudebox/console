@@ -8,6 +8,7 @@ Usage: ./console [--watch]
 import json
 import glob
 import os
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -78,11 +79,31 @@ def status_color(status):
     return RED
 
 
+def check_slack_listener():
+    """Check if the slack listener process is running."""
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "slack-listener.py"],
+            capture_output=True, text=True
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
 def render(sessions):
     """Render the console output."""
     lines = []
     lines.append(f"\n{BOLD}ClaudeBox Console{RESET}")
     lines.append(f"{DIM}{'─' * 120}{RESET}")
+
+    # Slack listener status
+    slack_running = check_slack_listener()
+    if slack_running:
+        lines.append(f"  Slack listener: {GREEN}running{RESET}")
+    else:
+        lines.append(f"  Slack listener: {RED}not running{RESET}")
+    lines.append("")
 
     if not sessions:
         lines.append("  No sessions found.")
