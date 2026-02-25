@@ -413,14 +413,14 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
     // Construct the prover instance for circuit
     std::shared_ptr<ProverInstance> prover_instance = std::make_shared<ProverInstance>(circuit);
 
+#ifndef NDEBUG
+    debug_incoming_circuit(circuit, prover_instance, precomputed_vk);
+#endif
+
     // Free circuit block memory (wires and selectors) now that they've been copied to prover polynomials
     for (auto& block : circuit.blocks.get()) {
         block.free_data();
     }
-
-#ifndef NDEBUG
-    debug_incoming_circuit(circuit, prover_instance, precomputed_vk);
-#endif
 
     // We're accumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
     // verifiers for all the entries previously present in the verification queue) and if it's not the first accumulate
