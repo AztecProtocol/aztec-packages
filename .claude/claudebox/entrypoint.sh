@@ -225,9 +225,9 @@ printf '%s' "$PROMPT" > "$PROMPT_FILE"
 RUNNER_SCRIPT="/tmp/claudebox-run-$$.sh"
 cat > "$RUNNER_SCRIPT" <<RUNEOF
 #!/usr/bin/env bash
+export PATH="$PATH"
 set -uo pipefail
 PROMPT=\$(cat "$PROMPT_FILE")
-CLAUDE_EXIT=0
 claude --print --worktree "$WORKTREE_NAME" $DANGEROUS_FLAGS -p "\$PROMPT"
 CLAUDE_EXIT=\$?
 echo "\$CLAUDE_EXIT" > "$EXIT_FILE"
@@ -237,6 +237,7 @@ RUNEOF
 RUNNER_SCRIPT_CACHELOG="/tmp/claudebox-run-cachelog-$$.sh"
 cat > "$RUNNER_SCRIPT_CACHELOG" <<RUNEOF
 #!/usr/bin/env bash
+export PATH="$PATH"
 set -uo pipefail
 PROMPT=\$(cat "$PROMPT_FILE")
 claude --print --worktree "$WORKTREE_NAME" $DANGEROUS_FLAGS -p "\$PROMPT" 2>&1 | DUP=1 "$REPO_DIR/ci3/cache_log" "claudebox-$SCRIPT_NAME" "$LOG_ID"
