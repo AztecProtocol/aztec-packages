@@ -8,7 +8,9 @@ export BB=${BB:-$repo_root/barretenberg/cpp/build/bin/bb}
 hash=$(../bootstrap.sh hash)
 
 function test_cmds {
-  echo "$hash:ISOLATE=1:NAME=aztec/src/cli/cmds/compile.test.ts NARGO=$NARGO BB=$BB yarn-project/scripts/run_test.sh aztec/src/cli/cmds/compile.test.ts"
+  for test in src/cli/**/*.test.ts; do
+    echo "$hash:ISOLATE=1:NAME=aztec/$test NARGO=$NARGO BB=$BB yarn-project/scripts/run_test.sh aztec/$test"
+  done
 }
 
 case "$cmd" in
