@@ -1,13 +1,16 @@
 #include "barretenberg/vm2/tracegen/written_public_data_slots_tree_check_trace.hpp"
 
-#include <memory>
-
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_written_public_data_slots_tree_check.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
+/**
+ * @brief Process the written public data slots tree check events and populate the relevant columns in the trace.
+ * @param events The container of written public data slots tree check events from simulation.
+ * @param trace The trace container to populate.
+ */
 void WrittenPublicDataSlotsTreeCheckTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::WrittenPublicDataSlotsTreeCheckEvent>::Container& events,
     TraceContainer& trace)

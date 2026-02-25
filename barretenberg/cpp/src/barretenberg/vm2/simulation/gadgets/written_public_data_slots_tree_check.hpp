@@ -1,14 +1,16 @@
 #pragma once
 
+#include <cstdint>
 #include <stack>
+#include <utility>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/written_public_data_slot_tree_check_event.hpp"
-#include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
-#include "barretenberg/vm2/simulation/gadgets/merkle_check.hpp"
-#include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
-#include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/interfaces/field_gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/merkle_check.hpp"
+#include "barretenberg/vm2/simulation/interfaces/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/interfaces/written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/simulation/lib/written_slots_tree.hpp"
 

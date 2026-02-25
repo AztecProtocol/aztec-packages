@@ -1,16 +1,30 @@
 #include "barretenberg/vm2/simulation/gadgets/written_public_data_slots_tree_check.hpp"
 
+#include <optional>
+
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/vm2/simulation/interfaces/db.hpp"
-#include "barretenberg/vm2/simulation/lib/merkle.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 
 namespace bb::avm2::simulation {
 
+/**
+ * @brief Compute the leaf slot by hashing the contract address and storage slot with a domain separator.
+ * @param contract_address The contract address.
+ * @param slot The storage slot.
+ * @return The computed leaf slot hash.
+ */
 FF WrittenPublicDataSlotsTreeCheck::compute_leaf_slot(const AztecAddress& contract_address, const FF& slot)
 {
     return poseidon2.hash({ DOM_SEP__PUBLIC_LEAF_SLOT, contract_address, slot });
 }
 
+/**
+ * @brief Validate that the low leaf's slot range properly "jumps over" the target leaf slot.
+ * @param low_leaf_preimage The preimage of the low leaf in the indexed tree.
+ * @param leaf_slot The target leaf slot that must fall between the low leaf's slot and its next key.
+ * @throws std::runtime_error If the low leaf slot is GTE the leaf slot.
+ * @throws std::runtime_error If the leaf slot is GTE the low leaf's next slot (when next key is non-zero).
+ */
 void WrittenPublicDataSlotsTreeCheck::validate_low_leaf_jumps_over_slot(
     const WrittenPublicDataSlotsTreeLeafPreimage& low_leaf_preimage, const FF& leaf_slot)
 {
@@ -22,6 +36,13 @@ void WrittenPublicDataSlotsTreeCheck::validate_low_leaf_jumps_over_slot(
     }
 }
 
+/**
+ * @brief Check whether the given contract address and slot pair already exists in the written public data slots tree.
+ * @param contract_address The contract address.
+ * @param slot The storage slot.
+ * @return True if the slot already exists in the tree, false otherwise.
+ * @throws std::runtime_error If the low leaf membership check fails or low leaf validation fails.
+ */
 bool WrittenPublicDataSlotsTreeCheck::contains(const AztecAddress& contract_address, const FF& slot)
 {
     FF leaf_slot = compute_leaf_slot(contract_address, slot);
@@ -58,6 +79,16 @@ bool WrittenPublicDataSlotsTreeCheck::contains(const AztecAddress& contract_addr
     return exists;
 }
 
+/**
+ * @brief Insert a contract address and slot pair into the written public data slots tree.
+ *
+ * If the slot already exists, only a membership check is performed. Otherwise, the low leaf is updated to point
+ * to the new leaf, and the new leaf is appended to the tree.
+ *
+ * @param contract_address The contract address.
+ * @param slot The storage slot.
+ * @throws std::runtime_error If membership or low leaf validation fails.
+ */
 void WrittenPublicDataSlotsTreeCheck::insert(const AztecAddress& contract_address, const FF& slot)
 {
     FF leaf_slot = compute_leaf_slot(contract_address, slot);
@@ -123,11 +154,19 @@ void WrittenPublicDataSlotsTreeCheck::insert(const AztecAddress& contract_addres
     });
 }
 
+/**
+ * @brief Get the current snapshot (root and next available leaf index) of the tree.
+ * @return The current append-only tree snapshot.
+ */
 AppendOnlyTreeSnapshot WrittenPublicDataSlotsTreeCheck::get_snapshot() const
 {
     return written_public_data_slots_tree_stack.top().get_snapshot();
 }
 
+/**
+ * @brief Get the number of written public data slots in the tree (excluding the prefill leaf at index 0).
+ * @return The number of inserted slots.
+ */
 uint32_t WrittenPublicDataSlotsTreeCheck::size() const
 {
     // -1 Since the tree has a prefill leaf at index 0.
@@ -135,20 +174,28 @@ uint32_t WrittenPublicDataSlotsTreeCheck::size() const
            1;
 }
 
+/**
+ * @brief Create a checkpoint by pushing a copy of the current tree state onto the stack.
+ */
 void WrittenPublicDataSlotsTreeCheck::create_checkpoint()
 {
     WrittenPublicDataSlotsTree current_tree = written_public_data_slots_tree_stack.top();
     written_public_data_slots_tree_stack.push(current_tree);
 }
 
+/**
+ * @brief Commit the current checkpoint by replacing the previous tree state with the current one.
+ */
 void WrittenPublicDataSlotsTreeCheck::commit_checkpoint()
 {
-    // Commit the current top of the stack down one level.
     WrittenPublicDataSlotsTree current_tree = std::move(written_public_data_slots_tree_stack.top());
     written_public_data_slots_tree_stack.pop();
     written_public_data_slots_tree_stack.top() = std::move(current_tree);
 }
 
+/**
+ * @brief Revert the current checkpoint by popping the top of the tree stack, restoring the previous state.
+ */
 void WrittenPublicDataSlotsTreeCheck::revert_checkpoint()
 {
     written_public_data_slots_tree_stack.pop();
