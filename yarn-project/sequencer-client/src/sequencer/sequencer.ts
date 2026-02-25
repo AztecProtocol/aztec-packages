@@ -423,6 +423,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   /**
+   * Returns the current sequencer state.
+   */
+  public getState(): SequencerState {
+    return this.state;
+  }
+
+  /**
    * Internal helper for setting the sequencer state and checks if we have enough time left in the slot to transition to the new state.
    * @param proposedState - The new state to transition to.
    * @param slotNumber - The current slot number.

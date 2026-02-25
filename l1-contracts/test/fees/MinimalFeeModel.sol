@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {TestConstants} from "../harnesses/TestConstants.sol";
 import {
   FeeLib,
   FeeHeaderLib,
@@ -55,7 +56,7 @@ contract MinimalFeeModel {
   uint256 internal constant BLOB_GAS_PER_BLOB = 2 ** 17;
   uint256 internal constant GAS_PER_BLOB_POINT_EVALUATION = 50_000;
 
-  uint256 internal constant MANA_TARGET = 100_000_000;
+  uint256 internal constant MANA_TARGET = TestConstants.AZTEC_MANA_TARGET;
 
   Slot public constant LIFETIME = Slot.wrap(5);
   Slot public constant LAG = Slot.wrap(2);

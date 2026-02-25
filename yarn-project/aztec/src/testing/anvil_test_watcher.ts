@@ -31,6 +31,15 @@ export class AnvilTestWatcher {
 
   private isMarkingAsProven = true;
 
+  // Optional callback to check if there are pending txs in the mempool.
+  private getPendingTxCount?: () => Promise<number>;
+
+  // Optional callback to check if the sequencer is actively building a block.
+  private isSequencerBuilding?: () => boolean;
+
+  // Tracks when we first observed the current unfilled slot with pending txs (real wall time).
+  private unfilledSlotFirstSeen?: { slot: number; realTime: number };
+
   constructor(
     private cheatcodes: EthCheatCodes,
     rollupAddress: EthAddress,
@@ -57,6 +66,16 @@ export class AnvilTestWatcher {
 
   setisLocalNetwork(isLocalNetwork: boolean) {
     this.isLocalNetwork = isLocalNetwork;
+  }
+
+  /** Sets a callback to check for pending txs, used to skip unfilled slots faster when txs are waiting. */
+  setGetPendingTxCount(fn: () => Promise<number>) {
+    this.getPendingTxCount = fn;
+  }
+
+  /** Sets a callback to check if the sequencer is actively building, to avoid warping while it works. */
+  setIsSequencerBuilding(fn: () => boolean) {
+    this.isSequencerBuilding = fn;
   }
 
   async start() {
@@ -131,15 +150,8 @@ export class AnvilTestWatcher {
       const nextSlotTimestamp = Number(await this.rollup.read.getTimestampForSlot([BigInt(nextSlot)]));
 
       if (BigInt(currentSlot) === checkpointLog.slotNumber) {
-        // We should jump to the next slot
-        try {
-          await this.cheatcodes.warp(nextSlotTimestamp, {
-            resetBlockInterval: true,
-          });
-        } catch (e) {
-          this.logger.error(`Failed to warp to timestamp ${nextSlotTimestamp}: ${e}`);
-        }
-
+        // The current slot has been filled, we should jump to the next slot.
+        await this.warpToTimestamp(nextSlotTimestamp);
         this.logger.info(`Slot ${currentSlot} was filled, jumped to next slot`);
         return;
       }
@@ -149,18 +161,50 @@ export class AnvilTestWatcher {
         return;
       }
 
+      // If there are pending txs and the sequencer missed them, warp quickly (after a 2s real-time debounce) so the
+      // sequencer can retry in the next slot. Without this, we'd have to wait a full real-time slot duration (~36s) for
+      // the dateProvider to catch up to the next slot timestamp. We skip the warp if the sequencer is actively building
+      // to avoid invalidating its in-progress work.
+      if (this.getPendingTxCount) {
+        const pendingTxs = await this.getPendingTxCount();
+        if (pendingTxs > 0) {
+          if (this.isSequencerBuilding?.()) {
+            this.unfilledSlotFirstSeen = undefined;
+            return;
+          }
+
+          const realNow = Date.now();
+          if (!this.unfilledSlotFirstSeen || this.unfilledSlotFirstSeen.slot !== currentSlot) {
+            this.unfilledSlotFirstSeen = { slot: currentSlot, realTime: realNow };
+            return;
+          }
+
+          if (realNow - this.unfilledSlotFirstSeen.realTime > 2000) {
+            await this.warpToTimestamp(nextSlotTimestamp);
+            this.unfilledSlotFirstSeen = undefined;
+            this.logger.info(`Slot ${currentSlot} was missed with pending txs, jumped to next slot`);
+          }
+
+          return;
+        }
+      }
+
+      // Fallback: warp when the dateProvider time has passed the next slot timestamp.
       const currentTimestamp = this.dateProvider?.now() ?? Date.now();
       if (currentTimestamp > nextSlotTimestamp * 1000) {
-        try {
-          await this.cheatcodes.warp(nextSlotTimestamp, { resetBlockInterval: true });
-        } catch (e) {
-          this.logger.error(`Failed to warp to timestamp ${nextSlotTimestamp}: ${e}`);
-        }
-
+        await this.warpToTimestamp(nextSlotTimestamp);
         this.logger.info(`Slot ${currentSlot} was missed, jumped to next slot`);
       }
     } catch {
       this.logger.error('mineIfSlotFilled failed');
+    }
+  }
+
+  private async warpToTimestamp(timestamp: number) {
+    try {
+      await this.cheatcodes.warp(timestamp, { resetBlockInterval: true });
+    } catch (e) {
+      this.logger.error(`Failed to warp to timestamp ${timestamp}: ${e}`);
     }
   }
 }

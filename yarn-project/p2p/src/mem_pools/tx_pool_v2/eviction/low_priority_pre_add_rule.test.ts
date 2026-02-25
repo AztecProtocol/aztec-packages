@@ -1,4 +1,4 @@
-import { type TxMetaData, comparePriority, stubTxMetaValidationData } from '../tx_metadata.js';
+import { type TxMetaData, comparePriority, stubTxMetaData } from '../tx_metadata.js';
 import { type PreAddContext, type PreAddPoolAccess, TxPoolRejectionCode } from './interfaces.js';
 import { LowPriorityPreAddRule } from './low_priority_pre_add_rule.js';
 
@@ -6,19 +6,7 @@ describe('LowPriorityPreAddRule', () => {
   let rule: LowPriorityPreAddRule;
 
   // Helper to create TxMetaData for testing
-  const createMeta = (txHash: string, priorityFee: bigint): TxMetaData => ({
-    txHash,
-    anchorBlockHeaderHash: '0x1234',
-    priorityFee,
-    feePayer: '0xfeepayer',
-    claimAmount: 0n,
-    feeLimit: 100n,
-    nullifiers: [`0x${txHash.slice(2)}null1`],
-    expirationTimestamp: 0n,
-    receivedAt: 0,
-    estimatedSizeBytes: 0,
-    data: stubTxMetaValidationData(),
-  });
+  const createMeta = (txHash: string, priorityFee: bigint) => stubTxMetaData(txHash, { priorityFee });
 
   // Mock pool access with configurable behavior
   const createPoolAccess = (pendingCount: number, lowestPriorityTx?: TxMetaData): PreAddPoolAccess => ({
@@ -88,7 +76,7 @@ describe('LowPriorityPreAddRule', () => {
         const result = await rule.check(incomingMeta, poolAccess);
 
         expect(result.shouldIgnore).toBe(false);
-        expect(result.txHashesToEvict).toContain('0x2222');
+        expect(result.txHashesToEvict).toContain(lowestPriorityMeta.txHash);
         expect(result.txHashesToEvict).toHaveLength(1);
       });
 
@@ -199,12 +187,12 @@ describe('LowPriorityPreAddRule', () => {
         // Without feeOnly
         const result1 = await rule.check(incomingMeta, poolAccess);
         expect(result1.shouldIgnore).toBe(false);
-        expect(result1.txHashesToEvict).toContain('0x2222');
+        expect(result1.txHashesToEvict).toContain(lowestPriorityMeta.txHash);
 
         // With feeOnly
         const result2 = await rule.check(incomingMeta, poolAccess, { feeComparisonOnly: true });
         expect(result2.shouldIgnore).toBe(false);
-        expect(result2.txHashesToEvict).toContain('0x2222');
+        expect(result2.txHashesToEvict).toContain(lowestPriorityMeta.txHash);
       });
 
       it('lower fee is always ignored regardless of feeOnly flag', async () => {
