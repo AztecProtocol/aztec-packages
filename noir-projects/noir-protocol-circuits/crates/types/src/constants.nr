@@ -1091,7 +1091,7 @@ pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One range check
 
 // Base L2 GAS
 // Based on simulation time metrics
-pub global L2_GAS_PER_NOTE_HASH: u32 = 2700;
+pub global L2_GAS_PER_NOTE_HASH: u32 = 9200; // Bounded by long term storage requirements.
 pub global L2_GAS_PER_NULLIFIER: u32 = 16000;
 pub global L2_GAS_PER_L2_TO_L1_MSG: u32 = 5200;
 pub global L2_GAS_PER_PRIVATE_LOG: u32 = 2500;
