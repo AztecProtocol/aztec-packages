@@ -28,6 +28,22 @@ Audit for control flow bugs across documentation, simulation, tracegen, and PIL 
 - **Medium**: Off-by-one in PC calculation
 - **Low**: Documentation differs but execution correct
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report bugs.
+
+**RULE 1 — Report first, dismiss later.** Every discrepancy between spec/docs and implementation is a PRELIMINARY FINDING. Report ALL of them first, then only remove in a final filtering pass using the strict criteria below.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss a finding if:
+  - (a) **Spec explicitly documents the behavior**: The spec/docs explicitly state this behavior is intentional (quote the exact spec text).
+  - (b) **Equivalent by algebraic identity**: The PIL and tracegen compute the same value via different but provably equivalent formulas (show the algebraic equivalence concretely).
+  - (c) **Dead code**: The code path is provably unreachable because a prior constraint makes the condition impossible (quote the blocking constraint with file:line).
+  You MUST NOT construct novel "it's probably fine because..." arguments.
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote the EXACT evidence (spec text, constraint file:line, or algebraic proof). If you cannot quote specific evidence, REPORT.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**. Only downgrade with quoted evidence proving limited impact.
+
 ## Background: Control Flow in AVM
 
 ### Program Counter (PC)
@@ -95,6 +111,29 @@ barretenberg/cpp/pil/vm2/execution/pc.pil        # PC constraints
 | INTERNALRETURN | PC' = pop() | Same | Pop | stack underflow |
 
 ## Workflow
+
+### Step 0: Enumerate ALL Control Flow Opcodes (MANDATORY)
+
+> **CRITICAL**: Before analyzing any individual opcode, enumerate ALL control flow opcodes.
+
+```bash
+# Find all control flow opcodes in documentation
+ls yarn-project/simulator/docs/avm/opcodes/{jump,jumpi,call,staticcall,return,revert,internalcall,internalreturn}.md
+
+# Find all PC-modifying opcodes in simulation
+grep -n "set_pc\|next_pc\|jump\|call\|return\|revert" src/barretenberg/vm2/simulation/gadgets/execution.cpp | head -30
+
+# Find all control flow PIL files
+ls pil/vm2/opcodes/{jump,jumpi,call,staticcall,return,revert,internal}*.pil 2>/dev/null
+grep -rl "next_pc\|sel_enter_call\|sel_exit_call" pil/vm2/ --include="*.pil"
+```
+
+Build a master checklist:
+
+| Opcode | PC update | Context change | Stack op | Checked? | Finding? |
+|--------|-----------|---------------|----------|----------|----------|
+
+**You MUST check every control flow opcode.** Cover ALL opcodes in the table above before deep-diving any single one.
 
 ### Step 1: Select Target Opcode
 ```bash

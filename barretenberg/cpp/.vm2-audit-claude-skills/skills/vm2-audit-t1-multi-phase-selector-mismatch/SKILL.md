@@ -10,6 +10,21 @@ version: 1.0.0
 ## Purpose
 Detect selector mismatches in multi-row computations where using the wrong phase selector causes lookups/constraints to fire on wrong rows.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report vulnerabilities.
+
+**RULE 1 — Report first, dismiss later.** Every lookup/permutation in a multi-phase gadget is a PRELIMINARY CANDIDATE. If the selector doesn't obviously match the phase that produces the data, add it as a preliminary finding. Only remove in a final pass.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss a finding if:
+  - (a) **Selector matches data phase**: The selector fires exactly on the rows where the data is produced/finalized (quote the selector definition and the data production constraint showing they align).
+  - (b) **Multiplicity is intentionally many-to-one**: The lookup is into a precomputed/range-check table where firing multiple times is correct by design (quote the destination).
+  You MUST NOT construct novel "it works because..." arguments.
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote BOTH the selector definition (showing which rows it activates) AND the data production point (showing which rows produce valid data). If you cannot quote both, REPORT.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**. Only downgrade with evidence that the multiplicity mismatch cannot cause incorrect results.
+
 ## The Problem
 
 Multi-row gadgets (SHA256, Poseidon2, bytecode hashing) have phases:

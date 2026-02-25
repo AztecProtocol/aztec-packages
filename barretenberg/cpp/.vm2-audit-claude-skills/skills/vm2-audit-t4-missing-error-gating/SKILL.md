@@ -10,6 +10,21 @@ version: 1.0.0
 ## Purpose
 Detect ungated interaction source selectors that fire during error states, causing lookup/permutation failures when destination events weren't emitted.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every interaction source selector that fires during error states is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Error gating exists**: The selector includes `(1 - sel_opcode_error)` or equivalent (quote with file:line).
+  - (b) **Interaction is intentional during errors**: The design requires this interaction to fire even in error states (quote design rationale with specific context).
+  - (c) **Selector is derived with error exclusion**: `pol SEL = sel * (1 - err)` (quote the derivation).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## When to Use
 - Auditing PIL files for completeness issues
 - Investigating lookup/permutation failures in error paths

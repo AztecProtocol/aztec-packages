@@ -26,6 +26,22 @@ Audit for missing or inconsistent input operand type tag validation across docum
 - **Medium**: Tracegen/PIL tag check without documentation
 - **Low**: Documentation unclear, implementation correct
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report bugs.
+
+**RULE 1 — Report first, dismiss later.** Every discrepancy between spec/docs and implementation is a PRELIMINARY FINDING. Report ALL of them first, then only remove in a final filtering pass using the strict criteria below.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss a finding if:
+  - (a) **Spec explicitly documents the behavior**: The spec/docs explicitly state this behavior is intentional (quote the exact spec text).
+  - (b) **Equivalent by algebraic identity**: The PIL and tracegen compute the same value via different but provably equivalent formulas (show the algebraic equivalence concretely).
+  - (c) **Dead code**: The code path is provably unreachable because a prior constraint makes the condition impossible (quote the blocking constraint with file:line).
+  You MUST NOT construct novel "it's probably fine because..." arguments.
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote the EXACT evidence (spec text, constraint file:line, or algebraic proof). If you cannot quote specific evidence, REPORT.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**. Only downgrade with quoted evidence proving limited impact.
+
 ## Background: Tag System
 
 The AVM uses type tags to distinguish value types:
@@ -88,6 +104,30 @@ Some operations require non-FIELD integer types.
 **PIL**: Tag constraint excluding FF
 
 ## Workflow
+
+### Step 0: Enumerate ALL Opcodes With Tag Checks (MANDATORY)
+
+> **CRITICAL**: Before analyzing any individual opcode, identify ALL opcodes that have tag requirements.
+
+```bash
+# Find all documented opcodes with Tag Checks sections
+for f in yarn-project/simulator/docs/avm/opcodes/*.md; do
+  if grep -q "Tag Checks\|Tag Check" "$f"; then echo "$f"; fi
+done
+
+# Find all opcodes with expected tags in instruction spec
+grep -n "add_input(ValueTag\|add_input()" src/barretenberg/vm2/common/instruction_spec.cpp | head -40
+
+# Find all tag-related PIL constraints
+grep -n "expected_tag\|sel_tag_check\|tag_mismatch" pil/vm2/execution/registers.pil pil/vm2/alu.pil
+```
+
+Build a master checklist:
+
+| Opcode | Doc tag requirement | Sim tag check? | PIL checked? | Finding? |
+|--------|-------------------|---------------|-------------|----------|
+
+**You MUST check every opcode with tag requirements.** Breadth across all opcodes is more important than depth on any single one.
 
 ### Step 1: Select Target Opcode(s)
 ```bash

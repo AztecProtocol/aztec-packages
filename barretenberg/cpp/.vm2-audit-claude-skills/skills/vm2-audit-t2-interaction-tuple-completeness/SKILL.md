@@ -55,7 +55,42 @@ Missing columns that don't directly enable any exploit:
 2. **Do NOT assume padding or round-count constraints substitute for input-length constraints.** A prover can often adjust padding to maintain a valid round count while using a completely different input length, changing the IV/domain separator.
 3. **Do NOT treat hash-input-controlling columns as "informational."** Columns like input length that feed into IV computation are *cryptographic semantics columns*, not bookkeeping.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every interaction tuple that might be missing a column needed for soundness is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Missing column is constrained independently**: The column is forced to a unique value by other constraints in the destination (quote the constraining constraint with file:line).
+  - (b) **Column is irrelevant to soundness**: The column is purely informational and its value doesn't affect any constraint (explain with quoted evidence).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## Workflow
+
+### 0. Enumerate ALL Interactions Across ALL PIL Files (MANDATORY)
+
+> **CRITICAL**: Before analyzing any individual interaction, enumerate ALL interactions across the entire codebase.
+
+```bash
+# Find ALL interactions in ALL PIL files
+grep -rn "} in \|} is " pil/vm2/ --include="*.pil" | sort
+
+# Count interactions per file
+for f in $(grep -rl "} in \|} is " pil/vm2/ --include="*.pil"); do
+  echo "=== $f ==="; grep -c "} in \|} is " "$f"
+done
+```
+
+Build a master checklist:
+
+| File | Line | Interaction Name | Type (lookup/permutation) | Checked? | Finding? |
+|------|------|-----------------|--------------------------|----------|----------|
+
+**You MUST check every interaction.** Breadth across all files is more important than depth on any single file.
 
 ### 1. Find All Interactions
 ```bash

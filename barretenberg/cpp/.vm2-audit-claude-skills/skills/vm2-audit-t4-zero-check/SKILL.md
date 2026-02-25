@@ -10,6 +10,20 @@ version: 1.0.0
 ## Purpose
 Detect incorrectly implemented zero-check patterns (`e = 1 iff x = 0`) that enable division-by-zero bypass, fake equality claims, and conditional logic manipulation.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every zero-check pattern (`e = 1 iff x = 0`) where `e` lacks a boolean constraint is a PRELIMINARY FINDING. Every place where `inv` is used without proper zero-check setup is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Complete zero-check exists**: Both the algebraic equation AND `e * (1 - e) = 0` are present (quote both with file:line).
+  - (b) **Inverse is correctly constrained**: The inverse variable satisfies `x * inv = 1 - e` AND `e * x = 0` or equivalent (quote both constraints).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## Severity
 - **Soundness** (prover exploits): Critical/High based on exploitability
 - **Completeness** (honest prover fails): Low to Critical based on reachability
@@ -35,6 +49,20 @@ x * (e * (1 - inv) + inv) - 1 + e = 0;
 **Variants**: Equality (`a == b`) uses `diff = a - b`. Division-by-zero uses divisor. Same pattern.
 
 ## Workflow
+
+### Step 0: Enumerate ALL PIL Files With Zero-Check Patterns (MANDATORY)
+
+> **CRITICAL**: Before deep-diving any single file, enumerate ALL files with inverse or indicator columns.
+
+```bash
+# Find all files with inverse/indicator patterns
+grep -rl "inv\|is_zero\|is_eq\|div_by_0\|_eq_" pil/vm2/ --include="*.pil" | sort
+
+# Find all files with the zero-check formula
+grep -rl "(1 - inv)\|inverse" pil/vm2/ --include="*.pil" | sort
+```
+
+Build a master checklist of ALL files with zero-check patterns. You MUST check every one.
 
 ### Step 1: Find Zero-Check Patterns
 ```bash

@@ -9,6 +9,21 @@ version: 1.0.0
 ## Purpose
 Detect missing discard flag gating that allows reverted state to persist (nullifiers, note hashes, L2-to-L1 messages, storage writes).
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every side-effect interaction not gated by `(1 - discard)` is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Discard gating exists**: The interaction selector includes `(1 - discard)` or equivalent (quote with file:line).
+  - (b) **Discard is impossible in context**: The discard flag is provably 0 in this context due to a prior constraint (quote the constraint).
+  - (c) **Side effect is intentionally preserved on revert**: The design requires this operation to persist even when discarded (quote design rationale).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## When to Use
 - Auditing PIL files for discard/revert handling
 - Reviewing side-effect operations (emit, append, write, store)
@@ -23,11 +38,25 @@ Detect missing discard flag gating that allows reverted state to persist (nullif
 
 ## Workflow
 
+### Step 0: Enumerate ALL PIL Files With Side Effects (MANDATORY)
+
+> **CRITICAL**: Before deep-diving any single file, enumerate ALL PIL files that involve side effects or discard handling.
+
+```bash
+# Find all files with side-effect or discard patterns
+grep -rl "discard\|emit\|append\|write\|store\|nullifier\|note_hash\|l2_to_l1" pil/vm2/ --include="*.pil" | sort
+
+# Find all files with interaction tuples (lookups/permutations)
+grep -rl "} in \|} is " pil/vm2/ --include="*.pil" | sort
+```
+
+Build a master checklist of ALL files. You MUST check every file for missing discard gating.
+
 ### Step 1: Identify Side-Effect Operations
 
 ```bash
-grep -n "emit\|append\|write\|store\|nullifier\|note_hash\|l2_to_l1\|log" pil/vm2/*.pil
-grep -n "should_\|sel_emit\|sel_append\|sel_write" pil/vm2/*.pil
+grep -n "emit\|append\|write\|store\|nullifier\|note_hash\|l2_to_l1\|log" pil/vm2/*.pil pil/vm2/**/*.pil
+grep -n "should_\|sel_emit\|sel_append\|sel_write" pil/vm2/*.pil pil/vm2/**/*.pil
 ```
 
 Side effects: note hashes, nullifiers, L2-to-L1 messages, SSTORE, logs, state mods.

@@ -26,6 +26,22 @@ Audit for missing or incorrect output operand tag assignments across documentati
 - **Medium**: Tracegen/PIL doesn't match documented tag update
 - **Low**: Documentation unclear but implementation correct
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report bugs.
+
+**RULE 1 — Report first, dismiss later.** Every discrepancy between spec/docs and implementation is a PRELIMINARY FINDING. Report ALL of them first, then only remove in a final filtering pass using the strict criteria below.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss a finding if:
+  - (a) **Spec explicitly documents the behavior**: The spec/docs explicitly state this behavior is intentional (quote the exact spec text).
+  - (b) **Equivalent by algebraic identity**: The PIL and tracegen compute the same value via different but provably equivalent formulas (show the algebraic equivalence concretely).
+  - (c) **Dead code**: The code path is provably unreachable because a prior constraint makes the condition impossible (quote the blocking constraint with file:line).
+  You MUST NOT construct novel "it's probably fine because..." arguments.
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote the EXACT evidence (spec text, constraint file:line, or algebraic proof). If you cannot quote specific evidence, REPORT.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**. Only downgrade with quoted evidence proving limited impact.
+
 ## Background: Tag Updates
 
 Output tags determine how subsequent operations treat values:

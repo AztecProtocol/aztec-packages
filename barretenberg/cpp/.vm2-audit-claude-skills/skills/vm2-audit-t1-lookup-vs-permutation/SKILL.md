@@ -10,6 +10,21 @@ version: 1.0.0
 ## Purpose
 Detect lookup/permutation misuse in PIL. Lookups (many-to-one) allow duplicate/skipped operations; Permutations (bijection) enforce 1:1 matching required for side effects.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report vulnerabilities.
+
+**RULE 1 — Report first, dismiss later.** Every `} in` (lookup) where the destination involves state or side effects is a PRELIMINARY FINDING. Report ALL of them first, then only remove in a final pass.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss a finding if:
+  - (a) **Destination is a precomputed/range-check table**: The destination is provably read-only with no state mutation (quote the destination namespace and show it's precomputed).
+  - (b) **Lookup is intentionally many-to-one**: The design explicitly requires many sources to map to one destination row, and you can explain why duplicate operations are harmless in this context (quote the specific interaction and explain).
+  You MUST NOT invent novel "it's safe because..." reasoning.
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote the EXACT interaction line and destination file proving it's safe.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**. Only downgrade with evidence the interaction cannot cause duplicate/skipped side effects. Do NOT downgrade to Low or Medium based on vague "likely safe by design" reasoning — if a lookup is used where a permutation is needed, the default is High even if root-chaining provides partial mitigation.
+
 ## When to Use
 - Auditing PIL files for soundness issues
 - Reviewing interactions between VM components
@@ -28,28 +43,56 @@ Completeness bugs reachable via canonical simulation on valid inputs are **Criti
 
 ## Workflow
 
-### Step 1: Find and Classify Interactions
+### Step 1: Exhaustive Interaction Enumeration
+
+> **CRITICAL**: Enumerate ALL interactions across ALL PIL files in one pass. Do not limit to a single component.
+
 ```bash
-grep -n "} in \|} permute " pil/vm2/<component>.pil
+# Find ALL lookups across the entire codebase
+grep -rn "} in " pil/vm2/ --include="*.pil"
+
+# Find ALL permutations across the entire codebase
+grep -rn "} is " pil/vm2/ --include="*.pil"
 ```
+
+Build a complete table of every interaction:
+
+| File:Line | Interaction Name | Type (in/is) | Destination | Side-Effect? |
+|-----------|-----------------|--------------|-------------|-------------|
 
 **Classification Rule:**
 
 | Destination | Correct Interaction |
 |-------------|---------------------|
 | Range check, precomputed constants | Lookup (`in`) |
-| Memory, state trees, emissions, calls | **Permutation** (`permute`) |
+| Memory, state trees, emissions, calls, context stack, dispatch | **Permutation** (`is`) |
+| **Any stack push/pop interaction** | **Permutation** (`is`) — stacks MUST enforce 1:1 correspondence |
 
 ### Step 2: Flag Misuses
-```bash
-# Memory lookups (should be permutations)
-grep -rn "memory\." pil/vm2/ --include="*.pil" | grep "} in "
 
-# Emission lookups
-grep -rn "emit\|nullifier\|note_hash" pil/vm2/ --include="*.pil" | grep "} in "
+From the table above, every `} in` (lookup) where the destination involves state/side-effects is a potential finding:
+
+```bash
+# Quick filter for high-value targets
+grep -rn "memory\.\|emit\|nullifier\|note_hash\|context_stack\|call_stack\|public_data\|tree_check\|stack" pil/vm2/ --include="*.pil" | grep "} in "
 ```
 
-Any `} in ` for memory/emission/call operations is a finding.
+Any `} in ` for memory/emission/call/tree/stack operations is a finding.
+
+**Stack pattern rule**: Any interaction that pushes to or pops from a stack (context stack, call stack, internal call stack) MUST be a permutation. A lookup allows duplicating pushes or skipping pops, breaking stack integrity. Flag ALL stack-related lookups.
+
+### Step 3: Exhaustive File Coverage (MANDATORY)
+
+Enumerate ALL PIL files to ensure no file is missed:
+```bash
+find pil/vm2/ -name "*.pil" | sort
+```
+
+Cross-reference this complete list against the files that appeared in Step 1 grep results. For any file NOT appearing in the grep output, read it and manually check for interactions. Files like `context_stack.pil`, `tx.pil`, and other dispatch/coordination files may use non-standard interaction patterns.
+
+### Step 4: Coverage Assertion (MANDATORY)
+
+At the end, assert: "I examined N total interactions across M files. K were lookups, J were permutations. I flagged F lookups as potential findings." If N < total interactions in codebase, explain which files were not reached.
 
 ## Patterns
 

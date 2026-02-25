@@ -27,6 +27,22 @@ Audit for bytecode encoding mismatches between documentation and implementation.
 - **Medium**: Operand bit position mismatch → wrong operand values
 - **Low**: Documentation unclear but parsing correct
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report bugs.
+
+**RULE 1 — Report first, dismiss later.** Every discrepancy between spec/docs and implementation is a PRELIMINARY FINDING. Report ALL of them first, then only remove in a final filtering pass using the strict criteria below.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss a finding if:
+  - (a) **Spec explicitly documents the behavior**: The spec/docs explicitly state this behavior is intentional (quote the exact spec text).
+  - (b) **Equivalent by algebraic identity**: The PIL and tracegen compute the same value via different but provably equivalent formulas (show the algebraic equivalence concretely).
+  - (c) **Dead code**: The code path is provably unreachable because a prior constraint makes the condition impossible (quote the blocking constraint with file:line).
+  You MUST NOT construct novel "it's probably fine because..." arguments.
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote the EXACT evidence (spec text, constraint file:line, or algebraic proof). If you cannot quote specific evidence, REPORT.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**. Only downgrade with quoted evidence proving limited impact.
+
 ## Background: Wire Formats
 
 Each opcode has one or more wire format variants:
@@ -76,6 +92,33 @@ packet-beta
 | Total size | 40 bits = 5 bytes |
 
 ## Workflow
+
+### Step 0: Enumerate ALL Opcodes and Their Wire Formats (MANDATORY)
+
+> **CRITICAL**: Before analyzing any individual opcode, enumerate ALL opcodes and their wire format variants.
+
+```bash
+# List ALL opcode documentation files
+ls yarn-project/simulator/docs/avm/opcodes/*.md
+
+# Extract wire format info from all opcode docs
+for f in yarn-project/simulator/docs/avm/opcodes/*.md; do
+  echo "=== $(basename $f) ==="; grep -A 3 "Wire Format\|Opcode.*0x" "$f" 2>/dev/null | head -5
+done
+
+# List all wire opcodes in enum
+grep -n "= 0x" src/barretenberg/vm2/common/opcodes.hpp | head -60
+
+# List all wire instruction specs
+grep -n "wire_opcode\|size_in_bytes\|num_operands" src/barretenberg/vm2/common/instruction_spec.cpp | head -60
+```
+
+Build a master checklist:
+
+| Opcode | Doc hex | Enum hex | Doc size | Spec size | Checked? | Finding? |
+|--------|---------|----------|----------|-----------|----------|----------|
+
+**You MUST check every opcode's wire format.** Breadth across all opcodes is more important than depth on any single one.
 
 ### Step 1: Select Target Opcode
 ```bash

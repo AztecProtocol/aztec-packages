@@ -10,6 +10,21 @@ version: 1.0.0
 ## Purpose
 Detect memory row injection vulnerabilities where fake rows in memory trace allow arbitrary reads/writes, giving complete control over VM state.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every memory interaction where a malicious prover could inject fake rows is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Permutation enforces 1:1 matching**: The interaction is a permutation (`} is`), not a lookup (quote with file:line).
+  - (b) **Destination selector is protected**: `dest_sel * (1 - sel) = 0` exists (quote with file:line).
+  - (c) **Row uniqueness enforced**: Memory trace has ordering/uniqueness constraints that prevent injection (quote the specific constraints).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## When to Use
 - Auditing memory-related PIL files (memory.pil, *_mem.pil)
 - Reviewing memory interactions/permutations in PIL

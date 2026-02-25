@@ -40,6 +40,20 @@ sel_first_row_in_context * (internal_call_id - 1) = 0;
 
 **Key insight**: These bugs are invisible when testing single enqueued calls because the next row defaults to zero (no subsequent enqueued call to contradict). They only manifest when there are multiple enqueued calls (e.g., setup + teardown) AND an error occurs.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every pair of constraints that appear to conflict under some execution path is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Execution path is impossible**: A prior constraint makes the conflicting path unreachable (quote the blocking constraint with file:line).
+  - (b) **Constraints are compatible**: Show algebraically that both constraints can be simultaneously satisfied on all reachable paths (show the algebra).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## Severity Assessment
 - **Completeness bugs reachable via canonical simulation on valid inputs are Critical** - system doesn't work for valid programs
 - Contradictions only reachable via malicious witness: Low (prover can avoid the state)
@@ -48,6 +62,23 @@ sel_first_row_in_context * (internal_call_id - 1) = 0;
 ## Workflow
 
 > **SCOPE**: PIL files in `barretenberg/cpp/pil/vm2/`. Focus on constraints that set next-row values (`column'`) and interact across operation boundaries.
+
+### Phase 0: Enumerate ALL PIL Files With Next-Row Constraints (MANDATORY)
+
+> **CRITICAL**: Before deep-diving any single file, enumerate ALL files with shifted-column constraints.
+
+```bash
+# Find all files with next-row references (column')
+grep -rl "'" pil/vm2/ --include="*.pil" | sort
+
+# Count shifted references per file to prioritize
+for f in $(grep -rl "'" pil/vm2/ --include="*.pil"); do
+  count=$(grep -c "'" "$f" 2>/dev/null)
+  echo "$count $f"
+done | sort -rn | head -20
+```
+
+Build a master checklist of all files with next-row constraints. You MUST check every file for potential contradictions.
 
 ### Phase 1: Identify Next-Row Forcing Constraints
 

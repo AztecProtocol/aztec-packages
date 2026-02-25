@@ -10,6 +10,23 @@ version: 1.0.0
 ## Purpose
 Test exploitability of selector-outside-active vulnerabilities via ghost row injection on PERMUTATIONS.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report vulnerabilities.
+
+**RULE 1 — Report first, dismiss later.** Every unprotected sub-selector that gates a permutation is a PRELIMINARY FINDING. Report ALL of them first, then only remove findings in a final filtering pass using the strict criteria below. The default is REPORT, not dismiss.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss a finding if it matches one of these EXACT safe patterns:
+  - (a) **Explicit implication constraint**: `sub_sel * (1 - sel) = 0` exists (quote the exact line).
+  - (b) **Derived polynomial**: `pol NAME = sel * expr` (quote the exact definition).
+  - (c) **Algebraic decomposition**: `sel = sub_a + sub_b + ...` with all terms non-negative and boolean (quote it).
+  - (d) **Group implication**: `(sel_a + sel_b + ...) * (1 - sel) = 0` (quote the exact line).
+  You MUST NOT invent novel "it's safe because..." reasoning. If protection doesn't match (a)-(d), REPORT IT.
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote the EXACT PIL constraint (file:line and text). If you cannot quote a specific protecting constraint, you MUST report the finding.
+
+**RULE 4 — Severity floor.** When in doubt about severity, report as **High**. Only downgrade with a quoted constraint proving limited impact.
+
 ## When to Use
 - After `vm2-audit-t1-selector-outside-active` finds unconstrained sub-selector firing a **PERMUTATION**
 - Testing if attacker can inject ghost source rows matching legitimate destination rows
@@ -21,19 +38,45 @@ Test exploitability of selector-outside-active vulnerabilities via ghost row inj
 
 ## Workflow
 
-### 1. Identify the Permutation
-Find the permutation fired by the unconstrained sub-selector:
+### Step 0: Systematic Component Discovery (MANDATORY)
+
+> **CRITICAL**: Enumerate ALL permutation-bearing files before analysis. Do not limit to known components.
+
 ```bash
-grep -rn "in.*{" pil/vm2/<component>.pil | grep -v lookup
+# Find ALL files containing permutations (} is patterns)
+grep -rl "} is " pil/vm2/ --include="*.pil" | sort
 ```
 
-### 2. Find Destination Trace
-Locate the destination trace and its simulation gadget in tracegen.
+This gives the complete list of files where ghost-row-boolean matters. Process EVERY file in this list.
 
-### 3. Verify Gadget Accepts Arbitrary Values
-Check if simulation gadget can create rows with attacker-controlled values.
+### Step 1: For Each File, Identify Permutation Source Selectors
 
-### 4. Analyze Blocking Factors
+For each file from Step 0:
+```bash
+# Find all committed columns used as permutation source selectors
+grep -n "} is " pil/vm2/<file>.pil
+```
+
+Extract the source selector for each permutation. Check if it's:
+- A main `sel` (inherently safe — if sel=0, constraints skip)
+- A sub-selector (`sel_write`, `sel_do_write`, `is_write`, `start`, `end`, `latch`, `start_keccak`, `start_sha256`, etc.)
+
+> NOTE: Include lifecycle selectors (start, end, latch) and operation-type selectors (start_keccak, start_sha256) — not just write-pattern selectors.
+
+### Step 2: Check Each Sub-Selector for Protection
+
+For each sub-selector identified:
+```bash
+grep -n "sub_sel.*(1 - sel)\|(1 - sel).*sub_sel" pil/vm2/<file>.pil
+```
+
+If no implication constraint exists, the sub-selector can be set on ghost rows.
+
+### Step 3: For Vulnerable Selectors, Verify Gadget Exploitability
+
+Find the destination trace and check if simulation gadgets can create matching rows:
+- Can caller specify slot, value, address, or other critical fields?
+- Does the CLK trick work? (Place ghost at row N = destination's committed `clk`)
 
 | Factor | How It Blocks | Bypass |
 |--------|---------------|--------|
@@ -41,9 +84,17 @@ Check if simulation gadget can create rows with attacker-controlled values.
 | START_CONDITION | `sel' * (1 - sel) * (1 - first_row) = 0` requires continuity | Trace builder handles automatically |
 | Crypto constraints | Destinations require valid hashes/proofs | Use simulation gadgets |
 
-### 5. Document Result
+### Step 4: Document Results
+
 - Attack succeeds: **CRITICAL** finding
 - Attack blocked: Document the blocking factor
+
+### Step 5: Coverage Table (MANDATORY)
+
+Output a table of ALL permutation-bearing files and their analysis status:
+
+| File | Permutations found | Sub-selectors checked | Vulnerable? | Analyzed? |
+|------|-------------------|---------------------|-------------|-----------|
 
 ## Fix Pattern
 

@@ -338,8 +338,8 @@
       "component": "execution",
       "introduced_after_baseline": false,
       "skills": [
-        "vm2-audit-t1-selector-outside-active",
-        "vm2-audit-t2-missing-propagation"
+        "vm2-audit-t2-missing-propagation",
+        "vm2-audit-t1-missing-boolean"
       ],
       "expected_findings": {
         "vm2-audit-t1-selector-outside-active": {
@@ -958,8 +958,7 @@
       "component": "data_copy",
       "introduced_after_baseline": false,
       "skills": [
-        "vm2-audit-t2-missing-propagation",
-        "vm2-audit-t1-selector-outside-active"
+        "vm2-audit-t2-missing-propagation"
       ],
       "expected_findings": {
         "vm2-audit-t2-missing-propagation": {

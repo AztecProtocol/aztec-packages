@@ -12,6 +12,26 @@ Detect state continuity gaps at two levels:
 1. **Context/Execution transitions**: Operation-type selectors (`sel_enter_call`, `sel_exit_call`, `sel_error`) disable default continuity constraints, leaving state variables unconstrained during transitions.
 2. **Multi-row gadget internal state machines**: Components with row-by-row lifecycle selectors (`start`/`end`, `sel_start`/`sel_end`) where the internal state machine can be prematurely terminated, truncated, or have rows skipped or injected.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report vulnerabilities.
+
+**RULE 1 — Report first, dismiss later.** Every state variable that loses continuity during ANY operation type is a PRELIMINARY FINDING. Every lifecycle freedom in a multi-row gadget is a PRELIMINARY FINDING. Report ALL, then filter in a final pass.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss a finding if:
+  For Part A (transition gaps):
+  - (a) **Explicit continuity constraint covering the operation type**: A constraint like `NOT_LAST * sel_op * (state - prev_state') = 0` exists for this specific operation type (quote exact file:line).
+  - (b) **Stack interaction includes the variable**: The variable appears in the stack push/pop tuple for this operation type (quote the interaction tuple).
+  For Part B (lifecycle):
+  - (c) **Completion guard**: `sel * (1 - sel') * (1 - end) = 0` or equivalent (quote exact line).
+  - (d) **Start-after-latch**: `sel' * (start' - LATCH_CONDITION) = 0` (quote exact line).
+  - (e) **Counter fully constrained**: Counter init, decrement by 1, and end-condition are all proven (quote all three).
+  You MUST NOT construct novel safety arguments.
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote the EXACT protecting constraint. If you cannot, REPORT.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**. Only downgrade with a quoted constraint proving limited impact.
+
 ## When to Use
 - Auditing context.pil or execution.pil for soundness issues
 - Reviewing call/return handling for state corruption vulnerabilities
@@ -258,10 +278,47 @@ sel' * (start' - LATCH_CONDITION) = 0;
 
 ---
 
+---
+
+## Part C: Phase/Mode Transition Integrity
+
+### The Vulnerability Class
+
+Components with phase selectors (e.g., `is_setup`, `is_app_logic`, `is_teardown`, `is_padding`) enforce different behavior per phase. If phase transitions don't enforce expected state invariants, a prover can corrupt state during transitions.
+
+### Part C Workflow
+
+#### Step 1: Find Phase/Mode Selectors
+```bash
+grep -rn "is_setup\|is_app_logic\|is_teardown\|is_padding\|is_padded\|is_collect_fee\|phase" \
+    pil/vm2/tx.pil pil/vm2/execution.pil
+```
+
+#### Step 2: For Each Phase Transition, Check State Constraints
+
+| Transition | Expected Invariant |
+|-----------|-------------------|
+| setup -> app_logic | Gas limits set, initial state finalized |
+| app_logic -> teardown | State accumulated correctly, gas accounting closed |
+| teardown -> padding | All side effects finalized, counters frozen |
+| Any -> padding | `is_padded` or `is_padding` must freeze all state |
+
+#### Step 3: Verify Padding Freezes State
+
+When `is_padded = 1` or phase = padding, ALL state variables must be constrained to propagate unchanged. Check:
+```bash
+grep -n "is_padded\|is_padding" pil/vm2/tx.pil | grep -v "//"
+```
+
+If any state variable can change during padding rows, that's a finding.
+
+---
+
 ## Key Files
 - `pil/vm2/context.pil` - Tree state, continuity constraints (Part A)
 - `pil/vm2/execution.pil` - Operation selectors, dispatch permutations (Parts A & B)
 - `pil/vm2/context_stack.pil` - Stack for nested calls (Part A)
+- `pil/vm2/tx.pil` - Phase selectors, transaction lifecycle (Part C)
 - All files under `pil/vm2/` containing `start`/`end` lifecycle selectors (Part B), including but not limited to gadgets for data copying, hashing, scalar multiplication, merkle checks, bitwise operations, log emission, and radix decomposition
 
 ## Related Skills

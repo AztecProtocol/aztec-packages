@@ -15,6 +15,20 @@ Detect typos where the wrong variable is constrained due to copy-paste errors or
 - **Completeness** (honest prover fails): Low to Critical based on reachability
 - Completeness bugs reachable via canonical simulation on valid inputs are **Critical**
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every constraint where a variable name looks like it could be a copy-paste error is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Variable usage is intentional**: The constraint's semantics require the exact variable used (explain the algebraic reason with quoted constraint).
+  - (b) **Different variable, same value**: The two variables are provably equal in context (quote the equality constraint with file:line).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## Key Example: Transposed Variable Name in Constraint
 
 ```pil

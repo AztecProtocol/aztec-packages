@@ -10,6 +10,21 @@ version: 1.0.0
 ## Purpose
 Detect missing or incomplete type tag validation that enables type confusion, range check bypass, or memory corruption.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every operation that uses a value without first validating its type tag is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Tag check constraint exists**: A constraint like `sel * (tag - expected_tag) = 0` or a tag-checking lookup exists (quote with file:line).
+  - (b) **Operation is tag-agnostic**: The operation's semantics are the same regardless of tag (explain why with quoted constraint).
+  - (c) **Tag validated by caller**: The dispatching trace validates the tag before dispatch (quote the caller's tag check with file:line).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## When to Use
 - Auditing PIL files with arithmetic/bitwise operations
 - Reviewing operations that require tag matching (ADD, SUB, MUL, etc.)
@@ -27,6 +42,22 @@ Detect missing or incomplete type tag validation that enables type confusion, ra
 ```
 
 ## Workflow
+
+### Step 0: Enumerate ALL PIL Files With Tag Columns (MANDATORY)
+
+> **CRITICAL**: Before deep-diving any single file, enumerate ALL files with tag-related columns.
+
+```bash
+# Find all files with tag-related columns
+grep -rl "tag\|Tag::" pil/vm2/ --include="*.pil" | sort
+
+# Find all tag-related columns per file
+for f in $(grep -rl "tag" pil/vm2/ --include="*.pil"); do
+  echo "=== $f ==="; grep -c "tag" "$f"
+done
+```
+
+Build a master checklist of ALL files with tag columns. You MUST check every file for tag validation gaps.
 
 ### Step 1: Identify Tag-Related Columns
 

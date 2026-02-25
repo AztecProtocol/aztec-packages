@@ -15,6 +15,21 @@ Detect missing propagation constraints where values constant across multi-row co
 - Reviewing operations that span multiple rows (copy, merkle, hash, etc.)
 - Checking values that should remain constant within an operation
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every column that should remain constant across multi-row computation but lacks a propagation constraint is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Propagation constraint exists**: `sel * (1 - end) * (col' - col) = 0` or equivalent (quote with file:line).
+  - (b) **Value re-derived each row**: The column is computed from other propagated values each row (quote the derivation).
+  - (c) **Column changes intentionally**: The design requires the value to change row-by-row (explain with quoted evidence).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## When NOT to Use
 - Single-row operations (no propagation needed)
 - Values that legitimately change each row
@@ -37,6 +52,22 @@ pol LATCH_CONDITION = end + start' + precomputed.first_row;
 ```
 
 ## Workflow
+
+### Step 0: Enumerate ALL Multi-Row Components (MANDATORY)
+
+> **CRITICAL**: Before deep-diving any single file, enumerate ALL PIL files with multi-row computation patterns.
+
+```bash
+# Find all files with start/end/latch patterns (multi-row indicators)
+grep -rl "start\|end\|latch\|is_first\|is_last\|NOT_END" pil/vm2/ --include="*.pil" | sort
+
+# Count multi-row indicators per file
+for f in $(grep -rl "start\|end\|latch" pil/vm2/ --include="*.pil"); do
+  echo "=== $f ==="; grep -c "start\|end\|latch\|propagat" "$f"
+done
+```
+
+Build a master checklist of ALL files with multi-row computations. You MUST check every multi-row component for missing propagation.
 
 ### Step 1: Identify Multi-Row Computations
 

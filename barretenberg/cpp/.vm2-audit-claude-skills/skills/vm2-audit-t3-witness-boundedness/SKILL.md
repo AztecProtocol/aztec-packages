@@ -12,6 +12,22 @@ Detect committed polynomials (witness columns) that are unbounded - not constrai
 
 **Key improvement (v2.0)**: Track INCOMING permutations to avoid false positives on crypto gadget I/O.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every committed polynomial (witness column) that lacks a boolean, lookup, or range constraint is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Boolean constraint exists**: `col * (1 - col) = 0` (quote with file:line).
+  - (b) **Range check lookup exists**: `sel { col } in range_check.sel { ... }` (quote with file:line).
+  - (c) **Constrained via interaction**: The column appears in a lookup/permutation destination that forces its value (quote the interaction).
+  - (d) **Derived polynomial**: `pol NAME = ...` (not `pol commit`) — these are computed, not witness columns.
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## When to Use
 - Auditing arithmetic operations for unbounded intermediates
 - Reviewing new committed columns

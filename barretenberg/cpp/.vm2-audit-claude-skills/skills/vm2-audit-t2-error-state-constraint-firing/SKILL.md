@@ -14,6 +14,20 @@ Detect constraints that fire during error states when they should not, causing v
 - Investigating verification failures after errors
 - Reviewing state propagation constraints
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every constraint that fires during error states when it should be gated is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Constraint is intentionally active during errors**: The design requires this constraint to hold even in error states (explain why with quoted design rationale).
+  - (b) **Constraint is trivially satisfied**: The constraint reduces to `0 = 0` during error states due to other constraints (show the algebra with quoted constraints).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## CRITICAL: Breadth-First Approach
 
 **DO NOT deep-dive into any single file.** This skill requires a systematic sweep across ALL components. The most common failure mode is fixating on a single file and reporting multiple variants of the same issue while missing bugs in other files entirely.

@@ -12,6 +12,21 @@ Detect side-effect interactions (tree writes, public inputs, logs) that aren't g
 
 **Complements**: `vm2-audit-t4-side-effect-gating` (focuses on flag propagation). This skill focuses on interaction selectors.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every side-effect interaction not gated by both `(1 - discard)` and `(1 - error)` is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Full gating exists**: The selector includes both discard and error exclusion (quote with file:line).
+  - (b) **Context makes gating unnecessary**: Discard or error is provably 0 in this context (quote the constraint proving it with file:line).
+  - (c) **Side effect is intentionally ungated**: The design requires the operation regardless of discard/error state (quote design rationale).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## When to Use
 - Auditing emit/append/write operations
 - Reviewing new side-effect interactions
@@ -50,6 +65,22 @@ SHOULD_EMIT { data } is destination.write { destination.data };
 | **Storage** | `written_public_data_slots` |
 
 ## Workflow
+
+### Step 0: Enumerate ALL PIL Files With Interactions (MANDATORY)
+
+> **CRITICAL**: Before deep-diving any single file, enumerate ALL PIL files that contain interactions.
+
+```bash
+# Find ALL files with interactions (lookups and permutations)
+grep -rl "} is \|} in " pil/vm2/ --include="*.pil" | sort
+
+# Count interactions per file
+for f in $(grep -rl "} is \|} in " pil/vm2/ --include="*.pil"); do
+  echo "=== $f ==="; grep -c "} is \|} in " "$f"
+done
+```
+
+Build a master checklist of ALL files with interactions. You MUST check every file for ungated side effects.
 
 ### Step 1: Find ALL Side-Effect Interactions
 ```bash

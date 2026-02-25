@@ -27,6 +27,22 @@ Audit for dynamic gas cost implementation across documentation, simulation, and 
 - **Medium**: Multiplier incorrect → over/undercharging
 - **Low**: Documentation unclear about scaling formula
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report bugs.
+
+**RULE 1 — Report first, dismiss later.** Every discrepancy between spec/docs and implementation is a PRELIMINARY FINDING. Report ALL of them first, then only remove in a final filtering pass using the strict criteria below.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss a finding if:
+  - (a) **Spec explicitly documents the behavior**: The spec/docs explicitly state this behavior is intentional (quote the exact spec text).
+  - (b) **Equivalent by algebraic identity**: The PIL and tracegen compute the same value via different but provably equivalent formulas (show the algebraic equivalence concretely).
+  - (c) **Dead code**: The code path is provably unreachable because a prior constraint makes the condition impossible (quote the blocking constraint with file:line).
+  You MUST NOT construct novel "it's probably fine because..." arguments.
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote the EXACT evidence (spec text, constraint file:line, or algebraic proof). If you cannot quote specific evidence, REPORT.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**. Only downgrade with quoted evidence proving limited impact.
+
 ## Background: Dynamic Gas
 
 Some operations have gas that scales with input size:
@@ -89,6 +105,28 @@ uint32_t dyn_gas_id = 0;
 ```
 
 ## Workflow
+
+### Step 0: Enumerate ALL Opcodes With Dynamic Gas (MANDATORY)
+
+> **CRITICAL**: Exhaustively identify ALL opcodes with dynamic gas, not just a known subset.
+
+```bash
+# Find all documented opcodes with dynamic gas
+grep -rl "Scales with\|Dynamic\|dyn" yarn-project/simulator/docs/avm/opcodes/*.md
+
+# Find all opcodes with non-zero dyn_l2 or dyn_da in instruction spec
+grep -n "dyn_l2\|dyn_da\|dyn_gas_id" src/barretenberg/vm2/common/instruction_spec.cpp
+
+# Cross-check PIL gas handling
+grep -n "dyn_gas\|dynamic" pil/vm2/execution/gas.pil
+```
+
+Build a master checklist of ALL dynamic-gas opcodes:
+
+| Opcode | dyn_l2 | dyn_da | Scaling operand | Checked? | Finding? |
+|--------|--------|--------|----------------|----------|----------|
+
+**You MUST verify every opcode with non-zero dyn_l2 or dyn_da.**
 
 ### Step 1: Identify Dynamic Gas Opcodes
 ```bash

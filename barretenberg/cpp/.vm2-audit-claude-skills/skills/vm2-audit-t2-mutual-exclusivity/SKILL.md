@@ -9,6 +9,21 @@ version: 1.0.0
 ## Purpose
 Detect missing mutual exclusivity constraints on selectors/flags that should never be simultaneously active.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every set of selectors/flags that should be mutually exclusive but lacks enforcement is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Exclusivity enforced by sum constraint**: `sel_a + sel_b + sel_c = sel` or similar decomposition (quote with file:line).
+  - (b) **Exclusivity enforced by product**: `sel_a * sel_b = 0` (quote with file:line).
+  - (c) **Derived from exclusive source**: Selectors come from a precomputed table or lookup that guarantees exclusivity (quote the lookup).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## When to Use
 - Auditing PIL files for error handling, operation dispatch, or state machine issues
 - Reviewing selector groups that logically require at-most-one semantics
@@ -19,6 +34,23 @@ Detect missing mutual exclusivity constraints on selectors/flags that should nev
 - Completeness bugs reachable via canonical simulation are **Critical**
 
 ## Workflow
+
+### Step 0: Enumerate ALL PIL Files With Selector Groups (MANDATORY)
+
+> **CRITICAL**: Before deep-diving any single file, enumerate ALL files containing selector groups.
+
+```bash
+# Find all files with selector declarations
+grep -rl "pol commit sel_\|pol commit is_\|pol commit state_\|pol commit phase_" pil/vm2/ --include="*.pil" | sort
+
+# Find files with the most selectors (prioritize these)
+for f in $(find pil/vm2/ -name "*.pil"); do
+  count=$(grep -c "pol commit sel_\|pol commit is_" "$f" 2>/dev/null)
+  if [ "$count" -gt 0 ]; then echo "$count $f"; fi
+done | sort -rn
+```
+
+Build a master checklist of ALL files with selector groups. Prioritize files with the most selectors. You MUST check every file.
 
 ### Step 1: Find Selector Groups
 ```bash

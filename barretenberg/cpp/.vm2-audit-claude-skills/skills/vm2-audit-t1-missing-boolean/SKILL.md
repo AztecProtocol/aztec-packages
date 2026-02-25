@@ -9,6 +9,24 @@ version: 1.0.0
 
 Audit for missing boolean constraints on selector columns - a **critical soundness vulnerability** enabling field arithmetic exploits.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report vulnerabilities.
+
+**RULE 1 — Report first, dismiss later.** Every boolean-candidate column lacking `col * (1 - col) = 0` is a PRELIMINARY FINDING. Report ALL of them first, then only remove in a final filtering pass using the strict criteria below.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss a finding if it matches one of these EXACT safe patterns:
+  - (a) **Explicit boolean constraint**: `col * (1 - col) = 0` exists ungated (quote exact file:line).
+  - (b) **Gated boolean with ALL uses also gated by same selector**: `sel * col * (1 - col) = 0` AND every use of `col` is also gated by `sel` (quote both the boolean constraint and confirm all uses are gated).
+  - (c) **Lookup-constrained to binary table**: `sel { col } in precomputed.sel_binary { ... }` (quote exact line). NOTE: only protects on active rows — report if the column is used on inactive rows too.
+  - (d) **Derived from boolean operations**: `pol DERIVED = bool_a * bool_b` where both inputs are themselves boolean-constrained (quote the derivation and both input constraints).
+  - (e) **Multiplicative-only usage**: The column ONLY appears in `col * expr = 0` forms — never in additive expressions, MUX patterns, or as a permutation/lookup selector (confirm ALL uses are multiplicative).
+  You MUST NOT invent novel "it's safe because..." reasoning.
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote the EXACT protecting constraint (file:line and text). If you cannot, REPORT.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**. Only downgrade with a quoted constraint proving limited impact.
+
 ## When to Use
 - Auditing PIL files for missing boolean constraints
 - Reviewing selectors, flags, or indicator columns
@@ -95,13 +113,13 @@ count = sel_a + sel_b + sel_c;
 
 > **PERFORMANCE RULE**: Do NOT iterate per-column with individual greps. Use the batch-first approach below. The codebase has ~1,730 committed columns across ~65 PIL files — per-column iteration will exhaust the context window.
 
-### Phase 1: Batch Collection (3 parallel searches)
+### Phase 1: Batch Collection (5 parallel searches)
 
-Run these three searches in parallel to collect the two sets needed for diffing:
+Run these searches in parallel to collect the two sets needed for diffing:
 
 **Search A — All boolean-candidate columns** (columns that SHOULD be boolean):
 ```bash
-grep -rn "pol commit.*sel_\|pol commit.*is_\|pol commit.*err_\|@boolean" pil/vm2/ --include="*.pil"
+grep -rn "pol commit.*sel_\|pol commit.*is_\|pol commit.*err_\|pol commit.*start\|pol commit.*end\|pol commit.*write\|pol commit.*latch\|pol commit.*first\|pol commit.*last\|@boolean" pil/vm2/ --include="*.pil"
 ```
 
 **Search B — All existing boolean constraints** (columns that ARE constrained):
@@ -115,38 +133,73 @@ This catches `col * (1 - col) = 0`, gated forms like `sel * col * (1 - col) = 0`
 grep -rn "sel_binary\|binary_value" pil/vm2/ --include="*.pil"
 ```
 
-### Phase 2: Set Difference (compute candidates)
+**Search D — File inventory** (for coverage tracking):
+```bash
+find pil/vm2/ -name "*.pil" | sort
+```
+
+**Search E — Main `sel` boolean constraints** (CRITICAL — see Phase 2a):
+```bash
+grep -rn "pol commit sel;" pil/vm2/ --include="*.pil"
+grep -rn "sel \* (1 - sel)" pil/vm2/ --include="*.pil"
+```
+
+### Phase 2: MANDATORY Main `sel` Check (DO THIS BEFORE ANYTHING ELSE)
+
+> **CRITICAL BLIND SPOT**: The main `sel` column is a committed column like any other. It is NOT automatically boolean. Many files declare `pol commit sel;` without `sel * (1 - sel) = 0`. This is a HIGH-severity finding when `sel` is used in additive expressions or as a permutation/lookup selector.
+
+**Phase 2a — Mechanical check**: For every file that has `pol commit sel;` (from Search E), verify that `sel * (1 - sel) = 0` exists IN THAT SAME FILE (ungated). If it does not exist, immediately add `sel` as a PRELIMINARY FINDING. Do not skip this step. Do not assume `sel` is boolean.
+
+**Phase 2b — Error column check**: For every file with `pol commit err` or `pol commit sel_err` or similar error columns, check whether those error columns have boolean constraints. Error columns used in additive aggregation (`sel_err = err1 + err2 + ...`) without boolean constraints enable error cancellation attacks.
+
+### Phase 3: Set Difference (compute candidates)
 
 From the batch results:
-1. Build set DECLARED = columns from Search A
+1. Build set DECLARED = columns from Search A **plus all `sel` columns from Phase 2a**
 2. Build set CONSTRAINED = columns appearing in Search B + Search C
 3. CANDIDATES = DECLARED - CONSTRAINED (these are the columns to investigate)
 
 Typically yields **10-30 candidates**, not hundreds.
 
-### Phase 3: Deep Analysis (only on candidates)
+### Phase 4: Two-Pass Breadth-First Analysis
 
-For each candidate from the diff, read the relevant file ONCE and check:
+> **CRITICAL**: You MUST use a two-pass approach. Phase 4a outputs ALL candidates. Phase 4b dismisses. You may NOT combine scanning and dismissing into a single pass.
+
+**Phase 4a — Preliminary Finding List (NO DISMISSALS)**: For every file (breadth-first, small files first), list every candidate column that lacks a boolean constraint. Output this as a complete table BEFORE any analysis:
+
+| File | Column | Has `col * (1 - col) = 0`? | Has gated boolean? | Has lookup constraint? | Preliminary Finding? |
+|------|--------|---------------------------|--------------------|-----------------------|---------------------|
+
+**Every candidate MUST appear in this table.** Mark each as Preliminary Finding = YES unless it clearly has an explicit boolean constraint (quote the line). Do NOT dismiss based on "derived" or "only multiplicative" reasoning yet.
+
+**Phase 4b — Dismissal Pass**: Now go through each Preliminary Finding and attempt to dismiss using ONLY the safe patterns (a)-(e) from the Doctrine. For each dismissal, quote the exact protecting constraint. If you cannot quote a specific constraint, the finding STAYS.
+
+**Phase 4c — Small files first**: Start with PIL files that have fewer than 20 `pol commit` declarations. These are faster to analyze and frequently contain simple missing-boolean bugs.
+
+**Phase 4d — Large files second**: Then process larger files (execution.pil, tx.pil, context.pil, alu.pil). For these, extract ONLY `pol commit` declarations and check each candidate against Search B/C results. Skip reading full constraint bodies unless a candidate is identified.
+
+For each surviving candidate:
 1. Is it derived from `sel *` (inherently safe)?
 2. Does it appear in additive expressions (exploitable)?
 3. Are all uses gated by the same selector (safe)?
 
 **Only report if**: Column lacks boolean constraint AND (appears in additive expression OR used as ungated permutation selector).
 
-### Phase 4: Completeness Reconciliation (catch naming gaps)
+### Phase 5: Completeness Reconciliation
 
-The batch searches use naming conventions (sel_, is_, err_). To catch unconventionally-named booleans:
-
+**5a — Catch unconventionally-named booleans**:
 ```bash
-# Find ALL columns treated as boolean by usage pattern (1 - col_name), regardless of name
 grep -roPh "(1 - [a-z_][a-z_0-9]*)" pil/vm2/ --include="*.pil" | sort -u
 ```
+Any column name appearing here that wasn't in Search A is an unconventionally-named boolean. Add it to candidates.
 
-Cross-check: any column name appearing here that wasn't in Search A is an unconventionally-named boolean. Add it to candidates and re-run Phase 3 for those.
+**5b — File coverage table** (MANDATORY):
+Using the file list from Search D, output a table:
 
-Also do a quick per-file scan: for each PIL file, count `pol commit` declarations and verify the file was covered by Phases 1-3. List any files with 0 candidates analyzed (they may still be fine, but flag for awareness in the report).
+| File | `pol commit` count | `sel` boolean checked? | Candidates found | Analyzed? |
+|------|-------------------|----------------------|-----------------|-----------|
 
-**Expected result**: Phase 4 adds 0-5 extra candidates, confirming the batch approach was comprehensive.
+Every file MUST appear in this table. If a file was not analyzed, explain why. **You MUST analyze every PIL file under `pil/vm2/`, `pil/vm2/opcodes/`, `pil/vm2/bytecode/`, and `pil/vm2/trees/`.** If you cannot complete all files, prioritize breadth — a single grep per file for unconstrained boolean candidates is better than deep analysis of 3 files.
 
 ## Patterns
 
@@ -177,22 +230,15 @@ x * (e * (1 - inv) + inv) - 1 + e = 0;
 
 ## Historical Bug Patterns
 
-- Missing boolean on memory sub-module selector columns
+- Missing boolean on the **main `sel` column** itself (NOT just sub-selectors) — many files declare `pol commit sel;` without `sel * (1 - sel) = 0`
+- Missing boolean on memory sub-module selector columns (ecc_mem, poseidon2_mem, to_radix_mem)
 - Missing boolean on ALU operation selectors
-
-## Files with Good Boolean Hygiene (Typically No Findings)
-
-These files demonstrate excellent constraint practices - verify before reporting:
-- `gt.pil`, `ff_gt.pil` - All selectors properly constrained
-- `memory.pil` - All permutation selectors constrained
-- `alu.pil` - Operation selectors properly constrained
-- `merkle_check.pil` - Core selectors constrained
-- `addressing.pil` - Well-constrained
-- `data_copy.pil` - Well-constrained
+- Missing boolean on error/failure columns used in additive aggregation (e.g., `sel_bytecode_retrieval_failure` in execution.pil)
+- Missing boolean on calldata/calldata_hashing `sel` columns
 
 ## Expected Finding Count
 
-A well-executed audit typically finds **5-15 genuine findings**, not 50+. If you're finding significantly more, re-verify against the FALSE POSITIVE FILTERING criteria above.
+A well-executed audit typically finds **5-15 genuine findings**, not 50+. If you're finding significantly more, re-verify against the FALSE POSITIVE FILTERING criteria above. However, do NOT let this expectation prevent you from reporting valid findings — if you find 20 genuine issues, report all 20.
 
 ## REQUIRED OUTPUT FORMAT
 

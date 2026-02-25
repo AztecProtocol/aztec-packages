@@ -6,6 +6,23 @@ allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 
 # VM2 Range Check and Overflow Audit
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report vulnerabilities.
+
+**RULE 1 — Report first, dismiss later.** Every arithmetic operation without an explicit range check is a PRELIMINARY FINDING. Every decomposition witness variable without a range check is a PRELIMINARY FINDING. Report ALL, then filter in a final pass.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss a finding if:
+  - (a) **Explicit range check lookup**: The column has a range check lookup `sel { col } in range_check.sel { ... }` with the correct bit width (quote exact file:line and verify bit width matches requirement).
+  - (b) **Caller-constrains-inputs with matching bound**: The value comes from a lookup/permutation source that constrains it to THE SPECIFIC required range (quote both the source constraint and the required bound, and show they match).
+  - (c) **Precomputed/constant value**: The value is from `precomputed.*` or is a PIL constant (quote the definition).
+  - (d) **Bounded by trace size**: The value is `precomputed.clk` or equivalent (quote it).
+  You MUST NOT accept "it's bounded because the input is bounded" without quoting the specific input constraint AND showing it matches the required bound. In particular: FF-tagged memory values are NOT bounded — they are full field elements.
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote the EXACT protecting constraint (file:line, constraint text, AND the required bit width). If the range check exists but uses a wrong bit width, that is STILL a finding.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**. Only downgrade with a quoted constraint proving the value is adequately bounded.
+
 ## Purpose
 Find missing or incorrect range checks that enable:
 1. **Arithmetic overflow/underflow**: integer wrap-around in address calculations, gas, sizes
@@ -167,19 +184,33 @@ Verify: boolean constrained, triggers error/adjustment, both cases handled.
 - 32-bit: U32 table, etc.
 - Match against the PROTOCOL requirement, not just the memory tag
 
-### Step 6: Audit Protocol-Value Boundaries
+### Step 6: Audit Protocol-Value Boundaries (EVERY Opcode)
+
+> **CRITICAL**: Check EVERY opcode in `pil/vm2/opcodes/` that writes to public inputs or sends data to L1.
+
 ```bash
 # Find all lookups into public_inputs (these write protocol data)
-grep -rn "public_inputs.sel\|public_inputs.cols" pil/vm2/opcodes/*.pil
+grep -rn "public_inputs.sel\|public_inputs.cols" pil/vm2/opcodes/*.pil pil/vm2/tx.pil
 # Find register values being sent without range checks
 grep -rn "register\[" pil/vm2/opcodes/*.pil
+# Find ALL opcode files for coverage
+ls pil/vm2/opcodes/*.pil
 ```
 
-For each value written to public inputs:
+For each value written to public inputs or sent to L1:
 1. Determine the protocol-required bit width
 2. Check if the value's memory tag enforces that width (FF tag does NOT)
 3. Look for an explicit range check between the memory read and the public input write
 4. If missing, this is a **Critical** finding
+
+### Step 7: Decomposition Witness Checklist (MANDATORY)
+
+For arithmetic gadgets (alu.pil, ff_gt.pil, gt.pil, sha256.pil, keccakf1600.pil, ecc.pil, to_radix_mem.pil), build a table of ALL `pol commit` witness variables:
+
+| Column | File | Used in decomposition equation? | Range-checked? | Selector match? |
+|--------|------|-------------------------------|---------------|----------------|
+
+Any row with "yes" for decomposition but "no" for range-check is a finding. Any row where the range-check selector is narrower than the equation's selector is also a finding.
 
 ## Vulnerable Patterns
 

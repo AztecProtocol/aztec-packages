@@ -27,6 +27,22 @@ Audit for edge case handling issues across documentation, simulation, and PIL.
 - **Medium**: Edge case differs from documentation
 - **Low**: Documentation doesn't specify, implementation reasonable
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report bugs.
+
+**RULE 1 — Report first, dismiss later.** Every discrepancy between spec/docs and implementation is a PRELIMINARY FINDING. Report ALL of them first, then only remove in a final filtering pass using the strict criteria below.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss a finding if:
+  - (a) **Spec explicitly documents the behavior**: The spec/docs explicitly state this behavior is intentional (quote the exact spec text).
+  - (b) **Equivalent by algebraic identity**: The PIL and tracegen compute the same value via different but provably equivalent formulas (show the algebraic equivalence concretely).
+  - (c) **Dead code**: The code path is provably unreachable because a prior constraint makes the condition impossible (quote the blocking constraint with file:line).
+  You MUST NOT construct novel "it's probably fine because..." arguments.
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote the EXACT evidence (spec text, constraint file:line, or algebraic proof). If you cannot quote specific evidence, REPORT.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**. Only downgrade with quoted evidence proving limited impact.
+
 ## Background: Edge Cases in AVM
 
 The AVM has several edge case categories:
@@ -132,6 +148,22 @@ Bitwise NOT of the operand
 - `LTE(MAX, MAX) = 1`
 
 ## Workflow
+
+### Step 0: Enumerate ALL Opcodes With Edge Cases (MANDATORY)
+
+> **CRITICAL**: Before deep-diving any single opcode, enumerate ALL opcodes and identify which have edge case risks.
+
+```bash
+ls yarn-project/simulator/docs/avm/opcodes/
+grep -rn "sel_op_\|sel_execute_" pil/vm2/alu.pil pil/vm2/execution.pil | head -40
+```
+
+Build a master checklist:
+
+| Opcode | Edge case categories | Checked? | Finding? |
+|--------|---------------------|----------|----------|
+
+Priority order: arithmetic (ADD, SUB, MUL, DIV, SHL, SHR), bitwise (AND, OR, XOR, NOT), cast/truncation (CAST, SET), comparisons (EQ, LT, LTE), then memory/control flow opcodes.
 
 ### Step 1: Identify Edge Cases from Documentation
 ```bash

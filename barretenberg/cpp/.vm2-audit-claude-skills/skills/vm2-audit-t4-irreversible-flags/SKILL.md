@@ -12,6 +12,20 @@ Detect state flags that should be monotonic (once set, stay set) but lack the co
 
 **Note**: For trace continuity issues (`sel` dropping before `end`), use `vm2-audit-t4-irreversible-flags`. This skill focuses on flags like `is_padding`, `halted`, `error` that should be irreversible.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every state flag that should be monotonic (once set, stays set) but lacks enforcement is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Monotonicity constraint exists**: `sel * flag * (1 - flag') = 0` or equivalent prevents toggling back (quote with file:line).
+  - (b) **Flag is derived from monotonic source**: The flag is computed from a value that is itself monotonically constrained (quote both derivation and source constraint).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## When to Use
 - Auditing multi-row computations with padding states
 - Reviewing error flag propagation
@@ -42,6 +56,20 @@ is_padding * (1 - is_padding') = 0;      // Irreversible: once 1, stays 1
 ```
 
 ## Workflow
+
+### Step 0: Enumerate ALL PIL Files With State Flags (MANDATORY)
+
+> **CRITICAL**: Before deep-diving any single file, enumerate ALL files with boolean state flags.
+
+```bash
+# Find all files with state-like boolean flags
+grep -rl "padding\|halted\|done\|finished\|error\|active\|ended" pil/vm2/ --include="*.pil" | sort
+
+# Find all boolean committed columns (potential monotonic flags)
+grep -rn "pol commit.*is_\|pol commit.*has_\|pol commit.*sel_" pil/vm2/ --include="*.pil" | head -40
+```
+
+Build a master checklist of ALL files with state flags. You MUST check every file for reversible flag vulnerabilities.
 
 ### Step 1: Find State Flags
 ```bash

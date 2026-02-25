@@ -10,6 +10,23 @@ version: 2.0.0
 ## Purpose
 Detect destination selectors in lookups/permutations that lack implication constraints, allowing malicious provers to forge computation results on inactive rows.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report vulnerabilities.
+
+**RULE 1 — Report first, dismiss later.** Every destination selector in a lookup/permutation that is not the component's main `sel` is a PRELIMINARY FINDING. Report ALL of them first, then only remove in a final filtering pass.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss a finding if it matches one of these EXACT safe patterns:
+  - (a) **Explicit implication constraint**: `dest_sel * (1 - sel) = 0` exists (quote exact file:line).
+  - (b) **Derived polynomial**: `pol NAME = sel * expr` (quote exact definition).
+  - (c) **Algebraic decomposition gated by sel**: A decomposition `sel = dest_sel + ...` or `sel * something = dest_sel + ...` forces dest_sel=0 when sel=0 (quote the decomposition AND show it's gated by sel).
+  - (d) **Lookup tuple includes sel forced to nonzero**: The source forces a tuple column that maps to `sel` in the destination to be 1 (quote both source and destination columns).
+  You MUST NOT construct novel "it's safe because..." arguments.
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote the EXACT protecting constraint (file:line and text). If you cannot, REPORT.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**. Only downgrade with a quoted constraint proving the destination cannot be activated on ghost rows.
+
 ## When to Use
 - Auditing any PIL file that exposes selectors as lookup/permutation destinations
 - Reviewing multi-row gadget lifecycle selectors (start, end, write, latch, etc.)
@@ -168,6 +185,8 @@ For each such destination selector found, go to the destination component and ch
 If NONE of the above hold, the selector is unprotected.
 
 ### Step 3: Find Phase/Mode Selectors Used in Downstream Interactions
+
+> **HIGH-PRIORITY TARGET**: `tx.pil` orchestrates transaction phases and has many `is_*` selectors. Explicitly check ALL `is_*` selectors in tx.pil for `* (1 - sel) = 0` constraints.
 
 Search for phase or mode selectors that gate downstream lookups/permutations:
 

@@ -8,6 +8,20 @@ description: Audit VM2/AVM simulation code for exception type matching issues. C
 ## Purpose
 Find C++ simulation code where thrown exception types don't match caller catch blocks, causing honest provers to crash or produce incorrect traces.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every exception throw/catch pair where the types don't obviously match is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Types match exactly**: The thrown type is identical to or a subclass of the caught type (quote both throw and catch with file:line).
+  - (b) **Catch-all handler**: The catch block uses `catch(...)` or a base exception type that covers the thrown type (quote the catch with file:line).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## When to Use
 - Auditing VM2 simulation/tracegen C++ code
 - Reviewing error handling paths
@@ -18,9 +32,27 @@ Find C++ simulation code where thrown exception types don't match caller catch b
 
 ## Workflow
 
+### Step 0: Enumerate ALL Source Files (MANDATORY)
+
+> **CRITICAL**: Before analyzing any individual file, enumerate ALL simulation and tracegen source files.
+
+```bash
+# List all simulation and tracegen source files
+find src/barretenberg/vm2/simulation/ -name "*.cpp" -o -name "*.hpp" | sort
+find src/barretenberg/vm2/tracegen/ -name "*.cpp" -o -name "*.hpp" | sort
+
+# Count throw statements per file
+for f in $(find src/barretenberg/vm2/ -name "*.cpp"); do
+  count=$(grep -c "throw " "$f" 2>/dev/null)
+  if [ "$count" -gt 0 ]; then echo "$count $f"; fi
+done | sort -rn
+```
+
+Build a master checklist of ALL files with throw statements. You MUST check every one.
+
 ### Step 1: Map Exception Hierarchy
 ```bash
-grep -rn "class.*Exception" barretenberg/cpp/src/barretenberg/vm2/ --include="*.hpp"
+grep -rn "class.*Exception" src/barretenberg/vm2/ --include="*.hpp"
 ```
 
 Expected hierarchy:

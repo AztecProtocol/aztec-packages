@@ -10,6 +10,20 @@ version: 1.0.1
 ## Purpose
 Detect missing error aggregation constraints where aggregate flags have only boolean constraints but no ties to individual errors, allowing malicious provers to claim no error when errors exist.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every aggregate error flag that doesn't constrain all its component errors is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Aggregation is complete**: Every individual error feeds into the aggregate via a quoted constraint (quote all constraints).
+  - (b) **Missing error is unreachable**: The error condition is impossible due to a prior constraint (quote the blocking constraint with file:line).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## When to Use
 - Auditing VM2/AVM PIL files for error handling vulnerabilities
 - Reviewing new error flags or error handling logic
@@ -23,6 +37,22 @@ Detect missing error aggregation constraints where aggregate flags have only boo
 Completeness bugs reachable via canonical simulation on valid inputs are **Critical**.
 
 ## Workflow
+
+### Step 0: Enumerate ALL PIL Files With Error Flags (MANDATORY)
+
+> **CRITICAL**: Before deep-diving any single file, enumerate ALL files containing error-related columns.
+
+```bash
+# Find all files with error-related columns
+grep -rl "err\|error\|failure" pil/vm2/ --include="*.pil" | sort
+
+# Count error-related columns per file
+for f in $(grep -rl "err\|error\|failure" pil/vm2/ --include="*.pil"); do
+  echo "=== $f ===" ; grep -c "err\|error\|failure" "$f"
+done
+```
+
+Build a master checklist of ALL files with error flags. You MUST check every file that has error-related columns.
 
 ### Step 1: Find Aggregate Error Flags
 ```bash

@@ -17,11 +17,39 @@ Detect disabled security constraints (FIXME, TODO, commented code) - often the *
 
 **Key principle**: Completeness bugs reachable via canonical simulation on valid inputs are **Critical**.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every commented-out constraint, TODO, or FIXME is a PRELIMINARY FINDING. Report ALL, filter last.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Replaced by equivalent constraint**: A non-commented constraint enforces the same property (quote both the commented and replacement constraints with file:line).
+  - (b) **Explicitly marked as intentional**: A comment explains why it's disabled AND references a tracking issue or design decision (quote the comment).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote the exact evidence. If you cannot, REPORT.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## Workflow
+
+### Step 0: Enumerate ALL PIL Files (MANDATORY)
+
+> **CRITICAL**: First build a complete inventory of all PIL files to ensure full coverage.
+
+```bash
+# List all PIL files and their sizes
+find pil/vm2/ -name "*.pil" | xargs wc -l | sort -n
+
+# Count total files
+find pil/vm2/ -name "*.pil" | wc -l
+```
+
+You MUST scan every PIL file. Build a checklist and mark each as scanned.
 
 ### Step 1: Scan for FIXME/TODO Comments
 ```bash
-grep -rn "FIXME\|TODO\|HACK\|TEMPORARY\|DISABLED\|XXX" barretenberg/cpp/pil/vm2/ --include="*.pil"
+grep -rn "FIXME\|TODO\|HACK\|TEMPORARY\|DISABLED\|XXX" pil/vm2/ --include="*.pil"
 ```
 
 ### Step 2: Scan for Commented-Out Constraints

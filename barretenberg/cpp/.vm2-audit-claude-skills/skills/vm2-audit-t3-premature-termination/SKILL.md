@@ -10,6 +10,21 @@ version: 1.0.0
 ## Purpose
 Detect missing trace continuity constraints that allow multi-row computations to exit early, enabling skipped hash steps, truncated Merkle proofs, partial copies, and bypassed validation.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every multi-row computation where the end condition could be triggered prematurely is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Completion guard exists**: `sel * (1 - sel') * (1 - end) = 0` or equivalent prevents premature exit (quote with file:line).
+  - (b) **Counter is fully constrained**: Counter init, decrement, and end-condition are all proven correct (quote all three constraints).
+  - (c) **End condition is derived, not committed**: End is computed from a fully-constrained counter, not a free witness (quote the derivation).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## When to Use
 - Auditing PIL files with multi-row computations (loops, Merkle proofs, copy operations)
 - Reviewing start/end/counter patterns in PIL constraints
@@ -31,11 +46,27 @@ sel * (1 - sel') * (1 - end) = 0;
 
 ## Workflow
 
+### Step 0: Enumerate ALL Multi-Row Components (MANDATORY)
+
+> **CRITICAL**: Before deep-diving any single file, enumerate ALL PIL files with multi-row computation patterns.
+
+```bash
+# Find all files with start/end/counter patterns
+grep -rl "start\|end\|latch\|remaining\|counter\|cnt\|continuity" pil/vm2/ --include="*.pil" | sort
+
+# Count multi-row indicators per file
+for f in $(grep -rl "start\|end\|remaining" pil/vm2/ --include="*.pil"); do
+  echo "=== $f ==="; grep -c "start\|end\|remaining\|latch" "$f"
+done
+```
+
+Build a master checklist of ALL multi-row components. You MUST check every one for premature termination vulnerabilities.
+
 ### Step 1: Identify Multi-Row Computations
 
 ```bash
 # Start/end patterns
-grep -rn "pol commit start\|pol commit end\|pol commit sel_end" barretenberg/cpp/pil/vm2/ --include="*.pil"
+grep -rn "pol commit start\|pol commit end\|pol commit sel_end" pil/vm2/ --include="*.pil"
 
 # Counters
 grep -rn "remaining\|counter\|cnt\|idx\|row_idx" barretenberg/cpp/pil/vm2/ --include="*.pil"

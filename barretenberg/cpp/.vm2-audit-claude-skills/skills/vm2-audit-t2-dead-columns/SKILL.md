@@ -13,6 +13,21 @@ Find columns declared (`pol commit`) but never meaningfully constrained - indica
 - Reviewing refactored PIL code
 - Security audit of new PIL components
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every column that appears unused or unconstrained is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Column is used in an interaction tuple**: It appears in a lookup/permutation (quote the interaction with file:line).
+  - (b) **Column is constrained transitively**: Another constraint references it (quote with file:line).
+  - (c) **Column is precomputed**: It's a `pol constant`, not `pol commit` (quote the declaration).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## Definitions
 - **Used**: appears in constraints, lookups/permutations, intermediate polys, or as lookup destination
 - **Dead**: only declared, only assigned in tracegen, or only in comments

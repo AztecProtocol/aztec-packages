@@ -15,7 +15,36 @@ Audits for missing initialization constraints. Allows arbitrary starting values:
 
 **Key principle**: Completeness bugs reachable via canonical simulation on valid inputs are **Critical**.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every state column that lacks an explicit initialization constraint on its first active row is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Initialized via interaction**: The column receives its initial value from a lookup/permutation (quote the interaction with file:line).
+  - (b) **First-row constraint exists**: A constraint explicitly sets the value on the start/first row (quote with file:line).
+  - (c) **Column is precomputed**: It's a `pol constant` (quote the declaration).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## Workflow
+
+### Step 0: Enumerate ALL PIL Files With State Columns (MANDATORY)
+
+> **CRITICAL**: Before deep-diving any file, enumerate ALL PIL files that have columns needing initialization.
+
+```bash
+# Find all PIL files with state columns (counters, PCs, phase indicators, accumulators)
+grep -rl "pol commit.*counter\|pol commit.*pc\|pol commit.*phase\|pol commit.*idx\|pol commit.*accum\|pol commit.*gas\|pol commit.*context" pil/vm2/ --include="*.pil" | sort
+
+# Also find files with first-row or start constraints (to see what's already initialized)
+grep -rl "first_row\|sel_start\|sel_enter" pil/vm2/ --include="*.pil" | sort
+```
+
+Build a master checklist of ALL files with state columns. You MUST check every file for missing initialization.
 
 ### Step 1: Identify Values Needing Initialization
 

@@ -15,6 +15,20 @@ Detect `#[skippable_if]` declarations that are too broad, causing constraints to
 - Reviewing multi-row computation traces with lifecycle selectors (start, end, last)
 - After any change to error handling that alters which selectors are active on error rows
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every `#[skippable_if]` condition that might be too broad (allowing constraint skipping when it shouldn't) is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Condition matches constraint scope exactly**: Every constraint in the skippable block is gated by the same selector as the skippable_if condition (verify ALL constraints, quote any that aren't gated).
+  - (b) **Broader condition is safe**: The skippable_if condition is broader than necessary but all constraints are trivially satisfied when the condition holds (show the algebra for each constraint).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## Background: What is `#[skippable_if]`?
 
 PIL's `#[skippable_if]` is a **performance optimization**. When the condition is satisfied for ALL rows in a block, the prover skips checking ALL constraints in that relation. This is sound only if the condition guarantees that every constraint in the relation is trivially satisfied (evaluates to 0).

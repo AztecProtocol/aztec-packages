@@ -8,6 +8,20 @@ description: Audit VM2/AVM simulation code for unsafe optional value access. Com
 ## Purpose
 Find unsafe `.value()` calls and collection accesses in simulation/tracegen that crash on valid edge cases.
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report issues.
+
+**RULE 1 — Report first, dismiss later.** Every `.value()` call on an optional and every unchecked collection access is a PRELIMINARY FINDING.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss if:
+  - (a) **Guard check exists on same path**: A `has_value()` / `.empty()` / size check guards the access on every code path (quote the guard with file:line).
+  - (b) **Invariant guarantees presence**: A prior operation guarantees the optional is populated (quote the operation and explain the invariant concretely).
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote exact evidence.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**.
+
 ## When to Use
 - Auditing VM2 simulation code for crash bugs
 - Reviewing code that handles optional returns or collection access
@@ -25,6 +39,24 @@ Find unsafe `.value()` calls and collection accesses in simulation/tracegen that
 - **Key principle**: Completeness bugs reachable via canonical simulation on valid inputs are **Critical**.
 
 ## Workflow
+
+### 0. Enumerate ALL Source Files (MANDATORY)
+
+> **CRITICAL**: Before analyzing any individual file, enumerate ALL simulation and tracegen source files.
+
+```bash
+# List all source files
+find src/barretenberg/vm2/simulation/ -name "*.cpp" -o -name "*.hpp" | sort
+find src/barretenberg/vm2/tracegen/ -name "*.cpp" -o -name "*.hpp" | sort
+
+# Count .value() calls per file
+for f in $(find src/barretenberg/vm2/ -name "*.cpp" -o -name "*.hpp"); do
+  count=$(grep -c "\.value()" "$f" 2>/dev/null)
+  if [ "$count" -gt 0 ]; then echo "$count $f"; fi
+done | sort -rn
+```
+
+Build a master checklist of ALL files with .value() calls. You MUST check every one.
 
 ### 1. Find .value() Calls
 ```bash

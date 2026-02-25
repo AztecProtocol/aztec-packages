@@ -26,6 +26,22 @@ Audit for missing or incorrectly gated side effects across documentation, simula
 - **Medium**: Side effect in PIL but not documented
 - **Low**: Documentation incomplete but implementation correct
 
+## AUDITOR DOCTRINE — READ THIS FIRST
+
+You are a **prosecutor**, not a defense attorney. Your job is to find and report bugs.
+
+**RULE 1 — Report first, dismiss later.** Every discrepancy between spec/docs and implementation is a PRELIMINARY FINDING. Report ALL of them first, then only remove in a final filtering pass using the strict criteria below.
+
+**RULE 2 — No freeform safety arguments.** You may ONLY dismiss a finding if:
+  - (a) **Spec explicitly documents the behavior**: The spec/docs explicitly state this behavior is intentional (quote the exact spec text).
+  - (b) **Equivalent by algebraic identity**: The PIL and tracegen compute the same value via different but provably equivalent formulas (show the algebraic equivalence concretely).
+  - (c) **Dead code**: The code path is provably unreachable because a prior constraint makes the condition impossible (quote the blocking constraint with file:line).
+  You MUST NOT construct novel "it's probably fine because..." arguments.
+
+**RULE 3 — Quote or report.** For ANY dismissal, quote the EXACT evidence (spec text, constraint file:line, or algebraic proof). If you cannot quote specific evidence, REPORT.
+
+**RULE 4 — Severity floor.** When in doubt, report as **High**. Only downgrade with quoted evidence proving limited impact.
+
 ## Background: Side Effects and Discard
 
 Side effects are state changes that must be:
@@ -103,6 +119,28 @@ sel_execute_opcode { value, address, ... } in tree_check.sel { ... };
 ```
 
 ## Workflow
+
+### Step 0: Enumerate ALL Side-Effect Opcodes (MANDATORY)
+
+> **CRITICAL**: Identify ALL opcodes that produce state-changing side effects, not just the known set.
+
+```bash
+# Find all opcodes with tree/state interactions in PIL
+grep -rl "tree_check\|public_data\|note_hash\|nullifier\|l2_to_l1\|unencrypted_log\|public_input" pil/vm2/opcodes/*.pil | sort
+
+# Find all side-effect permutations in PIL
+grep -rn "} is " pil/vm2/opcodes/*.pil
+
+# Find all opcodes that emit events in simulation
+grep -rn "emit\|append\|insert\|write.*tree\|write.*storage" src/barretenberg/vm2/simulation/gadgets/execution.cpp | head -30
+```
+
+Build a master checklist:
+
+| Opcode | Side effect type | Discard gated? | Error gated? | Checked? | Finding? |
+|--------|-----------------|---------------|-------------|----------|----------|
+
+**You MUST verify every side-effect-producing opcode.** Check both the table above AND any additional ones discovered by the grep searches.
 
 ### Step 1: Select Target Side-Effect Opcode
 ```bash
