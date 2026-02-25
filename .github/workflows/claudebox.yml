@@ -86,7 +86,7 @@ jobs:
           echo "Posted status comment: $COMMENT_ID"
 
       - name: Run ClaudeBox
-        timeout-minutes: 5
+        timeout-minutes: 120
         env:
           CLAUDEBOX_URL: ${{ vars.CLAUDEBOX_URL }}
           CLAUDEBOX_API_SECRET: ${{ secrets.CLAUDEBOX_API_SECRET }}
@@ -98,6 +98,8 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           AUTHOR: ${{ github.event.comment.user.login || github.actor }}
         run: |
+          AUTH="Authorization: Bearer ${CLAUDEBOX_API_SECRET}"
+
           PAYLOAD=$(jq -n \
             --arg prompt "$CLAUDEBOX_PROMPT" \
             --arg user "$AUTHOR" \
@@ -108,12 +110,10 @@ jobs:
             --arg link "$CLAUDEBOX_LINK" \
             '{prompt: $prompt, user: $user, comment_id: $comment_id, run_comment_id: $run_comment_id, repo: $repo, run_url: $run_url, link: $link}')
 
-          # POST to ClaudeBox — returns 202 immediately with log URL
+          # Start session — returns 202 with log URL
           RESPONSE=$(curl -sS -w "\n%{http_code}" \
-            -H "Authorization: Bearer ${CLAUDEBOX_API_SECRET}" \
-            -H "Content-Type: application/json" \
-            -d "$PAYLOAD" \
-            "${CLAUDEBOX_URL}/run")
+            -H "$AUTH" -H "Content-Type: application/json" \
+            -d "$PAYLOAD" "${CLAUDEBOX_URL}/run")
 
           HTTP_CODE=$(echo "$RESPONSE" | tail -1)
           BODY=$(echo "$RESPONSE" | head -n -1)
@@ -124,4 +124,19 @@ jobs:
           fi
 
           LOG_URL=$(echo "$BODY" | jq -r '.log_url // empty')
-          echo "ClaudeBox session started: $LOG_URL"
+          SESSION_ID=$(echo "$LOG_URL" | grep -oP '[a-f0-9]{32}$')
+          echo "Session started: $LOG_URL"
+
+          # Poll until completed
+          while true; do
+            sleep 30
+            STATUS_BODY=$(curl -sS -H "$AUTH" "${CLAUDEBOX_URL}/session/${SESSION_ID}" 2>/dev/null || echo '{}')
+            STATUS=$(echo "$STATUS_BODY" | jq -r '.status // "unknown"')
+            echo "$(date -u +%H:%M:%S) status=$STATUS"
+            if [ "$STATUS" != "running" ]; then
+              EXIT_CODE=$(echo "$STATUS_BODY" | jq -r '.exit_code // 1')
+              echo "Session finished: status=$STATUS exit_code=$EXIT_CODE"
+              echo "Log: $LOG_URL"
+              exit "$EXIT_CODE"
+            fi
+          done

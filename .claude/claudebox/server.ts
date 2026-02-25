@@ -570,7 +570,9 @@ function parseNewKeyword(parsed: ParseResult): { forceNew: boolean; prompt: stri
 function validateResumeSession(session: SessionMeta | null, hash: string): string | null {
   if (!session) return `Session \`${hash}\` not found.`;
   if (session.status === "running") return "Replies to ongoing conversations are not supported currently.";
-  if (!session.claude_session_id || session.exit_code !== 0) return `Session \`${hash}\` is not resumable.`;
+  // Resume regardless of exit code — sessions killed by SIGTERM (143), OOM (137),
+  // or server restarts should still be resumable since workspace + JSONL persist.
+  if (!session.claude_session_id) return `Session \`${hash}\` is not resumable (no session ID).`;
   return null;
 }
 
@@ -726,7 +728,7 @@ slackApp.event("app_mention", async ({ event, client, say }) => {
       await say({ text: "Replies to ongoing conversations are not supported currently.", thread_ts: threadTs });
       return;
     }
-    if (prevSession?.claude_session_id && prevSession.exit_code === 0) {
+    if (prevSession?.claude_session_id) {
       console.log(`[REPLY] Resuming last session in thread: ${prevSession._log_id}`);
       await startReplySession(client, channel, threadTs, effectivePrompt, prevSession, userName);
       return;
@@ -780,7 +782,7 @@ slackApp.event("message", async ({ event, client, say }) => {
       await say({ text: "Replies to ongoing conversations are not supported currently.", thread_ts: threadTs });
       return;
     }
-    if (prevSession?.claude_session_id && prevSession.exit_code === 0) {
+    if (prevSession?.claude_session_id) {
       console.log(`[DM-REPLY] Resuming last session in thread: ${prevSession._log_id}`);
       await startReplySession(client, channel, threadTs, effectivePrompt, prevSession, userName);
       return;
@@ -836,22 +838,18 @@ function readBody(req: IncomingMessage): Promise<string> {
 }
 
 const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
-  // Health check
-  if (req.method === "GET" && req.url === "/health") {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, active: activeSessions, max: MAX_CONCURRENT }));
-    return;
-  }
-
-  // POST /run — start a ClaudeBox session, return log URL immediately
-  if (req.method === "POST" && req.url === "/run") {
-    // Auth (skip if no secret configured — e.g. behind cloudflared with Access)
+  // Auth — all endpoints require bearer token
+  if (API_SECRET) {
     const auth = req.headers.authorization ?? "";
-    if (API_SECRET && auth !== `Bearer ${API_SECRET}`) {
+    if (auth !== `Bearer ${API_SECRET}`) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "unauthorized" }));
       return;
     }
+  }
+
+  // POST /run — start a ClaudeBox session, return log URL immediately
+  if (req.method === "POST" && req.url === "/run") {
 
     // Capacity
     if (activeSessions >= MAX_CONCURRENT) {
