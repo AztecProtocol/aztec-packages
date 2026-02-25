@@ -113,3 +113,4 @@ Then reference the link in your final summary.
 - **Never use `gh` CLI** — it has no auth in this container. Use MCP `github_api` instead.
 - Use MCP tools for all GitHub and Slack communication
 - Public read-only access (`curl` to public URLs, `git fetch`) works directly
+- **Git identity**: You are `AztecBot <tech@aztec-labs.com>`. All commits must be attributed solely to AztecBot — do NOT add `Co-Authored-By` trailers or any other author attribution.

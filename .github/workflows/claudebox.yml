@@ -86,7 +86,7 @@ jobs:
           echo "Posted status comment: $COMMENT_ID"
 
       - name: Run ClaudeBox
-        timeout-minutes: 120
+        timeout-minutes: 5
         env:
           CLAUDEBOX_URL: ${{ vars.CLAUDEBOX_URL }}
           CLAUDEBOX_API_SECRET: ${{ secrets.CLAUDEBOX_API_SECRET }}
@@ -98,7 +98,6 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           AUTHOR: ${{ github.event.comment.user.login || github.actor }}
         run: |
-          # Build JSON payload
           PAYLOAD=$(jq -n \
             --arg prompt "$CLAUDEBOX_PROMPT" \
             --arg user "$AUTHOR" \
@@ -109,18 +108,20 @@ jobs:
             --arg link "$CLAUDEBOX_LINK" \
             '{prompt: $prompt, user: $user, comment_id: $comment_id, run_comment_id: $run_comment_id, repo: $repo, run_url: $run_url, link: $link}')
 
-          # POST to ClaudeBox server, stream output
-          HTTP_CODE=$(curl -sS --no-buffer \
-            -w "\n%{http_code}" \
+          # POST to ClaudeBox — returns 202 immediately with log URL
+          RESPONSE=$(curl -sS -w "\n%{http_code}" \
             -H "Authorization: Bearer ${CLAUDEBOX_API_SECRET}" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD" \
-            "${CLAUDEBOX_URL}/run" | tee /tmp/claudebox_output | tail -1)
+            "${CLAUDEBOX_URL}/run")
 
-          # Show output (everything except the last line which is the HTTP code)
-          head -n -1 /tmp/claudebox_output
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
 
           if [ "$HTTP_CODE" -ge 400 ] 2>/dev/null; then
-            echo "ClaudeBox returned HTTP $HTTP_CODE"
+            echo "ClaudeBox returned HTTP $HTTP_CODE: $BODY"
             exit 1
           fi
+
+          LOG_URL=$(echo "$BODY" | jq -r '.log_url // empty')
+          echo "ClaudeBox session started: $LOG_URL"

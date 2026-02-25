@@ -843,11 +843,11 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
     return;
   }
 
-  // POST /run — run a ClaudeBox session, block until done
+  // POST /run — start a ClaudeBox session, return log URL immediately
   if (req.method === "POST" && req.url === "/run") {
-    // Auth
+    // Auth (skip if no secret configured — e.g. behind cloudflared with Access)
     const auth = req.headers.authorization ?? "";
-    if (!API_SECRET || auth !== `Bearer ${API_SECRET}`) {
+    if (API_SECRET && auth !== `Bearer ${API_SECRET}`) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "unauthorized" }));
       return;
@@ -896,13 +896,6 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
 
     console.log(`[HTTP] POST /run user=${body.user ?? "?"} prompt=${truncate(prompt, 120)}${resumeSessionId ? " (resume)" : ""}`);
 
-    // Stream output back as chunked text
-    res.writeHead(200, {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Transfer-Encoding": "chunked",
-      "X-Content-Type-Options": "nosniff",
-    });
-
     const sessionOpts: ContainerSessionOpts = {
       prompt: parsed?.type === "reply-hash" ? parsed.prompt : prompt,
       userName: body.user,
@@ -914,13 +907,44 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
       prevLogId: prevLogId || undefined,
     };
 
-    const exitCode = await runContainerSession(sessionOpts, (data) => {
-      res.write(data);
-    }, (logUrl) => {
-      res.write(`ClaudeBox session: ${logUrl}\n\n`);
+    // Fire-and-forget: start session, return log URL immediately
+    // The session runs in the background; caller polls GET /session/:id for status
+    let responded = false;
+    runContainerSession(sessionOpts, undefined, (logUrl) => {
+      if (!responded) {
+        responded = true;
+        res.writeHead(202, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ log_url: logUrl, status: "started" }));
+      }
+    }).catch((e) => {
+      console.error(`[HTTP] Session error: ${e}`);
+      if (!responded) {
+        responded = true;
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: e.message }));
+      }
     });
+    return;
+  }
 
-    res.end(`\n--- exit code: ${exitCode} ---\n`);
+  // GET /session/:id — session status (for polling)
+  const sessionMatch = req.method === "GET" && req.url?.match(/^\/session\/([a-f0-9]+)$/);
+  if (sessionMatch) {
+    const session = findSessionByHash(sessionMatch[1]);
+    if (!session) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "not found" }));
+      return;
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      status: session.status,
+      log_url: session.log_url,
+      user: session.user,
+      started: session.started,
+      finished: session.finished,
+      exit_code: session.exit_code,
+    }));
     return;
   }
 

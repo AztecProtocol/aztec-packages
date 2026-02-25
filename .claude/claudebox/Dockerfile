@@ -10,8 +10,10 @@ RUN groupadd -g $GID claude 2>/dev/null || true && \
     chown -R $UID:$GID /tmp/claudehome && \
     mkdir -p /workspace && chown $UID:$GID /workspace
 
-# Git safe.directory for workspace
-RUN git config --system --add safe.directory /workspace/aztec-packages && \
+# Git config: identity + safe.directory
+RUN git config --system user.email "tech@aztec-labs.com" && \
+    git config --system user.name "AztecBot" && \
+    git config --system --add safe.directory /workspace/aztec-packages && \
     git config --system --add safe.directory /workspace
 
 # SSH: trust bastion host
