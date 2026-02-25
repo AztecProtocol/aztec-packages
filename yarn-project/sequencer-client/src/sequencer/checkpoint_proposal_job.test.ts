@@ -5,6 +5,7 @@ import {
 } from '@aztec/blob-lib/encoding';
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
+import { createMockDeepEpochCache } from '@aztec/epoch-cache/test';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -155,6 +156,7 @@ describe('CheckpointProposalJob', () => {
     dateProvider.setTime(slotStartTime * 1000); // Convert to milliseconds
 
     epochCache = mockDeep<EpochCache>();
+    epochCache = createMockDeepEpochCache();
     epochCache.getCommittee.mockResolvedValue({
       committee,
       seed: 0n,

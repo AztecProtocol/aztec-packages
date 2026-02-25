@@ -78,6 +78,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   /** Config for the sequencer */
   protected config: ResolvedSequencerConfig = DefaultSequencerConfig;
   private readonly proposerView: EpochCacheView;
+  private readonly submissionView: EpochCacheView;
 
   constructor(
     protected publisherFactory: SequencerPublisherFactory,
@@ -99,6 +100,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   ) {
     super();
     this.proposerView = this.epochCache.getViewFactory().withProposerView();
+    this.submissionView = this.epochCache.getViewFactory().withSubmissionView();
 
     // Add [FISHERMAN] prefix to logger if in fisherman mode
     if (config.fishermanMode) {
@@ -750,7 +752,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     };
 
     const inCurrentCommittee = () =>
-      this.epochCache
+      this.submissionView
         .getCommittee(currentSlot)
         .then(c => c?.committee?.some(member => ourValidatorAddresses.some(addr => addr.equals(member))));
 
@@ -773,7 +775,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     let validatorToUse: EthAddress;
     if (invalidateAsCommitteeMember) {
       // When invalidating as a committee member, use first validator that's actually in the committee
-      const { committee } = await this.epochCache.getCommittee(currentSlot);
+      const { committee } = await this.submissionView.getCommittee(currentSlot);
       if (committee) {
         const committeeSet = new Set(committee.map(addr => addr.toString()));
         validatorToUse =

@@ -6,6 +6,7 @@
  */
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
+import { createMockEpochCache } from '@aztec/epoch-cache/test';
 import { IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -92,7 +93,7 @@ describe('ValidatorClient HA Integration', () => {
       rollupVersion: 1,
     });
     worldState = mock<WorldStateSynchronizer>();
-    epochCache = mock<EpochCache>();
+    epochCache = createMockEpochCache();
     // Default mock: return all addresses passed (all are in committee)
     epochCache.filterInCommittee.mockImplementation((_slot, addresses) => Promise.resolve(addresses));
     blockSource = mock<L2BlockSource & L2BlockSink>();

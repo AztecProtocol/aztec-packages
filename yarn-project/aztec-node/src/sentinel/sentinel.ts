@@ -1,4 +1,4 @@
-import type { EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache, EpochCacheView } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { countWhile, filterAsync, fromEntries, getEntries, mapValues } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -51,6 +51,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   protected runningPromise: RunningPromise;
   protected blockStream!: L2BlockStream;
   protected l2TipsStore: L2TipsStore;
+  protected submissionView: EpochCacheView;
 
   protected initialSlot: SlotNumber | undefined;
   protected lastProcessedSlot: SlotNumber | undefined;
@@ -72,6 +73,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     protected logger = createLogger('node:sentinel'),
   ) {
     super();
+    this.submissionView = epochCache.getViewFactory().withSubmissionView();
     this.l2TipsStore = new L2TipsMemoryStore();
     const interval = (epochCache.getL1Constants().ethereumSlotDuration * 1000) / 4;
     this.runningPromise = new RunningPromise(this.work.bind(this), logger, interval);
@@ -158,7 +160,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
 
   protected async computeProvenPerformance(epoch: EpochNumber): Promise<ValidatorsEpochPerformance> {
     const [fromSlot, toSlot] = getSlotRangeForEpoch(epoch, this.epochCache.getL1Constants());
-    const { committee, isEscapeHatchOpen } = await this.epochCache.getCommittee(fromSlot);
+    const { committee, isEscapeHatchOpen } = await this.submissionView.getCommittee(fromSlot);
     if (isEscapeHatchOpen) {
       this.logger.info(`Skipping proven performance for epoch ${epoch} - escape hatch is open`);
       return {};
@@ -331,7 +333,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
    * and updates overall stats.
    */
   protected async processSlot(slot: SlotNumber) {
-    const { epoch, seed, committee, isEscapeHatchOpen } = await this.epochCache.getCommittee(slot);
+    const { epoch, seed, committee, isEscapeHatchOpen } = await this.submissionView.getCommittee(slot);
     if (isEscapeHatchOpen) {
       this.logger.info(`Skipping slot ${slot} at epoch ${epoch} - escape hatch is open`);
       this.lastProcessedSlot = slot;

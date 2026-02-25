@@ -47,7 +47,7 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
       }
 
       // Verify the attester is in the committee for this slot
-      if (!(await this.epochCache.isInCommittee(slotNumber, attester))) {
+      if (!(await this.proposerView.isInCommittee(slotNumber, attester))) {
         this.logger.warn(`Attester ${attester.toString()} is not in committee for slot ${slotNumber}`);
         return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
       }

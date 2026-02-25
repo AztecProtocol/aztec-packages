@@ -1,4 +1,5 @@
-import type { EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache, SlotTag } from '@aztec/epoch-cache';
+import { createMockEpochCache } from '@aztec/epoch-cache/test';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
@@ -57,7 +58,7 @@ describe('sentinel', () => {
   };
 
   beforeEach(async () => {
-    epochCache = mock<EpochCache>();
+    epochCache = createMockEpochCache();
     archiver = mock<L2BlockSource>();
     p2p = mock<P2PClient>();
     blockStream = mock<L2BlockStream>();

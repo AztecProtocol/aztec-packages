@@ -43,7 +43,7 @@ export class TestEpochCache implements EpochCacheInterface {
     if (typeof slot !== 'number') {
       return slot;
     }
-    const offset = this.proposerPipeliningEnabled ? 0 : -1;
+    const offset = this.proposerPipeliningEnabled ? 1 : 0;
     return SlotNumber(Math.max(0, Number(slot) + offset));
   }
 

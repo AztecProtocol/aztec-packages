@@ -78,7 +78,7 @@ export class EpochCache implements EpochCacheInterface {
   private lastValidatorRefresh = 0;
   private readonly log: Logger = createLogger('epoch-cache');
 
-  private enableProposerPipelining: boolean;
+  protected enableProposerPipelining: boolean;
 
   constructor(
     private rollup: RollupContract,
@@ -451,7 +451,7 @@ class EpochCacheViewFactoryImpl implements EpochCacheViewFactory {
   constructor(private readonly epochCache: EpochCache) {}
 
   withProposerView(): EpochCacheView {
-    const slotOffset = this.epochCache.isProposerPipeliningEnabled() ? -1 : 0;
+    const slotOffset = this.epochCache.isProposerPipeliningEnabled() ? 1 : 0;
     return new EpochCacheViewImpl(this.epochCache, slotOffset);
   }
 

@@ -274,7 +274,7 @@ export class InMemoryAttestationPool {
  * Creates a mock EpochCache for testing.
  */
 export function createMockEpochCache(): EpochCacheInterface {
-  let proposerPipeliningEnabled = true;
+  const proposerPipeliningEnabled = true;
   const mapSlotForProposerView = (slot: SlotTag): SlotTag => {
     if (typeof slot !== 'number') {
       return slot;

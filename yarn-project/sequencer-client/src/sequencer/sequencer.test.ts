@@ -1,6 +1,5 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
-import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
-import type { SlotTag } from '@aztec/epoch-cache';
+import type { EpochCache, EpochCommitteeInfo, SlotTag } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
@@ -201,7 +200,7 @@ describe('sequencer', () => {
     }
 
     epochCache.getViewFactory.mockReturnValue({
-      withProposerView: () => makeEpochView(-1),
+      withProposerView: () => makeEpochView(1),
       withSubmissionView: () => makeEpochView(0),
     });
 
@@ -911,27 +910,15 @@ describe('sequencer', () => {
   });
 
   describe('view-based proposer lookup', () => {
-    // TODO: need to rework these tests - no longer allowing the direct override within the class def
-    it('uses submission view when proposer pipelining is disabled', async () => {
+    it('uses proposer view with +1 offset when proposer pipelining is enabled', async () => {
       const proposer = signer.address;
       validatorClient.getValidatorAddresses.mockReturnValue([proposer]);
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
-      // epochCache.setProposerPipeliningEnabled(true);
 
       await sequencer.checkCanProposeForTest(SlotNumber(1));
 
-      expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(1));
-    });
-
-    it('uses submissionSlot - 1 in proposer view when proposer pipelining is enabled', async () => {
-      const proposer = signer.address;
-      validatorClient.getValidatorAddresses.mockReturnValue([proposer]);
-      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
-      // epochCache.setProposerPipeliningEnabled(false);
-
-      await sequencer.checkCanProposeForTest(SlotNumber(1));
-
-      expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(0));
+      // Proposer view applies +1 offset: slot 1 becomes slot 2
+      expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(2));
     });
   });
 });

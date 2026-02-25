@@ -1,6 +1,6 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, getBlobsPerL1Block } from '@aztec/blob-lib';
-import type { EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache, EpochCacheView } from '@aztec/epoch-cache';
 import { validateFeeAssetPriceModifier } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
@@ -95,6 +95,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   /** Tracks the last checkpoint proposal we attested to, to prevent equivocation. */
   private lastAttestedProposal?: CheckpointProposalCore;
 
+  private readonly proposerView: EpochCacheView;
+
   protected constructor(
     private keyStore: ExtendedValidatorKeyStore,
     private epochCache: EpochCache,
@@ -119,6 +121,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     this.tracer = telemetry.getTracer('Validator');
     this.metrics = new ValidatorMetrics(telemetry);
 
+    this.proposerView = epochCache.getViewFactory().withProposerView();
     this.validationService = new ValidationService(keyStore, this.log.createChild('validation-service'));
 
     // Refresh epoch cache every second to trigger alert if participation in committee changes
@@ -155,7 +158,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   private async handleEpochCommitteeUpdate() {
     try {
-      const { committee, epoch } = await this.epochCache.getCommittee('next');
+      const { committee, epoch } = await this.proposerView.getCommittee('next');
       if (!committee) {
         this.log.trace(`No committee found for slot`);
         return;
@@ -308,7 +311,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     await this.registerHandlers();
 
     const myAddresses = this.getValidatorAddresses();
-    const inCommittee = await this.epochCache.filterInCommittee('now', myAddresses);
+    const inCommittee = await this.proposerView.filterInCommittee('now', myAddresses);
     this.log.info(`Started validator with addresses: ${myAddresses.map(a => a.toString()).join(', ')}`);
     if (inCommittee.length > 0) {
       this.log.info(`Addresses in current validator committee: ${inCommittee.map(a => a.toString()).join(', ')}`);
@@ -390,7 +393,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     // Check if we're in the committee (for metrics purposes)
-    const inCommittee = await this.epochCache.filterInCommittee(slotNumber, this.getValidatorAddresses());
+    const inCommittee = await this.proposerView.filterInCommittee(slotNumber, this.getValidatorAddresses());
     const partOfCommittee = inCommittee.length > 0;
 
     const proposalInfo = { ...proposal.toBlockInfo(), proposer: proposer.toString() };
@@ -508,7 +511,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     // Check that I have any address in current committee before attesting
-    const inCommittee = await this.epochCache.filterInCommittee(slotNumber, this.getValidatorAddresses());
+    const inCommittee = await this.proposerView.filterInCommittee(slotNumber, this.getValidatorAddresses());
     const partOfCommittee = inCommittee.length > 0;
 
     const proposalInfo = {
@@ -967,7 +970,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   async collectOwnAttestations(proposal: CheckpointProposal): Promise<CheckpointAttestation[]> {
     const slot = proposal.slotNumber;
-    const inCommittee = await this.epochCache.filterInCommittee(slot, this.getValidatorAddresses());
+    const inCommittee = await this.proposerView.filterInCommittee(slot, this.getValidatorAddresses());
     this.log.debug(`Collecting ${inCommittee.length} self-attestations for slot ${slot}`, { inCommittee });
     const attestations = await this.createCheckpointAttestationsFromProposal(proposal, inCommittee);
 

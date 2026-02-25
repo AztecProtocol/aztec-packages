@@ -1,6 +1,6 @@
 import { NUM_CHECKPOINT_END_MARKER_FIELDS, getNumBlockEndBlobFields } from '@aztec/blob-lib/encoding';
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
-import type { EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache, EpochCacheView } from '@aztec/epoch-cache';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -67,6 +67,7 @@ const TXS_POLLING_MS = 500;
  */
 export class CheckpointProposalJob implements Traceable {
   protected readonly log: Logger;
+  private readonly proposerView: EpochCacheView;
 
   constructor(
     private readonly epoch: EpochNumber,
@@ -99,6 +100,7 @@ export class CheckpointProposalJob implements Traceable {
     bindings?: LoggerBindings,
   ) {
     this.log = createLogger('sequencer:checkpoint-proposal', { ...bindings, instanceId: `slot-${slot}` });
+    this.proposerView = this.epochCache.getViewFactory().withProposerView();
   }
 
   /**
@@ -706,7 +708,7 @@ export class CheckpointProposalJob implements Traceable {
     }
 
     const slotNumber = proposal.slotNumber;
-    const { committee, seed, epoch } = await this.epochCache.getCommittee(slotNumber);
+    const { committee, seed, epoch } = await this.proposerView.getCommittee(slotNumber);
 
     if (!committee) {
       throw new Error('No committee when collecting attestations');
