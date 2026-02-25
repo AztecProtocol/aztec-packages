@@ -92,7 +92,8 @@ include "../trees/public_data_check.pil";
  * - 1 single row per computation.
  *
  * ERROR HANDLING:
- * - This gadget does not have error conditions.
+ * - No error conditions affect the trace. All errors in simulation are fatal (std::runtime_error),
+ *   which abort execution and discard the entire trace.
  *
  * INTERACTIONS:
  * - poseidon2_hash.pil: To compute the delayed public mutable storage slot (#[DELAYED_PUBLIC_MUTABLE_SLOT_POSEIDON2])
@@ -164,14 +165,14 @@ namespace update_check;
     sel * (delayed_public_mutable_slot + constants.UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN - delayed_public_mutable_hash_slot) = 0;
 
     // Lookup constant support: Can be removed when we support constants in lookups.
-    pol commit deployer_protocol_contract_address;
-    sel * (constants.CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
+    pol commit contract_instance_registry_address;
+    sel * (constants.CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS - contract_instance_registry_address) = 0;
 
     // Read the update hash from the public data tree.
     #[UPDATE_HASH_PUBLIC_DATA_READ]
     sel {
         update_hash,
-        deployer_protocol_contract_address,
+        contract_instance_registry_address,
         delayed_public_mutable_hash_slot,
         public_data_tree_root
     } in public_data_check.sel {
