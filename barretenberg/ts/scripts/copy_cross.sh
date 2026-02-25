@@ -12,7 +12,7 @@ if [ -n "${1:-}" ]; then
   cp ../cpp/build-zig-$arch/lib/nodejs_module.node ./build/$arch
 elif semver check "${REF_NAME:-}" && [[ "$(arch)" == "amd64" ]]; then
   # We're building a release.
-  # All Linux targets use Zig cross-compilation for glibc 2.28 compatibility.
+  # All targets use Zig cross-compilation (Linux targets glibc 2.35).
   for arch in amd64-linux arm64-linux amd64-macos arm64-macos; do
     mkdir -p ./build/$arch
     cp ../cpp/build-zig-$arch/bin/bb ./build/$arch

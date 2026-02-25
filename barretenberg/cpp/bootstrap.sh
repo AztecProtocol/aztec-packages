@@ -244,7 +244,7 @@ function build_release_dir {
   tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
   tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 
-  # Package Linux binaries from Zig cross-compilation (targets glibc 2.28 for broad compat)
+  # Package Linux binaries from Zig cross-compilation
   tar -czf build-release/barretenberg-amd64-linux.tar.gz -C build-zig-amd64-linux/bin bb
   tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-zig-arm64-linux/bin bb
 
@@ -254,7 +254,7 @@ function build_release_dir {
   # Package amd64-macos
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-zig-amd64-macos/bin bb
 
-  # Package static libraries for FFI bindings (Zig-built for Linux)
+  # Package static libraries for FFI bindings
   if [ -f build-zig-amd64-linux/lib/libbb-external.a ]; then
     tar -czf build-release/barretenberg-static-amd64-linux.tar.gz -C build-zig-amd64-linux/lib libbb-external.a
   fi
@@ -286,7 +286,7 @@ function build_release_dir {
 
   # Verify glibc compatibility of all Linux release binaries
   echo "Verifying glibc compatibility of Linux release binaries..."
-  scripts/check_glibc_compat.sh 2.28 \
+  scripts/check_glibc_compat.ts 2.35 \
     build-zig-amd64-linux/bin/bb \
     build-zig-arm64-linux/bin/bb
 }
@@ -308,8 +308,7 @@ function build {
     bash scripts/download-ios-sdk.sh
     bash scripts/download-android-sysroot.sh
     # Perform release builds of bb and napi module, for all architectures.
-    # Linux targets use Zig cross-compilation to control glibc version (targeting 2.28).
-    # This ensures release binaries work on older Linux distros (RHEL 8, Debian 10, Ubuntu 18.04+).
+    # Linux targets use Zig cross-compilation to target glibc 2.35 (Ubuntu 22.04+).
     parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: \
       "build_native" \
       "build_wasm" \
