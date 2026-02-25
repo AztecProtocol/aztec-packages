@@ -388,7 +388,7 @@ Create the following files in your project root directory.
   "scripts": {
     "ccc": "cd contract && aztec compile && aztec codegen target -o contract/artifacts",
     "data": "tsx scripts/generate_data.ts",
-    "recursion": "tsx scripts/run_recursion.ts"
+    "recursion": "tsx index.ts"
   },
   "dependencies": {
     "@aztec/accounts": "#include_version_without_prefix",
@@ -583,125 +583,9 @@ The deployment script connects to the Aztec network, creates an account, deploys
 
 ### Deployment Script
 
-Create `scripts/run_recursion.ts`:
+Create `index.ts`:
 
-```typescript
-import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
-import type { FieldLike } from "@aztec/aztec.js/abi";
-import { getSponsoredFPCInstance } from "./sponsored_fpc.ts";
-import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
-import { ValueNotEqualContract } from "../contract/contract/artifacts/ValueNotEqual";
-import data from "../data.json";
-import { EmbeddedWallet } from "@aztec/wallets/embedded";
-import { AztecAddress } from "@aztec/aztec.js/addresses";
-import { Fr } from "@aztec/aztec.js/fields";
-import { rm } from "node:fs/promises";
-import assert from "node:assert";
-
-export const NODE_URL = "http://localhost:8080";
-
-// Setup sponsored fee payment - the FPC pays transaction fees for us
-const sponsoredFPC = await getSponsoredFPCInstance();
-const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
-  sponsoredFPC.address
-);
-
-// Initialize wallet and connect to local network
-// The wallet manages accounts and sends transactions through the PXE
-export const setupWallet = async (): Promise<EmbeddedWallet> => {
-  try {
-    // Clean up any previous PXE data
-    await rm("pxe", { recursive: true, force: true });
-
-    // Create wallet with embedded PXE
-    // The wallet manages accounts and connects to the node
-    let wallet = await EmbeddedWallet.create(NODE_URL, {
-      pxeConfig: { dataDirectory: "pxe" },
-    });
-
-    // Register the sponsored FPC so the wallet knows about it
-    await wallet.registerContract(sponsoredFPC, SponsoredFPCContract.artifact);
-    return wallet;
-  } catch (error) {
-    console.error("Failed to setup local network:", error);
-    throw error;
-  }
-};
-
-async function main() {
-  // Step 1: Setup wallet and create account
-  // Accounts in Aztec are smart contracts (account abstraction)
-  // See: https://docs.aztec.network/aztec/concepts/accounts
-  const wallet = await setupWallet();
-  const manager = await wallet.createSchnorrAccount(Fr.random(), Fr.random());
-
-  // Deploy the account contract
-  const deployMethod = await manager.getDeployMethod();
-  await deployMethod.send({
-    from: AztecAddress.ZERO,
-    fee: { paymentMethod: sponsoredPaymentMethod },
-  });
-
-  const accounts = await wallet.getAccounts();
-
-  // Step 2: Deploy ValueNotEqual contract
-  // Constructor args: initial counter (10), owner, VK hash
-  const valueNotEqual = await ValueNotEqualContract.deploy(
-    wallet,
-    10, // Initial counter value
-    accounts[0].item, // Owner address
-    data.vkHash as unknown as FieldLike // VK hash for verification
-  ).send({
-    from: accounts[0].item,
-    fee: { paymentMethod: sponsoredPaymentMethod },
-  });
-
-  console.log(`Contract deployed at: ${valueNotEqual.address}`);
-
-  const opts = {
-    from: accounts[0].item,
-    fee: { paymentMethod: sponsoredPaymentMethod },
-  };
-
-  // Step 3: Read initial counter value
-  // simulate() executes without submitting a transaction
-  let counterValue = await valueNotEqual.methods
-    .get_counter(accounts[0].item)
-    .simulate({ from: accounts[0].item });
-  console.log(`Counter value: ${counterValue}`); // Should be 10
-
-  // Step 4: Call increment() with proof data
-  // This creates a transaction that:
-  // 1. Executes the private increment() function (client-side)
-  // 2. Generates a ZK proof of correct execution
-  // 3. Submits the proof to the network
-  // 4. Network verifies the proof
-  // 5. Executes enqueued _increment_public()
-  const interaction = await valueNotEqual.methods.increment(
-    accounts[0].item,
-    data.vkAsFields as unknown as FieldLike[], // 115 field VK
-    data.proofAsFields as unknown as FieldLike[], // 508 field proof
-    data.publicInputs as unknown as FieldLike[] // Public inputs
-  );
-
-  // Step 5: Send transaction and wait for inclusion
-  // wait() blocks until the transaction is included in a block
-  await interaction.send(opts).wait();
-
-  // Step 6: Read updated counter
-  counterValue = await valueNotEqual.methods
-    .get_counter(accounts[0].item)
-    .simulate({ from: accounts[0].item });
-  console.log(`Counter value: ${counterValue}`); // Should be 11
-
-  assert(counterValue === 11n, "Counter should be 11 after verification");
-}
-
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
-```
+#include_code run_recursion /docs/examples/ts/recursive_verification/index.ts typescript
 
 ### Understanding the Deployment Script
 
