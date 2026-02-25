@@ -1,6 +1,6 @@
 # @aztec/accounts
 
-Version: v4.0.0-devnet.2-patch.0
+Version: v4.0.0-devnet.2-patch.1
 
 ## Quick Import Reference
 
@@ -12,7 +12,7 @@ import {
   EcdsaRSSHAccountContract,
   SchnorrAccountContract,
   // ... and more
-} from '@aztec/accounts';
+} from "@aztec/accounts";
 ```
 
 ## Classes
@@ -23,11 +23,13 @@ Base class for implementing an account contract. Requires that the account uses 
 Implements: `AccountContract`
 
 **Constructor**
+
 ```typescript
-new DefaultAccountContract()
+new DefaultAccountContract();
 ```
 
 **Methods**
+
 - `getAccount(completeAddress: CompleteAddress) => Account` - Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
 - `getAuthWitnessProvider(address: CompleteAddress) => AuthWitnessProvider` - Returns the auth witness provider for the given address.
 - `getContractArtifact() => Promise<ContractArtifact>` - Returns the artifact of this account contract.
@@ -40,11 +42,13 @@ Account contract that authenticates transactions using ECDSA signatures verified
 Extends: `EcdsaKBaseAccountContract`
 
 **Constructor**
+
 ```typescript
 new EcdsaKAccountContract(signingPrivateKey: Buffer)
 ```
 
 **Methods**
+
 - `getAccount(completeAddress: CompleteAddress) => Account` - Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
 - `getAuthWitnessProvider(_address: CompleteAddress) => AuthWitnessProvider`
 - `getContractArtifact() => Promise<ContractArtifact>`
@@ -57,11 +61,13 @@ Account contract that authenticates transactions using ECDSA signatures verified
 Extends: `EcdsaRBaseAccountContract`
 
 **Constructor**
+
 ```typescript
 new EcdsaRAccountContract(signingPrivateKey: Buffer)
 ```
 
 **Methods**
+
 - `getAccount(completeAddress: CompleteAddress) => Account` - Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
 - `getAuthWitnessProvider(_address: CompleteAddress) => AuthWitnessProvider`
 - `getContractArtifact() => Promise<ContractArtifact>`
@@ -74,11 +80,13 @@ Account contract that authenticates transactions using ECDSA signatures verified
 Extends: `EcdsaRSSHBaseAccountContract`
 
 **Constructor**
+
 ```typescript
 new EcdsaRSSHAccountContract(signingPublicKey: Buffer)
 ```
 
 **Methods**
+
 - `getAccount(completeAddress: CompleteAddress) => Account` - Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
 - `getAuthWitnessProvider(_address: CompleteAddress) => AuthWitnessProvider`
 - `getContractArtifact() => Promise<ContractArtifact>`
@@ -91,11 +99,13 @@ Account contract that authenticates transactions using Schnorr signatures verifi
 Extends: `SchnorrBaseAccountContract`
 
 **Constructor**
+
 ```typescript
 new SchnorrAccountContract(signingPrivateKey: Fq)
 ```
 
 **Methods**
+
 - `getAccount(completeAddress: CompleteAddress) => Account` - Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
 - `getAuthWitnessProvider(_address: CompleteAddress) => AuthWitnessProvider`
 - `getContractArtifact() => Promise<ContractArtifact>`
@@ -108,11 +118,13 @@ Account contract that authenticates transactions using Schnorr signatures verifi
 Extends: `SingleKeyBaseAccountContract`
 
 **Constructor**
+
 ```typescript
 new SingleKeyAccountContract(signingPrivateKey: Fq)
 ```
 
 **Methods**
+
 - `getAccount(completeAddress: CompleteAddress) => Account` - Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
 - `getAuthWitnessProvider(account: CompleteAddress) => AuthWitnessProvider`
 - `getContractArtifact() => Promise<ContractArtifact>`
@@ -125,6 +137,7 @@ new SingleKeyAccountContract(signingPrivateKey: Fq)
 Data for generating an initial account.
 
 **Properties**
+
 - `address: AztecAddress` - Address of the schnorr account contract.
 - `salt: Fr` - Contract address salt.
 - `secret: Fr` - Secret to derive the keys for the account.
@@ -133,63 +146,77 @@ Data for generating an initial account.
 ## Functions
 
 ### generateSchnorrAccounts
+
 ```typescript
 function generateSchnorrAccounts(numberOfAccounts: number) => Promise<Promise<InitialAccountData[]>>
 ```
+
 Generate a fixed amount of random schnorr account contract instance.
 
 ### getInitialTestAccountsData
+
 ```typescript
 function getInitialTestAccountsData() => Promise<InitialAccountData[]>
 ```
+
 Gets the basic information for initial test accounts.
 
 ### getSchnorrAccountContractAddress
+
 ```typescript
 function getSchnorrAccountContractAddress(secret: Fr, salt: Fr, signingPrivateKey?: Fq) => Promise<AztecAddress>
 ```
+
 Compute the address of a schnorr account contract.
 
 ## Types
 
 ### EcdsaKAccountContractArtifact
+
 ```typescript
-type EcdsaKAccountContractArtifact = ContractArtifact
+type EcdsaKAccountContractArtifact = ContractArtifact;
 ```
 
 ### EcdsaRAccountContractArtifact
+
 ```typescript
-type EcdsaRAccountContractArtifact = ContractArtifact
+type EcdsaRAccountContractArtifact = ContractArtifact;
 ```
 
 ### INITIAL_TEST_ACCOUNT_SALTS
+
 ```typescript
-type INITIAL_TEST_ACCOUNT_SALTS = Fr[]
+type INITIAL_TEST_ACCOUNT_SALTS = Fr[];
 ```
 
 ### INITIAL_TEST_ENCRYPTION_KEYS
+
 ```typescript
-type INITIAL_TEST_ENCRYPTION_KEYS = Fq[]
+type INITIAL_TEST_ENCRYPTION_KEYS = Fq[];
 ```
 
 ### INITIAL_TEST_SECRET_KEYS
+
 ```typescript
-type INITIAL_TEST_SECRET_KEYS = Fr[]
+type INITIAL_TEST_SECRET_KEYS = Fr[];
 ```
 
 ### INITIAL_TEST_SIGNING_KEYS
+
 ```typescript
-type INITIAL_TEST_SIGNING_KEYS = Fq[]
+type INITIAL_TEST_SIGNING_KEYS = Fq[];
 ```
 
 ### SchnorrAccountContractArtifact
+
 ```typescript
-type SchnorrAccountContractArtifact = ContractArtifact
+type SchnorrAccountContractArtifact = ContractArtifact;
 ```
 
 ### SchnorrSingleKeyAccountContractArtifact
+
 ```typescript
-type SchnorrSingleKeyAccountContractArtifact = ContractArtifact
+type SchnorrSingleKeyAccountContractArtifact = ContractArtifact;
 ```
 
 ## Cross-Package References
@@ -197,13 +224,17 @@ type SchnorrSingleKeyAccountContractArtifact = ContractArtifact
 This package references types from other Aztec packages:
 
 **@aztec/aztec.js**
+
 - `Account`, `AccountContract`
 
 **@aztec/entrypoints**
+
 - `AuthWitnessProvider`
 
 **@aztec/foundation**
+
 - `Fq`, `Fr`
 
 **@aztec/stdlib**
+
 - `AztecAddress`, `CompleteAddress`, `ContractArtifact`

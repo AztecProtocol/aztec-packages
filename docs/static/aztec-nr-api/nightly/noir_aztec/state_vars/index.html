@@ -55,7 +55,55 @@ mappings, arrays, immutable, etc.).</p>
 <p>Due to Aztec contracts being able to store both public and private state, there are many more different types of
 state variables, each with their nuance and use cases. Understanding these is key to understanding how a contract
 works.</p>
-</div>
+<h2>Packing for Efficient Access</h2>
+<p>Because all state variables are fully independent, when a contract reads or writes one of them all others are left
+untouched. This is good for isolation, but in some cases users may want to group variables together for more
+efficient access, for example to access multiple values in a single storage read or write.</p>
+<p>The pattern to follow is to <strong>group related values in a <code>struct</code></strong>, just like in Solidity. How values are packed
+inside this <code>struct</code> is governed by the <a href="../../protocol_types/traits/trait.Packable.html"><code>crate::protocol::traits::Packable</code></a> trait, which must be <code>#[derive]</code>'d or
+manually implemented - see the <a href="../../protocol_types/traits/trait.Packable.html"><code>Packable</code></a>'s docs on how to do this.</p>
+<pre><code><span class="comment">// Inefficient reads and writes - each bool is assigned a distinct storage slot, so reading or writing both</span>
+requires
+<span class="comment">// executing `SLOAD` or `SSTORE` twice.</span>
+#[storage]
+<span class="kw">struct</span> Storage&lt;C&gt; {
+    a: PublicMutable&lt;bool, C&gt;,
+    b: PublicMutable&lt;bool, C&gt;,
+}
+
+<span class="comment">// By storing the booleans in a single struct and implementing the Packable trait with tight packing, we can now</span>
+<span class="comment">// read and write both values in a single `SLOAD` or `SSTORE` opcode.</span>
+<span class="kw">struct</span> TwoBooleans {
+    a: bool,
+    b: bool,
+}
+
+<span class="kw">impl</span> aztec::protocol::traits::Packable <span class="kw">for</span> TwoBooleans {
+    <span class="kw">let</span> N: u32 = <span class="number">1</span>;
+
+    <span class="kw">fn</span> pack(self) -&gt; [Field; Self::N] {
+        [(self.a <span class="kw">as</span> Field) * <span class="number">2</span>.pow_32(<span class="number">1</span>) + (self.b <span class="kw">as</span> Field)]
+    }
+
+    <span class="kw">fn</span> unpack(packed: [Field; Self::N]) -&gt; Self {
+        <span class="kw">let</span> b = (packed[<span class="number">0</span>] <span class="kw">as</span> u1) != <span class="number">0</span>;
+        <span class="kw">let</span> a = (((packed[<span class="number">0</span>] - b <span class="kw">as</span> Field) / <span class="number">2</span>.pow_32(<span class="number">1</span>)) <span class="kw">as</span> u1) != <span class="number">0</span>;
+
+        Self { a, b }
+    }
+}
+
+#[storage]
+<span class="kw">struct</span> Storage&lt;C&gt; {
+    a_and_b: PublicMutable&lt;TwoBooleans, C&gt;,
+}</code></pre>
+<p>Note that private state variables and public ones that can be read from private (like
+<a href="../../noir_aztec/state_vars/struct.PublicImmutable.html"><code>PublicImmutable</code></a> and
+<a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html"><code>DelayedPublicMutable</code></a>) benefit from packing multiple values in the same
+<code>struct</code> even if there is no need for tight packing (e.g. if all values are <code>Field</code>s), since they often work by
+reading the <em>hash</em> of the entire value. Many values in the same <code>struct</code> will result in a single hash, and
+therefore
+a single read.</p></div>
 <h2 id="structs">Structs</h2><ul class="item-list">
 <li><div class="item-name"><a href="struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a></div><div class="item-description">Mutable public values with private read access.</div></li>
 <li><div class="item-name"><a href="struct.Map.html" class="struct">Map</a></div><div class="item-description">A key-value container for state variables.</div></li>

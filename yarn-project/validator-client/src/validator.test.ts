@@ -327,7 +327,6 @@ describe('ValidatorClient', () => {
 
       p2pClient.getTxStatus.mockResolvedValue('pending');
       p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => true)));
-      p2pClient.getTxsByHash.mockImplementation((txHashes: TxHash[]) => Promise.resolve(txHashes.map(makeTxFromHash)));
 
       txProvider.getTxsForBlockProposal.mockImplementation((proposal: BlockProposal) =>
         Promise.resolve({

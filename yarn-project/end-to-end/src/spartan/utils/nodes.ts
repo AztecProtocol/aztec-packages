@@ -363,16 +363,24 @@ export async function enableValidatorDynamicBootNode(
  */
 export async function rollAztecPods(namespace: string, clearState: boolean = false) {
   // Pod components use 'validator', but StatefulSets and PVCs use 'sequencer-node' for validators
+  // RPC nodes have nodeType='rpc-node' in Helm values, so their component label is 'rpc-node' (not 'rpc')
   const podComponents = [
     'p2p-bootstrap',
     'prover-node',
     'prover-broker',
     'prover-agent',
     'sequencer-node',
-    'rpc',
+    'rpc-node',
     'validator-ha-db',
   ];
-  const pvcComponents = ['p2p-bootstrap', 'prover-node', 'prover-broker', 'sequencer-node', 'rpc', 'validator-ha-db'];
+  const pvcComponents = [
+    'p2p-bootstrap',
+    'prover-node',
+    'prover-broker',
+    'sequencer-node',
+    'rpc-node',
+    'validator-ha-db',
+  ];
   // StatefulSet components that need to be scaled down before PVC deletion
   // Note: validators use 'sequencer-node' as component label, not 'validator'
   const statefulSetComponents = [
@@ -380,7 +388,7 @@ export async function rollAztecPods(namespace: string, clearState: boolean = fal
     'prover-node',
     'prover-broker',
     'sequencer-node',
-    'rpc',
+    'rpc-node',
     'validator-ha-db',
   ];
 

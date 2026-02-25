@@ -134,6 +134,74 @@ jobs:
 
           echo "✅ Created tag: $TAG_NAME"
 
+  dedupe-release-notes:
+    name: Deduplicate release notes
+    needs: [release-please]
+    if: ${{ needs.release-please.outputs.release-pr }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check if release notes branch exists
+        id: check-branch
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          NOTES_BRANCH="${{ fromJSON(needs.release-please.outputs.release-pr).headBranchName }}--release-notes"
+          if git ls-remote --exit-code "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" "refs/heads/$NOTES_BRANCH" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "branch=$NOTES_BRANCH" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Release notes branch $NOTES_BRANCH does not exist, skipping deduplication"
+          fi
+
+      - name: Checkout release notes branch
+        if: steps.check-branch.outputs.exists == 'true'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ steps.check-branch.outputs.branch }}
+          fetch-depth: 1
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Fetch dedupe script from target branch
+        if: steps.check-branch.outputs.exists == 'true'
+        run: |
+          git fetch origin ${{ github.ref_name }} --depth=1
+          git show origin/${{ github.ref_name }}:scripts/dedupe_release_notes.py > /tmp/dedupe_release_notes.py
+
+      - name: Configure Git
+        if: steps.check-branch.outputs.exists == 'true'
+        run: |
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
+      - name: Deduplicate release notes
+        if: steps.check-branch.outputs.exists == 'true'
+        run: |
+          if [ -f release-notes.md ]; then
+            python3 /tmp/dedupe_release_notes.py release-notes.md
+            git add release-notes.md
+            if ! git diff --cached --quiet; then
+              git commit -m "chore: deduplicate release notes"
+              git push
+            fi
+          fi
+
+      - name: Update PR body with deduped notes
+        if: steps.check-branch.outputs.exists == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          if [ -f release-notes.md ]; then
+            PR_NUMBER=${{ fromJSON(needs.release-please.outputs.release-pr).number }}
+            NOTES_SIZE=$(wc -c < release-notes.md)
+            if [ "$NOTES_SIZE" -lt 60000 ]; then
+              gh pr edit "$PR_NUMBER" --body "$(cat release-notes.md)"
+            fi
+          fi
+
   update-docs:
     name: Update docs
     env:

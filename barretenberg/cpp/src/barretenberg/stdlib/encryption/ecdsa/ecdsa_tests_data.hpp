@@ -81,6 +81,17 @@ const std::vector<WycherproofSecp256k1> secp256k1_tests{
         .is_circuit_satisfied = true,
         .comment = "Edge case public key, y coordinate is small",
     },
+    // Modular inverse edge case
+    WycherproofSecp256k1{
+        .x = WycherproofSecp256k1::Fq("0x9171fec3ca20806bc084f12f0760911b60990bd80e5b2a71ca03a048b20f837e"),
+        .y = WycherproofSecp256k1::Fq("0x634fd17863761b2958d2be4e149f8d3d7abbdc18be03f451ab6c17fa0a1f8330"),
+        .message = { 0x31, 0x32, 0x33, 0x34, 0x30, 0x30 },
+        .r = WycherproofSecp256k1::Fr("0x55555555555555555555555555555554e8e4f44ce51835693ff0ca2ef01215c1"),
+        .s = WycherproofSecp256k1::Fr("0x2736d76e412246e097148e2bf62915614eb7c428913a58eb5e9cd4674a9423de"),
+        .is_valid_signature = true,
+        .is_circuit_satisfied = true,
+        .comment = "Modular inverse edge case",
+    },
 };
 
 /**
@@ -121,6 +132,17 @@ const std::vector<WycherproofSecp256r1> secp256r1_tests{
         .is_valid_signature = true,
         .is_circuit_satisfied = true,
         .comment = "Edge case public key, x-coordinate has many trailing zeros",
+    },
+    // Edge case public key test
+    WycherproofSecp256r1{
+        .x = WycherproofSecp256r1::Fq("0x2927b10512bae3eddcfe467828128bad2903269919f7086069c8c4df6c732838"),
+        .y = WycherproofSecp256r1::Fq("0xc7787964eaac00e5921fb1498a60f4606766b3d9685001558d1a974e7341513e"),
+        .message = { 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65 },
+        .r = WycherproofSecp256r1::Fr("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551"),
+        .s = WycherproofSecp256r1::Fr("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632550"),
+        .is_valid_signature = false,
+        .is_circuit_satisfied = true,
+        .comment = "Signature with special case values r=n and s=n - 1",
     },
 };
 } // namespace bb::stdlib

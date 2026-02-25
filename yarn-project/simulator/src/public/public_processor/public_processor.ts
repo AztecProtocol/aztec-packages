@@ -25,7 +25,7 @@ import type {
   PublicProcessorValidator,
   SequencerConfig,
 } from '@aztec/stdlib/interfaces/server';
-import type { DebugLog } from '@aztec/stdlib/logs';
+import { type DebugLog, type DebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
@@ -140,6 +140,7 @@ export class PublicProcessor implements Traceable {
     telemetryClient: TelemetryClient = getTelemetryClient(),
     private log: Logger,
     private opts: Pick<SequencerConfig, 'fakeProcessingDelayPerTxMs' | 'fakeThrowAfterProcessingTxCount'> = {},
+    private debugLogStore: DebugLogStore = new NullDebugLogStore(),
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
   }
@@ -292,6 +293,8 @@ export class PublicProcessor implements Traceable {
         usedTxs.push(tx);
         returns = returns.concat(returnValues);
         debugLogs.push(...txDebugLogs);
+
+        this.debugLogStore.storeLogs(processedTx.hash.toString(), txDebugLogs);
 
         totalPublicGas = totalPublicGas.add(processedTx.gasUsed.publicGas);
         totalBlockGas = totalBlockGas.add(processedTx.gasUsed.totalGas);

@@ -1,13 +1,7 @@
 import { mockTx } from '@aztec/stdlib/testing';
 
 import { TxPoolRejectionCode } from './eviction/interfaces.js';
-import {
-  type TxMetaData,
-  buildTxMetaData,
-  checkNullifierConflict,
-  comparePriority,
-  stubTxMetaValidationData,
-} from './tx_metadata.js';
+import { buildTxMetaData, checkNullifierConflict, comparePriority, stubTxMetaData } from './tx_metadata.js';
 
 describe('TxMetaData', () => {
   describe('buildTxMetaData', () => {
@@ -16,6 +10,7 @@ describe('TxMetaData', () => {
       const meta = await buildTxMetaData(tx);
 
       expect(meta.txHash).toBe(tx.getTxHash().toString());
+      expect(meta.txHashBigInt).toBe(tx.getTxHash().toBigInt());
       expect(meta.anchorBlockHeaderHash).toBe((await tx.data.constants.anchorBlockHeader.hash()).toString());
       expect(meta.feePayer).toBe(tx.data.feePayer.toString());
       expect(meta.expirationTimestamp).toBe(tx.data.expirationTimestamp);
@@ -36,22 +31,39 @@ describe('TxMetaData', () => {
         expect(nullifier).toMatch(/^0x[0-9a-f]+$/i);
       }
     });
+
+    it('sets forPublic to truthy for public transactions', async () => {
+      const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+      expect(tx.data.forPublic).toBeDefined();
+      const meta = await buildTxMetaData(tx);
+
+      expect(meta.data.forPublic).toBeTruthy();
+    });
+
+    it('sets forPublic to falsy for private transactions', async () => {
+      const tx = await mockTx(1, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 0,
+        hasPublicTeardownCallRequest: false,
+      });
+      expect(tx.data.forPublic).not.toBeDefined();
+      const meta = await buildTxMetaData(tx);
+
+      expect(meta.data.forPublic).toBeFalsy();
+    });
+
+    it('preserves gas limits in validation data', async () => {
+      const tx = await mockTx(1);
+      const meta = await buildTxMetaData(tx);
+
+      expect(meta.data.constants.txContext.gasSettings.gasLimits).toEqual(
+        tx.data.constants.txContext.gasSettings.gasLimits,
+      );
+    });
   });
 
   describe('comparePriority', () => {
-    const makeMeta = (fee: bigint, txHash = '0x1234'): TxMetaData => ({
-      txHash,
-      anchorBlockHeaderHash: '0x5678',
-      priorityFee: fee,
-      feePayer: '0xabcd',
-      claimAmount: 0n,
-      feeLimit: 1000n,
-      nullifiers: [],
-      expirationTimestamp: 0n,
-      receivedAt: 0,
-      estimatedSizeBytes: 0,
-      data: stubTxMetaValidationData(),
-    });
+    const makeMeta = (fee: bigint, txHash = '0x1234') => stubTxMetaData(txHash, { priorityFee: fee, nullifiers: [] });
 
     it('returns negative when first has lower priority fee', () => {
       expect(comparePriority(makeMeta(100n), makeMeta(200n))).toBe(-1);
@@ -73,19 +85,8 @@ describe('TxMetaData', () => {
   });
 
   describe('checkNullifierConflict', () => {
-    const makeMeta = (txHash: string, priorityFee: bigint, nullifiers: string[]): TxMetaData => ({
-      txHash,
-      anchorBlockHeaderHash: '0x5678',
-      priorityFee,
-      feePayer: '0xabcd',
-      claimAmount: 0n,
-      feeLimit: 1000n,
-      nullifiers,
-      expirationTimestamp: 0n,
-      receivedAt: 0,
-      estimatedSizeBytes: 0,
-      data: stubTxMetaValidationData(),
-    });
+    const makeMeta = (txHash: string, priorityFee: bigint, nullifiers: string[]) =>
+      stubTxMetaData(txHash, { priorityFee, nullifiers });
 
     it('returns no conflict when nullifiers do not overlap', () => {
       const incoming = makeMeta('0x1111', 100n, ['0xnull1', '0xnull2']);

@@ -4,6 +4,7 @@ import { type CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { elapsed } from '@aztec/foundation/timer';
 import { L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
@@ -161,7 +162,8 @@ export class LightweightCheckpointBuilder {
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
     opts: { insertTxsEffects?: boolean; expectedEndState?: StateReference } = {},
-  ): Promise<L2Block> {
+  ): Promise<{ block: L2Block; timings: Record<string, number> }> {
+    const timings: Record<string, number> = {};
     const isFirstBlock = this.blocks.length === 0;
 
     // Empty blocks are only allowed as the first block in a checkpoint
@@ -170,7 +172,9 @@ export class LightweightCheckpointBuilder {
     }
 
     if (isFirstBlock) {
-      this.lastArchives.push(await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db));
+      const [msGetInitialArchive, initialArchive] = await elapsed(() => getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db));
+      this.lastArchives.push(initialArchive);
+      timings.getInitialArchive = msGetInitialArchive;
     }
 
     const lastArchive = this.lastArchives.at(-1)!;
@@ -180,12 +184,17 @@ export class LightweightCheckpointBuilder {
         `Inserting side effects for ${txs.length} txs for block ${globalVariables.blockNumber} into db`,
         { txs: txs.map(tx => tx.hash.toString()) },
       );
+      let msInsertSideEffects = 0;
       for (const tx of txs) {
-        await insertSideEffects(tx, this.db);
+        const [ms] = await elapsed(() => insertSideEffects(tx, this.db));
+        msInsertSideEffects += ms;
       }
+      timings.insertSideEffects = msInsertSideEffects;
     }
 
-    const endState = await this.db.getStateReference();
+    const [msGetEndState, endState] = await elapsed(() => this.db.getStateReference());
+    timings.getEndState = msGetEndState;
+
     if (opts.expectedEndState && !endState.equals(opts.expectedEndState)) {
       this.logger.error('End state after processing txs does not match expected end state', {
         globalVariables: globalVariables.toInspect(),
@@ -195,26 +204,24 @@ export class LightweightCheckpointBuilder {
       throw new Error(`End state does not match expected end state when building block ${globalVariables.blockNumber}`);
     }
 
-    const { header, body, blockBlobFields } = await buildHeaderAndBodyFromTxs(
-      txs,
-      lastArchive,
-      endState,
-      globalVariables,
-      this.spongeBlob,
-      isFirstBlock,
+    const [msBuildHeaderAndBody, { header, body, blockBlobFields }] = await elapsed(() =>
+      buildHeaderAndBodyFromTxs(txs, lastArchive, endState, globalVariables, this.spongeBlob, isFirstBlock),
     );
+    timings.buildHeaderAndBody = msBuildHeaderAndBody;
 
     header.state.validate();
 
     await this.db.updateArchive(header);
-    const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
+    const [msUpdateArchive, newArchive] = await elapsed(() => getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db));
+    timings.updateArchive = msUpdateArchive;
     this.lastArchives.push(newArchive);
 
     const indexWithinCheckpoint = IndexWithinCheckpoint(this.blocks.length);
     const block = new L2Block(newArchive, header, body, this.checkpointNumber, indexWithinCheckpoint);
     this.blocks.push(block);
 
-    await this.spongeBlob.absorb(blockBlobFields);
+    const [msSpongeAbsorb] = await elapsed(() => this.spongeBlob.absorb(blockBlobFields));
+    timings.spongeAbsorb = msSpongeAbsorb;
     this.blobFields.push(...blockBlobFields);
 
     this.logger.debug(`Built block ${header.getBlockNumber()}`, {
@@ -225,7 +232,7 @@ export class LightweightCheckpointBuilder {
       txs: block.body.txEffects.map(tx => tx.txHash.toString()),
     });
 
-    return block;
+    return { block, timings };
   }
 
   async completeCheckpoint(): Promise<Checkpoint> {

@@ -1,15 +1,15 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
-import type { BlockHash, L2BlockSource } from '@aztec/stdlib/block';
+import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { AztecNode, ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { P2PClientType } from '@aztec/stdlib/p2p';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { P2PClient } from '../client/p2p_client.js';
@@ -17,11 +17,8 @@ import type { P2PConfig } from '../config.js';
 import { AttestationPool, type AttestationPoolApi } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
-import type { TxMetaData } from '../mem_pools/tx_pool_v2/tx_metadata.js';
 import { AztecKVTxPoolV2 } from '../mem_pools/tx_pool_v2/tx_pool_v2.js';
-import { AggregateTxValidator } from '../msg_validators/tx_validator/aggregate_tx_validator.js';
-import { BlockHeaderTxValidator } from '../msg_validators/tx_validator/block_header_validator.js';
-import { DoubleSpendTxValidator } from '../msg_validators/tx_validator/double_spend_validator.js';
+import { createTxValidatorForTransactionsEnteringPendingTxPool } from '../msg_validators/index.js';
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
 import { createFileStoreTxSources } from '../services/tx_collection/file_store_tx_source.js';
@@ -80,32 +77,6 @@ export async function createP2PClient<T extends P2PClientType>(
   const rollupAddress = inputConfig.l1Contracts.rollupAddress.toString().toLowerCase().replace(/^0x/, '');
   const txFileStoreBasePath = `aztec-${inputConfig.l1ChainId}-${inputConfig.rollupVersion}-0x${rollupAddress}`;
 
-  /** Validator factory for pool re-validation (double-spend + block header only). */
-  const createPoolTxValidator = async () => {
-    await worldStateSynchronizer.syncImmediate();
-    return new AggregateTxValidator<TxMetaData>(
-      new DoubleSpendTxValidator<TxMetaData>(
-        {
-          nullifiersExist: async (nullifiers: Buffer[]) => {
-            const merkleTree = worldStateSynchronizer.getCommitted();
-            const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
-            return indices.map(index => index !== undefined);
-          },
-        },
-        bindings,
-      ),
-      new BlockHeaderTxValidator<TxMetaData>(
-        {
-          getArchiveIndices: (archives: BlockHash[]) => {
-            const merkleTree = worldStateSynchronizer.getCommitted();
-            return merkleTree.findLeafIndices(MerkleTreeId.ARCHIVE, archives);
-          },
-        },
-        bindings,
-      ),
-    );
-  };
-
   const txPool =
     deps.txPool ??
     new AztecKVTxPoolV2(
@@ -114,7 +85,16 @@ export async function createP2PClient<T extends P2PClientType>(
       {
         l2BlockSource: archiver,
         worldStateSynchronizer,
-        createTxValidator: createPoolTxValidator,
+        createTxValidator: async () => {
+          // We accept transactions if they are not expired by the next slot and block number (checked based on the ExpirationTimestamp field)
+          const currentBlockNumber = await archiver.getBlockNumber();
+          const { ts: nextSlotTimestamp } = epochCache.getEpochAndSlotInNextL1Slot();
+          return createTxValidatorForTransactionsEnteringPendingTxPool(
+            worldStateSynchronizer,
+            nextSlotTimestamp,
+            BlockNumber(currentBlockNumber + 1),
+          );
+        },
       },
       telemetry,
       {
