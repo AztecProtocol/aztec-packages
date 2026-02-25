@@ -1,8 +1,6 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { AztecNode } from '@aztec/aztec.js/node';
 import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import { OffchainPaymentContract } from '@aztec/noir-test-contracts.js/OffchainPayment';
-import { MessageContext } from '@aztec/stdlib/logs';
 import { OFFCHAIN_MESSAGE_IDENTIFIER } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -15,8 +13,6 @@ const TIMEOUT = 120_000;
 
 describe('e2e_offchain_payment_qr', () => {
   let contract: OffchainPaymentContract;
-  let aztecNode: AztecNode;
-
   let wallet: TestWallet;
   let accounts: AztecAddress[];
   let teardown: () => Promise<void>;
@@ -24,7 +20,7 @@ describe('e2e_offchain_payment_qr', () => {
   jest.setTimeout(TIMEOUT);
 
   beforeAll(async () => {
-    ({ teardown, wallet, accounts, aztecNode } = await setup(2));
+    ({ teardown, wallet, accounts } = await setup(2));
     ({ contract } = await OffchainPaymentContract.deploy(wallet).send({ from: accounts[0] }));
   });
 
@@ -56,19 +52,7 @@ describe('e2e_offchain_payment_qr', () => {
 
     const ciphertext = effectForBob!.data.slice(2, 2 + PRIVATE_LOG_CIPHERTEXT_LEN);
 
-    // Bob processes the message after the tx is available.
-    const txEffect = (await aztecNode.getTxEffect(txHash))!.data;
-    const messageContext = MessageContext.fromTxEffectAndRecipient(txEffect, bob);
-
-    await contract.methods
-      .offchain_enqueue(
-        ciphertext,
-        bob,
-        messageContext.txHash.hash,
-        messageContext.uniqueNoteHashesInTx,
-        messageContext.firstNullifierInTx,
-      )
-      .simulate({ from: bob });
+    await contract.methods.offchain_enqueue(ciphertext, bob, txHash.hash).simulate({ from: bob });
 
     await contract.methods.offchain_sync_inbox().simulate({ from: bob });
 

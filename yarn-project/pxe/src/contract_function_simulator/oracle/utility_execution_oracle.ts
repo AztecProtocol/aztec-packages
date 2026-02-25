@@ -19,6 +19,7 @@ import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import type { AccessScopes } from '../../access_scopes.js';
 import { createContractLogger, logContractMessage } from '../../contract_logging.js';
@@ -36,6 +37,7 @@ import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
+import { MessageContextResponse } from '../noir-structs/message_context_response.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
@@ -542,6 +544,59 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       contractAddress,
       logRetrievalResponsesArrayBaseSlot,
       maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption),
+      this.jobId,
+    );
+  }
+
+  public async utilityResolveMessageContexts(
+    contractAddress: AztecAddress,
+    messageContextRequestsArrayBaseSlot: Fr,
+    messageContextResponsesArrayBaseSlot: Fr,
+  ) {
+    if (!this.contractAddress.equals(contractAddress)) {
+      throw new Error(`Got a message context request from ${contractAddress}, expected ${this.contractAddress}`);
+    }
+
+    const requestCapsules = await this.capsuleStore.readCapsuleArray(
+      contractAddress,
+      messageContextRequestsArrayBaseSlot,
+      this.jobId,
+    );
+
+    // TODO: optimize, we might be hitting the node to get the same txHash repeatedly
+    // TODO: we should be querying at the anchor block
+    const maybeMessageContexts = await Promise.all(
+      requestCapsules.map(async fields => {
+        // TODO: clarify that txHash=0 means no txHash
+        // TODO: think how to handle no tx case
+        const txHashField = fields[0] ?? Fr.ZERO;
+        if (txHashField.isZero()) {
+          return null;
+        }
+
+        const txHash = TxHash.fromField(txHashField);
+        const txEffect = await this.aztecNode.getTxEffect(txHash);
+        if (!txEffect) {
+          return null;
+        }
+
+        const data = txEffect.data;
+        if (data.nullifiers.length === 0) {
+          return null;
+        }
+
+        return new MessageContextResponse(data.txHash, data.noteHashes, data.nullifiers[0]);
+      }),
+    );
+
+    // Requests are cleared once we're done.
+    await this.capsuleStore.setCapsuleArray(contractAddress, messageContextRequestsArrayBaseSlot, [], this.jobId);
+
+    // Store Option<MessageContextResponse> in the response capsule array.
+    await this.capsuleStore.setCapsuleArray(
+      contractAddress,
+      messageContextResponsesArrayBaseSlot,
+      maybeMessageContexts.map(MessageContextResponse.toSerializedOption),
       this.jobId,
     );
   }

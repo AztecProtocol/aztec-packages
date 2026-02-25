@@ -2,6 +2,8 @@ pub(crate) mod event_validation_request;
 
 mod message_context;
 pub use message_context::MessageContext;
+mod message_context_response;
+pub use message_context_response::MessageContextResponse;
 
 pub(crate) mod note_validation_request;
 pub(crate) mod log_retrieval_request;
@@ -154,6 +156,23 @@ pub unconstrained fn validate_and_store_enqueued_notes_and_events(contract_addre
         contract_address,
         NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
         EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
+    );
+}
+
+/// Resolves message contexts for a list of tx hashes stored in a CapsuleArray.
+///
+/// The `message_context_requests_array_base_slot` must point to a CapsuleArray<Field> containing tx hashes.
+/// PXE will store `Option<MessageContextResponse>` values into the responses array at
+/// `message_context_responses_array_base_slot`.
+pub unconstrained fn resolve_message_contexts(
+    contract_address: AztecAddress,
+    message_context_requests_array_base_slot: Field,
+    message_context_responses_array_base_slot: Field,
+) {
+    oracle::message_processing::resolve_message_contexts(
+        contract_address,
+        message_context_requests_array_base_slot,
+        message_context_responses_array_base_slot,
     );
 }
 

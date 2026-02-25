@@ -127,6 +127,11 @@ export interface IUtilityExecutionOracle {
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
   ): Promise<void>;
+  utilityResolveMessageContexts(
+    contractAddress: AztecAddress,
+    messageContextRequestsArrayBaseSlot: Fr,
+    messageContextResponsesArrayBaseSlot: Fr,
+  ): Promise<void>;
   utilityStoreCapsule(contractAddress: AztecAddress, key: Fr, capsule: Fr[]): Promise<void>;
   utilityLoadCapsule(contractAddress: AztecAddress, key: Fr): Promise<Fr[] | null>;
   utilityDeleteCapsule(contractAddress: AztecAddress, key: Fr): Promise<void>;

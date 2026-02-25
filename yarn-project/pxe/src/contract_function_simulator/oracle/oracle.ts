@@ -535,6 +535,19 @@ export class Oracle {
     return [];
   }
 
+  async utilityResolveMessageContexts(
+    [contractAddress]: ACVMField[],
+    [messageContextRequestsArrayBaseSlot]: ACVMField[],
+    [messageContextResponsesArrayBaseSlot]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    await this.handlerAsUtility().utilityResolveMessageContexts(
+      AztecAddress.fromString(contractAddress),
+      Fr.fromString(messageContextRequestsArrayBaseSlot),
+      Fr.fromString(messageContextResponsesArrayBaseSlot),
+    );
+    return [];
+  }
+
   async utilityStoreCapsule(
     [contractAddress]: ACVMField[],
     [slot]: ACVMField[],
