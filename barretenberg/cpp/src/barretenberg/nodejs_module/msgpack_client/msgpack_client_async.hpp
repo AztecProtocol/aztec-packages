@@ -27,6 +27,7 @@ namespace bb::nodejs::msgpack_client {
 class MsgpackClientAsync : public Napi::ObjectWrap<MsgpackClientAsync> {
   public:
     MsgpackClientAsync(const Napi::CallbackInfo& info);
+    ~MsgpackClientAsync();
 
     /**
      * @brief Set the JavaScript callback to be invoked when responses arrive
@@ -66,15 +67,18 @@ class MsgpackClientAsync : public Napi::ObjectWrap<MsgpackClientAsync> {
      *
      * Continuously polls the response ring buffer using recv() with timeout.
      * When a response arrives, invokes the registered JavaScript callback via ThreadSafeFunction.
-     * Runs until process exits (thread is detached, no explicit shutdown needed).
+     * Runs until running_ is set to false (joined in destructor).
      */
     void poll_responses();
 
     // IPC client for shared memory communication
     std::unique_ptr<bb::ipc::IpcClient> client_;
 
-    // Background polling thread (detached - will be cleaned up by OS on process exit)
+    // Background polling thread (joined in destructor for clean shutdown)
     std::thread poll_thread_;
+
+    // Flag to signal the poll thread to stop
+    std::atomic<bool> running_{ true };
 
     // Mutex protecting TSFN access from multiple threads
     std::mutex tsfn_mutex_;

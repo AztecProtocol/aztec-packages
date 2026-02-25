@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
 #include <functional>
 #include <sstream>
 #include <string>
@@ -70,19 +71,20 @@ enum class LogLevel : int {
     DEBUG = 6,
     TRACE = 7,
 };
-extern LogLevel bb_log_level;
+extern std::atomic<LogLevel> bb_log_level;
 
 // This allows the logging sink to be customized. Useful for Typescript use-cases.
+// The log function is thread-local so each worker thread can have its own logger.
 using LogFunction = std::function<void(LogLevel level, const std::string& msg)>;
-extern LogFunction log_function;
+LogFunction& get_log_function();
 void set_log_function(LogFunction new_log_function);
 
-// This logs (using log_function) if the log level is enabled.
+// This logs (using get_log_function()) if the log level is enabled.
 // NOTE: Evaluation of __VA_ARGS__ is lazy since it's inside the if statement.
 #define log_(level, ...)                                                                                               \
     do {                                                                                                               \
-        if (level <= bb_log_level) {                                                                                   \
-            log_function(level, format(__VA_ARGS__));                                                                  \
+        if (level <= bb_log_level.load(std::memory_order_relaxed)) {                                                   \
+            get_log_function()(level, format(__VA_ARGS__));                                                            \
         }                                                                                                              \
     } while (0)
 

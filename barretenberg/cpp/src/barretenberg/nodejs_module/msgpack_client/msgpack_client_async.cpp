@@ -26,6 +26,14 @@ MsgpackClientAsync::MsgpackClientAsync(const Napi::CallbackInfo& info)
     }
 }
 
+MsgpackClientAsync::~MsgpackClientAsync()
+{
+    running_.store(false);
+    if (poll_thread_.joinable()) {
+        poll_thread_.join();
+    }
+}
+
 Napi::Value MsgpackClientAsync::setResponseCallback(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
@@ -42,10 +50,6 @@ Napi::Value MsgpackClientAsync::setResponseCallback(const Napi::CallbackInfo& in
     // Start background polling thread now that callback is registered
     poll_thread_ = std::thread(&MsgpackClientAsync::poll_responses, this);
 
-    // Detach the thread - it will run until process exits
-    // No need for explicit shutdown or join
-    poll_thread_.detach();
-
     return env.Undefined();
 }
 
@@ -53,7 +57,7 @@ void MsgpackClientAsync::poll_responses()
 {
     constexpr uint64_t TIMEOUT_NS = 1000000000; // 1s
 
-    while (true) { // Run forever until process exits
+    while (running_.load()) {
         // Poll for response (blocks with timeout using futex)
         std::span<const uint8_t> response = client_->receive(TIMEOUT_NS);
 
