@@ -399,6 +399,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       failedActions: [],
       sentActions: ['propose'],
       expiredActions: [],
+      droppedActions: [],
     });
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
