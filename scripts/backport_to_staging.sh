@@ -141,17 +141,16 @@ fi
 # Commit changes - base the commit details off of the PR title and body
 echo "Diff applied successfully! Committing changes..."
 
-git config user.name "$PR_AUTHOR"
-git config user.email "$PR_AUTHOR_EMAIL"
-
 # Ensure commit subject contains PR reference for get_meaningful_commits
 COMMIT_SUBJECT="$PR_TITLE"
 if ! echo "$COMMIT_SUBJECT" | grep -qE '\(#[0-9]+\)'; then
   COMMIT_SUBJECT="$COMMIT_SUBJECT (#$PR_NUMBER)"
 fi
 
+# Use --author to preserve original PR author while keeping the committer
+# as whoever runs the script (so GPG signing works for local devs).
 git add -A
-git commit -m "$COMMIT_SUBJECT
+git commit --author="$PR_AUTHOR <$PR_AUTHOR_EMAIL>" -m "$COMMIT_SUBJECT
 
 $PR_BODY"
 
