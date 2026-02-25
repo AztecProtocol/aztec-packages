@@ -92,15 +92,15 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.CLAUDEBOX_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          cat >> ~/.ssh/config <<'SSHEOF'
+          cat >> ~/.ssh/config <<SSHEOF
           Host claudebox-jump
             HostName ${{ vars.CLAUDEBOX_JUMP_HOST }}
-            User ${{ vars.CLAUDEBOX_JUMP_USER || 'claude' }}
+            User ${{ vars.CLAUDEBOX_JUMP_USER }}
             StrictHostKeyChecking no
 
           Host claudebox
             HostName ${{ vars.CLAUDEBOX_HOST }}
-            User ${{ vars.CLAUDEBOX_USER || 'claude' }}
+            User ${{ vars.CLAUDEBOX_USER }}
             ProxyJump claudebox-jump
             StrictHostKeyChecking no
           SSHEOF
