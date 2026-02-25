@@ -401,6 +401,8 @@ async function runContainerSession(
       "-e", `CLAUDEBOX_MCP_URL=${mcpUrl}`,
       "-e", `CLAUDEBOX_TARGET_REF=${opts.targetRef || "origin/next"}`,
       "-e", `SESSION_UUID=${sessionUuid}`,
+      // CI_PASSWORD for ci.sh dlog HTTP fallback
+      "-e", `CI_PASSWORD=${process.env.CI_PASSWORD || ""}`,
       // Docker-in-Docker via proxy socket on shared /workspace volume
       "-e", `DOCKER_HOST=unix:///workspace/docker.sock`,
     ];

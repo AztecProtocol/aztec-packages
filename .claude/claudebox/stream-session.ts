@@ -50,6 +50,7 @@ function logInfo(msg: string) {
 
 const SPILL_THRESHOLD = 1500; // chars before we create a sub-log link
 const cacheLogBin = join(repoDir, "ci3", "cache_log");
+const denoiseScript = join(repoDir, "ci3", "denoise");
 
 function trunc(s: string, n = 200): string {
   return s.length <= n ? s : s.slice(0, n) + "...";
@@ -272,8 +273,7 @@ class JsonlTailer {
   leftover = "";
   label: string;
   subLogProc: ReturnType<typeof spawn> | null = null;
-  subLogUrl: string | null = null;
-  mainLogLines = 0;
+  entryCount = 0;
 
   constructor(path: string, label: string) {
     this.path = path;
@@ -297,13 +297,12 @@ class JsonlTailer {
       try {
         const d = JSON.parse(line);
         if (this.label) {
-          // Write full output to subagent's own cache_log
+          // Subagent: pipe pretty-printed output to denoise (handles dots + live publishing)
           if (this.subLogProc?.stdin?.writable) {
             const full = captureOutput(() => printEntry(d));
             if (full) this.subLogProc.stdin.write(full + "\n");
           }
-          // Only show the final summary in main log; full output goes to subagent cache_log
-          this.mainLogLines++;
+          this.entryCount++;
         } else {
           printEntry(d);
         }
@@ -317,20 +316,19 @@ class JsonlTailer {
     if (this.leftover.trim()) {
       try {
         const d = JSON.parse(this.leftover);
-        if (this.subLogProc?.stdin?.writable) {
-          const full = captureOutput(() => printEntry(d));
-          if (full) this.subLogProc.stdin.write(full + "\n");
+        if (this.label) {
+          if (this.subLogProc?.stdin?.writable) {
+            const full = captureOutput(() => printEntry(d));
+            if (full) this.subLogProc.stdin.write(full + "\n");
+          }
+          this.entryCount++;
+        } else {
+          printEntry(d);
         }
-        if (this.label) this.mainLogLines++;
-        else printEntry(d);
       } catch {}
     }
     closeSync(this.fd);
-    // Print subagent summary in main log
-    if (this.label && this.mainLogLines > 0) {
-      const link = this.subLogUrl ? `  Full subagent log: ${C}${this.subLogUrl}${X}` : "";
-      console.log(`${D}  [${this.label}]${X} ${GR}Done (${this.mainLogLines} entries)${X}${link}`);
-    }
+    // Close denoise stdin — it prints its own "done" message and publishes the final log
     if (this.subLogProc?.stdin?.writable) {
       this.subLogProc.stdin.end();
     }
@@ -388,18 +386,15 @@ async function main() {
         const tailer = new JsonlTailer(f, label);
 
         if (isSubagent) {
-          // Spawn a dedicated cache_log for this subagent
+          // Wrap subagent output in denoise: dots for progress, live cache_log with URL
           try {
-            const subLogId = randomBytes(16).toString("hex");
-            const subLogUrl = `http://ci.aztec-labs.com/${subLogId}`;
-            const proc = spawn("bash", ["-c", `DUP=1 "${cacheLogBin}" claudebox-subagent "${subLogId}"`], {
-              stdio: ["pipe", "ignore", "ignore"],
+            const proc = spawn(denoiseScript, ["cat"], {
+              stdio: ["pipe", "inherit", "inherit"],
+              env: { ...process.env, DENOISE: "1", DENOISE_DISPLAY_NAME: label, root: repoDir },
             });
             tailer.subLogProc = proc;
-            tailer.subLogUrl = subLogUrl;
-            console.log(`\n${C}[stream]${X} ${Y}SUBAGENT${X} ${B}${label}${X} started`);
           } catch (e) {
-            logInfo(`Failed to create subagent log: ${e}`);
+            logInfo(`Failed to start denoise for subagent: ${e}`);
           }
         } else {
           logInfo(`New file: ${basename(f)}`);
@@ -420,40 +415,35 @@ async function main() {
     return anyNew;
   };
 
-  // Watch for changes
+  // Watch for changes — run until killed by parent (SIGTERM)
   await new Promise<void>((resolve) => {
-    let idleTimer: ReturnType<typeof setTimeout> | null = null;
     let done = false;
-
-    const resetIdle = () => {
-      if (idleTimer) clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => {
-        if (done) return;
-        done = true;
-        logInfo("No new output for 10s, finishing.");
-        finish();
-      }, 10_000);
-    };
 
     const onChange = () => {
       if (done) return;
-      if (drainAll()) resetIdle();
+      drainAll();
     };
 
-    // Watch the whole project dir recursively
     const watcher = watch(projectDir, { recursive: true, persistent: true }, () => onChange());
     const pollInterval = setInterval(() => onChange(), 2000);
-    resetIdle();
 
     const finish = () => {
+      if (done) return;
+      done = true;
       watcher.close();
       clearInterval(pollInterval);
-      if (idleTimer) clearTimeout(idleTimer);
       // Final drain + flush
       drainAll();
       for (const t of tailers.values()) t.flush();
       resolve();
     };
+
+    process.on("SIGTERM", () => {
+      logInfo("Received SIGTERM, draining...");
+      // Brief delay to catch any final JSONL writes
+      setTimeout(finish, 1000);
+    });
+    process.on("SIGINT", finish);
   });
 
   console.log(`\n${B}${G}━━━ End of Session Output ━━━${X}`);

@@ -14,9 +14,6 @@ RUN groupadd -g $GID claude 2>/dev/null || true && \
 RUN git config --system --add safe.directory /workspace/aztec-packages && \
     git config --system --add safe.directory /workspace
 
-# CI_PASSWORD for http fallback when Redis tunnel unavailable
-ENV CI_PASSWORD=letmeseethoselogs
-
 # SSH: trust bastion host
 RUN printf "Host ci-bastion.aztecprotocol.com\n  StrictHostKeyChecking no\n  UserKnownHostsFile /dev/null\n  LogLevel ERROR\n" \
     > /etc/ssh/ssh_config.d/bastion.conf
