@@ -35,9 +35,9 @@ void compute_lookup_table_single(const Fr& input_root,
                                  Fr* const roots,
                                  std::vector<Fr*>& round_roots)
 {
-    // num_rounds = 0 results in underflow in the loop below, and num_rounds = 1 results in round_roots not being
-    // computed, so we require num_rounds >= 2, which is equivalent to size >= 4.
-    BB_ASSERT(size >= 4);
+    // num_rounds = 0 results in underflow in the loop below, so we require num_rounds >= 1, which is equivalent to size
+    // >= 2.
+    BB_ASSERT(size >= 2);
     const size_t num_rounds = static_cast<size_t>(numeric::get_msb(size));
 
     round_roots.emplace_back(&roots[0]);
