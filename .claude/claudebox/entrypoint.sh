@@ -168,7 +168,7 @@ if [ "${GITHUB_ACTIONS:-}" != "true" ]; then
     source "$REPO_DIR/ci3/source_redis" || true
     echo "Redis available: ${CI_REDIS_AVAILABLE:-0}" >&2
     if [ "${CI_REDIS_AVAILABLE:-0}" -eq 1 ]; then
-        LOG_ID=$(cat /dev/urandom | head -c 16 | xxd -p)
+        LOG_ID=$(head -c 16 /dev/urandom | xxd -p)
         USE_CACHE_LOG=1
         LOG_URL="http://ci.aztec-labs.com/$LOG_ID"
         echo "Log URL: $LOG_URL" >&2
@@ -219,10 +219,32 @@ TMUX_SESSION="${LOG_ID:-$WORKTREE_NAME}"
 # Write prompt to a temp file (avoids shell quoting issues in tmux)
 PROMPT_FILE="/tmp/claudebox-prompt-$$"
 EXIT_FILE="/tmp/claudebox-exit-$$"
-echo "$PROMPT" > "$PROMPT_FILE"
+printf '%s' "$PROMPT" > "$PROMPT_FILE"
 
-# Build the claude command
-CLAUDE_CMD="claude --print --worktree '$WORKTREE_NAME' $DANGEROUS_FLAGS -p \"\$(cat $PROMPT_FILE)\""
+# Build a wrapper script for tmux (avoids nested quoting hell)
+RUNNER_SCRIPT="/tmp/claudebox-run-$$.sh"
+cat > "$RUNNER_SCRIPT" <<RUNEOF
+#!/usr/bin/env bash
+set -uo pipefail
+PROMPT=\$(cat "$PROMPT_FILE")
+CLAUDE_EXIT=0
+claude --print --worktree "$WORKTREE_NAME" $DANGEROUS_FLAGS -p "\$PROMPT"
+CLAUDE_EXIT=\$?
+echo "\$CLAUDE_EXIT" > "$EXIT_FILE"
+exit \$CLAUDE_EXIT
+RUNEOF
+
+RUNNER_SCRIPT_CACHELOG="/tmp/claudebox-run-cachelog-$$.sh"
+cat > "$RUNNER_SCRIPT_CACHELOG" <<RUNEOF
+#!/usr/bin/env bash
+set -uo pipefail
+PROMPT=\$(cat "$PROMPT_FILE")
+claude --print --worktree "$WORKTREE_NAME" $DANGEROUS_FLAGS -p "\$PROMPT" 2>&1 | DUP=1 "$REPO_DIR/ci3/cache_log" "claudebox-$SCRIPT_NAME" "$LOG_ID"
+CLAUDE_EXIT=\${PIPESTATUS[0]}
+echo "\$CLAUDE_EXIT" > "$EXIT_FILE"
+exit \$CLAUDE_EXIT
+RUNEOF
+chmod +x "$RUNNER_SCRIPT" "$RUNNER_SCRIPT_CACHELOG"
 
 # Don't error on bad exit code
 set +e
@@ -236,12 +258,6 @@ if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
     CLAUDE_EXIT=$?
 else
     # Slack/local: run in tmux so sessions are attachable
-    if [ "$USE_CACHE_LOG" -eq 1 ]; then
-        TMUX_CMD="$CLAUDE_CMD 2>&1 | DUP=1 $REPO_DIR/ci3/cache_log claudebox-$SCRIPT_NAME $LOG_ID; echo \${PIPESTATUS[0]} > $EXIT_FILE"
-    else
-        TMUX_CMD="$CLAUDE_CMD; echo \$? > $EXIT_FILE"
-    fi
-
     echo "Starting tmux session: $TMUX_SESSION"
 
     # Write session metadata for the console
@@ -252,7 +268,7 @@ else
 {
   "tmux": "$TMUX_SESSION",
   "script": "$SCRIPT_NAME",
-  "prompt": $(echo "$USER_PROMPT" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().strip()))'),
+  "prompt": $(printf '%s' "$USER_PROMPT" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().strip()))'),
   "user": "${USER_NAME:-unknown}",
   "worktree": "$WORKTREE_NAME",
   "log_url": "${LOG_URL:-}",
@@ -263,27 +279,33 @@ else
 }
 METAEOF
 
-    tmux new-session -d -s "$TMUX_SESSION" "$TMUX_CMD"
+    if [ "$USE_CACHE_LOG" -eq 1 ]; then
+        tmux new-session -d -s "$TMUX_SESSION" "bash $RUNNER_SCRIPT_CACHELOG"
+    else
+        tmux new-session -d -s "$TMUX_SESSION" "bash $RUNNER_SCRIPT"
+    fi
 
     # Wait for tmux session to finish
     while tmux has-session -t "$TMUX_SESSION" 2>/dev/null; do
         sleep 2
     done
     CLAUDE_EXIT=$(cat "$EXIT_FILE" 2>/dev/null || echo 1)
+    # Handle empty exit file
+    [ -z "$CLAUDE_EXIT" ] && CLAUDE_EXIT=1
 
     # Update session metadata with completion
     python3 -c "
-import json, sys
+import json
 with open('$SESSION_FILE') as f:
     d = json.load(f)
 d['status'] = 'completed'
 d['finished'] = '$(date -Iseconds)'
-d['exit_code'] = $CLAUDE_EXIT
+d['exit_code'] = int('${CLAUDE_EXIT}')
 with open('$SESSION_FILE', 'w') as f:
     json.dump(d, f, indent=2)
 " 2>/dev/null || true
 
-    rm -f "$PROMPT_FILE" "$EXIT_FILE"
+    rm -f "$PROMPT_FILE" "$EXIT_FILE" "$RUNNER_SCRIPT" "$RUNNER_SCRIPT_CACHELOG"
 fi
 set -e
 

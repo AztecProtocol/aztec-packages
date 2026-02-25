@@ -8,6 +8,7 @@ Usage: ./console [--watch]
 import json
 import glob
 import os
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -111,8 +112,11 @@ def render(sessions):
 
         # Check if tmux session actually exists (for "running" status)
         if status == "running":
-            ret = os.system(f"tmux has-session -t {tmux} 2>/dev/null")
-            if ret != 0:
+            ret = subprocess.run(
+                ["tmux", "has-session", "-t", tmux],
+                capture_output=True,
+            )
+            if ret.returncode != 0:
                 status = "dead?"
                 color = RED
 

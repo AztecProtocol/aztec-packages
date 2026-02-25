@@ -37,10 +37,11 @@ jobs:
 
       - name: Parse command
         id: parse
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
           # Strip /claudebox prefix
-          BODY="${{ github.event.comment.body }}"
-          CMD=$(echo "$BODY" | sed 's|^/claudebox[[:space:]]*||')
+          CMD=$(printf '%s' "$COMMENT_BODY" | sed 's|^/claudebox[[:space:]]*||')
           FIRST_WORD=$(echo "$CMD" | awk '{print $1}')
 
           # If the first word matches a script, use it; otherwise use "default"
@@ -64,11 +65,13 @@ jobs:
         id: status_comment
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          SCRIPT_NAME: ${{ steps.parse.outputs.script_name }}
+          PROMPT_TEXT: ${{ steps.parse.outputs.prompt }}
         run: |
           ISSUE_NUM="${{ github.event.issue.number }}"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          PROMPT=$(echo '${{ steps.parse.outputs.prompt }}' | head -c 120)
-          BODY="**ClaudeBox** \`${{ steps.parse.outputs.script_name }}\`: _${PROMPT}_ ... [workflow run]($RUN_URL)"
+          SHORT_PROMPT=$(printf '%.120s' "$PROMPT_TEXT")
+          BODY="**ClaudeBox** \`${SCRIPT_NAME}\`: _${SHORT_PROMPT}_ ... [workflow run]($RUN_URL)"
 
           COMMENT_ID=$(gh api \
             repos/${{ github.repository }}/issues/$ISSUE_NUM/comments \
@@ -89,9 +92,14 @@ jobs:
         env:
           CLAUDEBOX_HOST: ${{ vars.CLAUDEBOX_HOST }}
           CLAUDEBOX_USER: ${{ vars.CLAUDEBOX_USER || 'claude' }}
+          CLAUDEBOX_PROMPT: ${{ steps.parse.outputs.prompt }}
+          CLAUDEBOX_SCRIPT: ${{ steps.parse.outputs.script_name }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          RUN_COMMENT_ID: ${{ steps.status_comment.outputs.run_comment_id }}
+          REPO: ${{ github.repository }}
         run: |
-          # Pipe prompt via stdin to avoid quoting issues
-          echo '${{ steps.parse.outputs.prompt }}' | \
+          # Pipe prompt via stdin
+          printf '%s' "$CLAUDEBOX_PROMPT" | \
             ssh -o ConnectTimeout=10 -o ServerAliveInterval=30 \
               "${CLAUDEBOX_USER}@${CLAUDEBOX_HOST}" \
-              "~/claudeentry.sh '${{ steps.parse.outputs.script_name }}' --comment-id=${{ github.event.comment.id }} --run-comment-id=${{ steps.status_comment.outputs.run_comment_id }} --repo=${{ github.repository }}"
+              "~/claudeentry.sh '${CLAUDEBOX_SCRIPT}' --comment-id=${COMMENT_ID} --run-comment-id=${RUN_COMMENT_ID} --repo=${REPO}"
