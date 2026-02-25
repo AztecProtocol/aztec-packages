@@ -334,7 +334,6 @@ TEST(FrConstants, WasmCubeRootConsistency)
     uint512_t expected_cube_root_wasm = (uint512_t(cube_root_native) * 32) % native_r;
 
     EXPECT_EQ(expected_cube_root_wasm.lo, cube_root_wasm);
-    EXPECT_EQ(expected_cube_root_wasm.hi, uint256_t(0));
 }
 
 TEST(FrConstants, WasmPrimitiveRootConsistency)
@@ -355,7 +354,6 @@ TEST(FrConstants, WasmPrimitiveRootConsistency)
     uint512_t expected_primitive_root_wasm = (uint512_t(primitive_root_native) * 32) % native_r;
 
     EXPECT_EQ(expected_primitive_root_wasm.lo, primitive_root_wasm);
-    EXPECT_EQ(expected_primitive_root_wasm.hi, uint256_t(0));
 }
 
 TEST(FrConstants, CosetGeneratorConsistency)

@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -132,7 +132,7 @@ class Bn254FrParams {
     ///// TO BE CHECKED!!!!!
 
     // Parameters used for quickly splitting a scalar into two endomorphism scalars for faster scalar multiplication
-    // For specifics on how these have been derived, ask @zac-williamson
+    // For specifics on how these have been derived, see ecc/fields/endomorphim_scalars.py
     static constexpr uint64_t endo_g1_lo = 0x7a7bd9d4391eb18dUL;
     static constexpr uint64_t endo_g1_mid = 0x4ccef014a773d2cfUL;
     static constexpr uint64_t endo_g1_hi = 0x0000000000000002UL;
