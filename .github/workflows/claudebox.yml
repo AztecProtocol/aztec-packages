@@ -29,14 +29,28 @@ jobs:
             repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
             -f content='eyes' || true
 
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          sparse-checkout: .claude/scripts
+          sparse-checkout-cone-mode: false
+
       - name: Parse command
         id: parse
         run: |
-          # Strip /claudebox prefix, first word = script name, rest = raw prompt
+          # Strip /claudebox prefix
           BODY="${{ github.event.comment.body }}"
           CMD=$(echo "$BODY" | sed 's|^/claudebox[[:space:]]*||')
-          SCRIPT_NAME=$(echo "$CMD" | awk '{print $1}')
-          PROMPT=$(echo "$CMD" | sed "s|^$SCRIPT_NAME[[:space:]]*||")
+          FIRST_WORD=$(echo "$CMD" | awk '{print $1}')
+
+          # If the first word matches a script, use it; otherwise use "default"
+          if [ -f ".claude/scripts/$FIRST_WORD" ]; then
+            SCRIPT_NAME="$FIRST_WORD"
+            PROMPT=$(echo "$CMD" | sed "s|^$SCRIPT_NAME[[:space:]]*||")
+          else
+            SCRIPT_NAME="default"
+            PROMPT="$CMD"
+          fi
 
           echo "script_name=$SCRIPT_NAME" >> "$GITHUB_OUTPUT"
           {
@@ -46,23 +60,6 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Parsed: script=$SCRIPT_NAME prompt=$PROMPT"
 
-      - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          sparse-checkout: .claude/scripts
-          sparse-checkout-cone-mode: false
-
-      - name: Validate script exists
-        run: |
-          SCRIPT=".claude/scripts/${{ steps.parse.outputs.script_name }}"
-          if [ ! -f "$SCRIPT" ]; then
-            echo "ERROR: Script not found: $SCRIPT"
-            echo "Available scripts:"
-            ls .claude/scripts/ | grep -v '\.py$' || echo "  (none)"
-            exit 1
-          fi
-          echo "Script validated: $SCRIPT"
-
       - name: Post status comment
         id: status_comment
         env:
@@ -70,7 +67,8 @@ jobs:
         run: |
           ISSUE_NUM="${{ github.event.issue.number }}"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          BODY="**ClaudeBox** is running \`${{ steps.parse.outputs.script_name }}\`... [workflow run]($RUN_URL)"
+          PROMPT=$(echo '${{ steps.parse.outputs.prompt }}' | head -c 120)
+          BODY="**ClaudeBox** \`${{ steps.parse.outputs.script_name }}\`: _${PROMPT}_ ... [workflow run]($RUN_URL)"
 
           COMMENT_ID=$(gh api \
             repos/${{ github.repository }}/issues/$ISSUE_NUM/comments \
