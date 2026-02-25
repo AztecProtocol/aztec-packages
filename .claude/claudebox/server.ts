@@ -8,13 +8,14 @@
  * Max 10 concurrent sessions.
  */
 
-import { createServer, IncomingMessage, ServerResponse } from "http";
+import { createServer, IncomingMessage, ServerResponse, request as httpRequest } from "http";
 import { spawn, execSync, execFileSync, ChildProcess } from "child_process";
 import { readFileSync, readdirSync, existsSync, writeFileSync, mkdirSync, realpathSync, statSync } from "fs";
 import { join, basename, dirname } from "path";
 import { homedir } from "os";
 import { randomUUID } from "crypto";
 import { App } from "@slack/bolt";
+import { WebSocketServer, WebSocket } from "ws";
 
 // ── Config ──────────────────────────────────────────────────────
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN!;
@@ -32,7 +33,64 @@ const CLAUDEBOX_CODE_DIR = dirname(import.meta.url.replace("file://", ""));
 const CLAUDE_BINARY = process.env.CLAUDE_BINARY ?? join(homedir(), ".local", "bin", "claude");
 const BASTION_SSH_KEY = join(homedir(), ".ssh", "build_instance_key");
 
+const CLAUDEBOX_HOST = process.env.CLAUDEBOX_HOST || "claudebox.work";
+
 let activeSessions = 0;
+
+// ── Interactive session state ───────────────────────────────────
+
+interface InteractiveSession {
+  timer: ReturnType<typeof setTimeout>;
+  container: string;
+  sidecar: string;
+  network: string;
+  ws: WebSocket | null;
+  hash: string;
+  deadline: number; // epoch ms
+}
+
+const interactiveSessions = new Map<string, InteractiveSession>();
+
+function cleanupInteractive(hash: string): void {
+  const s = interactiveSessions.get(hash);
+  if (!s) return;
+  interactiveSessions.delete(hash);
+  clearTimeout(s.timer);
+  // Tear down containers + network
+  try { dockerExec("stop", "-t", "3", s.container); } catch {}
+  try { dockerExec("rm", "-f", s.container); } catch {}
+  try { dockerExec("stop", "-t", "3", s.sidecar); } catch {}
+  try { dockerExec("rm", "-f", s.sidecar); } catch {}
+  try { dockerExec("network", "rm", s.network); } catch {}
+  // Update session metadata
+  const metaPath = join(SESSIONS_DIR, `${hash}.json`);
+  try {
+    const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
+    if (meta.status === "interactive") {
+      meta.status = "completed";
+      meta.finished = new Date().toISOString();
+      writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+    }
+  } catch {}
+  console.log(`[INTERACTIVE] Cleaned up session ${hash}`);
+}
+
+function resetKeepalive(hash: string, minutes: number): void {
+  const s = interactiveSessions.get(hash);
+  if (!s) return;
+  clearTimeout(s.timer);
+  s.deadline = Date.now() + minutes * 60_000;
+  s.timer = setTimeout(() => {
+    console.log(`[INTERACTIVE] Session ${hash} expired`);
+    // Notify via WebSocket before cleanup
+    if (s.ws && s.ws.readyState === WebSocket.OPEN) {
+      s.ws.send("\r\n\x1b[1;33m⏰ Session expired. Cleaning up...\x1b[0m\r\n");
+      setTimeout(() => cleanupInteractive(hash), 3_000);
+    } else {
+      cleanupInteractive(hash);
+    }
+  }, minutes * 60_000);
+}
 
 // ── Session lookup ──────────────────────────────────────────────
 
@@ -640,15 +698,22 @@ slackApp.event("app_mention", async ({ event, client, say }) => {
   const parsed = parseMessage(cmd);
   const { forceNew, prompt: effectivePrompt } = parseNewKeyword(parsed);
 
-  // Explicit hash-based resume
+  // Explicit hash-based resume — only if hash matches a known session
   if (!forceNew && parsed.type === "reply-hash") {
     const session = findSessionByHash(parsed.hash);
-    const err = validateResumeSession(session, parsed.hash);
-    if (err) { await say({ text: err, thread_ts: threadTs }); return; }
-    console.log(`[REPLY-HASH] Resuming session ${parsed.hash}`);
-    await startReplySession(client, channel, threadTs, parsed.prompt, session!, userName);
-    return;
+    if (session) {
+      const err = validateResumeSession(session, parsed.hash);
+      if (err) { await say({ text: err, thread_ts: threadTs }); return; }
+      console.log(`[REPLY-HASH] Resuming session ${parsed.hash}`);
+      await startReplySession(client, channel, threadTs, parsed.prompt, session, userName);
+      return;
+    }
+    // Hash not a session (e.g. CI log URL) — fall through, use full text as prompt
+    console.log(`[MENTION] Hash ${parsed.hash} is not a session, treating as prompt`);
   }
+
+  // Use full original text when the URL wasn't a session reference
+  const prompt = (parsed.type === "reply-hash" && !findSessionByHash(parsed.hash)) ? cmd : effectivePrompt;
 
   // Implicit resume: thread reply with a previous session (unless "new-session")
   if (!forceNew && isReply) {
@@ -659,14 +724,14 @@ slackApp.event("app_mention", async ({ event, client, say }) => {
     }
     if (prevSession?.claude_session_id) {
       console.log(`[REPLY] Resuming last session in thread: ${prevSession._log_id}`);
-      await startReplySession(client, channel, threadTs, effectivePrompt, prevSession, userName);
+      await startReplySession(client, channel, threadTs, prompt, prevSession, userName);
       return;
     }
   }
 
   // Fresh session: top-level, "new-session", or no previous session in thread
   const threadContext = isReply ? await getThreadContext(client, channel, threadTs) : "";
-  await startNewSession(client, channel, threadTs, effectivePrompt, threadContext, userName);
+  await startNewSession(client, channel, threadTs, prompt, threadContext, userName);
 });
 
 // Direct messages — no @mention needed
@@ -694,15 +759,21 @@ slackApp.event("message", async ({ event, client, say }) => {
   const parsed = parseMessage(cmd);
   const { forceNew, prompt: effectivePrompt } = parseNewKeyword(parsed);
 
-  // Explicit hash-based resume
+  // Explicit hash-based resume — only if hash matches a known session
   if (!forceNew && parsed.type === "reply-hash") {
     const session = findSessionByHash(parsed.hash);
-    const err = validateResumeSession(session, parsed.hash);
-    if (err) { await say({ text: err, thread_ts: threadTs }); return; }
-    console.log(`[DM-REPLY] Resuming session ${parsed.hash}`);
-    await startReplySession(client, channel, threadTs, parsed.prompt, session!, userName);
-    return;
+    if (session) {
+      const err = validateResumeSession(session, parsed.hash);
+      if (err) { await say({ text: err, thread_ts: threadTs }); return; }
+      console.log(`[DM-REPLY] Resuming session ${parsed.hash}`);
+      await startReplySession(client, channel, threadTs, parsed.prompt, session, userName);
+      return;
+    }
+    console.log(`[DM] Hash ${parsed.hash} is not a session, treating as prompt`);
   }
+
+  // Use full original text when the URL wasn't a session reference
+  const prompt = (parsed.type === "reply-hash" && !findSessionByHash(parsed.hash)) ? cmd : effectivePrompt;
 
   // Implicit resume in DM thread
   if (!forceNew && isReply) {
@@ -713,13 +784,13 @@ slackApp.event("message", async ({ event, client, say }) => {
     }
     if (prevSession?.claude_session_id) {
       console.log(`[DM-REPLY] Resuming last session in thread: ${prevSession._log_id}`);
-      await startReplySession(client, channel, threadTs, effectivePrompt, prevSession, userName);
+      await startReplySession(client, channel, threadTs, prompt, prevSession, userName);
       return;
     }
   }
 
   const threadContext = isReply ? await getThreadContext(client, channel, threadTs) : "";
-  await startNewSession(client, channel, threadTs, effectivePrompt, threadContext, userName);
+  await startNewSession(client, channel, threadTs, prompt, threadContext, userName);
 });
 
 slackApp.command("/claudebox", async ({ ack, command, client }) => {
@@ -745,14 +816,21 @@ slackApp.command("/claudebox", async ({ ack, command, client }) => {
 
   if (!forceNew && parsed.type === "reply-hash") {
     const session = findSessionByHash(parsed.hash);
-    const err = validateResumeSession(session, parsed.hash);
-    if (err) { await ack({ text: err }); return; }
-    await ack({ text: `ClaudeBox replying to session \`${parsed.hash.slice(0, 8)}...\`: _${truncate(parsed.prompt)}_` });
-    await startReplySession(client, channel, null, parsed.prompt, session!, userName);
-  } else {
-    await ack({ text: `ClaudeBox starting: _${truncate(effectivePrompt)}_` });
-    await startNewSession(client, channel, null, effectivePrompt, "", userName);
+    if (session) {
+      const err = validateResumeSession(session, parsed.hash);
+      if (err) { await ack({ text: err }); return; }
+      await ack({ text: `ClaudeBox replying to session \`${parsed.hash.slice(0, 8)}...\`: _${truncate(parsed.prompt)}_` });
+      await startReplySession(client, channel, null, parsed.prompt, session, userName);
+      return;
+    }
+    console.log(`[CMD] Hash ${parsed.hash} is not a session, treating as prompt`);
   }
+
+  // Use full original text when the URL wasn't a session reference
+  const prompt = (parsed.type === "reply-hash" && !findSessionByHash(parsed.hash)) ? text : effectivePrompt;
+
+  await ack({ text: `ClaudeBox starting: _${truncate(prompt)}_` });
+  await startNewSession(client, channel, null, prompt, "", userName);
 });
 
 // ── HTTP API ────────────────────────────────────────────────────
@@ -767,8 +845,9 @@ function readBody(req: IncomingMessage): Promise<string> {
 }
 
 const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
-  // Auth — all endpoints require bearer token
-  if (API_SECRET) {
+  // Auth — all endpoints require bearer token, EXCEPT /s/<hash> routes (hash is auth)
+  const isSessionRoute = req.url?.startsWith("/s/");
+  if (API_SECRET && !isSessionRoute) {
     const auth = req.headers.authorization ?? "";
     if (auth !== `Bearer ${API_SECRET}`) {
       res.writeHead(401, { "Content-Type": "application/json" });
@@ -872,6 +951,44 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
       finished: session.finished,
       exit_code: session.exit_code,
     }));
+    return;
+  }
+
+  // ── Interactive session routes (hash-is-auth, no API_SECRET) ──
+
+  // GET /s/<hash> — HTML page with session info + Join button
+  const pageMatch = req.method === "GET" && req.url?.match(/^\/s\/([a-f0-9]{32})$/);
+  if (pageMatch) {
+    const hash = pageMatch[1];
+    const session = findSessionByHash(hash);
+    if (!session) {
+      res.writeHead(404, { "Content-Type": "text/plain" });
+      res.end("Session not found");
+      return;
+    }
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(interactiveSessionHTML(hash, session));
+    return;
+  }
+
+  // POST /s/<hash>/keepalive — extend session timeout
+  const keepaliveMatch = req.method === "POST" && req.url?.match(/^\/s\/([a-f0-9]{32})\/keepalive$/);
+  if (keepaliveMatch) {
+    const hash = keepaliveMatch[1];
+    const s = interactiveSessions.get(hash);
+    if (!s) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "no active interactive session" }));
+      return;
+    }
+    let minutes = 5;
+    try {
+      const body = JSON.parse(await readBody(req));
+      minutes = Math.max(1, Math.min(60, body.minutes || 5));
+    } catch {}
+    resetKeepalive(hash, minutes);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, minutes, deadline: s.deadline }));
     return;
   }
 
