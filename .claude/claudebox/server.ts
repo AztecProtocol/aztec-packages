@@ -404,10 +404,11 @@ async function runContainerSession(
       "-v", `${join(homedir(), ".claude.json")}:/tmp/claudehome/.claude.json:rw`,
       // SSH key for bastion/redis cache
       "-v", `${BASTION_SSH_KEY}:/tmp/staged-ssh-key:ro`,
-      // Environment — NO secrets
+      // Environment
       "-e", `CLAUDEBOX_MCP_URL=${mcpUrl}`,
       "-e", `CLAUDEBOX_TARGET_REF=${opts.targetRef || "origin/next"}`,
       "-e", `SESSION_UUID=${sessionUuid}`,
+      "-e", `CI_PASSWORD=${process.env.CI_PASSWORD || ""}`,
     ];
 
     if (opts.extraPaths) {

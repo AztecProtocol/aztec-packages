@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # container-entrypoint.sh — Runs INSIDE the Claude container.
-# Sets up sparse checkout via git alternates, writes MCP config, launches Claude.
+# Sets up full checkout via git alternates, writes MCP config, launches Claude.
 #
 # Required env:  CLAUDEBOX_MCP_URL, SESSION_UUID
 # Prompt:        /workspace/prompt.txt (mounted by host)
@@ -33,7 +33,7 @@ mkdir -p "$HOME/.ssh"
 
 git config --global --add safe.directory "$WORKSPACE"
 
-# ── Step 1: Git repo with alternates ─────────────────────────────
+# ── Step 1: Full checkout via git alternates (zero-copy objects) ──
 if [ ! -d "$WORKSPACE/.git" ]; then
     mkdir -p "$WORKSPACE" && cd "$WORKSPACE"
     git init --quiet
@@ -50,17 +50,9 @@ if [ ! -d "$WORKSPACE/.git" ]; then
     fi
 
     git remote add origin https://github.com/AztecProtocol/aztec-packages.git 2>/dev/null || true
-    git sparse-checkout init --cone
-    git sparse-checkout set .claude .github/workflows ci3
 
     echo "Checking out $TARGET_REF..."
     git checkout --detach "$TARGET_REF" 2>/dev/null || git checkout --detach origin/next
-
-    if [ -n "$EXTRA_PATHS" ]; then
-        # shellcheck disable=SC2086
-        git sparse-checkout add $EXTRA_PATHS
-    fi
-    git sparse-checkout list
 else
     cd "$WORKSPACE"
     echo "Workspace exists, reusing."

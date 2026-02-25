@@ -3,34 +3,23 @@ You have no interactive user — work autonomously.
 
 ## Environment
 
-- **Sparse checkout** at `/workspace/aztec-packages` — only `.claude`, `.github/workflows`, `ci3` initially
+- **Full checkout** at `/workspace/aztec-packages` (checked out from `origin/next` or specified ref)
 - Remote: `https://github.com/AztecProtocol/aztec-packages.git` (public, full `git fetch` works)
 - Full internet access for packages, builds, etc.
 - Stay within `/workspace/aztec-packages`
 
-## Checking out code
-
-You start minimal. Expand based on your task:
+## Checking out other branches
 
 - **PR review/fix** (e.g. `#12345`):
   ```bash
   git fetch origin pull/12345/head:pr-12345
   git checkout pr-12345
-  git sparse-checkout add barretenberg yarn-project  # whatever you need
   ```
 - **Branch work**:
   ```bash
   git fetch origin <branch>
   git checkout origin/<branch>
-  git sparse-checkout add <paths>
   ```
-- **General work on `next`** (already checked out):
-  ```bash
-  git sparse-checkout add barretenberg yarn-project noir
-  ```
-- **Check out everything**: `git sparse-checkout disable`
-
-Top-level paths: `barretenberg/`, `yarn-project/`, `noir/`, `noir-projects/`, `l1-contracts/`, `spartan/`, `scripts/`
 
 ## Building
 
