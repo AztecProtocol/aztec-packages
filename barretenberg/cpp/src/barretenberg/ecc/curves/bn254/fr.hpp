@@ -41,33 +41,6 @@ class Bn254FrParams {
     static constexpr uint64_t r_squared_2 = 0x8C49833D53BB8085UL;
     static constexpr uint64_t r_squared_3 = 0x216D0B17F4E44A5UL;
 
-    // A little-endian representation of the cubic root of 1 in Fr in Montgomery form split into 4 64-bit words
-    static constexpr uint64_t cube_root_0 = 0x93e7cede4a0329b3UL;
-    static constexpr uint64_t cube_root_1 = 0x7d4fdca77a96c167UL;
-    static constexpr uint64_t cube_root_2 = 0x8be4ba08b19a750aUL;
-    static constexpr uint64_t cube_root_3 = 0x1cbd5653a5661c25UL;
-
-    // A little-endian representation of the primitive root of 1 in Fr split into 4 64-bit words in Montgomery form
-    // (R=2^256 mod modulus). This is a root of unity in a large power of 2 (order 28) subgroup of Fr.
-    static constexpr uint64_t primitive_root_0 = 0x636e735580d13d9cUL;
-    static constexpr uint64_t primitive_root_1 = 0xa22bf3742445ffd6UL;
-    static constexpr uint64_t primitive_root_2 = 0x56452ac01eb203d8UL;
-    static constexpr uint64_t primitive_root_3 = 0x1860ef942963f9e7UL;
-
-    ///// TO BE CHECKED!!!!!
-
-    // Parameters used for quickly splitting a scalar into two endomorphism scalars for faster scalar multiplication
-    // For specifics on how these have been derived, ask @zac-williamson
-    static constexpr uint64_t endo_g1_lo = 0x7a7bd9d4391eb18dUL;
-    static constexpr uint64_t endo_g1_mid = 0x4ccef014a773d2cfUL;
-    static constexpr uint64_t endo_g1_hi = 0x0000000000000002UL;
-    static constexpr uint64_t endo_g2_lo = 0xd91d232ec7e0b3d7UL;
-    static constexpr uint64_t endo_g2_mid = 0x0000000000000002UL;
-    static constexpr uint64_t endo_minus_b1_lo = 0x8211bbeb7d4f1128UL;
-    static constexpr uint64_t endo_minus_b1_mid = 0x6f4d8248eeb859fcUL;
-    static constexpr uint64_t endo_b2_lo = 0x89d3256894d213e3UL;
-    static constexpr uint64_t endo_b2_mid = 0UL;
-
     // -(Modulus^-1) mod 2^64
     // This constant is used during multiplication: given an 8-limb representation of the multiplication of two field
     // elements, for each of the lowest four limbs we compute: k_i = r_inv * limb_i and we add 2^{64 * i} * k_i * p to
@@ -84,19 +57,18 @@ class Bn254FrParams {
     static constexpr uint64_t r_inv_2 = 0xb2d8f06f77f52a93UL;
     static constexpr uint64_t r_inv_3 = 0x24d6ba07f7aa8f04UL;
 
-    // 2^(-29) mod Modulus
-    // Used in the reduction mechanism from https://hackmd.io/@Ingonyama/Barret-Montgomery
-    // Instead of computing k, we multiply the lowest limb by this value and then add to the following 10 limbs.
-    // This saves us from having to compute k
-    static constexpr uint64_t r_inv_wasm_0 = 0x18f05361;
-    static constexpr uint64_t r_inv_wasm_1 = 0x12bb1fe;
-    static constexpr uint64_t r_inv_wasm_2 = 0xf5d8135;
-    static constexpr uint64_t r_inv_wasm_3 = 0x1e6275f6;
-    static constexpr uint64_t r_inv_wasm_4 = 0x7e7a880;
-    static constexpr uint64_t r_inv_wasm_5 = 0x10c6bf1f;
-    static constexpr uint64_t r_inv_wasm_6 = 0x11f74a6c;
-    static constexpr uint64_t r_inv_wasm_7 = 0x6fdaecb;
-    static constexpr uint64_t r_inv_wasm_8 = 0x183227;
+    // A little-endian representation of the cubic root of 1 in Fr in Montgomery form split into 4 64-bit words
+    static constexpr uint64_t cube_root_0 = 0x93e7cede4a0329b3UL;
+    static constexpr uint64_t cube_root_1 = 0x7d4fdca77a96c167UL;
+    static constexpr uint64_t cube_root_2 = 0x8be4ba08b19a750aUL;
+    static constexpr uint64_t cube_root_3 = 0x1cbd5653a5661c25UL;
+
+    // A little-endian representation of the primitive root of 1 in Fr split into 4 64-bit words in Montgomery form
+    // (R=2^256 mod modulus). This is a root of unity in a large power of 2 (order 28) subgroup of Fr.
+    static constexpr uint64_t primitive_root_0 = 0x636e735580d13d9cUL;
+    static constexpr uint64_t primitive_root_1 = 0xa22bf3742445ffd6UL;
+    static constexpr uint64_t primitive_root_2 = 0x56452ac01eb203d8UL;
+    static constexpr uint64_t primitive_root_3 = 0x1860ef942963f9e7UL;
 
     // Coset generators in Montgomery form for R=2^256 mod Modulus. Used in FFT-based proving systems
     static constexpr uint64_t coset_generator_0 = 0x5eef048d8fffffe7ULL;
@@ -123,6 +95,20 @@ class Bn254FrParams {
     static constexpr uint64_t r_squared_wasm_2 = 0x7840f9f0abc6e54dUL;
     static constexpr uint64_t r_squared_wasm_3 = 0x0a054a3e848b0f05UL;
 
+    // 2^(-29) mod Modulus
+    // Used in the reduction mechanism from https://hackmd.io/@Ingonyama/Barret-Montgomery
+    // Instead of computing k, we multiply the lowest limb by this value and then add to the following 10 limbs.
+    // This saves us from having to compute k
+    static constexpr uint64_t r_inv_wasm_0 = 0x18f05361;
+    static constexpr uint64_t r_inv_wasm_1 = 0x12bb1fe;
+    static constexpr uint64_t r_inv_wasm_2 = 0xf5d8135;
+    static constexpr uint64_t r_inv_wasm_3 = 0x1e6275f6;
+    static constexpr uint64_t r_inv_wasm_4 = 0x7e7a880;
+    static constexpr uint64_t r_inv_wasm_5 = 0x10c6bf1f;
+    static constexpr uint64_t r_inv_wasm_6 = 0x11f74a6c;
+    static constexpr uint64_t r_inv_wasm_7 = 0x6fdaecb;
+    static constexpr uint64_t r_inv_wasm_8 = 0x183227;
+
     // A little-endian representation of the cubic root of 1 in Fr in Montgomery form for wasm (R=2^261 mod modulus)
     // split into 4 64-bit words
     static constexpr uint64_t cube_root_wasm_0 = 0x7334a1ce7065364dUL;
@@ -142,6 +128,20 @@ class Bn254FrParams {
     static constexpr uint64_t coset_generator_wasm_1 = 0x2476607dbd2dfff1ULL;
     static constexpr uint64_t coset_generator_wasm_2 = 0xe6b99ee0068dfc25ULL;
     static constexpr uint64_t coset_generator_wasm_3 = 0x1484c05bce00b620ULL;
+
+    ///// TO BE CHECKED!!!!!
+
+    // Parameters used for quickly splitting a scalar into two endomorphism scalars for faster scalar multiplication
+    // For specifics on how these have been derived, ask @zac-williamson
+    static constexpr uint64_t endo_g1_lo = 0x7a7bd9d4391eb18dUL;
+    static constexpr uint64_t endo_g1_mid = 0x4ccef014a773d2cfUL;
+    static constexpr uint64_t endo_g1_hi = 0x0000000000000002UL;
+    static constexpr uint64_t endo_g2_lo = 0xd91d232ec7e0b3d7UL;
+    static constexpr uint64_t endo_g2_mid = 0x0000000000000002UL;
+    static constexpr uint64_t endo_minus_b1_lo = 0x8211bbeb7d4f1128UL;
+    static constexpr uint64_t endo_minus_b1_mid = 0x6f4d8248eeb859fcUL;
+    static constexpr uint64_t endo_b2_lo = 0x89d3256894d213e3UL;
+    static constexpr uint64_t endo_b2_mid = 0UL;
 
     // used in msgpack schema serialization
     static constexpr char schema_name[] = "fr";
