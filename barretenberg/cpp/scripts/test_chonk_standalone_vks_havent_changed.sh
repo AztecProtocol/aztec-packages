@@ -80,12 +80,12 @@ export -f check_circuit_vks
 function prove_and_verify_inputs {
   set -eu
   local flow_folder="$inputs_dir/$1"
-  local proof_exit_code=0
+  local prove_exit_code=0
 
   echo "Running proof test for $1..."
-  $bb prove --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" > /dev/null 2>&1 || proof_exit_code=$?
+  $bb prove --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" > /dev/null 2>&1 || prove_exit_code=$?
 
-  if [[ $proof_exit_code -ne 0 ]]; then
+  if [[ $prove_exit_code -ne 0 ]]; then
     echo "Proof test failed for flow $1. Please re-run the script with flag --update_inputs."
 
     cp "$flow_folder/ivc-inputs.msgpack" "$root/yarn-project/end-to-end/example-app-ivc-inputs-out/$1/ivc-inputs.msgpack"
