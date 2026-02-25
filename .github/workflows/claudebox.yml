@@ -29,14 +29,29 @@ jobs:
             repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
             -f content='eyes' || true
 
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          sparse-checkout: .claude/scripts
+          sparse-checkout-cone-mode: false
+
       - name: Parse command
         id: parse
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
-          # Strip /claudebox prefix, first word = script name, rest = raw prompt
-          BODY="${{ github.event.comment.body }}"
-          CMD=$(echo "$BODY" | sed 's|^/claudebox[[:space:]]*||')
-          SCRIPT_NAME=$(echo "$CMD" | awk '{print $1}')
-          PROMPT=$(echo "$CMD" | sed "s|^$SCRIPT_NAME[[:space:]]*||")
+          # Strip /claudebox prefix
+          CMD=$(printf '%s' "$COMMENT_BODY" | sed 's|^/claudebox[[:space:]]*||')
+          FIRST_WORD=$(echo "$CMD" | awk '{print $1}')
+
+          # If the first word matches a script, use it; otherwise use "default"
+          if [ -f ".claude/scripts/$FIRST_WORD" ]; then
+            SCRIPT_NAME="$FIRST_WORD"
+            PROMPT=$(echo "$CMD" | sed "s|^$SCRIPT_NAME[[:space:]]*||")
+          else
+            SCRIPT_NAME="default"
+            PROMPT="$CMD"
+          fi
 
           echo "script_name=$SCRIPT_NAME" >> "$GITHUB_OUTPUT"
           {
@@ -46,31 +61,17 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Parsed: script=$SCRIPT_NAME prompt=$PROMPT"
 
-      - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          sparse-checkout: .claude/scripts
-          sparse-checkout-cone-mode: false
-
-      - name: Validate script exists
-        run: |
-          SCRIPT=".claude/scripts/${{ steps.parse.outputs.script_name }}"
-          if [ ! -f "$SCRIPT" ]; then
-            echo "ERROR: Script not found: $SCRIPT"
-            echo "Available scripts:"
-            ls .claude/scripts/ | grep -v '\.py$' || echo "  (none)"
-            exit 1
-          fi
-          echo "Script validated: $SCRIPT"
-
       - name: Post status comment
         id: status_comment
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          SCRIPT_NAME: ${{ steps.parse.outputs.script_name }}
+          PROMPT_TEXT: ${{ steps.parse.outputs.prompt }}
         run: |
           ISSUE_NUM="${{ github.event.issue.number }}"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          BODY="**ClaudeBox** is running \`${{ steps.parse.outputs.script_name }}\`... [workflow run]($RUN_URL)"
+          SHORT_PROMPT=$(printf '%.120s' "$PROMPT_TEXT")
+          BODY="**ClaudeBox** \`${SCRIPT_NAME}\`: _${SHORT_PROMPT}_ ... [workflow run]($RUN_URL)"
 
           COMMENT_ID=$(gh api \
             repos/${{ github.repository }}/issues/$ISSUE_NUM/comments \
@@ -91,9 +92,16 @@ jobs:
         env:
           CLAUDEBOX_HOST: ${{ vars.CLAUDEBOX_HOST }}
           CLAUDEBOX_USER: ${{ vars.CLAUDEBOX_USER || 'claude' }}
+          CLAUDEBOX_PROMPT: ${{ steps.parse.outputs.prompt }}
+          CLAUDEBOX_SCRIPT: ${{ steps.parse.outputs.script_name }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          RUN_COMMENT_ID: ${{ steps.status_comment.outputs.run_comment_id }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ISSUE_NUM: ${{ github.event.issue.number }}
+          AUTHOR: ${{ github.event.comment.user.login }}
         run: |
-          # Pipe prompt via stdin to avoid quoting issues
-          echo '${{ steps.parse.outputs.prompt }}' | \
+          printf '%s' "$CLAUDEBOX_PROMPT" | \
             ssh -o ConnectTimeout=10 -o ServerAliveInterval=30 \
               "${CLAUDEBOX_USER}@${CLAUDEBOX_HOST}" \
-              "~/claudeentry.sh '${{ steps.parse.outputs.script_name }}' --comment-id=${{ github.event.comment.id }} --run-comment-id=${{ steps.status_comment.outputs.run_comment_id }} --repo=${{ github.repository }}"
+              "~/claudeentry.sh '${CLAUDEBOX_SCRIPT}' --comment-id=${COMMENT_ID} --run-comment-id=${RUN_COMMENT_ID} --repo=${REPO} --run-url=${RUN_URL} --user=${AUTHOR}"
