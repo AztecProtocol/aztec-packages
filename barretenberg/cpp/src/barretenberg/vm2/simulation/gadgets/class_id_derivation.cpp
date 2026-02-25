@@ -45,7 +45,10 @@ void ClassIdDerivation::assert_derivation(const ContractClassWithCommitment& kla
     cached_derivations.insert(klass.id);
 
     // Emits ClassIdDerivationEvent.
-    events.emit({ .klass = klass });
+    events.emit({ .class_id = klass.id,
+                  .artifact_hash = klass.artifact_hash,
+                  .private_functions_root = klass.private_functions_root,
+                  .public_bytecode_commitment = klass.public_bytecode_commitment });
 }
 
 } // namespace bb::avm2::simulation

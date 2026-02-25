@@ -126,14 +126,11 @@ TEST_F(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
                                                     .exists = true,
                                                 } },
                                                 trace);
-    ContractClassWithCommitment klass_with_commitment = {
-        .id = instance.current_contract_class_id,
-        .artifact_hash = klass.artifact_hash,
-        .private_functions_root = klass.private_functions_root,
-        .packed_bytecode = klass.packed_bytecode,
-        .public_bytecode_commitment = bytecode_commitment,
-    };
-    class_id_builder.process({ { .klass = klass_with_commitment } }, trace);
+    class_id_builder.process({ { .class_id = instance.current_contract_class_id,
+                                 .artifact_hash = klass.artifact_hash,
+                                 .private_functions_root = klass.private_functions_root,
+                                 .public_bytecode_commitment = bytecode_commitment } },
+                             trace);
 
     AppendOnlyTreeSnapshot snapshot_before = AppendOnlyTreeSnapshot{
         .root = FF(AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT),

@@ -68,14 +68,15 @@ namespace class_id_derivation;
     #[skippable_if]
     sel = 0;
 
+    // The derived class ID: H(DOM_SEP__CONTRACT_CLASS_ID, artifact_hash, private_functions_root, public_bytecode_commitment).
+    pol commit class_id;
+
     // Contract class members (See barretenberg/cpp/src/barretenberg/vm2/common/aztec_types.hpp).
     pol commit artifact_hash;
     pol commit private_functions_root;
     // The public bytecode commitment (= bytecode_id).
     // Note: This is constrained in bc_hashing <-> bc_decomposition <- instr_fetching (#[BYTES_FROM_BC_DEC]).
     pol commit public_bytecode_commitment;
-    // The derived class ID: H(DOM_SEP__CONTRACT_CLASS_ID, artifact_hash, private_functions_root, public_bytecode_commitment).
-    pol commit class_id;
 
     ///////////////////////////////
     // Hash Computation
