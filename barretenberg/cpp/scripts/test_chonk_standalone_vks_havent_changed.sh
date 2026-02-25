@@ -83,7 +83,7 @@ function prove_and_verify_inputs {
   local proof_exit_code=0
 
   echo "Running proof test for $1..."
-  $bb prove --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" > /dev/null 2>&1 || prove_exit_code=$?
+  $bb prove --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" > /dev/null 2>&1 || proof_exit_code=$?
 
   if [[ $proof_exit_code -ne 0 ]]; then
     echo "Proof test failed for flow $1. Please re-run the script with flag --update_inputs."
