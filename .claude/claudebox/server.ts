@@ -10,7 +10,7 @@
 
 import { createServer, IncomingMessage, ServerResponse } from "http";
 import { spawn, execSync, execFileSync, ChildProcess } from "child_process";
-import { readFileSync, readdirSync, existsSync, writeFileSync, mkdirSync, realpathSync } from "fs";
+import { readFileSync, readdirSync, existsSync, writeFileSync, mkdirSync, realpathSync, statSync } from "fs";
 import { join, basename, dirname } from "path";
 import { homedir } from "os";
 import { randomUUID } from "crypto";
@@ -19,6 +19,7 @@ import { App } from "@slack/bolt";
 // ── Config ──────────────────────────────────────────────────────
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN!;
 const SLACK_APP_TOKEN = process.env.SLACK_APP_TOKEN!;
+const GH_TOKEN = process.env.GH_TOKEN || "";
 const API_SECRET = process.env.CLAUDEBOX_API_SECRET || "";
 const HTTP_PORT = parseInt(process.env.CLAUDEBOX_PORT || "3000", 10);
 const MAX_CONCURRENT = 10;
@@ -30,8 +31,6 @@ const CLAUDEBOX_SESSIONS_DIR = join(CLAUDEBOX_DIR, "sessions");
 const CLAUDEBOX_CODE_DIR = dirname(import.meta.url.replace("file://", ""));
 const CONTAINER_ENTRYPOINT_PATH = join(CLAUDEBOX_CODE_DIR, "container-entrypoint.sh");
 const CONTAINER_CLAUDE_MD_PATH = join(CLAUDEBOX_CODE_DIR, "container-claude.md");
-const CLAUDE_CREDENTIALS = join(homedir(), ".claude", ".credentials.json");
-const CLAUDE_SETTINGS = join(homedir(), ".claude", "settings.json");
 const CLAUDE_BINARY = process.env.CLAUDE_BINARY ?? join(homedir(), ".local", "bin", "claude");
 const BASTION_SSH_KEY = join(homedir(), ".ssh", "build_instance_key");
 
@@ -63,21 +62,23 @@ function findSessionByHash(logHash: string): SessionMeta | null {
 
 function findLastSessionInThread(channel: string, threadTs: string): SessionMeta | null {
   if (!existsSync(SESSIONS_DIR)) return null;
-  let best: SessionMeta | null = null;
-  for (const f of readdirSync(SESSIONS_DIR).filter((f) => f.endsWith(".json"))) {
+  // Sort by file mtime (newest first) so we can short-circuit on first match
+  const files = readdirSync(SESSIONS_DIR)
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => ({ name: f, mtime: statSync(join(SESSIONS_DIR, f)).mtimeMs }))
+    .sort((a, b) => b.mtime - a.mtime);
+  for (const { name } of files) {
     try {
-      const s: SessionMeta = JSON.parse(readFileSync(join(SESSIONS_DIR, f), "utf-8"));
+      const s: SessionMeta = JSON.parse(readFileSync(join(SESSIONS_DIR, name), "utf-8"));
       if (s.slack_channel === channel && s.slack_thread_ts === threadTs) {
-        s._log_id = basename(f, ".json");
-        if (!best || (s.started ?? "") > (best.started ?? "")) {
-          best = s;
-        }
+        s._log_id = basename(name, ".json");
+        return s;
       }
     } catch {
       // skip
     }
   }
-  return best;
+  return null;
 }
 
 function extractHashFromUrl(text: string): string | null {
@@ -110,6 +111,43 @@ function parseMessage(text: string): ParseResult {
 
 function truncate(s: string, n = 80): string {
   return s.length <= n ? s : s.slice(0, n - 3) + "...";
+}
+
+/** Read JSONL files in a claude-projects dir and return the last assistant text message. */
+function extractLastAssistantText(projectsDir: string): string | null {
+  try {
+    // Find newest JSONL recursively
+    let newest = { path: "", mtime: 0 };
+    const walk = (dir: string) => {
+      for (const ent of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, ent.name);
+        if (ent.isDirectory()) walk(p);
+        else if (ent.name.endsWith(".jsonl")) {
+          const mt = require("fs").statSync(p).mtimeMs;
+          if (mt > newest.mtime) newest = { path: p, mtime: mt };
+        }
+      }
+    };
+    walk(projectsDir);
+    if (!newest.path) return null;
+
+    const lines = readFileSync(newest.path, "utf-8").split("\n");
+    let lastText = "";
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const d = JSON.parse(line);
+        if (d.type === "assistant" && Array.isArray(d.message?.content)) {
+          for (const item of d.message.content) {
+            if (item.type === "text" && item.text?.trim()) lastText = item.text;
+          }
+        }
+      } catch {}
+    }
+    return lastText || null;
+  } catch {
+    return null;
+  }
 }
 
 // ── Docker container session runner ─────────────────────────────
@@ -154,6 +192,7 @@ async function waitForHealth(containerName: string, timeoutMs = 15_000): Promise
 async function runContainerSession(
   opts: ContainerSessionOpts,
   onOutput?: (data: string) => void,
+  onStart?: (logUrl: string) => void,
 ): Promise<number> {
   activeSessions++;
   const logId = execSync("head -c 16 /dev/urandom | xxd -p", { encoding: "utf-8" }).trim();
@@ -164,6 +203,8 @@ async function runContainerSession(
   const claudeName = `claudebox-${logId}`;
   const logUrl = `http://ci.aztec-labs.com/${logId}`;
   const mcpUrl = `http://${sidecarName}:9801/mcp/${mcpAuthToken}`;
+
+  onStart?.(logUrl);
 
   // Create workspace directory (or reuse from previous session)
   let workspaceDir: string;
@@ -177,12 +218,16 @@ async function runContainerSession(
     workspaceDir = join(CLAUDEBOX_SESSIONS_DIR, logId, "workspace");
   }
   mkdirSync(workspaceDir, { recursive: true });
+  // Fix ownership: previous containers may have run as root, creating root-owned files.
+  // Now we run as the current user, so ensure everything is writable.
+  try { execSync(`chown -R ${process.getuid!()}:${process.getgid!()} "${workspaceDir}"`, { timeout: 10_000 }); } catch {}
 
   const sessionDir = join(CLAUDEBOX_SESSIONS_DIR, logId);
   mkdirSync(sessionDir, { recursive: true });
 
-  // Claude projects dir — persists session JSONL across containers
-  const claudeProjectsDir = join(sessionDir, "claude-projects");
+  // Claude projects dir — persists session JSONL across containers.
+  // Derive from workspace parent so resume reuses the same JSONL files.
+  const claudeProjectsDir = join(dirname(workspaceDir), "claude-projects");
   mkdirSync(claudeProjectsDir, { recursive: true });
 
   console.log(`[DOCKER] Starting session ${logId}`);
@@ -216,7 +261,6 @@ async function runContainerSession(
     resume_of: opts.resumeSessionId || "",
     started: new Date().toISOString(),
     status: "running",
-    docker: true,
   };
   writeFileSync(metadataFile, JSON.stringify(metadata, null, 2));
 
@@ -255,8 +299,9 @@ async function runContainerSession(
       // Environment — sidecar holds all secrets
       "-e", `MCP_PORT=9801`,
       "-e", `MCP_AUTH_TOKEN=${mcpAuthToken}`,
-      "-e", `GH_TOKEN=${process.env.GH_TOKEN || ""}`,
+      "-e", `GH_TOKEN=${GH_TOKEN}`,
       "-e", `SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}`,
+      "-e", `LINEAR_API_KEY=${process.env.LINEAR_API_KEY || ""}`,
       "-e", `CLAUDEBOX_LOG_ID=${logId}`,
       "-e", `CLAUDEBOX_LOG_URL=${logUrl}`,
       "-e", `CLAUDEBOX_USER=${opts.userName || ""}`,
@@ -279,35 +324,37 @@ async function runContainerSession(
     console.log(`[DOCKER] Sidecar healthy`);
 
     // ── 4. Start Claude container ─────────────────────────────────
+    // Run as current user so --dangerously-skip-permissions works (blocked as root).
+    // ~/.claude is mounted writable so Claude can refresh OAuth tokens.
     const claudeArgs: string[] = [
       "run",
       "--name", claudeName,
       "--network", networkName,
+      "--user", `${process.getuid!()}:${process.getgid!()}`,
+      "-e", `HOME=/tmp/claudehome`,
+      // tmpfs gives the non-root user a writable $HOME
+      "--tmpfs", "/tmp/claudehome:exec,uid=" + process.getuid!(),
       // Shared mounts
       "-v", `${join(REPO_DIR, ".git")}:/reference-repo/.git:ro`,
       "-v", `${workspaceDir}:/workspace:rw`,
       // Entrypoint + CLAUDE.md template
       "-v", `${CONTAINER_ENTRYPOINT_PATH}:/entrypoint.sh:ro`,
       "-v", `${CONTAINER_CLAUDE_MD_PATH}:/entrypoint-assets/container-claude.md:ro`,
-      // Claude session persistence (JSONL files survive across containers)
-      "-v", `${claudeProjectsDir}:/root/.claude/projects:rw`,
-      // Claude binary + auth (subscription only, not API tokens)
+      // Claude session persistence — mount at the exact project subdir Claude will use
+      // Claude encodes /workspace/aztec-packages → -workspace-aztec-packages
+      "-v", `${claudeProjectsDir}:/tmp/claudehome/.claude/projects/-workspace-aztec-packages:rw`,
+      // Claude binary
       "-v", `${realpathSync(CLAUDE_BINARY)}:/usr/local/bin/claude:ro`,
-      // SSH key for bastion/redis cache (mapped to build_instance_key path for ci3 compat)
-      "-v", `${BASTION_SSH_KEY}:/root/.ssh/build_instance_key:ro`,
+      // Claude config (writable so Claude can refresh OAuth tokens)
+      "-v", `${join(homedir(), ".claude")}:/tmp/claudehome/.claude:rw`,
+      "-v", `${join(homedir(), ".claude.json")}:/tmp/claudehome/.claude.json:rw`,
+      // SSH key for bastion/redis cache
+      "-v", `${BASTION_SSH_KEY}:/tmp/staged-ssh-key:ro`,
       // Environment — NO secrets
       "-e", `CLAUDEBOX_MCP_URL=${mcpUrl}`,
       "-e", `CLAUDEBOX_TARGET_REF=${opts.targetRef || "origin/next"}`,
       "-e", `SESSION_UUID=${sessionUuid}`,
     ];
-
-    // Mount Claude credentials + settings
-    if (existsSync(CLAUDE_CREDENTIALS)) {
-      claudeArgs.push("-v", `${CLAUDE_CREDENTIALS}:/root/.claude/.credentials.json:ro`);
-    }
-    if (existsSync(CLAUDE_SETTINGS)) {
-      claudeArgs.push("-v", `${CLAUDE_SETTINGS}:/root/.claude/settings.json:ro`);
-    }
 
     if (opts.extraPaths) {
       claudeArgs.push("-e", `CLAUDEBOX_EXTRA_PATHS=${opts.extraPaths}`);
@@ -326,11 +373,13 @@ async function runContainerSession(
         stdio: ["ignore", "pipe", "pipe"],
       });
 
-      // Set up cache_log streaming
+      // Set up cache_log streaming via stream-session.ts (pretty-prints JSONL)
       let cacheLogProc: ChildProcess | null = null;
+      let streamSessionProc: ChildProcess | null = null;
       try {
         const cacheLogBin = join(REPO_DIR, "ci3", "cache_log");
-        if (existsSync(cacheLogBin)) {
+        const streamSessionBin = join(CLAUDEBOX_CODE_DIR, "stream-session.ts");
+        if (existsSync(cacheLogBin) && existsSync(streamSessionBin)) {
           const slackLink = opts.slackChannel && opts.slackThreadTs
             ? `https://aztecprotocol.slack.com/archives/${opts.slackChannel}/p${(opts.slackMessageTs || opts.slackThreadTs).replace(".", "")}?thread_ts=${opts.slackThreadTs}&cid=${opts.slackChannel}`
             : "";
@@ -348,6 +397,14 @@ async function runContainerSession(
             env: { ...process.env },
           });
           cacheLogProc.stdin?.write(headerLines.join("\n"));
+
+          // stream-session.ts watches the JSONL in claudeProjectsDir and pretty-prints
+          streamSessionProc = spawn(streamSessionBin, ["--dir", claudeProjectsDir], {
+            stdio: ["ignore", "pipe", "inherit"],
+          });
+          streamSessionProc.stdout?.on("data", (d: Buffer) => {
+            cacheLogProc?.stdin?.write(d);
+          });
         }
       } catch (e) {
         console.warn(`[DOCKER] cache_log setup failed: ${e}`);
@@ -371,8 +428,10 @@ async function runContainerSession(
         const exitCode = code ?? 1;
         console.log(`[DOCKER] Claude container ${claudeName} exited: ${exitCode} (${activeSessions}/${MAX_CONCURRENT} active)`);
 
-        // Close cache_log
-        cacheLogProc?.stdin?.end();
+        // Close stream-session + cache_log
+        streamSessionProc?.kill();
+        // Give stream-session a moment to flush final output
+        setTimeout(() => { cacheLogProc?.stdin?.end(); }, 1000);
 
         // Tear down sidecar + network
         cleanup();
@@ -386,7 +445,7 @@ async function runContainerSession(
           writeFileSync(metadataFile, JSON.stringify(meta, null, 2));
         } catch {}
 
-        // Update Slack status on completion
+        // Update Slack status + post summary reply on completion
         if (SLACK_BOT_TOKEN && opts.slackChannel && opts.slackMessageTs) {
           const finalText = exitCode === 0
             ? `ClaudeBox completed <${logUrl}|log>`
@@ -403,6 +462,61 @@ async function runContainerSession(
               text: finalText,
             }),
           }).catch(() => {});
+
+          // Post Claude's last response as a thread reply (with cache_log for long content)
+          const summary = extractLastAssistantText(claudeProjectsDir);
+          if (summary && opts.slackThreadTs) {
+            let replyText: string;
+            if (summary.length <= 1500) {
+              replyText = summary;
+            } else {
+              // Spill long content to cache_log
+              try {
+                const spillId = execSync("head -c 16 /dev/urandom | xxd -p", { encoding: "utf-8" }).trim();
+                const cacheLogBin = join(REPO_DIR, "ci3", "cache_log");
+                execSync(`"${cacheLogBin}" claudebox-reply "${spillId}"`, {
+                  input: summary, encoding: "utf-8", timeout: 10_000,
+                });
+                replyText = truncate(summary, 500) + `\n\nFull response: http://ci.aztec-labs.com/${spillId}`;
+              } catch {
+                replyText = truncate(summary, 1500);
+              }
+            }
+            replyText += `\n<${logUrl}|session log>`;
+            fetch("https://slack.com/api/chat.postMessage", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ channel: opts.slackChannel, thread_ts: opts.slackThreadTs, text: replyText }),
+            }).catch(() => {});
+          }
+        }
+
+        // Post summary as GitHub comment if we have a comment context
+        if (GH_TOKEN && opts.runCommentId) {
+          const summary = extractLastAssistantText(claudeProjectsDir);
+          if (summary) {
+            let body: string;
+            if (summary.length <= 3000) {
+              body = summary;
+            } else {
+              try {
+                const spillId = execSync("head -c 16 /dev/urandom | xxd -p", { encoding: "utf-8" }).trim();
+                const cacheLogBin = join(REPO_DIR, "ci3", "cache_log");
+                execSync(`"${cacheLogBin}" claudebox-reply "${spillId}"`, {
+                  input: summary, encoding: "utf-8", timeout: 10_000,
+                });
+                body = truncate(summary, 1000) + `\n\n[Full response](http://ci.aztec-labs.com/${spillId})`;
+              } catch {
+                body = truncate(summary, 3000);
+              }
+            }
+            body += `\n\n[Session log](${logUrl})`;
+            fetch(`https://api.github.com/repos/AztecProtocol/aztec-packages/issues/comments/${opts.runCommentId}`, {
+              method: "PATCH",
+              headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: "application/vnd.github.v3+json", "Content-Type": "application/json" },
+              body: JSON.stringify({ body }),
+            }).catch(() => {});
+          }
         }
 
         resolve(exitCode);
@@ -482,6 +596,11 @@ async function startNewSession(
       slackChannel: channel,
       slackThreadTs: threadTs!,
       slackMessageTs: messageTs,
+    }, undefined, (logUrl) => {
+      const text = prompt
+        ? `ClaudeBox: _${truncate(prompt)}_ <${logUrl}|log>`
+        : `ClaudeBox starting... <${logUrl}|log>`;
+      client.chat.update({ channel, ts: messageTs, text }).catch(() => {});
     });
   } catch (e) {
     console.error(`[ERROR] Failed to post status: ${e}`);
@@ -517,6 +636,11 @@ async function startReplySession(
       slackMessageTs: messageTs,
       resumeSessionId: claudeSessionId,
       prevLogId,
+    }, undefined, (logUrl) => {
+      let text = "ClaudeBox replying";
+      if (message) text += `: _${truncate(message)}_`;
+      text += ` <${logUrl}|log>`;
+      client.chat.update({ channel, ts: messageTs, text }).catch(() => {});
     });
   } catch (e) {
     console.error(`[ERROR] Failed to post reply status: ${e}`);
@@ -534,9 +658,10 @@ const slackApp = new App({
 slackApp.event("app_mention", async ({ event, client, say }) => {
   const channel = event.channel;
   const text = event.text ?? "";
+  const isReply = !!(event as any).thread_ts; // true only when message is IN a thread
   const threadTs = (event as any).thread_ts ?? event.ts;
 
-  console.log(`[MENTION] channel=${channel} text=${text.slice(0, 100)}`);
+  console.log(`[MENTION] channel=${channel} isReply=${isReply} text=${text.slice(0, 100)}`);
 
   const cmd = text.replace(/<@[A-Z0-9]+>\s*/g, "").trim();
   if (!cmd) {
@@ -552,30 +677,48 @@ slackApp.event("app_mention", async ({ event, client, say }) => {
   const userName = await resolveUserName(client, event.user ?? "");
   const parsed = parseMessage(cmd);
 
-  if (parsed.type === "reply-hash") {
-    const session = findSessionByHash(parsed.hash);
-    if (!session) {
-      await say({ text: `Session \`${parsed.hash}\` not found.`, thread_ts: threadTs });
+  // "new" keyword forces a fresh session, even in an existing thread
+  const forceNew = /^new\b/i.test(parsed.type === "prompt" ? parsed.prompt : "");
+  const effectivePrompt = forceNew ? parsed.prompt.replace(/^new\s+/i, "") : parsed.prompt;
+
+  // Resume logic only applies to thread replies, not top-level messages
+  if (!forceNew && isReply) {
+    // Explicit hash-based resume
+    if (parsed.type === "reply-hash") {
+      const session = findSessionByHash(parsed.hash);
+      if (!session) {
+        await say({ text: `Session \`${parsed.hash}\` not found.`, thread_ts: threadTs });
+        return;
+      }
+      if (session.status === "running") {
+        await say({ text: "Replies to ongoing conversations are not supported currently.", thread_ts: threadTs });
+        return;
+      }
+      if (!session.claude_session_id || session.exit_code !== 0) {
+        await say({ text: `Session \`${parsed.hash}\` is not resumable.`, thread_ts: threadTs });
+        return;
+      }
+      console.log(`[REPLY-HASH] Resuming session ${parsed.hash}`);
+      await startReplySession(client, channel, threadTs, parsed.prompt, session, userName);
       return;
     }
-    if (!session.claude_session_id) {
-      await say({ text: `Session \`${parsed.hash}\` has no Claude session ID.`, thread_ts: threadTs });
+
+    // Implicit resume: check for previous session in this thread
+    const prevSession = findLastSessionInThread(channel, threadTs);
+    if (prevSession?.status === "running") {
+      await say({ text: "Replies to ongoing conversations are not supported currently.", thread_ts: threadTs });
       return;
     }
-    console.log(`[REPLY-HASH] Resuming session ${parsed.hash}`);
-    await startReplySession(client, channel, threadTs, parsed.prompt, session, userName);
-    return;
+    if (prevSession?.claude_session_id && prevSession.exit_code === 0) {
+      console.log(`[REPLY] Resuming last session in thread: ${prevSession._log_id}`);
+      await startReplySession(client, channel, threadTs, effectivePrompt, prevSession, userName);
+      return;
+    }
   }
 
-  // Freeform: check for previous session in thread
-  const prevSession = findLastSessionInThread(channel, threadTs);
-  if (prevSession?.claude_session_id) {
-    console.log(`[REPLY] Resuming last session in thread: ${prevSession._log_id}`);
-    await startReplySession(client, channel, threadTs, parsed.prompt, prevSession, userName);
-  } else {
-    const threadContext = await getThreadContext(client, channel, threadTs);
-    await startNewSession(client, channel, threadTs, parsed.prompt, threadContext, userName);
-  }
+  // New session (top-level message, forced new, or no resumable session in thread)
+  const threadContext = isReply ? await getThreadContext(client, channel, threadTs) : "";
+  await startNewSession(client, channel, threadTs, effectivePrompt, threadContext, userName);
 });
 
 slackApp.command("/claudebox", async ({ ack, command, client }) => {
@@ -597,18 +740,28 @@ slackApp.command("/claudebox", async ({ ack, command, client }) => {
 
   const userName = await resolveUserName(client, userId);
   const parsed = parseMessage(text);
+  const forceNew = /^new\b/i.test(parsed.type === "prompt" ? parsed.prompt : "");
+  const effectivePrompt = forceNew ? parsed.prompt.replace(/^new\s+/i, "") : parsed.prompt;
 
-  if (parsed.type === "reply-hash") {
+  if (!forceNew && parsed.type === "reply-hash") {
     const session = findSessionByHash(parsed.hash);
-    if (!session?.claude_session_id) {
-      await ack({ text: `Session \`${parsed.hash}\` not found or has no Claude session ID.` });
+    if (!session) {
+      await ack({ text: `Session \`${parsed.hash}\` not found.` });
+      return;
+    }
+    if (session.status === "running") {
+      await ack({ text: "Replies to ongoing conversations are not supported currently." });
+      return;
+    }
+    if (!session.claude_session_id || session.exit_code !== 0) {
+      await ack({ text: `Session \`${parsed.hash}\` is not resumable.` });
       return;
     }
     await ack({ text: `ClaudeBox replying to session \`${parsed.hash.slice(0, 8)}...\`: _${truncate(parsed.prompt)}_` });
     await startReplySession(client, channel, null, parsed.prompt, session, userName);
   } else {
-    await ack({ text: `ClaudeBox starting: _${truncate(parsed.prompt)}_` });
-    await startNewSession(client, channel, null, parsed.prompt, "", userName);
+    await ack({ text: `ClaudeBox starting: _${truncate(effectivePrompt)}_` });
+    await startNewSession(client, channel, null, effectivePrompt, "", userName);
   }
 });
 

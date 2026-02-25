@@ -1,2 +1,0 @@
-slack_bolt>=1.21,<2
-slack_sdk>=3.33,<4

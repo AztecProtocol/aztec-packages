@@ -1,163 +1,85 @@
-#!/usr/bin/env python3
-"""
-ClaudeBox Console — shows active and recent sessions.
+#!/usr/bin/env bash
+# ClaudeBox Console — live-updating session dashboard.
+# Usage: ./console        (live, refreshes every 3s)
+#        ./console --once  (print once and exit)
+set -euo pipefail
 
-Usage: ./console [--watch]
-"""
+SESSIONS_DIR="${CLAUDE_REPO_DIR:-$HOME/aztec-packages}/.claude/claudebox/sessions"
+B='\033[1m' D='\033[2m' G='\033[32m' Y='\033[33m' R='\033[31m' C='\033[36m' X='\033[0m'
 
-import json
-import glob
-import os
-import subprocess
-import sys
-import time
-from datetime import datetime
+render() {
+  echo -e "\n${B}ClaudeBox Console${X}"
+  echo -e "${D}$(printf '─%.0s' {1..100})${X}"
 
-SESSIONS_DIR = os.path.join(
-    os.environ.get("CLAUDE_REPO_DIR", os.path.expanduser("~/aztec-packages")),
-    ".claude", "claudebox", "sessions",
-)
+  if systemctl --user is-active claudebox-slack.service &>/dev/null; then
+    echo -e "  Server: ${G}running${X}"
+  else
+    echo -e "  Server: ${R}stopped${X}"
+  fi
 
-# ANSI colors
-BOLD = "\033[1m"
-DIM = "\033[2m"
-GREEN = "\033[32m"
-YELLOW = "\033[33m"
-RED = "\033[31m"
-CYAN = "\033[36m"
-RESET = "\033[0m"
+  local containers
+  containers=$(docker ps --filter "name=claudebox-" --format '{{.Names}}' 2>/dev/null | grep -vc '^claudebox-sidecar' || true)
+  echo -e "  Active: ${B}${containers}${X} containers"
+  echo ""
 
+  if [ ! -d "$SESSIONS_DIR" ] || [ -z "$(ls -A "$SESSIONS_DIR" 2>/dev/null)" ]; then
+    echo "  No sessions."
+    return
+  fi
 
-def load_sessions():
-    """Load all session JSON files."""
-    sessions = []
-    for path in glob.glob(os.path.join(SESSIONS_DIR, "*.json")):
-        try:
-            with open(path) as f:
-                s = json.load(f)
-            s["_file"] = path
-            sessions.append(s)
-        except (json.JSONDecodeError, IOError):
-            pass
-    # Sort by start time, newest first
-    sessions.sort(key=lambda s: s.get("started", ""), reverse=True)
-    return sessions
+  printf "  ${B}%-10s %-16s %-40s %-9s %-8s %s${X}\n" "Status" "User" "Prompt" "Started" "Dur" "Log"
+  echo -e "  ${D}$(printf '─%.0s' {1..96})${X}"
 
+  # Process all files at once with jq, pre-sorted by mtime via ls -t
+  local count=0
+  for f in $(ls -t "$SESSIONS_DIR"/*.json 2>/dev/null); do
+    [ $count -ge 20 ] && break
+    # Single jq call outputs 6 lines
+    local out
+    out=$(jq -r '
+      .status // "?",
+      (.user // "?")[:14],
+      ((.prompt // "") | split("\n\n") | last | gsub("\n"; " "))[:38],
+      .started // "",
+      .finished // "",
+      (.log_url // "")[-10:]
+    ' "$f" 2>/dev/null) || continue
 
-def format_time(iso_str):
-    """Format ISO timestamp to short form."""
-    if not iso_str:
-        return "-"
-    try:
-        dt = datetime.fromisoformat(iso_str)
-        return dt.strftime("%H:%M:%S")
-    except Exception:
-        return iso_str[:19]
+    local status user prompt started finished log_id
+    { read -r status; read -r user; read -r prompt; read -r started; read -r finished; read -r log_id; } <<< "$out"
 
+    local time_str="-" duration="-"
+    if [ -n "$started" ]; then
+      time_str=$(date -d "$started" +%H:%M:%S 2>/dev/null || echo "-")
+      local now_s start_s end_s delta
+      now_s=$(date +%s)
+      start_s=$(date -d "$started" +%s 2>/dev/null || echo "$now_s")
+      end_s=${finished:+$(date -d "$finished" +%s 2>/dev/null || echo "$now_s")}
+      end_s=${end_s:-$now_s}
+      delta=$((end_s - start_s))
+      if [ $delta -ge 3600 ]; then duration="$((delta/3600))h$((delta%3600/60))m"
+      elif [ $delta -ge 60 ]; then duration="$((delta/60))m$((delta%60))s"
+      else duration="${delta}s"; fi
+    fi
 
-def format_duration(started, finished):
-    """Calculate and format duration."""
-    if not started:
-        return "-"
-    try:
-        start = datetime.fromisoformat(started)
-        end = datetime.fromisoformat(finished) if finished else datetime.now().astimezone()
-        delta = end - start
-        mins, secs = divmod(int(delta.total_seconds()), 60)
-        if mins > 0:
-            return f"{mins}m{secs}s"
-        return f"{secs}s"
-    except Exception:
-        return "-"
+    local color="$R"
+    case "$status" in running) color="$Y";; completed) color="$G";; esac
 
+    printf "  ${color}%-10s${X} ${C}%-16s${X} %-40s %-9s %-8s ${D}%s${X}\n" \
+      "$status" "$user" "$prompt" "$time_str" "$duration" "$log_id"
+    count=$((count + 1))
+  done
+}
 
-def status_color(status):
-    if status == "running":
-        return YELLOW
-    if status == "completed":
-        return GREEN
-    return RED
-
-
-def check_slack_listener():
-    """Check if the slack listener process is running."""
-    try:
-        result = subprocess.run(
-            ["pgrep", "-f", "slack-listener.py"],
-            capture_output=True, text=True
-        )
-        return result.returncode == 0
-    except Exception:
-        return False
-
-
-def render(sessions):
-    """Render the console output."""
-    lines = []
-    lines.append(f"\n{BOLD}ClaudeBox Console{RESET}")
-    lines.append(f"{DIM}{'─' * 120}{RESET}")
-
-    # Slack listener status
-    slack_running = check_slack_listener()
-    if slack_running:
-        lines.append(f"  Slack listener: {GREEN}running{RESET}")
-    else:
-        lines.append(f"  Slack listener: {RED}not running{RESET}")
-    lines.append("")
-
-    if not sessions:
-        lines.append("  No sessions found.")
-        lines.append(f"  Sessions dir: {SESSIONS_DIR}")
-        return "\n".join(lines)
-
-    # Header
-    lines.append(
-        f"  {BOLD}{'Status':<12} {'User':<18} {'Prompt':<40} "
-        f"{'Started':<10} {'Duration':<10} {'Link'}{RESET}"
-    )
-    lines.append(f"  {'─' * 116}")
-
-    for s in sessions[:20]:  # Show last 20
-        status = s.get("status", "unknown")
-        color = status_color(status)
-        user = s.get("user", "unknown")[:16]
-        prompt = s.get("prompt", "")
-        # Strip thread context prefix to show only the user's actual prompt
-        if "Slack thread context:" in prompt:
-            prompt = prompt.split("\n\n", 1)[-1]
-        prompt = prompt.replace("\n", " ")[:38]
-        started = format_time(s.get("started"))
-        duration = format_duration(s.get("started"), s.get("finished"))
-
-        link = s.get("link", "-")
-
-        lines.append(
-            f"  {color}{status:<12}{RESET} {CYAN}{user:<18}{RESET} {prompt:<40} "
-            f"{started:<10} {duration:<10} {DIM}{link}{RESET}"
-        )
-
-    running = sum(1 for s in sessions if s.get("status") == "running")
-    lines.append(f"\n  {BOLD}{running}{RESET} running, {BOLD}{len(sessions)}{RESET} total")
-    return "\n".join(lines)
-
-
-def main():
-    watch = "--watch" in sys.argv or "-w" in sys.argv
-
-    if watch:
-        try:
-            while True:
-                os.system("clear")
-                sessions = load_sessions()
-                print(render(sessions))
-                print(f"\n  {DIM}Refreshing every 5s... (Ctrl+C to exit){RESET}")
-                time.sleep(5)
-        except KeyboardInterrupt:
-            print()
-    else:
-        sessions = load_sessions()
-        print(render(sessions))
-
-
-if __name__ == "__main__":
-    main()
+if [[ "${1:-}" == "--once" ]]; then
+  render
+else
+  trap 'printf "\033[?25h"; exit 0' INT TERM
+  printf "\033[?25l"
+  while true; do
+    clear
+    render
+    echo -e "\n  ${D}Refreshing every 3s (Ctrl+C to exit)${X}"
+    sleep 3
+  done
+fi

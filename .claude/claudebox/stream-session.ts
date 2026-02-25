@@ -17,16 +17,22 @@ import { spawnSync, execFileSync } from "child_process";
 import { randomBytes } from "crypto";
 
 // ── Args ──────────────────────────────────────────────────────────
-const worktreeName = process.argv[2];
-if (!worktreeName) {
-  console.error("Usage: stream-session.ts <worktree-name>");
+// Usage: stream-session.ts <worktree-name>       (legacy: derives project dir)
+//        stream-session.ts --dir <project-dir>   (Docker: direct path)
+const repoDir = process.env.CLAUDE_REPO_DIR ?? join(homedir(), "aztec-packages");
+let projectDir: string;
+
+if (process.argv[2] === "--dir" && process.argv[3]) {
+  projectDir = process.argv[3];
+} else if (process.argv[2]) {
+  const worktreeName = process.argv[2];
+  const worktreePath = join(repoDir, ".claude", "worktrees", worktreeName);
+  const encodedPath = worktreePath.replace(/[/.]/g, "-");
+  projectDir = join(homedir(), ".claude", "projects", encodedPath);
+} else {
+  console.error("Usage: stream-session.ts <worktree-name> | --dir <project-dir>");
   process.exit(1);
 }
-
-const repoDir = process.env.CLAUDE_REPO_DIR ?? join(homedir(), "aztec-packages");
-const worktreePath = join(repoDir, ".claude", "worktrees", worktreeName);
-const encodedPath = worktreePath.replace(/[/.]/g, "-");
-const projectDir = join(homedir(), ".claude", "projects", encodedPath);
 
 // ── ANSI colors ───────────────────────────────────────────────────
 const C = "\x1b[0;36m"; // cyan
@@ -234,14 +240,20 @@ function sleep(ms: number): Promise<void> {
 
 function findNewestJsonl(dir: string): string | null {
   try {
-    const files = readdirSync(dir)
-      .filter((f) => f.endsWith(".jsonl"))
-      .map((f) => {
-        const full = join(dir, f);
-        return { path: full, mtime: statSync(full).mtimeMs };
-      })
-      .sort((a, b) => b.mtime - a.mtime);
-    return files.length > 0 ? files[0].path : null;
+    const results: { path: string; mtime: number }[] = [];
+    const walk = (d: string) => {
+      for (const entry of readdirSync(d, { withFileTypes: true })) {
+        const full = join(d, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+        } else if (entry.name.endsWith(".jsonl")) {
+          results.push({ path: full, mtime: statSync(full).mtimeMs });
+        }
+      }
+    };
+    walk(dir);
+    results.sort((a, b) => b.mtime - a.mtime);
+    return results.length > 0 ? results[0].path : null;
   } catch {
     return null;
   }

@@ -6,7 +6,7 @@
  * Both containers mount the same /workspace and /reference-repo/.git.
  *
  * Tools: github_api (whitelisted), slack_api (whitelisted), create_pr,
- *        session_status, get_context.
+ *        linear_get_issue, linear_create_issue, session_status, get_context.
  *
  * Auth: token embedded in URL path (/mcp/<token>).
  */
@@ -22,6 +22,7 @@ const PORT = parseInt(process.env.MCP_PORT || "9801", 10);
 const AUTH_TOKEN = process.env.MCP_AUTH_TOKEN || "";
 const GH_TOKEN = process.env.GH_TOKEN || "";
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN || "";
+const LINEAR_API_KEY = process.env.LINEAR_API_KEY || "";
 const WORKSPACE = "/workspace/aztec-packages";
 const REPO = "AztecProtocol/aztec-packages";
 
@@ -49,6 +50,8 @@ const GH_WHITELIST: Array<{ method: string; pattern: RegExp }> = [
   { method: "GET",   pattern: new RegExp(`^${R}/pulls/\\d+(/files)?$`) },
   { method: "POST",  pattern: new RegExp(`^${R}/pulls$`) },
   // Issues & comments
+  { method: "GET",   pattern: new RegExp(`^${R}/issues(\\?.*)?$`) },
+  { method: "GET",   pattern: new RegExp(`^${R}/issues/\\d+$`) },
   { method: "GET",   pattern: new RegExp(`^${R}/issues/\\d+/comments$`) },
   { method: "GET",   pattern: new RegExp(`^${R}/issues/comments/\\d+$`) },
   { method: "PATCH", pattern: new RegExp(`^${R}/issues/comments/\\d+$`) },
@@ -207,8 +210,9 @@ channel and thread_ts auto-injected from session if not provided.`,
       title: z.string().describe("PR title"),
       body: z.string().describe("PR description"),
       base: z.string().default("next").describe("Base branch"),
+      closes: z.array(z.number()).optional().describe("Issue numbers to close, e.g. [123, 456]"),
     },
-    async ({ title, body, base }) => {
+    async ({ title, body, base, closes }) => {
       if (!GH_TOKEN) return { content: [{ type: "text", text: "No GH_TOKEN" }], isError: true };
       if (!/^[\w./-]+$/.test(base))
         return { content: [{ type: "text", text: `Invalid base: ${base}` }], isError: true };
@@ -251,7 +255,9 @@ channel and thread_ts auto-injected from session if not provided.`,
           },
           body: JSON.stringify({
             title, base, draft: true, head: branch,
-            body: body + (SESSION_META.log_url ? `\n\n[ClaudeBox log](${SESSION_META.log_url})` : ""),
+            body: body
+              + (closes?.length ? "\n\n" + closes.map(n => `Closes #${n}`).join("\n") : "")
+              + (SESSION_META.log_url ? `\n\n[ClaudeBox log](${SESSION_META.log_url})` : ""),
           }),
         });
         const pr = await prRes.json() as any;
@@ -261,6 +267,99 @@ channel and thread_ts auto-injected from session if not provided.`,
         return { content: [{ type: "text", text: `${pr.html_url}\nBranch: ${branch}\n#${pr.number}` }] };
       } catch (e: any) {
         return { content: [{ type: "text", text: `create_pr: ${e.message}` }], isError: true };
+      }
+    });
+
+  // ── linear_get_issue ───────────────────────────────────────────
+  server.tool("linear_get_issue",
+    "Fetch a Linear issue by identifier (e.g. UNIFIED-26). Returns title, description, state, assignee, labels, and URL.",
+    { identifier: z.string().describe("Issue identifier, e.g. UNIFIED-26 or ENG-1234") },
+    async ({ identifier }) => {
+      if (!LINEAR_API_KEY) return { content: [{ type: "text", text: "No LINEAR_API_KEY" }], isError: true };
+
+      // Parse "TEAM-123" into team key + number
+      const m = identifier.match(/^([A-Za-z][\w-]*)-(\d+)$/);
+      if (!m) return { content: [{ type: "text", text: `Invalid identifier: ${identifier}` }], isError: true };
+      const number = parseInt(m[2], 10);
+
+      try {
+        const res = await fetch("https://api.linear.app/graphql", {
+          method: "POST",
+          headers: { Authorization: LINEAR_API_KEY, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: `query($filter: IssueFilter) {
+              issues(filter: $filter, first: 1) {
+                nodes {
+                  identifier title description url
+                  state { name }
+                  assignee { name }
+                  labels { nodes { name } }
+                  priority priorityLabel
+                  comments { nodes { body user { name } createdAt } }
+                }
+              }
+            }`,
+            variables: { filter: { number: { eq: number }, team: { key: { eq: m[1].toUpperCase() } } } },
+          }),
+        });
+        const json = await res.json() as any;
+        const issue = json?.data?.issues?.nodes?.[0];
+        if (!issue) return { content: [{ type: "text", text: `Issue ${identifier} not found` }], isError: true };
+        return { content: [{ type: "text", text: JSON.stringify(issue, null, 2) }] };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `Linear API error: ${e.message}` }], isError: true };
+      }
+    });
+
+  // ── linear_create_issue ────────────────────────────────────────
+  server.tool("linear_create_issue",
+    "Create a new Linear issue. Returns the issue identifier and URL.",
+    {
+      team: z.string().describe("Team key: A (Alpha - sequencer/nodes), AVM (Bonobos - AVM), NOIR (Noir compiler), F (Fairies), GK (Gurkhas), CRY (Crypto), TRIAGE, ECODR (Ecosystem/DevRel), TMNT"),
+      title: z.string().describe("Issue title"),
+      description: z.string().optional().describe("Markdown description"),
+      priority: z.number().min(0).max(4).optional().describe("0=none, 1=urgent, 2=high, 3=medium, 4=low"),
+    },
+    async ({ team, title, description, priority }) => {
+      if (!LINEAR_API_KEY) return { content: [{ type: "text", text: "No LINEAR_API_KEY" }], isError: true };
+
+      try {
+        // Look up team ID from key
+        const teamRes = await fetch("https://api.linear.app/graphql", {
+          method: "POST",
+          headers: { Authorization: LINEAR_API_KEY, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: `query($key: String!) { teams(filter: { key: { eq: $key } }) { nodes { id } } }`,
+            variables: { key: team.toUpperCase() },
+          }),
+        });
+        const teamJson = await teamRes.json() as any;
+        const teamId = teamJson?.data?.teams?.nodes?.[0]?.id;
+        if (!teamId) return { content: [{ type: "text", text: `Team '${team}' not found` }], isError: true };
+
+        const input: any = { teamId, title };
+        if (description) input.description = description;
+        if (priority !== undefined) input.priority = priority;
+
+        const res = await fetch("https://api.linear.app/graphql", {
+          method: "POST",
+          headers: { Authorization: LINEAR_API_KEY, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: `mutation($input: IssueCreateInput!) {
+              issueCreate(input: $input) {
+                success
+                issue { identifier title url }
+              }
+            }`,
+            variables: { input },
+          }),
+        });
+        const json = await res.json() as any;
+        const result = json?.data?.issueCreate;
+        if (!result?.success) return { content: [{ type: "text", text: `Failed: ${JSON.stringify(json.errors || json)}` }], isError: true };
+        return { content: [{ type: "text", text: `${result.issue.identifier}: ${result.issue.title}\n${result.issue.url}` }] };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `Linear API error: ${e.message}` }], isError: true };
       }
     });
 
@@ -311,7 +410,7 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
 });
 
 httpServer.listen(PORT, "0.0.0.0", () => {
-  console.log(`[Sidecar] :${PORT} auth=${AUTH_TOKEN ? "yes" : "no"} gh=${GH_TOKEN ? "yes" : "no"} slack=${SLACK_BOT_TOKEN ? "yes" : "no"}`);
+  console.log(`[Sidecar] :${PORT} auth=${AUTH_TOKEN ? "yes" : "no"} gh=${GH_TOKEN ? "yes" : "no"} slack=${SLACK_BOT_TOKEN ? "yes" : "no"} linear=${LINEAR_API_KEY ? "yes" : "no"}`);
 });
 
 process.on("SIGTERM", () => { httpServer.close(); process.exit(0); });

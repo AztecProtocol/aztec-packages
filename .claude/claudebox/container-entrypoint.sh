@@ -6,7 +6,7 @@
 # Prompt:        /workspace/prompt.txt (mounted by host)
 # Optional env:  CLAUDEBOX_TARGET_REF, CLAUDEBOX_EXTRA_PATHS, CLAUDEBOX_RESUME_ID
 
-set -euo pipefail
+set -euxo pipefail
 
 WORKSPACE="/workspace/aztec-packages"
 REFERENCE_GIT="/reference-repo/.git"
@@ -24,7 +24,12 @@ echo "Ref:     $TARGET_REF"
 echo "Session: $SESSION_UUID"
 [ -n "$RESUME_ID" ] && echo "Resume:  $RESUME_ID"
 
-# Workspace may be owned by a different uid (host bind mount)
+# ── Step 0: Set up writable $HOME ──
+# Claude Code refuses --dangerously-skip-permissions as root, so we run as
+# a non-root user. ~/.claude is bind-mounted writable from the host.
+mkdir -p "$HOME/.ssh"
+[ -f /tmp/staged-ssh-key ] && cp /tmp/staged-ssh-key "$HOME/.ssh/build_instance_key" && chmod 600 "$HOME/.ssh/build_instance_key"
+
 git config --global --add safe.directory "$WORKSPACE"
 
 # ── Step 1: Git repo with alternates ─────────────────────────────
@@ -65,7 +70,7 @@ cat > /tmp/mcp.json <<EOF
 {
   "mcpServers": {
     "claudebox": {
-      "type": "streamable-http",
+      "type": "http",
       "url": "$MCP_URL"
     }
   }
