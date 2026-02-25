@@ -79,7 +79,6 @@ import {
 import type { DebugLogStore, LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Offense, SlashPayloadRound } from '@aztec/stdlib/slashing';
 import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -194,7 +193,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       logger?: Logger;
       publisher?: SequencerPublisher;
       dateProvider?: DateProvider;
-      p2pClientDeps?: P2PClientDeps<P2PClientType.Full>;
+      p2pClientDeps?: P2PClientDeps;
       proverNodeDeps?: Partial<ProverNodeDeps>;
     } = {},
     options: {
@@ -325,9 +324,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier);
 
+    const proverOnly = config.enableProverNode && config.disableValidator;
+    if (proverOnly) {
+      log.info('Starting in prover-only mode: skipping validator, sequencer, sentinel, and slasher subsystems');
+    }
+
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(
-      P2PClientType.Full,
       config,
       archiver,
       proofVerifier,
@@ -342,7 +345,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We should really not be modifying the config object
     config.txPublicSetupAllowList = config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
 
-    // Create FullNodeCheckpointsBuilder for validator and non-validator block proposal handling
+    // We'll accumulate sentinel watchers here
+    const watchers: Watcher[] = [];
+
+    // Create FullNodeCheckpointsBuilder for block proposal handling and tx validation
     const validatorCheckpointsBuilder = new FullNodeCheckpointsBuilder(
       { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
       worldStateSynchronizer,
@@ -351,47 +357,48 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       telemetry,
     );
 
-    // We'll accumulate sentinel watchers here
-    const watchers: Watcher[] = [];
+    let validatorClient: ValidatorClient | undefined;
 
-    // Create validator client if required
-    const validatorClient = await createValidatorClient(config, {
-      checkpointsBuilder: validatorCheckpointsBuilder,
-      worldState: worldStateSynchronizer,
-      p2pClient,
-      telemetry,
-      dateProvider,
-      epochCache,
-      blockSource: archiver,
-      l1ToL2MessageSource: archiver,
-      keyStoreManager,
-      blobClient,
-    });
-
-    // If we have a validator client, register it as a source of offenses for the slasher,
-    // and have it register callbacks on the p2p client *before* we start it, otherwise messages
-    // like attestations or auths will fail.
-    if (validatorClient) {
-      watchers.push(validatorClient);
-      if (!options.dontStartSequencer) {
-        await validatorClient.registerHandlers();
-      }
-    }
-
-    // If there's no validator client but alwaysReexecuteBlockProposals is enabled,
-    // create a BlockProposalHandler to reexecute block proposals for monitoring
-    if (!validatorClient && config.alwaysReexecuteBlockProposals) {
-      log.info('Setting up block proposal reexecution for monitoring');
-      createBlockProposalHandler(config, {
+    if (!proverOnly) {
+      // Create validator client if required
+      validatorClient = await createValidatorClient(config, {
         checkpointsBuilder: validatorCheckpointsBuilder,
         worldState: worldStateSynchronizer,
+        p2pClient,
+        telemetry,
+        dateProvider,
         epochCache,
         blockSource: archiver,
         l1ToL2MessageSource: archiver,
-        p2pClient,
-        dateProvider,
-        telemetry,
-      }).registerForReexecution(p2pClient);
+        keyStoreManager,
+        blobClient,
+      });
+
+      // If we have a validator client, register it as a source of offenses for the slasher,
+      // and have it register callbacks on the p2p client *before* we start it, otherwise messages
+      // like attestations or auths will fail.
+      if (validatorClient) {
+        watchers.push(validatorClient);
+        if (!options.dontStartSequencer) {
+          await validatorClient.registerHandlers();
+        }
+      }
+
+      // If there's no validator client but alwaysReexecuteBlockProposals is enabled,
+      // create a BlockProposalHandler to reexecute block proposals for monitoring
+      if (!validatorClient && config.alwaysReexecuteBlockProposals) {
+        log.info('Setting up block proposal reexecution for monitoring');
+        createBlockProposalHandler(config, {
+          checkpointsBuilder: validatorCheckpointsBuilder,
+          worldState: worldStateSynchronizer,
+          epochCache,
+          blockSource: archiver,
+          l1ToL2MessageSource: archiver,
+          p2pClient,
+          dateProvider,
+          telemetry,
+        }).registerForReexecution(p2pClient);
+      }
     }
 
     // Start world state and wait for it to sync to the archiver.
@@ -400,29 +407,33 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Start p2p. Note that it depends on world state to be running.
     await p2pClient.start();
 
-    const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
-    if (validatorsSentinel && config.slashInactivityPenalty > 0n) {
-      watchers.push(validatorsSentinel);
-    }
-
+    let validatorsSentinel: Awaited<ReturnType<typeof createSentinel>> | undefined;
     let epochPruneWatcher: EpochPruneWatcher | undefined;
-    if (config.slashPrunePenalty > 0n || config.slashDataWithholdingPenalty > 0n) {
-      epochPruneWatcher = new EpochPruneWatcher(
-        archiver,
-        archiver,
-        epochCache,
-        p2pClient.getTxProvider(),
-        validatorCheckpointsBuilder,
-        config,
-      );
-      watchers.push(epochPruneWatcher);
-    }
-
-    // We assume we want to slash for invalid attestations unless all max penalties are set to 0
     let attestationsBlockWatcher: AttestationsBlockWatcher | undefined;
-    if (config.slashProposeInvalidAttestationsPenalty > 0n || config.slashAttestDescendantOfInvalidPenalty > 0n) {
-      attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config);
-      watchers.push(attestationsBlockWatcher);
+
+    if (!proverOnly) {
+      validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
+      if (validatorsSentinel && config.slashInactivityPenalty > 0n) {
+        watchers.push(validatorsSentinel);
+      }
+
+      if (config.slashPrunePenalty > 0n || config.slashDataWithholdingPenalty > 0n) {
+        epochPruneWatcher = new EpochPruneWatcher(
+          archiver,
+          archiver,
+          epochCache,
+          p2pClient.getTxProvider(),
+          validatorCheckpointsBuilder,
+          config,
+        );
+        watchers.push(epochPruneWatcher);
+      }
+
+      // We assume we want to slash for invalid attestations unless all max penalties are set to 0
+      if (config.slashProposeInvalidAttestationsPenalty > 0n || config.slashAttestDescendantOfInvalidPenalty > 0n) {
+        attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config);
+        watchers.push(attestationsBlockWatcher);
+      }
     }
 
     // Start p2p-related services once the archiver has completed sync
