@@ -88,22 +88,27 @@ jobs:
           echo "Posted status comment: $COMMENT_ID"
 
       - name: Setup SSH
+        env:
+          JUMP_HOST: ${{ vars.CLAUDEBOX_JUMP_HOST }}
+          JUMP_USER: ${{ vars.CLAUDEBOX_JUMP_USER }}
+          CB_HOST: ${{ vars.CLAUDEBOX_HOST }}
+          CB_USER: ${{ vars.CLAUDEBOX_USER }}
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.CLAUDEBOX_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          cat >> ~/.ssh/config <<SSHEOF
-          Host claudebox-jump
-            HostName ${{ vars.CLAUDEBOX_JUMP_HOST }}
-            User ${{ vars.CLAUDEBOX_JUMP_USER }}
-            StrictHostKeyChecking no
-
-          Host claudebox
-            HostName ${{ vars.CLAUDEBOX_HOST }}
-            User ${{ vars.CLAUDEBOX_USER }}
-            ProxyJump claudebox-jump
-            StrictHostKeyChecking no
-          SSHEOF
+          printf '%s\n' \
+            "Host claudebox-jump" \
+            "  HostName ${JUMP_HOST}" \
+            "  User ${JUMP_USER}" \
+            "  StrictHostKeyChecking no" \
+            "" \
+            "Host claudebox" \
+            "  HostName ${CB_HOST}" \
+            "  User ${CB_USER}" \
+            "  ProxyJump claudebox-jump" \
+            "  StrictHostKeyChecking no" \
+            > ~/.ssh/config
 
       - name: Run ClaudeBox
         timeout-minutes: 120
