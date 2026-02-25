@@ -25,7 +25,6 @@ Run a node to interact with the network, submit transactions, and maintain a cop
 Produce blocks, participate in consensus, and earn rewards.
 - [Sequencer Setup](./setup/sequencer-setup.md)
 - [Registration](./setup/registering-sequencer.md)
-- [High Availability](./setup/high-availability.md)
 - [Governance Participation](./sequencer-management/governance-participation.md)
 
 ### Prover Operator
