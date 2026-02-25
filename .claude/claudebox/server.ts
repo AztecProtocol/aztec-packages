@@ -192,20 +192,11 @@ function reconcileSessions(): void {
         && ageMs < 60 * 60_000
         && exitCode !== 0
         && !alreadyResumed;
-      if (canResume) {
-        meta.status = "restart_pending";
-        meta.exit_code = exitCode;
-        meta.finished = new Date().toISOString();
-        writeFileSync(path, JSON.stringify(meta, null, 2));
-        console.log(`[RECONCILE] ${logId}: running → restart_pending (exit=${exitCode}, age=${Math.round(ageMs / 60_000)}m)`);
-      } else {
-        meta.status = "cancelled";
-        meta.exit_code = exitCode;
-        meta.finished = new Date().toISOString();
-        writeFileSync(path, JSON.stringify(meta, null, 2));
-        const reason = exitCode === 0 ? "completed normally" : ageMs >= 60 * 60_000 ? "too old" : "not resumable";
-        console.log(`[RECONCILE] ${logId}: running → cancelled (exit=${exitCode}, ${reason})`);
-      }
+      meta.status = "cancelled";
+      meta.exit_code = exitCode;
+      meta.finished = new Date().toISOString();
+      writeFileSync(path, JSON.stringify(meta, null, 2));
+      console.log(`[RECONCILE] ${logId}: running → cancelled (exit=${exitCode})`);
     } catch {}
   }
 }
@@ -1166,6 +1157,26 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
 
   // ── Interactive session routes (hash-is-auth, no API_SECRET) ──
 
+  // Basic auth gate for /s/ HTML pages and cancel (not keepalive — that's called from inside containers)
+  const isKeepalive = req.url?.endsWith("/keepalive");
+  if (isSessionRoute && !isKeepalive) {
+    const authHeader = req.headers.authorization || "";
+    let authed = false;
+    if (authHeader.startsWith("Basic ")) {
+      const decoded = Buffer.from(authHeader.slice(6), "base64").toString();
+      const [u, p] = decoded.split(":");
+      authed = u === SESSION_PAGE_USER && p === SESSION_PAGE_PASS;
+    }
+    if (!authed) {
+      res.writeHead(401, {
+        "Content-Type": "text/plain",
+        "WWW-Authenticate": 'Basic realm="ClaudeBox Session"',
+      });
+      res.end("Unauthorized");
+      return;
+    }
+  }
+
   // GET /s/<hash> — HTML page with session info + Join button
   const pageMatch = req.method === "GET" && req.url?.match(/^\/s\/([a-f0-9]{32})$/);
   if (pageMatch) {
@@ -1199,6 +1210,37 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
     resetKeepalive(hash, minutes);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, minutes, deadline: s.deadline }));
+    return;
+  }
+
+  // GET /s/<hash>/cancel — confirmation page
+  const cancelPageMatch = req.method === "GET" && req.url?.match(/^\/s\/([a-f0-9]{32})\/cancel$/);
+  if (cancelPageMatch) {
+    const hash = cancelPageMatch[1];
+    const session = findSessionByHash(hash);
+    if (!session) {
+      res.writeHead(404, { "Content-Type": "text/plain" });
+      res.end("Session not found");
+      return;
+    }
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(cancelConfirmHTML(hash, session));
+    return;
+  }
+
+  // POST /s/<hash>/cancel — actually cancel the session
+  const cancelMatch = req.method === "POST" && req.url?.match(/^\/s\/([a-f0-9]{32})\/cancel$/);
+  if (cancelMatch) {
+    const hash = cancelMatch[1];
+    const session = findSessionByHash(hash);
+    if (!session) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "not found" }));
+      return;
+    }
+    const cancelled = cancelSession(hash, session);
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(cancelResultHTML(hash, cancelled));
     return;
   }
 
@@ -1508,6 +1550,117 @@ async function bridgeDockerExec(isess: InteractiveSession, ws: WebSocket): Promi
   });
 }
 
+// ── Cancel session ──────────────────────────────────────────────
+
+/** Cancel a running or interactive session. Returns true if something was stopped. */
+function cancelSession(hash: string, session: SessionMeta): boolean {
+  let cancelled = false;
+
+  // Stop interactive session if active
+  if (interactiveSessions.has(hash)) {
+    cleanupInteractive(hash);
+    cancelled = true;
+  }
+
+  // Stop the main Claude container if running
+  if (session.status === "running" && session.container) {
+    try { dockerExec("stop", "-t", "5", session.container); cancelled = true; } catch {}
+    try { dockerExec("rm", "-f", session.container); } catch {}
+    // Also stop its sidecar + network
+    const logId = session._log_id || hash;
+    const sidecarName = session.sidecar || `claudebox-sidecar-${logId}`;
+    const networkName = `claudebox-net-${logId}`;
+    try { dockerExec("stop", "-t", "3", sidecarName); } catch {}
+    try { dockerExec("rm", "-f", sidecarName); } catch {}
+    try { dockerExec("network", "rm", networkName); } catch {}
+  }
+
+  // Update metadata
+  const metaPath = join(SESSIONS_DIR, `${hash}.json`);
+  try {
+    const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
+    if (meta.status === "running" || meta.status === "interactive") {
+      meta.status = "cancelled";
+      meta.finished = new Date().toISOString();
+      writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+      cancelled = true;
+    }
+  } catch {}
+
+  if (cancelled) console.log(`[CANCEL] Session ${hash} cancelled via web UI`);
+  return cancelled;
+}
+
+function cancelConfirmHTML(hash: string, session: SessionMeta): string {
+  const status = session.status || "unknown";
+  const user = session.user || "unknown";
+  const prompt = (session.prompt || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const canCancel = status === "running" || status === "interactive";
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cancel Session</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,monospace;display:flex;justify-content:center;padding-top:80px}
+.card{background:#16213e;border:1px solid #0f3460;border-radius:8px;padding:32px;max-width:500px;width:100%}
+h1{color:#e94560;font-size:20px;margin-bottom:16px}
+.info{font-size:14px;color:#a0a0b0;margin-bottom:8px}
+.info b{color:#c0c0d0}
+.warn{background:#4d1a1a;border:1px solid #e94560;border-radius:4px;padding:12px;margin:20px 0;font-size:14px;color:#e0a0a0}
+.buttons{display:flex;gap:12px;margin-top:20px}
+button,a.btn{padding:10px 24px;border:none;border-radius:4px;font-size:14px;cursor:pointer;font-weight:600;text-decoration:none;text-align:center}
+.cancel-btn{background:#e94560;color:white}
+.cancel-btn:hover{background:#c73e55}
+.cancel-btn:disabled{background:#555;cursor:not-allowed}
+.back-btn{background:#2a3a5e;color:#a0a0b0}
+.back-btn:hover{background:#3a4a6e}
+.status-pill{font-size:12px;padding:3px 10px;border-radius:12px;font-weight:600}
+.status-running{background:#1a4d2e;color:#4ae168}
+.status-interactive{background:#4d3a1a;color:#e1a14a}
+.status-completed{background:#1a3a4d;color:#4ac1e1}
+.status-cancelled{background:#3a3a3a;color:#a0a0a0}
+</style></head><body>
+<div class="card">
+<h1>Cancel Session</h1>
+<div class="info"><b>Session:</b> ${hash.slice(0, 8)}...</div>
+<div class="info"><b>User:</b> ${user}</div>
+<div class="info"><b>Status:</b> <span class="status-pill status-${status}">${status}</span></div>
+${prompt ? `<div class="info"><b>Prompt:</b> ${prompt.slice(0, 120)}${prompt.length > 120 ? "..." : ""}</div>` : ""}
+${canCancel ? `
+<div class="warn">This will immediately stop the session's Docker containers. Any in-progress work will be lost.</div>
+<form method="POST" action="/s/${hash}/cancel">
+<div class="buttons">
+<button type="submit" class="cancel-btn">Yes, Cancel Session</button>
+<a href="/s/${hash}" class="btn back-btn">Go Back</a>
+</div>
+</form>
+` : `
+<div class="info" style="margin-top:20px">Session is already <b>${status}</b> — nothing to cancel.</div>
+<div class="buttons"><a href="/s/${hash}" class="btn back-btn">Go Back</a></div>
+`}
+</div></body></html>`;
+}
+
+function cancelResultHTML(hash: string, cancelled: boolean): string {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Session ${cancelled ? "Cancelled" : "Not Changed"}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,monospace;display:flex;justify-content:center;padding-top:80px}
+.card{background:#16213e;border:1px solid #0f3460;border-radius:8px;padding:32px;max-width:500px;width:100%;text-align:center}
+h1{font-size:20px;margin-bottom:16px}
+.ok{color:#4ae168}
+.noop{color:#a0a0b0}
+a{color:#539bf5;margin-top:16px;display:inline-block}
+</style></head><body>
+<div class="card">
+${cancelled
+  ? `<h1 class="ok">Session Cancelled</h1><p>Containers have been stopped and cleaned up.</p>`
+  : `<h1 class="noop">No Change</h1><p>Session was already stopped or not found.</p>`}
+<a href="/s/${hash}">Back to session</a>
+</div></body></html>`;
+}
+
 // ── Interactive session HTML page ───────────────────────────────
 
 function interactiveSessionHTML(hash: string, session: SessionMeta): string {
@@ -1570,6 +1723,7 @@ body { background:#1a1a2e; color:#e0e0e0; font-family:-apple-system,BlinkMacSyst
 </div>
 <div class="controls">
   <button id="join-btn" ${canJoin ? "" : "disabled"}>Join Session</button>
+  <a href="/s/${hash}/cancel" style="padding:8px 16px;background:#2a3a5e;color:#e94560;border-radius:4px;text-decoration:none;font-size:13px;font-weight:600">Cancel</a>
   <span id="timer"></span>
 </div>
 <div class="main">
@@ -1644,18 +1798,8 @@ async function main() {
   await slackApp.start();
   console.log("  Slack connected.");
 
-  // Resume sessions that were killed by the previous server restart
-  await resumePendingSessions(slackApp.client).catch((e) =>
-    console.error(`[RESUME] Failed: ${e}`),
-  );
-
-  // Periodically reconcile + resume (catches mid-session container crashes)
-  setInterval(() => {
-    reconcileSessions();
-    resumePendingSessions(slackApp.client).catch((e) =>
-      console.error(`[RESUME] Periodic resume failed: ${e}`),
-    );
-  }, 60_000);
+  // Periodically reconcile (catches missed container exits)
+  setInterval(reconcileSessions, 60_000);
 
   httpServer.listen(HTTP_PORT, () => {
     console.log(`  HTTP listening on :${HTTP_PORT}`);
