@@ -2,6 +2,9 @@ import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/c
 
 import type { SequencerConfig } from '../interfaces/configs.js';
 
+/** Default maximum number of transactions per block. */
+export const DEFAULT_MAX_TXS_PER_BLOCK = 32;
+
 /**
  * Partial sequencer config mappings for fields that need to be shared across packages.
  * The full sequencer config mappings remain in sequencer-client, but shared fields
@@ -29,6 +32,6 @@ export const sharedSequencerConfigMappings: ConfigMappingsType<
   maxTxsPerBlock: {
     env: 'SEQ_MAX_TX_PER_BLOCK',
     description: 'The maximum number of txs to include in a block.',
-    ...numberConfigHelper(32),
+    ...numberConfigHelper(DEFAULT_MAX_TXS_PER_BLOCK),
   },
 };

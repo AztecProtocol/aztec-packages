@@ -13,6 +13,7 @@ import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ChainConfig,
+  DEFAULT_MAX_TXS_PER_BLOCK,
   type SequencerConfig,
   chainConfigMappings,
   sharedSequencerConfigMappings,
@@ -37,7 +38,7 @@ export type { SequencerConfig };
  */
 export const DefaultSequencerConfig: ResolvedSequencerConfig = {
   sequencerPollingIntervalMS: 500,
-  maxTxsPerBlock: 32,
+  maxTxsPerBlock: DEFAULT_MAX_TXS_PER_BLOCK,
   minTxsPerBlock: 1,
   buildCheckpointIfEmpty: false,
   publishTxsWithProposals: false,
