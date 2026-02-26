@@ -30,7 +30,7 @@ mod test;
 /// Unlike [`PublicMutable`](crate::state_vars::PublicMutable) it is **also** possible to read a `PublicImmutable` from
 /// a
 /// private contract function, though it is not possible to initialize one. A common pattern is to have these functions
-/// [enqueue a public self calls](crate::contract_self::ContractSelf::enqueue_self) in which the initialization
+/// [enqueue a public self calls](crate::contract_self::ContractSelfPrivate::enqueue) in which the initialization
 /// operation is performed.
 ///
 /// For a mutable (with restrictions) variant which also can be read from private functions see

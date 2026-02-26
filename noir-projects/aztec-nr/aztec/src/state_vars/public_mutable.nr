@@ -15,7 +15,8 @@ use crate::state_vars::StateVariable;
 /// A value stored in a `PublicMutable` can be read and written from public contract functions.
 ///
 /// It is not possible to read or write a `PublicMutable` from private contract functions. A common pattern is to have
-/// these functions [enqueue a public self calls](crate::contract_self::ContractSelf::enqueue_self) in which the
+/// these functions [enqueue a public self
+/// calls](crate::contract_self::ContractSelfPrivate::enqueue) in which the
 /// required operation is performed.
 ///
 /// For an immutable variant which can be read from private functions, see
