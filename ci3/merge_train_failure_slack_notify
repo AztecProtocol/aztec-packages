@@ -41,17 +41,10 @@ fi
 
 send_slack_message() {
   local message=$1
-  local data=$(cat <<EOF
-{
-  "channel": "$channel",
-  "text": "$message"
-}
-EOF
-)
-  curl -X POST https://slack.com/api/chat.postMessage \
+  curl -sS -X POST https://slack.com/api/chat.postMessage \
     -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
     -H "Content-type: application/json" \
-    --data "$data"
+    -d "$(jq -n --arg c "$channel" --arg t "$message" '{channel:$c, text:$t}')"
 }
 
 set -x
@@ -61,5 +54,21 @@ if [[ "$MODE" == "dequeued" ]]; then
 elif [[ "$MODE" == "merged" ]]; then
   send_slack_message "PR merged: <$PR_URL|$commit_title> by $commit_author"
 else
-  send_slack_message "There was a failure (http://ci.aztec-labs.com/$ci_log_id) in the merge-train:\\n$commit_title by $commit_author"
+  # Post failure to Slack, capture response for permalink
+  RESP=$(send_slack_message "There was a failure (http://ci.aztec-labs.com/$ci_log_id) in the merge-train:\\n$commit_title by $commit_author")
+  TS=$(echo "$RESP" | jq -r '.ts // empty')
+  CHANNEL_ID=$(echo "$RESP" | jq -r '.channel // empty')
+
+  # Dispatch ClaudeBox to investigate
+  if [[ -n "$TS" && -n "$CHANNEL_ID" && -n "${GITHUB_TOKEN:-}" ]]; then
+    LINK="https://aztecprotocol.slack.com/archives/$CHANNEL_ID/p${TS//./}"
+    curl -sS -X POST \
+      -H "Authorization: Bearer $GITHUB_TOKEN" \
+      -H "Accept: application/vnd.github.v3+json" \
+      "https://api.github.com/repos/AztecProtocol/aztec-packages/actions/workflows/claudebox.yml/dispatches" \
+      -d "$(jq -n --arg ref next \
+        --arg prompt "CI failure in merge-train branch $REF_NAME. Log: http://ci.aztec-labs.com/$ci_log_id — $commit_title by $commit_author. Investigate the failure, fix it, and create a PR targeting $REF_NAME. Follow the merge-trains skill (.claude/skills/merge-trains/SKILL.md)." \
+        --arg link "$LINK" \
+        '{ref:$ref, inputs:{prompt:$prompt, link:$link}}')" || true
+  fi
 fi
