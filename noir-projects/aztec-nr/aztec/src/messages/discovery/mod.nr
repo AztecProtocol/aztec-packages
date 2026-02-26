@@ -24,17 +24,16 @@ pub struct NoteHashAndNullifier {
     pub note_hash: Field,
     /// The result of [`crate::note::note_interface::NoteHash::compute_nullifier_unconstrained`].
     ///
-    /// This value is unconstrained as all of message discovery is unconstrained. This is `None` if the nullifier
-    /// cannot be computed (e.g., because the nullifier hiding key is not available).
+    /// This value is unconstrained, as all of message discovery is unconstrained. It is `None` if the nullifier
+    /// cannot be computed (e.g. because the nullifier hiding key is not available).
     pub inner_nullifier: Option<Field>,
 }
 
 /// A contract's way of computing note hashes and nullifiers.
 ///
 /// Each contract in the network is free to compute their note's hash and nullifiers as they see fit - the hash
-/// function
-/// itself and the nullifier derivation are not enshrined or standardized. Some aztec-nr functions however do need to
-/// know the details of this computation (e.g. when finding new notes), which is what this type represents.
+/// function itself and the nullifier derivation are not enshrined or standardized. Some aztec-nr functions however do
+/// need to know the details of this computation (e.g. when finding new notes), which is what this type represents.
 ///
 /// This function takes a note's packed content, storage slot, note type ID, address of the emitting contract,
 /// randomness and note nonce, and attempts to compute its inner note hash (not siloed by address nor uniqued by nonce)
@@ -43,9 +42,8 @@ pub struct NoteHashAndNullifier {
 /// ## Transient Notes
 ///
 /// This function is meant to always be used on **settled** notes, i.e. those that have been inserted into the trees
-/// and
-/// for which the nonce is known. It is never invoked in the context of a transient note, as those are not involved in
-/// message processing.
+/// and for which the nonce is known. It is never invoked in the context of a transient note, as those are not involved
+/// in message processing.
 ///
 /// ## Automatic Implementation
 ///
@@ -100,8 +98,7 @@ pub type CustomMessageHandler<Env> = unconstrained fn[Env](
 ///
 /// As blocks are mined, it is possible for a contract's private state to change (e.g. with new notes being created),
 /// but because these changes are private they will be invisible to most actors. This is the function that processes
-/// new
-/// transactions in order to discover new notes, events, and other kinds of private state changes.
+/// new transactions in order to discover new notes, events, and other kinds of private state changes.
 ///
 /// The private state will be synchronized up to the block that will be used for private transactions (i.e. the anchor
 /// block. This will typically be close to the tip of the chain.

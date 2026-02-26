@@ -79,8 +79,7 @@ impl<T> CapsuleArray<T> {
     /// Calls a function on each element of the array.
     ///
     /// The function `f` is called once with each array value and its corresponding index. The order in which values
-    /// are
-    /// processed is arbitrary.
+    /// are processed is arbitrary.
     ///
     /// ## Array Mutation
     ///
