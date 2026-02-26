@@ -80,18 +80,6 @@ constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::operator*(const F
     return bb::group_elements::element(*this) * exponent;
 }
 
-template <class Fq, class Fr, class T>
-template <typename BaseField, typename CompileTimeEnabled>
-
-constexpr uint256_t affine_element<Fq, Fr, T>::compress() const noexcept
-{
-    uint256_t out(x);
-    if (uint256_t(y).get_bit(0)) {
-        out.data[3] = out.data[3] | 0x8000000000000000ULL;
-    }
-    return out;
-}
-
 template <class Fq, class Fr, class T> constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::infinity()
 {
     affine_element e{};
@@ -157,15 +145,9 @@ constexpr bool affine_element<Fq, Fr, T>::operator==(const affine_element& other
     return !only_one_is_infinity && (both_infinity || ((x == other.x) && (y == other.y)));
 }
 
-/**
- * Comparison operators (for std::sort)
- *
- * @details CAUTION!! Don't use this operator. It has no meaning other than for use by std::sort.
- **/
 template <class Fq, class Fr, class T>
 constexpr bool affine_element<Fq, Fr, T>::operator>(const affine_element& other) const noexcept
 {
-    // We are setting point at infinity to always be the lowest element
     if (is_point_at_infinity()) {
         return false;
     }

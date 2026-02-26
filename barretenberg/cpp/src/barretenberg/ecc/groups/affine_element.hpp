@@ -80,10 +80,6 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
 
     constexpr affine_element operator*(const Fr& exponent) const noexcept;
 
-    template <typename BaseField = Fq,
-              typename CompileTimeEnabled = std::enable_if_t<(BaseField::modulus >> 255) == uint256_t(0), void>>
-    [[nodiscard]] constexpr uint256_t compress() const noexcept;
-
     static constexpr affine_element infinity();
     constexpr affine_element set_infinity() const noexcept;
     constexpr void self_set_infinity() noexcept;

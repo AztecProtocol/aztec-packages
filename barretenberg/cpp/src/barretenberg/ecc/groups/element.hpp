@@ -59,7 +59,6 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
 
     constexpr element dbl() const noexcept;
     constexpr void self_dbl() noexcept;
-    constexpr void self_mixed_add_or_sub(const affine_element<Fq, Fr, Params>& other, uint64_t predicate) noexcept;
 
     constexpr element operator+(const element& other) const noexcept;
     constexpr element operator+(const affine_element<Fq, Fr, Params>& other) const noexcept;
@@ -149,10 +148,6 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/908) point at inifinty isn't handled
     // To reenable this do NOT do use MSGPACK_FIELDS macro below, instead follow the logic in affine_element
     // MSGPACK_FIELDS(x, y, z);
-
-    static void conditional_negate_affine(const affine_element<Fq, Fr, Params>& in,
-                                          affine_element<Fq, Fr, Params>& out,
-                                          uint64_t predicate) noexcept;
 
     friend std::ostream& operator<<(std::ostream& os, const element& a)
     {

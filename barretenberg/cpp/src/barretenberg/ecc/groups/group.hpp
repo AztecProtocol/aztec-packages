@@ -130,10 +130,6 @@ template <typename Fq_, typename Fr_, typename Params> class group {
         }
         return derive_generators(domain_bytes, num_generators, starting_index);
     }
-
-    BB_INLINE static void conditional_negate_affine(const affine_element* src,
-                                                    affine_element* dest,
-                                                    uint64_t predicate);
 };
 
 } // namespace bb
