@@ -37,16 +37,13 @@ async function collectSourceDirs(startDir: string): Promise<string[]> {
   // We have a set of visited dirs we check against when entering a new dir because we could stumble upon a directory
   // multiple times in case multiple deps shared a dep (e.g. dep A and dep B both sharing dep C).
   const visited = new Set<string>();
-  const result: string[] = [];
 
   async function visit(dir: string): Promise<void> {
     const absDir = resolve(dir);
     if (visited.has(absDir)) {
-      // We already visited this dir so we stop searching.
       return;
     }
     visited.add(absDir);
-    result.push(absDir);
 
     const tomlPath = join(absDir, 'Nargo.toml');
     const content = await readFile(tomlPath, 'utf-8').catch(() => {
@@ -71,7 +68,7 @@ async function collectSourceDirs(startDir: string): Promise<string[]> {
   }
 
   await visit(startDir);
-  return result;
+  return [...visited];
 }
 
 /**
