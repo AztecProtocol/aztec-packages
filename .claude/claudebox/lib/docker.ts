@@ -237,6 +237,7 @@ export class DockerService {
           `CLAUDEBOX_SLACK_MESSAGE_TS=${opts.slackMessageTs || ""}`,
           `CLAUDEBOX_HOST=${CLAUDEBOX_HOST}`,
           `CLAUDEBOX_BASE_BRANCH=${baseBranch}`,
+          `CLAUDEBOX_QUIET=${opts.quiet ? "1" : "0"}`,
         ],
         HostConfig: {
           NetworkMode: networkName,
@@ -249,7 +250,7 @@ export class DockerService {
           ],
         },
       }).then(c => c.start());
-      console.log(`[DOCKER] Sidecar started: ${sidecarName}`);
+      console.log(`[DOCKER] Sidecar started: ${sidecarName} (quiet=${opts.quiet ? "yes" : "no"})`);
 
       await this.waitForHealth(sidecarName);
       console.log(`[DOCKER] Sidecar healthy`);

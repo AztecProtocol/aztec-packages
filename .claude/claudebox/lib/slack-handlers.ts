@@ -2,12 +2,12 @@ import type { App } from "@slack/bolt";
 import type { SessionStore } from "./session-store.ts";
 import type { DockerService } from "./docker.ts";
 import { MAX_CONCURRENT, getActiveSessions } from "./config.ts";
-import { parseMessage, parseNewKeyword, validateResumeSession, truncate, extractHashFromUrl, sessionUrl } from "./util.ts";
+import { parseMessage, parseKeywords, validateResumeSession, truncate, extractHashFromUrl, sessionUrl } from "./util.ts";
 import {
   resolveUserName, getThreadContext, handleTerminalCommand,
   startNewSession, startReplySession,
 } from "./slack-helpers.ts";
-import { resolveBaseBranch } from "./base-branch.ts";
+import { resolveBaseBranch, resolveQuietMode } from "./base-branch.ts";
 
 /** Normalized incoming Slack message — unifies app_mention, DM, and slash command. */
 interface IncomingMessage {
@@ -40,7 +40,8 @@ async function handleIncomingMessage(msg: IncomingMessage, store: SessionStore, 
   const userName = await resolveUserName(msg.client, msg.userId);
   const baseBranch = await resolveBaseBranch(msg.client, msg.channel);
   const parsed = parseMessage(cmd, (h) => store.findByHash(h));
-  const { forceNew, prompt: effectivePrompt } = parseNewKeyword(parsed);
+  const { forceNew, quiet: explicitQuiet, prompt: effectivePrompt } = parseKeywords(parsed);
+  const quiet = await resolveQuietMode(msg.client, msg.channel, explicitQuiet);
 
   // Explicit hash-based resume — only if hash matches a known session
   if (!forceNew && parsed.type === "reply-hash") {
@@ -49,7 +50,7 @@ async function handleIncomingMessage(msg: IncomingMessage, store: SessionStore, 
       const err = validateResumeSession(session, parsed.hash);
       if (err) { await msg.respond({ text: err, thread_ts: msg.threadTs }); return; }
       console.log(`[HANDLER] Resuming session ${parsed.hash}`);
-      await startReplySession(msg.client, msg.channel, msg.threadTs, parsed.prompt, session, userName, store, docker, baseBranch);
+      await startReplySession(msg.client, msg.channel, msg.threadTs, parsed.prompt, session, userName, store, docker, baseBranch, quiet);
       return;
     }
     // Hash not a session (e.g. CI log URL) — fall through, use full text as prompt
@@ -68,14 +69,14 @@ async function handleIncomingMessage(msg: IncomingMessage, store: SessionStore, 
     }
     if (prevSession?.worktree_id) {
       console.log(`[HANDLER] Resuming worktree ${prevSession.worktree_id} from thread`);
-      await startReplySession(msg.client, msg.channel, msg.threadTs, prompt, prevSession, userName, store, docker, baseBranch);
+      await startReplySession(msg.client, msg.channel, msg.threadTs, prompt, prevSession, userName, store, docker, baseBranch, quiet);
       return;
     }
   }
 
   // Fresh session
   const threadContext = msg.isReply ? await getThreadContext(msg.client, msg.channel, msg.threadTs) : "";
-  await startNewSession(msg.client, msg.channel, msg.threadTs, prompt, threadContext, userName, store, docker, baseBranch);
+  await startNewSession(msg.client, msg.channel, msg.threadTs, prompt, threadContext, userName, store, docker, baseBranch, quiet);
 }
 
 /** Register all Slack event handlers on the Bolt app. */
@@ -158,7 +159,8 @@ export function registerSlackHandlers(app: App, store: SessionStore, docker: Doc
     const userName = await resolveUserName(client, userId);
     const baseBranch = await resolveBaseBranch(client, channel);
     const parsed = parseMessage(text, (h) => store.findByHash(h));
-    const { forceNew, prompt: effectivePrompt } = parseNewKeyword(parsed);
+    const { forceNew, quiet: explicitQuiet, prompt: effectivePrompt } = parseKeywords(parsed);
+    const quiet = await resolveQuietMode(client, channel, explicitQuiet);
 
     // Hash-based resume
     if (!forceNew && parsed.type === "reply-hash") {
@@ -167,7 +169,7 @@ export function registerSlackHandlers(app: App, store: SessionStore, docker: Doc
         const err = validateResumeSession(session, parsed.hash);
         if (err) { await ack({ text: err }); return; }
         await ack({ text: `ClaudeBox replying to session \`${parsed.hash.slice(0, 8)}...\`: _${truncate(parsed.prompt)}_` });
-        await startReplySession(client, channel, null, parsed.prompt, session, userName, store, docker, baseBranch);
+        await startReplySession(client, channel, null, parsed.prompt, session, userName, store, docker, baseBranch, quiet);
         return;
       }
       console.log(`[CMD] Hash ${parsed.hash} is not a session, treating as prompt`);
@@ -175,6 +177,6 @@ export function registerSlackHandlers(app: App, store: SessionStore, docker: Doc
 
     const prompt = (parsed.type === "reply-hash" && !store.findByHash(parsed.hash)) ? text : effectivePrompt;
     await ack({ text: `ClaudeBox starting: _${truncate(prompt)}_` });
-    await startNewSession(client, channel, null, prompt, "", userName, store, docker, baseBranch);
+    await startNewSession(client, channel, null, prompt, "", userName, store, docker, baseBranch, quiet);
   });
 }

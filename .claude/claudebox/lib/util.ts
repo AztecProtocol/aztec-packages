@@ -26,11 +26,32 @@ export function parseMessage(text: string, findSession: (hash: string) => Sessio
   return { type: "prompt", prompt: text };
 }
 
-/** Detect "new-session" keyword and strip it from the prompt. */
-export function parseNewKeyword(parsed: ParseResult): { forceNew: boolean; prompt: string } {
-  const prompt = parsed.type === "prompt" ? parsed.prompt : parsed.prompt;
-  const forceNew = /^new-session\b/i.test(prompt);
-  return { forceNew, prompt: forceNew ? prompt.replace(/^new-session\s*/i, "") : prompt };
+export interface ParsedKeywords {
+  forceNew: boolean;
+  quiet: boolean | null;  // null = use auto-detect
+  prompt: string;
+}
+
+/** Detect keywords (new-session, quiet, loud) at start of prompt, in any order. */
+export function parseKeywords(parsed: ParseResult): ParsedKeywords {
+  let prompt = parsed.prompt;
+  let forceNew = false;
+  let quiet: boolean | null = null;
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    if (/^new-session\b/i.test(prompt)) {
+      forceNew = true; prompt = prompt.replace(/^new-session\s*/i, ""); changed = true;
+    }
+    if (/^quiet\b/i.test(prompt)) {
+      quiet = true; prompt = prompt.replace(/^quiet\s*/i, ""); changed = true;
+    }
+    if (/^loud\b/i.test(prompt)) {
+      quiet = false; prompt = prompt.replace(/^loud\s*/i, ""); changed = true;
+    }
+  }
+  return { forceNew, quiet, prompt };
 }
 
 /** Validate a session for resume. Returns error message or null if OK. */

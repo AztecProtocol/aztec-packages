@@ -4,7 +4,7 @@ import type { SessionStore } from "./session-store.ts";
 import type { DockerService } from "./docker.ts";
 import type { InteractiveSessionManager } from "./interactive.ts";
 import { interactiveSessionHTML, cancelConfirmHTML, cancelResultHTML } from "./html-templates.ts";
-import { parseMessage, parseNewKeyword, validateResumeSession, truncate } from "./util.ts";
+import { parseMessage, validateResumeSession, truncate } from "./util.ts";
 
 // ── Helpers ─────────────────────────────────────────────────────
 

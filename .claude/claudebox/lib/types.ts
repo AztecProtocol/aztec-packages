@@ -24,6 +24,7 @@ export interface ContainerSessionOpts {
   slackMessageTs?: string;
   worktreeId?: string;
   targetRef?: string;
+  quiet?: boolean;
 }
 
 export interface InteractiveSession {

@@ -28,6 +28,8 @@ const LINEAR_API_KEY = process.env.LINEAR_API_KEY || "";
 const WORKSPACE = "/workspace/aztec-packages";
 const REPO = "AztecProtocol/aztec-packages";
 
+const QUIET_MODE = process.env.CLAUDEBOX_QUIET === "1";
+
 const SESSION_META = {
   log_id: process.env.CLAUDEBOX_LOG_ID || "",
   log_url: process.env.CLAUDEBOX_LOG_URL || "",
@@ -219,6 +221,14 @@ NEVER post tables, bullet lists, reports, code blocks, or multi-paragraph text h
     async ({ message }) => {
       const results: string[] = [];
 
+      if (QUIET_MODE) {
+        // Quiet mode: fold response into root status comment instead of posting thread reply
+        const updateResults = await updateRootComment(message);
+        results.push(...updateResults);
+        if (!results.length) results.push("No channels configured — message printed to log only");
+        return { content: [{ type: "text", text: results.join("\n") }] };
+      }
+
       if (SLACK_BOT_TOKEN && SESSION_META.slack_channel && SESSION_META.slack_thread_ts) {
         try {
           let text = truncateForSlack(message);
@@ -305,6 +315,8 @@ channel and thread_ts auto-injected from session if not provided.`,
       if (!SLACK_BOT_TOKEN) return { content: [{ type: "text", text: "No SLACK_BOT_TOKEN" }], isError: true };
       if (!SLACK_WHITELIST.has(method))
         return { content: [{ type: "text", text: `Blocked: ${method}. Allowed: ${[...SLACK_WHITELIST].join(", ")}` }], isError: true };
+      if (QUIET_MODE && method === "chat.postMessage")
+        return { content: [{ type: "text", text: "Quiet mode active — use respond_to_user to send your response" }], isError: true };
 
       const payload = { ...args };
       if (!payload.channel && SESSION_META.slack_channel) payload.channel = SESSION_META.slack_channel;
@@ -762,7 +774,7 @@ if (existsSync("/var/run/docker.sock") && existsSync(DOCKER_PROXY_SCRIPT)) {
 }
 
 httpServer.listen(PORT, "0.0.0.0", () => {
-  console.log(`[Sidecar] :${PORT} gh=${GH_TOKEN ? "yes" : "no"} slack=${SLACK_BOT_TOKEN ? "yes" : "no"} linear=${LINEAR_API_KEY ? "yes" : "no"}`);
+  console.log(`[Sidecar] :${PORT} gh=${GH_TOKEN ? "yes" : "no"} slack=${SLACK_BOT_TOKEN ? "yes" : "no"} linear=${LINEAR_API_KEY ? "yes" : "no"} quiet=${QUIET_MODE ? "yes" : "no"}`);
 });
 
 process.on("SIGTERM", () => {

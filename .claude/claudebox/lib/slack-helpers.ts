@@ -120,6 +120,7 @@ export async function startNewSession(
   store: SessionStore,
   docker: DockerService,
   baseBranch = "next",
+  quiet = false,
 ) {
   let status = prompt ? `ClaudeBox: _${truncate(prompt)}_ ...` : "ClaudeBox starting...";
   try {
@@ -143,6 +144,7 @@ export async function startNewSession(
       slackThreadTs: threadTs!,
       slackMessageTs: messageTs,
       targetRef: toTargetRef(baseBranch),
+      quiet,
     }, store, undefined, (logUrl) => {
       capturedLogUrl = logUrl;
       capturedHash = hashFromLogUrl(logUrl);
@@ -172,6 +174,7 @@ export async function startReplySession(
   store: SessionStore,
   docker: DockerService,
   baseBranch = "next",
+  quiet = false,
 ) {
   const worktreeId = session.worktree_id;
 
@@ -196,6 +199,7 @@ export async function startReplySession(
       slackMessageTs: messageTs,
       worktreeId,
       targetRef: toTargetRef(baseBranch),
+      quiet,
     }, store, undefined, (logUrl) => {
       capturedLogUrl = logUrl;
       capturedHash = hashFromLogUrl(logUrl);
