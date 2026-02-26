@@ -5269,4 +5269,121 @@ describe('TxPoolV2', () => {
       expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
     });
   });
+
+  describe('persistence consistency', () => {
+    it('pool state is consistent across restart when getTxEffect throws for a later tx in batch', async () => {
+      const testStore = await openTmpStore('p2p-comeback-gettxeffect');
+      const testArchiveStore = await openTmpStore('archive-comeback-gettxeffect');
+
+      try {
+        const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
+        });
+        await pool1.start();
+
+        // Add tx1 (fee=5) with a nullifier
+        const tx1 = await mockPublicTx(1, 5);
+        await pool1.addPendingTxs([tx1]);
+        expect(await pool1.getTxStatus(tx1.getTxHash())).toBe('pending');
+
+        // Create tx2 (same nullifier as tx1, higher fee — will evict tx1) and tx3 (different nullifiers)
+        const tx2 = await mockPublicTx(2, 10);
+        setNullifier(tx2, 0, getNullifier(tx1, 0));
+        const tx3 = await mockPublicTx(3, 1);
+
+        // Mock getTxEffect to throw for tx3 (simulates L2BlockSource I/O failure)
+        const tx3HashStr = tx3.getTxHash().toString();
+        mockL2BlockSource.getTxEffect.mockImplementation((txHash: TxHash) => {
+          if (txHash.toString() === tx3HashStr) {
+            throw new Error('Simulated L2BlockSource failure');
+          }
+          return Promise.resolve(undefined);
+        });
+
+        // Batch fails because tx3's getMinedBlockId throws
+        await expect(pool1.addPendingTxs([tx2, tx3])).rejects.toThrow('Simulated L2BlockSource failure');
+
+        const statusBeforeRestart = await pool1.getTxStatus(tx1.getTxHash());
+
+        await pool1.stop();
+        mockL2BlockSource.getTxEffect.mockResolvedValue(undefined);
+
+        const pool2 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
+        });
+        await pool2.start();
+
+        const statusAfterRestart = await pool2.getTxStatus(tx1.getTxHash());
+        expect(statusAfterRestart).toBe(statusBeforeRestart);
+
+        await pool2.stop();
+      } finally {
+        mockL2BlockSource.getTxEffect.mockResolvedValue(undefined);
+        await testStore.delete();
+        await testArchiveStore.delete();
+      }
+    });
+
+    it('pool state is consistent across restart when validateMeta throws for a later tx in batch', async () => {
+      const testStore = await openTmpStore('p2p-comeback-validatemeta');
+      const testArchiveStore = await openTmpStore('archive-comeback-validatemeta');
+
+      try {
+        // Create a validator that throws (not rejects) for tx3
+        let tx3HashStr = '';
+        const throwingValidator: TxValidator<TxMetaData> = {
+          validateTx: (meta: TxMetaData) => {
+            if (meta.txHash === tx3HashStr) {
+              throw new Error('Simulated validator crash');
+            }
+            return Promise.resolve({ result: 'valid' });
+          },
+        };
+
+        const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          createTxValidator: () => Promise.resolve(throwingValidator),
+        });
+        await pool1.start();
+
+        // Add tx1 (fee=5) with a nullifier
+        const tx1 = await mockPublicTx(1, 5);
+        await pool1.addPendingTxs([tx1]);
+        expect(await pool1.getTxStatus(tx1.getTxHash())).toBe('pending');
+
+        // Create tx2 (same nullifier as tx1, higher fee — will evict tx1) and tx3 (different nullifiers)
+        const tx2 = await mockPublicTx(2, 10);
+        setNullifier(tx2, 0, getNullifier(tx1, 0));
+        const tx3 = await mockPublicTx(3, 1);
+        tx3HashStr = tx3.getTxHash().toString();
+
+        // Batch fails because tx3's validateMeta throws
+        await expect(pool1.addPendingTxs([tx2, tx3])).rejects.toThrow('Simulated validator crash');
+
+        const statusBeforeRestart = await pool1.getTxStatus(tx1.getTxHash());
+
+        await pool1.stop();
+
+        const pool2 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
+        });
+        await pool2.start();
+
+        const statusAfterRestart = await pool2.getTxStatus(tx1.getTxHash());
+        expect(statusAfterRestart).toBe(statusBeforeRestart);
+
+        await pool2.stop();
+      } finally {
+        await testStore.delete();
+        await testArchiveStore.delete();
+      }
+    });
+  });
 });

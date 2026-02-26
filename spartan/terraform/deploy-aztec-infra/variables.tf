@@ -229,6 +229,12 @@ variable "VALIDATOR_HA_REPLICAS" {
   default     = 0
 }
 
+variable "ADMIN_API_KEY_HASH" {
+  description = "SHA-256 hex hash of the admin API key. When set, enables admin API authentication on validator nodes. Leave empty to disable admin auth (default)."
+  type        = string
+  default     = ""
+}
+
 variable "PROVER_MNEMONIC" {
   description = "The prover mnemonic"
   type        = string

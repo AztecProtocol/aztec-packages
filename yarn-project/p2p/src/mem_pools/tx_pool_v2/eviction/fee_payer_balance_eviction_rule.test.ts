@@ -7,7 +7,7 @@ import { BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type TxMetaData, stubTxMetaValidationData } from '../tx_metadata.js';
+import { type TxMetaData, stubTxMetaData } from '../tx_metadata.js';
 import { FeePayerBalanceEvictionRule } from './fee_payer_balance_eviction_rule.js';
 import type { EvictionContext, PoolOperations } from './interfaces.js';
 import { EvictionEvent } from './interfaces.js';
@@ -33,19 +33,7 @@ describe('FeePayerBalanceEvictionRule', () => {
       claimAmount?: bigint;
       feePayer?: string;
     } = {},
-  ): TxMetaData => ({
-    txHash,
-    anchorBlockHeaderHash: '0x1234',
-    priorityFee: opts.priorityFee ?? 100n,
-    feePayer: opts.feePayer ?? feePayer1,
-    claimAmount: opts.claimAmount ?? 0n,
-    feeLimit: opts.feeLimit ?? 100n,
-    nullifiers: [`0x${txHash.slice(2)}null1`],
-    expirationTimestamp: 0n,
-    receivedAt: 0,
-    estimatedSizeBytes: 0,
-    data: stubTxMetaValidationData(),
-  });
+  ) => stubTxMetaData(txHash, { feePayer: feePayer1, ...opts });
 
   // Create mock pool operations
   const createPoolOps = (txsByFeePayer: Map<string, TxMetaData[]>): PoolOperations => {
@@ -144,8 +132,8 @@ describe('FeePayerBalanceEvictionRule', () => {
         const result = await rule.evict(context, pool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual(['0x1111']); // Low priority evicted
-        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111'], 'FeePayerBalanceEviction');
+        expect(result.txsEvicted).toEqual([lowPriorityMeta.txHash]); // Low priority evicted
+        expect(deleteTxsMock).toHaveBeenCalledWith([lowPriorityMeta.txHash], 'FeePayerBalanceEviction');
       });
 
       it('evicts multiple low-priority txs when balance is insufficient', async () => {
@@ -160,7 +148,7 @@ describe('FeePayerBalanceEvictionRule', () => {
 
         const context: EvictionContext = {
           event: EvictionEvent.TXS_ADDED,
-          newTxHashes: ['0x1111', '0x2222', '0x3333'],
+          newTxHashes: [lowMeta.txHash, medMeta.txHash, highMeta.txHash],
           feePayers: [feePayer1],
         };
 
@@ -168,9 +156,9 @@ describe('FeePayerBalanceEvictionRule', () => {
 
         expect(result.success).toBe(true);
         // Both low and medium priority should be evicted
-        expect(result.txsEvicted).toContain('0x1111');
-        expect(result.txsEvicted).toContain('0x2222');
-        expect(result.txsEvicted).not.toContain('0x3333');
+        expect(result.txsEvicted).toContain(lowMeta.txHash);
+        expect(result.txsEvicted).toContain(medMeta.txHash);
+        expect(result.txsEvicted).not.toContain(highMeta.txHash);
       });
 
       it('priority ordering is correct - highest priority gets funded first', async () => {
@@ -186,15 +174,15 @@ describe('FeePayerBalanceEvictionRule', () => {
 
         const context: EvictionContext = {
           event: EvictionEvent.TXS_ADDED,
-          newTxHashes: ['0xaaaa', '0xbbbb', '0xcccc'],
+          newTxHashes: [tx10.txHash, tx50.txHash, tx100.txHash],
           feePayers: [feePayer1],
         };
 
         const result = await rule.evict(context, pool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual(['0xaaaa']); // Only lowest priority evicted
-        expect(deleteTxsMock).toHaveBeenCalledWith(['0xaaaa'], 'FeePayerBalanceEviction');
+        expect(result.txsEvicted).toEqual([tx10.txHash]); // Only lowest priority evicted
+        expect(deleteTxsMock).toHaveBeenCalledWith([tx10.txHash], 'FeePayerBalanceEviction');
       });
 
       it('considers claim amount when calculating available balance', async () => {
@@ -249,7 +237,7 @@ describe('FeePayerBalanceEvictionRule', () => {
         const result = await rule.evict(context, pool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual(['0x2222']); // Low priority evicted
+        expect(result.txsEvicted).toEqual([lowMeta.txHash]); // Low priority evicted
       });
 
       it('handles zero balance', async () => {
@@ -268,7 +256,7 @@ describe('FeePayerBalanceEvictionRule', () => {
         const result = await rule.evict(context, pool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual(['0x1111']);
+        expect(result.txsEvicted).toEqual([meta.txHash]);
       });
 
       it('handles empty fee payers list', async () => {
@@ -347,7 +335,7 @@ describe('FeePayerBalanceEvictionRule', () => {
         const result = await rule.evict(context, pool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual(['0x1111']);
+        expect(result.txsEvicted).toEqual([lowMeta.txHash]);
       });
     });
 
@@ -396,7 +384,7 @@ describe('FeePayerBalanceEvictionRule', () => {
         const result = await rule.evict(context, pool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual(['0x1111']);
+        expect(result.txsEvicted).toEqual([meta.txHash]);
       });
     });
 
@@ -474,7 +462,7 @@ describe('FeePayerBalanceEvictionRule', () => {
 
         const context: EvictionContext = {
           event: EvictionEvent.TXS_ADDED,
-          newTxHashes: ['0xaaaa', '0xbbbb', '0xcccc'],
+          newTxHashes: [tx1.txHash, tx2.txHash, tx3.txHash],
           feePayers: [feePayer1],
         };
 
@@ -482,10 +470,10 @@ describe('FeePayerBalanceEvictionRule', () => {
 
         expect(result.success).toBe(true);
         // tx1 (lowest priority) should be evicted
-        expect(result.txsEvicted).toEqual(['0xaaaa']);
+        expect(result.txsEvicted).toEqual([tx1.txHash]);
         // tx2 and tx3 should be kept
-        expect(result.txsEvicted).not.toContain('0xbbbb');
-        expect(result.txsEvicted).not.toContain('0xcccc');
+        expect(result.txsEvicted).not.toContain(tx2.txHash);
+        expect(result.txsEvicted).not.toContain(tx3.txHash);
       });
 
       it('uses txHash as tiebreaker when priorities are equal', async () => {

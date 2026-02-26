@@ -157,14 +157,16 @@ describe('e2e_contract_updates', () => {
     );
 
     // Increases the delay so it should happen immediately
-    await contract.methods.set_update_delay(BigInt(MINIMUM_UPDATE_DELAY) + 1n).send({ from: defaultAccountAddress });
+    await contract.methods
+      .set_update_delay(BigInt(DEFAULT_TEST_UPDATE_DELAY) + 1n)
+      .send({ from: defaultAccountAddress });
 
     expect(await contract.methods.get_update_delay().simulate({ from: defaultAccountAddress })).toEqual(
-      BigInt(MINIMUM_UPDATE_DELAY) + 1n,
+      BigInt(DEFAULT_TEST_UPDATE_DELAY) + 1n,
     );
 
     await contract.methods.update_to(updatedContractClassId).send({ from: defaultAccountAddress });
-    await cheatCodes.warpL2TimeAtLeastBy(sequencer, aztecNode, BigInt(MINIMUM_UPDATE_DELAY) + 1n);
+    await cheatCodes.warpL2TimeAtLeastBy(sequencer, aztecNode, BigInt(DEFAULT_TEST_UPDATE_DELAY) + 1n);
 
     // Should be updated now
     await wallet.registerContract(instance, UpdatedContract.artifact);

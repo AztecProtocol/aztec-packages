@@ -1,16 +1,13 @@
-import { P2PClientType } from './client_type.js';
-import { TopicType, getTopicFromString, getTopicsForClientAndConfig } from './topic_type.js';
+import { TopicType, getTopicFromString, getTopicsForConfig } from './topic_type.js';
 
 describe('Gossip topic retrieval', () => {
   it.each([
-    [P2PClientType.Full, ['tx', 'block_proposal', 'checkpoint_proposal', 'checkpoint_attestation'], true],
-    [P2PClientType.Prover, ['tx', 'block_proposal', 'checkpoint_proposal'], true],
-    [P2PClientType.Full, ['block_proposal', 'checkpoint_proposal', 'checkpoint_attestation'], false],
-    [P2PClientType.Prover, ['block_proposal', 'checkpoint_proposal'], false],
+    [['tx', 'block_proposal', 'checkpoint_proposal', 'checkpoint_attestation'], true],
+    [['block_proposal', 'checkpoint_proposal', 'checkpoint_attestation'], false],
   ])(
-    'Node type %s subscribes to topics %s with transactions enabled: %s',
-    (clientType: P2PClientType, expectedTopics: string[], transactionsEnabled: boolean) => {
-      expect(getTopicsForClientAndConfig(clientType, !transactionsEnabled)).toEqual(expectedTopics);
+    'subscribes to topics %s with transactions enabled: %s',
+    (expectedTopics: string[], transactionsEnabled: boolean) => {
+      expect(getTopicsForConfig(!transactionsEnabled)).toEqual(expectedTopics);
     },
   );
 });

@@ -99,6 +99,12 @@ function run_network_tests {
   source_network_env "$env_file"
   gcp_auth
   export SCENARIO_TESTS=1
+  # Retrieve the admin API key stored as a K8s Secret during deployment.
+  # Exported so the test runner can authenticate against the admin RPC endpoint.
+  export AZTEC_ADMIN_API_KEY
+  AZTEC_ADMIN_API_KEY=$(kubectl get secret aztec-admin-api-key \
+    --namespace "$NAMESPACE" \
+    -o jsonpath='{.data.key}' 2>/dev/null | base64 -d 2>/dev/null || true)
   local failed=()
   for test_file in "$@"; do
     echo_header "Running $test_file"
