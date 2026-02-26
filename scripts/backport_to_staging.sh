@@ -80,9 +80,11 @@ echo "Dry Run: ${DRY_RUN:-0}"
 echo "Continue Mode: $CONTINUE_MODE"
 echo ""
 
-# Set a default git identity as fallback (in case PR author detection fails)
-git config user.name "AztecBot"
-git config user.email "tech@aztec-labs.com"
+# Set a default git committer identity
+if ! git config user.name &>/dev/null; then
+  git config user.name "aztec-bot"
+  git config user.email "tech@aztecprotocol.com"
+fi
 
 # Get PR information
 echo "Fetching PR information..."
