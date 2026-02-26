@@ -9,7 +9,7 @@ import type { SessionStore } from "./session-store.ts";
 import {
   REPO_DIR, DOCKER_IMAGE, CLAUDEBOX_CODE_DIR, CLAUDE_BINARY,
   BASTION_SSH_KEY, GH_TOKEN, SLACK_BOT_TOKEN, HTTP_PORT,
-  CLAUDEBOX_HOST,
+  CLAUDEBOX_HOST, CLAUDEBOX_STATS_DIR,
   incrActiveSessions, decrActiveSessions,
 } from "./config.ts";
 
@@ -261,6 +261,7 @@ export class DockerService {
             `${CLAUDEBOX_CODE_DIR}:/opt/claudebox:ro`,
             `/var/run/docker.sock:/var/run/docker.sock`,
             `${BASTION_SSH_KEY}:/tmp/claudehome/.ssh/build_instance_key:ro`,
+            `${CLAUDEBOX_STATS_DIR}:/stats:rw`,
           ],
         },
       }).then(c => c.start());
@@ -477,6 +478,7 @@ export class DockerService {
             `${CLAUDEBOX_CODE_DIR}:/opt/claudebox:ro`,
             `/var/run/docker.sock:/var/run/docker.sock`,
             `${BASTION_SSH_KEY}:/tmp/claudehome/.ssh/build_instance_key:ro`,
+            `${CLAUDEBOX_STATS_DIR}:/stats:rw`,
           ],
         },
       }).then(c => c.start());
@@ -490,14 +492,24 @@ export class DockerService {
         User: uid,
         Env: [
           `HOME=/tmp/claudehome`,
+          `GH_TOKEN=${GH_TOKEN}`,
+          `SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}`,
+          `LINEAR_API_KEY=${process.env.LINEAR_API_KEY || ""}`,
           `CLAUDEBOX_MCP_URL=${mcpUrl}`,
           `CLAUDEBOX_SESSION_HASH=${hash}`,
+          `CLAUDEBOX_LOG_ID=${logId}`,
           `CLAUDEBOX_LOG_URL=${session.log_url || ""}`,
+          `CLAUDEBOX_WORKTREE_ID=${worktreeId || ""}`,
+          `CLAUDEBOX_USER=${session.user || ""}`,
           `CLAUDEBOX_RESUME_ID=${resumeId}`,
           `CLAUDEBOX_TARGET_REF=origin/${session.base_branch || "next"}`,
           `CLAUDEBOX_KEEPALIVE_URL=${keepaliveUrl}`,
           `CLAUDEBOX_SIDECAR_HOST=${sidecarName}`,
           `CLAUDEBOX_SIDECAR_PORT=9801`,
+          `CLAUDEBOX_HOST=${CLAUDEBOX_HOST}`,
+          `CLAUDEBOX_BASE_BRANCH=${session.base_branch || "next"}`,
+          `CLAUDEBOX_SLACK_CHANNEL=${session.slack_channel || ""}`,
+          `CLAUDEBOX_SLACK_THREAD_TS=${session.slack_thread_ts || ""}`,
           `CI_PASSWORD=${process.env.CI_PASSWORD || ""}`,
         ],
         HostConfig: {
@@ -512,6 +524,8 @@ export class DockerService {
             `${join(homedir(), ".claude.json")}:/tmp/claudehome/.claude.json:rw`,
             `${BASTION_SSH_KEY}:/tmp/claudehome/.ssh/build_instance_key:ro`,
             `${CLAUDEBOX_CODE_DIR}:/opt/claudebox:ro`,
+            `/var/run/docker.sock:/var/run/docker.sock`,
+            `${CLAUDEBOX_STATS_DIR}:/stats:rw`,
           ],
         },
       }).then(c => c.start());
