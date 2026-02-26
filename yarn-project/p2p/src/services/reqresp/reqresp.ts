@@ -627,7 +627,9 @@ export class ReqResp implements ReqRespInterface {
         // and that this stream should be dropped
         const isMessageToNotWarn =
           err instanceof Error &&
-          ['stream reset', 'Cannot push value onto an ended pushable'].some(msg => err.message.includes(msg));
+          ['stream reset', 'Cannot push value onto an ended pushable', 'read ECONNRESET'].some(msg =>
+            err.message.includes(msg),
+          );
         const level = isMessageToNotWarn ? 'debug' : 'warn';
         this.logger[level]('Unknown stream error while handling the stream, aborting', {
           protocol,

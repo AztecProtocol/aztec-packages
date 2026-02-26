@@ -764,7 +764,18 @@
     # A warning that is shown when `aztec compile` is run and the contract crate contains tests
     to = "/developers/docs/aztec-nr/testing_contracts#keep-tests-in-the-test-crate"
 
+[[redirects]]
+    # Aztec-nr: custom message was received but no handler was configured
+    from = "/errors/2"
+    to = "/aztec-nr-api/nightly/noir_aztec/macros/struct.AztecConfig.html"
+
+[[redirects]]
+    # Aztec-nr: message received with message type ID in the range reserved for future aztec.nr built-in message types
+    from = "/errors/3"
+    to = "/aztec-nr-api/nightly/noir_aztec/messages/msg_type/index.html"
+
 # Example (uncomment and modify when adding error codes):
 # [[redirects]]
-#     from = "/errors/2"
+#     from = "/errors/4"
 #     to = "/developers/docs/aztec-nr/framework-description/functions/how_to_define_functions"
+

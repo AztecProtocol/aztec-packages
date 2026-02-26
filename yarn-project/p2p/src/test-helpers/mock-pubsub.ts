@@ -4,7 +4,6 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { P2PClientType } from '@aztec/stdlib/p2p';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import type { GossipsubEvents, GossipsubMessage } from '@chainsafe/libp2p-gossipsub';
@@ -42,11 +41,10 @@ type GossipSubService = PubSubLibp2p['services']['pubsub'];
  * Given a mock gossip sub network, returns a factory function that creates an instance LibP2PService connected to it.
  * Designed to be used in tests in P2PClientDeps.p2pServiceFactory.
  */
-export function getMockPubSubP2PServiceFactory<T extends P2PClientType>(
+export function getMockPubSubP2PServiceFactory(
   network: MockGossipSubNetwork,
-): (...args: Parameters<(typeof LibP2PService<T>)['new']>) => Promise<LibP2PService<T>> {
+): (...args: Parameters<(typeof LibP2PService)['new']>) => Promise<LibP2PService> {
   return (
-    clientType: P2PClientType,
     config: P2PConfig,
     peerId: PeerId,
     deps: {
@@ -66,8 +64,7 @@ export function getMockPubSubP2PServiceFactory<T extends P2PClientType>(
     const peerManager = new DummyPeerManager(peerId, network);
     const reqresp: ReqRespInterface = new MockReqResp(peerId, network);
     const peerDiscoveryService = new DummyPeerDiscoveryService();
-    const service = new LibP2PService<T>(
-      clientType as T,
+    const service = new LibP2PService(
       config,
       libp2p,
       peerDiscoveryService,

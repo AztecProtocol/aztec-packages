@@ -958,7 +958,8 @@ export class PXE {
           const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
           validationTime = validationTimer.ms();
           if (validationResult.result === 'invalid') {
-            throw new Error('The simulated transaction is unable to be added to state and is invalid.');
+            const reason = validationResult.reason.length > 0 ? ` Reason: ${validationResult.reason.join(', ')}` : '';
+            throw new Error(`The simulated transaction is unable to be added to state and is invalid.${reason}`);
           }
         }
 

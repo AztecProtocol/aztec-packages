@@ -1,18 +1,18 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
+import type { ExtendedDirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
+import { randomExtendedDirectionalAppTaggingSecret } from '@aztec/stdlib/testing';
 
 import { RecipientTaggingStore } from './recipient_tagging_store.js';
 
 describe('RecipientTaggingStore', () => {
   let taggingStore: RecipientTaggingStore;
-  let secret1: DirectionalAppTaggingSecret;
-  let secret2: DirectionalAppTaggingSecret;
+  let secret1: ExtendedDirectionalAppTaggingSecret;
+  let secret2: ExtendedDirectionalAppTaggingSecret;
 
   beforeEach(async () => {
     taggingStore = new RecipientTaggingStore(await openTmpStore('test'));
-    secret1 = DirectionalAppTaggingSecret.fromString(Fr.random().toString());
-    secret2 = DirectionalAppTaggingSecret.fromString(Fr.random().toString());
+    secret1 = await randomExtendedDirectionalAppTaggingSecret();
+    secret2 = await randomExtendedDirectionalAppTaggingSecret();
   });
 
   describe('staged writes', () => {

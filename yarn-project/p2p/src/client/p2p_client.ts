@@ -20,13 +20,7 @@ import {
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { type PeerInfo, tryStop } from '@aztec/stdlib/interfaces/server';
-import {
-  type BlockProposal,
-  CheckpointAttestation,
-  type CheckpointProposal,
-  type P2PClientType,
-  type TopicType,
-} from '@aztec/stdlib/p2p';
+import { type BlockProposal, CheckpointAttestation, type CheckpointProposal, type TopicType } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, WithTracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
@@ -59,10 +53,7 @@ import { type P2P, P2PClientState, type P2PSyncState } from './interface.js';
 /**
  * The P2P client implementation.
  */
-export class P2PClient<T extends P2PClientType = P2PClientType.Full>
-  extends WithTracer
-  implements P2P, P2P<P2PClientType.Prover>
-{
+export class P2PClient extends WithTracer implements P2P {
   /** The JS promise that will be running to keep the client's data in sync. Can be interrupted if the client is stopped. */
   private runningPromise!: Promise<void>;
 
@@ -94,7 +85,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private slotMonitor: RunningPromise | undefined;
 
   constructor(
-    _clientType: T,
     private store: AztecAsyncKVStore,
     private l2BlockSource: L2BlockSource & ContractDataSource,
     mempools: MemPools,
