@@ -224,9 +224,13 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       this.protocolVersion,
     );
 
-    this.blockProposalValidator = new BlockProposalValidator(epochCache, { txsPermitted: !config.disableTransactions });
+    this.blockProposalValidator = new BlockProposalValidator(epochCache, {
+      txsPermitted: !config.disableTransactions,
+      maxTxsPerBlock: config.maxTxsPerBlock,
+    });
     this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, {
       txsPermitted: !config.disableTransactions,
+      maxTxsPerBlock: config.maxTxsPerBlock,
     });
     this.checkpointAttestationValidator = config.fishermanMode
       ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry)
