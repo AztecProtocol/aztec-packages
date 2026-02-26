@@ -4,6 +4,10 @@ add_definitions(-DNAPI_VERSION=9)
 file(GLOB_RECURSE SOURCE_FILES *.cpp)
 file(GLOB_RECURSE HEADER_FILES *.hpp *.tcc)
 
+# Lock to prevent concurrent yarn/node operations when multiple cross-compilation
+# targets configure in parallel, all sharing the same source directory.
+file(LOCK ${CMAKE_CURRENT_SOURCE_DIR}/.cmake-node.lock GUARD PROCESS)
+
 execute_process(
   COMMAND yarn --immutable
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -20,6 +24,8 @@ execute_process(
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   OUTPUT_VARIABLE NODE_API_HEADERS_DIR
 )
+
+file(LOCK ${CMAKE_CURRENT_SOURCE_DIR}/.cmake-node.lock RELEASE)
 
 string(REGEX REPLACE "[\r\n\"]" "" NODE_ADDON_API_DIR ${NODE_ADDON_API_DIR})
 string(REGEX REPLACE "[\r\n\"]" "" NODE_API_HEADERS_DIR ${NODE_API_HEADERS_DIR})

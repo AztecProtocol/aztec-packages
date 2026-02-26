@@ -16,6 +16,7 @@ barretenberg_modules.png
 src/barretenberg/bb/config.hpp
 bench-out
 *.bak
+.cmake-node.lock
 src/barretenberg/avm_fuzzer/corpus/**
 src/barretenberg/avm_fuzzer/coverage/**
 out
