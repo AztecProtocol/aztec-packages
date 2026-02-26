@@ -57,7 +57,6 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
 
     logger.warn(`Waiting for message ${msgHash} with index ${globalLeafIndex} to be synced`);
     await waitForL1ToL2MessageReady(context.aztecNode, msgHash, {
-      forPublicConsumption: true,
       timeoutSeconds: test.L2_SLOT_DURATION_IN_S * 6,
     });
 

@@ -122,7 +122,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
           aztecNode.getCheckpointNumber(),
         ]);
         const witness = await aztecNode.getL1ToL2MessageMembershipWitness('latest', msgHash);
-        const isReady = await isL1ToL2MessageReady(aztecNode, msgHash, { forPublicConsumption: scope === 'public' });
+        const isReady = await isL1ToL2MessageReady(aztecNode, msgHash);
         log.info(
           `Block is ${blockNumber}, checkpoint is ${checkpointNumber}. Message checkpoint is ${msgCheckpoint}. Witness ${!!witness}. Ready ${isReady}.`,
         );
