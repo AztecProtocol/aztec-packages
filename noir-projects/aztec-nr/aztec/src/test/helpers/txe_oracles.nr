@@ -83,7 +83,6 @@ pub unconstrained fn get_last_tx_effects() -> (Field, BoundedVec<Field, MAX_NOTE
 #[oracle(txeGetDefaultAddress)]
 pub unconstrained fn get_default_address() -> AztecAddress {}
 
-// experimental
 pub unconstrained fn get_private_events<Event>(
     contract_address: AztecAddress,
     scope: AztecAddress,
@@ -91,6 +90,8 @@ pub unconstrained fn get_private_events<Event>(
 where
     Event: EventInterface + Deserialize,
 {
+    // This is a workaround as Noir does not currently let us return nested structs with arrays. We instead return a
+    // raw multidimensional array in get_private_events_oracle and create the BoundedVecs here.
     let selector = Event::get_event_type_id();
     let (raw_array_storage, _event_lengths, query_length) =
         get_private_events_oracle(selector, contract_address, scope);
