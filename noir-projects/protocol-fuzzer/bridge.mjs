@@ -1,18 +1,9 @@
 #!/usr/bin/env node
-// bridge.mjs — Persistent Node.js HTTP bridge for the Aztec protocol fuzzer.
+// bridge.mjs — Persistent HTTP bridge for the Aztec protocol fuzzer.
 //
-// Runs inside the nightly sandbox container at /usr/src/yarn-project/.
-// Reuses the CLI wallet's own CLIWallet class so we get identical behavior
-// to `aztec-wallet` without the ~1.5s cold-start per invocation.
-//
-// All addresses arrive pre-resolved (raw 0x hex strings) — the Rust fuzzer
-// keeps its own address book and resolves aliases before calling the bridge.
-//
-// Endpoints:
-//   POST /import-test-accounts  — import deterministic test wallets, returns addresses
-//   POST /deploy                — deploy a contract artifact, returns deployed address
-//   POST /execute               — send or simulate a contract method
-//   GET  /health                — liveness check
+// Runs inside the nightly sandbox container. Reuses CLIWallet to avoid
+// the ~1.5s cold-start of spawning a new Node process per call.
+// All addresses arrive as raw 0x hex strings (resolved by the Rust fuzzer).
 
 import { createServer } from 'node:http';
 import { join } from 'node:path';
@@ -23,196 +14,115 @@ const PORT = parseInt(process.env.BRIDGE_PORT || '8089', 10);
 const NODE_URL = process.env.AZTEC_NODE_URL || 'http://localhost:8080';
 const DATA_DIR = process.env.WALLET_DATA_DIRECTORY || join(homedir(), '.aztec/wallet');
 
-// ---- SDK imports -----------------------------------------------------------
-
 const { createAztecNodeClient } = await import('@aztec/aztec.js/node');
 const { AztecAddress } = await import('@aztec/aztec.js/addresses');
 const { openStoreAt } = await import('@aztec/kv-store/lmdb-v2');
-const { CLIWallet } = await import(
-  '/usr/src/yarn-project/cli-wallet/dest/utils/wallet.js'
-);
-const { WalletDB } = await import(
-  '/usr/src/yarn-project/cli-wallet/dest/storage/wallet_db.js'
-);
-const { importTestAccounts } = await import(
-  '/usr/src/yarn-project/cli-wallet/dest/cmds/import_test_accounts.js'
-);
-const { send: cliSend } = await import(
-  '/usr/src/yarn-project/cli-wallet/dest/cmds/send.js'
-);
-const { simulate: cliSimulate } = await import(
-  '/usr/src/yarn-project/cli-wallet/dest/cmds/simulate.js'
-);
-const { deploy: cliDeploy } = await import(
-  '/usr/src/yarn-project/cli-wallet/dest/cmds/deploy.js'
-);
+const CLI = '/usr/src/yarn-project/cli-wallet/dest';
+const { CLIWallet } = await import(`${CLI}/utils/wallet.js`);
+const { WalletDB } = await import(`${CLI}/storage/wallet_db.js`);
+const { importTestAccounts } = await import(`${CLI}/cmds/import_test_accounts.js`);
+const { send } = await import(`${CLI}/cmds/send.js`);
+const { simulate } = await import(`${CLI}/cmds/simulate.js`);
+const { deploy } = await import(`${CLI}/cmds/deploy.js`);
 
-// ---- Initialize CLIWallet (once) -------------------------------------------
-
+// Wallet — lazy-initialized on first request so --prove can be forwarded.
 const noop = () => {};
-let logCapture = [];
-const capturingLog = (...args) => { logCapture.push(format(...args)); };
-
 const node = createAztecNodeClient(NODE_URL);
 const db = WalletDB.getInstance();
-
 let wallet = null;
 
 async function ensureWallet(prove = false) {
-  if (wallet) return wallet;
-  wallet = await CLIWallet.create(node, noop, db, {
-    proverEnabled: prove,
-    dataDirectory: join(DATA_DIR, 'pxe'),
-  });
-  await db.init(await openStoreAt(DATA_DIR));
-  console.log(`CLIWallet ready (prove=${prove})`);
+  if (!wallet) {
+    wallet = await CLIWallet.create(node, noop, db, {
+      proverEnabled: prove,
+      dataDirectory: join(DATA_DIR, 'pxe'),
+    });
+    await db.init(await openStoreAt(DATA_DIR));
+    console.log(`CLIWallet ready (prove=${prove})`);
+  }
   return wallet;
 }
 
-// ---- Fee stub --------------------------------------------------------------
+// Run an async fn that accepts a log callback, return its result + captured stdout.
+async function capturing(fn) {
+  const lines = [];
+  const log = (...args) => lines.push(format(...args));
+  const result = await fn(log);
+  return { result, stdout: lines.join('\n') };
+}
 
-const stubFeeOpts = {
+const feeOpts = {
   estimateOnly: false,
-  toUserFeeOptions: async () => ({
-    paymentMethod: undefined,
-    gasSettings: undefined,
-  }),
+  toUserFeeOptions: async () => ({ paymentMethod: undefined, gasSettings: undefined }),
 };
 
-// ---- Handlers --------------------------------------------------------------
+// Handlers — each receives the parsed JSON body and returns a result object.
 
-async function handleImportTestAccounts({ prove }) {
-  const w = await ensureWallet(prove ?? false);
-  logCapture = [];
-  await importTestAccounts(w, db, false, capturingLog);
+const handlers = {
+  '/import-test-accounts': async ({ prove }) => {
+    const w = await ensureWallet(prove ?? false);
+    const { stdout } = await capturing(log => importTestAccounts(w, db, false, log));
+    const accounts = [...stdout.matchAll(/Address:\s+(0x[0-9a-fA-F]+)/g)].map(m => m[1]);
+    return { ok: true, accounts, stdout };
+  },
 
-  // Parse account addresses from the log output (more reliable than alias cache).
-  // importTestAccounts logs lines like:  Address:  0x09ece2d3...
-  const stdout = logCapture.join('\n');
-  const accounts = [...stdout.matchAll(/Address:\s+(0x[0-9a-fA-F]+)/g)]
-    .map(m => m[1]);
-
-  return { ok: true, accounts, stdout };
-}
-
-async function handleDeploy({ artifact, from, init: initMethod, args: rawArgs }) {
-  const w = await ensureWallet();
-  const fromAddr = AztecAddress.fromString(from);
-  const argsArray = Array.isArray(rawArgs) ? rawArgs : [];
-
-  logCapture = [];
-  const deployedAddr = await cliDeploy(
-    w, node, fromAddr, artifact, false, /* json */
-    undefined, /* publicKeys */
-    argsArray,
-    undefined, /* salt */
-    initMethod ?? 'constructor',
-    false, /* skipInstancePublication */
-    false, /* skipClassPublication */
-    !initMethod, /* skipInitialization */
-    true,  /* wait */
-    stubFeeOpts,
-    false, /* verbose */
-    120,   /* timeout */
-    { debug: noop, error: noop },
-    capturingLog,
-  );
-
-  return {
-    ok: true,
-    address: deployedAddr.toString(),
-    stdout: logCapture.join('\n'),
-  };
-}
-
-async function handleExecute({ verb, method, contract, from, args, artifact }) {
-  const w = await ensureWallet();
-  const fromAddr = AztecAddress.fromString(from);
-  const contractAddr = AztecAddress.fromString(contract);
-  const argsArray = args || [];
-
-  logCapture = [];
-
-  if (verb === 'send') {
-    await cliSend(
-      w, node, fromAddr, method, argsArray,
-      artifact, contractAddr,
-      true,  /* wait */
-      false, /* cancellable */
-      stubFeeOpts,
-      [],    /* authWitnesses */
-      false, /* verbose */
-      capturingLog,
+  '/deploy': async ({ artifact, from, init: initMethod, args }) => {
+    const w = await ensureWallet();
+    const { result: addr, stdout } = await capturing(log =>
+      deploy(
+        w, node, AztecAddress.fromString(from), artifact,
+        false,                                  /* json */
+        undefined,                              /* publicKeys */
+        Array.isArray(args) ? args : [],        /* args */
+        undefined,                              /* salt */
+        initMethod ?? 'constructor',            /* init */
+        false,                                  /* skipInstancePublication */
+        false,                                  /* skipClassPublication */
+        !initMethod,                            /* skipInitialization */
+        true,                                   /* wait */
+        feeOpts, false, 120,                    /* fee, verbose, timeout */
+        { debug: noop, error: noop }, log,      /* debugLogger, log */
+      ),
     );
-  } else {
-    await cliSimulate(
-      w, node, fromAddr, method, argsArray,
-      artifact, contractAddr,
-      stubFeeOpts,
-      [],    /* authWitnesses */
-      false, /* verbose */
-      capturingLog,
+    return { ok: true, address: addr.toString(), stdout };
+  },
+
+  '/execute': async ({ verb, method, contract, from, args, artifact }) => {
+    const w = await ensureWallet();
+    const a = AztecAddress.fromString(from);
+    const c = AztecAddress.fromString(contract);
+    const ar = args || [];
+    const { stdout } = await capturing(log =>
+      verb === 'send'
+        ? send(w, node, a, method, ar, artifact, c, true, false, feeOpts, [], false, log)
+        : simulate(w, node, a, method, ar, artifact, c, feeOpts, [], false, log),
     );
-  }
+    return { ok: true, stdout };
+  },
+};
 
-  return { ok: true, stdout: logCapture.join('\n') };
-}
-
-// ---- HTTP Server -----------------------------------------------------------
+// HTTP server
 
 function readBody(req) {
-  return new Promise((resolve, reject) => {
-    let data = '';
-    req.on('data', (chunk) => (data += chunk));
-    req.on('end', () => resolve(data));
-    req.on('error', reject);
-  });
+  return new Promise(r => { let d = ''; req.on('data', c => d += c); req.on('end', () => r(d)); });
 }
 
-async function handleRequest(req, res) {
+createServer(async (req, res) => {
   if (req.method === 'GET' && req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ok: true }));
-    return;
+    return res.end('{"ok":true}');
   }
-
-  if (req.method !== 'POST') {
-    res.writeHead(405);
-    res.end('Method not allowed');
-    return;
+  if (req.method !== 'POST' || !handlers[req.url]) {
+    res.writeHead(req.method !== 'POST' ? 405 : 404);
+    return res.end();
   }
-
   const body = await readBody(req);
-  const json = body ? JSON.parse(body) : {};
   let result;
-
   try {
-    switch (req.url) {
-      case '/import-test-accounts':
-        result = await handleImportTestAccounts(json);
-        break;
-      case '/deploy':
-        result = await handleDeploy(json);
-        break;
-      case '/execute':
-        result = await handleExecute(json);
-        break;
-      default:
-        res.writeHead(404);
-        res.end(`Unknown endpoint: ${req.url}`);
-        return;
-    }
+    result = await handlers[req.url](body ? JSON.parse(body) : {});
   } catch (err) {
     result = { ok: false, error: err.message || String(err) };
   }
-
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(result));
-}
-
-// ---- Start -----------------------------------------------------------------
-
-const server = createServer(handleRequest);
-server.listen(PORT, () => {
-  console.log(`Bridge listening on port ${PORT}`);
-});
+}).listen(PORT, () => console.log(`Bridge listening on port ${PORT}`));
