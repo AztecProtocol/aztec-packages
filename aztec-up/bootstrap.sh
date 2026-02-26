@@ -4,6 +4,12 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../yarn-project/bootstrap.sh hash))
 
 function build {
+  # Noop if user doesn't have docker.
+  if ! command -v docker &>/dev/null; then
+    echo "Docker not installed. Skipping..."
+    return
+  fi
+
   # Create versions.json so we know what to install.
   ../bootstrap.sh versions > ./bin/0.0.1/versions
   echo "Versions:"
