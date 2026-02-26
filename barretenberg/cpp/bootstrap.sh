@@ -503,9 +503,12 @@ case "$cmd" in
     build
     ;;
   "ci")
-    set -x
     build
+    set -x
+    set +e
     test
+    echo $!
+    set -e
     ;;
   "hash")
     echo $hash

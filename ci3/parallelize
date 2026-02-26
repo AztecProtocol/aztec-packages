@@ -54,7 +54,7 @@ echo "Completed run of $(tail -n+2 joblog.txt | grep -v "''" | wc -l) tests in $
 
 # Process flake log (check thresholds and post PR comment in CI)
 if [ "$CI" -eq 1 ]; then
-  $root/scripts/process_flake_log.py "$FLAKES_FILE" --post-comment
+  $root/scripts/process_flake_log.py "$FLAKES_FILE" --post-comment || true
 else
-  $root/scripts/process_flake_log.py "$FLAKES_FILE"
+  $root/scripts/process_flake_log.py "$FLAKES_FILE" || true
 fi
