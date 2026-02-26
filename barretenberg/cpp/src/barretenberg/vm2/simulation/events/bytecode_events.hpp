@@ -13,13 +13,13 @@ namespace bb::avm2::simulation {
 
 // Storage and decomposition of bytecode into sliding window.
 struct BytecodeDecompositionEvent {
-    BytecodeId bytecode_id;
+    BytecodeId bytecode_id = 0;
     std::shared_ptr<std::vector<uint8_t>> bytecode;
 };
 
 struct BytecodeHashingEvent {
-    BytecodeId bytecode_id;
-    uint32_t bytecode_length;
+    BytecodeId bytecode_id = 0;
+    uint32_t bytecode_length = 0;
     std::vector<FF> bytecode_fields;
 };
 
@@ -44,8 +44,8 @@ struct BytecodeRetrievalEvent {
 };
 
 struct InstructionFetchingEvent {
-    BytecodeId bytecode_id;
-    PC pc;
+    BytecodeId bytecode_id = 0;
+    PC pc = 0;
     // TODO: Do we want to have a dep on Instruction here or do we redefine what we need?
     Instruction instruction;
     std::shared_ptr<std::vector<uint8_t>> bytecode;
