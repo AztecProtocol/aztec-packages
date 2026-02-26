@@ -51,20 +51,20 @@ async function collectSourceDirs(startDir: string): Promise<string[]> {
     const content = await readFile(tomlPath, 'utf-8').catch(() => {
       throw new Error(`Incorrectly defined dependency. Nargo.toml not found in ${absDir}`);
     });
-    const parsed = TOML.parse(content) as Record<string, any>;
 
+    // We parse and iterate over the dependencies
+    const parsed = TOML.parse(content) as Record<string, any>;
     const deps = (parsed.dependencies as Record<string, any>) ?? {};
     for (const dep of Object.values(deps)) {
       if (dep && typeof dep === 'object' && typeof dep.path === 'string') {
         const depPath = resolve(absDir, dep.path);
-        try {
-          const s = await stat(depPath);
-          if (s.isDirectory()) {
-            await visit(depPath);
-          }
-        } catch {
-          // Dependency directory doesn't exist; skip.
+        const s = await stat(depPath);
+        if (!s.isDirectory()) {
+          throw new Error(
+            `Dependency path "${dep.path}" in ${tomlPath} resolves to ${depPath} which is not a directory`,
+          );
         }
+        await visit(depPath);
       }
     }
   }
@@ -77,6 +77,7 @@ async function collectSourceDirs(startDir: string): Promise<string[]> {
  * Walks sourceDirs looking for .nr and Nargo.toml files newer than thresholdMs. Short-circuits on the first match.
  */
 async function hasNewerSourceFile(sourceDirs: string[], thresholdMs: number): Promise<boolean> {
+  // Returns true if it find a new file than thresholdMs, false otherwise
   async function walkForNewer(dir: string): Promise<boolean> {
     let entries;
     try {
@@ -85,9 +86,11 @@ async function hasNewerSourceFile(sourceDirs: string[], thresholdMs: number): Pr
       return false;
     }
 
+    // We iterate over the entries in the dir
     for (const entry of entries) {
       const fullPath = join(dir, entry.name);
       if (entry.isDirectory()) {
+        // If the entry is a dir and it's not called `target` we recursively enter it
         if (entry.name === 'target') {
           continue;
         }
@@ -95,6 +98,7 @@ async function hasNewerSourceFile(sourceDirs: string[], thresholdMs: number): Pr
           return true;
         }
       } else if (entry.name === 'Nargo.toml' || entry.name.endsWith('.nr')) {
+        // The entry is a Nargo.toml file or *.nr file so we check the timestamp
         const s = await stat(fullPath);
         if (s.mtimeMs > thresholdMs) {
           return true;
@@ -104,6 +108,7 @@ async function hasNewerSourceFile(sourceDirs: string[], thresholdMs: number): Pr
     return false;
   }
 
+  // We search through the source dirs
   for (const dir of sourceDirs) {
     if (await walkForNewer(dir)) {
       return true;

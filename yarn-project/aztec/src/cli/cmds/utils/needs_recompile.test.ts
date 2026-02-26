@@ -188,8 +188,8 @@ aztec = { git = "https://github.com/example/repo", tag = "v1.0" }
   });
 
   it('returns true when source is newer than the oldest but older than newest artifact', async () => {
-    // The comparison is against the oldest artifact so that a source change
-    // between the oldest and newest compilation still triggers a recompile.
+    // The comparison is against the oldest artifact so that a source change between the oldest and newest compilation
+    // still triggers a recompile.
     await mkdirp('src');
     await mkdirp('target');
 
@@ -230,6 +230,29 @@ aztec = { git = "https://github.com/example/repo", tag = "v1.0" }
     await touch(join('target', 'artifact.json'), 2000);
 
     expect(await needsRecompile()).toBe(true);
+  });
+
+  it('throws when a path dependency resolves to a file instead of a directory', async () => {
+    await mkdirp('src');
+    await mkdirp('target');
+
+    // Create a file where the dependency path points.
+    await writeFile('not_a_dir', 'I am a file');
+
+    const mainToml = `[package]
+name = "test"
+type = "contract"
+
+[dependencies]
+bad_dep = { path = "not_a_dir" }
+`;
+    await writeFile('Nargo.toml', mainToml);
+    await utimes('Nargo.toml', 1000, 1000);
+
+    await touch(join('src', 'main.nr'), 1000);
+    await touch(join('target', 'artifact.json'), 2000);
+
+    await expect(needsRecompile()).rejects.toThrow('which is not a directory');
   });
 
   it('does not follow circular path dependencies', async () => {
