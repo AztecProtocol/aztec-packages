@@ -9,7 +9,10 @@ The protocol fuzzer has two state machines:
 - **side-effect**: Fuzzes note lifecycle, nullifier emission, and cross-contract calls via
   custom `SideEffect` and `Parent` contracts. **Requires the nightly sandbox.**
 
-Both machines invoke `aztec-wallet` CLI commands against a running Aztec sandbox.
+By default, both machines talk to the sandbox via a persistent Node.js HTTP bridge
+(`bridge.mjs`) that reuses a single CLIWallet instance, avoiding the ~1.5s cold-start
+of spawning a new Node.js process per call. A CLI fallback (`--connection cli`) shells
+out to `aztec-wallet` for each call.
 
 ## Why the nightly sandbox?
 
@@ -24,9 +27,9 @@ between versions (the setup script auto-detects when they match).
 
 ## Quick Start (automated)
 
-`setup-nightly-sandbox.sh` handles everything: starts the container with fast 6-second
+`setup-nightly-sandbox.sh` handles everything: starts the container with fast 5-second
 slots, fixes the wallet, identifies the nightly commit, compiles both contracts, imports
-test accounts, and installs the wallet wrapper.
+test accounts, starts the bridge server, and installs the wallet wrapper.
 
 ```bash
 cd noir-projects/protocol-fuzzer
@@ -42,7 +45,7 @@ NIGHTLY_IMAGE=aztecprotocol/aztec:5.0.0-nightly.20260224 bash setup-nightly-sand
 Then run the fuzzer:
 
 ```bash
-# Side-effect machine (artifacts default to /tmp/ inside the container)
+# Side-effect machine (bridge mode is the default)
 RUST_LOG=debug cargo run -- side-effect --max-steps 5
 
 # Token machine (works with any sandbox)
@@ -50,6 +53,9 @@ RUST_LOG=debug cargo run -- token --max-steps 5
 
 # Integration smoke tests
 cargo test -- --ignored --nocapture
+
+# CLI fallback (shells out to aztec-wallet instead of bridge)
+RUST_LOG=debug cargo run -- side-effect --connection cli --max-steps 5
 ```
 
 To replay a specific failure seed:
@@ -58,18 +64,21 @@ To replay a specific failure seed:
 cargo run -- side-effect --max-steps 100000 --seed 0x5a7211231dcd6500
 ```
 
-## Performance: Fast Slots
+## Performance
 
-The setup script configures 6-second L2 slot durations (default is 36 seconds) and disables
-client-side proof generation (the sandbox uses simulated proofs anyway). This reduces
-per-transaction time from ~35 seconds to ~6-8 seconds — a **5x speedup**.
+The setup script configures 5-second L2 slot durations (default 36s), disables
+sequencer timetable enforcement, and starts a persistent HTTP bridge. The bridge
+eliminates the ~1.5s Node.js cold-start per call, so combined with fast slots the
+per-transaction time drops dramatically.
 
-| Setting | Default | Fast |
-|---------|---------|------|
-| L2 slot duration | 36s | 6s |
-| L1 slot duration | 12s | 6s |
-| Client-side proofs | native | none (simulated) |
-| Per-send time | ~35s | ~6-8s |
+| Setting | Default | Fast (bridge) | Fast (CLI) |
+|---------|---------|---------------|------------|
+| L2 slot duration | 36s | 5s | 5s |
+| L1 slot duration | 12s | 5s | 5s |
+| Node.js startup overhead | N/A | 0s (reused) | ~1.5s/call |
+| Client-side proofs | off | off (`--prove` to enable) | off (`--prove` to enable) |
+| Per-send time | ~35s | ~4-5s | ~6s |
+| Per-simulate time | ~35s | ~1-3s | ~3s |
 
 The fast slot configuration requires a dated nightly image (`5.0.0-nightly.YYYYMMDD`) that
 supports the `AZTEC_SLOT_DURATION` and `ETHEREUM_SLOT_DURATION` environment variables. The
@@ -96,11 +105,11 @@ if [ "$REPO_HASH" = "$NIGHTLY_NOIR_HASH" ]; then
   echo "Match! Use HEAD for aztec-nr"
   NIGHTLY_COMMIT=HEAD
 else
-  # Search for matching commit
-  git log --all --oneline --diff-filter=M -- noir/noir-repo | while read hash msg; do
+  # Search origin/next newest-first for a commit with matching noir hash
+  git log origin/next --format='%H' -200 | while read hash; do
     sub=$(git ls-tree $hash noir/noir-repo 2>/dev/null | awk '{print $3}')
     if [ "$sub" = "$NIGHTLY_NOIR_HASH" ]; then
-      echo "MATCH: $hash $msg"
+      echo "MATCH: $(git log --oneline -1 $hash)"
       break
     fi
   done
@@ -111,10 +120,10 @@ fi
 
 ```bash
 docker run -d --rm --name aztec-sandbox-nightly \
-  -p 8080:8080 -p 8545:8545 \
+  -p 8080:8080 -p 8545:8545 -p 8089:8089 \
   -e LOG_LEVEL=info \
-  -e ETHEREUM_SLOT_DURATION=6 \
-  -e AZTEC_SLOT_DURATION=6 \
+  -e ETHEREUM_SLOT_DURATION=5 \
+  -e AZTEC_SLOT_DURATION=5 \
   -e AZTEC_EPOCH_DURATION=4 \
   -e SEQ_ENFORCE_TIME_TABLE=false \
   --entrypoint "" \
@@ -127,6 +136,8 @@ docker run -d --rm --name aztec-sandbox-nightly \
 `anvil_setBlockTimestampInterval` to match `ETHEREUM_SLOT_DURATION`. Passing `--block-time`
 with a different value causes chain time to race ahead of wall-clock time, breaking the
 sequencer.
+
+**Note:** Port 8089 is exposed for the bridge server (step 7).
 
 Wait for PXE startup:
 
@@ -225,26 +236,47 @@ for pkg in side_effect_contract parent_contract; do
 done
 ```
 
-### 6. Set up the wallet wrapper and run
+### 6. Set up the wallet wrapper
 
-The fuzzer calls `aztec-wallet` directly. With the nightly sandbox, commands must run
-inside the container. Create a wrapper at `~/.local/bin/aztec-wallet`:
+The CLI fallback (`--connection cli`) calls `aztec-wallet` directly. With the nightly
+sandbox, commands must run inside the container. Create a wrapper at
+`~/.local/bin/aztec-wallet`:
 
 ```bash
 #!/usr/bin/env bash
 exec docker exec aztec-sandbox-nightly node --no-warnings \
-  /usr/src/yarn-project/cli-wallet/dest/bin/index.js -p none "$@"
+  /usr/src/yarn-project/cli-wallet/dest/bin/index.js "$@"
 ```
-
-The `-p none` flag disables client-side proof generation, saving ~8 seconds per
-transaction. The sandbox uses simulated proofs, so this has no effect on correctness.
 
 Make it executable and ensure `~/.local/bin` is on PATH before `~/.aztec/bin`.
 
-Run the fuzzer (artifact paths default to `/tmp/` inside the container):
+Proof generation is controlled by the fuzzer's `--prove` flag (which passes `-p native`
+or `-p none` to the wrapper). The sandbox uses simulated proofs by default, so proofs
+are off unless you explicitly pass `--prove`.
+
+### 7. Start the bridge server
+
+The bridge server (`bridge.mjs`) runs inside the container and provides a persistent
+HTTP API that the fuzzer calls instead of shelling out:
 
 ```bash
+docker cp bridge.mjs aztec-sandbox-nightly:/usr/src/yarn-project/bridge.mjs
+
+docker exec -d aztec-sandbox-nightly \
+  bash -c 'cd /usr/src/yarn-project && exec node --no-warnings bridge.mjs > /tmp/bridge.log 2>&1'
+
+# Wait for it to start
+curl -s http://localhost:8089/health  # {"ok":true}
+```
+
+### 8. Run the fuzzer
+
+```bash
+# Bridge mode (default — fastest)
 RUST_LOG=debug cargo run -- side-effect --max-steps 5
+
+# CLI fallback (if bridge isn't running)
+RUST_LOG=debug cargo run -- side-effect --connection cli --max-steps 5
 ```
 
 ## Contracts
@@ -274,6 +306,10 @@ both code paths.
 
 ### "ECONNREFUSED" on startup
 The sandbox isn't running. Start it per step 2.
+
+### "Bridge not reachable at http://localhost:8089"
+The bridge server isn't running. Start it per step 7, or use `--connection cli` to
+fall back to the CLI wallet.
 
 ### "Contract class mismatch" on deploy
 Artifact compiled with wrong nargo version. Recompile inside the nightly container (step 5b).
@@ -311,10 +347,22 @@ happens when using the old `nightly` tag (Jan 2026) with `AZTEC_SLOT_DURATION` e
 Use a dated nightly (`5.0.0-nightly.YYYYMMDD`) instead.
 
 ### "Block proposal initialize deadline cannot be negative"
-The slot duration is too short. Minimum is ~5 seconds due to sequencer timetable
-constraints (`slotDuration > l1PublishingTime + attestationPropagationTime`).
+The slot duration is too short. Even with `SEQ_ENFORCE_TIME_TABLE=false`, the sequencer
+needs some minimum headroom. 5 seconds works; lower values may not.
 
 ## Architecture Notes
+
+### Connection modes
+
+| Mode | Flag | How it works | Overhead |
+|------|------|-------------|----------|
+| Bridge (default) | `--connection bridge` | HTTP calls to persistent Node.js server | ~0s (wallet reused) |
+| CLI (fallback) | `--connection cli` | Shells out to `aztec-wallet` per call | ~1.5s (Node.js startup) |
+
+The bridge server (`bridge.mjs`) runs inside the container and lazily initializes a
+`CLIWallet` instance on the first request. The Rust fuzzer resolves all aliases
+(`accounts:test0`, `contracts:test0`) to raw hex addresses before sending them to
+the bridge.
 
 ### Build pipeline
 
@@ -340,6 +388,8 @@ constraints (`slotDuration > l1PublishingTime + attestationPropagationTime`).
 | wallet CLI | `node --no-warnings /usr/src/yarn-project/cli-wallet/dest/bin/index.js` |
 | sandbox CLI | `node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js` |
 | anvil | `/opt/foundry/bin/anvil` |
+| bridge server | `/usr/src/yarn-project/bridge.mjs` |
+| bridge log | `/tmp/bridge.log` |
 
 ## Stopping
 

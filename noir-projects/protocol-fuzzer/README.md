@@ -1,6 +1,7 @@
-A state-machine fuzzer for Aztec contract interactions. It drives an `aztec-wallet`
-CLI against a running sandbox, comparing the sandbox's behavior to an in-memory model
-and asserting on any divergence.
+A state-machine fuzzer for Aztec contract interactions. It drives a persistent
+Node.js HTTP bridge (or falls back to the `aztec-wallet` CLI) against a running
+sandbox, comparing the sandbox's behavior to an in-memory model and asserting on
+any divergence.
 
 Two machines are available:
 
@@ -35,6 +36,29 @@ To replay a specific failure seed:
 cargo run -- side-effect --max-steps 100000 --seed 0x5a7211231dcd6500
 ```
 
+### Connection modes
+
+By default the fuzzer talks to the sandbox via a persistent HTTP bridge server
+(started by the setup script on port 8089). This avoids the ~1.5s cold-start of
+spawning a new Node.js process per call:
+
+```
+# Bridge mode (default)
+cargo run -- side-effect --max-steps 5
+
+# CLI fallback (shells out to aztec-wallet)
+cargo run -- side-effect --connection cli --max-steps 5
+```
+
+### Proof generation
+
+Client-side proofs are disabled by default (the sandbox uses simulated proofs).
+To enable real proof generation:
+
+```
+cargo run -- side-effect --prove --max-steps 5
+```
+
 ## Smoke Tests
 
 To verify that the sandbox is running correctly, run the integration smoke tests:
@@ -43,9 +67,8 @@ To verify that the sandbox is running correctly, run the integration smoke tests
 cargo test -- --ignored --nocapture
 ```
 
-These are `#[ignore]`d by default because they require a running sandbox and take several
-minutes to complete. Each test deploys contracts and runs 5 random operations against the
-sandbox.
+These are `#[ignore]`d by default because they require a running sandbox. With
+bridge + fast slots, a full suite run takes ~1-2 minutes (~5-13s per transaction).
 
 ## Contracts
 
@@ -62,8 +85,6 @@ with oracle calls (like `utilityLog`) that the nightly PXE doesn't support.
 Pre-built artifacts are checked into `contracts/target/`. When the nightly image updates,
 recompile using `setup-nightly-sandbox.sh` and commit the new artifacts.
 
-As of 2026-02-18, the nightly sandbox is built from aztec-packages commit `681ca9b5c9`
-(matched via its noir submodule hash `67478b2f9d7c6239686e8de8a82f2719e54fbd40`).
-
-See `SANDBOX_INSTRUCTIONS.md` for the full build pipeline, version matrix, and
-troubleshooting.
+The setup script auto-detects the nightly commit by matching the container's nargo
+hash against `origin/next`. See `SANDBOX_INSTRUCTIONS.md` for the full build pipeline,
+version matrix, and troubleshooting.

@@ -12,7 +12,7 @@
 #   6. Imports test accounts
 #   7. Starts the Node.js bridge server (persistent HTTP API for the fuzzer)
 #   8. Installs an aztec-wallet wrapper script so CLI calls are forwarded
-#      into the container transparently (with client-side proofs disabled)
+#      into the container transparently (prove controlled by --prove flag)
 #
 set -euo pipefail
 
@@ -65,7 +65,8 @@ docker rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
 
 log "Starting nightly sandbox container (${IMAGE})..."
 # Fast slots: AZTEC_SLOT_DURATION=5 (default 36) reduces block mining wait.
-# 5s is the minimum: the sequencer timetable needs 4s headroom and rejects <=4s.
+# SEQ_ENFORCE_TIME_TABLE=false disables the sequencer's slot-headroom check,
+# allowing shorter slots than the default 36s without rejection.
 # The L1 deployment script sets anvil's block timestamp
 # interval to match ETHEREUM_SLOT_DURATION, so we don't pass --block-time
 # to anvil (automine handles it).
@@ -309,10 +310,10 @@ echo ""
 echo "  Container:  ${CONTAINER_NAME}"
 echo "  Image:      ${IMAGE}"
 echo "  Bridge:     http://localhost:8089 (default, ~1.7s faster per call)"
-echo "  Wallet:     ${WRAPPER_PATH} (CLI fallback: BRIDGE_URL=none)"
+echo "  Wallet:     ${WRAPPER_PATH} (CLI fallback: --connection cli)"
 echo "  Artifacts:  /tmp/side_effect_contract-SideEffect.json (container)"
 echo "              /tmp/parent_contract-Parent.json (container)"
-echo "  Slot time:  5s (min viable — sequencer timetable needs 4s headroom; default 36s)"
+echo "  Slot time:  5s (timetable enforcement off; default 36s)"
 echo ""
 echo "Run the fuzzer (bridge mode is the default):"
 echo ""
@@ -328,7 +329,7 @@ echo "  # Integration smoke tests"
 echo "  cargo test -- --ignored --nocapture"
 echo ""
 echo "  # To use CLI fallback instead of bridge:"
-echo "  BRIDGE_URL=none RUST_LOG=debug cargo run -- side-effect --max-steps 5"
+echo "  RUST_LOG=debug cargo run -- side-effect --connection cli --max-steps 5"
 echo ""
 echo "  # Make sure ${WRAPPER_DIR} is on your PATH for CLI mode:"
 echo "  export PATH=\"${WRAPPER_DIR}:\$PATH\""

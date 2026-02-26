@@ -140,8 +140,8 @@ mod integration_tests {
     use serial_test::serial;
     use smt::StateMachine;
 
-    // Integration tests are #[ignore] because they need a running Aztec sandbox and
-    // take several minutes to complete (~30s per transaction).
+    // Integration tests are #[ignore] because they need a running Aztec sandbox.
+    // With bridge + fast slots each tx takes ~5-13s; a full suite run is ~1-2 min.
     // Run with: cargo test -- --ignored --nocapture
 
     /// Initialise logger + wallet connection for integration tests.
@@ -156,6 +156,19 @@ mod integration_tests {
             },
         );
         wallet::check_connection().expect("connection check failed");
+    }
+
+    /// Verifies the sandbox is reachable and test accounts can be imported.
+    /// Run this first to diagnose setup issues before running heavier tests.
+    /// Prefixed with `_0` so it sorts first alphabetically (`_` < `a` in
+    /// ASCII, and Rust functions are snake_case). #[serial] tests run in
+    /// alphabetical order.
+    #[test]
+    #[ignore = "requires sandbox"]
+    #[serial]
+    fn _0_sandbox_smoke() {
+        init_test();
+        wallet::import_test_accounts().expect("import test accounts failed");
     }
 
     /// Deploys 1 token, runs 5 random operations. Requires a running sandbox.
