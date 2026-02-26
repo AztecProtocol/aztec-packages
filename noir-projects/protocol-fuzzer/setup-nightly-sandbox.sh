@@ -7,7 +7,7 @@
 #   2. Fixes the wallet CLI (installs missing inquirer npm package)
 #   3. Finds the matching aztec-packages commit and compiles both contracts
 #   4. Starts the Node.js bridge server (persistent HTTP API for the fuzzer)
-#   5. Installs an aztec-wallet wrapper for CLI fallback mode
+#   5. Installs an aztec-wallet wrapper for manual debugging
 #
 set -euo pipefail
 
@@ -189,12 +189,11 @@ docker exec -d "$CONTAINER_NAME" \
 if wait_for_http http://localhost:8089/health 60 2; then
     log "Bridge is ready on port 8089"
 else
-    echo "WARNING: Bridge did not start — use --connection cli as fallback" >&2
-    echo "  Check: docker exec $CONTAINER_NAME cat /tmp/bridge.log" >&2
+    die "Bridge did not start. Check: docker exec $CONTAINER_NAME cat /tmp/bridge.log"
 fi
 
 # --------------------------------------------------------------------------- #
-# 5. Install aztec-wallet wrapper (for --connection cli fallback)
+# 5. Install aztec-wallet wrapper (for manual debugging)
 # --------------------------------------------------------------------------- #
 
 mkdir -p "$(dirname "$WRAPPER_PATH")"

@@ -20,14 +20,6 @@ enum MachineCommand {
     SideEffect(SideEffectArgs),
 }
 
-#[derive(clap::ValueEnum, Clone, Debug)]
-enum Connection {
-    /// Use the persistent Node.js bridge (default, ~2x faster).
-    Bridge,
-    /// Shell out to aztec-wallet CLI for each call.
-    Cli,
-}
-
 #[derive(clap::Args, Debug)]
 struct CommonArgs {
     #[arg(long, default_value_t = 100000)]
@@ -40,10 +32,7 @@ struct CommonArgs {
     /// Enable client-side proof generation (slower but validates proofs).
     #[arg(long, default_value_t = false)]
     prove: bool,
-    /// How to talk to the sandbox: bridge (persistent HTTP server) or cli (shell out).
-    #[arg(long, value_enum, default_value_t = Connection::Bridge)]
-    connection: Connection,
-    /// URL of the bridge server (only used with --connection bridge).
+    /// URL of the bridge server.
     #[arg(long, default_value = "http://localhost:8089")]
     bridge_url: String,
 }
@@ -103,12 +92,7 @@ fn main() {
     let args = Args::parse();
     let common = common_args(&args.machine);
 
-    // Configure wallet connection before any sandbox interaction.
-    let bridge_url = match common.connection {
-        Connection::Bridge => Some(common.bridge_url.clone()),
-        Connection::Cli => None,
-    };
-    wallet::init(bridge_url, common.prove);
+    wallet::init(&common.bridge_url, common.prove);
     wallet::check_connection().expect("connection check failed");
 
     match args.machine {
@@ -145,16 +129,11 @@ mod integration_tests {
     // Run with: cargo test -- --ignored --nocapture
 
     /// Initialise logger + wallet connection for integration tests.
-    /// Uses bridge by default; set BRIDGE_URL=none for CLI mode.
     fn init_test() {
         init_logger();
-        let _ = wallet::try_init(
-            match std::env::var("BRIDGE_URL") {
-                Ok(val) if val.eq_ignore_ascii_case("none") || val.is_empty() => None,
-                Ok(val) => Some(val),
-                Err(_) => Some("http://localhost:8089".to_string()),
-            },
-        );
+        let url = std::env::var("BRIDGE_URL")
+            .unwrap_or_else(|_| "http://localhost:8089".to_string());
+        let _ = wallet::try_init(&url);
         wallet::check_connection().expect("connection check failed");
     }
 

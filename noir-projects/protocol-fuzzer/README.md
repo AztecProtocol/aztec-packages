@@ -1,7 +1,6 @@
-A state-machine fuzzer for Aztec contract interactions. It drives a persistent
-Node.js HTTP bridge (or falls back to the `aztec-wallet` CLI) against a running
-sandbox, comparing the sandbox's behavior to an in-memory model and asserting on
-any divergence.
+A state-machine fuzzer for Aztec contract interactions. It talks to a running
+sandbox via a persistent Node.js HTTP bridge (`bridge.mjs`), compares the
+sandbox's behavior to an in-memory model, and asserts on any divergence.
 
 Two machines are available:
 
@@ -36,27 +35,13 @@ To replay a specific failure seed:
 cargo run -- side-effect --max-steps 100000 --seed 0x5a7211231dcd6500
 ```
 
-### Connection modes
-
-By default the fuzzer talks to the sandbox via a persistent HTTP bridge server
-(started by the setup script on port 8089). This avoids the ~1.5s cold-start of
-spawning a new Node.js process per call:
+### Options
 
 ```
-# Bridge mode (default)
-cargo run -- side-effect --max-steps 5
-
-# CLI fallback (shells out to aztec-wallet)
-cargo run -- side-effect --connection cli --max-steps 5
-```
-
-### Proof generation
-
-Client-side proofs are disabled by default (the sandbox uses simulated proofs).
-To enable real proof generation:
-
-```
-cargo run -- side-effect --prove --max-steps 5
+--bridge-url URL    Bridge server URL (default: http://localhost:8089)
+--prove             Enable client-side proof generation (default: off)
+--seed 0xHEX        Replay a specific seed
+--max-steps N       Max fuzzing steps (default: 100000)
 ```
 
 ## Smoke Tests

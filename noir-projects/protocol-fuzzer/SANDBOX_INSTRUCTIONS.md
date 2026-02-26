@@ -9,10 +9,8 @@ The protocol fuzzer has two state machines:
 - **side-effect**: Fuzzes note lifecycle, nullifier emission, and cross-contract calls via
   custom `SideEffect` and `Parent` contracts. **Requires the nightly sandbox.**
 
-By default, both machines talk to the sandbox via a persistent Node.js HTTP bridge
-(`bridge.mjs`) that reuses a single CLIWallet instance, avoiding the ~1.5s cold-start
-of spawning a new Node.js process per call. A CLI fallback (`--connection cli`) shells
-out to `aztec-wallet` for each call.
+Both machines talk to the sandbox via a persistent Node.js HTTP bridge (`bridge.mjs`)
+that keeps a single CLIWallet instance alive across requests.
 
 ## Why the nightly sandbox?
 
@@ -29,7 +27,7 @@ between versions (the setup script auto-detects when they match).
 
 `setup-nightly-sandbox.sh` handles everything: starts the container with fast 5-second
 slots, fixes the wallet, identifies the nightly commit, compiles both contracts, imports
-test accounts, starts the bridge server, and installs the wallet wrapper.
+test accounts, and starts the bridge server.
 
 ```bash
 cd noir-projects/protocol-fuzzer
@@ -45,7 +43,7 @@ NIGHTLY_IMAGE=aztecprotocol/aztec:5.0.0-nightly.20260224 bash setup-nightly-sand
 Then run the fuzzer:
 
 ```bash
-# Side-effect machine (bridge mode is the default)
+# Side-effect machine
 RUST_LOG=debug cargo run -- side-effect --max-steps 5
 
 # Token machine (works with any sandbox)
@@ -53,9 +51,6 @@ RUST_LOG=debug cargo run -- token --max-steps 5
 
 # Integration smoke tests
 cargo test -- --ignored --nocapture
-
-# CLI fallback (shells out to aztec-wallet instead of bridge)
-RUST_LOG=debug cargo run -- side-effect --connection cli --max-steps 5
 ```
 
 To replay a specific failure seed:
@@ -66,19 +61,16 @@ cargo run -- side-effect --max-steps 100000 --seed 0x5a7211231dcd6500
 
 ## Performance
 
-The setup script configures 5-second L2 slot durations (default 36s), disables
-sequencer timetable enforcement, and starts a persistent HTTP bridge. The bridge
-eliminates the ~1.5s Node.js cold-start per call, so combined with fast slots the
-per-transaction time drops dramatically.
+The setup script configures 5-second slot durations (default 36s), disables sequencer
+timetable enforcement, and starts the persistent HTTP bridge.
 
-| Setting | Default | Fast (bridge) | Fast (CLI) |
-|---------|---------|---------------|------------|
-| L2 slot duration | 36s | 5s | 5s |
-| L1 slot duration | 12s | 5s | 5s |
-| Node.js startup overhead | N/A | 0s (reused) | ~1.5s/call |
-| Client-side proofs | off | off (`--prove` to enable) | off (`--prove` to enable) |
-| Per-send time | ~35s | ~4-5s | ~6s |
-| Per-simulate time | ~35s | ~1-3s | ~3s |
+| Setting | Default | Fast |
+|---------|---------|------|
+| L2 slot duration | 36s | 5s |
+| L1 slot duration | 12s | 5s |
+| Client-side proofs | off | off (`--prove` to enable) |
+| Per-send time | ~35s | ~4-5s |
+| Per-simulate time | ~35s | ~1-3s |
 
 The fast slot configuration requires a dated nightly image (`5.0.0-nightly.YYYYMMDD`) that
 supports the `AZTEC_SLOT_DURATION` and `ETHEREUM_SLOT_DURATION` environment variables. The
@@ -137,7 +129,7 @@ docker run -d --rm --name aztec-sandbox-nightly \
 with a different value causes chain time to race ahead of wall-clock time, breaking the
 sequencer.
 
-**Note:** Port 8089 is exposed for the bridge server (step 7).
+**Note:** Port 8089 is exposed for the bridge server (step 6).
 
 Wait for PXE startup:
 
@@ -162,18 +154,11 @@ docker exec aztec-sandbox-nightly bash -c '
 '
 ```
 
-### 4. Import test accounts
-
-```bash
-docker exec aztec-sandbox-nightly node --no-warnings \
-  /usr/src/yarn-project/cli-wallet/dest/bin/index.js import-test-accounts
-```
-
-### 5. Compile contract artifacts
+### 4. Compile contract artifacts
 
 Compile both contracts inside the container.
 
-#### 5a. Extract aztec-nr and copy contract sources
+#### 4a. Extract aztec-nr and copy contract sources
 
 ```bash
 NIGHTLY_COMMIT=HEAD  # or the commit hash from step 1
@@ -193,21 +178,11 @@ done
 cp contracts/Nargo.toml /tmp/nightly-build/
 ```
 
-#### 5b. Compile inside the container
+#### 4b. Compile, transpile, strip prefix
 
 ```bash
 docker cp /tmp/nightly-build aztec-sandbox-nightly:/tmp/nightly-build
 
-for pkg in side_effect_contract parent_contract; do
-  docker exec -w /tmp/nightly-build aztec-sandbox-nightly \
-    /usr/src/noir/noir-repo/target/release/nargo compile \
-    --silence-warnings --inliner-aggressiveness 0 --package "$pkg"
-done
-```
-
-#### 5c. Transpile + generate VKs, strip prefix, copy artifacts
-
-```bash
 declare -A ARTIFACTS=(
   [side_effect_contract]="side_effect_contract-SideEffect"
   [parent_contract]="parent_contract-Parent"
@@ -216,48 +191,32 @@ declare -A ARTIFACTS=(
 for pkg in side_effect_contract parent_contract; do
   artifact="${ARTIFACTS[$pkg]}"
 
-  # Transpile public bytecode + generate private VKs
-  docker exec aztec-sandbox-nightly \
+  docker exec -w /tmp/nightly-build aztec-sandbox-nightly bash -c "
+    set -e
+    /usr/src/noir/noir-repo/target/release/nargo compile \
+        --silence-warnings --inliner-aggressiveness 0 --package ${pkg}
     /usr/src/barretenberg/cpp/build/bin/bb-avm aztec_process \
-    -i "/tmp/nightly-build/target/${artifact}.json"
-
-  # Strip __aztec_nr_internals__ prefix
-  docker exec aztec-sandbox-nightly bash -c "
-    json=/tmp/nightly-build/target/${artifact}.json
-    jq '.functions |= map(.name |= sub(\"^__aztec_nr_internals__\"; \"\"))' \"\$json\" > \"\${json}.tmp\"
-    mv \"\${json}.tmp\" \"\$json\"
+        -i target/${artifact}.json
+    jq '.functions |= map(.name |= sub(\"^__aztec_nr_internals__\"; \"\"))' \
+        target/${artifact}.json > /tmp/${artifact}.json
   "
 
-  # Copy to standard container path and to host
-  docker exec aztec-sandbox-nightly cp \
-    "/tmp/nightly-build/target/${artifact}.json" "/tmp/${artifact}.json"
   docker cp "aztec-sandbox-nightly:/tmp/${artifact}.json" \
     "contracts/target/${artifact}.json"
 done
 ```
 
-### 6. Set up the wallet wrapper
-
-The CLI fallback (`--connection cli`) calls `aztec-wallet` directly. With the nightly
-sandbox, commands must run inside the container. Create a wrapper at
-`~/.local/bin/aztec-wallet`:
+### 5. Import test accounts
 
 ```bash
-#!/usr/bin/env bash
-exec docker exec aztec-sandbox-nightly node --no-warnings \
-  /usr/src/yarn-project/cli-wallet/dest/bin/index.js "$@"
+docker exec aztec-sandbox-nightly node --no-warnings \
+  /usr/src/yarn-project/cli-wallet/dest/bin/index.js import-test-accounts
 ```
 
-Make it executable and ensure `~/.local/bin` is on PATH before `~/.aztec/bin`.
-
-Proof generation is controlled by the fuzzer's `--prove` flag (which passes `-p native`
-or `-p none` to the wrapper). The sandbox uses simulated proofs by default, so proofs
-are off unless you explicitly pass `--prove`.
-
-### 7. Start the bridge server
+### 6. Start the bridge server
 
 The bridge server (`bridge.mjs`) runs inside the container and provides a persistent
-HTTP API that the fuzzer calls instead of shelling out:
+HTTP API that the fuzzer calls:
 
 ```bash
 docker cp bridge.mjs aztec-sandbox-nightly:/usr/src/yarn-project/bridge.mjs
@@ -269,14 +228,10 @@ docker exec -d aztec-sandbox-nightly \
 curl -s http://localhost:8089/health  # {"ok":true}
 ```
 
-### 8. Run the fuzzer
+### 7. Run the fuzzer
 
 ```bash
-# Bridge mode (default — fastest)
 RUST_LOG=debug cargo run -- side-effect --max-steps 5
-
-# CLI fallback (if bridge isn't running)
-RUST_LOG=debug cargo run -- side-effect --connection cli --max-steps 5
 ```
 
 ## Contracts
@@ -308,14 +263,13 @@ both code paths.
 The sandbox isn't running. Start it per step 2.
 
 ### "Bridge not reachable at http://localhost:8089"
-The bridge server isn't running. Start it per step 7, or use `--connection cli` to
-fall back to the CLI wallet.
+The bridge server isn't running. Start it per step 6.
 
 ### "Contract class mismatch" on deploy
-Artifact compiled with wrong nargo version. Recompile inside the nightly container (step 5b).
+Artifact compiled with wrong nargo version. Recompile inside the nightly container (step 4b).
 
 ### "Oracle callback X not found" on deploy/send
-Contract compiled against wrong aztec-nr. Re-extract the nightly source (step 5a).
+Contract compiled against wrong aztec-nr. Re-extract the nightly source (step 4a).
 
 ### "Contract ... not found" on deploy
 The artifact path is a host path but the wallet runs inside Docker. Use a container path
@@ -326,20 +280,20 @@ Contract compiled against repo's current aztec-nr (generates `sync_state`). Reco
 against the nightly's aztec-nr.
 
 ### "Contract's public bytecode has not been transpiled"
-Run `bb-avm aztec_process` (step 5c).
+Run `bb-avm aztec_process` (step 4b).
 
 ### "Private function X must have a verification key"
-Run `bb-avm aztec_process` (step 5c) — it generates both transpiled bytecode and VKs.
+Run `bb-avm aztec_process` (step 4b) — it generates both transpiled bytecode and VKs.
 
 ### "Constructor method initialize not found"
-The `__aztec_nr_internals__` prefix wasn't stripped. Run the `jq` step in 5c.
+The `__aztec_nr_internals__` prefix wasn't stripped. Run the `jq` step in 4b.
 
 ### Wallet "inquirer not found" error
 Run step 3.
 
 ### "Method not found: node_getCurrentBaseFees"
-Using the host `aztec-wallet` (`~/.aztec/bin/`) which is the `latest` version. Use the
-container wallet via the wrapper (step 6).
+Using the host `aztec-wallet` (`~/.aztec/bin/`) which is the `latest` version. The bridge
+uses the container's wallet SDK directly, so this shouldn't happen with the bridge.
 
 ### "Slot mismatch with rollup contract"
 The L1 contracts were deployed with different slot durations than the node expects. This
@@ -352,17 +306,20 @@ needs some minimum headroom. 5 seconds works; lower values may not.
 
 ## Architecture Notes
 
-### Connection modes
+### Why the bridge
 
-| Mode | Flag | How it works | Overhead |
-|------|------|-------------|----------|
-| Bridge (default) | `--connection bridge` | HTTP calls to persistent Node.js server | ~0s (wallet reused) |
-| CLI (fallback) | `--connection cli` | Shells out to `aztec-wallet` per call | ~1.5s (Node.js startup) |
+The fuzzer previously shelled out to `aztec-wallet` via `docker exec` for every
+operation, spawning a fresh Node.js process each time (~1.5s cold-start per call).
+The bridge loads the wallet SDK once and accepts HTTP requests, cutting per-send
+time from ~6s to ~4s and per-simulate from ~3s to ~1.3s. It also removed the need
+for a wrapper script, `rsbash` shell-out code, and CLI stdout parsing on the Rust
+side.
 
-The bridge server (`bridge.mjs`) runs inside the container and lazily initializes a
-`CLIWallet` instance on the first request. The Rust fuzzer resolves all aliases
-(`accounts:test0`, `contracts:test0`) to raw hex addresses before sending them to
-the bridge.
+### How the bridge works
+
+`bridge.mjs` runs inside the container and lazily initializes a `CLIWallet` instance
+on the first request. The Rust fuzzer resolves aliases (`accounts:test0`,
+`contracts:test0`) to hex addresses before sending them to the bridge via HTTP POST.
 
 ### Build pipeline
 
