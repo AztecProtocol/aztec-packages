@@ -134,6 +134,8 @@ describe('e2e_bot', () => {
         // TODO: this should be taken from the `setup` call above
         l1Mnemonic: new SecretValue('test test test test test test test test test test test junk'),
         flushSetupTransactions: true,
+        // Increase fee headroom to handle fee volatility from rapid block building in tests
+        minFeePadding: 9,
       };
 
       {
@@ -172,6 +174,8 @@ describe('e2e_bot', () => {
         // TODO: this should be taken from the `setup` call above
         l1Mnemonic: new SecretValue('test test test test test test test test test test test junk'),
         flushSetupTransactions: true,
+        // Increase fee headroom to handle fee volatility from rapid block building in tests
+        minFeePadding: 9,
       };
 
       {

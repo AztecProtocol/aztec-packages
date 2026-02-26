@@ -9,9 +9,11 @@ pub mod process_message;
 use crate::{
     messages::{
         discovery::process_message::process_message_ciphertext,
+        encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
-            get_private_logs, pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
+            get_private_logs, MessageContext, pending_tagged_log::PendingTaggedLog,
+            validate_and_store_enqueued_notes_and_events,
         },
     },
     utils::array,
@@ -64,6 +66,18 @@ pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note
  owner */ AztecAddress, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /*
 randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 
+/// A handler for custom messages.
+///
+/// Contracts that emit custom messages (i.e. any with a message type that is not in [`crate::messages::msg_type`])
+/// need to use [`crate::macros::AztecConfig::custom_message_handler`] with a function of this type in order to
+/// process them. They will otherwise be **silently ignored**.
+pub type CustomMessageHandler<Env> = unconstrained fn[Env](
+/* contract_address */AztecAddress,
+/* msg_type_id */ u64,
+/* msg_metadata */ u64,
+/* msg_content */ BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
+/* message_context */ MessageContext);
+
 /// Performs the state synchronization process, in which private logs are downloaded and inspected to find new private
 /// notes, partial notes and events, etc., and pending partial notes are processed to search for their completion logs.
 /// This is the mechanism via which a contract updates its knowledge of its private state.
@@ -72,11 +86,11 @@ randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 /// That should be close to the chain tip as block synchronization is performed before contract function simulation is
 /// done.
 ///
-/// Receives the address of the contract on which discovery is performed along with its
-/// `compute_note_hash_and_nullifier` function.
-pub unconstrained fn do_sync_state<Env>(
+/// Receives the address of the contract on which discovery is performed along with the contract's configuration.
+pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessageHandlerEnv>(
     contract_address: AztecAddress,
-    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ComputeNoteHashAndNullifierEnv>,
+    process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
 ) {
     debug_log("Performing state synchronization");
 
@@ -95,6 +109,7 @@ pub unconstrained fn do_sync_state<Env>(
         process_message_ciphertext(
             contract_address,
             compute_note_hash_and_nullifier,
+            process_custom_message,
             message_ciphertext,
             pending_tagged_log.context,
         );

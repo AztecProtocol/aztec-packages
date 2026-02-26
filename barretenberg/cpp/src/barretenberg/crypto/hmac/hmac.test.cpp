@@ -2,6 +2,8 @@
 #include <gtest/gtest.h>
 
 #include "../hashers/hashers.hpp"
+#include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
+#include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
 
 #include <array>
 #include <cstddef>
@@ -11,16 +13,20 @@
 using namespace bb;
 using namespace bb::crypto;
 
+namespace {
+
 std::array<uint8_t, 32> hex_to_bytes(const std::string& hex)
 {
     std::array<uint8_t, 32> bytes;
     for (unsigned int i = 0; i < hex.length(); i += 2) {
         std::string byteString = hex.substr(i, 2);
-        uint8_t byte = (uint8_t)strtol(byteString.c_str(), nullptr, 16);
+        uint8_t byte = static_cast<uint8_t>(strtol(byteString.c_str(), nullptr, 16));
         bytes[i >> 1] = byte;
     }
     return bytes;
 }
+
+} // namespace
 
 struct TestData {
     std::string key;
@@ -112,5 +118,74 @@ TEST(hmac, ValidateHMAC)
         std::array<uint8_t, 32> result = hmac<Sha256Hasher>(message, key_string);
 
         EXPECT_EQ(result, hex_to_bytes(expected));
+    }
+}
+
+TEST(NonceDerivation, ValidateRFC6979K1)
+{
+    // Test vectors from
+    // https://crypto.stackexchange.com/questions/20838/request-for-data-to-test-deterministic-ecdsa-signature-algorithm-for-secp256k1?utm_source=chatgpt.com
+    using Fr = bb::secp256k1::fr;
+    using G1 = bb::secp256k1::g1;
+    using AffineElement = G1::affine_element;
+
+    {
+        std::string message = "Absence makes the heart grow fonder.";
+        Fr key = Fr::one();
+        Fr expected_x_coordinate = Fr("0xAFFF580595971B8C1700E77069D73602AEF4C2A760DBD697881423DFFF845DE8");
+
+        std::array<uint8_t, 32> key_buffer;
+        Fr::serialize_to_buffer(key, &key_buffer[0]);
+
+        Fr result = deterministic_nonce_rfc6979<Sha256Hasher, Fr>(message, key_buffer);
+        AffineElement R = G1::one * result;
+
+        EXPECT_EQ(static_cast<uint512_t>(R.x), static_cast<uint512_t>(expected_x_coordinate));
+    }
+
+    {
+        std::string message = "Absence makes the heart grow fonder.";
+        Fr key = Fr("0x4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a");
+        Fr expected_x_coordinate = Fr("0x996D79FBA54B24E9394FC5FAB6BF94D173F3752645075DE6E32574FE08625F77");
+
+        std::array<uint8_t, 32> key_buffer;
+        Fr::serialize_to_buffer(key, &key_buffer[0]);
+
+        Fr result = deterministic_nonce_rfc6979<Sha256Hasher, Fr>(message, key_buffer);
+        AffineElement R = G1::one * result;
+
+        EXPECT_EQ(static_cast<uint512_t>(R.x), static_cast<uint512_t>(expected_x_coordinate));
+    }
+}
+
+TEST(NonceDerivation, ValidateRFC6979R1)
+{
+    // Test vectors from https://www.rfc-editor.org/rfc/rfc6979.html#appendix-A
+    using Fr = bb::secp256r1::fr;
+
+    {
+        std::string message = "sample";
+        Fr key = Fr("0xC9AFA9D845BA75166B5C215767B1D6934E50C3DB36E89B127B8A622B120F6721");
+        Fr expected = Fr("0xA6E3C57DD01ABE90086538398355DD4C3B17AA873382B0F24D6129493D8AAD60");
+
+        std::array<uint8_t, 32> key_buffer;
+        Fr::serialize_to_buffer(key, &key_buffer[0]);
+
+        Fr result = deterministic_nonce_rfc6979<Sha256Hasher, Fr>(message, key_buffer);
+
+        EXPECT_EQ(result, expected);
+    }
+
+    {
+        std::string message = "test";
+        Fr key = Fr("0xC9AFA9D845BA75166B5C215767B1D6934E50C3DB36E89B127B8A622B120F6721");
+        Fr expected = Fr("0xD16B6AE827F17175E040871A1C7EC3500192C4C92677336EC2537ACAEE0008E0");
+
+        std::array<uint8_t, 32> key_buffer;
+        Fr::serialize_to_buffer(key, &key_buffer[0]);
+
+        Fr result = deterministic_nonce_rfc6979<Sha256Hasher, Fr>(message, key_buffer);
+
+        EXPECT_EQ(result, expected);
     }
 }
