@@ -35,55 +35,46 @@
     },
     {
       "name": "clang20",
-      "displayName": "Build with Clang-20",
-      "description": "Build with globally installed Clang-20",
+      "displayName": "Build with Zig (glibc 2.35)",
+      "description": "Build with Zig-wrapped Clang targeting glibc 2.35 (Ubuntu 22.04+)",
       "inherits": "default",
       "binaryDir": "build",
       "environment": {
-        "CC": "clang-20",
-        "CXX": "clang++-20"
+        "CC": "zig cc -target native-linux-gnu.2.35",
+        "CXX": "zig c++ -target native-linux-gnu.2.35"
       },
       "cacheVariables": {
+        "CMAKE_AR": "${sourceDir}/scripts/zig-ar.sh",
+        "CMAKE_RANLIB": "${sourceDir}/scripts/zig-ranlib.sh",
         "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/release/libavm_transpiler.a"
       }
     },
     {
       "name": "clang20-no-avm",
-      "displayName": "Build with Clang-20 plus AVM",
-      "description": "Build with globally installed Clang-20 plus AVM",
+      "displayName": "Build with Zig (no AVM, glibc 2.35)",
+      "description": "Build with Zig-wrapped Clang targeting glibc 2.35, AVM disabled",
       "inherits": "clang20",
       "binaryDir": "build",
-      "environment": {
-        "CC": "clang-20",
-        "CXX": "clang++-20"
-      },
       "cacheVariables": {
-        "AVM": "OFF",
-        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/release/libavm_transpiler.a"
+        "AVM": "OFF"
       }
     },
     {
       "name": "clang20-assert",
-      "displayName": "Build with Clang-20",
-      "description": "Build with globally installed Clang-20",
-      "inherits": "default",
+      "displayName": "Build with Zig (assertions, glibc 2.35)",
+      "description": "Build with Zig-wrapped Clang targeting glibc 2.35, assertions enabled",
+      "inherits": "clang20",
       "binaryDir": "build",
-      "environment": {
-        "CC": "clang-20",
-        "CXX": "clang++-20"
-      },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
       "name": "clang20-no-exceptions",
-      "displayName": "Build with Clang-20",
-      "description": "Build with globally installed Clang-20",
-      "inherits": "default",
+      "displayName": "Build with Zig (no exceptions, glibc 2.35)",
+      "description": "Build with Zig-wrapped Clang targeting glibc 2.35, exceptions disabled",
+      "inherits": "clang20",
       "environment": {
-        "CC": "clang-20",
-        "CXX": "clang++-20",
         "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS"
       }
     },
@@ -476,8 +467,8 @@
       "displayName": "Build for linux amd64 with Zig",
       "inherits": "zig-base",
       "environment": {
-        "CC": "zig cc -target x86_64-linux-gnu",
-        "CXX": "zig c++ -target x86_64-linux-gnu",
+        "CC": "zig cc -target x86_64-linux-gnu.2.35",
+        "CXX": "zig c++ -target x86_64-linux-gnu.2.35",
         "LDFLAGS": "-s"
       },
       "cacheVariables": {
@@ -490,8 +481,8 @@
       "name": "zig-arm64-linux",
       "inherits": "zig-base",
       "environment": {
-        "CC": "zig cc -target aarch64-linux-gnu",
-        "CXX": "zig c++ -target aarch64-linux-gnu",
+        "CC": "zig cc -target aarch64-linux-gnu.2.35",
+        "CXX": "zig c++ -target aarch64-linux-gnu.2.35",
         "LDFLAGS": "-s"
       },
       "cacheVariables": {
