@@ -14,15 +14,15 @@ template <typename FF_> class bitwiseImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 30> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5, 5, 3, 4, 4, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
-    };
+    static constexpr std::array<size_t, 34> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 4, 5, 5, 3, 3, 5, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
 
-        return ((in.get(C::bitwise_sel) + in.get(C::bitwise_last))).is_zero();
+        return (in.get(C::bitwise_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -37,29 +37,40 @@ template <typename FF> class bitwise : public Relation<bitwiseImpl<FF>> {
     static constexpr const std::string_view NAME = "bitwise";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_BITW_START_ONLY_WHEN_SEL = 5;
-    static constexpr size_t SR_LAST_ON_ERROR = 10;
-    static constexpr size_t SR_RES_TAG_SHOULD_MATCH_INPUT = 11;
-    static constexpr size_t SR_INPUT_TAG_CANNOT_BE_FF = 12;
-    static constexpr size_t SR_INPUT_TAGS_SHOULD_MATCH = 13;
-    static constexpr size_t SR_BITW_OP_ID_REL_CONTINUITY = 14;
-    static constexpr size_t SR_BITW_CTR_DECREMENT = 15;
-    static constexpr size_t SR_BITW_SEL_CTR_NON_ZERO = 16;
-    static constexpr size_t SR_BITW_LAST_FOR_CTR_ONE = 17;
-    static constexpr size_t SR_BITW_INIT_A = 18;
-    static constexpr size_t SR_BITW_INIT_B = 19;
-    static constexpr size_t SR_BITW_INIT_C = 20;
-    static constexpr size_t SR_BITW_ACC_REL_A = 21;
-    static constexpr size_t SR_BITW_ACC_REL_B = 22;
-    static constexpr size_t SR_BITW_ACC_REL_C = 23;
+    static constexpr size_t SR_SEL_ON_START_OR_END = 3;
+    static constexpr size_t SR_TRACE_CONTINUITY = 4;
+    static constexpr size_t SR_START_AFTER_LATCH = 5;
+    static constexpr size_t SR_BITW_NO_EXTERNAL_START_ON_ERROR = 9;
+    static constexpr size_t SR_LAST_ON_ERROR = 13;
+    static constexpr size_t SR_ERR_ONLY_ON_START = 14;
+    static constexpr size_t SR_RES_TAG_SHOULD_MATCH_INPUT = 16;
+    static constexpr size_t SR_INPUT_TAG_CANNOT_BE_FF = 17;
+    static constexpr size_t SR_INPUT_TAGS_SHOULD_MATCH = 18;
+    static constexpr size_t SR_BITW_OP_ID_REL_CONTINUITY = 19;
+    static constexpr size_t SR_BITW_CTR_DECREMENT = 20;
+    static constexpr size_t SR_BITW_END_FOR_CTR_ONE = 21;
+    static constexpr size_t SR_BITW_INIT_A = 22;
+    static constexpr size_t SR_BITW_INIT_B = 23;
+    static constexpr size_t SR_BITW_INIT_C = 24;
+    static constexpr size_t SR_BITW_ACC_REL_A = 25;
+    static constexpr size_t SR_BITW_ACC_REL_B = 26;
+    static constexpr size_t SR_BITW_ACC_REL_C = 27;
 
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case SR_BITW_START_ONLY_WHEN_SEL:
-            return "BITW_START_ONLY_WHEN_SEL";
+        case SR_SEL_ON_START_OR_END:
+            return "SEL_ON_START_OR_END";
+        case SR_TRACE_CONTINUITY:
+            return "TRACE_CONTINUITY";
+        case SR_START_AFTER_LATCH:
+            return "START_AFTER_LATCH";
+        case SR_BITW_NO_EXTERNAL_START_ON_ERROR:
+            return "BITW_NO_EXTERNAL_START_ON_ERROR";
         case SR_LAST_ON_ERROR:
             return "LAST_ON_ERROR";
+        case SR_ERR_ONLY_ON_START:
+            return "ERR_ONLY_ON_START";
         case SR_RES_TAG_SHOULD_MATCH_INPUT:
             return "RES_TAG_SHOULD_MATCH_INPUT";
         case SR_INPUT_TAG_CANNOT_BE_FF:
@@ -70,10 +81,8 @@ template <typename FF> class bitwise : public Relation<bitwiseImpl<FF>> {
             return "BITW_OP_ID_REL_CONTINUITY";
         case SR_BITW_CTR_DECREMENT:
             return "BITW_CTR_DECREMENT";
-        case SR_BITW_SEL_CTR_NON_ZERO:
-            return "BITW_SEL_CTR_NON_ZERO";
-        case SR_BITW_LAST_FOR_CTR_ONE:
-            return "BITW_LAST_FOR_CTR_ONE";
+        case SR_BITW_END_FOR_CTR_ONE:
+            return "BITW_END_FOR_CTR_ONE";
         case SR_BITW_INIT_A:
             return "BITW_INIT_A";
         case SR_BITW_INIT_B:

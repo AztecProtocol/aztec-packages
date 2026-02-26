@@ -19,6 +19,8 @@ void bitwiseImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_AVM_BITWISE_AND_OP_ID = FF(1);
     const auto constants_AVM_BITWISE_OR_OP_ID = FF(2);
     const auto constants_AVM_BITWISE_XOR_OP_ID = FF(4);
+    const auto bitwise_LATCH_CONDITION = in.get(C::bitwise_end) + in.get(C::precomputed_first_row);
+    const auto bitwise_NOT_END = (in.get(C::bitwise_sel) - in.get(C::bitwise_end));
     const auto bitwise_TAG_A_DIFF = (in.get(C::bitwise_tag_a) - constants_MEM_TAG_FF);
     const auto bitwise_TAG_AB_DIFF = (in.get(C::bitwise_tag_a) - in.get(C::bitwise_tag_b));
 
@@ -34,196 +36,215 @@ void bitwiseImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::bitwise_start_keccak)) *
-                   (FF(1) - static_cast<View>(in.get(C::bitwise_start_keccak)));
+        auto tmp = static_cast<View>(in.get(C::bitwise_end)) * (FF(1) - static_cast<View>(in.get(C::bitwise_end)));
         std::get<2>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // SEL_ON_START_OR_END
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::bitwise_start_sha256)) *
-                   (FF(1) - static_cast<View>(in.get(C::bitwise_start_sha256)));
+        auto tmp = (static_cast<View>(in.get(C::bitwise_start)) + static_cast<View>(in.get(C::bitwise_end))) *
+                   (FF(1) - static_cast<View>(in.get(C::bitwise_sel)));
         std::get<3>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // TRACE_CONTINUITY
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
-        auto tmp =
-            (static_cast<View>(in.get(C::bitwise_start_keccak)) + static_cast<View>(in.get(C::bitwise_start_sha256))) *
-            (FF(1) - static_cast<View>(in.get(C::bitwise_start)));
+        auto tmp = (FF(1) - CView(bitwise_LATCH_CONDITION)) *
+                   (static_cast<View>(in.get(C::bitwise_sel)) - static_cast<View>(in.get(C::bitwise_sel_shift)));
         std::get<4>(evals) += (tmp * scaling_factor);
     }
-    { // BITW_START_ONLY_WHEN_SEL
+    { // START_AFTER_LATCH
         using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
-        auto tmp =
-            (static_cast<View>(in.get(C::bitwise_start_keccak)) + static_cast<View>(in.get(C::bitwise_start_sha256))) *
-            (FF(1) - static_cast<View>(in.get(C::bitwise_sel)));
+        auto tmp = static_cast<View>(in.get(C::bitwise_sel_shift)) *
+                   (static_cast<View>(in.get(C::bitwise_start_shift)) - CView(bitwise_LATCH_CONDITION));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::bitwise_sel_tag_ff_err)) *
-                   (FF(1) - static_cast<View>(in.get(C::bitwise_sel_tag_ff_err)));
+        auto tmp = static_cast<View>(in.get(C::bitwise_start_keccak)) *
+                   (FF(1) - static_cast<View>(in.get(C::bitwise_start_keccak)));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::bitwise_sel_tag_mismatch_err)) *
-                   (FF(1) - static_cast<View>(in.get(C::bitwise_sel_tag_mismatch_err)));
+        auto tmp = static_cast<View>(in.get(C::bitwise_start_sha256)) *
+                   (FF(1) - static_cast<View>(in.get(C::bitwise_start_sha256)));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
+        auto tmp =
+            (static_cast<View>(in.get(C::bitwise_start_keccak)) + static_cast<View>(in.get(C::bitwise_start_sha256))) *
+            (FF(1) - static_cast<View>(in.get(C::bitwise_start)));
+        std::get<8>(evals) += (tmp * scaling_factor);
+    }
+    { // BITW_NO_EXTERNAL_START_ON_ERROR
+        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
+        auto tmp =
+            (static_cast<View>(in.get(C::bitwise_start_keccak)) + static_cast<View>(in.get(C::bitwise_start_sha256))) *
+            static_cast<View>(in.get(C::bitwise_err));
+        std::get<9>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::bitwise_sel_tag_ff_err)) *
+                   (FF(1) - static_cast<View>(in.get(C::bitwise_sel_tag_ff_err)));
+        std::get<10>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::bitwise_sel_tag_mismatch_err)) *
+                   (FF(1) - static_cast<View>(in.get(C::bitwise_sel_tag_mismatch_err)));
+        std::get<11>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::bitwise_err)) -
                     (FF(1) - (FF(1) - static_cast<View>(in.get(C::bitwise_sel_tag_mismatch_err))) *
                                  (FF(1) - static_cast<View>(in.get(C::bitwise_sel_tag_ff_err)))));
-        std::get<8>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::bitwise_last)) * (FF(1) - static_cast<View>(in.get(C::bitwise_last)));
-        std::get<9>(evals) += (tmp * scaling_factor);
+        std::get<12>(evals) += (tmp * scaling_factor);
     }
     { // LAST_ON_ERROR
-        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::bitwise_err)) * (static_cast<View>(in.get(C::bitwise_last)) - FF(1));
-        std::get<10>(evals) += (tmp * scaling_factor);
+        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::bitwise_err)) * (static_cast<View>(in.get(C::bitwise_end)) - FF(1));
+        std::get<13>(evals) += (tmp * scaling_factor);
+    }
+    { // ERR_ONLY_ON_START
+        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::bitwise_sel)) - static_cast<View>(in.get(C::bitwise_start))) *
+                   static_cast<View>(in.get(C::bitwise_err));
+        std::get<14>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::bitwise_sel_compute)) -
+                    static_cast<View>(in.get(C::bitwise_sel)) * (FF(1) - static_cast<View>(in.get(C::bitwise_err))));
+        std::get<15>(evals) += (tmp * scaling_factor);
     }
     { // RES_TAG_SHOULD_MATCH_INPUT
-        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - static_cast<View>(in.get(C::bitwise_err))) * static_cast<View>(in.get(C::bitwise_start)) *
                    (static_cast<View>(in.get(C::bitwise_tag_c)) - static_cast<View>(in.get(C::bitwise_tag_a)));
-        std::get<11>(evals) += (tmp * scaling_factor);
+        std::get<16>(evals) += (tmp * scaling_factor);
     }
     { // INPUT_TAG_CANNOT_BE_FF
-        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::bitwise_start)) *
                    ((CView(bitwise_TAG_A_DIFF) * (static_cast<View>(in.get(C::bitwise_sel_tag_ff_err)) *
                                                       (FF(1) - static_cast<View>(in.get(C::bitwise_tag_a_inv))) +
                                                   static_cast<View>(in.get(C::bitwise_tag_a_inv))) -
                      FF(1)) +
                     static_cast<View>(in.get(C::bitwise_sel_tag_ff_err)));
-        std::get<12>(evals) += (tmp * scaling_factor);
+        std::get<17>(evals) += (tmp * scaling_factor);
     }
     { // INPUT_TAGS_SHOULD_MATCH
-        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::bitwise_start)) *
                    (CView(bitwise_TAG_AB_DIFF) * ((FF(1) - static_cast<View>(in.get(C::bitwise_sel_tag_mismatch_err))) *
                                                       (FF(1) - static_cast<View>(in.get(C::bitwise_tag_ab_diff_inv))) +
                                                   static_cast<View>(in.get(C::bitwise_tag_ab_diff_inv))) -
                     static_cast<View>(in.get(C::bitwise_sel_tag_mismatch_err)));
-        std::get<13>(evals) += (tmp * scaling_factor);
-    }
-    { // BITW_OP_ID_REL_CONTINUITY
-        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::bitwise_op_id_shift)) - static_cast<View>(in.get(C::bitwise_op_id))) *
-                   (FF(1) - static_cast<View>(in.get(C::bitwise_last)));
-        std::get<14>(evals) += (tmp * scaling_factor);
-    }
-    { // BITW_CTR_DECREMENT
-        using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::bitwise_sel)) *
-            ((static_cast<View>(in.get(C::bitwise_ctr_shift)) - static_cast<View>(in.get(C::bitwise_ctr))) + FF(1)) *
-            (FF(1) - static_cast<View>(in.get(C::bitwise_last)));
-        std::get<15>(evals) += (tmp * scaling_factor);
-    }
-    { // BITW_SEL_CTR_NON_ZERO
-        using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
-        auto tmp =
-            (static_cast<View>(in.get(C::bitwise_ctr)) * ((FF(1) - static_cast<View>(in.get(C::bitwise_sel))) *
-                                                              (FF(1) - static_cast<View>(in.get(C::bitwise_ctr_inv))) +
-                                                          static_cast<View>(in.get(C::bitwise_ctr_inv))) -
-             static_cast<View>(in.get(C::bitwise_sel)));
-        std::get<16>(evals) += (tmp * scaling_factor);
-    }
-    { // BITW_LAST_FOR_CTR_ONE
-        using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::bitwise_sel)) *
-                   (((static_cast<View>(in.get(C::bitwise_ctr)) - FF(1)) *
-                         (static_cast<View>(in.get(C::bitwise_last)) *
-                              (FF(1) - static_cast<View>(in.get(C::bitwise_ctr_min_one_inv))) +
-                          static_cast<View>(in.get(C::bitwise_ctr_min_one_inv))) +
-                     static_cast<View>(in.get(C::bitwise_last))) -
-                    FF(1));
-        std::get<17>(evals) += (tmp * scaling_factor);
-    }
-    { // BITW_INIT_A
-        using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::bitwise_last)) *
-                   (static_cast<View>(in.get(C::bitwise_acc_ia)) - static_cast<View>(in.get(C::bitwise_ia_byte)));
         std::get<18>(evals) += (tmp * scaling_factor);
     }
-    { // BITW_INIT_B
+    { // BITW_OP_ID_REL_CONTINUITY
         using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::bitwise_last)) *
-                   (static_cast<View>(in.get(C::bitwise_acc_ib)) - static_cast<View>(in.get(C::bitwise_ib_byte)));
+        auto tmp = CView(bitwise_NOT_END) *
+                   (static_cast<View>(in.get(C::bitwise_op_id_shift)) - static_cast<View>(in.get(C::bitwise_op_id)));
         std::get<19>(evals) += (tmp * scaling_factor);
     }
-    { // BITW_INIT_C
+    { // BITW_CTR_DECREMENT
         using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::bitwise_last)) *
-                   (static_cast<View>(in.get(C::bitwise_acc_ic)) - static_cast<View>(in.get(C::bitwise_ic_byte)));
+        auto tmp = CView(bitwise_NOT_END) * ((static_cast<View>(in.get(C::bitwise_ctr)) - FF(1)) -
+                                             static_cast<View>(in.get(C::bitwise_ctr_shift)));
         std::get<20>(evals) += (tmp * scaling_factor);
     }
-    { // BITW_ACC_REL_A
+    { // BITW_END_FOR_CTR_ONE
         using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
-        auto tmp = ((static_cast<View>(in.get(C::bitwise_acc_ia)) - static_cast<View>(in.get(C::bitwise_ia_byte))) -
-                    FF(256) * static_cast<View>(in.get(C::bitwise_acc_ia_shift))) *
-                   (FF(1) - static_cast<View>(in.get(C::bitwise_last)));
+        auto tmp = static_cast<View>(in.get(C::bitwise_sel_compute)) *
+                   (((static_cast<View>(in.get(C::bitwise_ctr)) - FF(1)) *
+                         (static_cast<View>(in.get(C::bitwise_end)) *
+                              (FF(1) - static_cast<View>(in.get(C::bitwise_ctr_min_one_inv))) +
+                          static_cast<View>(in.get(C::bitwise_ctr_min_one_inv))) +
+                     static_cast<View>(in.get(C::bitwise_end))) -
+                    FF(1));
         std::get<21>(evals) += (tmp * scaling_factor);
     }
-    { // BITW_ACC_REL_B
+    { // BITW_INIT_A
         using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
-        auto tmp = ((static_cast<View>(in.get(C::bitwise_acc_ib)) - static_cast<View>(in.get(C::bitwise_ib_byte))) -
-                    FF(256) * static_cast<View>(in.get(C::bitwise_acc_ib_shift))) *
-                   (FF(1) - static_cast<View>(in.get(C::bitwise_last)));
+        auto tmp = static_cast<View>(in.get(C::bitwise_end)) *
+                   (static_cast<View>(in.get(C::bitwise_acc_ia)) - static_cast<View>(in.get(C::bitwise_ia_byte)));
         std::get<22>(evals) += (tmp * scaling_factor);
     }
-    { // BITW_ACC_REL_C
+    { // BITW_INIT_B
         using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
-        auto tmp = ((static_cast<View>(in.get(C::bitwise_acc_ic)) - static_cast<View>(in.get(C::bitwise_ic_byte))) -
-                    FF(256) * static_cast<View>(in.get(C::bitwise_acc_ic_shift))) *
-                   (FF(1) - static_cast<View>(in.get(C::bitwise_last)));
+        auto tmp = static_cast<View>(in.get(C::bitwise_end)) *
+                   (static_cast<View>(in.get(C::bitwise_acc_ib)) - static_cast<View>(in.get(C::bitwise_ib_byte)));
         std::get<23>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // BITW_INIT_C
         using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::bitwise_sel_get_ctr)) -
-                    static_cast<View>(in.get(C::bitwise_start)) * (FF(1) - static_cast<View>(in.get(C::bitwise_err))));
+        auto tmp = static_cast<View>(in.get(C::bitwise_end)) *
+                   (static_cast<View>(in.get(C::bitwise_acc_ic)) - static_cast<View>(in.get(C::bitwise_ic_byte)));
         std::get<24>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // BITW_ACC_REL_A
         using View = typename std::tuple_element_t<25, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::bitwise_sel_and)) * (FF(1) - static_cast<View>(in.get(C::bitwise_sel_and)));
+        auto tmp = CView(bitwise_NOT_END) *
+                   ((static_cast<View>(in.get(C::bitwise_acc_ia)) - static_cast<View>(in.get(C::bitwise_ia_byte))) -
+                    FF(256) * static_cast<View>(in.get(C::bitwise_acc_ia_shift)));
         std::get<25>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // BITW_ACC_REL_B
         using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::bitwise_sel_or)) * (FF(1) - static_cast<View>(in.get(C::bitwise_sel_or)));
+        auto tmp = CView(bitwise_NOT_END) *
+                   ((static_cast<View>(in.get(C::bitwise_acc_ib)) - static_cast<View>(in.get(C::bitwise_ib_byte))) -
+                    FF(256) * static_cast<View>(in.get(C::bitwise_acc_ib_shift)));
         std::get<26>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // BITW_ACC_REL_C
         using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::bitwise_sel_xor)) * (FF(1) - static_cast<View>(in.get(C::bitwise_sel_xor)));
+        auto tmp = CView(bitwise_NOT_END) *
+                   ((static_cast<View>(in.get(C::bitwise_acc_ic)) - static_cast<View>(in.get(C::bitwise_ic_byte))) -
+                    FF(256) * static_cast<View>(in.get(C::bitwise_acc_ic_shift)));
         std::get<27>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<28, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::bitwise_sel)) * static_cast<View>(in.get(C::bitwise_op_id)) -
-                    (static_cast<View>(in.get(C::bitwise_sel_and)) * CView(constants_AVM_BITWISE_AND_OP_ID) +
-                     static_cast<View>(in.get(C::bitwise_sel_or)) * CView(constants_AVM_BITWISE_OR_OP_ID) +
-                     static_cast<View>(in.get(C::bitwise_sel_xor)) * CView(constants_AVM_BITWISE_XOR_OP_ID)));
+        auto tmp = (static_cast<View>(in.get(C::bitwise_sel_get_ctr)) -
+                    static_cast<View>(in.get(C::bitwise_start)) * (FF(1) - static_cast<View>(in.get(C::bitwise_err))));
         std::get<28>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<29, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::bitwise_sel_and)) * (FF(1) - static_cast<View>(in.get(C::bitwise_sel_and)));
+        std::get<29>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<30, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::bitwise_sel_or)) * (FF(1) - static_cast<View>(in.get(C::bitwise_sel_or)));
+        std::get<30>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<31, ContainerOverSubrelations>::View;
+        auto tmp =
+            static_cast<View>(in.get(C::bitwise_sel_xor)) * (FF(1) - static_cast<View>(in.get(C::bitwise_sel_xor)));
+        std::get<31>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<32, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::bitwise_sel_compute)) * static_cast<View>(in.get(C::bitwise_op_id)) -
+                    (static_cast<View>(in.get(C::bitwise_sel_and)) * CView(constants_AVM_BITWISE_AND_OP_ID) +
+                     static_cast<View>(in.get(C::bitwise_sel_or)) * CView(constants_AVM_BITWISE_OR_OP_ID) +
+                     static_cast<View>(in.get(C::bitwise_sel_xor)) * CView(constants_AVM_BITWISE_XOR_OP_ID)));
+        std::get<32>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<33, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::bitwise_ic_byte)) -
                     (static_cast<View>(in.get(C::bitwise_sel_and)) * static_cast<View>(in.get(C::bitwise_output_and)) +
                      static_cast<View>(in.get(C::bitwise_sel_or)) * static_cast<View>(in.get(C::bitwise_output_or)) +
                      static_cast<View>(in.get(C::bitwise_sel_xor)) * static_cast<View>(in.get(C::bitwise_output_xor))));
-        std::get<29>(evals) += (tmp * scaling_factor);
+        std::get<33>(evals) += (tmp * scaling_factor);
     }
 }
 
