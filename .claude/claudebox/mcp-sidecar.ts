@@ -6,7 +6,8 @@
  * Both containers mount the same /workspace and /reference-repo/.git.
  *
  * Tools: github_api (whitelisted), slack_api (whitelisted), create_pr,
- *        linear_get_issue, linear_create_issue, session_status, get_context.
+ *        linear_get_issue, linear_create_issue, session_status, get_context,
+ *        ci_failures.
  *
  * Auth: token embedded in URL path (/mcp/<token>).
  */
@@ -39,7 +40,13 @@ const SESSION_META = {
   slack_channel: process.env.CLAUDEBOX_SLACK_CHANNEL || "",
   slack_thread_ts: process.env.CLAUDEBOX_SLACK_THREAD_TS || "",
   slack_message_ts: process.env.CLAUDEBOX_SLACK_MESSAGE_TS || "",
+  base_branch: process.env.CLAUDEBOX_BASE_BRANCH || "next",
 };
+
+// ── Session URLs (for Slack links) ──────────────────────────────
+const CLAUDEBOX_HOST = process.env.CLAUDEBOX_HOST || "claudebox.work";
+const terminalUrl = SESSION_META.log_id ? `https://${CLAUDEBOX_HOST}/s/${SESSION_META.log_id}` : "";
+const cancelUrl = SESSION_META.log_id ? `https://${CLAUDEBOX_HOST}/s/${SESSION_META.log_id}/cancel` : "";
 
 // ── GitHub API whitelist ────────────────────────────────────────
 // All repo paths are locked to AztecProtocol/aztec-packages.
@@ -55,8 +62,10 @@ const GH_WHITELIST: Array<{ method: string; pattern: RegExp }> = [
   { method: "POST",  pattern: new RegExp(`^${R}/issues/\\d+/labels$`) },
   // Issues & comments
   { method: "GET",   pattern: new RegExp(`^${R}/issues(\\?.*)?$`) },
-  { method: "GET",   pattern: new RegExp(`^${R}/issues/\\d+$`) },
-  { method: "GET",   pattern: new RegExp(`^${R}/issues/\\d+/comments$`) },
+  { method: "GET",   pattern: new RegExp(`^${R}/issues/\\d+(\\?.*)?$`) },
+  { method: "GET",   pattern: new RegExp(`^${R}/issues/\\d+/timeline(\\?.*)?$`) },
+  { method: "GET",   pattern: new RegExp(`^${R}/issues/\\d+/events(\\?.*)?$`) },
+  { method: "GET",   pattern: new RegExp(`^${R}/issues/\\d+/comments(\\?.*)?$`) },
   { method: "GET",   pattern: new RegExp(`^${R}/issues/comments/\\d+$`) },
   { method: "PATCH", pattern: new RegExp(`^${R}/issues/comments/\\d+$`) },
   { method: "POST",  pattern: new RegExp(`^${R}/issues/\\d+/comments$`) },
@@ -65,9 +74,12 @@ const GH_WHITELIST: Array<{ method: string; pattern: RegExp }> = [
   // PRs — commits list
   { method: "GET",   pattern: new RegExp(`^${R}/pulls/\\d+/commits(\\?.*)?$`) },
   // Actions / CI
+  { method: "GET",   pattern: new RegExp(`^${R}/actions/workflows(\\?.*)?$`) },
   { method: "GET",   pattern: new RegExp(`^${R}/actions/runs(\\?.*)?$`) },
-  { method: "GET",   pattern: new RegExp(`^${R}/actions/runs/\\d+(/jobs|/logs)?$`) },
-  { method: "GET",   pattern: new RegExp(`^${R}/check-runs/\\d+$`) },
+  { method: "GET",   pattern: new RegExp(`^${R}/actions/runs/\\d+(/jobs|/logs)?(\\?.*)?$`) },
+  { method: "GET",   pattern: new RegExp(`^${R}/actions/workflows/[\\w.-]+/runs(\\?.*)?$`) },
+  { method: "GET",   pattern: new RegExp(`^${R}/actions/jobs/\\d+/logs$`) },
+  { method: "GET",   pattern: new RegExp(`^${R}/check-runs/\\d+(/annotations)?(\\?.*)?$`) },
   { method: "GET",   pattern: new RegExp(`^${R}/check-suites/\\d+/check-runs(\\?.*)?$`) },
   // Commit statuses and check-runs
   { method: "GET",   pattern: new RegExp(`^${R}/commits/[a-f0-9]+/status(\\?.*)?$`) },
@@ -99,11 +111,10 @@ function git(...args: string[]): string {
 
 // ── Helpers ──────────────────────────────────────────────────────
 
-/** Truncate text for Slack messages; append log link if truncated. */
+/** Truncate text for Slack messages. */
 function truncateForSlack(text: string, maxLen = 200): string {
   if (text.length <= maxLen) return text;
-  const logSuffix = SESSION_META.log_url ? ` <${SESSION_META.log_url}|…full log>` : "…";
-  return text.slice(0, maxLen - 3) + logSuffix;
+  return text.slice(0, maxLen) + "…";
 }
 
 // ── Root comment state (accumulated across tool calls) ──────────
@@ -121,6 +132,8 @@ function buildSlackText(status: string): string {
   let text = truncateForSlack(status);
   if (sessionArtifacts.length > 0) text += "\n" + sessionArtifacts.join("\n");
   if (SESSION_META.log_url) text += ` <${SESSION_META.log_url}|log>`;
+  if (terminalUrl) text += ` <${terminalUrl}|terminal>`;
+  if (cancelUrl) text += ` <${cancelUrl}|cancel>`;
   return text;
 }
 
@@ -173,7 +186,7 @@ function createMcpServerWithTools(): McpServer {
       for (const [k, v] of Object.entries(SESSION_META)) {
         if (v) ctx[k] = v;
       }
-      ctx.tools = "respond_to_user, get_context, session_status, github_api, slack_api, create_pr, update_pr, linear_get_issue, linear_create_issue";
+      ctx.tools = "respond_to_user, get_context, session_status, github_api, slack_api, create_pr, update_pr, ci_failures, linear_get_issue, linear_create_issue";
       return { content: [{ type: "text", text: JSON.stringify(ctx, null, 2) }] };
     });
 
@@ -188,21 +201,29 @@ function createMcpServerWithTools(): McpServer {
 
   // ── respond_to_user ───────────────────────────────────────────
   server.tool("respond_to_user",
-    `Send your final response to the user. Posts as a reply in the Slack thread and/or GitHub comment. You MUST call this before ending your session.
+    `Send your final response to the user. Posts to Slack thread and/or GitHub comment. You MUST call this before ending.
 
-IMPORTANT — Slack messages over ~200 chars get truncated with a log link. To keep your response readable:
-- Keep it SHORT: 1-3 sentences summarizing what you did + links to PRs/issues.
-- For detailed reports: post a short summary, then say "Full details in log" — the log link is auto-appended.
-- Example: "Analyzed 10 failed backport PRs. 3 need manual backport, 7 are stale. Created #1234 for the fix. Full analysis in the log."
-- Do NOT paste tables, full reports, or multi-paragraph text — it will be cut off in Slack.`,
-    { message: z.string().describe("Your response to the user. Keep under 200 chars for Slack. Use the log for details.") },
+CRITICAL — Keep your message to 1-2 SHORT sentences. For anything complex, print details to stdout (they appear in the log) and include a log link in your message.
+
+ALWAYS reference PRs and issues as full GitHub links (https://github.com/${REPO}/pull/123), never just "#123". This makes messages clickable in Slack.
+
+The log URL is in your context (get_context → log_url). Use it inline:
+- GOOD: "Fixed flaky test in https://github.com/${REPO}/pull/1234. Race condition in p2p layer."
+- GOOD: "Found 3 PRs needing manual backport — <LOG_URL|see full analysis>"
+- GOOD: "Build failed in yarn-project/pxe. <LOG_URL|error details>"
+- GOOD: "Created https://github.com/${REPO}/pull/5678 — changelog and test results in <LOG_URL|log>."
+- BAD: "Created PR #5678" (not clickable in Slack)
+
+NEVER post tables, bullet lists, reports, code blocks, or multi-paragraph text here. Print verbose output to stdout and link to it.`,
+    { message: z.string().describe("1-2 sentences MAX. Use full GitHub URLs for PRs/issues (https://github.com/AztecProtocol/aztec-packages/pull/123), not #123.") },
     async ({ message }) => {
       const results: string[] = [];
 
       if (SLACK_BOT_TOKEN && SESSION_META.slack_channel && SESSION_META.slack_thread_ts) {
         try {
-          let text = truncateForSlack(message);
-          if (SESSION_META.log_url) text += `\n<${SESSION_META.log_url}|log>`;
+          const text = truncateForSlack(message);
+          // Log link auto-included by truncateForSlack when truncated;
+          // root comment already has the log link, don't repeat in thread replies.
           const r = await fetch("https://slack.com/api/chat.postMessage", {
             method: "POST",
             headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
@@ -296,17 +317,25 @@ channel and thread_ts auto-injected from session if not provided.`,
         payload.ts = SESSION_META.slack_thread_ts;
 
       try {
-        const res = await fetch(`https://slack.com/api/${method}`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+        // Read methods need GET with query params (Slack rejects JSON body for these)
+        const READ_METHODS = new Set(["conversations.replies", "conversations.history"]);
+        const isRead = READ_METHODS.has(method);
+        const url = isRead
+          ? `https://slack.com/api/${method}?${new URLSearchParams(Object.entries(payload).map(([k, v]) => [k, String(v)])).toString()}`
+          : `https://slack.com/api/${method}`;
+        const res = await fetch(url, {
+          method: isRead ? "GET" : "POST",
+          headers: isRead
+            ? { Authorization: `Bearer ${SLACK_BOT_TOKEN}` }
+            : { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
+          ...(!isRead && { body: JSON.stringify(payload) }),
         });
         const d = await res.json() as any;
-        if (!d.ok) return { content: [{ type: "text", text: `${method}: ${d.error}` }], isError: true };
-        // For read methods, return the full response (messages, etc.)
-        // For write methods, just return OK + ts
-        const READ_METHODS = new Set(["conversations.replies", "conversations.history"]);
-        if (READ_METHODS.has(method)) {
+        if (!d.ok) {
+          const hint = d.error === "not_in_channel" ? " (bot not invited to this channel — use your session's own channel instead)" : "";
+          return { content: [{ type: "text", text: `${method}: ${d.error}${hint}` }], isError: true };
+        }
+        if (isRead) {
           const text = JSON.stringify(d, null, 2);
           const maxLen = 50_000;
           return { content: [{ type: "text", text: text.length > maxLen ? text.slice(0, maxLen) + "\n...(truncated)" : text }] };
@@ -568,6 +597,98 @@ channel and thread_ts auto-injected from session if not provided.`,
         return { content: [{ type: "text", text: `${result.issue.identifier}: ${result.issue.title}\n${result.issue.url}` }] };
       } catch (e: any) {
         return { content: [{ type: "text", text: `Linear API error: ${e.message}` }], isError: true };
+      }
+    });
+
+  // ── ci_failures ──────────────────────────────────────────────────
+  server.tool("ci_failures",
+    `CI status for a PR. Shows the CI3 workflow status on both the PR branch and merge-queue: last pass, last fail, with GitHub Actions links. CI dashboard link included.`,
+    { pr: z.number().describe("PR number") },
+    async ({ pr }) => {
+      if (!GH_TOKEN) return { content: [{ type: "text", text: "No GH_TOKEN" }], isError: true };
+
+      const ghGet = async (path: string) => {
+        const res = await fetch(`https://api.github.com/${path}`, {
+          headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: "application/vnd.github.v3+json" },
+        });
+        if (!res.ok) throw new Error(`GitHub ${res.status}: ${path}`);
+        return res.json() as any;
+      };
+
+      // Format a workflow run as a one-liner with GitHub link
+      const fmtRun = (r: any) =>
+        `${r.conclusion ?? r.status} | ${r.head_sha?.slice(0, 10)} | ${r.created_at}\n  https://github.com/${REPO}/actions/runs/${r.id}`;
+
+      try {
+        // PR metadata
+        const prData = await ghGet(`repos/${REPO}/pulls/${pr}`);
+        const branch = prData.head.ref as string;
+        const base = prData.base.ref as string;
+        const prUrl = `https://github.com/${REPO}/pull/${pr}`;
+
+        // CI3 workflow runs on PR branch (recent, any status)
+        const prRuns = await ghGet(
+          `repos/${REPO}/actions/workflows/ci3.yml/runs?branch=${encodeURIComponent(branch)}&per_page=20`
+        );
+        const prWorkflows: any[] = prRuns.workflow_runs ?? [];
+        const prLastPass = prWorkflows.find((r: any) => r.conclusion === "success");
+        const prLastFail = prWorkflows.find((r: any) => r.conclusion === "failure");
+        const prLatest = prWorkflows[0]; // most recent regardless of status
+
+        // CI3 workflow runs in merge-queue for this PR
+        // Merge-queue branches: gh-readonly-queue/{base}/pr-{number}-{sha}
+        let mqLastPass: any = null;
+        let mqLastFail: any = null;
+        let mqLatest: any = null;
+        try {
+          const mqRuns = await ghGet(
+            `repos/${REPO}/actions/workflows/ci3.yml/runs?event=merge_group&per_page=30`
+          );
+          const mqForPr = (mqRuns.workflow_runs ?? []).filter(
+            (r: any) => r.head_branch?.includes(`pr-${pr}-`)
+          );
+          mqLatest = mqForPr[0];
+          mqLastPass = mqForPr.find((r: any) => r.conclusion === "success");
+          mqLastFail = mqForPr.find((r: any) => r.conclusion === "failure");
+        } catch {}
+
+        const ciDashboard = `http://ci.aztec-labs.com/section/prs?filter=${encodeURIComponent(branch)}`;
+
+        const lines: string[] = [];
+        lines.push(`## PR #${pr}: ${prData.title}`);
+        lines.push(`${prUrl}`);
+        lines.push(`Branch: ${branch} → ${base}`);
+        lines.push(`CI Dashboard: ${ciDashboard}`);
+        lines.push("");
+
+        lines.push("### PR Branch (CI3)");
+        if (prLatest) {
+          lines.push(`Latest: ${fmtRun(prLatest)}`);
+        }
+        if (prLastFail && prLastFail !== prLatest) {
+          lines.push(`Last fail: ${fmtRun(prLastFail)}`);
+        }
+        if (prLastPass && prLastPass !== prLatest) {
+          lines.push(`Last pass: ${fmtRun(prLastPass)}`);
+        }
+        if (!prLatest) lines.push("No CI3 runs found");
+        lines.push("");
+
+        lines.push("### Merge Queue (CI3)");
+        if (mqLatest) {
+          lines.push(`Latest: ${fmtRun(mqLatest)}`);
+        }
+        if (mqLastFail && mqLastFail !== mqLatest) {
+          lines.push(`Last fail: ${fmtRun(mqLastFail)}`);
+        }
+        if (mqLastPass && mqLastPass !== mqLatest) {
+          lines.push(`Last pass: ${fmtRun(mqLastPass)}`);
+        }
+        if (!mqLatest) lines.push("No merge-queue CI3 runs found for this PR");
+
+        return { content: [{ type: "text", text: lines.join("\n") }] };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `ci_failures: ${e.message}` }], isError: true };
       }
     });
 

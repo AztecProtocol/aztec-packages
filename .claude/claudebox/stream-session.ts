@@ -227,9 +227,10 @@ function printEntry(d: any) {
             `\n${p}${Y}TOOL:${X} ${B}Task(${inp.subagent_type ?? ""})${X} ${inp.description ?? ""}`,
           );
         } else {
-          console.log(
-            `\n${p}${Y}TOOL:${X} ${B}${name}${X} ${GR}${trunc(JSON.stringify(inp), 200)}${X}`,
-          );
+          // MCP and other tools — spill long inputs to a cache_log link
+          const raw = JSON.stringify(inp);
+          const disp = smartTrunc(raw, `tool-${name.replace(/[^a-z0-9]/gi, "")}`, 200);
+          console.log(`\n${p}${Y}TOOL:${X} ${B}${name}${X} ${GR}${disp}${X}`);
         }
       }
     }
@@ -274,6 +275,7 @@ class JsonlTailer {
   label: string;
   subLogProc: ReturnType<typeof spawn> | null = null;
   entryCount = 0;
+  finished = false; // true once a "result" entry is seen (subagent done)
 
   constructor(path: string, label: string) {
     this.path = path;
@@ -281,8 +283,22 @@ class JsonlTailer {
     this.label = label;
   }
 
+  /** Pipe a parsed entry to denoise (subagent) or print directly (main session). */
+  private emit(d: any) {
+    if (this.label) {
+      if (this.subLogProc?.stdin?.writable) {
+        const full = captureOutput(() => printEntry(d));
+        if (full) this.subLogProc.stdin.write(full + "\n");
+      }
+      this.entryCount++;
+    } else {
+      printEntry(d);
+    }
+  }
+
   /** Read new bytes, parse complete lines, call printEntry on each. Returns true if new lines were found. */
   drain(): boolean {
+    if (this.finished) return false;
     const size = fstatSync(this.fd).size;
     if (size <= this.offset) return false;
     const buf = Buffer.alloc(size - this.offset);
@@ -296,38 +312,25 @@ class JsonlTailer {
       if (!line.trim()) continue;
       try {
         const d = JSON.parse(line);
-        if (this.label) {
-          // Subagent: pipe pretty-printed output to denoise (handles dots + live publishing)
-          if (this.subLogProc?.stdin?.writable) {
-            const full = captureOutput(() => printEntry(d));
-            if (full) this.subLogProc.stdin.write(full + "\n");
-          }
-          this.entryCount++;
-        } else {
-          printEntry(d);
-        }
+        this.emit(d);
         found = true;
+        // "result" entry means the session/subagent is done — close denoise
+        if (d.type === "result" && this.label) {
+          this.flush();
+          return found;
+        }
       } catch {}
     }
     return found;
   }
 
   flush() {
+    if (this.finished) return;
+    this.finished = true;
     if (this.leftover.trim()) {
-      try {
-        const d = JSON.parse(this.leftover);
-        if (this.label) {
-          if (this.subLogProc?.stdin?.writable) {
-            const full = captureOutput(() => printEntry(d));
-            if (full) this.subLogProc.stdin.write(full + "\n");
-          }
-          this.entryCount++;
-        } else {
-          printEntry(d);
-        }
-      } catch {}
+      try { this.emit(JSON.parse(this.leftover)); } catch {}
     }
-    closeSync(this.fd);
+    try { closeSync(this.fd); } catch {}
     // Close denoise stdin — it prints its own "done" message and publishes the final log
     if (this.subLogProc?.stdin?.writable) {
       this.subLogProc.stdin.end();

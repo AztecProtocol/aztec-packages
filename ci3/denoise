@@ -17,6 +17,9 @@ if [[ "${DENOISE:-0}" -eq 0 ]] || [[ "${BUILD_SYSTEM_DEBUG:-0}" -eq 1 ]]; then
   exit 0
 fi
 
+# Save stdin before backgrounding — bash redirects background job stdin from /dev/null
+exec 3<&0
+
 function cleanup {
   set +e
   if [ -n "${publish_pid:-}" ]; then
@@ -37,7 +40,7 @@ function cleanup {
 }
 trap cleanup SIGINT SIGTERM
 # Remove file on exit, so we can publish even after SIGINT or SIGTERM.
-trap 'cleanup; rm -f $outfile' EXIT
+trap 'cleanup; exec 3<&- 2>/dev/null; rm -f $outfile' EXIT
 
 dots_per_line=${DENOISE_WIDTH:-64}
 dot_count=0
@@ -109,13 +112,16 @@ tail --sleep-interval=0.2 -n +1 -f "$outfile" > >(
 ) &
 tail_pid=$!
 
-# Execute the command in background.
-PARENT_LOG_ID=$key bash -c "$cmd" > >(redact > $outfile) 2>&1 &
+# Execute the command in background, restoring stdin from fd 3.
+# Pipeline (not process substitution) ensures wait returns only after redact flushes.
+status_file=/tmp/${key}.status
+{ PARENT_LOG_ID=$key bash -c "$cmd" <&3 2>&1; echo $? > $status_file; } | redact > $outfile &
 job_pid=$!
 
-# Wait for the job to finish and get its exit status.
+# Wait for the full pipeline (including redact) to finish.
 wait $job_pid
-status=$?
+status=$(cat $status_file 2>/dev/null || echo 1)
+rm -f $status_file
 
 time="${SECONDS}s"
 [ -n "${publish_pid:-}" ] && kill $publish_pid &>/dev/null || true

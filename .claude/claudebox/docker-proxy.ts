@@ -3,30 +3,139 @@
  * Docker API Proxy — filtering proxy for container-in-container Docker access.
  *
  * Raw TCP proxy that parses HTTP requests, checks against an allowlist, and
- * forwards to the real Docker socket. Connection: close is injected for normal
- * requests so each request gets its own connection (enabling per-request filtering).
- * Upgrade requests (attach/exec) get a permanent bidirectional pipe.
+ * forwards to the real Docker socket. Tracks containers created through this
+ * proxy and restricts sensitive operations to owned containers only.
+ *
+ * Security layers:
+ * 1. Route allowlist — only Docker API endpoints needed for docker_isolate + exec
+ * 2. Container create validation — no privileged, restricted mounts, no host network
+ * 3. Container ownership tracking — exec/logs/inspect only on containers created here
+ * 4. PidMode:"host" silently stripped
+ * 5. Optional image allowlist via ALLOWED_IMAGES env var
+ * 6. Connection: close injection for per-request filtering
  *
  * Started by the sidecar. Shares /workspace volume with Claude's container.
  */
 
 import { createServer as netCreateServer, connect as netConnect, Socket } from "net";
-import { unlinkSync, existsSync, chmodSync } from "fs";
+import { unlinkSync, existsSync, chmodSync, realpathSync } from "fs";
+import { resolve as pathResolve } from "path";
 
 const REAL_DOCKER_SOCK = "/var/run/docker.sock";
 const PROXY_SOCK = process.env.DOCKER_PROXY_SOCK || "/workspace/docker.sock";
 
-// All images allowed. Security enforced via other constraints (no privileged,
-// restricted mounts, no host network).
-
 // Bind-mount source paths allowed inside created containers.
-const ALLOWED_MOUNT_PREFIXES = ["/workspace", "/tmp"];
+// Configurable via env var for different deployment contexts.
+const ALLOWED_MOUNT_PREFIXES = (process.env.ALLOWED_MOUNT_PREFIXES || "/workspace,/tmp")
+  .split(",").map(s => s.trim()).filter(Boolean);
 
-// ── Validation ───────────────────────────────────────────────────
+// Optional image allowlist — comma-separated prefixes. Empty = allow all.
+// Example: ALLOWED_IMAGES=aztecprotocol/build,aztecprotocol/devbox
+const IMAGE_ALLOWLIST = (process.env.ALLOWED_IMAGES || "")
+  .split(",").map(s => s.trim()).filter(Boolean);
+
+// ── Container ownership tracking ─────────────────────────────────
+// Sensitive operations (exec, logs, inspect, start, attach) are only allowed
+// on containers created through this proxy session. This prevents Claude from
+// exec-ing into the sidecar or other session containers.
+//
+// Cleanup operations (stop, kill, delete, wait) are allowed on any container
+// to support docker_isolate's pre-run cleanup of stale containers.
+
+const ownedContainerIds = new Set<string>();
+const ownedContainerNames = new Set<string>();
+
+function extractContainerCid(url: string): string | null {
+  const m = url.match(/\/containers\/([a-zA-Z0-9_.-]+)/);
+  if (m && m[1] !== "create" && m[1] !== "json") return m[1];
+  return null;
+}
+
+function extractNameFromUrl(url: string): string | null {
+  const m = url.match(/[?&]name=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function isOwnedContainer(cid: string): boolean {
+  if (ownedContainerIds.has(cid)) return true;
+  if (ownedContainerNames.has(cid)) return true;
+  // Support shortened hex IDs (Docker allows unique prefix matching)
+  if (/^[a-f0-9]+$/.test(cid) && cid.length >= 6) {
+    for (const id of ownedContainerIds) {
+      if (id.startsWith(cid)) return true;
+    }
+  }
+  return false;
+}
+
+function trackCreatedContainer(responseBuf: Buffer, requestUrl: string): void {
+  try {
+    const str = responseBuf.toString("utf-8");
+    // Only track on successful creation (HTTP 201)
+    if (!str.startsWith("HTTP/1.1 201")) return;
+
+    const bodyStart = str.indexOf("\r\n\r\n");
+    if (bodyStart === -1) return;
+    const body = str.slice(bodyStart + 4).trim();
+    const parsed = JSON.parse(body);
+    if (parsed.Id) {
+      ownedContainerIds.add(parsed.Id);
+      console.log(`[docker-proxy] Tracked container: ${parsed.Id.slice(0, 12)}`);
+    }
+  } catch {}
+
+  // Also track by name from URL query param
+  const name = extractNameFromUrl(requestUrl);
+  if (name) {
+    ownedContainerNames.add(name);
+  }
+}
+
+// ── Mount validation ─────────────────────────────────────────────
+
+/**
+ * Validate a bind mount source path. Returns an error string or null if OK.
+ *
+ * 1. Normalize the path (resolve ./ ../ to prevent traversal like /tmp/../etc)
+ * 2. Check the normalized path starts with an allowed prefix
+ * 3. For paths we can access (sidecar has /workspace mounted), resolve symlinks
+ *    and re-check — blocks symlink escape like: ln -s /etc /workspace/etc-link
+ */
+function validateMountSource(src: string): string | null {
+  // Normalize: resolve . and .. components
+  const normalized = pathResolve("/", src);
+  if (!ALLOWED_MOUNT_PREFIXES.some(p => normalized.startsWith(p + "/") || normalized === p)) {
+    return `mount source '${src}' resolves to '${normalized}' which is outside allowed prefixes (${ALLOWED_MOUNT_PREFIXES.join(", ")})`;
+  }
+
+  // Symlink check: resolve the real path and re-check.
+  // The proxy runs in the sidecar which shares the /workspace mount with Claude's container.
+  // This catches: ln -s /etc /workspace/escape && docker run -v /workspace/escape:/mnt ...
+  try {
+    const real = realpathSync(normalized);
+    if (real !== normalized && !ALLOWED_MOUNT_PREFIXES.some(p => real.startsWith(p + "/") || real === p)) {
+      return `mount source '${src}' is a symlink resolving to '${real}' which is outside allowed prefixes`;
+    }
+  } catch {
+    // Path doesn't exist on this filesystem — can't resolve symlinks.
+    // Docker will handle the error if the path doesn't exist on the host.
+  }
+
+  return null;
+}
+
+// ── Container create validation ──────────────────────────────────
 
 function validateCreateBody(body: string): { ok: boolean; reason?: string; rewritten?: string } {
   let parsed: any;
   try { parsed = JSON.parse(body); } catch { return { ok: true }; }
+
+  // Image allowlist
+  if (IMAGE_ALLOWLIST.length > 0 && parsed.Image) {
+    if (!IMAGE_ALLOWLIST.some((prefix: string) => parsed.Image.startsWith(prefix))) {
+      return { ok: false, reason: `image '${parsed.Image}' not in allowlist` };
+    }
+  }
 
   const hc = parsed.HostConfig || {};
   if (hc.Privileged) return { ok: false, reason: "privileged containers not allowed" };
@@ -38,14 +147,35 @@ function validateCreateBody(body: string): { ok: boolean; reason?: string; rewri
 
   if (hc.NetworkMode === "host") return { ok: false, reason: "host network not allowed" };
 
+  // Block host device access
+  if (hc.Devices && hc.Devices.length > 0)
+    return { ok: false, reason: "device mappings not allowed" };
+
+  // Block inheriting volumes from other containers (could access sidecar's /var/run/docker.sock)
+  if (hc.VolumesFrom && hc.VolumesFrom.length > 0)
+    return { ok: false, reason: "VolumesFrom not allowed" };
+
+  // Block dangerous namespace sharing
+  if (hc.IpcMode === "host") return { ok: false, reason: "host IPC mode not allowed" };
+  if (hc.UTSMode === "host") return { ok: false, reason: "host UTS mode not allowed" };
+
+  // Validate bind mounts — normalize paths to prevent traversal, resolve symlinks.
+  // Named volumes (sources not starting with /) are managed by Docker and safe to allow.
+  const mountCheck = validateMountSource;
   for (const bind of (hc.Binds || [])) {
     const src = bind.split(":")[0];
-    if (!ALLOWED_MOUNT_PREFIXES.some(p => src.startsWith(p)))
-      return { ok: false, reason: `bind mount source '${src}' not allowed (must be under ${ALLOWED_MOUNT_PREFIXES.join(" or ")})` };
+    if (src.startsWith("/")) {
+      const err = mountCheck(src);
+      if (err) return { ok: false, reason: err };
+    }
+    // Non-absolute paths are named volumes (e.g., "myvolume:/data") — safe
   }
   for (const m of (parsed.Mounts || []))
-    if (m.Type === "bind" && m.Source && !ALLOWED_MOUNT_PREFIXES.some(p => m.Source.startsWith(p)))
-      return { ok: false, reason: `mount source '${m.Source}' not allowed` };
+    if (m.Type === "bind" && m.Source) {
+      const err = mountCheck(m.Source);
+      if (err) return { ok: false, reason: err };
+    }
+    // type=volume mounts use Docker-managed volumes — safe
 
   // Silently strip host PID namespace — spawned containers run on the real Docker
   // daemon, so --pid=host would expose ALL host processes. docker_isolate uses it
@@ -61,34 +191,73 @@ interface Route {
   method: string;
   pattern: RegExp;
   needsBody?: boolean;
+  /** Sensitive op — only allowed on containers created through this proxy. */
+  needsOwnership?: boolean;
+  /** Container create — intercept response to track the new container ID. */
+  trackCreate?: boolean;
 }
 
 const CID = "[a-zA-Z0-9_.-]+";
 
 const ROUTES: Route[] = [
+  // System — health, version, info (compose needs /info for daemon capabilities)
   { method: "GET", pattern: /^\/_ping/ },
   { method: "HEAD", pattern: /^\/_ping/ },
   { method: "GET", pattern: /^\/version/ },
+  { method: "GET", pattern: /^\/info/ },
   { method: "GET", pattern: /^\/v[\d.]+\/_ping/ },
   { method: "HEAD", pattern: /^\/v[\d.]+\/_ping/ },
   { method: "GET", pattern: /^\/v[\d.]+\/version/ },
+  { method: "GET", pattern: /^\/v[\d.]+\/info/ },
 
-  { method: "POST", pattern: new RegExp(`^(/v[\\d.]+)?/containers/create`), needsBody: true },
-  { method: "POST", pattern: new RegExp(`^(/v[\\d.]+)?/containers/${CID}/start`) },
+  // Container create — validate body, track response
+  { method: "POST", pattern: new RegExp(`^(/v[\\d.]+)?/containers/create`), needsBody: true, trackCreate: true },
+
+  // Sensitive container operations — need ownership
+  { method: "POST", pattern: new RegExp(`^(/v[\\d.]+)?/containers/${CID}/start`), needsOwnership: true },
+  { method: "GET", pattern: new RegExp(`^(/v[\\d.]+)?/containers/${CID}/logs`), needsOwnership: true },
+  { method: "GET", pattern: new RegExp(`^(/v[\\d.]+)?/containers/${CID}/json`), needsOwnership: true },
+  { method: "POST", pattern: new RegExp(`^(/v[\\d.]+)?/containers/${CID}/attach`), needsOwnership: true },
+  { method: "POST", pattern: new RegExp(`^(/v[\\d.]+)?/containers/${CID}/exec`), needsOwnership: true },
+  { method: "POST", pattern: new RegExp(`^(/v[\\d.]+)?/containers/${CID}/resize`), needsOwnership: true },
+
+  // Cleanup operations — allowed on any container (docker_isolate pre-run cleanup)
   { method: "POST", pattern: new RegExp(`^(/v[\\d.]+)?/containers/${CID}/stop`) },
   { method: "POST", pattern: new RegExp(`^(/v[\\d.]+)?/containers/${CID}/wait`) },
   { method: "POST", pattern: new RegExp(`^(/v[\\d.]+)?/containers/${CID}/kill`) },
-  { method: "POST", pattern: new RegExp(`^(/v[\\d.]+)?/containers/${CID}/resize`) },
   { method: "DELETE", pattern: new RegExp(`^(/v[\\d.]+)?/containers/${CID}`) },
-  { method: "GET", pattern: new RegExp(`^(/v[\\d.]+)?/containers/${CID}/logs`) },
-  { method: "GET", pattern: new RegExp(`^(/v[\\d.]+)?/containers/${CID}/json`) },
-  { method: "POST", pattern: new RegExp(`^(/v[\\d.]+)?/containers/${CID}/attach`) },
-  { method: "POST", pattern: new RegExp(`^(/v[\\d.]+)?/containers/${CID}/exec`) },
+
+  // Exec operations — exec ID (not container ID); ownership checked at exec create
   { method: "POST", pattern: new RegExp(`^(/v[\\d.]+)?/exec/${CID}/start`) },
   { method: "POST", pattern: new RegExp(`^(/v[\\d.]+)?/exec/${CID}/resize`) },
   { method: "GET", pattern: new RegExp(`^(/v[\\d.]+)?/exec/${CID}/json`) },
+
+  // Image operations
   { method: "POST", pattern: /^(\/v[\d.]+)?\/images\/create/ },
+  { method: "GET", pattern: /^(\/v[\d.]+)?\/images\/json/ },
+  { method: "GET", pattern: /^(\/v[\d.]+)?\/images\/.+\/json/ },
+
+  // List containers (read-only, ownership not applicable)
   { method: "GET", pattern: /^(\/v[\d.]+)?\/containers\/json/ },
+
+  // Network operations (needed for docker-compose)
+  // Note: ($|\?) allows query params which compose uses heavily for filtering
+  { method: "GET", pattern: /^(\/v[\d.]+)?\/networks($|\?)/ },
+  { method: "GET", pattern: /^(\/v[\d.]+)?\/networks\/[a-zA-Z0-9_.-]+($|\?)/ },
+  { method: "POST", pattern: /^(\/v[\d.]+)?\/networks\/create/ },
+  { method: "DELETE", pattern: /^(\/v[\d.]+)?\/networks\/[a-zA-Z0-9_.-]+($|\?)/ },
+  { method: "POST", pattern: /^(\/v[\d.]+)?\/networks\/[a-zA-Z0-9_.-]+\/connect/ },
+  { method: "POST", pattern: /^(\/v[\d.]+)?\/networks\/[a-zA-Z0-9_.-]+\/disconnect/ },
+  { method: "POST", pattern: /^(\/v[\d.]+)?\/networks\/prune/ },
+
+  // Volume operations (needed for docker-compose)
+  { method: "GET", pattern: /^(\/v[\d.]+)?\/volumes($|\?)/ },
+  { method: "GET", pattern: /^(\/v[\d.]+)?\/volumes\/[a-zA-Z0-9_.-]+($|\?)/ },
+  { method: "POST", pattern: /^(\/v[\d.]+)?\/volumes\/create/ },
+  { method: "DELETE", pattern: /^(\/v[\d.]+)?\/volumes\/[a-zA-Z0-9_.-]+($|\?)/ },
+
+  // Distribution (image manifest inspection, used by compose)
+  { method: "GET", pattern: /^(\/v[\d.]+)?\/distribution\/.+\/json/ },
 ];
 
 function findRoute(method: string, url: string): Route | null {
@@ -228,11 +397,52 @@ function handleConnection(client: Socket) {
       }
     }
 
+    // Image pull restriction
+    if (IMAGE_ALLOWLIST.length > 0 && /\/images\/create/.test(req.url)) {
+      const fromImageMatch = req.url.match(/[?&]fromImage=([^&]+)/);
+      if (fromImageMatch) {
+        const image = decodeURIComponent(fromImageMatch[1]);
+        if (!IMAGE_ALLOWLIST.some(prefix => image.startsWith(prefix))) {
+          denyRaw(client, 403, `image pull blocked: '${image}' not in allowlist`);
+          return;
+        }
+      }
+    }
+
+    // Ownership check for sensitive operations
+    if (route.needsOwnership) {
+      const cid = extractContainerCid(req.url);
+      if (cid && !isOwnedContainer(cid)) {
+        denyRaw(client, 403, `container '${cid}' not owned by this proxy session`);
+        return;
+      }
+    }
+
     // Allowed — forward to Docker
     forwarded = true;
     client.removeListener("data", onData);
 
-    if (req.isUpgrade) {
+    if (route.trackCreate) {
+      // Container create: intercept response to track the new container ID.
+      // Forward in real-time AND buffer to extract the ID after completion.
+      const modifiedBuf = injectConnectionClose(buf, req.headerEndIndex);
+      const docker = netConnect(REAL_DOCKER_SOCK, () => {
+        docker.write(modifiedBuf);
+      });
+      client.on("data", (c: Buffer) => { if (!docker.destroyed) docker.write(c); });
+      let respBuf = Buffer.alloc(0);
+      docker.on("data", (c: Buffer) => {
+        if (!client.destroyed) client.write(c);
+        respBuf = Buffer.concat([respBuf, c]);
+      });
+      docker.on("end", () => {
+        if (!client.destroyed) client.end();
+        trackCreatedContainer(respBuf, req.url);
+      });
+      docker.on("error", (err) => { if (!client.destroyed) denyRaw(client, 502, `proxy error: ${err.message}`); });
+      client.on("error", () => docker.destroy());
+      client.on("close", () => { if (!docker.destroyed) docker.destroy(); });
+    } else if (req.isUpgrade) {
       // Upgrade (attach/exec): permanent bidirectional pipe
       const docker = netConnect({ path: REAL_DOCKER_SOCK, allowHalfOpen: true }, () => {
         docker.write(buf);
@@ -271,6 +481,10 @@ server.listen(PROXY_SOCK, () => {
   try { chmodSync(PROXY_SOCK, 0o777); } catch {}
   console.log(`[docker-proxy] listening on ${PROXY_SOCK}`);
   console.log(`[docker-proxy] allowed mount prefixes: ${ALLOWED_MOUNT_PREFIXES.join(", ")}`);
+  if (IMAGE_ALLOWLIST.length > 0) {
+    console.log(`[docker-proxy] allowed images: ${IMAGE_ALLOWLIST.join(", ")}`);
+  }
+  console.log(`[docker-proxy] container ownership tracking: enabled`);
 });
 
 process.on("SIGTERM", () => {

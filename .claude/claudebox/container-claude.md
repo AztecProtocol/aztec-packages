@@ -54,6 +54,7 @@ Do NOT use `gh api`, `gh pr`, or any `gh` commands — they will fail.
 | `slack_api` | Slack API proxy — method + args. channel/thread auto-injected. |
 | `create_pr` | Commit, push, and create a **draft** PR (auto-labeled `claudebox`) |
 | `update_pr` | Update an existing PR (title, body, base, state). Only works on `claudebox`-labeled PRs. |
+| `ci_failures` | CI status for a PR — failed jobs, last pass/fail, GitHub Actions links, CI dashboard |
 | `linear_get_issue` | Fetch a Linear issue by identifier (e.g. `A-453`) |
 | `linear_create_issue` | Create a new Linear issue (team, title, description, priority) |
 
@@ -95,14 +96,43 @@ update_pr(pr_number=12345, state="closed")
 
 ### Final response — `respond_to_user` (REQUIRED)
 
-You **MUST** call `respond_to_user` with your final message before ending your session. This is how the user sees your response — it posts to their Slack thread and/or GitHub comment.
+You **MUST** call `respond_to_user` before ending. This posts to the user's Slack thread / GitHub comment.
 
-Keep it concise (a few sentences). Include links to any PRs you created. The log link is auto-appended.
+**Your message MUST be 1-2 short sentences.** For anything complex, print details to stdout (they go to the log) and include an inline log link.
+
+Get your log URL from `get_context` → `log_url`, then use it in your response:
+
+- Good: `"Fixed flaky test in https://github.com/AztecProtocol/aztec-packages/pull/1234. Race condition in p2p layer."`
+- Good: `"Found 3 PRs needing manual backport — <LOG_URL|see full analysis>"`
+- Good: `"Build failed in yarn-project/pxe. <LOG_URL|error details>"`
+- Good: `"Created https://github.com/AztecProtocol/aztec-packages/pull/5678 — changelog and test results in <LOG_URL|log>."`
+- Bad: `"Created PR #5678"` — not clickable in Slack. Always use full GitHub URLs.
+
+Replace `LOG_URL` with your actual log URL (e.g. `http://ci.aztec-labs.com/abc123`).
+
+**NEVER** post tables, bullet lists, reports, code blocks, or multi-paragraph text to `respond_to_user`. Print verbose output to stdout and link to it.
 
 **Do NOT** just end with a text message — the user won't see it unless you call `respond_to_user`.
 
 ### Log links
 `session_status` and `respond_to_user` auto-append the log link. For direct `github_api`/`slack_api` calls, include the log URL from `get_context`.
+
+## Base Branch
+
+Your base branch is provided in your session context (`get_context` → `base_branch`). It is also appended to your prompt as `Base branch: <name>`.
+
+- **For new PRs**: use your base branch as the PR target (the `base` parameter in `create_pr`), not always `next`
+- **For PR work**: if the PR targets a merge-train branch (e.g. `merge-train/barretenberg`), use that as your base for any new branches or PRs you create. Check the PR's base branch with `github_api` if needed.
+- **For yarn-project-only changes**: prefer `merge-train/spartan` as base when appropriate
+
+## Tips — avoiding common failures
+
+- **Large files**: If `Read` fails with "exceeds maximum", use `offset`+`limit` to read chunks, or `Grep` to find what you need.
+- **CI investigation**: Use `ci_failures(pr=12345)` instead of manually calling multiple `github_api` endpoints.
+- **JSON parsing**: Use `jq` instead of piping to `python3 -c json.loads` — it handles large/truncated input gracefully.
+- **No `sudo`/`docker`/`redis`**: These are not available in the container. Work with what's installed.
+- **Git conflicts on resume**: If `git fetch` fails with "untracked files would be overwritten", run `git checkout . && git clean -fd` first.
+- **Always use full GitHub URLs**: `https://github.com/AztecProtocol/aztec-packages/pull/123` not `PR #123`.
 
 ## Rules
 - Stay within `/workspace/aztec-packages`
