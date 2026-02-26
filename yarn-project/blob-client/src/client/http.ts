@@ -1,10 +1,11 @@
 import { Blob, type BlobJson, computeEthVersionedBlobHash } from '@aztec/blob-lib';
+import { makeL1HttpTransport } from '@aztec/ethereum/client';
 import { shuffle } from '@aztec/foundation/array';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
-import { type RpcBlock, createPublicClient, fallback, http } from 'viem';
+import { type RpcBlock, createPublicClient } from 'viem';
 
 import { createBlobArchiveClient } from '../archive/factory.js';
 import type { BlobArchiveClient } from '../archive/interface.js';
@@ -532,7 +533,7 @@ export class HttpBlobClient implements BlobClientInterface {
       }
 
       const client = createPublicClient({
-        transport: fallback(l1RpcUrls.map(url => http(url, { batch: false }))),
+        transport: makeL1HttpTransport(l1RpcUrls, { timeout: this.config.l1HttpTimeoutMS }),
       });
       try {
         const res: RpcBlock = await client.request({
