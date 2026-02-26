@@ -95,6 +95,19 @@ export class SessionStore {
     return existsSync(join(this.worktreesDir, worktreeId, "workspace"));
   }
 
+  /** Read activity.jsonl entries from a worktree's workspace directory. */
+  readActivity(worktreeId: string): { ts: string; type: string; text: string }[] {
+    const activityPath = join(this.worktreesDir, worktreeId, "workspace", "activity.jsonl");
+    if (!existsSync(activityPath)) return [];
+    try {
+      return readFileSync(activityPath, "utf-8")
+        .split("\n")
+        .filter(line => line.trim())
+        .map(line => JSON.parse(line))
+        .reverse(); // newest first
+    } catch { return []; }
+  }
+
   // ── Worktree helpers ──────────────────────────────────────────
 
   newWorktreeId(): string {

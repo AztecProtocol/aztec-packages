@@ -47,8 +47,7 @@ const SESSION_META = {
 
 // ── Session URLs (for Slack links) ──────────────────────────────
 const CLAUDEBOX_HOST = process.env.CLAUDEBOX_HOST || "claudebox.work";
-const terminalUrl = SESSION_META.log_id ? `https://${CLAUDEBOX_HOST}/s/${SESSION_META.log_id}` : "";
-const cancelUrl = SESSION_META.log_id ? `https://${CLAUDEBOX_HOST}/s/${SESSION_META.log_id}/cancel` : "";
+const statusPageUrl = SESSION_META.log_id ? `https://${CLAUDEBOX_HOST}/s/${SESSION_META.log_id}` : "";
 
 // ── GitHub API whitelist ────────────────────────────────────────
 // All repo paths are locked to AztecProtocol/aztec-packages.
@@ -119,6 +118,16 @@ function truncateForSlack(text: string, maxLen = 200): string {
   return text.slice(0, maxLen) + "…";
 }
 
+// ── Activity log (persisted to workspace for status page) ───────
+import { appendFileSync } from "fs";
+const ACTIVITY_LOG = "/workspace/activity.jsonl";
+
+function logActivity(type: string, text: string): void {
+  try {
+    appendFileSync(ACTIVITY_LOG, JSON.stringify({ ts: new Date().toISOString(), type, text }) + "\n");
+  } catch {}
+}
+
 // ── Root comment state (accumulated across tool calls) ──────────
 let lastStatus = "";
 const sessionArtifacts: string[] = [];
@@ -134,8 +143,7 @@ function buildSlackText(status: string): string {
   let text = truncateForSlack(status);
   if (sessionArtifacts.length > 0) text += "\n" + sessionArtifacts.join("\n");
   if (SESSION_META.log_url) text += ` <${SESSION_META.log_url}|log>`;
-  if (terminalUrl) text += ` <${terminalUrl}|terminal>`;
-  if (cancelUrl) text += ` <${cancelUrl}|cancel>`;
+  if (statusPageUrl) text += ` <${statusPageUrl}|status>`;
   return text;
 }
 
@@ -197,6 +205,7 @@ function createMcpServerWithTools(): McpServer {
     "Update status in both Slack and GitHub. Log link + accumulated PR/issue links auto-appended.",
     { status: z.string().describe("Status text") },
     async ({ status }) => {
+      logActivity("status", status);
       const results = await updateRootComment(status);
       return { content: [{ type: "text", text: results.length ? results.join("\n") : "No channels configured" }] };
     });
@@ -219,6 +228,7 @@ The log URL is in your context (get_context → log_url). Use it inline:
 NEVER post tables, bullet lists, reports, code blocks, or multi-paragraph text here. Print verbose output to stdout and link to it.`,
     { message: z.string().describe("1-2 sentences MAX. Use full GitHub URLs for PRs/issues (https://github.com/AztecProtocol/aztec-packages/pull/123), not #123.") },
     async ({ message }) => {
+      logActivity("response", message);
       const results: string[] = [];
 
       if (QUIET_MODE) {
@@ -344,8 +354,12 @@ channel and thread_ts auto-injected from session if not provided.`,
         });
         const d = await res.json() as any;
         if (!d.ok) {
-          const hint = d.error === "not_in_channel" ? " (bot not invited to this channel — use your session's own channel instead)" : "";
-          return { content: [{ type: "text", text: `${method}: ${d.error}${hint}` }], isError: true };
+          const hints: Record<string, string> = {
+            not_in_channel: " (bot not invited to this channel — use your session's own channel instead)",
+            missing_scope: ` (need: ${d.needed || "unknown"}, have: ${d.provided || "unknown"})`,
+            channel_not_found: " (channel ID may be wrong — check get_context for your session's channel)",
+          };
+          return { content: [{ type: "text", text: `${method}: ${d.error}${hints[d.error] || ""}` }], isError: true };
         }
         if (isRead) {
           const text = JSON.stringify(d, null, 2);
@@ -431,7 +445,9 @@ channel and thread_ts auto-injected from session if not provided.`,
         } catch {}
 
         // Auto-post PR to root comment
-        sessionArtifacts.push(`- [PR #${pr.number}: ${title}](${pr.html_url})`);
+        const prLink = `- [PR #${pr.number}: ${title}](${pr.html_url})`;
+        sessionArtifacts.push(prLink);
+        logActivity("artifact", prLink);
         await updateRootComment();
 
         return { content: [{ type: "text", text: `${pr.html_url}\nBranch: ${branch}\n#${pr.number}` }] };
@@ -607,7 +623,9 @@ channel and thread_ts auto-injected from session if not provided.`,
         if (!result?.success) return { content: [{ type: "text", text: `Failed: ${JSON.stringify(json.errors || json)}` }], isError: true };
 
         // Auto-post issue to root comment
+        const issueLink = `${result.issue.identifier}: ${result.issue.title} — ${result.issue.url}`;
         sessionArtifacts.push(`- [${result.issue.identifier}: ${result.issue.title}](${result.issue.url})`);
+        logActivity("artifact", issueLink);
         await updateRootComment();
 
         return { content: [{ type: "text", text: `${result.issue.identifier}: ${result.issue.title}\n${result.issue.url}` }] };

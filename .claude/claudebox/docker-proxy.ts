@@ -195,6 +195,14 @@ interface Route {
   needsOwnership?: boolean;
   /** Container create — intercept response to track the new container ID. */
   trackCreate?: boolean;
+  /** Return a fake success without forwarding to Docker. */
+  fakeOk?: boolean;
+  /** Streaming request/response — manual forwarding with Connection: close.
+   *  Used for docker build (tar body in, chunked JSON out) and docker pull/load/save. */
+  rawPipe?: boolean;
+  /** Long-lived stream — bidirectional pipe, NO Connection: close.
+   *  Used for events and other long-poll endpoints. */
+  rawStream?: boolean;
 }
 
 const CID = "[a-zA-Z0-9_.-]+";
@@ -232,10 +240,21 @@ const ROUTES: Route[] = [
   { method: "POST", pattern: new RegExp(`^(/v[\\d.]+)?/exec/${CID}/resize`) },
   { method: "GET", pattern: new RegExp(`^(/v[\\d.]+)?/exec/${CID}/json`) },
 
-  // Image operations
-  { method: "POST", pattern: /^(\/v[\d.]+)?\/images\/create/ },
-  { method: "GET", pattern: /^(\/v[\d.]+)?\/images\/json/ },
-  { method: "GET", pattern: /^(\/v[\d.]+)?\/images\/.+\/json/ },
+  // Image operations — pull/load/save are streaming, need rawPipe
+  { method: "POST", pattern: /^(\/v[\d.]+)?\/images\/create/, rawPipe: true },  // docker pull
+  { method: "POST", pattern: /^(\/v[\d.]+)?\/images\/load/, rawPipe: true },    // docker load
+  { method: "GET", pattern: /^(\/v[\d.]+)?\/images\/json/ },           // docker image ls
+  { method: "GET", pattern: /^(\/v[\d.]+)?\/images\/.+\/json/ },       // docker image inspect
+  { method: "GET", pattern: /^(\/v[\d.]+)?\/images\/.+\/get/, rawPipe: true },  // docker save
+  { method: "POST", pattern: /^(\/v[\d.]+)?\/images\/.+\/tag/ },       // docker tag
+  { method: "DELETE", pattern: /^(\/v[\d.]+)?\/images\/.+/ },          // docker rmi
+
+  // Build — streaming tar body in, chunked JSON out; needs rawPipe
+  { method: "POST", pattern: /^(\/v[\d.]+)?\/build/, rawPipe: true },  // docker build
+
+  // Auth + push — no-op (login succeeds silently, push is blocked)
+  { method: "POST", pattern: /^(\/v[\d.]+)?\/auth/, fakeOk: true },    // docker login
+  { method: "POST", pattern: /^(\/v[\d.]+)?\/images\/.+\/push/, fakeOk: true }, // docker push (no-op)
 
   // List containers (read-only, ownership not applicable)
   { method: "GET", pattern: /^(\/v[\d.]+)?\/containers\/json/ },
@@ -255,6 +274,10 @@ const ROUTES: Route[] = [
   { method: "GET", pattern: /^(\/v[\d.]+)?\/volumes\/[a-zA-Z0-9_.-]+($|\?)/ },
   { method: "POST", pattern: /^(\/v[\d.]+)?\/volumes\/create/ },
   { method: "DELETE", pattern: /^(\/v[\d.]+)?\/volumes\/[a-zA-Z0-9_.-]+($|\?)/ },
+
+  // Events — long-lived streaming connection, compose watches container lifecycle.
+  // Uses rawStream (like upgrade): bidirectional pipe, NO Connection: close.
+  { method: "GET", pattern: /^(\/v[\d.]+)?\/events/, rawStream: true },
 
   // Distribution (image manifest inspection, used by compose)
   { method: "GET", pattern: /^(\/v[\d.]+)?\/distribution\/.+\/json/ },
@@ -349,17 +372,26 @@ function handleConnection(client: Socket) {
   let buf = Buffer.alloc(0);
   let forwarded = false;
 
+  client.on("close", () => {
+    if (!forwarded) {
+      // Client closed before we could forward — log it
+      const partial = buf.subarray(0, Math.min(buf.length, 200)).toString("utf-8").split("\r\n")[0];
+      if (buf.length > 0) console.error(`[docker-proxy] client closed before forward (${buf.length}b): ${partial}`);
+    }
+  });
+
   const onData = (chunk: Buffer) => {
     if (forwarded) return;
     buf = Buffer.concat([buf, chunk]);
 
-    if (buf.length > 2 * 1024 * 1024) {
-      denyRaw(client, 413, "request too large");
+    const req = parseHttpHead(buf);
+    if (!req) {
+      // Headers not yet complete — enforce size limit while buffering
+      if (buf.length > 2 * 1024 * 1024) {
+        denyRaw(client, 413, "request too large");
+      }
       return;
     }
-
-    const req = parseHttpHead(buf);
-    if (!req) return;
 
     const route = findRoute(req.method, req.url);
     if (!route) {
@@ -422,6 +454,14 @@ function handleConnection(client: Socket) {
     forwarded = true;
     client.removeListener("data", onData);
 
+    // Fake success — return 200 without forwarding (used for login, push no-ops)
+    if (route.fakeOk) {
+      const body = JSON.stringify({ Status: "Login Succeeded" });
+      client.end(`HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${Buffer.byteLength(body)}\r\nConnection: close\r\n\r\n${body}`);
+      console.log(`[docker-proxy] fakeOk: ${req.method} ${req.url}`);
+      return;
+    }
+
     if (route.trackCreate) {
       // Container create: intercept response to track the new container ID.
       // Forward in real-time AND buffer to extract the ID after completion.
@@ -442,8 +482,9 @@ function handleConnection(client: Socket) {
       docker.on("error", (err) => { if (!client.destroyed) denyRaw(client, 502, `proxy error: ${err.message}`); });
       client.on("error", () => docker.destroy());
       client.on("close", () => { if (!docker.destroyed) docker.destroy(); });
-    } else if (req.isUpgrade) {
-      // Upgrade (attach/exec): permanent bidirectional pipe
+    } else if (req.isUpgrade || route.rawStream) {
+      // Upgrade (attach/exec) or long-lived stream (events):
+      // permanent bidirectional pipe, no Connection: close.
       const docker = netConnect({ path: REAL_DOCKER_SOCK, allowHalfOpen: true }, () => {
         docker.write(buf);
         client.pipe(docker);
@@ -452,6 +493,32 @@ function handleConnection(client: Socket) {
       docker.on("error", (err) => { if (!client.destroyed) denyRaw(client, 502, `proxy error: ${err.message}`); });
       client.on("error", () => docker.destroy());
       docker.on("error", () => client.destroy());
+    } else if (route.rawPipe) {
+      // Streaming ops (build/pull/load/save): manual event-based forwarding
+      // with Connection: close. Must inject Connection: close so Docker closes
+      // the connection after the response — without it, Docker keeps the
+      // connection alive and subsequent requests bypass proxy filtering.
+      //
+      // Uses manual event handlers (not pipe()) and buffers client data that
+      // arrives before the Docker socket connects to prevent out-of-order writes.
+      const modifiedBuf = injectConnectionClose(buf, req.headerEndIndex);
+      let preConnectBuf: Buffer[] = [];
+      let dockerReady = false;
+      client.on("data", (c: Buffer) => {
+        if (!dockerReady) { preConnectBuf.push(c); return; }
+        if (!docker.destroyed) docker.write(c);
+      });
+      const docker = netConnect(REAL_DOCKER_SOCK, () => {
+        docker.write(modifiedBuf);
+        for (const chunk of preConnectBuf) docker.write(chunk);
+        preConnectBuf = [];
+        dockerReady = true;
+      });
+      docker.on("data", (c: Buffer) => { if (!client.destroyed) client.write(c); });
+      docker.on("end", () => { if (!client.destroyed) client.end(); });
+      docker.on("error", (err) => { if (!client.destroyed) denyRaw(client, 502, `proxy error: ${err.message}`); });
+      client.on("error", () => docker.destroy());
+      client.on("close", () => { if (!docker.destroyed) docker.destroy(); });
     } else {
       // Normal request: inject Connection: close so the client uses a new
       // connection for each request (enabling per-request filtering).
@@ -485,6 +552,10 @@ server.listen(PROXY_SOCK, () => {
     console.log(`[docker-proxy] allowed images: ${IMAGE_ALLOWLIST.join(", ")}`);
   }
   console.log(`[docker-proxy] container ownership tracking: enabled`);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error(`[docker-proxy] UNCAUGHT: ${err.message}\n${err.stack}`);
 });
 
 process.on("SIGTERM", () => {

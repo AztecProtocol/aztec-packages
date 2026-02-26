@@ -2,7 +2,7 @@ import type { SessionMeta } from "./types.ts";
 import { SLACK_BOT_TOKEN } from "./config.ts";
 import type { SessionStore } from "./session-store.ts";
 import type { DockerService } from "./docker.ts";
-import { truncate, cancelUrl, hashFromLogUrl, extractHashFromUrl, sessionUrl } from "./util.ts";
+import { truncate, hashFromLogUrl, extractHashFromUrl, sessionUrl } from "./util.ts";
 import { toTargetRef } from "./base-branch.ts";
 
 export function resolveUserName(client: any, userId: string): Promise<string> {
@@ -27,7 +27,8 @@ export async function getThreadContext(client: any, channel: string, threadTs: s
     }
     return lines.join("\n");
   } catch (e) {
-    console.warn(`[WARN] Could not fetch thread context: ${e}`);
+    const detail = (e as any)?.data?.needed ? ` (need scope: ${(e as any).data.needed})` : "";
+    console.warn(`[WARN] Could not fetch thread context for ${channel}: ${e}${detail}`);
     return "";
   }
 }
@@ -52,9 +53,9 @@ export async function updateSlackStatus(channel: string, messageTs: string, stat
     lines[0] = lines[0].replace(/\.\.\.\s*$/, "").trim();
     lines[0] += ` \u2014 *${status}*`;
     if (!currentText.includes(logUrl)) lines[0] += ` <${logUrl}|log>`;
-    // Preserve or add terminal link (session is now joinable)
-    if (hash && !currentText.includes("|terminal>")) {
-      lines[0] += ` <${sessionUrl(hash)}|terminal>`;
+    // Preserve or add status link
+    if (hash && !currentText.includes("|status>") && !currentText.includes("|terminal>")) {
+      lines[0] += ` <${sessionUrl(hash)}|status>`;
     }
     finalText = lines.join("\n");
   } else {
@@ -151,8 +152,8 @@ export async function startNewSession(
       capturedLogUrl = logUrl;
       capturedHash = hashFromLogUrl(logUrl);
       const text = prompt
-        ? `ClaudeBox: _${truncate(prompt)}_ <${logUrl}|log> <${sessionUrl(capturedHash)}|terminal> <${cancelUrl(capturedHash)}|cancel>`
-        : `ClaudeBox starting... <${logUrl}|log> <${sessionUrl(capturedHash)}|terminal> <${cancelUrl(capturedHash)}|cancel>`;
+        ? `ClaudeBox: _${truncate(prompt)}_ <${logUrl}|log> <${sessionUrl(capturedHash)}|status>`
+        : `ClaudeBox starting... <${logUrl}|log> <${sessionUrl(capturedHash)}|status>`;
       client.chat.update({ channel, ts: messageTs, text }).catch(() => {});
     }).then((exitCode) => {
       if (SLACK_BOT_TOKEN && messageTs && capturedLogUrl) {
@@ -185,17 +186,24 @@ export async function startReplySession(
   if (message) status += `: _${truncate(message)}_`;
   status += " ...";
 
+  // Fetch thread context so the agent understands the conversation
+  const threadContext = threadTs ? await getThreadContext(client, channel, threadTs) : "";
+
   try {
     const postArgs: any = { channel, text: status };
     if (threadTs) postArgs.thread_ts = threadTs;
     const result = await client.chat.postMessage(postArgs);
     const messageTs = result.ts;
 
+    let fullPrompt = "";
+    if (threadContext) fullPrompt += `Slack thread context:\n${threadContext}\n\n`;
+    if (message) fullPrompt += message;
+
     let capturedLogUrl = "";
     let capturedHash = "";
 
     docker.runContainerSession({
-      prompt: message,
+      prompt: fullPrompt || message,
       userName,
       slackChannel: channel,
       slackChannelName: channelName,
@@ -209,7 +217,7 @@ export async function startReplySession(
       capturedHash = hashFromLogUrl(logUrl);
       let text = "ClaudeBox replying";
       if (message) text += `: _${truncate(message)}_`;
-      text += ` <${logUrl}|log> <${sessionUrl(capturedHash)}|terminal> <${cancelUrl(capturedHash)}|cancel>`;
+      text += ` <${logUrl}|log> <${sessionUrl(capturedHash)}|status>`;
       client.chat.update({ channel, ts: messageTs, text }).catch(() => {});
     }).then((exitCode) => {
       if (SLACK_BOT_TOKEN && messageTs && capturedLogUrl) {

@@ -136,7 +136,7 @@ Your base branch is provided in your session context (`get_context` → `base_br
 - **Large files**: If `Read` fails with "exceeds maximum", use `offset`+`limit` to read chunks, or `Grep` to find what you need.
 - **CI investigation**: Use `ci_failures(pr=12345)` instead of manually calling multiple `github_api` endpoints.
 - **JSON parsing**: Use `jq` instead of piping to `python3 -c json.loads` — it handles large/truncated input gracefully.
-- **No `sudo`/`docker`/`redis`**: These are not available in the container. Work with what's installed.
+- **No `gh` CLI**: `gh` has no auth in this container. Use MCP `github_api` instead.
 - **Git conflicts on resume**: If `git fetch` fails with "untracked files would be overwritten", run `git checkout . && git clean -fd` first.
 - **Always use full GitHub URLs**: `https://github.com/AztecProtocol/aztec-packages/pull/123` not `PR #123`.
 

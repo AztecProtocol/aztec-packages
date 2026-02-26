@@ -47,15 +47,29 @@ code{background:#2a2a3e;padding:1px 5px;border-radius:3px;font-size:12px}
 
 // ── Workspace Page ─────────────────────────────────────────────
 
+export interface ActivityEntry {
+  ts: string;
+  type: string;  // "status", "response", "artifact"
+  text: string;
+}
+
 export interface WorkspacePageData {
   hash: string;            // current session log_id
   session: SessionMeta;    // current session
   sessions: SessionMeta[]; // all sessions for this worktree (newest first)
   worktreeAlive: boolean;
+  activity: ActivityEntry[];  // newest first
+}
+
+function activityIcon(type: string): string {
+  if (type === "response") return "\u{1f4ac}";
+  if (type === "artifact") return "\u{1f517}";
+  if (type === "status") return "\u{1f4cb}";
+  return "\u{25cf}";
 }
 
 export function workspacePageHTML(data: WorkspacePageData): string {
-  const { hash, session, sessions, worktreeAlive } = data;
+  const { hash, session, sessions, worktreeAlive, activity } = data;
   const worktreeId = session.worktree_id || "";
   const status = session.status || "unknown";
   const user = session.user || "unknown";
@@ -80,6 +94,20 @@ export function workspacePageHTML(data: WorkspacePageData): string {
       <td>${s.log_url ? `<a href="${s.log_url}" target="_blank">log</a>` : "—"}</td>
     </tr>`;
   }).join("\n");
+
+  // Activity rows (show up to 50 entries)
+  const activityRows = activity.slice(0, 50).map(a => {
+    const text = escapeHtml(a.text.length > 300 ? a.text.slice(0, 300) + "…" : a.text);
+    // Auto-link URLs in text
+    const linked = text.replace(/(https?:\/\/[^\s&]+)/g, '<a href="$1" target="_blank">$1</a>');
+    return `<div class="activity-entry">
+      <span class="activity-icon">${activityIcon(a.type)}</span>
+      <span class="activity-time">${a.ts ? timeAgo(a.ts) : ""}</span>
+      <span class="activity-type">${escapeHtml(a.type)}</span>
+      <span class="activity-text">${linked}</span>
+    </div>`;
+  }).join("\n");
+  const hasActivity = activity.length > 0;
 
   return `<!DOCTYPE html>
 <html>
@@ -110,7 +138,15 @@ ${BASE_STYLES}
 .sessions-panel th{text-align:left;color:#a0a0b0;font-weight:600;padding:3px 8px;border-bottom:1px solid #1a2a4e}
 .sessions-panel td{padding:3px 8px}
 .sessions-panel .current-row{background:#1a2a4e}
-.main{display:flex;flex-direction:column;height:calc(100vh - ${isMultiSession ? "320" : "140"}px)}
+.activity-panel{padding:12px 20px;max-height:240px;overflow-y:auto;border-bottom:1px solid #0f3460}
+.activity-panel h3{font-size:13px;color:#a0a0b0;margin-bottom:6px}
+.activity-entry{display:flex;gap:8px;padding:4px 0;border-bottom:1px solid #0f1a2e;font-size:12px;align-items:baseline}
+.activity-icon{flex-shrink:0;width:18px;text-align:center}
+.activity-time{flex-shrink:0;width:60px;color:#666;font-size:11px}
+.activity-type{flex-shrink:0;width:60px;color:#a0a0b0;font-weight:600;font-size:11px;text-transform:uppercase}
+.activity-text{color:#c0c0d0;word-break:break-word;white-space:pre-wrap}
+.activity-text a{color:#539bf5}
+.main{display:flex;flex-direction:column;height:calc(100vh - ${isMultiSession ? "320" : hasActivity ? "320" : "140"}px)}
 #terminal-container{flex:1;padding:4px}
 </style>
 </head>
@@ -136,6 +172,11 @@ ${isMultiSession ? `
     <tr><th>ID</th><th>Status</th><th>When</th><th>Log</th></tr>
     ${sessionRows}
   </table>
+</div>` : ""}
+${hasActivity ? `
+<div class="activity-panel">
+  <h3>Activity (${activity.length} entries)</h3>
+  ${activityRows}
 </div>` : ""}
 ${canJoin && worktreeAlive && worktreeId ? `
 <div class="resume-bar">

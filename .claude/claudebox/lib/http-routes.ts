@@ -217,8 +217,9 @@ const routes: Route[] = [
       const worktreeId = session.worktree_id || "";
       const sessions = worktreeId ? store.listByWorktree(worktreeId) : [{ ...session, _log_id: hash }];
       const worktreeAlive = worktreeId ? store.isWorktreeAlive(worktreeId) : false;
+      const activity = worktreeId ? store.readActivity(worktreeId) : [];
 
-      html(res, 200, workspacePageHTML({ hash, session, sessions, worktreeAlive }));
+      html(res, 200, workspacePageHTML({ hash, session, sessions, worktreeAlive, activity }));
     },
   },
 
