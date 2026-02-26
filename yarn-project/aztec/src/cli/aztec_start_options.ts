@@ -105,8 +105,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       env: 'NETWORK',
     },
 
-    configToFlag('--auto-update', sharedNodeConfigMappings.autoUpdate),
-    configToFlag('--auto-update-url', sharedNodeConfigMappings.autoUpdateUrl),
+    configToFlag('--enable-version-check', sharedNodeConfigMappings.enableVersionCheck),
 
     configToFlag('--sync-mode', sharedNodeConfigMappings.syncMode),
     configToFlag('--snapshots-urls', sharedNodeConfigMappings.snapshotsUrls),
