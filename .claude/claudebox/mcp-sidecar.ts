@@ -144,6 +144,14 @@ function logActivity(type: string, text: string): void {
 let lastStatus = "";
 let respondToUserCalled = false;
 
+// Progress timeline for GitHub comment — each entry is { ts, type, text, msgHash }
+const progressTimeline: Array<{ ts: string; type: "status" | "response"; text: string; msgHash: string }> = [];
+
+function addProgress(type: "status" | "response", text: string): void {
+  const msgHash = Buffer.from(text.slice(0, 50)).toString("base64url").slice(0, 12);
+  progressTimeline.push({ ts: new Date().toISOString(), type, text, msgHash });
+}
+
 // ── Claude transcript poller ────────────────────────────────────
 // Polls the Claude JSONL transcript and surfaces assistant text messages
 // to the activity log as "context" entries (shown differently from direct replies).
@@ -221,20 +229,45 @@ function buildArtifactsSlack(): string {
   return lines.join("\n");
 }
 
-function buildGhBody(status: string): string {
-  // Truncate for GitHub comments — link to status page for full content
-  let truncated = status;
-  if (status.length > 500) {
-    truncated = status.slice(0, 500) + "…";
-    if (statusPageUrl) truncated += ` [full details](${statusPageUrl})`;
+function buildGhBody(_latestStatus: string): string {
+  const lines: string[] = [];
+
+  // Header with status page link
+  if (statusPageUrl) {
+    lines.push(`**[Live status](${statusPageUrl})**`);
+    lines.push("");
   }
-  let body = truncated;
+
+  // Progress timeline — each entry links to the specific message on the status page
+  if (progressTimeline.length > 0) {
+    for (const entry of progressTimeline) {
+      const time = new Date(entry.ts).toISOString().slice(11, 16); // HH:MM
+      const icon = entry.type === "response" ? "💬" : "⏳";
+      // Truncate long entries for GitHub, link to status page for full text
+      let text = entry.text;
+      if (text.length > 200) {
+        text = text.slice(0, 200) + "…";
+      }
+      const link = statusPageUrl ? ` [↗](${statusPageUrl}?msg=${entry.msgHash})` : "";
+      lines.push(`${icon} \`${time}\` ${text}${link}`);
+    }
+  }
+
+  // Artifacts section
   const artifacts = buildArtifactsGh();
-  if (artifacts) body += "\n\n---\n" + artifacts;
-  // Status page link first (preferred), fall back to raw log
-  if (statusPageUrl) body += `\n\n[Status page](${statusPageUrl})`;
-  else if (SESSION_META.log_url) body += `\n\n[View log](${SESSION_META.log_url})`;
-  return body;
+  if (artifacts) {
+    lines.push("");
+    lines.push("---");
+    lines.push(artifacts);
+  }
+
+  // Footer
+  if (!statusPageUrl && SESSION_META.log_url) {
+    lines.push("");
+    lines.push(`[View log](${SESSION_META.log_url})`);
+  }
+
+  return lines.join("\n");
 }
 
 function buildSlackText(status: string): string {
@@ -305,6 +338,7 @@ function createMcpServerWithTools(): McpServer {
     { status: z.string().describe("Status text") },
     async ({ status }) => {
       logActivity("status", status);
+      addProgress("status", status);
       const results = await updateRootComment(status);
       return { content: [{ type: "text", text: results.length ? results.join("\n") : "No channels configured" }] };
     });
@@ -329,6 +363,7 @@ NEVER post tables, bullet lists, reports, code blocks, or multi-paragraph text h
     async ({ message }) => {
       respondToUserCalled = true;
       logActivity("response", message);
+      addProgress("response", message);
       const results: string[] = [];
 
       if (QUIET_MODE) {
@@ -1344,11 +1379,11 @@ process.on("SIGTERM", async () => {
     // respond_to_user was never called — post the summary as final status
     console.log(`[Sidecar] respond_to_user not called — posting summary as final status`);
     logActivity("response", summary);
-    await updateRootComment(summary);
-  } else {
-    // respond_to_user was called — update final status with summary (not just "complete")
-    await updateRootComment(summary);
+    addProgress("response", summary);
   }
+  // Always add a completion marker and update the comment
+  addProgress("status", "Session completed");
+  await updateRootComment(summary);
 
   process.exit(0);
 });
