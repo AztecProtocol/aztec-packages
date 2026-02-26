@@ -45,9 +45,11 @@ async function collectSourceDirs(startDir: string): Promise<string[]> {
     }
     visited.add(absDir);
 
+    // Every dep is its own crate and every crate needs to have Nargo.toml defined in the root so we try to load it and
+    // error out if it's not the case.
     const tomlPath = join(absDir, 'Nargo.toml');
     const content = await readFile(tomlPath, 'utf-8').catch(() => {
-      throw new Error(`Nargo.toml not found in ${absDir}`);
+      throw new Error(`Incorrectly defined dependency. Nargo.toml not found in ${absDir}`);
     });
     const parsed = TOML.parse(content) as Record<string, any>;
 
