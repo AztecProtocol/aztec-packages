@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
