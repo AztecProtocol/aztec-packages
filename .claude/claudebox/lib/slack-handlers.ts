@@ -182,4 +182,26 @@ export function registerSlackHandlers(app: App, store: SessionStore, docker: Doc
     await ack({ text: `ClaudeBox starting: _${truncate(prompt)}_` });
     await startNewSession(client, channel, null, prompt, "", userName, store, docker, baseBranch, quiet, channelName);
   });
+
+  // ── :x: reaction → delete our message ─────────────────────────
+  app.event("reaction_added", async ({ event, client }) => {
+    if (event.reaction !== "x") return;
+    const item = event.item as any;
+    if (item.type !== "message") return;
+    try {
+      // Only delete messages posted by our bot
+      const info = await client.conversations.history({
+        channel: item.channel,
+        latest: item.ts,
+        inclusive: true,
+        limit: 1,
+      });
+      const msg = info.messages?.[0];
+      if (!msg || !msg.bot_id) return; // not our message
+      await client.chat.delete({ channel: item.channel, ts: item.ts });
+      console.log(`[REACTION] Deleted message ${item.ts} in ${item.channel} (reacted by ${event.user})`);
+    } catch (e: any) {
+      console.warn(`[REACTION] Failed to delete ${item.ts}: ${e.message}`);
+    }
+  });
 }
