@@ -313,6 +313,11 @@ export class SessionStore {
         const meta = JSON.parse(readFileSync(path, "utf-8"));
         if (meta.status !== "running") continue;
         const logId = basename(name, ".json");
+
+        // Don't reconcile sessions that just started — give containers time to spin up
+        const startedMs = meta.started ? new Date(meta.started).getTime() : 0;
+        if (startedMs && Date.now() - startedMs < 2 * 60_000) continue;
+
         const containerName = meta.container;
         if (!containerName) {
           meta.status = "cancelled";
