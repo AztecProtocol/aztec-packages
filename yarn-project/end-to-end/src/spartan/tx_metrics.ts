@@ -296,7 +296,7 @@ export class TxInclusionMetrics {
           value: stats.mean,
         },
         {
-          name: `${group}/median_inclusion`,
+          name: `${group}/p50_inclusion`,
           unit: 's',
           value: stats.median,
         },
