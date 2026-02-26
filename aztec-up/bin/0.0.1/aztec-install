@@ -51,11 +51,12 @@ function title {
   echo -e "Installing version: ${bold}${g}$VERSION${r}"
   echo
   echo -e "This install script will install the following and update your PATH if necessary:"
-  echo -e "  ${bold}${g}nargo${r}        - the version of the noir programming language compatible with this version of aztec."
-  echo -e "  ${bold}${g}bb${r}           - the version of the barretenberg proving backend compatible with this version of aztec."
-  echo -e "  ${bold}${g}aztec${r}        - a collection of tools to compile and test contracts, to launch subsystems and interact with the aztec network."
-  echo -e "  ${bold}${g}aztec-up${r}     - a tool to install and manage aztec toolchain versions."
-  echo -e "  ${bold}${g}aztec-wallet${r} - our minimalistic CLI wallet"
+  echo -e "  ${bold}${g}nargo${r}          - the version of the noir programming language compatible with this version of aztec."
+  echo -e "  ${bold}${g}noir-profiler${r}  - a sampling profiler for analyzing and visualizing Noir programs."
+  echo -e "  ${bold}${g}bb${r}             - the version of the barretenberg proving backend compatible with this version of aztec."
+  echo -e "  ${bold}${g}aztec${r}          - a collection of tools to compile and test contracts, to launch subsystems and interact with the aztec network."
+  echo -e "  ${bold}${g}aztec-up${r}       - a tool to install and manage aztec toolchain versions."
+  echo -e "  ${bold}${g}aztec-wallet${r}   - our minimalistic CLI wallet"
   echo
   read -p "Do you wish to continue? (y/n) " -n 1 -r
   echo
