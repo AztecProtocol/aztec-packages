@@ -61,7 +61,7 @@ const R = "repos/AztecProtocol/aztec-packages";
 const GH_WHITELIST: Array<{ method: string; pattern: RegExp }> = [
   // PRs
   { method: "GET",   pattern: new RegExp(`^${R}/pulls(\\?.*)?$`) },
-  { method: "GET",   pattern: new RegExp(`^${R}/pulls/\\d+(/files)?$`) },
+  { method: "GET",   pattern: new RegExp(`^${R}/pulls/\\d+(/files|/reviews|/comments|/requested_reviewers)?$`) },
   { method: "POST",  pattern: new RegExp(`^${R}/pulls$`) },
   { method: "PATCH", pattern: new RegExp(`^${R}/pulls/\\d+$`) },
   // Labels
