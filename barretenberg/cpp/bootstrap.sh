@@ -408,27 +408,8 @@ function test_cmds {
 
 # This is not called in ci. It is just for a developer to run the tests.
 function test {
-  set -x
   echo_header "bb test"
-  test_cmds > /tmp/test_cmds
-  echo "test_cmds line count: $(wc -l < /tmp/test_cmds)"
-  set +e
-  filter_test_cmds < /tmp/test_cmds > /tmp/out
-  filter_exit=$?
-  set -e
-  echo "filter_test_cmds exit: $filter_exit"
-  echo "filter output line count: $(wc -l < /tmp/out)"
-  cat /tmp/out
-  set +o pipefail
-  set +e
-  cat /tmp/out | parallelize
-  _ps=("${PIPESTATUS[@]}")
-  cat_exit=${_ps[0]}
-  par_exit=${_ps[1]}
-  set -e
-  set -o pipefail
-  echo "cat exit: $cat_exit, parallelize exit: $par_exit"
-  [ "${par_exit:-0}" -ne 0 ] && exit $par_exit || true
+  test_cmds | filter_test_cmds | parallelize
 }
 
 function build_bench {
