@@ -6,8 +6,8 @@
  * Both containers mount the same /workspace and /reference-repo/.git.
  *
  * Tools: github_api (whitelisted), slack_api (whitelisted), create_pr,
- *        linear_get_issue, linear_create_issue, session_status, get_context,
- *        ci_failures.
+ *        create_gist, linear_get_issue, linear_create_issue, session_status,
+ *        get_context, ci_failures.
  *
  * Auth: token embedded in URL path (/mcp/<token>).
  */
@@ -48,6 +48,28 @@ const SESSION_META = {
   slack_message_ts: process.env.CLAUDEBOX_SLACK_MESSAGE_TS || "",
   base_branch: process.env.CLAUDEBOX_BASE_BRANCH || "next",
 };
+
+// ── Parse Slack permalink from link if no Slack coords provided ──
+// Format: https://aztecprotocol.slack.com/archives/CHANNEL_ID/pTIMESTAMP
+function parseSlackPermalink(link: string): { channel: string; thread_ts: string } | null {
+  const m = link.match(/slack\.com\/archives\/([A-Z0-9]+)\/p(\d+)/);
+  if (!m) return null;
+  // Slack timestamps have a dot: first 10 digits are seconds, rest are microseconds
+  const raw = m[2];
+  const ts = raw.length > 10 ? raw.slice(0, 10) + "." + raw.slice(10) : raw;
+  return { channel: m[1], thread_ts: ts };
+}
+
+// If we have a Slack link but no channel/message coords, extract them from the permalink
+// and post a thread reply to claim a message we own for status updates
+if (SLACK_BOT_TOKEN && SESSION_META.link && !SESSION_META.slack_channel) {
+  const parsed = parseSlackPermalink(SESSION_META.link);
+  if (parsed) {
+    SESSION_META.slack_channel = parsed.channel;
+    SESSION_META.slack_thread_ts = parsed.thread_ts;
+    // We'll post our own reply in initSlackThreadReply() after the server starts
+  }
+}
 
 // ── Session URLs (for Slack links) ──────────────────────────────
 const CLAUDEBOX_HOST = process.env.CLAUDEBOX_HOST || "claudebox.work";
@@ -106,6 +128,10 @@ const GH_WHITELIST: Array<{ method: string; pattern: RegExp }> = [
   { method: "GET",   pattern: /^users\/[^/]+(\/.*)?$/ },
   // Search
   { method: "GET",   pattern: /^search\/(issues|users|code|repositories)(\?.*)?$/ },
+  // Gists
+  { method: "POST",  pattern: /^gists$/ },
+  { method: "PATCH", pattern: /^gists\/[a-f0-9]+$/ },
+  { method: "GET",   pattern: /^gists(\/[a-f0-9]+)?(\?.*)?$/ },
 ];
 
 function isGhAllowed(method: string, path: string): boolean {
@@ -115,7 +141,7 @@ function isGhAllowed(method: string, path: string): boolean {
 
 // ── Slack API whitelist ─────────────────────────────────────────
 
-const SLACK_WHITELIST = new Set(["chat.postMessage", "chat.update", "chat.delete", "reactions.add", "conversations.replies", "conversations.history"]);
+const SLACK_WHITELIST = new Set(["chat.postMessage", "chat.update", "chat.delete", "reactions.add", "conversations.replies", "conversations.history", "conversations.open", "users.list"]);
 
 // ── Git helper (runs locally in sidecar container) ──────────────
 
@@ -140,16 +166,31 @@ function logActivity(type: string, text: string): void {
   } catch {}
 }
 
-// ── Root comment state (accumulated across tool calls) ──────────
+// ── Root comment state (sectioned by MCP tool) ─────────────────
 let lastStatus = "";
 let respondToUserCalled = false;
 
-// Progress timeline for GitHub comment — each entry is { ts, type, text, msgHash }
-const progressTimeline: Array<{ ts: string; type: "status" | "response"; text: string; msgHash: string }> = [];
+// Each section is updated independently by its MCP tool
+const commentSections = {
+  // session_status: latest status line (replaced each call, not appended)
+  status: "" as string,
+  // session_status: history of status updates
+  statusLog: [] as Array<{ ts: string; text: string }>,
+  // respond_to_user: final response
+  response: "" as string,
+  // create_pr / update_pr: tracked PRs
+  // (uses trackedPRs map below)
+  // linear_create_issue: tracked issues
+  // (uses otherArtifacts below)
+};
 
 function addProgress(type: "status" | "response", text: string): void {
-  const msgHash = Buffer.from(text.slice(0, 50)).toString("base64url").slice(0, 12);
-  progressTimeline.push({ ts: new Date().toISOString(), type, text, msgHash });
+  if (type === "status") {
+    commentSections.status = text;
+    commentSections.statusLog.push({ ts: new Date().toISOString(), text });
+  } else if (type === "response") {
+    commentSections.response = text;
+  }
 }
 
 // ── Claude transcript poller ────────────────────────────────────
@@ -212,7 +253,8 @@ function buildArtifactsGh(): string {
   if (trackedPRs.size > 0) {
     lines.push("**Pull Requests**");
     for (const [num, pr] of trackedPRs) {
-      lines.push(`- ${pr.action === "created" ? "🆕" : "📝"} [#${num}: ${pr.title}](${pr.url})`);
+      const label = pr.action === "created" ? "Created" : "Updated";
+      lines.push(`- **${label}** [#${num}: ${pr.title}](${pr.url})`);
     }
   }
   if (otherArtifacts.length > 0) lines.push(...otherArtifacts);
@@ -222,8 +264,8 @@ function buildArtifactsGh(): string {
 function buildArtifactsSlack(): string {
   const lines: string[] = [];
   for (const [num, pr] of trackedPRs) {
-    const icon = pr.action === "created" ? ":new:" : ":pencil2:";
-    lines.push(`${icon} <${pr.url}|#${num}: ${pr.title}>`);
+    const label = pr.action === "created" ? "Created" : "Updated";
+    lines.push(`*${label}* <${pr.url}|#${num}: ${pr.title}>`);
   }
   if (otherArtifacts.length > 0) lines.push(...otherArtifacts);
   return lines.join("\n");
@@ -232,39 +274,44 @@ function buildArtifactsSlack(): string {
 function buildGhBody(_latestStatus: string): string {
   const lines: string[] = [];
 
-  // Header with status page link
-  if (statusPageUrl) {
-    lines.push(`**[Live status](${statusPageUrl})**`);
+  // ── Header: links ──
+  const links: string[] = [];
+  if (statusPageUrl) links.push(`[Live status](${statusPageUrl})`);
+  if (SESSION_META.log_url) links.push(`[Log](${SESSION_META.log_url})`);
+  if (links.length) lines.push(links.join(" · "));
+
+  // ── Section: Status (session_status) ──
+  if (commentSections.status) {
     lines.push("");
+    lines.push(`**Status:** ${commentSections.status}`);
   }
 
-  // Progress timeline — each entry links to the specific message on the status page
-  if (progressTimeline.length > 0) {
-    for (const entry of progressTimeline) {
-      const time = new Date(entry.ts).toISOString().slice(11, 16); // HH:MM
-      const icon = entry.type === "response" ? "💬" : "⏳";
-      // Truncate long entries for GitHub, link to status page for full text
+  // ── Section: Progress log (session_status history) ──
+  if (commentSections.statusLog.length > 1) {
+    lines.push("");
+    lines.push("<details><summary>Progress</summary>");
+    lines.push("");
+    for (const entry of commentSections.statusLog) {
+      const time = new Date(entry.ts).toISOString().slice(11, 16);
       let text = entry.text;
-      if (text.length > 200) {
-        text = text.slice(0, 200) + "…";
-      }
-      const link = statusPageUrl ? ` [↗](${statusPageUrl}?msg=${entry.msgHash})` : "";
-      lines.push(`${icon} \`${time}\` ${text}${link}`);
+      if (text.length > 200) text = text.slice(0, 200) + "…";
+      lines.push(`- \`${time}\` ${text}`);
     }
+    lines.push("");
+    lines.push("</details>");
   }
 
-  // Artifacts section
+  // ── Section: Response (respond_to_user) ──
+  if (commentSections.response) {
+    lines.push("");
+    lines.push(`**Response:** ${commentSections.response}`);
+  }
+
+  // ── Section: Artifacts (create_pr, update_pr, linear_create_issue) ──
   const artifacts = buildArtifactsGh();
   if (artifacts) {
     lines.push("");
-    lines.push("---");
     lines.push(artifacts);
-  }
-
-  // Footer
-  if (!statusPageUrl && SESSION_META.log_url) {
-    lines.push("");
-    lines.push(`[View log](${SESSION_META.log_url})`);
   }
 
   return lines.join("\n");
@@ -273,24 +320,16 @@ function buildGhBody(_latestStatus: string): string {
 function buildSlackText(status: string): string {
   const parts: string[] = [];
 
-  // Header: latest status
+  // Status
   parts.push(truncateForSlack(status));
 
-  // Include response entries from activity log
-  try {
-    if (existsSync(ACTIVITY_LOG)) {
-      const lines = readFileSync(ACTIVITY_LOG, "utf-8").split("\n").filter(l => l.trim());
-      for (const line of lines) {
-        try {
-          const entry = JSON.parse(line);
-          if (entry.type === "response") {
-            const text = entry.text.length > 200 ? entry.text.slice(0, 200) + "…" : entry.text;
-            parts.push(`> ${text}`);
-          }
-        } catch {}
-      }
-    }
-  } catch {}
+  // Response (from respond_to_user)
+  if (commentSections.response) {
+    const text = commentSections.response.length > 200
+      ? commentSections.response.slice(0, 200) + "…"
+      : commentSections.response;
+    parts.push(`> ${text}`);
+  }
 
   // Artifacts (PRs, issues)
   const artifacts = buildArtifactsSlack();
@@ -354,7 +393,7 @@ function createMcpServerWithTools(): McpServer {
       for (const [k, v] of Object.entries(SESSION_META)) {
         if (v) ctx[k] = v;
       }
-      ctx.tools = "respond_to_user, get_context, session_status, github_api, slack_api, create_pr, update_pr, ci_failures, linear_get_issue, linear_create_issue, record_stat";
+      ctx.tools = "respond_to_user, get_context, session_status, github_api, slack_api, create_pr, update_pr, create_gist, ci_failures, linear_get_issue, linear_create_issue, record_stat";
       return { content: [{ type: "text", text: JSON.stringify(ctx, null, 2) }] };
     });
 
@@ -371,18 +410,19 @@ function createMcpServerWithTools(): McpServer {
 
   // ── respond_to_user ───────────────────────────────────────────
   server.tool("respond_to_user",
-    `Send your final response to the user. Posts to Slack thread and/or GitHub comment. You MUST call this before ending.
+    `Send your final response to the user. Updates the Slack status message and GitHub comment in-place. You MUST call this before ending.
 
 CRITICAL — Keep your message to 1-2 SHORT sentences. For anything complex, print details to stdout (they appear in the log) and include a log link in your message.
 
 ALWAYS reference PRs and issues as full GitHub links (https://github.com/${REPO}/pull/123), never just "#123". This makes messages clickable in Slack.
 
+PRs you create/update are automatically surfaced in the Slack status message, GitHub comment, and status page — you do NOT need to mention them again in your response unless adding context.
+
 The log URL is in your context (get_context → log_url). Use it inline:
-- GOOD: "Fixed flaky test in https://github.com/${REPO}/pull/1234. Race condition in p2p layer."
+- GOOD: "Fixed flaky test — race condition in p2p layer."
 - GOOD: "Found 3 PRs needing manual backport — <LOG_URL|see full analysis>"
 - GOOD: "Build failed in yarn-project/pxe. <LOG_URL|error details>"
-- GOOD: "Created https://github.com/${REPO}/pull/5678 — changelog and test results in <LOG_URL|log>."
-- BAD: "Created PR #5678" (not clickable in Slack)
+- BAD: "Created PR #5678" (not clickable, and PR is already shown in artifacts)
 
 NEVER post tables, bullet lists, reports, code blocks, or multi-paragraph text here. Print verbose output to stdout and link to it.`,
     { message: z.string().describe("1-2 sentences MAX. Use full GitHub URLs for PRs/issues (https://github.com/AztecProtocol/aztec-packages/pull/123), not #123.") },
@@ -390,55 +430,11 @@ NEVER post tables, bullet lists, reports, code blocks, or multi-paragraph text h
       respondToUserCalled = true;
       logActivity("response", message);
       addProgress("response", message);
-      const results: string[] = [];
 
-      if (QUIET_MODE) {
-        // Quiet mode: fold response into root status comment instead of posting thread reply
-        const updateResults = await updateRootComment(message);
-        results.push(...updateResults);
-        if (!results.length) results.push("No channels configured — message printed to log only");
-        return { content: [{ type: "text", text: results.join("\n") }] };
-      }
-
-      if (SLACK_BOT_TOKEN && SESSION_META.slack_channel && SESSION_META.slack_thread_ts) {
-        try {
-          let text = truncateForSlack(message);
-          // Append status page link with message hash for highlighting
-          if (statusPageUrl) {
-            const msgHash = Buffer.from(message.slice(0, 50)).toString("base64url").slice(0, 12);
-            text += ` <${statusPageUrl}?msg=${msgHash}|log>`;
-          } else if (SESSION_META.log_url) {
-            text += ` <${SESSION_META.log_url}|log>`;
-          }
-          const r = await fetch("https://slack.com/api/chat.postMessage", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              channel: SESSION_META.slack_channel,
-              thread_ts: SESSION_META.slack_thread_ts,
-              text,
-            }),
-          });
-          const d = await r.json() as any;
-          results.push(d.ok ? "Slack reply posted" : `Slack: ${d.error}`);
-        } catch (e: any) { results.push(`Slack: ${e.message}`); }
-      }
-
-      if (GH_TOKEN && SESSION_META.run_comment_id) {
-        try {
-          const body = buildGhBody(message);
-          const r = await fetch(
-            `https://api.github.com/repos/${SESSION_META.repo}/issues/comments/${SESSION_META.run_comment_id}`,
-            {
-              method: "PATCH",
-              headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: "application/vnd.github.v3+json", "Content-Type": "application/json" },
-              body: JSON.stringify({ body }),
-            });
-          results.push(r.ok ? "GitHub comment updated" : `GitHub: ${r.status}`);
-        } catch (e: any) { results.push(`GitHub: ${e.message}`); }
-      }
-
-      return { content: [{ type: "text", text: results.length ? results.join("\n") : "No channels configured — message printed to log only" }] };
+      // Always update root comment in-place (Slack + GitHub)
+      const results = await updateRootComment(message);
+      if (!results.length) results.push("No channels configured — message printed to log only");
+      return { content: [{ type: "text", text: results.join("\n") }] };
     });
 
   // ── github_api ─────────────────────────────────────────────────
@@ -950,6 +946,43 @@ channel and thread_ts auto-injected from session if not provided.`,
       }
     });
 
+  // ── create_gist ──────────────────────────────────────────────────
+  server.tool("create_gist",
+    "Create a GitHub gist. Useful for sharing verbose output, logs, or large data that doesn't belong in a Slack message or PR description.",
+    {
+      description: z.string().describe("Short description of the gist"),
+      files: z.record(z.string()).describe("Map of filename → content, e.g. {\"output.log\": \"...\", \"analysis.md\": \"...\"}"),
+      public_gist: z.boolean().default(false).describe("Whether the gist is public (default: false/secret)"),
+    },
+    async ({ description, files, public_gist }) => {
+      if (!GH_TOKEN) return { content: [{ type: "text", text: "No GH_TOKEN" }], isError: true };
+
+      const gistFiles: Record<string, { content: string }> = {};
+      for (const [name, content] of Object.entries(files)) {
+        gistFiles[name] = { content };
+      }
+
+      try {
+        const res = await fetch("https://api.github.com/gists", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${GH_TOKEN}`,
+            Accept: "application/vnd.github.v3+json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ description, files: gistFiles, public: public_gist }),
+        });
+        const gist = await res.json() as any;
+        if (!res.ok)
+          return { content: [{ type: "text", text: `Gist failed: ${gist.message || JSON.stringify(gist)}` }], isError: true };
+
+        logActivity("artifact", `Gist: ${gist.html_url}`);
+        return { content: [{ type: "text", text: `${gist.html_url}\nID: ${gist.id}` }] };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `create_gist: ${e.message}` }], isError: true };
+      }
+    });
+
   return server;
 }
 
@@ -1337,8 +1370,53 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
   res.end(JSON.stringify({ error: "not found" }));
 });
 
+/** Claim a Slack message for status updates from a parsed permalink.
+ *  Try to update the linked message directly (we own it if it's a ClaudeBox message).
+ *  If that fails, post a thread reply we do own. */
+async function initSlackFromPermalink(): Promise<void> {
+  if (!SLACK_BOT_TOKEN || !SESSION_META.slack_channel || !SESSION_META.slack_thread_ts || SESSION_META.slack_message_ts) return;
+  const initText = buildSlackText("Starting…");
+  const headers = { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" };
+
+  // Try updating the linked message directly (works if the bot owns it)
+  try {
+    const r = await fetch("https://slack.com/api/chat.update", {
+      method: "POST", headers,
+      body: JSON.stringify({ channel: SESSION_META.slack_channel, ts: SESSION_META.slack_thread_ts, text: initText }),
+    });
+    const d = await r.json() as any;
+    if (d.ok) {
+      SESSION_META.slack_message_ts = SESSION_META.slack_thread_ts;
+      console.log(`[Sidecar] Updated linked message directly in ${SESSION_META.slack_channel}, ts=${SESSION_META.slack_thread_ts}`);
+      return;
+    }
+    console.log(`[Sidecar] Can't update linked message (${d.error}), posting thread reply`);
+  } catch (e: any) {
+    console.log(`[Sidecar] Can't update linked message (${e.message}), posting thread reply`);
+  }
+
+  // Fall back: post a thread reply we own
+  try {
+    const r = await fetch("https://slack.com/api/chat.postMessage", {
+      method: "POST", headers,
+      body: JSON.stringify({ channel: SESSION_META.slack_channel, thread_ts: SESSION_META.slack_thread_ts, text: initText }),
+    });
+    const d = await r.json() as any;
+    if (d.ok && d.ts) {
+      SESSION_META.slack_message_ts = d.ts;
+      console.log(`[Sidecar] Posted thread reply in ${SESSION_META.slack_channel}, ts=${d.ts}`);
+    } else {
+      console.error(`[Sidecar] Failed to post thread reply: ${d.error}`);
+    }
+  } catch (e: any) {
+    console.error(`[Sidecar] Failed to post thread reply: ${e.message}`);
+  }
+}
+
 httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(`[Sidecar] :${PORT} gh=${GH_TOKEN ? "yes" : "no"} slack=${SLACK_BOT_TOKEN ? "yes" : "no"} linear=${LINEAR_API_KEY ? "yes" : "no"} quiet=${QUIET_MODE ? "yes" : "no"} docker=${existsSync("/var/run/docker.sock") ? "yes" : "no"}`);
+  // If we parsed a Slack permalink, claim it (update directly or reply in thread)
+  initSlackFromPermalink();
   // Start polling Claude's JSONL transcript for assistant messages
   startTranscriptPoller();
 });
@@ -1394,12 +1472,68 @@ function buildCompletionSummary(): string {
   return parts.join(" | ");
 }
 
+/** DM the session author on Slack with a completion summary. */
+async function dmAuthorOnCompletion(): Promise<void> {
+  if (!SLACK_BOT_TOKEN || !SESSION_META.user) return;
+  try {
+    // Build a short summary with links
+    const parts: string[] = [];
+    if (commentSections.response) {
+      parts.push(commentSections.response);
+    } else {
+      parts.push("Session completed.");
+    }
+    // Add artifact links
+    for (const [num, pr] of trackedPRs) {
+      const label = pr.action === "created" ? "Created" : "Updated";
+      parts.push(`${label}: <${pr.url}|#${num}: ${pr.title}>`);
+    }
+    const links: string[] = [];
+    if (statusPageUrl) links.push(`<${statusPageUrl}|status>`);
+    if (SESSION_META.log_url) links.push(`<${SESSION_META.log_url}|log>`);
+    if (links.length) parts.push(links.join(" "));
+
+    // Open DM channel with the user (by username → need to look up user ID)
+    // SESSION_META.user is a display name; try to find Slack user by name
+    const searchResp = await fetch("https://slack.com/api/users.list?limit=200", {
+      headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}` },
+    });
+    const searchData = await searchResp.json() as any;
+    const slackUser = searchData.members?.find((m: any) =>
+      m.real_name === SESSION_META.user || m.name === SESSION_META.user || m.profile?.display_name === SESSION_META.user
+    );
+    if (!slackUser) {
+      console.log(`[Sidecar] Could not find Slack user for "${SESSION_META.user}", skipping DM`);
+      return;
+    }
+
+    const openResp = await fetch("https://slack.com/api/conversations.open", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ users: slackUser.id }),
+    });
+    const openData = await openResp.json() as any;
+    if (!openData.ok) {
+      console.log(`[Sidecar] Could not open DM: ${openData.error}`);
+      return;
+    }
+
+    await fetch("https://slack.com/api/chat.postMessage", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ channel: openData.channel.id, text: parts.join("\n") }),
+    });
+    console.log(`[Sidecar] DM'd ${SESSION_META.user} (${slackUser.id}) on completion`);
+  } catch (e: any) {
+    console.error(`[Sidecar] Failed to DM author: ${e.message}`);
+  }
+}
+
 process.on("SIGTERM", async () => {
   stopTranscriptPoller();
   httpServer.close();
 
   if (!respondToUserCalled) {
-    // respond_to_user was never called — extract summary from transcript for the activity log
     const summary = buildCompletionSummary();
     if (summary !== "Session completed") {
       logActivity("response", summary);
@@ -1407,12 +1541,15 @@ process.on("SIGTERM", async () => {
     }
   }
 
-  // Append completion marker to existing status header (don't overwrite it)
+  // Append completion marker to existing status
   const completionStatus = lastStatus
     ? `${lastStatus} — _completed_`
     : "_completed_";
   addProgress("status", "Session completed");
   await updateRootComment(completionStatus);
+
+  // DM the author with the final summary
+  await dmAuthorOnCompletion();
 
   process.exit(0);
 });
