@@ -105,8 +105,10 @@ TEST(fq2, TwistBCoefficient)
 
 TEST(fq2, InverseTwistFrobeniusTwistCoefficients)
 {
-    constexpr fq2 xi_q_minus_one_div_3{ Bn254Fq2Params::twist_mul_by_q_x_0, Bn254Fq2Params::twist_mul_by_q_x_1 };
-    constexpr fq2 xi_q_minus_one_div_2{ Bn254Fq2Params::twist_mul_by_q_y_0, Bn254Fq2Params::twist_mul_by_q_y_1 };
+    constexpr fq2 xi_q_minus_one_div_3{ Bn254Fq2Params::frobenius_on_twisted_curve_x_0,
+                                        Bn254Fq2Params::frobenius_on_twisted_curve_x_1 };
+    constexpr fq2 xi_q_minus_one_div_2{ Bn254Fq2Params::frobenius_on_twisted_curve_y_0,
+                                        Bn254Fq2Params::frobenius_on_twisted_curve_y_1 };
 
     fq2 expected_x = fq2{ fq(9), fq(1) }.pow((fq::modulus - 1) / 3); // \xi^((q-1)/3)
     fq2 expected_y = fq2{ fq(9), fq(1) }.pow((fq::modulus - 1) / 2); // \xi^((q-1)/2)
