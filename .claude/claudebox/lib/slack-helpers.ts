@@ -45,19 +45,15 @@ export async function updateSlackStatus(channel: string, messageTs: string, stat
     console.warn(`[WARN] Failed to read current Slack message for status update: ${e}`);
   }
 
-  let finalText: string;
-  if (currentText) {
-    // Don't rewrite — just tack on the status in italics
-    finalText = currentText + ` — _${status}_`;
-  } else {
-    finalText = `ClaudeBox _${status}_ <${logUrl}|log>`;
-    if (worktreeId) finalText += ` <${sessionUrl(worktreeId)}|status>`;
+  if (!currentText) {
+    console.warn(`[WARN] Could not read current Slack message — skipping status update to avoid overwriting sidecar content`);
+    return;
   }
 
   await fetch("https://slack.com/api/chat.update", {
     method: "POST",
     headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ channel, ts: messageTs, text: finalText }),
+    body: JSON.stringify({ channel, ts: messageTs, text: currentText + ` — _${status}_` }),
   });
 }
 
