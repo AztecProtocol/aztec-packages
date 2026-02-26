@@ -81,8 +81,23 @@ export class SequencerPublisherFactory {
     const rollup = this.deps.rollupContract;
     const slashingProposerContract = await rollup.getSlashingProposer();
 
+    const getNextPublisher = async (excludeAddresses: EthAddress[]): Promise<L1TxUtils | undefined> => {
+      const exclusionFilter: PublisherFilter<L1TxUtils> = (utils: L1TxUtils) => {
+        if (excludeAddresses.some(addr => addr.equals(utils.getSenderAddress()))) {
+          return false;
+        }
+        return filter(utils);
+      };
+      try {
+        return await this.deps.publisherManager.getAvailablePublisher(exclusionFilter);
+      } catch {
+        return undefined;
+      }
+    };
+
     const publisher = new SequencerPublisher(this.sequencerConfig, {
       l1TxUtils: l1Publisher,
+      getNextPublisher,
       telemetry: this.deps.telemetry,
       blobClient: this.deps.blobClient,
       rollupContract: this.deps.rollupContract,
