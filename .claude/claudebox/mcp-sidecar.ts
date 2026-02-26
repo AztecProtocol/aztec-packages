@@ -271,12 +271,38 @@ function buildGhBody(_latestStatus: string): string {
 }
 
 function buildSlackText(status: string): string {
-  let text = truncateForSlack(status);
+  const parts: string[] = [];
+
+  // Header: latest status
+  parts.push(truncateForSlack(status));
+
+  // Include response entries from activity log
+  try {
+    if (existsSync(ACTIVITY_LOG)) {
+      const lines = readFileSync(ACTIVITY_LOG, "utf-8").split("\n").filter(l => l.trim());
+      for (const line of lines) {
+        try {
+          const entry = JSON.parse(line);
+          if (entry.type === "response") {
+            const text = entry.text.length > 200 ? entry.text.slice(0, 200) + "…" : entry.text;
+            parts.push(`> ${text}`);
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+
+  // Artifacts (PRs, issues)
   const artifacts = buildArtifactsSlack();
-  if (artifacts) text += "\n" + artifacts;
-  if (SESSION_META.log_url) text += ` <${SESSION_META.log_url}|log>`;
-  if (statusPageUrl) text += ` <${statusPageUrl}|status>`;
-  return text;
+  if (artifacts) parts.push(artifacts);
+
+  // Links
+  const links: string[] = [];
+  if (SESSION_META.log_url) links.push(`<${SESSION_META.log_url}|log>`);
+  if (statusPageUrl) links.push(`<${statusPageUrl}|status>`);
+  if (links.length) parts.push(links.join(" "));
+
+  return parts.join("\n");
 }
 
 async function updateRootComment(status?: string): Promise<string[]> {
@@ -1372,18 +1398,21 @@ process.on("SIGTERM", async () => {
   stopTranscriptPoller();
   httpServer.close();
 
-  // Build a proper summary for the final status
-  const summary = buildCompletionSummary();
-
   if (!respondToUserCalled) {
-    // respond_to_user was never called — post the summary as final status
-    console.log(`[Sidecar] respond_to_user not called — posting summary as final status`);
-    logActivity("response", summary);
-    addProgress("response", summary);
+    // respond_to_user was never called — extract summary from transcript for the activity log
+    const summary = buildCompletionSummary();
+    if (summary !== "Session completed") {
+      logActivity("response", summary);
+      addProgress("response", summary);
+    }
   }
-  // Always add a completion marker and update the comment
+
+  // Append completion marker to existing status header (don't overwrite it)
+  const completionStatus = lastStatus
+    ? `${lastStatus} — _completed_`
+    : "_completed_";
   addProgress("status", "Session completed");
-  await updateRootComment(summary);
+  await updateRootComment(completionStatus);
 
   process.exit(0);
 });

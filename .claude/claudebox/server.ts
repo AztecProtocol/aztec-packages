@@ -12,6 +12,7 @@ import { App } from "@slack/bolt";
 import { WebSocketServer } from "ws";
 import {
   SLACK_BOT_TOKEN, SLACK_APP_TOKEN, HTTP_PORT, DOCKER_IMAGE, MAX_CONCURRENT,
+  SESSION_PAGE_USER, SESSION_PAGE_PASS,
 } from "./lib/config.ts";
 import { SessionStore } from "./lib/session-store.ts";
 import { DockerService } from "./lib/docker.ts";
@@ -63,11 +64,15 @@ async function main() {
   // ── HTTP server ──
   const httpServer = createHttpServer(store, docker, interactive);
 
-  // ── WebSocket upgrade ──
+  // ── WebSocket upgrade (requires basic auth) ──
   const wss = new WebSocketServer({ noServer: true });
   httpServer.on("upgrade", (req, socket, head) => {
     const m = req.url?.match(/^\/s\/([a-f0-9][\w-]+)\/ws$/);
     if (!m) { socket.destroy(); return; }
+    const auth = req.headers.authorization || "";
+    if (!auth.startsWith("Basic ")) { socket.destroy(); return; }
+    const [u, p] = Buffer.from(auth.slice(6), "base64").toString().split(":");
+    if (u !== SESSION_PAGE_USER || p !== SESSION_PAGE_PASS) { socket.destroy(); return; }
     wss.handleUpgrade(req, socket as any, head, (ws) => {
       interactive.handleWs(m[1], ws).catch((e) => {
         console.error(`[INTERACTIVE] WS error: ${e.message}`);

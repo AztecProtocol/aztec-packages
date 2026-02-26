@@ -279,16 +279,28 @@ const routes: Route[] = [
 
   // GET / — redirect to dashboard
   {
-    method: "GET", pattern: /^\/$/, auth: "basic",
+    method: "GET", pattern: /^\/$/, auth: "none",
     handler: async (_req, res) => {
       res.writeHead(302, { Location: "/dashboard" });
       res.end();
     },
   },
 
-  // GET /s/<id> — workspace status page (worktree ID, new log ID, or legacy hash)
+  // POST /auth-check — validate credentials without triggering browser popup
   {
-    method: "GET", pattern: /^\/s\/([a-f0-9][\w-]+)$/, auth: "basic",
+    method: "POST", pattern: /^\/auth-check$/, auth: "none",
+    handler: async (req, res) => {
+      if (checkBasicAuth(req)) {
+        json(res, 200, { ok: true });
+      } else {
+        json(res, 401, { ok: false, error: "invalid credentials" });
+      }
+    },
+  },
+
+  // GET /s/<id> — workspace status page (public)
+  {
+    method: "GET", pattern: /^\/s\/([a-f0-9][\w-]+)$/, auth: "none",
     handler: async (_req, res, params, { store }) => {
       const resolved = resolveSession(params[0], store);
       if (!resolved) { res.writeHead(404, { "Content-Type": "text/plain" }); res.end("Session not found"); return; }

@@ -33,27 +33,60 @@ export async function getThreadContext(client: any, channel: string, threadTs: s
   }
 }
 
-export async function updateSlackStatus(channel: string, messageTs: string, status: string, logUrl: string, worktreeId?: string): Promise<void> {
-  let currentText = "";
-  try {
-    const r = await fetch(`https://slack.com/api/conversations.history?channel=${channel}&oldest=${messageTs}&latest=${messageTs}&inclusive=true&limit=1`, {
-      headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}` },
-    });
-    const d = await r.json() as any;
-    if (d.ok && d.messages?.[0]?.text) currentText = d.messages[0].text;
-  } catch (e) {
-    console.warn(`[WARN] Failed to read current Slack message for status update: ${e}`);
+/** Build final Slack message from activity log — the single source of truth. */
+export function buildSlackStatusFromActivity(
+  activity: { ts: string; type: string; text: string }[],
+  prompt: string,
+  status: string,
+  logUrl: string,
+  worktreeId?: string,
+): string {
+  const parts: string[] = [];
+
+  // Header: prompt
+  if (prompt) {
+    parts.push(`ClaudeBox: _${truncate(prompt)}_`);
+  } else {
+    parts.push("ClaudeBox");
   }
 
-  if (!currentText) {
-    console.warn(`[WARN] Could not read current Slack message — skipping status update to avoid overwriting sidecar content`);
-    return;
+  // Response entries (direct replies — most important)
+  const responses = activity.filter(a => a.type === "response");
+  for (const r of responses) {
+    const text = r.text.length > 200 ? r.text.slice(0, 200) + "…" : r.text;
+    parts.push(`> ${text}`);
   }
+
+  // Artifacts (PRs, issues)
+  const artifacts = activity.filter(a => a.type === "artifact");
+  for (const a of artifacts) {
+    parts.push(a.text);
+  }
+
+  // Links
+  const links: string[] = [];
+  if (logUrl) links.push(`<${logUrl}|log>`);
+  if (worktreeId) links.push(`<${sessionUrl(worktreeId)}|status>`);
+  if (links.length) parts.push(links.join(" "));
+
+  // Final status
+  parts.push(`_${status}_`);
+
+  return parts.join("\n");
+}
+
+export async function updateSlackStatus(
+  channel: string, messageTs: string, status: string, logUrl: string,
+  worktreeId: string | undefined, store: SessionStore, prompt: string,
+): Promise<void> {
+  // Build from activity log — never read back from Slack
+  const activity = worktreeId ? store.readActivity(worktreeId).reverse() : []; // oldest first
+  const text = buildSlackStatusFromActivity(activity, prompt, status, logUrl, worktreeId);
 
   await fetch("https://slack.com/api/chat.update", {
     method: "POST",
     headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ channel, ts: messageTs, text: currentText + ` — _${status}_` }),
+    body: JSON.stringify({ channel, ts: messageTs, text }),
   });
 }
 
@@ -146,7 +179,7 @@ export async function startNewSession(
     }).then((exitCode) => {
       if (SLACK_BOT_TOKEN && messageTs && capturedLogUrl) {
         const statusSuffix = exitCode === 0 ? "completed" : `error (exit ${exitCode})`;
-        updateSlackStatus(channel, messageTs, statusSuffix, capturedLogUrl, capturedWorktreeId)
+        updateSlackStatus(channel, messageTs, statusSuffix, capturedLogUrl, capturedWorktreeId, store, prompt)
           .catch((e) => console.warn(`[WARN] Slack status update failed: ${e}`));
       }
     });
@@ -210,7 +243,7 @@ export async function startReplySession(
     }).then((exitCode) => {
       if (SLACK_BOT_TOKEN && messageTs && capturedLogUrl) {
         const statusSuffix = exitCode === 0 ? "completed" : `error (exit ${exitCode})`;
-        updateSlackStatus(channel, messageTs, statusSuffix, capturedLogUrl, capturedWorktreeId)
+        updateSlackStatus(channel, messageTs, statusSuffix, capturedLogUrl, capturedWorktreeId, store, message)
           .catch((e) => console.warn(`[WARN] Slack status update failed: ${e}`));
       }
     });
