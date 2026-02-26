@@ -1,0 +1,18 @@
+{
+  "prompt": "fix <https://aztecprotocol.slack.com/archives/C04BTJAA694/p1772061528744609>",
+  "user": "Adam Domurad",
+  "container": "claudebox-5554478a4d6c217b3c01e67e8d28f83e",
+  "sidecar": "claudebox-sidecar-5554478a4d6c217b3c01e67e8d28f83e",
+  "log_url": "http://ci.aztec-labs.com/5554478a4d6c217b3c01e67e8d28f83e",
+  "link": "",
+  "slack_channel": "D0AHB7CP7C1",
+  "slack_channel_name": "",
+  "slack_thread_ts": "1772070616.187759",
+  "claude_session_id": "dbfe3ce9-946a-445f-83a9-67ea909c80e8",
+  "worktree_id": "d9441073aae158ae",
+  "base_branch": "next",
+  "started": "2026-02-26T01:50:17.454Z",
+  "status": "interrupted",
+  "exit_code": 143,
+  "finished": "2026-02-26T01:51:46.515Z"
+}

@@ -249,6 +249,47 @@ const routes: Route[] = [
     },
   },
 
+  // POST /s/<hash>/resume — start a new Claude session in the same worktree
+  {
+    method: "POST", pattern: /^\/s\/([a-f0-9]{32})\/resume$/, auth: "basic",
+    handler: async (req, res, params, { store, docker }) => {
+      const session = store.findByHash(params[0]);
+      if (!session) { json(res, 404, { ok: false, message: "Session not found" }); return; }
+      if (session.status === "running") { json(res, 409, { ok: false, message: "Session is still running" }); return; }
+      if (!session.worktree_id) { json(res, 400, { ok: false, message: "No worktree to resume" }); return; }
+      if (!store.isWorktreeAlive(session.worktree_id)) { json(res, 400, { ok: false, message: "Workspace has been deleted" }); return; }
+      if (getActiveSessions() >= MAX_CONCURRENT) { json(res, 503, { ok: false, message: "At capacity" }); return; }
+
+      let body: any = {};
+      try { body = JSON.parse(await readBody(req)); } catch {}
+      const prompt = body.prompt || "Continue from where you left off.";
+
+      console.log(`[HTTP] POST /s/${params[0]}/resume worktree=${session.worktree_id} prompt=${truncate(prompt, 80)}`);
+
+      let responded = false;
+      docker.runContainerSession({
+        prompt,
+        userName: session.user || "web",
+        slackChannel: session.slack_channel || "",
+        slackChannelName: session.slack_channel_name || "",
+        slackThreadTs: session.slack_thread_ts || "",
+        worktreeId: session.worktree_id,
+        targetRef: session.base_branch ? `origin/${session.base_branch}` : undefined,
+      }, store, undefined, (logUrl) => {
+        if (!responded) {
+          responded = true;
+          json(res, 202, { ok: true, log_url: logUrl, status: "started" });
+        }
+      }).catch((e) => {
+        console.error(`[HTTP] Resume error: ${e}`);
+        if (!responded) {
+          responded = true;
+          json(res, 500, { ok: false, message: e.message });
+        }
+      });
+    },
+  },
+
   // GET /s/<hash>/cancel — redirect to session page (cancel is now a JS popup)
   {
     method: "GET", pattern: /^\/s\/([a-f0-9]{32})\/cancel$/, auth: "basic",

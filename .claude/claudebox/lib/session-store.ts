@@ -180,11 +180,11 @@ export class SessionStore {
           && !meta.auto_resumed;
 
         if (canResume) {
-          meta.status = "restart_pending";
+          meta.status = "interrupted";
           meta.exit_code = exitCode;
           meta.finished = new Date().toISOString();
           writeFileSync(path, JSON.stringify(meta, null, 2));
-          console.log(`[RECONCILE] ${logId}: running → restart_pending (exit=${exitCode}, age=${Math.round(ageMs / 60_000)}m)`);
+          console.log(`[RECONCILE] ${logId}: running → interrupted (exit=${exitCode}, age=${Math.round(ageMs / 60_000)}m)`);
         } else {
           meta.status = "cancelled";
           meta.exit_code = exitCode;

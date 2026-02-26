@@ -18,6 +18,7 @@ function statusClass(s: string): string {
   if (s === "completed") return "st-completed";
   if (s === "error") return "st-error";
   if (s === "cancelled") return "st-cancelled";
+  if (s === "interrupted") return "st-interrupted";
   return "st-unknown";
 }
 
@@ -33,6 +34,7 @@ a{color:#539bf5;text-decoration:none}a:hover{text-decoration:underline}
 .st-completed{background:#1a3a4d;color:#4ac1e1}
 .st-error{background:#4d1a1a;color:#e14a4a}
 .st-cancelled{background:#3a3a3a;color:#a0a0a0}
+.st-interrupted{background:#4d3a1a;color:#e1a14a}
 .st-unknown{background:#2a2a3a;color:#888}
 code{background:#2a2a3e;padding:1px 5px;border-radius:3px;font-size:12px}
 .btn{padding:8px 18px;border:none;border-radius:4px;font-size:13px;cursor:pointer;font-weight:600;text-decoration:none;display:inline-block}
@@ -95,6 +97,10 @@ ${BASE_STYLES}
 .prompt-line{margin-top:6px;font-size:13px;color:#a0a0b0;max-height:40px;overflow:hidden;text-overflow:ellipsis}
 .warn-banner{background:#4d2a1a;border:1px solid #e94560;padding:8px 16px;font-size:13px;color:#e0a0a0;margin:8px 20px;border-radius:4px}
 .controls{padding:8px 20px;background:#16213e;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.resume-bar{padding:8px 20px;background:#0f1a2e;display:flex;align-items:center;gap:8px;border-bottom:1px solid #0f3460}
+.resume-bar input{flex:1;background:#1a1a2e;border:1px solid #2a3a5e;border-radius:4px;padding:8px 12px;color:#e0e0e0;font-size:13px;font-family:inherit}
+.resume-bar input::placeholder{color:#555}
+.resume-bar input:focus{outline:none;border-color:#539bf5}
 #timer{font-size:13px;color:#a0a0b0}
 .ka-btn{padding:4px 10px !important;font-size:11px !important}
 .ka-btn.active{background:#1a4d2e !important;color:#4ae168 !important}
@@ -131,8 +137,13 @@ ${isMultiSession ? `
     ${sessionRows}
   </table>
 </div>` : ""}
+${canJoin && worktreeAlive && worktreeId ? `
+<div class="resume-bar">
+  <input id="resume-prompt" type="text" placeholder="Continue from where you left off." />
+  <button id="resume-btn" class="btn btn-green" onclick="resumeSession()">Resume</button>
+</div>` : ""}
 <div class="controls">
-  <button id="join-btn" class="btn btn-green" ${canJoin && worktreeAlive ? "" : "disabled"}>${canJoin ? "Resume Session" : "Running…"}</button>
+  <button id="join-btn" class="btn btn-blue" ${canJoin && worktreeAlive ? "" : "disabled"}>${canJoin ? "Terminal" : "Running…"}</button>
   ${canCancel ? `<button id="cancel-btn" class="btn btn-red" onclick="cancelSession()">Cancel</button>` : ""}
   <span id="timer"></span>
   <button class="btn btn-dim ka-btn" data-min="15">15m</button>
@@ -217,6 +228,29 @@ ${isMultiSession ? `
       }).catch(function(){});
     }
   },120000);
+
+  window.resumeSession=function(){
+    var input=document.getElementById("resume-prompt");
+    var prompt=(input&&input.value.trim())||"Continue from where you left off.";
+    var btn=document.getElementById("resume-btn");
+    if(btn){btn.disabled=true;btn.textContent="Starting…";}
+    fetch("/s/"+HASH+"/resume",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({prompt:prompt})}).then(function(r){return r.json();}).then(function(d){
+      if(d.ok){
+        // Redirect to the new session's page
+        var newHash=d.log_url?d.log_url.split("/").pop():"";
+        if(newHash)location.href="/s/"+newHash;
+        else location.reload();
+      } else {
+        alert(d.message||"Could not resume session.");
+        if(btn){btn.disabled=false;btn.textContent="Resume";}
+      }
+    }).catch(function(e){alert("Error: "+e.message);if(btn){btn.disabled=false;btn.textContent="Resume";}});
+  };
+
+  // Allow Enter key in resume input
+  var resumeInput=document.getElementById("resume-prompt");
+  if(resumeInput){resumeInput.addEventListener("keydown",function(e){if(e.key==="Enter")resumeSession();});}
 
   window.cancelSession=function(){
     if(!confirm("Cancel this session? Running containers will be stopped.")) return;
