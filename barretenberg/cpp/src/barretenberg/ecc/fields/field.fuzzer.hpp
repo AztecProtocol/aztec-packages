@@ -962,7 +962,7 @@ template <typename Field> struct FieldVM {
                         assert(uint_internal_state[idx] == individual_uint_inverses[i]);
 
                         // Verify the inverse property: a * a^(-1) = 1
-                        Field product = original_elements[i] * field_internal_state[idx];
+                        [[maybe_unused]] Field product = original_elements[i] * field_internal_state[idx];
                         assert(product == Field::one());
 
                         // Verify uint arithmetic consistency

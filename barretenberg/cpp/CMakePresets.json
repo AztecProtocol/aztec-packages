@@ -214,9 +214,13 @@
     {
       "name": "fuzzing",
       "displayName": "Build with fuzzing",
-      "description": "Build default preset but with fuzzing enabled",
-      "inherits": "clang20",
+      "description": "Build default preset but with fuzzing enabled. Uses clang-20 directly (zig does not provide libFuzzer/libclang_rt.fuzzer).",
+      "inherits": "default",
       "binaryDir": "build-fuzzing",
+      "environment": {
+        "CC": "clang-20",
+        "CXX": "clang++-20"
+      },
       "cacheVariables": {
         "FUZZING": "ON",
         "AVM": "OFF",
@@ -229,15 +233,10 @@
       "name": "fuzzing-noasm",
       "displayName": "Build with fuzzing and ASM disabled",
       "description": "Build default preset but with fuzzing enabled and ASM disabled",
-      "inherits": "clang20",
+      "inherits": "fuzzing",
       "binaryDir": "build-fuzzing-noasm",
       "cacheVariables": {
-        "FUZZING": "ON",
-        "AVM": "OFF",
-        "AVM_TRANSPILER_LIB": "",
-        "DISABLE_ASM": "ON",
-        "CMAKE_BUILD_TYPE": "RelWithAssert",
-        "MULTITHREADING": "OFF"
+        "DISABLE_ASM": "ON"
       }
     },
     {
@@ -261,17 +260,14 @@
       "name": "fuzzing-coverage",
       "displayName": "Build with coverage flags",
       "description": "Build default preset but with fuzzing and coverage enabled",
-      "inherits": "clang20",
+      "inherits": "fuzzing",
       "binaryDir": "build-fuzzing-cov",
       "cacheVariables": {
-        "FUZZING": "ON",
-        "AVM": "OFF",
-        "DISABLE_ASM": "ON",
-        "AVM_TRANSPILER_LIB": "",
-        "CMAKE_BUILD_TYPE": "RelWithAssert",
-        "MULTITHREADING": "OFF"
+        "DISABLE_ASM": "ON"
       },
       "environment": {
+        "CC": "clang-20",
+        "CXX": "clang++-20",
         "CXXFLAGS": "-fprofile-instr-generate -fcoverage-mapping"
       }
     },
@@ -281,13 +277,19 @@
       "description": "Build default preset but with fuzzing and AVM enabled",
       "inherits": "clang20",
       "binaryDir": "build-fuzzing-avm",
+      "environment": {
+        "CC": "clang-20",
+        "CXX": "clang++-20"
+      },
       "cacheVariables": {
         "FUZZING": "ON",
         "DISABLE_ASM": "OFF",
         "AVM_TRANSPILER_LIB": "",
         "FUZZING_AVM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert",
-        "MULTITHREADING": "ON"
+        "MULTITHREADING": "ON",
+        "CMAKE_AR": null,
+        "CMAKE_RANLIB": null
       }
     },
     {

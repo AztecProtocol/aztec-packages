@@ -52,7 +52,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* Data, size_t Size)
     }
 
     // Compute native result
-    auto expected_output = crypto::sha256_block(h_init_native, block_native);
+    [[maybe_unused]] auto expected_output = crypto::sha256_block(h_init_native, block_native);
 
     // Build circuit with compression
     UltraCircuitBuilder builder;
