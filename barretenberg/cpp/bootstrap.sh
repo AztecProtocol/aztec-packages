@@ -501,6 +501,7 @@ case "$cmd" in
     build
     ;;
   "ci")
+    exit 124
     build
     test
     ;;
