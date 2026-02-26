@@ -77,21 +77,43 @@ export function workspacePageHTML(data: WorkspacePageData): string {
     return `<div class="${cls}"><a href="/s/${id}" class="link">${id.slice(0, 8)}</a> <span class="status-${s.status || "unknown"}">${s.status || "?"}${exitStr}</span> <span class="dim">${s.started ? timeAgo(s.started) : "\u2014"}</span> ${logLink}</div>`;
   }).join("\n");
 
-  // Activity as chat bubbles (with data-msg hash for deep-linking)
-  const chatBubbles = activity.slice(0, 50).map(a => {
+  // Build unified timeline: session runs + activity entries, sorted chronologically
+  type TimelineEntry = { ts: string; html: string };
+  const timeline: TimelineEntry[] = [];
+
+  // Session run markers
+  for (const s of sessions) {
+    const id = s._log_id || "";
+    const statusCls = s.status || "unknown";
+    const exitStr = s.exit_code != null ? ` exit=${s.exit_code}` : "";
+    const logLink = s.log_url ? ` <a href="${s.log_url}" target="_blank" class="link">log</a>` : "";
+    const t = s.started ? timeAgo(s.started) : "";
+    timeline.push({
+      ts: s.started || "",
+      html: `<div class="chat-run"><span class="run-marker">\u2500\u2500\u2500 Run ${esc(id.split("-").pop() || "1")} \u2500\u2500\u2500</span> <span class="status-${statusCls}">${s.status || "?"}${exitStr}</span>${logLink} <span class="dim">${t}</span></div>`,
+    });
+  }
+
+  // Activity entries
+  for (const a of activity.slice(0, 50)) {
     const text = esc(a.text.length > 500 ? a.text.slice(0, 500) + "\u2026" : a.text);
     const linked = text.replace(/(https?:\/\/[^\s&<]+)/g, '<a href="$1" target="_blank" class="link">$1</a>');
     const timeStr = a.ts ? timeAgo(a.ts) : "";
     const msgHash = Buffer.from(a.text.slice(0, 50)).toString("base64url").slice(0, 12);
+    let html: string;
     if (a.type === "response") {
-      return `<div class="chat-msg bot" data-msg="${msgHash}"><div class="chat-avatar">CB</div><div class="chat-bubble bot-bubble"><div class="chat-text">${linked}</div><div class="chat-time">${timeStr}</div></div></div>`;
+      html = `<div class="chat-msg bot" data-msg="${msgHash}"><div class="chat-avatar">CB</div><div class="chat-bubble bot-bubble"><div class="chat-text">${linked}</div><div class="chat-time">${timeStr}</div></div></div>`;
+    } else if (a.type === "artifact") {
+      html = `<div class="chat-msg bot" data-msg="${msgHash}"><div class="chat-avatar">CB</div><div class="chat-bubble artifact-bubble"><div class="chat-text">${linked}</div><div class="chat-time">${timeStr}</div></div></div>`;
+    } else {
+      html = `<div class="chat-status" data-msg="${msgHash}"><span class="dim">${timeStr}</span> ${linked}</div>`;
     }
-    if (a.type === "artifact") {
-      return `<div class="chat-msg bot" data-msg="${msgHash}"><div class="chat-avatar">CB</div><div class="chat-bubble artifact-bubble"><div class="chat-text">${linked}</div><div class="chat-time">${timeStr}</div></div></div>`;
-    }
-    // status
-    return `<div class="chat-status" data-msg="${msgHash}"><span class="dim">${timeStr}</span> ${linked}</div>`;
-  }).join("\n");
+    timeline.push({ ts: a.ts || "", html });
+  }
+
+  // Sort oldest first (conversation order)
+  timeline.sort((a, b) => (a.ts || "").localeCompare(b.ts || ""));
+  const chatBubbles = timeline.map(e => e.html).join("\n");
 
   return `<!DOCTYPE html>
 <html>
@@ -144,6 +166,8 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
 .artifact-bubble{background:#1a1a0a;border:1px solid #333020;color:#FAD979}
 .chat-time{font-size:10px;color:#555;margin-top:4px}
 .chat-status{text-align:center;font-size:11px;color:#555;padding:4px 0}
+.chat-run{text-align:center;font-size:12px;color:#666;padding:8px 0;border-top:1px solid #1a1a1a;border-bottom:1px solid #1a1a1a;margin:4px 0}
+.run-marker{color:#555;letter-spacing:1px}
 .msg-highlight .chat-bubble{border-color:#5FA7F1 !important;box-shadow:0 0 8px rgba(95,167,241,0.3)}
 .msg-highlight.chat-status{color:#5FA7F1}
 
@@ -153,10 +177,10 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
 .prompt-display .prompt-text{color:#ccc}
 
 /* Resume bar */
-.resume-bar{padding:8px 12px;border-bottom:1px solid #1a1a1a;display:flex;gap:8px}
-.resume-bar input{flex:1;background:#111;border:1px solid #222;border-radius:4px;padding:6px 10px;color:#ccc;font-family:inherit;font-size:13px}
-.resume-bar input:focus{outline:none;border-color:#5FA7F1}
-.resume-bar input::placeholder{color:#444}
+.resume-bar{padding:12px 16px;display:flex;gap:8px;align-items:flex-end}
+.resume-bar textarea{flex:1;background:#111;border:1px solid #222;border-radius:4px;padding:10px 12px;color:#ccc;font-family:inherit;font-size:13px;resize:vertical;min-height:80px}
+.resume-bar textarea:focus{outline:none;border-color:#5FA7F1}
+.resume-bar textarea::placeholder{color:#444}
 
 /* Controls bar */
 .controls{padding:8px 12px;border-top:1px solid #1a1a1a;display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0;background:#0d0d0d}
@@ -210,12 +234,12 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
 
     ${isMultiSession ? `<div class="sidebar-section"><div class="sidebar-label">Sessions (${sessions.length})</div>${sessionRows}</div>` : ""}
 
-    ${canJoin && worktreeAlive && worktreeId ? `<div class="resume-bar"><input id="resume-prompt" type="text" placeholder="Send a follow-up message\u2026" /><button id="resume-btn" class="btn btn-green" onclick="resumeSession()">Send</button></div>` : ""}
+    ${canJoin && worktreeAlive && worktreeId ? `<div class="resume-bar"><textarea id="resume-prompt" placeholder="Send a follow-up message\u2026" rows="4"></textarea><button id="resume-btn" class="btn btn-green" onclick="resumeSession()">Send</button></div>` : ""}
   </div>
 
   <!-- Main content: chat + terminal -->
   <div class="terminal-wrap">
-    ${activity.length > 0 ? `<div class="chat-area" id="chat-area">${chatBubbles}</div>` : ""}
+    ${chatBubbles ? `<div class="chat-area" id="chat-area">${chatBubbles}</div>` : ""}
     <div id="terminal-container"></div>
   </div>
 
@@ -351,7 +375,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
   };
 
   var resumeInput=document.getElementById("resume-prompt");
-  if(resumeInput){resumeInput.addEventListener("keydown",function(e){if(e.key==="Enter")resumeSession();});}
+  if(resumeInput){resumeInput.addEventListener("keydown",function(e){if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();resumeSession();}});}
 
   window.cancelSession=function(){
     if(!confirm("Cancel this session? Running containers will be stopped. (Disconnecting does NOT cancel.)")) return;
