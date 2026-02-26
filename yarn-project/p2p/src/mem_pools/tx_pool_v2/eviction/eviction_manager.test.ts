@@ -4,7 +4,7 @@ import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type TxMetaData, stubTxMetaValidationData } from '../tx_metadata.js';
+import { type TxMetaData, stubTxMetaData } from '../tx_metadata.js';
 import { EvictionManager } from './eviction_manager.js';
 import {
   EvictionEvent,
@@ -174,19 +174,7 @@ describe('EvictionManager', () => {
     let preAddRule: MockProxy<PreAddRule>;
     let poolAccess: MockProxy<PreAddPoolAccess>;
 
-    const createMeta = (txHash: string, priorityFee: bigint): TxMetaData => ({
-      txHash,
-      anchorBlockHeaderHash: '0x1234',
-      priorityFee,
-      feePayer: '0xfeepayer',
-      claimAmount: 0n,
-      feeLimit: 100n,
-      nullifiers: [`0x${txHash.slice(2)}null1`],
-      expirationTimestamp: 0n,
-      receivedAt: 0,
-      estimatedSizeBytes: 0,
-      data: stubTxMetaValidationData(),
-    });
+    const createMeta = (txHash: string, priorityFee: bigint): TxMetaData => stubTxMetaData(txHash, { priorityFee });
 
     beforeEach(() => {
       preAddRule = mock<PreAddRule>({ name: 'preAddRule' });
@@ -330,19 +318,7 @@ describe('EvictionManager', () => {
       const preAddRule2 = mock<PreAddRule>({ name: 'secondRule' });
       const poolAccess = mock<PreAddPoolAccess>();
 
-      const createMeta = (txHash: string, priorityFee: bigint): TxMetaData => ({
-        txHash,
-        anchorBlockHeaderHash: '0x1234',
-        priorityFee,
-        feePayer: '0xfeepayer',
-        claimAmount: 0n,
-        feeLimit: 100n,
-        nullifiers: [`0x${txHash.slice(2)}null1`],
-        expirationTimestamp: 0n,
-        receivedAt: 0,
-        estimatedSizeBytes: 0,
-        data: stubTxMetaValidationData(),
-      });
+      const createMeta = (txHash: string, priorityFee: bigint): TxMetaData => stubTxMetaData(txHash, { priorityFee });
 
       preAddRule1.check.mockRejectedValue(new Error('Rule failed'));
       preAddRule2.check.mockResolvedValue({

@@ -12,7 +12,6 @@ import type {
   IVCProofVerificationResult,
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import type { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx } from '@aztec/stdlib/tx';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -107,8 +106,7 @@ export async function createLibp2pNode(
  *
  *
  */
-export async function createTestLibP2PService<T extends P2PClientType>(
-  clientType: T,
+export async function createTestLibP2PService(
   boostrapAddrs: string[] = [],
   archiver: L2BlockSource & ContractDataSource,
   worldStateSynchronizer: WorldStateSynchronizer,
@@ -159,8 +157,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
   p2pNode.services.pubsub.score.params.appSpecificScore = (peerId: string) =>
     peerManager.shouldDisableP2PGossip(peerId) ? -Infinity : peerManager.getPeerScore(peerId);
 
-  return new LibP2PService<T>(
-    clientType,
+  return new LibP2PService(
     config,
     p2pNode as PubSubLibp2p,
     discoveryService,
