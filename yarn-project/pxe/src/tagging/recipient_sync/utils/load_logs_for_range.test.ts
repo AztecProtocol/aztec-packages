@@ -1,7 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { type ExtendedDirectionalAppTaggingSecret, SiloedTag, Tag } from '@aztec/stdlib/logs';
+import { type ExtendedDirectionalAppTaggingSecret, SiloedTag } from '@aztec/stdlib/logs';
 import { randomExtendedDirectionalAppTaggingSecret, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
 
@@ -20,9 +20,8 @@ describe('loadLogsForRange', () => {
 
   let aztecNode: MockProxy<AztecNode>;
 
-  async function computeSiloedTagForIndex(index: number) {
-    const tag = await Tag.compute({ extendedSecret: secret, index });
-    return SiloedTag.compute(tag, secret.app);
+  function computeSiloedTagForIndex(index: number) {
+    return SiloedTag.compute({ extendedSecret: secret, index });
   }
 
   function makeLog(txHash: TxHash, blockNumber: number, blockTimestamp: bigint, tag: SiloedTag) {

@@ -1,8 +1,8 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import type { ExtendedDirectionalAppTaggingSecret, PreTag, TxScopedL2Log } from '@aztec/stdlib/logs';
-import { SiloedTag, Tag } from '@aztec/stdlib/logs';
+import type { ExtendedDirectionalAppTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { SiloedTag } from '@aztec/stdlib/logs';
 
 import { getAllPrivateLogsByTags } from '../../get_all_logs_by_tags.js';
 
@@ -19,12 +19,9 @@ export async function loadLogsForRange(
   anchorBlockNumber: BlockNumber,
   anchorBlockHash: BlockHash,
 ): Promise<Array<{ log: TxScopedL2Log; taggingIndex: number }>> {
-  // Derive tags for the window
-  const preTags: PreTag[] = Array(end - start)
-    .fill(0)
-    .map((_, i) => ({ extendedSecret, index: start + i }));
-  const siloedTags = await Promise.all(preTags.map(preTag => Tag.compute(preTag))).then(tags =>
-    Promise.all(tags.map(tag => SiloedTag.compute(tag, extendedSecret.app))),
+  // Derive siloed tags for the window
+  const siloedTags = await Promise.all(
+    Array.from({ length: end - start }, (_, i) => SiloedTag.compute({ extendedSecret, index: start + i })),
   );
 
   // We use the utility function below to retrieve all logs for the tags across all pages, so we don't need to handle
@@ -35,7 +32,7 @@ export async function loadLogsForRange(
   const logsWithIndexes: Array<{ log: TxScopedL2Log; taggingIndex: number }> = [];
   for (let i = 0; i < logs.length; i++) {
     const logsForTag = logs[i];
-    const taggingIndex = preTags[i].index;
+    const taggingIndex = start + i;
     for (const log of logsForTag) {
       if (log.blockNumber <= anchorBlockNumber) {
         logsWithIndexes.push({ log, taggingIndex });
