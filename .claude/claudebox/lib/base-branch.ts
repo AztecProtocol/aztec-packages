@@ -38,14 +38,14 @@ export async function resolveBaseBranch(client: any, channelId: string): Promise
 /**
  * Resolve quiet mode.
  * - explicitQuiet=true/false → honor user keyword
- * - explicitQuiet=null → auto-detect: channels with >10 members default to quiet
+ * - explicitQuiet=null → auto-detect: quiet for all channels, verbose only in DMs/MPIMs
  */
 export async function resolveQuietMode(
   client: any, channelId: string, explicitQuiet: boolean | null
 ): Promise<boolean> {
   if (explicitQuiet !== null) return explicitQuiet;
-  const info = await getChannelInfo(client, channelId);
-  return info.numMembers > 10;
+  // DMs (D prefix) and group DMs are verbose by default; channels are quiet
+  return !channelId.startsWith("D");
 }
 
 /** Convert short branch name to git ref. */

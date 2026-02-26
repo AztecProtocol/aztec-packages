@@ -469,6 +469,7 @@ export class DockerService {
           `CLAUDEBOX_SLACK_THREAD_TS=${session.slack_thread_ts || ""}`,
           `CLAUDEBOX_HOST=${CLAUDEBOX_HOST}`,
           `CLAUDEBOX_BASE_BRANCH=${session.base_branch || "next"}`,
+          `CLAUDEBOX_QUIET=${!(session.slack_channel || "").startsWith("D") ? "1" : "0"}`,
         ],
         HostConfig: {
           NetworkMode: networkName,
