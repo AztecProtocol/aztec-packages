@@ -6,6 +6,18 @@
 
 namespace bb::avm2::simulation {
 
+/**
+ * @brief Verify that the given bytecode hashes to the expected public bytecode commitment.
+ *
+ * Encodes the bytecode as field elements, prepends a domain-separated length field,
+ * and hashes via Poseidon2. Asserts the result matches @p public_bytecode_commitment
+ * and emits a BytecodeHashingEvent for tracegen.
+ *
+ * @param bytecode_id Unique identifier for this bytecode in the trace.
+ * @param bytecode Raw bytecode bytes to hash.
+ * @param public_bytecode_commitment Expected hash to check against.
+ * @throws Assertion failure if the computed hash does not match @p public_bytecode_commitment.
+ */
 void BytecodeHasher::assert_public_bytecode_commitment(const BytecodeId& bytecode_id,
                                                        const std::vector<uint8_t>& bytecode,
                                                        const FF& public_bytecode_commitment)

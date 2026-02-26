@@ -169,6 +169,18 @@ void BytecodeTraceBuilder::process_decomposition(
                              C::bc_decomposition_windows_min_remaining_inv } });
 }
 
+/**
+ * @brief Process bytecode hashing events and populate the bc_hashing columns in the trace.
+ *  Corresponds to bc_hashing.pil.
+ *
+ *  For each bytecode, this function prepends a domain-separated length field to the bytecode
+ *  field elements, then lays out Poseidon2 hashing rounds (3 inputs per round). Padding fields
+ *  are added when the total field count is not a multiple of 3. The output hash equals the
+ *  bytecode_id and is propagated to every row of the hashing sub-trace.
+ *
+ * @param events The container of bytecode hashing events to process.
+ * @param trace The trace container.
+ */
 void BytecodeTraceBuilder::process_hashing(
     const simulation::EventEmitterInterface<simulation::BytecodeHashingEvent>::Container& events, TraceContainer& trace)
 {
