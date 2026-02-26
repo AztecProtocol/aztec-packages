@@ -47,21 +47,10 @@ export async function updateSlackStatus(channel: string, messageTs: string, stat
 
   let finalText: string;
   if (currentText) {
-    let lines = currentText.split("\n");
-    // Strip cancel link (session is done) and trailing ellipsis
-    lines[0] = lines[0].replace(/<[^>]*\|cancel>/g, "").trim();
-    lines[0] = lines[0].replace(/\.\.\.\s*$/, "").trim();
-    // Rename legacy "terminal" links to "status"
-    lines[0] = lines[0].replace(/\|terminal>/g, "|status>");
-    lines[0] += ` \u2014 *${status}*`;
-    if (!currentText.includes(logUrl)) lines[0] += ` <${logUrl}|log>`;
-    // Preserve or add status link
-    if (worktreeId && !lines[0].includes("|status>")) {
-      lines[0] += ` <${sessionUrl(worktreeId)}|status>`;
-    }
-    finalText = lines.join("\n");
+    // Don't rewrite — just tack on the status in italics
+    finalText = currentText + ` — _${status}_`;
   } else {
-    finalText = `ClaudeBox ${status} <${logUrl}|log>`;
+    finalText = `ClaudeBox _${status}_ <${logUrl}|log>`;
     if (worktreeId) finalText += ` <${sessionUrl(worktreeId)}|status>`;
   }
 
