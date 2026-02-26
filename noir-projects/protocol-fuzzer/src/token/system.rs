@@ -9,14 +9,13 @@ impl TryFrom<&TokenCommand> for WalletCommand {
     fn try_from(cmd: &TokenCommand) -> anyhow::Result<Self> {
         use TokenCommand::*;
         // authwit_nonce is always 0 because msg_sender == from in all commands.
-        let (verb, method, contract, from, args) = match cmd {
+        let (method, contract, from, args) = match cmd {
             MintPublic {
                 token,
                 amount,
                 from,
                 to,
             } => (
-                "send",
                 "mint_to_public",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -28,7 +27,6 @@ impl TryFrom<&TokenCommand> for WalletCommand {
                 from,
                 to,
             } => (
-                "send",
                 "mint_to_private",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -39,7 +37,6 @@ impl TryFrom<&TokenCommand> for WalletCommand {
                 amount,
                 from,
             } => (
-                "send",
                 "burn_public",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -54,7 +51,6 @@ impl TryFrom<&TokenCommand> for WalletCommand {
                 amount,
                 from,
             } => (
-                "send",
                 "burn_private",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -70,7 +66,6 @@ impl TryFrom<&TokenCommand> for WalletCommand {
                 amount,
                 from,
             } => (
-                "send",
                 "transfer_in_public",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -87,7 +82,6 @@ impl TryFrom<&TokenCommand> for WalletCommand {
                 amount,
                 from,
             } => (
-                "send",
                 "transfer_in_private",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -104,7 +98,6 @@ impl TryFrom<&TokenCommand> for WalletCommand {
                 amount,
                 from,
             } => (
-                "send",
                 "transfer_to_private",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -116,7 +109,6 @@ impl TryFrom<&TokenCommand> for WalletCommand {
                 amount,
                 from,
             } => (
-                "send",
                 "transfer_to_public",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -132,7 +124,6 @@ impl TryFrom<&TokenCommand> for WalletCommand {
                 from,
                 address,
             } => (
-                "simulate",
                 "balance_of_public",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -143,14 +134,12 @@ impl TryFrom<&TokenCommand> for WalletCommand {
                 from,
                 address,
             } => (
-                "simulate",
                 "balance_of_private",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
                 vec![format!("accounts:test{address}")],
             ),
             TotalSupply { token, from } => (
-                "simulate",
                 "total_supply",
                 format!("contracts:token{token}"),
                 format!("accounts:test{from}"),
@@ -159,7 +148,7 @@ impl TryFrom<&TokenCommand> for WalletCommand {
         };
 
         Ok(WalletCommand {
-            verb: verb.to_string(),
+            query: cmd.is_query(),
             method: method.to_string(),
             contract,
             from,

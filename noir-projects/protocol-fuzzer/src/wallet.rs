@@ -140,7 +140,8 @@ fn bridge_post(endpoint: &str, body: &serde_json::Value) -> anyhow::Result<serde
 pub(crate) type AccountId = usize;
 
 pub struct WalletCommand {
-    pub verb: String,
+    /// `true` for queries (simulate), `false` for mutations (send).
+    pub query: bool,
     pub method: String,
     pub contract: String,
     pub from: String,
@@ -170,7 +171,19 @@ pub fn check_connection() -> anyhow::Result<()> {
     }
 }
 
-/// Execute a wallet command and return stdout.
+/// Check whether an error is transient and worth retrying (e.g. sandbox reorgs
+/// triggered by concurrent transactions).
+fn is_transient_error(e: &anyhow::Error) -> bool {
+    let msg = e.to_string();
+    msg.contains("not found when querying world state")
+        || msg.contains("reorg has occurred")
+}
+
+/// Maximum number of automatic retries for transient errors.
+const MAX_RETRIES: usize = 2;
+
+/// Execute a wallet command and return stdout.  Retries automatically on
+/// transient sandbox errors (e.g. block-hash-not-found after a reorg).
 pub fn execute(cmd: &WalletCommand) -> anyhow::Result<String> {
     let book = ADDRESS_BOOK.lock().unwrap();
     let resolved_from = book.resolve(&cmd.from);
@@ -181,8 +194,9 @@ pub fn execute(cmd: &WalletCommand) -> anyhow::Result<String> {
         .ok_or_else(|| anyhow!("no artifact for contract {}", cmd.contract))?;
     drop(book);
 
+    let verb = if cmd.query { "simulate" } else { "send" };
     let body = json!({
-        "verb": cmd.verb,
+        "verb": verb,
         "method": cmd.method,
         "contract": resolved_contract,
         "from": resolved_from,
@@ -190,11 +204,26 @@ pub fn execute(cmd: &WalletCommand) -> anyhow::Result<String> {
         "artifact": artifact,
         "prove": prove_enabled(),
     });
-    debug!("bridge POST /execute {}", body);
-    let result = bridge_post("/execute", &body)?;
-    let stdout = result["stdout"].as_str().unwrap_or("").to_string();
-    debug!("bridge execute stdout: {stdout}");
-    Ok(stdout)
+
+    for attempt in 0..=MAX_RETRIES {
+        debug!("bridge POST /execute {}", body);
+        match bridge_post("/execute", &body) {
+            Ok(result) => {
+                let stdout = result["stdout"].as_str().unwrap_or("").to_string();
+                debug!("bridge execute stdout: {stdout}");
+                return Ok(stdout);
+            }
+            Err(e) if attempt < MAX_RETRIES && is_transient_error(&e) => {
+                log::warn!(
+                    "Transient error on {} {} (attempt {}/{}): {e}, retrying...",
+                    verb, cmd.method, attempt + 1, MAX_RETRIES
+                );
+                std::thread::sleep(Duration::from_secs(2));
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    unreachable!()
 }
 
 /// Import the 3 deterministic test accounts into the wallet.
@@ -261,6 +290,18 @@ pub fn deploy(
 
     debug!("bridge deploy stdout: {stdout}");
     Ok(stdout)
+}
+
+/// Execute multiple wallet commands in parallel using scoped threads.
+/// Returns results in the same order as the input commands.
+pub fn execute_many(cmds: &[WalletCommand]) -> Vec<anyhow::Result<String>> {
+    std::thread::scope(|s| {
+        let handles: Vec<_> = cmds.iter().map(|cmd| s.spawn(|| execute(cmd))).collect();
+        handles
+            .into_iter()
+            .map(|h| h.join().unwrap())
+            .collect()
+    })
 }
 
 // ---------------------------------------------------------------------------

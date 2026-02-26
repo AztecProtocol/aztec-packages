@@ -5,7 +5,7 @@ use arbitrary::{Arbitrary, Unstructured};
 use log::debug;
 
 use super::system::SideEffectSystem;
-use crate::smt;
+use crate::smt::{self, Batchable};
 use crate::wallet::{self, AccountId};
 
 pub(crate) type NoteValue = u128;
@@ -93,6 +93,18 @@ impl SideEffectCommand {
         }
     }
 
+    pub fn is_query(&self) -> bool {
+        match self {
+            Self::ViewNotesMany { .. } | Self::GetNotesMany { .. } => true,
+            Self::CreateNote { .. }
+            | Self::CreateAndCompletePartialNote { .. }
+            | Self::DestroyNote { .. }
+            | Self::TestNoteInclusion { .. }
+            | Self::EmitNullifier { .. }
+            | Self::TestNullifierInclusion { .. } => false,
+        }
+    }
+
     pub(crate) fn via_parent(&self) -> bool {
         match self {
             Self::CreateNote { via_parent, .. }
@@ -102,6 +114,72 @@ impl SideEffectCommand {
             | Self::TestNullifierInclusion { via_parent, .. } => *via_parent,
             _ => false,
         }
+    }
+}
+
+impl Batchable for SideEffectCommand {
+    fn conflicts(&self, other: &Self) -> bool {
+        // Queries conflict with everything (flush before query).
+        if self.is_query() || other.is_query() {
+            return true;
+        }
+
+        // Extract (storage_slot, owner) for note operations.
+        let slot_owner = |cmd: &Self| -> Option<(StorageSlotId, AccountId)> {
+            match cmd {
+                Self::CreateNote {
+                    storage_slot,
+                    owner,
+                    ..
+                }
+                | Self::CreateAndCompletePartialNote {
+                    storage_slot,
+                    owner,
+                    ..
+                }
+                | Self::DestroyNote {
+                    storage_slot,
+                    owner,
+                    ..
+                }
+                | Self::TestNoteInclusion {
+                    storage_slot,
+                    owner,
+                    ..
+                } => Some((*storage_slot, *owner)),
+                _ => None,
+            }
+        };
+
+        // Extract nullifier value for nullifier operations.
+        let nullifier_val = |cmd: &Self| -> Option<NullifierValue> {
+            match cmd {
+                Self::EmitNullifier { nullifier, .. }
+                | Self::TestNullifierInclusion { nullifier, .. } => Some(*nullifier),
+                _ => None,
+            }
+        };
+
+        // Same (slot, owner) pair → conflict.
+        if let (Some(a), Some(b)) = (slot_owner(self), slot_owner(other)) {
+            if a == b {
+                return true;
+            }
+        }
+
+        // Same nullifier value → conflict (EmitNullifier(x) vs EmitNullifier(x)
+        // or TestNullifierInclusion(x)).
+        if let (Some(a), Some(b)) = (nullifier_val(self), nullifier_val(other)) {
+            if a == b {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    fn to_wallet_command(&self) -> anyhow::Result<wallet::WalletCommand> {
+        wallet::WalletCommand::try_from(self)
     }
 }
 
@@ -549,6 +627,97 @@ impl smt::StateMachine for SideEffectMachine {
 mod tests {
     use super::*;
     use crate::smt::StateMachine;
+
+    // -- Batchable / conflict tests --
+
+    #[test]
+    fn same_slot_owner_conflicts() {
+        let a = SideEffectCommand::CreateNote {
+            value: 1, owner: 0, storage_slot: 5, from: 0, via_parent: false,
+        };
+        let b = SideEffectCommand::CreateNote {
+            value: 2, owner: 0, storage_slot: 5, from: 1, via_parent: false,
+        };
+        assert!(a.conflicts(&b));
+    }
+
+    #[test]
+    fn different_slot_no_conflict() {
+        let a = SideEffectCommand::CreateNote {
+            value: 1, owner: 0, storage_slot: 5, from: 0, via_parent: false,
+        };
+        let b = SideEffectCommand::CreateNote {
+            value: 2, owner: 0, storage_slot: 6, from: 0, via_parent: false,
+        };
+        assert!(!a.conflicts(&b));
+    }
+
+    #[test]
+    fn different_owner_no_conflict() {
+        let a = SideEffectCommand::CreateNote {
+            value: 1, owner: 0, storage_slot: 5, from: 0, via_parent: false,
+        };
+        let b = SideEffectCommand::CreateNote {
+            value: 2, owner: 1, storage_slot: 5, from: 0, via_parent: false,
+        };
+        assert!(!a.conflicts(&b));
+    }
+
+    #[test]
+    fn same_nullifier_conflicts() {
+        let a = SideEffectCommand::EmitNullifier {
+            nullifier: 42, from: 0, via_parent: false,
+        };
+        let b = SideEffectCommand::EmitNullifier {
+            nullifier: 42, from: 1, via_parent: false,
+        };
+        assert!(a.conflicts(&b));
+    }
+
+    #[test]
+    fn different_nullifier_no_conflict() {
+        let a = SideEffectCommand::EmitNullifier {
+            nullifier: 42, from: 0, via_parent: false,
+        };
+        let b = SideEffectCommand::EmitNullifier {
+            nullifier: 99, from: 0, via_parent: false,
+        };
+        assert!(!a.conflicts(&b));
+    }
+
+    #[test]
+    fn emit_and_test_nullifier_same_value_conflicts() {
+        let a = SideEffectCommand::EmitNullifier {
+            nullifier: 42, from: 0, via_parent: false,
+        };
+        let b = SideEffectCommand::TestNullifierInclusion {
+            nullifier: 42, from: 1, via_parent: false,
+        };
+        assert!(a.conflicts(&b));
+    }
+
+    #[test]
+    fn note_and_nullifier_no_conflict() {
+        let a = SideEffectCommand::CreateNote {
+            value: 1, owner: 0, storage_slot: 5, from: 0, via_parent: false,
+        };
+        let b = SideEffectCommand::EmitNullifier {
+            nullifier: 42, from: 0, via_parent: false,
+        };
+        assert!(!a.conflicts(&b));
+    }
+
+    #[test]
+    fn query_conflicts_with_everything() {
+        let query = SideEffectCommand::ViewNotesMany {
+            owner: 0, storage_slot: 1, active_or_nullified: false, offset: 0, from: 0,
+        };
+        let send = SideEffectCommand::CreateNote {
+            value: 1, owner: 1, storage_slot: 2, from: 0, via_parent: false,
+        };
+        assert!(query.conflicts(&send));
+        assert!(send.conflicts(&query));
+    }
 
     fn make_state() -> SideEffectState {
         SideEffectState {

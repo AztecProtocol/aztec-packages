@@ -14,7 +14,7 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
 
     fn try_from(cmd: &SideEffectCommand) -> anyhow::Result<Self> {
         use SideEffectCommand::*;
-        let (verb, method, from, args) = match cmd {
+        let (method, from, args) = match cmd {
             CreateNote {
                 value,
                 owner,
@@ -22,7 +22,6 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
                 from,
                 ..
             } => (
-                "send",
                 "call_create_note",
                 format!("accounts:test{from}"),
                 vec![
@@ -37,7 +36,6 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
                 value,
                 from,
             } => (
-                "send",
                 "call_create_and_complete_partial_note",
                 format!("accounts:test{from}"),
                 vec![
@@ -53,7 +51,6 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
                 offset,
                 from,
             } => (
-                "simulate",
                 "call_view_notes_many",
                 format!("accounts:test{from}"),
                 vec![
@@ -70,7 +67,6 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
                 offset,
                 from,
             } => (
-                "simulate",
                 "call_get_notes_many",
                 format!("accounts:test{from}"),
                 vec![
@@ -86,7 +82,6 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
                 from,
                 ..
             } => (
-                "send",
                 "call_destroy_note",
                 format!("accounts:test{from}"),
                 vec![format!("accounts:test{owner}"), format!("{storage_slot}")],
@@ -97,7 +92,6 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
                 from,
                 ..
             } => (
-                "send",
                 "test_note_inclusion",
                 format!("accounts:test{from}"),
                 vec![format!("accounts:test{owner}"), format!("{storage_slot}")],
@@ -105,7 +99,6 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
             EmitNullifier {
                 nullifier, from, ..
             } => (
-                "send",
                 "emit_nullifier",
                 format!("accounts:test{from}"),
                 vec![format!("{nullifier}")],
@@ -113,7 +106,6 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
             TestNullifierInclusion {
                 nullifier, from, ..
             } => (
-                "send",
                 "test_nullifier_inclusion",
                 format!("accounts:test{from}"),
                 vec![format!("{nullifier}")],
@@ -131,7 +123,7 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
         };
 
         Ok(WalletCommand {
-            verb: verb.to_string(),
+            query: cmd.is_query(),
             method,
             contract: contract.to_string(),
             from,

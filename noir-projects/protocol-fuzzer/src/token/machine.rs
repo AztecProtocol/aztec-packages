@@ -5,7 +5,7 @@ use arbitrary::{Arbitrary, Unstructured};
 use log::debug;
 
 use super::system::TokenSystem;
-use crate::smt;
+use crate::smt::{self, Batchable};
 use crate::wallet::{self, AccountId};
 
 pub(crate) type TokenId = usize;
@@ -97,6 +97,55 @@ pub enum TokenCommand {
         amount: TokenAmount,
         from: AccountId,
     },
+}
+
+impl TokenCommand {
+    pub fn is_query(&self) -> bool {
+        match self {
+            Self::BalanceOfPublic { .. }
+            | Self::BalanceOfPrivate { .. }
+            | Self::TotalSupply { .. } => true,
+            Self::MintPublic { .. }
+            | Self::MintPrivate { .. }
+            | Self::BurnPublic { .. }
+            | Self::BurnPrivate { .. }
+            | Self::TransferPublic { .. }
+            | Self::TransferPrivate { .. }
+            | Self::TransferPublicToPrivate { .. }
+            | Self::TransferPrivateToPublic { .. } => false,
+        }
+    }
+
+    fn token_id(&self) -> TokenId {
+        match self {
+            Self::MintPublic { token, .. }
+            | Self::MintPrivate { token, .. }
+            | Self::BurnPublic { token, .. }
+            | Self::BurnPrivate { token, .. }
+            | Self::TransferPublic { token, .. }
+            | Self::TransferPrivate { token, .. }
+            | Self::TransferPublicToPrivate { token, .. }
+            | Self::TransferPrivateToPublic { token, .. }
+            | Self::BalanceOfPublic { token, .. }
+            | Self::BalanceOfPrivate { token, .. }
+            | Self::TotalSupply { token, .. } => *token,
+        }
+    }
+}
+
+impl Batchable for TokenCommand {
+    fn conflicts(&self, other: &Self) -> bool {
+        // Queries conflict with everything (flush before query).
+        if self.is_query() || other.is_query() {
+            return true;
+        }
+        // Same token → conflict (shared total_supply).
+        self.token_id() == other.token_id()
+    }
+
+    fn to_wallet_command(&self) -> anyhow::Result<wallet::WalletCommand> {
+        wallet::WalletCommand::try_from(self)
+    }
 }
 
 type TokenAmount = u128;
@@ -521,5 +570,32 @@ impl smt::StateMachine for TokenMachine {
         _post_system: &Self::System,
     ) -> bool {
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn same_token_conflicts() {
+        let a = TokenCommand::MintPublic { token: 0, to: 0, amount: 100, from: 0 };
+        let b = TokenCommand::TransferPublic { token: 0, to: 1, amount: 50, from: 0 };
+        assert!(a.conflicts(&b));
+    }
+
+    #[test]
+    fn different_tokens_no_conflict() {
+        let a = TokenCommand::MintPublic { token: 0, to: 0, amount: 100, from: 0 };
+        let b = TokenCommand::MintPublic { token: 1, to: 0, amount: 100, from: 0 };
+        assert!(!a.conflicts(&b));
+    }
+
+    #[test]
+    fn query_conflicts_with_send() {
+        let query = TokenCommand::BalanceOfPublic { token: 1, from: 0, address: 0 };
+        let send = TokenCommand::MintPublic { token: 0, to: 0, amount: 100, from: 0 };
+        assert!(query.conflicts(&send));
+        assert!(send.conflicts(&query));
     }
 }

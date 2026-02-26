@@ -35,6 +35,9 @@ struct CommonArgs {
     /// URL of the bridge server.
     #[arg(long, default_value = "http://localhost:8089")]
     bridge_url: String,
+    /// Maximum number of non-conflicting sends to batch for parallel execution.
+    #[arg(long, default_value_t = 8)]
+    max_batch_size: usize,
 }
 
 #[derive(clap::Args, Debug)]
@@ -102,7 +105,14 @@ fn main() {
             machine.min_tokens = token_args.min_tokens;
             machine.max_tokens = token_args.max_tokens;
             log::debug!("Starting token machine with parameters: {:?}", &machine);
-            builder.run(|u| smt::run(u, &mut machine, token_args.common.max_steps))
+            builder.run(|u| {
+                smt::run_batched(
+                    u,
+                    &mut machine,
+                    token_args.common.max_steps,
+                    token_args.common.max_batch_size,
+                )
+            })
         }
         MachineCommand::SideEffect(ref se_args) => {
             let builder = make_builder(&se_args.common);
@@ -113,7 +123,14 @@ fn main() {
                 "Starting side-effect machine with parameters: {:?}",
                 &machine
             );
-            builder.run(|u| smt::run(u, &mut machine, se_args.common.max_steps))
+            builder.run(|u| {
+                smt::run_batched(
+                    u,
+                    &mut machine,
+                    se_args.common.max_steps,
+                    se_args.common.max_batch_size,
+                )
+            })
         }
     }
 }
