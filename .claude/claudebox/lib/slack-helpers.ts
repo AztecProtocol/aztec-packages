@@ -51,16 +51,18 @@ export async function updateSlackStatus(channel: string, messageTs: string, stat
     // Strip cancel link (session is done) and trailing ellipsis
     lines[0] = lines[0].replace(/<[^>]*\|cancel>/g, "").trim();
     lines[0] = lines[0].replace(/\.\.\.\s*$/, "").trim();
+    // Rename legacy "terminal" links to "status"
+    lines[0] = lines[0].replace(/\|terminal>/g, "|status>");
     lines[0] += ` \u2014 *${status}*`;
     if (!currentText.includes(logUrl)) lines[0] += ` <${logUrl}|log>`;
     // Preserve or add status link
-    if (hash && !currentText.includes("|status>") && !currentText.includes("|terminal>")) {
+    if (hash && !lines[0].includes("|status>")) {
       lines[0] += ` <${sessionUrl(hash)}|status>`;
     }
     finalText = lines.join("\n");
   } else {
     finalText = `ClaudeBox ${status} <${logUrl}|log>`;
-    if (hash) finalText += ` <${sessionUrl(hash)}|terminal>`;
+    if (hash) finalText += ` <${sessionUrl(hash)}|status>`;
   }
 
   await fetch("https://slack.com/api/chat.update", {
