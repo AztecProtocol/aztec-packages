@@ -73,7 +73,7 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
   private defaultAttributes;
   private meter: Meter;
 
-  private txAddedTimestamp: Map<bigint | string, number> = new Map<bigint | string, number>();
+  private mempoolItemAddedTimestamp: Map<bigint | string, number> = new Map<bigint | string, number>();
 
   constructor(
     telemetry: TelemetryClient,
@@ -114,24 +114,24 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
   }
 
   public transactionsAdded(transactions: Tx[]) {
-    transactions.forEach(tx => this.trackItemAdded(tx.txHash.toBigInt()));
+    transactions.forEach(tx => this.trackMempoolItemAdded(tx.txHash.toBigInt()));
   }
 
   public transactionsRemoved(hashes: Iterable<bigint> | Iterable<string>) {
     for (const hash of hashes) {
-      this.trackItemRemoved(BigInt(hash));
+      this.trackMempoolItemRemoved(BigInt(hash));
     }
   }
 
-  public trackItemAdded(key: bigint | string): void {
-    this.txAddedTimestamp.set(key, Date.now());
+  public trackMempoolItemAdded(key: bigint | string): void {
+    this.mempoolItemAddedTimestamp.set(key, Date.now());
   }
 
-  public trackItemRemoved(key: bigint | string): void {
+  public trackMempoolItemRemoved(key: bigint | string): void {
     const timestamp = Date.now();
-    const addedAt = this.txAddedTimestamp.get(key);
+    const addedAt = this.mempoolItemAddedTimestamp.get(key);
     if (addedAt !== undefined) {
-      this.txAddedTimestamp.delete(key);
+      this.mempoolItemAddedTimestamp.delete(key);
       if (addedAt < timestamp) {
         this.minedDelay.record(timestamp - addedAt);
       }
