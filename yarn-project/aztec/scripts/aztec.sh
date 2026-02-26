@@ -21,7 +21,7 @@ function aztec {
 
 case $cmd in
   test)
-    export LOG_LEVEL="${LOG_LEVEL:-error}"
+    export LOG_LEVEL="${LOG_LEVEL:-"error;trace:contract_log"}"
     aztec start --txe --port 8081 &
     server_pid=$!
     trap 'kill $server_pid &>/dev/null || true' EXIT
@@ -54,8 +54,12 @@ case $cmd in
 
     aztec start "$@"
     ;;
-  compile|new|init|flamegraph)
+  new|init)
     $script_dir/${cmd}.sh "$@"
+    ;;
+  flamegraph)
+    echo "Warning: 'aztec flamegraph' is deprecated. Use 'aztec profile flamegraph' instead." >&2
+    aztec profile flamegraph "$@"
     ;;
   *)
     aztec $cmd "$@"

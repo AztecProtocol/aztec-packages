@@ -1,4 +1,4 @@
-export * from './directional_app_tagging_secret.js';
+export * from './extended_directional_app_tagging_secret.js';
 export * from './pre_tag.js';
 export * from './contract_class_log.js';
 export * from './public_log.js';
@@ -12,5 +12,6 @@ export * from './shared_secret_derivation.js';
 export * from './tx_scoped_l2_log.js';
 export * from './message_context.js';
 export * from './debug_log.js';
+export * from './debug_log_store.js';
 export * from './tag.js';
 export * from './siloed_tag.js';

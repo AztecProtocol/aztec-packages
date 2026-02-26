@@ -8,12 +8,12 @@ import type {
   AppCapabilities,
   BatchResults,
   BatchedMethod,
+  ExecuteUtilityOptions,
   PrivateEvent,
   PrivateEventFilter,
   ProfileOptions,
   SendOptions,
   SimulateOptions,
-  SimulateUtilityOptions,
   Wallet,
   WalletCapabilities,
 } from '@aztec/aztec.js/wallet';
@@ -28,7 +28,7 @@ import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
-import type { AccessScopes } from '@aztec/pxe/client/lazy';
+import { type AccessScopes, displayDebugLogs } from '@aztec/pxe/client/lazy';
 import type { PXE, PackedPrivateEvent } from '@aztec/pxe/server';
 import {
   type ContractArtifact,
@@ -52,7 +52,7 @@ import {
   type TxExecutionRequest,
   type TxProfileResult,
   TxSimulationResult,
-  type UtilitySimulationResult,
+  type UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
@@ -348,6 +348,7 @@ export abstract class BaseWallet implements Wallet {
             feeOptions.gasSettings,
             blockHeader,
             opts.skipFeeEnforcement ?? true,
+            this.getContractName.bind(this),
           )
         : Promise.resolve([]),
       remainingCalls.length > 0
@@ -400,7 +401,27 @@ export abstract class BaseWallet implements Wallet {
 
     // Otherwise, wait for the full receipt (default behavior on wait: undefined)
     const waitOpts = typeof opts.wait === 'object' ? opts.wait : undefined;
-    return (await waitForTx(this.aztecNode, txHash, waitOpts)) as SendReturn<W>;
+    const receipt = await waitForTx(this.aztecNode, txHash, waitOpts);
+
+    // Display debug logs from public execution if present (served in test mode only)
+    if (receipt.debugLogs?.length) {
+      await displayDebugLogs(receipt.debugLogs, this.getContractName.bind(this));
+    }
+
+    return receipt as SendReturn<W>;
+  }
+
+  /**
+   * Resolves a contract address to a human-readable name via PXE, if available.
+   * @param address - The contract address to resolve.
+   */
+  protected async getContractName(address: AztecAddress): Promise<string | undefined> {
+    const instance = await this.pxe.getContractInstance(address);
+    if (!instance) {
+      return undefined;
+    }
+    const artifact = await this.pxe.getContractArtifact(instance.currentContractClassId);
+    return artifact?.name;
   }
 
   protected contextualizeError(err: Error, ...context: string[]): Error {
@@ -417,8 +438,8 @@ export abstract class BaseWallet implements Wallet {
     return err;
   }
 
-  simulateUtility(call: FunctionCall, opts: SimulateUtilityOptions): Promise<UtilitySimulationResult> {
-    return this.pxe.simulateUtility(call, { authwits: opts.authWitnesses, scopes: [opts.scope] });
+  executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions): Promise<UtilityExecutionResult> {
+    return this.pxe.executeUtility(call, { authwits: opts.authWitnesses, scopes: [opts.scope] });
   }
 
   async getPrivateEvents<T>(

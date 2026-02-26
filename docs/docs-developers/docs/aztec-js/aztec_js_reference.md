@@ -4830,7 +4830,7 @@ Helper type that represents all methods that can be batched.
 ```typescript
 export type BatchableMethods = Pick<
  Wallet,
- 'registerContract' | 'sendTx' | 'registerSender' | 'simulateUtility' | 'simulateTx'
+ 'registerContract' | 'sendTx' | 'registerSender' | 'executeUtility' | 'simulateTx'
 >;
 ```
 
@@ -5040,7 +5040,7 @@ export type Wallet = {
  secretKey?: Fr,
  ): Promise<ContractInstanceWithAddress>;
  simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult>;
- simulateUtility(call: FunctionCall, authwits?: AuthWitness[]): Promise<UtilitySimulationResult>;
+ executeUtility(call: FunctionCall, authwits?: AuthWitness[]): Promise<UtilityExecutionResult>;
  profileTx(exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult>;
  sendTx(exec: ExecutionPayload, opts: SendOptions): Promise<TxHash>;
  createAuthWit(from: AztecAddress, messageHashOrIntent: Fr | IntentInnerHash | CallIntent): Promise<AuthWitness>;
@@ -5210,15 +5210,15 @@ simulateTx(
 **Returns:**
 
 `Promise<TxSimulationResult>`
-##### simulateUtility
+##### executeUtility
 
 **Signature:**
 
 ```typescript
-simulateUtility(
+executeUtility(
   call: FunctionCall,
   authwits?: AuthWitness[]
-): Promise<UtilitySimulationResult>
+): Promise<UtilityExecutionResult>
 ```
 
 **Parameters:**
@@ -5228,7 +5228,7 @@ simulateUtility(
 
 **Returns:**
 
-`Promise<UtilitySimulationResult>`
+`Promise<UtilityExecutionResult>`
 ##### profileTx
 
 **Signature:**

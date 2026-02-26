@@ -285,6 +285,13 @@ export class RPCTranslator {
     const contractAddress = addressFromSingle(foreignContractAddress);
     const scope = addressFromSingle(foreignScope);
 
+    // TODO(F-335): Avoid doing the following 2 calls here.
+    {
+      await this.handlerAsTxe().syncContractNonOracleMethod(contractAddress, scope, this.stateHandler.getCurrentJob());
+      // We cycle job to commit the stores after the contract sync.
+      await this.stateHandler.cycleJob();
+    }
+
     const events = await this.handlerAsTxe().txeGetPrivateEvents(selector, contractAddress, scope);
 
     if (events.length > MAX_PRIVATE_EVENTS_PER_TXE_QUERY) {
@@ -1038,12 +1045,15 @@ export class RPCTranslator {
       args,
       argsHash,
       isStaticCall,
+      this.stateHandler.getCurrentJob(),
     );
 
+    // TODO(F-335): Avoid doing the following call here.
+    await this.stateHandler.cycleJob();
     return toForeignCallResult([toArray(returnValues)]);
   }
 
-  async txeSimulateUtilityFunction(
+  async txeExecuteUtilityFunction(
     foreignTargetContractAddress: ForeignCallSingle,
     foreignFunctionSelector: ForeignCallSingle,
     foreignArgs: ForeignCallArray,
@@ -1052,12 +1062,15 @@ export class RPCTranslator {
     const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
     const args = fromArray(foreignArgs);
 
-    const returnValues = await this.handlerAsTxe().txeSimulateUtilityFunction(
+    const returnValues = await this.handlerAsTxe().txeExecuteUtilityFunction(
       targetContractAddress,
       functionSelector,
       args,
+      this.stateHandler.getCurrentJob(),
     );
 
+    // TODO(F-335): Avoid doing the following call here.
+    await this.stateHandler.cycleJob();
     return toForeignCallResult([toArray(returnValues)]);
   }
 
@@ -1074,6 +1087,8 @@ export class RPCTranslator {
 
     const returnValues = await this.handlerAsTxe().txePublicCallNewFlow(from, address, calldata, isStaticCall);
 
+    // TODO(F-335): Avoid doing the following call here.
+    await this.stateHandler.cycleJob();
     return toForeignCallResult([toArray(returnValues)]);
   }
 
