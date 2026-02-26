@@ -16,6 +16,7 @@ export const DOCKER_IMAGE = process.env.CLAUDEBOX_DOCKER_IMAGE || "claudebox:lat
 export const CLAUDEBOX_DIR = join(homedir(), ".claudebox");
 export const CLAUDEBOX_SESSIONS_DIR = join(CLAUDEBOX_DIR, "sessions"); // legacy
 export const CLAUDEBOX_WORKTREES_DIR = join(CLAUDEBOX_DIR, "worktrees");
+export const CLAUDEBOX_STATS_DIR = join(CLAUDEBOX_DIR, "stats");
 // Parent of lib/ — the actual claudebox directory containing entrypoints, mcp-sidecar, etc.
 export const CLAUDEBOX_CODE_DIR = join(dirname(import.meta.url.replace("file://", "")), "..");
 export const CLAUDE_BINARY = process.env.CLAUDE_BINARY ?? join(homedir(), ".local", "bin", "claude");

@@ -14,7 +14,7 @@
 
 import { createServer, IncomingMessage, ServerResponse } from "http";
 import { execFileSync, execFile, spawn, ChildProcess } from "child_process";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, appendFileSync, mkdirSync } from "fs";
 import { join, dirname, resolve } from "path";
 import { createHash } from "crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -26,10 +26,13 @@ const PORT = parseInt(process.env.MCP_PORT || "9801", 10);
 const GH_TOKEN = process.env.GH_TOKEN || "";
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN || "";
 const LINEAR_API_KEY = process.env.LINEAR_API_KEY || "";
-const WORKSPACE = "/workspace/aztec-packages";
+const WORKSPACE = process.env.WORKSPACE || "/workspace/aztec-packages";
 const REPO = "AztecProtocol/aztec-packages";
 
 const QUIET_MODE = process.env.CLAUDEBOX_QUIET === "1";
+const STATS_DIR = process.env.CLAUDEBOX_STATS_DIR || "/stats";
+
+import { getSchema, allSchemas, schemasPrompt } from "./lib/stat-schemas.ts";
 
 const SESSION_META = {
   log_id: process.env.CLAUDEBOX_LOG_ID || "",
@@ -129,7 +132,6 @@ function truncateForSlack(text: string, maxLen = 200): string {
 }
 
 // ── Activity log (persisted to workspace for status page) ───────
-import { appendFileSync } from "fs";
 const ACTIVITY_LOG = "/workspace/activity.jsonl";
 
 function logActivity(type: string, text: string): void {
@@ -206,7 +208,7 @@ function createMcpServerWithTools(): McpServer {
       for (const [k, v] of Object.entries(SESSION_META)) {
         if (v) ctx[k] = v;
       }
-      ctx.tools = "respond_to_user, get_context, session_status, github_api, slack_api, create_pr, update_pr, ci_failures, linear_get_issue, linear_create_issue";
+      ctx.tools = "respond_to_user, get_context, session_status, github_api, slack_api, create_pr, update_pr, ci_failures, linear_get_issue, linear_create_issue, record_stat";
       return { content: [{ type: "text", text: JSON.stringify(ctx, null, 2) }] };
     });
 
@@ -741,6 +743,35 @@ channel and thread_ts auto-injected from session if not provided.`,
       }
     });
 
+  // ── record_stat ──────────────────────────────────────────────────
+  server.tool("record_stat",
+    `Record a structured data point. Appends to /stats/<schema>.jsonl. Auto-adds _ts, _log_id, _worktree_id.\n\nAvailable schemas:\n${schemasPrompt()}`,
+    {
+      schema: z.string().describe(`Schema name: ${allSchemas().map(s => s.name).join(", ")}`),
+      data: z.record(z.any()).describe("Data object matching the schema fields"),
+    },
+    async ({ schema, data }) => {
+      const s = getSchema(schema);
+      if (!s) return { content: [{ type: "text", text: `Unknown schema '${schema}'. Available: ${allSchemas().map(s => s.name).join(", ")}` }], isError: true };
+
+      const entry = {
+        _ts: new Date().toISOString(),
+        _log_id: SESSION_META.log_id,
+        _worktree_id: process.env.CLAUDEBOX_WORKTREE_ID || "",
+        _user: SESSION_META.user,
+        ...data,
+      };
+
+      try {
+        mkdirSync(STATS_DIR, { recursive: true });
+        const file = join(STATS_DIR, `${schema}.jsonl`);
+        appendFileSync(file, JSON.stringify(entry) + "\n");
+        return { content: [{ type: "text", text: `Recorded ${schema} entry (${Object.keys(data).length} fields)` }] };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `Failed to write stat: ${e.message}` }], isError: true };
+      }
+    });
+
   return server;
 }
 
@@ -867,12 +898,12 @@ const REFERENCE_GIT = existsSync("/reference-repo/.git") ? "/reference-repo/.git
 
 /** Validate compose file content matches what's committed in the reference repo (next branch). */
 function validateComposeFile(composefile: string): string | null {
-  if (!composefile.startsWith("/workspace/aztec-packages/")) {
-    return "compose file must be under /workspace/aztec-packages/";
+  if (!composefile.startsWith(WORKSPACE + "/")) {
+    return `compose file must be under ${WORKSPACE}/`;
   }
   if (!existsSync(composefile)) return `file not found: ${composefile}`;
 
-  const repoRelPath = composefile.replace("/workspace/aztec-packages/", "");
+  const repoRelPath = composefile.replace(WORKSPACE + "/", "");
 
   if (!REFERENCE_GIT) {
     // No reference repo — fall back to allowing if the file exists in the workspace
@@ -943,39 +974,69 @@ async function handleDockerProxy(req: IncomingMessage, res: ServerResponse): Pro
     timeout = 60 * 60 * 1000;
 
   // ── docker compose ─────────────────────────────────────────────
+  //
+  // Repo patterns (all use default compose file from cwd, never -f):
+  //   ci3/run_compose_test:  docker compose -p $name down [--remove-orphans --timeout 2 [-v]]
+  //                          docker compose -p $name up -d --force-recreate
+  //   playground/run_test:   docker compose -p $name down
+  //                          docker compose -p $name up --exit-code-from=X --abort-on-container-exit --force-recreate
+  //   e2e comments:          docker compose --profile metrics up
+  //
+  // Compose files live at:
+  //   docker-compose.yml  (repo root)
+  //   playground/docker-compose.yml
+  //   yarn-project/end-to-end/scripts/docker-compose.yml
+  //   yarn-project/end-to-end/scripts/ha/docker-compose.yml
+  //   yarn-project/end-to-end/scripts/web3signer/docker-compose.yml
+  //   yarn-project/p2p-bootstrap/scripts/docker-compose-bootstrap.yml
+  //
   } else if (subcommand === "compose") {
-    // Collect ALL compose files from args (-f/--file) — compose supports multiple
-    const composeFiles: string[] = [];
+    // First: check compose subcommand is allowed (before file checks)
+    const ALLOWED_COMPOSE_CMDS = ["up", "down", "ps", "logs", "stop", "start", "restart", "pull", "config", "top", "events"];
+    // Find the compose subcommand — first positional arg that isn't a flag value
+    const skipNext = new Set(["-f", "--file", "-p", "--project-name", "--profile", "--env-file", "--project-directory"]);
+    let composeSub = "";
     for (let i = 1; i < rawArgs.length; i++) {
-      if ((rawArgs[i] === "-f" || rawArgs[i] === "--file") && i + 1 < rawArgs.length) {
-        composeFiles.push(rawArgs[i + 1]); i++; continue;
-      }
-      if (rawArgs[i].startsWith("-f") && rawArgs[i].length > 2 && !rawArgs[i].startsWith("-f ")) {
-        composeFiles.push(rawArgs[i].slice(2)); continue;
-      }
-      if (rawArgs[i].startsWith("--file=")) {
-        composeFiles.push(rawArgs[i].split("=").slice(1).join("=")); continue;
-      }
+      if (skipNext.has(rawArgs[i])) { i++; continue; }
+      if (rawArgs[i].startsWith("-")) continue;
+      composeSub = rawArgs[i]; break;
     }
-
-    // If no -f specified, resolve the default docker-compose.yml from cwd
-    if (composeFiles.length === 0) {
-      const cwd = payload.cwd || WORKSPACE;
-      const defaultFile = resolve(cwd, "docker-compose.yml");
-      if (existsSync(defaultFile)) composeFiles.push(defaultFile);
-    }
-
-    // Verify ALL compose files against reference repo
-    for (const cf of composeFiles) {
-      const err = await validateComposeFile(cf);
-      if (err) { res.writeHead(403); res.end(JSON.stringify({ error: err })); return; }
-    }
-
-    if (composeFiles.length === 0) {
+    if (composeSub && !ALLOWED_COMPOSE_CMDS.includes(composeSub)) {
       res.writeHead(403);
-      res.end(JSON.stringify({ error: "no compose file found — must use a verified compose file from the repo" }));
+      res.end(JSON.stringify({
+        error: `compose subcommand '${composeSub}' not allowed. Allowed: ${ALLOWED_COMPOSE_CMDS.join(", ")}. ` +
+          `'compose exec' and 'compose run' are blocked — use 'docker exec' or 'docker run' directly for auditable arg checking.`,
+      }));
       return;
     }
+
+    // Block multiple -f (override stacking) — repo never uses it
+    let fileCount = 0;
+    let composefile = "";
+    for (let i = 1; i < rawArgs.length; i++) {
+      if ((rawArgs[i] === "-f" || rawArgs[i] === "--file") && i + 1 < rawArgs.length) {
+        composefile = rawArgs[i + 1]; fileCount++; i++;
+      } else if (rawArgs[i].startsWith("-f") && rawArgs[i].length > 2 && !rawArgs[i].startsWith("-f ")) {
+        composefile = rawArgs[i].slice(2); fileCount++;
+      } else if (rawArgs[i].startsWith("--file=")) {
+        composefile = rawArgs[i].split("=").slice(1).join("="); fileCount++;
+      }
+    }
+    if (fileCount > 1) {
+      res.writeHead(403);
+      res.end(JSON.stringify({ error: "multiple -f/--file flags not allowed — only a single verified compose file is permitted" }));
+      return;
+    }
+
+    // If no -f, resolve docker-compose.yml from cwd (this is how the repo uses it)
+    if (!composefile) {
+      const cwd = payload.cwd || WORKSPACE;
+      composefile = resolve(cwd, "docker-compose.yml");
+    }
+
+    // Verify compose file matches the committed version in the reference repo
+    const err = await validateComposeFile(composefile);
+    if (err) { res.writeHead(403); res.end(JSON.stringify({ error: err })); return; }
 
     dockerArgs = rawArgs;
     timeout = 60 * 60 * 1000;

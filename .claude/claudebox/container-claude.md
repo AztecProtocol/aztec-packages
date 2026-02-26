@@ -57,6 +57,7 @@ Do NOT use `gh api`, `gh pr`, or any `gh` commands — they will fail.
 | `ci_failures` | CI status for a PR — failed jobs, last pass/fail, GitHub Actions links, CI dashboard |
 | `linear_get_issue` | Fetch a Linear issue by identifier (e.g. `A-453`) |
 | `linear_create_issue` | Create a new Linear issue (team, title, description, priority) |
+| `record_stat` | Record structured data (e.g. `pr_analysis`). Schema + field docs in tool description. |
 
 ### `github_api` examples:
 All paths must target `repos/AztecProtocol/aztec-packages/...`:
@@ -84,6 +85,30 @@ update_pr(pr_number=12345, push=true)
 update_pr(pr_number=12345, push=true, title="updated title")
 update_pr(pr_number=12345, title="new title", body="updated description")
 update_pr(pr_number=12345, state="closed")
+```
+
+### `record_stat` — structured data collection:
+Record structured entries to JSONL files. Each schema defines the expected fields (see tool description for full field list).
+```
+record_stat(schema="pr_analysis", data={
+  pr: 12345,
+  pr_title: "fix: resolve race in p2p",
+  pr_author: "alice",
+  commit_sha: "abc123",
+  commit_message: "fix: resolve race in p2p",
+  commit_ordinal: 1,
+  category: "bugfix",
+  ci_runs: 2,
+  ci_time_minutes: 45,
+  ci_outcome: "fail_flake",
+  change_size: "small",
+  waste_category: "flake_retry",
+  developer_time_estimate_minutes: 30,
+  automatable: false,
+  assessment: "Single commit bugfix. First CI run failed due to flaky e2e test, passed on rerun.",
+  tags: ["p2p", "flaky-e2e"],
+  confidence: 0.85
+})
 ```
 
 ### Workflow:

@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# dockerbox — drop-in `docker` replacement that proxies through the MCP sidecar.
+#
+# The sidecar has Docker socket access; Claude's container does not.
+# This script sends the raw docker args to the sidecar's /docker endpoint
+# and streams the output back, preserving exit codes.
+#
+# Install: symlink or copy to /usr/local/bin/docker in Claude's container.
+#
+set -uo pipefail
+
+SIDECAR="${CLAUDEBOX_SIDECAR_HOST:-claudebox-sidecar}"
+PORT="${CLAUDEBOX_SIDECAR_PORT:-9801}"
+URL="http://${SIDECAR}:${PORT}/docker"
+
+# Build JSON args array using python for proper escaping
+payload=$(python3 -c "
+import json, sys, os
+args = sys.argv[1:]
+print(json.dumps({'args': args, 'cwd': os.getcwd()}))
+" "$@")
+
+# Use a FIFO to split streaming output from exit code extraction
+fifo=$(mktemp -u)
+mkfifo "$fifo"
+trap "rm -f '$fifo'" EXIT
+
+# curl streams to the fifo; we read from it, print everything except the sentinel
+curl -sS --no-buffer -X POST \
+  -H "Content-Type: application/json" \
+  -d "$payload" \
+  "$URL" > "$fifo" 2>/dev/null &
+curl_pid=$!
+
+# Read the stream, buffer only the last line to check for sentinel
+exit_code=1
+{
+  prev_line=""
+  while IFS= read -r line || [ -n "$line" ]; do
+    # Print previous line (it's not the sentinel since we have a new line)
+    if [ -n "$prev_line" ]; then
+      printf '%s\n' "$prev_line"
+    fi
+    prev_line="$line"
+  done
+  # Check if last line is the sentinel
+  if [[ "$prev_line" =~ __DOCKERPROXY_EXIT__:([0-9]+) ]]; then
+    exit_code="${BASH_REMATCH[1]}"
+  elif [ -n "$prev_line" ]; then
+    printf '%s\n' "$prev_line"
+  fi
+} < "$fifo"
+
+wait "$curl_pid" 2>/dev/null || true
+exit "$exit_code"

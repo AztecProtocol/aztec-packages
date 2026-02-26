@@ -124,7 +124,7 @@ jobs:
           fi
 
           LOG_URL=$(echo "$BODY" | jq -r '.log_url // empty')
-          SESSION_ID=$(echo "$LOG_URL" | grep -oP '[a-f0-9]{32}$')
+          SESSION_ID=$(basename "$LOG_URL")
           echo "Session started: $LOG_URL"
 
           # Poll until completed
