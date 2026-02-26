@@ -187,6 +187,30 @@ export class TxPoolV2Impl {
     const errors = new Map<string, TxPoolRejectionError>();
     const acceptedPending = new Set<string>();
 
+    // Phase 1: Pre-compute all throwable I/O outside the transaction.
+    // If any pre-computation throws, the entire call fails before mutations happen.
+    const precomputed = new Map<string, { meta: TxMetaData; minedBlockId: L2BlockId | undefined; isValid: boolean }>();
+
+    const validator = await this.#createTxValidator();
+
+    for (const tx of txs) {
+      const txHash = tx.getTxHash();
+      const txHashStr = txHash.toString();
+
+      const meta = await buildTxMetaData(tx);
+      const minedBlockId = await this.#getMinedBlockId(txHash);
+
+      // Validate non-mined txs (mined and pre-protected txs bypass validation inside the transaction)
+      let isValid = true;
+      if (!minedBlockId) {
+        isValid = await this.#validateMeta(meta, validator);
+      }
+
+      precomputed.set(txHashStr, { meta, minedBlockId, isValid });
+    }
+
+    // Phase 2: Apply mutations inside the transaction using only pre-computed results,
+    // in-memory reads, and buffered DB writes. Nothing here can throw an unhandled exception.
     const poolAccess = this.#createPreAddPoolAccess();
     const preAddContext: PreAddContext | undefined =
       opts.feeComparisonOnly !== undefined ? { feeComparisonOnly: opts.feeComparisonOnly } : undefined;
@@ -202,22 +226,25 @@ export class TxPoolV2Impl {
           continue;
         }
 
-        // Check mined status first (applies to all paths)
-        const minedBlockId = await this.#getMinedBlockId(txHash);
+        const { meta, minedBlockId, isValid } = precomputed.get(txHashStr)!;
         const preProtectedSlot = this.#indices.getProtectionSlot(txHashStr);
 
         if (minedBlockId) {
           // Already mined - add directly (protection already set if pre-protected)
-          await this.#addTx(tx, { mined: minedBlockId }, opts);
+          await this.#addTx(tx, { mined: minedBlockId }, opts, meta);
           accepted.push(txHash);
         } else if (preProtectedSlot !== undefined) {
           // Pre-protected and not mined - add as protected (bypass validation)
-          await this.#addTx(tx, { protected: preProtectedSlot }, opts);
+          await this.#addTx(tx, { protected: preProtectedSlot }, opts, meta);
           accepted.push(txHash);
+        } else if (!isValid) {
+          // Failed pre-computed validation
+          rejected.push(txHash);
         } else {
-          // Regular pending tx - validate and run pre-add rules
+          // Regular pending tx - run pre-add rules using pre-computed metadata
           const result = await this.#tryAddRegularPendingTx(
             tx,
+            meta,
             opts,
             poolAccess,
             acceptedPending,
@@ -227,8 +254,6 @@ export class TxPoolV2Impl {
           );
           if (result.status === 'accepted') {
             acceptedPending.add(txHashStr);
-          } else if (result.status === 'rejected') {
-            rejected.push(txHash);
           } else {
             ignored.push(txHash);
           }
@@ -259,27 +284,21 @@ export class TxPoolV2Impl {
     return { accepted, ignored, rejected, ...(errors.size > 0 ? { errors } : {}) };
   }
 
-  /** Validates and adds a regular pending tx. Returns status. */
+  /** Adds a validated pending tx, running pre-add rules and evicting conflicts. */
   async #tryAddRegularPendingTx(
     tx: Tx,
+    precomputedMeta: TxMetaData,
     opts: { source?: string },
     poolAccess: PreAddPoolAccess,
     acceptedPending: Set<string>,
     ignored: TxHash[],
     errors: Map<string, TxPoolRejectionError>,
     preAddContext?: PreAddContext,
-  ): Promise<{ status: 'accepted' | 'ignored' | 'rejected' }> {
-    const txHash = tx.getTxHash();
-    const txHashStr = txHash.toString();
-
-    // Build metadata and validate using metadata
-    const meta = await buildTxMetaData(tx);
-    if (!(await this.#validateMeta(meta))) {
-      return { status: 'rejected' };
-    }
+  ): Promise<{ status: 'accepted' | 'ignored' }> {
+    const txHashStr = tx.getTxHash().toString();
 
     // Run pre-add rules
-    const preAddResult = await this.#evictionManager.runPreAddRules(meta, poolAccess, preAddContext);
+    const preAddResult = await this.#evictionManager.runPreAddRules(precomputedMeta, poolAccess, preAddContext);
 
     if (preAddResult.shouldIgnore) {
       this.#log.debug(`Ignoring tx ${txHashStr}: ${preAddResult.reason?.message ?? 'unknown reason'}`);
@@ -323,7 +342,7 @@ export class TxPoolV2Impl {
     }
 
     // Add the transaction
-    await this.#addTx(tx, 'pending', opts);
+    await this.#addTx(tx, 'pending', opts, precomputedMeta);
     return { status: 'accepted' };
   }
 
@@ -765,9 +784,10 @@ export class TxPoolV2Impl {
     tx: Tx,
     state: 'pending' | { protected: SlotNumber } | { mined: L2BlockId },
     opts: { source?: string } = {},
+    precomputedMeta?: TxMetaData,
   ): Promise<TxMetaData> {
     const txHashStr = tx.getTxHash().toString();
-    const meta = await buildTxMetaData(tx);
+    const meta = precomputedMeta ?? (await buildTxMetaData(tx));
     meta.receivedAt = this.#dateProvider.now();
 
     await this.#txsDB.set(txHashStr, tx.toBuffer());

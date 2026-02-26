@@ -7,7 +7,7 @@ import { BlockHeader } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type TxMetaData, stubTxMetaValidationData } from '../tx_metadata.js';
+import { type TxMetaData, stubTxMetaData } from '../tx_metadata.js';
 import type { EvictionContext, PoolOperations } from './interfaces.js';
 import { EvictionEvent } from './interfaces.js';
 import { InvalidTxsAfterReorgRule } from './invalid_txs_after_reorg_rule.js';
@@ -21,19 +21,8 @@ describe('InvalidTxsAfterReorgRule', () => {
   let deleteTxsMock: jest.MockedFunction<any>;
 
   // Helper to create TxMetaData for testing
-  const createMeta = (txHash: string, anchorBlockHeaderHash: string): TxMetaData => ({
-    txHash,
-    anchorBlockHeaderHash,
-    priorityFee: 100n,
-    feePayer: '0xfeepayer',
-    claimAmount: 0n,
-    feeLimit: 100n,
-    nullifiers: [`0x${txHash.slice(2)}null1`],
-    expirationTimestamp: 0n,
-    receivedAt: 0,
-    estimatedSizeBytes: 0,
-    data: stubTxMetaValidationData(),
-  });
+  const createMeta = (txHash: string, anchorBlockHeaderHash: string) =>
+    stubTxMetaData(txHash, { anchorBlockHeaderHash });
 
   // Create mock pool operations
   const createPoolOps = (pendingTxs: TxMetaData[]): PoolOperations => {
@@ -134,8 +123,8 @@ describe('InvalidTxsAfterReorgRule', () => {
 
         expect(result.success).toBe(true);
         // Both txs reference pruned blocks (default mock returns undefined)
-        expect(result.txsEvicted).toContain('0x1111');
-        expect(result.txsEvicted).toContain('0x2222');
+        expect(result.txsEvicted).toContain(tx1.txHash);
+        expect(result.txsEvicted).toContain(tx2.txHash);
         // Ensure syncImmediate is called before accessing the world state snapshot
         expect(worldState.syncImmediate).toHaveBeenCalledWith();
       });
@@ -201,9 +190,9 @@ describe('InvalidTxsAfterReorgRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toHaveLength(3);
-        expect(result.txsEvicted).toContain('0x1111');
-        expect(result.txsEvicted).toContain('0x2222');
-        expect(result.txsEvicted).toContain('0x3333');
+        expect(result.txsEvicted).toContain(tx1.txHash);
+        expect(result.txsEvicted).toContain(tx2.txHash);
+        expect(result.txsEvicted).toContain(tx3.txHash);
         // Only one unique block hash to look up
         expect(db.findLeafIndices).toHaveBeenCalledTimes(1);
         const calledHashes = db.findLeafIndices.mock.calls[0][1] as Fr[];
@@ -232,9 +221,9 @@ describe('InvalidTxsAfterReorgRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toHaveLength(1);
-        expect(result.txsEvicted).toContain('0x2222');
-        expect(result.txsEvicted).not.toContain('0x1111');
-        expect(result.txsEvicted).not.toContain('0x3333');
+        expect(result.txsEvicted).toContain(tx2.txHash);
+        expect(result.txsEvicted).not.toContain(tx1.txHash);
+        expect(result.txsEvicted).not.toContain(tx3.txHash);
       });
 
       it('handles mix of shared and unique block hashes with some valid and some pruned', async () => {
@@ -263,11 +252,11 @@ describe('InvalidTxsAfterReorgRule', () => {
 
         expect(result.success).toBe(true);
         expect(result.txsEvicted).toHaveLength(3);
-        expect(result.txsEvicted).toContain('0x3333');
-        expect(result.txsEvicted).toContain('0x4444');
-        expect(result.txsEvicted).toContain('0x5555');
-        expect(result.txsEvicted).not.toContain('0x1111');
-        expect(result.txsEvicted).not.toContain('0x2222');
+        expect(result.txsEvicted).toContain(tx3.txHash);
+        expect(result.txsEvicted).toContain(tx4.txHash);
+        expect(result.txsEvicted).toContain(tx5.txHash);
+        expect(result.txsEvicted).not.toContain(tx1.txHash);
+        expect(result.txsEvicted).not.toContain(tx2.txHash);
         expect(db.findLeafIndices).toHaveBeenCalledTimes(1);
         const calledHashes = db.findLeafIndices.mock.calls[0][1] as Fr[];
         expect(calledHashes).toHaveLength(3);

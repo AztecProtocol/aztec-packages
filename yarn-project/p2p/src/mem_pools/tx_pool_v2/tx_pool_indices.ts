@@ -1,7 +1,7 @@
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import type { L2BlockId } from '@aztec/stdlib/block';
 
-import { type TxMetaData, type TxState, compareFee, compareTxHash } from './tx_metadata.js';
+import { type TxMetaData, type TxState, compareFee, compareTxHash, txHashFromBigInt } from './tx_metadata.js';
 
 /**
  * Manages in-memory indices for the transaction pool.
@@ -22,8 +22,8 @@ export class TxPoolIndices {
   #nullifierToTxHash: Map<string, string> = new Map();
   /** Fee payer to txHashes index (pending txs only) */
   #feePayerToTxHashes: Map<string, Set<string>> = new Map();
-  /** Pending txHashes grouped by priority fee */
-  #pendingByPriority: Map<bigint, Set<string>> = new Map();
+  /** Pending txHash bigints grouped by priority fee */
+  #pendingByPriority: Map<bigint, Set<bigint>> = new Map();
   /** Protected transactions: txHash -> slotNumber */
   #protectedTransactions: Map<string, SlotNumber> = new Map();
 
@@ -73,17 +73,17 @@ export class TxPoolIndices {
    * @param order - 'desc' for highest priority first, 'asc' for lowest priority first
    */
   *iteratePendingByPriority(order: 'asc' | 'desc', filter?: (hash: string) => boolean): Generator<string> {
-    // Use compareFee from tx_metadata, swap args for descending order
     const feeCompareFn = order === 'desc' ? (a: bigint, b: bigint) => compareFee(b, a) : compareFee;
-    const hashCompareFn = order === 'desc' ? (a: string, b: string) => compareTxHash(b, a) : compareTxHash;
+    const hashCompareFn =
+      order === 'desc' ? (a: bigint, b: bigint) => compareTxHash(b, a) : (a: bigint, b: bigint) => compareTxHash(a, b);
 
     const sortedFees = [...this.#pendingByPriority.keys()].sort(feeCompareFn);
 
     for (const fee of sortedFees) {
       const hashesAtFee = this.#pendingByPriority.get(fee)!;
-      // Use compareTxHash from tx_metadata, swap args for descending order
       const sortedHashes = [...hashesAtFee].sort(hashCompareFn);
-      for (const hash of sortedHashes) {
+      for (const hashBigInt of sortedHashes) {
+        const hash = txHashFromBigInt(hashBigInt);
         if (filter === undefined || filter(hash)) {
           yield hash;
         }
@@ -265,8 +265,8 @@ export class TxPoolIndices {
   getPendingTxs(): TxMetaData[] {
     const result: TxMetaData[] = [];
     for (const hashSet of this.#pendingByPriority.values()) {
-      for (const txHash of hashSet) {
-        const meta = this.#metadata.get(txHash);
+      for (const txHashBigInt of hashSet) {
+        const meta = this.#metadata.get(txHashFromBigInt(txHashBigInt));
         if (meta) {
           result.push(meta);
         }
@@ -414,7 +414,7 @@ export class TxPoolIndices {
       prioritySet = new Set();
       this.#pendingByPriority.set(meta.priorityFee, prioritySet);
     }
-    prioritySet.add(meta.txHash);
+    prioritySet.add(meta.txHashBigInt);
   }
 
   #removeFromPendingIndices(meta: TxMetaData): void {
@@ -435,7 +435,7 @@ export class TxPoolIndices {
     // Remove from priority map
     const hashSet = this.#pendingByPriority.get(meta.priorityFee);
     if (hashSet) {
-      hashSet.delete(meta.txHash);
+      hashSet.delete(meta.txHashBigInt);
       if (hashSet.size === 0) {
         this.#pendingByPriority.delete(meta.priorityFee);
       }
