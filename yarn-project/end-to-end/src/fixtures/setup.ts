@@ -1,6 +1,5 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import { type InitialAccountData, generateSchnorrAccounts, getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { type Archiver, createArchiver } from '@aztec/archiver';
+import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import {
@@ -13,10 +12,9 @@ import {
 import { publishContractClass, publishInstance } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
-import { type AztecNode, createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
-import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -30,13 +28,8 @@ import {
   type ZKPassportArgs,
   deployAztecL1Contracts,
 } from '@aztec/ethereum/deploy-aztec-l1-contracts';
-import {
-  DelayedTxUtils,
-  EthCheatCodes,
-  EthCheatCodesWithState,
-  createDelayedL1TxUtilsFromViemWallet,
-  startAnvil,
-} from '@aztec/ethereum/test';
+import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
+import { EthCheatCodes, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
@@ -45,20 +38,17 @@ import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import { type ProverNode, type ProverNodeConfig, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
+import type { ProverNodeConfig } from '@aztec/prover-node';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
-import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import type { P2PClientType } from '@aztec/stdlib/p2p';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
@@ -67,7 +57,7 @@ import {
   initTelemetryClient,
 } from '@aztec/telemetry-client';
 import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
-import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet/server';
+import { deployFundedSchnorrAccounts } from '@aztec/wallets/testing';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import type { Anvil } from '@viem/anvil';
@@ -84,6 +74,7 @@ import {
 } from 'viem/accounts';
 import { type Chain, foundry } from 'viem/chains';
 
+import { TestWallet } from '../test-wallet/test_wallet.js';
 import { MNEMONIC, TEST_MAX_PENDING_TX_POOL_COUNT, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
@@ -91,9 +82,6 @@ import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
 export { startAnvil };
-
-const { AZTEC_NODE_URL = '' } = process.env;
-const getAztecUrl = () => AZTEC_NODE_URL;
 
 let telemetry: TelemetryClient | undefined = undefined;
 async function getTelemetryClient(partialConfig: Partial<TelemetryClientConfig> & { benchmark?: boolean } = {}) {
@@ -217,13 +205,13 @@ export type EndToEndContext = {
   anvil: Anvil | undefined;
   /** The Aztec Node service or client a connected to it. */
   aztecNode: AztecNode;
-  /** The Aztec Node as a service (only set if running locally). */
-  aztecNodeService: AztecNodeService | undefined;
-  /** Client to the Aztec Node admin interface (undefined if connected to remote environment) */
-  aztecNodeAdmin: AztecNodeAdmin | undefined;
-  /** The prover node service (only set if startProverNode is true) */
-  proverNode: ProverNode | undefined;
-  /** A client to the sequencer service (undefined if connected to remote environment) */
+  /** The Aztec Node as a service. */
+  aztecNodeService: AztecNodeService;
+  /** Client to the Aztec Node admin interface. */
+  aztecNodeAdmin: AztecNodeAdmin;
+  /** The aztec node running the prover node subsystem (only set if startProverNode is true). */
+  proverNode: AztecNodeService | undefined;
+  /** A client to the sequencer service. */
   sequencer: SequencerClient | undefined;
   /** Return values from deployAztecL1Contracts function. */
   deployL1ContractsValues: DeployAztecL1ContractsReturnType;
@@ -243,14 +231,18 @@ export type EndToEndContext = {
   cheatCodes: CheatCodes;
   /** The cheat codes for L1 */
   ethCheatCodes: EthCheatCodes;
-  /** The anvil test watcher (undefined if connected to remote environment) */
-  watcher: AnvilTestWatcher | undefined;
-  /** Allows tweaking current system time, used by the epoch cache only (undefined if connected to remote environment) */
-  dateProvider: TestDateProvider | undefined;
+  /** The anvil test watcher. */
+  watcher: AnvilTestWatcher;
+  /** Allows tweaking current system time, used by the epoch cache only. */
+  dateProvider: TestDateProvider;
   /** Telemetry client */
-  telemetryClient: TelemetryClient | undefined;
+  telemetryClient: TelemetryClient;
   /** Mock gossip sub network used for gossipping messages (only if mockGossipSubNetwork was set to true in opts) */
   mockGossipSubNetwork: MockGossipSubNetwork | undefined;
+  /** Delayer for sequencer L1 txs (only when enableDelayer is true). */
+  sequencerDelayer: Delayer | undefined;
+  /** Delayer for prover node L1 txs (only when enableDelayer and startProverNode are true). */
+  proverDelayer: Delayer | undefined;
   /** Prefilled public data used for setting up nodes. */
   prefilledPublicData: PublicDataTreeLeaf[] | undefined;
   /** ACVM config (only set if running locally). */
@@ -258,86 +250,10 @@ export type EndToEndContext = {
   /** BB config (only set if running locally). */
   bbConfig: Awaited<ReturnType<typeof getBBConfig>>;
   /** Directory to cleanup on teardown. */
-  directoryToCleanup: string | undefined;
+  directoryToCleanup: string;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
-
-/**
- * Function to setup the test against a remote deployment. It is assumed that L1 contract are already deployed
- */
-async function setupWithRemoteEnvironment(
-  account: HDAccount | PrivateKeyAccount,
-  config: AztecNodeConfig & SetupOptions,
-  logger: Logger,
-  numberOfAccounts: number,
-): Promise<EndToEndContext> {
-  const aztecNodeUrl = getAztecUrl();
-  logger.verbose(`Creating Aztec Node client to remote host ${aztecNodeUrl}`);
-  const aztecNode = createAztecNodeClient(aztecNodeUrl);
-  await waitForNode(aztecNode, logger);
-  logger.verbose('JSON RPC client connected to Aztec Node');
-  logger.verbose(`Retrieving contract addresses from ${aztecNodeUrl}`);
-  const { l1ContractAddresses, rollupVersion } = await aztecNode.getNodeInfo();
-
-  const l1Client = createExtendedL1Client(config.l1RpcUrls, account, foundry);
-
-  const deployL1ContractsValues: DeployAztecL1ContractsReturnType = {
-    l1ContractAddresses,
-    l1Client,
-    rollupVersion,
-  };
-  const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls, new DateProvider());
-  const wallet = await TestWallet.create(aztecNode);
-
-  if (config.walletMinFeePadding !== undefined) {
-    wallet.setMinFeePadding(config.walletMinFeePadding);
-  }
-
-  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNode, new DateProvider());
-  const teardown = () => Promise.resolve();
-
-  logger.verbose('Populating wallet from already registered accounts...');
-  const initialFundedAccounts = await getInitialTestAccountsData();
-
-  if (initialFundedAccounts.length < numberOfAccounts) {
-    throw new Error(`Required ${numberOfAccounts} accounts. Found ${initialFundedAccounts.length}.`);
-  }
-
-  const testAccounts = await Promise.all(
-    initialFundedAccounts.slice(0, numberOfAccounts).map(async account => {
-      const accountManager = await wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey);
-      return accountManager.address;
-    }),
-  );
-
-  return {
-    anvil: undefined,
-    aztecNode,
-    aztecNodeService: undefined,
-    aztecNodeAdmin: undefined,
-    sequencer: undefined,
-    proverNode: undefined,
-    deployL1ContractsValues,
-    config,
-    aztecNodeConfig: config,
-    initialFundedAccounts,
-    wallet,
-    accounts: testAccounts,
-    logger,
-    cheatCodes,
-    ethCheatCodes,
-    prefilledPublicData: undefined,
-    mockGossipSubNetwork: undefined,
-    watcher: undefined,
-    dateProvider: undefined,
-    telemetryClient: undefined,
-    acvmConfig: undefined,
-    bbConfig: undefined,
-    directoryToCleanup: undefined,
-    teardown,
-  };
-}
 
 /**
  * Sets up the environment for the end-to-end tests.
@@ -366,7 +282,11 @@ export async function setup(
     config.realProofs = !!opts.realProofs;
     // Only enforce the time table if requested
     config.enforceTimeTable = !!opts.enforceTimeTable;
+    // Enable the tx delayer for tests (default config has it disabled, so we force-enable it here)
+    config.enableDelayer = true;
     config.listenAddress = '127.0.0.1';
+
+    config.minTxPoolAgeMs = opts.minTxPoolAgeMs ?? 0;
 
     const logger = getLogger();
 
@@ -381,12 +301,6 @@ export async function setup(
       if (!isAnvilTestChain(chain.id)) {
         throw new Error(`No ETHEREUM_HOSTS set but non anvil chain requested`);
       }
-      if (AZTEC_NODE_URL) {
-        throw new Error(
-          `AZTEC_NODE_URL provided but no ETHEREUM_HOSTS set. Refusing to run, please set both variables so tests can deploy L1 contracts to the same Anvil instance`,
-        );
-      }
-
       const res = await startAnvil({
         l1BlockTime: opts.ethereumSlotDuration,
         accounts: opts.anvilAccounts,
@@ -421,11 +335,11 @@ export async function setup(
       publisherPrivKeyHex = opts.l1PublisherKey.getValue();
       publisherHdAccount = privateKeyToAccount(publisherPrivKeyHex);
     } else if (
-      config.publisherPrivateKeys &&
-      config.publisherPrivateKeys.length > 0 &&
-      config.publisherPrivateKeys[0].getValue() != NULL_KEY
+      config.sequencerPublisherPrivateKeys &&
+      config.sequencerPublisherPrivateKeys.length > 0 &&
+      config.sequencerPublisherPrivateKeys[0].getValue() != NULL_KEY
     ) {
-      publisherPrivKeyHex = config.publisherPrivateKeys[0].getValue();
+      publisherPrivKeyHex = config.sequencerPublisherPrivateKeys[0].getValue();
       publisherHdAccount = privateKeyToAccount(publisherPrivKeyHex);
     } else if (!MNEMONIC) {
       throw new Error(`Mnemonic not provided and no publisher private key`);
@@ -434,16 +348,11 @@ export async function setup(
       const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
       const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
       publisherPrivKeyHex = `0x${publisherPrivKey!.toString('hex')}` as const;
-      config.publisherPrivateKeys = [new SecretValue(publisherPrivKeyHex)];
+      config.sequencerPublisherPrivateKeys = [new SecretValue(publisherPrivKeyHex)];
     }
 
     if (config.coinbase === undefined) {
       config.coinbase = EthAddress.fromString(publisherHdAccount.address);
-    }
-
-    if (AZTEC_NODE_URL) {
-      // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
-      return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts);
     }
 
     // Determine which addresses to fund in genesis
@@ -502,8 +411,13 @@ export async function setup(
     if (enableAutomine) {
       await ethCheatCodes.setAutomine(false);
       await ethCheatCodes.setIntervalMining(config.ethereumSlotDuration);
-      dateProvider.setTime((await ethCheatCodes.timestamp()) * 1000);
     }
+
+    // Always sync dateProvider to L1 time after deploying L1 contracts, regardless of mining mode.
+    // In compose mode, L1 time may have drifted ahead of system time due to the local-network watcher
+    // warping time forward on each filled slot. Without this sync, the sequencer computes the wrong
+    // slot from its dateProvider and cannot propose blocks.
+    dateProvider.setTime((await ethCheatCodes.timestamp()) * 1000);
 
     if (opts.l2StartTime) {
       await ethCheatCodes.warp(opts.l2StartTime, { resetBlockInterval: true });
@@ -541,7 +455,7 @@ export async function setup(
     }
 
     let mockGossipSubNetwork: MockGossipSubNetwork | undefined;
-    let p2pClientDeps: P2PClientDeps<P2PClientType.Full> | undefined = undefined;
+    let p2pClientDeps: P2PClientDeps | undefined = undefined;
 
     if (opts.mockGossipSubNetwork) {
       mockGossipSubNetwork = new MockGossipSubNetwork();
@@ -581,30 +495,32 @@ export async function setup(
     );
     const sequencerClient = aztecNodeService.getSequencer();
 
-    if (sequencerClient) {
-      const publisher = (sequencerClient as TestSequencerClient).sequencer.publisher;
-      publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, config.ethereumSlotDuration, l1Client);
-    }
-
-    let proverNode: ProverNode | undefined = undefined;
+    let proverNode: AztecNodeService | undefined = undefined;
     if (opts.startProverNode) {
       logger.verbose('Creating and syncing a simulated prover node...');
       const proverNodePrivateKey = getPrivateKeyFromIndex(2);
       const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
       const proverNodeDataDirectory = path.join(directoryToCleanup, randomBytes(8).toString('hex'));
-      const proverNodeConfig = {
-        ...config.proverNodeConfig,
-        dataDirectory: proverNodeDataDirectory,
-        p2pEnabled: false,
+
+      const p2pClientDeps: Partial<P2PClientDeps> = {
+        p2pServiceFactory: mockGossipSubNetwork && getMockPubSubP2PServiceFactory(mockGossipSubNetwork!),
+        rpcTxProviders: [aztecNodeService],
       };
-      proverNode = await createAndSyncProverNode(
+
+      ({ proverNode } = await createAndSyncProverNode(
         proverNodePrivateKeyHex,
         config,
-        proverNodeConfig,
-        aztecNodeService,
-        prefilledPublicData,
-      );
+        {
+          ...config.proverNodeConfig,
+          dataDirectory: proverNodeDataDirectory,
+        },
+        { dateProvider, p2pClientDeps, telemetry: telemetryClient },
+        { prefilledPublicData },
+      ));
     }
+
+    const sequencerDelayer = sequencerClient?.getDelayer();
+    const proverDelayer = proverNode?.getProverNode()?.getDelayer();
 
     logger.verbose('Creating a pxe...');
     const pxeConfig = { ...getPXEConfig(), ...pxeOpts };
@@ -683,7 +599,7 @@ export async function setup(
         logger.error(`Error during e2e test teardown`, err);
       } finally {
         try {
-          await telemetryClient?.stop();
+          await telemetryClient.stop();
         } catch (err) {
           logger.error(`Error during telemetry client stop`, err);
         }
@@ -706,6 +622,8 @@ export async function setup(
       mockGossipSubNetwork,
       prefilledPublicData,
       proverNode,
+      sequencerDelayer,
+      proverDelayer,
       sequencer: sequencerClient,
       teardown,
       telemetryClient,
@@ -789,93 +707,53 @@ export async function waitForProvenChain(node: AztecNode, targetBlock?: BlockNum
   );
 }
 
+/**
+ * Creates an AztecNodeService with the prover node enabled as a subsystem.
+ * Returns both the aztec node service (for lifecycle management) and the prover node (for test internals access).
+ */
 export function createAndSyncProverNode(
   proverNodePrivateKey: `0x${string}`,
-  aztecNodeConfig: AztecNodeConfig,
-  proverNodeConfig: Partial<ProverNodeConfig> & Pick<DataStoreConfig, 'dataDirectory'> & { dontStart?: boolean },
-  aztecNode: AztecNode | undefined,
-  prefilledPublicData: PublicDataTreeLeaf[] = [],
-  proverNodeDeps: ProverNodeDeps = {},
-) {
+  baseConfig: AztecNodeConfig,
+  configOverrides: Pick<AztecNodeConfig, 'dataDirectory'>,
+  deps: {
+    telemetry?: TelemetryClient;
+    dateProvider: DateProvider;
+    p2pClientDeps?: P2PClientDeps;
+  },
+  options: { prefilledPublicData: PublicDataTreeLeaf[]; dontStart?: boolean },
+): Promise<{ proverNode: AztecNodeService }> {
   return withLoggerBindings({ actor: 'prover-0' }, async () => {
-    const aztecNodeTxProvider = aztecNode && {
-      getTxByHash: aztecNode.getTxByHash.bind(aztecNode),
-      getTxsByHash: aztecNode.getTxsByHash.bind(aztecNode),
-      stop: () => Promise.resolve(),
-    };
-
-    const blobClient = await createBlobClientWithFileStores(aztecNodeConfig, createLogger('blob-client:prover-node'));
-
-    const archiverConfig = { ...aztecNodeConfig, dataDirectory: proverNodeConfig.dataDirectory };
-    const archiver = await createArchiver(
-      archiverConfig,
-      { blobClient, dateProvider: proverNodeDeps.dateProvider },
-      { blockUntilSync: true },
+    const proverNode = await AztecNodeService.createAndSync(
+      {
+        ...baseConfig,
+        ...configOverrides,
+        p2pPort: 0,
+        enableProverNode: true,
+        disableValidator: true,
+        proverPublisherPrivateKeys: [new SecretValue(proverNodePrivateKey)],
+      },
+      deps,
+      { ...options, dontStartProverNode: options.dontStart },
     );
 
-    const proverConfig: ProverNodeConfig = {
-      ...aztecNodeConfig,
-      txCollectionNodeRpcUrls: [],
-      realProofs: false,
-      proverAgentCount: 2,
-      publisherPrivateKeys: [new SecretValue(proverNodePrivateKey)],
-      proverNodeMaxPendingJobs: 10,
-      proverNodeMaxParallelBlocksPerEpoch: 32,
-      proverNodePollingIntervalMs: 200,
-      txGatheringIntervalMs: 1000,
-      txGatheringBatchSize: 10,
-      txGatheringMaxParallelRequestsPerNode: 10,
-      txGatheringTimeoutMs: 24_000,
-      proverNodeFailedEpochStore: undefined,
-      proverId: EthAddress.fromNumber(1),
-      proverNodeEpochProvingDelayMs: undefined,
-      ...proverNodeConfig,
-    };
-
-    const l1TxUtils = createDelayedL1TxUtils(
-      aztecNodeConfig,
-      proverNodePrivateKey,
-      'prover-node',
-      proverNodeDeps.dateProvider,
-    );
-
-    const proverNode = await createProverNode(
-      proverConfig,
-      { ...proverNodeDeps, aztecNodeTxProvider, archiver: archiver as Archiver, l1TxUtils },
-      { prefilledPublicData },
-    );
-    getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.client.account!.address });
-    if (!proverNodeConfig.dontStart) {
-      await proverNode.start();
+    if (!proverNode.getProverNode()) {
+      throw new Error('Prover node subsystem was not created despite enableProverNode being set');
     }
-    return proverNode;
+
+    getLogger().info(`Created and synced prover node`);
+    return { proverNode };
   });
-}
-
-function createDelayedL1TxUtils(
-  aztecNodeConfig: AztecNodeConfig,
-  privateKey: `0x${string}`,
-  logName: string,
-  dateProvider?: DateProvider,
-) {
-  const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
-
-  const log = createLogger(logName);
-  const l1TxUtils = createDelayedL1TxUtilsFromViemWallet(l1Client, log, dateProvider, aztecNodeConfig);
-  l1TxUtils.enableDelayer(aztecNodeConfig.ethereumSlotDuration);
-  return l1TxUtils;
 }
 
 export type BalancesFn = ReturnType<typeof getBalancesFn>;
 export function getBalancesFn(
   symbol: string,
   method: ContractMethod,
-  from: AztecAddress,
   logger: any,
 ): (...addresses: (AztecAddress | { address: AztecAddress })[]) => Promise<bigint[]> {
   const balances = async (...addressLikes: (AztecAddress | { address: AztecAddress })[]) => {
     const addresses = addressLikes.map(addressLike => ('address' in addressLike ? addressLike.address : addressLike));
-    const b = await Promise.all(addresses.map(address => method(address).simulate({ from })));
+    const b = await Promise.all(addresses.map(address => method(address).simulate({ from: address })));
     const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
     logger.verbose(debugString);
     return b;

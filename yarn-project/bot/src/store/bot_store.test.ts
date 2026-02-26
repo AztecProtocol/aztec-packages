@@ -202,6 +202,59 @@ describe('BotStore', () => {
     });
   });
 
+  describe('pending L1→L2 messages', () => {
+    it('recovers pending messages from store on restart', async () => {
+      await store.savePendingL1ToL2Message({
+        content: Fr.random().toString(),
+        secret: Fr.random().toString(),
+        secretHash: Fr.random().toString(),
+        msgHash: Fr.random().toString(),
+        sender: '0x' + '00'.repeat(20),
+        globalLeafIndex: '0',
+        timestamp: Date.now(),
+      });
+
+      const messages = await store.getUnconsumedL1ToL2Messages();
+      expect(messages.length).toBe(1);
+
+      await store.deleteL1ToL2Message(messages[0].msgHash);
+      const afterDelete = await store.getUnconsumedL1ToL2Messages();
+      expect(afterDelete.length).toBe(0);
+    });
+
+    it('cleans up stale pending messages', async () => {
+      // Save a message with a very old timestamp
+      await store.savePendingL1ToL2Message({
+        content: Fr.random().toString(),
+        secret: Fr.random().toString(),
+        secretHash: Fr.random().toString(),
+        msgHash: Fr.random().toString(),
+        sender: '0x' + '00'.repeat(20),
+        globalLeafIndex: '0',
+        timestamp: Date.now() - 2 * 24 * 60 * 60 * 1000, // 2 days ago
+      });
+
+      // Save a fresh message
+      const freshHash = Fr.random().toString();
+      await store.savePendingL1ToL2Message({
+        content: Fr.random().toString(),
+        secret: Fr.random().toString(),
+        secretHash: Fr.random().toString(),
+        msgHash: freshHash,
+        sender: '0x' + '00'.repeat(20),
+        globalLeafIndex: '1',
+        timestamp: Date.now(),
+      });
+
+      const cleaned = await store.cleanupOldPendingMessages(24 * 60 * 60 * 1000);
+      expect(cleaned).toBe(1);
+
+      const remaining = await store.getUnconsumedL1ToL2Messages();
+      expect(remaining.length).toBe(1);
+      expect(remaining[0].msgHash).toBe(freshHash);
+    });
+  });
+
   describe('error handling', () => {
     it('should handle multiple close calls gracefully', async () => {
       await store.close();

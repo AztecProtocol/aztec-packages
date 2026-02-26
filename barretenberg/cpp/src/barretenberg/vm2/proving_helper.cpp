@@ -38,11 +38,11 @@ AvmProvingHelper::Proof AvmProvingHelper::prove(tracegen::TraceContainer&& trace
 bool AvmProvingHelper::check_circuit(tracegen::TraceContainer&& trace)
 {
     // The proof is done over the whole circuit (2^21 rows).
-    // However, for check-circuit purposes we run only over the trace rows
+    // However, for check-circuit purposes we run only over the witness rows
     // PLUS one extra row to catch any possible errors in the empty remainder
     // of the circuit.
-    const size_t num_rows = trace.get_num_rows_without_clk() + 1;
     const bool skippable_enabled = (getenv("AVM_DISABLE_SKIPPABLE") == nullptr);
+    const size_t num_rows = skippable_enabled ? trace.get_num_witness_rows() + 1 : trace.get_num_rows();
     vinfo("Running check ",
           skippable_enabled ? "(with skippable)" : "(without skippable)",
           " circuit over ",

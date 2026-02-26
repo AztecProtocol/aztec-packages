@@ -1,7 +1,7 @@
 use blob::abis::FinalBlobAccumulator;
 use types::{
     abis::{epoch_constant_data::EpochConstantData, fee_recipient::FeeRecipient},
-    constants::AZTEC_MAX_EPOCH_DURATION,
+    constants::MAX_CHECKPOINTS_PER_EPOCH,
 };
 
 pub struct RootRollupPublicInputs {
@@ -19,10 +19,10 @@ pub struct RootRollupPublicInputs {
     pub out_hash: Field,
     // Checkpoint header hashes for each checkpoint in this epoch.
     // The header hash of the first checkpoint in the epoch is at index 0, the second at index 1, and so on.
-    pub checkpoint_header_hashes: [Field; AZTEC_MAX_EPOCH_DURATION],
+    pub checkpoint_header_hashes: [Field; MAX_CHECKPOINTS_PER_EPOCH],
     // Fees for each checkpoint in this epoch.
     // The fee of the first checkpoint in the epoch is at index 0, the second at index 1, and so on.
-    pub fees: [FeeRecipient; AZTEC_MAX_EPOCH_DURATION],
+    pub fees: [FeeRecipient; MAX_CHECKPOINTS_PER_EPOCH],
     // Constants for this epoch.
     pub constants: EpochConstantData,
     // Final values of the blob accumulator.

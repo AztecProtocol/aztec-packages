@@ -29,9 +29,9 @@ global:
   l1ConsensusUrls: []
   ## Only when api key is required via header, otherwise just provide in l1ConsensusHostUrls
   ## Example: "1234abcd"
-  l1ConsensusHostApiKeys: []
+  l1ConsensusHostApiKeys: ""
   ## Example: "X-API-KEY"
-  l1ConsensusHostApiKeyHeaders: []
+  l1ConsensusHostApiKeyHeaders: ""
 
   aztecImage:
     repository: aztecprotocol/aztec
@@ -81,6 +81,10 @@ node:
     - --node
     - --archiver
 
+  image:
+    repository: ""
+    tag: ""
+
   env: {}
 
   envFrom:
@@ -94,6 +98,15 @@ node:
   secret:
     envEnabled: false
     filesEnabled: false
+
+  # -- SHA-256 hex hash of a pre-generated admin API key.
+  # When set, the node uses this hash for authentication instead of auto-generating a key.
+  # Generate with: echo -n "your-api-key" | sha256sum | cut -d' ' -f1
+  adminApiKeyHash: ""
+
+  # -- Disable admin API key authentication.
+  # Set to false in production to enable API key auth.
+  disableAdminApiKey: true
 
   # the address that will receive block or proof rewards
   coinbase:

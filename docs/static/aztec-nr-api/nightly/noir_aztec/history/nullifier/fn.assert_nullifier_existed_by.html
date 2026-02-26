@@ -37,7 +37,7 @@
 tree once all transactions from <code>block_header</code> were executed.</p>
 <p>In order to prove that a nullifier did <strong>not</strong> exist by <code>block_header</code>, use <a href="../../../noir_aztec/history/nullifier/fn.assert_nullifier_did_not_exist_by.html"><code>assert_nullifier_did_not_exist_by</code></a>.</p>
 <h2>Cost</h2>
-<p>This function performs a full merkle tree inclusion proof, which is in the order of 4k gates.</p>
+<p>This function performs a single merkle tree inclusion proof, which is in the order of 4k gates.</p>
 <p>If you don't need to assert existence at a <em>specific</em> past block, consider using
 <a href="../../../noir_aztec/context/struct.PrivateContext.html#assert_nullifier_exists"><code>PrivateContext::assert_nullifier_exists</code></a> instead, which
 is typically cheaper. Note that there are semantic differences though, as that function also considers <em>pending</em>

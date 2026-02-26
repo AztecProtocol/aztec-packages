@@ -42,16 +42,15 @@ storage.votes.insert(new_vote).deliver(vote_counter); // the vote counter accoun
 
 ### Flow
 
-1. Write your contract and specify your contract dependencies. Every contract written for Aztec will have
-   aztec-nr as a dependency. Add it to your `Nargo.toml` with
+1. Write your contract and specify your contract dependencies. Create a new project with `aztec new my_project`, which sets up a workspace with a `contract` crate and a `test` crate, with the `aztec` dependency already configured. If you need additional dependencies, add them to `contract/Nargo.toml`:
 
 ```toml
-# Nargo.toml
+# contract/Nargo.toml
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-nr/", tag="#include_aztec_version", directory="aztec" }
 ```
 
-Update your `main.nr` contract file to use the Aztec.nr macros for writing contracts.
+Update your `contract/src/main.nr` contract file to use the Aztec.nr macros for writing contracts.
 
 #include_code setup /docs/examples/contracts/counter_contract/src/main.nr rust
 
@@ -67,9 +66,9 @@ You can see a complete example of a simple counter contract written with Aztec.n
 
 2. [Profile](./framework-description/advanced/how_to_profile_transactions.md) the private functions in your contract to get
    a sense of how long generating client side proofs will take
-3. Write unit tests [directly in Noir](how_to_test_contracts.md) and end-to-end
+3. Write unit tests [directly in Noir](testing_contracts.md) and end-to-end
    tests [with TypeScript](../aztec-js/how_to_test.md)
-4. [Compile](how_to_compile_contract.md) your contract
+4. [Compile](compiling_contracts.md) your contract
 5. [Deploy](../aztec-js/how_to_deploy_contract.md) your contract with Aztec.js
 
 ## Section Contents

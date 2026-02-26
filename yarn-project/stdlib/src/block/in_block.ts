@@ -17,7 +17,7 @@ export type DataInBlock<T> = {
 
 export function randomInBlock(): InBlock {
   return {
-    l2BlockNumber: BlockNumber(Math.floor(Math.random() * 1000)),
+    l2BlockNumber: BlockNumber(Math.floor(Math.random() * 1000) + 1),
     l2BlockHash: BlockHash.random(),
   };
 }

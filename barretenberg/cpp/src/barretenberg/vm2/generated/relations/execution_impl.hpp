@@ -25,7 +25,7 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_AVM_SUBTRACE_ID_RETURNDATA_COPY = FF(32);
     const auto constants_AVM_SUBTRACE_ID_SET = FF(64);
     const auto constants_AVM_SUBTRACE_ID_GETCONTRACTINSTANCE = FF(128);
-    const auto constants_AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG = FF(256);
+    const auto constants_AVM_SUBTRACE_ID_EMITPUBLICLOG = FF(256);
     const auto constants_AVM_SUBTRACE_ID_POSEIDON2_PERM = FF(512);
     const auto constants_AVM_SUBTRACE_ID_SHA256_COMPRESSION = FF(1024);
     const auto constants_AVM_SUBTRACE_ID_KECCAKF1600 = FF(2048);
@@ -35,7 +35,7 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_AVM_DYN_GAS_ID_RETURNDATACOPY = FF(2);
     const auto constants_AVM_DYN_GAS_ID_TORADIX = FF(4);
     const auto constants_AVM_DYN_GAS_ID_BITWISE = FF(8);
-    const auto constants_AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG = FF(16);
+    const auto constants_AVM_DYN_GAS_ID_EMITPUBLICLOG = FF(16);
     const auto constants_AVM_DYN_GAS_ID_SSTORE = FF(32);
     const auto constants_AVM_EXEC_OP_ID_GETENVVAR = FF(1);
     const auto constants_AVM_EXEC_OP_ID_MOV = FF(2);
@@ -172,8 +172,8 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_emit_public_log)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_gas_emit_public_log)));
         std::get<17>(evals) += (tmp * scaling_factor);
     }
     {
@@ -191,8 +191,8 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                   CView(constants_AVM_DYN_GAS_ID_RETURNDATACOPY) +
               static_cast<View>(in.get(C::execution_sel_gas_to_radix)) * CView(constants_AVM_DYN_GAS_ID_TORADIX) +
               static_cast<View>(in.get(C::execution_sel_gas_bitwise)) * CView(constants_AVM_DYN_GAS_ID_BITWISE) +
-              static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)) *
-                  CView(constants_AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG) +
+              static_cast<View>(in.get(C::execution_sel_gas_emit_public_log)) *
+                  CView(constants_AVM_DYN_GAS_ID_EMITPUBLICLOG) +
               static_cast<View>(in.get(C::execution_sel_gas_sstore)) * CView(constants_AVM_DYN_GAS_ID_SSTORE)) -
              static_cast<View>(in.get(C::execution_sel_should_check_gas)) *
                  static_cast<View>(in.get(C::execution_dyn_gas_id)));
@@ -230,7 +230,7 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)) +
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_gas_emit_public_log)) +
                     static_cast<View>(in.get(C::execution_sel_gas_calldata_copy)) +
                     static_cast<View>(in.get(C::execution_sel_gas_returndata_copy))) *
                    (static_cast<View>(in.get(C::execution_register_0_)) -
@@ -239,7 +239,7 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<25, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)) *
+        auto tmp = static_cast<View>(in.get(C::execution_sel_gas_emit_public_log)) *
                    (static_cast<View>(in.get(C::execution_register_0_)) -
                     static_cast<View>(in.get(C::execution_dynamic_da_gas_factor)));
         std::get<25>(evals) += (tmp * scaling_factor);
@@ -247,7 +247,7 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // DYN_DA_GAS_IS_ZERO
         using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
         auto tmp = ((FF(1) - static_cast<View>(in.get(C::execution_sel_gas_sstore))) -
-                    static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log))) *
+                    static_cast<View>(in.get(C::execution_sel_gas_emit_public_log))) *
                    static_cast<View>(in.get(C::execution_dynamic_da_gas_factor));
         std::get<26>(evals) += (tmp * scaling_factor);
     }
@@ -255,7 +255,7 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
         auto tmp = (((((FF(1) - static_cast<View>(in.get(C::execution_sel_gas_bitwise))) -
                        static_cast<View>(in.get(C::execution_sel_gas_to_radix))) -
-                      static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log))) -
+                      static_cast<View>(in.get(C::execution_sel_gas_emit_public_log))) -
                      static_cast<View>(in.get(C::execution_sel_gas_calldata_copy))) -
                     static_cast<View>(in.get(C::execution_sel_gas_returndata_copy))) *
                    static_cast<View>(in.get(C::execution_dynamic_l2_gas_factor));
@@ -318,8 +318,8 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<37, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_emit_unencrypted_log)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_emit_unencrypted_log)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_exec_dispatch_emit_public_log)) *
+                   (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_emit_public_log)));
         std::get<37>(evals) += (tmp * scaling_factor);
     }
     {
@@ -368,8 +368,8 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
               static_cast<View>(in.get(C::execution_sel_exec_dispatch_set)) * CView(constants_AVM_SUBTRACE_ID_SET) +
               static_cast<View>(in.get(C::execution_sel_exec_dispatch_get_contract_instance)) *
                   CView(constants_AVM_SUBTRACE_ID_GETCONTRACTINSTANCE) +
-              static_cast<View>(in.get(C::execution_sel_exec_dispatch_emit_unencrypted_log)) *
-                  CView(constants_AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG) +
+              static_cast<View>(in.get(C::execution_sel_exec_dispatch_emit_public_log)) *
+                  CView(constants_AVM_SUBTRACE_ID_EMITPUBLICLOG) +
               static_cast<View>(in.get(C::execution_sel_exec_dispatch_poseidon2_perm)) *
                   CView(constants_AVM_SUBTRACE_ID_POSEIDON2_PERM) +
               static_cast<View>(in.get(C::execution_sel_exec_dispatch_sha256_compression)) *
@@ -678,11 +678,11 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     static_cast<View>(in.get(C::execution_num_nullifiers_emitted)));
         std::get<83>(evals) += (tmp * scaling_factor);
     }
-    { // NUM_UNENCRYPTED_LOGS_NOT_CHANGED
+    { // NUM_PUBLIC_LOGS_NOT_CHANGED
         using View = typename std::tuple_element_t<84, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_emit_unencrypted_log))) *
-                   (static_cast<View>(in.get(C::execution_prev_num_unencrypted_log_fields)) -
-                    static_cast<View>(in.get(C::execution_num_unencrypted_log_fields)));
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_exec_dispatch_emit_public_log))) *
+                   (static_cast<View>(in.get(C::execution_prev_num_public_log_fields)) -
+                    static_cast<View>(in.get(C::execution_num_public_log_fields)));
         std::get<84>(evals) += (tmp * scaling_factor);
     }
     { // NUM_L2_TO_L1_MESSAGES_NOT_CHANGED

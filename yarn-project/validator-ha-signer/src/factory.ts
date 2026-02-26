@@ -1,10 +1,14 @@
 /**
  * Factory functions for creating validator HA signers
  */
+import { DateProvider } from '@aztec/foundation/timer';
+import type { ValidatorHASignerConfig } from '@aztec/stdlib/ha-signing';
+import { getTelemetryClient } from '@aztec/telemetry-client';
+
 import { Pool } from 'pg';
 
-import type { ValidatorHASignerConfig } from './config.js';
 import { PostgresSlashingProtectionDatabase } from './db/postgres.js';
+import { HASignerMetrics } from './metrics.js';
 import type { CreateHASignerDeps, SlashingProtectionDatabase } from './types.js';
 import { ValidatorHASigner } from './validator_ha_signer.js';
 
@@ -55,6 +59,10 @@ export async function createHASigner(
   if (!databaseUrl) {
     throw new Error('databaseUrl is required for createHASigner');
   }
+
+  const telemetryClient = deps?.telemetryClient ?? getTelemetryClient();
+  const dateProvider = deps?.dateProvider ?? new DateProvider();
+
   // Create connection pool (or use provided pool)
   let pool: Pool;
   if (!deps?.pool) {
@@ -75,8 +83,11 @@ export async function createHASigner(
   // Verify database schema is initialized and version matches
   await db.initialize();
 
+  // Create metrics
+  const metrics = new HASignerMetrics(telemetryClient, signerConfig.nodeId);
+
   // Create signer
-  const signer = new ValidatorHASigner(db, { ...signerConfig, databaseUrl });
+  const signer = new ValidatorHASigner(db, { ...signerConfig, databaseUrl }, { metrics, dateProvider });
 
   return { signer, db };
 }

@@ -1,11 +1,11 @@
 // Taken from lodestar: https://github.com/ChainSafe/lodestar
-import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { createLogger } from '@aztec/foundation/log';
 import { MAX_TX_SIZE_KB, TopicType, getTopicFromString } from '@aztec/stdlib/p2p';
 
 import type { RPC } from '@chainsafe/libp2p-gossipsub/message';
 import type { DataTransform } from '@chainsafe/libp2p-gossipsub/types';
 import type { Message } from '@libp2p/interface';
+import { webcrypto } from 'node:crypto';
 import { compressSync, uncompressSync } from 'snappy';
 import xxhashFactory from 'xxhash-wasm';
 
@@ -44,11 +44,10 @@ export function msgIdToStrFn(msgId: Uint8Array): string {
  * @param message - The libp2p message
  * @returns The message identifier
  */
-export function getMsgIdFn(message: Message) {
-  const { topic } = message;
-
-  const vec = [Buffer.from(topic), message.data];
-  return sha256(Buffer.concat(vec)).subarray(0, 20);
+export async function getMsgIdFn({ topic, data }: Message): Promise<Uint8Array> {
+  const buffer = Buffer.concat([Buffer.from(topic), data]);
+  const hash = await webcrypto.subtle.digest('SHA-256', buffer);
+  return Buffer.from(hash.slice(0, 20));
 }
 
 const DefaultMaxSizesKb: Record<TopicType, number> = {
@@ -58,7 +57,8 @@ const DefaultMaxSizesKb: Record<TopicType, number> = {
   // Proposals may carry some tx objects, so we allow a larger size capped at 10mb
   // Note this may not be enough for carrying all tx objects in a block
   [TopicType.block_proposal]: 1024 * 10,
-  // TODO(palla/mbps): Check size for checkpoint proposal
+  // Checkpoint proposals carry almost the same data as a block proposal (see the lastBlockProposal)
+  // Only diff is an additional header, which is pretty small compared to the 10mb limit
   [TopicType.checkpoint_proposal]: 1024 * 10,
 };
 
@@ -78,11 +78,11 @@ export class SnappyTransform implements DataTransform {
     return this.inboundTransformData(Buffer.from(data), topic);
   }
 
-  public inboundTransformData(data: Buffer, topic?: TopicType): Buffer {
+  public inboundTransformData(data: Buffer, topic?: TopicType, maxSizeKbOverride?: number): Buffer {
     if (data.length === 0) {
       return data;
     }
-    const maxSizeKb = this.maxSizesKb[topic!] ?? this.defaultMaxSizeKb;
+    const maxSizeKb = maxSizeKbOverride ?? this.maxSizesKb[topic!] ?? this.defaultMaxSizeKb;
     const { decompressedSize } = readSnappyPreamble(data);
     if (decompressedSize > maxSizeKb * 1024) {
       this.logger.warn(`Decompressed size ${decompressedSize} exceeds maximum allowed size of ${maxSizeKb}kb`);

@@ -123,14 +123,17 @@ class ArgumentEncoder {
         }
         break;
       }
-      case 'integer':
-        if (typeof arg === 'string') {
-          const value = BigInt(arg);
-          this.flattened.push(new Fr(value));
+      case 'integer': {
+        const value = BigInt(arg);
+        if (abiType.sign === 'signed' && value < 0n) {
+          // Convert negative values to two's complement representation
+          const twosComplement = value + (1n << BigInt(abiType.width));
+          this.flattened.push(new Fr(twosComplement));
         } else {
-          this.flattened.push(new Fr(arg));
+          this.flattened.push(new Fr(value));
         }
         break;
+      }
       default:
         throw new Error(`Unsupported type: ${abiType.kind}`);
     }

@@ -21,12 +21,12 @@ RUN export DEBIAN_FRONTEND="noninteractive" \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install rust and cross-compilers. Noir specifically uses 1.85.0.
+# Install rust and cross-compilers. Noir specifically uses 1.89.0.
 # We give everyone write ownership so downstream boxes can write.
 ENV RUSTUP_HOME=/opt/rust/rustup
 ENV CARGO_HOME=/opt/rust/cargo
 ENV PATH="/opt/rust/cargo/bin:$PATH"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0 && \
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.89.0 && \
     rustup target add wasm32-unknown-unknown wasm32-wasip1 aarch64-apple-darwin && \
     chmod -R a+w /opt/rust
 
@@ -203,6 +203,7 @@ RUN apt update && \
         neovim \
         psmisc \
         python3-blessed \
+        qemu-utils \
         redis-tools \
         rsync \
         software-properties-common \
@@ -264,7 +265,7 @@ RUN echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 # It can be used independently:
 # - The user should use the ./run.sh script to launch.
 # - A persistent volume will be mounted to /home/aztec-dev.
-# - It provides docker via the hosts docker instance, mounted at /var/lib/docker.sock.
+# - It provides docker-in-docker.
 # - It uses an entrypoint script at runtime to perform uid/gid alignment with the host and drop into user account.
 FROM basebox AS devbox
 

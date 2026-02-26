@@ -10,8 +10,8 @@ use crate::{
 use types::{
     abis::fee_recipient::FeeRecipient,
     constants::{
-        AZTEC_MAX_EPOCH_DURATION, CHECKPOINT_MERGE_ROLLUP_VK_INDEX, CHECKPOINT_ROOT_ROLLUP_VK_INDEX,
-        CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX,
+        CHECKPOINT_MERGE_ROLLUP_VK_INDEX, CHECKPOINT_ROOT_ROLLUP_VK_INDEX,
+        CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX, MAX_CHECKPOINTS_PER_EPOCH,
     },
     traits::Empty,
 };
@@ -107,8 +107,8 @@ impl TestBuilder {
         assert_eq(pi.new_out_hash, right.new_out_hash);
         assert(pi.previous_out_hash != pi.new_out_hash);
 
-        let mut expected_header_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
-        let mut expected_fees = [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION];
+        let mut expected_header_hashes = [0; MAX_CHECKPOINTS_PER_EPOCH];
+        let mut expected_fees = [FeeRecipient::empty(); MAX_CHECKPOINTS_PER_EPOCH];
         for i in 0..self.num_left_checkpoints as u32 {
             expected_header_hashes[i] = left.checkpoint_header_hashes[i];
             expected_fees[i] = left.fees[i];

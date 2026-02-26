@@ -104,13 +104,16 @@
       "path": "../telemetry-client"
     },
     {
-      "path": "../test-wallet"
-    },
-    {
       "path": "../validator-client"
     },
     {
       "path": "../validator-ha-signer"
+    },
+    {
+      "path": "../wallet-sdk"
+    },
+    {
+      "path": "../wallets"
     },
     {
       "path": "../world-state"

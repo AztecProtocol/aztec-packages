@@ -30,7 +30,7 @@ export interface TxStartMarker {
 }
 
 export function encodeTxStartMarker(txStartMarker: TxStartMarker): Fr {
-  let value = TX_START_PREFIX;
+  let value = BigInt(TX_START_PREFIX);
   value <<= NUM_NOTE_HASH_BIT_SIZE;
   value += BigInt(txStartMarker.numNoteHashes);
   value <<= NUM_NULLIFIER_BIT_SIZE;
@@ -78,7 +78,7 @@ export function decodeTxStartMarker(field: Fr): TxStartMarker {
   value >>= NUM_NOTE_HASH_BIT_SIZE;
 
   const prefix = value;
-  if (prefix !== TX_START_PREFIX) {
+  if (prefix !== BigInt(TX_START_PREFIX)) {
     throw new BlobDeserializationError(`Incorrect encoding of blob fields: invalid tx start marker.`);
   }
 

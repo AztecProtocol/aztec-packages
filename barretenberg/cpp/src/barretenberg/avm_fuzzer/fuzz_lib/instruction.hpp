@@ -520,7 +520,7 @@ struct SENDL2TOL1MSG_Instruction {
     MSGPACK_FIELDS(recipient_address, content_address);
 };
 
-struct EMITUNENCRYPTEDLOG_Instruction {
+struct EMITPUBLICLOG_Instruction {
     ParamRef log_size_address;
     ParamRef log_values_address;
     MSGPACK_FIELDS(log_size_address, log_values_address);
@@ -676,7 +676,7 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      NOTEHASHEXISTS_Instruction,
                                      CALLDATACOPY_Instruction,
                                      SENDL2TOL1MSG_Instruction,
-                                     EMITUNENCRYPTEDLOG_Instruction,
+                                     EMITPUBLICLOG_Instruction,
                                      CALL_Instruction,
                                      RETURNDATASIZE_Instruction,
                                      RETURNDATACOPY_Instruction,
@@ -866,8 +866,8 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
             [&](SENDL2TOL1MSG_Instruction arg) {
                 os << "SENDL2TOL1MSG_Instruction " << arg.recipient_address << " " << arg.content_address;
             },
-            [&](EMITUNENCRYPTEDLOG_Instruction arg) {
-                os << "EMITUNENCRYPTEDLOG_Instruction " << arg.log_size_address << " " << arg.log_values_address;
+            [&](EMITPUBLICLOG_Instruction arg) {
+                os << "EMITPUBLICLOG_Instruction " << arg.log_size_address << " " << arg.log_values_address;
             },
             [&](CALL_Instruction arg) {
                 os << "CALL_Instruction " << arg.l2_gas_address << " " << arg.da_gas_address << " "

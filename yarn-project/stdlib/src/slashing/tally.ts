@@ -1,4 +1,5 @@
 import { sumBigint } from '@aztec/foundation/bigint';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { PartialBy } from '@aztec/foundation/types';
 
@@ -20,9 +21,10 @@ export function getSlashConsensusVotesFromOffenses(
   settings: {
     slashingAmounts: [bigint, bigint, bigint];
     epochDuration: number;
+    targetCommitteeSize: number;
   },
 ): ValidatorSlashVote[] {
-  const { slashingAmounts } = settings;
+  const { slashingAmounts, targetCommitteeSize } = settings;
 
   if (committees.length !== epochsForCommittees.length) {
     throw new Error('committees and epochsForCommittees must have the same length');
@@ -31,7 +33,9 @@ export function getSlashConsensusVotesFromOffenses(
   const votes = committees.flatMap((committee, committeeIndex) => {
     const committeeEpoch = epochsForCommittees[committeeIndex];
 
-    return committee.map(validator => {
+    // Map over actual committee members, then pad to targetCommitteeSize.
+    // Padding handles cases where committees may be empty (e.g., when there aren't enough validators to fill the committee size during network startup).
+    const votes = committee.map(validator => {
       // Find offenses for this validator in this specific epoch.
       // If an offense has no epoch, it is considered for all epochs due to a slashAlways setting.
       const validatorOffenses = offenses.filter(
@@ -45,6 +49,8 @@ export function getSlashConsensusVotesFromOffenses(
       const slashUnits = getSlashUnitsForAmount(slashAmount, slashingAmounts);
       return Number(slashUnits);
     });
+
+    return padArrayEnd(votes, 0, targetCommitteeSize);
   });
 
   return votes;

@@ -1,13 +1,12 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { TxStatus } from '@aztec/aztec.js/tx';
-import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet/server';
-import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
+import { proveInteraction } from './test-wallet/utils.js';
 
 describe('e2e_mempool_limit', () => {
   let wallet: TestWallet;
@@ -70,24 +69,9 @@ describe('e2e_mempool_limit', () => {
       expect.objectContaining({ status: TxStatus.PENDING }),
     );
 
-    const txHash3 = await tx3.send({ wait: NO_WAIT });
-
-    const txDropped = await retryUntil(
-      async () => {
-        // one of the txs will be dropped. Which one is picked is somewhat random because all three will have the same fee
-        const receipts = await Promise.all([
-          aztecNode.getTxReceipt(txHash1),
-          aztecNode.getTxReceipt(txHash2),
-          aztecNode.getTxReceipt(txHash3),
-        ]);
-        const numPending = receipts.reduce((count, r) => (r.status === TxStatus.PENDING ? count + 1 : count), 0);
-        return numPending < 3;
-      },
-      'Waiting for one of the txs to be evicted from the mempool',
-      60,
-      1,
-    );
-
-    expect(txDropped).toBe(true);
+    // tx3 should be rejected because pool is at capacity and its priority is not higher than existing txs
+    await expect(tx3.send({ wait: NO_WAIT })).rejects.toMatchObject({
+      data: { code: 'LOW_PRIORITY_FEE' },
+    });
   });
 });

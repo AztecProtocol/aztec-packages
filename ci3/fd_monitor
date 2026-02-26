@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Periodically logs which processes hold given pipe FD(s) open.
+# Used to debug container script exit hangs caused by leaked FDs.
+# Usage: fd_monitor <pipe_identifier> [<pipe_identifier2> ...]
+# Close stderr to prevent holding inherited pipeline FDs open (see cache_log).
+exec 0</dev/null 2>/dev/null
+pipes=("$@")
+while true; do
+  for pipe in "${pipes[@]}"; do
+    echo "=== Holders of $pipe ==="
+    for f in /proc/[0-9]*/fd/*; do
+      [ "$(readlink "$f" 2>/dev/null)" = "$pipe" ] || continue
+      pid=${f#/proc/}; pid=${pid%%/*}
+      fdnum=${f##*/}
+      comm=$(cat /proc/$pid/comm 2>/dev/null || echo "?")
+      ppid=$(awk '/^PPid:/{print $2}' /proc/$pid/status 2>/dev/null || echo "?")
+      cmdline=$(tr '\0' ' ' </proc/$pid/cmdline 2>/dev/null)
+      echo "  pid=$pid ppid=$ppid fd=$fdnum comm=$comm cmd=$cmdline"
+    done
+  done
+  echo
+  sleep 10
+done

@@ -4,12 +4,12 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import { AuthContract } from '@aztec/noir-contracts.js/Auth';
 import { StateVarsContract } from '@aztec/noir-test-contracts.js/StateVars';
-import type { TestWallet } from '@aztec/test-wallet/server';
-import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
+import { proveInteraction } from './test-wallet/utils.js';
 
 const TIMEOUT = 180_000;
 
@@ -314,14 +314,14 @@ describe('e2e_state_vars', () => {
         from: defaultAccountAddress,
       });
 
-      if (aztecSlotDuration !== 36) {
+      if (aztecSlotDuration !== 72) {
         throw new Error(
           'Aztec slot duration changed and this will break this test. Update CHANGE_AUTHORIZED_DELAY constant in the Auth contract to be 5 slots again.',
         );
       }
     });
 
-    it('sets the include by timestamp property', async () => {
+    it('sets the expiration timestamp property', async () => {
       const newDelay = BigInt(aztecSlotDuration * 2);
       // We change the DelayedPublicMutable authorized delay here to 2 slots, this means that a change to the "authorized"
       // value can only be applied 2 slots after it is initiated, and thus read requests on a historical state without
@@ -333,15 +333,18 @@ describe('e2e_state_vars', () => {
       await delay(4);
 
       // The validity of our DelayedPublicMutable read request should be limited to the new delay
-      const expectedModifiedIncludeByTimestamp =
-        (await aztecNode.getBlockHeader('latest'))!.globalVariables.timestamp + newDelay;
+      // Note: We subtract 1 because blocks within the same checkpoint can share timestamps so the earliest scheduling
+      // can happen at the anchor timestamp itself. For this reason, the latest timestamp at which a change is
+      // guaranteed to not have happened is the anchor timestamp + the new delay - 1.
+      const expectedModifiedExpirationTimestamp =
+        (await aztecNode.getBlockHeader('latest'))!.globalVariables.timestamp + newDelay - 1n;
 
-      // We now call our AuthContract to see if the change in include by timestamp has reflected our delay change
+      // We now call our AuthContract to see if the change in expiration timestamp has reflected our delay change
       const tx = await proveInteraction(wallet, authContract.methods.get_authorized_in_private(), {
         from: defaultAccountAddress,
       });
 
-      expect(tx.data.includeByTimestamp).toEqual(expectedModifiedIncludeByTimestamp);
+      expect(tx.data.expirationTimestamp).toEqual(expectedModifiedExpirationTimestamp);
     });
   });
 });

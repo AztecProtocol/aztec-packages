@@ -4,10 +4,10 @@ A curve-agnostic zero-knowledge protocol for proving inner products of small vec
 
 ## Overview
 
-SmallSubgroupIPA enables proving statements of the form $ \langle F, G \rangle = s$ where:
-- $ G$ is a witness polynomial (prover's secret)
-- $ F$ is a challenge polynomial (derived from public challenges)
-- $ s$ is the claimed inner product
+SmallSubgroupIPA enables proving statements of the form $\langle F, G \rangle = s$ where:
+- $G$ is a witness polynomial (prover's secret)
+- $F$ is a challenge polynomial (derived from public challenges)
+- $s$ is the claimed inner product
 
 This protocol is used in two contexts:
 1. **ZK-Sumcheck**: Proving correct evaluation of Libra masking polynomials

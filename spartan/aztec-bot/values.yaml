@@ -12,9 +12,10 @@ bot:
   publicTransfersPerTx: 1
   # Do not wait for transactions
   followChain: "NONE"
+  pxeSyncChainTip: "checkpointed"
   botNoStart: false
   feePaymentMethod: "fee_juice"
-  ammTxs: false
+  botMode: "transfer"
   maxErrors: 3
   stopIfUnhealthy: true
   nodeUrl: ""

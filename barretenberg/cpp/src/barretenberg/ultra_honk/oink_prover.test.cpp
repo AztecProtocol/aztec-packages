@@ -35,7 +35,7 @@ TEST_F(OinkTests, OinkProverIsDeterministic)
 
     {
         // Run OinkProver for the first time
-        OinkProver prover(prover_instance, verification_key);
+        OinkProver prover(prover_instance, verification_key, std::make_shared<Transcript>());
         prover.prove();
     }
 
@@ -51,7 +51,7 @@ TEST_F(OinkTests, OinkProverIsDeterministic)
 
     {
         // Run OinkProver for the second time
-        OinkProver prover(prover_instance, verification_key);
+        OinkProver prover(prover_instance, verification_key, std::make_shared<Transcript>());
         prover.prove();
     }
 
@@ -81,7 +81,7 @@ TEST_F(OinkTests, OinkProverCommitments)
     auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
     auto verifier_instance = std::make_shared<VerifierInstance>(vk_and_hash);
 
-    OinkProver prover(prover_instance, verification_key);
+    OinkProver prover(prover_instance, verification_key, std::make_shared<Transcript>());
     prover.prove();
     HonkProof proof = prover.export_proof();
 

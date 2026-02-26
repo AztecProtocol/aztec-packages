@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { RevertCode } from '../avm/revert_code.js';
 import { BlockHash } from '../block/block_hash.js';
+import { DebugLog } from '../logs/debug_log.js';
 import { type ZodFor, schemas } from '../schemas/schemas.js';
 import { TxHash } from './tx_hash.js';
 
@@ -57,6 +58,12 @@ export class TxReceipt {
     public blockHash?: BlockHash,
     /** The block number in which the transaction was included. */
     public blockNumber?: BlockNumber,
+    /**
+     * Debug logs collected during public function execution. Served only when the node is in test mode and placed on
+     * the receipt only because it's a convenient place for it (the logs are printed out by the wallet when a mined
+     * tx receipt is obtained).
+     */
+    public debugLogs?: DebugLog[],
   ) {}
 
   /** Returns true if the transaction was executed successfully. */
@@ -103,6 +110,7 @@ export class TxReceipt {
         blockHash: BlockHash.schema.optional(),
         blockNumber: BlockNumberSchema.optional(),
         transactionFee: schemas.BigInt.optional(),
+        debugLogs: z.array(DebugLog.schema).optional(),
       })
       .transform(fields => TxReceipt.from(fields));
   }
@@ -115,6 +123,7 @@ export class TxReceipt {
     transactionFee?: bigint;
     blockHash?: BlockHash;
     blockNumber?: BlockNumber;
+    debugLogs?: DebugLog[];
   }) {
     return new TxReceipt(
       fields.txHash,
@@ -124,6 +133,7 @@ export class TxReceipt {
       fields.transactionFee,
       fields.blockHash,
       fields.blockNumber,
+      fields.debugLogs,
     );
   }
 

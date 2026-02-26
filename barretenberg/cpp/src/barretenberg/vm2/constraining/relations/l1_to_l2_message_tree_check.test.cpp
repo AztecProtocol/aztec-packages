@@ -14,6 +14,7 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/l1_to_l2_message_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/gadgets/l1_to_l2_message_tree_check.hpp"
+#include "barretenberg/vm2/simulation/gadgets/merkle_check.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_poseidon2.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"

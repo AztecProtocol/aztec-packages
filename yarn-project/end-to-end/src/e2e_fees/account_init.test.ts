@@ -13,10 +13,10 @@ import { SchnorrAccountContract as SchnorrAccountContractInterface } from '@azte
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasSettings } from '@aztec/stdlib/gas';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { FeesTest } from './fees_test.js';
 
 jest.setTimeout(300_000);
@@ -89,7 +89,10 @@ describe('e2e_fees account_init', () => {
       const [bobsInitialGas] = await t.getGasBalanceFn(bobsAddress);
       expect(bobsInitialGas).toEqual(mintAmount);
 
-      const tx = await bobsDeployMethod.send({ from: AztecAddress.ZERO, wait: { returnReceipt: true } });
+      const tx = await bobsDeployMethod.send({
+        from: AztecAddress.ZERO,
+        wait: { returnReceipt: true },
+      });
 
       expect(tx.transactionFee!).toBeGreaterThan(0n);
       await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([bobsInitialGas - tx.transactionFee!]);
@@ -187,6 +190,8 @@ describe('e2e_fees account_init', () => {
         bobsSigningPubKey.y,
       ).send({
         from: aliceAddress,
+        // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
+        additionalScopes: [bobsAddress],
         contractAddressSalt: bobsInstance.salt,
         skipClassPublication: true,
         skipInstancePublication: true,

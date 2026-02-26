@@ -2,6 +2,7 @@ import {
   dedupeSortedArray,
   findInSortedArray,
   findIndexInSortedArray,
+  findInsertionIndexInSortedArray,
   insertIntoSortedArray,
   merge,
   removeAnyOf,
@@ -123,6 +124,55 @@ describe('sorted_array', () => {
     for (const [arr, needle, expected] of tests) {
       expect(findIndexInSortedArray(arr, needle, cmp)).toEqual(expected);
     }
+  });
+
+  describe('findInsertionIndexInSortedArray', () => {
+    it('returns 0 for empty array', () => {
+      expect(findInsertionIndexInSortedArray([], 1, cmp)).toBe(0);
+    });
+
+    it('returns count of elements <= needle', () => {
+      const tests: [number[], number, number][] = [
+        [[5], 3, 0],
+        [[5], 5, 1],
+        [[5], 7, 1],
+
+        [[1, 3, 5, 7], 0, 0],
+        [[1, 3, 5, 7], 1, 1],
+        [[1, 3, 5, 7], 2, 1],
+        [[1, 3, 5, 7], 3, 2],
+        [[1, 3, 5, 7], 4, 2],
+        [[1, 3, 5, 7], 5, 3],
+        [[1, 3, 5, 7], 6, 3],
+        [[1, 3, 5, 7], 7, 4],
+        [[1, 3, 5, 7], 8, 4],
+      ];
+      for (const [arr, needle, expected] of tests) {
+        expect(findInsertionIndexInSortedArray(arr, needle, cmp)).toBe(expected);
+      }
+    });
+
+    it('handles duplicates by returning index after all equal elements', () => {
+      expect(findInsertionIndexInSortedArray([1, 2, 2, 2, 3], 2, cmp)).toBe(4);
+      expect(findInsertionIndexInSortedArray([2, 2, 2], 2, cmp)).toBe(3);
+      expect(findInsertionIndexInSortedArray([1, 1, 1, 2], 1, cmp)).toBe(3);
+    });
+
+    it('works with heterogeneous types', () => {
+      type Timer = { deadline: number; callback: () => void };
+      const arr: Timer[] = [
+        { deadline: 100, callback: () => {} },
+        { deadline: 300, callback: () => {} },
+        { deadline: 500, callback: () => {} },
+      ];
+      const cmpByDeadline = (timer: Timer, needle: { deadline: number }) => cmp(timer.deadline, needle.deadline);
+
+      expect(findInsertionIndexInSortedArray(arr, { deadline: 0 }, cmpByDeadline)).toBe(0);
+      expect(findInsertionIndexInSortedArray(arr, { deadline: 100 }, cmpByDeadline)).toBe(1);
+      expect(findInsertionIndexInSortedArray(arr, { deadline: 200 }, cmpByDeadline)).toBe(1);
+      expect(findInsertionIndexInSortedArray(arr, { deadline: 300 }, cmpByDeadline)).toBe(2);
+      expect(findInsertionIndexInSortedArray(arr, { deadline: 600 }, cmpByDeadline)).toBe(3);
+    });
   });
 
   it('findIndexInSortedArray with duplicates returns any valid occurrence', () => {

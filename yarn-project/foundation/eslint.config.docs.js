@@ -63,4 +63,15 @@ export default [
       'jsdoc/require-returns': 'off',
     },
   },
+  {
+    files: ['**/*.test.ts'],
+    rules: {
+      'jsdoc/require-jsdoc': 'off',
+      'jsdoc/require-description': 'off',
+      'jsdoc/require-param': 'off',
+      'jsdoc/require-param-description': 'off',
+      'jsdoc/require-param-name': 'off',
+      'tsdoc/syntax': 'off',
+    },
+  },
 ];

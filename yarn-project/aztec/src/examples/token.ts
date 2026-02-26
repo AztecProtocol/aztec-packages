@@ -2,7 +2,7 @@ import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { TestWallet } from '@aztec/test-wallet/server';
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 const logger = createLogger('example:token');
 
@@ -19,7 +19,7 @@ const TRANSFER_AMOUNT = 33n;
 async function main() {
   logger.info('Running token contract test on HTTP interface.');
 
-  const wallet = await TestWallet.create(node);
+  const wallet = await EmbeddedWallet.create(node);
 
   // During local network setup we deploy a few accounts. Below we add them to our wallet.
   const [aliceInitialAccountData, bobInitialAccountData] = await getInitialTestAccountsData();

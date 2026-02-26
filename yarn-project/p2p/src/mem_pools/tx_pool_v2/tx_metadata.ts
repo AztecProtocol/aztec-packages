@@ -1,11 +1,32 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import type { L2BlockId } from '@aztec/stdlib/block';
-import type { Tx } from '@aztec/stdlib/tx';
+import { BlockHash, type L2BlockId } from '@aztec/stdlib/block';
+import { Gas } from '@aztec/stdlib/gas';
+import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { getFeePayerBalanceDelta } from '../../msg_validators/tx_validator/fee_payer_balance.js';
 import { getTxPriorityFee } from '../tx_pool/priority.js';
-import type { PreAddResult } from './eviction/interfaces.js';
+import { type PreAddResult, TxPoolRejectionCode } from './eviction/interfaces.js';
+
+/** Validator-compatible data interface, mirroring the subset of PrivateKernelTailCircuitPublicInputs used by validators. */
+export type TxMetaValidationData = {
+  getNonEmptyNullifiers(): Fr[];
+  expirationTimestamp: bigint;
+  /** Whether the tx has public calls. Used to select the correct L2 gas minimum. */
+  forPublic?: unknown;
+  constants: {
+    anchorBlockHeader: {
+      hash(): Promise<BlockHash>;
+      globalVariables: {
+        blockNumber: BlockNumber;
+      };
+    };
+    txContext: {
+      gasSettings: { gasLimits: Gas };
+    };
+  };
+};
 
 /**
  * Lightweight in-memory representation of a transaction.
@@ -18,6 +39,9 @@ import type { PreAddResult } from './eviction/interfaces.js';
 export type TxMetaData = {
   /** The transaction hash as hex string */
   readonly txHash: string;
+
+  /** The transaction hash as bigint (for efficient Fr conversion in comparisons) */
+  readonly txHashBigInt: bigint;
 
   /** Block ID (number and hash) in which the transaction was mined (undefined if not mined) */
   minedL2BlockId?: L2BlockId;
@@ -41,40 +65,100 @@ export type TxMetaData = {
   readonly nullifiers: readonly string[];
 
   /** Timestamp by which the transaction must be included (for expiration checks) */
-  readonly includeByTimestamp: bigint;
+  readonly expirationTimestamp: bigint;
+
+  /** Validator-compatible data, providing the same access patterns as Tx.data */
+  readonly data: TxMetaValidationData;
+
+  /** Timestamp (ms) when the tx was received into the pool. 0 for hydrated txs (always eligible). */
+  receivedAt: number;
+
+  /** Estimated memory footprint of this metadata object in bytes */
+  readonly estimatedSizeBytes: number;
 };
 
 /** Transaction state derived from TxMetaData fields and pool protection status */
-export type TxState = 'pending' | 'protected' | 'mined';
+export type TxState = 'pending' | 'protected' | 'mined' | 'deleted';
 
 /**
  * Builds TxMetaData from a full Tx object.
  * Extracts all relevant fields for efficient in-memory storage and querying.
+ * Fr values are captured in closures for zero-cost re-validation.
  */
 export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
-  const txHash = tx.getTxHash().toString();
-  const anchorBlockHeaderHash = (await tx.data.constants.anchorBlockHeader.hash()).toString();
+  const txHashObj = tx.getTxHash();
+  const txHash = txHashObj.toString();
+  const txHashBigInt = txHashObj.toBigInt();
+  const nullifierFrs = tx.data.getNonEmptyNullifiers();
+  const nullifiers = nullifierFrs.map(n => n.toString());
+  const anchorBlockHeaderHashFr = await tx.data.constants.anchorBlockHeader.hash();
+  const anchorBlockHeaderHash = anchorBlockHeaderHashFr.toString();
+  const expirationTimestamp = tx.data.expirationTimestamp;
+  const anchorBlockNumber = tx.data.constants.anchorBlockHeader.globalVariables.blockNumber;
   const priorityFee = getTxPriorityFee(tx);
   const feePayer = tx.data.feePayer.toString();
-  const nullifiers = tx.data.getNonEmptyNullifiers().map(n => n.toString());
-  const includeByTimestamp = tx.data.includeByTimestamp;
 
   const { feeLimit, claimAmount } = await getFeePayerBalanceDelta(tx, ProtocolContractAddress.FeeJuice);
 
+  const estimatedSizeBytes = estimateTxMetaDataSize(nullifiers.length);
+
   return {
     txHash,
+    txHashBigInt,
     anchorBlockHeaderHash,
     priorityFee,
     feePayer,
     claimAmount,
     feeLimit,
     nullifiers,
-    includeByTimestamp,
+    expirationTimestamp,
+    receivedAt: 0,
+    estimatedSizeBytes,
+    data: {
+      getNonEmptyNullifiers: () => nullifierFrs,
+      expirationTimestamp,
+      forPublic: !!tx.data.forPublic,
+      constants: {
+        anchorBlockHeader: {
+          hash: () => Promise.resolve(anchorBlockHeaderHashFr),
+          globalVariables: { blockNumber: anchorBlockNumber },
+        },
+        txContext: {
+          gasSettings: { gasLimits: tx.data.constants.txContext.gasSettings.gasLimits },
+        },
+      },
+    },
   };
 }
 
+// V8 JS object overhead (~64 bytes for a plain object with hidden class).
+// String overhead: ~32 bytes header + 1 byte per ASCII char (V8 one-byte strings).
+// Hex string (0x + 64 hex chars = 66 chars): ~98 bytes per string.
+// bigint: ~32 bytes. number: 8 bytes. Fr: ~80 bytes (32 data + object overhead).
+const OBJECT_OVERHEAD = 64;
+const HEX_STRING_BYTES = 98;
+const BIGINT_BYTES = 32;
+const FR_BYTES = 80;
+// Fixed cost: object shell + txHash + anchorBlockHeaderHash + feePayer (3 hex strings)
+// + txHashBigInt + priorityFee + claimAmount + feeLimit + includeByTimestamp (5 bigints)
+// + receivedAt (number, 8 bytes) + estimatedSizeBytes (number, 8 bytes)
+// + data closure object (~OBJECT_OVERHEAD + anchorBlockHeaderHashFr Fr + anchorBlockNumber number)
+const FIXED_METADATA_BYTES =
+  OBJECT_OVERHEAD + 3 * HEX_STRING_BYTES + 5 * BIGINT_BYTES + 8 + 8 + OBJECT_OVERHEAD + FR_BYTES + 8;
+
+/** Estimates the in-memory size of a TxMetaData object based on the number of nullifiers. */
+function estimateTxMetaDataSize(nullifierCount: number): number {
+  // Per nullifier: one hex string in nullifiers[] + one Fr in the captured nullifierFrs[]
+  return FIXED_METADATA_BYTES + nullifierCount * (HEX_STRING_BYTES + FR_BYTES);
+}
+
+/** Converts a txHash bigint back to the canonical 0x-prefixed 64-char hex string. */
+export function txHashFromBigInt(value: bigint): string {
+  return TxHash.fromBigInt(value).toString();
+}
+
 /** Minimal fields required for priority comparison. */
-type PriorityComparable = Pick<TxMetaData, 'txHash' | 'priorityFee'>;
+type PriorityComparable = Pick<TxMetaData, 'txHashBigInt' | 'priorityFee'>;
 
 /**
  * Compares two priority fees in ascending order.
@@ -89,10 +173,8 @@ export function compareFee(a: bigint, b: bigint): number {
  * Uses field element comparison for deterministic ordering.
  * Returns negative if a < b, positive if a > b, 0 if equal.
  */
-export function compareTxHash(a: string, b: string): number {
-  const fieldA = Fr.fromHexString(a);
-  const fieldB = Fr.fromHexString(b);
-  return fieldA.cmp(fieldB);
+export function compareTxHash(a: bigint, b: bigint): number {
+  return Fr.cmpAsBigInt(a, b);
 }
 
 /**
@@ -105,7 +187,7 @@ export function comparePriority(a: PriorityComparable, b: PriorityComparable): n
   if (feeComparison !== 0) {
     return feeComparison;
   }
-  return compareTxHash(a.txHash, b.txHash);
+  return compareTxHash(a.txHashBigInt, b.txHashBigInt);
 }
 
 /**
@@ -152,10 +234,64 @@ export function checkNullifierConflict(
       return {
         shouldIgnore: true,
         txHashesToEvict: [],
-        reason: `nullifier conflict with ${conflictingHashStr}`,
+        reason: {
+          code: TxPoolRejectionCode.NULLIFIER_CONFLICT,
+          message: `Nullifier conflict with existing tx ${conflictingHashStr}`,
+          conflictingTxHash: conflictingHashStr,
+        },
       };
     }
   }
 
   return { shouldIgnore: false, txHashesToEvict };
+}
+
+/** Creates a stub TxMetaValidationData for tests that don't exercise validators. */
+export function stubTxMetaValidationData(overrides: { expirationTimestamp?: bigint } = {}): TxMetaValidationData {
+  return {
+    getNonEmptyNullifiers: () => [],
+    expirationTimestamp: overrides.expirationTimestamp ?? 0n,
+    constants: {
+      anchorBlockHeader: {
+        hash: () => Promise.resolve(new BlockHash(Fr.ZERO)),
+        globalVariables: { blockNumber: BlockNumber(0) },
+      },
+      txContext: {
+        gasSettings: { gasLimits: Gas.empty() },
+      },
+    },
+  };
+}
+
+/** Creates a stub TxMetaData for tests. All fields have sensible defaults and can be overridden. */
+export function stubTxMetaData(
+  txHash: string,
+  overrides: {
+    priorityFee?: bigint;
+    feePayer?: string;
+    claimAmount?: bigint;
+    feeLimit?: bigint;
+    nullifiers?: string[];
+    expirationTimestamp?: bigint;
+    anchorBlockHeaderHash?: string;
+  } = {},
+): TxMetaData {
+  const txHashBigInt = Fr.fromHexString(txHash).toBigInt();
+  // Normalize to canonical zero-padded hex so txHashFromBigInt(txHashBigInt) === normalizedTxHash
+  const normalizedTxHash = txHashFromBigInt(txHashBigInt);
+  const expirationTimestamp = overrides.expirationTimestamp ?? 0n;
+  return {
+    txHash: normalizedTxHash,
+    txHashBigInt,
+    anchorBlockHeaderHash: overrides.anchorBlockHeaderHash ?? '0x1234',
+    priorityFee: overrides.priorityFee ?? 100n,
+    feePayer: overrides.feePayer ?? '0xfeepayer',
+    claimAmount: overrides.claimAmount ?? 0n,
+    feeLimit: overrides.feeLimit ?? 100n,
+    nullifiers: overrides.nullifiers ?? [`0x${normalizedTxHash.slice(2)}null1`],
+    expirationTimestamp,
+    receivedAt: 0,
+    estimatedSizeBytes: 0,
+    data: stubTxMetaValidationData({ expirationTimestamp }),
+  };
 }

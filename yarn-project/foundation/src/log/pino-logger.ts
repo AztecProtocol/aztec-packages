@@ -7,8 +7,9 @@ import { inspect } from 'util';
 import { compactArray } from '../collection/array.js';
 import type { EnvVar } from '../config/index.js';
 import { parseBooleanEnv } from '../config/parse-env.js';
+import { convertBigintsToStrings } from './bigint-utils.js';
 import { GoogleCloudLoggerConfig } from './gcloud-logger-config.js';
-import { getLogLevelFromFilters, parseEnv } from './log-filters.js';
+import { getLogLevelFromFilters, parseLogLevelEnvVar } from './log-filters.js';
 import type { LogLevel } from './log-levels.js';
 import type { LogData, LogFn } from './log_fn.js';
 
@@ -126,7 +127,7 @@ function isLevelEnabled(logger: pino.Logger<'verbose', boolean>, level: LogLevel
 
 // Load log levels from environment variables.
 const defaultLogLevel = process.env.NODE_ENV === 'test' ? 'silent' : 'info';
-export const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
+export const [logLevel, logFilters] = parseLogLevelEnvVar(process.env.LOG_LEVEL, defaultLogLevel);
 
 // Define custom logging levels for pino.
 const customLevels = { verbose: 25 };
@@ -164,6 +165,9 @@ const pinoOpts: pino.LoggerOptions<keyof typeof customLevels> = {
       ...redactedPaths.map(p => `options.${p}`),
       ...redactedPaths.map(p => `opts.${p}`),
     ],
+  },
+  formatters: {
+    log: obj => convertBigintsToStrings(obj) as Record<string, unknown>,
   },
   ...(useGcloudLogging ? GoogleCloudLoggerConfig : {}),
 };

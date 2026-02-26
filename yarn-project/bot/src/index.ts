@@ -1,5 +1,6 @@
 export { Bot } from './bot.js';
 export { AmmBot } from './amm_bot.js';
+export { CrossChainBot } from './cross_chain_bot.js';
 export { BotRunner } from './runner.js';
 export { BotStore } from './store/bot_store.js';
 export {

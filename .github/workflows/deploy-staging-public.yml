@@ -1,0 +1,94 @@
+name: Deploy to staging-public
+
+on:
+  push:
+    branches:
+      - v4
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-staging-public
+  cancel-in-progress: true
+
+env:
+  GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+jobs:
+  determine-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.poll-tag.outputs.tag }}
+      semver: ${{ steps.poll-tag.outputs.semver }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Read version from manifest
+        id: manifest
+        run: |
+          VERSION=$(jq -r '."."' .release-please-manifest.json)
+          echo "version=$VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Poll for tag at HEAD
+        id: poll-tag
+        run: |
+          # wait for tag to be pushed (either RC or stable release)
+          VERSION="${{ steps.manifest.outputs.version }}"
+          HEAD_SHA=$(git rev-parse HEAD)
+          MAX_ATTEMPTS=60
+          echo "Looking for tag matching v${VERSION} or v${VERSION}-rc.* at HEAD ($HEAD_SHA)"
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            git fetch --tags --force
+
+            TAG=$(git tag --points-at HEAD | grep -E "^v${VERSION}(-rc\.[0-9]+)?$" | sort -V | tail -n 1 || true)
+
+            if [ -n "$TAG" ]; then
+              echo "Found tag: $TAG"
+              SEMVER="${VERSION}"
+              echo "tag=$TAG" >> $GITHUB_OUTPUT
+              echo "semver=$SEMVER" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+
+            echo "Attempt $i/$MAX_ATTEMPTS: No matching tag yet, waiting 10s..."
+            sleep 10
+          done
+
+          echo "Error: No tag found for v${VERSION} at HEAD after 10 minutes"
+          exit 1
+
+  wait-for-ci3:
+    needs: determine-tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Wait for CI3
+        run: spartan/scripts/wait_for_ci3.ts "${{ needs.determine-tag.outputs.tag }}"
+
+  deploy:
+    needs: [determine-tag, wait-for-ci3]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deploy-network on next branch
+        run: |
+          echo "Triggering deploy-network for staging-public with semver=${{ needs.determine-tag.outputs.semver }}"
+          gh workflow run deploy-network.yml \
+            --repo "${{ github.repository }}" \
+            --ref next \
+            -f network=staging-public \
+            -f semver="${{ needs.determine-tag.outputs.semver }}" \
+            -f source_tag="${{ needs.determine-tag.outputs.tag }}"

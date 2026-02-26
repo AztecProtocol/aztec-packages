@@ -3,12 +3,12 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
 
 const TIMEOUT = 120_000;
 
@@ -146,7 +146,9 @@ describe('AMM', () => {
       // Liquidity tokens should also be minted for the liquidity provider, as well as locked at the zero address.
       const expectedLiquidityTokens = (INITIAL_AMM_TOTAL_SUPPLY * 99n) / 100n;
       expect(
-        await liquidityToken.methods.balance_of_private(liquidityProviderAddress).simulate({ from: adminAddress }),
+        await liquidityToken.methods
+          .balance_of_private(liquidityProviderAddress)
+          .simulate({ from: liquidityProviderAddress }),
       ).toEqual(expectedLiquidityTokens);
       expect(await liquidityToken.methods.total_supply().simulate({ from: adminAddress })).toEqual(
         INITIAL_AMM_TOTAL_SUPPLY,

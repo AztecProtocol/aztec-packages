@@ -36,3 +36,9 @@ variable "SNAPSHOT_RETENTION_DAYS" {
   default     = 7
   description = "Number of days to retain snapshots"
 }
+
+variable "TX_RETENTION_DAYS" {
+  type        = number
+  default     = 1
+  description = "Number of days to retain txs"
+}

@@ -4,13 +4,17 @@ import type { RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { BadRequestError } from '@aztec/foundation/json-rpc';
+import type { Hex } from '@aztec/foundation/string';
 import { DateProvider } from '@aztec/foundation/timer';
 import { unfreeze } from '@aztec/foundation/types';
+import { type KeyStore, KeystoreManager, RemoteSigner, type ValidatorKeyStore } from '@aztec/node-keystore';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2P } from '@aztec/p2p';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
-import type { GlobalVariableBuilder } from '@aztec/sequencer-client';
+import type { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
+import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -28,21 +32,25 @@ import {
   TX_ERROR_DUPLICATE_NULLIFIER_IN_TX,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
-  TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP,
+  TX_ERROR_INVALID_EXPIRATION_TIMESTAMP,
   TX_ERROR_SIZE_ABOVE_LIMIT,
   Tx,
 } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
+import type { ValidatorClient } from '@aztec/validator-client';
 
-import { readFileSync } from 'fs';
+import { jest } from '@jest/globals';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import { dirname, resolve } from 'path';
+import { tmpdir } from 'os';
+import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
 import { AztecNodeService } from './server.js';
 
-// Arbitrary fixed timestamp for the mock date provider. DateProvider.now() returns milliseconds but IncludeByTimestamp
+// Arbitrary fixed timestamp for the mock date provider. DateProvider.now() returns milliseconds but ExpirationTimestamp
 // is denominated in seconds.
 const NOW_MS = 1718745600000;
 const NOW_S = NOW_MS / 1000;
@@ -173,6 +181,7 @@ describe('aztec node', () => {
       undefined,
       undefined,
       undefined,
+      undefined,
       12345,
       rollupVersion.toNumber(),
       globalVariablesBuilder,
@@ -262,29 +271,29 @@ describe('aztec node', () => {
 
     it('tests that the node correctly validates expiration timestamps', async () => {
       const txs = await Promise.all([mockTxForRollup(0x10000), mockTxForRollup(0x20000)]);
-      const invalidIncludeByTimestampMetadata = txs[0];
-      const validIncludeByTimestampMetadata = txs[1];
+      const invalidExpirationTimestampMetadata = txs[0];
+      const validExpirationTimestampMetadata = txs[1];
 
-      invalidIncludeByTimestampMetadata.data.includeByTimestamp = BigInt(NOW_S);
-      await invalidIncludeByTimestampMetadata.recomputeHash();
+      invalidExpirationTimestampMetadata.data.expirationTimestamp = BigInt(NOW_S);
+      await invalidExpirationTimestampMetadata.recomputeHash();
 
-      validIncludeByTimestampMetadata.data.includeByTimestamp = BigInt(NOW_S + 1);
-      await validIncludeByTimestampMetadata.recomputeHash();
+      validExpirationTimestampMetadata.data.expirationTimestamp = BigInt(NOW_S + 1);
+      await validExpirationTimestampMetadata.recomputeHash();
 
       // We need to set the last block number to get this working properly because if it was set to 0, it would mean
       // that we are building block 1, and for block 1 the timestamp expiration check is skipped. For details on why
-      // see the `validate_include_by_timestamp` function in
+      // see the `validate_expiration_timestamp` function in
       // `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
       lastBlockNumber = BlockNumber(1);
 
       // Default tx with no should be valid
-      // Tx with include by timestamp < current block number should be invalid
-      expect(await node.isValidTx(invalidIncludeByTimestampMetadata)).toEqual({
+      // Tx with expiration timestamp < current block number should be invalid
+      expect(await node.isValidTx(invalidExpirationTimestampMetadata)).toEqual({
         result: 'invalid',
-        reason: [TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP],
+        reason: [TX_ERROR_INVALID_EXPIRATION_TIMESTAMP],
       });
-      // Tx with include by timestamp >= current block number should be valid
-      expect(await node.isValidTx(validIncludeByTimestampMetadata)).toEqual({ result: 'valid' });
+      // Tx with expiration timestamp >= current block number should be valid
+      expect(await node.isValidTx(validExpirationTimestampMetadata)).toEqual({ result: 'valid' });
     });
   });
 
@@ -388,6 +397,286 @@ describe('aztec node', () => {
       const tx = await mockTxForRollup(0x10000);
       unfreeze(tx.data.constants.txContext.gasSettings.gasLimits).l2Gas = 1e12;
       await expect(node.simulatePublicCalls(tx)).rejects.toThrow(/gas/i);
+    });
+  });
+
+  describe('reloadKeystore', () => {
+    it('throws BadRequestError if no file-based keystore directory is configured', async () => {
+      // Default node has no keyStoreDirectory set
+      await expect(node.reloadKeystore()).rejects.toThrow(BadRequestError);
+    });
+
+    it('throws BadRequestError if keystore directory is set but validator client is not configured', async () => {
+      // Satisfies the first check (directory exists) but validatorClient is undefined
+      nodeConfig.keyStoreDirectory = '/tmp/fake-keystore-dir';
+      await expect(node.reloadKeystore()).rejects.toThrow(BadRequestError);
+    });
+
+    describe('with file-based keystore', () => {
+      let keyStoreDir: string;
+      let validatorClient: MockProxy<ValidatorClient>;
+      let slasherClient: MockProxy<SlasherClientInterface>;
+      let validatorPrivateKey: string;
+      let nodeWithValidator: AztecNodeService;
+
+      // Helper to build a KeyStore with default coinbase/feeRecipient/remoteSigner.
+      // Each entry needs only `attester` (required) and optionally `publisher`.
+      const makeKeyStore = (
+        ...validators: Array<Pick<ValidatorKeyStore, 'attester'> & Pick<Partial<ValidatorKeyStore>, 'publisher'>>
+      ): KeyStore => ({
+        schemaVersion: 1,
+        validators: validators.map(v => ({
+          attester: v.attester,
+          coinbase: undefined,
+          feeRecipient: AztecAddress.ZERO,
+          remoteSigner: undefined,
+          ...(v.publisher !== undefined ? { publisher: v.publisher } : {}),
+        })),
+      });
+
+      beforeEach(() => {
+        // Create a temp directory with a keystore file
+        keyStoreDir = mkdtempSync(join(tmpdir(), 'keystore-test-'));
+        validatorPrivateKey = generatePrivateKey();
+        const keyStore = makeKeyStore({ attester: [validatorPrivateKey as Hex<32>] });
+        writeFileSync(join(keyStoreDir, 'keystore.json'), JSON.stringify(keyStore));
+
+        validatorClient = mock<ValidatorClient>();
+        slasherClient = mock<SlasherClientInterface>();
+
+        const validatorNodeConfig = { ...nodeConfig, keyStoreDirectory: keyStoreDir };
+
+        nodeWithValidator = new AztecNodeService(
+          validatorNodeConfig,
+          p2p,
+          l2BlockSource,
+          mock<L2LogsSource>(),
+          mock<ContractDataSource>(),
+          mock<L1ToL2MessageSource>(),
+          mock<WorldStateSynchronizer>({ getCommitted: () => merkleTreeOps }),
+          undefined,
+          undefined,
+          slasherClient,
+          undefined,
+          undefined,
+          12345,
+          rollupVersion.toNumber(),
+          globalVariablesBuilder,
+          epochCache,
+          getPackageVersion() ?? '',
+          new TestCircuitVerifier(),
+          undefined,
+          undefined,
+          undefined,
+          validatorClient as unknown as ValidatorClient,
+          new KeystoreManager(keyStore),
+        );
+      });
+
+      afterEach(() => {
+        rmSync(keyStoreDir, { recursive: true, force: true });
+      });
+
+      it('reloads keystore from disk and calls validatorClient.reloadKeystore', async () => {
+        await nodeWithValidator.reloadKeystore();
+        expect(validatorClient.reloadKeystore).toHaveBeenCalledTimes(1);
+      });
+
+      it('adds new validators to slasher dont-slash-self list on reload', async () => {
+        // Write a new keystore file with an additional validator
+        const newPrivateKey = generatePrivateKey();
+        writeFileSync(
+          join(keyStoreDir, 'keystore.json'),
+          JSON.stringify(makeKeyStore({ attester: [validatorPrivateKey as Hex<32>, newPrivateKey as Hex<32>] })),
+        );
+
+        await nodeWithValidator.reloadKeystore();
+
+        const updateArg = slasherClient.updateConfig.mock.calls[0][0];
+        const neverSlashList = updateArg.slashValidatorsNever!;
+
+        const originalAddress = EthAddress.fromString(
+          privateKeyToAccount(validatorPrivateKey as `0x${string}`).address,
+        );
+        const newAddress = EthAddress.fromString(privateKeyToAccount(newPrivateKey as `0x${string}`).address);
+
+        expect(neverSlashList.some(a => a.equals(originalAddress))).toBe(true);
+        expect(neverSlashList.some(a => a.equals(newAddress))).toBe(true);
+      });
+
+      it('removes validators from slasher dont-slash-self list when removed from keystore', async () => {
+        // First add two validators
+        const secondPrivateKey = generatePrivateKey();
+        writeFileSync(
+          join(keyStoreDir, 'keystore.json'),
+          JSON.stringify(makeKeyStore({ attester: [validatorPrivateKey as Hex<32>, secondPrivateKey as Hex<32>] })),
+        );
+        await nodeWithValidator.reloadKeystore();
+
+        // Now remove the second validator, keeping only the original
+        writeFileSync(
+          join(keyStoreDir, 'keystore.json'),
+          JSON.stringify(makeKeyStore({ attester: [validatorPrivateKey as Hex<32>] })),
+        );
+        await nodeWithValidator.reloadKeystore();
+
+        // The second call to updateConfig should only contain the remaining validator
+        const updateArg = slasherClient.updateConfig.mock.calls[1][0];
+        const neverSlashList = updateArg.slashValidatorsNever!;
+
+        const originalAddress = EthAddress.fromString(
+          privateKeyToAccount(validatorPrivateKey as `0x${string}`).address,
+        );
+        const removedAddress = EthAddress.fromString(privateKeyToAccount(secondPrivateKey as `0x${string}`).address);
+
+        expect(neverSlashList.some(a => a.equals(originalAddress))).toBe(true);
+        expect(neverSlashList.some(a => a.equals(removedAddress))).toBe(false);
+      });
+
+      it('does not update slasher if slashSelfAllowed is true', async () => {
+        (nodeWithValidator as any).config.slashSelfAllowed = true;
+        await nodeWithValidator.reloadKeystore();
+
+        expect(validatorClient.reloadKeystore).toHaveBeenCalledTimes(1);
+        expect(slasherClient.updateConfig).not.toHaveBeenCalled();
+      });
+
+      it('reloads keystore with remote signer validators from disk', async () => {
+        // Update keystore file to add a remote signer validator alongside the local key validator.
+        // This verifies the full reload path supports mixed local + remote signer keystores:
+        // file-on-disk -> loadKeystores -> KeystoreManager -> validateSigners (mocked) ->
+        // ValidatorClient.reloadKeystore -> NodeKeystoreAdapter (creates RemoteSigner instances)
+        const remoteSignerUrl = 'https://web3signer.example.com:9000';
+        const remoteAttesterAddress = EthAddress.random();
+        writeFileSync(
+          join(keyStoreDir, 'keystore.json'),
+          JSON.stringify(
+            makeKeyStore(
+              { attester: [validatorPrivateKey as Hex<32>] },
+              { attester: { address: remoteAttesterAddress, remoteSignerUrl } },
+            ),
+          ),
+        );
+
+        // Mock RemoteSigner.validateAccess to avoid a real HTTP call to web3signer.
+        // validateSigners() calls this to verify each remote signer URL is reachable
+        // and that the requested addresses are available.
+        const validateSpy = jest.spyOn(RemoteSigner, 'validateAccess').mockImplementation(() => Promise.resolve());
+
+        try {
+          await nodeWithValidator.reloadKeystore();
+
+          // Verify RemoteSigner.validateAccess was called with the correct URL and address
+          expect(validateSpy).toHaveBeenCalledTimes(1);
+          expect(validateSpy).toHaveBeenCalledWith(
+            remoteSignerUrl,
+            expect.arrayContaining([remoteAttesterAddress.toString().toLowerCase()]),
+          );
+
+          // Verify validatorClient.reloadKeystore was called (reload succeeded)
+          expect(validatorClient.reloadKeystore).toHaveBeenCalledTimes(1);
+
+          // Verify the new KeystoreManager was passed through with both validators
+          const passedManager = validatorClient.reloadKeystore.mock.calls[0][0] as KeystoreManager;
+          expect(passedManager.getValidatorCount()).toBe(2);
+
+          // Verify slasher list includes both the local and remote validator addresses
+          const updateArg = slasherClient.updateConfig.mock.calls[0][0];
+          const neverSlashList = updateArg.slashValidatorsNever!;
+          expect(neverSlashList.some(a => a.equals(remoteAttesterAddress))).toBe(true);
+        } finally {
+          validateSpy.mockRestore();
+        }
+      });
+
+      it('rejects reload when remote signer validation fails', async () => {
+        // If RemoteSigner.validateAccess fails (e.g. web3signer unreachable or address not found),
+        // the reload should be rejected and the old keystore should remain intact.
+        const remoteSignerUrl = 'https://web3signer.example.com:9000';
+        const remoteAttesterAddress = EthAddress.random();
+        writeFileSync(
+          join(keyStoreDir, 'keystore.json'),
+          JSON.stringify(
+            makeKeyStore(
+              { attester: [validatorPrivateKey as Hex<32>] },
+              // EthAddress has toJSON() so JSON.stringify serializes it as a hex string.
+              { attester: { address: remoteAttesterAddress, remoteSignerUrl } },
+            ),
+          ),
+        );
+
+        // Mock RemoteSigner.validateAccess to reject — simulates unreachable web3signer
+        const validateSpy = jest
+          .spyOn(RemoteSigner, 'validateAccess')
+          .mockRejectedValue(new Error('Unable to connect to web3signer'));
+
+        try {
+          await expect(nodeWithValidator.reloadKeystore()).rejects.toThrow(/Unable to connect to web3signer/);
+
+          // Validator client should NOT have been called (reload rejected before mutation)
+          expect(validatorClient.reloadKeystore).not.toHaveBeenCalled();
+        } finally {
+          validateSpy.mockRestore();
+        }
+      });
+
+      it('rejects reload when new validator has a publisher key not in the L1 signers', async () => {
+        // Initial keystore has validator with publisherKeyA
+        const publisherKeyA = generatePrivateKey();
+        const publisherKeyB = generatePrivateKey(); // different, not in L1 signers
+
+        const initialKeyStore = makeKeyStore({
+          attester: [validatorPrivateKey as Hex<32>],
+          publisher: [publisherKeyA as Hex<32>],
+        });
+
+        // Recreate node with a truthy sequencer so the publisher validation path runs.
+        // Only truthiness matters: the code checks `if (this.keyStoreManager && this.sequencer)`
+        // and the validation logic uses keyStoreManager, not sequencer methods.
+        // The test expects rejection before sequencer.updatePublisherNodeKeyStore() is reached.
+        const nodeWithSequencer = new AztecNodeService(
+          { ...nodeConfig, keyStoreDirectory: keyStoreDir },
+          p2p,
+          l2BlockSource,
+          mock<L2LogsSource>(),
+          mock<ContractDataSource>(),
+          mock<L1ToL2MessageSource>(),
+          mock<WorldStateSynchronizer>({ getCommitted: () => merkleTreeOps }),
+          {} as SequencerClient,
+          undefined,
+          slasherClient,
+          undefined,
+          undefined,
+          12345,
+          rollupVersion.toNumber(),
+          globalVariablesBuilder,
+          epochCache,
+          getPackageVersion() ?? '',
+          new TestCircuitVerifier(),
+          undefined,
+          undefined,
+          undefined,
+          validatorClient as unknown as ValidatorClient,
+          new KeystoreManager(initialKeyStore),
+        );
+
+        // Write new keystore: new validator uses publisherKeyB (not in the L1 signers)
+        const newValidatorKey = generatePrivateKey();
+        writeFileSync(
+          join(keyStoreDir, 'keystore.json'),
+          JSON.stringify(
+            makeKeyStore(
+              { attester: [validatorPrivateKey as Hex<32>], publisher: [publisherKeyA as Hex<32>] },
+              { attester: [newValidatorKey as Hex<32>], publisher: [publisherKeyB as Hex<32>] },
+            ),
+          ),
+        );
+
+        await expect(nodeWithSequencer.reloadKeystore()).rejects.toThrow(BadRequestError);
+
+        // reload rejected before mutation
+        expect(validatorClient.reloadKeystore).not.toHaveBeenCalled();
+      });
     });
   });
 });

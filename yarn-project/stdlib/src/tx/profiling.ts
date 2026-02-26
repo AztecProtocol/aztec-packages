@@ -157,23 +157,23 @@ export class TxProfileResult {
   }
 }
 
-export class UtilitySimulationResult {
+export class UtilityExecutionResult {
   constructor(
     public result: Fr[],
     public stats?: SimulationStats,
   ) {}
 
-  static get schema(): ZodFor<UtilitySimulationResult> {
+  static get schema(): ZodFor<UtilityExecutionResult> {
     return z
       .object({
         result: z.array(schemas.Fr),
         stats: optional(SimulationStatsSchema),
       })
-      .transform(({ result, stats }) => new UtilitySimulationResult(result, stats));
+      .transform(({ result, stats }) => new UtilityExecutionResult(result, stats));
   }
 
-  static random(): UtilitySimulationResult {
-    return new UtilitySimulationResult([Fr.random()], {
+  static random(): UtilityExecutionResult {
+    return new UtilityExecutionResult([Fr.random()], {
       nodeRPCCalls: {
         perMethod: { getBlockHeader: { times: [1] } },
         roundTrips: {

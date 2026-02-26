@@ -1,7 +1,6 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import { InboxContract, RollupContract } from '@aztec/ethereum/contracts';
-import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { L1BlockId } from '@aztec/ethereum/l1-types';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { maxBigint } from '@aztec/foundation/bigint';
@@ -9,7 +8,6 @@ import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/br
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
@@ -28,6 +26,7 @@ import {
   retrievedToPublishedCheckpoint,
 } from '../l1/data_retrieval.js';
 import type { KVArchiverDataStore } from '../store/kv_archiver_store.js';
+import type { L2TipsCache } from '../store/l2_tips_cache.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
 import { ArchiverDataStoreUpdater } from './data_store_updater.js';
 import type { ArchiverInstrumentation } from './instrumentation.js';
@@ -60,10 +59,6 @@ export class ArchiverL1Synchronizer implements Traceable {
     private readonly debugClient: ViemPublicDebugClient,
     private readonly rollup: RollupContract,
     private readonly inbox: InboxContract,
-    private readonly l1Addresses: Pick<
-      L1ContractAddresses,
-      'registryAddress' | 'governanceProposerAddress' | 'slashFactoryAddress'
-    > & { slashingProposerAddress: EthAddress },
     private readonly store: KVArchiverDataStore,
     private config: {
       batchSize: number;
@@ -77,9 +72,10 @@ export class ArchiverL1Synchronizer implements Traceable {
     private readonly l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr },
     private readonly events: ArchiverEmitter,
     tracer: Tracer,
+    l2TipsCache?: L2TipsCache,
     private readonly log: Logger = createLogger('archiver:l1-sync'),
   ) {
-    this.updater = new ArchiverDataStoreUpdater(this.store);
+    this.updater = new ArchiverDataStoreUpdater(this.store, l2TipsCache);
     this.tracer = tracer;
   }
 
@@ -550,7 +546,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       if (provenCheckpointNumber === 0) {
         const localProvenCheckpointNumber = await this.store.getProvenCheckpointNumber();
         if (localProvenCheckpointNumber !== provenCheckpointNumber) {
-          await this.store.setProvenCheckpointNumber(provenCheckpointNumber);
+          await this.updater.setProvenCheckpointNumber(provenCheckpointNumber);
           this.log.info(`Rolled back proven chain to checkpoint ${provenCheckpointNumber}`, { provenCheckpointNumber });
         }
       }
@@ -582,13 +578,13 @@ export class ArchiverL1Synchronizer implements Traceable {
       ) {
         const localProvenCheckpointNumber = await this.store.getProvenCheckpointNumber();
         if (localProvenCheckpointNumber !== provenCheckpointNumber) {
-          await this.store.setProvenCheckpointNumber(provenCheckpointNumber);
+          await this.updater.setProvenCheckpointNumber(provenCheckpointNumber);
           this.log.info(`Updated proven chain to checkpoint ${provenCheckpointNumber}`, { provenCheckpointNumber });
           const provenSlotNumber = localCheckpointForDestinationProvenCheckpointNumber.header.slotNumber;
           const provenEpochNumber: EpochNumber = getEpochAtSlot(provenSlotNumber, this.l1Constants);
           const lastBlockNumberInCheckpoint =
             localCheckpointForDestinationProvenCheckpointNumber.startBlock +
-            localCheckpointForDestinationProvenCheckpointNumber.numBlocks -
+            localCheckpointForDestinationProvenCheckpointNumber.blockCount -
             1;
 
           this.events.emit(L2BlockSourceEvents.L2BlockProven, {
@@ -597,7 +593,7 @@ export class ArchiverL1Synchronizer implements Traceable {
             slotNumber: provenSlotNumber,
             epochNumber: provenEpochNumber,
           });
-          this.instrumentation.updateLastProvenBlock(lastBlockNumberInCheckpoint);
+          this.instrumentation.updateLastProvenCheckpoint(localCheckpointForDestinationProvenCheckpointNumber);
         } else {
           this.log.trace(`Proven checkpoint ${provenCheckpointNumber} already stored.`);
         }
@@ -706,7 +702,6 @@ export class ArchiverL1Synchronizer implements Traceable {
           this.blobClient,
           searchStartBlock, // TODO(palla/reorg): If the L2 reorg was due to an L1 reorg, we need to start search earlier
           searchEndBlock,
-          this.l1Addresses,
           this.instrumentation,
           this.log,
           !initialSyncComplete, // isHistoricalSync
@@ -799,6 +794,14 @@ export class ArchiverL1Synchronizer implements Traceable {
             blocks: published.checkpoint.blocks.map(b => b.getStats()),
           },
         );
+      }
+
+      for (const published of validCheckpoints) {
+        this.instrumentation.processCheckpointL1Timing({
+          slotNumber: published.checkpoint.header.slotNumber,
+          l1Timestamp: published.l1.timestamp,
+          l1Constants: this.l1Constants,
+        });
       }
 
       try {

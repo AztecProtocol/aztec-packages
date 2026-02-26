@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -139,6 +139,13 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
 
     // Compute log_n first (needed for proof layout calculation)
     const size_t log_n = compute_log_n();
+
+    // Guard against proof size underflow before deriving num_public_inputs
+    const size_t min_proof_size = ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(log_n);
+    BB_ASSERT_GTE(proof.size(),
+                  min_proof_size,
+                  "Proof size too small. Got " + std::to_string(proof.size()) + " field elements, but need at least " +
+                      std::to_string(min_proof_size) + " (excluding public inputs) for log_n=" + std::to_string(log_n));
 
     // Derive num_public_inputs from proof size using centralized proof layout
     const size_t num_public_inputs = ProofLength::Honk<Flavor>::derive_num_public_inputs(proof.size(), log_n);

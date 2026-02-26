@@ -44,16 +44,26 @@
 )</code></pre>
 
 <div class="comments">
-<p>Iterates through i,
-where:</p>
+<p>Iterates between loop bounds and conditionally executes functions according to the below
+explanation, where:</p>
 <ul>
-<li>min &lt;= i &lt; max</li>
-<li>min and max are only known at runtime</li>
-<li>MIN and MAX are known at compile-time, and dictate the static loop bounds.</li>
+<li><code>min</code> and <code>max</code> are dynamic loop bounds (known only at runtime).</li>
+<li><code>MIN</code> and <code>MAX</code> are static loop bounds (known at compile time).</li>
 </ul>
-<p>Lambda functions of the form <code>|i| { my_array[i].assert_empty() }</code> can be specified.</p>
-<p>If the dev knows what they're doing, they can choose to set the following to <code>false</code>:
-<code>assert_min_lte_max</code>, <code>assert_max_lte_MAX</code>, as a very small constraint optimisation.</p>
+<p>MIN ------</p>
+<pre><code>       f_before_min is executed for MIN &lt;= i &lt; min   
+</code></pre>
+<p>&lt;=<br />
+min ------</p>
+<pre><code>       f_within is executed for min &lt;= i &lt; max    
+</code></pre>
+<p>&lt;=
+max ------</p>
+<pre><code>       f_after_max is executed for max &lt;= i &lt; MAX  
+</code></pre>
+<p>&lt;=
+MAX ------</p>
+<p>Lambda functions of the form <code>|i| { my_array[i].assert_empty() }</code> (for example) can be specified.</p>
 </div>
 </main>
 </span>

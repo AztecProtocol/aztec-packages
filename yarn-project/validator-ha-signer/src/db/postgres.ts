@@ -254,8 +254,7 @@ export class PostgresSlashingProtectionDatabase implements SlashingProtectionDat
    * @returns the number of duties cleaned up
    */
   async cleanupOwnStuckDuties(nodeId: string, maxAgeMs: number): Promise<number> {
-    const cutoff = new Date(Date.now() - maxAgeMs);
-    const result = await this.pool.query(CLEANUP_OWN_STUCK_DUTIES, [nodeId, cutoff]);
+    const result = await this.pool.query(CLEANUP_OWN_STUCK_DUTIES, [nodeId, maxAgeMs]);
     return result.rowCount ?? 0;
   }
 
@@ -277,8 +276,7 @@ export class PostgresSlashingProtectionDatabase implements SlashingProtectionDat
    * @returns the number of duties cleaned up
    */
   async cleanupOldDuties(maxAgeMs: number): Promise<number> {
-    const cutoff = new Date(Date.now() - maxAgeMs);
-    const result = await this.pool.query(CLEANUP_OLD_DUTIES, [cutoff]);
+    const result = await this.pool.query(CLEANUP_OLD_DUTIES, [maxAgeMs]);
     return result.rowCount ?? 0;
   }
 }

@@ -76,7 +76,7 @@ export class EpochProvingState {
     public readonly epochNumber: EpochNumber,
     public readonly totalNumCheckpoints: number,
     private readonly finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
-    private onCheckpointBlobAccumulatorSet: (checkpoint: CheckpointProvingState) => void,
+    private onCheckpointBlobAccumulatorSet: (checkpoint: CheckpointProvingState) => Promise<void>,
     private completionCallback: (result: ProvingResult) => void,
     private rejectionCallback: (reason: string) => void,
   ) {
@@ -254,9 +254,11 @@ export class EpochProvingState {
       }
       outHashes.push(outHash);
 
-      // Get or create hints for the next checkpoint.
-      hint = checkpoint.getOutHashHintForNextCheckpoint() ?? (await computeOutHashHint(outHashes));
-      checkpoint.setOutHashHintForNextCheckpoint(hint);
+      // If this is NOT the last checkpoint, get or create the hint for the next checkpoint.
+      if (i !== this.totalNumCheckpoints - 1) {
+        hint = checkpoint.getOutHashHintForNextCheckpoint() ?? (await computeOutHashHint(outHashes));
+        checkpoint.setOutHashHintForNextCheckpoint(hint);
+      }
     }
   }
 

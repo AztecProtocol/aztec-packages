@@ -1,6 +1,6 @@
 # @aztec/accounts
 
-Version: v4.0.0-nightly.20260205
+Version: v5.0.0-nightly.20260224
 
 ## Quick Import Reference
 

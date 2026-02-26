@@ -62,7 +62,7 @@ class TimingAwareMockCheckpointBuilder extends MockCheckpointBuilder {
   public recordedBuildTimes: Array<{ blockNumber: number; startTime: number; endTime: number }> = [];
 
   constructor(
-    constants: CheckpointGlobalVariables & { timestamp: bigint },
+    constants: CheckpointGlobalVariables,
     checkpointNumber: CheckpointNumber,
     private readonly dateProvider: ManualDateProvider,
     private readonly getSecondsIntoSlot: () => number,
@@ -273,7 +273,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
   /** Set up p2p mock to return the given transactions */
   function mockP2pWithTxs(txs: Tx[]): void {
     p2p.getPendingTxCount.mockResolvedValue(txs.length);
-    p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+    p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
   }
 
   /** Create attestations for the given block */
@@ -329,6 +329,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       l1StartBlock: 0n,
       epochDuration: 16,
       proofSubmissionEpochs: 4,
+      targetCommitteeSize: 48,
     };
 
     // Initialize test state
@@ -367,7 +368,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     );
 
     // Create timing-aware checkpoint builder
-    const checkpointConstants: CheckpointGlobalVariables & { timestamp: bigint } = { ...globalVariables };
+    const checkpointConstants: CheckpointGlobalVariables = { ...globalVariables };
     checkpointBuilder = new TimingAwareMockCheckpointBuilder(
       checkpointConstants,
       checkpointNumber,
@@ -414,14 +415,16 @@ describe('CheckpointProposalJob Timing Tests', () => {
     p2p.getPendingTxCount.mockResolvedValue(100); // Always have enough txs
 
     worldState = mockDeep<WorldStateSynchronizer>();
-    const mockFork = mock<MerkleTreeWriteOperations>({ [Symbol.dispose]: jest.fn() });
+    const mockFork = mock<MerkleTreeWriteOperations>({
+      [Symbol.asyncDispose]: jest.fn().mockReturnValue(Promise.resolve()) as () => Promise<void>,
+    });
     worldState.fork.mockResolvedValue(mockFork);
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue(Array(4).fill(Fr.ZERO));
 
     l2BlockSource = mock<L2BlockSource>();
-    l2BlockSource.getCheckpointsForEpoch.mockResolvedValue([]);
+    l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);
 
     blockSink = mock<L2BlockSink>();
     blockSink.addBlock.mockResolvedValue(undefined);
@@ -433,6 +436,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     validatorClient.signAttestationsAndSigners.mockResolvedValue(mockedSig);
     validatorClient.getCoinbaseForAttestor.mockReturnValue(coinbase);
     validatorClient.getFeeRecipientForAttestor.mockReturnValue(globalVariables.feeRecipient);
+    validatorClient.getValidatorAddresses.mockReturnValue([attestorAddress]);
 
     slasherClient = mock<SlasherClientInterface>();
     slasherClient.getProposerActions.mockResolvedValue([]);

@@ -25,10 +25,16 @@
       "path": "../kv-store"
     },
     {
+      "path": "../l1-artifacts"
+    },
+    {
       "path": "../noir-contracts.js"
     },
     {
       "path": "../noir-protocol-circuits-types"
+    },
+    {
+      "path": "../noir-test-contracts.js"
     },
     {
       "path": "../protocol-contracts"
@@ -40,7 +46,7 @@
       "path": "../telemetry-client"
     },
     {
-      "path": "../test-wallet"
+      "path": "../wallets"
     }
   ],
   "include": ["src"]

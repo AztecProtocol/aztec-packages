@@ -1,5 +1,9 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import type { L2Block } from '@aztec/stdlib/block';
+import type { CheckpointData } from '@aztec/stdlib/checkpoint';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import {
   Attributes,
   type Gauge,
@@ -17,6 +21,7 @@ export class ArchiverInstrumentation {
   public readonly tracer: Tracer;
 
   private blockHeight: Gauge;
+  private checkpointHeight: Gauge;
   private txCount: UpDownCounter;
   private l1BlockHeight: Gauge;
   private proofsSubmittedDelay: Histogram;
@@ -36,6 +41,8 @@ export class ArchiverInstrumentation {
 
   private blockProposalTxTargetCount: UpDownCounter;
 
+  private checkpointL1InclusionDelay: Histogram;
+
   private log = createLogger('archiver:instrumentation');
 
   private constructor(
@@ -46,6 +53,8 @@ export class ArchiverInstrumentation {
     const meter = telemetry.getMeter('Archiver');
 
     this.blockHeight = meter.createGauge(Metrics.ARCHIVER_BLOCK_HEIGHT);
+
+    this.checkpointHeight = meter.createGauge(Metrics.ARCHIVER_CHECKPOINT_HEIGHT);
 
     this.l1BlockHeight = meter.createGauge(Metrics.ARCHIVER_L1_BLOCK_HEIGHT);
 
@@ -81,6 +90,8 @@ export class ArchiverInstrumentation {
       },
     );
 
+    this.checkpointL1InclusionDelay = meter.createHistogram(Metrics.ARCHIVER_CHECKPOINT_L1_INCLUSION_DELAY);
+
     this.dbMetrics = new LmdbMetrics(
       meter,
       {
@@ -105,6 +116,7 @@ export class ArchiverInstrumentation {
   public processNewBlocks(syncTimePerBlock: number, blocks: L2Block[]) {
     this.syncDurationPerBlock.record(Math.ceil(syncTimePerBlock));
     this.blockHeight.record(Math.max(...blocks.map(b => b.number)));
+    this.checkpointHeight.record(Math.max(...blocks.map(b => b.checkpointNumber)));
     this.syncBlockCount.add(blocks.length);
 
     for (const block of blocks) {
@@ -127,8 +139,10 @@ export class ArchiverInstrumentation {
     this.pruneDuration.record(Math.ceil(duration));
   }
 
-  public updateLastProvenBlock(blockNumber: number) {
-    this.blockHeight.record(blockNumber, { [Attributes.STATUS]: 'proven' });
+  public updateLastProvenCheckpoint(checkpoint: CheckpointData) {
+    const lastBlockNumberInCheckpoint = checkpoint.startBlock + checkpoint.blockCount - 1;
+    this.blockHeight.record(lastBlockNumberInCheckpoint, { [Attributes.STATUS]: 'proven' });
+    this.checkpointHeight.record(checkpoint.checkpointNumber, { [Attributes.STATUS]: 'proven' });
   }
 
   public processProofsVerified(logs: { proverId: string; l2BlockNumber: bigint; delay: bigint }[]) {
@@ -153,5 +167,18 @@ export class ArchiverInstrumentation {
       [Attributes.L1_BLOCK_PROPOSAL_TX_TARGET]: target.toLowerCase(),
       [Attributes.L1_BLOCK_PROPOSAL_USED_TRACE]: usedTrace,
     });
+  }
+
+  /**
+   * Records L1 inclusion timing for a checkpoint observed on L1 (seconds into the L2 slot).
+   */
+  public processCheckpointL1Timing(data: {
+    slotNumber: SlotNumber;
+    l1Timestamp: bigint;
+    l1Constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'>;
+  }): void {
+    const slotStartTs = getTimestampForSlot(data.slotNumber, data.l1Constants);
+    const inclusionDelaySeconds = Number(data.l1Timestamp - slotStartTs);
+    this.checkpointL1InclusionDelay.record(inclusionDelaySeconds);
   }
 }

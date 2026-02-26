@@ -72,14 +72,14 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
         scalars.push_back(_scalars[i]);
 
         // Convert point into point + (2ⁱ)⋅(δG_offset)
-        points.push_back(_points[i] + running_point);
+        points.push_back(_points[i].add_internal(running_point));
 
         // Add 2ⁱ⋅scalar_i to the last scalar
         last_scalar += _scalars[i] * running_scalar;
 
         // Double the running scalar and point for next iteration
         running_scalar += running_scalar;
-        running_point = running_point.dbl();
+        running_point = running_point.dbl_internal();
     }
 
     // Add a scalar -(<δ(1, 2, 2²,...,2ⁿ⁻¹),(scalar₀,...,scalarₙ₋₁)> / 2ⁿ)

@@ -11,13 +11,13 @@ pol constant zero;
 pol constant first_row;
 
 // AND/OR/XOR of all 8-bit numbers.
-// The tables are "stacked". First AND, then OR, then XOR.
 // Note: think if we can avoid the selector.
-pol constant sel_bitwise; // 1 in the first 3 * 256 rows.
-pol constant bitwise_op_id; // identifies if operation is AND/OR/XOR.
+// We will select this table with sel_range_16.
 pol constant bitwise_input_a; // column of all 8-bit numbers.
 pol constant bitwise_input_b; // column of all 8-bit numbers.
-pol constant bitwise_output; // output = a AND/OR/XOR b.
+pol constant bitwise_output_and; // output = a AND b.
+pol constant bitwise_output_or; // output = a OR b.
+pol constant bitwise_output_xor; // output = a XOR b.
 
 // Boolean selectors for 8-bit and 16-bit range checks.
 // We reuse idx for the actual values.
@@ -48,10 +48,6 @@ pol constant sel_tag_parameters; // Toggle row with idx == FF,U1,U8,U16,...,U128
 pol constant tag_byte_length;
 pol constant tag_max_bits;
 pol constant tag_max_value;
-
-// Remark: A potential optimization may consist in using sel_bitwise instead of sel_integral_mem_tag.
-//         However, it would extend this lookup table with pairs such as (0,0), (7,0), (8,0) which is
-//         not without any danger.
 
 // Toggled at every row where idx is a byte and outside of memory tag
 pol constant sel_mem_tag_out_of_range;

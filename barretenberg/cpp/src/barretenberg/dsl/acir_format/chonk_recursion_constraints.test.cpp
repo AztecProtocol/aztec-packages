@@ -103,7 +103,7 @@ TEST_F(ChonkRecursionConstraintTest, GenerateRecursiveChonkVerifierVKFromConstra
 
         // Prove and verify
         UltraProver_<UltraFlavor> prover(prover_instance, vk_from_valid_witness);
-        HonkProof proof = prover.prove();
+        HonkProof proof = prover.construct_proof();
 
         auto vk_and_hash = std::make_shared<UltraFlavor::VKAndHash>(vk_from_valid_witness);
         UltraRollupVerifier verifier(vk_and_hash);

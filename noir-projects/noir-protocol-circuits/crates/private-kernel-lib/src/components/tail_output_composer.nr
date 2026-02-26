@@ -2,7 +2,7 @@ use crate::components::{
     gas_meter::meter_gas_used,
     private_kernel_circuit_output_composer::PrivateKernelCircuitOutputComposer,
 };
-use dep::types::{
+use types::{
     abis::{
         accumulated_data::{
             private_accumulated_data::PrivateAccumulatedData,
@@ -12,20 +12,21 @@ use dep::types::{
             PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
         },
     },
+    constants::MAX_TX_LIFETIME,
     traits::Empty,
 };
 
 pub struct TailOutputComposer {
     previous_kernel: PrivateKernelCircuitPublicInputs,
-    include_by_timestamp_upper_bound: u64,
+    expiration_timestamp_upper_bound: u64,
 }
 
 impl TailOutputComposer {
     pub unconstrained fn new(
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        include_by_timestamp_upper_bound: u64,
+        expiration_timestamp_upper_bound: u64,
     ) -> Self {
-        TailOutputComposer { previous_kernel, include_by_timestamp_upper_bound }
+        TailOutputComposer { previous_kernel, expiration_timestamp_upper_bound }
     }
 
     pub unconstrained fn finish(self) -> PrivateToRollupKernelCircuitPublicInputs {
@@ -38,9 +39,14 @@ impl TailOutputComposer {
 
         let gas_used = meter_gas_used(self.previous_kernel, false /* is_for_public */);
 
-        let include_by_timestamp = std::cmp::min(
-            source.include_by_timestamp,
-            self.include_by_timestamp_upper_bound,
+        let max_timestamp =
+            source.constants.anchor_block_header.global_variables.timestamp + MAX_TX_LIFETIME;
+        let expiration_timestamp = std::cmp::min(
+            std::cmp::min(
+                source.expiration_timestamp,
+                self.expiration_timestamp_upper_bound,
+            ),
+            max_timestamp,
         );
 
         PrivateToRollupKernelCircuitPublicInputs {
@@ -48,7 +54,7 @@ impl TailOutputComposer {
             end,
             gas_used,
             fee_payer: source.fee_payer,
-            include_by_timestamp,
+            expiration_timestamp,
         }
     }
 

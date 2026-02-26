@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include <cstdint>
+
 // NOLINTBEGIN(readability-implicit-bool-conversion)
 namespace bb::wnaf {
 constexpr size_t SCALAR_BITS = 127;

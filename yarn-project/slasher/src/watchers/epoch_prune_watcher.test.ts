@@ -58,6 +58,7 @@ describe('EpochPruneWatcher', () => {
       epochDuration: 8,
       ethereumSlotDuration: 12,
       proofSubmissionEpochs: 1,
+      targetCommitteeSize: 48,
     };
 
     epochCache.getL1Constants.mockReturnValue(l1Constants);
@@ -252,6 +253,7 @@ describe('EpochPruneWatcher', () => {
 class MockL2BlockSource {
   public readonly events = new EventEmitter();
   public getCheckpointsForEpoch = () => [];
+  public getCheckpointsDataForEpoch = () => [];
 
   constructor() {}
 }

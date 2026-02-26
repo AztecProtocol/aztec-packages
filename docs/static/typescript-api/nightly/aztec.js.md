@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: v4.0.0-nightly.20260205
+Version: v5.0.0-nightly.20260224
 
 ## Quick Import Reference
 
@@ -98,7 +98,7 @@ new BatchCall(wallet: Wallet, interactions: ExecutionPayload | BaseContractInter
 - `getExecutionPayloads() => Promise<ExecutionPayload[]>`
 - `request(options: RequestInteractionOptions) => Promise<ExecutionPayload>` - Returns an execution request that represents this operation.
 - `send<TReturn>(options: SendInteractionOptionsWithoutWait) => Promise<TReturn>` - Sends a transaction to the contract function with the specified options. By default, waits for the transaction to be mined and returns the receipt (or custom type).
-- `simulate(options: SimulateInteractionOptions) => Promise<any>` - Simulates the batch, supporting private, public and utility functions. Although this is a single interaction with the wallet, private and public functions will be grouped into a single ExecutionPayload that the wallet will simulate as a single transaction. Utility function calls will simply be executed one by one.
+- `simulate(options: SimulateInteractionOptions) => Promise<any>` - Simulates/executes the batch, supporting private, public and utility functions. Although this is a single interaction with the wallet, private and public functions will be grouped into a single ExecutionPayload that the wallet will simulate as a single transaction. Utility function calls will be executed one by one.
 
 ### Capsule
 
@@ -196,7 +196,7 @@ new ContractFunctionInteraction(wallet: Wallet, contractAddress: AztecAddress, f
 - `wallet: Wallet`
 
 **Methods**
-- `getFunctionCall() => Promise<{ args: Fr[]; hideMsgSender: boolean; ... }>` - Returns the encoded function call wrapped by this interaction Useful when generating authwits
+- `getFunctionCall() => Promise<FunctionCall>` - Returns the encoded function call wrapped by this interaction Useful when generating authwits
 - `profile(options: ProfileInteractionOptions) => Promise<TxProfileResult>` - Simulate a transaction and profile the gate count for each function in the transaction.
 - `request(options: RequestInteractionOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain.
 - `send<TReturn>(options: SendInteractionOptionsWithoutWait) => Promise<TReturn>` - Sends a transaction to the contract function with the specified options. By default, waits for the transaction to be mined and returns the receipt (or custom type).
@@ -225,11 +225,14 @@ new DeployAccountMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: Contra
 - `wallet: Wallet`
 
 **Methods**
+- `convertDeployOptionsToProfileOptions(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => ProfileOptions` - Converts deploy profile options into wallet-level profile options.
 - `convertDeployOptionsToRequestOptions(options: DeployAccountOptionsWithoutWait) => RequestDeployOptions`
+- `convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(options: DeployOptions<W>) => SendOptions<unknown>` - Converts DeployOptions to SendOptions, stripping out the returnReceipt flag if present.
+- `convertDeployOptionsToSimulateOptions(options: SimulateDeployOptions) => SimulateOptions` - Converts deploy simulation options into wallet-level simulate options.
 - `getInitializationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the calls necessary to initialize the contract.
 - `getInstance(options?: RequestDeployOptions) => Promise<ContractInstanceWithAddress>` - Builds the contract instance and returns it.
 - `getPublicationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns an execution payload for: - publication of the contract class and - publication of the contract instance to enable public execution depending on the provided options.
-- `profile(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
+- `profile(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
 - `register(options?: RequestDeployOptions) => Promise<TContract>` - Adds this contract to the wallet and returns the Contract object.
 - `request(opts?: RequestDeployAccountOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain.
 - `send(options: DeployOptionsWithoutWait) => Promise<TContract>` - Send a contract deployment transaction (initialize and/or publish) using the provided options. By default, waits for the transaction to be mined and returns the deployed contract instance.
@@ -244,7 +247,7 @@ Extends: `BaseContractInteraction`
 
 **Constructor**
 ```typescript
-new DeployMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: ContractArtifact, postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract, args: any[], constructorNameOrArtifact?: string | FunctionArtifact, authWitnesses: AuthWitness[], capsules: Capsule[])
+new DeployMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: ContractArtifact, postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract, args: any[], constructorNameOrArtifact?: string | FunctionArtifact, authWitnesses: AuthWitness[], capsules: Capsule[], extraHashedArgs: HashedValues[])
 ```
 
 **Properties**
@@ -258,13 +261,16 @@ new DeployMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: ContractArtif
 - `wallet: Wallet`
 
 **Methods**
+- `convertDeployOptionsToProfileOptions(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => ProfileOptions` - Converts deploy profile options into wallet-level profile options.
 - `convertDeployOptionsToRequestOptions(options: DeployOptionsWithoutWait) => RequestDeployOptions`
+- `convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(options: DeployOptions<W>) => SendOptions<unknown>` - Converts DeployOptions to SendOptions, stripping out the returnReceipt flag if present.
+- `convertDeployOptionsToSimulateOptions(options: SimulateDeployOptions) => SimulateOptions` - Converts deploy simulation options into wallet-level simulate options.
 - `getInitializationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the calls necessary to initialize the contract.
 - `getInstance(options?: RequestDeployOptions) => Promise<ContractInstanceWithAddress>` - Builds the contract instance and returns it.
 - `getPublicationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns an execution payload for: - publication of the contract class and - publication of the contract instance to enable public execution depending on the provided options.
-- `profile(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
+- `profile(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
 - `register(options?: RequestDeployOptions) => Promise<TContract>` - Adds this contract to the wallet and returns the Contract object.
-- `request(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain.
+- `request(options: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain.
 - `send(options: DeployOptionsWithoutWait) => Promise<TContract>` - Send a contract deployment transaction (initialize and/or publish) using the provided options. By default, waits for the transaction to be mined and returns the deployed contract instance.
 - `simulate(options: SimulateDeployOptions) => Promise<{ estimatedGas: Pick<GasSettings, "gasLimits" | "teardownGasLimits">; offchainEffects: OffchainEffect[]; ... }>` - Simulate the deployment
 - `with(options: { authWitnesses?: AuthWitness[]; capsules?: Capsule[] }) => DeployMethod` - Augments this DeployMethod with additional metadata, such as authWitnesses and capsules.
@@ -458,14 +464,16 @@ new FunctionCall(name: string, to: AztecAddress, selector: FunctionSelector, typ
 - `isStatic: boolean` - Whether this call can make modifications to state or not
 - `name: string` - The name of the function to call
 - `returnTypes: AbiType[]` - The return type for decoding
+- `static schema: unknown`
 - `selector: FunctionSelector` - The function being called
 - `to: AztecAddress` - The recipient contract
 - `type: FunctionType` - Type of the function
 
 **Methods**
-- `static empty() => { args: never[]; hideMsgSender: boolean; ... }` - Creates an empty function call.
+- `static empty() => FunctionCall` - Creates an empty function call.
 - `static from(fields: FieldsOf<FunctionCall>) => FunctionCall`
 - `static getFields(fields: FieldsOf<FunctionCall>) => readonly []`
+- `isPublicStatic() => boolean`
 
 ### FunctionSelector
 
@@ -951,12 +959,13 @@ Represents a transaction receipt in the Aztec network. Contains essential inform
 
 **Constructor**
 ```typescript
-new TxReceipt(txHash: TxHash, status: TxStatus, executionResult: TxExecutionResult | undefined, error: string | undefined, transactionFee?: bigint, blockHash?: BlockHash, blockNumber?: BlockNumber)
+new TxReceipt(txHash: TxHash, status: TxStatus, executionResult: TxExecutionResult | undefined, error: string | undefined, transactionFee?: bigint, blockHash?: BlockHash, blockNumber?: BlockNumber, debugLogs?: DebugLog[])
 ```
 
 **Properties**
 - `blockHash?: BlockHash` - The hash of the block containing the transaction.
 - `blockNumber?: BlockNumber` - The block number in which the transaction was included.
+- `debugLogs?: DebugLog[]` - Debug logs collected during public function execution. Served only when the node is in test mode and placed on the receipt only because it's a convenient place for it (the logs are printed out by the wallet when a mined tx receipt is obtained).
 - `error: string | undefined` - Description of transaction error, if any.
 - `executionResult: TxExecutionResult | undefined` - The execution result of the transaction, only set when tx is in a block.
 - `static schema: unknown`
@@ -1044,6 +1053,7 @@ Contract class capability - for querying contract class metadata. Maps to wallet
 Pattern for matching contract functions with wildcards. Used in simulation and transaction capabilities to specify which contract functions are allowed.
 
 **Properties**
+- `additionalScopes?: AztecAddress[] | "*"` - Additional addresses whose private state and keys are accessible when calling this function, beyond the sender's. - undefined: No additional scopes allowed - AztecAddress[]: Only these specific addresses allowed as additional scopes - '*': All known address allowed as an additional scope
 - `contract: AztecAddress | "*"` - Contract address or '*' for any contract
 - `function: string` - Function name or '*' for any function
 
@@ -1054,7 +1064,7 @@ Contract interaction capability - for registering and querying contracts. Maps t
 **Properties**
 - `canGetMetadata?: boolean` - Can query contract metadata. Maps to: getContractMetadata
 - `canRegister?: boolean` - Can register contracts and update existing registrations. Maps to: registerContract When true, allows: - Registering new contract instances at specified addresses - Re-registering existing contracts with updated artifacts (e.g., after upgrade)
-- `contracts: "*" | AztecAddress[]` - Which contracts this applies to: - '*': Any contract address - AztecAddress[]: Specific contract addresses
+- `contracts: AztecAddress[] | "*"` - Which contracts this applies to: - '*': Any contract address - AztecAddress[]: Specific contract addresses
 - `type: "contracts"` - Discriminator for capability type
 
 ### DataCapability
@@ -1063,7 +1073,7 @@ Data access capability - for querying private data. Maps to wallet methods: - ge
 
 **Properties**
 - `addressBook?: boolean` - Access to address book. Maps to: getAddressBook
-- `privateEvents?: { contracts: "*" | AztecAddress[] }` - Access to private events. Maps to: getPrivateEvents
+- `privateEvents?: { contracts: AztecAddress[] | "*" }` - Access to private events. Maps to: getPrivateEvents
 - `type: "data"` - Discriminator for capability type
 
 ### FeePaymentMethod
@@ -1142,7 +1152,7 @@ Extends: `ContractsCapability`
 **Properties**
 - `canGetMetadata?: boolean` - Can query contract metadata. Maps to: getContractMetadata
 - `canRegister?: boolean` - Can register contracts and update existing registrations. Maps to: registerContract When true, allows: - Registering new contract instances at specified addresses - Re-registering existing contracts with updated artifacts (e.g., after upgrade)
-- `contracts: "*" | AztecAddress[]` - Which contracts this applies to: - '*': Any contract address - AztecAddress[]: Specific contract addresses
+- `contracts: AztecAddress[] | "*"` - Which contracts this applies to: - '*': Any contract address - AztecAddress[]: Specific contract addresses
 - `type: "contracts"` - Discriminator for capability type
 
 ### GrantedDataCapability
@@ -1153,7 +1163,7 @@ Extends: `DataCapability`
 
 **Properties**
 - `addressBook?: boolean` - Access to address book. Maps to: getAddressBook
-- `privateEvents?: { contracts: "*" | AztecAddress[] }` - Access to private events. Maps to: getPrivateEvents
+- `privateEvents?: { contracts: AztecAddress[] | "*" }` - Access to private events. Maps to: getPrivateEvents
 - `type: "data"` - Discriminator for capability type
 
 ### GrantedSimulationCapability
@@ -1165,7 +1175,7 @@ Extends: `SimulationCapability`
 **Properties**
 - `transactions?: { scope: "*" | ContractFunctionPattern[] }` - Transaction simulation scope. Maps to: simulateTx, profileTx
 - `type: "simulation"` - Discriminator for capability type
-- `utilities?: { scope: "*" | ContractFunctionPattern[] }` - Utility simulation scope (unconstrained calls). Maps to: simulateUtility
+- `utilities?: { scope: "*" | ContractFunctionPattern[] }` - Utility execution scope (unconstrained calls). Maps to: executeUtility
 
 ### GrantedTransactionCapability
 
@@ -1187,6 +1197,7 @@ Provides basic information about the running node.
 - `l1ContractAddresses: L1ContractAddresses` - The deployed l1 contract addresses
 - `nodeVersion: string` - Version as tracked in the aztec-packages repository.
 - `protocolContractAddresses: ProtocolContractAddresses` - Protocol contract addresses
+- `realProofs: boolean` - Whether the node requires real proofs for transaction submission.
 - `rollupVersion: number` - Rollup version.
 
 ### NoirCompiledContract
@@ -1202,12 +1213,12 @@ The compilation result of an Aztec.nr contract.
 
 ### SimulationCapability
 
-Transaction simulation capability - for simulating transactions and utilities. Maps to wallet methods: - simulateTx (when transactions scope specified) - simulateUtility (when utilities scope specified) - profileTx (when transactions scope specified)
+Transaction simulation capability - for simulating transactions and executing utilities. Maps to wallet methods: - simulateTx (when transactions scope specified) - executeUtility (when utilities scope specified) - profileTx (when transactions scope specified)
 
 **Properties**
 - `transactions?: { scope: "*" | ContractFunctionPattern[] }` - Transaction simulation scope. Maps to: simulateTx, profileTx
 - `type: "simulation"` - Discriminator for capability type
-- `utilities?: { scope: "*" | ContractFunctionPattern[] }` - Utility simulation scope (unconstrained calls). Maps to: simulateUtility
+- `utilities?: { scope: "*" | ContractFunctionPattern[] }` - Utility execution scope (unconstrained calls). Maps to: executeUtility
 
 ### TransactionCapability
 
@@ -1228,17 +1239,11 @@ Wallet capability response. Returned by wallet after user reviews and approves/d
 
 ## Functions
 
-### broadcastPrivateFunction
+### BlockNumber
 ```typescript
-function broadcastPrivateFunction(wallet: Wallet, artifact: ContractArtifact, selector: FunctionSelector) => Promise<ContractFunctionInteraction>
+function BlockNumber(value: number) => BlockNumber
 ```
-Sets up a call to broadcast a private function's bytecode via the ClassRegistry contract. Note that this is not required for users to call the function, but is rather a convenience to make this code publicly available so dapps or wallets do not need to redistribute it.
-
-### broadcastUtilityFunction
-```typescript
-function broadcastUtilityFunction(wallet: Wallet, artifact: ContractArtifact, selector: FunctionSelector) => Promise<ContractFunctionInteraction>
-```
-Sets up a call to broadcast a utility function's bytecode via the ClassRegistry contract. Note that this is not required for users to call the function, but is rather a convenience to make this code publicly available so dapps or wallets do not need to redistribute it.
+Creates a BlockNumber from a number.
 
 ### computeAppNullifierHidingKey
 ```typescript
@@ -1473,6 +1478,12 @@ type BatchedMethodResultWrapper = unknown
 ```
 Wrapper type for batch results that includes the method name for discriminated union deserialization. Each result is wrapped as { name: 'methodName', result: ActualResult } to allow proper deserialization when AztecAddress and TxHash would otherwise be ambiguous (both are hex strings).
 
+### BlockNumber
+```typescript
+type BlockNumber = Branded<number, "BlockNumber">
+```
+Creates a BlockNumber from a number.
+
 ### CAPABILITY_VERSION
 ```typescript
 type CAPABILITY_VERSION = "1.0"
@@ -1584,6 +1595,12 @@ type EventSelectorLike = FieldLike | EventSelector
 ```
 Any type that can be converted into an EventSelector Aztec.nr struct.
 
+### ExecuteUtilityOptions
+```typescript
+type ExecuteUtilityOptions = unknown
+```
+Options for executing a utility function call.
+
 ### FieldLike
 ```typescript
 type FieldLike = Fr | Buffer | bigint | number | { toField: () => Fr }
@@ -1663,13 +1680,13 @@ A type which along with public key forms a preimage of a contract address. See t
 
 ### PrivateEvent
 ```typescript
-type PrivateEvent = unknown
+type PrivateEvent = Event<T>
 ```
 An ABI decoded private event with associated metadata.
 
 ### PrivateEventFilter
 ```typescript
-type PrivateEventFilter = unknown
+type PrivateEventFilter = EventFilterBase & { contractAddress: AztecAddress; scopes: AztecAddress[] }
 ```
 Filter options when querying private events.
 
@@ -1684,6 +1701,18 @@ Represents the options for profiling an interaction.
 type ProfileOptions = Omit<ProfileInteractionOptions, "fee"> & { fee?: GasSettingsOption }
 ```
 Options for profiling interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet whether the interaction contains a fee payment method or not
+
+### PublicEvent
+```typescript
+type PublicEvent = Event<T, { contractAddress: AztecAddress }>
+```
+An ABI decoded public event with associated metadata (includes contract address).
+
+### PublicEventFilter
+```typescript
+type PublicEventFilter = EventFilterBase & { contractAddress?: AztecAddress }
+```
+Filter options when querying public events.
 
 ### PublicKey
 ```typescript
@@ -1787,6 +1816,36 @@ type WrappedFieldLike = { inner: FieldLike } | FieldLike
 ```
 Any type that can be converted into a struct with a single `inner` field.
 
+### ZERO
+```typescript
+type ZERO = BlockNumber
+```
+
+### add
+```typescript
+type add = (bn: BlockNumber, increment: number) => BlockNumber
+```
+
+### fromBigInt
+```typescript
+type fromBigInt = (value: bigint) => BlockNumber
+```
+
+### fromCheckpointNumber
+```typescript
+type fromCheckpointNumber = (value: CheckpointNumber) => BlockNumber
+```
+
+### fromString
+```typescript
+type fromString = (value: string) => BlockNumber
+```
+
+### isValid
+```typescript
+type isValid = (value: unknown) => boolean
+```
+
 ## Enums
 
 ### FunctionType
@@ -1815,7 +1874,7 @@ This package references types from other Aztec packages:
 - `ExtendedViemWalletClient`, `L1ContractAddresses`
 
 **@aztec/foundation**
-- `BaseField`, `BlockNumber`, `Buffer32`, `BufferReader`, `EpochNumber`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `Logger`, `Point`, `SiblingPath`, `SlotNumber`
+- `BaseField`, `BlockNumber`, `Branded`, `Buffer32`, `BufferReader`, `CheckpointNumber`, `EpochNumber`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `Logger`, `Point`, `SiblingPath`, `SlotNumber`
 
 **@aztec/stdlib**
-- `ABIParameterSchema`, `AbiDecoded`, `AbiErrorType`, `AbiType`, `AbiValue`, `ArrayType`, `AuthWitness`, `AztecAddress`, `AztecNode`, `BasicType`, `BlockHash`, `Capsule`, `ChonkProof`, `CompleteAddress`, `ContractArtifact`, `ContractArtifactWithHash`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractClassLog`, `ContractClassLogFields`, `ContractInstance`, `ContractInstanceWithAddress`, `ContractInstantiationData`, `DebugFileMap`, `EventSelector`, `ExecutionPayload`, `FieldLayout`, `FunctionAbi`, `FunctionArtifact`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `FunctionType`, `Gas`, `GasFees`, `GasSettings`, `GetPublicLogsResponse`, `GlobalVariables`, `Gossipable`, `HashedValues`, `IntegerType`, `L2LogsSource`, `NoirCompiledContract`, `NoirFunctionEntry`, `NoteSelector`, `OffchainEffect`, `PrivateExecutionStep`, `PrivateKernelTailCircuitPublicInputs`, `ProtocolContractAddresses`, `ProvingStats`, `PublicCallRequestWithCalldata`, `PublicKeys`, `RevertCode`, `Selector`, `SimulationStats`, `StringType`, `StructType`, `TopicType`, `TupleType`, `Tx`, `TxContext`, `TxExecutionRequest`, `TxExecutionResult`, `TxHash`, `TxProfileResult`, `TxReceipt`, `TxRequest`, `TxSimulationResult`, `TxStats`, `TxStatus`
+- `ABIParameterSchema`, `AbiDecoded`, `AbiErrorType`, `AbiType`, `AbiValue`, `ArrayType`, `AuthWitness`, `AztecAddress`, `AztecNode`, `BasicType`, `BlockHash`, `Capsule`, `ChonkProof`, `CompleteAddress`, `ContractArtifact`, `ContractArtifactWithHash`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractClassLog`, `ContractClassLogFields`, `ContractInstance`, `ContractInstanceWithAddress`, `ContractInstantiationData`, `DebugFileMap`, `DebugLog`, `EventSelector`, `ExecutionPayload`, `FieldLayout`, `FunctionAbi`, `FunctionArtifact`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `FunctionType`, `Gas`, `GasFees`, `GasSettings`, `GetPublicLogsResponse`, `GlobalVariables`, `Gossipable`, `HashedValues`, `IntegerType`, `L2LogsSource`, `NoirCompiledContract`, `NoirFunctionEntry`, `NoteSelector`, `OffchainEffect`, `PrivateExecutionStep`, `PrivateKernelTailCircuitPublicInputs`, `ProtocolContractAddresses`, `ProvingStats`, `PublicCallRequestWithCalldata`, `PublicKeys`, `RevertCode`, `Selector`, `SimulationStats`, `StringType`, `StructType`, `TopicType`, `TupleType`, `Tx`, `TxContext`, `TxExecutionRequest`, `TxExecutionResult`, `TxHash`, `TxProfileResult`, `TxReceipt`, `TxRequest`, `TxSimulationResult`, `TxStats`, `TxStatus`

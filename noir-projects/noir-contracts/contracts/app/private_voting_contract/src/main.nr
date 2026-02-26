@@ -1,12 +1,12 @@
 mod test;
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract PrivateVoting {
     // docs:start:imports
-    use dep::aztec::macros::{functions::{external, initializer, only_self}, storage::storage};
-    use dep::aztec::protocol::{address::AztecAddress, traits::{Deserialize, Serialize, ToField}};
-    use dep::aztec::state_vars::{Map, Owned, PublicImmutable, PublicMutable, SingleUseClaim};
+    use aztec::macros::{functions::{external, initializer, only_self, view}, storage::storage};
+    use aztec::protocol::{address::AztecAddress, traits::{Deserialize, Serialize, ToField}};
+    use aztec::state_vars::{Map, Owned, PublicImmutable, PublicMutable, SingleUseClaim};
 
     #[derive(Serialize, Deserialize)]
     pub struct ElectionId {
@@ -80,8 +80,9 @@ pub contract PrivateVoting {
         self.storage.vote_ended.at(election_id).write(true);
     }
 
-    #[external("utility")]
-    unconstrained fn get_tally(election_id: ElectionId, candidate: Field) -> Field {
+    #[external("public")]
+    #[view]
+    fn get_tally(election_id: ElectionId, candidate: Field) -> Field {
         self.storage.tally.at(election_id).at(candidate).read()
     }
 }

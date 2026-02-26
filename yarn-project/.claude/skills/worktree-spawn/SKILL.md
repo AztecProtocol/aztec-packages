@@ -1,6 +1,7 @@
 ---
 name: worktree-spawn
 description: Spawn an independent Claude instance in a git worktree to work on a task in parallel. Use when the user wants to delegate a task to run independently while continuing the current conversation.
+argument-hint: <task description>
 ---
 
 # Worktree Spawn

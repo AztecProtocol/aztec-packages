@@ -300,6 +300,8 @@ stakeˮ
 Standardisation
 subcomponents
 suboperation
+subpath
+subpaths
 substate
 Substate
 substracted
@@ -389,4 +391,6 @@ finalise
 undelegation
 unbonding
 zkpassport
+aztecrc
+Dockerless
 tokenomics
