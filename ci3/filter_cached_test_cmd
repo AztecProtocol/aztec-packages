@@ -34,11 +34,9 @@ if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   # Process stdin in batches of 50.
   set +e
   parallel --pipe -N50 --keep-order process_batch 2>&1
-  echo "parallel exit: $?"
   set -e
   exec 3>&-
   wait
-  echo "wait exit: $?"
 else
   # Noop.
   cat

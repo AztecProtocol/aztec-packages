@@ -411,7 +411,10 @@ function test_cmds {
 function test {
   set -x
   echo_header "bb test"
-  test_cmds | filter_test_cmds | parallelize
+  test_cmds > /tmp/test_cmds
+  filter_test_cmds < /tmp/test_cmds > /tmp/out
+  echo "hi" ; cat /tmp/out ; echo "hey"
+  cat /tmp/out | parallelize
 }
 
 function build_bench {
@@ -504,11 +507,7 @@ case "$cmd" in
     ;;
   "ci")
     build
-    set -x
-    set +e
     test
-    echo $!
-    set -e
     ;;
   "hash")
     echo $hash
