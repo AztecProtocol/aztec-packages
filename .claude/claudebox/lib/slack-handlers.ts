@@ -7,7 +7,7 @@ import {
   resolveUserName, getThreadContext, handleTerminalCommand,
   startNewSession, startReplySession,
 } from "./slack-helpers.ts";
-import { resolveBaseBranch, resolveQuietMode } from "./base-branch.ts";
+import { resolveBaseBranch, resolveQuietMode, resolveChannelName } from "./base-branch.ts";
 
 /** Normalized incoming Slack message — unifies app_mention, DM, and slash command. */
 interface IncomingMessage {
@@ -39,6 +39,7 @@ async function handleIncomingMessage(msg: IncomingMessage, store: SessionStore, 
 
   const userName = await resolveUserName(msg.client, msg.userId);
   const baseBranch = await resolveBaseBranch(msg.client, msg.channel);
+  const channelName = await resolveChannelName(msg.client, msg.channel);
   const parsed = parseMessage(cmd, (h) => store.findByHash(h));
   const { forceNew, quiet: explicitQuiet, prompt: effectivePrompt } = parseKeywords(parsed);
   const quiet = await resolveQuietMode(msg.client, msg.channel, explicitQuiet);
@@ -50,7 +51,7 @@ async function handleIncomingMessage(msg: IncomingMessage, store: SessionStore, 
       const err = validateResumeSession(session, parsed.hash);
       if (err) { await msg.respond({ text: err, thread_ts: msg.threadTs }); return; }
       console.log(`[HANDLER] Resuming session ${parsed.hash}`);
-      await startReplySession(msg.client, msg.channel, msg.threadTs, parsed.prompt, session, userName, store, docker, baseBranch, quiet);
+      await startReplySession(msg.client, msg.channel, msg.threadTs, parsed.prompt, session, userName, store, docker, baseBranch, quiet, channelName);
       return;
     }
     // Hash not a session (e.g. CI log URL) — fall through, use full text as prompt
@@ -69,14 +70,14 @@ async function handleIncomingMessage(msg: IncomingMessage, store: SessionStore, 
     }
     if (prevSession?.worktree_id) {
       console.log(`[HANDLER] Resuming worktree ${prevSession.worktree_id} from thread`);
-      await startReplySession(msg.client, msg.channel, msg.threadTs, prompt, prevSession, userName, store, docker, baseBranch, quiet);
+      await startReplySession(msg.client, msg.channel, msg.threadTs, prompt, prevSession, userName, store, docker, baseBranch, quiet, channelName);
       return;
     }
   }
 
   // Fresh session
   const threadContext = msg.isReply ? await getThreadContext(msg.client, msg.channel, msg.threadTs) : "";
-  await startNewSession(msg.client, msg.channel, msg.threadTs, prompt, threadContext, userName, store, docker, baseBranch, quiet);
+  await startNewSession(msg.client, msg.channel, msg.threadTs, prompt, threadContext, userName, store, docker, baseBranch, quiet, channelName);
 }
 
 /** Register all Slack event handlers on the Bolt app. */
@@ -158,6 +159,7 @@ export function registerSlackHandlers(app: App, store: SessionStore, docker: Doc
     let acked = false;
     const userName = await resolveUserName(client, userId);
     const baseBranch = await resolveBaseBranch(client, channel);
+    const channelName = await resolveChannelName(client, channel);
     const parsed = parseMessage(text, (h) => store.findByHash(h));
     const { forceNew, quiet: explicitQuiet, prompt: effectivePrompt } = parseKeywords(parsed);
     const quiet = await resolveQuietMode(client, channel, explicitQuiet);
@@ -169,7 +171,7 @@ export function registerSlackHandlers(app: App, store: SessionStore, docker: Doc
         const err = validateResumeSession(session, parsed.hash);
         if (err) { await ack({ text: err }); return; }
         await ack({ text: `ClaudeBox replying to session \`${parsed.hash.slice(0, 8)}...\`: _${truncate(parsed.prompt)}_` });
-        await startReplySession(client, channel, null, parsed.prompt, session, userName, store, docker, baseBranch, quiet);
+        await startReplySession(client, channel, null, parsed.prompt, session, userName, store, docker, baseBranch, quiet, channelName);
         return;
       }
       console.log(`[CMD] Hash ${parsed.hash} is not a session, treating as prompt`);
@@ -177,6 +179,6 @@ export function registerSlackHandlers(app: App, store: SessionStore, docker: Doc
 
     const prompt = (parsed.type === "reply-hash" && !store.findByHash(parsed.hash)) ? text : effectivePrompt;
     await ack({ text: `ClaudeBox starting: _${truncate(prompt)}_` });
-    await startNewSession(client, channel, null, prompt, "", userName, store, docker, baseBranch, quiet);
+    await startNewSession(client, channel, null, prompt, "", userName, store, docker, baseBranch, quiet, channelName);
   });
 }

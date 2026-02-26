@@ -3,7 +3,7 @@ import { API_SECRET, SESSION_PAGE_USER, SESSION_PAGE_PASS, MAX_CONCURRENT, getAc
 import type { SessionStore } from "./session-store.ts";
 import type { DockerService } from "./docker.ts";
 import type { InteractiveSessionManager } from "./interactive.ts";
-import { interactiveSessionHTML, cancelConfirmHTML, cancelResultHTML } from "./html-templates.ts";
+import { workspacePageHTML, dashboardHTML, type ChannelGroup, type WorkspaceGroup } from "./html-templates.ts";
 import { parseMessage, validateResumeSession, truncate } from "./util.ts";
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -52,6 +52,55 @@ function sendUnauthorized(res: ServerResponse, type: "api" | "basic"): void {
   } else {
     json(res, 401, { error: "unauthorized" });
   }
+}
+
+// ── Dashboard builder ──────────────────────────────────────────
+
+function buildDashboardData(store: SessionStore): ChannelGroup[] {
+  const all = store.listAll();
+
+  // Group sessions by worktree_id (or by _log_id for sessions without a worktree)
+  const worktreeMap = new Map<string, { sessions: any[]; worktreeId: string }>();
+  for (const s of all) {
+    const key = s.worktree_id || `_single_${s._log_id}`;
+    if (!worktreeMap.has(key)) worktreeMap.set(key, { sessions: [], worktreeId: s.worktree_id || "" });
+    worktreeMap.get(key)!.sessions.push(s);
+  }
+
+  // Build workspace groups, grouped by channel
+  const channelMap = new Map<string, { channelName: string; workspaces: WorkspaceGroup[] }>();
+  for (const [_key, { sessions, worktreeId }] of worktreeMap) {
+    const latest = sessions[0]; // already sorted newest first
+    const channelId = latest.slack_channel || "";
+
+    // Skip DMs (channel IDs starting with D)
+    if (channelId.startsWith("D")) continue;
+
+    const ws: WorkspaceGroup = {
+      worktreeId: worktreeId || latest._log_id || "?",
+      sessions,
+      latestSession: latest,
+      alive: worktreeId ? store.isWorktreeAlive(worktreeId) : false,
+    };
+
+    if (!channelMap.has(channelId)) {
+      const name = latest.slack_channel_name || channelId || "unknown";
+      channelMap.set(channelId, { channelName: name, workspaces: [] });
+    }
+    channelMap.get(channelId)!.workspaces.push(ws);
+  }
+
+  // Sort channels by name, workspaces by most recent
+  const channels: ChannelGroup[] = [];
+  for (const [channelId, data] of channelMap) {
+    data.workspaces.sort((a, b) =>
+      (b.latestSession.started || "").localeCompare(a.latestSession.started || "")
+    );
+    channels.push({ channelId, channelName: data.channelName, workspaces: data.workspaces });
+  }
+  channels.sort((a, b) => a.channelName.localeCompare(b.channelName));
+
+  return channels;
 }
 
 // ── Route definitions ───────────────────────────────────────────
@@ -121,7 +170,7 @@ const routes: Route[] = [
     },
   },
 
-  // GET /session/:id — session status
+  // GET /session/:id — session status (JSON API)
   {
     method: "GET", pattern: /^\/session\/([a-f0-9]+)$/, auth: "api",
     handler: async (_req, res, params, { store }) => {
@@ -139,13 +188,37 @@ const routes: Route[] = [
     },
   },
 
-  // GET /s/<hash> — interactive session HTML page
+  // GET /dashboard — workspace dashboard
+  {
+    method: "GET", pattern: /^\/dashboard$/, auth: "basic",
+    handler: async (_req, res, _params, { store }) => {
+      const channels = buildDashboardData(store);
+      html(res, 200, dashboardHTML(channels));
+    },
+  },
+
+  // GET / — redirect to dashboard
+  {
+    method: "GET", pattern: /^\/$/, auth: "basic",
+    handler: async (_req, res) => {
+      res.writeHead(302, { Location: "/dashboard" });
+      res.end();
+    },
+  },
+
+  // GET /s/<hash> — workspace status page
   {
     method: "GET", pattern: /^\/s\/([a-f0-9]{32})$/, auth: "basic",
     handler: async (_req, res, params, { store }) => {
-      const session = store.findByHash(params[0]);
+      const hash = params[0];
+      const session = store.findByHash(hash);
       if (!session) { res.writeHead(404, { "Content-Type": "text/plain" }); res.end("Session not found"); return; }
-      html(res, 200, interactiveSessionHTML(params[0], session));
+
+      const worktreeId = session.worktree_id || "";
+      const sessions = worktreeId ? store.listByWorktree(worktreeId) : [{ ...session, _log_id: hash }];
+      const worktreeAlive = worktreeId ? store.isWorktreeAlive(worktreeId) : false;
+
+      html(res, 200, workspacePageHTML({ hash, session, sessions, worktreeAlive }));
     },
   },
 
@@ -165,24 +238,23 @@ const routes: Route[] = [
     },
   },
 
-  // GET /s/<hash>/cancel — confirmation page
-  {
-    method: "GET", pattern: /^\/s\/([a-f0-9]{32})\/cancel$/, auth: "basic",
-    handler: async (_req, res, params, { store }) => {
-      const session = store.findByHash(params[0]);
-      if (!session) { res.writeHead(404, { "Content-Type": "text/plain" }); res.end("Session not found"); return; }
-      html(res, 200, cancelConfirmHTML(params[0], session));
-    },
-  },
-
-  // POST /s/<hash>/cancel
+  // POST /s/<hash>/cancel — cancel session (JSON response)
   {
     method: "POST", pattern: /^\/s\/([a-f0-9]{32})\/cancel$/, auth: "basic",
     handler: async (_req, res, params, { store, interactive }) => {
       const session = store.findByHash(params[0]);
-      if (!session) { json(res, 404, { error: "not found" }); return; }
+      if (!session) { json(res, 404, { ok: false, message: "Session not found" }); return; }
       const cancelled = interactive.cancelSession(params[0], session);
-      html(res, 200, cancelResultHTML(params[0], cancelled));
+      json(res, 200, { ok: cancelled, message: cancelled ? "Session cancelled" : "Session was already stopped" });
+    },
+  },
+
+  // GET /s/<hash>/cancel — redirect to session page (cancel is now a JS popup)
+  {
+    method: "GET", pattern: /^\/s\/([a-f0-9]{32})\/cancel$/, auth: "basic",
+    handler: async (_req, res, params) => {
+      res.writeHead(302, { Location: `/s/${params[0]}` });
+      res.end();
     },
   },
 ];

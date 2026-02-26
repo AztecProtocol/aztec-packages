@@ -67,6 +67,34 @@ export class SessionStore {
     return null;
   }
 
+  // ── Listing ─────────────────────────────────────────────────
+
+  /** List all sessions, newest first. */
+  listAll(): SessionMeta[] {
+    if (!existsSync(this.sessionsDir)) return [];
+    return readdirSync(this.sessionsDir)
+      .filter(f => f.endsWith(".json"))
+      .map(f => {
+        try {
+          const s: SessionMeta = JSON.parse(readFileSync(join(this.sessionsDir, f), "utf-8"));
+          s._log_id = basename(f, ".json");
+          return s;
+        } catch { return null; }
+      })
+      .filter((s): s is SessionMeta => s !== null)
+      .sort((a, b) => (b.started || "").localeCompare(a.started || ""));
+  }
+
+  /** List all sessions for a given worktree_id, newest first. */
+  listByWorktree(worktreeId: string): SessionMeta[] {
+    return this.listAll().filter(s => s.worktree_id === worktreeId);
+  }
+
+  /** Check if a worktree directory still exists on disk. */
+  isWorktreeAlive(worktreeId: string): boolean {
+    return existsSync(join(this.worktreesDir, worktreeId, "workspace"));
+  }
+
   // ── Worktree helpers ──────────────────────────────────────────
 
   newWorktreeId(): string {

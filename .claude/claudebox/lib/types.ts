@@ -20,6 +20,7 @@ export interface ContainerSessionOpts {
   runUrl?: string;
   link?: string;
   slackChannel?: string;
+  slackChannelName?: string;
   slackThreadTs?: string;
   slackMessageTs?: string;
   worktreeId?: string;

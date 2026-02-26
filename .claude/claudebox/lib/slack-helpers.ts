@@ -121,6 +121,7 @@ export async function startNewSession(
   docker: DockerService,
   baseBranch = "next",
   quiet = false,
+  channelName = "",
 ) {
   let status = prompt ? `ClaudeBox: _${truncate(prompt)}_ ...` : "ClaudeBox starting...";
   try {
@@ -141,6 +142,7 @@ export async function startNewSession(
       prompt: fullPrompt,
       userName,
       slackChannel: channel,
+      slackChannelName: channelName,
       slackThreadTs: threadTs!,
       slackMessageTs: messageTs,
       targetRef: toTargetRef(baseBranch),
@@ -175,6 +177,7 @@ export async function startReplySession(
   docker: DockerService,
   baseBranch = "next",
   quiet = false,
+  channelName = "",
 ) {
   const worktreeId = session.worktree_id;
 
@@ -195,6 +198,7 @@ export async function startReplySession(
       prompt: message,
       userName,
       slackChannel: channel,
+      slackChannelName: channelName,
       slackThreadTs: threadTs!,
       slackMessageTs: messageTs,
       worktreeId,

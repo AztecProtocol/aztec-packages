@@ -186,6 +186,7 @@ export class DockerService {
       log_url: logUrl,
       link: opts.link || opts.runUrl || "",
       slack_channel: opts.slackChannel || "",
+      slack_channel_name: opts.slackChannelName || "",
       slack_thread_ts: opts.slackThreadTs || "",
       claude_session_id: sessionUuid,
       worktree_id: worktreeId,
