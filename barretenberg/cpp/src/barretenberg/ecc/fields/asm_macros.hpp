@@ -37,7 +37,7 @@
 #if !defined(__ADX__) || defined(DISABLE_ADX)
 /**
  * Take a 4-limb field element, in (%r12, %r13, %r14, %r15),
- * and add 4-limb field element pointed to by a
+ * and add 4-limb field element pointed to by b
  **/
 #define ADD(b)                                                                                                           \
         "addq 0(" b "), %%r12                   \n\t"                                                                    \
@@ -58,9 +58,12 @@
 
 /**
  * Take a 4-limb field element, in (%r12, %r13, %r14, %r15),
- * add 4-limb field element pointed to by b, and reduce modulo p
+ * add 4-limb field element pointed to by b, and reduce modulo 2p
+ * Works as follows: adds the number, moves the result, adds (twos complement
+ * of 2p), conditionally restores.
+ * @note the 2p is because for 254 bit fields, we use the _coarse_ representation.
  **/
-#define ADD_REDUCE(b, modulus_0, modulus_1, modulus_2, modulus_3)                                                        \
+#define ADD_REDUCE(b, twice_not_modulus_0, twice_not_modulus_1, twice_not_modulus_2, twice_not_modulus_3)                \
         "addq 0(" b "), %%r12                   \n\t"                                                                    \
         "adcq 8(" b "), %%r13                   \n\t"                                                                    \
         "adcq 16(" b "), %%r14                  \n\t"                                                                    \
@@ -69,10 +72,10 @@
         "movq %%r13, %%r9                       \n\t"                                                                    \
         "movq %%r14, %%r10                      \n\t"                                                                    \
         "movq %%r15, %%r11                      \n\t"                                                                    \
-        "addq " modulus_0 ", %%r12              \n\t"                                                                    \
-        "adcq " modulus_1 ", %%r13              \n\t"                                                                    \
-        "adcq " modulus_2 ", %%r14              \n\t"                                                                    \
-        "adcq " modulus_3 ", %%r15              \n\t"                                                                    \
+        "addq " twice_not_modulus_0 ", %%r12    \n\t" /* r'[0] -= twice_not_modulus.data[0] */                           \
+        "adcq " twice_not_modulus_1 ", %%r13    \n\t" /* r'[1] -= twice_not_modulus.data[1] */                           \
+        "adcq " twice_not_modulus_2 ", %%r14    \n\t" /* r'[2] -= twice_not_modulus.data[2] */                           \
+        "adcq " twice_not_modulus_3 ", %%r15    \n\t" /* r'[3] -= twice_not_modulus.data[3] */                           \
         "cmovncq %%r8, %%r12                    \n\t"                                                                    \
         "cmovncq %%r9, %%r13                    \n\t"                                                                    \
         "cmovncq %%r10, %%r14                   \n\t"                                                                    \
@@ -81,22 +84,26 @@
 
 
 /**
- * Take a 4-limb integer, r, in (%r12, %r13, %r14, %r15)
- * and conditionally subtract modulus, if r > p.
+ * Takes a 4-limb integer, r in (%r12, %r13, %r14, %r15),
+ * and conditionally adds (b_0, b_1, b_2, b_3).
+ * Computes r' = r + b. If there is a carry, replace r with r';
+ * otherwise leave r untouched.
+ * Two use cases:
+ *  1. `asm_reduce_once`: b = -p. If r >= p, return r - p.
+ *  2. `asm_sub_with_coarse_reduction`: b = 2p. If r wrapped negative, return r + 2p.
  **/
-#define REDUCE_FIELD_ELEMENT(neg_modulus_0, neg_modulus_1, neg_modulus_2, neg_modulus_3)                                 \
+#define CONDITIONAL_ADD(b_0, b_1, b_2, b_3)                                                                             \
         /* Duplicate `r` */                                                                                              \
         "movq %%r12, %%r8                       \n\t"                                                                    \
         "movq %%r13, %%r9                       \n\t"                                                                    \
         "movq %%r14, %%r10                      \n\t"                                                                    \
         "movq %%r15, %%r11                      \n\t"                                                                    \
-        "addq " neg_modulus_0 ", %%r12          \n\t" /* r'[0] -= modulus.data[0]                                   */   \
-        "adcq " neg_modulus_1 ", %%r13          \n\t" /* r'[1] -= modulus.data[1]                                   */   \
-        "adcq " neg_modulus_2 ", %%r14          \n\t" /* r'[2] -= modulus.data[2]                                   */   \
-        "adcq " neg_modulus_3 ", %%r15          \n\t" /* r'[3] -= modulus.data[3]                                   */   \
+        "addq " b_0 ", %%r12                    \n\t" /* r'[0] += b[0]                                             */   \
+        "adcq " b_1 ", %%r13                    \n\t" /* r'[1] += b[1]                                             */   \
+        "adcq " b_2 ", %%r14                    \n\t" /* r'[2] += b[2]                                             */   \
+        "adcq " b_3 ", %%r15                    \n\t" /* r'[3] += b[3]                                             */   \
                                                                                                                          \
-        /* if r does not need to be reduced, overflow flag is 1                                                     */   \
-        /* set r' = r if this flag is set                                                                           */   \
+        /* if the addition did not carry, restore the original r                                                    */   \
         "cmovncq %%r8, %%r12                    \n\t"                                                                    \
         "cmovncq %%r9, %%r13                    \n\t"                                                                    \
         "cmovncq %%r10, %%r14                   \n\t"                                                                    \
@@ -469,21 +476,21 @@
 
 /**
  * Take a 4-limb field element, in (%r12, %r13, %r14, %r15),
- * add 4-limb field element pointed to by b, and reduce modulo p
+ * add 4-limb field element pointed to by b, and reduce modulo 2p
  **/
-#define ADD_REDUCE(b, modulus_0, modulus_1, modulus_2, modulus_3)                                                        \
+#define ADD_REDUCE(b, twice_not_modulus_0, twice_not_modulus_1, twice_not_modulus_2, twice_not_modulus_3)                  \
         "adcxq 0(" b "), %%r12                  \n\t"                                                                    \
         "movq  %%r12, %%r8                      \n\t"                                                                    \
-        "adoxq " modulus_0 ", %%r12             \n\t"                                                                    \
+        "adoxq " twice_not_modulus_0 ", %%r12   \n\t"                                                                    \
         "adcxq 8(" b "), %%r13                  \n\t"                                                                    \
         "movq %%r13, %%r9                       \n\t"                                                                    \
-        "adoxq " modulus_1 ", %%r13             \n\t"                                                                    \
+        "adoxq " twice_not_modulus_1 ", %%r13   \n\t"                                                                    \
         "adcxq 16(" b "), %%r14                 \n\t"                                                                    \
         "movq %%r14, %%r10                      \n\t"                                                                    \
-        "adoxq " modulus_2 ", %%r14             \n\t"                                                                    \
+        "adoxq " twice_not_modulus_2 ", %%r14   \n\t"                                                                    \
         "adcxq 24(" b "), %%r15                 \n\t"                                                                    \
         "movq %%r15, %%r11                      \n\t"                                                                    \
-        "adoxq " modulus_3 ", %%r15             \n\t"                                                                    \
+        "adoxq " twice_not_modulus_3 ", %%r15   \n\t"                                                                    \
         "cmovnoq %%r8, %%r12                    \n\t"                                                                    \
         "cmovnoq %%r9, %%r13                    \n\t"                                                                    \
         "cmovnoq %%r10, %%r14                   \n\t"                                                                    \
@@ -491,27 +498,25 @@
 
 
 /**
- * Take a 4-limb integer, r, in (%r12, %r13, %r14, %r15)
- * and conditionally subtract modulus, if r > p.
+ * Takes a 4-limb integer, r in (%r12, %r13, %r14, %r15),
+ * and conditionally adds (b_0, b_1, b_2, b_3).
+ * Computes r' = r + b. If there is a carry (overflow), replace r with r';
+ * otherwise leave r untouched.
+ * Uses `adoxq` instead of `addq` so that only the overflow flag is affected,
+ * leaving the carry flag free for simultaneous `adcxq` chains.
  **/
-#define REDUCE_FIELD_ELEMENT(neg_modulus_0, neg_modulus_1, neg_modulus_2, neg_modulus_3)                                \
+#define CONDITIONAL_ADD(b_0, b_1, b_2, b_3)                                                                            \
         /* Duplicate `r` */                                                                                             \
         "movq %%r12, %%r8                          \n\t"                                                                \
         "movq %%r13, %%r9                          \n\t"                                                                \
         "movq %%r14, %%r10                         \n\t"                                                                \
         "movq %%r15, %%r11                         \n\t"                                                                \
-        /* Add the negative representation of 'modulus' into `r`. We do this instead                                */  \
-        /* of subtracting, because we can use `adoxq`.                                                              */  \
-        /* This opcode only has a dependence on the overflow                                                        */  \
-        /* flag (sub/sbb changes both carry and overflow flags).                                                    */  \
-        /* We can process an `adcxq` and `acoxq` opcode simultaneously.                                             */  \
-        "adoxq " neg_modulus_0 ", %%r12            \n\t" /* r'[0] -= modulus.data[0]                                */  \
-        "adoxq " neg_modulus_1 ", %%r13            \n\t" /* r'[1] -= modulus.data[1]                                */  \
-        "adoxq " neg_modulus_2 ", %%r14            \n\t" /* r'[2] -= modulus.data[2]                                */  \
-        "adoxq " neg_modulus_3 ", %%r15            \n\t" /* r'[3] -= modulus.data[3]                                */  \
+        "adoxq " b_0 ", %%r12                      \n\t" /* r'[0] += b[0]                                          */  \
+        "adoxq " b_1 ", %%r13                      \n\t" /* r'[1] += b[1]                                          */  \
+        "adoxq " b_2 ", %%r14                      \n\t" /* r'[2] += b[2]                                          */  \
+        "adoxq " b_3 ", %%r15                      \n\t" /* r'[3] += b[3]                                          */  \
                                                                                                                         \
-        /* if r does not need to be reduced, overflow flag is 1                                                     */  \
-        /* set r' = r if this flag is set                                                                           */  \
+        /* if the addition did not overflow, restore the original r                                                 */  \
         "cmovnoq %%r8, %%r12                       \n\t"                                                                \
         "cmovnoq %%r9, %%r13                       \n\t"                                                                \
         "cmovnoq %%r10, %%r14                      \n\t"                                                                \

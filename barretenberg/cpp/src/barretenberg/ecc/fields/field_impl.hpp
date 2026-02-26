@@ -169,7 +169,7 @@ template <class T> constexpr field<T> field<T>::operator-() const noexcept
     // 1: we subtract `p` from `*this` instead of `2p`
     // 2: instead of `p - *this`, we use an asm block that does `p - *this` without the assembly reduction step
     // 3: we replace `(p - *this).reduce_once()` with an assembly block that is equivalent to `p - *this`,
-    //    but we call `REDUCE_FIELD_ELEMENT` with `not_twice_modulus` instead of `twice_modulus`
+    //    but we call `CONDITIONAL_ADD` with `not_twice_modulus` instead of `twice_modulus`
     // not sure which is faster and whether any of the above might break something!
     //
     // More context below:
