@@ -24,7 +24,7 @@ pub struct TokenMachine {
 impl Default for TokenMachine {
     fn default() -> Self {
         Self {
-            min_tokens: 1,
+            min_tokens: 2,
             max_tokens: 4,
             min_initial_public_mints: 0,
             max_initial_public_mints: 10,
@@ -288,6 +288,8 @@ impl smt::StateMachine for TokenMachine {
         u: &mut Unstructured,
         state: &Self::State,
     ) -> arbitrary::Result<Self::Command> {
+        // Sends have extra weight so queries (which flush the parallel
+        // batch) are ~20% of commands.
         let cmd = u.choose(&[
             "mint_public",
             "mint_private",
@@ -300,6 +302,11 @@ impl smt::StateMachine for TokenMachine {
             "balance_of_public",
             "balance_of_private",
             "total_supply",
+            // Extra weight for sends (duplicate entries).
+            "mint_public",
+            "mint_private",
+            "transfer_public",
+            "transfer_private",
         ])?;
 
         let cmd = match *cmd {

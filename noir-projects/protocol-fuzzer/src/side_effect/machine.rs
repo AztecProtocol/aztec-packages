@@ -310,7 +310,8 @@ impl smt::StateMachine for SideEffectMachine {
     ) -> arbitrary::Result<Self::Command> {
         let pop = populated_slots(state);
 
-        // Build command list based on preconditions.
+        // Build command list based on preconditions. Sends have extra weight
+        // so queries (which flush the parallel batch) are ~20% of commands.
         let mut choices: Vec<&str> = vec![
             "create_note",
             "create_note", // 2x weight
@@ -323,7 +324,9 @@ impl smt::StateMachine for SideEffectMachine {
                 "view_notes_many",
                 "get_notes_many",
                 "destroy_note",
+                "destroy_note", // 2x weight
                 "test_note_inclusion",
+                "test_note_inclusion", // 2x weight
             ]);
         }
 

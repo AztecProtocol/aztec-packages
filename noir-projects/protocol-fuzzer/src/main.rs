@@ -44,7 +44,7 @@ struct CommonArgs {
 struct TokenArgs {
     #[command(flatten)]
     common: CommonArgs,
-    #[arg(long, default_value_t = 1)]
+    #[arg(long, default_value_t = 2)]
     min_tokens: usize,
     #[arg(long, default_value_t = 4)]
     max_tokens: usize,
