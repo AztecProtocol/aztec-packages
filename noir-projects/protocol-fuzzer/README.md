@@ -38,11 +38,22 @@ cargo run -- side-effect --max-steps 100000 --seed 0x5a7211231dcd6500
 ### Options
 
 ```
---bridge-url URL    Bridge server URL (default: http://localhost:8089)
---prove             Enable client-side proof generation (default: off)
---seed 0xHEX        Replay a specific seed
---max-steps N       Max fuzzing steps (default: 100000)
+--bridge-url URL      Bridge server URL (default: http://localhost:8089)
+--prove               Enable client-side proof generation (default: off)
+--seed 0xHEX          Replay a specific seed
+--max-steps N         Max fuzzing steps (default: 100000)
+--max-batch-size N    Max parallel sends per batch (default: 8)
 ```
+
+### Parallel batching
+
+Consecutive non-conflicting sends are batched and fired concurrently, landing in
+the same block. This reduces N sequential sends from N×5s to ~5s. Queries always
+flush the pending batch first since they need to observe prior state changes.
+
+Conflict rules (conservative — false positives only reduce batch size):
+- **token**: two sends on the same token conflict (shared total supply)
+- **side-effect**: two sends on the same (storage_slot, owner) or same nullifier value conflict
 
 ## Smoke Tests
 

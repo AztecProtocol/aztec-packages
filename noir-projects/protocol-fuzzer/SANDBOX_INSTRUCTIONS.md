@@ -72,6 +72,10 @@ timetable enforcement, and starts the persistent HTTP bridge.
 | Per-send time | ~35s | ~4-5s |
 | Per-simulate time | ~35s | ~1-3s |
 
+Additionally, the fuzzer batches consecutive non-conflicting sends and fires them in
+parallel. Typical batch sizes of 2-8 commands yield an additional ~2-3x throughput
+improvement on top of the fast slot gains. Use `--max-batch-size` to tune (default: 8).
+
 The fast slot configuration requires a dated nightly image (`5.0.0-nightly.YYYYMMDD`) that
 supports the `AZTEC_SLOT_DURATION` and `ETHEREUM_SLOT_DURATION` environment variables. The
 generic `nightly` tag points to an older image (Jan 2026) that doesn't support these.
