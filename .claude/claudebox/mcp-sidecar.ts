@@ -15,7 +15,7 @@
 import { createServer, IncomingMessage, ServerResponse } from "http";
 import { execFileSync, execFile, spawn, ChildProcess } from "child_process";
 import { existsSync, readFileSync } from "fs";
-import { join, dirname } from "path";
+import { join, dirname, resolve } from "path";
 import { createHash } from "crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -95,6 +95,14 @@ const GH_WHITELIST: Array<{ method: string; pattern: RegExp }> = [
   { method: "GET",   pattern: new RegExp(`^${R}/compare/.*$`) },
   { method: "GET",   pattern: new RegExp(`^${R}/branches(/[^/]+)?$`) },
   { method: "GET",   pattern: new RegExp(`^${R}/git/ref/.*$`) },
+  // Contributors, assignees, collaborators
+  { method: "GET",   pattern: new RegExp(`^${R}/contributors(\\?.*)?$`) },
+  { method: "GET",   pattern: new RegExp(`^${R}/assignees(\\?.*)?$`) },
+  { method: "GET",   pattern: new RegExp(`^${R}/collaborators(\\?.*)?$`) },
+  // Users (global)
+  { method: "GET",   pattern: /^users\/[^/]+(\/.*)?$/ },
+  // Search
+  { method: "GET",   pattern: /^search\/(issues|users|code|repositories)(\?.*)?$/ },
 ];
 
 function isGhAllowed(method: string, path: string): boolean {
@@ -795,17 +803,30 @@ function validateAndSanitizeRunArgs(args: string[]): { error?: string; sanitized
     if (a === "--device" || a.startsWith("--device=")) return { error: "device mapping not allowed", sanitized: [] };
     if (a === "--volumes-from" || a.startsWith("--volumes-from=")) return { error: "volumes-from not allowed", sanitized: [] };
 
-    // Dangerous capabilities
+    // Block --security-opt that disables sandboxing
+    {
+      const [val, consumed] = flagVal(args, i, "--security-opt");
+      if (consumed) {
+        const lower = val.toLowerCase();
+        if (lower.includes("seccomp=unconfined") || lower.includes("apparmor=unconfined") || lower.includes("no-new-privileges=false"))
+          return { error: `security-opt '${val}' not allowed — cannot disable seccomp/apparmor`, sanitized: [] };
+      }
+    }
+
+    // Dangerous capabilities (including ALL which grants everything)
     for (const flag of ["--cap-add"]) {
       const [val, consumed] = flagVal(args, i, flag);
-      if (consumed && DANGEROUS_CAPS.has(val.toUpperCase()))
-        return { error: `capability ${val.toUpperCase()} not allowed`, sanitized: [] };
+      if (consumed) {
+        const upper = val.toUpperCase();
+        if (upper === "ALL" || upper === "CAP_ALL") return { error: "cap-add ALL not allowed", sanitized: [] };
+        if (DANGEROUS_CAPS.has(upper)) return { error: `capability ${upper} not allowed`, sanitized: [] };
+      }
     }
 
     // Host namespace flags
-    for (const [flag, label] of [["--network", "network"], ["--net", "network"], ["--ipc", "IPC"], ["--uts", "UTS"]] as const) {
+    for (const [flag, label] of [["--network", "network"], ["--net", "network"], ["--ipc", "IPC"], ["--uts", "UTS"], ["--userns", "user"]] as const) {
       const [val, consumed] = flagVal(args, i, flag);
-      if (consumed && val === "host") return { error: `host ${label} not allowed`, sanitized: [] };
+      if (consumed && val === "host") return { error: `host ${label} namespace not allowed`, sanitized: [] };
     }
 
     // Strip --pid=host silently (docker_isolate uses it, works without)
@@ -923,26 +944,57 @@ async function handleDockerProxy(req: IncomingMessage, res: ServerResponse): Pro
 
   // ── docker compose ─────────────────────────────────────────────
   } else if (subcommand === "compose") {
-    // Find the compose file from args (-f/--file)
-    let composefile = "";
+    // Collect ALL compose files from args (-f/--file) — compose supports multiple
+    const composeFiles: string[] = [];
     for (let i = 1; i < rawArgs.length; i++) {
       if ((rawArgs[i] === "-f" || rawArgs[i] === "--file") && i + 1 < rawArgs.length) {
-        composefile = rawArgs[i + 1]; break;
+        composeFiles.push(rawArgs[i + 1]); i++; continue;
       }
-      if (rawArgs[i].startsWith("-f") && rawArgs[i].length > 2) {
-        composefile = rawArgs[i].slice(2); break;
+      if (rawArgs[i].startsWith("-f") && rawArgs[i].length > 2 && !rawArgs[i].startsWith("-f ")) {
+        composeFiles.push(rawArgs[i].slice(2)); continue;
       }
       if (rawArgs[i].startsWith("--file=")) {
-        composefile = rawArgs[i].split("=").slice(1).join("="); break;
+        composeFiles.push(rawArgs[i].split("=").slice(1).join("=")); continue;
       }
     }
 
-    if (composefile) {
-      const err = await validateComposeFile(composefile);
+    // If no -f specified, resolve the default docker-compose.yml from cwd
+    if (composeFiles.length === 0) {
+      const cwd = payload.cwd || WORKSPACE;
+      const defaultFile = resolve(cwd, "docker-compose.yml");
+      if (existsSync(defaultFile)) composeFiles.push(defaultFile);
+    }
+
+    // Verify ALL compose files against reference repo
+    for (const cf of composeFiles) {
+      const err = await validateComposeFile(cf);
       if (err) { res.writeHead(403); res.end(JSON.stringify({ error: err })); return; }
     }
-    // If no -f, docker compose uses ./docker-compose.yml which is fine
 
+    if (composeFiles.length === 0) {
+      res.writeHead(403);
+      res.end(JSON.stringify({ error: "no compose file found — must use a verified compose file from the repo" }));
+      return;
+    }
+
+    dockerArgs = rawArgs;
+    timeout = 60 * 60 * 1000;
+
+  // ── docker buildx ─────────────────────────────────────────────
+  } else if (subcommand === "buildx") {
+    // Only allow the specific buildx commands used in the repo
+    const bxSub = rawArgs[1] || "";
+    const ALLOWED_BUILDX = ["imagetools", "build", "ls", "inspect", "version"];
+    if (!ALLOWED_BUILDX.includes(bxSub)) {
+      res.writeHead(403);
+      res.end(JSON.stringify({
+        error: `docker buildx '${bxSub}' is not allowed. ` +
+          `Only these buildx subcommands are permitted: ${ALLOWED_BUILDX.join(", ")}. ` +
+          `'buildx create' is blocked because it spawns privileged builder containers. ` +
+          `If you need this command, ask the operator to add it to the allowlist in mcp-sidecar.ts.`,
+      }));
+      return;
+    }
     dockerArgs = rawArgs;
     timeout = 60 * 60 * 1000;
 
@@ -963,8 +1015,19 @@ async function handleDockerProxy(req: IncomingMessage, res: ServerResponse): Pro
 
   // ── Block everything else ──────────────────────────────────────
   } else {
+    const ALLOWED_LIST = [
+      "run", "create", "build", "buildx", "compose", "exec",
+      "ps", "images", "logs", "inspect", "wait", "port", "top", "stats",
+      "network", "volume", "info", "version", "tag", "pull", "save", "load",
+      "login", "logout", "stop", "rm", "kill", "start", "restart", "pause", "unpause",
+    ];
     res.writeHead(403);
-    res.end(JSON.stringify({ error: `docker subcommand '${subcommand}' not allowed` }));
+    res.end(JSON.stringify({
+      error: `docker subcommand '${subcommand}' is not allowed through the docker proxy. ` +
+        `Allowed commands: ${ALLOWED_LIST.join(", ")}. ` +
+        `This container uses a docker proxy for security — commands must go through the sidecar. ` +
+        `If you need '${subcommand}', ask the operator to add it to the allowlist in mcp-sidecar.ts.`,
+    }));
     return;
   }
 
