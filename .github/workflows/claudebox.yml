@@ -1,4 +1,4 @@
-name: Run Claudebox
+name: ClaudeBox
 
 on:
   issue_comment:
@@ -99,7 +99,7 @@ jobs:
           AUTHOR: ${{ github.event.comment.user.login || github.actor }}
         run: |
           AUTH="Authorization: Bearer ${CLAUDEBOX_API_SECRET}"
-
+          echo "Creating payload..."
           PAYLOAD=$(jq -n \
             --arg prompt "$CLAUDEBOX_PROMPT" \
             --arg user "$AUTHOR" \
@@ -110,6 +110,7 @@ jobs:
             --arg link "$CLAUDEBOX_LINK" \
             '{prompt: $prompt, user: $user, comment_id: $comment_id, run_comment_id: $run_comment_id, repo: $repo, run_url: $run_url, link: $link}')
 
+          echo "Sending payload..."
           # Start session — returns 202 with log URL
           RESPONSE=$(curl -sS -w "\n%{http_code}" \
             -H "$AUTH" -H "Content-Type: application/json" \
@@ -124,9 +125,10 @@ jobs:
           fi
 
           LOG_URL=$(echo "$BODY" | jq -r '.log_url // empty')
-          SESSION_ID=$(echo "$LOG_URL" | grep -oP '[a-f0-9]{32}$')
+          SESSION_ID=$(basename "$LOG_URL")
           echo "Session started: $LOG_URL"
 
+          echo "Session received, polling..."
           # Poll until completed
           while true; do
             sleep 30
