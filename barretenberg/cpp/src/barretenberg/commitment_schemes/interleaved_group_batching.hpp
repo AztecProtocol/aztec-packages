@@ -170,7 +170,7 @@ InterleavedBatchResult<Commitment, FF> batch_interleaved_verifier_claims(
 }
 
 /**
- * @brief Batch interleaved evaluations for verification.
+ * @brief Batch interleaved evaluations for verification. Commitments are batched all in one go.
  */
 template <typename FF>
 std::pair<FF, FF> batch_interleaved_evals(const std::vector<std::vector<FF const*>>& unshifted_eval_groups,
