@@ -3,7 +3,7 @@ use crate::protocol::{address::AztecAddress, logging::{debug_log, debug_log_form
 pub(crate) mod nonce_discovery;
 pub(crate) mod partial_notes;
 pub(crate) mod private_events;
-pub(crate) mod private_notes;
+pub mod private_notes;
 pub mod process_message;
 
 use crate::{
@@ -21,12 +21,12 @@ use crate::{
 
 pub struct NoteHashAndNullifier {
     /// The result of [`crate::note::note_interface::NoteHash::compute_note_hash`].
-    pub(crate) note_hash: Field,
+    pub note_hash: Field,
     /// The result of [`crate::note::note_interface::NoteHash::compute_nullifier_unconstrained`].
     ///
     /// This value is unconstrained as all of message discovery is unconstrained. This is `None` if the nullifier
     /// cannot be computed (e.g., because the nullifier hiding key is not available).
-    pub(crate) inner_nullifier: Option<Field>,
+    pub inner_nullifier: Option<Field>,
 }
 
 /// A contract's way of computing note hashes and nullifiers.
