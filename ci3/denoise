@@ -109,15 +109,9 @@ tail --sleep-interval=0.2 -n +1 -f "$outfile" > >(
 ) &
 tail_pid=$!
 
-# Save stdin to fd 9 so the background job can read from it.
-# In non-interactive bash, background processes get /dev/null as stdin
-# unless we explicitly redirect stdin (the "in the absence of explicit
-# redirections" clause in the bash manual).
-exec 9<&0
-# Execute the command in background, restoring saved stdin.
-PARENT_LOG_ID=$key bash -c "$cmd" 0<&9 9>&- > >(redact > $outfile) 2>&1 &
+# Execute the command in background.
+PARENT_LOG_ID=$key bash -c "$cmd" 2>&1 | redact > $outfile &
 job_pid=$!
-exec 9>&-  # Close saved stdin in this process
 
 # Wait for the job to finish and get its exit status.
 wait $job_pid
