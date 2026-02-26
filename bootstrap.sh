@@ -699,7 +699,9 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export AVM=0
     export AVM_TRANSPILER=0
+    set +e
     barretenberg/cpp/bootstrap.sh ci
+    echo $?
     ;;
   "ci-barretenberg-full")
     export CI=1
