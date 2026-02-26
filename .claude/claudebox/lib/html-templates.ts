@@ -283,6 +283,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.min.js"></script>
 <script>
 (function(){
   // Auto-scroll chat to bottom on load
@@ -321,6 +322,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
       theme:{background:"#0a0a0a",foreground:"#ccc",cursor:"#5FA7F1",selectionBackground:"#1a2a4a",cursorAccent:"#0a0a0a"}});
     window.term=term;
     fitAddon=new window.FitAddon.FitAddon();term.loadAddon(fitAddon);
+    if(window.WebLinksAddon)term.loadAddon(new window.WebLinksAddon.WebLinksAddon());
     term.open(tc);fitAddon.fit();
     ws=new WebSocket(WS_URL);ws.binaryType="arraybuffer";
     var gotFirstData=false;

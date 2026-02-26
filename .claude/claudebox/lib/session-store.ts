@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, existsSync, writeFileSync, mkdirSync, statSync, linkSync, chmodSync } from "fs";
+import { readFileSync, readdirSync, existsSync, writeFileSync, mkdirSync, statSync, copyFileSync } from "fs";
 import { join, basename, dirname } from "path";
 import { execSync, execFileSync } from "child_process";
 import type { SessionMeta, WorktreeInfo } from "./types.ts";
@@ -184,7 +184,9 @@ export class SessionStore {
 
     if (isNewClone) {
       console.log(`[WORKSPACE] Cloning reference repo → ${targetDir}`);
-      execFileSync("git", ["clone", "--shared", join(REPO_DIR, ".git"), targetDir], {
+      // Use --local (not --shared) — hardlinks objects on same filesystem
+      // --shared creates an alternates file with absolute host paths that break inside containers
+      execFileSync("git", ["clone", "--local", join(REPO_DIR, ".git"), targetDir], {
         timeout: 120_000, stdio: "inherit",
       });
       execFileSync("git", ["-C", targetDir, "remote", "set-url", "origin",
@@ -204,10 +206,10 @@ export class SessionStore {
       });
 
       this.setupSubmodules(targetDir);
-      this.hardlinkGitignored(REPO_DIR, targetDir);
+      this.copyGitignored(REPO_DIR, targetDir);
     } else {
       // Existing workspace — refresh hardlinks for any new gitignored files
-      this.hardlinkGitignored(REPO_DIR, targetDir);
+      this.copyGitignored(REPO_DIR, targetDir);
     }
   }
 
@@ -263,8 +265,8 @@ export class SessionStore {
     console.log(`[WORKSPACE] Submodules initialized (${paths.length} modules)`);
   }
 
-  /** Hardlink gitignored files from reference repo into workspace clone. */
-  private hardlinkGitignored(referenceDir: string, targetDir: string): void {
+  /** Copy gitignored files from reference repo into workspace clone. */
+  private copyGitignored(referenceDir: string, targetDir: string): void {
     let files: string[];
     try {
       const output = execFileSync("git", ["-C", referenceDir,
@@ -279,29 +281,25 @@ export class SessionStore {
 
     if (files.length === 0) return;
 
-    let linked = 0, skipped = 0, failed = 0;
+    let copied = 0, skipped = 0, failed = 0;
     for (const file of files) {
       const src = join(referenceDir, file);
       const dst = join(targetDir, file);
 
-      // Skip non-regular files and already-existing destinations
       try { if (!statSync(src).isFile()) { skipped++; continue; } } catch { skipped++; continue; }
       if (existsSync(dst)) { skipped++; continue; }
 
-      // Create parent directory, hardlink, and make read-only
-      // (read-only protects shared inodes — containers can't corrupt other workspaces)
       try {
         mkdirSync(dirname(dst), { recursive: true });
-        linkSync(src, dst);
-        try { chmodSync(dst, 0o444); } catch {}
-        linked++;
+        copyFileSync(src, dst);
+        copied++;
       } catch {
         failed++;
       }
     }
 
-    if (linked > 0 || failed > 0) {
-      console.log(`[WORKSPACE] Hardlinked gitignored: ${linked} linked, ${skipped} skipped, ${failed} failed`);
+    if (copied > 0 || failed > 0) {
+      console.log(`[WORKSPACE] Copied gitignored: ${copied} copied, ${skipped} skipped, ${failed} failed`);
     }
   }
 
