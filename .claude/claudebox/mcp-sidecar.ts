@@ -244,8 +244,13 @@ NEVER post tables, bullet lists, reports, code blocks, or multi-paragraph text h
       if (SLACK_BOT_TOKEN && SESSION_META.slack_channel && SESSION_META.slack_thread_ts) {
         try {
           let text = truncateForSlack(message);
-          // Always append log link to the thread reply so it's visible
-          if (SESSION_META.log_url) text += ` <${SESSION_META.log_url}|log>`;
+          // Append status page link with message hash for highlighting
+          if (statusPageUrl) {
+            const msgHash = Buffer.from(message.slice(0, 50)).toString("base64url").slice(0, 12);
+            text += ` <${statusPageUrl}?msg=${msgHash}|log>`;
+          } else if (SESSION_META.log_url) {
+            text += ` <${SESSION_META.log_url}|log>`;
+          }
           const r = await fetch("https://slack.com/api/chat.postMessage", {
             method: "POST",
             headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },

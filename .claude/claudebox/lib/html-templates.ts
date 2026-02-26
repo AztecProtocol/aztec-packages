@@ -77,19 +77,20 @@ export function workspacePageHTML(data: WorkspacePageData): string {
     return `<div class="${cls}"><a href="/s/${id}" class="link">${id.slice(0, 8)}</a> <span class="status-${s.status || "unknown"}">${s.status || "?"}${exitStr}</span> <span class="dim">${s.started ? timeAgo(s.started) : "\u2014"}</span> ${logLink}</div>`;
   }).join("\n");
 
-  // Activity as chat bubbles
+  // Activity as chat bubbles (with data-msg hash for deep-linking)
   const chatBubbles = activity.slice(0, 50).map(a => {
     const text = esc(a.text.length > 500 ? a.text.slice(0, 500) + "\u2026" : a.text);
     const linked = text.replace(/(https?:\/\/[^\s&<]+)/g, '<a href="$1" target="_blank" class="link">$1</a>');
     const timeStr = a.ts ? timeAgo(a.ts) : "";
+    const msgHash = Buffer.from(a.text.slice(0, 50)).toString("base64url").slice(0, 12);
     if (a.type === "response") {
-      return `<div class="chat-msg bot"><div class="chat-avatar">CB</div><div class="chat-bubble bot-bubble"><div class="chat-text">${linked}</div><div class="chat-time">${timeStr}</div></div></div>`;
+      return `<div class="chat-msg bot" data-msg="${msgHash}"><div class="chat-avatar">CB</div><div class="chat-bubble bot-bubble"><div class="chat-text">${linked}</div><div class="chat-time">${timeStr}</div></div></div>`;
     }
     if (a.type === "artifact") {
-      return `<div class="chat-msg bot"><div class="chat-avatar">CB</div><div class="chat-bubble artifact-bubble"><div class="chat-text">${linked}</div><div class="chat-time">${timeStr}</div></div></div>`;
+      return `<div class="chat-msg bot" data-msg="${msgHash}"><div class="chat-avatar">CB</div><div class="chat-bubble artifact-bubble"><div class="chat-text">${linked}</div><div class="chat-time">${timeStr}</div></div></div>`;
     }
     // status
-    return `<div class="chat-status"><span class="dim">${timeStr}</span> ${linked}</div>`;
+    return `<div class="chat-status" data-msg="${msgHash}"><span class="dim">${timeStr}</span> ${linked}</div>`;
   }).join("\n");
 
   return `<!DOCTYPE html>
@@ -143,6 +144,8 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
 .artifact-bubble{background:#1a1a0a;border:1px solid #333020;color:#FAD979}
 .chat-time{font-size:10px;color:#555;margin-top:4px}
 .chat-status{text-align:center;font-size:11px;color:#555;padding:4px 0}
+.msg-highlight .chat-bubble{border-color:#5FA7F1 !important;box-shadow:0 0 8px rgba(95,167,241,0.3)}
+.msg-highlight.chat-status{color:#5FA7F1}
 
 /* Prompt area */
 .prompt-section{padding:8px 12px;border-bottom:1px solid #1a1a1a;display:flex;flex-direction:column;gap:6px}
@@ -246,6 +249,13 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
 <script>
 (function(){
+  // Highlight message from ?msg= query param
+  var msgParam=new URLSearchParams(location.search).get("msg");
+  if(msgParam){
+    var el=document.querySelector('[data-msg="'+msgParam+'"]');
+    if(el){el.classList.add("msg-highlight");el.scrollIntoView({behavior:"smooth",block:"center"});}
+  }
+
   var ID="${worktreeId || hash}";
   var WS_URL=(location.protocol==="https:"?"wss:":"ws:")+"//"+location.host+"/s/"+ID+"/ws";
   var term,fitAddon,ws,keepaliveInterval;
