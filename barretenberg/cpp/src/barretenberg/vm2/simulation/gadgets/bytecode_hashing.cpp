@@ -1,7 +1,9 @@
 #include "barretenberg/vm2/simulation/gadgets/bytecode_hashing.hpp"
 
+#include <utility>
+
 #include "barretenberg/common/bb_bench.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 namespace bb::avm2::simulation {

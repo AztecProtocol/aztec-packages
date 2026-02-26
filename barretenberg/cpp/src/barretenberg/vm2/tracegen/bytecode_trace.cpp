@@ -1,21 +1,23 @@
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
 
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
+#include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_hashing.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_retrieval.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_instr_fetching.hpp"
 #include "barretenberg/vm2/generated/relations/perms_bc_hashing.hpp"
-#include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
+#include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
 

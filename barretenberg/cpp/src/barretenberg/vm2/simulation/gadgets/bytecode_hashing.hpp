@@ -1,11 +1,13 @@
 #pragma once
 
-#include <memory>
+#include <cstdint>
+#include <vector>
 
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/interfaces/bytecode_hashing.hpp"
+#include "barretenberg/vm2/simulation/interfaces/poseidon2.hpp"
 
 namespace bb::avm2::simulation {
 
