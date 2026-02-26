@@ -67,14 +67,14 @@ export function workspacePageHTML(data: WorkspacePageData): string {
   const isMultiSession = sessions.length > 1;
   const shortId = worktreeId ? worktreeId.slice(0, 8) : hash.slice(0, 8);
 
-  // Session history rows
-  const sessionRows = sessions.map(s => {
+  // Sidebar: prompt history (one entry per session run)
+  const promptHistory = sessions.map((s, i) => {
     const id = s._log_id || "";
     const isCurrent = id === hash;
-    const exitStr = s.exit_code != null ? ` exit=${s.exit_code}` : "";
-    const logLink = s.log_url ? `<a href="${s.log_url}" target="_blank" class="link">log</a>` : "";
-    const cls = isCurrent ? "session-row current" : "session-row";
-    return `<div class="${cls}"><a href="/s/${id}" class="link">${id.slice(0, 8)}</a> <span class="status-${s.status || "unknown"}">${s.status || "?"}${exitStr}</span> <span class="dim">${s.started ? timeAgo(s.started) : "\u2014"}</span> ${logLink}</div>`;
+    const p = esc((s.prompt || "").slice(0, 200));
+    const t = s.started ? timeAgo(s.started) : "";
+    const cls = isCurrent ? "prompt-entry current" : "prompt-entry";
+    return `<div class="${cls}"><div class="prompt-entry-header"><span class="dim">#${i + 1}</span> <span class="dim">${t}</span></div><div class="prompt-entry-text">${p}${(s.prompt || "").length > 200 ? "\u2026" : ""}</div></div>`;
   }).join("\n");
 
   // Build unified timeline: session runs + activity entries, sorted chronologically
@@ -95,7 +95,7 @@ export function workspacePageHTML(data: WorkspacePageData): string {
   }
 
   // Activity entries
-  for (const a of activity.slice(0, 50)) {
+  for (const a of activity) {
     const text = esc(a.text.length > 500 ? a.text.slice(0, 500) + "\u2026" : a.text);
     const linked = text.replace(/(https?:\/\/[^\s&<]+)/g, '<a href="$1" target="_blank" class="link">$1</a>');
     const timeStr = a.ts ? timeAgo(a.ts) : "";
@@ -106,7 +106,7 @@ export function workspacePageHTML(data: WorkspacePageData): string {
     } else if (a.type === "artifact") {
       html = `<div class="chat-msg bot" data-msg="${msgHash}"><div class="chat-avatar">CB</div><div class="chat-bubble artifact-bubble"><div class="chat-text">${linked}</div><div class="chat-time">${timeStr}</div></div></div>`;
     } else {
-      html = `<div class="chat-status" data-msg="${msgHash}"><span class="dim">${timeStr}</span> ${linked}</div>`;
+      html = `<div class="chat-status" data-msg="${msgHash}"><span class="status-icon">\u25CB</span><span class="status-text">${linked}</span><span class="dim">${timeStr}</span></div>`;
     }
     timeline.push({ ts: a.ts || "", html });
   }
@@ -165,22 +165,26 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
 .bot-bubble{background:#111;border:1px solid #222;color:#ddd}
 .artifact-bubble{background:#1a1a0a;border:1px solid #333020;color:#FAD979}
 .chat-time{font-size:10px;color:#555;margin-top:4px}
-.chat-status{text-align:center;font-size:11px;color:#555;padding:4px 0}
+.chat-status{display:flex;align-items:baseline;gap:6px;font-size:12px;color:#888;padding:6px 12px;background:#0e0e0e;border-left:2px solid #333;margin:2px 0}
+.status-icon{color:#5FA7F1;font-size:10px;flex-shrink:0}
+.status-text{flex:1;white-space:pre-wrap;word-break:break-word}
 .chat-run{text-align:center;font-size:12px;color:#666;padding:8px 0;border-top:1px solid #1a1a1a;border-bottom:1px solid #1a1a1a;margin:4px 0}
 .run-marker{color:#555;letter-spacing:1px}
 .msg-highlight .chat-bubble{border-color:#5FA7F1 !important;box-shadow:0 0 8px rgba(95,167,241,0.3)}
-.msg-highlight.chat-status{color:#5FA7F1}
+.msg-highlight.chat-status{border-left-color:#5FA7F1;background:#0d0d1f}
 
-/* Prompt area */
-.prompt-section{padding:8px 12px;border-bottom:1px solid #1a1a1a;display:flex;flex-direction:column;gap:6px}
-.prompt-display{font-size:12px;color:#888;padding:8px 10px;background:#0a0a0a;border-radius:4px;border:1px solid #1a1a1a;max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
-.prompt-display .prompt-text{color:#ccc}
+/* Prompt history entries */
+.prompt-entry{padding:8px 10px;border-bottom:1px solid #111;cursor:default}
+.prompt-entry:hover{background:#111}
+.prompt-entry.current{background:#111;border-left:2px solid #5FA7F1}
+.prompt-entry-header{font-size:10px;color:#555;margin-bottom:4px;display:flex;justify-content:space-between}
+.prompt-entry-text{font-size:12px;color:#999;white-space:pre-wrap;word-break:break-word;line-height:1.4}
 
-/* Resume bar */
-.resume-bar{padding:12px 16px;display:flex;gap:8px;align-items:flex-end}
-.resume-bar textarea{flex:1;background:#111;border:1px solid #222;border-radius:4px;padding:10px 12px;color:#ccc;font-family:inherit;font-size:13px;resize:vertical;min-height:80px}
-.resume-bar textarea:focus{outline:none;border-color:#5FA7F1}
-.resume-bar textarea::placeholder{color:#444}
+/* Reply bar — fixed at bottom of main area */
+.reply-bar{padding:12px 16px;border-top:1px solid #1a1a1a;display:flex;gap:8px;align-items:flex-end;flex-shrink:0;background:#0d0d0d}
+.reply-bar textarea{flex:1;background:#111;border:1px solid #222;border-radius:4px;padding:10px 12px;color:#ccc;font-family:inherit;font-size:13px;resize:none;height:100px}
+.reply-bar textarea:focus{outline:none;border-color:#5FA7F1}
+.reply-bar textarea::placeholder{color:#444}
 
 /* Controls bar */
 .controls{padding:8px 12px;border-top:1px solid #1a1a1a;display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0;background:#0d0d0d}
@@ -200,8 +204,8 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
 .controls-sep{width:1px;height:20px;background:#222;margin:0 4px}
 .info-label{font-size:10px;color:#444;max-width:200px;line-height:1.3}
 
-/* Terminal */
-.terminal-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+/* Main area: conversation + reply + terminal */
+.main-area{flex:1;display:flex;flex-direction:column;overflow:hidden}
 #terminal-container{flex:1;padding:2px}
 
 /* Warning */
@@ -228,18 +232,15 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
 <!-- Layout: sidebar + main area -->
 <div class="layout">
 
-  <!-- Sidebar -->
+  <!-- Sidebar: prompt history -->
   <div class="sidebar">
-    ${prompt ? `<div class="sidebar-section"><div class="sidebar-label">Prompt</div><div class="prompt-display"><span class="prompt-text">${prompt.slice(0, 2000)}${prompt.length > 2000 ? "\u2026" : ""}</span></div></div>` : ""}
-
-    ${isMultiSession ? `<div class="sidebar-section"><div class="sidebar-label">Sessions (${sessions.length})</div>${sessionRows}</div>` : ""}
-
-    ${canJoin && worktreeAlive && worktreeId ? `<div class="resume-bar"><textarea id="resume-prompt" placeholder="Send a follow-up message\u2026" rows="4"></textarea><button id="resume-btn" class="btn btn-green" onclick="resumeSession()">Send</button></div>` : ""}
+    <div class="sidebar-section"><div class="sidebar-label">Prompts (${sessions.length})</div>${promptHistory}</div>
   </div>
 
-  <!-- Main content: chat + terminal -->
-  <div class="terminal-wrap">
+  <!-- Main content: conversation + reply + terminal -->
+  <div class="main-area">
     ${chatBubbles ? `<div class="chat-area" id="chat-area">${chatBubbles}</div>` : ""}
+    ${canJoin && worktreeAlive && worktreeId ? `<div class="reply-bar"><textarea id="resume-prompt" placeholder="Send a follow-up message\u2026 (Ctrl+Enter to send)"></textarea><button id="resume-btn" class="btn btn-green" onclick="resumeSession()">Send</button></div>` : ""}
     <div id="terminal-container"></div>
   </div>
 
@@ -266,7 +267,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
 
   <div class="controls-group">
     <span class="controls-label">disconnect</span>
-    <span class="info-label">tmux session persists \u2014 reconnect anytime. Slack messages won't cancel it.</span>
+    <span class="info-label">Session persists \u2014 reconnect anytime. Slack messages won't cancel it.</span>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
@@ -314,7 +315,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
       if(ev.data instanceof ArrayBuffer)term.write(new Uint8Array(ev.data));else term.write(ev.data);
     };
     ws.onclose=function(){
-      term.write("\\r\\n\\x1b[1;33m[Disconnected \u2014 tmux session persists. Click Reconnect to rejoin.]\x1b[0m\\r\\n");
+      term.write("\\r\\n\\x1b[1;33m[Disconnected \u2014 session persists. Click Reconnect to rejoin.]\x1b[0m\\r\\n");
       joinBtn.textContent="Reconnect";joinBtn.style.borderColor="#5FA7F1";joinBtn.style.color="#5FA7F1";joinBtn.disabled=false;
       joinBtn.onclick=function(){term.dispose();startTerminal();};
       clearInterval(keepaliveInterval);
@@ -388,6 +389,23 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
       }
     }).catch(function(e){alert("Error: "+e.message);});
   };
+
+  // Auto-refresh chat area every 10s (only when terminal is not visible)
+  setInterval(function(){
+    var tc=document.getElementById("terminal-container");
+    if(tc&&tc.style.flex==="1")return; // terminal active, skip
+    if(document.visibilityState!=="visible")return;
+    fetch(location.href).then(function(r){return r.text();}).then(function(h){
+      var parser=new DOMParser();var doc=parser.parseFromString(h,"text/html");
+      var newChat=doc.getElementById("chat-area");
+      var oldChat=document.getElementById("chat-area");
+      if(newChat&&oldChat)oldChat.innerHTML=newChat.innerHTML;
+      // Also refresh header status
+      var newHeader=doc.querySelector(".header-status");
+      var oldHeader=document.querySelector(".header-status");
+      if(newHeader&&oldHeader){oldHeader.className=newHeader.className;oldHeader.innerHTML=newHeader.innerHTML;}
+    }).catch(function(){});
+  },10000);
 })();
 </script>
 </body></html>`;
