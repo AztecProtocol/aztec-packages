@@ -11,15 +11,15 @@ This skill covers the automation internals of the merge-train system. For contri
 
 The merge-train system is fully automated via GitHub Actions in `.github/workflows/merge-train-*.yml`:
 
-1. **PR Creation** (`merge-train-create-pr.yml`): Triggered on push to `merge-train/*` branches. Creates a PR targeting `next` with the `ci-no-squash` label (and `ci-full-no-test-cache` for spartan). Skips merge commits and commits already in `next`.
+1. **PR Creation** (`merge-train-create-pr.yml`): Triggered on push to `merge-train/*` branches. Creates a PR targeting `next` with the `ci-no-squash` label (and `ci-full-no-test-cache` for spartan). Exception: `merge-train/fairies` targets `v4` instead of `next`. Skips merge commits and commits already in the target base branch.
 
 2. **Body Updates** (`merge-train-update-pr-body.yml`): Triggered on push to `merge-train/**` and `backport-to-*-staging` branches. Updates the PR body with meaningful commits (those containing PR references like `(#1234)`). The body uses `BEGIN_COMMIT_OVERRIDE` / `END_COMMIT_OVERRIDE` markers for release-please. Backport staging PRs also call `update-pr-body.sh` inline from `scripts/backport_to_staging.sh` to handle the first-push case (where the PR doesn't exist yet when the workflow fires).
 
-3. **Next Integration** (`merge-train-next-to-branches.yml`): Triggered on push to `next`. Merges `next` into each active merge-train branch via `scripts/merge-train/merge-next.sh`. Uses `continue-on-error: true` so a conflict in one branch does not block others. Skips branches whose PR already has auto-merge enabled.
+3. **Next Integration** (`merge-train-next-to-branches.yml`): Triggered on push to `next`. Merges `next` into each active merge-train branch via `scripts/merge-train/merge-next.sh`. Uses `continue-on-error: true` so a conflict in one branch does not block others. Skips branches whose PR already has auto-merge enabled. Exception: `merge-train/fairies` is synced from `v4` instead, via `merge-train-v4-to-branches.yml`.
 
 4. **Auto-Merge** (`merge-train-auto-merge.yml`): Runs hourly via cron (`0 * * * *`). Calls `scripts/merge-train/auto-merge.sh` for both merge-train (4-hour inactivity) and backport-train (8-hour inactivity) branches. Uses separate GitHub tokens: `AZTEC_BOT_GITHUB_TOKEN` for API calls and `MERGE_TRAIN_GITHUB_TOKEN` for approvals. Will not auto-merge if the last merge-queue CI run failed or was cancelled.
 
-5. **Recreation & Wakeup** (`merge-train-recreate.yml`): Triggered when a PR is closed (merged). If the merged PR's head branch starts with `merge-train/`, recreates the branch from the base branch (usually `next`). Then runs `scripts/merge-train/wakeup-prs.sh` to add the `ci-wakeup-pr-after-merge` label to all open PRs targeting the branch that have passed CI and have automerge enabled. This triggers a CI re-run (typically a no-op via tree-hash cache) so those PRs can proceed through the merge queue. The label is immediately removed by a step in `ci3.yml` so it can be re-applied on subsequent merges.
+5. **Recreation & Wakeup** (`merge-train-recreate.yml`): Triggered when a PR is closed (merged). If the merged PR's head branch starts with `merge-train/`, recreates the branch from the PR's base branch (usually `next`; `v4` for `merge-train/fairies`). Then runs `scripts/merge-train/wakeup-prs.sh` to add the `ci-wakeup-pr-after-merge` label to all open PRs targeting the branch that have passed CI and have automerge enabled. This triggers a CI re-run (typically a no-op via tree-hash cache) so those PRs can proceed through the merge queue. The label is immediately removed by a step in `ci3.yml` so it can be re-applied on subsequent merges.
 
 6. **Failure Notification** (`merge-queue-dequeue-notify.yml`): Triggered when a PR is dequeued from the merge queue. If the PR's head branch starts with `merge-train/` and the PR was NOT merged, sends a Slack notification via `ci3/merge_train_failure_slack_notify`.
 
@@ -73,8 +73,10 @@ When a CI run fails on an EC2 instance, it calls `merge_train_failure_slack_noti
 
 ## Creating a New Merge Train
 
-1. Create a branch from `next` with naming pattern `merge-train/{team}`
-2. Add the branch to the matrix in `.github/workflows/merge-train-next-to-branches.yml`
+1. Create a branch from the appropriate source branch with naming pattern `merge-train/{team}`
+2. Add the branch to the matrix in the appropriate sync workflow:
+   - Targeting `next`: add to `.github/workflows/merge-train-next-to-branches.yml`
+   - Targeting another branch (e.g. `v4`): add to the corresponding `merge-train-<source>-to-branches.yml` (create it if it doesn't exist), and add a branch-name override in `.github/workflows/merge-train-create-pr.yml`
 3. Add the branch-to-Slack-channel mapping in `ci3/merge_train_failure_slack_notify`
 4. Optionally add CI mode overrides in `.github/ci3_labels_to_env.sh` and `bootstrap.sh`
 5. Push code to the branch -- automation handles PR creation from there
@@ -88,7 +90,8 @@ When a CI run fails on an EC2 instance, it calls `merge_train_failure_slack_noti
 | `.github/workflows/merge-train-readme.md` | User-facing documentation |
 | `.github/workflows/merge-train-create-pr.yml` | Auto-creates PRs for train branches |
 | `.github/workflows/merge-train-auto-merge.yml` | Hourly cron to auto-merge inactive trains |
-| `.github/workflows/merge-train-next-to-branches.yml` | Syncs `next` into all train branches; defines active branches |
+| `.github/workflows/merge-train-next-to-branches.yml` | Syncs `next` into train branches targeting `next`; defines active branches |
+| `.github/workflows/merge-train-v4-to-branches.yml` | Syncs `v4` into train branches targeting `v4` (currently `merge-train/fairies`) |
 | `.github/workflows/merge-train-recreate.yml` | Recreates branch after merge |
 | `.github/workflows/merge-train-update-pr-body.yml` | Updates PR body with commit list (merge-train and backport branches) |
 | `.github/workflows/merge-queue-dequeue-notify.yml` | Slack notification on merge-queue dequeue |
@@ -99,7 +102,7 @@ When a CI run fails on an EC2 instance, it calls `merge_train_failure_slack_noti
 | File | Purpose |
 |---|---|
 | `scripts/merge-train/auto-merge.sh` | Auto-merge logic -- checks inactivity, last CI status, approves and merges |
-| `scripts/merge-train/merge-next.sh` | Merges `next` into a train branch, handles conflicts, cancels stale CI runs |
+| `scripts/merge-train/merge-next.sh` | Merges a source branch (default: `next`) into a train branch, handles conflicts, cancels stale CI runs |
 | `scripts/merge-train/update-pr-body.sh` | Updates PR body with meaningful commits |
 | `scripts/merge-train/squash-pr.sh` | Squashes PR commits (used by `ci-squash-and-merge` label) |
 | `scripts/merge-train/wakeup-prs.sh` | Adds `ci-wakeup-pr-after-merge` label to qualifying PRs after branch recreation |

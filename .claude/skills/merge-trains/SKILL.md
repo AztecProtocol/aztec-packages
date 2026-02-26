@@ -7,18 +7,18 @@ description: Guide for working with merge-train branches -- creating PRs, choosi
 
 ## What Is a Merge Train?
 
-A merge train is an automated batching system (inspired by [Rust rollups](https://forge.rust-lang.org/release/rollups.html)) that groups multiple PRs together for coordinated integration into the `next` branch. Instead of each PR going through the merge queue individually, teams push their PRs into a shared `merge-train/*` branch. Periodically, that branch is merged as a single unit into `next`.
+A merge train is an automated batching system (inspired by [Rust rollups](https://forge.rust-lang.org/release/rollups.html)) that groups multiple PRs together for coordinated integration into a target branch (usually `next`). Instead of each PR going through the merge queue individually, teams push their PRs into a shared `merge-train/*` branch. Periodically, that branch is merged as a single unit into its target branch.
 
 ## Active Merge-Train Branches
 
-| Branch | Team / Domain | Slack Channel |
-|---|---|---|
-| `merge-train/avm` | AVM, barretenberg vm2 folder | `#team-bonobos` |
-| `merge-train/barretenberg` | Barretenberg folder, but not vm2 folder | `#honk-team` |
-| `merge-train/ci` | CI infrastructure / ci3 | `#help-ci` |
-| `merge-train/docs` | Documentation | `#dev-rels` |
-| `merge-train/fairies` | aztec-nr | `#team-fairies` |
-| `merge-train/spartan` | Spartan / infra / yarn-project sequencer and prover orchestration | `#team-alpha` |
+| Branch | Team / Domain | Slack Channel | Targets |
+|---|---|---|---|
+| `merge-train/avm` | AVM, barretenberg vm2 folder | `#team-bonobos` | `next` |
+| `merge-train/barretenberg` | Barretenberg folder, but not vm2 folder | `#honk-team` | `next` |
+| `merge-train/ci` | CI infrastructure / ci3 | `#help-ci` | `next` |
+| `merge-train/docs` | Documentation | `#dev-rels` | `next` |
+| `merge-train/fairies` | aztec-nr | `#team-fairies` | `v4` |
+| `merge-train/spartan` | Spartan / infra / yarn-project sequencer and prover orchestration | `#team-alpha` | `next` |
 
 ## How to Use a Merge Train
 
@@ -27,13 +27,13 @@ A merge train is an automated batching system (inspired by [Rust rollups](https:
 1. Create your feature branch **off the appropriate merge-train branch** (not our default branch `next`).
 2. Open your PR targeting that merge-train branch (e.g., base: `merge-train/barretenberg`).
 3. When your PR is approved and merged, it gets squashed into the merge-train branch.
-4. The merge-train PR (which targets `next`) automatically accumulates your commit.
+4. The merge-train PR (which targets `next`, or `v4` for `merge-train/fairies`) automatically accumulates your commit.
 
 ### Key Rules for Contributors
 
 - **Base branch matters**: Always branch from the branch specified in the CI_BASE_BRANCH environment variable. If it is not set, then ask the user their intent and offer to set CI_BASE_BRANCH in their shell's RC file. 
 - **Your PR is squashed into the train**: Individual PRs targeting a merge-train branch are squash-merged as usual. You should not use the merge commit merge method, but the squash method.
-- **The train itself is NOT squashed**: The merge-train PR (e.g., `merge-train/barretenberg` -> `next`) is merged with a **merge commit**, preserving the individual squashed commits. This is why the `ci-no-squash` label is automatically applied.
+- **The train itself is NOT squashed**: The merge-train PR (e.g., `merge-train/barretenberg` -> `next`, or `merge-train/fairies` -> `v4`) is merged with a **merge commit**, preserving the individual squashed commits. This is why the `ci-no-squash` label is automatically applied.
 - **You generally don't need to worry about the train PR itself** -- it is fully automated (creation, body updates, approval, merge, and recreation). You only need to pay attention to it if an alert is sent to your team channel.
 
 ## CI Behavior for Merge Trains
@@ -51,17 +51,17 @@ Two options from the [merge-train-readme.md](https://github.com/AztecProtocol/az
 
 **Option 1: Direct Fix** -- Push a fix directly to the merge-train branch. Use bypass merge to expedite (all users have this permission). You can use the ci-skip label to no-op CI if really necessary.
 
-**Option 2: Fix in Next** -- Merge a revert or workaround into `next`. The fix will auto-propagate to the merge-train via the `merge-train-next-to-branches` workflow. Best when the root cause is in `next` or multiple trains are affected.
+**Option 2: Fix in the source branch** -- Merge a revert or workaround into the train's source branch (`next` for most trains, `v4` for `merge-train/fairies`). The fix will auto-propagate to the merge-train via the appropriate `merge-train-*-to-branches` workflow. Best when the root cause is in the source branch or multiple trains are affected.
 
 ### When Auto-Merge Is Blocked
 
 The auto-merge script will **not** enable auto-merge if the last merge-queue CI run for the PR concluded with `failure` or `cancelled`. Someone needs to either fix the issue and push, or force-merge.
 
-### Merge Conflicts from Next
+### Merge Conflicts from the Source Branch
 
-When merging `next` into a train branch causes conflicts, the `merge-next.sh` script:
+When merging the source branch (`next` or `v4`) into a train branch causes conflicts, the `merge-next.sh` script:
 - Aborts the merge
-- Posts a comment on the latest `next` commit listing the conflicted files
+- Posts a comment on the latest commit of the source branch listing the conflicted files
 - The team must manually resolve conflicts on their train branch
 
 ## Bypassing Checks / Force-Merging

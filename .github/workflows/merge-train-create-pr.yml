@@ -30,9 +30,17 @@ jobs:
               exit 0
             fi
 
-            # Skip if this commit is already in the next branch
-            if git merge-base --is-ancestor "${{ github.sha }}" origin/next; then
-              echo "Skipping: This commit is already in the next branch"
+            # Determine base branch (default to next)
+            base_branch="next"
+            if [[ "$branch" == "merge-train/fairies" ]]; then
+              base_branch="v4"
+            fi
+
+            git fetch origin "$base_branch"
+
+            # Skip if this commit is already in the base branch
+            if git merge-base --is-ancestor "${{ github.sha }}" "origin/$base_branch"; then
+              echo "Skipping: This commit is already in the $base_branch branch"
               exit 0
             fi
 
@@ -42,9 +50,6 @@ jobs:
             if [[ -z "$existing_pr" ]]; then
               echo "No PR exists for $branch, creating one"
 
-              # Determine base branch (default to next)
-              base_branch="next"
-
               # Create PR with ci-no-squash label
               labels="ci-no-squash"
               if [[ "$branch" == "merge-train/spartan" ]]; then
@@ -52,7 +57,7 @@ jobs:
               fi
               gh pr create --base "$base_branch" --head "$branch" \
                 --title "feat: $branch" \
-                --body "$(echo -e "See [merge-train-readme.md](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md).\nThis is a merge-train.")" \
+                --body "$(echo -e "See [merge-train-readme.md](https://github.com/${{ github.repository }}/blob/${base_branch}/.github/workflows/merge-train-readme.md).\nThis is a merge-train.")" \
                 --label "$labels"
 
               echo "Created PR for $branch"

@@ -62,20 +62,22 @@ function get_meaningful_commits {
     --pretty=format:"%s" | grep -v "^\[empty\]" || true
 }
 
-# Usage: merge-next.sh <train-branch>
-if [[ $# -ne 1 ]]; then
-  echo "Usage: $0 <train-branch>"
+# Usage: merge-next.sh <train-branch> [source-branch]
+if [[ $# -lt 1 ]]; then
+  echo "Usage: $0 <train-branch> [source-branch]"
   echo "Example: $0 merge-train/docs"
+  echo "Example: $0 merge-train/fairies v4"
   exit 1
 fi
 
 TRAIN_BRANCH="$1"
+SOURCE_BRANCH="${2:-next}"
 
 # Check if PR has auto-merge enabled
 pr_info=$(get_pr_for_branch "$TRAIN_BRANCH")
 pr_number=$(echo "$pr_info" | jq -r '.number // empty')
 if [[ -n "$pr_number" ]] && pr_has_auto_merge "$pr_number"; then
-  echo "PR #$pr_number has auto-merge enabled, skipping merge from next"
+  echo "PR #$pr_number has auto-merge enabled, skipping merge from $SOURCE_BRANCH"
   exit 0
 fi
 
@@ -87,23 +89,23 @@ fi
 
 # Fetch and checkout the merge-train branch
 git fetch origin "$TRAIN_BRANCH" || exit 1
-git fetch origin next || exit 1
+git fetch origin "$SOURCE_BRANCH" || exit 1
 git checkout "$TRAIN_BRANCH" || exit 1
 
-# Check if there are meaningful commits in next that aren't in the train branch
-meaningful_commits=$(get_meaningful_commits "$TRAIN_BRANCH" "origin/next")
+# Check if there are meaningful commits in the source branch that aren't in the train branch
+meaningful_commits=$(get_meaningful_commits "$TRAIN_BRANCH" "origin/$SOURCE_BRANCH")
 
 if [[ -z "$meaningful_commits" ]]; then
-  echo "No meaningful commits found in next that aren't already in $TRAIN_BRANCH, skipping merge"
+  echo "No meaningful commits found in $SOURCE_BRANCH that aren't already in $TRAIN_BRANCH, skipping merge"
   exit 0
 fi
 
 echo "Found meaningful commits to merge:"
 echo "$meaningful_commits"
 
-# Attempt to merge next
-if git merge "origin/next" --no-edit -m "Merge branch 'next' into $TRAIN_BRANCH"; then
-  echo "Successfully merged next into $TRAIN_BRANCH"
+# Attempt to merge source branch
+if git merge "origin/$SOURCE_BRANCH" --no-edit -m "Merge branch '$SOURCE_BRANCH' into $TRAIN_BRANCH"; then
+  echo "Successfully merged $SOURCE_BRANCH into $TRAIN_BRANCH"
 
   # Try to push
   if git push origin "$TRAIN_BRANCH"; then
@@ -136,7 +138,7 @@ else
   # Create conflict comment
   conflict_comment="## ⚠️ Auto-merge to ${TRAIN_BRANCH} failed
 
-Merge conflicts detected when merging \`next\` into \`${TRAIN_BRANCH}\`.
+Merge conflicts detected when merging \`${SOURCE_BRANCH}\` into \`${TRAIN_BRANCH}\`.
 
 **Conflicted files:**
 \`\`\`
@@ -145,8 +147,8 @@ ${conflicts}
 
 Please resolve the conflicts manually."
 
-  # Post comment on the most recent commit on next
-  latest_commit=$(gh api repos/{owner}/{repo}/commits/next --jq '.sha')
+  # Post comment on the most recent commit on source branch
+  latest_commit=$(gh api "repos/{owner}/{repo}/commits/${SOURCE_BRANCH}" --jq '.sha')
   gh api "repos/{owner}/{repo}/commits/${latest_commit}/comments" \
     -f body="$conflict_comment"
 
