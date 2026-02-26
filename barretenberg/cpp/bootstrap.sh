@@ -422,13 +422,13 @@ function test {
   set +o pipefail
   set +e
   cat /tmp/out | parallelize
-  pipe_exit=$?
-  cat_exit=${PIPESTATUS[0]}
-  par_exit=${PIPESTATUS[1]}
+  _ps=("${PIPESTATUS[@]}")
+  cat_exit=${_ps[0]}
+  par_exit=${_ps[1]}
   set -e
   set -o pipefail
-  echo "cat exit: $cat_exit, parallelize exit: $par_exit, pipeline exit: $pipe_exit"
-  [ $pipe_exit -ne 0 ] && exit $pipe_exit || true
+  echo "cat exit: $cat_exit, parallelize exit: $par_exit"
+  [ "${par_exit:-0}" -ne 0 ] && exit $par_exit || true
 }
 
 function build_bench {
