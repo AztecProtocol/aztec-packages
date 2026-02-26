@@ -78,7 +78,7 @@ const handlers = {
         initMethod ?? 'constructor',            /* init */
         false,                                  /* skipInstancePublication */
         false,                                  /* skipClassPublication */
-        !initMethod,                            /* skipInitialization */
+        false,                                  /* skipInitialization */
         true,                                   /* wait */
         feeOpts, false, 120,                    /* fee, verbose, timeout */
         { debug: noop, error: noop }, log,      /* debugLogger, log */
