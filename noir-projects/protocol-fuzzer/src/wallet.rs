@@ -269,8 +269,22 @@ pub fn deploy(
         "init": init,
         "args": resolved_args,
     });
-    debug!("bridge POST /deploy {}", body);
-    let result = bridge_post("/deploy", &body)?;
+    let mut result = None;
+    for attempt in 0..=MAX_RETRIES {
+        debug!("bridge POST /deploy {}", body);
+        match bridge_post("/deploy", &body) {
+            Ok(r) => { result = Some(r); break; }
+            Err(e) if attempt < MAX_RETRIES && is_transient_error(&e) => {
+                log::warn!(
+                    "Transient error on deploy (attempt {}/{}): {e}, retrying...",
+                    attempt + 1, MAX_RETRIES
+                );
+                std::thread::sleep(Duration::from_secs(2));
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    let result = result.unwrap();
     let stdout = result["stdout"].as_str().unwrap_or("").to_string();
 
     let address = result["address"]
