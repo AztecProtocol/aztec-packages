@@ -1,6 +1,9 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
+import { retryUntil } from '@aztec/foundation/retry';
 import { OffchainPaymentContract } from '@aztec/noir-test-contracts.js/OffchainPayment';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { OFFCHAIN_MESSAGE_IDENTIFIER } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -13,6 +16,8 @@ const TIMEOUT = 120_000;
 
 describe('e2e_offchain_payment_qr', () => {
   let contract: OffchainPaymentContract;
+  let aztecNode: AztecNode;
+  let aztecNodeAdmin: AztecNodeAdmin;
   let wallet: TestWallet;
   let accounts: AztecAddress[];
   let teardown: () => Promise<void>;
@@ -20,7 +25,7 @@ describe('e2e_offchain_payment_qr', () => {
   jest.setTimeout(TIMEOUT);
 
   beforeAll(async () => {
-    ({ teardown, wallet, accounts } = await setup(2));
+    ({ teardown, wallet, accounts, aztecNode, aztecNodeAdmin } = await setup(2));
     ({ contract } = await OffchainPaymentContract.deploy(wallet).send({ from: accounts[0] }));
   });
 
@@ -54,7 +59,11 @@ describe('e2e_offchain_payment_qr', () => {
 
     await contract.methods.offchain_enqueue(ciphertext, bob, txHash.hash).simulate({ from: bob });
 
-    await contract.methods.offchain_sync_inbox().simulate({ from: bob });
+    // Force an empty block so the PXE re-syncs and discovers the offchain-delivered note.
+    const blockBefore = await aztecNode.getBlockNumber();
+    await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
+    await retryUntil(async () => (await aztecNode.getBlockNumber()) > blockBefore, 'new L2 block', 30, 1);
+    await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
 
     const { result: bobBalance } = await contract.methods.get_balance(bob).simulate({ from: bob });
     expect(bobBalance).toBe(paymentAmount);
