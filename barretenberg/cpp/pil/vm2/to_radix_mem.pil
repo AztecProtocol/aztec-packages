@@ -8,7 +8,7 @@ include "to_radix.pil";
  * TO_RADIX_MEM - TORADIXBE Opcode Handler
  *
  * Implements the TORADIXBE opcode logic. This is not a reusable gadget — the only caller is the
- * execution trace (#[DISPATCH_TO_TO_RADIX_MEM] in execution.pil). Handles memory writes for a
+ * execution trace (#[DISPATCH_TO_TO_RADIX] in execution.pil). Handles memory writes for a
  * big-endian radix decomposition. The actual decomposition is performed by the to_radix subtrace
  * in little endian; this trace reverses the output to big endian and writes each limb to memory
  * at addresses {dst_addr, dst_addr + 1, ..., dst_addr + num_limbs - 1}.
