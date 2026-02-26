@@ -106,7 +106,6 @@ TEST(BN254Fr, SplitIntoEndomorphismScalarsSimple)
     fr::__copy(input, k);
 
     fr::split_into_endomorphism_scalars(k, k1, k2);
-    // AUDITTODO: double check this test.
     fr result{ 0, 0, 0, 0 };
     k1.self_to_montgomery_form_reduced();
     k2.self_to_montgomery_form_reduced();
