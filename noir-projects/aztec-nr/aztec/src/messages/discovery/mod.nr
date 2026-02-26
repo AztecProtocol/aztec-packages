@@ -7,20 +7,18 @@ pub mod private_notes;
 pub mod process_message;
 
 use crate::{
+    capsules::CapsuleArray,
     messages::{
         discovery::process_message::process_message_ciphertext,
-        encoding::{MAX_MESSAGE_CONTENT_LEN, MESSAGE_CIPHERTEXT_LEN},
+        encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
-            get_private_logs, MessageContext, pending_tagged_log::PendingTaggedLog,
-            validate_and_store_enqueued_notes_and_events,
+            DiscoverOffchainMessages, get_private_logs, MessageContext, OffchainMessage,
+            pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
         },
     },
     utils::array,
 };
-
-/// Max number of offchain messages that can be processed in a single sync.
-pub global MAX_OFFCHAIN_MESSAGES_PER_SYNC: u32 = 128;
 
 pub struct NoteHashAndNullifier {
     /// The result of NoteHash::compute_note_hash
@@ -81,11 +79,6 @@ pub type CustomMessageHandler<Env> = unconstrained fn[Env](
 /* msg_content */ BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
 /* message_context */ MessageContext);
 
-/// A handler that returns offchain-delivered messages to process during sync.
-/// Each item is a `(message_ciphertext, message_context)` pair.
-pub type DiscoverOffchainMessages<Env> = unconstrained fn[Env](
-/* contract_address */AztecAddress) -> BoundedVec<(BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>, MessageContext), MAX_OFFCHAIN_MESSAGES_PER_SYNC>;
-
 /// Performs the state synchronization process, in which private logs are downloaded and inspected to find new private
 /// notes, partial notes and events, etc., and pending partial notes are processed to search for their completion logs.
 /// This is the mechanism via which a contract updates its knowledge of its private state.
@@ -128,20 +121,17 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
     // Process any offchain-delivered messages supplied by the caller.
     if discover_offchain_messages.is_some() {
         let fetch = discover_offchain_messages.unwrap();
-        let msgs = fetch(contract_address);
-        let mut i = 0;
-        while i < msgs.len() {
-            let msg = msgs.get(i);
-            let (message_ciphertext, message_context) = msg;
+        let msgs: CapsuleArray<OffchainMessage> = fetch(contract_address);
+        msgs.for_each(|i, msg| {
             process_message_ciphertext(
                 contract_address,
                 compute_note_hash_and_nullifier,
                 process_custom_message,
-                message_ciphertext,
-                message_context,
+                msg.message_ciphertext,
+                msg.message_context,
             );
-            i += 1;
-        }
+            msgs.remove(i);
+        });
     }
 
     // Then we process all pending partial notes, regardless of whether they were found in the current or previous

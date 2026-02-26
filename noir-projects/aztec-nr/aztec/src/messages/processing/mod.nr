@@ -15,6 +15,7 @@ use crate::{
     event::EventSelector,
     messages::{
         discovery::partial_notes::DeliveredPendingPartialNote,
+        encoding::MESSAGE_CIPHERTEXT_LEN,
         logs::{event::MAX_EVENT_SERIALIZED_LEN, note::MAX_NOTE_PACKED_LEN},
         processing::{
             log_retrieval_request::LogRetrievalRequest, log_retrieval_response::LogRetrievalResponse,
@@ -23,7 +24,7 @@ use crate::{
     },
     oracle,
 };
-use crate::protocol::{address::AztecAddress, hash::sha256_to_field};
+use crate::protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Deserialize, Serialize}};
 use event_validation_request::EventValidationRequest;
 
 // Base slot for the pending tagged log array to which the fetch_tagged_logs oracle inserts found private logs.
@@ -45,6 +46,17 @@ global LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
 global LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT: Field = sha256_to_field(
     "AZTEC_NR::LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT".as_bytes(),
 );
+
+/// An offchain-delivered message ready for processing during sync.
+#[derive(Serialize, Deserialize)]
+pub struct OffchainMessage {
+    pub message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
+    pub message_context: MessageContext,
+}
+
+/// A handler that returns offchain-delivered messages to process during sync.
+pub type DiscoverOffchainMessages<Env> = unconstrained fn[Env](
+/* contract_address */AztecAddress) -> CapsuleArray<OffchainMessage>;
 
 /// Searches for private logs emitted by `contract_address` that might contain messages for one of the local accounts,
 /// and stores them in a `CapsuleArray` which is then returned.

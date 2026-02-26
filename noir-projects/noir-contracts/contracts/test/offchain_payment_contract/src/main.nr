@@ -1,9 +1,10 @@
 use aztec::{
     capsules::CapsuleArray,
     messages::{
-        discovery::MAX_OFFCHAIN_MESSAGES_PER_SYNC,
         encoding::MESSAGE_CIPHERTEXT_LEN,
-        processing::{MessageContext, MessageContextResponse, resolve_message_contexts},
+        processing::{
+            MessageContext, MessageContextResponse, OffchainMessage, resolve_message_contexts,
+        },
     },
     protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Deserialize, Serialize}},
 };
@@ -16,6 +17,8 @@ pub global OFFCHAIN_CONTEXT_REQUESTS_SLOT: Field = sha256_to_field(
 pub global OFFCHAIN_CONTEXT_RESPONSES_SLOT: Field = sha256_to_field(
     "OFFCHAIN_PAYMENT::OFFCHAIN_CONTEXT_RESPONSES_SLOT".as_bytes(),
 );
+pub global OFFCHAIN_READY_MESSAGES_SLOT: Field =
+    sha256_to_field("OFFCHAIN_PAYMENT::OFFCHAIN_READY_MESSAGES_SLOT".as_bytes());
 
 #[derive(Serialize, Deserialize)]
 pub struct PendingOffchainMsg {
@@ -25,11 +28,14 @@ pub struct PendingOffchainMsg {
     pub tx_hash: Field,
 }
 
-unconstrained fn offchain_sync_inbox(
-    address: AztecAddress,
-    ) -> BoundedVec<(BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>, MessageContext), MAX_OFFCHAIN_MESSAGES_PER_SYNC> {
+unconstrained fn offchain_sync_inbox(address: AztecAddress) -> CapsuleArray<OffchainMessage> {
     let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
     let requests: CapsuleArray<Field> = CapsuleArray::at(address, OFFCHAIN_CONTEXT_REQUESTS_SLOT);
+    let ready: CapsuleArray<OffchainMessage> =
+        CapsuleArray::at(address, OFFCHAIN_READY_MESSAGES_SLOT);
+
+    // Clear any stale ready messages from a previous run.
+    ready.for_each(|i, _| { ready.remove(i); });
 
     // Clear any stale requests from a previous run.
     requests.for_each(|i, _| { requests.remove(i); });
@@ -54,10 +60,6 @@ unconstrained fn offchain_sync_inbox(
         CapsuleArray::at(address, OFFCHAIN_CONTEXT_RESPONSES_SLOT);
     assert_eq(responses.len(), inbox_len);
 
-    let mut ready
-        : BoundedVec<(BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>, MessageContext), MAX_OFFCHAIN_MESSAGES_PER_SYNC> =
-        BoundedVec::new();
-
     let mut j = inbox_len;
     while j > 0 {
         j -= 1;
@@ -79,7 +81,7 @@ unconstrained fn offchain_sync_inbox(
             recipient: msg.recipient,
         };
 
-        ready.push((msg.ciphertext, message_context));
+        ready.push(OffchainMessage { message_ciphertext: msg.ciphertext, message_context });
         inbox.remove(j);
     }
 
