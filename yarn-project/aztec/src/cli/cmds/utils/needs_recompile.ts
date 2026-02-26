@@ -62,12 +62,15 @@ async function findNargoTomls(dir: string): Promise<string[]> {
  * tagged).
  */
 async function collectSourceDirs(startDir: string): Promise<string[]> {
+  // We have a set of visited dirs we check against when entering a new dir because we could stumble upon a directory
+  // multiple times in case multiple deps shared a dep (e.g. dep A and dep B both sharing dep C).
   const visited = new Set<string>();
   const result: string[] = [];
 
   async function visit(dir: string): Promise<void> {
     const absDir = resolve(dir);
     if (visited.has(absDir)) {
+      // We already visited this dir so we stop searching in this recursion.
       return;
     }
     visited.add(absDir);
@@ -157,7 +160,6 @@ async function hasNewerSourceFile(sourceDirs: string[], thresholdMs: number): Pr
  * a recompile.
  *
  * Note: The above implies that if there is a random json file in the target dir we would be always recompiling.
- * TODO: Is this ^ ok?
  */
 export async function needsRecompile(): Promise<boolean> {
   const oldestArtifactMs = await getOldestArtifactMtimeMs('target');
