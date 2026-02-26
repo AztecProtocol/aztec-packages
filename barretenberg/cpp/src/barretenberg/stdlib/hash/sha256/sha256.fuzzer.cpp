@@ -76,7 +76,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* Data, size_t Size)
 
     // Compare outputs
     for (size_t i = 0; i < 8; i++) {
-        uint32_t circuit_val = static_cast<uint32_t>(uint256_t(circuit_output[i].get_value()));
+        [[maybe_unused]] uint32_t circuit_val = static_cast<uint32_t>(uint256_t(circuit_output[i].get_value()));
         assert(circuit_val == expected_output[i]);
     }
 

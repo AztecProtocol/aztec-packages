@@ -306,8 +306,12 @@
       "name": "smt-verification",
       "displayName": "Build with smt verification",
       "description": "Build default preset but with smt library included",
-      "inherits": "clang20",
+      "inherits": "default",
       "binaryDir": "build-smt",
+      "environment": {
+        "CC": "clang-20",
+        "CXX": "clang++-20"
+      },
       "cacheVariables": {
         "AVM_TRANSPILER_LIB": "",
         "SMT": "ON"

@@ -966,9 +966,9 @@ template <typename Field> struct FieldVM {
                         assert(product == Field::one());
 
                         // Verify uint arithmetic consistency
-                        auto uint_product = (static_cast<uint512_t>(original_uint_elements[i]) *
-                                             static_cast<uint512_t>(uint_internal_state[idx])) %
-                                            static_cast<uint512_t>(Field::modulus);
+                        [[maybe_unused]] auto uint_product = (static_cast<uint512_t>(original_uint_elements[i]) *
+                                                              static_cast<uint512_t>(uint_internal_state[idx])) %
+                                                             static_cast<uint512_t>(Field::modulus);
                         assert(uint_product == static_cast<uint512_t>(1));
                     } else {
                         // Zero elements should remain zero
