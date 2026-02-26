@@ -57,9 +57,9 @@ async function findNargoTomls(dir: string): Promise<string[]> {
 }
 
 /**
- * Recursively collects source directories starting from startDir by following path-based
- * dependencies declared in Nargo.toml files. Git-based deps are ignored (they only change
- * when Nargo.toml itself is modified).
+ * Recursively collects source directories starting from startDir by following path-based dependencies declared in
+ * Nargo.toml files. Git-based deps are ignored (they only change when Nargo.toml itself is modified since the deps are
+ * tagged).
  */
 async function collectSourceDirs(startDir: string): Promise<string[]> {
   const visited = new Set<string>();
@@ -112,8 +112,7 @@ async function collectSourceDirs(startDir: string): Promise<string[]> {
 }
 
 /**
- * Walks sourceDirs looking for .nr and Nargo.toml files newer than thresholdMs.
- * Short-circuits on the first match.
+ * Walks sourceDirs looking for .nr and Nargo.toml files newer than thresholdMs. Short-circuits on the first match.
  */
 async function hasNewerSourceFile(sourceDirs: string[], thresholdMs: number): Promise<boolean> {
   async function walkForNewer(dir: string): Promise<boolean> {
@@ -152,10 +151,13 @@ async function hasNewerSourceFile(sourceDirs: string[], thresholdMs: number): Pr
 }
 
 /**
- * Returns true if recompilation is needed: either no artifacts exist in target/ or any .nr or
- * Nargo.toml source file (including path-based dependencies) is newer than the oldest artifact.
- * We compare against the oldest artifact so that a source change between the oldest and newest
- * compilation (e.g. in a multi-contract workspace) still triggers a recompile.
+ * Returns true if recompilation is needed: either no artifacts exist in target/ or any .nr or Nargo.toml source file
+ * (including path-based dependencies) is newer than the oldest artifact. We compare against the oldest artifact so
+ * that a source change between the oldest and newest compilation (e.g. in a multi-contract workspace) still triggers
+ * a recompile.
+ *
+ * Note: The above implies that if there is a random json file in the target dir we would be always recompiling.
+ * TODO: Is this ^ ok?
  */
 export async function needsRecompile(): Promise<boolean> {
   const oldestArtifactMs = await getOldestArtifactMtimeMs('target');
