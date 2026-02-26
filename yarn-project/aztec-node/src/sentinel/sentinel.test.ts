@@ -79,7 +79,14 @@ describe('sentinel', () => {
       targetCommitteeSize: 48,
     };
 
-    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch, slot, ts, nowMs: ts * 1000n });
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch,
+      slot,
+      proposalEpoch: epoch,
+      proposalSlot: slot,
+      ts,
+      nowMs: ts * 1000n,
+    });
     epochCache.getL1Constants.mockReturnValue(l1Constants);
 
     sentinel = new TestSentinel(epochCache, archiver, p2p, store, config, blockStream);
@@ -587,6 +594,8 @@ describe('sentinel', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: epochNumber,
         slot,
+        proposalEpoch: epochNumber,
+        proposalSlot: slot,
         ts,
         nowMs: ts * 1000n,
       });

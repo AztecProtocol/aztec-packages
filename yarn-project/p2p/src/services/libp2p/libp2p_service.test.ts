@@ -489,6 +489,8 @@ describe('LibP2PService', () => {
       mockEpochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: currentSlot,
+        proposalEpoch: 1 as any,
+        proposalSlot: currentSlot,
         ts: 1000n,
         nowMs: 1000100n, // 100ms elapsed, within tolerance
       });
@@ -728,6 +730,8 @@ describe('LibP2PService', () => {
       mockEpochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: currentSlot,
+        proposalEpoch: 1 as any,
+        proposalSlot: currentSlot,
         ts: 1000n,
         nowMs: 1000100n,
       });

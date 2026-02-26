@@ -57,6 +57,7 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
     beforeEach(() => {
       epochCache = epochCacheMock();
       const mockView = {
+        getCurrentAndNextSlot: () => epochCache.getCurrentAndNextSlot(),
         getCommittee: (slot: any) => epochCache.getCommittee(slot),
         getProposerAttesterAddressInSlot: (slot: any) => epochCache.getProposerAttesterAddressInSlot(slot),
         isInCommittee: (slot: any, validator: any) => epochCache.isInCommittee(slot, validator),
@@ -82,6 +83,8 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: currentSlot,
+        proposalEpoch: 1 as any,
+        proposalSlot: currentSlot,
         ts: 1000n, // slot started at 1000 seconds
         nowMs: 1001000n, // 1000ms elapsed, outside 500ms tolerance
       });
@@ -107,6 +110,8 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: currentSlot,
+        proposalEpoch: 1 as any,
+        proposalSlot: currentSlot,
         ts: 1000n, // slot started at 1000 seconds
         nowMs: 1000100n, // 100ms elapsed, within 500ms tolerance
       });

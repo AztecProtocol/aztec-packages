@@ -283,6 +283,7 @@ export function createMockEpochCache(): EpochCacheInterface {
     return SlotNumber(Math.max(0, Number(slot) + offset));
   };
   const makeView = (mapSlot: (slot: SlotTag) => SlotTag, toBaseSlot: (slot: SlotNumber) => SlotNumber) => ({
+    getCurrentAndNextSlot: () => ({ currentSlot: SlotNumber.ZERO, nextSlot: SlotNumber.ZERO }),
     getCommittee: (slot: SlotTag = 'now') => {
       mapSlot(slot);
       return Promise.resolve({ committee: [], seed: 1n, epoch: EpochNumber.ZERO, isEscapeHatchOpen: false });
@@ -304,11 +305,25 @@ export function createMockEpochCache(): EpochCacheInterface {
   return {
     getCommittee: () => Promise.resolve({ committee: [], seed: 1n, epoch: EpochNumber.ZERO, isEscapeHatchOpen: false }),
     getProposerIndexEncoding: () => '0x' as `0x${string}`,
-    getEpochAndSlotNow: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n, nowMs: 0n }),
+    getEpochAndSlotNow: () => ({
+      epoch: EpochNumber.ZERO,
+      slot: SlotNumber.ZERO,
+      proposalEpoch: EpochNumber.ZERO,
+      proposalSlot: SlotNumber.ZERO,
+      ts: 0n,
+      nowMs: 0n,
+    }),
     computeProposerIndex: () => 0n,
     getCurrentAndNextSlot: () => ({ currentSlot: SlotNumber.ZERO, nextSlot: SlotNumber.ZERO }),
     getProposerAttesterAddressInSlot: () => Promise.resolve(undefined),
-    getEpochAndSlotInNextL1Slot: () => ({ epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n, now: 0n }),
+    getEpochAndSlotInNextL1Slot: () => ({
+      epoch: EpochNumber.ZERO,
+      slot: SlotNumber.ZERO,
+      proposalEpoch: EpochNumber.ZERO,
+      proposalSlot: SlotNumber.ZERO,
+      ts: 0n,
+      now: 0n,
+    }),
     isInCommittee: () => Promise.resolve(false),
     getRegisteredValidators: () => Promise.resolve([]),
     filterInCommittee: () => Promise.resolve([]),

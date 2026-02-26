@@ -49,6 +49,7 @@ export class TestEpochCache implements EpochCacheInterface {
 
   private makeView(mapSlot: (slot: SlotTag) => SlotTag, toBaseSlot: (slot: SlotNumber) => SlotNumber) {
     return {
+      getCurrentAndNextSlot: () => this.getCurrentAndNextSlot(),
       getCommittee: (slot: SlotTag = 'now') => this.getCommittee(mapSlot(slot)),
       getProposerAttesterAddressInSlot: (slot: SlotNumber) => this.getProposerAttesterAddressInSlot(toBaseSlot(slot)),
       isInCommittee: (slot: SlotTag, validator: EthAddress) => this.isInCommittee(mapSlot(slot), validator),
@@ -145,7 +146,9 @@ export class TestEpochCache implements EpochCacheInterface {
   getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint } {
     const epoch = getEpochAtSlot(this.currentSlot, this.l1Constants);
     const ts = getTimestampRangeForEpoch(epoch, this.l1Constants)[0];
-    return { epoch, slot: this.currentSlot, ts, nowMs: ts * 1000n };
+    const proposalSlot = this.proposerPipeliningEnabled ? SlotNumber(this.currentSlot + 1) : this.currentSlot;
+    const proposalEpoch = getEpochAtSlot(proposalSlot, this.l1Constants);
+    return { epoch, slot: this.currentSlot, proposalEpoch, proposalSlot, ts, nowMs: ts * 1000n };
   }
 
   getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint } {
@@ -154,7 +157,9 @@ export class TestEpochCache implements EpochCacheInterface {
     const nextSlot = getSlotAtTimestamp(nextSlotTs, this.l1Constants);
     const epoch = getEpochAtSlot(nextSlot, this.l1Constants);
     const ts = getTimestampRangeForEpoch(epoch, this.l1Constants)[0];
-    return { epoch, slot: nextSlot, ts, now };
+    const proposalSlot = this.proposerPipeliningEnabled ? SlotNumber(nextSlot + 1) : nextSlot;
+    const proposalEpoch = getEpochAtSlot(proposalSlot, this.l1Constants);
+    return { epoch, slot: nextSlot, proposalEpoch, proposalSlot, ts, now };
   }
 
   getProposerIndexEncoding(epoch: EpochNumber, slot: SlotNumber, seed: bigint): `0x${string}` {

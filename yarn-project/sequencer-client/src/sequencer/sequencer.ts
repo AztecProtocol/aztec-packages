@@ -199,7 +199,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const { slot, ts, now, epoch, proposalEpoch, proposalSlot } = this.epochCache.getEpochAndSlotInNextL1Slot();
 
     // Check if we are synced and it's our slot, grab a publisher, check previous block invalidation, etc
-    const checkpointProposalJob = await this.prepareCheckpointProposal(epoch, slot, ts, now);
+    const checkpointProposalJob = await this.prepareCheckpointProposal(
+      epoch,
+      slot,
+      proposalEpoch,
+      proposalSlot,
+      ts,
+      now,
+    );
     if (!checkpointProposalJob) {
       return;
     }
@@ -381,18 +388,22 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
+    // TODO(md): check why this loop is here - maybe looking at tests
     this.lastSlotForCheckpointProposalJob = slot;
 
     // TODO(md): does this need to be the submission slot
-    await this.p2pClient.prepareForSlot(slot);
-    this.log.info(`Preparing checkpoint proposal ${checkpointNumber} at slot ${slot}`, {
-      ...logCtx,
-      proposer,
-      proposerViewSlot: this.proposerView.toBaseSlot(slot),
-      submissionViewSlot: this.submissionView.toBaseSlot(slot),
-      pipeliningEnabled: this.epochCache.isProposerPipeliningEnabled(),
-      submissionSlot,
-    });
+    await this.p2pClient.prepareForSlot(submissionSlot);
+    this.log.info(
+      `Preparing checkpoint proposal ${checkpointNumber} at for proposal slot ${proposalSlot} during submission slot ${slot}`,
+      {
+        ...logCtx,
+        proposer,
+        proposerViewSlot: this.proposerView.toBaseSlot(slot),
+        submissionViewSlot: this.submissionView.toBaseSlot(slot),
+        pipeliningEnabled: this.epochCache.isProposerPipeliningEnabled(),
+        submissionSlot,
+      },
+    );
 
     // Create and return the checkpoint proposal job
     return this.createCheckpointProposalJob(

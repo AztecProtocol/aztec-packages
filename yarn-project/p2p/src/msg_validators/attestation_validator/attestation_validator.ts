@@ -35,7 +35,7 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
 
       if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
         // Check if message is for previous slot and within clock tolerance
-        if (!isWithinClockTolerance(slotNumber, currentSlot, this.proposerView)) {
+        if (!isWithinClockTolerance(slotNumber, currentSlot, this.epochCache)) {
           this.logger.warn(
             `Checkpoint attestation slot ${slotNumber} is not current (${currentSlot}) or next (${nextSlot}) slot`,
           );

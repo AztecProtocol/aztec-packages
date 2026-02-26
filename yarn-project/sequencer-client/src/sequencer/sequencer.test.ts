@@ -167,6 +167,8 @@ describe('sequencer', () => {
     epochCache.getEpochAndSlotInNextL1Slot.mockImplementation(() => ({
       epoch: EpochNumber(1),
       slot: SlotNumber(1),
+      proposalEpoch: EpochNumber(1),
+      proposalSlot: SlotNumber(1),
       ts: 1000n,
       now: 1000n,
     }));
@@ -187,6 +189,7 @@ describe('sequencer', () => {
 
     function makeEpochView(offset: number = 0) {
       return {
+        getCurrentAndNextSlot: () => epochCache.getCurrentAndNextSlot(),
         getCommittee: (slot: SlotNumber | 'now' | 'next' | undefined) =>
           epochCache.getCommittee(maybeOffsetSlot(slot, offset)),
         getProposerAttesterAddressInSlot: (slot: SlotNumber) =>
@@ -512,8 +515,22 @@ describe('sequencer', () => {
       // Configure epoch cache to return different slots
       epochCache.getEpochAndSlotInNextL1Slot
         .mockReset()
-        .mockReturnValueOnce({ epoch: EpochNumber(1), slot: SlotNumber(1), ts: 1000n, now: 1000n })
-        .mockReturnValueOnce({ epoch: EpochNumber(1), slot: SlotNumber(2), ts: 1000n, now: 1000n });
+        .mockReturnValueOnce({
+          epoch: EpochNumber(1),
+          slot: SlotNumber(1),
+          proposalEpoch: EpochNumber(1),
+          proposalSlot: SlotNumber(1),
+          ts: 1000n,
+          now: 1000n,
+        })
+        .mockReturnValueOnce({
+          epoch: EpochNumber(1),
+          slot: SlotNumber(2),
+          proposalEpoch: EpochNumber(1),
+          proposalSlot: SlotNumber(2),
+          ts: 1000n,
+          now: 1000n,
+        });
 
       sequencer.updateConfig({ enforceTimeTable: false, maxTxsPerBlock: 4 });
 

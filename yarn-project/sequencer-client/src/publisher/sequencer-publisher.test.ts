@@ -137,7 +137,14 @@ describe('SequencerPublisher', () => {
     slashFactoryContract = mock<SlashFactoryContract>();
 
     const epochCache = mock<EpochCache>();
-    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: EpochNumber(1), slot: SlotNumber(2), ts: 3n, nowMs: 3000n });
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(2),
+      proposalEpoch: EpochNumber(1),
+      proposalSlot: SlotNumber(2),
+      ts: 3n,
+      nowMs: 3000n,
+    });
     epochCache.getCommittee.mockResolvedValue({
       committee: [],
       seed: 1n,

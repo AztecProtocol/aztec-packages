@@ -26,6 +26,7 @@ export function createMockDeepEpochCache(): MockProxy<EpochCache> {
 function addViewMock(epochCache: MockProxy<EpochCache>) {
   epochCache.getViewFactory.mockReturnValue({
     withProposerView: () => ({
+      getCurrentAndNextSlot: () => epochCache.getCurrentAndNextSlot(),
       getCommittee: (slot?: SlotTag) => epochCache.getCommittee(slot),
       getProposerAttesterAddressInSlot: (slot: SlotNumber) => epochCache.getProposerAttesterAddressInSlot(slot),
       isInCommittee: (slot: SlotTag, validator: EthAddress) => epochCache.isInCommittee(slot, validator),
@@ -33,6 +34,7 @@ function addViewMock(epochCache: MockProxy<EpochCache>) {
       toBaseSlot: (slot: SlotNumber) => slot,
     }),
     withSubmissionView: () => ({
+      getCurrentAndNextSlot: () => epochCache.getCurrentAndNextSlot(),
       getCommittee: (slot?: SlotTag) => epochCache.getCommittee(slot),
       getProposerAttesterAddressInSlot: (slot: SlotNumber) => epochCache.getProposerAttesterAddressInSlot(slot),
       isInCommittee: (slot: SlotTag, validator: EthAddress) => epochCache.isInCommittee(slot, validator),

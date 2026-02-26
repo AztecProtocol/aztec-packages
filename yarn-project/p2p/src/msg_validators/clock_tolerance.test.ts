@@ -27,6 +27,8 @@ describe('clock_tolerance', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: currentSlot,
+        proposalEpoch: 1 as any,
+        proposalSlot: currentSlot,
         ts: 1000n, // seconds
         nowMs: 1000100n, // 100ms after slot start
       });
@@ -42,6 +44,8 @@ describe('clock_tolerance', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: currentSlot,
+        proposalEpoch: 1 as any,
+        proposalSlot: currentSlot,
         ts: 1000n,
         nowMs: 1000499n,
       });
@@ -57,6 +61,8 @@ describe('clock_tolerance', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: currentSlot,
+        proposalEpoch: 1 as any,
+        proposalSlot: currentSlot,
         ts: 1000n,
         nowMs: 1000500n,
       });
@@ -72,6 +78,8 @@ describe('clock_tolerance', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: currentSlot,
+        proposalEpoch: 1 as any,
+        proposalSlot: currentSlot,
         ts: 1000n,
         nowMs: 1000501n,
       });
@@ -87,6 +95,8 @@ describe('clock_tolerance', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: currentSlot,
+        proposalEpoch: 1 as any,
+        proposalSlot: currentSlot,
         ts: 1000n,
         nowMs: 1001000n,
       });
@@ -102,6 +112,8 @@ describe('clock_tolerance', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: currentSlot,
+        proposalEpoch: 1 as any,
+        proposalSlot: currentSlot,
         ts: 1000n,
         nowMs: 1000000n, // 0ms elapsed
       });
@@ -116,6 +128,8 @@ describe('clock_tolerance', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: currentSlot,
+        proposalEpoch: 1 as any,
+        proposalSlot: currentSlot,
         ts: 1000n,
         nowMs: 1000000n,
       });
@@ -131,6 +145,8 @@ describe('clock_tolerance', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: currentSlot,
+        proposalEpoch: 1 as any,
+        proposalSlot: currentSlot,
         ts: 1000n,
         nowMs: 1000000n,
       });
@@ -146,6 +162,8 @@ describe('clock_tolerance', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 0 as any,
         slot: currentSlot,
+        proposalEpoch: 0 as any,
+        proposalSlot: currentSlot,
         ts: 0n,
         nowMs: 0n,
       });
@@ -161,6 +179,8 @@ describe('clock_tolerance', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: currentSlot,
+        proposalEpoch: 1 as any,
+        proposalSlot: currentSlot,
         ts: 1000n,
         nowMs: 1000000n,
       });
@@ -176,6 +196,8 @@ describe('clock_tolerance', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: currentSlot,
+        proposalEpoch: 1 as any,
+        proposalSlot: currentSlot,
         ts: 1000n,
         nowMs: 1000000n, // exactly at slot start
       });

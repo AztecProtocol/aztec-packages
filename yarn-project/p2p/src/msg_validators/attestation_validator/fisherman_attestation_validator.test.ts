@@ -52,6 +52,8 @@ describe('FishermanAttestationValidator', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: SlotNumber(98),
+        proposalEpoch: 1 as any,
+        proposalSlot: SlotNumber(98),
         ts: 1000n, // slot started at 1000 seconds
         nowMs: 1001000n, // 1000ms elapsed, outside 500ms tolerance
       });

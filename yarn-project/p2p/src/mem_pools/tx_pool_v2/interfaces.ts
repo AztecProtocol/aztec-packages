@@ -154,6 +154,7 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
    */
   handleMinedBlock(block: L2Block): Promise<void>;
 
+  // WORKTODO(md): have a look at this and how preparing will impact others
   /**
    * Prepares the pool for a new slot.
    * Unprotects transactions from earlier slots and validates them before
