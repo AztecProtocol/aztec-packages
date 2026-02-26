@@ -102,11 +102,11 @@ export class InteractiveSessionManager {
   }
 
   async bridgeExec(isess: InteractiveSession, ws: WebSocket): Promise<void> {
-    // tmux session named after worktree ID (first 8 chars) for easy identification
+    // tmux session named after worktree ID — runs on the host, wraps docker exec
     const tmuxName = `cb-${isess.hash.slice(0, 8)}`;
-    const { stream, resize } = await this.docker.createExecSession(isess.container, tmuxName);
+    const { stream, resize } = this.docker.createTmuxExecSession(isess.container, tmuxName);
 
-    console.log(`[INTERACTIVE] PTY bridge established for ${isess.hash} (tmux: ${tmuxName})`);
+    console.log(`[INTERACTIVE] tmux bridge established for ${isess.hash} (tmux: ${tmuxName})`);
 
     stream.on("data", (data: Buffer) => {
       if (ws.readyState === WebSocket.OPEN) ws.send(data);

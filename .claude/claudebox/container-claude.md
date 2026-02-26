@@ -6,7 +6,7 @@ You have no interactive user — work autonomously.
 - **Full checkout** at `/workspace/aztec-packages` (checked out from `origin/next` or specified ref)
 - Remote: `https://github.com/AztecProtocol/aztec-packages.git` (public, full `git fetch` works)
 - Full internet access for packages, builds, etc.
-- Stay within `/workspace/aztec-packages`
+- Main checkout at `/workspace/aztec-packages` — use `/tmp` for scratch files as needed
 
 ## Checking out other branches
 
@@ -30,7 +30,7 @@ Download and view CI logs using `dlog` via `ci.sh` (in the repo root, NOT in `ci
 /workspace/aztec-packages/ci.sh dlog <hash> > /tmp/log.txt  # save to file for analysis
 ```
 URLs like `http://ci.aztec-labs.com/<hash>` — extract the hash and use `dlog`.
-Do NOT curl ci.aztec-labs.com directly — it requires auth. Always use `dlog`.
+Prefer `dlog` over curling ci.aztec-labs.com directly — it's faster and handles auth.
 
 ## Building
 
@@ -141,7 +141,6 @@ Your base branch is provided in your session context (`get_context` → `base_br
 - **Always use full GitHub URLs**: `https://github.com/AztecProtocol/aztec-packages/pull/123` not `PR #123`.
 
 ## Rules
-- Stay within `/workspace/aztec-packages`
 - Update status frequently via `session_status`
 - End with a concise text summary (auto-posted to Slack/GitHub)
 - **Never use `gh` CLI** — it has no auth in this container. Use MCP `github_api` instead.
