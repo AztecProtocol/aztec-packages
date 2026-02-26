@@ -837,9 +837,9 @@ TEST_F(BoomerangSHA256ConstraintsTests, TwoSHA256Constraints)
     EXPECT_TRUE(analyzer.validate_sha256_subcircuit_selectors(*boundaries_1));
 
     auto boundaries_2 = analyzer.find_sha256_subcircuit_boundaries(constraint_2);
-    ASSERT_TRUE(boundaries_2.has_value())
+    ASSERT_TRUE(boundaries_2.has_value());
     EXPECT_TRUE(analyzer.validate_sha256_subcircuit_selectors(*boundaries_2));
 
     // Lookup subtraces should be disjoint
-    EXPECT_NE(boundaries_1->lookup.first, boundaries_2->lookup.first)
+    EXPECT_NE(boundaries_1->lookup.first, boundaries_2->lookup.first);
 }
