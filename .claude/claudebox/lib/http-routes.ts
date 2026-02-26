@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
-import { API_SECRET, SESSION_PAGE_USER, SESSION_PAGE_PASS, MAX_CONCURRENT, getActiveSessions } from "./config.ts";
+import { API_SECRET, SESSION_PAGE_USER, SESSION_PAGE_PASS, MAX_CONCURRENT, getActiveSessions, SLACK_BOT_TOKEN } from "./config.ts";
 import type { SessionStore } from "./session-store.ts";
 import type { DockerService } from "./docker.ts";
 import type { InteractiveSessionManager } from "./interactive.ts";
@@ -54,9 +54,49 @@ function sendUnauthorized(res: ServerResponse, type: "api" | "basic"): void {
   }
 }
 
+// ── Channel info resolution ─────────────────────────────────────
+
+interface SlackChannelInfo {
+  name: string;
+  isDm: boolean;  // DM or MPIM (group DM)
+}
+const channelInfoCache = new Map<string, SlackChannelInfo>();
+
+async function getSlackChannelInfo(channelId: string): Promise<SlackChannelInfo> {
+  if (channelInfoCache.has(channelId)) return channelInfoCache.get(channelId)!;
+
+  // D-prefix channels are always DMs
+  if (channelId.startsWith("D")) {
+    const info = { name: "", isDm: true };
+    channelInfoCache.set(channelId, info);
+    return info;
+  }
+
+  if (!SLACK_BOT_TOKEN) {
+    return { name: channelId, isDm: false };
+  }
+
+  try {
+    const r = await fetch(`https://slack.com/api/conversations.info?channel=${channelId}`, {
+      headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}` },
+    });
+    const d = await r.json() as any;
+    if (d.ok && d.channel) {
+      const info: SlackChannelInfo = {
+        name: d.channel.name || channelId,
+        isDm: !!(d.channel.is_im || d.channel.is_mpim),
+      };
+      channelInfoCache.set(channelId, info);
+      return info;
+    }
+  } catch {}
+
+  return { name: channelId, isDm: false };
+}
+
 // ── Dashboard builder ──────────────────────────────────────────
 
-function buildDashboardData(store: SessionStore): ChannelGroup[] {
+async function buildDashboardData(store: SessionStore): Promise<ChannelGroup[]> {
   const all = store.listAll();
 
   // Group sessions by worktree_id (or by _log_id for sessions without a worktree)
@@ -67,14 +107,26 @@ function buildDashboardData(store: SessionStore): ChannelGroup[] {
     worktreeMap.get(key)!.sessions.push(s);
   }
 
+  // Collect unique channel IDs and resolve names in parallel
+  const channelIds = new Set<string>();
+  for (const [, { sessions }] of worktreeMap) {
+    const channelId = sessions[0]?.slack_channel || "";
+    if (channelId) channelIds.add(channelId);
+  }
+  const channelInfoMap = new Map<string, SlackChannelInfo>();
+  await Promise.all([...channelIds].map(async (id) => {
+    channelInfoMap.set(id, await getSlackChannelInfo(id));
+  }));
+
   // Build workspace groups, grouped by channel
   const channelMap = new Map<string, { channelName: string; workspaces: WorkspaceGroup[] }>();
   for (const [_key, { sessions, worktreeId }] of worktreeMap) {
     const latest = sessions[0]; // already sorted newest first
     const channelId = latest.slack_channel || "";
 
-    // Skip DMs (channel IDs starting with D)
-    if (channelId.startsWith("D")) continue;
+    // Skip DMs and group DMs (MPIMs)
+    const info = channelInfoMap.get(channelId);
+    if (!channelId || info?.isDm) continue;
 
     const ws: WorkspaceGroup = {
       worktreeId: worktreeId || latest._log_id || "?",
@@ -84,7 +136,8 @@ function buildDashboardData(store: SessionStore): ChannelGroup[] {
     };
 
     if (!channelMap.has(channelId)) {
-      const name = latest.slack_channel_name || channelId || "unknown";
+      // Prefer API-resolved name, fall back to stored name, then channel ID
+      const name = info?.name || latest.slack_channel_name || channelId;
       channelMap.set(channelId, { channelName: name, workspaces: [] });
     }
     channelMap.get(channelId)!.workspaces.push(ws);
@@ -192,7 +245,7 @@ const routes: Route[] = [
   {
     method: "GET", pattern: /^\/dashboard$/, auth: "basic",
     handler: async (_req, res, _params, { store }) => {
-      const channels = buildDashboardData(store);
+      const channels = await buildDashboardData(store);
       html(res, 200, dashboardHTML(channels));
     },
   },
