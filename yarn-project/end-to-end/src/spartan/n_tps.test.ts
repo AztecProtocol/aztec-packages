@@ -33,6 +33,7 @@ import {
   getChartDir,
   getGitProjectRoot,
   getRPCEndpoint,
+  hasDeployedHelmRelease,
   installChaosMeshChart,
   setupEnvironment,
   startPortForwardForPrometeheus,
@@ -226,6 +227,32 @@ describe('sustained N TPS test', () => {
     });
     const spartanDir = `${getGitProjectRoot()}/spartan`;
 
+    // Skip chaos mesh installation if it was already deployed by deploy_network.sh
+    // (via CHAOS_MESH_SCENARIOS_FILE). Installing before infra ensures partition
+    // rules are in place when pods start, preventing unwanted peer connections.
+    const alreadyDeployed = await hasDeployedHelmRelease(CHAOS_MESH_NAME, config.NAMESPACE);
+    if (alreadyDeployed) {
+      logger.info('Chaos mesh chart already deployed, skipping installation');
+    } else {
+      logger.info('Installing chaos mesh chart', {
+        name: CHAOS_MESH_NAME,
+        namespace: config.NAMESPACE,
+        valuesFile: 'network-requirements.yaml',
+      });
+      await installChaosMeshChart({
+        logger,
+        targetNamespace: config.NAMESPACE,
+        instanceName: CHAOS_MESH_NAME,
+        valuesFile: 'network-requirements.yaml',
+        helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
+      });
+      logger.info('Chaos mesh installation complete');
+
+      logger.info('Waiting for network to stabilize after chaos mesh installation...');
+      await sleep(30 * 1000);
+      logger.info('Network stabilization wait complete');
+    }
+
     const rpcEndpoint = await getRPCEndpoint(config.NAMESPACE);
     endpoints.push(rpcEndpoint);
     const rpcUrl = rpcEndpoint.url;
@@ -285,24 +312,6 @@ describe('sustained N TPS test', () => {
     });
     logger.info('Benchmark contract deployed', { address: benchmarkContract.address.toString() });
 
-    logger.info('Installing chaos mesh chart', {
-      name: CHAOS_MESH_NAME,
-      namespace: config.NAMESPACE,
-      valuesFile: 'network-requirements.yaml',
-    });
-    await installChaosMeshChart({
-      logger,
-      targetNamespace: config.NAMESPACE,
-      instanceName: CHAOS_MESH_NAME,
-      valuesFile: 'network-requirements.yaml',
-      helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
-    });
-    logger.info('Chaos mesh installation complete');
-
-    logger.info('Waiting for network to stabilize after chaos mesh installation...');
-    await sleep(30 * 1000);
-    logger.info('Network stabilization wait complete');
-
     logger.info(`Test setup complete`);
   });
 
@@ -328,7 +337,7 @@ describe('sustained N TPS test', () => {
       prototypeTxs.set(from.toString(), prototypeTx);
     }
 
-    const tx = await cloneTx(prototypeTx, priorytFee);
+    const tx = await cloneTx(prototypeTx, priorytFee, logger);
     return tx;
   };
 
@@ -345,15 +354,23 @@ describe('sustained N TPS test', () => {
     let lowValueTxs = 0;
     const lowValueSendTx = async (wallet: TestWallet) => {
       lowValueTxs++;
-      //const feeAmount = Number(randomBigInt(100n)) + 1;
-      //const feeAmount = 1;
       const feeAmount = Math.floor(lowValueTxs / 1000) + 1;
       const fee = new GasFees(0, feeAmount);
-      logger.info('Sending low value tx ' + lowValueTxs + ' with fee ' + feeAmount);
 
+      const t0 = performance.now();
       const tx = await (config.REAL_VERIFIER ? submitProven(wallet, fee) : submitUnproven(wallet, fee));
+      const t1 = performance.now();
 
       const txHash = await tx.send({ wait: NO_WAIT });
+      const t2 = performance.now();
+
+      logger.info('Low value tx sent', {
+        txNum: lowValueTxs,
+        feeAmount,
+        cloneMs: Math.round(t1 - t0),
+        sendMs: Math.round(t2 - t1),
+        totalMs: Math.round(t2 - t0),
+      });
       return txHash.toString();
     };
 
@@ -362,13 +379,23 @@ describe('sustained N TPS test', () => {
       highValueTxs++;
       const feeAmount = Number(randomBigInt(10n)) + 1000;
       const fee = new GasFees(0, feeAmount);
-      logger.info('Sending high value tx ' + highValueTxs + ' with fee ' + feeAmount);
 
+      const t0 = performance.now();
       const tx = await (config.REAL_VERIFIER ? submitProven(wallet, fee) : submitUnproven(wallet, fee));
+      const t1 = performance.now();
 
       metrics.recordSentTx(tx, `high_value_${highValueTps}tps`);
 
       const txHash = await tx.send({ wait: NO_WAIT });
+      const t2 = performance.now();
+
+      logger.info('High value tx sent', {
+        txNum: highValueTxs,
+        feeAmount,
+        cloneMs: Math.round(t1 - t0),
+        sendMs: Math.round(t2 - t1),
+        totalMs: Math.round(t2 - t0),
+      });
       return txHash.toString();
     };
 
@@ -514,9 +541,11 @@ function sendTxsAtTps(
   return txHashes;
 }
 
-async function cloneTx(tx: ProvenTx, priorityFee: GasFees): Promise<ProvenTx> {
-  // Clone the transaction
+async function cloneTx(tx: ProvenTx, priorityFee: GasFees, logger: Logger): Promise<ProvenTx> {
+  const t0 = performance.now();
   const clonedTxData = Tx.clone(tx, false);
+  const t1 = performance.now();
+
   (clonedTxData.data.constants.txContext.gasSettings as any).maxPriorityFeesPerGas = priorityFee;
 
   if (clonedTxData.data.forRollup) {
@@ -534,7 +563,17 @@ async function cloneTx(tx: ProvenTx, priorityFee: GasFees): Promise<ProvenTx> {
       clonedTxData.data.forPublic.nonRevertibleAccumulatedData.nullifiers[i] = Fr.random();
     }
   }
+  const t2 = performance.now();
+
   const clonedTx = new ProvenTx((tx as any).node, clonedTxData, tx.offchainEffects, tx.stats);
   await clonedTx.recomputeHash();
+  const t3 = performance.now();
+
+  logger.debug('cloneTx timing', {
+    cloneMs: Math.round(t1 - t0),
+    mutateMs: Math.round(t2 - t1),
+    rehashMs: Math.round(t3 - t2),
+    totalMs: Math.round(t3 - t0),
+  });
   return clonedTx;
 }
