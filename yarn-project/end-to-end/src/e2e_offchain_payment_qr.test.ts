@@ -93,89 +93,77 @@ describe('e2e_offchain_payment_qr', () => {
 
   it('reprocesses an offchain-delivered payment after an L1 reorg', async () => {
     const [alice, bob] = accounts;
-
-    const mintAmount = 100n;
     const paymentAmount = 40n;
 
-    await contract.methods.mint(mintAmount, alice).send({ from: alice });
+    await contract.methods.mint(100n, alice).send({ from: alice });
 
     const provenTx = await proveInteraction(wallet, contract.methods.transfer_offchain(paymentAmount, bob), {
       from: alice,
     });
+
     const receipt = await provenTx.send();
     expect(receipt.blockNumber).toBeDefined();
+
     const txBlockNumber = receipt.blockNumber!;
     const txHash = provenTx.getTxHash();
-    logger.info(`Tx included in L2 block ${txBlockNumber}`);
 
-    const offchainEffects = provenTx.offchainEffects;
-    const effectForBob = offchainEffects.find(
+    const effectForBob = provenTx.offchainEffects.find(
       effect => effect.data[0].equals(OFFCHAIN_MESSAGE_IDENTIFIER) && effect.data[1].equals(bob.toField()),
     );
     expect(effectForBob).toBeTruthy();
-
     const ciphertext = effectForBob!.data.slice(2, 2 + PRIVATE_LOG_CIPHERTEXT_LEN);
-    await contract.methods.offchain_enqueue(ciphertext, bob, txHash.hash).simulate({ from: bob });
-    const { result: inboxLenAfterEnqueue } = await contract.methods.get_inbox_len().simulate({ from: bob });
-    logger.info(`Inbox len after enqueue: ${inboxLenAfterEnqueue}`);
-    expect(Number(inboxLenAfterEnqueue)).toBe(1);
 
+    // Deliver the offchain message for eventual processing
+    await contract.methods.offchain_enqueue(ciphertext, bob, txHash.hash).simulate({ from: bob });
+
+    // TODO: revisit this. The call to offchain_enqueue is a utility and as such it causes the contract to sync, which,
+    // in combination with our caching policies, means subsequent utility calls won't trigger a re-sync.
+    // Given we're hooking the offchain sync process to the general sync process, this means we won't process any new
+    // offchain messages until at least one block passes.
+    // A potential escape hatch for this is to remove the check that forbids external invocation of `sync_state`.
+    // That would let users trigger syncs manually to circumvent caching issues like this.
     await forceEmptyBlock();
+
+    // Check that Bob got the payment before a re-org
     const { result: bobBalance } = await contract.methods.get_balance(bob).simulate({ from: bob });
     expect(bobBalance).toBe(paymentAmount);
-    const { result: inboxLenAfterSync } = await contract.methods.get_inbox_len().simulate({ from: bob });
-    logger.info(`Inbox len after sync: ${inboxLenAfterSync}`);
 
+    // Force a re-org
     const checkpointed = await retryUntil(
       async () => {
         const blocks = await aztecNode.getCheckpointedBlocks(txBlockNumber, 1);
-        logger.info(`Checkpointed blocks from ${txBlockNumber}: ${blocks.length}`);
         return blocks[0];
       },
       'checkpointed block',
       30,
       1,
     );
-    logger.info(`Checkpointed L1 block: ${checkpointed.l1.blockNumber}`);
     const l1BlockNumber = Number(checkpointed.l1.blockNumber - 1n);
 
     await aztecNodeAdmin.pauseSync();
-    logger.info(`Paused sync. Reorging L1 to block ${l1BlockNumber}`);
     await cheatCodes.eth.reorgTo(l1BlockNumber);
-    logger.info(`Rolling back L2 to block ${Number(txBlockNumber) - 1}`);
     await aztecNodeAdmin.rollbackTo(Number(txBlockNumber) - 1);
     expect(await aztecNode.getBlockNumber()).toBe(Number(txBlockNumber) - 1);
     await aztecNodeAdmin.resumeSync();
 
+    // Verify that the payment TX is no longer present after the reorg
     const txEffectAfterRollback = await aztecNode.getTxEffect(txHash);
-    logger.info(`Tx effect after rollback present: ${!!txEffectAfterRollback}`);
     expect(txEffectAfterRollback).toBeFalsy();
 
+    // Verify that Bob's balance has rolled back to 0 (pre-payment value) after the reorg
     const { result: bobAfterRollback } = await contract.methods.get_balance(bob).simulate({ from: bob });
     expect(bobAfterRollback).toBe(0n);
 
-    const { result: inboxLenAfterRollback } = await contract.methods.get_inbox_len().simulate({ from: bob });
-    logger.info(`Inbox len after rollback: ${inboxLenAfterRollback}`);
-    expect(Number(inboxLenAfterRollback)).toBe(1);
+    // Resend the tx after the reorg
+    await provenTx.send({ wait: NO_WAIT });
 
-    try {
-      await provenTx.send({ wait: NO_WAIT });
-    } catch {
-      // Ignore errors if the tx is already known to the node.
-    }
-    logger.info(`Waiting for tx ${txHash.toString()} to be mined after reorg`);
+    // Wait for the tx to be available again
     await waitForTx(aztecNode, txHash, { waitForStatus: TxStatus.PROPOSED });
 
+    // Check that the message was reprocessed and Bob has his payment again.
     // Notice what we want to test here is that the offchain effects don't need to be re-enqueued
     // for the system to re-process it.
-    await retryUntil(
-      async () => {
-        const { result } = await contract.methods.get_balance(bob).simulate({ from: bob });
-        return result === paymentAmount ? true : undefined;
-      },
-      'bob balance after reorg',
-      30,
-      1,
-    );
+    const { result: bobBalanceAfterResentTx } = await contract.methods.get_balance(bob).simulate({ from: bob });
+    expect(bobBalanceAfterResentTx).toBe(paymentAmount);
   });
 });
