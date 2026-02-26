@@ -98,7 +98,7 @@ export function workspacePageHTML(data: WorkspacePageData): string {
 
     // User prompt as a message (slightly before the run marker)
     if (s.prompt) {
-      const promptText = esc(s.prompt.length > 2000 ? s.prompt.slice(0, 2000) + "\u2026" : s.prompt);
+      const promptText = esc(s.prompt);
       const promptTs = s.started || "";
       // Offset by -1ms so prompt sorts just before run marker
       const offsetTs = promptTs ? new Date(new Date(promptTs).getTime() - 1).toISOString() : "";
@@ -117,7 +117,7 @@ export function workspacePageHTML(data: WorkspacePageData): string {
 
   // Activity entries
   for (const a of activity) {
-    const text = esc(a.text.length > 2000 ? a.text.slice(0, 2000) + "\u2026" : a.text);
+    const text = esc(a.text);
     const linked = text.replace(/(https?:\/\/[^\s&<]+)/g, '<a href="$1" target="_blank" class="link">$1</a>');
     const timeStr = a.ts ? timeAgo(a.ts) : "";
     const msgHash = Buffer.from(a.text.slice(0, 50)).toString("base64url").slice(0, 12);
