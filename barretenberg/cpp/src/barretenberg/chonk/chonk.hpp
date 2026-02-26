@@ -166,8 +166,6 @@ class Chonk : public IVCBase {
     // Management of linking databus commitments between circuits in the IVC
     DataBusDepot bus_depot;
 
-    typename MegaFlavor::CommitmentKey bn254_commitment_key;
-
     Goblin goblin;
 
     size_t get_num_circuits() const { return num_circuits; }

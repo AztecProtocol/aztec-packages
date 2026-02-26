@@ -9,9 +9,9 @@ import {
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
 } from '@aztec/constants';
 import { PendingNoteHashesContract } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
 
 describe('e2e_pending_note_hashes_contract', () => {
   let aztecNode: AztecNode;
@@ -298,6 +298,7 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     await deployedContract.methods
       .test_recursively_create_notes(recipients, Math.ceil(minToNeedReset / notesPerIteration))
-      .send({ from: owner });
+      // Recipients need to be in scope so their keys are accessible for note creation.
+      .send({ from: owner, additionalScopes: recipients });
   });
 });

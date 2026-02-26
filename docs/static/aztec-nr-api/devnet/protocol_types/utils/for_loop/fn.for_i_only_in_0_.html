@@ -38,6 +38,24 @@
     assert_max_lte_MAX: <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
 )</code></pre>
 
+<div class="comments">
+<p>Iterates between loop bounds and conditionally executes a function for min &lt;= i &lt; max,
+where:</p>
+<ul>
+<li><code>max</code> is a dynamic loop bound (known only at runtime).</li>
+<li><code>MAX</code> is a static loop bound (known at compile time).</li>
+</ul>
+<p>0 ------</p>
+<pre><code>       f_within is executed for 0 &lt;= i &lt; max    
+</code></pre>
+<p>&lt;=
+max ------
+&lt;=
+MAX ------</p>
+<p>Lambda functions of the form <code>|i| { my_array[i].assert_empty() }</code> (for example) can be specified.</p>
+<p>Strangely, this sometimes results in many more constraints than <code>for_i_in_0_</code> with
+the <code>for_loop_no_op</code> function. But other times, this one wins. I am confused.</p>
+</div>
 </main>
 </span>
 </body>

@@ -12,16 +12,13 @@ export CI=1
 # Set to 0 in ci3-external.yml for external contributors who don't have SSH access.
 export CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1}
 
+export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-60}
+
 if [ "$arch" == "arm64" ]; then
   cores=64
-  # Allow for 90 minutes as ARM has less cores.
-  export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-90}
+  export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME_ARM:-$AWS_SHUTDOWN_TIME}
 else
   cores=192,128,64
-  if [ "$CI_FULL" -eq 1 ]; then
-    # Allow for 75 minutes as ci-full time has crept up.
-    export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-75}
-  fi
 fi
 
 # Allow override.
@@ -89,6 +86,8 @@ if [[ -f "$state_dir/sir" ]]; then
   sir=$(cat $state_dir/sir)
 fi
 iid=$(cat $state_dir/iid)
+export EC2_INSTANCE_TYPE=$(cat $state_dir/instance_type 2>/dev/null || echo "unknown")
+export EC2_SPOT=$(cat $state_dir/spot 2>/dev/null || echo "unknown")
 
 # If AWS credentials are not set, try to load them from ~/.aws/build_instance_credentials.
 if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
@@ -115,7 +114,7 @@ if [ -t 1 ]; then
     run_cmd="run; exec zsh"
   fi
 else
-  # We're probably running in CI. Handle aws evictions and add timestamps to the logs.
+  # We're probably running in CI. Add timestamps and log.
   run_cmd="PARENT_LOG_ID=\$ci_log_id run 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
 fi
 
@@ -156,26 +155,23 @@ container_script=$(
       echo "Performing a release because \$REF_NAME is a semver."
     fi
 
-    # Capture cpu load.
-    mpstat 2 > >(cache_log cpufile) &
-    cpu_pid=\$!
+    # Background monitors. cache_log and add_timestamps both close inherited pipeline
+    # fds internally, so these long-running processes won't block the outer pipeline.
+    mpstat 2 2>&1 | cache_log cpufile &
+    vmstat -w -S M 2 2>&1 | add_timestamps | cache_log memfile &
+    bash -c "while true; do pstree -agl; echo; echo; sleep 10; done" 2>&1 | add_timestamps | cache_log processes &
 
-    # Capture mem load.
-    vmstat -w -S M 2 > >(add_timestamps | cache_log memfile) &
-    mem_pid=\$!
-
-    # Dump process tree every 10s.
-    bash -c "while true; do pstree -agl; echo; echo; sleep 10; done" 2>&1 > >(add_timestamps | cache_log processes) &
-    pstree_pid=\$!
+    # For debugging fd leaks that prevent run from exiting.
+    # outer_pipe_1=\$(readlink /proc/self/fd/1)
+    # outer_pipe_2=\$(readlink /proc/self/fd/2)
+    # ci3/fd_monitor "\$outer_pipe_1" "\$outer_pipe_2" | add_timestamps | cache_log fdinfo &
 
     set +e
     set -x
     $cmd
     local code=\${PIPESTATUS[0]}
-    set +x
 
     sudo dmesg 2>&1 | cache_log 'dmesg'
-    kill \$cpu_pid \$mem_pid \$pstree_pid &>/dev/null
 
     return \$code
   }
@@ -192,16 +188,6 @@ container_script=$(
       log_ci_run FAILED \$ci_log_id
       merge_train_failure_slack_notify \$ci_log_id
       release_canary_slack_notify \$ci_log_id
-      ci_failed_data=\$(jq -n \\
-        --arg status "failed" \\
-        --arg log_id "\$ci_log_id" \\
-        --arg ref_name "\${TARGET_BRANCH:-\$REF_NAME}" \\
-        --arg commit_hash "\$COMMIT_HASH" \\
-        --arg commit_author "\$COMMIT_AUTHOR" \\
-        --arg commit_msg "\$COMMIT_MSG" \\
-        --argjson exit_code "\$code" \\
-        '{status: \$status, log_id: \$log_id, ref_name: \$ref_name, commit_hash: \$commit_hash, commit_author: \$commit_author, commit_msg: \$commit_msg, exit_code: \$exit_code, timestamp: now | todate}')
-      redis_publish "ci:run:failed" "\$ci_failed_data"
       ;;
   esac
   exit \$code
@@ -249,6 +235,21 @@ function run {
     sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
     sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
 
+    # Pin host processes to top CPU cores to keep benchmark cores clean.
+    # CPU layout: physical cores 0..N/2-1, hyperthreads N/2..N-1.
+    # OS gets top 8 physical cores + their hyperthread siblings.
+    # Skip dockerd so containers it spawns can use all CPUs for build/test.
+    total_cpus=\$(nproc)
+    total_physical=\$((total_cpus / 2))
+    os_start=\$((total_physical - 8))
+    os_ht_start=\$((total_cpus - 8))
+    os_cpu_list=\"\$os_start-\$((total_physical - 1)),\$os_ht_start-\$((total_cpus - 1))\"
+    for pid in \$(ps -eo pid= 2>/dev/null); do
+      comm=\$(cat /proc/\$pid/comm 2>/dev/null) || continue
+      [ \"\$comm\" = \"dockerd\" ] && continue
+      sudo taskset -apc \"\$os_cpu_list\" \$pid &>/dev/null || true
+    done
+    echo \"Host processes pinned to OS CPUs: \$os_cpu_list\"
 
     aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
 
@@ -327,10 +328,14 @@ function run {
         -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
         -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
         -e NPM_TOKEN=${NPM_TOKEN:-} \
+        -e CARGO_REGISTRY_TOKEN=${CARGO_REGISTRY_TOKEN:-} \
         -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
         -e AWS_TOKEN=\$aws_token \
         -e NAMESPACE=${NAMESPACE:-} \
         -e NETWORK=${NETWORK:-} \
+        -e GITHUB_ACTOR=${GITHUB_ACTOR:-} \
+        -e EC2_INSTANCE_TYPE=${EC2_INSTANCE_TYPE:-unknown} \
+        -e EC2_SPOT=${EC2_SPOT:-unknown} \
         --pids-limit=65536 \
         --shm-size=2g \
         aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")

@@ -14,8 +14,8 @@ use crate::{
 
 use crate::protocol::{
     address::AztecAddress,
-    debug_log::debug_log_format,
     hash::sha256_to_field,
+    logging::debug_log_format,
     traits::{Deserialize, Serialize},
 };
 

@@ -12,7 +12,7 @@ contracts:
 dependencies:
   - "@aztec/aztec.js"
   - "@aztec/accounts"
-  - "@aztec/test-wallet"
+  - "@aztec/wallets"
   - "@aztec/kv-store"
   - "@aztec/pxe"
   - "@aztec/noir-contracts.js"

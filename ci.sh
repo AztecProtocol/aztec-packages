@@ -72,9 +72,21 @@ case "$cmd" in
   dash)
     watch_ci -s next,prs --user --watch
     ;;
-  fast|full|full-no-test-cache|full-no-test-cache-makefile|docs|barretenberg|barretenberg-full)
+  fast|docs|barretenberg|barretenberg-full)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-$cmd"
+    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    ;;
+  full|full-no-test-cache)
+    export CI_DASHBOARD="prs"
+    export JOB_ID="x-$cmd"
+    export AWS_SHUTDOWN_TIME=75
+    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    ;;
+  barretenberg-debug)
+    export CI_DASHBOARD="nightly"
+    export JOB_ID="x-$cmd"
+    export CPUS=16
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   avm-inputs-collection|avm-check-circuit)
@@ -91,7 +103,7 @@ case "$cmd" in
       JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
     }
     export -f run
-    seq 1 ${1:-5} | parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered \
+    seq 1 ${1:-5} | parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered \
       'run $USER-x{}-full amd64 ci-full-no-test-cache'
     ;;
   merge-queue)
@@ -101,6 +113,8 @@ case "$cmd" in
     else
       export CI_DASHBOARD="prs"
     fi
+    export AWS_SHUTDOWN_TIME=75
+    export AWS_SHUTDOWN_TIME_ARM=90
     export DENOISE=1
     export DENOISE_WIDTH=32
     run() {
@@ -108,11 +122,12 @@ case "$cmd" in
     }
     export -f run
 
-    parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+    # Specify jobs as maybe we only have a couple of cpus.
+    parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x1-full amd64 ci-full-no-test-cache' \
       'run x2-full amd64 ci-full-no-test-cache' \
-      'run x3-full amd64 ci-full-no-test-cache-makefile' \
-      'run x4-full amd64 ci-full-no-test-cache-makefile' \
+      'run x3-full amd64 ci-full-no-test-cache' \
+      'run x4-full amd64 ci-full-no-test-cache' \
       'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
     ;;
   merge-queue-heavy)
@@ -122,6 +137,8 @@ case "$cmd" in
     else
       export CI_DASHBOARD="prs"
     fi
+    export AWS_SHUTDOWN_TIME=75
+    export AWS_SHUTDOWN_TIME_ARM=90
     export DENOISE=1
     export DENOISE_WIDTH=32
     run() {
@@ -129,7 +146,8 @@ case "$cmd" in
     }
     export -f run
 
-    parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+    # Specify jobs as maybe we only have a couple of cpus.
+    parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x1-full amd64 ci-full-no-test-cache' \
       'run x2-full amd64 ci-full-no-test-cache' \
       'run x3-full amd64 ci-full-no-test-cache' \
@@ -261,6 +279,7 @@ case "$cmd" in
   release)
     # Spin up ec2 instance and run the release flow.
     export CI_DASHBOARD="releases"
+    export AWS_SHUTDOWN_TIME=75
     export DENOISE=1
     export DENOISE_WIDTH=32
     run() {
@@ -311,10 +330,6 @@ case "$cmd" in
   # DISPLAYING LOGS #
   ###################
   log|dlog)
-    if [ "$CI_REDIS_AVAILABLE" -ne 1 ]; then
-      echo "No redis available for log query."
-      exit 1
-    fi
     pager=${PAGER:-less}
     [ ! -t 0 ] && pager=cat
     key=$1
@@ -323,9 +338,23 @@ case "$cmd" in
       key=${key#list/}
     fi
     if [[ "$key" == history_* || "$key" == failed_tests* ]]; then
+      if [ "$CI_REDIS_AVAILABLE" -ne 1 ]; then
+        echo "No redis available for list log query."
+        exit 1
+      fi
       redis_cli LRANGE "$key" 0 -1 | $pager
-    else
+    elif [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
       redis_getz "$key" | $pager
+    else
+      if [ -z "${CI_PASSWORD:-}" ]; then
+        echo "No redis available and CI_PASSWORD not set for http fallback."
+        exit 1
+      fi
+      curl -sf "http://aztec:$CI_PASSWORD@ci.aztec-labs.com/$key.txt" | $pager
+      if [ ${PIPESTATUS[0]} -ne 0 ]; then
+        echo "Failed to fetch log via http."
+        exit 1
+      fi
     fi
     ;;
 

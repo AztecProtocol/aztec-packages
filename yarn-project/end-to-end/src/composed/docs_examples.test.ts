@@ -3,7 +3,8 @@ import { Contract } from '@aztec/aztec.js/contracts';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
-import { TestWallet } from '@aztec/test-wallet/server';
+
+import { TestWallet } from '../test-wallet/test_wallet.js';
 
 // To run these tests against a local network:
 // 1. Start a local Ethereum node (Anvil):
@@ -29,7 +30,9 @@ describe('docs_examples', () => {
     const prefundedAccount = await wallet.createSchnorrAccount(accountData.secret, accountData.salt);
     const newAccountManager = await wallet.createSchnorrAccount(secretKey, Fr.random(), signingPrivateKey);
     const newAccountDeployMethod = await newAccountManager.getDeployMethod();
-    await newAccountDeployMethod.send({ from: prefundedAccount.address });
+    await newAccountDeployMethod.send({
+      from: prefundedAccount.address,
+    });
     const newAccountAddress = newAccountManager.address;
     const defaultAccountAddress = prefundedAccount.address;
 

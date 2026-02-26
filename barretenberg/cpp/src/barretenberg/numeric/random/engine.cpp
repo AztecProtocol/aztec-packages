@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Luke], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -9,6 +9,7 @@
 #include <array>
 #include <cstring>
 #include <functional>
+#include <memory>
 #include <random>
 #if defined(__APPLE__)
 #include <TargetConditionals.h>
@@ -18,6 +19,10 @@ extern "C" int getentropy(void* buffer, size_t length); // getentropy on iOS
 #else
 #include <sys/random.h> // getentropy on macOS
 #endif
+#elif defined(__ANDROID__)
+// Android API 24 doesn't have getrandom/getentropy, use /dev/urandom
+#include <fcntl.h>
+#include <unistd.h>
 #else
 #include <sys/random.h>
 #endif
@@ -26,10 +31,10 @@ namespace bb::numeric {
 
 namespace {
 
-#if defined(__wasm__) || defined(__APPLE__)
+#if defined(__wasm__) || defined(__APPLE__) || defined(__ANDROID__)
 
-// In wasm and on mac os the API we are using can only give 256 bytes per call, so there is no point in creating a
-// larger buffer
+// In wasm, on mac os, and on Android the API we are using can only give 256 bytes per call,
+// so there is no point in creating a larger buffer
 constexpr size_t RANDOM_BUFFER_SIZE = 256;
 constexpr size_t BYTES_PER_GETENTROPY_READ = 256;
 
@@ -40,8 +45,9 @@ constexpr size_t RANDOM_BUFFER_SIZE = 1UL << 20;
 
 #endif
 struct RandomBufferWrapper {
-    // Buffer with randomness sampled from a CSPRNG
-    uint8_t buffer[RANDOM_BUFFER_SIZE];
+    // Buffer with randomness sampled from a CSPRNG (heap-allocated on first use to avoid
+    // bloating TLS — a 1 MiB inline array adds ~0.6 ms per thread creation)
+    std::unique_ptr<uint8_t[]> buffer;
     // Offset into the unused part of the buffer
     ssize_t offset = -1;
 };
@@ -63,8 +69,11 @@ template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigne
     // We could preserve the leftover bytes, but it's a bit messy
     if (random_buffer_wrapper.offset == -1 ||
         (static_cast<size_t>(random_buffer_wrapper.offset) + random_data_buffer_size) > RANDOM_BUFFER_SIZE) {
+        if (!random_buffer_wrapper.buffer) {
+            random_buffer_wrapper.buffer = std::make_unique<uint8_t[]>(RANDOM_BUFFER_SIZE);
+        }
         size_t bytes_left = RANDOM_BUFFER_SIZE;
-        uint8_t* current_offset = random_buffer_wrapper.buffer;
+        uint8_t* current_offset = random_buffer_wrapper.buffer.get();
         // Sample until we fill the buffer
         while (bytes_left != 0) {
 #if defined(__wasm__) || defined(__APPLE__)
@@ -72,6 +81,14 @@ template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigne
             // loop
             ssize_t read_bytes =
                 getentropy(current_offset, BYTES_PER_GETENTROPY_READ) == -1 ? -1 : BYTES_PER_GETENTROPY_READ;
+#elif defined(__ANDROID__)
+            // Android API 24 doesn't have getrandom/getentropy, read from /dev/urandom
+            static thread_local int urandom_fd = -1;
+            if (urandom_fd == -1) {
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+                urandom_fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
+            }
+            ssize_t read_bytes = ::read(urandom_fd, current_offset, BYTES_PER_GETENTROPY_READ);
 #else
             // Sample from urandom on native
             auto read_bytes = getrandom(current_offset, bytes_left, 0);
@@ -85,7 +102,7 @@ template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigne
         random_buffer_wrapper.offset = 0;
     }
 
-    memcpy(&random_data, random_buffer_wrapper.buffer + random_buffer_wrapper.offset, random_data_buffer_size);
+    memcpy(&random_data, random_buffer_wrapper.buffer.get() + random_buffer_wrapper.offset, random_data_buffer_size);
     random_buffer_wrapper.offset += static_cast<ssize_t>(random_data_buffer_size);
     return random_data;
 }

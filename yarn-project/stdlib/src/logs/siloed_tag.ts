@@ -1,11 +1,11 @@
-import { GeneratorIndex } from '@aztec/constants';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { ZodFor } from '@aztec/foundation/schemas';
 
 import type { AztecAddress } from '../aztec-address/index.js';
+import { computeSiloedPrivateLogFirstField } from '../hash/hash.js';
 import { schemas } from '../schemas/schemas.js';
-import type { Tag } from './tag.js';
+import type { PreTag } from './pre_tag.js';
+import { Tag } from './tag.js';
 
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
 
@@ -22,8 +22,13 @@ export interface SiloedTag {
 export class SiloedTag {
   constructor(public readonly value: Fr) {}
 
-  static async compute(tag: Tag, app: AztecAddress): Promise<SiloedTag> {
-    const siloedTag = await poseidon2HashWithSeparator([app, tag.value], GeneratorIndex.PRIVATE_LOG_FIRST_FIELD);
+  static async compute(preTag: PreTag): Promise<SiloedTag> {
+    const tag = await Tag.compute(preTag);
+    return SiloedTag.computeFromTagAndApp(tag, preTag.extendedSecret.app);
+  }
+
+  static async computeFromTagAndApp(tag: Tag, app: AztecAddress): Promise<SiloedTag> {
+    const siloedTag = await computeSiloedPrivateLogFirstField(app, tag.value);
     return new SiloedTag(siloedTag);
   }
 

@@ -75,9 +75,17 @@ describe('PXE', () => {
         instanceRegistry: await AztecAddress.random(),
         multiCallEntrypoint: await AztecAddress.random(),
       },
+      realProofs: true,
     });
 
-    pxe = await PXE.create(node, kvStore, kernelProver, simulator, protocolContractsProvider, config);
+    pxe = await PXE.create({
+      node,
+      store: kvStore,
+      proofCreator: kernelProver,
+      simulator,
+      protocolContractsProvider,
+      config,
+    });
   }, 120_000);
 
   it('registers an account and returns it as an account only and not as a recipient', async () => {
@@ -318,6 +326,6 @@ describe('PXE', () => {
       });
     });
   });
-  // Note: Not testing a successful run of `proveTx`, `sendTx`, `getTxReceipt` and `simulateUtility` here as it
+  // Note: Not testing a successful run of `proveTx`, `sendTx`, `getTxReceipt` and `executeUtility` here as it
   //       requires a larger setup and it's sufficiently tested in the e2e tests.
 });

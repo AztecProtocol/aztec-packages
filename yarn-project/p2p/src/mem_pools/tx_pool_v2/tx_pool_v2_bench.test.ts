@@ -21,11 +21,12 @@ import { mkdir, writeFile } from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import path from 'path';
 
+import type { TxMetaData } from './tx_metadata.js';
 import { TxPoolBenchMetrics, TxPoolOperation } from './tx_pool_bench_metrics.js';
 import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
 
 /** A validator that accepts all transactions. */
-const alwaysValidValidator: TxValidator<Tx> = {
+const alwaysValidValidator: TxValidator<TxMetaData> = {
   validateTx: () => Promise.resolve({ result: 'valid' }),
 };
 
@@ -139,7 +140,7 @@ describe('TxPoolV2: benchmarks', () => {
     const pool = new AztecKVTxPoolV2(store, archiveStore, {
       l2BlockSource: mockL2BlockSource,
       worldStateSynchronizer: mockWorldState,
-      pendingTxValidator: alwaysValidValidator,
+      createTxValidator: () => Promise.resolve(alwaysValidValidator),
     });
     await pool.start();
     const cleanup = async () => {
@@ -493,7 +494,7 @@ describe('TxPoolV2: benchmarks', () => {
         const pool1 = new AztecKVTxPoolV2(store, archiveStore, {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         });
         await pool1.start();
 
@@ -510,7 +511,7 @@ describe('TxPoolV2: benchmarks', () => {
           const pool2 = new AztecKVTxPoolV2(store, archiveStore, {
             l2BlockSource: mockL2BlockSource,
             worldStateSynchronizer: mockWorldState,
-            pendingTxValidator: alwaysValidValidator,
+            createTxValidator: () => Promise.resolve(alwaysValidValidator),
           });
 
           const startTime = performance.now();

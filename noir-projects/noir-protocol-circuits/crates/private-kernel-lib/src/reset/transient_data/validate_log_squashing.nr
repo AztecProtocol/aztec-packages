@@ -122,8 +122,8 @@ pub fn validate_log_squashing<let LogsLen: u32, let SquashingHintsLen: u32, let 
             //
             // While it is unlikely that an app would want to retain a log linked to a discarded note hash, or discard
             // a log while its note hash is kept, it is still a valid scenario that must be handled.
-            let is_note_hash_revertible = hinted_squashed_note_hash.counter() >= split_counter;
-            let is_log_revertible = log.counter() >= split_counter;
+            let is_note_hash_revertible = hinted_squashed_note_hash.counter() > split_counter;
+            let is_log_revertible = log.counter() > split_counter;
             assert_eq(
                 is_note_hash_revertible,
                 is_log_revertible,
@@ -654,11 +654,11 @@ mod tests {
     fn fails_squashed_non_revertible_log_with_revertible_note_hash() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 6 }.count(5)]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 7 }.count(5)]);
 
-        builder.add_note_hashes([Counted::new(11, 6)]);
+        builder.add_note_hashes([Counted::new(11, 7)]);
 
-        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(7)]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(8)]);
 
         builder.add_squashing_hint(0, 0);
 
@@ -672,9 +672,9 @@ mod tests {
     fn succeeds_squashed_revertible_log_with_revertible_note_hash() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(5)]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 2 }.count(5)]);
 
-        builder.add_note_hashes([Counted::new(11, 1)]);
+        builder.add_note_hashes([Counted::new(11, 2)]);
 
         builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(7)]);
 
@@ -690,7 +690,7 @@ mod tests {
     fn fails_squashed_revertible_log_with_non_revertible_note_hash() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(10)]);
+        builder.add_logs([PrivateLogData { log: mock_log(101), note_hash_counter: 1 }.count(13)]);
 
         builder.add_note_hashes([Counted::new(11, 1)]);
 

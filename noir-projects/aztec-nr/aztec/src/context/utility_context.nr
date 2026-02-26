@@ -25,11 +25,11 @@ impl UtilityContext {
     }
 
     pub fn block_number(self) -> u32 {
-        self.block_header.global_variables.block_number
+        self.block_header.block_number()
     }
 
     pub fn timestamp(self) -> u64 {
-        self.block_header.global_variables.timestamp
+        self.block_header.timestamp()
     }
 
     pub fn this_address(self) -> AztecAddress {
@@ -37,11 +37,11 @@ impl UtilityContext {
     }
 
     pub fn version(self) -> Field {
-        self.block_header.global_variables.version
+        self.block_header.version()
     }
 
     pub fn chain_id(self) -> Field {
-        self.block_header.global_variables.chain_id
+        self.block_header.chain_id()
     }
 
     pub unconstrained fn raw_storage_read<let N: u32>(self: Self, storage_slot: Field) -> [Field; N] {

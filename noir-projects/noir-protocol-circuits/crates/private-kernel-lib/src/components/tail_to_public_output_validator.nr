@@ -4,19 +4,20 @@ use crate::{
         assert_split_sorted_transformed_arrays,
         assert_split_transformed_arrays_from_sorted_padded_array,
     },
-    components::{
-        gas_meter::meter_gas_used, tail_output_validator::validate_include_by_timestamp_duration,
-    },
+    components::gas_meter::meter_gas_used,
 };
-use dep::types::abis::kernel_circuit_public_inputs::{
-    PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
+use types::{
+    abis::kernel_circuit_public_inputs::{
+        PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
+    },
+    constants::MAX_TX_LIFETIME,
 };
 
 pub struct TailToPublicOutputValidator {
     pub(crate) output: PrivateToPublicKernelCircuitPublicInputs,
     pub(crate) previous_kernel: PrivateKernelCircuitPublicInputs,
     pub(crate) padded_side_effect_amounts: PaddedSideEffectAmounts,
-    pub(crate) include_by_timestamp_upper_bound: u64,
+    pub(crate) expiration_timestamp_upper_bound: u64,
 }
 
 impl TailToPublicOutputValidator {
@@ -24,13 +25,13 @@ impl TailToPublicOutputValidator {
         output: PrivateToPublicKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
         padded_side_effect_amounts: PaddedSideEffectAmounts,
-        include_by_timestamp_upper_bound: u64,
+        expiration_timestamp_upper_bound: u64,
     ) -> Self {
         TailToPublicOutputValidator {
             output,
             previous_kernel,
             padded_side_effect_amounts,
-            include_by_timestamp_upper_bound,
+            expiration_timestamp_upper_bound,
         }
     }
 
@@ -50,22 +51,29 @@ impl TailToPublicOutputValidator {
 
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
 
-        // `include_by_timestamp` - The timestamp at which the transaction expires.
+        // `expiration_timestamp` - The timestamp at which the transaction expires.
         // This value can only decrease with each iteration. Here we take the minimum of:
         // - The value from the previous kernel iteration
         // - An upper bound value set by the user
-        let include_by_timestamp = std::cmp::min(
-            self.previous_kernel.include_by_timestamp,
-            self.include_by_timestamp_upper_bound,
+        let max_timestamp = self
+            .previous_kernel
+            .constants
+            .anchor_block_header
+            .global_variables
+            .timestamp
+            + MAX_TX_LIFETIME;
+        let expiration_timestamp = std::cmp::min(
+            std::cmp::min(
+                self.previous_kernel.expiration_timestamp,
+                self.expiration_timestamp_upper_bound,
+            ),
+            max_timestamp,
         );
-        validate_include_by_timestamp_duration(
-            include_by_timestamp,
-            self.previous_kernel.constants.anchor_block_header.global_variables,
-        );
+
         assert_eq(
-            self.output.include_by_timestamp,
-            include_by_timestamp,
-            "incorrect include_by_timestamp",
+            self.output.expiration_timestamp,
+            expiration_timestamp,
+            "incorrect expiration_timestamp",
         );
 
         // public_teardown_call_request

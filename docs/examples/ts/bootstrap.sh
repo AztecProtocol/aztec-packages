@@ -199,7 +199,7 @@ validate_project() {
             yarn add \
                 @aztec/aztec.js@link:$REPO_ROOT/yarn-project/aztec.js \
                 @aztec/accounts@link:$REPO_ROOT/yarn-project/accounts \
-                @aztec/test-wallet@link:$REPO_ROOT/yarn-project/test-wallet \
+                @aztec/wallets@link:$REPO_ROOT/yarn-project/wallets \
                 @aztec/kv-store@link:$REPO_ROOT/yarn-project/kv-store
         fi
 
@@ -293,6 +293,19 @@ get_all_projects() {
         fi
     done
 }
+
+# In CI, validate all yarn.lock files are empty (they must exist but contain no content).
+# Locally, the pre-commit hook handles this; here we catch it in case hooks were bypassed.
+if [ "${CI:-0}" != "0" ]; then
+    for lockfile in */yarn.lock; do
+        [ -f "$lockfile" ] || continue
+        if [ -s "$lockfile" ]; then
+            echo_stderr "ERROR: $lockfile is not empty. These files must be committed empty."
+            echo_stderr "       Run: > $lockfile && git add $lockfile"
+            exit 1
+        fi
+    done
+fi
 
 case "$cmd" in
     "")

@@ -199,8 +199,9 @@ library ProposeLib {
     v.headerHash = ProposedHeaderLib.hash(v.header);
 
     // Compute current epoch and check escape hatch BEFORE setupEpoch.
+    // Uses epoch-stable lookup so mid-epoch governance changes don't affect current epoch proposals.
     v.currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
-    v.escapeHatch = ValidatorSelectionLib.getEscapeHatch();
+    v.escapeHatch = ValidatorSelectionLib.getEscapeHatchForEpoch(v.currentEpoch);
     if (address(v.escapeHatch) != address(0)) {
       (v.isEscapeHatch, v.escapeHatchProposer) = v.escapeHatch.isHatchOpen(v.currentEpoch);
     }

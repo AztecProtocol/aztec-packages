@@ -20,17 +20,29 @@ function test_cmds {
   i=0
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     # We assume there are 8 txe's running.
-    port=$((45730 + (i++ % ${NUM_TXES:-1})))
+    port=$((14730 + (i++ % ${NUM_TXES:-1})))
     echo "$hash noir-projects/scripts/run_test.sh aztec-nr $package $test $port"
   done
 }
 
 function test {
   # Start txe server.
+  # Port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
+  local txe_base_port=14730
   trap 'kill $(jobs -p)' EXIT
-  (cd $root/yarn-project/txe && LOG_LEVEL=error TXE_PORT=45730 yarn start) &
+  check_port $txe_base_port || echo "WARNING: port $txe_base_port is in use, TXE may fail to start"
+  (cd $root/yarn-project/txe && LOG_LEVEL=error TXE_PORT=$txe_base_port yarn start) &
   echo "Waiting for TXE to start..."
-  while ! nc -z 127.0.0.1 45730 &>/dev/null; do sleep 1; done
+  local j=0
+  while ! nc -z 127.0.0.1 $txe_base_port &>/dev/null; do
+    if [ $j == 60 ]; then
+      echo "TXE failed to start on port $txe_base_port after 60s." >&2
+      check_port $txe_base_port
+      exit 1
+    fi
+    sleep 1
+    j=$((j+1))
+  done
 
   export NARGO_FOREIGN_CALL_TIMEOUT=300000
   test_cmds | filter_test_cmds | parallelize

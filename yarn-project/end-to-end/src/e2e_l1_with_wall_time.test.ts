@@ -4,13 +4,13 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { SecretValue } from '@aztec/foundation/config';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 import { submitTxsTo } from './shared/submit-transactions.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
 
 jest.setTimeout(1000 * 60 * 10);
 

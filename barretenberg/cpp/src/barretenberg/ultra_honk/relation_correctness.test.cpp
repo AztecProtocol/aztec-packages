@@ -15,7 +15,7 @@
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
-#include "barretenberg/ultra_honk/witness_computation.hpp"
+#include "barretenberg/ultra_honk/witness_computation_test_utils.hpp"
 
 #include <gtest/gtest.h>
 using namespace bb;
@@ -155,7 +155,7 @@ template <typename Flavor> void create_some_elliptic_curve_addition_gates(auto& 
     uint32_t x3 = circuit_builder.add_variable(p3.x);
     uint32_t y3 = circuit_builder.add_variable(p3.y);
 
-    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, -1 });
+    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/false });
 }
 
 template <typename Flavor> void create_some_ecc_op_queue_gates(auto& circuit_builder)
@@ -206,7 +206,7 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     // Create a prover (it will compute proving key and witness)
     auto prover_inst = std::make_shared<ProverInstance_<Flavor>>(builder);
 
-    WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_inst);
+    complete_prover_instance_for_test<Flavor>(prover_inst);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     for (auto selector : prover_inst->polynomials.get_gate_selectors()) {
@@ -240,7 +240,7 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     // Create a prover (it will compute proving key and witness)
     auto prover_inst = std::make_shared<ProverInstance_<Flavor>>(builder);
 
-    WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_inst);
+    complete_prover_instance_for_test<Flavor>(prover_inst);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     for (auto selector : prover_inst->polynomials.get_gate_selectors()) {

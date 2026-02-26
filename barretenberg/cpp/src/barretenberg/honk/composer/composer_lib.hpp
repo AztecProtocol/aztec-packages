@@ -1,16 +1,13 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Raju], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
-#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
-
-#include <memory>
 
 namespace bb {
 

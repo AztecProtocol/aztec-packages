@@ -1,8 +1,12 @@
-import { MIN_EXECUTION_TIME, SequencerTimetable } from './timetable.js';
+import { createLogger } from '@aztec/foundation/log';
+import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
+
+import { SequencerTimetable } from './timetable.js';
 import { SequencerState } from './utils.js';
 
 describe('sequencer-timetable', () => {
   let timetable: SequencerTimetable;
+  const logger = createLogger('sequencer-timetable-test');
 
   const ETHEREUM_SLOT_DURATION = 12;
   const AZTEC_SLOT_DURATION = 36;
@@ -285,16 +289,18 @@ describe('sequencer-timetable', () => {
 
       describe('maxNumberOfBlocks calculation', () => {
         it.each([
-          { aztecSlot: 36, blockDuration: 8000 },
-          { aztecSlot: 72, blockDuration: 8000 },
-          { aztecSlot: 120, blockDuration: 10000 },
+          { aztecSlot: 36, blockDuration: 8000, publishTime: L1_PUBLISHING_TIME },
+          { aztecSlot: 72, blockDuration: 8000, publishTime: L1_PUBLISHING_TIME },
+          { aztecSlot: 120, blockDuration: 10000, publishTime: L1_PUBLISHING_TIME },
+          { aztecSlot: 72, blockDuration: 6000, publishTime: 36 },
+          { aztecSlot: 72, blockDuration: 6000, publishTime: 24 },
         ])(
-          'should calculate max blocks with aztecSlot=$aztecSlot blockDuration=$blockDuration)',
-          ({ aztecSlot, blockDuration }) => {
+          'should calculate max blocks with aztecSlot=$aztecSlot blockDuration=$blockDuration publishTime=$publishTime)',
+          ({ aztecSlot, blockDuration, publishTime }) => {
             const tt = new SequencerTimetable({
               ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
               aztecSlotDuration: aztecSlot,
-              l1PublishingTime: L1_PUBLISHING_TIME,
+              l1PublishingTime: publishTime,
               blockDurationMs: blockDuration,
               enforce: ENFORCE_TIMETABLE,
             });
@@ -309,6 +315,9 @@ describe('sequencer-timetable', () => {
               const result2 = tt.canStartNextBlock(20);
               expect(result2.canStart).toBe(true);
             }
+            logger.info(
+              `AztecSlot: ${aztecSlot}, BlockDuration: ${blockDuration}, PublishTime: ${publishTime}, MaxBlocks: ${tt.maxNumberOfBlocks}\n\n`,
+            );
           },
         );
 

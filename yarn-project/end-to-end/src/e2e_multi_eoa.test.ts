@@ -4,7 +4,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { EthCheatCodes } from '@aztec/aztec/testing';
-import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import type { ViemClient } from '@aztec/ethereum/types';
 import { times } from '@aztec/foundation/collection';
@@ -14,8 +14,6 @@ import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet/server';
-import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -24,6 +22,8 @@ import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
+import { proveInteraction } from './test-wallet/utils.js';
 
 const NUM_PUBLISHERS = 4;
 
@@ -80,7 +80,7 @@ describe('e2e_multi_eoa', () => {
         sequencerPollingIntervalMS: 200,
         worldStateBlockCheckIntervalMS: 200,
         blockCheckIntervalMS: 200,
-        publisherPrivateKeys: sequencerKeysAndAddresses.map(k => k.key),
+        sequencerPublisherPrivateKeys: sequencerKeysAndAddresses.map(k => k.key),
         l1PublisherKey: allKeysAndAddresses[0].key,
         maxSpeedUpAttempts: 0, // Disable speed ups, so that cancellation txs never make it through
       }));
@@ -116,7 +116,7 @@ describe('e2e_multi_eoa', () => {
         from: defaultAccountAddress,
       });
 
-      const l1Utils: L1TxUtilsWithBlobs[] = (publisherManager as any).publishers;
+      const l1Utils: L1TxUtils[] = (publisherManager as any).publishers;
 
       const blockedSender = l1Utils[expectedFirstSender].getSenderAddress();
       const blockedTxs: Hex[] = [];

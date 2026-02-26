@@ -89,6 +89,6 @@ export function makeFinalBlobBatchingChallenges(seed = 1) {
  * @param length
  * @returns
  */
-export function makeRandomBlob(length: number): Blob {
+export function makeRandomBlob(length: number): Promise<Blob> {
   return Blob.fromFields([...Array.from({ length: length }, () => Fr.random())]);
 }

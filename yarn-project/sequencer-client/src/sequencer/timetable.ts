@@ -1,13 +1,14 @@
 import { createLogger } from '@aztec/aztec.js/log';
+import {
+  CHECKPOINT_ASSEMBLE_TIME,
+  CHECKPOINT_INITIALIZATION_TIME,
+  DEFAULT_P2P_PROPAGATION_TIME,
+  MIN_EXECUTION_TIME,
+} from '@aztec/stdlib/timetable';
 
-import { DEFAULT_ATTESTATION_PROPAGATION_TIME as DEFAULT_P2P_PROPAGATION_TIME } from '../config.js';
 import { SequencerTooSlowError } from './errors.js';
 import type { SequencerMetrics } from './metrics.js';
 import { SequencerState } from './utils.js';
-
-export const MIN_EXECUTION_TIME = 2;
-export const CHECKPOINT_INITIALIZATION_TIME = 1;
-export const CHECKPOINT_ASSEMBLE_TIME = 1;
 
 export class SequencerTimetable {
   /**
@@ -131,7 +132,7 @@ export class SequencerTimetable {
     const initializeDeadline = this.aztecSlotDuration - minWorkToDo;
     this.initializeDeadline = initializeDeadline;
 
-    this.log.verbose(
+    this.log.info(
       `Sequencer timetable initialized with ${this.maxNumberOfBlocks} blocks per slot (${this.enforce ? 'enforced' : 'not enforced'})`,
       {
         ethereumSlotDuration: this.ethereumSlotDuration,

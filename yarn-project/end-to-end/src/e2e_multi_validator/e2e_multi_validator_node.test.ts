@@ -79,7 +79,7 @@ describe('e2e_multi_validator_node', () => {
     } = await setup(1, {
       initialValidators,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
-      publisherPrivateKeys: publisherPrivateKeys.map(k => new SecretValue(k)),
+      sequencerPublisherPrivateKeys: publisherPrivateKeys.map(k => new SecretValue(k)),
       minTxsPerBlock: 1,
       archiverPollingIntervalMS: 200,
       sequencerPollingIntervalMS: 200,

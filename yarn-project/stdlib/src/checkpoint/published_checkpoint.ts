@@ -55,9 +55,11 @@ export class L1PublishedData {
 
 export class PublishedCheckpoint {
   constructor(
+    /** The checkpoint itself. */
     public checkpoint: Checkpoint,
+    /** Info on when this checkpoint was published on L1. */
     public l1: L1PublishedData,
-    // The attestations for the last block in the checkpoint.
+    /** The attestations for the last block in the checkpoint. */
     public attestations: CommitteeAttestation[],
   ) {}
 

@@ -1,7 +1,7 @@
 mod validate_contract_address;
 pub(crate) mod validate_side_effect_counters;
 
-use dep::types::{
+use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_call_request::PrivateCallRequest,
@@ -248,6 +248,19 @@ impl PrivateCallDataValidator {
                 "static call cannot make non-static public teardown call",
             );
         }
+
+        // A static call cannot nominate itself as fee payer, because that directly results in the fee payer's FeeJuice
+        // balance being decremented by the AVM or the Private Tx Base Rollup circuit, which is technically a state
+        // change that violates the notion of "static call".
+        assert_eq(this_call.is_fee_payer, false, "static call cannot nominate itself as fee payer");
+
+        // A static call cannot set the min revertible side effect counter, which would affect whether a side effect
+        // should be retained or discarded if the tx reverts.
+        assert_eq(
+            this_call.min_revertible_side_effect_counter,
+            0,
+            "static call cannot set the min revertible side effect counter",
+        );
     }
 
     /// For Init and Inner.
@@ -263,8 +276,8 @@ impl PrivateCallDataValidator {
         self.data.public_inputs.nullifier_read_requests.assert_length_within_bounds(
             "nullifier_read_requests length out of bounds",
         );
-        self.data.public_inputs.key_validation_requests_and_generators.assert_length_within_bounds(
-            "key_validation_requests_and_generators length out of bounds",
+        self.data.public_inputs.key_validation_requests_and_separators.assert_length_within_bounds(
+            "key_validation_requests_and_separators length out of bounds",
         );
         self.data.public_inputs.private_call_requests.assert_length_within_bounds(
             "private_call_requests length out of bounds",

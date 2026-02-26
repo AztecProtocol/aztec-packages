@@ -1,5 +1,5 @@
 use crate::abis::CheckpointRollupPublicInputs;
-use types::{constants::AZTEC_MAX_EPOCH_DURATION, utils::arrays::copy_items_into_array};
+use types::{constants::MAX_CHECKPOINTS_PER_EPOCH, utils::arrays::splice_at_count};
 
 pub fn merge_checkpoint_rollups(
     left: CheckpointRollupPublicInputs,
@@ -8,13 +8,10 @@ pub fn merge_checkpoint_rollups(
     let num_left_checkpoints = left.num_checkpoints() as u32;
     let num_right_checkpoints = right.num_checkpoints() as u32;
 
-    // Make sure that the total number of checkpoints does not exceed the maximum allowed in an epoch, to prevent the
-    // merged arrays (`checkpoint_header_hashes`, `out_hashes`, `fees`) from being truncated within the below calls to
-    // `copy_items_into_array`.
+    // Make sure that the total number of checkpoints does not exceed the maximum allowed in an epoch.
     let num_checkpoints = num_left_checkpoints + num_right_checkpoints;
-
     assert(
-        num_checkpoints <= AZTEC_MAX_EPOCH_DURATION,
+        num_checkpoints <= MAX_CHECKPOINTS_PER_EPOCH,
         "total number of checkpoints exceeds max allowed in an epoch",
     );
 
@@ -24,27 +21,32 @@ pub fn merge_checkpoint_rollups(
     // (which is the only property that doesn't have empty values), for the number of fees.
     // Hence, we don't need to assert left.num_fees == num_left_checkpoints and right.num_fees == num_right_checkpoints.
 
-    // We use `copy_items_into_array` here because we know exactly how many items should be taken from each side when
-    // merging checkpoints.
-    // It is especially critical for `fees` to copy the exact amount of items from both checkpoints:
-    // The L1 contracts will process fees by index, assuming each entry corresponds to the checkpoint at the same
-    // position. However, a checkpoint may have zero fees and recipient as it is not prohibited by the circuit.
-    // Therefore, preserving empty values is important.
-    // Using this helper (instead of helper like `array_merge`) ensures those empty entries are copied over.
+    // `splice_at_count` uses the number of **left** checkpoints to decide exactly how many items to include from each
+    // side. This approach is more efficient than merging all non-empty items, and, importantly, it ensures the correct
+    // alignment of array items. It would be incorrect to simply merge non-empty items.
+    // For example, while header hashes are always present, the `fees` array can have empty (zeroed) entries that must
+    // be preserved at their original indices. The L1 contract expects the fee at each index to correspond to the
+    // checkpoint at the same index, even if that fee (or recipient) is zero. Therefore, we must always preserve all fee
+    // items during the merge. Merging by `num_checkpoints` guarantees that array indices in all merged arrays remain
+    // properly aligned.
 
-    let checkpoint_header_hashes = copy_items_into_array(
+    let checkpoint_header_hashes = splice_at_count(
         left.checkpoint_header_hashes,
         num_left_checkpoints,
         right.checkpoint_header_hashes,
-        num_right_checkpoints,
+    );
+    // Sanity check that the length of the array is defined correctly.
+    std::static_assert(
+        checkpoint_header_hashes.len() == MAX_CHECKPOINTS_PER_EPOCH,
+        "The length of the checkpoint header hashes array does not match the constant MAX_CHECKPOINTS_PER_EPOCH",
     );
 
     // We can't merge fees for the same recipient since the l1 contract iterates per checkpoint.
-    let fees = copy_items_into_array(
-        left.fees,
-        num_left_checkpoints,
-        right.fees,
-        num_right_checkpoints,
+    let fees = splice_at_count(left.fees, num_left_checkpoints, right.fees);
+    // Sanity check that the length of the array is defined correctly.
+    std::static_assert(
+        fees.len() == MAX_CHECKPOINTS_PER_EPOCH,
+        "The length of the fees array does not match the constant MAX_CHECKPOINTS_PER_EPOCH",
     );
 
     CheckpointRollupPublicInputs {

@@ -4,7 +4,6 @@ use crate::{
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS, TX_START_PREFIX,
-        TX_START_PREFIX_BIT_SIZE,
     },
     traits::ToField,
 };
@@ -46,6 +45,7 @@ global PUBLIC_LOGS_LENGTH_BIT_SIZE: u32 = 32;
 global CONTRACT_CLASS_LOG_LENGTH_BIT_SIZE: u32 = 16;
 global REVERT_CODE_BIT_SIZE: u32 = 8;
 global NUM_BLOB_FIELDS_BIT_SIZE: u32 = 32;
+global TX_START_PREFIX_BIT_SIZE: u32 = 32;
 
 /// Create the first field that marks the start of a tx. It's a concatenation of:
 /// `TX_START_PREFIX` | `num_note_hashes` | `num_nullifiers` | `num_l2_to_l1_msgs` | `num_public_data_writes` |
@@ -435,7 +435,8 @@ mod tests {
         CONTRACT_CLASS_LOG_LENGTH_BIT_SIZE, create_tx_start_marker, MAX_TX_BLOB_DATA_SIZE_IN_FIELDS,
         NUM_BLOB_FIELDS_BIT_SIZE, NUM_L2_TO_L1_MSG_BIT_SIZE, NUM_NOTE_HASH_BIT_SIZE,
         NUM_NULLIFIER_BIT_SIZE, NUM_PRIVATE_LOG_BIT_SIZE, NUM_PUBLIC_DATA_WRITE_BIT_SIZE,
-        PRIVATE_LOGS_LENGTH_BIT_SIZE, PUBLIC_LOGS_LENGTH_BIT_SIZE, TxEffectArrayLengths,
+        PRIVATE_LOGS_LENGTH_BIT_SIZE, PUBLIC_LOGS_LENGTH_BIT_SIZE, TX_START_PREFIX_BIT_SIZE,
+        TxEffectArrayLengths,
     };
 
     fn accumulate_bytes<let N: u32>(bytes: [u8; N], offset: u32, num_bytes: u32) -> Field {
@@ -451,6 +452,7 @@ mod tests {
     #[test]
     fn max_number_of_side_effects_does_not_exceed_limit() {
         // Ensure that each constant fits into its allocated bits in the tx start marker.
+        TX_START_PREFIX.assert_max_bit_size::<TX_START_PREFIX_BIT_SIZE>();
         (MAX_TX_BLOB_DATA_SIZE_IN_FIELDS as Field).assert_max_bit_size::<NUM_BLOB_FIELDS_BIT_SIZE>();
         (MAX_NOTE_HASHES_PER_TX as Field).assert_max_bit_size::<NUM_NOTE_HASH_BIT_SIZE>();
         (MAX_NULLIFIERS_PER_TX as Field).assert_max_bit_size::<NUM_NULLIFIER_BIT_SIZE>();
@@ -511,7 +513,7 @@ mod tests {
 
         // Generated from yarn-project/blob-lib/src/encoding/tx_start_marker.test.ts
         let tx_start_marker_from_typescript =
-            0x0074785f7374617274000b00160021002c00370315000004d2036c630000162e;
+            0x00000000009c707518000b00160021002c00370315000004d2036c630000162e;
 
         assert_eq(tx_start_marker, tx_start_marker_from_typescript);
     }
@@ -556,7 +558,7 @@ mod tests {
 
         // Generated from yarn-project/blob-lib/src/encoding/tx_start_marker.test.ts
         let large_tx_start_marker_from_typescript =
-            0x0074785f7374617274112233445566778899aaddee12345678bbcc9998765432;
+            0x00000000009c707518112233445566778899aaddee12345678bbcc9998765432;
 
         assert_eq(tx_start_marker, large_tx_start_marker_from_typescript);
     }

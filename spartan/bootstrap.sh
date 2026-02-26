@@ -99,6 +99,12 @@ function run_network_tests {
   source_network_env "$env_file"
   gcp_auth
   export SCENARIO_TESTS=1
+  # Retrieve the admin API key stored as a K8s Secret during deployment.
+  # Exported so the test runner can authenticate against the admin RPC endpoint.
+  export AZTEC_ADMIN_API_KEY
+  AZTEC_ADMIN_API_KEY=$(kubectl get secret aztec-admin-api-key \
+    --namespace "$NAMESPACE" \
+    -o jsonpath='{.data.key}' 2>/dev/null | base64 -d 2>/dev/null || true)
   local failed=()
   for test_file in "$@"; do
     echo_header "Running $test_file"
@@ -153,6 +159,7 @@ function network_bench {
 
   echo_header "spartan bench"
   gcp_auth
+  export K8S_ENRICHER=${K8S_ENRICHER:-1}
   network_bench_cmds | parallelize 1
 }
 
@@ -165,6 +172,7 @@ function proving_bench {
 
   echo_header "spartan proving bench"
   gcp_auth
+  export K8S_ENRICHER=${K8S_ENRICHER:-1}
   proving_bench_cmds | parallelize 1
 }
 
@@ -219,6 +227,7 @@ case "$cmd" in
     # Run the network deploy script
     DENOISE=1 denoise "./scripts/network_deploy.sh $env_file"
 
+    export K8S_ENRICHER=${K8S_ENRICHER:-1}
     if [[ "${RUN_TESTS:-}" == "true" ]]; then
       if [[ -n "$test_set" ]]; then
         network_tests_$test_set "$env_file"
@@ -281,8 +290,8 @@ case "$cmd" in
     source scripts/source_network_env.sh
     source_network_env ${KIND_ENV:-kind-provers}
     namespace="upgrade-rollup-version${NAME_POSTFIX:-}"
-    INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts "$namespace"
+    export K8S_ENRICHER=${K8S_ENRICHER:-1}
+    ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts "$namespace"
     ;;
   "network_teardown")
     env_file="$1"

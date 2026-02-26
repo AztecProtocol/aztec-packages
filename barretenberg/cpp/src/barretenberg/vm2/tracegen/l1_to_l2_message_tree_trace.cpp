@@ -1,21 +1,23 @@
 #include "barretenberg/vm2/tracegen/l1_to_l2_message_tree_trace.hpp"
 
-#include <cassert>
-#include <memory>
-#include <stack>
-#include <unordered_map>
+#include <cstdint>
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_l1_to_l2_message_tree_check.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/tracegen/lib/discard_reconstruction.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 
 namespace bb::avm2::tracegen {
 
+/**
+ * @brief Process the L1-to-L2 message tree check events and populate the relevant columns in the trace.
+ *
+ * Each event produces one trace row.
+ *
+ * @param events The container of L1-to-L2 message tree check events to process.
+ * @param trace The trace container.
+ */
 void L1ToL2MessageTreeCheckTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::L1ToL2MessageTreeCheckEvent>::Container& events,
     TraceContainer& trace)
@@ -46,6 +48,6 @@ void L1ToL2MessageTreeCheckTraceBuilder::process(
 
 const InteractionDefinition L1ToL2MessageTreeCheckTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_l1_to_l2_message_tree_check_merkle_check_settings, InteractionType::LookupGeneric>();
+        .add<lookup_l1_to_l2_message_tree_check_merkle_check_settings, InteractionType::LookupSequential>();
 
 } // namespace bb::avm2::tracegen

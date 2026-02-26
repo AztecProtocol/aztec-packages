@@ -46,6 +46,30 @@ function test {
   BB_LIB_DIR="$(cd ../cpp/build/lib && pwd)" RUSTFLAGS="-C link-arg=-Wl,--allow-multiple-definition" denoise "cargo test --release --features ffi"
 }
 
+function release {
+  echo_header "barretenberg-rs release"
+
+  local version=${REF_NAME#v}
+
+  # Set the workspace version to match the release tag
+  sed -i "s/^version = \".*\"/version = \"$version\"/" Cargo.toml
+
+  # Generated files must exist (created during build step)
+  if [ ! -f barretenberg-rs/src/api.rs ] || [ ! -f barretenberg-rs/src/generated_types.rs ]; then
+    echo "ERROR: generated files not found. Run 'cd ../ts && yarn generate' first."
+    exit 1
+  fi
+
+  # Publish to crates.io (--allow-dirty because version was just set and generated files are gitignored)
+  local extra_flags=""
+  if ! gh release view "v$version" --repo AztecProtocol/aztec-packages &>/dev/null; then
+    # No matching GitHub release yet — skip verification build (which would try to download libbb-external.a)
+    echo "No GitHub release found for v$version, adding --no-verify (pass REF_NAME matching a release for full verification)"
+    extra_flags="--no-verify"
+  fi
+  BB_LIB_DIR="$(cd ../cpp/build/lib && pwd)" retry "denoise 'cargo publish --allow-dirty $extra_flags -p barretenberg-rs'"
+}
+
 function test_download {
   echo_header "barretenberg-rs download test"
 
@@ -121,6 +145,5 @@ case "$cmd" in
     $cmd
     ;;
   *)
-    echo "Unknown command: $cmd"
-    exit 1
+    default_cmd_handler "$@"
 esac

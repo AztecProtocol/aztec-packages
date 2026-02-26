@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    "./config": "./dest/config.js",
     "./db": "./dest/db/index.js",
     "./errors": "./dest/errors.js",
     "./factory": "./dest/factory.js",
+    "./metrics": "./dest/metrics.js",
     "./migrations": "./dest/migrations.js",
     "./slashing-protection-service": "./dest/slashing_protection_service.js",
     "./types": "./dest/types.js",
@@ -15,10 +15,10 @@
   },
   "typedocOptions": {
     "entryPoints": [
-      "./src/config.ts",
       "./src/db/index.ts",
       "./src/errors.ts",
       "./src/factory.ts",
+      "./src/metrics.ts",
       "./src/migrations.ts",
       "./src/slashing_protection_service.ts",
       "./src/types.ts",
@@ -76,6 +76,8 @@
   "dependencies": {
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
+    "@aztec/telemetry-client": "workspace:^",
     "node-pg-migrate": "^8.0.4",
     "pg": "^8.11.3",
     "tslib": "^2.4.0",

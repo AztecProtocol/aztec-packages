@@ -1,16 +1,10 @@
 #pragma once
 
 // Establish concepts for testing flavor attributes
-#include "barretenberg/honk/types/circuit_type.hpp"
+#include "barretenberg/common/type_traits.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include <string>
 namespace bb {
-/**
- * @brief Test whether a type T lies in a list of types ...U.
- *
- * @tparam T The type being tested
- * @tparam U A parameter pack of types being checked against T.
- */
 // clang-format off
 
 #ifdef STARKNET_GARAGA_FLAVORS
@@ -38,7 +32,8 @@ concept HasDataBus = IsMegaFlavor<T>;
 // hence requiring an adjustment to the round univariates via the RowDisablingPolynomial.
 // This is not the case for Translator, where randomness resides in different parts of the trace and the locations will
 // be reflected via Translator relations.
-template <typename T> concept UseRowDisablingPolynomial = !IsAnyOf<T,TranslatorFlavor, TranslatorRecursiveFlavor>;
+template <typename T> concept IsTranslatorFlavor = IsAnyOf<T, TranslatorFlavor, TranslatorRecursiveFlavor>;
+template <typename T> concept UseRowDisablingPolynomial = !IsTranslatorFlavor<T>;
 
 
 

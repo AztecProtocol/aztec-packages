@@ -1,6 +1,6 @@
 # @aztec/wallet-sdk
 
-Version: v4.0.0-nightly.20260205
+Version: v5.0.0-nightly.20260224
 
 ## Quick Import Reference
 
@@ -51,7 +51,7 @@ Implements: `Wallet`
 
 **Constructor**
 ```typescript
-new BaseWallet(pxe: PXE, aztecNode: AztecNode)
+new BaseWallet(pxe: PXE, aztecNode: AztecNode, log: Logger)
 ```
 
 **Properties**
@@ -68,20 +68,23 @@ new BaseWallet(pxe: PXE, aztecNode: AztecNode)
 - `contextualizeError(err: Error, ...context: string[]) => Error`
 - `createAuthWit(from: AztecAddress, messageHashOrIntent: IntentInnerHash | CallIntent) => Promise<AuthWitness>`
 - `createTxExecutionRequestFromPayloadAndFee(executionPayload: ExecutionPayload, from: AztecAddress, feeOptions: FeeOptions) => Promise<TxExecutionRequest>`
+- `executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions) => Promise<UtilityExecutionResult>`
 - `getAccountFromAddress(address: AztecAddress) => Promise<Account>`
 - `getAccounts() => Promise<Aliased<AztecAddress>[]>`
 - `getAddressBook() => Promise<Aliased<AztecAddress>[]>` - Returns the list of aliased contacts associated with the wallet. This base implementation directly returns PXE's senders, but note that in general contacts are a superset of senders. - Senders: Addresses we check during synching in case they sent us notes, - Contacts: more general concept akin to a phone's contact list.
 - `getChainInfo() => Promise<ChainInfo>`
 - `getContractClassMetadata(id: Fr) => Promise<{ isArtifactRegistered: boolean; isContractClassPubliclyRegistered: boolean }>`
 - `getContractMetadata(address: AztecAddress) => Promise<{ instance: ContractInstanceWithAddress | undefined; isContractInitialized: boolean; ... }>`
+- `getContractName(address: AztecAddress) => Promise<string | undefined>` - Resolves a contract address to a human-readable name via PXE, if available.
 - `getPrivateEvents<T>(eventDef: EventMetadataDefinition, eventFilter: PrivateEventFilter) => Promise<PrivateEvent<T>[]>`
 - `profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions) => Promise<TxProfileResult>`
 - `registerContract(instance: ContractInstanceWithAddress, artifact?: ContractArtifact, secretKey?: Fr) => Promise<ContractInstanceWithAddress>`
 - `registerSender(address: AztecAddress, _alias: string) => Promise<AztecAddress>`
 - `requestCapabilities(_manifest: AppCapabilities) => Promise<WalletCapabilities>` - Request capabilities from the wallet. This method is wallet-implementation-dependent and must be provided by classes extending BaseWallet. Embedded wallets typically don't support capability-based authorization (no user authorization flow), while external wallets (browser extensions, hardware wallets) implement this to reduce authorization friction by allowing apps to request permissions upfront. Consider making it abstract so implementing it is a conscious decision. Leaving it as-is while the feature stabilizes.
+- `scopesFrom(from: AztecAddress, additionalScopes: AztecAddress[]) => AztecAddress[]`
 - `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>`
-- `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResult>`
-- `simulateUtility(call: FunctionCall, authwits?: AuthWitness[]) => Promise<UtilitySimulationResult>`
+- `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResult>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
+- `simulateViaEntrypoint(executionPayload: ExecutionPayload, from: AztecAddress, feeOptions: FeeOptions, scopes: AccessScopes, skipTxValidation?: boolean, skipFeeEnforcement?: boolean) => Promise<TxSimulationResult>` - Simulates calls through the standard PXE path (account entrypoint).
 
 ### ContentScriptConnectionHandler
 
@@ -115,7 +118,8 @@ new ExtensionProvider()
 A wallet implementation that communicates with browser extension wallets using an encrypted MessageChannel. This class uses a secure channel established after discovery: 1. **MessageChannel**: Created during discovery and transferred via window.postMessage. Note: The port transfer is visible to page scripts, but security comes from encryption. 2. **ECDH Key Exchange**: The shared secret was derived after discovery using Elliptic Curve Diffie-Hellman key exchange over the MessagePort. 3. **AES-GCM Encryption**: All messages are encrypted using AES-256-GCM, providing both confidentiality and authenticity. This is what secures the channel.
 
 **Methods**
-- `static create(extensionId: string, port: MessagePort, sharedKey: CryptoKey, chainInfo: ChainInfo, appId: string) => Wallet` - Creates a Wallet that communicates with a browser extension over a secure encrypted MessageChannel.
+- `asWallet() => Wallet`
+- `static create(extensionId: string, port: MessagePort, sharedKey: CryptoKey, chainInfo: ChainInfo, appId: string) => ExtensionWallet` - Creates a Wallet that communicates with a browser extension over a secure encrypted MessageChannel.
 - `disconnect() => Promise<void>` - Disconnects from the wallet and cleans up resources. This method notifies the wallet extension that the session is ending, allowing it to clean up its state. After calling this method, the wallet instance can no longer be used and any pending requests will be rejected.
 - `isDisconnected() => boolean` - Returns whether the wallet has been disconnected.
 - `onDisconnect(callback: DisconnectCallback) => () => void` - Registers a callback to be invoked when the wallet disconnects.
@@ -442,6 +446,12 @@ Configuration for web wallets
 
 ## Functions
 
+### buildMergedSimulationResult
+```typescript
+function buildMergedSimulationResult(optimizedResults: TxSimulationResult[], normalResult: TxSimulationResult | null) => TxSimulationResult
+```
+Merges simulation results from the optimized (public static) and normal paths. Since optimized calls are always a leading prefix, return values are simply concatenated: optimized first, then normal. Stats are taken from the normal result only (the optimized path doesn't produce them).
+
 ### decrypt
 ```typescript
 function decrypt<T>(key: CryptoKey, payload: EncryptedPayload) => Promise<T>
@@ -466,6 +476,12 @@ function exportPublicKey(publicKey: CryptoKey) => Promise<ExportedPublicKey>
 ```
 Exports a public key to JWK format for transmission. The exported key contains only public components and is safe to transmit over untrusted channels.
 
+### extractOptimizablePublicStaticCalls
+```typescript
+function extractOptimizablePublicStaticCalls(payload: ExecutionPayload) => { optimizableCalls: FunctionCall[]; remainingCalls: FunctionCall[] }
+```
+Splits an execution payload into a leading prefix of public static calls (eligible for direct node simulation) and the remaining calls. Only a leading run of public static calls is eligible for optimization. Any non-public-static call may enqueue public state mutations (e.g. private calls can enqueue public calls), so all calls that follow must go through the normal simulation path to see the correct state.
+
 ### generateKeyPair
 ```typescript
 function generateKeyPair() => Promise<SecureKeyPair>
@@ -483,6 +499,12 @@ Converts a hex hash to an emoji sequence for visual verification. This is used f
 function importPublicKey(exported: ExportedPublicKey) => Promise<CryptoKey>
 ```
 Imports a public key from JWK format. Used to import the other party's public key for deriving session keys.
+
+### simulateViaNode
+```typescript
+function simulateViaNode(node: AztecNode, publicStaticCalls: FunctionCall[], from: AztecAddress, chainInfo: ChainInfo, gasSettings: GasSettings, blockHeader: BlockHeader, skipFeeEnforcement: boolean, getContractName: ContractNameResolver) => Promise<TxSimulationResult[]>
+```
+Simulates public static calls by splitting them into batches of MAX_ENQUEUED_CALLS_PER_CALL and sending each batch directly to the node.
 
 ## Types
 
@@ -546,7 +568,7 @@ Values: `aztec-wallet-disconnect`, `aztec-wallet-discovery`, `aztec-wallet-disco
 This package references types from other Aztec packages:
 
 **@aztec/aztec.js**
-- `Account`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `FeePaymentMethod`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `Wallet`, `WalletCapabilities`
+- `Account`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `ExecuteUtilityOptions`, `FeePaymentMethod`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `Wallet`, `WalletCapabilities`
 
 **@aztec/entrypoints**
 - `AccountFeePaymentMethodOptions`, `ChainInfo`
@@ -555,7 +577,7 @@ This package references types from other Aztec packages:
 - `FieldsOf`, `Fr`, `Logger`
 
 **@aztec/pxe**
-- `PXE`
+- `AccessScopes`, `ContractNameResolver`, `PXE`
 
 **@aztec/stdlib**
-- `AuthWitness`, `AztecAddress`, `AztecNode`, `ContractArtifact`, `ContractInstanceWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `GasSettings`, `TxExecutionRequest`, `TxProfileResult`, `TxSimulationResult`, `UtilitySimulationResult`
+- `AuthWitness`, `AztecAddress`, `AztecNode`, `BlockHeader`, `ContractArtifact`, `ContractInstanceWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `GasSettings`, `TxExecutionRequest`, `TxProfileResult`, `TxSimulationResult`, `UtilityExecutionResult`

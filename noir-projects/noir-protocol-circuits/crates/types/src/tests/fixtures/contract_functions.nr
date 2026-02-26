@@ -21,7 +21,7 @@ pub global default_private_function: ContractFunction = ContractFunction {
     membership_witness: MembershipWitness {
         leaf_index: 0,
         sibling_path: [
-            0x27eac3a6e29301462412fee9595e2c5d8fbedf8b1e463334ecf99cd87b450919,
+            0x0946489a51e1af5ea7f2e85a17cf2691a446760d8751199208b49acf72e1c0c7,
             0x0e34ac2c09f45a503d2908bcb12f1cbae5fa4065759c88d501c097506a8b2290,
             0x21f9172d72fdcdafc312eee05cf5092980dda821da5b760a9fb8dbdf607c8a20,
             0x2373ea368857ec7af97e7b470d705848e2bf93ed7bef142a490f2119bcf82d8e,
@@ -55,7 +55,7 @@ pub global updated_private_function: ContractFunction = ContractFunction {
     membership_witness: MembershipWitness {
         leaf_index: 0,
         sibling_path: [
-            0x1b15a6fc26bd33b43181c6f3ba8a99c4857aa733248a61ac0967e840230bd5c5,
+            0x1260f4354ff916029a970f9d72fea65c206f1a7be4b8f2864eea26d90dd66caf,
             0x0e34ac2c09f45a503d2908bcb12f1cbae5fa4065759c88d501c097506a8b2290,
             0x21f9172d72fdcdafc312eee05cf5092980dda821da5b760a9fb8dbdf607c8a20,
             0x2373ea368857ec7af97e7b470d705848e2bf93ed7bef142a490f2119bcf82d8e,

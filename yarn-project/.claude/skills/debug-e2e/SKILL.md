@@ -1,6 +1,7 @@
 ---
 name: debug-e2e
 description: Interactive debugging for failed e2e tests. Orchestrates the debugging session but delegates log reading to subagents to keep the main conversation clean. Use for ping-pong debugging sessions where you want to form and test hypotheses together with the user.
+argument-hint: <hash, PR, URL, or test name>
 ---
 
 # E2E Test Debugging
@@ -145,19 +146,17 @@ To understand when a test started failing:
 To run tests locally for verification:
 
 ```bash
-cd end-to-end
-
 # Run specific test
-yarn test:e2e <file>.test.ts -t '<test name>'
+yarn workspace @aztec/end-to-end test:e2e <file>.test.ts -t '<test name>'
 
 # With verbose logging
-LOG_LEVEL=verbose yarn test:e2e <file>.test.ts -t '<test name>'
+LOG_LEVEL=verbose yarn workspace @aztec/end-to-end test:e2e <file>.test.ts -t '<test name>'
 
 # With debug logging (very detailed)
-LOG_LEVEL=debug yarn test:e2e <file>.test.ts -t '<test name>'
+LOG_LEVEL=debug yarn workspace @aztec/end-to-end test:e2e <file>.test.ts -t '<test name>'
 
 # With specific module logging
-LOG_LEVEL='info; debug:sequencer,p2p' yarn test:e2e <file>.test.ts -t '<test name>'
+LOG_LEVEL='info; debug:sequencer,p2p' yarn workspace @aztec/end-to-end test:e2e <file>.test.ts -t '<test name>'
 ```
 
 ## Log Structure

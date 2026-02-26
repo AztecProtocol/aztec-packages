@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, elapsed } from '@aztec/foundation/timer';
-import { getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
+import { createTxValidatorForBlockBuilding, getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
 import {
   GuardedMerkleTreeOperations,
@@ -28,11 +28,10 @@ import {
   type PublicProcessorLimits,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
+import { type DebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { type CheckpointGlobalVariables, GlobalVariables, StateReference, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
-
-import { createValidatorForBlockBuilding } from './tx_validator/tx_validator_factory.js';
 
 // Re-export for backward compatibility
 export type { BuildBlockInCheckpointResult } from '@aztec/stdlib/interfaces/server';
@@ -52,6 +51,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     private dateProvider: DateProvider,
     private telemetryClient: TelemetryClient,
     bindings?: LoggerBindings,
+    private debugLogStore: DebugLogStore = new NullDebugLogStore(),
   ) {
     this.log = createLogger('checkpoint-builder', {
       ...bindings,
@@ -105,7 +105,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     }
 
     // Add block to checkpoint
-    const block = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
+    const { block } = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
       expectedEndState: opts.expectedEndState,
     });
 
@@ -152,6 +152,8 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     const contractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings());
     const guardedFork = new GuardedMerkleTreeOperations(fork);
 
+    const collectDebugLogs = this.debugLogStore.isEnabled;
+
     const bindings = this.log.getBindings();
     const publicTxSimulator = createPublicTxSimulatorForBlockBuilding(
       guardedFork,
@@ -159,6 +161,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       globalVariables,
       this.telemetryClient,
       bindings,
+      collectDebugLogs,
     );
 
     const processor = new PublicProcessor(
@@ -170,9 +173,10 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       this.telemetryClient,
       createLogger('simulator:public-processor', bindings),
       this.config,
+      this.debugLogStore,
     );
 
-    const validator = createValidatorForBlockBuilding(
+    const validator = createTxValidatorForBlockBuilding(
       fork,
       this.contractDataSource,
       globalVariables,
@@ -197,6 +201,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
     private contractDataSource: ContractDataSource,
     private dateProvider: DateProvider,
     private telemetryClient: TelemetryClient = getTelemetryClient(),
+    private debugLogStore: DebugLogStore = new NullDebugLogStore(),
   ) {
     this.log = createLogger('checkpoint-builder');
   }
@@ -215,6 +220,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
   async startCheckpoint(
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
+    feeAssetPriceModifier: bigint,
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     fork: MerkleTreeWriteOperations,
@@ -229,6 +235,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       initialStateReference: stateReference.toInspect(),
       initialArchiveRoot: bufferToHex(archiveTree.root),
       constants,
+      feeAssetPriceModifier,
     });
 
     const lightweightBuilder = await LightweightCheckpointBuilder.startNewCheckpoint(
@@ -238,6 +245,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       previousCheckpointOutHashes,
       fork,
       bindings,
+      feeAssetPriceModifier,
     );
 
     return new CheckpointBuilder(
@@ -248,6 +256,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       this.dateProvider,
       this.telemetryClient,
       bindings,
+      this.debugLogStore,
     );
   }
 
@@ -257,6 +266,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
   async openCheckpoint(
     checkpointNumber: CheckpointNumber,
     constants: CheckpointGlobalVariables,
+    feeAssetPriceModifier: bigint,
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
     fork: MerkleTreeWriteOperations,
@@ -270,6 +280,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       return this.startCheckpoint(
         checkpointNumber,
         constants,
+        feeAssetPriceModifier,
         l1ToL2Messages,
         previousCheckpointOutHashes,
         fork,
@@ -284,11 +295,13 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       initialStateReference: stateReference.toInspect(),
       initialArchiveRoot: bufferToHex(archiveTree.root),
       constants,
+      feeAssetPriceModifier,
     });
 
     const lightweightBuilder = await LightweightCheckpointBuilder.resumeCheckpoint(
       checkpointNumber,
       constants,
+      feeAssetPriceModifier,
       l1ToL2Messages,
       previousCheckpointOutHashes,
       fork,
@@ -304,6 +317,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       this.dateProvider,
       this.telemetryClient,
       bindings,
+      this.debugLogStore,
     );
   }
 

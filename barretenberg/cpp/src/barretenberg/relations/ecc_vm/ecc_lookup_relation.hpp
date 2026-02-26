@@ -93,12 +93,11 @@ template <typename FF_> class ECCVMLookupRelationImpl {
     static Accumulator get_table_term_predicate(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-
-        if constexpr (table_index == 0) {
-            return Accumulator(View(in.precompute_select));
-        }
-        if constexpr (table_index == 1) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/750) Is this a bug?
+        // anytime `precompute_select` is on, we "turn on" the table predicate. This concretely means that the sP, where
+        // s is a WNAF slice and P is the point being processed, are "written" to the lookup table, i.e., may be
+        // read/looked up later. `table_index == 0` corresponds to positive WNAF entries, `table_index == 1` corresponds
+        // to negative WNAF entries.
+        if constexpr (table_index == 0 || table_index == 1) {
             return Accumulator(View(in.precompute_select));
         }
         return Accumulator(1);

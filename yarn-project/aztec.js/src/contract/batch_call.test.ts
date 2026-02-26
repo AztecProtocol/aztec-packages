@@ -1,14 +1,13 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { ExecutionPayload, TxSimulationResult, UtilitySimulationResult } from '@aztec/stdlib/tx';
+import { ExecutionPayload, TxSimulationResult, UtilityExecutionResult } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { BatchCall } from './batch_call.js';
 
-// eslint-disable-next-line jsdoc/require-jsdoc
 function createUtilityExecutionPayload(
   functionName: string,
   args: Fr[],
@@ -16,16 +15,16 @@ function createUtilityExecutionPayload(
 ): ExecutionPayload {
   return new ExecutionPayload(
     [
-      {
+      FunctionCall.from({
         name: functionName,
         to: contractAddress,
         selector: FunctionSelector.random(),
         type: FunctionType.UTILITY,
-        isStatic: true,
         hideMsgSender: false,
+        isStatic: true,
         args,
         returnTypes: [{ kind: 'field' }],
-      },
+      }),
     ],
     [],
     [],
@@ -34,7 +33,6 @@ function createUtilityExecutionPayload(
   );
 }
 
-// eslint-disable-next-line jsdoc/require-jsdoc
 function createPrivateExecutionPayload(
   functionName: string,
   args: Fr[],
@@ -43,16 +41,16 @@ function createPrivateExecutionPayload(
 ): ExecutionPayload {
   return new ExecutionPayload(
     [
-      {
+      FunctionCall.from({
         name: functionName,
         to: contractAddress,
         selector: FunctionSelector.random(),
         type: FunctionType.PRIVATE,
-        isStatic: false,
         hideMsgSender: false,
+        isStatic: false,
         args,
         returnTypes: Array(numReturnValues).fill({ kind: 'field' }),
-      },
+      }),
     ],
     [],
     [],
@@ -61,7 +59,6 @@ function createPrivateExecutionPayload(
   );
 }
 
-// eslint-disable-next-line jsdoc/require-jsdoc
 function createPublicExecutionPayload(
   functionName: string,
   args: Fr[],
@@ -69,16 +66,16 @@ function createPublicExecutionPayload(
 ): ExecutionPayload {
   return new ExecutionPayload(
     [
-      {
+      FunctionCall.from({
         name: functionName,
         to: contractAddress,
         selector: FunctionSelector.random(),
         type: FunctionType.PUBLIC,
-        isStatic: false,
         hideMsgSender: false,
+        isStatic: false,
         args,
         returnTypes: [{ kind: 'field' }],
-      },
+      }),
     ],
     [],
     [],
@@ -110,8 +107,8 @@ describe('BatchCall', () => {
       batchCall = new BatchCall(wallet, [utilityPayload1, privatePayload, utilityPayload2, publicPayload]);
 
       // Mock utility simulation results
-      const utilityResult1 = UtilitySimulationResult.random();
-      const utilityResult2 = UtilitySimulationResult.random();
+      const utilityResult1 = UtilityExecutionResult.random();
+      const utilityResult2 = UtilityExecutionResult.random();
 
       // Mock tx simulation result
       const privateReturnValues = [Fr.random(), Fr.random()];
@@ -125,8 +122,8 @@ describe('BatchCall', () => {
 
       // Mock wallet.batch to return both utility results and simulateTx result
       wallet.batch.mockResolvedValue([
-        { name: 'simulateUtility', result: utilityResult1 },
-        { name: 'simulateUtility', result: utilityResult2 },
+        { name: 'executeUtility', result: utilityResult1 },
+        { name: 'executeUtility', result: utilityResult2 },
         { name: 'simulateTx', result: txSimResult },
       ] as any);
 
@@ -136,12 +133,18 @@ describe('BatchCall', () => {
       expect(wallet.batch).toHaveBeenCalledTimes(1);
       expect(wallet.batch).toHaveBeenCalledWith([
         {
-          name: 'simulateUtility',
-          args: [expect.objectContaining({ name: 'getBalance', to: contractAddress1 }), undefined, undefined],
+          name: 'executeUtility',
+          args: [
+            expect.objectContaining({ name: 'getBalance', to: contractAddress1 }),
+            expect.objectContaining({ scope: expect.any(AztecAddress) }),
+          ],
         },
         {
-          name: 'simulateUtility',
-          args: [expect.objectContaining({ name: 'checkPermission', to: contractAddress3 }), undefined, undefined],
+          name: 'executeUtility',
+          args: [
+            expect.objectContaining({ name: 'checkPermission', to: contractAddress3 }),
+            expect.objectContaining({ scope: expect.any(AztecAddress) }),
+          ],
         },
         {
           name: 'simulateTx',
@@ -157,9 +160,9 @@ describe('BatchCall', () => {
         },
       ]);
 
-      // Verify wallet.simulateTx/simulateUtility were NOT called directly
+      // Verify wallet.simulateTx/executeUtility were NOT called directly
       expect(wallet.simulateTx).not.toHaveBeenCalled();
-      expect(wallet.simulateUtility).not.toHaveBeenCalled();
+      expect(wallet.executeUtility).not.toHaveBeenCalled();
 
       expect(results).toHaveLength(4);
       // First utility - decoded from Fr[] to bigint (single field returns the value directly, not as array)
@@ -181,13 +184,13 @@ describe('BatchCall', () => {
 
       batchCall = new BatchCall(wallet, [utilityPayload1, utilityPayload2]);
 
-      // Mock utility simulation results
-      const utilityResult1 = UtilitySimulationResult.random();
-      const utilityResult2 = UtilitySimulationResult.random();
+      // Mock utility execution results
+      const utilityResult1 = UtilityExecutionResult.random();
+      const utilityResult2 = UtilityExecutionResult.random();
 
       wallet.batch.mockResolvedValue([
-        { name: 'simulateUtility', result: utilityResult1 },
-        { name: 'simulateUtility', result: utilityResult2 },
+        { name: 'executeUtility', result: utilityResult1 },
+        { name: 'executeUtility', result: utilityResult2 },
       ] as any);
 
       const results = await batchCall.simulate({ from: await AztecAddress.random() });
@@ -195,12 +198,18 @@ describe('BatchCall', () => {
       expect(wallet.batch).toHaveBeenCalledTimes(1);
       expect(wallet.batch).toHaveBeenCalledWith([
         {
-          name: 'simulateUtility',
-          args: [expect.objectContaining({ name: 'view1', to: contractAddress1 }), undefined, undefined],
+          name: 'executeUtility',
+          args: [
+            expect.objectContaining({ name: 'view1', to: contractAddress1 }),
+            expect.objectContaining({ scope: expect.any(AztecAddress) }),
+          ],
         },
         {
-          name: 'simulateUtility',
-          args: [expect.objectContaining({ name: 'view2', to: contractAddress2 }), undefined, undefined],
+          name: 'executeUtility',
+          args: [
+            expect.objectContaining({ name: 'view2', to: contractAddress2 }),
+            expect.objectContaining({ scope: expect.any(AztecAddress) }),
+          ],
         },
       ]);
 
@@ -272,7 +281,7 @@ describe('BatchCall', () => {
       batchCall = new BatchCall(wallet, [payload]);
 
       const feePayload = createPrivateExecutionPayload('payFee', [Fr.random()], await AztecAddress.random());
-      // eslint-disable-next-line jsdoc/require-jsdoc
+
       const mockPaymentMethod = mock<{ getExecutionPayload: () => Promise<ExecutionPayload> }>();
       mockPaymentMethod.getExecutionPayload.mockResolvedValue(feePayload);
 

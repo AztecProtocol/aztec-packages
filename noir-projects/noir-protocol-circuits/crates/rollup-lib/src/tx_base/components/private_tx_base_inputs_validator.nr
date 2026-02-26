@@ -1,7 +1,7 @@
 use crate::tx_base::components::{
     fees::compute_fee_payer_fee_juice_balance_leaf_slot, private_tail_validator,
 };
-use dep::types::{
+use types::{
     abis::{
         block_constant_data::BlockConstantData,
         kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
@@ -63,7 +63,7 @@ impl PrivateTxBaseInputsValidator {
     }
 
     fn validate_hiding_kernel_proof_and_vk(self) {
-        if !dep::std::runtime::is_unconstrained() {
+        if !::std::runtime::is_unconstrained() {
             self.hiding_kernel_proof_data.verify_proof();
         }
 
@@ -87,8 +87,8 @@ impl PrivateTxBaseInputsValidator {
             self.anchor_block_archive_sibling_path,
         );
 
-        private_tail_validator::validate_include_by_timestamp(
-            private_tail.include_by_timestamp,
+        private_tail_validator::validate_expiration_timestamp(
+            private_tail.expiration_timestamp,
             self.constants.global_variables,
         );
 

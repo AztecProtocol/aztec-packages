@@ -193,10 +193,10 @@ export type CheckpointProposedArgs = {
   checkpointNumber: CheckpointNumber;
   archive: Fr;
   versionedBlobHashes: Buffer[];
-  /** Hash of attestations. Undefined for older events (backwards compatibility). */
-  attestationsHash?: Buffer32;
-  /** Digest of the payload. Undefined for older events (backwards compatibility). */
-  payloadDigest?: Buffer32;
+  /** Hash of attestations emitted in the CheckpointProposed event. */
+  attestationsHash: Buffer32;
+  /** Digest of the payload emitted in the CheckpointProposed event. */
+  payloadDigest: Buffer32;
 };
 
 /** Log type for CheckpointProposed events. */
@@ -391,20 +391,24 @@ export class RollupContract {
     slotDuration: number;
     epochDuration: number;
     proofSubmissionEpochs: number;
+    targetCommitteeSize: number;
   }> {
-    const [l1StartBlock, l1GenesisTime, slotDuration, epochDuration, proofSubmissionEpochs] = await Promise.all([
-      this.getL1StartBlock(),
-      this.getL1GenesisTime(),
-      this.getSlotDuration(),
-      this.getEpochDuration(),
-      this.getProofSubmissionEpochs(),
-    ]);
+    const [l1StartBlock, l1GenesisTime, slotDuration, epochDuration, proofSubmissionEpochs, targetCommitteeSize] =
+      await Promise.all([
+        this.getL1StartBlock(),
+        this.getL1GenesisTime(),
+        this.getSlotDuration(),
+        this.getEpochDuration(),
+        this.getProofSubmissionEpochs(),
+        this.getTargetCommitteeSize(),
+      ]);
     return {
       l1StartBlock,
       l1GenesisTime,
       slotDuration,
       epochDuration: Number(epochDuration),
       proofSubmissionEpochs: Number(proofSubmissionEpochs),
+      targetCommitteeSize,
     };
   }
 
@@ -1056,8 +1060,22 @@ export class RollupContract {
           checkpointNumber: CheckpointNumber.fromBigInt(log.args.checkpointNumber!),
           archive: Fr.fromString(log.args.archive!),
           versionedBlobHashes: log.args.versionedBlobHashes!.map(h => Buffer.from(h.slice(2), 'hex')),
-          attestationsHash: log.args.attestationsHash ? Buffer32.fromString(log.args.attestationsHash) : undefined,
-          payloadDigest: log.args.payloadDigest ? Buffer32.fromString(log.args.payloadDigest) : undefined,
+          attestationsHash: (() => {
+            if (!log.args.attestationsHash) {
+              throw new Error(
+                `CheckpointProposed event missing attestationsHash for checkpoint ${log.args.checkpointNumber}`,
+              );
+            }
+            return Buffer32.fromString(log.args.attestationsHash);
+          })(),
+          payloadDigest: (() => {
+            if (!log.args.payloadDigest) {
+              throw new Error(
+                `CheckpointProposed event missing payloadDigest for checkpoint ${log.args.checkpointNumber}`,
+              );
+            }
+            return Buffer32.fromString(log.args.payloadDigest);
+          })(),
         },
       }));
   }

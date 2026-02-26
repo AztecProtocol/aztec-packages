@@ -10,14 +10,26 @@ High-level structure of how Aztec smart contracts including the different compon
 
 ## Directory structure
 
-Here's a common layout for a basic Aztec.nr Contract project:
+When you create a new project with `aztec new`, it generates a workspace with two crates: a `contract` crate for your smart contract and a `test` crate for Noir tests.
 
 ```text title="layout of an aztec contract project"
 ─── my_aztec_contract_project
-       ├── src
-       │     └── main.nr       <-- your contract
-       └── Nargo.toml          <-- package and dependency management
+       ├── Nargo.toml              <-- workspace root
+       ├── contract
+       │     ├── src
+       │     │     └── main.nr     <-- your contract
+       │     └── Nargo.toml        <-- contract package and dependencies
+       └── test
+             ├── src
+             │     └── lib.nr      <-- your tests
+             └── Nargo.toml        <-- test package and dependencies
 ```
+
+The workspace root `Nargo.toml` declares both crates as workspace members. The contract code lives in `contract/src/main.nr`, and tests live in a separate `test` crate that depends on the contract crate.
+
+:::warning Keep tests out of the contract crate
+Do not add `#[test]` functions to the `contract` crate. Because the contract artifact depends on everything in its crate, any change — including a test-only change — forces a full recompilation of the contract. The separate `test` crate lets you iterate on tests without rebuilding the contract. See [Testing Contracts](../testing_contracts.md#keep-tests-in-the-test-crate) for details.
+:::
 
 See the vanilla Noir docs for [more info on packages](https://noir-lang.org/docs/noir/modules_packages_crates/crates_and_packages).
 
@@ -103,7 +115,7 @@ pub contract MyContract {
 
 Like Solidity contracts, Aztec contracts can define events to notify that some state has changed. However, in Aztec, events can also be emitted privately, in which case only some users will learn of the event.
 
-[Events](./how_to_emit_event.md) are a struct marked with the `#[event]` macro:
+[Events](./events_and_logs.md) are a struct marked with the `#[event]` macro:
 
 ```rust
 #[event]
@@ -160,4 +172,4 @@ We expect to lift some of these restrictions sometime after the release of Noir 
 
 - [Define functions](./functions/index.md) - Learn about private, public, and utility functions
 - [Define storage](./state_variables.md) - Work with persistent state variables
-- [Compile your contract](../how_to_compile_contract.md) - Build your contract artifact
+- [Compile your contract](../compiling_contracts.md) - Build your contract artifact
