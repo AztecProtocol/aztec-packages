@@ -80,9 +80,13 @@ echo "Dry Run: ${DRY_RUN:-0}"
 echo "Continue Mode: $CONTINUE_MODE"
 echo ""
 
+# Set a default git identity as fallback (in case PR author detection fails)
+git config user.name "AztecBot"
+git config user.email "tech@aztec-labs.com"
+
 # Get PR information
 echo "Fetching PR information..."
-if ! PR_INFO=$(gh pr view "$PR_NUMBER" --json number,title,state,mergedAt,body,author 2>&1); then
+if ! PR_INFO=$(gh pr view "$PR_NUMBER" --json number,title,state,mergedAt,body,author); then
   echo "Error: Failed to fetch PR #$PR_NUMBER" >&2
   exit 1
 fi
@@ -91,8 +95,14 @@ PR_TITLE=$(echo "$PR_INFO" | jq -r '.title')
 PR_STATE=$(echo "$PR_INFO" | jq -r '.state')
 PR_BODY=$(echo "$PR_INFO" | jq -r '.body')
 PR_MERGED_AT=$(echo "$PR_INFO" | jq -r '.mergedAt')
-PR_AUTHOR=$(echo "$PR_INFO" | jq -r '.author.login')
-PR_AUTHOR_EMAIL="${PR_AUTHOR}@users.noreply.github.com"
+PR_AUTHOR=$(echo "$PR_INFO" | jq -r '.author.login // empty')
+if [[ -n "$PR_AUTHOR" && "$PR_AUTHOR" != "null" ]]; then
+  PR_AUTHOR_EMAIL="${PR_AUTHOR}@users.noreply.github.com"
+else
+  echo "Warning: Could not determine PR author, using AztecBot as fallback" >&2
+  PR_AUTHOR="AztecBot"
+  PR_AUTHOR_EMAIL="tech@aztec-labs.com"
+fi
 
 echo "PR Title: $PR_TITLE"
 echo "PR State: $PR_STATE"
