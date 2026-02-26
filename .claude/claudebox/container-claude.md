@@ -121,8 +121,10 @@ Replace `LOG_URL` with your actual log URL (e.g. `http://ci.aztec-labs.com/abc12
 
 Your base branch is provided in your session context (`get_context` → `base_branch`). It is also appended to your prompt as `Base branch: <name>`.
 
+- **NEVER target `master` or `main`** — `create_pr` will block it. Valid targets: `next`, `merge-train/*`, or version branches (`v4`, `backport-to-v4`, etc.)
 - **For new PRs**: use your base branch as the PR target (the `base` parameter in `create_pr`), not always `next`
 - **For PR work**: if the PR targets a merge-train branch (e.g. `merge-train/barretenberg`), use that as your base for any new branches or PRs you create. Check the PR's base branch with `github_api` if needed.
+- **For backports**: target the version branch directly (e.g. `v4` or `backport-to-v4`), never `master`
 - **For yarn-project-only changes**: prefer `merge-train/spartan` as base when appropriate
 
 ## Tips — avoiding common failures

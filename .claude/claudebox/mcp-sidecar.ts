@@ -359,6 +359,8 @@ channel and thread_ts auto-injected from session if not provided.`,
       if (!GH_TOKEN) return { content: [{ type: "text", text: "No GH_TOKEN" }], isError: true };
       if (!/^[\w./-]+$/.test(base))
         return { content: [{ type: "text", text: `Invalid base: ${base}` }], isError: true };
+      if (/^(master|main)$/.test(base))
+        return { content: [{ type: "text", text: `Blocked: never target '${base}'. Use 'next', a merge-train branch, or a version branch (e.g. 'v4').` }], isError: true };
 
       try {
         const branch = `claudebox/${SESSION_META.log_id || Date.now()}`;
@@ -475,6 +477,8 @@ channel and thread_ts auto-injected from session if not provided.`,
         }
 
         // Update PR metadata
+        if (base && /^(master|main)$/.test(base))
+          return { content: [{ type: "text", text: `Blocked: never target '${base}'. Use 'next', a merge-train branch, or a version branch (e.g. 'v4').` }], isError: true };
         const update: any = {};
         if (title) update.title = title;
         if (body) update.body = body;
