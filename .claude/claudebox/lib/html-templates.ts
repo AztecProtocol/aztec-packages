@@ -67,30 +67,57 @@ export function workspacePageHTML(data: WorkspacePageData): string {
   const isMultiSession = sessions.length > 1;
   const shortId = worktreeId ? worktreeId.slice(0, 8) : hash.slice(0, 8);
 
-  // Sidebar: prompt history (one entry per session run)
-  const promptHistory = sessions.map((s, i) => {
-    const id = s._log_id || "";
-    const isCurrent = id === hash;
-    const p = esc((s.prompt || "").slice(0, 200));
-    const t = s.started ? timeAgo(s.started) : "";
-    const cls = isCurrent ? "prompt-entry current" : "prompt-entry";
-    return `<div class="${cls}"><div class="prompt-entry-header"><span class="dim">#${i + 1}</span> <span class="dim">${t}</span></div><div class="prompt-entry-text">${p}${(s.prompt || "").length > 200 ? "\u2026" : ""}</div></div>`;
-  }).join("\n");
+  // Sidebar: workspace stats + artifacts
+  const artifacts = activity.filter(a => a.type === "artifact");
+  const sidebarStats = `
+    <div class="sidebar-section">
+      <div class="sidebar-label">Workspace</div>
+      <div class="stat-row"><span class="dim">status</span> <span class="status-${status}">${status}${session.exit_code != null ? ` (${session.exit_code})` : ""}</span></div>
+      <div class="stat-row"><span class="dim">user</span> ${esc(user)}</div>
+      <div class="stat-row"><span class="dim">branch</span> ${esc(baseBranch)}</div>
+      <div class="stat-row"><span class="dim">runs</span> ${sessions.length}</div>
+      <div class="stat-row"><span class="dim">started</span> ${session.started ? timeAgo(session.started) : "\u2014"}</div>
+      ${logUrl ? `<div class="stat-row"><span class="dim">log</span> <a href="${logUrl}" target="_blank" class="link">view</a></div>` : ""}
+    </div>
+    ${artifacts.length ? `<div class="sidebar-section"><div class="sidebar-label">Artifacts (${artifacts.length})</div>${artifacts.map(a => {
+      const text = esc(a.text.length > 120 ? a.text.slice(0, 120) + "\u2026" : a.text);
+      const linked = text.replace(/(https?:\/\/[^\s&<]+)/g, '<a href="$1" target="_blank" class="link">$1</a>');
+      return `<div class="artifact-row">${linked}</div>`;
+    }).join("\n")}</div>` : ""}`;
 
-  // Build unified timeline: session runs + activity entries, sorted chronologically
+  // Build unified timeline: user prompts + session runs + activity entries
   type TimelineEntry = { ts: string; html: string };
   const timeline: TimelineEntry[] = [];
 
-  // Session run markers
-  for (const s of sessions) {
+  // Sessions sorted oldest first for correct numbering
+  const sessionsOldest = [...sessions].reverse();
+
+  // User prompts + run markers (inline in conversation)
+  for (let i = 0; i < sessionsOldest.length; i++) {
+    const s = sessionsOldest[i];
     const id = s._log_id || "";
     const statusCls = s.status || "unknown";
     const exitStr = s.exit_code != null ? ` exit=${s.exit_code}` : "";
     const logLink = s.log_url ? ` <a href="${s.log_url}" target="_blank" class="link">log</a>` : "";
     const t = s.started ? timeAgo(s.started) : "";
+    const runNum = i + 1;
+
+    // User prompt as a message (slightly before the run marker)
+    if (s.prompt) {
+      const promptText = esc(s.prompt.length > 2000 ? s.prompt.slice(0, 2000) + "\u2026" : s.prompt);
+      const promptTs = s.started || "";
+      // Offset by -1ms so prompt sorts just before run marker
+      const offsetTs = promptTs ? new Date(new Date(promptTs).getTime() - 1).toISOString() : "";
+      timeline.push({
+        ts: offsetTs,
+        html: `<div class="chat-msg user"><div class="chat-bubble user-bubble"><div class="chat-text">${promptText}</div><div class="chat-time">${t}</div></div><div class="chat-avatar user-avatar">${esc(user.slice(0, 2).toUpperCase())}</div></div>`,
+      });
+    }
+
+    // Run marker
     timeline.push({
       ts: s.started || "",
-      html: `<div class="chat-run"><span class="run-marker">\u2500\u2500\u2500 Run ${esc(id.split("-").pop() || "1")} \u2500\u2500\u2500</span> <span class="status-${statusCls}">${s.status || "?"}${exitStr}</span>${logLink} <span class="dim">${t}</span></div>`,
+      html: `<div class="chat-run"><span class="run-marker">\u2500\u2500\u2500 Run ${runNum} \u2500\u2500\u2500</span> <span class="status-${statusCls}">${s.status || "?"}${exitStr}</span>${logLink} <span class="dim">${t}</span></div>`,
     });
   }
 
@@ -151,18 +178,21 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
 .sidebar-section{padding:10px 12px;border-bottom:1px solid #1a1a1a}
 .sidebar-label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#555;margin-bottom:6px}
 
-/* Session list */
-.session-row{padding:4px 8px;border-radius:3px;font-size:12px;display:flex;gap:8px;align-items:center}
-.session-row:hover{background:#151515}
-.session-row.current{background:#111;border-left:2px solid #5FA7F1}
+/* Sidebar stats */
+.stat-row{font-size:12px;padding:3px 0;display:flex;gap:8px}
+.stat-row .dim{min-width:60px}
+.artifact-row{font-size:12px;padding:4px 0;border-bottom:1px solid #111;word-break:break-all}
 
 /* Chat area */
 .chat-area{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px}
 .chat-msg{display:flex;gap:8px;align-items:flex-start}
 .chat-msg.bot{flex-direction:row}
+.chat-msg.user{flex-direction:row-reverse}
 .chat-avatar{width:28px;height:28px;border-radius:4px;background:#1a1a2e;color:#5FA7F1;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;flex-shrink:0;margin-top:2px}
+.user-avatar{background:#1a2e1a;color:#61D668}
 .chat-bubble{max-width:80%;padding:8px 12px;border-radius:8px;font-size:13px;line-height:1.5;word-break:break-word;white-space:pre-wrap}
 .bot-bubble{background:#111;border:1px solid #222;color:#ddd}
+.user-bubble{background:#0d1a0d;border:1px solid #1a331a;color:#ccc}
 .artifact-bubble{background:#1a1a0a;border:1px solid #333020;color:#FAD979}
 .chat-time{font-size:10px;color:#555;margin-top:4px}
 .chat-status{display:flex;align-items:baseline;gap:6px;font-size:12px;color:#888;padding:6px 12px;background:#0e0e0e;border-left:2px solid #333;margin:2px 0}
@@ -173,15 +203,8 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
 .msg-highlight .chat-bubble{border-color:#5FA7F1 !important;box-shadow:0 0 8px rgba(95,167,241,0.3)}
 .msg-highlight.chat-status{border-left-color:#5FA7F1;background:#0d0d1f}
 
-/* Prompt history entries */
-.prompt-entry{padding:8px 10px;border-bottom:1px solid #111;cursor:default}
-.prompt-entry:hover{background:#111}
-.prompt-entry.current{background:#111;border-left:2px solid #5FA7F1}
-.prompt-entry-header{font-size:10px;color:#555;margin-bottom:4px;display:flex;justify-content:space-between}
-.prompt-entry-text{font-size:12px;color:#999;white-space:pre-wrap;word-break:break-word;line-height:1.4}
-
-/* Reply bar — fixed at bottom of main area */
-.reply-bar{padding:12px 16px;border-top:1px solid #1a1a1a;display:flex;gap:8px;align-items:flex-end;flex-shrink:0;background:#0d0d0d}
+/* Reply bar — flush at bottom */
+.reply-bar{padding:12px 16px;border-top:1px solid #1a1a1a;display:flex;gap:8px;align-items:flex-end;flex-shrink:0;background:#0d0d0d;margin-top:auto}
 .reply-bar textarea{flex:1;background:#111;border:1px solid #222;border-radius:4px;padding:10px 12px;color:#ccc;font-family:inherit;font-size:13px;resize:none;height:100px}
 .reply-bar textarea:focus{outline:none;border-color:#5FA7F1}
 .reply-bar textarea::placeholder{color:#444}
@@ -219,12 +242,6 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
   <span class="header-title"><a href="/dashboard" class="link">CLAUDEBOX</a></span>
   <span class="header-id">${shortId}</span>
   <span class="header-status ${status}">${status}${session.exit_code != null ? ` (${session.exit_code})` : ""}</span>
-  <div class="header-meta">
-    <span>${esc(user)}</span>
-    <span>${esc(baseBranch)}</span>
-    <span>${session.started ? timeAgo(session.started) : "\u2014"}</span>
-    ${logUrl ? `<a href="${logUrl}" target="_blank" class="link">log</a>` : ""}
-  </div>
 </div>
 
 ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been deleted. Terminal and resume are unavailable.</div>` : ""}
@@ -232,10 +249,8 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
 <!-- Layout: sidebar + main area -->
 <div class="layout">
 
-  <!-- Sidebar: prompt history -->
-  <div class="sidebar">
-    <div class="sidebar-section"><div class="sidebar-label">Prompts (${sessions.length})</div>${promptHistory}</div>
-  </div>
+  <!-- Sidebar: stats + artifacts -->
+  <div class="sidebar">${sidebarStats}</div>
 
   <!-- Main content: conversation + reply + terminal -->
   <div class="main-area">
