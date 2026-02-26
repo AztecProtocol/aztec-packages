@@ -397,23 +397,34 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
 
     QUEUE_TYPE queue_type = get_queue_type();
 
-    // Construct a (non-ZK) prover instance for all queue types. For MEGA this is only used for
-    // the debug VK comparison check and is freed before the ZK proving key is constructed.
-    std::shared_ptr<ProverInstance> prover_instance = std::make_shared<ProverInstance>(circuit);
-
-#ifndef NDEBUG
-    debug_incoming_circuit(circuit, prover_instance, precomputed_vk);
-#endif
-
+    // For the hiding kernel (MEGA), skip straight to the ZK prover — no non-ZK ProverInstance needed.
     if (queue_type == QUEUE_TYPE::MEGA) {
         vinfo("Generating proof for hiding kernel");
-        prover_instance.reset(); // Free non-ZK instance before constructing ZK proving key
+#ifndef NDEBUG
+        // Inline basic debug checks rather than calling debug_incoming_circuit, since constructing a ProverInstance
+        // (needed for the VK comparison in debug_incoming_circuit) is non-trivial.
+        info("======= DEBUGGING INFO FOR INCOMING CIRCUIT =======");
+        info("Accumulating circuit ", num_circuits_accumulated + 1, " of ", num_circuits);
+        info("Is the circuit valid? ", CircuitChecker::check(circuit) ? "true" : "false");
+        info("Did we find a failure? ", circuit.failed() ? "true" : "false");
+        if (circuit.failed()) {
+            info("\t\t\tError message? ", circuit.err());
+        }
+        info("======= END OF DEBUGGING INFO FOR INCOMING CIRCUIT =======");
+#endif
         HonkProof proof = construct_honk_proof_for_hiding_kernel(circuit, precomputed_vk);
         VerifierInputs queue_entry{ std::move(proof), precomputed_vk, queue_type, /*is_kernel=*/true };
         verification_queue.push_back(queue_entry);
         num_circuits_accumulated++;
         return;
     }
+
+    // Construct the prover instance for circuit
+    std::shared_ptr<ProverInstance> prover_instance = std::make_shared<ProverInstance>(circuit);
+
+#ifndef NDEBUG
+    debug_incoming_circuit(circuit, prover_instance, precomputed_vk);
+#endif
 
     // Free circuit block memory (wires and selectors) now that they've been copied to prover polynomials
     for (auto& block : circuit.blocks.get()) {
