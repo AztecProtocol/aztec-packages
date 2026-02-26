@@ -419,12 +419,16 @@ function test {
   echo "filter_test_cmds exit: $filter_exit"
   echo "filter output line count: $(wc -l < /tmp/out)"
   cat /tmp/out
+  set +o pipefail
   set +e
   cat /tmp/out | parallelize
-  par_exit=$?
+  pipe_exit=$?
+  cat_exit=${PIPESTATUS[0]}
+  par_exit=${PIPESTATUS[1]}
   set -e
-  echo "parallelize exit: $par_exit"
-  [ $par_exit -ne 0 ] && exit $par_exit || true
+  set -o pipefail
+  echo "cat exit: $cat_exit, parallelize exit: $par_exit, pipeline exit: $pipe_exit"
+  [ $pipe_exit -ne 0 ] && exit $pipe_exit || true
 }
 
 function build_bench {
