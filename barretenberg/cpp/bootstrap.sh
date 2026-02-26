@@ -409,12 +409,22 @@ function test_cmds {
 # This is not called in ci. It is just for a developer to run the tests.
 function test {
   set -x
-  set -e
   echo_header "bb test"
   test_cmds > /tmp/test_cmds
+  echo "test_cmds line count: $(wc -l < /tmp/test_cmds)"
+  set +e
   filter_test_cmds < /tmp/test_cmds > /tmp/out
-  echo "hi" ; cat /tmp/out ; echo "hey"
+  filter_exit=$?
+  set -e
+  echo "filter_test_cmds exit: $filter_exit"
+  echo "filter output line count: $(wc -l < /tmp/out)"
+  cat /tmp/out
+  set +e
   cat /tmp/out | parallelize
+  par_exit=$?
+  set -e
+  echo "parallelize exit: $par_exit"
+  [ $par_exit -ne 0 ] && exit $par_exit || true
 }
 
 function build_bench {
