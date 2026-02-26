@@ -155,32 +155,24 @@ impl MessageEncryption for AES128 {
     ///
     /// ## Overview
     ///
-    /// The plaintext is an array of up to `MESSAGE_PLAINTEXT_LEN` (12)
-    /// fields. The output is always exactly `MESSAGE_CIPHERTEXT_LEN`
-    /// (15) fields, regardless of plaintext size. Unused trailing
-    /// fields are filled with random data so that all encrypted
-    /// messages are indistinguishable by size.
+    /// The plaintext is an array of up to `MESSAGE_PLAINTEXT_LEN` (12) fields. The output is always exactly
+    /// `MESSAGE_CIPHERTEXT_LEN` (15) fields, regardless of plaintext size. Unused trailing fields are filled with
+    /// random data so that all encrypted messages are indistinguishable by size.
     ///
     /// ## PKCS#7 Padding
     ///
-    /// AES operates on 16-byte blocks, so the plaintext must be
-    /// padded to a multiple of 16. PKCS#7 padding always adds at
-    /// least 1 byte (so the receiver can always detect and strip it),
-    /// which means:
+    /// AES operates on 16-byte blocks, so the plaintext must be padded to a multiple of 16. PKCS#7 padding always
+    /// adds at least 1 byte (so the receiver can always detect and strip it), which means:
     /// - 1 B plaintext  -> 15 B padding -> 16 B total
     /// - 15 B plaintext ->  1 B padding -> 16 B total
-    /// - 16 B plaintext -> 16 B padding -> 32 B total (full extra
-    ///   block)
+    /// - 16 B plaintext -> 16 B padding -> 32 B total (full extra block)
     ///
-    /// In general: if the plaintext is already a multiple of 16, a
-    /// full 16-byte padding block is appended.
+    /// In general: if the plaintext is already a multiple of 16, a full 16-byte padding block is appended.
     ///
     /// ## Encryption Steps
     ///
-    /// **1. Body encryption.** The plaintext fields are serialized to
-    /// bytes (32 bytes per field) and AES-128-CBC encrypted. Since 32
-    /// is a multiple of 16, PKCS#7 always adds a full 16-byte padding
-    /// block (see above):
+    /// **1. Body encryption.** The plaintext fields are serialized to bytes (32 bytes per field) and AES-128-CBC
+    /// encrypted. Since 32 is a multiple of 16, PKCS#7 always adds a full 16-byte padding block (see above):
     ///
     /// ```text
     /// +---------------------------------------------+
@@ -192,11 +184,9 @@ impl MessageEncryption for AES128 {
     /// +-------------------------------+--------------+
     /// ```
     ///
-    /// **2. Header encryption.** The byte length of `body_ct` is
-    /// stored as a 2-byte big-endian integer. This 2-byte header
-    /// plaintext is then AES-encrypted; PKCS#7 pads the remaining 14
-    /// bytes to fill one 16-byte AES block, producing a 16-byte
-    /// header ciphertext:
+    /// **2. Header encryption.** The byte length of `body_ct` is stored as a 2-byte big-endian integer. This 2-byte
+    /// header plaintext is then AES-encrypted; PKCS#7 pads the remaining 14 bytes to fill one 16-byte AES block,
+    /// producing a 16-byte header ciphertext:
     ///
     /// ```text
     /// +---------------------------+
@@ -211,14 +201,11 @@ impl MessageEncryption for AES128 {
     ///
     /// ## Wire Format
     ///
-    /// Messages are transmitted as fields, not bytes. A field is ~254
-    /// bits and can safely store 31 whole bytes, so we need to pack
-    /// our byte data into 31-byte chunks. This packing drives the
-    /// wire format.
+    /// Messages are transmitted as fields, not bytes. A field is ~254 bits and can safely store 31 whole bytes, so
+    /// we need to pack our byte data into 31-byte chunks. This packing drives the wire format.
     ///
-    /// **Step 1 -- Assemble bytes.** The ciphertexts are laid out in
-    /// a byte array, padded with random bytes to a multiple of 31 so
-    /// it divides evenly into fields:
+    /// **Step 1 -- Assemble bytes.** The ciphertexts are laid out in a byte array, padded with random bytes to a
+    /// multiple of 31 so it divides evenly into fields:
     ///
     /// ```text
     /// +---------+------------+-------------------------+---------+
@@ -228,11 +215,9 @@ impl MessageEncryption for AES128 {
     /// |<----------- padded to a multiple of 31 B ------------->|
     /// ```
     ///
-    /// **Step 2 -- Pack into fields.** The byte array is split into
-    /// 31-byte chunks, each stored in one field. The ephemeral public
-    /// key x-coordinate is prepended as its own field. Any remaining
-    /// fields (up to 15 total) are filled with random data so that
-    /// all messages are the same size:
+    /// **Step 2 -- Pack into fields.** The byte array is split into 31-byte chunks, each stored in one field. The
+    /// ephemeral public key x-coordinate is prepended as its own field. Any remaining fields (up to 15 total) are
+    /// filled with random data so that all messages are the same size:
     ///
     /// ```text
     /// +----------+-------------------------+-------------------+
@@ -244,14 +229,17 @@ impl MessageEncryption for AES128 {
     ///
     /// ## Key Derivation
     ///
-    /// Two (key, IV) pairs are derived from the ECDH shared secret
-    /// via Poseidon2 hashing with different domain separators: one
-    /// pair for the body ciphertext and one for the header
-    /// ciphertext.
+    /// Two (key, IV) pairs are derived from the ECDH shared secret via Poseidon2 hashing with different domain
+    /// separators: one pair for the body ciphertext and one for the header ciphertext.
     fn encrypt<let PlaintextLen: u32>(
         plaintext: [Field; PlaintextLen],
         recipient: AztecAddress,
     ) -> [Field; MESSAGE_CIPHERTEXT_LEN] {
+        std::static_assert(
+            PlaintextLen <= MESSAGE_PLAINTEXT_LEN,
+            "Plaintext length exceeds MESSAGE_PLAINTEXT_LEN",
+        );
+
         // AES 128 operates on bytes, not fields, so we need to convert the fields to bytes. (This process is then
         // reversed when processing the message in `process_message_ciphertext`)
         let plaintext_bytes = fields_to_bytes(plaintext);
@@ -314,7 +302,7 @@ impl MessageEncryption for AES128 {
         // Note: the aes128_encrypt builtin fn automatically appends bytes to the input, according to pkcs#7; hence why
         // the output `header_ciphertext_bytes` is 16 bytes larger than the input in this case.
         let header_ciphertext_bytes = aes128_encrypt(header_plaintext, header_iv, header_sym_key);
-        // Static check avoids the constraint cost of slice-to-array conversion.
+        // Verify expected header ciphertext size at compile time.
         std::static_assert(
             header_ciphertext_bytes.len() == HEADER_CIPHERTEXT_SIZE_IN_BYTES,
             "unexpected ciphertext header length",
@@ -598,7 +586,7 @@ mod test {
         });
     }
 
-    #[test(should_fail)]
+    #[test(should_fail_with = "Plaintext length exceeds MESSAGE_PLAINTEXT_LEN")]
     unconstrained fn encrypt_oversized_plaintext() {
         let address = AztecAddress { inner: 3 };
         let plaintext: [Field; MESSAGE_PLAINTEXT_LEN + 1] = [0; MESSAGE_PLAINTEXT_LEN + 1];
