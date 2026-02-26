@@ -172,6 +172,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       throw new Error('debugLogStore should never be enabled when realProofs are set');
     }
   }
+
   public async getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
     const status = await this.worldStateSynchronizer.status();
     return status.syncSummary;

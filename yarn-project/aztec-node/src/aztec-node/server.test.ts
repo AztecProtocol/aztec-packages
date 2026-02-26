@@ -1,9 +1,7 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
-import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
-import { padArrayEnd } from '@aztec/foundation/collection';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
@@ -18,24 +16,14 @@ import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-ju
 import type { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type BlockData, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
-import type {
-  L2LogsSource,
-  MerkleTreeReadOperations,
-  MerkleTreeWriteOperations,
-  WorldStateSynchronizer,
-} from '@aztec/stdlib/interfaces/server';
+import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { mockTx } from '@aztec/stdlib/testing';
-import {
-  AppendOnlyTreeSnapshot,
-  MerkleTreeId,
-  PublicDataTreeLeaf,
-  PublicDataTreeLeafPreimage,
-} from '@aztec/stdlib/trees';
+import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
   GlobalVariables,
@@ -79,8 +67,6 @@ describe('aztec node', () => {
   let globalVariablesBuilder: MockProxy<GlobalVariableBuilder>;
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let l2BlockSource: MockProxy<L2BlockSource>;
-  let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
-  let worldState: MockProxy<WorldStateSynchronizer>;
   let lastBlockNumber: BlockNumber;
   let node: AztecNodeService;
   let feePayer: AztecAddress;
@@ -144,7 +130,7 @@ describe('aztec node', () => {
       }
     });
 
-    worldState = mock<WorldStateSynchronizer>({
+    const worldState = mock<WorldStateSynchronizer>({
       getCommitted: () => merkleTreeOps,
     });
 
@@ -153,7 +139,7 @@ describe('aztec node', () => {
 
     const l2LogsSource = mock<L2LogsSource>();
 
-    l1ToL2MessageSource = mock<L1ToL2MessageSource>();
+    const l1ToL2MessageSource = mock<L1ToL2MessageSource>();
 
     // all txs use the same allowed FPC class
     const contractSource = mock<ContractDataSource>();

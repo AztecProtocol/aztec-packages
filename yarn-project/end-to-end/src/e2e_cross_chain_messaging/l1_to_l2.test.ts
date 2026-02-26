@@ -77,12 +77,12 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
 
   const advanceCheckpoint = async () => {
     let checkpoint = await aztecNode.getCheckpointNumber();
-    const originalcheckpoint = checkpoint;
-    log.warn(`Original checkpoint ${originalcheckpoint}`);
+    const originalCheckpoint = checkpoint;
+    log.warn(`Original checkpoint ${originalCheckpoint}`);
     do {
       const newBlock = await advanceBlock();
       checkpoint = await waitForBlockToCheckpoint(newBlock);
-    } while (checkpoint <= originalcheckpoint);
+    } while (checkpoint <= originalCheckpoint);
     log.warn(`At checkpoint ${checkpoint}`);
   };
 
@@ -95,11 +95,18 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     }
   };
 
-  // Waits until the message is fetched by the archiver of the node and returns the msg target block
+  // Waits until the message is fetched by the archiver of the node and returns the msg target checkpoint
   const waitForMessageFetched = async (msgHash: Fr) => {
     log.warn(`Waiting until the message is fetched by the node`);
     return await retryUntil(
-      async () => (await aztecNode.getL1ToL2MessageCheckpoint(msgHash)) ?? (await advanceBlock()),
+      async () => {
+        const checkpoint = await aztecNode.getL1ToL2MessageCheckpoint(msgHash);
+        if (checkpoint !== undefined) {
+          return checkpoint;
+        }
+        await advanceBlock();
+        return undefined;
+      },
       'get msg checkpoint',
       60,
     );
