@@ -72,7 +72,7 @@ export interface ITxeExecutionOracle {
     argsHash: Fr,
     isStaticCall: boolean,
   ): Promise<Fr[]>;
-  txeSimulateUtilityFunction(
+  txeExecuteUtilityFunction(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],
