@@ -1,6 +1,7 @@
 use crate::protocol::{address::AztecAddress, logging::{debug_log, debug_log_format}};
 
 pub mod nonce_discovery;
+pub mod offchain_inbox;
 pub mod partial_notes;
 pub mod private_events;
 pub mod private_notes;

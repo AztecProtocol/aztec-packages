@@ -130,7 +130,7 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
         let hook = config.discover_offchain_messages.unwrap();
         quote { Option::some($hook) }
     } else {
-        quote { Option::<aztec::messages::discovery::DiscoverOffchainMessages<()>>::none() }
+        quote { Option::some(aztec::messages::discovery::offchain_inbox::offchain_sync_inbox) }
     };
 
     let sync_state_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { sync_state }) {
@@ -138,6 +138,12 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
             process_custom_message_option,
             discover_offchain_messages_option,
         )
+    } else {
+        quote {}
+    };
+
+    let offchain_enqueue_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { offchain_enqueue }) {
+        generate_offchain_enqueue()
     } else {
         quote {}
     };
@@ -159,6 +165,7 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
         $public_dispatch
         $sync_state_fn_and_abi_export
         $process_message_fn_and_abi_export
+        $offchain_enqueue_fn_and_abi_export
     }
 }
 
@@ -414,6 +421,37 @@ comptime fn generate_process_message(process_custom_message_option: Quoted) -> Q
             // At this point, the note is pending validation and storage in the database. We must call
             // validate_and_store_enqueued_notes_and_events to complete that process.
             aztec::messages::processing::validate_and_store_enqueued_notes_and_events(address);
+        }
+    }
+}
+
+/// Generates the `offchain_enqueue` utility function that adds a message to the inbox.
+comptime fn generate_offchain_enqueue() -> Quoted {
+    quote {
+        pub struct offchain_enqueue_parameters {
+            pub ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
+            pub recipient: aztec::protocol::address::AztecAddress,
+            pub tx_hash: Field,
+        }
+
+        #[abi(functions)]
+        pub struct offchain_enqueue_abi {
+            parameters: offchain_enqueue_parameters,
+        }
+
+        #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
+        unconstrained fn offchain_enqueue(
+            ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
+            recipient: aztec::protocol::address::AztecAddress,
+            tx_hash: Field,
+        ) {
+            let address = aztec::context::UtilityContext::new().this_address();
+            aztec::messages::discovery::offchain_inbox::enqueue_offchain_message(
+                address,
+                ciphertext,
+                recipient,
+                tx_hash,
+            );
         }
     }
 }
