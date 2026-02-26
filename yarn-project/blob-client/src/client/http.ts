@@ -1,10 +1,11 @@
 import { Blob, type BlobJson, computeEthVersionedBlobHash } from '@aztec/blob-lib';
+import { makeL1HttpTransport } from '@aztec/ethereum/client';
 import { shuffle } from '@aztec/foundation/array';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
-import { type RpcBlock, createPublicClient, fallback, http } from 'viem';
+import { type RpcBlock, createPublicClient } from 'viem';
 
 import { createBlobArchiveClient } from '../archive/factory.js';
 import type { BlobArchiveClient } from '../archive/interface.js';
@@ -494,6 +495,7 @@ export class HttpBlobClient implements BlobClientInterface {
       return undefined;
     }
 
+<<<<<<< HEAD
     // Ping execution node to get the parentBeaconBlockRoot for this block
     let parentBeaconBlockRoot: string | undefined;
     const client = createPublicClient({
@@ -503,6 +505,17 @@ export class HttpBlobClient implements BlobClientInterface {
       const res: RpcBlock = await client.request({
         method: 'eth_getBlockByHash',
         params: [blockHash, /*tx flag*/ false],
+=======
+    if (!parentBeaconBlockRoot) {
+      // parentBeaconBlockRoot not provided by caller — fetch it from the execution RPC
+      if (!l1RpcUrls || l1RpcUrls.length === 0) {
+        this.log.debug('No execution host url configured');
+        return undefined;
+      }
+
+      const client = createPublicClient({
+        transport: makeL1HttpTransport(l1RpcUrls, { timeout: this.config.l1HttpTimeoutMS }),
+>>>>>>> fde4119e9f (feat: add ETHEREUM_HTTP_TIMEOUT_MS env var for viem HTTP transport)
       });
 
       if (res.parentBeaconBlockRoot) {
