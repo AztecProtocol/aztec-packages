@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, existsSync, writeFileSync, mkdirSync, statSync, linkSync } from "fs";
+import { readFileSync, readdirSync, existsSync, writeFileSync, mkdirSync, statSync, linkSync, chmodSync } from "fs";
 import { join, basename, dirname } from "path";
 import { execSync, execFileSync } from "child_process";
 import type { SessionMeta, WorktreeInfo } from "./types.ts";
@@ -288,10 +288,12 @@ export class SessionStore {
       try { if (!statSync(src).isFile()) { skipped++; continue; } } catch { skipped++; continue; }
       if (existsSync(dst)) { skipped++; continue; }
 
-      // Create parent directory and hardlink
+      // Create parent directory, hardlink, and make read-only
+      // (read-only protects shared inodes — containers can't corrupt other workspaces)
       try {
         mkdirSync(dirname(dst), { recursive: true });
         linkSync(src, dst);
+        try { chmodSync(dst, 0o444); } catch {}
         linked++;
       } catch {
         failed++;
