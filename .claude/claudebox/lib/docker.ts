@@ -258,6 +258,7 @@ export class DockerService {
           Binds: [
             `${join(REPO_DIR, ".git")}:/reference-repo/.git:ro`,
             `${workspaceDir}:/workspace:rw`,
+            `${claudeProjectsDir}:/tmp/claudehome/.claude/projects/-workspace-aztec-packages:ro`,
             `${CLAUDEBOX_CODE_DIR}:/opt/claudebox:ro`,
             `/var/run/docker.sock:/var/run/docker.sock`,
             `${BASTION_SSH_KEY}:/tmp/claudehome/.ssh/build_instance_key:ro`,
@@ -476,6 +477,7 @@ export class DockerService {
           Binds: [
             `${join(REPO_DIR, ".git")}:/reference-repo/.git:ro`,
             `${workspaceDir}:/workspace:rw`,
+            `${claudeProjectsDir}:/tmp/claudehome/.claude/projects/-workspace-aztec-packages:ro`,
             `${CLAUDEBOX_CODE_DIR}:/opt/claudebox:ro`,
             `/var/run/docker.sock:/var/run/docker.sock`,
             `${BASTION_SSH_KEY}:/tmp/claudehome/.ssh/build_instance_key:ro`,
