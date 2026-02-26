@@ -493,8 +493,6 @@ export class DockerService {
         Env: [
           `HOME=/tmp/claudehome`,
           `GH_TOKEN=${GH_TOKEN}`,
-          `SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}`,
-          `LINEAR_API_KEY=${process.env.LINEAR_API_KEY || ""}`,
           `CLAUDEBOX_MCP_URL=${mcpUrl}`,
           `CLAUDEBOX_SESSION_HASH=${hash}`,
           `CLAUDEBOX_LOG_ID=${logId}`,
