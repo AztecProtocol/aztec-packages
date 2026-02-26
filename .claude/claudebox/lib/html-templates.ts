@@ -65,25 +65,31 @@ export function workspacePageHTML(data: WorkspacePageData): string {
   const canJoin = status !== "running";
   const canCancel = status === "running" || status === "interactive";
   const isMultiSession = sessions.length > 1;
+  const shortId = worktreeId ? worktreeId.slice(0, 8) : hash.slice(0, 8);
 
-  // Session history
-  const sessionLines = sessions.map(s => {
+  // Session history rows
+  const sessionRows = sessions.map(s => {
     const id = s._log_id || "";
     const isCurrent = id === hash;
-    const marker = isCurrent ? ">" : " ";
     const exitStr = s.exit_code != null ? ` exit=${s.exit_code}` : "";
-    const logLink = s.log_url ? ` <a href="${s.log_url}" target="_blank" style="color:#5FA7F1">log</a>` : "";
-    return `${marker} <a href="/s/${id}" style="color:#5FA7F1">${id.slice(0, 8)}</a>  ${statusSpan(s.status || "?")}${exitStr}  ${s.started ? timeAgo(s.started) : "—"}${logLink}`;
+    const logLink = s.log_url ? `<a href="${s.log_url}" target="_blank" class="link">log</a>` : "";
+    const cls = isCurrent ? "session-row current" : "session-row";
+    return `<div class="${cls}"><a href="/s/${id}" class="link">${id.slice(0, 8)}</a> <span class="status-${s.status || "unknown"}">${s.status || "?"}${exitStr}</span> <span class="dim">${s.started ? timeAgo(s.started) : "\u2014"}</span> ${logLink}</div>`;
   }).join("\n");
 
-  // Activity entries
-  const activityLines = activity.slice(0, 50).map(a => {
-    const typeLabel = a.type.toUpperCase().padEnd(8);
-    const text = esc(a.text.length > 300 ? a.text.slice(0, 300) + "…" : a.text);
-    const linked = text.replace(/(https?:\/\/[^\s&]+)/g, '<a href="$1" target="_blank" style="color:#5FA7F1">$1</a>');
-    const timeStr = a.ts ? timeAgo(a.ts).padEnd(10) : "          ";
-    const color = a.type === "artifact" ? "#FAD979" : a.type === "response" ? "#ccc" : "#888";
-    return `  ${timeStr} <span style="color:${color}">${typeLabel}</span> ${linked}`;
+  // Activity as chat bubbles
+  const chatBubbles = activity.slice(0, 50).map(a => {
+    const text = esc(a.text.length > 500 ? a.text.slice(0, 500) + "\u2026" : a.text);
+    const linked = text.replace(/(https?:\/\/[^\s&<]+)/g, '<a href="$1" target="_blank" class="link">$1</a>');
+    const timeStr = a.ts ? timeAgo(a.ts) : "";
+    if (a.type === "response") {
+      return `<div class="chat-msg bot"><div class="chat-avatar">CB</div><div class="chat-bubble bot-bubble"><div class="chat-text">${linked}</div><div class="chat-time">${timeStr}</div></div></div>`;
+    }
+    if (a.type === "artifact") {
+      return `<div class="chat-msg bot"><div class="chat-avatar">CB</div><div class="chat-bubble artifact-bubble"><div class="chat-text">${linked}</div><div class="chat-time">${timeStr}</div></div></div>`;
+    }
+    // status
+    return `<div class="chat-status"><span class="dim">${timeStr}</span> ${linked}</div>`;
   }).join("\n");
 
   return `<!DOCTYPE html>
@@ -91,64 +97,157 @@ export function workspacePageHTML(data: WorkspacePageData): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ClaudeBox — ${worktreeId ? worktreeId.slice(0, 8) : hash.slice(0, 8)}</title>
+<title>ClaudeBox \u2014 ${shortId}</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
 <style>
-${BASE_STYLES}
-.controls{padding:6px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.btn{background:#222;color:#ccc;border:1px solid #444;padding:4px 14px;font-family:monospace;font-size:13px;cursor:pointer}
-.btn:hover{background:#333;color:#fff}
-.btn:disabled{color:#555;border-color:#333;cursor:default}
-.btn-green{border-color:#61D668;color:#61D668}.btn-green:hover{background:#1a3a1a}
-.btn-red{border-color:#E94560;color:#E94560}.btn-red:hover{background:#3a1a1a}
-.resume-bar{display:flex;gap:8px;padding:4px 0}
-.resume-bar input{flex:1;background:#111;border:1px solid #444;padding:4px 8px;color:#ccc;font-family:monospace;font-size:13px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0a;color:#ccc;font-family:'SF Mono',Monaco,'Cascadia Code',monospace;font-size:13px;line-height:1.5;height:100vh;display:flex;flex-direction:column}
+a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
+.link{color:#5FA7F1}
+.dim{color:#666}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
+
+/* Header bar */
+.header{padding:10px 16px;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;gap:12px;flex-shrink:0;background:#0d0d0d}
+.header-title{font-weight:bold;color:#5FA7F1;font-size:14px}
+.header-id{color:#FAD979;font-size:13px}
+.header-status{font-size:12px;padding:2px 8px;border-radius:3px;font-weight:bold}
+.header-meta{margin-left:auto;display:flex;gap:16px;font-size:12px;color:#666}
+.header-meta span{display:flex;align-items:center;gap:4px}
+
+/* Status colors */
+.status-running,.header-status.running{color:#61D668;background:rgba(97,214,104,0.1);border:1px solid rgba(97,214,104,0.2)}
+.status-interactive,.header-status.interactive{color:#FAD979;background:rgba(250,217,121,0.1);border:1px solid rgba(250,217,121,0.2)}
+.status-completed,.header-status.completed{color:#61D668;background:rgba(97,214,104,0.1);border:1px solid rgba(97,214,104,0.2)}
+.status-error,.header-status.error{color:#E94560;background:rgba(233,69,96,0.1);border:1px solid rgba(233,69,96,0.2)}
+.status-cancelled,.status-interrupted,.status-unknown,.header-status.cancelled,.header-status.interrupted,.header-status.unknown{color:#888;background:rgba(136,136,136,0.1);border:1px solid rgba(136,136,136,0.2)}
+
+/* Layout: sidebar + main */
+.layout{display:flex;flex:1;overflow:hidden}
+.sidebar{width:320px;border-right:1px solid #1a1a1a;display:flex;flex-direction:column;flex-shrink:0;background:#0d0d0d}
+.sidebar-section{padding:10px 12px;border-bottom:1px solid #1a1a1a}
+.sidebar-label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#555;margin-bottom:6px}
+
+/* Session list */
+.session-row{padding:4px 8px;border-radius:3px;font-size:12px;display:flex;gap:8px;align-items:center}
+.session-row:hover{background:#151515}
+.session-row.current{background:#111;border-left:2px solid #5FA7F1}
+
+/* Chat area */
+.chat-area{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.chat-msg{display:flex;gap:8px;align-items:flex-start}
+.chat-msg.bot{flex-direction:row}
+.chat-avatar{width:28px;height:28px;border-radius:4px;background:#1a1a2e;color:#5FA7F1;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;flex-shrink:0;margin-top:2px}
+.chat-bubble{max-width:80%;padding:8px 12px;border-radius:8px;font-size:13px;line-height:1.5;word-break:break-word;white-space:pre-wrap}
+.bot-bubble{background:#111;border:1px solid #222;color:#ddd}
+.artifact-bubble{background:#1a1a0a;border:1px solid #333020;color:#FAD979}
+.chat-time{font-size:10px;color:#555;margin-top:4px}
+.chat-status{text-align:center;font-size:11px;color:#555;padding:4px 0}
+
+/* Prompt area */
+.prompt-section{padding:8px 12px;border-bottom:1px solid #1a1a1a;display:flex;flex-direction:column;gap:6px}
+.prompt-display{font-size:12px;color:#888;padding:6px 8px;background:#0a0a0a;border-radius:4px;border:1px solid #1a1a1a}
+.prompt-display .prompt-text{color:#ccc}
+
+/* Resume bar */
+.resume-bar{padding:8px 12px;border-bottom:1px solid #1a1a1a;display:flex;gap:8px}
+.resume-bar input{flex:1;background:#111;border:1px solid #222;border-radius:4px;padding:6px 10px;color:#ccc;font-family:inherit;font-size:13px}
 .resume-bar input:focus{outline:none;border-color:#5FA7F1}
-.resume-bar input::placeholder{color:#555}
-.ka-btn{font-size:11px !important;padding:2px 8px !important}
-.ka-btn.active{border-color:#61D668 !important;color:#61D668 !important}
-#terminal-container{flex:1;padding:4px 0}
-.main{display:flex;flex-direction:column;height:calc(100vh - ${isMultiSession ? "400" : activity.length > 0 ? "350" : "200"}px)}
+.resume-bar input::placeholder{color:#444}
+
+/* Controls bar */
+.controls{padding:8px 12px;border-top:1px solid #1a1a1a;display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0;background:#0d0d0d}
+.btn{background:#151515;color:#ccc;border:1px solid #333;border-radius:4px;padding:5px 14px;font-family:inherit;font-size:12px;cursor:pointer;transition:all 0.15s}
+.btn:hover{background:#222;color:#fff}
+.btn:disabled{color:#444;border-color:#222;cursor:default;background:#0d0d0d}
+.btn-green{border-color:#61D668;color:#61D668}.btn-green:hover{background:#0d1f0d}
+.btn-red{border-color:#E94560;color:#E94560}.btn-red:hover{background:#1f0d0d}
+.btn-blue{border-color:#5FA7F1;color:#5FA7F1}.btn-blue:hover{background:#0d0d1f}
+
+/* Keepalive / disconnect labels */
+.controls-group{display:flex;align-items:center;gap:6px}
+.controls-label{font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#555}
+.ka-btn{font-size:11px;padding:3px 8px}
+.ka-btn.active{border-color:#61D668;color:#61D668;background:#0d1f0d}
+.timer{color:#666;font-size:11px;font-variant-numeric:tabular-nums}
+.controls-sep{width:1px;height:20px;background:#222;margin:0 4px}
+.info-label{font-size:10px;color:#444;max-width:200px;line-height:1.3}
+
+/* Terminal */
+.terminal-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#terminal-container{flex:1;padding:2px}
+
+/* Warning */
+.warning{background:rgba(233,69,96,0.08);border:1px solid rgba(233,69,96,0.2);color:#E94560;padding:8px 12px;margin:8px 12px;border-radius:4px;font-size:12px}
 </style>
 </head>
 <body>
-<div class="output"><span style="font-weight:bold;color:#5FA7F1"><a href="/dashboard">CLAUDEBOX</a></span>: workspace <span style="color:#FAD979">${worktreeId ? worktreeId.slice(0, 8) : hash.slice(0, 8)}</span>
-${!worktreeAlive && worktreeId ? `\n<span style="color:#E94560;font-weight:bold">WARNING: Workspace has been deleted. Terminal and resume are unavailable.</span>\n` : ""}
-  user:   <span style="color:#fff">${esc(user)}</span>
-  status: ${statusSpan(status)}${session.exit_code != null ? ` (exit ${session.exit_code})` : ""}
-  base:   ${esc(baseBranch)}
-  start:  ${session.started ? timeAgo(session.started) : "—"}${logUrl ? `
-  log:    <a href="${logUrl}" target="_blank" style="color:#5FA7F1">${logUrl}</a>` : ""}${prompt ? `
-  prompt: ${prompt.slice(0, 200)}${prompt.length > 200 ? "…" : ""}` : ""}
-${isMultiSession ? `
-<span style="font-weight:bold">Sessions</span> (${sessions.length} runs):
-${sessionLines}
-` : ""}${activity.length > 0 ? `
-<span style="font-weight:bold">Activity</span> (${activity.length}):
-${activityLines}
-` : ""}</div>
-${canJoin && worktreeAlive && worktreeId ? `
-<div class="resume-bar">
-  <input id="resume-prompt" type="text" placeholder="Continue from where you left off." />
-  <button id="resume-btn" class="btn btn-green" onclick="resumeSession()">Resume</button>
-</div>` : ""}
-<div class="controls">
-  <button id="join-btn" class="btn" ${canJoin && worktreeAlive ? "" : "disabled"}>${canJoin ? "[Terminal]" : "[Running…]"}</button>
-  ${canCancel ? `<button id="cancel-btn" class="btn btn-red" onclick="cancelSession()">[Cancel]</button>` : ""}
-  <span id="timer" style="color:#888;font-size:12px"></span>
-  <button class="btn ka-btn" data-min="15">15m</button>
-  <button class="btn ka-btn" data-min="30">30m</button>
-  <button class="btn ka-btn" data-min="60">60m</button>
+
+<!-- Header -->
+<div class="header">
+  <span class="header-title"><a href="/dashboard" class="link">CLAUDEBOX</a></span>
+  <span class="header-id">${shortId}</span>
+  <span class="header-status ${status}">${status}${session.exit_code != null ? ` (${session.exit_code})` : ""}</span>
+  <div class="header-meta">
+    <span>${esc(user)}</span>
+    <span>${esc(baseBranch)}</span>
+    <span>${session.started ? timeAgo(session.started) : "\u2014"}</span>
+    ${logUrl ? `<a href="${logUrl}" target="_blank" class="link">log</a>` : ""}
+  </div>
 </div>
-<div class="main">
-  <div id="terminal-container"></div>
+
+${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been deleted. Terminal and resume are unavailable.</div>` : ""}
+
+<!-- Layout: sidebar + main area -->
+<div class="layout">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    ${prompt ? `<div class="sidebar-section"><div class="sidebar-label">Prompt</div><div class="prompt-display"><span class="prompt-text">${prompt.slice(0, 300)}${prompt.length > 300 ? "\u2026" : ""}</span></div></div>` : ""}
+
+    ${isMultiSession ? `<div class="sidebar-section"><div class="sidebar-label">Sessions (${sessions.length})</div>${sessionRows}</div>` : ""}
+
+    ${canJoin && worktreeAlive && worktreeId ? `<div class="resume-bar"><input id="resume-prompt" type="text" placeholder="Send a follow-up message\u2026" /><button id="resume-btn" class="btn btn-green" onclick="resumeSession()">Send</button></div>` : ""}
+  </div>
+
+  <!-- Main content: chat + terminal -->
+  <div class="terminal-wrap">
+    ${activity.length > 0 ? `<div class="chat-area" id="chat-area">${chatBubbles}</div>` : ""}
+    <div id="terminal-container"></div>
+  </div>
+
+</div>
+
+<!-- Controls bar -->
+<div class="controls">
+  <div class="controls-group">
+    <button id="join-btn" class="btn btn-blue" ${canJoin && worktreeAlive ? "" : "disabled"}>${canJoin ? "Connect" : "Running\u2026"}</button>
+    ${canCancel ? `<button id="cancel-btn" class="btn btn-red" onclick="cancelSession()">Cancel</button>` : ""}
+  </div>
+
+  <div class="controls-sep"></div>
+
+  <div class="controls-group">
+    <span class="controls-label">keepalive</span>
+    <button class="btn ka-btn" data-min="15">15m</button>
+    <button class="btn ka-btn" data-min="30">30m</button>
+    <button class="btn ka-btn" data-min="60">60m</button>
+    <span id="timer" class="timer"></span>
+  </div>
+
+  <div class="controls-sep"></div>
+
+  <div class="controls-group">
+    <span class="controls-label">disconnect</span>
+    <span class="info-label">tmux session persists \u2014 reconnect anytime. Slack messages won't cancel it.</span>
+  </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
 <script>
 (function(){
-  var HASH="${hash}";
-  var WS_URL=(location.protocol==="https:"?"wss:":"ws:")+"//"+location.host+"/s/"+HASH+"/ws";
+  var ID="${worktreeId || hash}";
+  var WS_URL=(location.protocol==="https:"?"wss:":"ws:")+"//"+location.host+"/s/"+ID+"/ws";
   var term,fitAddon,ws,keepaliveInterval;
   var joinBtn=document.getElementById("join-btn");
   var timerEl=document.getElementById("timer");
@@ -156,33 +255,37 @@ ${canJoin && worktreeAlive && worktreeId ? `
   var keepaliveMins=5;
 
   if(joinBtn&&!joinBtn.disabled){
-    joinBtn.addEventListener("click",function(){joinBtn.disabled=true;joinBtn.textContent="[Connecting…]";startTerminal();});
+    joinBtn.addEventListener("click",function(){joinBtn.disabled=true;joinBtn.textContent="Connecting\u2026";startTerminal();});
   }
 
   function startTerminal(){
-    term=new window.Terminal({cursorBlink:true,fontSize:14,fontFamily:"monospace",
-      theme:{background:"#000",foreground:"#ccc",cursor:"#fff",selectionBackground:"#333"}});
+    var chatArea=document.getElementById("chat-area");
+    if(chatArea)chatArea.style.display="none";
+    var tc=document.getElementById("terminal-container");
+    tc.style.flex="1";
+    term=new window.Terminal({cursorBlink:true,fontSize:13,fontFamily:"'SF Mono',Monaco,'Cascadia Code',monospace",
+      theme:{background:"#0a0a0a",foreground:"#ccc",cursor:"#5FA7F1",selectionBackground:"#1a2a4a",cursorAccent:"#0a0a0a"}});
     window.term=term;
     fitAddon=new window.FitAddon.FitAddon();term.loadAddon(fitAddon);
-    term.open(document.getElementById("terminal-container"));fitAddon.fit();
+    term.open(tc);fitAddon.fit();
     ws=new WebSocket(WS_URL);ws.binaryType="arraybuffer";
     var gotFirstData=false;
     ws.onopen=function(){
-      joinBtn.textContent="[Starting…]";joinBtn.style.borderColor="#FAD979";joinBtn.style.color="#FAD979";
+      joinBtn.textContent="Starting\u2026";joinBtn.style.borderColor="#FAD979";joinBtn.style.color="#FAD979";
       ws.send(JSON.stringify({type:"resize",cols:term.cols,rows:term.rows}));
       deadline=Date.now()+5*60*1000;updateTimer();keepaliveInterval=setInterval(updateTimer,1000);
     };
     ws.onmessage=function(ev){
-      if(!gotFirstData){gotFirstData=true;joinBtn.textContent="[Connected]";joinBtn.style.borderColor="#61D668";joinBtn.style.color="#61D668";}
+      if(!gotFirstData){gotFirstData=true;joinBtn.textContent="Connected";joinBtn.style.borderColor="#61D668";joinBtn.style.color="#61D668";}
       if(ev.data instanceof ArrayBuffer)term.write(new Uint8Array(ev.data));else term.write(ev.data);
     };
     ws.onclose=function(){
-      term.write("\\r\\n\\x1b[1;31m[Disconnected]\\x1b[0m\\r\\n");
-      joinBtn.textContent="[Reconnect]";joinBtn.style.borderColor="#5FA7F1";joinBtn.style.color="#5FA7F1";joinBtn.disabled=false;
+      term.write("\\r\\n\\x1b[1;33m[Disconnected \u2014 tmux session persists. Click Reconnect to rejoin.]\x1b[0m\\r\\n");
+      joinBtn.textContent="Reconnect";joinBtn.style.borderColor="#5FA7F1";joinBtn.style.color="#5FA7F1";joinBtn.disabled=false;
       joinBtn.onclick=function(){term.dispose();startTerminal();};
-      clearInterval(keepaliveInterval);timerEl.textContent="";
+      clearInterval(keepaliveInterval);
     };
-    ws.onerror=function(){term.write("\\r\\n\\x1b[1;31m[Connection error]\\x1b[0m\\r\\n");};
+    ws.onerror=function(){term.write("\\r\\n\\x1b[1;31m[Connection error]\x1b[0m\\r\\n");};
     term.onData(function(data){if(ws.readyState===WebSocket.OPEN)ws.send(data);});
     term.onResize(function(e){if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:"resize",cols:e.cols,rows:e.rows}));});
     window.addEventListener("resize",function(){fitAddon.fit();});
@@ -191,13 +294,13 @@ ${canJoin && worktreeAlive && worktreeId ? `
   function updateTimer(){
     var rem=Math.max(0,Math.floor((deadline-Date.now())/1000));
     var m=Math.floor(rem/60),s=rem%60;
-    timerEl.textContent="keepalive: "+m+":"+(s<10?"0":"")+s;
-    if(rem<=0)timerEl.textContent="session expiring…";
+    timerEl.textContent=m+":"+(s<10?"0":"")+s;
+    if(rem<=0)timerEl.textContent="expiring\u2026";
   }
 
   function extendKeepalive(mins){
     keepaliveMins=mins;
-    fetch("/s/"+HASH+"/keepalive",{method:"POST",headers:{"Content-Type":"application/json"},
+    fetch("/s/"+ID+"/keepalive",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({minutes:mins})}).then(function(r){return r.json();}).then(function(d){
       if(d.deadline)deadline=d.deadline;else deadline=Date.now()+mins*60*1000;
     }).catch(function(){});
@@ -212,7 +315,7 @@ ${canJoin && worktreeAlive && worktreeId ? `
 
   setInterval(function(){
     if(ws&&ws.readyState===WebSocket.OPEN){
-      fetch("/s/"+HASH+"/keepalive",{method:"POST",headers:{"Content-Type":"application/json"},
+      fetch("/s/"+ID+"/keepalive",{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({minutes:keepaliveMins})}).then(function(r){return r.json();}).then(function(d){
         if(d.deadline)deadline=d.deadline;else deadline=Date.now()+keepaliveMins*60*1000;
       }).catch(function(){});
@@ -224,7 +327,7 @@ ${canJoin && worktreeAlive && worktreeId ? `
     var prompt=(input&&input.value.trim())||"Continue from where you left off.";
     var btn=document.getElementById("resume-btn");
     if(btn){btn.disabled=true;btn.textContent="Starting…";}
-    fetch("/s/"+HASH+"/resume",{method:"POST",headers:{"Content-Type":"application/json"},
+    fetch("/s/"+ID+"/resume",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({prompt:prompt})}).then(function(r){return r.json();}).then(function(d){
       if(d.ok){
         var newHash=d.log_url?d.log_url.split("/").pop():"";
@@ -241,8 +344,8 @@ ${canJoin && worktreeAlive && worktreeId ? `
   if(resumeInput){resumeInput.addEventListener("keydown",function(e){if(e.key==="Enter")resumeSession();});}
 
   window.cancelSession=function(){
-    if(!confirm("Cancel this session? Running containers will be stopped.")) return;
-    fetch("/s/"+HASH+"/cancel",{method:"POST"}).then(function(r){return r.json();}).then(function(d){
+    if(!confirm("Cancel this session? Running containers will be stopped. (Disconnecting does NOT cancel.)")) return;
+    fetch("/s/"+ID+"/cancel",{method:"POST"}).then(function(r){return r.json();}).then(function(d){
       if(d.ok){
         alert("Session cancelled.");
         location.reload();

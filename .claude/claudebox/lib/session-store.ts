@@ -95,6 +95,18 @@ export class SessionStore {
     return existsSync(join(this.worktreesDir, worktreeId, "workspace"));
   }
 
+  /** Find the latest session for a worktree ID (returns newest). */
+  findByWorktreeId(worktreeId: string): SessionMeta | null {
+    const sessions = this.listByWorktree(worktreeId);
+    return sessions.length > 0 ? sessions[0] : null;
+  }
+
+  /** Generate next session log ID for a worktree: <worktreeId>-<seq>. */
+  nextSessionLogId(worktreeId: string): string {
+    const existing = this.listByWorktree(worktreeId);
+    return `${worktreeId}-${existing.length + 1}`;
+  }
+
   /** Read activity.jsonl entries from a worktree's workspace directory. */
   readActivity(worktreeId: string): { ts: string; type: string; text: string }[] {
     const activityPath = join(this.worktreesDir, worktreeId, "workspace", "activity.jsonl");

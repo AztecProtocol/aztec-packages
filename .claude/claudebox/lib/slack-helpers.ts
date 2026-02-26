@@ -2,7 +2,7 @@ import type { SessionMeta } from "./types.ts";
 import { SLACK_BOT_TOKEN } from "./config.ts";
 import type { SessionStore } from "./session-store.ts";
 import type { DockerService } from "./docker.ts";
-import { truncate, hashFromLogUrl, extractHashFromUrl, sessionUrl } from "./util.ts";
+import { truncate, extractHashFromUrl, sessionUrl } from "./util.ts";
 import { toTargetRef } from "./base-branch.ts";
 
 export function resolveUserName(client: any, userId: string): Promise<string> {
@@ -33,7 +33,7 @@ export async function getThreadContext(client: any, channel: string, threadTs: s
   }
 }
 
-export async function updateSlackStatus(channel: string, messageTs: string, status: string, logUrl: string, hash?: string): Promise<void> {
+export async function updateSlackStatus(channel: string, messageTs: string, status: string, logUrl: string, worktreeId?: string): Promise<void> {
   let currentText = "";
   try {
     const r = await fetch(`https://slack.com/api/conversations.history?channel=${channel}&oldest=${messageTs}&latest=${messageTs}&inclusive=true&limit=1`, {
@@ -56,13 +56,13 @@ export async function updateSlackStatus(channel: string, messageTs: string, stat
     lines[0] += ` \u2014 *${status}*`;
     if (!currentText.includes(logUrl)) lines[0] += ` <${logUrl}|log>`;
     // Preserve or add status link
-    if (hash && !lines[0].includes("|status>")) {
-      lines[0] += ` <${sessionUrl(hash)}|status>`;
+    if (worktreeId && !lines[0].includes("|status>")) {
+      lines[0] += ` <${sessionUrl(worktreeId)}|status>`;
     }
     finalText = lines.join("\n");
   } else {
     finalText = `ClaudeBox ${status} <${logUrl}|log>`;
-    if (hash) finalText += ` <${sessionUrl(hash)}|status>`;
+    if (worktreeId) finalText += ` <${sessionUrl(worktreeId)}|status>`;
   }
 
   await fetch("https://slack.com/api/chat.update", {
@@ -104,10 +104,11 @@ export async function handleTerminalCommand(
     return true;
   }
 
-  const url = sessionUrl(hash);
+  const wtId = session.worktree_id || hash;
+  const url = sessionUrl(wtId);
   const statusEmoji = session.status === "completed" && session.exit_code === 0 ? ":white_check_mark:" : ":warning:";
   await respond({
-    text: `${statusEmoji} <${url}|Join interactive session>\nSession \`${hash.slice(0, 8)}...\` \u2014 ${session.status}${session.exit_code != null ? ` (exit ${session.exit_code})` : ""}`,
+    text: `${statusEmoji} <${url}|Join interactive session>\nWorkspace \`${wtId.slice(0, 8)}\` \u2014 ${session.status}${session.exit_code != null ? ` (exit ${session.exit_code})` : ""}`,
     thread_ts: threadTs,
   });
   return true;
@@ -139,7 +140,7 @@ export async function startNewSession(
     if (prompt) fullPrompt += prompt;
 
     let capturedLogUrl = "";
-    let capturedHash = "";
+    let capturedWorktreeId = "";
 
     docker.runContainerSession({
       prompt: fullPrompt,
@@ -150,17 +151,17 @@ export async function startNewSession(
       slackMessageTs: messageTs,
       targetRef: toTargetRef(baseBranch),
       quiet,
-    }, store, undefined, (logUrl) => {
+    }, store, undefined, (logUrl, worktreeId) => {
       capturedLogUrl = logUrl;
-      capturedHash = hashFromLogUrl(logUrl);
+      capturedWorktreeId = worktreeId;
       const text = prompt
-        ? `ClaudeBox: _${truncate(prompt)}_ <${logUrl}|log> <${sessionUrl(capturedHash)}|status>`
-        : `ClaudeBox starting... <${logUrl}|log> <${sessionUrl(capturedHash)}|status>`;
+        ? `ClaudeBox: _${truncate(prompt)}_ <${logUrl}|log> <${sessionUrl(worktreeId)}|status>`
+        : `ClaudeBox starting... <${logUrl}|log> <${sessionUrl(worktreeId)}|status>`;
       client.chat.update({ channel, ts: messageTs, text }).catch(() => {});
     }).then((exitCode) => {
       if (SLACK_BOT_TOKEN && messageTs && capturedLogUrl) {
         const statusSuffix = exitCode === 0 ? "completed" : `error (exit ${exitCode})`;
-        updateSlackStatus(channel, messageTs, statusSuffix, capturedLogUrl, capturedHash)
+        updateSlackStatus(channel, messageTs, statusSuffix, capturedLogUrl, capturedWorktreeId)
           .catch((e) => console.warn(`[WARN] Slack status update failed: ${e}`));
       }
     });
@@ -202,7 +203,7 @@ export async function startReplySession(
     if (message) fullPrompt += message;
 
     let capturedLogUrl = "";
-    let capturedHash = "";
+    let capturedWorktreeId = "";
 
     docker.runContainerSession({
       prompt: fullPrompt || message,
@@ -214,17 +215,17 @@ export async function startReplySession(
       worktreeId,
       targetRef: toTargetRef(baseBranch),
       quiet,
-    }, store, undefined, (logUrl) => {
+    }, store, undefined, (logUrl, wtId) => {
       capturedLogUrl = logUrl;
-      capturedHash = hashFromLogUrl(logUrl);
+      capturedWorktreeId = wtId;
       let text = "ClaudeBox replying";
       if (message) text += `: _${truncate(message)}_`;
-      text += ` <${logUrl}|log> <${sessionUrl(capturedHash)}|status>`;
+      text += ` <${logUrl}|log> <${sessionUrl(wtId)}|status>`;
       client.chat.update({ channel, ts: messageTs, text }).catch(() => {});
     }).then((exitCode) => {
       if (SLACK_BOT_TOKEN && messageTs && capturedLogUrl) {
         const statusSuffix = exitCode === 0 ? "completed" : `error (exit ${exitCode})`;
-        updateSlackStatus(channel, messageTs, statusSuffix, capturedLogUrl, capturedHash)
+        updateSlackStatus(channel, messageTs, statusSuffix, capturedLogUrl, capturedWorktreeId)
           .catch((e) => console.warn(`[WARN] Slack status update failed: ${e}`));
       }
     });

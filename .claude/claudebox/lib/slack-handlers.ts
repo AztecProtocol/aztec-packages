@@ -142,14 +142,15 @@ export function registerSlackHandlers(app: App, store: SessionStore, docker: Doc
       let session = null;
       if (arg) {
         const urlHash = extractHashFromUrl(arg);
-        hash = urlHash || (/^[a-f0-9]{32}$/.test(arg) ? arg : null);
+        hash = urlHash || (/^[a-f0-9]{16}(-\d+)?$/.test(arg) ? arg : null) || (/^[a-f0-9]{32}$/.test(arg) ? arg : null);
         if (hash) session = store.findByHash(hash);
       }
       if (!session || !hash) {
         await ack({ text: "Usage: `/claudebox terminal <hash>` or `/claudebox terminal <ci-log-url>`" });
         return;
       }
-      const url = sessionUrl(hash);
+      const wtId = session.worktree_id || hash;
+      const url = sessionUrl(wtId);
       await ack({ text: `<${url}|Join interactive session> \u2014 ${session.status}${session.exit_code != null ? ` (exit ${session.exit_code})` : ""}` });
       return;
     }

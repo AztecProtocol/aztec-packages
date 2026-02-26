@@ -40,12 +40,21 @@ export class InteractiveSessionManager {
     this.docker.stopAndRemoveSync(s.container, 3);
     this.docker.stopAndRemoveSync(s.sidecar, 3);
     this.docker.removeNetworkSync(s.network);
-    this.store.update(hash, { status: "completed", finished: new Date().toISOString() });
+    this.store.update(s.logId || hash, { status: "completed", finished: new Date().toISOString() });
     console.log(`[INTERACTIVE] Cleaned up session ${hash}`);
   }
 
-  async handleWs(hash: string, ws: WebSocket): Promise<void> {
-    const session = this.store.findByHash(hash);
+  async handleWs(id: string, ws: WebSocket): Promise<void> {
+    // Resolve: id could be a worktree ID (16 hex), a session log ID, or legacy hash
+    let session: SessionMeta | null = null;
+    let hash = id;
+    if (/^[a-f0-9]{16}$/.test(id)) {
+      session = this.store.findByWorktreeId(id);
+      if (session) hash = session._log_id || id;
+    }
+    if (!session) {
+      session = this.store.findByHash(id);
+    }
     if (!session) {
       ws.close(1008, "Session not found");
       return;
@@ -54,8 +63,10 @@ export class InteractiveSessionManager {
       ws.close(1008, "Still running");
       return;
     }
-    if (this.sessions.has(hash)) {
-      const existing = this.sessions.get(hash)!;
+    // Use worktree ID as the session key (canonical for URL paths)
+    const key = session.worktree_id || hash;
+    if (this.sessions.has(key)) {
+      const existing = this.sessions.get(key)!;
       if (existing.ws && existing.ws.readyState === WebSocket.OPEN) {
         ws.close(1008, "Already connected");
         return;
@@ -63,12 +74,12 @@ export class InteractiveSessionManager {
       existing.ws = ws;
     }
 
-    console.log(`[INTERACTIVE] Starting interactive session for ${hash}`);
+    console.log(`[INTERACTIVE] Starting interactive session for ${key} (log=${hash})`);
     this.store.update(hash, { status: "interactive" });
 
     const wsSend = (text: string) => { if (ws.readyState === WebSocket.OPEN) ws.send(text); };
 
-    if (!this.sessions.has(hash)) {
+    if (!this.sessions.has(key)) {
       wsSend("\x1b[1;33mStarting container...\x1b[0m\r\n");
       const { container, sidecar, network } = await this.docker.startInteractiveContainer(hash, session, this.store);
       wsSend("\x1b[1;33mWaiting for environment setup...\x1b[0m\r\n");
@@ -77,23 +88,25 @@ export class InteractiveSessionManager {
       const isess: InteractiveSession = {
         timer: setTimeout(() => {}, 0),
         container, sidecar, network,
-        ws, hash,
+        ws, hash: key, logId: hash,
         deadline: 0,
       };
-      this.sessions.set(hash, isess);
-      this.resetKeepalive(hash, 5);
+      this.sessions.set(key, isess);
+      this.resetKeepalive(key, 5);
     }
 
-    const isess = this.sessions.get(hash)!;
+    const isess = this.sessions.get(key)!;
     isess.ws = ws;
 
     await this.bridgeExec(isess, ws);
   }
 
   async bridgeExec(isess: InteractiveSession, ws: WebSocket): Promise<void> {
-    const { stream, resize } = await this.docker.createExecSession(isess.container);
+    // tmux session named after worktree ID (first 8 chars) for easy identification
+    const tmuxName = `cb-${isess.hash.slice(0, 8)}`;
+    const { stream, resize } = await this.docker.createExecSession(isess.container, tmuxName);
 
-    console.log(`[INTERACTIVE] PTY bridge established for ${isess.hash}`);
+    console.log(`[INTERACTIVE] PTY bridge established for ${isess.hash} (tmux: ${tmuxName})`);
 
     stream.on("data", (data: Buffer) => {
       if (ws.readyState === WebSocket.OPEN) ws.send(data);
@@ -117,19 +130,20 @@ export class InteractiveSessionManager {
     });
 
     stream.on("end", () => {
-      console.log(`[INTERACTIVE] Docker socket closed for ${isess.hash}`);
-      if (ws.readyState === WebSocket.OPEN) ws.close(1000, "Container exited");
-      this.cleanup(isess.hash);
+      console.log(`[INTERACTIVE] Docker exec stream ended for ${isess.hash}`);
+      if (ws.readyState === WebSocket.OPEN) ws.close(1000, "Detached");
+      // Don't cleanup — tmux session persists in the container.
+      // Cleanup happens on keepalive expiry or explicit cancel.
     });
 
     stream.on("error", (err: Error) => {
-      console.error(`[INTERACTIVE] Docker socket error: ${err.message}`);
+      console.error(`[INTERACTIVE] Docker exec stream error: ${err.message}`);
       if (ws.readyState === WebSocket.OPEN) ws.close(1011, "Docker error");
-      this.cleanup(isess.hash);
+      // Don't cleanup on exec errors — container may still be alive with tmux.
     });
 
     ws.on("close", () => {
-      console.log(`[INTERACTIVE] WebSocket closed for ${isess.hash}`);
+      console.log(`[INTERACTIVE] WebSocket disconnected for ${isess.hash} (tmux session persists)`);
       stream.end();
       const s = this.sessions.get(isess.hash);
       if (s) s.ws = null;
@@ -142,17 +156,18 @@ export class InteractiveSessionManager {
   }
 
   /** Cancel a running or interactive session. */
-  cancelSession(hash: string, session: SessionMeta): boolean {
+  cancelSession(id: string, session: SessionMeta): boolean {
     let cancelled = false;
+    const key = session.worktree_id || id;
+    const logId = session._log_id || id;
 
-    if (this.sessions.has(hash)) {
-      this.cleanup(hash);
+    if (this.sessions.has(key)) {
+      this.cleanup(key);
       cancelled = true;
     }
 
     if (session.status === "running" && session.container) {
       this.docker.stopAndRemoveSync(session.container, 5);
-      const logId = session._log_id || hash;
       const sidecarName = session.sidecar || `claudebox-sidecar-${logId}`;
       const networkName = `claudebox-net-${logId}`;
       this.docker.stopAndRemoveSync(sidecarName, 3);
@@ -161,13 +176,12 @@ export class InteractiveSessionManager {
     }
 
     // Update metadata
-    const current = this.store.findByHash(hash);
-    if (current && (current.status === "running" || current.status === "interactive")) {
-      this.store.update(hash, { status: "cancelled", finished: new Date().toISOString() });
+    if (session.status === "running" || session.status === "interactive") {
+      this.store.update(logId, { status: "cancelled", finished: new Date().toISOString() });
       cancelled = true;
     }
 
-    if (cancelled) console.log(`[CANCEL] Session ${hash} cancelled via web UI`);
+    if (cancelled) console.log(`[CANCEL] Session ${logId} cancelled via web UI`);
     return cancelled;
   }
 }

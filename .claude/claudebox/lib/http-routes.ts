@@ -156,6 +156,32 @@ async function buildDashboardData(store: SessionStore): Promise<ChannelGroup[]> 
   return channels;
 }
 
+// ── Session resolution ──────────────────────────────────────────
+
+/** Resolve a URL param to a worktree ID and session. Handles:
+ *  - 16-hex worktree ID (primary)
+ *  - <worktreeId>-<seq> session log ID
+ *  - 32-hex legacy session hash
+ */
+function resolveSession(param: string, store: SessionStore): { worktreeId: string; session: SessionMeta } | null {
+  // Try as worktree ID (16 hex) — returns latest session
+  if (/^[a-f0-9]{16}$/.test(param)) {
+    const session = store.findByWorktreeId(param);
+    if (session) return { worktreeId: param, session };
+  }
+  // Try as new-format log ID: <worktreeId>-<seq>
+  if (/^[a-f0-9]{16}-\d+$/.test(param)) {
+    const session = store.findByHash(param);
+    if (session) return { worktreeId: session.worktree_id || param.slice(0, 16), session };
+  }
+  // Try as legacy 32-hex hash
+  if (/^[a-f0-9]{32}$/.test(param)) {
+    const session = store.findByHash(param);
+    if (session) return { worktreeId: session.worktree_id || "", session };
+  }
+  return null;
+}
+
 // ── Route definitions ───────────────────────────────────────────
 
 type RouteHandler = (
@@ -225,10 +251,11 @@ const routes: Route[] = [
 
   // GET /session/:id — session status (JSON API)
   {
-    method: "GET", pattern: /^\/session\/([a-f0-9]+)$/, auth: "api",
+    method: "GET", pattern: /^\/session\/([a-f0-9][\w-]+)$/, auth: "api",
     handler: async (_req, res, params, { store }) => {
-      const session = store.findByHash(params[0]);
-      if (!session) { json(res, 404, { error: "not found" }); return; }
+      const resolved = resolveSession(params[0], store);
+      if (!resolved) { json(res, 404, { error: "not found" }); return; }
+      const session = resolved.session;
       json(res, 200, {
         status: session.status,
         log_url: session.log_url,
@@ -259,15 +286,22 @@ const routes: Route[] = [
     },
   },
 
-  // GET /s/<hash> — workspace status page
+  // GET /s/<id> — workspace status page (worktree ID, new log ID, or legacy hash)
   {
-    method: "GET", pattern: /^\/s\/([a-f0-9]{32})$/, auth: "basic",
+    method: "GET", pattern: /^\/s\/([a-f0-9][\w-]+)$/, auth: "basic",
     handler: async (_req, res, params, { store }) => {
-      const hash = params[0];
-      const session = store.findByHash(hash);
-      if (!session) { res.writeHead(404, { "Content-Type": "text/plain" }); res.end("Session not found"); return; }
+      const resolved = resolveSession(params[0], store);
+      if (!resolved) { res.writeHead(404, { "Content-Type": "text/plain" }); res.end("Session not found"); return; }
 
-      const worktreeId = session.worktree_id || "";
+      const { worktreeId, session } = resolved;
+      // If accessed by session log ID, redirect to canonical worktree URL
+      if (worktreeId && params[0] !== worktreeId) {
+        res.writeHead(302, { Location: `/s/${worktreeId}` });
+        res.end();
+        return;
+      }
+
+      const hash = session._log_id || params[0];
       const sessions = worktreeId ? store.listByWorktree(worktreeId) : [{ ...session, _log_id: hash }];
       const worktreeAlive = worktreeId ? store.isWorktreeAlive(worktreeId) : false;
       const activity = worktreeId ? store.readActivity(worktreeId) : [];
@@ -276,9 +310,9 @@ const routes: Route[] = [
     },
   },
 
-  // POST /s/<hash>/keepalive
+  // POST /s/<id>/keepalive
   {
-    method: "POST", pattern: /^\/s\/([a-f0-9]{32})\/keepalive$/, auth: "none",
+    method: "POST", pattern: /^\/s\/([a-f0-9][\w-]+)\/keepalive$/, auth: "none",
     handler: async (req, res, params, { interactive }) => {
       const s = interactive.get(params[0]);
       if (!s) { json(res, 404, { error: "no active interactive session" }); return; }
@@ -292,23 +326,24 @@ const routes: Route[] = [
     },
   },
 
-  // POST /s/<hash>/cancel — cancel session (JSON response)
+  // POST /s/<id>/cancel — cancel session (JSON response)
   {
-    method: "POST", pattern: /^\/s\/([a-f0-9]{32})\/cancel$/, auth: "basic",
+    method: "POST", pattern: /^\/s\/([a-f0-9][\w-]+)\/cancel$/, auth: "basic",
     handler: async (_req, res, params, { store, interactive }) => {
-      const session = store.findByHash(params[0]);
-      if (!session) { json(res, 404, { ok: false, message: "Session not found" }); return; }
-      const cancelled = interactive.cancelSession(params[0], session);
+      const resolved = resolveSession(params[0], store);
+      if (!resolved) { json(res, 404, { ok: false, message: "Session not found" }); return; }
+      const cancelled = interactive.cancelSession(params[0], resolved.session);
       json(res, 200, { ok: cancelled, message: cancelled ? "Session cancelled" : "Session was already stopped" });
     },
   },
 
-  // POST /s/<hash>/resume — start a new Claude session in the same worktree
+  // POST /s/<id>/resume — start a new Claude session in the same worktree
   {
-    method: "POST", pattern: /^\/s\/([a-f0-9]{32})\/resume$/, auth: "basic",
+    method: "POST", pattern: /^\/s\/([a-f0-9][\w-]+)\/resume$/, auth: "basic",
     handler: async (req, res, params, { store, docker }) => {
-      const session = store.findByHash(params[0]);
-      if (!session) { json(res, 404, { ok: false, message: "Session not found" }); return; }
+      const resolved = resolveSession(params[0], store);
+      if (!resolved) { json(res, 404, { ok: false, message: "Session not found" }); return; }
+      const { session } = resolved;
       if (session.status === "running") { json(res, 409, { ok: false, message: "Session is still running" }); return; }
       if (!session.worktree_id) { json(res, 400, { ok: false, message: "No worktree to resume" }); return; }
       if (!store.isWorktreeAlive(session.worktree_id)) { json(res, 400, { ok: false, message: "Workspace has been deleted" }); return; }
@@ -341,15 +376,6 @@ const routes: Route[] = [
           json(res, 500, { ok: false, message: e.message });
         }
       });
-    },
-  },
-
-  // GET /s/<hash>/cancel — redirect to session page (cancel is now a JS popup)
-  {
-    method: "GET", pattern: /^\/s\/([a-f0-9]{32})\/cancel$/, auth: "basic",
-    handler: async (_req, res, params) => {
-      res.writeHead(302, { Location: `/s/${params[0]}` });
-      res.end();
     },
   },
 ];

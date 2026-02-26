@@ -111,17 +111,19 @@ export class DockerService {
 
   // ── TTY Exec Bridge ───────────────────────────────────────────
 
-  async createExecSession(containerName: string): Promise<{
+  async createExecSession(containerName: string, tmuxSession?: string): Promise<{
     stream: NodeJS.ReadWriteStream;
     resize: (cols: number, rows: number) => Promise<void>;
   }> {
     const container = this.docker.getContainer(containerName);
+    const sessName = tmuxSession || "main";
+    // tmux new-session -A: attach if exists, create if not. Session persists across disconnects.
     const exec = await container.exec({
       AttachStdin: true,
       AttachStdout: true,
       AttachStderr: true,
       Tty: true,
-      Cmd: ["bash", "--login"],
+      Cmd: ["tmux", "new-session", "-A", "-s", sessName, "-c", "/workspace/aztec-packages"],
       WorkingDir: "/workspace/aztec-packages",
     });
     const stream = await exec.start({ hijack: true, stdin: true, Tty: true });
@@ -139,10 +141,15 @@ export class DockerService {
     opts: ContainerSessionOpts,
     store: SessionStore,
     onOutput?: (data: string) => void,
-    onStart?: (logUrl: string) => void,
+    onStart?: (logUrl: string, worktreeId: string) => void,
   ): Promise<number> {
     incrActiveSessions();
-    const logId = execSync("head -c 16 /dev/urandom | xxd -p", { encoding: "utf-8" }).trim();
+
+    // Resolve worktree first (needed for logId)
+    const wt = store.getOrCreateWorktree(opts.worktreeId);
+    const { worktreeId, workspaceDir, claudeProjectsDir } = wt;
+
+    const logId = store.nextSessionLogId(worktreeId);
     const sessionUuid = randomUUID();
     const networkName = `claudebox-net-${logId}`;
     const sidecarName = `claudebox-sidecar-${logId}`;
@@ -150,11 +157,7 @@ export class DockerService {
     const logUrl = `http://ci.aztec-labs.com/${logId}`;
     const mcpUrl = `http://${sidecarName}:9801/mcp`;
 
-    onStart?.(logUrl);
-
-    // Resolve worktree
-    const wt = store.getOrCreateWorktree(opts.worktreeId);
-    const { worktreeId, workspaceDir, claudeProjectsDir } = wt;
+    onStart?.(logUrl, worktreeId);
     const parentLogId = opts.worktreeId ? store.getWorktreeParentLogId(worktreeId) : "";
 
     // Fix ownership
@@ -228,6 +231,7 @@ export class DockerService {
           `LINEAR_API_KEY=${process.env.LINEAR_API_KEY || ""}`,
           `CLAUDEBOX_LOG_ID=${logId}`,
           `CLAUDEBOX_LOG_URL=${logUrl}`,
+          `CLAUDEBOX_WORKTREE_ID=${worktreeId}`,
           `CLAUDEBOX_USER=${opts.userName || ""}`,
           `CLAUDEBOX_COMMENT_ID=${opts.commentId || ""}`,
           `CLAUDEBOX_RUN_COMMENT_ID=${opts.runCommentId || ""}`,
@@ -413,7 +417,7 @@ export class DockerService {
     const resumeId = store.findLatestClaudeSessionId(claudeProjectsDir) || "";
     const logId = session._log_id || hash;
     const mcpUrl = `http://${sidecarName}:9801/mcp`;
-    const keepaliveUrl = `http://host.docker.internal:${HTTP_PORT}/s/${hash}/keepalive`;
+    const keepaliveUrl = `http://host.docker.internal:${HTTP_PORT}/s/${worktreeId || hash}/keepalive`;
     const uid = `${process.getuid!()}:${process.getgid!()}`;
 
     console.log(`[INTERACTIVE] Network: ${networkName}`);
@@ -443,6 +447,7 @@ export class DockerService {
           `LINEAR_API_KEY=${process.env.LINEAR_API_KEY || ""}`,
           `CLAUDEBOX_LOG_ID=${logId}`,
           `CLAUDEBOX_LOG_URL=${session.log_url || ""}`,
+          `CLAUDEBOX_WORKTREE_ID=${worktreeId || ""}`,
           `CLAUDEBOX_USER=${session.user || ""}`,
           `CLAUDEBOX_SLACK_CHANNEL=${session.slack_channel || ""}`,
           `CLAUDEBOX_SLACK_THREAD_TS=${session.slack_thread_ts || ""}`,

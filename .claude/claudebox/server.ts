@@ -66,7 +66,7 @@ async function main() {
   // ── WebSocket upgrade ──
   const wss = new WebSocketServer({ noServer: true });
   httpServer.on("upgrade", (req, socket, head) => {
-    const m = req.url?.match(/^\/s\/([a-f0-9]{32})\/ws$/);
+    const m = req.url?.match(/^\/s\/([a-f0-9][\w-]+)\/ws$/);
     if (!m) { socket.destroy(); return; }
     wss.handleUpgrade(req, socket as any, head, (ws) => {
       interactive.handleWs(m[1], ws).catch((e) => {

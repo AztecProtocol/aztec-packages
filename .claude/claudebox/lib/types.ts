@@ -34,7 +34,8 @@ export interface InteractiveSession {
   sidecar: string;
   network: string;
   ws: WebSocket | null;
-  hash: string;
+  hash: string;     // key (worktree ID or legacy hash)
+  logId: string;    // actual session log_id for store updates
   deadline: number;
 }
 

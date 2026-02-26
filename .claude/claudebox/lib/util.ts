@@ -6,7 +6,8 @@ export function truncate(s: string, n = 80): string {
 }
 
 export function extractHashFromUrl(text: string): string | null {
-  const m = text.match(/^<?https?:\/\/ci\.aztec-labs\.com\/([a-f0-9]+)>?/);
+  // Match log URLs: ci.aztec-labs.com/<worktreeId>-<seq> or legacy ci.aztec-labs.com/<32hex>
+  const m = text.match(/^<?https?:\/\/ci\.aztec-labs\.com\/([a-f0-9][\w-]+)>?/);
   return m ? m[1] : null;
 }
 
@@ -19,6 +20,12 @@ export function parseMessage(text: string, findSession: (hash: string) => Sessio
   const urlHash = extractHashFromUrl(first);
   if (urlHash) return { type: "reply-hash", hash: urlHash, prompt: rest };
 
+  // Match new format: <worktreeId>-<seq> (e.g. d9441073aae158ae-1)
+  if (/^[a-f0-9]{16}-\d+$/.test(first) && findSession(first)) {
+    return { type: "reply-hash", hash: first, prompt: rest };
+  }
+
+  // Legacy: 32-hex session hash
   if (/^[a-f0-9]{32}$/.test(first) && findSession(first)) {
     return { type: "reply-hash", hash: first, prompt: rest };
   }
@@ -62,15 +69,22 @@ export function validateResumeSession(session: SessionMeta | null, hash: string)
   return null;
 }
 
-export function sessionUrl(hash: string): string {
-  return `https://${CLAUDEBOX_HOST}/s/${hash}`;
+/** Build status page URL from worktree ID. */
+export function sessionUrl(worktreeId: string): string {
+  return `https://${CLAUDEBOX_HOST}/s/${worktreeId}`;
 }
 
-export function cancelUrl(hash: string): string {
-  return `https://${CLAUDEBOX_HOST}/s/${hash}/cancel`;
+/** Extract worktree ID from a log URL. Handles both new (worktreeId-seq) and legacy (32hex) formats. */
+export function worktreeIdFromLogUrl(logUrl: string): string {
+  // New format: ci.aztec-labs.com/<worktreeId>-<seq>
+  const m1 = logUrl.match(/\/([a-f0-9]{16})-\d+$/);
+  if (m1) return m1[1];
+  // Legacy: ci.aztec-labs.com/<32hex> — no worktree ID embedded
+  return "";
 }
 
+/** Extract the full log ID from a log URL. */
 export function hashFromLogUrl(logUrl: string): string {
-  const m = logUrl.match(/\/([a-f0-9]{32})$/);
+  const m = logUrl.match(/\/([a-f0-9][\w-]+)$/);
   return m ? m[1] : "";
 }

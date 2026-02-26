@@ -47,7 +47,8 @@ const SESSION_META = {
 
 // ── Session URLs (for Slack links) ──────────────────────────────
 const CLAUDEBOX_HOST = process.env.CLAUDEBOX_HOST || "claudebox.work";
-const statusPageUrl = SESSION_META.log_id ? `https://${CLAUDEBOX_HOST}/s/${SESSION_META.log_id}` : "";
+const WORKTREE_ID = process.env.CLAUDEBOX_WORKTREE_ID || "";
+const statusPageUrl = WORKTREE_ID ? `https://${CLAUDEBOX_HOST}/s/${WORKTREE_ID}` : "";
 
 // ── GitHub API whitelist ────────────────────────────────────────
 // All repo paths are locked to AztecProtocol/aztec-packages.
