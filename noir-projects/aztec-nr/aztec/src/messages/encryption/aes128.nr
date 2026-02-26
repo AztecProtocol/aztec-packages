@@ -450,6 +450,8 @@ impl MessageEncryption for AES128 {
             // Decrypt main ciphertext and return it
             let plaintext_bytes = aes128_decrypt_oracle(ciphertext, body_iv, body_sym_key);
 
+            // Each field of the original message was serialized to 32 bytes so we convert
+            // the bytes back to fields.
             fields_from_bytes(plaintext_bytes)
         })
     }
@@ -561,6 +563,7 @@ mod test {
         let _ = AES128::encrypt([1, 2, 3, 4], invalid_address);
     }
 
+    // Documents the PKCS#7 padding behavior that `encrypt` relies on (see its static_assert).
     #[test]
     fn pkcs7_padding_always_adds_at_least_one_byte() {
         let key = [0 as u8; 16];

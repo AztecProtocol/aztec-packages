@@ -250,9 +250,20 @@ mod tests {
     }
 
     #[test]
-    fn encode_max_size_message() {
-        let msg_content = [0; MAX_MESSAGE_CONTENT_LEN];
-        let _ = encode_message(0, 0, msg_content);
+    unconstrained fn encode_decode_max_size_message() {
+        let msg_type_id: u64 = 42;
+        let msg_metadata: u64 = 99;
+        let mut msg_content = [0; MAX_MESSAGE_CONTENT_LEN];
+        for i in 0..MAX_MESSAGE_CONTENT_LEN {
+            msg_content[i] = i as Field;
+        }
+
+        let encoded = encode_message(msg_type_id, msg_metadata, msg_content);
+        let (decoded_type_id, decoded_metadata, decoded_content) = decode_message(BoundedVec::from_array(encoded));
+
+        assert_eq(decoded_type_id, msg_type_id);
+        assert_eq(decoded_metadata, msg_metadata);
+        assert_eq(decoded_content, BoundedVec::from_array(msg_content));
     }
 
     #[test(should_fail_with = "Invalid message content: it must have a length of at most MAX_MESSAGE_CONTENT_LEN")]

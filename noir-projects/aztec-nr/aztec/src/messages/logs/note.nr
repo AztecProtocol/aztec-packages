@@ -134,9 +134,26 @@ mod test {
     }
 
     #[test]
-    fn encode_max_size_note() {
-        let note = MaxSizeNote { data: [0; MAX_NOTE_PACKED_LEN] };
-        let _ = encode_private_note_message(note, OWNER, STORAGE_SLOT, RANDOMNESS);
+    unconstrained fn encode_decode_max_size_note() {
+        let mut data = [0; MAX_NOTE_PACKED_LEN];
+        for i in 0..MAX_NOTE_PACKED_LEN {
+            data[i] = i as Field;
+        }
+        let note = MaxSizeNote { data };
+
+        let encoded = encode_private_note_message(note, OWNER, STORAGE_SLOT, RANDOMNESS);
+        let (msg_type_id, msg_metadata, msg_content) = decode_message(BoundedVec::from_array(encoded));
+
+        assert_eq(msg_type_id, PRIVATE_NOTE_MSG_TYPE_ID);
+
+        let (note_type_id, owner, storage_slot, randomness, packed_note) =
+            decode_private_note_message(msg_metadata, msg_content);
+
+        assert_eq(note_type_id, MaxSizeNote::get_id());
+        assert_eq(owner, OWNER);
+        assert_eq(storage_slot, STORAGE_SLOT);
+        assert_eq(randomness, RANDOMNESS);
+        assert_eq(packed_note, BoundedVec::from_array(data));
     }
 
     #[derive(Packable)]
