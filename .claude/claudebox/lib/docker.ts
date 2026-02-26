@@ -3,7 +3,6 @@ import { execFileSync, execSync, spawn, type ChildProcess } from "child_process"
 import { existsSync, writeFileSync, realpathSync, mkdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
-import { PassThrough } from "stream";
 import { randomUUID } from "crypto";
 import type { ContainerSessionOpts, WorktreeInfo, SessionMeta } from "./types.ts";
 import type { SessionStore } from "./session-store.ts";
@@ -113,47 +112,27 @@ export class DockerService {
   // ── TTY Exec Bridge ───────────────────────────────────────────
 
   /**
-   * Create a tmux-backed exec session on the HOST.
-   * tmux runs on the host, wrapping `docker exec -it <container> bash --login`.
-   * `tmux new-session -A` attaches if the session exists, creates if not.
-   * Disconnecting only detaches the tmux client — the session persists.
+   * Create an exec session inside the container via Docker API.
+   * Allocates a PTY for interactive shell use.
    */
-  createTmuxExecSession(containerName: string, tmuxSession: string): {
+  async createExecSession(containerName: string): Promise<{
     stream: NodeJS.ReadWriteStream;
-    resize: (cols: number, rows: number) => void;
-  } {
-    const sessName = tmuxSession || "main";
-    // spawn tmux on the host — it will attach-or-create a session that runs docker exec
-    const proc = spawn("tmux", [
-      "new-session", "-A", "-s", sessName,
-      "-x", "120", "-y", "40",
-      "docker", "exec", "-it", "-w", "/workspace/aztec-packages", containerName, "bash", "--login",
-    ], {
-      stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env, TERM: "xterm-256color" },
+    resize: (cols: number, rows: number) => Promise<void>;
+  }> {
+    const container = this.docker.getContainer(containerName);
+    const exec = await container.exec({
+      AttachStdin: true,
+      AttachStdout: true,
+      AttachStderr: true,
+      Tty: true,
+      Cmd: ["bash", "--login"],
+      WorkingDir: "/workspace/aztec-packages",
     });
-
-    // Combine stdout+stderr into a single readable stream for the WebSocket
-    const combined = new PassThrough();
-    proc.stdout.pipe(combined);
-    proc.stderr.pipe(combined);
-
-    // The "stream" interface: read from combined, write to proc.stdin
-    const stream = Object.assign(combined, {
-      write: (data: any) => { if (!proc.stdin.destroyed) proc.stdin.write(data); return true; },
-      end: () => { if (!proc.stdin.destroyed) proc.stdin.end(); },
-    }) as NodeJS.ReadWriteStream;
-
-    proc.on("exit", () => { combined.end(); });
-
+    const stream = await exec.start({ hijack: true, stdin: true, Tty: true });
     return {
       stream,
-      resize: (cols: number, rows: number) => {
-        // Resize the tmux session — this propagates to the docker exec PTY
-        try {
-          execFileSync("tmux", ["resize-window", "-t", sessName, "-x", String(cols), "-y", String(rows)],
-            { timeout: 3000, stdio: "ignore" });
-        } catch {}
+      resize: async (cols: number, rows: number) => {
+        try { await exec.resize({ w: cols, h: rows }); } catch {}
       },
     };
   }
@@ -308,7 +287,8 @@ export class DockerService {
         "-e", `CLAUDEBOX_TARGET_REF=${opts.targetRef || "origin/next"}`,
         "-e", `SESSION_UUID=${sessionUuid}`,
         "-e", `CI_PASSWORD=${process.env.CI_PASSWORD || ""}`,
-        "-e", `DOCKER_HOST=unix:///workspace/docker.sock`,
+        "-e", `CLAUDEBOX_SIDECAR_HOST=${sidecarName}`,
+        "-e", `CLAUDEBOX_SIDECAR_PORT=9801`,
       ];
 
       // Auto-detect resume
@@ -516,7 +496,8 @@ export class DockerService {
           `CLAUDEBOX_RESUME_ID=${resumeId}`,
           `CLAUDEBOX_TARGET_REF=origin/${session.base_branch || "next"}`,
           `CLAUDEBOX_KEEPALIVE_URL=${keepaliveUrl}`,
-          `DOCKER_HOST=unix:///workspace/docker.sock`,
+          `CLAUDEBOX_SIDECAR_HOST=${sidecarName}`,
+          `CLAUDEBOX_SIDECAR_PORT=9801`,
           `CI_PASSWORD=${process.env.CI_PASSWORD || ""}`,
         ],
         HostConfig: {

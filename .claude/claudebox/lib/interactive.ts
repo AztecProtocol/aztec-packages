@@ -102,11 +102,9 @@ export class InteractiveSessionManager {
   }
 
   async bridgeExec(isess: InteractiveSession, ws: WebSocket): Promise<void> {
-    // tmux session named after worktree ID — runs on the host, wraps docker exec
-    const tmuxName = `cb-${isess.hash.slice(0, 8)}`;
-    const { stream, resize } = this.docker.createTmuxExecSession(isess.container, tmuxName);
+    const { stream, resize } = await this.docker.createExecSession(isess.container);
 
-    console.log(`[INTERACTIVE] tmux bridge established for ${isess.hash} (tmux: ${tmuxName})`);
+    console.log(`[INTERACTIVE] Exec session established for ${isess.hash}`);
 
     stream.on("data", (data: Buffer) => {
       if (ws.readyState === WebSocket.OPEN) ws.send(data);
@@ -132,7 +130,7 @@ export class InteractiveSessionManager {
     stream.on("end", () => {
       console.log(`[INTERACTIVE] Docker exec stream ended for ${isess.hash}`);
       if (ws.readyState === WebSocket.OPEN) ws.close(1000, "Detached");
-      // Don't cleanup — tmux session persists in the container.
+      // Don't cleanup — container stays alive.
       // Cleanup happens on keepalive expiry or explicit cancel.
     });
 
