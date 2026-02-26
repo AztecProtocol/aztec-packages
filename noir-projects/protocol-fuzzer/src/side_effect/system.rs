@@ -142,8 +142,7 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
 
 impl SideEffectSystem {
     pub(crate) fn execute_command(&self, cmd: &SideEffectCommand) -> anyhow::Result<String> {
-        let wallet_cmd = WalletCommand::try_from(cmd)?;
-        wallet::execute(&wallet_cmd)
+        wallet::execute(&WalletCommand::try_from(cmd)?)
     }
 
     pub(crate) fn deploy_side_effect_contract(&self, account: AccountId) -> anyhow::Result<String> {
@@ -167,13 +166,9 @@ impl SideEffectSystem {
     }
 
     pub(crate) fn new() -> Self {
-        let side_effect_artifact = std::env::var("SIDE_EFFECT_ARTIFACT_PATH")
-            .unwrap_or_else(|_| "/tmp/side_effect_contract-SideEffect.json".to_string());
-        let parent_artifact = std::env::var("PARENT_ARTIFACT_PATH")
-            .unwrap_or_else(|_| "/tmp/parent_contract-Parent.json".to_string());
         Self {
-            side_effect_artifact,
-            parent_artifact,
+            side_effect_artifact: "/tmp/side_effect_contract-SideEffect.json".to_string(),
+            parent_artifact: "/tmp/parent_contract-Parent.json".to_string(),
         }
     }
 }

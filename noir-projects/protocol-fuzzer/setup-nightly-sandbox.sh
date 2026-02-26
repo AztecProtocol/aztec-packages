@@ -4,13 +4,14 @@
 #
 # What this script does:
 #   1. Starts a dated nightly sandbox Docker container (anvil + node)
-#      with 6-second L2 slots for faster fuzzing (~6s/tx vs ~35s default)
+#      with 5-second L2 slots for faster fuzzing (~5s/tx vs ~35s default)
 #   2. Waits for the PXE to become ready
 #   3. Fixes the wallet CLI (installs missing inquirer npm package)
 #   4. Extracts aztec-nr source for contract compilation
 #   5. Compiles both contracts inside the container (nargo + bb-avm)
 #   6. Imports test accounts
-#   7. Installs an aztec-wallet wrapper script so CLI calls are forwarded
+#   7. Starts the Node.js bridge server (persistent HTTP API for the fuzzer)
+#   8. Installs an aztec-wallet wrapper script so CLI calls are forwarded
 #      into the container transparently (with client-side proofs disabled)
 #
 set -euo pipefail
@@ -63,15 +64,16 @@ fi
 docker rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
 
 log "Starting nightly sandbox container (${IMAGE})..."
-# Fast slots: AZTEC_SLOT_DURATION=6 (default 36) reduces block mining wait
-# from ~35s to ~3s. The L1 deployment script sets anvil's block timestamp
+# Fast slots: AZTEC_SLOT_DURATION=5 (default 36) reduces block mining wait.
+# 5s is the minimum: the sequencer timetable needs 4s headroom and rejects <=4s.
+# The L1 deployment script sets anvil's block timestamp
 # interval to match ETHEREUM_SLOT_DURATION, so we don't pass --block-time
 # to anvil (automine handles it).
 docker run -d --rm --name "$CONTAINER_NAME" \
-    -p 8080:8080 -p 8545:8545 \
+    -p 8080:8080 -p 8545:8545 -p 8089:8089 \
     -e LOG_LEVEL=info \
-    -e ETHEREUM_SLOT_DURATION=6 \
-    -e AZTEC_SLOT_DURATION=6 \
+    -e ETHEREUM_SLOT_DURATION=5 \
+    -e AZTEC_SLOT_DURATION=5 \
     -e AZTEC_EPOCH_DURATION=4 \
     -e SEQ_ENFORCE_TIME_TABLE=false \
     --entrypoint "" \
@@ -240,7 +242,40 @@ docker exec "$CONTAINER_NAME" node --no-warnings \
     > /dev/null 2>&1
 
 # --------------------------------------------------------------------------- #
-# 7. Install aztec-wallet wrapper script
+# 7. Start the bridge server
+# --------------------------------------------------------------------------- #
+
+BRIDGE_SRC="${REPO_ROOT}/noir-projects/protocol-fuzzer/bridge.mjs"
+if [ ! -f "$BRIDGE_SRC" ]; then
+    die "Bridge source not found at ${BRIDGE_SRC}"
+fi
+
+log "Copying bridge.mjs into container..."
+docker cp "$BRIDGE_SRC" "${CONTAINER_NAME}:/usr/src/yarn-project/bridge.mjs"
+
+log "Starting bridge server..."
+docker exec -d "$CONTAINER_NAME" \
+    bash -c 'cd /usr/src/yarn-project && exec node --no-warnings bridge.mjs > /tmp/bridge.log 2>&1'
+
+# Wait for the bridge to be ready
+bridge_wait=0
+while [ $bridge_wait -lt 60 ]; do
+    bridge_code=$(curl -so /dev/null -w '%{http_code}' http://localhost:8089/health 2>/dev/null || true)
+    if [ "$bridge_code" = "200" ]; then
+        log "Bridge is ready on port 8089"
+        break
+    fi
+    sleep 2
+    bridge_wait=$((bridge_wait + 2))
+done
+
+if [ "$bridge_code" != "200" ]; then
+    warn "Bridge did not start within 60s — falling back to CLI mode (BRIDGE_URL=none)"
+    warn "Check: docker exec $CONTAINER_NAME cat /tmp/bridge.log"
+fi
+
+# --------------------------------------------------------------------------- #
+# 8. Install aztec-wallet wrapper script
 # --------------------------------------------------------------------------- #
 
 mkdir -p "$WRAPPER_DIR"
@@ -254,12 +289,13 @@ if [ -f "$WRAPPER_PATH" ]; then
     fi
 fi
 
-# The wrapper disables client-side proof generation (-p none) since the sandbox
-# uses simulated proofs anyway. This cuts ~8s off each transaction.
+# The wrapper forwards all arguments to the container's wallet CLI.
+# Proof generation is controlled by the fuzzer's --prove flag (which passes
+# -p native or -p none). Do NOT add -p here to avoid duplicate flags.
 cat > "$WRAPPER_PATH" <<WRAPPER
 #!/usr/bin/env bash
 exec docker exec ${CONTAINER_NAME} node --no-warnings \\
-    /usr/src/yarn-project/cli-wallet/dest/bin/index.js -p none "\$@"
+    /usr/src/yarn-project/cli-wallet/dest/bin/index.js "\$@"
 WRAPPER
 chmod +x "$WRAPPER_PATH"
 
@@ -272,16 +308,13 @@ log "Nightly sandbox is ready!"
 echo ""
 echo "  Container:  ${CONTAINER_NAME}"
 echo "  Image:      ${IMAGE}"
-echo "  Wallet:     ${WRAPPER_PATH}"
+echo "  Bridge:     http://localhost:8089 (default, ~1.7s faster per call)"
+echo "  Wallet:     ${WRAPPER_PATH} (CLI fallback: BRIDGE_URL=none)"
 echo "  Artifacts:  /tmp/side_effect_contract-SideEffect.json (container)"
 echo "              /tmp/parent_contract-Parent.json (container)"
-echo "  Slot time:  6s (default 36s) — ~5x faster fuzzing"
+echo "  Slot time:  5s (min viable — sequencer timetable needs 4s headroom; default 36s)"
 echo ""
-echo "Make sure ${WRAPPER_DIR} is on your PATH (before ~/.aztec/bin):"
-echo ""
-echo "  export PATH=\"${WRAPPER_DIR}:\$PATH\""
-echo ""
-echo "Then run the fuzzer:"
+echo "Run the fuzzer (bridge mode is the default):"
 echo ""
 echo "  cd noir-projects/protocol-fuzzer"
 echo ""
@@ -293,5 +326,11 @@ echo "  RUST_LOG=debug cargo run -- side-effect --max-steps 5"
 echo ""
 echo "  # Integration smoke tests"
 echo "  cargo test -- --ignored --nocapture"
+echo ""
+echo "  # To use CLI fallback instead of bridge:"
+echo "  BRIDGE_URL=none RUST_LOG=debug cargo run -- side-effect --max-steps 5"
+echo ""
+echo "  # Make sure ${WRAPPER_DIR} is on your PATH for CLI mode:"
+echo "  export PATH=\"${WRAPPER_DIR}:\$PATH\""
 echo ""
 echo "To stop: docker stop ${CONTAINER_NAME}"

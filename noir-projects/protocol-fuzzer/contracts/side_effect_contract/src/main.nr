@@ -98,9 +98,10 @@ pub contract SideEffect {
         destroy_note(self.context, confirmed_notes.get(0));
     }
 
-    // test_note_inclusion: get_notes already proves that each returned note exists
-    // in the note hash tree (via a kernel note read request). Calling get_notes in
-    // a private function is sufficient to exercise the note-inclusion proof path.
+    // test_note_inclusion: get_notes proves that each returned note exists in the
+    // note hash tree (via a kernel note read request). We call .get(0) so the tx
+    // fails on empty slots (BoundedVec bounds check), exercising the inclusion
+    // proof path only when a note actually exists.
     #[external("private")]
     fn test_note_inclusion(owner: AztecAddress, storage_slot: Field) {
         let options: NoteGetterOptions<UintNote, _, _, _> = NoteGetterOptions::new()
@@ -108,7 +109,8 @@ pub contract SideEffect {
             .set_limit(1)
             .sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC);
 
-        let _confirmed_notes = get_notes(self.context, storage_slot, options);
+        let confirmed_notes = get_notes(self.context, storage_slot, options);
+        let _note = confirmed_notes.get(0);
     }
 
     // TODO: Sort by counter instead of value. Notes with the same value can be
@@ -159,7 +161,7 @@ pub contract SideEffect {
     }
 
     // TODO: Add more functions that push data directly to the context (both
-    // private and public) to test more side-effect scenarios — e.g. pushing
+    // private and public) to test more side-effect scenarios -- e.g. pushing
     // note hashes, log hashes, l2-to-l1 messages directly.
     #[external("private")]
     #[noinitcheck]

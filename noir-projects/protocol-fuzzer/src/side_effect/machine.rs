@@ -468,10 +468,6 @@ impl smt::StateMachine for SideEffectMachine {
                     .active_notes
                     .get(&key)
                     .is_some_and(|n| !n.is_empty());
-                let had_destroys = pre_state
-                    .destroyed_notes
-                    .get(&key)
-                    .is_some_and(|n| !n.is_empty());
                 if has_notes {
                     debug!("TestNoteInclusion slot {storage_slot} owner {owner}: expecting success");
                     assert!(
@@ -479,24 +475,11 @@ impl smt::StateMachine for SideEffectMachine {
                         "TestNoteInclusion failed on populated slot {storage_slot}, owner {owner}: {:?}",
                         result.err()
                     );
-                } else if had_destroys {
-                    // TODO: unclear whether get_notes(ACTIVE) returning a
-                    // nullified note is a PXE bug or intended behaviour.
-                    // We log rather than assert until this is clarified.
-                    // Discovered at 0550333aef, seeds 0x0d9bebb61dcd6500
-                    // and 0x5a7211231dcd6500.
-                    if result.is_ok() {
-                        log::warn!(
-                            "TestNoteInclusion succeeded on empty slot {storage_slot}, \
-                             owner {owner} after prior destroy — \
-                             get_notes(ACTIVE) returned nullified note"
-                        );
-                    }
                 } else {
                     debug!("TestNoteInclusion on empty slot {storage_slot} owner {owner}: expecting failure");
                     assert!(
                         result.is_err(),
-                        "TestNoteInclusion should fail on slot {storage_slot}, owner {owner} (never had notes)"
+                        "TestNoteInclusion should fail on slot {storage_slot}, owner {owner} (no active notes)"
                     );
                 }
             }

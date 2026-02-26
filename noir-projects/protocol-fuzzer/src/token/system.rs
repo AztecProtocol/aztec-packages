@@ -1,7 +1,6 @@
 use super::machine::{TokenCommand, TokenId};
 use crate::wallet::{self, AccountId, WalletCommand};
 
-#[derive(Default)]
 pub struct TokenSystem;
 
 impl TryFrom<&TokenCommand> for WalletCommand {
@@ -171,8 +170,7 @@ impl TryFrom<&TokenCommand> for WalletCommand {
 
 impl TokenSystem {
     pub(crate) fn execute_command(&self, cmd: &TokenCommand) -> anyhow::Result<String> {
-        let wallet_cmd = WalletCommand::try_from(cmd)?;
-        wallet::execute(&wallet_cmd)
+        wallet::execute(&WalletCommand::try_from(cmd)?)
     }
 
     pub(crate) fn deploy_token(

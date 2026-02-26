@@ -20,6 +20,14 @@ enum MachineCommand {
     SideEffect(SideEffectArgs),
 }
 
+#[derive(clap::ValueEnum, Clone, Debug)]
+enum Connection {
+    /// Use the persistent Node.js bridge (default, ~2x faster).
+    Bridge,
+    /// Shell out to aztec-wallet CLI for each call.
+    Cli,
+}
+
 #[derive(clap::Args, Debug)]
 struct CommonArgs {
     #[arg(long, default_value_t = 100000)]
@@ -29,6 +37,15 @@ struct CommonArgs {
     /// Replay a specific seed (e.g. 0x5a7211231dcd6500) to reproduce a failure.
     #[arg(long, value_parser = parse_hex_u64)]
     seed: Option<u64>,
+    /// Enable client-side proof generation (slower but validates proofs).
+    #[arg(long, default_value_t = false)]
+    prove: bool,
+    /// How to talk to the sandbox: bridge (persistent HTTP server) or cli (shell out).
+    #[arg(long, value_enum, default_value_t = Connection::Bridge)]
+    connection: Connection,
+    /// URL of the bridge server (only used with --connection bridge).
+    #[arg(long, default_value = "http://localhost:8089")]
+    bridge_url: String,
 }
 
 #[derive(clap::Args, Debug)]
@@ -73,10 +90,26 @@ fn init_logger() {
         .try_init();
 }
 
+fn common_args(machine: &MachineCommand) -> &CommonArgs {
+    match machine {
+        MachineCommand::Token(a) => &a.common,
+        MachineCommand::SideEffect(a) => &a.common,
+    }
+}
+
 fn main() {
     init_logger();
 
     let args = Args::parse();
+    let common = common_args(&args.machine);
+
+    // Configure wallet connection before any sandbox interaction.
+    let bridge_url = match common.connection {
+        Connection::Bridge => Some(common.bridge_url.clone()),
+        Connection::Cli => None,
+    };
+    wallet::init(bridge_url, common.prove);
+    wallet::check_connection().expect("connection check failed");
 
     match args.machine {
         MachineCommand::Token(ref token_args) => {
@@ -111,12 +144,26 @@ mod integration_tests {
     // take several minutes to complete (~30s per transaction).
     // Run with: cargo test -- --ignored --nocapture
 
+    /// Initialise logger + wallet connection for integration tests.
+    /// Uses bridge by default; set BRIDGE_URL=none for CLI mode.
+    fn init_test() {
+        init_logger();
+        let _ = wallet::try_init(
+            match std::env::var("BRIDGE_URL") {
+                Ok(val) if val.eq_ignore_ascii_case("none") || val.is_empty() => None,
+                Ok(val) => Some(val),
+                Err(_) => Some("http://localhost:8089".to_string()),
+            },
+        );
+        wallet::check_connection().expect("connection check failed");
+    }
+
     /// Deploys 1 token, runs 5 random operations. Requires a running sandbox.
     #[test]
     #[ignore = "requires sandbox"]
     #[serial]
     fn token_machine_smoke() {
-        init_logger();
+        init_test();
         let mut machine = token::TokenMachine::default();
         machine.min_tokens = 1;
         machine.max_tokens = 1;
@@ -133,9 +180,10 @@ mod integration_tests {
     #[ignore = "requires sandbox"]
     #[serial]
     fn side_effect_machine_smoke() {
-        init_logger();
+        init_test();
         let mut machine = side_effect::SideEffectMachine {
             storage_slots: 2,
+            ..Default::default()
         };
         smt::fixed_size_builder(1024).run(|u| smt::run(u, &mut machine, 5))
     }
@@ -149,7 +197,7 @@ mod integration_tests {
     fn token_private_balance_not_visible_to_others() {
         use std::collections::HashMap;
 
-        init_logger();
+        init_test();
         let mut machine = token::TokenMachine::default();
         let state = token::machine::TokenState {
             accounts: vec![0, 1, 2],
@@ -198,8 +246,8 @@ mod integration_tests {
     #[ignore = "requires sandbox"]
     #[serial]
     fn side_effect_note_inclusion_after_destroy() {
-        init_logger();
-        let mut machine = side_effect::SideEffectMachine { storage_slots: 1 };
+        init_test();
+        let mut machine = side_effect::SideEffectMachine { storage_slots: 1, ..Default::default() };
         let state = side_effect::machine::SideEffectState {
             accounts: vec![0, 1, 2],
             storage_slots: vec![1],
@@ -254,6 +302,7 @@ mod integration_tests {
             let mut u = Unstructured::new(data);
             let mut machine = side_effect::SideEffectMachine {
                 storage_slots: 3,
+                ..Default::default()
             };
             let mut state = machine.gen_state(&mut u).unwrap();
             let mut commands = Vec::new();
