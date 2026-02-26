@@ -50,21 +50,15 @@ export interface WorkspacePageData {
   activity: ActivityEntry[];  // newest first
 }
 
-function statusSpan(s: string): string {
-  return `<span style="color:${statusColor(s)}">${s}</span>`;
-}
-
 export function workspacePageHTML(data: WorkspacePageData): string {
   const { hash, session, sessions, worktreeAlive, activity } = data;
   const worktreeId = session.worktree_id || "";
   const status = session.status || "unknown";
   const user = session.user || "unknown";
-  const prompt = esc(session.prompt || "");
   const logUrl = session.log_url || "";
   const baseBranch = session.base_branch || "next";
   const canJoin = status !== "running";
   const canCancel = status === "running" || status === "interactive";
-  const isMultiSession = sessions.length > 1;
   const shortId = worktreeId ? worktreeId.slice(0, 8) : hash.slice(0, 8);
 
   // Sidebar: workspace stats + artifacts
@@ -158,12 +152,10 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
 
 /* Header bar */
-.header{padding:10px 16px;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;gap:12px;flex-shrink:0;background:#0d0d0d}
+.header{padding:8px 16px;border-bottom:1px solid #1a1a1a;display:flex;align-items:center;gap:12px;flex-shrink:0;background:#0d0d0d}
 .header-title{font-weight:bold;color:#5FA7F1;font-size:14px}
 .header-id{color:#FAD979;font-size:13px}
 .header-status{font-size:12px;padding:2px 8px;border-radius:3px;font-weight:bold}
-.header-meta{margin-left:auto;display:flex;gap:16px;font-size:12px;color:#666}
-.header-meta span{display:flex;align-items:center;gap:4px}
 
 /* Status colors */
 .status-running,.header-status.running{color:#61D668;background:rgba(97,214,104,0.1);border:1px solid rgba(97,214,104,0.2)}
@@ -174,17 +166,18 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
 
 /* Layout: sidebar + main */
 .layout{display:flex;flex:1;overflow:hidden}
-.sidebar{width:320px;border-right:1px solid #1a1a1a;display:flex;flex-direction:column;flex-shrink:0;background:#0d0d0d}
+.sidebar{width:260px;border-right:1px solid #1a1a1a;display:flex;flex-direction:column;flex-shrink:0;background:#0d0d0d;overflow-y:auto}
 .sidebar-section{padding:10px 12px;border-bottom:1px solid #1a1a1a}
 .sidebar-label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#555;margin-bottom:6px}
 
 /* Sidebar stats */
 .stat-row{font-size:12px;padding:3px 0;display:flex;gap:8px}
-.stat-row .dim{min-width:60px}
-.artifact-row{font-size:12px;padding:4px 0;border-bottom:1px solid #111;word-break:break-all}
+.stat-row .dim{min-width:55px}
+.artifact-row{font-size:11px;padding:5px 0;border-bottom:1px solid #111;word-break:break-all;line-height:1.4}
 
 /* Chat area */
 .chat-area{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.chat-empty{flex:1;display:flex;align-items:center;justify-content:center;color:#333;font-size:13px}
 .chat-msg{display:flex;gap:8px;align-items:flex-start}
 .chat-msg.bot{flex-direction:row}
 .chat-msg.user{flex-direction:row-reverse}
@@ -192,25 +185,25 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
 .user-avatar{background:#1a2e1a;color:#61D668}
 .chat-bubble{max-width:80%;padding:8px 12px;border-radius:8px;font-size:13px;line-height:1.5;word-break:break-word;white-space:pre-wrap}
 .bot-bubble{background:#111;border:1px solid #222;color:#ddd}
-.user-bubble{background:#0d1a0d;border:1px solid #1a331a;color:#ccc}
+.user-bubble{background:#0d1a0d;border:1px solid #1a331a;color:#ccc;text-align:left}
 .artifact-bubble{background:#1a1a0a;border:1px solid #333020;color:#FAD979}
 .chat-time{font-size:10px;color:#555;margin-top:4px}
 .chat-status{display:flex;align-items:baseline;gap:6px;font-size:12px;color:#888;padding:6px 12px;background:#0e0e0e;border-left:2px solid #333;margin:2px 0}
 .status-icon{color:#5FA7F1;font-size:10px;flex-shrink:0}
 .status-text{flex:1;white-space:pre-wrap;word-break:break-word}
-.chat-run{text-align:center;font-size:12px;color:#666;padding:8px 0;border-top:1px solid #1a1a1a;border-bottom:1px solid #1a1a1a;margin:4px 0}
-.run-marker{color:#555;letter-spacing:1px}
+.chat-run{text-align:center;font-size:11px;color:#555;padding:6px 0;border-top:1px solid #1a1a1a;border-bottom:1px solid #1a1a1a;margin:4px 0}
+.run-marker{color:#444;letter-spacing:1px}
 .msg-highlight .chat-bubble{border-color:#5FA7F1 !important;box-shadow:0 0 8px rgba(95,167,241,0.3)}
 .msg-highlight.chat-status{border-left-color:#5FA7F1;background:#0d0d1f}
 
-/* Reply bar — flush at bottom */
-.reply-bar{padding:12px 16px;border-top:1px solid #1a1a1a;display:flex;gap:8px;align-items:flex-end;flex-shrink:0;background:#0d0d0d;margin-top:auto}
-.reply-bar textarea{flex:1;background:#111;border:1px solid #222;border-radius:4px;padding:10px 12px;color:#ccc;font-family:inherit;font-size:13px;resize:none;height:100px}
+/* Reply bar — flush at bottom of main area */
+.reply-bar{padding:10px 16px;border-top:1px solid #1a1a1a;display:flex;gap:8px;align-items:flex-end;flex-shrink:0;background:#0d0d0d;margin-top:auto}
+.reply-bar textarea{flex:1;background:#111;border:1px solid #222;border-radius:6px;padding:10px 12px;color:#ccc;font-family:inherit;font-size:13px;resize:none;height:80px;line-height:1.5}
 .reply-bar textarea:focus{outline:none;border-color:#5FA7F1}
 .reply-bar textarea::placeholder{color:#444}
+.reply-actions{display:flex;flex-direction:column;gap:4px}
 
-/* Controls bar */
-.controls{padding:8px 12px;border-top:1px solid #1a1a1a;display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0;background:#0d0d0d}
+/* Buttons */
 .btn{background:#151515;color:#ccc;border:1px solid #333;border-radius:4px;padding:5px 14px;font-family:inherit;font-size:12px;cursor:pointer;transition:all 0.15s}
 .btn:hover{background:#222;color:#fff}
 .btn:disabled{color:#444;border-color:#222;cursor:default;background:#0d0d0d}
@@ -218,7 +211,9 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
 .btn-red{border-color:#E94560;color:#E94560}.btn-red:hover{background:#1f0d0d}
 .btn-blue{border-color:#5FA7F1;color:#5FA7F1}.btn-blue:hover{background:#0d0d1f}
 
-/* Keepalive / disconnect labels */
+/* Terminal controls — hidden until terminal connects */
+.controls{padding:6px 12px;border-top:1px solid #1a1a1a;display:none;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0;background:#0d0d0d}
+.controls.visible{display:flex}
 .controls-group{display:flex;align-items:center;gap:6px}
 .controls-label{font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#555}
 .ka-btn{font-size:11px;padding:3px 8px}
@@ -233,6 +228,10 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
 
 /* Warning */
 .warning{background:rgba(233,69,96,0.08);border:1px solid rgba(233,69,96,0.2);color:#E94560;padding:8px 12px;margin:8px 12px;border-radius:4px;font-size:12px}
+
+/* Responsive */
+@media(max-width:768px){.sidebar{width:200px}.chat-bubble{max-width:90%}}
+@media(max-width:480px){.sidebar{display:none}.layout{flex-direction:column}}
 </style>
 </head>
 <body>
@@ -254,22 +253,22 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
 
   <!-- Main content: conversation + reply + terminal -->
   <div class="main-area">
-    ${chatBubbles ? `<div class="chat-area" id="chat-area">${chatBubbles}</div>` : ""}
-    ${canJoin && worktreeAlive && worktreeId ? `<div class="reply-bar"><textarea id="resume-prompt" placeholder="Send a follow-up message\u2026 (Ctrl+Enter to send)"></textarea><button id="resume-btn" class="btn btn-green" onclick="resumeSession()">Send</button></div>` : ""}
+    <div class="chat-area" id="chat-area">${chatBubbles || `<div class="chat-empty">No activity yet</div>`}</div>
+    ${worktreeAlive && worktreeId ? `<div class="reply-bar" id="reply-bar">
+      <textarea id="resume-prompt" placeholder="Send a follow-up\u2026 (Ctrl+Enter)" ${!canJoin ? "disabled" : ""}></textarea>
+      <div class="reply-actions">
+        <button id="resume-btn" class="btn btn-green" onclick="resumeSession()" ${!canJoin ? "disabled" : ""}>Send</button>
+        <button id="join-btn" class="btn btn-blue" ${canJoin && worktreeAlive ? "" : "disabled"}>${canJoin ? "Connect" : "Running\u2026"}</button>
+        ${canCancel ? `<button id="cancel-btn" class="btn btn-red" onclick="cancelSession()">Cancel</button>` : ""}
+      </div>
+    </div>` : ""}
     <div id="terminal-container"></div>
   </div>
 
 </div>
 
-<!-- Controls bar -->
-<div class="controls">
-  <div class="controls-group">
-    <button id="join-btn" class="btn btn-blue" ${canJoin && worktreeAlive ? "" : "disabled"}>${canJoin ? "Connect" : "Running\u2026"}</button>
-    ${canCancel ? `<button id="cancel-btn" class="btn btn-red" onclick="cancelSession()">Cancel</button>` : ""}
-  </div>
-
-  <div class="controls-sep"></div>
-
+<!-- Terminal controls — shown only when connected -->
+<div class="controls" id="terminal-controls">
   <div class="controls-group">
     <span class="controls-label">keepalive</span>
     <button class="btn ka-btn" data-min="15">15m</button>
@@ -277,18 +276,19 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
     <button class="btn ka-btn" data-min="60">60m</button>
     <span id="timer" class="timer"></span>
   </div>
-
   <div class="controls-sep"></div>
-
   <div class="controls-group">
-    <span class="controls-label">disconnect</span>
-    <span class="info-label">Session persists \u2014 reconnect anytime. Slack messages won't cancel it.</span>
+    <span class="info-label">Session persists after disconnect. Slack messages won't cancel it.</span>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
 <script>
 (function(){
+  // Auto-scroll chat to bottom on load
+  var chatArea=document.getElementById("chat-area");
+  if(chatArea)chatArea.scrollTop=chatArea.scrollHeight;
+
   // Highlight message from ?msg= query param
   var msgParam=new URLSearchParams(location.search).get("msg");
   if(msgParam){
@@ -309,8 +309,12 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
   }
 
   function startTerminal(){
-    var chatArea=document.getElementById("chat-area");
-    if(chatArea)chatArea.style.display="none";
+    var ca=document.getElementById("chat-area");
+    if(ca)ca.style.display="none";
+    var rb=document.getElementById("reply-bar");
+    if(rb)rb.style.display="none";
+    var ctrl=document.getElementById("terminal-controls");
+    if(ctrl)ctrl.classList.add("visible");
     var tc=document.getElementById("terminal-container");
     tc.style.flex="1";
     term=new window.Terminal({cursorBlink:true,fontSize:13,fontFamily:"'SF Mono',Monaco,'Cascadia Code',monospace",
@@ -334,6 +338,8 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
       joinBtn.textContent="Reconnect";joinBtn.style.borderColor="#5FA7F1";joinBtn.style.color="#5FA7F1";joinBtn.disabled=false;
       joinBtn.onclick=function(){term.dispose();startTerminal();};
       clearInterval(keepaliveInterval);
+      var ctrl=document.getElementById("terminal-controls");
+      if(ctrl)ctrl.classList.remove("visible");
     };
     ws.onerror=function(){term.write("\\r\\n\\x1b[1;31m[Connection error]\x1b[0m\\r\\n");};
     term.onData(function(data){if(ws.readyState===WebSocket.OPEN)ws.send(data);});
@@ -405,20 +411,25 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
     }).catch(function(e){alert("Error: "+e.message);});
   };
 
-  // Auto-refresh chat area every 10s (only when terminal is not visible)
+  // Auto-refresh every 10s (skip when terminal is active)
   setInterval(function(){
     var tc=document.getElementById("terminal-container");
-    if(tc&&tc.style.flex==="1")return; // terminal active, skip
+    if(tc&&tc.style.flex==="1")return;
     if(document.visibilityState!=="visible")return;
     fetch(location.href).then(function(r){return r.text();}).then(function(h){
       var parser=new DOMParser();var doc=parser.parseFromString(h,"text/html");
+      // Update chat area
       var newChat=doc.getElementById("chat-area");
       var oldChat=document.getElementById("chat-area");
-      if(newChat&&oldChat)oldChat.innerHTML=newChat.innerHTML;
-      // Also refresh header status
-      var newHeader=doc.querySelector(".header-status");
-      var oldHeader=document.querySelector(".header-status");
-      if(newHeader&&oldHeader){oldHeader.className=newHeader.className;oldHeader.innerHTML=newHeader.innerHTML;}
+      if(newChat&&oldChat){oldChat.innerHTML=newChat.innerHTML;oldChat.scrollTop=oldChat.scrollHeight;}
+      // Update sidebar
+      var newSb=doc.querySelector(".sidebar");
+      var oldSb=document.querySelector(".sidebar");
+      if(newSb&&oldSb)oldSb.innerHTML=newSb.innerHTML;
+      // Update header status
+      var newH=doc.querySelector(".header-status");
+      var oldH=document.querySelector(".header-status");
+      if(newH&&oldH){oldH.className=newH.className;oldH.innerHTML=newH.innerHTML;}
     }).catch(function(){});
   },10000);
 })();
@@ -447,12 +458,12 @@ export function dashboardHTML(channels: ChannelGroup[]): string {
   const channelSections = channels.map(ch => {
     const rows = ch.workspaces.map(ws => {
       const s = ws.latestSession;
-      const id = s._log_id || "";
+      const linkId = ws.worktreeId || s._log_id || "";
       const prompt = esc((s.prompt || "").slice(0, 80));
       const exitStr = s.exit_code != null ? ` exit=${s.exit_code}` : "";
       const gc = !ws.alive ? " <span style=\"color:#888\">[deleted]</span>" : "";
       const dimStyle = !ws.alive ? ' style="opacity:0.5"' : "";
-      return `<span${dimStyle}>  <a href="/s/${id}" style="color:#5FA7F1">${ws.worktreeId.slice(0, 8)}</a>  <span style="color:${statusColor(s.status || "")}">${(s.status || "?").padEnd(11)}</span>${exitStr.padEnd(8)}  ${esc((s.user || "?").padEnd(16))}  ${(s.started ? timeAgo(s.started) : "—").padEnd(10)}  ${ws.sessions.length} run${ws.sessions.length !== 1 ? "s" : " "}  ${prompt}${gc}</span>`;
+      return `<span${dimStyle}>  <a href="/s/${linkId}" style="color:#5FA7F1">${ws.worktreeId.slice(0, 8)}</a>  <span style="color:${statusColor(s.status || "")}">${(s.status || "?").padEnd(11)}</span>${exitStr.padEnd(8)}  ${esc((s.user || "?").padEnd(16))}  ${(s.started ? timeAgo(s.started) : "\u2014").padEnd(10)}  ${ws.sessions.length} run${ws.sessions.length !== 1 ? "s" : " "}  ${prompt}${gc}</span>`;
     }).join("\n");
 
     return `\n<span style="color:#FAD979;font-weight:bold"><a href="#" style="color:#FAD979">#${esc(ch.channelName || ch.channelId)}</a></span> (${ch.workspaces.length})
