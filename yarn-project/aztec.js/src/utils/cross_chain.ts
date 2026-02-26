@@ -8,7 +8,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
  * @param l1ToL2MessageHash - Hash of the L1 to L2 message
  * @param opts - Options
  */
-export async function waitForL1ToL2MessageReady(
+export function waitForL1ToL2MessageReady(
   node: Pick<AztecNode, 'getCheckpointNumber' | 'getL1ToL2MessageCheckpoint'>,
   l1ToL2MessageHash: Fr,
   opts: {
