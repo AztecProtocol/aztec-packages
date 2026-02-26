@@ -30,10 +30,6 @@ Install the required tools:
 ```bash
 # Install Aztec CLI
 VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)
-
-# Install Nargo via noirup
-curl -L https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
-noirup -v 1.0.0-beta.18
 ```
 
 ## Part 1: Understanding the Architecture
@@ -93,7 +89,6 @@ This enables patterns impossible on transparent blockchains, like proving you ha
 When using [recursive verification](https://noir-lang.org/docs/noir/standard_library/recursion) in Aztec, users experience **two distinct proof generation phases**:
 
 1. **Noir Proof Generation** (application-specific):
-
    - Happens before interacting with the Aztec contract
    - Proves the computation (e.g., "I know values x and y where x ≠ y")
    - Time depends on circuit complexity (seconds to minutes)
@@ -386,7 +381,7 @@ Create the following files in your project root directory.
   "name": "recursive-verification-tutorial",
   "type": "module",
   "scripts": {
-    "ccc": "cd contract && aztec compile && aztec codegen target -o contract/artifacts",
+    "ccc": "cd contract && aztec compile && aztec codegen target -o ../artifacts",
     "data": "tsx scripts/generate_data.ts",
     "recursion": "tsx index.ts"
   },
@@ -398,7 +393,7 @@ Create the following files in your project root directory.
     "@aztec/noir-contracts.js": "#include_version_without_prefix",
     "@aztec/noir-noir_js": "#include_version_without_prefix",
     "@aztec/pxe": "#include_version_without_prefix",
-    "@aztec/test-wallet": "#include_version_without_prefix",
+    "@aztec/wallets": "#include_version_without_prefix",
     "tsx": "^4.20.6"
   },
   "devDependencies": {
@@ -457,7 +452,7 @@ yarn ccc
 This generates:
 
 - `contract/target/ValueNotEqual.json` - Contract artifact (bytecode, ABI, etc.)
-- `contract/contract/artifacts/ValueNotEqual.ts` - TypeScript class for deploying and interacting with the contract
+- `artifacts/ValueNotEqual.ts` - TypeScript class for deploying and interacting with the contract
 
 ### Proof Generation Script
 
@@ -596,7 +591,7 @@ Aztec transactions require fees. For testing, we use a Sponsored Fee Payment Con
 ```typescript
 const sponsoredFPC = await getSponsoredFPCInstance();
 const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
-  sponsoredFPC.address
+  sponsoredFPC.address,
 );
 ```
 
@@ -607,19 +602,16 @@ In production, you would use real [fee payment methods](../../aztec-js/how_to_pa
 This single line triggers a complex flow:
 
 1. **Private Execution** (client-side, in PXE):
-
    - Execute `increment()` with provided arguments
    - Read `vk_hash` from contract storage
    - Execute `verify_honk_proof()` inside the private function
    - Generate the `enqueue_self._increment_public(owner)` call
 
 2. **Proof Generation** (client-side, in PXE):
-
    - Generate a ZK proof that the private execution was correct
    - This proof doesn't reveal inputs (including the 508-field proof!)
 
 3. **Transaction Submission**:
-
    - Send the proof + encrypted logs + public function calls to the network
 
 4. **Verification & Public Execution** (onchain):
@@ -698,7 +690,5 @@ yarn recursion
 Now that you understand the basics of proof verification in Aztec contracts, explore these topics:
 
 - **Simpler Contract Examples**: If you're new to Aztec contracts, the [Counter Tutorial](./counter_contract.md) provides a gentler introduction to contract development patterns.
-
 - **Multiple Public Inputs**: Extend the circuit to have multiple public inputs. Update `public_inputs: [Field; 1]` in the contract to match.
-
 - **Noir Language Reference**: Explore advanced Noir features like loops, arrays, and standard library functions at [noir-lang.org](https://noir-lang.org/docs).
