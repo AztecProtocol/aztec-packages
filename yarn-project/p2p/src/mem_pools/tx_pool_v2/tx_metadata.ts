@@ -194,16 +194,20 @@ export function comparePriority(a: PriorityComparable, b: PriorityComparable): n
  * Returns the minimum fee required to replace an existing tx with the given price bump percentage.
  * Uses integer arithmetic: `existingFee + existingFee * priceBumpPercentage / 100`.
  */
-export function getMinimumPriceBumpFee(existingFee: bigint, priceBumpPercentage: number): bigint {
-  return existingFee + (existingFee * BigInt(priceBumpPercentage)) / 100n;
+export function getMinimumPriceBumpFee(existingFee: bigint, priceBumpPercentage: bigint): bigint {
+  const bump = (existingFee * priceBumpPercentage) / 100n;
+  // Ensure the minimum bump is at least 1, so that replacement always requires
+  // paying strictly more — even with 0% bump or zero existing fee.
+  const effectiveBump = bump > 0n ? bump : 1n;
+  return existingFee + effectiveBump;
 }
 
 /**
  * Checks for nullifier conflicts between an incoming transaction and existing pool state.
  *
  * When the incoming tx shares nullifiers with existing pending txs:
- * - If the incoming tx has strictly higher priority, mark conflicting txs for eviction
- * - If any conflicting tx has equal or higher priority, ignore the incoming tx
+ * - If the incoming tx meets or exceeds the required priority, mark conflicting txs for eviction
+ * - Otherwise, ignore the incoming tx
  *
  * When `priceBumpPercentage` is provided (RPC path), uses fee-only comparison with the
  * percentage bump instead of `comparePriority`.
@@ -217,7 +221,7 @@ export function checkNullifierConflict(
   incomingMeta: TxMetaData,
   getTxHashByNullifier: (nullifier: string) => string | undefined,
   getMetadata: (txHash: string) => TxMetaData | undefined,
-  priceBumpPercentage?: number,
+  priceBumpPercentage?: bigint,
 ): PreAddResult {
   const txHashesToEvict: string[] = [];
 
@@ -242,7 +246,7 @@ export function checkNullifierConflict(
     // Otherwise (P2P path), use full comparePriority with tx hash tiebreaker.
     const isHigherPriority =
       priceBumpPercentage !== undefined
-        ? incomingMeta.priorityFee > getMinimumPriceBumpFee(conflictingMeta.priorityFee, priceBumpPercentage)
+        ? incomingMeta.priorityFee >= getMinimumPriceBumpFee(conflictingMeta.priorityFee, priceBumpPercentage)
         : comparePriority(incomingMeta, conflictingMeta) > 0;
 
     if (isHigherPriority) {

@@ -276,31 +276,26 @@ describe('TxMetaData', () => {
           incoming,
           () => existing.txHash,
           () => existing,
-          10, // 10% bump
+          10n, // 10% bump
         );
 
         expect(result.shouldIgnore).toBe(false);
         expect(result.txHashesToEvict).toEqual([existing.txHash]);
       });
 
-      it('rejects incoming tx when fee is exactly at the bump threshold', () => {
+      it('accepts incoming tx when fee is exactly at the bump threshold', () => {
         const existing = makeMeta('0x2222', 100n, ['0xnull1']);
-        const incoming = makeMeta('0x1111', 110n, ['0xnull1']); // Exactly 10% bump — not enough
+        const incoming = makeMeta('0x1111', 110n, ['0xnull1']); // Exactly 10% bump — accepted
 
         const result = checkNullifierConflict(
           incoming,
           () => existing.txHash,
           () => existing,
-          10,
+          10n,
         );
 
-        expect(result.shouldIgnore).toBe(true);
-        expect(result.txHashesToEvict).toEqual([]);
-        expect(result.reason?.code).toBe(TxPoolRejectionCode.NULLIFIER_CONFLICT);
-        if (result.reason?.code === TxPoolRejectionCode.NULLIFIER_CONFLICT) {
-          expect(result.reason.minimumPriceBumpFee).toBe(110n);
-          expect(result.reason.txPriorityFee).toBe(110n);
-        }
+        expect(result.shouldIgnore).toBe(false);
+        expect(result.txHashesToEvict).toEqual([existing.txHash]);
       });
 
       it('rejects incoming tx when fee is below the bump threshold', () => {
@@ -311,7 +306,7 @@ describe('TxMetaData', () => {
           incoming,
           () => existing.txHash,
           () => existing,
-          10,
+          10n,
         );
 
         expect(result.shouldIgnore).toBe(true);
@@ -331,14 +326,14 @@ describe('TxMetaData', () => {
           incoming,
           () => existing.txHash,
           () => existing,
-          10,
+          10n,
         );
 
         expect(result.shouldIgnore).toBe(false);
         expect(result.txHashesToEvict).toEqual([existing.txHash]);
       });
 
-      it('with 0% bump, rejects equal fee (strict >)', () => {
+      it('with 0% bump, rejects equal fee (minimum bump of 1)', () => {
         const existing = makeMeta('0x2222', 100n, ['0xnull1']);
         const incoming = makeMeta('0x1111', 100n, ['0xnull1']);
 
@@ -346,7 +341,7 @@ describe('TxMetaData', () => {
           incoming,
           () => existing.txHash,
           () => existing,
-          0, // 0% bump
+          0n, // 0% bump
         );
 
         expect(result.shouldIgnore).toBe(true);
@@ -373,25 +368,25 @@ describe('TxMetaData', () => {
 
   describe('getMinimumPriceBumpFee', () => {
     it('calculates 10% bump correctly', () => {
-      expect(getMinimumPriceBumpFee(100n, 10)).toBe(110n);
+      expect(getMinimumPriceBumpFee(100n, 10n)).toBe(110n);
     });
 
-    it('calculates 0% bump (returns same fee)', () => {
-      expect(getMinimumPriceBumpFee(100n, 0)).toBe(100n);
+    it('calculates 0% bump (returns fee + 1 minimum bump)', () => {
+      expect(getMinimumPriceBumpFee(100n, 0n)).toBe(101n);
     });
 
-    it('handles 0 existing fee', () => {
-      expect(getMinimumPriceBumpFee(0n, 10)).toBe(0n);
+    it('handles 0 existing fee (minimum bump of 1)', () => {
+      expect(getMinimumPriceBumpFee(0n, 10n)).toBe(1n);
     });
 
     it('handles large percentages', () => {
-      expect(getMinimumPriceBumpFee(100n, 100)).toBe(200n);
-      expect(getMinimumPriceBumpFee(100n, 200)).toBe(300n);
+      expect(getMinimumPriceBumpFee(100n, 100n)).toBe(200n);
+      expect(getMinimumPriceBumpFee(100n, 200n)).toBe(300n);
     });
 
     it('truncates fractional result (integer division)', () => {
       // 33 * 10 / 100 = 3.3 → truncated to 3, so 33 + 3 = 36
-      expect(getMinimumPriceBumpFee(33n, 10)).toBe(36n);
+      expect(getMinimumPriceBumpFee(33n, 10n)).toBe(36n);
     });
   });
 });

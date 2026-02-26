@@ -235,11 +235,11 @@ await pool.updateConfig({
 
 ### Price Bump (RPC Transaction Replacement)
 
-When a transaction is submitted via RPC and clashes on nullifiers with an existing pool transaction, the incoming tx must pay at least `priceBumpPercentage`% more in priority fee to replace it. This prevents spam via small fee increments. The same bump applies when the pool is full and the incoming tx needs to evict the lowest-priority tx.
+When a transaction is submitted via RPC and clashes on nullifiers with an existing pool transaction, the incoming tx must pay at least `priceBumpPercentage`% more in priority fee (i.e. `>= existingFee + existingFee * bump / 100`) to replace it. This prevents spam via small fee increments. The same bump applies when the pool is full and the incoming tx needs to evict the lowest-priority tx.
 
 - **Env var**: `P2P_RPC_PRICE_BUMP_PERCENTAGE` (default: 10)
 - **Scope**: RPC submissions only. P2P gossip uses `comparePriority` (fee + hash tiebreaker) with no bump.
-- Set to 0 to disable the percentage-based bump (still requires strictly higher fee).
+- Even with a 0% bump, a replacement tx must pay at least 1 unit more than the existing fee.
 
 ## Return Values
 

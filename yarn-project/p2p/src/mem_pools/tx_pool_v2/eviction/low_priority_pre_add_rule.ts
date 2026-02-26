@@ -53,7 +53,8 @@ export class LowPriorityPreAddRule implements PreAddRule {
     // Default (gossip): use full comparePriority (fee + tx hash tiebreaker) for determinism.
     const isHigherPriority = context?.feeComparisonOnly
       ? context.priceBumpPercentage !== undefined
-        ? incomingMeta.priorityFee > getMinimumPriceBumpFee(lowestPriorityMeta.priorityFee, context.priceBumpPercentage)
+        ? incomingMeta.priorityFee >=
+          getMinimumPriceBumpFee(lowestPriorityMeta.priorityFee, context.priceBumpPercentage)
         : incomingMeta.priorityFee > lowestPriorityMeta.priorityFee
       : comparePriority(incomingMeta, lowestPriorityMeta) > 0;
 
@@ -71,7 +72,7 @@ export class LowPriorityPreAddRule implements PreAddRule {
     // Incoming tx has equal or lower priority - ignore it (it would be evicted anyway)
     const minimumFee =
       context?.feeComparisonOnly && context.priceBumpPercentage !== undefined
-        ? getMinimumPriceBumpFee(lowestPriorityMeta.priorityFee, context.priceBumpPercentage) + 1n
+        ? getMinimumPriceBumpFee(lowestPriorityMeta.priorityFee, context.priceBumpPercentage)
         : lowestPriorityMeta.priorityFee + 1n;
 
     this.log.debug(

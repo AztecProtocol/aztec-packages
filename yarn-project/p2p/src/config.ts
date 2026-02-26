@@ -1,6 +1,7 @@
 import {
   type ConfigMappingsType,
   SecretValue,
+  bigintConfigHelper,
   booleanConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
@@ -192,7 +193,7 @@ export interface P2PConfig
   minTxPoolAgeMs: number;
 
   /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
-  priceBumpPercentage: number;
+  priceBumpPercentage: bigint;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -471,7 +472,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_RPC_PRICE_BUMP_PERCENTAGE',
     description:
       'Minimum percentage fee increase required to replace an existing tx via RPC. Set to 0 to disable price bumps.',
-    ...numberConfigHelper(10),
+    ...bigintConfigHelper(10n),
   },
   ...sharedSequencerConfigMappings,
   ...p2pReqRespConfigMappings,

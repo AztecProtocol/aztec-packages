@@ -130,7 +130,7 @@ export interface PreAddContext {
   /** If true, compare priority fee only (no tx hash tiebreaker). Used for RPC submissions. */
   feeComparisonOnly?: boolean;
   /** Percentage-based price bump required for tx replacement. Only set for RPC submissions. */
-  priceBumpPercentage?: number;
+  priceBumpPercentage?: bigint;
 }
 
 /**

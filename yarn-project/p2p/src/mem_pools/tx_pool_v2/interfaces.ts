@@ -47,7 +47,7 @@ export type TxPoolV2Config = {
   /** The probability (0-1) that a transaction is discarded. 0 disables dropping. For testing purposes only. */
   dropTransactionsProbability: number;
   /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
-  priceBumpPercentage: number;
+  priceBumpPercentage: bigint;
 };
 
 /**
@@ -59,7 +59,7 @@ export const DEFAULT_TX_POOL_V2_CONFIG: TxPoolV2Config = {
   minTxPoolAgeMs: 2_000,
   evictedTxCacheSize: 10_000,
   dropTransactionsProbability: 0,
-  priceBumpPercentage: 10,
+  priceBumpPercentage: 10n,
 };
 
 /**
