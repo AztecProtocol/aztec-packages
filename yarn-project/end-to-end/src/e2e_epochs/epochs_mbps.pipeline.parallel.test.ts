@@ -8,12 +8,13 @@ import { waitForTx } from '@aztec/aztec.js/node';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
+import type { SequencerEvents } from '@aztec/sequencer-client';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
@@ -145,58 +146,48 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
   }
 
   /**
-   * Asserts that blocks were built by the pipelined proposer (slot+1 in L1 schedule).
-   * For each block, queries L1 for the proposer at slot and slot+1, and verifies
-   * the block's coinbase matches the slot+1 proposer. Requires at least one slot
-   * where the two proposers differ (to prove the offset is real).
+   * Asserts pipelining by comparing the build slot (from block-proposed events) against
+   * the submission slot (from block headers). With pipelining, the block is built in slot N
+   * but its header carries submission slot N+1.
    */
-  async function assertProposerPipelining(logger: Logger) {
+  async function assertProposerPipelining(
+    blockProposedEvents: { blockNumber: BlockNumber; slot: SlotNumber }[],
+    logger: Logger,
+  ) {
     const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
     const allBlocks = checkpoints.flatMap(pc => pc.checkpoint.blocks);
-    const constants = test.constants;
 
-    let foundMismatch = false;
-    const seenSlots = new Set<number>();
+    let foundPipelining = false;
 
     for (const block of allBlocks) {
-      const slot = block.header.globalVariables.slotNumber;
-      // Only check the first block per slot (all blocks in same slot share the same proposer)
-      if (seenSlots.has(Number(slot))) {
-        continue;
-      }
-      seenSlots.add(Number(slot));
-
+      const headerSlot = block.header.globalVariables.slotNumber; // submission slot (N+1)
       const coinbase = block.header.globalVariables.coinbase;
-      const slotTimestamp = getTimestampForSlot(slot, constants);
-      const nextSlotTimestamp = getTimestampForSlot(SlotNumber(slot + 1), constants);
 
-      const submissionProposer = await rollup.getProposerAt(slotTimestamp);
-      const pipelinedProposer = await rollup.getProposerAt(nextSlotTimestamp);
+      // Find the block-proposed event for this block
+      const event = blockProposedEvents.find(e => e.blockNumber === block.number);
+      expect(event).toBeDefined();
 
-      logger.warn(
-        `Slot ${slot}: coinbase=${coinbase}, submissionProposer=${submissionProposer}, pipelinedProposer=${pipelinedProposer}`,
-        {
-          slot,
-          coinbase: coinbase.toString(),
-          submissionProposer: submissionProposer.toString(),
-          pipelinedProposer: pipelinedProposer.toString(),
-        },
-      );
+      const buildSlot = event!.slot; // build slot (N)
 
-      // The block's coinbase must match the pipelined (slot+1) proposer
-      expect(coinbase).toEqual(pipelinedProposer);
+      // Verify the pipelining offset: block built in slot N, submitted in slot N+1
+      expect(Number(headerSlot)).toBe(Number(buildSlot) + 1);
+      foundPipelining = true;
 
-      if (!submissionProposer.equals(pipelinedProposer)) {
-        // Strong assertion: proposer differs between slot and slot+1, proving the offset
-        expect(coinbase).not.toEqual(submissionProposer);
-        foundMismatch = true;
-      }
+      // Sanity check: coinbase matches the expected proposer for the submission slot
+      const expectedProposer = await rollup.getProposerAt(getTimestampForSlot(headerSlot, test.constants));
+      expect(coinbase).toEqual(expectedProposer);
+
+      logger.warn(`Block ${block.number}: buildSlot=${buildSlot}, submissionSlot=${headerSlot}, coinbase=${coinbase}`, {
+        blockNumber: block.number,
+        buildSlot,
+        headerSlot,
+        coinbase: coinbase.toString(),
+        expectedProposer: expectedProposer.toString(),
+      });
     }
 
-    // With 4 validators over multiple slots, we expect at least one slot where the
-    // proposer for slot N differs from the proposer for slot N+1
-    expect(foundMismatch).toBe(true);
-    logger.warn(`Proposer pipelining assertion passed: found proposer mismatch across ${seenSlots.size} slots`);
+    expect(foundPipelining).toBe(true);
+    logger.warn(`Pipelining assertion passed for ${allBlocks.length} blocks`);
   }
 
   afterEach(async () => {
@@ -206,6 +197,15 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
 
   it('pipelining builds blocks using slot+1 proposer and proves them', async () => {
     await setupTest({ syncChainTip: 'checkpointed', minTxsPerBlock: 1, maxTxsPerBlock: 2 });
+
+    // Subscribe to block-proposed events to capture build slots
+    const blockProposedEvents: { blockNumber: BlockNumber; slot: SlotNumber }[] = [];
+    const sequencers = nodes.map(n => n.getSequencer()!);
+    for (const sequencer of sequencers) {
+      sequencer.getSequencer().on('block-proposed', (args: Parameters<SequencerEvents['block-proposed']>[0]) => {
+        blockProposedEvents.push({ blockNumber: args.blockNumber, slot: args.slot });
+      });
+    }
 
     const initialCheckpointNumber = await rollup.getCheckpointNumber();
     logger.warn(`Initial checkpoint number: ${initialCheckpointNumber}`);
@@ -218,7 +218,7 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     logger.warn(`Sent ${txHashes.length} transactions`, { txs: txHashes });
 
     // Start the sequencers
-    await Promise.all(nodes.map(n => n.getSequencer()!.start()));
+    await Promise.all(sequencers.map(s => s.start()));
     logger.warn(`Started all sequencers`);
 
     // Wait until all txs are mined
@@ -232,8 +232,8 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     // Verify MBPS works with pipelining
     const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, logger);
 
-    // Verify the pipelining offset: each block's coinbase matches L1's slot+1 proposer
-    await assertProposerPipelining(logger);
+    // Verify the pipelining offset: build slot N vs submission slot N+1
+    await assertProposerPipelining(blockProposedEvents, logger);
 
     // Verify proving still works end-to-end with pipelined proposers
     await waitForProvenCheckpoint(multiBlockCheckpoint);
