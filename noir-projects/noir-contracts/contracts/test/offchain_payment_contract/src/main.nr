@@ -1,5 +1,6 @@
 use aztec::{
     capsules::CapsuleArray,
+    context::UtilityContext,
     messages::{
         encoding::MESSAGE_CIPHERTEXT_LEN,
         processing::{
@@ -19,6 +20,7 @@ pub global OFFCHAIN_CONTEXT_RESPONSES_SLOT: Field = sha256_to_field(
 );
 pub global OFFCHAIN_READY_MESSAGES_SLOT: Field =
     sha256_to_field("OFFCHAIN_PAYMENT::OFFCHAIN_READY_MESSAGES_SLOT".as_bytes());
+pub global OFFCHAIN_MESSAGE_TTL_SECONDS: u64 = 86400;
 
 #[derive(Serialize, Deserialize)]
 pub struct PendingOffchainMsg {
@@ -26,6 +28,7 @@ pub struct PendingOffchainMsg {
     pub recipient: AztecAddress,
     // Use 0 as a sentinel for tx-less messages.
     pub tx_hash: Field,
+    pub enqueued_ts: u64,
 }
 
 unconstrained fn offchain_sync_inbox(address: AztecAddress) -> CapsuleArray<OffchainMessage> {
@@ -60,6 +63,8 @@ unconstrained fn offchain_sync_inbox(address: AztecAddress) -> CapsuleArray<Offc
         CapsuleArray::at(address, OFFCHAIN_CONTEXT_RESPONSES_SLOT);
     assert_eq(responses.len(), inbox_len);
 
+    let now = UtilityContext::new().timestamp();
+
     let mut j = inbox_len;
     while j > 0 {
         j -= 1;
@@ -68,6 +73,10 @@ unconstrained fn offchain_sync_inbox(address: AztecAddress) -> CapsuleArray<Offc
         responses.remove(j);
 
         let msg = inbox.get(j);
+        if now > msg.enqueued_ts + OFFCHAIN_MESSAGE_TTL_SECONDS {
+            inbox.remove(j);
+            continue;
+        }
         if maybe_ctx.is_none() {
             // Tx not yet available; keep the message in the inbox.
             continue;
@@ -82,7 +91,6 @@ unconstrained fn offchain_sync_inbox(address: AztecAddress) -> CapsuleArray<Offc
         };
 
         ready.push(OffchainMessage { message_ciphertext: msg.ciphertext, message_context });
-        inbox.remove(j);
     }
 
     ready
@@ -130,6 +138,21 @@ contract OffchainPayment {
         self.storage.balances.at(owner).balance_of()
     }
 
+    #[external("utility")]
+    unconstrained fn get_inbox_len() -> u32 {
+        let addr = UtilityContext::new().this_address();
+        let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(addr, OFFCHAIN_INBOX_SLOT);
+        inbox.len()
+    }
+
+    #[external("utility")]
+    unconstrained fn get_inbox_tx_hash(index: u32) -> Field {
+        let addr = UtilityContext::new().this_address();
+        let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(addr, OFFCHAIN_INBOX_SLOT);
+        let msg = inbox.get(index);
+        msg.tx_hash
+    }
+
     // Enqueue an offchain-delivered message into the contract-owned inbox.
     #[external("utility")]
     unconstrained fn offchain_enqueue(
@@ -139,7 +162,12 @@ contract OffchainPayment {
     ) {
         let addr = UtilityContext::new().this_address();
         CapsuleArray::at(addr, OFFCHAIN_INBOX_SLOT).push(
-            PendingOffchainMsg { ciphertext, recipient, tx_hash },
+            PendingOffchainMsg {
+                ciphertext,
+                recipient,
+                tx_hash,
+                enqueued_ts: UtilityContext::new().timestamp(),
+            },
         );
     }
 }
