@@ -186,6 +186,13 @@ export class DockerService {
     // Fix ownership
     try { execSync(`chown -R ${process.getuid!()}:${process.getgid!()} "${workspaceDir}"`, { timeout: 10_000 }); } catch {}
 
+    // Prepare workspace on host: clone, submodules, hardlink gitignored files
+    try {
+      store.prepareWorkspace(worktreeId, opts.targetRef || "origin/next");
+    } catch (e: any) {
+      console.warn(`[DOCKER] Workspace prep failed (will fall back to container clone): ${e.message}`);
+    }
+
     console.log(`[DOCKER] Starting session ${logId} (worktree=${worktreeId})`);
     console.log(`[DOCKER]   Sidecar:   ${sidecarName}`);
     console.log(`[DOCKER]   Claude:    ${claudeName}`);
@@ -428,6 +435,11 @@ export class DockerService {
       const wt = store.getOrCreateWorktree(worktreeId);
       workspaceDir = wt.workspaceDir;
       claudeProjectsDir = wt.claudeProjectsDir;
+      try {
+        store.prepareWorkspace(worktreeId, `origin/${session.base_branch || "next"}`);
+      } catch (e: any) {
+        console.warn(`[INTERACTIVE] Workspace prep failed: ${e.message}`);
+      }
     } else {
       const { CLAUDEBOX_SESSIONS_DIR } = await import("./config.ts");
       const logId = session._log_id || hash;

@@ -1,8 +1,8 @@
-import { readFileSync, readdirSync, existsSync, writeFileSync, mkdirSync, statSync } from "fs";
+import { readFileSync, readdirSync, existsSync, writeFileSync, mkdirSync, statSync, linkSync } from "fs";
 import { join, basename, dirname } from "path";
-import { execSync } from "child_process";
+import { execSync, execFileSync } from "child_process";
 import type { SessionMeta, WorktreeInfo } from "./types.ts";
-import { SESSIONS_DIR, CLAUDEBOX_WORKTREES_DIR } from "./config.ts";
+import { SESSIONS_DIR, CLAUDEBOX_WORKTREES_DIR, REPO_DIR } from "./config.ts";
 import type { DockerService } from "./docker.ts";
 
 export class SessionStore {
@@ -167,6 +167,140 @@ export class SessionStore {
       const meta = JSON.parse(readFileSync(join(this.worktreesDir, worktreeId, "meta.json"), "utf-8"));
       return meta.last_session_log_id || "";
     } catch { return ""; }
+  }
+
+  // ── Workspace preparation (host-side clone, submodules, hardlinks) ──
+
+  /**
+   * Prepare workspace on the host side before container starts.
+   * - Clone with --shared from reference repo (zero-copy objects)
+   * - Set up submodule .git directories (copy .git/modules, create .git files)
+   * - Hardlink gitignored files from reference repo (same XFS mount)
+   */
+  prepareWorkspace(worktreeId: string, targetRef: string): void {
+    const workspaceDir = join(this.worktreesDir, worktreeId, "workspace");
+    const targetDir = join(workspaceDir, "aztec-packages");
+    const isNewClone = !existsSync(join(targetDir, ".git"));
+
+    if (isNewClone) {
+      console.log(`[WORKSPACE] Cloning reference repo → ${targetDir}`);
+      execFileSync("git", ["clone", "--shared", join(REPO_DIR, ".git"), targetDir], {
+        timeout: 120_000, stdio: "inherit",
+      });
+      execFileSync("git", ["-C", targetDir, "remote", "set-url", "origin",
+        "https://github.com/AztecProtocol/aztec-packages.git"], { timeout: 5_000 });
+      try {
+        execFileSync("git", ["-C", targetDir, "checkout", "--detach", targetRef], {
+          timeout: 30_000, stdio: "inherit",
+        });
+      } catch {
+        execFileSync("git", ["-C", targetDir, "checkout", "--detach", "origin/next"], {
+          timeout: 30_000, stdio: "inherit",
+        });
+      }
+      // Mark safe directory so git operations work inside containers
+      execFileSync("git", ["config", "--global", "--add", "safe.directory", targetDir], {
+        timeout: 5_000,
+      });
+
+      this.setupSubmodules(targetDir);
+      this.hardlinkGitignored(REPO_DIR, targetDir);
+    } else {
+      // Existing workspace — refresh hardlinks for any new gitignored files
+      this.hardlinkGitignored(REPO_DIR, targetDir);
+    }
+  }
+
+  /** Copy .git/modules from reference and set up submodule .git files. */
+  private setupSubmodules(targetDir: string): void {
+    const refModulesDir = join(REPO_DIR, ".git", "modules");
+    const targetModulesDir = join(targetDir, ".git", "modules");
+
+    if (!existsSync(refModulesDir)) return;
+    if (existsSync(targetModulesDir)) return; // already set up
+
+    console.log(`[WORKSPACE] Copying .git/modules from reference`);
+    execFileSync("cp", ["-a", refModulesDir, targetModulesDir], { timeout: 120_000 });
+
+    // Parse .gitmodules to find submodule paths
+    const gitmodulesPath = join(targetDir, ".gitmodules");
+    if (!existsSync(gitmodulesPath)) return;
+
+    const content = readFileSync(gitmodulesPath, "utf-8");
+    const paths: string[] = [];
+    for (const match of content.matchAll(/path\s*=\s*(.+)/g)) {
+      paths.push(match[1].trim());
+    }
+
+    // Create .git files in each submodule directory
+    for (const subPath of paths) {
+      const subDir = join(targetDir, subPath);
+      const gitFile = join(subDir, ".git");
+      if (existsSync(gitFile)) continue;
+
+      // Relative gitdir: from submodule dir up to repo root, then into .git/modules/<path>
+      const depth = subPath.split("/").length;
+      const relPrefix = "../".repeat(depth);
+      const gitdir = `${relPrefix}.git/modules/${subPath}`;
+
+      mkdirSync(subDir, { recursive: true });
+      writeFileSync(gitFile, `gitdir: ${gitdir}\n`);
+      console.log(`[WORKSPACE] Submodule .git: ${subPath}`);
+    }
+
+    // Checkout submodule working trees (git submodule update doesn't populate
+    // working trees when .git/modules was pre-copied, so use explicit checkout)
+    for (const subPath of paths) {
+      const subDir = join(targetDir, subPath);
+      try {
+        execFileSync("git", ["-C", subDir, "checkout", "HEAD", "--", "."], {
+          timeout: 60_000, stdio: "inherit",
+        });
+      } catch (e: any) {
+        console.warn(`[WORKSPACE] Submodule checkout failed for ${subPath}: ${e.message}`);
+      }
+    }
+    console.log(`[WORKSPACE] Submodules initialized (${paths.length} modules)`);
+  }
+
+  /** Hardlink gitignored files from reference repo into workspace clone. */
+  private hardlinkGitignored(referenceDir: string, targetDir: string): void {
+    let files: string[];
+    try {
+      const output = execFileSync("git", ["-C", referenceDir,
+        "ls-files", "--others", "--ignored", "--exclude-standard"], {
+        encoding: "utf-8", timeout: 30_000, maxBuffer: 50 * 1024 * 1024,
+      });
+      files = output.split("\n").filter(f => f.trim());
+    } catch {
+      console.warn(`[WORKSPACE] Failed to list gitignored files`);
+      return;
+    }
+
+    if (files.length === 0) return;
+
+    let linked = 0, skipped = 0, failed = 0;
+    for (const file of files) {
+      const src = join(referenceDir, file);
+      const dst = join(targetDir, file);
+
+      // Skip non-regular files and already-existing destinations
+      try { if (!statSync(src).isFile()) { skipped++; continue; } } catch { skipped++; continue; }
+      if (existsSync(dst)) { skipped++; continue; }
+
+      // Create parent directory and hardlink
+      try {
+        mkdirSync(dirname(dst), { recursive: true });
+        linkSync(src, dst);
+        linked++;
+      } catch {
+        failed++;
+      }
+    }
+
+    if (linked > 0 || failed > 0) {
+      console.log(`[WORKSPACE] Hardlinked gitignored: ${linked} linked, ${skipped} skipped, ${failed} failed`);
+    }
   }
 
   // ── Reconciliation ────────────────────────────────────────────
