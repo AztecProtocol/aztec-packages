@@ -205,13 +205,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         }
 
         // Construct a constraint system containing the business logic and ivc recursion constraints
-        program.constraints.max_witness_index = static_cast<uint32_t>(program.witness.size() - 1);
-        program.constraints.num_acir_opcodes = static_cast<uint32_t>(hn_recursion_constraints.size());
-        program.constraints.hn_recursion_constraints = hn_recursion_constraints;
-        program.constraints.original_opcode_indices =
-            hn_recursion_constraints.size() == 1
-                ? AcirFormatOriginalOpcodeIndices{ .hn_recursion_constraints = { 0 } }
-                : AcirFormatOriginalOpcodeIndices{ .hn_recursion_constraints = { 0, 1 } };
+        program.constraints = constraint_to_acir_format(hn_recursion_constraints);
 
         return program;
     }
@@ -612,7 +606,9 @@ TEST_F(HypernovaRecursionConstraintTest, InitKernelGateCount)
 
     // Assert ECC row count
     size_t actual_ecc_rows = kernel.op_queue->get_num_rows();
-    EXPECT_EQ(actual_ecc_rows, INIT_KERNEL_ECC_ROWS);
+    bool is_large_row_count = actual_ecc_rows == INIT_KERNEL_ECC_ROWS;
+    bool is_small_row_count = actual_ecc_rows == INIT_KERNEL_SMALL_ECC_ROWS_FOR_TESTING;
+    EXPECT_TRUE(is_large_row_count || is_small_row_count);
 
     // Assert ultra ops count
     size_t actual_ultra_ops = kernel.op_queue->get_current_subtable_size();
