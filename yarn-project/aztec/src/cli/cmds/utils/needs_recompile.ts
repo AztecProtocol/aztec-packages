@@ -1,6 +1,6 @@
 import TOML from '@iarna/toml';
 import { readFile, readdir, stat } from 'fs/promises';
-import { dirname, join, resolve } from 'path';
+import { join, resolve } from 'path';
 
 /** Returns the mtime (in ms) of the oldest .json artifact in targetDir, or undefined if none exist. */
 async function getOldestArtifactMtimeMs(targetDir: string): Promise<number | undefined> {
@@ -28,34 +28,6 @@ async function getOldestArtifactMtimeMs(targetDir: string): Promise<number | und
   return oldest;
 }
 
-/** Recursively finds all Nargo.toml files under dir, skipping target/ directories. */
-async function findNargoTomls(dir: string): Promise<string[]> {
-  const results: string[] = [];
-
-  async function walk(d: string): Promise<void> {
-    let entries;
-    try {
-      entries = await readdir(d, { withFileTypes: true });
-    } catch {
-      return;
-    }
-
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        if (entry.name === 'target') {
-          continue;
-        }
-        await walk(join(d, entry.name));
-      } else if (entry.name === 'Nargo.toml') {
-        results.push(join(d, entry.name));
-      }
-    }
-  }
-
-  await walk(dir);
-  return results;
-}
-
 /**
  * Recursively collects source directories starting from startDir by following path-based dependencies declared in
  * Nargo.toml files. Git-based deps are ignored (they only change when Nargo.toml itself is modified since the deps are
@@ -76,35 +48,23 @@ async function collectSourceDirs(startDir: string): Promise<string[]> {
     visited.add(absDir);
     result.push(absDir);
 
-    const tomlPaths = await findNargoTomls(absDir);
+    const tomlPath = join(absDir, 'Nargo.toml');
+    const content = await readFile(tomlPath, 'utf-8').catch(() => {
+      throw new Error(`Nargo.toml not found in ${absDir}`);
+    });
+    const parsed = TOML.parse(content) as Record<string, any>;
 
-    for (const tomlPath of tomlPaths) {
-      let content: string;
-      try {
-        content = await readFile(tomlPath, 'utf-8');
-      } catch {
-        continue;
-      }
-
-      let parsed: Record<string, any>;
-      try {
-        parsed = TOML.parse(content) as Record<string, any>;
-      } catch {
-        continue;
-      }
-
-      const deps = (parsed.dependencies as Record<string, any>) ?? {};
-      for (const dep of Object.values(deps)) {
-        if (dep && typeof dep === 'object' && typeof dep.path === 'string') {
-          const depPath = resolve(dirname(tomlPath), dep.path);
-          try {
-            const s = await stat(depPath);
-            if (s.isDirectory()) {
-              await visit(depPath);
-            }
-          } catch {
-            // Dependency directory doesn't exist; skip.
+    const deps = (parsed.dependencies as Record<string, any>) ?? {};
+    for (const dep of Object.values(deps)) {
+      if (dep && typeof dep === 'object' && typeof dep.path === 'string') {
+        const depPath = resolve(absDir, dep.path);
+        try {
+          const s = await stat(depPath);
+          if (s.isDirectory()) {
+            await visit(depPath);
           }
+        } catch {
+          // Dependency directory doesn't exist; skip.
         }
       }
     }
