@@ -81,6 +81,11 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual(BlockNumber(1));
   });
 
+  it('getCheckpointNumber', async () => {
+    const result = await context.client.getCheckpointNumber();
+    expect(result).toEqual(CheckpointNumber(1));
+  });
+
   it('getProvenBlockNumber', async () => {
     const result = await context.client.getProvenBlockNumber();
     expect(result).toEqual(BlockNumber(1));
