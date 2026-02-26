@@ -146,7 +146,7 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
 
 /* Prompt area */
 .prompt-section{padding:8px 12px;border-bottom:1px solid #1a1a1a;display:flex;flex-direction:column;gap:6px}
-.prompt-display{font-size:12px;color:#888;padding:6px 8px;background:#0a0a0a;border-radius:4px;border:1px solid #1a1a1a}
+.prompt-display{font-size:12px;color:#888;padding:8px 10px;background:#0a0a0a;border-radius:4px;border:1px solid #1a1a1a;max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
 .prompt-display .prompt-text{color:#ccc}
 
 /* Resume bar */
@@ -203,7 +203,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
 
   <!-- Sidebar -->
   <div class="sidebar">
-    ${prompt ? `<div class="sidebar-section"><div class="sidebar-label">Prompt</div><div class="prompt-display"><span class="prompt-text">${prompt.slice(0, 300)}${prompt.length > 300 ? "\u2026" : ""}</span></div></div>` : ""}
+    ${prompt ? `<div class="sidebar-section"><div class="sidebar-label">Prompt</div><div class="prompt-display"><span class="prompt-text">${prompt.slice(0, 2000)}${prompt.length > 2000 ? "\u2026" : ""}</span></div></div>` : ""}
 
     ${isMultiSession ? `<div class="sidebar-section"><div class="sidebar-label">Sessions (${sessions.length})</div>${sessionRows}</div>` : ""}
 
