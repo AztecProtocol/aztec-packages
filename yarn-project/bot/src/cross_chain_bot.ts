@@ -175,7 +175,7 @@ export class CrossChainBot extends BaseBot {
     const now = Date.now();
     for (const msg of pendingMessages) {
       const ready = await isL1ToL2MessageReady(this.node, Fr.fromHexString(msg.msgHash), {
-        forPublicConsumption: true,
+        forPublicConsumption: false,
       });
       if (ready) {
         return msg;

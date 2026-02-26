@@ -405,6 +405,9 @@ class MockArchiver implements ArchiverApi {
   getCheckpointedL2BlockNumber(): Promise<BlockNumber> {
     return Promise.resolve(BlockNumber(1));
   }
+  getCheckpointNumber(): Promise<CheckpointNumber> {
+    return Promise.resolve(CheckpointNumber(1));
+  }
   getFinalizedL2BlockNumber(): Promise<BlockNumber> {
     return Promise.resolve(BlockNumber(0));
   }

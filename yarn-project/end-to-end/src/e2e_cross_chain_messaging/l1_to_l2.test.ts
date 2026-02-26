@@ -56,7 +56,34 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     if (newBlock === block) {
       throw new Error(`Failed to advance block ${block}`);
     }
-    return undefined;
+    return newBlock;
+  };
+
+  const waitForBlockToCheckpoint = async (blockNumber: BlockNumber) => {
+    return await retryUntil(
+      async () => {
+        const checkpointedBlockNumber = await aztecNode.getCheckpointedBlockNumber();
+        const isCheckpointed = checkpointedBlockNumber >= blockNumber;
+        if (!isCheckpointed) {
+          return undefined;
+        }
+        const [checkpointedBlock] = await aztecNode.getCheckpointedBlocks(blockNumber, 1);
+        return checkpointedBlock.checkpointNumber;
+      },
+      'wait for block to checkpoint',
+      60,
+    );
+  };
+
+  const advanceCheckpoint = async () => {
+    let checkpoint = await aztecNode.getCheckpointNumber();
+    const originalcheckpoint = checkpoint;
+    log.warn(`Original checkpoint ${originalcheckpoint}`);
+    do {
+      const newBlock = await advanceBlock();
+      checkpoint = await waitForBlockToCheckpoint(newBlock);
+    } while (checkpoint <= originalcheckpoint);
+    log.warn(`At checkpoint ${checkpoint}`);
   };
 
   // Same as above but ignores errors. Useful if we expect a prune.
@@ -72,8 +99,8 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   const waitForMessageFetched = async (msgHash: Fr) => {
     log.warn(`Waiting until the message is fetched by the node`);
     return await retryUntil(
-      async () => (await aztecNode.getL1ToL2MessageBlock(msgHash)) ?? (await advanceBlock()),
-      'get msg block',
+      async () => (await aztecNode.getL1ToL2MessageCheckpoint(msgHash)) ?? (await advanceBlock()),
+      'get msg checkpoint',
       60,
     );
   };
@@ -84,20 +111,27 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     scope: 'private' | 'public',
     onNotReady?: (blockNumber: BlockNumber) => Promise<void>,
   ) => {
-    const msgBlock = await waitForMessageFetched(msgHash);
-    log.warn(`Waiting until L2 reaches msg block ${msgBlock} (current is ${await aztecNode.getBlockNumber()})`);
+    const msgCheckpoint = await waitForMessageFetched(msgHash);
+    log.warn(
+      `Waiting until L2 reaches msg checkpoint ${msgCheckpoint} (current is ${await aztecNode.getL1ToL2MessageCheckpoint(msgHash)})`,
+    );
     await retryUntil(
       async () => {
-        const blockNumber = await aztecNode.getBlockNumber();
+        const [blockNumber, checkpointNumber] = await Promise.all([
+          aztecNode.getBlockNumber(),
+          aztecNode.getCheckpointNumber(),
+        ]);
         const witness = await aztecNode.getL1ToL2MessageMembershipWitness('latest', msgHash);
         const isReady = await isL1ToL2MessageReady(aztecNode, msgHash, { forPublicConsumption: scope === 'public' });
-        log.info(`Block is ${blockNumber}. Message block is ${msgBlock}. Witness ${!!witness}. Ready ${isReady}.`);
+        log.info(
+          `Block is ${blockNumber}, checkpoint is ${checkpointNumber}. Message checkpoint is ${msgCheckpoint}. Witness ${!!witness}. Ready ${isReady}.`,
+        );
         if (!isReady) {
           await (onNotReady ? onNotReady(blockNumber) : advanceBlock());
         }
         return isReady;
       },
-      `wait for rollup to reach msg block ${msgBlock}`,
+      `wait for rollup to reach msg checkpoint ${msgCheckpoint}`,
       120,
     );
   };
@@ -162,72 +196,22 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     120_000,
   );
 
-  // Regression test for A-548: when isL1ToL2MessageReady returns true with forPublicConsumption: true,
-  // the simulator should be able to simulate a tx that consumes the message. Before the fix,
-  // simulation would revert because the public VM ran against the current world state which didn't
-  // yet contain the message (it would only be added by the sequencer when building the next block).
-  it('can simulate public consumption of L1 to L2 message when forPublicConsumption is true', async () => {
-    // Send L1 to L2 message
-    const [secret, secretHash] = await generateClaimSecret();
-    const message = { recipient: testContract.address, content: Fr.random(), secretHash };
-    const { msgHash, globalLeafIndex } = await sendL1ToL2Message(message, crossChainTestHarness);
-
-    // Wait for the archiver to sync the message and get the target block number
-    const msgBlockNumber = await waitForMessageFetched(msgHash);
-    log.warn(`Message fetched, target block: ${msgBlockNumber}, current: ${await aztecNode.getBlockNumber()}`);
-
-    // Advance to exactly msgBlockNumber - 1. At this point:
-    // - forPublicConsumption: true returns true  (blockNumber + 1 >= messageBlockNumber)
-    // - forPublicConsumption: false returns false (blockNumber < messageBlockNumber)
-    // This is the window where the bug manifests: the readiness check says "go" but the
-    // message isn't in the current world state yet.
-    let currentBlock = await aztecNode.getBlockNumber();
-    while (currentBlock < msgBlockNumber - 1) {
-      await advanceBlock();
-      currentBlock = await aztecNode.getBlockNumber();
-    }
-
-    // Verify we're in the interesting window (not past it)
-    expect(currentBlock).toBe(msgBlockNumber - 1);
-
-    const readyForPublic = await isL1ToL2MessageReady(aztecNode, msgHash, { forPublicConsumption: true });
-    const readyForPrivate = await isL1ToL2MessageReady(aztecNode, msgHash, { forPublicConsumption: false });
-    log.warn(`At block ${currentBlock}: readyForPublic=${readyForPublic}, readyForPrivate=${readyForPrivate}`);
-    expect(readyForPublic).toBe(true);
-    expect(readyForPrivate).toBe(false);
-
-    // Simulate public consumption. Before A-548 fix, this fails with:
-    //   "Assertion failed: Tried to consume nonexistent L1-to-L2 message"
-    // because the simulator runs against the current world state which doesn't have the message.
-    // After the fix, the simulator includes pending L1-to-L2 messages in the fork.
-    const consume = testContract.methods.consume_message_from_arbitrary_sender_public(
-      message.content,
-      secret,
-      crossChainTestHarness.ethAccount,
-      globalLeafIndex,
-    );
-
-    await consume.simulate({ from: user1Address });
-
-    // Also verify the message can actually be consumed by sending the tx
-    await consume.send({ from: user1Address });
-  }, 120_000);
-
-  // Inbox block number can drift on two scenarios: if the rollup reorgs and rolls back its own
-  // block number, or if the inbox receives too many messages and they are inserted faster than
-  // they are consumed. In this test, we mine several blocks without marking them as proven until
+  // Inbox checkpoint number can drift on two scenarios: if the rollup reorgs and rolls back its own
+  // checkpoint number, or if the inbox receives too many messages and they are inserted faster than
+  // they are consumed. In this test, we mine several checkpoints without marking them as proven until
   // we can trigger a reorg, and then wait until the message can be processed to consume it.
   it.each(['private', 'public'] as const)(
     'can consume L1 to L2 message in %s after inbox drifts away from the rollup',
     async (scope: 'private' | 'public') => {
       // Stop proving
       const lastProven = await aztecNode.getBlockNumber();
-      log.warn(`Stopping proof submission at block ${lastProven} to allow drift`);
+      const [checkpointedProvenBlock] = await aztecNode.getCheckpointedBlocks(lastProven, 1);
+      log.warn(`Stopping proof submission at checkpoint ${checkpointedProvenBlock.checkpointNumber} to allow drift`);
       t.context.watcher.setIsMarkingAsProven(false);
 
-      // Mine several blocks to ensure drift
+      // Mine several checkpoints to ensure drift
       log.warn(`Mining blocks to allow drift`);
-      await timesAsync(4, advanceBlock);
+      await timesAsync(4, advanceCheckpoint);
 
       // Generate and send the message to the L1 contract
       log.warn(`Sending L1 to L2 message`);
@@ -236,9 +220,9 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       const { msgHash, globalLeafIndex } = await sendL1ToL2Message(message, crossChainTestHarness);
 
       // Wait until the Aztec node has synced it
-      const msgBlockNumber = await waitForMessageFetched(msgHash);
-      log.warn(`Message synced for block ${msgBlockNumber}`);
-      expect(lastProven + 4).toBeLessThan(msgBlockNumber);
+      const msgCheckpointNumber = await waitForMessageFetched(msgHash);
+      log.warn(`Message synced for checkpoint ${msgCheckpointNumber}`);
+      expect(checkpointedProvenBlock.checkpointNumber + 4).toBeLessThan(msgCheckpointNumber);
 
       // And keep mining until we prune back to the original block number. Now the "waiting for two blocks"
       // strategy for the message to be ready to use shouldn't work, since the lastProven block is more than

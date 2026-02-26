@@ -42,6 +42,12 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     await this.createCheckpoints(numBlocks, 1);
   }
 
+  public getCheckpointNumber(): Promise<CheckpointNumber> {
+    return Promise.resolve(
+      this.checkpointList.length === 0 ? CheckpointNumber.ZERO : CheckpointNumber(this.checkpointList.length),
+    );
+  }
+
   /** Creates checkpoints, each containing `blocksPerCheckpoint` blocks. */
   public async createCheckpoints(numCheckpoints: number, blocksPerCheckpoint: number = 1) {
     for (let c = 0; c < numCheckpoints; c++) {
