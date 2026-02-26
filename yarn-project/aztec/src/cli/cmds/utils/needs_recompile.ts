@@ -70,7 +70,7 @@ async function collectSourceDirs(startDir: string): Promise<string[]> {
   async function visit(dir: string): Promise<void> {
     const absDir = resolve(dir);
     if (visited.has(absDir)) {
-      // We already visited this dir so we stop searching in this recursion.
+      // We already visited this dir so we stop searching.
       return;
     }
     visited.add(absDir);
