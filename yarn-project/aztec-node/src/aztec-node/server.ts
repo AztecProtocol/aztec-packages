@@ -76,7 +76,8 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
-import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { DebugLogStore, LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Offense, SlashPayloadRound } from '@aztec/stdlib/slashing';
@@ -156,12 +157,20 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     private blobClient?: BlobClientInterface,
     private validatorClient?: ValidatorClient,
     private keyStoreManager?: KeystoreManager,
+    private debugLogStore: DebugLogStore = new NullDebugLogStore(),
   ) {
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
 
     this.log.info(`Aztec Node version: ${this.packageVersion}`);
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
+
+    // A defensive check that protects us against introducing a bug in the complex `createAndSync` function. We must
+    // never have debugLogStore enabled when not in test mode because then we would be accumulating debug logs in
+    // memory which could be a DoS vector on the sequencer (since no fees are paid for debug logs).
+    if (debugLogStore.isEnabled && config.realProofs) {
+      throw new Error('debugLogStore should never be enabled when realProofs are set');
+    }
   }
 
   public async getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
@@ -301,9 +310,19 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       config.realProofs || config.debugForceTxProofVerification
         ? await BBCircuitVerifier.new(config)
         : new TestCircuitVerifier(config.proverTestVerificationDelayMs);
+
+    let debugLogStore: DebugLogStore;
     if (!config.realProofs) {
       log.warn(`Aztec node is accepting fake proofs`);
+
+      debugLogStore = new InMemoryDebugLogStore();
+      log.info(
+        'Aztec node started in test mode (realProofs set to false) hence debug logs from public functions will be collected and served',
+      );
+    } else {
+      debugLogStore = new NullDebugLogStore();
     }
+
     const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier);
 
     // create the tx pool and the p2p client, which will need the l2 block source
@@ -462,6 +481,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         archiver,
         dateProvider,
         telemetry,
+        debugLogStore,
       );
 
       sequencer = await SequencerClient.new(config, {
@@ -543,6 +563,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       blobClient,
       validatorClient,
       keyStoreManager,
+      debugLogStore,
     );
 
     return node;
@@ -836,18 +857,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Then get the actual tx from the archiver, which tracks every tx in a mined block.
     const settledTxReceipt = await this.blockSource.getSettledTxReceipt(txHash);
 
+    let receipt: TxReceipt;
     if (settledTxReceipt) {
-      // If the archiver has the receipt then return it.
-      return settledTxReceipt;
+      receipt = settledTxReceipt;
     } else if (isKnownToPool) {
       // If the tx is in the pool but not in the archiver, it's pending.
       // This handles race conditions between archiver and p2p, where the archiver
       // has pruned the block in which a tx was mined, but p2p has not caught up yet.
-      return new TxReceipt(txHash, TxStatus.PENDING, undefined, undefined);
+      receipt = new TxReceipt(txHash, TxStatus.PENDING, undefined, undefined);
     } else {
       // Otherwise, if we don't know the tx, we consider it dropped.
-      return new TxReceipt(txHash, TxStatus.DROPPED, undefined, 'Tx dropped by P2P node');
+      receipt = new TxReceipt(txHash, TxStatus.DROPPED, undefined, 'Tx dropped by P2P node');
     }
+
+    this.debugLogStore.decorateReceiptWithLogs(txHash.toString(), receipt);
+
+    return receipt;
   }
 
   public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
