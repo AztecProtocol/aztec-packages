@@ -14,7 +14,7 @@
 
 import { createServer, IncomingMessage, ServerResponse } from "http";
 import { execFileSync, execFile, spawn, ChildProcess } from "child_process";
-import { existsSync, readFileSync, appendFileSync, mkdirSync } from "fs";
+import { existsSync, readFileSync, appendFileSync, mkdirSync, readdirSync, statSync } from "fs";
 import { join, dirname, resolve } from "path";
 import { createHash } from "crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -142,18 +142,105 @@ function logActivity(type: string, text: string): void {
 
 // ── Root comment state (accumulated across tool calls) ──────────
 let lastStatus = "";
-const sessionArtifacts: string[] = [];
+let respondToUserCalled = false;
+
+// ── Claude transcript poller ────────────────────────────────────
+// Polls the Claude JSONL transcript and surfaces assistant text messages
+// to the activity log as "context" entries (shown differently from direct replies).
+let transcriptPollTimer: ReturnType<typeof setInterval> | null = null;
+let transcriptLinesRead = 0;
+
+function startTranscriptPoller(): void {
+  const projDir = join(process.env.HOME || "/tmp/claudehome", ".claude", "projects", "-workspace-aztec-packages");
+
+  transcriptPollTimer = setInterval(() => {
+    try {
+      if (!existsSync(projDir)) return;
+      // Find newest JSONL
+      const files = readdirSync(projDir)
+        .filter(f => f.endsWith(".jsonl"))
+        .map(f => ({ name: f, mtime: statSync(join(projDir, f)).mtimeMs }))
+        .sort((a, b) => b.mtime - a.mtime);
+      if (files.length === 0) return;
+
+      const lines = readFileSync(join(projDir, files[0].name), "utf-8").split("\n").filter(l => l.trim());
+
+      // Process only new lines since last poll
+      for (let i = transcriptLinesRead; i < lines.length; i++) {
+        try {
+          const d = JSON.parse(lines[i]);
+          if (d.type === "assistant" && Array.isArray(d.message?.content)) {
+            for (const item of d.message.content) {
+              if (item.type === "text" && item.text?.trim()) {
+                logActivity("context", item.text.trim());
+              }
+            }
+          }
+        } catch {}
+      }
+      transcriptLinesRead = lines.length;
+    } catch {}
+  }, 5000); // Poll every 5 seconds
+}
+
+function stopTranscriptPoller(): void {
+  if (transcriptPollTimer) { clearInterval(transcriptPollTimer); transcriptPollTimer = null; }
+}
+
+// Track PRs by number for deduplication; value = { title, url, action }
+const trackedPRs = new Map<number, { title: string; url: string; action: string }>();
+// Other artifacts (Linear issues, etc.)
+const otherArtifacts: string[] = [];
+
+function addTrackedPR(num: number, title: string, url: string, action: "created" | "updated") {
+  const existing = trackedPRs.get(num);
+  // "created" wins over "updated" (if we created it, keep that label)
+  const finalAction = existing?.action === "created" ? "created" : action;
+  trackedPRs.set(num, { title, url, action: finalAction });
+}
+
+function buildArtifactsGh(): string {
+  const lines: string[] = [];
+  if (trackedPRs.size > 0) {
+    lines.push("**Pull Requests**");
+    for (const [num, pr] of trackedPRs) {
+      lines.push(`- ${pr.action === "created" ? "🆕" : "📝"} [#${num}: ${pr.title}](${pr.url})`);
+    }
+  }
+  if (otherArtifacts.length > 0) lines.push(...otherArtifacts);
+  return lines.join("\n");
+}
+
+function buildArtifactsSlack(): string {
+  const lines: string[] = [];
+  for (const [num, pr] of trackedPRs) {
+    const icon = pr.action === "created" ? ":new:" : ":pencil2:";
+    lines.push(`${icon} <${pr.url}|#${num}: ${pr.title}>`);
+  }
+  if (otherArtifacts.length > 0) lines.push(...otherArtifacts);
+  return lines.join("\n");
+}
 
 function buildGhBody(status: string): string {
-  let body = status;
-  if (sessionArtifacts.length > 0) body += "\n\n---\n" + sessionArtifacts.join("\n");
-  if (SESSION_META.log_url) body += `\n\n[View log](${SESSION_META.log_url})`;
+  // Truncate for GitHub comments — link to status page for full content
+  let truncated = status;
+  if (status.length > 500) {
+    truncated = status.slice(0, 500) + "…";
+    if (statusPageUrl) truncated += ` [full details](${statusPageUrl})`;
+  }
+  let body = truncated;
+  const artifacts = buildArtifactsGh();
+  if (artifacts) body += "\n\n---\n" + artifacts;
+  // Status page link first (preferred), fall back to raw log
+  if (statusPageUrl) body += `\n\n[Status page](${statusPageUrl})`;
+  else if (SESSION_META.log_url) body += `\n\n[View log](${SESSION_META.log_url})`;
   return body;
 }
 
 function buildSlackText(status: string): string {
   let text = truncateForSlack(status);
-  if (sessionArtifacts.length > 0) text += "\n" + sessionArtifacts.join("\n");
+  const artifacts = buildArtifactsSlack();
+  if (artifacts) text += "\n" + artifacts;
   if (SESSION_META.log_url) text += ` <${SESSION_META.log_url}|log>`;
   if (statusPageUrl) text += ` <${statusPageUrl}|status>`;
   return text;
@@ -240,6 +327,7 @@ The log URL is in your context (get_context → log_url). Use it inline:
 NEVER post tables, bullet lists, reports, code blocks, or multi-paragraph text here. Print verbose output to stdout and link to it.`,
     { message: z.string().describe("1-2 sentences MAX. Use full GitHub URLs for PRs/issues (https://github.com/AztecProtocol/aztec-packages/pull/123), not #123.") },
     async ({ message }) => {
+      respondToUserCalled = true;
       logActivity("response", message);
       const results: string[] = [];
 
@@ -277,9 +365,7 @@ NEVER post tables, bullet lists, reports, code blocks, or multi-paragraph text h
 
       if (GH_TOKEN && SESSION_META.run_comment_id) {
         try {
-          let body = message;
-          if (sessionArtifacts.length > 0) body += "\n\n---\n" + sessionArtifacts.join("\n");
-          if (SESSION_META.log_url) body += `\n\n[View log](${SESSION_META.log_url})`;
+          const body = buildGhBody(message);
           const r = await fetch(
             `https://api.github.com/repos/${SESSION_META.repo}/issues/comments/${SESSION_META.run_comment_id}`,
             {
@@ -391,14 +477,16 @@ channel and thread_ts auto-injected from session if not provided.`,
 
   // ── create_pr ──────────────────────────────────────────────────
   server.tool("create_pr",
-    "Push workspace commits and create a draft PR. Always creates draft PRs.",
+    "Push workspace commits and create a draft PR. Always creates draft PRs. WARNING: .claude/ files are blocked by default — pass include_claude_files=true ONLY if your PR intentionally modifies ClaudeBox infrastructure.",
     {
       title: z.string().describe("PR title"),
       body: z.string().describe("PR description"),
       base: z.string().default("next").describe("Base branch"),
       closes: z.array(z.number()).optional().describe("Issue numbers to close, e.g. [123, 456]"),
+      include_claude_files: z.boolean().optional().describe("Force-include .claude/ files in the commit. Only use for PRs that intentionally modify ClaudeBox infra."),
+      include_noir_submodule: z.boolean().optional().describe("Force-include noir/noir-repo submodule changes. Only use if the PR intentionally updates the Noir submodule."),
     },
-    async ({ title, body, base, closes }) => {
+    async ({ title, body, base, closes, include_claude_files, include_noir_submodule }) => {
       if (!GH_TOKEN) return { content: [{ type: "text", text: "No GH_TOKEN" }], isError: true };
       if (!/^[\w./-]+$/.test(base))
         return { content: [{ type: "text", text: `Invalid base: ${base}` }], isError: true };
@@ -413,6 +501,13 @@ channel and thread_ts auto-injected from session if not provided.`,
           git("add", "-A");
           git("diff", "--cached", "--quiet");
         } catch {
+          // Block .claude/ files unless explicitly forced
+          const staged = git("diff", "--cached", "--name-only").trim();
+          const claudeFiles = staged.split("\n").filter(f => f.startsWith(".claude/"));
+          if (claudeFiles.length > 0 && !include_claude_files) {
+            git("reset", "HEAD", "--", ".claude");
+            return { content: [{ type: "text", text: `Blocked: your commit includes .claude/ files (${claudeFiles.join(", ")}). Run 'git checkout -- .claude' to discard those changes, then retry. If this PR intentionally modifies .claude/ infra, pass include_claude_files=true.` }], isError: true };
+          }
           git("commit", "-m", title);
         }
 
@@ -425,6 +520,16 @@ channel and thread_ts auto-injected from session if not provided.`,
         }
         if (!logOutput.trim())
           return { content: [{ type: "text", text: "No commits to push" }], isError: true };
+
+        // Block noir submodule changes unless explicitly forced
+        if (!include_noir_submodule) {
+          try {
+            const diff = git("diff", "--name-only", `origin/${base}...HEAD`);
+            if (diff.split("\n").some(f => f.trim() === "noir/noir-repo")) {
+              return { content: [{ type: "text", text: `Blocked: your commits change the noir/noir-repo submodule. Noir submodule updates require follow-on steps (see noir-sync-update skill) and should not be pushed accidentally. If this is intentional, pass include_noir_submodule=true.` }], isError: true };
+            }
+          } catch {}
+        }
 
         // Push — token in URL, never on disk. execFileSync avoids shell.
         const pushUrl = `https://x-access-token:${GH_TOKEN}@github.com/${SESSION_META.repo}.git`;
@@ -461,10 +566,9 @@ channel and thread_ts auto-injected from session if not provided.`,
           });
         } catch {}
 
-        // Auto-post PR to root comment
-        const prLink = `- [PR #${pr.number}: ${title}](${pr.html_url})`;
-        sessionArtifacts.push(prLink);
-        logActivity("artifact", prLink);
+        // Track PR and update status postamble
+        addTrackedPR(pr.number, title, pr.html_url, "created");
+        logActivity("artifact", `- [PR #${pr.number}: ${title}](${pr.html_url})`);
         await updateRootComment();
 
         return { content: [{ type: "text", text: `${pr.html_url}\nBranch: ${branch}\n#${pr.number}` }] };
@@ -475,7 +579,7 @@ channel and thread_ts auto-injected from session if not provided.`,
 
   // ── update_pr ────────────────────────────────────────────────
   server.tool("update_pr",
-    "Push workspace commits and/or update an existing PR. Only works on PRs with the 'claudebox' label. Use push=true to push current commits to the PR branch.",
+    "Push workspace commits and/or update an existing PR. Only works on PRs with the 'claudebox' label. Use push=true to push current commits to the PR branch. WARNING: .claude/ files are blocked by default — pass include_claude_files=true ONLY if your PR intentionally modifies ClaudeBox infrastructure.",
     {
       pr_number: z.number().describe("PR number"),
       push: z.boolean().optional().describe("Push current workspace commits to the PR's branch"),
@@ -483,8 +587,9 @@ channel and thread_ts auto-injected from session if not provided.`,
       body: z.string().optional().describe("New body"),
       base: z.string().optional().describe("New base branch"),
       state: z.enum(["open", "closed"]).optional().describe("PR state"),
+      include_claude_files: z.boolean().optional().describe("Force-include .claude/ files in the commit. Only use for PRs that intentionally modify ClaudeBox infra."),
     },
-    async ({ pr_number, push, title, body, base, state }) => {
+    async ({ pr_number, push, title, body, base, state, include_claude_files }) => {
       if (!GH_TOKEN) return { content: [{ type: "text", text: "No GH_TOKEN" }], isError: true };
 
       try {
@@ -510,6 +615,12 @@ channel and thread_ts auto-injected from session if not provided.`,
             git("add", "-A");
             git("diff", "--cached", "--quiet");
           } catch {
+            const staged = git("diff", "--cached", "--name-only").trim();
+            const claudeFiles = staged.split("\n").filter(f => f.startsWith(".claude/"));
+            if (claudeFiles.length > 0 && !include_claude_files) {
+              git("reset", "HEAD", "--", ".claude");
+              return { content: [{ type: "text", text: `Blocked: your commit includes .claude/ files (${claudeFiles.join(", ")}). Run 'git checkout -- .claude' to discard those changes, then retry. If this PR intentionally modifies .claude/ infra, pass include_claude_files=true.` }], isError: true };
+            }
             git("commit", "-m", title || `update PR #${pr_number}`);
           }
 
@@ -544,6 +655,12 @@ channel and thread_ts auto-injected from session if not provided.`,
 
         if (results.length === 0)
           return { content: [{ type: "text", text: "Nothing to do — specify push=true or fields to update" }], isError: true };
+
+        // Track PR and update status postamble
+        const prTitle = title || prData.title || `PR #${pr_number}`;
+        addTrackedPR(pr_number, prTitle, prData.html_url, "updated");
+        logActivity("artifact", `- [PR #${pr_number}: ${prTitle}](${prData.html_url}) (updated)`);
+        await updateRootComment();
 
         return { content: [{ type: "text", text: `PR #${pr_number}: ${results.join(", ")}\n${prData.html_url}` }] };
       } catch (e: any) {
@@ -641,7 +758,7 @@ channel and thread_ts auto-injected from session if not provided.`,
 
         // Auto-post issue to root comment
         const issueLink = `${result.issue.identifier}: ${result.issue.title} — ${result.issue.url}`;
-        sessionArtifacts.push(`- [${result.issue.identifier}: ${result.issue.title}](${result.issue.url})`);
+        otherArtifacts.push(`- [${result.issue.identifier}: ${result.issue.title}](${result.issue.url})`);
         logActivity("artifact", issueLink);
         await updateRootComment();
 
@@ -1161,9 +1278,77 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
 
 httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(`[Sidecar] :${PORT} gh=${GH_TOKEN ? "yes" : "no"} slack=${SLACK_BOT_TOKEN ? "yes" : "no"} linear=${LINEAR_API_KEY ? "yes" : "no"} quiet=${QUIET_MODE ? "yes" : "no"} docker=${existsSync("/var/run/docker.sock") ? "yes" : "no"}`);
+  // Start polling Claude's JSONL transcript for assistant messages
+  startTranscriptPoller();
 });
 
-process.on("SIGTERM", () => {
+/** Build a completion summary from the transcript and activity log. */
+function buildCompletionSummary(): string {
+  const parts: string[] = [];
+
+  // Collect the last respond_to_user message if it exists
+  if (respondToUserCalled && lastStatus) {
+    return lastStatus; // respond_to_user already set a good final status
+  }
+
+  // Otherwise build from transcript
+  try {
+    const projDir = join(process.env.HOME || "/tmp/claudehome", ".claude", "projects", "-workspace-aztec-packages");
+    if (existsSync(projDir)) {
+      const files = readdirSync(projDir)
+        .filter(f => f.endsWith(".jsonl"))
+        .map(f => ({ name: f, mtime: statSync(join(projDir, f)).mtimeMs }))
+        .sort((a, b) => b.mtime - a.mtime);
+      if (files.length > 0) {
+        const lines = readFileSync(join(projDir, files[0].name), "utf-8").split("\n").filter(l => l.trim());
+        // Walk backwards to find last assistant text
+        for (let i = lines.length - 1; i >= 0; i--) {
+          try {
+            const d = JSON.parse(lines[i]);
+            if (d.type === "assistant" && Array.isArray(d.message?.content)) {
+              for (const item of d.message.content) {
+                if (item.type === "text" && item.text?.trim()) {
+                  parts.push(item.text.trim());
+                  break;
+                }
+              }
+              if (parts.length) break;
+            }
+          } catch {}
+        }
+      }
+    }
+  } catch {}
+
+  // Add artifact summary
+  const artifactCount = trackedPRs.size + otherArtifacts.length;
+  if (artifactCount > 0) {
+    const prList = [...trackedPRs.entries()].map(([num, pr]) =>
+      `${pr.action === "created" ? "created" : "updated"} #${num}`
+    );
+    if (prList.length) parts.push(`PRs: ${prList.join(", ")}`);
+  }
+
+  if (parts.length === 0) return "Session completed";
+  return parts.join(" | ");
+}
+
+process.on("SIGTERM", async () => {
+  stopTranscriptPoller();
   httpServer.close();
+
+  // Build a proper summary for the final status
+  const summary = buildCompletionSummary();
+
+  if (!respondToUserCalled) {
+    // respond_to_user was never called — post the summary as final status
+    console.log(`[Sidecar] respond_to_user not called — posting summary as final status`);
+    logActivity("response", summary);
+    await updateRootComment(summary);
+  } else {
+    // respond_to_user was called — update final status with summary (not just "complete")
+    await updateRootComment(summary);
+  }
+
   process.exit(0);
 });

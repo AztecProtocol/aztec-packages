@@ -117,13 +117,17 @@ export function workspacePageHTML(data: WorkspacePageData): string {
 
   // Activity entries
   for (const a of activity) {
-    const text = esc(a.text.length > 500 ? a.text.slice(0, 500) + "\u2026" : a.text);
+    const text = esc(a.text.length > 2000 ? a.text.slice(0, 2000) + "\u2026" : a.text);
     const linked = text.replace(/(https?:\/\/[^\s&<]+)/g, '<a href="$1" target="_blank" class="link">$1</a>');
     const timeStr = a.ts ? timeAgo(a.ts) : "";
     const msgHash = Buffer.from(a.text.slice(0, 50)).toString("base64url").slice(0, 12);
     let html: string;
     if (a.type === "response") {
-      html = `<div class="chat-msg bot" data-msg="${msgHash}"><div class="chat-avatar">CB</div><div class="chat-bubble bot-bubble"><div class="chat-text">${linked}</div><div class="chat-time">${timeStr}</div></div></div>`;
+      // Direct reply — prominent bubble with "reply" label
+      html = `<div class="chat-msg bot" data-msg="${msgHash}"><div class="chat-avatar reply-avatar">RE</div><div class="chat-bubble reply-bubble"><div class="chat-text">${linked}</div><div class="chat-time">${timeStr} \u2022 reply</div></div></div>`;
+    } else if (a.type === "context") {
+      // Context — Claude's thinking/messages, shown more subtly
+      html = `<div class="chat-msg bot" data-msg="${msgHash}"><div class="chat-avatar">CB</div><div class="chat-bubble context-bubble"><div class="chat-text">${linked}</div><div class="chat-time">${timeStr}</div></div></div>`;
     } else if (a.type === "artifact") {
       html = `<div class="chat-msg bot" data-msg="${msgHash}"><div class="chat-avatar">CB</div><div class="chat-bubble artifact-bubble"><div class="chat-text">${linked}</div><div class="chat-time">${timeStr}</div></div></div>`;
     } else {
@@ -185,6 +189,9 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
 .user-avatar{background:#1a2e1a;color:#61D668}
 .chat-bubble{max-width:80%;padding:8px 12px;border-radius:8px;font-size:13px;line-height:1.5;word-break:break-word;white-space:pre-wrap}
 .bot-bubble{background:#111;border:1px solid #222;color:#ddd}
+.reply-bubble{background:#0d1a2e;border:1px solid #1a3366;color:#ddd}
+.reply-avatar{background:#1a2e4a !important;color:#5FA7F1 !important}
+.context-bubble{background:#0e0e0e;border:1px solid #1a1a1a;color:#999;font-size:12px}
 .user-bubble{background:#0d1a0d;border:1px solid #1a331a;color:#ccc;text-align:left}
 .artifact-bubble{background:#1a1a0a;border:1px solid #333020;color:#FAD979}
 .chat-time{font-size:10px;color:#555;margin-top:4px}
@@ -267,6 +274,20 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
 
 </div>
 
+<!-- Auth overlay (1Password-friendly form) -->
+<div id="auth-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:100;display:none;align-items:center;justify-content:center">
+  <form id="auth-form" autocomplete="on" style="background:#111;border:1px solid #333;border-radius:8px;padding:24px;width:280px;display:flex;flex-direction:column;gap:12px">
+    <div style="color:#5FA7F1;font-weight:bold;font-size:14px;text-align:center">ClaudeBox Login</div>
+    <input id="auth-user" name="username" type="text" autocomplete="username" placeholder="Username" style="background:#0a0a0a;border:1px solid #333;border-radius:4px;padding:8px 12px;color:#ccc;font-family:inherit;font-size:13px" required>
+    <input id="auth-pass" name="password" type="password" autocomplete="current-password" placeholder="Password" style="background:#0a0a0a;border:1px solid #333;border-radius:4px;padding:8px 12px;color:#ccc;font-family:inherit;font-size:13px" required>
+    <div style="display:flex;gap:8px">
+      <button type="submit" class="btn btn-blue" style="flex:1;padding:8px">Login</button>
+      <button type="button" class="btn" style="flex:1;padding:8px" onclick="hideAuth()">Cancel</button>
+    </div>
+    <div id="auth-error" style="color:#E94560;font-size:11px;text-align:center;display:none"></div>
+  </form>
+</div>
+
 <!-- Terminal controls — shown only when connected -->
 <div class="controls" id="terminal-controls">
   <div class="controls-group">
@@ -298,7 +319,65 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
   }
 
   var ID="${worktreeId || hash}";
-  var WS_URL=(location.protocol==="https:"?"wss:":"ws:")+"//"+location.host+"/s/"+ID+"/ws";
+
+  // Auth — cached in sessionStorage, shown as overlay form for 1Password autofill
+  var _creds=null;
+  var _authCallback=null;
+  function loadCreds(){
+    if(_creds)return _creds;
+    try{var s=sessionStorage.getItem("cb_auth");if(s){_creds=JSON.parse(s);return _creds;}}catch{}
+    return null;
+  }
+  function saveCreds(u,p){
+    _creds={user:u,pass:p,basic:"Basic "+btoa(u+":"+p)};
+    try{sessionStorage.setItem("cb_auth",JSON.stringify(_creds));}catch{}
+    return _creds;
+  }
+  function showAuth(cb){
+    _authCallback=cb;
+    var overlay=document.getElementById("auth-overlay");
+    overlay.style.display="flex";
+    document.getElementById("auth-error").style.display="none";
+    document.getElementById("auth-user").focus();
+  }
+  window.hideAuth=function(){
+    document.getElementById("auth-overlay").style.display="none";
+    _authCallback=null;
+  };
+  document.getElementById("auth-form").addEventListener("submit",function(e){
+    e.preventDefault();
+    var u=document.getElementById("auth-user").value;
+    var p=document.getElementById("auth-pass").value;
+    // Verify credentials (uses /auth-check which never sends WWW-Authenticate)
+    fetch("/auth-check",{method:"POST",headers:{"Authorization":"Basic "+btoa(u+":"+p)}})
+      .then(function(r){
+        if(r.status===401){
+          document.getElementById("auth-error").textContent="Invalid credentials";
+          document.getElementById("auth-error").style.display="block";
+          return;
+        }
+        saveCreds(u,p);
+        document.getElementById("auth-overlay").style.display="none";
+        if(_authCallback){var cb=_authCallback;_authCallback=null;cb();}
+      }).catch(function(){
+        document.getElementById("auth-error").textContent="Connection error";
+        document.getElementById("auth-error").style.display="block";
+      });
+  });
+  function requireAuth(cb){
+    if(loadCreds()){cb();return;}
+    showAuth(cb);
+  }
+  function authFetch(url,opts){
+    var c=loadCreds();if(!c)return Promise.reject(new Error("Not logged in"));
+    opts=opts||{};opts.headers=opts.headers||{};opts.headers["Authorization"]=c.basic;
+    return fetch(url,opts);
+  }
+  function wsUrl(){
+    var c=loadCreds();if(!c)return null;
+    var proto=location.protocol==="https:"?"wss:":"ws:";
+    return proto+"//"+encodeURIComponent(c.user)+":"+encodeURIComponent(c.pass)+"@"+location.host+"/s/"+ID+"/ws";
+  }
   var term,fitAddon,ws,keepaliveInterval;
   var joinBtn=document.getElementById("join-btn");
   var timerEl=document.getElementById("timer");
@@ -306,7 +385,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
   var keepaliveMins=5;
 
   if(joinBtn&&!joinBtn.disabled){
-    joinBtn.addEventListener("click",function(){joinBtn.disabled=true;joinBtn.textContent="Connecting\u2026";startTerminal();});
+    joinBtn.addEventListener("click",function(){requireAuth(function(){joinBtn.disabled=true;joinBtn.textContent="Connecting\u2026";startTerminal();});});
   }
 
   function startTerminal(){
@@ -324,6 +403,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
     fitAddon=new window.FitAddon.FitAddon();term.loadAddon(fitAddon);
     if(window.WebLinksAddon)term.loadAddon(new window.WebLinksAddon.WebLinksAddon());
     term.open(tc);fitAddon.fit();
+    var WS_URL=wsUrl();if(!WS_URL){joinBtn.disabled=false;joinBtn.textContent="Connect";return;}
     ws=new WebSocket(WS_URL);ws.binaryType="arraybuffer";
     var gotFirstData=false;
     ws.onopen=function(){
@@ -381,11 +461,12 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
   },120000);
 
   window.resumeSession=function(){
+    requireAuth(function(){
     var input=document.getElementById("resume-prompt");
     var prompt=(input&&input.value.trim())||"Continue from where you left off.";
     var btn=document.getElementById("resume-btn");
-    if(btn){btn.disabled=true;btn.textContent="Starting…";}
-    fetch("/s/"+ID+"/resume",{method:"POST",headers:{"Content-Type":"application/json"},
+    if(btn){btn.disabled=true;btn.textContent="Starting\u2026";}
+    authFetch("/s/"+ID+"/resume",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({prompt:prompt})}).then(function(r){return r.json();}).then(function(d){
       if(d.ok){
         var newHash=d.log_url?d.log_url.split("/").pop():"";
@@ -396,6 +477,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
         if(btn){btn.disabled=false;btn.textContent="Resume";}
       }
     }).catch(function(e){alert("Error: "+e.message);if(btn){btn.disabled=false;btn.textContent="Resume";}});
+    });
   };
 
   var resumeInput=document.getElementById("resume-prompt");
@@ -403,7 +485,8 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
 
   window.cancelSession=function(){
     if(!confirm("Cancel this session? Running containers will be stopped. (Disconnecting does NOT cancel.)")) return;
-    fetch("/s/"+ID+"/cancel",{method:"POST"}).then(function(r){return r.json();}).then(function(d){
+    requireAuth(function(){
+    authFetch("/s/"+ID+"/cancel",{method:"POST"}).then(function(r){return r.json();}).then(function(d){
       if(d.ok){
         alert("Session cancelled.");
         location.reload();
@@ -411,6 +494,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
         alert(d.message||"Could not cancel session.");
       }
     }).catch(function(e){alert("Error: "+e.message);});
+    });
   };
 
   // Auto-refresh every 10s (skip when terminal is active)
