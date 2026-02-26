@@ -20,8 +20,7 @@ namespace bb {
  * @brief Parameters defining the base field of the BN254 curve.
  *
  * @details When split into 4 64-bit words, the parameters are represented in little-endian, i.e. the least significant
- * bit comes first. For example, to recover the modulus from the 64-bit words we concatenate:
- *      modulus_3 || modulus_2 || modulus_1 || modulus_0 =
+ * bit comes first. For example, to recover the modulus from the 64-bit words we concatenate its limbs to obtain:
  *           0x30644e72e131a029b85045b68181585d97816a916871ca8d3C208C16D87CFD47
  *
  * @note These parameters can be extracted by running the script parameter_helper.py in ecc/fields

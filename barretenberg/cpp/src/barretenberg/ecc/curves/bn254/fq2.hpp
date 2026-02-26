@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -10,6 +10,22 @@
 #include "./fq.hpp"
 
 namespace bb {
+
+/**
+ * @brief Quadratic extension of the base field of BN254
+ *
+ * @details The quadratic extension Fq2 is defined as Fq[u] / (u^2 - 1). Fq2 is the base field of
+ * the twist of BN254, thus points in G2 have coordinates in Fq2.
+ *
+ * Inside this struct we define the parameters of the twist:
+ * - the coefficient twist_b = 3 / (9 + u) defining the equation of the twist: y^2 = x^3 + twist_b. The coefficient is
+ *   derived as b / \xi, where b = 3 is the coefficient of BN254 in short-Weierstrass form, and \xi = 9 + u is not a
+ *   sixth residue in Fq2.
+ * - the coefficients required to compute the frobenius map on the twisted curve: if \Psi : E' --> E is the isomorphism
+ *   between the twist E' and the base curve E, then the frobenius map on E' is \Psi^{-1} \circ Frobenius \circ \Psi.
+ *   This map is given by (x, y) --> (\xi^{(q-1)/3} * x^p, \xi^{(q-1)/2}} * y^p). We precompute the two powers of \xi
+ *   and store them as twist_mul_by_q_x and twist_mul_by_q_y.
+ */
 struct Bn254Fq2Params {
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     static constexpr fq twist_coeff_b_0{
@@ -30,12 +46,6 @@ struct Bn254Fq2Params {
     static constexpr fq twist_mul_by_q_y_1{
         0xa1d77ce45ffe77c7UL, 0x07affd117826d1dbUL, 0x6d16bd27bb7edc6bUL, 0x2c87200285defeccUL
     };
-    static constexpr fq twist_cube_root_0{
-        0x505ecc6f0dff1ac2UL, 0x2071416db35ec465UL, 0xf2b53469fa43ea78UL, 0x18545552044c99aaUL
-    };
-    static constexpr fq twist_cube_root_1{
-        0xad607f911cfe17a8UL, 0xb6bb78aa154154c4UL, 0xb53dd351736b20dbUL, 0x1d8ed57c5cc33d41UL
-    };
 #else
     static constexpr fq twist_coeff_b_0{
         0xdc19fa4aab489658UL, 0xd416744fbbf6e69UL, 0x8f7734ed0a8a033aUL, 0x19316b8353ee09bbUL
@@ -54,12 +64,6 @@ struct Bn254Fq2Params {
     };
     static constexpr fq twist_mul_by_q_y_1{
         0x6b3fbdf579a647d5UL, 0xcc568fb62ff64974UL, 0xc1bfbf4ac4348ac6UL, 0x15871d4d3940b4d3UL
-    };
-    static constexpr fq twist_cube_root_0{
-        0x49d0cc74381383d0UL, 0x9611849fe4bbe3d6UL, 0xd1a231d73067c92aUL, 0x445c312767932c2UL
-    };
-    static constexpr fq twist_cube_root_1{
-        0x35a58c718e7c28bbUL, 0x98d42c77e7b8901aUL, 0xf9c53da2d0ca8c84UL, 0x1a68dd04e1b8c51dUL
     };
 #endif
 };

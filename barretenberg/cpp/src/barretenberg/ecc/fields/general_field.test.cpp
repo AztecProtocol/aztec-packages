@@ -385,6 +385,29 @@ TYPED_TEST(FieldTest, SubMulConsistency)
     EXPECT_EQ(result, expected);
 }
 
+TYPED_TEST(FieldTest, MulSqrConsistency)
+{
+    using FF = TypeParam;
+
+    // Check that (a - b) * (a + b) = a^2 - b^2
+    FF a = FF::random_element();
+    FF b = FF::random_element();
+    FF t1;
+    FF t2;
+    FF mul_result;
+    FF sqr_result;
+
+    t1 = a - b;
+    t2 = a + b;
+    mul_result = t1 * t2;
+
+    t1 = a.sqr();
+    t2 = b.sqr();
+    sqr_result = t1 - t2;
+
+    EXPECT_EQ(mul_result, sqr_result);
+}
+
 // ================================
 // Montgomery Form and Reduction
 // ================================
@@ -537,6 +560,17 @@ TYPED_TEST(FieldTest, SerializeFromBuffer)
 
         FF::serialize_to_buffer(expected, &buffer[0]);
         FF result = FF::serialize_from_buffer(&buffer[0]);
+
+        EXPECT_EQ(result, expected);
+    } else if constexpr (std::is_same_v<TypeParam, bb::fq2>) {
+        std::array<uint8_t, 64> buffer;
+        fq expected_c0 = { 0x1234567876543210, 0x2345678987654321, 0x3456789a98765432, 0x006789abcba98765 };
+        fq expected_c1 = { 0x12a4e67f76b43210, 0x23e56f898a65cc21, 0x005678add98e5432, 0x1f6789a2cba98700 };
+        fq2 expected{ expected_c0, expected_c1 };
+
+        fq2::serialize_to_buffer(expected, &buffer[0]);
+
+        fq2 result = fq2::serialize_from_buffer(&buffer[0]);
 
         EXPECT_EQ(result, expected);
     }

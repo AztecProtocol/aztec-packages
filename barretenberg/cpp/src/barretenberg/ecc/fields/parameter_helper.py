@@ -5,8 +5,8 @@ import os
 import re
 import json
 
-parameter_files = ['src/barretenberg/ecc/curves/bn254/fq.hpp', 'src/barretenberg/ecc/curves/bn254/fr.hpp',
-                   'src/barretenberg/ecc/curves/secp256k1/secp256k1.hpp','src/barretenberg/ecc/curves/secp256r1/secp256r1.hpp']
+parameter_files = ['src/barretenberg/ecc/curves/bn254/fq.hpp', 'src/barretenberg/ecc/curves/bn254/fr.hpp']
+                #    'src/barretenberg/ecc/curves/secp256k1/secp256k1.hpp','src/barretenberg/ecc/curves/secp256r1/secp256r1.hpp']
 
 
 def get_file_location():
@@ -89,23 +89,34 @@ def parse_field_params(s):
         return result
 
     parameter_dictionary=dict()
-    # Recover the modulus
+
+    # Native parameters
     parameter_dictionary['modulus']=recover_element_from_parts('modulus',64)
-    # Recover r_squared
+
     parameter_dictionary['r_squared']=recover_element_from_parts('r_squared',64)
-    # Recover cube_root in montgomery form (2^256   )
-    parameter_dictionary['cube_root']=recover_element_from_parts('cube_root',64)
-    # Recover primitive_root in montgomery form (2^256)
-    parameter_dictionary['primitive_root']=recover_element_from_parts('primitive_root',64)
 
     parameter_dictionary['r_inv_x64']=recover_element_from_parts('r_inv',64)
-    parameter_dictionary['r_inv_wasm']=recover_element_from_parts('r_inv_wasm',29)
+
+    parameter_dictionary['cube_root']=recover_element_from_parts('cube_root',64)
+
+    parameter_dictionary['primitive_root']=recover_element_from_parts('primitive_root',64)
+
+    parameter_dictionary['coset_generator']=recover_element_from_parts('coset_generator',64)
+
+    # WASM parameters
     parameter_dictionary['modulus_wasm']=recover_element_from_parts('modulus_wasm',29)
+
     parameter_dictionary['r_squared_wasm']=recover_element_from_parts('r_squared_wasm',64)
+
+    parameter_dictionary['r_inv_wasm']=recover_element_from_parts('r_inv_wasm',29)
+
     parameter_dictionary['cube_root_wasm']=recover_element_from_parts('cube_root_wasm',64)
+
     parameter_dictionary['primitive_root_wasm']=recover_element_from_parts('primitive_root_wasm',64)
-    parameter_dictionary={**parameter_dictionary,**recover_multiple_arrays('coset_generators')}
-    parameter_dictionary={**parameter_dictionary,**recover_multiple_arrays('coset_generators_wasm')}
+
+    parameter_dictionary['coset_generator_wasm']=recover_element_from_parts('coset_generator_wasm',64)
+
+    # Endomorphism parameters
     parameter_dictionary['endo_g1_lo']=recover_single_value_if_present('endo_g1_lo')
     parameter_dictionary['endo_g1_mid']=recover_single_value_if_present('endo_g1_mid')
     parameter_dictionary['endo_g1_hi']=recover_single_value_if_present('endo_g1_hi')
@@ -130,10 +141,9 @@ def parse_field_params(s):
     assert(parameter_dictionary['primitive_root']*r_wasm_divided_by_r_regular%modulus==parameter_dictionary['primitive_root_wasm']) # Check pritimitve roots are equivalent
     assert(parameter_dictionary['r_inv_x64']*(1<<64)%parameter_dictionary['modulus']==1)
     assert(parameter_dictionary['r_inv_wasm']*(1<<29)%parameter_dictionary['modulus']==1)
-    for i in range(8):
-        regular_coset_generator=reconstruct_field_from_4_parts([parameter_dictionary[f'coset_generators_{j}'][i] for j in range(4)])
-        wasm_coset_generator=reconstruct_field_from_4_parts([parameter_dictionary[f'coset_generators_wasm_{j}'][i] for j in range(4)])
-        assert(regular_coset_generator*r_wasm_divided_by_r_regular%modulus == wasm_coset_generator)
+    regular_coset_generator=parameter_dictionary['coset_generator']
+    wasm_coset_generator=parameter_dictionary['coset_generator_wasm']
+    assert(regular_coset_generator*r_wasm_divided_by_r_regular%modulus == wasm_coset_generator)
 
     return parameter_dictionary
 
