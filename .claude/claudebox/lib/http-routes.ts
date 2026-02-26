@@ -390,9 +390,11 @@ export function createHttpServer(
   const ctx = { store, docker, interactive };
 
   return createServer(async (req: IncomingMessage, res: ServerResponse) => {
+    // Strip query string so route patterns don't need to account for ?key=val
+    const pathname = (req.url || "/").split("?")[0];
     for (const route of routes) {
       if (req.method !== route.method) continue;
-      const m = req.url?.match(route.pattern);
+      const m = pathname.match(route.pattern);
       if (!m) continue;
 
       // Auth check
