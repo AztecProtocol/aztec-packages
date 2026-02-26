@@ -77,39 +77,32 @@ export class PhasesTxValidator implements TxValidator<Tx> {
     const contractAddress = publicCall.request.contractAddress;
     const functionSelector = publicCall.functionSelector;
 
-    // do these checks first since they don't require the contract class
+    // Check address-based entries first since they don't require the contract class.
     for (const entry of allowList) {
-      if ('address' in entry && !('selector' in entry)) {
-        if (contractAddress.equals(entry.address)) {
-          return true;
-        }
-      }
-
-      if ('address' in entry && 'selector' in entry) {
+      if ('address' in entry) {
         if (contractAddress.equals(entry.address) && entry.selector.equals(functionSelector)) {
           return true;
         }
       }
+    }
 
-      const contractClass = await this.contractsDB.getContractInstance(contractAddress, this.timestamp);
-
-      if (!contractClass) {
-        throw new Error(`Contract not found: ${contractAddress}`);
+    // Check class-based entries. Fetch the contract instance lazily (only once).
+    let contractClassId: undefined | { value: string | undefined };
+    for (const entry of allowList) {
+      if (!('classId' in entry)) {
+        continue;
       }
 
-      if ('classId' in entry && !('selector' in entry)) {
-        if (contractClass.currentContractClassId.equals(entry.classId)) {
-          return true;
+      if (contractClassId === undefined) {
+        const instance = await this.contractsDB.getContractInstance(contractAddress, this.timestamp);
+        contractClassId = { value: instance?.currentContractClassId.toString() };
+        if (!contractClassId.value) {
+          throw new Error(`Contract not found: ${contractAddress}`);
         }
       }
 
-      if ('classId' in entry && 'selector' in entry) {
-        if (
-          contractClass.currentContractClassId.equals(entry.classId) &&
-          (entry.selector === undefined || entry.selector.equals(functionSelector))
-        ) {
-          return true;
-        }
+      if (contractClassId.value === entry.classId.toString() && entry.selector.equals(functionSelector)) {
+        return true;
       }
     }
 

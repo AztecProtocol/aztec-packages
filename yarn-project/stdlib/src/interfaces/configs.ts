@@ -31,8 +31,8 @@ export interface SequencerConfig {
   acvmWorkingDirectory?: string;
   /** The path to the ACVM binary */
   acvmBinaryPath?: string;
-  /** The list of functions calls allowed to run in setup */
-  txPublicSetupAllowList?: AllowedElement[];
+  /** Additional entries to extend the default setup allow list. */
+  txPublicSetupAllowListExtend?: AllowedElement[];
   /** Max block size */
   maxBlockSizeInBytes?: number;
   /** Payload address to vote for */
@@ -90,7 +90,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     feeRecipient: schemas.AztecAddress.optional(),
     acvmWorkingDirectory: z.string().optional(),
     acvmBinaryPath: z.string().optional(),
-    txPublicSetupAllowList: z.array(AllowedElementSchema).optional(),
+    txPublicSetupAllowListExtend: z.array(AllowedElementSchema).optional(),
     maxBlockSizeInBytes: z.number().optional(),
     governanceProposerPayload: schemas.EthAddress.optional(),
     l1PublishingTime: z.number().optional(),
@@ -126,7 +126,7 @@ type SequencerConfigOptionalKeys =
   | 'fakeProcessingDelayPerTxMs'
   | 'fakeThrowAfterProcessingTxCount'
   | 'l1PublishingTime'
-  | 'txPublicSetupAllowList'
+  | 'txPublicSetupAllowListExtend'
   | 'minValidTxsPerBlock'
   | 'minBlocksForCheckpoint';
 
