@@ -22,8 +22,12 @@ const std::array<size_t, 257> p_limbs_per_radix_sizes = {
     33, 33, 33,  33,  33,  33,  33, 33, 33, 33, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
 };
 
-// The little endian decompositions of Fr modulus into limbs for each radix.
-// Radix goes up to 256 so we need 257 decompositions.
+/**
+ * @brief Creates the array of little-endian decompositions of the Fr modulus into limbs for each radix in [2, 256].
+ *        Entries at indices 0 and 1 are left empty.
+ *
+ * @return The 257-entry array where entry[radix] contains the LE limb decomposition of p for that radix.
+ */
 std::array<std::vector<uint8_t>, 257> create_p_limbs_per_radix()
 {
     std::array<std::vector<uint8_t>, 257> limbs_per_radix;
@@ -51,7 +55,7 @@ std::array<std::vector<uint8_t>, 257> create_p_limbs_per_radix()
  * @brief Gets the p limbs per radix array. Each element is a vector containing the little endian decompositions of Fr
  *        modulus into limbs for each radix. Radix goes up to 256 so we need 257 decompositions.
  *
- * @return std::array<std::vector<uint8_t>, 257>
+ * @return A const reference to the lazily-initialized static array of LE p-limb decompositions indexed by radix.
  */
 const std::array<std::vector<uint8_t>, 257>& get_p_limbs_per_radix()
 {
@@ -61,6 +65,8 @@ const std::array<std::vector<uint8_t>, 257>& get_p_limbs_per_radix()
 
 /**
  * @brief Gets the number of limbs that the modulus, p, decomposes into for a given radix.
+ *
+ * @note Asserts that radix <= 256.
  *
  * @param radix The radix to get the number of limbs for. Must be in the range [0, 256]. For 0 and 1, the number of
  * limbs is 0.

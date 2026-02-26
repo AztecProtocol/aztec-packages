@@ -21,6 +21,10 @@ using C = Column;
  *        per event is equal to the number of limbs in the event. Simulation guarantees that the limbs in the event
  *        fully decompose the value (no truncation) but high limbs might be zero.
  *
+ * Events have a single flavor: a complete little-endian decomposition with all limbs populated (at least the number
+ * of limbs needed to represent the value in the given radix). No error variants exist for this event type.
+ *
+ * @note Asserts that each event's radix is in range [2, 256].
  *
  * @param events The events of type ToRadixEvent to process.
  * @param trace The trace to populate.
@@ -119,6 +123,17 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
  * @brief Processes the memory aware to_radix subtrace ingesting ToRadixMemoryEvent events. The populated number of rows
  *        per event is equal to event.num_limbs if there is no error and num_limbs is not zero. Otherwise, a single row
  *        is populated.
+ *
+ * Events are emitted in the following flavors (all from ToRadix::to_be_radix in simulation):
+ * - Input validation error: limbs is empty, one of dst_out_of_range / radix_lt_2 / radix_gt_256 /
+ *   invalid_bitwise_radix / invalid_num_limbs occurred. Produces 1 row with err=1, input_validation_error=1.
+ * - Zero limbs (no error): num_limbs=0 and value=0. limbs is empty. Produces 1 row with last=1.
+ * - Truncation error: limbs is populated (BE, size=num_limbs) but the value cannot be fully reconstructed
+ *   from the given number of limbs. Produces 1 row with err=1, sel_should_decompose=1, value_found=0.
+ * - Success: limbs is populated (BE, size=num_limbs) and the decomposition is complete. Produces num_limbs
+ *   rows with memory writes and decomposition lookups.
+ *
+ * @note Asserts that limbs.size() == num_limbs for events that pass input validation and have num_limbs > 0.
  *
  * @param events The events of type ToRadixMemoryEvent to process.
  * @param trace The trace to populate.
