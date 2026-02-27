@@ -9,6 +9,7 @@ use crate::macros::{
 };
 use super::utils::{fn_has_allow_phase_change, fn_has_noinitcheck, is_fn_initializer, is_fn_only_self, is_fn_view};
 use auth_registry::AUTHORIZE_ONCE_REGISTRY;
+use initialization_utils::EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME;
 
 // Functions can have multiple attributes applied to them, e.g. a single function can have #[external("public")],
 // #[view] and #[only_self]. However. the order in which this will be evaluated is unknown, which makes combining them
@@ -29,7 +30,7 @@ use auth_registry::AUTHORIZE_ONCE_REGISTRY;
 ///
 /// Initializer functions are similar to constructors:
 /// - can only be called once
-/// - [`external`] non-initializer functions cannot be called until one of the initializers has ben called
+/// - [`external`] non-initializer functions cannot be called until one of the initializers has been called
 ///
 /// The only exception are [`noinitcheck`] functions, which can be called even if none of the initializers has been
 /// called.
@@ -63,17 +64,24 @@ use auth_registry::AUTHORIZE_ONCE_REGISTRY;
 /// initialization by marking them with the `#[noinitcheck]` attribute - though any contract state initialization will
 /// of course not have taken place.
 ///
-/// ## Cost
+/// ## How It Works
 ///
-/// The initialization process emits a nullifier which marks the contract as initialized. All other [`external`]
-/// functions are automatically made to check that this nullifier exists, ensuring initialization.
+/// Initializers emit nullifiers to mark the contract as initialized. Two separate nullifiers are used (a private init
+/// nullifier and a public init nullifier) because private nullifiers are committed before public execution begins.
 ///
-/// For private non-initializer functions, the cost of this check is equivalent to that of a call to
+/// - **Private initializers** emit the private init nullifier. For contracts that also have public functions, they
+///   auto-enqueue a call to an auto-generated `__emit_public_init_nullifier` function that emits the public init
+///   nullifier during public execution. This function name is reserved and cannot be used by contract developers.
+/// - **Public initializers** emit both nullifiers directly.
+/// - **Private external functions** check the private init nullifier.
+/// - **Public external functions** check the public init nullifier.
+///
+/// For private non-initializer functions, the cost of this check is equivalent to a call to
 /// [`PrivateContext::assert_nullifier_exists`](crate::context::PrivateContext::assert_nullifier_exists). For public
 /// ones, it is equivalent to a call to
 /// [`PublicContext::nullifier_exists_unsafe`](crate::context::PublicContext::nullifier_exists_unsafe).
 ///
-/// The [`noinitcheck`] attribute can be used to skip the initialization nullifer checks.
+/// The [`noinitcheck`] attribute can be used to skip these checks. [`only_self`] functions also implicitly skip them.
 pub comptime fn initializer(f: FunctionDefinition) {
     // Marker attribute - see the comment at the top of this file
 
@@ -185,6 +193,11 @@ pub comptime fn allow_phase_change(f: FunctionDefinition) {
 ///
 /// A classic example is a private mint function in a token, which would require an enqueued public call in which the
 /// total supply is incremented.
+///
+/// ## Initialization Checks
+///
+/// `only_self` functions implicitly skip initialization checks (as if they had [`noinitcheck`]). This is because
+/// constructors need to call `only_self` functions via `call_self` during initialization.
 pub comptime fn only_self(f: FunctionDefinition) {
     // Marker attribute - see the comment at the top of this file
 
@@ -197,6 +210,10 @@ pub comptime fn only_self(f: FunctionDefinition) {
             f"The #[only_self] attribute can only be applied to #[external(\"private\")] or #[external(\"public\")] functions - {name} is neither",
         );
     }
+
+    // `only_self` functions implicitly skip initialization checks as constructors need to call them
+    // via `call_self` during initialization
+    f.add_attribute("noinitcheck");
 }
 
 /// View functions cannot modify state in any way, including performing contract calls that would in turn modify state.
@@ -380,9 +397,15 @@ comptime fn assert_valid_public(f: FunctionDefinition) {
         );
     }
 
-    if f.name() == quote { __emit_public_init_nullifier } {
+    if f.name() == EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME {
         panic(
-            f"Function name '__emit_public_init_nullifier' is reserved for internal use",
+            f"Function name '{EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME}' is reserved for internal use",
+        );
+    }
+
+    if f.name() == quote { public_dispatch } {
+        panic(
+            f"Function name 'public_dispatch' is reserved for internal use",
         );
     }
 }

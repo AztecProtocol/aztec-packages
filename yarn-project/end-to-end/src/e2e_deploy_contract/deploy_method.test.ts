@@ -6,6 +6,7 @@ import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
+import { InitTestContract } from '@aztec/noir-test-contracts.js/InitTest';
 import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstructor';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -96,8 +97,8 @@ describe('e2e_deploy_contract deploy method', () => {
   it('refuses to self-call an init-checked function during public initialization', async () => {
     const owner = defaultAccountAddress;
     await expect(
-      StatefulTestContract.deployWithOpts(
-        { wallet, method: 'public_constructor_self_calling_init_checked' },
+      InitTestContract.deployWithOpts(
+        { wallet, method: 'public_initializer_self_calling_init_checked' },
         owner,
         42,
       ).send({ from: defaultAccountAddress }),
@@ -105,7 +106,7 @@ describe('e2e_deploy_contract deploy method', () => {
   });
 
   // Private functions execute before public functions, so the init check in create_note fails
-  // because the public constructor hasn't emitted the init nullifier yet.
+  // because the public initializer hasn't emitted the private initialization nullifier yet.
   it('refuses to call a private init-checked function in same tx as public initialization', async () => {
     const owner = defaultAccountAddress;
     const deployMethod = StatefulTestContract.deployWithOpts({ wallet, method: 'public_constructor' }, owner, 42);

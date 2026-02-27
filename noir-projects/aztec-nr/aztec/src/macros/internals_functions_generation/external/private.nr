@@ -79,27 +79,18 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
         quote {}
     };
 
-    let (assert_initializer, mark_as_initialized, enqueue_public_init_nullifier) = if is_fn_initializer(f) {
-        // Enqueue a public call to emit the public init nullifier, so public functions in this tx
-        // see the contract as initialized. Only needed if the contract has public functions.
-        let enqueue_public_init_nullifier = if get_public_functions(f.module()).len() > 0 {
-            quote { aztec::macros::functions::initialization_utils::enqueue_emit_public_init_nullifier(self.context); }
-        } else {
-            quote {}
-        };
+    let (assert_initializer, mark_as_initialized) = if is_fn_initializer(f) {
+        let has_public_functions = get_public_functions(f.module()).len() > 0;
         (
             quote { aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_private(*self.context); },
-            quote { aztec::macros::functions::initialization_utils::mark_as_initialized_private(self.context); },
-            enqueue_public_init_nullifier,
+            quote { aztec::macros::functions::initialization_utils::mark_as_initialized_from_private_initializer(self.context, $has_public_functions); },
         )
     } else {
-        (quote {}, quote {}, quote {})
+        (quote {}, quote {})
     };
 
     // Initialization checks are not included in contracts that don't have initializers.
-    // `only_self` functions skip the check so constructors can call them via `call_self`.
-    // The msg_sender == this_address assertion already restricts them to internal calls.
-    let init_check = if module_has_initializer & !is_fn_initializer(f) & !fn_has_noinitcheck(f) & !is_fn_only_self(f) {
+    let init_check = if module_has_initializer & !is_fn_initializer(f) & !fn_has_noinitcheck(f) {
         quote { aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context); }
     } else {
         quote {}
@@ -193,7 +184,6 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
     let to_append = quote {
         $return_value
         $mark_as_initialized
-        $enqueue_public_init_nullifier
         $no_phase_change_check
         $context_finish
     };

@@ -86,9 +86,7 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
     };
 
     // Initialization checks are not included in contracts that don't have initializers.
-    // `only_self` functions skip the check so constructors can call them via `call_self`.
-    // The msg_sender == this_address assertion already restricts them to internal calls.
-    let init_check = if module_has_initializer & !fn_has_noinitcheck(f) & !is_fn_initializer(f) & !is_fn_only_self(f) {
+    let init_check = if module_has_initializer & !fn_has_noinitcheck(f) & !is_fn_initializer(f) {
         quote { aztec::macros::functions::initialization_utils::assert_is_initialized_public(self.context); }
     } else {
         quote {}
