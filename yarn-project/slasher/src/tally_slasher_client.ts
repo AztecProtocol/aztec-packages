@@ -16,7 +16,6 @@ import {
   type SlashPayloadRound,
   getEpochsForRound,
   getSlashConsensusVotesFromOffenses,
-  offenseDataComparator,
 } from '@aztec/stdlib/slashing';
 
 import type { Hex } from 'viem';
@@ -366,12 +365,19 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
 
     const committees = await this.collectCommitteesActiveDuringRound(slashedRound);
     const epochsForCommittees = getEpochsForRound(slashedRound, this.settings);
-    const votes = getSlashConsensusVotesFromOffenses(
+    const { slashMaxPayloadSize } = this.config;
+    const { votes, truncatedCount } = getSlashConsensusVotesFromOffenses(
       offensesToSlash,
       committees,
       epochsForCommittees.map(e => BigInt(e)),
-      this.settings,
+      { ...this.settings, maxSlashedValidators: slashMaxPayloadSize },
     );
+    if (truncatedCount > 0) {
+      this.log.warn(
+        `Vote truncated: ${truncatedCount} validator-epoch pairs dropped to stay within gas limit of ${slashMaxPayloadSize}`,
+        { slotNumber, currentRound, slashedRound },
+      );
+    }
     if (votes.every(v => v === 0)) {
       this.log.warn(`Computed votes for offenses are all zero. Skipping vote.`, {
         slotNumber,
@@ -419,10 +425,8 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
   /**
    * Gather offenses to be slashed on a given round.
    * In tally slashing, round N slashes validators from round N - slashOffsetInRounds.
-   * Offenses are sorted by priority (uncontroversial first, then amount, then age) and truncated to
-   * slashMaxPayloadSize so that execution payload stays within gas limits.
    * @param round - The round to get offenses for, defaults to current round
-   * @returns Array of pending offenses for the round with offset applied, truncated to max payload size
+   * @returns Array of pending offenses for the round with offset applied
    */
   public async gatherOffensesForRound(round?: bigint): Promise<Offense[]> {
     const targetRound = this.getSlashedRound(round);
@@ -430,14 +434,7 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
       return [];
     }
 
-    const raw = await this.offensesStore.getOffensesForRound(targetRound);
-    const sorted = [...raw].sort(offenseDataComparator);
-    const { slashMaxPayloadSize } = this.config;
-    const selected = sorted.slice(0, slashMaxPayloadSize);
-    if (selected.length !== sorted.length) {
-      this.log.warn(`Offense list of ${sorted.length} truncated to max size of ${slashMaxPayloadSize}`);
-    }
-    return selected;
+    return await this.offensesStore.getOffensesForRound(targetRound);
   }
 
   /** Returns all pending offenses stored */
