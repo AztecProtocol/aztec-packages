@@ -1,3 +1,5 @@
+// A contract with both private and public functions used to test initialization behavior,
+// including init checks, self-calls during initialization, and public/private ordering.
 use aztec::macros::aztec;
 
 #[aztec]

@@ -1,6 +1,5 @@
-// A private-only contract (no public functions) used to test initialization behavior when
-// there is no public init nullifier. Tests verify that the private init nullifier alone is
-// sufficient and that init checks work correctly for private-only contracts.
+// A private-only contract (no public functions) used to test initialization behavior.
+// Since it has no public functions, it does not need to be published on-chain to be tested.
 use aztec::macros::aztec;
 
 #[aztec]
