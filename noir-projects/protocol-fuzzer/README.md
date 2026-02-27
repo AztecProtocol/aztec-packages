@@ -4,9 +4,9 @@ sandbox's behavior to an in-memory model, and asserts on any divergence.
 
 Two machines are available:
 
-- **token** --deploys token contracts, then fuzzes mint/burn/transfer
+- **token** -- deploys token contracts, then fuzzes mint/burn/transfer
   operations (public and private), tracking balances and total supply.
-- **side-effect** --deploys custom `SideEffect` and `Parent` contracts, then fuzzes
+- **side-effect** -- deploys custom `SideEffect` and `Parent` contracts, then fuzzes
   note lifecycle (create, destroy, view, get, partial notes), nullifier emission,
   and cross-contract calls, verifying note inclusion and nullifier uniqueness.
 
@@ -52,7 +52,7 @@ Consecutive non-conflicting sends are batched and fired concurrently, landing in
 the same block. This reduces N sequential sends from N*5s to ~5s. Queries always
 flush the pending batch first since they need to observe prior state changes.
 
-Conflict rules (conservative --false positives only reduce batch size):
+Conflict rules (conservative -- false positives only reduce batch size):
 - **token**: two sends on the same token conflict (shared total supply)
 - **side-effect**: two sends on the same (storage_slot, owner) or same nullifier value conflict
 

@@ -5,7 +5,7 @@
 The protocol fuzzer has two state machines:
 
 - **token**: Fuzzes the Token contract (mint/burn/transfer, public and private).
-  Works with any Aztec sandbox --no special setup needed.
+  Works with any Aztec sandbox -- no special setup needed.
 - **side-effect**: Fuzzes note lifecycle, nullifier emission, and cross-contract calls via
   custom `SideEffect` and `Parent` contracts. **Requires the nightly sandbox.**
 
@@ -29,14 +29,18 @@ between versions (the setup script auto-detects when they match).
 slots, fixes the wallet, identifies the nightly commit, compiles both contracts, imports
 test accounts, and starts the bridge server.
 
-By default it uses the last tested (`KNOWN_GOOD_TAG`) nightly image. Use `--latest`
-to auto-discover the newest tag from Docker Hub (may be untested).
-
 ```bash
 cd noir-projects/protocol-fuzzer
-bash setup-nightly-sandbox.sh              # known-good tag (default, recommended)
-bash setup-nightly-sandbox.sh --latest     # latest nightly from Docker Hub
-NIGHTLY_IMAGE=aztecprotocol/aztec:5.0.0-nightly.20260224 bash setup-nightly-sandbox.sh  # specific tag
+bash setup-nightly-sandbox.sh
+```
+
+By default the script uses the last tested nightly tag (`KNOWN_GOOD_TAG` in the script).
+To try a newer nightly, use `find-latest-nightly.sh` to query Docker Hub:
+
+```bash
+bash find-latest-nightly.sh                # prints e.g. 5.0.0-nightly.20260225
+bash setup-nightly-sandbox.sh --latest     # auto-discovers and uses the newest tag
+NIGHTLY_IMAGE=aztecprotocol/aztec:5.0.0-nightly.20260225 bash setup-nightly-sandbox.sh  # specific tag
 ```
 
 Then run the fuzzer:
@@ -60,24 +64,17 @@ cargo run -- side-effect --max-steps 100000 --seed 0x5a7211231dcd6500
 
 ## Performance
 
-The setup script configures 5-second slot durations (default 36s), disables sequencer
-timetable enforcement, and starts the persistent HTTP bridge.
+Transaction throughput is dominated by the Aztec L2 slot duration -- each send must wait
+for the next block. Three things bring per-transaction time from ~35s down to ~4-5s:
 
-| Setting | Default | Fast |
-|---------|---------|------|
-| L2 slot duration | 36s | 5s |
-| L1 slot duration | 12s | 5s |
-| Client-side proofs | off | off (`--prove` to enable) |
-| Per-send time | ~35s | ~4-5s |
-| Per-simulate time | ~35s | ~1-3s |
-
-Additionally, the fuzzer batches consecutive non-conflicting sends and fires them in
-parallel. Typical batch sizes of 2-8 commands yield an additional ~2-3x throughput
-improvement on top of the fast slot gains. Use `--max-batch-size` to tune (default: 8).
-
-The fast slot configuration requires a dated nightly image (`5.0.0-nightly.YYYYMMDD`) that
-supports the `AZTEC_SLOT_DURATION` and `ETHEREUM_SLOT_DURATION` environment variables. The
-generic `nightly` tag points to an older image (Jan 2026) that doesn't support these.
+1. **Fast slots.** The setup script starts the sandbox with 5-second L1/L2 slot durations
+   (default 36s/12s) and disables sequencer timetable enforcement.
+2. **Persistent bridge.** `bridge.mjs` keeps a single Node.js wallet instance alive inside
+   the container. Without it, each operation would shell out to the CLI wallet, paying a
+   ~1.5s Node.js cold-start every time.
+3. **Parallel batching.** The fuzzer buffers consecutive non-conflicting sends and fires
+   them concurrently so they land in the same block. A batch of N sends takes the same
+   time as a single send. Use `--max-batch-size` to tune (default: 8).
 
 ## Manual Step-by-Step Setup
 
@@ -242,11 +239,11 @@ RUST_LOG=debug cargo run -- side-effect --max-steps 5
 ### SideEffect contract (`contracts/side_effect_contract/`)
 
 Custom contract for testing note lifecycle and nullifier operations:
-- `call_create_note` / `call_create_and_complete_partial_note` --create notes
-- `call_destroy_note` --get notes sorted by value ASC, destroy the smallest
-- `call_view_notes_many` / `call_get_notes_many` --query notes (returns `[u128; 2]`)
-- `emit_nullifier` / `test_nullifier_inclusion` --nullifier operations
-- `test_note_inclusion` --prove note exists in the tree
+- `call_create_note` / `call_create_and_complete_partial_note` -- create notes
+- `call_destroy_note` -- get notes sorted by value ASC, destroy the smallest
+- `call_view_notes_many` / `call_get_notes_many` -- query notes (returns `[u128; 2]`)
+- `emit_nullifier` / `test_nullifier_inclusion` -- nullifier operations
+- `test_note_inclusion` -- prove note exists in the tree
 
 ### Parent contract (`contracts/parent_contract/`)
 
@@ -286,7 +283,7 @@ against the nightly's aztec-nr.
 Run `bb-avm aztec_process` (step 4b).
 
 ### "Private function X must have a verification key"
-Run `bb-avm aztec_process` (step 4b) --it generates both transpiled bytecode and VKs.
+Run `bb-avm aztec_process` (step 4b) -- it generates both transpiled bytecode and VKs.
 
 ### "Constructor method initialize not found"
 The `__aztec_nr_internals__` prefix wasn't stripped. Run the `jq` step in 4b.
@@ -311,12 +308,9 @@ needs some minimum headroom. 5 seconds works; lower values may not.
 
 ### Why the bridge
 
-The fuzzer previously shelled out to `aztec-wallet` via `docker exec` for every
-operation, spawning a fresh Node.js process each time (~1.5s cold-start per call).
-The bridge loads the wallet SDK once and accepts HTTP requests, cutting per-send
-time from ~6s to ~4s and per-simulate from ~3s to ~1.3s. It also removed the need
-for a wrapper script, `rsbash` shell-out code, and CLI stdout parsing on the Rust
-side.
+Each CLI wallet invocation spawns a fresh Node.js process (~1.5s cold-start). The
+bridge loads the wallet SDK once and accepts HTTP requests, avoiding this overhead
+on every operation.
 
 ### How the bridge works
 
@@ -326,9 +320,9 @@ on the first request. The Rust fuzzer resolves aliases (`accounts:test0`,
 
 ### Build pipeline
 
-1. `nargo compile` --raw artifact JSON with `__aztec_nr_internals__` prefixed names
-2. `bb-avm aztec_process` --transpiles public bytecode to AVM + generates private VKs
-3. `jq` strip prefix --removes `__aztec_nr_internals__` from function names
+1. `nargo compile` -- raw artifact JSON with `__aztec_nr_internals__` prefixed names
+2. `bb-avm aztec_process` -- transpiles public bytecode to AVM + generates private VKs
+3. `jq` strip prefix -- removes `__aztec_nr_internals__` from function names
 
 ### Version matrix (as of 2026-02-25)
 

@@ -26,28 +26,14 @@ WRAPPER_PATH="${HOME}/.local/bin/aztec-wallet"
 log()  { echo "==> $*"; }
 die()  { echo "ERROR: $*" >&2; exit 1; }
 
-# Find the latest 5.0.0-nightly.YYYYMMDD tag from Docker Hub.
-# Falls back to KNOWN_GOOD_TAG if the query fails.
-find_latest_nightly() {
-    local tag
-    tag=$(curl -sf "https://hub.docker.com/v2/repositories/aztecprotocol/aztec/tags?page_size=100&name=5.0.0-nightly." 2>/dev/null \
-        | jq -r '.results[].name' 2>/dev/null \
-        | grep -E '^5\.0\.0-nightly\.[0-9]{8}$' \
-        | sort -t. -k4 -rn \
-        | head -1)
-    if [ -n "$tag" ]; then
-        echo "$tag"
-    else
-        log "Could not query Docker Hub, falling back to known-good tag"
-        echo "$KNOWN_GOOD_TAG"
-    fi
-}
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 if [ -n "${NIGHTLY_IMAGE:-}" ]; then
     IMAGE="$NIGHTLY_IMAGE"
     log "Using user-specified image: ${IMAGE}"
 elif [ "${1:-}" = "--latest" ]; then
-    LATEST_TAG=$(find_latest_nightly)
+    LATEST_TAG=$("${SCRIPT_DIR}/find-latest-nightly.sh") \
+        || { log "Docker Hub query failed, falling back to known-good tag"; LATEST_TAG="$KNOWN_GOOD_TAG"; }
     IMAGE="aztecprotocol/aztec:${LATEST_TAG}"
     if [ "$LATEST_TAG" = "$KNOWN_GOOD_TAG" ]; then
         log "Latest nightly matches known-good: ${IMAGE}"
