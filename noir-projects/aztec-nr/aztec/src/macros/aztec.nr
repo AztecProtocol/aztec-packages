@@ -56,9 +56,16 @@ impl AztecConfig {
         }
     }
 
-    /// Sets a handler that supplies offchain-delivered messages during `sync_state`.
+    /// Sets a handler to customize how offchain-delivered messages are discovered and managed by the contract.
     ///
-    /// `hook` must be a function that conforms to the [`DiscoverOffchainMessages`] type signature.
+    /// This is an advanced feature that requires knowledge about how offchain messages are stored, how to ensure
+    /// reprocessing under reorgs, etc. If you are unsure about how you could use this, it probably means you
+    /// should not.
+    ///
+    /// By default, the lifecycle of offchain messages is handled by
+    /// [`crate::messages::discovery::offchain_inbox::offchain_sync_inbox`].
+    ///
+    /// This config allows for the default behavior to be overridden.
     pub comptime fn discover_offchain_messages(self: Self, hook: DiscoverOffchainMessages<()>) -> Self {
         Self { custom_message_handler: self.custom_message_handler, discover_offchain_messages: Option::some(hook) }
     }
