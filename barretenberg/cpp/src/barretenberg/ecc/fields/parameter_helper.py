@@ -5,8 +5,8 @@ import os
 import re
 import json
 
-parameter_files = ['src/barretenberg/ecc/curves/bn254/fq.hpp', 'src/barretenberg/ecc/curves/bn254/fr.hpp']
-                #    'src/barretenberg/ecc/curves/secp256k1/secp256k1.hpp','src/barretenberg/ecc/curves/secp256r1/secp256r1.hpp']
+parameter_files = ['src/barretenberg/ecc/curves/bn254/fq.hpp', 'src/barretenberg/ecc/curves/bn254/fr.hpp',
+                   'src/barretenberg/ecc/curves/secp256k1/secp256k1.hpp','src/barretenberg/ecc/curves/secp256r1/secp256r1.hpp']
 
 
 def get_file_location():
