@@ -14,7 +14,7 @@ namespace bb {
 /**
  * @brief Quadratic extension of the base field of BN254
  *
- * @details The quadratic extension Fq2 is defined as Fq[u] / (u^2 - 1). Fq2 is the base field of
+ * @details The quadratic extension Fq2 is defined as Fq[u] / (u^2 + 1). Fq2 is the base field of
  * the twist of BN254, thus points in G2 have coordinates in Fq2.
  *
  * Inside this struct we define the parameters of the twist:

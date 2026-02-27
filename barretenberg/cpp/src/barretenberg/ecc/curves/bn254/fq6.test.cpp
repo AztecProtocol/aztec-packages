@@ -132,7 +132,7 @@ TEST(fq6, SqrCheckAgainstConstants)
     EXPECT_EQ(result, expected);
 }
 
-TEST(fq6, FrobeniusCoefficeints)
+TEST(fq6, FrobeniusCoefficients)
 {
     fq2 frobenius_coeff_1_1{ Bn254Fq6Params::frobenius_coeffs_c1_1 };
     fq2 frobenius_coeff_1_2{ Bn254Fq6Params::frobenius_coeffs_c1_2 };
