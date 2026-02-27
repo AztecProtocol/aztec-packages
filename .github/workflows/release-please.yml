@@ -28,6 +28,27 @@ jobs:
           config-file: .github/release-please-${{ github.ref_name }}.json
           target-branch: ${{ github.ref_name }}
 
+  cleanup-release-notes-branch:
+    name: Cleanup stale release notes branch
+    needs: [release-please]
+    if: ${{ needs.release-please.outputs.release-version }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Delete release notes branch
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          NOTES_BRANCH="release-please--branches--${{ github.ref_name }}--release-notes"
+          echo "Checking for stale release notes branch: $NOTES_BRANCH"
+          if git ls-remote --exit-code "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" "refs/heads/$NOTES_BRANCH" >/dev/null 2>&1; then
+            echo "Deleting stale release notes branch: $NOTES_BRANCH"
+            gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/$NOTES_BRANCH" || true
+          else
+            echo "Release notes branch does not exist, nothing to clean up"
+          fi
+
   auto-tag:
     needs: [release-please]
     if: ${{ startsWith(github.ref, 'refs/heads/v') }}
@@ -136,8 +157,12 @@ jobs:
 
   dedupe-release-notes:
     name: Deduplicate release notes
-    needs: [release-please]
-    if: ${{ needs.release-please.outputs.release-pr }}
+    needs: [release-please, cleanup-release-notes-branch]
+    if: |
+      always() &&
+      !cancelled() &&
+      needs.release-please.result == 'success' &&
+      needs.release-please.outputs.release-pr
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -189,8 +214,34 @@ jobs:
             fi
           fi
 
-      - name: Update PR body with deduped notes
+      - name: Validate release notes version
+        id: validate-version
         if: steps.check-branch.outputs.exists == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          if [ -f release-notes.md ]; then
+            PR_NUMBER=${{ fromJSON(needs.release-please.outputs.release-pr).number }}
+            PR_TITLE=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json title --jq '.title')
+            # PR title pattern: "chore(v4): release 4.0.3"
+            EXPECTED_VERSION=$(echo "$PR_TITLE" | grep -oiP 'release \K[0-9]+\.[0-9]+\.[0-9]+' || true)
+
+            if [ -z "$EXPECTED_VERSION" ]; then
+              echo "WARNING: Could not extract version from PR title: $PR_TITLE"
+              echo "valid=true" >> $GITHUB_OUTPUT
+            elif grep -q "## .*$EXPECTED_VERSION" release-notes.md; then
+              echo "Release notes contain expected version $EXPECTED_VERSION"
+              echo "valid=true" >> $GITHUB_OUTPUT
+            else
+              echo "WARNING: release-notes.md does not contain version $EXPECTED_VERSION — notes are stale"
+              echo "valid=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "valid=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update PR body with deduped notes
+        if: steps.check-branch.outputs.exists == 'true' && steps.validate-version.outputs.valid == 'true'
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
