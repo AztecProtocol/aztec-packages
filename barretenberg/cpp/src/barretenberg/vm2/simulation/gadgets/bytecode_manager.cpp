@@ -7,6 +7,7 @@
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
+#include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 namespace bb::avm2::simulation {
@@ -57,7 +58,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
             .public_data_tree_root = tree_states.public_data_tree.tree.root,
             .retrieved_bytecodes_snapshot_before = before_snapshot,
             .retrieved_bytecodes_snapshot_after = before_snapshot,
-            .instance_not_found_error = true,
+            .error = BytecodeRetrievalEventError::INSTANCE_NOT_FOUND,
         });
         vinfo("Contract ", field_to_string(address), " is not deployed!");
         throw BytecodeRetrievalError("Contract " + field_to_string(address) + " is not deployed");
@@ -72,7 +73,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     uint32_t retrieved_bytecodes_count = retrieved_bytecodes_tree_check.size();
 
     if (is_new_class && retrieved_bytecodes_count >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) {
-        // Emits BytecodeRetrievalEvent with limit error
+        // Emits BytecodeRetrievalEvent with too many bytecodes error
         retrieval_events.emit({
             .bytecode_id = FF(0), // Use default ID for error cases
             .address = address,
@@ -82,7 +83,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
             .retrieved_bytecodes_snapshot_before = before_snapshot,
             .retrieved_bytecodes_snapshot_after = before_snapshot,
             .is_new_class = is_new_class,
-            .limit_error = true,
+            .error = BytecodeRetrievalEventError::TOO_MANY_BYTECODES,
         });
         throw BytecodeRetrievalError("Can't retrieve more than " +
                                      std::to_string(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) +

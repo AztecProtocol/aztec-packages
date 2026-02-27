@@ -16,6 +16,7 @@
 #include "barretenberg/vm2/generated/relations/class_id_derivation.hpp"
 #include "barretenberg/vm2/generated/relations/contract_instance_retrieval.hpp"
 #include "barretenberg/vm2/generated/relations/retrieved_bytecodes_tree_check.hpp"
+#include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
@@ -220,7 +221,7 @@ TEST_F(BytecodeRetrievalConstrainingTest, TooManyBytecodes)
                                   .retrieved_bytecodes_snapshot_before = snapshot_before,
                                   .retrieved_bytecodes_snapshot_after = snapshot_after,
                                   .is_new_class = true,
-                                  .limit_error = true,
+                                  .error = simulation::BytecodeRetrievalEventError::TOO_MANY_BYTECODES,
                               } },
                               trace);
 
@@ -274,18 +275,6 @@ TEST_F(BytecodeRetrievalConstrainingTest, NonExistentInstance)
     // reset
     trace.set(C::bc_retrieval_current_class_id, 1, 0);
     trace.set(C::contract_instance_retrieval_current_class_id, 1, 0);
-
-    // mutate the artifact_hash and confirm that it is a violation
-    trace.set(C::bc_retrieval_artifact_hash, 1, 99);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_retrieval>(trace), "ARTIFACT_HASH_IS_ZERO_IF_ERROR");
-    // reset
-    trace.set(C::bc_retrieval_artifact_hash, 1, 0);
-
-    // mutate the private_functions_root and confirm that it is a violation
-    trace.set(C::bc_retrieval_private_functions_root, 1, 99);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_retrieval>(trace), "PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_ERROR");
-    // reset
-    trace.set(C::bc_retrieval_private_functions_root, 1, 0);
 
     // mutate the bytecode_id and confirm that it is a violation
     trace.set(C::bc_retrieval_bytecode_id, 1, 99);

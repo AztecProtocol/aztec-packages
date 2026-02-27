@@ -241,9 +241,8 @@ void BytecodeTraceBuilder::process_hashing(
  *  This trace is non memory-aware and uses a single row per retrieval event to prove success or failure
  *  of bytecode retrieval. It largely delegates checks to other traces via lookups (see bc_retrieval.pil).
  *  It handles two possible errors:
- *      - instance_not_found_error: the contract at the given address is not deployed (!instance_exists in pil).
- *      - limit_error: we have reached the limit of the number of bytecodes to retrieve for this tx (TOO_MANY_BYTECODES
- *         in pil).
+ *      - INSTANCE_NOT_FOUND: the contract at the given address is not deployed.
+ *      - TOO_MANY_BYTECODES: we have reached the limit of the number of bytecodes to retrieve for this tx.
  *
  * @param events The container of bytecode retrieval events to process.
  * @param trace The trace container.
@@ -261,10 +260,11 @@ void BytecodeTraceBuilder::process_retrieval(
         uint64_t remaining_bytecodes = MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS +
                                        AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE -
                                        event.retrieved_bytecodes_snapshot_before.next_available_leaf_index;
-        bool error = event.instance_not_found_error || event.limit_error;
-        // TODO(MW): We don't actually use  event.limit_error explicitly because we only have a local
-        // column for the err in PIL. Should we double check here that event.limit_error correctly
-        // corresponds to remaining_bytecodes == 0 && is_new_class?
+        bool error = event.error.has_value();
+        if (event.error == simulation::BytecodeRetrievalEventError::TOO_MANY_BYTECODES) {
+            BB_ASSERT(event.is_new_class == true & remaining_bytecodes == 0,
+                      "TOO_MANY_BYTECODES error incorrectly set for bytecode retrieval");
+        }
         trace.set(
             row,
             { {
@@ -292,13 +292,14 @@ void BytecodeTraceBuilder::process_retrieval(
                   event.retrieved_bytecodes_snapshot_after.next_available_leaf_index },
 
                 // Instance existence determined by shared contract instance retrieval
-                { C::bc_retrieval_instance_exists, !event.instance_not_found_error },
+                { C::bc_retrieval_instance_exists,
+                  event.error == simulation::BytecodeRetrievalEventError::INSTANCE_NOT_FOUND ? 0 : 1 },
 
                 // Error handling
                 { C::bc_retrieval_error, error },
                 { C::bc_retrieval_is_new_class, event.is_new_class },
                 { C::bc_retrieval_should_retrieve, !error },
-                // limit_error handling
+                // Too many bytecodes handling
                 { C::bc_retrieval_no_remaining_bytecodes, remaining_bytecodes == 0 ? 1 : 0 },
                 { C::bc_retrieval_remaining_bytecodes_inv, remaining_bytecodes }, // Will be inverted in batch later.
             } });

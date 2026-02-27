@@ -12,6 +12,7 @@
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
+#include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -249,8 +250,7 @@ TEST(BytecodeTraceGenTest, RetrievalInstanceNotFoundError)
 
     const AppendOnlyTreeSnapshot snapshot = { .root = FF(12), .next_available_leaf_index = 1 };
 
-    // The simulation sets class-related fields == 0 when the instance is not found (TODO(MW): Should we set/check this
-    // in tracegen and test here?)
+    // The simulation sets class-related fields == 0 when the instance is not found.
     builder.process_retrieval({ {
                                   .bytecode_id = 0,
                                   .address = 0xc0ffee,
@@ -261,7 +261,7 @@ TEST(BytecodeTraceGenTest, RetrievalInstanceNotFoundError)
                                   .retrieved_bytecodes_snapshot_before = snapshot,
                                   .retrieved_bytecodes_snapshot_after = snapshot,
                                   .is_new_class = false,
-                                  .instance_not_found_error = true,
+                                  .error = simulation::BytecodeRetrievalEventError::INSTANCE_NOT_FOUND,
                               } },
                               trace);
     const auto rows = trace.as_rows();
@@ -300,8 +300,7 @@ TEST(BytecodeTraceGenTest, RetrievalLimitError)
     const AppendOnlyTreeSnapshot snapshot = { .root = FF(12),
                                               .next_available_leaf_index =
                                                   MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1 };
-    // The simulation sets class-related fields == 0 when the limit is reached (TODO(MW): Should we set/check this
-    // in tracegen and test here?)
+    // The simulation sets class-related fields == 0 when the limit is reached.
     builder.process_retrieval({ {
                                   .bytecode_id = 0,
                                   .address = 0xc0ffee,
@@ -312,7 +311,7 @@ TEST(BytecodeTraceGenTest, RetrievalLimitError)
                                   .retrieved_bytecodes_snapshot_before = snapshot,
                                   .retrieved_bytecodes_snapshot_after = snapshot,
                                   .is_new_class = true,
-                                  .limit_error = true,
+                                  .error = simulation::BytecodeRetrievalEventError::TOO_MANY_BYTECODES,
                               } },
                               trace);
     const auto rows = trace.as_rows();

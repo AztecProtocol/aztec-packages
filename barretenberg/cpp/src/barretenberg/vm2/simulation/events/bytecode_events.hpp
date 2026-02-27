@@ -25,6 +25,11 @@ struct BytecodeHashingEvent {
     std::vector<FF> bytecode_fields;
 };
 
+enum class BytecodeRetrievalEventError : uint8_t {
+    INSTANCE_NOT_FOUND,
+    TOO_MANY_BYTECODES,
+};
+
 // This is the event that is emitted when the simulator needs to retrieve bytecode.
 // It might or might not result into the storage/decomposition of a bytecode.
 struct BytecodeRetrievalEvent {
@@ -32,14 +37,12 @@ struct BytecodeRetrievalEvent {
     AztecAddress address;
     ContractClassId current_class_id;
     ContractClass contract_class{};
-    FF nullifier_root;        // TODO(MW): Rename either nullifier_root -> nullifier_tree_root or...
-    FF public_data_tree_root; // public_data_tree_root -> public_data_root
+    FF nullifier_root;
+    FF public_data_tree_root;
     AppendOnlyTreeSnapshot retrieved_bytecodes_snapshot_before;
     AppendOnlyTreeSnapshot retrieved_bytecodes_snapshot_after;
     bool is_new_class = false;
-    // TODO(MW): Better to have something like std::optional<BytecodeRetrievalEventEventError> error here?
-    bool instance_not_found_error = false;
-    bool limit_error = false;
+    std::optional<BytecodeRetrievalEventError> error;
 };
 
 struct InstructionFetchingEvent {

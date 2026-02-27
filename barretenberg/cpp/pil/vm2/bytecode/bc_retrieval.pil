@@ -6,7 +6,8 @@ include "../precomputed.pil";
 include "../trees/retrieved_bytecodes_tree_check.pil";
 
 /**
- * This subtrace constrains everything related to "retrieving" a bytecode given an address. In practice this means we:
+ * This subtrace constrains everything related to "retrieving" a bytecode given an address. It is responsible for proving success or failure of retrieval for a bytecode id
+ * and does not fetch the bytes themselves. In practice this means we:
  *  - Silo the address:
  *      - siloed_nullifier = H(DOM_SEP__SILOED_NULLIFIER, deployer_protocol_contract_address, address)
  *      - Enforced by lookup into contract_instance_retrieval.pil (#[CONTRACT_INSTANCE_RETRIEVAL]), which looks up nullifier_check.pil (#[DEPLOYMENT_NULLIFIER_READ]).
@@ -24,8 +25,7 @@ include "../trees/retrieved_bytecodes_tree_check.pil";
  *      - Enforced by lookup into class_id_derivation.pil (#[CLASS_ID_DERIVATION]).
  *
  * The general idea is that, for each context, execution.pil refers to this trace to retrieve a bytecode for that context's address. As long as the bytecode exists
- * it proceeds to instruction fetching. This trace is responsible for proving success or failure of retrieval, whereas bytecode values themselves are accessed
- * in instr_fetching.pil (via bc_decomposition.pil).
+ * it proceeds to instruction fetching, where bytecode values themselves are fetched and validated against the id (via bc_decomposition.pil and bc_hashing.pil).
  * Note: we don't need to silo and check the class id because the deployer contract guarantees that if a contract instance exists, the class has been registered.
  *
  * PRECONDITIONS: All tree state in this trace (transient bytecode, nullifier, and public state) matches that of the tx tree state at the start of the relevant call.
@@ -34,14 +34,7 @@ include "../trees/retrieved_bytecodes_tree_check.pil";
  * USAGE: Note for all lookups below: the correctness of bytecode_id (= public bytecode commitment) is not constrained in this trace, rather in
  * bc_hashing via a multipermutation with bc_decomposition.
  *
- * To enforce bytecode retrieval success (error == 0) or failure (error == 1):
- *     sel {
- *            id, address, error
- *     } in bc_retrieval.sel {
- *            bc_retrieval.bytecode_id, bc_retrieval.address, bc_retrieval.error
- *     };
- *
- * To enforce this against the current tree states (adapted from #[BYTECODE_RETRIEVAL_RESULT]):
+ * To enforce bytecode retrieval success (error == 0) or failure (error == 1) (adapted from #[BYTECODE_RETRIEVAL_RESULT]):
  *     sel {
  *            id, address, error,
  *            nullifier_tree_root, public_data_tree_root,
@@ -56,17 +49,15 @@ include "../trees/retrieved_bytecodes_tree_check.pil";
  *
  * ERROR HANDLING:
  * Two errors need to be handled as part of this trace:
- * (1) INSTANCE_NOT_FOUND: The contract at the given address is not deployed (instance_not_found_error in cpp),
- * (2) TOO_MANY_BYTECODES: We have reached the limit of the number of bytecodes to retrieve for this tx (limit_error in cpp). (TODO(MW) rename to one or other - too many)
+ * (1) INSTANCE_NOT_FOUND: The contract at the given address is not deployed,
+ * (2) TOO_MANY_BYTECODES: We have reached the limit of the number of bytecodes to retrieve for this tx.
  *
  * In either case, this trace sets error == 1 and skips both class id derivation and insertion into the retrieved bytecodes tree. It additionally enforces that:
- *  - artifact_hash == 0
- *  - private_functions_root == 0
  *  - bytecode_id == 0
  *  - next_retrieved_bytecodes_tree_root == prev_retrieved_bytecodes_tree_root
  *  - next_retrieved_bytecodes_tree_size == prev_retrieved_bytecodes_tree_size
- * In other words, if an error occurs, we ensure contract class members and the bytecode id are all empty, and we do not progress the state
- * of the bytecode tree.
+ * In other words, if an error occurs, we ensure the bytecode id is empty, and we do not progress the state of the bytecode tree. Note that we
+ * do not enforce the class members (artifact_hash and private_functions_root) are zero, since they are unused in the error case and not accessed by any other trace.
  * In case (1), where the instance does not exist, we also enforce that the class id is empty.
  *
  * TRACE SHAPE: This subtrace retrieves one bytecode instance per row, anchored by the bytecode_id column.
@@ -206,11 +197,7 @@ pol commit error; // @boolean (by definition; sel, INSTANCE_NOT_FOUND, TOO_MANY_
 #[ERROR_CHECK]
 sel * (INSTANCE_NOT_FOUND + TOO_MANY_BYTECODES - error) = 0;
 
-// If class ID derivation is disabled (error), force other members to 0.
-#[ARTIFACT_HASH_IS_ZERO_IF_ERROR]
-error * (artifact_hash - 0) = 0;
-#[PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_ERROR]
-error * (private_functions_root - 0) = 0;
+// If class ID derivation is disabled (error), force bytecode ID to be 0 so we do not lookup into this trace against a valid id.
 #[BYTECODE_ID_IS_ZERO_IF_ERROR]
 error * (bytecode_id - 0) = 0; // Off so we do not lookup into this trace against a valid id.
 
