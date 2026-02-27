@@ -160,8 +160,8 @@ export class PublicProcessor implements Traceable {
     txs: Iterable<Tx> | AsyncIterable<Tx>,
     limits: PublicProcessorLimits = {},
     validator: PublicProcessorValidator = {},
-  ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[], number, DebugLog[]]> {
-    const { maxTransactions, maxBlockSize, deadline, maxBlockGas, maxBlobFields } = limits;
+  ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[], DebugLog[]]> {
+    const { maxTransactions, deadline, maxBlockGas, maxBlobFields } = limits;
     const { preprocessValidator, nullifierCache } = validator;
     const result: ProcessedTx[] = [];
     const usedTxs: Tx[] = [];
@@ -188,20 +188,19 @@ export class PublicProcessor implements Traceable {
         break;
       }
 
-      // Skip this tx if it'd exceed max block size
       const txHash = tx.getTxHash().toString();
-      const preTxSizeInBytes = tx.getEstimatedPrivateTxEffectsSize();
-      if (maxBlockSize !== undefined && totalSizeInBytes + preTxSizeInBytes > maxBlockSize) {
-        this.log.warn(`Skipping processing of tx ${txHash} sized ${preTxSizeInBytes} bytes due to block size limit`, {
-          txHash,
-          sizeInBytes: preTxSizeInBytes,
-          totalSizeInBytes,
-          maxBlockSize,
-        });
+
+      // Skip this tx if its estimated blob fields would exceed the limit
+      const txBlobFields = tx.getPrivateTxEffectsSizeInFields();
+      if (maxBlobFields !== undefined && totalBlobFields + txBlobFields > maxBlobFields) {
+        this.log.warn(
+          `Skipping tx ${txHash} with ${txBlobFields} fields from private side effects due to blob fields limit`,
+          { txHash, txBlobFields, totalBlobFields, maxBlobFields },
+        );
         continue;
       }
 
-      // Skip this tx if its gas limit would exceed the block gas limit
+      // Skip this tx if its gas limit would exceed the block gas limit (either da or l2)
       const txGasLimit = tx.data.constants.txContext.gasSettings.gasLimits;
       if (maxBlockGas !== undefined && totalBlockGas.add(txGasLimit).gtAny(maxBlockGas)) {
         this.log.warn(`Skipping processing of tx ${txHash} due to block gas limit`, {
@@ -252,21 +251,7 @@ export class PublicProcessor implements Traceable {
         }
 
         const txBlobFields = processedTx.txEffect.getNumBlobFields();
-
-        // If the actual size of this tx would exceed block size, skip it
         const txSize = txBlobFields * Fr.SIZE_IN_BYTES;
-        if (maxBlockSize !== undefined && totalSizeInBytes + txSize > maxBlockSize) {
-          this.log.debug(`Skipping processed tx ${txHash} sized ${txSize} due to max block size.`, {
-            txHash,
-            sizeInBytes: txSize,
-            totalSizeInBytes,
-            maxBlockSize,
-          });
-          // Need to revert the checkpoint here and don't go any further
-          await checkpoint.revert();
-          this.contractsDB.revertCheckpoint();
-          continue;
-        }
 
         // If the actual blob fields of this tx would exceed the limit, skip it
         // Note: maxBlobFields already accounts for block end blob fields and previous blocks in checkpoint.
@@ -368,7 +353,7 @@ export class PublicProcessor implements Traceable {
       totalSizeInBytes,
     });
 
-    return [result, failed, usedTxs, returns, totalBlobFields, debugLogs];
+    return [result, failed, usedTxs, returns, debugLogs];
   }
 
   private async checkWorldStateUnchanged(

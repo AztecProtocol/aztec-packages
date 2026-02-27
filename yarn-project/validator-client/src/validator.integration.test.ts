@@ -23,7 +23,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import { GasFees } from '@aztec/stdlib/gas';
+import { Gas, GasFees } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { type BlockProposal, CheckpointProposal } from '@aztec/stdlib/p2p';
@@ -128,6 +128,7 @@ describe('ValidatorClient Integration', () => {
         l1ChainId: chainId.toNumber(),
         rollupVersion: version.toNumber(),
         txPublicSetupAllowList: [],
+        rollupManaLimit: 200_000_000,
       },
       synchronizer,
       archiver,
@@ -242,6 +243,7 @@ describe('ValidatorClient Integration', () => {
         vkTreeRoot: getVKTreeRoot(),
         protocolContractsHash,
         anchorBlockHeader: anchorBlockHeader ?? genesisBlockHeader,
+        gasLimits: new Gas(100_000, 1_000_000),
         maxFeesPerGas: new GasFees(1e12, 1e12),
         feePayer,
       });

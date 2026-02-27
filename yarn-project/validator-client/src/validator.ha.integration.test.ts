@@ -90,6 +90,7 @@ describe('ValidatorClient HA Integration', () => {
       slotDuration: 24,
       l1ChainId: 1,
       rollupVersion: 1,
+      rollupManaLimit: 200_000_000,
     });
     worldState = mock<WorldStateSynchronizer>();
     epochCache = mock<EpochCache>();

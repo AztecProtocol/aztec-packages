@@ -37,7 +37,6 @@ export interface IBlockFactory extends ProcessedTxHandler {
 
 export interface PublicProcessorLimits {
   maxTransactions?: number;
-  maxBlockSize?: number;
   maxBlockGas?: Gas;
   maxBlobFields?: number;
   deadline?: Date;
@@ -50,7 +49,18 @@ export interface PublicProcessorValidator {
 
 export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
-  Pick<SequencerConfig, 'txPublicSetupAllowList' | 'fakeProcessingDelayPerTxMs' | 'fakeThrowAfterProcessingTxCount'>;
+  Pick<
+    SequencerConfig,
+    | 'txPublicSetupAllowList'
+    | 'fakeProcessingDelayPerTxMs'
+    | 'fakeThrowAfterProcessingTxCount'
+    | 'maxTxsPerBlock'
+    | 'maxL2BlockGas'
+    | 'maxDABlockGas'
+  > & {
+    /** Total L2 gas (mana) allowed per checkpoint. Fetched from L1 getManaLimit(). */
+    rollupManaLimit: number;
+  };
 
 export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[] = [
   'l1GenesisTime',
@@ -60,6 +70,10 @@ export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[
   'txPublicSetupAllowList',
   'fakeProcessingDelayPerTxMs',
   'fakeThrowAfterProcessingTxCount',
+  'maxTxsPerBlock',
+  'maxL2BlockGas',
+  'maxDABlockGas',
+  'rollupManaLimit',
 ] as const;
 
 /** Thrown when no valid transactions are available to include in a block after processing, and this is not the first block in a checkpoint. */
@@ -73,12 +87,10 @@ export class NoValidTxsError extends Error {
 /** Result of building a block within a checkpoint. */
 export type BuildBlockInCheckpointResult = {
   block: L2Block;
-  publicGas: Gas;
   publicProcessorDuration: number;
   numTxs: number;
   failedTxs: FailedTx[];
   usedTxs: Tx[];
-  usedTxBlobFields: number;
 };
 
 /** Interface for building blocks within a checkpoint context. */
