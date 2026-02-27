@@ -103,7 +103,10 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     const { processor, validator } = await this.makeBlockBuilderDeps(globalVariables, this.fork);
 
     // Cap gas limits amd available blob fields by remaining checkpoint-level budgets
-    const cappedOpts = { opts, ...this.capLimitsByCheckpointBudgets(opts) };
+    const cappedOpts: PublicProcessorLimits & { expectedEndState?: StateReference } = {
+      ...opts,
+      ...this.capLimitsByCheckpointBudgets(opts),
+    };
 
     const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
       processor.process(pendingTxs, cappedOpts, validator),
