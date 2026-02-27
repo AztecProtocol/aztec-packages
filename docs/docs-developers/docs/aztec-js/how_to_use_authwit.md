@@ -11,14 +11,14 @@ This guide shows you how to create and use authentication witnesses (authwits) t
 
 Using AuthWitnesses is always a two-part process. This guide shows how to generate and use them, but you still need to set up your contract to accept and authenticate them.
 
-Therefore it is recommended to read the `aztec-nr` [guide on authwitnesses](../aztec-nr/framework-description/how_to_use_authwit.md) before this one.
+Therefore it is recommended to read the `aztec-nr` [guide on authwitnesses](../aztec-nr/framework-description/authentication_witnesses.md) before this one.
 
 :::
 
 ## Prerequisites
 
-- [Connected to a network](./how_to_connect_to_local_network.md) with a `TestWallet` instance and funded accounts
-- Contract with authwit validation (see [smart contract authwits](../aztec-nr/framework-description/how_to_use_authwit.md))
+- [Connected to a network](./how_to_connect_to_local_network.md) with a `EmbeddedWallet` instance and funded accounts
+- Contract with authwit validation (see [smart contract authwits](../aztec-nr/framework-description/authentication_witnesses.md))
 - Understanding of [authwit concepts](../foundational-topics/advanced/authwit.md)
 
 ## Intent types
@@ -62,6 +62,6 @@ Public authwits can be revoked by setting `authorized` to `false`:
 
 ## Next steps
 
-- Learn about [authwits in smart contracts](../aztec-nr/framework-description/how_to_use_authwit.md)
+- Learn about [authwits in smart contracts](../aztec-nr/framework-description/authentication_witnesses.md)
 - Understand [authwit concepts](../foundational-topics/advanced/authwit.md)
 - Explore [account abstraction](../foundational-topics/accounts/index.md)

@@ -1,8 +1,7 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import type { DirectionalAppTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { ExtendedDirectionalAppTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
 
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../constants.js';
@@ -10,15 +9,14 @@ import { findHighestIndexes } from './utils/find_highest_indexes.js';
 import { loadLogsForRange } from './utils/load_logs_for_range.js';
 
 /**
- * Loads private logs for `app` and  sender-recipient pair defined by `secret` and updates the highest aged and
+ * Loads private logs for the app-sender-recipient triplet defined by `secret` and updates the highest aged and
  * finalized indexes in the db. At most load logs from blocks up to and including `anchorBlockNumber`.
  *
  * @dev This function can be safely executed "in parallel" for other sender-recipient pairs because the data in
  * in the tagging data provider is indexed by the secret and hence completely disjoint.
  */
 export async function loadPrivateLogsForSenderRecipientPair(
-  secret: DirectionalAppTaggingSecret,
-  app: AztecAddress,
+  secret: ExtendedDirectionalAppTaggingSecret,
   aztecNode: AztecNode,
   taggingStore: RecipientTaggingStore,
   anchorBlockNumber: BlockNumber,
@@ -30,7 +28,7 @@ export async function loadPrivateLogsForSenderRecipientPair(
   // (highestAgedIndex, highestFinalizedIndex + WINDOW_LEN]
   //
   // highestAgedIndex is the highest index that was used in a tx that is included in a block at least
-  //                  `MAX_INCLUDE_BY_TIMESTAMP_DURATION` seconds ago.
+  //                  `MAX_TX_LIFETIME` seconds ago.
   // highestFinalizedIndex is the highest index that was used in a tx that is included in a finalized block.
   //
   // "(" denotes an open end of the range - the index is not included in the range.
@@ -42,19 +40,19 @@ export async function loadPrivateLogsForSenderRecipientPair(
   // ever appear.
   //
   // This relies on the "maximum inclusion timestamp" rule enforced by the kernel and rollup circuits:
-  // - a transaction's maximum inclusion timestamp is at most `MAX_INCLUDE_BY_TIMESTAMP_DURATION` seconds after
+  // - a transaction's maximum inclusion timestamp is at most `MAX_TX_LIFETIME` seconds after
   //   the timestamp of its anchor block; and
   // - a rollup only includes transactions whose inclusion timestamp is >= the L2 block's timestamp.
   //
   // Suppose some device used index `I` in a transaction anchored to block `B_N` at time `N`, and that block is now at
-  // least `MAX_INCLUDE_BY_TIMESTAMP_DURATION` seconds in the past. Then there is no possibility of any *other* device
+  // least `MAX_TX_LIFETIME` seconds in the past. Then there is no possibility of any *other* device
   // trying to use an index <= `I` while anchoring to a *newer* block than `B_N` because if we were anchoring to
   // a newer block than `B_N` then we would already have seen the log with index `I` and hence the device would have
   // chosen a larger index.
   //    If that *other* device would anchor to a block older than `B_N` then that tx could never be included in a block
   // because it would already have been expired.
   //
-  // Therefore, once we see that index `I` has been used in a block that is at least `MAX_INCLUDE_BY_TIMESTAMP_DURATION`
+  // Therefore, once we see that index `I` has been used in a block that is at least `MAX_TX_LIFETIME`
   // seconds old, we can safely stop syncing logs for all indexes <= `I` and set highestAgedIndex = `I`.
   //
   // ## Explanation of the upper bound `highestFinalizedIndex + WINDOW_LEN`
@@ -96,7 +94,6 @@ export async function loadPrivateLogsForSenderRecipientPair(
     // Get private logs with their block timestamps and corresponding tagging indexes
     const privateLogsWithIndexes = await loadLogsForRange(
       secret,
-      app,
       aztecNode,
       start,
       end,

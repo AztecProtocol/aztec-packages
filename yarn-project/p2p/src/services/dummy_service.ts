@@ -1,6 +1,6 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
-import type { Gossipable, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import type { Gossipable, PeerErrorSeverity, TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -26,6 +26,8 @@ import { ReqRespStatus } from './reqresp/status.js';
 import {
   type P2PBlockReceivedCallback,
   type P2PCheckpointReceivedCallback,
+  type P2PDuplicateAttestationCallback,
+  type P2PDuplicateProposalCallback,
   type P2PService,
   type PeerDiscoveryService,
   PeerDiscoveryState,
@@ -40,6 +42,10 @@ export class DummyP2PService implements P2PService {
   /** Returns an empty array for peers. */
   getPeers(): PeerInfo[] {
     return [];
+  }
+
+  getGossipMeshPeerCount(_topicType: TopicType): number {
+    return 0;
   }
 
   /**
@@ -81,6 +87,16 @@ export class DummyP2PService implements P2PService {
    * Register a callback into the validator client for when a checkpoint proposal is received
    */
   public registerCheckpointReceivedCallback(_callback: P2PCheckpointReceivedCallback) {}
+
+  /**
+   * Register a callback for when a duplicate proposal is detected
+   */
+  public registerDuplicateProposalCallback(_callback: P2PDuplicateProposalCallback): void {}
+
+  /**
+   * Register a callback for when a duplicate attestation is detected
+   */
+  public registerDuplicateAttestationCallback(_callback: P2PDuplicateAttestationCallback): void {}
 
   /**
    * Sends a request to a peer.
@@ -125,12 +141,8 @@ export class DummyP2PService implements P2PService {
     return undefined;
   }
 
-  validate(_txs: Tx[]): Promise<void> {
+  validateTxsReceivedInBlockProposal(_txs: Tx[]): Promise<void> {
     return Promise.resolve();
-  }
-
-  validatePropagatedTx(_tx: Tx, _peerId: PeerId): Promise<boolean> {
-    return Promise.resolve(true);
   }
 
   addReqRespSubProtocol(

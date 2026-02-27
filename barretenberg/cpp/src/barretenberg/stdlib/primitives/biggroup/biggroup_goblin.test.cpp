@@ -140,19 +140,72 @@ template <typename Curve> class stdlib_biggroup_goblin : public testing::Test {
             element_ct zero_ct2 = lhs_ct - lhs2_ct;
             EXPECT_TRUE(zero_ct2.get_value().is_point_at_infinity());
 
-            element_ct out2_ct = element_ct::point_at_infinity(&builder) - rhs_ct;
+            element_ct out2_ct = element_ct::constant_infinity(&builder) - rhs_ct;
             EXPECT_EQ(out2_ct.get_value(), -rhs);
 
-            element_ct out3_ct = lhs_ct - element_ct::point_at_infinity(&builder);
+            element_ct out3_ct = lhs_ct - element_ct::constant_infinity(&builder);
             EXPECT_EQ(out3_ct.get_value(), lhs);
 
-            auto lhs_infinity_ct = element_ct::point_at_infinity(&builder);
-            auto rhs_infinity_ct = element_ct::point_at_infinity(&builder);
+            auto lhs_infinity_ct = element_ct::constant_infinity(&builder);
+            auto rhs_infinity_ct = element_ct::constant_infinity(&builder);
             element_ct out4_ct = lhs_infinity_ct - rhs_infinity_ct;
             EXPECT_TRUE(out4_ct.get_value().is_point_at_infinity());
-            EXPECT_TRUE(out4_ct.is_point_at_infinity().get_value());
         }
         EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    /**
+     * @brief Regression test: negative-k2 edge-case scalar through the stdlib biggroup path.
+     * @details The naive GLV endomorphism splitting can produce a negative k2 for ~2^{-64} of inputs.
+     * Before the fix in split_into_endomorphism_scalars, this caused the op queue to store garbage
+     * z1/z2 values (254-bit instead of 128-bit). The stdlib biggroup `batch_mul` adds the constraint
+     * `scalar.assert_equal(z_1 - z_2 * beta)`, which catches the mismatch at the Mega circuit level.
+     *
+     * See ecc/fields/endomorphism_scalars.py for an analysis.
+     */
+    static void test_endomorphism_negative_k2_regression()
+    {
+        // clang-format off
+        // Boundary scalars k = ceil(m * 2^256 / endo_g2) from endomorphism_scalars.py.
+        // These are the smallest scalars where c1 ticks up, making k2 negative.
+        const std::array<std::array<uint64_t, 4>, 3> boundary_cases = {{
+            {{ 0x01624731e1195570, 0x3ba491482db4da14, 0x59e26bcea0d48bac, 0x0 }}, // m=1
+            {{ 0x02c48e63c232aadf, 0x774922905b69b428, 0xb3c4d79d41a91758, 0x0 }}, // m=2
+            {{ 0x0426d595a34c004e, 0xb2edb3d8891e8e3c, 0x0da7436be27da304, 0x1 }}, // m=3
+        }};
+        // clang-format on
+
+        for (const auto& limbs : boundary_cases) {
+            fr base_scalar(uint256_t{ limbs[0], limbs[1], limbs[2], limbs[3] });
+
+            // The negative-k2 band extends ~2^{123}-2^{126} above each boundary scalar.
+            // A random 122-bit positive perturbation lands inside this band, where the
+            // original (unfixed) k2 is still negative. We therefore test two scalars: the original boundary case and a
+            // 122-bit perturbation.
+            uint256_t rand_bits(fr::random_element());
+            uint256_t offset = rand_bits & ((uint256_t(1) << 122) - 1);
+            std::array<fr, 2> scalars = { base_scalar, base_scalar + fr(offset) };
+
+            // Test via batch_mul
+            for (const auto& scalar : scalars) {
+                Builder builder;
+                element_ct pt = element_ct::from_witness(&builder, affine_element::one());
+                scalar_ct sc = scalar_ct::from_witness(&builder, scalar);
+                element_ct result = element_ct::batch_mul({ pt }, { sc });
+                (void)result;
+                EXPECT_CIRCUIT_CORRECTNESS(builder);
+            }
+
+            // Test via operator* (delegates to batch_mul)
+            for (const auto& scalar : scalars) {
+                Builder builder;
+                element_ct pt = element_ct::from_witness(&builder, affine_element::one());
+                scalar_ct sc = scalar_ct::from_witness(&builder, scalar);
+                element_ct result = pt * sc;
+                (void)result;
+                EXPECT_CIRCUIT_CORRECTNESS(builder);
+            }
+        }
     }
 
     /**
@@ -170,7 +223,7 @@ template <typename Curve> class stdlib_biggroup_goblin : public testing::Test {
         element_ct result_ct = -lhs_ct;
         EXPECT_EQ(result_ct.get_value(), expected);
 
-        element_ct infinity = element_ct::point_at_infinity(&builder);
+        element_ct infinity = element_ct::constant_infinity(&builder);
         element_ct result2_ct = -infinity;
         EXPECT_EQ(result2_ct.get_value(), g1::affine_point_at_infinity);
         EXPECT_CIRCUIT_CORRECTNESS(builder);
@@ -199,4 +252,9 @@ TYPED_TEST(stdlib_biggroup_goblin, sub)
 TYPED_TEST(stdlib_biggroup_goblin, neg)
 {
     TestFixture::test_goblin_style_neg();
+}
+
+TYPED_TEST(stdlib_biggroup_goblin, endomorphism_negative_k2_regression)
+{
+    TestFixture::test_endomorphism_negative_k2_regression();
 }

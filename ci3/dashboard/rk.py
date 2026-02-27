@@ -1,12 +1,18 @@
-from flask import Flask, render_template_string, request, Response
+from flask import Flask, render_template_string, request, Response, redirect
 from flask_compress import Compress
 from flask_httpauth import HTTPBasicAuth
+import boto3
+from botocore.exceptions import ClientError
 import gzip
 import json
 import os
 import re
 import requests
+import shlex
+import subprocess
 import threading
+import time as _time
+import uuid
 from ansi2html import Ansi2HTMLConverter
 from pathlib import Path
 
@@ -15,25 +21,80 @@ from rk_core import (
     YELLOW, BLUE, GREEN, RED, PURPLE, BOLD, RESET,
     hyperlink, r, get_section_data, get_list_as_string
 )
-
 LOGS_DISK_PATH = os.getenv('LOGS_DISK_PATH', '/logs-disk')
+S3_LOGS_BUCKET = os.getenv('S3_LOGS_BUCKET', 'aztec-ci-artifacts')
+S3_LOGS_PREFIX = os.getenv('S3_LOGS_PREFIX', 'logs')
+
+_s3 = boto3.client('s3', region_name='us-east-2')
 DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD', 'password')
+CI_METRICS_PORT = int(os.getenv('CI_METRICS_PORT', '8081'))
+CI_METRICS_URL = os.getenv('CI_METRICS_URL', f'http://localhost:{CI_METRICS_PORT}')
+
 app = Flask(__name__)
 Compress(app)
 auth = HTTPBasicAuth()
 
-def read_from_disk(key):
-    """Read log from disk as fallback when Redis key not found."""
+# Start the ci-metrics server as a subprocess (once across all workers).
+# Uses a file lock so only the first gunicorn worker to import this module
+# actually spawns the process; the rest skip silently.
+import fcntl
+import signal
+
+_ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ci-metrics')
+if not os.path.isdir(_ci_metrics_dir):
+    _ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ci-metrics')
+if os.path.isdir(_ci_metrics_dir):
+    _lock_path = f'/tmp/ci-metrics-{CI_METRICS_PORT}.lock'
     try:
-        # Use first 4 chars as subdirectory
+        _lock_fd = open(_lock_path, 'w')
+        fcntl.flock(_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        # We hold the lock — kill stale process and spawn fresh one
+        try:
+            out = subprocess.check_output(
+                ['lsof', '-ti', f':{CI_METRICS_PORT}'], stderr=subprocess.DEVNULL, text=True)
+            for pid in out.strip().split('\n'):
+                if pid:
+                    os.kill(int(pid), signal.SIGTERM)
+            _time.sleep(0.5)
+        except (subprocess.CalledProcessError, OSError):
+            pass
+        _ci_metrics_env = {**os.environ, 'CI_METRICS_PORT': str(CI_METRICS_PORT)}
+        subprocess.Popen(
+            ['gunicorn', '-w', '1', '-b', f'0.0.0.0:{CI_METRICS_PORT}',
+             '--timeout', '120', 'app:app'],
+            cwd=_ci_metrics_dir,
+            env=_ci_metrics_env,
+        )
+        print(f"[rk.py] ci-metrics server started on port {CI_METRICS_PORT}")
+        # Hold the lock until this process exits so other workers skip
+    except OSError:
+        # Another worker already holds the lock — nothing to do
+        pass
+
+def read_from_disk(key):
+    """Read log from disk."""
+    try:
         prefix = key[:4]
-        log_file = f"/logs-disk/{prefix}/{key}.log.gz"
         log_file = f"{LOGS_DISK_PATH}/{prefix}/{key}.log.gz"
         if os.path.exists(log_file):
             with gzip.open(log_file, 'rb') as f:
                 return f.read().decode('utf-8', errors='replace')
     except Exception as e:
         print(f"Error reading from disk: {e}")
+    return None
+
+def read_from_s3(key):
+    """Read log from S3 (fallback when Redis and disk both miss)."""
+    try:
+        prefix = key[:4]
+        s3_key = f"{S3_LOGS_PREFIX}/{prefix}/{key}.log.gz"
+        obj = _s3.get_object(Bucket=S3_LOGS_BUCKET, Key=s3_key)
+        return gzip.decompress(obj['Body'].read()).decode('utf-8', errors='replace')
+    except ClientError as e:
+        if e.response['Error']['Code'] != 'NoSuchKey':
+            print(f"S3 error reading {key}: {e}")
+    except Exception as e:
+        print(f"Error reading from S3: {e}")
     return None
 
 def read_breakdown_from_disk(runtime, flow_name, sha):
@@ -127,21 +188,27 @@ def root() -> str:
         f"\n"
         f"Select a filter:\n"
         f"\n{YELLOW}"
-        f"{hyperlink('/section/master?fail_list=failed_tests_master', 'master queue')}\n"
-        f"{hyperlink('/section/staging?fail_list=failed_tests_staging', 'staging queue')}\n"
-        f"{hyperlink('/section/next?fail_list=failed_tests_next', 'next queue')}\n"
+        f"{hyperlink('/section/next', 'next queue')}\n"
         f"{hyperlink('/section/prs', 'prs')}\n"
         f"{hyperlink('/section/releases', 'releases')}\n"
         f"{hyperlink('/section/nightly', 'nightly')}\n"
         f"{hyperlink('/section/network', 'network')}\n"
+        f"{hyperlink('/section/deflake', 'deflake')}\n"
         f"{RESET}"
         f"\n"
         f"Benchmarks:\n"
         f"\n{YELLOW}"
-        f"{hyperlink('https://aztecprotocol.github.io/aztec-packages/bench?branch=master', 'master')}\n"
-        f"{hyperlink('https://aztecprotocol.github.io/aztec-packages/bench?branch=staging', 'staging')}\n"
-        f"{hyperlink('https://aztecprotocol.github.io/aztec-packages/bench?branch=next', 'next')}\n"
+        f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=master', 'master')}\n"
+        f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=staging', 'staging')}\n"
+        f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=next', 'next')}\n"
         f"{hyperlink('/chonk-breakdowns', 'chonk breakdowns')}\n"
+        f"{RESET}"
+        f"\n"
+        f"CI Metrics:\n"
+        f"\n{YELLOW}"
+        f"{hyperlink('/cost-overview', 'cost overview (AWS + GCP)')}\n"
+        f"{hyperlink('/namespace-billing', 'namespace billing')}\n"
+        f"{hyperlink('/ci-insights', 'ci insights')}\n"
         f"{RESET}"
     )
 
@@ -150,12 +217,11 @@ def section_view(section: str) -> str:
     limit = int(request.args.get('limit', 50))
     filter_str = request.args.get('filter', default='', type=str)
     filter_prop = request.args.get('filter_prop', default='', type=str)
-    fail_list = request.args.get('fail_list', default='', type=str)
 
     lines = update_status(offset, filter_str, filter_prop)
     lines += "\n"
     lines += f"Last {limit} ci runs on {section}:\n\n"
-    lines += get_section_data(section, offset, limit, filter_str, filter_prop, fail_list)
+    lines += get_section_data(section, offset, limit, filter_str, filter_prop)
     return lines
 
 TEMPLATE = """
@@ -392,6 +458,154 @@ def get_breakdown(runtime, flow_name, sha):
     return Response('{"error": "Breakdown not found"}', mimetype='application/json', status=404)
 
 
+@app.route('/grind')
+@auth.login_required
+def trigger_grind():
+    """Trigger a grind job for a flaky test."""
+    from urllib.parse import urlencode as url_encode
+
+    full_cmd = request.args.get('cmd')
+    commit = request.args.get('commit', 'HEAD')
+    run_id = request.args.get('run')  # Pre-generated run_id from selection page
+    start = request.args.get('start')  # If set, start the grind
+
+    # Configurable options with defaults
+    grind_time = request.args.get('time', '20m')
+    cpus = request.args.get('cpus', '192')
+    jobs_pct = request.args.get('jobs', '200')
+    memsuspend_pct = request.args.get('memsuspend', '50')
+
+    if not full_cmd:
+        return "Missing cmd parameter", 400
+
+    # If run_id is provided and already has a log, redirect to it (back-button protection)
+    if run_id and r.exists(run_id):
+        return redirect(f'/{run_id}')
+
+    # If start not requested, show configuration page
+    if not start:
+        # Generate one run_id for all links on this page load
+        page_run_id = uuid.uuid4().hex[:16]
+
+        # Helper to build option links
+        def make_options(param_name, options, current_value, suffix=''):
+            links = []
+            for opt in options:
+                is_selected = str(opt) == str(current_value)
+                if is_selected:
+                    links.append(f"{BOLD}{BLUE}{opt}{suffix}{RESET}")
+                else:
+                    params = {
+                        'cmd': full_cmd, 'commit': commit, 'run': page_run_id,
+                        'time': grind_time, 'cpus': cpus, 'jobs': jobs_pct, 'memsuspend': memsuspend_pct
+                    }
+                    params[param_name] = opt
+                    url = f"/grind?{url_encode(params)}"
+                    links.append(f"{YELLOW}{hyperlink(url, f'{opt}{suffix}')}{RESET}")
+            return ' | '.join(links)
+
+        time_options = make_options('time', ['5m', '10m', '20m', '30m', '1h'], grind_time)
+        cpus_options = make_options('cpus', ['16', '32', '64', '128', '192'], cpus)
+        jobs_options = make_options('jobs', ['10', '25', '50', '75', '100', '200', '400'], jobs_pct, '%')
+        memsuspend_options = make_options('memsuspend', ['25', '50', '75'], memsuspend_pct, '%')
+
+        # Start grind button
+        start_params = {
+            'cmd': full_cmd, 'commit': commit, 'run': page_run_id,
+            'time': grind_time, 'cpus': cpus, 'jobs': jobs_pct, 'memsuspend': memsuspend_pct,
+            'start': '1'
+        }
+        start_url = f"/grind?{url_encode(start_params)}"
+        start_button = f"{BOLD}{GREEN}{hyperlink(start_url, '[ Start Grind ]')}{RESET}"
+
+        page = (
+            f"{BOLD}Grind Test{RESET}\n\n"
+            f"Command: {full_cmd}\n"
+            f"Commit: {commit}\n\n"
+            f"Duration:   {time_options}\n"
+            f"CPUs:       {cpus_options}\n"
+            f"Jobs:       {jobs_options}\n"
+            f"Memsuspend: {memsuspend_options}\n\n"
+            f"{start_button}\n"
+        )
+        return render_template_string(TEMPLATE, value=ansi_to_html(page), filter_str='grind', follow='top')
+
+    # Start requested - run the grind
+    # Use run_id from URL, or generate new one if not provided
+    if not run_id:
+        run_id = uuid.uuid4().hex[:16]
+
+    # Initialize the log key so redirect doesn't show "Key not found"
+    r.setex(run_id, 86400, b'Starting grind...\n')
+
+    # Start grind job in background
+    # Dashboard server needs local repo checkout at REPO_PATH
+    repo_path = os.environ.get('REPO_PATH')
+    if repo_path:
+        subprocess.Popen(
+            ['bash', '-c', f'cd {repo_path} && RUN_ID={run_id} CPUS={cpus} ./ci.sh grind-test {shlex.quote(full_cmd)} {grind_time} {jobs_pct} {memsuspend_pct} {commit}'],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True
+        )
+
+    # Redirect to log view.
+    return redirect(f'/{run_id}')
+
+
+# ---- Reverse proxy to ci-metrics server ----
+
+_proxy_session = requests.Session()
+_HOP_BY_HOP = frozenset([
+    'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
+    'te', 'trailers', 'transfer-encoding', 'upgrade',
+])
+_STRIP_REQUEST_HEADERS = frozenset(['host'])
+
+def _proxy(path):
+    """Forward request to ci-metrics, streaming the response back.
+
+    Passes the browser's Accept-Encoding through to ci-metrics so it
+    compresses directly for the browser.  We stream the raw (still
+    compressed) bytes back without decompression.
+    """
+    url = f'{CI_METRICS_URL}/{path.lstrip("/")}'
+    try:
+        fwd_headers = {k: v for k, v in request.headers if k.lower() not in _STRIP_REQUEST_HEADERS}
+        resp = _proxy_session.request(
+            method=request.method,
+            url=url,
+            params=request.args,
+            data=request.get_data(),
+            headers=fwd_headers,
+            stream=True,
+            timeout=180,
+        )
+        # Stream raw bytes (skip requests auto-decompression)
+        headers = {k: v for k, v in resp.headers.items() if k.lower() not in _HOP_BY_HOP}
+        return Response(resp.raw.stream(8192),
+                        status=resp.status_code, headers=headers)
+    except Exception as e:
+        return Response(json.dumps({'error': f'ci-metrics unavailable: {e}'}),
+                        mimetype='application/json', status=502)
+
+@app.route('/namespace-billing')
+@app.route('/ci-health')
+@app.route('/ci-insights')
+@app.route('/cost-overview')
+@app.route('/test-timings')
+@app.route('/ci-health-report')
+@app.route('/flake-prs')
+@auth.login_required
+def proxy_dashboard():
+    return _proxy(request.path)
+
+
+@app.route('/api/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@auth.login_required
+def proxy_api(path):
+    return _proxy(f'/api/{path}')
+
 @app.route('/<key>')
 @auth.login_required
 def get_value(key):
@@ -402,11 +616,13 @@ def get_value(key):
 
     value = r.get(key)
     if value is None:
-        # Try disk fallback
         value = read_from_disk(key)
-        if value is None:
-            value = "Key not found"
-    else:
+    if value is None:
+        value = read_from_s3(key)
+    if value is None:
+        value = "Key not found"
+    elif isinstance(value, bytes):
+        # Redis returns raw bytes — decompress if gzip.
         try:
             if value.startswith(b"\x1f\x8b"):
                 value = gzip.decompress(value).decode()

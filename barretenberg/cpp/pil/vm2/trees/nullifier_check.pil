@@ -225,6 +225,6 @@ namespace nullifier_check;
         siloed_nullifier
     }
     in public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0]
     };

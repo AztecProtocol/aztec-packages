@@ -1,13 +1,9 @@
 #include "barretenberg/boomerang_value_detection/graph.hpp"
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
-#include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/goblin/merge_prover.hpp"
 #include "barretenberg/goblin/merge_verifier.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/ultra_honk/ultra_prover.hpp"
-#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 using namespace cdg;
 
@@ -45,26 +41,10 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
 
     static void analyze_circuit(RecursiveBuilder& outer_circuit)
     {
-        // AUDITTODO: The 8 under-constrained variables are the _is_infinity boolean flags from the 8
-        // commitments created via goblin_element::from_witness (4 t_commitments + 4 T_prev_commitments).
-        // Each boolean is only constrained by a single bool gate (x * (x - 1) = 0) and is not
-        // connected to the point coordinates. This may be a security issue if the infinity flag is not
-        // properly bound to the coordinates via Fiat-Shamir - a malicious prover could potentially
-        // set the flag independently of the actual point value.
-        constexpr size_t EXPECTED_UNCONSTRAINED_INFINITY_FLAGS = 8;
-
-        if constexpr (IsMegaBuilder<RecursiveBuilder>) {
-            MegaStaticAnalyzer tool = MegaStaticAnalyzer(outer_circuit);
-            auto result = tool.analyze_circuit();
-            EXPECT_EQ(result.first.size(), 1);
-            EXPECT_EQ(result.second.size(), EXPECTED_UNCONSTRAINED_INFINITY_FLAGS);
-        }
-        if constexpr (IsUltraBuilder<RecursiveBuilder>) {
-            StaticAnalyzer tool = StaticAnalyzer(outer_circuit);
-            auto result = tool.analyze_circuit();
-            EXPECT_EQ(result.first.size(), 1);
-            EXPECT_EQ(result.second.size(), EXPECTED_UNCONSTRAINED_INFINITY_FLAGS);
-        }
+        auto tool = StaticAnalyzer_<bb::fr, RecursiveBuilder>(outer_circuit);
+        auto result = tool.analyze_circuit();
+        EXPECT_EQ(result.first.size(), 1);
+        EXPECT_EQ(result.second.size(), 0);
     }
 
     static void prove_and_verify_merge(const std::shared_ptr<ECCOpQueue>& op_queue,
@@ -100,8 +80,14 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
         auto merge_transcript = std::make_shared<StdlibTranscript<RecursiveBuilder>>();
         RecursiveMergeVerifier verifier{ settings, merge_transcript };
         const stdlib::Proof<RecursiveBuilder> stdlib_merge_proof(outer_circuit, merge_proof);
-        [[maybe_unused]] auto [pairing_points, merged_commitments, reduction_succeeded] =
+        auto [pairing_points, merged_commitments, reduction_succeeded] =
             verifier.reduce_to_pairing_check(stdlib_merge_proof, recursive_merge_commitments);
+
+        // The pairing points are public outputs from the recursive verifier that will be verified externally via a
+        // pairing check. Their output coordinate limbs (from goblin batch_mul's queue_ecc_eq) may only appear in a
+        // single ECC op gate. Calling fix_witness() adds explicit constraints on these values so the StaticAnalyzer
+        // does not flag them as under-constrained.
+        pairing_points.fix_witness();
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_FALSE(outer_circuit.failed());

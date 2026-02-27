@@ -19,7 +19,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { type BlockProposal, P2PClientType, P2PMessage } from '@aztec/stdlib/p2p';
+import { type BlockProposal, P2PMessage } from '@aztec/stdlib/p2p';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { makeAztecAddress, makeBlockHeader, makeBlockProposal, mockTx } from '@aztec/stdlib/testing';
 import { Tx, TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
@@ -29,22 +29,19 @@ import type { Message, PeerId } from '@libp2p/interface';
 import { TopicValidatorResult } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 
-import type { P2PClient } from '../client/p2p_client.js';
+import type { P2PClient } from '../client/index.js';
 import type { P2PConfig } from '../config.js';
 import { createP2PClient } from '../index.js';
-import type { MemPools } from '../mem_pools/interface.js';
-import { LibP2PService } from '../services/libp2p/libp2p_service.js';
+import type { MemPools } from '../mem_pools/index.js';
+import { BatchTxRequesterCollector, LibP2PService, SendBatchRequestCollector } from '../services/index.js';
 import type { PeerManager } from '../services/peer-manager/peer_manager.js';
 import type { BatchTxRequesterLibP2PService } from '../services/reqresp/batch-tx-requester/interface.js';
 import type { IBatchRequestTxValidator } from '../services/reqresp/batch-tx-requester/tx_validator.js';
 import { RateLimitStatus } from '../services/reqresp/rate-limiter/rate_limiter.js';
 import type { ReqResp } from '../services/reqresp/reqresp.js';
 import type { PeerDiscoveryService } from '../services/service.js';
-import {
-  BatchTxRequesterCollector,
-  SendBatchRequestCollector,
-} from '../services/tx_collection/proposal_tx_collector.js';
-import { AlwaysTrueCircuitVerifier } from '../test-helpers/reqresp-nodes.js';
+import { MissingTxsTracker } from '../services/tx_collection/missing_txs_tracker.js';
+import { AlwaysTrueCircuitVerifier } from '../test-helpers/index.js';
 import {
   BENCHMARK_CONSTANTS,
   type CollectorType,
@@ -55,7 +52,7 @@ import {
   createMockEpochCache,
   createMockWorldStateSynchronizer,
   filterTxsByDistribution,
-} from '../test-helpers/testbench-utils.js';
+} from '../test-helpers/index.js';
 import type { PubSubLibp2p } from '../util.js';
 
 export type { DistributionPattern, CollectorType } from '../test-helpers/testbench-utils.js';
@@ -89,12 +86,11 @@ export interface BenchReadyMessage {
 }
 const txCache = new Map<number, Tx[]>();
 
-class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends LibP2PService<T> {
+class TestLibP2PService extends LibP2PService {
   private disableTxValidation: boolean;
   private gossipMessageCount = 0;
 
   constructor(
-    clientType: T,
     config: P2PConfig,
     node: PubSubLibp2p,
     peerDiscoveryService: PeerDiscoveryService,
@@ -110,7 +106,6 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
     disableTxValidation = true,
   ) {
     super(
-      clientType,
       config,
       node,
       peerDiscoveryService,
@@ -144,7 +139,7 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
       const txHash = tx.getTxHash();
       const txHashString = txHash.toString();
       this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()}.`);
-      await this.mempools.txPool.addTxs([tx]);
+      await this.mempools.txPool.addPendingTxs([tx]);
     } else {
       await super.handleGossipedTx(payload, msgId, source);
     }
@@ -166,7 +161,7 @@ async function generateDeterministicTxs(txCount: number, seed: number, config: P
     return cached.slice(0, txCount);
   }
 
-  const includeByTimestampBase = BigInt(seed);
+  const expirationTimestampBase = BigInt(seed);
   for (let i = cached.length; i < txCount; i++) {
     const txSeed = seed * 10000 + i;
     const tx = await mockTx(txSeed, {
@@ -182,7 +177,7 @@ async function generateDeterministicTxs(txCount: number, seed: number, config: P
       hasPublicTeardownCallRequest: false,
       publicCalldataSize: 0,
     });
-    tx.data.includeByTimestamp = includeByTimestampBase + BigInt(i);
+    tx.data.expirationTimestamp = expirationTimestampBase + BigInt(i);
     await tx.recomputeHash();
     cached.push(tx);
   }
@@ -277,7 +272,12 @@ async function runAggregatorBenchmark(
         new DateProvider(),
         noopTxValidator,
       );
-      const fetchedTxs = await collector.collectTxs(txHashes, blockProposal, pinnedPeer, timeoutMs);
+      const fetchedTxs = await collector.collectTxs(
+        MissingTxsTracker.fromArray(txHashes),
+        blockProposal,
+        pinnedPeer,
+        timeoutMs,
+      );
       const durationMs = timer.ms();
       return {
         type: 'BENCH_RESULT',
@@ -292,7 +292,12 @@ async function runAggregatorBenchmark(
       BENCHMARK_CONSTANTS.FIXED_MAX_PEERS,
       BENCHMARK_CONSTANTS.FIXED_MAX_RETRY_ATTEMPTS,
     );
-    const fetchedTxs = await collector.collectTxs(txHashes, blockProposal, pinnedPeer, timeoutMs);
+    const fetchedTxs = await collector.collectTxs(
+      MissingTxsTracker.fromArray(txHashes),
+      blockProposal,
+      pinnedPeer,
+      timeoutMs,
+    );
     const durationMs = timer.ms();
     return {
       type: 'BENCH_RESULT',
@@ -358,7 +363,6 @@ process.on('message', async msg => {
       };
 
       const client = await createP2PClient(
-        P2PClientType.Full,
         config as P2PConfig & DataStoreConfig,
         l2BlockSource,
         proofVerifier as ClientProtocolCircuitVerifier,
@@ -371,7 +375,6 @@ process.on('message', async msg => {
       );
 
       const testService = new TestLibP2PService(
-        P2PClientType.Full,
         config,
         (client as any).p2pService.node,
         (client as any).p2pService.peerDiscoveryService,
@@ -447,7 +450,7 @@ process.on('message', async msg => {
         const txHashes = allTxs.map(tx => tx.getTxHash());
         const blockProposal = await createBlockProposal(benchCmd.blockNumber, txHashes, benchCmd.seed);
 
-        await workerAttestationPool.addBlockProposal(blockProposal);
+        await workerAttestationPool.tryAddBlockProposal(blockProposal);
         workerLogger.debug(
           `[BENCH] Added block proposal with archive ${blockProposal.archive.toString().slice(0, 10)}...`,
         );

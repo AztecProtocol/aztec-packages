@@ -3,8 +3,6 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
-#include "barretenberg/crypto/merkle_tree/memory_store.hpp"
-#include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/srs/global_crs.hpp"

@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: 0e37cb8}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -91,7 +91,7 @@ AvmFlavor::ProverPolynomials::ProverPolynomials(const ProverPolynomials& full_po
 }
 
 AvmFlavor::ProvingKey::ProvingKey()
-    : commitment_key(circuit_size + 1) {
+    : commitment_key(circuit_size) {
         // The proving key's polynomials are not allocated here because they are later overwritten
         // AvmComposer::compute_witness(). We should probably refactor this flow.
     };

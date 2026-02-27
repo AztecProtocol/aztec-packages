@@ -115,7 +115,7 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
     static constexpr size_t SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY = 81;
     static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY = 82;
     static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY = 83;
-    static constexpr size_t SR_NUM_UNENCRYPTED_LOGS_CONTINUITY = 84;
+    static constexpr size_t SR_NUM_PUBLIC_LOGS_CONTINUITY = 84;
     static constexpr size_t SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY = 85;
     static constexpr size_t SR_L1_L2_TREE_ROOT_CONTINUITY = 86;
 
@@ -274,8 +274,8 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
             return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY";
         case SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY:
             return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY";
-        case SR_NUM_UNENCRYPTED_LOGS_CONTINUITY:
-            return "NUM_UNENCRYPTED_LOGS_CONTINUITY";
+        case SR_NUM_PUBLIC_LOGS_CONTINUITY:
+            return "NUM_PUBLIC_LOGS_CONTINUITY";
         case SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY:
             return "NUM_L2_TO_L1_MESSAGES_CONTINUITY";
         case SR_L1_L2_TREE_ROOT_CONTINUITY:

@@ -17,6 +17,18 @@ k8s_denoise() {
   "${SCRIPT_DIR}/k8s_enriched_denoise" "${NAMESPACE}" "$1"
 }
 
+tf_str() {
+  local value="${1:-}"
+  local default_value="${2:-null}"
+  if [[ -n "$value" ]]; then
+    value="${value//\\/\\\\}"  # escape backslashes first
+    value="${value//\"/\\\"}"  # then escape double quotes
+    echo "\"${value}\""
+  else
+    echo "$default_value"
+  fi
+}
+
 # We want to separate out these logs.
 export DENOISE=1
 ########################
@@ -55,7 +67,6 @@ LABS_INFRA_INDICES=${LABS_INFRA_INDICES:-0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1
 ########################
 # ROLLUP VARIABLES
 ########################
-REDEPLOY_ROLLUP_CONTRACTS=${REDEPLOY_ROLLUP_CONTRACTS:-false}
 CREATE_ROLLUP_CONTRACTS=${CREATE_ROLLUP_CONTRACTS:-true}
 SPONSORED_FPC=${SPONSORED_FPC:-true}
 TEST_ACCOUNTS=${TEST_ACCOUNTS:-false}
@@ -97,6 +108,8 @@ SEQ_MIN_TX_PER_BLOCK=${SEQ_MIN_TX_PER_BLOCK:-0}
 SEQ_MAX_TX_PER_BLOCK=${SEQ_MAX_TX_PER_BLOCK:-8}
 SEQ_BLOCK_DURATION_MS=${SEQ_BLOCK_DURATION_MS:-}
 SEQ_BUILD_CHECKPOINT_IF_EMPTY=${SEQ_BUILD_CHECKPOINT_IF_EMPTY:-}
+SEQ_ENFORCE_TIME_TABLE=${SEQ_ENFORCE_TIME_TABLE:-}
+SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT=${SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT:-0}
 PROVER_REPLICAS=${PROVER_REPLICAS:-4}
 PROVER_AGENTS_PER_PROVER=${PROVER_AGENTS_PER_PROVER:-1}
 R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
@@ -109,12 +122,19 @@ DEPLOY_ARCHIVAL_NODE=${DEPLOY_ARCHIVAL_NODE:-false}
 BOT_RESOURCE_PROFILE=${BOT_RESOURCE_PROFILE:-${RESOURCE_PROFILE}}
 BOT_TRANSFERS_MNEMONIC_START_INDEX=${BOT_TRANSFERS_MNEMONIC_START_INDEX:-7000}
 BOT_SWAPS_MNEMONIC_START_INDEX=${BOT_SWAPS_MNEMONIC_START_INDEX:-7100}
+BOT_CROSS_CHAIN_MNEMONIC_START_INDEX=${BOT_CROSS_CHAIN_MNEMONIC_START_INDEX:-7200}
 BOT_TRANSFERS_REPLICAS=${BOT_TRANSFERS_REPLICAS:-0}
 BOT_SWAPS_REPLICAS=${BOT_SWAPS_REPLICAS:-0}
+BOT_CROSS_CHAIN_REPLICAS=${BOT_CROSS_CHAIN_REPLICAS:-0}
 BOT_TRANSFERS_TX_INTERVAL_SECONDS=${BOT_TRANSFERS_TX_INTERVAL_SECONDS:-60}
 BOT_SWAPS_TX_INTERVAL_SECONDS=${BOT_SWAPS_TX_INTERVAL_SECONDS:-60}
+BOT_CROSS_CHAIN_TX_INTERVAL_SECONDS=${BOT_CROSS_CHAIN_TX_INTERVAL_SECONDS:-10}
 BOT_TRANSFERS_FOLLOW_CHAIN=${BOT_TRANSFERS_FOLLOW_CHAIN:-NONE}
 BOT_SWAPS_FOLLOW_CHAIN=${BOT_SWAPS_FOLLOW_CHAIN:-NONE}
+BOT_CROSS_CHAIN_FOLLOW_CHAIN=${BOT_CROSS_CHAIN_FOLLOW_CHAIN:-PENDING}
+BOT_TRANSFERS_PXE_SYNC_CHAIN_TIP=${BOT_TRANSFERS_PXE_SYNC_CHAIN_TIP:-checkpointed}
+BOT_SWAPS_PXE_SYNC_CHAIN_TIP=${BOT_SWAPS_PXE_SYNC_CHAIN_TIP:-checkpointed}
+BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP=${BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP:-checkpointed}
 
 RPC_INGRESS_ENABLED=${RPC_INGRESS_ENABLED:-false}
 RPC_INGRESS_HOSTS=${RPC_INGRESS_HOSTS:-[]}
@@ -160,12 +180,27 @@ else
   BLOB_FILE_STORE_UPLOAD_URL_TF="null"
 fi
 
+# TX filestore configuration
+TX_FILE_STORE_ENABLED=${TX_FILE_STORE_ENABLED:-false}
+TX_FILE_STORE_URL_TF=""
+if [[ -n "${TX_FILE_STORE_URL:-}" ]]; then
+  TX_FILE_STORE_URL_TF="\"$TX_FILE_STORE_URL\""
+else
+  TX_FILE_STORE_URL_TF="null"
+fi
+TX_COLLECTION_FILE_STORE_URLS=${TX_COLLECTION_FILE_STORE_URLS:-}
+
 P2P_GOSSIPSUB_D=${P2P_GOSSIPSUB_D:-6}
 P2P_GOSSIPSUB_DLO=${P2P_GOSSIPSUB_DLO:-4}
 P2P_GOSSIPSUB_DHI=${P2P_GOSSIPSUB_DHI:-12}
 
-P2P_DROP_TX=${P2P_DROP_TX:-false}
 P2P_DROP_TX_CHANCE=${P2P_DROP_TX_CHANCE:-0}
+
+# Chaos mesh scenarios values file (e.g., "network-requirements.yaml")
+# If set, the experiment is installed after Aztec infra, rules are injected,
+# then all pods are restarted so they come up clean with partition rules active.
+# Requires the chaos mesh operator to already be running (see deploy_chaos_mesh.sh).
+CHAOS_MESH_SCENARIOS_FILE=${CHAOS_MESH_SCENARIOS_FILE:-}
 
 # Compute validator addresses (skip if no validators)
 if [[ $VALIDATOR_REPLICAS -gt 0 ]]; then
@@ -195,6 +230,22 @@ if (( TOTAL_PROVER_PUBLISHERS > 0 )); then
   PROVER_PUBLISHER_RANGE=$(seq "$PROVER_PUBLISHER_MNEMONIC_START_INDEX" $((PROVER_PUBLISHER_MNEMONIC_START_INDEX + TOTAL_PROVER_PUBLISHERS - 1)) | tr '\n' ',' | sed 's/,$//')
   # Append prover publisher indices to prefund list
   LABS_INFRA_INDICES="${LABS_INFRA_INDICES},${PROVER_PUBLISHER_RANGE}"
+fi
+
+# Add bot L1 accounts to prefunding list
+if (( BOT_TRANSFERS_REPLICAS > 0 )); then
+  BOT_TRANSFERS_RANGE=$(seq "$BOT_TRANSFERS_MNEMONIC_START_INDEX" $((BOT_TRANSFERS_MNEMONIC_START_INDEX + BOT_TRANSFERS_REPLICAS - 1)) | tr '\n' ',' | sed 's/,$//')
+  LABS_INFRA_INDICES="${LABS_INFRA_INDICES},${BOT_TRANSFERS_RANGE}"
+fi
+
+if (( BOT_SWAPS_REPLICAS > 0 )); then
+  BOT_SWAPS_RANGE=$(seq "$BOT_SWAPS_MNEMONIC_START_INDEX" $((BOT_SWAPS_MNEMONIC_START_INDEX + BOT_SWAPS_REPLICAS - 1)) | tr '\n' ',' | sed 's/,$//')
+  LABS_INFRA_INDICES="${LABS_INFRA_INDICES},${BOT_SWAPS_RANGE}"
+fi
+
+if (( BOT_CROSS_CHAIN_REPLICAS > 0 )); then
+  BOT_CROSS_CHAIN_RANGE=$(seq "$BOT_CROSS_CHAIN_MNEMONIC_START_INDEX" $((BOT_CROSS_CHAIN_MNEMONIC_START_INDEX + BOT_CROSS_CHAIN_REPLICAS - 1)) | tr '\n' ',' | sed 's/,$//')
+  LABS_INFRA_INDICES="${LABS_INFRA_INDICES},${BOT_CROSS_CHAIN_RANGE}"
 fi
 
 # Ensure docker image provided (not needed for pure teardowns)
@@ -315,7 +366,7 @@ fi
 # Check for ETHERSCAN_API_KEY when VERIFY_CONTRACTS is enabled
 # Contract verification happens automatically in the yarn-project code when on mainnet/sepolia
 # and ETHERSCAN_API_KEY is set. This check ensures we fail early if verification is expected.
-if [[ "${VERIFY_CONTRACTS:-}" == "true" && ("${CREATE_ROLLUP_CONTRACTS}" == "true" || "${REDEPLOY_ROLLUP_CONTRACTS}" == "true") && -z "${ETHERSCAN_API_KEY:-}" ]]; then
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" && -z "${ETHERSCAN_API_KEY:-}" ]]; then
   die "Error: ETHERSCAN_API_KEY is not set but VERIFY_CONTRACTS=true. Contract verification requires an Etherscan API key. Set ETHERSCAN_API_KEY environment variable."
 fi
 
@@ -323,15 +374,8 @@ ROLLUP_CONTRACTS_START=$(date +%s)
 DEPLOY_ROLLUP_CONTRACTS_DIR="${SCRIPT_DIR}/../terraform/deploy-rollup-contracts"
 "${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-rollup-contracts"
 
-# Handle NETWORK variable - needs quotes for string values, null for unset
-if [[ -n "${NETWORK:-}" ]]; then
-  NETWORK_TF="\"${NETWORK}\""
-else
-  NETWORK_TF=null
-fi
-
 # Handle ETHERSCAN_API_KEY - only set when deploying or redeploying contracts
-if [[ "${VERIFY_CONTRACTS:-}" == "true" && ("${CREATE_ROLLUP_CONTRACTS}" == "true" || "${REDEPLOY_ROLLUP_CONTRACTS}" == "true") ]]; then
+if [[ "${VERIFY_CONTRACTS:-}" == "true" && "${CREATE_ROLLUP_CONTRACTS}" == "true" ]]; then
   ETHERSCAN_API_KEY_TF="\"${ETHERSCAN_API_KEY:-}\""
 else
   ETHERSCAN_API_KEY_TF=null
@@ -375,7 +419,7 @@ AZTEC_MANA_TARGET = ${AZTEC_MANA_TARGET:-null}
 AZTEC_PROVING_COST_PER_MANA = ${AZTEC_PROVING_COST_PER_MANA:-null}
 AZTEC_EXIT_DELAY_SECONDS = ${AZTEC_EXIT_DELAY_SECONDS:-null}
 ETHERSCAN_API_KEY = ${ETHERSCAN_API_KEY_TF}
-NETWORK = ${NETWORK_TF}
+NETWORK = $(tf_str "${NETWORK:-}")
 JOB_NAME = "deploy-rollup-contracts"
 JOB_BACKOFF_LIMIT = 3
 JOB_TTL_SECONDS_AFTER_FINISHED = 3600
@@ -389,11 +433,11 @@ EXISTING_REGISTRY=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -ra
 if [[ "${USE_NETWORK_CONFIG:-false}" == "true" ]]; then
     log "Using network configuration, skipping contracts deployment"
 else
-  if [[ -n "${EXISTING_REGISTRY}" && "${REDEPLOY_ROLLUP_CONTRACTS}" != "true" ]]; then
+  if [[ -n "${EXISTING_REGISTRY}" && "${CREATE_ROLLUP_CONTRACTS}" != "true" ]]; then
     log "Contracts already deployed (registry=${EXISTING_REGISTRY}), skipping deployment"
   else
-    if [[ "${REDEPLOY_ROLLUP_CONTRACTS}" == "true" ]]; then
-      log "REDEPLOY_ROLLUP_CONTRACTS=true, destroying existing deployment"
+    if [[ "${CREATE_ROLLUP_CONTRACTS}" == "true" ]]; then
+      log "CREATE_ROLLUP_CONTRACTS=true, destroying existing deployment"
       k8s_denoise "terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" destroy -auto-approve"
     fi
     k8s_denoise "terraform -chdir=${DEPLOY_ROLLUP_CONTRACTS_DIR} plan -out=tfplan"
@@ -421,6 +465,20 @@ fi
 
 
 # -------------------------------
+# Generate admin API key
+# -------------------------------
+# Generate a fresh key on every deploy; the hash goes to validators and the
+# raw key is stored as a K8s Secret for the test runner to retrieve later.
+# The raw key is never logged.
+ADMIN_API_KEY=$(openssl rand -hex 32)
+ADMIN_API_KEY_HASH=$(printf '%s' "$ADMIN_API_KEY" | sha256sum | cut -d' ' -f1)
+kubectl create secret generic aztec-admin-api-key \
+  --from-literal=key="$ADMIN_API_KEY" \
+  --namespace "${NAMESPACE}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+unset ADMIN_API_KEY
+
+# -------------------------------
 # Deploy Aztec infra
 # -------------------------------
 AZTEC_INFRA_START=$(date +%s)
@@ -433,7 +491,7 @@ if [[ "${CLUSTER}" == "kind" ]]; then
   P2P_PUBLIC_IP=false
 else
   P2P_NODEPORT_ENABLED=false
-  P2P_PUBLIC_IP=true
+  P2P_PUBLIC_IP=${P2P_PUBLIC_IP:-true}
 fi
 
 cat > "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" << EOF
@@ -452,6 +510,7 @@ FULL_NODE_RESOURCE_PROFILE = "${FULL_NODE_RESOURCE_PROFILE}"
 ARCHIVE_RESOURCE_PROFILE = "${ARCHIVE_RESOURCE_PROFILE}"
 BLOB_SINK_RESOURCE_PROFILE = "${BLOB_SINK_RESOURCE_PROFILE}"
 AZTEC_DOCKER_IMAGE = "${AZTEC_DOCKER_IMAGE}"
+PROVER_AGENT_DOCKER_IMAGE = "${PROVER_AGENT_DOCKER_IMAGE:-$AZTEC_DOCKER_IMAGE}"
 SPONSORED_FPC = ${SPONSORED_FPC}
 TEST_ACCOUNTS = ${TEST_ACCOUNTS}
 L1_CHAIN_ID = "${ETHEREUM_CHAIN_ID}"
@@ -464,6 +523,7 @@ SLASH_FACTORY_CONTRACT_ADDRESS = "${SLASH_FACTORY_ADDRESS}"
 FEE_ASSET_HANDLER_CONTRACT_ADDRESS = "${FEE_ASSET_HANDLER_ADDRESS}"
 VALIDATOR_MNEMONIC = "${LABS_INFRA_MNEMONIC}"
 VALIDATOR_MNEMONIC_START_INDEX = ${VALIDATOR_MNEMONIC_START_INDEX}
+VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX = ${VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX}
 VALIDATORS_PER_NODE = ${VALIDATORS_PER_NODE}
 VALIDATOR_REPLICAS = ${VALIDATOR_REPLICAS}
 VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY = ${PUBLISHERS_PER_VALIDATOR_KEY}
@@ -472,6 +532,8 @@ SEQ_MIN_TX_PER_BLOCK = ${SEQ_MIN_TX_PER_BLOCK}
 SEQ_MAX_TX_PER_BLOCK = ${SEQ_MAX_TX_PER_BLOCK}
 SEQ_BLOCK_DURATION_MS = ${SEQ_BLOCK_DURATION_MS:-null}
 SEQ_BUILD_CHECKPOINT_IF_EMPTY = ${SEQ_BUILD_CHECKPOINT_IF_EMPTY:-null}
+SEQ_ENFORCE_TIME_TABLE = ${SEQ_ENFORCE_TIME_TABLE:-null}
+SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT = ${SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT}
 PROVER_MNEMONIC = "${LABS_INFRA_MNEMONIC}"
 PROVER_PUBLISHER_MNEMONIC_START_INDEX = ${PROVER_PUBLISHER_MNEMONIC_START_INDEX}
 PROVER_PUBLISHERS_PER_PROVER = ${PUBLISHERS_PER_PROVER}
@@ -483,6 +545,8 @@ SLASH_INACTIVITY_PENALTY = ${SLASH_INACTIVITY_PENALTY:-null}
 SLASH_PRUNE_PENALTY = ${SLASH_PRUNE_PENALTY:-null}
 SLASH_DATA_WITHHOLDING_PENALTY = ${SLASH_DATA_WITHHOLDING_PENALTY:-null}
 SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY = ${SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY:-null}
+SLASH_DUPLICATE_PROPOSAL_PENALTY = ${SLASH_DUPLICATE_PROPOSAL_PENALTY:-null}
+SLASH_DUPLICATE_ATTESTATION_PENALTY = ${SLASH_DUPLICATE_ATTESTATION_PENALTY:-null}
 SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY = ${SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY:-null}
 SLASH_UNKNOWN_PENALTY = ${SLASH_UNKNOWN_PENALTY:-null}
 SLASH_INVALID_BLOCK_PENALTY = ${SLASH_INVALID_BLOCK_PENALTY:-null}
@@ -492,7 +556,7 @@ OTEL_COLLECTOR_ENDPOINT = "${OTEL_COLLECTOR_ENDPOINT}"
 DEPLOY_INTERNAL_BOOTNODE = ${DEPLOY_INTERNAL_BOOTNODE:-true}
 PROVER_REAL_PROOFS = ${PROVER_REAL_PROOFS}
 TRANSACTIONS_DISABLED = ${TRANSACTIONS_DISABLED:-null}
-NETWORK = ${NETWORK_TF}
+NETWORK = $(tf_str "${NETWORK:-}")
 STORE_SNAPSHOT_URL = ${STORE_SNAPSHOT_URL_TF}
 BOT_RESOURCE_PROFILE = "${BOT_RESOURCE_PROFILE}"
 BOT_MNEMONIC = "${LABS_INFRA_MNEMONIC}"
@@ -504,8 +568,16 @@ BOT_SWAPS_MNEMONIC_START_INDEX = ${BOT_SWAPS_MNEMONIC_START_INDEX}
 BOT_SWAPS_REPLICAS = ${BOT_SWAPS_REPLICAS}
 BOT_SWAPS_TX_INTERVAL_SECONDS = ${BOT_SWAPS_TX_INTERVAL_SECONDS}
 BOT_SWAPS_FOLLOW_CHAIN = "${BOT_SWAPS_FOLLOW_CHAIN}"
+BOT_CROSS_CHAIN_MNEMONIC_START_INDEX = ${BOT_CROSS_CHAIN_MNEMONIC_START_INDEX}
+BOT_CROSS_CHAIN_REPLICAS = ${BOT_CROSS_CHAIN_REPLICAS}
+BOT_CROSS_CHAIN_TX_INTERVAL_SECONDS = ${BOT_CROSS_CHAIN_TX_INTERVAL_SECONDS}
+BOT_CROSS_CHAIN_FOLLOW_CHAIN = "${BOT_CROSS_CHAIN_FOLLOW_CHAIN}"
+BOT_TRANSFERS_PXE_SYNC_CHAIN_TIP = "${BOT_TRANSFERS_PXE_SYNC_CHAIN_TIP}"
+BOT_SWAPS_PXE_SYNC_CHAIN_TIP = "${BOT_SWAPS_PXE_SYNC_CHAIN_TIP}"
+BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP = "${BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP}"
 BOT_TRANSFERS_L2_PRIVATE_KEY = "${BOT_TRANSFERS_L2_PRIVATE_KEY:-0xcafe01}"
 BOT_SWAPS_L2_PRIVATE_KEY = "${BOT_SWAPS_L2_PRIVATE_KEY:-0xcafe02}"
+BOT_CROSS_CHAIN_L2_PRIVATE_KEY = "${BOT_CROSS_CHAIN_L2_PRIVATE_KEY:-0xcafe03}"
 
 PROVER_AGENTS_PER_PROVER = ${PROVER_AGENTS_PER_PROVER}
 PROVER_AGENT_POLL_INTERVAL_MS = ${PROVER_AGENT_POLL_INTERVAL_MS}
@@ -539,15 +611,18 @@ PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAGE = ${PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAG
 PROVER_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE = ${PROVER_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE:-null}
 BLOB_ALLOW_EMPTY_SOURCES = ${BLOB_ALLOW_EMPTY_SOURCES:-false}
 BLOB_FILE_STORE_UPLOAD_URL = ${BLOB_FILE_STORE_UPLOAD_URL_TF}
+TX_FILE_STORE_ENABLED = ${TX_FILE_STORE_ENABLED}
+TX_FILE_STORE_URL = ${TX_FILE_STORE_URL_TF}
+TX_COLLECTION_FILE_STORE_URLS = "${TX_COLLECTION_FILE_STORE_URLS}"
 DEBUG_P2P_INSTRUMENT_MESSAGES = ${DEBUG_P2P_INSTRUMENT_MESSAGES:-false}
 
 PROVER_AGENT_INCLUDE_METRICS = "${PROVER_AGENT_INCLUDE_METRICS-null}"
 FULL_NODE_INCLUDE_METRICS = "${FULL_NODE_INCLUDE_METRICS-null}"
 
-LOG_LEVEL = "${LOG_LEVEL}"
-FISHERMAN_LOG_LEVEL = "${FISHERMAN_LOG_LEVEL}"
+LOG_LEVEL = $(tf_str "$LOG_LEVEL")
+FISHERMAN_LOG_LEVEL = $(tf_str "$FISHERMAN_LOG_LEVEL")
 
-WS_NUM_HISTORIC_BLOCKS = ${WS_NUM_HISTORIC_BLOCKS:-null}
+WS_NUM_HISTORIC_CHECKPOINTS = ${WS_NUM_HISTORIC_CHECKPOINTS:-null}
 
 P2P_PUBLIC_IP = ${P2P_PUBLIC_IP}
 P2P_NODEPORT_ENABLED = ${P2P_NODEPORT_ENABLED}
@@ -556,11 +631,53 @@ PROVER_AGENT_PROOF_TYPES = ${PROVER_AGENT_PROOF_TYPES:-[]}
 DEBUG_FORCE_TX_PROOF_VERIFICATION = ${DEBUG_FORCE_TX_PROOF_VERIFICATION:-false}
 
 WAIT_FOR_PROVER_DEPLOY = ${WAIT_FOR_PROVER_DEPLOY:-null}
+ADMIN_API_KEY_HASH = "${ADMIN_API_KEY_HASH}"
 EOF
 
 k8s_denoise "tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}""
 STAGE_TIMINGS[aztec_infra]=$(($(date +%s) - AZTEC_INFRA_START))
 log "Deployed aztec infra"
+
+# -------------------------------------------------------
+# Optionally install chaos mesh scenarios after Aztec infra
+# -------------------------------------------------------
+# Chaos Mesh resolves pod selectors at experiment creation time, so the target
+# pods must already exist. The chaos-daemon injects iptables DROP rules into
+# each matched pod's network namespace. For partition experiments, this
+# immediately blocks packets between the partitioned pods, causing existing
+# TCP connections to timeout and preventing new ones from forming.
+#
+# IMPORTANT: Do NOT restart pods after chaos injection. Chaos Mesh does not
+# automatically re-inject rules into recreated pods, leaving them unpartitioned.
+if [[ -n "${CHAOS_MESH_SCENARIOS_FILE}" ]]; then
+  CHAOS_SCENARIOS_DIR="${SCRIPT_DIR}/../aztec-chaos-scenarios"
+  log "Installing chaos mesh scenarios from ${CHAOS_MESH_SCENARIOS_FILE}"
+  helm upgrade --install network-shaping "${CHAOS_SCENARIOS_DIR}" \
+    --namespace "${NAMESPACE}" \
+    --values "${CHAOS_SCENARIOS_DIR}/values/${CHAOS_MESH_SCENARIOS_FILE}" \
+    --set "global.targetNamespace=${NAMESPACE}" \
+    --wait --timeout=5m
+  log "Chaos mesh scenarios installed, waiting for rules to be injected..."
+
+  # Wait for all NetworkChaos experiments to have their rules injected.
+  # The AllInjected condition confirms iptables rules are active on every matched pod.
+  CHAOS_WAIT_TIMEOUT=120
+  CHAOS_WAITED=0
+  while true; do
+    NOT_INJECTED=$(kubectl get networkchaos -n "${NAMESPACE}" -o jsonpath='{range .items[*]}{.status.conditions[?(@.type=="AllInjected")].status}{"\n"}{end}' 2>/dev/null | grep -c "False" || true)
+    if [[ "${NOT_INJECTED}" -eq 0 ]]; then
+      log "All chaos mesh rules injected"
+      break
+    fi
+    if [[ "${CHAOS_WAITED}" -ge "${CHAOS_WAIT_TIMEOUT}" ]]; then
+      log "WARNING: Timed out waiting for chaos mesh injection after ${CHAOS_WAIT_TIMEOUT}s (${NOT_INJECTED} experiments not yet injected)"
+      break
+    fi
+    sleep 5
+    CHAOS_WAITED=$((CHAOS_WAITED + 5))
+  done
+  log "Chaos mesh partition active — existing connections will break as packets are dropped"
+fi
 
 # Calculate total deployment time
 DEPLOY_END_TIME=$(date +%s)

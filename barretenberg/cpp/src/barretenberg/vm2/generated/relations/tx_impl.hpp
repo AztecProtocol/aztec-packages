@@ -25,7 +25,7 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX = FF(29);
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX = FF(514);
     const auto constants_AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX = FF(4683);
-    const auto constants_DOM_SEP__PUBLIC_STORAGE_MAP_SLOT = FF(1106049611);
+    const auto constants_DOM_SEP__PUBLIC_STORAGE_MAP_SLOT = FF(4015149901UL);
     const auto tx_REM_COUNT_MINUS_1 = (in.get(C::tx_remaining_phase_counter) - FF(1));
     const auto tx_NOT_PHASE_END = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_end_phase));
     const auto tx_IS_ONE_SHOT_PHASE =

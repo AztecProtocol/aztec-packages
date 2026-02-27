@@ -1,19 +1,11 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ContractStore } from '@aztec/pxe/server';
-import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { type ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import {
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-  computePrivateFunctionsRoot,
-  computePublicBytecodeCommitment,
-  getContractClassPrivateFunctionFromArtifact,
-} from '@aztec/stdlib/contract';
+import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 export class TXEPublicContractDataSource implements ContractDataSource {
-  #privateFunctionsRoot: Map<string, Buffer> = new Map();
   constructor(
     private blockNumber: BlockNumber,
     private contractStore: ContractStore,
@@ -24,42 +16,24 @@ export class TXEPublicContractDataSource implements ContractDataSource {
   }
 
   async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
-    const contractClass = await this.contractStore.getContractClass(id);
+    const contractClass = await this.contractStore.getContractClassWithPreimage(id);
     if (!contractClass) {
       return;
     }
-    const artifact = await this.contractStore.getContractArtifact(id);
-    if (!artifact) {
-      return;
-    }
-
-    let privateFunctionsRoot;
-    if (!this.#privateFunctionsRoot.has(id.toString())) {
-      const privateFunctions = await Promise.all(
-        artifact.functions
-          .filter(fn => fn.functionType === FunctionType.PRIVATE)
-          .map(fn => getContractClassPrivateFunctionFromArtifact(fn)),
-      );
-      privateFunctionsRoot = await computePrivateFunctionsRoot(privateFunctions);
-      this.#privateFunctionsRoot.set(id.toString(), privateFunctionsRoot.toBuffer());
-    } else {
-      privateFunctionsRoot = Fr.fromBuffer(this.#privateFunctionsRoot.get(id.toString())!);
-    }
-
     return {
-      id,
-      artifactHash: contractClass!.artifactHash,
-      packedBytecode: contractClass!.packedBytecode,
-      privateFunctionsRoot,
-      version: contractClass!.version,
+      id: contractClass.id,
+      artifactHash: contractClass.artifactHash,
+      packedBytecode: contractClass.packedBytecode,
+      privateFunctionsRoot: contractClass.privateFunctionsRoot,
+      version: contractClass.version,
       privateFunctions: [],
       utilityFunctions: [],
     };
   }
 
   async getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
-    const contractClass = await this.contractStore.getContractClass(id);
-    return contractClass && computePublicBytecodeCommitment(contractClass.packedBytecode);
+    const contractClass = await this.contractStore.getContractClassWithPreimage(id);
+    return contractClass?.publicBytecodeCommitment;
   }
 
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {

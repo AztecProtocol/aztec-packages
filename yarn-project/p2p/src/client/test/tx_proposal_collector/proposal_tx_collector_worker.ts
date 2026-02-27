@@ -8,7 +8,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
-import { P2PClientType, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import type { Tx, TxValidationResult } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -16,14 +16,12 @@ import type { PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 
 import type { P2PConfig } from '../../../config.js';
+import { BatchTxRequesterCollector, SendBatchRequestCollector } from '../../../services/index.js';
 import type { IBatchRequestTxValidator } from '../../../services/reqresp/batch-tx-requester/tx_validator.js';
 import { RateLimitStatus } from '../../../services/reqresp/rate-limiter/rate_limiter.js';
+import { MissingTxsTracker } from '../../../services/tx_collection/missing_txs_tracker.js';
 import {
-  BatchTxRequesterCollector,
-  SendBatchRequestCollector,
-} from '../../../services/tx_collection/proposal_tx_collector.js';
-import { AlwaysTrueCircuitVerifier } from '../../../test-helpers/reqresp-nodes.js';
-import {
+  AlwaysTrueCircuitVerifier,
   BENCHMARK_CONSTANTS,
   InMemoryAttestationPool,
   InMemoryTxPool,
@@ -31,7 +29,7 @@ import {
   calculateInternalTimeout,
   createMockEpochCache,
   createMockWorldStateSynchronizer,
-} from '../../../test-helpers/testbench-utils.js';
+} from '../../../test-helpers/index.js';
 import { createP2PClient } from '../../index.js';
 import type { P2PClient } from '../../p2p_client.js';
 import {
@@ -116,7 +114,6 @@ async function startClient(config: P2PConfig, clientIndex: number) {
   };
 
   client = await createP2PClient(
-    P2PClientType.Full,
     config as P2PConfig & DataStoreConfig,
     l2BlockSource as L2BlockSource & ContractDataSource,
     proofVerifier as ClientProtocolCircuitVerifier,
@@ -214,7 +211,13 @@ async function runCollector(cmd: Extract<WorkerCommand, { type: 'RUN_COLLECTOR' 
     if (collectorType === 'batch-requester') {
       const collector = new BatchTxRequesterCollector(p2pService, logger, new DateProvider(), noopTxValidator);
       const fetched = await executeTimeout(
-        (_signal: AbortSignal) => collector.collectTxs(parsedTxHashes, parsedProposal, pinnedPeer, internalTimeoutMs),
+        (_signal: AbortSignal) =>
+          collector.collectTxs(
+            MissingTxsTracker.fromArray(parsedTxHashes),
+            parsedProposal,
+            pinnedPeer,
+            internalTimeoutMs,
+          ),
         timeoutMs,
         () => new Error(`Collector timed out after ${timeoutMs}ms`),
       );
@@ -226,7 +229,13 @@ async function runCollector(cmd: Extract<WorkerCommand, { type: 'RUN_COLLECTOR' 
         BENCHMARK_CONSTANTS.FIXED_MAX_RETRY_ATTEMPTS,
       );
       const fetched = await executeTimeout(
-        (_signal: AbortSignal) => collector.collectTxs(parsedTxHashes, parsedProposal, pinnedPeer, internalTimeoutMs),
+        (_signal: AbortSignal) =>
+          collector.collectTxs(
+            MissingTxsTracker.fromArray(parsedTxHashes),
+            parsedProposal,
+            pinnedPeer,
+            internalTimeoutMs,
+          ),
         timeoutMs,
         () => new Error(`Collector timed out after ${timeoutMs}ms`),
       );
@@ -301,7 +310,7 @@ process.on('message', (msg: WorkerCommand) => {
             throw new Error('Attestation pool not initialized');
           }
           const proposal = deserializeBlockProposal(msg.blockProposal);
-          await attestationPool.addBlockProposal(proposal);
+          await attestationPool.tryAddBlockProposal(proposal);
           await sendMessage({ type: 'BLOCK_PROPOSAL_SET', requestId, archiveRoot: proposal.archive.toString() });
           break;
         }

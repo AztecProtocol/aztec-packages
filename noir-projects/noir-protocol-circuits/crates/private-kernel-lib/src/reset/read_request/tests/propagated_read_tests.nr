@@ -1,6 +1,6 @@
 use crate::reset::read_request::read_request_action::ReadRequestAction;
 use super::TestBuilder;
-use dep::types::tests::utils::assert_array_eq;
+use types::tests::utils::assert_array_eq;
 
 #[test(should_fail_with = "Hinted settled read request does not match status")]
 fn incorrect_action_for_pending_read_request() {

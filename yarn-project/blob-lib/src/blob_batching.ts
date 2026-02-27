@@ -1,4 +1,4 @@
-import { AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_CHECKPOINT } from '@aztec/constants';
+import { BLOBS_PER_CHECKPOINT, MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { BLS12Fr, BLS12Point } from '@aztec/foundation/curves/bls12';
@@ -75,9 +75,9 @@ export class BatchedBlobAccumulator {
    */
   static async batch(blobFieldsPerCheckpoint: Fr[][], verifyProof = false): Promise<BatchedBlob> {
     const numCheckpoints = blobFieldsPerCheckpoint.length;
-    if (numCheckpoints > AZTEC_MAX_EPOCH_DURATION) {
+    if (numCheckpoints > MAX_CHECKPOINTS_PER_EPOCH) {
       throw new Error(
-        `Too many checkpoints sent to batch(). The maximum is ${AZTEC_MAX_EPOCH_DURATION}. Got ${numCheckpoints}.`,
+        `Too many checkpoints sent to batch(). The maximum is ${MAX_CHECKPOINTS_PER_EPOCH}. Got ${numCheckpoints}.`,
       );
     }
 
@@ -109,7 +109,7 @@ export class BatchedBlobAccumulator {
     for (const blobFields of blobFieldsPerCheckpoint) {
       // Compute the hash of all the fields in the block.
       const blobFieldsHash = await computeBlobFieldsHash(blobFields);
-      const blobs = getBlobsPerL1Block(blobFields);
+      const blobs = await getBlobsPerL1Block(blobFields);
       for (const blob of blobs) {
         // Compute the challenge z for each blob and accumulate it.
         const challengeZ = await blob.computeChallengeZ(blobFieldsHash);
@@ -126,7 +126,7 @@ export class BatchedBlobAccumulator {
     }
 
     // Now we have a shared challenge for all blobs, evaluate them...
-    const proofObjects = allBlobs.map(b => b.evaluate(z));
+    const proofObjects = await Promise.all(allBlobs.map(b => b.evaluate(z)));
     const evaluations = await Promise.all(proofObjects.map(({ y }) => hashNoirBigNumLimbs(y)));
     // ...and find the challenge for the linear combination of blobs.
     let gamma = evaluations[0];
@@ -145,7 +145,7 @@ export class BatchedBlobAccumulator {
    * @returns An updated blob accumulator.
    */
   async accumulateBlob(blob: Blob, blobFieldsHash: Fr) {
-    const { proof, y: thisY } = blob.evaluate(this.finalBlobChallenges.z);
+    const { proof, y: thisY } = await blob.evaluate(this.finalBlobChallenges.z);
     const thisC = BLS12Point.decompress(blob.commitment);
     const thisQ = BLS12Point.decompress(proof);
     const blobChallengeZ = await blob.computeChallengeZ(blobFieldsHash);
@@ -192,7 +192,7 @@ export class BatchedBlobAccumulator {
    * @returns An updated blob accumulator.
    */
   async accumulateFields(blobFields: Fr[]) {
-    const blobs = getBlobsPerL1Block(blobFields);
+    const blobs = await getBlobsPerL1Block(blobFields);
 
     if (blobs.length > BLOBS_PER_CHECKPOINT) {
       throw new Error(

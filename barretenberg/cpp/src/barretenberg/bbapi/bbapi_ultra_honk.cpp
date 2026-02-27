@@ -21,7 +21,7 @@ template <typename Flavor, typename IO, typename Circuit = typename Flavor::Circ
 Circuit _compute_circuit(std::vector<uint8_t>&& bytecode, std::vector<uint8_t>&& witness)
 {
     const acir_format::ProgramMetadata metadata = _create_program_metadata<IO>();
-    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(bytecode)) };
+    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(bytecode)), {} };
 
     if (!witness.empty()) {
         program.witness = acir_format::witness_buf_to_witness_vector(std::move(witness));
@@ -80,7 +80,7 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
     Proof full_proof = prover.construct_proof();
 
     // Compute where to split (inner public inputs vs everything else)
-    size_t num_public_inputs = prover.prover_instance->num_public_inputs();
+    size_t num_public_inputs = prover.num_public_inputs();
     BB_ASSERT_GTE(num_public_inputs, IO::PUBLIC_INPUTS_SIZE, "Public inputs should contain the expected IO structure.");
     size_t num_inner_public_inputs = num_public_inputs - IO::PUBLIC_INPUTS_SIZE;
 
@@ -172,14 +172,15 @@ CircuitStats::Response _stats(std::vector<uint8_t>&& bytecode, bool include_gate
     CircuitStats::Response response;
     response.num_acir_opcodes = static_cast<uint32_t>(constraint_system.num_acir_opcodes);
 
-    acir_format::AcirProgram program{ std::move(constraint_system) };
+    acir_format::AcirProgram program{ std::move(constraint_system), {} };
     auto builder = acir_format::create_circuit<Circuit>(program, metadata);
     builder.finalize_circuit(/*ensure_nonzero=*/true);
 
     response.num_gates = static_cast<uint32_t>(builder.get_finalized_total_circuit_size());
     response.num_gates_dyadic = static_cast<uint32_t>(builder.get_circuit_subgroup_size(response.num_gates));
     // note: will be empty if collect_gates_per_opcode is false
-    response.gates_per_opcode = std::move(program.constraints.gates_per_opcode);
+    response.gates_per_opcode =
+        std::vector<uint32_t>(program.constraints.gates_per_opcode.begin(), program.constraints.gates_per_opcode.end());
 
     return response;
 }

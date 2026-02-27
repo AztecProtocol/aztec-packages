@@ -1,3 +1,5 @@
+export * from '../../access_scopes.js';
+export * from '../../notes_filter.js';
 export * from '../../pxe.js';
 export * from '../../config/index.js';
 export * from '../../error_enriching.js';
@@ -7,4 +9,4 @@ export { NoteService } from '../../notes/note_service.js';
 export { ORACLE_VERSION } from '../../oracle_version.js';
 export { type PXECreationOptions } from '../pxe_creation_options.js';
 export { JobCoordinator } from '../../job_coordinator/job_coordinator.js';
-export { syncState } from '../../contract_sync/index.js';
+export { ContractSyncService } from '../../contract_sync/contract_sync_service.js';

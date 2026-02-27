@@ -1,5 +1,4 @@
 include "../constants_gen.pil";
-include "../precomputed.pil";
 include "../trees/public_data_check.pil";
 include "../trees/written_public_data_slots_tree_check.pil";
 
@@ -83,7 +82,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         public_data_tree_root,
         prev_public_data_tree_size,
         public_data_tree_size,
-        precomputed.clk
+        clk
     } is public_data_check.non_protocol_write {
         public_data_check.value,
         public_data_check.address,

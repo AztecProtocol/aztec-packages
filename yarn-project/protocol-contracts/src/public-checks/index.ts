@@ -10,9 +10,9 @@ export const PublicChecksArtifact = loadContractArtifact(PublicChecksJson as Noi
 let protocolContract: ProtocolContract;
 
 /** Returns the canonical deployment of the contract. */
-export async function getCanonicalPublicChecks(): Promise<ProtocolContract> {
+export function getCanonicalPublicChecks(): Promise<ProtocolContract> {
   if (!protocolContract) {
-    protocolContract = await makeProtocolContract('PublicChecks', PublicChecksArtifact);
+    protocolContract = makeProtocolContract('PublicChecks', PublicChecksArtifact);
   }
-  return protocolContract;
+  return Promise.resolve(protocolContract);
 }

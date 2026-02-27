@@ -116,6 +116,7 @@ export class PrivateKernelExecutionProver {
           splitCounter,
         );
         while (resetBuilder.needsReset()) {
+          // Inner reset: without siloing.
           const witgenTimer = new Timer();
           const privateInputs = await resetBuilder.build(this.oracle);
           output = generateWitnesses
@@ -216,16 +217,24 @@ export class PrivateKernelExecutionProver {
       firstIteration = false;
     }
 
-    // Reset.
-    let resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
+    // Final reset: include siloing of note hashes, nullifiers and private logs.
+    const finalResetBuilder = new PrivateKernelResetPrivateInputsBuilder(
       output,
       [],
       noteHashNullifierCounterMap,
       splitCounter,
     );
-    while (resetBuilder.needsReset()) {
+    if (!finalResetBuilder.needsReset()) {
+      // The final reset must be performed exactly once, because each tx has at least one nullifier that requires
+      // siloing, and siloing cannot be done multiple times.
+      // While, in theory, it might be possible to silo note hashes first and then run another reset to silo nullifiers
+      // and/or private logs, we currently don't have standalone dimensions for the arrays that require siloing. As a
+      // result, all necessary siloing must be done together in a single reset.
+      // Refer to the possible combinations of dimensions in private_kernel_reset_config.json.
+      throw new Error('Nothing to reset for the final reset.');
+    } else {
       const witgenTimer = new Timer();
-      const privateInputs = await resetBuilder.build(this.oracle);
+      const privateInputs = await finalResetBuilder.build(this.oracle);
       output = generateWitnesses
         ? await this.proofCreator.generateResetOutput(privateInputs)
         : await this.proofCreator.simulateReset(privateInputs);
@@ -239,8 +248,6 @@ export class PrivateKernelExecutionProver {
           witgen: witgenTimer.ms(),
         },
       });
-
-      resetBuilder = new PrivateKernelResetPrivateInputsBuilder(output, [], noteHashNullifierCounterMap, splitCounter);
     }
 
     if (output.publicInputs.feePayer.isZero() && skipFeeEnforcement) {
@@ -260,20 +267,20 @@ export class PrivateKernelExecutionProver {
     // TODO: Enable padding once we better understand the final amounts to pad to.
     const paddedSideEffectAmounts = PaddedSideEffectAmounts.empty();
 
-    // Use the aggregated includeByTimestamp set throughout the tx execution.
-    // TODO: Call `computeTxIncludeByTimestamp` to round the value down and reduce precision, improving privacy.
-    const includeByTimestampUpperBound = previousKernelData.publicInputs.includeByTimestamp;
+    // Use the aggregated expirationTimestamp set throughout the tx execution.
+    // TODO: Call `computeTxExpirationTimestamp` to round the value down and reduce precision, improving privacy.
+    const expirationTimestampUpperBound = previousKernelData.publicInputs.expirationTimestamp;
     const anchorBlockTimestamp = previousKernelData.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp;
-    if (includeByTimestampUpperBound <= anchorBlockTimestamp) {
+    if (expirationTimestampUpperBound <= anchorBlockTimestamp) {
       throw new Error(
-        `Include-by timestamp must be greater than the anchor block timestamp. Anchor block timestamp: ${anchorBlockTimestamp}. Include-by timestamp: ${includeByTimestampUpperBound}.`,
+        `Include-by timestamp must be greater than the anchor block timestamp. Anchor block timestamp: ${anchorBlockTimestamp}. Include-by timestamp: ${expirationTimestampUpperBound}.`,
       );
     }
 
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(
       previousKernelData,
       paddedSideEffectAmounts,
-      includeByTimestampUpperBound,
+      expirationTimestampUpperBound,
     );
 
     const witgenTimer = new Timer();

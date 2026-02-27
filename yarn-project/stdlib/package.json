@@ -55,17 +55,29 @@
     "./database-version/version": "./dest/database-version/database_version.js",
     "./database-version/manager": "./dest/database-version/version_manager.js",
     "./validators": "./dest/validators/index.js",
+    "./ha-signing": "./dest/ha-signing/index.js",
     "./file-store": "./dest/file-store/index.js",
     "./snapshots": "./dest/snapshots/index.js",
     "./update-checker": "./dest/update-checker/index.js",
     "./zkpassport": "./dest/zkpassport/index.js",
     "./slashing": "./dest/slashing/index.js",
     "./l1-contracts": "./dest/l1-contracts/index.js",
-    "./world-state": "./dest/world-state/index.js"
+    "./world-state": "./dest/world-state/index.js",
+    "./timetable": "./dest/timetable/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
-      "./src/index.ts"
+      "./src/abi/index.ts",
+      "./src/aztec-address/index.ts",
+      "./src/block/index.ts",
+      "./src/contract/index.ts",
+      "./src/gas/index.ts",
+      "./src/hash/index.ts",
+      "./src/keys/index.ts",
+      "./src/logs/index.ts",
+      "./src/note/index.ts",
+      "./src/proofs/index.ts",
+      "./src/tx/index.ts"
     ],
     "name": "stdlib",
     "tsconfig": "./tsconfig.json"
@@ -86,9 +98,8 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
-    "@aztec/validator-ha-signer": "workspace:^",
     "@google-cloud/storage": "^7.15.0",
-    "axios": "^1.12.0",
+    "axios": "^1.13.5",
     "json-stringify-deterministic": "1.0.12",
     "lodash.chunk": "^4.2.0",
     "lodash.isequal": "^4.5.0",

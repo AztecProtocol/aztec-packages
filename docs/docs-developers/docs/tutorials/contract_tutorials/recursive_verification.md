@@ -21,21 +21,19 @@ Before starting, ensure you have the following installed and configured:
 
 - Node.js (v22 or later)
 - yarn package manager
-- Aztec CLI (version 3.0.0-devnet.6-patch.1)
-- Nargo (version 1.0.0-beta.15)
-- 8GB+ RAM (required for proof generation)
+- Aztec CLI (version #include_aztec_version)
+- Nargo
 - Familiarity with [Noir syntax](https://noir-lang.org/docs) and [Aztec contract basics](../../aztec-nr/index.md)
 
 Install the required tools:
 
 ```bash
 # Install Aztec CLI
-bash -i <(curl -sL https://install.aztec.network)
-aztec-up 3.0.0-devnet.6-patch.1
+VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)
 
 # Install Nargo via noirup
 curl -L https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
-noirup -v 1.0.0-beta.15
+noirup -v 1.0.0-beta.18
 ```
 
 ## Part 1: Understanding the Architecture
@@ -95,6 +93,7 @@ This enables patterns impossible on transparent blockchains, like proving you ha
 When using [recursive verification](https://noir-lang.org/docs/noir/standard_library/recursion) in Aztec, users experience **two distinct proof generation phases**:
 
 1. **Noir Proof Generation** (application-specific):
+
    - Happens before interacting with the Aztec contract
    - Proves the computation (e.g., "I know values x and y where x ≠ y")
    - Time depends on circuit complexity (seconds to minutes)
@@ -211,24 +210,30 @@ The contract demonstrates several important patterns:
 
 ### Create the Contract Project
 
-Use `aztec init` to generate the contract project structure:
+Use `aztec new` to generate the contract project structure:
 
 ```bash
-aztec init --contract contract
+aztec new contract --name ValueNotEqual
 ```
 
-This creates:
+This creates a workspace with two crates:
 
 ```tree
 contract/
-├── src/
-│   └── main.nr      # Contract code
-└── Nargo.toml       # Contract configuration
+├── Nargo.toml           # Workspace root
+├── contract/
+│   ├── src/
+│   │   └── main.nr      # Contract code
+│   └── Nargo.toml       # Contract configuration
+└── test/
+    ├── src/
+    │   └── lib.nr        # Test code
+    └── Nargo.toml        # Test configuration
 ```
 
 ### Contract Configuration
 
-Update `contract/Nargo.toml` with the required dependencies:
+Update `contract/contract/Nargo.toml` with the required dependencies:
 
 ```toml
 [package]
@@ -237,11 +242,11 @@ type = "contract"
 authors = ["[YOUR_NAME]"]
 
 [dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v3.0.0-devnet.6-patch.1", directory = "aztec" }
-bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v3.0.0-devnet.6-patch.1", directory = "barretenberg/noir/bb_proof_verification" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "#include_aztec_version", directory = "aztec" }
+bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "barretenberg/noir/bb_proof_verification" }
 ```
 
-**Key differences from the circuit's Nargo.toml**:
+**Key differences from the circuit's Nargo.toml** (in `contract/contract/Nargo.toml`):
 
 - `type = "contract"` (not `"bin"`)
 - Depends on `aztec` for Aztec-specific features
@@ -249,13 +254,13 @@ bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages
 
 ### Contract Structure
 
-Replace the contents of `contract/src/main.nr` with:
+Replace the contents of `contract/contract/src/main.nr` with:
 
 #include_code full_contract /docs/examples/contracts/recursive_verification_contract/src/main.nr rust
 
 ### Storage Variables Explained
 
-The contract uses two [storage types](../../aztec-nr/framework-description/how_to_define_storage.md) with different characteristics:
+The contract uses two [storage types](../../aztec-nr/framework-description/state_variables.md) with different characteristics:
 
 **`vk_hash: PublicImmutable<Field>`**
 
@@ -381,19 +386,19 @@ Create the following files in your project root directory.
   "name": "recursive-verification-tutorial",
   "type": "module",
   "scripts": {
-    "ccc": "cd contract && aztec compile && aztec codegen target -o artifacts",
+    "ccc": "cd contract && aztec compile && aztec codegen target -o contract/artifacts",
     "data": "tsx scripts/generate_data.ts",
     "recursion": "tsx scripts/run_recursion.ts"
   },
   "dependencies": {
-    "@aztec/accounts": "3.0.0-devnet.6-patch.1",
-    "@aztec/aztec.js": "3.0.0-devnet.6-patch.1",
-    "@aztec/bb.js": "3.0.0-devnet.6-patch.1",
-    "@aztec/kv-store": "3.0.0-devnet.6-patch.1",
-    "@aztec/noir-contracts.js": "3.0.0-devnet.6-patch.1",
-    "@aztec/noir-noir_js": "3.0.0-devnet.6-patch.1",
-    "@aztec/pxe": "3.0.0-devnet.6-patch.1",
-    "@aztec/test-wallet": "3.0.0-devnet.6-patch.1",
+    "@aztec/accounts": "#include_version_without_prefix",
+    "@aztec/aztec.js": "#include_version_without_prefix",
+    "@aztec/bb.js": "#include_version_without_prefix",
+    "@aztec/kv-store": "#include_version_without_prefix",
+    "@aztec/noir-contracts.js": "#include_version_without_prefix",
+    "@aztec/noir-noir_js": "#include_version_without_prefix",
+    "@aztec/pxe": "#include_version_without_prefix",
+    "@aztec/test-wallet": "#include_version_without_prefix",
     "tsx": "^4.20.6"
   },
   "devDependencies": {
@@ -444,7 +449,7 @@ Now compile the Aztec contract and generate TypeScript bindings:
 yarn ccc
 ```
 
-**What this command does** (see [How to Compile a Contract](../../aztec-nr/how_to_compile_contract.md) for details):
+**What this command does** (see [How to Compile a Contract](../../aztec-nr/compiling_contracts.md) for details):
 
 1. `aztec compile`: Compiles the Noir contract and post-processes it for Aztec (different from `nargo compile`)
 2. `aztec codegen`: Generates TypeScript bindings from the contract artifact, enabling type-safe contract interaction
@@ -452,7 +457,7 @@ yarn ccc
 This generates:
 
 - `contract/target/ValueNotEqual.json` - Contract artifact (bytecode, ABI, etc.)
-- `contract/artifacts/ValueNotEqual.ts` - TypeScript class for deploying and interacting with the contract
+- `contract/contract/artifacts/ValueNotEqual.ts` - TypeScript class for deploying and interacting with the contract
 
 ### Proof Generation Script
 
@@ -581,16 +586,15 @@ The deployment script connects to the Aztec network, creates an account, deploys
 Create `scripts/run_recursion.ts`:
 
 ```typescript
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
 import type { FieldLike } from "@aztec/aztec.js/abi";
 import { getSponsoredFPCInstance } from "./sponsored_fpc.ts";
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
-import { ValueNotEqualContract } from "../contract/artifacts/ValueNotEqual";
+import { ValueNotEqualContract } from "../contract/contract/artifacts/ValueNotEqual";
 import data from "../data.json";
-import { getPXEConfig } from "@aztec/pxe/config";
-import { TestWallet } from "@aztec/test-wallet/server";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
+import { Fr } from "@aztec/aztec.js/fields";
 import { rm } from "node:fs/promises";
 import assert from "node:assert";
 
@@ -599,25 +603,21 @@ export const NODE_URL = "http://localhost:8080";
 // Setup sponsored fee payment - the FPC pays transaction fees for us
 const sponsoredFPC = await getSponsoredFPCInstance();
 const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
-  sponsoredFPC.address,
+  sponsoredFPC.address
 );
 
 // Initialize wallet and connect to local network
 // The wallet manages accounts and sends transactions through the PXE
-export const setupWallet = async (): Promise<TestWallet> => {
+export const setupWallet = async (): Promise<EmbeddedWallet> => {
   try {
-    // Connect to the Aztec node (runs the rollup)
-    const aztecNode = await createAztecNodeClient(NODE_URL);
-
-    // Configure PXE (Private eXecution Environment)
-    // PXE runs on the client and handles private execution
-    const config = getPXEConfig();
+    // Clean up any previous PXE data
     await rm("pxe", { recursive: true, force: true });
-    config.dataDirectory = "pxe";
-    config.proverEnabled = true; // Enable proof generation
 
     // Create wallet with embedded PXE
-    let wallet = await TestWallet.create(aztecNode, config);
+    // The wallet manages accounts and connects to the node
+    let wallet = await EmbeddedWallet.create(NODE_URL, {
+      pxeConfig: { dataDirectory: "pxe" },
+    });
 
     // Register the sponsored FPC so the wallet knows about it
     await wallet.registerContract(sponsoredFPC, SponsoredFPCContract.artifact);
@@ -632,33 +632,29 @@ async function main() {
   // Step 1: Setup wallet and create account
   // Accounts in Aztec are smart contracts (account abstraction)
   // See: https://docs.aztec.network/aztec/concepts/accounts
-  const testWallet = await setupWallet();
-  const account = await testWallet.createAccount();
-  const manager = await account.getDeployMethod();
+  const wallet = await setupWallet();
+  const manager = await wallet.createSchnorrAccount(Fr.random(), Fr.random());
 
   // Deploy the account contract
-  await manager
-    .send({
-      from: AztecAddress.ZERO,
-      fee: { paymentMethod: sponsoredPaymentMethod },
-    })
-    .deployed();
+  const deployMethod = await manager.getDeployMethod();
+  await deployMethod.send({
+    from: AztecAddress.ZERO,
+    fee: { paymentMethod: sponsoredPaymentMethod },
+  });
 
-  const accounts = await testWallet.getAccounts();
+  const accounts = await wallet.getAccounts();
 
   // Step 2: Deploy ValueNotEqual contract
   // Constructor args: initial counter (10), owner, VK hash
   const valueNotEqual = await ValueNotEqualContract.deploy(
-    testWallet,
+    wallet,
     10, // Initial counter value
     accounts[0].item, // Owner address
-    data.vkHash as unknown as FieldLike, // VK hash for verification
-  )
-    .send({
-      from: accounts[0].item,
-      fee: { paymentMethod: sponsoredPaymentMethod },
-    })
-    .deployed();
+    data.vkHash as unknown as FieldLike // VK hash for verification
+  ).send({
+    from: accounts[0].item,
+    fee: { paymentMethod: sponsoredPaymentMethod },
+  });
 
   console.log(`Contract deployed at: ${valueNotEqual.address}`);
 
@@ -685,7 +681,7 @@ async function main() {
     accounts[0].item,
     data.vkAsFields as unknown as FieldLike[], // 115 field VK
     data.proofAsFields as unknown as FieldLike[], // 508 field proof
-    data.publicInputs as unknown as FieldLike[], // Public inputs
+    data.publicInputs as unknown as FieldLike[] // Public inputs
   );
 
   // Step 5: Send transaction and wait for inclusion
@@ -716,7 +712,7 @@ Aztec transactions require fees. For testing, we use a Sponsored Fee Payment Con
 ```typescript
 const sponsoredFPC = await getSponsoredFPCInstance();
 const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
-  sponsoredFPC.address,
+  sponsoredFPC.address
 );
 ```
 
@@ -727,16 +723,19 @@ In production, you would use real [fee payment methods](../../aztec-js/how_to_pa
 This single line triggers a complex flow:
 
 1. **Private Execution** (client-side, in PXE):
+
    - Execute `increment()` with provided arguments
    - Read `vk_hash` from contract storage
    - Execute `verify_honk_proof()` inside the private function
    - Generate the `enqueue_self._increment_public(owner)` call
 
 2. **Proof Generation** (client-side, in PXE):
+
    - Generate a ZK proof that the private execution was correct
    - This proof doesn't reveal inputs (including the 508-field proof!)
 
 3. **Transaction Submission**:
+
    - Send the proof + encrypted logs + public function calls to the network
 
 4. **Verification & Public Execution** (onchain):

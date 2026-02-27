@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>ACI - Cost Overview</title>
+  <style>
+    body {
+      background-color: black;
+      color: #ccc;
+      font-family: monospace;
+      padding: 10px;
+      font-size: 14px;
+    }
+    a { color: #58a6ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .nav { margin: 8px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .nav a { color: #58a6ff; text-decoration: none; font-size: 13px; }
+    .nav a:hover { text-decoration: underline; }
+    .nav a.active { color: #fff; border-bottom: 1px solid #58a6ff; }
+    .sep { color: #333; }
+    .controls { margin: 10px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .controls label { color: #888; }
+    input, select {
+      background: #111; border: 1px solid #333; color: #ccc;
+      font-family: monospace; font-size: 13px; padding: 4px 8px;
+    }
+    input:focus, select:focus { outline: none; border-color: #58a6ff; }
+    button {
+      background: #222; border: 1px solid #444; color: #ccc;
+      font-family: monospace; font-size: 13px; padding: 4px 12px; cursor: pointer;
+    }
+    button:hover { background: #333; }
+    button.active { background: #238636; border-color: #238636; color: #fff; }
+    .stats { margin: 12px 0; color: #888; }
+    .stats span { color: #ccc; }
+    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+    .charts .full { grid-column: 1 / -1; }
+    @media (max-width: 1000px) { .charts { grid-template-columns: 1fr; } }
+    .chart-box { background: #0a0a0a; border: 1px solid #222; padding: 12px; }
+    .chart-box h3 { color: #888; font-size: 12px; font-weight: normal; text-transform: uppercase; margin-bottom: 8px; }
+    .chart-wrap { position: relative; }
+    .chart-wrap.tall { height: 350px; }
+    .chart-wrap.med { height: 280px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+    th { text-align: left; padding: 6px 8px; border-bottom: 1px solid #333; color: #888; cursor: pointer; white-space: nowrap; }
+    th:hover { color: #ccc; }
+    td { padding: 6px 8px; border-bottom: 1px solid #111; }
+    tr:hover td { background: #111; }
+    .amt { font-variant-numeric: tabular-nums; text-align: right; }
+    th.amt { text-align: right; }
+    .msg { color: #888; padding: 8px 0; }
+    .msg.err { color: #f85149; }
+    .tabs { display: flex; gap: 0; margin: 12px 0 0 0; }
+    .tab { background: #111; border: 1px solid #333; border-bottom: none; color: #888;
+      font-family: monospace; font-size: 13px; padding: 6px 16px; cursor: pointer; }
+    .tab:hover { color: #ccc; }
+    .tab.active { background: #0a0a0a; color: #fff; border-color: #58a6ff; border-bottom: 1px solid #0a0a0a; position: relative; z-index: 1; }
+    .tab-content { display: none; border: 1px solid #333; border-top: 1px solid #333; padding: 12px; background: #0a0a0a; margin-top: -1px; }
+    .tab-content.active { display: block; }
+    .ri-row td { color: #d2a8ff; }
+    .ri-badge { background: #8957e5; color: #fff; font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-left: 4px; }
+    .detail-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .detail-table th { text-align: left; padding: 4px 6px; border-bottom: 1px solid #333; color: #888; white-space: nowrap; position: sticky; top: 0; background: #0a0a0a; }
+    .detail-table td { padding: 4px 6px; border-bottom: 1px solid #111; white-space: nowrap; }
+    .detail-table .amt { text-align: right; font-variant-numeric: tabular-nums; }
+    .detail-table th.amt { text-align: right; }
+    .detail-scroll { max-height: 600px; overflow: auto; }
+    .dim { opacity: 0.35; }
+  </style>
+</head>
+<body>
+  <div class="nav" id="nav">
+    <a href="/">&lt; CI</a> <span class="sep">|</span>
+    <a href="/cost-overview" class="active">cost overview</a> <span class="sep">|</span>
+    <a href="/namespace-billing">namespace billing</a> <span class="sep">|</span>
+    <a href="/ci-insights">ci insights</a> <span class="sep">|</span>
+    <a href="/flake-prs">flake prs</a> <span class="sep">|</span>
+    <a href="/commits">commits</a>
+  </div>
+
+  <h2 style="margin:8px 0;color:#ccc;">cost overview <span id="period-label" style="font-size:12px;color:#666;font-weight:normal"></span></h2>
+
+  <div class="controls">
+    <button data-range="365">1y</button>
+    <button data-range="180">6m</button>
+    <button data-range="30">1m</button>
+    <button data-range="14">2w</button>
+    <button data-range="7">1w</button>
+    <button data-range="2">2d</button>
+    <button data-range="1">1d</button>
+    <span style="color:#333">|</span>
+    <label>from</label> <input type="date" id="dateFrom" />
+    <label>to</label> <input type="date" id="dateTo" />
+    <span style="color:#333">|</span>
+    <button data-g="daily" class="active">daily</button>
+    <button data-g="weekly">weekly</button>
+    <button data-g="monthly">monthly</button>
+    <span style="color:#333">|</span>
+    <button id="refreshBtn">refresh</button>
+  </div>
+
+  <div id="msg" class="msg"></div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="overview">Overview</div>
+    <div class="tab" data-tab="details">Resource Details</div>
+  </div>
+
+  <div class="tab-content active" id="tab-overview">
+  <div class="stats" id="stats"></div>
+
+  <div class="charts">
+    <div class="chart-box full">
+      <h3>combined daily spend</h3>
+      <div class="chart-wrap tall"><canvas id="stackedBar"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>service category breakdown</h3>
+      <div class="chart-wrap med"><canvas id="categoryBar"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>aws vs gcp split</h3>
+      <div class="chart-wrap med"><canvas id="providerDoughnut"></canvas></div>
+    </div>
+  </div>
+
+  <table>
+    <thead id="thead"><tr></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  </div><!-- end tab-overview -->
+
+  <div class="tab-content" id="tab-details">
+    <div class="stats" id="detail-stats"></div>
+    <div id="detail-msg" class="msg"></div>
+    <div class="detail-scroll">
+      <table class="detail-table">
+        <thead id="detail-thead"><tr></tr></thead>
+        <tbody id="detail-tbody"></tbody>
+      </table>
+    </div>
+  </div><!-- end tab-details -->
+
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <script>
+    Chart.defaults.color = '#888';
+    Chart.defaults.font.family = 'monospace';
+
+    let apiData = null;
+    let charts = {};
+    let sort = { col: 'total', dir: 'desc' };
+
+    const COLORS = [
+      '#58a6ff','#3fb950','#d2a8ff','#f0883e','#f85149',
+      '#a5d6ff','#56d364','#bc8cff','#db6d28','#ff7b72',
+      '#79c0ff','#7ee787','#e2c5ff','#d18616','#ffa198',
+      '#39d353','#2ea043','#388bfd','#8957e5','#bf4b8a'
+    ];
+
+    let svcKeys = []; // dynamically built from data
+
+    const fmt = v => v >= 1000 ? '$' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : v >= 1 ? '$' + v.toFixed(2) : '$' + v.toFixed(4);
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const fmtDate = s => { const d = new Date(s + 'T00:00:00'); return MONTHS[d.getMonth()] + ' ' + d.getDate(); };
+    const fmtDateFull = s => { const d = new Date(s + 'T00:00:00'); return MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear(); };
+    const escapeHtml = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+    const cap = s => s.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+
+    function granularity() {
+      return document.querySelector('[data-g].active').dataset.g;
+    }
+
+    function buildServiceKeys(byDate) {
+      // Discover all aws_* and gcp_* keys from the data
+      const awsCats = new Set(), gcpCats = new Set();
+      for (const e of byDate) {
+        if (e.aws) Object.keys(e.aws).forEach(k => awsCats.add(k));
+        if (e.gcp) Object.keys(e.gcp).forEach(k => gcpCats.add(k));
+      }
+      svcKeys = [...[...awsCats].sort().map(k => ({ key: 'aws_' + k, provider: 'aws', cat: k, label: 'AWS ' + cap(k) })),
+                 ...[...gcpCats].sort().map(k => ({ key: 'gcp_' + k, provider: 'gcp', cat: k, label: 'GCP ' + cap(k) }))];
+    }
+
+    function extractServices(entry) {
+      const out = {};
+      for (const s of svcKeys) {
+        out[s.key] = (entry[s.provider] && entry[s.provider][s.cat]) || 0;
+      }
+      return out;
+    }
+
+    // ---- data ----
+    async function load() {
+      document.getElementById('msg').className = 'msg';
+      document.getElementById('msg').textContent = 'loading...';
+      try {
+        const f = document.getElementById('dateFrom').value;
+        const t = document.getElementById('dateTo').value;
+        const g = granularity();
+        const resp = await fetch(`/api/costs/overview?from=${f}&to=${t}&granularity=${g}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        apiData = await resp.json();
+
+        if (!apiData.by_date || !apiData.by_date.length) {
+          document.getElementById('msg').textContent = 'no data yet - loading...';
+          document.getElementById('stats').innerHTML = '';
+          document.getElementById('tbody').innerHTML = '';
+          Object.values(charts).forEach(c => c.destroy());
+          charts = {};
+          return;
+        }
+
+        buildServiceKeys(apiData.by_date);
+        document.getElementById('msg').textContent = '';
+        buildHeader();
+        render();
+      } catch (e) {
+        document.getElementById('msg').className = 'msg err';
+        document.getElementById('msg').textContent = 'error: ' + e.message;
+      }
+    }
+
+    // ---- render ----
+    function render() {
+      Object.values(charts).forEach(c => c.destroy());
+      charts = {};
+
+      if (apiData.period) {
+        document.getElementById('period-label').textContent = `(${apiData.period.from} to ${apiData.period.to})`;
+      }
+
+      const byDate = apiData.by_date;
+      const totals = apiData.totals;
+      const days = byDate.length || 1;
+      const dailyAvg = totals.combined / days;
+
+      // trend: compare second half vs first half
+      const mid = Math.floor(byDate.length / 2);
+      const firstHalf = byDate.slice(0, mid).reduce((s, e) => s + (e.aws_total || 0) + (e.gcp_total || 0), 0);
+      const secondHalf = byDate.slice(mid).reduce((s, e) => s + (e.aws_total || 0) + (e.gcp_total || 0), 0);
+      const trendPct = firstHalf > 0 ? ((secondHalf - firstHalf) / firstHalf * 100) : 0;
+      const trendStr = trendPct >= 0 ? `+${trendPct.toFixed(1)}%` : `${trendPct.toFixed(1)}%`;
+
+      // stats row — show operational totals (exclude one-time Savings Plan / RI payments)
+      const ONE_TIME_CATS = new Set(['savings_plan_1yr_annual','savings_plan_3yr_annual',
+          'savings_plan_1yr_annual_partial','savings_plan_3yr_annual_partial','reserved_instance_monthly']);
+      const oneTime = totals.aws_one_time || 0;
+      const opCombined = totals.combined_operational ?? totals.combined;
+      const opDailyAvg = opCombined / days;
+      const oneTimeNote = oneTime > 0
+        ? ` &middot; <span style="color:#d2a8ff" title="Annual Savings Plan and monthly Reserved Instance payments — not operational spend">one-time: <b>${fmt(oneTime)}</b></span>`
+        : '';
+      document.getElementById('stats').innerHTML =
+        `operational: <span>${fmt(opCombined)}</span> &middot; ` +
+        `daily avg: <span>${fmt(opDailyAvg)}</span> &middot; ` +
+        `aws: <span>${fmt(totals.aws_operational ?? totals.aws)}</span> &middot; ` +
+        `gcp: <span>${fmt(totals.gcp)}</span> &middot; ` +
+        `trend: <span>${trendStr}</span>` + oneTimeNote;
+
+      // ---- compute service totals and filter insignificant (<1% of total) ----
+      const svcTotals = {};
+      svcKeys.forEach(s => { svcTotals[s.key] = 0; });
+      byDate.forEach(e => {
+        const svcs = extractServices(e);
+        svcKeys.forEach(s => { svcTotals[s.key] += svcs[s.key]; });
+      });
+      const threshold = totals.combined * 0.01;
+      const significantSvcs = svcKeys.filter(s => svcTotals[s.key] >= threshold);
+      const minorSvcs = svcKeys.filter(s => svcTotals[s.key] > 0 && svcTotals[s.key] < threshold);
+      // For the stacked bar: exclude one-time contract payments so daily chart shows operational spend
+      const chartSvcs = significantSvcs.filter(s => !ONE_TIME_CATS.has(s.key));
+      const hasOtherChart = minorSvcs.filter(s => !ONE_TIME_CATS.has(s.key)).length > 0;
+      const hasOther = minorSvcs.length > 0;
+
+      // ---- stacked bar chart (full width) ----
+      const dates = byDate.map(e => e.date);
+      const datasets = chartSvcs.map((s, i) => ({
+        label: s.label,
+        data: byDate.map(e => extractServices(e)[s.key]),
+        backgroundColor: COLORS[significantSvcs.indexOf(s) % COLORS.length],
+        borderWidth: 0
+      }));
+      if (hasOtherChart) {
+        const minorChartSvcs = minorSvcs.filter(s => !ONE_TIME_CATS.has(s.key));
+        datasets.push({
+          label: 'Other',
+          data: byDate.map(e => { const svcs = extractServices(e); return minorChartSvcs.reduce((s, k) => s + svcs[k.key], 0); }),
+          backgroundColor: '#555',
+          borderWidth: 0
+        });
+      }
+
+      charts.stacked = new Chart(document.getElementById('stackedBar').getContext('2d'), {
+        type: 'bar',
+        data: { labels: dates.map(fmtDate), datasets: datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { stacked: true, ticks: { color: '#555', maxRotation: 45 }, grid: { color: '#181818' } },
+            y: { stacked: true, ticks: { color: '#555', callback: v => '$' + v }, grid: { color: '#181818' } }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#888', boxWidth: 10, padding: 8, font: { size: 10, family: 'monospace' } } },
+            tooltip: {
+              itemSort: (a, b) => b.raw - a.raw,
+              filter: c => c.raw > 0,
+              callbacks: {
+                title: items => items.length ? fmtDateFull(dates[items[0].dataIndex]) : '',
+                label: c => `${c.dataset.label}: ${fmt(c.raw)}`,
+                footer: items => `total: ${fmt(items.reduce((s, i) => s + i.raw, 0))}`
+              }
+            }
+          }
+        }
+      });
+
+      // ---- service category breakdown (horizontal bar, half width) ----
+      const sortedSvcs = significantSvcs.slice().sort((a, b) => svcTotals[b.key] - svcTotals[a.key]);
+      const catLabels = sortedSvcs.map(s => s.label);
+      const catData = sortedSvcs.map(s => svcTotals[s.key]);
+      const catColors = sortedSvcs.map((s, i) => COLORS[significantSvcs.indexOf(s) % COLORS.length]);
+      if (hasOther) {
+        const otherTotal = minorSvcs.reduce((s, k) => s + svcTotals[k.key], 0);
+        catLabels.push(`Other (${minorSvcs.length} services)`);
+        catData.push(otherTotal);
+        catColors.push('#555');
+      }
+
+      charts.category = new Chart(document.getElementById('categoryBar').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: catLabels,
+          datasets: [{
+            data: catData,
+            backgroundColor: catColors,
+            borderRadius: 2,
+            barPercentage: 0.5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          scales: {
+            x: { ticks: { color: '#555', callback: v => '$' + v }, grid: { color: '#181818' } },
+            y: { ticks: { color: '#ccc', font: { family: 'monospace' } }, grid: { display: false } }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: c => fmt(c.raw) } }
+          }
+        }
+      });
+
+      // ---- aws vs gcp doughnut (half width) ----
+      charts.provider = new Chart(document.getElementById('providerDoughnut').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: ['AWS', 'GCP'],
+          datasets: [{
+            data: [totals.aws, totals.gcp],
+            backgroundColor: ['#58a6ff', '#3fb950'],
+            borderColor: '#0a0a0a',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'right', labels: { color: '#888', boxWidth: 10, padding: 6, font: { size: 10, family: 'monospace' } } },
+            tooltip: {
+              callbacks: {
+                label: c => {
+                  const pct = totals.combined > 0 ? ((c.raw / totals.combined) * 100).toFixed(1) : '0';
+                  return `${c.label}: ${fmt(c.raw)} (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      renderTable();
+      saveUrl();
+    }
+
+    // ---- table ----
+    function buildHeader() {
+      const tr = document.querySelector('#thead tr');
+      tr.innerHTML = '';
+      const cols = [
+        { k: 'date', l: 'Date' },
+        { k: 'aws', l: 'AWS' },
+        { k: 'gcp', l: 'GCP' },
+        { k: 'total', l: 'Total' }
+      ];
+      cols.forEach(col => {
+        const th = document.createElement('th');
+        th.dataset.sort = col.k;
+        if (col.k !== 'date') th.className = 'amt';
+        th.textContent = col.l;
+        th.onclick = () => {
+          sort = sort.col === col.k
+            ? { col: col.k, dir: sort.dir === 'asc' ? 'desc' : 'asc' }
+            : { col: col.k, dir: 'desc' };
+          renderTable();
+        };
+        tr.appendChild(th);
+      });
+    }
+
+    function renderTable() {
+      if (!apiData || !apiData.by_date) return;
+      const rows = apiData.by_date.map(e => ({
+        date: e.date,
+        aws: e.aws_total || 0,
+        gcp: e.gcp_total || 0,
+        total: (e.aws_total || 0) + (e.gcp_total || 0)
+      }));
+
+      rows.sort((a, b) => {
+        const av = sort.col === 'date' ? a.date : (a[sort.col] || 0);
+        const bv = sort.col === 'date' ? b.date : (b[sort.col] || 0);
+        if (typeof av === 'string') return sort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+        return sort.dir === 'asc' ? av - bv : bv - av;
+      });
+
+      document.getElementById('tbody').innerHTML = rows.map(r =>
+        `<tr>` +
+        `<td>${fmtDate(r.date)}</td>` +
+        `<td class="amt">${fmt(r.aws)}</td>` +
+        `<td class="amt">${fmt(r.gcp)}</td>` +
+        `<td class="amt" style="color:#fff">${fmt(r.total)}</td>` +
+        `</tr>`
+      ).join('');
+    }
+
+    // ---- resource details ----
+    let detailData = null;
+    let detailSort = { col: 'total', dir: 'desc' };
+
+    async function loadDetails() {
+      const msg = document.getElementById('detail-msg');
+      msg.className = 'msg'; msg.textContent = 'loading...';
+      try {
+        const f = document.getElementById('dateFrom').value;
+        const t = document.getElementById('dateTo').value;
+        const resp = await fetch(`/api/costs/details?from=${f}&to=${t}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        detailData = await resp.json();
+        msg.textContent = '';
+        renderDetails();
+      } catch (e) {
+        msg.className = 'msg err'; msg.textContent = 'error: ' + e.message;
+      }
+    }
+
+    function parseUsageType(ut) {
+      // e.g. "EUW2-BoxUsage:m6a.48xlarge" -> { region: "EUW2", type: "BoxUsage", instance: "m6a.48xlarge" }
+      // e.g. "HeavyUsage:m6a.large" -> { region: "", type: "HeavyUsage", instance: "m6a.large" }
+      const m = ut.match(/^(?:([A-Z][A-Za-z0-9]*)-)?([^:]+):?(.*)$/);
+      if (!m) return { region: '', type: ut, instance: '' };
+      return { region: m[1] || '', type: m[2], instance: m[3] || '' };
+    }
+
+    function renderDetails() {
+      if (!detailData || !detailData.items.length) {
+        document.getElementById('detail-stats').innerHTML = '';
+        document.getElementById('detail-thead').innerHTML = '<tr></tr>';
+        document.getElementById('detail-tbody').innerHTML = '';
+        return;
+      }
+
+      const { items, dates, ri_total, grand_total } = detailData;
+
+      document.getElementById('detail-stats').innerHTML =
+        `total: <span>${fmt(grand_total)}</span> &middot; ` +
+        `reserved instances: <span style="color:#d2a8ff">${fmt(ri_total)}</span> &middot; ` +
+        `on-demand + other: <span>${fmt(grand_total - ri_total)}</span> &middot; ` +
+        `resources: <span>${items.length}</span>`;
+
+      // Build header: usage_type | category | total | ...dates (monthly sums)
+      const months = {};
+      dates.forEach(d => {
+        const key = d.substring(0, 7); // YYYY-MM
+        months[key] = (months[key] || []);
+        months[key].push(d);
+      });
+      const monthKeys = Object.keys(months).sort();
+
+      const tr = document.querySelector('#detail-thead tr');
+      tr.innerHTML = '';
+      const hdrs = [
+        { k: 'usage_type', l: 'Usage Type' },
+        { k: 'category', l: 'Category' },
+        { k: 'total', l: 'Total', cls: 'amt' },
+      ];
+      monthKeys.forEach(m => hdrs.push({ k: 'month_' + m, l: m, cls: 'amt' }));
+
+      hdrs.forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h.l;
+        if (h.cls) th.className = h.cls;
+        th.style.cursor = 'pointer';
+        th.onclick = () => {
+          detailSort = detailSort.col === h.k
+            ? { col: h.k, dir: detailSort.dir === 'asc' ? 'desc' : 'asc' }
+            : { col: h.k, dir: 'desc' };
+          renderDetailRows(monthKeys, months);
+        };
+        tr.appendChild(th);
+      });
+
+      renderDetailRows(monthKeys, months);
+    }
+
+    function renderDetailRows(monthKeys, months) {
+      const items = detailData.items.slice();
+      const threshold = detailData.grand_total * 0.01;
+
+      // Compute month totals for sorting
+      items.forEach(item => {
+        item._months = {};
+        monthKeys.forEach(m => {
+          item._months[m] = (months[m] || []).reduce((s, d) => s + (item.by_date[d] || 0), 0);
+        });
+      });
+
+      items.sort((a, b) => {
+        const col = detailSort.col;
+        let av, bv;
+        if (col === 'usage_type' || col === 'category') {
+          av = a[col]; bv = b[col];
+          return detailSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+        } else if (col.startsWith('month_')) {
+          const m = col.substring(6);
+          av = a._months[m] || 0; bv = b._months[m] || 0;
+        } else {
+          av = a.total; bv = b.total;
+        }
+        return detailSort.dir === 'asc' ? av - bv : bv - av;
+      });
+
+      document.getElementById('detail-tbody').innerHTML = items.map(item => {
+        const p = parseUsageType(item.usage_type);
+        const classes = [];
+        if (item.total < threshold) classes.push('dim');
+        if (item.is_ri) classes.push('ri-row');
+        const riBadge = item.is_ri ? '<span class="ri-badge">RI</span>' : '';
+        const label = p.instance
+          ? `<span style="color:#888">${p.region ? p.region + '-' : ''}${p.type}:</span>${p.instance}${riBadge}`
+          : `<span style="color:#888">${p.region ? p.region + '-' : ''}</span>${p.type}${riBadge}`;
+
+        let html = `<tr${classes.length ? ' class="' + classes.join(' ') + '"' : ''}>`;
+
+        html += `<td>${label}</td>`;
+        html += `<td style="color:#888">${cap(item.category)}</td>`;
+        html += `<td class="amt" style="color:#fff">${fmt(item.total)}</td>`;
+        monthKeys.forEach(m => {
+          const val = item._months[m] || 0;
+          html += `<td class="amt">${val > 0 ? fmt(val) : ''}</td>`;
+        });
+        html += '</tr>';
+        return html;
+      }).join('');
+    }
+
+    // ---- url state ----
+    function saveUrl() {
+      const p = new URLSearchParams();
+      p.set('from', document.getElementById('dateFrom').value);
+      p.set('to', document.getElementById('dateTo').value);
+      p.set('g', granularity());
+      const activeTab = document.querySelector('.tab.active');
+      if (activeTab && activeTab.dataset.tab !== 'overview') p.set('tab', activeTab.dataset.tab);
+      history.replaceState({}, '', '?' + p);
+      // Sync nav links so date/granularity carries across pages
+      const shared = new URLSearchParams();
+      shared.set('from', p.get('from')); shared.set('to', p.get('to')); shared.set('g', p.get('g'));
+      document.querySelectorAll('#nav a[href]').forEach(a => {
+        const base = a.getAttribute('href').split('?')[0];
+        if (base !== '/') a.href = base + '?' + shared;
+      });
+    }
+
+    function loadUrl() {
+      const p = new URLSearchParams(location.search);
+      if (p.get('from')) document.getElementById('dateFrom').value = p.get('from');
+      if (p.get('to')) document.getElementById('dateTo').value = p.get('to');
+      if (p.get('g')) {
+        document.querySelectorAll('[data-g]').forEach(b =>
+          b.classList.toggle('active', b.dataset.g === p.get('g'))
+        );
+      }
+      if (p.get('tab')) {
+        switchTab(p.get('tab'));
+      }
+    }
+
+    function switchTab(name) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + name));
+      if (name === 'details' && !detailData) loadDetails();
+      saveUrl();
+    }
+
+    // ---- init ----
+    window.addEventListener('DOMContentLoaded', () => {
+      const now = new Date(), from = new Date();
+      from.setDate(from.getDate() - 30);
+      document.getElementById('dateFrom').value = from.toISOString().split('T')[0];
+      document.getElementById('dateTo').value = now.toISOString().split('T')[0];
+
+      loadUrl();
+
+      // Tab switching
+      document.querySelectorAll('.tab').forEach(t => t.onclick = () => switchTab(t.dataset.tab));
+
+      document.getElementById('refreshBtn').onclick = () => { detailData = null; load(); const t = document.querySelector('.tab.active').dataset.tab; if (t === 'details') loadDetails(); };
+      document.querySelectorAll('[data-range]').forEach(b => b.onclick = () => {
+        document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        const days = parseInt(b.dataset.range);
+        const to = new Date(), fr = new Date();
+        fr.setDate(fr.getDate() - days);
+        document.getElementById('dateFrom').value = fr.toISOString().split('T')[0];
+        document.getElementById('dateTo').value = to.toISOString().split('T')[0];
+        detailData = null;
+        load();
+        const _t = document.querySelector('.tab.active').dataset.tab;
+        if (_t === 'details') loadDetails();
+      });
+      document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
+        document.querySelectorAll('[data-g]').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        load();
+      });
+      document.getElementById('dateFrom').onchange = () => { document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('active')); detailData = null; load(); { const _t2 = document.querySelector('.tab.active').dataset.tab; if (_t2 === 'details') loadDetails(); } };
+      document.getElementById('dateTo').onchange = () => { document.querySelectorAll('[data-range]').forEach(x => x.classList.remove('active')); detailData = null; load(); { const _t2 = document.querySelector('.tab.active').dataset.tab; if (_t2 === 'details') loadDetails(); } };
+
+      load();
+    });
+  </script>
+</body>
+</html>

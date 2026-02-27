@@ -5,8 +5,8 @@
  * implementation produces the same results as a simpler, more readable reference implementation.
  *
  * The DatabusLookupRelation implements a log-derivative lookup argument with 3 subrelations per bus column:
- * 1. Inverse correctness: I * read_term * write_term - inverse_exists = 0
- * 2. Log-derivative lookup: sum of (read_selector * write_term - read_count * read_term) * I = 0
+ * 1. Inverse correctness: I * lookup_term * table_term - inverse_exists = 0
+ * 2. Log-derivative lookup: sum of (read_selector * table_term - read_count * lookup_term) * I = 0
  * 3. Read tag boolean check: read_tag * read_tag - read_tag = 0
  */
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -140,20 +140,20 @@ static std::array<FF, 9> compute_expected_values(const DatabusInputElements& in,
     std::fill(expected_values.begin(), expected_values.end(), FF(0));
 
     // Read term (same for all columns): value + index * beta + gamma
-    auto read_term = in.w_l + in.w_r * beta + gamma;
+    auto lookup_term = in.w_l + in.w_r * beta + gamma;
 
     // Lambda to compute subrelations for a given bus column
     auto compute_column_subrelations =
         [&](size_t bus_idx, FF column_selector, FF bus_value, FF read_counts, FF read_tags, FF inverses) {
             auto is_read_gate = in.q_busread * column_selector;
             auto inverse_exists = is_read_gate + read_tags - is_read_gate * read_tags;
-            auto write_term = bus_value + in.databus_id * beta + gamma;
+            auto table_term = bus_value + in.databus_id * beta + gamma;
 
             // Subrelation 1: Inverse correctness
-            expected_values[bus_idx * 3] = read_term * write_term * inverses - inverse_exists;
+            expected_values[bus_idx * 3] = lookup_term * table_term * inverses - inverse_exists;
 
             // Subrelation 2: Log-derivative lookup (no scaling factor since linearly dependent)
-            expected_values[bus_idx * 3 + 1] = (is_read_gate * write_term - read_counts * read_term) * inverses;
+            expected_values[bus_idx * 3 + 1] = (is_read_gate * table_term - read_counts * lookup_term) * inverses;
 
             // Subrelation 3: Read tag boolean check
             expected_values[bus_idx * 3 + 2] = read_tags * read_tags - read_tags;
@@ -316,7 +316,7 @@ TEST_F(DatabusLookupRelationConsistency, InactiveGates)
 
 /**
  * @brief Test a valid read gate scenario where inverse is correctly computed
- * @details When the inverse is set correctly: I = 1/(read_term * write_term),
+ * @details When the inverse is set correctly: I = 1/(lookup_term * table_term),
  * the inverse correctness subrelation should be zero (satisfied)
  */
 TEST_F(DatabusLookupRelationConsistency, ValidInverseComputation)
@@ -342,9 +342,9 @@ TEST_F(DatabusLookupRelationConsistency, ValidInverseComputation)
     in.calldata = value;   // value in bus matches
 
     // Compute the correct inverse
-    auto read_term = value + index * beta + gamma;
-    auto write_term = value + index * beta + gamma; // same since value and index match
-    auto inverse = (read_term * write_term).invert();
+    auto lookup_term = value + index * beta + gamma;
+    auto table_term = value + index * beta + gamma; // same since value and index match
+    auto inverse = (lookup_term * table_term).invert();
     in.calldata_inverses = inverse;
 
     // Read tag = 1 (this row is being read)
@@ -364,8 +364,8 @@ TEST_F(DatabusLookupRelationConsistency, ValidInverseComputation)
     Relation::accumulate(accumulator, in, parameters, FF(1));
 
     // Inverse correctness subrelation should be 0 (satisfied)
-    // I * read_term * write_term - inverse_exists = 0
-    // inverse * read_term * write_term = 1
+    // I * lookup_term * table_term - inverse_exists = 0
+    // inverse * lookup_term * table_term = 1
     // inverse_exists = is_read_gate + read_tag - is_read_gate * read_tag = 1 + 1 - 1 = 1
     EXPECT_EQ(accumulator[0], FF(0));
 
@@ -380,7 +380,7 @@ TEST_F(DatabusLookupRelationConsistency, ValidInverseComputation)
 }
 
 /**
- * @brief Test that when read_term != write_term, inverse correctness fails with wrong inverse
+ * @brief Test that when lookup_term != table_term, inverse correctness fails with wrong inverse
  * @details If the value in bus doesn't match what's being read, the relation should fail
  */
 TEST_F(DatabusLookupRelationConsistency, MismatchedReadWriteTerms)
@@ -407,11 +407,11 @@ TEST_F(DatabusLookupRelationConsistency, MismatchedReadWriteTerms)
     in.databus_id = index;
     in.calldata = bus_value;
 
-    // Compute inverse based on read_term (which uses w_l, w_r) and write_term (which uses calldata)
-    auto read_term = read_value + index * beta + gamma;
-    auto write_term = bus_value + index * beta + gamma;
+    // Compute inverse based on lookup_term (which uses w_l, w_r) and table_term (which uses calldata)
+    auto lookup_term = read_value + index * beta + gamma;
+    auto table_term = bus_value + index * beta + gamma;
     // Even with "correct" inverse, the lookup will fail because terms don't match
-    auto inverse = (read_term * write_term).invert();
+    auto inverse = (lookup_term * table_term).invert();
     in.calldata_inverses = inverse;
 
     in.calldata_read_tags = FF(1);
@@ -430,12 +430,12 @@ TEST_F(DatabusLookupRelationConsistency, MismatchedReadWriteTerms)
     // Inverse correctness subrelation should still be 0 (inverse is computed correctly for these terms)
     EXPECT_EQ(accumulator[0], FF(0));
 
-    // But the lookup subrelation (index 1) will be non-zero because read_term != write_term
+    // But the lookup subrelation (index 1) will be non-zero because lookup_term != table_term
     // This is where the soundness comes in - the sum across the trace won't be zero
-    // For a single row: (read_selector * write_term - read_count * read_term) * inverse
-    // = (1 * write_term - 1 * read_term) * inverse
-    // = (write_term - read_term) * inverse != 0 when read_term != write_term
-    FF expected_lookup = (write_term - read_term) * inverse;
+    // For a single row: (read_selector * table_term - read_count * lookup_term) * inverse
+    // = (1 * table_term - 1 * lookup_term) * inverse
+    // = (table_term - lookup_term) * inverse != 0 when lookup_term != table_term
+    FF expected_lookup = (table_term - lookup_term) * inverse;
     EXPECT_EQ(accumulator[1], expected_lookup);
     EXPECT_NE(accumulator[1], FF(0)); // Confirm it's non-zero
 }

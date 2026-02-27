@@ -21,7 +21,7 @@ void update_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_TIMESTAMP_OF_CHANGE_BIT_SIZE = FF(32);
     const auto constants_UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN = FF(3);
     const auto constants_UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE = FF(144);
-    const auto constants_DOM_SEP__PUBLIC_STORAGE_MAP_SLOT = FF(1106049611);
+    const auto constants_DOM_SEP__PUBLIC_STORAGE_MAP_SLOT = FF(4015149901UL);
     const auto update_check_HASH_IS_ZERO = (FF(1) - in.get(C::update_check_hash_not_zero));
     const auto update_check_TWO_POW_32 = FF(4294967296UL);
 

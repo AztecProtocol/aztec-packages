@@ -25,6 +25,7 @@ export {
   getRPCEndpoint,
   getEthereumEndpoint,
   createResilientPrometheusConnection,
+  scaleProverAgents,
 } from './k8s.js';
 
 // Chaos Mesh
@@ -39,6 +40,9 @@ export {
   applyValidatorKill,
   applyNetworkShaping,
 } from './chaos.js';
+
+// Helm
+export { hasDeployedHelmRelease } from './helm.js';
 
 // Bot management
 export { restartBot, installTransferBot, uninstallTransferBot } from './bot.js';

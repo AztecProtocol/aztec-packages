@@ -85,6 +85,10 @@ describe('AztecNodeAdminApiSchema', () => {
       epochOrSlot: expect.any(BigInt),
     });
   });
+
+  it('reloadKeystore', async () => {
+    await context.client.reloadKeystore();
+  });
 });
 
 class MockAztecNodeAdmin implements AztecNodeAdmin {
@@ -150,6 +154,8 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       slashInactivityConsecutiveEpochThreshold: 1,
       slashInactivityPenalty: 1000n,
       slashBroadcastedInvalidBlockPenalty: 1n,
+      slashDuplicateProposalPenalty: 1n,
+      slashDuplicateAttestationPenalty: 1n,
       secondsBeforeInvalidatingBlockAsCommitteeMember: 0,
       secondsBeforeInvalidatingBlockAsNonCommitteeMember: 0,
       slashProposeInvalidAttestationsPenalty: 1000n,
@@ -185,6 +191,9 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
     return Promise.resolve();
   }
   resumeSync(): Promise<void> {
+    return Promise.resolve();
+  }
+  reloadKeystore(): Promise<void> {
     return Promise.resolve();
   }
 }

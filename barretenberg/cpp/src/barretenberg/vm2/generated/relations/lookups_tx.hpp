@@ -40,7 +40,7 @@ struct lookup_tx_read_phase_spec_settings_ {
         ColumnAndShifts::tx_next_phase_on_revert
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::precomputed_is_public_call_request,
         ColumnAndShifts::precomputed_is_teardown,
         ColumnAndShifts::precomputed_is_collect_fee,
@@ -77,7 +77,7 @@ struct lookup_tx_read_phase_length_settings_ {
         ColumnAndShifts::tx_read_pi_length_offset, ColumnAndShifts::tx_remaining_phase_counter
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_
     };
 };
 
@@ -101,7 +101,7 @@ struct lookup_tx_read_public_call_request_phase_settings_ {
                                                                                     ColumnAndShifts::tx_is_static,
                                                                                     ColumnAndShifts::tx_calldata_hash };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::public_inputs_cols_0_,
         ColumnAndShifts::public_inputs_cols_1_,
         ColumnAndShifts::public_inputs_cols_2_,
@@ -128,7 +128,7 @@ struct lookup_tx_read_tree_insert_value_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::tx_read_pi_offset,
                                                                                     ColumnAndShifts::tx_leaf_value };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_
     };
 };
 
@@ -157,10 +157,10 @@ struct lookup_tx_note_hash_append_settings_ {
         ColumnAndShifts::tx_next_note_hash_tree_root
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::note_hash_tree_check_note_hash,     ColumnAndShifts::note_hash_tree_check_leaf_index,
-        ColumnAndShifts::note_hash_tree_check_prev_root,     ColumnAndShifts::note_hash_tree_check_should_silo,
-        ColumnAndShifts::note_hash_tree_check_should_unique, ColumnAndShifts::note_hash_tree_check_note_hash_index,
-        ColumnAndShifts::note_hash_tree_check_discard,       ColumnAndShifts::note_hash_tree_check_next_root
+        ColumnAndShifts::note_hash_tree_check_note_hash,  ColumnAndShifts::note_hash_tree_check_leaf_index,
+        ColumnAndShifts::note_hash_tree_check_prev_root,  ColumnAndShifts::note_hash_tree_check_sel_silo,
+        ColumnAndShifts::note_hash_tree_check_sel_unique, ColumnAndShifts::note_hash_tree_check_note_hash_index,
+        ColumnAndShifts::note_hash_tree_check_discard,    ColumnAndShifts::note_hash_tree_check_next_root
     };
 };
 
@@ -221,7 +221,7 @@ struct lookup_tx_read_l2_l1_msg_settings_ {
         ColumnAndShifts::tx_l2_l1_msg_contract_address
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::public_inputs_cols_0_,
         ColumnAndShifts::public_inputs_cols_1_,
         ColumnAndShifts::public_inputs_cols_2_
@@ -249,7 +249,7 @@ struct lookup_tx_write_l2_l1_msg_settings_ {
         ColumnAndShifts::tx_l2_l1_msg_contract_address
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_idx,
         ColumnAndShifts::public_inputs_cols_0_,
         ColumnAndShifts::public_inputs_cols_1_,
         ColumnAndShifts::public_inputs_cols_2_
@@ -276,7 +276,7 @@ struct lookup_tx_read_effective_fee_public_inputs_settings_ {
         ColumnAndShifts::tx_effective_fee_per_l2_gas
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
     };
 };
 
@@ -300,7 +300,7 @@ struct lookup_tx_read_fee_payer_public_inputs_settings_ {
         ColumnAndShifts::tx_fee_payer_pi_offset, ColumnAndShifts::tx_fee_payer
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_
     };
 };
 
@@ -403,7 +403,7 @@ struct lookup_tx_write_fee_public_inputs_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::tx_write_pi_offset,
                                                                                     ColumnAndShifts::tx_fee };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+        ColumnAndShifts::precomputed_idx, ColumnAndShifts::public_inputs_cols_0_
     };
 };
 

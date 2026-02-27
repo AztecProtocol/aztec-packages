@@ -35,7 +35,7 @@ AcirToSmtLoader::AcirToSmtLoader(std::string filename)
 
 bb::UltraCircuitBuilder AcirToSmtLoader::get_circuit_builder()
 {
-    acir_format::AcirProgram program{ .constraints = this->constraint_system };
+    acir_format::AcirProgram program{ .constraints = this->constraint_system, .witness = {} };
     auto builder = acir_format::create_circuit<bb::UltraCircuitBuilder>(program);
     builder.set_variable_name(0, "a");
     builder.set_variable_name(1, "b");

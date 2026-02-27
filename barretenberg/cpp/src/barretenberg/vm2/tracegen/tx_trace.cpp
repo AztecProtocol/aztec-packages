@@ -187,7 +187,7 @@ std::vector<std::pair<C, FF>> insert_tree_state(const TxContextEvent& prev_state
 
 /**
  * @brief Populate the columns for the accounting of the side effect states.
- *        Side effects are the unencrypted log fields and the L2 to L1 messages.
+ *        Side effects are the public log fields and the L2 to L1 messages.
  *
  * @param prev_state The previous TxContextEvent.
  * @param next_state The next TxContextEvent.
@@ -197,9 +197,9 @@ std::vector<std::pair<C, FF>> insert_side_effect_states(const TxContextEvent& pr
                                                         const TxContextEvent& next_state)
 {
     return {
-        { C::tx_prev_num_unencrypted_log_fields, prev_state.numUnencryptedLogFields },
+        { C::tx_prev_num_public_log_fields, prev_state.numPublicLogFields },
         { C::tx_prev_num_l2_to_l1_messages, prev_state.numL2ToL1Messages },
-        { C::tx_next_num_unencrypted_log_fields, next_state.numUnencryptedLogFields },
+        { C::tx_next_num_public_log_fields, next_state.numPublicLogFields },
         { C::tx_next_num_l2_to_l1_messages, next_state.numL2ToL1Messages },
     };
 }
@@ -476,7 +476,7 @@ std::vector<std::pair<C, FF>> handle_cleanup()
         // Public data write counter is handled by the public data check trace due to squashing.
         { C::tx_array_length_l2_to_l1_messages_pi_offset,
           AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX },
-        { C::tx_fields_length_unencrypted_logs_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX },
+        { C::tx_fields_length_public_logs_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX },
     };
 }
 
@@ -712,38 +712,37 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
 const InteractionDefinition TxTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_tx_read_phase_spec_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_read_phase_length_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_tx_read_phase_spec_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_read_phase_length_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<perm_tx_read_calldata_hash_settings, InteractionType::Permutation>()
-        .add<lookup_tx_read_public_call_request_phase_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_tx_read_public_call_request_phase_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<perm_tx_dispatch_exec_start_settings, InteractionType::Permutation>()
         .add<perm_tx_dispatch_exec_end_settings, InteractionType::Permutation>()
-        .add<lookup_tx_read_tree_insert_value_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_read_l2_l1_msg_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_write_l2_l1_msg_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_read_effective_fee_public_inputs_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_read_fee_payer_public_inputs_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_tx_read_tree_insert_value_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_read_l2_l1_msg_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_write_l2_l1_msg_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_read_effective_fee_public_inputs_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_read_fee_payer_public_inputs_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_tx_balance_validation_settings, InteractionType::LookupGeneric>() // ff_gt deduplicates
         .add<lookup_tx_note_hash_append_settings, InteractionType::LookupSequential>()
         .add<lookup_tx_nullifier_append_settings, InteractionType::LookupSequential>()
         // Cannot be sequential (sorting happens in public data tree trace)
         .add<lookup_tx_balance_read_settings, InteractionType::LookupGeneric>()
-        .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_tx_balance_slot_poseidon2_settings, InteractionType::LookupSequential>()
         // Lookups from tx_context.pil
-        .add<lookup_tx_context_public_inputs_note_hash_tree_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_context_public_inputs_nullifier_tree_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_context_public_inputs_public_data_tree_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_context_public_inputs_l1_l2_tree_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_context_public_inputs_gas_used_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_context_public_inputs_read_gas_limit_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_context_public_inputs_read_reverted_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_context_public_inputs_write_note_hash_count_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_context_public_inputs_write_nullifier_count_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_tx_context_public_inputs_note_hash_tree_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_context_public_inputs_nullifier_tree_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_context_public_inputs_public_data_tree_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_context_public_inputs_l1_l2_tree_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_context_public_inputs_gas_used_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_context_public_inputs_read_gas_limit_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_context_public_inputs_read_reverted_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_context_public_inputs_write_note_hash_count_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_context_public_inputs_write_nullifier_count_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_tx_context_public_inputs_write_l2_to_l1_message_count_settings,
-             InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_tx_context_public_inputs_write_unencrypted_log_count_settings,
-             InteractionType::LookupIntoIndexedByClk>()
+             InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_context_public_inputs_write_public_log_count_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_tx_context_restore_state_on_revert_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

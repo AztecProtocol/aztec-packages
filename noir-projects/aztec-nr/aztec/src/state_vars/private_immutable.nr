@@ -18,6 +18,8 @@ use crate::protocol::{
     traits::{Hash, Packable},
 };
 
+mod test;
+
 /// Per-account immutable private state.
 ///
 /// PrivateImmutable is an owned state variable type that represents a private value that is set once and remains

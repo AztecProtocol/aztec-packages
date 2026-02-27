@@ -84,6 +84,7 @@ pub contract Token {
         self.storage.admin.write(new_admin);
     }
 
+    // docs:start:public_immutable_read
     #[external("public")]
     #[view]
     fn public_get_name() -> FieldCompressedString {
@@ -95,6 +96,7 @@ pub contract Token {
     fn private_get_name() -> FieldCompressedString {
         self.storage.name.read()
     }
+    // docs:end:public_immutable_read
 
     #[external("public")]
     #[view]

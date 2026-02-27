@@ -1,4 +1,4 @@
-import { BLOCK_HEADER_LENGTH, GeneratorIndex } from '@aztec/constants';
+import { BLOCK_HEADER_LENGTH, DomainSeparator } from '@aztec/constants';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { randomInt } from '@aztec/foundation/crypto/random';
@@ -164,7 +164,7 @@ export class BlockHeader {
 
   hash(): Promise<BlockHash> {
     if (!this._cachedHash) {
-      this._cachedHash = poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HEADER_HASH).then(
+      this._cachedHash = poseidon2HashWithSeparator(this.toFields(), DomainSeparator.BLOCK_HEADER_HASH).then(
         fr => new BlockHash(fr),
       );
     }

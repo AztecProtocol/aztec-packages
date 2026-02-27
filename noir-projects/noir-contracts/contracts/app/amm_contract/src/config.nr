@@ -1,4 +1,4 @@
-use dep::aztec::protocol::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}};
+use aztec::protocol::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}};
 use std::meta::derive;
 
 /// We store the tokens of the pool in a struct such that to load it from PublicImmutable asserts only a single

@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: 0e37cb8}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -57,7 +57,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Challenges = Flavor::AllEntities<FF>;
 
     RelationParameters<FF> relation_parameters;
@@ -163,20 +162,16 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     std::span<const FF> shifted_evals = output.claimed_evaluations.get_shifted();
 
     // Get short batching challenges from transcript
-    // Note: the challenge for ColumnAndShifts::precomputed_clk is not used for batching, but to maintain the code
-    // cleaner, we generate it nonetheless
     Challenges challenges;
     auto unshifted_challenges_vec = transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
     std::ranges::move(unshifted_challenges_vec, challenges.get_unshifted().begin());
-    challenges.get(ColumnAndShifts::precomputed_clk) = FF(1); // Challenge for this column is 1
     auto unshifted_challenges = challenges.get_unshifted();
     auto shifted_challenges = challenges.get_to_be_shifted();
 
     // Batch shifted commitments
     Commitment batched_shifted = Commitment::batch_mul(shifted_comms, shifted_challenges);
 
-    // Batch unshifted commitments: ColumnAndShifts::precomputed_clk has coefficient 1, rest are batched with
-    // challenges. We reuse the calculation performed for shifted commitments.
+    // Batch unshifted commitments: We reuse the calculation performed for shifted commitments.
     Commitment batched_unshifted =
         batched_shifted +
         Commitment::batch_mul(unshifted_comms.subspan(0, WIRES_TO_BE_SHIFTED_START_IDX),
@@ -202,8 +197,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
             .batch_opening_claim;
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
-    VerifierCommitmentKey pcs_vkey{};
-    const auto shplemini_verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
+    const auto shplemini_verified = pairing_points.check();
 
     if (!shplemini_verified) {
         vinfo("Shplemini verification failed");

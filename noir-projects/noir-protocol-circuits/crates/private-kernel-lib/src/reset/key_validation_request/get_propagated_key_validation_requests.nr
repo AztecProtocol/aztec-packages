@@ -1,5 +1,5 @@
-use dep::types::{
-    abis::validation_requests::KeyValidationRequestAndGenerator, side_effect::Scoped, traits::Empty,
+use types::{
+    abis::validation_requests::KeyValidationRequestAndSeparator, side_effect::Scoped, traits::Empty,
     utils::arrays::ClaimedLengthArray,
 };
 
@@ -7,9 +7,9 @@ use dep::types::{
 /// to lack of capacity), but will be propagated to the next kernel circuit for a future Reset
 /// circuit to process.
 pub unconstrained fn get_propagated_key_validation_requests<let N: u32>(
-    key_validation_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, N>,
+    key_validation_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndSeparator>, N>,
     key_validation_amount: u32,
-) -> ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, N> {
+) -> ClaimedLengthArray<Scoped<KeyValidationRequestAndSeparator>, N> {
     let mut propagated = ClaimedLengthArray::empty();
 
     // Up to `key_validation_amount` requests will be validated, and the remaining ones will be propagated.

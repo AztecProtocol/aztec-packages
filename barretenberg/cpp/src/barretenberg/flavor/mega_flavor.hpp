@@ -1,17 +1,15 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
 #pragma once
-#include <utility>
-
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
-#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
+#include "barretenberg/flavor/prover_polynomials.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
@@ -25,6 +23,7 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_internal_relation.hpp"
+#include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -41,8 +40,6 @@ class MegaFlavor {
     using PCS = KZG<Curve>;
     using Polynomial = bb::Polynomial<FF>;
     using CommitmentKey = bb::CommitmentKey<Curve>;
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
-    using TraceBlocks = MegaExecutionTraceBlocks;
     using Codec = FrCodec;
     using HashFunction = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
     using Transcript = BaseTranscript<Codec, HashFunction>;
@@ -58,29 +55,6 @@ class MegaFlavor {
     // and Shplemini
     static constexpr bool USE_PADDING = true;
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
-    // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
-    // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
-    static constexpr size_t NUM_ALL_ENTITIES = 60;
-    // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
-    // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 31;
-    // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 24;
-    // The number of shifted witness entities including derived witness entities
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 5;
-    // The number of unshifted witness entities
-    static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
-
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
-        NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES);
-
-    // Size of the final PCS MSM after KZG adds quotient commitment:
-    // 1 (Shplonk Q) + NUM_UNSHIFTED + (log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)
-    // (shifted commitments are removed as duplicates)
-    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
-    {
-        return NUM_UNSHIFTED_ENTITIES + log_n + 2;
-    }
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
@@ -187,9 +161,6 @@ class MegaFlavor {
         auto get_ids() { return RefArray{ id_1, id_2, id_3, id_4 }; };
         auto get_tables() { return RefArray{ table_1, table_2, table_3, table_4 }; };
     };
-
-    // Mega needs to expose more public classes than most flavors due to MegaRecursive reuse, but these
-    // are internal:
 
     // WireEntities for basic witness entities
     template <typename DataType> class WireEntities {
@@ -300,15 +271,13 @@ class MegaFlavor {
                               z_perm_shift) // column 4
     };
 
-  public:
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
      * sumcheck) in this Honk variant along with particular subsets of interest
      * @details Used to build containers for: the prover's polynomial during sumcheck; the sumcheck's folded
-     * polynomials; the univariates consturcted during during sumcheck; the evaluations produced by sumcheck.
+     * polynomials; the univariates constructed during sumcheck; the evaluations produced by sumcheck.
      *
-     * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + "ShiftedEntities". It could be
-     * implemented as such, but we have this now.
+     * Symbolically we have: AllEntities = MaskingEntities + PrecomputedEntities + WitnessEntities + ShiftedEntities.
      */
     template <typename DataType, bool HasZK_ = HasZK>
     class AllEntities_ : public MaskingEntities<DataType, HasZK_>,
@@ -336,6 +305,24 @@ class MegaFlavor {
     // Default AllEntities alias (no ZK)
     template <typename DataType> using AllEntities = AllEntities_<DataType, HasZK>;
 
+    // Derive entity counts from the actual struct definitions
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = PrecomputedEntities<FF>::_members_size;
+    static constexpr size_t NUM_WITNESS_ENTITIES = WireEntities<FF>::_members_size + DerivedEntities<FF>::_members_size;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = ShiftedEntities<FF>::_members_size;
+    static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES;
+
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
+        NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES);
+
+    // Size of the final PCS MSM after KZG adds quotient commitment:
+    // 1 (Shplonk Q) + NUM_UNSHIFTED + (log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)
+    // (shifted commitments are removed as duplicates)
+    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
+    {
+        return NUM_UNSHIFTED_ENTITIES + log_n + 2;
+    }
+
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
      * at one point.
@@ -351,86 +338,16 @@ class MegaFlavor {
     /**
      * @brief A container for the prover polynomials handles.
      */
-    template <bool HasZK_ = HasZK> class ProverPolynomials_ : public AllEntities_<Polynomial, HasZK_> {
-      public:
-        // Define all operations as default, except copy construction/assignment
-        ProverPolynomials_() = default;
-        // fully-formed constructor
-        ProverPolynomials_(size_t circuit_size)
-        {
-            BB_BENCH_NAME("ProverPolynomials(size_t)");
-
-            for (auto& poly : this->get_to_be_shifted()) {
-                poly = Polynomial{ /*memory size*/ circuit_size - 1,
-                                   /*largest possible index*/ circuit_size,
-                                   /* offset */ 1 };
-            }
-            // catch-all with fully formed polynomials
-            for (auto& poly : this->get_unshifted()) {
-                if (poly.is_empty()) {
-                    // Not set above
-                    poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ circuit_size };
-                }
-            }
-            set_shifted();
-        }
-        ProverPolynomials_& operator=(const ProverPolynomials_&) = delete;
-        ProverPolynomials_(const ProverPolynomials_& o) = delete;
-        ProverPolynomials_(ProverPolynomials_&& o) noexcept = default;
-        ProverPolynomials_& operator=(ProverPolynomials_&& o) noexcept = default;
-        ~ProverPolynomials_() = default;
-        [[nodiscard]] size_t get_polynomial_size() const { return this->q_c.size(); }
-        [[nodiscard]] AllValues_<HasZK_> get_row(size_t row_idx) const
-        {
-            AllValues_<HasZK_> result;
-            for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
-                result_field = polynomial[row_idx];
-            }
-            return result;
-        }
-
-        [[nodiscard]] AllValues_<HasZK_> get_row_for_permutation_arg(size_t row_idx)
-        {
-            AllValues_<HasZK_> result;
-            for (auto [result_field, polynomial] : zip_view(result.get_sigmas(), this->get_sigmas())) {
-                result_field = polynomial[row_idx];
-            }
-            for (auto [result_field, polynomial] : zip_view(result.get_ids(), this->get_ids())) {
-                result_field = polynomial[row_idx];
-            }
-            for (auto [result_field, polynomial] : zip_view(result.get_wires(), this->get_wires())) {
-                result_field = polynomial[row_idx];
-            }
-            return result;
-        }
-
-        void set_shifted()
-        {
-            for (auto [shifted, to_be_shifted] : zip_view(this->get_shifted(), this->get_to_be_shifted())) {
-                shifted = to_be_shifted.shifted();
-            }
-        }
-
-        void increase_polynomials_virtual_size(const size_t size_in)
-        {
-            for (auto& polynomial : this->get_all()) {
-                polynomial.increase_virtual_size(size_in);
-            }
-        }
-    };
+    template <bool HasZK_ = HasZK>
+    using ProverPolynomials_ = ProverPolynomialsBase<AllEntities_<Polynomial, HasZK_>, AllValues_<HasZK_>, Polynomial>;
 
     using ProverPolynomials = ProverPolynomials_<HasZK>;
 
     using PrecomputedData = PrecomputedData_<Polynomial, NUM_PRECOMPUTED_ENTITIES>;
 
     /**
-     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witness)
-     * polynomials used by the verifier.
-     *
-     * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to resolve
-     * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
-     * circuits.
-     * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
+     * @brief The verification key stores commitments to the precomputed (non-witness) polynomials used by the
+     * verifier.
      */
     using VerificationKey = NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction, CommitmentKey>;
 

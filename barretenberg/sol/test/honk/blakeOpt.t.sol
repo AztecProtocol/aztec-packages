@@ -1,5 +1,5 @@
 import {BlakeHonkVerifier} from "../../src/honk/instance/BlakeHonk.sol";
-import {BlakeOptHonkVerifier} from "../../src/honk/optimised/honk-optimized.sol";
+import {BlakeOptHonkVerifier} from "../../src/honk/instance/BlakeHonkOpt.sol";
 import {DifferentialFuzzer} from "../base/DifferentialFuzzer.sol";
 import {TestBaseHonk} from "./TestBaseHonk.sol";
 import {IVerifier} from "../../src/interfaces/IVerifier.sol";

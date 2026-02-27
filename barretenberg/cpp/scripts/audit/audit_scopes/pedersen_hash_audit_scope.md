@@ -1,7 +1,7 @@
 # Pedersen Hash Audit Scope
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash:
+Commit hash: 8c1bc925461f1ed6f3f53824646c6e971b8c6af6
 
 ### Files to audit
 

@@ -231,7 +231,7 @@ contract Tmnt207Test is RollupBase {
           outHash: rollup.getCheckpoint(1).outHash,
           proverId: address(0)
         }),
-        fees: new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2),
+        fees: new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2),
         attestations: AttestationLibHelper.packAttestations(l2CheckpointReal.attestations),
         blobInputs: full.checkpoint.batchedBlobInputs,
         proof: ""

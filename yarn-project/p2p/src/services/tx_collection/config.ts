@@ -6,7 +6,7 @@ import {
 } from '@aztec/foundation/config';
 import { MAX_RPC_TXS_LEN } from '@aztec/stdlib/interfaces/api-limit';
 
-export type ProposalTxCollectorType = 'new' | 'old';
+export type MissingTxsCollectorType = 'new' | 'old';
 
 export type TxCollectionConfig = {
   /** How long to wait before starting reqresp for fast collection  */
@@ -29,8 +29,26 @@ export type TxCollectionConfig = {
   txCollectionFastMaxParallelRequestsPerNode: number;
   /** Maximum number of transactions to request from a node in a single batch */
   txCollectionNodeRpcMaxBatchSize: number;
-  /** Which collector implementation to use for proposal tx collection */
-  txCollectionProposalTxCollectorType: ProposalTxCollectorType;
+  /** Which collector implementation to use for missing txs collection */
+  txCollectionMissingTxsCollectorType: MissingTxsCollectorType;
+  /** A comma-separated list of file store URLs (s3://, gs://, file://, http://) for tx collection */
+  txCollectionFileStoreUrls: string[];
+  /** Delay in ms before file store collection starts after slow collection is triggered */
+  txCollectionFileStoreSlowDelayMs: number;
+  /** Delay in ms before file store collection starts after fast collection is triggered */
+  txCollectionFileStoreFastDelayMs: number;
+  /** Number of concurrent workers for fast file store collection */
+  txCollectionFileStoreFastWorkerCount: number;
+  /** Number of concurrent workers for slow file store collection */
+  txCollectionFileStoreSlowWorkerCount: number;
+  /** Base backoff time in ms for fast file store collection retries */
+  txCollectionFileStoreFastBackoffBaseMs: number;
+  /** Base backoff time in ms for slow file store collection retries */
+  txCollectionFileStoreSlowBackoffBaseMs: number;
+  /** Max backoff time in ms for fast file store collection retries */
+  txCollectionFileStoreFastBackoffMaxMs: number;
+  /** Max backoff time in ms for slow file store collection retries */
+  txCollectionFileStoreSlowBackoffMaxMs: number;
 };
 
 export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> = {
@@ -90,9 +108,59 @@ export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> 
     description: 'Maximum number of transactions to request from a node in a single batch',
     ...numberConfigHelper(MAX_RPC_TXS_LEN),
   },
-  txCollectionProposalTxCollectorType: {
-    env: 'TX_COLLECTION_PROPOSAL_TX_COLLECTOR_TYPE',
-    description: 'Which collector implementation to use for proposal tx collection (new or old)',
+  txCollectionMissingTxsCollectorType: {
+    env: 'TX_COLLECTION_MISSING_TXS_COLLECTOR_TYPE',
+    description: 'Which collector implementation to use for missing txs collection (new or old)',
     ...enumConfigHelper(['new', 'old'] as const, 'new'),
+  },
+  txCollectionFileStoreUrls: {
+    env: 'TX_COLLECTION_FILE_STORE_URLS',
+    description: 'A comma-separated list of file store URLs (s3://, gs://, file://, http://) for tx collection',
+    parseEnv: (val: string) =>
+      val
+        .split(',')
+        .map(url => url.trim())
+        .filter(url => url.length > 0),
+    defaultValue: [],
+  },
+  txCollectionFileStoreSlowDelayMs: {
+    env: 'TX_COLLECTION_FILE_STORE_SLOW_DELAY_MS',
+    description: 'Delay before file store collection starts after slow collection',
+    ...numberConfigHelper(24_000),
+  },
+  txCollectionFileStoreFastDelayMs: {
+    env: 'TX_COLLECTION_FILE_STORE_FAST_DELAY_MS',
+    description: 'Delay before file store collection starts after fast collection',
+    ...numberConfigHelper(2_000),
+  },
+  txCollectionFileStoreFastWorkerCount: {
+    env: 'TX_COLLECTION_FILE_STORE_FAST_WORKER_COUNT',
+    description: 'Number of concurrent workers for fast file store collection',
+    ...numberConfigHelper(5),
+  },
+  txCollectionFileStoreSlowWorkerCount: {
+    env: 'TX_COLLECTION_FILE_STORE_SLOW_WORKER_COUNT',
+    description: 'Number of concurrent workers for slow file store collection',
+    ...numberConfigHelper(2),
+  },
+  txCollectionFileStoreFastBackoffBaseMs: {
+    env: 'TX_COLLECTION_FILE_STORE_FAST_BACKOFF_BASE_MS',
+    description: 'Base backoff time in ms for fast file store collection retries',
+    ...numberConfigHelper(1_000),
+  },
+  txCollectionFileStoreSlowBackoffBaseMs: {
+    env: 'TX_COLLECTION_FILE_STORE_SLOW_BACKOFF_BASE_MS',
+    description: 'Base backoff time in ms for slow file store collection retries',
+    ...numberConfigHelper(5_000),
+  },
+  txCollectionFileStoreFastBackoffMaxMs: {
+    env: 'TX_COLLECTION_FILE_STORE_FAST_BACKOFF_MAX_MS',
+    description: 'Max backoff time in ms for fast file store collection retries',
+    ...numberConfigHelper(5_000),
+  },
+  txCollectionFileStoreSlowBackoffMaxMs: {
+    env: 'TX_COLLECTION_FILE_STORE_SLOW_BACKOFF_MAX_MS',
+    description: 'Max backoff time in ms for slow file store collection retries',
+    ...numberConfigHelper(30_000),
   },
 };

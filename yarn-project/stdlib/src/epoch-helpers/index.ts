@@ -11,6 +11,7 @@ export type L1RollupConstants = {
   epochDuration: number;
   ethereumSlotDuration: number;
   proofSubmissionEpochs: number;
+  targetCommitteeSize: number;
 };
 
 export const EmptyL1RollupConstants: L1RollupConstants = {
@@ -20,6 +21,7 @@ export const EmptyL1RollupConstants: L1RollupConstants = {
   slotDuration: 1,
   ethereumSlotDuration: 1,
   proofSubmissionEpochs: 1,
+  targetCommitteeSize: 48,
 };
 
 export const L1RollupConstantsSchema = zodFor<L1RollupConstants>()(
@@ -30,6 +32,7 @@ export const L1RollupConstantsSchema = zodFor<L1RollupConstants>()(
     epochDuration: z.number(),
     ethereumSlotDuration: z.number(),
     proofSubmissionEpochs: z.number(),
+    targetCommitteeSize: z.number(),
   }),
 );
 

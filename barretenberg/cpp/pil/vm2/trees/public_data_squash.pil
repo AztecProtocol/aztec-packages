@@ -62,11 +62,11 @@ namespace public_data_squash;
 
     #[CLK_DIFF_RANGE_LO]
     check_clock { clk_diff_lo }
-    in precomputed.sel_range_16 { precomputed.clk };
+    in precomputed.sel_range_16 { precomputed.idx };
 
     #[CLK_DIFF_RANGE_HI]
     check_clock { clk_diff_hi }
-    in precomputed.sel_range_16 { precomputed.clk };
+    in precomputed.sel_range_16 { precomputed.idx };
 
     // ====== SQUASHING ======
     // We write to public inputs the first ocurrence of a leaf slot, but with the last ocurrence value

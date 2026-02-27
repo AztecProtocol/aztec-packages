@@ -72,8 +72,8 @@ export class Barretenberg extends AsyncApi {
 
   async initSRSChonk(srsSize = this.getDefaultSrsSize()): Promise<void> {
     // crsPath can be undefined
-    const crs = await Crs.new(srsSize + 1, this.options.crsPath, this.options.logger);
-    const grumpkinCrs = await GrumpkinCrs.new(2 ** 16 + 1, this.options.crsPath, this.options.logger);
+    const crs = await Crs.new(srsSize, this.options.crsPath, this.options.logger);
+    const grumpkinCrs = await GrumpkinCrs.new(2 ** 16, this.options.crsPath, this.options.logger);
 
     // Load CRS into wasm global CRS state.
     // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
@@ -82,9 +82,10 @@ export class Barretenberg extends AsyncApi {
   }
 
   getDefaultSrsSize(): number {
-    // iOS browser is very aggressive with memory. Check if running in browser and on iOS
+    // iOS browser is very aggressive with memory. Check if running in browser and on iOS.
     // We expect the mobile iOS browser to kill us >=1GB, so no real use in using a larger SRS.
-    if (typeof window !== 'undefined' && /iPad|iPhone/.test(navigator.userAgent)) {
+    // Use `self` instead of `window` so this check also works inside Web Workers.
+    if (typeof self !== 'undefined' && typeof self.navigator !== 'undefined' && /iPad|iPhone/.test(self.navigator.userAgent)) {
       return 2 ** 18;
     }
     return 2 ** 20;

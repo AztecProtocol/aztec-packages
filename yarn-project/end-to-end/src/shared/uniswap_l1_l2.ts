@@ -11,18 +11,18 @@ import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-az
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { extractEvent } from '@aztec/ethereum/utils';
-import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { InboxAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract, parseEther, toFunctionSelector } from 'viem';
 
 import { type EndToEndContext, ensureAccountContractsPublished } from '../fixtures/utils.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { CrossChainTestHarness } from './cross_chain_test_harness.js';
 
 // PSA: This tests works on forked mainnet. There is a dump of the data in `dumpedState` such that we
@@ -84,7 +84,7 @@ export const uniswapL1L2TestSuite = (
 
       l1Client = deployL1ContractsValues.l1Client;
 
-      t.watcher?.setIsMarkingAsProven(false);
+      t.watcher.setIsMarkingAsProven(false);
 
       if (Number(await l1Client.getBlockNumber()) < expectedForkBlockNumber) {
         throw new Error('This test must be run on a fork of mainnet with the expected fork block');
@@ -250,8 +250,8 @@ export const uniswapL1L2TestSuite = (
       await wethCrossChainHarness.expectPublicBalanceOnL2(uniswapL2Contract.address, 0n);
 
       // Since the outbox is only consumable when the epoch is proven, we need to advance to the next epoch.
-      const checkpointNumber = CheckpointNumber.fromBlockNumber(l2UniswapInteractionReceipt.blockNumber!);
-      const epoch = await rollup.getEpochNumberForCheckpoint(checkpointNumber);
+      const block = await aztecNode.getBlock(l2UniswapInteractionReceipt.blockNumber!);
+      const epoch = await rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
       await cheatCodes.rollup.advanceToEpoch(EpochNumber(epoch + 1));
       await waitForProven(aztecNode, l2UniswapInteractionReceipt, { provenTimeout: 300 });
 
@@ -838,9 +838,8 @@ export const uniswapL1L2TestSuite = (
         chainId: new Fr(l1Client.chain.id),
       });
 
-      const epoch = await rollup.getEpochNumberForCheckpoint(
-        CheckpointNumber.fromBlockNumber(withdrawReceipt.blockNumber!),
-      );
+      const block = await aztecNode.getBlock(withdrawReceipt.blockNumber!);
+      const epoch = await rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
       const swapResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, swapPrivateLeaf);
       const withdrawResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, withdrawLeaf);
 
@@ -972,9 +971,8 @@ export const uniswapL1L2TestSuite = (
         chainId: new Fr(l1Client.chain.id),
       });
 
-      const epoch = await rollup.getEpochNumberForCheckpoint(
-        CheckpointNumber.fromBlockNumber(withdrawReceipt.blockNumber!),
-      );
+      const block = await aztecNode.getBlock(withdrawReceipt.blockNumber!);
+      const epoch = await rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
       const swapResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, swapPublicLeaf);
       const withdrawResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, withdrawLeaf);
 

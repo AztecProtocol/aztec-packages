@@ -247,7 +247,7 @@ template <typename Codec, typename HashFunction> class TranscriptTest : public :
         auto received = verifier.template receive_from_prover<bn254_commitment>("infinity");
 
         if constexpr (IsStdlib) {
-            EXPECT_TRUE(received.is_point_at_infinity().get_value());
+            EXPECT_TRUE(received.get_value().is_point_at_infinity());
         } else {
             EXPECT_TRUE(received.is_point_at_infinity());
         }
@@ -266,7 +266,7 @@ template <typename Codec, typename HashFunction> class TranscriptTest : public :
         auto received = verifier.template receive_from_prover<grumpkin_commitment>("infinity");
 
         if constexpr (IsStdlib) {
-            EXPECT_TRUE(received.is_point_at_infinity().get_value());
+            EXPECT_TRUE(received.get_value().is_point_at_infinity());
         } else {
             EXPECT_TRUE(received.is_point_at_infinity());
         }

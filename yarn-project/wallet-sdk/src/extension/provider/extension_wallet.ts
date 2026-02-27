@@ -109,7 +109,7 @@ export class ExtensionWallet {
     sharedKey: CryptoKey,
     chainInfo: ChainInfo,
     appId: string,
-  ): Wallet {
+  ): ExtensionWallet {
     const wallet = new ExtensionWallet(chainInfo, appId, extensionId, port, sharedKey);
 
     // Set up message handler for encrypted responses and unencrypted control messages
@@ -127,8 +127,10 @@ export class ExtensionWallet {
     wallet.port.start();
 
     return new Proxy(wallet, {
-      get: (target, prop) => {
-        if (schemaHasMethod(WalletSchema, prop.toString())) {
+      get: (target, prop, receiver) => {
+        if (prop === 'asWallet') {
+          return () => receiver as unknown as Wallet;
+        } else if (schemaHasMethod(WalletSchema, prop.toString())) {
           return async (...args: unknown[]) => {
             const result = await target.postMessage({
               type: prop.toString() as keyof FunctionsOf<Wallet>,
@@ -140,7 +142,13 @@ export class ExtensionWallet {
           return target[prop as keyof ExtensionWallet];
         }
       },
-    }) as unknown as Wallet;
+    });
+  }
+
+  asWallet(): Wallet {
+    // Overridden by the proxy in create() to return the proxy itself.
+    // This body is never reached when accessed through create().
+    return this as unknown as Wallet;
   }
 
   /**

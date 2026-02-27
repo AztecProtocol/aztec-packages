@@ -1,6 +1,13 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
-import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore, Gossipable } from '@aztec/stdlib/p2p';
+import type {
+  BlockProposal,
+  CheckpointAttestation,
+  CheckpointProposalCore,
+  Gossipable,
+  TopicType,
+} from '@aztec/stdlib/p2p';
 import type { Tx } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -42,6 +49,32 @@ export type P2PCheckpointReceivedCallback = (
 ) => Promise<CheckpointAttestation[] | undefined>;
 
 export type AuthReceivedCallback = (peerId: PeerId, authRequest: AuthRequest) => Promise<AuthResponse | undefined>;
+
+/** Minimal info passed to the duplicate proposal callback. */
+export type DuplicateProposalInfo = {
+  slot: SlotNumber;
+  proposer: EthAddress;
+  type: 'checkpoint' | 'block';
+};
+
+/**
+ * Callback for when a duplicate proposal is detected (equivocation).
+ * Invoked on the first duplicate (when count goes from 1 to 2).
+ */
+export type P2PDuplicateProposalCallback = (info: DuplicateProposalInfo) => void;
+
+/** Minimal info passed to the duplicate attestation callback. */
+export type DuplicateAttestationInfo = {
+  slot: SlotNumber;
+  attester: EthAddress;
+};
+
+/**
+ * Callback for when a duplicate attestation is detected (equivocation).
+ * A validator signing attestations for different proposals at the same slot.
+ * Invoked on the first duplicate (when count goes from 1 to 2).
+ */
+export type P2PDuplicateAttestationCallback = (info: DuplicateAttestationInfo) => void;
 
 /**
  * The interface for a P2P service implementation.
@@ -86,11 +119,27 @@ export interface P2PService {
 
   registerCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback): void;
 
+  /**
+   * Registers a callback invoked when a duplicate proposal is detected (equivocation).
+   * The callback is triggered on the first duplicate (when count goes from 1 to 2).
+   */
+  registerDuplicateProposalCallback(callback: P2PDuplicateProposalCallback): void;
+
+  /**
+   * Registers a callback invoked when a duplicate attestation is detected (equivocation).
+   * A validator signing attestations for different proposals at the same slot.
+   * The callback is triggered on the first duplicate (when count goes from 1 to 2).
+   */
+  registerDuplicateAttestationCallback(callback: P2PDuplicateAttestationCallback): void;
+
   getEnr(): ENR | undefined;
 
   getPeers(includePending?: boolean): PeerInfo[];
 
-  validate(txs: Tx[]): Promise<void>;
+  /** Returns the number of peers in the GossipSub mesh for a given topic type. */
+  getGossipMeshPeerCount(topicType: TopicType): number;
+
+  validateTxsReceivedInBlockProposal(txs: Tx[]): Promise<void>;
 
   addReqRespSubProtocol(
     subProtocol: ReqRespSubProtocol,

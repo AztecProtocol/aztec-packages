@@ -192,18 +192,20 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
   }
 
   /** Deletes this store and removes the database */
-  delete() {
+  async delete() {
     this.#containers.clear();
+    await this.#txQueue.end();
     this.#rootDB.close();
-    return deleteDB(this.#name);
+    await deleteDB(this.#name);
   }
 
   estimateSize(): Promise<StoreSize> {
     return Promise.resolve({ mappingSize: 0, physicalFileSize: 0, actualSize: 0, numItems: 0 });
   }
 
-  close(): Promise<void> {
-    return Promise.resolve();
+  async close(): Promise<void> {
+    await this.#txQueue.end();
+    this.#rootDB.close();
   }
 
   backupTo(_dstPath: string, _compact?: boolean): Promise<void> {

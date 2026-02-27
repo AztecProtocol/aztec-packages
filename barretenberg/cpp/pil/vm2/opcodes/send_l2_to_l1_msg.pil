@@ -77,7 +77,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         register[1],          // content
         contract_address      // current contract address (from context)
     } in public_inputs.sel {
-        precomputed.clk,
+        precomputed.idx,
         public_inputs.cols[0],
         public_inputs.cols[1],
         public_inputs.cols[2]

@@ -1,8 +1,12 @@
-import { MIN_EXECUTION_TIME, SequencerTimetable } from './timetable.js';
+import { createLogger } from '@aztec/foundation/log';
+import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
+
+import { SequencerTimetable } from './timetable.js';
 import { SequencerState } from './utils.js';
 
 describe('sequencer-timetable', () => {
   let timetable: SequencerTimetable;
+  const logger = createLogger('sequencer-timetable-test');
 
   const ETHEREUM_SLOT_DURATION = 12;
   const AZTEC_SLOT_DURATION = 36;
@@ -102,6 +106,15 @@ describe('sequencer-timetable', () => {
         enforce: false,
       });
       expect(() => timetable.assertTimeLeft(SequencerState.INITIALIZING_CHECKPOINT, 1000)).not.toThrow();
+    });
+
+    it('respects different deadlines per state', () => {
+      // Just past initialize deadline - should fail for INITIALIZING
+      const pastInit = timetable.initializeDeadline + 0.1;
+      expect(() => timetable.assertTimeLeft(SequencerState.INITIALIZING_CHECKPOINT, pastInit)).toThrow();
+
+      // But CREATING_BLOCK should still be ok
+      expect(() => timetable.assertTimeLeft(SequencerState.CREATING_BLOCK, pastInit)).not.toThrow();
     });
   });
 
@@ -276,16 +289,18 @@ describe('sequencer-timetable', () => {
 
       describe('maxNumberOfBlocks calculation', () => {
         it.each([
-          { aztecSlot: 36, blockDuration: 8000 },
-          { aztecSlot: 72, blockDuration: 8000 },
-          { aztecSlot: 120, blockDuration: 10000 },
+          { aztecSlot: 36, blockDuration: 8000, publishTime: L1_PUBLISHING_TIME },
+          { aztecSlot: 72, blockDuration: 8000, publishTime: L1_PUBLISHING_TIME },
+          { aztecSlot: 120, blockDuration: 10000, publishTime: L1_PUBLISHING_TIME },
+          { aztecSlot: 72, blockDuration: 6000, publishTime: 36 },
+          { aztecSlot: 72, blockDuration: 6000, publishTime: 24 },
         ])(
-          'should calculate max blocks with aztecSlot=$aztecSlot blockDuration=$blockDuration)',
-          ({ aztecSlot, blockDuration }) => {
+          'should calculate max blocks with aztecSlot=$aztecSlot blockDuration=$blockDuration publishTime=$publishTime)',
+          ({ aztecSlot, blockDuration, publishTime }) => {
             const tt = new SequencerTimetable({
               ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
               aztecSlotDuration: aztecSlot,
-              l1PublishingTime: L1_PUBLISHING_TIME,
+              l1PublishingTime: publishTime,
               blockDurationMs: blockDuration,
               enforce: ENFORCE_TIMETABLE,
             });
@@ -300,6 +315,9 @@ describe('sequencer-timetable', () => {
               const result2 = tt.canStartNextBlock(20);
               expect(result2.canStart).toBe(true);
             }
+            logger.info(
+              `AztecSlot: ${aztecSlot}, BlockDuration: ${blockDuration}, PublishTime: ${publishTime}, MaxBlocks: ${tt.maxNumberOfBlocks}\n\n`,
+            );
           },
         );
 
@@ -347,39 +365,75 @@ describe('sequencer-timetable', () => {
         });
       });
 
-      describe('state transition timing', () => {
+      describe('timing invariants', () => {
+        const P2P_PROPAGATION_TIME = 2;
+        const BLOCK_DURATION = 8;
+        const BLOCK_DURATION_MS = BLOCK_DURATION * 1000;
+
         beforeEach(() => {
           timetable = new SequencerTimetable({
             ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
             aztecSlotDuration: AZTEC_SLOT_DURATION,
             l1PublishingTime: L1_PUBLISHING_TIME,
+            p2pPropagationTime: P2P_PROPAGATION_TIME,
+            blockDurationMs: BLOCK_DURATION_MS,
             enforce: ENFORCE_TIMETABLE,
           });
         });
 
-        it('should provide increasing deadlines through state lifecycle', () => {
-          const states = [
-            SequencerState.INITIALIZING_CHECKPOINT,
-            SequencerState.CREATING_BLOCK,
-            SequencerState.COLLECTING_ATTESTATIONS,
-            SequencerState.PUBLISHING_CHECKPOINT,
-          ];
+        it('should reserve last sub-slot for validator re-execution', () => {
+          // Last block deadline: initOffset + maxBlocks * blockDuration
+          const lastBlockDeadline = timetable.initializationOffset + timetable.maxNumberOfBlocks * BLOCK_DURATION;
 
-          const times = states.map(state => timetable.getMaxAllowedTime(state));
-
-          // Each stage should have more time than the previous
-          for (let i = 1; i < times.length; i++) {
-            expect(times[i]).toBeGreaterThan(times[i - 1]!);
-          }
+          // After last block deadline, no more blocks can be built
+          const resultAfterLast = timetable.canStartNextBlock(lastBlockDeadline);
+          expect(resultAfterLast.canStart).toBe(false);
         });
 
-        it('should throw at appropriate times for each state', () => {
-          // Just past initialize deadline - should fail for INITIALIZING
-          const pastInit = timetable.initializeDeadline + 0.1;
-          expect(() => timetable.assertTimeLeft(SequencerState.INITIALIZING_CHECKPOINT, pastInit)).toThrow();
+        it('should ensure time from checkpoint broadcast to attestation deadline >= blockDuration + 2*propagation', () => {
+          // Required time for validators: re-execution + round-trip propagation
+          const requiredTimeForValidators = BLOCK_DURATION + 2 * P2P_PROPAGATION_TIME;
+          const lastBlockDeadline = timetable.initializationOffset + timetable.maxNumberOfBlocks * BLOCK_DURATION;
+          const checkpointBroadcast = lastBlockDeadline + timetable.checkpointAssembleTime;
+          const attestationDeadline = AZTEC_SLOT_DURATION - L1_PUBLISHING_TIME;
 
-          // But CREATING_BLOCK should still be ok
-          expect(() => timetable.assertTimeLeft(SequencerState.CREATING_BLOCK, pastInit)).not.toThrow();
+          const availableTimeForValidators = attestationDeadline - checkpointBroadcast;
+
+          expect(availableTimeForValidators).toBeGreaterThanOrEqual(requiredTimeForValidators);
+        });
+
+        it('should set attestation deadline at slotDuration minus l1PublishingTime', () => {
+          const attestationDeadline = timetable.getMaxAllowedTime(SequencerState.PUBLISHING_CHECKPOINT);
+          expect(attestationDeadline).toBe(AZTEC_SLOT_DURATION - L1_PUBLISHING_TIME);
+        });
+
+        it('should fit all operations within slot duration', () => {
+          const totalRequiredTime =
+            timetable.initializationOffset +
+            timetable.maxNumberOfBlocks * BLOCK_DURATION +
+            BLOCK_DURATION + // last sub-slot for validators
+            2 * P2P_PROPAGATION_TIME +
+            timetable.checkpointAssembleTime +
+            L1_PUBLISHING_TIME;
+
+          expect(totalRequiredTime).toBeLessThanOrEqual(AZTEC_SLOT_DURATION);
+        });
+
+        it('should have minExecutionTime less than blockDuration', () => {
+          expect(timetable.minExecutionTime).toBeLessThan(BLOCK_DURATION);
+        });
+
+        it('should allow starting a block at the latest possible time in multi-block mode', () => {
+          const lastSubSlotDeadline = timetable.initializationOffset + timetable.maxNumberOfBlocks * BLOCK_DURATION;
+          const latestStartTime = lastSubSlotDeadline - timetable.minExecutionTime;
+
+          const result = timetable.canStartNextBlock(latestStartTime);
+          expect(result.canStart).toBe(true);
+          expect(result.isLastBlock).toBe(true);
+
+          // One second later, it should not be possible
+          const tooLate = timetable.canStartNextBlock(latestStartTime + 1);
+          expect(tooLate.canStart).toBe(false);
         });
       });
     });

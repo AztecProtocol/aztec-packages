@@ -1,8 +1,8 @@
 bot:
   replicaCount: 1
   txIntervalSeconds: 10
-  ammTxs: true
-  followChain: "PENDING"
+  botMode: "amm"
+  followChain: "PROPOSED"
   feePaymentMethod: "fee_juice"
   maxErrors: 3
   stopIfUnhealthy: true

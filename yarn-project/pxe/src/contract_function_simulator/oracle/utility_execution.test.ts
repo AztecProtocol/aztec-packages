@@ -17,6 +17,7 @@ import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
+import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
@@ -41,6 +42,7 @@ describe('Utility Execution test suite', () => {
   let senderAddressBookStore: ReturnType<typeof mock<SenderAddressBookStore>>;
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
+  let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
   let ownerCompleteAddress: CompleteAddress;
@@ -62,6 +64,7 @@ describe('Utility Execution test suite', () => {
     senderAddressBookStore = mock<SenderAddressBookStore>();
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
+    contractSyncService = mock<ContractSyncService>();
     const capsuleArrays = new Map<string, Fr[][]>();
     anchorBlockHeader = BlockHeader.random();
     senderTaggingStore.getLastFinalizedIndex.mockResolvedValue(undefined);
@@ -87,7 +90,7 @@ describe('Utility Execution test suite', () => {
     capsuleStore.readCapsuleArray.mockImplementation((address, slot) => {
       return Promise.resolve(capsuleArrays.get(`${address.toString()}:${slot.toString()}`) ?? []);
     });
-    acirSimulator = new ContractFunctionSimulator(
+    acirSimulator = new ContractFunctionSimulator({
       contractStore,
       noteStore,
       keyStore,
@@ -99,7 +102,8 @@ describe('Utility Execution test suite', () => {
       capsuleStore,
       privateEventStore,
       simulator,
-    );
+      contractSyncService,
+    });
 
     const ownerPartialAddress = Fr.random();
     ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, ownerPartialAddress);
@@ -174,16 +178,16 @@ describe('Utility Execution test suite', () => {
 
     capsuleStore.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
-    const execRequest: FunctionCall = {
+    const execRequest = FunctionCall.from({
       name: artifact.name,
       to: contractAddress,
       selector: FunctionSelector.empty(),
       type: FunctionType.UTILITY,
-      isStatic: false,
       hideMsgSender: false,
+      isStatic: false,
       args: encodeArguments(artifact, [owner]),
       returnTypes: artifact.returnTypes,
-    };
+    });
 
     const result = await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], 'test-job-id');
 
@@ -201,10 +205,10 @@ describe('Utility Execution test suite', () => {
         globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(syncedBlockNumber) }),
       });
 
-      utilityExecutionOracle = new UtilityExecutionOracle(
+      utilityExecutionOracle = new UtilityExecutionOracle({
         contractAddress,
-        [],
-        [],
+        authWitnesses: [],
+        capsules: [],
         anchorBlockHeader,
         contractStore,
         noteStore,
@@ -215,8 +219,9 @@ describe('Utility Execution test suite', () => {
         senderAddressBookStore,
         capsuleStore,
         privateEventStore,
-        'test-job-id',
-      );
+        jobId: 'test-job-id',
+        scopes: 'ALL_SCOPES',
+      });
     });
 
     describe('Respects synced block number', () => {

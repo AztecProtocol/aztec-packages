@@ -6,8 +6,8 @@ import {
   secretValueConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { validatorHASignerConfigMappings } from '@aztec/stdlib/ha-signing';
 import type { ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
-import { validatorHASignerConfigMappings } from '@aztec/validator-ha-signer/config';
 
 export type { ValidatorClientConfig };
 
@@ -72,6 +72,10 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
   skipPushProposedBlocksToArchiver: {
     description: 'Skip pushing re-executed blocks to archiver (default: false)',
     defaultValue: false,
+  },
+  attestToEquivocatedProposals: {
+    description: 'Agree to attest to equivocated checkpoint proposals (for testing purposes only)',
+    ...booleanConfigHelper(false),
   },
   ...validatorHASignerConfigMappings,
 };

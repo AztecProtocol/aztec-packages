@@ -38,7 +38,7 @@
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">authwit</a>::<a href="index.html">auth</a></div>
 <h1>Function <span class="fn">assert_current_call_valid_authwit</span></h1>
 <pre><code>pub fn assert_current_call_valid_authwit&lt;let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
-    context: &mut <a href="../../../noir_aztec/context/private_context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
+    context: &mut <a href="../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
     on_behalf_of: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
 )</code></pre>
 
@@ -46,11 +46,11 @@
 <p>Assert that <code>on_behalf_of</code> has authorized the current call with a valid authentication witness</p>
 <p>Compute the <code>inner_hash</code> using the <code>msg_sender</code>, <code>selector</code> and <code>args_hash</code> and then make a call out to the
 <code>on_behalf_of</code> contract to verify that the <code>inner_hash</code> is valid.</p>
-<p>Additionally, this function emits the identifying information of the call as an offchain effect
-so PXE can rely the information to the user/wallet in a readable way. To that effect, it is generic over N,
-where N is the number of arguments the authorized functions takes. This is used to load the arguments
-from the execution cache. This function is intended to be called via a macro, which will use the turbofish
-operator to specify the number of arguments.</p>
+<p>Additionally, this function emits the identifying information of the call as an offchain effect so PXE can rely the
+information to the user/wallet in a readable way. To that effect, it is generic over N, where N is the number of
+arguments the authorized functions takes. This is used to load the arguments from the execution cache. This
+function is intended to be called via a macro, which will use the turbofish operator to specify the number of
+arguments.</p>
 <p>@param on_behalf_of The address that has allegedly authorized the current call</p>
 </div>
 </main>

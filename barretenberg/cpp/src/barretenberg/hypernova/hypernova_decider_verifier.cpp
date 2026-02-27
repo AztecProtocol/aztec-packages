@@ -44,8 +44,8 @@ HypernovaDeciderVerifier<Flavor>::PairingPoints HypernovaDeciderVerifier<Flavor>
         return pairing_points;
     } else {
         auto pairing_points = PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
-        // Native pairing points contain affine elements
-        return { typename Curve::AffineElement(pairing_points[0]), typename Curve::AffineElement(pairing_points[1]) };
+        return { typename Curve::AffineElement(pairing_points.P0()),
+                 typename Curve::AffineElement(pairing_points.P1()) };
     }
 };
 
