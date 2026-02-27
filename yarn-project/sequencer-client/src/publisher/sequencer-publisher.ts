@@ -30,6 +30,7 @@ import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { pick } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -126,6 +127,9 @@ export class SequencerPublisher {
   /** Address to use for simulations in fisherman mode (actual proposer's address) */
   private proposerAddressForSimulation?: EthAddress;
 
+  /** Optional callback to obtain a replacement publisher when the current one fails to send. */
+  private getNextPublisher?: (excludeAddresses: EthAddress[]) => Promise<L1TxUtils | undefined>;
+
   /** L1 fee analyzer for fisherman mode */
   private l1FeeAnalyzer?: L1FeeAnalyzer;
 
@@ -164,6 +168,7 @@ export class SequencerPublisher {
       metrics: SequencerPublisherMetrics;
       lastActions: Partial<Record<Action, SlotNumber>>;
       log?: Logger;
+      getNextPublisher?: (excludeAddresses: EthAddress[]) => Promise<L1TxUtils | undefined>;
     },
   ) {
     this.log = deps.log ?? createLogger('sequencer:publisher');
@@ -177,6 +182,7 @@ export class SequencerPublisher {
     this.metrics = deps.metrics ?? new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
     this.tracer = telemetry.getTracer('SequencerPublisher');
     this.l1TxUtils = deps.l1TxUtils;
+    this.getNextPublisher = deps.getNextPublisher;
 
     this.rollupContract = deps.rollupContract;
 
@@ -412,6 +418,55 @@ export class SequencerPublisher {
         );
       } catch (err) {
         this.log.warn(`Failed to record balance after sending tx: ${err}`);
+      }
+    }
+  }
+
+  /**
+   * Forwards transactions via Multicall3, rotating to the next available publisher if a send
+   * failure occurs (i.e. the tx never reached the chain).
+   * On-chain reverts and simulation errors are returned as-is without rotation.
+   */
+  private async forwardWithPublisherRotation(
+    validRequests: RequestWithExpiry[],
+    txConfig: RequestWithExpiry['gasConfig'],
+    blobConfig: L1BlobInputs | undefined,
+  ) {
+    const triedAddresses: EthAddress[] = [];
+    let currentPublisher = this.l1TxUtils;
+
+    while (true) {
+      triedAddresses.push(currentPublisher.getSenderAddress());
+      try {
+        const result = await Multicall3.forward(
+          validRequests.map(r => r.request),
+          currentPublisher,
+          txConfig,
+          blobConfig,
+          this.rollupContract.address,
+          this.log,
+        );
+        this.l1TxUtils = currentPublisher;
+        return result;
+      } catch (err) {
+        if (err instanceof TimeoutError) {
+          throw err;
+        }
+        const viemError = formatViemError(err);
+        if (!this.getNextPublisher) {
+          this.log.error('Failed to publish bundled transactions', viemError);
+          return undefined;
+        }
+        this.log.warn(
+          `Publisher ${currentPublisher.getSenderAddress()} failed to send, rotating to next publisher`,
+          viemError,
+        );
+        const nextPublisher = await this.getNextPublisher([...triedAddresses]);
+        if (!nextPublisher) {
+          this.log.error('All available publishers exhausted, failed to publish bundled transactions');
+          return undefined;
+        }
+        currentPublisher = nextPublisher;
       }
     }
   }
