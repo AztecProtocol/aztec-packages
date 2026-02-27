@@ -38,7 +38,7 @@ mod test {
 
     #[test(should_fail_with = "Function only_self_private can only be called by the same contract")]
     unconstrained fn only_self_private_function_fails_if_called_from_other_contract() {
-        let (mut env, caller, instance_address) = setup();
+        let (env, caller, instance_address) = setup();
         let instance = OnlySelf::at(instance_address);
 
         env.call_private(caller, instance.only_self_private());
@@ -46,7 +46,7 @@ mod test {
 
     #[test(should_fail_with = "Function only_self_public can only be called by the same contract")]
     unconstrained fn only_self_public_function_fails_if_called_from_other_contract() {
-        let (mut env, caller, instance_address) = setup();
+        let (env, caller, instance_address) = setup();
         let instance = OnlySelf::at(instance_address);
 
         env.call_public(caller, instance.only_self_public());
@@ -54,7 +54,7 @@ mod test {
 
     #[test]
     unconstrained fn only_self_private_function_succeeds_if_called_from_same_contract() {
-        let (mut env, caller, instance_address) = setup();
+        let (env, caller, instance_address) = setup();
         let instance = OnlySelf::at(instance_address);
 
         env.call_private(caller, instance.call_only_self_private());
@@ -62,7 +62,7 @@ mod test {
 
     #[test]
     unconstrained fn only_self_public_function_succeeds_if_called_from_same_contract() {
-        let (mut env, caller, instance_address) = setup();
+        let (env, caller, instance_address) = setup();
         let instance = OnlySelf::at(instance_address);
 
         env.call_public(caller, instance.call_only_self_public());

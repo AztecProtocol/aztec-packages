@@ -73,7 +73,7 @@ pub contract ContractClassRegistry {
 
         // Safety: We load the bytecode via a capsule, which is unconstrained. In order to ensure the loaded bytecode
         // matches the expected one, we recompute the commitment and assert it matches the one provided by the caller.
-        let mut packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] = unsafe {
+        let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] = unsafe {
             capsules::load(
                 context.this_address(),
                 CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
