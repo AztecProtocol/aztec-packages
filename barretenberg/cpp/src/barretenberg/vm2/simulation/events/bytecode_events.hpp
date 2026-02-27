@@ -19,7 +19,7 @@ struct BytecodeDecompositionEvent {
 
 struct BytecodeHashingEvent {
     BytecodeId bytecode_id = 0;
-    uint32_t bytecode_length = 0;
+    uint32_t bytecode_length_in_bytes = 0;
     std::vector<FF> bytecode_fields;
 };
 

@@ -2,6 +2,7 @@
 
 #include <utility>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
@@ -10,7 +11,7 @@ namespace bb::avm2::simulation {
 
 /**
  * @brief Verify that the given bytecode commitment matches the expected @p bytecode_id
- *        which is a Poseidon2 hash of the bytecode with some extra information.
+ *        which is a Poseidon2 hash of the bytecode with some metadata information.
  *
  * Encodes the bytecode as field elements, prepends a domain-separated length field,
  * and hashes via Poseidon2. Asserts the result matches the expected @p bytecode_id
@@ -24,7 +25,7 @@ void BytecodeHasher::assert_public_bytecode_commitment(const BytecodeId& bytecod
                                                        const std::vector<uint8_t>& bytecode)
 {
     BB_BENCH_NAME("BytecodeHasher::assert_public_bytecode_commitment");
-    auto bytecode_length_in_bytes = static_cast<uint32_t>(bytecode.size());
+    auto bytecode_length_in_bytes = bytecode.size();
 
     std::vector<FF> inputs = { compute_public_bytecode_first_field(bytecode_length_in_bytes) };
     auto bytecode_as_fields = encode_bytecode(bytecode);
@@ -35,7 +36,7 @@ void BytecodeHasher::assert_public_bytecode_commitment(const BytecodeId& bytecod
     BB_ASSERT_EQ(hash, bytecode_id, "Bytecode ID hash mismatch");
 
     events.emit({ .bytecode_id = bytecode_id,
-                  .bytecode_length = bytecode_length_in_bytes,
+                  .bytecode_length_in_bytes = static_cast<uint32_t>(bytecode_length_in_bytes),
                   .bytecode_fields = std::move(bytecode_as_fields) });
 }
 

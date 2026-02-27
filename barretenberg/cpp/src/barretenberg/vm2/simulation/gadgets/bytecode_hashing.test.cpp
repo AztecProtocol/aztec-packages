@@ -69,7 +69,7 @@ TEST_F(BytecodeHashingTest, SimpleHash)
     EXPECT_THAT(hashing_events.dump_events(),
                 AllOf(SizeIs(1),
                       ElementsAre(AllOf(Field(&BytecodeHashingEvent::bytecode_id, hash),
-                                        Field(&BytecodeHashingEvent::bytecode_length, 3069),
+                                        Field(&BytecodeHashingEvent::bytecode_length_in_bytes, 3069),
                                         Field(&BytecodeHashingEvent::bytecode_fields, SizeIs(99))))));
 }
 
@@ -89,7 +89,7 @@ TEST_F(BytecodeHashingTest, Hash)
     EXPECT_THAT(hashing_events.dump_events(),
                 AllOf(SizeIs(1),
                       ElementsAre(AllOf(Field(&BytecodeHashingEvent::bytecode_id, hash),
-                                        Field(&BytecodeHashingEvent::bytecode_length, 500),
+                                        Field(&BytecodeHashingEvent::bytecode_length_in_bytes, 500),
                                         Field(&BytecodeHashingEvent::bytecode_fields, bytecode_fields)))));
 }
 

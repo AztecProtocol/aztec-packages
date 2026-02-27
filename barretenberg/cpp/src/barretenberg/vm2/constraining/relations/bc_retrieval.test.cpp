@@ -117,7 +117,7 @@ TEST_F(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
     // Compute the bytecode commitment separately
     FF bytecode_commitment = RawPoseidon2::hash(hash_input);
     builder.process_hashing({ { .bytecode_id = bytecode_commitment,
-                                .bytecode_length = bytecode_size,
+                                .bytecode_length_in_bytes = bytecode_size,
                                 .bytecode_fields = bytecode_fields } },
                             trace);
     contract_instance_retrieval_builder.process({ {

@@ -645,7 +645,7 @@ TEST(BytecodeTraceGenTest, BasicHashing)
         {
             simulation::BytecodeHashingEvent{
                 .bytecode_id = 1,
-                .bytecode_length = 93,
+                .bytecode_length_in_bytes = 93,
                 .bytecode_fields = { 10, 20, 30 },
             },
         },

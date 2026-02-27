@@ -793,7 +793,7 @@ TEST(InstrFetchingConstrainingTest, NegativeTruncatedBytecodeRepro)
     bytecode_builder.process_instruction_fetching({ instr_event }, trace);
     bytecode_builder.process_hashing({ {
                                          .bytecode_id = hash,
-                                         .bytecode_length = static_cast<uint32_t>(trunc_bytecode.size()),
+                                         .bytecode_length_in_bytes = static_cast<uint32_t>(trunc_bytecode.size()),
                                          .bytecode_fields = trunc_fields,
                                      } },
                                      trace);

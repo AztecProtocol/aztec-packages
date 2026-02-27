@@ -191,7 +191,7 @@ void BytecodeTraceBuilder::process_hashing(
     for (const auto& event : events) {
         const auto id = event.bytecode_id;
         // Note that bytecode fields from the BytecodeHashingEvent do not contain the prepended field length | separator
-        std::vector<FF> fields = { simulation::compute_public_bytecode_first_field(event.bytecode_length) };
+        std::vector<FF> fields = { simulation::compute_public_bytecode_first_field(event.bytecode_length_in_bytes) };
         fields.reserve(1 + event.bytecode_fields.size());
         fields.insert(fields.end(), event.bytecode_fields.begin(), event.bytecode_fields.end());
         auto bytecode_field_at = [&fields](size_t i) -> FF { return i < fields.size() ? fields[i] : 0; };
@@ -212,7 +212,7 @@ void BytecodeTraceBuilder::process_hashing(
                           { C::bc_hashing_latch, end_of_bytecode },
                           { C::bc_hashing_bytecode_id, id },
                           { C::bc_hashing_size_in_bytes,
-                            event.bytecode_length }, // Note: only needs to be constrained at start
+                            event.bytecode_length_in_bytes }, // Note: only needs to be constrained at start
                           { C::bc_hashing_input_len, fields.size() },
                           { C::bc_hashing_rounds_rem, num_rounds },
                           { C::bc_hashing_pc_index, pc_index },

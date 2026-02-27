@@ -274,7 +274,7 @@ TEST_F(BytecodeHashingConstrainingTest, BytecodeInteractions)
     FF hash = RawPoseidon2::hash(prepended_fields);
 
     builder.process_hashing({ { .bytecode_id = hash,
-                                .bytecode_length = static_cast<uint32_t>(bytecode.size()),
+                                .bytecode_length_in_bytes = static_cast<uint32_t>(bytecode.size()),
                                 .bytecode_fields = fields } },
                             trace);
     builder.process_decomposition(
@@ -316,9 +316,10 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeInvalidStartAfterLatch)
     TestTraceContainer trace({
         { { C::precomputed_first_row, 1 } },
     });
-    builder.process_hashing({ { .bytecode_id = 1, .bytecode_length = 62, .bytecode_fields = random_fields(2) },
-                              { .bytecode_id = 2, .bytecode_length = 93, .bytecode_fields = random_fields(3) } },
-                            trace);
+    builder.process_hashing(
+        { { .bytecode_id = 1, .bytecode_length_in_bytes = 62, .bytecode_fields = random_fields(2) },
+          { .bytecode_id = 2, .bytecode_length_in_bytes = 93, .bytecode_fields = random_fields(3) } },
+        trace);
     check_relation<bc_hashing>(trace, bc_hashing::SR_START_AFTER_LATCH);
 
     // Row = 2 is the start of the hashing for bytecode id = 2
@@ -333,7 +334,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeInvalidPCIncrement)
     });
     builder.process_hashing(
         {
-            { .bytecode_id = 1, .bytecode_length = 124, .bytecode_fields = random_fields(4) },
+            { .bytecode_id = 1, .bytecode_length_in_bytes = 124, .bytecode_fields = random_fields(4) },
         },
         trace);
     check_relation<bc_hashing>(trace, bc_hashing::SR_PC_INCREMENTS);
@@ -354,7 +355,8 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeStartIsSeparator)
     TestTraceContainer trace({
         { { C::precomputed_first_row, 1 } },
     });
-    builder.process_hashing({ { .bytecode_id = 1, .bytecode_length = 62, .bytecode_fields = { 1, 2 } } }, trace);
+    builder.process_hashing({ { .bytecode_id = 1, .bytecode_length_in_bytes = 62, .bytecode_fields = { 1, 2 } } },
+                            trace);
     check_relation<bc_hashing>(trace, bc_hashing::SR_START_IS_FIRST_FIELD);
 
     // Row = 1 is the start of the hashing for bytecode id = 1
@@ -375,7 +377,8 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeBytecodeInteraction)
     prepended_fields.insert(prepended_fields.end(), fields.begin(), fields.end());
     FF hash = RawPoseidon2::hash(prepended_fields);
 
-    builder.process_hashing({ { .bytecode_id = hash, .bytecode_length = 150, .bytecode_fields = fields } }, trace);
+    builder.process_hashing({ { .bytecode_id = hash, .bytecode_length_in_bytes = 150, .bytecode_fields = fields } },
+                            trace);
     builder.process_decomposition(
         { { .bytecode_id = hash, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
     tracegen::MultiPermutationBuilder<perm_bc_hashing_get_packed_field_0_settings,
