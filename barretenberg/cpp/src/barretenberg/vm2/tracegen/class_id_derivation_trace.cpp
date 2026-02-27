@@ -19,7 +19,7 @@ namespace bb::avm2::tracegen {
  *  to constrain correctness of the class id, given as:
  *      Poseidon2(DOM_SEP__CONTRACT_CLASS_ID, artifact_hash, private_functions_root, public_bytecode_commitment)
  *
- * @param events The container of class id derivation events events to process.
+ * @param events The container of class id derivation events to process.
  * @param trace The trace container.
  */
 void ClassIdDerivationTraceBuilder::process(

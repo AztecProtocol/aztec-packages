@@ -36,9 +36,10 @@ include "../precomputed.pil";
  *             already been processed i.e. when two contract instances share a class and both their IDs are
  *             derived, only one event is emitted.
  *
- * INTERACTIONS:                                                  --> precomputed.pil
- *  execution.pil --> instr_fetching.pil --> bc_decomposition.pil <-> bc_hashing.pil
- *                --> bc_retrieval.pil --> class_id_derivation.pil --> poseidon2_hash.pil
+ * INTERACTIONS:
+ *  execution.pil --> bc_retrieval.pil --> class_id_derivation.pil --> poseidon2_hash.pil
+ *                --> instr_fetching.pil --> bc_decomposition.pil <-> bc_hashing.pil
+ *                                                                --> precomputed.pil
  *
  * This subtrace is looked up by:
  * - bc_retrieval.pil: To verify the stored class ID against the derived hash (#[CLASS_ID_DERIVATION]).
@@ -75,7 +76,10 @@ namespace class_id_derivation;
     pol commit artifact_hash;
     pol commit private_functions_root;
     // The public bytecode commitment (= bytecode_id).
-    // Note: This is constrained in bc_hashing <-> bc_decomposition <- instr_fetching (#[BYTES_FROM_BC_DEC]).
+    // Note: This is constrained by the interactions: bc_hashing <-> bc_decomposition <- instr_fetching (#[BYTES_FROM_BC_DEC]).
+    //  bc_hashing enforces that the bytes corresponding to some bytecode_id (=public_bytecode_commitment) indeed commit to that value.
+    //  bc_decomposition contains the bytes accessed by bc_hashing, and is itself accessed by instr_fetching.
+    //  execution ensures that the bytecode_id above is the same value used in bc_retrieval and hence here.
     pol commit public_bytecode_commitment;
 
     ///////////////////////////////
