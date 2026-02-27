@@ -5,6 +5,7 @@ import {
   TallySlashingProposerContract,
 } from '@aztec/ethereum/contracts';
 import type { ViemClient } from '@aztec/ethereum/types';
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -31,7 +32,7 @@ export async function createSlasherImplementation(
   epochCache: EpochCache,
   dateProvider: DateProvider,
   kvStore: AztecLMDBStoreV2,
-  canonicalRollupRegisteredAtL2Slot: number,
+  rollupRegisteredAtL2Slot: SlotNumber,
   logger = createLogger('slasher'),
 ) {
   const proposer = await rollup.getSlashingProposer();
@@ -46,7 +47,7 @@ export async function createSlasherImplementation(
       dateProvider,
       epochCache,
       kvStore,
-      canonicalRollupRegisteredAtL2Slot,
+      rollupRegisteredAtL2Slot,
       logger,
     );
   } else {
@@ -62,7 +63,7 @@ export async function createSlasherImplementation(
       watchers,
       dateProvider,
       kvStore,
-      canonicalRollupRegisteredAtL2Slot,
+      rollupRegisteredAtL2Slot,
       logger,
     );
   }
@@ -76,7 +77,7 @@ async function createEmpireSlasher(
   watchers: Watcher[],
   dateProvider: DateProvider,
   kvStore: AztecLMDBStoreV2,
-  canonicalRollupRegisteredAtL2Slot: number,
+  rollupRegisteredAtL2Slot: SlotNumber,
   logger = createLogger('slasher'),
 ): Promise<EmpireSlasherClient> {
   if (slashingProposer.type !== 'empire') {
@@ -119,7 +120,7 @@ async function createEmpireSlasher(
     l1StartBlock,
     ethereumSlotDuration: config.ethereumSlotDuration,
     slashingAmounts: undefined,
-    canonicalRollupRegisteredAtL2Slot,
+    rollupRegisteredAtL2Slot,
   };
 
   const payloadsStore = new SlasherPayloadsStore(kvStore, {
@@ -153,14 +154,14 @@ async function createTallySlasher(
   dateProvider: DateProvider,
   epochCache: EpochCache,
   kvStore: AztecLMDBStoreV2,
-  canonicalRollupRegisteredAtL2Slot: number,
+  rollupRegisteredAtL2Slot: SlotNumber,
   logger = createLogger('slasher'),
 ): Promise<TallySlasherClient> {
   if (slashingProposer.type !== 'tally') {
     throw new Error('Slashing proposer contract is not of type tally');
   }
 
-  const settings = { ...(await getTallySlasherSettings(rollup, slashingProposer)), canonicalRollupRegisteredAtL2Slot };
+  const settings = { ...(await getTallySlasherSettings(rollup, slashingProposer)), rollupRegisteredAtL2Slot };
   const slasher = await rollup.getSlasherContract();
 
   const offensesStore = new SlasherOffensesStore(kvStore, {

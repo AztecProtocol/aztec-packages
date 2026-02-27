@@ -134,19 +134,28 @@ export class RegistryContract {
     rollupAddress: EthAddress,
     fromBlock?: bigint,
   ): Promise<bigint | undefined> {
-    const logs = await this.client.getLogs({
-      address: this.address.toString(),
-      fromBlock: fromBlock ?? 0n,
-      strict: true,
-      event: getAbiItem({ abi: RegistryAbi, name: 'CanonicalRollupUpdated' }),
-      args: { instance: rollupAddress.toString() },
-    });
+    const event = getAbiItem({ abi: RegistryAbi, name: 'CanonicalRollupUpdated' });
+    const start = fromBlock ?? 0n;
+    const latestBlock = await this.client.getBlockNumber();
+    const chunkSize = 1_000n;
 
-    if (logs.length === 0) {
-      return undefined;
+    for (let from = start; from <= latestBlock; from += chunkSize) {
+      const to = from + chunkSize - 1n > latestBlock ? latestBlock : from + chunkSize - 1n;
+      const logs = await this.client.getLogs({
+        address: this.address.toString(),
+        fromBlock: from,
+        toBlock: to,
+        strict: true,
+        event,
+        args: { instance: rollupAddress.toString() },
+      });
+
+      if (logs.length > 0) {
+        const block = await this.client.getBlock({ blockNumber: logs[0].blockNumber });
+        return block.timestamp;
+      }
     }
 
-    const block = await this.client.getBlock({ blockNumber: logs[0].blockNumber });
-    return block.timestamp;
+    return undefined;
   }
 }

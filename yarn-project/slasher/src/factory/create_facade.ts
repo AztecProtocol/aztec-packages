@@ -2,6 +2,7 @@ import { EpochCache } from '@aztec/epoch-cache';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ReaderConfig } from '@aztec/ethereum/l1-reader';
 import type { ViemClient } from '@aztec/ethereum/types';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { unique } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -38,9 +39,9 @@ export async function createSlasherFacade(
   // Compute and cache the L2 slot at which the rollup was registered as canonical
   const settingsMap = kvStore.openMap<string, number>('slasher-settings');
   const cacheKey = `registeredSlot:${l1Contracts.rollupAddress}`;
-  let canonicalRollupRegisteredAtL2Slot = await settingsMap.getAsync(cacheKey);
+  let rollupRegisteredAtL2Slot = (await settingsMap.getAsync(cacheKey)) as SlotNumber | undefined;
 
-  if (canonicalRollupRegisteredAtL2Slot === undefined) {
+  if (rollupRegisteredAtL2Slot === undefined) {
     const registry = new RegistryContract(l1Client, l1Contracts.registryAddress);
     const l1StartBlock = await rollup.getL1StartBlock();
     const registrationTimestamp = await registry.getCanonicalRollupRegistrationTimestamp(
@@ -50,14 +51,15 @@ export async function createSlasherFacade(
     if (registrationTimestamp !== undefined) {
       const l1GenesisTime = await rollup.getL1GenesisTime();
       const slotDuration = await rollup.getSlotDuration();
-      canonicalRollupRegisteredAtL2Slot = Number(
-        getSlotAtTimestamp(registrationTimestamp, { l1GenesisTime, slotDuration: Number(slotDuration) }),
-      );
+      rollupRegisteredAtL2Slot = getSlotAtTimestamp(registrationTimestamp, {
+        l1GenesisTime,
+        slotDuration: Number(slotDuration),
+      });
     } else {
-      canonicalRollupRegisteredAtL2Slot = 0; // Fallback: no event found (e.g. test environments)
+      rollupRegisteredAtL2Slot = SlotNumber(0);
     }
-    await settingsMap.set(cacheKey, canonicalRollupRegisteredAtL2Slot);
-    logger.info(`Canonical rollup registered at L2 slot ${canonicalRollupRegisteredAtL2Slot}`);
+    await settingsMap.set(cacheKey, rollupRegisteredAtL2Slot);
+    logger.info(`Canonical rollup registered at L2 slot ${rollupRegisteredAtL2Slot}`);
   }
 
   const slashValidatorsNever = config.slashSelfAllowed
@@ -74,7 +76,7 @@ export async function createSlasherFacade(
     epochCache,
     dateProvider,
     kvStore,
-    canonicalRollupRegisteredAtL2Slot,
+    rollupRegisteredAtL2Slot,
     logger,
   );
 }

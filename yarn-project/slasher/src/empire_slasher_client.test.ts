@@ -50,7 +50,7 @@ describe('EmpireSlasherClient', () => {
     slotDuration: 4,
     ethereumSlotDuration: 12,
     slashingAmounts: undefined,
-    canonicalRollupRegisteredAtL2Slot: 0,
+    rollupRegisteredAtL2Slot: SlotNumber(0),
   };
 
   const config: SlasherConfig = {

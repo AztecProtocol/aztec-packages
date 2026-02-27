@@ -1,3 +1,4 @@
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -18,7 +19,7 @@ describe('SlashOffensesCollector', () => {
   const settings: SlashOffensesCollectorSettings = {
     epochDuration: 32,
     slashingAmounts: [100n, 200n, 300n],
-    canonicalRollupRegisteredAtL2Slot: 100,
+    rollupRegisteredAtL2Slot: 100 as SlotNumber,
   };
 
   const config: SlasherConfig = {

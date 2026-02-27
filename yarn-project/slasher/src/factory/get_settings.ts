@@ -5,7 +5,7 @@ import type { TallySlasherSettings } from '../tally_slasher_client.js';
 export async function getTallySlasherSettings(
   rollup: RollupContract,
   slashingProposer?: TallySlashingProposerContract,
-): Promise<Omit<TallySlasherSettings, 'canonicalRollupRegisteredAtL2Slot'>> {
+): Promise<Omit<TallySlasherSettings, 'rollupRegisteredAtL2Slot'>> {
   if (!slashingProposer) {
     const rollupSlashingProposer = await rollup.getSlashingProposer();
     if (!rollupSlashingProposer || rollupSlashingProposer.type !== 'tally') {
@@ -40,7 +40,7 @@ export async function getTallySlasherSettings(
     rollup.getTargetCommitteeSize(),
   ]);
 
-  const settings: Omit<TallySlasherSettings, 'canonicalRollupRegisteredAtL2Slot'> = {
+  const settings: Omit<TallySlasherSettings, 'rollupRegisteredAtL2Slot'> = {
     slashingExecutionDelayInRounds: Number(slashingExecutionDelayInRounds),
     slashingRoundSize: Number(slashingRoundSize),
     slashingRoundSizeInEpochs: Number(slashingRoundSizeInEpochs),
