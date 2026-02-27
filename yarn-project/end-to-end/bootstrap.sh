@@ -117,9 +117,9 @@ function bench_cmds {
   done
   echo "$hash:ISOLATE=1:NET=1:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_browser_memory.sh ../../yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc"
 
-  # UltraHonk circuit benchmarks at different CPU counts
+  # UltraHonk circuit benchmarks at different CPU counts (run serially for cache/bandwidth isolation)
   for cpus in 8 16 32; do
-    echo "$hash:CPUS=$cpus barretenberg/cpp/scripts/ci_benchmark_ultrahonk_circuits.sh parity_base ../../yarn-project/end-to-end/$ultrahonk_bench_dir $cpus"
+    echo "$hash:CPUS=$cpus:PARALLEL=0 barretenberg/cpp/scripts/ci_benchmark_ultrahonk_circuits.sh parity_base ../../yarn-project/end-to-end/$ultrahonk_bench_dir $cpus"
   done
 }
 
