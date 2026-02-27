@@ -109,7 +109,7 @@ describe('LightweightCheckpointBuilder', () => {
 
       // Build empty block
       const globalVariables = makeGlobalVariables(blockNumber, slotNumber);
-      const block = await checkpointBuilder.addBlock(globalVariables, [], { insertTxsEffects: true });
+      const { block } = await checkpointBuilder.addBlock(globalVariables, [], { insertTxsEffects: true });
 
       expect(block.header.globalVariables.blockNumber).toEqual(blockNumber);
 
@@ -155,7 +155,7 @@ describe('LightweightCheckpointBuilder', () => {
       tx.txEffect.l2ToL1Msgs.push(...msgs);
 
       // Build block with tx - insertTxsEffects will handle inserting side effects
-      const block = await checkpointBuilder.addBlock(globalVariables, [tx], {
+      const { block } = await checkpointBuilder.addBlock(globalVariables, [tx], {
         insertTxsEffects: true,
       });
 
@@ -202,7 +202,7 @@ describe('LightweightCheckpointBuilder', () => {
       const txs = await timesAsync(3, i => makeProcessedTx(globalVariables, 1000 + i));
 
       // Build block with txs - insertTxsEffects will handle inserting side effects
-      const block = await checkpointBuilder.addBlock(globalVariables, txs, {
+      const { block } = await checkpointBuilder.addBlock(globalVariables, txs, {
         insertTxsEffects: true,
       });
 
@@ -248,7 +248,7 @@ describe('LightweightCheckpointBuilder', () => {
         const txs = await timesAsync(txsPerBlock, j => makeProcessedTx(globalVariables, 2000 + i * 10 + j));
 
         // Build block - insertTxsEffects will handle inserting side effects
-        const block = await checkpointBuilder.addBlock(globalVariables, txs, {
+        const { block } = await checkpointBuilder.addBlock(globalVariables, txs, {
           insertTxsEffects: true,
         });
 

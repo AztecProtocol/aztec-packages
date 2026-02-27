@@ -1,6 +1,6 @@
 # @aztec/entrypoints
 
-Version: v3.0.0-devnet.6-patch.1
+Version: v4.0.0-devnet.2-patch.1
 
 ## Quick Import Reference
 
@@ -12,7 +12,7 @@ import {
   EncodedAppEntrypointCalls,
   encode,
   // ... and more
-} from '@aztec/entrypoints';
+} from "@aztec/entrypoints";
 ```
 
 ## Classes
@@ -23,12 +23,15 @@ Implementation for an entrypoint interface that follows the default entrypoint s
 Implements: `EntrypointInterface`
 
 **Constructor**
+
 ```typescript
-new DefaultAccountEntrypoint(address: AztecAddress, auth: AuthWitnessProvider, chainId?: number, version?: number)
+new DefaultAccountEntrypoint(address: AztecAddress, auth: AuthWitnessProvider)
 ```
 
 **Methods**
-- `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, options: DefaultAccountEntrypointOptions) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
+
+- `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, chainInfo: ChainInfo, options: DefaultAccountEntrypointOptions) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
+- `wrapExecutionPayload(exec: ExecutionPayload, options: DefaultAccountEntrypointOptions) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed _via_ this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
 
 ### DefaultEntrypoint
 
@@ -36,12 +39,15 @@ Default implementation of the entrypoint interface. It calls a function on a con
 Implements: `EntrypointInterface`
 
 **Constructor**
+
 ```typescript
-new DefaultEntrypoint(chainId: number, rollupVersion: number)
+new DefaultEntrypoint();
 ```
 
 **Methods**
-- `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
+
+- `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, chainInfo: ChainInfo) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
+- `wrapExecutionPayload(exec: ExecutionPayload, _options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed _via_ this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
 
 ### DefaultMultiCallEntrypoint
 
@@ -49,12 +55,15 @@ Implementation for an entrypoint interface that can execute multiple function ca
 Implements: `EntrypointInterface`
 
 **Constructor**
+
 ```typescript
-new DefaultMultiCallEntrypoint(chainId: number, version: number, address?: AztecAddress)
+new DefaultMultiCallEntrypoint(address: AztecAddress)
 ```
 
 **Methods**
-- `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
+
+- `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, chainInfo: ChainInfo) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
+- `wrapExecutionPayload(exec: ExecutionPayload, _options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed _via_ this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
 
 ### EncodedAppEntrypointCalls
 
@@ -62,18 +71,21 @@ Entrypoints derive their arguments from the calls that they'll ultimate make. Th
 Implements: `EncodedCalls`
 
 **Constructor**
+
 ```typescript
-new EncodedAppEntrypointCalls(encodedFunctionCalls: EncodedFunctionCall[], hashedArguments: HashedValues[], generatorIndex: number, tx_nonce: Fr)
+new EncodedAppEntrypointCalls(encodedFunctionCalls: EncodedFunctionCall[], hashedArguments: HashedValues[], domainSeparator: number, tx_nonce: Fr)
 ```
 
 **Properties**
+
+- `domainSeparator: number` - The index of the generator to use for hashing
 - `encodedFunctionCalls: EncodedFunctionCall[]` - Function calls in the expected format (Noir's convention)
-- `generatorIndex: number`
 - `hashedArguments: HashedValues[]` - The hashed args for the call, ready to be injected in the execution cache
-- `tx_nonce: Fr`
+- `tx_nonce: Fr` - A nonce to inject into the payload of the transaction. When used with cancellable=true, this nonce will be used to compute a nullifier that allows cancelling this transaction by submitting a new one with the same nonce but higher fee. The nullifier ensures only one transaction can succeed.
 
 **Methods**
-- `static create(functionCalls: FunctionCall[] | [], txNonce?: Fr) => Promise<EncodedAppEntrypointCalls>` - Encodes the functions for the app-portion of a transaction from a set of function calls and a nonce
+
+- `static create(functionCalls: FunctionCall[] | [], txNonce: Fr) => Promise<EncodedAppEntrypointCalls>` - Encodes the functions for the app-portion of a transaction from a set of function calls and a nonce
 - `functionCallsToFields() => Fr[]` - Serializes the function calls to an array of fields.
 - `hash() => Promise<Fr>` - Hashes the payload
 - `toFields() => Fr[]` - Serializes the payload to an array of fields
@@ -85,64 +97,72 @@ new EncodedAppEntrypointCalls(encodedFunctionCalls: EncodedFunctionCall[], hashe
 Creates authorization witnesses.
 
 **Methods**
-- `createAuthWit(messageHash: Fr | Buffer) => Promise<AuthWitness>` - Computes an authentication witness from either a message hash
+
+- `createAuthWit(messageHash: Fr | Buffer<ArrayBufferLike>) => Promise<AuthWitness>` - Computes an authentication witness from either a message hash
 
 ### EntrypointInterface
 
 Creates transaction execution requests out of a set of function calls, a fee payment method and general options for the transaction
 
 **Methods**
-- `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, options?: any) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
+
+- `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, chainInfo: ChainInfo, options?: any) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
+- `wrapExecutionPayload(exec: ExecutionPayload, options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed _via_ this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
 
 ## Functions
 
 ### encode
+
 ```typescript
 function encode(calls: FunctionCall[]) => Promise<EncodedCalls>
 ```
+
 Encodes FunctionCalls for execution, following Noir's convention
 
 ## Types
 
-### ChainInfo
+### APP_MAX_CALLS
+
 ```typescript
-type ChainInfo = { chainId: Fr; version: Fr }
+type APP_MAX_CALLS = 5;
 ```
+
+### ChainInfo
+
+```typescript
+type ChainInfo = unknown;
+```
+
 Information on the connected chain. Used by wallets when constructing transactions to protect against replay attacks.
 
-### DEFAULT_CHAIN_ID
-```typescript
-type DEFAULT_CHAIN_ID = 31337
-```
-Default L1 chain ID to use when constructing txs (matches hardhat and anvil's default).
-
-### DEFAULT_VERSION
-```typescript
-type DEFAULT_VERSION = 1
-```
-Default protocol version to use.
-
 ### DefaultAccountEntrypointOptions
+
 ```typescript
-type DefaultAccountEntrypointOptions = { cancellable?: boolean; feePaymentMethodOptions: AccountFeePaymentMethodOptions; txNonce?: Fr }
+type DefaultAccountEntrypointOptions = unknown;
 ```
+
 General options for the tx execution.
 
 ### EncodedCalls
+
 ```typescript
-type EncodedCalls = { encodedFunctionCalls: EncodedFunctionCall[]; hashedArguments: HashedValues[] }
+type EncodedCalls = unknown;
 ```
+
 Type that represents function calls ready to be sent to a circuit for execution
 
 ### EncodedFunctionCall
+
 ```typescript
-type EncodedFunctionCall = { args_hash: Fr; function_selector: Fr; ... }
+type EncodedFunctionCall = unknown;
 ```
+
 Encoded function call for an Aztec entrypoint
 
 ## Enums
 
 ### AccountFeePaymentMethodOptions
+
 The mechanism via which an account contract will pay for a transaction in which it gets invoked.
 
 Values: `0`, `2`, `1`
@@ -152,7 +172,9 @@ Values: `0`, `2`, `1`
 This package references types from other Aztec packages:
 
 **@aztec/foundation**
+
 - `Fr`
 
 **@aztec/stdlib**
+
 - `AuthWitness`, `AztecAddress`, `ExecutionPayload`, `FunctionCall`, `GasSettings`, `HashedValues`, `TxExecutionRequest`

@@ -30,7 +30,7 @@ import {
   toSingle,
 } from './util/encoding.js';
 
-const MAX_EVENT_LEN = 12; // This is MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_RESERVED_FIELDS
+const MAX_EVENT_LEN = 10; // This is MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN
 const MAX_PRIVATE_EVENTS_PER_TXE_QUERY = 5;
 
 export class UnavailableOracleError extends Error {
@@ -284,6 +284,13 @@ export class RPCTranslator {
     const selector = EventSelector.fromField(fromSingle(foreignSelector));
     const contractAddress = addressFromSingle(foreignContractAddress);
     const scope = addressFromSingle(foreignScope);
+
+    // TODO(F-335): Avoid doing the following 2 calls here.
+    {
+      await this.handlerAsTxe().syncContractNonOracleMethod(contractAddress, scope, this.stateHandler.getCurrentJob());
+      // We cycle job to commit the stores after the contract sync.
+      await this.stateHandler.cycleJob();
+    }
 
     const events = await this.handlerAsTxe().txeGetPrivateEvents(selector, contractAddress, scope);
 
@@ -1038,8 +1045,11 @@ export class RPCTranslator {
       args,
       argsHash,
       isStaticCall,
+      this.stateHandler.getCurrentJob(),
     );
 
+    // TODO(F-335): Avoid doing the following call here.
+    await this.stateHandler.cycleJob();
     return toForeignCallResult([toArray(returnValues)]);
   }
 
@@ -1056,8 +1066,11 @@ export class RPCTranslator {
       targetContractAddress,
       functionSelector,
       args,
+      this.stateHandler.getCurrentJob(),
     );
 
+    // TODO(F-335): Avoid doing the following call here.
+    await this.stateHandler.cycleJob();
     return toForeignCallResult([toArray(returnValues)]);
   }
 
@@ -1074,6 +1087,8 @@ export class RPCTranslator {
 
     const returnValues = await this.handlerAsTxe().txePublicCallNewFlow(from, address, calldata, isStaticCall);
 
+    // TODO(F-335): Avoid doing the following call here.
+    await this.stateHandler.cycleJob();
     return toForeignCallResult([toArray(returnValues)]);
   }
 

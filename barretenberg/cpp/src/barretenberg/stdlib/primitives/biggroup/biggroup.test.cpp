@@ -68,6 +68,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     static constexpr auto EXPECT_CIRCUIT_CORRECTNESS = [](Builder& builder, bool expected_result = true) {
         info("num gates = ", builder.get_num_finalized_gates_inefficient());
         EXPECT_EQ(CircuitChecker::check(builder), expected_result);
+        EXPECT_EQ(builder.failed(), !expected_result);
     };
 
     // Helper to check the infinity status of a circuit element.
@@ -227,11 +228,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         affine_element input_death(element::random_element());
         auto x_death = element_ct::BaseField::from_witness(&builder, input_death.x);
         auto y_normal = element_ct::BaseField::from_witness(&builder, input_death.y);
-        auto pif_normal = bool_ct(witness_ct(&builder, false));
         x_death.set_origin_tag(instant_death_tag);
         y_normal.set_origin_tag(constant_tag);
-        pif_normal.set_origin_tag(constant_tag);
-        element_ct death_point(x_death, y_normal, pif_normal, /*assert_on_curve=*/false);
+        element_ct death_point(x_death, y_normal, /*assert_on_curve=*/false);
         EXPECT_THROW(death_point + death_point, std::runtime_error);
 
         // AUDITTODO: incomplete_assert_equal has inconsistent instant_death behavior between builders. (this was simply
@@ -2395,6 +2394,49 @@ using TestTypes = testing::Types<bn254_with_ultra,
                                  secp256k1_with_ultra>;
 
 TYPED_TEST_SUITE(stdlib_biggroup, TestTypes);
+
+TYPED_TEST(stdlib_biggroup, validate_on_curve)
+{
+    BB_DISABLE_ASSERTS();
+    // Goblin points do not implement validate on curve
+    if constexpr (!HasGoblinBuilder<TypeParam>) {
+        using Builder = TestFixture::Builder;
+        using element_ct = TestFixture::element_ct;
+        using Fq = TestFixture::Curve::BaseField;
+        using FqNative = TestFixture::Curve::BaseFieldNative;
+        using GroupNative = TestFixture::Curve::GroupNative;
+
+        Builder builder;
+        auto [native_point, witness_point] = TestFixture::get_random_witness_point(&builder);
+
+        // Valid point
+        Fq expected_zero = witness_point.validate_on_curve("biggroup::validate_on_curve", false);
+        expected_zero.assert_equal(Fq::zero());
+        EXPECT_EQ(expected_zero.get_value(), static_cast<uint512_t>(FqNative::zero()));
+
+        // Invalid point
+        Fq random_x = Fq::from_witness(&builder, FqNative::random_element());
+        Fq random_y = Fq::from_witness(&builder, FqNative::random_element());
+        element_ct invalid_point(random_x, random_y, /*assert_on_curve*/ false);
+        Fq expected_non_zero = invalid_point.validate_on_curve("biggroup::validate_on_curve", false);
+        Fq expected_value = -random_y.sqr() + random_x.pow(3) + Fq(uint256_t(GroupNative::curve_b));
+        if constexpr (GroupNative::has_a) {
+            expected_value += random_x * Fq(uint256_t(GroupNative::curve_a));
+        }
+        expected_non_zero.assert_equal(expected_value);
+
+        // Reduce the value to remove constants
+        expected_non_zero.self_reduce();
+        expected_value.self_reduce();
+        EXPECT_EQ(expected_non_zero.get_value(), expected_value.get_value());
+
+        TestFixture::EXPECT_CIRCUIT_CORRECTNESS(builder);
+
+        // Check that the circuit fails if validate_on_curve is called with default parameters
+        [[maybe_unused]] Fq _ = invalid_point.validate_on_curve();
+        TestFixture::EXPECT_CIRCUIT_CORRECTNESS(builder, false);
+    }
+}
 
 TYPED_TEST(stdlib_biggroup, basic_tag_logic)
 {

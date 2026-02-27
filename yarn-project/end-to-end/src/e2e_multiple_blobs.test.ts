@@ -7,8 +7,6 @@ import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
 import { FIELDS_PER_BLOB } from '@aztec/constants';
-import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
-import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 import { AvmGadgetsTestContract } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -45,16 +43,15 @@ describe('e2e_multiple_blobs', () => {
 
   it('includes multiple txs in a block that produces multiple blobs', async () => {
     // Increase the minimum number of txs per block so that all txs will be mined in the same block.
-    const TX_COUNT = 5;
+    const TX_COUNT = 3;
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: TX_COUNT });
 
     const provenTxs = [
-      // 4 contract deployment tx.
+      // 2 contract deployment txs.
       await publishContractClass(wallet, AvmTestContract.artifact),
       await publishContractClass(wallet, AvmGadgetsTestContract.artifact),
-      await publishContractClass(wallet, PrivateTokenContract.artifact),
-      await publishContractClass(wallet, TokenBlacklistContract.artifact),
       // 1 tx to emit note hash, nullifier, l2_to_l1_message, private log and public log.
+      // This tx alone will produce more than one blob's worth of data.
       new BatchCall(wallet, [
         contract.methods.call_create_note(123n, await AztecAddress.random(), Fr.random(), false),
         contract.methods.emit_nullifier(Fr.random()),
@@ -64,7 +61,7 @@ describe('e2e_multiple_blobs', () => {
           defaultAccountAddress,
           true,
         ),
-        contract.methods.emit_public(Fr.random()),
+        contract.methods.emit_full_size_public_log(Fr.random()),
       ]),
     ];
 

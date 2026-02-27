@@ -1,6 +1,9 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CheckpointData } from '@aztec/stdlib/checkpoint';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import {
   Attributes,
   type Gauge,
@@ -37,6 +40,8 @@ export class ArchiverInstrumentation {
   private syncMessageCount: UpDownCounter;
 
   private blockProposalTxTargetCount: UpDownCounter;
+
+  private checkpointL1InclusionDelay: Histogram;
 
   private log = createLogger('archiver:instrumentation');
 
@@ -84,6 +89,8 @@ export class ArchiverInstrumentation {
         [Attributes.L1_BLOCK_PROPOSAL_USED_TRACE]: [true, false],
       },
     );
+
+    this.checkpointL1InclusionDelay = meter.createHistogram(Metrics.ARCHIVER_CHECKPOINT_L1_INCLUSION_DELAY);
 
     this.dbMetrics = new LmdbMetrics(
       meter,
@@ -160,5 +167,18 @@ export class ArchiverInstrumentation {
       [Attributes.L1_BLOCK_PROPOSAL_TX_TARGET]: target.toLowerCase(),
       [Attributes.L1_BLOCK_PROPOSAL_USED_TRACE]: usedTrace,
     });
+  }
+
+  /**
+   * Records L1 inclusion timing for a checkpoint observed on L1 (seconds into the L2 slot).
+   */
+  public processCheckpointL1Timing(data: {
+    slotNumber: SlotNumber;
+    l1Timestamp: bigint;
+    l1Constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'>;
+  }): void {
+    const slotStartTs = getTimestampForSlot(data.slotNumber, data.l1Constants);
+    const inclusionDelaySeconds = Number(data.l1Timestamp - slotStartTs);
+    this.checkpointL1InclusionDelay.record(inclusionDelaySeconds);
   }
 }

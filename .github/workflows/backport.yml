@@ -84,9 +84,10 @@ jobs:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           TARGET_BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
+          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           gh pr comment "${{ github.event.pull_request.number }}" --body \
-            "❌ Failed to cherry-pick to \`$TARGET_BRANCH\` due to conflicts. Please backport manually."
+            "❌ Failed to cherry-pick to \`$TARGET_BRANCH\` due to conflicts. Dispatching ClaudeBox to resolve. [View backport run]($WORKFLOW_URL)."
 
       - name: Notify Slack on backport failure
         if: steps.backport.outcome == 'failure'
@@ -95,17 +96,45 @@ jobs:
         run: |
           PR_NUMBER="${{ github.event.pull_request.number }}"
           PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
           TARGET_BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
           WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          data=$(cat <<EOF
-          {
-            "channel": "#team-alpha",
-            "text": "⚠️ Automatic backport failed\n• PR #$PR_NUMBER - $PR_TITLE\n• Target: $TARGET_BRANCH\n• Reason: Cherry-pick conflicts\n\nAction needed: Manual backport required\n<$WORKFLOW_URL|View Run>"
-          }
-          EOF
-          )
-          curl -X POST https://slack.com/api/chat.postMessage \
+          TEXT=$(printf '⚠️ Automatic backport failed\n• <%s|#%s %s>\n• Target: `%s`\n• <%s|View Run>' \
+            "$PR_URL" "$PR_NUMBER" "$PR_TITLE" "$TARGET_BRANCH" "$WORKFLOW_URL")
+          RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-type: application/json" \
-            --data "$data"
+            -d "$(jq -n --arg c "#backports" --arg t "$TEXT" '{channel:$c, text:$t}')")
+          echo "Slack response: $RESP"
+
+      - name: Dispatch ClaudeBox to resolve conflicts
+        if: steps.backport.outcome == 'failure'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          PR="${{ github.event.pull_request.number }}"
+          TITLE="${{ github.event.pull_request.title }}"
+          URL="${{ github.event.pull_request.html_url }}"
+          BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
+
+          # Post to #backports, derive permalink from response
+          TEXT=$(printf '⚠️ Backport failed: <%s|#%s %s> → `%s`. Dispatching ClaudeBox…' \
+            "$URL" "$PR" "$TITLE" "$BRANCH")
+          RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-type: application/json" \
+            -d "$(jq -n --arg c "#backports" --arg t "$TEXT" '{channel:$c, text:$t}')")
+          echo "Slack response: $RESP"
+          TS=$(echo "$RESP" | jq -r '.ts // empty')
+          CHANNEL_ID=$(echo "$RESP" | jq -r '.channel // empty')
+
+          LINK=""
+          if [[ -n "$TS" && -n "$CHANNEL_ID" ]]; then
+            LINK="https://aztecprotocol.slack.com/archives/$CHANNEL_ID/p${TS//./}"
+          fi
+
+          gh workflow run claudebox.yml \
+            -f prompt="Backport PR #$PR ($TITLE) to $BRANCH. The automatic cherry-pick failed due to conflicts. Follow the backport skill (.claude/skills/backport/SKILL.md) to resolve conflicts and create a PR targeting $BRANCH." \
+            -f link="${LINK:-$URL}"

@@ -21,7 +21,7 @@ describe('getAllPrivateLogsByTags', () => {
 
   beforeAll(async () => {
     tags = await Promise.all(
-      [1, 2, 3].map(async () => SiloedTag.compute(new Tag(Fr.random()), await AztecAddress.random())),
+      [1, 2, 3].map(async () => SiloedTag.computeFromTagAndApp(new Tag(Fr.random()), await AztecAddress.random())),
     );
   });
 

@@ -193,8 +193,8 @@ spec:
         {{- if .Values.node.adminApiKeyHash }}
         - name: AZTEC_ADMIN_API_KEY_HASH
           value: {{ .Values.node.adminApiKeyHash | quote }}
-        {{- else if .Values.node.noAdminApiKey }}
-        - name: AZTEC_NO_ADMIN_API_KEY
+        {{- else if .Values.node.disableAdminApiKey }}
+        - name: AZTEC_DISABLE_ADMIN_API_KEY
           value: "true"
         {{- end }}
         - name: LOG_LEVEL
@@ -287,9 +287,9 @@ spec:
         - name: L1_CONSENSUS_HOST_URLS
           value: {{ join "," .Values.global.l1ConsensusUrls | quote }}
         - name: L1_CONSENSUS_HOST_API_KEYS
-          value: {{ join "," .Values.global.l1ConsensusHostApiKeys | quote }}
+          value: {{ .Values.global.l1ConsensusHostApiKeys | quote }}
         - name: L1_CONSENSUS_HOST_API_KEY_HEADERS
-          value: {{ join "," .Values.global.l1ConsensusHostApiKeyHeaders | quote }}
+          value: {{ .Values.global.l1ConsensusHostApiKeyHeaders | quote }}
         {{- end }}
         - name: DATA_DIRECTORY
           value: "{{ .Values.node.storage.dataDirectory }}/data"

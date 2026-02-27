@@ -38,7 +38,7 @@ library TestConstants {
   uint256 internal constant AZTEC_SLASH_AMOUNT_SMALL = 20e18;
   uint256 internal constant AZTEC_SLASH_AMOUNT_MEDIUM = 40e18;
   uint256 internal constant AZTEC_SLASH_AMOUNT_LARGE = 60e18;
-  uint256 internal constant AZTEC_MANA_TARGET = 100_000_000;
+  uint256 internal constant AZTEC_MANA_TARGET = 75_000_000;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN = 4;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT = 2;
   uint256 internal constant AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE = 0;

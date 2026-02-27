@@ -29,30 +29,36 @@
 <li><a href="../field/index.html">field</a></div></li>
 <li><a href="../for_loop/index.html">for_loop</a></div></li>
 <li><a href="../math/index.html">math</a></div></li>
-<li><a href="../reader/index.html">reader</a></div></li>
-<li><a href="../uint256/index.html">uint256</a></div></li>
 </ul>
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">utils</a>::for_loop</div>
 <h1>Module <span id="mod" class="module">for_loop</span></h1>
 <h2 id="functions">Functions</h2><ul class="item-list">
-<li><div class="item-name"><a href="fn.for_i_in_.html" class="fn">for_i_in_</a></div><div class="item-description">Iterates through i,
+<li><div class="item-name"><a href="fn.for_i_in_.html" class="fn">for_i_in_</a></div><div class="item-description">Iterates between loop bounds and conditionally executes functions according to the below
+explanation, where:</p>
+<ul>
+<li><code>min</code> and <code>max</code> are dynamic loop bounds (known only at runtime).</li>
+<li><code>MIN</code> and <code>MAX</code> are static loop bounds (known at compile time).</li>
+</ul></div></li>
+<li><div class="item-name"><a href="fn.for_i_in_0_.html" class="fn">for_i_in_0_</a></div><div class="item-description">Iterates between loop bounds and conditionally executes functions according to the below explanation,
 where:</p>
 <ul>
-<li>min &lt;= i &lt; max</li>
-<li>min and max are only known at runtime</li>
-<li>MIN and MAX are known at compile-time, and dictate the static loop bounds.</li>
+<li><code>max</code> is a dynamic loop bound (known only at runtime).</li>
+<li><code>MAX</code> is a static loop bound (known at compile time).</li>
 </ul></div></li>
-<li><div class="item-name"><a href="fn.for_i_in_0_.html" class="fn">for_i_in_0_</a></div><div class="item-description">Iterates through i,
+<li><div class="item-name"><a href="fn.for_i_only_in_.html" class="fn">for_i_only_in_</a></div><div class="item-description">Iterates between loop bounds and conditionally executes a function for min &lt;= i &lt; max,
 where:</p>
 <ul>
-<li>0 &lt;= i &lt; max</li>
-<li>max is only known at runtime</li>
-<li>MAX is known at compile-time, e.g. the fixed length of an array.</li>
+<li><code>min</code> and <code>max</code> are dynamic loop bounds (known only at runtime).</li>
+<li><code>MIN</code> and <code>MAX</code> are static loop bounds (known at compile time).</li>
 </ul></div></li>
-<li><div class="item-name"><a href="fn.for_i_only_in_.html" class="fn">for_i_only_in_</a></div><div class="item-description"></div></li>
-<li><div class="item-name"><a href="fn.for_i_only_in_0_.html" class="fn">for_i_only_in_0_</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.for_i_only_in_0_.html" class="fn">for_i_only_in_0_</a></div><div class="item-description">Iterates between loop bounds and conditionally executes a function for min &lt;= i &lt; max,
+where:</p>
+<ul>
+<li><code>max</code> is a dynamic loop bound (known only at runtime).</li>
+<li><code>MAX</code> is a static loop bound (known at compile time).</li>
+</ul></div></li>
 </ul>
 <h2 id="globals">Globals</h2><ul class="item-list">
 <li><div class="item-name"><a href="global.for_loop_no_op.html" class="global">for_loop_no_op</a></div><div class="item-description"></div></li>

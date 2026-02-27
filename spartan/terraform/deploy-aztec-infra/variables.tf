@@ -229,6 +229,12 @@ variable "VALIDATOR_HA_REPLICAS" {
   default     = 0
 }
 
+variable "ADMIN_API_KEY_HASH" {
+  description = "SHA-256 hex hash of the admin API key. When set, enables admin API authentication on validator nodes. Leave empty to disable admin auth (default)."
+  type        = string
+  default     = ""
+}
+
 variable "PROVER_MNEMONIC" {
   description = "The prover mnemonic"
   type        = string
@@ -341,6 +347,13 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
   description = "Maximum number of sequencer transactions per block"
   type        = string
   default     = "8"
+}
+
+variable "SEQ_ENFORCE_TIME_TABLE" {
+  description = "Whether to enforce the time table when building blocks"
+  type        = string
+  nullable    = true
+  default     = null
 }
 
 variable "SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT" {
@@ -758,12 +771,6 @@ variable "P2P_GOSSIPSUB_DHI" {
   description = "The P2P Gossipsub D parameter"
   type        = string
   default     = "12"
-}
-
-variable "P2P_DROP_TX" {
-  description = "Whether to randomly drop incoming transactions in the P2P layer (for testing)"
-  type        = bool
-  default     = false
 }
 
 variable "P2P_DROP_TX_CHANCE" {

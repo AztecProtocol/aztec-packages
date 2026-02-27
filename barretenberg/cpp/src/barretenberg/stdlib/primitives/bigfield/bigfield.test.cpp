@@ -2591,3 +2591,37 @@ TYPED_TEST(stdlib_bigfield, assert_zero_if_computed_zero)
 {
     TestFixture::test_assert_zero_if_computed_zero();
 }
+
+TYPED_TEST(stdlib_bigfield, less_than_works)
+{
+    using Builder = TypeParam::field_ct::Builder;
+    using fq_ct = TypeParam;
+    using byte_array_ct = stdlib::byte_array<Builder>;
+
+    Builder builder;
+
+    auto [c_native, c_ct] = TestFixture::get_random_witness(&builder);
+    BB_ASSERT_LT(static_cast<uint256_t>(c_native), fq_ct::modulus);
+
+    // c_ct < modulus
+    auto is_ok = c_ct.is_less_than(fq_ct::modulus);
+    is_ok.assert_equal(stdlib::bool_t<Builder>(true));
+
+    // c_ct not smaller than itself
+    auto is_not_ok = c_ct.is_less_than(c_native);
+    is_not_ok.assert_equal(stdlib::bool_t<Builder>(false));
+
+    // c_ct < c_native + 1 (edge case)
+    auto is_ok_edge_case = c_ct.is_less_than(c_native + 1);
+    is_ok_edge_case.assert_equal(stdlib::bool_t<Builder>(true));
+
+    // c_ct > modulus fails comparison but doesn't make the circuit fail
+    std::vector<uint8_t> c_bytes(32, 0xff);
+    byte_array_ct c_byte_array = byte_array_ct(&builder, c_bytes);
+    fq_ct reconstructed_from_bytes(c_byte_array);
+    auto is_not_ok_larger_than_modulus = reconstructed_from_bytes.is_less_than(fq_ct::modulus);
+    is_not_ok_larger_than_modulus.assert_equal(stdlib::bool_t<Builder>(false));
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_FALSE(builder.failed());
+}

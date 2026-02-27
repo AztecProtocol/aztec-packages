@@ -26,7 +26,7 @@ case $cmd in
     trap 'kill $server_pid &>/dev/null || true' EXIT
     while ! nc -z 127.0.0.1 8081 &>/dev/null; do sleep 0.2; done
     export NARGO_FOREIGN_CALL_TIMEOUT=300000
-    nargo test --silence-warnings  --oracle-resolver http://127.0.0.1:8081 "$@"
+    nargo test --silence-warnings --oracle-resolver http://127.0.0.1:8081 --test-threads 16 "$@"
     ;;
   start)
     if [ "${1:-}" == "--local-network" ]; then
@@ -46,15 +46,19 @@ case $cmd in
       export ETHEREUM_HOSTS=${ETHEREUM_HOSTS:-"http://127.0.0.1:${ANVIL_PORT}"}
 
       anvil --version
-      anvil --silent &
+      anvil --silent --port "$ANVIL_PORT" &
       anvil_pid=$!
       trap 'kill $anvil_pid &>/dev/null' EXIT
     fi
 
     aztec start "$@"
     ;;
-  new|init|flamegraph)
+  new|init)
     $script_dir/${cmd}.sh "$@"
+    ;;
+  flamegraph)
+    echo "Warning: 'aztec flamegraph' is deprecated. Use 'aztec profile flamegraph' instead." >&2
+    aztec profile flamegraph "$@"
     ;;
   *)
     aztec $cmd "$@"

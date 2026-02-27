@@ -90,8 +90,6 @@ export async function deploySponsoredTestAccountsWithTokens(
   const recipientDeployMethod = await recipientAccount.getDeployMethod();
   await recipientDeployMethod.send({
     from: AztecAddress.ZERO,
-    // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
-    additionalScopes: [recipientAccount.address],
     fee: { paymentMethod },
     wait: { timeout: 2400 },
   });
@@ -100,8 +98,6 @@ export async function deploySponsoredTestAccountsWithTokens(
       const deployMethod = await a.getDeployMethod();
       await deployMethod.send({
         from: AztecAddress.ZERO,
-        // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
-        additionalScopes: [a.address],
         fee: { paymentMethod },
         wait: { timeout: 2400 },
       }); // increase timeout on purpose in order to account for two empty epochs
@@ -144,8 +140,6 @@ async function deployAccountWithDiagnostics(
   try {
     txHash = await deployMethod.send({
       from: AztecAddress.ZERO,
-      // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
-      additionalScopes: [account.address],
       fee: { paymentMethod },
       wait: NO_WAIT,
     });
@@ -240,8 +234,7 @@ export async function deployTestAccountsWithTokens(
     fundedAccounts.map(async (a, i) => {
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(a.address, claims[i]);
       const deployMethod = await a.getDeployMethod();
-      // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
-      await deployMethod.send({ from: AztecAddress.ZERO, additionalScopes: [a.address], fee: { paymentMethod } });
+      await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod } });
       logger.info(`Account deployed at ${a.address}`);
     }),
   );

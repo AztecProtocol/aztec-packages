@@ -138,6 +138,31 @@ describe('L1TxUtils', () => {
       await gasUtils.waitMonitoringStopped(1);
     });
 
+    it('recovery send reuses nonce after sendRawTransaction fails', async () => {
+      // Send a successful tx first to advance the chain nonce
+      await gasUtils.sendAndMonitorTransaction(request);
+
+      const expectedNonce = await l1Client.getTransactionCount({
+        blockTag: 'pending',
+        address: l1Client.account.address,
+      });
+
+      // Next send fails at sendRawTransaction (e.g. network error)
+      const originalSendRawTransaction = l1Client.sendRawTransaction.bind(l1Client);
+      using _sendSpy = jest
+        .spyOn(l1Client, 'sendRawTransaction')
+        .mockImplementationOnce(() => Promise.reject(new Error('network error')))
+        .mockImplementation(originalSendRawTransaction);
+
+      await expect(gasUtils.sendTransaction(request)).rejects.toThrow('network error');
+
+      // Recovery send should reuse the same nonce (not skip ahead)
+      const { txHash, state: recoveryState } = await gasUtils.sendTransaction(request);
+
+      expect(recoveryState.nonce).toBe(expectedNonce);
+      expect((await l1Client.getTransaction({ hash: txHash })).nonce).toBe(expectedNonce);
+    }, 30_000);
+
     // Regression for TMNT-312
     it('speed-up of blob tx sets non-zero maxFeePerBlobGas', async () => {
       await cheatCodes.setAutomine(false);
@@ -919,6 +944,8 @@ describe('L1TxUtils', () => {
     });
 
     it('does not consume nonce when transaction times out before sending', async () => {
+      // first send a transaction to advance the nonce
+      await gasUtils.sendAndMonitorTransaction(request);
       // Get the expected nonce before any transaction
       const expectedNonce = await l1Client.getTransactionCount({ address: l1Client.account.address });
 

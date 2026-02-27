@@ -160,8 +160,12 @@ function push_pr {
   echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
   docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztecdev:$COMMIT_HASH
   do_or_dryrun docker push aztecprotocol/aztecdev:$COMMIT_HASH
-  docker tag aztecprotocol/aztec-prover-agent:$COMMIT_HASH aztecprotocol/aztec-prover-agent-dev:$COMMIT_HASH
-  do_or_dryrun docker push aztecprotocol/aztec-prover-agent-dev:$COMMIT_HASH
+  # Best-effort: push prover-agent image if available.
+  if docker tag aztecprotocol/aztec-prover-agent:$COMMIT_HASH aztecprotocol/aztec-prover-agent-dev:$COMMIT_HASH 2>/dev/null; then
+    do_or_dryrun docker push aztecprotocol/aztec-prover-agent-dev:$COMMIT_HASH || echo "Warning: failed to push prover-agent-dev image, continuing."
+  else
+    echo "Warning: prover-agent image not found locally, skipping push."
+  fi
 }
 
 case "$cmd" in

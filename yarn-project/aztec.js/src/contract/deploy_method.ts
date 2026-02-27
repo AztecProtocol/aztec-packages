@@ -9,12 +9,19 @@ import {
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import { type Capsule, TxHash, type TxProfileResult, type TxReceipt, collectOffchainEffects } from '@aztec/stdlib/tx';
+import {
+  type Capsule,
+  HashedValues,
+  TxHash,
+  type TxProfileResult,
+  type TxReceipt,
+  collectOffchainEffects,
+} from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import { publishContractClass } from '../deployment/publish_class.js';
 import { publishInstance } from '../deployment/publish_instance.js';
-import type { SendOptions, Wallet } from '../wallet/wallet.js';
+import type { ProfileOptions, SendOptions, SimulateOptions, Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import type { ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
@@ -164,6 +171,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
     constructorNameOrArtifact?: string | FunctionArtifact,
     authWitnesses: AuthWitness[] = [],
     capsules: Capsule[] = [],
+    private extraHashedArgs: HashedValues[] = [],
   ) {
     super(wallet, authWitnesses, capsules);
     this.constructorArtifact = getInitializer(artifact, constructorNameOrArtifact);
@@ -174,20 +182,29 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * @param options - Configuration options.
    * @returns The execution payload for this operation
    */
-  public async request(options?: RequestDeployOptions): Promise<ExecutionPayload> {
+  public async request(options: RequestDeployOptions = {}): Promise<ExecutionPayload> {
     const publication = await this.getPublicationExecutionPayload(options);
 
     if (!options?.skipRegistration) {
       await this.wallet.registerContract(await this.getInstance(options), this.artifact);
     }
+    const { authWitnesses, capsules } = options;
 
+    // Propagates the included authwitnesses, capsules, and extraHashedArgs
+    // potentially baked into the interaction
+    const initialExecutionPayload = new ExecutionPayload(
+      [],
+      this.authWitnesses.concat(authWitnesses ?? []),
+      this.capsules.concat(capsules ?? []),
+      this.extraHashedArgs,
+    );
     const initialization = await this.getInitializationExecutionPayload(options);
     const feeExecutionPayload = options?.fee?.paymentMethod
       ? await options.fee.paymentMethod.getExecutionPayload()
       : undefined;
     const finalExecutionPayload = feeExecutionPayload
-      ? mergeExecutionPayloads([feeExecutionPayload, publication, initialization])
-      : mergeExecutionPayloads([publication, initialization]);
+      ? mergeExecutionPayloads([initialExecutionPayload, feeExecutionPayload, publication, initialization])
+      : mergeExecutionPayloads([initialExecutionPayload, publication, initialization]);
     if (!finalExecutionPayload.calls.length) {
       throw new Error(`No transactions are needed to publish or initialize contract ${this.artifact.name}`);
     }
@@ -207,7 +224,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * @param options - Deploy options with wait parameter
    * @returns Send options with wait parameter
    */
-  private convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(
+  protected convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(
     options: DeployOptions<W>,
     // eslint-disable-next-line jsdoc/require-jsdoc
   ): SendOptions<W extends { returnReceipt: true } ? WaitOpts : W> {
@@ -217,6 +234,24 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
         wait: options.wait as any,
       }),
     } as any;
+  }
+
+  /**
+   * Converts deploy simulation options into wallet-level simulate options.
+   * @param options - The deploy simulation options to convert.
+   */
+  protected convertDeployOptionsToSimulateOptions(options: SimulateDeployOptions): SimulateOptions {
+    return toSimulateOptions(options);
+  }
+
+  /**
+   * Converts deploy profile options into wallet-level profile options.
+   * @param options - The deploy profile options to convert.
+   */
+  protected convertDeployOptionsToProfileOptions(
+    options: DeployOptionsWithoutWait & ProfileInteractionOptions,
+  ): ProfileOptions {
+    return toProfileOptions(options);
   }
 
   /**
@@ -368,7 +403,10 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    */
   public async simulate(options: SimulateDeployOptions): Promise<SimulationReturn<true>> {
     const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
-    const simulatedTx = await this.wallet.simulateTx(executionPayload, toSimulateOptions(options));
+    const simulatedTx = await this.wallet.simulateTx(
+      executionPayload,
+      this.convertDeployOptionsToSimulateOptions(options),
+    );
 
     const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx, options.fee?.estimatedGasPadding);
     this.log.verbose(
@@ -390,11 +428,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    */
   public async profile(options: DeployOptionsWithoutWait & ProfileInteractionOptions): Promise<TxProfileResult> {
     const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
-    return await this.wallet.profileTx(executionPayload, {
-      ...toProfileOptions(options),
-      profileMode: options.profileMode,
-      skipProofGeneration: options.skipProofGeneration,
-    });
+    return await this.wallet.profileTx(executionPayload, this.convertDeployOptionsToProfileOptions(options));
   }
 
   /** Return this deployment address. */

@@ -157,11 +157,6 @@ export async function retrieveCheckpointsFromRollup(
   blobClient: BlobClientInterface,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
-  contractAddresses: {
-    governanceProposerAddress: EthAddress;
-    slashFactoryAddress?: EthAddress;
-    slashingProposerAddress: EthAddress;
-  },
   instrumentation: ArchiverInstrumentation,
   logger: Logger = createLogger('archiver'),
   isHistoricalSync: boolean = false,
@@ -205,7 +200,6 @@ export async function retrieveCheckpointsFromRollup(
       blobClient,
       checkpointProposedLogs,
       rollupConstants,
-      contractAddresses,
       instrumentation,
       logger,
       isHistoricalSync,
@@ -226,7 +220,6 @@ export async function retrieveCheckpointsFromRollup(
  * @param blobClient - The blob client client for fetching blob data.
  * @param logs - CheckpointProposed logs.
  * @param rollupConstants - The rollup constants (chainId, version, targetCommitteeSize).
- * @param contractAddresses - The contract addresses (governanceProposerAddress, slashFactoryAddress, slashingProposerAddress).
  * @param instrumentation - The archiver instrumentation instance.
  * @param logger - The logger instance.
  * @param isHistoricalSync - Whether this is a historical sync.
@@ -239,11 +232,6 @@ async function processCheckpointProposedLogs(
   blobClient: BlobClientInterface,
   logs: CheckpointProposedLog[],
   { chainId, version, targetCommitteeSize }: { chainId: Fr; version: Fr; targetCommitteeSize: number },
-  contractAddresses: {
-    governanceProposerAddress: EthAddress;
-    slashFactoryAddress?: EthAddress;
-    slashingProposerAddress: EthAddress;
-  },
   instrumentation: ArchiverInstrumentation,
   logger: Logger,
   isHistoricalSync: boolean,
@@ -255,7 +243,7 @@ async function processCheckpointProposedLogs(
     targetCommitteeSize,
     instrumentation,
     logger,
-    { ...contractAddresses, rollupAddress: EthAddress.fromString(rollup.address) },
+    EthAddress.fromString(rollup.address),
   );
 
   await asyncPool(10, logs, async log => {
@@ -266,10 +254,9 @@ async function processCheckpointProposedLogs(
 
     // The value from the event and contract will match only if the checkpoint is in the chain.
     if (archive.equals(archiveFromChain)) {
-      // Build expected hashes object (fields may be undefined for backwards compatibility with older events)
       const expectedHashes = {
-        attestationsHash: log.args.attestationsHash?.toString(),
-        payloadDigest: log.args.payloadDigest?.toString(),
+        attestationsHash: log.args.attestationsHash.toString() as Hex,
+        payloadDigest: log.args.payloadDigest.toString() as Hex,
       };
 
       const checkpoint = await calldataRetriever.getCheckpointFromRollupTx(
@@ -278,6 +265,9 @@ async function processCheckpointProposedLogs(
         checkpointNumber,
         expectedHashes,
       );
+      const { timestamp, parentBeaconBlockRoot } = await getL1Block(publicClient, log.l1BlockNumber);
+      const l1 = new L1PublishedData(log.l1BlockNumber, timestamp, log.l1BlockHash.toString());
+
       const checkpointBlobData = await getCheckpointBlobDataFromBlobs(
         blobClient,
         checkpoint.blockHash,
@@ -285,12 +275,8 @@ async function processCheckpointProposedLogs(
         checkpointNumber,
         logger,
         isHistoricalSync,
-      );
-
-      const l1 = new L1PublishedData(
-        log.l1BlockNumber,
-        await getL1BlockTime(publicClient, log.l1BlockNumber),
-        log.l1BlockHash.toString(),
+        parentBeaconBlockRoot,
+        timestamp,
       );
 
       retrievedCheckpoints.push({ ...checkpoint, checkpointBlobData, l1, chainId, version });
@@ -311,9 +297,12 @@ async function processCheckpointProposedLogs(
   return retrievedCheckpoints;
 }
 
-export async function getL1BlockTime(publicClient: ViemPublicClient, blockNumber: bigint): Promise<bigint> {
+export async function getL1Block(
+  publicClient: ViemPublicClient,
+  blockNumber: bigint,
+): Promise<{ timestamp: bigint; parentBeaconBlockRoot: string | undefined }> {
   const block = await publicClient.getBlock({ blockNumber, includeTransactions: false });
-  return block.timestamp;
+  return { timestamp: block.timestamp, parentBeaconBlockRoot: block.parentBeaconBlockRoot };
 }
 
 export async function getCheckpointBlobDataFromBlobs(
@@ -323,8 +312,14 @@ export async function getCheckpointBlobDataFromBlobs(
   checkpointNumber: CheckpointNumber,
   logger: Logger,
   isHistoricalSync: boolean,
+  parentBeaconBlockRoot?: string,
+  l1BlockTimestamp?: bigint,
 ): Promise<CheckpointBlobData> {
-  const blobBodies = await blobClient.getBlobSidecar(blockHash, blobHashes, { isHistoricalSync });
+  const blobBodies = await blobClient.getBlobSidecar(blockHash, blobHashes, {
+    isHistoricalSync,
+    parentBeaconBlockRoot,
+    l1BlockTimestamp,
+  });
   if (blobBodies.length === 0) {
     throw new NoBlobBodiesFoundError(checkpointNumber);
   }

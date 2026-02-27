@@ -72,9 +72,15 @@ case "$cmd" in
   dash)
     watch_ci -s next,prs --user --watch
     ;;
-  fast|full|full-no-test-cache|full-no-test-cache-makefile|docs|barretenberg|barretenberg-full)
+  fast|docs|barretenberg|barretenberg-full)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-$cmd"
+    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    ;;
+  full|full-no-test-cache)
+    export CI_DASHBOARD="prs"
+    export JOB_ID="x-$cmd"
+    export AWS_SHUTDOWN_TIME=75
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   barretenberg-debug)
@@ -97,7 +103,7 @@ case "$cmd" in
       JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
     }
     export -f run
-    seq 1 ${1:-5} | parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered \
+    seq 1 ${1:-5} | parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered \
       'run $USER-x{}-full amd64 ci-full-no-test-cache'
     ;;
   merge-queue)
@@ -107,6 +113,8 @@ case "$cmd" in
     else
       export CI_DASHBOARD="prs"
     fi
+    export AWS_SHUTDOWN_TIME=75
+    export AWS_SHUTDOWN_TIME_ARM=90
     export DENOISE=1
     export DENOISE_WIDTH=32
     run() {
@@ -114,7 +122,8 @@ case "$cmd" in
     }
     export -f run
 
-    parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+    # Specify jobs as maybe we only have a couple of cpus.
+    parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x1-full amd64 ci-full-no-test-cache' \
       'run x2-full amd64 ci-full-no-test-cache' \
       'run x3-full amd64 ci-full-no-test-cache' \
@@ -128,6 +137,8 @@ case "$cmd" in
     else
       export CI_DASHBOARD="prs"
     fi
+    export AWS_SHUTDOWN_TIME=75
+    export AWS_SHUTDOWN_TIME_ARM=90
     export DENOISE=1
     export DENOISE_WIDTH=32
     run() {
@@ -135,7 +146,8 @@ case "$cmd" in
     }
     export -f run
 
-    parallel --jobs 11 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+    # Specify jobs as maybe we only have a couple of cpus.
+    parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x1-full amd64 ci-full-no-test-cache' \
       'run x2-full amd64 ci-full-no-test-cache' \
       'run x3-full amd64 ci-full-no-test-cache' \
@@ -267,6 +279,7 @@ case "$cmd" in
   release)
     # Spin up ec2 instance and run the release flow.
     export CI_DASHBOARD="releases"
+    export AWS_SHUTDOWN_TIME=75
     export DENOISE=1
     export DENOISE_WIDTH=32
     run() {

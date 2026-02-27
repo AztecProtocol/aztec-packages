@@ -23,7 +23,7 @@ export async function getMultiCallEntrypointArtifact(): Promise<ContractArtifact
 export async function getCanonicalMultiCallEntrypoint(): Promise<ProtocolContract> {
   if (!protocolContract) {
     const multiCallEntrypointArtifact = await getMultiCallEntrypointArtifact();
-    protocolContract = await makeProtocolContract('MultiCallEntrypoint', multiCallEntrypointArtifact);
+    protocolContract = makeProtocolContract('MultiCallEntrypoint', multiCallEntrypointArtifact);
   }
   return protocolContract;
 }

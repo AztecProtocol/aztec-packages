@@ -15,5 +15,5 @@ export { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from './constants.js';
 export { getAllPrivateLogsByTags, getAllPublicLogsByTagsFromContract } from './get_all_logs_by_tags.js';
 
 // Re-export tagging-related types from stdlib
-export { DirectionalAppTaggingSecret, Tag, SiloedTag } from '@aztec/stdlib/logs';
+export { ExtendedDirectionalAppTaggingSecret, Tag, SiloedTag } from '@aztec/stdlib/logs';
 export { type PreTag } from '@aztec/stdlib/logs';

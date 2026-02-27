@@ -48,15 +48,14 @@
 
 <div class="comments">
 <p>Compute the <code>message_hash</code> from a function call to be used by an authentication witness</p>
-<p>Useful for when you need a non-account contract to approve during execution. For example if you need a contract
-to make a call to nested contract, e.g., contract A wants to exit token T to L1 using bridge B, so it needs to allow
-B to transfer T on its behalf.</p>
+<p>Useful for when you need a non-account contract to approve during execution. For example if you need a contract to
+make a call to nested contract, e.g., contract A wants to exit token T to L1 using bridge B, so it needs to allow B
+to transfer T on its behalf.</p>
 <p>@param caller The address of the contract that is calling the function, in the example above, this would be B
 @param consumer The address of the contract that is consuming the message, in the example above, this would be T
-@param chain_id The chain id of the chain that the message is being consumed on
-@param version The version of the chain that the message is being consumed on
-@param selector The function selector of the function that is being called
-@param args The arguments of the function that is being called</p>
+@param chain_id The chain id of the chain that the message is being consumed on @param version The version of the
+chain that the message is being consumed on @param selector The function selector of the function that is being
+called @param args The arguments of the function that is being called</p>
 </div>
 </main>
 </span>
