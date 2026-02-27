@@ -72,7 +72,7 @@ case "$cmd" in
   dash)
     watch_ci -s next,prs --user --watch
     ;;
-  fast|docs|barretenberg|barretenberg-full)
+  fast|docs|barretenberg|barretenberg-full|vk-update)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-$cmd"
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
