@@ -148,6 +148,7 @@ export class ClientFlowsBenchmark {
 
   async teardown() {
     await this.chainMonitor.stop();
+    await this.userWallet?.stop();
     await teardown(this.context);
   }
 
