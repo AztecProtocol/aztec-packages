@@ -730,7 +730,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         const auto opening_claim = reduce_batch_opening_claim(batch_opening_claim);
         add_claim_to_hash_buffer(opening_claim, transcript);
-        return reduce_verify_internal_recursive(opening_claim, transcript).verifier_accumulator;
+        return reduce_verify_internal_recursive(opening_claim, transcript);
     }
 
     /**
