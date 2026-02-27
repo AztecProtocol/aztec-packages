@@ -739,7 +739,7 @@ mod tests {
 
     impl TestBuilder {
         pub fn new() -> Self {
-            let mut private_call = FixtureBuilder::new_from_counter(50);
+            let private_call = FixtureBuilder::new_from_counter(50);
 
             // Safety: For testing purposes only.
             let hints =
