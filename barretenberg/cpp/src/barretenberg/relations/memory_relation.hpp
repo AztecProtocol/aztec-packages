@@ -106,12 +106,12 @@ template <typename FF_> class MemoryRelationImpl {
          *  * i: `index` of memory cell being accessed
          *  * v: `value1` of memory cell being accessed (ROM tables can store up to 2 values per index)
          *  * v2:`value2` of memory cell being accessed (ROM tables can store up to 2 values per index)
-         *  * r: `record` of memory cell. record = index * eta + value2 * η₂ + value1 * η₃
+         *  * r: `record` of memory cell. record = index * eta + value1 * η₂ + value2 * η₃
          *
          *  When performing a read/write access, the values of i, t, v, v2, a, r are stored in the following wires +
          * selectors, depending on whether the gate is a RAM read/write or a ROM read
          *
-         *  | gate type | i  | v2/t  |  v | a  | r  |
+         *  | gate type | i  | v/t   | v2 | a  | r  |
          *  | --------- | -- | ----- | -- | -- | -- |
          *  | ROM       | w1 | w2    | w3 | -- | w4 |
          *  | RAM       | w1 | w2    | w3 | qc | w4 |
@@ -185,7 +185,7 @@ template <typename FF_> class MemoryRelationImpl {
          * RAM Consistency Check
          *
          * The 'access' type of the record is extracted with the expression `w_4 - partial_record_check`
-         * (i.e. for an honest Prover `w1 * η + w2 * η₂ + w3 * η₃ - w4 = access`.
+         * (i.e. for an honest Prover `w1 * η + w2 * η₂ + w3 * η₃ - w4 = -access`.
          * This is validated by requiring `access` to be boolean
          *
          * For two adjacent entries in the sorted list if _both_
