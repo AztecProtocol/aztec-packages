@@ -1,4 +1,4 @@
-// ci3: ISOLATE
+// <ci3:meta isolate />
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { getDefaultConfig } from '@aztec/foundation/config';

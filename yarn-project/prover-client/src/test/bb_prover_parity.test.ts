@@ -1,4 +1,4 @@
-// ci3: ISOLATE
+// <ci3:meta isolate />
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,

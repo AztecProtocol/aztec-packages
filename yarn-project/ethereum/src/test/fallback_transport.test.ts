@@ -1,4 +1,4 @@
-// ci3: ISOLATE
+// <ci3:meta isolate />
 import { jest } from '@jest/globals';
 import {
   type Account,

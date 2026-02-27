@@ -1,4 +1,4 @@
-// ci3: ISOLATE
+// <ci3:meta isolate />
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';

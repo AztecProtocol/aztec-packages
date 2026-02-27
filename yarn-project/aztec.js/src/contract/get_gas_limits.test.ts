@@ -1,3 +1,4 @@
+// <ci3:meta isolate />
 import { MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import { Gas } from '@aztec/stdlib/gas';
 import { mockSimulatedTx, mockTxForRollup } from '@aztec/stdlib/testing';

@@ -1,4 +1,4 @@
-// ci3: ISOLATE
+// <ci3:meta isolate />
 import { AuthRequest, AuthResponse } from './auth.js';
 
 describe('auth request', () => {

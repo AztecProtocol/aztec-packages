@@ -1,4 +1,4 @@
-// ci3: CPUS=8
+// <ci3:meta cpus="8" />
 import { AztecClientBackend, BackendType, Barretenberg } from '@aztec/bb.js';
 import { createLogger } from '@aztec/foundation/log';
 

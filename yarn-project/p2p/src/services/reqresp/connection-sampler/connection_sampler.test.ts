@@ -1,4 +1,4 @@
-// ci3: ISOLATE
+// <ci3:meta isolate />
 import { sleep } from '@aztec/foundation/sleep';
 
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';

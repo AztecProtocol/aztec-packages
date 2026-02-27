@@ -1,4 +1,4 @@
-// ci3: ISOLATE
+// <ci3:meta isolate />
 import { type TxMetaData, comparePriority, stubTxMetaData } from '../tx_metadata.js';
 import { type PreAddContext, type PreAddPoolAccess, TxPoolRejectionCode } from './interfaces.js';
 import { LowPriorityPreAddRule } from './low_priority_pre_add_rule.js';

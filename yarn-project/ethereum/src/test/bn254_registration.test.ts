@@ -1,4 +1,4 @@
-// ci3: ISOLATE
+// <ci3:meta isolate />
 import { bn254 } from '@noble/curves/bn254';
 import { writeFile } from 'fs/promises';
 

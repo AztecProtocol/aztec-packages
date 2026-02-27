@@ -1,4 +1,4 @@
-// ci3: ISOLATE UV_THREADPOOL_SIZE=16
+// <ci3:meta isolate uv_threadpool_size="16" />
 import type { EpochAndSlot, EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Logger, createLogger } from '@aztec/foundation/log';

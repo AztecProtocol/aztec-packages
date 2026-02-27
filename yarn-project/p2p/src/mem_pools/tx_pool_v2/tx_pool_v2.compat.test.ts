@@ -1,4 +1,4 @@
-// ci3: ISOLATE
+// <ci3:meta isolate />
 /**
  * Compatibility test suite for TxPoolV2.
  * These tests mirror the original TxPool test suite (aztec_kv_tx_pool.test.ts)

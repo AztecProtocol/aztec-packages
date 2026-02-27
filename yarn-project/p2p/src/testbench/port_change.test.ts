@@ -1,4 +1,4 @@
-// ci3: ISOLATE CPUS=10 MEM=16g UV_THREADPOOL_SIZE=32
+// <ci3:meta isolate cpus="10" mem="16g" uv_threadpool_size="32" />
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { ChonkProof } from '@aztec/stdlib/proofs';

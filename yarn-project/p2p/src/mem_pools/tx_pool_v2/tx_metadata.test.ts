@@ -1,4 +1,4 @@
-// ci3: ISOLATE
+// <ci3:meta isolate />
 import { mockTx } from '@aztec/stdlib/testing';
 
 import { TxPoolRejectionCode } from './eviction/interfaces.js';

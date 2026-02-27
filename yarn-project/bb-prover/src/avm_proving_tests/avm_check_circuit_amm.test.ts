@@ -1,4 +1,4 @@
-// ci3: CPUS=16 MEM=16g
+// <ci3:meta cpus="16" mem="16g" />
 import { createLogger } from '@aztec/foundation/log';
 import { AMMContractArtifact } from '@aztec/noir-contracts.js/AMM';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';

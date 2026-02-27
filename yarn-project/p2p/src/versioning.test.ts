@@ -1,4 +1,4 @@
-// ci3: ISOLATE
+// <ci3:meta isolate />
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ChainConfig } from '@aztec/stdlib/config';
 

@@ -1,3 +1,4 @@
+// <ci3:meta isolate />
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { EthPrivateKey } from '@aztec/node-keystore';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';

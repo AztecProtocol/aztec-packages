@@ -1,4 +1,4 @@
-// ci3: ISOLATE
+// <ci3:meta isolate />
 import { MAX_TX_SIZE_KB } from '@aztec/stdlib/p2p';
 import { TxHash, TxHashArray } from '@aztec/stdlib/tx';
 

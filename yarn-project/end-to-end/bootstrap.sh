@@ -47,7 +47,7 @@ function test_cmds {
     name=e2e_${name%.test.ts}
     local cmd_env=""
 
-    # Read ci3 annotation from test file (e.g. // ci3: UV_THREADPOOL_SIZE=24)
+    # Read ci3 annotation from test file (e.g. // <ci3:meta uv_threadpool_size="24" />)
     eval $($parse_annotation "$test")
     cmd_env+="$CI3_ENV"
     # Prefix fields from annotation (CPUS, MEM, TIMEOUT, etc.) are appended to prefix below.
