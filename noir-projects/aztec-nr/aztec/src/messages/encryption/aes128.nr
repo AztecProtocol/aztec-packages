@@ -10,13 +10,7 @@ use crate::{
     keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
     messages::{
         encoding::{
-<<<<<<< HEAD
-            EPH_PK_SIGN_BYTE_SIZE_IN_BYTES, EPH_PK_X_SIZE_IN_FIELDS, HEADER_CIPHERTEXT_SIZE_IN_BYTES,
-            MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN,
-=======
             EPH_PK_X_SIZE_IN_FIELDS, HEADER_CIPHERTEXT_SIZE_IN_BYTES, MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN,
-            MESSAGE_PLAINTEXT_SIZE_IN_BYTES,
->>>>>>> 2ba3311e8a (feat: remove epk sign from message payload (#20926))
         },
         encryption::message_encryption::MessageEncryption,
         logs::arithmetic_generics_utils::{
@@ -155,15 +149,13 @@ pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_u
 pub struct AES128 {}
 
 impl MessageEncryption for AES128 {
-<<<<<<< HEAD
-=======
 
     /// AES128-CBC encryption for Aztec protocol messages.
     ///
     /// ## Overview
     ///
-    /// The plaintext is an array of up to `MESSAGE_PLAINTEXT_LEN` (12) fields. The output is always exactly
-    /// `MESSAGE_CIPHERTEXT_LEN` (15) fields, regardless of plaintext size. Unused trailing fields are filled with
+    /// The plaintext is an array of up to `MESSAGE_PLAINTEXT_LEN` fields. The output is always exactly
+    /// `MESSAGE_CIPHERTEXT_LEN` fields, regardless of plaintext size. Unused trailing fields are filled with
     /// random data so that all encrypted messages are indistinguishable by size.
     ///
     /// ## PKCS#7 Padding
@@ -223,22 +215,21 @@ impl MessageEncryption for AES128 {
     /// ```
     ///
     /// **Step 2 -- Pack into fields.** The byte array is split into 31-byte chunks, each stored in one field. The
-    /// ephemeral public key x-coordinate is prepended as its own field. Any remaining fields (up to 15 total) are
-    /// filled with random data so that all messages are the same size:
+    /// ephemeral public key x-coordinate is prepended as its own field. Any remaining fields (up to
+    /// `MESSAGE_CIPHERTEXT_LEN` total) are filled with random data so that all messages are the same size:
     ///
     /// ```text
     /// +----------+-------------------------+-------------------+
     /// | eph_pk.x |  message-byte fields    | random field pad  |
-    /// |          | (packed 31 B per field)  |  (fills to 15)   |
+    /// |          | (packed 31 B per field)  |                   |
     /// +----------+-------------------------+-------------------+
-    /// |<---------- MESSAGE_CIPHERTEXT_LEN = 15 fields ------->|
+    /// |<------------ MESSAGE_CIPHERTEXT_LEN fields ----------->|
     /// ```
     ///
     /// ## Key Derivation
     ///
     /// Two (key, IV) pairs are derived from the ECDH shared secret via Poseidon2 hashing with different domain
     /// separators: one pair for the body ciphertext and one for the header ciphertext.
->>>>>>> 2ba3311e8a (feat: remove epk sign from message payload (#20926))
     fn encrypt<let PlaintextLen: u32>(
         plaintext: [Field; PlaintextLen],
         recipient: AztecAddress,
@@ -247,17 +238,8 @@ impl MessageEncryption for AES128 {
         // reversed when processing the message in `process_message_ciphertext`)
         let plaintext_bytes = fields_to_bytes(plaintext);
 
-<<<<<<< HEAD
-        // ***************************************************************************** Compute the shared secret
-        // *****************************************************************************
-
-        let (eph_sk, eph_pk) = generate_ephemeral_key_pair();
-
-        let eph_pk_sign_byte: u8 = get_sign_of_point(eph_pk) as u8;
-=======
         // Derive ECDH shared secret with recipient using a fresh ephemeral keypair.
         let (eph_sk, eph_pk) = generate_positive_ephemeral_key_pair();
->>>>>>> 2ba3311e8a (feat: remove epk sign from message payload (#20926))
 
         // (not to be confused with the tagging shared secret) TODO (#17158): Currently we unwrap the Option returned
         // by derive_ecdh_shared_secret. We need to handle the case where the ephemeral public key is invalid to
@@ -333,15 +315,8 @@ impl MessageEncryption for AES128 {
             "unexpected ciphertext header length",
         );
 
-<<<<<<< HEAD
-        // ***************************************************************************** Prepend / append more bytes of
-        // data to the ciphertext, before converting back to fields.
-        // *****************************************************************************
-
-=======
         // Assemble the message byte array:
         //  [header_ct (16B)] [body_ct] [padding to mult of 31]
->>>>>>> 2ba3311e8a (feat: remove epk sign from message payload (#20926))
         let mut message_bytes_padding_to_mult_31 =
             get_arr_of_size__message_bytes_padding__from_PT::<PlaintextLen * 32>();
         // Safety: this randomness won't be constrained to be random. It's in the interest of the executor of this fn
@@ -464,9 +439,9 @@ impl MessageEncryption for AES128 {
 
             // Extract and decrypt main ciphertext
             let ciphertext_start = header_start + HEADER_CIPHERTEXT_SIZE_IN_BYTES;
-            let ciphertext_with_padding: [u8; (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES] =
+            let ciphertext_with_padding: [u8; (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES] =
                 array::subarray(ciphertext_without_eph_pk_x.storage(), ciphertext_start);
-            let ciphertext: BoundedVec<u8, (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES> =
+            let ciphertext: BoundedVec<u8, (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES> =
                 BoundedVec::from_parts(ciphertext_with_padding, ciphertext_length);
 
             // Decrypt main ciphertext and return it
