@@ -65,6 +65,7 @@ describe.each([
   });
 
   afterEach(async () => {
+    await broker.stop();
     if (cleanup) {
       await cleanup();
     }

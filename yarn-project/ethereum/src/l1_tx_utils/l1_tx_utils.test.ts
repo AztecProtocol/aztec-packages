@@ -9,7 +9,6 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 
 import { jest } from '@jest/globals';
-import type { Anvil } from '@viem/anvil';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import assert from 'node:assert';
 import {
@@ -28,6 +27,7 @@ import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client, getPublicClient } from '../client.js';
 import { EthCheatCodes } from '../test/eth_cheat_codes.js';
+import type { Anvil } from '../test/start_anvil.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';

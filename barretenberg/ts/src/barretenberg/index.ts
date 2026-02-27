@@ -119,7 +119,7 @@ export class Barretenberg extends AsyncApi {
    */
   static async initSingleton(options: BackendOptions = {}) {
     if (!barretenbergSingletonPromise) {
-      barretenbergSingletonPromise = Barretenberg.new(options);
+      barretenbergSingletonPromise = Barretenberg.new({ ...options, unref: true });
     }
     try {
       barretenbergSingleton = await barretenbergSingletonPromise;

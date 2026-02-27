@@ -43,7 +43,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
   private responseBuffer: Buffer | null = null;
   private responseBytesRead: number = 0;
 
-  constructor(bbBinaryPath: string, threads?: number, logger?: (msg: string) => void) {
+  constructor(bbBinaryPath: string, threads?: number, logger?: (msg: string) => void, unref?: boolean) {
     // Create a unique socket path in temp directory
     this.socketPath = path.join(os.tmpdir(), `bb-${process.pid}-${threadId}-${instanceCounter++}.sock`);
 
@@ -80,6 +80,10 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
       logger("Logger attached to bb process. DON'T FORGET TO DESTROY THE BACKEND to allow Node.js to exit.");
       readline.createInterface({ input: this.process.stdout! }).on('line', logger);
       readline.createInterface({ input: this.process.stderr! }).on('line', logger);
+      if (unref) {
+        (this.process.stdout as any)?.unref?.();
+        (this.process.stderr as any)?.unref?.();
+      }
     }
 
     this.process.on('error', err => {

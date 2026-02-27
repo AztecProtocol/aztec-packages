@@ -37,6 +37,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     logger?: (msg: string) => void,
     initial = 35,
     maximum = this.getDefaultMaximumMemoryPages(),
+    unref = false,
   ) {
     // Track whether a custom logger was provided so workers know whether to postMessage logs
     this.useCustomLogger = logger !== undefined;
@@ -81,6 +82,12 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
 
       this.remoteWasms = await Promise.all(this.workers.map(getRemoteBarretenbergWasm<BarretenbergWasmThreadWorker>));
       await Promise.all(this.remoteWasms.map(w => w.initThread(module, this.memory, this.useCustomLogger)));
+
+      if (unref) {
+        for (const worker of this.workers) {
+          worker.unref();
+        }
+      }
     }
   }
 
