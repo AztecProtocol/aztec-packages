@@ -150,3 +150,6 @@ export const L1_BLOCK_PROPOSAL_TX_TARGET = 'aztec.l1.block_proposal_tx_target';
 
 /** Whether tracing methods were used to extract block proposal data */
 export const L1_BLOCK_PROPOSAL_USED_TRACE = 'aztec.l1.block_proposal_used_trace';
+
+/** The address of an attester (validator) participating in consensus */
+export const ATTESTER_ADDRESS = 'aztec.attester.address';
