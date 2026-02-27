@@ -35,11 +35,19 @@ export class EventValidationRequest {
     // Infer BoundedVec storage size from total field count for backward compat with older aztec-nr versions.
     const FOOTER_FIELDS = 4; // 1 BoundedVec len + eventCommitment + txHash + recipient
     const arraySize = reader.remainingFields() - FOOTER_FIELDS;
+    if (arraySize < 0) {
+      throw new Error(
+        `Malformed EventValidationRequest: expected at least ${FOOTER_FIELDS} fields after header, got ${reader.remainingFields()}.`,
+      );
+    }
 
     const eventStorage = reader.readFieldArray(arraySize);
     const eventLen = reader.readField().toNumber();
     if (eventLen > MAX_EVENT_CONTENT_LEN) {
       throw new Error(`Event content length ${eventLen} exceeds MAX_EVENT_CONTENT_LEN ${MAX_EVENT_CONTENT_LEN}.`);
+    }
+    if (eventLen > arraySize) {
+      throw new Error(`Event content length ${eventLen} exceeds BoundedVec storage capacity ${arraySize}.`);
     }
     const serializedEvent = eventStorage.slice(0, eventLen);
 

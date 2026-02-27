@@ -38,11 +38,19 @@ export class NoteValidationRequest {
     // Infer BoundedVec storage size from total field count for backward compat with older aztec-nr versions.
     const FOOTER_FIELDS = 5; // 1 BoundedVec len + noteHash + nullifier + txHash + recipient
     const arraySize = reader.remainingFields() - FOOTER_FIELDS;
+    if (arraySize < 0) {
+      throw new Error(
+        `Malformed NoteValidationRequest: expected at least ${FOOTER_FIELDS} fields after header, got ${reader.remainingFields()}.`,
+      );
+    }
 
     const contentStorage = reader.readFieldArray(arraySize);
     const contentLen = reader.readField().toNumber();
     if (contentLen > MAX_NOTE_CONTENT_LEN) {
       throw new Error(`Note content length ${contentLen} exceeds MAX_NOTE_CONTENT_LEN ${MAX_NOTE_CONTENT_LEN}.`);
+    }
+    if (contentLen > arraySize) {
+      throw new Error(`Note content length ${contentLen} exceeds BoundedVec storage capacity ${arraySize}.`);
     }
     const content = contentStorage.slice(0, contentLen);
 

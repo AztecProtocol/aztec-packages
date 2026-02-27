@@ -125,4 +125,37 @@ describe('NoteValidationRequest', () => {
 
     expect(request.content).toEqual([10, 11, 12, 13, 14, 15, 16, 17].map(n => new Fr(n)));
   });
+
+  it('throws on malformed input that is too short', () => {
+    const serialized = [
+      1, // contract address
+      2, // owner
+      3, // storage slot
+      4, // randomness
+      5, // note nonce
+      // missing BoundedVec storage + footer
+    ].map(n => new Fr(n));
+
+    expect(() => NoteValidationRequest.fromFields(serialized)).toThrow(/Malformed NoteValidationRequest/);
+  });
+
+  it('throws if contentLen exceeds BoundedVec storage capacity', () => {
+    const serialized = [
+      1, // contract address
+      2, // owner
+      3, // storage slot
+      4, // randomness
+      5, // note nonce
+      10,
+      11,
+      12, // 3 storage fields
+      4, // content length = 4, exceeds storage capacity of 3
+      6, // note hash
+      7, // nullifier
+      8, // tx hash
+      9, // recipient
+    ].map(n => new Fr(n));
+
+    expect(() => NoteValidationRequest.fromFields(serialized)).toThrow(/exceeds BoundedVec storage capacity/);
+  });
 });

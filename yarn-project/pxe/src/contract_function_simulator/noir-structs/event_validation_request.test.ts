@@ -119,4 +119,32 @@ describe('EventValidationRequest', () => {
 
     expect(request.serializedEvent).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18, 19].map(n => new Fr(n)));
   });
+
+  it('throws on malformed input that is too short', () => {
+    const serialized = [
+      1, // contract_address
+      2, // event_type_id
+      3, // randomness
+      // missing BoundedVec storage + footer
+    ].map(n => new Fr(n));
+
+    expect(() => EventValidationRequest.fromFields(serialized)).toThrow(/Malformed EventValidationRequest/);
+  });
+
+  it('throws if eventLen exceeds BoundedVec storage capacity', () => {
+    const serialized = [
+      1, // contract_address
+      2, // event_type_id
+      3, // randomness
+      10,
+      11,
+      12, // 3 storage fields
+      4, // bounded_vec_len = 4, exceeds storage capacity of 3
+      6, // event_commitment
+      7, // tx_hash
+      8, // recipient
+    ].map(n => new Fr(n));
+
+    expect(() => EventValidationRequest.fromFields(serialized)).toThrow(/exceeds BoundedVec storage capacity/);
+  });
 });
