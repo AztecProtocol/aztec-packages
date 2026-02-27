@@ -1,5 +1,22 @@
 # Changelog
 
+## [4.0.4](https://github.com/AztecProtocol/aztec-packages/compare/v4.0.3...v4.0.4) (2026-02-27)
+
+
+### Features
+
+* **slasher:** make slash grace period relative to rollup upgrade time ([#20942](https://github.com/AztecProtocol/aztec-packages/issues/20942)) ([3cdca29](https://github.com/AztecProtocol/aztec-packages/commit/3cdca29ca48b68d1202166295bb749f35bec5902))
+
+
+### Bug Fixes
+
+* logging of class instances ([#20807](https://github.com/AztecProtocol/aztec-packages/issues/20807)) ([3cdca29](https://github.com/AztecProtocol/aztec-packages/commit/3cdca29ca48b68d1202166295bb749f35bec5902))
+
+
+### Documentation
+
+* add docs on state vars docs re packing in structs ([#20747](https://github.com/AztecProtocol/aztec-packages/issues/20747)) ([3cdca29](https://github.com/AztecProtocol/aztec-packages/commit/3cdca29ca48b68d1202166295bb749f35bec5902))
+
 ## [4.0.3](https://github.com/AztecProtocol/aztec-packages/compare/v4.0.2...v4.0.3) (2026-02-27)
 
 
