@@ -287,11 +287,10 @@ impl<T> PublicImmutable<T, &mut PrivateContext> {
     /// ## Cost
     ///
     /// A nullifier existence request is pushed to the context, which will be verified by the kernel circuit.
-    /// Additionally, a historical public storage read at the anchor block is performed for a single storage slot,
-    /// **regardless of `T`'s packed length**. This is because [`PublicImmutable::initialize`] stores not just the
-    /// value
-    /// but also its hash: this function obtains the preimage from an oracle and proves that it matches the hash from
-    /// public storage.
+    /// Additionally, a historical public storage read at the anchor block (which is on the order of 4k gates) is
+    /// performed for a single storage slot, **regardless of `T`'s packed length**. This is because
+    /// [`PublicImmutable::initialize`] stores not just the value but also its hash: this function obtains the preimage
+    /// from an oracle and proves that it matches the hash from public storage.
     ///
     /// Because of this reason it is convenient to group together all of a contract's public immutable values that are
     /// read privately in a single type `T`:
