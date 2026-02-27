@@ -49,7 +49,7 @@ jobs:
 
             if [ -n "$TAG" ]; then
               echo "Found tag: $TAG"
-              SEMVER="${VERSION}"
+              SEMVER="${TAG#v}"
               echo "tag=$TAG" >> $GITHUB_OUTPUT
               echo "semver=$SEMVER" >> $GITHUB_OUTPUT
               exit 0

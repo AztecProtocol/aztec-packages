@@ -81,7 +81,6 @@
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
-    "@google-cloud/storage": "^7.15.0",
     "@iarna/toml": "^2.2.5",
     "commander": "^12.1.0",
     "lodash.chunk": "^4.2.0",
