@@ -764,6 +764,12 @@ export const PEER_MANAGER_PEER_COUNT: MetricDefinition = {
   unit: 'peers',
   valueType: ValueType.INT,
 };
+export const PEER_MANAGER_HEALTHY_PEER_COUNT: MetricDefinition = {
+  name: 'aztec.peer_manager.healthy_peer_count',
+  description: 'Number of healthy (non-protected, non-banned) peers',
+  unit: 'peers',
+  valueType: ValueType.INT,
+};
 export const PEER_MANAGER_LOW_SCORE_DISCONNECTS: MetricDefinition = {
   name: 'aztec.peer_manager.low_score_disconnects',
   description: 'Number of peers disconnected due to low score',

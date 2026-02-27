@@ -349,15 +349,11 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
       return undefined;
     }
 
-    const offensesToSlashLog = offensesToSlash.map(offense => ({
-      ...offense,
-      amount: offense.amount.toString(),
-    }));
     this.log.info(`Voting to slash ${offensesToSlash.length} offenses`, {
       slotNumber,
       currentRound,
       slashedRound,
-      offensesToSlash: offensesToSlashLog,
+      offensesToSlash,
     });
 
     const committees = await this.collectCommitteesActiveDuringRound(slashedRound);

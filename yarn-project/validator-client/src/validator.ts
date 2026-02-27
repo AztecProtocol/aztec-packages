@@ -197,6 +197,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const metrics = new ValidatorMetrics(telemetry);
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
       txsPermitted: !config.disableTransactions,
+      maxTxsPerBlock: config.maxTxsPerBlock,
     });
     const blockProposalHandler = new BlockProposalHandler(
       checkpointsBuilder,
