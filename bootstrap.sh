@@ -746,9 +746,7 @@ case "$cmd" in
   "ci-vk-update")
     set -e
     export CI=1
-    export AVM=0
-    export AVM_TRANSPILER=0
-    barretenberg/cpp/bootstrap.sh build_native
+    build
     # First, run the VK test normally to check if VKs actually need updating.
     if barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh; then
       echo "No VK changes detected, no update needed."
@@ -757,8 +755,6 @@ case "$cmd" in
     fi
 
     # VKs are stale - regenerate them.
-    export AVM=1
-    export AVM_TRANSPILER=1
     echo "VKs are stale, running --update_inputs to regenerate..."
     barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh --update_inputs
 
