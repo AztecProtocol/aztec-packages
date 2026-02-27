@@ -5,6 +5,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
+#include "bn254.hpp"
 #include "fq.hpp"
 #include "fr.hpp"
 #include <array>
@@ -437,4 +438,19 @@ TEST(FrConstants, CosetGeneratorConsistency)
     uint512_t balanced_coset_generator_native = (static_cast<uint512_t>(coset_generator_native) * 32) % native_r;
 
     EXPECT_EQ(balanced_coset_generator_native, static_cast<uint512_t>(coset_generator_wasm));
+}
+
+// ================================
+// BN254 Constants Tests
+// ================================
+
+TEST(Bn254Constants, SubgroupGenerator)
+{
+    fr subgroup_generator = bb::curve::BN254::subgroup_generator;
+    fr subgroup_generator_inverse = bb::curve::BN254::subgroup_generator_inverse;
+    fr expected = fr(5).pow(fr::modulus / (uint256_t(1) << 8));
+    fr expected_inverse = expected.invert();
+
+    EXPECT_EQ(subgroup_generator, expected);
+    EXPECT_EQ(subgroup_generator_inverse, expected_inverse);
 }

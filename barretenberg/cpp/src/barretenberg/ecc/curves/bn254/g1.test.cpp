@@ -485,3 +485,19 @@ TEST(g1, ScalarMulNegativeK2Regression)
         }
     }
 }
+
+TEST(g1, BIsCorrect)
+{
+    fq b = Bn254G1Params::b;
+    fq expected = fq(3);
+
+    EXPECT_EQ(b, expected);
+}
+
+TEST(g1, OneYIsCorrect)
+{
+    fq one_y = Bn254G1Params::one_y;
+    auto [_, expected] = (Bn254G1Params::b + fq::one()).sqrt();
+
+    EXPECT_EQ(one_y, expected);
+}

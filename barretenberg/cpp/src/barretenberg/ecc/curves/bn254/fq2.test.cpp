@@ -96,6 +96,15 @@ TEST(fq2, SubCheckAgainstConstants)
     EXPECT_EQ(result, expected);
 }
 
+TEST(fq2, XiNotSexticResidue)
+{
+    constexpr fq2 xi{ fq(9), fq(1) };                                // 9 + u
+    fq2 pow_xi = xi.pow((fq::modulus - 1) / 6).pow(fq::modulus + 1); // \xi^((q^2-1)/6) should not be 1
+    fq2 one = fq2::one();
+
+    EXPECT_NE(pow_xi, one);
+}
+
 TEST(fq2, TwistBCoefficient)
 {
     constexpr fq2 twist_b{ Bn254Fq2Params::twist_coeff_b_0, Bn254Fq2Params::twist_coeff_b_1 };
