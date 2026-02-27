@@ -741,6 +741,15 @@ case "$cmd" in
     exec spartan/scripts/deploy_rollup_upgrade.sh "$@"
     ;;
 
+  #################
+  # SOCKET FIX    #
+  #################
+  "ci-socket-fix")
+    export CI=1
+    build
+    scripts/socket-fix-ci.sh "$@"
+    ;;
+
   ##############################################
   # Default handler, calls our above functions #
   ##############################################
