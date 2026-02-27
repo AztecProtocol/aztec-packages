@@ -6,12 +6,12 @@ use log::debug;
 
 use super::system::TokenSystem;
 use crate::smt::{self, Batchable};
-use crate::wallet::{self, AccountId};
+use crate::wallet::{self, AccountId, Bridge};
 
 pub(crate) type TokenId = usize;
 
 #[derive(Debug)]
-pub struct TokenMachine {
+pub struct TokenMachine<'a> {
     pub min_tokens: usize,
     pub max_tokens: usize,
     pub min_initial_public_mints: usize,
@@ -19,10 +19,13 @@ pub struct TokenMachine {
     pub min_initial_private_mints: usize,
     pub max_initial_private_mints: usize,
     initial_mints: Vec<TokenCommand>,
+    /// Required for `new_system()` (deploy + import). `None` is fine for
+    /// model-only tests that never call `new_system`.
+    pub bridge: Option<&'a Bridge>,
 }
 
-impl Default for TokenMachine {
-    fn default() -> Self {
+impl<'a> TokenMachine<'a> {
+    pub fn new(bridge: Option<&'a Bridge>) -> Self {
         Self {
             min_tokens: 2,
             max_tokens: 4,
@@ -31,6 +34,7 @@ impl Default for TokenMachine {
             min_initial_private_mints: 0,
             max_initial_private_mints: 10,
             initial_mints: vec![],
+            bridge,
         }
     }
 }
@@ -100,11 +104,11 @@ pub enum TokenCommand {
 }
 
 impl TokenCommand {
-    pub fn is_query(&self) -> bool {
+    pub fn verb(&self) -> wallet::Verb {
         match self {
             Self::BalanceOfPublic { .. }
             | Self::BalanceOfPrivate { .. }
-            | Self::TotalSupply { .. } => true,
+            | Self::TotalSupply { .. } => wallet::Verb::Simulate,
             Self::MintPublic { .. }
             | Self::MintPrivate { .. }
             | Self::BurnPublic { .. }
@@ -112,8 +116,14 @@ impl TokenCommand {
             | Self::TransferPublic { .. }
             | Self::TransferPrivate { .. }
             | Self::TransferPublicToPrivate { .. }
-            | Self::TransferPrivateToPublic { .. } => false,
+            | Self::TransferPrivateToPublic { .. } => wallet::Verb::Send,
         }
+    }
+
+    /// Whether this command is a read-only query that doesn't change model state.
+    /// For tokens, queries and simulates coincide.
+    pub fn is_query(&self) -> bool {
+        matches!(self.verb(), wallet::Verb::Simulate)
     }
 
     fn token_id(&self) -> TokenId {
@@ -187,7 +197,7 @@ fn credit(balances: &mut BalanceMap, key: (TokenId, AccountId), amount: TokenAmo
     *balances.entry(key).or_default() += amount;
 }
 
-impl TokenMachine {
+impl TokenMachine<'_> {
     fn gen_valid_mint(
         &self,
         u: &mut Unstructured,
@@ -220,8 +230,8 @@ impl TokenMachine {
     }
 }
 
-impl smt::StateMachine for TokenMachine {
-    type System = TokenSystem;
+impl<'a> smt::StateMachine for TokenMachine<'a> {
+    type System = TokenSystem<'a>;
     type State = TokenState;
     type Command = TokenCommand;
     type Result = Result<String>;
@@ -268,9 +278,9 @@ impl smt::StateMachine for TokenMachine {
                 | TokenCommand::MintPrivate { token, .. } => *token,
                 _ => unreachable!(),
             };
-            let supply_before = *state.total_supply.get(&token_id).unwrap_or(&0);
+            let supply_before = state.total_supply.get(&token_id).copied().unwrap_or(0);
             state = self.next_state(&mint, state);
-            if *state.total_supply.get(&token_id).unwrap_or(&0) != supply_before {
+            if state.total_supply.get(&token_id).copied().unwrap_or(0) != supply_before {
                 successful_mints.push(mint);
             }
         }
@@ -373,8 +383,9 @@ impl smt::StateMachine for TokenMachine {
     }
 
     fn new_system(&mut self, state: &Self::State) -> Self::System {
-        wallet::import_test_accounts().expect("could not import test accounts");
-        let system = TokenSystem::new();
+        let bridge = self.bridge.expect("bridge required for new_system()");
+        bridge.import_test_accounts().expect("could not import test accounts");
+        let system = TokenSystem::new(bridge);
         for token_no in &state.tokens {
             let acc_no = state
                 .owners
@@ -410,7 +421,7 @@ impl smt::StateMachine for TokenMachine {
                         .total_supply
                         .get(token)
                         .expect("total supply should be initialized");
-                    let balance = *state.balances_public.get(&(*token, *to)).unwrap_or(&0);
+                    let balance = state.balances_public.get(&(*token, *to)).copied().unwrap_or(0);
                     if let (Some(new_supply), Some(new_balance)) =
                         (supply.checked_add(*amount), balance.checked_add(*amount))
                     {
@@ -432,7 +443,7 @@ impl smt::StateMachine for TokenMachine {
                         .total_supply
                         .get(token)
                         .expect("total supply should be initialized");
-                    let balance = *state.balances_private.get(&(*token, *to)).unwrap_or(&0);
+                    let balance = state.balances_private.get(&(*token, *to)).copied().unwrap_or(0);
                     if let (Some(new_supply), Some(new_balance)) =
                         (supply.checked_add(*amount), balance.checked_add(*amount))
                     {
@@ -522,7 +533,7 @@ impl smt::StateMachine for TokenMachine {
                 let amount = wallet::parse_simulation_result(&output)
                     .expect("failed to parse BalanceOfPublic simulation result");
                 let state_balance =
-                    *pre_state.balances_public.get(&(*token, *address)).unwrap_or(&0);
+                    pre_state.balances_public.get(&(*token, *address)).copied().unwrap_or(0);
                 debug!(
                     "Checking public {} balance for {}: should be {}, is {}",
                     token, address, state_balance, amount
@@ -557,7 +568,7 @@ impl smt::StateMachine for TokenMachine {
                 let output = result.expect("TotalSupply should succeed");
                 let amount = wallet::parse_simulation_result(&output)
                     .expect("failed to parse TotalSupply simulation result");
-                let state_supply = *pre_state.total_supply.get(token).unwrap_or(&0);
+                let state_supply = pre_state.total_supply.get(token).copied().unwrap_or(0);
                 debug!(
                     "Checking {} total supply: should be {}, is {}",
                     token, state_supply, amount

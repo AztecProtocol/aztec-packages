@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::{LazyLock, Mutex, OnceLock};
+use std::sync::{LazyLock, Mutex};
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -65,82 +65,23 @@ impl AddressBook {
     }
 }
 
-static ADDRESS_BOOK: LazyLock<Mutex<AddressBook>> =
-    LazyLock::new(|| Mutex::new(AddressBook::new()));
-
-// ---------------------------------------------------------------------------
-// Bridge configuration
-// ---------------------------------------------------------------------------
-
-/// Bridge URL, set once by `init()`.
-static BRIDGE_URL: OnceLock<String> = OnceLock::new();
-/// Client-side proof generation.  Set once by `init()`.
-static PROVE: OnceLock<bool> = OnceLock::new();
-
-/// Initialise the wallet connection.  Must be called once before any
-/// wallet operations.
-pub fn init(bridge_url: &str, prove: bool) {
-    BRIDGE_URL
-        .set(bridge_url.to_string())
-        .expect("wallet::init called more than once");
-    PROVE.set(prove).expect("wallet::init called more than once");
-}
-
-/// Like `init`, but silently ignores duplicate calls (for tests).
-#[cfg(test)]
-pub fn try_init(bridge_url: &str) {
-    let _ = BRIDGE_URL.set(bridge_url.to_string());
-    let _ = PROVE.set(false);
-}
-
-fn bridge_url() -> &'static str {
-    BRIDGE_URL
-        .get()
-        .expect("wallet::init was not called")
-}
-
-fn prove_enabled() -> bool {
-    *PROVE.get().expect("wallet::init was not called")
-}
-
-static HTTP_CLIENT: LazyLock<reqwest::blocking::Client> = LazyLock::new(|| {
-    reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(300))
-        .build()
-        .expect("failed to create HTTP client")
-});
-
-/// POST JSON to the bridge and return the parsed response.
-/// Errors if the bridge returns `{ ok: false, error: "..." }`.
-fn bridge_post(endpoint: &str, body: &serde_json::Value) -> anyhow::Result<serde_json::Value> {
-    let url = bridge_url();
-    let resp = HTTP_CLIENT
-        .post(format!("{url}{endpoint}"))
-        .json(body)
-        .send()
-        .map_err(|e| anyhow!("bridge request to {endpoint} failed: {e}"))?;
-    let status = resp.status();
-    let result: serde_json::Value = resp
-        .json()
-        .map_err(|e| anyhow!("bridge returned non-JSON (HTTP {status}): {e}"))?;
-    if result["ok"].as_bool() == Some(true) {
-        Ok(result)
-    } else {
-        Err(anyhow!(
-            "{}",
-            result["error"].as_str().unwrap_or("unknown bridge error")
-        ))
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
 
 pub(crate) type AccountId = usize;
 
+/// Whether the bridge should submit an on-chain transaction or run a read-only simulation.
+#[derive(Debug, Clone, Copy)]
+pub enum Verb {
+    Send,
+    Simulate,
+}
+
 pub struct WalletCommand {
-    /// `true` for queries (simulate), `false` for mutations (send).
+    pub verb: Verb,
+    /// `true` if this command must observe committed state before executing
+    /// (flushes the parallel batch).
     pub query: bool,
     pub method: String,
     pub contract: String,
@@ -149,27 +90,196 @@ pub struct WalletCommand {
 }
 
 // ---------------------------------------------------------------------------
-// Public API
+// Bridge -- persistent connection to the Node.js bridge server
 // ---------------------------------------------------------------------------
 
-/// Check that the bridge is reachable.
-pub fn check_connection() -> anyhow::Result<()> {
-    let url = bridge_url();
-    let resp = HTTP_CLIENT
-        .get(format!("{url}/health"))
-        .timeout(Duration::from_secs(5))
-        .send()
-        .map_err(|_| anyhow!(
-            "Bridge not reachable at {url}.\n\
-             Start it with: bash setup-nightly-sandbox.sh"
-        ))?;
-    if resp.status().is_success() {
-        debug!("bridge health check OK ({url})");
-        Ok(())
-    } else {
-        Err(anyhow!("Bridge returned HTTP {} on /health", resp.status()))
+pub struct Bridge {
+    url: String,
+    prove: bool,
+    client: reqwest::blocking::Client,
+    address_book: Mutex<AddressBook>,
+}
+
+impl std::fmt::Debug for Bridge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Bridge").field("url", &self.url).finish()
     }
 }
+
+impl Bridge {
+    pub fn new(url: &str, prove: bool) -> Self {
+        Self {
+            url: url.to_string(),
+            prove,
+            client: reqwest::blocking::Client::builder()
+                .timeout(Duration::from_secs(300))
+                .build()
+                .expect("failed to create HTTP client"),
+            address_book: Mutex::new(AddressBook::new()),
+        }
+    }
+
+    /// POST JSON to the bridge and return the parsed response.
+    /// Errors if the bridge returns `{ ok: false, error: "..." }`.
+    fn bridge_post(&self, endpoint: &str, body: &serde_json::Value) -> anyhow::Result<serde_json::Value> {
+        let resp = self.client
+            .post(format!("{}{endpoint}", self.url))
+            .json(body)
+            .send()
+            .map_err(|e| anyhow!("bridge request to {endpoint} failed: {e}"))?;
+        let status = resp.status();
+        let result: serde_json::Value = resp
+            .json()
+            .map_err(|e| anyhow!("bridge returned non-JSON (HTTP {status}): {e}"))?;
+        if result["ok"].as_bool() == Some(true) {
+            Ok(result)
+        } else {
+            Err(anyhow!(
+                "{}",
+                result["error"].as_str().unwrap_or("unknown bridge error")
+            ))
+        }
+    }
+
+    /// Check that the bridge is reachable.
+    pub fn check_connection(&self) -> anyhow::Result<()> {
+        let resp = self.client
+            .get(format!("{}/health", self.url))
+            .timeout(Duration::from_secs(5))
+            .send()
+            .map_err(|_| anyhow!(
+                "Bridge not reachable at {}.\n\
+                 Start it with: bash setup-nightly-sandbox.sh",
+                self.url
+            ))?;
+        if resp.status().is_success() {
+            debug!("bridge health check OK ({})", self.url);
+            Ok(())
+        } else {
+            Err(anyhow!("Bridge returned HTTP {} on /health", resp.status()))
+        }
+    }
+
+    /// Execute a wallet command and return stdout.  Retries automatically on
+    /// transient sandbox errors (e.g. block-hash-not-found after a reorg).
+    pub fn execute(&self, cmd: &WalletCommand) -> anyhow::Result<String> {
+        let book = self.address_book.lock().unwrap();
+        let resolved_from = book.resolve(&cmd.from);
+        let resolved_contract = book.resolve(&cmd.contract);
+        let resolved_args: Vec<String> = cmd.args.iter().map(|a| book.resolve(a)).collect();
+        let artifact = book
+            .artifact_for(&cmd.contract)
+            .ok_or_else(|| anyhow!("no artifact for contract {}", cmd.contract))?;
+        drop(book);
+
+        let verb = match cmd.verb {
+            Verb::Send => "send",
+            Verb::Simulate => "simulate",
+        };
+        let body = json!({
+            "verb": verb,
+            "method": cmd.method,
+            "contract": resolved_contract,
+            "from": resolved_from,
+            "args": resolved_args,
+            "artifact": artifact,
+            "prove": self.prove,
+        });
+
+        with_retry(&format!("{verb} {}", cmd.method), || {
+            debug!("bridge POST /execute {}", body);
+            let result = self.bridge_post("/execute", &body)?;
+            let stdout = result["stdout"].as_str().unwrap_or("").to_string();
+            debug!("bridge execute stdout: {stdout}");
+            Ok(stdout)
+        })
+    }
+
+    /// Import the 3 deterministic test accounts into the wallet.
+    pub fn import_test_accounts(&self) -> anyhow::Result<()> {
+        debug!("bridge POST /import-test-accounts");
+        let result = self.bridge_post("/import-test-accounts", &json!({ "prove": self.prove }))?;
+
+        if let Some(accounts) = result["accounts"].as_array() {
+            let mut book = self.address_book.lock().unwrap();
+            book.accounts = accounts
+                .iter()
+                .filter_map(|a| a.as_str().map(String::from))
+                .collect();
+            for (i, addr) in book.accounts.iter().enumerate() {
+                debug!("  accounts:test{i} = {addr}");
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Deploy a contract artifact with optional `--init` and `--args`, plus an
+    /// alias for the address book.
+    pub fn deploy(
+        &self,
+        artifact: &str,
+        from: &str,
+        alias: &str,
+        init: Option<&str>,
+        args: Option<&str>,
+    ) -> anyhow::Result<String> {
+        let book = self.address_book.lock().unwrap();
+        let resolved_from = book.resolve(from);
+        let resolved_args: Option<Vec<String>> = args.map(|a| {
+            a.split_whitespace()
+                .map(|arg| book.resolve(arg))
+                .collect()
+        });
+        drop(book);
+
+        let body = json!({
+            "artifact": artifact,
+            "from": resolved_from,
+            "init": init,
+            "args": resolved_args,
+        });
+        let result = with_retry("deploy", || {
+            debug!("bridge POST /deploy {}", body);
+            self.bridge_post("/deploy", &body)
+        })?;
+        let stdout = result["stdout"].as_str().unwrap_or("").to_string();
+
+        let address = result["address"]
+            .as_str()
+            .ok_or_else(|| anyhow!("bridge deploy response missing 'address'"))?;
+        {
+            let mut book = self.address_book.lock().unwrap();
+            book.contracts.insert(
+                alias.to_string(),
+                ContractInfo {
+                    address: address.to_string(),
+                    artifact: artifact.to_string(),
+                },
+            );
+            debug!("  contracts:{alias} = {address}  artifact={artifact}");
+        }
+
+        debug!("bridge deploy stdout: {stdout}");
+        Ok(stdout)
+    }
+
+    /// Execute multiple wallet commands in parallel using scoped threads.
+    /// Returns results in the same order as the input commands.
+    pub fn execute_many(&self, cmds: &[WalletCommand]) -> Vec<anyhow::Result<String>> {
+        std::thread::scope(|s| {
+            let handles: Vec<_> = cmds.iter().map(|cmd| s.spawn(|| self.execute(cmd))).collect();
+            handles
+                .into_iter()
+                .map(|h| h.join().unwrap())
+                .collect()
+        })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Retry helpers
+// ---------------------------------------------------------------------------
 
 /// Check whether an error is transient and worth retrying (e.g. sandbox reorgs
 /// triggered by concurrent transactions).
@@ -198,118 +308,6 @@ fn with_retry<T>(label: &str, f: impl Fn() -> anyhow::Result<T>) -> anyhow::Resu
         }
     }
     unreachable!()
-}
-
-/// Execute a wallet command and return stdout.  Retries automatically on
-/// transient sandbox errors (e.g. block-hash-not-found after a reorg).
-pub fn execute(cmd: &WalletCommand) -> anyhow::Result<String> {
-    let book = ADDRESS_BOOK.lock().unwrap();
-    let resolved_from = book.resolve(&cmd.from);
-    let resolved_contract = book.resolve(&cmd.contract);
-    let resolved_args: Vec<String> = cmd.args.iter().map(|a| book.resolve(a)).collect();
-    let artifact = book
-        .artifact_for(&cmd.contract)
-        .ok_or_else(|| anyhow!("no artifact for contract {}", cmd.contract))?;
-    drop(book);
-
-    let verb = if cmd.query { "simulate" } else { "send" };
-    let body = json!({
-        "verb": verb,
-        "method": cmd.method,
-        "contract": resolved_contract,
-        "from": resolved_from,
-        "args": resolved_args,
-        "artifact": artifact,
-        "prove": prove_enabled(),
-    });
-
-    with_retry(&format!("{verb} {}", cmd.method), || {
-        debug!("bridge POST /execute {}", body);
-        let result = bridge_post("/execute", &body)?;
-        let stdout = result["stdout"].as_str().unwrap_or("").to_string();
-        debug!("bridge execute stdout: {stdout}");
-        Ok(stdout)
-    })
-}
-
-/// Import the 3 deterministic test accounts into the wallet.
-pub fn import_test_accounts() -> anyhow::Result<()> {
-    debug!("bridge POST /import-test-accounts");
-    let result = bridge_post("/import-test-accounts", &json!({ "prove": prove_enabled() }))?;
-
-    if let Some(accounts) = result["accounts"].as_array() {
-        let mut book = ADDRESS_BOOK.lock().unwrap();
-        book.accounts = accounts
-            .iter()
-            .filter_map(|a| a.as_str().map(String::from))
-            .collect();
-        for (i, addr) in book.accounts.iter().enumerate() {
-            debug!("  accounts:test{i} = {addr}");
-        }
-    }
-
-    Ok(())
-}
-
-/// Deploy a contract artifact with optional `--init` and `--args`, plus an
-/// alias for the address book.
-pub fn deploy(
-    artifact: &str,
-    from: &str,
-    alias: &str,
-    init: Option<&str>,
-    args: Option<&str>,
-) -> anyhow::Result<String> {
-    let book = ADDRESS_BOOK.lock().unwrap();
-    let resolved_from = book.resolve(from);
-    let resolved_args: Option<Vec<String>> = args.map(|a| {
-        a.split_whitespace()
-            .map(|arg| book.resolve(arg))
-            .collect()
-    });
-    drop(book);
-
-    let body = json!({
-        "artifact": artifact,
-        "from": resolved_from,
-        "init": init,
-        "args": resolved_args,
-    });
-    let result = with_retry("deploy", || {
-        debug!("bridge POST /deploy {}", body);
-        bridge_post("/deploy", &body)
-    })?;
-    let stdout = result["stdout"].as_str().unwrap_or("").to_string();
-
-    let address = result["address"]
-        .as_str()
-        .ok_or_else(|| anyhow!("bridge deploy response missing 'address'"))?;
-    {
-        let mut book = ADDRESS_BOOK.lock().unwrap();
-        book.contracts.insert(
-            alias.to_string(),
-            ContractInfo {
-                address: address.to_string(),
-                artifact: artifact.to_string(),
-            },
-        );
-        debug!("  contracts:{alias} = {address}  artifact={artifact}");
-    }
-
-    debug!("bridge deploy stdout: {stdout}");
-    Ok(stdout)
-}
-
-/// Execute multiple wallet commands in parallel using scoped threads.
-/// Returns results in the same order as the input commands.
-pub fn execute_many(cmds: &[WalletCommand]) -> Vec<anyhow::Result<String>> {
-    std::thread::scope(|s| {
-        let handles: Vec<_> = cmds.iter().map(|cmd| s.spawn(|| execute(cmd))).collect();
-        handles
-            .into_iter()
-            .map(|h| h.join().unwrap())
-            .collect()
-    })
 }
 
 // ---------------------------------------------------------------------------

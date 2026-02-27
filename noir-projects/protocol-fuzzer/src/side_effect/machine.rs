@@ -6,7 +6,7 @@ use log::debug;
 
 use super::system::SideEffectSystem;
 use crate::smt::{self, Batchable};
-use crate::wallet::{self, AccountId};
+use crate::wallet::{self, AccountId, Bridge};
 
 pub(crate) type NoteValue = u128;
 pub(crate) type NullifierValue = u128;
@@ -16,14 +16,11 @@ pub(crate) type StorageSlotId = u8;
 const MAX_STORAGE_SLOTS: usize = 20;
 
 #[derive(Debug)]
-pub struct SideEffectMachine {
+pub struct SideEffectMachine<'a> {
     pub storage_slots: usize,
-}
-
-impl Default for SideEffectMachine {
-    fn default() -> Self {
-        Self { storage_slots: 5 }
-    }
+    /// Required for `new_system()` (deploy + import). `None` is fine for
+    /// model-only tests that never call `new_system`.
+    pub bridge: Option<&'a Bridge>,
 }
 
 #[derive(Debug, Clone)]
@@ -93,18 +90,34 @@ impl SideEffectCommand {
         }
     }
 
-    /// `TestNoteInclusion` / `TestNullifierInclusion` are sends (not queries)
-    /// even though they don't mutate model state -- they exercise on-chain
-    /// kernel verification.
-    pub fn is_query(&self) -> bool {
+    /// Bridge verb: simulate for read-only view/get, send for everything else.
+    /// `TestNoteInclusion` / `TestNullifierInclusion` are sends even though
+    /// they don't mutate model state -- they exercise on-chain kernel verification.
+    pub fn verb(&self) -> wallet::Verb {
         match self {
-            Self::ViewNotesMany { .. } | Self::GetNotesMany { .. } => true,
+            Self::ViewNotesMany { .. } | Self::GetNotesMany { .. } => wallet::Verb::Simulate,
             Self::CreateNote { .. }
             | Self::CreateAndCompletePartialNote { .. }
             | Self::DestroyNote { .. }
             | Self::TestNoteInclusion { .. }
             | Self::EmitNullifier { .. }
-            | Self::TestNullifierInclusion { .. } => false,
+            | Self::TestNullifierInclusion { .. } => wallet::Verb::Send,
+        }
+    }
+
+    /// Whether this command is a read-only query that doesn't change model state
+    /// (flushes the parallel batch). Note: TestNoteInclusion/TestNullifierInclusion
+    /// are sends (on-chain kernel verification) but still queries for batching.
+    pub fn is_query(&self) -> bool {
+        match self {
+            Self::ViewNotesMany { .. }
+            | Self::GetNotesMany { .. }
+            | Self::TestNoteInclusion { .. }
+            | Self::TestNullifierInclusion { .. } => true,
+            Self::CreateNote { .. }
+            | Self::CreateAndCompletePartialNote { .. }
+            | Self::DestroyNote { .. }
+            | Self::EmitNullifier { .. } => false,
         }
     }
 
@@ -120,9 +133,7 @@ impl SideEffectCommand {
             | Self::GetNotesMany { .. } => false,
         }
     }
-}
 
-impl SideEffectCommand {
     /// The `(storage_slot, owner)` pair for note operations, if applicable.
     fn slot_owner(&self) -> Option<(StorageSlotId, AccountId)> {
         match self {
@@ -240,6 +251,16 @@ fn populated_slots(state: &SideEffectState) -> Vec<(StorageSlotId, AccountId)> {
 /// The contract sorts by value ASC before applying the offset, so we sort and skip
 /// here too. With `active_or_nullified`, includes destroyed notes.
 ///
+fn assert_expected(name: &str, expect_ok: bool, result: &anyhow::Result<String>) {
+    if expect_ok {
+        debug!("{name}: expecting success");
+        assert!(result.is_ok(), "{name} unexpectedly failed: {:?}", result.as_ref().err());
+    } else {
+        debug!("{name}: expecting failure");
+        assert!(result.is_err(), "{name} unexpectedly succeeded");
+    }
+}
+
 /// TODO: Sort by counter instead of value. Notes with the same value can be
 /// returned in arbitrary order by the oracle, but counters are unique, giving
 /// a deterministic ordering the fuzzer model can predict exactly.
@@ -292,8 +313,8 @@ fn check_multi_note_query(
     );
 }
 
-impl smt::StateMachine for SideEffectMachine {
-    type System = SideEffectSystem;
+impl<'a> smt::StateMachine for SideEffectMachine<'a> {
+    type System = SideEffectSystem<'a>;
     type State = SideEffectState;
     type Command = SideEffectCommand;
     type Result = Result<String>;
@@ -321,13 +342,17 @@ impl smt::StateMachine for SideEffectMachine {
     ) -> arbitrary::Result<Self::Command> {
         let pop = populated_slots(state);
 
-        // Build command list based on preconditions. Sends have extra weight
-        // so queries (which flush the parallel batch) are ~20% of commands.
+        // Build command list based on preconditions. Mutations have extra weight
+        // so queries (which flush the parallel batch) are ~25% of commands.
         let mut choices: Vec<&str> = vec![
             "create_note",
-            "create_note", // 2x weight
+            "create_note",
+            "create_note",
+            "create_note", // 4x weight
             "create_partial_note",
+            "create_partial_note", // 2x weight
             "emit_nullifier",
+            "emit_nullifier", // 2x weight
         ];
 
         if !pop.is_empty() {
@@ -335,9 +360,10 @@ impl smt::StateMachine for SideEffectMachine {
                 "view_notes_many",
                 "get_notes_many",
                 "destroy_note",
-                "destroy_note", // 2x weight
+                "destroy_note",
+                "destroy_note",
+                "destroy_note", // 4x weight
                 "test_note_inclusion",
-                "test_note_inclusion", // 2x weight
             ]);
         }
 
@@ -436,13 +462,16 @@ impl smt::StateMachine for SideEffectMachine {
         // Test accounts are deterministic (fixed keys + zero salt), so
         // re-importing always yields the same addresses. Each deploy uses a
         // unique salt, so back-to-back runs get fresh contract instances.
-        wallet::import_test_accounts().expect("could not import test accounts");
-        let s = SideEffectSystem::new();
-        s.deploy_side_effect_contract(0)
+        let bridge = self.bridge.expect("bridge required for new_system()");
+        bridge.import_test_accounts().expect("could not import test accounts");
+        let system = SideEffectSystem::new(bridge);
+        system
+            .deploy_side_effect_contract(0)
             .expect("side-effect contract could not be deployed");
-        s.deploy_parent_contract(0)
+        system
+            .deploy_parent_contract(0)
             .expect("parent contract could not be deployed");
-        s
+        system
     }
 
     fn next_state(&self, cmd: &Self::Command, mut state: Self::State) -> Self::State {
@@ -527,75 +556,24 @@ impl smt::StateMachine for SideEffectMachine {
                 owner,
                 storage_slot,
                 ..
+            }
+            | TestNoteInclusion {
+                owner,
+                storage_slot,
+                ..
             } => {
                 let has_notes = pre_state
                     .active_notes
                     .get(&(*storage_slot, *owner))
                     .is_some_and(|n| !n.is_empty());
-                if has_notes {
-                    debug!("DestroyNote slot {storage_slot} owner {owner}: expecting success");
-                    assert!(
-                        result.is_ok(),
-                        "DestroyNote failed on populated slot {storage_slot}, owner {owner}: {:?}",
-                        result.err()
-                    );
-                } else {
-                    debug!("DestroyNote on empty slot {storage_slot} owner {owner}: expecting failure");
-                    assert!(
-                        result.is_err(),
-                        "DestroyNote should fail on empty slot {storage_slot}, owner {owner}"
-                    );
-                }
-            }
-            TestNoteInclusion {
-                owner,
-                storage_slot,
-                ..
-            } => {
-                let key = (*storage_slot, *owner);
-                let has_notes = pre_state
-                    .active_notes
-                    .get(&key)
-                    .is_some_and(|n| !n.is_empty());
-                if has_notes {
-                    debug!("TestNoteInclusion slot {storage_slot} owner {owner}: expecting success");
-                    assert!(
-                        result.is_ok(),
-                        "TestNoteInclusion failed on populated slot {storage_slot}, owner {owner}: {:?}",
-                        result.err()
-                    );
-                } else {
-                    debug!("TestNoteInclusion on empty slot {storage_slot} owner {owner}: expecting failure");
-                    assert!(
-                        result.is_err(),
-                        "TestNoteInclusion should fail on slot {storage_slot}, owner {owner} (no active notes)"
-                    );
-                }
+                assert_expected(cmd.name(), has_notes, &result);
             }
             EmitNullifier { nullifier, .. } => {
-                let is_dup = pre_state.emitted_nullifiers.contains(nullifier);
-                if is_dup {
-                    debug!("EmitNullifier {nullifier}: expecting failure (duplicate)");
-                    assert!(
-                        result.is_err(),
-                        "EmitNullifier should fail for duplicate nullifier {nullifier}"
-                    );
-                } else {
-                    debug!("EmitNullifier {nullifier}: expecting success");
-                    assert!(
-                        result.is_ok(),
-                        "EmitNullifier failed for new nullifier {nullifier}: {:?}",
-                        result.err()
-                    );
-                }
+                let is_new = !pre_state.emitted_nullifiers.contains(nullifier);
+                assert_expected(cmd.name(), is_new, &result);
             }
-            TestNullifierInclusion { nullifier, .. } => {
-                debug!("TestNullifierInclusion {nullifier}: expecting success");
-                assert!(
-                    result.is_ok(),
-                    "TestNullifierInclusion failed for nullifier {nullifier}: {:?}",
-                    result.err()
-                );
+            TestNullifierInclusion { .. } => {
+                assert_expected(cmd.name(), true, &result);
             }
             ViewNotesMany {
                 owner,
@@ -636,6 +614,7 @@ impl smt::StateMachine for SideEffectMachine {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
     use crate::smt::StateMachine;
 
@@ -738,8 +717,11 @@ mod tests {
         }
     }
 
-    fn machine() -> SideEffectMachine {
-        SideEffectMachine::default()
+    fn machine() -> SideEffectMachine<'static> {
+        SideEffectMachine {
+            storage_slots: 5,
+            bridge: None,
+        }
     }
 
     // -- next_state tests --

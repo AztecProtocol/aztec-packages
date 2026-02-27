@@ -3,7 +3,7 @@
 use arbitrary::Unstructured;
 use log::debug;
 
-use crate::wallet;
+use crate::wallet::{self, Bridge};
 
 /// State machine tests inspired by [ScalaCheck](https://github.com/typelevel/scalacheck/blob/main/doc/UserGuide.md#stateful-testing)
 /// and [quickcheck-state-machine](https://hackage.haskell.org/package/quickcheck-state-machine).
@@ -98,6 +98,7 @@ pub fn run<T: StateMachine>(
 pub fn run_batched<T>(
     u: &mut Unstructured,
     t: &mut T,
+    bridge: &Bridge,
     max_steps: usize,
     max_batch_size: usize,
 ) -> arbitrary::Result<()>
@@ -126,7 +127,7 @@ where
             && (batch.len() >= max_batch_size
                 || batch.iter().any(|(prev, _)| cmd.conflicts(prev)))
         {
-            execute_batch(t, &mut system, &batch);
+            execute_batch(t, &mut system, bridge, &batch);
             if !t.check_system(&batch.last().unwrap().0, &model, &system) {
                 return Ok(());
             }
@@ -141,7 +142,7 @@ where
 
     // Flush remaining commands.
     if !batch.is_empty() {
-        execute_batch(t, &mut system, &batch);
+        execute_batch(t, &mut system, bridge, &batch);
         t.check_system(&batch.last().unwrap().0, &model, &system);
     }
 
@@ -152,6 +153,7 @@ where
 fn execute_batch<T>(
     t: &T,
     system: &mut T::System,
+    bridge: &Bridge,
     batch: &[(T::Command, T::State)],
 ) where
     T: StateMachine<Result = anyhow::Result<String>>,
@@ -166,7 +168,7 @@ fn execute_batch<T>(
             .iter()
             .map(|(cmd, _)| wallet::WalletCommand::from(cmd))
             .collect();
-        let results = wallet::execute_many(&wallet_cmds);
+        let results = bridge.execute_many(&wallet_cmds);
         for ((cmd, pre_state), result) in batch.iter().zip(results) {
             t.check_result(cmd, pre_state, result);
         }

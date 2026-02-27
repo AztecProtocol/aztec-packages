@@ -26,8 +26,8 @@ between versions (the setup script auto-detects when they match).
 ## Quick Start (automated)
 
 `setup-nightly-sandbox.sh` handles everything: starts the container with fast 5-second
-slots, fixes the wallet, identifies the nightly commit, compiles both contracts, imports
-test accounts, and starts the bridge server.
+slots, fixes the wallet, identifies the nightly commit, compiles both contracts, and
+starts the bridge server. Test accounts are imported automatically by the fuzzer on each run.
 
 ```bash
 cd noir-projects/protocol-fuzzer
@@ -75,6 +75,16 @@ for the next block. Three things bring per-transaction time from ~35s down to ~4
 3. **Parallel batching.** The fuzzer buffers consecutive non-conflicting sends and fires
    them concurrently so they land in the same block. A batch of N sends takes the same
    time as a single send. Use `--max-batch-size` to tune (default: 8).
+4. **Simulated proofs (default).** Client-side proof generation is off by default (`--prove`
+   enables it). With the nightly sandbox's simulated proofs the difference is modest (~18%
+   faster without), but with real provers the savings would be larger.
+
+Benchmark (side-effect machine, 100 steps, 5s slots, batching enabled):
+
+| | No proofs (default) | `--prove` |
+|---|---|---|
+| Wall clock | ~2m53s | ~3m25s |
+| Per step (avg) | ~1.7s | ~2.1s |
 
 ## Manual Step-by-Step Setup
 
@@ -129,7 +139,7 @@ docker run -d --rm --name aztec-sandbox-nightly \
 with a different value causes chain time to race ahead of wall-clock time, breaking the
 sequencer.
 
-**Note:** Port 8089 is exposed for the bridge server (step 6).
+**Note:** Port 8089 is exposed for the bridge server (step 5).
 
 Wait for PXE startup:
 
@@ -206,14 +216,7 @@ for pkg in side_effect_contract parent_contract; do
 done
 ```
 
-### 5. Import test accounts
-
-```bash
-docker exec aztec-sandbox-nightly node --no-warnings \
-  /usr/src/yarn-project/cli-wallet/dest/bin/index.js import-test-accounts
-```
-
-### 6. Start the bridge server
+### 5. Start the bridge server
 
 The bridge server (`bridge.mjs`) runs inside the container and provides a persistent
 HTTP API that the fuzzer calls:
@@ -228,7 +231,9 @@ docker exec -d aztec-sandbox-nightly \
 curl -s http://localhost:8089/health  # {"ok":true}
 ```
 
-### 7. Run the fuzzer
+### 6. Run the fuzzer
+
+Test accounts are imported automatically by the fuzzer on each run.
 
 ```bash
 RUST_LOG=debug cargo run -- side-effect --max-steps 5
@@ -263,7 +268,7 @@ both code paths.
 The sandbox isn't running. Start it per step 2.
 
 ### "Bridge not reachable at http://localhost:8089"
-The bridge server isn't running. Start it per step 6.
+The bridge server isn't running. Start it per step 5.
 
 ### "Contract class mismatch" on deploy
 Artifact compiled with wrong nargo version. Recompile inside the nightly container (step 4b).

@@ -1,7 +1,9 @@
 use super::machine::{TokenCommand, TokenId};
-use crate::wallet::{self, AccountId, WalletCommand};
+use crate::wallet::{AccountId, Bridge, WalletCommand};
 
-pub struct TokenSystem;
+pub struct TokenSystem<'a> {
+    bridge: &'a Bridge,
+}
 
 impl From<&TokenCommand> for WalletCommand {
     fn from(cmd: &TokenCommand) -> Self {
@@ -146,6 +148,7 @@ impl From<&TokenCommand> for WalletCommand {
         };
 
         WalletCommand {
+            verb: cmd.verb(),
             query: cmd.is_query(),
             method: method.to_string(),
             contract,
@@ -155,9 +158,9 @@ impl From<&TokenCommand> for WalletCommand {
     }
 }
 
-impl TokenSystem {
+impl<'a> TokenSystem<'a> {
     pub(crate) fn execute_command(&self, cmd: &TokenCommand) -> anyhow::Result<String> {
-        wallet::execute(&WalletCommand::from(cmd))
+        self.bridge.execute(&WalletCommand::from(cmd))
     }
 
     pub(crate) fn deploy_token(
@@ -165,7 +168,7 @@ impl TokenSystem {
         account: AccountId,
         token: TokenId,
     ) -> anyhow::Result<String> {
-        wallet::deploy(
+        self.bridge.deploy(
             "TokenContractArtifact",
             &format!("accounts:test{account}"),
             &format!("token{token}"),
@@ -176,7 +179,7 @@ impl TokenSystem {
         )
     }
 
-    pub(crate) fn new() -> Self {
-        Self
+    pub(crate) fn new(bridge: &'a Bridge) -> Self {
+        Self { bridge }
     }
 }
