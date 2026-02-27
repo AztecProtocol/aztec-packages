@@ -396,14 +396,10 @@ export class SequencerPublisher {
         validRequests: validRequests.map(request => request.action),
         txConfig,
       });
-      const result = await Multicall3.forward(
-        validRequests.map(request => request.request),
-        this.l1TxUtils,
-        txConfig,
-        blobConfig,
-        this.rollupContract.address,
-        this.log,
-      );
+      const result = await this.forwardWithPublisherRotation(validRequests, txConfig, blobConfig);
+      if (result === undefined) {
+        return undefined;
+      }
       const { successfulActions = [], failedActions = [] } = this.callbackBundledTransactions(validRequests, result);
       return { result, expiredActions, sentActions: validActions, successfulActions, failedActions };
     } catch (err) {
