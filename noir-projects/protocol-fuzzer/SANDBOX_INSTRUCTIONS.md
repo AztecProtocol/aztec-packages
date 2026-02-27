@@ -29,15 +29,13 @@ between versions (the setup script auto-detects when they match).
 slots, fixes the wallet, identifies the nightly commit, compiles both contracts, imports
 test accounts, and starts the bridge server.
 
+By default it auto-discovers the latest `5.0.0-nightly.YYYYMMDD` tag from Docker Hub.
+
 ```bash
 cd noir-projects/protocol-fuzzer
-bash setup-nightly-sandbox.sh
-```
-
-To use a specific image version:
-
-```bash
-NIGHTLY_IMAGE=aztecprotocol/aztec:5.0.0-nightly.20260224 bash setup-nightly-sandbox.sh
+bash setup-nightly-sandbox.sh              # latest nightly
+bash setup-nightly-sandbox.sh --known-good # last tested tag
+NIGHTLY_IMAGE=aztecprotocol/aztec:5.0.0-nightly.20260224 bash setup-nightly-sandbox.sh  # specific tag
 ```
 
 Then run the fuzzer:

@@ -12,7 +12,8 @@
 set -euo pipefail
 
 CONTAINER_NAME="aztec-sandbox-nightly"
-IMAGE="${NIGHTLY_IMAGE:-aztecprotocol/aztec:5.0.0-nightly.20260224}"
+# Last nightly tag verified to work with this fuzzer (updated manually after testing).
+KNOWN_GOOD_TAG="5.0.0-nightly.20260224"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CONTRACTS_DIR="${REPO_ROOT}/noir-projects/protocol-fuzzer/contracts"
 NIGHTLY_BUILD_DIR="/tmp/nightly-build"
@@ -24,6 +25,39 @@ WRAPPER_PATH="${HOME}/.local/bin/aztec-wallet"
 
 log()  { echo "==> $*"; }
 die()  { echo "ERROR: $*" >&2; exit 1; }
+
+# Find the latest 5.0.0-nightly.YYYYMMDD tag from Docker Hub.
+# Falls back to KNOWN_GOOD_TAG if the query fails.
+find_latest_nightly() {
+    local tag
+    tag=$(curl -sf "https://hub.docker.com/v2/repositories/aztecprotocol/aztec/tags?page_size=100&name=5.0.0-nightly." 2>/dev/null \
+        | jq -r '.results[].name' 2>/dev/null \
+        | grep -E '^5\.0\.0-nightly\.[0-9]{8}$' \
+        | sort -t. -k4 -rn \
+        | head -1)
+    if [ -n "$tag" ]; then
+        echo "$tag"
+    else
+        log "Could not query Docker Hub, falling back to known-good tag"
+        echo "$KNOWN_GOOD_TAG"
+    fi
+}
+
+if [ -n "${NIGHTLY_IMAGE:-}" ]; then
+    IMAGE="$NIGHTLY_IMAGE"
+    log "Using user-specified image: ${IMAGE}"
+elif [ "${1:-}" = "--known-good" ]; then
+    IMAGE="aztecprotocol/aztec:${KNOWN_GOOD_TAG}"
+    log "Using known-good image: ${IMAGE}"
+else
+    LATEST_TAG=$(find_latest_nightly)
+    IMAGE="aztecprotocol/aztec:${LATEST_TAG}"
+    if [ "$LATEST_TAG" = "$KNOWN_GOOD_TAG" ]; then
+        log "Latest nightly matches known-good: ${IMAGE}"
+    else
+        log "Latest nightly: ${IMAGE} (known-good: ${KNOWN_GOOD_TAG})"
+    fi
+fi
 
 # wait_for_http URL MAX_SECONDS [INTERVAL]
 # Polls until any HTTP response (even 4xx/5xx) is received.
