@@ -22,7 +22,10 @@ enum MachineCommand {
 
 #[derive(clap::Args, Debug)]
 struct CommonArgs {
-    #[arg(long, default_value_t = 100000)]
+    // TODO: The nightly sandbox's tx pool silently drops transactions after ~500
+    // blocks at 5s slots, causing the fuzzer to hang. Cap at 400 until this is
+    // fixed upstream.
+    #[arg(long, default_value_t = 400)]
     max_steps: usize,
     #[arg(long, default_value_t = 500_000_000)]
     randomness_size: u32,
