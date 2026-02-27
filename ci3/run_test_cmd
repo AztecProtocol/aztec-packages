@@ -274,6 +274,36 @@ function pass {
   exit 0
 }
 
+# Post a GitHub commit status for a failed test, with the ci.aztec-labs.com log as target_url.
+# No-ops silently if required env vars are absent (local runs, forks, etc.).
+function post_github_failure_status {
+  local token="${GITHUB_TOKEN:-}"
+  local repo="${GITHUB_REPOSITORY:-}"
+  local sha="${COMMIT_HASH:-}"
+  [[ -z "$token" || -z "$repo" || -z "$sha" ]] && return 0
+
+  # Context: ci/<test_cmd>, truncated to 255 chars (GitHub limit).
+  local context="ci/${test_cmd}"
+  context="${context:0:255}"
+  # Description: truncated to 140 chars (GitHub limit).
+  local description="${test_cmd}"
+  description="${description:0:140}"
+
+  local body
+  body=$(jq -n \
+    --arg state "failure" \
+    --arg target_url "http://ci.aztec-labs.com/${log_key}" \
+    --arg description "$description" \
+    --arg context "$context" \
+    '{state: $state, target_url: $target_url, description: $description, context: $context}')
+
+  curl -s -o /dev/null -X POST \
+    -H "Authorization: token $token" \
+    -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/repos/${repo}/statuses/${sha}" \
+    -d "$body" &
+}
+
 # Show FAILED and exit with error code.
 function fail {
   finalize_test
@@ -290,6 +320,7 @@ function fail {
   [ "$track_test_history" -eq 1 ] && track_test_history "$track_line"
   [ "$track_test_fail" -eq 1 ] && track_test_failed "$track_line"
   [ "$publish" -eq 1 ] && publish_redis "failed"
+  [ "$CI" -eq 1 ] && post_github_failure_status
 
   if [ "$slack_notify_fail" -eq 1 ]; then
     slack_notify "Test FAILED on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key" "#alerts-next-scenario"
