@@ -10,6 +10,7 @@ Barretenberg (or `bb` for short) is an optimized elliptic curve library for the 
 
 - [Barretenberg](#barretenberg)
   - [Development](#development)
+    - [Quick Start](#quick-start)
     - [Bootstrap](#bootstrap)
     - [Build Options and Instructions](#build-options-and-instructions)
       - [WASM build](#wasm-build)
@@ -91,6 +92,36 @@ git clone -b release/10.x --depth 1 https://github.com/llvm/llvm-project.git \
 > On a fresh Ubuntu Kinetic installation, installing OpenMP from source yields a `Could NOT find OpenMP_C (missing: OpenMP_omp_LIBRARY) (found version "5.0")` error when trying to build Barretenberg. Installing from apt worked fine.
 
 </details>
+
+### Quick Start
+
+If you just want to use the `bb` binary and don't need to modify the source code, the easiest option is to install a pre-built binary using [bbup](bbup/README.md):
+
+```bash
+curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/master/barretenberg/bbup/install | bash
+bbup
+bb --version
+```
+
+If you need to build from source (e.g. to make changes), here is the minimal recipe to build the `bb` binary:
+
+```bash
+cd barretenberg/cpp
+cmake --preset default
+cmake --build --preset default --target bb
+```
+
+The resulting binary will be at `build/bin/bb`.
+
+If you prefer not to install dependencies on your host machine, you can use the Docker interactive script:
+
+```bash
+cd barretenberg/cpp
+./scripts/docker_interactive.sh
+# Inside the container:
+cmake --preset default
+cmake --build --preset default --target bb
+```
 
 ### Bootstrap
 
