@@ -30,10 +30,6 @@ Install the required tools:
 ```bash
 # Install Aztec CLI
 VERSION=4.0.0-devnet.2-patch.1 bash -i <(curl -sL https://install.aztec.network/4.0.0-devnet.2-patch.1)
-
-# Install Nargo via noirup
-curl -L https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
-noirup -v 1.0.0-beta.18
 ```
 
 ## Part 1: Understanding the Architecture
@@ -466,7 +462,7 @@ Create the following files in your project root directory.
   "scripts": {
     "ccc": "cd contract && aztec compile && aztec codegen target -o artifacts",
     "data": "tsx scripts/generate_data.ts",
-    "recursion": "tsx scripts/run_recursion.ts"
+    "recursion": "tsx scripts/index.ts"
   },
   "dependencies": {
     "@aztec/accounts": "4.0.0-devnet.2-patch.1",
@@ -476,7 +472,7 @@ Create the following files in your project root directory.
     "@aztec/noir-contracts.js": "4.0.0-devnet.2-patch.1",
     "@aztec/noir-noir_js": "4.0.0-devnet.2-patch.1",
     "@aztec/pxe": "4.0.0-devnet.2-patch.1",
-    "@aztec/test-wallet": "4.0.0-devnet.2-patch.1",
+    "@aztec/wallets": "4.0.0-devnet.2-patch.1",
     "tsx": "^4.20.6"
   },
   "devDependencies": {
@@ -545,7 +541,7 @@ Create `scripts/generate_data.ts`:
 
 ```typescript title="generate_data" showLineNumbers
 import { Noir } from "@aztec/noir-noir_js";
-import circuitJson from "../../../../circuits/hello_circuit/target/hello_circuit.json" with { type: "json" };
+import circuitJson from "../circuit/target/hello_circuit.json" with { type: "json" };
 import { Barretenberg, UltraHonkBackend, deflattenFields } from "@aztec/bb.js";
 import fs from "fs";
 import { exit } from "process";
@@ -736,20 +732,27 @@ The deployment script connects to the Aztec network, creates an account, deploys
 
 ### Deployment Script
 
-Create `scripts/run_recursion.ts`:
+Create `scripts/index.ts`:
 
 ```typescript
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
 import type { FieldLike } from "@aztec/aztec.js/abi";
-import { getSponsoredFPCInstance } from "./sponsored_fpc.ts";
+import { getSponsoredFPCInstance } from "./scripts/sponsored_fpc.js";
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
-import { ValueNotEqualContract } from "../contract/artifacts/ValueNotEqual";
-import data from "../data.json";
+import { ValueNotEqualContract } from "./artifacts/ValueNotEqual.js";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { Fr } from "@aztec/aztec.js/fields";
-import { rm } from "node:fs/promises";
 import assert from "node:assert";
+import fs from "node:fs";
+
+if (!fs.existsSync("data.json")) {
+  console.error(
+    "data.json not found. Run 'yarn data' first to generate proof data.",
+  );
+  process.exit(1);
+}
+const data = JSON.parse(fs.readFileSync("data.json", "utf-8"));
 
 export const NODE_URL = "http://localhost:8080";
 
@@ -763,14 +766,9 @@ const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
 // The wallet manages accounts and sends transactions through the PXE
 export const setupWallet = async (): Promise<EmbeddedWallet> => {
   try {
-    // Clean up any previous PXE data
-    await rm("pxe", { recursive: true, force: true });
-
     // Create wallet with embedded PXE
     // The wallet manages accounts and connects to the node
-    let wallet = await EmbeddedWallet.create(NODE_URL, {
-      pxeConfig: { dataDirectory: "pxe" },
-    });
+    let wallet = await EmbeddedWallet.create(NODE_URL);
 
     // Register the sponsored FPC so the wallet knows about it
     await wallet.registerContract(sponsoredFPC, SponsoredFPCContract.artifact);
@@ -784,7 +782,6 @@ export const setupWallet = async (): Promise<EmbeddedWallet> => {
 async function main() {
   // Step 1: Setup wallet and create account
   // Accounts in Aztec are smart contracts (account abstraction)
-  // See: https://docs.aztec.network/aztec/concepts/accounts
   const wallet = await setupWallet();
   const manager = await wallet.createSchnorrAccount(Fr.random(), Fr.random());
 
@@ -838,8 +835,7 @@ async function main() {
   );
 
   // Step 5: Send transaction and wait for inclusion
-  // wait() blocks until the transaction is included in a block
-  await interaction.send(opts).wait();
+  await interaction.send(opts);
 
   // Step 6: Read updated counter
   counterValue = await valueNotEqual.methods
