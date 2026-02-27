@@ -185,6 +185,9 @@ bool UltraCircuitChecker::check_block(Builder& builder,
             if (!result) {
                 return report_fail("Failed databus read at row idx = ", idx);
             }
+            // Note: EccOpQueueRelation is not checked here because it simply establishes that the ecc_op_wire
+            // polynomials contain copies of the conventional wire data in the ecc_op region (and are zero elsewhere) so
+            // there is nothing to check at the level of the builder.
         }
         if (!result) {
             return report_fail("Failed at row idx = ", idx);
