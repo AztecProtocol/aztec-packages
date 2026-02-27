@@ -32,6 +32,7 @@ export class SlasherClientFacade implements SlasherClientInterface {
     private epochCache: EpochCache,
     private dateProvider: DateProvider,
     private kvStore: AztecLMDBStoreV2,
+    private canonicalRollupRegisteredAtL2Slot: number,
     private logger = createLogger('slasher'),
   ) {}
 
@@ -88,6 +89,7 @@ export class SlasherClientFacade implements SlasherClientInterface {
       this.epochCache,
       this.dateProvider,
       this.kvStore,
+      this.canonicalRollupRegisteredAtL2Slot,
       this.logger,
     );
   }

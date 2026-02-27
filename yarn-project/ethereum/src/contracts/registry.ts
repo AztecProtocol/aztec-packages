@@ -3,7 +3,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { RegistryAbi } from '@aztec/l1-artifacts/RegistryAbi';
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 
-import { type GetContractReturnType, type Hex, getContract } from 'viem';
+import { type GetContractReturnType, type Hex, getAbiItem, getContract } from 'viem';
 
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { ViemClient } from '../types.js';
@@ -127,5 +127,26 @@ export class RegistryContract {
 
   public async getRewardDistributor(): Promise<EthAddress> {
     return EthAddress.fromString(await this.registry.read.getRewardDistributor());
+  }
+
+  /** Returns the L1 timestamp at which the given rollup was registered via addRollup(). */
+  public async getCanonicalRollupRegistrationTimestamp(
+    rollupAddress: EthAddress,
+    fromBlock?: bigint,
+  ): Promise<bigint | undefined> {
+    const logs = await this.client.getLogs({
+      address: this.address.toString(),
+      fromBlock: fromBlock ?? 0n,
+      strict: true,
+      event: getAbiItem({ abi: RegistryAbi, name: 'CanonicalRollupUpdated' }),
+      args: { instance: rollupAddress.toString() },
+    });
+
+    if (logs.length === 0) {
+      return undefined;
+    }
+
+    const block = await this.client.getBlock({ blockNumber: logs[0].blockNumber });
+    return block.timestamp;
   }
 }
