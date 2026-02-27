@@ -757,6 +757,8 @@ case "$cmd" in
     fi
 
     # VKs are stale - regenerate them.
+    export AVM=1
+    export AVM_TRANSPILER=1
     echo "VKs are stale, running --update_inputs to regenerate..."
     barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh --update_inputs
 
