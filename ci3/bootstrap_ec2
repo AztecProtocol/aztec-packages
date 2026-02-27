@@ -331,6 +331,7 @@ function run {
         -e NPM_TOKEN=${NPM_TOKEN:-} \
         -e CARGO_REGISTRY_TOKEN=${CARGO_REGISTRY_TOKEN:-} \
         -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
+        -e SOCKET_SECURITY_API_TOKEN=${SOCKET_SECURITY_API_TOKEN:-} \
         -e AWS_TOKEN=\$aws_token \
         -e NAMESPACE=${NAMESPACE:-} \
         -e NETWORK=${NETWORK:-} \
