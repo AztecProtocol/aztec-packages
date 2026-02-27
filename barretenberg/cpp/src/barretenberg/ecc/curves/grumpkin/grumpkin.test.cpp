@@ -41,7 +41,7 @@ TEST(grumpkin, SubgroupGenerator)
 
     EXPECT_NE(subgroup_generator.pow(3), fq::one());
     EXPECT_NE(subgroup_generator.pow(29), fq::one());
-    EXPECT_EQ(subgroup_generator.pow(81), fq::one());
+    EXPECT_EQ(subgroup_generator.pow(87), fq::one());
     EXPECT_EQ(subgroup_generator * subgroup_generator_inverse, fq::one());
 }
 
@@ -50,7 +50,7 @@ TEST(grumpkin, OneYIsCorrect)
     fr one_y = bb::grumpkin::G1Params::one_y;
     auto [_, expected] = (bb::grumpkin::G1Params::b + fr::one()).sqrt();
 
-    EXPECT_EQ(one_y, expected);
+    EXPECT_EQ(one_y, -expected);
 }
 
 // =========================

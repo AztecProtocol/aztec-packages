@@ -32,7 +32,7 @@ struct G1Params {
 #endif
     static constexpr bb::fr a{ 0UL, 0UL, 0UL, 0UL };
 
-    // generator point = (x, y) = (1, sqrt(-16)) = (1, 4u)
+    // generator point = (x, y) = (1, sqrt(-16)) = (1, -4i)
     static constexpr bb::fr one_x = bb::fr::one();
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     static constexpr bb::fr one_y{
