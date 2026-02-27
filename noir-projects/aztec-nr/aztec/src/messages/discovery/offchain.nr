@@ -25,7 +25,20 @@ pub struct PendingOffchainMsg {
     pub enqueued_ts: u64,
 }
 
-/// Receive an offchain-delivered message into the contract-owned inbox.
+/// Delivers an offchain message to the given contract's offchain inbox for subsequent processing.
+///
+/// Offchain messages are transaction effects that are not broadcasted via onchain logs. Instead, the sender shares the
+/// message to the recipient through an external channel (e.g. a URL accessible by the recipient). The recipient then
+/// calls this function to hand the message to the contract so it can be processed through the same mechanisms as
+/// onchain messages.
+///
+/// Messages are processed when their originating transaction is found onchain (providing the context needed to
+/// validate resulting notes and events).
+///
+/// Messages are kept in the inbox until the originating transaction can be assumed to have expired. This is necessary
+/// to make the mechanism resilient to reorgs.
+///
+/// Processing order is not guaranteed.
 pub unconstrained fn receive(
     contract_address: AztecAddress,
     ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,

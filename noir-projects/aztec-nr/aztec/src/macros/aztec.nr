@@ -443,21 +443,10 @@ comptime fn generate_offchain_receive() -> Quoted {
             parameters: offchain_receive_parameters,
         }
 
-        /// Delivers an offchain message to this contract's offchain inbox for processing during the next sync.
+        /// Delivers an offchain message to this contract's offchain inbox for subsequent processing.
         ///
-        /// Offchain messages are transaction effects that are not broadcasted via onchain logs. Instead, the sender
-        /// transmits the encrypted payload to the recipient through an external channel (e.g. a URL accessible by the
-        /// recipient). The recipient then calls this function to hand the message to the contract so it can be processed
-        /// through the same mechanisms as onchain messages.
+        /// For more details, see [`aztec::messages::discovery::offchain::receive`].
         ///
-        /// Messages are processed when their originating transaction is found onchain (providing the context needed to
-        /// validate resulting notes and events).
-        ///
-        /// Messages are kept in the inbox until their originating until the originating transaction can be assumed to
-        /// have expired. This is necessary to make the mechanism resilient to reorgs. 
-        ///
-        /// Processing order is not guaranteed.
-        /// 
         /// This function is automatically injected by the `#[aztec]` macro.
         #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
         unconstrained fn offchain_receive(
