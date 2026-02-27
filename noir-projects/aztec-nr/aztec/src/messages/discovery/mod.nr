@@ -81,7 +81,7 @@ pub type CustomMessageHandler<Env> = unconstrained fn[Env](
 /* message_context */ MessageContext);
 
 /// A handler that returns offchain-delivered messages to process during sync.
-pub type DiscoverOffchainMessages<Env> = unconstrained fn[Env](
+pub type OffchainMessageHandler<Env> = unconstrained fn[Env](
 /* contract_address */AztecAddress) -> CapsuleArray<OffchainMessage>;
 
 /// Performs the state synchronization process, in which private logs are downloaded and inspected to find new private
@@ -97,7 +97,7 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ComputeNoteHashAndNullifierEnv>,
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
-    discover_offchain_messages: Option<DiscoverOffchainMessages<()>>,
+    offchain_message_handler: Option<OffchainMessageHandler<()>>,
 ) {
     debug_log("Performing state synchronization");
 
@@ -124,8 +124,8 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
     });
 
     // Process any offchain-delivered messages supplied by the caller.
-    if discover_offchain_messages.is_some() {
-        let fetch = discover_offchain_messages.unwrap();
+    if offchain_message_handler.is_some() {
+        let fetch = offchain_message_handler.unwrap();
         let msgs: CapsuleArray<OffchainMessage> = fetch(contract_address);
         msgs.for_each(|i, msg| {
             process_message_ciphertext(

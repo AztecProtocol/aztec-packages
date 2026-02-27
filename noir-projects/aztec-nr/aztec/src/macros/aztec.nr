@@ -13,7 +13,7 @@ use crate::{
             module_has_storage,
         },
     },
-    messages::discovery::{CustomMessageHandler, DiscoverOffchainMessages},
+    messages::discovery::{CustomMessageHandler, OffchainMessageHandler},
 };
 
 /// Configuration for the [`aztec`] macro.
@@ -30,7 +30,7 @@ use crate::{
 /// ```
 pub struct AztecConfig {
     custom_message_handler: Option<CustomMessageHandler<()>>,
-    discover_offchain_messages: Option<DiscoverOffchainMessages<()>>,
+    offchain_message_handler: Option<OffchainMessageHandler<()>>,
 }
 
 impl AztecConfig {
@@ -39,7 +39,7 @@ impl AztecConfig {
     /// Calling `new` is equivalent to invoking the [`aztec`] macro with no parameters. The different methods
     /// (e.g. [`AztecConfig::custom_message_handler`]) can then be used to change the default behavior.
     pub comptime fn new() -> Self {
-        Self { custom_message_handler: Option::none(), discover_offchain_messages: Option::none() }
+        Self { custom_message_handler: Option::none(), offchain_message_handler: Option::none() }
     }
 
     /// Sets a handler for custom messages.
@@ -50,10 +50,7 @@ impl AztecConfig {
     /// `handler` must be a function that conforms to the
     /// [`crate::messages::discovery::CustomMessageHandler`] type signature.
     pub comptime fn custom_message_handler(self: Self, handler: CustomMessageHandler<()>) -> Self {
-        Self {
-            custom_message_handler: Option::some(handler),
-            discover_offchain_messages: self.discover_offchain_messages,
-        }
+        Self { custom_message_handler: Option::some(handler), offchain_message_handler: self.offchain_message_handler }
     }
 
     /// Sets a handler to customize how offchain-delivered messages are discovered and managed by the contract.
@@ -66,8 +63,8 @@ impl AztecConfig {
     /// [`crate::messages::discovery::offchain_inbox::offchain_sync_inbox`].
     ///
     /// This config allows for the default behavior to be overridden.
-    pub comptime fn discover_offchain_messages(self: Self, hook: DiscoverOffchainMessages<()>) -> Self {
-        Self { custom_message_handler: self.custom_message_handler, discover_offchain_messages: Option::some(hook) }
+    pub comptime fn offchain_message_handler(self: Self, hook: OffchainMessageHandler<()>) -> Self {
+        Self { custom_message_handler: self.custom_message_handler, offchain_message_handler: Option::some(hook) }
     }
 }
 
@@ -133,8 +130,8 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
         quote { Option::<aztec::messages::discovery::CustomMessageHandler<()>>::none() }
     };
 
-    let discover_offchain_messages_option = if config.discover_offchain_messages.is_some() {
-        let hook = config.discover_offchain_messages.unwrap();
+    let offchain_message_handler_option = if config.offchain_message_handler.is_some() {
+        let hook = config.offchain_message_handler.unwrap();
         quote { Option::some($hook) }
     } else {
         quote { Option::some(aztec::messages::discovery::offchain_inbox::offchain_sync_inbox) }
@@ -143,7 +140,7 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
     let sync_state_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { sync_state }) {
         generate_sync_state(
             process_custom_message_option,
-            discover_offchain_messages_option,
+            offchain_message_handler_option,
         )
     } else {
         quote {}
@@ -374,7 +371,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
 /// Generates the `sync_state` utility function that performs message discovery.
 comptime fn generate_sync_state(
     process_custom_message_option: Quoted,
-    discover_offchain_messages_option: Quoted,
+    offchain_message_handler_option: Quoted,
 ) -> Quoted {
     quote {
         pub struct sync_state_parameters {}
@@ -391,7 +388,7 @@ comptime fn generate_sync_state(
                 address,
                 _compute_note_hash_and_nullifier,
                 $process_custom_message_option,
-                $discover_offchain_messages_option,
+                $offchain_message_handler_option,
             );
         }
     }
