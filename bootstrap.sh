@@ -27,7 +27,7 @@ function cleanup {
   set +e
   if [ -n "${test_engine_pid:-}" ]; then
     echo "Sending SIGTERM to test engine process group..."
-    kill -SIGTERM -- -$test_engine_pgid &>/dev/null
+    kill -SIGTERM -- -$test_engine_pid &>/dev/null
     wait $test_engine_pid
     test_engine_pid=
   fi
@@ -277,9 +277,9 @@ function build_and_test {
   touch $test_cmds_file
   # put it in it's own process group, we can terminate on cleanup.
   setsid color_prefix "test-engine" "denoise \"test_engine $test_cmds_file\"" &
+  # setsid makes the child the session leader, so its PID is its PGID.
   test_engine_pid=$!
-  test_engine_pgid=$(ps -o pgid= -p $test_engine_pid | tr -d ' ')
-  echo "Started test engine with $test_engine_pid in PGID $test_engine_pgid."
+  echo "Started test engine with PGID $test_engine_pid."
 
   # Start the build.
   make $1 &
