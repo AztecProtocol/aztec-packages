@@ -94,11 +94,15 @@ where
     // This is a workaround as Noir does not currently let us return nested structs with arrays. We instead return a
     // raw multidimensional array in get_private_events_oracle and create the BoundedVecs here.
     let selector = Event::get_event_type_id();
-    let (raw_array_storage, _event_lengths, query_length) =
-        get_private_events_oracle(selector, contract_address, scope);
+    let (raw_array_storage, event_lengths, query_length) = get_private_events_oracle(selector, contract_address, scope);
 
     let mut events = BoundedVec::new();
     for i in 0..query_length {
+        assert(
+            <Event as Deserialize>::N == event_lengths[i],
+            "Unexpected event length obtained from txeGetPrivateEvents",
+        );
+
         let mut reader = Reader::new(raw_array_storage[i]);
         events.push(Deserialize::stream_deserialize(&mut reader));
     }
