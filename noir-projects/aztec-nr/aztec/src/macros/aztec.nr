@@ -60,7 +60,7 @@ impl AztecConfig {
     /// should not.
     ///
     /// By default, the lifecycle of offchain messages is handled by
-    /// [`crate::messages::discovery::offchain::offchain_sync_inbox`].
+    /// [`crate::messages::discovery::offchain::default_handler`].
     ///
     /// This config allows for the default behavior to be overridden.
     pub comptime fn offchain_message_handler(self: Self, handler: OffchainMessageHandler<()>) -> Self {
@@ -134,7 +134,7 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
         let handler = config.offchain_message_handler.unwrap();
         quote { Option::some($handler) }
     } else {
-        quote { Option::some(aztec::messages::discovery::offchain::offchain_sync_inbox) }
+        quote { Option::some(aztec::messages::discovery::offchain::default_handler) }
     };
 
     let sync_state_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { sync_state }) {

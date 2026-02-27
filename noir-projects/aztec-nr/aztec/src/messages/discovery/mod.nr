@@ -87,7 +87,7 @@ pub type CustomMessageHandler<Env> = unconstrained fn[Env](
 /// utility function (injected by [`crate::macros::aztec`]). This handler is responsible for deciding when each message
 /// is ready for processing, when it can be safely disposed of, etc.
 ///
-/// The default implementation is [`offchain::offchain_sync_inbox`], which manages an inbox with max TX TTL-based
+/// The default implementation is [`offchain::default_handler`], which manages an inbox with max TX TTL-based
 /// expiry and automatic context resolution. It can be overridden via
 /// [`crate::macros::AztecConfig::offchain_message_handler`].
 pub type OffchainMessageHandler<Env> = unconstrained fn[Env](

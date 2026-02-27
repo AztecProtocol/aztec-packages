@@ -40,7 +40,7 @@ pub unconstrained fn receive_offchain_message(
 /// Returns offchain-delivered messages to process during sync.
 ///
 /// Messages remain in the inbox and are reprocessed on each sync until they expire.
-pub unconstrained fn offchain_sync_inbox(address: AztecAddress) -> CapsuleArray<OffchainMessage> {
+pub unconstrained fn default_handler(address: AztecAddress) -> CapsuleArray<OffchainMessage> {
     let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
     let requests: CapsuleArray<Field> = CapsuleArray::at(address, OFFCHAIN_CONTEXT_REQUESTS_SLOT);
     let ready: CapsuleArray<OffchainMessage> = CapsuleArray::at(address, OFFCHAIN_READY_MESSAGES_SLOT);
