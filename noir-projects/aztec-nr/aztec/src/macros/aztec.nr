@@ -60,7 +60,7 @@ impl AztecConfig {
     /// should not.
     ///
     /// By default, the lifecycle of offchain messages is handled by
-    /// [`crate::messages::discovery::offchain_inbox::offchain_sync_inbox`].
+    /// [`crate::messages::discovery::offchain::offchain_sync_inbox`].
     ///
     /// This config allows for the default behavior to be overridden.
     pub comptime fn offchain_message_handler(self: Self, handler: OffchainMessageHandler<()>) -> Self {
@@ -134,7 +134,7 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
         let handler = config.offchain_message_handler.unwrap();
         quote { Option::some($handler) }
     } else {
-        quote { Option::some(aztec::messages::discovery::offchain_inbox::offchain_sync_inbox) }
+        quote { Option::some(aztec::messages::discovery::offchain::offchain_sync_inbox) }
     };
 
     let sync_state_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { sync_state }) {
@@ -466,7 +466,7 @@ comptime fn generate_offchain_receive() -> Quoted {
             tx_hash: Field,
         ) {
             let address = aztec::context::UtilityContext::new().this_address();
-            aztec::messages::discovery::offchain_inbox::receive_offchain_message(
+            aztec::messages::discovery::offchain::receive_offchain_message(
                 address,
                 ciphertext,
                 recipient,
