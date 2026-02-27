@@ -32,7 +32,7 @@ if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
     else
       echo_stderr -e "${yellow}Failed to start a local redis. Log and test cache will be disabled.${reset}"
     fi
-  else
+  elif [ "$CI" -eq 0 ]; then
     echo_stderr -e "${yellow}Cannot connect to remote redis, and no docker available for local redis. Log and test cache will be disabled.${reset}"
   fi
 fi
