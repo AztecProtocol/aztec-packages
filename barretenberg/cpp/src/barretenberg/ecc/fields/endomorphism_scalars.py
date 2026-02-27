@@ -55,14 +55,20 @@ NOTATION:
 # down through √p and below.  We stop at the first remainder r_j < √p and read off
 # two short lattice vectors from the Bézout coefficients at steps j−1 and j.
 #
-# The resulting vector sizes depend on the specific λ and p:
+# The resulting vector sizes are generically ~√p, but the exact sizes determine
+# whether the split scalars k1, k2 fit in 128 bits:
 #
-#   • BN254 (Fr and Fq): the curve is constructed from a 63-bit parameter x, and the
-#     lattice vectors are a1 = b2 = 2x+1 (64 bits), |b1| = 6x²+2x (127 bits).
-#     This asymmetric 64/127-bit pattern is a consequence of the BN parametrisation.
+#   • BN254 (Fr and Fq): p is 254 bits, so √p ~ 127 bits.  The lattice vectors
+#     have |b1| ≤ 127 bits, |b2| ≤ 64 bits (the asymmetry comes from the explicit BN).
+#     Since k2 = f1·|b1| - f2·b2 with f1,f2 ∈ [0,1), we get |k2| < 2^127,
+#     which fits comfortably in 128 bits with 1 bit of headroom. Similarly,
+#     |a1|  = 64 bits and |a2| = 127 bits, so similar logic applies for k1.
 #
-#   • secp256k1 Fr: no small generating parameter; the lattice vectors are all in the
-#     generic ~126–129-bit range (roughly √p for a 256-bit prime).
+#   • secp256k1 Fr: p is 256 bits, so √p ~ 128 bits.  The lattice basis has
+#     |b1| = 128 bits and |b2| = 126 bits. However, |a1| = 126 bits and |a2|
+#     = 129 bits. This implies that the naive bound only gives that |k1|
+#     ≤ 129 bits. Indeed, k1 is 129 bits ~25% of the time. It turns out that |k2|
+#     is 129 bits roughly 0.3% of the time.
 #
 
 from math import isqrt
@@ -486,8 +492,8 @@ for m in [1, 2, 3]:
 # 256-bit shift approximation is sufficient for ANY prime r < 2^256 — the
 # error is bounded to {0, -1}. The old 384-bit path was only needed because
 # the 256-bit C++ code truncated outputs to 128 bits, clipping the 129th bit
-# that appears for ~26% of secp256k1 inputs. With full-width output, 256-bit
-# shift works perfectly.
+# that appears for ~25% of inputs (k1) and ~0.3% of inputs (k2).  With
+# full-width output, 256-bit shift works perfectly.
 #
 # For secp256k1, the large-modulus branch of split_into_endomorphism_scalars
 # returns full field elements (not truncated to 128 bits). The caller
@@ -524,7 +530,8 @@ assert (pow(secp_lambda, 2, secp_r) + secp_lambda + 1) % secp_r == 0, "λ² + λ
 # § 11. secp256k1 Fr — LATTICE BASIS
 # ====================================================================================
 #
-# See §0 for why these vectors are ~126–129 bits (unlike BN254's 64/127 pattern).
+# See §0 for the component sizes: |a1| = 126, |b1| = 128, |a2| = 129, |b2| = 126 bits
+# (unlike BN254's asymmetric 64/127 pattern).
 
 secp_a1, secp_b1, secp_a2, secp_b2 = find_short_lattice_basis(secp_lambda, secp_r)
 
@@ -580,8 +587,10 @@ assert secp_endo_b2 == secp_expected_endo_b2, (
 # ====================================================================================
 #
 # secp256k1 uses the same core computation as BN254 (compute_endomorphism_k2 in
-# field_declarations.hpp), but WITHOUT the negative-k2 fix. The result k2 is a
-# full field element (up to ~129 bits); the caller handles signs.
+# field_declarations.hpp), but WITHOUT the negative-k2 fix. Both k1 and k2 can
+# reach 129 bits (see §0 for why); the caller handles signs. This specifically means
+# that if k2 is (naively) negative, it will be returned as r - k2, a 256-bit number,
+# and the caller will then detect this and handle appropriately.
 #
 # ALGORITHM (the `else` branch of split_into_endomorphism_scalars in
 # field_declarations.hpp, for large moduli):
@@ -604,7 +613,7 @@ def split_scalar_secp256k1(k, modulus, lambda_val, endo_g1, endo_g2, endo_minus_
 
     Returns:
         (k1, k2): Full field elements such that k ≡ k1 - λ·k2 (mod r).
-                   k2 fits in ~129 bits; k1 fits in ~128 bits.
+                   Both k1 and k2 can reach ~129 bits (see §0).
     """
     input_val = k % modulus
 
@@ -669,10 +678,43 @@ for k_test in [0, 1, 42, secp_lambda, secp_r - 1, secp_r // 2, secp_r // 3]:
 # ALL curves use the same 256-bit shift (see §0a for the proof that this is
 # sufficient for any r < 2^256). MODULUS_TOP_LIMB_LARGE_THRESHOLD (2^62)
 # determines whether the 128-bit pair path (with negative-k2 fix) or the
-# full-width path (no fix, caller handles signs) is used. The former is ONLY
-# called for BN254 fields, as their lattice basis is unusually short and hence
-# the splitting scalars comfortably fit in 128 bits; in general, for 256-bit fields,
-# k1 and k2 will have ~ 128 or 129 bits.
+# full-width path (no fix, caller handles signs) is used. The 128-bit path
+# works for BN254 because its 254-bit modulus gives √r ~ 127 bits, leaving
+# one bit of headroom below 128. For 256-bit moduli like secp256k1, √r ~ 128
+# bits leaves zero headroom: k1 exceeds 128 bits ~25% of the time (since
+# |a2| = 129 bits) and k2 exceeds 128 bits ~0.3% of the time (see §16).
+
+# ====================================================================================
+# § 16. APPENDIX: 129-BIT SCALARS FOR secp256k1
+# ====================================================================================
+#
+# Empirically verify the 129-bit overflow frequencies from §0 by calling
+# split_scalar_secp256k1 (§13) on random inputs.
+
+def measure_overflow_frequency(n_samples=500_000):
+    """Measure the fraction of random scalars whose k1 or k2 exceeds 128 bits."""
+    import random
+    rng = random.Random(42)
+
+    count_k1 = 0
+    count_k2 = 0
+    for _ in range(n_samples):
+        k = rng.randrange(1, secp_r)
+        k1, k2 = split_scalar_secp256k1(
+            k, secp_r, secp_lambda,
+            secp_endo_g1, secp_endo_g2, secp_endo_minus_b1, secp_endo_b2
+        )
+        if k1.bit_length() > 128:
+            count_k1 += 1
+        if k2 <= (secp_r - (1 << 127)) and k2.bit_length() > 128: # k2 is naively in the range (-2^127, 2^129). therefore we throw away when k2 is negative.
+            count_k2 += 1
+
+    pct_k1 = 100 * count_k1 / n_samples
+    pct_k2 = 100 * count_k2 / n_samples
+    print(f"  k1 > 128 bits: {count_k1}/{n_samples} ({pct_k1:.1f}%)")
+    print(f"  k2 positive and > 128 bits: {count_k2}/{n_samples} ({pct_k2:.2f}%)")
+    assert 20 < pct_k1 < 35, f"Expected ~25% for k1, got {pct_k1}%"
+    assert 0.1 < pct_k2 < 1.0, f"Expected ~0.3% for k2, got {pct_k2}%"
 
 if __name__ == "__main__":
     print("=== Part I: BN254 Fr ===")
@@ -699,8 +741,7 @@ if __name__ == "__main__":
     print(f"  endo_b2:       {hex(secp_endo_b2)}")
     print("  -> Constants match secp256k1.hpp FrParams")
 
-    print("\n=== secp256k1 Fq (base field) ===")
-    print(f"  β (cube root): {hex(secp_fq_beta)}")
-    print("  -> Cube root verified")
+    print("\n=== Appendix: 129-bit overflow frequency (secp256k1) ===")
+    measure_overflow_frequency()
 
     print("\nAll verifications passed!")
