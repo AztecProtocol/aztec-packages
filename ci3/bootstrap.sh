@@ -5,6 +5,7 @@ hash=$(cache_content_hash ^ci3)
 
 function test_cmds {
   echo "$hash $ci3/tests/redact_test"
+  echo "$hash $ci3/tests/signal_test"
   echo "$hash $ci3/semver test"
 }
 

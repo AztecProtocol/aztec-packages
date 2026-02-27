@@ -356,10 +356,8 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
     /**
      * @brief Efficient batch evaluation of the challenge polynomial, Lagrange first, and Lagrange last
      *
-     * @details It is a modification of \ref bb::polynomial_arithmetic::compute_barycentric_evaluation
-     * "compute_barycentric_evaluation" method that does not require EvaluationDomain object and outputs the barycentric
-     * evaluation of a polynomial along with the evaluations of the first and last Lagrange polynomials. The
-     * interpolation domain is given by \f$ (1, g, g^2, \ldots, g^{|H| -1 } )\f$
+     * @details Outputs the barycentric evaluation of a polynomial along with the evaluations of the first and last
+     * Lagrange polynomials. The interpolation domain is given by \f$ (1, g, g^2, \ldots, g^{|H| -1 } )\f$
      *
      * @param coeffs Coefficients of the polynomial to be evaluated, in our case it is the challenge polynomial
      * @param r Evaluation point, we are using the Gemini evaluation challenge

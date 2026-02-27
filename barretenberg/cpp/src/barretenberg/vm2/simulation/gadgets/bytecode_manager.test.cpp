@@ -109,8 +109,8 @@ TEST_F(BytecodeManagerTest, RetrievalAndDeduplication)
     EXPECT_THAT(retrieval_events_dump, SizeIs(1));
     EXPECT_EQ(retrieval_events_dump[0].address, address1);
     EXPECT_EQ(retrieval_events_dump[0].bytecode_id, bytecode_commitment);
-    EXPECT_FALSE(retrieval_events_dump[0].instance_not_found_error);
-    EXPECT_FALSE(retrieval_events_dump[0].limit_error);
+    EXPECT_TRUE(retrieval_events_dump[0].is_new_class);
+    EXPECT_FALSE(retrieval_events_dump[0].error.has_value());
     // Verify hashing events - should have exactly one hashing event total
     auto hashing_events_dump = hashing_events.dump_events();
     EXPECT_THAT(hashing_events_dump, SizeIs(1));
@@ -145,6 +145,7 @@ TEST_F(BytecodeManagerTest, RetrievalAndDeduplication)
     EXPECT_THAT(retrieval_events_dump, SizeIs(1));
     EXPECT_EQ(retrieval_events_dump[0].address, address1);
     EXPECT_EQ(retrieval_events_dump[0].bytecode_id, bytecode_commitment);
+    EXPECT_FALSE(retrieval_events_dump[0].is_new_class);
     hashing_events_dump = hashing_events.dump_events();
     EXPECT_THAT(hashing_events_dump, SizeIs(0)); // No hashing for deduplicated bytecode
     decomposition_events_dump = decomposition_events.dump_events();
@@ -179,6 +180,7 @@ TEST_F(BytecodeManagerTest, RetrievalAndDeduplication)
     EXPECT_THAT(retrieval_events_dump, SizeIs(1));
     EXPECT_EQ(retrieval_events_dump[0].address, address2);
     EXPECT_EQ(retrieval_events_dump[0].bytecode_id, bytecode_commitment);
+    EXPECT_FALSE(retrieval_events_dump[0].is_new_class);
     hashing_events_dump = hashing_events.dump_events();
     EXPECT_THAT(hashing_events_dump, SizeIs(0)); // No hashing for deduplicated bytecode
     decomposition_events_dump = decomposition_events.dump_events();
@@ -219,8 +221,7 @@ TEST_F(BytecodeManagerTest, TooManyBytecodes)
     EXPECT_THAT(retrieval_events_dump, SizeIs(1));
     EXPECT_EQ(retrieval_events_dump[0].address, address1);
     EXPECT_EQ(retrieval_events_dump[0].bytecode_id, 0);
-    EXPECT_FALSE(retrieval_events_dump[0].instance_not_found_error);
-    EXPECT_TRUE(retrieval_events_dump[0].limit_error);
+    EXPECT_EQ(retrieval_events_dump[0].error, BytecodeRetrievalEventError::TOO_MANY_BYTECODES);
 }
 
 // Test about a contract address nullifier not found error (contract address not in nullifier tree)
@@ -260,8 +261,7 @@ TEST_F(BytecodeManagerTest, ContractAddressNullifierNotFoundError)
     EXPECT_THAT(retrieval_events_dump, SizeIs(1));
     EXPECT_EQ(retrieval_events_dump[0].address, address);
     EXPECT_EQ(retrieval_events_dump[0].bytecode_id, 0);
-    EXPECT_TRUE(retrieval_events_dump[0].instance_not_found_error);
-    EXPECT_FALSE(retrieval_events_dump[0].limit_error);
+    EXPECT_EQ(retrieval_events_dump[0].error, BytecodeRetrievalEventError::INSTANCE_NOT_FOUND);
 
     auto contract_retrieval_events_dump = contract_retrieval_events.dump_events();
     EXPECT_THAT(contract_retrieval_events_dump, SizeIs(1));

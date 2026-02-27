@@ -52,4 +52,12 @@ export type BackendOptions = {
    * BarretenbergSync supports: Wasm, NativeSharedMem only
    */
   backend?: BackendType;
+
+  /**
+   * @description Mark backend handles (worker threads, sockets, pipes) as unref'd so they
+   * don't prevent the Node.js process from exiting. Used for the singleton instance where
+   * callers don't manage the lifecycle. Non-singleton instances should leave this false
+   * and call destroy() to clean up.
+   */
+  unref?: boolean;
 };
