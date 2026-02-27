@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.0.2](https://github.com/AztecProtocol/aztec-packages/compare/v4.0.1...v4.0.2) (2026-02-27)
+
+
+### Bug Fixes
+
+* handle scientific notation in bigintConfigHelper ([#20929](https://github.com/AztecProtocol/aztec-packages/issues/20929)) ([0ed0a06](https://github.com/AztecProtocol/aztec-packages/commit/0ed0a0680c42ca88e650bffd0f2eee3ac93c3f5a))
+* handle scientific notation in bigintConfigHelper ([#20929](https://github.com/AztecProtocol/aztec-packages/issues/20929)) ([1fa71ae](https://github.com/AztecProtocol/aztec-packages/commit/1fa71ae18d94c4dbfee74b07c23b932e9236dbc7))
+
 ## [4.0.1](https://github.com/AztecProtocol/aztec-packages/compare/v4.0.0...v4.0.1) (2026-02-26)
 
 
