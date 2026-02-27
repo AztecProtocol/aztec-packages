@@ -40,6 +40,7 @@ void AddressDerivationTraceBuilder::process(
                 { C::address_derivation_tagging_key_y, event.instance.public_keys.tagging_key.y },
                 { C::address_derivation_address, event.address },
                 { C::address_derivation_salted_init_hash, event.salted_initialization_hash },
+                { C::address_derivation_salted_init_hash_domain_separator, DOM_SEP__SALTED_INITIALIZATION_HASH },
                 { C::address_derivation_partial_address_domain_separator, DOM_SEP__PARTIAL_ADDRESS },
                 { C::address_derivation_const_two, 2 },
                 { C::address_derivation_const_three, 3 },

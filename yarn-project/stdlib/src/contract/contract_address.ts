@@ -57,7 +57,7 @@ export function computeSaltedInitializationHash(
 ): Promise<Fr> {
   return poseidon2HashWithSeparator(
     [instance.salt, instance.initializationHash, instance.deployer],
-    DomainSeparator.PARTIAL_ADDRESS,
+    DomainSeparator.SALTED_INITIALIZATION_HASH,
   );
 }
 

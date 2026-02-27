@@ -27,17 +27,17 @@ pub global default_contract: ContractData = ContractData {
     public_bytecode_commitment: 0x256abef672381d551191d5bbecf2dec6ac9cc2a81189f886ac22e29e5c58c49c,
     private_functions_root: 0x061c463b7081a00225202f820b1727b4f3de765b33bc73c2e790938d3cc602a7,
     address: AztecAddress {
-        inner: 0x019da16a2eb4db748710f7fffa7940dbbacd6345f34d6dbb6a7847941920356a,
+        inner: 0x0e0a0555f2ca0a0d6cf5a342e05e2aac1759a214d6a68ddf1d44ee5437e44540,
     },
     partial_address: PartialAddress {
-        inner: 0x0cdea49e43fb9b43df9c24d7445a010fa965b33270d073870422699b61e9dee8,
+        inner: 0x1cf1aae0df8fb73ed633e4bbe63e2d9b7808cb3ec1236fcc997c1143ef4b0ce0,
     },
     contract_class_id: ContractClassId {
         inner: 0x16fcb2b009e466987896f03b577530e2751044604834706b4798718ab8c0bfb9,
     },
     public_keys: PublicKeys::default(),
     salted_initialization_hash: SaltedInitializationHash {
-        inner: 0x222d697ec3c42432bba23ee114f269a711025d4d323c459582b3a41bfe083a5b,
+        inner: 0x1d83f43991ef3c393247a1796b194020c559aaf129e515adc6eace265f726452,
     },
     deployer: AztecAddress {
         inner: 0x0000000000000000000000000000000000000000000000000000000000000000,
@@ -52,17 +52,17 @@ pub global parent_contract: ContractData = ContractData {
     public_bytecode_commitment: 0x1cfb8e870870be1d102249b47923b63c2d54f33ca81e3028d74a06d8dd5944ca,
     private_functions_root: 0x2727db9f811c8f991a27d77b79a7771f4def75af526771ade032ff9771eb7ece,
     address: AztecAddress {
-        inner: 0x133d2a70cd794f5827d9215316157ff9d7d2d55dc6902462f0ef488669fb1d2c,
+        inner: 0x046475d30febe7d341c409f467833e18e4e31e05fcca9e0389bec7d5add6cf3a,
     },
     partial_address: PartialAddress {
-        inner: 0x0fa035b337962b083185bc8b14e7490255383d0107ea658e24f46a097bc9a0ba,
+        inner: 0x11fd5fca63aeace07947421cf79c8fe9bd281f26fef40e12021f7b62c635c3cc,
     },
     contract_class_id: ContractClassId {
         inner: 0x02e154ebfbb5396ce55d8b1c36beb95698563363a742edb04ab51ea21a541747,
     },
     public_keys: PublicKeys::default(),
     salted_initialization_hash: SaltedInitializationHash {
-        inner: 0x277a14ecf6d685df4a8c6477491094f8842421a21bde3d7dae376d64e4b9c45f,
+        inner: 0x2bfefc4cfdd56352f0d6cf62ae70abe702d7d948f5ccff4eeb51f9aefaece295,
     },
     deployer: AztecAddress {
         inner: 0x0000000000000000000000000000000000000000000000000000000000000000,
@@ -77,17 +77,17 @@ pub global updated_contract: ContractData = ContractData {
     public_bytecode_commitment: 0x225d884cfeaddc5292dadbf921e7699632336876c65a33459d3b2ad9b5ec0da3,
     private_functions_root: 0x0ad5db0b1e6d6b34f0b7e8b92e4975c5cc8320d7789bd4d18065ca76542956c8,
     address: AztecAddress {
-        inner: 0x1f817c95da25b3c74ea1b2ab492db7cc43a3cb420e4419e354e2de3ceb241903,
+        inner: 0x147a145b50b5f1e0bc3f4a85c2230fb8a0a0067b56c92e3fbe1a0b9a40b3d8da,
     },
     partial_address: PartialAddress {
-        inner: 0x2b61692bee0abcbd543cce139745188e43a68d7438b768a8a930f3ba550f924e,
+        inner: 0x1acaba9d04e2d3645bf44b2525b6ce7ce1e799963db096e0066ecab8497fe5f2,
     },
     contract_class_id: ContractClassId {
         inner: 0x141a337331c021cb2fa9cd5d586311dce7b421424c9ae7877925c0052577306c,
     },
     public_keys: PublicKeys::default(),
     salted_initialization_hash: SaltedInitializationHash {
-        inner: 0x02b91db090444ca006f9effeaa6fde13bae8f7b4b4eae439e24d711a69fce428,
+        inner: 0x0bbf968b28a0a1fa3a90ceb4c7104d63e7a8dc845a9c885781d74018d1579e59,
     },
     deployer: AztecAddress {
         inner: 0x0000000000000000000000000000000000000000000000000000000000000000,

@@ -21,7 +21,6 @@ describe('ContractAddress', () => {
       `"0x2f43fe475e50f6066260038fd16fa97029a76395b2d38388808e60bc24651a0c"`,
     );
   });
-
   it('computeSaltedInitializationHash', async () => {
     const mockInstance = {
       initializationHash: new Fr(1),
@@ -30,10 +29,9 @@ describe('ContractAddress', () => {
     };
     const result = await computeSaltedInitializationHash(mockInstance);
     expect(result.toString()).toMatchInlineSnapshot(
-      `"0x15d6f8d1ddedee7f58e41db6a7b6e6e8f97f70574588f59a9d52de22b5605e3c"`,
+      `"0x2175c2437c52b1bfae8eed40f2e9968546a7053272f94f3937c52ed7e0018349"`,
     );
   });
-
   it('computeInitializationHash', async () => {
     const mockInitFn: FunctionAbi = {
       functionType: FunctionType.PRIVATE,
@@ -51,12 +49,10 @@ describe('ContractAddress', () => {
       `"0x08b683284b4344302193cb36c05f043d4225e2d88d9e0f6ffde12547098cab98"`,
     );
   });
-
   it('computeInitializationHash empty', async () => {
     const result = await computeInitializationHash(undefined, []);
     expect(result).toEqual(Fr.ZERO);
   });
-
   it('computeContractAddressFromInstance', async () => {
     const secretKey = new Fr(2n);
     const salt = new Fr(3n);
@@ -75,6 +71,6 @@ describe('ContractAddress', () => {
         version: 1,
       })
     ).toString();
-    expect(address).toMatchInlineSnapshot(`"0x2cea4bfccb4a185354cbbd9eb5a39ace117abf1f9381c5b6167b1a6f94a0672c"`);
+    expect(address).toMatchInlineSnapshot(`"0x260f462e7ae7b7031cdb5e41a691a265d7debe6863d8a12887b97f5f8e5d7727"`);
   });
 });
