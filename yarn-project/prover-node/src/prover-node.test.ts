@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';

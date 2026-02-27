@@ -1,3 +1,4 @@
+// ci3: UV_THREADPOOL_SIZE=16
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash } from '@aztec/aztec.js/tx';

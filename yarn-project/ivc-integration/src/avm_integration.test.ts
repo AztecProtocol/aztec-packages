@@ -1,3 +1,4 @@
+// ci3: CPUS=16 MEM=16g LOG_LEVEL=debug BB_VERBOSE=1
 import { AztecClientBackend, Barretenberg } from '@aztec/bb.js';
 import { CHONK_PROOF_LENGTH, CHONK_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';

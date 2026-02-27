@@ -1,3 +1,4 @@
+// ci3: UV_THREADPOOL_SIZE=24
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';

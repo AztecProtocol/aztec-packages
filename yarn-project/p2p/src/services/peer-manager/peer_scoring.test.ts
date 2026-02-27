@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
 import { jest } from '@jest/globals';

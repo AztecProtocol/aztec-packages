@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { chunk } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';

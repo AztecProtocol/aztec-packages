@@ -1,3 +1,4 @@
+// ci3: ISOLATE UV_THREADPOOL_SIZE=16
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';

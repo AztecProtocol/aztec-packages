@@ -40,22 +40,17 @@ function test_cmds {
     src/e2e_p2p/reqresp/*.test.ts
     src/e2e_!(block_building).test.ts
   )
+  local parse_annotation="../scripts/parse_ci3_annotation.sh"
+
   for test in "${tests[@]}"; do
     local name=${test#*e2e_}
     name=e2e_${name%.test.ts}
     local cmd_env=""
 
-    # Increase UV_THREADPOOL_SIZE for tests that create multiple validator nodes.
-    # Each sequencer needs ~4 libuv threads. Default is 8 (suitable for <=2 nodes).
-    if [[ "$test" =~ e2e_epochs/epochs_first_slot ]]; then
-      cmd_env+=" UV_THREADPOOL_SIZE=32"
-    elif [[ "$test" =~ e2e_p2p/(inactivity_slash|validators_sentinel|multiple_validators_sentinel|reqresp/|preferred_gossip) ]]; then
-      cmd_env+=" UV_THREADPOOL_SIZE=24"
-    elif [[ "$test" =~ e2e_epochs/epochs_invalidate_block ]]; then
-      cmd_env+=" UV_THREADPOOL_SIZE=24"
-    elif [[ "$test" =~ e2e_p2p/ || "$test" =~ e2e_epochs/ ]]; then
-      cmd_env+=" UV_THREADPOOL_SIZE=16"
-    fi
+    # Read ci3 annotation from test file (e.g. // ci3: UV_THREADPOOL_SIZE=24)
+    eval $($parse_annotation "$test")
+    cmd_env+="$CI3_ENV"
+    # Prefix fields from annotation (CPUS, MEM, TIMEOUT, etc.) are appended to prefix below.
 
     # Check if this is a .parallel.test.ts file
     if [[ "$test" == *.parallel.test.ts ]]; then
@@ -64,11 +59,11 @@ function test_cmds {
         # Create a safe name for the individual test (replace spaces with underscores)
         local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
         local full_name="${name}_${safe_test_name}"
-        echo "$prefix:NAME=$full_name${cmd_env} $(set_dump_avm $full_name) $run_test_script simple $test \"$test_name\""
+        echo "$prefix${CI3_PREFIX}:NAME=$full_name${cmd_env} $(set_dump_avm $full_name) $run_test_script simple $test \"$test_name\""
       done < <(extract_test_names "$test")
     else
       # Regular test file - run the whole file
-      echo "$prefix:NAME=$name${cmd_env} $(set_dump_avm $name) $run_test_script simple $test"
+      echo "$prefix${CI3_PREFIX}:NAME=$name${cmd_env} $(set_dump_avm $name) $run_test_script simple $test"
     fi
   done
 

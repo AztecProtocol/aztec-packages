@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { P2PClient, type PeerId, type TxPoolV2, TxProvider } from '@aztec/p2p';

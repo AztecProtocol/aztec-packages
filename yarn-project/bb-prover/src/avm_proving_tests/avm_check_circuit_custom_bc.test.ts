@@ -1,3 +1,4 @@
+// ci3: CPUS=16 MEM=16g
 import {
   addressingWithBaseTagIssueTest,
   addressingWithIndirectTagIssueTest,

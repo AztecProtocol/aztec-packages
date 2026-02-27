@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { jest } from '@jest/globals';
 import {
   type Account,

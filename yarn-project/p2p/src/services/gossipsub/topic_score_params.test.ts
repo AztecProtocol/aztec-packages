@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { TopicType, createTopicString } from '@aztec/stdlib/p2p';
 
 import { describe, expect, it } from '@jest/globals';

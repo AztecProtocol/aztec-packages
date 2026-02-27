@@ -167,6 +167,7 @@ function build {
 
 function test_cmds {
   local hash=$(hash)
+  local parse_annotation="scripts/parse_ci3_annotation.sh"
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
@@ -178,42 +179,17 @@ function test_cmds {
     local prefix=$hash
     local cmd_env=""
 
-    # These need isolation due to network stack usage (p2p, anvil, etc).
-    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts|ivc-integration/src/chonk_browser|blob-client/src/server) ]]; then
-      prefix+=":ISOLATE=1:NAME=$test"
+    # Read ci3 annotation from test file (e.g. // ci3: ISOLATE CPUS=16 UV_THREADPOOL_SIZE=32)
+    eval $($parse_annotation "$test")
+    prefix+="$CI3_PREFIX"
+    cmd_env+="$CI3_ENV"
+
+    # Auto-add NAME for isolated tests.
+    if [[ "$prefix" == *ISOLATE* ]]; then
+      prefix+=":NAME=$test"
     fi
 
-    if [[ "$test" =~ ^ivc-integration/src/chonk_browser ]]; then
-      prefix+=":NET=1"
-    fi
-
-    # Boost some tests resources.
-    if [[ "$test" =~ testbench ]]; then
-      prefix+=":CPUS=10:MEM=16g"
-    elif [[ "$test" =~ avm_proving_tests || "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
-      prefix+=":CPUS=16:MEM=16g"
-    elif [[ "$test" =~ ^ivc-integration/ ]]; then
-      prefix+=":CPUS=8"
-    fi
-
-    # Increase UV_THREADPOOL_SIZE for tests that create multiple nodes/sequencers.
-    # Each sequencer needs ~4 libuv threads. Default is 8 (suitable for <=2 nodes).
-    if [[ "$test" =~ testbench ]]; then
-      cmd_env+=" UV_THREADPOOL_SIZE=32"
-    elif [[ "$test" =~ ^p2p/src/client/test/ || "$test" =~ ^p2p/src/services/reqresp/ || "$test" =~ ^p2p/src/services/discv5/ ]]; then
-      cmd_env+=" UV_THREADPOOL_SIZE=16"
-    fi
-
-    # Add debug logging for tests that require a bit more info
-    if [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts || "$test" == p2p/src/client/p2p_client.integration.test.ts ]]; then
-      cmd_env+=" LOG_LEVEL=debug"
-    elif [[ "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
-      cmd_env+=" LOG_LEVEL=debug BB_VERBOSE=1 "
-    elif [[ "$test" =~ e2e_p2p ]]; then
-      cmd_env+=" LOG_LEVEL='verbose; debug:p2p'"
-    fi
-
-    # Enable real proofs in prover-client integration tests only on CI full.
+    # Dynamic overrides that depend on CI state (not expressible in static annotations).
     if [[ "$test" =~ ^prover-client/src/test/ ]]; then
       if [ "$CI_FULL" -eq 1 ]; then
         prefix+=":CPUS=16:MEM=96g"

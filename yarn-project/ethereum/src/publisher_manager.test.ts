@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 

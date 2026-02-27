@@ -1,3 +1,4 @@
+// ci3: UV_THREADPOOL_SIZE=24
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { SlotNumber } from '@aztec/foundation/branded-types';

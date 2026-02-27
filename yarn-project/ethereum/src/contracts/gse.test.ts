@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { getPublicClient } from '@aztec/ethereum/client';
 import { GSEContract } from '@aztec/ethereum/contracts';
 import { Fr } from '@aztec/foundation/curves/bn254';

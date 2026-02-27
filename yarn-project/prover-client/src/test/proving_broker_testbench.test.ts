@@ -1,3 +1,4 @@
+// ci3: ISOLATE CPUS=10 MEM=16g
 /**
  * Proving Broker Performance Benchmarks
  *

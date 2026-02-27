@@ -1,3 +1,4 @@
+// ci3: ISOLATE NET CPUS=8
 /**
  * Browser-based IVC Integration Tests using Puppeteer
  *

@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { ChonkProof } from '@aztec/stdlib/proofs';

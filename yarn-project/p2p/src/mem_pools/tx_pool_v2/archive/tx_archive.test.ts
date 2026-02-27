@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { mockTx } from '@aztec/stdlib/testing';
 import type { Tx } from '@aztec/stdlib/tx';

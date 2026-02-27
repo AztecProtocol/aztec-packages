@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { describe, expect, it, jest } from '@jest/globals';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import type { Libp2p } from 'libp2p';

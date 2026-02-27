@@ -1,3 +1,4 @@
+// ci3: CPUS=16 MEM=16g
 import { createLogger } from '@aztec/foundation/log';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { TestExecutorMetrics, bulkTest, defaultGlobals } from '@aztec/simulator/public/fixtures';

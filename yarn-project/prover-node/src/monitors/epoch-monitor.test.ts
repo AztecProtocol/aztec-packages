@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';

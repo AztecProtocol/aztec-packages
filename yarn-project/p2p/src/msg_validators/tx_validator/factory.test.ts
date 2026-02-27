@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ContractDataSource } from '@aztec/stdlib/contract';

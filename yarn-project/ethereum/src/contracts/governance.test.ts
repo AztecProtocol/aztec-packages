@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { createExtendedL1Client, getPublicClient } from '@aztec/ethereum/client';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';

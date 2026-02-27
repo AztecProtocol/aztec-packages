@@ -1,3 +1,4 @@
+// ci3: ISOLATE UV_THREADPOOL_SIZE=16
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';

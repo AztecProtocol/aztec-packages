@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { bn254 } from '@noble/curves/bn254';
 import { writeFile } from 'fs/promises';
 

@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import type { EpochCache } from '@aztec/epoch-cache';
 import { NoCommitteeError } from '@aztec/ethereum/contracts';
 import { SlotNumber } from '@aztec/foundation/branded-types';

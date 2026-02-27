@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { Blob } from '@aztec/blob-lib';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';

@@ -1,3 +1,4 @@
+// ci3: CPUS=16 MEM=16g
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';

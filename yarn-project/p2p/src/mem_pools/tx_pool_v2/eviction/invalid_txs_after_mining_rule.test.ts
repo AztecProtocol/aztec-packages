@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { BlockHeader } from '@aztec/stdlib/tx';
 

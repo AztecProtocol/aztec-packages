@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { Blob } from '@aztec/blob-lib';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';

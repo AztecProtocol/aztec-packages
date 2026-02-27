@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
 import { TX_ERROR_INVALID_EXPIRATION_TIMESTAMP, type Tx } from '@aztec/stdlib/tx';

@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { BlockHash } from '@aztec/stdlib/block';
 import { mockTxForRollup } from '@aztec/stdlib/testing';

@@ -1,3 +1,4 @@
+// ci3: UV_THREADPOOL_SIZE=24
 import type { AztecNodeService } from '@aztec/aztec-node';
 
 import type { P2PNetworkTest } from '../p2p_network.js';

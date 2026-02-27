@@ -1,3 +1,4 @@
+// ci3: UV_THREADPOOL_SIZE=16
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';

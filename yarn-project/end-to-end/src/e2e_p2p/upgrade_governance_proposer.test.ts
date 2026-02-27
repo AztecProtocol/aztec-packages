@@ -1,3 +1,4 @@
+// ci3: UV_THREADPOOL_SIZE=16
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';

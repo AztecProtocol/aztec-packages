@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { Blob } from '@aztec/blob-lib';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';

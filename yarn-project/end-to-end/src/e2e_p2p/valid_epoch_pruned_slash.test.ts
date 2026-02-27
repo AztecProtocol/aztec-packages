@@ -1,3 +1,4 @@
+// ci3: UV_THREADPOOL_SIZE=16
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';

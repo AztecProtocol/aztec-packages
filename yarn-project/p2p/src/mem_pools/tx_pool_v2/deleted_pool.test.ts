@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncMap } from '@aztec/kv-store';

@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { BatchedBlob } from '@aztec/blob-lib/types';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';

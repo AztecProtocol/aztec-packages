@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { createExtendedL1Client, getPublicClient } from '@aztec/ethereum/client';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import { deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';

@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
 import { TX_ERROR_DUPLICATE_NULLIFIER_IN_TX, TX_ERROR_EXISTING_NULLIFIER, type Tx } from '@aztec/stdlib/tx';

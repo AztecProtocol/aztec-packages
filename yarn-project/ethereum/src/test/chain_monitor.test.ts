@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { sleep } from '@aztec/foundation/sleep';
 
 import { type MockProxy, mock } from 'jest-mock-extended';

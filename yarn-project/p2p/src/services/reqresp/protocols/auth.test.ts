@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { AuthRequest, AuthResponse } from './auth.js';
 
 describe('auth request', () => {

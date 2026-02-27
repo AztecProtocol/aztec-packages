@@ -1,3 +1,4 @@
+// ci3: UV_THREADPOOL_SIZE=24
 import type { EthAddress } from '@aztec/aztec.js/addresses';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { unique } from '@aztec/foundation/collection';

@@ -1,3 +1,4 @@
+// ci3: CPUS=16 MEM=16g
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { createLogger } from '@aztec/foundation/log';
 import { AvmGadgetsTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';

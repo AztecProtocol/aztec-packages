@@ -1,3 +1,4 @@
+// ci3: ISOLATE
 import { mockTx } from '@aztec/stdlib/testing';
 
 import { TxPoolRejectionCode } from './eviction/interfaces.js';
