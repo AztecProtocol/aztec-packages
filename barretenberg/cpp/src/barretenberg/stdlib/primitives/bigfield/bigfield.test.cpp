@@ -484,7 +484,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             d_ct.self_reduce();
 
             fq_native expected = (a_native + b_native + c_native).reduce_once().reduce_once();
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = d_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -538,7 +538,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
                     expected += b_native[j];
                 }
             }
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = c_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -590,7 +590,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             if (need_reduction_after) {
                 expected = expected.reduce_once().reduce_once();
             }
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = c_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -684,7 +684,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             if (need_reduction_after) {
                 expected = expected.reduce_once().reduce_once();
             }
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = a_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -739,7 +739,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             }
 
             fq_native expected = (a_native * b_native) + c_native;
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = d_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -774,7 +774,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             c_ct.self_reduce();
 
             fq_native expected = (a_native.sqr()) + b_native;
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = c_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -833,7 +833,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
                 expected += mul_left_native[j] * mul_right_native[j];
                 expected += to_add_native[j];
             }
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = f_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -873,7 +873,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             }
 
             fq_native expected = (a_native * b_native) + (c_native * d_native) + e_native;
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = f_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -912,7 +912,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
 
             fq_native expected = (a_native / b_native);
             expected = expected.reduce_once().reduce_once();
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = c_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -943,7 +943,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
 
             fq_native expected = (a_native + b_native) / (c_native + d_native);
             expected = expected.reduce_once().reduce_once();
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = e.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -973,7 +973,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             fq_ct e = (a_ct + b_ct) * (c_ct + d_ct);
 
             fq_native expected = (a_native + b_native) * (c_native + d_native);
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = e.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -1003,7 +1003,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
 
             fq_native expected = (a_native - b_native) * (c_native - d_native);
 
-            expected = expected.from_montgomery_form();
+            expected = expected.from_montgomery_form_reduced();
             uint512_t result = e.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
@@ -1200,8 +1200,8 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             g1::affine_element P3(g1::element(P1) + g1::element(P2));
             fq expected_x = P3.x;
             fq expected_y = P3.y;
-            expected_x = expected_x.from_montgomery_form();
-            expected_y = expected_y.from_montgomery_form();
+            expected_x = expected_x.from_montgomery_form_reduced();
+            expected_y = expected_y.from_montgomery_form_reduced();
             uint512_t result_x = x3.get_value() % fq_ct::modulus_u512;
             uint512_t result_y = y3.get_value() % fq_ct::modulus_u512;
             EXPECT_EQ(result_x.lo.data[0], expected_x.data[0]);
@@ -2590,4 +2590,38 @@ TYPED_TEST(stdlib_bigfield, assert_zero_if_nonzero_value_true_predicate_fails)
 TYPED_TEST(stdlib_bigfield, assert_zero_if_computed_zero)
 {
     TestFixture::test_assert_zero_if_computed_zero();
+}
+
+TYPED_TEST(stdlib_bigfield, less_than_works)
+{
+    using Builder = TypeParam::field_ct::Builder;
+    using fq_ct = TypeParam;
+    using byte_array_ct = stdlib::byte_array<Builder>;
+
+    Builder builder;
+
+    auto [c_native, c_ct] = TestFixture::get_random_witness(&builder);
+    BB_ASSERT_LT(static_cast<uint256_t>(c_native), fq_ct::modulus);
+
+    // c_ct < modulus
+    auto is_ok = c_ct.is_less_than(fq_ct::modulus);
+    is_ok.assert_equal(stdlib::bool_t<Builder>(true));
+
+    // c_ct not smaller than itself
+    auto is_not_ok = c_ct.is_less_than(c_native);
+    is_not_ok.assert_equal(stdlib::bool_t<Builder>(false));
+
+    // c_ct < c_native + 1 (edge case)
+    auto is_ok_edge_case = c_ct.is_less_than(c_native + 1);
+    is_ok_edge_case.assert_equal(stdlib::bool_t<Builder>(true));
+
+    // c_ct > modulus fails comparison but doesn't make the circuit fail
+    std::vector<uint8_t> c_bytes(32, 0xff);
+    byte_array_ct c_byte_array = byte_array_ct(&builder, c_bytes);
+    fq_ct reconstructed_from_bytes(c_byte_array);
+    auto is_not_ok_larger_than_modulus = reconstructed_from_bytes.is_less_than(fq_ct::modulus);
+    is_not_ok_larger_than_modulus.assert_equal(stdlib::bool_t<Builder>(false));
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_FALSE(builder.failed());
 }

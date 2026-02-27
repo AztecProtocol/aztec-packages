@@ -14,6 +14,7 @@
  * @param argv The argument values array
  * @return int Status code: 0 for success, non-zero for errors or verification failure
  */
+#include "barretenberg/api/api_acir.hpp"
 #include "barretenberg/api/api_avm.hpp"
 #include "barretenberg/api/api_chonk.hpp"
 #include "barretenberg/api/api_msgpack.hpp"
@@ -26,8 +27,10 @@
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/c_bind.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/version.hpp"
+#include "barretenberg/dsl/acir_format/serde/index.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/vm2/api_avm.hpp"
@@ -393,6 +396,23 @@ int parse_and_run_cli_command(int argc, char* argv[])
      * Flag: --help-extended (register with CLI11)
      ***************************************************************************************************************/
     app.add_flag("--help-extended", "Show all options including advanced and Aztec-specific commands.");
+
+    /***************************************************************************************************************
+     * Subcommand: acir_roundtrip
+     ***************************************************************************************************************/
+    std::filesystem::path acir_roundtrip_output_path;
+    CLI::App* acir_roundtrip_cmd =
+        app.add_subcommand("acir_roundtrip",
+                           "[Internal testing] Deserialize an ACIR program from bytecode (msgpack), "
+                           "re-serialize it back to msgpack, and write it to an output JSON file "
+                           "in nargo-compatible format. Functional equivalence should then be verified "
+                           "externally (e.g. by proving with the roundtripped bytecode).");
+
+    acir_roundtrip_cmd->group(aztec_internal_group);
+    add_bytecode_path_option(acir_roundtrip_cmd);
+    acir_roundtrip_cmd
+        ->add_option("--output_path,-o", acir_roundtrip_output_path, "Output path for the roundtripped bytecode JSON.")
+        ->required();
 
     /***************************************************************************************************************
      * Subcommand: check
@@ -803,6 +823,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     try {
+        // ACIR roundtrip (internal testing)
+        if (acir_roundtrip_cmd->parsed()) {
+            acir_roundtrip(bytecode_path, acir_roundtrip_output_path);
+            return 0;
+        }
+
         // MSGPACK
         if (msgpack_schema_command->parsed()) {
             std::cout << bbapi::get_msgpack_schema_as_json() << std::endl;

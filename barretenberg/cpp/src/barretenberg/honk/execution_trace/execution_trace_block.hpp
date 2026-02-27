@@ -109,17 +109,16 @@ template <typename FF> class Selector {
     virtual void set(size_t idx, int value) = 0;
 
     /**
-     * @brief Set the last value using integer.
-     * @param value Integer value.
-     */
-    virtual void set_back(int value) = 0;
-
-    /**
      * @brief Set the value at index using a field element.
      * @param idx Index.
      * @param value Field element.
      */
     virtual void set(size_t idx, const FF& value) = 0;
+
+    /**
+     * @brief Release all memory held by this selector.
+     */
+    virtual void free_memory() {}
 };
 
 /**
@@ -144,24 +143,8 @@ template <typename FF> class ZeroSelector : public Selector<FF> {
         size_++;
     }
 
-    void set_back(int value) override
-    {
-        BB_ASSERT_EQ(value, 0, "Calling ZeroSelector::set_back with a non zero value.");
-        BB_ASSERT_GT(size_, 0U);
-    }
-
-    void set(size_t idx, int value) override
-    {
-        BB_ASSERT_DEBUG(idx < size_);
-        BB_ASSERT_EQ(value, 0, "Calling ZeroSelector::set with a non zero value.");
-    }
-
-    void set(size_t idx, const FF& value) override
-    {
-        BB_ASSERT_DEBUG(idx < size_);
-        BB_ASSERT(value.is_zero());
-        size_++;
-    }
+    void set(size_t, int) override { BB_ASSERT(false, "ZeroSelector::set should not be called"); }
+    void set(size_t, const FF&) override { BB_ASSERT(false, "ZeroSelector::set should not be called"); }
 
     void resize(size_t new_size) override { size_ = new_size; }
 
@@ -178,6 +161,8 @@ template <typename FF> class ZeroSelector : public Selector<FF> {
     size_t size() const override { return size_; }
 
     bool empty() const override { return size_ == 0; }
+
+    void free_memory() override { size_ = 0; }
 
   private:
     static constexpr FF zero = 0;
@@ -196,7 +181,6 @@ template <typename FF> class SlabVectorSelector : public Selector<FF> {
 
     void emplace_back(int i) override { data.emplace_back(i); }
     void push_back(const FF& value) override { data.push_back(value); }
-    void set_back(int value) override { data.back() = value; }
     void set(size_t idx, int i) override { data[idx] = i; }
     void set(size_t idx, const FF& value) override { data[idx] = value; }
     void resize(size_t new_size) override { data.resize(new_size); }
@@ -208,6 +192,12 @@ template <typename FF> class SlabVectorSelector : public Selector<FF> {
 
     size_t size() const override { return data.size(); }
     bool empty() const override { return data.empty(); }
+
+    void free_memory() override
+    {
+        data.clear();
+        data.shrink_to_fit();
+    }
 
   private:
     std::vector<FF> data;
@@ -253,6 +243,8 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
     }
 
     Wires wires;                                                   // vectors of indices into a witness variables array
+    size_t cached_size_ = 0;                                       // set by free_data() so size() works after freeing
+    bool data_freed_ = false;                                      // true after free_data() has been called
     uint32_t trace_offset_ = std::numeric_limits<uint32_t>::max(); // where this block starts in the trace
 
     uint32_t trace_offset() const
@@ -263,20 +255,7 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
 
     bool operator==(const ExecutionTraceBlock& other) const = default;
 
-    size_t size() const { return std::get<0>(this->wires).size(); }
-
-    void reserve(size_t size_hint)
-    {
-        for (auto& w : wires) {
-            w.reserve(size_hint);
-        }
-        for (auto& p : get_selectors()) {
-            p.reserve(size_hint);
-        }
-#ifdef CHECK_CIRCUIT_STACKTRACES
-        stack_traces.stack_traces.reserve(size_hint);
-#endif
-    }
+    size_t size() const { return data_freed_ ? cached_size_ : std::get<0>(this->wires).size(); }
 
 #ifdef TRACY_HACK_GATES_AS_MEMORY
     ~ExecutionTraceBlock()
@@ -292,6 +271,23 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
 #endif
 
     virtual RefVector<Selector<FF>> get_selectors() = 0;
+
+    /**
+     * @brief Release wire and selector memory. Caches block size so size() still works.
+     * @details Called after trace data has been copied to prover polynomials.
+     */
+    void free_data()
+    {
+        cached_size_ = std::get<0>(wires).size();
+        data_freed_ = true;
+        for (auto& wire : wires) {
+            wire.clear();
+            wire.shrink_to_fit();
+        }
+        for (auto& sel : get_selectors()) {
+            sel.free_memory();
+        }
+    }
 
     void populate_wires(const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
     {

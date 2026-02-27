@@ -1,4 +1,5 @@
 *.tgz
+!terraform/modules/web3signer/web3signer-1.0.6.tgz
 scripts/logs
 scripts/LICENSE
 tfplan
@@ -28,4 +29,5 @@ environments/*
 !environments/tps-scenario.env
 !environments/kind-minimal.env
 !environments/kind-provers.env
+!environments/alpha-net.env
 *.tfvars

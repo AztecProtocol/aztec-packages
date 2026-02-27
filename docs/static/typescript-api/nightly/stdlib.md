@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v4.0.0-nightly.20260216
+Version: v5.0.0-nightly.20260224
 
 ## Quick Import Reference
 
@@ -961,6 +961,23 @@ new HashedValues(values: Fr[], hash: Fr)
 - `static random() => HashedValues`
 - `toBuffer() => Buffer<ArrayBufferLike>`
 
+### InMemoryDebugLogStore
+
+In-memory implementation for test mode that stores and serves debug logs.
+Implements: `DebugLogStore`
+
+**Constructor**
+```typescript
+new InMemoryDebugLogStore()
+```
+
+**Properties**
+- `isEnabled: unknown` - Whether debug log collection is enabled.
+
+**Methods**
+- `decorateReceiptWithLogs(txHash: string, receipt: TxReceipt) => void` - Decorate a TxReceipt with any stored debug logs for the given tx.
+- `storeLogs(txHash: string, logs: DebugLog[]) => void` - Store debug logs for a processed transaction.
+
 ### L2Block
 
 An L2 block with a header and a body.
@@ -1264,6 +1281,23 @@ new NoteSelector(value: number)
 - `toField() => Fr` - Returns a new field with the same contents as this EthAddress.
 - `toJSON() => string`
 - `toString() => string` - Serialize as a hex string.
+
+### NullDebugLogStore
+
+No-op implementation for production mode.
+Implements: `DebugLogStore`
+
+**Constructor**
+```typescript
+new NullDebugLogStore()
+```
+
+**Properties**
+- `isEnabled: unknown` - Whether debug log collection is enabled.
+
+**Methods**
+- `decorateReceiptWithLogs(_txHash: string, _receipt: TxReceipt) => void` - Decorate a TxReceipt with any stored debug logs for the given tx.
+- `storeLogs(_txHash: string, _logs: DebugLog[]) => void` - Store debug logs for a processed transaction.
 
 ### PartialStateReference
 
@@ -1611,10 +1645,11 @@ Outputs of processing the public component of a transaction.
 
 **Constructor**
 ```typescript
-new PublicSimulationOutput(revertReason: SimulationError | undefined, globalVariables: GlobalVariables, txEffect: TxEffect, publicReturnValues: NestedProcessReturnValues[], gasUsed: GasUsed)
+new PublicSimulationOutput(revertReason: SimulationError | undefined, globalVariables: GlobalVariables, txEffect: TxEffect, publicReturnValues: NestedProcessReturnValues[], gasUsed: GasUsed, debugLogs: DebugLog[])
 ```
 
 **Properties**
+- `debugLogs: DebugLog[]`
 - `gasUsed: GasUsed`
 - `globalVariables: GlobalVariables`
 - `publicReturnValues: NestedProcessReturnValues[]`
@@ -2100,12 +2135,13 @@ Represents a transaction receipt in the Aztec network. Contains essential inform
 
 **Constructor**
 ```typescript
-new TxReceipt(txHash: TxHash, status: TxStatus, executionResult: TxExecutionResult | undefined, error: string | undefined, transactionFee?: bigint, blockHash?: BlockHash, blockNumber?: BlockNumber)
+new TxReceipt(txHash: TxHash, status: TxStatus, executionResult: TxExecutionResult | undefined, error: string | undefined, transactionFee?: bigint, blockHash?: BlockHash, blockNumber?: BlockNumber, debugLogs?: DebugLog[])
 ```
 
 **Properties**
 - `blockHash?: BlockHash` - The hash of the block containing the transaction.
 - `blockNumber?: BlockNumber` - The block number in which the transaction was included.
+- `debugLogs?: DebugLog[]` - Debug logs collected during public function execution. Served only when the node is in test mode and placed on the receipt only because it's a convenient place for it (the logs are printed out by the wallet when a mined tx receipt is obtained).
 - `error: string | undefined` - Description of transaction error, if any.
 - `executionResult: TxExecutionResult | undefined` - The execution result of the transaction, only set when tx is in a block.
 - `static schema: unknown`
@@ -2193,11 +2229,11 @@ new TxSimulationResult(privateExecutionResult: PrivateExecutionResult, publicInp
 - `static random() => Promise<TxSimulationResult>`
 - `toSimulatedTx() => Promise<Tx>`
 
-### UtilitySimulationResult
+### UtilityExecutionResult
 
 **Constructor**
 ```typescript
-new UtilitySimulationResult(result: Fr[], stats?: SimulationStats)
+new UtilityExecutionResult(result: Fr[], stats?: SimulationStats)
 ```
 
 **Properties**
@@ -2206,7 +2242,7 @@ new UtilitySimulationResult(result: Fr[], stats?: SimulationStats)
 - `stats?: SimulationStats`
 
 **Methods**
-- `static random() => UtilitySimulationResult`
+- `static random() => UtilityExecutionResult`
 
 ## Interfaces
 
@@ -2320,6 +2356,17 @@ The debug information for a given function.
 - `acir_locations: OpcodeToLocationsMap`
 - `brillig_locations: Record<BrilligFunctionId, OpcodeToLocationsMap>` - For each Brillig function, we have a map of the opcode location to the source code location.
 - `location_tree: LocationTree` - A map of the opcode location to the source code location.
+
+### DebugLogStore
+
+Store for debug logs emitted by public functions during transaction execution. Uses the Null Object pattern: production code uses NullDebugLogStore (no-op), while test mode uses InMemoryDebugLogStore (stores and serves logs).
+
+**Properties**
+- `readonly isEnabled: boolean` - Whether debug log collection is enabled.
+
+**Methods**
+- `decorateReceiptWithLogs(txHash: string, receipt: TxReceipt) => void` - Decorate a TxReceipt with any stored debug logs for the given tx.
+- `storeLogs(txHash: string, logs: DebugLog[]) => void` - Store debug logs for a processed transaction.
 
 ### ExecutablePrivateFunction
 
@@ -2447,6 +2494,8 @@ Interface of classes allowing for the retrieval of L2 blocks.
 
 **Methods**
 - `getBlock(number: BlockNumber) => Promise<L2Block | undefined>` - Gets an l2 block. If a negative number is passed, the block returned is the most recent.
+- `getBlockData(number: BlockNumber) => Promise<BlockData | undefined>` - Gets block metadata (without tx data) by block number.
+- `getBlockDataByArchive(archive: Fr) => Promise<BlockData | undefined>` - Gets block metadata (without tx data) by archive root.
 - `getBlockHeader(number: BlockNumber | "latest") => Promise<BlockHeader | undefined>` - Gets an l2 block header.
 - `getBlockHeaderByArchive(archive: Fr) => Promise<BlockHeader | undefined>` - Gets a block header by its archive root.
 - `getBlockHeaderByHash(blockHash: BlockHash) => Promise<BlockHeader | undefined>` - Gets a block header by its hash.
@@ -2461,6 +2510,7 @@ Interface of classes allowing for the retrieval of L2 blocks.
 - `getCheckpointedBlocksForEpoch(epochNumber: EpochNumber) => Promise<CheckpointedL2Block[]>` - Returns all checkpointed blocks for a given epoch.
 - `getCheckpointedL2BlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block checkpointed seen by the block source implementation.
 - `getCheckpoints(checkpointNumber: CheckpointNumber, limit: number) => Promise<PublishedCheckpoint[]>` - Retrieves a collection of checkpoints.
+- `getCheckpointsDataForEpoch(epochNumber: EpochNumber) => Promise<CheckpointData[]>` - Gets lightweight checkpoint metadata for a given epoch, without fetching full block data.
 - `getCheckpointsForEpoch(epochNumber: EpochNumber) => Promise<Checkpoint[]>` - Gets the checkpoints for a given epoch
 - `getFinalizedL2BlockNumber() => Promise<BlockNumber>` - Computes the finalized block number based on the proven block number. A block is considered finalized when it's 2 epochs behind the proven block. Compute proper finalized block number based on L1 finalized block.
 - `getGenesisValues() => Promise<{ genesisArchiveRoot: Fr }>` - Returns values for the genesis block
@@ -2493,6 +2543,8 @@ Extends: `L2BlockSource`
 
 **Methods**
 - `getBlock(number: BlockNumber) => Promise<L2Block | undefined>` - Gets an l2 block. If a negative number is passed, the block returned is the most recent.
+- `getBlockData(number: BlockNumber) => Promise<BlockData | undefined>` - Gets block metadata (without tx data) by block number.
+- `getBlockDataByArchive(archive: Fr) => Promise<BlockData | undefined>` - Gets block metadata (without tx data) by archive root.
 - `getBlockHeader(number: BlockNumber | "latest") => Promise<BlockHeader | undefined>` - Gets an l2 block header.
 - `getBlockHeaderByArchive(archive: Fr) => Promise<BlockHeader | undefined>` - Gets a block header by its archive root.
 - `getBlockHeaderByHash(blockHash: BlockHash) => Promise<BlockHeader | undefined>` - Gets a block header by its hash.
@@ -2507,6 +2559,7 @@ Extends: `L2BlockSource`
 - `getCheckpointedBlocksForEpoch(epochNumber: EpochNumber) => Promise<CheckpointedL2Block[]>` - Returns all checkpointed blocks for a given epoch.
 - `getCheckpointedL2BlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block checkpointed seen by the block source implementation.
 - `getCheckpoints(checkpointNumber: CheckpointNumber, limit: number) => Promise<PublishedCheckpoint[]>` - Retrieves a collection of checkpoints.
+- `getCheckpointsDataForEpoch(epochNumber: EpochNumber) => Promise<CheckpointData[]>` - Gets lightweight checkpoint metadata for a given epoch, without fetching full block data.
 - `getCheckpointsForEpoch(epochNumber: EpochNumber) => Promise<Checkpoint[]>` - Gets the checkpoints for a given epoch
 - `getFinalizedL2BlockNumber() => Promise<BlockNumber>` - Computes the finalized block number based on the proven block number. A block is considered finalized when it's 2 epochs behind the proven block. Compute proper finalized block number based on L1 finalized block.
 - `getGenesisValues() => Promise<{ genesisArchiveRoot: Fr }>` - Returns values for the genesis block
@@ -3421,6 +3474,12 @@ type AttestationStatus = "recovered-from-signature" | "provided-as-address" | "i
 ```
 Status indicating how the attestation address was determined
 
+### BlockData
+```typescript
+type BlockData = unknown
+```
+L2Block metadata. Equivalent to L2Block but without block body containing tx data.
+
 ### BlockParameter
 ```typescript
 type BlockParameter = z.infer<typeof BlockParameterSchema>
@@ -3440,9 +3499,9 @@ Maximum number of checkpoints to prefetch at once during sync. Matches MAX_RPC_C
 
 ### CheckpointGlobalVariables
 ```typescript
-type CheckpointGlobalVariables = Omit<FieldsOf<GlobalVariables>, "blockNumber" | "timestamp">
+type CheckpointGlobalVariables = Omit<FieldsOf<GlobalVariables>, "blockNumber">
 ```
-Global variables that are constant across the entire slot. Should timestamp be included here as well?
+Global variables that are constant across the entire checkpoint (slot). Excludes blockNumber since that varies per block within a checkpoint.
 
 ### CheckpointId
 ```typescript
@@ -3453,6 +3512,12 @@ type CheckpointId = unknown
 ```typescript
 type ChonkProofData = ProofData<T, typeof CHONK_PROOF_LENGTH>
 ```
+
+### ContractArtifactWithHash
+```typescript
+type ContractArtifactWithHash = ContractArtifact & { artifactHash: Fr }
+```
+Contract artifact including its artifact hash
 
 ### ContractClassIdPreimage
 ```typescript
@@ -3585,7 +3650,7 @@ type KEY_PREFIXES = KeyPrefix[]
 
 ### KeyGenerator
 ```typescript
-type KeyGenerator = GeneratorIndex.NHK_M | GeneratorIndex.IVSK_M | GeneratorIndex.OVSK_M | GeneratorIndex.TSK_M
+type KeyGenerator = DomainSeparator.NHK_M | DomainSeparator.IVSK_M | DomainSeparator.OVSK_M | DomainSeparator.TSK_M
 ```
 
 ### KeyPrefix
@@ -3861,9 +3926,9 @@ type TX_ERROR_INSUFFICIENT_FEE_PER_GAS = "Insufficient fee per gas"
 type TX_ERROR_INSUFFICIENT_GAS_LIMIT = "Gas limit is below the minimum fixed cost"
 ```
 
-### TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP
+### TX_ERROR_INVALID_EXPIRATION_TIMESTAMP
 ```typescript
-type TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP = "Invalid expiration timestamp"
+type TX_ERROR_INVALID_EXPIRATION_TIMESTAMP = "Invalid expiration timestamp"
 ```
 
 ### TX_ERROR_INVALID_PROOF
@@ -3967,7 +4032,7 @@ This package references types from other Aztec packages:
 - `BlockBlobData`, `TxBlobData`, `TxStartMarker`
 
 **@aztec/constants**
-- `CHONK_PROOF_LENGTH`, `GeneratorIndex.IVSK_M`, `GeneratorIndex.NHK_M`, `GeneratorIndex.OVSK_M`, `GeneratorIndex.TSK_M`, `RECURSIVE_PROOF_LENGTH`, `RECURSIVE_ROLLUP_HONK_PROOF_LENGTH`
+- `CHONK_PROOF_LENGTH`, `DomainSeparator.IVSK_M`, `DomainSeparator.NHK_M`, `DomainSeparator.OVSK_M`, `DomainSeparator.TSK_M`, `RECURSIVE_PROOF_LENGTH`, `RECURSIVE_ROLLUP_HONK_PROOF_LENGTH`
 
 **@aztec/ethereum**
 - `L1ContractAddresses`, `ViemCommitteeAttestation`, `ViemCommitteeAttestations`

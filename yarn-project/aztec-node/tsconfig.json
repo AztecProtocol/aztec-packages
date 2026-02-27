@@ -16,6 +16,9 @@
       "path": "../blob-client"
     },
     {
+      "path": "../blob-lib"
+    },
+    {
       "path": "../constants"
     },
     {
@@ -53,6 +56,9 @@
     },
     {
       "path": "../prover-client"
+    },
+    {
+      "path": "../prover-node"
     },
     {
       "path": "../sequencer-client"

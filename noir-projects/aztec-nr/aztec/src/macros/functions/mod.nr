@@ -220,7 +220,7 @@ pub comptime fn only_self(f: FunctionDefinition) {
 /// ## Guarantees
 ///
 /// [`view`] functions can *only* be called in a static execution context, which is typically achieved by calling the
-/// [`crate::contract_self::ContractSelf::view`] method on `self`.
+/// [`crate::contract_self::ContractSelfPublic::view`] method on `self`.
 ///
 /// No compile time checks are performed on whether a function can be made [`view`]. If a function marked as view
 /// attempts to modify state, that will result in *runtime* failures.

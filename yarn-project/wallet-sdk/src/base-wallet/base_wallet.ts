@@ -8,12 +8,12 @@ import type {
   AppCapabilities,
   BatchResults,
   BatchedMethod,
+  ExecuteUtilityOptions,
   PrivateEvent,
   PrivateEventFilter,
   ProfileOptions,
   SendOptions,
   SimulateOptions,
-  SimulateUtilityOptions,
   Wallet,
   WalletCapabilities,
 } from '@aztec/aztec.js/wallet';
@@ -28,7 +28,7 @@ import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
-import type { AccessScopes } from '@aztec/pxe/client/lazy';
+import { type AccessScopes, displayDebugLogs } from '@aztec/pxe/client/lazy';
 import type { PXE, PackedPrivateEvent } from '@aztec/pxe/server';
 import {
   type ContractArtifact,
@@ -37,7 +37,7 @@ import {
   decodeFromAbi,
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractInstanceWithAddress,
   computePartialAddress,
@@ -52,7 +52,7 @@ import {
   type TxExecutionRequest,
   type TxProfileResult,
   TxSimulationResult,
-  type UtilitySimulationResult,
+  type UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
@@ -89,10 +89,10 @@ export abstract class BaseWallet implements Wallet {
     protected log = createLogger('wallet-sdk:base_wallet'),
   ) {}
 
-  // When `from` is the zero address (e.g. when deploying a new account contract), we return an
-  // empty scope list which acts as deny-all: no notes are visible and no keys are accessible.
-  protected scopesFor(from: AztecAddress): AztecAddress[] {
-    return from.isZero() ? [] : [from];
+  protected scopesFrom(from: AztecAddress, additionalScopes: AztecAddress[] = []): AztecAddress[] {
+    const allScopes = from.isZero() ? additionalScopes : [from, ...additionalScopes];
+    const scopeSet = new Set(allScopes.map(address => address.toString()));
+    return [...scopeSet].map(AztecAddress.fromString);
   }
 
   protected abstract getAccountFromAddress(address: AztecAddress): Promise<Account>;
@@ -348,6 +348,7 @@ export abstract class BaseWallet implements Wallet {
             feeOptions.gasSettings,
             blockHeader,
             opts.skipFeeEnforcement ?? true,
+            this.getContractName.bind(this),
           )
         : Promise.resolve([]),
       remainingCalls.length > 0
@@ -355,7 +356,7 @@ export abstract class BaseWallet implements Wallet {
             remainingPayload,
             opts.from,
             feeOptions,
-            this.scopesFor(opts.from),
+            this.scopesFrom(opts.from, opts.additionalScopes),
             opts.skipTxValidation,
             opts.skipFeeEnforcement ?? true,
           )
@@ -371,7 +372,7 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.profileTx(txRequest, {
       profileMode: opts.profileMode,
       skipProofGeneration: opts.skipProofGeneration ?? true,
-      scopes: this.scopesFor(opts.from),
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
     });
   }
 
@@ -381,7 +382,7 @@ export abstract class BaseWallet implements Wallet {
   ): Promise<SendReturn<W>> {
     const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
-    const provenTx = await this.pxe.proveTx(txRequest, this.scopesFor(opts.from));
+    const provenTx = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
     const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
     if (await this.aztecNode.getTxEffect(txHash)) {
@@ -400,7 +401,27 @@ export abstract class BaseWallet implements Wallet {
 
     // Otherwise, wait for the full receipt (default behavior on wait: undefined)
     const waitOpts = typeof opts.wait === 'object' ? opts.wait : undefined;
-    return (await waitForTx(this.aztecNode, txHash, waitOpts)) as SendReturn<W>;
+    const receipt = await waitForTx(this.aztecNode, txHash, waitOpts);
+
+    // Display debug logs from public execution if present (served in test mode only)
+    if (receipt.debugLogs?.length) {
+      await displayDebugLogs(receipt.debugLogs, this.getContractName.bind(this));
+    }
+
+    return receipt as SendReturn<W>;
+  }
+
+  /**
+   * Resolves a contract address to a human-readable name via PXE, if available.
+   * @param address - The contract address to resolve.
+   */
+  protected async getContractName(address: AztecAddress): Promise<string | undefined> {
+    const instance = await this.pxe.getContractInstance(address);
+    if (!instance) {
+      return undefined;
+    }
+    const artifact = await this.pxe.getContractArtifact(instance.currentContractClassId);
+    return artifact?.name;
   }
 
   protected contextualizeError(err: Error, ...context: string[]): Error {
@@ -417,8 +438,8 @@ export abstract class BaseWallet implements Wallet {
     return err;
   }
 
-  simulateUtility(call: FunctionCall, opts: SimulateUtilityOptions): Promise<UtilitySimulationResult> {
-    return this.pxe.simulateUtility(call, { authwits: opts.authWitnesses, scopes: [opts.scope] });
+  executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions): Promise<UtilityExecutionResult> {
+    return this.pxe.executeUtility(call, { authwits: opts.authWitnesses, scopes: [opts.scope] });
   }
 
   async getPrivateEvents<T>(

@@ -35,7 +35,7 @@ struct ChonkStart {
         bool operator==(const Response&) const = default;
     };
     // Number of circuits to be accumulated.
-    size_t num_circuits;
+    uint32_t num_circuits;
     Response execute(BBApiRequest& request) &&;
     MSGPACK_FIELDS(num_circuits);
     bool operator==(const ChonkStart&) const = default;

@@ -12,7 +12,10 @@ use crate::{
     event::{event_interface::EventInterface, EventMessage},
     hash::hash_args,
     messages::{
-        discovery::{ComputeNoteHashAndNullifier, NoteHashAndNullifier, process_message::process_message_plaintext},
+        discovery::{
+            ComputeNoteHashAndNullifier, CustomMessageHandler, NoteHashAndNullifier,
+            process_message::process_message_plaintext,
+        },
         encoding::MESSAGE_PLAINTEXT_LEN,
         logs::{event::encode_private_event_message, note::encode_private_note_message},
         processing::{MessageContext, validate_and_store_enqueued_notes_and_events},
@@ -550,14 +553,14 @@ impl TestEnvironment {
     /// ```noir
     /// let caller = env.create_light_account();
     /// let contract_addr = env.deploy("SampleContract").without_initializer();
-    /// let return_value = env.simulate_utility(SampleContract::at(contract_addr).sample_utility_function());
+    /// let return_value = env.execute_utility(SampleContract::at(contract_addr).sample_utility_function());
     /// ```
-    pub unconstrained fn simulate_utility<let M: u32, let N: u32, T>(_self: Self, call: UtilityCall<M, N, T>) -> T
+    pub unconstrained fn execute_utility<let M: u32, let N: u32, T>(_self: Self, call: UtilityCall<M, N, T>) -> T
     where
         T: Deserialize,
     {
         let serialized_return_values =
-            txe_oracles::simulate_utility_function(call.target_contract, call.selector, call.args);
+            txe_oracles::execute_utility_function(call.target_contract, call.selector, call.args);
 
         T::deserialize(serialized_return_values)
     }
@@ -758,11 +761,13 @@ impl TestEnvironment {
             Option::some(NoteHashAndNullifier { note_hash, inner_nullifier })
         };
 
+        let process_custom_message: Option<CustomMessageHandler<()>> = Option::none();
         self.discover_data_in_message_plaintext(
             message_plaintext,
             opts.contract_address,
             Option::some(note_message.new_note.owner),
             compute_note_hash_and_nullifier,
+            process_custom_message,
         );
     }
 
@@ -863,20 +868,23 @@ impl TestEnvironment {
             )
         };
 
+        let process_custom_message: Option<CustomMessageHandler<()>> = Option::none();
         self.discover_data_in_message_plaintext(
             message_plaintext,
             opts.contract_address,
             Option::some(recipient),
             compute_note_hash_and_nullifier,
+            process_custom_message,
         );
     }
 
-    unconstrained fn discover_data_in_message_plaintext<Env>(
+    unconstrained fn discover_data_in_message_plaintext<ComputeNoteHashAndNullifierEnv, CustomMessageHandlerEnv>(
         self,
         message_plaintext: BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>,
         contract_address: Option<AztecAddress>,
         recipient: Option<AztecAddress>,
-        compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+        compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ComputeNoteHashAndNullifierEnv>,
+        process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
     ) {
         // This function will emulate the message discovery and processing that would happen in a real contract, based
         // on a message plaintext.
@@ -905,6 +913,7 @@ impl TestEnvironment {
             process_message_plaintext(
                 context.this_address(),
                 compute_note_hash_and_nullifier,
+                process_custom_message,
                 message_plaintext,
                 message_context,
             );

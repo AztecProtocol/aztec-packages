@@ -1,6 +1,6 @@
 // === AUDIT STATUS ===
 // internal:    { status: Complete, auditors: [Raju], commit: 05a381f8b31ae4648e480f1369e911b148216e8b}
-// external_1:  { status: not started, auditors: [], commit: }
+// external_1:  { status: Complete, auditors: [Sherlock], commit: e6694849223 }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
@@ -20,7 +20,7 @@ namespace bb::stdlib {
  * @details This constructor is used in DSL, where we need to initialize a table with a builder to prevent the case in
  * which a read operation happens before the context has been set.
  */
-template <IsUltraOrMegaBuilder Builder>
+template <typename Builder>
 ram_table<Builder>::ram_table(Builder* builder, const std::vector<field_pt>& table_entries)
     : raw_entries(table_entries)
     , length(table_entries.size())
@@ -45,7 +45,7 @@ ram_table<Builder>::ram_table(Builder* builder, const std::vector<field_pt>& tab
  * builder. It is especially useful when methods create new rom tables operating on in-circuit values which a priori we
  * don't know whether they are constant or witnesses.
  */
-template <IsUltraOrMegaBuilder Builder>
+template <typename Builder>
 ram_table<Builder>::ram_table(const std::vector<field_pt>& table_entries)
     : raw_entries(table_entries)
     , length(raw_entries.size())
@@ -80,7 +80,7 @@ ram_table<Builder>::ram_table(const std::vector<field_pt>& table_entries)
  *
  * @tparam Builder
  */
-template <IsUltraOrMegaBuilder Builder> void ram_table<Builder>::initialize_table() const
+template <typename Builder> void ram_table<Builder>::initialize_table() const
 {
     if (ram_table_generated_in_builder) {
         return;
@@ -115,9 +115,9 @@ template <IsUltraOrMegaBuilder Builder> void ram_table<Builder>::initialize_tabl
     ram_table_generated_in_builder = true;
 }
 // constructors and move operators
-template <IsUltraOrMegaBuilder Builder> ram_table<Builder>::ram_table(const ram_table& other) = default;
+template <typename Builder> ram_table<Builder>::ram_table(const ram_table& other) = default;
 
-template <IsUltraOrMegaBuilder Builder>
+template <typename Builder>
 ram_table<Builder>::ram_table(ram_table&& other) noexcept
     : raw_entries(std::move(other.raw_entries))
     , _tags(std::move(other._tags))
@@ -135,10 +135,9 @@ ram_table<Builder>::ram_table(ram_table&& other) noexcept
     other.context = nullptr;
 }
 
-template <IsUltraOrMegaBuilder Builder>
-ram_table<Builder>& ram_table<Builder>::operator=(const ram_table& other) = default;
+template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(const ram_table& other) = default;
 
-template <IsUltraOrMegaBuilder Builder> ram_table<Builder>& ram_table<Builder>::operator=(ram_table&& other) noexcept
+template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(ram_table&& other) noexcept
 {
     if (this != &other) {
         raw_entries = std::move(other.raw_entries);
@@ -166,7 +165,7 @@ template <IsUltraOrMegaBuilder Builder> ram_table<Builder>& ram_table<Builder>::
  * @param index
  * @return field_t<Builder>
  */
-template <IsUltraOrMegaBuilder Builder> field_t<Builder> ram_table<Builder>::read(const field_pt& index) const
+template <typename Builder> field_t<Builder> ram_table<Builder>::read(const field_pt& index) const
 {
     if (context == nullptr) {
         context = index.get_context();
@@ -215,7 +214,7 @@ template <IsUltraOrMegaBuilder Builder> field_t<Builder> ram_table<Builder>::rea
  *
  * @note This is used to write an already-existing RAM entry and also to initialize a not-yet-written RAM entry.
  */
-template <IsUltraOrMegaBuilder Builder> void ram_table<Builder>::write(const field_pt& index, const field_pt& value)
+template <typename Builder> void ram_table<Builder>::write(const field_pt& index, const field_pt& value)
 {
     if (context == nullptr) {
         context = index.get_context();

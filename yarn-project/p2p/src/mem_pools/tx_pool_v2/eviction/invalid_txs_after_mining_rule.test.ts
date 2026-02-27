@@ -3,7 +3,7 @@ import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
-import { type TxMetaData, stubTxMetaValidationData } from '../tx_metadata.js';
+import { type TxMetaData, stubTxMetaData } from '../tx_metadata.js';
 import type { EvictionContext, PoolOperations } from './interfaces.js';
 import { EvictionEvent } from './interfaces.js';
 import { InvalidTxsAfterMiningRule } from './invalid_txs_after_mining_rule.js';
@@ -15,31 +15,16 @@ describe('InvalidTxsAfterMiningRule', () => {
   let deleteTxsMock: jest.MockedFunction<any>;
 
   // Default timestamp used in tests - must be > block timestamp (1000n) to avoid expiration
-  const DEFAULT_INCLUDE_BY_TIMESTAMP = 2000n;
+  const DEFAULT_EXPIRATION_TIMESTAMP = 2000n;
 
   // Helper to create TxMetaData for testing
   const createMeta = (
     txHash: string,
     opts: {
       nullifiers?: string[];
-      includeByTimestamp?: bigint;
+      expirationTimestamp?: bigint;
     } = {},
-  ): TxMetaData => {
-    const nullifiers = opts.nullifiers ?? [`0x${txHash.slice(2)}null1`];
-    const includeByTimestamp = opts.includeByTimestamp ?? DEFAULT_INCLUDE_BY_TIMESTAMP;
-    return {
-      txHash,
-      anchorBlockHeaderHash: '0x1234',
-      priorityFee: 100n,
-      feePayer: '0xfeepayer',
-      claimAmount: 0n,
-      feeLimit: 100n,
-      nullifiers,
-      includeByTimestamp,
-      receivedAt: 0,
-      data: stubTxMetaValidationData({ includeByTimestamp }),
-    };
-  };
+  ) => stubTxMetaData(txHash, { expirationTimestamp: DEFAULT_EXPIRATION_TIMESTAMP, ...opts });
 
   // Create mock pool operations
   const createPoolOps = (pendingTxs: TxMetaData[]): PoolOperations => {
@@ -121,13 +106,13 @@ describe('InvalidTxsAfterMiningRule', () => {
         const result = await rule.evict(context, pool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual(['0x1111']); // Only tx1 has duplicate nullifier
-        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111']);
+        expect(result.txsEvicted).toEqual([tx1.txHash]); // Only tx1 has duplicate nullifier
+        expect(deleteTxsMock).toHaveBeenCalledWith([tx1.txHash], 'InvalidTxsAfterMining');
       });
 
       it('evicts transactions with expired timestamps', async () => {
-        const tx1 = createMeta('0x1111', { includeByTimestamp: 500n }); // Expired (500 <= 1000)
-        const tx2 = createMeta('0x2222', { includeByTimestamp: 1500n }); // Not expired (1500 > 1000)
+        const tx1 = createMeta('0x1111', { expirationTimestamp: 500n }); // Expired (500 <= 1000)
+        const tx2 = createMeta('0x2222', { expirationTimestamp: 1500n }); // Not expired (1500 > 1000)
 
         pool = createPoolOps([tx1, tx2]);
 
@@ -141,13 +126,13 @@ describe('InvalidTxsAfterMiningRule', () => {
         const result = await rule.evict(context, pool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual(['0x1111']); // Only tx1 is expired
-        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111']);
+        expect(result.txsEvicted).toEqual([tx1.txHash]); // Only tx1 is expired
+        expect(deleteTxsMock).toHaveBeenCalledWith([tx1.txHash], 'InvalidTxsAfterMining');
       });
 
       it('evicts transactions with timestamp equal to block timestamp', async () => {
-        const tx1 = createMeta('0x1111', { includeByTimestamp: 1000n }); // Exactly at timestamp
-        const tx2 = createMeta('0x2222', { includeByTimestamp: 1001n }); // Just after
+        const tx1 = createMeta('0x1111', { expirationTimestamp: 1000n }); // Exactly at timestamp
+        const tx2 = createMeta('0x2222', { expirationTimestamp: 1001n }); // Just after
 
         pool = createPoolOps([tx1, tx2]);
 
@@ -161,13 +146,13 @@ describe('InvalidTxsAfterMiningRule', () => {
         const result = await rule.evict(context, pool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual(['0x1111']); // tx1 has timestamp <= block timestamp
-        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111']);
+        expect(result.txsEvicted).toEqual([tx1.txHash]); // tx1 has timestamp <= block timestamp
+        expect(deleteTxsMock).toHaveBeenCalledWith([tx1.txHash], 'InvalidTxsAfterMining');
       });
 
       it('handles transactions with both duplicate nullifiers and expired timestamps', async () => {
-        const tx1 = createMeta('0x1111', { nullifiers: [newNullifiers[0]], includeByTimestamp: 500n }); // Both reasons
-        const tx2 = createMeta('0x2222', { nullifiers: ['0xunique'], includeByTimestamp: 1500n }); // Neither
+        const tx1 = createMeta('0x1111', { nullifiers: [newNullifiers[0]], expirationTimestamp: 500n }); // Both reasons
+        const tx2 = createMeta('0x2222', { nullifiers: ['0xunique'], expirationTimestamp: 1500n }); // Neither
 
         pool = createPoolOps([tx1, tx2]);
 
@@ -181,8 +166,8 @@ describe('InvalidTxsAfterMiningRule', () => {
         const result = await rule.evict(context, pool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual(['0x1111']);
-        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111']);
+        expect(result.txsEvicted).toEqual([tx1.txHash]);
+        expect(deleteTxsMock).toHaveBeenCalledWith([tx1.txHash], 'InvalidTxsAfterMining');
       });
 
       it('handles empty pending transactions list', async () => {
@@ -221,7 +206,7 @@ describe('InvalidTxsAfterMiningRule', () => {
         const result = await rule.evict(context, pool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual(['0x1111']);
+        expect(result.txsEvicted).toEqual([tx1.txHash]);
       });
 
       it('evicts all matching transactions when multiple share nullifiers with mined block', async () => {
@@ -241,9 +226,9 @@ describe('InvalidTxsAfterMiningRule', () => {
         const result = await rule.evict(context, pool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toContain('0x1111');
-        expect(result.txsEvicted).toContain('0x2222');
-        expect(result.txsEvicted).not.toContain('0x3333');
+        expect(result.txsEvicted).toContain(tx1.txHash);
+        expect(result.txsEvicted).toContain(tx2.txHash);
+        expect(result.txsEvicted).not.toContain(tx3.txHash);
       });
 
       it('handles error from deleteTxs operation', async () => {

@@ -20,6 +20,7 @@ import { getBBConfig } from '../fixtures/get_bb_config.js';
 import { getSponsoredFPCAddress, registerSponsoredFPC } from '../fixtures/utils.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
+import { WorkerWallet } from '../test-wallet/worker_wallet.js';
 
 export interface TestAccounts {
   aztecNode: AztecNode;
@@ -87,11 +88,19 @@ export async function deploySponsoredTestAccountsWithTokens(
 
   const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
   const recipientDeployMethod = await recipientAccount.getDeployMethod();
-  await recipientDeployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod }, wait: { timeout: 2400 } });
+  await recipientDeployMethod.send({
+    from: AztecAddress.ZERO,
+    fee: { paymentMethod },
+    wait: { timeout: 2400 },
+  });
   await Promise.all(
     fundedAccounts.map(async a => {
       const deployMethod = await a.getDeployMethod();
-      await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod }, wait: { timeout: 2400 } }); // increase timeout on purpose in order to account for two empty epochs
+      await deployMethod.send({
+        from: AztecAddress.ZERO,
+        fee: { paymentMethod },
+        wait: { timeout: 2400 },
+      }); // increase timeout on purpose in order to account for two empty epochs
       logger.info(`Account deployed at ${a.address}`);
     }),
   );
@@ -129,7 +138,11 @@ async function deployAccountWithDiagnostics(
   const deployMethod = await account.getDeployMethod();
   let txHash;
   try {
-    txHash = await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod }, wait: NO_WAIT });
+    txHash = await deployMethod.send({
+      from: AztecAddress.ZERO,
+      fee: { paymentMethod },
+      wait: NO_WAIT,
+    });
     await waitForTx(aztecNode, txHash, { timeout: 2400 });
     logger.info(`${accountLabel} deployed at ${account.address}`);
   } catch (error) {
@@ -394,6 +407,45 @@ export async function createWalletAndAztecNodeClient(
       await wallet.stop();
       await bbConfig?.cleanup();
       await acvmConfig?.cleanup();
+    },
+  };
+}
+
+export type WorkerWalletWrapper = {
+  wallet: WorkerWallet;
+  aztecNode: AztecNode;
+  cleanup: () => Promise<void>;
+};
+
+export async function createWorkerWalletClient(
+  nodeUrl: string,
+  proverEnabled: boolean,
+  logger: Logger,
+): Promise<WorkerWalletWrapper> {
+  const aztecNode = createAztecNodeClient(nodeUrl);
+  const [bbConfig, acvmConfig] = await Promise.all([getBBConfig(logger), getACVMConfig(logger)]);
+
+  // Strip cleanup functions — they can't be structured-cloned for worker transfer
+  const { cleanup: bbCleanup, ...bbPaths } = bbConfig ?? {};
+  const { cleanup: acvmCleanup, ...acvmPaths } = acvmConfig ?? {};
+
+  const pxeConfig = {
+    dataDirectory: undefined,
+    dataStoreMapSizeKb: 1024 * 1024,
+    ...bbPaths,
+    ...acvmPaths,
+    proverEnabled,
+  };
+
+  const wallet = await WorkerWallet.create(nodeUrl, pxeConfig);
+
+  return {
+    wallet,
+    aztecNode,
+    async cleanup() {
+      await wallet.stop();
+      await bbCleanup?.();
+      await acvmCleanup?.();
     },
   };
 }

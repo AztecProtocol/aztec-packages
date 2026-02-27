@@ -1,5 +1,4 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import { GENESIS_BLOCK_HEADER_HASH, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import { BlockTagTooOldError, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
@@ -15,8 +14,6 @@ import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/runni
 import { DateProvider } from '@aztec/foundation/timer';
 import {
   type ArchiverEmitter,
-  type CheckpointId,
-  GENESIS_CHECKPOINT_HEADER_HASH,
   L2Block,
   type L2BlockSink,
   type L2Tips,
@@ -41,6 +38,7 @@ import { ArchiverDataStoreUpdater } from './modules/data_store_updater.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import type { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
 import type { KVArchiverDataStore } from './store/kv_archiver_store.js';
+import { L2TipsCache } from './store/l2_tips_cache.js';
 
 /** Export ArchiverEmitter for use in factory and tests. */
 export type { ArchiverEmitter };
@@ -83,6 +81,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   /** Helper to handle updates to the store */
   private readonly updater: ArchiverDataStoreUpdater;
 
+  /** In-memory cache for L2 chain tips. */
+  private readonly l2TipsCache: L2TipsCache;
+
   public readonly tracer: Tracer;
 
   /**
@@ -122,6 +123,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     protected override readonly l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr },
     synchronizer: ArchiverL1Synchronizer,
     events: ArchiverEmitter,
+    l2TipsCache?: L2TipsCache,
     private readonly log: Logger = createLogger('archiver'),
   ) {
     super(dataStore, l1Constants);
@@ -130,7 +132,8 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     this.initialSyncPromise = promiseWithResolvers();
     this.synchronizer = synchronizer;
     this.events = events;
-    this.updater = new ArchiverDataStoreUpdater(this.dataStore);
+    this.l2TipsCache = l2TipsCache ?? new L2TipsCache(this.dataStore.blockStore);
+    this.updater = new ArchiverDataStoreUpdater(this.dataStore, this.l2TipsCache);
 
     // Running promise starts with a small interval inbetween runs, so all iterations needed for the initial sync
     // are done as fast as possible. This then gets updated once the initial sync completes.
@@ -391,111 +394,8 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     return true;
   }
 
-  public async getL2Tips(): Promise<L2Tips> {
-    const [latestBlockNumber, provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber] = await Promise.all([
-      this.getBlockNumber(),
-      this.getProvenBlockNumber(),
-      this.getCheckpointedL2BlockNumber(),
-      this.getFinalizedL2BlockNumber(),
-    ] as const);
-
-    const beforeInitialblockNumber = BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
-
-    // Get the latest block header and checkpointed blocks for proven, finalised and checkpointed blocks
-    const [latestBlockHeader, provenCheckpointedBlock, finalizedCheckpointedBlock, checkpointedBlock] =
-      await Promise.all([
-        latestBlockNumber > beforeInitialblockNumber ? this.getBlockHeader(latestBlockNumber) : undefined,
-        provenBlockNumber > beforeInitialblockNumber ? this.getCheckpointedBlock(provenBlockNumber) : undefined,
-        finalizedBlockNumber > beforeInitialblockNumber ? this.getCheckpointedBlock(finalizedBlockNumber) : undefined,
-        checkpointedBlockNumber > beforeInitialblockNumber
-          ? this.getCheckpointedBlock(checkpointedBlockNumber)
-          : undefined,
-      ] as const);
-
-    if (latestBlockNumber > beforeInitialblockNumber && !latestBlockHeader) {
-      throw new Error(`Failed to retrieve latest block header for block ${latestBlockNumber}`);
-    }
-
-    // Checkpointed blocks must exist for proven, finalized and checkpointed tips if they are beyond the initial block number.
-    if (checkpointedBlockNumber > beforeInitialblockNumber && !checkpointedBlock?.block.header) {
-      throw new Error(
-        `Failed to retrieve checkpointed block header for block ${checkpointedBlockNumber} (latest block is ${latestBlockNumber})`,
-      );
-    }
-
-    if (provenBlockNumber > beforeInitialblockNumber && !provenCheckpointedBlock?.block.header) {
-      throw new Error(
-        `Failed to retrieve proven checkpointed for block ${provenBlockNumber} (latest block is ${latestBlockNumber})`,
-      );
-    }
-
-    if (finalizedBlockNumber > beforeInitialblockNumber && !finalizedCheckpointedBlock?.block.header) {
-      throw new Error(
-        `Failed to retrieve finalized block header for block ${finalizedBlockNumber} (latest block is ${latestBlockNumber})`,
-      );
-    }
-
-    const latestBlockHeaderHash = (await latestBlockHeader?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
-    const provenBlockHeaderHash = (await provenCheckpointedBlock?.block.header?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
-    const finalizedBlockHeaderHash =
-      (await finalizedCheckpointedBlock?.block.header?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
-    const checkpointedBlockHeaderHash = (await checkpointedBlock?.block.header?.hash()) ?? GENESIS_BLOCK_HEADER_HASH;
-
-    // Now attempt to retrieve checkpoints for proven, finalised and checkpointed blocks
-    const [[provenBlockCheckpoint], [finalizedBlockCheckpoint], [checkpointedBlockCheckpoint]] = await Promise.all([
-      provenCheckpointedBlock !== undefined
-        ? await this.getCheckpoints(provenCheckpointedBlock?.checkpointNumber, 1)
-        : [undefined],
-      finalizedCheckpointedBlock !== undefined
-        ? await this.getCheckpoints(finalizedCheckpointedBlock?.checkpointNumber, 1)
-        : [undefined],
-      checkpointedBlock !== undefined ? await this.getCheckpoints(checkpointedBlock?.checkpointNumber, 1) : [undefined],
-    ]);
-
-    const initialcheckpointId: CheckpointId = {
-      number: CheckpointNumber.ZERO,
-      hash: GENESIS_CHECKPOINT_HEADER_HASH.toString(),
-    };
-
-    const makeCheckpointId = (checkpoint: PublishedCheckpoint | undefined) => {
-      if (checkpoint === undefined) {
-        return initialcheckpointId;
-      }
-      return {
-        number: checkpoint.checkpoint.number,
-        hash: checkpoint.checkpoint.hash().toString(),
-      };
-    };
-
-    const l2Tips: L2Tips = {
-      proposed: {
-        number: latestBlockNumber,
-        hash: latestBlockHeaderHash.toString(),
-      },
-      proven: {
-        block: {
-          number: provenBlockNumber,
-          hash: provenBlockHeaderHash.toString(),
-        },
-        checkpoint: makeCheckpointId(provenBlockCheckpoint),
-      },
-      finalized: {
-        block: {
-          number: finalizedBlockNumber,
-          hash: finalizedBlockHeaderHash.toString(),
-        },
-        checkpoint: makeCheckpointId(finalizedBlockCheckpoint),
-      },
-      checkpointed: {
-        block: {
-          number: checkpointedBlockNumber,
-          hash: checkpointedBlockHeaderHash.toString(),
-        },
-        checkpoint: makeCheckpointId(checkpointedBlockCheckpoint),
-      },
-    };
-
-    return l2Tips;
+  public getL2Tips(): Promise<L2Tips> {
+    return this.l2TipsCache.getL2Tips();
   }
 
   public async rollbackTo(targetL2BlockNumber: BlockNumber): Promise<void> {
@@ -532,7 +432,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     await this.store.setMessageSynchedL1Block({ l1BlockNumber: targetL1BlockNumber, l1BlockHash: targetL1BlockHash });
     if (targetL2BlockNumber < currentProvenBlock) {
       this.log.info(`Clearing proven L2 block number`);
-      await this.store.setProvenCheckpointNumber(CheckpointNumber.ZERO);
+      await this.updater.setProvenCheckpointNumber(CheckpointNumber.ZERO);
     }
     // TODO(palla/reorg): Set the finalized block when we add support for it.
     // if (targetL2BlockNumber < currentFinalizedBlock) {

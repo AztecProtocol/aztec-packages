@@ -72,6 +72,8 @@ struct Witness {
     friend bool operator==(const Witness&, const Witness&);
 
     bool operator<(Witness const& rhs) const { return value < rhs.value; }
+    void msgpack_pack(auto& packer) const { packer.pack(value); }
+
     void msgpack_unpack(msgpack::object const& o)
     {
         try {
@@ -87,6 +89,8 @@ struct WitnessMap {
     std::map<Witnesses::Witness, std::vector<uint8_t>> value;
 
     friend bool operator==(const WitnessMap&, const WitnessMap&);
+
+    void msgpack_pack(auto& packer) const { packer.pack(value); }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -104,6 +108,13 @@ struct StackItem {
     Witnesses::WitnessMap witness;
 
     friend bool operator==(const StackItem&, const StackItem&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_array(2);
+        packer.pack(index);
+        packer.pack(witness);
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -126,6 +137,12 @@ struct WitnessStack {
     std::vector<Witnesses::StackItem> stack;
 
     friend bool operator==(const WitnessStack&, const WitnessStack&);
+
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_array(1);
+        packer.pack(stack);
+    }
 
     void msgpack_unpack(msgpack::object const& o)
     {
@@ -185,7 +202,10 @@ namespace Witnesses {
 
 inline bool operator==(const Witness& lhs, const Witness& rhs)
 {
-    return lhs.value == rhs.value;
+    if (!(lhs.value == rhs.value)) {
+        return false;
+    }
+    return true;
 }
 
 } // end of namespace Witnesses
@@ -214,7 +234,10 @@ namespace Witnesses {
 
 inline bool operator==(const WitnessMap& lhs, const WitnessMap& rhs)
 {
-    return lhs.value == rhs.value;
+    if (!(lhs.value == rhs.value)) {
+        return false;
+    }
+    return true;
 }
 
 } // end of namespace Witnesses
@@ -243,7 +266,10 @@ namespace Witnesses {
 
 inline bool operator==(const WitnessStack& lhs, const WitnessStack& rhs)
 {
-    return lhs.stack == rhs.stack;
+    if (!(lhs.stack == rhs.stack)) {
+        return false;
+    }
+    return true;
 }
 
 } // end of namespace Witnesses

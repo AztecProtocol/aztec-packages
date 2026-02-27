@@ -8,6 +8,7 @@ import { globalIgnores } from 'eslint/config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+import noAsyncDispose from './eslint-rules/no-async-dispose.js';
 import noNonPrimitiveInCollections from './eslint-rules/no-non-primitive-in-collections.js';
 import noUnsafeBrandedTypeConversion from './eslint-rules/no-unsafe-branded-type-conversion.js';
 
@@ -51,6 +52,7 @@ export default [
       importPlugin,
       'aztec-custom': {
         rules: {
+          'no-async-dispose': noAsyncDispose,
           'no-non-primitive-in-collections': noNonPrimitiveInCollections,
           'no-unsafe-branded-type-conversion': noUnsafeBrandedTypeConversion,
         },
@@ -116,6 +118,7 @@ export default [
       'import-x/no-extraneous-dependencies': 'error',
       // this unfortunately doesn't block `fit` and `fdescribe`
       'no-only-tests/no-only-tests': ['error'],
+      'aztec-custom/no-async-dispose': 'error',
       'aztec-custom/no-non-primitive-in-collections': 'error',
       'aztec-custom/no-unsafe-branded-type-conversion': 'error',
     },

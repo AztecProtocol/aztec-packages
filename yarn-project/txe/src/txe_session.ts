@@ -3,12 +3,12 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import type { ProtocolContract } from '@aztec/protocol-contracts';
 import type { AccessScopes } from '@aztec/pxe/client/lazy';
 import {
   AddressStore,
   AnchorBlockStore,
   CapsuleStore,
+  ContractStore,
   JobCoordinator,
   NoteService,
   NoteStore,
@@ -55,7 +55,6 @@ import { TXEArchiver } from './state_machine/archiver.js';
 import { TXEStateMachine } from './state_machine/index.js';
 import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
 import { TXEAccountStore } from './util/txe_account_store.js';
-import { TXEContractStore } from './util/txe_contract_store.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from './utils/block_creation.js';
 import { makeTxEffect } from './utils/tx_effect_creation.js';
 
@@ -114,6 +113,10 @@ export interface TXESessionStateHandler {
   enterPublicState(contractAddress?: AztecAddress): Promise<void>;
   enterPrivateState(contractAddress?: AztecAddress, anchorBlockNumber?: BlockNumber): Promise<PrivateContextInputs>;
   enterUtilityState(contractAddress?: AztecAddress): Promise<void>;
+
+  // TODO(F-335): Exposing the job info is abstraction breakage - drop the following 2 functions.
+  cycleJob(): Promise<string>;
+  getCurrentJob(): string;
 }
 
 /**
@@ -132,7 +135,7 @@ export class TXESession implements TXESessionStateHandler {
       | IPrivateExecutionOracle
       | IAvmExecutionOracle
       | ITxeExecutionOracle,
-    private contractStore: TXEContractStore,
+    private contractStore: ContractStore,
     private noteStore: NoteStore,
     private keyStore: KeyStore,
     private addressStore: AddressStore,
@@ -149,12 +152,11 @@ export class TXESession implements TXESessionStateHandler {
     private nextBlockTimestamp: bigint,
   ) {}
 
-  static async init(protocolContracts: ProtocolContract[]) {
+  static async init(contractStore: ContractStore) {
     const store = await openTmpStore('txe-session');
 
     const addressStore = new AddressStore(store);
     const privateEventStore = new PrivateEventStore(store);
-    const contractStore = new TXEContractStore(store);
     const noteStore = new NoteStore(store);
     const senderTaggingStore = new SenderTaggingStore(store);
     const recipientTaggingStore = new RecipientTaggingStore(store);
@@ -172,12 +174,6 @@ export class TXESession implements TXESessionStateHandler {
       privateEventStore,
       noteStore,
     ]);
-
-    // Register protocol contracts.
-    for (const { contractClass, instance, artifact } of protocolContracts) {
-      await contractStore.addContractArtifact(contractClass.id, artifact);
-      await contractStore.addContractInstance(instance);
-    }
 
     const archiver = new TXEArchiver(store);
     const anchorBlockStore = new AnchorBlockStore(store);
@@ -201,7 +197,6 @@ export class TXESession implements TXESessionStateHandler {
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
-      initialJobId,
       nextBlockTimestamp,
       version,
       chainId,
@@ -262,6 +257,17 @@ export class TXESession implements TXESessionStateHandler {
     }
   }
 
+  getCurrentJob(): string {
+    return this.currentJobId;
+  }
+
+  /** Commits the current job and begins a new one. Returns the new job ID. */
+  async cycleJob(): Promise<string> {
+    await this.jobCoordinator.commitJob(this.currentJobId);
+    this.currentJobId = this.jobCoordinator.beginJob();
+    return this.currentJobId;
+  }
+
   async enterTopLevelState() {
     switch (this.state.name) {
       case 'PRIVATE': {
@@ -285,8 +291,7 @@ export class TXESession implements TXESessionStateHandler {
     }
 
     // Commit all staged stores from the job that was just completed, then begin a new job
-    await this.jobCoordinator.commitJob(this.currentJobId);
-    this.currentJobId = this.jobCoordinator.beginJob();
+    await this.cycleJob();
 
     this.oracleHandler = new TXEOracleTopLevelContext(
       this.stateMachine,
@@ -300,7 +305,6 @@ export class TXESession implements TXESessionStateHandler {
       this.senderAddressBookStore,
       this.capsuleStore,
       this.privateEventStore,
-      this.currentJobId,
       this.nextBlockTimestamp,
       this.version,
       this.chainId,

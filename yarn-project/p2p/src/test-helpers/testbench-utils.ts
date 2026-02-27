@@ -59,7 +59,7 @@ export class InMemoryTxPool extends EventEmitter implements TxPoolV2 {
 
   // === Core Operations (TxPoolV2) ===
 
-  addPendingTxs(txs: Tx[], opts?: { source?: string }): Promise<AddTxsResult> {
+  addPendingTxs(txs: Tx[], opts?: { source?: string; feeComparisonOnly?: boolean }): Promise<AddTxsResult> {
     const accepted: TxHash[] = [];
     const newTxs: Tx[] = [];
     for (const tx of txs) {
@@ -76,7 +76,7 @@ export class InMemoryTxPool extends EventEmitter implements TxPoolV2 {
     return Promise.resolve({ accepted, ignored: [], rejected: [] });
   }
 
-  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored' | 'rejected'> {
+  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored'> {
     const key = tx.getTxHash().toString();
     if (this.txsByHash.has(key)) {
       return Promise.resolve('ignored');
@@ -123,7 +123,7 @@ export class InMemoryTxPool extends EventEmitter implements TxPoolV2 {
     return Promise.resolve();
   }
 
-  handlePrunedBlocks(_latestBlock: L2BlockId): Promise<void> {
+  handlePrunedBlocks(_latestBlock: L2BlockId, _options?: { deleteAllTxs?: boolean }): Promise<void> {
     return Promise.resolve();
   }
 

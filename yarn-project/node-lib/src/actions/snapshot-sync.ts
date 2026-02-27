@@ -82,7 +82,11 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
   }
 
   const currentL1BlockNumber = await getPublicClient(config).getBlockNumber();
-  if (archiverL1BlockNumber && currentL1BlockNumber - archiverL1BlockNumber < minL1BlocksToTriggerReplace) {
+  if (
+    archiverL1BlockNumber &&
+    currentL1BlockNumber >= archiverL1BlockNumber &&
+    currentL1BlockNumber - archiverL1BlockNumber < minL1BlocksToTriggerReplace
+  ) {
     log.verbose(
       `Skipping snapshot sync as archiver is less than ${
         currentL1BlockNumber - archiverL1BlockNumber

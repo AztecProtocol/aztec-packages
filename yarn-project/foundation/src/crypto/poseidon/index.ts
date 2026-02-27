@@ -1,4 +1,4 @@
-import { BarretenbergSync } from '@aztec/bb.js';
+import { Barretenberg } from '@aztec/bb.js';
 
 import { Fr } from '../../curves/bn254/field.js';
 import { type Fieldable, serializeToFields } from '../../serialize/serialize.js';
@@ -10,9 +10,9 @@ import { type Fieldable, serializeToFields } from '../../serialize/serialize.js'
  */
 export async function poseidon2Hash(input: Fieldable[]): Promise<Fr> {
   const inputFields = serializeToFields(input);
-  await BarretenbergSync.initSingleton();
-  const api = BarretenbergSync.getSingleton();
-  const response = api.poseidon2Hash({
+  await Barretenberg.initSingleton();
+  const api = Barretenberg.getSingleton();
+  const response = await api.poseidon2Hash({
     inputs: inputFields.map(i => i.toBuffer()),
   });
   return Fr.fromBuffer(Buffer.from(response.hash));
@@ -27,9 +27,9 @@ export async function poseidon2Hash(input: Fieldable[]): Promise<Fr> {
 export async function poseidon2HashWithSeparator(input: Fieldable[], separator: number): Promise<Fr> {
   const inputFields = serializeToFields(input);
   inputFields.unshift(new Fr(separator));
-  await BarretenbergSync.initSingleton();
-  const api = BarretenbergSync.getSingleton();
-  const response = api.poseidon2Hash({
+  await Barretenberg.initSingleton();
+  const api = Barretenberg.getSingleton();
+  const response = await api.poseidon2Hash({
     inputs: inputFields.map(i => i.toBuffer()),
   });
   return Fr.fromBuffer(Buffer.from(response.hash));
@@ -44,9 +44,9 @@ export async function poseidon2Permutation(input: Fieldable[]): Promise<Fr[]> {
   const inputFields = serializeToFields(input);
   // We'd like this assertion but it's not possible to use it in the browser.
   // assert(input.length === 4, 'Input state must be of size 4');
-  await BarretenbergSync.initSingleton();
-  const api = BarretenbergSync.getSingleton();
-  const response = api.poseidon2Permutation({
+  await Barretenberg.initSingleton();
+  const api = Barretenberg.getSingleton();
+  const response = await api.poseidon2Permutation({
     inputs: inputFields.map(i => i.toBuffer()),
   });
   // We'd like this assertion but it's not possible to use it in the browser.
@@ -65,9 +65,9 @@ export async function poseidon2HashBytes(input: Buffer): Promise<Fr> {
     inputFields.push(Fr.fromBuffer(fieldBytes));
   }
 
-  await BarretenbergSync.initSingleton();
-  const api = BarretenbergSync.getSingleton();
-  const response = api.poseidon2Hash({
+  await Barretenberg.initSingleton();
+  const api = Barretenberg.getSingleton();
+  const response = await api.poseidon2Hash({
     inputs: inputFields.map(i => i.toBuffer()),
   });
 

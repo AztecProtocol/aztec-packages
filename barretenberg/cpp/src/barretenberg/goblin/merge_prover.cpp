@@ -17,8 +17,7 @@ namespace bb {
  */
 MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
                          std::shared_ptr<Transcript> transcript,
-                         MergeSettings settings,
-                         const CommitmentKey& commitment_key)
+                         MergeSettings settings)
     : transcript(std::move(transcript))
     , op_queue(op_queue)
     , settings(settings)
@@ -33,8 +32,7 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
         op_queue->merge(settings);
     }
 
-    pcs_commitment_key =
-        commitment_key.initialized() ? commitment_key : CommitmentKey(op_queue->get_ultra_ops_table_num_rows());
+    pcs_commitment_key = CommitmentKey(op_queue->get_ultra_ops_table_num_rows());
 };
 
 MergeProver::Polynomial MergeProver::compute_degree_check_polynomial(

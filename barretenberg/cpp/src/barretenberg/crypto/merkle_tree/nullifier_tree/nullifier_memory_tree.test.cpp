@@ -4,7 +4,7 @@
 using namespace bb;
 using namespace bb::crypto::merkle_tree;
 
-using HashPolicy = PedersenHashPolicy;
+using HashPolicy = Poseidon2HashPolicy;
 using WrappedLeaf = WrappedNullifierLeaf<HashPolicy>;
 
 void print_tree(const size_t depth, std::vector<fr> hashes, std::string const& msg)

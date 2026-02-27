@@ -14,7 +14,7 @@ import {
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import { type ContractClassLog, DirectionalAppTaggingSecret, type PreTag } from '@aztec/stdlib/logs';
+import { type ContractClassLog, ExtendedDirectionalAppTaggingSecret, type PreTag } from '@aztec/stdlib/logs';
 import { Tag } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
@@ -216,25 +216,29 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @returns An app tag to be used in a log.
    */
   public async privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag> {
-    const secret = await this.#calculateDirectionalAppTaggingSecret(this.contractAddress, sender, recipient);
+    const extendedSecret = await this.#calculateExtendedDirectionalAppTaggingSecret(
+      this.contractAddress,
+      sender,
+      recipient,
+    );
 
-    const index = await this.#getIndexToUseForSecret(secret);
+    const index = await this.#getIndexToUseForSecret(extendedSecret);
     this.log.debug(
       `Incrementing tagging index for sender: ${sender}, recipient: ${recipient}, contract: ${this.contractAddress} to ${index}`,
     );
-    this.taggingIndexCache.setLastUsedIndex(secret, index);
+    this.taggingIndexCache.setLastUsedIndex(extendedSecret, index);
 
-    return Tag.compute({ secret, index });
+    return Tag.compute({ extendedSecret, index });
   }
 
-  async #calculateDirectionalAppTaggingSecret(
+  async #calculateExtendedDirectionalAppTaggingSecret(
     contractAddress: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
   ) {
     const senderCompleteAddress = await this.getCompleteAddressOrFail(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    return DirectionalAppTaggingSecret.compute(
+    return ExtendedDirectionalAppTaggingSecret.compute(
       senderCompleteAddress,
       senderIvsk,
       recipient,
@@ -243,7 +247,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     );
   }
 
-  async #getIndexToUseForSecret(secret: DirectionalAppTaggingSecret): Promise<number> {
+  async #getIndexToUseForSecret(secret: ExtendedDirectionalAppTaggingSecret): Promise<number> {
     // If we have the tagging index in the cache, we use it. If not we obtain it from the execution data provider.
     const lastUsedIndexInTx = this.taggingIndexCache.getLastUsedIndex(secret);
 
@@ -255,7 +259,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       // that'd be wasteful as most tagging secrets are not used in each tx.
       await syncSenderTaggingIndexes(
         secret,
-        this.contractAddress,
         this.aztecNode,
         this.senderTaggingStore,
         await this.anchorBlockHeader.hash(),
@@ -527,22 +530,13 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    // When scopes are set and the target contract is a registered account (has keys in the keyStore),
-    // expand scopes to include it so nested private calls can sync and read the contract's own notes.
-    // We only expand for registered accounts because the log service needs the recipient's keys to derive
-    // tagging secrets, which are only available for registered accounts.
-    const expandedScopes =
-      this.scopes !== 'ALL_SCOPES' && (await this.keyStore.hasAccount(targetContractAddress))
-        ? [...this.scopes, targetContractAddress]
-        : this.scopes;
-
     await this.contractSyncService.ensureContractSynced(
       targetContractAddress,
       functionSelector,
       this.utilityExecutor,
       this.anchorBlockHeader,
       this.jobId,
-      expandedScopes,
+      this.scopes,
     );
 
     const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
@@ -580,7 +574,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       totalPublicCalldataCount: this.totalPublicCalldataCount,
       sideEffectCounter,
       log: this.log,
-      scopes: expandedScopes,
+      scopes: this.scopes,
       senderForTags: this.senderForTags,
       simulator: this.simulator!,
     });

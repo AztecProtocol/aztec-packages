@@ -1,6 +1,6 @@
-import { type TxMetaData, stubTxMetaValidationData } from '../tx_metadata.js';
+import { type TxMetaData, stubTxMetaData } from '../tx_metadata.js';
 import { FeePayerBalancePreAddRule } from './fee_payer_balance_pre_add_rule.js';
-import type { PreAddPoolAccess } from './interfaces.js';
+import { type PreAddPoolAccess, TxPoolRejectionCode } from './interfaces.js';
 
 describe('FeePayerBalancePreAddRule', () => {
   let rule: FeePayerBalancePreAddRule;
@@ -14,18 +14,7 @@ describe('FeePayerBalancePreAddRule', () => {
       claimAmount?: bigint;
       feePayer?: string;
     } = {},
-  ): TxMetaData => ({
-    txHash,
-    anchorBlockHeaderHash: '0x1234',
-    priorityFee: opts.priorityFee ?? 100n,
-    feePayer: opts.feePayer ?? '0xfeepayer',
-    claimAmount: opts.claimAmount ?? 0n,
-    feeLimit: opts.feeLimit ?? 100n,
-    nullifiers: [`0x${txHash.slice(2)}null1`],
-    includeByTimestamp: 0n,
-    receivedAt: 0,
-    data: stubTxMetaValidationData(),
-  });
+  ) => stubTxMetaData(txHash, opts);
 
   // Mock pool access with configurable behavior
   const createPoolAccess = (balance: bigint, existingTxs: TxMetaData[] = []): PreAddPoolAccess => ({
@@ -62,7 +51,12 @@ describe('FeePayerBalancePreAddRule', () => {
 
         expect(result.shouldIgnore).toBe(true);
         expect(result.txHashesToEvict).toHaveLength(0);
-        expect(result.reason).toContain('insufficient balance');
+        expect(result.reason).toBeDefined();
+        expect(result.reason!.code).toBe(TxPoolRejectionCode.INSUFFICIENT_FEE_PAYER_BALANCE);
+        if (result.reason!.code === TxPoolRejectionCode.INSUFFICIENT_FEE_PAYER_BALANCE) {
+          expect(result.reason!.currentBalance).toBe(50n);
+          expect(result.reason!.feeLimit).toBe(100n);
+        }
       });
 
       it('accepts tx when balance exactly equals fee limit', async () => {
@@ -107,7 +101,8 @@ describe('FeePayerBalancePreAddRule', () => {
         const result = await rule.check(incomingMeta, poolAccess);
 
         expect(result.shouldIgnore).toBe(true);
-        expect(result.reason).toContain('insufficient balance');
+        expect(result.reason).toBeDefined();
+        expect(result.reason!.code).toBe(TxPoolRejectionCode.INSUFFICIENT_FEE_PAYER_BALANCE);
       });
 
       it('evicts lower-priority existing tx when high-priority tx is added', async () => {
@@ -120,7 +115,7 @@ describe('FeePayerBalancePreAddRule', () => {
         const result = await rule.check(incomingMeta, poolAccess);
 
         expect(result.shouldIgnore).toBe(false);
-        expect(result.txHashesToEvict).toContain('0x2222');
+        expect(result.txHashesToEvict).toContain(existingMeta.txHash);
       });
 
       it('evicts multiple lower-priority txs when high-priority tx is added', async () => {
@@ -134,8 +129,8 @@ describe('FeePayerBalancePreAddRule', () => {
         const result = await rule.check(incomingMeta, poolAccess);
 
         expect(result.shouldIgnore).toBe(false);
-        expect(result.txHashesToEvict).toContain('0x2222');
-        expect(result.txHashesToEvict).toContain('0x3333');
+        expect(result.txHashesToEvict).toContain(existingMeta1.txHash);
+        expect(result.txHashesToEvict).toContain(existingMeta2.txHash);
       });
 
       it('handles priority ordering correctly - highest priority gets funded first', async () => {
@@ -150,9 +145,9 @@ describe('FeePayerBalancePreAddRule', () => {
         const result = await rule.check(incomingMeta, poolAccess);
 
         expect(result.shouldIgnore).toBe(false);
-        expect(result.txHashesToEvict).toContain('0x2222'); // Low priority evicted
-        expect(result.txHashesToEvict).not.toContain('0x4444'); // High priority kept
-        expect(result.txHashesToEvict).not.toContain('0x3333'); // Med priority kept
+        expect(result.txHashesToEvict).toContain(lowPriorityMeta.txHash); // Low priority evicted
+        expect(result.txHashesToEvict).not.toContain(highPriorityMeta.txHash); // High priority kept
+        expect(result.txHashesToEvict).not.toContain(medPriorityMeta.txHash); // Med priority kept
       });
     });
 
@@ -238,7 +233,7 @@ describe('FeePayerBalancePreAddRule', () => {
 
         expect(result.shouldIgnore).toBe(false);
         expect(result.txHashesToEvict).toHaveLength(1);
-        expect(result.txHashesToEvict[0]).toEqual('0x2222');
+        expect(result.txHashesToEvict[0]).toEqual(existingMeta.txHash);
       });
 
       it('returns empty eviction list when no evictions needed', async () => {
@@ -262,7 +257,8 @@ describe('FeePayerBalancePreAddRule', () => {
 
         expect(result.shouldIgnore).toBe(true);
         expect(result.reason).toBeDefined();
-        expect(result.reason).toContain('insufficient balance');
+        expect(result.reason!.code).toBe(TxPoolRejectionCode.INSUFFICIENT_FEE_PAYER_BALANCE);
+        expect(result.reason!.message).toContain('insufficient balance');
       });
     });
   });

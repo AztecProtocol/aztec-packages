@@ -88,7 +88,8 @@ template <typename Fr> struct BackingMemory {
         return *this;
     }
 
-    // Allocate memory, preferring file-backed if in low memory mode
+    // Allocate memory, preferring file-backed if in low memory mode.
+    // Memory is NOT zeroed — callers that need zeroed memory must do so themselves.
     static BackingMemory allocate(size_t size)
     {
         BackingMemory memory;
@@ -106,11 +107,19 @@ template <typename Fr> struct BackingMemory {
     ~BackingMemory() = default;
 
   private:
+    // Use new Fr[] instead of std::make_shared<Fr[]>(n) to avoid serial
+    // value-initialization (zeroing). Polynomial's constructor handles
+    // zeroing in parallel where needed.
     static void allocate_aligned(BackingMemory& memory, size_t size)
     {
-        // Fr has alignas on it so this is fine post c++20.
-        memory.aligned_memory = std::make_shared<Fr[]>(size);
-        memory.raw_data = memory.aligned_memory.get();
+        if (size == 0) {
+            memory.aligned_memory = nullptr;
+            memory.raw_data = nullptr;
+            return;
+        }
+        Fr* ptr = new Fr[size];
+        memory.aligned_memory = std::shared_ptr<Fr[]>(ptr, [](Fr* p) { delete[] p; });
+        memory.raw_data = ptr;
     }
 
 #ifndef __wasm__

@@ -9,6 +9,7 @@ import type { L2Block, L2BlockId, L2BlockSource } from '@aztec/stdlib/block';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { DatabasePublicStateSource } from '@aztec/stdlib/trees';
 import { BlockHeader, Tx, TxHash, type TxValidator } from '@aztec/stdlib/tx';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { TxArchive } from './archive/index.js';
 import { DeletedPool } from './deleted_pool.js';
@@ -22,8 +23,12 @@ import {
   LowPriorityPreAddRule,
   NullifierConflictRule,
   type PoolOperations,
+  type PreAddContext,
   type PreAddPoolAccess,
+  TxPoolRejectionCode,
+  type TxPoolRejectionError,
 } from './eviction/index.js';
+import { TxPoolV2Instrumentation } from './instrumentation.js';
 import {
   type AddTxsResult,
   DEFAULT_TX_POOL_V2_CONFIG,
@@ -66,6 +71,8 @@ export class TxPoolV2Impl {
   #deletedPool: DeletedPool;
   #evictionManager: EvictionManager;
   #dateProvider: DateProvider;
+  #instrumentation: TxPoolV2Instrumentation;
+  #evictedTxHashes: Set<string> = new Set();
   #log: Logger;
   #callbacks: TxPoolV2Callbacks;
 
@@ -74,6 +81,7 @@ export class TxPoolV2Impl {
     archiveStore: AztecAsyncKVStore,
     deps: TxPoolV2Dependencies,
     callbacks: TxPoolV2Callbacks,
+    telemetry: TelemetryClient,
     config: Partial<TxPoolV2Config> = {},
     dateProvider: DateProvider,
     log: Logger,
@@ -89,6 +97,7 @@ export class TxPoolV2Impl {
     this.#archive = new TxArchive(archiveStore, this.#config.archivedTxLimit, log);
     this.#deletedPool = new DeletedPool(store, this.#txsDB, log);
     this.#dateProvider = dateProvider;
+    this.#instrumentation = new TxPoolV2Instrumentation(telemetry, () => this.#indices.getTotalMetadataBytes());
     this.#log = log;
     this.#callbacks = callbacks;
 
@@ -171,13 +180,40 @@ export class TxPoolV2Impl {
     this.#log.info(`Deleted ${toDelete.length} invalid/rejected transactions on startup`, { txHashes: toDelete });
   }
 
-  async addPendingTxs(txs: Tx[], opts: { source?: string }): Promise<AddTxsResult> {
+  async addPendingTxs(txs: Tx[], opts: { source?: string; feeComparisonOnly?: boolean }): Promise<AddTxsResult> {
     const accepted: TxHash[] = [];
     const ignored: TxHash[] = [];
     const rejected: TxHash[] = [];
+    const errors = new Map<string, TxPoolRejectionError>();
     const acceptedPending = new Set<string>();
 
+    // Phase 1: Pre-compute all throwable I/O outside the transaction.
+    // If any pre-computation throws, the entire call fails before mutations happen.
+    const precomputed = new Map<string, { meta: TxMetaData; minedBlockId: L2BlockId | undefined; isValid: boolean }>();
+
+    const validator = await this.#createTxValidator();
+
+    for (const tx of txs) {
+      const txHash = tx.getTxHash();
+      const txHashStr = txHash.toString();
+
+      const meta = await buildTxMetaData(tx);
+      const minedBlockId = await this.#getMinedBlockId(txHash);
+
+      // Validate non-mined txs (mined and pre-protected txs bypass validation inside the transaction)
+      let isValid = true;
+      if (!minedBlockId) {
+        isValid = await this.#validateMeta(meta, validator);
+      }
+
+      precomputed.set(txHashStr, { meta, minedBlockId, isValid });
+    }
+
+    // Phase 2: Apply mutations inside the transaction using only pre-computed results,
+    // in-memory reads, and buffered DB writes. Nothing here can throw an unhandled exception.
     const poolAccess = this.#createPreAddPoolAccess();
+    const preAddContext: PreAddContext | undefined =
+      opts.feeComparisonOnly !== undefined ? { feeComparisonOnly: opts.feeComparisonOnly } : undefined;
 
     await this.#store.transactionAsync(async () => {
       for (const tx of txs) {
@@ -190,29 +226,45 @@ export class TxPoolV2Impl {
           continue;
         }
 
-        // Check mined status first (applies to all paths)
-        const minedBlockId = await this.#getMinedBlockId(txHash);
+        const { meta, minedBlockId, isValid } = precomputed.get(txHashStr)!;
         const preProtectedSlot = this.#indices.getProtectionSlot(txHashStr);
 
         if (minedBlockId) {
           // Already mined - add directly (protection already set if pre-protected)
-          await this.#addTx(tx, { mined: minedBlockId }, opts);
+          await this.#addTx(tx, { mined: minedBlockId }, opts, meta);
           accepted.push(txHash);
         } else if (preProtectedSlot !== undefined) {
           // Pre-protected and not mined - add as protected (bypass validation)
-          await this.#addTx(tx, { protected: preProtectedSlot }, opts);
+          await this.#addTx(tx, { protected: preProtectedSlot }, opts, meta);
           accepted.push(txHash);
+        } else if (!isValid) {
+          // Failed pre-computed validation
+          rejected.push(txHash);
         } else {
-          // Regular pending tx - validate and run pre-add rules
-          const result = await this.#tryAddRegularPendingTx(tx, opts, poolAccess, acceptedPending, ignored);
+          // Regular pending tx - run pre-add rules using pre-computed metadata
+          const result = await this.#tryAddRegularPendingTx(
+            tx,
+            meta,
+            opts,
+            poolAccess,
+            acceptedPending,
+            ignored,
+            errors,
+            preAddContext,
+          );
           if (result.status === 'accepted') {
             acceptedPending.add(txHashStr);
-          } else if (result.status === 'rejected') {
-            rejected.push(txHash);
           } else {
             ignored.push(txHash);
           }
         }
+      }
+
+      // Run post-add eviction rules for pending txs (inside transaction for atomicity)
+      if (acceptedPending.size > 0) {
+        const feePayers = Array.from(acceptedPending).map(txHash => this.#indices.getMetadata(txHash)!.feePayer);
+        const uniqueFeePayers = new Set<string>(feePayers);
+        await this.#evictionManager.evictAfterNewTxs(Array.from(acceptedPending), [...uniqueFeePayers]);
       }
     });
 
@@ -221,61 +273,80 @@ export class TxPoolV2Impl {
       accepted.push(TxHash.fromString(txHashStr));
     }
 
-    // Run post-add eviction rules for pending txs
-    if (acceptedPending.size > 0) {
-      const feePayers = Array.from(acceptedPending).map(txHash => this.#indices.getMetadata(txHash)!.feePayer);
-      const uniqueFeePayers = new Set<string>(feePayers);
-      await this.#evictionManager.evictAfterNewTxs(Array.from(acceptedPending), [...uniqueFeePayers]);
+    // Record metrics
+    if (ignored.length > 0) {
+      this.#instrumentation.recordIgnored(ignored.length);
+    }
+    if (rejected.length > 0) {
+      this.#instrumentation.recordRejected(rejected.length);
     }
 
-    return { accepted, ignored, rejected };
+    return { accepted, ignored, rejected, ...(errors.size > 0 ? { errors } : {}) };
   }
 
-  /** Validates and adds a regular pending tx. Returns status. */
+  /** Adds a validated pending tx, running pre-add rules and evicting conflicts. */
   async #tryAddRegularPendingTx(
     tx: Tx,
+    precomputedMeta: TxMetaData,
     opts: { source?: string },
     poolAccess: PreAddPoolAccess,
     acceptedPending: Set<string>,
     ignored: TxHash[],
-  ): Promise<{ status: 'accepted' | 'ignored' | 'rejected' }> {
-    const txHash = tx.getTxHash();
-    const txHashStr = txHash.toString();
-
-    // Build metadata and validate using metadata
-    const meta = await buildTxMetaData(tx);
-    if (!(await this.#validateMeta(meta))) {
-      return { status: 'rejected' };
-    }
+    errors: Map<string, TxPoolRejectionError>,
+    preAddContext?: PreAddContext,
+  ): Promise<{ status: 'accepted' | 'ignored' }> {
+    const txHashStr = tx.getTxHash().toString();
 
     // Run pre-add rules
-    const preAddResult = await this.#evictionManager.runPreAddRules(meta, poolAccess);
+    const preAddResult = await this.#evictionManager.runPreAddRules(precomputedMeta, poolAccess, preAddContext);
 
     if (preAddResult.shouldIgnore) {
-      this.#log.debug(`Ignoring tx ${txHashStr}: ${preAddResult.reason}`);
+      this.#log.debug(`Ignoring tx ${txHashStr}: ${preAddResult.reason?.message ?? 'unknown reason'}`);
+      if (preAddResult.reason && preAddResult.reason.code !== TxPoolRejectionCode.INTERNAL_ERROR) {
+        errors.set(txHashStr, preAddResult.reason);
+      }
       return { status: 'ignored' };
     }
 
-    // Evict conflicts
-    for (const evictHashStr of preAddResult.txHashesToEvict) {
-      await this.#deleteTx(evictHashStr);
-      this.#log.debug(`Evicted tx ${evictHashStr} due to higher-fee tx ${txHashStr}`, {
-        evictedTxHash: evictHashStr,
-        replacementTxHash: txHashStr,
-      });
-      if (acceptedPending.has(evictHashStr)) {
-        // Evicted tx was from this batch - mark as ignored in result
-        acceptedPending.delete(evictHashStr);
-        ignored.push(TxHash.fromString(evictHashStr));
+    // Evict conflicts, grouped by rule name for metrics
+    if (preAddResult.evictions && preAddResult.evictions.length > 0) {
+      const byReason = new Map<string, string[]>();
+      for (const { txHash: evictHash, reason } of preAddResult.evictions) {
+        const group = byReason.get(reason);
+        if (group) {
+          group.push(evictHash);
+        } else {
+          byReason.set(reason, [evictHash]);
+        }
+      }
+      for (const [reason, hashes] of byReason) {
+        await this.#evictTxs(hashes, reason);
+      }
+      for (const evictHashStr of preAddResult.txHashesToEvict) {
+        this.#log.debug(`Evicted tx ${evictHashStr} due to higher-fee tx ${txHashStr}`, {
+          evictedTxHash: evictHashStr,
+          replacementTxHash: txHashStr,
+        });
+        if (acceptedPending.has(evictHashStr)) {
+          // Evicted tx was from this batch - mark as ignored in result
+          acceptedPending.delete(evictHashStr);
+          ignored.push(TxHash.fromString(evictHashStr));
+        }
       }
     }
 
+    // Randomly drop the transaction for testing purposes (report as accepted so it propagates)
+    if (this.#config.dropTransactionsProbability > 0 && Math.random() < this.#config.dropTransactionsProbability) {
+      this.#log.debug(`Dropping tx ${txHashStr} (simulated drop for testing)`);
+      return { status: 'accepted' };
+    }
+
     // Add the transaction
-    await this.#addTx(tx, 'pending', opts);
+    await this.#addTx(tx, 'pending', opts, precomputedMeta);
     return { status: 'accepted' };
   }
 
-  async canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored' | 'rejected'> {
+  async canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored'> {
     const txHashStr = tx.getTxHash().toString();
 
     // Check if already in pool
@@ -283,14 +354,8 @@ export class TxPoolV2Impl {
       return 'ignored';
     }
 
-    // Build metadata and validate using metadata
+    // Build metadata and check pre-add rules
     const meta = await buildTxMetaData(tx);
-    const validationResult = await this.#validateMeta(meta, undefined, 'can add pending');
-    if (validationResult !== true) {
-      return 'rejected';
-    }
-
-    // Use pre-add rules
     const poolAccess = this.#createPreAddPoolAccess();
     const preAddResult = await this.#evictionManager.runPreAddRules(meta, poolAccess);
 
@@ -327,22 +392,57 @@ export class TxPoolV2Impl {
     });
   }
 
-  protectTxs(txHashes: TxHash[], block: BlockHeader): TxHash[] {
+  async protectTxs(txHashes: TxHash[], block: BlockHeader): Promise<TxHash[]> {
     const slotNumber = block.globalVariables.slotNumber;
     const missing: TxHash[] = [];
+    let softDeletedHits = 0;
+    let missingPreviouslyEvicted = 0;
 
-    for (const txHash of txHashes) {
-      const txHashStr = txHash.toString();
+    await this.#store.transactionAsync(async () => {
+      for (const txHash of txHashes) {
+        const txHashStr = txHash.toString();
 
-      if (this.#indices.has(txHashStr)) {
-        // Update protection for existing tx
-        this.#indices.updateProtection(txHashStr, slotNumber);
-      } else {
-        // Pre-record protection for tx we don't have yet
-        this.#indices.setProtection(txHashStr, slotNumber);
-        missing.push(txHash);
+        if (this.#indices.has(txHashStr)) {
+          // Update protection for existing tx
+          this.#indices.updateProtection(txHashStr, slotNumber);
+        } else if (this.#deletedPool.isSoftDeleted(txHashStr)) {
+          // Resurrect soft-deleted tx as protected
+          const buffer = await this.#txsDB.getAsync(txHashStr);
+          if (buffer) {
+            const tx = Tx.fromBuffer(buffer);
+            await this.#addTx(tx, { protected: slotNumber });
+            softDeletedHits++;
+          } else {
+            // Data missing despite soft-delete flag — treat as truly missing
+            this.#indices.setProtection(txHashStr, slotNumber);
+            missing.push(txHash);
+          }
+        } else {
+          // Truly missing — pre-record protection for tx we don't have yet
+          this.#indices.setProtection(txHashStr, slotNumber);
+          missing.push(txHash);
+          if (this.#evictedTxHashes.has(txHashStr)) {
+            missingPreviouslyEvicted++;
+          }
+        }
       }
+    });
+
+    // Record metrics
+    if (softDeletedHits > 0) {
+      this.#instrumentation.recordSoftDeletedHits(softDeletedHits);
     }
+    if (missing.length > 0) {
+      this.#log.debug(`protectTxs missing tx hashes: ${missing.map(h => h.toString()).join(', ')}`);
+      this.#instrumentation.recordMissingOnProtect(missing.length);
+    }
+    if (missingPreviouslyEvicted > 0) {
+      this.#instrumentation.recordMissingPreviouslyEvicted(missingPreviouslyEvicted);
+    }
+
+    this.#log.info(
+      `Protected ${txHashes.length} txs, missing: ${missing.length}, soft-deleted hits: ${softDeletedHits}`,
+    );
 
     return missing;
   }
@@ -387,57 +487,63 @@ export class TxPoolV2Impl {
       }
     }
 
-    // Step 4: Mark txs as mined (only those we have in the pool)
-    for (const meta of found) {
-      this.#indices.markAsMined(meta, blockId);
-      await this.#deletedPool.clearIfMinedHigher(meta.txHash, blockId.number);
-    }
+    await this.#store.transactionAsync(async () => {
+      // Step 4: Mark txs as mined (only those we have in the pool)
+      for (const meta of found) {
+        this.#indices.markAsMined(meta, blockId);
+        await this.#deletedPool.clearIfMinedHigher(meta.txHash, blockId.number);
+      }
 
-    // Step 5: Run eviction rules (remove pending txs with conflicting nullifiers/expired timestamps)
-    await this.#evictionManager.evictAfterNewBlock(block.header, nullifiers, feePayers);
+      // Step 5: Run post-event eviction rules (inside transaction for atomicity)
+      await this.#evictionManager.evictAfterNewBlock(block.header, nullifiers, feePayers);
+    });
 
     this.#log.info(`Marked ${found.length} txs as mined in block ${blockId.number}`);
   }
 
   async prepareForSlot(slotNumber: SlotNumber): Promise<void> {
-    // Step 0: Clean up slot-deleted txs from previous slots
-    await this.#deletedPool.cleanupSlotDeleted(slotNumber);
+    await this.#store.transactionAsync(async () => {
+      // Step 0: Clean up slot-deleted txs from previous slots
+      await this.#deletedPool.cleanupSlotDeleted(slotNumber);
 
-    // Step 1: Find expired protected txs
-    const expiredProtected = this.#indices.findExpiredProtectedTxs(slotNumber);
+      // Step 1: Find expired protected txs
+      const expiredProtected = this.#indices.findExpiredProtectedTxs(slotNumber);
 
-    // Step 2: Clear protection for all expired entries (including those without metadata)
-    this.#indices.clearProtection(expiredProtected);
+      // Step 2: Clear protection for all expired entries (including those without metadata)
+      this.#indices.clearProtection(expiredProtected);
 
-    // Step 3: Filter to only txs that have metadata and are not mined
-    const txsToRestore = this.#indices.filterRestorable(expiredProtected);
-    if (txsToRestore.length === 0) {
-      return;
-    }
+      // Step 3: Filter to only txs that have metadata and are not mined
+      const txsToRestore = this.#indices.filterRestorable(expiredProtected);
+      if (txsToRestore.length === 0) {
+        this.#log.debug(`Preparing for slot ${slotNumber}, no txs to unprotect`);
+        return;
+      }
 
-    this.#log.info(`Preparing for slot ${slotNumber}: unprotecting ${txsToRestore.length} txs`);
+      this.#log.info(`Preparing for slot ${slotNumber}: unprotecting ${txsToRestore.length} txs`);
 
-    // Step 4: Validate for pending pool
-    const { valid, invalid } = await this.#revalidateMetadata(txsToRestore, 'during prepareForSlot');
+      // Step 4: Validate for pending pool
+      const { valid, invalid } = await this.#revalidateMetadata(txsToRestore, 'during prepareForSlot');
 
-    // Step 5: Resolve nullifier conflicts and add winners to pending indices
-    const { added, toEvict } = this.#applyNullifierConflictResolution(valid);
+      // Step 5: Resolve nullifier conflicts and add winners to pending indices
+      const { added, toEvict } = this.#applyNullifierConflictResolution(valid);
 
-    // Step 6: Delete invalid and evicted txs
-    await this.#deleteTxsBatch([...invalid, ...toEvict]);
+      // Step 6: Delete invalid txs and evict conflict losers
+      await this.#deleteTxsBatch(invalid);
+      await this.#evictTxs(toEvict, 'NullifierConflict');
 
-    // Step 7: Run eviction rules (enforce pool size limit)
-    if (added.length > 0) {
-      const feePayers = added.map(meta => meta.feePayer);
-      const uniqueFeePayers = new Set<string>(feePayers);
-      await this.#evictionManager.evictAfterNewTxs(
-        added.map(m => m.txHash),
-        [...uniqueFeePayers],
-      );
-    }
+      // Step 7: Run eviction rules (enforce pool size limit)
+      if (added.length > 0) {
+        const feePayers = added.map(meta => meta.feePayer);
+        const uniqueFeePayers = new Set<string>(feePayers);
+        await this.#evictionManager.evictAfterNewTxs(
+          added.map(m => m.txHash),
+          [...uniqueFeePayers],
+        );
+      }
+    });
   }
 
-  async handlePrunedBlocks(latestBlock: L2BlockId): Promise<void> {
+  async handlePrunedBlocks(latestBlock: L2BlockId, options?: { deleteAllTxs?: boolean }): Promise<void> {
     // Step 1: Find transactions mined after the prune point
     const txsToUnmine = this.#indices.findTxsMinedAfter(latestBlock.number);
     if (txsToUnmine.length === 0) {
@@ -447,46 +553,60 @@ export class TxPoolV2Impl {
 
     this.#log.info(`Handling prune to block ${latestBlock.number}: un-mining ${txsToUnmine.length} txs`);
 
-    // Step 2: Mark ALL un-mined txs with their original mined block number
-    // This ensures they get soft-deleted if removed later, and only hard-deleted
-    // when their original mined block is finalized
-    await this.#deletedPool.markFromPrunedBlock(
-      txsToUnmine.map(m => ({
-        txHash: m.txHash,
-        minedAtBlock: BlockNumber(m.minedL2BlockId!.number),
-      })),
-    );
+    await this.#store.transactionAsync(async () => {
+      // Step 2: Mark ALL un-mined txs with their original mined block number
+      // This ensures they get soft-deleted if removed later, and only hard-deleted
+      // when their original mined block is finalized
+      await this.#deletedPool.markFromPrunedBlock(
+        txsToUnmine.map(m => ({
+          txHash: m.txHash,
+          minedAtBlock: BlockNumber(m.minedL2BlockId!.number),
+        })),
+      );
 
-    // Step 3: Unmine - clear mined status from metadata
-    for (const meta of txsToUnmine) {
-      this.#indices.markAsUnmined(meta);
-    }
+      // Step 3: Unmine - clear mined status from metadata
+      for (const meta of txsToUnmine) {
+        this.#indices.markAsUnmined(meta);
+      }
 
-    // Step 4: Filter out protected txs (they'll be handled by prepareForSlot)
-    const unprotectedTxs = this.#indices.filterUnprotected(txsToUnmine);
+      // If deleteAllTxs is set (epoch prune), delete all un-mined txs and return early
+      if (options?.deleteAllTxs) {
+        const allTxHashes = txsToUnmine.map(m => m.txHash);
+        await this.#deleteTxsBatch(allTxHashes);
+        this.#log.info(
+          `Handled prune to block ${latestBlock.number} with deleteAllTxs: deleted ${allTxHashes.length} txs`,
+        );
+        return;
+      }
 
-    // Step 4: Validate for pending pool
-    const { valid, invalid } = await this.#revalidateMetadata(unprotectedTxs, 'during handlePrunedBlocks');
+      // Step 4: Filter out protected txs (they'll be handled by prepareForSlot)
+      const unprotectedTxs = this.#indices.filterUnprotected(txsToUnmine);
 
-    // Step 6: Resolve nullifier conflicts and add winners to pending indices
-    const { toEvict } = this.#applyNullifierConflictResolution(valid);
+      // Step 5: Validate for pending pool
+      const { valid, invalid } = await this.#revalidateMetadata(unprotectedTxs, 'during handlePrunedBlocks');
 
-    // Step 7: Delete invalid and evicted txs
-    await this.#deleteTxsBatch([...invalid, ...toEvict]);
+      // Step 6: Resolve nullifier conflicts and add winners to pending indices
+      const { toEvict } = this.#applyNullifierConflictResolution(valid);
 
-    this.#log.info(
-      `Handled prune to block ${latestBlock.number}: ${valid.length} txs restored to pending, ${invalid.length} invalid, ${toEvict.length} evicted due to nullifier conflicts`,
-      { txHashesRestored: valid.map(m => m.txHash), txHashesInvalid: invalid, txHashesEvicted: toEvict },
-    );
+      // Step 7: Delete invalid txs and evict conflict losers
+      await this.#deleteTxsBatch(invalid);
+      await this.#evictTxs(toEvict, 'NullifierConflict');
 
-    // Step 8: Run eviction rules for ALL pending txs (not just restored ones)
-    // This handles cases like existing pending txs with invalid fee payer balances
-    await this.#evictionManager.evictAfterChainPrune(latestBlock.number);
+      this.#log.info(
+        `Handled prune to block ${latestBlock.number}: ${valid.length} txs restored to pending, ${invalid.length} invalid, ${toEvict.length} evicted due to nullifier conflicts`,
+        { txHashesRestored: valid.map(m => m.txHash), txHashesInvalid: invalid, txHashesEvicted: toEvict },
+      );
+
+      // Step 8: Run eviction rules for ALL pending txs (not just restored ones)
+      // This handles cases like existing pending txs with invalid fee payer balances
+      await this.#evictionManager.evictAfterChainPrune(latestBlock.number);
+    });
   }
 
   async handleFailedExecution(txHashes: TxHash[]): Promise<void> {
-    // Delete failed txs
-    await this.#deleteTxsBatch(txHashes.map(h => h.toString()));
+    await this.#store.transactionAsync(async () => {
+      await this.#deleteTxsBatch(txHashes.map(h => h.toString()));
+    });
 
     this.#log.info(`Deleted ${txHashes.length} failed txs`, { txHashes: txHashes.map(h => h.toString()) });
   }
@@ -497,27 +617,29 @@ export class TxPoolV2Impl {
     // Step 1: Find mined txs at or before finalized block
     const minedTxsToFinalize = this.#indices.findTxsMinedAtOrBefore(blockNumber);
 
-    // Step 2: Collect mined txs for archiving (before deletion)
-    const txsToArchive: Tx[] = [];
-    if (this.#archive.isEnabled()) {
-      for (const txHashStr of minedTxsToFinalize) {
-        const buffer = await this.#txsDB.getAsync(txHashStr);
-        if (buffer) {
-          txsToArchive.push(Tx.fromBuffer(buffer));
+    await this.#store.transactionAsync(async () => {
+      // Step 2: Collect mined txs for archiving (before deletion)
+      const txsToArchive: Tx[] = [];
+      if (this.#archive.isEnabled()) {
+        for (const txHashStr of minedTxsToFinalize) {
+          const buffer = await this.#txsDB.getAsync(txHashStr);
+          if (buffer) {
+            txsToArchive.push(Tx.fromBuffer(buffer));
+          }
         }
       }
-    }
 
-    // Step 3: Delete mined txs from active pool
-    await this.#deleteTxsBatch(minedTxsToFinalize);
+      // Step 3: Delete mined txs from active pool
+      await this.#deleteTxsBatch(minedTxsToFinalize);
 
-    // Step 4: Finalize soft-deleted txs
-    await this.#deletedPool.finalizeBlock(blockNumber);
+      // Step 4: Finalize soft-deleted txs
+      await this.#deletedPool.finalizeBlock(blockNumber);
 
-    // Step 5: Archive mined txs
-    if (txsToArchive.length > 0) {
-      await this.#archive.archiveTxs(txsToArchive);
-    }
+      // Step 5: Archive mined txs
+      if (txsToArchive.length > 0) {
+        await this.#archive.archiveTxs(txsToArchive);
+      }
+    });
 
     if (minedTxsToFinalize.length > 0) {
       this.#log.info(`Finalized ${minedTxsToFinalize.length} mined txs from blocks up to ${blockNumber}`, {
@@ -637,8 +759,17 @@ export class TxPoolV2Impl {
 
   // === Metrics ===
 
-  countTxs(): { pending: number; protected: number; mined: number } {
-    return this.#indices.countTxs();
+  countTxs(): {
+    pending: number;
+    protected: number;
+    mined: number;
+    softDeleted: number;
+    totalMetadataBytes: number;
+  } {
+    return {
+      ...this.#indices.countTxs(),
+      softDeleted: this.#deletedPool.getSoftDeletedCount(),
+    };
   }
 
   // ============================================================================
@@ -653,9 +784,10 @@ export class TxPoolV2Impl {
     tx: Tx,
     state: 'pending' | { protected: SlotNumber } | { mined: L2BlockId },
     opts: { source?: string } = {},
+    precomputedMeta?: TxMetaData,
   ): Promise<TxMetaData> {
     const txHashStr = tx.getTxHash().toString();
-    const meta = await buildTxMetaData(tx);
+    const meta = precomputedMeta ?? (await buildTxMetaData(tx));
     meta.receivedAt = this.#dateProvider.now();
 
     await this.#txsDB.set(txHashStr, tx.toBuffer());
@@ -672,9 +804,11 @@ export class TxPoolV2Impl {
     }
 
     const stateStr = typeof state === 'string' ? state : Object.keys(state)[0];
-    this.#log.verbose(`Added ${stateStr} tx ${txHashStr}`, {
+    this.#log.debug(`Added tx ${txHashStr} as ${stateStr}`, {
       eventName: 'tx-added-to-pool',
+      txHash: txHashStr,
       state: stateStr,
+      source: opts.source,
     });
 
     return meta;
@@ -700,6 +834,29 @@ export class TxPoolV2Impl {
     for (const txHashStr of txHashes) {
       await this.#deleteTx(txHashStr);
     }
+  }
+
+  /** Evicts transactions: records eviction metric with reason, caches hashes, then deletes. */
+  async #evictTxs(txHashes: string[], reason: string): Promise<void> {
+    if (txHashes.length === 0) {
+      return;
+    }
+    this.#instrumentation.recordEvictions(txHashes.length, reason);
+    for (const txHashStr of txHashes) {
+      this.#log.debug(`Evicting tx ${txHashStr}`, { txHash: txHashStr, reason });
+      this.#addToEvictedCache(txHashStr);
+    }
+    await this.#deleteTxsBatch(txHashes);
+  }
+
+  /** Adds a tx hash to the bounded evicted cache, evicting the oldest entry if at capacity. */
+  #addToEvictedCache(txHashStr: string): void {
+    if (this.#evictedTxHashes.size >= this.#config.evictedTxCacheSize) {
+      // FIFO eviction: remove the first (oldest) entry
+      const oldest = this.#evictedTxHashes.values().next().value!;
+      this.#evictedTxHashes.delete(oldest);
+    }
+    this.#evictedTxHashes.add(txHashStr);
   }
 
   // ============================================================================
@@ -857,7 +1014,9 @@ export class TxPoolV2Impl {
       if (preAddResult.shouldIgnore) {
         // Transaction rejected - mark for deletion from DB
         rejected.push(meta.txHash);
-        this.#log.debug(`Rejected tx ${meta.txHash} during rebuild: ${preAddResult.reason}`);
+        this.#log.debug(
+          `Rejected tx ${meta.txHash} during rebuild: ${preAddResult.reason?.message ?? 'unknown reason'}`,
+        );
         continue;
       }
 
@@ -893,7 +1052,7 @@ export class TxPoolV2Impl {
       getFeePayerPendingTxs: (feePayer: string) => this.#indices.getFeePayerPendingTxs(feePayer),
       getPendingTxCount: () => this.#indices.getPendingTxCount(),
       getLowestPriorityPending: (limit: number) => this.#indices.getLowestPriorityPending(limit),
-      deleteTxs: (txHashes: string[]) => this.#deleteTxsBatch(txHashes),
+      deleteTxs: (txHashes: string[], reason?: string) => this.#evictTxs(txHashes, reason ?? 'unknown'),
     };
   }
 

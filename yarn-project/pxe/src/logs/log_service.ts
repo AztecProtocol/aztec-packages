@@ -3,7 +3,13 @@ import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundatio
 import type { KeyStore } from '@aztec/key-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { DirectionalAppTaggingSecret, PendingTaggedLog, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
+import {
+  ExtendedDirectionalAppTaggingSecret,
+  PendingTaggedLog,
+  SiloedTag,
+  Tag,
+  TxScopedL2Log,
+} from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { AccessScopes } from '../access_scopes.js';
@@ -41,7 +47,7 @@ export class LogService {
       logRetrievalRequests.map(async request => {
         const [publicLog, privateLog] = await Promise.all([
           this.#getPublicLogByTag(request.tag, request.contractAddress),
-          this.#getPrivateLogByTag(await SiloedTag.compute(request.tag, request.contractAddress)),
+          this.#getPrivateLogByTag(await SiloedTag.computeFromTagAndApp(request.tag, request.contractAddress)),
         ]);
 
         if (publicLog !== null && privateLog !== null) {
@@ -130,7 +136,6 @@ export class LogService {
           secrets.map(secret =>
             loadPrivateLogsForSenderRecipientPair(
               secret,
-              contractAddress,
               this.aztecNode,
               this.recipientTaggingStore,
               anchorBlockNumber,
@@ -154,7 +159,7 @@ export class LogService {
   async #getSecretsForSenders(
     contractAddress: AztecAddress,
     recipient: AztecAddress,
-  ): Promise<DirectionalAppTaggingSecret[]> {
+  ): Promise<ExtendedDirectionalAppTaggingSecret[]> {
     const recipientCompleteAddress = await this.addressStore.getCompleteAddress(recipient);
     if (!recipientCompleteAddress) {
       return [];
@@ -172,7 +177,7 @@ export class LogService {
 
     return Promise.all(
       deduplicatedSenders.map(sender => {
-        return DirectionalAppTaggingSecret.compute(
+        return ExtendedDirectionalAppTaggingSecret.compute(
           recipientCompleteAddress,
           recipientIvsk,
           sender,

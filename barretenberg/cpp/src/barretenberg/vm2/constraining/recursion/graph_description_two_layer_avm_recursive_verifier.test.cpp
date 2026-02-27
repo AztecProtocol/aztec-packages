@@ -114,9 +114,7 @@ TEST_F(BoomerangTwoLayerAvmRecursiveVerifierTests, graph_description_basic)
     info("Recursive Verifier: num gates = ", builder.num_gates());
     auto graph = cdg::StaticAnalyzer(builder, false);
     auto variables_in_one_gate = graph.get_variables_in_one_gate();
-    // The variable in one gate is the last Shplonk power we compute. It is computed even though it is not used because
-    // of how the PCS is structured (more precisely, because of the interaction between gemini and interleaving).
-    EXPECT_EQ(variables_in_one_gate.size(), 1);
+    EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
 } // namespace bb::stdlib::recursion::honk

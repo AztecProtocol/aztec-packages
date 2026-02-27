@@ -28,7 +28,7 @@ export function runBlobClientTests(
   });
 
   it('should send and retrieve blobs by hash', async () => {
-    const blob = makeRandomBlob(5);
+    const blob = await makeRandomBlob(5);
     const blobHash = blob.getEthVersionedBlobHash();
 
     await client.sendBlobsToFilestore([blob]);
@@ -39,7 +39,7 @@ export function runBlobClientTests(
   });
 
   it('should handle multiple blobs', async () => {
-    const blobs = Array.from({ length: 3 }, () => makeRandomBlob(7));
+    const blobs = await Promise.all(Array.from({ length: 3 }, () => makeRandomBlob(7)));
     const blobHashes = blobs.map(blob => blob.getEthVersionedBlobHash());
 
     await client.sendBlobsToFilestore(blobs);

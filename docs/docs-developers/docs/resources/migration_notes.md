@@ -9,6 +9,125 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] Removed `SingleKeyAccountContract`
+
+The `SchnorrSingleKeyAccount` contract and its TypeScript wrapper `SingleKeyAccountContract` have been removed. This contract was insecure: it used `ivpk_m` (incoming viewing public key) as its Schnorr signing key, meaning anyone who received a user's viewing key could sign transactions on their behalf.
+
+**Migration:**
+
+```diff
+- import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
+- const contract = new SingleKeyAccountContract(signingKey);
++ import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
++ const contract = new SchnorrAccountContract(signingKey);
+```
+
+**Impact**: If you were using `@aztec/accounts/single_key`, switch to `@aztec/accounts/schnorr` which uses separate keys for encryption and authentication.
+
+### `aztec new` and `aztec init` now create a 2-crate workspace
+
+`aztec new` and `aztec init` now create a workspace with two crates instead of a single contract crate:
+
+- A `contract` crate (type = "contract") for your smart contract code
+- A `test` crate (type = "lib") for Noir tests, which depends on the contract crate
+
+The new project structure looks like:
+
+```
+my_project/
+├── Nargo.toml           # [workspace] members = ["contract", "test"]
+├── contract/
+│   ├── src/main.nr
+│   └── Nargo.toml       # type = "contract"
+└── test/
+    ├── src/lib.nr
+    └── Nargo.toml       # type = "lib"
+```
+
+**What changed:**
+- The `--contract` and `--lib` flags have been removed from `aztec new` and `aztec init`. These commands now always create a contract workspace.
+- Contract code is now at `contract/src/main.nr` instead of `src/main.nr`.
+- The `Nargo.toml` in the project root is now a workspace file. Contract dependencies go in `contract/Nargo.toml`.
+- Tests should be written in the separate `test` crate (`test/src/lib.nr`) and import the contract by package name (e.g., `use my_contract::MyContract;`) instead of using `crate::`.
+
+### Scope enforcement for private state access (TXE and PXE)
+
+Scope enforcement is now active across both TXE (test environment) and PXE (client). Previously, private execution could implicitly access any account's keys and notes. Now, only the caller (`from`) address is in scope by default, and accessing another address's private state requires explicitly granting scope.
+
+#### Noir developers (TXE)
+
+TXE now enforces scope isolation, matching PXE behavior. During private execution, only the caller's keys and notes are accessible. If a Noir test accesses private state of an address other than `from`, it will fail. When `from` is the zero address, scopes are empty (deny-all).
+
+If your TXE tests fail with key or note access errors, ensure the test is calling from the correct address, or restructure the test to match the expected access pattern.
+
+#### Aztec.js developers (PXE/Wallet)
+
+The wallet now passes scopes to PXE, and only the `from` address is in scope by default. Auto-expansion of scopes for nested calls to registered accounts has been removed. A new `additionalScopes` option is available on `send()`, `simulate()`, and `deploy()` for cases where private execution needs access to another address's keys or notes.
+
+**When do you need `additionalScopes`?**
+
+1. **Deploying contracts whose constructor initializes private storage** (e.g., account contracts, or any contract using `SinglePrivateImmutable`/`SinglePrivateMutable` in the constructor). The contract's own address must be in scope so its nullifier key is accessible during initialization.
+
+2. **Operations that access another contract's private state** (e.g., withdrawing from an escrow contract that nullifies the contract's own token notes).
+
+```
+
+**Example: deploying a contract with private storage (e.g., `PrivateToken`)**
+
+```diff
+  const tokenDeployment = PrivateTokenContract.deployWithPublicKeys(
+    tokenPublicKeys, wallet, initialBalance, sender,
+  );
+  const tokenInstance = await tokenDeployment.getInstance();
+  await wallet.registerContract(tokenInstance, PrivateTokenContract.artifact, tokenSecretKey);
+  const token = await tokenDeployment.send({
+    from: sender,
++   additionalScopes: [tokenInstance.address],
+  });
+```
+
+**Example: withdrawing from an escrow contract**
+
+```diff
+  await escrowContract.methods
+    .withdraw(token.address, amount, recipient)
+-   .send({ from: owner });
++   .send({ from: owner, additionalScopes: [escrowContract.address] });
+```
+
+### `simulateUtility` renamed to `executeUtility`
+
+The `simulateUtility` method and related types have been renamed to `executeUtility` across the entire stack to better reflect that utility functions are executed, not simulated.
+
+**TypeScript:**
+
+```diff
+- import { SimulateUtilityOptions, UtilitySimulationResult } from '@aztec/aztec.js';
++ import { ExecuteUtilityOptions, UtilityExecutionResult } from '@aztec/aztec.js';
+
+- const result: UtilitySimulationResult = await wallet.simulateUtility(functionCall, opts);
++ const result: UtilityExecutionResult = await wallet.executeUtility(functionCall, opts);
+```
+
+**Noir (test environment):**
+
+```diff
+- let result = env.simulate_utility(my_contract_address, selector);
++ let result = env.execute_utility(my_contract_address, selector);
+```
+
+## 4.0.0-devnet.2-patch.0
+
+### [Protocol] `include_by_timestamp` renamed to `expiration_timestamp`
+
+The `include_by_timestamp` field has been renamed to `expiration_timestamp` across the protocol to better convey its meaning.
+**Noir:**
+
+```diff
+- context.set_tx_include_by_timestamp(123456789);
++ context.set_expiration_timestamp(123456789);
+```
+
 ### [CLI] Dockerless CLI Installation
 
 The Aztec CLI is now installed without Docker. The installation command has changed:
@@ -256,8 +375,6 @@ For this reason we've created place holder protocol contracts in `noir-projects/
 On your side all you need to do is update the dependency in `Nargo.toml`:
 
 ```diff
--auth_contract = { path = "../../protocol/auth_registry_contract" }
-+auth_contract = { path = "../../protocol_interface/auth_registry_interface" }
 -instance_contract = { path = "../../protocol/contract_instance_registry" }
 +instance_contract = { path = "../../protocol_interface/contract_instance_registry_interface" }
 ```

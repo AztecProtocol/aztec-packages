@@ -59,6 +59,14 @@ jobs:
           fi
           GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} gh pr edit ${{ github.event.pull_request.number }} --remove-label "ci-external-once"
 
+      - name: Determine CI Mode
+        env:
+          MERGE_GROUP_BASE_REF: ${{ github.event.merge_group.base_ref }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: ./.github/ci3_labels_to_env.sh ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+
       - name: Run
         env:
           REF_NAME: repo-fork/${{ github.repository }}/${{ github.head_ref }}
@@ -78,7 +86,7 @@ jobs:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_COMMITS: ${{ github.event.pull_request.commits }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
-        run: ./.github/ci3.sh "${{ join(github.event.pull_request.labels.*.name, ',') }}"
+        run: ./.github/ci3.sh $CI_MODE
 
       - name: Post-Actions
         if: always()

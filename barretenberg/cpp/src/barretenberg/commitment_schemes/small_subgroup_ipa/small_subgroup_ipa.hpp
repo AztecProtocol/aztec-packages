@@ -341,9 +341,6 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
      */
     static void handle_edge_cases(const FF& vanishing_poly_eval)
     {
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1194). Handle edge cases in PCS
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1186). Insecure pattern.
         bool evaluation_challenge_in_small_subgroup = false;
         if constexpr (Curve::is_stdlib_type) {
             evaluation_challenge_in_small_subgroup = (vanishing_poly_eval.get_value() == FF(0).get_value());

@@ -67,6 +67,42 @@ export interface PreAddPoolAccess {
   getLowestPriorityPendingTx(): TxMetaData | undefined;
 }
 
+/** A single eviction tagged with the rule that caused it. */
+export interface TaggedEviction {
+  readonly txHash: string;
+  readonly reason: string;
+}
+
+/**
+ * Machine-readable rejection codes for pre-add rule rejections.
+ */
+export const TxPoolRejectionCode = {
+  LOW_PRIORITY_FEE: 'LOW_PRIORITY_FEE',
+  INSUFFICIENT_FEE_PAYER_BALANCE: 'INSUFFICIENT_FEE_PAYER_BALANCE',
+  NULLIFIER_CONFLICT: 'NULLIFIER_CONFLICT',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+} as const;
+
+export type TxPoolRejectionCode = (typeof TxPoolRejectionCode)[keyof typeof TxPoolRejectionCode];
+
+/** Structured rejection reason returned by pre-add rules. */
+export type TxPoolRejectionError =
+  | {
+      code: typeof TxPoolRejectionCode.LOW_PRIORITY_FEE;
+      message: string;
+      minimumPriorityFee: bigint;
+      txPriorityFee: bigint;
+    }
+  | {
+      code: typeof TxPoolRejectionCode.INSUFFICIENT_FEE_PAYER_BALANCE;
+      message: string;
+      currentBalance: bigint;
+      availableBalance: bigint;
+      feeLimit: bigint;
+    }
+  | { code: typeof TxPoolRejectionCode.NULLIFIER_CONFLICT; message: string; conflictingTxHash: string }
+  | { code: typeof TxPoolRejectionCode.INTERNAL_ERROR; message: string };
+
 /**
  * Result of a pre-add check for a single transaction.
  */
@@ -75,8 +111,16 @@ export interface PreAddResult {
   readonly shouldIgnore: boolean;
   /** Tx hashes (as strings) that should be evicted if this tx is added */
   readonly txHashesToEvict: string[];
+  /** Evictions tagged with the rule name that produced them. Populated by EvictionManager. */
+  readonly evictions?: TaggedEviction[];
   /** Optional reason for ignoring */
-  readonly reason?: string;
+  readonly reason?: TxPoolRejectionError;
+}
+
+/** Context passed to pre-add rules from addPendingTxs. */
+export interface PreAddContext {
+  /** If true, compare priority fee only (no tx hash tiebreaker). Used for RPC submissions. */
+  feeComparisonOnly?: boolean;
 }
 
 /**
@@ -90,9 +134,10 @@ export interface PreAddRule {
    * Check if incoming tx should be added and which existing txs to evict.
    * @param incomingMeta - Metadata for the incoming transaction
    * @param poolAccess - Read-only access to current pool state
+   * @param context - Optional context from addPendingTxs caller
    * @returns Result indicating whether to ignore and what to evict
    */
-  check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess): Promise<PreAddResult>;
+  check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess, context?: PreAddContext): Promise<PreAddResult>;
 
   /**
    * Updates the configuration for this rule.
@@ -120,8 +165,8 @@ export interface PoolOperations {
   /** Get the N lowest priority pending tx hashes */
   getLowestPriorityPending(limit: number): string[];
 
-  /** Delete transactions by hash */
-  deleteTxs(txHashes: string[]): Promise<void>;
+  /** Delete transactions by hash, with an optional reason for metrics */
+  deleteTxs(txHashes: string[], reason?: string): Promise<void>;
 }
 
 /**

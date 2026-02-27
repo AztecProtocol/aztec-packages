@@ -7,7 +7,6 @@ import { SecretValue } from '@aztec/foundation/config';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { DateProvider } from '@aztec/foundation/timer';
-import type { ProverNodeConfig, ProverNodeDeps } from '@aztec/prover-node';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 
 import getPort from 'get-port';
@@ -131,7 +130,7 @@ export async function createNonValidatorNode(
       ...p2pConfig,
       disableValidator: true,
       validatorPrivateKeys: undefined,
-      publisherPrivateKeys: [],
+      sequencerPublisherPrivateKeys: [],
     };
     const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
     return await AztecNodeService.createAndSync(config, { telemetry, dateProvider }, { prefilledPublicData });
@@ -143,31 +142,24 @@ export async function createProverNode(
   tcpPort: number,
   bootstrapNode: string | undefined,
   addressIndex: number,
-  proverNodeDeps: ProverNodeDeps & Required<Pick<ProverNodeDeps, 'dateProvider'>>,
+  deps: { dateProvider: DateProvider },
   prefilledPublicData?: PublicDataTreeLeaf[],
   dataDirectory?: string,
   metricsPort?: number,
-) {
+): Promise<{ proverNode: AztecNodeService }> {
   const actorIndex = proverCounter++;
   return await withLoggerBindings({ actor: `prover-${actorIndex}` }, async () => {
     const proverNodePrivateKey = getPrivateKeyFromIndex(ATTESTER_PRIVATE_KEYS_START_INDEX + addressIndex)!;
     const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
 
-    const proverConfig: Partial<ProverNodeConfig> = await createP2PConfig(
-      config,
-      bootstrapNode,
-      tcpPort,
-      dataDirectory,
-    );
+    const p2pConfig = await createP2PConfig(config, bootstrapNode, tcpPort, dataDirectory);
 
-    const aztecNodeRpcTxProvider = undefined;
     return await createAndSyncProverNode(
       bufferToHex(proverNodePrivateKey),
-      config,
-      { ...proverConfig, dataDirectory },
-      aztecNodeRpcTxProvider,
-      prefilledPublicData,
-      { ...proverNodeDeps, telemetry },
+      { ...config, ...p2pConfig },
+      { dataDirectory },
+      { ...deps, telemetry },
+      { prefilledPublicData: prefilledPublicData ?? [] },
     );
   });
 }
@@ -215,7 +207,7 @@ export async function createValidatorConfig(
     ...config,
     ...p2pConfig,
     validatorPrivateKeys: new SecretValue(attesterPrivateKeys),
-    publisherPrivateKeys: [new SecretValue(attesterPrivateKeys[0])],
+    sequencerPublisherPrivateKeys: [new SecretValue(attesterPrivateKeys[0])],
   };
 
   return nodeConfig;
