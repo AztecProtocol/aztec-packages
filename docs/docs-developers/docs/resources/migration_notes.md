@@ -26,7 +26,7 @@ Contract initialization now emits two separate nullifiers instead of one: a **pr
 
 **External functions called during initialization must be `#[only_self]` or `#[noinitcheck]`.** Init nullifiers are emitted at the end of the initializer, so any external functions called on the initializing contract (e.g. via `enqueue_self` or `call_self`) during initialization will fail the init check unless they skip it.
 
-**Breaking change for deployment:** If your contract has public functions and a private initializer, the class must be registered on-chain before initialization. You can no longer pass `skipClassPublication: true`, because the auto-enqueued public call requires the class to be available.
+**Breaking change for deployment:** If your contract has public functions and a private initializer, the class must be registered onchain before initialization. You can no longer pass `skipClassPublication: true`, because the auto-enqueued public call requires the class to be available.
 
 ```diff
   const deployed = await MyContract.deploy(wallet, ...args).send({
