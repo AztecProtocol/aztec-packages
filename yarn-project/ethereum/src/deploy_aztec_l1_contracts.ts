@@ -611,6 +611,7 @@ export const deployRollupForUpgrade = async (
     | 'activationThreshold'
     | 'zkPassportArgs'
   >,
+  options?: { etherscanVerify?: boolean },
 ) => {
   // Use foundry-artifacts from l1-artifacts package
   const l1ContractsPath = prepareL1ContractsForDeployment();
@@ -620,6 +621,9 @@ export const deployRollupForUpgrade = async (
 
   const scriptPath = join(getL1ContractsPath(), 'scripts', 'forge_broadcast.js');
   const forgeArgs = [FORGE_SCRIPT, '--sig', 'run()', '--private-key', privateKey, '--rpc-url', rpcUrl];
+  if (options?.etherscanVerify) {
+    forgeArgs.push('--verify');
+  }
   const forgeEnv = {
     FOUNDRY_PROFILE: chainId === mainnet.id ? 'production' : undefined,
     // Env vars required by l1-contracts/script/deploy/RollupConfiguration.sol.

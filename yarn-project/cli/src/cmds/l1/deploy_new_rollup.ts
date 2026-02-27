@@ -21,6 +21,7 @@ export async function deployNewRollup(
   initialValidators: Operator[],
   realVerifier: boolean,
   log: LogFn,
+  etherscanVerify?: boolean,
 ) {
   const config = getL1ContractsConfigEnvVars();
 
@@ -41,6 +42,7 @@ export async function deployNewRollup(
     fundingNeeded,
     config,
     realVerifier,
+    etherscanVerify,
   );
 
   if (json) {

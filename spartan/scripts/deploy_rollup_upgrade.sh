@@ -1,15 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-# TODO(linear/A-485): Unify this script with the CLI deploy-new-rollup command.
-# Both paths compute genesis values and deploy rollup contracts - they should share code.
-# See: yarn-project/cli/src/cmds/l1/deploy_new_rollup.ts
-
-# Deploy a new Rollup version and create a RegisterNewRollupVersionPayload for governance.
+# Deploy a new Rollup version using the CLI deploy-new-rollup command.
 #
-# Loads L1 contract defaults from network-defaults.yml (with YAML anchor inheritance),
-# infers L1 chain from L1_CHAIN_ID, fetches GCP secrets, builds yarn-project for
-# genesis values, then calls l1-contracts/scripts/run_rollup_upgrade.sh.
+# Handles network detection, config loading, and credential management,
+# then delegates to the CLI for genesis computation and contract deployment.
 #
 # Usage:
 #   ./deploy_rollup_upgrade.sh <registry_address>
@@ -23,7 +18,7 @@ set -euo pipefail
 #
 # For local/test environments (chain ID 1337):
 #   L1_RPC_URL              - L1 RPC endpoint (required)
-#   FUNDING_PRIVATE_KEY     - Used as ROLLUP_DEPLOYMENT_PRIVATE_KEY
+#   FUNDING_PRIVATE_KEY     - Used as deployment private key
 #   AZTEC_* env vars        - Contract configuration (from .env file)
 
 repo_root="$(git rev-parse --show-toplevel)"
@@ -90,31 +85,42 @@ fi
 # Configure L1 credentials
 if [[ "$L1_NETWORK" == "local" ]]; then
   # Local/test environment - use provided env vars
-  export ROLLUP_DEPLOYMENT_PRIVATE_KEY="$FUNDING_PRIVATE_KEY"
+  export PRIVATE_KEY="$FUNDING_PRIVATE_KEY"
   log "Using FUNDING_PRIVATE_KEY for deployment"
 else
   # Production network - fetch secrets from GCP
   log "Fetching secrets from GCP..."
   get_secret() { gcloud secrets versions access latest --secret="$1" --project="$GCP_PROJECT_ID"; }
   export L1_RPC_URL=$(get_secret "${L1_NETWORK}-rpc-urls" | jq -r '.[0]')
-  export ROLLUP_DEPLOYMENT_PRIVATE_KEY=$(get_secret "${L1_NETWORK}-labs-rollup-private-key")
+  export PRIVATE_KEY=$(get_secret "${L1_NETWORK}-labs-rollup-private-key")
   export ETHERSCAN_API_KEY=$(get_secret "etherscan-api-key")
   log "Secrets loaded"
 fi
 
-# Compute genesis values using the Aztec CLI (see: yarn-project/cli/src/cmds/l1/compute_genesis_values.ts)
-# The CLI reads SPONSORED_FPC and TEST_ACCOUNTS from the environment.
-export SPONSORED_FPC="${SPONSORED_FPC:-true}"
-export TEST_ACCOUNTS="${TEST_ACCOUNTS:-false}"
-log "Computing genesis with SPONSORED_FPC=$SPONSORED_FPC, TEST_ACCOUNTS=$TEST_ACCOUNTS"
+# Map env vars for the CLI
+export ETHEREUM_HOSTS="$L1_RPC_URL"
 
-genesis_json=$(node --no-warnings "$repo_root/yarn-project/aztec/dest/bin/index.js" compute-genesis-values)
-export VK_TREE_ROOT=$(echo "$genesis_json" | jq -r '.vkTreeRoot')
-export PROTOCOL_CONTRACTS_HASH=$(echo "$genesis_json" | jq -r '.protocolContractsHash')
-export GENESIS_ARCHIVE_ROOT=$(echo "$genesis_json" | jq -r '.genesisArchiveRoot')
+# Build CLI args
+cli_args=(
+  deploy-new-rollup
+  --registry-address "$registry_address"
+  --l1-chain-id "$L1_CHAIN_ID"
+  --json
+)
 
-log "VK_TREE_ROOT: $VK_TREE_ROOT"
-log "PROTOCOL_CONTRACTS_HASH: $PROTOCOL_CONTRACTS_HASH"
-log "GENESIS_ARCHIVE_ROOT: $GENESIS_ARCHIVE_ROOT"
+# Sponsored FPC and test accounts (CLI reads these from env as well)
+if [[ "${SPONSORED_FPC:-true}" == "true" ]]; then
+  cli_args+=(--sponsored-fpc)
+fi
+if [[ "${TEST_ACCOUNTS:-false}" == "true" ]]; then
+  cli_args+=(--test-accounts)
+fi
+if [[ "${REAL_VERIFIER:-true}" == "true" ]]; then
+  cli_args+=(--real-verifier)
+fi
+if [[ -n "${ETHERSCAN_API_KEY:-}" ]]; then
+  cli_args+=(--etherscan-verify)
+fi
 
-exec "$repo_root/l1-contracts/scripts/run_rollup_upgrade.sh" "$registry_address"
+log "Deploying rollup via CLI: ${cli_args[*]}"
+exec node --no-warnings "$repo_root/yarn-project/aztec/dest/bin/index.js" "${cli_args[@]}"

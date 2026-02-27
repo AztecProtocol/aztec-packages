@@ -85,6 +85,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option('--test-accounts', 'Populate genesis state with initial fee juice for test accounts')
     .option('--sponsored-fpc', 'Populate genesis state with a testing sponsored FPC contract')
     .option('--real-verifier', 'Deploy the real verifier', false)
+    .option('--etherscan-verify', 'Verify contracts on Etherscan (requires ETHERSCAN_API_KEY env var)', false)
     .action(async options => {
       const { deployNewRollup } = await import('./deploy_new_rollup.js');
 
@@ -103,6 +104,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         initialValidators,
         options.realVerifier,
         log,
+        options.etherscanVerify,
       );
     });
 

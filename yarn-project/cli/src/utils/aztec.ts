@@ -49,6 +49,7 @@ export async function deployNewRollupContracts(
   feeJuicePortalInitialBalance: bigint,
   config: L1ContractsConfig,
   realVerifier: boolean,
+  etherscanVerify?: boolean,
 ): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> {
   const { deployRollupForUpgrade } = await import('@aztec/ethereum/deploy-aztec-l1-contracts');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
@@ -94,6 +95,7 @@ export async function deployNewRollupContracts(
       realVerifier,
       ...config,
     },
+    { etherscanVerify },
   );
 
   return { rollup, slashFactoryAddress: EthAddress.fromString(slashFactoryAddress!) };
