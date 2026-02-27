@@ -273,6 +273,25 @@ export class PublicProcessor implements Traceable {
           continue;
         }
 
+        // During re-execution, check if the actual gas used by this tx would push the block over the gas limit.
+        // Unlike the proposal-building check (which uses declared gas limits pessimistically before processing),
+        // this uses actual gas and stops processing when the limit is exceeded.
+        if (
+          !isBuildingProposal &&
+          maxBlockGas !== undefined &&
+          totalBlockGas.add(processedTx.gasUsed.totalGas).gtAny(maxBlockGas)
+        ) {
+          this.log.warn(`Stopping re-execution since tx ${txHash} would push block gas over limit`, {
+            txHash,
+            txGas: processedTx.gasUsed.totalGas,
+            totalBlockGas,
+            maxBlockGas,
+          });
+          await checkpoint.revert();
+          this.contractsDB.revertCheckpoint();
+          break;
+        }
+
         // FIXME(fcarreiro): it's ugly to have to notify the validator of nullifiers.
         // I'd rather pass the validators the processedTx as well and let them deal with it.
         nullifierCache?.addNullifiers(processedTx.txEffect.nullifiers.map(n => n.toBuffer()));
