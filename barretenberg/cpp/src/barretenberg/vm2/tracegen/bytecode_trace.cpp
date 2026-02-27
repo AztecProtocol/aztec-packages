@@ -253,8 +253,8 @@ void BytecodeTraceBuilder::process_retrieval(
     TraceContainer& trace)
 {
     using C = Column;
-    // We start from row 1 to avoid the required precomputed row (TODO(MW): Check?)
-    uint32_t row = 1;
+
+    uint32_t row = 0;
     for (const auto& event : events) {
         // Since the maximum is (currently) 21 and we prove incrementation of next_available_leaf_index
         // at each row, the use of uint64 should be safe and never underflow.

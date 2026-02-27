@@ -50,12 +50,11 @@ TEST(BytecodeTraceGenTest, BasicRetrieval)
                               trace);
     const auto rows = trace.as_rows();
 
-    // One retrieval event + one prepended empty row.
-    ASSERT_EQ(rows.size(), 1 + 1);
+    // One retrieval event.
+    ASSERT_EQ(rows.size(), 1);
 
-    // We do not inspect row at index 0 as it is completely empty.
     EXPECT_THAT(
-        rows.at(1),
+        rows.at(0),
         AllOf(ROW_FIELD_EQ(bc_retrieval_sel, 1),
               ROW_FIELD_EQ(bc_retrieval_bytecode_id, 43),
               ROW_FIELD_EQ(bc_retrieval_address, 0xc0ffee),
@@ -98,11 +97,11 @@ TEST(BytecodeTraceGenTest, RetrievalExistingClass)
                               trace);
     const auto rows = trace.as_rows();
 
-    // One retrieval event + one prepended empty row.
-    ASSERT_EQ(rows.size(), 1 + 1);
+    // One retrieval event.
+    ASSERT_EQ(rows.size(), 1);
 
     EXPECT_THAT(
-        rows.at(1),
+        rows.at(0),
         AllOf(ROW_FIELD_EQ(bc_retrieval_sel, 1),
               ROW_FIELD_EQ(bc_retrieval_bytecode_id, 43),
               ROW_FIELD_EQ(bc_retrieval_address, 0xc0ffee),
@@ -173,11 +172,11 @@ TEST(BytecodeTraceGenTest, MultipleRetrievalEvents)
         trace);
     const auto rows = trace.as_rows();
 
-    // Three retrieval events + one prepended empty row.
-    ASSERT_EQ(rows.size(), 3 + 1);
+    // Three retrieval events.
+    ASSERT_EQ(rows.size(), 3);
 
     EXPECT_THAT(
-        rows.at(1),
+        rows.at(0),
         AllOf(ROW_FIELD_EQ(bc_retrieval_sel, 1),
               ROW_FIELD_EQ(bc_retrieval_bytecode_id, 43),
               ROW_FIELD_EQ(bc_retrieval_address, 0xc0ffee),
@@ -199,7 +198,7 @@ TEST(BytecodeTraceGenTest, MultipleRetrievalEvents)
               ROW_FIELD_EQ(bc_retrieval_should_retrieve, 1)));
 
     EXPECT_THAT(
-        rows.at(2),
+        rows.at(1),
         AllOf(ROW_FIELD_EQ(bc_retrieval_sel, 1),
               ROW_FIELD_EQ(bc_retrieval_bytecode_id, 21),
               ROW_FIELD_EQ(bc_retrieval_address, 0xdeadbeef),
@@ -221,7 +220,7 @@ TEST(BytecodeTraceGenTest, MultipleRetrievalEvents)
               ROW_FIELD_EQ(bc_retrieval_should_retrieve, 1)));
 
     EXPECT_THAT(
-        rows.at(3),
+        rows.at(2),
         AllOf(ROW_FIELD_EQ(bc_retrieval_sel, 1),
               ROW_FIELD_EQ(bc_retrieval_bytecode_id, 21),
               ROW_FIELD_EQ(bc_retrieval_address, 0xdeadb33f),
@@ -267,11 +266,11 @@ TEST(BytecodeTraceGenTest, RetrievalInstanceNotFoundError)
                               trace);
     const auto rows = trace.as_rows();
 
-    // One retrieval event + one prepended empty row.
-    ASSERT_EQ(rows.size(), 1 + 1);
+    // One retrieval event.
+    ASSERT_EQ(rows.size(), 1);
 
     EXPECT_THAT(
-        rows.at(1),
+        rows.at(0),
         AllOf(ROW_FIELD_EQ(bc_retrieval_sel, 1),
               ROW_FIELD_EQ(bc_retrieval_address, 0xc0ffee),
               ROW_FIELD_EQ(bc_retrieval_instance_exists, 0),
@@ -318,11 +317,11 @@ TEST(BytecodeTraceGenTest, RetrievalLimitError)
                               trace);
     const auto rows = trace.as_rows();
 
-    // One retrieval event + one prepended empty row.
-    ASSERT_EQ(rows.size(), 1 + 1);
+    // One retrieval event.
+    ASSERT_EQ(rows.size(), 1);
 
     EXPECT_THAT(
-        rows.at(1),
+        rows.at(0),
         AllOf(ROW_FIELD_EQ(bc_retrieval_sel, 1),
               ROW_FIELD_EQ(bc_retrieval_address, 0xc0ffee),
               ROW_FIELD_EQ(bc_retrieval_instance_exists, 1),

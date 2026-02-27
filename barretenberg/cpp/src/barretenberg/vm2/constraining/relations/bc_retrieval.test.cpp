@@ -230,8 +230,16 @@ TEST_F(BytecodeRetrievalConstrainingTest, TooManyBytecodes)
 TEST_F(BytecodeRetrievalConstrainingTest, NonExistentInstance)
 {
 
+    ContractInstanceRetrievalTraceBuilder contract_instance_retrieval_builder;
     TestTraceContainer trace = init_trace();
     FF contract_address = FF::random_element();
+
+    // Instance retrieval enforces current_class_id = 0 when exists = 0:
+    contract_instance_retrieval_builder.process({ {
+                                                    .address = contract_address,
+                                                    .exists = false,
+                                                } },
+                                                trace);
 
     // Manually set up a row where instance_exists = 0
     // All other fields should be forced to 0 by constraints
@@ -255,10 +263,17 @@ TEST_F(BytecodeRetrievalConstrainingTest, NonExistentInstance)
 
     // mutate the current_class_id and confirm that a violation as it should be 0
     trace.set(C::bc_retrieval_current_class_id, 1, 99);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_retrieval>(trace),
-                              "CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST");
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<BytecodeTraceBuilder, lookup_bc_retrieval_contract_instance_retrieval_settings>(trace)),
+        "Failed.*LOOKUP_BC_RETRIEVAL_CONTRACT_INSTANCE_RETRIEVAL.*Could not find tuple in destination.");
+
+    trace.set(C::contract_instance_retrieval_current_class_id, 1, 99);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bb::avm2::contract_instance_retrieval<FF>>(trace);
+                              , "INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE");
+
     // reset
     trace.set(C::bc_retrieval_current_class_id, 1, 0);
+    trace.set(C::contract_instance_retrieval_current_class_id, 1, 0);
 
     // mutate the artifact_hash and confirm that it is a violation
     trace.set(C::bc_retrieval_artifact_hash, 1, 99);
@@ -508,7 +523,7 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRepeatedRetrievalF
     // We cannot claim the second retrieval refers to a new class:
     // (1) The lookup into the transient tree will have leaf_not_exists == 0 at the root, which is
     // constrained in execution to either be continuous or correctly transitioned when adding a bytecode:
-    trace.set(C::bc_retrieval_is_new_class, 2, 1);
+    trace.set(C::bc_retrieval_is_new_class, 1, 1);
     EXPECT_THROW_WITH_MESSAGE(check_all_interactions<BytecodeTraceBuilder>(trace), "IS_NEW_CLASS_CHECK");
     // (2) Attempting to maliciously set leaf_not_exists == 1 will fail the transient tree's leaf checks:
     trace.set(C::retrieved_bytecodes_tree_check_leaf_not_exists, 2, 1);
