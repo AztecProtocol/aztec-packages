@@ -4,8 +4,10 @@ import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { TxHash } from '@aztec/stdlib/tx';
 
-// TODO(#14617): should we compute this from constants? This value is aztec-nr specific.
-const MAX_EVENT_SERIALIZED_LEN = 10;
+// Event content is serialized as a BoundedVec: `storage[capacity] ++ len`. The storage capacity may differ across
+// aztec-nr versions (e.g. old contracts used 11, current ones use 10), so we infer it dynamically from the total field
+// count. This constant is only used to validate the *content length* (the BoundedVec `.len()`), not the storage size.
+const MAX_EVENT_CONTENT_LEN = 10;
 
 /**
  * Intermediate struct used to perform batch event validation by PXE. The `utilityValidateAndStoreEnqueuedNotesAndEvents` oracle
@@ -30,8 +32,15 @@ export class EventValidationRequest {
 
     const randomness = reader.readField();
 
-    const eventStorage = reader.readFieldArray(MAX_EVENT_SERIALIZED_LEN);
+    // Infer BoundedVec storage size from total field count for backward compat with older aztec-nr versions.
+    const FOOTER_FIELDS = 4; // 1 BoundedVec len + eventCommitment + txHash + recipient
+    const arraySize = reader.remainingFields() - FOOTER_FIELDS;
+
+    const eventStorage = reader.readFieldArray(arraySize);
     const eventLen = reader.readField().toNumber();
+    if (eventLen > MAX_EVENT_CONTENT_LEN) {
+      throw new Error(`Event content length ${eventLen} exceeds MAX_EVENT_CONTENT_LEN ${MAX_EVENT_CONTENT_LEN}.`);
+    }
     const serializedEvent = eventStorage.slice(0, eventLen);
 
     const eventCommitment = reader.readField();
