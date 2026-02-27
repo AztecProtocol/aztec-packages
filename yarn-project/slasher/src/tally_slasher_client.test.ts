@@ -50,6 +50,7 @@ describe('TallySlasherClient', () => {
     l1GenesisTime: BigInt(Math.floor(Date.now() / 1000) - 10000),
     slotDuration: 4,
     slashingQuorumSize: 110,
+    rollupRegisteredAtL2Slot: SlotNumber(0),
   };
 
   const config: SlasherConfig = {
