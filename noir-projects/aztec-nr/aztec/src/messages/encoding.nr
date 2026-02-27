@@ -14,15 +14,13 @@ pub global MESSAGE_CIPHERTEXT_LEN: u32 = PRIVATE_LOG_CIPHERTEXT_LEN;
 pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 16;
 
 pub global EPH_PK_X_SIZE_IN_FIELDS: u32 = 1;
-pub global EPH_PK_SIGN_BYTE_SIZE_IN_BYTES: u32 = 1;
 
-// (17 - 1) * 31 - 16 - 1 = 479 Note: We multiply by 31 because ciphertext bytes are stored in fields using
+// (17 - 1) * 31 - 16 = 480 Note: We multiply by 31 because ciphertext bytes are stored in fields using
 // bytes_to_fields, which packs 31 bytes per field (since a Field is ~254 bits and can safely store 31 whole bytes).
 global MESSAGE_PLAINTEXT_SIZE_IN_BYTES: u32 = (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31
-    - HEADER_CIPHERTEXT_SIZE_IN_BYTES
-    - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES;
+    - HEADER_CIPHERTEXT_SIZE_IN_BYTES;
 // The plaintext bytes represent Field values that were originally serialized using fields_to_bytes, which converts
-// each Field to 32 bytes. To convert the plaintext bytes back to fields, we divide by 32. 479 / 32 = 14
+// each Field to 32 bytes. To convert the plaintext bytes back to fields, we divide by 32. 480 / 32 = 15
 pub global MESSAGE_PLAINTEXT_LEN: u32 = MESSAGE_PLAINTEXT_SIZE_IN_BYTES / 32;
 
 pub global MESSAGE_EXPANDED_METADATA_LEN: u32 = 1;
