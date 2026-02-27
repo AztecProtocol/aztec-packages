@@ -19,9 +19,10 @@
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
-using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
-
 namespace bb::avm2::tracegen {
+
+using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
+using C = Column;
 
 /**
  * @brief Process bytecode decomposition events and populate the relevant columns in the trace.
@@ -40,7 +41,6 @@ void BytecodeTraceBuilder::process_decomposition(
     const simulation::EventEmitterInterface<simulation::BytecodeDecompositionEvent>::Container& events,
     TraceContainer& trace)
 {
-    using C = Column;
     // Since next_packed_pc - pc is always in the range [0, 31), we can precompute the inverses:
     std::vector<FF> next_packed_pc_min_pc_inverses = { 0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15,
                                                        16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30 };
@@ -186,7 +186,6 @@ void BytecodeTraceBuilder::process_decomposition(
 void BytecodeTraceBuilder::process_hashing(
     const simulation::EventEmitterInterface<simulation::BytecodeHashingEvent>::Container& events, TraceContainer& trace)
 {
-    using C = Column;
     uint32_t row = 1;
 
     for (const auto& event : events) {
@@ -265,8 +264,6 @@ void BytecodeTraceBuilder::process_retrieval(
     const simulation::EventEmitterInterface<simulation::BytecodeRetrievalEvent>::Container& events,
     TraceContainer& trace)
 {
-    using C = Column;
-
     uint32_t row = 0;
     for (const auto& event : events) {
         // Since the maximum is (currently) 21 and we prove incrementation of next_available_leaf_index
@@ -329,7 +326,6 @@ void BytecodeTraceBuilder::process_instruction_fetching(
     const simulation::EventEmitterInterface<simulation::InstructionFetchingEvent>::Container& events,
     TraceContainer& trace)
 {
-    using C = Column;
     using simulation::InstructionFetchingEvent;
     using simulation::InstrDeserializationEventError::INSTRUCTION_OUT_OF_RANGE;
     using simulation::InstrDeserializationEventError::OPCODE_OUT_OF_RANGE;
@@ -516,7 +512,7 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
         .add<InteractionType::MultiPermutation,
              perm_bc_hashing_get_packed_field_0_settings,
              perm_bc_hashing_get_packed_field_1_settings,
-             perm_bc_hashing_get_packed_field_2_settings>(Column::bc_decomposition_sel_packed)
+             perm_bc_hashing_get_packed_field_2_settings>(C::bc_decomposition_sel_packed)
         // Instruction Fetching
         .add<lookup_instr_fetching_bytes_from_bc_dec_settings, InteractionType::LookupGeneric>()
         .add<lookup_instr_fetching_bytecode_size_from_bc_dec_settings, InteractionType::LookupGeneric>()
