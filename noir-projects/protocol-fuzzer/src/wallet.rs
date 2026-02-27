@@ -182,6 +182,24 @@ fn is_transient_error(e: &anyhow::Error) -> bool {
 /// Maximum number of automatic retries for transient errors.
 const MAX_RETRIES: usize = 2;
 
+/// Retry a fallible operation on transient sandbox errors.
+fn with_retry<T>(label: &str, f: impl Fn() -> anyhow::Result<T>) -> anyhow::Result<T> {
+    for attempt in 0..=MAX_RETRIES {
+        match f() {
+            Ok(v) => return Ok(v),
+            Err(e) if attempt < MAX_RETRIES && is_transient_error(&e) => {
+                log::warn!(
+                    "Transient error on {label} (attempt {}/{}): {e}, retrying...",
+                    attempt + 1, MAX_RETRIES
+                );
+                std::thread::sleep(Duration::from_secs(2));
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    unreachable!()
+}
+
 /// Execute a wallet command and return stdout.  Retries automatically on
 /// transient sandbox errors (e.g. block-hash-not-found after a reorg).
 pub fn execute(cmd: &WalletCommand) -> anyhow::Result<String> {
@@ -205,25 +223,13 @@ pub fn execute(cmd: &WalletCommand) -> anyhow::Result<String> {
         "prove": prove_enabled(),
     });
 
-    for attempt in 0..=MAX_RETRIES {
+    with_retry(&format!("{verb} {}", cmd.method), || {
         debug!("bridge POST /execute {}", body);
-        match bridge_post("/execute", &body) {
-            Ok(result) => {
-                let stdout = result["stdout"].as_str().unwrap_or("").to_string();
-                debug!("bridge execute stdout: {stdout}");
-                return Ok(stdout);
-            }
-            Err(e) if attempt < MAX_RETRIES && is_transient_error(&e) => {
-                log::warn!(
-                    "Transient error on {} {} (attempt {}/{}): {e}, retrying...",
-                    verb, cmd.method, attempt + 1, MAX_RETRIES
-                );
-                std::thread::sleep(Duration::from_secs(2));
-            }
-            Err(e) => return Err(e),
-        }
-    }
-    unreachable!()
+        let result = bridge_post("/execute", &body)?;
+        let stdout = result["stdout"].as_str().unwrap_or("").to_string();
+        debug!("bridge execute stdout: {stdout}");
+        Ok(stdout)
+    })
 }
 
 /// Import the 3 deterministic test accounts into the wallet.
@@ -269,22 +275,10 @@ pub fn deploy(
         "init": init,
         "args": resolved_args,
     });
-    let mut result = None;
-    for attempt in 0..=MAX_RETRIES {
+    let result = with_retry("deploy", || {
         debug!("bridge POST /deploy {}", body);
-        match bridge_post("/deploy", &body) {
-            Ok(r) => { result = Some(r); break; }
-            Err(e) if attempt < MAX_RETRIES && is_transient_error(&e) => {
-                log::warn!(
-                    "Transient error on deploy (attempt {}/{}): {e}, retrying...",
-                    attempt + 1, MAX_RETRIES
-                );
-                std::thread::sleep(Duration::from_secs(2));
-            }
-            Err(e) => return Err(e),
-        }
-    }
-    let result = result.unwrap();
+        bridge_post("/deploy", &body)
+    })?;
     let stdout = result["stdout"].as_str().unwrap_or("").to_string();
 
     let address = result["address"]

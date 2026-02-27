@@ -142,10 +142,6 @@ impl Batchable for TokenCommand {
         // Same token → conflict (shared total_supply).
         self.token_id() == other.token_id()
     }
-
-    fn to_wallet_command(&self) -> anyhow::Result<wallet::WalletCommand> {
-        wallet::WalletCommand::try_from(self)
-    }
 }
 
 type TokenAmount = u128;
@@ -506,7 +502,10 @@ impl smt::StateMachine for TokenMachine {
                     credit(&mut state.balances_public, (*token, *to), *amount);
                 }
             }
-            _ => (),
+            // Query commands don't change state.
+            BalanceOfPublic { .. }
+            | BalanceOfPrivate { .. }
+            | TotalSupply { .. } => {}
         };
 
         state
@@ -566,7 +565,17 @@ impl smt::StateMachine for TokenMachine {
                 );
                 assert_eq!(amount, state_supply);
             }
-            _ => {}
+            // Send commands — result not checked (success/failure depends on
+            // preconditions like ownership, balance, overflow that the model
+            // handles in next_state).
+            MintPublic { .. }
+            | MintPrivate { .. }
+            | BurnPublic { .. }
+            | BurnPrivate { .. }
+            | TransferPublic { .. }
+            | TransferPrivate { .. }
+            | TransferPublicToPrivate { .. }
+            | TransferPrivateToPublic { .. } => {}
         }
     }
 

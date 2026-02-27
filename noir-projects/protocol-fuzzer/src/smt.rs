@@ -65,8 +65,6 @@ pub trait Batchable {
     /// different results than executing them sequentially.
     /// Queries (simulates) must conflict with everything so they flush the batch.
     fn conflicts(&self, other: &Self) -> bool;
-    /// Convert to a wallet command for direct execution via the bridge.
-    fn to_wallet_command(&self) -> anyhow::Result<wallet::WalletCommand>;
 }
 
 /// Run a state machine test by generating `max_steps` commands.
@@ -106,6 +104,7 @@ pub fn run_batched<T>(
 where
     T: StateMachine<Result = anyhow::Result<String>>,
     T::Command: Batchable,
+    for<'a> wallet::WalletCommand: TryFrom<&'a T::Command, Error = anyhow::Error>,
 {
     let state = t.gen_state(u)?;
     let mut system = t.new_system(&state);
@@ -128,6 +127,9 @@ where
                 || batch.iter().any(|(prev, _)| cmd.conflicts(prev)))
         {
             execute_batch(t, &mut system, &batch);
+            if !t.check_system(&batch.last().unwrap().0, &model, &system) {
+                return Ok(());
+            }
             batch.clear();
         }
 
@@ -140,6 +142,7 @@ where
     // Flush remaining commands.
     if !batch.is_empty() {
         execute_batch(t, &mut system, &batch);
+        t.check_system(&batch.last().unwrap().0, &model, &system);
     }
 
     Ok(())
@@ -153,6 +156,7 @@ fn execute_batch<T>(
 ) where
     T: StateMachine<Result = anyhow::Result<String>>,
     T::Command: Batchable,
+    for<'a> wallet::WalletCommand: TryFrom<&'a T::Command, Error = anyhow::Error>,
 {
     // A batch with >1 items is guaranteed to contain only sends, because
     // queries conflict with everything and would have flushed the batch.
@@ -160,7 +164,7 @@ fn execute_batch<T>(
         debug!("Executing batch of {} sends in parallel", batch.len());
         let wallet_cmds: Vec<wallet::WalletCommand> = batch
             .iter()
-            .map(|(cmd, _)| cmd.to_wallet_command().expect("to_wallet_command"))
+            .map(|(cmd, _)| wallet::WalletCommand::try_from(cmd).expect("WalletCommand::try_from"))
             .collect();
         let results = wallet::execute_many(&wallet_cmds);
         for ((cmd, pre_state), result) in batch.iter().zip(results) {

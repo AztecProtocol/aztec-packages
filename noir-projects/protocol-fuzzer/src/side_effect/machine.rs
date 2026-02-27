@@ -112,7 +112,55 @@ impl SideEffectCommand {
             | Self::TestNoteInclusion { via_parent, .. }
             | Self::EmitNullifier { via_parent, .. }
             | Self::TestNullifierInclusion { via_parent, .. } => *via_parent,
-            _ => false,
+            Self::CreateAndCompletePartialNote { .. }
+            | Self::ViewNotesMany { .. }
+            | Self::GetNotesMany { .. } => false,
+        }
+    }
+}
+
+impl SideEffectCommand {
+    /// The `(storage_slot, owner)` pair for note operations, if applicable.
+    fn slot_owner(&self) -> Option<(StorageSlotId, AccountId)> {
+        match self {
+            Self::CreateNote {
+                storage_slot,
+                owner,
+                ..
+            }
+            | Self::CreateAndCompletePartialNote {
+                storage_slot,
+                owner,
+                ..
+            }
+            | Self::DestroyNote {
+                storage_slot,
+                owner,
+                ..
+            }
+            | Self::TestNoteInclusion {
+                storage_slot,
+                owner,
+                ..
+            } => Some((*storage_slot, *owner)),
+            Self::ViewNotesMany { .. }
+            | Self::GetNotesMany { .. }
+            | Self::EmitNullifier { .. }
+            | Self::TestNullifierInclusion { .. } => None,
+        }
+    }
+
+    /// The nullifier value for nullifier operations, if applicable.
+    fn nullifier_val(&self) -> Option<NullifierValue> {
+        match self {
+            Self::EmitNullifier { nullifier, .. }
+            | Self::TestNullifierInclusion { nullifier, .. } => Some(*nullifier),
+            Self::CreateNote { .. }
+            | Self::CreateAndCompletePartialNote { .. }
+            | Self::DestroyNote { .. }
+            | Self::TestNoteInclusion { .. }
+            | Self::ViewNotesMany { .. }
+            | Self::GetNotesMany { .. } => None,
         }
     }
 }
@@ -124,44 +172,8 @@ impl Batchable for SideEffectCommand {
             return true;
         }
 
-        // Extract (storage_slot, owner) for note operations.
-        let slot_owner = |cmd: &Self| -> Option<(StorageSlotId, AccountId)> {
-            match cmd {
-                Self::CreateNote {
-                    storage_slot,
-                    owner,
-                    ..
-                }
-                | Self::CreateAndCompletePartialNote {
-                    storage_slot,
-                    owner,
-                    ..
-                }
-                | Self::DestroyNote {
-                    storage_slot,
-                    owner,
-                    ..
-                }
-                | Self::TestNoteInclusion {
-                    storage_slot,
-                    owner,
-                    ..
-                } => Some((*storage_slot, *owner)),
-                _ => None,
-            }
-        };
-
-        // Extract nullifier value for nullifier operations.
-        let nullifier_val = |cmd: &Self| -> Option<NullifierValue> {
-            match cmd {
-                Self::EmitNullifier { nullifier, .. }
-                | Self::TestNullifierInclusion { nullifier, .. } => Some(*nullifier),
-                _ => None,
-            }
-        };
-
         // Same (slot, owner) pair → conflict.
-        if let (Some(a), Some(b)) = (slot_owner(self), slot_owner(other)) {
+        if let (Some(a), Some(b)) = (self.slot_owner(), other.slot_owner()) {
             if a == b {
                 return true;
             }
@@ -169,17 +181,13 @@ impl Batchable for SideEffectCommand {
 
         // Same nullifier value → conflict (EmitNullifier(x) vs EmitNullifier(x)
         // or TestNullifierInclusion(x)).
-        if let (Some(a), Some(b)) = (nullifier_val(self), nullifier_val(other)) {
+        if let (Some(a), Some(b)) = (self.nullifier_val(), other.nullifier_val()) {
             if a == b {
                 return true;
             }
         }
 
         false
-    }
-
-    fn to_wallet_command(&self) -> anyhow::Result<wallet::WalletCommand> {
-        wallet::WalletCommand::try_from(self)
     }
 }
 
