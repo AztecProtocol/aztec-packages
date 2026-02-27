@@ -528,8 +528,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         const auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
 
         // Step 7.
-        // Compute R = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j - G₀ * a₀ - (f(\beta) - a₀ * b₀) ⋅ U
-        // If everything is correct, then R == -C, as C':= C + f(\beta) ⋅ U
+        // Compute R = ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j - G₀ * a₀ - (a₀ * b₀ - f(\beta)) ⋅ U
+        // If everything is correct, then R == -C.
         msm_elements[(2 * log_poly_length)] = -G_zero;
         msm_elements[(2 * log_poly_length) + 1] = -Commitment::one(builder);
         msm_scalars[(2 * log_poly_length)] = a_zero;
