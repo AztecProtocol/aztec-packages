@@ -43,11 +43,11 @@ async function ensureWallet(prove = false) {
   return wallet;
 }
 
-// Run an async fn that accepts a log callback, return its result + captured stdout.
-async function capturing(fn) {
+// Run an async operation that accepts a log callback, return its result + captured stdout.
+async function capturing(operation) {
   const lines = [];
   const log = (...args) => lines.push(format(...args));
-  const result = await fn(log);
+  const result = await operation(log);
   return { result, stdout: lines.join('\n') };
 }
 
@@ -68,7 +68,7 @@ const handlers = {
 
   '/deploy': async ({ artifact, from, init: initMethod, args }) => {
     const w = await ensureWallet();
-    const { result: addr, stdout } = await capturing(log =>
+    const { result: address, stdout } = await capturing(log =>
       deploy(
         w, node, AztecAddress.fromString(from), artifact,
         false,                                  /* json */
@@ -84,18 +84,18 @@ const handlers = {
         { debug: noop, error: noop }, log,      /* debugLogger, log */
       ),
     );
-    return { ok: true, address: addr.toString(), stdout };
+    return { ok: true, address: address.toString(), stdout };
   },
 
   '/execute': async ({ verb, method, contract, from, args, artifact }) => {
     const w = await ensureWallet();
-    const a = AztecAddress.fromString(from);
-    const c = AztecAddress.fromString(contract);
-    const ar = args || [];
+    const sender = AztecAddress.fromString(from);
+    const target = AztecAddress.fromString(contract);
+    const callArgs = args || [];
     const { stdout } = await capturing(log =>
       verb === 'send'
-        ? send(w, node, a, method, ar, artifact, c, true, false, feeOpts, [], false, log)
-        : simulate(w, node, a, method, ar, artifact, c, feeOpts, [], false, log),
+        ? send(w, node, sender, method, callArgs, artifact, target, true, false, feeOpts, [], false, log)
+        : simulate(w, node, sender, method, callArgs, artifact, target, feeOpts, [], false, log),
     );
     return { ok: true, stdout };
   },
@@ -104,7 +104,11 @@ const handlers = {
 // HTTP server
 
 function readBody(req) {
-  return new Promise(r => { let d = ''; req.on('data', c => d += c); req.on('end', () => r(d)); });
+  return new Promise(resolve => {
+    let data = '';
+    req.on('data', chunk => data += chunk);
+    req.on('end', () => resolve(data));
+  });
 }
 
 createServer(async (req, res) => {
