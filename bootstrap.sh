@@ -744,6 +744,7 @@ case "$cmd" in
   # BARRETENBERG VK UPDATE #
   ##########################
   "ci-vk-update")
+    set -e
     export CI=1
     export AVM=0
     export AVM_TRANSPILER=0
@@ -758,6 +759,12 @@ case "$cmd" in
     # VKs are stale - regenerate them.
     echo "VKs are stale, running --update_inputs to regenerate..."
     barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh --update_inputs
+
+    # Ensure the pinned hash actually changed
+    if git diff --quiet barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh; then
+      echo "VK hash did not change after update, something is wrong."
+      exit 1
+    fi
 
     # Commit and push the updated pinned hash
     github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
