@@ -41,7 +41,7 @@ cargo run -- side-effect --max-steps 100000 --seed 0x5a7211231dcd6500
 --bridge-url URL      Bridge server URL (default: http://localhost:8089)
 --prove               Enable client-side proof generation (default: off)
 --seed 0xHEX          Replay a specific seed
---max-steps N         Max fuzzing steps (default: 100000)
+--max-steps N         Max fuzzing steps (default: 400)
 --max-batch-size N    Max parallel sends per batch (default: 8)
 ```
 
