@@ -743,7 +743,6 @@ import { ValueNotEqualContract } from "./artifacts/ValueNotEqual.js";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { Fr } from "@aztec/aztec.js/fields";
-import { rm } from "node:fs/promises";
 import assert from "node:assert";
 import fs from "node:fs";
 
@@ -767,14 +766,9 @@ const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
 // The wallet manages accounts and sends transactions through the PXE
 export const setupWallet = async (): Promise<EmbeddedWallet> => {
   try {
-    // Clean up any previous PXE data
-    await rm("pxe", { recursive: true, force: true });
-
     // Create wallet with embedded PXE
     // The wallet manages accounts and connects to the node
-    let wallet = await EmbeddedWallet.create(NODE_URL, {
-      pxeConfig: { dataDirectory: "pxe" },
-    });
+    let wallet = await EmbeddedWallet.create(NODE_URL);
 
     // Register the sponsored FPC so the wallet knows about it
     await wallet.registerContract(sponsoredFPC, SponsoredFPCContract.artifact);
