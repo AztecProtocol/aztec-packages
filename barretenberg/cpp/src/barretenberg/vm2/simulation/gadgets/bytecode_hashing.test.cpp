@@ -64,11 +64,11 @@ TEST_F(BytecodeHashingTest, SimpleHash)
 
     EXPECT_CALL(poseidon2, hash(bytecode_fields)).WillOnce(Return(hash));
 
-    bytecode_hasher.assert_public_bytecode_commitment(FF(0xc0ffee), bytecode, hash);
+    bytecode_hasher.assert_public_bytecode_commitment(hash, bytecode);
 
     EXPECT_THAT(hashing_events.dump_events(),
                 AllOf(SizeIs(1),
-                      ElementsAre(AllOf(Field(&BytecodeHashingEvent::bytecode_id, 0xc0ffee),
+                      ElementsAre(AllOf(Field(&BytecodeHashingEvent::bytecode_id, hash),
                                         Field(&BytecodeHashingEvent::bytecode_length, 3069),
                                         Field(&BytecodeHashingEvent::bytecode_fields, SizeIs(99))))));
 }
@@ -84,11 +84,11 @@ TEST_F(BytecodeHashingTest, Hash)
     auto hash = RawPoseidon2::hash(prepended_bytecode_fields);
     EXPECT_CALL(poseidon2, hash(prepended_bytecode_fields)).WillOnce(Return(hash));
 
-    bytecode_hasher.assert_public_bytecode_commitment(FF(0xc0ffee), bytecode, hash);
+    bytecode_hasher.assert_public_bytecode_commitment(hash, bytecode);
 
     EXPECT_THAT(hashing_events.dump_events(),
                 AllOf(SizeIs(1),
-                      ElementsAre(AllOf(Field(&BytecodeHashingEvent::bytecode_id, 0xc0ffee),
+                      ElementsAre(AllOf(Field(&BytecodeHashingEvent::bytecode_id, hash),
                                         Field(&BytecodeHashingEvent::bytecode_length, 500),
                                         Field(&BytecodeHashingEvent::bytecode_fields, bytecode_fields)))));
 }

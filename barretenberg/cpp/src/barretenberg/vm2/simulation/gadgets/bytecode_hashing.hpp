@@ -19,8 +19,7 @@ class BytecodeHasher : public BytecodeHashingInterface {
     {}
 
     void assert_public_bytecode_commitment(const BytecodeId& bytecode_id,
-                                           const std::vector<uint8_t>& bytecode,
-                                           const FF& public_bytecode_commitment) override;
+                                           const std::vector<uint8_t>& bytecode) override;
 
   private:
     EventEmitterInterface<BytecodeHashingEvent>& events;

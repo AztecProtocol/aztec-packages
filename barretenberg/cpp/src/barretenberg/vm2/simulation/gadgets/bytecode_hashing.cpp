@@ -9,20 +9,19 @@
 namespace bb::avm2::simulation {
 
 /**
- * @brief Verify that the given bytecode hashes to the expected public bytecode commitment.
+ * @brief Verify that the given bytecode commitment matches the expected @p bytecode_id
+ *        which is a Poseidon2 hash of the bytecode with some extra information.
  *
  * Encodes the bytecode as field elements, prepends a domain-separated length field,
- * and hashes via Poseidon2. Asserts the result matches @p public_bytecode_commitment
+ * and hashes via Poseidon2. Asserts the result matches the expected @p bytecode_id
  * and emits a BytecodeHashingEvent for tracegen.
  *
- * @param bytecode_id Unique identifier for this bytecode in the trace.
+ * @param bytecode_id Unique identifier for this bytecode in the trace (commitment value).
  * @param bytecode Raw bytecode bytes to hash.
- * @param public_bytecode_commitment Expected hash to check against.
- * @throws Assertion failure if the computed hash does not match @p public_bytecode_commitment.
+ * @throws Assertion failure if the computed hash does not match @p bytecode_id.
  */
 void BytecodeHasher::assert_public_bytecode_commitment(const BytecodeId& bytecode_id,
-                                                       const std::vector<uint8_t>& bytecode,
-                                                       const FF& public_bytecode_commitment)
+                                                       const std::vector<uint8_t>& bytecode)
 {
     BB_BENCH_NAME("BytecodeHasher::assert_public_bytecode_commitment");
     auto bytecode_length_in_bytes = static_cast<uint32_t>(bytecode.size());
@@ -33,7 +32,7 @@ void BytecodeHasher::assert_public_bytecode_commitment(const BytecodeId& bytecod
 
     FF hash = hasher.hash(inputs);
     // This will throw an unexpected exception if it fails.
-    BB_ASSERT_EQ(hash, public_bytecode_commitment, "Public bytecode commitment hash mismatch");
+    BB_ASSERT_EQ(hash, bytecode_id, "Bytecode ID hash mismatch");
 
     events.emit({ .bytecode_id = bytecode_id,
                   .bytecode_length = bytecode_length_in_bytes,
