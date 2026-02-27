@@ -99,6 +99,8 @@ done
 
 # --------------------------------------------------------------------------- #
 # 2. Fix the wallet CLI (missing inquirer)
+# The bridge doesn't need this (it imports individual command modules, not the
+# CLI entry point), but the aztec-wallet wrapper (step 5) does.
 # --------------------------------------------------------------------------- #
 
 log "Installing missing inquirer npm package..."
