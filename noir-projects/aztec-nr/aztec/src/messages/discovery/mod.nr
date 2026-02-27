@@ -96,7 +96,7 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
 
     // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
     // notes, private events, etc.
-    let mut logs = get_private_logs(contract_address);
+    let logs = get_private_logs(contract_address);
     logs.for_each(|i, pending_tagged_log: PendingTaggedLog| {
         debug_log_format(
             "Processing log with tag {0}",
