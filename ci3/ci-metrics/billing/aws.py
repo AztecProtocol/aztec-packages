@@ -54,6 +54,8 @@ SERVICE_CATEGORY_MAP = {
     # Messaging
     'Amazon Simple Notification Service': 'sns',
     'Amazon Simple Queue Service': 'sqs',
+    # Savings Plans / Reserved Instances
+    'Savings Plans for AWS Compute usage': 'savings_plans',
     # Other
     'Tax': 'tax',
     'AWS Support (Business)': 'support',
@@ -62,6 +64,16 @@ SERVICE_CATEGORY_MAP = {
 }
 
 import re
+
+# One-time contract payments: annual Savings Plan upfronts and monthly Reserved Instance charges.
+# These appear as large single-day spikes but are not operational spend.
+_ONE_TIME_CATEGORIES = frozenset({
+    'savings_plan_1yr_annual',
+    'savings_plan_3yr_annual',
+    'savings_plan_1yr_annual_partial',
+    'savings_plan_3yr_annual_partial',
+    'reserved_instance_monthly',
+})
 
 _cache = {'rows': [], 'ts': 0}
 _cache_lock = threading.Lock()
@@ -152,7 +164,10 @@ def _fetch_aws_costs(date_from: str, date_to: str) -> list[dict]:
                 TimePeriod={'Start': date_from, 'End': date_to},
                 Granularity='DAILY',
                 Metrics=['UnblendedCost'],
-                GroupBy=[{'Type': 'DIMENSION', 'Key': 'SERVICE'}],
+                GroupBy=[
+                    {'Type': 'DIMENSION', 'Key': 'SERVICE'},
+                    {'Type': 'DIMENSION', 'Key': 'USAGE_TYPE'},
+                ],
             )
             if next_token:
                 kwargs['NextPageToken'] = next_token
@@ -163,12 +178,26 @@ def _fetch_aws_costs(date_from: str, date_to: str) -> list[dict]:
                 date = result['TimePeriod']['Start']
                 for group in result['Groups']:
                     service = group['Keys'][0]
+                    usage_type = group['Keys'][1] if len(group['Keys']) > 1 else ''
                     amount = float(group['Metrics']['UnblendedCost']['Amount'])
                     if amount == 0:
                         continue
                     category = SERVICE_CATEGORY_MAP.get(service, 'other')
+                    # Savings plans: ComputeSP:1yrAllUpfront, ComputeSP:3yrNoUpfront, etc.
+                    if category == 'savings_plans':
+                        m = re.match(r'ComputeSP:(\d+yr)(\w+)', usage_type)
+                        if m:
+                            term = m.group(1)
+                            payment = m.group(2)
+                            if payment == 'NoUpfront':
+                                category = f'savings_plan_{term}_monthly'
+                            elif 'Upfront' in payment:
+                                category = f'savings_plan_{term}_annual'
+                    # EC2 reserved instances: HeavyUsage:<type> billed monthly on 1st
+                    elif category == 'ec2' and 'HeavyUsage:' in usage_type:
+                        category = 'reserved_instance_monthly'
                     if category == 'other':
-                        print(f"[rk_aws_costs] unmapped service: {service!r} (${amount:.2f})")
+                        print(f"[rk_aws_costs] unmapped service: {service!r} / {usage_type!r} (${amount:.2f})")
                     rows.append({
                         'date': date,
                         'service': service,
@@ -322,26 +351,32 @@ def get_costs_overview(date_from: str, date_to: str) -> dict:
     for r in aws_rows:
         d = r['date']
         if d not in by_date:
-            by_date[d] = {'date': d, 'aws': {}, 'gcp': {}, 'aws_total': 0, 'gcp_total': 0}
+            by_date[d] = {'date': d, 'aws': {}, 'gcp': {}, 'aws_total': 0, 'gcp_total': 0, 'aws_one_time': 0}
         cat = r['category']
         by_date[d]['aws'][cat] = by_date[d]['aws'].get(cat, 0) + r['amount_usd']
         by_date[d]['aws_total'] += r['amount_usd']
+        if cat in _ONE_TIME_CATEGORIES:
+            by_date[d]['aws_one_time'] += r['amount_usd']
 
     for d, cats in gcp_by_date.items():
         if d not in by_date:
-            by_date[d] = {'date': d, 'aws': {}, 'gcp': {}, 'aws_total': 0, 'gcp_total': 0}
+            by_date[d] = {'date': d, 'aws': {}, 'gcp': {}, 'aws_total': 0, 'gcp_total': 0, 'aws_one_time': 0}
         by_date[d]['gcp'] = cats
         by_date[d]['gcp_total'] = sum(cats.values())
 
     sorted_dates = sorted(by_date.values(), key=lambda x: x['date'])
     aws_total = sum(d['aws_total'] for d in sorted_dates)
+    aws_one_time = sum(d['aws_one_time'] for d in sorted_dates)
     gcp_total = sum(d['gcp_total'] for d in sorted_dates)
 
     return {
         'by_date': sorted_dates,
         'totals': {
             'aws': round(aws_total, 2),
+            'aws_operational': round(aws_total - aws_one_time, 2),
+            'aws_one_time': round(aws_one_time, 2),
             'gcp': round(gcp_total, 2),
             'combined': round(aws_total + gcp_total, 2),
+            'combined_operational': round(aws_total - aws_one_time + gcp_total, 2),
         }
     }

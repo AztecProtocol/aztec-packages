@@ -5,6 +5,24 @@
 
 using namespace bb;
 
+namespace {
+// Double-and-add scalar mul without endomorphism, used as reference for differential testing.
+template <typename Group, typename Fr>
+typename Group::affine_element naive_scalar_mul(const typename Group::element& base, const Fr& scalar)
+{
+    typename Group::element acc = Group::point_at_infinity;
+    typename Group::element runner = base;
+    uint256_t bits(scalar);
+    for (size_t i = 0; i < 256; ++i) {
+        if (bits.get_bit(i)) {
+            acc = acc + runner;
+        }
+        runner = runner.dbl();
+    }
+    return typename Group::affine_element(acc);
+}
+} // namespace
+
 TEST(grumpkin, CheckB)
 {
     auto b = grumpkin::g1::curve_b;
@@ -335,4 +353,45 @@ TEST(grumpkin, CheckPrecomputedGenerators)
 {
     ASSERT_TRUE((bb::check_precomputed_generators<grumpkin::g1, "pedersen_hash_length", 1UL>()));
     ASSERT_TRUE((bb::check_precomputed_generators<grumpkin::g1, "DEFAULT_DOMAIN_SEPARATOR", 8UL>()));
+}
+
+// Regression: boundary scalars k = ceil(m * 2^256 / endo_g2) (from endomorphism_scalars.py)
+// previously triggered the negative-k2 bug in split_into_endomorphism_scalars, producing wrong
+// scalar multiplication results. We test boundaries and random samples within each band.
+TEST(grumpkin, ScalarMulNegativeK2Regression)
+{
+    // clang-format off
+    struct test_case { std::array<uint64_t, 4> limbs; const char* tag; };
+    const std::array<test_case, 3> boundary_cases = {{
+        {{ 0x71922da036dca5f4, 0xd970a56127fb8227, 0x59e26bcea0d48bac, 0x0 }, "m=1"},
+        {{ 0xe3245b406db94be8, 0xb2e14ac24ff7044e, 0xb3c4d79d41a91759, 0x0 }, "m=2"},
+        {{ 0x54b688e0a495f1dc, 0x8c51f02377f28676, 0x0da7436be27da306, 0x1 }, "m=3"},
+    }};
+    // clang-format on
+
+    for (const auto& tc : boundary_cases) {
+        grumpkin::fr base_scalar{ tc.limbs[0], tc.limbs[1], tc.limbs[2], tc.limbs[3] };
+        base_scalar.self_to_montgomery_form();
+
+        grumpkin::g1::affine_element endo_result(grumpkin::g1::one * base_scalar);
+        grumpkin::g1::affine_element naive_result =
+            naive_scalar_mul<grumpkin::g1, grumpkin::fr>(grumpkin::g1::one, base_scalar);
+        EXPECT_EQ(naive_result.on_curve(), true) << tc.tag;
+        EXPECT_EQ(endo_result.on_curve(), true) << tc.tag;
+        EXPECT_EQ(endo_result, naive_result) << tc.tag;
+
+        // Random samples within the formerly-buggy band (~2^123-2^126 wide; 122-bit offsets).
+        for (size_t i = 0; i < 100; ++i) {
+            uint256_t rand_bits(grumpkin::fr::random_element());
+            uint256_t offset_int = (rand_bits & ((uint256_t(1) << 122) - 1)) + 1;
+            grumpkin::fr scalar = base_scalar + grumpkin::fr(offset_int);
+
+            grumpkin::g1::affine_element endo_res(grumpkin::g1::one * scalar);
+            grumpkin::g1::affine_element naive_res =
+                naive_scalar_mul<grumpkin::g1, grumpkin::fr>(grumpkin::g1::one, scalar);
+            EXPECT_EQ(naive_res.on_curve(), true) << tc.tag << " offset " << i;
+            EXPECT_EQ(endo_res.on_curve(), true) << tc.tag << " offset " << i;
+            EXPECT_EQ(endo_res, naive_res) << tc.tag << " offset " << i;
+        }
+    }
 }

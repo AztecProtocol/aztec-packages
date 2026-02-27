@@ -607,8 +607,11 @@ describe('BatchTxRequester', () => {
       expect(peerCollection.getBadPeers()).toContain(peers[0].toString());
       expect(peerCollection.getBadPeers()).not.toContain(peers[1].toString());
 
-      // Verify bad peer is excluded from queries - peer0 should be in bad peers
-      expect(peerCollection.nextDumbPeerToQuery()).toBeUndefined();
+      // Verify bad peer is excluded from dumb queries.
+      // The good peer can still be temporarily in-flight when run() returns, so we only assert
+      // that peer0 is never sampled from the currently available dumb peers.
+      const dumbPeersToQuery = sampleAllPeers(peerCollection.nextDumbPeerToQuery.bind(peerCollection)) ?? [];
+      expect(dumbPeersToQuery).not.toContain(peers[0].toString());
     });
 
     it('should recover bad peer after successful response', async () => {

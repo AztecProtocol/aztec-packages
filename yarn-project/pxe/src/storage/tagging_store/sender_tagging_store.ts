@@ -1,5 +1,5 @@
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import type { DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
+import type { ExtendedDirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
@@ -154,7 +154,7 @@ export class SenderTaggingStore implements StagedStore {
 
     // The secrets in pre-tags should be unique because we always store just the highest index per given secret-txHash
     // pair. Below we check that this is the case.
-    const secretsSet = new Set(preTags.map(preTag => preTag.secret.toString()));
+    const secretsSet = new Set(preTags.map(preTag => preTag.extendedSecret.toString()));
     if (secretsSet.size !== preTags.length) {
       return Promise.reject(new Error(`Duplicate secrets found when storing pending indexes`));
     }
@@ -163,10 +163,10 @@ export class SenderTaggingStore implements StagedStore {
 
     return this.#store.transactionAsync(async () => {
       // Prefetch all data, start reads during iteration to keep IndexedDB transaction alive
-      const preTagReadPromises = preTags.map(({ secret, index }) => {
-        const secretStr = secret.toString();
+      const preTagReadPromises = preTags.map(({ extendedSecret, index }) => {
+        const secretStr = extendedSecret.toString();
         return {
-          secret,
+          extendedSecret,
           secretStr,
           index,
           pending: this.#readPendingIndexes(jobId, secretStr),
@@ -233,7 +233,7 @@ export class SenderTaggingStore implements StagedStore {
    * [startIndex, endIndex). Returns an empty array if no pending indexes exist in the range.
    */
   getTxHashesOfPendingIndexes(
-    secret: DirectionalAppTaggingSecret,
+    secret: ExtendedDirectionalAppTaggingSecret,
     startIndex: number,
     endIndex: number,
     jobId: string,
@@ -252,7 +252,7 @@ export class SenderTaggingStore implements StagedStore {
    * @param secret - The secret to get the last finalized index for.
    * @returns The last (highest) finalized index for the given secret.
    */
-  getLastFinalizedIndex(secret: DirectionalAppTaggingSecret, jobId: string): Promise<number | undefined> {
+  getLastFinalizedIndex(secret: ExtendedDirectionalAppTaggingSecret, jobId: string): Promise<number | undefined> {
     return this.#store.transactionAsync(() => this.#readLastFinalizedIndex(jobId, secret.toString()));
   }
 
@@ -262,7 +262,7 @@ export class SenderTaggingStore implements StagedStore {
    * @param secret - The directional app tagging secret to query the last used index for.
    * @returns The last used index.
    */
-  getLastUsedIndex(secret: DirectionalAppTaggingSecret, jobId: string): Promise<number | undefined> {
+  getLastUsedIndex(secret: ExtendedDirectionalAppTaggingSecret, jobId: string): Promise<number | undefined> {
     const secretStr = secret.toString();
 
     return this.#store.transactionAsync(async () => {

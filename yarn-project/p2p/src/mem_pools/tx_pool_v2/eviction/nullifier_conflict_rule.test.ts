@@ -1,4 +1,4 @@
-import { type TxMetaData, stubTxMetaValidationData } from '../tx_metadata.js';
+import { type TxMetaData, stubTxMetaData } from '../tx_metadata.js';
 import type { PreAddPoolAccess } from './interfaces.js';
 import { NullifierConflictRule } from './nullifier_conflict_rule.js';
 
@@ -7,23 +7,8 @@ describe('NullifierConflictRule', () => {
   let rule: NullifierConflictRule;
 
   // Helper to create TxMetaData for testing
-  const createMeta = (
-    txHash: string,
-    priorityFee: bigint,
-    nullifiers: string[] = [`0x${txHash.slice(2)}null1`],
-  ): TxMetaData => ({
-    txHash,
-    anchorBlockHeaderHash: '0x1234',
-    priorityFee,
-    feePayer: '0xfeepayer',
-    claimAmount: 0n,
-    feeLimit: 1000n,
-    nullifiers,
-    expirationTimestamp: 0n,
-    receivedAt: 0,
-    estimatedSizeBytes: 0,
-    data: stubTxMetaValidationData(),
-  });
+  const createMeta = (txHash: string, priorityFee: bigint, nullifiers?: string[]) =>
+    stubTxMetaData(txHash, { priorityFee, feeLimit: 1000n, ...(nullifiers ? { nullifiers } : {}) });
 
   // Mock pool access with configurable behavior
   const createPoolAccess = (

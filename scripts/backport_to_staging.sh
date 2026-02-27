@@ -80,9 +80,15 @@ echo "Dry Run: ${DRY_RUN:-0}"
 echo "Continue Mode: $CONTINUE_MODE"
 echo ""
 
+# Set a default git committer identity
+if ! git config user.name &>/dev/null; then
+  git config user.name "aztec-bot"
+  git config user.email "tech@aztecprotocol.com"
+fi
+
 # Get PR information
 echo "Fetching PR information..."
-if ! PR_INFO=$(gh pr view "$PR_NUMBER" --json number,title,state,mergedAt,body,author 2>&1); then
+if ! PR_INFO=$(gh pr view "$PR_NUMBER" --json number,title,state,mergedAt,body,author); then
   echo "Error: Failed to fetch PR #$PR_NUMBER" >&2
   exit 1
 fi
@@ -91,8 +97,14 @@ PR_TITLE=$(echo "$PR_INFO" | jq -r '.title')
 PR_STATE=$(echo "$PR_INFO" | jq -r '.state')
 PR_BODY=$(echo "$PR_INFO" | jq -r '.body')
 PR_MERGED_AT=$(echo "$PR_INFO" | jq -r '.mergedAt')
-PR_AUTHOR=$(echo "$PR_INFO" | jq -r '.author.login')
-PR_AUTHOR_EMAIL="${PR_AUTHOR}@users.noreply.github.com"
+PR_AUTHOR=$(echo "$PR_INFO" | jq -r '.author.login // empty')
+if [[ -n "$PR_AUTHOR" && "$PR_AUTHOR" != "null" ]]; then
+  PR_AUTHOR_EMAIL="${PR_AUTHOR}@users.noreply.github.com"
+else
+  echo "Warning: Could not determine PR author, using AztecBot as fallback" >&2
+  PR_AUTHOR="AztecBot"
+  PR_AUTHOR_EMAIL="tech@aztec-labs.com"
+fi
 
 echo "PR Title: $PR_TITLE"
 echo "PR State: $PR_STATE"
@@ -141,17 +153,16 @@ fi
 # Commit changes - base the commit details off of the PR title and body
 echo "Diff applied successfully! Committing changes..."
 
-git config user.name "$PR_AUTHOR"
-git config user.email "$PR_AUTHOR_EMAIL"
-
 # Ensure commit subject contains PR reference for get_meaningful_commits
 COMMIT_SUBJECT="$PR_TITLE"
 if ! echo "$COMMIT_SUBJECT" | grep -qE '\(#[0-9]+\)'; then
   COMMIT_SUBJECT="$COMMIT_SUBJECT (#$PR_NUMBER)"
 fi
 
+# Use --author to preserve original PR author while keeping the committer
+# as whoever runs the script (so GPG signing works for local devs).
 git add -A
-git commit -m "$COMMIT_SUBJECT
+git commit --author="$PR_AUTHOR <$PR_AUTHOR_EMAIL>" -m "$COMMIT_SUBJECT
 
 $PR_BODY"
 

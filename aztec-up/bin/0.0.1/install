@@ -153,6 +153,8 @@ function install_noir {
 
     # Move the nargo binary to our version bin directory
     mv "$temp_nargo_home/bin/nargo" "$version_bin_path/nargo"
+    # Also move noir-profiler, needed by `aztec profile flamegraph`
+    mv "$temp_nargo_home/bin/noir-profiler" "$version_bin_path/noir-profiler"
 
     # Cleanup temp directory
     rm -rf "$temp_nargo_home"

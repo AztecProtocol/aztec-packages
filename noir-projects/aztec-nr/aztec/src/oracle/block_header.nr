@@ -11,7 +11,7 @@ unconstrained fn get_block_header_at_internal(block_number: u32) -> BlockHeader 
 
 pub fn get_block_header_at(block_number: u32, context: PrivateContext) -> BlockHeader {
     let anchor_block_header = context.anchor_block_header;
-    let anchor_block_number = anchor_block_header.global_variables.block_number;
+    let anchor_block_number = anchor_block_header.block_number();
 
     if (block_number == anchor_block_number) {
         // If the block number we want to prove against is the same as the block number in the historical header we
@@ -68,7 +68,7 @@ fn constrain_get_block_header_at_internal(
     // 4) Check that the header hint has the same block number as the block number we are looking for, ensuring we are
     // actually grabbing the header we specify
     assert_eq(
-        header_hint.global_variables.block_number,
+        header_hint.block_number(),
         block_number,
         "Block number provided is not the same as the block number from the header hint",
     );
@@ -91,7 +91,7 @@ mod test {
         env.private_context(|context| {
             let anchor_block_header = context.anchor_block_header;
 
-            let target_block_number = anchor_block_header.global_variables.block_number - 2;
+            let target_block_number = anchor_block_header.block_number() - 2;
             let bad_header = get_block_header_at_internal(target_block_number);
 
             // We pass in a different block number than the header received
