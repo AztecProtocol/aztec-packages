@@ -1,4 +1,4 @@
-// <ci3 isolate />
+// ci3: { isolate: true }
 import { getPublicClient } from '@aztec/ethereum/client';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';

@@ -1,4 +1,4 @@
-// <ci3 isolate />
+// ci3: { isolate: true }
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';

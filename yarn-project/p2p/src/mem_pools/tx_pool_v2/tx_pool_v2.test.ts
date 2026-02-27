@@ -1,4 +1,4 @@
-// <ci3 isolate />
+// ci3: { isolate: true }
 import {
   DEFAULT_DA_GAS_LIMIT,
   DEFAULT_TEARDOWN_DA_GAS_LIMIT,

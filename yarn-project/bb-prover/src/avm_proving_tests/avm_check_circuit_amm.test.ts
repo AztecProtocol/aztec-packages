@@ -1,4 +1,4 @@
-// <ci3 cpus="16" mem="16g" />
+// ci3: { cpus: 16, mem: "16g" }
 import { createLogger } from '@aztec/foundation/log';
 import { AMMContractArtifact } from '@aztec/noir-contracts.js/AMM';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';

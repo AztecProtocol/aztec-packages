@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Parse a <ci3> XML annotation from the first line of a test file.
+# Parse a ci3 YAML annotation from the first line of a test file.
 #
 # Usage:
 #   eval $(./parse_ci3_annotation.sh <test_file>)
@@ -11,27 +11,23 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # Annotation format (must be the FIRST LINE of the .test.ts file):
 #
-#   // <ci3 isolate cpus="10" mem="16g" timeout="5m" uv_threadpool_size="32" />
+#   // ci3: { isolate: true, cpus: 10, mem: "16g", timeout: "15m", uv_threadpool_size: 32 }
 #
-# Attributes:
-#   Boolean (bare):  isolate, net, only_term_parent
-#   Key=value:       cpus="N", mem="Xg", timeout="Nm", uv_threadpool_size="N",
-#                    log_level="debug", bb_verbose="1", etc.
-#
-# Attribute names are case-insensitive in the annotation but are uppercased
-# when emitted (e.g. cpus="8" → CPUS=8, uv_threadpool_size="32" → UV_THREADPOOL_SIZE=32).
+# Keys are lowercase YAML. They are uppercased when emitted
+# (e.g. cpus: 8 → CPUS=8, uv_threadpool_size: 32 → UV_THREADPOOL_SIZE=32).
 #
 # Known prefix fields (ci3 infrastructure — docker isolation / resource allocation):
-#   ISOLATE, CPUS, MEM, TIMEOUT, NET, ONLY_TERM_PARENT
+#   isolate, cpus, mem, timeout, net, only_term_parent
 #
 # Everything else becomes an environment variable for the test command:
-#   UV_THREADPOOL_SIZE, LOG_LEVEL, BB_VERBOSE, HARDWARE_CONCURRENCY, etc.
+#   uv_threadpool_size, log_level, bb_verbose, hardware_concurrency, etc.
 #
 # Examples:
-#   // <ci3 isolate />
-#   // <ci3 isolate cpus="10" mem="16g" timeout="5m" uv_threadpool_size="32" />
-#   // <ci3 cpus="16" mem="16g" log_level="debug" bb_verbose="1" />
-#   // <ci3 isolate net cpus="8" />
+#   // ci3: { isolate: true }
+#   // ci3: { isolate: true, cpus: 10, mem: "16g", uv_threadpool_size: 32 }
+#   // ci3: { cpus: 16, mem: "16g", log_level: debug, bb_verbose: 1 }
+#   // ci3: { isolate: true, net: true, cpus: 8 }
+#   // ci3: { timeout: "15m" }
 # ──────────────────────────────────────────────────────────────────────────────
 
 # Fields that ci3 infrastructure uses for docker isolation / resource allocation.
@@ -43,43 +39,26 @@ CI3_ENV=""
 
 first_line=$(head -1 "$file")
 
-# Match: // <ci3 ... />
-# Use a variable to avoid bash parsing issues with special regex characters.
-re='^// <ci3 (.+) />$'
-if [[ "$first_line" =~ $re ]]; then
-  attrs="${BASH_REMATCH[1]}"
+# Match: // ci3: { ... }
+if [[ "$first_line" =~ ^//\ ci3:\ (.+) ]]; then
+  yaml="${BASH_REMATCH[1]}"
 
-  # Parse attributes: bare words (boolean) and key="value" pairs.
-  re_kv='^([a-zA-Z_][a-zA-Z0-9_]*)="([^"]*)"(.*)'
-  re_bare='^([a-zA-Z_][a-zA-Z0-9_]*)(.*)'
-  while [[ -n "$attrs" ]]; do
-    # Skip leading whitespace
-    attrs="${attrs#"${attrs%%[![:space:]]*}"}"
-    [ -z "$attrs" ] && break
-
-    if [[ "$attrs" =~ $re_kv ]]; then
-      # key="value" attribute
-      key="${BASH_REMATCH[1]}"
-      val="${BASH_REMATCH[2]}"
-      attrs="${BASH_REMATCH[3]}"
-    elif [[ "$attrs" =~ $re_bare ]]; then
-      # Bare boolean attribute
-      key="${BASH_REMATCH[1]}"
-      val="1"
-      attrs="${BASH_REMATCH[2]}"
-    else
-      break
-    fi
-
-    # Uppercase the key for env var convention
+  # Parse with yq: emit KEY=VALUE lines, uppercased keys, stringified values.
+  while IFS='=' read -r key val; do
+    [ -z "$key" ] && continue
     key=$(echo "$key" | tr '[:lower:]' '[:upper:]')
+
+    # Skip boolean false values (only true matters).
+    [ "$val" = "false" ] && continue
+    # Convert boolean true to 1 for ci3 prefix compatibility.
+    [ "$val" = "true" ] && val="1"
 
     if [[ "$KNOWN_PREFIX_FIELDS" == *" $key "* ]]; then
       CI3_PREFIX+=":${key}=${val}"
     else
       CI3_ENV+=" ${key}=${val}"
     fi
-  done
+  done < <(echo "$yaml" | yq 'to_entries[] | .key + "=" + (.value | . tag = "!!str")')
 fi
 
 echo "CI3_PREFIX='$CI3_PREFIX' CI3_ENV='$CI3_ENV'"

@@ -1,4 +1,4 @@
-// <ci3 cpus="16" mem="16g" />
+// ci3: { cpus: 16, mem: "16g" }
 import {
   FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
   MAX_L2_TO_L1_MSGS_PER_TX,

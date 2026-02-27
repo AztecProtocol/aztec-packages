@@ -1,4 +1,4 @@
-// <ci3 isolate uv_threadpool_size="16" />
+// ci3: { isolate: true, uv_threadpool_size: 16 }
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';

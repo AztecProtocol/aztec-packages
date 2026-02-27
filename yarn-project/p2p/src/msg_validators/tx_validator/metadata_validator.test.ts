@@ -1,4 +1,4 @@
-// <ci3 isolate />
+// ci3: { isolate: true }
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
 import type { AnyTx, Tx } from '@aztec/stdlib/tx';

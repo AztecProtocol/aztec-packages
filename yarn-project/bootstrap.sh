@@ -182,7 +182,7 @@ function test_cmds {
     local prefix=$hash
     local cmd_env=""
 
-    # Read ci3 annotation from test file (e.g. // <ci3 isolate cpus="16" uv_threadpool_size="32" />)
+    # Read ci3 annotation from test file (e.g. // ci3: { isolate: true, cpus: 16, uv_threadpool_size: 32 })
     eval $($parse_annotation "$test")
     prefix+="$CI3_PREFIX"
     cmd_env+="$CI3_ENV"

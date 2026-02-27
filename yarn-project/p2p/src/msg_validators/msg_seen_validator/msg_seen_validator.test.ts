@@ -1,4 +1,4 @@
-// <ci3 isolate />
+// ci3: { isolate: true }
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { MessageSeenValidator } from './msg_seen_validator.js';

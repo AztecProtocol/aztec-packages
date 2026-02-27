@@ -1,4 +1,4 @@
-// <ci3 isolate />
+// ci3: { isolate: true }
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
 import { jest } from '@jest/globals';

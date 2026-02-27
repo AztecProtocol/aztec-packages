@@ -1,4 +1,4 @@
-// <ci3 isolate uv_threadpool_size="16" />
+// ci3: { isolate: true, uv_threadpool_size: 16 }
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';

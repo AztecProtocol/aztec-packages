@@ -1,4 +1,4 @@
-// <ci3 isolate />
+// ci3: { isolate: true }
 import { PROOF_DELAY_MS, WITGEN_DELAY_MS } from '@aztec/bb-prover/test';
 import { NUM_BASE_PARITY_PER_ROOT_PARITY } from '@aztec/constants';
 import { insertIntoSortedArray } from '@aztec/foundation/array';

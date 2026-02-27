@@ -1,4 +1,4 @@
-// <ci3 isolate log_level="debug" />
+// ci3: { isolate: true, log_level: "debug" }
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';

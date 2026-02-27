@@ -1,4 +1,4 @@
-// <ci3 isolate />
+// ci3: { isolate: true }
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';

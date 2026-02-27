@@ -1,4 +1,4 @@
-// <ci3 isolate uv_threadpool_size="16" />
+// ci3: { isolate: true, uv_threadpool_size: 16 }
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';

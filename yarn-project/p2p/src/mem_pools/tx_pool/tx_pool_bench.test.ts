@@ -1,4 +1,4 @@
-// <ci3 isolate />
+// ci3: { isolate: true }
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { insertIntoSortedArray, shuffle } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';

@@ -1,4 +1,4 @@
-// <ci3 uv_threadpool_size="16" />
+// ci3: { uv_threadpool_size: 16 }
 import { type InitialAccountData, getInitialTestAccountsData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';

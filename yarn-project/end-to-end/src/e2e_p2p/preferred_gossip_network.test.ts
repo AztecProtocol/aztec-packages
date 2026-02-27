@@ -1,4 +1,4 @@
-// <ci3 uv_threadpool_size="24" />
+// ci3: { uv_threadpool_size: 24 }
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { waitForTx } from '@aztec/aztec.js/node';

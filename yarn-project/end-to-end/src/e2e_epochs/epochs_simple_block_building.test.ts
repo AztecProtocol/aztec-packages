@@ -1,4 +1,4 @@
-// <ci3 uv_threadpool_size="16" />
+// ci3: { uv_threadpool_size: 16 }
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';

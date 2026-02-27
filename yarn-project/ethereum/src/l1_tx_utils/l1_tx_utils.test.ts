@@ -1,4 +1,4 @@
-// <ci3 isolate />
+// ci3: { isolate: true }
 import { Blob } from '@aztec/blob-lib';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { TimeoutError } from '@aztec/foundation/error';

@@ -1,4 +1,4 @@
-// <ci3 isolate />
+// ci3: { isolate: true }
 import { mockTx } from '@aztec/stdlib/testing';
 import type { AnyTx, TxHash, TxValidationResult, TxValidator } from '@aztec/stdlib/tx';
 

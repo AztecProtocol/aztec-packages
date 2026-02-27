@@ -1,4 +1,4 @@
-// <ci3 isolate />
+// ci3: { isolate: true }
 import { GoodByeReason, decodeGoodbyeReason, encodeGoodbyeReason } from './goodbye.js';
 
 describe('goodbye', () => {

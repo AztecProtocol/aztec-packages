@@ -1,4 +1,4 @@
-// <ci3 isolate />
+// ci3: { isolate: true }
 import {
   MAX_FEE_ASSET_PRICE_MODIFIER_BPS,
   sqrtPriceX96ToEthPerFeeAssetE12,

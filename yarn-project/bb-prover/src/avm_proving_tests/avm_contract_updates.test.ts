@@ -1,4 +1,4 @@
-// <ci3 cpus="16" mem="16g" />
+// ci3: { cpus: 16, mem: "16g" }
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';

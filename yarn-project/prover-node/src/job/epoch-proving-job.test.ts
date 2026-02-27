@@ -1,4 +1,4 @@
-// <ci3 isolate />
+// ci3: { isolate: true }
 import { BatchedBlob } from '@aztec/blob-lib/types';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { fromEntries, times, timesParallel } from '@aztec/foundation/collection';

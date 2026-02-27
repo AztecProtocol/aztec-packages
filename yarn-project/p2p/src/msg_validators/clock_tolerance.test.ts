@@ -1,4 +1,4 @@
-// <ci3 isolate />
+// ci3: { isolate: true }
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 

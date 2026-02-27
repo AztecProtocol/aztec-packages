@@ -1,4 +1,4 @@
-// <ci3 isolate />
+// ci3: { isolate: true }
 import { MAX_TX_SIZE_KB, TopicType } from '@aztec/stdlib/p2p';
 
 import { compressSync, uncompressSync } from 'snappy';

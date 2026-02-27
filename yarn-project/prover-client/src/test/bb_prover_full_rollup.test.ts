@@ -1,4 +1,4 @@
-// <ci3 isolate />
+// ci3: { isolate: true }
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, PAIRING_POINTS_SIZE } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';

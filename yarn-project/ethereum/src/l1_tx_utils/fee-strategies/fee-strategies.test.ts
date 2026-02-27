@@ -1,4 +1,4 @@
-// <ci3 isolate />
+// ci3: { isolate: true }
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';

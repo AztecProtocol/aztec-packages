@@ -1,4 +1,4 @@
-// <ci3 isolate net cpus="8" />
+// ci3: { isolate: true, net: true, cpus: 8 }
 /**
  * Browser-based IVC Integration Tests using Puppeteer
  *
