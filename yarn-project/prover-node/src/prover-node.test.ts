@@ -207,6 +207,15 @@ describe('prover-node', () => {
     expect(proverNode.totalJobCount).toEqual(0);
   });
 
+  it('gathers txs via the p2p client tx provider', async () => {
+    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+    // The prover node must route tx gathering through the shared p2p client's tx provider
+    expect(p2p.getTxProvider).toHaveBeenCalled();
+    // One call per block across all checkpoints in the epoch
+    const totalBlocks = checkpoints.flatMap(c => c.blocks).length;
+    expect(txProvider.getTxsForBlock).toHaveBeenCalledTimes(totalBlocks);
+  });
+
   it('does not start a proof if there is a tx missing from coordinator', async () => {
     txProvider.getTxsForBlock.mockResolvedValue({ missingTxs: [TxHash.random()], txs: [] });
     await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
