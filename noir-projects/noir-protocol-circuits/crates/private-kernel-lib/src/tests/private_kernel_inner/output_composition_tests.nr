@@ -30,7 +30,7 @@ fn reverse_array<T, let N: u32>(array: [T; N]) -> [T; N] {
 
 #[test]
 fn with_everything_empty() {
-    let mut builder = TestBuilder::new();
+    let builder = TestBuilder::new();
 
     let pi = builder.execute();
 

@@ -394,3 +394,8 @@ zkpassport
 aztecrc
 Dockerless
 tokenomics
+Codex
+critesjosh
+mcpServers
+NethermindEth
+Windsurf
