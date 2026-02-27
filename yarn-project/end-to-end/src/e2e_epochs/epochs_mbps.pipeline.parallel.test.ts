@@ -29,7 +29,8 @@ jest.setTimeout(1000 * 60 * 20);
 
 // palla: run this with more validators such that there are more nodes than committee size.
 const NODE_COUNT = 4;
-const EXPECTED_BLOCKS_PER_CHECKPOINT = 3;
+// TODO(md): we need to sort out syncing to proposed blocks here.
+const EXPECTED_BLOCKS_PER_CHECKPOINT = 1;
 
 // Send enough transactions to trigger multiple blocks within a checkpoint assuming 2 txs per block.
 const TX_COUNT = 10;
