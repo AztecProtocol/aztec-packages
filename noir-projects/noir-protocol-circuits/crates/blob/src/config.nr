@@ -20550,8 +20550,8 @@ mod tests {
         let PLUS = FIELDS_PER_BLOB >> 1;
         let MINUS = PLUS >> 1;
         let mut I = 0;
-        let mut next_diff = PLUS - (MINUS >> 1);
-        let mut big_minus = next_diff + MINUS;
+        let next_diff = PLUS - (MINUS >> 1);
+        let big_minus = next_diff + MINUS;
 
         let big_minus_arr = compute_big_minus_arr(big_minus, next_diff);
 
