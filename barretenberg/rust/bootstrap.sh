@@ -54,10 +54,10 @@ function release {
   # Set the workspace version to match the release tag
   sed -i "s/^version = \".*\"/version = \"$version\"/" Cargo.toml
 
-  # Generated files must exist (created during build step)
+  # Generated files must exist (created during build step, or generate now)
   if [ ! -f barretenberg-rs/src/api.rs ] || [ ! -f barretenberg-rs/src/generated_types.rs ]; then
-    echo "ERROR: generated files not found. Run 'cd ../ts && yarn generate' first."
-    exit 1
+    echo "Generated files not found, running yarn generate..."
+    (cd ../ts && yarn generate)
   fi
 
   # Publish to crates.io (--allow-dirty because version was just set and generated files are gitignored)
