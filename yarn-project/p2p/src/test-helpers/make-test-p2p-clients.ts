@@ -7,7 +7,6 @@ import { sleep } from '@aztec/foundation/sleep';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { P2PClientType } from '@aztec/stdlib/p2p';
 
 import { createP2PClient } from '../client/index.js';
 import type { P2PClient } from '../client/p2p_client.js';
@@ -98,7 +97,6 @@ export async function makeTestP2PClient(
   const kvStore = await openTmpStore('test');
 
   const client = await createP2PClient(
-    P2PClientType.Full,
     config,
     l2BlockSource,
     proofVerifier,

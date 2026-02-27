@@ -5,7 +5,9 @@ use std::meta::unquote;
 /// generating a `storage_layout()` getter on the contract struct.
 pub comptime mut global STORAGE_LAYOUT_NAME: CHashMap<Module, Quoted> = CHashMap::new();
 
-/// This function
+/// Declares the contract's storage.
+///
+/// This function:
 /// - marks the contract as having storage, so that `macros::utils::module_has_storage` will return true,
 /// - marks the struct `s` as the one describing the storage layout of a contract,
 /// - generates an `impl` block for the storage struct with an `init` function (call to `init` is then injected at the
