@@ -8,21 +8,41 @@ use crate::{
     protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Deserialize, Serialize}},
 };
 
-pub global OFFCHAIN_INBOX_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_INBOX_SLOT".as_bytes());
-pub global OFFCHAIN_CONTEXT_REQUESTS_SLOT: Field =
-    sha256_to_field("AZTEC_NR::OFFCHAIN_CONTEXT_REQUESTS_SLOT".as_bytes());
-pub global OFFCHAIN_CONTEXT_RESPONSES_SLOT: Field =
-    sha256_to_field("AZTEC_NR::OFFCHAIN_CONTEXT_RESPONSES_SLOT".as_bytes());
-pub global OFFCHAIN_READY_MESSAGES_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_READY_MESSAGES_SLOT".as_bytes());
-pub global OFFCHAIN_MESSAGE_TTL_SECONDS: u64 = 86400;
+/// Base capsule slot for the persistent inbox of [`PendingOffchainMsg`] entries.
+///
+/// This is the slot where we accumulate messages received through [`receive`].
+global OFFCHAIN_INBOX_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_INBOX_SLOT".as_bytes());
 
+/// Ephemeral capsule slot used by [`default_handler`] to pass tx hash resolution requests to PXE.
+global OFFCHAIN_CONTEXT_REQUESTS_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_CONTEXT_REQUESTS_SLOT".as_bytes());
+
+/// Ephemeral capsule slot used by [`default_handler`] to read tx context responses from PXE.
+global OFFCHAIN_CONTEXT_RESPONSES_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_CONTEXT_RESPONSES_SLOT".as_bytes());
+
+/// Ephemeral capsule slot used by [`default_handler`] to collect messages ready for processing.
+global OFFCHAIN_READY_MESSAGES_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_READY_MESSAGES_SLOT".as_bytes());
+
+/// Minimum time that a message is kept in the inbox before eviction: 24 hours. After 24 hours, the protocol guarantees
+/// that the original TX that emitted the message can no longer be included in a block. This gives us a bounded time
+/// window within which we need to keep messages around in case we need to reprocess them after reorgs.
+global OFFCHAIN_MESSAGE_TTL_SECONDS: u64 = 24 * 3600;
+
+/// An offchain message awaiting processing (or re-processing) in the inbox.
+///
+/// Messages remain in the inbox until they expire after [`OFFCHAIN_MESSAGE_TTL_SECONDS`], even if they have already
+/// been processed. This is necessary to handle reorgs: a processed message may need to be re-processed if the
+/// transaction that provided its context is reverted. On each sync, resolved messages are promoted to
+/// [`OffchainMessage`] for processing.
 #[derive(Serialize, Deserialize)]
-pub struct PendingOffchainMsg {
-    pub ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
-    pub recipient: AztecAddress,
-    // Use 0 as a sentinel for tx-less messages.
-    pub tx_hash: Field,
-    pub enqueued_ts: u64,
+struct PendingOffchainMsg {
+    /// The encrypted message payload.
+    ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
+    /// The intended recipient of the message.
+    recipient: AztecAddress,
+    /// The hash of the transaction that produced this message. A value of 0 indicates a tx-less message.
+    tx_hash: Field,
+    /// Timestamp at which the message was received, used for TTL-based eviction.
+    received_at: u64,
 }
 
 /// Delivers an offchain message to the given contract's offchain inbox for subsequent processing.
@@ -46,13 +66,14 @@ pub unconstrained fn receive(
     tx_hash: Field,
 ) {
     CapsuleArray::at(contract_address, OFFCHAIN_INBOX_SLOT).push(
-        PendingOffchainMsg { ciphertext, recipient, tx_hash, enqueued_ts: UtilityContext::new().timestamp() },
+        PendingOffchainMsg { ciphertext, recipient, tx_hash, received_at: UtilityContext::new().timestamp() },
     );
 }
 
 /// Returns offchain-delivered messages to process during sync.
 ///
-/// Messages remain in the inbox and are reprocessed on each sync until they expire.
+/// Messages remain in the inbox and are reprocessed on each sync until their originating transaction is no longer at
+/// risk of being dropped by a reorg.
 pub unconstrained fn default_handler(address: AztecAddress) -> CapsuleArray<OffchainMessage> {
     let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
     let requests: CapsuleArray<Field> = CapsuleArray::at(address, OFFCHAIN_CONTEXT_REQUESTS_SLOT);
@@ -94,7 +115,7 @@ pub unconstrained fn default_handler(address: AztecAddress) -> CapsuleArray<Offc
         responses.remove(j);
 
         let msg = inbox.get(j);
-        if now > msg.enqueued_ts + OFFCHAIN_MESSAGE_TTL_SECONDS {
+        if now > msg.received_at + OFFCHAIN_MESSAGE_TTL_SECONDS {
             inbox.remove(j);
             continue;
         }

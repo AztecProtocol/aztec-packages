@@ -132,7 +132,6 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
         logs.remove(i);
     });
 
-    // Process any offchain-delivered messages supplied by the caller.
     if offchain_message_handler.is_some() {
         let fetch = offchain_message_handler.unwrap();
         let msgs: CapsuleArray<OffchainMessage> = fetch(contract_address);
