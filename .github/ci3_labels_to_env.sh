@@ -75,6 +75,9 @@ function main {
   elif has_label "ci-skip"; then
     echo "WARNING: Skipping CI due to the ci-skipok label! Make sure this is intended!" >&2
     ci_mode="skip"
+  elif git log --format=%s -n "${PR_COMMITS:-1}" HEAD | grep -q "^VK-UPDATE:"; then
+    echo "VK-UPDATE commit detected, using vk-update mode" >&2
+    ci_mode="vk-update"
   else
     ci_mode="fast"
   fi

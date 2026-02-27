@@ -65,6 +65,7 @@ jobs:
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_TOKEN: ${{ github.token }}
+          PR_COMMITS: ${{ github.event.pull_request.commits }}
         run: ./.github/ci3_labels_to_env.sh ${{ join(github.event.pull_request.labels.*.name, ' ') }}
 
       - name: Run
