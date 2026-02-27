@@ -80,7 +80,16 @@ pub type CustomMessageHandler<Env> = unconstrained fn[Env](
 /* msg_content */ BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
 /* message_context */ MessageContext);
 
-/// A handler that returns offchain-delivered messages to process during sync.
+/// A function that manages offchain-delivered messages for processing during sync.
+///
+/// Offchain messages are transaction effects that are not broadcasted via onchain logs. They are instead delivered to
+/// the recipient through an external channel (e.g. a URL) and stored locally via the auto-generated `offchain_receive`
+/// utility function (injected by [`crate::macros::aztec`]). This handler is responsible for deciding when each message
+/// is ready for processing, when it can be safely disposed of, etc.
+///
+/// The default implementation is [`offchain_inbox::offchain_sync_inbox`], which manages an inbox with max TX TTL-based
+/// expiry and automatic context resolution. It can be overridden via
+/// [`crate::macros::AztecConfig::offchain_message_handler`].
 pub type OffchainMessageHandler<Env> = unconstrained fn[Env](
 /* contract_address */AztecAddress) -> CapsuleArray<OffchainMessage>;
 
