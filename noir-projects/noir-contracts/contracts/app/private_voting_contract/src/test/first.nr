@@ -6,7 +6,7 @@ use crate::PrivateVoting::ElectionId;
 
 #[test]
 unconstrained fn test_initializer() {
-    let (mut env, voting_contract_address, admin) = utils::setup();
+    let (env, voting_contract_address, admin) = utils::setup();
 
     env.public_context_at(voting_contract_address, |context| {
         let current_admin = context.storage_read(PrivateVoting::storage_layout().admin.slot);
@@ -16,7 +16,7 @@ unconstrained fn test_initializer() {
 
 #[test]
 unconstrained fn test_check_vote_status() {
-    let (mut env, voting_contract_address, _) = utils::setup();
+    let (env, voting_contract_address, _) = utils::setup();
 
     env.public_context_at(voting_contract_address, |context| {
         let vote_ended = context.storage_read(PrivateVoting::storage_layout().vote_ended.slot);
