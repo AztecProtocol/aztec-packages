@@ -104,7 +104,7 @@ pub fn run_batched<T>(
 where
     T: StateMachine<Result = anyhow::Result<String>>,
     T::Command: Batchable,
-    for<'a> wallet::WalletCommand: TryFrom<&'a T::Command, Error = anyhow::Error>,
+    for<'a> wallet::WalletCommand: From<&'a T::Command>,
 {
     let state = t.gen_state(u)?;
     let mut system = t.new_system(&state);
@@ -112,7 +112,7 @@ where
 
     // Pending batch: (command, model pre-state before this command).
     let mut batch: Vec<(T::Command, T::State)> = Vec::new();
-    // Model state — tracks the effect of all generated commands, including those
+    // Model state -- tracks the effect of all generated commands, including those
     // still pending in the batch. Used for gen_command and pre-state snapshots.
     let mut model = state;
 
@@ -148,7 +148,7 @@ where
     Ok(())
 }
 
-/// Execute a batch of commands — in parallel if all are sends, sequentially otherwise.
+/// Execute a batch of commands -- in parallel if all are sends, sequentially otherwise.
 fn execute_batch<T>(
     t: &T,
     system: &mut T::System,
@@ -156,7 +156,7 @@ fn execute_batch<T>(
 ) where
     T: StateMachine<Result = anyhow::Result<String>>,
     T::Command: Batchable,
-    for<'a> wallet::WalletCommand: TryFrom<&'a T::Command, Error = anyhow::Error>,
+    for<'a> wallet::WalletCommand: From<&'a T::Command>,
 {
     // A batch with >1 items is guaranteed to contain only sends, because
     // queries conflict with everything and would have flushed the batch.
@@ -164,7 +164,7 @@ fn execute_batch<T>(
         debug!("Executing batch of {} sends in parallel", batch.len());
         let wallet_cmds: Vec<wallet::WalletCommand> = batch
             .iter()
-            .map(|(cmd, _)| wallet::WalletCommand::try_from(cmd).expect("WalletCommand::try_from"))
+            .map(|(cmd, _)| wallet::WalletCommand::from(cmd))
             .collect();
         let results = wallet::execute_many(&wallet_cmds);
         for ((cmd, pre_state), result) in batch.iter().zip(results) {

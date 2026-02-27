@@ -139,7 +139,7 @@ impl Batchable for TokenCommand {
         if self.is_query() || other.is_query() {
             return true;
         }
-        // Same token → conflict (shared total_supply).
+        // Same token -> conflict (shared total_supply).
         self.token_id() == other.token_id()
     }
 }
@@ -374,7 +374,7 @@ impl smt::StateMachine for TokenMachine {
 
     fn new_system(&mut self, state: &Self::State) -> Self::System {
         wallet::import_test_accounts().expect("could not import test accounts");
-        let system = TokenSystem::new().expect("test system couldn't be prepared correctly");
+        let system = TokenSystem::new();
         for token_no in &state.tokens {
             let acc_no = state
                 .owners
@@ -395,9 +395,8 @@ impl smt::StateMachine for TokenMachine {
         system
     }
 
-    fn next_state(&self, cmd: &Self::Command, state: Self::State) -> Self::State {
+    fn next_state(&self, cmd: &Self::Command, mut state: Self::State) -> Self::State {
         use TokenCommand::*;
-        let mut state = state;
 
         match cmd {
             MintPublic {
@@ -538,7 +537,7 @@ impl smt::StateMachine for TokenMachine {
                 let output = result.expect("BalanceOfPrivate should succeed");
                 let amount = wallet::parse_simulation_result(&output)
                     .expect("failed to parse BalanceOfPrivate simulation result");
-                // Private notes are encrypted — only the owner's PXE can decrypt them.
+                // Private notes are encrypted -- only the owner's PXE can decrypt them.
                 // When from != address, the PXE returns 0.
                 let expected = if from == address {
                     *pre_state
@@ -565,7 +564,7 @@ impl smt::StateMachine for TokenMachine {
                 );
                 assert_eq!(amount, state_supply);
             }
-            // Send commands — result not checked (success/failure depends on
+            // Send commands -- result not checked (success/failure depends on
             // preconditions like ownership, balance, overflow that the model
             // handles in next_state).
             MintPublic { .. }

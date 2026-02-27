@@ -86,7 +86,7 @@ docker rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
 
 log "Starting nightly sandbox (${IMAGE})..."
 # Fast slots: AZTEC_SLOT_DURATION=5 (default 36) with timetable enforcement off.
-# Don't pass --block-time to anvil — the deploy script sets it via RPC.
+# Don't pass --block-time to anvil -- the deploy script sets it via RPC.
 docker run -d --rm --name "$CONTAINER_NAME" \
     -p 8080:8080 -p 8545:8545 -p 8089:8089 \
     -e LOG_LEVEL=info \
@@ -160,7 +160,7 @@ mkdir -p "${NIGHTLY_BUILD_DIR}/side_effect_contract/src" \
 git archive "$NIGHTLY_COMMIT" -- noir-projects/aztec-nr/ noir-projects/noir-protocol-circuits/ \
     | tar -x -C "$NIGHTLY_BUILD_DIR" --strip-components=1
 
-# Copy contract sources; fix dependency paths (3 levels → 1 level)
+# Copy contract sources; fix dependency paths (3 levels -> 1 level)
 for contract in side_effect_contract parent_contract; do
     [ ! -f "${CONTRACTS_DIR}/${contract}/src/main.nr" ] && \
         die "Contract source not found: ${CONTRACTS_DIR}/${contract}/src/main.nr"
@@ -174,7 +174,7 @@ log "Copying build directory into container..."
 docker cp "$NIGHTLY_BUILD_DIR" "${CONTAINER_NAME}:/tmp/nightly-build"
 
 # Compile, transpile, strip prefix, and copy each contract artifact.
-# Package name → artifact base name (nargo uses the contract name, not the package).
+# Package name -> artifact base name (nargo uses the contract name, not the package).
 declare -A ARTIFACTS=(
     [side_effect_contract]="side_effect_contract-SideEffect"
     [parent_contract]="parent_contract-Parent"
@@ -196,7 +196,7 @@ for pkg in side_effect_contract parent_contract; do
 
     docker cp "${CONTAINER_NAME}:/tmp/${artifact}.json" \
         "${CONTRACTS_DIR}/target/${artifact}.json"
-    log "  → contracts/target/${artifact}.json"
+    log "  -> contracts/target/${artifact}.json"
 done
 
 # --------------------------------------------------------------------------- #

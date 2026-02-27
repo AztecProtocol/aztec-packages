@@ -93,6 +93,9 @@ impl SideEffectCommand {
         }
     }
 
+    /// `TestNoteInclusion` / `TestNullifierInclusion` are sends (not queries)
+    /// even though they don't mutate model state -- they exercise on-chain
+    /// kernel verification.
     pub fn is_query(&self) -> bool {
         match self {
             Self::ViewNotesMany { .. } | Self::GetNotesMany { .. } => true,
@@ -172,14 +175,14 @@ impl Batchable for SideEffectCommand {
             return true;
         }
 
-        // Same (slot, owner) pair → conflict.
+        // Same (slot, owner) pair -> conflict.
         if let (Some(a), Some(b)) = (self.slot_owner(), other.slot_owner()) {
             if a == b {
                 return true;
             }
         }
 
-        // Same nullifier value → conflict (EmitNullifier(x) vs EmitNullifier(x)
+        // Same nullifier value -> conflict (EmitNullifier(x) vs EmitNullifier(x)
         // or TestNullifierInclusion(x)).
         if let (Some(a), Some(b)) = (self.nullifier_val(), other.nullifier_val()) {
             if a == b {
@@ -434,19 +437,16 @@ impl smt::StateMachine for SideEffectMachine {
         // re-importing always yields the same addresses. Each deploy uses a
         // unique salt, so back-to-back runs get fresh contract instances.
         wallet::import_test_accounts().expect("could not import test accounts");
-        let system = SideEffectSystem::new();
-        system
-            .deploy_side_effect_contract(0)
+        let s = SideEffectSystem::new();
+        s.deploy_side_effect_contract(0)
             .expect("side-effect contract could not be deployed");
-        system
-            .deploy_parent_contract(0)
+        s.deploy_parent_contract(0)
             .expect("parent contract could not be deployed");
-        system
+        s
     }
 
-    fn next_state(&self, cmd: &Self::Command, state: Self::State) -> Self::State {
+    fn next_state(&self, cmd: &Self::Command, mut state: Self::State) -> Self::State {
         use SideEffectCommand::*;
-        let mut state = state;
 
         match cmd {
             CreateNote {
@@ -997,7 +997,7 @@ mod tests {
         let m = machine();
         let state = make_state();
 
-        // Insert 200 then 100 — insertion order != value order
+        // Insert 200 then 100 -- insertion order != value order
         let state = m.next_state(
             &SideEffectCommand::CreateNote {
                 value: 200,
@@ -1085,7 +1085,7 @@ mod tests {
         );
         assert!(state.emitted_nullifiers.contains(&42));
 
-        // Same value again — still in the set
+        // Same value again -- still in the set
         let state = m.next_state(
             &SideEffectCommand::EmitNullifier {
                 nullifier: 42,

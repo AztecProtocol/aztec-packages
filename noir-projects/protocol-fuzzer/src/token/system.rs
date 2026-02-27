@@ -3,10 +3,8 @@ use crate::wallet::{self, AccountId, WalletCommand};
 
 pub struct TokenSystem;
 
-impl TryFrom<&TokenCommand> for WalletCommand {
-    type Error = anyhow::Error;
-
-    fn try_from(cmd: &TokenCommand) -> anyhow::Result<Self> {
+impl From<&TokenCommand> for WalletCommand {
+    fn from(cmd: &TokenCommand) -> Self {
         use TokenCommand::*;
         // authwit_nonce is always 0 because msg_sender == from in all commands.
         let (method, contract, from, args) = match cmd {
@@ -147,19 +145,19 @@ impl TryFrom<&TokenCommand> for WalletCommand {
             ),
         };
 
-        Ok(WalletCommand {
+        WalletCommand {
             query: cmd.is_query(),
             method: method.to_string(),
             contract,
             from,
             args,
-        })
+        }
     }
 }
 
 impl TokenSystem {
     pub(crate) fn execute_command(&self, cmd: &TokenCommand) -> anyhow::Result<String> {
-        wallet::execute(&WalletCommand::try_from(cmd)?)
+        wallet::execute(&WalletCommand::from(cmd))
     }
 
     pub(crate) fn deploy_token(
@@ -178,7 +176,7 @@ impl TokenSystem {
         )
     }
 
-    pub(crate) fn new() -> anyhow::Result<Self> {
-        Ok(Self)
+    pub(crate) fn new() -> Self {
+        Self
     }
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// bridge.mjs — Persistent HTTP bridge for the Aztec protocol fuzzer.
+// bridge.mjs -- Persistent HTTP bridge for the Aztec protocol fuzzer.
 //
 // Runs inside the nightly sandbox container. Reuses CLIWallet to avoid
 // the ~1.5s cold-start of spawning a new Node process per call.
@@ -25,7 +25,7 @@ const { send } = await import(`${CLI}/cmds/send.js`);
 const { simulate } = await import(`${CLI}/cmds/simulate.js`);
 const { deploy } = await import(`${CLI}/cmds/deploy.js`);
 
-// Wallet — lazy-initialized on first request so --prove can be forwarded.
+// Wallet -- lazy-initialized on first request so --prove can be forwarded.
 const noop = () => {};
 const node = createAztecNodeClient(NODE_URL);
 const db = WalletDB.getInstance();
@@ -56,7 +56,7 @@ const feeOpts = {
   toUserFeeOptions: async () => ({ paymentMethod: undefined, gasSettings: undefined }),
 };
 
-// Handlers — each receives the parsed JSON body and returns a result object.
+// Handlers -- each receives the parsed JSON body and returns a result object.
 
 const handlers = {
   '/import-test-accounts': async ({ prove }) => {

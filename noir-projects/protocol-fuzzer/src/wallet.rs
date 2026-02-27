@@ -14,7 +14,7 @@ static RE_PAIR: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 // ---------------------------------------------------------------------------
-// Address Book — the fuzzer's own tally of account and contract addresses
+// Address Book -- the fuzzer's own tally of account and contract addresses
 // ---------------------------------------------------------------------------
 
 struct ContractInfo {
@@ -23,9 +23,9 @@ struct ContractInfo {
 }
 
 struct AddressBook {
-    /// Hex addresses indexed by AccountId (0, 1, 2, …).
+    /// Hex addresses indexed by AccountId (0, 1, 2, ...).
     accounts: Vec<String>,
-    /// Contract alias (e.g. "test0", "parent0", "token0") → info.
+    /// Contract alias (e.g. "test0", "parent0", "token0") -> info.
     contracts: HashMap<String, ContractInfo>,
 }
 

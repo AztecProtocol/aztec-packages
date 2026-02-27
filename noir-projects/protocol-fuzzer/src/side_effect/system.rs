@@ -2,17 +2,15 @@ use super::machine::SideEffectCommand;
 use crate::wallet::{self, AccountId, WalletCommand};
 
 pub struct SideEffectSystem {
-    side_effect_artifact: String,
-    parent_artifact: String,
+    side_effect_artifact: &'static str,
+    parent_artifact: &'static str,
 }
 
 const CHILD_CONTRACT: &str = "contracts:test0";
 const PARENT_CONTRACT: &str = "contracts:parent0";
 
-impl TryFrom<&SideEffectCommand> for WalletCommand {
-    type Error = anyhow::Error;
-
-    fn try_from(cmd: &SideEffectCommand) -> anyhow::Result<Self> {
+impl From<&SideEffectCommand> for WalletCommand {
+    fn from(cmd: &SideEffectCommand) -> Self {
         use SideEffectCommand::*;
         let (method, from, args) = match cmd {
             CreateNote {
@@ -122,24 +120,24 @@ impl TryFrom<&SideEffectCommand> for WalletCommand {
             (CHILD_CONTRACT, method.to_string(), args)
         };
 
-        Ok(WalletCommand {
+        WalletCommand {
             query: cmd.is_query(),
             method,
             contract: contract.to_string(),
             from,
             args,
-        })
+        }
     }
 }
 
 impl SideEffectSystem {
     pub(crate) fn execute_command(&self, cmd: &SideEffectCommand) -> anyhow::Result<String> {
-        wallet::execute(&WalletCommand::try_from(cmd)?)
+        wallet::execute(&WalletCommand::from(cmd))
     }
 
     pub(crate) fn deploy_side_effect_contract(&self, account: AccountId) -> anyhow::Result<String> {
         wallet::deploy(
-            &self.side_effect_artifact,
+            self.side_effect_artifact,
             &format!("accounts:test{account}"),
             "test0",
             Some("initialize"),
@@ -149,7 +147,7 @@ impl SideEffectSystem {
 
     pub(crate) fn deploy_parent_contract(&self, account: AccountId) -> anyhow::Result<String> {
         wallet::deploy(
-            &self.parent_artifact,
+            self.parent_artifact,
             &format!("accounts:test{account}"),
             "parent0",
             Some("initialize"),
@@ -159,8 +157,8 @@ impl SideEffectSystem {
 
     pub(crate) fn new() -> Self {
         Self {
-            side_effect_artifact: "/tmp/side_effect_contract-SideEffect.json".to_string(),
-            parent_artifact: "/tmp/parent_contract-Parent.json".to_string(),
+            side_effect_artifact: "/tmp/side_effect_contract-SideEffect.json",
+            parent_artifact: "/tmp/parent_contract-Parent.json",
         }
     }
 }
