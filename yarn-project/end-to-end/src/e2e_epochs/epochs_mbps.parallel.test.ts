@@ -143,15 +143,35 @@ describe('e2e_epochs/epochs_mbps', () => {
     logger.warn(`Test setup completed.`, { validators: validators.map(v => v.attester.toString()) });
   }
 
-  /** Retrieves all checkpoints from the archiver, checks that one has the target block count, and returns its number. */
+  /** Waits for and retrieves checkpoints from the archiver, checks that one has the target block count, and returns its number. */
   async function assertMultipleBlocksPerSlot(targetBlockCount: number, logger: Logger): Promise<CheckpointNumber> {
+    // Wait for a checkpoint with the target block count to be indexed by the archiver.
+    // There can be a race between blocks being mined and the archiver fully indexing checkpoints.
+    const waitTimeout = test.L2_SLOT_DURATION_IN_S * 3;
+    let multiBlockCheckpointNumber: CheckpointNumber | undefined;
+
+    await retryUntil(
+      async () => {
+        const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+        for (const checkpoint of checkpoints) {
+          if (checkpoint.checkpoint.blocks.length >= targetBlockCount) {
+            multiBlockCheckpointNumber = checkpoint.checkpoint.number;
+            return true;
+          }
+        }
+        return false;
+      },
+      `checkpoint with at least ${targetBlockCount} blocks`,
+      waitTimeout,
+      0.5,
+    );
+
     const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
     logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
       checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
     });
 
     let expectedBlockNumber = checkpoints[0].checkpoint.blocks[0].number;
-    let multiBlockCheckpointNumber: CheckpointNumber | undefined;
 
     for (const checkpoint of checkpoints) {
       const blockCount = checkpoint.checkpoint.blocks.length;
