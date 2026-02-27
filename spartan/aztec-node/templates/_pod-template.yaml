@@ -1,6 +1,6 @@
 {{- define "chart.podTemplate" }}
-{{- $repo := .Values.global.aztecImage.repository | required ".Values.global.aztecImage.repository is required" }}
-{{- $tag := .Values.global.aztecImage.tag | required ".Values.global.aztecImage.tag is required" }}
+{{- $repo := .Values.node.image.repository | default .Values.global.aztecImage.repository | required ".Values.global.aztecImage.repository is required" }}
+{{- $tag := .Values.node.image.tag | default .Values.global.aztecImage.tag | required ".Values.global.aztecImage.tag is required" }}
 {{- $image := printf "%s:%s" $repo $tag }}
 metadata:
   labels:
@@ -190,6 +190,13 @@ spec:
           value: "{{ .Values.service.rpc.port }}"
         - name: AZTEC_ADMIN_PORT
           value: "{{ .Values.service.admin.port }}"
+        {{- if .Values.node.adminApiKeyHash }}
+        - name: AZTEC_ADMIN_API_KEY_HASH
+          value: {{ .Values.node.adminApiKeyHash | quote }}
+        {{- else if .Values.node.disableAdminApiKey }}
+        - name: AZTEC_DISABLE_ADMIN_API_KEY
+          value: "true"
+        {{- end }}
         - name: LOG_LEVEL
           value: "{{ .Values.node.logLevel }}"
         - name: LOG_JSON
@@ -248,6 +255,10 @@ spec:
         - name: SLASH_DUPLICATE_PROPOSAL_PENALTY
           value: {{ .Values.node.slash.duplicateProposalPenalty | quote }}
         {{- end }}
+        {{- if .Values.node.slash.duplicateAttestationPenalty }}
+        - name: SLASH_DUPLICATE_ATTESTATION_PENALTY
+          value: {{ .Values.node.slash.duplicateAttestationPenalty | quote }}
+        {{- end }}
         {{- if .Values.node.slash.attestDescendantOfInvalidPenalty }}
         - name: SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
           value: {{ .Values.node.slash.attestDescendantOfInvalidPenalty | quote }}
@@ -276,9 +287,9 @@ spec:
         - name: L1_CONSENSUS_HOST_URLS
           value: {{ join "," .Values.global.l1ConsensusUrls | quote }}
         - name: L1_CONSENSUS_HOST_API_KEYS
-          value: {{ join "," .Values.global.l1ConsensusHostApiKeys | quote }}
+          value: {{ .Values.global.l1ConsensusHostApiKeys | quote }}
         - name: L1_CONSENSUS_HOST_API_KEY_HEADERS
-          value: {{ join "," .Values.global.l1ConsensusHostApiKeyHeaders | quote }}
+          value: {{ .Values.global.l1ConsensusHostApiKeyHeaders | quote }}
         {{- end }}
         - name: DATA_DIRECTORY
           value: "{{ .Values.node.storage.dataDirectory }}/data"

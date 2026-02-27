@@ -38,12 +38,15 @@ export interface P2PConfig
     ChainConfig,
     TxCollectionConfig,
     TxFileStoreConfig,
-    Pick<SequencerConfig, 'blockDurationMs'> {
+    Pick<SequencerConfig, 'blockDurationMs' | 'expectedBlockProposalsPerSlot'> {
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
   /** The frequency in which to check for new L2 blocks. */
   blockCheckIntervalMS: number;
+
+  /** The frequency in which to check for new L2 slots. */
+  slotCheckIntervalMS: number;
 
   /** The number of blocks to fetch in a single batch. */
   blockRequestBatchSize: number;
@@ -170,10 +173,7 @@ export interface P2PConfig
   /** Whether transactions are disabled for this node. This means transactions will be rejected at the RPC and P2P layers. */
   disableTransactions: boolean;
 
-  /** True to simulate discarding transactions. - For testing purposes only*/
-  dropTransactions: boolean;
-
-  /** The probability that a transaction is discarded. - For testing purposes only */
+  /** The probability that a transaction is discarded (0 = disabled). - For testing purposes only */
   dropTransactionsProbability: number;
 
   /** Whether to delete transactions from the pool after a reorg instead of moving them back to pending. */
@@ -184,6 +184,12 @@ export interface P2PConfig
 
   /** Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus */
   fishermanMode: boolean;
+
+  /** Broadcast block proposals even when a conflicting proposal for the same slot already exists in the pool (for testing purposes only). */
+  broadcastEquivocatedProposals?: boolean;
+
+  /** Minimum age (ms) a transaction must have been in the pool before it's eligible for block building. */
+  minTxPoolAgeMs: number;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -203,6 +209,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_BLOCK_CHECK_INTERVAL_MS',
     description: 'The frequency in which to check for new L2 blocks.',
     ...numberConfigHelper(100),
+  },
+  slotCheckIntervalMS: {
+    env: 'P2P_SLOT_CHECK_INTERVAL_MS',
+    description: 'The frequency in which to check for new L2 slots.',
+    ...numberConfigHelper(1000),
   },
   debugDisableColocationPenalty: {
     env: 'DEBUG_P2P_DISABLE_COLOCATION_PENALTY',
@@ -416,11 +427,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'Number of auth attempts to allow before peer is banned. Number is inclusive',
     ...numberConfigHelper(3),
   },
-  dropTransactions: {
-    env: 'P2P_DROP_TX',
-    description: 'True to simulate discarding transactions. - For testing purposes only',
-    ...booleanConfigHelper(false),
-  },
   dropTransactionsProbability: {
     env: 'P2P_DROP_TX_CHANCE',
     description: 'The probability that a transaction is discarded (0 - 1). - For testing purposes only',
@@ -447,6 +453,16 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description:
       'Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus.',
     ...booleanConfigHelper(false),
+  },
+  broadcastEquivocatedProposals: {
+    description:
+      'Broadcast block proposals even when a conflicting proposal for the same slot already exists in the pool (for testing purposes only).',
+    ...booleanConfigHelper(false),
+  },
+  minTxPoolAgeMs: {
+    env: 'P2P_MIN_TX_POOL_AGE_MS',
+    description: 'Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.',
+    ...numberConfigHelper(2_000),
   },
   ...sharedSequencerConfigMappings,
   ...p2pReqRespConfigMappings,

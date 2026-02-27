@@ -135,10 +135,7 @@ export class FunctionSignatureDecoder {
       case 'field':
         return 'Field';
       case 'integer':
-        if (param.sign === 'signed') {
-          throw new Error('Unsupported type: signed integer');
-        }
-        return `u${param.width}`;
+        return param.sign === 'signed' ? `i${param.width}` : `u${param.width}`;
       case 'boolean':
         return 'bool';
       case 'array':

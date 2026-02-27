@@ -49,10 +49,14 @@ template <typename FF> class ff_gt : public Relation<ff_gtImpl<FF>> {
     static constexpr size_t SR_RNG_CTR_DEC_INIT = 17;
     static constexpr size_t SR_RNG_CTR_DECREMENT = 18;
     static constexpr size_t SR_RNG_CTR_NON_ZERO = 20;
-    static constexpr size_t SR_SHIFT_0 = 21;
-    static constexpr size_t SR_SHIFT_1 = 23;
-    static constexpr size_t SR_SHIFT_2 = 25;
-    static constexpr size_t SR_SHIFT_3 = 27;
+    static constexpr size_t SR_SHIFT_P_SUB_A_TO_A_LO = 21;
+    static constexpr size_t SR_SHIFT_P_SUB_A_TO_A_HI = 22;
+    static constexpr size_t SR_SHIFT_B_TO_P_SUB_A_LO = 23;
+    static constexpr size_t SR_SHIFT_B_TO_P_SUB_A_HI = 24;
+    static constexpr size_t SR_SHIFT_P_SUB_B_TO_B_LO = 25;
+    static constexpr size_t SR_SHIFT_P_SUB_B_TO_B_HI = 26;
+    static constexpr size_t SR_SHIFT_RES_TO_P_SUB_B_LO = 27;
+    static constexpr size_t SR_SHIFT_RES_TO_P_SUB_B_HI = 28;
     static constexpr size_t SR_SEL_CONSISTENCY = 29;
 
     static std::string get_subrelation_label(size_t index)
@@ -82,14 +86,22 @@ template <typename FF> class ff_gt : public Relation<ff_gtImpl<FF>> {
             return "RNG_CTR_DECREMENT";
         case SR_RNG_CTR_NON_ZERO:
             return "RNG_CTR_NON_ZERO";
-        case SR_SHIFT_0:
-            return "SHIFT_0";
-        case SR_SHIFT_1:
-            return "SHIFT_1";
-        case SR_SHIFT_2:
-            return "SHIFT_2";
-        case SR_SHIFT_3:
-            return "SHIFT_3";
+        case SR_SHIFT_P_SUB_A_TO_A_LO:
+            return "SHIFT_P_SUB_A_TO_A_LO";
+        case SR_SHIFT_P_SUB_A_TO_A_HI:
+            return "SHIFT_P_SUB_A_TO_A_HI";
+        case SR_SHIFT_B_TO_P_SUB_A_LO:
+            return "SHIFT_B_TO_P_SUB_A_LO";
+        case SR_SHIFT_B_TO_P_SUB_A_HI:
+            return "SHIFT_B_TO_P_SUB_A_HI";
+        case SR_SHIFT_P_SUB_B_TO_B_LO:
+            return "SHIFT_P_SUB_B_TO_B_LO";
+        case SR_SHIFT_P_SUB_B_TO_B_HI:
+            return "SHIFT_P_SUB_B_TO_B_HI";
+        case SR_SHIFT_RES_TO_P_SUB_B_LO:
+            return "SHIFT_RES_TO_P_SUB_B_LO";
+        case SR_SHIFT_RES_TO_P_SUB_B_HI:
+            return "SHIFT_RES_TO_P_SUB_B_HI";
         case SR_SEL_CONSISTENCY:
             return "SEL_CONSISTENCY";
         }

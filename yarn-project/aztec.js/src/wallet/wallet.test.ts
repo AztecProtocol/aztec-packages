@@ -15,7 +15,7 @@ import {
   TxProfileResult,
   TxReceipt,
   TxSimulationResult,
-  UtilitySimulationResult,
+  UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
 
 import { type InteractionWaitOptions, NO_WAIT, type SendReturn } from '../contract/interaction_options.js';
@@ -163,7 +163,7 @@ describe('WalletSchema', () => {
     expect(result).toBeInstanceOf(TxSimulationResult);
   });
 
-  it('simulateUtility', async () => {
+  it('executeUtility', async () => {
     const call = FunctionCall.from({
       name: 'testFunction',
       to: await AztecAddress.random(),
@@ -174,8 +174,11 @@ describe('WalletSchema', () => {
       args: [Fr.random()],
       returnTypes: [],
     });
-    const result = await context.client.simulateUtility(call, [AuthWitness.random()]);
-    expect(result).toBeInstanceOf(UtilitySimulationResult);
+    const result = await context.client.executeUtility(call, {
+      scope: await AztecAddress.random(),
+      authWitnesses: [AuthWitness.random()],
+    });
+    expect(result).toBeInstanceOf(UtilityExecutionResult);
   });
 
   it('profileTx', async () => {
@@ -223,6 +226,8 @@ describe('WalletSchema', () => {
   });
 
   it('requestCapabilities', async () => {
+    const someAddress = await AztecAddress.random();
+    const anotherAddress = await AztecAddress.random();
     const manifest: AppCapabilities = {
       version: '1.0',
       metadata: {
@@ -235,6 +240,14 @@ describe('WalletSchema', () => {
           type: 'accounts',
           canGet: true,
           canCreateAuthWit: true,
+        },
+        {
+          type: 'transaction',
+          scope: [
+            { contract: someAddress, function: 'withdraw', additionalScopes: [anotherAddress] },
+            { contract: someAddress, function: 'transfer' },
+            { contract: someAddress, function: 'deposit', additionalScopes: '*' },
+          ],
         },
       ],
     };
@@ -322,7 +335,7 @@ describe('WalletSchema', () => {
       { name: 'getAccounts', args: [] },
       { name: 'registerContract', args: [mockInstance, mockArtifact, undefined] },
       { name: 'simulateTx', args: [exec, simulateOpts] },
-      { name: 'simulateUtility', args: [call, [AuthWitness.random()]] },
+      { name: 'executeUtility', args: [call, { scope: address3, authWitnesses: [AuthWitness.random()] }] },
       { name: 'profileTx', args: [exec, profileOpts] },
       { name: 'sendTx', args: [exec, opts] },
       { name: 'createAuthWit', args: [address1, { consumer: await AztecAddress.random(), innerHash: Fr.random() }] },
@@ -348,7 +361,7 @@ describe('WalletSchema', () => {
       result: expect.objectContaining({ address: expect.any(AztecAddress) }),
     });
     expect(results[8]).toEqual({ name: 'simulateTx', result: expect.any(TxSimulationResult) });
-    expect(results[9]).toEqual({ name: 'simulateUtility', result: expect.any(UtilitySimulationResult) });
+    expect(results[9]).toEqual({ name: 'executeUtility', result: expect.any(UtilityExecutionResult) });
     expect(results[10]).toEqual({ name: 'profileTx', result: expect.any(TxProfileResult) });
     expect(results[11]).toEqual({ name: 'sendTx', result: expect.any(TxReceipt) });
     expect(results[12]).toEqual({ name: 'createAuthWit', result: expect.any(AuthWitness) });
@@ -427,8 +440,11 @@ class MockWallet implements Wallet {
     return Promise.resolve(TxSimulationResult.random());
   }
 
-  simulateUtility(_call: any, _authwits?: AuthWitness[]): Promise<UtilitySimulationResult> {
-    return Promise.resolve(UtilitySimulationResult.random());
+  executeUtility(
+    _call: any,
+    _opts: { scope: AztecAddress; authWitnesses?: AuthWitness[] },
+  ): Promise<UtilityExecutionResult> {
+    return Promise.resolve(UtilityExecutionResult.random());
   }
 
   profileTx(_exec: ExecutionPayload, _opts: ProfileOptions): Promise<TxProfileResult> {

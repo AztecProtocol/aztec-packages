@@ -28,10 +28,11 @@ import { BlockHeader, GlobalVariables, type Tx, TxEffect, TxHash, type TxValidat
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import type { TxMetaData } from './tx_metadata.js';
 import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
 
 /** A validator that accepts all transactions. */
-const alwaysValidValidator: TxValidator<Tx> = {
+const alwaysValidValidator: TxValidator<TxMetaData> = {
   validateTx: () => Promise.resolve({ result: 'valid' }),
 };
 
@@ -85,7 +86,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     pool = new AztecKVTxPoolV2(await openTmpStore('p2p'), await openTmpStore('archive'), {
       l2BlockSource: mockL2BlockSource,
       worldStateSynchronizer: mockWorldState,
-      pendingTxValidator: alwaysValidValidator,
+      createTxValidator: () => Promise.resolve(alwaysValidValidator),
     });
     await pool.start();
   });
@@ -160,10 +161,10 @@ describe('TxPoolV2 Compatibility Tests', () => {
       await pool.addPendingTxs([pendingTx, minedTx]);
       await pool.handleMinedBlock(makeBlock([minedTx], block1Header));
 
-      // Delete a pending tx via handleFailedExecution - should be permanently deleted
+      // Delete a pending tx via handleFailedExecution - should be slot-soft-deleted
       await pool.handleFailedExecution([pendingTx.getTxHash()]);
-      expect(await pool.getTxByHash(pendingTx.getTxHash())).toBeUndefined();
-      expect(await pool.getTxStatus(pendingTx.getTxHash())).toBeUndefined();
+      expect(await pool.getTxByHash(pendingTx.getTxHash())).toBeDefined();
+      expect(await pool.getTxStatus(pendingTx.getTxHash())).toBe('deleted');
 
       expect(await pool.getPendingTxCount()).toEqual(0);
     });
@@ -304,8 +305,8 @@ describe('TxPoolV2 Compatibility Tests', () => {
       // Delete mined tx via finalization
       await pool.handleFinalizedBlock(block1Header);
 
-      // Verify mined tx is deleted
-      expect(await pool.getTxStatus(txs[0].getTxHash())).toBeUndefined();
+      // Verify mined tx is deleted (slot-soft-deleted)
+      expect(await pool.getTxStatus(txs[0].getTxHash())).toBe('deleted');
 
       // Verify remaining pending count
       expect(await pool.getPendingTxCount()).toBe(2);
@@ -323,7 +324,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
-        pendingTxValidator: alwaysValidValidator,
+        createTxValidator: () => Promise.resolve(alwaysValidValidator),
       },
       undefined, // telemetry
       { archivedTxLimit: 2 },
@@ -364,7 +365,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
-        pendingTxValidator: alwaysValidValidator,
+        createTxValidator: () => Promise.resolve(alwaysValidValidator),
       },
       undefined, // telemetry
       { maxPendingTxCount: 3 },
@@ -420,7 +421,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
-        pendingTxValidator: alwaysValidValidator,
+        createTxValidator: () => Promise.resolve(alwaysValidValidator),
       },
       undefined, // telemetry
       { maxPendingTxCount: 10 },
@@ -463,7 +464,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
-        pendingTxValidator: alwaysValidValidator,
+        createTxValidator: () => Promise.resolve(alwaysValidValidator),
       },
       undefined, // telemetry
       { maxPendingTxCount: 10 },
@@ -635,7 +636,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
         {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
-          pendingTxValidator: alwaysValidValidator,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
         },
         undefined, // telemetry
         { maxPendingTxCount: 0 },

@@ -12,23 +12,14 @@ export const General = {
   ),
   InstallationInstructions: () => (
     <p>
-      To use Aztec's suite of tools you'll need to:
-      <ul>
-        <li>
-          <a href="https://docs.docker.com/engine/install/">Get docker</a>{" "}
-          (engine or desktop)
-        </li>
-        <li>
-          Run <code>bash -i &lt;(curl -sL https://install.aztec.network)</code>
-        </li>
-      </ul>
+      To use Aztec's suite of tools, run:{" "}
+      <code>VERSION=&lt;version&gt; bash -i &lt;(curl -sL https://install.aztec.network/&lt;version&gt;)</code>
     </p>
   ),
 
   node_ver: () => (
     <p>
-      Aztec libraries use Node.js version v24.12.x (lts/krypton), and backwards
-      compatible from version 20. You can use{" "}
+      Aztec libraries require Node.js version 24. You can use{" "}
       <a href="https://github.com/nvm-sh/nvm">nvm</a> to help manage node
       versions.
     </p>

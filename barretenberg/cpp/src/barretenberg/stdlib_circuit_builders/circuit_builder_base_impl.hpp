@@ -76,12 +76,6 @@ template <typename FF_> size_t CircuitBuilderBase<FF_>::get_circuit_subgroup_siz
     return 1UL << log2_n;
 }
 
-template <typename FF_> msgpack::sbuffer CircuitBuilderBase<FF_>::export_circuit()
-{
-    info("not implemented");
-    return { 0 };
-}
-
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_public_variable(const FF& in)
 {
     const uint32_t index = add_variable(in);
@@ -92,6 +86,7 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_public_variable(co
 
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::set_public_input(const uint32_t witness_index)
 {
+    BB_ASSERT_LT(witness_index, get_num_variables(), "set_public_input: witness_index out of range");
     for (const uint32_t public_input : public_inputs()) {
         if (public_input == witness_index) {
             if (!failed()) {

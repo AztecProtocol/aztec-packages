@@ -9,7 +9,7 @@ import {
   SPIRE_PROPOSER_ADDRESS,
   SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION,
   SpireProposerAbi,
-  getCallFromSpireProposer,
+  getCallsFromSpireProposer,
   verifyProxyImplementation,
 } from './spire_proposer.js';
 
@@ -102,21 +102,19 @@ describe('Spire Proposer', () => {
     });
   });
 
-  describe('getCallFromSpireProposer', () => {
-    function makeSpireProposerMulticallTransaction(call: { target: Hex; data: Hex }): Transaction {
+  describe('getCallsFromSpireProposer', () => {
+    function makeSpireProposerMulticallTransaction(...calls: { target: Hex; data: Hex }[]): Transaction {
       const spireMulticallData = encodeFunctionData({
         abi: SpireProposerAbi,
         functionName: 'multicall',
         args: [
-          [
-            {
-              proposer: EthAddress.random().toString() as Hex,
-              target: call.target,
-              data: call.data,
-              value: 0n,
-              gasLimit: 1000000n,
-            },
-          ],
+          calls.map(call => ({
+            proposer: EthAddress.random().toString() as Hex,
+            target: call.target,
+            data: call.data,
+            value: 0n,
+            gasLimit: 1000000n,
+          })),
         ],
       });
 
@@ -143,11 +141,12 @@ describe('Spire Proposer', () => {
           data: calldata,
         });
 
-        const result = await getCallFromSpireProposer(tx, publicClient, logger);
+        const result = await getCallsFromSpireProposer(tx, publicClient, logger);
 
         expect(result).toBeDefined();
-        expect(result?.to.toLowerCase()).toBe(targetAddress.toLowerCase());
-        expect(result?.data).toBe(calldata);
+        expect(result).toHaveLength(1);
+        expect(result![0].to.toLowerCase()).toBe(targetAddress.toLowerCase());
+        expect(result![0].data).toBe(calldata);
         expect(publicClient.getStorageAt).toHaveBeenCalledWith({
           address: SPIRE_PROPOSER_ADDRESS,
           slot: EIP1967_IMPLEMENTATION_SLOT,
@@ -161,11 +160,12 @@ describe('Spire Proposer', () => {
           data: '0xabcdef' as Hex,
         });
 
-        const result = await getCallFromSpireProposer(tx, publicClient, logger);
+        const result = await getCallsFromSpireProposer(tx, publicClient, logger);
 
         expect(result).toBeDefined();
-        expect(result?.to.toLowerCase()).toBe(unknownAddress.toLowerCase());
-        expect(result?.data).toBe('0xabcdef');
+        expect(result).toHaveLength(1);
+        expect(result![0].to.toLowerCase()).toBe(unknownAddress.toLowerCase());
+        expect(result![0].data).toBe('0xabcdef');
       });
 
       it('should preserve exact calldata bytes', async () => {
@@ -176,10 +176,11 @@ describe('Spire Proposer', () => {
           data: complexCalldata,
         });
 
-        const result = await getCallFromSpireProposer(tx, publicClient, logger);
+        const result = await getCallsFromSpireProposer(tx, publicClient, logger);
 
         expect(result).toBeDefined();
-        expect(result?.data).toBe(complexCalldata);
+        expect(result).toHaveLength(1);
+        expect(result![0].data).toBe(complexCalldata);
       });
     });
 
@@ -191,7 +192,7 @@ describe('Spire Proposer', () => {
           hash: txHash,
         } as Transaction;
 
-        const result = await getCallFromSpireProposer(tx, publicClient, logger);
+        const result = await getCallsFromSpireProposer(tx, publicClient, logger);
 
         expect(result).toBeUndefined();
         expect(publicClient.getStorageAt).not.toHaveBeenCalled();
@@ -204,7 +205,7 @@ describe('Spire Proposer', () => {
           hash: txHash,
         } as Transaction;
 
-        const result = await getCallFromSpireProposer(tx, publicClient, logger);
+        const result = await getCallsFromSpireProposer(tx, publicClient, logger);
 
         expect(result).toBeUndefined();
         expect(publicClient.getStorageAt).not.toHaveBeenCalled();
@@ -217,7 +218,7 @@ describe('Spire Proposer', () => {
           hash: txHash,
         } as unknown as Transaction;
 
-        const result = await getCallFromSpireProposer(tx, publicClient, logger);
+        const result = await getCallsFromSpireProposer(tx, publicClient, logger);
 
         expect(result).toBeUndefined();
       });
@@ -231,7 +232,7 @@ describe('Spire Proposer', () => {
         // Mock the proxy pointing to wrong implementation
         publicClient.getStorageAt.mockResolvedValue('0x00000000000000000000000000000000000000000000000000bad' as Hex);
 
-        const result = await getCallFromSpireProposer(tx, publicClient, logger);
+        const result = await getCallsFromSpireProposer(tx, publicClient, logger);
 
         expect(result).toBeUndefined();
       });
@@ -250,12 +251,12 @@ describe('Spire Proposer', () => {
           ('0x000000000000000000000000' + SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION.slice(2)) as Hex,
         );
 
-        const result = await getCallFromSpireProposer(tx, publicClient, logger);
+        const result = await getCallsFromSpireProposer(tx, publicClient, logger);
 
         expect(result).toBeUndefined();
       });
 
-      it('should return undefined when Spire Proposer contains zero calls', async () => {
+      it('should return empty array when Spire Proposer contains zero calls', async () => {
         const spireMulticallData = encodeFunctionData({
           abi: SpireProposerAbi,
           functionName: 'multicall',
@@ -272,48 +273,30 @@ describe('Spire Proposer', () => {
           ('0x000000000000000000000000' + SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION.slice(2)) as Hex,
         );
 
-        const result = await getCallFromSpireProposer(tx, publicClient, logger);
+        const result = await getCallsFromSpireProposer(tx, publicClient, logger);
 
-        expect(result).toBeUndefined();
+        expect(result).toBeDefined();
+        expect(result).toHaveLength(0);
       });
 
-      it('should return undefined when Spire Proposer contains multiple calls', async () => {
-        const spireMulticallData = encodeFunctionData({
-          abi: SpireProposerAbi,
-          functionName: 'multicall',
-          args: [
-            [
-              {
-                proposer: EthAddress.random().toString() as Hex,
-                target: EthAddress.random().toString() as Hex,
-                data: '0x12345678' as Hex,
-                value: 0n,
-                gasLimit: 1000000n,
-              },
-              {
-                proposer: EthAddress.random().toString() as Hex,
-                target: EthAddress.random().toString() as Hex,
-                data: '0xabcdef' as Hex,
-                value: 0n,
-                gasLimit: 1000000n,
-              },
-            ],
-          ],
-        });
-
-        const tx = {
-          input: spireMulticallData,
-          to: SPIRE_PROPOSER_ADDRESS as Hex,
-          hash: txHash,
-        } as Transaction;
+      it('should return all calls when Spire Proposer contains multiple calls', async () => {
+        const target1 = EthAddress.random().toString() as Hex;
+        const target2 = EthAddress.random().toString() as Hex;
+        const tx = makeSpireProposerMulticallTransaction(
+          { target: target1, data: '0x12345678' as Hex },
+          { target: target2, data: '0xabcdef' as Hex },
+        );
 
         publicClient.getStorageAt.mockResolvedValue(
           ('0x000000000000000000000000' + SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION.slice(2)) as Hex,
         );
 
-        const result = await getCallFromSpireProposer(tx, publicClient, logger);
+        const result = await getCallsFromSpireProposer(tx, publicClient, logger);
 
-        expect(result).toBeUndefined();
+        expect(result).toBeDefined();
+        expect(result).toHaveLength(2);
+        expect(result![0].to.toLowerCase()).toBe(target1.toLowerCase());
+        expect(result![1].to.toLowerCase()).toBe(target2.toLowerCase());
       });
 
       it('should return undefined when decoding throws exception', async () => {
@@ -327,7 +310,7 @@ describe('Spire Proposer', () => {
           ('0x000000000000000000000000' + SPIRE_PROPOSER_EXPECTED_IMPLEMENTATION.slice(2)) as Hex,
         );
 
-        const result = await getCallFromSpireProposer(tx, publicClient, logger);
+        const result = await getCallsFromSpireProposer(tx, publicClient, logger);
 
         expect(result).toBeUndefined();
       });
@@ -366,11 +349,11 @@ describe('Spire Proposer', () => {
           hash: txHash,
         } as Transaction;
 
-        const result = await getCallFromSpireProposer(tx, publicClient, logger);
+        const result = await getCallsFromSpireProposer(tx, publicClient, logger);
 
         expect(result).toBeDefined();
-        expect(result?.to.toLowerCase()).toBe(targetAddress.toLowerCase());
-        expect(result?.data).toBe(calldata);
+        expect(result![0].to.toLowerCase()).toBe(targetAddress.toLowerCase());
+        expect(result![0].data).toBe(calldata);
       });
     });
   });

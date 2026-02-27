@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Luke], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -35,7 +35,10 @@ template <> constexpr inline size_t count_leading_zeros<uint128_t>(uint128_t con
         return static_cast<size_t>(__builtin_clzll(hi));
     }
     auto lo = static_cast<uint64_t>(u);
-    return static_cast<size_t>(__builtin_clzll(lo)) + 64;
+    if (lo != 0U) {
+        return static_cast<size_t>(__builtin_clzll(lo)) + 64;
+    }
+    return 128;
 }
 
 template <> constexpr inline size_t count_leading_zeros<uint256_t>(uint256_t const& u)

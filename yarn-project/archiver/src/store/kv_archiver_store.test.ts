@@ -1474,7 +1474,7 @@ describe('KVArchiverDataStore', () => {
       expect(checkpoints.length).toBe(1);
       expect(checkpoints[0].checkpointNumber).toBe(1);
       expect(checkpoints[0].startBlock).toBe(1);
-      expect(checkpoints[0].numBlocks).toBe(2);
+      expect(checkpoints[0].blockCount).toBe(2);
     });
 
     it('returns multiple checkpoints in order', async () => {
@@ -1504,7 +1504,7 @@ describe('KVArchiverDataStore', () => {
       expect(checkpoints.length).toBe(3);
       expect(checkpoints.map(c => c.checkpointNumber)).toEqual([1, 2, 3]);
       expect(checkpoints.map(c => c.startBlock)).toEqual([1, 3, 6]);
-      expect(checkpoints.map(c => c.numBlocks)).toEqual([2, 3, 1]);
+      expect(checkpoints.map(c => c.blockCount)).toEqual([2, 3, 1]);
     });
 
     it('respects the from parameter', async () => {
@@ -1586,7 +1586,7 @@ describe('KVArchiverDataStore', () => {
       const data = checkpoints[0];
       expect(data.checkpointNumber).toBe(1);
       expect(data.startBlock).toBe(1);
-      expect(data.numBlocks).toBe(3);
+      expect(data.blockCount).toBe(3);
       expect(data.l1.blockNumber).toBe(42n);
       expect(data.header.equals(checkpoint.checkpoint.header)).toBe(true);
       expect(data.archive.equals(checkpoint.checkpoint.archive)).toBe(true);

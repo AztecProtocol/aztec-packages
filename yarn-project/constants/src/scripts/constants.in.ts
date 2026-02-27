@@ -28,6 +28,7 @@ const CPP_CONSTANTS = [
   'CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS',
   'MULTI_CALL_ENTRYPOINT_ADDRESS',
   'FEE_JUICE_ADDRESS',
+  'TX_DA_GAS_OVERHEAD',
   'PUBLIC_CHECKS_ADDRESS',
   'FEE_JUICE_BALANCES_SLOT',
   'UPDATED_CLASS_IDS_SLOT',
@@ -44,6 +45,7 @@ const CPP_CONSTANTS = [
   'MAX_NOTE_HASHES_PER_TX',
   'MAX_NULLIFIERS_PER_TX',
   'MAX_L2_TO_L1_MSGS_PER_TX',
+  'MAX_PROCESSABLE_L2_GAS',
   'MAX_PUBLIC_LOGS_PER_TX',
   'MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX',
   'MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS',
@@ -111,6 +113,7 @@ const CPP_CONSTANTS = [
   'FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH',
   'PUBLIC_LOGS_LENGTH',
   'PUBLIC_LOG_HEADER_LENGTH',
+  'PUBLIC_TX_L2_GAS_OVERHEAD',
   'MAX_PROTOCOL_CONTRACTS',
   'DEFAULT_MAX_DEBUG_LOG_MEMORY_READS',
 ];
@@ -252,10 +255,10 @@ const PIL_CONSTANTS = [
   'AVM_DYN_GAS_ID_RETURNDATACOPY',
   'AVM_DYN_GAS_ID_TORADIX',
   'AVM_DYN_GAS_ID_BITWISE',
-  'AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG',
+  'AVM_DYN_GAS_ID_EMITPUBLICLOG',
   'AVM_DYN_GAS_ID_SSTORE',
   'AVM_SUBTRACE_ID_GETCONTRACTINSTANCE',
-  'AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG',
+  'AVM_SUBTRACE_ID_EMITPUBLICLOG',
   'AVM_EXEC_OP_ID_GETENVVAR',
   'AVM_EXEC_OP_ID_MOV',
   'AVM_EXEC_OP_ID_JUMP',
@@ -343,9 +346,9 @@ interface ParsedContent {
    */
   constants: { [key: string]: string };
   /**
-   * GeneratorIndexEnum.
+   * DomainSeparatorEnum.
    */
-  generatorIndexEnum: { [key: string]: number };
+  domainSeparatorEnum: { [key: string]: number };
 }
 
 /**
@@ -459,11 +462,11 @@ function processConstantsSolidity(constants: { [key: string]: string }, prefix =
 /**
  * Generate the constants file in Typescript.
  */
-function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
+function generateTypescriptConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
   const result = [
     '// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants',
     processConstantsTS(constants),
-    processEnumTS('GeneratorIndex', generatorIndexEnum),
+    processEnumTS('DomainSeparator', domainSeparatorEnum),
   ].join('\n');
 
   fs.writeFileSync(targetPath, result);
@@ -472,11 +475,11 @@ function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedCo
 /**
  * Generate the constants file in C++.
  */
-function generateCppConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
+function generateCppConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
   const resultCpp: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 #pragma once
 
-${processConstantsCpp(constants, generatorIndexEnum)}
+${processConstantsCpp(constants, domainSeparatorEnum)}
 `;
 
   fs.writeFileSync(targetPath, resultCpp);
@@ -485,10 +488,10 @@ ${processConstantsCpp(constants, generatorIndexEnum)}
 /**
  * Generate the constants file in PIL.
  */
-function generatePilConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
+function generatePilConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
   const resultPil: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 namespace constants;
-${processConstantsPil(constants, generatorIndexEnum)}
+${processConstantsPil(constants, domainSeparatorEnum)}
 \n`;
 
   fs.writeFileSync(targetPath, resultPil);
@@ -524,7 +527,7 @@ ${processConstantsSolidity(constants)}
  */
 function parseNoirFile(fileContent: string): ParsedContent {
   const constantsExpressions: [string, string][] = [];
-  const generatorIndexEnum: { [key: string]: number } = {};
+  const domainSeparatorEnum: { [key: string]: number } = {};
 
   const emptyExpression = (): { name: string; content: string[] } => ({ name: '', content: [] });
   let expression = emptyExpression();
@@ -547,7 +550,7 @@ function parseNoirFile(fileContent: string): ParsedContent {
         const [, indexName] = name.match(/DOM_SEP__(\w+)/) || [];
         if (indexName) {
           // Generator index.
-          generatorIndexEnum[indexName] = +value;
+          domainSeparatorEnum[indexName] = +value;
         } else if (end) {
           // A single line of expression.
           constantsExpressions.push([name, value]);
@@ -583,7 +586,7 @@ function parseNoirFile(fileContent: string): ParsedContent {
 
   const constants = evaluateExpressions(constantsExpressions);
 
-  return { constants, generatorIndexEnum };
+  return { constants, domainSeparatorEnum };
 }
 
 /**
@@ -621,7 +624,11 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
         // We split the expression into terms...
         .split(/\s+/)
         // ...and then we convert each term to a BigInt if it is a number.
-        .map(term => (isNaN(+term) ? term : `BigInt('${term}')`))
+        .map(term => {
+          // Remove underscores from numeric literals (e.g., 6_000_000 -> 6000000)
+          const termWithoutUnderscores = term.replace(/_/g, '');
+          return isNaN(+termWithoutUnderscores) ? term : `BigInt('${termWithoutUnderscores}')`;
+        })
         // .. also, we convert the known bigints to BigInts.
         .map(term => (knownBigInts.includes(term) ? `BigInt(${term})` : term))
         // We join the terms back together.

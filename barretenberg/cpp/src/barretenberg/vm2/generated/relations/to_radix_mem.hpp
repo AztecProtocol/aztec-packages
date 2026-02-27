@@ -14,9 +14,9 @@ template <typename FF_> class to_radix_memImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 39> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 5, 3, 5, 3, 5, 3, 6, 3, 4, 3,
-                                                                            3, 3, 4, 4, 4, 4, 3, 4, 6, 4, 3, 3, 3 };
+    static constexpr std::array<size_t, 41> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 5, 4, 3, 5, 3, 5, 3, 6, 3, 4, 3,
+                                                                            3, 3, 4, 4, 3, 3, 3, 4, 6, 4, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -37,36 +37,36 @@ template <typename FF> class to_radix_mem : public Relation<to_radix_memImpl<FF>
     static constexpr const std::string_view NAME = "to_radix_mem";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_LAST_HAS_SEL_ON = 3;
-    static constexpr size_t SR_START_AFTER_LAST = 4;
-    static constexpr size_t SR_TRACE_CONTINUITY = 5;
+    static constexpr size_t SR_SEL_ON_START_OR_END = 3;
+    static constexpr size_t SR_TRACE_CONTINUITY = 4;
+    static constexpr size_t SR_START_AFTER_LATCH = 5;
     static constexpr size_t SR_EXEC_CLK_CONTINUITY = 6;
     static constexpr size_t SR_SPACE_ID_CONTINUITY = 7;
     static constexpr size_t SR_VALUE_CONTINUITY = 8;
     static constexpr size_t SR_RADIX_CONTINUITY = 9;
     static constexpr size_t SR_IS_OUTPUT_BITS_CONTINUITY = 10;
-    static constexpr size_t SR_IS_OUTPUT_BITS_IMPLY_RADIX_2 = 16;
-    static constexpr size_t SR_ZERO_CHECK_NUM_LIMBS = 18;
-    static constexpr size_t SR_ZERO_CHECK_VALUE = 20;
-    static constexpr size_t SR_SEL_SHOULD_DECOMPOSE_CONTINUITY = 25;
-    static constexpr size_t SR_TRUNCATION_ERROR = 28;
-    static constexpr size_t SR_DECR_NUM_LIMBS = 30;
-    static constexpr size_t SR_INCR_DST_ADDRESS = 31;
-    static constexpr size_t SR_LAST_ROW_ERR_COMPUTATION = 32;
-    static constexpr size_t SR_LAST_ROW_NUM_LIMBS_ZERO = 33;
-    static constexpr size_t SR_LAST_ROW_VALID_COMPUTATION = 34;
-    static constexpr size_t SR_SEL_SHOULD_WRITE_MEM_CONTINUITY = 36;
-    static constexpr size_t SR_SEL_SHOULD_WRITE_MEM_REQUIRES_SEL = 37;
+    static constexpr size_t SR_IS_OUTPUT_BITS_IMPLY_RADIX_2 = 18;
+    static constexpr size_t SR_ZERO_CHECK_NUM_LIMBS = 20;
+    static constexpr size_t SR_ZERO_CHECK_VALUE = 22;
+    static constexpr size_t SR_SEL_SHOULD_DECOMPOSE_CONTINUITY = 27;
+    static constexpr size_t SR_TRUNCATION_ERROR = 30;
+    static constexpr size_t SR_DECR_NUM_LIMBS = 32;
+    static constexpr size_t SR_INCR_DST_ADDRESS = 33;
+    static constexpr size_t SR_LAST_ROW_ERR_COMPUTATION = 34;
+    static constexpr size_t SR_LAST_ROW_NUM_LIMBS_ZERO = 35;
+    static constexpr size_t SR_LAST_ROW_VALID_COMPUTATION = 36;
+    static constexpr size_t SR_SEL_SHOULD_WRITE_MEM_CONTINUITY = 38;
+    static constexpr size_t SR_SEL_SHOULD_WRITE_MEM_REQUIRES_SEL = 39;
 
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case SR_LAST_HAS_SEL_ON:
-            return "LAST_HAS_SEL_ON";
-        case SR_START_AFTER_LAST:
-            return "START_AFTER_LAST";
+        case SR_SEL_ON_START_OR_END:
+            return "SEL_ON_START_OR_END";
         case SR_TRACE_CONTINUITY:
             return "TRACE_CONTINUITY";
+        case SR_START_AFTER_LATCH:
+            return "START_AFTER_LATCH";
         case SR_EXEC_CLK_CONTINUITY:
             return "EXEC_CLK_CONTINUITY";
         case SR_SPACE_ID_CONTINUITY:

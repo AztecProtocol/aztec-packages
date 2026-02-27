@@ -45,7 +45,7 @@ std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES> empty_ecc_op_tabl
 {
     std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES> empty_tables;
     for (auto& table_commitment : empty_tables) {
-        table_commitment = bn254<Builder>::Group::point_at_infinity(&builder);
+        table_commitment = bn254<Builder>::Group::constant_infinity(&builder);
         // Sanity check: Verify the native value is actually at infinity
         BB_ASSERT(table_commitment.get_value().is_point_at_infinity(),
                   "empty_ecc_op_tables: T_prev must be initialized to point at infinity");
@@ -113,13 +113,7 @@ class KernelIO {
     {
         Builder* builder = output_hn_accum_hash.get_context();
 
-        Builder* pairing_ctx = validate_context<Builder>(pairing_inputs);
-        if (pairing_ctx == nullptr) {
-            // Both points are constant - add the default pairing points to public inputs
-            PairingInputs::set_default_to_public(builder);
-        } else {
-            pairing_inputs.set_public();
-        }
+        pairing_inputs.set_public(builder);
         kernel_return_data.set_public();
         app_return_data.set_public();
         for (auto& table_commitment : ecc_op_tables) {
@@ -127,8 +121,6 @@ class KernelIO {
         }
         output_hn_accum_hash.set_public();
 
-        // Record that pairing points have been set to public
-        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -145,7 +137,9 @@ class KernelIO {
         inputs.kernel_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
         inputs.app_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
         for (auto& table_commitment : inputs.ecc_op_tables) {
-            table_commitment = G1(DEFAULT_ECC_COMMITMENT);
+            table_commitment = G1(typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.x)),
+                                  typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.y)),
+                                  /*assert_on_curve=*/false);
             table_commitment.convert_constant_to_fixed_witness(&builder);
         }
         inputs.output_hn_accum_hash = FF::from_witness(&builder, typename FF::native(0));
@@ -195,8 +189,6 @@ template <typename Builder_> class DefaultIO {
 
         pairing_inputs.set_public();
 
-        // Record that pairing points have been set to public
-        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -262,8 +254,6 @@ template <typename Builder_> class GoblinAvmIO {
         transcript_hash.set_public();
         pairing_inputs.set_public();
 
-        // Record that pairing points have been set to public
-        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -319,19 +309,12 @@ template <class Builder_> class HidingKernelIO {
     {
         Builder* builder = ecc_op_tables[0].get_context();
 
-        if (validate_context<Builder>(pairing_inputs) == nullptr) {
-            // Both points are constant - add the default pairing points to public inputs
-            PairingInputs::set_default_to_public(builder);
-        } else {
-            pairing_inputs.set_public();
-        }
+        pairing_inputs.set_public(builder);
         kernel_return_data.set_public();
         for (auto& commitment : ecc_op_tables) {
             commitment.set_public();
         }
 
-        // Record that pairing points have been set to public
-        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -344,10 +327,14 @@ template <class Builder_> class HidingKernelIO {
     {
         HidingKernelIO inputs;
         inputs.pairing_inputs = PairingInputs::construct_default();
-        inputs.kernel_return_data = G1(DEFAULT_ECC_COMMITMENT);
+        inputs.kernel_return_data = G1(typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.x)),
+                                       typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.y)),
+                                       /*assert_on_curve=*/false);
         inputs.kernel_return_data.convert_constant_to_fixed_witness(&builder);
         for (auto& table_commitment : inputs.ecc_op_tables) {
-            table_commitment = G1(DEFAULT_ECC_COMMITMENT);
+            table_commitment = G1(typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.x)),
+                                  typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.y)),
+                                  /*assert_on_curve=*/false);
             table_commitment.convert_constant_to_fixed_witness(&builder);
         }
         inputs.set_public();
@@ -396,16 +383,9 @@ class RollupIO {
     {
         Builder* builder = ipa_claim.commitment.get_context();
 
-        if (validate_context<Builder>(pairing_inputs) == nullptr) {
-            // Both points are constant - add the default pairing points to public inputs
-            PairingInputs::set_default_to_public(builder);
-        } else {
-            pairing_inputs.set_public();
-        }
+        pairing_inputs.set_public(builder);
         ipa_claim.set_public();
 
-        // Record that pairing points have been set to public
-        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }

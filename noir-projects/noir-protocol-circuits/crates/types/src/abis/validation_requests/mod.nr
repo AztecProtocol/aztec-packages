@@ -1,7 +1,7 @@
 pub mod key_validation_request;
-pub mod key_validation_request_and_generator;
+pub mod key_validation_request_and_separator;
 pub mod private_validation_requests;
 
 pub use key_validation_request::KeyValidationRequest;
-pub use key_validation_request_and_generator::KeyValidationRequestAndGenerator;
+pub use key_validation_request_and_separator::KeyValidationRequestAndSeparator;
 pub use private_validation_requests::PrivateValidationRequests;

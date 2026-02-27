@@ -120,6 +120,12 @@ function chonk_flow {
   }
 ]
 EOF
+
+  # Extract component timings from hierarchical breakdown if available
+  if [[ -f "$output/benchmark_breakdown.json" ]]; then
+    echo "Extracting component timings from hierarchical breakdown..."
+    python3 scripts/extract_component_benchmarks.py "$output" "$name_path"
+  fi
 }
 
 export -f verify_ivc_flow run_bb_cli_bench

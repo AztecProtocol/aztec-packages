@@ -8,6 +8,7 @@ import type {
   AppCapabilities,
   BatchResults,
   BatchedMethod,
+  ExecuteUtilityOptions,
   PrivateEvent,
   PrivateEventFilter,
   ProfileOptions,
@@ -27,6 +28,7 @@ import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
+import { type AccessScopes, displayDebugLogs } from '@aztec/pxe/client/lazy';
 import type { PXE, PackedPrivateEvent } from '@aztec/pxe/server';
 import {
   type ContractArtifact,
@@ -35,7 +37,7 @@ import {
   decodeFromAbi,
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractInstanceWithAddress,
   computePartialAddress,
@@ -46,10 +48,11 @@ import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import {
+  BlockHeader,
   type TxExecutionRequest,
   type TxProfileResult,
   TxSimulationResult,
-  type UtilitySimulationResult,
+  type UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
@@ -76,8 +79,6 @@ export type FeeOptions = {
  * A base class for Wallet implementations
  */
 export abstract class BaseWallet implements Wallet {
-  protected log = createLogger('wallet-sdk:base_wallet');
-
   protected minFeePadding = 0.5;
   protected cancellableTransactions = false;
 
@@ -85,7 +86,14 @@ export abstract class BaseWallet implements Wallet {
   protected constructor(
     protected readonly pxe: PXE,
     protected readonly aztecNode: AztecNode,
+    protected log = createLogger('wallet-sdk:base_wallet'),
   ) {}
+
+  protected scopesFrom(from: AztecAddress, additionalScopes: AztecAddress[] = []): AztecAddress[] {
+    const allScopes = from.isZero() ? additionalScopes : [from, ...additionalScopes];
+    const scopeSet = new Set(allScopes.map(address => address.toString()));
+    return [...scopeSet].map(AztecAddress.fromString);
+  }
 
   protected abstract getAccountFromAddress(address: AztecAddress): Promise<Account>;
 
@@ -291,16 +299,18 @@ export abstract class BaseWallet implements Wallet {
    * @param feeOptions - Fee options for the transaction.
    * @param skipTxValidation - Whether to skip tx validation.
    * @param skipFeeEnforcement - Whether to skip fee enforcement.
+   * @param scopes - The scopes to use for the simulation.
    */
   protected async simulateViaEntrypoint(
     executionPayload: ExecutionPayload,
     from: AztecAddress,
     feeOptions: FeeOptions,
+    scopes: AccessScopes,
     skipTxValidation?: boolean,
     skipFeeEnforcement?: boolean,
   ) {
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, from, feeOptions);
-    return this.pxe.simulateTx(txRequest, true /* simulatePublic */, skipTxValidation, skipFeeEnforcement);
+    return this.pxe.simulateTx(txRequest, { simulatePublic: true, skipTxValidation, skipFeeEnforcement, scopes });
   }
 
   /**
@@ -319,7 +329,14 @@ export abstract class BaseWallet implements Wallet {
     const remainingPayload = { ...executionPayload, calls: remainingCalls };
 
     const chainInfo = await this.getChainInfo();
-    const blockHeader = await this.pxe.getSyncedBlockHeader();
+    let blockHeader: BlockHeader;
+    // PXE might not be synced yet, so we pull the latest header from the node
+    // To keep things consistent, we'll always try with PXE first
+    try {
+      blockHeader = await this.pxe.getSyncedBlockHeader();
+    } catch {
+      blockHeader = (await this.aztecNode.getBlockHeader())!;
+    }
 
     const [optimizedResults, normalResult] = await Promise.all([
       optimizableCalls.length > 0
@@ -331,6 +348,7 @@ export abstract class BaseWallet implements Wallet {
             feeOptions.gasSettings,
             blockHeader,
             opts.skipFeeEnforcement ?? true,
+            this.getContractName.bind(this),
           )
         : Promise.resolve([]),
       remainingCalls.length > 0
@@ -338,6 +356,7 @@ export abstract class BaseWallet implements Wallet {
             remainingPayload,
             opts.from,
             feeOptions,
+            this.scopesFrom(opts.from, opts.additionalScopes),
             opts.skipTxValidation,
             opts.skipFeeEnforcement ?? true,
           )
@@ -350,7 +369,11 @@ export abstract class BaseWallet implements Wallet {
   async profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult> {
     const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
-    return this.pxe.profileTx(txRequest, opts.profileMode, opts.skipProofGeneration ?? true);
+    return this.pxe.profileTx(txRequest, {
+      profileMode: opts.profileMode,
+      skipProofGeneration: opts.skipProofGeneration ?? true,
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+    });
   }
 
   public async sendTx<W extends InteractionWaitOptions = undefined>(
@@ -359,7 +382,7 @@ export abstract class BaseWallet implements Wallet {
   ): Promise<SendReturn<W>> {
     const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
-    const provenTx = await this.pxe.proveTx(txRequest);
+    const provenTx = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
     const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
     if (await this.aztecNode.getTxEffect(txHash)) {
@@ -378,7 +401,27 @@ export abstract class BaseWallet implements Wallet {
 
     // Otherwise, wait for the full receipt (default behavior on wait: undefined)
     const waitOpts = typeof opts.wait === 'object' ? opts.wait : undefined;
-    return (await waitForTx(this.aztecNode, txHash, waitOpts)) as SendReturn<W>;
+    const receipt = await waitForTx(this.aztecNode, txHash, waitOpts);
+
+    // Display debug logs from public execution if present (served in test mode only)
+    if (receipt.debugLogs?.length) {
+      await displayDebugLogs(receipt.debugLogs, this.getContractName.bind(this));
+    }
+
+    return receipt as SendReturn<W>;
+  }
+
+  /**
+   * Resolves a contract address to a human-readable name via PXE, if available.
+   * @param address - The contract address to resolve.
+   */
+  protected async getContractName(address: AztecAddress): Promise<string | undefined> {
+    const instance = await this.pxe.getContractInstance(address);
+    if (!instance) {
+      return undefined;
+    }
+    const artifact = await this.pxe.getContractArtifact(instance.currentContractClassId);
+    return artifact?.name;
   }
 
   protected contextualizeError(err: Error, ...context: string[]): Error {
@@ -395,8 +438,8 @@ export abstract class BaseWallet implements Wallet {
     return err;
   }
 
-  simulateUtility(call: FunctionCall, authwits?: AuthWitness[]): Promise<UtilitySimulationResult> {
-    return this.pxe.simulateUtility(call, authwits);
+  executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions): Promise<UtilityExecutionResult> {
+    return this.pxe.executeUtility(call, { authwits: opts.authWitnesses, scopes: [opts.scope] });
   }
 
   async getPrivateEvents<T>(

@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Raju], commit: 21a7e3670e6 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -15,7 +15,6 @@
 
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
-#include <typeinfo>
 
 namespace bb {
 
@@ -98,7 +97,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     const MultithreadData thread_data = calculate_thread_data(domain_size - 1);
 
     // Allocate numerator/denominator polynomials that will serve as scratch space
-    // OPTIMIZE(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
+    // TODO: we can re-use the permutation polynomial as the numerator polynomial (reduces readability)
     Polynomial numerator{ domain_size };
     Polynomial denominator{ domain_size };
 
@@ -109,7 +108,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         const size_t end = thread_data.end[thread_idx];
         typename Flavor::AllValues row;
         for (size_t i = start; i < end; ++i) {
-            // OPTIMIZE(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if possible.
+            // TODO: consider avoiding get_row if possible.
             if constexpr (IsUltraOrMegaHonk<Flavor>) {
                 row = full_polynomials.get_row_for_permutation_arg(i);
             } else {

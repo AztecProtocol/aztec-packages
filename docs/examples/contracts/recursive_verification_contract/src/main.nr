@@ -8,7 +8,7 @@ pub contract ValueNotEqual {
     // docs:start:imports
     use aztec::{
         macros::{functions::{external, initializer, only_self, view}, storage::storage},
-        oracle::debug_log::debug_log_format,
+        oracle::logging::debug_log_format,
         protocol::{address::AztecAddress, traits::ToField},
         state_vars::{Map, PublicImmutable, PublicMutable},
     };

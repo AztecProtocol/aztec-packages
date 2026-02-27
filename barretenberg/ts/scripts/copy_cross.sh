@@ -5,7 +5,12 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 cd $(dirname $0)/..
 
-if semver check "${REF_NAME:-}" && [[ "$(arch)" == "amd64" ]]; then
+if [ -n "${1:-}" ]; then
+  arch="$1"
+  mkdir -p ./build/$arch
+  cp ../cpp/build-zig-$arch/bin/bb ./build/$arch
+  cp ../cpp/build-zig-$arch/lib/nodejs_module.node ./build/$arch
+elif semver check "${REF_NAME:-}" && [[ "$(arch)" == "amd64" ]]; then
   # We're building a release.
   # We take host build for amd64-linux.
   mkdir -p ./build/amd64-linux
@@ -22,5 +27,6 @@ if semver check "${REF_NAME:-}" && [[ "$(arch)" == "amd64" ]]; then
   llvm-strip-20 ./build/*/*
 else
   echo "This task is expected to be run in an x86 release context."
-  exit 1
+  # TODO bring back. was being called by release.
+  # exit 1
 fi

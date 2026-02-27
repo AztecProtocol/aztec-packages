@@ -87,8 +87,8 @@ impl PrivateTxBaseInputsValidator {
             self.anchor_block_archive_sibling_path,
         );
 
-        private_tail_validator::validate_include_by_timestamp(
-            private_tail.include_by_timestamp,
+        private_tail_validator::validate_expiration_timestamp(
+            private_tail.expiration_timestamp,
             self.constants.global_variables,
         );
 

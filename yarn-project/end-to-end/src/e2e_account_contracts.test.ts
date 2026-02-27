@@ -1,6 +1,5 @@
 import { EcdsaKAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
 import { type Account, type AccountContract, BaseAccount, getAccountContractAddress } from '@aztec/aztec.js/account';
 import { AztecAddress, CompleteAddress } from '@aztec/aztec.js/addresses';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
@@ -11,16 +10,18 @@ import { randomBytes } from '@aztec/foundation/crypto/random';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { createPXE, getPXEConfig } from '@aztec/pxe/server';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { TestWallet } from '@aztec/test-wallet/server';
 
 import { setup } from './fixtures/utils.js';
+import { TestWallet } from './test-wallet/test_wallet.js';
+import { AztecNodeProxy } from './test-wallet/utils.js';
 
 export class TestWalletInternals extends TestWallet {
   static override async create(node: AztecNode): Promise<TestWalletInternals> {
     const pxeConfig = getPXEConfig();
     pxeConfig.proverEnabled = false;
-    const pxe = await createPXE(node, pxeConfig);
-    return new TestWalletInternals(pxe, node);
+    const nodeRef = new AztecNodeProxy(node);
+    const pxe = await createPXE(nodeRef, pxeConfig);
+    return new TestWalletInternals(pxe, nodeRef);
   }
 
   replaceAccountAt(account: Account, address: AztecAddress) {
@@ -97,11 +98,7 @@ const itShouldBehaveLikeAnAccountContract = (
 };
 
 describe('e2e_account_contracts', () => {
-  describe('schnorr single-key account', () => {
-    itShouldBehaveLikeAnAccountContract((encryptionKey: GrumpkinScalar) => new SingleKeyAccountContract(encryptionKey));
-  });
-
-  describe('schnorr multi-key account', () => {
+  describe('schnorr account', () => {
     itShouldBehaveLikeAnAccountContract(() => new SchnorrAccountContract(GrumpkinScalar.random()));
   });
 

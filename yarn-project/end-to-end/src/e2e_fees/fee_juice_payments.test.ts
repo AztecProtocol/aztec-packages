@@ -5,8 +5,8 @@ import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
 import type { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import type { GasSettings } from '@aztec/stdlib/gas';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees Fee Juice payments', () => {
@@ -33,8 +33,8 @@ describe('e2e_fees Fee Juice payments', () => {
 
     // Alice pays for Bob's account contract deployment.
     const bobsDeployMethod = await bobsAccountManager.getDeployMethod();
-    await bobsDeployMethod.send({ from: aliceAddress });
     bobAddress = bobsAccountManager.address;
+    await bobsDeployMethod.send({ from: aliceAddress });
   });
 
   afterAll(async () => {

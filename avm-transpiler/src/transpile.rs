@@ -542,8 +542,8 @@ fn handle_foreign_call(
         "avmOpcodeStaticCall" => {
             handle_external_call(avm_instrs, destinations, inputs, AvmOpcode::STATICCALL);
         }
-        "avmOpcodeEmitUnencryptedLog" => {
-            handle_emit_unencrypted_log(avm_instrs, destinations, inputs);
+        "avmOpcodeEmitPublicLog" => {
+            handle_emit_public_log(avm_instrs, destinations, inputs);
         }
         "avmOpcodeNoteHashExists" => handle_note_hash_exists(avm_instrs, destinations, inputs),
         "avmOpcodeEmitNoteHash" | "avmOpcodeEmitNullifier" => handle_emit_note_hash_or_nullifier(
@@ -563,7 +563,7 @@ fn handle_foreign_call(
         "avmOpcodeRevert" => handle_revert(avm_instrs, destinations, inputs),
         "avmOpcodeStorageRead" => handle_storage_read(avm_instrs, destinations, inputs),
         "avmOpcodeStorageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
-        "utilityDebugLog" => handle_debug_log(avm_instrs, destinations, inputs),
+        "utilityLog" => handle_debug_log(avm_instrs, destinations, inputs),
         // Getters.
         _ if inputs.is_empty() && destinations.len() == 1 => {
             handle_getter_instruction(avm_instrs, function, destinations, inputs);
@@ -697,14 +697,14 @@ fn handle_note_hash_exists(
     });
 }
 
-fn handle_emit_unencrypted_log(
+fn handle_emit_public_log(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
 ) {
     if !destinations.is_empty() || inputs.len() != 2 {
         panic!(
-            "Transpiler expects ForeignCall::EMITUNENCRYPTEDLOG to have 0 destinations and 2 inputs, got {} and {}",
+            "Transpiler expects ForeignCall::EMITPUBLICLOG to have 0 destinations and 2 inputs, got {} and {}",
             destinations.len(),
             inputs.len()
         );
@@ -714,10 +714,10 @@ fn handle_emit_unencrypted_log(
     // The length field is redundant and we skipt it.
     let (message_offset, message_size_offset) = match &inputs[1] {
         ValueOrArray::HeapVector(vec) => (vec.pointer, vec.size),
-        _ => panic!("Unexpected inputs for ForeignCall::EMITUNENCRYPTEDLOG: {:?}", inputs),
+        _ => panic!("Unexpected inputs for ForeignCall::EMITPUBLICLOG: {:?}", inputs),
     };
     avm_instrs.push(AvmInstruction {
-        opcode: AvmOpcode::EMITUNENCRYPTEDLOG,
+        opcode: AvmOpcode::EMITPUBLICLOG,
         // The message array from Brillig is indirect (addressing mode).
         addressing_mode: Some(
             AddressingModeBuilder::default()
@@ -1348,8 +1348,8 @@ fn handle_debug_log(
 ) {
     // We need to handle two flavors here:
     //
-    // #[oracle(utilityDebugLog)]
-    // unconstrained fn debug_log_array_oracle<let M: u32, let N: u32>(
+    // #[oracle(utilityLog)]
+    // unconstrained fn log_oracle<let M: u32, let N: u32>(
     //     log_level: u8,
     //     msg: str<M>,
     //     length: u32,
@@ -1358,8 +1358,8 @@ fn handle_debug_log(
     //
     // and
     //
-    //#[oracle(utilityDebugLog)]
-    // unconstrained fn debug_log_slice_oracle<let M: u32>(log_level: u8, msg: str<M>, args: [Field]) {}
+    //#[oracle(utilityLog)]
+    // unconstrained fn log_slice_oracle<let M: u32>(log_level: u8, msg: str<M>, args: [Field]) {}
     //
     // Luckily, these two flavors have both 4 arguments, since noir inserts a length field for slices before the slice.
     // So we can handle both cases with mostly the same code.

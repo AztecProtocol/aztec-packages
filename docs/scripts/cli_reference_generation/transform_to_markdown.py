@@ -207,6 +207,15 @@ class MarkdownGenerator:
                 sections.append(self.render_options_list(cmd_data["options"]))
             sections.append("")
 
+        # Examples
+        if cmd_data.get("examples"):
+            sections.append("**Examples:**")
+            sections.append("```bash")
+            for example in cmd_data["examples"]:
+                sections.append(example)
+            sections.append("```")
+            sections.append("")
+
         return "\n".join(sections)
 
     def render_cli11_command(self, cmd_data: Dict[str, Any], depth: int) -> str:

@@ -4,7 +4,7 @@ import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import type { TxMetaData } from '../tx_metadata.js';
+import { type TxMetaData, stubTxMetaData } from '../tx_metadata.js';
 import { EvictionManager } from './eviction_manager.js';
 import {
   EvictionEvent,
@@ -12,6 +12,7 @@ import {
   type PoolOperations,
   type PreAddPoolAccess,
   type PreAddRule,
+  TxPoolRejectionCode,
 } from './interfaces.js';
 
 describe('EvictionManager', () => {
@@ -173,16 +174,7 @@ describe('EvictionManager', () => {
     let preAddRule: MockProxy<PreAddRule>;
     let poolAccess: MockProxy<PreAddPoolAccess>;
 
-    const createMeta = (txHash: string, priorityFee: bigint): TxMetaData => ({
-      txHash,
-      anchorBlockHeaderHash: '0x1234',
-      priorityFee,
-      feePayer: '0xfeepayer',
-      claimAmount: 0n,
-      feeLimit: 100n,
-      nullifiers: [`0x${txHash.slice(2)}null1`],
-      includeByTimestamp: 0n,
-    });
+    const createMeta = (txHash: string, priorityFee: bigint): TxMetaData => stubTxMetaData(txHash, { priorityFee });
 
     beforeEach(() => {
       preAddRule = mock<PreAddRule>({ name: 'preAddRule' });
@@ -202,16 +194,36 @@ describe('EvictionManager', () => {
 
       expect(result.shouldIgnore).toBe(false);
       expect(result.txHashesToEvict).toContain('0x2222');
-      expect(preAddRule.check).toHaveBeenCalledWith(incomingMeta, poolAccess);
+      expect(preAddRule.check).toHaveBeenCalledWith(incomingMeta, poolAccess, undefined);
+    });
+
+    it('forwards PreAddContext to rules', async () => {
+      preAddRule.check.mockResolvedValue({
+        shouldIgnore: false,
+        txHashesToEvict: [],
+      });
+
+      evictionManager.registerPreAddRule(preAddRule);
+      const incomingMeta = createMeta('0x1111', 100n);
+      const context = { feeComparisonOnly: true };
+
+      await evictionManager.runPreAddRules(incomingMeta, poolAccess, context);
+
+      expect(preAddRule.check).toHaveBeenCalledWith(incomingMeta, poolAccess, context);
     });
 
     it('returns ignore result immediately when a rule says to ignore', async () => {
       const preAddRule2 = mock<PreAddRule>({ name: 'preAddRule2' });
 
+      const testReason = {
+        code: 'NULLIFIER_CONFLICT' as const,
+        message: 'test reason',
+        conflictingTxHash: '0x9999',
+      };
       preAddRule.check.mockResolvedValue({
         shouldIgnore: true,
         txHashesToEvict: [],
-        reason: 'test reason',
+        reason: testReason,
       });
       preAddRule2.check.mockResolvedValue({
         shouldIgnore: false,
@@ -225,7 +237,7 @@ describe('EvictionManager', () => {
       const result = await evictionManager.runPreAddRules(incomingMeta, poolAccess);
 
       expect(result.shouldIgnore).toBe(true);
-      expect(result.reason).toBe('test reason');
+      expect(result.reason).toEqual(testReason);
       expect(preAddRule.check).toHaveBeenCalledTimes(1);
       // Second rule should not be called since first rule ignored
       expect(preAddRule2.check).not.toHaveBeenCalled();
@@ -306,16 +318,7 @@ describe('EvictionManager', () => {
       const preAddRule2 = mock<PreAddRule>({ name: 'secondRule' });
       const poolAccess = mock<PreAddPoolAccess>();
 
-      const createMeta = (txHash: string, priorityFee: bigint): TxMetaData => ({
-        txHash,
-        anchorBlockHeaderHash: '0x1234',
-        priorityFee,
-        feePayer: '0xfeepayer',
-        claimAmount: 0n,
-        feeLimit: 100n,
-        nullifiers: [`0x${txHash.slice(2)}null1`],
-        includeByTimestamp: 0n,
-      });
+      const createMeta = (txHash: string, priorityFee: bigint): TxMetaData => stubTxMetaData(txHash, { priorityFee });
 
       preAddRule1.check.mockRejectedValue(new Error('Rule failed'));
       preAddRule2.check.mockResolvedValue({
@@ -330,7 +333,9 @@ describe('EvictionManager', () => {
       const result = await evictionManager.runPreAddRules(incomingMeta, poolAccess);
 
       expect(result.shouldIgnore).toBe(true);
-      expect(result.reason).toContain('failingRule');
+      expect(result.reason).toBeDefined();
+      expect(result.reason!.code).toBe(TxPoolRejectionCode.INTERNAL_ERROR);
+      expect(result.reason!.message).toContain('failingRule');
       expect(result.txHashesToEvict).toHaveLength(0);
       // Second rule should not be called since first rule threw
       expect(preAddRule2.check).not.toHaveBeenCalled();

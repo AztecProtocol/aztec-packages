@@ -25,7 +25,7 @@ namespace bb {
  * Subrelation 0 (x-coordinate):
  *   Formula: x3 = lambda^2 - x1 - x2, where lambda = (q_sign * y2 - y1) / (x2 - x1)
  *   Constraint (via cancellation of denominator and assumption that q_sign^2 = 1):
- *      (x3 + x1 + x2)(x2 - x1)^2 - (y2^2 - y1^2 + 2*q_sign*y2*y1) = 0
+ *      (x3 + x1 + x2)(x2 - x1)^2 - (y2^2 + y1^2 - 2*q_sign*y2*y1) = 0
  *
  * Subrelation 1 (y-coordinate):
  *   Formula: y3 = lambda * (x1 - x3) - y1
@@ -42,7 +42,13 @@ namespace bb {
  * Subrelation 1 (y-coordinate):
  *   Formula: y3 = lambda * (x1 - x3) - y1
  *   Constraint:
- *      (y3 + y1)(x2 - x1) + (q_sign*y2 - y1)(x3 - x1) = 0
+ *      (y3 + y1)(2*y1) - (3*x1^2)(x1 - x3) = 0
+ *
+ * @warning On-curve assumption: The doubling constraint uses the substitution x1^3 = y1^2 - b (the curve equation) to
+ * reduce constraint degree. Therefore care must be taken to ensure that points involved in such gates are
+ * constrained to be on curve via the cycle_group abstraction. Such constraints should be applied explicitly for
+ * user-supplied witness points (such as those stemming from DSL inputs). Points resulting from previous elliptic
+ * relation gates are guaranteed to be on-curve. Constant points are checked statically at compile time.
  */
 template <typename FF_> class EllipticRelationImpl {
   public:

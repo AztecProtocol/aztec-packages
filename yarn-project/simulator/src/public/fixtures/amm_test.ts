@@ -1,4 +1,4 @@
-import { GeneratorIndex } from '@aztec/constants';
+import { DomainSeparator } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
@@ -326,6 +326,6 @@ async function removeLiquidity(
 async function computePartialNoteValidityCommitment(partialNote: { commitment: Fr }, completer: AztecAddress) {
   return await poseidon2HashWithSeparator(
     [partialNote.commitment, completer],
-    GeneratorIndex.PARTIAL_NOTE_VALIDITY_COMMITMENT,
+    DomainSeparator.PARTIAL_NOTE_VALIDITY_COMMITMENT,
   );
 }

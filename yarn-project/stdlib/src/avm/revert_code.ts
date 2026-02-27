@@ -5,10 +5,25 @@ import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 import { inspect } from 'util';
 import { z } from 'zod';
 
+/**
+ * Tracks which revertible phases of a transaction's public execution reverted.
+ *
+ * A transaction executes in three sequential phases:
+ *   1. SETUP     – non-revertible; if this fails the entire transaction is rejected.
+ *   2. APP_LOGIC – revertible; its state changes are rolled back on failure.
+ *   3. TEARDOWN  – revertible; always runs (even after app-logic revert) so the fee-payment contract can clean up.
+ *
+ * Only APP_LOGIC and TEARDOWN can produce a revert code. SETUP failures throw instead and discard the transaction
+ * entirely.
+ */
 export enum RevertCodeEnum {
+  /** All phases completed successfully; no state was rolled back. */
   OK = 0,
+  /** APP_LOGIC reverted; its state changes were discarded. If present, TEARDOWN still ran and succeeded. */
   APP_LOGIC_REVERTED = 1,
+  /** TEARDOWN reverted; its state changes were discarded. APP_LOGIC succeeded. */
   TEARDOWN_REVERTED = 2,
+  /** Both APP_LOGIC and TEARDOWN reverted; only SETUP effects are kept. */
   BOTH_REVERTED = 3,
 }
 

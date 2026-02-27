@@ -7,7 +7,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # module's own CMakeLists.txt by adding conditional compilation flags like the following
 # ```
 # if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-# target_compile_options(crypto_blake3s_full_objects PRIVATE -Wno-error=shorten-64-to-32)
+# target_compile_options(my_module_objects PRIVATE -Wno-error=shorten-64-to-32)
 # endif()
 # ```
 # Specifying `-Wno-${ERROR_NAME}` will silence the error completely.
@@ -165,13 +165,10 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:common_objects>
     $<TARGET_OBJECTS:crypto_aes128_objects>
     $<TARGET_OBJECTS:crypto_blake2s_objects>
-    $<TARGET_OBJECTS:crypto_blake3s_objects>
-    $<TARGET_OBJECTS:crypto_ecdsa_objects>
     $<TARGET_OBJECTS:crypto_keccak_objects>
     $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
     $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
     $<TARGET_OBJECTS:crypto_poseidon2_objects>
-    $<TARGET_OBJECTS:crypto_schnorr_objects>
     $<TARGET_OBJECTS:crypto_sha256_objects>
     $<TARGET_OBJECTS:dsl_objects>
     $<TARGET_OBJECTS:ecc_objects>

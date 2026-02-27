@@ -28,7 +28,7 @@ export async function benchmarkSetup(
   const contract = await BenchmarkingContract.deploy(context.wallet).send({ from: defaultAccountAddress });
   context.logger.info(`Deployed benchmarking contract at ${contract.address}`);
   const sequencer = (context.aztecNode as AztecNodeService).getSequencer()!;
-  const telemetry = context.telemetryClient! as BenchmarkTelemetryClient;
+  const telemetry = context.telemetryClient as BenchmarkTelemetryClient;
   context.logger.warn(`Cleared benchmark data points from setup`);
   telemetry.clear();
   const origTeardown = context.teardown.bind(context);

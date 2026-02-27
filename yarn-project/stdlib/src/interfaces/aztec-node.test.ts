@@ -16,7 +16,7 @@ import times from 'lodash.times';
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import type { DataInBlock } from '../block/in_block.js';
-import { BlockHash, type BlockParameter, CommitteeAttestation, L2Block } from '../block/index.js';
+import { type BlockData, BlockHash, type BlockParameter, CommitteeAttestation, L2Block } from '../block/index.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
@@ -360,7 +360,7 @@ describe('AztecNodeApiSchema', () => {
             count: 1,
             total: 1,
           },
-          history: [{ slot: SlotNumber(1), status: 'block-mined' }],
+          history: [{ slot: SlotNumber(1), status: 'checkpoint-mined' }],
         },
       },
       lastProcessedSlot: SlotNumber(20),
@@ -407,7 +407,7 @@ describe('AztecNodeApiSchema', () => {
         totalSlots: 5,
         missedAttestations: { currentStreak: 0, count: 0, total: 1 },
         missedProposals: { currentStreak: 0, count: 0, total: 1 },
-        history: [{ slot: SlotNumber(1), status: 'block-mined' }],
+        history: [{ slot: SlotNumber(1), status: 'checkpoint-mined' }],
       },
       allTimeProvenPerformance: [],
       lastProcessedSlot: SlotNumber(10),
@@ -637,6 +637,12 @@ class MockAztecNode implements AztecNode {
   getBlockHeaderByArchive(_archive: Fr): Promise<BlockHeader | undefined> {
     return Promise.resolve(BlockHeader.empty());
   }
+  getBlockData(_number: BlockNumber): Promise<BlockData | undefined> {
+    return Promise.resolve(undefined);
+  }
+  getBlockDataByArchive(_archive: Fr): Promise<BlockData | undefined> {
+    return Promise.resolve(undefined);
+  }
   getCurrentMinFees(): Promise<GasFees> {
     return Promise.resolve(GasFees.empty());
   }
@@ -668,6 +674,7 @@ class MockAztecNode implements AztecNode {
         L1ContractsNames.map(name => [name, EthAddress.random()]),
       ) as L1ContractAddresses,
       protocolContractAddresses: Object.fromEntries(protocolContracts) as ProtocolContractAddresses,
+      realProofs: true,
     };
   }
   getBlocks(from: number, limit: number): Promise<L2Block[]> {

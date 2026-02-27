@@ -3,11 +3,10 @@ use types::{
     abis::gas::Gas,
     constants::{
         AVM_EMITNOTEHASH_BASE_L2_GAS, AVM_EMITNULLIFIER_BASE_L2_GAS, AVM_SENDL2TOL1MSG_BASE_L2_GAS,
-        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE,
-        FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_PRIVATE_LOG,
-        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        PRIVATE_LOG_SIZE_IN_FIELDS,
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DA_GAS_PER_FIELD, FIXED_AVM_STARTUP_L2_GAS,
+        L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_PRIVATE_LOG, MAX_CONTRACT_CLASS_LOGS_PER_TX,
+        MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
 };
 
@@ -16,9 +15,9 @@ use types::{
 /// - a public call request, that's what makes it a "public" tx.
 fn get_minimum_public_tx_gas_used() -> Gas {
     let nullifier_gas_used =
-        Gas { da_gas: DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE, l2_gas: AVM_EMITNULLIFIER_BASE_L2_GAS };
+        Gas { da_gas: DA_GAS_PER_FIELD, l2_gas: AVM_EMITNULLIFIER_BASE_L2_GAS };
     let public_call_gas_used = Gas { da_gas: 0, l2_gas: FIXED_AVM_STARTUP_L2_GAS };
-    Gas::tx_overhead() + nullifier_gas_used + public_call_gas_used
+    Gas::public_tx_overhead() + nullifier_gas_used + public_call_gas_used
 }
 
 #[test]
@@ -75,7 +74,7 @@ fn with_note_hashes() {
 
     let num_note_hashes = 2 /* non-revertible */
         + 3 /* revertible */;
-    let da_gas = num_note_hashes * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+    let da_gas = num_note_hashes * DA_GAS_PER_FIELD;
     let l2_gas = num_note_hashes * AVM_EMITNOTEHASH_BASE_L2_GAS;
     let expected_gas_used = Gas::new(da_gas, l2_gas) + get_minimum_public_tx_gas_used();
 
@@ -93,7 +92,7 @@ fn with_nullifiers() {
 
     let num_nullifiers = 2 /* non-revertible */
         + 3 /* revertible */;
-    let da_gas = num_nullifiers * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+    let da_gas = num_nullifiers * DA_GAS_PER_FIELD;
     let l2_gas = num_nullifiers * AVM_EMITNULLIFIER_BASE_L2_GAS;
     let expected_gas_used = Gas::new(da_gas, l2_gas) + get_minimum_public_tx_gas_used();
 
@@ -111,7 +110,7 @@ fn with_l2_to_l1_msgs() {
 
     let num_msgs = 2 /* non-revertible */
         + 3 /* revertible */;
-    let da_gas = num_msgs * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+    let da_gas = num_msgs * DA_GAS_PER_FIELD;
     let l2_gas = num_msgs * AVM_SENDL2TOL1MSG_BASE_L2_GAS;
     let expected_gas_used = Gas::new(da_gas, l2_gas) + get_minimum_public_tx_gas_used();
 
@@ -133,7 +132,7 @@ fn with_private_logs() {
     let num_private_logs = 2 /* non-revertible */
         + 3 /* revertible */;
     let num_fields = 4 + 3 + 2 + 6 + 1 + num_private_logs; // +num_private_logs for the length field of each private log.
-    let da_gas = num_fields * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+    let da_gas = num_fields * DA_GAS_PER_FIELD;
     let l2_gas = num_private_logs * L2_GAS_PER_PRIVATE_LOG;
     let expected_gas_used = Gas::new(da_gas, l2_gas) + get_minimum_public_tx_gas_used();
 
@@ -149,7 +148,7 @@ fn with_non_revertible_contract_class_logs() {
 
     let num_logs = 1;
     let num_fields = 12 + 1; // +1 for the contract address.
-    let da_gas = num_fields * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+    let da_gas = num_fields * DA_GAS_PER_FIELD;
     let l2_gas = num_logs * L2_GAS_PER_CONTRACT_CLASS_LOG;
     let expected_gas_used = Gas::new(da_gas, l2_gas) + get_minimum_public_tx_gas_used();
 
@@ -166,7 +165,7 @@ fn with_revertible_contract_class_logs() {
 
     let num_logs = 1;
     let num_fields = 12 + 1; // +1 for the contract address.
-    let da_gas = num_fields * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+    let da_gas = num_fields * DA_GAS_PER_FIELD;
     let l2_gas = num_logs * L2_GAS_PER_CONTRACT_CLASS_LOG;
     let expected_gas_used = Gas::new(da_gas, l2_gas) + get_minimum_public_tx_gas_used();
 
@@ -230,14 +229,15 @@ fn full_side_effects() {
         + MAX_L2_TO_L1_MSGS_PER_TX
         + (PRIVATE_LOG_SIZE_IN_FIELDS + 1) * MAX_PRIVATE_LOGS_PER_TX // +1 for the length field of each private log.
         + (CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + 1) * MAX_CONTRACT_CLASS_LOGS_PER_TX; // +1 for the contract address.
-    let da_gas = num_da_fields * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+    let da_gas = num_da_fields * DA_GAS_PER_FIELD;
     let l2_gas = MAX_NOTE_HASHES_PER_TX * AVM_EMITNOTEHASH_BASE_L2_GAS
         + MAX_NULLIFIERS_PER_TX * AVM_EMITNULLIFIER_BASE_L2_GAS
         + MAX_L2_TO_L1_MSGS_PER_TX * AVM_SENDL2TOL1MSG_BASE_L2_GAS
         + MAX_PRIVATE_LOGS_PER_TX * L2_GAS_PER_PRIVATE_LOG
         + MAX_CONTRACT_CLASS_LOGS_PER_TX * L2_GAS_PER_CONTRACT_CLASS_LOG
         + MAX_ENQUEUED_CALLS_PER_TX * FIXED_AVM_STARTUP_L2_GAS;
-    let expected_gas_used = Gas::tx_overhead() + Gas::new(da_gas, l2_gas) + teardown_gas_limits;
+    let expected_gas_used =
+        Gas::public_tx_overhead() + Gas::new(da_gas, l2_gas) + teardown_gas_limits;
 
     let public_inputs = builder.execute();
     assert_eq(public_inputs.gas_used, expected_gas_used);

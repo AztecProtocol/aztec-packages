@@ -41,6 +41,7 @@ describe('CheckpointBuilder', () => {
     chainId: new Fr(1),
     version: new Fr(1),
     slotNumber,
+    timestamp: BigInt(Date.now()),
     coinbase: EthAddress.random(),
     feeRecipient: AztecAddress.fromField(Fr.random()),
     gasFees: GasFees.empty(),
@@ -86,7 +87,7 @@ describe('CheckpointBuilder', () => {
       lightweightCheckpointBuilder.getBlockCount.mockReturnValue(0);
 
       const expectedBlock = await L2Block.random(blockNumber);
-      lightweightCheckpointBuilder.addBlock.mockResolvedValue(expectedBlock);
+      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
 
       processor.process.mockResolvedValue([
         [{ hash: Fr.random(), gasUsed: { publicGas: Gas.empty() } } as unknown as ProcessedTx],
@@ -94,6 +95,7 @@ describe('CheckpointBuilder', () => {
         [], // usedTxs
         [], // returnValues
         0, // usedTxBlobFields
+        [], // debugLogs
       ]);
 
       const result = await checkpointBuilder.buildBlock([], blockNumber, 1000n);
@@ -108,7 +110,7 @@ describe('CheckpointBuilder', () => {
       lightweightCheckpointBuilder.getBlockCount.mockReturnValue(0);
 
       const expectedBlock = await L2Block.random(blockNumber, { txsPerBlock: 0 });
-      lightweightCheckpointBuilder.addBlock.mockResolvedValue(expectedBlock);
+      lightweightCheckpointBuilder.addBlock.mockResolvedValue({ block: expectedBlock, timings: {} });
 
       // No transactions processed
       processor.process.mockResolvedValue([
@@ -117,6 +119,7 @@ describe('CheckpointBuilder', () => {
         [], // usedTxs
         [], // returnValues
         0, // usedTxBlobFields
+        [], // debugLogs
       ]);
 
       const result = await checkpointBuilder.buildBlock([], blockNumber, 1000n);
@@ -136,6 +139,7 @@ describe('CheckpointBuilder', () => {
         [], // usedTxs
         [], // returnValues
         0, // usedTxBlobFields
+        [], // debugLogs
       ]);
 
       await expect(checkpointBuilder.buildBlock([], blockNumber, 1000n)).rejects.toThrow(NoValidTxsError);

@@ -46,7 +46,7 @@ function cache_persistent {
     {
       cat "$tmpfile" | cache_disk_transfer "$key"
       rm -f "$tmpfile"
-    } &
+    } >&- 2>&- &
   else
     rm -f "$tmpfile"
   fi

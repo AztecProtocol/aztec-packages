@@ -35,8 +35,7 @@ pub fn validate_squashable_note_hash_nullifier_pair(
         "Cannot nullify a note hash created afterwards",
     );
 
-    // If the nullifier is revertible (i.e., counter >= `split_counter`), the note hash must also
-    // be revertible.
+    // If the nullifier is revertible (i.e., counter > `split_counter`), the note hash must also be revertible.
     //
     // A revertible nullifier and non-revertible note hash pair can't be squashed; they must be propagated.
     // This is because if the tx were to then revert (in some public function), the revertible nullifier must be discarded
@@ -55,9 +54,9 @@ pub fn validate_squashable_note_hash_nullifier_pair(
     // side-effect counter to be `0` (as enforced by the init and inner kernel circuits).
     // Otherwise, `split_counter` is the `min_revertible_side_effect_counter` of the tx, which is
     // asserted to be distinct from all other counters in the init and inner kernel circuits.
-    if nullifier.counter() >= split_counter {
+    if nullifier.counter() > split_counter {
         assert(
-            note_hash.counter() >= split_counter,
+            note_hash.counter() > split_counter,
             "Cannot squash a non-revertible note hash with a revertible nullifier",
         );
     }
@@ -149,7 +148,7 @@ mod tests {
 
         builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(9)]);
 
-        // Both counters (5 and 9) are >= split_counter (3), so both are revertible.
+        // Both counters (5 and 9) are > split_counter (3), so both are revertible.
         builder.split_counter = 3;
 
         builder.add_squashing_hint(0, 0);

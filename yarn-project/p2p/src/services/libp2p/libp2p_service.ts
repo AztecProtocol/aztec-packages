@@ -1,6 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
-import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -17,13 +16,12 @@ import {
   CheckpointProposal,
   type CheckpointProposalCore,
   type Gossipable,
-  P2PClientType,
   P2PMessage,
   type ValidationResult as P2PValidationResult,
   PeerErrorSeverity,
   TopicType,
   createTopicString,
-  getTopicsForClientAndConfig,
+  getTopicsForConfig,
   metricsTopicStrToLabels,
 } from '@aztec/stdlib/p2p';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -70,9 +68,11 @@ import {
 } from '../../msg_validators/index.js';
 import { MessageSeenValidator } from '../../msg_validators/msg_seen_validator/msg_seen_validator.js';
 import {
-  type MessageValidator,
-  createTxMessageValidators,
-  createTxReqRespValidator,
+  type TransactionValidator,
+  createFirstStageTxValidationsForGossipedTransactions,
+  createSecondStageTxValidationsForGossipedTransactions,
+  createTxValidatorForBlockProposalReceivedTxs,
+  createTxValidatorForReqResponseReceivedTxs,
 } from '../../msg_validators/tx_validator/factory.js';
 import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
@@ -88,6 +88,9 @@ import { PeerScoring } from '../peer-manager/peer_scoring.js';
 import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
 import type { P2PReqRespConfig } from '../reqresp/config.js';
 import {
+  AuthRequest,
+  BlockTxsRequest,
+  BlockTxsResponse,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
   type ReqRespResponse,
@@ -95,14 +98,9 @@ import {
   type ReqRespSubProtocolHandler,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolValidators,
+  StatusMessage,
   type SubProtocolMap,
   ValidationError,
-} from '../reqresp/index.js';
-import {
-  AuthRequest,
-  BlockTxsRequest,
-  BlockTxsResponse,
-  StatusMessage,
   pingHandler,
   reqGoodbyeHandler,
   reqRespBlockHandler,
@@ -114,6 +112,7 @@ import { ReqResp } from '../reqresp/reqresp.js';
 import type {
   P2PBlockReceivedCallback,
   P2PCheckpointReceivedCallback,
+  P2PDuplicateAttestationCallback,
   P2PService,
   PeerDiscoveryService,
 } from '../service.js';
@@ -135,7 +134,7 @@ type ReceivedMessageValidationResult<T, M = undefined> =
 /**
  * Lib P2P implementation of the P2PService interface.
  */
-export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends WithTracer implements P2PService {
+export class LibP2PService extends WithTracer implements P2PService {
   private discoveryRunningPromise?: RunningPromise;
   private msgIdSeenValidators: Record<TopicType, MessageSeenValidator> = {} as Record<TopicType, MessageSeenValidator>;
 
@@ -155,6 +154,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     proposer: EthAddress;
     type: 'checkpoint' | 'block';
   }) => void;
+
+  /** Callback invoked when a duplicate attestation is detected (triggers slashing). */
+  private duplicateAttestationCallback?: P2PDuplicateAttestationCallback;
 
   /**
    * Callback for when a block is received from a peer.
@@ -179,7 +181,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   protected logger: Logger;
 
   constructor(
-    private clientType: T,
     private config: P2PConfig,
     protected node: PubSubLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
@@ -259,8 +260,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param txPool - The transaction pool to be accessed by the service.
    * @returns The new service.
    */
-  public static async new<T extends P2PClientType>(
-    clientType: T,
+  public static async new(
     config: P2PConfig,
     peerId: PeerId,
     deps: {
@@ -338,6 +338,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       heartbeatIntervalMs: config.gossipsubInterval,
       targetCommitteeSize: l1Constants.targetCommitteeSize,
       blockDurationMs: config.blockDurationMs,
+      expectedBlockProposalsPerSlot: config.expectedBlockProposalsPerSlot,
     });
 
     const node = await createLibp2p({
@@ -471,7 +472,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       peerManager.shouldDisableP2PGossip(peerId) ? -Infinity : peerManager.getPeerScore(peerId);
 
     return new LibP2PService(
-      clientType,
       config,
       node,
       peerDiscoveryService,
@@ -545,7 +545,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     await this.node.start();
 
     // Subscribe to standard GossipSub topics by default
-    for (const topic of getTopicsForClientAndConfig(this.clientType, this.config.disableTransactions)) {
+    for (const topic of getTopicsForConfig(this.config.disableTransactions)) {
       this.subscribeToTopic(this.topicStrings[topic]);
     }
 
@@ -611,6 +611,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return this.peerManager.getPeers(includePending);
   }
 
+  public getGossipMeshPeerCount(topicType: TopicType): number {
+    return this.node.services.pubsub.getMeshPeers(this.topicStrings[topicType]).length;
+  }
+
   private handleGossipSubEvent(e: CustomEvent<GossipsubMessage>) {
     this.logger.trace(`Received PUBSUB message.`);
 
@@ -671,6 +675,15 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     callback: (info: { slot: SlotNumber; proposer: EthAddress; type: 'checkpoint' | 'block' }) => void,
   ): void {
     this.duplicateProposalCallback = callback;
+  }
+
+  /**
+   * Registers a callback to be invoked when a duplicate attestation is detected.
+   * A validator signing attestations for different proposals at the same slot.
+   * This callback is triggered on the first duplicate (when count goes from 1 to 2).
+   */
+  public registerDuplicateAttestationCallback(callback: P2PDuplicateAttestationCallback): void {
+    this.duplicateAttestationCallback = callback;
   }
 
   /**
@@ -801,9 +814,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       if (msg.topic === this.topicStrings[TopicType.tx]) {
         await this.handleGossipedTx(p2pMessage.payload, msgId, source);
       } else if (msg.topic === this.topicStrings[TopicType.checkpoint_attestation]) {
-        if (this.clientType === P2PClientType.Full) {
-          await this.processCheckpointAttestationFromPeer(p2pMessage.payload, msgId, source);
-        }
+        await this.processCheckpointAttestationFromPeer(p2pMessage.payload, msgId, source);
       } else if (msg.topic === this.topicStrings[TopicType.block_proposal]) {
         await this.processBlockFromPeer(p2pMessage.payload, msgId, source);
       } else if (msg.topic === this.topicStrings[TopicType.checkpoint_proposal]) {
@@ -889,21 +900,63 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   protected async handleGossipedTx(payloadData: Buffer, msgId: string, source: PeerId) {
     const validationFunc: () => Promise<ReceivedMessageValidationResult<Tx>> = async () => {
       const tx = Tx.fromBuffer(payloadData);
-      const isValid = await this.validatePropagatedTx(tx, source);
-      const exists = isValid && (await this.mempools.txPool.hasTx(tx.getTxHash()));
+
+      const currentBlockNumber = await this.archiver.getBlockNumber();
+      const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
+
+      // Stage 1: fast validators (metadata, data, timestamps, double-spend, gas, phases, block header)
+      const firstStageValidators = await this.createFirstStageMessageValidators(currentBlockNumber, nextSlotTimestamp);
+      const firstStageOutcome = await this.runValidations(tx, firstStageValidators);
+      if (!firstStageOutcome.allPassed) {
+        const { name } = firstStageOutcome.failure;
+        let { severity } = firstStageOutcome.failure;
+
+        // Double spend validator has a special case handler. We perform more detailed examination
+        // as to how recently the nullifier was entered into the tree and if the transaction should
+        // have 'known' the nullifier existed. This determines the severity of the penalty applied to the peer.
+        if (name === 'doubleSpendValidator') {
+          const txBlockNumber = BlockNumber(currentBlockNumber + 1);
+          severity = await this.handleDoubleSpendFailure(tx, txBlockNumber);
+        }
+
+        this.peerManager.penalizePeer(source, severity);
+        return { result: TopicValidatorResult.Reject };
+      }
+
+      // Pool pre-check: see if the pool would accept this tx before doing expensive proof verification
+      const canAdd = await this.mempools.txPool.canAddPendingTx(tx);
+      if (canAdd === 'ignored') {
+        return { result: TopicValidatorResult.Ignore, obj: tx };
+      }
+
+      // Stage 2: expensive proof verification
+      const secondStageValidators = this.createSecondStageMessageValidators();
+      const secondStageOutcome = await this.runValidations(tx, secondStageValidators);
+      if (!secondStageOutcome.allPassed) {
+        const { severity } = secondStageOutcome.failure;
+        this.peerManager.penalizePeer(source, severity);
+        return { result: TopicValidatorResult.Reject };
+      }
+
+      // Pool add: persist the tx
+      const txHash = tx.getTxHash();
+      const addResult = await this.mempools.txPool.addPendingTxs([tx], { source: 'gossip' });
+
+      const wasAccepted = addResult.accepted.some(h => h.equals(txHash));
+      const wasIgnored = addResult.ignored.some(h => h.equals(txHash));
 
       this.logger.trace(`Validate propagated tx`, {
-        isValid,
-        exists,
+        wasAccepted,
+        wasIgnored,
         [Attributes.P2P_ID]: source.toString(),
       });
 
-      if (!isValid) {
-        return { result: TopicValidatorResult.Reject };
-      } else if (exists) {
+      if (wasAccepted) {
+        return { result: TopicValidatorResult.Accept, obj: tx };
+      } else if (wasIgnored) {
         return { result: TopicValidatorResult.Ignore, obj: tx };
       } else {
-        return { result: TopicValidatorResult.Accept, obj: tx };
+        return { result: TopicValidatorResult.Reject };
       }
     };
 
@@ -912,6 +965,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return;
     }
 
+    // Tx was accepted into pool and will be propagated - just log and record metrics
     const txHash = tx.getTxHash();
     const txHashString = txHash.toString();
     this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()} via gossip`, {
@@ -919,13 +973,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       txHash: txHashString,
     });
 
-    if (this.config.dropTransactions && randomInt(1000) < this.config.dropTransactionsProbability * 1000) {
-      this.logger.warn(`Intentionally dropping tx ${txHashString} (probability rule)`);
-      return;
-    }
-
     this.instrumentation.incrementTxReceived(1);
-    await this.mempools.txPool.addTxs([tx]);
   }
 
   /**
@@ -979,40 +1027,53 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return { result: TopicValidatorResult.Ignore, obj: attestation };
     }
 
-    // Get committee size for the attestation's slot
-    const slot = attestation.payload.header.slotNumber;
-    const { committee } = await this.epochCache.getCommittee(slot);
-    const committeeSize = committee?.length ?? 0;
-
     // Try to add the attestation: this handles existence check, cap check, and adding in one call
-    const { added, alreadyExists } = await this.mempools.attestationPool.tryAddCheckpointAttestation(
-      attestation,
-      committeeSize,
-    );
+    // count is the number of attestations by this signer for this slot (for duplicate detection)
+    const slot = attestation.payload.header.slotNumber;
+    const { added, alreadyExists, count } =
+      await this.mempools.attestationPool.tryAddCheckpointAttestation(attestation);
 
     this.logger.trace(`Validate propagated checkpoint attestation`, {
       added,
       alreadyExists,
+      count,
       [Attributes.SLOT_NUMBER]: slot.toString(),
       [Attributes.P2P_ID]: peerId.toString(),
     });
 
-    // Duplicate attestation received, no need to re-broadcast
+    // Exact same attestation received, no need to re-broadcast
     if (alreadyExists) {
       return { result: TopicValidatorResult.Ignore, obj: attestation };
     }
 
-    // Could not add (cap reached), no need to re-broadcast
+    // Could not add (cap reached for signer), no need to re-broadcast
     if (!added) {
-      this.logger.warn(`Dropping checkpoint attestation due to per-(slot, proposalId) attestation cap`, {
+      this.logger.warn(`Dropping checkpoint attestation due to cap`, {
         slot: slot.toString(),
         archive: attestation.archive.toString(),
         source: peerId.toString(),
+        attester: attestation.getSender()?.toString(),
+        count,
       });
       return { result: TopicValidatorResult.Ignore, obj: attestation };
     }
 
-    // Attestation was added successfully
+    // Check if this is a duplicate attestation (signer attested to a different proposal at the same slot)
+    // count is the number of attestations by this signer for this slot
+    if (count === 2) {
+      const attester = attestation.getSender();
+      if (attester) {
+        this.logger.warn(`Detected duplicate attestation (equivocation) at slot ${slot}`, {
+          slot: slot.toString(),
+          archive: attestation.archive.toString(),
+          source: peerId.toString(),
+          attester: attester.toString(),
+        });
+        this.duplicateAttestationCallback?.({ slot, attester });
+      }
+    }
+
+    // Attestation was added successfully - accept it so other nodes can also detect the equivocation
     return { result: TopicValidatorResult.Accept, obj: attestation };
   }
 
@@ -1058,8 +1119,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     }
 
     // Try to add the proposal: this handles existence check, cap check, and adding in one call
-    const { added, alreadyExists, totalForPosition } = await this.mempools.attestationPool.tryAddBlockProposal(block);
-    const isEquivocated = totalForPosition !== undefined && totalForPosition > 1;
+    const { added, alreadyExists, count } = await this.mempools.attestationPool.tryAddBlockProposal(block);
+    const isEquivocated = count !== undefined && count > 1;
 
     // Duplicate proposal received, no need to re-broadcast
     if (alreadyExists) {
@@ -1078,7 +1139,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       this.logger.warn(`Penalizing peer for block proposal exceeding per-position cap`, {
         ...block.toBlockInfo(),
         indexWithinCheckpoint: block.indexWithinCheckpoint,
-        totalForPosition,
+        count,
         proposer: block.getSender()?.toString(),
         source: peerId.toString(),
       });
@@ -1095,7 +1156,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         proposer: proposer?.toString(),
       });
       // Invoke the duplicate callback on the first duplicate spotted only
-      if (proposer && totalForPosition === 2) {
+      if (proposer && count === 2) {
         this.duplicateProposalCallback?.({ slot: block.slotNumber, proposer, type: 'block' });
       }
       return { result: TopicValidatorResult.Accept, obj: block, metadata: { isEquivocated } };
@@ -1120,8 +1181,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       ...block.toBlockInfo(),
     });
 
-    // Mark the txs in this proposal as non-evictable
-    await this.mempools.txPool.markTxsAsNonEvictable(block.txHashes);
+    // Mark the txs in this proposal as protected
+    await this.mempools.txPool.protectTxs(block.txHashes, block.blockHeader);
 
     // Call the block received callback to validate the proposal.
     // Note: Validators do NOT attest to individual blocks, only to checkpoint proposals.
@@ -1212,8 +1273,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     // Try to add the checkpoint proposal core: this handles existence check, cap check, and adding in one call
     const checkpointCore = checkpoint.toCore();
     const tryAddResult = await this.mempools.attestationPool.tryAddCheckpointProposal(checkpointCore);
-    const { added, alreadyExists, totalForPosition } = tryAddResult;
-    const isEquivocated = totalForPosition !== undefined && totalForPosition > 1;
+    const { added, alreadyExists, count } = tryAddResult;
+    const isEquivocated = count !== undefined && count > 1;
 
     // Duplicate proposal received, do not re-broadcast
     if (alreadyExists) {
@@ -1234,7 +1295,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
       this.logger.warn(`Penalizing peer for checkpoint proposal exceeding per-slot cap`, {
         ...checkpoint.toCheckpointInfo(),
-        totalForPosition,
+        count,
         source: peerId.toString(),
       });
       return { result: TopicValidatorResult.Reject, obj: checkpoint, metadata: { isEquivocated, processBlock } };
@@ -1250,7 +1311,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         proposer: proposer?.toString(),
       });
       // Invoke the duplicate callback on the first duplicate spotted only
-      if (proposer && totalForPosition === 2) {
+      if (proposer && count === 2) {
         this.duplicateProposalCallback?.({ slot: checkpoint.slotNumber, proposer, type: 'checkpoint' });
       }
       return {
@@ -1499,41 +1560,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   protected createRequestedTxValidator(): TxValidator {
-    return createTxReqRespValidator(this.proofVerifier, {
+    return createTxValidatorForReqResponseReceivedTxs(this.proofVerifier, {
       l1ChainId: this.config.l1ChainId,
       rollupVersion: this.config.rollupVersion,
     });
-  }
-
-  @trackSpan('Libp2pService.validatePropagatedTx', tx => ({
-    [Attributes.TX_HASH]: tx.getTxHash().toString(),
-  }))
-  private async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
-    const currentBlockNumber = await this.archiver.getBlockNumber();
-
-    // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
-    const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
-    const messageValidators = await this.createMessageValidators(currentBlockNumber, nextSlotTimestamp);
-
-    for (const validator of messageValidators) {
-      const outcome = await this.runValidations(tx, validator);
-
-      if (outcome.allPassed) {
-        continue;
-      }
-      const { name } = outcome.failure;
-      let { severity } = outcome.failure;
-
-      // Double spend validator has a special case handler
-      if (name === 'doubleSpendValidator') {
-        const txBlockNumber = BlockNumber(currentBlockNumber + 1); // tx is expected to be in the next block
-        severity = await this.handleDoubleSpendFailure(tx, txBlockNumber);
-      }
-
-      this.peerManager.penalizePeer(peerId, severity);
-      return false;
-    }
-    return true;
   }
 
   private async getGasFees(blockNumber: BlockNumber): Promise<GasFees> {
@@ -1563,58 +1593,51 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     };
   }
 
-  public async validate(txs: Tx[]): Promise<void> {
-    const currentBlockNumber = await this.archiver.getBlockNumber();
+  public async validateTxsReceivedInBlockProposal(txs: Tx[]): Promise<void> {
+    const validator = createTxValidatorForBlockProposalReceivedTxs(
+      this.proofVerifier,
+      { l1ChainId: this.config.l1ChainId, rollupVersion: this.config.rollupVersion },
+      this.logger.getBindings(),
+    );
 
-    // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
-    const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
-    const messageValidators = await this.createMessageValidators(currentBlockNumber, nextSlotTimestamp);
-
-    await Promise.all(
+    const results = await Promise.all(
       txs.map(async tx => {
-        for (const validator of messageValidators) {
-          const outcome = await this.runValidations(tx, validator);
-          if (!outcome.allPassed) {
-            throw new Error('Invalid tx detected', { cause: { outcome } });
-          }
-        }
+        const result = await validator.validateTx(tx);
+        return result.result !== 'invalid';
       }),
     );
+    if (results.some(value => value === false)) {
+      throw new Error('Invalid tx detected');
+    }
   }
 
-  /**
-   * Create message validators for the given block number and timestamp.
-   *
-   * Each validator is a pair of a validator and a severity.
-   * If a validator fails, the peer is penalized with the severity of the validator.
-   *
-   * @param currentBlockNumber - The current synced block number.
-   * @param nextSlotTimestamp - The timestamp of the next slot (used to validate txs are not expired).
-   * @returns The message validators.
-   */
-  private async createMessageValidators(
+  /** Creates the first stage (fast) validators for gossiped transactions. */
+  protected async createFirstStageMessageValidators(
     currentBlockNumber: BlockNumber,
     nextSlotTimestamp: UInt64,
-  ): Promise<Record<string, MessageValidator>[]> {
+  ): Promise<Record<string, TransactionValidator>> {
     const gasFees = await this.getGasFees(currentBlockNumber);
     const allowedInSetup = this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
+    const blockNumber = BlockNumber(currentBlockNumber + 1);
 
-    const blockNumberInWhichTheTxIsConsideredToBeIncluded = BlockNumber(currentBlockNumber + 1);
-
-    return createTxMessageValidators(
+    return createFirstStageTxValidationsForGossipedTransactions(
       nextSlotTimestamp,
-      blockNumberInWhichTheTxIsConsideredToBeIncluded,
+      blockNumber,
       this.worldStateSynchronizer,
       gasFees,
       this.config.l1ChainId,
       this.config.rollupVersion,
       protocolContractsHash,
       this.archiver,
-      this.proofVerifier,
       !this.config.disableTransactions,
       allowedInSetup,
       this.logger.getBindings(),
     );
+  }
+
+  /** Creates the second stage (expensive proof verification) validators for gossiped transactions. */
+  protected createSecondStageMessageValidators(): Record<string, TransactionValidator> {
+    return createSecondStageTxValidationsForGossipedTransactions(this.proofVerifier, this.logger.getBindings());
   }
 
   /**
@@ -1625,7 +1648,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    */
   private async runValidations(
     tx: Tx,
-    messageValidators: Record<string, MessageValidator>,
+    messageValidators: Record<string, TransactionValidator>,
   ): Promise<ValidationOutcome> {
     const validationPromises = Object.entries(messageValidators).map(async ([name, { validator, severity }]) => {
       const { result } = await validator.validateTx(tx);

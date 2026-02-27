@@ -10,17 +10,18 @@ import 'jest-extended';
 import os from 'os';
 import path from 'path';
 
+import { getBootNodeUdpPort } from '../fixtures/fixtures.js';
 import { createNodes, createNonValidatorNode } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 
 const NUM_NODES = 2;
 const VALIDATORS_PER_NODE = 3;
 const NUM_VALIDATORS = NUM_NODES * VALIDATORS_PER_NODE;
-const BOOT_NODE_UDP_PORT = 4500;
+const BOOT_NODE_UDP_PORT = getBootNodeUdpPort();
 const SLOT_COUNT = 3;
 const EPOCH_DURATION = 2;
-const ETHEREUM_SLOT_DURATION = 4;
-const AZTEC_SLOT_DURATION = 8;
+const ETHEREUM_SLOT_DURATION = 8;
+const AZTEC_SLOT_DURATION = 36;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'validators-sentinel-'));
 
@@ -46,6 +47,9 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
         aztecTargetCommitteeSize: NUM_VALIDATORS,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        blockDurationMs: 6000,
+        l1PublishingTime: 8,
+        enforceTimeTable: true,
         aztecProofSubmissionEpochs: 1024, // effectively do not reorg
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,
@@ -64,7 +68,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
 
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
@@ -77,7 +81,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
 
     sentinel = await createNonValidatorNode(
       t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider!,
+      t.ctx.dateProvider,
       BOOT_NODE_UDP_PORT + 1 + NUM_NODES,
       t.bootstrapNodeEnr,
       t.prefilledPublicData,
@@ -186,14 +190,18 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
       const validatorStats = stats.stats[validator.toString().toLowerCase()];
       const history = validatorStats?.history.filter(h => h.slot > initialSlot && h.slot <= slotForSentinel) ?? [];
       t.logger.info(`Asserting stats for online validator ${validator}`, { history });
-      expect(history.filter(h => h.status === 'attestation-missed' || h.status === 'block-missed')).toBeEmpty();
+      expect(
+        history.filter(
+          h => h.status === 'attestation-missed' || h.status === 'blocks-missed' || h.status === 'checkpoint-missed',
+        ),
+      ).toBeEmpty();
     }
 
     // At least one of the first node validators must have been seen as proposer
     const firstNodeBlockProposedHistory = firstNodeValidators
       .flatMap(v => stats.stats[v.toString().toLowerCase()].history)
       .filter(h => h.slot > initialSlot && h.slot <= slotForSentinel)
-      .filter(h => h.status === 'block-proposed');
+      .filter(h => h.status === 'checkpoint-proposed');
     expect(firstNodeBlockProposedHistory).not.toBeEmpty();
 
     // And all of the proposers for the offline node must be seen as missed attestation or proposal
@@ -201,7 +209,11 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
       const validatorStats = stats.stats[validator.toString().toLowerCase()];
       const history = validatorStats.history?.filter(h => h.slot > initialSlot && h.slot <= slotForSentinel) ?? [];
       t.logger.info(`Asserting stats for offline validator ${validator}`, { history });
-      expect(history.filter(h => h.status === 'attestation-missed' || h.status === 'block-missed')).not.toBeEmpty();
+      expect(
+        history.filter(
+          h => h.status === 'attestation-missed' || h.status === 'blocks-missed' || h.status === 'checkpoint-missed',
+        ),
+      ).not.toBeEmpty();
     }
   });
 });

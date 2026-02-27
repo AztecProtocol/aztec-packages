@@ -6,9 +6,10 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract ScopeTest {
     use aztec::{
+        keys::getters::{get_nhk_app, get_public_keys},
         macros::{functions::{external, initializer, view}, storage::storage},
         messages::message_delivery::MessageDelivery,
-        protocol::address::AztecAddress,
+        protocol::{address::AztecAddress, traits::Hash},
         state_vars::{Owned, PrivateImmutable},
     };
 
@@ -47,6 +48,29 @@ pub contract ScopeTest {
         note.value
     }
 
+    /// Requests the nullifier hiding key for the given owner.
+    /// Will fail if the caller is not authorized to access the owner's keys.
+    #[external("private")]
+    fn get_nhk(owner: AztecAddress) -> Field {
+        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
+        self.context.request_nhk_app(owner_npk_m_hash)
+    }
+
+    /// Reads the note owned by the specified owner via a utility function.
+    #[external("utility")]
+    unconstrained fn read_note_utility(owner: AztecAddress) -> Field {
+        let note = self.storage.note.at(owner).view_note();
+        note.value
+    }
+
+    /// Requests the nullifier hiding key for the given owner via a utility function.
+    /// Will fail if the caller is not authorized to access the owner's keys.
+    #[external("utility")]
+    unconstrained fn get_nhk_utility(owner: AztecAddress) -> Field {
+        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
+        get_nhk_app(owner_npk_m_hash)
+    }
+
     mod test {
         use crate::ScopeTest;
         use aztec::{
@@ -83,20 +107,15 @@ pub contract ScopeTest {
             assert_eq(read_value, value);
         }
 
-        /// Bob cannot create a note for Alice because scope isolation is enforced.
-        /// When Bob calls create_note(alice, value), the function needs Alice's nsk_app to
-        /// compute the note's nullifier key, but Bob is not authorized to access Alice's keys.
+        /// Bob cannot access Alice's nullifier hiding key because scope isolation is enforced.
         #[test(should_fail_with = "Key validation request denied")]
-        unconstrained fn bob_cannot_create_note_for_alice() {
+        unconstrained fn bob_cannot_access_alice_nullifier_hiding_key() {
             let (mut env, contract_address) = setup();
 
             let alice = env.create_light_account();
             let bob = env.create_light_account();
-            let value: Field = 42;
 
-            // Bob tries to create a note for Alice, but this fails because
-            // Bob doesn't have access to Alice's keys (scope isolation).
-            env.call_private(bob, ScopeTest::at(contract_address).create_note(alice, value));
+            let _ = env.call_private(bob, ScopeTest::at(contract_address).get_nhk(alice));
         }
 
         /// Bob cannot read Alice's notes because scope isolation is enforced.

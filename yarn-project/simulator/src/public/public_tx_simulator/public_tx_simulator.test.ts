@@ -1,9 +1,9 @@
 import {
-  AVM_MAX_PROCESSABLE_L2_GAS,
   GAS_ESTIMATION_DA_GAS_LIMIT,
   GAS_ESTIMATION_L2_GAS_LIMIT,
   GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
   GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
+  MAX_PROCESSABLE_L2_GAS,
   NULLIFIER_SUBTREE_HEIGHT,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -498,14 +498,14 @@ describe('public_tx_simulator', () => {
   it('fails a tx that consumes more than the AVM maximum processable gas', async () => {
     gasLimits = new Gas(GAS_ESTIMATION_DA_GAS_LIMIT, GAS_ESTIMATION_L2_GAS_LIMIT);
     teardownGasLimits = new Gas(GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT, GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT);
-    enqueuedCallGasUsed = new Gas(GAS_ESTIMATION_L2_GAS_LIMIT, AVM_MAX_PROCESSABLE_L2_GAS);
+    enqueuedCallGasUsed = new Gas(GAS_ESTIMATION_L2_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS);
 
     const tx = await mockTxWithPublicCalls({
       numberOfAppLogicCalls: 1,
     });
 
     await expect(simulator.simulate(tx)).rejects.toThrow(
-      `exceeds the AVM maximum processable gas of ${AVM_MAX_PROCESSABLE_L2_GAS}`,
+      `exceeds the maximum processable gas of ${MAX_PROCESSABLE_L2_GAS}`,
     );
 
     expect(simulateInternal).toHaveBeenCalledTimes(1);

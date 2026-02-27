@@ -38,12 +38,12 @@
 { <span class="comment">/* private fields */</span> }
 </code></pre>
 <div class="comments">
-<p>The metadata required to both prove a note's existence and destroy it, by computing the correct note hash for kernel
-read requests, as well as the correct nullifier to avoid double-spends.</p>
+<p>The metadata required to both prove a note's existence and destroy it, by computing the correct note hash for
+kernel read requests, as well as the correct nullifier to avoid double-spends.</p>
 <p>This represents a pending previous phase note, i.e. a note that was created in the transaction that is currently
-being executed, during the previous execution phase. Because there are only two phases and their order is always the
-same (first non-revertible and then revertible) this implies that the note was created in the non-revertible phase,
-and that the current phase is the revertible phase.</p>
+being executed, during the previous execution phase. Because there are only two phases and their order is always
+the same (first non-revertible and then revertible) this implies that the note was created in the non-revertible
+phase, and that the current phase is the revertible phase.</p>
 </div>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../../noir_aztec/note/note_metadata/struct.PendingPreviousPhaseNoteMetadata.html" class="struct">PendingPreviousPhaseNoteMetadata</a></code></h3>
