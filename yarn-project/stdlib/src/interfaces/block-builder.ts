@@ -36,10 +36,16 @@ export interface IBlockFactory extends ProcessedTxHandler {
 }
 
 export interface PublicProcessorLimits {
+  /** Maximum number of txs to process. */
   maxTransactions?: number;
+  /** L2 and DA gas limits. */
   maxBlockGas?: Gas;
+  /** Maximum number of blob fields allowed. */
   maxBlobFields?: number;
+  /** Deadline for processing the txs. Processor will stop as soon as it hits this time. */
   deadline?: Date;
+  /** Whether this processor is building a proposal (as opposed to re-executing one). Skipping txs due to gas or blob limits is only done during proposal building. */
+  isBuildingProposal?: boolean;
 }
 
 export interface PublicProcessorValidator {
