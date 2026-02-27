@@ -1,4 +1,4 @@
-// <ci3:meta isolate />
+// <ci3 isolate />
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';

@@ -1,4 +1,4 @@
-// <ci3:meta cpus="16" mem="16g" log_level="debug" bb_verbose="1" />
+// <ci3 cpus="16" mem="16g" log_level="debug" bb_verbose="1" />
 import { AztecClientBackend, Barretenberg } from '@aztec/bb.js';
 import { CHONK_PROOF_LENGTH, CHONK_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';

@@ -1,4 +1,4 @@
-// <ci3:meta isolate log_level="debug" />
+// <ci3 isolate log_level="debug" />
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';

@@ -1,4 +1,4 @@
-// <ci3:meta uv_threadpool_size="32" />
+// <ci3 uv_threadpool_size="32" />
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';

@@ -1,4 +1,4 @@
-// <ci3:meta isolate />
+// <ci3 isolate />
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { all } from '@aztec/foundation/iterable';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';

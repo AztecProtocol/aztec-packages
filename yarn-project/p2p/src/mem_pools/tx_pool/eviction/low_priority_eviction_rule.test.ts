@@ -1,4 +1,4 @@
-// <ci3:meta isolate />
+// <ci3 isolate />
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 

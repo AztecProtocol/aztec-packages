@@ -1,4 +1,4 @@
-// <ci3:meta isolate />
+// <ci3 isolate />
 import { TestCircuitVerifier } from '@aztec/bb-prover';
 import { EpochCache } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';

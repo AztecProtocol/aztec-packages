@@ -1,4 +1,4 @@
-// <ci3:meta isolate cpus="10" mem="16g" />
+// <ci3 isolate cpus="10" mem="16g" />
 /**
  * Proving Broker Performance Benchmarks
  *

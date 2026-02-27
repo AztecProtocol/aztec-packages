@@ -1,4 +1,4 @@
-// <ci3:meta uv_threadpool_size="24" />
+// <ci3 uv_threadpool_size="24" />
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { SlotNumber } from '@aztec/foundation/branded-types';

@@ -1,4 +1,4 @@
-// <ci3:meta cpus="16" mem="16g" />
+// <ci3 cpus="16" mem="16g" />
 import { executeAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
 import { NativeWorldStateService } from '@aztec/world-state';
 

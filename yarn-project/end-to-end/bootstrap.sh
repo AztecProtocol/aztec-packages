@@ -32,7 +32,8 @@ function test_cmds {
   else
     echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
   fi
-  echo "$prefix:TIMEOUT=15m:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
+  eval $(../scripts/parse_ci3_annotation.sh src/e2e_block_building.test.ts)
+  echo "$prefix${CI3_PREFIX}:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
 
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
@@ -47,7 +48,7 @@ function test_cmds {
     name=e2e_${name%.test.ts}
     local cmd_env=""
 
-    # Read ci3 annotation from test file (e.g. // <ci3:meta uv_threadpool_size="24" />)
+    # Read ci3 annotation from test file (e.g. // <ci3 uv_threadpool_size="24" />)
     eval $($parse_annotation "$test")
     cmd_env+="$CI3_ENV"
     # Prefix fields from annotation (CPUS, MEM, TIMEOUT, etc.) are appended to prefix below.

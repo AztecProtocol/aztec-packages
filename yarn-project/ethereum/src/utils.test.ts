@@ -1,4 +1,4 @@
-// <ci3:meta isolate />
+// <ci3 isolate />
 import type { Abi } from 'viem';
 
 import { mergeAbis } from './utils.js';

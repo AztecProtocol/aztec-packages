@@ -1,4 +1,4 @@
-// <ci3:meta isolate />
+// <ci3 isolate />
 import { type TxMetaData, stubTxMetaData } from '../tx_metadata.js';
 import type { PreAddPoolAccess } from './interfaces.js';
 import { NullifierConflictRule } from './nullifier_conflict_rule.js';

@@ -1,4 +1,4 @@
-// <ci3:meta isolate />
+// <ci3 isolate />
 import { MAX_TXS_PER_BLOCK } from '../../constants.js';
 import { BitVector } from './bitvector.js';
 

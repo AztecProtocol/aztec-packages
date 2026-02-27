@@ -1,4 +1,4 @@
-// <ci3:meta isolate />
+// <ci3 isolate />
 import {
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,

@@ -1,4 +1,4 @@
-// <ci3:meta isolate />
+// <ci3 isolate />
 import { abiChecker } from './checker.js';
 
 describe('abiChecker', () => {

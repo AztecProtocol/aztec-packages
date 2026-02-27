@@ -1,4 +1,4 @@
-// <ci3:meta isolate />
+// <ci3 isolate />
 import { type TxMetaData, stubTxMetaData } from '../tx_metadata.js';
 import { FeePayerBalancePreAddRule } from './fee_payer_balance_pre_add_rule.js';
 import { type PreAddPoolAccess, TxPoolRejectionCode } from './interfaces.js';

@@ -1,4 +1,4 @@
-// <ci3:meta isolate />
+// <ci3 isolate />
 import { mockTx } from '@aztec/stdlib/testing';
 
 import { TxPermittedValidator } from './tx_permitted_validator.js';

@@ -1,4 +1,4 @@
-// <ci3:meta uv_threadpool_size="24" />
+// <ci3 uv_threadpool_size="24" />
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 

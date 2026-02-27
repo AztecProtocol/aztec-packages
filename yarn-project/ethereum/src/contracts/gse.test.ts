@@ -1,4 +1,4 @@
-// <ci3:meta isolate />
+// <ci3 isolate />
 import { getPublicClient } from '@aztec/ethereum/client';
 import { GSEContract } from '@aztec/ethereum/contracts';
 import { Fr } from '@aztec/foundation/curves/bn254';

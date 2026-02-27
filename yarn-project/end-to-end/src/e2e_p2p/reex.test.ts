@@ -1,4 +1,4 @@
-// <ci3:meta uv_threadpool_size="16" />
+// <ci3 uv_threadpool_size="16" />
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { Fr } from '@aztec/aztec.js/fields';
 import { waitForTx } from '@aztec/aztec.js/node';

@@ -1,4 +1,4 @@
-// <ci3:meta cpus="8" />
+// <ci3 cpus="8" />
 /**
  * Generates base parity circuit inputs (bytecode + witness) for UltraHonk benchmarks.
  * Only runs when BASE_PARITY_BENCH_DIR env var is set (during build_bench).

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Parse a ci3:meta XML annotation from the first line of a test file.
+# Parse a <ci3> XML annotation from the first line of a test file.
 #
 # Usage:
 #   eval $(./parse_ci3_annotation.sh <test_file>)
@@ -11,7 +11,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # Annotation format (must be the FIRST LINE of the .test.ts file):
 #
-#   // <ci3:meta isolate cpus="10" mem="16g" timeout="5m" uv_threadpool_size="32" />
+#   // <ci3 isolate cpus="10" mem="16g" timeout="5m" uv_threadpool_size="32" />
 #
 # Attributes:
 #   Boolean (bare):  isolate, net, only_term_parent
@@ -28,10 +28,10 @@
 #   UV_THREADPOOL_SIZE, LOG_LEVEL, BB_VERBOSE, HARDWARE_CONCURRENCY, etc.
 #
 # Examples:
-#   // <ci3:meta isolate />
-#   // <ci3:meta isolate cpus="10" mem="16g" uv_threadpool_size="32" />
-#   // <ci3:meta cpus="16" mem="16g" log_level="debug" bb_verbose="1" />
-#   // <ci3:meta isolate net cpus="8" />
+#   // <ci3 isolate />
+#   // <ci3 isolate cpus="10" mem="16g" timeout="5m" uv_threadpool_size="32" />
+#   // <ci3 cpus="16" mem="16g" log_level="debug" bb_verbose="1" />
+#   // <ci3 isolate net cpus="8" />
 # ──────────────────────────────────────────────────────────────────────────────
 
 # Fields that ci3 infrastructure uses for docker isolation / resource allocation.
@@ -43,9 +43,9 @@ CI3_ENV=""
 
 first_line=$(head -1 "$file")
 
-# Match: // <ci3:meta ... />
+# Match: // <ci3 ... />
 # Use a variable to avoid bash parsing issues with special regex characters.
-re='^// <ci3:meta (.+) />$'
+re='^// <ci3 (.+) />$'
 if [[ "$first_line" =~ $re ]]; then
   attrs="${BASH_REMATCH[1]}"
 
