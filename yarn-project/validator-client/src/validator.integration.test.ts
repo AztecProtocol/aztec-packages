@@ -244,6 +244,7 @@ describe('ValidatorClient Integration', () => {
         protocolContractsHash,
         anchorBlockHeader: anchorBlockHeader ?? genesisBlockHeader,
         gasLimits: new Gas(100_000, 1_000_000),
+        gasUsed: new Gas(10_000, 100_000),
         maxFeesPerGas: new GasFees(1e12, 1e12),
         feePayer,
       });
@@ -563,6 +564,35 @@ describe('ValidatorClient Integration', () => {
 
       // Block proposal validator should reject the old proposal
       const isValid = await attestor.validator.validateBlockProposal(blocks[0].proposal, mockPeerId);
+      expect(isValid).toBe(false);
+    });
+
+    it('rejects block that would exceed checkpoint mana limit', async () => {
+      const { blocks } = await buildCheckpoint(
+        CheckpointNumber(1),
+        slotNumber,
+        emptyL1ToL2Messages,
+        emptyPreviousCheckpointOutHashes,
+        BlockNumber(1),
+        3,
+        () => buildTxs(2),
+      );
+
+      // Measure total mana used by the first two blocks
+      const manaFirstTwo =
+        blocks[0].block.header.totalManaUsed.toNumber() + blocks[1].block.header.totalManaUsed.toNumber();
+
+      // Set rollupManaLimit to only cover the first two blocks' actual mana.
+      // Block 3 re-execution will have 0 remaining mana, so the actual gas check
+      // in the public processor will reject all txs, producing a tx count mismatch.
+      attestor.checkpointsBuilder.updateConfig({ rollupManaLimit: manaFirstTwo });
+
+      // Blocks 1 and 2 should validate successfully
+      await attestorValidateBlocks(blocks.slice(0, 2));
+
+      // Block 3 should fail: remaining checkpoint mana is 0, so the processor
+      // stops after the first tx's actual gas exceeds the limit.
+      const isValid = await attestor.validator.validateBlockProposal(blocks[2].proposal, mockPeerId);
       expect(isValid).toBe(false);
     });
 
