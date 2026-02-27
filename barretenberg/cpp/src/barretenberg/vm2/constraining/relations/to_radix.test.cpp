@@ -824,7 +824,6 @@ TEST(ToRadixMemoryConstrainingTest, InvalidNumLimbsForValue)
             { C::to_radix_mem_num_limbs, num_limbs },
             { C::to_radix_mem_is_output_bits, is_output_bits ? 1 : 0 },
             // Errors
-            { C::to_radix_mem_sel_invalid_num_limbs_err, 1 }, // num_limbs should not be 0 if value != 0
             { C::to_radix_mem_input_validation_error, 1 },
             { C::to_radix_mem_err, 1 },
             // Control Flow
@@ -880,7 +879,6 @@ TEST(ToRadixMemoryConstrainingTest, TruncationError)
             { C::to_radix_mem_num_limbs, num_limbs },
             { C::to_radix_mem_is_output_bits, is_output_bits ? 1 : 0 },
             // Errors
-            { C::to_radix_mem_sel_truncation_error, 1 }, // found = false on the last le limb
             { C::to_radix_mem_err, 1 },
             // Control Flow
             { C::to_radix_mem_start, 1 },
@@ -903,15 +901,13 @@ TEST(ToRadixMemoryConstrainingTest, TruncationError)
     check_interaction<ToRadixTraceBuilder, lookup_to_radix_mem_check_radix_lt_2_settings>(trace);
 
     // Negative test: truncation error should be on if found = false on the start row
-    trace.set(C::to_radix_mem_sel_truncation_error, 1, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_TRUNCATION_ERROR),
-                              "TRUNCATION_ERROR");
-    trace.set(C::to_radix_mem_sel_truncation_error, 1, 1);
+    trace.set(C::to_radix_mem_err, 1, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_ERR_COMPUTATION), "ERR_COMPUTATION");
+    trace.set(C::to_radix_mem_err, 1, 1);
 
     // Negative test: truncation error can't be on if found = true on the start row
     trace.set(C::to_radix_mem_value_found, 1, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_TRUNCATION_ERROR),
-                              "TRUNCATION_ERROR");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix_mem>(trace, to_radix_mem::SR_ERR_COMPUTATION), "ERR_COMPUTATION");
 }
 
 TEST(ToRadixMemoryConstrainingTest, ZeroNumLimbsAndZeroValueIsNoop)

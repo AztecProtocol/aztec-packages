@@ -106,6 +106,7 @@ TEST(BitwiseConstrainingTest, AndWithTracegen)
     };
 
     builder.process(events, trace);
+    trace.set(C::precomputed_first_row, 0, 1);
 
     EXPECT_EQ(trace.get_num_rows(), 33); // 33 = 1 + 1 + 1 + 2 + 4 + 8 + 16 (extra_shift_row U1 U8 U16 U32 U64 U128)
     check_relation<bitwise>(trace);
@@ -145,6 +146,7 @@ TEST(BitwiseConstrainingTest, OrWithTracegen)
     };
 
     builder.process(events, trace);
+    trace.set(C::precomputed_first_row, 0, 1);
 
     EXPECT_EQ(trace.get_num_rows(), 33); // 33 = 1 + 1 + 1 + 2 + 4 + 8 + 16 (extra_shift_row U1 U8 U16 U32 U64 U128)
     check_relation<bitwise>(trace);
@@ -185,6 +187,7 @@ TEST(BitwiseConstrainingTest, XorWithTracegen)
     };
 
     builder.process(events, trace);
+    trace.set(C::precomputed_first_row, 0, 1);
 
     EXPECT_EQ(trace.get_num_rows(), 33); // 33 = 1 + 1 + 1 + 2 + 4 + 8 + 16 (extra_shift_row U1 U8 U16 U32 U64 U128)
     check_relation<bitwise>(trace);
@@ -222,6 +225,7 @@ TEST(BitwiseConstrainingTest, MixedOperationsWithTracegen)
     };
 
     builder.process(events, trace);
+    trace.set(C::precomputed_first_row, 0, 1);
 
     EXPECT_EQ(trace.get_num_rows(), 14); // 14 = 1 + 3 * 1 + 1 * 2 + 2 * 4 (extra_shift_row + 2U1 + 1U8 + 1U16 + 2U32)
     check_relation<bitwise>(trace);
@@ -234,7 +238,7 @@ TEST(BitwiseConstrainingTest, NegativeWrongInit)
             { C::bitwise_ia_byte, 25 },
             { C::bitwise_ib_byte, 25 },
             { C::bitwise_ic_byte, 25 },
-            { C::bitwise_last, 1 },
+            { C::bitwise_end, 1 },
             { C::bitwise_acc_ia, 25 },
             { C::bitwise_acc_ib, 25 },
             { C::bitwise_acc_ic, 25 },
@@ -268,7 +272,7 @@ TEST(BitwiseConstrainingTest, NegativeTruncateCtr)
             { C::bitwise_ctr, 2 },
         },
         {
-            { C::bitwise_last, 1 },
+            { C::bitwise_end, 1 },
             { C::bitwise_sel, 1 },
             { C::bitwise_ctr, 1 },
         },
@@ -277,10 +281,10 @@ TEST(BitwiseConstrainingTest, NegativeTruncateCtr)
     check_relation<bitwise>(trace, bitwise::SR_BITW_CTR_DECREMENT);
 
     trace.set(C::bitwise_ctr, 3, 0);
-    trace.set(C::bitwise_last, 3, 0);
+    trace.set(C::bitwise_end, 3, 0);
     trace.set(C::bitwise_sel, 3, 0);
 
-    // Trace nows ends with bitwise_ctr == 2 without bitwise_last being set.
+    // Trace nows ends with bitwise_ctr == 2 without bitwise_end being set.
     EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_CTR_DECREMENT), "BITW_CTR_DECREMENT");
 }
 
@@ -292,7 +296,7 @@ TEST(BitwiseConstrainingTest, NegativeGapCtr)
             { C::bitwise_ctr, 4 },
         },
         {
-            { C::bitwise_last, 1 },
+            { C::bitwise_end, 1 },
             { C::bitwise_sel, 1 },
             { C::bitwise_ctr, 3 },
         },
@@ -309,77 +313,86 @@ TEST(BitwiseConstrainingTest, NegativeLastSetBeforeEnd)
         {
             { C::bitwise_ctr_min_one_inv, FF(7).invert() },
             { C::bitwise_sel, 1 },
+            { C::bitwise_sel_compute, 1 },
             { C::bitwise_ctr, 8 },
         },
         {
             { C::bitwise_ctr_min_one_inv, FF(6).invert() },
             { C::bitwise_sel, 1 },
+            { C::bitwise_sel_compute, 1 },
             { C::bitwise_ctr, 7 },
-
         },
         {
             { C::bitwise_ctr_min_one_inv, FF(5).invert() },
             { C::bitwise_sel, 1 },
+            { C::bitwise_sel_compute, 1 },
             { C::bitwise_ctr, 6 },
         },
     });
 
-    check_relation<bitwise>(trace, bitwise::SR_BITW_LAST_FOR_CTR_ONE);
-    trace.set(C::bitwise_last, 2, 1); // Mutate to wrong value (wrongly activate bitwise_last on last row)
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_LAST_FOR_CTR_ONE),
-                              "BITW_LAST_FOR_CTR_ONE");
+    check_relation<bitwise>(trace, bitwise::SR_BITW_END_FOR_CTR_ONE);
+    trace.set(C::bitwise_end, 2, 1); // Mutate to wrong value (wrongly activate bitwise_last on last row)
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_END_FOR_CTR_ONE), "BITW_END_FOR_CTR_ONE");
 }
 
-TEST(BitwiseConstrainingTest, NegativeDeactivateRow)
+TEST(BitwiseConstrainingTest, NegativeTraceContinuity)
 {
+    // Test that sel cannot drop from 1 to 0 mid-block (not at a latch).
+    // Use 4 rows (power of 2) to avoid padding issues with circular wrap.
     TestTraceContainer trace({
         {
-            { C::bitwise_ctr_inv, FF(8).invert() },
-            { C::bitwise_sel, 1 },
-            { C::bitwise_ctr, 8 },
+            // Row 0: inactive, precomputed_first_row=1 handles wrap
+            { C::precomputed_first_row, 1 },
         },
         {
-            { C::bitwise_ctr_inv, FF(7).invert() },
             { C::bitwise_sel, 1 },
-            { C::bitwise_ctr, 7 },
+            { C::bitwise_ctr, 3 },
         },
         {
-            { C::bitwise_ctr_inv, FF(6).invert() },
             { C::bitwise_sel, 1 },
-            { C::bitwise_ctr, 6 },
+            { C::bitwise_ctr, 2 },
+        },
+        {
+            { C::bitwise_sel, 1 },
+            { C::bitwise_end, 1 },
+            { C::bitwise_ctr, 1 },
         },
     });
 
-    check_relation<bitwise>(trace, bitwise::SR_BITW_SEL_CTR_NON_ZERO);
-    trace.set(C::bitwise_sel, 1, 0); // Mutate to wrong value
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_SEL_CTR_NON_ZERO),
-                              "BITW_SEL_CTR_NON_ZERO");
+    check_relation<bitwise>(trace, bitwise::SR_TRACE_CONTINUITY);
+    trace.set(C::bitwise_sel, 2, 0); // Mutate: sel drops mid-block (not at a latch)
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_TRACE_CONTINUITY), "TRACE_CONTINUITY");
 }
 
 TEST(BitwiseConstrainingTest, NegativeChangeOpIDBeforeEnd)
 {
     TestTraceContainer trace({
         {
+            { C::bitwise_sel, 1 },
             { C::bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::XOR) },
         },
         {
+            { C::bitwise_sel, 1 },
             { C::bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::XOR) },
         },
         {
-            { C::bitwise_last, 1 },
+            { C::bitwise_sel, 1 },
+            { C::bitwise_end, 1 },
             { C::bitwise_op_id, static_cast<uint8_t>(BitwiseOperation::XOR) },
         },
     });
 
-    check_relation<bitwise>(trace, bitwise::SR_BITW_OP_ID_REL);
+    check_relation<bitwise>(trace, bitwise::SR_BITW_OP_ID_REL_CONTINUITY);
     trace.set(C::bitwise_op_id, 1, static_cast<uint8_t>(BitwiseOperation::AND)); // Mutate to wrong value
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_OP_ID_REL), "BITW_OP_ID_REL");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_OP_ID_REL_CONTINUITY),
+                              "BITW_OP_ID_REL_CONTINUITY");
 }
 
 TEST(BitwiseConstrainingTest, NegativeWrongAccumulation)
 {
     TestTraceContainer trace({
         {
+            { C::bitwise_sel, 1 },
             { C::bitwise_ia_byte, 0x11 },
             { C::bitwise_ib_byte, 0x22 },
             { C::bitwise_ic_byte, 0x33 },
@@ -388,7 +401,8 @@ TEST(BitwiseConstrainingTest, NegativeWrongAccumulation)
             { C::bitwise_acc_ic, 0xcc33 },
         },
         {
-            { C::bitwise_last, 1 },
+            { C::bitwise_sel, 1 },
+            { C::bitwise_end, 1 },
             { C::bitwise_acc_ia, 0xaa },
             { C::bitwise_acc_ib, 0xbb },
             { C::bitwise_acc_ic, 0xcc },
@@ -404,6 +418,140 @@ TEST(BitwiseConstrainingTest, NegativeWrongAccumulation)
     EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_ACC_REL_A), "BITW_ACC_REL_A");
     EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_ACC_REL_B), "BITW_ACC_REL_B");
     EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_ACC_REL_C), "BITW_ACC_REL_C");
+}
+
+// Verify that #[INPUT_TAG_CANNOT_BE_FF] catches a prover who hides an FF tag error.
+// A malicious prover might set sel_tag_ff_err=0 when tag_a is actually FF (tag 0),
+// trying to bypass the error handling.
+TEST(BitwiseConstrainingTest, NegativeInputTagCannotBeFF)
+{
+    // Build a valid error trace with tag_a = FF
+    TestTraceContainer trace;
+    BitwiseTraceBuilder builder;
+    std::vector<simulation::BitwiseEvent> events = {
+        { .operation = BitwiseOperation::XOR,
+          .a = MemoryValue::from_tag(MemoryTag::FF, 1),
+          .b = MemoryValue::from_tag(MemoryTag::FF, 1),
+          .res = 0 },
+    };
+    builder.process(events, trace);
+
+    // Verify valid trace passes
+    check_relation<bitwise>(trace, bitwise::SR_INPUT_TAG_CANNOT_BE_FF);
+
+    // Mutate: hide the FF error by setting sel_tag_ff_err = 0
+    // Row 1 is the error row (row 0 is sentinel)
+    trace.set(C::bitwise_sel_tag_ff_err, 1, 0);
+    // Also need to fix err to be consistent (err = ff_err OR mismatch_err)
+    trace.set(C::bitwise_err, 1, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_INPUT_TAG_CANNOT_BE_FF),
+                              "INPUT_TAG_CANNOT_BE_FF");
+}
+
+// Verify that #[INPUT_TAGS_SHOULD_MATCH] catches a prover who hides a tag mismatch.
+// A malicious prover might set sel_tag_mismatch_err=0 when tag_a != tag_b,
+// trying to proceed with the computation on mismatched tags.
+TEST(BitwiseConstrainingTest, NegativeInputTagsShouldMatch)
+{
+    // Build a valid error trace with mismatched tags
+    TestTraceContainer trace;
+    BitwiseTraceBuilder builder;
+    std::vector<simulation::BitwiseEvent> events = {
+        { .operation = BitwiseOperation::AND,
+          .a = MemoryValue::from_tag(MemoryTag::U8, 1),
+          .b = MemoryValue::from_tag(MemoryTag::U16, 1),
+          .res = 0 },
+    };
+    builder.process(events, trace);
+
+    // Verify valid trace passes
+    check_relation<bitwise>(trace, bitwise::SR_INPUT_TAGS_SHOULD_MATCH);
+
+    // Mutate: hide the mismatch error
+    trace.set(C::bitwise_sel_tag_mismatch_err, 1, 0);
+    trace.set(C::bitwise_err, 1, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_INPUT_TAGS_SHOULD_MATCH),
+                              "INPUT_TAGS_SHOULD_MATCH");
+}
+
+// Verify that #[RES_TAG_SHOULD_MATCH_INPUT] catches tag_c != tag_a on a non-error start row.
+TEST(BitwiseConstrainingTest, NegativeResTagShouldMatchInput)
+{
+    // Build a valid trace with a U8 AND operation
+    TestTraceContainer trace;
+    BitwiseTraceBuilder builder;
+    std::vector<simulation::BitwiseEvent> events = {
+        { .operation = BitwiseOperation::AND,
+          .a = MemoryValue::from<uint8_t>(85),
+          .b = MemoryValue::from<uint8_t>(175),
+          .res = 5 },
+    };
+    builder.process(events, trace);
+
+    // Verify valid trace passes
+    check_relation<bitwise>(trace, bitwise::SR_RES_TAG_SHOULD_MATCH_INPUT);
+
+    // Row 1 is the start row (and also the last row for U8, since only 1 byte).
+    // Mutate: set tag_c to a different value than tag_a.
+    trace.set(C::bitwise_tag_c, 1, static_cast<uint8_t>(MemoryTag::U32));
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_RES_TAG_SHOULD_MATCH_INPUT),
+                              "RES_TAG_SHOULD_MATCH_INPUT");
+}
+
+// Verify that #[LAST_ON_ERROR] catches last=0 when err=1.
+// A malicious prover might try to continue computation after an error.
+TEST(BitwiseConstrainingTest, NegativeLastOnError)
+{
+    // Build a valid error trace
+    TestTraceContainer trace;
+    BitwiseTraceBuilder builder;
+    std::vector<simulation::BitwiseEvent> events = {
+        { .operation = BitwiseOperation::XOR,
+          .a = MemoryValue::from_tag(MemoryTag::FF, 1),
+          .b = MemoryValue::from_tag(MemoryTag::FF, 1),
+          .res = 0 },
+    };
+    builder.process(events, trace);
+
+    // Verify valid trace passes
+    check_relation<bitwise>(trace, bitwise::SR_LAST_ON_ERROR);
+
+    // Mutate: set last=0 on the error row (row 1)
+    trace.set(C::bitwise_end, 1, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_LAST_ON_ERROR), "LAST_ON_ERROR");
+}
+
+// Verify that #[ERR_ONLY_ON_START] catches err=1 on non-start rows.
+// Without this constraint, a prover could set err=1 on the end row of a multi-row
+// block, disabling sel_compute and the byte lookup, allowing forged bitwise results.
+TEST(BitwiseConstrainingTest, NegativeErrOnlyOnStart)
+{
+    // A 2-row block: row 0 is start (sel=1, start=1), row 1 is end (sel=1, start=0).
+    TestTraceContainer trace({
+        {
+            { C::bitwise_sel, 1 },
+            { C::bitwise_start, 1 },
+            { C::bitwise_ctr, 2 },
+        },
+        {
+            { C::bitwise_sel, 1 },
+            { C::bitwise_end, 1 },
+            { C::bitwise_ctr, 1 },
+        },
+    });
+
+    check_relation<bitwise>(trace, bitwise::SR_ERR_ONLY_ON_START);
+
+    // Mutate: set err=1 on the non-start end row (row 1).
+    // This forces sel_compute=0, disabling the byte lookup and leaving ic_byte unconstrained.
+    trace.set(C::bitwise_sel_tag_mismatch_err, 1, 1);
+    trace.set(C::bitwise_err, 1, 1);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_ERR_ONLY_ON_START), "ERR_ONLY_ON_START");
 }
 
 TEST(BitwiseConstrainingTest, MixedOperationsInteractions)
@@ -452,9 +600,11 @@ TEST(BitwiseConstrainingTest, MixedOperationsInteractions)
 TEST(BitwiseConstrainingTest, BitwiseExecInteraction)
 {
     TestTraceContainer trace({ {
-        // Bitwise Entry
+        // Bitwise Entry (error row: sel=1, err=1, start=1, end=1)
+        { C::bitwise_sel, 1 },
         { C::bitwise_err, 1 },
         { C::bitwise_start, 1 },
+        { C::bitwise_end, 1 },
         { C::bitwise_tag_a, static_cast<uint8_t>(MemoryTag::FF) },
         { C::bitwise_tag_b, static_cast<uint8_t>(MemoryTag::U8) },
         { C::bitwise_acc_ia, 0x01 },
@@ -519,6 +669,7 @@ TEST(BitwiseConstrainingTest, ErrorHandlingInputFF)
           .res = 0 },
     };
     builder.process(events, trace);
+    trace.set(C::precomputed_first_row, 0, 1);
     precomputed_builder.process_bitwise(trace);
     precomputed_builder.process_tag_parameters(trace);
 
@@ -537,6 +688,7 @@ TEST(BitwiseConstrainingTest, ErrorHandlingInputTagMismatch)
           .res = 0 },
     };
     builder.process(events, trace);
+    trace.set(C::precomputed_first_row, 0, 1);
 
     check_relation<bitwise>(trace);
     check_all_interactions<BitwiseTraceBuilder>(trace);
@@ -554,6 +706,7 @@ TEST(BitwiseConstrainingTest, ErrorHandlingMultiple)
           .res = 0 },
     };
     builder.process(events, trace);
+    trace.set(C::precomputed_first_row, 0, 1);
 
     check_relation<bitwise>(trace);
 }
@@ -583,6 +736,7 @@ TEST(BitwiseConstrainingTest, ExecBitwiseDispatchOnErrorMismatch)
 
     BitwiseTraceBuilder builder;
     builder.process(event, trace);
+    trace.set(C::precomputed_first_row, 0, 1);
 
     check_relation<bitwise>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_bitwise_settings>(trace);
@@ -614,6 +768,7 @@ TEST(BitwiseConstrainingTest, ExecBitwiseDispatchOnErrorFF)
 
     BitwiseTraceBuilder builder;
     builder.process(event, trace);
+    trace.set(C::precomputed_first_row, 0, 1);
 
     check_relation<bitwise>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_bitwise_settings>(trace);
@@ -629,7 +784,7 @@ TEST(BitwiseConstrainingTest, ExecBitwiseDispatchOnErrorFF)
 // arbitrary XOR/AND results, bypassing all bitwise constraints.
 //
 // The fix is to add:
-// #[BITW_START_ONLY_WHEN_SEL]
+// #[BITW_NO_EXTERNAL_START_ON_ERROR]
 // (start_keccak + start_sha256) * (1 - sel) = 0;
 //
 // This is the same vulnerability class as poseidon2_hash.pil (fixed in that file).
@@ -645,30 +800,31 @@ TEST(BitwiseConstrainingTest, VulnerabilityStartKeccakWithoutSel)
 
     TestTraceContainer trace({
         {
-            // Ghost row: sel=0 but start_keccak=1 should be INVALID
-            // However, all relation checks pass because they're conditioned on sel
-            { C::bitwise_sel, 0 },
+            // Ghost row: sel=1 (forced by SEL_ON_START_OR_END), start_keccak=1, err=1
+            // Error rows have sel_compute=0, so BYTE_OPERATIONS lookup is disabled,
+            // allowing arbitrary acc_ic values.
+            { C::bitwise_sel, 1 },
             { C::bitwise_start, 1 },
             { C::bitwise_start_keccak, 1 },
-            // Error handling: trigger tag mismatch to get err=1, last=1
+            // Error handling: trigger tag mismatch to get err=1, end=1
             // This avoids the #[INTEGRAL_TAG_LENGTH] lookup (sel_get_ctr=start*(1-err)=0)
             { C::bitwise_tag_a, FF(MEM_TAG_U64) }, // U64 = 5
             { C::bitwise_tag_b, FF(MEM_TAG_U32) }, // != tag_a, triggers mismatch
             { C::bitwise_sel_tag_mismatch_err, 1 },
             { C::bitwise_sel_tag_ff_err, 0 },
             { C::bitwise_err, 1 },
-            { C::bitwise_last, 1 },
+            { C::bitwise_end, 1 },
             { C::bitwise_sel_get_ctr, 0 }, // start*(1-err) = 1*0 = 0
             { C::bitwise_ctr, 0 },
             // Inverses for tag check constraints
             { C::bitwise_tag_a_inv, FF(MEM_TAG_U64).invert() },
             { C::bitwise_tag_ab_diff_inv, FF(MEM_TAG_U64 - MEM_TAG_U32).invert() },
-            // FAKE XOR computation - not constrained when sel=0!
+            // FAKE XOR computation - not constrained when sel_compute=0!
             { C::bitwise_op_id, FF(AVM_BITWISE_XOR_OP_ID) },
             { C::bitwise_acc_ia, fake_input_a },
             { C::bitwise_acc_ib, fake_input_b },
             { C::bitwise_acc_ic, fake_output }, // FAKE output!
-                                                // INIT constraints require acc_* = *_byte when last=1
+                                                // INIT constraints require acc_* = *_byte when end=1
             { C::bitwise_ia_byte, fake_input_a },
             { C::bitwise_ib_byte, fake_input_b },
             { C::bitwise_ic_byte, fake_output },
@@ -677,16 +833,8 @@ TEST(BitwiseConstrainingTest, VulnerabilityStartKeccakWithoutSel)
         },
     });
 
-    // VULNERABILITY DEMONSTRATION:
-    // All bitwise relation checks PASS even though this row has:
-    // - start_keccak=1 (would be matched by keccak XOR lookups using bitwise.start_keccak as destination)
-    // - Arbitrary acc_ic (fake XOR output, not enforced because sel=0 skips #[BYTE_OPERATIONS])
-    //
-    // This allows a prover to claim any XOR result for keccak permutation computations!
-    // check_relation<bitwise>(trace) should pass if the vulnerability is not fixed.
-
     // Now that the vulnerability is fixed, we expect an error:
-    EXPECT_THROW_WITH_MESSAGE((check_relation<bitwise>(trace)), "BITW_START_ONLY_WHEN_SEL");
+    EXPECT_THROW_WITH_MESSAGE((check_relation<bitwise>(trace)), "BITW_NO_EXTERNAL_START_ON_ERROR");
 }
 
 // Same vulnerability but for start_sha256 (used by SHA256 compression lookups).
@@ -698,7 +846,7 @@ TEST(BitwiseConstrainingTest, VulnerabilityStartSha256WithoutSel)
 
     TestTraceContainer trace({
         {
-            { C::bitwise_sel, 0 },
+            { C::bitwise_sel, 1 },
             { C::bitwise_start, 1 },
             { C::bitwise_start_sha256, 1 },
             { C::bitwise_tag_a, FF(MEM_TAG_U32) }, // SHA256 uses U32
@@ -706,7 +854,7 @@ TEST(BitwiseConstrainingTest, VulnerabilityStartSha256WithoutSel)
             { C::bitwise_sel_tag_mismatch_err, 1 },
             { C::bitwise_sel_tag_ff_err, 0 },
             { C::bitwise_err, 1 },
-            { C::bitwise_last, 1 },
+            { C::bitwise_end, 1 },
             { C::bitwise_sel_get_ctr, 0 },
             { C::bitwise_ctr, 0 },
             { C::bitwise_tag_a_inv, FF(MEM_TAG_U32).invert() },
@@ -723,7 +871,7 @@ TEST(BitwiseConstrainingTest, VulnerabilityStartSha256WithoutSel)
     });
 
     // Now that the vulnerability is fixed, we expect an error:
-    EXPECT_THROW_WITH_MESSAGE((check_relation<bitwise>(trace)), "BITW_START_ONLY_WHEN_SEL");
+    EXPECT_THROW_WITH_MESSAGE((check_relation<bitwise>(trace)), "BITW_NO_EXTERNAL_START_ON_ERROR");
 }
 
 // This test demonstrates a full exploit: forging a keccak XOR result.
@@ -779,8 +927,8 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeKeccakXorOutput)
     uint32_t forged_row = trace.get_num_rows();
     trace.set(forged_row,
               { {
-                  { C::bitwise_sel, 0 },          // INACTIVE — constraints don't apply!
-                  { C::bitwise_start, 1 },        // But can be matched by keccak lookup!
+                  { C::bitwise_sel, 1 },          // sel=1 (required by SEL_ON_START_OR_END)
+                  { C::bitwise_start, 1 },        // Can be matched by keccak lookup
                   { C::bitwise_start_keccak, 1 }, // Destination selector for keccak XOR lookups
                   { C::bitwise_op_id, FF(AVM_BITWISE_XOR_OP_ID) },
                   { C::bitwise_acc_ia, real_state_in_00 },  // Real input A
@@ -794,7 +942,7 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeKeccakXorOutput)
                   { C::bitwise_sel_tag_mismatch_err, 1 },
                   { C::bitwise_sel_tag_ff_err, 0 },
                   { C::bitwise_err, 1 },
-                  { C::bitwise_last, 1 },
+                  { C::bitwise_end, 1 },
                   { C::bitwise_sel_get_ctr, 0 },
                   { C::bitwise_ctr, 0 },
                   { C::bitwise_tag_a_inv, FF(MEM_TAG_U64).invert() },
@@ -807,7 +955,7 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeKeccakXorOutput)
     // =========================================================================
     // Keccak relations pass because theta_xor_01 is committed, not relationally constrained
     check_relation<keccakf1600>(trace);
-    // Bitwise relations pass because ghost row satisfies all constraints with sel=0
+    // Bitwise relations pass because ghost row is an error row (sel=1, err=1, sel_compute=0)
     // Commented out as fixed: check_relation<bitwise>(trace);
 
     // =========================================================================
@@ -817,8 +965,8 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeKeccakXorOutput)
     //   Source: sel_no_error { xor_op_id, state_in_00, state_in_01, theta_xor_01, tag_u64 }
     //   Dest:   bitwise.start_keccak { op_id, acc_ia, acc_ib, acc_ic, tag_a }
     //
-    // Source tuple: (2, real_state_in_00, real_state_in_01, FAKE, 5)
-    // Dest tuple:   (2, real_state_in_00, real_state_in_01, FAKE, 5) ← ghost row matches!
+    // Source tuple: (XOR_OP, real_state_in_00, real_state_in_01, FAKE, U64)
+    // Dest tuple:   (XOR_OP, real_state_in_00, real_state_in_01, FAKE, U64) ← ghost row matches!
     check_interaction<KeccakF1600TraceBuilder, lookup_keccakf1600_theta_xor_01_settings>(trace);
 
     // =========================================================================
@@ -835,7 +983,7 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeKeccakXorOutput)
     // all security guarantees of the hash function.
 
     // Now that the vulnerability is fixed, we expect an error:
-    EXPECT_THROW_WITH_MESSAGE((check_relation<bitwise>(trace)), "BITW_START_ONLY_WHEN_SEL");
+    EXPECT_THROW_WITH_MESSAGE((check_relation<bitwise>(trace)), "BITW_NO_EXTERNAL_START_ON_ERROR");
 }
 
 // This test demonstrates a full exploit: forging a SHA256 XOR result.
@@ -924,7 +1072,7 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeSha256XorOutput)
     uint32_t forged_row = trace.get_num_rows();
     trace.set(forged_row,
               { {
-                  { C::bitwise_sel, 0 }, // INACTIVE — constraints don't apply!
+                  { C::bitwise_sel, 1 }, // sel=1 (required by SEL_ON_START_OR_END)
                   { C::bitwise_start, 1 },
                   { C::bitwise_start_sha256, 1 }, // Destination selector for sha256 lookups
                   { C::bitwise_op_id, FF(AVM_BITWISE_XOR_OP_ID) },
@@ -939,7 +1087,7 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeSha256XorOutput)
                   { C::bitwise_sel_tag_mismatch_err, 1 },
                   { C::bitwise_sel_tag_ff_err, 0 },
                   { C::bitwise_err, 1 },
-                  { C::bitwise_last, 1 },
+                  { C::bitwise_end, 1 },
                   { C::bitwise_sel_get_ctr, 0 },
                   { C::bitwise_ctr, 0 },
                   { C::bitwise_tag_a_inv, FF(MEM_TAG_U32).invert() },
@@ -953,7 +1101,7 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeSha256XorOutput)
     // SHA256 relations pass because w_15_rotr_7_xor_w_15_rotr_18 is committed,
     // not relationally constrained
     check_relation<sha256_relation>(trace);
-    // Bitwise relations pass because ghost row satisfies all constraints with sel=0
+    // Bitwise relations pass because ghost row is an error row (sel=1, err=1, sel_compute=0)
     // Commented out as fixed: check_relation<bitwise>(trace);
 
     // =========================================================================
@@ -968,9 +1116,8 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeSha256XorOutput)
     //
     // NOTE: We can't use check_interaction<Sha256TraceBuilder, ...> because Sha256TraceBuilder
     // registers this lookup with Column::bitwise_sel as the outer destination selector (production
-    // optimization). Our ghost row has sel=0, so it wouldn't be indexed. KeccakF1600TraceBuilder
-    // uses Column::bitwise_start instead, which is why the keccak test can use check_interaction
-    // directly. Here we use bitwise_start to match the keccak pattern.
+    // optimization). KeccakF1600TraceBuilder uses Column::bitwise_start instead, which is why
+    // the keccak test can use check_interaction directly. Here we use bitwise_start to match.
     {
         tracegen::SharedIndexCache cache;
         tracegen::LookupIntoDynamicTableGeneric<lookup_sha256_w_s_0_xor_0_settings> lookup(cache, C::bitwise_start);
@@ -985,7 +1132,61 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeSha256XorOutput)
     // an attacker can produce arbitrary SHA256 compression outputs.
 
     // Now that the vulnerability is fixed, we expect an error:
-    EXPECT_THROW_WITH_MESSAGE((check_relation<bitwise>(trace)), "BITW_START_ONLY_WHEN_SEL");
+    EXPECT_THROW_WITH_MESSAGE((check_relation<bitwise>(trace)), "BITW_NO_EXTERNAL_START_ON_ERROR");
+}
+
+// Verify that start=1 or end=1 forces sel=1.
+TEST(BitwiseConstrainingTest, NegativeSelOnStartOrEnd)
+{
+    TestTraceContainer trace({
+        {
+            { C::bitwise_sel, 1 },
+            { C::bitwise_start, 1 },
+            { C::bitwise_ctr, 2 },
+        },
+        {
+            { C::bitwise_sel, 1 },
+            { C::bitwise_end, 1 },
+            { C::bitwise_ctr, 1 },
+        },
+    });
+
+    check_relation<bitwise>(trace, bitwise::SR_SEL_ON_START_OR_END);
+
+    // Mutate: sel=0 on start row
+    trace.set(C::bitwise_sel, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_SEL_ON_START_OR_END), "SEL_ON_START_OR_END");
+
+    // Restore start row, mutate: sel=0 on end row
+    trace.set(C::bitwise_sel, 0, 1);
+    trace.set(C::bitwise_sel, 1, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_SEL_ON_START_OR_END), "SEL_ON_START_OR_END");
+}
+
+// Verify that after a latch (end=1), the next active row must have start=1.
+TEST(BitwiseConstrainingTest, NegativeStartAfterLatch)
+{
+    // Two consecutive single-row blocks.
+    TestTraceContainer trace({
+        {
+            { C::bitwise_sel, 1 },
+            { C::bitwise_start, 1 },
+            { C::bitwise_end, 1 },
+            { C::bitwise_ctr, 1 },
+        },
+        {
+            { C::bitwise_sel, 1 },
+            { C::bitwise_start, 1 },
+            { C::bitwise_end, 1 },
+            { C::bitwise_ctr, 1 },
+        },
+    });
+
+    check_relation<bitwise>(trace, bitwise::SR_START_AFTER_LATCH);
+
+    // Mutate: remove start from second block
+    trace.set(C::bitwise_start, 1, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_START_AFTER_LATCH), "START_AFTER_LATCH");
 }
 
 } // namespace
