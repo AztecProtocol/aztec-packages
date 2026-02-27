@@ -9,6 +9,21 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] Removed `SingleKeyAccountContract`
+
+The `SchnorrSingleKeyAccount` contract and its TypeScript wrapper `SingleKeyAccountContract` have been removed. This contract was insecure: it used `ivpk_m` (incoming viewing public key) as its Schnorr signing key, meaning anyone who received a user's viewing key could sign transactions on their behalf.
+
+**Migration:**
+
+```diff
+- import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
+- const contract = new SingleKeyAccountContract(signingKey);
++ import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
++ const contract = new SchnorrAccountContract(signingKey);
+```
+
+**Impact**: If you were using `@aztec/accounts/single_key`, switch to `@aztec/accounts/schnorr` which uses separate keys for encryption and authentication.
+
 ### `aztec new` and `aztec init` now create a 2-crate workspace
 
 `aztec new` and `aztec init` now create a workspace with two crates instead of a single contract crate:

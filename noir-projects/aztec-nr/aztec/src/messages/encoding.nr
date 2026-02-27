@@ -9,20 +9,24 @@ use crate::utils::array;
 // fields, so MESSAGE_CIPHERTEXT_LEN is the size of the message in fields.
 pub global MESSAGE_CIPHERTEXT_LEN: u32 = PRIVATE_LOG_CIPHERTEXT_LEN;
 
-// TODO(#12750): The global variables below should not be here as they are AES128 specific. ciphertext_length (2) + 14
-// bytes pkcs#7 AES padding.
+// TODO(#12750): The global variables below should not be here as they are AES128 specific.
+// The header plaintext is 2 bytes (ciphertext length), padded to the 16-byte AES block size by PKCS#7.
 pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 16;
+// AES PKCS#7 always adds at least one byte of padding. Since each plaintext field is 32 bytes (a multiple of the
+// 16-byte AES block size), a full 16-byte padding block is always appended.
+pub(crate) global AES128_PKCS7_EXPANSION_IN_BYTES: u32 = 16;
 
 pub global EPH_PK_X_SIZE_IN_FIELDS: u32 = 1;
 pub global EPH_PK_SIGN_BYTE_SIZE_IN_BYTES: u32 = 1;
 
-// (17 - 1) * 31 - 16 - 1 = 479 Note: We multiply by 31 because ciphertext bytes are stored in fields using
+// (15 - 1) * 31 - 16 - 1 - 16 = 401. Note: We multiply by 31 because ciphertext bytes are stored in fields using
 // bytes_to_fields, which packs 31 bytes per field (since a Field is ~254 bits and can safely store 31 whole bytes).
-global MESSAGE_PLAINTEXT_SIZE_IN_BYTES: u32 = (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31
+pub(crate) global MESSAGE_PLAINTEXT_SIZE_IN_BYTES: u32 = (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31
     - HEADER_CIPHERTEXT_SIZE_IN_BYTES
-    - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES;
+    - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES
+    - AES128_PKCS7_EXPANSION_IN_BYTES;
 // The plaintext bytes represent Field values that were originally serialized using fields_to_bytes, which converts
-// each Field to 32 bytes. To convert the plaintext bytes back to fields, we divide by 32. 479 / 32 = 14
+// each Field to 32 bytes. To convert the plaintext bytes back to fields, we divide by 32. 401 / 32 = 12
 pub global MESSAGE_PLAINTEXT_LEN: u32 = MESSAGE_PLAINTEXT_SIZE_IN_BYTES / 32;
 
 pub global MESSAGE_EXPANDED_METADATA_LEN: u32 = 1;
@@ -243,5 +247,28 @@ mod tests {
 
         assert_eq(original_msg_type, unpacked_msg_type);
         assert_eq(original_msg_metadata, unpacked_msg_metadata);
+    }
+
+    #[test]
+    unconstrained fn encode_decode_max_size_message() {
+        let msg_type_id: u64 = 42;
+        let msg_metadata: u64 = 99;
+        let mut msg_content = [0; MAX_MESSAGE_CONTENT_LEN];
+        for i in 0..MAX_MESSAGE_CONTENT_LEN {
+            msg_content[i] = i as Field;
+        }
+
+        let encoded = encode_message(msg_type_id, msg_metadata, msg_content);
+        let (decoded_type_id, decoded_metadata, decoded_content) = decode_message(BoundedVec::from_array(encoded));
+
+        assert_eq(decoded_type_id, msg_type_id);
+        assert_eq(decoded_metadata, msg_metadata);
+        assert_eq(decoded_content, BoundedVec::from_array(msg_content));
+    }
+
+    #[test(should_fail_with = "Invalid message content: it must have a length of at most MAX_MESSAGE_CONTENT_LEN")]
+    fn encode_oversized_message_fails() {
+        let msg_content = [0; MAX_MESSAGE_CONTENT_LEN + 1];
+        let _ = encode_message(0, 0, msg_content);
     }
 }

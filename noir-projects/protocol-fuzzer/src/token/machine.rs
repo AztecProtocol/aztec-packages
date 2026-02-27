@@ -4,10 +4,10 @@ use anyhow::Result;
 use arbitrary::{Arbitrary, Unstructured};
 use log::debug;
 
-use super::smt;
 use super::system::TokenSystem;
+use crate::smt;
+use crate::wallet::{self, AccountId};
 
-pub(crate) type AccountId = usize;
 pub(crate) type TokenId = usize;
 
 #[derive(Debug)]
@@ -97,7 +97,6 @@ pub enum TokenCommand {
         amount: TokenAmount,
         from: AccountId,
     },
-    Dummy,
 }
 
 type TokenAmount = u128;
@@ -113,19 +112,34 @@ pub struct TokenState {
 }
 
 fn gen_token_amount(u: &mut Unstructured) -> arbitrary::Result<TokenAmount> {
-    Ok(u128::arbitrary(u)? as TokenAmount)
+    u128::arbitrary(u)
 }
 
 fn choose_account(u: &mut Unstructured, state: &TokenState) -> arbitrary::Result<AccountId> {
-    let acc = u
-        .choose(&state.accounts)
-        .expect("accounts should not be empty");
-    Ok(*acc)
+    u.choose(&state.accounts).copied()
 }
 
 fn choose_token(u: &mut Unstructured, state: &TokenState) -> arbitrary::Result<TokenId> {
-    let token = u.choose(&state.tokens).expect("tokens should not be empty");
-    Ok(*token)
+    u.choose(&state.tokens).copied()
+}
+
+type BalanceMap = HashMap<(TokenId, AccountId), TokenAmount>;
+
+/// Subtract `amount` from the balance at `key`, returning `true` if sufficient funds existed.
+/// Inserts a zero entry if the key is absent (matching the existing behavior).
+fn try_debit(balances: &mut BalanceMap, key: (TokenId, AccountId), amount: TokenAmount) -> bool {
+    let balance = balances.entry(key).or_default();
+    if *balance >= amount {
+        *balance -= amount;
+        true
+    } else {
+        false
+    }
+}
+
+/// Add `amount` to the balance at `key`.
+fn credit(balances: &mut BalanceMap, key: (TokenId, AccountId), amount: TokenAmount) {
+    *balances.entry(key).or_default() += amount;
 }
 
 impl TokenMachine {
@@ -173,7 +187,6 @@ impl smt::StateMachine for TokenMachine {
             ..Default::default()
         };
 
-        // Generate a random number of tokens
         let num_tokens = u.int_in_range(self.min_tokens..=self.max_tokens)?;
         state.tokens = (0..num_tokens).collect();
 
@@ -202,11 +215,22 @@ impl smt::StateMachine for TokenMachine {
             initial_mints.push(self.gen_valid_mint(u, &state, false)?);
         }
 
-        for mint in &initial_mints {
-            state = self.next_state(mint, state);
+        // Only keep mints that next_state actually applies (rejects overflows silently).
+        let mut successful_mints = vec![];
+        for mint in initial_mints {
+            let token_id = match &mint {
+                TokenCommand::MintPublic { token, .. }
+                | TokenCommand::MintPrivate { token, .. } => *token,
+                _ => unreachable!(),
+            };
+            let supply_before = *state.total_supply.get(&token_id).unwrap_or(&0);
+            state = self.next_state(&mint, state);
+            if *state.total_supply.get(&token_id).unwrap_or(&0) != supply_before {
+                successful_mints.push(mint);
+            }
         }
 
-        self.initial_mints = initial_mints;
+        self.initial_mints = successful_mints;
         Ok(state)
     }
 
@@ -290,13 +314,14 @@ impl smt::StateMachine for TokenMachine {
                 token: choose_token(u, state)?,
                 from: choose_account(u, state)?,
             },
-            _ => TokenCommand::Dummy,
+            _ => unreachable!(),
         };
 
         Ok(cmd)
     }
 
     fn new_system(&mut self, state: &Self::State) -> Self::System {
+        wallet::import_test_accounts().expect("could not import test accounts");
         let system = TokenSystem::new().expect("test system couldn't be prepared correctly");
         for token_no in &state.tokens {
             let acc_no = state
@@ -320,7 +345,7 @@ impl smt::StateMachine for TokenMachine {
 
     fn next_state(&self, cmd: &Self::Command, state: Self::State) -> Self::State {
         use TokenCommand::*;
-        let mut state = state.clone();
+        let mut state = state;
 
         match cmd {
             MintPublic {
@@ -334,17 +359,14 @@ impl smt::StateMachine for TokenMachine {
                         .total_supply
                         .get(token)
                         .expect("total supply should be initialized");
-                    if let Some(supply) = supply.checked_add(*amount) {
-                        state.total_supply.insert(*token, supply);
-                        state
-                            .balances_public
-                            .entry((*token, *to))
-                            .and_modify(|e| *e = e.checked_add(*amount).unwrap_or(*e))
-                            .or_insert(*amount);
+                    let balance = *state.balances_public.get(&(*token, *to)).unwrap_or(&0);
+                    if let (Some(new_supply), Some(new_balance)) =
+                        (supply.checked_add(*amount), balance.checked_add(*amount))
+                    {
+                        state.total_supply.insert(*token, new_supply);
+                        state.balances_public.insert((*token, *to), new_balance);
                     } else {
-                        debug!(
-                            "Overflowing total supply, public minting {amount} of {token} to {to} denied"
-                        );
+                        debug!("Overflow minting {amount} of {token} to {to} (public), denied");
                     }
                 }
             }
@@ -359,17 +381,14 @@ impl smt::StateMachine for TokenMachine {
                         .total_supply
                         .get(token)
                         .expect("total supply should be initialized");
-                    if let Some(supply) = supply.checked_add(*amount) {
-                        state.total_supply.insert(*token, supply);
-                        state
-                            .balances_private
-                            .entry((*token, *to))
-                            .and_modify(|e| *e = e.checked_add(*amount).unwrap_or(*e))
-                            .or_insert(*amount);
+                    let balance = *state.balances_private.get(&(*token, *to)).unwrap_or(&0);
+                    if let (Some(new_supply), Some(new_balance)) =
+                        (supply.checked_add(*amount), balance.checked_add(*amount))
+                    {
+                        state.total_supply.insert(*token, new_supply);
+                        state.balances_private.insert((*token, *to), new_balance);
                     } else {
-                        debug!(
-                            "Overflowing total supply, private minting {amount} of {token} to {to} denied"
-                        );
+                        debug!("Overflow minting {amount} of {token} to {to} (private), denied");
                     }
                 }
             }
@@ -378,15 +397,8 @@ impl smt::StateMachine for TokenMachine {
                 amount,
                 from,
             } => {
-                if *state.balances_public.entry((*token, *from)).or_default() >= *amount {
-                    state
-                        .balances_public
-                        .entry((*token, *from))
-                        .and_modify(|e| *e -= amount);
-                    state
-                        .total_supply
-                        .entry(*token)
-                        .and_modify(|e| *e -= amount);
+                if try_debit(&mut state.balances_public, (*token, *from), *amount) {
+                    *state.total_supply.get_mut(token).unwrap() -= amount;
                 }
             }
             BurnPrivate {
@@ -394,15 +406,8 @@ impl smt::StateMachine for TokenMachine {
                 amount,
                 from,
             } => {
-                if *state.balances_private.entry((*token, *from)).or_default() >= *amount {
-                    state
-                        .balances_private
-                        .entry((*token, *from))
-                        .and_modify(|e| *e -= amount);
-                    state
-                        .total_supply
-                        .entry(*token)
-                        .and_modify(|e| *e -= amount);
+                if try_debit(&mut state.balances_private, (*token, *from), *amount) {
+                    *state.total_supply.get_mut(token).unwrap() -= amount;
                 }
             }
             TransferPublic {
@@ -411,16 +416,8 @@ impl smt::StateMachine for TokenMachine {
                 amount,
                 from,
             } => {
-                if *state.balances_public.entry((*token, *from)).or_default() >= *amount {
-                    state
-                        .balances_public
-                        .entry((*token, *from))
-                        .and_modify(|e| *e -= amount);
-                    state
-                        .balances_public
-                        .entry((*token, *to))
-                        .and_modify(|e| *e += amount)
-                        .or_insert(*amount);
+                if try_debit(&mut state.balances_public, (*token, *from), *amount) {
+                    credit(&mut state.balances_public, (*token, *to), *amount);
                 }
             }
             TransferPrivate {
@@ -429,16 +426,8 @@ impl smt::StateMachine for TokenMachine {
                 amount,
                 from,
             } => {
-                if *state.balances_private.entry((*token, *from)).or_default() >= *amount {
-                    state
-                        .balances_private
-                        .entry((*token, *from))
-                        .and_modify(|e| *e -= amount);
-                    state
-                        .balances_private
-                        .entry((*token, *to))
-                        .and_modify(|e| *e += amount)
-                        .or_insert(*amount);
+                if try_debit(&mut state.balances_private, (*token, *from), *amount) {
+                    credit(&mut state.balances_private, (*token, *to), *amount);
                 }
             }
             TransferPublicToPrivate {
@@ -447,16 +436,8 @@ impl smt::StateMachine for TokenMachine {
                 amount,
                 from,
             } => {
-                if *state.balances_public.entry((*token, *from)).or_default() >= *amount {
-                    state
-                        .balances_public
-                        .entry((*token, *from))
-                        .and_modify(|e| *e -= amount);
-                    state
-                        .balances_private
-                        .entry((*token, *to))
-                        .and_modify(|e| *e += amount)
-                        .or_insert(*amount);
+                if try_debit(&mut state.balances_public, (*token, *from), *amount) {
+                    credit(&mut state.balances_private, (*token, *to), *amount);
                 }
             }
             TransferPrivateToPublic {
@@ -465,16 +446,8 @@ impl smt::StateMachine for TokenMachine {
                 amount,
                 from,
             } => {
-                if *state.balances_private.entry((*token, *from)).or_default() >= *amount {
-                    state
-                        .balances_private
-                        .entry((*token, *from))
-                        .and_modify(|e| *e -= amount);
-                    state
-                        .balances_public
-                        .entry((*token, *to))
-                        .and_modify(|e| *e += amount)
-                        .or_insert(*amount);
+                if try_debit(&mut state.balances_private, (*token, *from), *amount) {
+                    credit(&mut state.balances_public, (*token, *to), *amount);
                 }
             }
             _ => (),
@@ -488,44 +461,56 @@ impl smt::StateMachine for TokenMachine {
     }
 
     fn check_result(&self, cmd: &Self::Command, pre_state: &Self::State, result: Self::Result) {
-        // TODO: should failure states and other output aside from balance checks be also processed later?
-        if let Ok(result) = result {
-            if let Some(amount) = parse_token_amount(&result) {
-                use TokenCommand::*;
-                match cmd {
-                    BalanceOfPublic { token, address, .. } => {
-                        let state_balance = *pre_state
-                            .balances_public
-                            .get(&(*token, *address))
-                            .unwrap_or(&0);
-                        debug!(
-                            "Checking public {} balance for {}: should be {}, is {}",
-                            token, address, state_balance, amount
-                        );
-                        assert_eq!(amount, state_balance);
-                    }
-                    BalanceOfPrivate { token, address, .. } => {
-                        let state_balance = *pre_state
-                            .balances_private
-                            .get(&(*token, *address))
-                            .unwrap_or(&0);
-                        debug!(
-                            "Checking private {} balance for {}: should be {}, is {}",
-                            token, address, state_balance, amount
-                        );
-                        assert_eq!(amount, state_balance);
-                    }
-                    TotalSupply { token, .. } => {
-                        let state_supply = *pre_state.total_supply.get(token).unwrap_or(&0);
-                        debug!(
-                            "Checking {} total supply: should be {}, is {}",
-                            token, state_supply, amount
-                        );
-                        assert_eq!(amount, state_supply);
-                    }
-                    _ => {}
-                }
+        use TokenCommand::*;
+        match cmd {
+            BalanceOfPublic { token, address, .. } => {
+                let output = result.expect("BalanceOfPublic should succeed");
+                let amount = wallet::parse_simulation_result(&output)
+                    .expect("failed to parse BalanceOfPublic simulation result");
+                let state_balance =
+                    *pre_state.balances_public.get(&(*token, *address)).unwrap_or(&0);
+                debug!(
+                    "Checking public {} balance for {}: should be {}, is {}",
+                    token, address, state_balance, amount
+                );
+                assert_eq!(amount, state_balance);
             }
+            BalanceOfPrivate {
+                token,
+                from,
+                address,
+            } => {
+                let output = result.expect("BalanceOfPrivate should succeed");
+                let amount = wallet::parse_simulation_result(&output)
+                    .expect("failed to parse BalanceOfPrivate simulation result");
+                // Private notes are encrypted — only the owner's PXE can decrypt them.
+                // When from != address, the PXE returns 0.
+                let expected = if from == address {
+                    *pre_state
+                        .balances_private
+                        .get(&(*token, *address))
+                        .unwrap_or(&0)
+                } else {
+                    0
+                };
+                debug!(
+                    "Checking private {} balance for {} (from {}): should be {}, is {}",
+                    token, address, from, expected, amount
+                );
+                assert_eq!(amount, expected);
+            }
+            TotalSupply { token, .. } => {
+                let output = result.expect("TotalSupply should succeed");
+                let amount = wallet::parse_simulation_result(&output)
+                    .expect("failed to parse TotalSupply simulation result");
+                let state_supply = *pre_state.total_supply.get(token).unwrap_or(&0);
+                debug!(
+                    "Checking {} total supply: should be {}, is {}",
+                    token, state_supply, amount
+                );
+                assert_eq!(amount, state_supply);
+            }
+            _ => {}
         }
     }
 
@@ -537,23 +522,4 @@ impl smt::StateMachine for TokenMachine {
     ) -> bool {
         true
     }
-}
-
-fn parse_token_amount(stdout: &str) -> Option<TokenAmount> {
-    let amount_re = regex::Regex::new(r"Simulation result:\s+(\d+)n").unwrap();
-    amount_re.captures(stdout).map(|caps| {
-        let amount = caps.get(1).unwrap().as_str();
-        TokenAmount::from_str_radix(amount, 10).unwrap_or(0)
-    })
-}
-
-#[test]
-fn simulation_result_parsed() {
-    let stdout = "Simulation result:  208681979753062036312901159467002686397n";
-    let stdout2 = "Simulation result:  208681979";
-    assert_eq!(
-        parse_token_balance(stdout),
-        Some(208681979753062036312901159467002686397 as TokenAmount)
-    );
-    assert_eq!(parse_token_balance(stdout2), None);
 }

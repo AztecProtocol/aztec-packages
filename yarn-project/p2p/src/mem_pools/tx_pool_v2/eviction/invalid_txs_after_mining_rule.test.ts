@@ -3,7 +3,7 @@ import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
-import { type TxMetaData, stubTxMetaValidationData } from '../tx_metadata.js';
+import { type TxMetaData, stubTxMetaData } from '../tx_metadata.js';
 import type { EvictionContext, PoolOperations } from './interfaces.js';
 import { EvictionEvent } from './interfaces.js';
 import { InvalidTxsAfterMiningRule } from './invalid_txs_after_mining_rule.js';
@@ -24,23 +24,7 @@ describe('InvalidTxsAfterMiningRule', () => {
       nullifiers?: string[];
       expirationTimestamp?: bigint;
     } = {},
-  ): TxMetaData => {
-    const nullifiers = opts.nullifiers ?? [`0x${txHash.slice(2)}null1`];
-    const expirationTimestamp = opts.expirationTimestamp ?? DEFAULT_EXPIRATION_TIMESTAMP;
-    return {
-      txHash,
-      anchorBlockHeaderHash: '0x1234',
-      priorityFee: 100n,
-      feePayer: '0xfeepayer',
-      claimAmount: 0n,
-      feeLimit: 100n,
-      nullifiers,
-      expirationTimestamp,
-      receivedAt: 0,
-      estimatedSizeBytes: 0,
-      data: stubTxMetaValidationData({ expirationTimestamp }),
-    };
-  };
+  ) => stubTxMetaData(txHash, { expirationTimestamp: DEFAULT_EXPIRATION_TIMESTAMP, ...opts });
 
   // Create mock pool operations
   const createPoolOps = (pendingTxs: TxMetaData[]): PoolOperations => {
@@ -122,8 +106,8 @@ describe('InvalidTxsAfterMiningRule', () => {
         const result = await rule.evict(context, pool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual(['0x1111']); // Only tx1 has duplicate nullifier
-        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111'], 'InvalidTxsAfterMining');
+        expect(result.txsEvicted).toEqual([tx1.txHash]); // Only tx1 has duplicate nullifier
+        expect(deleteTxsMock).toHaveBeenCalledWith([tx1.txHash], 'InvalidTxsAfterMining');
       });
 
       it('evicts transactions with expired timestamps', async () => {
@@ -142,8 +126,8 @@ describe('InvalidTxsAfterMiningRule', () => {
         const result = await rule.evict(context, pool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual(['0x1111']); // Only tx1 is expired
-        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111'], 'InvalidTxsAfterMining');
+        expect(result.txsEvicted).toEqual([tx1.txHash]); // Only tx1 is expired
+        expect(deleteTxsMock).toHaveBeenCalledWith([tx1.txHash], 'InvalidTxsAfterMining');
       });
 
       it('evicts transactions with timestamp equal to block timestamp', async () => {
@@ -162,8 +146,8 @@ describe('InvalidTxsAfterMiningRule', () => {
         const result = await rule.evict(context, pool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual(['0x1111']); // tx1 has timestamp <= block timestamp
-        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111'], 'InvalidTxsAfterMining');
+        expect(result.txsEvicted).toEqual([tx1.txHash]); // tx1 has timestamp <= block timestamp
+        expect(deleteTxsMock).toHaveBeenCalledWith([tx1.txHash], 'InvalidTxsAfterMining');
       });
 
       it('handles transactions with both duplicate nullifiers and expired timestamps', async () => {
@@ -182,8 +166,8 @@ describe('InvalidTxsAfterMiningRule', () => {
         const result = await rule.evict(context, pool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual(['0x1111']);
-        expect(deleteTxsMock).toHaveBeenCalledWith(['0x1111'], 'InvalidTxsAfterMining');
+        expect(result.txsEvicted).toEqual([tx1.txHash]);
+        expect(deleteTxsMock).toHaveBeenCalledWith([tx1.txHash], 'InvalidTxsAfterMining');
       });
 
       it('handles empty pending transactions list', async () => {
@@ -222,7 +206,7 @@ describe('InvalidTxsAfterMiningRule', () => {
         const result = await rule.evict(context, pool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toEqual(['0x1111']);
+        expect(result.txsEvicted).toEqual([tx1.txHash]);
       });
 
       it('evicts all matching transactions when multiple share nullifiers with mined block', async () => {
@@ -242,9 +226,9 @@ describe('InvalidTxsAfterMiningRule', () => {
         const result = await rule.evict(context, pool);
 
         expect(result.success).toBe(true);
-        expect(result.txsEvicted).toContain('0x1111');
-        expect(result.txsEvicted).toContain('0x2222');
-        expect(result.txsEvicted).not.toContain('0x3333');
+        expect(result.txsEvicted).toContain(tx1.txHash);
+        expect(result.txsEvicted).toContain(tx2.txHash);
+        expect(result.txsEvicted).not.toContain(tx3.txHash);
       });
 
       it('handles error from deleteTxs operation', async () => {

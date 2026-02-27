@@ -132,7 +132,7 @@ export class SequencerTimetable {
     const initializeDeadline = this.aztecSlotDuration - minWorkToDo;
     this.initializeDeadline = initializeDeadline;
 
-    this.log.verbose(
+    this.log.info(
       `Sequencer timetable initialized with ${this.maxNumberOfBlocks} blocks per slot (${this.enforce ? 'enforced' : 'not enforced'})`,
       {
         ethereumSlotDuration: this.ethereumSlotDuration,
