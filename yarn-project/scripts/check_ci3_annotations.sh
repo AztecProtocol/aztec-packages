@@ -42,7 +42,7 @@ for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
   if [[ "$test" =~ $isolate_regex ]]; then
     if [[ ! "$first_line" =~ ^//\ ci3:.*isolate:\ true ]]; then
       echo "ERROR: $test — requires '// ci3: { isolate: true, ... }' (package needs docker isolation)"
-      ((errors++))
+      errors=$((errors + 1))
     fi
   fi
 
@@ -51,7 +51,7 @@ for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
     yaml="${BASH_REMATCH[1]}"
     if ! echo "$yaml" | yq '.' > /dev/null 2>&1; then
       echo "ERROR: $test — malformed YAML annotation: $first_line"
-      ((errors++))
+      errors=$((errors + 1))
     fi
   fi
 done
@@ -67,7 +67,7 @@ for test in end-to-end/src/**/*.test.ts; do
     yaml="${BASH_REMATCH[1]}"
     if ! echo "$yaml" | yq '.' > /dev/null 2>&1; then
       echo "ERROR: $test — malformed YAML annotation: $first_line"
-      ((errors++))
+      errors=$((errors + 1))
     fi
   fi
 done
