@@ -63,8 +63,8 @@ impl AztecConfig {
     /// [`crate::messages::discovery::offchain_inbox::offchain_sync_inbox`].
     ///
     /// This config allows for the default behavior to be overridden.
-    pub comptime fn offchain_message_handler(self: Self, hook: OffchainMessageHandler<()>) -> Self {
-        Self { custom_message_handler: self.custom_message_handler, offchain_message_handler: Option::some(hook) }
+    pub comptime fn offchain_message_handler(self: Self, handler: OffchainMessageHandler<()>) -> Self {
+        Self { custom_message_handler: self.custom_message_handler, offchain_message_handler: Option::some(handler) }
     }
 }
 
@@ -131,8 +131,8 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
     };
 
     let offchain_message_handler_option = if config.offchain_message_handler.is_some() {
-        let hook = config.offchain_message_handler.unwrap();
-        quote { Option::some($hook) }
+        let handler = config.offchain_message_handler.unwrap();
+        quote { Option::some($handler) }
     } else {
         quote { Option::some(aztec::messages::discovery::offchain_inbox::offchain_sync_inbox) }
     };
