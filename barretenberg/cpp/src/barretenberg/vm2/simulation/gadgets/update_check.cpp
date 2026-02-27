@@ -64,7 +64,6 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         // If the delayed public mutable has never been written, then the contract was never updated. We short circuit
         // early.
         if (instance.original_contract_class_id != instance.current_contract_class_id) {
-            // Should not happen!
             throw std::runtime_error("Current class id does not match expected class id");
         }
     } else {
@@ -88,7 +87,6 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         // removed.
         FF reconstructed_hash = poseidon2.hash(update_preimage);
         if (update_hash != reconstructed_hash) {
-            // Should not happen!
             throw std::runtime_error("Stored hash does not match preimage hash");
         }
 
@@ -118,7 +116,6 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         FF expected_current_class_id = gt.gt(timestamp_of_change, current_timestamp) ? pre_class : post_class;
 
         if (expected_current_class_id != instance.current_contract_class_id) {
-            // Should not happen!
             throw std::runtime_error(
                 "Current class id: " + field_to_string(instance.current_contract_class_id) +
                 " does not match expected class id: " + field_to_string(expected_current_class_id));
