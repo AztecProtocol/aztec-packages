@@ -213,7 +213,6 @@ template <typename Fr> class Polynomial {
      */
     void factor_roots(const Fr& root) { polynomial_arithmetic::factor_roots(coeffs(), root); };
 
-    Fr evaluate(const Fr& z, size_t target_size) const;
     Fr evaluate(const Fr& z) const;
 
     /**
@@ -436,11 +435,9 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
     size_t n_l = 1 << (dim - 1);
 
     // temporary buffer of half the size of the Polynomial
-    // IMPROVEMENT: tmp is fully overwritten. We could make this a Polynomial with DontZeroMemory::FLAG. See
-    // https://github.com/AztecProtocol/barretenberg/issues/1096.
-    // auto tmp_ptr = _allocate_aligned_memory<Fr_>(sizeof(Fr_) * n_l);
     auto tmp_ptr = _allocate_aligned_memory<Fr_>(n_l);
     auto tmp = tmp_ptr.get();
+
     size_t offset = 0;
     if constexpr (is_native) {
         if (shift) {

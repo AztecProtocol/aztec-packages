@@ -5,14 +5,14 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/fields/field.hpp"
 #include <array>
 
 /* Future improvements (see https://github.com/AztecProtocol/barretenberg/issues/10): The code works for its intended
- * use but could be improved in various ways. In no particular order: (1) Guard edge cases more exhaustively (e.g.,
- * domain_size/num_evals = 0, evaluating at a domain point, etc.). (2) Precomputing for all possible size pairs is
+ * use but could be improved: Precomputing for all possible size pairs is
  * probably feasible and might be a better solution than instantiating many instances separately. Then perhaps we could
- * infer input type to `extend`. (3) Further improve testing of this class in isolation.
+ * infer input type to `extend`.
  */
 namespace bb {
 
@@ -48,6 +48,11 @@ template <class Fr, size_t domain_end, size_t num_evals> class BarycentricDataFu
     static constexpr size_t domain_size = domain_end;
     static constexpr size_t big_domain_size = std::max(domain_size, num_evals);
 
+    static_assert(domain_size > 0, "BarycentricData requires domain_size > 0");
+    static_assert(num_evals > 0, "BarycentricData requires num_evals > 0");
+    static_assert(num_evals >= domain_end || (!is_field_type_v<Fr> && num_evals == 1),
+                  "Expected num_evals >= domain_size (or stdlib num_evals==1 special case)");
+
     /**
      * Static constexpr methods for computing arrays of precomputable data used for barycentric extension and evaluation
      */
@@ -77,6 +82,14 @@ template <class Fr, size_t domain_end, size_t num_evals> class BarycentricDataFu
         return result;
     }
 
+    // Non-constexpr helper so we can use BB_ASSERT inside the constexpr batch_invert.
+    static void assert_constant(const Fr& val)
+    {
+        if constexpr (!is_field_type_v<Fr>) {
+            BB_ASSERT(val.is_constant(), "barycentric coeffs must be constants, not witnesses");
+        }
+    }
+
     static constexpr std::array<Fr, domain_size * num_evals> batch_invert(
         const std::array<Fr, domain_size * num_evals>& coeffs)
     {
@@ -95,6 +108,7 @@ template <class Fr, size_t domain_end, size_t num_evals> class BarycentricDataFu
             if constexpr (is_field_type_v<Fr>) {
                 is_zero = (coeffs[i] == 0);
             } else {
+                assert_constant(coeffs[i]);
                 is_zero = (coeffs[i].get_value() == 0);
             }
             if (is_zero) {

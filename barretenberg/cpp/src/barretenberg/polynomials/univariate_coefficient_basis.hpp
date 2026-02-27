@@ -80,27 +80,6 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
         }
     };
 
-    size_t size() { return coefficients.size(); };
-
-    static UnivariateCoefficientBasis get_random()
-    {
-        auto output = UnivariateCoefficientBasis<Fr, domain_end, has_a0_plus_a1>();
-        for (size_t i = 0; i < LENGTH; ++i) {
-            output.value_at(i) = Fr::random_element();
-        }
-        return output;
-    };
-    /*
-    static UnivariateCoefficientBasis zero()
-    {
-        auto output = UnivariateCoefficientBasis<Fr, domain_end, has_a0_plus_a1>();
-        for (size_t i = 0; i != LENGTH; ++i) {
-            output.coefficients[i] = Fr::zero();
-        }
-        return output;
-    }
-    */
-
     // Operations between UnivariateCoefficientBasis and other UnivariateCoefficientBasis
     bool operator==(const UnivariateCoefficientBasis& other) const = default;
 
