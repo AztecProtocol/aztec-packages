@@ -20,6 +20,7 @@ export MAKEFLAGS="-j${MAKE_JOBS:-$(get_num_cpus)}"
 # We append all test commands to this file as they become available during build.
 # The test engine feeds it into parallel.
 export test_cmds_file="/tmp/test_cmds"
+export bench_cmds_file="/tmp/bench_cmds"
 
 # Cleanup function. Called on script exit.
 function cleanup {
@@ -259,7 +260,6 @@ function stop_txes {
 function prep {
   check_toolchains
   pull_submodules
-  rm -f $test_cmds_file
 }
 
 function build {
@@ -346,50 +346,6 @@ function bench_merge {
 
 }
 
-function isolate_bench_cpus {
-  [ "${CI:-0}" -eq 0 ] && return
-
-  # CPU layout assumption: physical cores are 0..N/2-1, hyperthreads are N/2..N-1.
-  local total_cpus=$(nproc)
-  local total_physical=$((total_cpus / 2))
-  local os_reserve=8
-  local bench_count=$((total_physical - os_reserve))
-
-  # Disable hyperthread siblings of benchmark cores (N/2 .. N/2+bench_count-1).
-  # OS cores' hyperthreads (N/2+bench_count .. N-1) stay on for extra OS capacity.
-  for cpu in $(seq $total_physical $((total_physical + bench_count - 1))); do
-    sudo sh -c "echo 0 > /sys/devices/system/cpu/cpu$cpu/online" 2>/dev/null || true
-  done
-
-  # Pin all container processes to OS CPUs so they can't land on benchmark cores.
-  # exec_test's taskset overrides this for each benchmark with its allocated CPUs.
-  local os_cpu_list="$bench_count-$((total_physical - 1)),$((total_physical + bench_count))-$((total_cpus - 1))"
-  echo "Pinning container processes to OS CPUs ($os_cpu_list)..."
-  for pid in $(ps -eo pid= 2>/dev/null); do
-    taskset -apc "$os_cpu_list" $pid &>/dev/null || true
-  done
-
-  export BENCH_CPU_COUNT=$bench_count
-
-  echo "Benchmark CPU isolation: CPUs 0-$((bench_count - 1)) ($bench_count cores, hyperthreads off) for benchmarks."
-  echo "OS CPUs: $os_cpu_list."
-}
-
-function unisolate_bench_cpus {
-  [ "${CI:-0}" -eq 0 ] && return
-
-  echo "Re-enabling all CPUs..."
-  local total_cpus=$(nproc --all)
-  for cpu in $(seq 1 $((total_cpus - 1))); do
-    sudo sh -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online" 2>/dev/null || true
-  done
-  # Unpin all processes (were pinned to OS CPUs during bench).
-  for pid in $(ps -eo pid= 2>/dev/null); do
-    taskset -apc 0-$((total_cpus - 1)) $pid &>/dev/null || true
-  done
-  echo "All CPUs re-enabled. Online CPUs: $(nproc)"
-}
-
 function bench {
   # TODO bench for arm64.
   if [ $(arch) == arm64 ]; then
@@ -397,10 +353,10 @@ function bench {
   fi
   echo_header "bench all"
   build_bench
-  isolate_bench_cpus
-  find . -type d -iname bench-out | xargs rm -rf
-  bench_cmds | STRICT_SCHEDULING=1 parallelize
-  unisolate_bench_cpus
+
+  bench_cmds > $bench_cmds_file
+  denoise "bench_engine $bench_cmds_file"
+
   rm -rf bench-out
   mkdir -p bench-out
   bench_merge
