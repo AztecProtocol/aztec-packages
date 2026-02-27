@@ -82,7 +82,7 @@ describe('e2e_offchain_payment_qr', () => {
 
     const ciphertext = effectForBob!.data.slice(2, 2 + PRIVATE_LOG_CIPHERTEXT_LEN);
 
-    await contract.methods.offchain_enqueue(ciphertext, bob, txHash.hash).simulate({ from: bob });
+    await contract.methods.offchain_receive(ciphertext, bob, txHash.hash).simulate({ from: bob });
 
     // Force an empty block so the PXE re-syncs and discovers the offchain-delivered note.
     await forceEmptyBlock();
@@ -114,9 +114,9 @@ describe('e2e_offchain_payment_qr', () => {
     const ciphertext = effectForBob!.data.slice(2, 2 + PRIVATE_LOG_CIPHERTEXT_LEN);
 
     // Deliver the offchain message for eventual processing
-    await contract.methods.offchain_enqueue(ciphertext, bob, txHash.hash).simulate({ from: bob });
+    await contract.methods.offchain_receive(ciphertext, bob, txHash.hash).simulate({ from: bob });
 
-    // TODO: revisit this. The call to offchain_enqueue is a utility and as such it causes the contract to sync, which,
+    // TODO: revisit this. The call to offchain_receive is a utility and as such it causes the contract to sync, which,
     // in combination with our caching policies, means subsequent utility calls won't trigger a re-sync.
     // Given we're hooking the offchain sync process to the general sync process, this means we won't process any new
     // offchain messages until at least one block passes.

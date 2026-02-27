@@ -146,8 +146,8 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
         quote {}
     };
 
-    let offchain_enqueue_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { offchain_enqueue }) {
-        generate_offchain_enqueue()
+    let offchain_receive_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { offchain_receive }) {
+        generate_offchain_receive()
     } else {
         quote {}
     };
@@ -169,7 +169,7 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
         $public_dispatch
         $sync_state_fn_and_abi_export
         $process_message_fn_and_abi_export
-        $offchain_enqueue_fn_and_abi_export
+        $offchain_receive_fn_and_abi_export
     }
 }
 
@@ -429,28 +429,28 @@ comptime fn generate_process_message(process_custom_message_option: Quoted) -> Q
     }
 }
 
-/// Generates the `offchain_enqueue` utility function that adds a message to the inbox.
-comptime fn generate_offchain_enqueue() -> Quoted {
+/// Generates the `offchain_receive` utility function that adds a message to the inbox.
+comptime fn generate_offchain_receive() -> Quoted {
     quote {
-        pub struct offchain_enqueue_parameters {
+        pub struct offchain_receive_parameters {
             pub ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
             pub recipient: aztec::protocol::address::AztecAddress,
             pub tx_hash: Field,
         }
 
         #[abi(functions)]
-        pub struct offchain_enqueue_abi {
-            parameters: offchain_enqueue_parameters,
+        pub struct offchain_receive_abi {
+            parameters: offchain_receive_parameters,
         }
 
         #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
-        unconstrained fn offchain_enqueue(
+        unconstrained fn offchain_receive(
             ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
             recipient: aztec::protocol::address::AztecAddress,
             tx_hash: Field,
         ) {
             let address = aztec::context::UtilityContext::new().this_address();
-            aztec::messages::discovery::offchain_inbox::enqueue_offchain_message(
+            aztec::messages::discovery::offchain_inbox::receive_offchain_message(
                 address,
                 ciphertext,
                 recipient,

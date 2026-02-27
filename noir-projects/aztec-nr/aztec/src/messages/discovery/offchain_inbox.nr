@@ -25,8 +25,8 @@ pub struct PendingOffchainMsg {
     pub enqueued_ts: u64,
 }
 
-/// Enqueue an offchain-delivered message into the contract-owned inbox.
-pub unconstrained fn enqueue_offchain_message(
+/// Receive an offchain-delivered message into the contract-owned inbox.
+pub unconstrained fn receive_offchain_message(
     contract_address: AztecAddress,
     ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
     recipient: AztecAddress,
