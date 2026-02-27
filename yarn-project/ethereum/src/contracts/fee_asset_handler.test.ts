@@ -3,7 +3,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi as FeeAssetAbi } from '@aztec/l1-artifacts/TestERC20Abi';
 
-import type { Anvil } from '@viem/anvil';
 import omit from 'lodash.omit';
 import { type GetContractReturnType, getContract } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
@@ -13,6 +12,7 @@ import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
 import { deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
 import { L1TxUtils, createL1TxUtils } from '../l1_tx_utils/index.js';
+import type { Anvil } from '../test/start_anvil.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { FeeAssetHandlerContract } from './fee_asset_handler.js';
