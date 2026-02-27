@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.3](https://github.com/AztecProtocol/aztec-packages/compare/v4.0.2...v4.0.3) (2026-02-27)
+
+
+### Features
+
+* **aztec:** node enters standby mode on genesis root mismatch ([#20937](https://github.com/AztecProtocol/aztec-packages/issues/20937)) ([ed3f61d](https://github.com/AztecProtocol/aztec-packages/commit/ed3f61d61745bcd895056ee49e4c6a849928d19e))
+
 ## [4.0.2](https://github.com/AztecProtocol/aztec-packages/compare/v4.0.1...v4.0.2) (2026-02-27)
 
 
