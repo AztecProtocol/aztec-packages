@@ -466,7 +466,7 @@ comptime fn generate_offchain_receive() -> Quoted {
             tx_hash: Field,
         ) {
             let address = aztec::context::UtilityContext::new().this_address();
-            aztec::messages::discovery::offchain::receive_offchain_message(
+            aztec::messages::discovery::offchain::receive(
                 address,
                 ciphertext,
                 recipient,

@@ -26,7 +26,7 @@ pub struct PendingOffchainMsg {
 }
 
 /// Receive an offchain-delivered message into the contract-owned inbox.
-pub unconstrained fn receive_offchain_message(
+pub unconstrained fn receive(
     contract_address: AztecAddress,
     ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
     recipient: AztecAddress,
