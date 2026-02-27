@@ -747,7 +747,7 @@ case "$cmd" in
     export CI=1
     export AVM=0
     export AVM_TRANSPILER=0
-    barretenberg/cpp/bootstrap.sh build
+    barretenberg/cpp/bootstrap.sh build_native
     # First, run the VK test normally to check if VKs actually need updating.
     if barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh; then
       echo "No VK changes detected, no update needed."
