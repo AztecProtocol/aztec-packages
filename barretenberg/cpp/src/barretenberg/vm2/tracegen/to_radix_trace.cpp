@@ -7,6 +7,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_to_radix.hpp"
@@ -21,6 +22,10 @@ using C = Column;
  *        per event is equal to the number of limbs in the event. Simulation guarantees that the limbs in the event
  *        fully decompose the value (no truncation) but high limbs might be zero.
  *
+ * Events have a single flavor: a complete little-endian decomposition with all limbs populated (at least the number
+ * of limbs needed to represent the value in the given radix). No error variants exist for this event type.
+ *
+ * @note Asserts that each event's radix is in range [2, 256].
  *
  * @param events The events of type ToRadixEvent to process.
  * @param trace The trace to populate.
@@ -120,6 +125,17 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
  *        per event is equal to event.num_limbs if there is no error and num_limbs is not zero. Otherwise, a single row
  *        is populated.
  *
+ * Events are emitted in the following flavors (all from ToRadix::to_be_radix in simulation):
+ * - Input validation error: limbs is empty, one of dst_out_of_range / radix_lt_2 / radix_gt_256 /
+ *   invalid_bitwise_radix / invalid_num_limbs occurred. Produces 1 row with err=1, input_validation_error=1.
+ * - Zero limbs (no error): num_limbs=0 and value=0. limbs is empty. Produces 1 row with last=1.
+ * - Truncation error: limbs is populated (BE, size=num_limbs) but the value cannot be fully reconstructed
+ *   from the given number of limbs. Produces 1 row with err=1, sel_should_decompose=1, value_found=0.
+ * - Success: limbs is populated (BE, size=num_limbs) and the decomposition is complete. Produces num_limbs
+ *   rows with memory writes and decomposition lookups.
+ *
+ * @note Asserts that limbs.size() == num_limbs for events that pass input validation and have num_limbs > 0.
+ *
  * @param events The events of type ToRadixMemoryEvent to process.
  * @param trace The trace to populate.
  */
@@ -130,8 +146,8 @@ void ToRadixTraceBuilder::process_with_memory(
     for (const auto& event : events) {
         // Helpers
         const uint32_t num_limbs = event.num_limbs;
-        uint8_t num_limbs_is_zero = num_limbs == 0 ? 1 : 0;
-        uint8_t value_is_zero = event.value == FF(0) ? 1 : 0;
+        bool num_limbs_is_zero = num_limbs == 0;
+        bool value_is_zero = event.value == FF(0);
 
         // Error Handling - Out of Memory Access
         uint64_t dst_addr = static_cast<uint64_t>(event.dst_addr); // Will be incremented in the loop below.
@@ -146,17 +162,17 @@ void ToRadixTraceBuilder::process_with_memory(
         bool invalid_bitwise_radix = event.is_output_bits && !radix_eq_2;
 
         // Error Handling - Num Limbs and Value
-        bool invalid_num_limbs = num_limbs == 0 && !(event.value == FF(0));
+        bool invalid_num_limbs = num_limbs_is_zero && !value_is_zero;
 
         // Common values for the first row
         trace.set(row,
                   { {
                       { C::to_radix_mem_sel, 1 },
                       { C::to_radix_mem_start, 1 },
-                      // Dispatch (needed for PERM_EXECUTION_DISPATCH_TO_TO_RADIX)
+                      // Inputs from dispatch to to_radix (see #DISPATCH_TO_TO_RADIX in execution.pil)
+                      // must always be set unconditionally.
                       { C::to_radix_mem_execution_clk, event.execution_clk },
                       { C::to_radix_mem_space_id, event.space_id },
-                      // Unconditional Inputs
                       { C::to_radix_mem_dst_addr, dst_addr },
                       { C::to_radix_mem_value_to_decompose, event.value },
                       { C::to_radix_mem_radix, event.radix },
@@ -167,9 +183,9 @@ void ToRadixTraceBuilder::process_with_memory(
                       { C::to_radix_mem_write_addr_upper_bound, write_addr_upper_bound },
                       { C::to_radix_mem_two, 2 },
                       { C::to_radix_mem_two_five_six, 256 },
-                      { C::to_radix_mem_sel_num_limbs_is_zero, num_limbs_is_zero },
+                      { C::to_radix_mem_sel_num_limbs_is_zero, num_limbs_is_zero ? 1 : 0 },
                       { C::to_radix_mem_num_limbs_inv, num_limbs }, // Will be inverted in batch later
-                      { C::to_radix_mem_sel_value_is_zero, value_is_zero },
+                      { C::to_radix_mem_sel_value_is_zero, value_is_zero ? 1 : 0 },
                       { C::to_radix_mem_value_inv, event.value }, // Will be inverted in batch later
                       { C::to_radix_mem_sel_radix_eq_2, radix_eq_2 ? 1 : 0 },
                       { C::to_radix_mem_radix_min_two_inv, FF(event.radix) - FF(2) }, // Will be inverted in batch later
@@ -186,7 +202,6 @@ void ToRadixTraceBuilder::process_with_memory(
                           { C::to_radix_mem_sel_radix_lt_2_err, event.radix < 2 ? 1 : 0 },
                           { C::to_radix_mem_sel_radix_gt_256_err, event.radix > 256 ? 1 : 0 },
                           { C::to_radix_mem_sel_invalid_bitwise_radix, invalid_bitwise_radix ? 1 : 0 },
-                          { C::to_radix_mem_sel_invalid_num_limbs_err, invalid_num_limbs ? 1 : 0 },
                       } });
             row++;
             continue;
@@ -235,12 +250,11 @@ void ToRadixTraceBuilder::process_with_memory(
                       { {
                           { C::to_radix_mem_last, 1 },
                           { C::to_radix_mem_err, 1 },
-                          { C::to_radix_mem_sel_truncation_error, 1 },
                           // Decomposition
                           { C::to_radix_mem_sel_should_decompose, 1 },
                           { C::to_radix_mem_limb_index_to_lookup, num_limbs - 1 },
                           { C::to_radix_mem_limb_value, event.limbs[0].as_ff() },
-                          { C::to_radix_mem_value_found, 0 },
+                          // Default C::to_radix_mem_value_found to zero.
                       } });
 
             row++;
@@ -258,6 +272,9 @@ void ToRadixTraceBuilder::process_with_memory(
             bool last = i == (num_limbs - 1);
 
             // Note that the following columns at i == 0 were already set above but code is simpler this way:
+            // - C::to_radix_mem_sel
+            // - C::to_radix_mem_execution_clk
+            // - C::to_radix_mem_space_id
             // - C::to_radix_mem_dst_addr
             // - C::to_radix_mem_value_to_decompose
             // - C::to_radix_mem_radix
@@ -304,12 +321,13 @@ void ToRadixTraceBuilder::process_with_memory(
 
 const InteractionDefinition ToRadixTraceBuilder::interactions =
     InteractionDefinition()
+        // Non-Memory Aware To Radix (to_radix.pil)
         .add<lookup_to_radix_limb_range_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_to_radix_limb_less_than_radix_range_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_to_radix_fetch_safe_limbs_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_to_radix_fetch_p_limb_settings, InteractionType::LookupIntoPDecomposition>()
         .add<lookup_to_radix_limb_p_diff_range_settings, InteractionType::LookupIntoIndexedByRow>()
-        // Mem Aware To Radix
+        // Mem Aware To Radix (to_radix_mem.pil)
         // GT checks
         .add<lookup_to_radix_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(C::gt_sel)
         .add<lookup_to_radix_mem_check_radix_lt_2_settings, InteractionType::LookupGeneric>(C::gt_sel)
