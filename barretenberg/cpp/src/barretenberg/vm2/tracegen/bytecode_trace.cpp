@@ -296,9 +296,9 @@ void BytecodeTraceBuilder::process_retrieval(
                   event.error == simulation::BytecodeRetrievalEventError::INSTANCE_NOT_FOUND ? 0 : 1 },
 
                 // Error handling
-                { C::bc_retrieval_error, error },
+                { C::bc_retrieval_error, error ? 1 : 0 },
                 { C::bc_retrieval_is_new_class, event.is_new_class },
-                { C::bc_retrieval_should_retrieve, !error },
+                { C::bc_retrieval_should_retrieve, error ? 0 : 1 },
                 // Too many bytecodes handling
                 { C::bc_retrieval_no_remaining_bytecodes, remaining_bytecodes == 0 ? 1 : 0 },
                 { C::bc_retrieval_remaining_bytecodes_inv, remaining_bytecodes }, // Will be inverted in batch later.

@@ -33,12 +33,12 @@ enum class BytecodeRetrievalEventError : uint8_t {
 // This is the event that is emitted when the simulator needs to retrieve bytecode.
 // It might or might not result into the storage/decomposition of a bytecode.
 struct BytecodeRetrievalEvent {
-    BytecodeId bytecode_id;
-    AztecAddress address;
-    ContractClassId current_class_id;
+    BytecodeId bytecode_id = 0;
+    AztecAddress address = 0;
+    ContractClassId current_class_id = 0;
     ContractClass contract_class{};
-    FF nullifier_root;
-    FF public_data_tree_root;
+    FF nullifier_root = 0;
+    FF public_data_tree_root = 0;
     AppendOnlyTreeSnapshot retrieved_bytecodes_snapshot_before;
     AppendOnlyTreeSnapshot retrieved_bytecodes_snapshot_after;
     bool is_new_class = false;
