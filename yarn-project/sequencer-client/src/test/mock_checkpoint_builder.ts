@@ -2,7 +2,6 @@ import { type BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-ty
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
-import { Gas } from '@aztec/stdlib/gas';
 import type {
   FullNodeBlockBuilderConfig,
   ICheckpointBlockBuilder,
@@ -113,12 +112,10 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
 
     return {
       block,
-      publicGas: Gas.empty(),
       publicProcessorDuration: 0,
       numTxs: block?.body?.txEffects?.length ?? usedTxs.length,
       usedTxs,
       failedTxs: [],
-      usedTxBlobFields: block?.body?.txEffects?.reduce((sum, tx) => sum + tx.getNumBlobFields(), 0) ?? 0,
     };
   }
 
@@ -249,6 +246,7 @@ export class MockCheckpointsBuilder implements ICheckpointsBuilder {
       slotDuration: 24,
       l1ChainId: 1,
       rollupVersion: 1,
+      rollupManaLimit: 200_000_000,
     };
   }
 

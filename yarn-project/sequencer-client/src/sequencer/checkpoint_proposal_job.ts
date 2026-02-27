@@ -1,5 +1,3 @@
-import { NUM_CHECKPOINT_END_MARKER_FIELDS, getNumBlockEndBlobFields } from '@aztec/blob-lib/encoding';
-import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import {
   BlockNumber,
@@ -384,9 +382,6 @@ export class CheckpointProposalJob implements Traceable {
     const txHashesAlreadyIncluded = new Set<string>();
     const initialBlockNumber = BlockNumber(this.syncedToBlockNumber + 1);
 
-    // Remaining blob fields available for blocks (checkpoint end marker already subtracted)
-    let remainingBlobFields = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB - NUM_CHECKPOINT_END_MARKER_FIELDS;
-
     // Last block in the checkpoint will usually be flagged as pending broadcast, so we send it along with the checkpoint proposal
     let blockPendingBroadcast: { block: L2Block; txs: Tx[] } | undefined = undefined;
 
@@ -419,7 +414,6 @@ export class CheckpointProposalJob implements Traceable {
         blockNumber,
         indexWithinCheckpoint,
         txHashesAlreadyIncluded,
-        remainingBlobFields,
       });
 
       // TODO(palla/mbps): Review these conditions. We may want to keep trying in some scenarios.
@@ -445,11 +439,8 @@ export class CheckpointProposalJob implements Traceable {
         break;
       }
 
-      const { block, usedTxs, remainingBlobFields: newRemainingBlobFields } = buildResult;
+      const { block, usedTxs } = buildResult;
       blocksInCheckpoint.push(block);
-
-      // Update remaining blob fields for the next block
-      remainingBlobFields = newRemainingBlobFields;
 
       // Sync the proposed block to the archiver to make it available
       // Note that the checkpoint builder uses its own fork so it should not need to wait for this syncing
@@ -518,18 +509,10 @@ export class CheckpointProposalJob implements Traceable {
       indexWithinCheckpoint: IndexWithinCheckpoint;
       buildDeadline: Date | undefined;
       txHashesAlreadyIncluded: Set<string>;
-      remainingBlobFields: number;
     },
-  ): Promise<{ block: L2Block; usedTxs: Tx[]; remainingBlobFields: number } | { error: Error } | undefined> {
-    const {
-      blockTimestamp,
-      forceCreate,
-      blockNumber,
-      indexWithinCheckpoint,
-      buildDeadline,
-      txHashesAlreadyIncluded,
-      remainingBlobFields,
-    } = opts;
+  ): Promise<{ block: L2Block; usedTxs: Tx[] } | { error: Error } | undefined> {
+    const { blockTimestamp, forceCreate, blockNumber, indexWithinCheckpoint, buildDeadline, txHashesAlreadyIncluded } =
+      opts;
 
     this.log.verbose(
       `Preparing block ${blockNumber} index ${indexWithinCheckpoint} at checkpoint ${this.checkpointNumber} for slot ${this.slot}`,
@@ -563,15 +546,13 @@ export class CheckpointProposalJob implements Traceable {
       );
       this.setStateFn(SequencerState.CREATING_BLOCK, this.slot);
 
-      // Calculate blob fields limit for txs (remaining capacity - this block's end overhead)
-      const blockEndOverhead = getNumBlockEndBlobFields(indexWithinCheckpoint === 0);
-      const maxBlobFieldsForTxs = remainingBlobFields - blockEndOverhead;
-
+      // Gas and blob field limits are capped by checkpoint-level budgets inside CheckpointBuilder.buildBlock()
       const blockBuilderOptions: PublicProcessorLimits = {
         maxTransactions: this.config.maxTxsPerBlock,
-        maxBlockSize: this.config.maxBlockSizeInBytes,
-        maxBlockGas: new Gas(this.config.maxDABlockGas, this.config.maxL2BlockGas),
-        maxBlobFields: maxBlobFieldsForTxs,
+        maxBlockGas:
+          this.config.maxL2BlockGas !== undefined || this.config.maxDABlockGas !== undefined
+            ? new Gas(this.config.maxDABlockGas ?? Infinity, this.config.maxL2BlockGas ?? Infinity)
+            : undefined,
         deadline: buildDeadline,
       };
 
@@ -602,7 +583,7 @@ export class CheckpointProposalJob implements Traceable {
       }
 
       // Block creation succeeded, emit stats and metrics
-      const { publicGas, block, publicProcessorDuration, usedTxs, usedTxBlobFields, blockBuildDuration } = buildResult;
+      const { block, publicProcessorDuration, usedTxs, blockBuildDuration } = buildResult;
 
       const blockStats = {
         eventName: 'l2-block-built',
@@ -613,7 +594,7 @@ export class CheckpointProposalJob implements Traceable {
 
       const blockHash = await block.hash();
       const txHashes = block.body.txEffects.map(tx => tx.txHash);
-      const manaPerSec = publicGas.l2Gas / (blockBuildDuration / 1000);
+      const manaPerSec = block.header.totalManaUsed.toNumberUnsafe() / (blockBuildDuration / 1000);
 
       this.log.info(
         `Built block ${block.number} at checkpoint ${this.checkpointNumber} for slot ${this.slot} with ${numTxs} txs`,
@@ -621,9 +602,9 @@ export class CheckpointProposalJob implements Traceable {
       );
 
       this.eventEmitter.emit('block-proposed', { blockNumber: block.number, slot: this.slot });
-      this.metrics.recordBuiltBlock(blockBuildDuration, publicGas.l2Gas);
+      this.metrics.recordBuiltBlock(blockBuildDuration, block.header.totalManaUsed.toNumberUnsafe());
 
-      return { block, usedTxs, remainingBlobFields: maxBlobFieldsForTxs - usedTxBlobFields };
+      return { block, usedTxs };
     } catch (err: any) {
       this.eventEmitter.emit('block-build-failed', { reason: err.message, slot: this.slot });
       this.log.error(`Error building block`, err, { blockNumber, slot: this.slot });
