@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -134,6 +134,15 @@ struct FqParams {
 };
 using fq = field<FqParams>;
 
+/**
+ * @brief Parameters defining the scalar field of the secp256k1 curve.
+ *
+ * @details When split into 4 64-bit words, the parameters are represented in little-endian, i.e. the least significant
+ * bit comes first. For example, to recover the modulus from the 64-bit words we concatenate its limbs to obtain:
+ *           0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
+ *
+ * @note These parameters can be extracted by running the script parameter_helper.py in ecc/fields
+ */
 struct FrParams {
 
     // A little-endian representation of the modulus split into 4 64-bit words
