@@ -84,7 +84,7 @@ struct CircuitStats {
         uint32_t num_gates{};
         uint32_t num_gates_dyadic{};
         uint32_t num_acir_opcodes{};
-        std::vector<size_t> gates_per_opcode;
+        std::vector<uint32_t> gates_per_opcode;
         MSGPACK_FIELDS(num_gates, num_gates_dyadic, num_acir_opcodes, gates_per_opcode);
         bool operator==(const Response&) const = default;
     };
