@@ -17,6 +17,7 @@ export CHROME_BIN=/opt/ms-playwright/chromium-1148/chrome-linux/chrome
 export HARDWARE_CONCURRENCY=${CPUS:-16}
 export RAYON_NUM_THREADS=1
 export TOKIO_WORKER_THREADS=1
+export UV_THREADPOOL_SIZE=${UV_THREADPOOL_SIZE:-8}
 export LOG_LEVEL=${LOG_LEVEL:-verbose}
 export NODE_NO_WARNINGS=1
 export FORCE_COLOR=1

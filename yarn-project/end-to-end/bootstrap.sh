@@ -43,6 +43,15 @@ function test_cmds {
   for test in "${tests[@]}"; do
     local name=${test#*e2e_}
     name=e2e_${name%.test.ts}
+    local cmd_env=""
+
+    # Increase UV_THREADPOOL_SIZE for p2p tests that create multiple validator nodes.
+    # Each sequencer needs ~4 libuv threads. Default is 8 (suitable for <=2 nodes).
+    if [[ "$test" =~ e2e_p2p/(inactivity_slash|validators_sentinel|multiple_validators_sentinel|reqresp/|preferred_gossip) ]]; then
+      cmd_env+=" UV_THREADPOOL_SIZE=24"
+    elif [[ "$test" =~ e2e_p2p/ ]]; then
+      cmd_env+=" UV_THREADPOOL_SIZE=16"
+    fi
 
     # Check if this is a .parallel.test.ts file
     if [[ "$test" == *.parallel.test.ts ]]; then
@@ -51,11 +60,11 @@ function test_cmds {
         # Create a safe name for the individual test (replace spaces with underscores)
         local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
         local full_name="${name}_${safe_test_name}"
-        echo "$prefix:NAME=$full_name $(set_dump_avm $full_name) $run_test_script simple $test \"$test_name\""
+        echo "$prefix:NAME=$full_name${cmd_env} $(set_dump_avm $full_name) $run_test_script simple $test \"$test_name\""
       done < <(extract_test_names "$test")
     else
       # Regular test file - run the whole file
-      echo "$prefix:NAME=$name $(set_dump_avm $name) $run_test_script simple $test"
+      echo "$prefix:NAME=$name${cmd_env} $(set_dump_avm $name) $run_test_script simple $test"
     fi
   done
 

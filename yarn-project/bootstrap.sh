@@ -196,6 +196,14 @@ function test_cmds {
       prefix+=":CPUS=8"
     fi
 
+    # Increase UV_THREADPOOL_SIZE for tests that create multiple nodes/sequencers.
+    # Each sequencer needs ~4 libuv threads. Default is 8 (suitable for <=2 nodes).
+    if [[ "$test" =~ testbench ]]; then
+      cmd_env+=" UV_THREADPOOL_SIZE=32"
+    elif [[ "$test" =~ ^p2p/src/client/test/ || "$test" =~ ^p2p/src/services/reqresp/ || "$test" =~ ^p2p/src/services/discv5/ ]]; then
+      cmd_env+=" UV_THREADPOOL_SIZE=16"
+    fi
+
     # Add debug logging for tests that require a bit more info
     if [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts || "$test" == p2p/src/client/p2p_client.integration.test.ts ]]; then
       cmd_env+=" LOG_LEVEL=debug"

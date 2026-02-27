@@ -9,7 +9,9 @@ import { join } from 'path';
 import type { DataStoreConfig } from '../config.js';
 import { AztecLMDBStoreV2 } from './store.js';
 
-const MAX_READERS = 16;
+// Scale max readers with UV_THREADPOOL_SIZE since each libuv thread accessing the DB needs a reader slot.
+const UV_THREADPOOL_SIZE = parseInt(process.env.UV_THREADPOOL_SIZE ?? '4', 10);
+const MAX_READERS = Math.max(16, UV_THREADPOOL_SIZE * 2);
 
 export async function createStore(
   name: string,
