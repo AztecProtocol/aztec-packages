@@ -92,7 +92,7 @@ template <typename FF_> class NonNativeFieldRelationImpl {
 
         // Bigfield Product Gate 2 (selected by q_2 * q_4):
         // Computes cross-term contributions in limb multiplication.
-        // Formula: (w_1 * w_2') + (w_1' * w_2) + (w_1 * w_4 + w_2 * w_3 - w_3') * 2^14 - w_3 - w_4' = 0
+        // Formula: (w_1 * w_2') + (w_1' * w_2) + (w_1 * w_4 + w_2 * w_3 - w_3') * 2^68 - w_3 - w_4' = 0
         // where primed values (') denote shifted wires from the next row.
         auto limb_subproduct = w_1_m * w_2_shift_m + w_1_shift_m * w_2_m;
         auto non_native_field_gate_2_m = (w_1_m * w_4_m + w_2_m * w_3_m - w_3_shift_m);
