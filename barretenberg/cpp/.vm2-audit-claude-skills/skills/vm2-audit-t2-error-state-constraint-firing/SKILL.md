@@ -67,6 +67,17 @@ grep -rn "sel_err\|sel_error\|sel_opcode_error\|sel_tag_err\|_failure\|nested_fa
 
 Work through the inventory systematically. For EACH component, check the three vulnerability patterns below. **After finding 1-2 issues in a single component, move on to the next component.** Do not exhaustively document every variant in one file.
 
+#### DEPTH MANDATE
+
+When checking a component, you MUST do more than confirm error selectors exist. For each component:
+
+1. **Read the actual constraints** — not just grep for the selector name. Quote specific constraint lines.
+2. **Trace what happens when the error fires** — which shifted-column constraints still enforce next-row values? Which lookups still fire?
+3. **Check gating completeness** — for EVERY lookup/permutation in the file, verify whether it fires when error=1. If it does and the columns are meaningless during error, this is Pattern B.
+4. **Check error flag freedom** — for EVERY committed error flag, verify it is constrained on ALL active rows, not just start rows. If it's only set on start rows but used on all rows, this is Pattern C.
+
+A component marked "Analyzed. No issues found." MUST include evidence: quote at least 2 specific constraints you verified and explain why they are correct. If you cannot quote specific constraints, you have not analyzed the component.
+
 #### Pattern A: Shifted-Column Constraints That Fire During Error States
 
 Look for constraints that enforce next-row state (`column' = expr`) that are gated by an operation selector but NOT gated by the relevant error flag:

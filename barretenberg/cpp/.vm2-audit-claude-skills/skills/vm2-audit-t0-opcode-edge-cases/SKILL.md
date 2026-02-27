@@ -147,23 +147,50 @@ Bitwise NOT of the operand
 - `LT(MAX, MAX) = 0`
 - `LTE(MAX, MAX) = 1`
 
+## ERROR PATH AWARENESS
+
+When analyzing any component, do not limit your analysis to the happy path. For every opcode or gadget you examine, also consider:
+
+1. **Error-path side effects**: When an error fires, are memory address computations still valid? Can `addr - 1` or `addr + size - 1` underflow when size=0 or the operation is skipped?
+2. **Spurious error activation**: Can a malicious prover set error selectors to 1 when the actual condition doesn't warrant it? Check that error selectors are tightly constrained.
+3. **Constraint behavior during errors**: Do other constraints in the same file fire incorrectly when an error flag is set? Shifted-column constraints (`col' = expr`) gated only by `sel_op` (not by `(1 - error)`) will enforce wrong next-row values during errors.
+4. **Tracegen on error paths**: Does the C++ tracegen produce valid traces when errors occur? Watch for silent truncation, underflow, or unset columns on error paths.
+
+If you verify a pattern only on the happy path, note it as "(happy path only — error path not verified)" rather than marking it as fully safe.
+
 ## Workflow
 
 ### Step 0: Enumerate ALL Opcodes With Edge Cases (MANDATORY)
 
-> **CRITICAL**: Before deep-diving any single opcode, enumerate ALL opcodes and identify which have edge case risks.
+> **CRITICAL**: This skill covers edge cases for ALL opcodes, not just ALU/arithmetic. You MUST check every opcode group below.
 
-```bash
-ls yarn-project/simulator/docs/avm/opcodes/
-grep -rn "sel_op_\|sel_execute_" pil/vm2/alu.pil pil/vm2/execution.pil | head -40
-```
+Use this mapping to find the relevant PIL and simulation files:
 
-Build a master checklist:
+| Opcode(s) | PIL file(s) | Edge cases to check |
+|-----------|-------------|-------------------|
+| ADD, SUB, MUL, DIV, FDIV | `alu.pil` | Overflow, underflow, division by zero, field vs integer semantics |
+| SHL, SHR | `alu.pil` | Shift >= 128 (C++ uint128_t UB), shift by 0, shift of 0 |
+| NOT, EQ, LT, LTE | `alu.pil` | Tag mismatches, field element inputs |
+| AND, OR, XOR | `bitwise.pil` | FF-type inputs, tag mismatches |
+| CAST | `cast.pil` | Narrowing casts, field-to-integer |
+| CALLDATACOPY, RETURNDATACOPY | `data_copy.pil` | size=0, off-by-one bounds, address underflow, src out of range |
+| ECADD, MSM | `ecc.pil` | Point at infinity, invalid curve points, predicate completeness |
+| POSEIDON2HASH | `poseidon2_hash.pil` | Empty input, single element |
+| SHA256COMPRESSION | `sha256.pil` | Edge inputs |
+| KECCAKF1600 | `keccakf1600.pil`, `keccak_memory.pil` | Edge inputs |
+| TORADIXBE | `to_radix.pil`, `to_radix_mem.pil` | radix=0, radix=1, zero limbs, invalid bit mode |
+| EMITUNENCRYPTEDLOG | `opcodes/emit_unencrypted_log.pil` | Zero-length log, memory address underflow |
+| EMITNOTEHASH, EMITNULLIFIER | `opcodes/emit_notehash.pil`, `opcodes/emit_nullifier.pil` | Static call context |
+| SENDL2TOL1MSG | `opcodes/send_l2_to_l1_msg.pil` | Recipient size validation |
+| SLOAD, SSTORE | `opcodes/sload.pil`, `opcodes/sstore.pil` | Storage edge cases |
+| GETCONTRACTINSTANCE | `opcodes/get_contract_instance.pil` | Non-existent contracts, member enum bounds |
+| INTERNALCALL, INTERNALRETURN | `opcodes/internal_call.pil` | Empty call stack, stack overflow |
+| CALL, STATICCALL | `opcodes/external_call.pil` | Nested call edge cases |
+| Addressing layer | `execution/addressing.pil` | Relative address overflow, indirect addressing |
+| Bytecode decomposition | `bc_decomposition.pil` | Zero extension, truncation |
+| Tx-level | `tx.pil` | Gas limit edge cases, padded rows, phase transitions |
 
-| Opcode | Edge case categories | Checked? | Finding? |
-|--------|---------------------|----------|----------|
-
-Priority order: arithmetic (ADD, SUB, MUL, DIV, SHL, SHR), bitwise (AND, OR, XOR, NOT), cast/truncation (CAST, SET), comparisons (EQ, LT, LTE), then memory/control flow opcodes.
+**COVERAGE MANDATE**: You MUST produce a coverage table at the end showing every row above and whether you analyzed it. If any opcode group is not analyzed, explain why. Do NOT spend more than 20% of your budget on ALU — it is only 1 of 10+ subsystems.
 
 ### Step 1: Identify Edge Cases from Documentation
 ```bash

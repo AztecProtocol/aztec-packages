@@ -103,6 +103,17 @@ Some operations require non-FIELD integer types.
 **Tracegen**: `expected_tag_reg` range check
 **PIL**: Tag constraint excluding FF
 
+## ERROR PATH AWARENESS
+
+When analyzing any component, do not limit your analysis to the happy path. For every opcode or gadget you examine, also consider:
+
+1. **Error-path side effects**: When an error fires, are memory address computations still valid? Can `addr - 1` or `addr + size - 1` underflow when size=0 or the operation is skipped?
+2. **Spurious error activation**: Can a malicious prover set error selectors to 1 when the actual condition doesn't warrant it? Check that error selectors are tightly constrained.
+3. **Constraint behavior during errors**: Do other constraints in the same file fire incorrectly when an error flag is set? Shifted-column constraints (`col' = expr`) gated only by `sel_op` (not by `(1 - error)`) will enforce wrong next-row values during errors.
+4. **Tracegen on error paths**: Does the C++ tracegen produce valid traces when errors occur? Watch for silent truncation, underflow, or unset columns on error paths.
+
+If you verify a pattern only on the happy path, note it as "(happy path only — error path not verified)" rather than marking it as fully safe.
+
 ## Workflow
 
 ### Step 0: Enumerate ALL Opcodes With Tag Checks (MANDATORY)
@@ -205,11 +216,24 @@ grep -n "sel_ab_tag_mismatch\|sel_tag_err" pil/vm2/alu.pil
 
 Create comparison table:
 
-| Opcode | Doc Tag Check | Simulation | Tracegen | PIL | Match? |
-|--------|---------------|------------|----------|-----|--------|
-| ADD | T[a] == T[b] | add_input() x2 | sel_tag_check[0,1] | alu.sel_ab_tag_mismatch | Y |
-| EMITNOTEHASH | T[x] == FIELD | add_input(FF) | expected_tag=FF | batched check | Y |
-| SHL | T[shift] integral | ??? | ??? | ??? | ? |
+| Opcode | Doc Tag Check | Simulation | Tracegen | PIL | Presence? | Correctness verified? |
+|--------|---------------|------------|----------|-----|-----------|----------------------|
+| ADD | T[a] == T[b] | add_input() x2 | sel_tag_check[0,1] | alu.sel_ab_tag_mismatch | Y | Y (quote constraint) |
+| EMITNOTEHASH | T[x] == FIELD | add_input(FF) | expected_tag=FF | batched check | Y | ? |
+| SHL | T[shift] integral | ??? | ??? | ??? | ? | ? |
+
+### Verification Depth Requirement
+
+A "Y" in the Presence column requires quoting the file:line of the constraint. A "Y" in the Correctness column requires that you have READ the constraint body and verified the logic is correct. If you can only confirm presence without reading the constraint body, mark Correctness as **"Unverified"** and flag for deeper analysis.
+
+Specifically for subtrace-level tag checks (bitwise, poseidon2, sha256, keccak, ecc):
+- Do NOT mark these as correct based on knowing a constraint exists
+- READ the actual dispatch/selector constraints and verify:
+  - Tag values are correctly connected to dispatch selectors
+  - Error flag logic (`sel_tag_ff_err`, `sel_tag_mismatch_err`) is correct
+  - Error paths in tracegen produce valid traces (check the C++ `*_trace.cpp` file)
+
+Also check `execution/addressing.pil` for `BATCHED_TAGS_DIFF` — this is a separate tag check layer from `registers.pil` that validates resolved operand tags for indirect addressing. It must be verified independently.
 
 ## Common Mismatch Patterns
 

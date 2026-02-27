@@ -92,6 +92,17 @@ Errors must be checked at the correct phase:
 5. **Gas** → `sel_out_of_gas` (OUT_OF_GAS)
 6. **Opcode Execution** → `sel_opcode_error` (DIVISION_BY_ZERO, STATIC_CALL_VIOLATION, etc.)
 
+## ERROR PATH AWARENESS
+
+When analyzing any component, do not limit your analysis to the happy path. For every opcode or gadget you examine, also consider:
+
+1. **Error-path side effects**: When an error fires, are memory address computations still valid? Can `addr - 1` or `addr + size - 1` underflow when size=0 or the operation is skipped?
+2. **Spurious error activation**: Can a malicious prover set error selectors to 1 when the actual condition doesn't warrant it? Check that error selectors are tightly constrained.
+3. **Constraint behavior during errors**: Do other constraints in the same file fire incorrectly when an error flag is set? Shifted-column constraints (`col' = expr`) gated only by `sel_op` (not by `(1 - error)`) will enforce wrong next-row values during errors.
+4. **Tracegen on error paths**: Does the C++ tracegen produce valid traces when errors occur? Watch for silent truncation, underflow, or unset columns on error paths.
+
+If you verify a pattern only on the happy path, note it as "(happy path only — error path not verified)" rather than marking it as fully safe.
+
 ## Workflow
 
 ### Step 0: Enumerate ALL Fallible Opcodes (MANDATORY)
@@ -207,6 +218,20 @@ For each documented error condition:
 |-------|-----|-----|----------|-----|--------|
 | TAG_MISMATCH | Y | ? | ? | ? | ? |
 | STATIC_CALL_VIOLATION | Y | ? | ? | ? | ? |
+
+### Step 7: Error Path Trace-Through (MANDATORY)
+
+For each fallible opcode (not just checking that error conditions exist):
+
+1. **Trace the error path**: When this error fires, what happens to all other constraints in the file? Are memory address computations still valid? Does `addr + size - 1` underflow when size could be 0?
+2. **Check for missing error conditions**: Are there semantic constraints on operand values that SHOULD be error conditions but are NOT documented? Examples:
+   - Address-type fields should be range-constrained (e.g., Ethereum addresses to 160 bits)
+   - Enum fields should be range-constrained to valid values
+   - Size fields should handle zero correctly
+3. **Check spurious activation**: Can a malicious prover set the error selector to 1 when the genuine condition does not warrant it? The constraint `sel_error * (condition) = 0` only prevents `sel_error=1 AND condition≠0` — it does NOT prevent `sel_error=1 AND condition=0` if `sel_error` is a free committed column.
+4. **Check cascading effects**: When a prior error stage fires (e.g., bytecode retrieval), are later error selectors constrained to 0? Or can a malicious prover set `sel_opcode_error=1` even when `sel_bytecode_retrieval_failure=1` already fired?
+
+**DEPTH MANDATE**: For each opcode you check, you MUST read the full PIL file and trace through at least one error path. If this limits you to 10 opcodes instead of 47, that is acceptable — depth over breadth. A superficial "OK" mark that only confirms the error selector exists is NOT acceptable.
 
 ## Common Mismatch Patterns
 

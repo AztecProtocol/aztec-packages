@@ -36,6 +36,17 @@ You are a **prosecutor**, not a defense attorney. Your job is to find and report
 // dying_context_id: oldest failed ancestor (discard = 1 iff dying_context_id != 0)
 ```
 
+## ERROR PATH AWARENESS
+
+When analyzing any component, do not limit your analysis to the happy path. For every opcode or gadget you examine, also consider:
+
+1. **Error-path side effects**: When an error fires, are memory address computations still valid? Can `addr - 1` or `addr + size - 1` underflow when size=0 or the operation is skipped?
+2. **Spurious error activation**: Can a malicious prover set error selectors to 1 when the actual condition doesn't warrant it? Check that error selectors are tightly constrained.
+3. **Constraint behavior during errors**: Do other constraints in the same file fire incorrectly when an error flag is set? Shifted-column constraints (`col' = expr`) gated only by `sel_op` (not by `(1 - error)`) will enforce wrong next-row values during errors.
+4. **Tracegen on error paths**: Does the C++ tracegen produce valid traces when errors occur? Watch for silent truncation, underflow, or unset columns on error paths.
+
+If you verify a pattern only on the happy path, note it as "(happy path only — error path not verified)" rather than marking it as fully safe.
+
 ## Workflow
 
 ### Step 0: Enumerate ALL PIL Files With Side Effects (MANDATORY)
@@ -108,13 +119,31 @@ For each cross-context interaction tuple (lookups/permutations between component
 grep -rn "} in \|} is " pil/vm2/ --include="*.pil" | grep -i "context\|call\|enqueue\|return\|stack"
 ```
 
-### Step 6: Review Tracegen
+### Step 6: Review Tracegen (EXPANDED)
 
+For EVERY PIL gating expression involving `(1 - discard)` or `(1 - reverted)` found in Steps 2-5:
+1. Identify the tracegen file that populates the gated column
+2. Verify the C++ code checks `!discard` (or `!reverted`) when setting the column
+
+**MANDATORY**: Check ALL tracegen files, not just execution_trace.cpp:
 ```bash
-grep -rn "discard" --include="*.cpp" src/barretenberg/vm2/tracegen/<component>*.cpp
+find src/barretenberg/vm2/tracegen/ -name "*_trace.cpp" | sort
+grep -rn "discard" --include="*.cpp" src/barretenberg/vm2/tracegen/
 ```
 
-Verify columns and events gated by discard check.
+Pay special attention to `tx_trace.cpp` — it populates tx-level side-effect columns (`should_l2_l1_msg_append`, `should_note_hash_append`, etc.) that are DISTINCT from execution-level columns. A PIL constraint may be correct while the tracegen that populates it is wrong.
+
+### Step 6b: Column Anchoring Check
+
+For each committed polynomial used in discard/revert logic, verify it is **externally anchored** (constrained against public inputs or an external source of truth):
+
+| Column | Must be anchored to | Check |
+|--------|---------------------|-------|
+| `reverted` | Public inputs (via lookup at cleanup phase) | Is there a `PUBLIC_INPUTS_READ_REVERTED` or similar? |
+| `discard` | Derived from `dying_context_id` or `reverted` | Is the derivation constrained? |
+| `tx_reverted` | Public inputs | Is there a lookup? |
+
+If a column is only internally constrained (boolean, propagation) but never anchored to an external truth source, report as **HIGH/CRITICAL**: a malicious prover can freely set the initial value.
 
 ## Vulnerable vs Secure Patterns
 
