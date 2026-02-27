@@ -215,7 +215,7 @@ else
 fi
 
 # --------------------------------------------------------------------------- #
-# 5. Install aztec-wallet wrapper (for manual debugging)
+# 5. Install aztec-wallet wrapper (optional, for manual debugging)
 # --------------------------------------------------------------------------- #
 
 mkdir -p "$(dirname "$WRAPPER_PATH")"
