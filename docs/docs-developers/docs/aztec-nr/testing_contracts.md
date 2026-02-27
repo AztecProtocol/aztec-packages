@@ -307,6 +307,44 @@ env.advance_next_block_timestamp_by(duration);
 env.mine_block_at(block_timestamp);
 ````
 
+## Testing private events [experimental]
+
+You can verify that private events were emitted correctly using `get_private_events`:
+
+```rust
+use aztec::test::helpers::txe_oracles::get_private_events;
+
+#[test]
+unconstrained fn test_transfer_emits_event() {
+    let (env, token_address, owner, recipient) = setup(false);
+
+    env.call_private(owner, Token::at(token_address).transfer(recipient, 100));
+
+    let events = get_private_events::<Token::Transfer>(token_address, recipient);
+    assert_eq(events.len(), 1);
+    let event = events.get(0);
+    assert_eq(event.from, owner);
+    assert_eq(event.to, recipient);
+    assert_eq(event.amount, 100 as u128);
+}
+```
+
+:::warning
+The event struct must be declared with `pub` visibility to be accessible from the test crate:
+
+```rust
+#[event]
+pub struct Transfer {
+    pub from: AztecAddress,
+    pub to: AztecAddress,
+    pub amount: u128,
+}
+```
+:::
+
+Testing events API is currently experimental as we don't yet support filtering or pagination and there will be breaking
+changes.
+
 ## Testing failure cases
 
 Test functions that should fail using annotations:
