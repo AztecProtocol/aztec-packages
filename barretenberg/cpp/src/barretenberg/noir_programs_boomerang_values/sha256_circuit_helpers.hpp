@@ -17,6 +17,7 @@
 
 namespace sha256_helpers {
 
+constexpr size_t HASH_COMBINE_CONSTANT = 0x9e3779b9;
 // Block names matching UltraTraceBlockData::get() order
 inline const std::array<std::string, 9> BLOCK_NAMES = {
     "pub_inputs", "lookup", "arithmetic",         "delta_range",       "elliptic",
@@ -345,6 +346,60 @@ inline void print_range_list_filler_info(const RangeListFillerInfo& info)
               << " expected_gates=" << info.expected_gate_count << " found_gates=" << info.found_gate_count
               << " total_unconstrained=" << info.total_unconstrained_gates << " count_matches=" << info.count_matches
               << std::endl;
+}
+
+inline size_t hash_combine(size_t lhs, size_t rhs)
+{
+    return lhs ^ (rhs + HASH_COMBINE_CONSTANT + (lhs << 6) + (lhs >> 2));
+}
+
+/**
+ * @brief Compute a deterministic hash of selectors in a block range
+ *
+ * Uses Boost-style hash_combine:
+ *   combined = combined ^ (element_hash + 0x9e3779b9 + (combined << 6) + (combined >> 2))
+ */
+template <typename Block>
+size_t compute_selector_hash(size_t combined_hash, Block& block, size_t start_idx, size_t end_idx)
+{
+    auto selectors = block.get_selectors();
+    for (size_t gate = start_idx; gate <= end_idx; ++gate) {
+        for (size_t s = 0; s < selectors.size(); ++s) {
+            uint64_t val = static_cast<uint64_t>(uint256_t(selectors[s][gate]));
+            combined_hash = hash_combine(combined_hash, std::hash<uint64_t>()(val));
+        }
+    }
+    return combined_hash;
+}
+
+/**
+ * @brief Check if a gate has all selectors zero (unconstrained / filler gate)
+ */
+template <typename Block> bool is_gate_unconstrained(Block& block, size_t gate_idx)
+{
+    auto selectors = block.get_selectors();
+    for (size_t s = 0; s < selectors.size(); ++s) {
+        if (static_cast<uint64_t>(uint256_t(selectors[s][gate_idx])) != 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * @brief Compute a deterministic hash of selectors for specific gate indices
+ */
+template <typename Block>
+size_t compute_selector_hash(size_t combined_hash, Block& block, const std::vector<size_t>& gate_indices)
+{
+    auto selectors = block.get_selectors();
+    for (size_t gate : gate_indices) {
+        for (size_t s = 0; s < selectors.size(); ++s) {
+            uint64_t val = static_cast<uint64_t>(uint256_t(selectors[s][gate]));
+            combined_hash = hash_combine(combined_hash, std::hash<uint64_t>()(val));
+        }
+    }
+    return combined_hash;
 }
 
 } // namespace sha256_helpers
