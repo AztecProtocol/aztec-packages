@@ -121,7 +121,7 @@ describe('SequencerPublisher', () => {
       ...defaultL1TxUtilsConfig,
     } as unknown as TxSenderConfig &
       PublisherConfig &
-      Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration'> &
+      Pick<L1ContractsConfig, 'ethereumSlotDuration'> &
       L1TxUtilsConfig;
 
     rollup = mock<RollupContract>();
@@ -138,10 +138,8 @@ describe('SequencerPublisher', () => {
 
     const epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({
-      epoch: EpochNumber(1),
-      slot: SlotNumber(2),
-      proposalEpoch: EpochNumber(1),
-      proposalSlot: SlotNumber(2),
+      epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+      slot: { now: SlotNumber(2), pipeline: SlotNumber(2) },
       ts: 3n,
       nowMs: 3000n,
     });

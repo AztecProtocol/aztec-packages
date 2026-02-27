@@ -3,12 +3,12 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { getEpochAtSlot, getSlotAtTimestamp, getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 
-import type {
-  EpochAndSlot,
-  EpochCacheInterface,
-  EpochCacheViewFactory,
-  EpochCommitteeInfo,
-  SlotTag,
+import {
+  type EpochAndSlot,
+  type EpochCacheInterface,
+  type EpochCommitteeInfo,
+  PROPOSER_PIPELINING_SLOT_OFFSET,
+  type SlotTag,
 } from '../epoch_cache.js';
 
 /** Default L1 constants for testing. */
@@ -37,26 +37,7 @@ export class TestEpochCache implements EpochCacheInterface {
   private seed: bigint = 0n;
   private registeredValidators: EthAddress[] = [];
   private l1Constants: L1RollupConstants;
-  private proposerPipeliningEnabled = true;
-
-  private mapSlotForProposerView(slot: SlotTag): SlotTag {
-    if (typeof slot !== 'number') {
-      return slot;
-    }
-    const offset = this.proposerPipeliningEnabled ? 1 : 0;
-    return SlotNumber(Math.max(0, Number(slot) + offset));
-  }
-
-  private makeView(mapSlot: (slot: SlotTag) => SlotTag, toBaseSlot: (slot: SlotNumber) => SlotNumber) {
-    return {
-      getCurrentAndNextSlot: () => this.getCurrentAndNextSlot(),
-      getCommittee: (slot: SlotTag = 'now') => this.getCommittee(mapSlot(slot)),
-      getProposerAttesterAddressInSlot: (slot: SlotNumber) => this.getProposerAttesterAddressInSlot(toBaseSlot(slot)),
-      isInCommittee: (slot: SlotTag, validator: EthAddress) => this.isInCommittee(mapSlot(slot), validator),
-      filterInCommittee: (slot: SlotTag, validators: EthAddress[]) => this.filterInCommittee(mapSlot(slot), validators),
-      toBaseSlot,
-    };
-  }
+  private proposerPipeliningEnabled = false;
 
   constructor(l1Constants: Partial<L1RollupConstants> = {}) {
     this.l1Constants = { ...DEFAULT_L1_CONSTANTS, ...l1Constants };
@@ -144,22 +125,36 @@ export class TestEpochCache implements EpochCacheInterface {
   }
 
   getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint } {
-    const epoch = getEpochAtSlot(this.currentSlot, this.l1Constants);
-    const ts = getTimestampRangeForEpoch(epoch, this.l1Constants)[0];
-    const proposalSlot = this.proposerPipeliningEnabled ? SlotNumber(this.currentSlot + 1) : this.currentSlot;
-    const proposalEpoch = getEpochAtSlot(proposalSlot, this.l1Constants);
-    return { epoch, slot: this.currentSlot, proposalEpoch, proposalSlot, ts, nowMs: ts * 1000n };
+    const epochNow = getEpochAtSlot(this.currentSlot, this.l1Constants);
+    const ts = getTimestampRangeForEpoch(epochNow, this.l1Constants)[0];
+    const pipelineSlot = this.proposerPipeliningEnabled
+      ? SlotNumber(this.currentSlot + PROPOSER_PIPELINING_SLOT_OFFSET)
+      : this.currentSlot;
+    const pipelineEpoch = getEpochAtSlot(pipelineSlot, this.l1Constants);
+    return {
+      epoch: { now: epochNow, pipeline: pipelineEpoch },
+      slot: { now: this.currentSlot, pipeline: pipelineSlot },
+      ts,
+      nowMs: ts * 1000n,
+    };
   }
 
-  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint } {
-    const now = getTimestampRangeForEpoch(getEpochAtSlot(this.currentSlot, this.l1Constants), this.l1Constants)[0];
-    const nextSlotTs = now + BigInt(this.l1Constants.ethereumSlotDuration);
+  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint } {
+    const nowTs = getTimestampRangeForEpoch(getEpochAtSlot(this.currentSlot, this.l1Constants), this.l1Constants)[0];
+    const nextSlotTs = nowTs + BigInt(this.l1Constants.ethereumSlotDuration);
     const nextSlot = getSlotAtTimestamp(nextSlotTs, this.l1Constants);
-    const epoch = getEpochAtSlot(nextSlot, this.l1Constants);
-    const ts = getTimestampRangeForEpoch(epoch, this.l1Constants)[0];
-    const proposalSlot = this.proposerPipeliningEnabled ? SlotNumber(nextSlot + 1) : nextSlot;
-    const proposalEpoch = getEpochAtSlot(proposalSlot, this.l1Constants);
-    return { epoch, slot: nextSlot, proposalEpoch, proposalSlot, ts, now };
+    const epochNow = getEpochAtSlot(nextSlot, this.l1Constants);
+    const ts = getTimestampRangeForEpoch(epochNow, this.l1Constants)[0];
+    const pipelineSlot = this.proposerPipeliningEnabled
+      ? SlotNumber(nextSlot + PROPOSER_PIPELINING_SLOT_OFFSET)
+      : nextSlot;
+    const pipelineEpoch = getEpochAtSlot(pipelineSlot, this.l1Constants);
+    return {
+      epoch: { now: epochNow, pipeline: pipelineEpoch },
+      slot: { now: nextSlot, pipeline: pipelineSlot },
+      ts,
+      nowSeconds: nowTs,
+    };
   }
 
   getProposerIndexEncoding(epoch: EpochNumber, slot: SlotNumber, seed: bigint): `0x${string}` {
@@ -183,18 +178,6 @@ export class TestEpochCache implements EpochCacheInterface {
 
   getProposerAttesterAddressInSlot(_slot: SlotNumber): Promise<EthAddress | undefined> {
     return Promise.resolve(this.proposerAddress);
-  }
-
-  getViewFactory(): EpochCacheViewFactory {
-    const proposerToBaseSlot = (slot: SlotNumber) => this.mapSlotForProposerView(slot) as SlotNumber;
-    return {
-      withProposerView: () => this.makeView(slot => this.mapSlotForProposerView(slot), proposerToBaseSlot),
-      withSubmissionView: () =>
-        this.makeView(
-          slot => slot,
-          slot => slot,
-        ),
-    };
   }
 
   getRegisteredValidators(): Promise<EthAddress[]> {

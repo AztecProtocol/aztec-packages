@@ -973,11 +973,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return;
     }
 
-    // WORKTODO(md): temporary
-    const submissionSlotNumber = this.epochCache.getEpochAndSlotNow().slot;
-
     this.logger.verbose(
-      `Received valid checkpoint attestation for slot ${attestation.slotNumber} from external peer ${source.toString()} | submission slot: ${submissionSlotNumber}`,
+      `Received valid checkpoint attestation for slot ${attestation.slotNumber} from external peer ${source.toString()}`,
       {
         p2pMessageIdentifier: await attestation.p2pMessageLoggingIdentifier(),
         slot: attestation.slotNumber,

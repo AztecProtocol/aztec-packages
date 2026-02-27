@@ -1,4 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import type { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import {
@@ -56,22 +57,18 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
 
     beforeEach(() => {
       epochCache = epochCacheMock();
-      const mockView = {
-        getCurrentAndNextSlot: () => epochCache.getCurrentAndNextSlot(),
-        getCommittee: (slot: any) => epochCache.getCommittee(slot),
-        getProposerAttesterAddressInSlot: (slot: any) => epochCache.getProposerAttesterAddressInSlot(slot),
-        isInCommittee: (slot: any, validator: any) => epochCache.isInCommittee(slot, validator),
-        filterInCommittee: (slot: any, validators: any[]) => epochCache.filterInCommittee(slot, validators),
-        toBaseSlot: (slot: any) => slot,
-      };
-      epochCache.getViewFactory.mockReturnValue({
-        withProposerView: () => mockView,
-        withSubmissionView: () => mockView,
-      });
       validator = validatorFactory(epochCache, { txsPermitted: true });
-      epochCache.getCurrentAndNextSlot.mockReturnValue({
-        currentSlot: currentSlot,
-        nextSlot: nextSlot,
+      (epochCache.getEpochAndSlotNow as jest.Mock).mockReturnValue({
+        epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+        slot: { now: currentSlot, pipeline: currentSlot },
+        ts: 0n,
+        nowMs: 0n,
+      });
+      (epochCache.getEpochAndSlotInNextL1Slot as jest.Mock).mockReturnValue({
+        epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+        slot: { now: nextSlot, pipeline: nextSlot },
+        ts: 0n,
+        now: 0n,
       });
     });
 
@@ -80,11 +77,9 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
       const mockProposal = await makeProposal({ blockHeader: header, lastBlockHeader: header });
 
       // Mock getEpochAndSlotNow to return time OUTSIDE clock tolerance (1000ms elapsed)
-      epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: currentSlot,
-        proposalEpoch: 1 as any,
-        proposalSlot: currentSlot,
+      (epochCache.getEpochAndSlotNow as jest.Mock).mockReturnValue({
+        epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+        slot: { now: currentSlot, pipeline: currentSlot },
         ts: 1000n, // slot started at 1000 seconds
         nowMs: 1001000n, // 1000ms elapsed, outside 500ms tolerance
       });
@@ -107,11 +102,9 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
       });
 
       // Mock getEpochAndSlotNow to return time WITHIN clock tolerance (100ms elapsed)
-      epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: currentSlot,
-        proposalEpoch: 1 as any,
-        proposalSlot: currentSlot,
+      (epochCache.getEpochAndSlotNow as jest.Mock).mockReturnValue({
+        epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+        slot: { now: currentSlot, pipeline: currentSlot },
         ts: 1000n, // slot started at 1000 seconds
         nowMs: 1000100n, // 100ms elapsed, within 500ms tolerance
       });

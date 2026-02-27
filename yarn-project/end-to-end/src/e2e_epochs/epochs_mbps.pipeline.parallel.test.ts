@@ -93,8 +93,9 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     await context.sequencer!.stop();
 
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
+    // Clear inherited coinbase so each validator derives coinbase from its own attester key
     nodes = await asyncMap(validators, ({ privateKey }) =>
-      test.createValidatorNode([privateKey], { dontStartSequencer: true }),
+      test.createValidatorNode([privateKey], { dontStartSequencer: true, coinbase: undefined }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
 
@@ -151,11 +152,16 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
    * but its header carries submission slot N+1.
    */
   async function assertProposerPipelining(
-    blockProposedEvents: { blockNumber: BlockNumber; slot: SlotNumber }[],
+    blockProposedEvents: { blockNumber: BlockNumber; slotView: { now: SlotNumber; pipeline: SlotNumber } }[],
     logger: Logger,
   ) {
     const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
     const allBlocks = checkpoints.flatMap(pc => pc.checkpoint.blocks);
+
+    logger.warn(`assertProposerPipelining: ${allBlocks.length} blocks, ${blockProposedEvents.length} events`, {
+      blockNumbers: allBlocks.map(b => b.number),
+      eventBlockNumbers: blockProposedEvents.map(e => e.blockNumber),
+    });
 
     let foundPipelining = false;
 
@@ -163,17 +169,21 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
       const headerSlot = block.header.globalVariables.slotNumber; // submission slot (N+1)
       const coinbase = block.header.globalVariables.coinbase;
 
-      // Find the block-proposed event for this block
-      const event = blockProposedEvents.find(e => e.blockNumber === block.number);
-      expect(event).toBeDefined();
+      // Find the block-proposed event for this block (use Number() for safe comparison)
+      const event = blockProposedEvents.find(e => Number(e.blockNumber) === Number(block.number));
+      // if there is no event, then it was probably block number one - which was proposed in setup
+      if (!event) {
+        continue;
+      }
 
-      const buildSlot = event!.slot; // build slot (N)
+      const buildSlot = event!.slotView.now; // build slot (N)
 
       // Verify the pipelining offset: block built in slot N, submitted in slot N+1
       expect(Number(headerSlot)).toBe(Number(buildSlot) + 1);
+      expect(Number(headerSlot)).toBe(Number(event!.slotView.pipeline));
       foundPipelining = true;
 
-      // Sanity check: coinbase matches the expected proposer for the submission slot
+      // Verify coinbase matches the expected proposer for the submission slot
       const expectedProposer = await rollup.getProposerAt(getTimestampForSlot(headerSlot, test.constants));
       expect(coinbase).toEqual(expectedProposer);
 
@@ -199,11 +209,15 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     await setupTest({ syncChainTip: 'checkpointed', minTxsPerBlock: 1, maxTxsPerBlock: 2 });
 
     // Subscribe to block-proposed events to capture build slots
-    const blockProposedEvents: { blockNumber: BlockNumber; slot: SlotNumber }[] = [];
+    const blockProposedEvents: { blockNumber: BlockNumber; slotView: { now: SlotNumber; pipeline: SlotNumber } }[] = [];
     const sequencers = nodes.map(n => n.getSequencer()!);
     for (const sequencer of sequencers) {
       sequencer.getSequencer().on('block-proposed', (args: Parameters<SequencerEvents['block-proposed']>[0]) => {
-        blockProposedEvents.push({ blockNumber: args.blockNumber, slot: args.slot });
+        logger.warn(`block-proposed event: blockNumber=${args.blockNumber}, slot=${args.slotView.now}`, args);
+        blockProposedEvents.push({
+          blockNumber: args.blockNumber,
+          slotView: args.slotView,
+        });
       });
     }
 

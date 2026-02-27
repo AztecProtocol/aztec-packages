@@ -1,5 +1,4 @@
-import type { EpochCache, SlotTag } from '@aztec/epoch-cache';
-import { createMockEpochCache } from '@aztec/epoch-cache/test';
+import { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compactArray, times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
@@ -58,7 +57,7 @@ describe('sentinel', () => {
   };
 
   beforeEach(async () => {
-    epochCache = createMockEpochCache();
+    epochCache = mock<EpochCache>();
     archiver = mock<L2BlockSource>();
     p2p = mock<P2PClient>();
     blockStream = mock<L2BlockStream>();
@@ -80,10 +79,8 @@ describe('sentinel', () => {
     };
 
     epochCache.getEpochAndSlotNow.mockReturnValue({
-      epoch,
-      slot,
-      proposalEpoch: epoch,
-      proposalSlot: slot,
+      epoch: { now: epoch, pipeline: epoch },
+      slot: { now: slot, pipeline: slot },
       ts,
       nowMs: ts * 1000n,
     });
@@ -592,10 +589,8 @@ describe('sentinel', () => {
       const [fromSlot, toSlot] = getSlotRangeForEpoch(epochNumber, l1Constants);
 
       epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: epochNumber,
-        slot,
-        proposalEpoch: epochNumber,
-        proposalSlot: slot,
+        epoch: { now: epochNumber, pipeline: epochNumber },
+        slot: { now: slot, pipeline: slot },
         ts,
         nowMs: ts * 1000n,
       });
@@ -938,7 +933,7 @@ class TestSentinel extends Sentinel {
   }
 
   public override init() {
-    this.initialSlot = this.epochCache.getEpochAndSlotNow().slot;
+    this.initialSlot = this.epochCache.getEpochAndSlotNow().slot.now;
     return Promise.resolve();
   }
 

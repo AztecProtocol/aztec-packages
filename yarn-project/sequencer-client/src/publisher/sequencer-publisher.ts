@@ -120,7 +120,6 @@ export class SequencerPublisher {
 
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
-  protected aztecSlotDuration: bigint;
 
   private blobClient: BlobClientInterface;
 
@@ -151,7 +150,7 @@ export class SequencerPublisher {
 
   constructor(
     private config: Pick<SequencerPublisherConfig, 'fishermanMode'> &
-      Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration'> & { l1ChainId: number },
+      Pick<L1ContractsConfig, 'ethereumSlotDuration'> & { l1ChainId: number },
     deps: {
       telemetry?: TelemetryClient;
       blobClient: BlobClientInterface;
@@ -169,7 +168,6 @@ export class SequencerPublisher {
   ) {
     this.log = deps.log ?? createLogger('sequencer:publisher');
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
-    this.aztecSlotDuration = BigInt(config.aztecSlotDuration);
     this.epochCache = deps.epochCache;
     this.lastActions = deps.lastActions;
 
@@ -245,7 +243,7 @@ export class SequencerPublisher {
   }
 
   public getCurrentL2Slot(): SlotNumber {
-    return this.epochCache.getEpochAndSlotNow().slot;
+    return this.epochCache.getEpochAndSlotNow().slot.now;
   }
 
   /**

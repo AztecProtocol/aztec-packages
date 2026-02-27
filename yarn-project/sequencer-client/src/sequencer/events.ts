@@ -1,3 +1,4 @@
+import type { SlotView } from '@aztec/epoch-cache';
 import type { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 
 import type { Action } from '../publisher/sequencer-publisher.js';
@@ -12,8 +13,8 @@ export type SequencerEvents = {
   }) => void;
   ['proposer-rollup-check-failed']: (args: { reason: string; slot: SlotNumber }) => void;
   ['block-tx-count-check-failed']: (args: { minTxs: number; availableTxs: number; slot: SlotNumber }) => void;
-  ['block-build-failed']: (args: { reason: string; slot: SlotNumber }) => void;
-  ['block-proposed']: (args: { blockNumber: BlockNumber; slot: SlotNumber }) => void;
+  ['block-build-failed']: (args: { reason: string; slotView: SlotView }) => void;
+  ['block-proposed']: (args: { blockNumber: BlockNumber; slotView: SlotView }) => void;
   ['checkpoint-empty']: (args: { slot: SlotNumber }) => void;
   ['checkpoint-publish-failed']: (args: {
     slot: SlotNumber;

@@ -181,7 +181,7 @@ describe('e2e_escape_hatch_vote_only', () => {
 
     // Track block building attempts (should not happen when escape hatch is open)
     sequencer.on('block-proposed', (args: Parameters<SequencerEvents['block-proposed']>[0]) => {
-      blockProposedEvents.push({ blockNumber: args.blockNumber, slot: args.slot });
+      blockProposedEvents.push({ blockNumber: args.blockNumber, slot: args.slotView.now });
       logger.warn(`Sequencer proposed block when escape hatch should be open`, args);
     });
 

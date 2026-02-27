@@ -1,4 +1,4 @@
-import type { EpochCache, EpochCacheView } from '@aztec/epoch-cache';
+import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { countWhile, filterAsync, fromEntries, getEntries, mapValues } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -51,7 +51,6 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   protected runningPromise: RunningPromise;
   protected blockStream!: L2BlockStream;
   protected l2TipsStore: L2TipsStore;
-  protected submissionView: EpochCacheView;
 
   protected initialSlot: SlotNumber | undefined;
   protected lastProcessedSlot: SlotNumber | undefined;
@@ -73,7 +72,6 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     protected logger = createLogger('node:sentinel'),
   ) {
     super();
-    this.submissionView = epochCache.getViewFactory().withSubmissionView();
     this.l2TipsStore = new L2TipsMemoryStore();
     const interval = (epochCache.getL1Constants().ethereumSlotDuration * 1000) / 4;
     this.runningPromise = new RunningPromise(this.work.bind(this), logger, interval);
@@ -90,7 +88,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
 
   /** Loads initial slot and initializes blockstream. We will not process anything at or before the initial slot. */
   protected async init() {
-    this.initialSlot = this.epochCache.getEpochAndSlotNow().slot;
+    this.initialSlot = this.epochCache.getEpochAndSlotNow().slot.now;
     const startingBlock = BlockNumber(await this.archiver.getBlockNumber());
     this.logger.info(`Starting validator sentinel with initial slot ${this.initialSlot} and block ${startingBlock}`);
     this.blockStream = new L2BlockStream(this.archiver, this.l2TipsStore, this, this.logger, { startingBlock });
@@ -160,7 +158,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
 
   protected async computeProvenPerformance(epoch: EpochNumber): Promise<ValidatorsEpochPerformance> {
     const [fromSlot, toSlot] = getSlotRangeForEpoch(epoch, this.epochCache.getL1Constants());
-    const { committee, isEscapeHatchOpen } = await this.submissionView.getCommittee(fromSlot);
+    const { committee, isEscapeHatchOpen } = await this.epochCache.getCommittee(fromSlot);
     if (isEscapeHatchOpen) {
       this.logger.info(`Skipping proven performance for epoch ${epoch} - escape hatch is open`);
       return {};
@@ -266,7 +264,9 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
    * and we don't have that data if we were offline during the period.
    */
   public async work() {
-    const { slot: currentSlot } = this.epochCache.getEpochAndSlotNow();
+    const {
+      slot: { now: currentSlot },
+    } = this.epochCache.getEpochAndSlotNow();
     try {
       // Manually sync the block stream to ensure we have the latest data.
       // Note we never `start` the blockstream, so it loops at the same pace as we do.
@@ -333,7 +333,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
    * and updates overall stats.
    */
   protected async processSlot(slot: SlotNumber) {
-    const { epoch, seed, committee, isEscapeHatchOpen } = await this.submissionView.getCommittee(slot);
+    const { epoch, seed, committee, isEscapeHatchOpen } = await this.epochCache.getCommittee(slot);
     if (isEscapeHatchOpen) {
       this.logger.info(`Skipping slot ${slot} at epoch ${epoch} - escape hatch is open`);
       this.lastProcessedSlot = slot;
@@ -438,7 +438,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       ? fromEntries(await Promise.all(validators.map(async v => [v.toString(), await this.store.getHistory(v)])))
       : await this.store.getHistories();
 
-    const slotNow = this.epochCache.getEpochAndSlotNow().slot;
+    const slotNow = this.epochCache.getEpochAndSlotNow().slot.now;
     fromSlot ??= SlotNumber(Math.max((this.lastProcessedSlot ?? slotNow) - this.store.getHistoryLength(), 0));
     toSlot ??= this.lastProcessedSlot ?? slotNow;
 
@@ -466,7 +466,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       return undefined;
     }
 
-    const slotNow = this.epochCache.getEpochAndSlotNow().slot;
+    const slotNow = this.epochCache.getEpochAndSlotNow().slot.now;
     const effectiveFromSlot =
       fromSlot ?? SlotNumber(Math.max((this.lastProcessedSlot ?? slotNow) - this.store.getHistoryLength(), 0));
     const effectiveToSlot = toSlot ?? this.lastProcessedSlot ?? slotNow;

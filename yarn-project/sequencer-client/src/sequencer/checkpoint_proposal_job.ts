@@ -1,6 +1,6 @@
 import { NUM_CHECKPOINT_END_MARKER_FIELDS, getNumBlockEndBlobFields } from '@aztec/blob-lib/encoding';
 import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
-import type { EpochCache, EpochCacheView } from '@aztec/epoch-cache';
+import type { EpochCache, EpochView, SlotView } from '@aztec/epoch-cache';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -67,12 +67,10 @@ const TXS_POLLING_MS = 500;
  */
 export class CheckpointProposalJob implements Traceable {
   protected readonly log: Logger;
-  private readonly proposerView: EpochCacheView;
 
   constructor(
-    private readonly epoch: EpochNumber,
-    private readonly slot: SlotNumber,
-    private readonly submissionSlot: SlotNumber,
+    private readonly slotView: SlotView,
+    private readonly epochView: EpochView,
     private readonly checkpointNumber: CheckpointNumber,
     private readonly syncedToBlockNumber: BlockNumber,
     // TODO(palla/mbps): Can we remove the proposer in favor of attestorAddress? Need to check fisherman-node flows.
@@ -100,8 +98,30 @@ export class CheckpointProposalJob implements Traceable {
     public readonly tracer: Tracer,
     bindings?: LoggerBindings,
   ) {
-    this.log = createLogger('sequencer:checkpoint-proposal', { ...bindings, instanceId: `slot-${slot}` });
-    this.proposerView = this.epochCache.getViewFactory().withProposerView();
+    this.log = createLogger('sequencer:checkpoint-proposal', {
+      ...bindings,
+      instanceId: `slot-${this.slotView.now}`,
+    });
+  }
+
+  /** The wall-clock slot during which the proposer builds. */
+  private get slot(): SlotNumber {
+    return this.slotView.now;
+  }
+
+  /** The pipeline slot L1 will target (slot + 1 when pipelining). */
+  private get pipelineSlot(): SlotNumber {
+    return this.slotView.pipeline;
+  }
+
+  /** The wall-clock epoch. */
+  private get epoch(): EpochNumber {
+    return this.epochView.now;
+  }
+
+  /** The pipeline epoch (may differ from wall-clock at epoch boundaries). */
+  private get pipelineEpoch(): EpochNumber {
+    return this.epochView.pipeline;
   }
 
   /**
@@ -114,7 +134,7 @@ export class CheckpointProposalJob implements Traceable {
     // In fisherman mode, we simulate slashing but don't actually publish to L1
     // These are constant for the whole slot, so we only enqueue them once
     const votesPromises = new CheckpointVoter(
-      this.submissionSlot,
+      this.pipelineSlot,
       this.publisher,
       this.attestorAddress,
       this.validatorClient,
@@ -142,11 +162,11 @@ export class CheckpointProposalJob implements Traceable {
     }
 
     // If pipelining, wait until the submission slot so L1 recognizes the pipelined proposer
-    if (this.submissionSlot !== this.slot) {
-      const submissionSlotTimestamp = getTimestampForSlot(this.submissionSlot, this.l1Constants);
-      this.log.info(`Waiting until submission slot ${this.submissionSlot} for L1 submission`, {
+    if (this.pipelineSlot !== this.slot) {
+      const submissionSlotTimestamp = getTimestampForSlot(this.pipelineSlot, this.l1Constants);
+      this.log.info(`Waiting until submission slot ${this.pipelineSlot} for L1 submission`, {
         slot: this.slot,
-        submissionSlot: this.submissionSlot,
+        submissionSlot: this.pipelineSlot,
         submissionSlotTimestamp,
       });
       await sleepUntil(new Date(Number(submissionSlotTimestamp) * 1000), this.dateProvider.nowAsDate());
@@ -180,15 +200,15 @@ export class CheckpointProposalJob implements Traceable {
       const feeRecipient = this.validatorClient.getFeeRecipientForAttestor(this.attestorAddress);
 
       // Start the checkpoint
-      this.setStateFn(SequencerState.INITIALIZING_CHECKPOINT, this.submissionSlot);
+      this.setStateFn(SequencerState.INITIALIZING_CHECKPOINT, this.pipelineSlot);
       this.log.info(`Starting checkpoint proposal`, {
         buildSlot: this.slot,
-        submissionSlot: this.submissionSlot,
-        pipelining: this.submissionSlot !== this.slot,
+        submissionSlot: this.pipelineSlot,
+        pipelining: this.pipelineSlot !== this.slot,
         proposer: this.proposer?.toString(),
         coinbase: coinbase.toString(),
       });
-      this.metrics.incOpenSlot(this.submissionSlot, this.proposer?.toString() ?? 'unknown');
+      this.metrics.incOpenSlot(this.pipelineSlot, this.proposer?.toString() ?? 'unknown');
 
       // Enqueues checkpoint invalidation (constant for the whole slot)
       if (this.invalidateCheckpoint && !this.config.skipInvalidateBlockAsProposer) {
@@ -199,7 +219,7 @@ export class CheckpointProposalJob implements Traceable {
       const checkpointGlobalVariables = await this.globalsBuilder.buildCheckpointGlobalVariables(
         coinbase,
         feeRecipient,
-        this.submissionSlot,
+        this.pipelineSlot,
       );
 
       // Collect L1 to L2 messages for the checkpoint and compute their hash
@@ -355,7 +375,7 @@ export class CheckpointProposalJob implements Traceable {
       // Enqueue publishing the checkpoint to L1
       this.setStateFn(SequencerState.PUBLISHING_CHECKPOINT, this.slot);
       const aztecSlotDuration = this.l1Constants.slotDuration;
-      const submissionSlotStart = Number(getTimestampForSlot(this.submissionSlot, this.l1Constants));
+      const submissionSlotStart = Number(getTimestampForSlot(this.pipelineSlot, this.l1Constants));
       const txTimeoutAt = new Date((submissionSlotStart + aztecSlotDuration) * 1000);
 
       // If we have been configured to potentially skip publishing checkpoint then roll the dice here
@@ -373,7 +393,7 @@ export class CheckpointProposalJob implements Traceable {
       }
 
       const additionalSlotOffset =
-        this.submissionSlot !== this.slot
+        this.pipelineSlot !== this.slot
           ? Math.ceil(this.l1Constants.slotDuration / this.l1Constants.ethereumSlotDuration)
           : undefined;
 
@@ -624,7 +644,10 @@ export class CheckpointProposalJob implements Traceable {
           `Block ${blockNumber} at index ${indexWithinCheckpoint} on slot ${this.slot} has too few valid txs to be proposed`,
           { slot: this.slot, blockNumber, numTxs, indexWithinCheckpoint, minValidTxs, buildResult: buildResult.status },
         );
-        this.eventEmitter.emit('block-build-failed', { reason: `Insufficient valid txs`, slot: this.slot });
+        this.eventEmitter.emit('block-build-failed', {
+          reason: `Insufficient valid txs`,
+          slotView: this.slotView,
+        });
         this.metrics.recordBlockProposalFailed('insufficient_valid_txs');
         return undefined;
       }
@@ -648,12 +671,18 @@ export class CheckpointProposalJob implements Traceable {
         { blockHash, txHashes, manaPerSec, ...blockStats },
       );
 
-      this.eventEmitter.emit('block-proposed', { blockNumber: block.number, slot: this.slot });
+      this.eventEmitter.emit('block-proposed', {
+        blockNumber: block.number,
+        slotView: this.slotView,
+      });
       this.metrics.recordBuiltBlock(blockBuildDuration, publicGas.l2Gas);
 
       return { block, usedTxs, remainingBlobFields: maxBlobFieldsForTxs - usedTxBlobFields };
     } catch (err: any) {
-      this.eventEmitter.emit('block-build-failed', { reason: err.message, slot: this.slot });
+      this.eventEmitter.emit('block-build-failed', {
+        reason: err.message,
+        slotView: this.slotView,
+      });
       this.log.error(`Error building block`, err, { blockNumber, slot: this.slot });
       this.metrics.recordBlockProposalFailed(err.name || 'unknown_error');
       this.metrics.recordFailedBlock();
@@ -734,7 +763,7 @@ export class CheckpointProposalJob implements Traceable {
     }
 
     const slotNumber = proposal.slotNumber;
-    const { committee, seed, epoch } = await this.proposerView.getCommittee(slotNumber);
+    const { committee, seed, epoch } = await this.epochCache.getCommittee(slotNumber);
 
     if (!committee) {
       throw new Error('No committee when collecting attestations');

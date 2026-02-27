@@ -1,5 +1,4 @@
-import type { EpochCache } from '@aztec/epoch-cache';
-import { createMockDeepEpochCache } from '@aztec/epoch-cache/test';
+import { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -290,9 +289,8 @@ describe('CheckpointProposalJob Timing Tests', () => {
     return new TimingTestCheckpointProposalJob(
       dateProvider,
       getSecondsIntoSlot,
-      epoch,
-      slotNumber,
-      slotNumber, // submissionSlot (same as slot when not pipelining)
+      { now: slotNumber, pipeline: slotNumber },
+      { now: epoch, pipeline: epoch },
       checkpointNumber,
       BlockNumber.ZERO,
       proposer,
@@ -381,7 +379,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     checkpointsBuilder.setCheckpointBuilder(checkpointBuilder);
 
     // Set up mocks
-    epochCache = createMockDeepEpochCache();
+    epochCache = mockDeep<EpochCache>();
     epochCache.getCommittee.mockResolvedValue({
       committee,
       seed: 0n,

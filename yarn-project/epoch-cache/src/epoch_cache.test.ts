@@ -20,10 +20,6 @@ class TestEpochCache extends EpochCache {
   public setCacheSize(size: number): void {
     this.config.cacheSize = size;
   }
-
-  public setProposerPipeliningEnabled(enabled: boolean): void {
-    this.enableProposerPipelining = enabled;
-  }
 }
 
 describe('EpochCache', () => {
@@ -167,9 +163,7 @@ describe('EpochCache', () => {
 
     // generate a random slot greater than `epochDuration`
     const targetSlot = BigInt(epochDuration) + BigInt(Math.floor(Math.random() * 1000));
-    const targetEpoch = targetSlot / BigInt(epochDuration);
-    const epochStartSlot = targetEpoch * BigInt(epochDuration);
-    const epochStartTimestamp = l1GenesisTime + epochStartSlot * BigInt(slotDuration);
+    const slotTimestamp = l1GenesisTime + targetSlot * BigInt(slotDuration);
 
     const expectedCommittee = [EthAddress.fromString('0x000000000000000000000000000000000000BEEF')];
     const expectedSeed = Buffer32.fromBigInt(999n);
@@ -179,10 +173,10 @@ describe('EpochCache', () => {
     await epochCache.getCommittee(SlotNumber.fromBigInt(targetSlot));
 
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
-    expect(rollupContract.getCommitteeAt).toHaveBeenCalledWith(epochStartTimestamp);
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledWith(slotTimestamp);
 
     expect(rollupContract.getSampleSeedAt).toHaveBeenCalledTimes(1);
-    expect(rollupContract.getSampleSeedAt).toHaveBeenCalledWith(epochStartTimestamp);
+    expect(rollupContract.getSampleSeedAt).toHaveBeenCalledWith(slotTimestamp);
   });
 
   it('should cache multiple epochs', async () => {
@@ -287,24 +281,5 @@ describe('EpochCache', () => {
     await expect(epochCache.getCommittee(SlotNumber.fromBigInt(futureSlot))).rejects.toThrow(
       /Cannot query committee for future epoch.*with timestamp.*\(current L1 time is/,
     );
-  });
-
-  describe('proposer pipelining', () => {
-    it('collapses proposer view to submission view when proposer pipelining is disabled', () => {
-      epochCache.setProposerPipeliningEnabled(false);
-
-      const proposerView = epochCache.getViewFactory().withProposerView();
-      expect(proposerView.toBaseSlot(SlotNumber(1))).toBe(SlotNumber(1));
-    });
-
-    it('maps proposer view to submissionSlot + 1 when proposer pipelining is enabled', async () => {
-      epochCache.setProposerPipeliningEnabled(true);
-      const proposerView = epochCache.getViewFactory().withProposerView();
-      const spy = jest.spyOn(epochCache, 'getProposerAttesterAddressInSlot');
-
-      await proposerView.getProposerAttesterAddressInSlot(SlotNumber(1));
-
-      expect(spy).toHaveBeenCalledWith(SlotNumber(2));
-    });
   });
 });

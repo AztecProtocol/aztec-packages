@@ -1,5 +1,5 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
-import type { EpochCache, EpochCommitteeInfo, SlotTag } from '@aztec/epoch-cache';
+import type { EpochCache, EpochCommitteeInfo, SlotView } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
@@ -165,12 +165,10 @@ describe('sequencer', () => {
     epochCache = mockDeep<EpochCache>();
     epochCache.isEscapeHatchOpen.mockResolvedValue(false);
     epochCache.getEpochAndSlotInNextL1Slot.mockImplementation(() => ({
-      epoch: EpochNumber(1),
-      slot: SlotNumber(1),
-      proposalEpoch: EpochNumber(1),
-      proposalSlot: SlotNumber(1),
+      epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+      slot: { now: SlotNumber(1), pipeline: SlotNumber(1) },
       ts: 1000n,
-      now: 1000n,
+      nowSeconds: 1000n,
     }));
     epochCache.getCommittee.mockResolvedValue({
       committee,
@@ -179,33 +177,6 @@ describe('sequencer', () => {
       isEscapeHatchOpen: false,
     });
     epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(undefined);
-
-    const offsetSlot = (slot: number, offset: number) => SlotNumber(Math.max(0, Number(slot) + offset));
-
-    const maybeOffsetSlot = (slot: SlotNumber | 'now' | 'next' | undefined, offset: number) =>
-      typeof slot === 'number' ? offsetSlot(slot, offset) : slot;
-    const maybeOffsetSlotTag = (slot: SlotTag, offset: number): SlotTag =>
-      typeof slot === 'number' ? offsetSlot(slot, offset) : slot;
-
-    function makeEpochView(offset: number = 0) {
-      return {
-        getCurrentAndNextSlot: () => epochCache.getCurrentAndNextSlot(),
-        getCommittee: (slot: SlotNumber | 'now' | 'next' | undefined) =>
-          epochCache.getCommittee(maybeOffsetSlot(slot, offset)),
-        getProposerAttesterAddressInSlot: (slot: SlotNumber) =>
-          epochCache.getProposerAttesterAddressInSlot(offsetSlot(slot, offset)),
-        isInCommittee: (slot: SlotTag, validator: EthAddress) =>
-          epochCache.isInCommittee(maybeOffsetSlotTag(slot, offset), validator),
-        filterInCommittee: (slot: SlotTag, validators: EthAddress[]) =>
-          epochCache.filterInCommittee(maybeOffsetSlotTag(slot, offset), validators),
-        toBaseSlot: (slot: SlotNumber) => offsetSlot(slot, offset),
-      };
-    }
-
-    epochCache.getViewFactory.mockReturnValue({
-      withProposerView: () => makeEpochView(1),
-      withSubmissionView: () => makeEpochView(0),
-    });
 
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
@@ -328,6 +299,8 @@ describe('sequencer', () => {
     validatorClient.createBlockProposal.mockImplementation(() => Promise.resolve(createBlockProposal()));
     validatorClient.createCheckpointProposal.mockImplementation(() => Promise.resolve(createCheckpointProposal()));
     validatorClient.signAttestationsAndSigners.mockImplementation(() => Promise.resolve(getSignatures()[0].signature));
+    validatorClient.getCoinbaseForAttestor.mockReturnValue(coinbase);
+    validatorClient.getFeeRecipientForAttestor.mockReturnValue(feeRecipient);
 
     slasherClient = mock<SlasherClientInterface>();
     slasherClient.getProposerActions.mockResolvedValue([]);
@@ -516,20 +489,16 @@ describe('sequencer', () => {
       epochCache.getEpochAndSlotInNextL1Slot
         .mockReset()
         .mockReturnValueOnce({
-          epoch: EpochNumber(1),
-          slot: SlotNumber(1),
-          proposalEpoch: EpochNumber(1),
-          proposalSlot: SlotNumber(1),
+          epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+          slot: { now: SlotNumber(1), pipeline: SlotNumber(1) },
           ts: 1000n,
-          now: 1000n,
+          nowSeconds: 1000n,
         })
         .mockReturnValueOnce({
-          epoch: EpochNumber(1),
-          slot: SlotNumber(2),
-          proposalEpoch: EpochNumber(1),
-          proposalSlot: SlotNumber(2),
+          epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+          slot: { now: SlotNumber(2), pipeline: SlotNumber(2) },
           ts: 1000n,
-          now: 1000n,
+          nowSeconds: 1000n,
         });
 
       sequencer.updateConfig({ enforceTimeTable: false, maxTxsPerBlock: 4 });
@@ -932,7 +901,7 @@ describe('sequencer', () => {
       validatorClient.getValidatorAddresses.mockReturnValue([proposer]);
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
 
-      await sequencer.checkCanProposeForTest(SlotNumber(1));
+      await sequencer.checkCanProposeForTest({ now: SlotNumber(1), pipeline: SlotNumber(2) });
 
       // Proposer view applies +1 offset: slot 1 becomes slot 2
       expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(2));
@@ -954,7 +923,7 @@ class TestSequencer extends Sequencer {
     return super.work();
   }
 
-  public checkCanProposeForTest(slot: SlotNumber) {
+  public checkCanProposeForTest(slot: SlotView) {
     return this.checkCanPropose(slot);
   }
 }

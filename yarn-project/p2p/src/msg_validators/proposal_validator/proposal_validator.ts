@@ -1,4 +1,4 @@
-import type { EpochCacheInterface, EpochCacheView } from '@aztec/epoch-cache';
+import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { NoCommitteeError } from '@aztec/ethereum/contracts';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { BlockProposal, CheckpointProposal, PeerErrorSeverity, type ValidationResult } from '@aztec/stdlib/p2p';
@@ -7,21 +7,20 @@ import { isWithinClockTolerance } from '../clock_tolerance.js';
 
 export abstract class ProposalValidator<TProposal extends BlockProposal | CheckpointProposal> {
   protected epochCache: EpochCacheInterface;
-  protected proposerView: EpochCacheView;
   protected logger: Logger;
   protected txsPermitted: boolean;
 
   constructor(epochCache: EpochCacheInterface, opts: { txsPermitted: boolean }, loggerName: string) {
     this.epochCache = epochCache;
-    this.proposerView = epochCache.getViewFactory().withProposerView();
     this.txsPermitted = opts.txsPermitted;
     this.logger = createLogger(loggerName);
   }
 
   public async validate(proposal: TProposal): Promise<ValidationResult> {
     try {
-      // Slot check
-      const { currentSlot, nextSlot } = this.proposerView.getCurrentAndNextSlot();
+      // Slot check: use pipeline slots since proposals target pipeline slots (slot + 1 when pipelining)
+      const currentSlot = this.epochCache.getEpochAndSlotNow().slot.pipeline;
+      const nextSlot = this.epochCache.getEpochAndSlotInNextL1Slot().slot.pipeline;
       const slotNumber = proposal.slotNumber;
       if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
         // Check if message is for previous slot and within clock tolerance

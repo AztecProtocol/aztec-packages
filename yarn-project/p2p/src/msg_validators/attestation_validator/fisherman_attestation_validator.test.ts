@@ -1,5 +1,4 @@
-import type { EpochCache } from '@aztec/epoch-cache';
-import { createMockEpochCache } from '@aztec/epoch-cache/test';
+import { EpochCache } from '@aztec/epoch-cache';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -26,7 +25,7 @@ describe('FishermanAttestationValidator', () => {
   let attester: Secp256k1Signer;
 
   beforeEach(() => {
-    epochCache = createMockEpochCache();
+    epochCache = mock<EpochCache>();
     attestationPool = mock<AttestationPool>();
     validator = new FishermanAttestationValidator(epochCache, attestationPool, getTelemetryClient());
     proposer = Secp256k1Signer.random();
@@ -50,10 +49,8 @@ describe('FishermanAttestationValidator', () => {
       });
       // Mock getEpochAndSlotNow to return time OUTSIDE clock tolerance (1000ms elapsed)
       epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: SlotNumber(98),
-        proposalEpoch: 1 as any,
-        proposalSlot: SlotNumber(98),
+        epoch: { now: 1 as any, pipeline: 1 as any },
+        slot: { now: SlotNumber(98), pipeline: SlotNumber(98) },
         ts: 1000n, // slot started at 1000 seconds
         nowMs: 1001000n, // 1000ms elapsed, outside 500ms tolerance
       });

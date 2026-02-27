@@ -75,7 +75,7 @@ const RUN_THE_BIG_ONE = !!process.env.RUN_THE_BIG_ONE;
 
 // TODO(md): cleanup
 const ETHEREUM_SLOT_DURATION = getL1ContractsConfigEnvVars().ethereumSlotDuration;
-const AZTEC_SLOT_DURATION = getL1ContractsConfigEnvVars().aztecSlotDuration;
+
 const MINT_AMOUNT = 1000n;
 
 enum TxComplexity {
@@ -437,7 +437,6 @@ describe('e2e_synching', () => {
       {
         l1ChainId: 31337,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-        aztecSlotDuration: AZTEC_SLOT_DURATION,
       },
       {
         blobClient,

@@ -1,4 +1,4 @@
-import type { EpochCacheInterface, EpochCacheView } from '@aztec/epoch-cache';
+import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { NoCommitteeError } from '@aztec/ethereum/contracts';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
@@ -12,15 +12,10 @@ import { isWithinClockTolerance } from '../clock_tolerance.js';
 
 export class CheckpointAttestationValidator implements P2PValidator<CheckpointAttestation> {
   protected epochCache: EpochCacheInterface;
-
-  // TODO(md): thinking, should these really be the other way around? everything works on slots at this point in time, so this should be fine
-  protected proposerView: EpochCacheView;
   protected logger: Logger;
 
   constructor(epochCache: EpochCacheInterface) {
     this.epochCache = epochCache;
-    const viewFactory = epochCache.getViewFactory();
-    this.proposerView = viewFactory.withProposerView();
     this.logger = createLogger('p2p:checkpoint-attestation-validator');
   }
 
@@ -28,10 +23,9 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
     const slotNumber = message.payload.header.slotNumber;
 
     try {
-      // TODO(md): This really depends on the time in which we made the checkpoint
-      //           if the last checkpoint proposal was received at the end of one slot
-      //           we should really have enough time to verify it here
-      const { currentSlot, nextSlot } = this.proposerView.getCurrentAndNextSlot();
+      // Use pipeline slots since proposals target pipeline slots (slot + 1 when pipelining)
+      const currentSlot = this.epochCache.getEpochAndSlotNow().slot.pipeline;
+      const nextSlot = this.epochCache.getEpochAndSlotInNextL1Slot().slot.pipeline;
 
       if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
         // Check if message is for previous slot and within clock tolerance
