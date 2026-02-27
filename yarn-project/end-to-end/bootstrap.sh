@@ -45,11 +45,15 @@ function test_cmds {
     name=e2e_${name%.test.ts}
     local cmd_env=""
 
-    # Increase UV_THREADPOOL_SIZE for p2p tests that create multiple validator nodes.
+    # Increase UV_THREADPOOL_SIZE for tests that create multiple validator nodes.
     # Each sequencer needs ~4 libuv threads. Default is 8 (suitable for <=2 nodes).
-    if [[ "$test" =~ e2e_p2p/(inactivity_slash|validators_sentinel|multiple_validators_sentinel|reqresp/|preferred_gossip) ]]; then
+    if [[ "$test" =~ e2e_epochs/epochs_first_slot ]]; then
+      cmd_env+=" UV_THREADPOOL_SIZE=32"
+    elif [[ "$test" =~ e2e_p2p/(inactivity_slash|validators_sentinel|multiple_validators_sentinel|reqresp/|preferred_gossip) ]]; then
       cmd_env+=" UV_THREADPOOL_SIZE=24"
-    elif [[ "$test" =~ e2e_p2p/ ]]; then
+    elif [[ "$test" =~ e2e_epochs/epochs_invalidate_block ]]; then
+      cmd_env+=" UV_THREADPOOL_SIZE=24"
+    elif [[ "$test" =~ e2e_p2p/ || "$test" =~ e2e_epochs/ ]]; then
       cmd_env+=" UV_THREADPOOL_SIZE=16"
     fi
 
