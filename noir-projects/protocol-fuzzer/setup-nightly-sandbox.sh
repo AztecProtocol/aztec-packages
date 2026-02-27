@@ -12,7 +12,7 @@
 set -euo pipefail
 
 CONTAINER_NAME="aztec-sandbox-nightly"
-# Last nightly tag verified to work with this fuzzer (updated manually after testing).
+# Last nightly tag verified to work with the current contract source code.
 KNOWN_GOOD_TAG="5.0.0-nightly.20260224"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CONTRACTS_DIR="${REPO_ROOT}/noir-projects/protocol-fuzzer/contracts"
@@ -46,10 +46,7 @@ find_latest_nightly() {
 if [ -n "${NIGHTLY_IMAGE:-}" ]; then
     IMAGE="$NIGHTLY_IMAGE"
     log "Using user-specified image: ${IMAGE}"
-elif [ "${1:-}" = "--known-good" ]; then
-    IMAGE="aztecprotocol/aztec:${KNOWN_GOOD_TAG}"
-    log "Using known-good image: ${IMAGE}"
-else
+elif [ "${1:-}" = "--latest" ]; then
     LATEST_TAG=$(find_latest_nightly)
     IMAGE="aztecprotocol/aztec:${LATEST_TAG}"
     if [ "$LATEST_TAG" = "$KNOWN_GOOD_TAG" ]; then
@@ -57,6 +54,9 @@ else
     else
         log "Latest nightly: ${IMAGE} (known-good: ${KNOWN_GOOD_TAG})"
     fi
+else
+    IMAGE="aztecprotocol/aztec:${KNOWN_GOOD_TAG}"
+    log "Using known-good image: ${IMAGE}"
 fi
 
 # wait_for_http URL MAX_SECONDS [INTERVAL]

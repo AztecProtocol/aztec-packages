@@ -5,7 +5,7 @@
 The protocol fuzzer has two state machines:
 
 - **token**: Fuzzes the Token contract (mint/burn/transfer, public and private).
-  Works with any Aztec sandbox — no special setup needed.
+  Works with any Aztec sandbox --no special setup needed.
 - **side-effect**: Fuzzes note lifecycle, nullifier emission, and cross-contract calls via
   custom `SideEffect` and `Parent` contracts. **Requires the nightly sandbox.**
 
@@ -29,12 +29,13 @@ between versions (the setup script auto-detects when they match).
 slots, fixes the wallet, identifies the nightly commit, compiles both contracts, imports
 test accounts, and starts the bridge server.
 
-By default it auto-discovers the latest `5.0.0-nightly.YYYYMMDD` tag from Docker Hub.
+By default it uses the last tested (`KNOWN_GOOD_TAG`) nightly image. Use `--latest`
+to auto-discover the newest tag from Docker Hub (may be untested).
 
 ```bash
 cd noir-projects/protocol-fuzzer
-bash setup-nightly-sandbox.sh              # latest nightly
-bash setup-nightly-sandbox.sh --known-good # last tested tag
+bash setup-nightly-sandbox.sh              # known-good tag (default, recommended)
+bash setup-nightly-sandbox.sh --latest     # latest nightly from Docker Hub
 NIGHTLY_IMAGE=aztecprotocol/aztec:5.0.0-nightly.20260224 bash setup-nightly-sandbox.sh  # specific tag
 ```
 
@@ -241,11 +242,11 @@ RUST_LOG=debug cargo run -- side-effect --max-steps 5
 ### SideEffect contract (`contracts/side_effect_contract/`)
 
 Custom contract for testing note lifecycle and nullifier operations:
-- `call_create_note` / `call_create_and_complete_partial_note` — create notes
-- `call_destroy_note` — get notes sorted by value ASC, destroy the smallest
-- `call_view_notes_many` / `call_get_notes_many` — query notes (returns `[u128; 2]`)
-- `emit_nullifier` / `test_nullifier_inclusion` — nullifier operations
-- `test_note_inclusion` — prove note exists in the tree
+- `call_create_note` / `call_create_and_complete_partial_note` --create notes
+- `call_destroy_note` --get notes sorted by value ASC, destroy the smallest
+- `call_view_notes_many` / `call_get_notes_many` --query notes (returns `[u128; 2]`)
+- `emit_nullifier` / `test_nullifier_inclusion` --nullifier operations
+- `test_note_inclusion` --prove note exists in the tree
 
 ### Parent contract (`contracts/parent_contract/`)
 
@@ -285,7 +286,7 @@ against the nightly's aztec-nr.
 Run `bb-avm aztec_process` (step 4b).
 
 ### "Private function X must have a verification key"
-Run `bb-avm aztec_process` (step 4b) — it generates both transpiled bytecode and VKs.
+Run `bb-avm aztec_process` (step 4b) --it generates both transpiled bytecode and VKs.
 
 ### "Constructor method initialize not found"
 The `__aztec_nr_internals__` prefix wasn't stripped. Run the `jq` step in 4b.
@@ -325,9 +326,9 @@ on the first request. The Rust fuzzer resolves aliases (`accounts:test0`,
 
 ### Build pipeline
 
-1. `nargo compile` — raw artifact JSON with `__aztec_nr_internals__` prefixed names
-2. `bb-avm aztec_process` — transpiles public bytecode to AVM + generates private VKs
-3. `jq` strip prefix — removes `__aztec_nr_internals__` from function names
+1. `nargo compile` --raw artifact JSON with `__aztec_nr_internals__` prefixed names
+2. `bb-avm aztec_process` --transpiles public bytecode to AVM + generates private VKs
+3. `jq` strip prefix --removes `__aztec_nr_internals__` from function names
 
 ### Version matrix (as of 2026-02-25)
 

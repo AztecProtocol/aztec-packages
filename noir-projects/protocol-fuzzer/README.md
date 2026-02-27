@@ -4,15 +4,15 @@ sandbox's behavior to an in-memory model, and asserts on any divergence.
 
 Two machines are available:
 
-- **token** — deploys token contracts, then fuzzes mint/burn/transfer
+- **token** --deploys token contracts, then fuzzes mint/burn/transfer
   operations (public and private), tracking balances and total supply.
-- **side-effect** — deploys custom `SideEffect` and `Parent` contracts, then fuzzes
+- **side-effect** --deploys custom `SideEffect` and `Parent` contracts, then fuzzes
   note lifecycle (create, destroy, view, get, partial notes), nullifier emission,
   and cross-contract calls, verifying note inclusion and nullifier uniqueness.
 
 ## Running
 
-The **token** machine works with any Aztec sandbox (including `latest`) out of the box —
+The **token** machine works with any Aztec sandbox (including `latest`) out of the box --
 it uses the standard `Token` contract that ships with the wallet CLI:
 
 ```
@@ -21,7 +21,8 @@ cargo run -- token --max-steps 100
 
 The **side-effect** machine requires the **nightly** sandbox because it deploys custom
 contracts compiled against the nightly's aztec-nr. Use `setup-nightly-sandbox.sh` to
-automate the full setup (or see `SANDBOX_INSTRUCTIONS.md` for manual steps):
+automate the full setup (defaults to the last tested nightly tag; pass `--latest` to
+try the newest one). See `SANDBOX_INSTRUCTIONS.md` for manual steps.
 
 ```
 bash setup-nightly-sandbox.sh
@@ -48,10 +49,10 @@ cargo run -- side-effect --max-steps 100000 --seed 0x5a7211231dcd6500
 ### Parallel batching
 
 Consecutive non-conflicting sends are batched and fired concurrently, landing in
-the same block. This reduces N sequential sends from N×5s to ~5s. Queries always
+the same block. This reduces N sequential sends from N*5s to ~5s. Queries always
 flush the pending batch first since they need to observe prior state changes.
 
-Conflict rules (conservative — false positives only reduce batch size):
+Conflict rules (conservative --false positives only reduce batch size):
 - **token**: two sends on the same token conflict (shared total supply)
 - **side-effect**: two sends on the same (storage_slot, owner) or same nullifier value conflict
 
@@ -74,12 +75,12 @@ because the two have incompatible APIs (e.g. `RetrievedNote` / `destroy_note_uns
 `ConfirmedNote` / `destroy_note`). Compiling against the repo's aztec-nr produces artifacts
 with oracle calls (like `utilityLog`) that the nightly PXE doesn't support.
 
-- **SideEffect** (`contracts/side_effect_contract/`) — note lifecycle, nullifier ops
-- **Parent** (`contracts/parent_contract/`) — forwards calls to SideEffect for
+- **SideEffect** (`contracts/side_effect_contract/`) -- note lifecycle, nullifier ops
+- **Parent** (`contracts/parent_contract/`) -- forwards calls to SideEffect for
   cross-contract call testing
 
-Pre-built artifacts are checked into `contracts/target/`. When the nightly image updates,
-recompile using `setup-nightly-sandbox.sh` and commit the new artifacts.
+Artifacts are built by `setup-nightly-sandbox.sh` inside the nightly container and
+placed in `contracts/target/` (not checked into git).
 
 The setup script auto-detects the nightly commit by matching the container's nargo
 hash against `origin/next`. See `SANDBOX_INSTRUCTIONS.md` for the full build pipeline,
