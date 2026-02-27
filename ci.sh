@@ -77,6 +77,13 @@ case "$cmd" in
     export JOB_ID="x-$cmd"
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
+  socket-fix)
+    export CI_DASHBOARD="prs"
+    export JOB_ID="x-socket-fix"
+    export INSTANCE_POSTFIX="socket-fix"
+    export CPUS=16
+    bootstrap_ec2 "./bootstrap.sh ci-socket-fix $*"
+    ;;
   full|full-no-test-cache)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-$cmd"
