@@ -274,7 +274,7 @@ mod tests {
     fn existing_sponge_poseidon_chunks_matches_fixed() {
         let in_len = 501;
         let mut input: [Field; 4096] = [0; 4096];
-        let mut fixed_input = [3; 501];
+        let fixed_input = [3; 501];
         assert(in_len == fixed_input.len()); // sanity check
         for i in 0..in_len {
             input[i] = 3;
@@ -291,7 +291,7 @@ mod tests {
     #[test]
     fn poseidon_chunks_empty_inputs() {
         let in_len = 0;
-        let mut input: [Field; 4096] = [0; 4096];
+        let input: [Field; 4096] = [0; 4096];
         let mut constructed_empty_sponge = poseidon2_absorb_in_chunks(input, in_len);
         let mut first_sponge =
             poseidon2_absorb_in_chunks_existing_sponge(constructed_empty_sponge, input, in_len);
