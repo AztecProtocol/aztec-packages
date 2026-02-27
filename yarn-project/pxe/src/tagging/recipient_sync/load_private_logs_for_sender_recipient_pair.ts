@@ -1,8 +1,7 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import type { DirectionalAppTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { ExtendedDirectionalAppTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
 
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../constants.js';
@@ -10,15 +9,14 @@ import { findHighestIndexes } from './utils/find_highest_indexes.js';
 import { loadLogsForRange } from './utils/load_logs_for_range.js';
 
 /**
- * Loads private logs for `app` and  sender-recipient pair defined by `secret` and updates the highest aged and
+ * Loads private logs for the app-sender-recipient triplet defined by `secret` and updates the highest aged and
  * finalized indexes in the db. At most load logs from blocks up to and including `anchorBlockNumber`.
  *
  * @dev This function can be safely executed "in parallel" for other sender-recipient pairs because the data in
  * in the tagging data provider is indexed by the secret and hence completely disjoint.
  */
 export async function loadPrivateLogsForSenderRecipientPair(
-  secret: DirectionalAppTaggingSecret,
-  app: AztecAddress,
+  secret: ExtendedDirectionalAppTaggingSecret,
   aztecNode: AztecNode,
   taggingStore: RecipientTaggingStore,
   anchorBlockNumber: BlockNumber,
@@ -96,7 +94,6 @@ export async function loadPrivateLogsForSenderRecipientPair(
     // Get private logs with their block timestamps and corresponding tagging indexes
     const privateLogsWithIndexes = await loadLogsForRange(
       secret,
-      app,
       aztecNode,
       start,
       end,

@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, elapsed } from '@aztec/foundation/timer';
-import { getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
+import { createTxValidatorForBlockBuilding, getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
 import {
   GuardedMerkleTreeOperations,
@@ -32,8 +32,6 @@ import { type DebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { type CheckpointGlobalVariables, GlobalVariables, StateReference, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
-
-import { createValidatorForBlockBuilding } from './tx_validator/tx_validator_factory.js';
 
 // Re-export for backward compatibility
 export type { BuildBlockInCheckpointResult } from '@aztec/stdlib/interfaces/server';
@@ -107,7 +105,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     }
 
     // Add block to checkpoint
-    const block = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
+    const { block } = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
       expectedEndState: opts.expectedEndState,
     });
 
@@ -178,7 +176,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       this.debugLogStore,
     );
 
-    const validator = createValidatorForBlockBuilding(
+    const validator = createTxValidatorForBlockBuilding(
       fork,
       this.contractDataSource,
       globalVariables,

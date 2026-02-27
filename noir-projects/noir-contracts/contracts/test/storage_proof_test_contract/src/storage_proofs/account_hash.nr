@@ -26,7 +26,7 @@ fn rlp_encode_to_sink<S: BytesSink>(
 
     let key_length = 32 - (current_nibble_idx as u8) / 2 + 1;
 
-    let mut leaf_key_rlp_length = get_rlp_length(first_key_byte, key_length);
+    let leaf_key_rlp_length = get_rlp_length(first_key_byte, key_length);
     assert(account.nonce_length <= 8);
 
     let leaf_value_rlp_data_length = get_rlp_length(account.balance[0], account.balance_length)

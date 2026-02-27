@@ -173,7 +173,7 @@ export async function withSequencersAdmin<T>(env: TestConfig, fn: (node: AztecNo
           if (statusRes.status !== 200) {
             throw new Error(`Admin endpoint returned status ${statusRes.status}`);
           }
-          const client = createAztecNodeAdminClient(url);
+          const client = createAztecNodeAdminClient(url, {}, undefined, env.AZTEC_ADMIN_API_KEY);
           return { result: await fn(client), process };
         } catch (err) {
           // Kill the port-forward before retrying

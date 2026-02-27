@@ -262,7 +262,7 @@ export class TestContext {
       const txs = blockTxs[i];
       const state = blockEndStates[i];
 
-      const block = await builder.addBlock(blockGlobalVariables[i], txs, {
+      const { block } = await builder.addBlock(blockGlobalVariables[i], txs, {
         expectedEndState: state,
         insertTxsEffects: true,
       });

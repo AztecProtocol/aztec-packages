@@ -74,7 +74,7 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
     return this.#queue.put(() => this.#impl.addPendingTxs(txs, opts));
   }
 
-  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored' | 'rejected'> {
+  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored'> {
     return this.#queue.put(() => this.#impl.canAddPendingTx(tx));
   }
 

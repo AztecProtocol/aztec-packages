@@ -2,7 +2,8 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { BlockHash, type L2BlockId } from '@aztec/stdlib/block';
-import type { Tx } from '@aztec/stdlib/tx';
+import { Gas } from '@aztec/stdlib/gas';
+import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { getFeePayerBalanceDelta } from '../../msg_validators/tx_validator/fee_payer_balance.js';
 import { getTxPriorityFee } from '../tx_pool/priority.js';
@@ -12,12 +13,17 @@ import { type PreAddResult, TxPoolRejectionCode } from './eviction/interfaces.js
 export type TxMetaValidationData = {
   getNonEmptyNullifiers(): Fr[];
   expirationTimestamp: bigint;
+  /** Whether the tx has public calls. Used to select the correct L2 gas minimum. */
+  forPublic?: unknown;
   constants: {
     anchorBlockHeader: {
       hash(): Promise<BlockHash>;
       globalVariables: {
         blockNumber: BlockNumber;
       };
+    };
+    txContext: {
+      gasSettings: { gasLimits: Gas };
     };
   };
 };
@@ -33,6 +39,9 @@ export type TxMetaValidationData = {
 export type TxMetaData = {
   /** The transaction hash as hex string */
   readonly txHash: string;
+
+  /** The transaction hash as bigint (for efficient Fr conversion in comparisons) */
+  readonly txHashBigInt: bigint;
 
   /** Block ID (number and hash) in which the transaction was mined (undefined if not mined) */
   minedL2BlockId?: L2BlockId;
@@ -77,7 +86,9 @@ export type TxState = 'pending' | 'protected' | 'mined' | 'deleted';
  * Fr values are captured in closures for zero-cost re-validation.
  */
 export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
-  const txHash = tx.getTxHash().toString();
+  const txHashObj = tx.getTxHash();
+  const txHash = txHashObj.toString();
+  const txHashBigInt = txHashObj.toBigInt();
   const nullifierFrs = tx.data.getNonEmptyNullifiers();
   const nullifiers = nullifierFrs.map(n => n.toString());
   const anchorBlockHeaderHashFr = await tx.data.constants.anchorBlockHeader.hash();
@@ -93,6 +104,7 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
 
   return {
     txHash,
+    txHashBigInt,
     anchorBlockHeaderHash,
     priorityFee,
     feePayer,
@@ -105,10 +117,14 @@ export async function buildTxMetaData(tx: Tx): Promise<TxMetaData> {
     data: {
       getNonEmptyNullifiers: () => nullifierFrs,
       expirationTimestamp,
+      forPublic: !!tx.data.forPublic,
       constants: {
         anchorBlockHeader: {
           hash: () => Promise.resolve(anchorBlockHeaderHashFr),
           globalVariables: { blockNumber: anchorBlockNumber },
+        },
+        txContext: {
+          gasSettings: { gasLimits: tx.data.constants.txContext.gasSettings.gasLimits },
         },
       },
     },
@@ -124,11 +140,11 @@ const HEX_STRING_BYTES = 98;
 const BIGINT_BYTES = 32;
 const FR_BYTES = 80;
 // Fixed cost: object shell + txHash + anchorBlockHeaderHash + feePayer (3 hex strings)
-// + priorityFee + claimAmount + feeLimit + includeByTimestamp (4 bigints)
+// + txHashBigInt + priorityFee + claimAmount + feeLimit + includeByTimestamp (5 bigints)
 // + receivedAt (number, 8 bytes) + estimatedSizeBytes (number, 8 bytes)
 // + data closure object (~OBJECT_OVERHEAD + anchorBlockHeaderHashFr Fr + anchorBlockNumber number)
 const FIXED_METADATA_BYTES =
-  OBJECT_OVERHEAD + 3 * HEX_STRING_BYTES + 4 * BIGINT_BYTES + 8 + 8 + OBJECT_OVERHEAD + FR_BYTES + 8;
+  OBJECT_OVERHEAD + 3 * HEX_STRING_BYTES + 5 * BIGINT_BYTES + 8 + 8 + OBJECT_OVERHEAD + FR_BYTES + 8;
 
 /** Estimates the in-memory size of a TxMetaData object based on the number of nullifiers. */
 function estimateTxMetaDataSize(nullifierCount: number): number {
@@ -136,8 +152,13 @@ function estimateTxMetaDataSize(nullifierCount: number): number {
   return FIXED_METADATA_BYTES + nullifierCount * (HEX_STRING_BYTES + FR_BYTES);
 }
 
+/** Converts a txHash bigint back to the canonical 0x-prefixed 64-char hex string. */
+export function txHashFromBigInt(value: bigint): string {
+  return TxHash.fromBigInt(value).toString();
+}
+
 /** Minimal fields required for priority comparison. */
-type PriorityComparable = Pick<TxMetaData, 'txHash' | 'priorityFee'>;
+type PriorityComparable = Pick<TxMetaData, 'txHashBigInt' | 'priorityFee'>;
 
 /**
  * Compares two priority fees in ascending order.
@@ -152,10 +173,8 @@ export function compareFee(a: bigint, b: bigint): number {
  * Uses field element comparison for deterministic ordering.
  * Returns negative if a < b, positive if a > b, 0 if equal.
  */
-export function compareTxHash(a: string, b: string): number {
-  const fieldA = Fr.fromHexString(a);
-  const fieldB = Fr.fromHexString(b);
-  return fieldA.cmp(fieldB);
+export function compareTxHash(a: bigint, b: bigint): number {
+  return Fr.cmpAsBigInt(a, b);
 }
 
 /**
@@ -168,7 +187,7 @@ export function comparePriority(a: PriorityComparable, b: PriorityComparable): n
   if (feeComparison !== 0) {
     return feeComparison;
   }
-  return compareTxHash(a.txHash, b.txHash);
+  return compareTxHash(a.txHashBigInt, b.txHashBigInt);
 }
 
 /**
@@ -237,6 +256,42 @@ export function stubTxMetaValidationData(overrides: { expirationTimestamp?: bigi
         hash: () => Promise.resolve(new BlockHash(Fr.ZERO)),
         globalVariables: { blockNumber: BlockNumber(0) },
       },
+      txContext: {
+        gasSettings: { gasLimits: Gas.empty() },
+      },
     },
+  };
+}
+
+/** Creates a stub TxMetaData for tests. All fields have sensible defaults and can be overridden. */
+export function stubTxMetaData(
+  txHash: string,
+  overrides: {
+    priorityFee?: bigint;
+    feePayer?: string;
+    claimAmount?: bigint;
+    feeLimit?: bigint;
+    nullifiers?: string[];
+    expirationTimestamp?: bigint;
+    anchorBlockHeaderHash?: string;
+  } = {},
+): TxMetaData {
+  const txHashBigInt = Fr.fromHexString(txHash).toBigInt();
+  // Normalize to canonical zero-padded hex so txHashFromBigInt(txHashBigInt) === normalizedTxHash
+  const normalizedTxHash = txHashFromBigInt(txHashBigInt);
+  const expirationTimestamp = overrides.expirationTimestamp ?? 0n;
+  return {
+    txHash: normalizedTxHash,
+    txHashBigInt,
+    anchorBlockHeaderHash: overrides.anchorBlockHeaderHash ?? '0x1234',
+    priorityFee: overrides.priorityFee ?? 100n,
+    feePayer: overrides.feePayer ?? '0xfeepayer',
+    claimAmount: overrides.claimAmount ?? 0n,
+    feeLimit: overrides.feeLimit ?? 100n,
+    nullifiers: overrides.nullifiers ?? [`0x${normalizedTxHash.slice(2)}null1`],
+    expirationTimestamp,
+    receivedAt: 0,
+    estimatedSizeBytes: 0,
+    data: stubTxMetaValidationData({ expirationTimestamp }),
   };
 }

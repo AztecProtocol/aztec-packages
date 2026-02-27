@@ -395,12 +395,34 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
 
     BB_ASSERT(precomputed_vk != nullptr, "Chonk::accumulate - VK expected for the provided circuit");
 
-    // Construct the prover instance for circuit
-    std::shared_ptr<ProverInstance> prover_instance = std::make_shared<ProverInstance>(circuit);
+    QUEUE_TYPE queue_type = get_queue_type();
+
+    std::shared_ptr<ProverInstance> prover_instance;
 
 #ifndef NDEBUG
+    prover_instance = std::make_shared<ProverInstance>(circuit);
     debug_incoming_circuit(circuit, prover_instance, precomputed_vk);
 #endif
+
+    // For the hiding kernel (MEGA), skip straight to the ZK prover — no non-ZK ProverInstance needed.
+    if (queue_type == QUEUE_TYPE::MEGA) {
+        vinfo("Generating proof for hiding kernel");
+        HonkProof proof = construct_honk_proof_for_hiding_kernel(circuit, precomputed_vk);
+        VerifierInputs queue_entry{ std::move(proof), precomputed_vk, queue_type, /*is_kernel=*/true };
+        verification_queue.push_back(queue_entry);
+        num_circuits_accumulated++;
+        return;
+    }
+
+    // Construct the prover instance for circuit (may already exist from debug path above)
+    if (!prover_instance) {
+        prover_instance = std::make_shared<ProverInstance>(circuit);
+    }
+
+    // Free circuit block memory (wires and selectors) now that they've been copied to prover polynomials
+    for (auto& block : circuit.blocks.get()) {
+        block.free_data();
+    }
 
     // We're accumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
     // verifiers for all the entries previously present in the verification queue) and if it's not the first accumulate
@@ -419,8 +441,6 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
     auto verifier_transcript =
         Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
 #endif
-
-    QUEUE_TYPE queue_type = get_queue_type();
 
     FoldingProver prover(prover_accumulation_transcript);
     HonkProof proof;
@@ -449,28 +469,19 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
         decider_proof = decider.construct_proof(prover_accumulator);
         break;
     }
-    case QUEUE_TYPE::MEGA:
-        vinfo("Generating proof for hiding kernel");
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Method for constructing hiding kernel proof
-        // constructs a new ProverInstance (with ZK Flavor). For now just do a hacky shared ptr deallocation to avoid
-        // double memory for storing two instances.
-        prover_instance.reset();
-        proof = construct_honk_proof_for_hiding_kernel(circuit, precomputed_vk);
+    default:
+        BB_ASSERT(false, "Unexpected queue type");
         break;
     }
 
     VerifierInputs queue_entry{ std::move(proof), precomputed_vk, queue_type, is_kernel };
     verification_queue.push_back(queue_entry);
 
-    // Construct merge proof (excluded for hiding kernel since accumulation terminates with
-    // tail kernel and hiding merge proof is constructed as part of goblin proving)
-    if (queue_entry.type != QUEUE_TYPE::MEGA) {
+    // Construct merge proof (MEGA/hiding kernel is handled in the early return above)
 #ifndef NDEBUG
-        // In debugging builds update native verifier accumulator
-        update_native_verifier_accumulator(queue_entry, verifier_transcript);
+    update_native_verifier_accumulator(queue_entry, verifier_transcript);
 #endif
-        goblin.prove_merge(prover_accumulation_transcript);
-    }
+    goblin.prove_merge(prover_accumulation_transcript);
 
     num_circuits_accumulated++;
 }
@@ -522,6 +533,11 @@ HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
                                                         const std::shared_ptr<MegaVerificationKey>& verification_key)
 {
     auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit);
+
+    // Free circuit block memory now that trace data has been copied to prover polynomials
+    for (auto& block : circuit.blocks.get()) {
+        block.free_data();
+    }
 
     // Hiding kernel is proven by a MegaZKProver
     MegaZKProver prover(hiding_prover_inst, verification_key, transcript);

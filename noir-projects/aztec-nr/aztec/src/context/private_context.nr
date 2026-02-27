@@ -187,7 +187,7 @@ impl PrivateContext {
             is_fee_payer: false,
             args_hash,
             return_hash: 0,
-            expiration_timestamp: inputs.anchor_block_header.global_variables.timestamp + MAX_TX_LIFETIME,
+            expiration_timestamp: inputs.anchor_block_header.timestamp() + MAX_TX_LIFETIME,
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             key_validation_requests_and_separators: BoundedVec::new(),
@@ -1110,7 +1110,7 @@ impl PrivateContext {
         args_hash: Field,
         is_static_call: bool,
     ) -> ReturnsHash {
-        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
+        let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         let start_side_effect_counter = self.side_effect_counter;
 
         // Safety: The oracle simulates the private call and returns the value of the side effects counter after
@@ -1277,7 +1277,7 @@ impl PrivateContext {
     ) {
         let counter = self.next_counter();
 
-        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
+        let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
 
         notify_enqueued_public_function_call(contract_address, calldata_hash, counter, is_static_call);
 
@@ -1350,7 +1350,7 @@ impl PrivateContext {
     ) {
         let counter = self.next_counter();
 
-        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
+        let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
 
         notify_set_public_teardown_function_call(contract_address, calldata_hash, counter, is_static_call);
 

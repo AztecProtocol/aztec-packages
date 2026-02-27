@@ -77,7 +77,14 @@ case "$cmd" in
     export JOB_ID="x-$cmd"
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
-  full|full-no-test-cache|full-no-test-cache-makefile)
+  socket-fix)
+    export CI_DASHBOARD="prs"
+    export JOB_ID="x-socket-fix"
+    export INSTANCE_POSTFIX="socket-fix"
+    export CPUS=16
+    bootstrap_ec2 "./bootstrap.sh ci-socket-fix $*"
+    ;;
+  full|full-no-test-cache)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-$cmd"
     export AWS_SHUTDOWN_TIME=75
@@ -103,7 +110,7 @@ case "$cmd" in
       JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
     }
     export -f run
-    seq 1 ${1:-5} | parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered \
+    seq 1 ${1:-5} | parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered \
       'run $USER-x{}-full amd64 ci-full-no-test-cache'
     ;;
   merge-queue)
@@ -122,7 +129,8 @@ case "$cmd" in
     }
     export -f run
 
-    parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+    # Specify jobs as maybe we only have a couple of cpus.
+    parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x1-full amd64 ci-full-no-test-cache' \
       'run x2-full amd64 ci-full-no-test-cache' \
       'run x3-full amd64 ci-full-no-test-cache' \
@@ -145,7 +153,8 @@ case "$cmd" in
     }
     export -f run
 
-    parallel --jobs 11 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+    # Specify jobs as maybe we only have a couple of cpus.
+    parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x1-full amd64 ci-full-no-test-cache' \
       'run x2-full amd64 ci-full-no-test-cache' \
       'run x3-full amd64 ci-full-no-test-cache' \

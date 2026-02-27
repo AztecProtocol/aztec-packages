@@ -20,13 +20,7 @@ import {
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { type PeerInfo, tryStop } from '@aztec/stdlib/interfaces/server';
-import {
-  type BlockProposal,
-  CheckpointAttestation,
-  type CheckpointProposal,
-  type P2PClientType,
-  type TopicType,
-} from '@aztec/stdlib/p2p';
+import { type BlockProposal, CheckpointAttestation, type CheckpointProposal, type TopicType } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, WithTracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
@@ -44,7 +38,6 @@ import {
   type ReqRespSubProtocolHandler,
   type ReqRespSubProtocolValidators,
 } from '../services/reqresp/interface.js';
-import { chunkTxHashesRequest } from '../services/reqresp/protocols/tx.js';
 import type {
   DuplicateAttestationInfo,
   DuplicateProposalInfo,
@@ -60,10 +53,7 @@ import { type P2P, P2PClientState, type P2PSyncState } from './interface.js';
 /**
  * The P2P client implementation.
  */
-export class P2PClient<T extends P2PClientType = P2PClientType.Full>
-  extends WithTracer
-  implements P2P, P2P<P2PClientType.Prover>
-{
+export class P2PClient extends WithTracer implements P2P {
   /** The JS promise that will be running to keep the client's data in sync. Can be interrupted if the client is stopped. */
   private runningPromise!: Promise<void>;
 
@@ -95,7 +85,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private slotMonitor: RunningPromise | undefined;
 
   constructor(
-    _clientType: T,
     private store: AztecAsyncKVStore,
     private l2BlockSource: L2BlockSource & ContractDataSource,
     mempools: MemPools,
@@ -433,36 +422,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.p2pService.registerDuplicateAttestationCallback(callback);
   }
 
-  /**
-   * Uses the batched Request Response protocol to request a set of transactions from the network.
-   */
-  private async requestTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId | undefined): Promise<Tx[]> {
-    const timeoutMs = 8000; // Longer timeout for now
-    const maxRetryAttempts = 10; // Keep retrying within the timeout
-    const requests = chunkTxHashesRequest(txHashes);
-    const maxPeers = Math.min(Math.ceil(requests.length / 3), 10);
-
-    const txBatches = await this.p2pService.sendBatchRequest(
-      ReqRespSubProtocol.TX,
-      requests,
-      pinnedPeerId,
-      timeoutMs,
-      maxPeers,
-      maxRetryAttempts,
-    );
-
-    const txs = txBatches.flat();
-    if (txs.length > 0) {
-      await this.txPool.addPendingTxs(txs);
-    }
-
-    const txHashesStr = txHashes.map(tx => tx.toString()).join(', ');
-    this.log.debug(`Requested txs ${txHashesStr} (${txs.length} / ${txHashes.length}) from peers`);
-
-    // We return all transactions, even the not found ones to the caller, such they can handle missing items themselves.
-    return txs;
-  }
-
   public async getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]> {
     if (limit !== undefined && limit <= 0) {
       throw new TypeError('limit must be greater than 0');
@@ -528,49 +487,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]> {
     return this.txPool.hasTxs(txHashes);
-  }
-
-  /**
-   * Returns transactions in the transaction pool by hash.
-   * If a transaction is not in the pool, it will be requested from the network.
-   * @param txHashes - Hashes of the transactions to look for.
-   * @returns The txs found, or undefined if not found in the order requested.
-   */
-  async getTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId | undefined): Promise<(Tx | undefined)[]> {
-    const txs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
-    const missingTxHashes = txs
-      .map((tx, index) => [tx, index] as const)
-      .filter(([tx, _index]) => !tx)
-      .map(([_tx, index]) => txHashes[index]);
-
-    if (missingTxHashes.length === 0) {
-      return txs as Tx[];
-    }
-
-    const missingTxs = await this.requestTxsByHash(missingTxHashes, pinnedPeerId);
-    // TODO: optimize
-    // Merge the found txs in order
-    const mergingTxs = txHashes.map(txHash => {
-      // Is it in the txs list from the mempool?
-      for (const tx of txs) {
-        if (tx !== undefined && tx.getTxHash().equals(txHash)) {
-          return tx;
-        }
-      }
-
-      // Is it in the fetched missing txs?
-      // Note: this is an O(n^2) operation, but we expect the number of missing txs to be small.
-      for (const tx of missingTxs) {
-        if (tx.getTxHash().equals(txHash)) {
-          return tx;
-        }
-      }
-
-      // Otherwise return undefined
-      return undefined;
-    });
-
-    return mergingTxs;
   }
 
   /**
@@ -839,8 +755,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.debug(`Moved from state ${P2PClientState[oldState]} to ${P2PClientState[this.currentState]}`);
   }
 
-  public validate(txs: Tx[]): Promise<void> {
-    return this.p2pService.validate(txs);
+  public validateTxsReceivedInBlockProposal(txs: Tx[]): Promise<void> {
+    return this.p2pService.validateTxsReceivedInBlockProposal(txs);
   }
 
   /**

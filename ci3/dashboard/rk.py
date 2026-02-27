@@ -1,6 +1,8 @@
 from flask import Flask, render_template_string, request, Response, redirect
 from flask_compress import Compress
 from flask_httpauth import HTTPBasicAuth
+import boto3
+from botocore.exceptions import ClientError
 import gzip
 import json
 import os
@@ -9,6 +11,7 @@ import requests
 import shlex
 import subprocess
 import threading
+import time as _time
 import uuid
 from ansi2html import Ansi2HTMLConverter
 from pathlib import Path
@@ -19,6 +22,10 @@ from rk_core import (
     hyperlink, r, get_section_data, get_list_as_string
 )
 LOGS_DISK_PATH = os.getenv('LOGS_DISK_PATH', '/logs-disk')
+S3_LOGS_BUCKET = os.getenv('S3_LOGS_BUCKET', 'aztec-ci-artifacts')
+S3_LOGS_PREFIX = os.getenv('S3_LOGS_PREFIX', 'logs')
+
+_s3 = boto3.client('s3', region_name='us-east-2')
 DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD', 'password')
 CI_METRICS_PORT = int(os.getenv('CI_METRICS_PORT', '8081'))
 CI_METRICS_URL = os.getenv('CI_METRICS_URL', f'http://localhost:{CI_METRICS_PORT}')
@@ -27,43 +34,67 @@ app = Flask(__name__)
 Compress(app)
 auth = HTTPBasicAuth()
 
-# Start the ci-metrics server as a subprocess
-# Check sibling dir (repo layout) then subdirectory (Docker layout)
+# Start the ci-metrics server as a subprocess (once across all workers).
+# Uses a file lock so only the first gunicorn worker to import this module
+# actually spawns the process; the rest skip silently.
+import fcntl
+import signal
+
 _ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ci-metrics')
 if not os.path.isdir(_ci_metrics_dir):
     _ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ci-metrics')
 if os.path.isdir(_ci_metrics_dir):
-    # Kill any stale process on the port (e.g. leftover from previous reload)
-    import signal
+    _lock_path = f'/tmp/ci-metrics-{CI_METRICS_PORT}.lock'
     try:
-        out = subprocess.check_output(
-            ['lsof', '-ti', f':{CI_METRICS_PORT}'], stderr=subprocess.DEVNULL, text=True)
-        for pid in out.strip().split('\n'):
-            if pid:
-                os.kill(int(pid), signal.SIGTERM)
-        import time; time.sleep(0.5)
-    except (subprocess.CalledProcessError, OSError):
+        _lock_fd = open(_lock_path, 'w')
+        fcntl.flock(_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        # We hold the lock — kill stale process and spawn fresh one
+        try:
+            out = subprocess.check_output(
+                ['lsof', '-ti', f':{CI_METRICS_PORT}'], stderr=subprocess.DEVNULL, text=True)
+            for pid in out.strip().split('\n'):
+                if pid:
+                    os.kill(int(pid), signal.SIGTERM)
+            _time.sleep(0.5)
+        except (subprocess.CalledProcessError, OSError):
+            pass
+        _ci_metrics_env = {**os.environ, 'CI_METRICS_PORT': str(CI_METRICS_PORT)}
+        subprocess.Popen(
+            ['gunicorn', '-w', '1', '-b', f'0.0.0.0:{CI_METRICS_PORT}',
+             '--timeout', '120', 'app:app'],
+            cwd=_ci_metrics_dir,
+            env=_ci_metrics_env,
+        )
+        print(f"[rk.py] ci-metrics server started on port {CI_METRICS_PORT}")
+        # Hold the lock until this process exits so other workers skip
+    except OSError:
+        # Another worker already holds the lock — nothing to do
         pass
-    _ci_metrics_env = {**os.environ, 'CI_METRICS_PORT': str(CI_METRICS_PORT)}
-    subprocess.Popen(
-        ['gunicorn', '-w', '4', '-b', f'0.0.0.0:{CI_METRICS_PORT}', '--timeout', '120', 'app:app'],
-        cwd=_ci_metrics_dir,
-        env=_ci_metrics_env,
-    )
-    print(f"[rk.py] ci-metrics server started on port {CI_METRICS_PORT}")
 
 def read_from_disk(key):
-    """Read log from disk as fallback when Redis key not found."""
+    """Read log from disk."""
     try:
-        # Use first 4 chars as subdirectory
         prefix = key[:4]
-        log_file = f"/logs-disk/{prefix}/{key}.log.gz"
         log_file = f"{LOGS_DISK_PATH}/{prefix}/{key}.log.gz"
         if os.path.exists(log_file):
             with gzip.open(log_file, 'rb') as f:
                 return f.read().decode('utf-8', errors='replace')
     except Exception as e:
         print(f"Error reading from disk: {e}")
+    return None
+
+def read_from_s3(key):
+    """Read log from S3 (fallback when Redis and disk both miss)."""
+    try:
+        prefix = key[:4]
+        s3_key = f"{S3_LOGS_PREFIX}/{prefix}/{key}.log.gz"
+        obj = _s3.get_object(Bucket=S3_LOGS_BUCKET, Key=s3_key)
+        return gzip.decompress(obj['Body'].read()).decode('utf-8', errors='replace')
+    except ClientError as e:
+        if e.response['Error']['Code'] != 'NoSuchKey':
+            print(f"S3 error reading {key}: {e}")
+    except Exception as e:
+        print(f"Error reading from S3: {e}")
     return None
 
 def read_breakdown_from_disk(runtime, flow_name, sha):
@@ -178,7 +209,6 @@ def root() -> str:
         f"{hyperlink('/cost-overview', 'cost overview (AWS + GCP)')}\n"
         f"{hyperlink('/namespace-billing', 'namespace billing')}\n"
         f"{hyperlink('/ci-insights', 'ci insights')}\n"
-        f"{hyperlink('/test-timings', 'test timings')}\n"
         f"{RESET}"
     )
 
@@ -528,32 +558,32 @@ def trigger_grind():
 _proxy_session = requests.Session()
 _HOP_BY_HOP = frozenset([
     'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
-    'te', 'trailers', 'transfer-encoding', 'upgrade', 'content-length',
-    # `requests` auto-decompresses gzip responses, so Content-Encoding is
-    # stale — strip it so the browser doesn't try to decompress plain content.
-    # Flask-Compress on rkapp handles browser compression.
-    'content-encoding',
+    'te', 'trailers', 'transfer-encoding', 'upgrade',
 ])
-# Don't forward Accept-Encoding — let `requests` negotiate with ci-metrics
-# (it adds its own and auto-decompresses).
-_STRIP_REQUEST_HEADERS = frozenset(['host', 'accept-encoding'])
+_STRIP_REQUEST_HEADERS = frozenset(['host'])
 
 def _proxy(path):
-    """Forward request to ci-metrics, streaming the response back."""
+    """Forward request to ci-metrics, streaming the response back.
+
+    Passes the browser's Accept-Encoding through to ci-metrics so it
+    compresses directly for the browser.  We stream the raw (still
+    compressed) bytes back without decompression.
+    """
     url = f'{CI_METRICS_URL}/{path.lstrip("/")}'
     try:
+        fwd_headers = {k: v for k, v in request.headers if k.lower() not in _STRIP_REQUEST_HEADERS}
         resp = _proxy_session.request(
             method=request.method,
             url=url,
             params=request.args,
             data=request.get_data(),
-            headers={k: v for k, v in request.headers if k.lower() not in _STRIP_REQUEST_HEADERS},
+            headers=fwd_headers,
             stream=True,
-            timeout=60,
+            timeout=180,
         )
-        # Strip hop-by-hop headers
+        # Stream raw bytes (skip requests auto-decompression)
         headers = {k: v for k, v in resp.headers.items() if k.lower() not in _HOP_BY_HOP}
-        return Response(resp.iter_content(chunk_size=8192),
+        return Response(resp.raw.stream(8192),
                         status=resp.status_code, headers=headers)
     except Exception as e:
         return Response(json.dumps({'error': f'ci-metrics unavailable: {e}'}),
@@ -564,9 +594,12 @@ def _proxy(path):
 @app.route('/ci-insights')
 @app.route('/cost-overview')
 @app.route('/test-timings')
+@app.route('/ci-health-report')
+@app.route('/flake-prs')
 @auth.login_required
 def proxy_dashboard():
     return _proxy(request.path)
+
 
 @app.route('/api/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 @auth.login_required
@@ -583,11 +616,13 @@ def get_value(key):
 
     value = r.get(key)
     if value is None:
-        # Try disk fallback
         value = read_from_disk(key)
-        if value is None:
-            value = "Key not found"
-    else:
+    if value is None:
+        value = read_from_s3(key)
+    if value is None:
+        value = "Key not found"
+    elif isinstance(value, bytes):
+        # Redis returns raw bytes — decompress if gzip.
         try:
             if value.startswith(b"\x1f\x8b"):
                 value = gzip.decompress(value).decode()
