@@ -83,6 +83,7 @@ pub unconstrained fn get_last_tx_effects() -> (Field, BoundedVec<Field, MAX_NOTE
 #[oracle(txeGetDefaultAddress)]
 pub unconstrained fn get_default_address() -> AztecAddress {}
 
+/// Experimental - there may be breaking API changes.
 pub unconstrained fn get_private_events<Event>(
     contract_address: AztecAddress,
     scope: AztecAddress,
