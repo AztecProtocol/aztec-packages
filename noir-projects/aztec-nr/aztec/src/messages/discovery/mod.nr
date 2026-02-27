@@ -14,8 +14,8 @@ use crate::{
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
-            DiscoverOffchainMessages, get_private_logs, MessageContext, OffchainMessage,
-            pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
+            get_private_logs, MessageContext, OffchainMessage, pending_tagged_log::PendingTaggedLog,
+            validate_and_store_enqueued_notes_and_events,
         },
     },
     utils::array,
@@ -79,6 +79,10 @@ pub type CustomMessageHandler<Env> = unconstrained fn[Env](
 /* msg_metadata */ u64,
 /* msg_content */ BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
 /* message_context */ MessageContext);
+
+/// A handler that returns offchain-delivered messages to process during sync.
+pub type DiscoverOffchainMessages<Env> = unconstrained fn[Env](
+/* contract_address */AztecAddress) -> CapsuleArray<OffchainMessage>;
 
 /// Performs the state synchronization process, in which private logs are downloaded and inspected to find new private
 /// notes, partial notes and events, etc., and pending partial notes are processed to search for their completion logs.

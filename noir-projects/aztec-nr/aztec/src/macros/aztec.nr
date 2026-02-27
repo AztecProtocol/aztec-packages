@@ -13,7 +13,7 @@ use crate::{
             module_has_storage,
         },
     },
-    messages::{discovery::CustomMessageHandler, processing::DiscoverOffchainMessages},
+    messages::discovery::{CustomMessageHandler, DiscoverOffchainMessages},
 };
 
 /// Configuration for the [`aztec`] macro.

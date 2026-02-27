@@ -54,10 +54,6 @@ pub struct OffchainMessage {
     pub message_context: MessageContext,
 }
 
-/// A handler that returns offchain-delivered messages to process during sync.
-pub type DiscoverOffchainMessages<Env> = unconstrained fn[Env](
-/* contract_address */AztecAddress) -> CapsuleArray<OffchainMessage>;
-
 /// Searches for private logs emitted by `contract_address` that might contain messages for one of the local accounts,
 /// and stores them in a `CapsuleArray` which is then returned.
 pub(crate) unconstrained fn get_private_logs(contract_address: AztecAddress) -> CapsuleArray<PendingTaggedLog> {
