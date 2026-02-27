@@ -166,6 +166,9 @@ function build {
 }
 
 function test_cmds {
+  # Verify all test files have correct ci3 annotations before generating commands.
+  bash scripts/check_ci3_annotations.sh
+
   local hash=$(hash)
   local parse_annotation="scripts/parse_ci3_annotation.sh"
 
