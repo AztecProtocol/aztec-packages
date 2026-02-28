@@ -1,6 +1,6 @@
 # @aztec/constants
 
-Version: v5.0.0-nightly.20260224
+Version: v5.0.0-nightly.20260228
 
 ## Quick Import Reference
 
@@ -1699,7 +1699,7 @@ type L2_GAS_PER_L2_TO_L1_MSG = 5200
 
 ### L2_GAS_PER_NOTE_HASH
 ```typescript
-type L2_GAS_PER_NOTE_HASH = 2700
+type L2_GAS_PER_NOTE_HASH = 9200
 ```
 
 ### L2_GAS_PER_NULLIFIER

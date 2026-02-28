@@ -1,6 +1,6 @@
 # Aztec TypeScript API Summary
-Version: v5.0.0-nightly.20260224
-Generated: 2026-02-24T04:44:17.112Z
+Version: v5.0.0-nightly.20260228
+Generated: 2026-02-28T04:33:57.722Z
 
 This file provides an index of the Aztec TypeScript API packages.
 For detailed API documentation, see the individual package .md files.
@@ -21,12 +21,14 @@ Key: AccountManager, Contract, Fq, Fr
   - ECDSA accounts (Ethereum-compatible signatures)
   - Schnorr accounts (native Aztec signatures)
   - Testing utilities
-Exports: 6 classes, 1 interfaces, 3 functions, 8 types
+Exports: 5 classes, 1 interfaces, 3 functions, 7 types
 
 **@aztec/pxe** - Private eXecution Environment client
   - Orchestrates private transaction execution and proving
   - Manages encrypted notes and nullifiers
   - Provides privacy-preserving state queries
+Exports: 14 classes, 2 interfaces, 9 functions, 17 types
+Key: PXE, createPXE
 
 **@aztec/entrypoints** - Transaction entrypoint implementations
   - Account abstraction patterns
@@ -42,6 +44,7 @@ Exports: 6 classes, 31 interfaces, 10 functions, 8 types
   - EmbeddedWallet with browser and Node.js flavors
   - Account creation and management
   - Transaction simulation and proving
+Exports: 2 classes, 2 functions, 2 types
 
 ### Core Libraries
 
@@ -58,6 +61,8 @@ Key: AztecAddress, BlockHeader, CompleteAddress, EthAddress
   - Serialization utilities
   - Async helpers and collections
   - Logging infrastructure
+Exports: 19 classes, 6 interfaces, 135 functions, 30 types
+Key: EthAddress
 
 **@aztec/constants** - Protocol constants shared between TypeScript and Noir
   - Circuit size limits
@@ -74,7 +79,7 @@ Exports: 504 types
 ### Addresses
 - `AztecAddress` (@aztec/stdlib)
 - `CompleteAddress` (@aztec/stdlib)
-- `EthAddress` (@aztec/stdlib)
+- `EthAddress` (@aztec/foundation)
 
 ### Transactions
 - `Tx` (@aztec/aztec.js)
@@ -92,6 +97,8 @@ Exports: 504 types
 - `Account` (@aztec/aztec.js)
 - `AccountContract` (@aztec/aztec.js)
 - `AccountManager` (@aztec/aztec.js)
+- `createPXE` (@aztec/pxe)
+- `PXE` (@aztec/pxe)
 - `Wallet` (@aztec/aztec.js)
 
 ### Contracts
@@ -102,7 +109,9 @@ Exports: 504 types
 accounts → aztec.js, entrypoints, foundation, stdlib
 aztec.js → entrypoints, ethereum, foundation, stdlib
 entrypoints → foundation, stdlib
+pxe → aztec.js, foundation, kv-store, stdlib
 stdlib → blob-lib, constants, ethereum, foundation
 wallet-sdk → aztec.js, entrypoints, foundation, pxe, stdlib
+wallets → accounts, aztec.js, entrypoints, foundation, kv-store, pxe, stdlib, wallet-sdk
 
 For detailed API documentation, see the individual package files.

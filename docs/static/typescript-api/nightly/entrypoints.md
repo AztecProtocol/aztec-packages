@@ -1,6 +1,6 @@
 # @aztec/entrypoints
 
-Version: v5.0.0-nightly.20260224
+Version: v5.0.0-nightly.20260228
 
 ## Quick Import Reference
 
