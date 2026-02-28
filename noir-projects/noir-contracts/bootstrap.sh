@@ -213,6 +213,13 @@ function build {
     rm -rf target
     mkdir -p $tmp_dir
     local contracts=$(grep -oP "(?<=$folder_name/)[^\"]+" Nargo.toml)
+
+    # If pinned protocol contracts exist, extract them and skip their compilation.
+    if [ -f pinned-protocol-contracts.tar.gz ]; then
+      echo_stderr "Using pinned-protocol-contracts.tar.gz for protocol contracts."
+      tar xzf pinned-protocol-contracts.tar.gz -C target
+      contracts=$(echo "$contracts" | grep -v "^protocol/")
+    fi
   else
     local contracts="$@"
   fi
@@ -276,6 +283,18 @@ function format {
   $NARGO fmt
 }
 
+function pin-protocol-contracts {
+  # Force a real build by removing any existing pinned archive.
+  rm -f pinned-protocol-contracts.tar.gz
+  local protocol_contracts=$(grep -oP '(?<=contracts/)[^"]+' Nargo.toml | grep "^protocol/")
+  build $protocol_contracts
+  # Create the pinned tarball from the built protocol contract artifacts.
+  local protocol_artifacts=$(jq -r '.[]' protocol_contracts.json | sed 's/$/.json/')
+  echo_stderr "Creating pinned-protocol-contracts.tar.gz..."
+  (cd target && tar czf ../pinned-protocol-contracts.tar.gz $protocol_artifacts)
+  echo_stderr "Done. pinned-protocol-contracts.tar.gz created. Commit it to pin these artifacts."
+}
+
 case "$cmd" in
   "clean-keys")
     for artifact in target/*.json; do
@@ -289,6 +308,9 @@ case "$cmd" in
     ;;
   "compile")
     VERBOSE=${VERBOSE:-1} build "$@"
+    ;;
+  "pin-protocol-contracts")
+    pin-protocol-contracts
     ;;
   *)
     default_cmd_handler "$@"
