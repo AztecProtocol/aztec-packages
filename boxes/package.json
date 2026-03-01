@@ -49,7 +49,9 @@
     "@aztec/sequencer-client": "link:../yarn-project/sequencer-client",
     "@aztec/p2p": "link:../yarn-project/p2p",
     "@aztec/wallets": "link:../yarn-project/wallets",
-    "@aztec/wallet-sdk": "link:../yarn-project/wallet-sdk"
+    "@aztec/wallet-sdk": "link:../yarn-project/wallet-sdk",
+    "rollup": "^4.59.0",
+    "node-forge": "^1.3.2"
   },
   "dependencies": {
     "@inquirer/confirm": "^3.0.0",
