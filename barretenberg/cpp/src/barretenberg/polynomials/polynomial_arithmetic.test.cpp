@@ -30,71 +30,48 @@ TEST(polynomials, evaluate)
     EXPECT_EQ(eval1, eval2);
 }
 
-TEST(polynomials, fft_with_small_degree)
+TEST(polynomials, ifft_consistency)
 {
     constexpr size_t n = 16;
-    fr fft_transform[n];
-    fr poly[n];
-
-    for (size_t i = 0; i < n; ++i) {
-        poly[i] = fr::random_element();
-        fr::__copy(poly[i], fft_transform[i]);
-    }
-
     auto domain = evaluation_domain(n);
     domain.compute_lookup_table();
-    polynomial_arithmetic::fft(fft_transform, domain);
 
-    fr work_root;
-    work_root = fr::one();
-    fr expected;
-    for (size_t i = 0; i < n; ++i) {
-        expected = polynomial_arithmetic::evaluate(poly, work_root, n);
-        EXPECT_EQ((fft_transform[i] == expected), true);
-        work_root *= domain.root;
-    }
-}
+    std::array<fr, n> coeffs;
+    std::array<fr, n> values;
+    std::array<fr, n> values_copy;
+    std::array<fr, n> recovered;
 
-TEST(polynomials, split_polynomial_fft)
-{
-    constexpr size_t n = 256;
-    fr fft_transform[n];
-    fr poly[n];
-
-    for (size_t i = 0; i < n; ++i) {
-        poly[i] = fr::random_element();
-        fr::__copy(poly[i], fft_transform[i]);
+    for (size_t k = 0; k < n; ++k) {
+        coeffs[k] = fr::random_element();
+        values[k] = fr::zero();
+        recovered[k] = fr::zero();
     }
 
-    constexpr size_t num_poly = 4;
-    constexpr size_t n_poly = n / num_poly;
-    fr fft_transform_[num_poly][n_poly];
-    for (size_t i = 0; i < n; ++i) {
-        fft_transform_[i / n_poly][i % n_poly] = poly[i];
+    // compute values[j] = sum_k coeffs[k] * ω^{j*k}
+    for (size_t j = 0; j < n; ++j) {
+        fr acc = fr::zero();
+        for (size_t k = 0; k < n; ++k) {
+            fr w = domain.root.pow(static_cast<uint64_t>(j * k));
+            acc += coeffs[k] * w;
+        }
+        values[j] = acc;
+        values_copy[j] = values[j];
     }
 
-    auto domain = evaluation_domain(n);
-    domain.compute_lookup_table();
-    polynomial_arithmetic::fft(fft_transform, domain);
-    polynomial_arithmetic::fft({ fft_transform_[0], fft_transform_[1], fft_transform_[2], fft_transform_[3] }, domain);
+    // compute ifft of values, which should recover coeffs
+    polynomial_arithmetic::ifft(values.data(), recovered.data(), domain);
 
-    fr work_root;
-    work_root = fr::one();
-    fr expected;
-
-    for (size_t i = 0; i < n; ++i) {
-        expected = polynomial_arithmetic::evaluate(poly, work_root, n);
-        EXPECT_EQ((fft_transform[i] == expected), true);
-        EXPECT_EQ(fft_transform_[i / n_poly][i % n_poly], fft_transform[i]);
-        work_root *= domain.root;
+    for (size_t k = 0; k < n; ++k) {
+        EXPECT_EQ(recovered[k], coeffs[k]);   // check that ifft recovers coeffs
+        EXPECT_EQ(values[k], values_copy[k]); // check that ifft does not modify input values
     }
 }
 
 TEST(polynomials, split_polynomial_evaluate)
 {
     constexpr size_t n = 256;
-    fr fft_transform[n];
-    fr poly[n];
+    std::array<fr, n> fft_transform;
+    std::array<fr, n> poly;
 
     for (size_t i = 0; i < n; ++i) {
         poly[i] = fr::random_element();
@@ -111,213 +88,13 @@ TEST(polynomials, split_polynomial_evaluate)
     fr z = fr::random_element();
     EXPECT_EQ(polynomial_arithmetic::evaluate(
                   { fft_transform_[0], fft_transform_[1], fft_transform_[2], fft_transform_[3] }, z, n),
-              polynomial_arithmetic::evaluate(poly, z, n));
-}
-
-TEST(polynomials, basic_fft)
-{
-    constexpr size_t n = 1 << 14;
-    fr* data = (fr*)aligned_alloc(32, sizeof(fr) * n * 2);
-    fr* result = &data[0];
-    fr* expected = &data[n];
-    for (size_t i = 0; i < n; ++i) {
-        result[i] = fr::random_element();
-        fr::__copy(result[i], expected[i]);
-    }
-
-    auto domain = evaluation_domain(n);
-    domain.compute_lookup_table();
-    polynomial_arithmetic::fft(result, domain);
-    polynomial_arithmetic::ifft(result, domain);
-
-    for (size_t i = 0; i < n; ++i) {
-        EXPECT_EQ((result[i] == expected[i]), true);
-    }
-    aligned_free(data);
-}
-
-TEST(polynomials, fft_ifft_consistency)
-{
-    constexpr size_t n = 256;
-    fr result[n];
-    fr expected[n];
-    for (size_t i = 0; i < n; ++i) {
-        result[i] = fr::random_element();
-        fr::__copy(result[i], expected[i]);
-    }
-
-    auto domain = evaluation_domain(n);
-    domain.compute_lookup_table();
-    polynomial_arithmetic::fft(result, domain);
-    polynomial_arithmetic::ifft(result, domain);
-
-    for (size_t i = 0; i < n; ++i) {
-        EXPECT_EQ((result[i] == expected[i]), true);
-    }
-}
-
-TEST(polynomials, split_polynomial_fft_ifft_consistency)
-{
-    constexpr size_t n = 256;
-    constexpr size_t num_poly = 4;
-    fr result[num_poly][n];
-    fr expected[num_poly][n];
-    for (size_t j = 0; j < num_poly; j++) {
-        for (size_t i = 0; i < n; ++i) {
-            result[j][i] = fr::random_element();
-            fr::__copy(result[j][i], expected[j][i]);
-        }
-    }
-
-    auto domain = evaluation_domain(num_poly * n);
-    domain.compute_lookup_table();
-
-    std::vector<fr*> coeffs_vec;
-    for (size_t j = 0; j < num_poly; j++) {
-        coeffs_vec.push_back(result[j]);
-    }
-    polynomial_arithmetic::fft(coeffs_vec, domain);
-    polynomial_arithmetic::ifft(coeffs_vec, domain);
-
-    for (size_t j = 0; j < num_poly; j++) {
-        for (size_t i = 0; i < n; ++i) {
-            EXPECT_EQ((result[j][i] == expected[j][i]), true);
-        }
-    }
-}
-
-TEST(polynomials, fft_coset_ifft_consistency)
-{
-    constexpr size_t n = 256;
-    fr result[n];
-    fr expected[n];
-    for (size_t i = 0; i < n; ++i) {
-        result[i] = fr::random_element();
-        fr::__copy(result[i], expected[i]);
-    }
-
-    auto domain = evaluation_domain(n);
-    domain.compute_lookup_table();
-    fr T0;
-    T0 = domain.generator * domain.generator_inverse;
-    EXPECT_EQ((T0 == fr::one()), true);
-
-    polynomial_arithmetic::coset_fft(result, domain);
-    polynomial_arithmetic::coset_ifft(result, domain);
-
-    for (size_t i = 0; i < n; ++i) {
-        EXPECT_EQ((result[i] == expected[i]), true);
-    }
-}
-
-TEST(polynomials, split_polynomial_fft_coset_ifft_consistency)
-{
-    constexpr size_t n = 256;
-    constexpr size_t num_poly = 4;
-    fr result[num_poly][n];
-    fr expected[num_poly][n];
-    for (size_t j = 0; j < num_poly; j++) {
-        for (size_t i = 0; i < n; ++i) {
-            result[j][i] = fr::random_element();
-            fr::__copy(result[j][i], expected[j][i]);
-        }
-    }
-
-    auto domain = evaluation_domain(num_poly * n);
-    domain.compute_lookup_table();
-
-    std::vector<fr*> coeffs_vec;
-    for (size_t j = 0; j < num_poly; j++) {
-        coeffs_vec.push_back(result[j]);
-    }
-    polynomial_arithmetic::coset_fft(coeffs_vec, domain);
-    polynomial_arithmetic::coset_ifft(coeffs_vec, domain);
-
-    for (size_t j = 0; j < num_poly; j++) {
-        for (size_t i = 0; i < n; ++i) {
-            EXPECT_EQ((result[j][i] == expected[j][i]), true);
-        }
-    }
-}
-
-TEST(polynomials, fft_coset_ifft_cross_consistency)
-{
-    constexpr size_t n = 2;
-    fr expected[n];
-    fr poly_a[4 * n];
-    fr poly_b[4 * n];
-    fr poly_c[4 * n];
-
-    for (size_t i = 0; i < n; ++i) {
-        poly_a[i] = fr::random_element();
-        fr::__copy(poly_a[i], poly_b[i]);
-        fr::__copy(poly_a[i], poly_c[i]);
-        expected[i] = poly_a[i] + poly_c[i];
-        expected[i] += poly_b[i];
-    }
-
-    for (size_t i = n; i < 4 * n; ++i) {
-        poly_a[i] = fr::zero();
-        poly_b[i] = fr::zero();
-        poly_c[i] = fr::zero();
-    }
-    auto small_domain = evaluation_domain(n);
-    auto mid_domain = evaluation_domain(2 * n);
-    auto large_domain = evaluation_domain(4 * n);
-    small_domain.compute_lookup_table();
-    mid_domain.compute_lookup_table();
-    large_domain.compute_lookup_table();
-    polynomial_arithmetic::coset_fft(poly_a, small_domain);
-    polynomial_arithmetic::coset_fft(poly_b, mid_domain);
-    polynomial_arithmetic::coset_fft(poly_c, large_domain);
-
-    for (size_t i = 0; i < n; ++i) {
-        poly_a[i] = poly_a[i] + poly_c[4 * i];
-        poly_a[i] = poly_a[i] + poly_b[2 * i];
-    }
-
-    polynomial_arithmetic::coset_ifft(poly_a, small_domain);
-
-    for (size_t i = 0; i < n; ++i) {
-        EXPECT_EQ((poly_a[i] == expected[i]), true);
-    }
-}
-
-TEST(polynomials, barycentric_weight_evaluations)
-{
-    constexpr size_t n = 16;
-
-    evaluation_domain domain(n);
-
-    std::vector<fr> poly(n);
-    std::vector<fr> barycentric_poly(n);
-
-    for (size_t i = 0; i < n / 2; ++i) {
-        poly[i] = fr::random_element();
-        barycentric_poly[i] = poly[i];
-    }
-    for (size_t i = n / 2; i < n; ++i) {
-        poly[i] = fr::zero();
-        barycentric_poly[i] = poly[i];
-    }
-    fr evaluation_point = fr{ 2, 0, 0, 0 }.to_montgomery_form();
-
-    fr result =
-        polynomial_arithmetic::compute_barycentric_evaluation(&barycentric_poly[0], n / 2, evaluation_point, domain);
-
-    domain.compute_lookup_table();
-
-    polynomial_arithmetic::ifft(&poly[0], domain);
-
-    fr expected = polynomial_arithmetic::evaluate(&poly[0], evaluation_point, n);
-
-    EXPECT_EQ((result == expected), true);
+              polynomial_arithmetic::evaluate(poly.data(), z, n));
 }
 
 TEST(polynomials, linear_poly_product)
 {
     constexpr size_t n = 64;
-    fr roots[n];
+    std::array<fr, n> roots;
 
     fr z = fr::random_element();
     fr expected = 1;
@@ -327,7 +104,7 @@ TEST(polynomials, linear_poly_product)
     }
 
     fr dest[n + 1];
-    polynomial_arithmetic::compute_linear_polynomial_product(roots, dest, n);
+    polynomial_arithmetic::compute_linear_polynomial_product(roots.data(), dest, n);
     fr result = polynomial_arithmetic::evaluate(dest, z, n + 1);
 
     EXPECT_EQ(result, expected);

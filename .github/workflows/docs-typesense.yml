@@ -7,7 +7,7 @@ on:
     - cron: "0 5 * * *"
   push:
     branches:
-      - master
+      - next
     paths:
       - docs/**
 

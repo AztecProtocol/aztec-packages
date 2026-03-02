@@ -13,6 +13,7 @@ import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ChainConfig,
+  DEFAULT_MAX_TXS_PER_BLOCK,
   type SequencerConfig,
   chainConfigMappings,
   sharedSequencerConfigMappings,
@@ -37,7 +38,7 @@ export type { SequencerConfig };
  */
 export const DefaultSequencerConfig: ResolvedSequencerConfig = {
   sequencerPollingIntervalMS: 500,
-  maxTxsPerBlock: 32,
+  maxTxsPerBlock: DEFAULT_MAX_TXS_PER_BLOCK,
   minTxsPerBlock: 1,
   buildCheckpointIfEmpty: false,
   publishTxsWithProposals: false,
@@ -52,6 +53,8 @@ export const DefaultSequencerConfig: ResolvedSequencerConfig = {
   skipInvalidateBlockAsProposer: false,
   broadcastInvalidBlockProposal: false,
   injectFakeAttestation: false,
+  injectHighSValueAttestation: false,
+  injectUnrecoverableSignatureAttestation: false,
   fishermanMode: false,
   shuffleAttestationOrdering: false,
   skipPushProposedBlocksToArchiver: false,
@@ -76,11 +79,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'SEQ_POLLING_INTERVAL_MS',
     description: 'The number of ms to wait between polling for checking to build on the next slot.',
     ...numberConfigHelper(DefaultSequencerConfig.sequencerPollingIntervalMS),
-  },
-  maxTxsPerBlock: {
-    env: 'SEQ_MAX_TX_PER_BLOCK',
-    description: 'The maximum number of txs to include in a block.',
-    ...numberConfigHelper(DefaultSequencerConfig.maxTxsPerBlock),
   },
   minTxsPerBlock: {
     env: 'SEQ_MIN_TX_PER_BLOCK',
@@ -185,6 +183,14 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   injectFakeAttestation: {
     description: 'Inject a fake attestation (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.injectFakeAttestation),
+  },
+  injectHighSValueAttestation: {
+    description: 'Inject a malleable attestation with a high-s value (for testing only)',
+    ...booleanConfigHelper(DefaultSequencerConfig.injectHighSValueAttestation),
+  },
+  injectUnrecoverableSignatureAttestation: {
+    description: 'Inject an attestation with an unrecoverable signature (for testing only)',
+    ...booleanConfigHelper(DefaultSequencerConfig.injectUnrecoverableSignatureAttestation),
   },
   fishermanMode: {
     env: 'FISHERMAN_MODE',

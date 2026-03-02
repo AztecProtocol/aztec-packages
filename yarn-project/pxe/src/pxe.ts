@@ -145,6 +145,7 @@ export type PXECreateArgs = {
 export class PXE {
   private constructor(
     private node: AztecNode,
+    private db: AztecAsyncKVStore,
     private blockStateSynchronizer: BlockSynchronizer,
     private keyStore: KeyStore,
     private contractStore: ContractStore,
@@ -240,6 +241,7 @@ export class PXE {
 
     const pxe = new PXE(
       node,
+      store,
       synchronizer,
       keyStore,
       contractStore,
@@ -1130,9 +1132,10 @@ export class PXE {
   }
 
   /**
-   * Stops the PXE's job queue.
+   * Stops the PXE's job queue and closes the backing store.
    */
-  public stop(): Promise<void> {
-    return this.jobQueue.end();
+  public async stop(): Promise<void> {
+    await this.jobQueue.end();
+    await this.db.close();
   }
 }

@@ -7,7 +7,7 @@ export class CheckpointProposalValidator
   extends ProposalValidator<CheckpointProposal>
   implements P2PValidator<CheckpointProposal>
 {
-  constructor(epochCache: EpochCacheInterface, opts: { txsPermitted: boolean }) {
+  constructor(epochCache: EpochCacheInterface, opts: { txsPermitted: boolean; maxTxsPerBlock?: number }) {
     super(epochCache, opts, 'p2p:checkpoint_proposal_validator');
   }
 }

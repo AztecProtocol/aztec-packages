@@ -38,7 +38,7 @@ export interface P2PConfig
     ChainConfig,
     TxCollectionConfig,
     TxFileStoreConfig,
-    Pick<SequencerConfig, 'blockDurationMs' | 'expectedBlockProposalsPerSlot'> {
+    Pick<SequencerConfig, 'blockDurationMs' | 'expectedBlockProposalsPerSlot' | 'maxTxsPerBlock'> {
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 

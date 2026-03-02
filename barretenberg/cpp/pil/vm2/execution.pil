@@ -397,8 +397,8 @@ pol commit sel_tag_check_reg[6]; // @boolean (when `sel_instruction_fetching_suc
 // Expected tag
 pol commit expected_tag_reg[6];
 
-// NOTE: Constraints on the registers are in execution_registers.pil.
-// The "output we want is" sel_register_read_error from execution_registers.pil.
+// NOTE: Constraints on the registers are in execution/registers.pil.
+// The "output we want is" sel_register_read_error from execution/registers.pil.
 
 /**************************************************************************************************
  *  Temporality group 4: Gas.
