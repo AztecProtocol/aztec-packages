@@ -39,7 +39,7 @@ ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: bl
 2. Remove the archiver data directory:
 
    ```bash
-   rm -rf ~/.aztec/v3.0.3/data/archiver
+   rm -rf ~/.aztec/v4.0.3/data/archiver
    ```
 
 3. Restart your node:
@@ -243,7 +243,7 @@ To update to a specific version:
 # Change the image tag from:
 image: "aztecprotocol/aztec:latest"
 # To:
-image: "aztecprotocol/aztec:3.0.3"
+image: "aztecprotocol/aztec:4.0.3"
 ```
 
 Then run:
