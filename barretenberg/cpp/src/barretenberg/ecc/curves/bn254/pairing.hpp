@@ -15,21 +15,34 @@
 #include "./g2.hpp"
 
 namespace bb::pairing {
+
+// Number of iterations in the Miller loop, equal to the length minus 1 of the signed bit decomposition of the
+// generating parameter x of BN254
 constexpr size_t loop_length = 64;
-constexpr size_t neg_z_loop_length = 62;
+// Bit length minus 1 of the parameter z of BN254
+constexpr size_t z_loop_length = 62;
+//
 constexpr size_t precomputed_coefficients_length = 87;
 
+// Signed bit decomposition of the parameter z of BN254, used in the Miller loop.
+// \f$z = \sum_{i} b_i 2^i + 2^{64}\f$ where b_i = 1 if loop_bits[i] = 1, b_i = -1 if loop_bits[i] = 3 and b_i = 0 if
+// loop_bits[i] = 0
 constexpr std::array<uint8_t, loop_length> loop_bits{ 1, 0, 1, 0, 0, 0, 3, 0, 3, 0, 0, 0, 3, 0, 1, 0, 3, 0, 0, 3, 0, 0,
                                                       0, 0, 0, 1, 0, 0, 3, 0, 1, 0, 0, 3, 0, 0, 0, 0, 3, 0, 1, 0, 0, 0,
                                                       3, 0, 3, 0, 0, 1, 0, 0, 0, 3, 0, 0, 3, 0, 1, 0, 1, 0, 0, 0 };
 
-constexpr std::array<bool, neg_z_loop_length> neg_z_loop_bits{
+// Bit decomposition of z: \f$\sum_{i} b_i 2^i + 2^{64}\f$ where b_i = 1 if z_loop_bits[i] = 1 and b_i = 0 if
+// z_loop_bits[i] = 0
+constexpr std::array<bool, z_loop_length> z_loop_bits{
     false, false, false, true,  false, false, true,  true,  true, false, true,  false, false, true,  true,  false,
     false, true,  false, false, true,  false, true,  false, true, true,  false, true,  false, false, false, true,
     false, false, true,  false, true,  false, false, true,  true, false, true,  false, false, true,  false, false,
     false, false, true,  false, false, true,  true,  true,  true, true,  false, false, false, true
 };
 
+// ======================
+// Miller loop
+// ======================
 struct miller_lines {
     std::array<fq12::ell_coeffs, precomputed_coefficients_length> lines;
 };
@@ -40,20 +53,85 @@ constexpr void mixed_addition_step_for_flipped_miller_loop(const g2::element& ba
                                                            g2::element& Q,
                                                            fq12::ell_coeffs& line);
 
+/**
+ * @brief Precomputation of Miller lines for a point Q in G2.
+ *
+ * @details This function computes the lines that are evaluated in the calculation of the Miller loop for the point Q.
+ *
+ * @param Q
+ * @param lines
+ */
 constexpr void precompute_miller_lines(const g2::element& Q, miller_lines& lines);
 
+/**
+ * @brief Miller loop implementation.
+ *
+ * @details This function computes the Miller loop \f$f_{6z + 2, Q}(P)\f$ for the point P and the precomputed Miller
+ * lines of Q.
+ *
+ * @param P
+ * @param lines
+ * @return constexpr fq12
+ */
 constexpr fq12 miller_loop(const g1::element& P, const miller_lines& lines);
 
 constexpr fq12 miller_loop_batch(const g1::element* points, const miller_lines* lines, size_t num_pairs);
 
-constexpr void final_exponentiation_easy_part(const fq12& elt, fq12& r);
+// ======================
+// Final exponentiation
+// ======================
 
-constexpr void final_exponentiation_exp_by_neg_z(const fq12& elt, fq12& r);
+/**
+ * @brief Easy part of the final exponentiation.
+ *
+ * @details This function computes \f$elt^{(p^6 - 1)(p^2 + 1)}\f$, where \f$elt$ is the result the Miller loop.
+ *
+ * @param elt
+ */
+constexpr fq12 final_exponentiation_easy_part(const fq12& elt);
 
-constexpr void final_exponentiation_tricky_part(const fq12& elt, fq12& r);
+/**
+ * @brief Compute f^z for f a unitary element
+ *
+ * @param elt
+ */
+constexpr fq12 final_exponentiation_exp_z(const fq12& elt);
 
+/**
+ * @brief Hard part of the final exponentiation.
+ *
+ *
+ * @details This function computes \f$elt^{\frac{q^4 - q^2 + 1}{r}}\f$, where \f$elt\f$ is the result of the easy part
+ * of the final exponentiation. The algorithm is based on Section 3.3 of "Efficient Implementation of Bilinear Pairings
+ * on ARM Processors" https://cacr.uwaterloo.ca/techreports/2012/cacr2012-17.pdf.
+ *
+ * @param elt
+ */
+constexpr fq12 final_exponentiation_tricky_part(const fq12& elt);
+
+// ======================
+// Pairing
+// ======================
+
+/**
+ * @brief Optimal Ate pairing implementation. Compute e(P, Q).
+ *
+ * @param P_affine
+ * @param Q_affine
+ * @return constexpr fq12
+ */
 constexpr fq12 reduced_ate_pairing(const g1::affine_element& P_affine, const g2::affine_element& Q_affine);
 
+/**
+ * @brief Batch optimal Ate pairing implementation.
+ *
+ * @details This function computes \f$\prod_i e(P_i, Q_i)\f$ for multiple pairs.
+ *
+ * @param P_affines
+ * @param Q_affines
+ * @param num_points
+ * @return fq12
+ */
 inline fq12 reduced_ate_pairing_batch(const g1::affine_element* P_affines,
                                       const g2::affine_element* Q_affines,
                                       size_t num_points);

@@ -18,12 +18,16 @@ $$
 
 Write $\phi_q \colon E \rightarrow E, (x, y) \mapsto (x^q, y^q)$ for the Frobenius morphism, and $\phi_q := \Psi^{-1} \circ \phi_q \circ \Psi$ for the lift to the twist.
 
-Given $(P, Q) \in \mathbb{G}_1 \times \mathbb{G}_2$, the optimal Ate pairing is defined as
+Given $(P, Q) \in \mathbb{G}_1 \times \mathbb{G}_2$, the optimal Ate pairing is defined as (more on $\gamma$ later)
 $$
-    e(P,Q) = \left( f_{6x + 2, Q}(P) \cdot l_{(6x + 2)Q, \phi_q(Q)}(P) \cdot l_{(6x + 2)Q + \phi_q(Q), -\phi^2_q(Q)} \right)^{\frac{q^{12}-1}{r}}
+    e(P,Q) = \left( f_{6z + 2, Q}(P) \cdot l_{(6z + 2)Q, \phi_q(Q)}(P) \cdot l_{(6z + 2)Q + \phi_q(Q), -\phi^2_q(Q)} \right)^{\frac{q^{12}-1}{r} \gamma}
 $$
 where:
-- $f_{6x + 2, Q}(P)$ is the Miller function with parameters $6x + 2$ and $Q$ evaluated at $P$
+- $z = 4965661367192848881$ is the parameter generating the primes $q$ and $r$ via the formulas
+$$
+q = 36z^6 + 36z^3 + 24z^2 + 6z + 1 \quad \quad r = 36z^6 + 36z^3 + 18z^2 + 6z + 1
+$$
+- $f_{6z + 2, Q}(P)$ is the Miller function with parameters $6z + 2$ and $Q$ evaluated at $P$
 - $l_{Q_1, Q_2}(P)$ is the line through $Q_1$ and $Q_2$ evaluated at $P$
 
 The Miller loop function $f_{m, Q}(P)$ is calculated as follows:
@@ -62,9 +66,24 @@ $$
 Finally, we compute the exponentiation by splitting the exponent in two parts:
 $$
 \begin{aligned}
-    \frac{q^{12}-1}{r} &\;= \frac{q^{12}-1}{q^4 - q^2 + 1} \cdot \frac{q^4 - q^2 + 1}{r}\\
-    &\;= (q^2 + 1) (q^6 - 1) \cdot \frac{q^4 - q^2 + 1}{r}
+    \frac{q^{12}-1}{r} \gamma &\;= \frac{q^{12}-1}{q^4 - q^2 + 1} \cdot \frac{q^4 - q^2 + 1}{r} \gamma\\
+    &\;= (q^2 + 1) (q^6 - 1) \cdot \frac{q^4 - q^2 + 1}{r} \gamma
 \end{aligned}
 $$
 
-The first part: $(q^2 + 1) (q^6 - 1)$ can be computed by means of the Frobenius morphism. The second part is known as the hard part and for it we use the algorithm described in Section 4.2 [here](https://eprint.iacr.org/2010/354.pdf).
+The first part: $(q^2 + 1) (q^6 - 1)$ can be computed by means of the Frobenius morphism. The second part is known as the hard part and for it we use the algorithm described in Section 3.3 [here](https://cacr.uwaterloo.ca/techreports/2012/cacr2012-17.pdf).
+
+The reason why we add $\gamma$ to the fraction is that we can write the exponent of the hard part as
+$$
+    \frac{q^4 - q^2 + 1}{r} \gamma = \mu_0 + \mu_1 q + \mu_2 q^2 + \mu_3 q^3
+$$
+which is efficiently computable by means of the Frobenius morphism. The values of $\gamma$ and $\mu_0, \mu_1, \mu_2, \mu_3$ are:
+$$
+    \begin{aligned}
+        \gamma &\; = 2z (6z^2 + 3z + 1)\\
+        \mu_0 &\;= 1 + 6z + 12z^2 + 12z^3\\
+        \mu_1 &\;= 4z + 6z^2 + 12 z^3\\
+        \mu_2 &\;= 6z + 6z^2 + 12 z^3\\
+        \mu_3 &\; -1 + 4z^2 + 6z^2 + 12z^3\\
+    \end{aligned}
+$$

@@ -12,7 +12,10 @@
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
 
 namespace bb::pairing {
+
+// Precompute 2^{-1} mod q for gradient calculations of tangent lines
 constexpr fq two_inv = fq(2).invert();
+
 inline constexpr g2::element mul_by_q(const g2::element& a)
 {
 
@@ -26,34 +29,54 @@ inline constexpr g2::element mul_by_q(const g2::element& a)
 }
 constexpr void doubling_step_for_flipped_miller_loop(g2::element& current, fq12::ell_coeffs& ell)
 {
+    // a = x / (2y)
     fq2 a = current.x.mul_by_fq(two_inv);
     a *= current.y;
 
+    // b = y^2
     fq2 b = current.y.sqr();
+    // c = z^2
     fq2 c = current.z.sqr();
+    // d = 3 * z^2
     fq2 d = c + c;
     d += c;
+    // e = 3 * z^2 * twist_coeff_b
     fq2 e = d * fq2::twist_coeff_b();
+    // f = 9 * z^2 * twist_coeff_b
     fq2 f = e + e;
     f += e;
 
+    // g = y^2 + 9 * z^2 * twist_coeff_b
     fq2 g = b + f;
+    // g = (y^2 + 9 * z^2 * twist_coeff_b) / 2
     g = g.mul_by_fq(two_inv);
+    // h = (y + z)^2
     fq2 h = current.y + current.z;
     h = h.sqr();
+    // i = y^2 + z^2
     fq2 i = b + c;
+    // h = ((y + z)^2 - (y^2 + z^2)) = 2yz
     h -= i;
+    // i = 3 * z^2 * twist_coeff_b - y^2
     i = e - b;
+    // j = x^2
     fq2 j = current.x.sqr();
+    // ee = 9 * z^4 * twist_coeff_b^2
     fq2 ee = e.sqr();
+    // k = y^2 - 9 * z^2 * twist_coeff_b
     fq2 k = b - f;
+    // current.x = (y^2 - 9 * z^2 * twist_coeff_b) * x / (2y)
     current.x = a * k;
 
+    // k = 27 z^4 * twist_coeff_b^2
     k = ee + ee;
     k += ee;
 
+    // c = [(y^2 + 9 * z^2 * twist_coeff_b) / 2]^2
     c = g.sqr();
+    // y = [(y^2 + 9 * z^2 * twist_coeff_b) / 2]^2 - 27 * z^4 * twist_coeff_b^2
     current.y = c - k;
+    // z = y^2 * 2yz
     current.z = b * h;
 
     ell.o = fq6::mul_by_non_residue(i);
@@ -220,44 +243,41 @@ constexpr fq12 final_exponentiation_easy_part(const fq12& elt)
     return a * a.frobenius_map_two();
 }
 
-constexpr fq12 final_exponentiation_exp_by_neg_z(const fq12& elt)
+constexpr fq12 final_exponentiation_exp_by_z(const fq12& elt)
 {
     fq12 r = elt;
 
-    for (bool neg_z_loop_bit : neg_z_loop_bits) {
+    for (bool z_loop_bit : z_loop_bits) {
         r = r.cyclotomic_squared();
-        if (neg_z_loop_bit) {
+        if (z_loop_bit) {
             r *= elt;
         }
     }
-    return r.unitary_inverse();
+    return r;
 }
 
 constexpr fq12 final_exponentiation_tricky_part(const fq12& elt)
 {
-    fq12 A = final_exponentiation_exp_by_neg_z(elt);
-    fq12 B = A.cyclotomic_squared();
-    fq12 C = B.cyclotomic_squared();
-    fq12 D = B * C;
-    fq12 E = final_exponentiation_exp_by_neg_z(D);
-    fq12 F = E.cyclotomic_squared();
-    fq12 G = final_exponentiation_exp_by_neg_z(F);
-    fq12 H = D.unitary_inverse();
-    fq12 I = G.unitary_inverse();
-    fq12 J = I * E;
-    fq12 K = J * H;
-    fq12 L = B * K;
-    fq12 M = E * K;
-    fq12 N = M * elt;
-    fq12 O = L.frobenius_map_one();
-    fq12 P = O * N;
-    fq12 Q = K.frobenius_map_two();
-    fq12 R = P * Q;
-    fq12 S = elt.unitary_inverse();
-    fq12 T = L * S;
-    fq12 U = T.frobenius_map_three();
+    fq12 A = final_exponentiation_exp_by_z(elt); // z
+    fq12 B = A.cyclotomic_squared();             // 2z
+    fq12 C = B.cyclotomic_squared();             // 4z
+    fq12 D = B * C;                              // 6z
+    fq12 E = final_exponentiation_exp_by_z(D);   // 6z^2
+    fq12 F = E.cyclotomic_squared();             // 12z^2
+    fq12 G = final_exponentiation_exp_by_z(F);   // 12z^3
+    fq12 J = G * E;                              // G * E = 12z^3 + 6z^2
+    fq12 K = J * D;                              // J * D = 12z^3 + 6z^2 + 6z = \mu_2
+    fq12 L = J * C;                              // J * C = 12z^3 + 6z^2 + 4z = \mu_1
+    fq12 M = K * E;                              // K * E = 12z^3 + 12z^2 + 6z
+    fq12 N = M * elt;                            // M * elt = 12z^3 + 12z^2 + 6z + 1 = \mu_0
+    fq12 O = L * elt.unitary_inverse();          // L * elt^{-1} = 12z^3 + 6z^2 + 4z - 1 = \mu_3
+    fq12 P = L.frobenius_map_one();              // \mu_1 * q
+    fq12 Q = K.frobenius_map_two();              // \mu_2 * q^2
+    fq12 R = O.frobenius_map_three();            // \mu_3 * q^3
+    fq12 S = N * P;                              // \mu_0 + \mu_1 * q
+    fq12 T = S * Q;                              // \mu_0 + \mu_1 * q + \mu_2 * q^2
 
-    return R * U;
+    return T * R;
 }
 
 constexpr fq12 reduced_ate_pairing(const g1::affine_element& P_affine, const g2::affine_element& Q_affine)
