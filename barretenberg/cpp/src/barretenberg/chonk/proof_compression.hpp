@@ -254,7 +254,10 @@ class ProofCompressor {
     static void walk_translator_proof(ScalarFn&& process_scalar, CommitmentFn&& process_commitment)
     {
         constexpr size_t log_n = TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
-        // NUM_WITNESS_ENTITIES minus gemini_masking_poly, z_perm (sent separately) and 4 op queue wires (from merge)
+        // Adjustment: -4 for interleaved_range_constraints (no individual commitments, handled by Shplemini
+        // interleaving), +1 for gemini_masking_poly (committed in proof but not in NUM_WITNESS_ENTITIES — it lives in
+        // MaskingEntities), -4 for op queue wires (commitments provided by the merge protocol).
+        // Net: NUM_WITNESS_ENTITIES - 3 - NUM_OP_QUEUE_WIRES
         constexpr size_t num_witness_comms =
             TranslatorFlavor::NUM_WITNESS_ENTITIES - 3 - TranslatorFlavor::NUM_OP_QUEUE_WIRES;
 
@@ -316,6 +319,88 @@ class ProofCompressor {
         walk_translator_proof(bn254_scalar, bn254_comm);
     }
 
+    // =========================================================================
+    // Walk count validation — ensure the constants used in walks match PROOF_LENGTH.
+    // These mirror the walk logic using the same constants; if a PROOF_LENGTH formula
+    // changes, the static_assert fires, prompting an update to the corresponding walk.
+    // =========================================================================
+
+    // Fr-elements per element type for each curve
+    static constexpr size_t BN254_FRS_PER_SCALAR = 1;
+    static constexpr size_t BN254_FRS_PER_COMM = 4;      // Fq x,y each as (lo,hi) Fr pair
+    static constexpr size_t GRUMPKIN_FRS_PER_SCALAR = 2; // Fq stored as (lo,hi) Fr pair
+    static constexpr size_t GRUMPKIN_FRS_PER_COMM = 2;   // Fr x,y coordinates
+
+    // clang-format off
+    // MegaZK (without public inputs) — mirrors walk_mega_zk_proof with num_public_inputs=0
+    static constexpr size_t EXPECTED_MEGA_ZK_FRS =
+        MegaZKFlavor::NUM_WITNESS_ENTITIES * BN254_FRS_PER_COMM +                                           // witness comms
+        1 * BN254_FRS_PER_COMM +                                                                            // libra concat
+        1 * BN254_FRS_PER_SCALAR +                                                                          // libra sum
+        MegaZKFlavor::VIRTUAL_LOG_N * MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH * BN254_FRS_PER_SCALAR +// sumcheck univariates
+        MegaZKFlavor::NUM_ALL_ENTITIES * BN254_FRS_PER_SCALAR +                                             // sumcheck evals
+        1 * BN254_FRS_PER_SCALAR +                                                                          // libra claimed eval
+        2 * BN254_FRS_PER_COMM +                                                                            // libra grand sum + quotient
+        (MegaZKFlavor::VIRTUAL_LOG_N - 1) * BN254_FRS_PER_COMM +                                           // gemini folds
+        MegaZKFlavor::VIRTUAL_LOG_N * BN254_FRS_PER_SCALAR +                                                // gemini evals
+        NUM_SMALL_IPA_EVALUATIONS * BN254_FRS_PER_SCALAR +                                                  // small IPA evals
+        2 * BN254_FRS_PER_COMM;                                                                             // shplonk Q + KZG W
+    static_assert(EXPECTED_MEGA_ZK_FRS == ChonkProof::HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS);
+
+    // Merge — mirrors walk_merge_proof
+    static constexpr size_t EXPECTED_MERGE_FRS =
+        1 * BN254_FRS_PER_SCALAR +  // shift_size
+        5 * BN254_FRS_PER_COMM +    // 4 merged tables + 1 reversed batched left
+        13 * BN254_FRS_PER_SCALAR + // evaluations
+        2 * BN254_FRS_PER_COMM;     // shplonk Q + KZG W
+    static_assert(EXPECTED_MERGE_FRS == MERGE_PROOF_SIZE);
+
+    // ECCVM — mirrors walk_eccvm_proof
+    static constexpr size_t EXPECTED_ECCVM_FRS =
+        (ECCVMFlavor::NUM_WITNESS_ENTITIES + ECCVMFlavor::NUM_MASKING_POLYNOMIALS) * GRUMPKIN_FRS_PER_COMM + // witnesses
+        1 * GRUMPKIN_FRS_PER_COMM +                                                                         // libra concat
+        1 * GRUMPKIN_FRS_PER_SCALAR +                                                                       // libra sum
+        CONST_ECCVM_LOG_N * GRUMPKIN_FRS_PER_COMM +                                                         // sumcheck univariate comms
+        2 * CONST_ECCVM_LOG_N * GRUMPKIN_FRS_PER_SCALAR +                                                   // sumcheck univariate evals (2 per round)
+        ECCVMFlavor::NUM_ALL_ENTITIES * GRUMPKIN_FRS_PER_SCALAR +                                            // sumcheck evals
+        1 * GRUMPKIN_FRS_PER_SCALAR +                                                                       // libra claimed eval
+        2 * GRUMPKIN_FRS_PER_COMM +                                                                         // libra grand sum + quotient
+        (CONST_ECCVM_LOG_N - 1) * GRUMPKIN_FRS_PER_COMM +                                                  // gemini folds
+        CONST_ECCVM_LOG_N * GRUMPKIN_FRS_PER_SCALAR +                                                       // gemini evals
+        NUM_SMALL_IPA_EVALUATIONS * GRUMPKIN_FRS_PER_SCALAR +                                               // small IPA evals
+        1 * GRUMPKIN_FRS_PER_COMM +                                                                         // shplonk Q
+        1 * GRUMPKIN_FRS_PER_COMM +                                                                         // translator masking comm
+        NUM_TRANSLATION_EVALUATIONS * GRUMPKIN_FRS_PER_SCALAR +                                             // translation evals
+        1 * GRUMPKIN_FRS_PER_SCALAR +                                                                       // masking term eval
+        2 * GRUMPKIN_FRS_PER_COMM +                                                                         // translation grand sum + quotient
+        NUM_SMALL_IPA_EVALUATIONS * GRUMPKIN_FRS_PER_SCALAR +                                               // translation small IPA evals
+        1 * GRUMPKIN_FRS_PER_COMM;                                                                          // translation shplonk Q
+    static_assert(EXPECTED_ECCVM_FRS == ECCVMFlavor::PROOF_LENGTH);
+
+    // IPA — mirrors walk_ipa_proof
+    static constexpr size_t EXPECTED_IPA_FRS =
+        2 * CONST_ECCVM_LOG_N * GRUMPKIN_FRS_PER_COMM + // L and R per round
+        1 * GRUMPKIN_FRS_PER_COMM +                     // G_0
+        1 * GRUMPKIN_FRS_PER_SCALAR;                    // a_0
+    static_assert(EXPECTED_IPA_FRS == IPA_PROOF_LENGTH);
+
+    // Translator — mirrors walk_translator_proof
+    static constexpr size_t EXPECTED_TRANSLATOR_FRS =
+        (TranslatorFlavor::NUM_WITNESS_ENTITIES - 3 - TranslatorFlavor::NUM_OP_QUEUE_WIRES) * BN254_FRS_PER_COMM + // witness comms
+        1 * BN254_FRS_PER_COMM +                                                                                   // libra concat
+        1 * BN254_FRS_PER_SCALAR +                                                                                 // libra sum
+        TranslatorFlavor::CONST_TRANSLATOR_LOG_N * TranslatorFlavor::BATCHED_RELATION_PARTIAL_LENGTH * BN254_FRS_PER_SCALAR + // sumcheck univariates
+        TranslatorFlavor::NUM_ALL_ENTITIES * BN254_FRS_PER_SCALAR +                                                // sumcheck evals
+        1 * BN254_FRS_PER_SCALAR +                                                                                 // libra claimed eval
+        2 * BN254_FRS_PER_COMM +                                                                                   // libra grand sum + quotient
+        (TranslatorFlavor::CONST_TRANSLATOR_LOG_N - 1) * BN254_FRS_PER_COMM +                                     // gemini folds
+        TranslatorFlavor::CONST_TRANSLATOR_LOG_N * BN254_FRS_PER_SCALAR +                                          // gemini evals
+        2 * BN254_FRS_PER_SCALAR +                                                                                 // P_pos + P_neg
+        NUM_SMALL_IPA_EVALUATIONS * BN254_FRS_PER_SCALAR +                                                         // small IPA evals
+        2 * BN254_FRS_PER_COMM;                                                                                    // shplonk Q + KZG W
+    static_assert(EXPECTED_TRANSLATOR_FRS == TranslatorFlavor::PROOF_LENGTH);
+    // clang-format on
+
   public:
     // =========================================================================
     // Chonk proof compression
@@ -325,6 +410,7 @@ class ProofCompressor {
     {
         auto flat = proof.to_field_elements();
         std::vector<uint8_t> out;
+        out.reserve(flat.size() * 32); // upper bound: every element compresses to 32 bytes
         size_t offset = 0;
 
         // BN254 callbacks
