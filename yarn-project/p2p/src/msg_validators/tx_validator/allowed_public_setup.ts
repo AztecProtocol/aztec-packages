@@ -10,14 +10,20 @@ let defaultAllowedSetupFunctions: AllowedElement[] | undefined;
 export async function getDefaultAllowedSetupFunctions(): Promise<AllowedElement[]> {
   if (defaultAllowedSetupFunctions === undefined) {
     const tokenClassId = (await getContractClassFromArtifact(TokenContractArtifact)).id;
-    const setAuthorizedSelector = await FunctionSelector.fromSignature('_set_authorized((Field),Field,bool)');
+    const setAuthorizedInternalSelector = await FunctionSelector.fromSignature('_set_authorized((Field),Field,bool)');
+    const setAuthorizedSelector = await FunctionSelector.fromSignature('set_authorized(Field,bool)');
     const increaseBalanceSelector = await FunctionSelector.fromSignature('_increase_public_balance((Field),u128)');
     const transferInPublicSelector = await FunctionSelector.fromSignature(
       'transfer_in_public((Field),(Field),u128,Field)',
     );
 
     defaultAllowedSetupFunctions = [
-      // AuthRegistry: needed for authwit support (set_authorized_private enqueues this)
+      // AuthRegistry: needed for authwit support via private path (set_authorized_private enqueues _set_authorized)
+      {
+        address: ProtocolContractAddress.AuthRegistry,
+        selector: setAuthorizedInternalSelector,
+      },
+      // AuthRegistry: needed for authwit support via public path (PublicFeePaymentMethod calls set_authorized directly)
       {
         address: ProtocolContractAddress.AuthRegistry,
         selector: setAuthorizedSelector,
