@@ -808,11 +808,20 @@ export class CheckpointProposalJob implements Traceable {
       this.log.warn(`Shuffling attestation ordering in checkpoint for slot ${slotNumber} (proposer #${proposerIndex})`);
 
       const shuffled = [...attestations];
-      const [i, j] = [(proposerIndex + 1) % shuffled.length, (proposerIndex + 2) % shuffled.length];
-      const valueI = shuffled[i];
-      const valueJ = shuffled[j];
-      shuffled[i] = valueJ;
-      shuffled[j] = valueI;
+
+      // Find two non-proposer positions that both have non-empty signatures to swap.
+      // This ensures the bitmap doesn't change, so the MaliciousCommitteeAttestationsAndSigners
+      // signers array stays correctly aligned with L1's committee reconstruction.
+      const swappable: number[] = [];
+      for (let k = 0; k < shuffled.length; k++) {
+        if (!shuffled[k].signature.isEmpty() && k !== proposerIndex) {
+          swappable.push(k);
+        }
+      }
+      if (swappable.length >= 2) {
+        const [i, j] = [swappable[0], swappable[1]];
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
 
       const signers = new CommitteeAttestationsAndSigners(attestations).getSigners();
       return new MaliciousCommitteeAttestationsAndSigners(shuffled, signers);
