@@ -11,6 +11,7 @@
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/bc_hashing.hpp"
 #include "barretenberg/vm2/generated/relations/instr_fetching.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_bc_hashing.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_instr_fetching.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
@@ -816,7 +817,12 @@ TEST(InstrFetchingConstrainingTest, NegativeTruncatedBytecodeRepro)
                                       perm_bc_hashing_get_packed_field_2_settings>
         perm_builder(C::bc_decomposition_sel_packed);
     perm_builder.process(trace);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bb::avm2::bc_hashing<FF>>(trace), "HASH_IS_ID");
+
+    check_relation<bb::avm2::bc_hashing<FF>>(trace);
+    check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_check_final_bytes_remaining_settings>(trace);
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_poseidon2_hash_settings>(trace)),
+        "Failed.*LOOKUP_BC_HASHING_POSEIDON2_HASH. Could not find tuple in destination.");
 }
 
 TEST(InstrFetchingConstrainingTest, NegativeWrongTagValidationInteractions)

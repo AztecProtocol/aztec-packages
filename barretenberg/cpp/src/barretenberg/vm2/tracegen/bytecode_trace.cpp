@@ -186,44 +186,49 @@ void BytecodeTraceBuilder::process_decomposition(
 void BytecodeTraceBuilder::process_hashing(
     const simulation::EventEmitterInterface<simulation::BytecodeHashingEvent>::Container& events, TraceContainer& trace)
 {
+    // bc_hashing.pil uses some shifted columns and therefore we start from row 1.
     uint32_t row = 1;
 
     for (const auto& event : events) {
-        const auto id = event.bytecode_id;
         // Note that bytecode fields from the BytecodeHashingEvent do not contain the prepended field length | separator
+
+        const auto& id = event.bytecode_id;
+        const auto input_len = event.bytecode_fields.size() + 1; // +1 for the prepended field length | separator
+        const auto padding_amount = (3 - (input_len % 3)) % 3;
+
         std::vector<FF> fields = { simulation::compute_public_bytecode_first_field(event.bytecode_length_in_bytes) };
-        fields.reserve(1 + event.bytecode_fields.size());
+        fields.reserve(input_len + padding_amount);
         fields.insert(fields.end(), event.bytecode_fields.begin(), event.bytecode_fields.end());
-        auto bytecode_field_at = [&fields](size_t i) -> FF { return i < fields.size() ? fields[i] : 0; };
-        FF output_hash = Poseidon2::hash(fields);
-        auto padding_amount = (3 - (fields.size() % 3)) % 3;
-        auto num_rounds = (fields.size() + padding_amount) / 3;
+        fields.insert(fields.end(), padding_amount, FF(0)); // Add padding fields.
+
+        const auto num_rounds = fields.size() / 3;
         uint32_t pc_index = 0;
-        for (uint32_t i = 0; i < fields.size(); i += 3) {
+
+        for (size_t i = 0; i < num_rounds; i++) {
             bool start_of_bytecode = i == 0;
-            bool end_of_bytecode = i + 3 >= fields.size();
+            bool end_of_bytecode = i == num_rounds - 1;
             // When we start the bytecode, we want to look up field 1 at pc = 0 in the decomposition trace, since we
             // force field 0 to be the separator:
             uint32_t pc_index_1 = start_of_bytecode ? 0 : pc_index + 31;
             trace.set(row,
                       { { { C::bc_hashing_sel, 1 },
-                          { C::bc_hashing_start, start_of_bytecode },
-                          { C::bc_hashing_sel_not_start, !start_of_bytecode },
-                          { C::bc_hashing_latch, end_of_bytecode },
+                          { C::bc_hashing_start, start_of_bytecode ? 1 : 0 },
+                          { C::bc_hashing_sel_not_start, !start_of_bytecode ? 1 : 0 },
+                          { C::bc_hashing_latch, end_of_bytecode ? 1 : 0 },
                           { C::bc_hashing_bytecode_id, id },
                           { C::bc_hashing_size_in_bytes,
                             event.bytecode_length_in_bytes }, // Note: only needs to be constrained at start
-                          { C::bc_hashing_input_len, fields.size() },
-                          { C::bc_hashing_rounds_rem, num_rounds },
+                          { C::bc_hashing_input_len, input_len },
+                          { C::bc_hashing_rounds_rem, num_rounds - i },
                           { C::bc_hashing_pc_index, pc_index },
                           { C::bc_hashing_pc_index_1, pc_index_1 },
                           { C::bc_hashing_pc_index_2, pc_index_1 + 31 },
-                          { C::bc_hashing_packed_fields_0, bytecode_field_at(i) },
-                          { C::bc_hashing_packed_fields_1, bytecode_field_at(i + 1) },
-                          { C::bc_hashing_packed_fields_2, bytecode_field_at(i + 2) },
+                          { C::bc_hashing_packed_fields_0, fields[i * 3] },
+                          { C::bc_hashing_packed_fields_1, fields[(i * 3) + 1] },
+                          { C::bc_hashing_packed_fields_2, fields[(i * 3) + 2] },
                           { C::bc_hashing_sel_not_padding_1, end_of_bytecode && padding_amount == 2 ? 0 : 1 },
                           { C::bc_hashing_sel_not_padding_2, end_of_bytecode && padding_amount > 0 ? 0 : 1 },
-                          { C::bc_hashing_output_hash, output_hash } } });
+                          { C::bc_hashing_output_hash, id } } });
             if (end_of_bytecode) {
                 // Below sets the pc at which the final field starts. We only use/constrain it at latch == 1.
                 // Note: It can't just be pc_index + 31 * padding_amount because we 'skip' 31 bytes at start == 1 to
@@ -242,7 +247,6 @@ void BytecodeTraceBuilder::process_hashing(
             }
             pc_index = pc_index_1 + 62;
             row++;
-            num_rounds--;
         }
     }
 }
