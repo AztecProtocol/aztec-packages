@@ -5,136 +5,115 @@ on:
     types: ["labeled", "closed"]
 
 jobs:
-  label_checker:
-    name: Check labels
-    runs-on: ubuntu-latest
-    outputs:
-      state: ${{ steps.check.outputs.label_check }}
-    steps:
-      - id: check
-        uses: agilepathway/label-checker@825944377ab3bce1269b38c99b718767e2ca6bbc
-        with:
-          prefix_mode: true
-          any_of: backport-to-
-          repo_token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          allow_failure: true
-      - name: Print status
-        shell: bash
-        run: 'echo "Label detection status: ${{ steps.check.outputs.label_check }}"'
-
   backport:
-    needs: [label_checker]
     name: Backport PR
-    if: github.event.pull_request.merged == true && needs.label_checker.outputs.state == 'success'
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
+      - name: Check for backport labels
+        id: check-labels
+        run: |
+          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          echo "Labels: $LABELS"
+          TARGETS=$(echo "$LABELS" | jq -r '.[] | select(startswith("backport-to-")) | sub("backport-to-"; "")')
+          if [ -z "$TARGETS" ]; then
+            echo "No backport-to-* labels — skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Targets: $TARGETS"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "targets<<EOF"
+              echo "$TARGETS"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout repository
+        if: steps.check-labels.outputs.skip == 'false'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
-      - name: Extract target branch from labels
-        id: extract-branch
-        run: |
-          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
-          echo "All labels: $LABELS"
-
-          # Extract the branch name from backport-to-* label
-          TARGET_BRANCH=$(echo "$LABELS" | jq -r '.[] | select(startswith("backport-to-")) | sub("backport-to-"; "")')
-
-          if [ -z "$TARGET_BRANCH" ]; then
-            echo "No backport-to-* label found"
-            exit 1
-          fi
-
-          echo "target_branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
-          echo "Target branch: $TARGET_BRANCH"
-
-      - name: Run backport script
+      - name: Run backport script for each target
         id: backport
-        continue-on-error: true
+        if: steps.check-labels.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          CONFLICTED_TARGETS=""
+
+          while IFS= read -r target; do
+            [[ -z "$target" ]] && continue
+            echo "::group::Backporting to $target (merge-train/${target})"
+            tmp_out=$(mktemp)
+            GITHUB_OUTPUT="$tmp_out" bash ./scripts/backport_to_staging.sh \
+              "$PR_NUMBER" "$target"
+            if grep -q "has_conflicts=true" "$tmp_out"; then
+              CONFLICTED_TARGETS="${CONFLICTED_TARGETS} ${target}"
+            fi
+            rm -f "$tmp_out"
+            echo "::endgroup::"
+          done <<< "${{ steps.check-labels.outputs.targets }}"
+
+          echo "conflicted_targets=${CONFLICTED_TARGETS# }" >> "$GITHUB_OUTPUT"
+
+      - name: Comment on original PR
+        if: steps.check-labels.outputs.skip == 'false'
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          # Kludge. We should write this in Python or not checkout history.
-          # Bash has an ugly footgun with changing history while running the script.
-          buffer_script=$(cat ./scripts/backport_to_staging.sh)
-          bash <(echo "$buffer_script") \
-            ${{ github.event.pull_request.number }} \
-            ${{ steps.extract-branch.outputs.target_branch }}
+          CONFLICTED=" ${{ steps.backport.outputs.conflicted_targets }} "
+          BODY=""
 
-      - name: Comment on original PR (success)
-        if: steps.backport.outcome == 'success'
+          while IFS= read -r target; do
+            [[ -z "$target" ]] && continue
+            TRAIN_BRANCH="merge-train/${target}"
+            if echo "$CONFLICTED" | grep -q " ${target} "; then
+              BODY="${BODY}⚠️ Backported to \`${TRAIN_BRANCH}\` — conflicts present, ClaudeBox dispatched to resolve.\n"
+            else
+              BODY="${BODY}✅ Backported to \`${TRAIN_BRANCH}\`.\n"
+            fi
+          done <<< "${{ steps.check-labels.outputs.targets }}"
+
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "$(printf '%b' "$BODY")"
+
+      - name: Dispatch ClaudeBox for each conflicted target
+        if: steps.check-labels.outputs.skip == 'false' && steps.backport.outputs.conflicted_targets != ''
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: |
-          TARGET_BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
-          STAGING_BRANCH="backport-to-${TARGET_BRANCH}-staging"
-          STAGING_PR=$(gh pr list --base "$TARGET_BRANCH" --head "$STAGING_BRANCH" --json number,url --jq '.[0]')
-          STAGING_PR_NUMBER=$(echo "$STAGING_PR" | jq -r '.number')
-          STAGING_PR_URL=$(echo "$STAGING_PR" | jq -r '.url')
-
-          gh pr comment "${{ github.event.pull_request.number }}" --body \
-            "✅ Successfully backported to [$STAGING_BRANCH #$STAGING_PR_NUMBER]($STAGING_PR_URL)."
-
-      - name: Comment on original PR (failure)
-        if: steps.backport.outcome == 'failure'
-        env:
-          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: |
-          TARGET_BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
-          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-          gh pr comment "${{ github.event.pull_request.number }}" --body \
-            "❌ Failed to cherry-pick to \`$TARGET_BRANCH\` due to conflicts. Dispatching ClaudeBox to resolve. [View backport run]($WORKFLOW_URL)."
-
-      - name: Notify Slack on backport failure
-        if: steps.backport.outcome == 'failure'
-        env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          CONFLICTED_TARGETS: ${{ steps.backport.outputs.conflicted_targets }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_URL="${{ github.event.pull_request.html_url }}"
-          TARGET_BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
-          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          while IFS= read -r target; do
+            [[ -z "$target" ]] && continue
+            TRAIN_BRANCH="merge-train/${target}"
 
-          TEXT=$(printf '⚠️ Automatic backport failed\n• <%s|#%s %s>\n• Target: `%s`\n• <%s|View Run>' \
-            "$PR_URL" "$PR_NUMBER" "$PR_TITLE" "$TARGET_BRANCH" "$WORKFLOW_URL")
-          RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
-            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -H "Content-type: application/json" \
-            -d "$(jq -n --arg c "#backports" --arg t "$TEXT" '{channel:$c, text:$t}')")
-          echo "Slack response: $RESP"
+            # Post conflict notification to #backports
+            TEXT=$(printf '⚠️ Backport conflicts on `%s`: <%s|#%s %s>.' \
+              "$TRAIN_BRANCH" "$PR_URL" "$PR_NUMBER" "$PR_TITLE")
+            RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              -d "$(jq -n --arg c "#backports" --arg t "$TEXT" '{channel:$c,text:$t}')")
+            TS=$(echo "$RESP" | jq -r '.ts // empty')
+            CHANNEL_ID=$(echo "$RESP" | jq -r '.channel // empty')
+            LINK="$PR_URL"
+            if [[ -n "$TS" && -n "$CHANNEL_ID" ]]; then
+              LINK="https://aztecprotocol.slack.com/archives/$CHANNEL_ID/p${TS//./}"
+            fi
 
-      - name: Dispatch ClaudeBox to resolve conflicts
-        if: steps.backport.outcome == 'failure'
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: |
-          PR="${{ github.event.pull_request.number }}"
-          TITLE="${{ github.event.pull_request.title }}"
-          URL="${{ github.event.pull_request.html_url }}"
-          BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
+            gh workflow run claudebox.yml \
+              -f prompt="Run: /backport $PR_NUMBER $target
 
-          # Post to #backports, derive permalink from response
-          TEXT=$(printf '⚠️ Backport failed: <%s|#%s %s> → `%s`. Dispatching ClaudeBox…' \
-            "$URL" "$PR" "$TITLE" "$BRANCH")
-          RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
-            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -H "Content-type: application/json" \
-            -d "$(jq -n --arg c "#backports" --arg t "$TEXT" '{channel:$c, text:$t}')")
-          echo "Slack response: $RESP"
-          TS=$(echo "$RESP" | jq -r '.ts // empty')
-          CHANNEL_ID=$(echo "$RESP" | jq -r '.channel // empty')
-
-          LINK=""
-          if [[ -n "$TS" && -n "$CHANNEL_ID" ]]; then
-            LINK="https://aztecprotocol.slack.com/archives/$CHANNEL_ID/p${TS//./}"
-          fi
-
-          gh workflow run claudebox.yml \
-            -f prompt="Backport PR #$PR ($TITLE) to $BRANCH. The automatic cherry-pick failed due to conflicts. Follow the backport skill (.claude/skills/backport/SKILL.md) to resolve conflicts and create a PR targeting $BRANCH." \
-            -f link="${LINK:-$URL}"
+Backport PR #$PR_NUMBER was cherry-picked onto \`$TRAIN_BRANCH\` but has conflicts. The conflict markers are already committed on that branch (look for a commit with the CONFLICTS: prefix). Resolve them and open a chore: fix PR targeting the train branch. See workflow run for details: $WORKFLOW_URL" \
+              -f link="$LINK"
+          done <<< "$(echo "$CONFLICTED_TARGETS" | tr ' ' '\n')"
