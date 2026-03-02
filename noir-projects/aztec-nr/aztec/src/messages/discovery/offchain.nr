@@ -3,7 +3,7 @@ use crate::{
     context::UtilityContext,
     messages::{
         encoding::MESSAGE_CIPHERTEXT_LEN,
-        processing::{MessageContext, MessageContextResponse, OffchainMessage, resolve_message_contexts},
+        processing::{MessageContext, MessageTxContext, OffchainMessage, resolve_message_contexts},
     },
     protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Deserialize, Serialize}},
 };
@@ -77,7 +77,7 @@ pub unconstrained fn receive(
 pub unconstrained fn default_handler(address: AztecAddress) -> CapsuleArray<OffchainMessage> {
     let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
     let context_resolution_requests: CapsuleArray<Field> = CapsuleArray::at(address, OFFCHAIN_CONTEXT_REQUESTS_SLOT);
-    let resolved_contexts: CapsuleArray<Option<MessageContextResponse>> =
+    let resolved_contexts: CapsuleArray<Option<MessageTxContext>> =
         CapsuleArray::at(address, OFFCHAIN_CONTEXT_RESPONSES_SLOT);
     let ready_to_process: CapsuleArray<OffchainMessage> = CapsuleArray::at(address, OFFCHAIN_READY_MESSAGES_SLOT);
 
