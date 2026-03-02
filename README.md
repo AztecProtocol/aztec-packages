@@ -42,3 +42,11 @@ We use marker commits and [git-subrepo](https://github.com/ingydotnet/git-subrep
 For a broad overview of the CI system take a look at [CI.md](CI.md).
 
 For some deeper information on individual scripts etc (for developing CI itself), take a look at [ci3/README.md](ci3/README.md).
+
+## Quick Links
+
+- Website: https://ethereum.org  
+- Developer Docs: https://ethereum.org/developers  
+- Contributing Guide: https://ethereum.org/contributing  
+
+
