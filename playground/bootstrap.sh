@@ -41,7 +41,7 @@ function release {
   invalidate_cloudfront
 }
 
-function retract {
+function retract_release {
   echo_header "playground retract"
 
   do_or_dryrun aws s3 rm --recursive "s3://play.aztec.network/$REF_NAME"

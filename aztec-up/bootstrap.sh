@@ -120,7 +120,7 @@ function release {
   do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/$(dist_tag)" <<< "$version"
 }
 
-function retract {
+function retract_release {
   echo_header "aztec-up retract"
   local version=${REF_NAME#v}
 

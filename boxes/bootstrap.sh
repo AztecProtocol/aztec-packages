@@ -106,9 +106,16 @@ function release {
   release_git_push $branch $REF_NAME ${REF_NAME#v}
 }
 
-function retract {
+function retract_release {
   echo_header "boxes retract"
-  retract_git_tag $REF_NAME "https://github.com/AztecProtocol/aztec-starter-vanilla.git" "aztec-starter-vanilla"
+  local mirrored_repo_url="https://github.com/AztecProtocol/aztec-starter-vanilla.git"
+  gh auth setup-git &>/dev/null || true
+  if git ls-remote --tags "$mirrored_repo_url" "refs/tags/$REF_NAME" 2>/dev/null | grep -qF "$REF_NAME"; then
+    do_or_dryrun git push "$mirrored_repo_url" --delete "$REF_NAME"
+    [ "${DRY_RUN:-0}" = 0 ] && echo "Deleted tag $REF_NAME from aztec-starter-vanilla mirror."
+  else
+    echo "Tag $REF_NAME not found in aztec-starter-vanilla mirror, skipping."
+  fi
 }
 
 case "$cmd" in

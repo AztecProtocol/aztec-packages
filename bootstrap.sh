@@ -445,11 +445,26 @@ function release_dryrun {
 }
 
 function retract {
-  "$root/retract-release.sh"
+  # Retract a release. Deletes all release artifacts except npm packages.
+  # npm packages cannot be retracted once published (npmjs policy).
+  # Skipped: barretenberg/ts, noir (JS packages), yarn-project
+  echo_header "retract all"
+
+  # Delete the GitHub release (includes barretenberg/cpp binary assets) and the monorepo git tag.
+  if gh release view "$REF_NAME" &>/dev/null; then
+    do_or_dryrun gh release delete "$REF_NAME" --yes --cleanup-tag
+    [ "${DRY_RUN:-0}" = 0 ] && echo "Deleted GitHub release $REF_NAME."
+  else
+    echo "No GitHub release found for $REF_NAME, skipping."
+  fi
+
+  for project in l1-contracts noir-projects/aztec-nr boxes aztec-up playground release-image; do
+    $project/bootstrap.sh retract_release
+  done
 }
 
 function retract_dryrun {
-  DRY_RUN=1 "$root/retract-release.sh"
+  DRY_RUN=1 retract
 }
 
 # Handle our command line arguments.

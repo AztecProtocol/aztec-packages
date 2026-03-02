@@ -138,7 +138,7 @@ function release {
   fi
 }
 
-function retract {
+function retract_release {
   echo_header "release-image retract"
 
   if [ -z "${DOCKERHUB_PASSWORD:-}" ]; then
