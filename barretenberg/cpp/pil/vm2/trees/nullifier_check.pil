@@ -186,7 +186,6 @@ namespace nullifier_check;
 
     // ========= COMPUTE LOW LEAF UPDATE =========
     // Unconstrained if sel_insert=0
-    // Tracegen must set these to 0 if sel_insert is 0 (precondition to merkle check).
     pol commit updated_low_leaf_next_index;
     pol commit updated_low_leaf_next_nullifier;
     sel_insert * (tree_size_before_write - updated_low_leaf_next_index) = 0;
