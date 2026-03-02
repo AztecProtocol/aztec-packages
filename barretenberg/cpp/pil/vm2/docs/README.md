@@ -339,14 +339,14 @@ where the tuples should be of the same length.
 The interpretation is: define the following two **multi-sets**
 
 $$
-S = { \mathrm{row}[i].\mathrm{source}.a, \mathrm{row}[i].\mathrm{source}.b, \ldots, \mathrm{row}[i].\mathrm{source}.n \mid \mathrm{row}[i].\mathrm{source}.\mathrm{selector} = 1 }
+S = \lbrace (\mathrm{row[i].source.a}, \mathrm{row[i].source.b}, \ldots, \mathrm{row[i].source.n}) \mid \mathrm{row[i].source.selector} = 1 \rbrace
 $$
 
 $$
-D = { \mathrm{row}[i].\mathrm{dest}.x, \mathrm{row}[i].\mathrm{dest}.y, \ldots, \mathrm{row}[i].\mathrm{dest}.z \mid \mathrm{row}[i].\mathrm{dest}.\mathrm{selector} = 1 }
+D = \lbrace (\mathrm{row[i].dest.x}, \mathrm{row[i].dest.y}, \ldots, \mathrm{row[i].dest.z}) \mid \mathrm{row[i].dest.selector} = 1 \rbrace
 $$
 
-Then there should be a bijection between \(S\) and \(D\).
+Then there should be a bijection between $S$ and $D$.
 
 In other words, when considering the rows filtered by selectors and including repetitions, the elements should basically be the same.
 
