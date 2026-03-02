@@ -30,7 +30,7 @@ import {
   type L2BlockSource,
   MaliciousCommitteeAttestationsAndSigners,
 } from '@aztec/stdlib/block';
-import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { type Checkpoint, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
@@ -264,6 +264,20 @@ export class CheckpointProposalJob implements Traceable {
       // broadcasted yet, and wait to collect the committee attestations.
       this.setStateFn(SequencerState.ASSEMBLING_CHECKPOINT, this.slot);
       const checkpoint = await checkpointBuilder.completeCheckpoint();
+
+      // Final validation round for the checkpoint before we propose it, just for safety
+      try {
+        validateCheckpoint(checkpoint, {
+          rollupManaLimit: this.l1Constants.rollupManaLimit,
+          maxL2BlockGas: this.config.maxL2BlockGas,
+          maxDABlockGas: this.config.maxDABlockGas,
+        });
+      } catch (err) {
+        this.log.error(`Built an invalid checkpoint at slot ${this.slot} (skipping proposal)`, err, {
+          checkpoint: checkpoint.header.toInspect(),
+        });
+        return undefined;
+      }
 
       // Record checkpoint-level build metrics
       this.metrics.recordCheckpointBuild(
