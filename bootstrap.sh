@@ -145,11 +145,11 @@ function install_deps {
       ;;
   esac
 
+  echo
   if [ -t 0 ]; then
-    echo_green "Done! Starting fresh shell..."
+    echo "Done! Starting fresh shell..."
     exec $SHELL
   else
-    echo
     echo "Done! You'll need to start a fresh shell to see PATH updates."
     echo
   fi
