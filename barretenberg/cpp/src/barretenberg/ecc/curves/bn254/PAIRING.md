@@ -4,10 +4,12 @@ Write $E$ for the BN254 curve, defined by the equation $E: y^2 = x^3 + 3$. Write
 
 Write:
 1. $\mathbb{F}_{q^2} = \mathbb{F}_q[u] \left/ (u^2 + 1) \right.$
-2. $\mathbb{F}_{q^6} = \mathbb{F}_{q^2}[v] \left/ (w^3 - \xi) \right.$, $\xi = 9 + u$
+2. $\mathbb{F}_{q^6} = \mathbb{F}_{q^2}[v] \left/ (v^3 - \xi) \right.$, $\xi = 9 + u$
 3. $\mathbb{F}_{q^{12}} = \mathbb{F}_{q^6}[w] \left / (w^2 - v) \right.$
 
-Write $E'$ for the twist of the BN254 curve defined by the equation $E' : y^2 = x^3 + 3 / \xi$, and $\Psi \colon E' \rightarrow E, (x, y) \mapsto (w^2 x, w^3 y)$ for the untwisting isomorphism.
+Write $E'$ for the twist of the BN254 curve defined by the equation $E' : y^2 = x^3 + 3 / \xi$, and
+$$\Psi \colon E' \rightarrow E, (x, y) \mapsto (w^2 x, w^3 y)$$
+for the untwisting morphism (which is an isomorphism on $\mathbb{F}_{q^{12}}$).
 
 Write $\mathbb{G}_1 = E(\mathbb{F}_q)$ and $\mathbb{G}_2 \subset E'(\mathbb{F}_{q^2})$ for the source groups of the optimal Ate pairing, and $\mathbb{G}_{T} \subset \mathbb{F}_{q^{12}}^{\times}$ for the target group
 $$
@@ -36,7 +38,7 @@ for i in signed_bit_decomposition[:-1].revert():
     running_point = running_point + running_point;
     if (i == 1):
         result *= line_eval(running_point, Q, P);
-        running_point += P;
+        running_point += Q;
     elif (i == -1):
         result *= line_eval(running_point, -Q, P);
         running_point -= Q;
@@ -44,14 +46,16 @@ for i in signed_bit_decomposition[:-1].revert():
         pass
 
 ```
-where `signed_bit_decomposition_m` is binary signed bit decomposition of `m`, and `line_eval(Q_1, Q_2, P)` is the function that evaluates the line passing through `Q_1` and `Q_2` at `P`.
+where `signed_bit_decomposition_m` is binary signed bit decomposition of `m`:
+$$\sum_{i} b_i 2^{i} = m \quad \quad b_i = \text{signed\_bit\_decomposition[i]}$$
+and `line_eval(Q_1, Q_2, P)` is the function that evaluates the line passing through $Q_1$ and $Q_2$ at $P$.
 
-To compute the line function we bring $P$ to $E'$ and then evaluate there:
+To compute the line function we bring $Q_1, Q_2$ to $E$ and then evaluate there:
 $$
 \begin{aligned}
-    l_{Q_1, Q_2}(P) &\;= l_{Q_1, Q_2}(\Psi^{-1}(P)) \\
-    &\;= y_p \cdot w^3 - y_{Q_2} - \lambda_{Q_1, Q_2} (x_P \cdot w^2 - x_{Q_2})\\
-    &\;= \lambda_{Q_1, Q_2} x_{Q_2} - y_{Q_2} - \lambda_{Q_1, Q_2} x_P \cdot v + y_p \cdot wv
+    l_{Q_1, Q_2}(P) &\;= l_{\Psi(Q_1), \Psi(Q_2)}(P) \\
+    &\;= y_P - y_{Q_2} \cdot w^3 - \lambda_{Q_1, Q_2} (x_P - x_{Q_2} \cdot w^2) \cdot w\\
+    &\;= y_P - \lambda_{Q_1, Q_2} x_P \cdot w + (\lambda_{Q_1, Q_2} x_{Q_2} - y_{Q_2}) \cdot w  v
 \end{aligned}
 $$
 
