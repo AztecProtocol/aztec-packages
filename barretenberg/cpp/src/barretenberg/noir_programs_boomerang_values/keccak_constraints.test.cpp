@@ -204,3 +204,37 @@ TEST_F(KeccakConstraintsTests, ValidKeccakPermutationWithSingleConstantMega)
     auto incorrect_opcodes = analyzer.get_incorrect_opcodes();
     EXPECT_TRUE(incorrect_opcodes.empty());
 }
+
+/**
+ * @brief Test that repeated identical keccak constraints are handled correctly
+ */
+TEST_F(KeccakConstraintsTests, ValidKeccakPermutationRepeatedConstraint)
+{
+    auto [keccak_constraint, witness_values] = generate_valid_keccak_constraint();
+
+    auto constraint_system =
+        build_acir_format(static_cast<uint32_t>(witness_values.size() - 1), keccak_constraint, keccak_constraint);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
+    auto incorrect_opcodes = analyzer.get_incorrect_opcodes();
+    EXPECT_TRUE(incorrect_opcodes.empty());
+}
+
+/**
+ * @brief Test keccak permutation where all input lanes are constants
+ */
+TEST_F(KeccakConstraintsTests, ValidKeccakPermutationAllConstantInputs)
+{
+    std::unordered_set<size_t> constant_lanes;
+    constant_lanes.reserve(KECCAKF1600_LANES);
+    for (size_t i = 0; i < KECCAKF1600_LANES; ++i) {
+        constant_lanes.insert(i);
+    }
+    auto [keccak_constraint, witness_values] = generate_keccak_constraint_with_constants(constant_lanes);
+
+    auto constraint_system = build_acir_format(static_cast<uint32_t>(witness_values.size() - 1), keccak_constraint);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
+    auto incorrect_opcodes = analyzer.get_incorrect_opcodes();
+    EXPECT_TRUE(incorrect_opcodes.empty());
+}

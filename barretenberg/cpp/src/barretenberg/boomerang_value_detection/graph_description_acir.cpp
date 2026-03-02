@@ -4,6 +4,7 @@
 #include "barretenberg/boomerang_value_detection/helpers/ecdsa_helpers.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/range_helpers.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include <optional>
 #include <type_traits>
 #include <unordered_map>
@@ -1090,13 +1091,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_keccak_permutation_constra
 
     const auto* constraint = std::get<const acir_format::Keccakf1600*>(ptr);
 
-    // Build the input witness indices vector matching what keccak::permutation_opcode registered.
-    // Constants get IS_CONSTANT (matching field_t::get_witness_index() behavior).
-    std::vector<uint32_t> input_indices;
-    input_indices.reserve(constraint->state.size());
-    for (const auto& state_elem : constraint->state) {
-        input_indices.push_back(state_elem.is_constant ? bb::stdlib::IS_CONSTANT : state_elem.index);
-    }
+    auto input_indices = witness_or_constant_vector_from_vector<CircuitBuilder>(constraint->state);
 
     // Look up the registered outputs for these inputs
     const auto& io_map = builder.acir_opcode_io.io_map;
@@ -1110,25 +1105,27 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_keccak_permutation_constra
         return false;
     }
 
-    // Use the last registered output (in case of multiple calls with same inputs)
-    const auto& output_indices = all_outputs.back();
-    if (output_indices.size() != constraint->result.size()) {
-        return false;
-    }
+    // Iterate over all registered outputs for the case if multiple constraints with the same inputs are emitted.
+    for (const auto& output : all_outputs) {
 
-    // Verify each output is connected to the corresponding constraint result via assert_equal.
-    // Outputs are always witnesses (never IS_CONSTANT) since keccak creates plookup gates.
-    for (size_t i = 0; i < output_indices.size(); i++) {
-        Field<CircuitBuilder> output_field{ output_indices[i],
-                                            field_ct::from_witness_index(&builder, output_indices[i]) };
-        Field<CircuitBuilder> result_field{ constraint->result[i],
-                                            field_ct::from_witness_index(&builder, constraint->result[i]) };
-        if (!is_assert_equal_exists<FF>(analyzer, builder, output_field, result_field)) {
-            return false;
+        auto condition = true;
+        // Verify each output is connected to the corresponding constraint result via assert_equal.
+        for (size_t i = 0; i < output.size(); ++i) {
+            // output is never constant
+            Field<CircuitBuilder> output_field{ output[i].index,
+                                                field_ct::from_witness_index(&builder, output[i].index) };
+            Field<CircuitBuilder> result_field{ constraint->result[i],
+                                                field_ct::from_witness_index(&builder, constraint->result[i]) };
+            condition &= is_assert_equal_exists<FF>(analyzer, builder, output_field, result_field);
+        }
+
+        // If for all registered outputs assert_equal exists, return true
+        if (condition) {
+            return true;
         }
     }
 
-    return true;
+    return false;
 }
 
 template class StaticAnalyzerAcir_<fr, MegaCircuitBuilder>;

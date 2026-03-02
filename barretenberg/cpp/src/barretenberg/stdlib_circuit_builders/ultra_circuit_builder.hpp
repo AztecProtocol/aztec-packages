@@ -649,20 +649,38 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * @see StaticAnalyzerAcir_
      */
     struct acir_opcode_io_record {
+        struct WitnessOrConstant {
+            uint32_t index;
+            typename ExecutionTrace_::FF value;
+            bool is_constant;
+
+            friend bool operator==(const WitnessOrConstant& lhs, const WitnessOrConstant& rhs) = default;
+        };
         struct VectorHash {
-            size_t operator()(const std::vector<uint32_t>& v) const
+            const size_t WINTESS_HASH_MULTIPLIER = 37;
+            const size_t CONSTANT_HASH_MULTIPLIER = 41;
+
+            size_t operator()(const std::vector<WitnessOrConstant>& v) const
             {
                 size_t seed = 0;
                 for (const auto& elem : v) {
-                    seed ^= std::hash<uint32_t>()(elem) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+                    if (elem.is_constant) {
+                        seed += std::hash<typename ExecutionTrace_::FF>()(elem.value) * CONSTANT_HASH_MULTIPLIER;
+                    } else {
+                        seed += std::hash<uint32_t>()(elem.index) * WINTESS_HASH_MULTIPLIER;
+                    }
                 }
                 return seed;
             }
         };
 
-        std::unordered_map<std::vector<uint32_t>, std::vector<std::vector<uint32_t>>, VectorHash> io_map;
+        std::unordered_map<std::vector<acir_opcode_io_record::WitnessOrConstant>,
+                           std::vector<std::vector<acir_opcode_io_record::WitnessOrConstant>>,
+                           VectorHash>
+            io_map;
 
-        void register_io(const std::vector<uint32_t>& inputs, const std::vector<uint32_t>& outputs)
+        void register_io(const std::vector<acir_opcode_io_record::WitnessOrConstant>& inputs,
+                         const std::vector<acir_opcode_io_record::WitnessOrConstant>& outputs)
         {
             io_map[inputs].emplace_back(outputs);
         }
