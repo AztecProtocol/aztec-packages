@@ -2,6 +2,7 @@ pub(crate) mod event_validation_request;
 
 mod message_context;
 pub use message_context::MessageContext;
+pub(crate) use message_context::MessageTxContext;
 
 pub(crate) mod note_validation_request;
 pub(crate) mod log_retrieval_request;
@@ -22,12 +23,7 @@ use crate::{
     },
     oracle,
 };
-use crate::protocol::{
-    address::AztecAddress,
-    constants::MAX_NOTE_HASHES_PER_TX,
-    hash::sha256_to_field,
-    traits::{Deserialize, Serialize},
-};
+use crate::protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Deserialize, Serialize}};
 use event_validation_request::EventValidationRequest;
 
 // Base slot for the pending tagged log array to which the fetch_tagged_logs oracle inserts found private logs.
@@ -49,18 +45,6 @@ global LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
 global LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT: Field = sha256_to_field(
     "AZTEC_NR::LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT".as_bytes(),
 );
-
-/// Transaction context needed to process a message.
-///
-/// Like [`MessageContext`], but `MessageTxContext` does not include the recipient. This type is used when processing
-/// offchain messages. MessageTxContext's are resolved via a PXE oracle call, but and then it's the contract who pairs
-/// that data up with a recipient to build a `MessageContext`.
-#[derive(Deserialize, Eq)]
-pub(crate) struct MessageTxContext {
-    pub tx_hash: Field,
-    pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
-    pub first_nullifier_in_tx: Field,
-}
 
 /// An offchain-delivered message ready for processing during sync.
 #[derive(Serialize, Deserialize)]

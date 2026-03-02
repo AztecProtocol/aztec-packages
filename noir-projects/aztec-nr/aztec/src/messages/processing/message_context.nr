@@ -13,6 +13,18 @@ pub struct MessageContext {
     pub recipient: AztecAddress,
 }
 
+/// Transaction context needed to process a message.
+///
+/// Like [`MessageContext`], but `MessageTxContext` does not include the recipient. This type is used when processing
+/// offchain messages. MessageTxContext's are resolved via a PXE oracle call, and then it's the contract who pairs
+/// that data up with a recipient to build a `MessageContext`.
+#[derive(Deserialize, Eq)]
+pub(crate) struct MessageTxContext {
+    pub tx_hash: Field,
+    pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
+    pub first_nullifier_in_tx: Field,
+}
+
 mod test {
     use crate::messages::processing::MessageContext;
     use crate::protocol::{address::AztecAddress, traits::{Deserialize, FromField}};
