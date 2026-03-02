@@ -16,11 +16,21 @@ namespace bb::pairing {
 // Precompute 2^{-1} mod q for gradient calculations of tangent lines
 constexpr fq two_inv = fq(2).invert();
 
-inline constexpr g2::element mul_by_q(const g2::element& a)
+/**
+ * @brief Compute \f$\Psi^{-1} \circ \phi_q \circ \Psi(Q)\f$ where \f$\Psi\f$ is the untwisting isomorphism and
+ * \f$\phi_q\f$ is the Frobenius morphism.
+ *
+ * @param a
+ * @return g2::element
+ */
+inline constexpr g2::element frobenius(const g2::element& a)
 {
-
+    // We map a = [X : Y : Z] to its affine coordinates (X/Z, Y/Z) and then apply the Frobenius map to get
+    // (\xi^{(q-1)/3} X^q/Z^q, \xi^{(q-1)/2} Y^q/Z^q). We then homogeneize again to get
+    // [\xi^{(q-1)/3} X^q :, \xi^{(q-1)/2} Y^q : Z^q]
     fq2 T0 = a.x.frobenius_map();
     fq2 T1 = a.y.frobenius_map();
+
     return {
         fq2::frobenius_on_twisted_curve_x() * T0,
         fq2::frobenius_on_twisted_curve_y() * T1,
@@ -146,8 +156,8 @@ constexpr void precompute_miller_lines(const g2::element& Q, miller_lines& lines
         }
     }
 
-    g2::element Q1 = mul_by_q(Q);
-    g2::element Q2 = mul_by_q(Q1);
+    g2::element Q1 = frobenius(Q);
+    g2::element Q2 = frobenius(Q1);
     Q2 = -Q2;
     mixed_addition_step_for_flipped_miller_loop(Q1, work_point, lines.lines[it]);
     ++it;
@@ -238,9 +248,9 @@ constexpr fq12 miller_loop_batch(const g1::element* points, const miller_lines* 
 
 constexpr fq12 final_exponentiation_easy_part(const fq12& elt)
 {
-    fq12 a{ elt.c0, -elt.c1 };
-    a *= elt.invert();
-    return a * a.frobenius_map_two();
+    fq12 a{ elt.c0, -elt.c1 };        // Conjugate of elt = elt^{q^6}
+    a *= elt.invert();                // elt^{q^6 - 1}
+    return a * a.frobenius_map_two(); // elt^{(q^6 - 1)(q^2 + 1)}
 }
 
 constexpr fq12 final_exponentiation_exp_by_z(const fq12& elt)
@@ -303,11 +313,17 @@ fq12 reduced_ate_pairing_batch_precomputed(const g1::affine_element* P_affines,
                                            const miller_lines* lines,
                                            const size_t num_points)
 {
-    std::vector<g1::element> P(num_points);
+    std::vector<g1::element> P;
+    P.reserve(num_points);
+
+    // Remove pairs for which P = point at infinity, e(P, Q) = 1 in this case
     for (size_t i = 0; i < num_points; ++i) {
-        P[i] = g1::element(P_affines[i]);
+        if (!P_affines[i].is_point_at_infinity()) {
+            P.emplace_back(g1::element(P_affines[i]));
+        }
     }
-    fq12 result = miller_loop_batch(&P[0], &lines[0], num_points);
+
+    fq12 result = miller_loop_batch(&P[0], &lines[0], P.size());
     result = final_exponentiation_easy_part(result);
     result = final_exponentiation_tricky_part(result);
     return result;
@@ -322,10 +338,14 @@ fq12 reduced_ate_pairing_batch(const g1::affine_element* P_affines,
     std::vector<g2::element> Q;      // Vector of points Q_i for which we compute e(P_i, Q_i)
     std::vector<miller_lines> lines; // i-th element are the Miller lines of Q_i
 
+    P.reserve(num_points);
+    Q.reserve(num_points);
+    lines.reserve(num_points);
+
     size_t num_pairings = 0;
     for (size_t i = 0; i < num_points; ++i) {
-        // If either P_i or Q_i is the point at infinity, then e(P_i, Q_i) = 1, so we can skip the calculation of that
-        // pairing
+        // If either P_i or Q_i is the point at infinity, then e(P_i, Q_i) = 1, so we can skip the calculation of
+        // that pairing
         if (!P_affines[i].is_point_at_infinity() && !Q_affines[i].is_point_at_infinity()) {
             P.emplace_back(g1::element(P_affines[i]));
             Q.emplace_back(g2::element(Q_affines[i]));

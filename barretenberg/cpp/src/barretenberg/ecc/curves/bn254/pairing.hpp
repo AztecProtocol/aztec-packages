@@ -21,7 +21,10 @@ namespace bb::pairing {
 constexpr size_t loop_length = 64;
 // Bit length minus 1 of the parameter z of BN254
 constexpr size_t z_loop_length = 62;
-//
+// Number of lines required by the Miller loop: equal to
+// loop_length (tangent lines) +
+// len([i for i in range(loop_length) if loop_bits[i] != 0]) (addition lines) +
+// 2 (final two lines)
 constexpr size_t precomputed_coefficients_length = 87;
 
 // Signed bit decomposition of the parameter z of BN254, used in the Miller loop.
@@ -57,6 +60,19 @@ constexpr void mixed_addition_step_for_flipped_miller_loop(const g2::element& ba
  * @brief Precomputation of Miller lines for a point Q in G2.
  *
  * @details This function computes the lines that are evaluated in the calculation of the Miller loop for the point Q.
+ * Setting work_point = ±Q depending on the first bit in the signed decomposition of 6z + 2, for each bit in the signed
+ * decomposition of 6z + 2 (except the MSB) we need:
+ *  - The tangent line at work_point --> updated work_point = 2 * work_point
+ *  - The line through:
+ *      - work_point and Q if the bit is 1 --> updated work_point = work_point + Q
+ *      - work_point and -Q if the bit is -1 --> updated work_point = work_point - Q
+ *      - nothing else if the bit is 0 --> work_point is unchanged
+ * After the loop, we need two more lines:
+ *  - The line through (6z + 2)Q and the Q' (image of Q under the Frobenius map)
+ *  - The line through (6z + 2)Q + Q' and Q'' (minus the image of Q' under the Frobenius map)
+ *
+ * We data required for each of these lines: gradients between the relevant points, as well as coordinates of the
+ * work_point.
  *
  * @param Q
  * @param lines
@@ -75,6 +91,19 @@ constexpr void precompute_miller_lines(const g2::element& Q, miller_lines& lines
  */
 constexpr fq12 miller_loop(const g1::element& P, const miller_lines& lines);
 
+/**
+ * @brief Compute the Miller loop for multiple pairs of points.
+ *
+ * @details The structure of the Miller loop allows computing the product \prod_i f_{6z + 2, Q_i}(P_i) for multiple
+ * pairs (P_i, Q_i) with a single loop over the bits of 6z + 2: at each step in the loop we aggregate all the
+ * contributions from each point so to perform a single squaring.
+ *
+ *
+ * @param points
+ * @param lines
+ * @param num_pairs
+ * @return constexpr fq12
+ */
 constexpr fq12 miller_loop_batch(const g1::element* points, const miller_lines* lines, size_t num_pairs);
 
 // ======================
@@ -136,6 +165,15 @@ inline fq12 reduced_ate_pairing_batch(const g1::affine_element* P_affines,
                                       const g2::affine_element* Q_affines,
                                       size_t num_points);
 
+/**
+ * @brief Implementation of the optimal Ate pairing for multiple pairs of points where the Miller lines for the points
+ * in G2 are precomputed.
+ *
+ * @param P_affines
+ * @param lines
+ * @param num_points
+ * @return fq12
+ */
 inline fq12 reduced_ate_pairing_batch_precomputed(const g1::affine_element* P_affines,
                                                   const miller_lines* lines,
                                                   size_t num_points);
