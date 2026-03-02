@@ -577,10 +577,11 @@ function bootstrap_on_mac_vm {
   while ! nc -z $ip 22 &>/dev/null; do sleep 0.5; done
   /mnt/user-data/macos/ssh.sh $name bash -c 'cat > /tmp/mac_bootstrap.sh' <<REMOTE_EOF
 set -euo pipefail
+ulimit -n 65536
 git clone --depth=1 --branch=$(git branch --show-current) https://github.com/aztecprotocol/aztec-packages
 cd aztec-packages
 ./bootstrap.sh install_deps </dev/null
-zsh -l -i -c "./bootstrap.sh gentle"
+zsh -l -i -c "ulimit -n 65536 && ./bootstrap.sh gentle"
 REMOTE_EOF
   /mnt/user-data/macos/ssh.sh $name -t zsh -l /tmp/mac_bootstrap.sh
 }
