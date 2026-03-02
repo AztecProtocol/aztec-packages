@@ -36,6 +36,10 @@ global EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
     "AZTEC_NR::EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT".as_bytes(),
 );
 
+global NOTE_BOUNDED_VEC_CAPACITY_SLOT: Field = sha256_to_field("AZTEC_NR::NOTE_BOUNDED_VEC_CAPACITY_SLOT".as_bytes());
+
+global EVENT_BOUNDED_VEC_CAPACITY_SLOT: Field = sha256_to_field("AZTEC_NR::EVENT_BOUNDED_VEC_CAPACITY_SLOT".as_bytes());
+
 global LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
     "AZTEC_NR::LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT".as_bytes(),
 );
@@ -88,6 +92,15 @@ pub unconstrained fn enqueue_note_for_validation(
     tx_hash: Field,
     recipient: AztecAddress,
 ) {
+    // Store BoundedVec capacity so PXE knows the serialization layout. Contracts that don't store
+    // this will cause PXE to fall back to a default capacity.
+    // TODO(F-380): remove once all contracts store capacity explicitly.
+    oracle::capsules::store(
+        contract_address,
+        NOTE_BOUNDED_VEC_CAPACITY_SLOT,
+        [MAX_NOTE_PACKED_LEN as Field],
+    );
+
     // We store requests in a `CapsuleArray`, which PXE will later read from and deserialize into its version of the
     // Noir `NoteValidationRequest`
     CapsuleArray::at(contract_address, NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
@@ -127,6 +140,15 @@ pub unconstrained fn enqueue_event_for_validation(
     tx_hash: Field,
     recipient: AztecAddress,
 ) {
+    // Store BoundedVec capacity so PXE knows the serialization layout. Contracts that don't store
+    // this will cause PXE to fall back to a default capacity.
+    // TODO(F-380): remove once all contracts store capacity explicitly.
+    oracle::capsules::store(
+        contract_address,
+        EVENT_BOUNDED_VEC_CAPACITY_SLOT,
+        [MAX_EVENT_SERIALIZED_LEN as Field],
+    );
+
     // We store requests in a `CapsuleArray`, which PXE will later read from and deserialize into its version of the
     // Noir `EventValidationRequest`
     CapsuleArray::at(contract_address, EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(

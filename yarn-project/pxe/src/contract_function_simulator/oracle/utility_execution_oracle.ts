@@ -1,6 +1,7 @@
 import type { ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
+import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { LogLevels, type Logger, createLogger } from '@aztec/foundation/log';
@@ -41,6 +42,10 @@ import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
+
+// Capsule slots where aztec-nr stores BoundedVec capacities (must match Noir globals in messages/processing/mod.nr).
+const NOTE_BOUNDED_VEC_CAPACITY_SLOT = sha256ToField([Buffer.from('AZTEC_NR::NOTE_BOUNDED_VEC_CAPACITY_SLOT')]);
+const EVENT_BOUNDED_VEC_CAPACITY_SLOT = sha256ToField([Buffer.from('AZTEC_NR::EVENT_BOUNDED_VEC_CAPACITY_SLOT')]);
 
 /** Args for UtilityExecutionOracle constructor. */
 export type UtilityExecutionOracleArgs = {
@@ -458,15 +463,32 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error(`Got a note validation request from ${contractAddress}, expected ${this.contractAddress}`);
     }
 
+    // Read BoundedVec capacities from the capsule store. Contracts that don't store these explicitly will
+    // have null here, so fromFields will fall back to default capacities.
+    // TODO(F-380): make capacity required once all contracts store it explicitly.
+    const noteCapacityCapsule = await this.capsuleStore.loadCapsule(
+      contractAddress,
+      NOTE_BOUNDED_VEC_CAPACITY_SLOT,
+      this.jobId,
+    );
+    const noteCapacity = noteCapacityCapsule?.[0]?.toNumber();
+
+    const eventCapacityCapsule = await this.capsuleStore.loadCapsule(
+      contractAddress,
+      EVENT_BOUNDED_VEC_CAPACITY_SLOT,
+      this.jobId,
+    );
+    const eventCapacity = eventCapacityCapsule?.[0]?.toNumber();
+
     // We read all note and event validation requests and process them all concurrently. This makes the process much
     // faster as we don't need to wait for the network round-trip.
     const noteValidationRequests = (
       await this.capsuleStore.readCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, this.jobId)
-    ).map(NoteValidationRequest.fromFields);
+    ).map(fields => NoteValidationRequest.fromFields(fields, noteCapacity));
 
     const eventValidationRequests = (
       await this.capsuleStore.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, this.jobId)
-    ).map(EventValidationRequest.fromFields);
+    ).map(fields => EventValidationRequest.fromFields(fields, eventCapacity));
 
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
     const noteStorePromises = noteValidationRequests.map(request =>
