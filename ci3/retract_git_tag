@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Usage: retract_git_tag <tag_name> <mirrored_repo_url> <mirror_name>
+# Deletes a git tag from a remote mirror repository.
+# Respects DRY_RUN=1 via do_or_dryrun.
+set -euo pipefail
+
+tag_name=$1
+mirrored_repo_url=$2
+mirror_name=$3
+
+gh auth setup-git &>/dev/null || true
+if git ls-remote --tags "$mirrored_repo_url" "refs/tags/$tag_name" 2>/dev/null | grep -qF "$tag_name"; then
+  do_or_dryrun git push "$mirrored_repo_url" --delete "$tag_name"
+  [ "${DRY_RUN:-0}" = 0 ] && echo "Deleted tag $tag_name from $mirror_name mirror."
+else
+  echo "Tag $tag_name not found in $mirror_name mirror, skipping."
+fi

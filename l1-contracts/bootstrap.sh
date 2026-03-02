@@ -438,6 +438,11 @@ function release {
   release_git_push $branch $REF_NAME ${REF_NAME#v}
 }
 
+function retract {
+  echo_header "l1-contracts retract"
+  retract_git_tag $REF_NAME "https://github.com/AztecProtocol/l1-contracts.git" "l1-contracts"
+}
+
 case "$cmd" in
   "")
     build

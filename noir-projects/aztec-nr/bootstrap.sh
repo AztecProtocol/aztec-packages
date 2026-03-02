@@ -59,6 +59,11 @@ function release {
   release_git_push "master" $REF_NAME
 }
 
+function retract {
+  echo_header "aztec-nr retract"
+  retract_git_tag $REF_NAME "https://github.com/AztecProtocol/aztec-nr.git" "aztec-nr"
+}
+
 function release_git_push {
   local branch_name=$1
   local tag_name=$2

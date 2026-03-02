@@ -120,6 +120,26 @@ function release {
   do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/$(dist_tag)" <<< "$version"
 }
 
+function retract {
+  echo_header "aztec-up retract"
+  local version=${REF_NAME#v}
+
+  do_or_dryrun aws s3 rm "s3://install.aztec.network/$version/install"
+  do_or_dryrun aws s3 rm "s3://install.aztec.network/$version/versions"
+  do_or_dryrun aws s3 rm "s3://install.aztec.network/$version/aztec-install"
+  do_or_dryrun aws s3 rm "s3://install.aztec.network/$version/aztec-up"
+
+  # Remove the alias only if it still points to this version.
+  local current_alias
+  current_alias=$(aws s3 cp "s3://install.aztec.network/aliases/$(dist_tag)" - 2>/dev/null || true)
+  if [ "$current_alias" = "$version" ]; then
+    do_or_dryrun aws s3 rm "s3://install.aztec.network/aliases/$(dist_tag)"
+    echo "Removed dist_tag alias $(dist_tag) -> $version."
+  else
+    echo "Alias $(dist_tag) points to '$current_alias' (not '$version'), skipping alias removal."
+  fi
+}
+
 # This is not done by CI.
 # It's a manual process, as updating the root installer and alias index requires careful consideration.
 function release_aztec_up {

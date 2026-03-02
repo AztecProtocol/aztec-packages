@@ -138,6 +138,51 @@ function release {
   fi
 }
 
+function retract {
+  echo_header "release-image retract"
+
+  if [ -z "${DOCKERHUB_PASSWORD:-}" ]; then
+    echo "Missing DOCKERHUB_PASSWORD."
+    exit 1
+  fi
+
+  local tag=${REF_NAME#v}
+
+  if [ "${DRY_RUN:-0}" = 0 ]; then
+    local hub_token
+    hub_token=$(jq -rn --arg user "${DOCKERHUB_USERNAME:-aztecprotocolci}" --arg pass "$DOCKERHUB_PASSWORD" \
+      '{"username":$user,"password":$pass}' \
+      | curl -s -X POST "https://hub.docker.com/v2/users/login/" \
+          -H "Content-Type: application/json" -d @- \
+      | jq -r .token)
+
+    if [ -z "$hub_token" ] || [ "$hub_token" = "null" ]; then
+      echo "Error: DockerHub login failed — could not obtain token."
+      exit 1
+    fi
+
+    for image in aztec aztec-prover-agent; do
+      for full_tag in "$tag-amd64" "$tag-arm64" "$tag"; do
+        local status
+        status=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+          "https://hub.docker.com/v2/repositories/aztecprotocol/$image/tags/$full_tag/" \
+          -H "Authorization: JWT $hub_token")
+        if [ "$status" = "204" ]; then
+          echo "Deleted aztecprotocol/$image:$full_tag from DockerHub."
+        else
+          echo "Warning: Could not delete aztecprotocol/$image:$full_tag (HTTP $status), may not exist."
+        fi
+      done
+    done
+  else
+    for image in aztec aztec-prover-agent; do
+      for full_tag in "$tag-amd64" "$tag-arm64" "$tag"; do
+        echo "DRY: DELETE https://hub.docker.com/v2/repositories/aztecprotocol/$image/tags/$full_tag/"
+      done
+    done
+  fi
+}
+
 function push {
   echo_header "release-image push"
 

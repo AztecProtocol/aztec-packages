@@ -444,6 +444,14 @@ function release_dryrun {
   DRY_RUN=1 release
 }
 
+function retract {
+  "$root/retract-release.sh"
+}
+
+function retract_dryrun {
+  DRY_RUN=1 "$root/retract-release.sh"
+}
+
 # Handle our command line arguments.
 # All the commands that start with ci-* are intended to be callable from
 # a fresh repo. They are ideal for calling into from github actions on a new runner
@@ -631,6 +639,13 @@ case "$cmd" in
     fi
     build release
     release
+    ;;
+  "ci-retract")
+    export CI=1
+    if ! semver check $REF_NAME; then
+      exit 1
+    fi
+    retract
     ;;
 
   ##########################

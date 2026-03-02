@@ -106,6 +106,11 @@ function release {
   release_git_push $branch $REF_NAME ${REF_NAME#v}
 }
 
+function retract {
+  echo_header "boxes retract"
+  retract_git_tag $REF_NAME "https://github.com/AztecProtocol/aztec-starter-vanilla.git" "aztec-starter-vanilla"
+}
+
 case "$cmd" in
   "")
     build
