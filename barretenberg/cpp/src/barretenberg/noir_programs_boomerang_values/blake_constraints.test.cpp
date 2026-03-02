@@ -33,11 +33,22 @@ struct Blake3Traits {
     static auto& get_constraints(AcirFormat& cs) { return cs.blake3_constraints; }
 };
 
+template <typename... Constraints> AcirFormat build_acir_format(const Constraints&... constraints)
+{
+    std::vector<Acir::Opcode> opcodes;
+    auto collect = [&opcodes](const auto& constraint) {
+        auto ops = constraint_to_acir_opcode(constraint);
+        opcodes.insert(opcodes.end(), ops.begin(), ops.end());
+    };
+    (collect(constraints), ...);
+    return circuit_serde_to_acir_format(build_acir_circuit(opcodes));
+}
+
 /**
  * @brief Generate a valid blake constraint with correct witness values
- * @return Pair of (constraint, witness_values)
+ * @return Constraint
  */
-template <typename Traits> std::pair<typename Traits::Constraint, WitnessVector> generate_valid_blake_constraint()
+template <typename Traits> typename Traits::Constraint generate_valid_blake_constraint()
 {
     typename Traits::Constraint blake_constraint;
     WitnessVector witness_values;
@@ -61,7 +72,7 @@ template <typename Traits> std::pair<typename Traits::Constraint, WitnessVector>
     auto output_indices = add_to_witness_and_track_indices<decltype(output_state), 32>(witness_values, output_state);
     blake_constraint.result = output_indices;
 
-    return { blake_constraint, witness_values };
+    return blake_constraint;
 }
 
 /**
@@ -69,8 +80,7 @@ template <typename Traits> std::pair<typename Traits::Constraint, WitnessVector>
  * @param constant_indices Set of input byte indices to make constant
  */
 template <typename Traits>
-std::pair<typename Traits::Constraint, WitnessVector> generate_blake_constraint_with_constants(
-    const std::unordered_set<size_t>& constant_indices)
+typename Traits::Constraint generate_blake_constraint_with_constants(const std::unordered_set<size_t>& constant_indices)
 {
     typename Traits::Constraint blake_constraint;
     WitnessVector witness_values;
@@ -99,7 +109,7 @@ std::pair<typename Traits::Constraint, WitnessVector> generate_blake_constraint_
         }
     }
 
-    return { blake_constraint, witness_values };
+    return blake_constraint;
 }
 
 } // namespace
@@ -117,7 +127,7 @@ TYPED_TEST_SUITE(BlakeConstraintsTests, BlakeTestTypes);
  */
 TYPED_TEST(BlakeConstraintsTests, Valid)
 {
-    auto [blake_constraint, witness_values] = generate_valid_blake_constraint<TypeParam>();
+    auto blake_constraint = generate_valid_blake_constraint<TypeParam>();
 
     auto constraint_system = constraint_to_acir_format(blake_constraint);
 
@@ -131,7 +141,7 @@ TYPED_TEST(BlakeConstraintsTests, Valid)
  */
 TYPED_TEST(BlakeConstraintsTests, ValidMega)
 {
-    auto [blake_constraint, witness_values] = generate_valid_blake_constraint<TypeParam>();
+    auto blake_constraint = generate_valid_blake_constraint<TypeParam>();
 
     auto constraint_system = constraint_to_acir_format(blake_constraint);
 
@@ -145,7 +155,7 @@ TYPED_TEST(BlakeConstraintsTests, ValidMega)
  */
 TYPED_TEST(BlakeConstraintsTests, DetectCorruptedOutputConnection)
 {
-    auto [blake_constraint, witness_values] = generate_valid_blake_constraint<TypeParam>();
+    auto blake_constraint = generate_valid_blake_constraint<TypeParam>();
 
     auto constraint_system = constraint_to_acir_format(blake_constraint);
     AcirProgram program{ constraint_system };
@@ -165,7 +175,7 @@ TYPED_TEST(BlakeConstraintsTests, DetectCorruptedOutputConnection)
  */
 TYPED_TEST(BlakeConstraintsTests, DetectCorruptedOutputConnectionMega)
 {
-    auto [blake_constraint, witness_values] = generate_valid_blake_constraint<TypeParam>();
+    auto blake_constraint = generate_valid_blake_constraint<TypeParam>();
 
     auto constraint_system = constraint_to_acir_format(blake_constraint);
     AcirProgram program{ constraint_system };
@@ -186,7 +196,7 @@ TYPED_TEST(BlakeConstraintsTests, DetectCorruptedOutputConnectionMega)
  */
 TYPED_TEST(BlakeConstraintsTests, DetectMissingInputRangeConstraint)
 {
-    auto [blake_constraint, witness_values] = generate_valid_blake_constraint<TypeParam>();
+    auto blake_constraint = generate_valid_blake_constraint<TypeParam>();
 
     auto constraint_system = constraint_to_acir_format(blake_constraint);
     AcirProgram program{ constraint_system };
@@ -205,7 +215,7 @@ TYPED_TEST(BlakeConstraintsTests, DetectMissingInputRangeConstraint)
  */
 TYPED_TEST(BlakeConstraintsTests, ValidWithConstantInputs)
 {
-    auto [blake_constraint, witness_values] = generate_blake_constraint_with_constants<TypeParam>({ 0, 1, 2, 3, 4 });
+    auto blake_constraint = generate_blake_constraint_with_constants<TypeParam>({ 0, 1, 2, 3, 4 });
 
     auto constraint_system = constraint_to_acir_format(blake_constraint);
 
@@ -219,11 +229,44 @@ TYPED_TEST(BlakeConstraintsTests, ValidWithConstantInputs)
  */
 TYPED_TEST(BlakeConstraintsTests, ValidWithSingleConstantMega)
 {
-    auto [blake_constraint, witness_values] = generate_blake_constraint_with_constants<TypeParam>({ 12 });
+    auto blake_constraint = generate_blake_constraint_with_constants<TypeParam>({ 12 });
 
     auto constraint_system = constraint_to_acir_format(blake_constraint);
 
     auto analyzer = StaticAnalyzerAcirMega(std::move(constraint_system));
+    auto incorrect_opcodes = analyzer.get_incorrect_opcodes();
+    EXPECT_TRUE(incorrect_opcodes.empty());
+}
+
+/**
+ * @brief Test blake with all constant input bytes
+ */
+TYPED_TEST(BlakeConstraintsTests, ValidWithAllConstantInputs)
+{
+    std::unordered_set<size_t> constant_indices;
+    constant_indices.reserve(64);
+    for (size_t i = 0; i < 64; ++i) {
+        constant_indices.insert(i);
+    }
+    auto blake_constraint = generate_blake_constraint_with_constants<TypeParam>(constant_indices);
+
+    auto constraint_system = constraint_to_acir_format(blake_constraint);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
+    auto incorrect_opcodes = analyzer.get_incorrect_opcodes();
+    EXPECT_TRUE(incorrect_opcodes.empty());
+}
+
+/**
+ * @brief Test that repeated identical blake constraints are handled correctly
+ */
+TYPED_TEST(BlakeConstraintsTests, ValidRepeatedConstraint)
+{
+    auto blake_constraint = generate_valid_blake_constraint<TypeParam>();
+
+    auto constraint_system = build_acir_format(blake_constraint, blake_constraint);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     auto incorrect_opcodes = analyzer.get_incorrect_opcodes();
     EXPECT_TRUE(incorrect_opcodes.empty());
 }
