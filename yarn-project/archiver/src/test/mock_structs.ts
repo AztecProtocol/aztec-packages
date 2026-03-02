@@ -127,6 +127,25 @@ export function makeL1PublishedData(l1BlockNumber: number): L1PublishedData {
   return new L1PublishedData(BigInt(l1BlockNumber), BigInt(l1BlockNumber * 1000), makeBlockHash(l1BlockNumber));
 }
 
+/** Creates a Checkpoint from a list of blocks with a header that matches the blocks' structure. */
+export function makeCheckpoint(blocks: L2Block[], checkpointNumber = CheckpointNumber(1)): Checkpoint {
+  const firstBlock = blocks[0];
+  const { slotNumber, timestamp, coinbase, feeRecipient, gasFees } = firstBlock.header.globalVariables;
+  return new Checkpoint(
+    blocks.at(-1)!.archive,
+    CheckpointHeader.random({
+      lastArchiveRoot: firstBlock.header.lastArchive.root,
+      slotNumber,
+      timestamp,
+      coinbase,
+      feeRecipient,
+      gasFees,
+    }),
+    blocks,
+    checkpointNumber,
+  );
+}
+
 /** Wraps a Checkpoint with L1 published data and random attestations. */
 export function makePublishedCheckpoint(
   checkpoint: Checkpoint,

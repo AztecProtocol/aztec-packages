@@ -2,6 +2,7 @@ import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB, MAX_PROCESSABLE_DA_GAS_PER_CHECK
 import type { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { sum } from '@aztec/foundation/collection';
 
+import { MAX_BLOCKS_PER_CHECKPOINT } from '../deserialization/index.js';
 import type { Checkpoint } from './checkpoint.js';
 
 export class CheckpointValidationError extends Error {
@@ -17,6 +18,7 @@ export class CheckpointValidationError extends Error {
 
 /**
  * Validates a checkpoint. Throws a CheckpointValidationError if any validation fails.
+ * - Validates structural integrity (non-empty, block count, sequential numbers, archive chaining, slot consistency)
  * - Validates checkpoint blob field count against maxBlobFields limit
  * - Validates total L2 gas used by checkpoint blocks against the Rollup contract mana limit
  * - Validates total DA gas used by checkpoint blocks against MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT
@@ -25,23 +27,109 @@ export class CheckpointValidationError extends Error {
 export function validateCheckpoint(
   checkpoint: Checkpoint,
   opts: {
-    rollupManaLimit: number;
-    maxL2BlockGas: number | undefined;
-    maxDABlockGas: number | undefined;
+    rollupManaLimit?: number;
+    maxL2BlockGas?: number;
+    maxDABlockGas?: number;
     maxTxsPerCheckpoint?: number;
     maxTxsPerBlock?: number;
   },
 ): void {
+  validateCheckpointStructure(checkpoint);
   validateCheckpointLimits(checkpoint, opts);
   validateCheckpointBlocksGasLimits(checkpoint, opts);
 }
 
-/** Validates checkpoint blocks gas and tx limits */
+/**
+ * Validates structural integrity of a checkpoint.
+ * - Non-empty block list
+ * - Block count within MAX_BLOCKS_PER_CHECKPOINT
+ * - Checkpoint slot matches the first block's slot
+ * - Checkpoint lastArchiveRoot matches the first block's lastArchive root
+ * - Sequential block numbers without gaps
+ * - Sequential indexWithinCheckpoint starting at 0
+ * - Archive root chaining between consecutive blocks
+ * - Consistent slot number across all blocks
+ * - Global variables (slot, timestamp, coinbase, feeRecipient, gasFees) match checkpoint header for each block
+ */
+export function validateCheckpointStructure(checkpoint: Checkpoint): void {
+  const { blocks, number, slot } = checkpoint;
+
+  if (blocks.length === 0) {
+    throw new CheckpointValidationError('Checkpoint has no blocks', number, slot);
+  }
+
+  if (blocks.length > MAX_BLOCKS_PER_CHECKPOINT) {
+    throw new CheckpointValidationError(
+      `Checkpoint has ${blocks.length} blocks, exceeding limit of ${MAX_BLOCKS_PER_CHECKPOINT}`,
+      number,
+      slot,
+    );
+  }
+
+  const firstBlock = blocks[0];
+
+  if (!checkpoint.header.lastArchiveRoot.equals(firstBlock.header.lastArchive.root)) {
+    throw new CheckpointValidationError(
+      `Checkpoint lastArchiveRoot does not match first block's lastArchive root`,
+      number,
+      slot,
+    );
+  }
+
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+
+    if (block.indexWithinCheckpoint !== i) {
+      throw new CheckpointValidationError(
+        `Block at index ${i} has indexWithinCheckpoint ${block.indexWithinCheckpoint}, expected ${i}`,
+        number,
+        slot,
+      );
+    }
+
+    if (block.slot !== slot) {
+      throw new CheckpointValidationError(
+        `Block ${block.number} has slot ${block.slot}, expected ${slot} (all blocks must share the same slot)`,
+        number,
+        slot,
+      );
+    }
+
+    if (!checkpoint.header.matchesGlobalVariables(block.header.globalVariables)) {
+      throw new CheckpointValidationError(
+        `Block ${block.number} global variables (slot, timestamp, coinbase, feeRecipient, gasFees) do not match checkpoint header`,
+        number,
+        slot,
+      );
+    }
+
+    if (i > 0) {
+      const prev = blocks[i - 1];
+      if (block.number !== prev.number + 1) {
+        throw new CheckpointValidationError(
+          `Block numbers are not sequential: block at index ${i - 1} has number ${prev.number}, block at index ${i} has number ${block.number}`,
+          number,
+          slot,
+        );
+      }
+
+      if (!block.header.lastArchive.root.equals(prev.archive.root)) {
+        throw new CheckpointValidationError(
+          `Block ${block.number} lastArchive root does not match archive root of block ${prev.number}`,
+          number,
+          slot,
+        );
+      }
+    }
+  }
+}
+
+/** Validates checkpoint blocks gas limits */
 function validateCheckpointBlocksGasLimits(
   checkpoint: Checkpoint,
   opts: {
-    maxL2BlockGas: number | undefined;
-    maxDABlockGas: number | undefined;
+    maxL2BlockGas?: number;
+    maxDABlockGas?: number;
     maxTxsPerBlock?: number;
   },
 ): void {
@@ -91,7 +179,7 @@ function validateCheckpointBlocksGasLimits(
 function validateCheckpointLimits(
   checkpoint: Checkpoint,
   opts: {
-    rollupManaLimit: number;
+    rollupManaLimit?: number;
     maxTxsPerCheckpoint?: number;
   },
 ): void {
@@ -100,13 +188,15 @@ function validateCheckpointLimits(
   const maxBlobFields = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB;
   const maxDAGas = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
 
-  const checkpointMana = sum(checkpoint.blocks.map(block => block.header.totalManaUsed.toNumber()));
-  if (checkpointMana > rollupManaLimit) {
-    throw new CheckpointValidationError(
-      `Checkpoint mana cost ${checkpointMana} exceeds rollup limit of ${rollupManaLimit}`,
-      checkpoint.number,
-      checkpoint.slot,
-    );
+  if (rollupManaLimit !== undefined) {
+    const checkpointMana = sum(checkpoint.blocks.map(block => block.header.totalManaUsed.toNumber()));
+    if (checkpointMana > rollupManaLimit) {
+      throw new CheckpointValidationError(
+        `Checkpoint mana cost ${checkpointMana} exceeds rollup limit of ${rollupManaLimit}`,
+        checkpoint.number,
+        checkpoint.slot,
+      );
+    }
   }
 
   const checkpointDAGas = sum(checkpoint.blocks.map(block => block.computeDAGasUsed()));
@@ -118,15 +208,13 @@ function validateCheckpointLimits(
     );
   }
 
-  if (maxBlobFields !== undefined) {
-    const checkpointBlobFields = checkpoint.toBlobFields().length;
-    if (checkpointBlobFields > maxBlobFields) {
-      throw new CheckpointValidationError(
-        `Checkpoint blob field count ${checkpointBlobFields} exceeds limit of ${maxBlobFields}`,
-        checkpoint.number,
-        checkpoint.slot,
-      );
-    }
+  const checkpointBlobFields = checkpoint.toBlobFields().length;
+  if (checkpointBlobFields > maxBlobFields) {
+    throw new CheckpointValidationError(
+      `Checkpoint blob field count ${checkpointBlobFields} exceeds limit of ${maxBlobFields}`,
+      checkpoint.number,
+      checkpoint.slot,
+    );
   }
 
   if (maxTxsPerCheckpoint !== undefined) {
