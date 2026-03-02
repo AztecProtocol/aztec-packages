@@ -76,21 +76,24 @@ pub unconstrained fn receive(
 /// risk of being dropped by a reorg.
 pub unconstrained fn default_handler(address: AztecAddress) -> CapsuleArray<OffchainMessage> {
     let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
-    let requests: CapsuleArray<Field> = CapsuleArray::at(address, OFFCHAIN_CONTEXT_REQUESTS_SLOT);
-    let ready: CapsuleArray<OffchainMessage> = CapsuleArray::at(address, OFFCHAIN_READY_MESSAGES_SLOT);
+    let context_resolution_requests: CapsuleArray<Field> = CapsuleArray::at(address, OFFCHAIN_CONTEXT_REQUESTS_SLOT);
+    let resolved_contexts: CapsuleArray<Option<MessageContextResponse>> =
+        CapsuleArray::at(address, OFFCHAIN_CONTEXT_RESPONSES_SLOT);
+    let ready_to_process: CapsuleArray<OffchainMessage> = CapsuleArray::at(address, OFFCHAIN_READY_MESSAGES_SLOT);
 
     // Clear any stale ready messages from a previous run.
-    ready.for_each(|i, _| { ready.remove(i); });
+    ready_to_process.for_each(|i, _| { ready_to_process.remove(i); });
 
-    // Clear any stale requests from a previous run.
-    requests.for_each(|i, _| { requests.remove(i); });
+    // Clear any stale context resolution requests/responses from a previous run.
+    context_resolution_requests.for_each(|i, _| { context_resolution_requests.remove(i); });
+    resolved_contexts.for_each(|i, _| { resolved_contexts.remove(i); });
 
     // Build a request list aligned with the inbox indices.
     let mut i = 0;
     let inbox_len = inbox.len();
     while i < inbox_len {
         let msg = inbox.get(i);
-        requests.push(msg.tx_hash);
+        context_resolution_requests.push(msg.tx_hash);
         i += 1;
     }
 
@@ -101,26 +104,24 @@ pub unconstrained fn default_handler(address: AztecAddress) -> CapsuleArray<Offc
         OFFCHAIN_CONTEXT_RESPONSES_SLOT,
     );
 
-    let responses: CapsuleArray<Option<MessageContextResponse>> =
-        CapsuleArray::at(address, OFFCHAIN_CONTEXT_RESPONSES_SLOT);
-    assert_eq(responses.len(), inbox_len);
+    assert_eq(resolved_contexts.len(), inbox_len);
 
     let now = UtilityContext::new().timestamp();
 
     let mut j = inbox_len;
     while j > 0 {
         j -= 1;
-        let maybe_ctx = responses.get(j);
-        // Clear response entry as we go so the array is empty for the next run.
-        responses.remove(j);
-
+        let maybe_ctx = resolved_contexts.get(j);
         let msg = inbox.get(j);
+
+        // After max TTL it is safe to remove the message from the inbox
         if now > msg.received_at + OFFCHAIN_MESSAGE_TTL_SECONDS {
             inbox.remove(j);
             continue;
         }
+
+        // Tx not yet available; keep the message in the inbox.
         if maybe_ctx.is_none() {
-            // Tx not yet available; keep the message in the inbox.
             continue;
         }
 
@@ -132,8 +133,8 @@ pub unconstrained fn default_handler(address: AztecAddress) -> CapsuleArray<Offc
             recipient: msg.recipient,
         };
 
-        ready.push(OffchainMessage { message_ciphertext: msg.ciphertext, message_context });
+        ready_to_process.push(OffchainMessage { message_ciphertext: msg.ciphertext, message_context });
     }
 
-    ready
+    ready_to_process
 }
