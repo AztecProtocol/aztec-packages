@@ -6,6 +6,7 @@
 
 #include "aes128_constraint.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/stdlib/encryption/aes128/aes128.hpp"
 #include <cstdint>
 #include <cstdio>
@@ -76,22 +77,13 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
     if (builder.is_write_vk_mode()) {
         // Register input->output witness mapping for ACIR static analysis.
         // Key: all input/iv/key byte witness indices. Value: packed encrypt output witness indices.
-        std::vector<uint32_t> input_indices;
-        input_indices.reserve(constraint.inputs.size() + constraint.iv.size() + constraint.key.size());
-        for (const auto& input : constraint.inputs) {
-            input_indices.push_back(input.is_constant ? bb::stdlib::IS_CONSTANT : input.index);
-        }
-        for (const auto& iv_elem : constraint.iv) {
-            input_indices.push_back(iv_elem.is_constant ? bb::stdlib::IS_CONSTANT : iv_elem.index);
-        }
-        for (const auto& key_elem : constraint.key) {
-            input_indices.push_back(key_elem.is_constant ? bb::stdlib::IS_CONSTANT : key_elem.index);
-        }
-        std::vector<uint32_t> output_indices(output_bytes.size());
-        std::transform(output_bytes.begin(), output_bytes.end(), output_indices.begin(), [](const auto& f) {
-            return f.get_witness_index();
-        });
-        builder.acir_opcode_io.register_io(std::move(input_indices), std::move(output_indices));
+
+        auto input_vector = witness_or_constant_vector_from_vector<Builder>(constraint.inputs);
+        const auto iv_vector = witness_or_constant_vector_from_vector<Builder>(constraint.iv);
+        input_vector.insert(input_vector.end(), iv_vector.begin(), iv_vector.end());
+        const auto key_vector = witness_or_constant_vector_from_vector<Builder>(constraint.key);
+        input_vector.insert(input_vector.end(), key_vector.begin(), key_vector.end());
+        builder.acir_opcode_io.register_io(input_vector, witness_or_constant_vector_from_vector<Builder>(output_bytes));
     }
 
     for (size_t i = 0; i < output_bytes.size(); ++i) {

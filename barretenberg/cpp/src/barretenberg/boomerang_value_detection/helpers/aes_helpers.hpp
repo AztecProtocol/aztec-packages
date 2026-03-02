@@ -50,6 +50,7 @@ std::optional<Field<CircuitBuilder>> trace_aes_byte_packing(StaticAnalyzer_<FF, 
         // converted += byte_fields[i] (creates add gate if both non-constant)
         auto result = get_add_gate_output<FF>(analyzer, builder, scaled, byte_fields[i]);
         if (!result.has_value()) {
+            log_error("No add gate found for AES128 byte packing");
             return std::nullopt;
         }
         converted = *result;
@@ -69,6 +70,7 @@ bool validate_aes_byte_range_constraints(StaticAnalyzer_<FF, CircuitBuilder>& an
     for (const auto& input : constraint.inputs) {
         if (!input.is_constant) {
             if (!is_range_constrained_via_limb_lookup<FF>(analyzer, builder, input.index, 255)) {
+                log_error("No range constraint found for AES128 input byte");
                 return false;
             }
         }
@@ -76,6 +78,7 @@ bool validate_aes_byte_range_constraints(StaticAnalyzer_<FF, CircuitBuilder>& an
     for (const auto& iv_elem : constraint.iv) {
         if (!iv_elem.is_constant) {
             if (!is_range_constrained_via_limb_lookup<FF>(analyzer, builder, iv_elem.index, 255)) {
+                log_error("No range constraint found for AES128 iv byte");
                 return false;
             }
         }
@@ -83,12 +86,14 @@ bool validate_aes_byte_range_constraints(StaticAnalyzer_<FF, CircuitBuilder>& an
     for (const auto& key_elem : constraint.key) {
         if (!key_elem.is_constant) {
             if (!is_range_constrained_via_limb_lookup<FF>(analyzer, builder, key_elem.index, 255)) {
+                log_error("No range constraint found for AES128 key byte");
                 return false;
             }
         }
     }
     for (const auto& output : constraint.outputs) {
         if (!is_range_constrained_via_limb_lookup<FF>(analyzer, builder, output, 255)) {
+            log_error("No range constraint found for AES128 output byte");
             return false;
         }
     }
@@ -140,20 +145,14 @@ bool validate_aes(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
     }
 
     // Step 3: Trace convert_output + IO lookup + assert_equal
-    std::vector<uint32_t> input_indices;
-    input_indices.reserve(constraint.inputs.size() + constraint.iv.size() + constraint.key.size());
-    for (const auto& input : constraint.inputs) {
-        input_indices.push_back(input.is_constant ? bb::stdlib::IS_CONSTANT : input.index);
-    }
-    for (const auto& iv_elem : constraint.iv) {
-        input_indices.push_back(iv_elem.is_constant ? bb::stdlib::IS_CONSTANT : iv_elem.index);
-    }
-    for (const auto& key_elem : constraint.key) {
-        input_indices.push_back(key_elem.is_constant ? bb::stdlib::IS_CONSTANT : key_elem.index);
-    }
+    auto input_vector = witness_or_constant_vector_from_vector<CircuitBuilder>(constraint.inputs);
+    const auto iv_vector = witness_or_constant_vector_from_vector<CircuitBuilder>(constraint.iv);
+    input_vector.insert(input_vector.end(), iv_vector.begin(), iv_vector.end());
+    const auto key_vector = witness_or_constant_vector_from_vector<CircuitBuilder>(constraint.key);
+    input_vector.insert(input_vector.end(), key_vector.begin(), key_vector.end());
 
     const auto& io_map = builder.acir_opcode_io.io_map;
-    auto it = io_map.find(input_indices);
+    auto it = io_map.find(input_vector);
     if (it == io_map.end()) {
         return false;
     }
@@ -161,13 +160,14 @@ bool validate_aes(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
     if (all_outputs.empty()) {
         return false;
     }
-    const auto& stdlib_output_indices = all_outputs.back();
 
+    // Pre-trace output byte packing once (outside the IO entry loop) since it depends only on
+    // constraint.outputs, not on which stdlib encrypt output we're matching. Tracing inside the
+    // loop would speculatively consume gates for non-matching IO entries, leaving none for the
+    // correct entry when multiple identical constraints share the same IO map key.
     size_t num_output_blocks = constraint.outputs.size() / 16;
-    if (stdlib_output_indices.size() != num_output_blocks) {
-        return false;
-    }
-
+    std::vector<Field<CircuitBuilder>> packed_outputs;
+    packed_outputs.reserve(num_output_blocks);
     for (size_t block = 0; block < num_output_blocks; ++block) {
         std::vector<Field<CircuitBuilder>> byte_fields;
         byte_fields.reserve(16);
@@ -181,15 +181,28 @@ bool validate_aes(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
         if (!packed_output.has_value()) {
             return false;
         }
-
-        Field<CircuitBuilder> stdlib_output{ stdlib_output_indices[block],
-                                             field_ct::from_witness_index(&builder, stdlib_output_indices[block]) };
-        if (!is_assert_equal_exists<FF>(analyzer, builder, stdlib_output, *packed_output)) {
-            return false;
-        }
+        packed_outputs.push_back(*packed_output);
     }
 
-    return true;
+    for (const auto& stdlib_output_vector : all_outputs) {
+        if (stdlib_output_vector.size() != num_output_blocks) {
+            return false;
+        }
+
+        auto condition = true;
+        for (size_t block = 0; block < num_output_blocks; ++block) {
+            Field<CircuitBuilder> stdlib_output{ stdlib_output_vector[block].index,
+                                                 field_ct::from_witness_index(&builder,
+                                                                              stdlib_output_vector[block].index) };
+            condition &= is_assert_equal_exists<FF>(analyzer, builder, stdlib_output, packed_outputs[block]);
+        }
+        if (condition) {
+            return true;
+        }
+    }
+    log_error("No valid output connection found for AES128 constraint");
+
+    return false;
 }
 
 } // namespace cdg

@@ -19,6 +19,17 @@ using namespace cdg;
 
 namespace {
 
+template <typename... Constraints> AcirFormat build_acir_format(const Constraints&... constraints)
+{
+    std::vector<Acir::Opcode> opcodes;
+    auto collect = [&opcodes](const auto& constraint) {
+        auto ops = constraint_to_acir_opcode(constraint);
+        opcodes.insert(opcodes.end(), ops.begin(), ops.end());
+    };
+    (collect(constraints), ...);
+    return circuit_serde_to_acir_format(build_acir_circuit(opcodes));
+}
+
 /**
  * @brief Generate an AES128 constraint with configurable constant parts.
  * @param num_blocks Number of 16-byte plaintext blocks.
@@ -26,11 +37,10 @@ namespace {
  * @param constant_key If true, key bytes are constants instead of witnesses.
  * @param constant_iv If true, IV bytes are constants instead of witnesses.
  */
-std::pair<AES128Constraint, WitnessVector> generate_aes_constraint(
-    size_t num_blocks = 1,
-    const std::unordered_set<size_t>& constant_input_indices = {},
-    bool constant_key = false,
-    bool constant_iv = false)
+AES128Constraint generate_aes_constraint(size_t num_blocks = 1,
+                                         const std::unordered_set<size_t>& constant_input_indices = {},
+                                         bool constant_key = false,
+                                         bool constant_iv = false)
 {
     AES128Constraint aes_constraint;
     WitnessVector witness_values;
@@ -82,7 +92,7 @@ std::pair<AES128Constraint, WitnessVector> generate_aes_constraint(
         aes_constraint.iv[i] = add_byte(iv[i], constant_iv);
     }
 
-    return { aes_constraint, witness_values };
+    return aes_constraint;
 }
 
 } // namespace
@@ -94,7 +104,7 @@ class AESConstraintsTests : public ::testing::Test {
 
 TEST_F(AESConstraintsTests, Valid)
 {
-    auto [aes_constraint, witness_values] = generate_aes_constraint();
+    auto aes_constraint = generate_aes_constraint();
     auto constraint_system = constraint_to_acir_format(aes_constraint);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
@@ -103,7 +113,7 @@ TEST_F(AESConstraintsTests, Valid)
 
 TEST_F(AESConstraintsTests, ValidMega)
 {
-    auto [aes_constraint, witness_values] = generate_aes_constraint();
+    auto aes_constraint = generate_aes_constraint();
     auto constraint_system = constraint_to_acir_format(aes_constraint);
 
     auto analyzer = StaticAnalyzerAcirMega(std::move(constraint_system));
@@ -112,7 +122,7 @@ TEST_F(AESConstraintsTests, ValidMega)
 
 TEST_F(AESConstraintsTests, ValidMultiBlock)
 {
-    auto [aes_constraint, witness_values] = generate_aes_constraint(/*num_blocks=*/2);
+    auto aes_constraint = generate_aes_constraint(/*num_blocks=*/2);
     auto constraint_system = constraint_to_acir_format(aes_constraint);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
@@ -127,7 +137,7 @@ TEST_F(AESConstraintsTests, ValidMultiBlock)
  */
 TEST_F(AESConstraintsTests, DetectCorruptedOutputConnection)
 {
-    auto [aes_constraint, witness_values] = generate_aes_constraint();
+    auto aes_constraint = generate_aes_constraint();
     auto constraint_system = constraint_to_acir_format(aes_constraint);
     AcirProgram program{ constraint_system };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
@@ -140,7 +150,7 @@ TEST_F(AESConstraintsTests, DetectCorruptedOutputConnection)
 
 TEST_F(AESConstraintsTests, DetectCorruptedOutputConnectionMega)
 {
-    auto [aes_constraint, witness_values] = generate_aes_constraint();
+    auto aes_constraint = generate_aes_constraint();
     auto constraint_system = constraint_to_acir_format(aes_constraint);
     AcirProgram program{ constraint_system };
     auto builder = create_circuit<MegaCircuitBuilder>(program);
@@ -159,7 +169,7 @@ TEST_F(AESConstraintsTests, DetectCorruptedOutputConnectionMega)
  */
 TEST_F(AESConstraintsTests, DetectCorruptedInputPacking)
 {
-    auto [aes_constraint, witness_values] = generate_aes_constraint();
+    auto aes_constraint = generate_aes_constraint();
     auto constraint_system = constraint_to_acir_format(aes_constraint);
     AcirProgram program{ constraint_system };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
@@ -177,7 +187,7 @@ TEST_F(AESConstraintsTests, DetectCorruptedInputPacking)
  */
 TEST_F(AESConstraintsTests, DetectCorruptedIVPacking)
 {
-    auto [aes_constraint, witness_values] = generate_aes_constraint();
+    auto aes_constraint = generate_aes_constraint();
     auto constraint_system = constraint_to_acir_format(aes_constraint);
     AcirProgram program{ constraint_system };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
@@ -195,7 +205,7 @@ TEST_F(AESConstraintsTests, DetectCorruptedIVPacking)
  */
 TEST_F(AESConstraintsTests, DetectCorruptedKeyPacking)
 {
-    auto [aes_constraint, witness_values] = generate_aes_constraint();
+    auto aes_constraint = generate_aes_constraint();
     auto constraint_system = constraint_to_acir_format(aes_constraint);
     AcirProgram program{ constraint_system };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
@@ -215,7 +225,7 @@ TEST_F(AESConstraintsTests, DetectCorruptedKeyPacking)
  */
 TEST_F(AESConstraintsTests, DetectCorruptedStdlibOutputConnection)
 {
-    auto [aes_constraint, witness_values] = generate_aes_constraint();
+    auto aes_constraint = generate_aes_constraint();
     auto constraint_system = constraint_to_acir_format(aes_constraint);
     AcirProgram program{ constraint_system };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
@@ -224,7 +234,7 @@ TEST_F(AESConstraintsTests, DetectCorruptedStdlibOutputConnection)
     for (auto& [key, outputs_vec] : builder.acir_opcode_io.io_map) {
         for (auto& output_set : outputs_vec) {
             for (auto& idx : output_set) {
-                idx = builder.zero_idx();
+                idx.index = builder.zero_idx();
             }
         }
     }
@@ -240,7 +250,7 @@ TEST_F(AESConstraintsTests, DetectCorruptedStdlibOutputConnection)
  */
 TEST_F(AESConstraintsTests, DetectMultiBlockOutputCorruption)
 {
-    auto [aes_constraint, witness_values] = generate_aes_constraint(/*num_blocks=*/2);
+    auto aes_constraint = generate_aes_constraint(/*num_blocks=*/2);
     auto constraint_system = constraint_to_acir_format(aes_constraint);
     AcirProgram program{ constraint_system };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
@@ -259,7 +269,7 @@ TEST_F(AESConstraintsTests, DetectMultiBlockOutputCorruption)
  */
 TEST_F(AESConstraintsTests, DetectMissingInputRangeConstraint)
 {
-    auto [aes_constraint, witness_values] = generate_aes_constraint();
+    auto aes_constraint = generate_aes_constraint();
     auto constraint_system = constraint_to_acir_format(aes_constraint);
     AcirProgram program{ constraint_system };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
@@ -272,7 +282,7 @@ TEST_F(AESConstraintsTests, DetectMissingInputRangeConstraint)
 
 TEST_F(AESConstraintsTests, ValidWithConstantInputs)
 {
-    auto [aes_constraint, witness_values] = generate_aes_constraint(1, { 0, 1, 2, 3, 4 });
+    auto aes_constraint = generate_aes_constraint(1, { 0, 1, 2, 3, 4 });
     auto constraint_system = constraint_to_acir_format(aes_constraint);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
@@ -281,8 +291,10 @@ TEST_F(AESConstraintsTests, ValidWithConstantInputs)
 
 TEST_F(AESConstraintsTests, ValidWithConstantKeyIV)
 {
-    auto [aes_constraint, witness_values] =
-        generate_aes_constraint(1, /*constant_input_indices=*/{}, /*constant_key=*/true, /*constant_iv=*/true);
+    auto aes_constraint = generate_aes_constraint(1,
+                                                  /*constant_input_indices=*/{},
+                                                  /*constant_key=*/true,
+                                                  /*constant_iv=*/true);
     auto constraint_system = constraint_to_acir_format(aes_constraint);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
@@ -291,9 +303,32 @@ TEST_F(AESConstraintsTests, ValidWithConstantKeyIV)
 
 TEST_F(AESConstraintsTests, ValidWithConstantKeyIVMega)
 {
-    auto [aes_constraint, witness_values] = generate_aes_constraint(1, {}, true, true);
+    auto aes_constraint = generate_aes_constraint(1, {}, true, true);
     auto constraint_system = constraint_to_acir_format(aes_constraint);
 
     auto analyzer = StaticAnalyzerAcirMega(std::move(constraint_system));
+    EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
+}
+
+TEST_F(AESConstraintsTests, ValidWithAllConstantInputs)
+{
+    std::unordered_set<size_t> constant_indices;
+    constant_indices.reserve(16);
+    for (size_t i = 0; i < 16; ++i) {
+        constant_indices.insert(i);
+    }
+    auto aes_constraint = generate_aes_constraint(1, constant_indices, /*constant_key=*/true, /*constant_iv=*/true);
+    auto constraint_system = constraint_to_acir_format(aes_constraint);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
+    EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
+}
+
+TEST_F(AESConstraintsTests, ValidRepeatedConstraint)
+{
+    auto aes_constraint = generate_aes_constraint();
+    auto constraint_system = build_acir_format(aes_constraint, aes_constraint);
+
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
 }
