@@ -196,7 +196,7 @@ struct lookup_tx_nullifier_append_settings_ {
         ColumnAndShifts::nullifier_check_tree_size_before_write,
         ColumnAndShifts::nullifier_check_discard,
         ColumnAndShifts::nullifier_check_nullifier_index,
-        ColumnAndShifts::nullifier_check_should_silo
+        ColumnAndShifts::nullifier_check_sel_silo
     };
 };
 
