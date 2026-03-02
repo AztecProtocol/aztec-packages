@@ -13,8 +13,8 @@
 export expected_min_clang_version=20.0.0
 export expected_min_cmake_version=3.24
 export expected_min_node_version=24.12.0
-export expected_min_zig_version=0.14.1
-export expected_abs_rust_version=1.85.0
+export expected_min_zig_version=0.15.1
+export expected_abs_rust_version=1.89.0
 export expected_abs_wasi_version=27.0
 export expected_abs_foundry_version=1.4.1
 export expected_abs_yarn_version=4.5.2
@@ -44,19 +44,15 @@ function install_foundry {
 }
 
 function install_zig {
-  if ensure zvm; then
-    return
+  if ! ensure zvm; then
+    curl -s https://www.zvm.app/install.sh | bash
+    export PATH="$PATH:$HOME/.zvm/bin"
+    export PATH="$PATH:$HOME/.zvm/self"
   fi
-  curl -s https://www.zvm.app/install.sh | bash
-  export PATH="$PATH:$HOME/.zvm/bin"
-  export PATH="$PATH:$HOME/.zvm/self"
   zvm i $expected_min_zig_version
 }
 
 function install_rustup {
-  if ensure rustup; then
-    return
-  fi
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain $expected_abs_rust_version
 }
 
@@ -70,7 +66,8 @@ function install_node {
     curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
     . "$HOME/.nvm/nvm.sh" --no-use
   fi
-  nvm i $expected_min_node_version
+  nvm install --lts
+  nvm alias default lts/*
 }
 
 function install_node_utils {
@@ -147,6 +144,15 @@ function install_deps {
       exit 1
       ;;
   esac
+
+  if [ -t 0 ]; then
+    echo_green "Done! Starting fresh shell..."
+    exec $SHELL
+  else
+    echo
+    echo "Done! You'll need to start a fresh shell to see PATH updates."
+    echo
+  fi
 }
 
 # Special case for installing dependencies (can run on older bash).
