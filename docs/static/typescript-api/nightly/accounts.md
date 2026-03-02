@@ -1,6 +1,6 @@
 # @aztec/accounts
 
-Version: v5.0.0-nightly.20260224
+Version: v5.0.0-nightly.20260302
 
 ## Quick Import Reference
 
@@ -101,23 +101,6 @@ new SchnorrAccountContract(signingPrivateKey: Fq)
 - `getContractArtifact() => Promise<ContractArtifact>`
 - `getInitializationFunctionAndArgs() => Promise<{ constructorArgs: Fr[]; constructorName: string }>`
 
-### SingleKeyAccountContract
-
-Account contract that authenticates transactions using Schnorr signatures verified against the note encryption key, relying on a single private key for both encryption and authentication. Eagerly loads the contract artifact
-
-Extends: `SingleKeyBaseAccountContract`
-
-**Constructor**
-```typescript
-new SingleKeyAccountContract(signingPrivateKey: Fq)
-```
-
-**Methods**
-- `getAccount(completeAddress: CompleteAddress) => Account` - Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
-- `getAuthWitnessProvider(account: CompleteAddress) => AuthWitnessProvider`
-- `getContractArtifact() => Promise<ContractArtifact>`
-- `getInitializationFunctionAndArgs() => Promise<undefined>`
-
 ## Interfaces
 
 ### InitialAccountData
@@ -185,11 +168,6 @@ type INITIAL_TEST_SIGNING_KEYS = Fq[]
 ### SchnorrAccountContractArtifact
 ```typescript
 type SchnorrAccountContractArtifact = ContractArtifact
-```
-
-### SchnorrSingleKeyAccountContractArtifact
-```typescript
-type SchnorrSingleKeyAccountContractArtifact = ContractArtifact
 ```
 
 ## Cross-Package References

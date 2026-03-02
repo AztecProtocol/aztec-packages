@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: v5.0.0-nightly.20260224
+Version: v5.0.0-nightly.20260302
 
 ## Quick Import Reference
 
@@ -368,6 +368,7 @@ new Fq(value: number | bigint | boolean | Fq | Buffer<ArrayBufferLike>)
 - `[custom]() => string`
 - `add(rhs: Fq) => Fq`
 - `static cmp(lhs: BaseField, rhs: BaseField) => -1 | 0 | 1`
+- `static cmpAsBigInt(lhs: bigint, rhs: bigint) => -1 | 0 | 1`
 - `equals(rhs: BaseField) => boolean`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => Fq`
 - `static fromBufferReduce(buffer: Buffer) => Fq`
@@ -419,6 +420,7 @@ new Fr(value: number | bigint | boolean | Fr | Buffer<ArrayBufferLike>)
 - `[custom]() => string`
 - `add(rhs: Fr) => Fr` - Arithmetic
 - `static cmp(lhs: BaseField, rhs: BaseField) => -1 | 0 | 1`
+- `static cmpAsBigInt(lhs: bigint, rhs: bigint) => -1 | 0 | 1`
 - `div(rhs: Fr) => Fr`
 - `ediv(rhs: Fr) => Fr`
 - `equals(rhs: BaseField) => boolean`
