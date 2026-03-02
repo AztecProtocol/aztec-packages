@@ -214,11 +214,11 @@ function build {
     mkdir -p $tmp_dir
     local contracts=$(grep -oP "(?<=$folder_name/)[^\"]+" Nargo.toml)
 
-    # If pinned protocol contracts exist, extract them and skip their compilation.
+    # If pinned contracts exist, extract them and skip their compilation.
     if [ -f pinned-protocol-contracts.tar.gz ]; then
-      echo_stderr "Using pinned-protocol-contracts.tar.gz for protocol contracts."
+      echo_stderr "Using pinned-protocol-contracts.tar.gz for pinned contracts."
       tar xzf pinned-protocol-contracts.tar.gz -C target
-      contracts=$(echo "$contracts" | grep -v "^protocol/")
+      contracts=$(echo "$contracts" | grep -vE "^protocol/|^fees/sponsored_fpc_contract$")
     fi
   else
     local contracts="$@"
@@ -283,15 +283,16 @@ function format {
   $NARGO fmt
 }
 
-function pin-protocol-contracts {
+function pin-build {
   # Force a real build by removing any existing pinned archive.
   rm -f pinned-protocol-contracts.tar.gz
   local protocol_contracts=$(grep -oP '(?<=contracts/)[^"]+' Nargo.toml | grep "^protocol/")
-  build $protocol_contracts
-  # Create the pinned tarball from the built protocol contract artifacts.
+  local fees_contracts=$(grep -oP '(?<=contracts/)[^"]+' Nargo.toml | grep "^fees/")
+  build $protocol_contracts $fees_contracts
+  # Bundle protocol contracts plus SponsoredFPC (FPC is excluded — only SponsoredFPC is pinned).
   local protocol_artifacts=$(jq -r '.[]' protocol_contracts.json | sed 's/$/.json/')
   echo_stderr "Creating pinned-protocol-contracts.tar.gz..."
-  (cd target && tar czf ../pinned-protocol-contracts.tar.gz $protocol_artifacts)
+  (cd target && tar czf ../pinned-protocol-contracts.tar.gz $protocol_artifacts sponsored_fpc_contract-SponsoredFPC.json)
   echo_stderr "Done. pinned-protocol-contracts.tar.gz created. Commit it to pin these artifacts."
 }
 
@@ -309,8 +310,8 @@ case "$cmd" in
   "compile")
     VERBOSE=${VERBOSE:-1} build "$@"
     ;;
-  "pin-protocol-contracts")
-    pin-protocol-contracts
+  "pin-build")
+    pin-build
     ;;
   *)
     default_cmd_handler "$@"
