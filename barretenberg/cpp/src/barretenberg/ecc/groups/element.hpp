@@ -127,27 +127,6 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
 
     template <typename = typename std::enable_if<Params::can_hash_to_curve>>
     static element random_coordinates_on_curve(numeric::RNG* engine = nullptr) noexcept;
-    // {
-    //     bool found_one = false;
-    //     Fq yy;
-    //     Fq x;
-    //     Fq y;
-    //     Fq t0;
-    //     while (!found_one) {
-    //         x = Fq::random_element(engine);
-    //         yy = x.sqr() * x + Params::b;
-    //         if constexpr (Params::has_a) {
-    //             yy += (x * Params::a);
-    //         }
-    //         y = yy.sqrt();
-    //         t0 = y.sqr();
-    //         found_one = (yy == t0);
-    //     }
-    //     return { x, y, Fq::one() };
-    // }
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/908) point at inifinty isn't handled
-    // To reenable this do NOT do use MSGPACK_FIELDS macro below, instead follow the logic in affine_element
-    // MSGPACK_FIELDS(x, y, z);
 
     friend std::ostream& operator<<(std::ostream& os, const element& a)
     {
@@ -160,10 +139,6 @@ template <class Fq, class Fr, class Params> std::ostream& operator<<(std::ostrea
 {
     return os << "x:" << e.x << " y:" << e.y << " z:" << e.z;
 }
-
-// constexpr element<Fq, Fr, Params>::one = element<Fq, Fr, Params>{ Params::one_x, Params::one_y, Fq::one() };
-// constexpr element<Fq, Fr, Params>::point_at_infinity = one.set_infinity();
-// constexpr element<Fq, Fr, Params>::curve_b = Params::b;
 
 } // namespace bb::group_elements
 
