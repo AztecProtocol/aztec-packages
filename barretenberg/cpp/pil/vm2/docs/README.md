@@ -50,7 +50,7 @@ If the TX does not enqueue any public function, it is handled by the “Private 
 
 ## TXs with public components
 
-The sequencer uses the AVM simulator to execute all **public** functions for a transaction. It processes the public call requests queued during private execution, performs tree updates and fee accumulation. For the purposes of this document, you can think that the sequencer “sends a proof request” to a prover, to generate an AVM circuit proof. In reality, things are more complicated: provers follow the “unproven” chain (by polling) and choose to prove when they see work is available. They then send the final (rollup) proof to L1 and collect fees.
+The sequencer uses the AVM simulator to execute all **public** functions for a transaction. It processes the public call requests queued during private execution, and performs tree updates and fee accumulation. For the purposes of this document, you can think that the sequencer “sends a proof request” to a prover, to generate an AVM circuit proof. In reality, things are more complicated: provers follow the “unproven” chain (by polling) and choose to prove when they see work is available. They then send the final (rollup) proof to L1 and collect fees.
 
 Transactions with public components are handled by the “Public Base” circuit. This is a Noir circuit that verifies both the CHONK proof from private and the AVM proof from public (using the “AVM recursive verifier”). From there, the rollup process goes on basically as before.
 
@@ -162,7 +162,7 @@ _Note on the AVM vs Honk/Plonk-like circuits_: Standard circuits and RISC-based 
 
 **Pure vs Stateful subtraces**: We say that a subtrace is “pure” when the statement to prove only depends on the inputs. For example, if you prove that “a \+ b \= c” with three columns `a, b, c` (similar to what the ALU does). In contrast, the (execution) subtrace implementing the ADD **opcode** will not be pure, since it interacts with memory. Executing `ADD /*a_addr=*/0x10, /*b_addr=*/0x20, /*c_addr=*/0x30` will not yield the same result if you do it under different memory configurations. This also often happens with opcodes related to tree state. A nice property of pure subtraces is that you can deduplicate events. If you already proved (i.e., have a row) that `2 + 3 = 5`, you don’t need to do it again. We take advantage of this when possible.
 
-**Error handling**: In standard circuits it is common to `assert` the statements that you want to prove. If the user did not generate the right witnesses (or if you are trying to trick the prover) the proof will simply not be generated (technically it will, but it will not be valid). In a VM, that will not cut it. For most operations, errors need to be handled so that the proof produced states that either (1) everything went well, or (2) an error occurred. In both cases, a valid proof should be generated, so that the sequencer and prover are properly remunerated. This is arguably one of the most challenging aspects of writing a VM. When you approach a subtrace, it will specify if it is “infallible” (does not do error handling) or if it handles errors. This will be clear in “the contract” specification.
+**Error handling**: In standard circuits it is common to `assert` the statements that you want to prove. If the user did not generate the right witnesses (or if you are trying to trick the prover) the proof will simply not be generated (technically it will, but it will not be valid). In a VM, that will not cut it. For most operations, errors need to be handled so that the proof produced states that either (1) everything went well, or (2) an error occurred. In both cases, a valid proof should be generated, so that the sequencer and prover are properly remunerated. This is arguably one of the most challenging aspects of writing a VM. When you approach a subtrace, it will specify if it is “infallible” (does not do error handling) or if it handles errors. This should be clear from the documentation in the PIL file.
 
 ## Overview
 
@@ -398,7 +398,7 @@ flowchart TB
 
 ## TX-level traces and execution
 
-The diagram below shows how the TX-level subtraces connect to the Execution subtrace. **Double-headed arrows** (↔) denote **permutations**: the TX trace and the Execution trace agree on the same multi-set of (context_id, call params, tree state, etc.) at each call boundary. The TX trace is the entry point for the transaction; it drives phases (insertions, setup, app logic, teardown, fee, etc.) and, for public-call phases, dispatches each enqueued call to Execution and later retrieves the results.
+The diagram below shows how the TX-level subtraces connect to the Execution subtrace and public inputs during enqueued call processing. **Single-headed arrows** (→) denote **lookups** (Tx is the source). **Double-headed arrows** (↔) denote **permutations**: both sides agree on the same multi-set of tuples. The TX trace is the entry point for the transaction; it drives phases (insertions, setup, app logic, teardown, fee, etc.) and, for public-call phases, dispatches each enqueued call to Execution and later retrieves the results.
 
 ```mermaid
 flowchart LR
@@ -409,15 +409,20 @@ flowchart LR
   end
 
   EX[Execution]
+  PI[PublicInputs]
+  CDH[CalldataHashing]
 
+  TX -->|READ_PHASE_LENGTH: num enqueued calls in phase| PI
+  TX -->|READ_PUBLIC_CALL_REQUEST_PHASE: msg_sender, contract_addr, is_static, calldata_hash| PI
+  TX <-->|READ_CALLDATA_HASH: calldata_hash, calldata_size, next_context_id| CDH
   TX <-->|DISPATCH_EXEC_START: context_id, call params, initial tree/side-effect state, gas| EX
   TX <-->|DISPATCH_EXEC_END: context_id, next_context_id, final tree/side-effect state, discard, revert| EX
 ```
 
-- **Tx** ([tx.pil](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/tx.pil)) is the top-level transaction trace. On phases that execute public calls (setup, app logic, teardown), each row with `should_process_call_request = 1` is matched via permutation **DISPATCH_EXEC_START** to exactly one Execution row with `enqueued_call_start = 1`. That binds the call's inputs: `next_context_id`, `msg_sender`, `contract_address`, tree roots and sizes, side-effect counts, and gas limits.
+- **Tx** ([tx.pil](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/tx.pil)) is the top-level transaction trace. At the start of each public-call phase (setup, app logic, teardown), Tx performs **READ_PHASE_LENGTH**: a lookup into [public_inputs.pil](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/public_inputs.pil) to read how many enqueued calls the phase contains (`remaining_phase_counter`). For each call request row (`should_process_call_request = 1`), Tx performs **READ_PUBLIC_CALL_REQUEST_PHASE**: a lookup into public inputs to bind `msg_sender`, `contract_addr`, `is_static`, and `calldata_hash` for that call. It then performs **READ_CALLDATA_HASH**: a permutation with [calldata_hashing.pil](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/calldata_hashing.pil) that ties the `calldata_hash` read from public inputs to a verified `calldata_size` and the derived `next_context_id`. Finally, the same row is matched via permutation **DISPATCH_EXEC_START** to exactly one Execution row with `enqueued_call_start = 1`, binding all call inputs: `next_context_id`, `msg_sender`, `contract_address`, tree roots and sizes, side-effect counts, and gas limits.
 - **Execution** ([execution.pil](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/execution.pil)) runs the opcodes for each enqueued call. The same Tx row (same public call request) is matched again via permutation **DISPATCH_EXEC_END** to an Execution row with `enqueued_call_end = 1`, so Tx receives the call's outputs: updated tree roots/sizes, side-effect counts, gas used, and `discard`/revert information.
 - **TxContext** ([tx_context.pil](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/tx_context.pil)) and **TxDiscard** ([tx_discard.pil](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/tx_discard.pil)) are virtual subtraces of the TX trace (same rows as Tx). They maintain tree and side-effect state and revert/discard logic; the values passed to and from Execution at DISPATCH_EXEC_START/END are the same tree and discard state that TxContext and TxDiscard constrain.
-- The two permutations together enforce that (1) every enqueued call has exactly one start and one end in Execution, (2) the ordering of calls is fixed by `context_id` / `next_context_id`, and (3) the state that Tx uses for the next phase (or for public inputs) is exactly the state Execution produced at `enqueued_call_end`.
+- The permutations together enforce that (1) every enqueued call has exactly one start and one end in Execution, (2) the ordering of calls is fixed by `context_id` / `next_context_id`, (3) the calldata hash committed in public inputs is consistent with the actual calldata size and content, and (4) the state that Tx uses for the next phase (or for public inputs) is exactly the state Execution produced at `enqueued_call_end`.
 
 ## TX-level traces and tree state
 
