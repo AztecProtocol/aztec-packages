@@ -444,7 +444,7 @@ function retract_release {
   gh auth setup-git &>/dev/null || true
   if git ls-remote --tags "$mirrored_repo_url" "refs/tags/$REF_NAME" 2>/dev/null | grep -qF "$REF_NAME"; then
     do_or_dryrun git push "$mirrored_repo_url" --delete "$REF_NAME"
-    [ "${DRY_RUN:-0}" = 0 ] && echo "Deleted tag $REF_NAME from l1-contracts mirror."
+    [ "${DRY_RUN:-0}" = 0 ] && echo "Deleted tag $REF_NAME from l1-contracts mirror." || true
   else
     echo "Tag $REF_NAME not found in l1-contracts mirror, skipping."
   fi

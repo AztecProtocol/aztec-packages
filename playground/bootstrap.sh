@@ -52,7 +52,7 @@ function retract_release {
   current_version=$(aws s3 cp "s3://play.aztec.network/$dtag/_version" - 2>/dev/null || true)
   if [ "$current_version" = "$REF_NAME" ]; then
     do_or_dryrun aws s3 rm --recursive "s3://play.aztec.network/$dtag"
-    [ "${DRY_RUN:-0}" = 0 ] && echo "Removed dist_tag path $dtag -> $REF_NAME."
+    [ "${DRY_RUN:-0}" = 0 ] && echo "Removed dist_tag path $dtag -> $REF_NAME." || true
   else
     echo "Dist_tag path $dtag points to '$current_version' (not '$REF_NAME'), skipping."
   fi

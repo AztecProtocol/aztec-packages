@@ -453,7 +453,7 @@ function retract {
   # Delete the GitHub release (includes barretenberg/cpp binary assets) and the monorepo git tag.
   if gh release view "$REF_NAME" &>/dev/null; then
     do_or_dryrun gh release delete "$REF_NAME" --yes --cleanup-tag
-    [ "${DRY_RUN:-0}" = 0 ] && echo "Deleted GitHub release $REF_NAME."
+    [ "${DRY_RUN:-0}" = 0 ] && echo "Deleted GitHub release $REF_NAME." || true
   else
     echo "No GitHub release found for $REF_NAME, skipping."
   fi
