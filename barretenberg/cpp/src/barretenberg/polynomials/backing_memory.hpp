@@ -129,11 +129,16 @@ template <typename Fr> struct BackingMemory {
             return false;
         }
 
-        size_t required_bytes = size * sizeof(Fr);
-        size_t current_usage = current_storage_usage.load();
+        if (size > std::numeric_limits<size_t>::max() / sizeof(Fr)) {
+            return false;
+        }
 
-        // Check if we're under the storage budget
-        if (current_usage + required_bytes > storage_budget) {
+        size_t required_bytes = size * sizeof(Fr);
+
+        // Check and update storage usage to enforce budget
+        const size_t usage = current_storage_usage.fetch_add(required_bytes);
+        if (usage + required_bytes > storage_budget) {
+            current_storage_usage.fetch_sub(required_bytes);
             return false;
         }
 
@@ -152,12 +157,14 @@ template <typename Fr> struct BackingMemory {
 
         int fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
         if (fd < 0) {
+            current_storage_usage.fetch_sub(required_bytes);
             return false;
         }
 
         if (ftruncate(fd, static_cast<off_t>(file_size)) != 0) {
             close(fd);
             std::filesystem::remove(filename);
+            current_storage_usage.fetch_sub(required_bytes);
             return false;
         }
 
@@ -165,6 +172,7 @@ template <typename Fr> struct BackingMemory {
         if (addr == MAP_FAILED) {
             close(fd);
             std::filesystem::remove(filename);
+            current_storage_usage.fetch_sub(required_bytes);
             return false;
         }
 
@@ -176,8 +184,6 @@ template <typename Fr> struct BackingMemory {
 
         memory.raw_data = static_cast<Fr*>(addr);
         memory.file_backed = std::move(file_backed_data);
-
-        current_storage_usage.fetch_add(required_bytes);
 
         return true;
     }
