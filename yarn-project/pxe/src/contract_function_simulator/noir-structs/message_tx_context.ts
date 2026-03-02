@@ -7,7 +7,7 @@ import type { TxHash } from '@aztec/stdlib/tx';
  * Intermediate struct used to return resolved message contexts from PXE. The
  * `utilityResolveMessageContexts` oracle stores values of this type in a CapsuleArray.
  */
-export class MessageContextResponse {
+export class MessageTxContext {
   constructor(
     public txHash: TxHash,
     public uniqueNoteHashesInTx: Fr[],
@@ -28,11 +28,11 @@ export class MessageContextResponse {
     return range(serializationLen).map(_ => Fr.zero());
   }
 
-  static toSerializedOption(response: MessageContextResponse | null): Fr[] {
+  static toSerializedOption(response: MessageTxContext | null): Fr[] {
     if (response) {
       return [new Fr(1), ...response.toFields()];
     } else {
-      return [new Fr(0), ...MessageContextResponse.toEmptyFields()];
+      return [new Fr(0), ...MessageTxContext.toEmptyFields()];
     }
   }
 }

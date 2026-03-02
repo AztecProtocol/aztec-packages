@@ -37,7 +37,7 @@ import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
-import { MessageContextResponse } from '../noir-structs/message_context_response.js';
+import { MessageTxContext } from '../noir-structs/message_tx_context.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
@@ -585,18 +585,18 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
           return null;
         }
 
-        return new MessageContextResponse(data.txHash, data.noteHashes, data.nullifiers[0]);
+        return new MessageTxContext(data.txHash, data.noteHashes, data.nullifiers[0]);
       }),
     );
 
     // Requests are cleared once we're done.
     await this.capsuleStore.setCapsuleArray(contractAddress, messageContextRequestsArrayBaseSlot, [], this.jobId);
 
-    // Store Option<MessageContextResponse> in the response capsule array.
+    // Store Option<MessageTxContext> in the response capsule array.
     await this.capsuleStore.setCapsuleArray(
       contractAddress,
       messageContextResponsesArrayBaseSlot,
-      maybeMessageContexts.map(MessageContextResponse.toSerializedOption),
+      maybeMessageContexts.map(MessageTxContext.toSerializedOption),
       this.jobId,
     );
   }
