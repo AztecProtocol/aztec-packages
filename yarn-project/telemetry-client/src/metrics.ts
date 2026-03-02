@@ -1267,6 +1267,16 @@ export const VALIDATOR_ATTESTATION_FAILED_NODE_ISSUE_COUNT: MetricDefinition = {
   description: 'The number of failed attestations due to node issues (timeout, missing data, etc.)',
   valueType: ValueType.INT,
 };
+export const VALIDATOR_CURRENT_EPOCH: MetricDefinition = {
+  name: 'aztec.validator.current_epoch',
+  description: 'The current epoch number, reflecting total epochs elapsed since genesis',
+  valueType: ValueType.INT,
+};
+export const VALIDATOR_ATTESTED_EPOCH_COUNT: MetricDefinition = {
+  name: 'aztec.validator.attested_epoch_count',
+  description: 'The number of epochs in which this node successfully submitted at least one attestation',
+  valueType: ValueType.INT,
+};
 
 export const NODEJS_EVENT_LOOP_DELAY_MIN: MetricDefinition = {
   name: 'nodejs.eventloop.delay.min',

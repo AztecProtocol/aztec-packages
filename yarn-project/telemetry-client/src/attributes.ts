@@ -156,3 +156,6 @@ export const HA_DUTY_TYPE = 'aztec.ha_signer.duty_type';
 
 /** HA signer node identifier */
 export const HA_NODE_ID = 'aztec.ha_signer.node_id';
+
+/** The address of an attester (validator) participating in consensus */
+export const ATTESTER_ADDRESS = 'aztec.attester.address';
