@@ -180,6 +180,12 @@ typename Builder::acir_opcode_io_record::WitnessOrConstant witness_or_constant_f
             .value = Builder::FF::zero(),
             .is_constant = false,
         };
+    } else if constexpr (std::is_same_v<Elem, field_t<Builder>>) {
+        return BuilderWoc{
+            .index = vec[idx].get_witness_index(),
+            .value = vec[idx].get_value(),
+            .is_constant = vec[idx].is_constant(),
+        };
     } else {
         static_assert(always_false_v<Elem>, "Unsupported vector element type for WitnessOrConstant conversion.");
     }

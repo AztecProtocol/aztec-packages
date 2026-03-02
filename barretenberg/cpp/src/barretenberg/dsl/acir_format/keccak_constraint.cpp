@@ -29,7 +29,7 @@ template <typename Builder> void create_keccak_permutations_constraints(Builder&
     if (builder.is_write_vk_mode()) {
         // Register input->output witness mapping for ACIR static analysis.
         builder.acir_opcode_io.register_io(witness_or_constant_vector_from_vector<Builder>(constraint.state),
-                                           witness_or_constant_vector_from_vector<Builder>(constraint.result));
+                                           witness_or_constant_vector_from_vector<Builder>(output_state));
     }
 
     for (size_t i = 0; i < output_state.size(); ++i) {

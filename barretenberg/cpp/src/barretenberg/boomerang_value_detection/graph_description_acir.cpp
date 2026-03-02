@@ -1078,7 +1078,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ecdsa_constraints(
 
 /**
  * @brief Verify keccak permutation constraint by checking that stdlib outputs are connected to ACIR results.
- * @details The keccak stdlib registers its input->output witness mapping in builder.stdlib_opcode_io.
+ * @details The keccak stdlib registers its input->output witness mapping in builder.acir_opcode_io..
  * We look up the ACIR constraint's input indices in that map to find the actual output witness indices
  * produced by keccak, then verify that each output is connected to the corresponding constraint.result[i]
  * via assert_equal (i.e. they share the same real variable index).
@@ -1107,6 +1107,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_keccak_permutation_constra
 
     // Iterate over all registered outputs for the case if multiple constraints with the same inputs are emitted.
     for (const auto& output : all_outputs) {
+        BB_ASSERT_EQ(output.size(), constraint->result.size(), "Output size mismatch");
 
         auto condition = true;
         // Verify each output is connected to the corresponding constraint result via assert_equal.
