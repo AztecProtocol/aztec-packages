@@ -19,11 +19,10 @@ Before proceeding, ensure you have:
 - An Ethereum wallet with sufficient ETH for gas fees
 - Understanding of basic Aztec staking mechanics
 - Foundry installed for `cast` commands
-- Aztec CLI v3.0.3 or later installed:
+- Aztec CLI v4.0.3 or later installed:
 
 ```bash
-bash -i <(curl -sL https://install.aztec.network)
-aztec-up 3.0.3
+VERSION=4.0.3 bash -i <(curl -sL https://install.aztec.network/4.0.3)
 ```
 
 ### Contract Addresses
@@ -61,7 +60,7 @@ Follow these steps to set up delegated stake:
 
 1. Register your provider with the Staking Registry
 2. Add sequencer identities to your provider queue
-3. Set your metadata in the GitHub repo (or via email)
+3. Set your metadata in the GitHub repo
 
 **After a delegator stakes:** Configure your sequencer's coinbase (see [After Delegation](#after-delegation-configure-sequencer-coinbase))
 
@@ -252,21 +251,26 @@ To be featured on the staking dashboard, submit metadata about your provider.
 
 **Submission process:**
 
-Once made public, you'll create a pull request to the [staking-dashboard-external GitHub repository](https://github.com/AztecProtocol/staking-dashboard-external/tree/master/providers).
+1. Copy [`_example.json`](https://github.com/AztecProtocol/staking-dashboard/blob/master/providers-testnet/_example.json) from the [`providers-testnet`](https://github.com/AztecProtocol/staking-dashboard/tree/master/providers-testnet) folder in the [staking-dashboard GitHub repository](https://github.com/AztecProtocol/staking-dashboard).
+2. Rename it to `{providerId}-{your-provider-name}.json` (e.g. `42-my-provider.json`), where `providerId` matches your on chain registration.
+3. Fill in your metadata and open a pull request adding the file to the `providers-testnet` folder.
 
-For now, email your provider metadata to [koen@aztec.foundation](mailto:koen@aztec.foundation) in the following JSON format. **Make sure to specify if it's for testnet or mainnet!**
+The JSON file should follow this format:
 
 ```json
 {
-  "providerId": 1,
-  "providerName": "Example provider",
-  "providerDescription": "Brief description of the provider",
-  "providerEmail": "contact@provider.com",
-  "providerWebsite": "https://provider.com",
-  "providerLogoUrl": "https://provider.com/logo.png",
-  "discordUsername": "username"
+    "providerId": 0,
+    "providerName": "",
+    "providerDescription": "",
+    "providerEmail": "",
+    "providerWebsite": "",
+    "providerLogoUrl": "",
+    "discordUsername": "",
+    "providerSelfStake": ["0x..."]
 }
 ```
+
+The `providerId` must match your on chain registration and be unique across all submissions. The `providerSelfStake` field is an optional array of attester addresses for sequencers receiving direct provider funding.
 
 Good metadata helps delegators understand your offering and builds trust.
 
