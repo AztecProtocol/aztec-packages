@@ -125,6 +125,7 @@ pub unconstrained fn default_handler(address: AztecAddress) -> CapsuleArray<Offc
             continue;
         }
 
+        // Message is ready to process add to result
         let ctx = maybe_ctx.unwrap();
         let message_context = MessageContext {
             tx_hash: ctx.tx_hash,

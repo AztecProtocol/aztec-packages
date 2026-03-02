@@ -2,8 +2,13 @@ pub(crate) mod event_validation_request;
 
 mod message_context;
 pub use message_context::MessageContext;
-mod message_context_response;
-pub use message_context_response::MessageContextResponse;
+/// Response containing the transaction context needed to process an offchain-delivered message.
+#[derive(Deserialize, Eq)]
+pub struct MessageContextResponse {
+    pub tx_hash: Field,
+    pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
+    pub first_nullifier_in_tx: Field,
+}
 
 pub(crate) mod note_validation_request;
 pub(crate) mod log_retrieval_request;
@@ -24,7 +29,12 @@ use crate::{
     },
     oracle,
 };
-use crate::protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Deserialize, Serialize}};
+use crate::protocol::{
+    address::AztecAddress,
+    constants::MAX_NOTE_HASHES_PER_TX,
+    hash::sha256_to_field,
+    traits::{Deserialize, Serialize},
+};
 use event_validation_request::EventValidationRequest;
 
 // Base slot for the pending tagged log array to which the fetch_tagged_logs oracle inserts found private logs.
