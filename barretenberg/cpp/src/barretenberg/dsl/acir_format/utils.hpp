@@ -7,7 +7,9 @@
 #pragma once
 
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include <type_traits>
 #include <vector>
 
 namespace acir_format {
@@ -151,5 +153,55 @@ std::array<uint32_t, N> add_to_witness_and_track_indices(std::vector<bb::fr>& wi
  */
 template <typename Builder>
 void populate_fields(Builder& builder, const std::vector<field_t<Builder>>& fields, const std::vector<bb::fr>& values);
+
+/// ========== ACIR static analysis utilities ========== ///
+
+template <typename T> inline constexpr bool always_false_v = false;
+
+/**
+ * @brief Convert a vector element into a Builder::acir_opcode_io_record::WitnessOrConstant.
+ *
+ * @details Used for ACIR static analysis during registration of input->output witness mappings.
+ * @tparam Builder
+ * @tparam Vec Type of the vector container.
+ * @param vec Vector containing either WitnessOrConstant<Builder::FF> or uint32_t entries.
+ * @param idx Index of the element to convert.
+ */
+template <typename Builder, typename Vec>
+typename Builder::acir_opcode_io_record::WitnessOrConstant witness_or_constant_from_vector(const Vec& vec, size_t idx)
+{
+    using Elem = std::remove_cvref_t<decltype(vec[idx])>;
+    using BuilderWoc = typename Builder::acir_opcode_io_record::WitnessOrConstant;
+    if constexpr (std::is_same_v<Elem, WitnessOrConstant<typename Builder::FF>>) {
+        return BuilderWoc{ .index = vec[idx].index, .value = vec[idx].value, .is_constant = vec[idx].is_constant };
+    } else if constexpr (std::is_same_v<Elem, uint32_t>) {
+        return BuilderWoc{
+            .index = vec[idx],
+            .value = Builder::FF::zero(),
+            .is_constant = false,
+        };
+    } else if constexpr (std::is_same_v<Elem, field_t<Builder>>) {
+        return BuilderWoc{
+            .index = vec[idx].get_witness_index(),
+            .value = vec[idx].get_value(),
+            .is_constant = vec[idx].is_constant(),
+        };
+    } else {
+        static_assert(always_false_v<Elem>, "Unsupported vector element type for WitnessOrConstant conversion.");
+    }
+}
+
+template <typename Builder, typename Vec>
+std::vector<typename Builder::acir_opcode_io_record::WitnessOrConstant> witness_or_constant_vector_from_vector(
+    const Vec& vec)
+{
+    using BuilderWoc = typename Builder::acir_opcode_io_record::WitnessOrConstant;
+    std::vector<BuilderWoc> result;
+    result.reserve(vec.size());
+    for (size_t i = 0; i < vec.size(); ++i) {
+        result.emplace_back(witness_or_constant_from_vector<Builder>(vec, i));
+    }
+    return result;
+}
 
 } // namespace acir_format

@@ -12,6 +12,7 @@
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_rho.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_theta.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 namespace bb::stdlib {
 
 using namespace bb::plookup;
@@ -483,20 +484,7 @@ std::array<field_t<Builder>, keccak<Builder>::NUM_KECCAK_LANES> keccak<Builder>:
     compute_twisted_state(internal);
     keccakf1600(internal);
     // we convert back to the normal lanes
-    auto permutation_result = extended_2_normal(internal);
-
-    if (ctx->is_write_vk_mode()) {
-        // Register input->output witness mapping for ACIR static analysis.
-        auto to_witness_indices = [](const auto& fields) {
-            std::vector<uint32_t> indices(fields.size());
-            std::transform(
-                fields.begin(), fields.end(), indices.begin(), [](const auto& f) { return f.get_witness_index(); });
-            return indices;
-        };
-        ctx->acir_opcode_io.register_io(to_witness_indices(state), to_witness_indices(permutation_result));
-    }
-
-    return permutation_result;
+    return extended_2_normal(internal);
 }
 
 // Convert the 'extended' representation of the internal Keccak state into the usual array of KECCAK_LANE_SIZE bit lanes
