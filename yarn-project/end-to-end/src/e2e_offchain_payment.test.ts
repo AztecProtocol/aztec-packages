@@ -17,7 +17,7 @@ import { proveInteraction } from './test-wallet/utils.js';
 
 const TIMEOUT = 120_000;
 
-describe('e2e_offchain_payment_qr', () => {
+describe('e2e_offchain_payment', () => {
   let contract: OffchainPaymentContract;
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin;
