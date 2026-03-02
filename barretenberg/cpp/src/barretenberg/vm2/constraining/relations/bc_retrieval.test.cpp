@@ -344,6 +344,7 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRetrievalFewerMock
     FF class_id = poseidon2.hash(
         { DOM_SEP__CONTRACT_CLASS_ID, klass.artifact_hash, klass.private_functions_root, bytecode_commitment });
     instance.current_contract_class_id = class_id;
+    klass.id = class_id;
     contract_instance_retrieval_builder.process({ {
                                                     .address = instance.deployer,
                                                     .contract_instance = { instance },
@@ -353,14 +354,11 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRetrievalFewerMock
                                                 } },
                                                 trace);
 
-    ContractClassWithCommitment klass_with_commitment = {
-        .id = instance.current_contract_class_id,
-        .artifact_hash = klass.artifact_hash,
-        .private_functions_root = klass.private_functions_root,
-        .packed_bytecode = klass.packed_bytecode,
-        .public_bytecode_commitment = bytecode_commitment,
-    };
-    class_id_builder.process({ { .klass = klass_with_commitment } }, trace);
+    class_id_builder.process({ { .class_id = klass.id,
+                                 .artifact_hash = klass.artifact_hash,
+                                 .private_functions_root = klass.private_functions_root,
+                                 .public_bytecode_commitment = bytecode_commitment } },
+                             trace);
 
     AppendOnlyTreeSnapshot snapshot_before = retrieved_bytecodes_tree_check.get_snapshot();
 
@@ -431,6 +429,7 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRepeatedRetrievalF
     FF class_id = poseidon2.hash(
         { DOM_SEP__CONTRACT_CLASS_ID, klass.artifact_hash, klass.private_functions_root, bytecode_commitment });
     instance.current_contract_class_id = class_id;
+    klass.id = class_id;
     contract_instance_retrieval_builder.process({ {
                                                     .address = instance.deployer,
                                                     .contract_instance = { instance },
@@ -439,14 +438,11 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRepeatedRetrievalF
                                                     .exists = true,
                                                 } },
                                                 trace);
-    ContractClassWithCommitment klass_with_commitment = {
-        .id = instance.current_contract_class_id,
-        .artifact_hash = klass.artifact_hash,
-        .private_functions_root = klass.private_functions_root,
-        .packed_bytecode = klass.packed_bytecode,
-        .public_bytecode_commitment = bytecode_commitment,
-    };
-    class_id_builder.process({ { .klass = klass_with_commitment } }, trace);
+    class_id_builder.process({ { .class_id = klass.id,
+                                 .artifact_hash = klass.artifact_hash,
+                                 .private_functions_root = klass.private_functions_root,
+                                 .public_bytecode_commitment = bytecode_commitment } },
+                             trace);
 
     AppendOnlyTreeSnapshot snapshot_before = retrieved_bytecodes_tree_check.get_snapshot();
 
