@@ -9,29 +9,58 @@
 #include <cstdint>
 
 // NOLINTBEGIN(readability-implicit-bool-conversion)
+
+/**
+ * @brief Fixed-window non-adjacent form (WNAF) scalar decomposition for elliptic curve scalar multiplication.
+ *
+ * @details WNAF decomposes a scalar into a sequence of odd signed digits in the range [-(2^w - 1), 2^w - 1],
+ * where w = wnaf_bits. Each digit is packed into a uint64_t entry with the following bit layout:
+ *
+ *     Bit 63                 32   31   30                   0
+ *    ┌────────────────────────┬────┬──────────────────────────┐
+ *    │      point_index       │sign│     table_index          │
+ *    └────────────────────────┴────┴──────────────────────────┘
+ *
+ *    - table_index (bits 0-30):  abs(digit) >> 1.  Since all digits are odd, the absolute value is always
+ *                                2*k + 1 for some k, so table_index = k. This directly indexes a precomputed
+ *                                lookup table of odd multiples [1·P, 3·P, 5·P, ...].
+ *                                In the Pippenger MSM path, this is the bucket index that determines which
+ *                                bucket the point is accumulated into.
+ *    - sign (bit 31):           0 = positive digit, 1 = negative digit (negate the point's y-coordinate).
+ *    - point_index (bits 32-63): identifies which input point this entry refers to. In single-scalar
+ *                                multiplication this is 0. In multi-scalar multiplication (Pippenger),
+ *                                this records which of the N input points the entry belongs to, since the
+ *                                schedule is later sorted by bucket and the original point ordering is lost.
+ *
+ * The template `wnaf_round` / `fixed_wnaf` variants shift point_index into bits 32+ internally.
+ * The runtime `fixed_wnaf` variant expects the caller to pass point_index pre-shifted.
+ */
 namespace bb::wnaf {
 constexpr size_t SCALAR_BITS = 127;
 
 #define WNAF_SIZE(x) ((bb::wnaf::SCALAR_BITS + (x) - 1) / (x)) // NOLINT(cppcoreguidelines-macro-usage)
+
+/**
+ * @brief Extract a window of `bits` consecutive bits starting at `bit_position` from a 128-bit scalar.
+ *
+ * @tparam bits The number of bits in the window (0 returns 0).
+ * @tparam bit_position The starting bit index within the 128-bit scalar.
+ * @param scalar Pointer to a 128-bit scalar stored as two consecutive uint64_t limbs (little-endian word order).
+ * @return The integer value of the extracted bit window.
+ *
+ * @details We determine which 64-bit limb(s) the window touches by computing
+ *   lo_limb_idx = bit_position / 64  and  hi_limb_idx = (bit_position + bits - 1) / 64.
+ * For the low limb, we right-shift by (bit_position % 64) to align the desired bits to position 0.
+ * If the window fits entirely within one limb (lo_limb_idx == hi_limb_idx), we simply mask off `bits` bits.
+ * Otherwise, the window straddles two limbs: we left-shift the high limb by (64 - bit_position % 64) to place
+ * its contributing bits adjacent to the low limb's bits, OR them together, and then mask to `bits` bits.
+ */
 
 template <size_t bits, size_t bit_position> inline uint64_t get_wnaf_bits_const(const uint64_t* scalar) noexcept
 {
     if constexpr (bits == 0) {
         return 0ULL;
     } else {
-        /**
-         *  we want to take a 128 bit scalar and shift it down by (bit_position).
-         * We then wish to mask out `bits` number of bits.
-         * Low limb contains first 64 bits, so we wish to shift this limb by (bit_position mod 64), which is also
-         * (bit_position & 63) If we require bits from the high limb, these need to be shifted left, not right. Actual
-         * bit position of bit in high limb = `b`. Desired position = 64 - (amount we shifted low limb by) = 64 -
-         * (bit_position & 63)
-         *
-         * So, step 1:
-         * get low limb and shift right by (bit_position & 63)
-         * get high limb and shift left by (64 - (bit_position & 63))
-         *
-         */
         constexpr size_t lo_limb_idx = bit_position / 64;
         constexpr size_t hi_limb_idx = (bit_position + bits - 1) / 64;
         constexpr uint64_t lo_shift = bit_position & 63UL;
@@ -48,21 +77,17 @@ template <size_t bits, size_t bit_position> inline uint64_t get_wnaf_bits_const(
     }
 }
 
+/**
+ * @brief A variant of the previous function that the bit position and number of bits are provided at runtime.
+ *
+ * @param scalar Pointer to a 128-bit scalar stored as two consecutive uint64_t limbs (little-endian word order).
+ * @param bits The number of bits in the window (0 returns 0).
+ * @param bit_position The starting bit index within the 128-bit scalar.
+ * @return The integer value of the extracted bit window.
+ */
 inline uint64_t get_wnaf_bits(const uint64_t* scalar, const uint64_t bits, const uint64_t bit_position) noexcept
 {
-    /**
-     *  we want to take a 128 bit scalar and shift it down by (bit_position).
-     * We then wish to mask out `bits` number of bits.
-     * Low limb contains first 64 bits, so we wish to shift this limb by (bit_position mod 64), which is also
-     * (bit_position & 63) If we require bits from the high limb, these need to be shifted left, not right. Actual bit
-     * position of bit in high limb = `b`. Desired position = 64 - (amount we shifted low limb by) = 64 - (bit_position
-     * & 63)
-     *
-     * So, step 1:
-     * get low limb and shift right by (bit_position & 63)
-     * get high limb and shift left by (64 - (bit_position & 63))
-     *
-     */
+
     const auto lo_limb_idx = static_cast<size_t>(bit_position >> 6);
     const auto hi_limb_idx = static_cast<size_t>((bit_position + bits - 1) >> 6);
     const uint64_t lo_shift = bit_position & 63UL;
@@ -79,8 +104,8 @@ inline uint64_t get_wnaf_bits(const uint64_t* scalar, const uint64_t bits, const
 /**
  * @brief Performs fixed-window non-adjacent form (WNAF) computation for scalar multiplication.
  *
- * WNAF is a method for representing integers which optimizes the number of non-zero terms, which in turn optimizes
- * the number of point doublings in scalar multiplication, in turn aiding efficiency.
+ * @details WNAF is a method for representing integers which optimizes the number of non-zero terms, which in turn
+ * optimizes the number of point doublings in scalar multiplication, in turn aiding efficiency.
  *
  * @param scalar Pointer to 128-bit scalar for which WNAF is to be computed.
  * @param wnaf Pointer to num_points+1 size array where the computed WNAF will be stored.
@@ -96,16 +121,29 @@ inline void fixed_wnaf(const uint64_t* scalar,
                        const uint64_t num_points,
                        const size_t wnaf_bits) noexcept
 {
+    // If the scalar is even, we set the skew map to true. The skew is used to subtract a base point from the msm result
+    // in case scalar is even.
     skew_map = ((scalar[0] & 1) == 0);
+    // The first slice is the least significant slice of the scalar.
     uint64_t previous = get_wnaf_bits(scalar, wnaf_bits, 0) + static_cast<uint64_t>(skew_map);
     const size_t wnaf_entries = (SCALAR_BITS + wnaf_bits - 1) / wnaf_bits;
 
+    // For the rest we start a rolling window of wnaf_bits bits, and compute the wnaf slice.
     for (size_t round_i = 1; round_i < wnaf_entries - 1; ++round_i) {
         uint64_t slice = get_wnaf_bits(scalar, wnaf_bits, round_i * wnaf_bits);
+        // Check if the slice is even. This will be used to borrow from the previous slice.
         uint64_t predicate = ((slice & 1UL) == 0UL);
+        // If the current slice is odd (predicate=0), the WNAF digit is simply `previous`.
+        // If even (predicate=1), we borrow: subtract 2^wnaf_bits from `previous` to get a
+        // negative value, then negate via XOR with all-ones (two's complement identity:
+        // -x = ~x + 1, but we immediately shift right by 1, absorbing the +1 since the
+        // result is guaranteed odd). The >> 1 converts from the raw odd value to a bucket
+        // index (e.g., value 5 → bucket 2, value 7 → bucket 3). Bit 31 stores the sign
+        // (1 = negative), and the upper bits carry point_index for multi-scalar indexing.
         wnaf[(wnaf_entries - round_i) * num_points] =
-            ((((previous - (predicate << (wnaf_bits /*+ 1*/))) ^ (0UL - predicate)) >> 1UL) | (predicate << 31UL)) |
+            ((((previous - (predicate << wnaf_bits)) ^ (0UL - predicate)) >> 1UL) | (predicate << 31UL)) |
             (point_index);
+        // Carry the borrow into the next window: if we borrowed, add 1 to the current slice.
         previous = slice + predicate;
     }
     size_t final_bits = SCALAR_BITS - (wnaf_bits * (wnaf_entries - 1));
@@ -113,11 +151,19 @@ inline void fixed_wnaf(const uint64_t* scalar,
     uint64_t predicate = ((slice & 1UL) == 0UL);
 
     wnaf[num_points] =
-        ((((previous - (predicate << (wnaf_bits /*+ 1*/))) ^ (0UL - predicate)) >> 1UL) | (predicate << 31UL)) |
-        (point_index);
+        ((((previous - (predicate << (wnaf_bits))) ^ (0UL - predicate)) >> 1UL) | (predicate << 31UL)) | (point_index);
     wnaf[0] = ((slice + predicate) >> 1UL) | (point_index);
 }
 
+/**
+ * @brief Recursive WNAF round for a fixed 127-bit scalar (SCALAR_BITS).
+ *
+ * @details Processes one window per recursive call, using compile-time unrolling via `round_i`.
+ * Uses the runtime `get_wnaf_bits` for bit extraction. The WNAF output array is interleaved:
+ * entry for round `r` is stored at index `(wnaf_entries - r) << log2(num_points)`, so that
+ * entries for the same round across different points are contiguous for cache locality.
+ * Each entry packs: bits [0..30] = lookup table index, bit 31 = sign, bits [32..63] = point_index.
+ */
 template <size_t num_points, size_t wnaf_bits, size_t round_i>
 inline void wnaf_round(uint64_t* scalar, uint64_t* wnaf, const uint64_t point_index, const uint64_t previous) noexcept
 {
@@ -128,21 +174,29 @@ inline void wnaf_round(uint64_t* scalar, uint64_t* wnaf, const uint64_t point_in
         uint64_t slice = get_wnaf_bits(scalar, wnaf_bits, round_i * wnaf_bits);
         uint64_t predicate = ((slice & 1UL) == 0UL);
         wnaf[(wnaf_entries - round_i) << log2_num_points] =
-            ((((previous - (predicate << (wnaf_bits /*+ 1*/))) ^ (0UL - predicate)) >> 1UL) | (predicate << 31UL)) |
+            ((((previous - (predicate << wnaf_bits)) ^ (0UL - predicate)) >> 1UL) | (predicate << 31UL)) |
             (point_index << 32UL);
         wnaf_round<num_points, wnaf_bits, round_i + 1>(scalar, wnaf, point_index, slice + predicate);
     } else {
         constexpr size_t final_bits = SCALAR_BITS - (SCALAR_BITS / wnaf_bits) * wnaf_bits;
         uint64_t slice = get_wnaf_bits(scalar, final_bits, (wnaf_entries - 1) * wnaf_bits);
-        // uint64_t slice = get_wnaf_bits_const<final_bits, (wnaf_entries - 1) * wnaf_bits>(scalar);
         uint64_t predicate = ((slice & 1UL) == 0UL);
         wnaf[num_points] =
-            ((((previous - (predicate << (wnaf_bits /*+ 1*/))) ^ (0UL - predicate)) >> 1UL) | (predicate << 31UL)) |
+            ((((previous - (predicate << wnaf_bits)) ^ (0UL - predicate)) >> 1UL) | (predicate << 31UL)) |
             (point_index << 32UL);
         wnaf[0] = ((slice + predicate) >> 1UL) | (point_index << 32UL);
     }
 }
 
+/**
+ * @brief Recursive WNAF round for an arbitrary-width scalar.
+ *
+ * @details Same algorithm as the SCALAR_BITS overload above, but parametrized by `scalar_bits` so it can
+ * handle scalars of any bit width (e.g., after an endomorphism split produces shorter scalars).
+ * Uses the compile-time `get_wnaf_bits_const` for bit extraction since all parameters are template constants.
+ * Correctly handles the edge case where `scalar_bits` is an exact multiple of `wnaf_bits` (the final
+ * window is a full `wnaf_bits` wide rather than the remainder).
+ */
 template <size_t scalar_bits, size_t num_points, size_t wnaf_bits, size_t round_i>
 inline void wnaf_round(uint64_t* scalar, uint64_t* wnaf, const uint64_t point_index, const uint64_t previous) noexcept
 {
@@ -153,7 +207,7 @@ inline void wnaf_round(uint64_t* scalar, uint64_t* wnaf, const uint64_t point_in
         uint64_t slice = get_wnaf_bits_const<wnaf_bits, round_i * wnaf_bits>(scalar);
         uint64_t predicate = ((slice & 1UL) == 0UL);
         wnaf[(wnaf_entries - round_i) << log2_num_points] =
-            ((((previous - (predicate << (wnaf_bits /*+ 1*/))) ^ (0UL - predicate)) >> 1UL) | (predicate << 31UL)) |
+            ((((previous - (predicate << wnaf_bits)) ^ (0UL - predicate)) >> 1UL) | (predicate << 31UL)) |
             (point_index << 32UL);
         wnaf_round<scalar_bits, num_points, wnaf_bits, round_i + 1>(scalar, wnaf, point_index, slice + predicate);
     } else {
@@ -163,7 +217,7 @@ inline void wnaf_round(uint64_t* scalar, uint64_t* wnaf, const uint64_t point_in
         uint64_t slice = get_wnaf_bits_const<final_bits, (wnaf_entries - 1) * wnaf_bits>(scalar);
         uint64_t predicate = ((slice & 1UL) == 0UL);
         wnaf[num_points] =
-            ((((previous - (predicate << (wnaf_bits /*+ 1*/))) ^ (0UL - predicate)) >> 1UL) | (predicate << 31UL)) |
+            ((((previous - (predicate << wnaf_bits)) ^ (0UL - predicate)) >> 1UL) | (predicate << 31UL)) |
             (point_index << 32UL);
         wnaf[0] = ((slice + predicate) >> 1UL) | (point_index << 32UL);
     }
