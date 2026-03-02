@@ -581,7 +581,7 @@ function bootstrap_on_mac_vm {
 set -euo pipefail
 git clone --depth=1 --branch=$(git branch --show-current) https://github.com/aztecprotocol/aztec-packages
 cd aztec-packages
-./bootstrap.sh install_deps
+./bootstrap.sh install_deps </dev/null
 zsh -l -i -c "./bootstrap.sh gentle"
 REMOTE_EOF
   /mnt/user-data/macos/ssh.sh $name -t zsh -l /tmp/mac_bootstrap.sh
