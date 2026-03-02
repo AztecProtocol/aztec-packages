@@ -49,7 +49,11 @@ export class BotFactory {
     private readonly store: BotStore,
     private readonly aztecNode: AztecNode,
     private readonly aztecNodeAdmin?: AztecNodeAdmin,
-  ) {}
+  ) {
+    // Set fee padding on the wallet so that all transactions during setup
+    // (token deploy, minting, etc.) use the configured padding, not the default.
+    this.wallet.setMinFeePadding(config.minFeePadding);
+  }
 
   /**
    * Initializes a new bot by setting up the sender account, registering the recipient,
