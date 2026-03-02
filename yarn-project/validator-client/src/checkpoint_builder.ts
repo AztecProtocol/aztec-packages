@@ -172,12 +172,8 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     const usedMana = sum(existingBlocks.map(b => b.header.totalManaUsed.toNumber()));
     const remainingMana = this.config.rollupManaLimit - usedMana;
 
-    // Remaining DA gas: DA gas = tx blob fields * DA_GAS_PER_FIELD
-    // IMPORTANT: This assumes DA gas is computed solely based on the number of blob fields in transactions
-    // This may change in the future, but we cannot access the actual DA gas used in a block since it's not exposed
-    // in the L2BlockHeader, so we have to rely on recomputing it here.
-    const usedDAGas =
-      sum(existingBlocks.map(b => sum(b.body.txEffects.map(tx => tx.getNumBlobFields())))) * DA_GAS_PER_FIELD;
+    // Remaining DA gas
+    const usedDAGas = sum(existingBlocks.map(b => b.computeDAGasUsed())) ?? 0;
     const remainingDAGas = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT - usedDAGas;
 
     // Remaining blob fields (block blob fields include both tx data and block-end overhead)
