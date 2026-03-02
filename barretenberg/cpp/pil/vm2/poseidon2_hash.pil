@@ -8,7 +8,7 @@ include "precomputed.pil";
  *      from the below constraints that `num_perm_rounds_rem == 1` and `end ==1`.
  *
  *      Example (nullifier_check.pil):
- *             should_silo   { siloing_separator, address, nullifier, siloed_nullifier, const_three }
+ *             sel_silo   { siloing_separator, address, nullifier, siloed_nullifier, const_three }
  *   in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1,
  *                           poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.input_len };
  *
