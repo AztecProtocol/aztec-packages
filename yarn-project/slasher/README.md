@@ -185,7 +185,7 @@ These settings are configured locally on each validator node:
 - `slashProposeInvalidAttestationsPenalty`: Penalty for PROPOSED_INSUFFICIENT_ATTESTATIONS and PROPOSED_INCORRECT_ATTESTATIONS
 - `slashAttestDescendantOfInvalidPenalty`: Penalty for ATTESTED_DESCENDANT_OF_INVALID
 - `slashUnknownPenalty`: Default penalty for unknown offense types
-- `slashMaxPayloadSize`: Maximum size of slash payloads (empire model)
+- `slashMaxPayloadSize`: Maximum size of slash payloads. In the empire model this limits offenses per payload; in the tally model it limits offenses considered when building the vote for a round (same prioritization: uncontroversial first, then by amount and age), so that execution payload stays within gas limits.
 - `slashMinPenaltyPercentage`: Agree to slashes if they are at least this percentage of the configured penalty (empire model)
 - `slashMaxPenaltyPercentage`: Agree to slashes if they are at most this percentage of the configured penalty (empire model)
 
