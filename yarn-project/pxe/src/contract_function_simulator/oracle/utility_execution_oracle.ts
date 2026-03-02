@@ -564,7 +564,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
 
     // TODO: optimize, we might be hitting the node to get the same txHash repeatedly
-    // TODO: we should be querying at the anchor block
+    const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
     const maybeMessageContexts = await Promise.all(
       requestCapsules.map(async fields => {
         // TODO: clarify that txHash=0 means no txHash
@@ -576,7 +576,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
         const txHash = TxHash.fromField(txHashField);
         const txEffect = await this.aztecNode.getTxEffect(txHash);
-        if (!txEffect) {
+        if (!txEffect || txEffect.l2BlockNumber > anchorBlockNumber) {
           return null;
         }
 
@@ -589,10 +589,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       }),
     );
 
-    // Requests are cleared once we're done.
+    // Clear request capsule
     await this.capsuleStore.setCapsuleArray(contractAddress, messageContextRequestsArrayBaseSlot, [], this.jobId);
 
-    // Store Option<MessageTxContext> in the response capsule array.
+    // Leave response in response capsule array.
     await this.capsuleStore.setCapsuleArray(
       contractAddress,
       messageContextResponsesArrayBaseSlot,
