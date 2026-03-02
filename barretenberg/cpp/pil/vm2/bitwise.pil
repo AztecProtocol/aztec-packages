@@ -88,7 +88,7 @@ namespace bitwise;
 // Multi-row Computation Selectors (standard recipe)
 ////////////////////////////////////////////////
 // Follows the recipe documented in:
-// https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Contiguous-Multi-Rows-Computation-Trace
+// https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
 
 // Selector for active Bitwise block rows.
 // In the standard recipe, sel=1 for ALL rows in a block, including error rows.
