@@ -1096,13 +1096,8 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_blake_constraint_internal(
     using field_ct = bb::stdlib::field_t<CircuitBuilder>;
 
     // 1. Verify input byte range constraints
-    std::vector<uint32_t> input_indices;
-    input_indices.reserve(inputs.size());
     for (const auto& input : inputs) {
-        if (input.is_constant) {
-            input_indices.push_back(bb::stdlib::IS_CONSTANT);
-        } else {
-            input_indices.push_back(input.index);
+        if (!input.is_constant) {
             // Each non-constant input byte must have an 8-bit range constraint
             if (!is_range_constrained_via_limb_lookup<FF>(analyzer, builder, input.index, 255)) {
                 return false;
@@ -1112,7 +1107,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_blake_constraint_internal(
 
     // 2. Look up the registered outputs for these inputs
     const auto& io_map = builder.acir_opcode_io.io_map;
-    auto it = io_map.find(input_indices);
+    auto it = io_map.find(witness_or_constant_vector_from_vector<CircuitBuilder>(inputs));
     if (it == io_map.end()) {
         return false;
     }
@@ -1122,23 +1117,22 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_blake_constraint_internal(
         return false;
     }
 
-    // Use the last registered output (in case of multiple calls with same inputs)
-    const auto& output_indices = all_outputs.back();
-    if (output_indices.size() != result.size()) {
-        return false;
-    }
+    for (const auto& outputs_vector : all_outputs) {
+        // unexpected
+        BB_ASSERT_EQ(outputs_vector.size(), result.size(), "Output size mismatch");
 
-    // 3. Verify each output is connected to the corresponding constraint result via assert_equal
-    for (size_t i = 0; i < output_indices.size(); i++) {
-        Field<CircuitBuilder> output_field{ output_indices[i],
-                                            field_ct::from_witness_index(&builder, output_indices[i]) };
-        Field<CircuitBuilder> result_field{ result[i], field_ct::from_witness_index(&builder, result[i]) };
-        if (!is_assert_equal_exists<FF>(analyzer, builder, output_field, result_field)) {
-            return false;
+        auto condition = true;
+        for (size_t i = 0; i < outputs_vector.size(); i++) {
+            Field<CircuitBuilder> output_field{ outputs_vector[i].index,
+                                                field_ct::from_witness_index(&builder, outputs_vector[i].index) };
+            Field<CircuitBuilder> result_field{ result[i], field_ct::from_witness_index(&builder, result[i]) };
+            condition &= is_assert_equal_exists<FF>(analyzer, builder, output_field, result_field);
+        }
+        if (condition) {
+            return true;
         }
     }
-
-    return true;
+    return false;
 }
 
 /**

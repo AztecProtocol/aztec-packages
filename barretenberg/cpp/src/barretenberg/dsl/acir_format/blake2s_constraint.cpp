@@ -6,6 +6,7 @@
 
 #include "blake2s_constraint.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/stdlib/hash/blake2s/blake2s.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 
@@ -37,17 +38,8 @@ template <typename Builder> void create_blake2s_constraints(Builder& builder, co
 
     if (builder.is_write_vk_mode()) {
         // Register input->output witness mapping for ACIR static analysis.
-        std::vector<uint32_t> input_indices;
-        input_indices.reserve(constraint.inputs.size());
-        for (const auto& input : constraint.inputs) {
-            input_indices.push_back(input.is_constant ? bb::stdlib::IS_CONSTANT : input.index);
-        }
-        std::vector<uint32_t> output_indices(output_bytes.bytes().size());
-        std::transform(output_bytes.bytes().begin(),
-                       output_bytes.bytes().end(),
-                       output_indices.begin(),
-                       [](const auto& f) { return f.get_witness_index(); });
-        builder.acir_opcode_io.register_io(std::move(input_indices), std::move(output_indices));
+        builder.acir_opcode_io.register_io(witness_or_constant_vector_from_vector<Builder>(constraint.inputs),
+                                           witness_or_constant_vector_from_vector<Builder>(output_bytes));
     }
 
     for (const auto& [output_byte, result_byte_idx] : zip_view(output_bytes.bytes(), constraint.result)) {
