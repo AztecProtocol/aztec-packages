@@ -24,8 +24,7 @@ class KeccakConstraintsTests : public ::testing::Test {
 
 namespace {
 
-template <typename... Constraints>
-AcirFormat build_acir_format(uint32_t max_witness_index, const Constraints&... constraints)
+template <typename... Constraints> AcirFormat build_acir_format(const Constraints&... constraints)
 {
     std::vector<Acir::Opcode> opcodes;
     auto collect = [&opcodes](const auto& constraint) {
@@ -33,15 +32,14 @@ AcirFormat build_acir_format(uint32_t max_witness_index, const Constraints&... c
         opcodes.insert(opcodes.end(), ops.begin(), ops.end());
     };
     (collect(constraints), ...);
-    (void)max_witness_index;
     return circuit_serde_to_acir_format(build_acir_circuit(opcodes));
 }
 
 /**
  * @brief Generate a valid Keccakf1600 constraint with correct witness values
- * @return Pair of (constraint, witness_values)
+ * @return Constraint
  */
-std::pair<Keccakf1600, WitnessVector> generate_valid_keccak_constraint()
+Keccakf1600 generate_valid_keccak_constraint()
 {
     Keccakf1600 keccak_constraint;
     WitnessVector witness_values;
@@ -67,15 +65,14 @@ std::pair<Keccakf1600, WitnessVector> generate_valid_keccak_constraint()
         keccak_constraint.result[i] = output_indices[i];
     }
 
-    return { keccak_constraint, witness_values };
+    return keccak_constraint;
 }
 
 /**
  * @brief Generate a keccak constraint where specified lanes are constants instead of witnesses
  * @param constant_lanes Set of lane indices (0-24) to make constant
  */
-std::pair<Keccakf1600, WitnessVector> generate_keccak_constraint_with_constants(
-    const std::unordered_set<size_t>& constant_lanes)
+Keccakf1600 generate_keccak_constraint_with_constants(const std::unordered_set<size_t>& constant_lanes)
 {
     Keccakf1600 keccak_constraint;
     WitnessVector witness_values;
@@ -103,7 +100,7 @@ std::pair<Keccakf1600, WitnessVector> generate_keccak_constraint_with_constants(
         keccak_constraint.result[i] = output_indices[i];
     }
 
-    return { keccak_constraint, witness_values };
+    return keccak_constraint;
 }
 
 } // namespace
@@ -113,9 +110,9 @@ std::pair<Keccakf1600, WitnessVector> generate_keccak_constraint_with_constants(
  */
 TEST_F(KeccakConstraintsTests, ValidKeccakPermutation)
 {
-    auto [keccak_constraint, witness_values] = generate_valid_keccak_constraint();
+    auto keccak_constraint = generate_valid_keccak_constraint();
 
-    auto constraint_system = build_acir_format(static_cast<uint32_t>(witness_values.size() - 1), keccak_constraint);
+    auto constraint_system = build_acir_format(keccak_constraint);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     auto incorrect_opcodes = analyzer.get_incorrect_opcodes();
@@ -127,9 +124,9 @@ TEST_F(KeccakConstraintsTests, ValidKeccakPermutation)
  */
 TEST_F(KeccakConstraintsTests, ValidKeccakPermutationMega)
 {
-    auto [keccak_constraint, witness_values] = generate_valid_keccak_constraint();
+    auto keccak_constraint = generate_valid_keccak_constraint();
 
-    auto constraint_system = build_acir_format(static_cast<uint32_t>(witness_values.size() - 1), keccak_constraint);
+    auto constraint_system = build_acir_format(keccak_constraint);
 
     auto analyzer = StaticAnalyzerAcirMega(std::move(constraint_system));
     auto incorrect_opcodes = analyzer.get_incorrect_opcodes();
@@ -143,10 +140,10 @@ TEST_F(KeccakConstraintsTests, ValidKeccakPermutationMega)
  */
 TEST_F(KeccakConstraintsTests, DetectCorruptedOutputConnection)
 {
-    auto [keccak_constraint, witness_values] = generate_valid_keccak_constraint();
+    auto keccak_constraint = generate_valid_keccak_constraint();
 
     // Build AcirFormat and circuit with the valid constraint
-    auto constraint_system = build_acir_format(static_cast<uint32_t>(witness_values.size() - 1), keccak_constraint);
+    auto constraint_system = build_acir_format(keccak_constraint);
     AcirProgram program{ constraint_system };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
 
@@ -163,9 +160,9 @@ TEST_F(KeccakConstraintsTests, DetectCorruptedOutputConnection)
  */
 TEST_F(KeccakConstraintsTests, DetectCorruptedOutputConnectionMega)
 {
-    auto [keccak_constraint, witness_values] = generate_valid_keccak_constraint();
+    auto keccak_constraint = generate_valid_keccak_constraint();
 
-    auto constraint_system = build_acir_format(static_cast<uint32_t>(witness_values.size() - 1), keccak_constraint);
+    auto constraint_system = build_acir_format(keccak_constraint);
     AcirProgram program{ constraint_system };
     auto builder = create_circuit<MegaCircuitBuilder>(program);
 
@@ -182,9 +179,9 @@ TEST_F(KeccakConstraintsTests, DetectCorruptedOutputConnectionMega)
  */
 TEST_F(KeccakConstraintsTests, ValidKeccakPermutationWithConstantInputs)
 {
-    auto [keccak_constraint, witness_values] = generate_keccak_constraint_with_constants({ 0, 1, 2, 3, 4 });
+    auto keccak_constraint = generate_keccak_constraint_with_constants({ 0, 1, 2, 3, 4 });
 
-    auto constraint_system = build_acir_format(static_cast<uint32_t>(witness_values.size() - 1), keccak_constraint);
+    auto constraint_system = build_acir_format(keccak_constraint);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     auto incorrect_opcodes = analyzer.get_incorrect_opcodes();
@@ -196,9 +193,9 @@ TEST_F(KeccakConstraintsTests, ValidKeccakPermutationWithConstantInputs)
  */
 TEST_F(KeccakConstraintsTests, ValidKeccakPermutationWithSingleConstantMega)
 {
-    auto [keccak_constraint, witness_values] = generate_keccak_constraint_with_constants({ 12 });
+    auto keccak_constraint = generate_keccak_constraint_with_constants({ 12 });
 
-    auto constraint_system = build_acir_format(static_cast<uint32_t>(witness_values.size() - 1), keccak_constraint);
+    auto constraint_system = build_acir_format(keccak_constraint);
 
     auto analyzer = StaticAnalyzerAcirMega(std::move(constraint_system));
     auto incorrect_opcodes = analyzer.get_incorrect_opcodes();
@@ -210,10 +207,9 @@ TEST_F(KeccakConstraintsTests, ValidKeccakPermutationWithSingleConstantMega)
  */
 TEST_F(KeccakConstraintsTests, ValidKeccakPermutationRepeatedConstraint)
 {
-    auto [keccak_constraint, witness_values] = generate_valid_keccak_constraint();
+    auto keccak_constraint = generate_valid_keccak_constraint();
 
-    auto constraint_system =
-        build_acir_format(static_cast<uint32_t>(witness_values.size() - 1), keccak_constraint, keccak_constraint);
+    auto constraint_system = build_acir_format(keccak_constraint, keccak_constraint);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     auto incorrect_opcodes = analyzer.get_incorrect_opcodes();
@@ -230,9 +226,9 @@ TEST_F(KeccakConstraintsTests, ValidKeccakPermutationAllConstantInputs)
     for (size_t i = 0; i < KECCAKF1600_LANES; ++i) {
         constant_lanes.insert(i);
     }
-    auto [keccak_constraint, witness_values] = generate_keccak_constraint_with_constants(constant_lanes);
+    auto keccak_constraint = generate_keccak_constraint_with_constants(constant_lanes);
 
-    auto constraint_system = build_acir_format(static_cast<uint32_t>(witness_values.size() - 1), keccak_constraint);
+    auto constraint_system = build_acir_format(keccak_constraint);
 
     auto analyzer = StaticAnalyzerAcir(std::move(constraint_system));
     auto incorrect_opcodes = analyzer.get_incorrect_opcodes();
