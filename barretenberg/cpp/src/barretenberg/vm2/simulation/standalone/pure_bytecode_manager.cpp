@@ -4,11 +4,8 @@
 
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/common/constants.hpp"
-#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/simulation/interfaces/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/interfaces/contract_instance_manager.hpp"
@@ -91,6 +88,7 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
     }
 
     // Contract class retrieval and class ID validation
+
     std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
     // Note: we don't need to silo and check the class id because the deployer contract guarantees
     // that if a contract instance exists, the class has been registered.
@@ -100,6 +98,7 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
 
     // We now save the bytecode against the class id so that we don't repeat this process for the same class.
     bytecodes[bytecode_id] = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));
+
     return bytecode_id;
 }
 

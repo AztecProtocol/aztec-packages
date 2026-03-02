@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v5.0.0-nightly.20260224
+Version: v5.0.0-nightly.20260302
 
 ## Quick Import Reference
 
@@ -132,6 +132,7 @@ new BlockHash(hash: Fr)
 - `[custom]() => string`
 - `add(rhs: Fr) => Fr` - Arithmetic
 - `static cmp(lhs: BaseField, rhs: BaseField) => -1 | 0 | 1`
+- `static cmpAsBigInt(lhs: bigint, rhs: bigint) => -1 | 0 | 1`
 - `div(rhs: Fr) => Fr`
 - `ediv(rhs: Fr) => Fr`
 - `equals(rhs: BaseField) => boolean`
@@ -521,18 +522,6 @@ new DebugLog(contractAddress: AztecAddress, level: "silent" | "fatal" | "error" 
 **Methods**
 - `static fromPlainObject(obj: any) => DebugLog` - Creates a DebugLog from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 
-### DirectionalAppTaggingSecret
-
-Directional application tagging secret used for log tagging. "Directional" because the derived secret is bound to the recipient address: A→B differs from B→A even with the same participants and app. Note: It's a bit unfortunate that this type resides in `stdlib` as the rest of the tagging functionality resides in `pxe/src/tagging`. We need to use this type in `PreTag` that in turn is used by other types in stdlib hence there doesn't seem to be a good way around this.
-
-**Properties**
-- `readonly value: Fr`
-
-**Methods**
-- `static compute(localAddress: CompleteAddress, localIvsk: Fq, externalAddress: AztecAddress, app: AztecAddress, recipient: AztecAddress) => Promise<DirectionalAppTaggingSecret>` - Derives shared tagging secret and from that, the app address and recipient derives the directional app tagging secret.
-- `static fromString(str: string) => DirectionalAppTaggingSecret`
-- `toString() => string`
-
 ### EmptyTxValidator
 Implements: `TxValidator<T>`
 
@@ -653,6 +642,19 @@ new ExtendedContractClassLog(id: LogId, log: ContractClassLog)
 - `static random() => Promise<ExtendedContractClassLog>`
 - `toBuffer() => Buffer` - Serializes log to a buffer.
 - `toString() => string` - Serializes log to a string.
+
+### ExtendedDirectionalAppTaggingSecret
+
+Extended directional application tagging secret used for log tagging. "Extended" because it bundles the directional app tagging secret with the app (contract) address. This bundling was done because where this type is used we commonly need access to both the secret and the address. "Directional" because the derived secret is bound to the recipient address: A→B differs from B→A even with the same participants and app. Note: It's a bit unfortunate that this type resides in `stdlib` as the rest of the tagging functionality resides in `pxe/src/tagging`. We need to use this type in `PreTag` that in turn is used by other types in stdlib hence there doesn't seem to be a good way around this.
+
+**Properties**
+- `readonly app: AztecAddress`
+- `readonly secret: Fr`
+
+**Methods**
+- `static compute(localAddress: CompleteAddress, localIvsk: Fq, externalAddress: AztecAddress, app: AztecAddress, recipient: AztecAddress) => Promise<ExtendedDirectionalAppTaggingSecret>` - Derives shared tagging secret and from that, the app address and recipient derives the directional app tagging secret.
+- `static fromString(str: string) => ExtendedDirectionalAppTaggingSecret`
+- `toString() => string`
 
 ### ExtendedPublicLog
 
@@ -1772,7 +1774,8 @@ new SiloedTag(value: Fr)
 - `readonly value: Fr`
 
 **Methods**
-- `static compute(tag: Tag, app: AztecAddress) => Promise<SiloedTag>`
+- `static compute(preTag: PreTag) => Promise<SiloedTag>`
+- `static computeFromTagAndApp(tag: Tag, app: AztecAddress) => Promise<SiloedTag>`
 - `equals(other: SiloedTag) => boolean`
 - `toJSON() => string`
 - `toString() => string`

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
@@ -11,7 +12,7 @@ namespace bb::avm2::simulation {
 /**
  * @brief Performs a little endian radix decomposition of a field element into limbs. This emits a ToRadixEvent.
  *
- * Precondition: radix must be in the range [2, 256].
+ * @note Asserts that radix is in range [2, 256].
  *
  * @param value The field element to decompose.
  * @param num_limbs The number of limbs to decompose into.
@@ -78,16 +79,18 @@ std::pair<std::vector<bool>, /* truncated */ bool> ToRadix::to_le_bits(const FF&
 
 /**
  * @brief Performs a big endian radix decomposition of a field element into limbs. This directly emits a
- * ToRadixMemoryEvent and indirectly emits a ToRadixEvent if no error different that truncation is encountered. The
- * limbs are written to the memory in big endian order at supplied destination address.
+ * ToRadixMemoryEvent and indirectly emits a ToRadixEvent if no error different than truncation is encountered. The
+ * limbs are written to the memory in big endian order at the supplied destination address.
  *
- * @throws ToRadixException if the parameters are invalid:
- * - Radix is less than 2 or greater than 256.
- * - Num limbs is zero and value is not zero.
- * - Radix is not 2 if is_output_bits is true.
- * - The memory slice output is out-of-range.
- * - Truncation error, i.e., the value cannot be fully decomposed into the given number of limbs. Note that the
- *   supplied num_limbs can be greater than the number of limbs that the value decomposes into.
+ * @throws ToRadixException on input validation errors (checked first, all grouped):
+ * - The destination memory slice is out-of-range (dst_addr + num_limbs > AVM_MEMORY_SIZE).
+ * - Radix is less than 2.
+ * - Radix is greater than 256.
+ * - Radix is not 2 while is_output_bits is true.
+ * - Num limbs is zero while value is not zero.
+ * @throws ToRadixException on truncation error (checked after input validation and decomposition):
+ * - The value cannot be fully decomposed into the given number of limbs. Note that the supplied num_limbs can be
+ *   greater than the number of limbs that the value decomposes into.
  *
  * @param memory The memory to write the limbs to.
  * @param value The field element to decompose.
