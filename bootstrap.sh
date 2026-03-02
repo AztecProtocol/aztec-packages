@@ -624,7 +624,7 @@ case "$cmd" in
     if [ -t 1 ]; then
       export DUMP_FAIL=1
     fi
-    CMAKE_BUILD_PARALLEL_LEVEL=$(nproc --ignore=2) CARGO_BUILD_JOBS=$(nproc --ignore=2) MEMSUSPEND=1g make -j1
+    CMAKE_BUILD_PARALLEL_LEVEL=$(nproc --ignore=2) CARGO_BUILD_JOBS=$(nproc --ignore=2) MEMSUSPEND=1g make -j1 "$@"
   ;;
 
   ######################################
