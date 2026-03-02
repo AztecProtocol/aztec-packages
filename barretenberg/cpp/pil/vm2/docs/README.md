@@ -574,3 +574,7 @@ The [Poseidon2 permutation](https://github.com/AztecProtocol/aztec-packages/blob
 ## Skippable mechanism
 
 - Documented here: [https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/skippable.md](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/skippable.md)
+
+## Recipes
+
+- For common recipes and idioms used in the PIL files see: [https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md)
