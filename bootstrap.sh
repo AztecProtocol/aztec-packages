@@ -459,7 +459,7 @@ function retract {
   fi
 
   for project in l1-contracts noir-projects/aztec-nr boxes aztec-up playground release-image; do
-    (cd "$root/$project" && ./bootstrap.sh retract_release)
+    $project/bootstrap.sh retract_release
   done
 }
 

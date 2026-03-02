@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-export AZTEC=$(realpath ../yarn-project/aztec/scripts/aztec.sh)
-export BB=$(realpath ../barretenberg/cpp/build/bin/bb)
-export NARGO=$(realpath ../noir/noir-repo/target/release/nargo)
+export AZTEC=$(realpath $root/yarn-project/aztec/scripts/aztec.sh)
+export BB=$(realpath $root/barretenberg/cpp/build/bin/bb)
+export NARGO=$(realpath $root/noir/noir-repo/target/release/nargo)
 
 hash=$(hash_str \
-  $(../noir/bootstrap.sh hash) \
+  $($root/noir/bootstrap.sh hash) \
   $(cache_content_hash \
-    .rebuild_patterns \
-    ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-    ../barretenberg/*/.rebuild_patterns))
+    $root/boxes/.rebuild_patterns \
+    $root/{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
+    $root/barretenberg/*/.rebuild_patterns))
 
 function build_box {
   cd boxes/$1

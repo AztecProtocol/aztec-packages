@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../yarn-project/bootstrap.sh hash))
+hash=$(hash_str $(cache_content_hash ^aztec-up/) $($root/yarn-project/bootstrap.sh hash))
 
 function build {
   # Create versions.json so we know what to install.
