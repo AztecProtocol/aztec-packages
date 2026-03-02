@@ -1,43 +1,37 @@
 use crate::macros::internals_functions_generation::external_functions_registry::get_public_functions;
 use crate::protocol::meta::utils::get_params_len_quote;
 use crate::utils::cmap::CHashMap;
-use super::utils::compute_fn_selector;
-use std::meta::{ctstring::AsCtString, unquote};
+use super::utils::{compute_fn_selector, compute_selector, get_type};
 
-/// Returns an `fn public_dispatch(...)` function for the given module that's assumed to be an Aztec contract.
+/// Returns an `fn public_dispatch(...)` function for the given module that's assumed to be an
+/// Aztec contract.
 ///
-/// `injected_fn_names` is a list of function names for auto-generated dispatch cases. Each name is
-/// used to compute a no-arg selector and check for collisions with contract functions. The generated
-/// dispatch case calls the function (which must already exist in the module) and returns.
-pub comptime fn generate_public_dispatch(m: Module, injected_fn_names: [Quoted]) -> Quoted {
+/// `injected_fns` carries pre-computed selectors and dispatch cases for auto-generated functions
+/// (built via `InjectedPublicFunction::new`).
+pub(crate) comptime fn generate_public_dispatch(m: Module, injected_fns: [InjectedPublicFunction]) -> Quoted {
     let contract_functions = get_public_functions(m);
 
     let seen_selectors = &mut CHashMap::<Field, Quoted>::new();
 
     let mut dispatch_cases: [Quoted] = contract_functions.map(|function: FunctionDefinition| {
         let fn_name = function.name();
+        let selector = compute_fn_selector(function);
+        check_selector_collision(selector, fn_name, seen_selectors);
         let call_name = f"__aztec_nr_internals__{fn_name}".quoted_contents();
         generate_dispatch_case(
-            compute_fn_selector(function),
-            fn_name,
+            selector,
             call_name,
             function.parameters(),
             function.return_type(),
-            seen_selectors,
         )
     });
 
-    let injected_cases: [Quoted] = injected_fn_names.map(|fn_name: Quoted| {
-        generate_dispatch_case(
-            compute_no_arg_selector(fn_name),
-            fn_name,
-            fn_name,
-            @[],
-            get_type::<()>(),
-            seen_selectors,
-        )
+    let injected_cases = injected_fns.map(|f: InjectedPublicFunction| {
+        let sel = f.selector;
+        let name = f.name;
+        check_selector_collision(sel, name, seen_selectors);
+        f.dispatch_case
     });
-
     dispatch_cases = dispatch_cases.append(injected_cases);
 
     if dispatch_cases.len() == 0 {
@@ -56,36 +50,27 @@ pub comptime fn generate_public_dispatch(m: Module, injected_fn_names: [Quoted])
     }
 }
 
-comptime fn compute_no_arg_selector(fn_name: Quoted) -> Field {
-    let signature = f"{fn_name}()".as_ctstring();
-    let computation_quote = quote {
-        crate::protocol::traits::ToField::to_field(crate::protocol::abis::function_selector::FunctionSelector::from_signature($signature))
-    };
-    unquote!(computation_quote)
+/// Panics if `selector` already exists in `seen_selectors`, otherwise inserts it.
+comptime fn check_selector_collision(selector: Field, name: Quoted, seen_selectors: &mut CHashMap<Field, Quoted>) {
+    let existing = seen_selectors.get(selector);
+    if existing.is_some() {
+        let existing = existing.unwrap();
+        panic(
+            f"Public function selector collision detected between '{name}' and '{existing}'",
+        );
+    }
+    seen_selectors.insert(selector, name);
 }
 
 /// Generates a single dispatch case: an `if` block that matches on the selector, deserializes
 /// calldata into arguments, calls the target function, and returns the result.
 comptime fn generate_dispatch_case(
     selector: Field,
-    display_name: Quoted,
     call_name: Quoted,
     parameters: [(Quoted, Type)],
     return_type: Type,
-    seen_selectors: &mut CHashMap<Field, Quoted>,
 ) -> Quoted {
     let unit = get_type::<()>();
-
-    // Since function selectors are computed as the first 4 bytes of the hash of the function signature, it's
-    // possible to have collisions. With the following check, we ensure it doesn't happen within the same contract.
-    let existing_fn = seen_selectors.get(selector);
-    if existing_fn.is_some() {
-        let existing_fn = existing_fn.unwrap();
-        panic(
-            f"Public function selector collision detected between functions '{display_name}' and '{existing_fn}'",
-        );
-    }
-    seen_selectors.insert(selector, display_name);
 
     let params_len_quote = get_params_len_quote(parameters);
 
@@ -148,7 +133,22 @@ comptime fn generate_dispatch_case(
     }
 }
 
-comptime fn get_type<T>() -> Type {
-    let t: T = std::mem::zeroed();
-    std::meta::type_of(t)
+/// Metadata for an auto-generated public function that needs a dispatch entry.
+///
+/// Pre-computes `selector` and `dispatch_case` at construction time so the struct only holds
+/// scalar fields. This avoids Noir's "nested vectors not supported" limitation that would
+/// occur if we stored `[(Quoted, Type)]` inside a `[InjectedPublicFunction]`.
+pub(crate) struct InjectedPublicFunction {
+    pub(crate) name: Quoted,
+    pub(crate) selector: Field,
+    pub(crate) body: Quoted,
+    pub(crate) dispatch_case: Quoted,
+}
+
+impl InjectedPublicFunction {
+    pub(crate) comptime fn new(name: Quoted, parameters: [(Quoted, Type)], return_type: Type, body: Quoted) -> Self {
+        let selector = compute_selector(name, parameters);
+        let dispatch_case = generate_dispatch_case(selector, name, parameters, return_type);
+        Self { name, selector, body, dispatch_case }
+    }
 }

@@ -9,6 +9,9 @@ use std::meta::{ctstring::AsCtString, unquote};
 
 use crate::{
     context::{PrivateContext, PublicContext},
+    macros::{
+        internals_functions_generation::external_functions_registry::get_public_functions, utils::fn_has_noinitcheck,
+    },
     nullifier::utils::compute_nullifier_existence_request,
     oracle::get_contract_instance::{
         get_contract_instance, get_contract_instance_deployer_avm, get_contract_instance_initialization_hash_avm,
@@ -19,6 +22,13 @@ use crate::{
 ///
 /// This function is injected into the public dispatch table for contracts with initializers.
 pub(crate) comptime global EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME: Quoted = quote { __emit_public_init_nullifier };
+
+/// Returns true if the module has any public functions that require initialization checks (i.e. that don't have
+/// `#[noinitcheck]`). If all public functions skip init checks, there's no point emitting the public init nullifier
+/// since nothing will check it.
+pub(crate) comptime fn has_public_init_checked_functions(m: Module) -> bool {
+    get_public_functions(m).any(|f: FunctionDefinition| !fn_has_noinitcheck(f))
+}
 
 /// Selector for `EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME`, derived at comptime so it stays in sync.
 global EMIT_PUBLIC_INIT_NULLIFIER_SELECTOR: FunctionSelector = comptime {
@@ -51,14 +61,14 @@ fn mark_as_initialized_private(context: &mut PrivateContext) {
     context.push_nullifier(init_nullifier);
 }
 
-/// Emits the private initialization nullifier and enqueues emission of the public one.
+/// Emits the private initialization nullifier and optionally enqueues emission of the public one.
 ///
-/// If the contract has public functions, this also enqueues a call to the auto-generated
-/// `__emit_public_init_nullifier` function so the public nullifier is emitted in public.
-/// Called by private [`initializer`](crate::macros::functions::initializer) macros.
-pub fn mark_as_initialized_from_private_initializer(context: &mut PrivateContext, has_public_functions: bool) {
+/// If the contract has public functions that perform initialization checks (i.e. that don't have `#[noinitcheck]`),
+/// this also enqueues a call to the auto-generated `__emit_public_init_nullifier` function so the public nullifier
+/// is emitted in public. Called by private [`initializer`](crate::macros::functions::initializer) macros.
+pub fn mark_as_initialized_from_private_initializer(context: &mut PrivateContext, emit_public_init_nullifier: bool) {
     mark_as_initialized_private(context);
-    if has_public_functions {
+    if emit_public_init_nullifier {
         context.call_public_function((*context).this_address(), EMIT_PUBLIC_INIT_NULLIFIER_SELECTOR, [], false);
     }
 }

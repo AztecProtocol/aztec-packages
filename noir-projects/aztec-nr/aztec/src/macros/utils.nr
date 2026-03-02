@@ -85,21 +85,35 @@ comptime fn signature_of_type(typ: Type) -> CtString {
     }
 }
 
+/// Computes the function selector for a `FunctionDefinition`.
 pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
+    compute_selector(f.name(), f.parameters())
+}
+
+/// Computes a function selector from a name and parameter list.
+///
+/// This is the lower-level version of [`compute_fn_selector`] for use when the function
+/// metadata isn't available as a `FunctionDefinition`
+pub(crate) comptime fn compute_selector(fn_name: Quoted, parameters: [(Quoted, Type)]) -> Field {
     // The function selector is computed from the function signature, which is made up of the function name and types
     // of parameters, but not including the return type. For example, given:
     //
     // fn foo(a: Field, b: AztecAddress) -> Field
     //
     // The signature will be "foo(Field,AztecAddress)".
-    let fn_name = f.name();
-    let args_signatures = f.parameters().map(|(_, typ)| signature_of_type(typ)).join(",".as_ctstring());
+    let args_signatures = parameters.map(|(_, typ)| signature_of_type(typ)).join(",".as_ctstring());
     let signature_quote = f"{fn_name}({args_signatures})".as_ctstring();
 
     let computation_quote = quote {
         crate::protocol::traits::ToField::to_field(crate::protocol::abis::function_selector::FunctionSelector::from_signature($signature_quote))
     };
     unquote!(computation_quote)
+}
+
+/// Returns the `Type` corresponding to a generic parameter `T` at compile time.
+pub(crate) comptime fn get_type<T>() -> Type {
+    let t: T = std::mem::zeroed();
+    std::meta::type_of(t)
 }
 
 pub(crate) comptime fn compute_struct_selector(s: TypeDefinition, from_signature_fn: Quoted) -> Field {

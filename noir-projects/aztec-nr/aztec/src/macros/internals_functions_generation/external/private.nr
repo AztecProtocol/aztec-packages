@@ -1,8 +1,6 @@
 use crate::macros::{
-    internals_functions_generation::{
-        external::helpers::{create_authorize_once_check, get_abi_relevant_attributes},
-        external_functions_registry::get_public_functions,
-    },
+    functions::initialization_utils::has_public_init_checked_functions,
+    internals_functions_generation::external::helpers::{create_authorize_once_check, get_abi_relevant_attributes},
     utils::{
         fn_has_allow_phase_change, fn_has_authorize_once, fn_has_noinitcheck, is_fn_initializer, is_fn_only_self,
         is_fn_view, module_has_initializer, module_has_storage,
@@ -80,10 +78,10 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
     };
 
     let (assert_initializer, mark_as_initialized) = if is_fn_initializer(f) {
-        let has_public_functions = get_public_functions(f.module()).len() > 0;
+        let has_public_fns_with_init_check = has_public_init_checked_functions(f.module());
         (
             quote { aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_private(*self.context); },
-            quote { aztec::macros::functions::initialization_utils::mark_as_initialized_from_private_initializer(self.context, $has_public_functions); },
+            quote { aztec::macros::functions::initialization_utils::mark_as_initialized_from_private_initializer(self.context, $has_public_fns_with_init_check); },
         )
     } else {
         (quote {}, quote {})
