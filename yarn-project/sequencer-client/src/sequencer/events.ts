@@ -21,6 +21,7 @@ export type SequencerEvents = {
     failedActions?: Action[];
     sentActions?: Action[];
     expiredActions?: Action[];
+    droppedActions?: Action[];
   }) => void;
   ['checkpoint-published']: (args: { checkpoint: CheckpointNumber; slot: SlotNumber }) => void;
   ['checkpoint-error']: (args: { error: Error }) => void;
