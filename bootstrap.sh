@@ -655,7 +655,7 @@ case "$cmd" in
     build release
     release
     ;;
-  "ci-retract")
+  "ci-retract-release")
     export CI=1
     if ! semver check $REF_NAME; then
       exit 1
