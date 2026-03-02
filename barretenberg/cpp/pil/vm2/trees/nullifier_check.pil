@@ -81,6 +81,7 @@ include "../precomputed.pil";
  *
  * Interactions:
  * - poseidon2_hash: Conditional siloing (sel_silo), low leaf hash, updated low leaf hash (sel_insert), new leaf hash (sel_insert)
+ *      - All calls to poseidon2 are 1 row hashes with input_len = 3.
  * - merkle_check: Low leaf membership/update (sel_insert), new leaf insertion (sel_insert)
  * - ff_gt: Low leaf nullifier validation (leaf_not_exists), next nullifier validation (next_nullifier_is_nonzero)
  * - public_inputs: Write siloed nullifier to public inputs (sel_write_to_public_inputs)
@@ -184,7 +185,8 @@ namespace nullifier_check;
     write * exists * (root - write_root) = 0;
 
     // ========= COMPUTE LOW LEAF UPDATE =========
-    // These columns are unconstrained if sel_insert is 0
+    // Unconstrained if sel_insert=0
+    // Tracegen must set these to 0 if sel_insert is 0 (precondition to merkle check).
     pol commit updated_low_leaf_next_index;
     pol commit updated_low_leaf_next_nullifier;
     sel_insert * (tree_size_before_write - updated_low_leaf_next_index) = 0;
@@ -192,7 +194,7 @@ namespace nullifier_check;
 
     // ========= LOW LEAF MERKLE CHECK & UPDATE =========
     // Unconstrained if sel_insert=0
-    // Tracegen must set it to zero if sel_insert is 0 (precondition to merkle check).
+    // Tracegen must set it to 0 if sel_insert is 0 (precondition to merkle check).
     pol commit updated_low_leaf_hash;
 
     #[LOW_LEAF_POSEIDON2]

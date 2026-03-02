@@ -24,10 +24,10 @@ FF NullifierTreeCheck::silo_nullifier(const FF& nullifier, AztecAddress contract
 /**
  * @brief Validates the low leaf preimage against the nullifier for membership/non-membership checks.
  *
- * In an indexed nullifier tree, the low leaf is the largest leaf less than the target nullifier.
- * This function validates the low leaf properties to prove either membership (when the low leaf
- * equals the nullifier) or non-membership (when the nullifier falls between the low leaf and its
- * next key).
+ * In an indexed nullifier tree, the low leaf contains the largest nullifier less than the target nullifier.
+ * This function validates the low leaf properties to prove either membership (when the low leaf nullifier
+ * equals the nullifier) or non-membership (when the nullifier falls between the low leaf nullifier and its
+ * next key). Note that the presence of the low leaf in the tree needs to be proven separately.
  *
  * For membership ( @p exists = true ): the low leaf's nullifier must equal @p nullifier.
  * For non-membership ( @p exists = false ): the nullifier must be greater than the low leaf's
@@ -62,7 +62,7 @@ void NullifierTreeCheck::validate_low_leaf(const FF& nullifier,
 }
 
 /**
- * @brief Performs a nullifier membership or non-membership check on the nullifier tree.
+ * @brief Performs a nullifier membership/non-membership check on the nullifier tree.
  *
  * This method verifies whether a nullifier exists or does not exist in the nullifier tree at a
  * given snapshot, using the indexed tree low-leaf membership proof technique. It optionally silos

@@ -543,7 +543,7 @@ namespace tx;
         prev_nullifier_tree_size,
         discard, // from tx_discard.pil virtual trace
         prev_num_nullifiers_emitted,
-        precomputed.zero
+        precomputed.zero // sel_silo = 0 (nullifiers already siloed)
     } in
     nullifier_check.write {
         nullifier_check.nullifier,
