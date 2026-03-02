@@ -1,5 +1,4 @@
 include "merkle_check.pil";
-
 include "../ff_gt.pil";
 include "../poseidon2_hash.pil";
 include "../constants_gen.pil";
@@ -22,18 +21,27 @@ include "../precomputed.pil";
  * Note: Indexed trees start prefilled with at least two items, so we can assume that no low leaf will be all zeroes
  * and that there will always be a low leaf for any given value.
  *
+ * Nullifiers can be optionally siloed with a contract address to bind them to their originating contract.
+ *
+ * Shape:
+ * One row per read or write operation.
+ *
+ * Errors:
+ * - Failing write: When exists == true on a write operation, the nullifier already exists in the tree.
+ *   In this case, the write_root equals the input root and no tree update occurs.
+ *
  * Read usage:
  * sel { exists,
  *       nullifier,
  *       nullifier_tree_root,
- *       should_silo,
- *       address // Can be omitted if should_silo is precomputed.zero
+ *       sel_silo,
+ *       address // Can be omitted if sel_silo is precomputed.zero
  * } in nullifier_check.sel {
- *       nullifier_check.exists,
- *       nullifier_check.nullifier,
- *       nullifier_check.root,
- *       nullifier_check.should_silo,
- *       nullifier_check.address
+ *       nullifier_check.exists,      // Output
+ *       nullifier_check.nullifier,   // Input
+ *       nullifier_check.root,        // Input
+ *       nullifier_check.sel_silo,    // Input
+ *       nullifier_check.address      // Input (omit if sel_silo == 0)
  * };
  *
  * Write usage:
@@ -47,61 +55,70 @@ include "../precomputed.pil";
  *       prev_nullifier_tree_size,
  *       discard,
  *       nullifier_index,
- *       should_silo,
- *       address // Can be omitted if should_silo is precomputed.zero
+ *       sel_silo,
+ *       address // Can be omitted if sel_silo is precomputed.zero
  * } in nullifier_check.write {
- *     nullifier_check.nullifier,
- *     nullifier_check.root,
- *     nullifier_check.exists,
- *     nullifier_check.write_root,
- *     nullifier_check.tree_size_before_write,
- *     nullifier_check.discard,
- *     nullifier_check.nullifier_index,
- *     nullifier_check.should_silo,
- *     nullifier_check.address
+ *     nullifier_check.nullifier,             // Input
+ *     nullifier_check.root,                  // Input
+ *     nullifier_check.exists,                // Output
+ *     nullifier_check.write_root,            // Output
+ *     nullifier_check.tree_size_before_write,// Input
+ *     nullifier_check.discard,               // Input
+ *     nullifier_check.nullifier_index,       // Input
+ *     nullifier_check.sel_silo,              // Input
+ *     nullifier_check.address                // Input (omit if sel_silo == 0)
  * };
-**/
+ *
+ * Note: On a failing write (when exists == true), the write_root equals the input root and no tree update occurs.
+ * The address column should be omitted (or set to zero) when sel_silo == 0.
+ * The nullifier_index must always be provided on write as it's used for public input indexing.
+ *
+ * Preconditions:
+ * - low_leaf_index < 2^constants.NULLIFIER_TREE_HEIGHT (Merkle check requirement)
+ * - tree_size_before_write < 2^constants.NULLIFIER_TREE_HEIGHT (Merkle check requirement)
+ * - nullifier_index < constants.MAX_NULLIFIERS_PER_TX (public input indexing requirement)
+ * - The nullifier tree genesis state must have an irreproducible hash for uninitialized leaves (0).
+ *
+ * Interactions:
+ * - poseidon2_hash: Conditional siloing (sel_silo), low leaf hash, updated low leaf hash (sel_insert), new leaf hash (sel_insert)
+ *      - All calls to poseidon2 are 1 row hashes with input_len = 3.
+ * - merkle_check: Low leaf membership/update (sel_insert), new leaf insertion (sel_insert)
+ * - ff_gt: Low leaf nullifier validation (leaf_not_exists), next nullifier validation (next_nullifier_is_nonzero)
+ * - public_inputs: Write siloed nullifier to public inputs (sel_write_to_public_inputs)
+ *
+ **/
 namespace nullifier_check;
-    pol commit sel;
+    pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
     #[skippable_if]
     sel = 0;
 
-    // Inputs to the gadget
-    pol commit write;
+    // ====== INPUTS ======
+    pol commit write; // @boolean
     write * (1 - write) = 0;
-    // If writing, sel must be on
+    // Allows this gadget to be looked up by the write column
     write * (1 - sel) = 0;
 
     pol commit nullifier;
     pol commit root;
-    pol commit exists;
+    pol commit exists; // @boolean
     exists * (1 - exists) = 0;
-    pol commit should_silo;
-    should_silo * (1 - should_silo) = 0;
+    pol commit sel_silo; // @boolean
+    sel_silo * (1 - sel_silo) = 0;
     pol commit address;
 
     // Write specific inputs
     pol commit write_root;
     pol commit tree_size_before_write;
-    pol commit discard;
+    pol commit discard; // @boolean
+    discard * (1 - discard) = 0;
     pol commit nullifier_index;
-
-    // Hints
-    pol commit low_leaf_nullifier;
-    pol commit low_leaf_next_index;
-    pol commit low_leaf_next_nullifier;
-
-    pol commit updated_low_leaf_next_index;
-    pol commit updated_low_leaf_next_nullifier;
-
-    pol commit low_leaf_index;
 
     // ========= SILOING =========
     pol commit siloed_nullifier;
     #[PASSTHROUGH_SILOING]
-    (1 - should_silo) * (nullifier - siloed_nullifier) = 0;
+    (1 - sel_silo) * (nullifier - siloed_nullifier) = 0;
 
     // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit siloing_separator;
@@ -110,60 +127,26 @@ namespace nullifier_check;
     sel * (const_three - 3) = 0;
 
     #[SILO_POSEIDON2]
-    should_silo {
-         siloing_separator, address, nullifier,
-         siloed_nullifier, const_three
+    sel_silo {
+        siloing_separator, address, nullifier,
+        siloed_nullifier, const_three
     } in poseidon2_hash.start {
-         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
-         poseidon2_hash.output, poseidon2_hash.input_len
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+        poseidon2_hash.output, poseidon2_hash.input_len
     };
-
-    // ========= HANDLE FAILING WRITES  =========
-    pol commit should_insert;
-    should_insert = write * (1 - exists);
-    // On a failing write, the root must not change
-    write * exists * (root - write_root) = 0;
-
-    // ========= COMPUTE LOW LEAF UPDATE =========
-    should_insert * (tree_size_before_write - updated_low_leaf_next_index) = 0;
-    should_insert * (siloed_nullifier - updated_low_leaf_next_nullifier) = 0;
-
-    // ========= LOW LEAF MERKLE CHECK =========
-    pol commit low_leaf_hash;
-    // The intermediate root is the root of the tree after the low leaf update but before the new leaf is inserted.
-    pol commit intermediate_root;
-    // Lookup constant support: Can be removed when we support constants in lookups.
-    pol commit tree_height;
-    sel * (tree_height - constants.NULLIFIER_TREE_HEIGHT) = 0;
-
-    #[LOW_LEAF_POSEIDON2]
-    sel {
-         low_leaf_nullifier, low_leaf_next_nullifier, low_leaf_next_index,
-         low_leaf_hash, const_three
-    } in poseidon2_hash.start {
-         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
-         poseidon2_hash.output, poseidon2_hash.input_len
-    };
-
-    pol commit updated_low_leaf_hash;
-
-    #[UPDATED_LOW_LEAF_POSEIDON2]
-    should_insert {
-         low_leaf_nullifier, updated_low_leaf_next_nullifier, updated_low_leaf_next_index,
-         updated_low_leaf_hash, const_three
-    } in poseidon2_hash.start {
-         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
-         poseidon2_hash.output, poseidon2_hash.input_len
-    };
-
-    #[LOW_LEAF_MERKLE_CHECK]
-    sel { should_insert, low_leaf_hash, updated_low_leaf_hash,
-        low_leaf_index, tree_height, root, intermediate_root }
-    in merkle_check.start { merkle_check.write, merkle_check.read_node, merkle_check.write_node,
-        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root };
 
     // ========= LOW LEAF VALIDATION =========
-    pol commit nullifier_low_leaf_nullifier_diff_inv;
+    // Note: We don't validate that the low leaf is not empty. This is because we force hashing the low leaf for the
+    // membership check. An empty leaf would pass the low leaf validation, but the membership check would fail,
+    // since uninitialized leaves have hash 0, which is not the poseidon2 hash of an empty leaf.
+    // It is expected that no circuit introduces an empty leaf with its proper hash ever into an indexed tree.
+    // Doing so would break the tree as it'd be a valid low leaf for any insertion.
+    pol commit low_leaf_nullifier;
+    pol commit low_leaf_next_index;
+    pol commit low_leaf_next_nullifier;
+    pol commit low_leaf_hash;
+
+    pol commit nullifier_low_leaf_nullifier_diff_inv; // @zero-check
     pol NULLIFIER_LOW_LEAF_NULLIFIER_DIFF = siloed_nullifier - low_leaf_nullifier;
 
     // NULLIFIER_LOW_LEAF_NULLIFIER_DIFF == 0 <==> exists == 1
@@ -171,10 +154,9 @@ namespace nullifier_check;
     sel * (NULLIFIER_LOW_LEAF_NULLIFIER_DIFF * (exists * (1 - nullifier_low_leaf_nullifier_diff_inv) + nullifier_low_leaf_nullifier_diff_inv) - 1 + exists) = 0;
 
     // If the leaf doesn't exist, we need to validate that the nullifier is greater than the low leaf nullifier
-
     // We commit leaf not exists as well as exists since it'll be used as a selector for the following lookup
-    pol commit leaf_not_exists;
-    sel * (1 - exists - leaf_not_exists) = 0;
+    pol commit leaf_not_exists; // @boolean (by definition)
+    leaf_not_exists = sel * (1 - exists);
 
     #[LOW_LEAF_NULLIFIER_VALIDATION]
     leaf_not_exists { siloed_nullifier, low_leaf_nullifier, sel }
@@ -182,11 +164,11 @@ namespace nullifier_check;
 
     // If next nullifier is not zero (which would be infinity), it has to be greater than the nullifier.
     // We commit next_nullifier_is_nonzero instead of next_nullifier_is_zero since it'll be used as a selector for a lookup
-    pol commit next_nullifier_is_nonzero;
+    pol commit next_nullifier_is_nonzero; // @boolean
     next_nullifier_is_nonzero * (1 - next_nullifier_is_nonzero) = 0;
     pol NEXT_NULLIFIER_IS_ZERO = 1 - next_nullifier_is_nonzero;
 
-    pol commit next_nullifier_inv;
+    pol commit next_nullifier_inv; // @zero-check
     #[NEXT_NULLIFIER_IS_ZERO_CHECK]
     leaf_not_exists * (low_leaf_next_nullifier * (NEXT_NULLIFIER_IS_ZERO * (1 - next_nullifier_inv) + next_nullifier_inv) - 1 + NEXT_NULLIFIER_IS_ZERO) = 0;
 
@@ -194,37 +176,97 @@ namespace nullifier_check;
     next_nullifier_is_nonzero { low_leaf_next_nullifier, siloed_nullifier, sel }
     in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
 
+    // ========= HANDLE FAILING WRITES  =========
+    // sel_insert implies sel since write implies sel
+    pol commit sel_insert; // @boolean (by definition)
+    sel_insert = write * (1 - exists);
+
+    // On a failing write, the root must not change
+    write * exists * (root - write_root) = 0;
+
+    // ========= COMPUTE LOW LEAF UPDATE =========
+    // Unconstrained if sel_insert=0
+    pol commit updated_low_leaf_next_index;
+    pol commit updated_low_leaf_next_nullifier;
+    sel_insert * (tree_size_before_write - updated_low_leaf_next_index) = 0;
+    sel_insert * (siloed_nullifier - updated_low_leaf_next_nullifier) = 0;
+
+    // ========= LOW LEAF MERKLE CHECK & UPDATE =========
+    // Unconstrained if sel_insert=0
+    // Tracegen must set it to 0 if sel_insert is 0 (precondition to merkle check).
+    pol commit updated_low_leaf_hash;
+
+    #[LOW_LEAF_POSEIDON2]
+    sel {
+        low_leaf_nullifier, low_leaf_next_nullifier, low_leaf_next_index,
+        low_leaf_hash, const_three
+    } in poseidon2_hash.start {
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+        poseidon2_hash.output, poseidon2_hash.input_len
+    };
+
+    #[UPDATED_LOW_LEAF_POSEIDON2]
+    sel_insert {
+        low_leaf_nullifier, updated_low_leaf_next_nullifier, updated_low_leaf_next_index,
+        updated_low_leaf_hash, const_three
+    } in poseidon2_hash.start {
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+        poseidon2_hash.output, poseidon2_hash.input_len
+    };
+
+    pol commit low_leaf_index;
+
+    // The intermediate root is the root of the tree after the low leaf update but before the new leaf is inserted.
+    // Unconstrained if sel_insert is 0. Tracegen must set it to zero in that case (precondition to merkle check).
+    pol commit intermediate_root;
+    // Lookup constant support: Can be removed when we support constants in lookups.
+    pol commit tree_height;
+    sel * (tree_height - constants.NULLIFIER_TREE_HEIGHT) = 0;
+
+    #[LOW_LEAF_MERKLE_CHECK]
+    sel {
+        sel_insert, low_leaf_hash, updated_low_leaf_hash,
+        low_leaf_index, tree_height, root, intermediate_root
+    } in merkle_check.start {
+        merkle_check.write, merkle_check.read_node, merkle_check.write_node,
+        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root
+    };
+
     // ========= NEW LEAF INSERTION =========
+    // Unconstrained if sel_insert=0
     pol commit new_leaf_hash;
 
     #[NEW_LEAF_POSEIDON2]
-    should_insert {
-         siloed_nullifier, low_leaf_next_nullifier, low_leaf_next_index,
-         new_leaf_hash, const_three
+    sel_insert {
+        siloed_nullifier, low_leaf_next_nullifier, low_leaf_next_index,
+        new_leaf_hash, const_three
     } in poseidon2_hash.start {
-         poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
-         poseidon2_hash.output, poseidon2_hash.input_len
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2,
+        poseidon2_hash.output, poseidon2_hash.input_len
     };
 
     #[NEW_LEAF_MERKLE_CHECK]
-    should_insert { sel, precomputed.zero, new_leaf_hash,
-        tree_size_before_write, tree_height, intermediate_root, write_root }
-    in merkle_check.start { merkle_check.write, merkle_check.read_node, merkle_check.write_node,
-        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root };
+    sel_insert {
+        sel, precomputed.zero, new_leaf_hash,
+        tree_size_before_write, tree_height, intermediate_root, write_root
+    } in merkle_check.start {
+        merkle_check.write, merkle_check.read_node, merkle_check.write_node,
+        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root
+    };
 
     // ====== WRITE TO PUBLIC INPUTS ======
-    pol commit should_write_to_public_inputs;
-    should_insert * (1 - discard) = should_write_to_public_inputs;
+    pol commit sel_write_to_public_inputs; // @boolean (by definition)
+    sel_write_to_public_inputs = sel_insert * (1 - discard);
 
+    // Unconstrained if sel_write_to_public_inputs=0
     pol commit public_inputs_index;
-    should_write_to_public_inputs * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX + nullifier_index - public_inputs_index) = 0;
+    sel_write_to_public_inputs * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX + nullifier_index - public_inputs_index) = 0;
 
     #[WRITE_NULLIFIER_TO_PUBLIC_INPUTS]
-    should_write_to_public_inputs {
+    sel_write_to_public_inputs {
         public_inputs_index,
         siloed_nullifier
-    }
-    in public_inputs.sel {
+    } in public_inputs.sel {
         precomputed.idx,
         public_inputs.cols[0]
     };
