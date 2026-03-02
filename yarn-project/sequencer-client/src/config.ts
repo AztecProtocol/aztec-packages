@@ -71,7 +71,7 @@ export type SequencerClientConfig = SequencerPublisherConfig &
   SequencerConfig &
   L1ReaderConfig &
   ChainConfig &
-  Pick<P2PConfig, 'txPublicSetupAllowList'> &
+  Pick<P2PConfig, 'txPublicSetupAllowListExtend'> &
   Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
@@ -220,7 +220,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Percent probability (0 - 100) of sequencer skipping checkpoint publishing (testing only)',
     ...numberConfigHelper(DefaultSequencerConfig.skipPublishingCheckpointsPercent),
   },
-  ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowList']),
+  ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowListExtend']),
 };
 
 export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {

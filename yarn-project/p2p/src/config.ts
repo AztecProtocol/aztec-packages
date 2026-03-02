@@ -150,8 +150,8 @@ export interface P2PConfig
   /** The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb. */
   p2pStoreMapSizeKb?: number;
 
-  /** Which calls are allowed in the public setup phase of a tx. */
-  txPublicSetupAllowList: AllowedElement[];
+  /** Additional entries to extend the default setup allow list. */
+  txPublicSetupAllowListExtend: AllowedElement[];
 
   /** The maximum number of pending txs before evicting lower priority txs. */
   maxPendingTxCount: number;
@@ -393,12 +393,13 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
     description: 'The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb.',
   },
-  txPublicSetupAllowList: {
+  txPublicSetupAllowListExtend: {
     env: 'TX_PUBLIC_SETUP_ALLOWLIST',
     parseEnv: (val: string) => parseAllowList(val),
-    description: 'The list of functions calls allowed to run in setup',
+    description:
+      'Additional entries to extend the default setup allow list. Format: I:address:selector,C:classId:selector',
     printDefault: () =>
-      'AuthRegistry, FeeJuice.increase_public_balance, Token.increase_public_balance, FPC.prepare_fee',
+      'Default: AuthRegistry._set_authorized, FeeJuice._increase_public_balance, Token._increase_public_balance, Token.transfer_in_public',
   },
   maxPendingTxCount: {
     env: 'P2P_MAX_PENDING_TX_COUNT',
@@ -523,11 +524,9 @@ export const bootnodeConfigMappings = pickConfigMappings(
 
 /**
  * Parses a string to a list of allowed elements.
- * Each encoded is expected to be of one of the following formats
- * `I:${address}`
- * `I:${address}:${selector}`
- * `C:${classId}`
- * `C:${classId}:${selector}`
+ * Each entry is expected to be of one of the following formats:
+ * `I:${address}:${selector}` — instance (contract address) with function selector
+ * `C:${classId}:${selector}` — class with function selector
  *
  * @param value The string to parse
  * @returns A list of allowed elements
@@ -540,31 +539,34 @@ export function parseAllowList(value: string): AllowedElement[] {
   }
 
   for (const val of value.split(',')) {
-    const [typeString, identifierString, selectorString] = val.split(':');
-    const selector = selectorString !== undefined ? FunctionSelector.fromString(selectorString) : undefined;
+    const trimmed = val.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const [typeString, identifierString, selectorString] = trimmed.split(':');
+
+    if (!selectorString) {
+      throw new Error(
+        `Invalid allow list entry "${trimmed}": selector is required. Expected format: I:address:selector or C:classId:selector`,
+      );
+    }
+
+    const selector = FunctionSelector.fromString(selectorString);
 
     if (typeString === 'I') {
-      if (selector) {
-        entries.push({
-          address: AztecAddress.fromString(identifierString),
-          selector,
-        });
-      } else {
-        entries.push({
-          address: AztecAddress.fromString(identifierString),
-        });
-      }
+      entries.push({
+        address: AztecAddress.fromString(identifierString),
+        selector,
+      });
     } else if (typeString === 'C') {
-      if (selector) {
-        entries.push({
-          classId: Fr.fromHexString(identifierString),
-          selector,
-        });
-      } else {
-        entries.push({
-          classId: Fr.fromHexString(identifierString),
-        });
-      }
+      entries.push({
+        classId: Fr.fromHexString(identifierString),
+        selector,
+      });
+    } else {
+      throw new Error(
+        `Invalid allow list entry "${trimmed}": unknown type "${typeString}". Expected "I" (instance) or "C" (class).`,
+      );
     }
   }
 
