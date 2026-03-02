@@ -18,6 +18,7 @@ import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
+import { MessageContextService } from '../../messages/message_context_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
@@ -43,6 +44,7 @@ describe('Utility Execution test suite', () => {
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
+  let messageContextService: MessageContextService;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
   let ownerCompleteAddress: CompleteAddress;
@@ -65,6 +67,7 @@ describe('Utility Execution test suite', () => {
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
+    messageContextService = new MessageContextService(aztecNode);
     const capsuleArrays = new Map<string, Fr[][]>();
     anchorBlockHeader = BlockHeader.random();
     senderTaggingStore.getLastFinalizedIndex.mockResolvedValue(undefined);
@@ -103,6 +106,7 @@ describe('Utility Execution test suite', () => {
       privateEventStore,
       simulator,
       contractSyncService,
+      messageContextService,
     });
 
     const ownerPartialAddress = Fr.random();
@@ -219,6 +223,7 @@ describe('Utility Execution test suite', () => {
         senderAddressBookStore,
         capsuleStore,
         privateEventStore,
+        messageContextService,
         jobId: 'test-job-id',
         scopes: 'ALL_SCOPES',
       });

@@ -19,12 +19,12 @@ import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
-import { TxHash } from '@aztec/stdlib/tx';
 
 import type { AccessScopes } from '../../access_scopes.js';
 import { createContractLogger, logContractMessage } from '../../contract_logging.js';
 import { EventService } from '../../events/event_service.js';
 import { LogService } from '../../logs/log_service.js';
+import { MessageContextService } from '../../messages/message_context_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import { ORACLE_VERSION } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
@@ -60,6 +60,7 @@ export type UtilityExecutionOracleArgs = {
   senderAddressBookStore: SenderAddressBookStore;
   capsuleStore: CapsuleStore;
   privateEventStore: PrivateEventStore;
+  messageContextService: MessageContextService;
   jobId: string;
   log?: ReturnType<typeof createLogger>;
   scopes: AccessScopes;
@@ -87,6 +88,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly senderAddressBookStore: SenderAddressBookStore;
   protected readonly capsuleStore: CapsuleStore;
   protected readonly privateEventStore: PrivateEventStore;
+  protected readonly messageContextService: MessageContextService;
   protected readonly jobId: string;
   protected log: ReturnType<typeof createLogger>;
   protected readonly scopes: AccessScopes;
@@ -105,6 +107,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.senderAddressBookStore = args.senderAddressBookStore;
     this.capsuleStore = args.capsuleStore;
     this.privateEventStore = args.privateEventStore;
+    this.messageContextService = args.messageContextService;
     this.jobId = args.jobId;
     this.log = args.log ?? createLogger('simulator:client_view_context');
     this.scopes = args.scopes;
@@ -563,31 +566,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.jobId,
     );
 
-    // TODO: optimize, we might be hitting the node to get the same txHash repeatedly
+    const txHashes = requestCapsules.map(fields => fields[0] ?? Fr.ZERO);
+
     const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
-    const maybeMessageContexts = await Promise.all(
-      requestCapsules.map(async fields => {
-        // TODO: clarify that txHash=0 means no txHash
-        // TODO: think how to handle no tx case
-        const txHashField = fields[0] ?? Fr.ZERO;
-        if (txHashField.isZero()) {
-          return null;
-        }
-
-        const txHash = TxHash.fromField(txHashField);
-        const txEffect = await this.aztecNode.getTxEffect(txHash);
-        if (!txEffect || txEffect.l2BlockNumber > anchorBlockNumber) {
-          return null;
-        }
-
-        const data = txEffect.data;
-        if (data.nullifiers.length === 0) {
-          return null;
-        }
-
-        return new MessageTxContext(data.txHash, data.noteHashes, data.nullifiers[0]);
-      }),
-    );
+    const maybeMessageContexts = await this.messageContextService.resolveMessageContexts(txHashes, anchorBlockNumber);
 
     // Clear request capsule
     await this.capsuleStore.setCapsuleArray(contractAddress, messageContextRequestsArrayBaseSlot, [], this.jobId);
