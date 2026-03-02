@@ -196,7 +196,7 @@ describe('public_processor', () => {
       }
       // 3 overhead + 1 nullifier + 10 note hashes = 14 estimated fields
       // Set a limit that is too small for even one tx
-      const [processed, failed] = await processor.process([tx], { maxBlobFields: 10 });
+      const [processed, failed] = await processor.process([tx], { maxBlobFields: 10, isBuildingProposal: true });
 
       expect(processed).toEqual([]);
       expect(failed).toEqual([]);

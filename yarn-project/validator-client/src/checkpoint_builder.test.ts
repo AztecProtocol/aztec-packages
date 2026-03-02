@@ -74,6 +74,7 @@ describe('CheckpointBuilder', () => {
         txEffects: opts.txBlobFields.map(n => ({ getNumBlobFields: () => n })),
       },
       toBlobFields: () => new Array(opts.blockBlobFieldCount).fill(Fr.ZERO),
+      computeDAGasUsed: () => opts.txBlobFields.reduce((total, n) => total + n, 0) * DA_GAS_PER_FIELD,
     } as unknown as L2Block;
   }
 

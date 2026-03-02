@@ -1,10 +1,5 @@
 import { NUM_CHECKPOINT_END_MARKER_FIELDS, getNumBlockEndBlobFields } from '@aztec/blob-lib/encoding';
-import {
-  BLOBS_PER_CHECKPOINT,
-  DA_GAS_PER_FIELD,
-  FIELDS_PER_BLOB,
-  MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
-} from '@aztec/constants';
+import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB, MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { merge, pick, sum } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
