@@ -271,6 +271,8 @@ export class CheckpointProposalJob implements Traceable {
           rollupManaLimit: this.l1Constants.rollupManaLimit,
           maxL2BlockGas: this.config.maxL2BlockGas,
           maxDABlockGas: this.config.maxDABlockGas,
+          maxTxsPerBlock: this.config.maxTxsPerBlock,
+          maxTxsPerCheckpoint: this.config.maxTxsPerCheckpoint,
         });
       } catch (err) {
         this.log.error(`Built an invalid checkpoint at slot ${this.slot} (skipping proposal)`, err, {
@@ -565,7 +567,7 @@ export class CheckpointProposalJob implements Traceable {
       );
       this.setStateFn(SequencerState.CREATING_BLOCK, this.slot);
 
-      // Per-block limits derived at startup by SequencerClient.computeBlockGasLimits(), further capped
+      // Per-block limits derived at startup by computeBlockLimits(), further capped
       // by remaining checkpoint-level budgets inside CheckpointBuilder before each block is built.
       const blockBuilderOptions: PublicProcessorLimits = {
         maxTransactions: this.config.maxTxsPerBlock,

@@ -61,4 +61,70 @@ describe('CheckpointProposalValidator', () => {
     getTxs: () => [],
     epochCacheMock: () => mock<EpochCacheInterface>(),
   });
+
+  describe('maxTxsPerBlock validation', () => {
+    const currentSlot = SlotNumber(100);
+    const nextSlot = SlotNumber(101);
+    let epochCache: ReturnType<typeof mock<EpochCacheInterface>>;
+
+    function setupEpochCache(proposerAddress: EthAddress) {
+      epochCache = mock<EpochCacheInterface>();
+      epochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot, nextSlot });
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposerAddress);
+    }
+
+    it('rejects checkpoint proposal when last block txHashes exceed maxTxsPerBlock', async () => {
+      const signer = Secp256k1Signer.random();
+      setupEpochCache(signer.address);
+      const validator = new CheckpointProposalValidator(epochCache, { txsPermitted: true, maxTxsPerBlock: 2 });
+
+      const header = makeCheckpointHeader(0, { slotNumber: currentSlot });
+      const proposal = await makeCheckpointProposalAdapter({
+        blockHeader: header,
+        lastBlockHeader: header,
+        signer,
+        txHashes: Array.from({ length: 3 }, () => TxHash.random()),
+      });
+
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'reject', severity: expect.anything() });
+    });
+
+    it('accepts checkpoint proposal when last block txHashes are within maxTxsPerBlock', async () => {
+      const signer = Secp256k1Signer.random();
+      setupEpochCache(signer.address);
+      const validator = new CheckpointProposalValidator(epochCache, { txsPermitted: true, maxTxsPerBlock: 5 });
+
+      const header = makeCheckpointHeader(0, { slotNumber: currentSlot });
+      const proposal = await makeCheckpointProposalAdapter({
+        blockHeader: header,
+        lastBlockHeader: header,
+        signer,
+        txHashes: Array.from({ length: 3 }, () => TxHash.random()),
+      });
+
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'accept' });
+    });
+
+    it('skips maxTxsPerBlock check when not configured', async () => {
+      const signer = Secp256k1Signer.random();
+      setupEpochCache(signer.address);
+      const validator = new CheckpointProposalValidator(epochCache, {
+        txsPermitted: true,
+        maxTxsPerBlock: undefined,
+      });
+
+      const header = makeCheckpointHeader(0, { slotNumber: currentSlot });
+      const proposal = await makeCheckpointProposalAdapter({
+        blockHeader: header,
+        lastBlockHeader: header,
+        signer,
+        txHashes: Array.from({ length: 100 }, () => TxHash.random()),
+      });
+
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'accept' });
+    });
+  });
 });

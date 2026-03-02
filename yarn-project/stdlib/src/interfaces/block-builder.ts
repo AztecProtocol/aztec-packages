@@ -61,6 +61,7 @@ export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime'
     | 'fakeProcessingDelayPerTxMs'
     | 'fakeThrowAfterProcessingTxCount'
     | 'maxTxsPerBlock'
+    | 'maxTxsPerCheckpoint'
     | 'maxL2BlockGas'
     | 'maxDABlockGas'
   > & {
@@ -77,6 +78,7 @@ export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[
   'fakeProcessingDelayPerTxMs',
   'fakeThrowAfterProcessingTxCount',
   'maxTxsPerBlock',
+  'maxTxsPerCheckpoint',
   'maxL2BlockGas',
   'maxDABlockGas',
   'rollupManaLimit',

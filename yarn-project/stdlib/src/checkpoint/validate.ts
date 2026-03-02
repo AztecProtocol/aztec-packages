@@ -28,21 +28,24 @@ export function validateCheckpoint(
     rollupManaLimit: number;
     maxL2BlockGas: number | undefined;
     maxDABlockGas: number | undefined;
+    maxTxsPerCheckpoint?: number;
+    maxTxsPerBlock?: number;
   },
 ): void {
   validateCheckpointLimits(checkpoint, opts);
   validateCheckpointBlocksGasLimits(checkpoint, opts);
 }
 
-/** Validates checkpoint blocks gas limits */
+/** Validates checkpoint blocks gas and tx limits */
 function validateCheckpointBlocksGasLimits(
   checkpoint: Checkpoint,
   opts: {
     maxL2BlockGas: number | undefined;
     maxDABlockGas: number | undefined;
+    maxTxsPerBlock?: number;
   },
 ): void {
-  const { maxL2BlockGas, maxDABlockGas } = opts;
+  const { maxL2BlockGas, maxDABlockGas, maxTxsPerBlock } = opts;
 
   if (maxL2BlockGas !== undefined) {
     for (const block of checkpoint.blocks) {
@@ -69,16 +72,30 @@ function validateCheckpointBlocksGasLimits(
       }
     }
   }
+
+  if (maxTxsPerBlock !== undefined) {
+    for (const block of checkpoint.blocks) {
+      const blockTxCount = block.body.txEffects.length;
+      if (blockTxCount > maxTxsPerBlock) {
+        throw new CheckpointValidationError(
+          `Block ${block.number} in checkpoint has ${blockTxCount} txs exceeding limit of ${maxTxsPerBlock}`,
+          checkpoint.number,
+          checkpoint.slot,
+        );
+      }
+    }
+  }
 }
 
-/** Validates checkpoint max blob fields and gas limits */
+/** Validates checkpoint max blob fields, gas limits, and tx limits */
 function validateCheckpointLimits(
   checkpoint: Checkpoint,
   opts: {
     rollupManaLimit: number;
+    maxTxsPerCheckpoint?: number;
   },
 ): void {
-  const { rollupManaLimit } = opts;
+  const { rollupManaLimit, maxTxsPerCheckpoint } = opts;
 
   const maxBlobFields = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB;
   const maxDAGas = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
@@ -106,6 +123,17 @@ function validateCheckpointLimits(
     if (checkpointBlobFields > maxBlobFields) {
       throw new CheckpointValidationError(
         `Checkpoint blob field count ${checkpointBlobFields} exceeds limit of ${maxBlobFields}`,
+        checkpoint.number,
+        checkpoint.slot,
+      );
+    }
+  }
+
+  if (maxTxsPerCheckpoint !== undefined) {
+    const checkpointTxCount = sum(checkpoint.blocks.map(block => block.body.txEffects.length));
+    if (checkpointTxCount > maxTxsPerCheckpoint) {
+      throw new CheckpointValidationError(
+        `Checkpoint tx count ${checkpointTxCount} exceeds limit of ${maxTxsPerCheckpoint}`,
         checkpoint.number,
         checkpoint.slot,
       );
