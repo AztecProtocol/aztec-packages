@@ -174,7 +174,7 @@ fn hashed_values_match_derived() {
     tester.assert_dom_sep_matches_derived(DOM_SEP__AUTHWIT_NULLIFIER, "authwit_nullifier");
     tester.assert_dom_sep_matches_derived(DOM_SEP__SYMMETRIC_KEY, "symmetric_key");
     tester.assert_dom_sep_matches_derived(DOM_SEP__SYMMETRIC_KEY_2, "symmetric_key_2");
-    tester.assert_dom_sep_matches_derived(DOM_SEP__CIPHERTEXT_FIELD_MASK, "field_mask");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__CIPHERTEXT_FIELD_MASK, "ciphertext_field_mask");
     tester.assert_dom_sep_matches_derived(
         DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
         "partial_note_validity_commitment",

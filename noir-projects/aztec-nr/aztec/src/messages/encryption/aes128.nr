@@ -226,7 +226,7 @@ impl MessageEncryption for AES128 {
     /// ```
     ///
     /// **Step 3 -- Mask.** Each of the 14 fields is XOR-like masked with a Poseidon2-derived value from the ECDH
-    /// shared secret (see [`derive_field_mask`]). Data fields become hidden; zero-pad fields become pseudorandom.
+    /// shared secret (see `derive_field_mask`). Data fields become hidden; zero-pad fields become pseudorandom.
     ///
     /// **Step 4 -- Prepend ephemeral public key.** The ephemeral public key x-coordinate is prepended, producing
     /// the final 15-field ciphertext:
