@@ -613,7 +613,7 @@ namespace execution;
 
     // `prev_retrieved_bytecodes_tree_root/size --> prev_retrieved_bytecodes_tree_root/size`:
     // In execution.pil, the two constraints #[BYTECODE_RETRIEVAL_RESULT] and
-    //#[RETRIEVED_BYTECODES_TREE_ROOT/SIZE_NOT_CHANGED] constrain the transition `prev_retrieved_bytecodes_tree_root/size`
+    // #[RETRIEVED_BYTECODES_TREE_ROOT/SIZE_NOT_CHANGED] constrain the transition `prev_retrieved_bytecodes_tree_root/size`
     // to `retrieved_bytecodes_tree_root/size` in the same row.
 
     // The state of the retrieved bytecodes tree should be continuous unless we have finished an enqueued call, i.e.,

@@ -25,9 +25,6 @@
 </ul>
 <h2>In module discovery</h2>
 <h3>Modules</h3><ul class="item-list">
-<li><a href="nonce_discovery/index.html">nonce_discovery</a></div></li>
-<li><a href="partial_notes/index.html">partial_notes</a></div></li>
-<li><a href="private_events/index.html">private_events</a></div></li>
 <li><a href="private_notes/index.html">private_notes</a></div></li>
 <li><a href="process_message/index.html">process_message</a></div></li>
 </ul>
@@ -36,6 +33,7 @@
 </ul>
 <h3>Type aliases</h3><ul class="item-list">
 <li><a href="type.ComputeNoteHashAndNullifier.html">ComputeNoteHashAndNullifier</a></div></li>
+<li><a href="type.CustomMessageHandler.html">CustomMessageHandler</a></div></li>
 </ul>
 <h3>Functions</h3><ul class="item-list">
 <li><a href="fn.do_sync_state.html">do_sync_state</a></div></li>
@@ -52,13 +50,12 @@
 <h2>Fields</h2>
 <div id="structfield.note_hash" class="struct-field"><code class="code-header">note_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"><div class="comments">
-<p>The result of NoteHash::compute_note_hash</p>
-</div>
+<p>The result of <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html#compute_note_hash"><code>crate::note::note_interface::NoteHash::compute_note_hash</code></a>.</p></div>
 </div><div id="structfield.inner_nullifier" class="struct-field"><code class="code-header">inner_nullifier: <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>&gt;</code></div>
 <div class="padded-description"><div class="comments">
-<p>The result of NoteHash::compute_nullifier_unconstrained (since all of message discovery is unconstrained).
-This is <code>None</code> if the nullifier cannot be computed (e.g., because the nullifier hiding key is not available).</p>
-</div>
+<p>The result of <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html#compute_nullifier_unconstrained"><code>crate::note::note_interface::NoteHash::compute_nullifier_unconstrained</code></a>.</p>
+<p>This value is unconstrained, as all of message discovery is unconstrained. It is <code>None</code> if the nullifier
+cannot be computed (e.g. because the nullifier hiding key is not available).</p></div>
 </div></main>
 </span>
 </body>

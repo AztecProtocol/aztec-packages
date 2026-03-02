@@ -10,7 +10,7 @@ import { jest } from '@jest/globals';
 
 import { sendThroughAuthwitProxy } from './fixtures/authwit_proxy.js';
 import { DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
-import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
+import { type EndToEndContext, ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
 const TIMEOUT = 150_000;
@@ -21,12 +21,14 @@ describe('e2e_authwit_tests', () => {
   let wallet: TestWallet;
   let account1Address: AztecAddress;
   let account2Address: AztecAddress;
+  let teardown: EndToEndContext['teardown'];
 
   let auth: AuthWitTestContract;
   let authwitProxy: GenericProxyContract;
 
   beforeAll(async () => {
     ({
+      teardown,
       wallet,
       accounts: [account1Address, account2Address],
     } = await setup(2));
@@ -35,6 +37,8 @@ describe('e2e_authwit_tests', () => {
     auth = await AuthWitTestContract.deploy(wallet).send({ from: account1Address });
     authwitProxy = await GenericProxyContract.deploy(wallet).send({ from: account1Address });
   });
+
+  afterAll(() => teardown());
 
   describe('Private', () => {
     describe('arbitrary data', () => {
