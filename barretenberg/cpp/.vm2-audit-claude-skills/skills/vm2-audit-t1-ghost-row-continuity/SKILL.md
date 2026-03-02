@@ -189,9 +189,40 @@ main_sel * (condition - sub_selector) = 0;
 sub_selector * (1 - main_sel) = 0;
 ```
 
+## Known Low-Impact Pattern: Ghost Rows Firing Lookups (Not Permutations)
+
+Ghost row findings that fire **lookups** (`} in`) rather than **permutations** (`} is`)
+are fundamentally less dangerous than permutation-firing ghost rows. Classify these as
+**Low** severity (defensive hardening) unless specific evidence shows otherwise.
+
+### Why ghost-row lookups are generally harmless
+
+**1. Lookups into precomputed/computational tables** (poseidon2_hash, ff_gt, range
+checks, byte tables): The destination is read-only. A phantom lookup source just
+redundantly verifies that some tuple exists in the table — it cannot inject new
+entries or modify state.
+
+**2. Lookups into side-effect destinations** (memory, tree checks, emissions): Even
+if a ghost row fires a lookup source into a state-mutating destination, the impact
+is equivalent to phantom destination rows — and these are guarded by independent
+counter/length outputs to public inputs. See `vm2-audit-t1-lookup-vs-permutation`
+skill for the full counter-fence analysis.
+
+### How to triage
+
+When this skill finds an unconstrained sub-selector on ghost rows:
+
+1. **Check what interaction it fires.** Is it a lookup (`} in`) or permutation (`} is`)?
+2. **If lookup**: Classify as Low (defensive hardening). The fix
+   (`sub_sel * (1 - sel) = 0`) is still recommended for defense-in-depth, but the
+   finding is not a soundness issue.
+3. **If permutation**: This remains a potential soundness issue — continue with the
+   full exploitation analysis (Part A workflow).
+
 ## References
 
 - Prerequisite: `vm2-audit-t1-selector-outside-active`
+- Related: `vm2-audit-t1-lookup-vs-permutation` (counter-fence defense for side-effect lookups)
 
 ## Output Format
 

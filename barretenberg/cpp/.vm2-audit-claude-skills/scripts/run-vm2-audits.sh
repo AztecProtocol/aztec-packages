@@ -19,6 +19,8 @@
 #   --summarize-only    Only run summarizer on existing results
 #   --no-summarize      Skip the summarizer step
 #   --multi-model-summary  Run extra multi-model validation (Gemini/GPT via PAL MCP)
+#   --skill-improvements   Analyze audit agent efficiency and propose skill improvements after audits complete
+#   --skill-improvements-only  Only run skill improvements analysis on existing results (skip audits and summarizer)
 #   --list-skills       List available skills by tier and exit
 #   -h, --help          Show this help message
 #
@@ -60,6 +62,8 @@ SUMMARIZE_ONLY=false
 NO_SUMMARIZE=false
 LIST_SKILLS=false
 EXTRA_MULTI_MODEL_SUMMARY="${EXTRA_MULTI_MODEL_SUMMARY:-false}"
+SKILL_IMPROVEMENTS=false
+SKILL_IMPROVEMENTS_ONLY=false
 
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -220,6 +224,15 @@ while [[ $# -gt 0 ]]; do
             EXTRA_MULTI_MODEL_SUMMARY=true
             shift
             ;;
+        --skill-improvements)
+            SKILL_IMPROVEMENTS=true
+            shift
+            ;;
+        --skill-improvements-only)
+            SKILL_IMPROVEMENTS=true
+            SKILL_IMPROVEMENTS_ONLY=true
+            shift
+            ;;
         --list-skills)
             LIST_SKILLS=true
             shift
@@ -270,8 +283,32 @@ else
     done
 fi
 
-# Sort for consistent ordering
-IFS=$'\n' ALL_SKILLS=($(sort <<<"${ALL_SKILLS[*]}")); unset IFS
+# Sort by expected duration (longest first) for better parallel scheduling.
+# The JSON file is pre-sorted descending; skills not listed get appended alphabetically.
+TIMING_FILE="$SCRIPT_DIR/skill-avg-durations.json"
+if [[ -f "$TIMING_FILE" ]] && command -v jq &>/dev/null; then
+    # Extract skill ordering from the pre-sorted JSON array
+    ORDERED_SKILLS=()
+    declare -A SKILL_SET
+    for skill in "${ALL_SKILLS[@]}"; do SKILL_SET[$skill]=1; done
+
+    # Add skills in timing-file order (longest first)
+    while IFS= read -r skill; do
+        if [[ -n "${SKILL_SET[$skill]:-}" ]]; then
+            ORDERED_SKILLS+=("$skill")
+            unset "SKILL_SET[$skill]"
+        fi
+    done < <(jq -r '.[].skill' "$TIMING_FILE")
+
+    # Append any remaining skills (new ones not in timing file) alphabetically
+    for skill in $(printf '%s\n' "${!SKILL_SET[@]}" | sort); do
+        ORDERED_SKILLS+=("$skill")
+    done
+    ALL_SKILLS=("${ORDERED_SKILLS[@]}")
+else
+    # Fallback: alphabetical
+    IFS=$'\n' ALL_SKILLS=($(sort <<<"${ALL_SKILLS[*]}")); unset IFS
+fi
 
 SKILLS_TO_RUN=("${ALL_SKILLS[@]}")
 
@@ -321,7 +358,7 @@ TASK: Run the ${skill} audit on ${TARGET_PATH}. Provide a thorough audit report 
         claude_args+=(--effort "$EFFORT")
     fi
 
-    if echo "$task_prompt" | claude "${claude_args[@]}" \
+    if echo "$task_prompt" | env -u CLAUDECODE claude "${claude_args[@]}" \
         > "$output_file" 2>&1; then
         echo "success" > "$status_file"
     else
@@ -399,8 +436,10 @@ announce_completions() {
 export -f run_skill
 export OUTPUT_DIR TARGET_PATH MODEL EFFORT SKILLS_DIR
 
-# Skip to summarizer if --summarize-only
-if [[ "$SUMMARIZE_ONLY" == "true" ]]; then
+# Skip to summarizer if --summarize-only, skip everything if --skill-improvements-only
+if [[ "$SKILL_IMPROVEMENTS_ONLY" == "true" ]]; then
+    log "${YELLOW}Skipping audit runs and summarizer, going straight to skill improvements...${NC}"
+elif [[ "$SUMMARIZE_ONLY" == "true" ]]; then
     log "${YELLOW}Skipping audit runs, going straight to summarizer...${NC}"
 else
     # Print banner
@@ -518,8 +557,8 @@ else
     log "${GREEN}Successful:${NC} ${success_count}  ${RED}Failed:${NC} ${fail_count}"
 fi
 
-# Run summarizer unless --no-summarize
-if [[ "$NO_SUMMARIZE" != "true" ]]; then
+# Run summarizer unless --no-summarize or --skill-improvements-only
+if [[ "$NO_SUMMARIZE" != "true" && "$SKILL_IMPROVEMENTS_ONLY" != "true" ]]; then
     log ""
     log "${YELLOW}Running summarizer...${NC}"
 
@@ -534,6 +573,107 @@ if [[ "$NO_SUMMARIZE" != "true" ]]; then
         log "${RED}Summarizer script not found or not executable: $SUMMARIZER_SCRIPT${NC}"
         log "Run: chmod +x $SUMMARIZER_SCRIPT"
     fi
+fi
+
+# ============================================================================
+# OPTIONAL: Skill improvements analysis
+# ============================================================================
+
+if [[ "$SKILL_IMPROVEMENTS" == "true" ]]; then
+    log ""
+    log "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
+    log "${GREEN}║          Skill Improvements Analysis                        ║${NC}"
+    log "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
+    log ""
+
+    IMPROVEMENTS_FILE="$OUTPUT_DIR/SKILL-IMPROVEMENTS-PROPOSAL.md"
+    IMPROVEMENTS_LOG="$OUTPUT_DIR/.skill-improvements.log"
+    IMPROVEMENTS_START=$(date +%s)
+
+    # Gather timing data from status files
+    TIMING_DATA=""
+    for skill in "${SKILLS_TO_RUN[@]}"; do
+        status_file="$OUTPUT_DIR/.${skill}.status"
+        if [[ -f "$status_file" ]]; then
+            status=$(head -1 "$status_file")
+            duration=$(tail -1 "$status_file" 2>/dev/null || echo "?")
+            TIMING_DATA="${TIMING_DATA}${skill}: status=${status}, duration=${duration}s\n"
+        fi
+    done
+
+    # Build the prompt as a temp file to avoid arg-list-too-long
+    IMPROVEMENTS_PROMPT_FILE=$(mktemp)
+    trap "rm -f '$IMPROVEMENTS_PROMPT_FILE'" EXIT
+
+    cat > "$IMPROVEMENTS_PROMPT_FILE" << 'PROMPT_HEADER'
+You are analyzing the outputs of a batch of security audit agents to propose improvements to the audit skills (prompt templates) that drive them.
+
+Your goal: produce SKILL-IMPROVEMENTS-PROPOSAL.md with actionable recommendations to make the audit skills faster, more precise, and less wasteful.
+
+## Analysis approach
+
+1. Read ALL the audit output .md files in the output directory to understand what each agent actually did.
+2. Read the SKILL.md files in the skills directory to see the prompts that drove each agent.
+3. Look for patterns of wasted effort: repeated file reads, redundant searches, overly broad scans, tangential analysis, false positive generation, boilerplate output for no-finding results.
+4. Look for skills that consistently produce no findings or only false positives — consider whether they should be restructured or dropped.
+5. Look for skills whose scope overlaps significantly — consider merging or deduplication.
+
+## Output format for SKILL-IMPROVEMENTS-PROPOSAL.md
+
+The report MUST follow this structure:
+
+### 1. Cross-Cutting Improvements
+A numbered list of concise action items that would improve efficiency across multiple skills. Each item: one sentence describing the action + which skills it applies to.
+
+### 2. Per-Skill Assessment
+A table or list covering each skill with:
+- Skill name
+- Duration (from timing data below)
+- Output quality: useful / marginal / not useful
+- One-line recommendation: keep as-is / improve (how) / merge with X / drop
+
+### 3. Detailed Sections
+One subsection per item from the two lists above, with:
+- The problem observed (with evidence from the audit outputs)
+- Proposed solution
+- Expected impact
+
+PROMPT_HEADER
+
+    # Append timing data
+    {
+        echo ""
+        echo "## Timing Data"
+        echo '```'
+        echo -e "$TIMING_DATA"
+        echo '```'
+        echo ""
+        echo "## Directories"
+        echo "- Audit outputs: $OUTPUT_DIR/"
+        echo "- Skill definitions: $SKILLS_DIR/"
+        echo ""
+        echo "Read the .md output files and the SKILL.md files, then write the report to: ${OUTPUT_DIR}/SKILL-IMPROVEMENTS-PROPOSAL.md"
+    } >> "$IMPROVEMENTS_PROMPT_FILE"
+
+    log "${YELLOW}Launching skill improvements analysis agent...${NC}"
+
+    if env -u CLAUDECODE claude -p - \
+        --model "$SUMMARIZER_MODEL" \
+        --allowedTools "Read,Glob,Grep,Bash,Write" \
+        --output-format text \
+        < "$IMPROVEMENTS_PROMPT_FILE" > "$IMPROVEMENTS_LOG" 2>&1; then
+        IMPROVEMENTS_END=$(date +%s)
+        IMPROVEMENTS_DURATION=$((IMPROVEMENTS_END - IMPROVEMENTS_START))
+        log "${GREEN}Skill improvements analysis complete (${IMPROVEMENTS_DURATION}s)${NC}"
+        log "  Report: $IMPROVEMENTS_FILE"
+    else
+        IMPROVEMENTS_END=$(date +%s)
+        IMPROVEMENTS_DURATION=$((IMPROVEMENTS_END - IMPROVEMENTS_START))
+        log "${RED}Skill improvements analysis failed (${IMPROVEMENTS_DURATION}s)${NC}"
+        log "  Check log: $IMPROVEMENTS_LOG"
+    fi
+
+    rm -f "$IMPROVEMENTS_PROMPT_FILE"
 fi
 
 log ""

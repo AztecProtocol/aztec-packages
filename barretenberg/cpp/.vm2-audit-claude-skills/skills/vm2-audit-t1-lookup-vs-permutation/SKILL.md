@@ -120,6 +120,52 @@ sel_dispatch { ... } in handler.sel { ... };
 sel_dispatch { ... } permute handler.sel { ... };
 ```
 
+## Known Non-Issues: Lookups Guarded by Independent Counter/Length Outputs
+
+A lookup (`in`) into a side-effect gadget allows phantom destination rows — rows
+not matched by any source.  However, **this is NOT a soundness issue when an
+independent counter or length for that side-effect type is output to public
+inputs**, because the rollup circuit only processes entries `0..count-1`.
+
+### General pattern
+
+The AVM tracks a counter for each category of side effect (nullifiers, note
+hashes, L2→L1 messages, public data writes, public logs, etc.).  These counters
+are incremented only by the source-side constraints (execution-trace opcodes and
+tx-trace insertion phases).  Phantom destination rows — having no source row —
+never increment any counter.
+
+At tx cleanup, each counter is written to a well-known public-inputs index
+(e.g., `#[PUBLIC_INPUTS_WRITE_NULLIFIER_COUNT]` in `tx_context.pil`).  The
+rollup circuit reads the counter first and only processes that many entries from
+the corresponding accumulated-data array in public inputs.  Phantom entries
+beyond the counter fence are ignored.
+
+Additionally, for tree-modifying operations, the final tree snapshot `(root,
+size)` is output to public inputs at cleanup.  The root comes from the
+execution/tx root chain, which phantom rows cannot influence (their tree
+operations use disconnected roots).  The size reflects only legitimate
+insertions plus deterministic padding.
+
+### How to evaluate a flagged lookup
+
+When this skill flags a lookup into a side-effect destination, check:
+
+1. **Is there an independent counter/length for this side-effect type?**  Trace
+   the counter from the source-side increment (e.g., `num_nullifiers_emitted`)
+   through to its write to public inputs at cleanup.
+2. **Is the counter output to public inputs?**  Look for a
+   `#[PUBLIC_INPUTS_WRITE_*_COUNT]` or equivalent constraint in `tx_context.pil`
+   that writes the final counter value to a known PI row.
+3. **Does the rollup use the counter as a length bound?**  If the rollup reads
+   the length before iterating the accumulated-data array, phantom entries
+   beyond the length are dead.
+
+If all three hold, classify the finding as **not exploitable** (defense-in-depth
+suggestion at most, not a soundness issue).  If any link in the chain is
+missing — e.g., the counter is not output, or the rollup reads a fixed-size
+array without a length check — then the finding remains valid.
+
 ## Output Format
 
 ### 1. Markdown Report (stdout)

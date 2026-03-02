@@ -26,6 +26,11 @@ You are a **prosecutor**, not a defense attorney. Your job is to find and report
   - (c) **Completion guard**: `sel * (1 - sel') * (1 - end) = 0` or equivalent (quote exact line).
   - (d) **Start-after-latch**: `sel' * (start' - LATCH_CONDITION) = 0` (quote exact line).
   - (e) **Counter fully constrained**: Counter init, decrement by 1, and end-condition are all proven (quote all three).
+  - (f) **Propagation-based implicit completion guard**: Even without an explicit completion guard, premature `sel` deactivation (1→0) is caught if ALL of the following hold (quote each):
+    - (f1) At least one column `col` has a continuity constraint gated by a selector that is active on non-latch active rows, e.g. `NOT_LAST * (col' - col) = 0` where `NOT_LAST = sel * (1 - LATCH_CONDITION)`.
+    - (f2) That column is initialized (on the start row) to a value that is guaranteed non-zero by the dispatch permutation or by an explicit constraint (e.g., `execution_clk` dispatched from execution.pil where `clk >= 1`).
+    - (f3) The constraint fires on the row immediately before any hypothetical truncation point (i.e., it is not disabled by error flags or other selectors on non-error intermediate rows).
+    If (f1)-(f3) hold, then zeroing `sel` on row N+1 forces `col` to 0 there, but the continuity constraint on row N (where `NOT_LAST=1`) requires `col' = col ≠ 0`, creating a contradiction. This makes the truncation attack infeasible. Downgrade to **informational/style** — the missing completion guard is a defense-in-depth gap but not exploitable.
   You MUST NOT construct novel safety arguments.
 
 **RULE 3 — Quote or report.** For ANY dismissal, quote the EXACT protecting constraint. If you cannot, REPORT.
@@ -274,6 +279,22 @@ sel * (counter_minus_one * (end * (1 - inv) + inv) - 1 + end) = 0;
 sel * (1 - sel') * (1 - end) = 0;
 // Plus start-after-latch:
 sel' * (start' - LATCH_CONDITION) = 0;
+```
+
+#### SECURE (implicit): Unidirectional TRACE_CONTINUITY with Propagation Guards
+```pil
+// Unidirectional — only prevents 0→1, NOT 1→0:
+#[TRACE_CONTINUITY]
+(1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+
+// BUT: propagation constraints on non-zero columns catch 1→0 truncation:
+pol NOT_LAST = sel * (1 - LATCH_CONDITION);
+#[CONTINUITY_EXEC_CLK]
+NOT_LAST * (execution_clk' - execution_clk) = 0;
+// execution_clk is dispatched from execution.pil (always >= 1).
+// If sel drops to 0 on row N+1, execution_clk' = 0, but NOT_LAST = 1
+// on row N (sel=1, latch=0), so execution_clk' must equal execution_clk ≠ 0.
+// Contradiction → truncation caught. See Rule 2(f) for dismissal criteria.
 ```
 
 ---
