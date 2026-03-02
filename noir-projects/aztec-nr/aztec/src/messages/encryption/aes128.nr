@@ -1,6 +1,6 @@
 use crate::protocol::{
     address::AztecAddress,
-    constants::{DOM_SEP__SYMMETRIC_KEY, DOM_SEP__SYMMETRIC_KEY_2},
+    constants::{DOM_SEP__CIPHERTEXT_FIELD_MASK, DOM_SEP__SYMMETRIC_KEY, DOM_SEP__SYMMETRIC_KEY_2},
     hash::poseidon2_hash_with_separator,
     point::Point,
     public_keys::AddressPoint,
@@ -26,7 +26,6 @@ use crate::{
             fields_to_bytes::{fields_from_bytes, fields_to_bytes},
         },
         point::point_from_x_coord_and_sign,
-        random::get_random_bytes,
     },
 };
 
@@ -156,8 +155,9 @@ impl MessageEncryption for AES128 {
     /// ## Overview
     ///
     /// The plaintext is an array of up to `MESSAGE_PLAINTEXT_LEN` (12) fields. The output is always exactly
-    /// `MESSAGE_CIPHERTEXT_LEN` (15) fields, regardless of plaintext size. Unused trailing fields are filled with
-    /// random data so that all encrypted messages are indistinguishable by size.
+    /// `MESSAGE_CIPHERTEXT_LEN` (15) fields, regardless of plaintext size. Unused trailing fields are masked
+    /// zeros (pseudorandom to observers without the shared secret) so that all encrypted messages are
+    /// indistinguishable by size.
     ///
     /// ## PKCS#7 Padding
     ///
@@ -204,27 +204,38 @@ impl MessageEncryption for AES128 {
     /// Messages are transmitted as fields, not bytes. A field is ~254 bits and can safely store 31 whole bytes, so
     /// we need to pack our byte data into 31-byte chunks. This packing drives the wire format.
     ///
-    /// **Step 1 -- Assemble bytes.** The ciphertexts are laid out in a byte array, padded with random bytes to a
+    /// **Step 1 -- Assemble bytes.** The ciphertexts are laid out in a byte array, padded with zero bytes to a
     /// multiple of 31 so it divides evenly into fields:
     ///
     /// ```text
     /// +------------+-------------------------+---------+
     /// | header ct  |        body ct          | byte pad|
-    /// |   16 B     | PlaintextLen*32 + 16 B  | (random)|
+    /// |   16 B     | PlaintextLen*32 + 16 B  | (zeros) |
     /// +------------+-------------------------+---------+
     /// |<-------- padded to a multiple of 31 B -------->|
     /// ```
     ///
-    /// **Step 2 -- Pack into fields.** The byte array is split into 31-byte chunks, each stored in one field. The
-    /// ephemeral public key x-coordinate is prepended as its own field. Any remaining fields (up to 15 total) are
-    /// filled with random data so that all messages are the same size:
+    /// **Step 2 -- Pack into fields and pad.** The byte array is split into 31-byte chunks, each stored in one
+    /// field. Trailing fields are zero-filled so that all messages occupy exactly 14 fields:
     ///
     /// ```text
-    /// +----------+-------------------------+-------------------+
-    /// | eph_pk.x |  message-byte fields    | random field pad  |
-    /// |          | (packed 31 B per field)  |  (fills to 15)   |
-    /// +----------+-------------------------+-------------------+
-    /// |<---------- MESSAGE_CIPHERTEXT_LEN = 15 fields ------->|
+    /// +-------------------------+-------------------+
+    /// |  message-byte fields    |   zero pad        |
+    /// | (packed 31 B per field) |  (fills to 14)    |
+    /// +-------------------------+-------------------+
+    /// ```
+    ///
+    /// **Step 3 -- Mask.** Each of the 14 fields is XOR-like masked with a Poseidon2-derived value from the ECDH
+    /// shared secret (see [`derive_field_mask`]). Data fields become hidden; zero-pad fields become pseudorandom.
+    ///
+    /// **Step 4 -- Prepend ephemeral public key.** The ephemeral public key x-coordinate is prepended, producing
+    /// the final 15-field ciphertext:
+    ///
+    /// ```text
+    /// +----------+----------------------------------------------+
+    /// | eph_pk.x |             masked fields (14)               |
+    /// +----------+----------------------------------------------+
+    /// |<------------ MESSAGE_CIPHERTEXT_LEN = 15 fields ------->|
     /// ```
     ///
     /// ## Key Derivation
@@ -308,11 +319,7 @@ impl MessageEncryption for AES128 {
 
         // Assemble the message byte array:
         //  [header_ct (16B)] [body_ct] [padding to mult of 31]
-        let mut message_bytes_padding_to_mult_31 =
-            get_arr_of_size__message_bytes_padding__from_PT::<PlaintextLen * 32>();
-        // Safety: this randomness won't be constrained to be random. It's in the interest of the executor of this fn
-        // to encrypt with random bytes.
-        message_bytes_padding_to_mult_31 = unsafe { get_random_bytes() };
+        let message_bytes_padding_to_mult_31 = get_arr_of_size__message_bytes_padding__from_PT::<PlaintextLen * 32>();
 
         let mut message_bytes = get_arr_of_size__message_bytes__from_PT::<PlaintextLen * 32>();
 
@@ -350,30 +357,23 @@ impl MessageEncryption for AES128 {
         assert(offset == message_bytes.len(), "unexpected encrypted message length");
 
         // Pack message bytes into fields (31 bytes per field) and prepend eph_pk.x.
-        // TODO(#12749): As Mike pointed out, we need to make messages produced by different encryption schemes
-        // indistinguishable from each other and for this reason the output here and in the last for-loop of this
-        // function should cover a full field.
         let message_bytes_as_fields = bytes_to_fields(message_bytes);
 
         let mut ciphertext: [Field; MESSAGE_CIPHERTEXT_LEN] = [0; MESSAGE_CIPHERTEXT_LEN];
 
         ciphertext[0] = eph_pk.x;
 
-        let mut offset = 1;
         for i in 0..message_bytes_as_fields.len() {
-            ciphertext[offset + i] = message_bytes_as_fields[i];
+            ciphertext[1 + i] = message_bytes_as_fields[i];
         }
-        offset += message_bytes_as_fields.len();
 
-        for i in offset..MESSAGE_CIPHERTEXT_LEN {
-            // We need to get a random value that fits in 31 bytes to not leak information about the size of the
-            // message (all the "real" message fields contain at most 31 bytes because of the way we convert the bytes
-            // to fields). TODO(#12749): Long term, this is not a good solution.
-
-            // Safety: we assume that the sender wants for the message to be private - a malicious one could simply
-            // reveal its contents publicly. It is therefore fine to trust the sender to provide random padding.
-            let field_bytes = unsafe { get_random_bytes::<31>() };
-            ciphertext[i] = Field::from_be_bytes::<31>(field_bytes);
+        // Mask all non-eph-pk fields. Message-byte fields get their data hidden; trailing zero fields become
+        // pseudorandom padding (indistinguishable from random to observers).
+        for i in 0..(MESSAGE_CIPHERTEXT_LEN - 1) {
+            // Safety: masking is not constrained but it is in the sender's interest to produce correct masks
+            // (otherwise the recipient cannot decrypt).
+            let mask = unsafe { derive_field_mask(ciphertext_shared_secret, i as u32) };
+            ciphertext[1 + i] += mask;
         }
 
         ciphertext
@@ -385,13 +385,10 @@ impl MessageEncryption for AES128 {
     ) -> Option<BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>> {
         let eph_pk_x = ciphertext.get(0);
 
-        let ciphertext_without_eph_pk_x_fields = array::subbvec::<Field, MESSAGE_CIPHERTEXT_LEN, MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS>(
+        let masked_fields = array::subbvec::<Field, MESSAGE_CIPHERTEXT_LEN, MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS>(
             ciphertext,
             EPH_PK_X_SIZE_IN_FIELDS,
         );
-
-        // Convert the ciphertext represented as fields to a byte representation (its original format)
-        let ciphertext_without_eph_pk_x = bytes_from_fields(ciphertext_without_eph_pk_x_fields);
 
         // With the x-coordinate of the ephemeral public key we can reconstruct the point as we know that the
         // y-coordinate must be positive. This may fail however, as not all x-coordinates are on the curve. In that
@@ -399,6 +396,10 @@ impl MessageEncryption for AES128 {
         point_from_x_coord_and_sign(eph_pk_x, true).map(|eph_pk| {
             // Derive shared secret
             let ciphertext_shared_secret = get_shared_secret(recipient, eph_pk);
+
+            // Unmask all non-eph-pk fields by subtracting the same Poseidon-derived masks used during encryption.
+            let fields = masked_fields.mapi(|i, field| field - derive_field_mask(ciphertext_shared_secret, i));
+            let ciphertext_without_eph_pk_x = bytes_from_fields(fields);
 
             // Derive symmetric keys:
             let pairs = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<2>(
@@ -438,6 +439,15 @@ impl MessageEncryption for AES128 {
             fields_from_bytes(plaintext_bytes)
         })
     }
+}
+
+/// Derives a pseudorandom field mask from an ECDH shared secret and field index. Used to hide the
+/// byte-packed ciphertext fields so that the wire format is indistinguishable from random data.
+unconstrained fn derive_field_mask(shared_secret: Point, index: u32) -> Field {
+    poseidon2_hash_with_separator(
+        [shared_secret.x, shared_secret.y],
+        DOM_SEP__CIPHERTEXT_FIELD_MASK + index,
+    )
 }
 
 /// Produces a random valid address point, i.e. one that is on the curve. This is equivalent to calling
