@@ -1107,6 +1107,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_keccak_permutation_constra
 
     // Iterate over all registered outputs for the case if multiple constraints with the same inputs are emitted.
     for (const auto& output : all_outputs) {
+        // unexpected
         BB_ASSERT_EQ(output.size(), constraint->result.size(), "Output size mismatch");
 
         auto condition = true;

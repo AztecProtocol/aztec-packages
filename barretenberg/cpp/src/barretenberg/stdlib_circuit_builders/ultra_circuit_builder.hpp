@@ -657,18 +657,17 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
             friend bool operator==(const WitnessOrConstant& lhs, const WitnessOrConstant& rhs) = default;
         };
         struct VectorHash {
-            const size_t WINTESS_HASH_MULTIPLIER = 37;
-            const size_t CONSTANT_HASH_MULTIPLIER = 41;
-
             size_t operator()(const std::vector<WitnessOrConstant>& v) const
             {
                 size_t seed = 0;
                 for (const auto& elem : v) {
+                    size_t hash_val = 0;
                     if (elem.is_constant) {
-                        seed += std::hash<typename ExecutionTrace_::FF>()(elem.value) * CONSTANT_HASH_MULTIPLIER;
+                        hash_val = std::hash<typename ExecutionTrace_::FF>()(elem.value);
                     } else {
-                        seed += std::hash<uint32_t>()(elem.index) * WINTESS_HASH_MULTIPLIER;
+                        hash_val = std::hash<uint32_t>()(elem.index);
                     }
+                    seed ^= hash_val + 0x9e3779b9 + (seed << 6) + (seed >> 2);
                 }
                 return seed;
             }
