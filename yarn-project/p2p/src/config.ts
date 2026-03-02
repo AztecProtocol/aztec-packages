@@ -394,7 +394,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb.',
   },
   txPublicSetupAllowListExtend: {
-    env: 'TX_PUBLIC_SETUP_ALLOWLIST_EXTEND',
+    env: 'TX_PUBLIC_SETUP_ALLOWLIST',
     parseEnv: (val: string) => parseAllowList(val),
     description:
       'Additional entries to extend the default setup allow list. Format: I:address:selector,C:classId:selector',

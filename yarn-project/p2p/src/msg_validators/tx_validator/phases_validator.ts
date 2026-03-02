@@ -6,6 +6,7 @@ import {
   type PublicCallRequestWithCalldata,
   TX_ERROR_DURING_VALIDATION,
   TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED,
+  TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT,
   Tx,
   TxExecutionPhase,
   type TxValidationResult,
@@ -45,7 +46,8 @@ export class PhasesTxValidator implements TxValidator<Tx> {
 
       const setupFns = getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.SETUP);
       for (const setupFn of setupFns) {
-        if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
+        const rejectionReason = await this.checkAllowList(setupFn, this.setupAllowList);
+        if (rejectionReason) {
           this.#log.verbose(
             `Rejecting tx ${tx.getTxHash().toString()} because it calls setup function not on allow list: ${
               setupFn.request.contractAddress
@@ -53,7 +55,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
             { allowList: this.setupAllowList },
           );
 
-          return { result: 'invalid', reason: [TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED] };
+          return { result: 'invalid', reason: [rejectionReason] };
         }
       }
 
@@ -66,12 +68,13 @@ export class PhasesTxValidator implements TxValidator<Tx> {
     }
   }
 
-  private async isOnAllowList(
+  /** Returns a rejection reason if the call is not on the allow list, or undefined if it is allowed. */
+  private async checkAllowList(
     publicCall: PublicCallRequestWithCalldata,
     allowList: AllowedElement[],
-  ): Promise<boolean> {
+  ): Promise<string | undefined> {
     if (publicCall.isEmpty()) {
-      return true;
+      return undefined;
     }
 
     const contractAddress = publicCall.request.contractAddress;
@@ -81,7 +84,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
     for (const entry of allowList) {
       if ('address' in entry) {
         if (contractAddress.equals(entry.address) && entry.selector.equals(functionSelector)) {
-          return true;
+          return undefined;
         }
       }
     }
@@ -97,15 +100,15 @@ export class PhasesTxValidator implements TxValidator<Tx> {
         const instance = await this.contractsDB.getContractInstance(contractAddress, this.timestamp);
         contractClassId = { value: instance?.currentContractClassId.toString() };
         if (!contractClassId.value) {
-          throw new Error(`Contract not found: ${contractAddress}`);
+          return TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT;
         }
       }
 
       if (contractClassId.value === entry.classId.toString() && entry.selector.equals(functionSelector)) {
-        return true;
+        return undefined;
       }
     }
 
-    return false;
+    return TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED;
   }
 }
