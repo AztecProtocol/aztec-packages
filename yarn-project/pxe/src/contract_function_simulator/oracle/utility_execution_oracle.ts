@@ -567,9 +567,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
 
     const txHashes = requestCapsules.map(fields => fields[0] ?? Fr.ZERO);
-
-    const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
-    const maybeMessageContexts = await this.messageContextService.resolveMessageContexts(txHashes, anchorBlockNumber);
+    const maybeMessageContexts = await this.messageContextService.resolveMessageContexts(
+      txHashes,
+      this.anchorBlockHeader.getBlockNumber(),
+    );
 
     // Clear request capsule
     await this.capsuleStore.setCapsuleArray(contractAddress, messageContextRequestsArrayBaseSlot, [], this.jobId);

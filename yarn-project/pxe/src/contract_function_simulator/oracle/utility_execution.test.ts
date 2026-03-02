@@ -28,6 +28,7 @@ import type { RecipientTaggingStore } from '../../storage/tagging_store/recipien
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
+import { MessageTxContext } from '../noir-structs/message_tx_context.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 describe('Utility Execution test suite', () => {
@@ -234,6 +235,83 @@ describe('Utility Execution test suite', () => {
         await expect(utilityExecutionOracle.utilityGetBlockHeader(BlockNumber(syncedBlockNumber + 1))).rejects.toThrow(
           `Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`,
         );
+      });
+    });
+
+    describe('utilityResolveMessageContexts', () => {
+      const requestSlot = Fr.random();
+      const responseSlot = Fr.random();
+
+      it('throws when contractAddress does not match', async () => {
+        const wrongAddress = await AztecAddress.random();
+        await expect(
+          utilityExecutionOracle.utilityResolveMessageContexts(wrongAddress, requestSlot, responseSlot),
+        ).rejects.toThrow(`Got a message context request from ${wrongAddress}, expected ${contractAddress}`);
+      });
+
+      it('returns null for zero tx hashes', async () => {
+        capsuleStore.readCapsuleArray.mockResolvedValueOnce([[Fr.ZERO]]);
+
+        await utilityExecutionOracle.utilityResolveMessageContexts(contractAddress, requestSlot, responseSlot);
+
+        const response = capsuleStore.setCapsuleArray.mock.calls.find(
+          call => call[0].equals(contractAddress) && call[1].equals(responseSlot),
+        );
+        expect(response).toBeDefined();
+        const responseFields = response![2][0];
+        expect(responseFields).toEqual(MessageTxContext.toSerializedOption(null));
+        expect(aztecNode.getTxEffect).not.toHaveBeenCalled();
+      });
+
+      it('resolves a valid tx hash into a MessageTxContext', async () => {
+        const txHash = TxHash.random();
+        const noteHash = Fr.random();
+        const firstNullifier = Fr.random();
+
+        capsuleStore.readCapsuleArray.mockResolvedValueOnce([[txHash.hash]]);
+        aztecNode.getTxEffect.mockResolvedValueOnce({
+          l2BlockNumber: BlockNumber(syncedBlockNumber - 1),
+          l2BlockHash: BlockHash.random(),
+          txIndexInBlock: 0,
+          data: { txHash, noteHashes: [noteHash], nullifiers: [firstNullifier] },
+        } as any);
+
+        await utilityExecutionOracle.utilityResolveMessageContexts(contractAddress, requestSlot, responseSlot);
+
+        const response = capsuleStore.setCapsuleArray.mock.calls.find(
+          call => call[0].equals(contractAddress) && call[1].equals(responseSlot),
+        );
+        expect(response).toBeDefined();
+        const responseFields = response![2][0];
+        const expected = MessageTxContext.toSerializedOption(new MessageTxContext(txHash, [noteHash], firstNullifier));
+        expect(responseFields).toEqual(expected);
+      });
+
+      it('returns null for tx effects beyond anchor block', async () => {
+        const txHash = TxHash.random();
+
+        capsuleStore.readCapsuleArray.mockResolvedValueOnce([[txHash.hash]]);
+        aztecNode.getTxEffect.mockResolvedValueOnce({
+          l2BlockNumber: BlockNumber(syncedBlockNumber + 1),
+          l2BlockHash: BlockHash.random(),
+          txIndexInBlock: 0,
+          data: { txHash, noteHashes: [], nullifiers: [Fr.random()] },
+        } as any);
+
+        await utilityExecutionOracle.utilityResolveMessageContexts(contractAddress, requestSlot, responseSlot);
+
+        const response = capsuleStore.setCapsuleArray.mock.calls.find(
+          call => call[0].equals(contractAddress) && call[1].equals(responseSlot),
+        );
+        expect(response).toBeDefined();
+        const responseFields = response![2][0];
+        expect(responseFields).toEqual(MessageTxContext.toSerializedOption(null));
+      });
+
+      it('clears the request capsule after processing', async () => {
+        capsuleStore.readCapsuleArray.mockResolvedValueOnce([]);
+        await utilityExecutionOracle.utilityResolveMessageContexts(contractAddress, requestSlot, responseSlot);
+        expect(capsuleStore.setCapsuleArray).toHaveBeenCalledWith(contractAddress, requestSlot, [], 'test-job-id');
       });
     });
   });
