@@ -51,20 +51,9 @@ template <class Curve> class CommitmentKey {
      * @param num_points Number of points needed for commitments
      */
     CommitmentKey(const size_t num_points)
-        : srs(srs::get_crs_factory<Curve>()->get_crs(std::max(num_points, minimum_crs_size())))
-        , srs_size(std::max(num_points, minimum_crs_size()))
+        : srs(srs::get_crs_factory<Curve>()->get_crs(num_points))
+        , srs_size(num_points)
     {}
-
-    // SmallSubgroupIPA (used in ZK proofs) commits polynomials up to size SUBGROUP_SIZE + 3.
-    // Enforce this as a minimum so callers don't need to special-case ZK.
-    static constexpr size_t minimum_crs_size()
-    {
-        if constexpr (requires { Curve::SUBGROUP_SIZE; }) {
-            return Curve::SUBGROUP_SIZE + 3;
-        } else {
-            return 0;
-        }
-    }
     /**
      * @brief Checks the commitment key is properly initialized.
      *
