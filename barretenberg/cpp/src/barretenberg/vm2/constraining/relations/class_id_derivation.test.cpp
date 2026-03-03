@@ -70,9 +70,12 @@ TEST(ClassIdDerivationConstrainingTest, Basic)
     auto klass = generate_contract_class();
     FF class_id =
         compute_contract_class_id(klass.artifact_hash, klass.private_functions_root, klass.public_bytecode_commitment);
-    klass.id = class_id;
 
-    builder.process({ { .klass = klass } }, trace);
+    builder.process({ { .class_id = class_id,
+                        .artifact_hash = klass.artifact_hash,
+                        .private_functions_root = klass.private_functions_root,
+                        .public_bytecode_commitment = klass.public_bytecode_commitment } },
+                    trace);
 
     check_relation<class_id_derivation_relation>(trace);
 }
@@ -105,7 +108,11 @@ TEST(ClassIdDerivationPoseidonTest, WithHashInteraction)
     class_id_derivation.assert_derivation(klass);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
-    builder.process({ { .klass = klass } }, trace);
+    builder.process({ { .class_id = klass.id,
+                        .artifact_hash = klass.artifact_hash,
+                        .private_functions_root = klass.private_functions_root,
+                        .public_bytecode_commitment = klass.public_bytecode_commitment } },
+                    trace);
 
     check_interaction<ClassIdDerivationTraceBuilder,
                       lookup_class_id_derivation_class_id_poseidon2_0_settings,

@@ -115,7 +115,7 @@ namespace to_radix_mem;
     pol commit is_output_bits; // @boolean (U1 by execution trace tag validation)
 
     // ==== MULTI-ROW COMPUTATION SELECTORS ====
-    // See recipe: https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Contiguous-Multi-Rows-Computation-Trace
+    // See recipe: https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
     // Here `end` is denoted as `last`.
 
     pol commit start; // @boolean

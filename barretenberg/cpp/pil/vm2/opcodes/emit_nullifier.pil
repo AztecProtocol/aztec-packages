@@ -64,7 +64,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         prev_nullifier_tree_size,                         // input: pre-write tree size (from context.pil)
         discard,                                          // input: (from execution_discard) will this write eventually be reverted (so it shouldn't be written to public inputs)?
         /*nullifier_index=*/ prev_num_nullifiers_emitted, // input: the nullifier index to write to in public inputs
-        /*should_silo=1*/ sel_write_nullifier,            // input: should_silo = 1 (always silo for contract nullifiers)
+        /*sel_silo=1*/ sel_write_nullifier,               // input: sel_silo = 1 (always silo for contract nullifiers)
         contract_address                                  // input: contract address for siloing (from context)
     } in nullifier_check.write {
         nullifier_check.nullifier,
@@ -74,7 +74,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         nullifier_check.tree_size_before_write,
         nullifier_check.discard,
         nullifier_check.nullifier_index,      // index to write to in public inputs
-        nullifier_check.should_silo,
+        nullifier_check.sel_silo,
         nullifier_check.address               // contract address for siloing
     };
 

@@ -13,6 +13,7 @@ import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ChainConfig,
+  DEFAULT_MAX_TXS_PER_BLOCK,
   type SequencerConfig,
   chainConfigMappings,
   sharedSequencerConfigMappings,
@@ -37,7 +38,7 @@ export type { SequencerConfig };
  */
 export const DefaultSequencerConfig = {
   sequencerPollingIntervalMS: 500,
-  maxTxsPerBlock: 32,
+  maxTxsPerBlock: DEFAULT_MAX_TXS_PER_BLOCK,
   minTxsPerBlock: 1,
   buildCheckpointIfEmpty: false,
   publishTxsWithProposals: false,
@@ -50,6 +51,8 @@ export const DefaultSequencerConfig = {
   skipInvalidateBlockAsProposer: false,
   broadcastInvalidBlockProposal: false,
   injectFakeAttestation: false,
+  injectHighSValueAttestation: false,
+  injectUnrecoverableSignatureAttestation: false,
   fishermanMode: false,
   shuffleAttestationOrdering: false,
   skipPushProposedBlocksToArchiver: false,
@@ -66,7 +69,7 @@ export type SequencerClientConfig = SequencerPublisherConfig &
   SequencerConfig &
   L1ReaderConfig &
   ChainConfig &
-  Pick<P2PConfig, 'txPublicSetupAllowList'> &
+  Pick<P2PConfig, 'txPublicSetupAllowListExtend'> &
   Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
@@ -74,11 +77,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'SEQ_POLLING_INTERVAL_MS',
     description: 'The number of ms to wait between polling for checking to build on the next slot.',
     ...numberConfigHelper(DefaultSequencerConfig.sequencerPollingIntervalMS),
-  },
-  maxTxsPerBlock: {
-    env: 'SEQ_MAX_TX_PER_BLOCK',
-    description: 'The maximum number of txs to include in a block.',
-    ...numberConfigHelper(DefaultSequencerConfig.maxTxsPerBlock),
   },
   minTxsPerBlock: {
     env: 'SEQ_MIN_TX_PER_BLOCK',
@@ -185,6 +183,14 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Inject a fake attestation (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.injectFakeAttestation),
   },
+  injectHighSValueAttestation: {
+    description: 'Inject a malleable attestation with a high-s value (for testing only)',
+    ...booleanConfigHelper(DefaultSequencerConfig.injectHighSValueAttestation),
+  },
+  injectUnrecoverableSignatureAttestation: {
+    description: 'Inject an attestation with an unrecoverable signature (for testing only)',
+    ...booleanConfigHelper(DefaultSequencerConfig.injectUnrecoverableSignatureAttestation),
+  },
   fishermanMode: {
     env: 'FISHERMAN_MODE',
     description:
@@ -213,7 +219,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Percent probability (0 - 100) of sequencer skipping checkpoint publishing (testing only)',
     ...numberConfigHelper(DefaultSequencerConfig.skipPublishingCheckpointsPercent),
   },
-  ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowList']),
+  ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowListExtend']),
 };
 
 export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {

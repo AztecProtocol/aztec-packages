@@ -57,7 +57,7 @@ export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime'
   Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
   Pick<
     SequencerConfig,
-    | 'txPublicSetupAllowList'
+    | 'txPublicSetupAllowListExtend'
     | 'fakeProcessingDelayPerTxMs'
     | 'fakeThrowAfterProcessingTxCount'
     | 'maxTxsPerBlock'
@@ -73,7 +73,7 @@ export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[
   'slotDuration',
   'l1ChainId',
   'rollupVersion',
-  'txPublicSetupAllowList',
+  'txPublicSetupAllowListExtend',
   'fakeProcessingDelayPerTxMs',
   'fakeThrowAfterProcessingTxCount',
   'maxTxsPerBlock',
