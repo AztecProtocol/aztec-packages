@@ -890,10 +890,14 @@ bool is_msm_result_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
                                                field_ct::from_witness_index(&builder, resolved_output[1].index) };
 
         if (predicate_field.witness.is_constant()) {
+
             // Predicate is constant true: conditional_assign returns input_result directly (no gates).
             // result.assert_equal(input_result) standardizes both sides and creates copy constraints.
-            return is_cycle_group_assert_equal_constrained<FF>(
-                analyzer, builder, result_x, result_y, input_result_x, input_result_y);
+            if (!is_cycle_group_assert_equal_constrained<FF>(
+                    analyzer, builder, result_x, result_y, input_result_x, input_result_y)) {
+                continue;
+            }
+            return true;
         }
 
         // Non-constant predicate: verify conditional_assign + assert_equal
