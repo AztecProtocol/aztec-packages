@@ -69,7 +69,7 @@ pub unconstrained fn receive(
         PendingOffchainMsg { ciphertext, recipient, tx_hash, received_at: UtilityContext::new().timestamp() },
     );
 
-    // Invoke an oracle to invalidate contract sync state cache
+    // TODO: Invoke an oracle to invalidate contract sync state cache
 }
 
 /// Returns offchain-delivered messages to process during sync.
@@ -116,18 +116,46 @@ pub unconstrained fn default_handler(address: AztecAddress) -> CapsuleArray<Offc
         let maybe_ctx = resolved_contexts.get(j);
         let msg = inbox.get(j);
 
-        // After max TTL it is safe to remove the message from the inbox
+        // This loop decides what to do with each message in the offchain message inbox. We need to handle 5
+        // different scenarios for each message.
+        //
+        // 1. The TX that emitted this message has not been included in a block for more than 24 hours. In this
+        // scenario it is no longer possible to for it to be included. So we remove the message from the inbox as it is
+        // no longer processable.
+        //
+        // 2. The TX that emitted this message is still not known to PXE: in this case we can't yet process this
+        // message, as any notes or events discovered will fail to be validated. So we leave the message in the inbox,
+        // awaiting for future syncs to detect that the TX became available.
+        //
+        // 3. The TX that emitted this message had been included in a block known to PXE, but as result of a reorg,
+        // we no longer see it. From the point of view of this handler we're essentially in the same scenario: we need
+        // to keep the message in the inbox awaiting for the TX to be available to PXE (or eventually expire).
+        //
+        // 4. The message is not associated to a TX to begin with. The current version of offchain message processing
+        // does not support this case, but in the future it will. Right now, a message without an associated TX will
+        // sit in the inbox unprocessed forever (!).
+        //
+        // 5. The TX that emitted this message has been found by PXE. We have a proper MessageContext, and the message
+        // is now processable. We add the message to the `ready_to_process` CapsuleArray and the sync_state loop will
+        // process it.
+
+        // Scenario 1: emitting TX expired. After max TTL it is safe to remove the message from the inbox, as it is no
+        // longer possible for the original TX that emitted it to be included in a block. We remove the message from
+        // the inbox.
         if now > msg.received_at + OFFCHAIN_MESSAGE_TTL_SECONDS {
             inbox.remove(j);
             continue;
         }
 
-        // Tx not yet available; keep the message in the inbox.
+        // Scenarios 2, 3: emitting TX not yet available. We keep the message in the inbox. As it might become
+        // processable as new blocks get mined.
+        // Scenario 4: no TX associated to message, means with this algorithm we will never clear it from the inbox.
+        // TODO: decide on a better strategy for scenario 4.
         if maybe_ctx.is_none() {
             continue;
         }
 
-        // Message is ready to process add to result
+        // Scenario 5: Message is ready to process, add ready_to_process
         let ctx = maybe_ctx.unwrap();
         let message_context = MessageContext {
             tx_hash: ctx.tx_hash,
