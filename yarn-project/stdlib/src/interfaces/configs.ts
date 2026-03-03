@@ -13,6 +13,8 @@ export interface SequencerConfig {
   sequencerPollingIntervalMS?: number;
   /** The maximum number of txs to include in a block. */
   maxTxsPerBlock?: number;
+  /** The maximum number of txs across all blocks in a checkpoint. */
+  maxTxsPerCheckpoint?: number;
   /** The minimum number of txs to include in a block. */
   minTxsPerBlock?: number;
   /** The minimum number of valid txs (after execution) to include in a block. If not set, falls back to minTxsPerBlock. */
@@ -79,12 +81,15 @@ export interface SequencerConfig {
   minBlocksForCheckpoint?: number;
   /** Skip publishing checkpoint proposals probability (for testing checkpoint prunes only) */
   skipPublishingCheckpointsPercent?: number;
+  /** Multiplier for per-block budget computation (default 2). */
+  gasPerBlockAllocationMultiplier?: number;
 }
 
 export const SequencerConfigSchema = zodFor<SequencerConfig>()(
   z.object({
     sequencerPollingIntervalMS: z.number().optional(),
     maxTxsPerBlock: z.number().optional(),
+    maxTxsPerCheckpoint: z.number().optional(),
     minValidTxsPerBlock: z.number().optional(),
     minTxsPerBlock: z.number().optional(),
     maxL2BlockGas: z.number().optional(),
@@ -118,6 +123,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     skipPushProposedBlocksToArchiver: z.boolean().optional(),
     minBlocksForCheckpoint: z.number().positive().optional(),
     skipPublishingCheckpointsPercent: z.number().gte(0).lte(100).optional(),
+    gasPerBlockAllocationMultiplier: z.number().positive().optional(),
   }),
 );
 
@@ -134,7 +140,12 @@ type SequencerConfigOptionalKeys =
   | 'l1PublishingTime'
   | 'txPublicSetupAllowList'
   | 'minValidTxsPerBlock'
-  | 'minBlocksForCheckpoint';
+  | 'minBlocksForCheckpoint'
+  | 'maxTxsPerBlock'
+  | 'maxTxsPerCheckpoint'
+  | 'maxL2BlockGas'
+  | 'maxDABlockGas'
+  | 'gasPerBlockAllocationMultiplier';
 
 export type ResolvedSequencerConfig = Prettify<
   Required<Omit<SequencerConfig, SequencerConfigOptionalKeys>> & Pick<SequencerConfig, SequencerConfigOptionalKeys>

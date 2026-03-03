@@ -32,7 +32,7 @@ import {
   type L2BlockSource,
   MaliciousCommitteeAttestationsAndSigners,
 } from '@aztec/stdlib/block';
-import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { type Checkpoint, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
@@ -266,6 +266,22 @@ export class CheckpointProposalJob implements Traceable {
       // broadcasted yet, and wait to collect the committee attestations.
       this.setStateFn(SequencerState.ASSEMBLING_CHECKPOINT, this.slot);
       const checkpoint = await checkpointBuilder.completeCheckpoint();
+
+      // Final validation round for the checkpoint before we propose it, just for safety
+      try {
+        validateCheckpoint(checkpoint, {
+          rollupManaLimit: this.l1Constants.rollupManaLimit,
+          maxL2BlockGas: this.config.maxL2BlockGas,
+          maxDABlockGas: this.config.maxDABlockGas,
+          maxTxsPerBlock: this.config.maxTxsPerBlock,
+          maxTxsPerCheckpoint: this.config.maxTxsPerCheckpoint,
+        });
+      } catch (err) {
+        this.log.error(`Built an invalid checkpoint at slot ${this.slot} (skipping proposal)`, err, {
+          checkpoint: checkpoint.header.toInspect(),
+        });
+        return undefined;
+      }
 
       // Record checkpoint-level build metrics
       this.metrics.recordCheckpointBuild(
@@ -572,6 +588,8 @@ export class CheckpointProposalJob implements Traceable {
       const blockEndOverhead = getNumBlockEndBlobFields(indexWithinCheckpoint === 0);
       const maxBlobFieldsForTxs = remainingBlobFields - blockEndOverhead;
 
+      // Per-block limits derived at startup by computeBlockLimits(), further capped
+      // by remaining checkpoint-level budgets inside CheckpointBuilder before each block is built.
       const blockBuilderOptions: PublicProcessorLimits = {
         maxTransactions: this.config.maxTxsPerBlock,
         maxBlockSize: this.config.maxBlockSizeInBytes,

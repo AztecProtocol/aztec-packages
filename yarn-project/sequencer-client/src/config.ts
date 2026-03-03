@@ -13,7 +13,6 @@ import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ChainConfig,
-  DEFAULT_MAX_TXS_PER_BLOCK,
   type SequencerConfig,
   chainConfigMappings,
   sharedSequencerConfigMappings,
@@ -38,7 +37,6 @@ export type { SequencerConfig };
  */
 export const DefaultSequencerConfig: ResolvedSequencerConfig = {
   sequencerPollingIntervalMS: 500,
-  maxTxsPerBlock: DEFAULT_MAX_TXS_PER_BLOCK,
   minTxsPerBlock: 1,
   buildCheckpointIfEmpty: false,
   publishTxsWithProposals: false,
@@ -59,6 +57,7 @@ export const DefaultSequencerConfig: ResolvedSequencerConfig = {
   shuffleAttestationOrdering: false,
   skipPushProposedBlocksToArchiver: false,
   skipPublishingCheckpointsPercent: 0,
+  gasPerBlockAllocationMultiplier: 2,
 };
 
 /**
@@ -79,6 +78,11 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'SEQ_POLLING_INTERVAL_MS',
     description: 'The number of ms to wait between polling for checking to build on the next slot.',
     ...numberConfigHelper(DefaultSequencerConfig.sequencerPollingIntervalMS),
+  },
+  maxTxsPerCheckpoint: {
+    env: 'SEQ_MAX_TX_PER_CHECKPOINT',
+    description: 'The maximum number of txs across all blocks in a checkpoint.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
   minTxsPerBlock: {
     env: 'SEQ_MIN_TX_PER_BLOCK',
@@ -201,6 +205,11 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   shuffleAttestationOrdering: {
     description: 'Shuffle attestation ordering to create invalid ordering (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.shuffleAttestationOrdering),
+  },
+  gasPerBlockAllocationMultiplier: {
+    env: 'SEQ_GAS_PER_BLOCK_ALLOCATION_MULTIPLIER',
+    description: 'Multiplier for per-block budget computation (default 2).',
+    parseEnv: (val: string) => (val ? parseFloat(val) : undefined),
   },
   ...sharedSequencerConfigMappings,
   buildCheckpointIfEmpty: {

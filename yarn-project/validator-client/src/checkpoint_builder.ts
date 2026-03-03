@@ -1,5 +1,7 @@
+import { NUM_CHECKPOINT_END_MARKER_FIELDS, getNumBlockEndBlobFields } from '@aztec/blob-lib/encoding';
+import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB, MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
-import { merge, pick } from '@aztec/foundation/collection';
+import { merge, pick, sum } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
@@ -94,8 +96,14 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     });
     const { processor, validator } = await this.makeBlockBuilderDeps(globalVariables, this.fork);
 
+    // Cap gas limits and available blob fields by remaining checkpoint-level budgets
+    const cappedOpts: PublicProcessorLimits & { expectedEndState?: StateReference } = {
+      ...opts,
+      ...this.capLimitsByCheckpointBudgets(opts),
+    };
+
     const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs, _, usedTxBlobFields]] = await elapsed(() =>
-      processor.process(pendingTxs, opts, validator),
+      processor.process(pendingTxs, cappedOpts, validator),
     );
 
     // Throw if we didn't collect a single valid tx and we're not allowed to build empty blocks
@@ -145,6 +153,61 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
   /** Gets the checkpoint currently in progress. */
   getCheckpoint(): Promise<Checkpoint> {
     return this.checkpointBuilder.clone().completeCheckpoint();
+  }
+
+  /**
+   * Caps per-block gas and blob field limits by remaining checkpoint-level budgets.
+   * Computes remaining L2 gas (mana), DA gas, and blob fields from blocks already added to the checkpoint,
+   * then returns opts with maxBlockGas and maxBlobFields capped accordingly.
+   */
+  protected capLimitsByCheckpointBudgets(
+    opts: PublicProcessorLimits,
+  ): Pick<PublicProcessorLimits, 'maxBlockGas' | 'maxBlobFields' | 'maxTransactions'> {
+    const existingBlocks = this.checkpointBuilder.getBlocks();
+
+    // Remaining L2 gas (mana)
+    // IMPORTANT: This assumes mana is computed solely based on L2 gas used in transactions.
+    // This may change in the future.
+    const usedMana = sum(existingBlocks.map(b => b.header.totalManaUsed.toNumber()));
+    const remainingMana = this.config.rollupManaLimit - usedMana;
+
+    // Remaining DA gas
+    const usedDAGas = sum(existingBlocks.map(b => b.computeDAGasUsed())) ?? 0;
+    const remainingDAGas = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT - usedDAGas;
+
+    // Remaining blob fields (block blob fields include both tx data and block-end overhead)
+    const usedBlobFields = sum(existingBlocks.map(b => b.toBlobFields().length));
+    const totalBlobCapacity = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB - NUM_CHECKPOINT_END_MARKER_FIELDS;
+    const isFirstBlock = existingBlocks.length === 0;
+    const blockEndOverhead = getNumBlockEndBlobFields(isFirstBlock);
+    const maxBlobFieldsForTxs = totalBlobCapacity - usedBlobFields - blockEndOverhead;
+
+    // Cap L2 gas by remaining checkpoint mana
+    const cappedL2Gas = Math.min(opts.maxBlockGas?.l2Gas ?? remainingMana, remainingMana);
+
+    // Cap DA gas by remaining checkpoint DA gas budget
+    const cappedDAGas = Math.min(opts.maxBlockGas?.daGas ?? remainingDAGas, remainingDAGas);
+
+    // Cap blob fields by remaining checkpoint blob capacity
+    const cappedBlobFields =
+      opts.maxBlobFields !== undefined ? Math.min(opts.maxBlobFields, maxBlobFieldsForTxs) : maxBlobFieldsForTxs;
+
+    // Cap transaction count by remaining checkpoint tx budget
+    let cappedMaxTransactions: number | undefined;
+    if (this.config.maxTxsPerCheckpoint !== undefined) {
+      const usedTxs = sum(existingBlocks.map(b => b.body.txEffects.length));
+      const remainingTxs = Math.max(0, this.config.maxTxsPerCheckpoint - usedTxs);
+      cappedMaxTransactions =
+        opts.maxTransactions !== undefined ? Math.min(opts.maxTransactions, remainingTxs) : remainingTxs;
+    } else {
+      cappedMaxTransactions = opts.maxTransactions;
+    }
+
+    return {
+      maxBlockGas: new Gas(cappedDAGas, cappedL2Gas),
+      maxBlobFields: cappedBlobFields,
+      maxTransactions: cappedMaxTransactions,
+    };
   }
 
   protected async makeBlockBuilderDeps(globalVariables: GlobalVariables, fork: MerkleTreeWriteOperations) {

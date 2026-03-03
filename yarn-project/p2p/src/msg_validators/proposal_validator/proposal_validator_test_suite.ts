@@ -58,7 +58,7 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
 
     beforeEach(() => {
       epochCache = epochCacheMock();
-      validator = validatorFactory(epochCache, { txsPermitted: true });
+      validator = validatorFactory(epochCache, { txsPermitted: true, maxTxsPerBlock: undefined });
       epochCache.getCurrentAndNextSlot.mockReturnValue({
         currentSlot: currentSlot,
         nextSlot: nextSlot,
@@ -231,7 +231,10 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
     describe('transaction permission validation', () => {
       it('returns mid tolerance error if txs not permitted and proposal contains txHashes', async () => {
         const currentProposer = getSigner();
-        const validatorWithTxsDisabled = validatorFactory(epochCache, { txsPermitted: false });
+        const validatorWithTxsDisabled = validatorFactory(epochCache, {
+          txsPermitted: false,
+          maxTxsPerBlock: undefined,
+        });
         const header = makeHeader(1, 100, 100);
         const mockProposal = await makeProposal({
           blockHeader: header,
@@ -247,7 +250,10 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
 
       it('returns undefined if txs not permitted but proposal has no txHashes', async () => {
         const currentProposer = getSigner();
-        const validatorWithTxsDisabled = validatorFactory(epochCache, { txsPermitted: false });
+        const validatorWithTxsDisabled = validatorFactory(epochCache, {
+          txsPermitted: false,
+          maxTxsPerBlock: undefined,
+        });
         const header = makeHeader(1, 100, 100);
         const mockProposal = await makeProposal({
           blockHeader: header,

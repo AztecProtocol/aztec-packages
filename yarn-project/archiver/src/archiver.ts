@@ -120,7 +120,11 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     },
     private readonly blobClient: BlobClientInterface,
     instrumentation: ArchiverInstrumentation,
-    protected override readonly l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr },
+    protected override readonly l1Constants: L1RollupConstants & {
+      l1StartBlockHash: Buffer32;
+      genesisArchiveRoot: Fr;
+      rollupManaLimit?: number;
+    },
     synchronizer: ArchiverL1Synchronizer,
     events: ArchiverEmitter,
     l2TipsCache?: L2TipsCache,
@@ -133,7 +137,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     this.synchronizer = synchronizer;
     this.events = events;
     this.l2TipsCache = l2TipsCache ?? new L2TipsCache(this.dataStore.blockStore);
-    this.updater = new ArchiverDataStoreUpdater(this.dataStore, this.l2TipsCache);
+    this.updater = new ArchiverDataStoreUpdater(this.dataStore, this.l2TipsCache, {
+      rollupManaLimit: l1Constants.rollupManaLimit,
+    });
 
     // Running promise starts with a small interval inbetween runs, so all iterations needed for the initial sync
     // are done as fast as possible. This then gets updated once the initial sync completes.
