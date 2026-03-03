@@ -472,7 +472,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   priceBumpPercentage: {
     env: 'P2P_RPC_PRICE_BUMP_PERCENTAGE',
     description:
-      'Minimum percentage fee increase required to replace an existing tx via RPC. Set to 0 to disable price bumps.',
+      'Minimum percentage fee increase required to replace an existing tx via RPC. Even at 0%, replacement still requires paying at least 1 unit more.',
     ...bigintConfigHelper(10n),
   },
   ...sharedSequencerConfigMappings,
