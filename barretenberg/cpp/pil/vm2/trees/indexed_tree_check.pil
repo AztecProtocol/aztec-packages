@@ -90,8 +90,8 @@ include "../public_inputs.pil";
  *
  * Note: On a failing write (when exists == true), the write_root equals the input root and no tree update occurs.
  * The siloing_separator and address columns should be omitted (or set to zero) when sel_silo == 0.
- * Omit discard or set it to 1 to skip writing the value to public inputs (e.g., for transient trees).
- * Omitting discard is fine, since the write to public inputs is a lookup, not a permutation. If the prover chooses
+ * Omit discard and public inputs index to skip writing the value to public inputs (e.g., for transient trees).
+ * Omitting these columns is fine, since the write to public inputs is a lookup, not a permutation. If the prover chooses
  * to disable discard on a transient tree, the prover will just be asserting extra constraints.
  *
  * Preconditions:
