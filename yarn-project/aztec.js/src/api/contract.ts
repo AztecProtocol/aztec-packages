@@ -48,6 +48,8 @@ export { ContractFunctionInteraction } from '../contract/contract_function_inter
 export {
   NO_WAIT,
   type NoWait,
+  type OffchainMessage,
+  type OffchainOutput,
   type RequestInteractionOptions,
   type SendInteractionOptions,
   type ProfileInteractionOptions,
@@ -59,6 +61,8 @@ export {
   type SimulationReturn,
   type TxSendResultImmediate,
   type TxSendResultMined,
+  emptyOffchainOutput,
+  extractOffchainOutput,
   toProfileOptions,
   toSendOptions,
   toSimulateOptions,

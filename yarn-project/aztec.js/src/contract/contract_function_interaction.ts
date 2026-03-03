@@ -19,6 +19,8 @@ import {
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
   type SimulationReturn,
+  emptyOffchainOutput,
+  extractOffchainOutput,
   toProfileOptions,
   toSimulateOptions,
 } from './interaction_options.js';
@@ -114,11 +116,11 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       if (options.includeMetadata) {
         return {
           stats: utilityResult.stats,
-          offchainEffects: [],
+          ...emptyOffchainOutput(),
           result: returnValue,
         };
       }
-      return { result: returnValue, offchainEffects: [] };
+      return { result: returnValue, ...emptyOffchainOutput() };
     }
 
     const executionPayload = await this.request(options);
@@ -140,7 +142,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
 
     const returnValue = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
-    const offchainEffects = simulatedTx.offchainEffects;
+    const offchainOutput = extractOffchainOutput(simulatedTx.offchainEffects);
 
     if (options.includeMetadata || options.fee?.estimateGas) {
       const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx, options.fee?.estimatedGasPadding);
@@ -149,12 +151,12 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       );
       return {
         stats: simulatedTx.stats,
-        offchainEffects,
+        ...offchainOutput,
         result: returnValue,
         estimatedGas: { gasLimits, teardownGasLimits },
       };
     }
-    return { result: returnValue, offchainEffects };
+    return { result: returnValue, ...offchainOutput };
   }
 
   /**

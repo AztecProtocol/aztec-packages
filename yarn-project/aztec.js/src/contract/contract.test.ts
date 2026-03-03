@@ -136,7 +136,7 @@ describe('Contract Class', () => {
     wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);
     account.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.registerContract.mockResolvedValue(contractInstance);
-    wallet.sendTx.mockResolvedValue({ receipt: mockTxReceipt, offchainEffects: [] });
+    wallet.sendTx.mockResolvedValue({ receipt: mockTxReceipt, offchainEffects: [], offchainMessages: [] });
     wallet.executeUtility.mockResolvedValue(mockUtilityResultValue);
   });
 

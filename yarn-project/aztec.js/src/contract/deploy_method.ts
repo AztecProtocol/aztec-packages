@@ -9,13 +9,7 @@ import {
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import {
-  type Capsule,
-  HashedValues,
-  type OffchainEffect,
-  type TxProfileResult,
-  type TxReceipt,
-} from '@aztec/stdlib/tx';
+import { type Capsule, HashedValues, type TxProfileResult, type TxReceipt } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import { publishContractClass } from '../deployment/publish_class.js';
@@ -28,6 +22,7 @@ import { getGasLimits } from './get_gas_limits.js';
 import {
   NO_WAIT,
   type NoWait,
+  type OffchainOutput,
   type ProfileInteractionOptions,
   type RequestInteractionOptions,
   type SendInteractionOptionsWithoutWait,
@@ -35,6 +30,7 @@ import {
   type SimulationReturn,
   type TxSendResultImmediate,
   type TxSendResultMined,
+  extractOffchainOutput,
   toProfileOptions,
   toSendOptions,
   toSimulateOptions,
@@ -149,9 +145,7 @@ export type DeployResultMined<TContract extends ContractBase> = {
   contract: TContract;
   /** The deploy transaction receipt. */
   receipt: DeployTxReceipt<TContract>;
-  /** Offchain effects generated during proving. */
-  offchainEffects: OffchainEffect[];
-};
+} & OffchainOutput;
 
 /** Conditional return type for deploy based on wait options. */
 export type DeployReturn<TContract extends ContractBase, W extends DeployInteractionWaitOptions> = W extends NoWait
@@ -374,7 +368,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
       return result;
     }
 
-    const { receipt, offchainEffects } = await this.wallet.sendTx(
+    const { receipt, ...offchainOutput } = await this.wallet.sendTx(
       executionPayload,
       sendOptions as SendOptions<WaitOpts | undefined>,
     );
@@ -386,10 +380,10 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
 
     // Return full receipt if requested, otherwise just the contract
     if (options.wait && typeof options.wait === 'object' && options.wait.returnReceipt) {
-      return { receipt: { ...receipt, contract, instance }, offchainEffects };
+      return { receipt: { ...receipt, contract, instance }, ...offchainOutput };
     }
 
-    return { contract, receipt, offchainEffects };
+    return { contract, receipt, ...offchainOutput };
   }
 
   /**
@@ -431,7 +425,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
     );
     return {
       stats: simulatedTx.stats!,
-      offchainEffects: simulatedTx.offchainEffects,
+      ...extractOffchainOutput(simulatedTx.offchainEffects),
       result: undefined,
       estimatedGas: { gasLimits, teardownGasLimits },
     };
