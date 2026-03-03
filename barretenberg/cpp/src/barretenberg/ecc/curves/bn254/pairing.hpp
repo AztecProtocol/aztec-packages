@@ -16,8 +16,8 @@
 
 namespace bb::pairing {
 
-// Number of iterations in the Miller loop, equal to the length minus 1 of the signed bit decomposition of the
-// generating parameter x of BN254
+// Number of iterations in the Miller loop, equal to the length minus 1 of the signed bit decomposition of (6 * z + 2),
+// where z is the parameter of BN254
 constexpr size_t loop_length = 64;
 // Bit length minus 1 of the parameter z of BN254
 constexpr size_t z_loop_length = 62;
@@ -27,9 +27,9 @@ constexpr size_t z_loop_length = 62;
 // 2 (final two lines)
 constexpr size_t precomputed_coefficients_length = 87;
 
-// Signed bit decomposition of the parameter z of BN254, used in the Miller loop.
-// \f$z = \sum_{i} b_i 2^i + 2^{64}\f$ where b_i = 1 if loop_bits[i] = 1, b_i = -1 if loop_bits[i] = 3 and b_i = 0 if
-// loop_bits[i] = 0
+// Signed bit decomposition of (6 * z + 2) where z is the parameter of BN254, used in the Miller loop.
+// \f$6z + 2 = \sum_{i} b_i 2^i + 2^{64}\f$ where b_i = 1 if loop_bits[i] = 1, b_i = -1 if loop_bits[i] = 3 and b_i = 0
+// if loop_bits[i] = 0
 constexpr std::array<uint8_t, loop_length> loop_bits{ 1, 0, 1, 0, 0, 0, 3, 0, 3, 0, 0, 0, 3, 0, 1, 0, 3, 0, 0, 3, 0, 0,
                                                       0, 0, 0, 1, 0, 0, 3, 0, 1, 0, 0, 3, 0, 0, 0, 0, 3, 0, 1, 0, 0, 0,
                                                       3, 0, 3, 0, 0, 1, 0, 0, 0, 3, 0, 0, 3, 0, 1, 0, 1, 0, 0, 0 };
@@ -50,10 +50,22 @@ struct miller_lines {
     std::array<fq12::ell_coeffs, precomputed_coefficients_length> lines;
 };
 
-constexpr void doubling_step_for_flipped_miller_loop(g2::element& current, fq12::ell_coeffs& ell);
+struct g2Projective {
+    fq2 x;
+    fq2 y;
+    fq2 z;
+};
 
-constexpr void mixed_addition_step_for_flipped_miller_loop(const g2::element& base,
-                                                           g2::element& Q,
+struct g1Projective {
+    fq x;
+    fq y;
+    fq z;
+};
+
+constexpr void doubling_step_for_flipped_miller_loop(g2Projective& work_point, fq12::ell_coeffs& line);
+
+constexpr void mixed_addition_step_for_flipped_miller_loop(const g2Projective& Q,
+                                                           g2Projective& work_point,
                                                            fq12::ell_coeffs& line);
 
 /**
@@ -68,7 +80,7 @@ constexpr void mixed_addition_step_for_flipped_miller_loop(const g2::element& ba
  *      - work_point and -Q if the bit is -1 --> updated work_point = work_point - Q
  *      - nothing else if the bit is 0 --> work_point is unchanged
  * After the loop, we need two more lines:
- *  - The line through (6z + 2)Q and the Q' (image of Q under the Frobenius map)
+ *  - The line through (6z + 2)Q and Q' (image of Q under the Frobenius map)
  *  - The line through (6z + 2)Q + Q' and Q'' (minus the image of Q' under the Frobenius map)
  *
  * We data required for each of these lines: gradients between the relevant points, as well as coordinates of the
@@ -77,7 +89,7 @@ constexpr void mixed_addition_step_for_flipped_miller_loop(const g2::element& ba
  * @param Q
  * @param lines
  */
-constexpr void precompute_miller_lines(const g2::element& Q, miller_lines& lines);
+constexpr void precompute_miller_lines(const g2Projective& Q, miller_lines& lines);
 
 /**
  * @brief Miller loop implementation.
@@ -89,7 +101,7 @@ constexpr void precompute_miller_lines(const g2::element& Q, miller_lines& lines
  * @param lines
  * @return constexpr fq12
  */
-constexpr fq12 miller_loop(const g1::element& P, const miller_lines& lines);
+constexpr fq12 miller_loop(const g1Projective& P, const miller_lines& lines);
 
 /**
  * @brief Compute the Miller loop for multiple pairs of points.
@@ -104,11 +116,71 @@ constexpr fq12 miller_loop(const g1::element& P, const miller_lines& lines);
  * @param num_pairs
  * @return constexpr fq12
  */
-constexpr fq12 miller_loop_batch(const g1::element* points, const miller_lines* lines, size_t num_pairs);
+constexpr fq12 miller_loop_batch(const g1::affine_element* points, const miller_lines* lines, size_t num_pairs);
 
 // ======================
 // Final exponentiation
 // ======================
+
+struct fq12Compressed {
+    fq2 g2;
+    fq2 g3;
+    fq2 g4;
+    fq2 g5;
+
+    /**
+     * @brief Map an element of fq12 into its compressed form.
+     *
+     * @details Fq12 can be constructed in two ways: ADD DETAILS HERE
+     *
+     * @param elt
+     * @return constexpr fq12Compressed
+     */
+    static constexpr fq12Compressed from_fq12(const fq12& elt)
+    {
+        return { elt.c1.c0, elt.c0.c2, elt.c0.c1, elt.c1.c2 };
+    }
+
+    constexpr fq12 decompress(const std::optional<fq2>& hint = std::nullopt) const
+    {
+        fq2 g0;
+        fq2 g1;
+        fq2 inverse;
+        if (g2.is_zero()) {
+            inverse = hint.has_value() ? hint.value() : g3.invert();
+            g1 = g4 * g5.mul_by_fq(fq(2)) * inverse;
+            g0 = fq6::mul_by_non_residue(g1.sqr().mul_by_fq(fq(2)) - g3 * g4.mul_by_fq(fq(3))) + fq2::one();
+        } else {
+            inverse = hint.has_value() ? hint.value() : g2.mul_by_fq(fq(4)).invert();
+            g1 = (fq6::mul_by_non_residue(g5.sqr()) + g4.sqr().mul_by_fq(fq(3)) - g3.mul_by_fq(fq(2))) * inverse;
+            g0 = fq6::mul_by_non_residue(g1.sqr().mul_by_fq(fq(2)) + g2 * g5 - g3 * g4.mul_by_fq(fq(3))) + fq2::one();
+        }
+
+        return fq12{ { g0, g4, g3 }, { g2, g1, g5 } };
+    }
+
+    constexpr void self_sqr()
+    {
+        fq2 A23 = (g2 + g3) * (g2 + fq6::mul_by_non_residue(g3));
+        fq2 A45 = (g4 + g5) * (g4 + fq6::mul_by_non_residue(g5));
+        fq2 B23 = g2 * g3;
+        fq2 B45 = g4 * g5;
+        fq2 B23_mul_by_non_residue = fq6::mul_by_non_residue(B23);
+        fq2 B45_mul_by_non_residue = fq6::mul_by_non_residue(B45);
+
+        g2 = (g2 + B45_mul_by_non_residue.mul_by_fq(fq(3))).mul_by_fq(fq(2));
+        g3 = (A45 - (B45_mul_by_non_residue + B45)).mul_by_fq(fq(3)) - g3.mul_by_fq(fq(2));
+        g4 = (A23 - (B23_mul_by_non_residue + B23)).mul_by_fq(fq(3)) - g4.mul_by_fq(fq(2));
+        g5 = (g5 + B23.mul_by_fq(fq(3))).mul_by_fq(fq(2));
+    }
+
+    constexpr fq12Compressed sqr() const
+    {
+        fq12Compressed result = *this;
+        result.self_sqr();
+        return result;
+    }
+};
 
 /**
  * @brief Easy part of the final exponentiation.
@@ -124,15 +196,15 @@ constexpr fq12 final_exponentiation_easy_part(const fq12& elt);
  *
  * @param elt
  */
-constexpr fq12 final_exponentiation_exp_z(const fq12& elt);
+constexpr fq12 final_exponentiation_exp_by_z(const fq12& elt);
 
 /**
  * @brief Hard part of the final exponentiation.
  *
  *
- * @details This function computes \f$elt^{\frac{q^4 - q^2 + 1}{r}}\f$, where \f$elt\f$ is the result of the easy part
- * of the final exponentiation. The algorithm is based on Section 3.3 of "Efficient Implementation of Bilinear Pairings
- * on ARM Processors" https://cacr.uwaterloo.ca/techreports/2012/cacr2012-17.pdf.
+ * @details This function computes \f$elt^{\frac{q^4 - q^2 + 1}{r}}\f$, where \f$elt\f$ is the result of the easy
+ * part of the final exponentiation. The algorithm is based on Section 3.3 of "Efficient Implementation of Bilinear
+ * Pairings on ARM Processors" https://cacr.uwaterloo.ca/techreports/2012/cacr2012-17.pdf.
  *
  * @param elt
  */
@@ -166,8 +238,8 @@ inline fq12 reduced_ate_pairing_batch(const g1::affine_element* P_affines,
                                       size_t num_points);
 
 /**
- * @brief Implementation of the optimal Ate pairing for multiple pairs of points where the Miller lines for the points
- * in G2 are precomputed.
+ * @brief Implementation of the optimal Ate pairing for multiple pairs of points where the Miller lines for the
+ * points in G2 are precomputed.
  *
  * @param P_affines
  * @param lines
