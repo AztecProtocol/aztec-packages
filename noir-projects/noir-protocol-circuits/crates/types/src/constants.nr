@@ -1064,7 +1064,7 @@ pub global GAS_ESTIMATION_DA_GAS_LIMIT: u32 =
     GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT + MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
 
 // Default gas limits. Users should use gas estimation, or they will overpay gas fees.
-// TODO: consider moving to typescript
+// TODO: These are overridden in typescript-land. Remove them from here.
 pub global DEFAULT_TEARDOWN_L2_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
 pub global DEFAULT_L2_GAS_LIMIT: u32 = MAX_PROCESSABLE_L2_GAS; // Arbitrary default number.
 pub global DEFAULT_TEARDOWN_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 2; // Arbitrary default number.

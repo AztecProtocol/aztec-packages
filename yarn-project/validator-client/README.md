@@ -223,6 +223,42 @@ This is useful for monitoring network health without participating in consensus.
 - `createCheckpointProposal(...)` → `CheckpointProposal`: Signs checkpoint proposal
 - `attestToCheckpointProposal(proposal, attestors)` → `CheckpointAttestation[]`: Creates attestations for given addresses
 
+## Block Building Limits
+
+L1 enforces gas and blob capacity per checkpoint. The node enforces these during block building to avoid L1 rejection. Three dimensions are metered: L2 gas (mana), DA gas, and blob fields. DA gas maps to blob fields today (`daGas = blobFields * 32`) but both are tracked independently.
+
+### Checkpoint limits
+
+| Dimension | Source | Budget |
+| --- | --- | --- |
+| L2 gas (mana) | `rollup.getManaLimit()` | Fetched from L1 at startup |
+| DA gas | `MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT` | 786,432 (6 blobs × 4096 fields × 32 gas/field) |
+| Blob fields | `BLOBS_PER_CHECKPOINT × FIELDS_PER_BLOB` | 24,576 minus checkpoint/block-end overhead |
+
+### Per-block budgets
+
+Per-block budgets prevent one block from consuming the entire checkpoint budget.
+
+**Proposer**: `SequencerClient.computeBlockGasLimits()` derives budgets at startup as `min(checkpointLimit, ceil(checkpointLimit / maxBlocks * multiplier))`, where `maxBlocks` comes from the timetable and `multiplier` defaults to 2. The multiplier greater than 1 allows early blocks to use more than their even share of the checkpoint budget, since different blocks hit different limit dimensions (L2 gas, DA gas, blob fields) — a strict even split would waste capacity. Operators can override via `SEQ_MAX_L2_BLOCK_GAS` / `SEQ_MAX_DA_BLOCK_GAS` (capped at checkpoint limits).
+
+**Validator**: Does not enforce per-block gas budgets. Only checkpoint-level limits are checked, so that proposers can freely distribute capacity across blocks within a checkpoint.
+
+**Checkpoint-level capping**: `CheckpointBuilder.capLimitsByCheckpointBudgets()` always runs before tx processing, capping per-block limits by `checkpointBudget - sum(used by prior blocks)` for all three dimensions. This applies to both proposer and validator paths.
+
+### Per-transaction enforcement
+
+**Mempool entry** (`GasLimitsValidator`): L2 gas must be ≤ `MAX_PROCESSABLE_L2_GAS` (6,540,000) and ≥ fixed minimums.
+
+**Block building** (`PublicProcessor.process`): Before processing, txs are skipped if their estimated blob fields or gas limits would exceed the block budget. After processing, actual values are checked and the tx is reverted if limits are exceeded.
+
+### Gas limit configuration
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `SEQ_MAX_L2_BLOCK_GAS` | *auto* | Per-block L2 gas. Auto-derived from `rollupManaLimit / maxBlocks * multiplier`. |
+| `SEQ_MAX_DA_BLOCK_GAS` | *auto* | Per-block DA gas. Auto-derived from checkpoint DA limit / maxBlocks * multiplier. |
+| `SEQ_GAS_PER_BLOCK_ALLOCATION_MULTIPLIER` | 2 | Multiplier for per-block budget computation. |
+
 ## Testing Patterns
 
 ### Common Mocks

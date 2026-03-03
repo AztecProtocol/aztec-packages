@@ -23,6 +23,8 @@ export interface SequencerConfig {
   maxL2BlockGas?: number;
   /** The maximum DA block gas. */
   maxDABlockGas?: number;
+  /** Per-block gas budget multiplier for both L2 and DA gas. Budget = (checkpointLimit / maxBlocks) * multiplier. */
+  gasPerBlockAllocationMultiplier?: number;
   /** Recipient of block reward. */
   coinbase?: EthAddress;
   /** Address to receive fees. */
@@ -33,8 +35,6 @@ export interface SequencerConfig {
   acvmBinaryPath?: string;
   /** Additional entries to extend the default setup allow list. */
   txPublicSetupAllowListExtend?: AllowedElement[];
-  /** Max block size */
-  maxBlockSizeInBytes?: number;
   /** Payload address to vote for */
   governanceProposerPayload?: EthAddress;
   /** Whether to enforce the time table when building blocks */
@@ -90,12 +90,12 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     maxL2BlockGas: z.number().optional(),
     publishTxsWithProposals: z.boolean().optional(),
     maxDABlockGas: z.number().optional(),
+    gasPerBlockAllocationMultiplier: z.number().optional(),
     coinbase: schemas.EthAddress.optional(),
     feeRecipient: schemas.AztecAddress.optional(),
     acvmWorkingDirectory: z.string().optional(),
     acvmBinaryPath: z.string().optional(),
     txPublicSetupAllowListExtend: z.array(AllowedElementSchema).optional(),
-    maxBlockSizeInBytes: z.number().optional(),
     governanceProposerPayload: schemas.EthAddress.optional(),
     l1PublishingTime: z.number().optional(),
     enforceTimeTable: z.boolean().optional(),
@@ -134,7 +134,10 @@ type SequencerConfigOptionalKeys =
   | 'l1PublishingTime'
   | 'txPublicSetupAllowListExtend'
   | 'minValidTxsPerBlock'
-  | 'minBlocksForCheckpoint';
+  | 'minBlocksForCheckpoint'
+  | 'maxL2BlockGas'
+  | 'maxDABlockGas'
+  | 'gasPerBlockAllocationMultiplier';
 
 export type ResolvedSequencerConfig = Prettify<
   Required<Omit<SequencerConfig, SequencerConfigOptionalKeys>> & Pick<SequencerConfig, SequencerConfigOptionalKeys>

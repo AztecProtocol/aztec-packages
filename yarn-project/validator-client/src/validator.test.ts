@@ -25,7 +25,6 @@ import { OffenseType, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
-import { Gas } from '@aztec/stdlib/gas';
 import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
@@ -110,6 +109,7 @@ describe('ValidatorClient', () => {
       slotDuration: 24,
       l1ChainId: 1,
       rollupVersion: 1,
+      rollupManaLimit: 200_000_000,
     });
     worldState = mock<WorldStateSynchronizer>();
     epochCache = mock<EpochCache>();
@@ -366,9 +366,7 @@ describe('ValidatorClient', () => {
         publicProcessorDuration: 0,
         numTxs: proposal.txHashes.length,
         failedTxs: [],
-        publicGas: Gas.empty(),
         usedTxs: [],
-        usedTxBlobFields: 0,
         block: {
           header: clonedBlockHeader,
           body: { txEffects: times(proposal.txHashes.length, () => TxEffect.empty()) },
