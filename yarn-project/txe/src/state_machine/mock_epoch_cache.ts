@@ -33,6 +33,10 @@ export class MockEpochCache implements EpochCacheInterface {
     return EpochNumber.ZERO;
   }
 
+  pipeliningOffset(): number {
+    return 0;
+  }
+
   getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint } {
     return {
       epoch: EpochNumber.ZERO,
