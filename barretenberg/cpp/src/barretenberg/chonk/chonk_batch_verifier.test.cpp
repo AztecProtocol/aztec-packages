@@ -50,19 +50,40 @@ TEST_F(ChonkBatchVerifierTests, BatchVerifySingleProof)
     EXPECT_TRUE(ChonkBatchVerifier::verify(inputs));
 }
 
-TEST_F(ChonkBatchVerifierTests, BatchVerifyTamperedProof)
+/**
+ * @brief Tamper with only the IPA proof, keeping all other proof components valid.
+ * @details Targets the batch IPA verification path (Phase 2 of ChonkBatchVerifier).
+ */
+TEST_F(ChonkBatchVerifierTests, BatchVerifyTamperedIPAProof)
 {
     BB_DISABLE_ASSERTS();
 
     auto [proof1, vk1] = generate_chonk_proof();
     auto [proof2, vk2] = generate_chonk_proof();
 
-    // Tamper with the second proof's mega_proof by modifying a commitment
-    size_t pub_inputs_size = proof2.mega_proof.size() - ChonkProof::HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS;
-    if (pub_inputs_size < proof2.mega_proof.size()) {
-        // Modify a value after the public inputs (first commitment in the proof body)
-        proof2.mega_proof[pub_inputs_size] = proof2.mega_proof[pub_inputs_size] + bb::fr(1);
-    }
+    // Corrupt a field element in the IPA proof portion of the goblin proof
+    ASSERT_FALSE(proof2.goblin_proof.ipa_proof.empty());
+    proof2.goblin_proof.ipa_proof[0] = proof2.goblin_proof.ipa_proof[0] + bb::fr(1);
+
+    std::vector<ChonkBatchVerifier::Input> inputs = {
+        { std::move(proof1), vk1 },
+        { std::move(proof2), vk2 },
+    };
+    EXPECT_FALSE(ChonkBatchVerifier::verify(inputs));
+}
+
+/**
+ * @brief Swap goblin proofs between two valid Chonk proofs to test non-IPA verification failures.
+ */
+TEST_F(ChonkBatchVerifierTests, BatchVerifySwappedGoblinProofs)
+{
+    BB_DISABLE_ASSERTS();
+
+    auto [proof1, vk1] = generate_chonk_proof();
+    auto [proof2, vk2] = generate_chonk_proof();
+
+    // Swap goblin proofs: each mega_proof is now paired with the wrong goblin proof
+    std::swap(proof1.goblin_proof, proof2.goblin_proof);
 
     std::vector<ChonkBatchVerifier::Input> inputs = {
         { std::move(proof1), vk1 },
