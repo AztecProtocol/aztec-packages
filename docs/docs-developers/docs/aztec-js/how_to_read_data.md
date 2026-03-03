@@ -22,7 +22,7 @@ The `from` option specifies which address context to use for the simulation. Thi
 
 ### Basic simulation
 
-#include_code simulate_function yarn-project/end-to-end/src/composed/docs_examples.test.ts typescript
+#include_code simulate_function docs/examples/ts/aztecjs_connection/index.ts typescript
 
 ### Handling return values
 

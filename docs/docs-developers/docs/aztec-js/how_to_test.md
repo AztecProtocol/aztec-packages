@@ -17,7 +17,7 @@ This guide covers how to test Aztec smart contracts by connecting to a local net
 
 Connect to your local Aztec network and create an embedded wallet:
 
-#include_code setup yarn-project/end-to-end/src/composed/e2e_local_network_example.test.ts typescript
+#include_code connect_to_network /docs/examples/ts/aztecjs_connection/index.ts typescript
 
 The `EmbeddedWallet` manages accounts, tracks deployed contracts, and handles transaction proving. It connects to the Aztec node which provides access to both the Private eXecution Environment (PXE) and the network.
 
@@ -53,7 +53,7 @@ const contract = await TokenContract.deploy(
 
 Use `.simulate()` to read contract state without creating a transaction:
 
-#include_code simulate_function yarn-project/end-to-end/src/composed/docs_examples.test.ts typescript
+#include_code simulate_function docs/examples/ts/aztecjs_connection/index.ts typescript
 
 Simulations are free (no gas cost) and return the function's result directly. Use them for:
 
