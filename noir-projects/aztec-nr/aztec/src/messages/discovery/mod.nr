@@ -4,6 +4,7 @@ pub mod nonce_discovery;
 pub mod offchain;
 pub mod partial_notes;
 pub mod private_events;
+pub mod private_notes;
 pub mod process_message;
 
 use crate::{
