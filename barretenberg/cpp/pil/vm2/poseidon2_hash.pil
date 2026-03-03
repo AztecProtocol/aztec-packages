@@ -73,7 +73,7 @@ namespace poseidon2_hash;
 
     // == Multi-row Computation Selectors ==
     // We follow the recipe documented in:
-    // https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Contiguous-Multi-Rows-Computation-Trace
+    // https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
 
     // Start of a poseidon2 computation
     pol commit start; // @boolean
