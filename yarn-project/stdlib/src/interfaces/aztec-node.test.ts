@@ -209,7 +209,7 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBe(BlockNumber(1));
   });
 
-  it('getcheckpointNumber', async () => {
+  it('getCheckpointNumber', async () => {
     const response = await context.client.getCheckpointNumber();
     expect(response).toBe(CheckpointNumber(1));
   });
