@@ -145,10 +145,10 @@ ${conflicts}
 
 Please resolve the conflicts manually."
 
-  # Post conflict comment on the merge-train PR (visible to the PR author).
-  if [[ -n "${pr_number:-}" ]]; then
-    gh pr comment "$pr_number" --body "$conflict_comment" || true
-  fi
+  # Post comment on the most recent commit on next
+  latest_commit=$(gh api repos/{owner}/{repo}/commits/next --jq '.sha')
+  gh api "repos/{owner}/{repo}/commits/${latest_commit}/comments" \
+    -f body="$conflict_comment"
 
   log_error "Merge failed due to conflicts"
   exit 1

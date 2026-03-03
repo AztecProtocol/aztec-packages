@@ -3,7 +3,11 @@ import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { makeAztecAddress, makeSelector, mockTx } from '@aztec/stdlib/testing';
-import { TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED, type Tx } from '@aztec/stdlib/tx';
+import {
+  TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED,
+  TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT,
+  type Tx,
+} from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
@@ -137,5 +141,61 @@ describe('PhasesTxValidator', () => {
     await patchNonRevertibleFn(tx, 0, { address: allowedContract, selector: allowedSetupSelector1 });
 
     await expectInvalid(tx, TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED);
+  });
+
+  it('rejects address match with wrong selector', async () => {
+    const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+    const wrongSelector = makeSelector(99);
+    await patchNonRevertibleFn(tx, 0, { address: allowedContract, selector: wrongSelector });
+
+    await expectInvalid(tx, TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED);
+  });
+
+  it('rejects class match with wrong selector', async () => {
+    const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+    const wrongSelector = makeSelector(99);
+    const address = await patchNonRevertibleFn(tx, 0, { selector: wrongSelector });
+
+    contractDataSource.getContract.mockImplementationOnce((contractAddress, atTimestamp) => {
+      if (timestamp !== atTimestamp) {
+        throw new Error('Unexpected timestamp');
+      }
+      if (address.equals(contractAddress)) {
+        return Promise.resolve({
+          currentContractClassId: allowedContractClass,
+          originalContractClassId: Fr.random(),
+        } as any);
+      } else {
+        return Promise.resolve(undefined);
+      }
+    });
+
+    await expectInvalid(tx, TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED);
+  });
+
+  it('rejects with unknown contract error when contract is not found', async () => {
+    const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+    const address = await patchNonRevertibleFn(tx, 0, { selector: allowedSetupSelector1 });
+
+    contractDataSource.getContract.mockImplementationOnce((contractAddress, atTimestamp) => {
+      if (timestamp !== atTimestamp) {
+        throw new Error('Unexpected timestamp');
+      }
+      if (address.equals(contractAddress)) {
+        return Promise.resolve(undefined);
+      }
+      return Promise.resolve(undefined);
+    });
+
+    await expectInvalid(tx, TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT);
+  });
+
+  it('does not fetch contract instance when matching by address', async () => {
+    const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+    await patchNonRevertibleFn(tx, 0, { address: allowedContract, selector: allowedSetupSelector1 });
+
+    await expectValid(tx);
+
+    expect(contractDataSource.getContract).not.toHaveBeenCalled();
   });
 });

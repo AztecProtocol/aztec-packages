@@ -90,10 +90,10 @@ const mempoolTxMinedDelayQuery = (perc: string) =>
 const mempoolAttestationMinedDelayQuery = (perc: string) =>
   `histogram_quantile(${perc}, sum(rate(aztec_mempool_attestations_mined_delay_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[1m])) by (le))`;
 
-const peerCountQuery = () => `avg(aztec_peer_manager_peer_count{k8s_namespace_name="${config.NAMESPACE}"})`;
+const peerCountQuery = () => `avg(aztec_peer_manager_peer_count_peers{k8s_namespace_name="${config.NAMESPACE}"})`;
 
-const peerConnectionDurationQuery = (perc: string) =>
-  `histogram_quantile(${perc}, sum(rate(aztec_peer_manager_peer_connection_duration_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[1m])) by (le))`;
+const peerConnectionDurationQuery = (perc: string, windowSeconds: number) =>
+  `histogram_quantile(${perc}, sum(rate(aztec_peer_manager_peer_connection_duration_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[${windowSeconds}s])) by (le))`;
 
 describe('sustained N TPS test', () => {
   jest.setTimeout(60 * 60 * 1000 * 10); // 10 hours
@@ -168,8 +168,8 @@ describe('sustained N TPS test', () => {
       try {
         const [avgCount, durationP50, durationP95] = await Promise.all([
           prometheusClient.querySingleValue(peerCountQuery()),
-          prometheusClient.querySingleValue(peerConnectionDurationQuery('0.50')),
-          prometheusClient.querySingleValue(peerConnectionDurationQuery('0.95')),
+          prometheusClient.querySingleValue(peerConnectionDurationQuery('0.50', TEST_DURATION_SECONDS + 60)),
+          prometheusClient.querySingleValue(peerConnectionDurationQuery('0.95', TEST_DURATION_SECONDS + 60)),
         ]);
         metrics.recordPeerStats(avgCount, durationP50, durationP95);
         logger.debug('Scraped peer stats', { avgCount, durationP50, durationP95 });
@@ -384,7 +384,7 @@ describe('sustained N TPS test', () => {
       const tx = await (config.REAL_VERIFIER ? submitProven(wallet, fee) : submitUnproven(wallet, fee));
       const t1 = performance.now();
 
-      metrics.recordSentTx(tx, `high_value_${highValueTps}tps`);
+      metrics.recordSentTx(tx, 'tx_inclusion_time');
 
       const txHash = await tx.send({ wait: NO_WAIT });
       const t2 = performance.now();
@@ -461,8 +461,8 @@ describe('sustained N TPS test', () => {
         logger.warn(`Failed transaction ${idx + 1}: ${result.error}`);
       });
 
-    const highValueGroup = `high_value_${highValueTps}tps`;
-    const inclusionStats = metrics.inclusionTimeInSeconds(highValueGroup);
+    const txInclusionGroup = 'tx_inclusion_time';
+    const inclusionStats = metrics.inclusionTimeInSeconds(txInclusionGroup);
     logger.info(`Transaction inclusion summary: ${successCount} succeeded, ${failureCount} failed`);
     logger.info('Inclusion time stats', inclusionStats);
   });

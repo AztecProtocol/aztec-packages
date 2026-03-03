@@ -155,7 +155,8 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
     ...numberConfigHelper(DefaultSlasherConfig.slashMaxPayloadSize),
   },
   slashGracePeriodL2Slots: {
-    description: 'Number of L2 slots to wait before considering a slashing offense expired.',
+    description:
+      'Number of L2 slots after the network upgrade during which slashing offenses are ignored. The upgrade time is determined from the CanonicalRollupUpdated event.',
     env: 'SLASH_GRACE_PERIOD_L2_SLOTS',
     ...numberConfigHelper(DefaultSlasherConfig.slashGracePeriodL2Slots),
   },
