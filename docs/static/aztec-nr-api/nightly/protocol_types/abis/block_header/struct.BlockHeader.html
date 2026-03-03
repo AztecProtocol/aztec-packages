@@ -27,6 +27,13 @@
 <li><a href="#structfield.total_fees">total_fees</a></li>
 <li><a href="#structfield.total_mana_used">total_mana_used</a></li>
 </ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#block_number">block_number</a></li>
+<li><a href="#chain_id">chain_id</a></li>
+<li><a href="#timestamp">timestamp</a></li>
+<li><a href="#version">version</a></li>
+</ul>
 <h3>Trait implementations</h3>
 <ul class="sidebar-list">
 <li><a href="#impl-Deserialize-for-BlockHeader">Deserialize</a></li>
@@ -59,7 +66,18 @@
 <div class="padded-description"></div><div id="structfield.global_variables" class="struct-field"><code class="code-header">global_variables: <a href="../../../protocol_types/abis/global_variables/struct.GlobalVariables.html" class="struct">GlobalVariables</a></code></div>
 <div class="padded-description"></div><div id="structfield.total_fees" class="struct-field"><code class="code-header">total_fees: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.total_mana_used" class="struct-field"><code class="code-header">total_mana_used: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
-<div class="padded-description"></div><h2>Trait implementations</h2>
+<div class="padded-description"></div><h2>Implementations</h2>
+<h3><code class="code-header">impl <a href="../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code></h3>
+
+<div class="padded-methods"><code id="chain_id" class="code-header">pub fn <a href="#chain_id"><span class="fn">chain_id</span></a>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+<code id="version" class="code-header">pub fn <a href="#version"><span class="fn">version</span></a>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+<code id="block_number" class="code-header">pub fn <a href="#block_number"><span class="fn">block_number</span></a>(self) -> <a href="../../../std/primitive.u32.html" class="primitive">u32</a></code>
+
+<code id="timestamp" class="code-header">pub fn <a href="#timestamp"><span class="fn">timestamp</span></a>(self) -> <a href="../../../std/primitive.u64.html" class="primitive">u64</a></code>
+
+</div><h2>Trait implementations</h2>
 <h3 id="impl-Deserialize-for-BlockHeader"><code class="code-header">impl <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a></code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 22]) -> Self</code>

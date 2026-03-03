@@ -44,6 +44,8 @@ std::optional<ContractClass> ContractDB::get_contract_class(const ContractClassI
     BB_ASSERT(maybe_bytecode_commitment.has_value(), "Bytecode commitment not found");
 
     // Perform class ID derivation to verify the class ID is correctly derived from the class data.
+    // Emits ClassIdDerivationEvent (and corresponding Poseidon2HashEvent and Poseidon2PermutationEvents) if
+    // we have yet to derive this class ID.
     class_id_derivation.assert_derivation(maybe_klass->with_commitment(maybe_bytecode_commitment.value()));
 
     return maybe_klass;

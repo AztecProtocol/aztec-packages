@@ -11,7 +11,7 @@ use crate::protocol::{
 };
 
 global MAX_PRIVATE_EVENTS_PER_TXE_QUERY: u32 = 5;
-global MAX_EVENT_SERIALIZATION_LENGTH: u32 = 12;
+global MAX_EVENT_SERIALIZATION_LENGTH: u32 = 10;
 
 pub unconstrained fn deploy<let M: u32, let N: u32, let P: u32>(
     path: str<N>,

@@ -2,14 +2,15 @@ import type { TestAztecNodeService } from '@aztec/aztec-node/test';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
-import { setup } from '../fixtures/utils.js';
+import { type EndToEndContext, setup } from '../fixtures/utils.js';
 
 describe('e2e_slasher_config', () => {
   let aztecNodeAdmin: AztecNodeAdmin | undefined;
   let aztecNode: AztecNode;
+  let teardown: EndToEndContext['teardown'];
 
   beforeAll(async () => {
-    ({ aztecNodeAdmin, aztecNode } = await setup(0, {
+    ({ aztecNodeAdmin, aztecNode, teardown } = await setup(0, {
       slashInactivityTargetPercentage: 1,
       slashInactivityPenalty: 42n,
     }));
@@ -18,6 +19,8 @@ describe('e2e_slasher_config', () => {
       throw new Error('Aztec node admin API must be available for this test');
     }
   });
+
+  afterAll(() => teardown());
 
   it('should update slasher config', async () => {
     const slasherClient = (aztecNode as TestAztecNodeService).slasherClient as SlasherClientInterface;

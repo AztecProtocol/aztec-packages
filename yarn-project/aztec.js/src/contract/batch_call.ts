@@ -6,6 +6,7 @@ import { BaseContractInteraction } from './base_contract_interaction.js';
 import {
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
+  extractOffchainOutput,
   toSimulateOptions,
 } from './interaction_options.js';
 
@@ -132,7 +133,7 @@ export class BatchCall extends BaseContractInteraction {
 
           results[callIndex] = {
             result: rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [],
-            offchainEffects: simulatedTx.offchainEffects,
+            ...extractOffchainOutput(simulatedTx.offchainEffects),
           };
         });
       }

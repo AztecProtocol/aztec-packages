@@ -20,7 +20,7 @@ use crate::protocol::{
 };
 
 /// The slot in the PXE capsules where we store a `CapsuleArray` of `DeliveredPendingPartialNote`.
-pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = sha256_to_field(
+pub(crate) global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = sha256_to_field(
     "AZTEC_NR::DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT".as_bytes(),
 );
 
@@ -37,7 +37,7 @@ pub(crate) struct DeliveredPendingPartialNote {
     pub(crate) recipient: AztecAddress,
 }
 
-pub unconstrained fn process_partial_note_private_msg(
+pub(crate) unconstrained fn process_partial_note_private_msg(
     contract_address: AztecAddress,
     recipient: AztecAddress,
     msg_metadata: u64,
@@ -67,7 +67,7 @@ pub unconstrained fn process_partial_note_private_msg(
 
 /// Searches for logs that would result in the completion of pending partial notes, ultimately resulting in the notes
 /// being delivered to PXE if completed.
-pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
+pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {

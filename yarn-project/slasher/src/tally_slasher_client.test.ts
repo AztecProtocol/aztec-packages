@@ -50,6 +50,7 @@ describe('TallySlasherClient', () => {
     l1GenesisTime: BigInt(Math.floor(Date.now() / 1000) - 10000),
     slotDuration: 4,
     slashingQuorumSize: 110,
+    rollupRegisteredAtL2Slot: SlotNumber(0),
   };
 
   const config: SlasherConfig = {
@@ -518,6 +519,99 @@ describe('TallySlasherClient', () => {
       // Should have a vote action with the offense we added
       expect(actions).toHaveLength(1);
       expect(actions[0].type).toBe('vote-offenses');
+    });
+
+    it('should return all offenses for the round regardless of slashMaxPayloadSize', async () => {
+      const currentRound = 5n;
+      const targetRound = 3n; // currentRound - offset(2)
+      const baseSlot = targetRound * BigInt(roundSize);
+
+      // slashMaxPayloadSize has no effect on gatherOffensesForRound; truncation happens later
+      // in getSlashConsensusVotesFromOffenses after always-slash offenses are merged in.
+      tallySlasherClient.updateConfig({ slashMaxPayloadSize: 2 });
+
+      await addPendingOffense({
+        validator: committee[0],
+        epochOrSlot: baseSlot,
+        amount: settings.slashingAmounts[0],
+        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      });
+      await addPendingOffense({
+        validator: committee[1],
+        epochOrSlot: baseSlot,
+        amount: settings.slashingAmounts[2],
+        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      });
+      await addPendingOffense({
+        validator: committee[2],
+        epochOrSlot: baseSlot,
+        amount: settings.slashingAmounts[1],
+        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      });
+
+      const offenses = await tallySlasherClient.gatherOffensesForRound(currentRound);
+
+      expect(offenses).toHaveLength(3);
+    });
+
+    it('should return all offenses for the round', async () => {
+      const currentRound = 5n;
+      const targetRound = 3n;
+      const baseSlot = targetRound * BigInt(roundSize);
+
+      await addPendingOffense({
+        validator: committee[0],
+        epochOrSlot: baseSlot,
+        amount: slashingUnit,
+        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      });
+      await addPendingOffense({
+        validator: committee[1],
+        epochOrSlot: baseSlot,
+        amount: slashingUnit * 2n,
+        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      });
+
+      const offenses = await tallySlasherClient.gatherOffensesForRound(currentRound);
+      expect(offenses).toHaveLength(2);
+    });
+
+    it('should produce a valid vote action respecting slashMaxPayloadSize', async () => {
+      const currentRound = 5n;
+      const targetRound = 3n;
+      const baseSlot = targetRound * BigInt(roundSize);
+
+      // Cap at 1 slashed validator-epoch pair; the highest-amount validator should survive
+      tallySlasherClient.updateConfig({ slashMaxPayloadSize: 1 });
+
+      await addPendingOffense({
+        validator: committee[0],
+        epochOrSlot: baseSlot,
+        amount: settings.slashingAmounts[0],
+        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      });
+      await addPendingOffense({
+        validator: committee[1],
+        epochOrSlot: baseSlot,
+        amount: settings.slashingAmounts[2],
+        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      });
+      await addPendingOffense({
+        validator: committee[2],
+        epochOrSlot: baseSlot,
+        amount: settings.slashingAmounts[1],
+        offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+      });
+
+      const currentSlot = currentRound * BigInt(roundSize);
+      const action = await tallySlasherClient.getVoteOffensesAction(SlotNumber.fromBigInt(currentSlot));
+
+      expect(action).toBeDefined();
+      assert(action!.type === 'vote-offenses');
+      // Only committee[1] (3 units, highest) survives; the others are zeroed out
+      expect(action!.votes[0]).toBe(0); // committee[0]: 1 unit, dropped
+      expect(action!.votes[1]).toBe(3); // committee[1]: 3 units, kept
+      expect(action!.votes[2]).toBe(0); // committee[2]: 2 units, dropped
     });
   });
 

@@ -24,4 +24,4 @@ RUN pip install --no-cache-dir -r ci-metrics/requirements.txt
 RUN git config --global --add safe.directory /aztec-packages
 COPY . .
 EXPOSE 8080 8081
-CMD ["gunicorn", "-w", "100", "-b", "0.0.0.0:8080", "rk:app"]
+CMD ["gunicorn", "-w", "50", "-b", "0.0.0.0:8080", "rk:app"]

@@ -268,23 +268,18 @@ describe('e2e_block_building', () => {
       const highPriority = new GasFees(100, 100);
       const lowPriority = new GasFees(1, 1);
 
-      const { txHash: deployTxHash } = await deployMethod.send({
-        from: ownerAddress,
-        fee: { gasSettings: { maxPriorityFeesPerGas: highPriority } },
-        wait: NO_WAIT,
-      });
-      const { txHash: callTxHash } = await callInteraction.send({
-        from: ownerAddress,
-        fee: { gasSettings: { maxPriorityFeesPerGas: lowPriority } },
-        wait: NO_WAIT,
-      });
-
-      const [deployTxReceipt, callTxReceipt] = await Promise.all([
-        waitForTx(aztecNode, deployTxHash),
-        waitForTx(aztecNode, callTxHash),
+      const [deployResult, callResult] = await Promise.all([
+        deployMethod.send({
+          from: ownerAddress,
+          fee: { gasSettings: { maxPriorityFeesPerGas: highPriority } },
+        }),
+        callInteraction.send({
+          from: ownerAddress,
+          fee: { gasSettings: { maxPriorityFeesPerGas: lowPriority } },
+        }),
       ]);
 
-      expect(deployTxReceipt.blockNumber).toEqual(callTxReceipt.blockNumber);
+      expect(deployResult.receipt.blockNumber).toEqual(callResult.receipt.blockNumber);
     });
   });
 

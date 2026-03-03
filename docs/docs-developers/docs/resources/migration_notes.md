@@ -11,9 +11,14 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ### [Aztec.js] `simulate()`, `send()`, and deploy return types changed to always return objects
 
-All SDK interaction methods now return structured objects that include `offchainEffects` alongside the primary result. This affects `.simulate()`, `.send()`, deploy `.send()`, and `Wallet.sendTx()`.
+All SDK interaction methods now return structured objects that include offchain output alongside the primary result. This affects `.simulate()`, `.send()`, deploy `.send()`, and `Wallet.sendTx()`.
 
-**`simulate()` — always returns `{ result, offchainEffects }` object:**
+The offchain output includes two fields:
+
+- `offchainEffects` — raw offchain effects emitted during execution, other than `offchainMessages`
+- `offchainMessages` — decoded messages intended for specific recipients
+
+**`simulate()` — always returns `{ result, offchainEffects, offchainMessages }` object:**
 
 ```diff
 - const value = await contract.methods.foo(args).simulate({ from: sender });
@@ -34,21 +39,30 @@ When using `includeMetadata` or `fee.estimateGas`, `stats` and `estimatedGas` ar
 
 `SimulationReturn` is no longer a generic conditional type — it's a single flat type with optional `stats` and `estimatedGas` fields.
 
-**`send()` — returns `{ receipt, offchainEffects }` object:**
+**`send()` — returns `{ receipt, offchainEffects, offchainMessages }` object:**
 
 ```diff
 - const receipt = await contract.methods.foo(args).send({ from: sender });
 + const { receipt } = await contract.methods.foo(args).send({ from: sender });
 ```
 
-When using `NO_WAIT`, returns `{ txHash, offchainEffects }` instead of a bare `TxHash`:
+When using `NO_WAIT`, returns `{ txHash, offchainEffects, offchainMessages }` instead of a bare `TxHash`:
 
 ```diff
 - const txHash = await contract.methods.foo(args).send({ from: sender, wait: NO_WAIT });
 + const { txHash } = await contract.methods.foo(args).send({ from: sender, wait: NO_WAIT });
 ```
 
-**Deploy — returns `{ contract, receipt, offchainEffects }` object:**
+Offchain messages emitted by the transaction are available on the result:
+
+```typescript
+const { receipt, offchainMessages } = await contract.methods.foo(args).send({ from: sender });
+for (const msg of offchainMessages) {
+  console.log(`Message for ${msg.recipient} from contract ${msg.contractAddress}:`, msg.payload);
+}
+```
+
+**Deploy — returns `{ contract, receipt, offchainEffects, offchainMessages }` object:**
 
 ```diff
 - const myContract = await MyContract.deploy(wallet, ...args).send({ from: sender });
@@ -59,27 +73,30 @@ The deploy receipt is also available via `receipt` if needed (e.g. for `receipt.
 
 **Custom wallet implementations — `sendTx()` must return objects:**
 
-If you implement the `Wallet` interface (or extend `BaseWallet`), the `sendTx()` method must now return `{ txHash, offchainEffects }` (for `NO_WAIT`) or `{ receipt, offchainEffects }` (when waiting):
+If you implement the `Wallet` interface (or extend `BaseWallet`), the `sendTx()` method must now return objects that include offchain output. Use `extractOffchainOutput` to split raw effects into decoded messages and remaining effects:
 
 ```diff
++ import { extractOffchainOutput } from '@aztec/aztec.js/contracts';
+
   async sendTx(executionPayload, opts) {
     const provenTx = await this.pxe.proveTx(...);
-+   const offchainEffects = provenTx.getOffchainEffects();
++   const offchainOutput = extractOffchainOutput(provenTx.getOffchainEffects());
     const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
     await this.aztecNode.sendTx(tx);
 
     if (opts.wait === NO_WAIT) {
 -     return txHash;
-+     return { txHash, offchainEffects };
++     return { txHash, ...offchainOutput };
     }
     const receipt = await waitForTx(this.aztecNode, txHash, opts.wait);
 -   return receipt;
-+   return { receipt, offchainEffects };
++   return { receipt, ...offchainOutput };
   }
 ```
 
-**Impact**: Every call site that uses `.simulate()`, `.send()`, or deploy must destructure the result. This is a mechanical transformation. Custom wallet implementations must update `sendTx()` to return the new object shapes.
+**Impact**: Every call site that uses `.simulate()`, `.send()`, or deploy must destructure the result. This is a mechanical transformation. Custom wallet implementations must update `sendTx()` to return the new object shapes, using `extractOffchainOutput` to decode offchain messages from raw effects.
+
 ### [Aztec.js] Removed `SingleKeyAccountContract`
 
 The `SchnorrSingleKeyAccount` contract and its TypeScript wrapper `SingleKeyAccountContract` have been removed. This contract was insecure: it used `ivpk_m` (incoming viewing public key) as its Schnorr signing key, meaning anyone who received a user's viewing key could sign transactions on their behalf.

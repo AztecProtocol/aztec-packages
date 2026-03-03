@@ -112,7 +112,7 @@ impl TestBuilder {
         previous_kernel.anchor_block_header.state.partial.nullifier_tree.next_available_leaf_index =
             nullifier_tree.get_next_available_index();
 
-        let mut output = previous_kernel;
+        let output = previous_kernel;
 
         Self {
             previous_kernel,

@@ -144,4 +144,7 @@ export async function enrichEnvironmentWithNetworkConfig(networkName: NetworkNam
   if (networkConfig.blockDurationMs !== undefined) {
     enrichVar('SEQ_BLOCK_DURATION_MS', String(networkConfig.blockDurationMs));
   }
+  if (networkConfig.txPublicSetupAllowListExtend) {
+    enrichVar('TX_PUBLIC_SETUP_ALLOWLIST', networkConfig.txPublicSetupAllowListExtend);
+  }
 }

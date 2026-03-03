@@ -16,12 +16,20 @@ from datetime import datetime, timezone
 # ---- Hardcoded fallback rates (us-east-2, USD/hr) ----
 
 _HARDCODED_RATES = {
-    ('m6a.48xlarge', True):  8.31,   # spot
-    ('m6a.48xlarge', False): 16.56,  # on-demand
-    ('m6a.32xlarge', True):  5.54,
-    ('m6a.32xlarge', False): 11.04,
+    ('m6a.xlarge',   True):  0.07,   # spot
+    ('m6a.xlarge',   False): 0.1728, # on-demand
+    ('m6a.4xlarge',  True):  0.28,
+    ('m6a.4xlarge',  False): 0.6912,
+    ('m6a.8xlarge',  True):  0.55,
+    ('m6a.8xlarge',  False): 1.3824,
     ('m6a.16xlarge', True):  2.77,
     ('m6a.16xlarge', False): 5.52,
+    ('m6a.24xlarge', True):  1.66,
+    ('m6a.24xlarge', False): 4.1472,
+    ('m6a.32xlarge', True):  5.54,
+    ('m6a.32xlarge', False): 11.04,
+    ('m6a.48xlarge', True):  8.31,
+    ('m6a.48xlarge', False): 16.56,
     ('m7a.48xlarge', True):  8.31,
     ('m7a.48xlarge', False): 16.56,
     ('m7a.16xlarge', True):  2.77,
@@ -145,8 +153,19 @@ def _fetch_all_spot(instance_types: list[str]) -> dict[str, float]:
 # ---- Cache refresh ----
 
 def _get_known_instance_types() -> list[str]:
-    """Return the set of instance types we need pricing for."""
-    return sorted({itype for itype, _ in _HARDCODED_RATES})
+    """Return the set of instance types we need pricing for (hardcoded + from DB)."""
+    types = {itype for itype, _ in _HARDCODED_RATES}
+    try:
+        import db
+        conn = db.get_db()
+        rows = conn.execute(
+            "SELECT DISTINCT instance_type FROM ci_runs "
+            "WHERE instance_type IS NOT NULL AND instance_type != '' AND instance_type != 'unknown'"
+        ).fetchall()
+        types.update(r['instance_type'] for r in rows)
+    except Exception:
+        pass
+    return sorted(types)
 
 
 def _refresh_cache():

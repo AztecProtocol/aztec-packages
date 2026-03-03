@@ -19,6 +19,8 @@ export type GenesisStateConfig = {
   testAccounts: boolean;
   /** Whether to populate the genesis state with initial fee juice for the sponsored FPC */
   sponsoredFPC: boolean;
+  /** Additional addresses to prefund with fee juice at genesis */
+  prefundAddresses: string[];
 };
 
 export type L1ContractsConfig = {
@@ -258,6 +260,16 @@ export const genesisStateConfigMappings: ConfigMappingsType<GenesisStateConfig> 
     env: 'SPONSORED_FPC',
     description: 'Whether to populate the genesis state with initial fee juice for the sponsored FPC.',
     ...booleanConfigHelper(false),
+  },
+  prefundAddresses: {
+    env: 'PREFUND_ADDRESSES',
+    description: 'Comma-separated list of Aztec addresses to prefund with fee juice at genesis.',
+    parseEnv: (val: string) =>
+      val
+        .split(',')
+        .map(a => a.trim())
+        .filter(a => a.length > 0),
+    defaultValue: [],
   },
 };
 

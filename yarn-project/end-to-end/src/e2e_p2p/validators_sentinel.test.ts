@@ -156,7 +156,7 @@ describe('e2e_p2p_validators_sentinel', () => {
     it('starts a sentinel on a fresh node', async () => {
       const checkpointNumber = t.monitor.checkpointNumber;
       const nodeIndex = NUM_NODES + 1;
-      const newNode = await createNode(
+      additionalNode = await createNode(
         t.ctx.aztecNodeConfig,
         t.ctx.dateProvider,
         BOOT_NODE_UDP_PORT + nodeIndex + 1,
@@ -173,13 +173,13 @@ describe('e2e_p2p_validators_sentinel', () => {
 
       t.logger.info(`Waiting for sentinel to collect history`);
       await retryUntil(
-        () => newNode.getValidatorsStats().then(s => Object.keys(s.stats).length > 1),
+        () => additionalNode!.getValidatorsStats().then(s => Object.keys(s.stats).length > 1),
         'sentinel stats',
         AZTEC_SLOT_DURATION * 2,
         1,
       );
 
-      const stats = await newNode.getValidatorsStats();
+      const stats = await additionalNode!.getValidatorsStats();
       t.logger.info(`Collected validator stats from new node at block ${t.monitor.checkpointNumber}`, { stats });
     });
   });

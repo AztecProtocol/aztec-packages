@@ -20,8 +20,8 @@ trap cleanup EXIT
 # Clean stale broadcast artifacts from previous runs to avoid nonce conflicts.
 rm -rf broadcast/
 
-# Use a random port to avoid conflicts with other anvil instances.
-ANVIL_PORT="${ANVIL_PORT:-$(shuf -i 10000-60000 -n 1)}"
+# Fixed port — this test runs with ISOLATE=1 so no conflicts.
+ANVIL_PORT="${ANVIL_PORT:-8545}"
 
 echo "=== Starting anvil on port $ANVIL_PORT ==="
 anvil --port "$ANVIL_PORT" &

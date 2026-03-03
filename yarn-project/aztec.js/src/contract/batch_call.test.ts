@@ -119,6 +119,7 @@ describe('BatchCall', () => {
         nested: [{ values: privateReturnValues }],
       } as any);
       txSimResult.getPublicReturnValues.mockReturnValue([{ values: publicReturnValues }] as any);
+      Object.defineProperty(txSimResult, 'offchainEffects', { value: [] });
 
       // Mock wallet.batch to return both utility results and simulateTx result
       wallet.batch.mockResolvedValue([
@@ -236,6 +237,7 @@ describe('BatchCall', () => {
         nested: [{ values: privateReturnValues }],
       } as any);
       txSimResult.getPublicReturnValues.mockReturnValue([{ values: publicReturnValues }] as any);
+      Object.defineProperty(txSimResult, 'offchainEffects', { value: [] });
 
       wallet.batch.mockResolvedValue([{ name: 'simulateTx', result: txSimResult }] as any);
 

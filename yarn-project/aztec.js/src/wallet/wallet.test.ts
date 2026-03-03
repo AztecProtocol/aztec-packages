@@ -19,7 +19,12 @@ import {
   UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
 
-import { type InteractionWaitOptions, NO_WAIT, type SendReturn } from '../contract/interaction_options.js';
+import {
+  type InteractionWaitOptions,
+  NO_WAIT,
+  type OffchainMessage,
+  type SendReturn,
+} from '../contract/interaction_options.js';
 import type { AppCapabilities, WalletCapabilities } from './capabilities.js';
 import type {
   Aliased,
@@ -366,7 +371,10 @@ describe('WalletSchema', () => {
     expect(results[8]).toEqual({ name: 'simulateTx', result: expect.any(TxSimulationResult) });
     expect(results[9]).toEqual({ name: 'executeUtility', result: expect.any(UtilityExecutionResult) });
     expect(results[10]).toEqual({ name: 'profileTx', result: expect.any(TxProfileResult) });
-    expect(results[11]).toEqual({ name: 'sendTx', result: { receipt: expect.any(TxReceipt), offchainEffects: [] } });
+    expect(results[11]).toEqual({
+      name: 'sendTx',
+      result: { receipt: expect.any(TxReceipt), offchainEffects: [], offchainMessages: [] },
+    });
     expect(results[12]).toEqual({ name: 'createAuthWit', result: expect.any(AuthWitness) });
   });
 });
@@ -459,13 +467,17 @@ class MockWallet implements Wallet {
     opts: SendOptions<W>,
   ): Promise<SendReturn<W>> {
     if (opts.wait === NO_WAIT) {
-      return Promise.resolve({ txHash: TxHash.random(), offchainEffects: [] as OffchainEffect[] }) as Promise<
-        SendReturn<W>
-      >;
+      return Promise.resolve({
+        txHash: TxHash.random(),
+        offchainEffects: [] as OffchainEffect[],
+        offchainMessages: [] as OffchainMessage[],
+      }) as Promise<SendReturn<W>>;
     }
-    return Promise.resolve({ receipt: TxReceipt.empty(), offchainEffects: [] as OffchainEffect[] }) as Promise<
-      SendReturn<W>
-    >;
+    return Promise.resolve({
+      receipt: TxReceipt.empty(),
+      offchainEffects: [] as OffchainEffect[],
+      offchainMessages: [] as OffchainMessage[],
+    }) as Promise<SendReturn<W>>;
   }
 
   createAuthWit(_from: AztecAddress, _messageHashOrIntent: any): Promise<AuthWitness> {
