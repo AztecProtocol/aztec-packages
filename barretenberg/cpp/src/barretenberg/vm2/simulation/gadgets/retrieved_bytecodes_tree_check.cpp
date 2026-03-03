@@ -50,6 +50,8 @@ void RetrievedBytecodesTreeCheck::insert(const FF& class_id)
     auto& [low_leaf_preimage, low_leaf_index, low_leaf_sibling_path] = insertion_result.low_leaf_witness_data.at(0);
     std::span<FF> insertion_sibling_path = insertion_result.insertion_witness_data.at(0).path;
 
+    // If we pass a insertion sibling path, indexed tree check will assert that the leaf doesn't exist,
+    // otherwise, it will assert that the leaf exists.
     bool exists = class_id == low_leaf_preimage.leaf.class_id;
 
     AppendOnlyTreeSnapshot next_snapshot =
