@@ -273,6 +273,35 @@ describe('pino-logger', () => {
     });
   });
 
+  it('serializes objects with toJSON() instead of dumping raw properties', () => {
+    const testLogger = createLogger('tojson-test');
+    capturingStream.clear();
+
+    // Simulate an EthAddress-like object with an internal buffer and a toJSON method
+    const addressLike = {
+      buffer: Buffer.from('1234567890abcdef1234567890abcdef12345678', 'hex'),
+      toJSON() {
+        return '0x1234567890abcdef1234567890abcdef12345678';
+      },
+    };
+
+    testLogger.info('address logging test', {
+      validator: addressLike,
+      nested: { addr: addressLike },
+      array: [addressLike],
+      plainString: 'hello',
+    });
+
+    const entries = capturingStream.getJsonLines();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      validator: '0x1234567890abcdef1234567890abcdef12345678',
+      nested: { addr: '0x1234567890abcdef1234567890abcdef12345678' },
+      array: ['0x1234567890abcdef1234567890abcdef12345678'],
+      plainString: 'hello',
+    });
+  });
+
   it('returns bindings via getBindings', () => {
     const testLogger = createLogger('bindings-test', { actor: 'main', instanceId: 'id-123' });
     const bindings = testLogger.getBindings();

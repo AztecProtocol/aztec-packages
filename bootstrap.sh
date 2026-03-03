@@ -296,11 +296,9 @@ function build_and_test {
       echo "Makefile build complete, starting TXEs and adding dependent tests..."
       make_pid=
 
-      if [ -z "${1:-}" ]; then
-        # TODO: Handle this better to they can be run as part of the Makefile dependency tree.
-        start_txes
-        make noir-projects-txe-tests
-      fi
+      # TODO: Handle this better so they can be run as part of the Makefile dependency tree.
+      start_txes
+      make noir-projects-txe-tests
 
       # Signal tests complete, handled by parallel -E STOP.
       echo STOP >> $test_cmds_file

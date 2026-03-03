@@ -177,6 +177,21 @@ export function bigintConfigHelper(defaultVal?: bigint): Pick<ConfigMapping, 'pa
       if (val === '') {
         return defaultVal;
       }
+      // Handle scientific notation (e.g. "1e+23", "2E23") which BigInt() doesn't accept directly.
+      // We parse it losslessly using bigint arithmetic instead of going through float64.
+      if (/[eE]/.test(val)) {
+        const match = val.match(/^(-?\d+(?:\.(\d+))?)[eE]([+-]?\d+)$/);
+        if (!match) {
+          throw new Error(`Cannot convert '${val}' to a BigInt`);
+        }
+        const digits = match[1].replace('.', '');
+        const decimalPlaces = match[2]?.length ?? 0;
+        const exponent = parseInt(match[3], 10) - decimalPlaces;
+        if (exponent < 0) {
+          throw new Error(`Cannot convert '${val}' to a BigInt: result is not an integer`);
+        }
+        return BigInt(digits) * 10n ** BigInt(exponent);
+      }
       return BigInt(val);
     },
     defaultValue: defaultVal,
