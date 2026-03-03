@@ -174,22 +174,9 @@ bool is_ecdsa_result_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
     }
 
     // Step 2: Get the result from acir_opcode_io
-    std::vector<typename CircuitBuilder::acir_opcode_io_record::WitnessOrConstant> key_vector;
-    key_vector.reserve(input.hashed_message.size() + input.signature.size() + input.pub_x_indices.size() +
-                       input.pub_y_indices.size() + /* predicate */ 1 + /* result */ 1);
-    auto append_vector =
-        [&](const std::vector<typename CircuitBuilder::acir_opcode_io_record::WitnessOrConstant>& vec) {
-            key_vector.insert(key_vector.end(), vec.begin(), vec.end());
-        };
-    append_vector(witness_or_constant_vector_from_vector<CircuitBuilder>(input.hashed_message));
-    append_vector(witness_or_constant_vector_from_vector<CircuitBuilder>(input.signature));
-    append_vector(witness_or_constant_vector_from_vector<CircuitBuilder>(input.pub_x_indices));
-    append_vector(witness_or_constant_vector_from_vector<CircuitBuilder>(input.pub_y_indices));
-    append_vector(witness_or_constant_vector_from_vector<CircuitBuilder>(
-        std::vector<WitnessOrConstant<typename CircuitBuilder::FF>>{ input.predicate }));
-    append_vector(witness_or_constant_vector_from_vector<CircuitBuilder>(std::vector<uint32_t>{ input.result }));
 
-    auto it = builder.acir_opcode_io.io_map.find(key_vector);
+    auto it =
+        builder.acir_opcode_io.io_map.find(witness_or_constant_vector_from_ecdsa_constraint<CircuitBuilder>(input));
     if (it == builder.acir_opcode_io.io_map.end()) {
         log_error("is_ecdsa_result_constrained: no resolved outputs found for key vector");
         return false;
