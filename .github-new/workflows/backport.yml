@@ -1,0 +1,111 @@
+name: Automatic backport action
+
+on:
+  pull_request_target:
+    types: ["labeled", "closed"]
+
+jobs:
+  backport:
+    name: Backport PR
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for backport labels
+        id: check-labels
+        run: |
+          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          echo "Labels: $LABELS"
+          TARGETS=$(echo "$LABELS" | jq -r '.[] | select(startswith("backport-to-")) | sub("backport-to-"; "")')
+          if [ -z "$TARGETS" ]; then
+            echo "No backport-to-* labels — skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Targets: $TARGETS"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "targets<<EOF"
+              echo "$TARGETS"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
+      - name: Checkout repository
+        if: steps.check-labels.outputs.skip == 'false'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Run backport script for each target
+        id: backport
+        if: steps.check-labels.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          CONFLICTED_TARGETS=""
+          while IFS= read -r target; do
+            [[ -z "$target" ]] && continue
+            echo "::group::Backporting to $target (merge-train/${target})"
+            tmp_out=$(mktemp)
+            GITHUB_OUTPUT="$tmp_out" bash ./scripts/backport_to_staging.sh \
+              "$PR_NUMBER" "$target"
+            if grep -q "has_conflicts=true" "$tmp_out"; then
+              CONFLICTED_TARGETS="${CONFLICTED_TARGETS} ${target}"
+            fi
+            rm -f "$tmp_out"
+            echo "::endgroup::"
+          done <<< "${{ steps.check-labels.outputs.targets }}"
+          echo "conflicted_targets=${CONFLICTED_TARGETS# }" >> "$GITHUB_OUTPUT"
+      - name: Comment on original PR
+        if: steps.check-labels.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          CONFLICTED=" ${{ steps.backport.outputs.conflicted_targets }} "
+          BODY=""
+          while IFS= read -r target; do
+            [[ -z "$target" ]] && continue
+            TRAIN_BRANCH="merge-train/${target}"
+            if echo "$CONFLICTED" | grep -q " ${target} "; then
+              BODY="${BODY}:warning: Backported to \`${TRAIN_BRANCH}\` — conflicts present, ClaudeBox dispatched to resolve.\n"
+            else
+              BODY="${BODY}:white_check_mark: Backported to \`${TRAIN_BRANCH}\`.\n"
+            fi
+          done <<< "${{ steps.check-labels.outputs.targets }}"
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "$(printf '%b' "$BODY")"
+      - name: Dispatch ClaudeBox for each conflicted target
+        if: steps.check-labels.outputs.skip == 'false' && steps.backport.outputs.conflicted_targets != ''
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          CONFLICTED_TARGETS: ${{ steps.backport.outputs.conflicted_targets }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          while IFS= read -r target; do
+            [[ -z "$target" ]] && continue
+            TRAIN_BRANCH="merge-train/${target}"
+            # Post conflict notification to #backports
+            TEXT=$(printf ':warning: Backport conflicts on `%s`: <%s|#%s %s>.' \
+              "$TRAIN_BRANCH" "$PR_URL" "$PR_NUMBER" "$PR_TITLE")
+            RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              -d "$(jq -n --arg c "C0AGN2WT3CP" --arg t "$TEXT" '{channel:$c,text:$t}')")
+            TS=$(echo "$RESP" | jq -r '.ts // empty')
+            CHANNEL_ID=$(echo "$RESP" | jq -r '.channel // empty')
+            LINK="$PR_URL"
+            if [[ -n "$TS" && -n "$CHANNEL_ID" ]]; then
+              LINK="https://aztecprotocol.slack.com/archives/$CHANNEL_ID/p${TS//./}"
+            fi
+            PROMPT="Run: /backport $PR_NUMBER $target"
+            PROMPT="$PROMPT
+          Backport PR #$PR_NUMBER was cherry-picked onto \`$TRAIN_BRANCH\` but has conflicts. The conflict markers are already committed on that branch (look for a commit with the CONFLICTS: prefix). Resolve them and open a chore: fix PR targeting the train branch. See workflow run for details: $WORKFLOW_URL"
+            gh workflow run claudebox.yml \
+              -f prompt="$PROMPT" \
+              -f link="$LINK"
+          done <<< "$(echo "$CONFLICTED_TARGETS" | tr ' ' '\n')"
