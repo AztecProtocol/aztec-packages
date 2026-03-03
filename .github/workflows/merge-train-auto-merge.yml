@@ -22,11 +22,11 @@ jobs:
           MERGE_TRAIN_GITHUB_TOKEN=${{ secrets.MERGE_TRAIN_GITHUB_TOKEN }} \
           ./scripts/merge-train/auto-merge.sh
 
-      - name: Run auto-merge script (backport-train)
+      - name: Run auto-merge script (backport trains)
         run: |
           GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
-          MERGE_TRAIN_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
-          BRANCH_PATTERN=backport-to- \
-          MERGE_STRATEGY=merge \
-          INACTIVITY_HOURS=8 \
+          MERGE_TRAIN_GITHUB_TOKEN=${{ secrets.MERGE_TRAIN_GITHUB_TOKEN }} \
+          BRANCH_PATTERN=merge-train/v \
+          BASE_BRANCH_PATTERN='v[0-9]' \
           ./scripts/merge-train/auto-merge.sh
+
