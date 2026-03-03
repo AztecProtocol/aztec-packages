@@ -56,6 +56,14 @@ Bool<CircuitBuilder> witness_or_constant_to_bool(const acir_format::WitnessOrCon
                                  bool_ct::from_witness_index_unsafe(&builder, witness_or_constant.index) };
 }
 
+template <typename FF, typename CircuitBuilder>
+Field<CircuitBuilder> bool_to_field(const Bool<CircuitBuilder>& bool_field, CircuitBuilder& builder)
+{
+    return Field<CircuitBuilder>{ bool_field.witness_index,
+                                  bb::stdlib::field_t<CircuitBuilder>::from_witness_index(&builder,
+                                                                                          bool_field.witness_index) };
+}
+
 // Takes block_idx, gate_idx from FilterFunctionBuilder::filter_gates result and returns the Field from w_r
 template <typename FF, typename CircuitBuilder>
 Field<CircuitBuilder> get_field_from_w_r(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)

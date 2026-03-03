@@ -113,6 +113,27 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder, const Ecd
     bool_ct signature_result =
         stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, { r, s });
 
+    if (builder.is_write_vk_mode()) {
+        // Register input->output witness mapping for ACIR static analysis.
+        // Key: all input witness indices. Value: packed signature result witness index.
+        std::vector<typename Builder::acir_opcode_io_record::WitnessOrConstant> key_vector;
+        key_vector.reserve(input.hashed_message.size() + input.signature.size() + input.pub_x_indices.size() +
+                           input.pub_y_indices.size() + /* predicate */ 1 + /* result */ 1);
+        auto append_vector = [&](const std::vector<typename Builder::acir_opcode_io_record::WitnessOrConstant>& vec) {
+            key_vector.insert(key_vector.end(), vec.begin(), vec.end());
+        };
+        append_vector(witness_or_constant_vector_from_vector<Builder>(input.hashed_message));
+        append_vector(witness_or_constant_vector_from_vector<Builder>(input.signature));
+        append_vector(witness_or_constant_vector_from_vector<Builder>(input.pub_x_indices));
+        append_vector(witness_or_constant_vector_from_vector<Builder>(input.pub_y_indices));
+        append_vector(witness_or_constant_vector_from_vector<Builder>(
+            std::vector<WitnessOrConstant<typename Builder::FF>>{ input.predicate }));
+        append_vector(witness_or_constant_vector_from_vector<Builder>(std::vector<uint32_t>{ input.result }));
+        builder.acir_opcode_io.register_io(key_vector,
+                                           witness_or_constant_vector_from_vector<Builder>(
+                                               std::vector<uint32_t>{ signature_result.get_witness_index() }));
+    }
+
     // Step 5.
     // Ensure the circuit is satisfied when predicate is witness false
     signature_result.assert_equal(bool_ct::conditional_assign(predicate, result, signature_result));
