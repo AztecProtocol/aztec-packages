@@ -17,21 +17,22 @@ This guide covers how to test Aztec smart contracts by connecting to a local net
 
 Connect to your local Aztec network and create an embedded wallet:
 
-```typescript title="setup" showLineNumbers
-const logger = createLogger("e2e:token");
+```typescript title="connect_to_network" showLineNumbers
+import { createAztecNodeClient, waitForNode } from "@aztec/aztec.js/node";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
+import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 
-// We create PXE client connected to the local network URL
-const node = createAztecNodeClient(AZTEC_NODE_URL);
-// Wait for local network to be ready
-await waitForNode(node, logger);
-const wallet = await TestWallet.create(node);
+const nodeUrl = process.env.AZTEC_NODE_URL ?? "http://localhost:8080";
+const node = createAztecNodeClient(nodeUrl);
 
-const nodeInfo = await node.getNodeInfo();
+// Wait for the network to be ready
+await waitForNode(node);
 
-logger.info(format("Aztec Local Network Info ", nodeInfo));
+// Create an EmbeddedWallet connected to the node
+const wallet = await EmbeddedWallet.create(node, { ephemeral: true });
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-devnet.2-patch.1/yarn-project/end-to-end/src/composed/e2e_local_network_example.test.ts#L37-L50" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_local_network_example.test.ts#L37-L50</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.0.0-devnet.2-patch.1/docs/examples/ts/aztecjs_connection/index.ts#L1-L14" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L1-L14</a></sub></sup>
 
 The `EmbeddedWallet` manages accounts, tracks deployed contracts, and handles transaction proving. It connects to the Aztec node which provides access to both the Private eXecution Environment (PXE) and the network.
 
