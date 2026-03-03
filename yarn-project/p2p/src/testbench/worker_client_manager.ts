@@ -125,7 +125,10 @@ class WorkerClientManager {
       execArgv,
       env,
     });
-    childProcess.send({ type: 'START', config, clientIndex });
+    // Pre-serialize config to JSON-safe format to prevent BigInt serialization errors in IPC.
+    // Node's child_process IPC uses JSON.stringify which cannot handle BigInt values.
+    const safeConfig = JSON.parse(JSON.stringify(config, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));
+    childProcess.send({ type: 'START', config: safeConfig, clientIndex });
 
     // Handle unexpected child process exit
     childProcess.on('exit', (code, signal) => {
