@@ -249,20 +249,19 @@ class ProofCompressor {
     /**
      * @brief Walk a Translator proof (all BN254).
      * @details Layout from TranslatorFlavor::PROOF_LENGTH formula.
+     *          Wire commitments = gemini masking poly + non-op-queue wires + ordered range constraints + z_perm.
      */
     template <typename ScalarFn, typename CommitmentFn>
     static void walk_translator_proof(ScalarFn&& process_scalar, CommitmentFn&& process_commitment)
     {
         constexpr size_t log_n = TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
+        constexpr size_t num_wire_comms =
+            TranslatorFlavor::NUM_WITNESS_ENTITIES - 3 - TranslatorFlavor::NUM_OP_QUEUE_WIRES;
 
-        // Gemini masking poly commitment
-        process_commitment();
-        // Wire commitments: concatenated + ordered range constraints
-        for (size_t i = 0; i < TranslatorFlavor::NUM_COMMITMENTS_IN_PROOF; i++) {
+        // Wire commitments (gemini masking poly, non-op-queue wires, ordered range constraints, z_perm)
+        for (size_t i = 0; i < num_wire_comms; i++) {
             process_commitment();
         }
-        // Z_PERM commitment
-        process_commitment();
         // Libra concatenation commitment
         process_commitment();
         // Libra sum
@@ -271,8 +270,8 @@ class ProofCompressor {
         for (size_t i = 0; i < log_n * TranslatorFlavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
             process_scalar();
         }
-        // Sumcheck evaluations (computable precomputed and concat evals excluded)
-        for (size_t i = 0; i < TranslatorFlavor::NUM_SENT_EVALUATIONS; i++) {
+        // Sumcheck evaluations (all entities)
+        for (size_t i = 0; i < TranslatorFlavor::NUM_ALL_ENTITIES; i++) {
             process_scalar();
         }
         // Libra claimed evaluation
@@ -288,6 +287,9 @@ class ProofCompressor {
         for (size_t i = 0; i < log_n; i++) {
             process_scalar();
         }
+        // Gemini P pos and P neg evaluations
+        process_scalar();
+        process_scalar();
         // Small IPA evaluations
         for (size_t i = 0; i < NUM_SMALL_IPA_EVALUATIONS; i++) {
             process_scalar();
@@ -381,17 +383,17 @@ class ProofCompressor {
 
     // Translator — mirrors walk_translator_proof
     static constexpr size_t EXPECTED_TRANSLATOR_FRS =
-        1 * BN254_FRS_PER_COMM +                                                                                   // gemini masking poly
-        TranslatorFlavor::NUM_COMMITMENTS_IN_PROOF * BN254_FRS_PER_COMM +                                          // wire comms (concat + ordered)
-        1 * BN254_FRS_PER_COMM +                                                                                   // z_perm
+        (TranslatorFlavor::NUM_WITNESS_ENTITIES - 3 - TranslatorFlavor::NUM_OP_QUEUE_WIRES) * BN254_FRS_PER_COMM + // wire comms
         1 * BN254_FRS_PER_COMM +                                                                                   // libra concat
         1 * BN254_FRS_PER_SCALAR +                                                                                 // libra sum
         TranslatorFlavor::CONST_TRANSLATOR_LOG_N * TranslatorFlavor::BATCHED_RELATION_PARTIAL_LENGTH * BN254_FRS_PER_SCALAR + // sumcheck univariates
-        TranslatorFlavor::NUM_SENT_EVALUATIONS * BN254_FRS_PER_SCALAR +                                            // sumcheck evals
+        TranslatorFlavor::NUM_ALL_ENTITIES * BN254_FRS_PER_SCALAR +                                                // sumcheck evals (all entities)
         1 * BN254_FRS_PER_SCALAR +                                                                                 // libra claimed eval
         2 * BN254_FRS_PER_COMM +                                                                                   // libra grand sum + quotient
         (TranslatorFlavor::CONST_TRANSLATOR_LOG_N - 1) * BN254_FRS_PER_COMM +                                     // gemini folds
         TranslatorFlavor::CONST_TRANSLATOR_LOG_N * BN254_FRS_PER_SCALAR +                                          // gemini evals
+        1 * BN254_FRS_PER_SCALAR +                                                                                 // gemini P pos eval
+        1 * BN254_FRS_PER_SCALAR +                                                                                 // gemini P neg eval
         NUM_SMALL_IPA_EVALUATIONS * BN254_FRS_PER_SCALAR +                                                         // small IPA evals
         2 * BN254_FRS_PER_COMM;                                                                                    // shplonk Q + KZG W
     static_assert(EXPECTED_TRANSLATOR_FRS == TranslatorFlavor::PROOF_LENGTH);
