@@ -28,7 +28,7 @@ namespace bb::avm2::tracegen {
  * @brief Processes memory events into the memory subtrace.
  *
  * Sorts events by (space_id, address, clk, rw) and populates the trace with
- * derived columns (global_addr, timestamp, diff, limbs, etc.). Row 0 is left
+ * derived columns (diff, limbs, etc.). Row 0 is left
  * empty because shifted columns are used.
  *
  */
@@ -105,8 +105,6 @@ void MemoryTraceBuilder::process(const simulation::EventEmitterInterface<simulat
                       { C::memory_clk, event.execution_clk },
                       { C::memory_rw, event.mode == MemoryMode::WRITE ? 1 : 0 },
                       { C::memory_sel_rng_chk, is_last ? 0 : 1 },
-                      { C::memory_global_addr, global_addr },
-                      { C::memory_timestamp, timestamp },
                       { C::memory_last_access, last_access },
                       { C::memory_glob_addr_diff_inv, global_addr_diff }, // Will be inverted in batch later
                       { C::memory_diff, diff },
