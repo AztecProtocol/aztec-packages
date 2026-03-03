@@ -9,7 +9,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
  * @param opts - Options
  */
 export function waitForL1ToL2MessageReady(
-  node: Pick<AztecNode, 'getCheckpointNumber' | 'getL1ToL2MessageCheckpoint'>,
+  node: Pick<AztecNode, 'getBlock' | 'getL1ToL2MessageCheckpoint'>,
   l1ToL2MessageHash: Fr,
   opts: {
     /** Timeout for the operation in seconds */ timeoutSeconds: number;
@@ -30,14 +30,15 @@ export function waitForL1ToL2MessageReady(
  * @returns True if the message is ready to be consumed, false otherwise
  */
 export async function isL1ToL2MessageReady(
-  node: Pick<AztecNode, 'getCheckpointNumber' | 'getL1ToL2MessageCheckpoint'>,
+  node: Pick<AztecNode, 'getBlock' | 'getL1ToL2MessageCheckpoint'>,
   l1ToL2MessageHash: Fr,
 ): Promise<boolean> {
-  const checkpointNumber = await node.getCheckpointNumber();
   const messageCheckpointNumber = await node.getL1ToL2MessageCheckpoint(l1ToL2MessageHash);
   if (messageCheckpointNumber === undefined) {
     return false;
   }
 
-  return checkpointNumber >= messageCheckpointNumber;
+  // L1 to L2 messages are included in the first block of a checkpoint
+  const latestBlock = await node.getBlock('latest');
+  return latestBlock !== undefined && latestBlock.checkpointNumber >= messageCheckpointNumber;
 }

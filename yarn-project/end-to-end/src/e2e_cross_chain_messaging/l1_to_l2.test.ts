@@ -6,7 +6,7 @@ import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -120,7 +120,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   ) => {
     const msgCheckpoint = await waitForMessageFetched(msgHash);
     log.warn(
-      `Waiting until L2 reaches msg checkpoint ${msgCheckpoint} (current is ${await aztecNode.getL1ToL2MessageCheckpoint(msgHash)})`,
+      `Waiting until L2 reaches the first block of msg checkpoint ${msgCheckpoint} (current is ${await aztecNode.getCheckpointNumber()})`,
     );
     await retryUntil(
       async () => {
@@ -159,12 +159,8 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
 
       await waitForMessageReady(message1Hash, scope);
 
-      // The waitForMessageReady returns true earlier for public-land, so we can only check the membership
-      // witness for private-land here.
-      if (scope === 'private') {
-        const [message1Index] = (await aztecNode.getL1ToL2MessageMembershipWitness('latest', message1Hash))!;
-        expect(actualMessage1Index.toBigInt()).toBe(message1Index);
-      }
+      const [message1Index] = (await aztecNode.getL1ToL2MessageMembershipWitness('latest', message1Hash))!;
+      expect(actualMessage1Index.toBigInt()).toBe(message1Index);
 
       // We consume the L1 to L2 message using the test contract either from private or public
       await getConsumeMethod(scope)(
@@ -184,12 +180,10 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       // We check that the duplicate message was correctly inserted by checking that its message index is defined
       await waitForMessageReady(message2Hash, scope);
 
-      if (scope === 'private') {
-        const [message2Index] = (await aztecNode.getL1ToL2MessageMembershipWitness('latest', message2Hash))!;
-        expect(message2Index).toBeDefined();
-        expect(message2Index).toBeGreaterThan(actualMessage1Index.toBigInt());
-        expect(actualMessage2Index.toBigInt()).toBe(message2Index);
-      }
+      const [message2Index] = (await aztecNode.getL1ToL2MessageMembershipWitness('latest', message2Hash))!;
+      expect(message2Index).toBeDefined();
+      expect(message2Index).toBeGreaterThan(actualMessage1Index.toBigInt());
+      expect(actualMessage2Index.toBigInt()).toBe(message2Index);
 
       // Now we consume the message again. Everything should pass because oracle should return the duplicate message
       // which is not nullified
@@ -251,30 +245,38 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
         getConsumeMethod(scope)(message.content, secret, crossChainTestHarness.ethAccount, globalLeafIndex);
 
       // Wait until the message is ready to be consumed, checking that it cannot be consumed beforehand
-      await waitForMessageReady(msgHash, scope, async () => {
+      await waitForMessageReady(msgHash, scope, async (blockNumber: BlockNumber) => {
         if (scope === 'private') {
           // On private, we simulate the tx locally and check that we get a missing message error, then we advance to the next block
           await expect(() => consume().simulate({ from: user1Address })).rejects.toThrow(/No L1 to L2 message found/);
           await tryAdvanceBlock();
-          await t.context.watcher.markAsProven();
         } else {
-          // On public, we actually send the tx and check that it reverts due to the missing message.
-          // This advances the block too as a side-effect. Note that we do not rely on a simulation since the cross chain messages
-          // do not get added at the beginning of the block during node_simulatePublicCalls (maybe they should?).
+          // In public it is harder to determine when a message becomes consumable.
+          // We send a transaction, this advances the chain and the message MIGHT be consumed in the new block.
+          // If it does get consumed then we check that the block contains the message.
+          // If it fails we check that the block doesn't contain the message
           const receipt = await consume().send({ from: user1Address, wait: { dontThrowOnRevert: true } });
-          expect(receipt.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
-          await t.context.watcher.markAsProven();
+          if (receipt.executionResult === TxExecutionResult.SUCCESS) {
+            // The block the transaction included should be for the message checkpoint number
+            // and be the first block in the checkpoint
+            const block = await aztecNode.getBlock(receipt.blockNumber!);
+            expect(block).toBeDefined();
+            expect(block!.checkpointNumber).toEqual(msgCheckpointNumber);
+            expect(block!.indexWithinCheckpoint).toEqual(IndexWithinCheckpoint.ZERO);
+          } else {
+            expect(receipt.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
+          }
         }
+        await t.context.watcher.markAsProven();
       });
 
       // Verify the membership witness is available for creating the tx (private-land only)
       if (scope === 'private') {
         const [messageIndex] = (await aztecNode.getL1ToL2MessageMembershipWitness('latest', msgHash))!;
         expect(messageIndex).toEqual(globalLeafIndex.toBigInt());
+        // And consume the message for private, public was already consumed.
+        await consume().send({ from: user1Address });
       }
-
-      // And consume the message
-      await consume().send({ from: user1Address });
     },
   );
 });
