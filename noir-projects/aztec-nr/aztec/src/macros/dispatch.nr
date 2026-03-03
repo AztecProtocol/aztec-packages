@@ -6,7 +6,7 @@ use super::utils::{compute_fn_selector, get_type};
 pub(crate) comptime fn generate_public_dispatch(fns: [DispatchablePublicFunction]) -> Quoted {
     let seen_selectors = &mut CHashMap::<Field, Quoted>::new();
 
-    let mut ifs: [Quoted] = fns.map(|f: DispatchablePublicFunction| {
+    let ifs: [Quoted] = fns.map(|f: DispatchablePublicFunction| {
         let name = f.name;
         let existing_fn = seen_selectors.get(f.selector);
         if existing_fn.is_some() {
