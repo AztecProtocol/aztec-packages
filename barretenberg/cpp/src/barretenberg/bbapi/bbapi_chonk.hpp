@@ -240,6 +240,30 @@ struct ChonkStats {
 };
 
 /**
+ * @struct ChonkBatchVerify
+ * @brief Batch-verify multiple Chonk proofs with a single IPA SRS MSM
+ *
+ * @details Each proof carries its own VK (could be HidingKernelToPublic or HidingKernelToRollup).
+ * Returns true only if ALL proofs verify. Uses ChonkBatchVerifier for ~Nx speedup on IPA bottleneck.
+ */
+struct ChonkBatchVerify {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerify";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifyResponse";
+        bool valid;
+        MSGPACK_FIELDS(valid);
+        bool operator==(const Response&) const = default;
+    };
+
+    std::vector<ChonkProof> proofs;
+    std::vector<std::vector<uint8_t>> vks;
+    Response execute(const BBApiRequest& request = {}) &&;
+    MSGPACK_FIELDS(proofs, vks);
+    bool operator==(const ChonkBatchVerify&) const = default;
+};
+
+/**
  * @struct ChonkCompressProof
  * @brief Compress a Chonk proof to a compact byte representation
  *
