@@ -156,99 +156,6 @@ template <class Fq, class Fr, class T> constexpr element<Fq, Fr, T> element<Fq, 
 }
 
 template <class Fq, class Fr, class T>
-constexpr void element<Fq, Fr, T>::self_mixed_add_or_sub(const affine_element<Fq, Fr, T>& other,
-                                                         const uint64_t predicate) noexcept
-{
-    if constexpr (Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
-        if (is_point_at_infinity()) {
-            conditional_negate_affine(other, *(affine_element<Fq, Fr, T>*)this, predicate); // NOLINT
-            z = Fq::one();
-            return;
-        }
-    } else {
-        const bool edge_case_trigger = x.is_msb_set() || other.x.is_msb_set();
-        if (edge_case_trigger) {
-            if (x.is_msb_set()) {
-                conditional_negate_affine(other, *(affine_element<Fq, Fr, T>*)this, predicate); // NOLINT
-                z = Fq::one();
-            }
-            return;
-        }
-    }
-
-    // T0 = z1.z1
-    Fq T0 = z.sqr();
-
-    // T1 = x2.t0 - x1 = x2.z1.z1 - x1
-    Fq T1 = other.x * T0;
-    T1 -= x;
-
-    // T2 = T0.z1 = z1.z1.z1
-    // T2 = T2.y2 - y1 = y2.z1.z1.z1 - y1
-    Fq T2 = z * T0;
-    T2 *= other.y;
-    T2.self_conditional_negate(predicate);
-    T2 -= y;
-
-    if (__builtin_expect(T1.is_zero(), 0)) {
-        if (T2.is_zero()) {
-            // y2 equals y1, x2 equals x1, double x1
-            self_dbl();
-            return;
-        }
-        self_set_infinity();
-        return;
-    }
-
-    // T2 = 2T2 = 2(y2.z1.z1.z1 - y1) = R
-    // z3 = z1 + H
-    T2 += T2;
-    z += T1;
-
-    // T3 = T1*T1 = HH
-    Fq T3 = T1.sqr();
-
-    // z3 = z3 - z1z1 - HH
-    T0 += T3;
-
-    // z3 = (z1 + H)*(z1 + H)
-    z.self_sqr();
-    z -= T0;
-
-    // T3 = 4HH
-    T3 += T3;
-    T3 += T3;
-
-    // T1 = T1*T3 = 4HHH
-    T1 *= T3;
-
-    // T3 = T3 * x1 = 4HH*x1
-    T3 *= x;
-
-    // T0 = 2T3
-    T0 = T3 + T3;
-
-    // T0 = T0 + T1 = 2(4HH*x1) + 4HHH
-    T0 += T1;
-    x = T2.sqr();
-
-    // x3 = x3 - T0 = R*R - 8HH*x1 -4HHH
-    x -= T0;
-
-    // T3 = T3 - x3 = 4HH*x1 - x3
-    T3 -= x;
-
-    T1 *= y;
-    T1 += T1;
-
-    // T3 = T2 * T3 = R*(4HH*x1 - x3)
-    T3 *= T2;
-
-    // y3 = T3 - T1
-    y = T3 - T1;
-}
-
-template <class Fq, class Fr, class T>
 constexpr element<Fq, Fr, T> element<Fq, Fr, T>::operator+=(const affine_element<Fq, Fr, T>& other) noexcept
 {
     if constexpr (Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
@@ -1055,14 +962,6 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     parallel_for_range(num_points, execute_range);
 
     return work_elements;
-}
-
-template <typename Fq, typename Fr, typename T>
-void element<Fq, Fr, T>::conditional_negate_affine(const affine_element<Fq, Fr, T>& in,
-                                                   affine_element<Fq, Fr, T>& out,
-                                                   const uint64_t predicate) noexcept
-{
-    out = { in.x, predicate ? -in.y : in.y };
 }
 
 template <typename Fq, typename Fr, typename T>
