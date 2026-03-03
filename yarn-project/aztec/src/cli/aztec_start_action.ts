@@ -1,3 +1,4 @@
+import { getActiveNetworkName } from '@aztec/foundation/config';
 import {
   type NamespacedApiHandlers,
   createNamespacedSafeJsonRpcServer,
@@ -7,13 +8,13 @@ import {
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { getVersioningMiddleware } from '@aztec/stdlib/versioning';
 import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 
 import { createLocalNetwork } from '../local-network/index.js';
 import { github, splash } from '../splash.js';
 import { resolveAdminApiKey } from './admin_api_key_store.js';
-import { getCliVersion } from './release_version.js';
 import { extractNamespacedOptions, installSignalHandlers } from './util.js';
 import { getVersions } from './versioning.js';
 
@@ -25,7 +26,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   let config: ChainConfig | undefined = undefined;
 
   if (options.localNetwork) {
-    const cliVersion = getCliVersion();
+    const cliVersion = getPackageVersion() ?? 'unknown';
     const localNetwork = extractNamespacedOptions(options, 'local-network');
     localNetwork.testAccounts = true;
     userLog(`${splash}\n${github}\n\n`);
@@ -57,7 +58,8 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
     if (options.node) {
       const { startNode } = await import('./cmds/start_node.js');
-      ({ config } = await startNode(options, signalHandlers, services, adminServices, userLog));
+      const networkName = getActiveNetworkName(options.network);
+      ({ config } = await startNode(options, signalHandlers, services, adminServices, userLog, networkName));
     } else if (options.bot) {
       const { startBot } = await import('./cmds/start_bot.js');
       await startBot(options, signalHandlers, services, userLog);
