@@ -6,28 +6,28 @@ set -euo pipefail
 
 export LOG_LEVEL=silent
 
-aztec new my_contract
+aztec new my_workspace
 
 # Verify workspace structure with named crate directories.
-if [ ! -f my_contract/Nargo.toml ]; then
+if [ ! -f my_workspace/Nargo.toml ]; then
   echo "Failed to create workspace Nargo.toml."
   exit 1
 fi
-if [ ! -f my_contract/my_contract_contract/Nargo.toml ] || [ ! -f my_contract/my_contract_contract/src/main.nr ]; then
+if [ ! -f my_workspace/my_workspace_contract/Nargo.toml ] || [ ! -f my_workspace/my_workspace_contract/src/main.nr ]; then
   echo "Failed to create contract crate."
   exit 1
 fi
-if [ ! -f my_contract/my_contract_test/Nargo.toml ] || [ ! -f my_contract/my_contract_test/src/lib.nr ]; then
+if [ ! -f my_workspace/my_workspace_test/Nargo.toml ] || [ ! -f my_workspace/my_workspace_test/src/lib.nr ]; then
   echo "Failed to create test crate."
   exit 1
 fi
 
-cd my_contract
+cd my_workspace
 
 # This is unfortunate as it makes the test worse but in CI setting the aztec version is 0.0.1 which doesn't exist as
 # a remote git tag, so we need to rewrite dependencies to use local aztec-nr.
 sed -i 's|aztec = .*git.*AztecProtocol/aztec-nr.*|aztec = { path="/home/ubuntu/aztec-packages/noir-projects/aztec-nr/aztec" }|' \
-  my_contract_contract/Nargo.toml my_contract_test/Nargo.toml
+  my_workspace_contract/Nargo.toml my_workspace_test/Nargo.toml
 
 # Compile the default scaffold contract.
 aztec compile
@@ -49,8 +49,8 @@ if [ ! -f token_test/Nargo.toml ] || [ ! -f token_test/src/lib.nr ]; then
 fi
 
 # Verify workspace Nargo.toml contains all four members.
-if ! grep -q '"my_contract_contract"' Nargo.toml || \
-   ! grep -q '"my_contract_test"' Nargo.toml || \
+if ! grep -q '"my_workspace_contract"' Nargo.toml || \
+   ! grep -q '"my_workspace_test"' Nargo.toml || \
    ! grep -q '"token_contract"' Nargo.toml || \
    ! grep -q '"token_test"' Nargo.toml; then
   echo "Workspace Nargo.toml does not contain all expected members."
