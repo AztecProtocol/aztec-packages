@@ -840,14 +840,14 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeGhostRowInjectionBlocked)
     });
 
     // The fix: sel_not_padding_1 * (1 - sel) = 0
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace), "SEL_NOT_PADDING_1_REQUIRES_SEL");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace), "SEL_NOT_PADDING_REQUIRES_SEL");
 
     // Reset and try with sel_not_padding_2
     trace.set(C::bc_hashing_sel_not_padding_1, 1, 0);
     trace.set(C::bc_hashing_sel_not_padding_2, 1, 1);
 
     // The fix: sel_not_padding_2 * (1 - sel) = 0
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace), "SEL_NOT_PADDING_2_REQUIRES_SEL");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace), "SEL_NOT_PADDING_REQUIRES_SEL");
 }
 
 } // namespace

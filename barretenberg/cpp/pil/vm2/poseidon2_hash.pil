@@ -23,7 +23,7 @@ include "precomputed.pil";
  *      Example (address_derivation.pil):
  *             // First row (removed prefix poseidon2_hash.** in destination tuple for presentation purposes)
  *             sel { public_keys_hash_domain_separator, nullifier_key_x, nullifier_key_y, public_keys_hash, const_thirteen }
- *             in poseidon2_hash.start { input_0, input_1, input_2, output, ipnut_len };
+ *             in poseidon2_hash.start { input_0, input_1, input_2, output, input_len };
  *
  *             sel { precomputed.zero, incoming_viewing_key_x, incoming_viewing_key_y, public_keys_hash, const_four }
  *             in poseidon2_hash.sel { input_0, input_1, input_2, output, num_perm_rounds_rem };

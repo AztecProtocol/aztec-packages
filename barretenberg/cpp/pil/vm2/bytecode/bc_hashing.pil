@@ -201,18 +201,15 @@ namespace bc_hashing;
     sel_not_padding_2 * (1 - sel_not_padding_2) = 0;
 
     // Force sel_not_padding_X to 0 when sel is 0 (prevents ghost row injection attacks).
-    #[SEL_NOT_PADDING_1_REQUIRES_SEL]
-    sel_not_padding_1 * (1 - sel) = 0;
-    #[SEL_NOT_PADDING_2_REQUIRES_SEL]
-    sel_not_padding_2 * (1 - sel) = 0;
-
-    // TODO: Instead of two bools, change to value = 0 (no padding) OR 1 (one field padding) OR 2
-    // (two fields padding)? The annoyance is that we need many committed sels to use in/gate lookups.
+    #[SEL_NOT_PADDING_REQUIRES_SEL]
+    (sel_not_padding_1 + sel_not_padding_2) * (1 - sel) = 0;
+    // It follows that `sel * sel_not_padding_i == sel_not_padding_i` and
+    // `sel * (1 - sel_not_padding_i) == sel - sel_not_padding_i`.
 
     // PADDING_1 == 1 <==> packed_fields[1] is a padding value ==> (see #[PADDING_CONSISTENCY]) PADDING_2 == 1
-    pol PADDING_1 = sel * (1 - sel_not_padding_1);
+    pol PADDING_1 = sel - sel_not_padding_1;
     // PADDING_2 == 1 <==> packed_fields[2] is a padding value <==> we have any padded values
-    pol PADDING_2 = sel * (1 - sel_not_padding_2);
+    pol PADDING_2 = sel - sel_not_padding_2;
 
     // If packed_fields[1] is a padding value, packed_fields[2] must also be a padding value:
     // PADDING_1 == 1 ==> PADDING_2 == 1
@@ -303,7 +300,9 @@ namespace bc_hashing;
 
     // The length of the hashed bytecode in fields, including the prepended field. We use it to look
     // up into poseidon2_hash to ensure that the hashed IV matches our bytecode length.
-    // Note: only constrained at the final row (latch) by linking it to pc_at_final_field.
+    // Note: We constrain `input_len` at the final row (latch) by linking it to pc_at_final_field,
+    //       but correct usage of `poseidon2_hash` requires us to constrain it at the start row.
+    //       Therefore, we will constrain propagation of `input_len` on all rows of the computation.
     pol commit input_len;
 
     // Minus one for the initial field not present in bc_decomposition, and one to include the final
@@ -311,6 +310,9 @@ namespace bc_hashing;
     // Note: this doesn't underflow as we don't handle empty bytecode (see PRECONDITIONS).
     #[BYTECODE_LENGTH_FIELDS]
     latch * (31 * (input_len - 2) - pc_at_final_field) = 0;
+
+    #[INPUT_LEN_PROPAGATION]
+    (1 - LATCH_CONDITION) * (input_len' - input_len) = 0;
 
     // The number of rounds (rows) remaining to completely hash the bytecode.
     // Like input_len, its correctness is constrained at the final row (latch), where (due to
