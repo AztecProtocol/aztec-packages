@@ -774,8 +774,13 @@
     from = "/errors/3"
     to = "/aztec-nr-api/nightly/noir_aztec/messages/msg_type/index.html"
 
-# Example (uncomment and modify when adding error codes):
-# [[redirects]]
-#     from = "/errors/4"
-#     to = "/developers/docs/aztec-nr/framework-description/functions/how_to_define_functions"
+[[redirects]]
+    # Aztec-nr: note packed length exceeds MAX_NOTE_PACKED_LEN
+    from = "/errors/4"
+    to = "/aztec-nr-api/nightly/noir_aztec/macros/notes/fn.note.html"
+
+[[redirects]]
+    # Aztec-nr: event serialized length exceeds MAX_EVENT_SERIALIZED_LEN
+    from = "/errors/5"
+    to = "/aztec-nr-api/nightly/noir_aztec/macros/events/fn.event.html"
 
