@@ -185,6 +185,13 @@ describe('sequencer', () => {
     publisher.enqueueProposeCheckpoint.mockResolvedValue(undefined);
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
+    publisher.sendRequestsAt.mockResolvedValue({
+      result: { receipt: { status: 'success' } as any, errorMsg: undefined },
+      successfulActions: ['propose'],
+      failedActions: [],
+      sentActions: ['propose'],
+      expiredActions: [],
+    });
     publisher.canProposeAtNextEthBlock.mockResolvedValue({
       slot: SlotNumber(newSlotNumber),
       checkpointNumber: CheckpointNumber.fromBlockNumber(newBlockNumber),
@@ -430,8 +437,8 @@ describe('sequencer', () => {
 
       await sequencer.work();
 
-      // We still call sendRequests in case there are votes enqueued
-      expect(publisher.sendRequests).toHaveBeenCalled();
+      // We still call sendRequestsAt in case there are votes enqueued
+      expect(publisher.sendRequestsAt).toHaveBeenCalled();
     });
 
     it('should proceed with block proposal when there is no proposer yet', async () => {
@@ -471,6 +478,13 @@ describe('sequencer', () => {
         pub.enqueueProposeCheckpoint.mockResolvedValue(undefined);
         pub.enqueueGovernanceCastSignal.mockResolvedValue(true);
         pub.enqueueSlashingActions.mockResolvedValue(true);
+        pub.sendRequestsAt.mockResolvedValue({
+          result: { receipt: { status: 'success' } as any, errorMsg: undefined },
+          successfulActions: ['propose'],
+          failedActions: [],
+          sentActions: ['propose'],
+          expiredActions: [],
+        });
         pub.canProposeAtNextEthBlock.mockResolvedValue({
           slot: SlotNumber(newSlotNumber + i),
           checkpointNumber: CheckpointNumber.fromBlockNumber(BlockNumber(newBlockNumber)),
@@ -895,6 +909,121 @@ describe('sequencer', () => {
     });
   });
 
+  describe('pipelining with quorum-based L1 check skip', () => {
+    beforeEach(async () => {
+      // Skip execute() to avoid the pipeline sleep (which would block for 16s in real time).
+      // We only need to test prepareCheckpointProposal behavior here.
+      sequencer.skipExecute = true;
+
+      // Set up a pipelining scenario: slot.now=1, slot.pipeline=2
+      epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+        slot: { now: SlotNumber(1), pipeline: SlotNumber(2) },
+        ts: 1000n,
+        nowSeconds: 1000n,
+      });
+
+      // canProposeAtNextEthBlock returns slot 2 (pipeline slot)
+      publisher.canProposeAtNextEthBlock.mockResolvedValue({
+        slot: SlotNumber(2),
+        checkpointNumber: CheckpointNumber.fromBlockNumber(newBlockNumber),
+        timeOfNextL1Slot: 1000n,
+      });
+
+      // We are the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+    });
+
+    afterEach(() => {
+      sequencer.skipExecute = false;
+    });
+
+    it('skips L1 check when pipelining and previous slot has quorum attestations', async () => {
+      await setupSingleTxBlock();
+
+      // Previous slot (slot.now=1) has block proposals
+      p2p.hasBlockProposalsForSlot.mockResolvedValue(true);
+
+      // Committee of 3, quorum = floor(3*2/3)+1 = 3
+      epochCache.getCommittee.mockResolvedValue({
+        committee: [signer.address, EthAddress.random(), EthAddress.random()],
+        seed: 1n,
+        epoch: EpochNumber(1),
+        isEscapeHatchOpen: false,
+      });
+
+      // Return 3 attestations (meets quorum)
+      const attestation = TestUtils.createCheckpointAttestation(block, mockedSig, signer.address);
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue([attestation, attestation, attestation]);
+
+      await sequencer.work();
+
+      // L1 check should be skipped when quorum attestations are available
+      expect(publisher.canProposeAtNextEthBlock).not.toHaveBeenCalled();
+    });
+
+    it('falls back to L1 check when pipelining but no quorum', async () => {
+      await setupSingleTxBlock();
+
+      // Previous slot has block proposals
+      p2p.hasBlockProposalsForSlot.mockResolvedValue(true);
+
+      // Committee of 3, quorum = 3
+      epochCache.getCommittee.mockResolvedValue({
+        committee: [signer.address, EthAddress.random(), EthAddress.random()],
+        seed: 1n,
+        epoch: EpochNumber(1),
+        isEscapeHatchOpen: false,
+      });
+
+      // Only 1 attestation (not enough for quorum)
+      const attestation = TestUtils.createCheckpointAttestation(block, mockedSig, signer.address);
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue([attestation]);
+
+      await sequencer.work();
+
+      // L1 check should be called since quorum was not met
+      expect(publisher.canProposeAtNextEthBlock).toHaveBeenCalled();
+    });
+
+    it('falls back to L1 check when pipelining but no proposals seen', async () => {
+      await setupSingleTxBlock();
+
+      // No block proposals for previous slot
+      p2p.hasBlockProposalsForSlot.mockResolvedValue(false);
+
+      await sequencer.work();
+
+      // L1 check should be called
+      expect(publisher.canProposeAtNextEthBlock).toHaveBeenCalled();
+    });
+
+    it('uses L1 check when not pipelining (slot.now === slot.pipeline)', async () => {
+      await setupSingleTxBlock();
+
+      // Override back to non-pipelining
+      epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: { now: EpochNumber(1), pipeline: EpochNumber(1) },
+        slot: { now: SlotNumber(1), pipeline: SlotNumber(1) },
+        ts: 1000n,
+        nowSeconds: 1000n,
+      });
+      publisher.canProposeAtNextEthBlock.mockResolvedValue({
+        slot: SlotNumber(1),
+        checkpointNumber: CheckpointNumber.fromBlockNumber(newBlockNumber),
+        timeOfNextL1Slot: 1000n,
+      });
+
+      await sequencer.work();
+
+      // L1 check should always be used when not pipelining
+      expect(publisher.canProposeAtNextEthBlock).toHaveBeenCalled();
+      // hasBlockProposalsForSlot should not be called
+      expect(p2p.hasBlockProposalsForSlot).not.toHaveBeenCalled();
+    });
+  });
+
   describe('view-based proposer lookup', () => {
     it('uses proposer view with +1 offset when proposer pipelining is enabled', async () => {
       const proposer = signer.address;
@@ -910,6 +1039,9 @@ describe('sequencer', () => {
 });
 
 class TestSequencer extends Sequencer {
+  /** When true, work() only runs prepareCheckpointProposal and skips execute(). */
+  public skipExecute = false;
+
   public getTimeTable() {
     return this.timetable;
   }
@@ -918,8 +1050,14 @@ class TestSequencer extends Sequencer {
     this.l1Constants.l1GenesisTime = BigInt(l1GenesisTime);
   }
 
-  public override work() {
+  public override async work() {
     this.setState(SequencerState.IDLE, undefined, { force: true });
+    if (this.skipExecute) {
+      this.setState(SequencerState.SYNCHRONIZING, undefined);
+      const { slot, ts, nowSeconds, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
+      await this.prepareCheckpointProposal(slot, epoch, ts, nowSeconds);
+      return;
+    }
     return super.work();
   }
 

@@ -393,7 +393,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     publisher.enqueueProposeCheckpoint.mockResolvedValue(undefined);
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
-    publisher.sendRequests.mockResolvedValue({
+    publisher.sendRequestsAt.mockResolvedValue({
       result: { receipt: { status: 'success' } as any, errorMsg: undefined },
       successfulActions: ['propose'],
       failedActions: [],

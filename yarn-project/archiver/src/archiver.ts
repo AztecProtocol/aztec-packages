@@ -205,6 +205,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     });
   }
 
+  public async setPendingCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
+    await this.dataStore.blockStore.setPendingCheckpointNumber(checkpointNumber);
+  }
+
   /**
    * Processes all queued blocks, adding them to the store.
    * Called at the beginning of each sync iteration.

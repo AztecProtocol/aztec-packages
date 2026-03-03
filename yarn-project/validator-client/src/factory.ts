@@ -39,6 +39,7 @@ export function createBlockProposalHandler(
     deps.p2pClient.getTxProvider(),
     blockProposalValidator,
     deps.epochCache,
+    deps.p2pClient,
     config,
     metrics,
     deps.dateProvider,

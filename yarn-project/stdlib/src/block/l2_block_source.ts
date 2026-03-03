@@ -279,6 +279,8 @@ export interface L2BlockSink {
    * @throws If block number is not incremental (i.e., not exactly one more than the last stored block).
    */
   addBlock(block: L2Block): Promise<void>;
+  /** Sets the pending checkpoint number (quorum-attested but not yet L1-confirmed). */
+  setPendingCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void>;
 }
 
 /**

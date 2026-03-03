@@ -226,7 +226,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * @returns CheckpointProposalJob if successful, undefined if we are not yet synced or are not the proposer.
    */
   @trackSpan('Sequencer.prepareCheckpointProposal')
-  private async prepareCheckpointProposal(
+  protected async prepareCheckpointProposal(
     slot: SlotView,
     epoch: EpochView,
     ts: bigint,
@@ -253,6 +253,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     // Check all components are synced to latest as seen by the archiver (queries all subsystems)
+    // WORKTODO: is now correct here? - the worldstate does not get blocks from p2p does it?
+    //           it does not save these into its store
     const syncedTo = await this.checkSync({ ts, slot: slot.now });
     if (!syncedTo) {
       await this.tryVoteWhenSyncFails({ slot, ts });
@@ -337,41 +339,50 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         ? Math.ceil(this.l1Constants.slotDuration / this.l1Constants.ethereumSlotDuration)
         : undefined;
 
-    // Check with the rollup contract if we can indeed propose at the pipeline slot. This check should not fail
-    // if all the previous checks are good, but we do it just in case.
-    const canProposeCheck = await publisher.canProposeAtNextEthBlock(syncedTo.archive, proposer ?? EthAddress.ZERO, {
-      ...invalidateCheckpoint,
-      additionalSlotOffset,
-    });
-
-    if (canProposeCheck === undefined) {
-      this.log.warn(
-        `Cannot propose checkpoint ${checkpointNumber} at slot ${slot.now} due to failed rollup contract check`,
-        logCtx,
-      );
-      this.emit('proposer-rollup-check-failed', { reason: 'Rollup contract check failed', slot: slot.now });
-      this.metrics.recordCheckpointPrecheckFailed('rollup_contract_check_failed');
-      return undefined;
+    // When pipelining, if the previous checkpoint has quorum attestations from P2P, we can skip the
+    // L1 check and start building immediately. The actual L1 validation happens later when we enqueue
+    // the checkpoint for submission (after the pipeline sleep, when L1 state has caught up).
+    const hasQuorum = await this.hasPreviousCheckpointQuorum(slot);
+    if (hasQuorum) {
+      await this.l2BlockSource.setPendingCheckpointNumber(CheckpointNumber(checkpointNumber - 1));
     }
+    if (!hasQuorum) {
+      // Check with the rollup contract if we can indeed propose at the pipeline slot. This check should not fail
+      // if all the previous checks are good, but we do it just in case.
+      const canProposeCheck = await publisher.canProposeAtNextEthBlock(syncedTo.archive, proposer ?? EthAddress.ZERO, {
+        ...invalidateCheckpoint,
+        additionalSlotOffset,
+      });
 
-    if (canProposeCheck.slot !== slot.pipeline) {
-      this.log.warn(
-        `Cannot propose block due to slot mismatch with rollup contract (this can be caused by a clock out of sync). Expected slot ${slot.pipeline} but got ${canProposeCheck.slot}.`,
-        { ...logCtx, rollup: canProposeCheck, expectedSlot: slot.pipeline },
-      );
-      this.emit('proposer-rollup-check-failed', { reason: 'Slot mismatch', slot: slot.now });
-      this.metrics.recordCheckpointPrecheckFailed('slot_mismatch');
-      return undefined;
-    }
+      if (canProposeCheck === undefined) {
+        this.log.warn(
+          `Cannot propose checkpoint ${checkpointNumber} at slot ${slot.now} due to failed rollup contract check`,
+          logCtx,
+        );
+        this.emit('proposer-rollup-check-failed', { reason: 'Rollup contract check failed', slot: slot.now });
+        this.metrics.recordCheckpointPrecheckFailed('rollup_contract_check_failed');
+        return undefined;
+      }
 
-    if (canProposeCheck.checkpointNumber !== checkpointNumber) {
-      this.log.warn(
-        `Cannot propose due to block mismatch with rollup contract (this can be caused by a pending archiver sync). Expected checkpoint ${checkpointNumber} but got ${canProposeCheck.checkpointNumber}.`,
-        { ...logCtx, rollup: canProposeCheck, expectedSlot: slot.now },
-      );
-      this.emit('proposer-rollup-check-failed', { reason: 'Block mismatch', slot: slot.now });
-      this.metrics.recordCheckpointPrecheckFailed('block_number_mismatch');
-      return undefined;
+      if (canProposeCheck.slot !== slot.pipeline) {
+        this.log.warn(
+          `Cannot propose block due to slot mismatch with rollup contract (this can be caused by a clock out of sync). Expected slot ${slot.pipeline} but got ${canProposeCheck.slot}.`,
+          { ...logCtx, rollup: canProposeCheck, expectedSlot: slot.pipeline },
+        );
+        this.emit('proposer-rollup-check-failed', { reason: 'Slot mismatch', slot: slot.now });
+        this.metrics.recordCheckpointPrecheckFailed('slot_mismatch');
+        return undefined;
+      }
+
+      if (canProposeCheck.checkpointNumber !== checkpointNumber) {
+        this.log.warn(
+          `Cannot propose due to block mismatch with rollup contract (this can be caused by a pending archiver sync). Expected checkpoint ${checkpointNumber} but got ${canProposeCheck.checkpointNumber}.`,
+          { ...logCtx, rollup: canProposeCheck, expectedSlot: slot.now },
+        );
+        this.emit('proposer-rollup-check-failed', { reason: 'Block mismatch', slot: slot.now });
+        this.metrics.recordCheckpointPrecheckFailed('block_number_mismatch');
+        return undefined;
+      }
     }
 
     this.lastSlotForCheckpointProposalJob = slot.pipeline;
@@ -610,11 +621,62 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return [false, proposer];
     }
 
-    this.log.debug(
-      `We are the proposer for pipeline slot ${pipelineSlot} building during wall-clock slot ${slot.now}`,
-      { slot: slot.now, pipelineSlot, proposer },
-    );
+    this.log.info(`We are the proposer for pipeline slot ${pipelineSlot} building during wall-clock slot ${slot.now}`, {
+      slot: slot.now,
+      pipelineSlot,
+      proposer,
+    });
     return [true, proposer];
+  }
+
+  // TODO: fisherman mode checks + behaviour in this section
+  /**
+   * Checks if the previous pipeline slot's checkpoint has received quorum attestations via P2P.
+   * Used when pipelining to replace the blocking L1 check: if the previous checkpoint has quorum,
+   * we can start building immediately without waiting for L1 confirmation.
+   * @returns True if quorum is met (or committee is empty), false if we should fall back to L1 check.
+   */
+  private async hasPreviousCheckpointQuorum(slot: SlotView): Promise<boolean> {
+    // Only relevant when pipelining (slot.now !== slot.pipeline)
+    if (slot.now === slot.pipeline) {
+      return false;
+    }
+
+    const previousSlot = slot.now;
+
+    // Check if a checkpoint proposal has been seen for the previous slot
+    const hasProposal = await this.p2pClient.hasBlockProposalsForSlot(previousSlot);
+    if (!hasProposal) {
+      this.log.debug(`No block proposals seen for previous slot ${previousSlot}, falling back to L1 check`);
+      return false;
+    }
+
+    // Get committee for the previous slot
+    const { committee } = await this.epochCache.getCommittee(previousSlot);
+    if (!committee || committee.length === 0) {
+      // Empty committee means anyone can propose, treat as quorum met
+      this.log.debug(`Empty committee for previous slot ${previousSlot}, treating as quorum met`);
+      return true;
+    }
+
+    // Get attestations collected for the previous slot
+    const attestations = await this.p2pClient.getCheckpointAttestationsForSlot(previousSlot);
+    const quorum = Math.floor((committee.length * 2) / 3) + 1;
+    const attestationCount = attestations.filter(a => !a.signature.isEmpty()).length;
+
+    if (attestationCount >= quorum) {
+      this.log.info(
+        `Previous slot ${previousSlot} has quorum (${attestationCount}/${quorum} attestations), skipping L1 check`,
+        { previousSlot, attestationCount, quorum, committeeSize: committee.length },
+      );
+      return true;
+    }
+
+    this.log.debug(
+      `Previous slot ${previousSlot} lacks quorum (${attestationCount}/${quorum} attestations), falling back to L1 check`,
+      { previousSlot, attestationCount, quorum, committeeSize: committee.length },
+    );
+    return false;
   }
 
   /**
