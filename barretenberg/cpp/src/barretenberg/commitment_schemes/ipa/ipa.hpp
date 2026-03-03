@@ -8,6 +8,7 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -352,6 +353,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     static bool reduce_verify_internal_native(const VK& vk, const OpeningClaim<Curve>& opening_claim, auto& transcript)
         requires(!Curve::is_stdlib_type)
     {
+        BB_BENCH_NAME("IPA::reduce_verify");
         // Step 1
         // Done by `add_claim_to_hash_buffer`.
 
@@ -421,8 +423,11 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         // Step 8.
         // Compute G_zero
-        Commitment G_zero =
-            scalar_multiplication::pippenger_unsafe<Curve>(s_vec, { &srs_elements[0], /*size*/ poly_length });
+        Commitment G_zero;
+        {
+            BB_BENCH_NAME("IPA::srs_msm");
+            G_zero = scalar_multiplication::pippenger_unsafe<Curve>(s_vec, { &srs_elements[0], /*size*/ poly_length });
+        }
         Commitment G_zero_sent = transcript->template receive_from_prover<Commitment>("IPA:G_0");
         BB_ASSERT_EQ(G_zero, G_zero_sent, "G_0 should be equal to G_0 sent in transcript. IPA verification fails.");
 

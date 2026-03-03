@@ -7,6 +7,7 @@
 #include "chonk_verifier.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 
 namespace bb {
 
@@ -15,6 +16,7 @@ namespace bb {
  */
 template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduce_to_ipa_claim(const Proof& proof)
 {
+    BB_BENCH_NAME("ChonkVerifier::reduce_to_ipa_claim");
     // Step 1: Verify the Hiding kernel proof (includes pairing check)
     HidingKernelVerifier verifier{ vk_and_hash, transcript };
     auto verifier_output = verifier.verify_proof(proof.mega_proof);
@@ -56,6 +58,7 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
  */
 template <> ChonkVerifier<false>::Output ChonkVerifier<false>::verify(const Proof& proof)
 {
+    BB_BENCH_NAME("ChonkVerifier::verify");
     auto result = reduce_to_ipa_claim(proof);
     if (!result.all_checks_passed) {
         return false;
