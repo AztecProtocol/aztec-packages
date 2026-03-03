@@ -1,6 +1,8 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { Secp256k1Signer, recoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
+import { Secp256k1Signer, recoverAddress, tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
+
+import { secp256k1 } from '@noble/curves/secp256k1';
 
 import { Signature } from './eth_signature.js';
 
@@ -61,5 +63,25 @@ describe('eth signature', () => {
     const serialized = signature.toString();
     const deserialized = Signature.fromString(serialized);
     checkEquivalence(signature, deserialized);
+  });
+
+  it('random() produces a valid recoverable signature with low s-value', () => {
+    const sig = Signature.random();
+
+    // v should be 27 or 28
+    expect([27, 28]).toContain(sig.v);
+
+    // Signature should not be empty
+    expect(sig.isEmpty()).toBe(false);
+
+    // s should be in the low half of the curve (low s-value)
+    const sBigInt = sig.s.toBigInt();
+    const halfN = secp256k1.CURVE.n / 2n;
+    expect(sBigInt).toBeLessThanOrEqual(halfN);
+
+    // Signature should be recoverable (tryRecoverAddress should return an address for any hash)
+    const hash = Buffer32.random();
+    const recovered = tryRecoverAddress(hash, sig);
+    expect(recovered).toBeDefined();
   });
 });

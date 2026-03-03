@@ -12,6 +12,8 @@ import type { Offense, ValidatorSlashVote } from './types.js';
  * @param committees - Array of committees (each containing array of validator addresses)
  * @param epochsForCommittees - Array of epochs corresponding to each committee
  * @param settings - Settings including slashingAmounts and optional validator override lists
+ * @param settings.maxSlashedValidators - If set, limits the total number of [validator, epoch] pairs
+ *   with non-zero votes.
  * @returns Array of ValidatorSlashVote, where each vote is how many slash units the validator in that position should be slashed
  */
 export function getSlashConsensusVotesFromOffenses(
@@ -22,9 +24,10 @@ export function getSlashConsensusVotesFromOffenses(
     slashingAmounts: [bigint, bigint, bigint];
     epochDuration: number;
     targetCommitteeSize: number;
+    maxSlashedValidators?: number;
   },
-): ValidatorSlashVote[] {
-  const { slashingAmounts, targetCommitteeSize } = settings;
+): { votes: ValidatorSlashVote[]; truncatedCount: number } {
+  const { slashingAmounts, targetCommitteeSize, maxSlashedValidators } = settings;
 
   if (committees.length !== epochsForCommittees.length) {
     throw new Error('committees and epochsForCommittees must have the same length');
@@ -53,7 +56,19 @@ export function getSlashConsensusVotesFromOffenses(
     return padArrayEnd(votes, 0, targetCommitteeSize);
   });
 
-  return votes;
+  // if a cap is set, zero out the lowest-vote [validator, epoch] pairs so that the most severe slashes stay.
+  if (maxSlashedValidators === undefined) {
+    return { votes, truncatedCount: 0 };
+  }
+
+  const nonZeroByDescendingVote = [...votes.entries()].filter(([, vote]) => vote > 0).sort(([, a], [, b]) => b - a);
+
+  const toTruncate = nonZeroByDescendingVote.slice(maxSlashedValidators);
+  for (const [idx] of toTruncate) {
+    votes[idx] = 0;
+  }
+
+  return { votes, truncatedCount: toTruncate.length };
 }
 
 /** Returns the slash vote for the given amount to slash. */

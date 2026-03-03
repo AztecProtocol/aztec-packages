@@ -16,6 +16,7 @@ import {
 } from '@aztec/ethereum/l1-tx-utils';
 import { FormattedViemError } from '@aztec/ethereum/utils';
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -297,6 +298,140 @@ describe('SequencerPublisher', () => {
     );
     const result = await publisher.sendRequests();
     expect(result).toEqual(undefined);
+  });
+
+  describe('publisher rotation on send failure', () => {
+    let secondL1TxUtils: MockProxy<L1TxUtils>;
+    let getNextPublisher: jest.MockedFunction<(excludeAddresses: EthAddress[]) => Promise<L1TxUtils | undefined>>;
+    let rotatingPublisher: SequencerPublisher;
+
+    beforeEach(() => {
+      secondL1TxUtils = mock<L1TxUtils>();
+      secondL1TxUtils.getBlockNumber.mockResolvedValue(1n);
+      secondL1TxUtils.getSenderAddress.mockReturnValue(EthAddress.random());
+      secondL1TxUtils.getSenderBalance.mockResolvedValue(1000n);
+
+      getNextPublisher = jest.fn();
+
+      const epochCache = mock<EpochCache>();
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(2),
+        ts: 3n,
+        nowMs: 3000n,
+      });
+      epochCache.getCommittee.mockResolvedValue({
+        committee: [],
+        seed: 1n,
+        epoch: EpochNumber(1),
+        isEscapeHatchOpen: false,
+      });
+
+      rotatingPublisher = new SequencerPublisher({ ethereumSlotDuration: 12, l1ChainId: 1 } as any, {
+        blobClient,
+        rollupContract: rollup,
+        l1TxUtils,
+        epochCache,
+        slashingProposerContract,
+        governanceProposerContract,
+        slashFactoryContract,
+        dateProvider: new TestDateProvider(),
+        metrics: l1Metrics,
+        lastActions: {},
+        getNextPublisher,
+      });
+    });
+
+    it('rotates to next publisher when forward throws and retries successfully', async () => {
+      forwardSpy
+        .mockRejectedValueOnce(new Error('RPC error'))
+        .mockResolvedValueOnce({ receipt: proposeTxReceipt, errorMsg: undefined });
+      getNextPublisher.mockResolvedValueOnce(secondL1TxUtils);
+
+      await rotatingPublisher.enqueueProposeCheckpoint(
+        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+        CommitteeAttestationsAndSigners.empty(),
+        Signature.empty(),
+      );
+      const result = await rotatingPublisher.sendRequests();
+
+      expect(forwardSpy).toHaveBeenCalledTimes(2);
+      // First call uses original publisher, second uses the rotated one
+      expect(forwardSpy).toHaveBeenNthCalledWith(
+        1,
+        expect.anything(),
+        l1TxUtils,
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+      );
+      expect(forwardSpy).toHaveBeenNthCalledWith(
+        2,
+        expect.anything(),
+        secondL1TxUtils,
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+      );
+      expect(getNextPublisher).toHaveBeenCalledWith([l1TxUtils.getSenderAddress()]);
+      // Result is defined (rotation succeeded and tx was sent)
+      expect(result).toBeDefined();
+      expect(result?.sentActions).toContain('propose');
+      // l1TxUtils updated to the one that succeeded
+      expect(rotatingPublisher.l1TxUtils).toBe(secondL1TxUtils);
+    });
+
+    it('does not rotate on TimeoutError, re-throws instead', async () => {
+      forwardSpy.mockRejectedValueOnce(new TimeoutError('timed out'));
+
+      await rotatingPublisher.enqueueProposeCheckpoint(
+        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+        CommitteeAttestationsAndSigners.empty(),
+        Signature.empty(),
+      );
+      // TimeoutError propagates to the outer catch in sendRequests which returns undefined
+      const result = await rotatingPublisher.sendRequests();
+
+      expect(result).toBeUndefined();
+      expect(getNextPublisher).not.toHaveBeenCalled();
+      expect(forwardSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns undefined when all publishers are exhausted', async () => {
+      forwardSpy
+        .mockRejectedValueOnce(new Error('RPC error on first'))
+        .mockRejectedValueOnce(new Error('RPC error on second'));
+      getNextPublisher.mockResolvedValueOnce(secondL1TxUtils).mockResolvedValueOnce(undefined);
+
+      await rotatingPublisher.enqueueProposeCheckpoint(
+        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+        CommitteeAttestationsAndSigners.empty(),
+        Signature.empty(),
+      );
+      const result = await rotatingPublisher.sendRequests();
+
+      expect(forwardSpy).toHaveBeenCalledTimes(2);
+      expect(getNextPublisher).toHaveBeenCalledTimes(2);
+      expect(result).toBeUndefined();
+    });
+
+    it('does not rotate when forward returns a revert (on-chain failure)', async () => {
+      forwardSpy.mockResolvedValue({ receipt: { ...proposeTxReceipt, status: 'reverted' }, errorMsg: 'revert reason' });
+
+      await rotatingPublisher.enqueueProposeCheckpoint(
+        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+        CommitteeAttestationsAndSigners.empty(),
+        Signature.empty(),
+      );
+      const result = await rotatingPublisher.sendRequests();
+
+      expect(forwardSpy).toHaveBeenCalledTimes(1);
+      expect(getNextPublisher).not.toHaveBeenCalled();
+      // Result contains the reverted receipt (no rotation)
+      expect(result?.result).toMatchObject({ receipt: { status: 'reverted' } });
+    });
   });
 
   it('does not send propose tx if rollup validation fails', async () => {

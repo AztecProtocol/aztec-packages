@@ -1,3 +1,5 @@
+import type { EpochNumber } from '@aztec/foundation/branded-types';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import {
   Attributes,
@@ -16,6 +18,8 @@ export class ValidatorMetrics {
   private successfulAttestationsCount: UpDownCounter;
   private failedAttestationsBadProposalCount: UpDownCounter;
   private failedAttestationsNodeIssueCount: UpDownCounter;
+  private currentEpoch: Gauge;
+  private attestedEpochCount: UpDownCounter;
 
   private reexMana: Histogram;
   private reexTx: Histogram;
@@ -64,6 +68,10 @@ export class ValidatorMetrics {
       },
     );
 
+    this.currentEpoch = meter.createGauge(Metrics.VALIDATOR_CURRENT_EPOCH);
+
+    this.attestedEpochCount = createUpDownCounterWithDefault(meter, Metrics.VALIDATOR_ATTESTED_EPOCH_COUNT);
+
     this.reexMana = meter.createHistogram(Metrics.VALIDATOR_RE_EXECUTION_MANA);
 
     this.reexTx = meter.createHistogram(Metrics.VALIDATOR_RE_EXECUTION_TX_COUNT);
@@ -109,5 +117,15 @@ export class ValidatorMetrics {
       [Attributes.ERROR_TYPE]: reason,
       [Attributes.IS_COMMITTEE_MEMBER]: inCommittee,
     });
+  }
+
+  /** Update the gauge tracking the current epoch number (proxy for total epochs elapsed). */
+  public setCurrentEpoch(epoch: EpochNumber) {
+    this.currentEpoch.record(Number(epoch));
+  }
+
+  /** Increment the count of epochs in which the given attester submitted at least one attestation. */
+  public incAttestedEpochCount(attester: EthAddress) {
+    this.attestedEpochCount.add(1, { [Attributes.ATTESTER_ADDRESS]: attester.toString() });
   }
 }

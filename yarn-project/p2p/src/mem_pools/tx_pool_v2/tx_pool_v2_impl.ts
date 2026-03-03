@@ -45,6 +45,7 @@ import { TxPoolIndices } from './tx_pool_indices.js';
 export interface TxPoolV2Callbacks {
   onTxsAdded: (txs: Tx[], opts: { source?: string }) => void;
   onTxsRemoved: (txHashes: string[] | bigint[]) => void;
+  onTxsMined: (txHashes: string[]) => void;
 }
 
 /**
@@ -497,6 +498,10 @@ export class TxPoolV2Impl {
       // Step 5: Run post-event eviction rules (inside transaction for atomicity)
       await this.#evictionManager.evictAfterNewBlock(block.header, nullifiers, feePayers);
     });
+
+    if (found.length > 0) {
+      this.#callbacks.onTxsMined(found.map(m => m.txHash));
+    }
 
     this.#log.info(`Marked ${found.length} txs as mined in block ${blockId.number}`);
   }
