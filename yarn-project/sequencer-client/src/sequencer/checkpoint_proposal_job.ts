@@ -9,6 +9,11 @@ import {
   SlotNumber,
 } from '@aztec/foundation/branded-types';
 import { randomInt } from '@aztec/foundation/crypto/random';
+import {
+  flipSignature,
+  generateRecoverableSignature,
+  generateUnrecoverableSignature,
+} from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -759,7 +764,12 @@ export class CheckpointProposalJob implements Traceable {
       const sorted = orderAttestations(trimmed, committee);
 
       // Manipulate the attestations if we've been configured to do so
-      if (this.config.injectFakeAttestation || this.config.shuffleAttestationOrdering) {
+      if (
+        this.config.injectFakeAttestation ||
+        this.config.injectHighSValueAttestation ||
+        this.config.injectUnrecoverableSignatureAttestation ||
+        this.config.shuffleAttestationOrdering
+      ) {
         return this.manipulateAttestations(proposal.slotNumber, epoch, seed, committee, sorted);
       }
 
@@ -788,7 +798,11 @@ export class CheckpointProposalJob implements Traceable {
       this.epochCache.computeProposerIndex(slotNumber, epoch, seed, BigInt(committee.length)),
     );
 
-    if (this.config.injectFakeAttestation) {
+    if (
+      this.config.injectFakeAttestation ||
+      this.config.injectHighSValueAttestation ||
+      this.config.injectUnrecoverableSignatureAttestation
+    ) {
       // Find non-empty attestations that are not from the proposer
       const nonProposerIndices: number[] = [];
       for (let i = 0; i < attestations.length; i++) {
@@ -798,8 +812,20 @@ export class CheckpointProposalJob implements Traceable {
       }
       if (nonProposerIndices.length > 0) {
         const targetIndex = nonProposerIndices[randomInt(nonProposerIndices.length)];
-        this.log.warn(`Injecting fake attestation in checkpoint for slot ${slotNumber} at index ${targetIndex}`);
-        unfreeze(attestations[targetIndex]).signature = Signature.random();
+        if (this.config.injectHighSValueAttestation) {
+          this.log.warn(
+            `Injecting high-s value attestation in checkpoint for slot ${slotNumber} at index ${targetIndex}`,
+          );
+          unfreeze(attestations[targetIndex]).signature = flipSignature(attestations[targetIndex].signature);
+        } else if (this.config.injectUnrecoverableSignatureAttestation) {
+          this.log.warn(
+            `Injecting unrecoverable signature attestation in checkpoint for slot ${slotNumber} at index ${targetIndex}`,
+          );
+          unfreeze(attestations[targetIndex]).signature = generateUnrecoverableSignature();
+        } else {
+          this.log.warn(`Injecting fake attestation in checkpoint for slot ${slotNumber} at index ${targetIndex}`);
+          unfreeze(attestations[targetIndex]).signature = generateRecoverableSignature();
+        }
       }
       return new CommitteeAttestationsAndSigners(attestations);
     }
@@ -808,11 +834,20 @@ export class CheckpointProposalJob implements Traceable {
       this.log.warn(`Shuffling attestation ordering in checkpoint for slot ${slotNumber} (proposer #${proposerIndex})`);
 
       const shuffled = [...attestations];
-      const [i, j] = [(proposerIndex + 1) % shuffled.length, (proposerIndex + 2) % shuffled.length];
-      const valueI = shuffled[i];
-      const valueJ = shuffled[j];
-      shuffled[i] = valueJ;
-      shuffled[j] = valueI;
+
+      // Find two non-proposer positions that both have non-empty signatures to swap.
+      // This ensures the bitmap doesn't change, so the MaliciousCommitteeAttestationsAndSigners
+      // signers array stays correctly aligned with L1's committee reconstruction.
+      const swappable: number[] = [];
+      for (let k = 0; k < shuffled.length; k++) {
+        if (!shuffled[k].signature.isEmpty() && k !== proposerIndex) {
+          swappable.push(k);
+        }
+      }
+      if (swappable.length >= 2) {
+        const [i, j] = [swappable[0], swappable[1]];
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
 
       const signers = new CommitteeAttestationsAndSigners(attestations).getSigners();
       return new MaliciousCommitteeAttestationsAndSigners(shuffled, signers);

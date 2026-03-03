@@ -145,6 +145,20 @@ describe('e2e_epochs/epochs_mbps', () => {
 
   /** Retrieves all checkpoints from the archiver, checks that one has the target block count, and returns its number. */
   async function assertMultipleBlocksPerSlot(targetBlockCount: number, logger: Logger): Promise<CheckpointNumber> {
+    // Wait for the first validator's archiver to index a checkpoint with the target block count.
+    // waitForTx polls the initial setup node, but this archiver belongs to nodes[0] (the first
+    // validator). They sync L1 independently, so there's a race window of ~200-400ms.
+    const waitTimeout = test.L2_SLOT_DURATION_IN_S * 3;
+    await retryUntil(
+      async () => {
+        const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+        return checkpoints.some(pc => pc.checkpoint.blocks.length >= targetBlockCount) || undefined;
+      },
+      `checkpoint with at least ${targetBlockCount} blocks`,
+      waitTimeout,
+      0.5,
+    );
+
     const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
     logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
       checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
