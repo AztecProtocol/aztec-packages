@@ -162,7 +162,7 @@ export type OffchainOutput = {
  * Effects whose data starts with `OFFCHAIN_MESSAGE_IDENTIFIER` are parsed as messages and removed
  * from the effects array.
  */
-export function extractOffchainOutput(effects: OffchainEffect[]): OffchainOutput {
+export function extractOffchainOutput(effects: OffchainEffect[] = []): OffchainOutput {
   const offchainEffects: OffchainEffect[] = [];
   const offchainMessages: OffchainMessage[] = [];
 
