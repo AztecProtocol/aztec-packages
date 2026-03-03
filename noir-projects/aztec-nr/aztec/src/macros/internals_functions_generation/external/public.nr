@@ -108,6 +108,9 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
         $authorize_once_check
     };
 
+    // `mark_as_initialized` is placed after the user's function body. If it ran at the beginning, the contract
+    // would appear initialized while the initializer is still running, allowing external callers to interact with
+    // a half-initialized contract.
     let to_append = quote {
         $mark_as_initialized
     };

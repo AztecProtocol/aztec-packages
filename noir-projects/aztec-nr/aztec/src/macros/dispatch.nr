@@ -1,69 +1,44 @@
-use crate::macros::internals_functions_generation::external_functions_registry::get_public_functions;
 use crate::protocol::meta::utils::get_params_len_quote;
 use crate::utils::cmap::CHashMap;
-use super::utils::{compute_fn_selector, compute_selector, get_type};
+use super::utils::{compute_fn_selector, get_type};
 
-/// Returns an `fn public_dispatch(...)` function for the given module that's assumed to be an
-/// Aztec contract.
-///
-/// `injected_fns` carries pre-computed selectors and dispatch cases for auto-generated functions
-/// (built via `InjectedPublicFunction::new`).
-pub(crate) comptime fn generate_public_dispatch(m: Module, injected_fns: [InjectedPublicFunction]) -> Quoted {
-    let contract_functions = get_public_functions(m);
-
+/// Returns an `fn public_dispatch(...)` function for a list of dispatchable public functions.
+pub(crate) comptime fn generate_public_dispatch(fns: [DispatchablePublicFunction]) -> Quoted {
     let seen_selectors = &mut CHashMap::<Field, Quoted>::new();
 
-    let mut dispatch_cases: [Quoted] = contract_functions.map(|function: FunctionDefinition| {
-        let fn_name = function.name();
-        let selector = compute_fn_selector(function);
-        check_selector_collision(selector, fn_name, seen_selectors);
-        let call_name = f"__aztec_nr_internals__{fn_name}".quoted_contents();
-        generate_dispatch_case(
-            selector,
-            call_name,
-            function.parameters(),
-            function.return_type(),
-        )
-    });
-
-    let injected_cases = injected_fns.map(|f: InjectedPublicFunction| {
-        let sel = f.selector;
+    let mut ifs: [Quoted] = fns.map(|f: DispatchablePublicFunction| {
         let name = f.name;
-        check_selector_collision(sel, name, seen_selectors);
+        let existing_fn = seen_selectors.get(f.selector);
+        if existing_fn.is_some() {
+            let existing_fn = existing_fn.unwrap();
+            panic(
+                f"Public function selector collision detected between functions '{name}' and '{existing_fn}'",
+            );
+        }
+        seen_selectors.insert(f.selector, name);
         f.dispatch_case
     });
-    dispatch_cases = dispatch_cases.append(injected_cases);
 
-    if dispatch_cases.len() == 0 {
+    if ifs.len() == 0 {
         quote {}
     } else {
-        dispatch_cases = dispatch_cases.push_back(quote { panic(f"Unknown selector {selector}") });
-        let dispatch = dispatch_cases.join(quote {  });
+        let ifs = ifs.push_back(quote { panic(f"Unknown selector {selector}") });
+        let dispatch = ifs.join(quote {  });
 
-        quote {
+        let body = quote {
             // We mark this as public because our whole system depends on public functions having this attribute.
             #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
             pub unconstrained fn public_dispatch(selector: Field) {
                 $dispatch
             }
-        }
+        };
+
+        body
     }
 }
 
-/// Panics if `selector` already exists in `seen_selectors`, otherwise inserts it.
-comptime fn check_selector_collision(selector: Field, name: Quoted, seen_selectors: &mut CHashMap<Field, Quoted>) {
-    let existing = seen_selectors.get(selector);
-    if existing.is_some() {
-        let existing = existing.unwrap();
-        panic(
-            f"Public function selector collision detected between '{name}' and '{existing}'",
-        );
-    }
-    seen_selectors.insert(selector, name);
-}
-
-/// Generates a single dispatch case: an `if` block that matches on the selector, deserializes
-/// calldata into arguments, calls the target function, and returns the result.
+/// Generates a single dispatch case: an `if` block that matches on the selector, deserializes calldata into
+/// arguments, calls the target function, and returns the result.
 comptime fn generate_dispatch_case(
     selector: Field,
     call_name: Quoted,
@@ -133,22 +108,41 @@ comptime fn generate_dispatch_case(
     }
 }
 
-/// Metadata for an auto-generated public function that needs a dispatch entry.
+/// Metadata for a public function that needs a dispatch entry.
 ///
-/// Pre-computes `selector` and `dispatch_case` at construction time so the struct only holds
-/// scalar fields. This avoids Noir's "nested vectors not supported" limitation that would
-/// occur if we stored `[(Quoted, Type)]` inside a `[InjectedPublicFunction]`.
-pub(crate) struct InjectedPublicFunction {
+/// Pre-computes `selector` and `dispatch_case` at construction time so the struct only holds scalar fields. This
+/// avoids Noir's "nested vectors not supported" limitation that would occur if we stored `[(Quoted, Type)]` inside a
+/// `[DispatchablePublicFunction]`.
+pub(crate) struct DispatchablePublicFunction {
     pub(crate) name: Quoted,
     pub(crate) selector: Field,
-    pub(crate) body: Quoted,
     pub(crate) dispatch_case: Quoted,
 }
 
-impl InjectedPublicFunction {
-    pub(crate) comptime fn new(name: Quoted, parameters: [(Quoted, Type)], return_type: Type, body: Quoted) -> Self {
-        let selector = compute_selector(name, parameters);
+impl DispatchablePublicFunction {
+    /// Builds a dispatch entry from a user-defined public function.
+    pub(crate) comptime fn from_fn(function: FunctionDefinition) -> Self {
+        let parameters = function.parameters();
+        let return_type = function.return_type();
+
+        let fn_name = function.name();
+        let selector = compute_fn_selector(fn_name, parameters);
+
+        // We call a function whose name is prefixed with `__aztec_nr_internals__`. This is necessary because the
+        // original function is intentionally made uncallable, preventing direct invocation within the contract.
+        // Instead, a new function with the same name, but prefixed by `__aztec_nr_internals__`, has been generated
+        // to be called here. For more details see the `process_functions` function.
+        let call_target = f"__aztec_nr_internals__{fn_name}".quoted_contents();
+
+        let dispatch_case = generate_dispatch_case(selector, call_target, parameters, return_type);
+
+        DispatchablePublicFunction { name: fn_name, selector, dispatch_case }
+    }
+
+    /// Builds a dispatch entry for an injected public function (not derived from a `FunctionDefinition`).
+    pub(crate) comptime fn new(name: Quoted, parameters: [(Quoted, Type)], return_type: Type) -> Self {
+        let selector = compute_fn_selector(name, parameters);
         let dispatch_case = generate_dispatch_case(selector, name, parameters, return_type);
-        Self { name, selector, body, dispatch_case }
+        DispatchablePublicFunction { name, selector, dispatch_case }
     }
 }

@@ -1,5 +1,5 @@
-// A private-only contract (no public functions) used to test initialization behavior.
-// Since it has no public functions, it does not need to be published on-chain to be tested.
+// A private-only contract (no public functions) used to test initialization behavior. Since it has no public
+// functions, it does not need to be published on-chain to be tested.
 use aztec::macros::aztec;
 
 #[aztec]

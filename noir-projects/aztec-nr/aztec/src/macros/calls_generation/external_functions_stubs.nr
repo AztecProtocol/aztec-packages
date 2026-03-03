@@ -38,7 +38,7 @@ comptime fn create_stub_base(f: FunctionDefinition) -> (Quoted, Quoted, Quoted, 
 
     let fn_name_str = f"\"{fn_name}\"".quoted_contents();
     let fn_name_len: u32 = unquote!(quote { $fn_name_str.as_bytes().len()});
-    let fn_selector: Field = compute_fn_selector(f);
+    let fn_selector: Field = compute_fn_selector(f.name(), f.parameters());
 
     (
         fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name,

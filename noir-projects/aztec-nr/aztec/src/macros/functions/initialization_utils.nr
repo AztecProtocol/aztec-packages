@@ -37,20 +37,20 @@ global EMIT_PUBLIC_INIT_NULLIFIER_SELECTOR: FunctionSelector = comptime {
     unquote!(quote { FunctionSelector::from_signature($sig) })
 };
 
-// Two separate init nullifiers exist because private nullifiers are committed before public execution
-// begins. If a private initializer emitted a single nullifier and an initializer function enqueued a
-// public call to do public initialization, then other previously enqueued public functions would
-// observe the initialization nullifier as existing _before_ the public initialization code ran.
+// Two separate init nullifiers exist because private nullifiers are committed before public execution begins. If a
+// private initializer emitted a single nullifier and an initializer function enqueued a public call to do public
+// initialization, then other previously enqueued public functions would observe the initialization nullifier as
+// existing _before_ the public initialization code ran.
 //
-// Private initializers emit only the private nullifier, then enqueue `__emit_public_init_nullifier`
-// (an auto-generated external public function) so the public nullifier is emitted in public.
-// Public initializers emit both nullifiers directly via `mark_as_initialized_from_public_initializer`.
+// Private initializers emit only the private nullifier, then enqueue `__emit_public_init_nullifier` (an auto-generated
+// external public function) so the public nullifier is emitted in public. Public initializers emit both nullifiers
+// directly via `mark_as_initialized_from_public_initializer`.
 
 /// Emits (only) the public initialization nullifier.
 ///
-/// This function is called by the aztec-nr auto-generated `__emit_public_init_nullifier` external public
-/// contract function (enqueued by private [`initializer`](crate::macros::functions::initializer) functions),
-/// and also by [`mark_as_initialized_from_public_initializer`] for public initializers.
+/// This function is called by the aztec-nr auto-generated `__emit_public_init_nullifier` external public contract
+/// function (enqueued by private [`initializer`](crate::macros::functions::initializer) functions), and also by
+/// [`mark_as_initialized_from_public_initializer`] for public initializers.
 pub fn mark_as_initialized_public(context: PublicContext) {
     let init_nullifier = compute_public_init_nullifier(context.this_address());
     context.push_nullifier(init_nullifier);
@@ -61,11 +61,11 @@ fn mark_as_initialized_private(context: &mut PrivateContext) {
     context.push_nullifier(init_nullifier);
 }
 
-/// Emits the private initialization nullifier and optionally enqueues emission of the public one.
+/// Emits the private initialization nullifier and, if relevant, enqueues the emission of the public one.
 ///
 /// If the contract has public functions that perform initialization checks (i.e. that don't have `#[noinitcheck]`),
-/// this also enqueues a call to the auto-generated `__emit_public_init_nullifier` function so the public nullifier
-/// is emitted in public. Called by private [`initializer`](crate::macros::functions::initializer) macros.
+/// this also enqueues a call to the auto-generated `__emit_public_init_nullifier` function so the public nullifier is
+/// emitted in public. Called by private [`initializer`](crate::macros::functions::initializer) macros.
 pub fn mark_as_initialized_from_private_initializer(context: &mut PrivateContext, emit_public_init_nullifier: bool) {
     mark_as_initialized_private(context);
     if emit_public_init_nullifier {
@@ -75,9 +75,8 @@ pub fn mark_as_initialized_from_private_initializer(context: &mut PrivateContext
 
 /// Emits both initialization nullifiers (private and public).
 ///
-/// Called by public [`initializer`](crate::macros::functions::initializer) macros, since public
-/// initializers must set both so that both private and public functions see the contract as
-/// initialized.
+/// Called by public [`initializer`](crate::macros::functions::initializer) macros, since public initializers must set
+/// both so that both private and public functions see the contract as initialized.
 pub fn mark_as_initialized_from_public_initializer(context: PublicContext) {
     let private_nullifier = compute_private_init_nullifier(context.this_address());
     context.push_nullifier(private_nullifier);

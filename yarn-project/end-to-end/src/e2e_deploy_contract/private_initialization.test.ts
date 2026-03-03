@@ -128,15 +128,14 @@ describe('e2e_deploy_contract private initialization', () => {
     const owner = (await wallet.createAccount()).address;
     const initArgs: InitTestCtorArgs = [owner, 42];
     const contract = await t.registerContract(wallet, InitTestContract, { initArgs });
-    // TODO(@spalladino): It'd be nicer to be able to fail the assert with a more descriptive message.
+    // TODO(#14894): It'd be nicer to be able to fail the assert with a more descriptive message.
     await expect(
       contract.methods.private_fn_init_check(owner, 10).send({ from: defaultAccountAddress }),
     ).rejects.toThrow(/Cannot find the leaf for nullifier/i);
   });
 
   // A public call enqueued before the private constructor should fail the init check, even though the
-  // private constructor emits the init nullifier in the same tx. Previously this passed because
-  // the private init nullifier was inserted into the tree before public execution began.
+  // private constructor emits the init nullifier in the same tx.
   it('refuses to call a public function enqueued before private initialization in same tx', async () => {
     const { contract, initArgs } = await deployUninitialized();
     const owner = defaultAccountAddress;
@@ -220,7 +219,7 @@ describe('e2e_deploy_contract private initialization', () => {
     );
   });
 
-  /** Registers a contract instance locally and publishes it on-chain (so public functions can find bytecode). */
+  /** Registers a contract instance locally and publishes it on-chain (so sequencers can find public function's bytecode). */
   async function registerAndPublishContract(
     initArgs: InitTestCtorArgs,
     opts: { constructorName?: string; deployer?: AztecAddress } = {},

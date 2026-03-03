@@ -1,5 +1,5 @@
-// A contract with both private and public functions used to test initialization behavior,
-// including init checks, self-calls during initialization, and public/private ordering.
+// A contract with both private and public functions used to test initialization behavior, including init checks,
+// self-calls during initialization, and public/private ordering.
 use aztec::macros::aztec;
 
 #[aztec]
@@ -44,8 +44,8 @@ pub contract InitTest {
         self.call_self.private_only_self_fn(owner, value);
     }
 
-    // Tests that a public initializer cannot self-call a public function that has init checks,
-    // since the contract is not yet initialized at that point.
+    // Tests that a public initializer cannot self-call a public function that has init checks, since the contract is
+    // not yet initialized at that point.
     #[external("public")]
     #[initializer]
     fn public_initializer_self_calling_init_checked(owner: AztecAddress, value: Field) {

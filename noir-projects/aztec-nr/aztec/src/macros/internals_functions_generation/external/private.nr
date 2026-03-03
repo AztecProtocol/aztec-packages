@@ -179,6 +179,9 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
 
     let body_quote = body.map(|expr| expr.quoted()).join(quote { });
 
+    // `mark_as_initialized` is placed after the user's function body. If it ran at the beginning, the contract
+    // would appear initialized while the initializer is still running, allowing external callers to interact with
+    // a half-initialized contract.
     let to_append = quote {
         $return_value
         $mark_as_initialized

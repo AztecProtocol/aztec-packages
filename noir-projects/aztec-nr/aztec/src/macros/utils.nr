@@ -85,16 +85,8 @@ comptime fn signature_of_type(typ: Type) -> CtString {
     }
 }
 
-/// Computes the function selector for a `FunctionDefinition`.
-pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
-    compute_selector(f.name(), f.parameters())
-}
-
 /// Computes a function selector from a name and parameter list.
-///
-/// This is the lower-level version of [`compute_fn_selector`] for use when the function
-/// metadata isn't available as a `FunctionDefinition`
-pub(crate) comptime fn compute_selector(fn_name: Quoted, parameters: [(Quoted, Type)]) -> Field {
+pub(crate) comptime fn compute_fn_selector(fn_name: Quoted, parameters: [(Quoted, Type)]) -> Field {
     // The function selector is computed from the function signature, which is made up of the function name and types
     // of parameters, but not including the return type. For example, given:
     //

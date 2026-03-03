@@ -94,6 +94,10 @@ describe('e2e_deploy_contract deploy method', () => {
     expect(await contract.methods.summed_values(owner).simulate({ from: defaultAccountAddress })).toEqual(30n);
   });
 
+  // The public init nullifier is emitted at the end of the initializer. If it were emitted at the beginning,
+  // the contract would appear initialized while the initializer body is still running, allowing external callers
+  // to interact with a half-initialized contract. As a consequence, any public calls the initializer enqueues
+  // run before the nullifier exists and cannot pass init checks.
   it('refuses to self-call an init-checked function during public initialization', async () => {
     const owner = defaultAccountAddress;
     await expect(

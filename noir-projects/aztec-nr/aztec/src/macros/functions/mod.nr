@@ -198,8 +198,11 @@ pub comptime fn allow_phase_change(f: FunctionDefinition) {
 ///
 /// `only_self` functions implicitly skip initialization checks (as if they had [`noinitcheck`]). This is because
 /// constructors need to call `only_self` functions via `call_self` during initialization, when the init nullifier
-/// has not yet been emitted. Outside of initialization, `only_self` already guarantees that only the contract
-/// itself can call the function, so the init check provides no additional safety.
+/// has not yet been emitted. This is safe because `only_self` guarantees that only the contract itself can call
+/// these functions. Since the init nullifier is emitted after the initializer function completes, only the
+/// initializer and other functions called by the initializer can invoke `only_self` functions before initialization.
+/// The contract is therefore in complete control of the execution flow, and the init check provides no additional
+/// safety.
 pub comptime fn only_self(f: FunctionDefinition) {
     // Marker attribute - see the comment at the top of this file
 
