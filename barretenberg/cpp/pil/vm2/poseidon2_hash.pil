@@ -7,8 +7,8 @@ include "precomputed.pil";
  *      output, input_len and use destination selector start (= 1). The caller will pass 1,2, or 3 for input_len. This follows
  *      from the below constraints that `num_perm_rounds_rem == 1` and `end ==1`.
  *
- *      Example (nullifier_check.pil):
- *             sel_silo   { siloing_separator, address, nullifier, siloed_nullifier, const_three }
+ *      Example (indexed_tree_check.pil):
+ *             sel_silo   { siloing_separator, address, value, siloed_value, const_three }
  *   in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1,
  *                           poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.input_len };
  *
@@ -56,12 +56,10 @@ include "precomputed.pil";
  * - class_id_derivation.pil
  * - merkle_check.pil
  * - note_hash_tree_check.pil
- * - nullifier_check.pil
+ * - indexed_tree_check.pil
  * - public_data_check.pil
- * - retrieved_bytecodes_tree_check.pil
  * - tx.pil
  * - update_check.pil
- * - written_public_data_slots_tree_check.pil
  */
 namespace poseidon2_hash;
 

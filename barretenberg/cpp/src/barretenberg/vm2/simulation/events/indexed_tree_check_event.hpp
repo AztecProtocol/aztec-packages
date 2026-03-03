@@ -10,39 +10,57 @@
 
 namespace bb::avm2::simulation {
 
-struct NullifierSiloingData {
-    FF siloed_nullifier;
-    AztecAddress address;
+struct IndexedTreeLeafData {
+    FF value;
+    FF next_value;
+    uint64_t next_index;
 
-    bool operator==(const NullifierSiloingData& other) const = default;
+    bool operator==(const IndexedTreeLeafData& other) const = default;
+
+    std::vector<FF> get_hash_inputs() const { return { value, next_value, next_index }; }
 };
 
-struct NullifierAppendData {
+struct IndexedTreeSiloingParameters {
+    AztecAddress address;
+    FF siloing_separator;
+
+    bool operator==(const IndexedTreeSiloingParameters& other) const = default;
+};
+
+struct IndexedLeafSiloingData {
+    FF siloed_value;
+    IndexedTreeSiloingParameters parameters;
+
+    bool operator==(const IndexedLeafSiloingData& other) const = default;
+};
+
+struct IndexedLeafAppendData {
     FF updated_low_leaf_hash;
     FF new_leaf_hash;
     FF intermediate_root;
 
-    bool operator==(const NullifierAppendData& other) const = default;
+    bool operator==(const IndexedLeafAppendData& other) const = default;
 };
 
-struct NullifierTreeReadWriteEvent {
-    FF nullifier;
+struct IndexedTreeReadWriteEvent {
+    FF value;
     AppendOnlyTreeSnapshot prev_snapshot;
     AppendOnlyTreeSnapshot next_snapshot;
+    uint64_t tree_height;
 
-    NullifierTreeLeafPreimage low_leaf_preimage;
+    IndexedTreeLeafData low_leaf_data;
     FF low_leaf_hash;
     uint64_t low_leaf_index;
 
     bool write = false;
-    std::optional<NullifierSiloingData> siloing_data = std::nullopt;
-    uint64_t nullifier_counter = 0;
+    std::optional<IndexedLeafSiloingData> siloing_data = std::nullopt;
+    std::optional<uint64_t> public_inputs_index = std::nullopt;
 
-    std::optional<NullifierAppendData> append_data = std::nullopt;
+    std::optional<IndexedLeafAppendData> append_data = std::nullopt;
 
-    bool operator==(const NullifierTreeReadWriteEvent& other) const = default;
+    bool operator==(const IndexedTreeReadWriteEvent& other) const = default;
 };
 
-using NullifierTreeCheckEvent = std::variant<NullifierTreeReadWriteEvent, CheckPointEventType>;
+using IndexedTreeCheckEvent = std::variant<IndexedTreeReadWriteEvent, CheckPointEventType>;
 
 } // namespace bb::avm2::simulation

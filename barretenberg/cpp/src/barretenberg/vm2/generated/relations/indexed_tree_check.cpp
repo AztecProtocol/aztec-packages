@@ -3,33 +3,27 @@
 #include "barretenberg/vm2/constraining/flavor.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
-#include "barretenberg/vm2/generated/relations/written_public_data_slots_tree_check_impl.hpp"
+#include "barretenberg/vm2/generated/relations/indexed_tree_check_impl.hpp"
 
 #define AvmCheckCircuitEdge(Flavor) Flavor::PolynomialEntitiesAtFixedRow<Flavor::ProverPolynomials>
 #define AvmCheckRelationEdge(Flavor) ::bb::avm2::AvmFullRowProxy
 
 namespace bb::avm2 {
 
-template class written_public_data_slots_tree_checkImpl<AvmFlavorSettings::FF>;
-ACCUMULATE(written_public_data_slots_tree_checkImpl,
-           AvmFlavor,
-           SumcheckTupleOfUnivariatesOverSubrelations,
-           ExtendedEdge); // Prover.
-ACCUMULATE(written_public_data_slots_tree_checkImpl,
-           AvmFlavor,
-           SumcheckArrayOfValuesOverSubrelations,
-           EvaluationEdge); // Verifier.
-ACCUMULATE(written_public_data_slots_tree_checkImpl,
+template class indexed_tree_checkImpl<AvmFlavorSettings::FF>;
+ACCUMULATE(indexed_tree_checkImpl, AvmFlavor, SumcheckTupleOfUnivariatesOverSubrelations, ExtendedEdge); // Prover.
+ACCUMULATE(indexed_tree_checkImpl, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge);    // Verifier.
+ACCUMULATE(indexed_tree_checkImpl,
            AvmFlavor,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckCircuitEdge); // Check circuit.
-ACCUMULATE(written_public_data_slots_tree_checkImpl,
+ACCUMULATE(indexed_tree_checkImpl,
            AvmFlavor,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class written_public_data_slots_tree_checkImpl<AvmRecursiveFlavor::FF>;
-ACCUMULATE(written_public_data_slots_tree_checkImpl,
+template class indexed_tree_checkImpl<AvmRecursiveFlavor::FF>;
+ACCUMULATE(indexed_tree_checkImpl,
            AvmRecursiveFlavor,
            SumcheckArrayOfValuesOverSubrelations,
            EvaluationEdge); // Verifier.
