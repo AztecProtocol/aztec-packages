@@ -99,6 +99,7 @@ export async function createP2PClient(
         maxPendingTxCount: config.maxPendingTxCount,
         archivedTxLimit: config.archivedTxLimit,
         minTxPoolAgeMs: config.minTxPoolAgeMs,
+        priceBumpPercentage: config.priceBumpPercentage,
       },
       dateProvider,
     );
