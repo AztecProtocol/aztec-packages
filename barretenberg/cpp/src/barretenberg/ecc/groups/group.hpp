@@ -133,9 +133,3 @@ template <typename Fq_, typename Fr_, typename Params> class group {
 };
 
 } // namespace bb
-
-#ifdef DISABLE_ASM
-#include "group_impl_int128.tcc"
-#else
-#include "group_impl_asm.tcc"
-#endif

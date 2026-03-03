@@ -17,6 +17,11 @@
 #include <vector>
 
 namespace bb::group_elements {
+
+// MSB of the top 64-bit limb in a uint256_t (bit 255). Used in point compression to encode the
+// y-coordinate parity bit, and cleared when recovering the x-coordinate.
+static constexpr uint64_t UINT256_TOP_LIMB_MSB = 0x8000000000000000ULL;
+
 template <typename T>
 concept SupportsHashToCurve = T::can_hash_to_curve;
 template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine_element {

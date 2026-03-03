@@ -21,7 +21,7 @@ template <typename BaseField, typename CompileTimeEnabled>
 constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::from_compressed(const uint256_t& compressed) noexcept
 {
     uint256_t x_coordinate = compressed;
-    x_coordinate.data[3] = x_coordinate.data[3] & (~0x8000000000000000ULL);
+    x_coordinate.data[3] = x_coordinate.data[3] & (~UINT256_TOP_LIMB_MSB);
     bool y_bit = compressed.get_bit(255);
 
     Fq x = Fq(x_coordinate);

@@ -141,7 +141,7 @@ template <typename G1> class TestAffineElement : public testing::Test {
             affine_element P = affine_element(element::random_element());
             uint256_t compressed = uint256_t(P.x);
             if (uint256_t(P.y).get_bit(0)) {
-                compressed.data[3] |= 0x8000000000000000ULL;
+                compressed.data[3] |= group_elements::UINT256_TOP_LIMB_MSB;
             }
             affine_element Q = affine_element::from_compressed(compressed);
             EXPECT_EQ(P, Q);
