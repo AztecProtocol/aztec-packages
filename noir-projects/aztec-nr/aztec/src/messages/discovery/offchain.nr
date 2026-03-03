@@ -68,6 +68,8 @@ pub unconstrained fn receive(
     CapsuleArray::at(contract_address, OFFCHAIN_INBOX_SLOT).push(
         PendingOffchainMsg { ciphertext, recipient, tx_hash, received_at: UtilityContext::new().timestamp() },
     );
+
+    // Invoke an oracle to invalidate contract sync state cache
 }
 
 /// Returns offchain-delivered messages to process during sync.
