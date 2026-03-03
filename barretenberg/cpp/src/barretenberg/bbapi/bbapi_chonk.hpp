@@ -242,9 +242,6 @@ struct ChonkStats {
 /**
  * @struct ChonkBatchVerify
  * @brief Batch-verify multiple Chonk proofs with a single IPA SRS MSM
- *
- * @details Each proof carries its own VK (could be HidingKernelToPublic or HidingKernelToRollup).
- * Returns true only if ALL proofs verify. Uses ChonkBatchVerifier for ~Nx speedup on IPA bottleneck.
  */
 struct ChonkBatchVerify {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerify";

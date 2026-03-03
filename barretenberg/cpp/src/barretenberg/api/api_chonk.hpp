@@ -82,13 +82,9 @@ class ChonkAPI : public API {
                   const std::filesystem::path& output_path) override;
 
     /**
-     * @brief Batch-verify multiple Chonk proofs from a directory of proof/vk pairs.
+     * @brief Batch-verify multiple Chonk proofs from a directory of proof_N/vk_N pairs.
      *
-     * @details Reads proof_0/vk_0, proof_1/vk_1, ... from proofs_dir, constructs a
-     * ChonkBatchVerify command, and executes it for batched IPA verification.
-     *
-     * @param flags Runtime flags
-     * @param proofs_dir Directory containing proof_N and vk_N files
+     * @param proofs_dir Directory containing proof_0/vk_0, proof_1/vk_1, ...
      * @return true if all proofs verify
      */
     bool batch_verify(const Flags& flags, const std::filesystem::path& proofs_dir);
