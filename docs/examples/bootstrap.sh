@@ -77,6 +77,12 @@ function validate-ts {
   (cd ts && ./bootstrap.sh "$@")
 }
 
+function execute-examples {
+  echo_header "Executing TypeScript documentation examples"
+  local COMPOSE_DIR="$REPO_ROOT/docs/examples/ts"
+  run_compose_test "docs_examples" "docs-examples" "$COMPOSE_DIR"
+}
+
 ##############################################################################
 # CI failure handling - send Slack notifications instead of blocking the build
 ##############################################################################
@@ -204,6 +210,7 @@ case "$cmd" in
     run_step "Compile (Noir contracts)" compile
     run_step "Compile (Solidity)" compile-solidity
     run_step "TypeScript validation" validate-ts
+    run_step "Execute examples" execute-examples
 
     if [[ ${#FAILED_STEPS[@]} -gt 0 ]]; then
       send_failure_slack_message
@@ -219,6 +226,9 @@ case "$cmd" in
     ;;
   compile-solidity)
     compile-solidity
+    ;;
+  execute)
+    execute-examples
     ;;
   *)
     default_cmd_handler "$@"
