@@ -270,7 +270,8 @@ export class Tx extends Gossipable {
    * For txs with public calls, the actual size will be larger due to public execution outputs.
    */
   getPrivateTxEffectsSizeInFields(): number {
-    // 3 fields overhead: tx_start_marker, tx_hash, tx_fee
+    // 3 fields overhead: tx_start_marker, tx_hash, tx_fee.
+    // TX_DA_GAS_OVERHEAD is defined as N * DA_GAS_PER_FIELD, so this division is always exact.
     const overheadFields = TX_DA_GAS_OVERHEAD / DA_GAS_PER_FIELD;
     const noteHashes = this.data.getNonEmptyNoteHashes().length;
     const nullifiers = this.data.getNonEmptyNullifiers().length;

@@ -565,7 +565,8 @@ export class CheckpointProposalJob implements Traceable {
       );
       this.setStateFn(SequencerState.CREATING_BLOCK, this.slot);
 
-      // Note that gas and blob field limits are further capped by checkpoint-level budgets inside CheckpointBuilder
+      // Per-block limits derived at startup by SequencerClient.computeBlockGasLimits(), further capped
+      // by remaining checkpoint-level budgets inside CheckpointBuilder before each block is built.
       const blockBuilderOptions: PublicProcessorLimits = {
         maxTransactions: this.config.maxTxsPerBlock,
         maxBlockGas:
