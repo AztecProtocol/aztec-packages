@@ -57,8 +57,9 @@ comptime fn register_event_selector(event_selector: Field, event_name: Quoted) {
     EVENT_SELECTORS.insert(event_selector, event_name);
 }
 
-/// Generates the core event functionality for a struct, including the [`EventInterface`] implementation (which
-/// provides the event type id) and a [`Serialize`] implementation if one is not already provided.
+/// Generates the core event functionality for a struct, including the
+/// [`EventInterface`](crate::event::event_interface::EventInterface) implementation (which provides the event type
+/// id) and a [`Serialize`](crate::protocol::traits::Serialize) implementation if one is not already provided.
 ///
 /// ## Requirements
 ///
