@@ -51,7 +51,7 @@ module "web3signer" {
   VALIDATOR_HA_REPLICAS                    = tonumber(var.VALIDATOR_HA_REPLICAS)
   VALIDATOR_MNEMONIC_START_INDEX           = tonumber(var.VALIDATOR_MNEMONIC_START_INDEX)
   VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX = tonumber(var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX)
-  VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY   = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+  VALIDATOR_PUBLISHERS_PER_REPLICA         = var.VALIDATOR_PUBLISHERS_PER_REPLICA
   PROVER_COUNT                             = tonumber(var.PROVER_REPLICAS)
   PUBLISHERS_PER_PROVER                    = tonumber(var.PROVER_PUBLISHERS_PER_PROVER)
   PROVER_PUBLISHER_MNEMONIC_START_INDEX    = tonumber(var.PROVER_PUBLISHER_MNEMONIC_START_INDEX)
@@ -185,7 +185,7 @@ locals {
     "validator.mnemonic"                                       = var.VALIDATOR_MNEMONIC
     "validator.mnemonicStartIndex"                             = var.VALIDATOR_MNEMONIC_START_INDEX
     "validator.validatorsPerNode"                              = var.VALIDATORS_PER_NODE
-    "validator.publishersPerValidatorKey"                      = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+    "validator.publishersPerReplica"                            = var.VALIDATOR_PUBLISHERS_PER_REPLICA
     "validator.publisherMnemonicStartIndex"                    = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
     "validator.replicaCount"                                   = var.VALIDATOR_REPLICAS
     "validator.sentinel.enabled"                               = var.SENTINEL_ENABLED
@@ -208,7 +208,7 @@ locals {
     "validator.node.env.KEY_INDEX_START"                       = var.VALIDATOR_MNEMONIC_START_INDEX
     "validator.node.env.PUBLISHER_KEY_INDEX_START"             = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
     "validator.node.env.VALIDATORS_PER_NODE"                   = var.VALIDATORS_PER_NODE
-    "validator.node.env.PUBLISHERS_PER_VALIDATOR_KEY"          = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+    "validator.node.env.VALIDATOR_PUBLISHERS_PER_REPLICA"       = var.VALIDATOR_PUBLISHERS_PER_REPLICA
     "validator.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
     "validator.node.env.SEQ_MIN_TX_PER_BLOCK"                  = var.SEQ_MIN_TX_PER_BLOCK
     "validator.node.env.SEQ_MAX_TX_PER_BLOCK"                  = var.SEQ_MAX_TX_PER_BLOCK
@@ -257,7 +257,7 @@ locals {
         local.validator_ha_settings,
         {
           "validator.node.env.VALIDATOR_HA_REPLICA_INDEX" = tostring(idx)
-          "validator.node.env.PUBLISHER_KEY_INDEX_START"  = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX + (idx * (var.VALIDATORS_PER_NODE * var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY * var.VALIDATOR_REPLICAS))
+          "validator.node.env.PUBLISHER_KEY_INDEX_START"  = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX + (idx * (var.VALIDATOR_PUBLISHERS_PER_REPLICA * var.VALIDATOR_REPLICAS))
           "validator.service.p2p.announcePort"            = local.p2p_port_validators[idx]
           "validator.service.p2p.port"                    = local.p2p_port_validators[idx]
         }
