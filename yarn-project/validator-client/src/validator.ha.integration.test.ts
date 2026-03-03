@@ -201,6 +201,7 @@ describe('ValidatorClient HA Integration', () => {
       txProvider,
       blockProposalValidator,
       epochCache,
+      p2pClient,
       config,
       metrics,
       dateProvider,

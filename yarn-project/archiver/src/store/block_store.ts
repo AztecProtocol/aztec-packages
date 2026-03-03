@@ -182,7 +182,8 @@ export class BlockStore {
       const expectedCheckpointNumber = firstBlockCheckpointNumber - 1;
       if (
         !opts.force &&
-        (previousCheckpointNumber !== expectedCheckpointNumber || pendingCheckpointNumber !== expectedCheckpointNumber)
+        previousCheckpointNumber !== expectedCheckpointNumber &&
+        pendingCheckpointNumber !== expectedCheckpointNumber
       ) {
         throw new InitialCheckpointNumberNotSequentialError(firstBlockCheckpointNumber, previousCheckpointNumber);
       }

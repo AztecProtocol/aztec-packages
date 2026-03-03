@@ -343,6 +343,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // L1 check and start building immediately. The actual L1 validation happens later when we enqueue
     // the checkpoint for submission (after the pipeline sleep, when L1 state has caught up).
     const hasQuorum = await this.hasPreviousCheckpointQuorum(slot);
+    if (hasQuorum) {
+      await this.l2BlockSource.setPendingCheckpointNumber(CheckpointNumber(checkpointNumber - 1));
+    }
     if (!hasQuorum) {
       // Check with the rollup contract if we can indeed propose at the pipeline slot. This check should not fail
       // if all the previous checks are good, but we do it just in case.

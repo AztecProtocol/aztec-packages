@@ -12,7 +12,7 @@ import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdl
 import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
-import type { BlockProposal } from '@aztec/stdlib/p2p';
+import type { BlockProposal, CheckpointAttestation } from '@aztec/stdlib/p2p';
 import type { CheckpointGlobalVariables, FailedTx, Tx } from '@aztec/stdlib/tx';
 import {
   ReExFailedTxsError,
@@ -75,6 +75,7 @@ export class BlockProposalHandler {
     private txProvider: ITxProvider,
     private blockProposalValidator: BlockProposalValidator,
     private epochCache: EpochCache,
+    private attestationPool: { getCheckpointAttestationsForSlot(slot: SlotNumber): Promise<CheckpointAttestation[]> },
     private config: ValidatorClientFullConfig,
     private metrics?: ValidatorMetrics,
     private dateProvider: DateProvider = new DateProvider(),
@@ -248,6 +249,20 @@ export class BlockProposalHandler {
 
     // If we succeeded, push this block into the archiver (unless disabled)
     if (reexecutionResult?.block && this.config.skipPushProposedBlocksToArchiver === false) {
+      // If building on a previous checkpoint, check quorum attestations and set pending checkpoint
+      if (checkpointNumber > CheckpointNumber.INITIAL && parentBlock !== 'genesis') {
+        const previousSlot = parentBlock.header.getSlot();
+        const { committee } = await this.epochCache.getCommittee(previousSlot);
+        let hasQuorum = !committee || committee.length === 0;
+        if (!hasQuorum && committee) {
+          const quorum = Math.floor((committee.length * 2) / 3) + 1;
+          const attestations = await this.attestationPool.getCheckpointAttestationsForSlot(previousSlot);
+          hasQuorum = attestations.filter(a => !a.signature.isEmpty()).length >= quorum;
+        }
+        if (hasQuorum) {
+          await this.blockSource.setPendingCheckpointNumber(CheckpointNumber(checkpointNumber - 1));
+        }
+      }
       await this.blockSource.addBlock(reexecutionResult?.block);
     }
 

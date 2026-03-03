@@ -206,6 +206,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       txProvider,
       blockProposalValidator,
       epochCache,
+      p2pClient,
       config,
       metrics,
       dateProvider,
