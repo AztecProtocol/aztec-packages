@@ -111,9 +111,9 @@ jobs:
               LINK="https://aztecprotocol.slack.com/archives/$CHANNEL_ID/p${TS//./}"
             fi
 
-            PROMPT="Run: /backport $PR_NUMBER $target
-            Backport PR #$PR_NUMBER was cherry-picked onto \`$TRAIN_BRANCH\` but has conflicts. The conflict markers are already committed on that branch (look for a commit with the CONFLICTS: prefix). Resolve them and open a chore: fix PR targeting the train branch. See workflow run for details: $WORKFLOW_URL"
             gh workflow run claudebox.yml \
-              -f prompt="$PROMPT" \
+              -f prompt="Run: /backport $PR_NUMBER $target
+
+Backport PR #$PR_NUMBER was cherry-picked onto \`$TRAIN_BRANCH\` but has conflicts. The conflict markers are already committed on that branch (look for a commit with the CONFLICTS: prefix). Resolve them and open a chore: fix PR targeting the train branch. See workflow run for details: $WORKFLOW_URL" \
               -f link="$LINK"
           done <<< "$(echo "$CONFLICTED_TARGETS" | tr ' ' '\n')"
