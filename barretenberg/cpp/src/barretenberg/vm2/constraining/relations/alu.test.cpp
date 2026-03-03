@@ -838,11 +838,27 @@ class AluDivConstrainingTest : public AluConstrainingTest,
                           { Column::alu_b_lo, b_decomp.lo },
                           { Column::alu_b_hi, b_decomp.hi } } });
 
-            range_check_builder.process({ { .value = c_decomp.lo, .num_bits = 64 },
-                                          { .value = c_decomp.hi, .num_bits = 64 },
-                                          { .value = b_decomp.lo, .num_bits = 64 },
-                                          { .value = b_decomp.hi, .num_bits = 64 } },
-                                        trace);
+            // Combine remainder range check with U128 decomposition range checks in a single
+            // process call, since process() always starts from row 0.
+            if (!div_0_error) {
+                range_check_builder.process(
+                    { { .value = static_cast<uint128_t>(remainder.as_ff()), .num_bits = get_tag_bits(mem_tag) },
+                      { .value = c_decomp.lo, .num_bits = 64 },
+                      { .value = c_decomp.hi, .num_bits = 64 },
+                      { .value = b_decomp.lo, .num_bits = 64 },
+                      { .value = b_decomp.hi, .num_bits = 64 } },
+                    trace);
+            } else {
+                range_check_builder.process({ { .value = c_decomp.lo, .num_bits = 64 },
+                                              { .value = c_decomp.hi, .num_bits = 64 },
+                                              { .value = b_decomp.lo, .num_bits = 64 },
+                                              { .value = b_decomp.hi, .num_bits = 64 } },
+                                            trace);
+            }
+        } else if (!div_0_error) {
+            // Range check the remainder fits within max_bits.
+            range_check_builder.process(
+                { { .value = static_cast<uint128_t>(remainder.as_ff()), .num_bits = get_tag_bits(mem_tag) } }, trace);
         }
 
         return trace;
@@ -870,11 +886,27 @@ class AluDivConstrainingTest : public AluConstrainingTest,
             auto c_decomp = simulation::decompose_128(static_cast<uint128_t>(c.as_ff()));
             auto b_decomp = simulation::decompose_128(static_cast<uint128_t>(b.as_ff()));
 
-            range_check_builder.process({ { .value = c_decomp.lo, .num_bits = 64 },
-                                          { .value = c_decomp.hi, .num_bits = 64 },
-                                          { .value = b_decomp.lo, .num_bits = 64 },
-                                          { .value = b_decomp.hi, .num_bits = 64 } },
-                                        trace);
+            // Combine remainder range check with U128 decomposition range checks in a single
+            // process call, since process() always starts from row 0.
+            if (!div_0_error) {
+                range_check_builder.process(
+                    { { .value = static_cast<uint128_t>(remainder.as_ff()), .num_bits = get_tag_bits(mem_tag) },
+                      { .value = c_decomp.lo, .num_bits = 64 },
+                      { .value = c_decomp.hi, .num_bits = 64 },
+                      { .value = b_decomp.lo, .num_bits = 64 },
+                      { .value = b_decomp.hi, .num_bits = 64 } },
+                    trace);
+            } else {
+                range_check_builder.process({ { .value = c_decomp.lo, .num_bits = 64 },
+                                              { .value = c_decomp.hi, .num_bits = 64 },
+                                              { .value = b_decomp.lo, .num_bits = 64 },
+                                              { .value = b_decomp.hi, .num_bits = 64 } },
+                                            trace);
+            }
+        } else if (!div_0_error) {
+            // Range check the remainder fits within max_bits.
+            range_check_builder.process(
+                { { .value = static_cast<uint128_t>(remainder.as_ff()), .num_bits = get_tag_bits(mem_tag) } }, trace);
         }
         precomputed_builder.process_misc(trace, NUM_OF_TAGS);
         precomputed_builder.process_tag_parameters(trace);
