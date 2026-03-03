@@ -5,8 +5,8 @@ import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { getL1Config } from '@aztec/cli/config';
 import { getPublicClient } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
-import { SecretValue } from '@aztec/foundation/config';
-import { EthAddress } from '@aztec/foundation/eth-address';
+import { type NetworkNames, SecretValue } from '@aztec/foundation/config';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
@@ -32,7 +32,7 @@ import {
   extractNamespacedOptions,
   extractRelevantOptions,
   preloadCrsDataForVerifying,
-  setupUpdateMonitor,
+  setupVersionChecker,
 } from '../util.js';
 import { getVersions } from '../versioning.js';
 import { startProverBroker } from './start_prover_broker.js';
@@ -109,6 +109,7 @@ export async function startNode(
   services: NamespacedApiHandlers,
   adminServices: NamespacedApiHandlers,
   userLog: LogFn,
+  networkName: NetworkNames,
 ): Promise<{ config: AztecNodeConfig }> {
   // All options set from environment variables
   const configFromEnvVars = getConfigEnvVars();
@@ -268,16 +269,19 @@ export async function startNode(
     await addBot(options, signalHandlers, services, wallet, node, telemetry, undefined);
   }
 
-  if (nodeConfig.autoUpdate !== 'disabled' && nodeConfig.autoUpdateUrl) {
-    await setupUpdateMonitor(
-      nodeConfig.autoUpdate,
-      new URL(nodeConfig.autoUpdateUrl),
-      followsCanonicalRollup,
-      getPublicClient(nodeConfig!),
-      nodeConfig.l1Contracts.registryAddress,
-      signalHandlers,
-      async config => node.setConfig((await AztecNodeAdminApiSchema.setConfig.parameters().parseAsync([config]))[0]),
-    );
+  if (nodeConfig.enableVersionCheck && networkName !== 'local') {
+    const cacheDir = process.env.DATA_DIRECTORY ? `${process.env.DATA_DIRECTORY}/cache` : undefined;
+    try {
+      await setupVersionChecker(
+        networkName,
+        followsCanonicalRollup,
+        getPublicClient(nodeConfig!),
+        signalHandlers,
+        cacheDir,
+      );
+    } catch {
+      /* no-op */
+    }
   }
 
   return { config: nodeConfig };
