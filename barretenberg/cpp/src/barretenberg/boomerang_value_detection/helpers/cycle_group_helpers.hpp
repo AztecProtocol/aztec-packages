@@ -2,7 +2,8 @@
  * @file cycle_group_helpers.hpp
  * @brief Helper functions for cycle_group
  * @details This file contains helper functions for cycle_group, which is a primitive type in the circuit builder.
- * Every helper mirrors a specific stdlib operation (e.g. is_on_curve_check_exists mirrors cycle_group::is_on_curve).
+ * Every helper mirrors a specific stdlib operation (e.g. is_on_curve_check_with_real_point mirrors
+ * cycle_group::validate_on_curve).
  */
 #pragma once
 
@@ -181,32 +182,6 @@ bool is_on_curve_check_with_real_point(StaticAnalyzer_<FF, CircuitBuilder>& anal
     }
 
     return is_assert_zero_gate_exists<FF>(analyzer, builder, *res_mul_not_infinity);
-}
-
-/**
- * @brief Check that all gates needed for the on-curve check exist.
- * @details Computes the real point via get_real_point, then delegates to is_on_curve_check_with_real_point.
- * @param analyzer The analyzer
- * @param builder The builder
- * @param point The point
- * @param predicate The predicate
- * @return True if the all gates needed for the on-curve check exist, false otherwise
- */
-template <typename FF, typename CircuitBuilder>
-bool is_on_curve_check_exists(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
-                              CircuitBuilder& builder,
-                              const Point<FF>& point,
-                              const acir_format::WitnessOrConstant<FF> predicate)
-{
-    if (is_point_constant(point)) {
-        return true;
-    }
-    auto real_point_optional = get_real_point<FF>(analyzer, builder, point, predicate);
-    if (!real_point_optional.has_value()) {
-        log_error("Real point is not valid");
-        return false;
-    }
-    return is_on_curve_check_with_real_point<FF>(analyzer, builder, *real_point_optional);
 }
 
 /**
