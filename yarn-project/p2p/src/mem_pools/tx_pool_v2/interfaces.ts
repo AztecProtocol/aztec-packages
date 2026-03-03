@@ -44,6 +44,8 @@ export type TxPoolV2Config = {
   minTxPoolAgeMs: number;
   /** Maximum number of evicted tx hashes to remember for metrics tracking */
   evictedTxCacheSize: number;
+  /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
+  priceBumpPercentage: bigint;
 };
 
 /**
@@ -54,6 +56,7 @@ export const DEFAULT_TX_POOL_V2_CONFIG: TxPoolV2Config = {
   archivedTxLimit: 0, // 0 = disabled
   minTxPoolAgeMs: 2_000,
   evictedTxCacheSize: 10_000,
+  priceBumpPercentage: 10n,
 };
 
 /**

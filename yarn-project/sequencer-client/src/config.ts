@@ -53,6 +53,8 @@ export const DefaultSequencerConfig: ResolvedSequencerConfig = {
   skipInvalidateBlockAsProposer: false,
   broadcastInvalidBlockProposal: false,
   injectFakeAttestation: false,
+  injectHighSValueAttestation: false,
+  injectUnrecoverableSignatureAttestation: false,
   fishermanMode: false,
   shuffleAttestationOrdering: false,
   skipPushProposedBlocksToArchiver: false,
@@ -181,6 +183,14 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   injectFakeAttestation: {
     description: 'Inject a fake attestation (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.injectFakeAttestation),
+  },
+  injectHighSValueAttestation: {
+    description: 'Inject a malleable attestation with a high-s value (for testing only)',
+    ...booleanConfigHelper(DefaultSequencerConfig.injectHighSValueAttestation),
+  },
+  injectUnrecoverableSignatureAttestation: {
+    description: 'Inject an attestation with an unrecoverable signature (for testing only)',
+    ...booleanConfigHelper(DefaultSequencerConfig.injectUnrecoverableSignatureAttestation),
   },
   fishermanMode: {
     env: 'FISHERMAN_MODE',
