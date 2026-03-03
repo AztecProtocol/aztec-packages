@@ -29,7 +29,7 @@ describe('AbiTypes', () => {
       wallet,
       accounts: [defaultAccountAddress],
     } = await setup(1));
-    abiTypesContract = await AbiTypesContract.deploy(wallet).send({ from: defaultAccountAddress });
+    ({ contract: abiTypesContract } = await AbiTypesContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
 
   afterAll(() => teardown());

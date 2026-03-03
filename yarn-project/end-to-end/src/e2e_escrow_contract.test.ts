@@ -42,7 +42,10 @@ describe('e2e_escrow_contract', () => {
     const escrowInstance = await escrowDeployment.getInstance();
     await wallet.registerContract(escrowInstance, EscrowContract.artifact, escrowSecretKey);
     // The contract constructor initializes private storage vars that need the contract's own nullifier key.
-    ({ contract: escrowContract } = await escrowDeployment.send({ from: owner, additionalScopes: [escrowInstance.address] }));
+    ({ contract: escrowContract } = await escrowDeployment.send({
+      from: owner,
+      additionalScopes: [escrowInstance.address],
+    }));
     logger.info(`Escrow contract deployed at ${escrowContract.address}`);
 
     // Deploy Token contract and mint funds for the escrow contract

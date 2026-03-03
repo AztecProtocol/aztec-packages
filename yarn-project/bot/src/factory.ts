@@ -497,7 +497,11 @@ export class BotFactory {
     // PrivateToken's mint accesses contract-level private storage vars (admin, total_supply).
     const additionalScopes = isStandardToken ? undefined : [token.address];
     await this.withNoMinTxsPerBlock(async () => {
-      const { txHash } = await new BatchCall(token.wallet, calls).send({ from: minter, additionalScopes, wait: NO_WAIT });
+      const { txHash } = await new BatchCall(token.wallet, calls).send({
+        from: minter,
+        additionalScopes,
+        wait: NO_WAIT,
+      });
       this.log.info(`Sent token mint tx with hash ${txHash.toString()}`);
       return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
     });
