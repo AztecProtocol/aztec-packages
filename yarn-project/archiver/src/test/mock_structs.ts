@@ -320,11 +320,6 @@ export async function makeCheckpointWithLogs(
     return txEffect;
   });
 
-  const checkpoint = new Checkpoint(
-    AppendOnlyTreeSnapshot.random(),
-    CheckpointHeader.random(),
-    [block],
-    CheckpointNumber.fromBlockNumber(BlockNumber(blockNumber)),
-  );
+  const checkpoint = makeCheckpoint([block], CheckpointNumber.fromBlockNumber(BlockNumber(blockNumber)));
   return makePublishedCheckpoint(checkpoint, blockNumber);
 }

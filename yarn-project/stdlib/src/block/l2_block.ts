@@ -176,7 +176,7 @@ export class L2Block {
     } & Partial<Parameters<typeof BlockHeader.random>[0]> = {},
   ): Promise<L2Block> {
     const archive = new AppendOnlyTreeSnapshot(Fr.random(), blockNumber + 1);
-    const header = BlockHeader.random({ blockNumber, ...blockHeaderOverrides });
+    const header = BlockHeader.random({ ...blockHeaderOverrides, blockNumber });
     const body = await Body.random({ txsPerBlock, makeTxOptions, ...txOptions });
     return new L2Block(archive, header, body, checkpointNumber, indexWithinCheckpoint);
   }
