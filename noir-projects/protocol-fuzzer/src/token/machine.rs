@@ -120,8 +120,9 @@ impl TokenCommand {
         }
     }
 
-    /// Whether this command is a read-only query that doesn't change model state.
-    /// For tokens, queries and simulates coincide.
+    /// Whether this command doesn't change model state (flushes the batch).
+    /// For tokens, all queries happen to be simulates too (unlike side-effect
+    /// where TestNoteInclusion is a query but executes as a send).
     pub fn is_query(&self) -> bool {
         matches!(self.verb(), wallet::Verb::Simulate)
     }
@@ -295,25 +296,21 @@ impl<'a> smt::StateMachine for TokenMachine<'a> {
         state: &Self::State,
     ) -> arbitrary::Result<Self::Command> {
         // Sends have extra weight so queries (which flush the parallel
-        // batch) are ~20% of commands.
-        let cmd = u.choose(&[
-            "mint_public",
-            "mint_private",
-            "burn_public",
-            "burn_private",
-            "transfer_public",
-            "transfer_private",
-            "transfer_public_to_private",
-            "transfer_private_to_public",
-            "balance_of_public",
-            "balance_of_private",
-            "total_supply",
-            // Extra weight for sends (duplicate entries).
-            "mint_public",
-            "mint_private",
-            "transfer_public",
-            "transfer_private",
-        ])?;
+        // batch) are ~15% of commands.
+        let choices = crate::util::weighted_choices(&[
+            ("mint_public", 2),
+            ("mint_private", 2),
+            ("burn_public", 2),
+            ("burn_private", 2),
+            ("transfer_public", 2),
+            ("transfer_private", 2),
+            ("transfer_public_to_private", 2),
+            ("transfer_private_to_public", 2),
+            ("balance_of_public", 1),
+            ("balance_of_private", 1),
+            ("total_supply", 1),
+        ]);
+        let cmd = u.choose(&choices)?;
 
         let cmd = match *cmd {
             "mint_public" => TokenCommand::MintPublic {

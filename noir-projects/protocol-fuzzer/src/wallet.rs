@@ -71,7 +71,9 @@ impl AddressBook {
 
 pub(crate) type AccountId = usize;
 
-/// Whether the bridge should submit an on-chain transaction or run a read-only simulation.
+/// How to execute a command on the sandbox: on-chain transaction (`Send`) or
+/// read-only simulation (`Simulate`). This is orthogonal to `WalletCommand::query`:
+/// some sends don't change model state (e.g. kernel verification checks).
 #[derive(Debug, Clone, Copy)]
 pub enum Verb {
     Send,
@@ -80,8 +82,8 @@ pub enum Verb {
 
 pub struct WalletCommand {
     pub verb: Verb,
-    /// `true` if this command must observe committed state before executing
-    /// (flushes the parallel batch).
+    /// `true` if this command doesn't change model state and must observe all
+    /// prior committed state before executing (flushes the parallel batch).
     pub query: bool,
     pub method: String,
     pub contract: String,

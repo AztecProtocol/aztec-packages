@@ -90,9 +90,10 @@ impl SideEffectCommand {
         }
     }
 
-    /// Bridge verb: simulate for read-only view/get, send for everything else.
-    /// `TestNoteInclusion` / `TestNullifierInclusion` are sends even though
-    /// they don't mutate model state -- they exercise on-chain kernel verification.
+    /// How to execute on the sandbox: `Simulate` for read-only view/get,
+    /// `Send` for everything else. Note that `TestNoteInclusion` and
+    /// `TestNullifierInclusion` are sends (on-chain kernel verification)
+    /// even though they don't change model state -- see `is_query()`.
     pub fn verb(&self) -> wallet::Verb {
         match self {
             Self::ViewNotesMany { .. } | Self::GetNotesMany { .. } => wallet::Verb::Simulate,
@@ -105,9 +106,11 @@ impl SideEffectCommand {
         }
     }
 
-    /// Whether this command is a read-only query that doesn't change model state
-    /// (flushes the parallel batch). Note: TestNoteInclusion/TestNullifierInclusion
-    /// are sends (on-chain kernel verification) but still queries for batching.
+    /// Whether this command doesn't change model state (and therefore must
+    /// observe all prior committed state before executing, flushing the batch).
+    /// This is orthogonal to `verb()`: TestNoteInclusion/TestNullifierInclusion
+    /// are queries (`is_query = true`) but sends (`verb = Send`) because they
+    /// exercise on-chain kernel verification without changing the fuzzer's model.
     pub fn is_query(&self) -> bool {
         match self {
             Self::ViewNotesMany { .. }
@@ -343,28 +346,20 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
         let pop = populated_slots(state);
 
         // Build command list based on preconditions. Mutations have extra weight
-        // so queries (which flush the parallel batch) are ~25% of commands.
-        let mut choices: Vec<&str> = vec![
-            "create_note",
-            "create_note",
-            "create_note",
-            "create_note", // 4x weight
-            "create_partial_note",
-            "create_partial_note", // 2x weight
-            "emit_nullifier",
-            "emit_nullifier", // 2x weight
-        ];
+        // so queries (which flush the parallel batch) are ~15% of commands.
+        let mut choices = crate::util::weighted_choices(&[
+            ("create_note", 8),
+            ("create_partial_note", 3),
+            ("emit_nullifier", 3),
+        ]);
 
         if !pop.is_empty() {
-            choices.extend(&[
-                "view_notes_many",
-                "get_notes_many",
-                "destroy_note",
-                "destroy_note",
-                "destroy_note",
-                "destroy_note", // 4x weight
-                "test_note_inclusion",
-            ]);
+            choices.extend(crate::util::weighted_choices(&[
+                ("view_notes_many", 1),
+                ("get_notes_many", 1),
+                ("destroy_note", 8),
+                ("test_note_inclusion", 1),
+            ]));
         }
 
         if !state.emitted_nullifiers.is_empty() {

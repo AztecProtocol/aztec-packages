@@ -1,6 +1,7 @@
 mod side_effect;
 pub mod smt;
 mod token;
+mod util;
 mod wallet;
 
 use clap::Parser;

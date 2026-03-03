@@ -48,13 +48,16 @@ cargo run -- side-effect --max-steps 100000 --seed 0x5a7211231dcd6500
 
 ### Parallel batching
 
-Consecutive non-conflicting sends are batched and fired concurrently, landing in
-the same block. This reduces N sequential sends from N*5s to ~5s. Queries always
-flush the pending batch first since they need to observe prior state changes.
+Consecutive non-conflicting state-changing commands are batched and fired concurrently,
+landing in the same block. This reduces N sequential transactions from N*5s to ~5s.
+Non-state-changing commands (queries) always flush the pending batch first since they
+need to observe prior committed state. Note that "query" here means "doesn't change
+model state" — some queries are still on-chain sends (e.g. `TestNoteInclusion` exercises
+kernel verification but doesn't alter the fuzzer's model).
 
 Conflict rules (conservative -- false positives only reduce batch size):
-- **token**: two sends on the same token conflict (shared total supply)
-- **side-effect**: two sends on the same (storage_slot, owner) or same nullifier value conflict
+- **token**: two commands on the same token conflict (shared total supply)
+- **side-effect**: two commands on the same (storage_slot, owner) or same nullifier value conflict
 
 ## Smoke Tests
 

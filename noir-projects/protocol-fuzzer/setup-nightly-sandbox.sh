@@ -53,21 +53,6 @@ else
     log "Using known-good image: ${IMAGE}"
 fi
 
-wait_for_pxe() {
-    local max_wait=180
-    local elapsed=0
-    log "Waiting up to ${max_wait}s for PXE to start..."
-    while [ $elapsed -lt $max_wait ]; do
-        if docker logs "$CONTAINER_NAME" 2>&1 | grep -q "Started PXE connected to chain"; then
-            log "PXE is ready (${elapsed}s)"
-            return 0
-        fi
-        sleep 5
-        elapsed=$((elapsed + 5))
-    done
-    die "PXE did not start within ${max_wait}s. Check: docker logs $CONTAINER_NAME"
-}
-
 # wait_for_http URL MAX_SECONDS [INTERVAL]
 # Polls until any HTTP response (even 4xx/5xx) is received.
 wait_for_http() {
@@ -80,6 +65,16 @@ wait_for_http() {
         elapsed=$((elapsed + interval))
     done
     return 1
+}
+
+wait_for_pxe() {
+    local max_wait=300
+    log "Waiting up to ${max_wait}s for PXE HTTP endpoint (port 8080)..."
+    if wait_for_http http://localhost:8080 "$max_wait" 5; then
+        log "PXE is ready"
+        return 0
+    fi
+    die "PXE did not start within ${max_wait}s. Check: docker logs $CONTAINER_NAME"
 }
 
 # --------------------------------------------------------------------------- #

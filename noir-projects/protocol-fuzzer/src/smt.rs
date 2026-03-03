@@ -63,7 +63,9 @@ pub trait StateMachine {
 pub trait Batchable {
     /// Returns `true` if executing `self` and `other` concurrently could produce
     /// different results than executing them sequentially.
-    /// Queries (simulates) must conflict with everything so they flush the batch.
+    /// Non-state-changing commands (queries) must conflict with everything so they
+    /// flush the batch — even if they're executed as on-chain sends (e.g. kernel
+    /// verification checks like TestNoteInclusion).
     fn conflicts(&self, other: &Self) -> bool;
 }
 
@@ -90,11 +92,12 @@ pub fn run<T: StateMachine>(
     Ok(())
 }
 
-/// Run a state machine test with batched parallel execution of non-conflicting sends.
+/// Run a state machine test with batched parallel execution of non-conflicting commands.
 ///
 /// Commands are generated sequentially and deterministically. Consecutive non-conflicting
-/// sends are buffered into a batch and fired concurrently via `wallet::execute_many()`.
-/// Queries (simulates) and conflicting sends flush the pending batch first.
+/// state-changing commands are buffered into a batch and fired concurrently via
+/// `wallet::execute_many()`. Non-state-changing commands (queries) and conflicting
+/// commands flush the pending batch first.
 pub fn run_batched<T>(
     u: &mut Unstructured,
     t: &mut T,
@@ -149,7 +152,9 @@ where
     Ok(())
 }
 
-/// Execute a batch of commands -- in parallel if all are sends, sequentially otherwise.
+/// Execute a batch of commands -- in parallel if >1, sequentially otherwise.
+/// A multi-item batch is guaranteed to contain only state-changing commands,
+/// because queries conflict with everything and would have flushed the batch.
 fn execute_batch<T>(
     t: &T,
     system: &mut T::System,
@@ -160,8 +165,6 @@ fn execute_batch<T>(
     T::Command: Batchable,
     for<'a> wallet::WalletCommand: From<&'a T::Command>,
 {
-    // A batch with >1 items is guaranteed to contain only sends, because
-    // queries conflict with everything and would have flushed the batch.
     if batch.len() > 1 {
         debug!("Executing batch of {} sends in parallel", batch.len());
         let wallet_cmds: Vec<wallet::WalletCommand> = batch
