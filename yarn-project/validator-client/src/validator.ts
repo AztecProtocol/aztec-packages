@@ -520,11 +520,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       slotNumber,
       archive: proposal.archive.toString(),
       proposer: proposer.toString(),
-      txCount: proposal.txHashes.length,
     };
     this.log.info(`Received checkpoint proposal for slot ${slotNumber}`, {
       ...proposalInfo,
-      txHashes: proposal.txHashes.map(t => t.toString()),
       fishermanMode: this.config.fishermanMode || false,
     });
 
