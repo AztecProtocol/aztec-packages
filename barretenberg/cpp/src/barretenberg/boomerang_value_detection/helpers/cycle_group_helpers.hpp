@@ -8,6 +8,8 @@
 
 #include "barretenberg/boomerang_value_detection/helpers/bool_t_helpers.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/field_t_helpers.hpp"
+#include "barretenberg/dsl/acir_format/multi_scalar_mul.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
@@ -822,34 +824,53 @@ bool is_cycle_group_assert_equal_constrained(StaticAnalyzer_<FF, CircuitBuilder>
  *            tba = conditional_assign(predicate, input_result, result)
  *            result.assert_equal(tba)
  *
- * Tracing batch_mul internals is impractical (complex multi-point multiplication), so the
- * batch_mul result (rhs of the conditional_assign) is unknown. We use
- * find_conditional_assign_rhs_and_result to discover the unknown rhs from the subtract gate
- * pattern, using only the known lhs (ACIR output).
+ * The batch_mul result is retrieved from the IO registry (acir_opcode_io), where it was registered
+ * during constraint creation. With the known result, we verify:
  *
- * Checks:
- *   1. For x, y: find_conditional_assign_rhs_and_result(predicate, input_result_x/y) succeeds,
- *      yielding the batch_mul result (rhs) and conditional_assign output (tba)
- *   2. For is_infinity: the AND gate (predicate && input_result_inf) exists, which is part of
- *      bool_t::conditional_assign((predicate && lhs) || (!predicate && rhs))
+ * For constant predicate=true:
+ *   conditional_assign returns input_result directly, so result.assert_equal(input_result) is checked.
+ *
+ * For non-constant predicate:
+ *   1. For x, y: conditional_assign(predicate, input_result, result) gate exists, yielding tba
+ *   2. For is_infinity: bool_t conditional_assign(predicate, input_inf, result_inf) exists
  *   3. assert_equal between result and tba via is_cycle_group_assert_equal_constrained
  *
  * @param analyzer The analyzer
  * @param builder The builder
  * @param output_point The ACIR output point (out_point_x, out_point_y, out_point_is_infinite)
- * @param predicate The predicate
+ * @param constraint The MSM constraint (used to look up the batch_mul result from the IO registry)
  * @return True if conditional_assign and assert_equal gates exist for all three components
  */
 template <typename FF, typename CircuitBuilder>
 bool is_msm_result_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
                                CircuitBuilder& builder,
                                const Point<FF>& output_point,
-                               const WitnessOrConstant<FF>& predicate)
+                               const MultiScalarMul& constraint)
 {
     using field_ct = bb::stdlib::field_t<CircuitBuilder>;
     using bool_ct = bb::stdlib::bool_t<CircuitBuilder>;
 
-    auto predicate_field = witness_or_constant_to_field<FF>(predicate, builder);
+    auto predicate_field = witness_or_constant_to_field<FF>(constraint.predicate, builder);
+
+    if (predicate_field.witness.is_constant() && !predicate_field.witness.get_value()) {
+        // Predicate is constant false: constraint disabled (stdlib BB_ASSERTs prevent this path).
+        return true;
+    }
+
+    // Look up the batch_mul result from IO registry
+    auto input_key = witness_or_constant_vector_from_multi_scalar_mul_constraint<CircuitBuilder>(constraint);
+    const auto& io_map = builder.acir_opcode_io.io_map;
+    auto it = io_map.find(input_key);
+    if (it == io_map.end()) {
+        log_error("is_msm_result_constrained: no resolved outputs found in IO registry");
+        return false;
+    }
+
+    const auto& resolved_outputs = it->second;
+    if (resolved_outputs.empty()) {
+        log_error("is_msm_result_constrained: resolved outputs empty");
+        return false;
+    }
 
     // input_result is constructed via field_ct::from_witness_index (mul=1, add=0)
     auto input_result_x =
@@ -857,101 +878,65 @@ bool is_msm_result_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
     auto input_result_y =
         Field<CircuitBuilder>{ output_point.y.index, field_ct::from_witness_index(&builder, output_point.y.index) };
 
-    if (predicate_field.witness.is_constant()) {
-        if (!predicate_field.witness.get_value()) {
-            // Predicate is constant false: constraint disabled (stdlib BB_ASSERTs prevent this path).
-            return true;
-        }
-        // Predicate is constant true: conditional_assign returns input_result directly (no gates).
-        // But result.assert_equal(input_result) still standardizes both sides and creates copy constraints.
-        // Verify standardize gates exist for the ACIR output point AND that assert_equal copy constraints
-        // were created (standardized coordinates should be merged with batch_mul's standardized coordinates).
-
-        // 1. Find standardize for input_result._x, discovering is_infinity
-        auto std_x_result = find_standardize_result<FF>(analyzer, builder, input_result_x);
-        if (!std_x_result.has_value()) {
-            log_error("is_msm_result_constrained: x standardize not found (constant predicate=true)");
-            return false;
-        }
-        auto [input_inf, std_input_x] = *std_x_result;
-
-        // 2. Verify y standardize uses the same is_infinity
-        auto input_inf_field = Field<CircuitBuilder>{ input_inf.witness_index, field_ct(input_inf.witness) };
-        auto std_input_y = get_the_result_of_conditional_assign_gate<FF>(
-            analyzer,
-            builder,
-            input_inf_field,
-            Field<CircuitBuilder>{ bb::stdlib::IS_CONSTANT, field_ct(FF::zero()) },
-            input_result_y);
-        if (!std_input_y.has_value()) {
-            log_error("is_msm_result_constrained: y standardize not found (constant predicate=true)");
+    for (const auto& resolved_output : resolved_outputs) {
+        if (resolved_output.size() != 3) {
+            log_error("is_msm_result_constrained: resolved output size is not 3");
             return false;
         }
 
-        // 3. Verify assert_equal copy constraints exist for x and y.
-        // batch_mul result is standardized first (lower witness indices), input_result second.
-        // assert_equal merges them, making the later witness point to the earlier representative.
-        if (analyzer.to_real(std_input_x.witness_index) == std_input_x.witness_index) {
-            log_error("is_msm_result_constrained: assert_equal not found for x (constant predicate=true)");
-            return false;
-        }
-        if (analyzer.to_real(std_input_y->witness_index) == std_input_y->witness_index) {
-            log_error("is_msm_result_constrained: assert_equal not found for y (constant predicate=true)");
-            return false;
+        auto result_x = Field<CircuitBuilder>{ resolved_output[0].index,
+                                               field_ct::from_witness_index(&builder, resolved_output[0].index) };
+        auto result_y = Field<CircuitBuilder>{ resolved_output[1].index,
+                                               field_ct::from_witness_index(&builder, resolved_output[1].index) };
+
+        if (predicate_field.witness.is_constant()) {
+            // Predicate is constant true: conditional_assign returns input_result directly (no gates).
+            // result.assert_equal(input_result) standardizes both sides and creates copy constraints.
+            return is_cycle_group_assert_equal_constrained<FF>(
+                analyzer, builder, result_x, result_y, input_result_x, input_result_y);
         }
 
-        // 4. Verify is_infinity assert_equal: bool_t::assert_equal normalizes both and creates copy constraint
-        auto norm_input_inf = get_normalization_result<FF>(analyzer, builder, input_inf);
-        if (!norm_input_inf.has_value()) {
-            log_error("is_msm_result_constrained: is_infinity normalization not found (constant predicate=true)");
-            return false;
+        // Non-constant predicate: verify conditional_assign + assert_equal
+
+        // --- Verify x conditional_assign ---
+        auto tba_x =
+            get_the_result_of_conditional_assign_gate<FF>(analyzer, builder, predicate_field, input_result_x, result_x);
+        if (!tba_x.has_value()) {
+            continue;
         }
-        if (analyzer.to_real(norm_input_inf->witness_index) == norm_input_inf->witness_index) {
-            log_error("is_msm_result_constrained: assert_equal not found for is_infinity (constant predicate=true)");
-            return false;
+
+        // --- Verify y conditional_assign ---
+        auto tba_y =
+            get_the_result_of_conditional_assign_gate<FF>(analyzer, builder, predicate_field, input_result_y, result_y);
+        if (!tba_y.has_value()) {
+            continue;
+        }
+
+        // --- Verify is_infinity conditional_assign ---
+        auto predicate_bool = witness_or_constant_to_bool<FF>(constraint.predicate, builder);
+        auto input_inf_bool =
+            Bool<CircuitBuilder>{ output_point.is_infinity.index,
+                                  bool_ct::from_witness_index_unsafe(&builder, output_point.is_infinity.index) };
+        auto result_inf_bool =
+            Bool<CircuitBuilder>{ resolved_output[2].index,
+                                  bool_ct::from_witness_index_unsafe(&builder, resolved_output[2].index) };
+        auto tba_inf = get_boolean_conditional_assign_result<FF>(
+            analyzer, builder, predicate_bool, input_inf_bool, result_inf_bool);
+        if (!tba_inf.has_value()) {
+            continue;
+        }
+
+        // --- Verify assert_equal between batch_mul result and tba ---
+        // result.assert_equal(tba) standardizes both groups and checks x, y, is_infinity
+        if (!is_cycle_group_assert_equal_constrained<FF>(analyzer, builder, result_x, result_y, *tba_x, *tba_y)) {
+            continue;
         }
 
         return true;
     }
 
-    // --- Verify x conditional_assign, discovering batch_mul result (rhs) ---
-    auto x_result = find_conditional_assign_rhs_and_result<FF>(analyzer, builder, predicate_field, input_result_x);
-    if (!x_result.has_value()) {
-        log_error("is_msm_result_constrained: conditional_assign not found for x");
-        return false;
-    }
-    auto [batch_mul_x, tba_x] = *x_result;
-
-    // --- Verify y conditional_assign, discovering batch_mul result (rhs) ---
-    auto y_result = find_conditional_assign_rhs_and_result<FF>(analyzer, builder, predicate_field, input_result_y);
-    if (!y_result.has_value()) {
-        log_error("is_msm_result_constrained: conditional_assign not found for y");
-        return false;
-    }
-    auto [batch_mul_y, tba_y] = *y_result;
-
-    // --- Verify is_infinity is constrained ---
-    // bool_t::conditional_assign creates: ((predicate && input_inf) || (!predicate && batch_mul_inf)).normalize()
-    // The batch_mul_inf (rhs) is unknown. We verify the first AND gate (predicate && input_inf) exists,
-    // proving out_point_is_infinite is connected to the predicate in the constraint system.
-    auto predicate_bool = witness_or_constant_to_bool<FF>(predicate, builder);
-    auto out_inf_idx = output_point.is_infinity.index;
-    auto input_inf_bool =
-        Bool<CircuitBuilder>{ out_inf_idx, bool_ct::from_witness_index_unsafe(&builder, out_inf_idx) };
-    auto pred_and_inf = get_and_result<FF>(analyzer, builder, predicate_bool, input_inf_bool);
-    if (!pred_and_inf.has_value()) {
-        log_error("is_msm_result_constrained: no is_infinity AND gate found for out_inf=", out_inf_idx);
-        return false;
-    }
-
-    // --- Verify assert_equal between batch_mul result and tba ---
-    // result.assert_equal(tba) standardizes both groups and checks x, y, is_infinity
-    if (!is_cycle_group_assert_equal_constrained<FF>(analyzer, builder, batch_mul_x, batch_mul_y, tba_x, tba_y)) {
-        log_error("is_msm_result_constrained: assert_equal not found between batch_mul result and tba");
-        return false;
-    }
-
-    return true;
+    log_error("is_msm_result_constrained: no matching resolved output found");
+    return false;
 }
 
 } // namespace cdg

@@ -1029,7 +1029,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_multi_scalar_mul_constrain
         WitnessOrConstant<FF>::from_index(constraint->out_point_y),
         WitnessOrConstant<FF>::from_index(constraint->out_point_is_infinite),
     };
-    condition &= is_msm_result_constrained<FF>(analyzer, builder, output_point, constraint->predicate);
+    condition &= is_msm_result_constrained<FF>(analyzer, builder, output_point, *constraint);
 
     return condition;
 }
