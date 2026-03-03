@@ -6,10 +6,9 @@ argument-hint: <PR number> <target branch>
 
 # Backport PR
 
-Backport a merged PR to its release branch train. The automated workflow
-cherry-picks onto `merge-train/<target>` and commits conflict markers
-with a `CONFLICTS:` prefix. This skill is typically invoked by ClaudeBox to
-resolve those conflicts, or manually to trigger/redo a backport.
+Backport a merged PR to a release branch staging area. Uses the existing
+`scripts/backport_to_staging.sh` for the happy path, then resolves conflicts
+manually if the diff does not apply cleanly.
 
 ## Usage
 
@@ -42,18 +41,19 @@ gh pr view <PR> --repo AztecProtocol/aztec-packages --json state,title
 
 ### Step 3: Check if Already Backported
 
-Check whether this PR has already been backported to the train branch:
+Check whether this PR has already been backported to the staging branch by
+looking for its PR number in the commit log:
 
 ```bash
-TRAIN_BRANCH="merge-train/${TARGET_BRANCH}"
-git fetch origin "$TRAIN_BRANCH" 2>/dev/null
-if git log "origin/$TRAIN_BRANCH" --oneline --grep="(#<PR_NUMBER>)" | grep -q .; then
-  echo "PR #<PR_NUMBER> has already been backported to $TRAIN_BRANCH."
+STAGING_BRANCH="backport-to-${TARGET_BRANCH}-staging"
+git fetch origin "$STAGING_BRANCH" 2>/dev/null
+if git log "origin/$STAGING_BRANCH" --oneline --grep="(#<PR_NUMBER>)" | grep -q .; then
+  echo "PR #<PR_NUMBER> has already been backported to $STAGING_BRANCH."
 fi
 ```
 
-If it exists as a `CONFLICTS:` commit, proceed to conflict resolution (Step 6).
-If it exists as a clean commit, abort — already done.
+**Abort if** the PR number appears in the staging branch commit log. Show the
+matching commit(s) and tell the user the backport already exists.
 
 ### Step 4: Create Isolated Worktree
 
@@ -79,60 +79,70 @@ Run the backport script from the worktree:
 ./scripts/backport_to_staging.sh <PR_NUMBER> <TARGET_BRANCH>
 ```
 
-**If the script succeeds (no conflicts):** Skip to Step 10 (cleanup and report).
+**If the script succeeds:** Skip to Step 10 (cleanup and report).
 
-**If the script produces a `CONFLICTS:` commit:** Continue to Step 6.
+**If the script fails:** Continue to Step 6 (conflict resolution).
 
 ### Step 6: Assess Conflicts
 
-The script has already committed the conflict markers onto the train branch as a
-`CONFLICTS: <title> (#<PR>)` commit. Check out the train branch and inspect:
+The script will have left the worktree on the `backport-to-<TARGET_BRANCH>-staging`
+branch with partially applied changes and `.rej` files for hunks that failed.
 
-```bash
-TRAIN_BRANCH="merge-train/${TARGET_BRANCH}"
-git fetch origin "$TRAIN_BRANCH"
-git checkout -B "$TRAIN_BRANCH" "origin/$TRAIN_BRANCH"
-```
+1. **Verify current branch** is `backport-to-<TARGET_BRANCH>-staging`
 
-Identify conflicted files:
-```bash
-git diff HEAD~1 HEAD --name-only
-grep -rn "<<<<<<" . --include="*.ts" --include="*.nr" --include="*.cpp" \
-  --include="*.hpp" --include="*.rs" --include="*.sol" -l 2>/dev/null \
-  | grep -v node_modules | grep -v .git
-```
+2. **Identify the state of the working tree:**
+   ```bash
+   git status
+   ```
 
-Get the full PR diff for reference:
-```bash
-gh pr diff <PR_NUMBER>
-```
+3. **Find all reject files:**
+   ```bash
+   find . -name '*.rej' -not -path './node_modules/*' -not -path './.git/*'
+   ```
+
+4. **Get the full PR diff for reference:**
+   ```bash
+   gh pr diff <PR_NUMBER>
+   ```
 
 ### Step 7: Resolve Conflicts
 
-For each file with conflict markers:
+For each `.rej` file:
 
-1. **Read the file** to understand what conflicted
-2. **Read the PR diff** to understand the intent of the change
-3. **Resolve the markers** by editing the file, adapting the change to the
-   current state of the code on the release branch
-4. The release branch may have diverged significantly from `next` — preserve
-   semantic intent, not exact line-by-line diff
+1. **Read the reject file** to understand what hunk failed to apply
+2. **Read the current version** of the corresponding source file on the staging branch
+3. **Understand the intent** of the change from the PR diff context
+4. **Apply the change manually** by editing the source file, adapting the change to
+   the current state of the code on the release branch
+5. **Delete the `.rej` file** after resolving
+
+Also check for files that may need to be created or deleted based on the PR diff
+but were not handled by the partial apply.
 
 **Important considerations:**
-- If a file referenced in the diff does not exist on the release branch, evaluate
-  whether it should be created or if the change is irrelevant. If irrelevant,
-  skip it and note in the final report.
+- The release branch may have diverged significantly from `next`. Do not assume
+  the surrounding code is the same as in the original PR.
+- When adapting changes, preserve the semantic intent of the PR, not the exact
+  line-by-line diff.
+- If a file referenced in the diff does not exist at all on the release branch,
+  evaluate whether it should be created or if the change is irrelevant. If
+  irrelevant, skip it and note this in the final report.
 
 ### Step 8: Verify Build
 
 Check if changes exist in `yarn-project`:
 ```bash
-git diff HEAD~1 --name-only | grep '^yarn-project/' || true
+git diff --name-only | grep '^yarn-project/' || true
 ```
 
 If yarn-project changes exist, run from `yarn-project`:
 ```bash
 yarn build
+```
+
+Check if changes exist outside `yarn-project`:
+```bash
+git diff --name-only | grep -v '^yarn-project/' || true
 ```
 
 If changes exist outside yarn-project, run bootstrap from the repo root:
@@ -142,16 +152,14 @@ BOOTSTRAP_TO=yarn-project ./bootstrap.sh
 
 Fix any build errors that arise from the backport adaptation.
 
-### Step 9: Amend the Conflicts Commit
+### Step 9: Finish with Script
 
-Replace the `CONFLICTS:` commit with a clean one (drop the `CONFLICTS:` prefix):
+Clean up and let the script handle commit, push, and PR management:
 
 ```bash
+find . -name '*.rej' -delete
 git add -A
-git commit --amend --no-edit -m "<original title> (#<PR_NUMBER>)
-
-<original PR body>"
-git push origin "$TRAIN_BRANCH" --force-with-lease
+./scripts/backport_to_staging.sh --continue <PR_NUMBER> <TARGET_BRANCH>
 ```
 
 ### Step 10: Cleanup and Report
@@ -163,28 +171,35 @@ cd "$ORIGINAL_DIR"
 git worktree remove "$WORKTREE_DIR"
 ```
 
-**Always clean up the worktree**, even if earlier steps failed.
+**Always clean up the worktree**, even if earlier steps failed. If `git worktree
+remove` fails (e.g., uncommitted changes), use `git worktree remove --force`.
 
 Print a summary:
 - PR number and title that was backported
-- Target branch and train branch name
+- Target branch and staging branch name
 - Whether conflicts were encountered and resolved
-- Link to the train PR (if one exists)
+- Link to the staging PR (if one was created or already exists)
 
 ## Key Points
 
-- **Train branch convention**: `merge-train/<target>`
-  (e.g. `merge-train/v4`). Multiple backports accumulate here.
-- **Conflicts are pre-committed**: The script commits conflict markers with a
-  `CONFLICTS:` prefix rather than failing. Resolve and amend that commit.
 - **Always use a worktree**: All backport work happens in a temporary git worktree
-  so the user's current branch and working tree are never disturbed.
-- **Script first, manual second**: Always try the automated script first. Only
-  resolve conflicts manually if it produced a `CONFLICTS:` commit.
-- **Preserve author attribution**: The script sets `--author` to the original PR
-  author. Preserve this when amending.
+  so the user's current branch and working tree are never disturbed. Always clean
+  up the worktree when done, even on failure.
+- **Script first, manual second**: Always try the automated script first. It handles
+  branch setup, authorship, push, and PR management. Only do manual conflict
+  resolution if it fails.
+- **Use `--continue` after resolving**: The script's `--continue` mode picks up where
+  the initial run left off (commit, push, PR creation, body update).
+- **Preserve author attribution**: The script uses `--author` to set the original PR
+  author on the commit. The committer stays as whoever runs the command (GPG signing
+  works).
 - **Verify builds but skip tests**: Run `yarn build` or bootstrap to confirm the
-  backport compiles. Do not run the full test suite — that is CI's job.
+  backport compiles. Do not run the full test suite -- that is CI's job.
 - **Semantic, not mechanical**: When resolving conflicts, adapt the change to the
-  release branch's code state. The goal is the same behavioral change, not an
-  exact diff match.
+  release branch's code state. The goal is the same behavioral change, not an exact
+  diff match.
+- **Clean up `.rej` files**: Always delete `.rej` files before committing.
+- **Staging branch convention**: The staging branch is always
+  `backport-to-{TARGET_BRANCH}-staging` (e.g., `backport-to-v4-staging`,
+  `backport-to-v4-devnet-2-staging`). Multiple backports accumulate on the same
+  staging branch and get merged together.
