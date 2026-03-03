@@ -1,12 +1,10 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT, extractOffchainOutput } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { waitForTx } from '@aztec/aztec.js/node';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { retryUntil } from '@aztec/foundation/retry';
 import { OffchainPaymentContract } from '@aztec/noir-test-contracts.js/OffchainPayment';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { TxStatus } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
@@ -119,21 +117,22 @@ describe('e2e_offchain_payment', () => {
     expect(bobBalance).toBe(paymentAmount);
 
     // Force a re-org
-    const checkpointed = await retryUntil(
+    await retryUntil(
       async () => {
-        const blocks = await aztecNode.getCheckpointedBlocks(txBlockNumber, 1);
-        return blocks[0];
+        const tips = await aztecNode.getL2Tips();
+        return tips.checkpointed.block.number >= txBlockNumber;
       },
       'checkpointed block',
       30,
       1,
     );
-    const l1BlockNumber = Number(checkpointed.l1.blockNumber - 1n);
 
     await aztecNodeAdmin.pauseSync();
-    await cheatCodes.eth.reorgTo(l1BlockNumber);
+
+    await cheatCodes.eth.reorg(1);
     await aztecNodeAdmin.rollbackTo(Number(txBlockNumber) - 1);
     expect(await aztecNode.getBlockNumber()).toBe(Number(txBlockNumber) - 1);
+
     await aztecNodeAdmin.resumeSync();
 
     // Verify that the payment TX is no longer present after the reorg
@@ -144,11 +143,9 @@ describe('e2e_offchain_payment', () => {
     const { result: bobAfterRollback } = await contract.methods.get_balance(bob).simulate({ from: bob });
     expect(bobAfterRollback).toBe(0n);
 
-    // Resend the tx after the reorg
+    // Resend the tx after the reorg and force block production so the sequencer picks it up.
     await provenTx.send({ wait: NO_WAIT });
-
-    // Wait for the tx to be available again
-    await waitForTx(aztecNode, txHash, { waitForStatus: TxStatus.PROPOSED });
+    await forceEmptyBlock();
 
     // Check that the message was reprocessed and Bob has his payment again.
     // Notice what we want to test here is that the offchain effects don't need to be re-enqueued
