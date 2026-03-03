@@ -44,13 +44,13 @@ pub unconstrained fn process_message_ciphertext<ComputeNoteHashAndNullifierEnv, 
         );
     } else {
         debug_log_format(
-            "Found invalid message from tx {0}, ignoring",
+            "Could not decrypt message ciphertext from tx {0}, ignoring",
             [message_context.tx_hash],
         );
     }
 }
 
-pub unconstrained fn process_message_plaintext<ComputeNoteHashAndNullifierEnv, CustomMessageHandlerEnv>(
+pub(crate) unconstrained fn process_message_plaintext<ComputeNoteHashAndNullifierEnv, CustomMessageHandlerEnv>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ComputeNoteHashAndNullifierEnv>,
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,

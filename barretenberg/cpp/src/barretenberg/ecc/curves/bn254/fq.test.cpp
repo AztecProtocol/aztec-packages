@@ -276,6 +276,37 @@ TEST(BN254Fq, SplitIntoEndomorphismScalarsSimple)
     }
 }
 
+// Regression: k = ceil(m * 2^256 / endo_g2), for m an integer, previously produced negative k2 in the GLV
+// splitting, causing 128-bit truncation to extract wrong values. See endomorphism_scalars.py.
+TEST(BN254Fq, SplitEndomorphismNegativeK2)
+{
+    // clang-format off
+    struct test_case { std::array<uint64_t, 4> limbs; const char* tag; };
+    const std::array<test_case, 3> cases = {{
+        {{ 0x71922da036dca5f4, 0xd970a56127fb8227, 0x59e26bcea0d48bac, 0x0 }, "m=1"},
+        {{ 0xe3245b406db94be8, 0xb2e14ac24ff7044e, 0xb3c4d79d41a91759, 0x0 }, "m=2"},
+        {{ 0x54b688e0a495f1dc, 0x8c51f02377f28676, 0x0da7436be27da306, 0x1 }, "m=3"},
+    }};
+    // clang-format on
+
+    fq lambda = fq::cube_root_of_unity();
+
+    for (const auto& tc : cases) {
+        fq k{ tc.limbs[0], tc.limbs[1], tc.limbs[2], tc.limbs[3] };
+        fq k1{ 0, 0, 0, 0 };
+        fq k2{ 0, 0, 0, 0 };
+
+        fq::split_into_endomorphism_scalars(k, k1, k2);
+
+        k1.self_to_montgomery_form();
+        k2.self_to_montgomery_form();
+        fq result = k1 - k2 * lambda;
+        result.self_from_montgomery_form();
+
+        EXPECT_EQ(result, k) << tc.tag;
+    }
+}
+
 TEST(BN254Fq, SplitIntoEndomorphismEdgeCase)
 {
     fq input = { 0, 0, 1, 0 }; // 2^128

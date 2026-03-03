@@ -44,7 +44,7 @@
     pub unconstrained fn <a href="#decrypt"><span class="fn">decrypt</span></a>(
         ciphertext: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 15&gt;,
         recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-    ) -> <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 13&gt;&gt;;
+    ) -> <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 12&gt;&gt;;
 }</code></pre>
 
 <div class="comments">
@@ -69,7 +69,7 @@ standardized length.</p></div>
 
 <div class="padded-description"><div class="comments">
 <p>Encrypts a plaintext message to <code>recipient</code>.</p>
-<p>The returned message ciphertext can be passed to <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html#decrypt"><code>decrypt</code></a> in order to obtain the
+<p>The returned message ciphertext can be passed to <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html#decrypt"><code>MessageEncryption::decrypt</code></a> in order to obtain the
 original <code>plaintext</code>.</p>
 <h3>Privacy</h3>
 <p>Knowledge of the returned ciphertext provides no information to third parties - <code>recipient</code>'s encryption keys
@@ -81,11 +81,11 @@ encryption function is itself secure).</p></div>
 </div><code id="decrypt" class="code-header">pub unconstrained fn <a href="#decrypt"><span class="fn">decrypt</span></a>(
     ciphertext: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 15&gt;,
     recipient: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-) -> <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 13&gt;&gt;</code>
+) -> <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 12&gt;&gt;</code>
 
 <div class="padded-description"><div class="comments">
 <p>Decrypts a message ciphertext into its original plaintext.</p>
-<p>Typically invoked with ciphertext obtained from calling <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html#encrypt"><code>encrypt</code></a> with
+<p>Typically invoked with ciphertext obtained from calling <a href="../../../../noir_aztec/messages/encryption/message_encryption/trait.MessageEncryption.html#encrypt"><code>MessageEncryption::encrypt</code></a> with
 <code>recipient</code>.</p>
 <p>Note that this function is unconstrained: decryption typically happens when processing messages in utility
 functions.</p>

@@ -234,34 +234,56 @@ void BytecodeTraceBuilder::process_hashing(
     }
 }
 
+/**
+ * @brief Process bytecode retrieval events and populate the relevant columns in the trace.
+ *  Corresponds to bc_retrieval.pil.
+ *
+ *  This trace is non memory-aware and uses a single row per retrieval event to prove success or failure
+ *  of bytecode retrieval. It largely delegates checks to other traces via lookups (see bc_retrieval.pil).
+ *  It handles two possible errors:
+ *      - INSTANCE_NOT_FOUND: the contract at the given address is not deployed.
+ *      - TOO_MANY_BYTECODES: we have reached the limit of the number of bytecodes to retrieve for this tx.
+ *
+ * @param events The container of bytecode retrieval events to process.
+ * @param trace The trace container.
+ */
 void BytecodeTraceBuilder::process_retrieval(
     const simulation::EventEmitterInterface<simulation::BytecodeRetrievalEvent>::Container& events,
     TraceContainer& trace)
 {
     using C = Column;
 
-    uint32_t row = 1;
+    uint32_t row = 0;
     for (const auto& event : events) {
+        // Since the maximum is (currently) 21 and we prove incrementation of next_available_leaf_index
+        // at each row, the use of uint64 should be safe and never underflow.
         uint64_t remaining_bytecodes = MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS +
                                        AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE -
                                        event.retrieved_bytecodes_snapshot_before.next_available_leaf_index;
-        bool error = event.instance_not_found_error || event.limit_error;
+        bool error = event.error.has_value();
+        if (event.error == simulation::BytecodeRetrievalEventError::TOO_MANY_BYTECODES) {
+            BB_ASSERT(event.is_new_class == true & remaining_bytecodes == 0,
+                      "TOO_MANY_BYTECODES error incorrectly set for bytecode retrieval");
+        }
         trace.set(
             row,
             { {
                 { C::bc_retrieval_sel, 1 },
                 { C::bc_retrieval_bytecode_id, event.bytecode_id },
                 { C::bc_retrieval_address, event.address },
-                { C::bc_retrieval_error, error },
 
                 // Contract instance members (for lookup into contract_instance_retrieval)
                 { C::bc_retrieval_current_class_id, event.current_class_id },
+
+                // Contract class members (for lookup into class_id_derivation)
+                { C::bc_retrieval_artifact_hash, event.contract_class.artifact_hash },
+                { C::bc_retrieval_private_functions_root, event.contract_class.private_functions_root },
 
                 // Tree context (for lookup into contract_instance_retrieval)
                 { C::bc_retrieval_public_data_tree_root, event.public_data_tree_root },
                 { C::bc_retrieval_nullifier_tree_root, event.nullifier_root },
 
-                // Retrieved bytecodes tree state
+                // Retrieved bytecodes tree context (for lookup into retrieved_bytecodes_tree_check)
                 { C::bc_retrieval_prev_retrieved_bytecodes_tree_root, event.retrieved_bytecodes_snapshot_before.root },
                 { C::bc_retrieval_prev_retrieved_bytecodes_tree_size,
                   event.retrieved_bytecodes_snapshot_before.next_available_leaf_index },
@@ -270,18 +292,16 @@ void BytecodeTraceBuilder::process_retrieval(
                   event.retrieved_bytecodes_snapshot_after.next_available_leaf_index },
 
                 // Instance existence determined by shared contract instance retrieval
-                { C::bc_retrieval_instance_exists, !event.instance_not_found_error },
+                { C::bc_retrieval_instance_exists,
+                  event.error == simulation::BytecodeRetrievalEventError::INSTANCE_NOT_FOUND ? 0 : 1 },
 
-                // Limit handling
-                { C::bc_retrieval_no_remaining_bytecodes, remaining_bytecodes == 0 },
-                { C::bc_retrieval_remaining_bytecodes_inv, remaining_bytecodes }, // Will be inverted in batch later.
+                // Error handling
+                { C::bc_retrieval_error, error ? 1 : 0 },
                 { C::bc_retrieval_is_new_class, event.is_new_class },
-                { C::bc_retrieval_should_retrieve, !error },
-
-                // Contract class for bytecode operations
-                { C::bc_retrieval_artifact_hash, event.contract_class.artifact_hash },
-                { C::bc_retrieval_private_functions_root, event.contract_class.private_functions_root },
-
+                { C::bc_retrieval_should_retrieve, error ? 0 : 1 },
+                // Too many bytecodes handling
+                { C::bc_retrieval_no_remaining_bytecodes, remaining_bytecodes == 0 ? 1 : 0 },
+                { C::bc_retrieval_remaining_bytecodes_inv, remaining_bytecodes }, // Will be inverted in batch later.
             } });
         row++;
     }
@@ -472,8 +492,8 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
         .add<lookup_bc_hashing_check_final_bytes_remaining_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>()
         // Bytecode Retrieval
-        .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupGeneric>()
         .add<lookup_bc_retrieval_contract_instance_retrieval_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupGeneric>()
         .add<lookup_bc_retrieval_is_new_class_check_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_retrieval_retrieved_bytecodes_insertion_settings, InteractionType::LookupSequential>()
         // Bytecode Decomposition

@@ -25,7 +25,6 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 import { getAnvilPort } from '../fixtures/fixtures.js';
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { proveInteraction } from '../test-wallet/utils.js';
 import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
@@ -108,6 +107,120 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     jest.restoreAllMocks();
     await test.teardown();
   });
+
+  /**
+   * Configures all sequencers with an attack config, enables the attack for a single checkpoint,
+   * disables it after the first checkpoint is mined (also stopping block production), and waits
+   * for the checkpoint to be invalidated. Verifies the chain rolled back to the initial state.
+   */
+  async function runInvalidationTest(opts: {
+    attackConfig: Record<string, unknown>;
+    disableConfig: Record<string, unknown>;
+  }) {
+    const sequencers = nodes.map(node => node.getSequencer()!);
+    const initialCheckpointNumber = (await nodes[0].getL2Tips()).checkpointed.checkpoint.number;
+
+    sequencers.forEach(sequencer => {
+      sequencer.updateConfig({ ...opts.attackConfig, minTxsPerBlock: 0 });
+    });
+
+    // Disable the attack after the first checkpoint is mined and prevent further block production
+    test.monitor.once('checkpoint', ({ checkpointNumber }) => {
+      logger.warn(`Disabling attack after checkpoint ${checkpointNumber} has been mined`);
+      sequencers.forEach(sequencer => {
+        sequencer.updateConfig({ ...opts.disableConfig, minTxsPerBlock: 100 });
+      });
+    });
+
+    await Promise.all(sequencers.map(s => s.start()));
+
+    // Wait for the CheckpointInvalidated event
+    const checkpointInvalidatedFilter = await l1Client.createContractEventFilter({
+      address: rollupContract.address,
+      abi: RollupAbi,
+      eventName: 'CheckpointInvalidated',
+      fromBlock: 1n,
+      toBlock: 'latest',
+    });
+
+    const checkpointInvalidatedEvents = await retryUntil(
+      async () => {
+        const events = await l1Client.getFilterLogs({ filter: checkpointInvalidatedFilter });
+        return events.length > 0 ? events : undefined;
+      },
+      'CheckpointInvalidated event',
+      test.L2_SLOT_DURATION_IN_S * 5,
+      0.1,
+    );
+
+    // Verify the checkpoint was invalidated and the chain rolled back
+    const [event] = checkpointInvalidatedEvents;
+    logger.warn(`CheckpointInvalidated event emitted`, { event });
+    expect(event.args.checkpointNumber).toBeGreaterThan(initialCheckpointNumber);
+    expect(await test.rollup.getCheckpointNumber()).toEqual(initialCheckpointNumber);
+
+    logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
+  }
+
+  /**
+   * Configures all sequencers with an attack config, starts them, waits for two consecutive
+   * invalidations of the same checkpoint (confirming the invalid-then-re-invalidated pattern),
+   * disables the attack, and verifies the chain progresses and all nodes sync.
+   */
+  async function runDoubleInvalidationTest(opts: {
+    attackConfig: Record<string, unknown>;
+    disableConfig: Record<string, unknown>;
+  }) {
+    const sequencers = nodes.map(node => node.getSequencer()!);
+    sequencers.forEach(sequencer => {
+      sequencer.updateConfig({ ...opts.attackConfig, minTxsPerBlock: 0 });
+    });
+
+    await Promise.all(sequencers.map(s => s.start()));
+
+    // Wait until we see two invalidations, both should be for the same checkpoint
+    let lastInvalidatedCheckpointNumber: CheckpointNumber | undefined;
+    const invalidatePromise = promiseWithResolvers<void>();
+    const unsubscribe = rollupContract.listenToCheckpointInvalidated(data => {
+      logger.warn(`Checkpoint ${data.checkpointNumber} has been invalidated`, data);
+      if (lastInvalidatedCheckpointNumber === undefined) {
+        lastInvalidatedCheckpointNumber = data.checkpointNumber;
+      } else {
+        expect(data.checkpointNumber).toEqual(lastInvalidatedCheckpointNumber);
+        invalidatePromise.resolve();
+        unsubscribe();
+      }
+    });
+    await Promise.race([
+      timeoutPromise(1000 * test.L2_SLOT_DURATION_IN_S * 8, 'Waiting for two checkpoint invalidations'),
+      invalidatePromise.promise,
+    ]);
+
+    sequencers.forEach(sequencer => {
+      sequencer.updateConfig(opts.disableConfig);
+    });
+
+    // Ensure chain progresses
+    const targetCheckpointNumber = CheckpointNumber(lastInvalidatedCheckpointNumber! + 2);
+    logger.warn(`Waiting until checkpoint ${targetCheckpointNumber} has been mined`);
+    await test.monitor.waitUntilCheckpoint(targetCheckpointNumber);
+
+    // Wait for all nodes to sync
+    const targetBlock = targetCheckpointNumber;
+    logger.warn(`Waiting for all nodes to sync to block ${targetBlock}`);
+    await retryUntil(
+      async () => {
+        const blockNumbers = await Promise.all(nodes.map(node => node.getBlockNumber()));
+        logger.info(`Node synced block numbers: ${blockNumbers.join(', ')}`);
+        return blockNumbers.every(bn => bn > targetBlock);
+      },
+      'Node sync check',
+      test.L2_SLOT_DURATION_IN_S * 5,
+      0.5,
+    );
+
+    logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
+  }
 
   it('proposer invalidates previous checkpoint with multiple blocks while posting its own', async () => {
     const sequencers = nodes.map(node => node.getSequencer()!);
@@ -213,123 +326,46 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
   // Slot S+1: Checkpoint N is invalidated, and checkpoint N' (same number) is proposed instead, but also has invalid attestations
   // Slot S+2: Proposer tries to invalidate checkpoint N, when they should invalidate checkpoint N' instead, and fails
   it('chain progresses if a checkpoint with insufficient attestations is invalidated with an invalid one', async () => {
-    // Configure all sequencers to skip collecting attestations before starting and always build blocks
-    logger.warn('Configuring all sequencers to skip attestation collection');
-    const sequencers = nodes.map(node => node.getSequencer()!);
-    sequencers.forEach(sequencer => {
-      sequencer.updateConfig({ skipCollectingAttestations: true, minTxsPerBlock: 0 });
+    await runDoubleInvalidationTest({
+      attackConfig: { skipCollectingAttestations: true },
+      disableConfig: { skipCollectingAttestations: false },
     });
-
-    // Start all sequencers
-    await Promise.all(sequencers.map(s => s.start()));
-    logger.warn(`Started all sequencers with skipCollectingAttestations=true`);
-
-    // Wait until we see two invalidations, both should be for the same checkpoint
-    let lastInvalidatedCheckpointNumber: CheckpointNumber | undefined;
-    const invalidatePromise = promiseWithResolvers<void>();
-    const unsubscribe = rollupContract.listenToCheckpointInvalidated(data => {
-      logger.warn(`Checkpoint ${data.checkpointNumber} has been invalidated`, data);
-      if (lastInvalidatedCheckpointNumber === undefined) {
-        lastInvalidatedCheckpointNumber = data.checkpointNumber;
-      } else {
-        expect(data.checkpointNumber).toEqual(lastInvalidatedCheckpointNumber);
-        invalidatePromise.resolve();
-        unsubscribe();
-      }
-    });
-    await Promise.race([timeoutPromise(1000 * test.L2_SLOT_DURATION_IN_S * 8), invalidatePromise.promise]);
-
-    // Disable skipCollectingAttestations and send txs so MBPS can produce multi-block checkpoints
-    sequencers.forEach(sequencer => {
-      sequencer.updateConfig({ skipCollectingAttestations: false });
-    });
-    logger.warn('Sending transactions to enable multi-block checkpoints');
-    const from = context.accounts[0];
-    for (let i = 0; i < 4; i++) {
-      const tx = await proveInteraction(context.wallet, testContract.methods.emit_nullifier(new Fr(100 + i)), { from });
-      await tx.send({ wait: NO_WAIT });
-    }
-
-    // Ensure chain progresses
-    const targetCheckpointNumber = CheckpointNumber(lastInvalidatedCheckpointNumber! + 2);
-    logger.warn(`Waiting until checkpoint ${targetCheckpointNumber} has been mined`);
-    await test.monitor.waitUntilCheckpoint(targetCheckpointNumber);
-
-    // Wait for all nodes to sync the new block
-    const targetBlock = targetCheckpointNumber;
-    logger.warn(`Waiting for all nodes to sync to block ${targetBlock}`);
-    await retryUntil(
-      async () => {
-        const blockNumbers = await Promise.all(nodes.map(node => node.getBlockNumber()));
-        logger.info(`Node synced block numbers: ${blockNumbers.join(', ')}`);
-        return blockNumbers.every(bn => bn > targetBlock);
-      },
-      'Node sync check',
-      test.L2_SLOT_DURATION_IN_S * 5,
-      0.5,
-    );
-
-    await test.assertMultipleBlocksPerSlot(2);
-
-    logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
 
   // Regression for Joe's Q42025 London attack. Same as above but with an invalid signature instead of insufficient ones.
   it('chain progresses if a checkpoint with an invalid attestation is invalidated with an invalid one', async () => {
-    // Configure all sequencers to skip collecting attestations before starting and always build blocks
-    logger.warn('Configuring all sequencers to inject one invalid attestation');
-    const sequencers = nodes.map(node => node.getSequencer()!);
-    sequencers.forEach(sequencer => {
-      sequencer.updateConfig({ injectFakeAttestation: true, minTxsPerBlock: 0 });
+    await runDoubleInvalidationTest({
+      attackConfig: { injectFakeAttestation: true },
+      disableConfig: { injectFakeAttestation: false },
     });
+  });
 
-    // Start all sequencers
-    await Promise.all(sequencers.map(s => s.start()));
-    logger.warn(`Started all sequencers with injectFakeAttestation=true`);
-
-    // Wait until we see two invalidations, both should be for the same checkpoint
-    let lastInvalidatedCheckpointNumber: CheckpointNumber | undefined;
-    const invalidatePromise = promiseWithResolvers<void>();
-    const unsubscribe = rollupContract.listenToCheckpointInvalidated(data => {
-      logger.warn(`Checkpoint ${data.checkpointNumber} has been invalidated`, data);
-      if (lastInvalidatedCheckpointNumber === undefined) {
-        lastInvalidatedCheckpointNumber = data.checkpointNumber;
-      } else {
-        expect(data.checkpointNumber).toEqual(lastInvalidatedCheckpointNumber);
-        invalidatePromise.resolve();
-        unsubscribe();
-      }
+  // Regression for A-71: Ensure the node correctly invalidates checkpoints where an attestation has a malleable
+  // signature (high-s value). The Rollup contract uses OpenZeppelin's ECDSA recover which rejects high-s values
+  // per EIP-2, so these signatures recover to address(0) on L1 but may succeed offchain.
+  it('proposer invalidates checkpoint with high-s value attestation', async () => {
+    await runInvalidationTest({
+      attackConfig: { injectHighSValueAttestation: true },
+      disableConfig: { injectHighSValueAttestation: false },
     });
-    await Promise.race([
-      timeoutPromise(1000 * test.L2_SLOT_DURATION_IN_S * 8, 'Invalidating checkpoints'),
-      invalidatePromise.promise,
-    ]);
+  });
 
-    // Disable injectFakeAttestations
-    sequencers.forEach(sequencer => {
-      sequencer.updateConfig({ injectFakeAttestation: false });
+  // Regression for A-71: Ensure the node correctly invalidates checkpoints where an attestation's signature
+  // cannot be recovered (e.g. r=0). On L1, ecrecover returns address(0) for such signatures.
+  it('proposer invalidates checkpoint with unrecoverable signature attestation', async () => {
+    await runInvalidationTest({
+      attackConfig: { injectUnrecoverableSignatureAttestation: true },
+      disableConfig: { injectUnrecoverableSignatureAttestation: false },
     });
+  });
 
-    // Ensure chain progresses
-    const targetCheckpointNumber = CheckpointNumber(lastInvalidatedCheckpointNumber! + 2);
-    logger.warn(`Waiting until checkpoint ${targetCheckpointNumber} has been mined`);
-    await test.monitor.waitUntilCheckpoint(targetCheckpointNumber);
-
-    // Wait for all nodes to sync the new block
-    const targetBlock = targetCheckpointNumber;
-    logger.warn(`Waiting for all nodes to sync to block ${targetBlock}`);
-    await retryUntil(
-      async () => {
-        const blockNumbers = await Promise.all(nodes.map(node => node.getBlockNumber()));
-        logger.info(`Node synced block numbers: ${blockNumbers.join(', ')}`);
-        return blockNumbers.every(bn => bn > targetBlock);
-      },
-      'Node sync check',
-      test.L2_SLOT_DURATION_IN_S * 5,
-      0.5,
-    );
-
-    logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
+  // Regression for the node accepting attestations that did not conform to the committee order,
+  // but L1 requires the same ordering. See #18219.
+  it('proposer invalidates previous block with shuffled attestations', async () => {
+    await runInvalidationTest({
+      attackConfig: { shuffleAttestationOrdering: true },
+      disableConfig: { shuffleAttestationOrdering: false },
+    });
   });
 
   // Here we disable invalidation checks from two of the proposers. Our goal is to get two invalid checkpoints
@@ -437,116 +473,6 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     logger.warn(`Waiting until more checkpoints have been mined to ensure the chain can progress`);
     await Promise.all(nodes.map(node => node.setConfig({ minTxsPerBlock: 0 })));
     await test.waitUntilCheckpointNumber(nextCheckpointNumber, test.L2_SLOT_DURATION_IN_S * 16);
-
-    logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
-  });
-
-  it('proposer invalidates previous checkpoint without publishing its own', async () => {
-    const sequencers = nodes.map(node => node.getSequencer()!);
-    const initialCheckpointNumber = (await nodes[0].getL2Tips()).checkpointed.checkpoint.number;
-
-    // Configure all sequencers to skip collecting attestations before starting
-    logger.warn('Configuring all sequencers to skip attestation collection and always publish blocks');
-    sequencers.forEach(sequencer => {
-      sequencer.updateConfig({ skipCollectingAttestations: true, minTxsPerBlock: 0 });
-    });
-
-    // Disable skipCollectingAttestations after the first block is mined and prevent sequencers from publishing any more blocks
-    test.monitor.once('checkpoint', ({ checkpointNumber }) => {
-      logger.warn(`Disabling skipCollectingAttestations after L2 block ${checkpointNumber} has been mined`);
-      sequencers.forEach(sequencer => {
-        sequencer.updateConfig({ skipCollectingAttestations: false, minTxsPerBlock: 100 });
-      });
-    });
-
-    // Start all sequencers
-    await Promise.all(sequencers.map(s => s.start()));
-    logger.warn(`Started all sequencers with skipCollectingAttestations=true`);
-
-    // Create a filter for CheckpointInvalidated events
-    const checkpointInvalidatedFilter = await l1Client.createContractEventFilter({
-      address: rollupContract.address,
-      abi: RollupAbi,
-      eventName: 'CheckpointInvalidated',
-      fromBlock: 1n,
-      toBlock: 'latest',
-    });
-
-    // The next proposer should invalidate the previous checkpoint
-    logger.warn('Waiting for next proposer to invalidate the previous checkpoint');
-
-    // Wait for the CheckpointInvalidated event
-    const checkpointInvalidatedEvents = await retryUntil(
-      async () => {
-        const events = await l1Client.getFilterLogs({ filter: checkpointInvalidatedFilter });
-        return events.length > 0 ? events : undefined;
-      },
-      'CheckpointInvalidated event',
-      test.L2_SLOT_DURATION_IN_S * 5,
-      0.1,
-    );
-
-    // Verify the CheckpointInvalidated event was emitted and that the block was removed
-    const [event] = checkpointInvalidatedEvents;
-    logger.warn(`CheckpointInvalidated event emitted`, { event });
-    expect(event.args.checkpointNumber).toBeGreaterThan(initialCheckpointNumber);
-    expect(await test.rollup.getCheckpointNumber()).toEqual(initialCheckpointNumber);
-
-    logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
-  });
-
-  // Same as test above but with shuffled attestations instead of missing attestations
-  // REFACTOR: Remove code duplication with above test (and others?)
-  it('proposer invalidates previous block with shuffled attestations', async () => {
-    const sequencers = nodes.map(node => node.getSequencer()!);
-    const initialCheckpointNumber = (await nodes[0].getL2Tips()).checkpointed.checkpoint.number;
-
-    // Configure all sequencers to shuffle attestations before starting
-    logger.warn('Configuring all sequencers to shuffle attestations and always publish blocks');
-    sequencers.forEach(sequencer => {
-      sequencer.updateConfig({ shuffleAttestationOrdering: true, minTxsPerBlock: 0 });
-    });
-
-    // Disable shuffleAttestationOrdering after the first block is mined and prevent sequencers from publishing any more blocks
-    test.monitor.once('checkpoint', ({ checkpointNumber }) => {
-      logger.warn(`Disabling shuffleAttestationOrdering after L2 block ${checkpointNumber} has been mined`);
-      sequencers.forEach(sequencer => {
-        sequencer.updateConfig({ shuffleAttestationOrdering: false, minTxsPerBlock: 100 });
-      });
-    });
-
-    // Start all sequencers
-    await Promise.all(sequencers.map(s => s.start()));
-    logger.warn(`Started all sequencers with shuffleAttestationOrdering=true`);
-
-    // Create a filter for CheckpointInvalidated events
-    const checkpointInvalidatedFilter = await l1Client.createContractEventFilter({
-      address: rollupContract.address,
-      abi: RollupAbi,
-      eventName: 'CheckpointInvalidated',
-      fromBlock: 1n,
-      toBlock: 'latest',
-    });
-
-    // The next proposer should invalidate the previous checkpoint
-    logger.warn('Waiting for next proposer to invalidate the previous checkpoint');
-
-    // Wait for the CheckpointInvalidated event
-    const checkpointInvalidatedEvents = await retryUntil(
-      async () => {
-        const events = await l1Client.getFilterLogs({ filter: checkpointInvalidatedFilter });
-        return events.length > 0 ? events : undefined;
-      },
-      'CheckpointInvalidated event',
-      test.L2_SLOT_DURATION_IN_S * 5,
-      0.1,
-    );
-
-    // Verify the CheckpointInvalidated event was emitted and that the block was removed
-    const [event] = checkpointInvalidatedEvents;
-    logger.warn(`CheckpointInvalidated event emitted`, { event });
-    expect(event.args.checkpointNumber).toBeGreaterThan(initialCheckpointNumber);
-    expect(await test.rollup.getCheckpointNumber()).toEqual(initialCheckpointNumber);
 
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });

@@ -19,9 +19,6 @@
 <div id="crate-version">0.0.0</div>
 <h2>In module discovery</h2>
 <h3>Modules</h3><ul class="item-list">
-<li><a href="nonce_discovery/index.html">nonce_discovery</a></div></li>
-<li><a href="partial_notes/index.html">partial_notes</a></div></li>
-<li><a href="private_events/index.html">private_events</a></div></li>
 <li><a href="private_notes/index.html">private_notes</a></div></li>
 <li><a href="process_message/index.html">process_message</a></div></li>
 </ul>
@@ -30,6 +27,7 @@
 </ul>
 <h3>Type aliases</h3><ul class="item-list">
 <li><a href="type.ComputeNoteHashAndNullifier.html">ComputeNoteHashAndNullifier</a></div></li>
+<li><a href="type.CustomMessageHandler.html">CustomMessageHandler</a></div></li>
 </ul>
 <h3>Functions</h3><ul class="item-list">
 <li><a href="fn.do_sync_state.html">do_sync_state</a></div></li>
@@ -38,15 +36,24 @@
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">discovery</a></div>
 <h1>Type alias <span class="type">ComputeNoteHashAndNullifier</span></h1>
-<pre><code>pub type ComputeNoteHashAndNullifier&lt;Env&gt; = unconstrained fn[Env](<a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>, 9&gt;, <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/messages/discovery/struct.NoteHashAndNullifier.html" class="struct">NoteHashAndNullifier</a>&gt;;</code></pre>
+<pre><code>pub type ComputeNoteHashAndNullifier&lt;Env&gt; = unconstrained fn[Env](<a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>, 8&gt;, <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/messages/discovery/struct.NoteHashAndNullifier.html" class="struct">NoteHashAndNullifier</a>&gt;;</code></pre>
 
 <div class="comments">
-<p>A function which takes a note's packed content, address of the emitting contract, note nonce, storage slot and note
-type ID and attempts to compute its note hash (not hashed by note nonce nor siloed by address) and inner nullifier
-(not siloed by address).</p>
-<p>This function must be user-provided as its implementation requires knowledge of how note type IDs are allocated in
-a contract. The <code>#[aztec]</code> macro automatically creates such a contract library method called
-<code>_compute_note_hash_and_nullifier</code>, which looks something like this:</p>
+<p>A contract's way of computing note hashes and nullifiers.</p>
+<p>Each contract in the network is free to compute their note's hash and nullifiers as they see fit - the hash
+function itself and the nullifier derivation are not enshrined or standardized. Some aztec-nr functions however do
+need to know the details of this computation (e.g. when finding new notes), which is what this type represents.</p>
+<p>This function takes a note's packed content, storage slot, note type ID, address of the emitting contract,
+randomness and note nonce, and attempts to compute its inner note hash (not siloed by address nor uniqued by nonce)
+and inner nullifier (not siloed by address).</p>
+<h2>Transient Notes</h2>
+<p>This function is meant to always be used on <strong>settled</strong> notes, i.e. those that have been inserted into the trees
+and for which the nonce is known. It is never invoked in the context of a transient note, as those are not involved
+in message processing.</p>
+<h2>Automatic Implementation</h2>
+<p>The <a href="../../../noir_aztec/macros/fn.aztec.html"><code>[#aztec]</code></a> macro automatically creates a correct implementation of this function
+for each contract by inspecting all note types in use and the storage layout. This injected function is a
+<code>#[contract_library_function]</code> called <code>_compute_note_hash_and_nullifier</code>, and it looks something like this:</p>
 <pre><code>|packed_note, owner, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
     <span class="kw">if</span> note_type_id == MyNoteType::get_id() {
         <span class="kw">assert</span>(packed_note.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);

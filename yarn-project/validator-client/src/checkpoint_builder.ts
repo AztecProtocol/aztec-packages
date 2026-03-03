@@ -148,7 +148,10 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
   }
 
   protected async makeBlockBuilderDeps(globalVariables: GlobalVariables, fork: MerkleTreeWriteOperations) {
-    const txPublicSetupAllowList = this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
+    const txPublicSetupAllowList = [
+      ...(await getDefaultAllowedSetupFunctions()),
+      ...(this.config.txPublicSetupAllowListExtend ?? []),
+    ];
     const contractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings());
     const guardedFork = new GuardedMerkleTreeOperations(fork);
 

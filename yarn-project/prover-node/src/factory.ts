@@ -19,7 +19,6 @@ import {
   getPublisherConfigFromProverConfig,
 } from '@aztec/sequencer-client';
 import type {
-  AztecNode,
   ITxProvider,
   ProverConfig,
   ProvingJobBroker,
@@ -38,7 +37,6 @@ import { ProverPublisherFactory } from './prover-publisher-factory.js';
 export type ProverNodeDeps = {
   telemetry?: TelemetryClient;
   log?: Logger;
-  aztecNodeTxProvider?: Pick<AztecNode, 'getTxsByHash'>;
   archiver: Archiver;
   publisherFactory?: ProverPublisherFactory;
   broker?: ProvingJobBroker;
@@ -127,9 +125,6 @@ export async function createProverNode(
       publisherManager: new PublisherManager(l1TxUtils, getPublisherConfigFromProverConfig(config), log.getBindings()),
       telemetry,
     });
-
-  // TODO(#20393): Check that the tx collection node sources are properly injected
-  // See aztecNodeTxProvider
 
   const proverNodeConfig = {
     ...pick(

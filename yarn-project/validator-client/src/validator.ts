@@ -89,6 +89,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   private lastEpochForCommitteeUpdateLoop: EpochNumber | undefined;
   private epochCacheUpdateLoop: RunningPromise;
+  /** Tracks the last epoch in which each attester successfully submitted at least one attestation. */
+  private lastAttestedEpochByAttester: Map<string, EpochNumber> = new Map();
 
   private proposersOfInvalidBlocks: Set<string> = new Set();
 
@@ -160,6 +162,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         this.log.trace(`No committee found for slot`);
         return;
       }
+      this.metrics.setCurrentEpoch(epoch);
       if (epoch !== this.lastEpochForCommitteeUpdateLoop) {
         const me = this.getValidatorAddresses();
         const committeeSet = new Set(committee.map(v => v.toString()));
@@ -197,6 +200,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const metrics = new ValidatorMetrics(telemetry);
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
       txsPermitted: !config.disableTransactions,
+      maxTxsPerBlock: config.maxTxsPerBlock,
     });
     const blockProposalHandler = new BlockProposalHandler(
       checkpointsBuilder,
@@ -554,6 +558,17 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     });
 
     this.metrics.incSuccessfulAttestations(inCommittee.length);
+
+    // Track epoch participation per attester: count each (attester, epoch) pair at most once
+    const proposalEpoch = getEpochAtSlot(slotNumber, this.epochCache.getL1Constants());
+    for (const attester of inCommittee) {
+      const key = attester.toString();
+      const lastEpoch = this.lastAttestedEpochByAttester.get(key);
+      if (lastEpoch === undefined || proposalEpoch > lastEpoch) {
+        this.lastAttestedEpochByAttester.set(key, proposalEpoch);
+        this.metrics.incAttestedEpochCount(attester);
+      }
+    }
 
     // Determine which validators should attest
     let attestors: EthAddress[];

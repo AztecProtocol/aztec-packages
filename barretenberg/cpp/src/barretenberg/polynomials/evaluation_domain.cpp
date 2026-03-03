@@ -35,6 +35,9 @@ void compute_lookup_table_single(const Fr& input_root,
                                  Fr* const roots,
                                  std::vector<Fr*>& round_roots)
 {
+    // num_rounds = 0 results in underflow in the loop below, so we require num_rounds >= 1, which is equivalent to size
+    // >= 2.
+    BB_ASSERT(size >= 2);
     const size_t num_rounds = static_cast<size_t>(numeric::get_msb(size));
 
     round_roots.emplace_back(&roots[0]);
@@ -67,7 +70,6 @@ EvaluationDomain<Fr>::EvaluationDomain(const size_t domain_size, const size_t ta
     , domain_inverse(domain.invert())
     , generator(Fr::template coset_generator<0>())
     , generator_inverse(Fr::template coset_generator<0>().invert())
-    , four_inverse(Fr(4).invert())
     , roots(nullptr)
 {
     // Grumpkin does not have many roots of unity and, given these are not used for Honk, we set it to one.
@@ -93,13 +95,12 @@ EvaluationDomain<Fr>::EvaluationDomain(const EvaluationDomain& other)
     , log2_thread_size(static_cast<size_t>(numeric::get_msb(thread_size)))
     , log2_num_threads(static_cast<size_t>(numeric::get_msb(num_threads)))
     , generator_size(other.generator_size)
-    , root(Fr::get_root_of_unity(log2_size))
-    , root_inverse(root.invert())
+    , root(other.root)
+    , root_inverse(other.root_inverse)
     , domain(Fr{ size, 0, 0, 0 }.to_montgomery_form())
     , domain_inverse(domain.invert())
     , generator(other.generator)
     , generator_inverse(other.generator_inverse)
-    , four_inverse(other.four_inverse)
 {
     BB_ASSERT((1UL << log2_size) == size);
     BB_ASSERT((1UL << log2_thread_size) == thread_size);
@@ -130,13 +131,12 @@ EvaluationDomain<Fr>::EvaluationDomain(EvaluationDomain&& other)
     , log2_thread_size(static_cast<size_t>(numeric::get_msb(thread_size)))
     , log2_num_threads(static_cast<size_t>(numeric::get_msb(num_threads)))
     , generator_size(other.generator_size)
-    , root(Fr::get_root_of_unity(log2_size))
-    , root_inverse(root.invert())
+    , root(other.root)
+    , root_inverse(other.root_inverse)
     , domain(Fr{ size, 0, 0, 0 }.to_montgomery_form())
     , domain_inverse(domain.invert())
     , generator(other.generator)
     , generator_inverse(other.generator_inverse)
-    , four_inverse(other.four_inverse)
 {
     roots = other.roots;
     round_roots = std::move(other.round_roots);
@@ -159,8 +159,9 @@ template <typename Fr> EvaluationDomain<Fr>& EvaluationDomain<Fr>::operator=(Eva
     Fr::__copy(other.domain_inverse, domain_inverse);
     Fr::__copy(other.generator, generator);
     Fr::__copy(other.generator_inverse, generator_inverse);
-    Fr::__copy(other.four_inverse, four_inverse);
     roots = nullptr;
+    round_roots.clear();
+    inverse_round_roots.clear();
     if (other.roots != nullptr) {
         roots = other.roots;
         round_roots = std::move(other.round_roots);

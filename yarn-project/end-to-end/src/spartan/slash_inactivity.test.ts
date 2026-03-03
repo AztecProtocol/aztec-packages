@@ -38,7 +38,7 @@ describe('slash inactivity test', () => {
 
   let client: ViemPublicClient;
   let rollup: RollupContract;
-  let slashSettings: TallySlasherSettings;
+  let slashSettings: Omit<TallySlasherSettings, 'rollupRegisteredAtL2Slot'>;
   let constants: Omit<L1RollupConstants, 'ethereumSlotDuration'>;
   let monitor: ChainMonitor;
   let offlineValidator: EthAddress;
