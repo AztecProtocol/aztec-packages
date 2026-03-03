@@ -7,7 +7,7 @@ namespace bb {
 
 /**
  * @brief Batch verifier for multiple Chonk IVC proofs.
- * @details Runs Steps 1-3 (MegaZK, databus, Goblin) of Chonk verification for each proof independently,
+ * @details Runs all non-IPA verification (MegaZK, databus, Goblin) for each proof independently,
  * then batches the resulting IPA opening claims into a single IPA verification via random linear combination.
  * This replaces N separate large SRS MSMs with one, giving ~Nx speedup on the IPA bottleneck.
  */
@@ -20,7 +20,7 @@ class ChonkBatchVerifier {
 
     /**
      * @brief Verify multiple Chonk proofs with batched IPA verification.
-     * @details For each proof, performs MegaZK + databus + Goblin verification (Steps 1-3).
+     * @details For each proof, performs all non-IPA verification (MegaZK, databus, Goblin).
      * If all pass, collects IPA claims and batch-verifies them with a single SRS MSM.
      * Returns true only if ALL proofs verify. On failure, does not identify which proof failed.
      *

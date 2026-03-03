@@ -12,7 +12,7 @@ bool ChonkBatchVerifier::verify(std::span<const Input> inputs)
         return true;
     }
 
-    // Phase 1: Run Steps 1-3 for each proof, collecting IPA claims
+    // Phase 1: Run all non-IPA verification for each proof, collecting IPA claims
     std::vector<OpeningClaim<curve::Grumpkin>> ipa_claims;
     std::vector<std::shared_ptr<NativeTranscript>> ipa_transcripts;
     ipa_claims.reserve(num_proofs);

@@ -190,7 +190,6 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
         inputs.push_back({ .proof = std::move(proofs[i]), .vk_and_hash = std::move(vk_and_hash) });
     }
 
-    info("ChonkBatchVerify - batch verifying ", inputs.size(), " proofs");
     const bool verified = ChonkBatchVerifier::verify(inputs);
 
     return { .valid = verified };

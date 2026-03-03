@@ -106,8 +106,8 @@ template <bool IsRecursive> class ChonkVerifier {
 
     /**
      * @brief Result of reducing Chonk verification to an IPA opening claim (native mode only).
-     * @details Contains the IPA claim and proof from Steps 1-3 of native verification, allowing
-     * batch IPA verification across multiple Chonk proofs.
+     * @details Contains the IPA claim and proof from non-IPA verification (MegaZK, databus, Goblin),
+     * allowing batch IPA verification across multiple Chonk proofs.
      */
     struct IPAReductionResult {
         OpeningClaim<curve::Grumpkin> ipa_claim;
@@ -116,13 +116,13 @@ template <bool IsRecursive> class ChonkVerifier {
     };
 
     /**
-     * @brief Perform Steps 1-3 of native Chonk verification, returning the IPA data for deferred verification.
+     * @brief Run all Chonk verification except IPA, returning the IPA claim for deferred verification.
      * @details Verifies the MegaZK proof, databus consistency, and Goblin proof (merge/eccvm/translator),
-     * then returns the IPA opening claim and proof without performing IPA verification.
+     * then returns the IPA opening claim and proof without performing the final IPA SRS MSM.
      * This enables batch IPA verification across multiple Chonk proofs.
      *
      * @param proof The Chonk proof to partially verify
-     * @return IPAReductionResult containing the IPA claim/proof and whether Steps 1-3 passed
+     * @return IPAReductionResult containing the IPA claim/proof and whether all non-IPA checks passed
      */
     IPAReductionResult reduce_to_ipa_claim(const Proof& proof);
 

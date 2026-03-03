@@ -12,7 +12,7 @@
 namespace bb {
 
 /**
- * @brief Perform Steps 1-3 of native Chonk verification, returning the IPA data for deferred verification.
+ * @brief Run all Chonk verification except IPA, returning the IPA data for deferred verification.
  */
 template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduce_to_ipa_claim(const Proof& proof)
 {
