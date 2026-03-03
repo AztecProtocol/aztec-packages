@@ -575,10 +575,12 @@ TEST_F(ChonkTests, ProofCompressionRoundtrip)
     info("Original proof size: ", original_flat.size(), " Fr elements (", original_flat.size() * 32, " bytes)");
 
     auto compressed = ProofCompressor::compress_chonk_proof(proof);
+    double ratio = static_cast<double>(original_flat.size() * 32) / static_cast<double>(compressed.size());
     info("Compressed proof size: ", compressed.size(), " bytes");
-    info("Compression ratio: ",
-         static_cast<double>(original_flat.size() * 32) / static_cast<double>(compressed.size()),
-         "x");
+    info("Compression ratio: ", ratio, "x");
+
+    // Compression should achieve at least 1.5x (commitments 4 Fr → 32 bytes, scalars 1:1)
+    EXPECT_GE(ratio, 1.5) << "Compression ratio " << ratio << "x is below the expected minimum of 1.5x";
 
     size_t mega_num_pub_inputs = proof.mega_proof.size() - ChonkProof::HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS;
     ChonkProof decompressed = ProofCompressor::decompress_chonk_proof(compressed, mega_num_pub_inputs);
