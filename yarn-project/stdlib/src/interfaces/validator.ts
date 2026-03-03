@@ -98,7 +98,6 @@ export const ValidatorClientFullConfigSchema = zodFor<Omit<ValidatorClientFullCo
     slashDuplicateProposalPenalty: schemas.BigInt,
     slashDuplicateAttestationPenalty: schemas.BigInt,
     disableTransactions: z.boolean().optional(),
-    maxTxsPerBlock: z.number().optional(),
   }),
 );
 

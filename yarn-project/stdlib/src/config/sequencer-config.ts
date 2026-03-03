@@ -1,4 +1,4 @@
-import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
 
 import type { SequencerConfig } from '../interfaces/configs.js';
 

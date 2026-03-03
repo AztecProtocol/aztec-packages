@@ -13,7 +13,6 @@ import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ChainConfig,
-  DEFAULT_MAX_TXS_PER_BLOCK,
   type SequencerConfig,
   chainConfigMappings,
   sharedSequencerConfigMappings,
