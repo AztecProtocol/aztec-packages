@@ -245,7 +245,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
         getConsumeMethod(scope)(message.content, secret, crossChainTestHarness.ethAccount, globalLeafIndex);
 
       // Wait until the message is ready to be consumed, checking that it cannot be consumed beforehand
-      await waitForMessageReady(msgHash, scope, async (blockNumber: BlockNumber) => {
+      await waitForMessageReady(msgHash, scope, async () => {
         if (scope === 'private') {
           // On private, we simulate the tx locally and check that we get a missing message error, then we advance to the next block
           await expect(() => consume().simulate({ from: user1Address })).rejects.toThrow(/No L1 to L2 message found/);
