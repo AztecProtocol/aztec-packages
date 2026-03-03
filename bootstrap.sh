@@ -100,13 +100,17 @@ function install_linux_deps {
     echo "Installation requires the apt package manager."
     exit 1
   fi
-  spinner "Installing apt dependencies..." "sudo apt install jq parallel awk git curl zstd redis-tools"
+  mkdir -p "$AZTEC_DEV_BIN"
+  spinner "Installing apt dependencies..." "sudo apt install -y jq parallel curl wget zstd redis-tools lsb-release software-properties-common gnupg build-essential cmake ninja-build xxd"
   spinner "Installing llvm..." install_llvm
   spinner "Installing yq..." install_yq
   spinner "Installing ldid..." install_ldid
   spinner "Installing rustup..." install_rustup
   spinner "Installing wasi-sdk..." install_wasi_sdk
   spinner "Installing foundry..." install_foundry
+  spinner "Installing zig..." install_zig
+  spinner "Installing node..." install_node
+  spinner "Installing node utils..." install_node_utils
 }
 
 function install_macos_deps {
@@ -567,7 +571,30 @@ function release_dryrun {
 }
 
 ### SELF TESTING #######################################################################################################
-function bootstrap_on_mac_vm {
+function test_bootstrap_linux {
+  local name=linux-bootstrap-test-ubuntu
+  docker volume rm $name-volume &>/dev/null || true
+  trap "docker volume rm $name-volume &>/dev/null" EXIT
+  docker run --rm -ti --name $name \
+    --cpus=32 \
+    --memory=32g \
+    --ulimit nofile=1048576:1048576 \
+    -v $root:/aztec-packages:ro \
+    --mount type=volume,src=$name-volume,dst=/root/aztec-packages \
+    -w /root \
+    ubuntu:24.04 bash -c "
+set -euo pipefail
+ulimit -n 65536
+apt update && apt install -y git sudo
+git config --global --add safe.directory /aztec-packages/.git
+git clone --branch=$(git branch --show-current) /aztec-packages
+cd aztec-packages
+./bootstrap.sh install_deps </dev/null
+bash -l -i -c 'ulimit -n 65536 && NO_CACHE=1 ./bootstrap.sh gentle'
+  "
+}
+
+function test_bootstrap_macos {
   local version="${1:-26}"
   local name="bootstrap-test-$version"
   CPU_CORES=32 RAM_SIZE=32g /mnt/user-data/macos/launch_vm.sh $version "" $name
@@ -581,7 +608,7 @@ ulimit -n 65536
 git clone --depth=1 --branch=$(git branch --show-current) https://github.com/aztecprotocol/aztec-packages
 cd aztec-packages
 ./bootstrap.sh install_deps </dev/null
-zsh -l -i -c "ulimit -n 65536 && ./bootstrap.sh gentle"
+zsh -l -i -c "ulimit -n 65536 && NO_CACHE=1 ./bootstrap.sh gentle"
 REMOTE_EOF
   /mnt/user-data/macos/ssh.sh $name -t zsh -l /tmp/mac_bootstrap.sh
 }
