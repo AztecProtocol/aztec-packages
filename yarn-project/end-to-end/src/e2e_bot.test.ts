@@ -131,8 +131,8 @@ describe('e2e_bot', () => {
 
         l1RpcUrls,
         feePaymentMethod: 'fee_juice',
-        // TODO: this should be taken from the `setup` call above
-        l1Mnemonic: new SecretValue('test test test test test test test test test test test junk'),
+        // Use a dedicated L1 private key (index 7) to avoid nonce conflicts with the sequencer (index 0).
+        l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(7)!)),
         flushSetupTransactions: true,
       };
 
@@ -169,8 +169,8 @@ describe('e2e_bot', () => {
 
         l1RpcUrls,
         feePaymentMethod: 'fee_juice',
-        // TODO: this should be taken from the `setup` call above
-        l1Mnemonic: new SecretValue('test test test test test test test test test test test junk'),
+        // Use a dedicated L1 private key (index 7) to avoid nonce conflicts with the sequencer (index 0).
+        l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(7)!)),
         flushSetupTransactions: true,
       };
 
