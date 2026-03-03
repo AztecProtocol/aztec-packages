@@ -76,7 +76,7 @@ contract DeployAlpha is Script, StdAssertions {
   address internal constant MAINNET_OLD_FLUSH_REWARDER = 0x7C9a7130379F1B5dd6e7A53AF84fC0fE32267B65;
   address internal constant MAINNET_REWARD_TOKEN = 0xA27EC0006e59f245217Ff08CD52A7E8b169E62D2;
 
-  bytes32 internal constant MAINNET_VK_TREE_ROOT = 0x2d0b15497929f5150c4c383993555456e60d27121f4ac2cb9ef880319f5f9a6f;
+  bytes32 internal constant MAINNET_VK_TREE_ROOT = 0x1dd2644a17d1ddd8831287a78c5a1033b7ae35cdf2a3db833608856c062fc2ba;
   bytes32 internal constant MAINNET_PROTOCOL_CONTRACTS_HASH =
     0x2672340d9a0107a7b81e6d10d25b854debe613f3272e8738e8df0ca2ff297141;
   bytes32 internal constant MAINNET_GENESIS_ARCHIVE_ROOT =
