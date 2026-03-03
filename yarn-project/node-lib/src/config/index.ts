@@ -5,6 +5,8 @@ export type SharedNodeConfig = {
   testAccounts: boolean;
   /** Whether to populate the genesis state with initial fee juice for the sponsored FPC */
   sponsoredFPC: boolean;
+  /** Additional addresses to prefund with fee juice at genesis */
+  prefundAddresses: string[];
   /** Sync mode: full to always sync via L1, snapshot to download a snapshot if there is no local data, force-snapshot to download even if there is local data. */
   syncMode: 'full' | 'snapshot' | 'force-snapshot';
   /** Base URLs for snapshots index. Index file will be searched at `SNAPSHOTS_BASE_URL/aztec-L1_CHAIN_ID-VERSION-ROLLUP_ADDRESS/index.json` */
@@ -31,6 +33,16 @@ export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
     env: 'SPONSORED_FPC',
     description: 'Whether to populate the genesis state with initial fee juice for the sponsored FPC.',
     ...booleanConfigHelper(false),
+  },
+  prefundAddresses: {
+    env: 'PREFUND_ADDRESSES',
+    description: 'Comma-separated list of Aztec addresses to prefund with fee juice at genesis.',
+    parseEnv: (val: string) =>
+      val
+        .split(',')
+        .map(a => a.trim())
+        .filter(a => a.length > 0),
+    defaultValue: [],
   },
   syncMode: {
     env: 'SYNC_MODE',
