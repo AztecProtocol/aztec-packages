@@ -193,7 +193,7 @@ export function emptyOffchainOutput(): OffchainOutput {
  * Always includes the return value and offchain output.
  * When `includeMetadata` or `fee.estimateGas` is set, also includes stats and gas estimation.
  */
-export type SimulationReturn = {
+export type SimulationResult = {
   /** Return value of the function */
   result: any;
   /** Additional stats about the simulation. Present when `includeMetadata` is set. */

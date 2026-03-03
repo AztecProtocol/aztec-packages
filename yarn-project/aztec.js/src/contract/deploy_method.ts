@@ -27,7 +27,7 @@ import {
   type RequestInteractionOptions,
   type SendInteractionOptionsWithoutWait,
   type SimulationInteractionFeeOptions,
-  type SimulationReturn,
+  type SimulationResult,
   type TxSendResultImmediate,
   type TxSendResultMined,
   extractOffchainOutput,
@@ -412,7 +412,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * @returns A simulation result object containing metadata of the execution, including gas
    * estimations (if requested via options), execution statistics and emitted offchain effects
    */
-  public async simulate(options: SimulateDeployOptions): Promise<SimulationReturn> {
+  public async simulate(options: SimulateDeployOptions): Promise<SimulationResult> {
     const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
     const simulatedTx = await this.wallet.simulateTx(
       executionPayload,

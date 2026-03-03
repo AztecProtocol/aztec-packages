@@ -18,7 +18,7 @@ import {
   type ProfileInteractionOptions,
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
-  type SimulationReturn,
+  type SimulationResult,
   emptyOffchainOutput,
   extractOffchainOutput,
   toProfileOptions,
@@ -101,7 +101,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    */
   public async simulate(
     options: SimulateInteractionOptions = {} as SimulateInteractionOptions,
-  ): Promise<SimulationReturn> {
+  ): Promise<SimulationResult> {
     // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       const call = await this.getFunctionCall();

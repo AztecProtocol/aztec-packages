@@ -15,7 +15,7 @@ import type {
   SendInteractionOptionsWithoutWait,
   SendReturn,
   SimulateInteractionOptions,
-  SimulationReturn,
+  SimulationResult,
   TxSendResultMined,
 } from '../contract/interaction_options.js';
 import type { Wallet } from '../wallet/index.js';
@@ -267,7 +267,7 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
    */
   public override simulate(
     options: Omit<SimulateInteractionOptions, 'from'> = {} as Omit<SimulateInteractionOptions, 'from'>,
-  ): Promise<SimulationReturn> {
+  ): Promise<SimulationResult> {
     return super.simulate({ ...options, from: this.from } as SimulateInteractionOptions);
   }
 

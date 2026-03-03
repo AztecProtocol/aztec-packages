@@ -58,7 +58,7 @@ export {
   type InteractionWaitOptions,
   type GasSettingsOption,
   type SendReturn,
-  type SimulationReturn,
+  type SimulationResult,
   type TxSendResultImmediate,
   type TxSendResultMined,
   emptyOffchainOutput,
