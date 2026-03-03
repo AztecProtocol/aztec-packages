@@ -33,21 +33,13 @@ function enable_auto_merge {
 
 # Configuration (can be overridden via environment variables)
 BRANCH_PATTERN="${BRANCH_PATTERN:-merge-train/}"
-BASE_BRANCH_PATTERN="${BASE_BRANCH_PATTERN:-}"  # if set, filter PRs whose base branch matches this regex
 MERGE_STRATEGY="${MERGE_STRATEGY:-merge}"
 INACTIVITY_HOURS="${INACTIVITY_HOURS:-4}"
 INACTIVITY_SECONDS=$((INACTIVITY_HOURS * 3600))
 
 function get_prs_by_branch_pattern {
-  # Filter to --base next for regular merge trains.
-  # For backport trains (BASE_BRANCH_PATTERN set), list all open PRs and filter by base branch pattern.
-  if [[ -n "$BASE_BRANCH_PATTERN" ]]; then
-    gh pr list --state open --json number,headRefName,baseRefName,updatedAt \
-      --jq '.[] | select(.headRefName | startswith("'"$BRANCH_PATTERN"'")) | select(.baseRefName | test("'"$BASE_BRANCH_PATTERN"'"))'
-  else
-    gh pr list --state open --base next --json number,headRefName,updatedAt \
-      --jq '.[] | select(.headRefName | startswith("'"$BRANCH_PATTERN"'"))'
-  fi
+  gh pr list --state open --limit 100 --search "head:$BRANCH_PATTERN" \
+    --json number,headRefName,updatedAt --jq '.[]'
 }
 
 function get_meaningful_commits_for_pr {
