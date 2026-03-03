@@ -20,42 +20,68 @@ jobs:
       - name: Check if PR exists and create if needed
         env:
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          MERGE_TRAIN_GITHUB_TOKEN: ${{ secrets.MERGE_TRAIN_GITHUB_TOKEN }}
         run: |
             branch="${{ github.ref_name }}"
+            branch_suffix="${branch#merge-train/}"
 
-            # Skip if this is a merge commit (check for multiple parents)
-            parent_count=$(git rev-list --parents -n 1 "${{ github.sha }}" | wc -w)
-            if [[ $parent_count -gt 2 ]]; then
-              echo "Skipping: This is a merge commit."
-              exit 0
+            # Detect backport trains: merge-train/v<N>[...] targets a release branch
+            if [[ "$branch_suffix" =~ ^v[0-9] ]]; then
+              base_branch="$branch_suffix"
+              is_backport=true
+            else
+              base_branch="next"
+              is_backport=false
             fi
 
-            # Skip if this commit is already in the next branch
-            if git merge-base --is-ancestor "${{ github.sha }}" origin/next; then
-              echo "Skipping: This commit is already in the next branch"
-              exit 0
+            if [[ "$is_backport" == "false" ]]; then
+              # Skip if this is a merge commit (check for multiple parents)
+              parent_count=$(git rev-list --parents -n 1 "${{ github.sha }}" | wc -w)
+              if [[ $parent_count -gt 2 ]]; then
+                echo "Skipping: This is a merge commit."
+                exit 0
+              fi
+
+              # Skip if this commit is already in the next branch
+              if git merge-base --is-ancestor "${{ github.sha }}" origin/next; then
+                echo "Skipping: This commit is already in the next branch"
+                exit 0
+              fi
             fi
 
             # Check if PR already exists for this branch
             existing_pr=$(gh pr list --state open --head "$branch" --json number --jq '.[0].number // empty')
 
-            if [[ -z "$existing_pr" ]]; then
-              echo "No PR exists for $branch, creating one"
+            if [[ -n "$existing_pr" ]]; then
+              echo "PR #$existing_pr already exists for $branch"
+              exit 0
+            fi
 
-              # Determine base branch (default to next)
-              base_branch="next"
+            echo "Creating PR: $branch → $base_branch"
 
-              # Create PR with ci-no-squash label
+            if [[ "$is_backport" == "true" ]]; then
+              labels="ci-no-squash,ci-skip"
+              title="chore: Accumulated backports to $base_branch"
+              body="Backport train for \`$base_branch\`. Commits prefixed \`CONFLICTS:\` need manual resolution before merging."
+            else
               labels="ci-no-squash"
               if [[ "$branch" == "merge-train/spartan" ]]; then
                 labels="$labels,ci-full-no-test-cache"
               fi
-              gh pr create --base "$base_branch" --head "$branch" \
-                --title "feat: $branch" \
-                --body "$(echo -e "See [merge-train-readme.md](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md).\nThis is a merge-train.")" \
-                --label "$labels"
+              title="feat: $branch"
+              body="$(echo -e "See [merge-train-readme.md](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md).\nThis is a merge-train.")"
+            fi
 
-              echo "Created PR for $branch"
-            else
-              echo "PR #$existing_pr already exists for $branch"
+            gh pr create --base "$base_branch" --head "$branch" \
+              --title "$title" \
+              --body "$body" \
+              --label "$labels"
+
+            echo "Created PR for $branch → $base_branch"
+
+            # Auto-approve backport train PRs using the merge-train bot account
+            if [[ "$is_backport" == "true" ]]; then
+              pr_number=$(gh pr list --state open --head "$branch" --json number --jq '.[0].number')
+              echo "Auto-approving backport train PR #$pr_number"
+              GH_TOKEN="${MERGE_TRAIN_GITHUB_TOKEN}" gh pr review "$pr_number" --approve --body "🤖 Auto-approved backport train"
             fi
