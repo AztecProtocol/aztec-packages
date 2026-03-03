@@ -50,12 +50,14 @@ struct miller_lines {
     std::array<fq12::ell_coeffs, precomputed_coefficients_length> lines;
 };
 
+// Struct representing a point in G2 in homogeneous projective coordinates
 struct g2Projective {
     fq2 x;
     fq2 y;
     fq2 z;
 };
 
+// Struct representing a point in G2 in homogeneous projective coordinates
 struct g1Projective {
     fq x;
     fq y;
@@ -121,66 +123,6 @@ constexpr fq12 miller_loop_batch(const g1::affine_element* points, const miller_
 // ======================
 // Final exponentiation
 // ======================
-
-struct fq12Compressed {
-    fq2 g2;
-    fq2 g3;
-    fq2 g4;
-    fq2 g5;
-
-    /**
-     * @brief Map an element of fq12 into its compressed form.
-     *
-     * @details Fq12 can be constructed in two ways: ADD DETAILS HERE
-     *
-     * @param elt
-     * @return constexpr fq12Compressed
-     */
-    static constexpr fq12Compressed from_fq12(const fq12& elt)
-    {
-        return { elt.c1.c0, elt.c0.c2, elt.c0.c1, elt.c1.c2 };
-    }
-
-    constexpr fq12 decompress(const std::optional<fq2>& hint = std::nullopt) const
-    {
-        fq2 g0;
-        fq2 g1;
-        fq2 inverse;
-        if (g2.is_zero()) {
-            inverse = hint.has_value() ? hint.value() : g3.invert();
-            g1 = g4 * g5.mul_by_fq(fq(2)) * inverse;
-            g0 = fq6::mul_by_non_residue(g1.sqr().mul_by_fq(fq(2)) - g3 * g4.mul_by_fq(fq(3))) + fq2::one();
-        } else {
-            inverse = hint.has_value() ? hint.value() : g2.mul_by_fq(fq(4)).invert();
-            g1 = (fq6::mul_by_non_residue(g5.sqr()) + g4.sqr().mul_by_fq(fq(3)) - g3.mul_by_fq(fq(2))) * inverse;
-            g0 = fq6::mul_by_non_residue(g1.sqr().mul_by_fq(fq(2)) + g2 * g5 - g3 * g4.mul_by_fq(fq(3))) + fq2::one();
-        }
-
-        return fq12{ { g0, g4, g3 }, { g2, g1, g5 } };
-    }
-
-    constexpr void self_sqr()
-    {
-        fq2 A23 = (g2 + g3) * (g2 + fq6::mul_by_non_residue(g3));
-        fq2 A45 = (g4 + g5) * (g4 + fq6::mul_by_non_residue(g5));
-        fq2 B23 = g2 * g3;
-        fq2 B45 = g4 * g5;
-        fq2 B23_mul_by_non_residue = fq6::mul_by_non_residue(B23);
-        fq2 B45_mul_by_non_residue = fq6::mul_by_non_residue(B45);
-
-        g2 = (g2 + B45_mul_by_non_residue.mul_by_fq(fq(3))).mul_by_fq(fq(2));
-        g3 = (A45 - (B45_mul_by_non_residue + B45)).mul_by_fq(fq(3)) - g3.mul_by_fq(fq(2));
-        g4 = (A23 - (B23_mul_by_non_residue + B23)).mul_by_fq(fq(3)) - g4.mul_by_fq(fq(2));
-        g5 = (g5 + B23.mul_by_fq(fq(3))).mul_by_fq(fq(2));
-    }
-
-    constexpr fq12Compressed sqr() const
-    {
-        fq12Compressed result = *this;
-        result.self_sqr();
-        return result;
-    }
-};
 
 /**
  * @brief Easy part of the final exponentiation.
