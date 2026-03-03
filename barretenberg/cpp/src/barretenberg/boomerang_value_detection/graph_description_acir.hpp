@@ -19,6 +19,8 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
 
     bool is_inverse_gate(size_t block_idx, size_t gate_idx);
     bool is_boolean_gate(size_t block_idx, size_t gate_idx);
+    std::optional<size_t> find_gate_matching_state(auto& block,
+                                                   const std::array<uint32_t, CircuitBuilder::NUM_WIRES>& state);
     void process_constraint_system();
     std::unordered_set<size_t> get_incorrect_opcodes();
     bool process_quad_constraints(const ConstraintPtr& ptr, bool include_next_gate_w_4 = false);
@@ -34,8 +36,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
                                      const std::unordered_set<uint32_t>& next_constraint_witnesses);
     bool process_blake3s_constraints(const ConstraintPtr& ptr,
                                      const std::unordered_set<uint32_t>& next_constraint_witnesses);
-    bool process_poseidon2s_constraints(const ConstraintPtr& ptr,
-                                        const std::unordered_set<uint32_t>& next_constraint_witnesses);
+    bool process_poseidon2s_constraints(const ConstraintPtr& ptr);
     bool process_recursion_constraints(const ConstraintPtr& ptr,
                                        const std::unordered_set<uint32_t>& next_constraint_witnesses);
     bool process_multi_scalar_mul_constraints(const ConstraintPtr& ptr,
@@ -101,6 +102,8 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
                                                                 const size_t& init_gate_idx);
 
   private:
+    std::optional<size_t> find_block_index(const auto& block) const;
+
     acir_format::AcirFormat constraint_system;
     acir_format::AcirProgram program;
     bb::UltraCircuitBuilder builder;
