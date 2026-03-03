@@ -52,6 +52,9 @@ describe('e2e_bot', () => {
 
   afterAll(() => teardown());
 
+  let privateKeyIndex = 10;
+  const getPrivateKey = () => new SecretValue(bufferToHex(getPrivateKeyFromIndex(privateKeyIndex++)!));
+
   describe('transaction-bot', () => {
     let bot: Bot;
     beforeAll(async () => {
@@ -131,8 +134,7 @@ describe('e2e_bot', () => {
 
         l1RpcUrls,
         feePaymentMethod: 'fee_juice',
-        // TODO: this should be taken from the `setup` call above
-        l1Mnemonic: new SecretValue('test test test test test test test test test test test junk'),
+        l1PrivateKey: getPrivateKey(),
         flushSetupTransactions: true,
         // Increase fee headroom to handle fee volatility from rapid block building in tests.
         // Fees can escalate >10x due to blocks built by earlier tests and bridge operations.
@@ -172,8 +174,7 @@ describe('e2e_bot', () => {
 
         l1RpcUrls,
         feePaymentMethod: 'fee_juice',
-        // TODO: this should be taken from the `setup` call above
-        l1Mnemonic: new SecretValue('test test test test test test test test test test test junk'),
+        l1PrivateKey: getPrivateKey(),
         flushSetupTransactions: true,
         // Increase fee headroom to handle fee volatility from rapid block building in tests.
         // This test is especially susceptible because changing salt triggers a new bridge claim,
@@ -238,7 +239,7 @@ describe('e2e_bot', () => {
         followChain: 'PROPOSED',
         botMode: 'transfer',
         senderPrivateKey: new SecretValue(Fr.random()),
-        l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(8)!)),
+        l1PrivateKey: getPrivateKey(),
         l1RpcUrls,
         flushSetupTransactions: true,
       };
@@ -261,7 +262,7 @@ describe('e2e_bot', () => {
         followChain: 'PROPOSED',
         botMode: 'crosschain',
         l1RpcUrls,
-        l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(9)!)),
+        l1PrivateKey: getPrivateKey(),
         flushSetupTransactions: true,
         l1ToL2SeedCount: 2,
       };
