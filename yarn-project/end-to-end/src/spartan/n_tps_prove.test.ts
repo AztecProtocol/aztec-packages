@@ -402,7 +402,10 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
       rollupCheatCodes.getSlot(),
       rollupCheatCodes.getTips(),
     ]);
-    logger.info(`Starting test in epoch ${testEpoch}, slot ${startSlot} (real_verifier=${config.REAL_VERIFIER})`);
+    const targetEpoch = testEpoch + 1;
+    logger.info(
+      `Starting test in epoch ${testEpoch}, slot ${startSlot}, target epoch is ${targetEpoch} (real_verifier=${config.REAL_VERIFIER})`,
+    );
 
     const txsToSend = Math.ceil(TARGET_TPS * epochDurationSeconds);
     const msPerTx = 1000 / TARGET_TPS;
@@ -440,6 +443,10 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
         logger.info(`Sent tx ${i + 1}/${txsToSend}`);
       } catch (err) {
         logger.warn(`Failed to send tx ${i + 1}/${txsToSend}: ${err}`);
+      }
+
+      if ((await rollupCheatCodes.getEpoch()) > targetEpoch) {
+        break;
       }
 
       // sleep to maintain target TPS

@@ -14,7 +14,7 @@ import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundatio
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
-import { elapsed } from '@aztec/foundation/timer';
+import { Timer, elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
 import { EthAddress } from '@aztec/stdlib/block';
 import type {
@@ -174,14 +174,19 @@ export class ProvingOrchestrator implements EpochProver {
 
     // Fork world state at the end of the immediately previous block.
     const lastBlockNumber = headerOfLastBlockInPreviousCheckpoint.globalVariables.blockNumber;
+    let timer = new Timer();
     const db = await this.dbProvider.fork(lastBlockNumber);
 
     const firstBlockNumber = BlockNumber(lastBlockNumber + 1);
     this.dbs.set(firstBlockNumber, db);
+    this.logger.info(`startNewCheckpoint fork: ${timer.ms()}ms`, { firstBlockNumber });
 
+    timer = new Timer();
     // Get archive sibling path before any block in this checkpoint lands.
     const lastArchiveSiblingPath = await getLastSiblingPath(MerkleTreeId.ARCHIVE, db);
+    this.logger.info(`startNewCheckpoint archiveSiblingPath: ${timer.ms()}ms`, { firstBlockNumber });
 
+    timer = new Timer();
     // Insert all the l1 to l2 messages into the db. And get the states before and after the insertion.
     const {
       lastL1ToL2MessageTreeSnapshot,
@@ -189,6 +194,7 @@ export class ProvingOrchestrator implements EpochProver {
       newL1ToL2MessageTreeSnapshot,
       newL1ToL2MessageSubtreeRootSiblingPath,
     } = await this.updateL1ToL2MessageTree(l1ToL2Messages, db);
+    this.logger.info(`startNewCheckpoint l1ToL2MessageTree: ${timer.ms()}ms`, { firstBlockNumber });
 
     this.provingState.startNewCheckpoint(
       checkpointIndex,
@@ -381,6 +387,7 @@ export class ProvingOrchestrator implements EpochProver {
     if (!this.provingState?.verifyState()) {
       throw new Error(`Empty epoch proving state. call startNewEpoch before starting chonk verifier circuits.`);
     }
+    const timer = new Timer();
     const publicTxs = txs.filter(tx => tx.data.forPublic);
     for (const tx of publicTxs) {
       const txHash = tx.getTxHash().toString();
@@ -398,6 +405,7 @@ export class ProvingOrchestrator implements EpochProver {
       });
       this.provingState.cachedChonkVerifierProofs.set(txHash, tubeProof.promise);
     }
+    this.logger.info(`startChonkVerifierCircuits: enqueued ${publicTxs.length} txs in ${timer.ms()}ms`);
     return Promise.resolve();
   }
 

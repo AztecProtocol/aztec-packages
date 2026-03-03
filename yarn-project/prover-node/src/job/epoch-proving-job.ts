@@ -143,23 +143,28 @@ export class EpochProvingJob implements Traceable {
     });
 
     this.progressState('processing');
-    const timer = new Timer();
+    let timer = new Timer();
     const { promise, resolve } = promiseWithResolvers<void>();
     this.runPromise = promise;
 
     try {
       const blobFieldsPerCheckpoint = this.checkpoints.map(checkpoint => checkpoint.toBlobFields());
       this.log.info(`Blob fields per checkpoint: ${timer.ms()}ms`);
+      timer = new Timer();
       const finalBlobBatchingChallenges = await buildFinalBlobChallenges(blobFieldsPerCheckpoint);
       this.log.info(`Final blob batching challeneger: ${timer.ms()}ms`);
 
       this.prover.startNewEpoch(epochNumber, epochSizeCheckpoints, finalBlobBatchingChallenges);
+      timer = new Timer();
       await this.prover.startChonkVerifierCircuits(Array.from(this.txs.values()));
+      this.log.info(`Chonk verifier circuits enqueued: ${timer.ms()}ms`);
 
       // Everything in the epoch should have the same chainId and version.
       const { chainId, version } = this.checkpoints[0].blocks[0].header.globalVariables;
 
+      timer = new Timer();
       const previousBlockHeaders = this.gatherPreviousBlockHeaders();
+      this.log.info(`Previous block headers gathered, entering asyncPool: ${timer.ms()}ms`);
 
       await asyncPool(this.config.parallelBlockLimit ?? 32, this.checkpoints, async checkpoint => {
         this.checkState();
@@ -187,6 +192,7 @@ export class EpochProvingJob implements Traceable {
           uuid: this.uuid,
         });
 
+        const checkpointTimer = new Timer();
         await this.prover.startNewCheckpoint(
           checkpointIndex,
           checkpointConstants,
@@ -194,6 +200,10 @@ export class EpochProvingJob implements Traceable {
           checkpoint.blocks.length,
           previousHeader,
         );
+        this.log.info(`startNewCheckpoint for checkpoint ${checkpoint.number}: ${checkpointTimer.ms()}ms`, {
+          checkpointNumber: checkpoint.number,
+          uuid: this.uuid,
+        });
 
         for (let blockIndex = 0; blockIndex < checkpoint.blocks.length; blockIndex++) {
           const block = checkpoint.blocks[blockIndex];
@@ -216,10 +226,15 @@ export class EpochProvingJob implements Traceable {
 
           // Process public fns. L1 to L2 messages are only inserted for the first block of a checkpoint,
           // as the fork for subsequent blocks already includes them from the previous block's synced state.
+          const forkTimer = new Timer();
           const db = await this.createFork(
             BlockNumber(block.number - 1),
             blockIndex === 0 ? l1ToL2Messages : undefined,
           );
+          this.log.verbose(`createFork for block ${block.number}: ${forkTimer.ms()}ms`, {
+            blockNumber: block.number,
+            uuid: this.uuid,
+          });
           const config = PublicSimulatorConfig.from({
             proverId: this.prover.getProverId().toField(),
             skipFeeEnforcement: false,
