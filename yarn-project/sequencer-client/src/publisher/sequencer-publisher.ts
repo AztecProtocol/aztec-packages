@@ -34,8 +34,9 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
+import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { bufferToHex } from '@aztec/foundation/string';
-import { DateProvider, Timer } from '@aztec/foundation/timer';
+import { type DateProvider, Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
 import { CommitteeAttestationsAndSigners, type ValidateCheckpointResult } from '@aztec/stdlib/block';
@@ -96,6 +97,7 @@ export type InvalidateCheckpointRequest = {
 interface RequestWithExpiry {
   action: Action;
   request: L1TxRequest;
+  firstValidL2Slot: SlotNumber;
   lastValidL2Slot: SlotNumber;
   gasConfig?: Pick<L1TxConfig, 'txTimeoutAt' | 'gasLimit'>;
   blobConfig?: L1BlobInputs;
@@ -131,6 +133,12 @@ export class SequencerPublisher {
 
   /** Fee asset price oracle for computing price modifiers from Uniswap V4 */
   private feeAssetPriceOracle: FeeAssetPriceOracle;
+
+  /** Date provider for wall-clock time. */
+  private readonly dateProvider: DateProvider;
+
+  /** Interruptible sleep used by sendRequestsAt to wait until a target timestamp. */
+  private readonly interruptibleSleep = new InterruptibleSleep();
 
   // A CALL to a cold address is 2700 gas
   public static MULTICALL_OVERHEAD_GAS_GUESS = 5000n;
@@ -172,6 +180,7 @@ export class SequencerPublisher {
     this.lastActions = deps.lastActions;
 
     this.blobClient = deps.blobClient;
+    this.dateProvider = deps.dateProvider;
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
     this.metrics = deps.metrics ?? new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
@@ -314,6 +323,25 @@ export class SequencerPublisher {
   }
 
   /**
+   * Get the valid requests based on their firstValidBlock
+   */
+  getRequestsToProcess(): RequestWithExpiry[] {
+    const requestsToProcess: RequestWithExpiry[] = [];
+    const requestsToDefer: RequestWithExpiry[] = [];
+    const currentL2Slot = this.getCurrentL2Slot();
+    for (const request of this.requests) {
+      if (request.firstValidL2Slot === currentL2Slot) {
+        requestsToProcess.push(request);
+      } else {
+        requestsToDefer.push(request);
+      }
+    }
+
+    this.requests = requestsToDefer;
+    return requestsToProcess;
+  }
+
+  /**
    * Sends all requests that are still valid.
    * @returns one of:
    * - A receipt and stats if the tx succeeded
@@ -322,8 +350,8 @@ export class SequencerPublisher {
    */
   @trackSpan('SequencerPublisher.sendRequests')
   public async sendRequests() {
-    const requestsToProcess = [...this.requests];
-    this.requests = [];
+    const requestsToProcess = this.getRequestsToProcess();
+
     if (this.interrupted || requestsToProcess.length === 0) {
       return undefined;
     }
@@ -414,6 +442,23 @@ export class SequencerPublisher {
         this.log.warn(`Failed to record balance after sending tx: ${err}`);
       }
     }
+  }
+
+  /**
+   * Schedules sending all enqueued requests at (or after) the given timestamp.
+   * Uses InterruptibleSleep so it can be cancelled via interrupt().
+   * Returns the promise for the L1 response (caller should NOT await this in the work loop).
+   */
+  public async sendRequestsAt(submitAfter: Date) {
+    const ms = submitAfter.getTime() - this.dateProvider.now();
+    if (ms > 0) {
+      this.log.debug(`Sleeping ${ms}ms before sending requests`, { submitAfter });
+      await this.interruptibleSleep.sleep(ms);
+    }
+    if (this.interrupted) {
+      return undefined;
+    }
+    return this.sendRequests();
   }
 
   private callbackBundledTransactions(
@@ -760,6 +805,7 @@ export class SequencerPublisher {
       gasConfig: { gasLimit: SequencerPublisher.VOTE_GAS_GUESS },
       action,
       request,
+      firstValidL2Slot: slotNumber,
       lastValidL2Slot: slotNumber,
       checkSuccess: (_request, result) => {
         const success =
@@ -1012,6 +1058,7 @@ export class SequencerPublisher {
       action: `invalidate-by-${request.reason}`,
       request: request.request,
       gasConfig: { gasLimit, txTimeoutAt: opts.txTimeoutAt },
+      firstValidL2Slot: this.getCurrentL2Slot(),
       lastValidL2Slot: SlotNumber(this.getCurrentL2Slot() + 2),
       checkSuccess: (_req, result) => {
         const success =
@@ -1072,6 +1119,7 @@ export class SequencerPublisher {
       action,
       request: requestWithAbi,
       gasConfig: { gasLimit },
+      firstValidL2Slot: slotNumber,
       lastValidL2Slot: slotNumber,
       checkSuccess: (_req, result) => {
         const success = result && result.receipt && result.receipt.status === 'success' && checkSuccess(result.receipt);
@@ -1095,6 +1143,7 @@ export class SequencerPublisher {
    */
   public interrupt() {
     this.interrupted = true;
+    this.interruptibleSleep.interrupt();
     this.l1TxUtils.interrupt();
   }
 
@@ -1294,6 +1343,7 @@ export class SequencerPublisher {
         to: this.rollupContract.address,
         data: rollupData,
       },
+      firstValidL2Slot: checkpoint.header.slotNumber,
       lastValidL2Slot: checkpoint.header.slotNumber,
       gasConfig: { ...opts, gasLimit },
       blobConfig: {

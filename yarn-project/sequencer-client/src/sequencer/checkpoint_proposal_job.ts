@@ -59,6 +59,13 @@ import { SequencerState } from './utils.js';
 /** How much time to sleep while waiting for min transactions to accumulate for a block */
 const TXS_POLLING_MS = 500;
 
+/** Result from proposeCheckpoint when a checkpoint was successfully built and attested. */
+type CheckpointProposalResult = {
+  checkpoint: Checkpoint;
+  attestations: CommitteeAttestationsAndSigners;
+  attestationsSignature: Signature;
+};
+
 /**
  * Handles the execution of a checkpoint proposal after the initial preparation phase.
  * This includes building blocks, collecting attestations, and publishing the checkpoint to L1,
@@ -126,7 +133,9 @@ export class CheckpointProposalJob implements Traceable {
 
   /**
    * Executes the checkpoint proposal job.
-   * Returns the published checkpoint if successful, undefined otherwise.
+   * Builds blocks, collects attestations, enqueues requests, and schedules L1 submission as a
+   * background task so the work loop can return to IDLE immediately.
+   * Returns the built checkpoint if successful, undefined otherwise.
    */
   @trackSpan('CheckpointProposalJob.execute')
   public async execute(): Promise<Checkpoint | undefined> {
@@ -145,8 +154,10 @@ export class CheckpointProposalJob implements Traceable {
       this.log,
     ).enqueueVotes();
 
-    // Build and propose the checkpoint. This will enqueue the request on the publisher if a checkpoint is built.
-    const checkpoint = await this.proposeCheckpoint();
+    // Build and propose the checkpoint. Builds blocks, broadcasts, collects attestations, and signs.
+    // Does NOT enqueue to L1 yet — that happens after the pipeline sleep.
+    const proposalResult = await this.proposeCheckpoint();
+    const checkpoint = proposalResult?.checkpoint;
 
     // Wait until the voting promises have resolved, so all requests are enqueued (not sent)
     await Promise.all(votesPromises);
@@ -161,29 +172,80 @@ export class CheckpointProposalJob implements Traceable {
       return;
     }
 
-    // If pipelining, wait until the submission slot so L1 recognizes the pipelined proposer
-    if (this.pipelineSlot !== this.slot) {
-      const submissionSlotTimestamp = getTimestampForSlot(this.pipelineSlot, this.l1Constants);
-      this.log.info(`Waiting until submission slot ${this.pipelineSlot} for L1 submission`, {
-        slot: this.slot,
-        submissionSlot: this.pipelineSlot,
-        submissionSlotTimestamp,
-      });
-      await sleepUntil(new Date(Number(submissionSlotTimestamp) * 1000), this.dateProvider.nowAsDate());
+    // Enqueue the checkpoint for L1 submission
+    if (proposalResult) {
+      try {
+        await this.enqueueCheckpointForSubmission(proposalResult);
+      } catch (err) {
+        this.log.error(`Failed to enqueue checkpoint for L1 submission at slot ${this.slot}`, err);
+        // Continue to sendRequestsAt so votes are still sent
+      }
     }
 
-    // Then send everything to L1
-    const l1Response = await this.publisher.sendRequests();
-    const proposedAction = l1Response?.successfulActions.find(a => a === 'propose');
-    if (proposedAction) {
-      this.eventEmitter.emit('checkpoint-published', { checkpoint: this.checkpointNumber, slot: this.slot });
-      const coinbase = checkpoint?.header.coinbase;
-      await this.metrics.incFilledSlot(this.publisher.getSenderAddress().toString(), coinbase);
-      return checkpoint;
-    } else if (checkpoint) {
-      this.eventEmitter.emit('checkpoint-publish-failed', { ...l1Response, slot: this.slot });
-      return undefined;
+    // Compute the earliest time to submit: pipeline slot start when pipelining, now otherwise.
+    const submitAfter =
+      this.pipelineSlot !== this.slot
+        ? new Date(Number(getTimestampForSlot(this.pipelineSlot, this.l1Constants)) * 1000)
+        : new Date(this.dateProvider.now());
+
+    // Fire-and-forget: schedule L1 submission in the background so the work loop returns immediately.
+    // The publisher will sleep until submitAfter, then send the bundled requests.
+    void this.publisher
+      .sendRequestsAt(submitAfter)
+      .then(async l1Response => {
+        const proposedAction = l1Response?.successfulActions.find(a => a === 'propose');
+        if (proposedAction) {
+          this.eventEmitter.emit('checkpoint-published', { checkpoint: this.checkpointNumber, slot: this.slot });
+          const coinbase = checkpoint?.header.coinbase;
+          await this.metrics.incFilledSlot(this.publisher.getSenderAddress().toString(), coinbase);
+        } else if (checkpoint) {
+          this.eventEmitter.emit('checkpoint-publish-failed', { ...l1Response, slot: this.slot });
+        }
+      })
+      .catch(err => {
+        this.log.error(`Background L1 submission failed for slot ${this.slot}`, err);
+        if (checkpoint) {
+          this.eventEmitter.emit('checkpoint-publish-failed', { slot: this.slot });
+        }
+      });
+
+    // Return the built checkpoint immediately — the work loop is now unblocked
+    return checkpoint;
+  }
+
+  /** Enqueues the checkpoint for L1 submission. Called after pipeline sleep in execute(). */
+  private async enqueueCheckpointForSubmission(result: CheckpointProposalResult): Promise<void> {
+    const { checkpoint, attestations, attestationsSignature } = result;
+
+    this.setStateFn(SequencerState.PUBLISHING_CHECKPOINT, this.slot);
+    const aztecSlotDuration = this.l1Constants.slotDuration;
+    const submissionSlotStart = Number(getTimestampForSlot(this.pipelineSlot, this.l1Constants));
+    const txTimeoutAt = new Date((submissionSlotStart + aztecSlotDuration) * 1000);
+
+    // If we have been configured to potentially skip publishing checkpoint then roll the dice here
+    if (
+      this.config.skipPublishingCheckpointsPercent !== undefined &&
+      this.config.skipPublishingCheckpointsPercent > 0
+    ) {
+      const roll = Math.max(0, randomInt(100));
+      if (roll < this.config.skipPublishingCheckpointsPercent) {
+        this.log.warn(
+          `Skipping publishing proposal for checkpoint ${checkpoint.number}. Configured percentage: ${this.config.skipPublishingCheckpointsPercent}, generated value: ${roll}`,
+        );
+        return;
+      }
     }
+
+    const additionalSlotOffset =
+      this.pipelineSlot !== this.slot
+        ? Math.ceil(this.l1Constants.slotDuration / this.l1Constants.ethereumSlotDuration)
+        : undefined;
+
+    await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
+      txTimeoutAt,
+      forcePendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
+      additionalSlotOffset,
+    });
   }
 
   @trackSpan('CheckpointProposalJob.proposeCheckpoint', function () {
@@ -193,7 +255,7 @@ export class CheckpointProposalJob implements Traceable {
       [Attributes.SLOT_NUMBER]: this.slot,
     };
   })
-  private async proposeCheckpoint(): Promise<Checkpoint | undefined> {
+  private async proposeCheckpoint(): Promise<CheckpointProposalResult | undefined> {
     try {
       // Get operator configured coinbase and fee recipient for this attestor
       const coinbase = this.validatorClient.getCoinbaseForAttestor(this.attestorAddress);
@@ -324,7 +386,11 @@ export class CheckpointProposalJob implements Traceable {
           },
         );
         this.metrics.recordCheckpointSuccess();
-        return checkpoint;
+        return {
+          checkpoint,
+          attestations: CommitteeAttestationsAndSigners.empty(),
+          attestationsSignature: Signature.empty(),
+        };
       }
 
       // Include the block pending broadcast in the checkpoint proposal if any
@@ -372,38 +438,8 @@ export class CheckpointProposalJob implements Traceable {
         throw err;
       }
 
-      // Enqueue publishing the checkpoint to L1
-      this.setStateFn(SequencerState.PUBLISHING_CHECKPOINT, this.slot);
-      const aztecSlotDuration = this.l1Constants.slotDuration;
-      const submissionSlotStart = Number(getTimestampForSlot(this.pipelineSlot, this.l1Constants));
-      const txTimeoutAt = new Date((submissionSlotStart + aztecSlotDuration) * 1000);
-
-      // If we have been configured to potentially skip publishing checkpoint then roll the dice here
-      if (
-        this.config.skipPublishingCheckpointsPercent !== undefined &&
-        this.config.skipPublishingCheckpointsPercent > 0
-      ) {
-        const result = Math.max(0, randomInt(100));
-        if (result < this.config.skipPublishingCheckpointsPercent) {
-          this.log.warn(
-            `Skipping publishing proposal for checkpoint ${checkpoint.number}. Configured percentage: ${this.config.skipPublishingCheckpointsPercent}, generated value: ${result}`,
-          );
-          return checkpoint;
-        }
-      }
-
-      const additionalSlotOffset =
-        this.pipelineSlot !== this.slot
-          ? Math.ceil(this.l1Constants.slotDuration / this.l1Constants.ethereumSlotDuration)
-          : undefined;
-
-      await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
-        txTimeoutAt,
-        forcePendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
-        additionalSlotOffset,
-      });
-
-      return checkpoint;
+      // Return the result for the caller to enqueue after the pipeline sleep
+      return { checkpoint, attestations, attestationsSignature };
     } catch (err) {
       if (err && (err instanceof DutyAlreadySignedError || err instanceof SlashingProtectionError)) {
         // swallow this error. It's already been logged by a function deeper in the stack

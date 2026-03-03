@@ -109,6 +109,8 @@ export class BlockStore {
   /** Index mapping block archive to block number */
   #blockArchiveIndex: AztecAsyncMap<string, number>;
 
+  #pendingCheckpoint: AztecAsyncSingleton<CheckpointNumber>;
+
   #log = createLogger('archiver:block_store');
 
   constructor(
@@ -126,6 +128,7 @@ export class BlockStore {
     this.#pendingChainValidationStatus = db.openSingleton('archiver_pending_chain_validation_status');
     this.#checkpoints = db.openMap('archiver_checkpoints');
     this.#slotToCheckpoint = db.openMap('archiver_slot_to_checkpoint');
+    this.#pendingCheckpoint = db.openSingleton('pending_checkpoint');
   }
 
   /**
@@ -161,6 +164,7 @@ export class BlockStore {
 
       // Extract the latest block and checkpoint numbers
       const previousBlockNumber = await this.getLatestBlockNumber();
+      const pendingCheckpointNumber = await this.getPendingCheckpointNumber();
       const previousCheckpointNumber = await this.getLatestCheckpointNumber();
 
       // Verify we're not overwriting checkpointed blocks
@@ -175,7 +179,11 @@ export class BlockStore {
       }
 
       // The same check as above but for checkpoints
-      if (!opts.force && previousCheckpointNumber !== firstBlockCheckpointNumber - 1) {
+      const expectedCheckpointNumber = firstBlockCheckpointNumber - 1;
+      if (
+        !opts.force &&
+        (previousCheckpointNumber !== expectedCheckpointNumber || pendingCheckpointNumber !== expectedCheckpointNumber)
+      ) {
         throw new InitialCheckpointNumberNotSequentialError(firstBlockCheckpointNumber, previousCheckpointNumber);
       }
 
@@ -595,6 +603,14 @@ export class BlockStore {
     return CheckpointNumber(latestCheckpointNumber);
   }
 
+  async getPendingCheckpointNumber(): Promise<CheckpointNumber> {
+    const checkpointNumber = await this.#pendingCheckpoint.getAsync();
+    if (checkpointNumber === undefined) {
+      return CheckpointNumber(INITIAL_CHECKPOINT_NUMBER - 1);
+    }
+    return checkpointNumber;
+  }
+
   async getCheckpointedBlock(number: BlockNumber): Promise<CheckpointedL2Block | undefined> {
     const blockStorage = await this.#blocks.getAsync(number);
     if (!blockStorage) {
@@ -959,6 +975,11 @@ export class BlockStore {
 
   setSynchedL1BlockNumber(l1BlockNumber: bigint) {
     return this.#lastSynchedL1Block.set(l1BlockNumber);
+  }
+
+  // TODO: could store the whole checkpoint in here?
+  setPendingCheckpointNumber(pendingCheckpointNumber: CheckpointNumber) {
+    return this.#pendingCheckpoint.set(pendingCheckpointNumber);
   }
 
   async getProvenCheckpointNumber(): Promise<CheckpointNumber> {

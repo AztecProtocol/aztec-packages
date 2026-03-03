@@ -139,6 +139,14 @@ export class BlockProposalHandler {
       txHashes: proposal.txHashes.map(t => t.toString()),
     });
 
+    // WORKTODO(md): we should check that either - a checkpoint exists on l1 for the previous slot
+    //               or that we have quorum attestations for the previous slot
+    // - if our tips store is not up to date with this slot, we check that we have quorum
+    // - is it enough for us to have a block for the previous slot?
+    //     - no! we should also check here that the slot the parentBlock is included in does have sufficient attestations
+    //     -
+    // I might not need to do this - but i probably do
+
     // Check that the proposal is from the current proposer, or the next proposer
     // This should have been handled by the p2p layer, but we double check here out of caution
     const validationResult = await this.blockProposalValidator.validate(proposal);
