@@ -1,13 +1,12 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { NO_WAIT } from '@aztec/aztec.js/contracts';
+import { NO_WAIT, extractOffchainOutput } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { waitForTx } from '@aztec/aztec.js/node';
 import type { CheatCodes } from '@aztec/aztec/testing';
-import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import { retryUntil } from '@aztec/foundation/retry';
 import { OffchainPaymentContract } from '@aztec/noir-test-contracts.js/OffchainPayment';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { OFFCHAIN_MESSAGE_IDENTIFIER, TxStatus } from '@aztec/stdlib/tx';
+import { TxStatus } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
@@ -65,24 +64,17 @@ describe('e2e_offchain_payment', () => {
     // Mint to Alice using onchain delivery so she can spend the note.
     await contract.methods.mint(mintAmount, alice).send({ from: alice });
 
-    // Alice prepares the private transfer which emits offchain effects.
-    const provenTx = await proveInteraction(wallet, contract.methods.transfer_offchain(paymentAmount, bob), {
-      from: alice,
-    });
-    const { txHash } = await provenTx.send();
+    // Alice sends the private transfer which emits offchain messages.
+    const { receipt, offchainMessages } = await contract.methods
+      .transfer_offchain(paymentAmount, bob)
+      .send({ from: alice });
+    expect(offchainMessages.length).toBeGreaterThan(0);
 
-    const offchainEffects = provenTx.offchainEffects;
-    expect(offchainEffects.length).toBeGreaterThan(0);
+    // QR payload is the offchain message for Bob.
+    const messageForBob = offchainMessages.find(msg => msg.recipient.equals(bob));
+    expect(messageForBob).toBeTruthy();
 
-    // QR payload is the offchain effect for Bob.
-    const effectForBob = offchainEffects.find(
-      effect => effect.data[0].equals(OFFCHAIN_MESSAGE_IDENTIFIER) && effect.data[1].equals(bob.toField()),
-    );
-    expect(effectForBob).toBeTruthy();
-
-    const ciphertext = effectForBob!.data.slice(2, 2 + PRIVATE_LOG_CIPHERTEXT_LEN);
-
-    await contract.methods.offchain_receive(ciphertext, bob, txHash.hash).simulate({ from: bob });
+    await contract.methods.offchain_receive(messageForBob!.payload, bob, receipt.txHash.hash).simulate({ from: bob });
 
     // Force an empty block so the PXE re-syncs and discovers the offchain-delivered note.
     await forceEmptyBlock();
@@ -107,14 +99,12 @@ describe('e2e_offchain_payment', () => {
     const txBlockNumber = receipt.blockNumber!;
     const txHash = provenTx.getTxHash();
 
-    const effectForBob = provenTx.offchainEffects.find(
-      effect => effect.data[0].equals(OFFCHAIN_MESSAGE_IDENTIFIER) && effect.data[1].equals(bob.toField()),
-    );
-    expect(effectForBob).toBeTruthy();
-    const ciphertext = effectForBob!.data.slice(2, 2 + PRIVATE_LOG_CIPHERTEXT_LEN);
+    const { offchainMessages } = extractOffchainOutput(provenTx.offchainEffects);
+    const messageForBob = offchainMessages.find(msg => msg.recipient.equals(bob));
+    expect(messageForBob).toBeTruthy();
 
     // Deliver the offchain message for eventual processing
-    await contract.methods.offchain_receive(ciphertext, bob, txHash.hash).simulate({ from: bob });
+    await contract.methods.offchain_receive(messageForBob!.payload, bob, txHash.hash).simulate({ from: bob });
 
     // TODO: revisit this. The call to offchain_receive is a utility and as such it causes the contract to sync, which,
     // in combination with our caching policies, means subsequent utility calls won't trigger a re-sync.
