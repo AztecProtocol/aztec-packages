@@ -7,6 +7,7 @@
 ## Noir Idioms
 
 - Use `panic("message")` instead of `assert(false, "message")` for unconditional failures. `panic` returns the parent function's return type, making it usable in expression position (e.g. in if/else branches). Even when the return type doesn't matter, `panic` is the idiomatic choice.
+- **Early `return` is not supported in Noir.** You cannot use `return` or `return value` to exit a function early. Instead, restructure the code using `if/else` branches so that all paths lead to the end of the function with a single return expression. For example, instead of `if cond { return None; } ... Some(result)`, write `if cond { Option::none() } else { ... Option::some(result) }`.
 
 ## Doc Comments
 
