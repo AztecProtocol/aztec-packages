@@ -89,26 +89,7 @@ jobs:
           gh pr comment "${{ github.event.pull_request.number }}" --body \
             "❌ Failed to cherry-pick to \`$TARGET_BRANCH\` due to conflicts. Dispatching ClaudeBox to resolve. [View backport run]($WORKFLOW_URL)."
 
-      - name: Notify Slack on backport failure
-        if: steps.backport.outcome == 'failure'
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        run: |
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_URL="${{ github.event.pull_request.html_url }}"
-          TARGET_BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
-          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-          TEXT=$(printf '⚠️ Automatic backport failed\n• <%s|#%s %s>\n• Target: `%s`\n• <%s|View Run>' \
-            "$PR_URL" "$PR_NUMBER" "$PR_TITLE" "$TARGET_BRANCH" "$WORKFLOW_URL")
-          RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
-            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-            -H "Content-type: application/json" \
-            -d "$(jq -n --arg c "#backports" --arg t "$TEXT" '{channel:$c, text:$t}')")
-          echo "Slack response: $RESP"
-
-      - name: Dispatch ClaudeBox to resolve conflicts
+      - name: Notify Slack and dispatch ClaudeBox on backport failure
         if: steps.backport.outcome == 'failure'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
@@ -117,11 +98,12 @@ jobs:
           PR="${{ github.event.pull_request.number }}"
           TITLE="${{ github.event.pull_request.title }}"
           URL="${{ github.event.pull_request.html_url }}"
+          AUTHOR="${{ github.event.pull_request.user.login }}"
           BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
 
-          # Post to #backports, derive permalink from response
-          TEXT=$(printf '⚠️ Backport failed: <%s|#%s %s> → `%s`. Dispatching ClaudeBox…' \
-            "$URL" "$PR" "$TITLE" "$BRANCH")
+          # Post single message to #backports, derive permalink from response
+          TEXT=$(printf '⚠️ Backport failed: <%s|#%s %s> → `%s` (author: %s). Dispatching ClaudeBox…' \
+            "$URL" "$PR" "$TITLE" "$BRANCH" "$AUTHOR")
           RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-type: application/json" \
