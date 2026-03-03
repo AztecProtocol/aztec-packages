@@ -3,7 +3,6 @@ set -euo pipefail
 
 script_path=$(realpath $(dirname "$0"))
 
-name_arg=""
 project_path=""
 
 while [[ $# -gt 0 ]]; do
@@ -12,14 +11,13 @@ while [[ $# -gt 0 ]]; do
       cat << 'EOF'
 Aztec New - Create a new Aztec Noir project or add a contract to an existing workspace
 
-Usage: aztec new [OPTIONS] <NAME>
+Usage: aztec new <NAME>
 
 Arguments:
   <NAME>  The name for the new contract (also used as the directory name when
           creating a new workspace)
 
 Options:
-  --name <NAME>  Name of the package [default: derived from <NAME> argument]
   -h, --help     Print help
 
 When run outside an existing workspace:
@@ -31,10 +29,6 @@ When run inside an existing workspace (Nargo.toml with [workspace] exists):
 EOF
       exit 0
       ;;
-    --name)
-      name_arg="$2"
-      shift 2
-      ;;
     *)
       project_path=$1
       shift
@@ -45,13 +39,12 @@ done
 
 if [ -z "$project_path" ]; then
   echo "Error: NAME argument is required"
-  echo "Usage: aztec new [OPTIONS] <NAME>"
+  echo "Usage: aztec new <NAME>"
   echo "Run 'aztec new --help' for more information"
   exit 1
 fi
 
-# Derive package name: use --name if provided, otherwise use the argument
-package_name="${name_arg:-$(basename $project_path)}"
+package_name="$(basename $project_path)"
 
 # Check if we're inside an existing workspace
 if [ -f "Nargo.toml" ] && grep -q '\[workspace\]' Nargo.toml; then
