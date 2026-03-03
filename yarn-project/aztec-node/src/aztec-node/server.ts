@@ -743,6 +743,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return await this.blockSource.getCheckpointedL2BlockNumber();
   }
 
+  public getCheckpointNumber(): Promise<CheckpointNumber> {
+    return this.blockSource.getCheckpointNumber();
+  }
+
   /**
    * Method to fetch the version of the package.
    * @returns The node package version
@@ -1050,11 +1054,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return [witness.index, witness.path];
   }
 
-  public async getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<BlockNumber | undefined> {
+  public async getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined> {
     const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
-    return messageIndex
-      ? BlockNumber.fromCheckpointNumber(InboxLeaf.checkpointNumberFromIndex(messageIndex))
-      : undefined;
+    return messageIndex ? InboxLeaf.checkpointNumberFromIndex(messageIndex) : undefined;
   }
 
   /**
