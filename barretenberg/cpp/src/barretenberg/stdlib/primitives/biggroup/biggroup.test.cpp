@@ -1383,21 +1383,11 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         }
 
         // If with_edgecases = true, should handle linearly dependent points correctly
-        // Define masking scalar (128 bits)
-        const auto get_128_bit_scalar = []() {
-            uint256_t scalar_u256(0, 0, 0, 0);
-            scalar_u256.data[0] = engine.get_random_uint64();
-            scalar_u256.data[1] = engine.get_random_uint64();
-            fr scalar(scalar_u256);
-            return scalar;
-        };
-        fr masking_scalar = get_128_bit_scalar();
-        scalar_ct masking_scalar_ct = scalar_ct::from_witness(&builder, masking_scalar);
+        // (offset generator is now a free witness sampled inside batch_mul)
         element_ct c = element_ct::batch_mul(points,
                                              scalars,
                                              /*max_num_bits*/ 128,
-                                             /*with_edgecases*/ true,
-                                             /*masking_scalar*/ masking_scalar_ct);
+                                             /*with_edgecases*/ true);
         element input_e = (element(input_P_a) * scalar_a);
         element input_f = (element(input_P_b) * scalar_b);
         element input_g = (element(input_P_c) * scalar_c);
@@ -1511,20 +1501,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             circuit_points.push_back(P);
         }
 
-        // Define masking scalar (128 bits) if with_edgecases is true
-        const auto get_128_bit_scalar = []() {
-            uint256_t scalar_u256(0, 0, 0, 0);
-            scalar_u256.data[0] = engine.get_random_uint64();
-            scalar_u256.data[1] = engine.get_random_uint64();
-            fr scalar(scalar_u256);
-            return scalar;
-        };
-        fr masking_scalar = with_edgecases ? get_128_bit_scalar() : fr(1);
-        scalar_ct masking_scalar_ct =
-            with_edgecases ? scalar_ct::from_witness(&builder, masking_scalar) : scalar_ct(&builder, fr(1));
-
-        element_ct result_point = element_ct::batch_mul(
-            circuit_points, circuit_scalars, /*max_num_bits=*/0, with_edgecases, masking_scalar_ct);
+        element_ct result_point =
+            element_ct::batch_mul(circuit_points, circuit_scalars, /*max_num_bits=*/0, with_edgecases);
 
         element expected_point = g1::one;
         expected_point.self_set_infinity();
