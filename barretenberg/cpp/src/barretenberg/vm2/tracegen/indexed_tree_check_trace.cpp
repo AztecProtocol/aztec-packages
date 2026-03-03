@@ -70,13 +70,13 @@ void IndexedTreeCheckTraceBuilder::process(
         // Some events do not require writing to public inputs. We always discard those. Lookups by gadgets that don't
         // pass public inputs index should not look up discard.
         bool discard = (!event.public_inputs_index.has_value()) || raw_discard;
-        bool sel_write_to_public_inputs = event.append_data.has_value() && !discard;
+        bool sel_write_to_public_inputs = event.append_data.has_value() && (!discard);
 
         trace.set(row,
                   { {
                       { C::indexed_tree_check_sel, 1 },
                       { C::indexed_tree_check_const_three, 3 },
-                      { C::indexed_tree_check_write, event.write },
+                      { C::indexed_tree_check_write, event.write ? 1 : 0 },
                       { C::indexed_tree_check_value, value },
                       { C::indexed_tree_check_root, event.prev_snapshot.root },
                       { C::indexed_tree_check_exists, exists ? 1 : 0 },
