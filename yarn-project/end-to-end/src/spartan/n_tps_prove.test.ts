@@ -253,14 +253,40 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
     const l1ContractAddresses = await aztecNode.getNodeInfo().then(n => n.l1ContractAddresses);
     rollupCheatCodes = new RollupCheatCodes(ethCheatCodes, l1ContractAddresses);
 
+    // Start wallet creation in the background (only needs rpcUrl)
+    logger.info(`Creating ${NUM_WALLETS} wallet(s) in parallel with block wait...`);
+    const walletCreationPromise = timesParallel(NUM_WALLETS, i => {
+      logger.info(`Creating wallet ${i + 1}/${NUM_WALLETS}`);
+      return createWorkerWalletClient(rpcUrl, config.REAL_VERIFIER, logger);
+    });
+
     // Wait for at least one block to be mined
+    const lagInEpochs = config.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET;
+    const estimatedFirstBlockSlot = (lagInEpochs + 1) * epochDurationSlots;
+    const currentSlotAtStart = await rollupCheatCodes.getSlot();
+    const slotsUntilFirstBlock = Math.max(0, estimatedFirstBlockSlot - Number(currentSlotAtStart));
+    const secondsUntilFirstBlock = slotsUntilFirstBlock * slotDurationSeconds;
+    const estimatedTime = new Date(Date.now() + secondsUntilFirstBlock * 1000);
+    logger.info(
+      `Waiting for first block (current slot ${currentSlotAtStart}, estimated first block at slot ${estimatedFirstBlockSlot}, ` +
+        `~${formatDuration(secondsUntilFirstBlock)} from now, around ${estimatedTime.toISOString()})`,
+    );
+    let lastLoggedSlot: SlotNumber | undefined;
     await retryUntil(
       async () => {
         const blockNumber = await aztecNode.getBlockNumber();
         if (blockNumber > INITIAL_L2_BLOCK_NUM) {
           return true;
         }
-        logger.info('Waiting for the first block to mine...');
+        const slot = await rollupCheatCodes.getSlot();
+        if (slot !== lastLoggedSlot) {
+          lastLoggedSlot = slot;
+          const slotsLeft = Math.max(0, estimatedFirstBlockSlot - Number(slot));
+          const secondsLeft = slotsLeft * slotDurationSeconds;
+          logger.info(
+            `Waiting for the first block to mine (slot ${slot}, ~${formatDuration(secondsLeft)} remaining)...`,
+          );
+        }
         return false;
       },
       'get block number',
@@ -268,11 +294,9 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
       12,
     );
 
-    logger.info(`Creating ${NUM_WALLETS} wallet(s)...`);
-    testWallets = await timesParallel(NUM_WALLETS, i => {
-      logger.info(`Creating wallet ${i + 1}/${NUM_WALLETS}`);
-      return createWorkerWalletClient(rpcUrl, config.REAL_VERIFIER, logger);
-    });
+    logger.info(`First block produced. Deploying account contracts`);
+
+    testWallets = await walletCreationPromise;
     wallets = testWallets.map(tw => tw.wallet);
 
     // Register FPC and create/deploy accounts
@@ -353,8 +377,9 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
       const targetSlot = SlotNumber(Number(currentSlot) + slotsToWait);
       // Use getSecondsUntilSlot to account for how far we are into the current slot
       const secondsToWait = (await rollupCheatCodes.getSecondsUntilSlot(targetSlot)) + 1; // add a 1s buffer
+      const endTime = new Date(Date.now() + secondsToWait * 1000);
       logger.info(
-        `Waiting ${secondsToWait}s (${slotsToWait} slots) until ${SLOTS_BUFFER} slots before epoch boundary...`,
+        `Waiting ${formatDuration(secondsToWait)} (${slotsToWait} slots) until ${SLOTS_BUFFER} slot(s) before epoch boundary (until ${endTime.toISOString()})...`,
       );
       await sleep(secondsToWait * 1000);
     }
@@ -409,10 +434,13 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
       // consume tx
       const tx = producer.readyTx;
       producer.readyTx = null;
-      await aztecNode.sendTx(tx);
-      sentTxs.push(tx.getTxHash());
-
-      logger.info(`Sent tx ${i + 1}/${txsToSend}`);
+      try {
+        await aztecNode.sendTx(tx);
+        sentTxs.push(tx.getTxHash());
+        logger.info(`Sent tx ${i + 1}/${txsToSend}`);
+      } catch (err) {
+        logger.warn(`Failed to send tx ${i + 1}/${txsToSend}: ${err}`);
+      }
 
       // sleep to maintain target TPS
       const elapsed = performance.now() - loopStart;
@@ -438,8 +466,10 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
     let failureCount = 0;
 
     const batchSize = 10;
-    const TX_MINING_TIMEOUT_S = epochDurationSeconds;
+    const TX_MINING_TIMEOUT_S = 5 * slotDurationSeconds;
+    const NO_PROGRESS_TIMEOUT_S = 3 * slotDurationSeconds;
     const miningTimer = new Timer();
+    let lastProgressTime = performance.now();
     while (pendingTxs.size > 0) {
       const entries = [...pendingTxs.entries()];
       const start = Math.floor(Math.random() * Math.max(1, entries.length - batchSize + 1));
@@ -467,9 +497,21 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
       }
 
       if (processedCount > 0) {
+        lastProgressTime = performance.now();
         logger.info(
           `Processed ${totalSent - pendingTxs.size}/${totalSent} transactions (${successCount} success, ${failureCount} failed)`,
         );
+      }
+
+      const noProgressSeconds = (performance.now() - lastProgressTime) / 1000;
+      if (noProgressSeconds > NO_PROGRESS_TIMEOUT_S) {
+        logger.warn(
+          `No mining progress for ${Math.floor(noProgressSeconds)}s. ` +
+            `Giving up on ${pendingTxs.size}/${totalSent} transactions. ` +
+            `Remaining tx hashes: ${[...pendingTxs.values()].map(h => h.toString()).join(', ')}`,
+        );
+        failureCount += pendingTxs.size;
+        break;
       }
 
       if (miningTimer.s() > TX_MINING_TIMEOUT_S) {
@@ -563,9 +605,8 @@ async function createTx(
   wallet: WorkerWallet,
   accountAddress: AztecAddress,
   benchmarkContract: AvmGadgetsTestContract,
-  logger: Logger,
+  _logger: Logger,
 ): Promise<Tx> {
-  logger.info('Creating prototype transaction...');
   const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
   const options = {
     from: accountAddress,
@@ -574,7 +615,6 @@ async function createTx(
   const interaction = benchmarkContract.methods.keccak_hash_1400(Array(1400).fill(42));
   const execPayload = await interaction.request(options);
   const tx = await wallet.proveTx(execPayload, toSendOptions(options));
-  logger.info('Prototype transaction created');
   return tx;
 }
 
@@ -635,6 +675,15 @@ async function startProducing(
       }
     }
   }
+}
+
+function formatDuration(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.round(totalSeconds % 60);
+  if (minutes === 0) {
+    return `${seconds}s`;
+  }
+  return `${minutes}m ${seconds}s`;
 }
 
 async function captureMetricsSnapshot(client: PrometheusClient, logger: Logger): Promise<MetricsSnapshot> {
