@@ -232,9 +232,6 @@ networks:
     # P2P
     P2P_MAX_PENDING_TX_COUNT: 1000
     P2P_TX_POOL_DELETE_TXS_AFTER_REORG: false
-    # Auto-update
-    AUTO_UPDATE: none
-    AUTO_UPDATE_URL: ""
     # Telemetry
     PUBLIC_OTEL_OPT_OUT: true
     PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ""
@@ -252,6 +249,7 @@ networks:
     SLASH_UNKNOWN_PENALTY: 10e18
     SLASH_INVALID_BLOCK_PENALTY: 10e18
     SLASH_GRACE_PERIOD_L2_SLOTS: 0
+    ENABLE_VERSION_CHECK: true
 
   testnet:
     <<: *prodlike
@@ -296,6 +294,7 @@ networks:
     SLASH_UNKNOWN_PENALTY: 10e18
     SLASH_INVALID_BLOCK_PENALTY: 10e18
     SLASH_GRACE_PERIOD_L2_SLOTS: 64
+    ENABLE_VERSION_CHECK: true
 
   mainnet:
     <<: *prodlike
@@ -338,12 +337,10 @@ networks:
     # P2P
     P2P_MAX_PENDING_TX_COUNT: 0
     P2P_TX_POOL_DELETE_TXS_AFTER_REORG: true
-    # Auto-update
-    AUTO_UPDATE: notify
-    AUTO_UPDATE_URL: "https://storage.googleapis.com/aztec-mainnet/auto-update/mainnet.json"
     # Telemetry
-    PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics"
-    PUBLIC_OTEL_COLLECT_FROM: sequencer
+    PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ""
+    PUBLIC_OTEL_COLLECT_FROM: ""
+    ENABLE_VERSION_CHECK: false
     # Slasher penalties - more lenient initially
     SLASH_PRUNE_PENALTY: 0
     SLASH_DATA_WITHHOLDING_PENALTY: 0

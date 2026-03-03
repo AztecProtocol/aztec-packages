@@ -11,12 +11,6 @@ export type SharedNodeConfig = {
   syncMode: 'full' | 'snapshot' | 'force-snapshot';
   /** Base URLs for snapshots index. Index file will be searched at `SNAPSHOTS_BASE_URL/aztec-L1_CHAIN_ID-VERSION-ROLLUP_ADDRESS/index.json` */
   snapshotsUrls?: string[];
-
-  /** Auto update mode: disabled - to completely ignore remote signals to update the node. enabled - to respect the signals (potentially shutting this node down). log - check for updates but log a warning instead of applying them*/
-  autoUpdate?: 'disabled' | 'notify' | 'config' | 'config-and-version';
-  /** The base URL against which to check for updates */
-  autoUpdateUrl?: string;
-
   /** URL of the Web3Signer instance */
   web3SignerUrl?: string;
   /** Whether to run in fisherman mode */
@@ -24,6 +18,9 @@ export type SharedNodeConfig = {
 
   /** Force verification of tx Chonk proofs. Only used for testnet */
   debugForceTxProofVerification: boolean;
+
+  /** Check if the node version matches the latest version for the network */
+  enableVersionCheck: boolean;
 };
 
 export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
@@ -64,15 +61,6 @@ export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
     fallback: ['SYNC_SNAPSHOTS_URL'],
     defaultValue: [],
   },
-  autoUpdate: {
-    env: 'AUTO_UPDATE',
-    description: 'The auto update mode for this node',
-    defaultValue: 'disabled',
-  },
-  autoUpdateUrl: {
-    env: 'AUTO_UPDATE_URL',
-    description: 'Base URL to check for updates',
-  },
   web3SignerUrl: {
     env: 'WEB3_SIGNER_URL',
     description: 'URL of the Web3Signer instance',
@@ -87,5 +75,11 @@ export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
     env: 'DEBUG_FORCE_TX_PROOF_VERIFICATION',
     description: 'Whether to force tx proof verification. Only has an effect if real proving is turned off',
     ...booleanConfigHelper(false),
+  },
+
+  enableVersionCheck: {
+    env: 'ENABLE_VERSION_CHECK',
+    description: 'Check if the node is running the latest version and is following the latest rollup',
+    ...booleanConfigHelper(true),
   },
 };
