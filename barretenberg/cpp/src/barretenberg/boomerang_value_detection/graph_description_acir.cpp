@@ -701,6 +701,10 @@ std::optional<size_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::find_block_index(
     return std::nullopt;
 }
 
+/**
+ * @brief helper function to find gate which wires are equal to given state*
+ * @return std::optional<size_t> which shows whether appropriate gate has been found or not
+ */
 template <typename FF, typename CircuitBuilder>
 std::optional<size_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::find_gate_matching_state(
     auto& block, const std::array<uint32_t, CircuitBuilder::NUM_WIRES>& state)
@@ -764,9 +768,11 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_poseidon2s_constraints(con
     std::vector<uint32_t> state_indices;
     state_indices.reserve(state.size());
     for (size_t i = 0; i < state.size(); ++i) {
+        // by default inputs of Poseidon2 constraint can't be constant inputs. In any case, it will be better to add
+        // addtional assertion check
+        BB_ASSERT(!state[i].is_constant, "Poseidon2 constraint does not support constant inputs");
         state_indices.emplace_back(analyzer.to_real(state[i].index));
     }
-
     auto& arith_block = builder.blocks.arithmetic;
     auto& q1 = arith_block.q_1();
     auto& q2 = arith_block.q_2();
@@ -872,12 +878,13 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_poseidon2s_constraints(con
                 if (!correct) {
                     return false;
                 }
-
-                // Output state is stored in next row (propagate_current_state_to_next_row)
-                state = { ext_block.w_l()[gate_idx + 1],
-                          ext_block.w_r()[gate_idx + 1],
-                          ext_block.w_o()[gate_idx + 1],
-                          ext_block.w_4()[gate_idx + 1] };
+                if (gate_idx + 1 < ext_block.size()) {
+                    // Output state is stored in next row (propagate_current_state_to_next_row)
+                    state = { ext_block.w_l()[gate_idx + 1],
+                              ext_block.w_r()[gate_idx + 1],
+                              ext_block.w_o()[gate_idx + 1],
+                              ext_block.w_4()[gate_idx + 1] };
+                }
             }
             return true;
         };
@@ -900,10 +907,12 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_poseidon2s_constraints(con
                 }
 
                 // Output state is stored in next row
-                state = { int_block.w_l()[gate_idx + 1],
-                          int_block.w_r()[gate_idx + 1],
-                          int_block.w_o()[gate_idx + 1],
-                          int_block.w_4()[gate_idx + 1] };
+                if (gate_idx + 1 < int_block.size()) {
+                    state = { int_block.w_l()[gate_idx + 1],
+                              int_block.w_r()[gate_idx + 1],
+                              int_block.w_o()[gate_idx + 1],
+                              int_block.w_4()[gate_idx + 1] };
+                }
             }
             return true;
         };
