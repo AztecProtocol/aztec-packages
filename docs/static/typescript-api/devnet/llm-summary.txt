@@ -44,6 +44,8 @@ Exports: 6 classes, 31 interfaces, 10 functions, 8 types
   - EmbeddedWallet with browser and Node.js flavors
   - Account creation and management
   - Transaction simulation and proving
+Exports: 2 classes, 2 functions, 2 types
+Key: NodeEmbeddedWallet, WalletDB
 
 ### Core Libraries
 
@@ -111,5 +113,6 @@ entrypoints → foundation, stdlib
 pxe → aztec.js, foundation, kv-store, stdlib
 stdlib → blob-lib, constants, ethereum, foundation
 wallet-sdk → aztec.js, entrypoints, foundation, pxe, stdlib
+wallets → accounts, aztec.js, entrypoints, foundation, kv-store, pxe, stdlib, wallet-sdk
 
 For detailed API documentation, see the individual package files.
