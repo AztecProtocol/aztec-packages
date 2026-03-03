@@ -239,9 +239,9 @@ L1 enforces gas and blob capacity per checkpoint. The node enforces these during
 
 Per-block budgets prevent one block from consuming the entire checkpoint budget.
 
-**Proposer**: `SequencerClient.computeBlockGasLimits()` derives budgets at startup as `min(checkpointLimit, ceil(checkpointLimit / maxBlocks * multiplier))`, where `maxBlocks` comes from the timetable and `multiplier` defaults to 2. Operators can override via `SEQ_MAX_L2_BLOCK_GAS` / `SEQ_MAX_DA_BLOCK_GAS` (capped at checkpoint limits).
+**Proposer**: `SequencerClient.computeBlockGasLimits()` derives budgets at startup as `min(checkpointLimit, ceil(checkpointLimit / maxBlocks * multiplier))`, where `maxBlocks` comes from the timetable and `multiplier` defaults to 2. The multiplier greater than 1 allows early blocks to use more than their even share of the checkpoint budget, since different blocks hit different limit dimensions (L2 gas, DA gas, blob fields) — a strict even split would waste capacity. Operators can override via `SEQ_MAX_L2_BLOCK_GAS` / `SEQ_MAX_DA_BLOCK_GAS` (capped at checkpoint limits).
 
-**Validator**: Does not compute per-block budgets. Relies solely on checkpoint-level capping.
+**Validator**: Does not enforce per-block gas budgets. Only checkpoint-level limits are checked, so that proposers can freely distribute capacity across blocks within a checkpoint.
 
 **Checkpoint-level capping**: `CheckpointBuilder.capLimitsByCheckpointBudgets()` always runs before tx processing, capping per-block limits by `checkpointBudget - sum(used by prior blocks)` for all three dimensions. This applies to both proposer and validator paths.
 

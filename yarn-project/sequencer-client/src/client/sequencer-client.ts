@@ -160,6 +160,8 @@ export class SequencerClient {
     const l1PublishingTimeBasedOnChain = isAnvilTestChain(config.l1ChainId) ? 1 : ethereumSlotDuration;
     const l1PublishingTime = config.l1PublishingTime ?? l1PublishingTimeBasedOnChain;
 
+    // Combine user-defined block-level limits with checkpoint-level limits (from L1/constants/config)
+    // to derive the final per-block gas budgets fed into the sequencer.
     const { maxL2BlockGas, maxDABlockGas } = this.computeBlockGasLimits(config, rollupManaLimit, l1PublishingTime, log);
 
     const l1Constants = { l1GenesisTime, slotDuration: Number(slotDuration), ethereumSlotDuration, rollupManaLimit };

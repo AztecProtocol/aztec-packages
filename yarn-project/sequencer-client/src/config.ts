@@ -105,7 +105,8 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   gasPerBlockAllocationMultiplier: {
     env: 'SEQ_GAS_PER_BLOCK_ALLOCATION_MULTIPLIER',
     description:
-      'Per-block gas budget multiplier for both L2 and DA gas. Budget per block is (checkpointLimit / maxBlocks) * multiplier.',
+      'Per-block gas budget multiplier for both L2 and DA gas. Budget per block is (checkpointLimit / maxBlocks) * multiplier.' +
+      ' Values greater than one allow early blocks to use more than their even share, relying on checkpoint-level capping for later blocks.',
     ...numberConfigHelper(DefaultSequencerConfig.gasPerBlockAllocationMultiplier),
   },
   coinbase: {
