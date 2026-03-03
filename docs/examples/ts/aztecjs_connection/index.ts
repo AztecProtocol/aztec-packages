@@ -3,14 +3,14 @@ import { createAztecNodeClient, waitForNode } from "@aztec/aztec.js/node";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 
-const nodeUrl = "http://localhost:8080";
+const nodeUrl = process.env.AZTEC_NODE_URL ?? "http://localhost:8080";
 const node = createAztecNodeClient(nodeUrl);
 
 // Wait for the network to be ready
 await waitForNode(node);
 
 // Create an EmbeddedWallet connected to the node
-const wallet = await EmbeddedWallet.create(node);
+const wallet = await EmbeddedWallet.create(node, { ephemeral: true });
 // docs:end:connect_to_network
 
 // docs:start:verify_connection
@@ -23,7 +23,13 @@ console.log("Chain ID:", nodeInfo.l1ChainId);
 const testAccounts = await getInitialTestAccountsData();
 const [aliceAddress, bobAddress] = await Promise.all(
   testAccounts.slice(0, 2).map(async (account) => {
-    return (await wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey)).address;
+    return (
+      await wallet.createSchnorrAccount(
+        account.secret,
+        account.salt,
+        account.signingKey,
+      )
+    ).address;
   }),
 );
 
@@ -75,18 +81,33 @@ await deployMethod.send({
 });
 // docs:end:deploy_account_sponsored_fpc
 
-// docs:start:deploy_account_fee_juice
-// newAccount is the account created in the previous section
-const deployMethodFeeJuice = await newAccount.getDeployMethod();
-await deployMethodFeeJuice.send({
-  from: AztecAddress.ZERO,
-});
-// docs:end:deploy_account_fee_juice
+// docs:start:bridge_account_fee_juice
+import { createExtendedL1Client } from "@aztec/ethereum/client";
+import { L1FeeJuicePortalManager } from "@aztec/aztec.js/ethereum";
+import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
+import { createLogger } from "@aztec/aztec.js/log";
 
-// docs:start:verify_account_deployment
-const metadata = await wallet.getContractMetadata(newAccount.address);
-console.log("Account deployed:", metadata.isContractInitialized);
-// docs:end:verify_account_deployment
+// Create a separate account to deploy with Fee Juice bridged from L1
+const feeJuiceSecret = Fr.random();
+const feeJuiceSalt = Fr.random();
+const feeJuiceAccount = await wallet.createSchnorrAccount(
+  feeJuiceSecret,
+  feeJuiceSalt,
+);
+
+// Bridge Fee Juice from L1 to the new account
+const l1RpcUrl = process.env.ETHEREUM_HOST ?? "http://localhost:8545";
+const l1Mnemonic =
+  "test test test test test test test test test test test junk";
+const l1Client = createExtendedL1Client([l1RpcUrl], l1Mnemonic);
+const logger = createLogger("docs:fee-juice-bridge");
+const portalManager = await L1FeeJuicePortalManager.new(node, l1Client, logger);
+const claim = await portalManager.bridgeTokensPublic(
+  feeJuiceAccount.address,
+  1000000000000000000000n, // 1000 Fee Juice
+  true, // mint on L1 (local network only)
+);
+// docs:end:bridge_account_fee_juice
 
 // docs:start:deploy_contract
 import { TokenContract } from "@aztec/noir-contracts.js/Token";
@@ -118,3 +139,22 @@ const balance = await token.methods
 
 console.log(`Alice's token balance: ${balance}`);
 // docs:end:simulate_function
+
+// docs:start:deploy_account_fee_juice
+// Deploy the account using the bridged Fee Juice
+const deployMethodFeeJuice = await feeJuiceAccount.getDeployMethod();
+await deployMethodFeeJuice.send({
+  from: AztecAddress.ZERO,
+  fee: {
+    paymentMethod: new FeeJuicePaymentMethodWithClaim(
+      feeJuiceAccount.address,
+      claim,
+    ),
+  },
+});
+// docs:end:deploy_account_fee_juice
+
+// docs:start:verify_account_deployment
+const metadata = await wallet.getContractMetadata(feeJuiceAccount.address);
+console.log("Account deployed:", metadata.isContractInitialized);
+// docs:end:verify_account_deployment
