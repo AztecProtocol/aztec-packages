@@ -595,6 +595,153 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     }
 
     /**
+     * @brief Batch verify multiple IPA proofs with a single large SRS MSM.
+     *
+     * @details For N proofs, IPA verification's dominant cost is the SRS MSM (pippenger over poly_length points).
+     * By combining N proofs via random linear combination with challenge α, we replace N separate large MSMs with one.
+     *
+     * The batch check verifies:
+     *   ∑ α^i * C_zero_i == <∑ α^i * a_zero_i * s_vec_i, SRS> + (∑ α^i * a_zero_i * b_zero_i * U_i) * G
+     *
+     * where G = Commitment::one() and U_i = gen_challenge_i * G.
+     *
+     * @param vk Verification key containing SRS
+     * @param opening_claims The opening claims for each proof
+     * @param transcripts The transcripts containing each proof's data
+     * @return true if all proofs verify
+     */
+    template <typename Transcript = NativeTranscript>
+    static bool batch_reduce_verify(const VK& vk,
+                                    const std::vector<OpeningClaim<Curve>>& opening_claims,
+                                    const std::vector<std::shared_ptr<Transcript>>& transcripts)
+        requires(!Curve::is_stdlib_type)
+    {
+        const size_t num_claims = opening_claims.size();
+        BB_ASSERT(num_claims == transcripts.size());
+        BB_ASSERT(num_claims > 0);
+
+        // Phase 1: Per-proof transcript processing (sequential, each proof is cheap)
+        std::vector<GroupElement> C_zeros(num_claims);
+        std::vector<Fr> a_zeros(num_claims);
+        std::vector<Fr> b_zeros(num_claims);
+        std::vector<Fr> gen_challenges(num_claims);
+        std::vector<Polynomial<Fr>> s_vecs(num_claims);
+
+        for (size_t i = 0; i < num_claims; i++) {
+            const auto& transcript = transcripts[i];
+            const auto& claim = opening_claims[i];
+
+            // Hash claim into transcript
+            add_claim_to_hash_buffer(claim, transcript);
+
+            // Get generator challenge and compute auxiliary generator
+            const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
+            if (generator_challenge.is_zero()) {
+                throw_or_abort("The generator challenge can't be zero");
+            }
+            gen_challenges[i] = generator_challenge;
+            const Commitment aux_generator = Commitment::one() * generator_challenge;
+
+            // Compute C' = C + f(β) · U
+            const GroupElement C_prime = claim.commitment + (aux_generator * claim.opening_pair.evaluation);
+
+            // Read L_j, R_j and compute round challenges
+            const auto pippenger_size = 2 * log_poly_length;
+            std::vector<Fr> round_challenges(log_poly_length);
+            std::vector<Commitment> msm_elements(pippenger_size);
+            std::vector<Fr> msm_scalars(pippenger_size);
+
+            for (size_t j = 0; j < log_poly_length; j++) {
+                std::string index = std::to_string(log_poly_length - j - 1);
+                const auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
+                const auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
+                round_challenges[j] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+                if (round_challenges[j].is_zero()) {
+                    throw_or_abort("Round challenges can't be zero");
+                }
+                msm_elements[2 * j] = element_L;
+                msm_elements[2 * j + 1] = element_R;
+            }
+
+            std::vector<Fr> round_challenges_inv = round_challenges;
+            Fr::batch_invert(round_challenges_inv);
+
+            for (size_t j = 0; j < log_poly_length; j++) {
+                msm_scalars[2 * j] = round_challenges_inv[j];
+                msm_scalars[2 * j + 1] = round_challenges[j];
+            }
+
+            // Small MSM for LR_sums, compute C_zero
+            GroupElement LR_sums = scalar_multiplication::pippenger_unsafe<Curve>(
+                { 0, { &msm_scalars[0], /*size*/ pippenger_size } }, { &msm_elements[0], /*size*/ pippenger_size });
+            C_zeros[i] = C_prime + LR_sums;
+
+            // Compute b_zero
+            b_zeros[i] = evaluate_challenge_poly(round_challenges_inv, claim.opening_pair.challenge);
+
+            // Construct s_vec from round challenge inverses
+            s_vecs[i] = Polynomial<Fr>(
+                construct_poly_from_u_challenges_inv(std::span(round_challenges_inv).subspan(0, log_poly_length)));
+
+            // Receive G_zero from transcript (advances read position; not verified individually in batch mode)
+            transcript->template receive_from_prover<Commitment>("IPA:G_0");
+
+            // Receive a_zero
+            a_zeros[i] = transcript->template receive_from_prover<Fr>("IPA:a_0");
+        }
+
+        // Phase 2: Generate batching challenge α via Fiat-Shamir over all claims
+        NativeTranscript batch_transcript;
+        for (size_t i = 0; i < num_claims; i++) {
+            std::string idx = std::to_string(i);
+            batch_transcript.add_to_hash_buffer("IPA:batch_commitment_" + idx, opening_claims[i].commitment);
+            batch_transcript.add_to_hash_buffer("IPA:batch_challenge_" + idx, opening_claims[i].opening_pair.challenge);
+            batch_transcript.add_to_hash_buffer("IPA:batch_evaluation_" + idx,
+                                                opening_claims[i].opening_pair.evaluation);
+        }
+        Fr alpha = batch_transcript.template get_challenge<Fr>("IPA:batch_alpha");
+
+        // Phase 3: Batched computation
+        // Compute powers of α
+        std::vector<Fr> alpha_pows(num_claims);
+        alpha_pows[0] = Fr::one();
+        for (size_t i = 1; i < num_claims; i++) {
+            alpha_pows[i] = alpha_pows[i - 1] * alpha;
+        }
+
+        // Combined s_vec: combined_s[j] = ∑ α^i * a_zero_i * s_vec_i[j]
+        Polynomial<Fr> combined_s(poly_length);
+        for (size_t i = 0; i < num_claims; i++) {
+            Fr scalar = alpha_pows[i] * a_zeros[i];
+            combined_s.add_scaled(s_vecs[i], scalar);
+        }
+
+        // One big MSM: G_batch = pippenger(combined_s, SRS)
+        std::span<const Commitment> srs_elements = vk.get_monomial_points();
+        if (poly_length > srs_elements.size()) {
+            throw_or_abort("potential bug: Not enough SRS points for IPA!");
+        }
+        Commitment G_batch =
+            scalar_multiplication::pippenger_unsafe<Curve>(combined_s, { &srs_elements[0], /*size*/ poly_length });
+
+        // Combined LHS: C_batch = ∑ α^i * C_zero_i
+        GroupElement C_batch = C_zeros[0];
+        for (size_t i = 1; i < num_claims; i++) {
+            C_batch = C_batch + C_zeros[i] * alpha_pows[i];
+        }
+
+        // Combined scalar for U terms: bU_scalar = ∑ α^i * a_zero_i * b_zero_i * gen_challenge_i
+        Fr bU_scalar = Fr::zero();
+        for (size_t i = 0; i < num_claims; i++) {
+            bU_scalar += alpha_pows[i] * a_zeros[i] * b_zeros[i] * gen_challenges[i];
+        }
+
+        // Check: C_batch == G_batch + bU_scalar * G
+        GroupElement right_hand_side = G_batch + Commitment::one() * bU_scalar;
+        return (C_batch.normalize() == right_hand_side.normalize());
+    }
+
+    /**
      * @brief Recursively _partially_ verify the correctness of an IPA proof.
      *
      * @param vk Verification_key containing srs

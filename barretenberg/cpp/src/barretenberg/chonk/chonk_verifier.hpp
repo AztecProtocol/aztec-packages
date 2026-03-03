@@ -104,6 +104,28 @@ template <bool IsRecursive> class ChonkVerifier {
      */
     [[nodiscard("IPA claim and pairing points must be accumulated")]] Output verify(const Proof& proof);
 
+    /**
+     * @brief Result of reducing Chonk verification to an IPA opening claim (native mode only).
+     * @details Contains the IPA claim and proof from Steps 1-3 of native verification, allowing
+     * batch IPA verification across multiple Chonk proofs.
+     */
+    struct IPAReductionResult {
+        OpeningClaim<curve::Grumpkin> ipa_claim;
+        ::bb::HonkProof ipa_proof;
+        bool all_checks_passed;
+    };
+
+    /**
+     * @brief Perform Steps 1-3 of native Chonk verification, returning the IPA data for deferred verification.
+     * @details Verifies the MegaZK proof, databus consistency, and Goblin proof (merge/eccvm/translator),
+     * then returns the IPA opening claim and proof without performing IPA verification.
+     * This enables batch IPA verification across multiple Chonk proofs.
+     *
+     * @param proof The Chonk proof to partially verify
+     * @return IPAReductionResult containing the IPA claim/proof and whether Steps 1-3 passed
+     */
+    IPAReductionResult reduce_to_ipa_claim(const Proof& proof);
+
   private:
     // VK and hash of the hiding kernel
     std::shared_ptr<VKAndHash> vk_and_hash;

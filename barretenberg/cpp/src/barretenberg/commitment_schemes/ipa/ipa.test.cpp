@@ -360,5 +360,85 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
     EXPECT_EQ(result, true);
 }
+// Batch IPA verification tests
+
+TEST_F(IPATest, BatchVerifyTwoValidProofs)
+{
+    // Generate two IPA proofs
+    auto poly1 = Polynomial::random(n);
+    auto x1 = this->random_element();
+    Commitment c1 = ck.commit(poly1);
+    auto eval1 = poly1.evaluate(x1);
+    auto pt1 = std::make_shared<NativeTranscript>();
+    PCS::compute_opening_proof(ck, { poly1, { x1, eval1 } }, pt1);
+
+    auto poly2 = Polynomial::random(n);
+    auto x2 = this->random_element();
+    Commitment c2 = ck.commit(poly2);
+    auto eval2 = poly2.evaluate(x2);
+    auto pt2 = std::make_shared<NativeTranscript>();
+    PCS::compute_opening_proof(ck, { poly2, { x2, eval2 } }, pt2);
+
+    // Create verifier transcripts from prover proof data
+    std::vector<OpeningClaim<Curve>> claims = { { { x1, eval1 }, c1 }, { { x2, eval2 }, c2 } };
+    std::vector<std::shared_ptr<NativeTranscript>> transcripts = {
+        std::make_shared<NativeTranscript>(pt1->export_proof()), std::make_shared<NativeTranscript>(pt2->export_proof())
+    };
+
+    bool result = PCS::batch_reduce_verify(vk, claims, transcripts);
+    EXPECT_TRUE(result);
+}
+
+TEST_F(IPATest, BatchVerifySingleProof)
+{
+    // Degenerate case: batch verify with N=1 should match reduce_verify
+    auto poly = Polynomial::random(n);
+    auto x = this->random_element();
+    Commitment c = ck.commit(poly);
+    auto eval = poly.evaluate(x);
+    auto pt = std::make_shared<NativeTranscript>();
+    PCS::compute_opening_proof(ck, { poly, { x, eval } }, pt);
+
+    auto proof_data = pt->export_proof();
+    OpeningClaim<Curve> claim{ { x, eval }, c };
+
+    // Verify individually
+    auto vt_single = std::make_shared<NativeTranscript>(proof_data);
+    EXPECT_TRUE(PCS::reduce_verify(vk, claim, vt_single));
+
+    // Batch verify with N=1
+    std::vector<OpeningClaim<Curve>> claims = { claim };
+    std::vector<std::shared_ptr<NativeTranscript>> transcripts = { std::make_shared<NativeTranscript>(proof_data) };
+    EXPECT_TRUE(PCS::batch_reduce_verify(vk, claims, transcripts));
+}
+
+TEST_F(IPATest, BatchVerifyTamperedProof)
+{
+    // Generate two valid proofs, tamper with one
+    auto poly1 = Polynomial::random(n);
+    auto x1 = this->random_element();
+    Commitment c1 = ck.commit(poly1);
+    auto eval1 = poly1.evaluate(x1);
+    auto pt1 = std::make_shared<NativeTranscript>();
+    PCS::compute_opening_proof(ck, { poly1, { x1, eval1 } }, pt1);
+
+    auto poly2 = Polynomial::random(n);
+    auto x2 = this->random_element();
+    Commitment c2 = ck.commit(poly2);
+    auto eval2 = poly2.evaluate(x2);
+    auto pt2 = std::make_shared<NativeTranscript>();
+    PCS::compute_opening_proof(ck, { poly2, { x2, eval2 } }, pt2);
+
+    // Tamper with the second claim's evaluation
+    Fr tampered_eval2 = eval2 + Fr::one();
+    std::vector<OpeningClaim<Curve>> claims = { { { x1, eval1 }, c1 }, { { x2, tampered_eval2 }, c2 } };
+    std::vector<std::shared_ptr<NativeTranscript>> transcripts = {
+        std::make_shared<NativeTranscript>(pt1->export_proof()), std::make_shared<NativeTranscript>(pt2->export_proof())
+    };
+
+    bool result = PCS::batch_reduce_verify(vk, claims, transcripts);
+    EXPECT_FALSE(result);
+}
+
 typename IPATest::CK IPATest::ck;
 typename IPATest::VK IPATest::vk;
