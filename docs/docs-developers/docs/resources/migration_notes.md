@@ -81,7 +81,6 @@ If you implement the `Wallet` interface (or extend `BaseWallet`), the `sendTx()`
 
 **Impact**: Every call site that uses `.simulate()`, `.send()`, or deploy must destructure the result. This is a mechanical transformation. Custom wallet implementations must update `sendTx()` to return the new object shapes.
 
-<<<<<<< HEAD
 ### [Aztec.js] Removed `SingleKeyAccountContract`
 
 The `SchnorrSingleKeyAccount` contract and its TypeScript wrapper `SingleKeyAccountContract` have been removed. This contract was insecure: it used `ivpk_m` (incoming viewing public key) as its Schnorr signing key, meaning anyone who received a user's viewing key could sign transactions on their behalf.
@@ -97,8 +96,6 @@ The `SchnorrSingleKeyAccount` contract and its TypeScript wrapper `SingleKeyAcco
 
 **Impact**: If you were using `@aztec/accounts/single_key`, switch to `@aztec/accounts/schnorr` which uses separate keys for encryption and authentication.
 
-=======
->>>>>>> 37bca03c41 (bring migration notes up to date)
 ### `aztec new` and `aztec init` now create a 2-crate workspace
 
 `aztec new` and `aztec init` now create a workspace with two crates instead of a single contract crate:
