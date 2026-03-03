@@ -10,10 +10,10 @@ use crate::protocol::{
 
 /// A struct with the discovered information of a complete note, required for delivery to PXE. Note that this is *not*
 /// the complete note information, since it does not include content, storage slot, etc.
-pub struct DiscoveredNoteInfo {
-    pub note_nonce: Field,
-    pub note_hash: Field,
-    pub inner_nullifier: Field,
+pub(crate) struct DiscoveredNoteInfo {
+    pub(crate) note_nonce: Field,
+    pub(crate) note_hash: Field,
+    pub(crate) inner_nullifier: Field,
 }
 
 /// Searches for note nonces that will result in a note that was emitted in a transaction. While rare, it is possible
@@ -23,7 +23,7 @@ pub struct DiscoveredNoteInfo {
 ///
 /// Due to how nonces are computed, this function requires knowledge of the transaction in which the note was created,
 /// more specifically the list of all unique note hashes in it plus the value of its first nullifier.
-pub unconstrained fn attempt_note_nonce_discovery<Env>(
+pub(crate) unconstrained fn attempt_note_nonce_discovery<Env>(
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,

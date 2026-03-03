@@ -31,7 +31,7 @@ struct lookup_nullifier_exists_nullifier_exists_check_settings_ {
         ColumnAndShifts::nullifier_check_exists,
         ColumnAndShifts::nullifier_check_nullifier,
         ColumnAndShifts::nullifier_check_root,
-        ColumnAndShifts::nullifier_check_should_silo
+        ColumnAndShifts::nullifier_check_sel_silo
     };
 };
 

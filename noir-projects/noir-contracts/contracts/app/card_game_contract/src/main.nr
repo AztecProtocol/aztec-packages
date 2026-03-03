@@ -29,7 +29,7 @@ pub contract CardGame {
         seed: Field, // The randomness used to generate the cards. Passed in for now.
     ) {
         let buyer = self.msg_sender();
-        let mut cards = get_pack_cards(seed, buyer, self.context);
+        let cards = get_pack_cards(seed, buyer, self.context);
 
         let mut collection = self.storage.collections;
         let _inserted_cards = collection.add_cards(cards, buyer);

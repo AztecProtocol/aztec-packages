@@ -17,7 +17,7 @@ pub(crate) unconstrained fn create_note() -> (TestEnvironment, HintedNote<MockNo
     let env = TestEnvironment::new();
 
     let note_message = env.private_context(|context| {
-        let mut mock_note = MockNote::new(69);
+        let mock_note = MockNote::new(69);
 
         lifecycle_create_note(
             context,
