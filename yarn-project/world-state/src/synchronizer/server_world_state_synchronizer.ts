@@ -301,6 +301,7 @@ export class ServerWorldStateSynchronizer
         block: { number: provenBlockNumber, hash: provenBlockHash ?? '' },
         checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
       },
+      pendingCheckpoint: undefined,
     };
   }
 

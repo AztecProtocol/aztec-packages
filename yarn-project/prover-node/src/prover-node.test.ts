@@ -163,6 +163,7 @@ describe('prover-node', () => {
       },
       proven: genesisTipId,
       finalized: genesisTipId,
+      pendingCheckpoint: undefined,
     });
     l2BlockSource.getBlockHeader.mockImplementation(number =>
       Promise.resolve(number === checkpoints[0].blocks[0].number - 1 ? previousBlockHeader : undefined),

@@ -3532,6 +3532,270 @@ describe('KVArchiverDataStore', () => {
     });
   });
 
+  describe('pendingCheckpointNumber', () => {
+    it('returns initial value when no pending checkpoint is set', async () => {
+      const pending = await store.blockStore.getPendingCheckpointNumber();
+      expect(pending).toBe(INITIAL_CHECKPOINT_NUMBER - 1);
+    });
+
+    it('stores and retrieves pending checkpoint number', async () => {
+      await store.blockStore.setPendingCheckpoint({
+        checkpointNumber: CheckpointNumber(1),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 100n,
+        feeAssetPriceModifier: 50n,
+      });
+      const pending = await store.blockStore.getPendingCheckpointNumber();
+      expect(pending).toBe(1);
+    });
+
+    it('stores and retrieves pending checkpoint data with fee fields', async () => {
+      await store.blockStore.setPendingCheckpoint({
+        checkpointNumber: CheckpointNumber(1),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 12345n,
+        feeAssetPriceModifier: -75n,
+      });
+      const pending = await store.blockStore.getPendingCheckpoint();
+      expect(pending).toBeDefined();
+      expect(pending!.checkpointNumber).toBe(1);
+      expect(pending!.totalManaUsed).toBe(12345n);
+      expect(pending!.feeAssetPriceModifier).toBe(-75n);
+    });
+
+    it('clears pending checkpoint when confirmed checkpoints are added', async () => {
+      // Add checkpoint 1
+      const checkpoint1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
+        10,
+      );
+      await store.addCheckpoints([checkpoint1]);
+
+      // Set pending checkpoint to 2 (attested but not yet on L1)
+      await store.blockStore.setPendingCheckpoint({
+        checkpointNumber: CheckpointNumber(2),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 100n,
+        feeAssetPriceModifier: 50n,
+      });
+      expect(await store.blockStore.getPendingCheckpointNumber()).toBe(2);
+
+      // Confirm checkpoint 2 on L1
+      const checkpoint2 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(2), {
+          numBlocks: 1,
+          startBlockNumber: 2,
+          previousArchive: checkpoint1.checkpoint.blocks[0].archive,
+        }),
+        20,
+      );
+      await store.addCheckpoints([checkpoint2]);
+
+      // Pending checkpoint should be cleared
+      const pending = await store.blockStore.getPendingCheckpointNumber();
+      expect(pending).toBe(INITIAL_CHECKPOINT_NUMBER - 1);
+    });
+
+    it('ignores pending checkpoint that is more than 1 ahead of confirmed', async () => {
+      // Add checkpoint 1
+      const checkpoint1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
+        10,
+      );
+      await store.addCheckpoints([checkpoint1]);
+
+      // Try to set pending checkpoint to 3 (confirmed=1, expected=2)
+      await store.blockStore.setPendingCheckpoint({
+        checkpointNumber: CheckpointNumber(3),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 100n,
+        feeAssetPriceModifier: 50n,
+      });
+
+      // Pending checkpoint should remain unset (3 !== 1 + 1)
+      expect(await store.blockStore.getPendingCheckpointNumber()).toBe(INITIAL_CHECKPOINT_NUMBER - 1);
+    });
+
+    it('ignores pending checkpoint that equals the confirmed checkpoint', async () => {
+      // Add checkpoint 1
+      const checkpoint1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
+        10,
+      );
+      await store.addCheckpoints([checkpoint1]);
+
+      // Try to set pending checkpoint to 1 (confirmed=1, expected=2)
+      await store.blockStore.setPendingCheckpoint({
+        checkpointNumber: CheckpointNumber(1),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 100n,
+        feeAssetPriceModifier: 50n,
+      });
+
+      // Pending checkpoint should remain unset (1 !== 1 + 1)
+      expect(await store.blockStore.getPendingCheckpointNumber()).toBe(INITIAL_CHECKPOINT_NUMBER - 1);
+    });
+
+    it('clears pending checkpoint when checkpoints are removed past it', async () => {
+      // Add checkpoints 1 and 2
+      const checkpoint1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
+        10,
+      );
+      const checkpoint2 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(2), {
+          numBlocks: 1,
+          startBlockNumber: 2,
+          previousArchive: checkpoint1.checkpoint.blocks[0].archive,
+        }),
+        20,
+      );
+      await store.addCheckpoints([checkpoint1, checkpoint2]);
+
+      // Set pending checkpoint to 3
+      await store.blockStore.setPendingCheckpoint({
+        checkpointNumber: CheckpointNumber(3),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 100n,
+        feeAssetPriceModifier: 50n,
+      });
+
+      // Remove checkpoints after 1 (removes checkpoint 2, and pending 3 should be cleared)
+      await store.removeCheckpointsAfter(CheckpointNumber(1));
+
+      const pending = await store.blockStore.getPendingCheckpointNumber();
+      expect(pending).toBe(INITIAL_CHECKPOINT_NUMBER - 1);
+    });
+
+    it('does not clear pending checkpoint when removing checkpoints before it', async () => {
+      // Add checkpoints 1, 2
+      const checkpoint1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
+        10,
+      );
+      const checkpoint2 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(2), {
+          numBlocks: 1,
+          startBlockNumber: 2,
+          previousArchive: checkpoint1.checkpoint.blocks[0].archive,
+        }),
+        20,
+      );
+      await store.addCheckpoints([checkpoint1, checkpoint2]);
+
+      // Set pending to 3 (confirmed=2, 3===2+1 ✓)
+      await store.blockStore.setPendingCheckpoint({
+        checkpointNumber: CheckpointNumber(3),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 100n,
+        feeAssetPriceModifier: 50n,
+      });
+
+      // Remove checkpoints after 2 (nothing removed since latest is 2, pending=3 stays)
+      await store.removeCheckpointsAfter(CheckpointNumber(2));
+
+      expect(await store.blockStore.getPendingCheckpointNumber()).toBe(3);
+    });
+
+    it('allows addProposedBlocks when pending checkpoint matches expected', async () => {
+      // Add checkpoint 1
+      const checkpoint1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
+        10,
+      );
+      await store.addCheckpoints([checkpoint1]);
+
+      // Set pending checkpoint to 2 (attested but not on L1 yet)
+      await store.blockStore.setPendingCheckpoint({
+        checkpointNumber: CheckpointNumber(2),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 100n,
+        feeAssetPriceModifier: 50n,
+      });
+
+      // Add a block for checkpoint 2 — this should succeed because
+      // confirmed checkpoint (1) matches expectedCheckpointNumber (2 - 1 = 1)
+      const lastBlockArchive = checkpoint1.checkpoint.blocks[0].archive;
+      const block2 = await L2Block.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(2),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        lastArchive: lastBlockArchive,
+      });
+
+      await expect(store.addProposedBlock(block2)).resolves.toBe(true);
+    });
+
+    it('throws with pending checkpoint value when neither confirmed nor pending matches', async () => {
+      // Add checkpoint 1
+      const checkpoint1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
+        10,
+      );
+      await store.addCheckpoints([checkpoint1]);
+
+      // Set pending checkpoint to 2
+      await store.blockStore.setPendingCheckpoint({
+        checkpointNumber: CheckpointNumber(2),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 100n,
+        feeAssetPriceModifier: 50n,
+      });
+
+      // Try to add a block for checkpoint 4 (expected = 3, confirmed = 1, pending = 2 — neither matches)
+      const lastBlockArchive = checkpoint1.checkpoint.blocks[0].archive;
+      const block2 = await L2Block.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(4),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        lastArchive: lastBlockArchive,
+      });
+
+      await expect(store.addProposedBlock(block2)).rejects.toThrow(
+        // Error should report the pending checkpoint number (2), not the confirmed one (1)
+        'Cannot insert new checkpoint 4 given previous pending checkpoint number is 2',
+      );
+    });
+
+    it('throws with confirmed checkpoint value when pending is not set', async () => {
+      // Add checkpoint 1 (no pending set, so pending defaults to 0)
+      const checkpoint1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
+        10,
+      );
+      await store.addCheckpoints([checkpoint1]);
+
+      // Try to add a block for checkpoint 4 (expected = 3, confirmed = 1, pending = 0)
+      // Error should report confirmed (1) since it's higher than the default pending (0)
+      const lastBlockArchive = checkpoint1.checkpoint.blocks[0].archive;
+      const block2 = await L2Block.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(4),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        lastArchive: lastBlockArchive,
+      });
+
+      await expect(store.addProposedBlock(block2)).rejects.toThrow(
+        'Cannot insert new checkpoint 4 given previous confirmed checkpoint number is 1',
+      );
+    });
+  });
+
   describe('removeBlocksAfterBlock', () => {
     it('removes blocks with number > given blockNumber', async () => {
       // Create blocks for initial checkpoint

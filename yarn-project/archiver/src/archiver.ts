@@ -19,7 +19,7 @@ import {
   type L2Tips,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { type PendingCheckpointData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
   type L1RollupConstants,
   getEpochAtSlot,
@@ -207,6 +207,14 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
         this.log.error(`Sync immediate call failed: ${err}`);
       });
     });
+  }
+
+  public async setPendingCheckpoint(pending: PendingCheckpointData): Promise<void> {
+    await this.dataStore.blockStore.setPendingCheckpoint(pending);
+  }
+
+  public setPipeliningTreeInProgress(value: bigint): Promise<void> {
+    return this.store.setPipeliningTreeInProgress(value);
   }
 
   /**

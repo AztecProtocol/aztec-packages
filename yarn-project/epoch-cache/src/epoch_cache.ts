@@ -348,15 +348,19 @@ export class EpochCache implements EpochCacheInterface {
     };
   }
 
-  /** Returns the taget and next L2 slot in the next L1 slot */
+  /** Returns the target and next L2 slot in the next L1 slot. Computes the current time once to avoid redundant calls. */
   public getTargetAndNextSlot(): { targetSlot: SlotNumber; nextSlot: SlotNumber } {
-    const targetSlot = this.getTargetSlot();
-    const next = this.getTargetEpochAndSlotInNextL1Slot();
+    const nowSeconds = this.nowInSeconds();
+    const offset = this.isProposerPipeliningEnabled() ? PROPOSER_PIPELINING_SLOT_OFFSET : 0;
 
-    return {
-      targetSlot,
-      nextSlot: next.slot,
-    };
+    const currentSlot = getSlotAtTimestamp(nowSeconds, this.l1constants);
+    const targetSlot = SlotNumber(currentSlot + offset);
+
+    const nextSlotTs = nowSeconds + BigInt(this.l1constants.ethereumSlotDuration);
+    const nextL1Slot = getSlotAtTimestamp(nextSlotTs, this.l1constants);
+    const nextSlot = SlotNumber(nextL1Slot + offset);
+
+    return { targetSlot, nextSlot };
   }
 
   /**

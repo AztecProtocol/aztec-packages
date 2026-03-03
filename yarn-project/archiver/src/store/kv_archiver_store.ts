@@ -262,8 +262,12 @@ export class KVArchiverDataStore implements ContractDataSource {
    * Also removes ALL blocks (both checkpointed and uncheckpointed) after the last block of the given checkpoint.
    * @param checkpointNumber - Remove all checkpoints strictly after this one.
    */
-  removeCheckpointsAfter(checkpointNumber: CheckpointNumber): Promise<RemoveCheckpointsResult> {
-    return this.#blockStore.removeCheckpointsAfter(checkpointNumber);
+  async removeCheckpointsAfter(checkpointNumber: CheckpointNumber): Promise<RemoveCheckpointsResult> {
+    const result = await this.#blockStore.removeCheckpointsAfter(checkpointNumber);
+    // The block store may have cleared the pending checkpoint during pruning.
+    // Clear the pipelining boundary so it doesn't outlive the pending checkpoint.
+    await this.#messageStore.clearPipeliningTreeInProgress();
+    return result;
   }
 
   /**
@@ -271,8 +275,12 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param checkpoints The collection of checkpoints to be added
    * @returns True if the operation is successful
    */
-  addCheckpoints(checkpoints: PublishedCheckpoint[]): Promise<boolean> {
-    return this.#blockStore.addCheckpoints(checkpoints);
+  async addCheckpoints(checkpoints: PublishedCheckpoint[]): Promise<boolean> {
+    const result = await this.#blockStore.addCheckpoints(checkpoints);
+    // The block store clears the pending checkpoint when confirmed checkpoints supersede it.
+    // Clear the pipelining boundary so it doesn't outlive the pending checkpoint.
+    await this.#messageStore.clearPipeliningTreeInProgress();
+    return result;
   }
 
   /**
@@ -594,6 +602,11 @@ export class KVArchiverDataStore implements ContractDataSource {
   /** Persists the inbox tree-in-progress checkpoint number from L1 state. */
   public setInboxTreeInProgress(value: bigint): Promise<void> {
     return this.#messageStore.setInboxTreeInProgress(value);
+  }
+
+  /** Sets the pipelining tree-in-progress boundary for building ahead of L1 confirmation. */
+  public setPipeliningTreeInProgress(value: bigint): Promise<void> {
+    return this.#messageStore.setPipeliningTreeInProgress(value);
   }
 
   /** Returns an async iterator to all L1 to L2 messages on the range. */

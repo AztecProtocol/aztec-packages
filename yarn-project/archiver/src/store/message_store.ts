@@ -32,6 +32,16 @@ export class MessageStoreError extends Error {
   }
 }
 
+function maxBigint(a: bigint | undefined, b: bigint | undefined): bigint | undefined {
+  if (a === undefined) {
+    return b;
+  }
+  if (b === undefined) {
+    return a;
+  }
+  return a > b ? a : b;
+}
+
 export class MessageStore {
   /** Maps from message index to serialized InboxMessage */
   #l1ToL2Messages: AztecAsyncMap<number, Buffer>;
@@ -43,6 +53,9 @@ export class MessageStore {
   #totalMessageCount: AztecAsyncSingleton<bigint>;
   /** Stores the checkpoint number whose message tree is currently being filled on L1. */
   #inboxTreeInProgress: AztecAsyncSingleton<bigint>;
+  /** Stores the pipelining tree-in-progress boundary, set by the sequencer when building ahead.
+   *  Separate from the synced value so normal callers still use the strict L1-synced guard. */
+  #pipeliningTreeInProgress: AztecAsyncSingleton<bigint>;
 
   #log = createLogger('archiver:message_store');
 
@@ -52,6 +65,7 @@ export class MessageStore {
     this.#lastSynchedL1Block = db.openSingleton('archiver_last_l1_block_id');
     this.#totalMessageCount = db.openSingleton('archiver_l1_to_l2_message_count');
     this.#inboxTreeInProgress = db.openSingleton('archiver_inbox_tree_in_progress');
+    this.#pipeliningTreeInProgress = db.openSingleton('archiver_pipelining_tree_in_progress');
   }
 
   public async getTotalL1ToL2MessageCount(): Promise<bigint> {
@@ -199,10 +213,34 @@ export class MessageStore {
     await this.#inboxTreeInProgress.set(value);
   }
 
+  /** Returns the pipelining tree-in-progress boundary, or undefined if not set. */
+  public getPipeliningTreeInProgress(): Promise<bigint | undefined> {
+    return this.#pipeliningTreeInProgress.getAsync();
+  }
+
+  /** Sets the pipelining tree-in-progress boundary. Called when a checkpoint proposal arrives
+   *  via P2P, to reflect that L1 has already sealed trees beyond what the archiver has synced. */
+  public async setPipeliningTreeInProgress(value: bigint): Promise<void> {
+    await this.#pipeliningTreeInProgress.set(value);
+  }
+
+  /** Clears the pipelining tree-in-progress boundary. Called when the pending checkpoint
+   *  is cleared (confirmed on L1 or pruned). */
+  public async clearPipeliningTreeInProgress(): Promise<void> {
+    await this.#pipeliningTreeInProgress.delete();
+  }
+
   public async getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {
-    const treeInProgress = await this.#inboxTreeInProgress.getAsync();
-    if (treeInProgress !== undefined && BigInt(checkpointNumber) >= treeInProgress) {
-      throw new L1ToL2MessagesNotReadyError(checkpointNumber, treeInProgress);
+    // Check the effective tree-in-progress boundary: max of L1-synced and pipelining values.
+    // The pipelining value is set when a checkpoint proposal arrives via P2P, reflecting that L1
+    // has already sealed trees beyond what the archiver's L1 sync has picked up.
+    const [synced, pipelining] = await Promise.all([
+      this.#inboxTreeInProgress.getAsync(),
+      this.#pipeliningTreeInProgress.getAsync(),
+    ]);
+    const effectiveTreeInProgress = maxBigint(synced, pipelining);
+    if (effectiveTreeInProgress !== undefined && BigInt(checkpointNumber) >= effectiveTreeInProgress) {
+      throw new L1ToL2MessagesNotReadyError(checkpointNumber, effectiveTreeInProgress);
     }
 
     const messages: Fr[] = [];

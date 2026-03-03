@@ -92,6 +92,7 @@ describe('L2BlockStream', () => {
     blockSource.getL2Tips.mockResolvedValue({
       proposed: { number: BlockNumber(latest), hash: makeHash(latest) },
       checkpointed: makeTipId(checkpointed_),
+      pendingCheckpoint: undefined,
       proven: makeTipId(proven),
       finalized: makeTipId(finalized),
     });

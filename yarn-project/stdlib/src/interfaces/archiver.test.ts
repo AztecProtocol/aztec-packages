@@ -15,6 +15,7 @@ import type { L2Tips } from '../block/l2_block_source.js';
 import type { ValidateCheckpointResult } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import type { CheckpointData } from '../checkpoint/checkpoint_data.js';
+import type { PendingCheckpointData } from '../checkpoint/pending_checkpoint_data.js';
 import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import {
@@ -355,6 +356,11 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBe(1n);
   });
 
+  it('getPendingCheckpoint', async () => {
+    const result = await context.client.getPendingCheckpoint();
+    expect(result).toBeUndefined();
+  });
+
   it('getPendingChainValidationStatus', async () => {
     const result = await context.client.getPendingChainValidationStatus();
     expect(result).toEqual({ valid: true });
@@ -387,6 +393,9 @@ class MockArchiver implements ArchiverApi {
   }
   getPendingChainValidationStatus(): Promise<ValidateCheckpointResult> {
     return Promise.resolve({ valid: true });
+  }
+  getPendingCheckpoint(): Promise<PendingCheckpointData | undefined> {
+    return Promise.resolve(undefined);
   }
   syncImmediate() {
     return Promise.resolve();
@@ -563,6 +572,7 @@ class MockArchiver implements ArchiverApi {
     return Promise.resolve({
       proposed: { number: BlockNumber(1), hash: `0x01` },
       checkpointed: tipId,
+      pendingCheckpoint: undefined,
       proven: tipId,
       finalized: tipId,
     });

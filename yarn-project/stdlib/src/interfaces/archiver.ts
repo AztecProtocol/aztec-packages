@@ -12,6 +12,7 @@ import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
 import { ValidateCheckpointResultSchema } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
+import { PendingCheckpointDataSchema } from '../checkpoint/pending_checkpoint_data.js';
 import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import {
   ContractClassPublicSchema,
@@ -150,6 +151,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .args()
     .returns(z.object({ genesisArchiveRoot: schemas.Fr })),
   getL1Timestamp: z.function().args().returns(schemas.BigInt.optional()),
+  getPendingCheckpoint: z.function().args().returns(PendingCheckpointDataSchema.optional()),
   syncImmediate: z.function().args().returns(z.void()),
   isPendingChainInvalid: z.function().args().returns(z.boolean()),
   getPendingChainValidationStatus: z.function().args().returns(ValidateCheckpointResultSchema),

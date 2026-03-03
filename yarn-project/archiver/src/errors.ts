@@ -26,9 +26,13 @@ export class InitialCheckpointNumberNotSequentialError extends Error {
 }
 
 export class CheckpointNumberNotSequentialError extends Error {
-  constructor(newCheckpointNumber: number, previous: number | undefined) {
+  constructor(
+    newCheckpointNumber: number,
+    previous: number | undefined,
+    source: 'confirmed' | 'pending' = 'confirmed',
+  ) {
     super(
-      `Cannot insert new checkpoint ${newCheckpointNumber} given previous checkpoint number in batch is ${previous ?? 'undefined'}`,
+      `Cannot insert new checkpoint ${newCheckpointNumber} given previous ${source} checkpoint number is ${previous ?? 'undefined'}`,
     );
   }
 }

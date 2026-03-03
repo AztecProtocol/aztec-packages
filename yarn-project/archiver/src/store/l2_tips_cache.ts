@@ -26,9 +26,16 @@ export class L2TipsCache {
   }
 
   private async loadFromStore(): Promise<L2Tips> {
-    const [latestBlockNumber, provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber] = await Promise.all([
+    const [
+      latestBlockNumber,
+      provenBlockNumber,
+      pendingCheckpointBlockNumber,
+      checkpointedBlockNumber,
+      finalizedBlockNumber,
+    ] = await Promise.all([
       this.blockStore.getLatestBlockNumber(),
       this.blockStore.getProvenBlockNumber(),
+      this.blockStore.getPendingCheckpointL2BlockNumber(),
       this.blockStore.getCheckpointedL2BlockNumber(),
       this.blockStore.getFinalizedL2BlockNumber(),
     ]);
@@ -42,19 +49,28 @@ export class L2TipsCache {
     const getBlockData = (blockNumber: BlockNumber) =>
       blockNumber > beforeInitialBlockNumber ? this.blockStore.getBlockData(blockNumber) : genesisBlockHeader;
 
-    const [latestBlockData, provenBlockData, checkpointedBlockData, finalizedBlockData] = await Promise.all(
-      [latestBlockNumber, provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber].map(getBlockData),
-    );
+    const [latestBlockData, provenBlockData, pendingCheckpointBlockData, checkpointedBlockData, finalizedBlockData] =
+      await Promise.all(
+        [
+          latestBlockNumber,
+          provenBlockNumber,
+          pendingCheckpointBlockNumber,
+          checkpointedBlockNumber,
+          finalizedBlockNumber,
+        ].map(getBlockData),
+      );
 
     if (!latestBlockData || !provenBlockData || !finalizedBlockData || !checkpointedBlockData) {
       throw new Error('Failed to load block data for L2 tips');
     }
 
-    const [provenCheckpointId, finalizedCheckpointId, checkpointedCheckpointId] = await Promise.all([
-      this.getCheckpointIdForBlock(provenBlockData),
-      this.getCheckpointIdForBlock(finalizedBlockData),
-      this.getCheckpointIdForBlock(checkpointedBlockData),
-    ]);
+    const [provenCheckpointId, finalizedCheckpointId, pendingCheckpointId, checkpointedCheckpointId] =
+      await Promise.all([
+        this.getCheckpointIdForBlock(provenBlockData),
+        this.getCheckpointIdForBlock(finalizedBlockData),
+        this.getCheckpointIdForPendingCheckpoint(),
+        this.getCheckpointIdForBlock(checkpointedBlockData),
+      ]);
 
     return {
       proposed: { number: latestBlockNumber, hash: latestBlockData.blockHash.toString() },
@@ -62,6 +78,12 @@ export class L2TipsCache {
         block: { number: provenBlockNumber, hash: provenBlockData.blockHash.toString() },
         checkpoint: provenCheckpointId,
       },
+      pendingCheckpoint: pendingCheckpointBlockData
+        ? {
+            block: { number: pendingCheckpointBlockNumber, hash: pendingCheckpointBlockData.blockHash.toString() },
+            checkpoint: pendingCheckpointId,
+          }
+        : undefined,
       finalized: {
         block: { number: finalizedBlockNumber, hash: finalizedBlockData.blockHash.toString() },
         checkpoint: finalizedCheckpointId,
@@ -70,6 +92,20 @@ export class L2TipsCache {
         block: { number: checkpointedBlockNumber, hash: checkpointedBlockData.blockHash.toString() },
         checkpoint: checkpointedCheckpointId,
       },
+    };
+  }
+
+  private async getCheckpointIdForPendingCheckpoint(): Promise<CheckpointId> {
+    const checkpointData = await this.blockStore.getPendingCheckpoint();
+    if (!checkpointData) {
+      return {
+        number: CheckpointNumber.ZERO,
+        hash: GENESIS_BLOCK_HEADER_HASH.toString(),
+      };
+    }
+    return {
+      number: checkpointData.checkpointNumber,
+      hash: checkpointData.header.hash().toString(),
     };
   }
 

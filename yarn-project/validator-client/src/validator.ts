@@ -338,7 +338,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         checkpoint: CheckpointProposalCore,
         proposalSender: PeerId,
       ): Promise<CheckpointAttestation[] | undefined> => this.attestToCheckpointProposal(checkpoint, proposalSender);
-      this.p2pClient.registerCheckpointProposalHandler(checkpointHandler);
+      this.p2pClient.registerValidatorCheckpointProposalHandler(checkpointHandler);
 
       // Duplicate proposal handler - triggers slashing for equivocation
       this.p2pClient.registerDuplicateProposalCallback((info: DuplicateProposalInfo) => {

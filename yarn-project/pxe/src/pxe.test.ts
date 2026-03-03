@@ -193,6 +193,7 @@ describe('PXE', () => {
         checkpointed: tipId,
         proven: tipId,
         finalized: tipId,
+        pendingCheckpoint: undefined,
       });
 
       // This is read when PXE tries to resolve the

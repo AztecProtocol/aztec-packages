@@ -162,7 +162,7 @@ describe('CheckpointProposalJob', () => {
     publisher.enqueueProposeCheckpoint.mockResolvedValue(undefined);
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
-    publisher.sendRequests.mockResolvedValue({
+    publisher.sendRequestsAt.mockResolvedValue({
       result: { receipt: { status: 'success' } as TransactionReceipt, errorMsg: undefined },
       successfulActions: ['propose'],
       failedActions: [],
@@ -441,8 +441,6 @@ describe('CheckpointProposalJob', () => {
 
     it('uses targetEpoch for previousCheckpointOutHashes when pipelining crosses epoch boundary', async () => {
       // Pipelining scenario: wall-clock is in epoch 0, but target slot is in epoch 1.
-      // The key fix: getCheckpointsDataForEpoch must be called with targetEpoch, not epochNow.
-      const epochNow = EpochNumber(0);
       const targetEpoch = EpochNumber(1);
       // Target slot is first slot of epoch 1 (epochDuration = 16)
       const targetSlot = SlotNumber(l1Constants.epochDuration);
@@ -454,7 +452,7 @@ describe('CheckpointProposalJob', () => {
 
       l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue([toCheckpointData(previousCheckpoint)]);
 
-      job = createCheckpointProposalJob({ slotNow, targetSlot, epochNow, targetEpoch });
+      job = createCheckpointProposalJob({ slotNow, targetSlot, targetEpoch });
       job.setTimetable(
         new SequencerTimetable({
           ethereumSlotDuration,
@@ -471,7 +469,7 @@ describe('CheckpointProposalJob', () => {
 
       await job.execute();
 
-      // Verify getCheckpointsDataForEpoch was called with targetEpoch (1), not epochNow (0)
+      // Verify getCheckpointsDataForEpoch was called with targetEpoch (1), not the wall-clock epoch (0)
       expect(l2BlockSource.getCheckpointsDataForEpoch).toHaveBeenCalledWith(targetEpoch);
     });
   });
@@ -551,7 +549,6 @@ describe('CheckpointProposalJob', () => {
   function createCheckpointProposalJob(overrides?: {
     slotNow?: SlotNumber;
     targetSlot?: SlotNumber;
-    epochNow?: EpochNumber;
     targetEpoch?: EpochNumber;
   }): TestCheckpointProposalJob {
     const setStateFn = jest.fn();
@@ -560,7 +557,6 @@ describe('CheckpointProposalJob', () => {
     return new TestCheckpointProposalJob(
       overrides?.slotNow ?? SlotNumber(newSlotNumber),
       overrides?.targetSlot ?? SlotNumber(newSlotNumber),
-      overrides?.epochNow ?? epoch,
       overrides?.targetEpoch ?? epoch,
       checkpointNumber,
       lastBlockNumber,

@@ -16,7 +16,13 @@ import {
   type L2Tips,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import { Checkpoint, type CheckpointData, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import {
+  Checkpoint,
+  type CheckpointData,
+  L1PublishedData,
+  type PendingCheckpointData,
+  PublishedCheckpoint,
+} from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import {
   EmptyL1RollupConstants,
@@ -450,6 +456,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
       checkpointed: makeTipId(checkpointedBlockId),
       proven: makeTipId(provenBlockId),
       finalized: makeTipId(finalizedBlockId),
+      pendingCheckpoint: undefined,
     };
   }
 
@@ -529,6 +536,10 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
   getPendingChainValidationStatus(): Promise<ValidateCheckpointResult> {
     return Promise.resolve({ valid: true });
+  }
+
+  getPendingCheckpoint(): Promise<PendingCheckpointData | undefined> {
+    return Promise.resolve(undefined);
   }
 
   /** Returns checkpoints whose slot falls within the given epoch. */
