@@ -28,8 +28,8 @@ class MemBn254Crs : public Crs<curve::BN254> {
         if (monomials_.empty() || !monomials_[0].on_curve()) {
             throw_or_abort("invalid g1_identity passed to MemBn254CrsFactory");
         }
-        bb::pairing::precompute_miller_lines({ bb::g2::one.x, bb::g2::one.y, fq2::one() }, precomputed_g2_lines[0]);
-        bb::pairing::precompute_miller_lines({ g2_x.x, g2_x.y, fq2::one() }, precomputed_g2_lines[1]);
+        bb::pairing::precompute_miller_lines(bb::g2::one, precomputed_g2_lines[0]);
+        bb::pairing::precompute_miller_lines(g2_x, precomputed_g2_lines[1]);
     }
 
     ~MemBn254Crs() override { aligned_free(precomputed_g2_lines); }

@@ -50,25 +50,60 @@ struct miller_lines {
     std::array<fq12::ell_coeffs, precomputed_coefficients_length> lines;
 };
 
-// Struct representing a point in G2 in homogeneous projective coordinates
+/**
+
+ *
+ * @details When calculating pairings, point operations are calculated via an ad-hoc method, so it's more sensible to
+ * use a specific struct rather than reusing g2::element
+ */
 struct g2Projective {
     fq2 x;
     fq2 y;
     fq2 z;
 };
 
-// Struct representing a point in G2 in homogeneous projective coordinates
+/**
+ * @brief  Struct representing a point in G1 in homogeneous projective coordinates
+ *
+ * @details When calculating pairings, point operations are calculated via an ad-hoc method, so it's more sensible to
+ * use a specific struct rather than reusing g2::element
+ *
+ */
 struct g1Projective {
     fq x;
     fq y;
     fq z;
 };
 
-constexpr void doubling_step_for_flipped_miller_loop(g2Projective& work_point, fq12::ell_coeffs& line);
+/**
+ * @brief Doubling step for Miller loop calculation.
+ *
+ * @details This function computes the constants required to evaluate the tangent line at work_point and updates
+ * work_point to 2 * work_point. The formulas are taken from https://cacr.uwaterloo.ca/techreports/2012/cacr2012-17.pdf,
+ * section 4.2.
+ *
+ * @param work_point
+ * @param line
+ */
+constexpr void doubling_step_for_miller_loop(g2Projective& work_point, fq12::ell_coeffs& line);
 
-constexpr void mixed_addition_step_for_flipped_miller_loop(const g2Projective& Q,
-                                                           g2Projective& work_point,
-                                                           fq12::ell_coeffs& line);
+/**
+ * @brief Addition step for Miller loop calculation.
+ *
+ * @details This function computes the constants required to evaluate the line through work_point and Q and updates
+ * work_point to work_point + Q. The formulas are taken from https://cacr.uwaterloo.ca/techreports/2012/cacr2012-17.pdf,
+ * section 4.2.
+ *
+ * @note The formulas for mixed addition in https://cacr.uwaterloo.ca/techreports/2012/cacr2012-17.pdf have a typo: the
+ * first term in the line evaluation of the mixed addition is lambda * y_P, not lambda * (-y_P)
+ *
+ * @param Q
+ * @param work_point
+ * @param line
+ */
+constexpr void mixed_addition_step_for_miller_loop(const g2Projective& Q,
+                                                   g2Projective& work_point,
+                                                   fq12::ell_coeffs& line);
 
 /**
  * @brief Precomputation of Miller lines for a point Q in G2.
@@ -92,6 +127,9 @@ constexpr void mixed_addition_step_for_flipped_miller_loop(const g2Projective& Q
  * @param lines
  */
 constexpr void precompute_miller_lines(const g2Projective& Q, miller_lines& lines);
+
+// Overload when the function is called with a g2::element
+constexpr void precompute_miller_lines(const g2::element& Q, miller_lines& lines);
 
 /**
  * @brief Miller loop implementation.
