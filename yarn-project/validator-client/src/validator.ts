@@ -565,7 +565,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     this.metrics.incSuccessfulAttestations(inCommittee.length);
 
     // Track epoch participation per attester: count each (attester, epoch) pair at most once
-    const proposalEpoch = getEpochAtSlot(slotNumber, this.epochCache.getL1Constants());
+    const proposalEpoch = getEpochAtSlot(proposalSlotNumber, this.epochCache.getL1Constants());
     for (const attester of inCommittee) {
       const key = attester.toString();
       const lastEpoch = this.lastAttestedEpochByAttester.get(key);

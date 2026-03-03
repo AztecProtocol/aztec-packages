@@ -74,7 +74,7 @@ export type SequencerClientConfig = SequencerPublisherConfig &
   L1ReaderConfig &
   ChainConfig &
   PipelineConfig &
-  Pick<P2PConfig, 'txPublicSetupAllowList'> &
+  Pick<P2PConfig, 'txPublicSetupAllowListExtend'> &
   Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {

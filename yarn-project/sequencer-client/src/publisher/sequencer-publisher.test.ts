@@ -320,8 +320,14 @@ describe('SequencerPublisher', () => {
 
       const epochCache = mock<EpochCache>();
       epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: EpochNumber(1),
-        slot: SlotNumber(2),
+        epoch: {
+          now: EpochNumber(1),
+          pipeline: EpochNumber(1),
+        },
+        slot: {
+          now: SlotNumber(2),
+          pipeline: SlotNumber(2),
+        },
         ts: 3n,
         nowMs: 3000n,
       });
