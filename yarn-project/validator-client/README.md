@@ -241,7 +241,7 @@ Per-block budgets prevent one block from consuming the entire checkpoint budget.
 
 **Proposer**: `SequencerClient.computeBlockGasLimits()` derives budgets at startup as `min(checkpointLimit, ceil(checkpointLimit / maxBlocks * multiplier))`, where `maxBlocks` comes from the timetable and `multiplier` defaults to 2. Operators can override via `SEQ_MAX_L2_BLOCK_GAS` / `SEQ_MAX_DA_BLOCK_GAS` (capped at checkpoint limits).
 
-**Validator**: Does not compute per-block budgets. Uses operator-configured values if set, otherwise relies solely on checkpoint-level capping (see below).
+**Validator**: Does not compute per-block budgets. Relies solely on checkpoint-level capping.
 
 **Checkpoint-level capping**: `CheckpointBuilder.capLimitsByCheckpointBudgets()` always runs before tx processing, capping per-block limits by `checkpointBudget - sum(used by prior blocks)` for all three dimensions. This applies to both proposer and validator paths.
 

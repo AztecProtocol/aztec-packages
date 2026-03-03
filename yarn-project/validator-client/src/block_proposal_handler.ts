@@ -10,7 +10,6 @@ import type { P2P, PeerId } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import { Gas } from '@aztec/stdlib/gas';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
@@ -484,16 +483,6 @@ export class BlockProposalHandler {
     const result = await checkpointBuilder.buildBlock(txs, blockNumber, blockHeader.globalVariables.timestamp, {
       deadline,
       expectedEndState: blockHeader.state,
-      maxTransactions: config.maxTxsPerBlock,
-      // Note: Unlike the sequencer, the validator does not compute per-block gas budgets from
-      // checkpoint limits (using timetable maxNumberOfBlocks * multiplier). These limits are only
-      // set if the operator explicitly configures maxL2BlockGas/maxDABlockGas.
-      // Checkpoint-level caps are still enforced inside CheckpointBuilder.buildBlock via
-      // capLimitsByCheckpointBudgets, so L1 rejection is prevented even without per-block limits.
-      maxBlockGas:
-        config.maxL2BlockGas !== undefined || config.maxDABlockGas !== undefined
-          ? new Gas(config.maxDABlockGas ?? Infinity, config.maxL2BlockGas ?? Infinity)
-          : undefined,
     });
 
     const { block, failedTxs } = result;
