@@ -101,23 +101,6 @@ export class CheckpointProposal extends Gossipable {
     return this.checkpointHeader.slotNumber;
   }
 
-  get blockNumber(): BlockNumber {
-    if (!this.lastBlock) {
-      throw new Error('Cannot get blockNumber without lastBlock');
-    }
-    return this.lastBlock.blockHeader.getBlockNumber();
-  }
-
-  /** Convenience getter for txHashes from lastBlock */
-  get txHashes(): TxHash[] {
-    return this.lastBlock?.txHashes ?? [];
-  }
-
-  /** Convenience getter for txs from lastBlock */
-  get txs(): Tx[] | undefined {
-    return this.lastBlock?.signedTxs?.txs;
-  }
-
   /**
    * Extract a BlockProposal from the last block info.
    * Uses inHash from checkpointHeader.contentCommitment.inHash
