@@ -13,6 +13,8 @@ export interface SequencerConfig {
   sequencerPollingIntervalMS?: number;
   /** The maximum number of txs to include in a block. */
   maxTxsPerBlock?: number;
+  /** The maximum number of txs across all blocks in a checkpoint. */
+  maxTxsPerCheckpoint?: number;
   /** The minimum number of txs to include in a block. */
   minTxsPerBlock?: number;
   /** The minimum number of valid txs (after execution) to include in a block. If not set, falls back to minTxsPerBlock. */
@@ -85,6 +87,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
   z.object({
     sequencerPollingIntervalMS: z.number().optional(),
     maxTxsPerBlock: z.number().optional(),
+    maxTxsPerCheckpoint: z.number().optional(),
     minValidTxsPerBlock: z.number().optional(),
     minTxsPerBlock: z.number().optional(),
     maxL2BlockGas: z.number().optional(),
@@ -135,6 +138,8 @@ type SequencerConfigOptionalKeys =
   | 'txPublicSetupAllowListExtend'
   | 'minValidTxsPerBlock'
   | 'minBlocksForCheckpoint'
+  | 'maxTxsPerBlock'
+  | 'maxTxsPerCheckpoint'
   | 'maxL2BlockGas'
   | 'maxDABlockGas'
   | 'gasPerBlockAllocationMultiplier';

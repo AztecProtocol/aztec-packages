@@ -345,5 +345,75 @@ describe('CheckpointBuilder', () => {
       expect(afterTwoBlocks.maxBlobFields).toBeLessThan(afterOneBlock.maxBlobFields!);
       expect(afterOneBlock.maxBlobFields! - afterTwoBlocks.maxBlobFields!).toBe(block2BlobFieldCount);
     });
+
+    it('caps transaction count by remaining checkpoint tx budget', () => {
+      setupBuilder({ maxTxsPerCheckpoint: 20 });
+
+      // Prior block with 3 txs (each with 10 blob fields)
+      lightweightCheckpointBuilder.getBlocks.mockReturnValue([
+        createMockBlock({ manaUsed: 0, txBlobFields: [10, 10, 10], blockBlobFieldCount: 40 }),
+      ]);
+
+      const opts: PublicProcessorLimits = { maxTransactions: 15 };
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+
+      // Remaining txs = 20 - 3 = 17. Per-block = 15. Capped to min(15, 17) = 15.
+      expect(capped.maxTransactions).toBe(15);
+    });
+
+    it('caps transaction count when remaining budget is smaller than per-block limit', () => {
+      setupBuilder({ maxTxsPerCheckpoint: 10 });
+
+      // Two prior blocks with 4 txs each = 8 total
+      lightweightCheckpointBuilder.getBlocks.mockReturnValue([
+        createMockBlock({ manaUsed: 0, txBlobFields: [10, 10, 10, 10], blockBlobFieldCount: 50 }),
+        createMockBlock({ manaUsed: 0, txBlobFields: [10, 10, 10, 10], blockBlobFieldCount: 50 }),
+      ]);
+
+      const opts: PublicProcessorLimits = { maxTransactions: 5 };
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+
+      // Remaining txs = 10 - 8 = 2. Per-block = 5. Capped to min(5, 2) = 2.
+      expect(capped.maxTransactions).toBe(2);
+    });
+
+    it('sets transaction count from remaining budget when caller does not provide it', () => {
+      setupBuilder({ maxTxsPerCheckpoint: 15 });
+
+      // Prior block with 5 txs
+      lightweightCheckpointBuilder.getBlocks.mockReturnValue([
+        createMockBlock({ manaUsed: 0, txBlobFields: [10, 10, 10, 10, 10], blockBlobFieldCount: 60 }),
+      ]);
+
+      const opts: PublicProcessorLimits = {};
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+
+      // Remaining txs = 15 - 5 = 10
+      expect(capped.maxTransactions).toBe(10);
+    });
+
+    it('does not cap transaction count when maxTxsPerCheckpoint is not set', () => {
+      setupBuilder(); // no maxTxsPerCheckpoint
+
+      lightweightCheckpointBuilder.getBlocks.mockReturnValue([]);
+
+      const opts: PublicProcessorLimits = { maxTransactions: 99 };
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+
+      // Passthrough: maxTransactions = 99
+      expect(capped.maxTransactions).toBe(99);
+    });
+
+    it('does not cap transaction count when maxTxsPerCheckpoint is not set and caller does not provide it', () => {
+      setupBuilder(); // no maxTxsPerCheckpoint
+
+      lightweightCheckpointBuilder.getBlocks.mockReturnValue([]);
+
+      const opts: PublicProcessorLimits = {};
+      const capped = (checkpointBuilder as TestCheckpointBuilder).testCapLimits(opts);
+
+      // Neither config nor caller sets it, so it remains undefined
+      expect(capped.maxTransactions).toBeUndefined();
+    });
   });
 });
