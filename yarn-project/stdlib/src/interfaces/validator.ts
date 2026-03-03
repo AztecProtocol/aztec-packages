@@ -59,10 +59,22 @@ export type ValidatorClientConfig = ValidatorHASignerConfig & {
 
   /** Agree to attest to equivocated checkpoint proposals (for testing purposes only) */
   attestToEquivocatedProposals?: boolean;
+
+  /** Maximum L2 gas per block for validation. Proposals exceeding this limit are rejected. */
+  validateMaxL2BlockGas?: number;
+
+  /** Maximum DA gas per block for validation. Proposals exceeding this limit are rejected. */
+  validateMaxDABlockGas?: number;
+
+  /** Maximum transactions per block for validation. Proposals exceeding this limit are rejected. */
+  validateMaxTxsPerBlock?: number;
+
+  /** Maximum transactions per checkpoint for validation. Proposals exceeding this limit are rejected. */
+  validateMaxTxsPerCheckpoint?: number;
 };
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
-  Pick<SequencerConfig, 'txPublicSetupAllowListExtend' | 'broadcastInvalidBlockProposal' | 'maxTxsPerBlock'> &
+  Pick<SequencerConfig, 'txPublicSetupAllowListExtend' | 'broadcastInvalidBlockProposal'> &
   Pick<
     SlasherConfig,
     'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty' | 'slashDuplicateAttestationPenalty'
@@ -86,6 +98,10 @@ export const ValidatorClientConfigSchema = zodFor<Omit<ValidatorClientConfig, 'v
     skipCheckpointProposalValidation: z.boolean().optional(),
     skipPushProposedBlocksToArchiver: z.boolean().optional(),
     attestToEquivocatedProposals: z.boolean().optional(),
+    validateMaxL2BlockGas: z.number().optional(),
+    validateMaxDABlockGas: z.number().optional(),
+    validateMaxTxsPerBlock: z.number().optional(),
+    validateMaxTxsPerCheckpoint: z.number().optional(),
   }),
 );
 
@@ -93,7 +109,6 @@ export const ValidatorClientFullConfigSchema = zodFor<Omit<ValidatorClientFullCo
   ValidatorClientConfigSchema.extend({
     txPublicSetupAllowListExtend: z.array(AllowedElementSchema).optional(),
     broadcastInvalidBlockProposal: z.boolean().optional(),
-    maxTxsPerBlock: z.number().optional(),
     slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
     slashDuplicateProposalPenalty: schemas.BigInt,
     slashDuplicateAttestationPenalty: schemas.BigInt,

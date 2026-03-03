@@ -40,6 +40,9 @@ export interface P2PConfig
     TxCollectionConfig,
     TxFileStoreConfig,
     Pick<SequencerConfig, 'blockDurationMs' | 'expectedBlockProposalsPerSlot' | 'maxTxsPerBlock'> {
+  /** Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set. */
+  validateMaxTxsPerBlock?: number;
+
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
@@ -199,6 +202,12 @@ export interface P2PConfig
 export const DEFAULT_P2P_PORT = 40400;
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
+  validateMaxTxsPerBlock: {
+    env: 'VALIDATOR_MAX_TX_PER_BLOCK',
+    description:
+      'Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
   p2pEnabled: {
     env: 'P2P_ENABLED',
     description: 'A flag dictating whether the P2P subsystem should be enabled.',
