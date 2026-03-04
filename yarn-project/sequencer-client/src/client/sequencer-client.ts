@@ -267,7 +267,7 @@ export function computeBlockLimits(
     enforce: config.enforceTimeTable ?? DefaultSequencerConfig.enforceTimeTable,
   }).maxNumberOfBlocks;
 
-  const multiplier = config.gasPerBlockAllocationMultiplier ?? DefaultSequencerConfig.gasPerBlockAllocationMultiplier;
+  const multiplier = config.perBlockAllocationMultiplier ?? DefaultSequencerConfig.perBlockAllocationMultiplier;
 
   // Compute maxL2BlockGas
   let maxL2BlockGas: number;
