@@ -116,7 +116,11 @@ void bn254_point_decompression(benchmark::State& state)
 
     for (auto _ : state) {
         std::vector<g1::affine_element> points(NUM_POINTS);
-        parallel_for(NUM_POINTS, [&](size_t i) { points[i] = g1::affine_element::from_compressed(compressed[i]); });
+        parallel_for([&](ThreadChunk chunk) {
+            for (auto i : chunk.range(NUM_POINTS)) {
+                points[i] = g1::affine_element::from_compressed(compressed[i]);
+            }
+        });
         benchmark::DoNotOptimize(points);
     }
 }
