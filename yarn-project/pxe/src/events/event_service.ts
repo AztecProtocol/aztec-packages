@@ -37,8 +37,6 @@ export class EventService {
 
     const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
 
-    const eventDetails = `contract=${contractAddress}, selector=${selector}, eventCommitment=${eventCommitment}, txHash=${txHash}`;
-
     if (!txEffect) {
       // We error out instead of just logging a warning and skipping the event because this would indicate a bug. This
       // is because the node has already served info about this tx either when obtaining the log (TxScopedL2Log contain
@@ -66,7 +64,7 @@ export class EventService {
       // processing pipeline. A malformed or malicious message could trigger this condition. Because of this we don't
       // error out and we just show a warning.
       this.log.warn(
-        `Skipping event whose commitment is not present in its tx. siloedEventCommitment=${siloedEventCommitment}, ${eventDetails}`,
+        `Skipping event whose commitment is not present in its tx. siloedEventCommitment=${siloedEventCommitment}, contract=${contractAddress}, selector=${selector}, eventCommitment=${eventCommitment}, txHash=${txHash}`,
       );
       return;
     }
