@@ -5,6 +5,7 @@ import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
+import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { asyncMap } from '@aztec/foundation/async-map';
@@ -15,6 +16,7 @@ import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { SequencerEvents } from '@aztec/sequencer-client';
+import { L2BlockSourceEvents } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
@@ -253,4 +255,104 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     // Verify proving still works end-to-end with pipelined proposers
     await waitForProvenCheckpoint(multiBlockCheckpoint);
   });
+
+  it('prunes uncheckpointed blocks when proposer fails to deliver', async () => {
+    await setupTest({ syncChainTip: 'checkpointed', minTxsPerBlock: 1, maxTxsPerBlock: 2 });
+
+    const blockProposedEvents: { blockNumber: BlockNumber; slot: SlotNumber; buildSlot: SlotNumber }[] = [];
+    const sequencers = nodes.map(n => n.getSequencer()!);
+
+    // Pre-prove and send transactions
+    const txs = await timesAsync(TX_COUNT, i =>
+      proveInteraction(context.wallet, contract.methods.emit_nullifier(new Fr(i + 1)), { from }),
+    );
+    const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
+    logger.warn(`Sent ${txHashes.length} transactions`, { txs: txHashes });
+
+    await Promise.all(sequencers.map(s => s.start()));
+    logger.warn(`Started all sequencers`);
+
+    // Assert that at least 1 checkpoint has been reached
+    const checkpointTimeout = test.L2_SLOT_DURATION_IN_S * test.epochDuration * 3;
+    await test.waitUntilCheckpointNumber(CheckpointNumber(1), checkpointTimeout);
+    const checkpointedBlockNumber = await archiver.getBlockNumber();
+    logger.warn(`Baseline established: checkpoint 1 reached at block ${checkpointedBlockNumber}`);
+    // Find the next proposer and prevent it from publishing checkpoints
+    const { slot: currentSlot } = test.epochCache.getEpochAndSlotNow();
+    const { proposerIndex, slot: proposerSlotToNotPublish } = await findNextProposerIndex(
+      test.epochCache,
+      validators,
+      SlotNumber(currentSlot + 1),
+    );
+    logger.warn(
+      `Will skip checkpoint publishing for proposer ${proposerIndex} in slot ${proposerSlotToNotPublish} - current slot ${currentSlot}`,
+    );
+
+    const targetSequencer = nodes[proposerIndex].getSequencer();
+    if (!targetSequencer) {
+      throw new Error('Target proposer sequencer not found');
+    }
+    // Subscribe to prune event BEFORE disabling publishing, so we don't miss the event
+    const prunePromise = new Promise<void>(resolve => {
+      archiver.events.once(L2BlockSourceEvents.L2PruneUncheckpointed, () => resolve());
+    });
+
+    // The sequencer keeps building blocks and broadcasting via P2P, but won't submit the checkpoint to L1
+    targetSequencer.updateConfig({ skipPublishingCheckpointsPercent: 100 });
+
+    const pruneTimeout = test.L2_SLOT_DURATION_IN_S * 3 * 1000;
+    logger.warn(`Waiting for uncheckpointed blocks to be pruned (timeout=${pruneTimeout}ms)`);
+    await executeTimeout(() => prunePromise, pruneTimeout);
+
+    // add block proposed listeners after the prune
+    for (const sequencer of sequencers) {
+      sequencer.getSequencer().on('block-proposed', (args: Parameters<SequencerEvents['block-proposed']>[0]) => {
+        logger.warn(`block-proposed event: blockNumber=${args.blockNumber}, slot=${args.slot}`, args);
+        blockProposedEvents.push({
+          blockNumber: args.blockNumber,
+          slot: args.slot,
+          buildSlot: args.buildSlot,
+        });
+      });
+    }
+    logger.warn(`Pruning detected, block number now ${await archiver.getBlockNumber()}`);
+
+    // Re-enable checkpoint publishing
+    logger.warn(`Re-enabling checkpoint publishing for validator ${proposerIndex}`);
+    targetSequencer.updateConfig({ skipPublishingCheckpointsPercent: 0 });
+
+    // Wait for a new checkpoint (recovery) - where all txs end up mined
+    const timeout = test.L2_SLOT_DURATION_IN_S * 5;
+    await executeTimeout(
+      () => Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout }))),
+      timeout * 1000,
+    );
+    logger.warn(`All txs have been mined`);
+
+    // Verify MBPS works with pipelining
+    await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, logger);
+
+    // Verify the pipelining offset: build slot N vs submission slot N+1
+    await assertProposerPipelining(blockProposedEvents, logger);
+
+    const recoveredBlockNumber = await archiver.getBlockNumber();
+    logger.warn(`Recovery complete: block number ${recoveredBlockNumber} > ${checkpointedBlockNumber}`);
+    expect(recoveredBlockNumber).toBeGreaterThan(checkpointedBlockNumber);
+  });
 });
+
+/** Scans upcoming slots to find which validator proposes next and returns its index. */
+async function findNextProposerIndex(
+  epochCache: EpochCacheInterface,
+  validators: { attester: EthAddress }[],
+  slotToDisable: SlotNumber,
+): Promise<{ proposerIndex: number; slot: SlotNumber }> {
+  const proposer = await epochCache.getProposerAttesterAddressInSlot(SlotNumber(slotToDisable));
+  if (proposer) {
+    const idx = validators.findIndex(v => v.attester.equals(proposer));
+    if (idx >= 0) {
+      return { proposerIndex: idx, slot: SlotNumber(slotToDisable) };
+    }
+  }
+  throw new Error(`No proposer found in slot ${slotToDisable}`);
+}
