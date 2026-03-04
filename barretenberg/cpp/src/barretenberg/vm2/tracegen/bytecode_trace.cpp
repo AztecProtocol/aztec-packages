@@ -217,7 +217,7 @@ void BytecodeTraceBuilder::process_hashing(
                       { { { C::bc_hashing_sel, 1 },
                           { C::bc_hashing_start, start_of_bytecode ? 1 : 0 },
                           { C::bc_hashing_sel_not_start, !start_of_bytecode ? 1 : 0 },
-                          { C::bc_hashing_latch, end_of_bytecode ? 1 : 0 },
+                          { C::bc_hashing_end, end_of_bytecode ? 1 : 0 },
                           { C::bc_hashing_bytecode_id, id },
                           { C::bc_hashing_size_in_bytes,
                             event.bytecode_length_in_bytes }, // Note: only needs to be constrained at start

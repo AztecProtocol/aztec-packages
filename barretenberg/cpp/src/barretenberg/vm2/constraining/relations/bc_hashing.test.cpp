@@ -96,7 +96,7 @@ class BytecodeHashingConstrainingTestTraceHelper : public BytecodeHashingConstra
                 trace.set(row,
                           { {
                               { C::bc_hashing_bytecode_id, bytecode_id },
-                              { C::bc_hashing_latch, end },
+                              { C::bc_hashing_end, end },
                               { C::bc_hashing_output_hash, hash },
                               { C::bc_hashing_size_in_bytes, bytecode_size_in_bytes[j] },
                               { C::bc_hashing_input_len, bytecode_fields.size() },
@@ -150,7 +150,7 @@ TEST_F(BytecodeHashingConstrainingTest, SingleBytecodeHashOneRow)
         {
             { C::bc_hashing_size_in_bytes, bytecode.size() },
             { C::bc_hashing_input_len, 3 },
-            { C::bc_hashing_latch, 1 },
+            { C::bc_hashing_end, 1 },
             { C::bc_hashing_packed_fields_0, sep },
             { C::bc_hashing_packed_fields_1, 1 },
             { C::bc_hashing_packed_fields_2, 2 },
@@ -287,7 +287,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeLatchNotSel)
     TestTraceContainer trace;
     trace.set(0,
               { {
-                  { C::bc_hashing_latch, 1 },
+                  { C::bc_hashing_end, 1 },
                   { C::bc_hashing_sel, 1 },
               } });
 
@@ -431,9 +431,9 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingSelectors)
 
     // Row = 2 constrains the hashing for the last field of the bytecode, plus 2 padding fields
     // We cannot have padding anywhere but the last hashing row (= latch):
-    trace.set(Column::bc_hashing_latch, 2, 0);
+    trace.set(Column::bc_hashing_end, 2, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PADDING_END), "PADDING_END");
-    trace.set(Column::bc_hashing_latch, 2, 1);
+    trace.set(Column::bc_hashing_end, 2, 1);
 
     // We cannot have packed_fields_1 is padding, but packed_fields_2 is not:
     trace.set(Column::bc_hashing_sel_not_padding_2, 2, 1);
@@ -596,7 +596,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashIncrements)
     auto trace = TestTraceContainer({
         { { C::precomputed_first_row, 1 } },
         {
-            { C::bc_hashing_latch, 1 },
+            { C::bc_hashing_end, 1 },
             { C::bc_hashing_packed_fields_0, sep },
             { C::bc_hashing_packed_fields_1, bytecode_fields[1] },
             { C::bc_hashing_packed_fields_2, bytecode_fields[2] },
@@ -654,7 +654,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashLength)
         },
         {
             { C::bc_hashing_input_len, 7 },
-            { C::bc_hashing_latch, 1 },
+            { C::bc_hashing_end, 1 },
             { C::bc_hashing_packed_fields_0, bytecode_fields[2] },
             { C::bc_hashing_packed_fields_1, 0 },
             { C::bc_hashing_packed_fields_2, 0 },
@@ -720,7 +720,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashLengthBytes)
         },
         {
             { C::bc_hashing_input_len, 4 },
-            { C::bc_hashing_latch, 1 },
+            { C::bc_hashing_end, 1 },
             { C::bc_hashing_packed_fields_0, bytecode_fields[2] },
             { C::bc_hashing_packed_fields_1, 0 },
             { C::bc_hashing_packed_fields_2, 0 },
@@ -785,7 +785,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashOutputConsiste
         },
         {
             { C::bc_hashing_input_len, 6 },
-            { C::bc_hashing_latch, 1 },
+            { C::bc_hashing_end, 1 },
             { C::bc_hashing_packed_fields_0, bytecode_fields[2] },
             { C::bc_hashing_packed_fields_1, bytecode_fields[3] },
             { C::bc_hashing_packed_fields_2, bytecode_fields[4] },

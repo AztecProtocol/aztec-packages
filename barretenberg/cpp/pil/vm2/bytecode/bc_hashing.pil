@@ -30,14 +30,14 @@ include "../precomputed.pil";
  * number of 31-byte packed fields from bc_decomposition and +1 accounts for the
  * prepended domain separator | length field. Rows for a single bytecode are
  * contiguous, starting from row 2 (row 1 is a zero row for shifts). The first row
- * of each bytecode group has start = 1; the last has latch = 1.
+ * of each bytecode group has start = 1; the last has end = 1.
  *
  * Example (p_f = packed_fields):
  *
  * bc_hash_0 = H([sep, 0x111, 0x222, 0x333, 0x444, 0x555, 0x666, 0x777])
  * bc_hash_1 = H([sep, 0xaaa, 0xbbb, 0xccc])
  *
- *   pc_index |  pc_index_1 |  pc_index_2 | bytecode_id |  p_f_0  |  p_f_1  |  p_f_2  |  output_hash  | latch | START | rounds_rem | padding |
+ *   pc_index |  pc_index_1 |  pc_index_2 | bytecode_id |  p_f_0  |  p_f_1  |  p_f_2  |  output_hash  | end   | start | rounds_rem | padding |
  * -----------+-------------+-------------+-------------+---------+---------+---------+---------------+-------+-------+------------+---------+
  *     0      |      0      |      31     |      0      |   sep   |  0x111  |  0x222  |   bc_hash_0   |   0   |   1   |     3      |    1    |
  *     62     |      93     |      124    |      0      |  0x333  |  0x444  |  0x555  |   bc_hash_0   |   0   |   0   |     2      |    1    |
@@ -70,7 +70,7 @@ include "../precomputed.pil";
  *
  * This trace relies on chaining and inc/decrementing of values per row, so the final
  * output_hash can only be considered correct once all values have been processed and
- * the final state checked. Lookups into this trace should always be gated by latch = 1.
+ * the final state checked. Lookups into this trace should always be gated by end = 1.
  */
 namespace bc_hashing;
 
@@ -91,16 +91,16 @@ namespace bc_hashing;
 
     // Signifies the row that contains the final bytecode hash for this bytecode_id.
     // The prover can decide where to place this latch.
-    pol commit latch; // @boolean
-    latch * (1 - latch) = 0;
+    pol commit end; // @boolean
+    end * (1 - end) = 0;
 
-    // latch == 1 ==> sel == 1
+    // end == 1 ==> sel == 1
     #[SEL_TOGGLED_AT_LATCH]
-    latch * (1 - sel) = 0;
+    end * (1 - sel) = 0;
 
-    // Given both latch and first_row are boolean and that latch cannot be activated at first row (sel would have
+    // Given both end and first_row are boolean and that end cannot be activated at first row (sel would have
     // to be activated which is impossible on first row), LATCH_CONDITION is a boolean.
-    pol LATCH_CONDITION = latch + precomputed.first_row;
+    pol LATCH_CONDITION = end + precomputed.first_row;
 
     // The start of a new bytecode id and new set of hashing runs.
     pol commit start; // @boolean
@@ -110,7 +110,7 @@ namespace bc_hashing;
     pol commit sel_not_start; // @boolean (by definition)
     sel_not_start = sel * (1 - start);
 
-    // If the current row is a latch or the first row, the next row should be a start (if it's active):
+    // If the current row is a end or the first row, the next row should be a start (if it's active):
     #[START_AFTER_LATCH]
     sel' * (start' - LATCH_CONDITION) = 0;
 
@@ -144,7 +144,7 @@ namespace bc_hashing;
 
     // bytecode_id is freely chosen by the prover at start rows. It is constrained to equal
     // output_hash on every active row (#[HASH_IS_ID]), which is in turn constrained by the
-    // Poseidon2 lookup (#[POSEIDON2_HASH]). Between start and latch, the id is propagated unchanged:
+    // Poseidon2 lookup (#[POSEIDON2_HASH]). Between start and end, the id is propagated unchanged:
     pol commit bytecode_id;
     #[ID_PROPAGATION]
     (1 - LATCH_CONDITION) * (bytecode_id' - bytecode_id) = 0;
@@ -199,7 +199,7 @@ namespace bc_hashing;
     // total number of fields hashed is not a multiple of 3, we have some padding field values (= 0).
     // These would fail the lookups into bc_decomposition, so they are gated by sel_not_padding_X.
     // Note: packed_fields_0 must never be a padding value; padding can only occur at the last row
-    // (i.e. latch = 1).
+    // (i.e. end = 1).
 
     // Committed because they are used as permutation selectors in #[GET_PACKED_FIELD_1/2].
     pol commit sel_not_padding_1; // @boolean
@@ -223,9 +223,9 @@ namespace bc_hashing;
     #[PADDING_CONSISTENCY]
     PADDING_1 * sel_not_padding_2 = 0;
 
-    // PADDING_2 == 1 ==> latch == 1
+    // PADDING_2 == 1 ==> end == 1
     #[PADDING_END]
-    PADDING_2 * (1 - latch) = 0;
+    PADDING_2 * (1 - end) = 0;
 
     // PADDING_1 == 1 ==> packed_fields_1 == 0
     #[PADDED_BY_ZERO_1]
@@ -237,7 +237,7 @@ namespace bc_hashing;
 
     pol commit padding;
     #[PADDING_COMPUTATION]
-    latch * (padding - PADDING_1 - PADDING_2) = 0;
+    end * (padding - PADDING_1 - PADDING_2) = 0;
 
     #[PADDING_PROPAGATION]
     (1 - LATCH_CONDITION) * (padding' - padding) = 0;
@@ -257,23 +257,23 @@ namespace bc_hashing;
     start * (3 * rounds_rem - padding - input_len) = 0;
 
     // The number of rounds (rows) remaining to completely hash the bytecode.
-    // Like input_len, its correctness is constrained at the final row (latch), where (due to
+    // Like input_len, its correctness is constrained at the final row (end), where (due to
     // #[CHECK_FINAL_BYTES_REMAINING] and #[PADDING_CORRECTNESS]) we know we have reached the end of
     // bytecode processed by bc_decomposition and we must have decremented uniformly until this point.
     // We use it to ensure the ordering of Poseidon2 rounds is correct (i.e. a malicious prover
     // cannot swap the order of poseidon rounds).
     // (Note that we don't need to constrain this vs input_len because a. input_len is checked vs the
-    // incrementing pc values at latch and b. the poseidon2_hash trace we lookup into links these
+    // incrementing pc values at end and b. the poseidon2_hash trace we lookup into links these
     // values anyway.)
     pol commit rounds_rem;
 
-    // The rounds remaining decrement by 1 each row, and must equal 1 at the latch row.
+    // The rounds remaining decrement by 1 each row, and must equal 1 at the end row.
     // The two branches are combined into one expression:
-    //   When latch == 0 (and not first_row): rounds_rem' == rounds_rem - 1
-    //   When latch == 1:                     rounds_rem == 1
+    //   When end == 0 (and not first_row): rounds_rem' == rounds_rem - 1
+    //   When end == 1:                     rounds_rem == 1
     // Both are gated by sel to leave inactive rows unconstrained.
     #[ROUNDS_DECREMENT]
-    sel * ((1 - LATCH_CONDITION) * (rounds_rem' - rounds_rem + 1) + latch * (rounds_rem - 1)) = 0;
+    sel * ((1 - LATCH_CONDITION) * (rounds_rem' - rounds_rem + 1) + end * (rounds_rem - 1)) = 0;
 
     // ==== HASH OUTPUT ====
 
@@ -294,7 +294,7 @@ namespace bc_hashing;
     #[POSEIDON2_HASH]
     sel {
         start,
-        latch,
+        end,
         packed_fields_0,
         packed_fields_1,
         packed_fields_2,
@@ -316,10 +316,10 @@ namespace bc_hashing;
     //
     // We want to show that the output_hash correctly enforces that it is the result of hashing
     // the bytes of a given bytecode identified by bytecode_id. Thanks to #[TRACE_CONTINUITY] and
-    // #[SEL_TOGGLED_AT_LATCH], we have the guarantee that the rows above the final latch are
+    // #[SEL_TOGGLED_AT_LATCH], we have the guarantee that the rows above the final end are
     // activated. If they are activated, then bytecode_id is maintained and pc_index decrements by
     // 31 * 3 = 93 when we move to the top. From #[START_AFTER_LATCH], we have the guarantee that
-    // we cannot meet a row with latch == 1 before we meet start == 1 when we go up. This shows
+    // we cannot meet a row with end == 1 before we meet start == 1 when we go up. This shows
     // that bytecode_id, pc_index, and incremental_hash evolution did not deviate from the happy path.
     //
     // When we reach a row with start == 1 (we know we must reach one thanks to #[START_AFTER_LATCH]
@@ -331,5 +331,5 @@ namespace bc_hashing;
     // We remark that before reaching another latch, a prover might add additional rows without
     // latch on top of the start or even add a row with start == 1. This does not have any security
     // impact as what matters is the guarantee to have a correct initialization at start. What is
-    // more, having a row without latch on top of the start would mean that a Poseidon2 pre-image
+    // more, having a row without end on top of the start would mean that a Poseidon2 pre-image
     // for a small integer (bytes_remaining) must have been found.

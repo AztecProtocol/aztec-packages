@@ -660,7 +660,7 @@ TEST(BytecodeTraceGenTest, BasicHashing)
                       ROW_FIELD_EQ(bc_hashing_sel_not_start, 0),
                       ROW_FIELD_EQ(bc_hashing_sel_not_padding_1, 1),
                       ROW_FIELD_EQ(bc_hashing_sel_not_padding_2, 1),
-                      ROW_FIELD_EQ(bc_hashing_latch, 0),
+                      ROW_FIELD_EQ(bc_hashing_end, 0),
                       ROW_FIELD_EQ(bc_hashing_bytecode_id, FF(0xdeadbeef)),
                       ROW_FIELD_EQ(bc_hashing_pc_index, 0),
                       // We don't increment at start to account for the prepended first field length | separator:
@@ -681,7 +681,7 @@ TEST(BytecodeTraceGenTest, BasicHashing)
                       ROW_FIELD_EQ(bc_hashing_sel_not_start, 1),
                       ROW_FIELD_EQ(bc_hashing_sel_not_padding_1, 0),
                       ROW_FIELD_EQ(bc_hashing_sel_not_padding_2, 0),
-                      ROW_FIELD_EQ(bc_hashing_latch, 1),
+                      ROW_FIELD_EQ(bc_hashing_end, 1),
                       ROW_FIELD_EQ(bc_hashing_bytecode_id, FF(0xdeadbeef)),
                       ROW_FIELD_EQ(bc_hashing_pc_index, 62),
                       ROW_FIELD_EQ(bc_hashing_pc_index_1, 93),
