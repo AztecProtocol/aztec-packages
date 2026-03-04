@@ -5,6 +5,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import type { L2Block } from '@aztec/stdlib/block';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version/manager';
 import type {
@@ -175,11 +176,15 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     blockNumber?: BlockNumber,
     opts: { closeDelayMs?: number } = {},
   ): Promise<MerkleTreeWriteOperations> {
+    const timer = new Timer();
+    const lenStart = this.instance.getQueueLength();
     const resp = await this.instance.call(WorldStateMessageType.CREATE_FORK, {
       latest: blockNumber === undefined,
       blockNumber: blockNumber ?? BlockNumber.ZERO,
       canonical: true,
     });
+    const lenEnd = this.instance.getQueueLength();
+    this.log.debug(`World state fork took ${timer.ms().toFixed(2)}ms queue sizes start=${lenStart} end=${lenEnd}`);
     return new MerkleTreesForkFacade(
       this.instance,
       this.initialHeader!,

@@ -7,7 +7,7 @@ import { AccountManager } from '@aztec/aztec.js/wallet';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -39,13 +39,14 @@ import {
 
 const config = { ...setupEnvironment(process.env) };
 
-const NUM_WALLETS = config.REAL_VERIFIER ? 10 : 1;
 const TARGET_TPS = parseFloat(process.env.TPS ?? '1');
 if (!Number.isFinite(TARGET_TPS)) {
   throw new Error('Invalid TPS: ' + process.env.TPS);
 }
 
+const NUM_WALLETS = config.REAL_VERIFIER ? TARGET_TPS * 11 : 1; // add an extra wallet for each 1TPS in order to be able to maintain target TPS. This is assuming tx creation takes 9-10s
 const TARGET_PROVER_AGENTS = parseInt(process.env.TARGET_PROVER_AGENTS ?? '200');
+const SLOTS_BUFFER = 1;
 
 const epochDurationSlots = config.AZTEC_EPOCH_DURATION;
 const slotDurationSeconds = config.AZTEC_SLOT_DURATION;
@@ -371,7 +372,6 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
 
     logger.info(`Current slot ${currentSlot} (${slotsIntoEpoch}/${epochDurationSlots})`);
 
-    const SLOTS_BUFFER = 1;
     if (slotsUntilNextEpoch > SLOTS_BUFFER) {
       const slotsToWait = slotsUntilNextEpoch - SLOTS_BUFFER;
       const targetSlot = SlotNumber(Number(currentSlot) + slotsToWait);
@@ -397,26 +397,26 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
   });
 
   it(`sends ${TARGET_TPS} TPS for a full epoch and waits for proof`, async () => {
-    const [testEpoch, startSlot, { proven: startProvenBlockNumber, pending: startBlockNumber }] = await Promise.all([
-      rollupCheatCodes.getEpoch(),
-      rollupCheatCodes.getSlot(),
-      rollupCheatCodes.getTips(),
-    ]);
+    const [testEpoch, startSlot] = await Promise.all([rollupCheatCodes.getEpoch(), rollupCheatCodes.getSlot()]);
     const targetEpoch = testEpoch + 1;
     logger.info(
       `Starting test in epoch ${testEpoch}, slot ${startSlot}, target epoch is ${targetEpoch} (real_verifier=${config.REAL_VERIFIER})`,
     );
 
-    const txsToSend = Math.ceil(TARGET_TPS * epochDurationSeconds);
     const msPerTx = 1000 / TARGET_TPS;
-    logger.info(`Will send ${txsToSend} transactions at ${TARGET_TPS} TPS over ${epochDurationSeconds} seconds`);
+    const sendDurationMs = epochDurationSeconds * 1000 + SLOTS_BUFFER * slotDurationSeconds * 1000; // 2 slot buffer
+    logger.info(`Will send transactions at ${TARGET_TPS} TPS for ${epochDurationSeconds}s (1 epoch)`);
 
-    const scaleUpAtTx = Math.max(0, txsToSend - Math.ceil(TARGET_TPS * 8 * slotDurationSeconds));
     const sentTxs: TxHash[] = [];
     const sendStartTime = performance.now();
+    const sendDeadline = sendStartTime + sendDurationMs;
+    const scaleUpTime = sendDeadline - 8 * slotDurationSeconds * 1000;
+    let scaledUp = false;
+    let i = 0;
 
-    for (let i = 0; i < txsToSend; i++) {
-      if (i === scaleUpAtTx) {
+    while (performance.now() < sendDeadline) {
+      if (!scaledUp && performance.now() >= scaleUpTime) {
+        scaledUp = true;
         logger.info(`Scaling prover agents to ${TARGET_PROVER_AGENTS} (8 slots before end of tx sending)`);
         void scaleProverAgents(config.NAMESPACE, TARGET_PROVER_AGENTS, logger).catch(err =>
           logger.error(`Failed to scale prover agents: ${err}`),
@@ -440,14 +440,11 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
       try {
         await aztecNode.sendTx(tx);
         sentTxs.push(tx.getTxHash());
-        logger.info(`Sent tx ${i + 1}/${txsToSend}`);
+        logger.info(`Sent tx ${i + 1}`);
       } catch (err) {
-        logger.warn(`Failed to send tx ${i + 1}/${txsToSend}: ${err}`);
+        logger.warn(`Failed to send tx ${i + 1}: ${err}`);
       }
-
-      if ((await rollupCheatCodes.getEpoch()) > targetEpoch) {
-        break;
-      }
+      i++;
 
       // sleep to maintain target TPS
       const elapsed = performance.now() - loopStart;
@@ -464,6 +461,7 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
     logger.info(`Finished sending ${totalSent} txs in ${(sendEndTime - sendStartTime) / 1000}s`);
 
     logger.info('Waiting for transactions to be mined...');
+    const txsPerBlock = new Map<number, number>();
     const pendingTxs = new Map<string, TxHash>();
     for (const txHash of sentTxs) {
       pendingTxs.set(txHash.toString(), txHash);
@@ -492,6 +490,9 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
           logger.debug(
             `tx ${hashStr} included in block ${receipt.blockNumber}. Status: ${receipt.status}. Execution: ${receipt.executionResult}`,
           );
+          if (receipt.blockNumber !== undefined) {
+            txsPerBlock.set(receipt.blockNumber, (txsPerBlock.get(receipt.blockNumber) ?? 0) + 1);
+          }
           pendingTxs.delete(hashStr);
           successCount++;
           processedCount++;
@@ -543,20 +544,38 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
     metrics.recordSuccessfulTxs(successCount);
     logger.info(`Transaction inclusion complete: ${successCount} succeeded, ${failureCount} failed`);
 
-    const endBlockNumber = await aztecNode.getBlockNumber();
-    const currentEpoch = await rollupCheatCodes.getEpoch();
-    logger.info(
-      `Transactions landed in blocks ${startBlockNumber + 1} to ${endBlockNumber}, current epoch: ${currentEpoch}`,
-    );
+    // Map blocks to epochs and find the epoch with the most txs
+    const txsPerEpoch = new Map<number, number>();
+    const maxBlockPerEpoch = new Map<number, number>();
 
-    const targetProvenBlock = endBlockNumber;
+    for (const [blockNum, txCount] of txsPerBlock) {
+      const header = await aztecNode.getBlockHeader(BlockNumber(blockNum));
+      const epoch = Math.floor(Number(header!.getSlot()) / epochDurationSlots);
+      txsPerEpoch.set(epoch, (txsPerEpoch.get(epoch) ?? 0) + txCount);
+      maxBlockPerEpoch.set(epoch, Math.max(maxBlockPerEpoch.get(epoch) ?? 0, blockNum));
+    }
+
+    let targetProofEpoch = 0;
+    let maxTxCount = 0;
+    for (const [epoch, count] of txsPerEpoch) {
+      logger.info(`Epoch ${epoch}: ${count} txs`);
+      if (count > maxTxCount) {
+        maxTxCount = count;
+        targetProofEpoch = epoch;
+      }
+    }
+
+    const targetProvenBlock = maxBlockPerEpoch.get(targetProofEpoch)!;
     const proofStartTime = Date.now();
 
-    logger.info(`Waiting for proven chain to advance ${startProvenBlockNumber} -> ${targetProvenBlock}...`);
-
+    logger.info(
+      `Epoch ${targetProofEpoch} has the most txs (${maxTxCount}). Waiting for block ${targetProvenBlock} to be proven.`,
+    );
     // Poll for proof completion while detecting reorgs
-    let lastBlockNumber = endBlockNumber;
-    const PROOF_TIMEOUT_S = epochDurationSeconds;
+    let lastBlockNumber = await aztecNode.getBlockNumber();
+    const currentProvenBlock = await aztecNode.getProvenBlockNumber();
+    logger.info(`Waiting for proven chain to advance ${currentProvenBlock} -> ${targetProvenBlock}...`);
+    const PROOF_TIMEOUT_S = 2 * epochDurationSeconds;
     const proofTimer = new Timer();
 
     while (true) {
@@ -599,7 +618,7 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
     const proofDurationSeconds = proofDurationMs / 1000;
 
     metrics.recordProofDuration(proofDurationSeconds);
-    logger.info(`Epoch proof completed in ${proofDurationSeconds.toFixed(1)}s`);
+    logger.info(`Epoch ${targetProofEpoch} proof completed in ${proofDurationSeconds.toFixed(1)}s`);
 
     const finalProvenBlock = await aztecNode.getProvenBlockNumber();
     expect(finalProvenBlock).toBeGreaterThanOrEqual(targetProvenBlock);

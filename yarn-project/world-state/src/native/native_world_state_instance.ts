@@ -96,6 +96,10 @@ export class NativeWorldState implements NativeWorldStateInstance {
     this.queues.set(0, new WorldStateOpsQueue());
   }
 
+  public getQueueLength(forkId: number = 0): number {
+    return this.queues.get(forkId)?.length() ?? 0;
+  }
+
   public getDataDir() {
     return this.dataDir;
   }
