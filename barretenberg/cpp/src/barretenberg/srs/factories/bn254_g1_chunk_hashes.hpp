@@ -11,9 +11,9 @@ namespace bb::srs {
 // Total chunks: 257 (256 full + 1 partial of 64 bytes)
 // Regenerate with: barretenberg/scripts/generate_srs_chunk_hashes.py
 
-static constexpr size_t SRS_CHUNK_SIZE_POINTS = 131072;                      // 2^17
-static constexpr size_t SRS_CHUNK_SIZE_BYTES = SRS_CHUNK_SIZE_POINTS * 64;   // 8MB
-static constexpr size_t SRS_TOTAL_POINTS = 33554433;                         // 2^25 + 1
+static constexpr size_t SRS_CHUNK_SIZE_POINTS = 131072;                    // 2^17
+static constexpr size_t SRS_CHUNK_SIZE_BYTES = SRS_CHUNK_SIZE_POINTS * 64; // 8MB
+static constexpr size_t SRS_TOTAL_POINTS = 33554433;                       // 2^25 + 1
 static constexpr size_t SRS_NUM_CHUNKS = 257;
 static constexpr size_t SRS_NUM_FULL_CHUNKS = 256;
 
