@@ -1,1 +1,4 @@
 node_modules/
+sessions/
+test-results/
+tests/
