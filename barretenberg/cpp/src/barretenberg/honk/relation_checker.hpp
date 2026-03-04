@@ -4,6 +4,10 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/relations/translator_vm/translator_decomposition_relation.hpp"
+#include "barretenberg/relations/translator_vm/translator_extra_relations.hpp"
+#include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
+#include "barretenberg/translator_vm/translator_flavor.hpp"
 
 namespace bb {
 
@@ -183,6 +187,33 @@ template <> class RelationChecker<MegaFlavor> : public RelationChecker<void> {
         return all_subrelation_failures;
     }
 };
-} // namespace bb
 
-// namespace bb
+// Specialization for TranslatorFlavor: checks the four row-by-row relations that do not require
+// grand product polynomials (Permutation and DeltaRangeConstraint are excluded as they need z_perm
+// and sorted ordered_range_constraints polynomials computed during proving).
+template <> class RelationChecker<TranslatorFlavor> : public RelationChecker<void> {
+    using Base = RelationChecker<void>;
+
+  public:
+    static AllSubrelationFailures check_all(const auto& polynomials, const auto& params)
+    {
+        using FF = TranslatorFlavor::FF;
+        AllSubrelationFailures all_subrelation_failures;
+
+        auto try_check = [&]<typename R>(const char* name) {
+            auto failures = Base::check<R>(polynomials, params, name);
+            if (!failures.empty()) {
+                all_subrelation_failures[name] = failures;
+            }
+        };
+
+        try_check.template operator()<TranslatorOpcodeConstraintRelation<FF>>("TranslatorOpcodeConstraint");
+        try_check.template operator()<TranslatorAccumulatorTransferRelation<FF>>("TranslatorAccumulatorTransfer");
+        try_check.template operator()<TranslatorDecompositionRelation<FF>>("TranslatorDecomposition");
+        try_check.template operator()<TranslatorNonNativeFieldRelation<FF>>("TranslatorNonNativeField");
+
+        return all_subrelation_failures;
+    }
+};
+
+} // namespace bb
