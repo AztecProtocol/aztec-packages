@@ -1,20 +1,14 @@
-import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
 import { Fr } from '@aztec/aztec.js/fields';
-import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { getL1Config } from '@aztec/cli/config';
 import { getPublicClient } from '@aztec/ethereum/client';
-import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
+import { getGenesisStateConfigEnvVars } from '@aztec/ethereum/config';
 import { type NetworkNames, SecretValue } from '@aztec/foundation/config';
-import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
 import type { LogFn } from '@aztec/foundation/log';
-import { sleep } from '@aztec/foundation/sleep';
 import { ProvingJobConsumerSchema, createProvingJobBrokerClient } from '@aztec/prover-client/broker';
 import { type CliPXEOptions, type PXEConfig, allPxeConfigMappings } from '@aztec/pxe/config';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
 import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import {
@@ -24,9 +18,6 @@ import {
   telemetryClientConfigMappings,
 } from '@aztec/telemetry-client';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
-import { getGenesisValues } from '@aztec/world-state/testing';
-
-import Koa from 'koa';
 
 import { createAztecNode } from '../../local-network/index.js';
 import {
@@ -36,73 +27,8 @@ import {
   setupVersionChecker,
 } from '../util.js';
 import { getVersions } from '../versioning.js';
+import { computeExpectedGenesisRoot, waitForCompatibleRollup } from './standby.js';
 import { startProverBroker } from './start_prover_broker.js';
-
-const ROLLUP_POLL_INTERVAL_MS = 600_000;
-
-/**
- * Waits until the canonical rollup's genesis archive root matches the expected local genesis root.
- * If the rollup is not yet compatible (e.g. during L1 contract upgrades), enters standby mode:
- * starts a lightweight HTTP server for K8s liveness probes and polls until a compatible rollup appears.
- */
-async function waitForCompatibleRollup(
-  publicClient: ReturnType<typeof getPublicClient>,
-  registryAddress: EthAddress,
-  rollupVersion: number | 'canonical',
-  expectedGenesisRoot: Fr,
-  port: number | undefined,
-  userLog: LogFn,
-): Promise<void> {
-  const registry = new RegistryContract(publicClient, registryAddress);
-  const rollupAddress = await registry.getRollupAddress(rollupVersion);
-  const rollup = new RollupContract(publicClient, rollupAddress.toString());
-
-  let l1GenesisRoot: Fr;
-  try {
-    l1GenesisRoot = await rollup.getGenesisArchiveTreeRoot();
-  } catch (err: any) {
-    throw new Error(
-      `Could not retrieve genesis archive root from canonical rollup at ${rollupAddress}: ${err.message}`,
-    );
-  }
-
-  if (l1GenesisRoot.equals(expectedGenesisRoot)) {
-    return;
-  }
-
-  userLog(
-    `Genesis root mismatch: expected ${expectedGenesisRoot}, got ${l1GenesisRoot} from rollup at ${rollupAddress}. ` +
-      `Entering standby mode. Will poll every ${ROLLUP_POLL_INTERVAL_MS / 1000}s for a compatible rollup...`,
-  );
-
-  const standbyServer = await startHttpRpcServer({ getApp: () => new Koa(), isHealthy: () => true }, { port });
-  userLog(`Standby status server listening on port ${standbyServer.port}`);
-
-  try {
-    while (true) {
-      await sleep(ROLLUP_POLL_INTERVAL_MS);
-
-      const currentRollupAddress = await registry.getRollupAddress(rollupVersion);
-      const currentRollup = new RollupContract(publicClient, currentRollupAddress.toString());
-
-      try {
-        l1GenesisRoot = await currentRollup.getGenesisArchiveTreeRoot();
-      } catch {
-        userLog(`Failed to fetch genesis root from rollup at ${currentRollupAddress}. Retrying...`);
-        continue;
-      }
-
-      if (l1GenesisRoot.equals(expectedGenesisRoot)) {
-        userLog(`Compatible rollup found at ${currentRollupAddress}. Exiting standby mode.`);
-        return;
-      }
-
-      userLog(`Still waiting. Rollup at ${currentRollupAddress} has genesis root ${l1GenesisRoot}.`);
-    }
-  } finally {
-    await new Promise<void>((resolve, reject) => standbyServer.close(err => (err ? reject(err) : resolve())));
-  }
-}
 
 export async function startNode(
   options: any,
@@ -154,16 +80,8 @@ export async function startNode(
 
   await preloadCrsDataForVerifying(nodeConfig, userLog);
 
-  const testAccounts = nodeConfig.testAccounts ? (await getInitialTestAccountsData()).map(a => a.address) : [];
-  const sponsoredFPCAccounts = nodeConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
-  const prefundAddresses = (nodeConfig.prefundAddresses ?? []).map(a => AztecAddress.fromString(a));
-  const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts).concat(prefundAddresses);
-
-  userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
-
-  const { genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
-
-  userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
+  const genesisConfig = getGenesisStateConfigEnvVars();
+  const { genesisArchiveRoot, prefilledPublicData } = await computeExpectedGenesisRoot(genesisConfig, userLog);
 
   const followsCanonicalRollup =
     typeof nodeConfig.rollupVersion !== 'number' || (nodeConfig.rollupVersion as unknown as string) === 'canonical';
@@ -174,16 +92,7 @@ export async function startNode(
 
   // Wait for a compatible rollup before proceeding with full L1 config fetch.
   // This prevents crashes when the canonical rollup hasn't been upgraded yet.
-  const publicClient = getPublicClient(nodeConfig);
-  const rollupVersion: number | 'canonical' = nodeConfig.rollupVersion ?? 'canonical';
-  await waitForCompatibleRollup(
-    publicClient,
-    nodeConfig.l1Contracts.registryAddress,
-    rollupVersion,
-    genesisArchiveRoot,
-    options.port,
-    userLog,
-  );
+  await waitForCompatibleRollup(nodeConfig, genesisArchiveRoot, options.port, userLog);
 
   const { addresses, config } = await getL1Config(
     nodeConfig.l1Contracts.registryAddress,

@@ -1,4 +1,5 @@
 import { getL1Config } from '@aztec/cli/config';
+import { getGenesisStateConfigEnvVars } from '@aztec/ethereum/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
 import {
@@ -13,6 +14,7 @@ import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
 import { extractRelevantOptions } from '../util.js';
+import { computeExpectedGenesisRoot, waitForCompatibleRollup } from './standby.js';
 
 export async function startProverBroker(
   options: any,
@@ -33,6 +35,10 @@ export async function startProverBroker(
   if (!config.l1Contracts.registryAddress || config.l1Contracts.registryAddress.isZero()) {
     throw new Error('L1 registry address is required to start Aztec Node without --deploy-aztec-contracts option');
   }
+
+  const genesisConfig = getGenesisStateConfigEnvVars();
+  const { genesisArchiveRoot } = await computeExpectedGenesisRoot(genesisConfig, userLog);
+  await waitForCompatibleRollup(config, genesisArchiveRoot, options.port, userLog);
 
   const { addresses, config: rollupConfig } = await getL1Config(
     config.l1Contracts.registryAddress,
