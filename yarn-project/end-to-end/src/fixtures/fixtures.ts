@@ -38,7 +38,7 @@ export const STATIC_CONTEXT_ASSERTION_ERROR = /Assertion failed: Function .* can
 /** Production system timing parameters. Used as a reference for CI overrides and direct access. */
 export const CI_SYSTEM_TIMING = {
   ethereumSlotDuration: 12,
-  aztecSlotDuration: 72,
+  aztecSlotDuration: 36,
   aztecEpochDuration: 32,
 } as const;
 
