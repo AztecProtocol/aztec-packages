@@ -147,152 +147,116 @@ jobs:
           fail-on-alert: false
           max-items-in-chart: 100
 
-  # End-to-end tests that target a network deployment.
-  # We run this every release (at minimum, nightly), or when explicitly requested.
-  # This task runs against a real testnet deployment. This uses resources on GCP (not AWS, thank free credit incentives).
-  # Runs two test sets in parallel.
-  ci-network-scenario:
+  # Builds a dynamic matrix of network jobs based on PR labels and git tags.
+  # Handles: ci-network-scenario, ci-network-bench, ci-network-kind labels, and nightly/release tags.
+  # One-time use: labels are removed after the setup job runs.
+  ci-network-setup:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        test_set: ["1", "2"]
-    # We either run after a release (tag starting with v), or when the ci-network-scenario label is present in a PR.
-    # We exclude ci-release-pr test tags (v0.0.1-commit.*) which are only for testing the release process.
-    needs: ci
-    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && ((startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-commit.')) || contains(github.event.pull_request.labels.*.name, 'ci-network-scenario'))
+    if: |
+      github.event.pull_request.head.repo.fork != true && (
+        (github.event.pull_request.draft == false && (
+          contains(github.event.pull_request.labels.*.name, 'ci-network-bench') ||
+          contains(github.event.pull_request.labels.*.name, 'ci-network-scenario') ||
+          contains(github.event.pull_request.labels.*.name, 'ci-network-kind')
+        )) ||
+        (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-commit.'))
+      )
+    outputs:
+      matrix: ${{ steps.build.outputs.matrix }}
     steps:
-      - name: Remove label (one-time use)
-        if: github.event.pull_request && contains(github.event.pull_request.labels.*.name, 'ci-network-scenario')
+      - name: Remove labels (one-time use)
+        if: github.event.pull_request.number != ''
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-network-scenario --repo ${{ github.repository }} || true
-
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
-      - name: Run Network Scenarios
-        timeout-minutes: 350
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          # For pushing docker images (only for PR label, otherwise we use the tag)
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          RUN_ID: ${{ github.run_id }}
-          AWS_SHUTDOWN_TIME: 360
-          NO_SPOT: 1
+          HAS_BENCH: ${{ contains(github.event.pull_request.labels.*.name, 'ci-network-bench') }}
+          HAS_SCENARIO: ${{ contains(github.event.pull_request.labels.*.name, 'ci-network-scenario') }}
+          HAS_KIND: ${{ contains(github.event.pull_request.labels.*.name, 'ci-network-kind') }}
         run: |
-          # For release tags, use the release image; for PRs, omit to build and push to aztecdev
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            tag="${{ github.ref_name }}"
-            tag="${tag#v}"
-            major_version=$(./ci3/semver major "$tag")
-            namespace="v${major_version}-scenario"
+          [[ "$HAS_BENCH"    == "true" ]] && gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-network-bench    --repo ${{ github.repository }} || true
+          [[ "$HAS_SCENARIO" == "true" ]] && gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-network-scenario --repo ${{ github.repository }} || true
+          [[ "$HAS_KIND"     == "true" ]] && gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-network-kind     --repo ${{ github.repository }} || true
+
+      - name: Build matrix
+        id: build
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          HAS_BENCH: ${{ contains(github.event.pull_request.labels.*.name, 'ci-network-bench') }}
+          HAS_SCENARIO: ${{ contains(github.event.pull_request.labels.*.name, 'ci-network-scenario') }}
+          HAS_KIND: ${{ contains(github.event.pull_request.labels.*.name, 'ci-network-kind') }}
+        run: |
+          jobs='[]'
+
+          # Compute namespace base and docker image for tag vs PR
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag="${GITHUB_REF_NAME#v}"
+            major="${tag%%.*}"
+            base_namespace="v${major}-scenario"
             docker_image="aztecprotocol/aztec:${tag}"
+            is_nightly=$([[ "$GITHUB_REF_NAME" == *-nightly.* ]] && echo true || echo false)
+            is_tag=true
           else
-            # branch name
-            namespace=pr-$(echo "${{ github.head_ref || github.ref_name }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20 | sed 's/-*$//')
+            branch_clean=$(echo "$PR_HEAD_REF" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20 | sed 's/-*$//')
+            base_namespace="pr-${branch_clean}"
             docker_image=""
-          fi
-          echo "NAMESPACE=$namespace" >> $GITHUB_ENV
-          set -x # print next line
-          ./.github/ci3.sh network-scenarios next-scenario "$namespace" "$docker_image" "${{ matrix.test_set }}"
-
-      - name: Cleanup network resources
-        # Clean up if this is a CI label or nightly.
-        if: always() && (!startsWith(github.ref, 'refs/tags/v') || contains(github.ref_name, '-nightly.'))
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          NO_SPOT: 1
-        run: |
-          ./.github/ci3.sh network-teardown next-scenario "${NAMESPACE}-${{ matrix.test_set }}" || true
-
-      #############
-      # Benchmarks
-      #############
-      - name: Download deploy benchmarks
-        if: always() && startsWith(github.ref, 'refs/tags/v')
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: |
-          if ./ci.sh gh-deploy-bench; then
-            echo "ENABLE_DEPLOY_BENCH=1" >> $GITHUB_ENV
+            is_nightly=false
+            is_tag=false
           fi
 
-      - name: Upload benchmarks
-        if: env.ENABLE_DEPLOY_BENCH == '1'
-        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
-        with: *ci_benchmark_args
-
-      - name: Notify Slack on failure
-        if: failure() && startsWith(github.ref, 'refs/tags/v')
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        run: |
-          if [ -n "${SLACK_BOT_TOKEN}" ]; then
-            read -r -d '' data <<EOF || true
-            {
-              "channel": "#alerts-next-scenario",
-              "text": "Nightly Spartan Scenario FAILED in ci3.yml (nightly tag ${{ github.ref }}: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
-            }
-          EOF
-            curl -X POST https://slack.com/api/chat.postMessage \
-              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-              -H "Content-type: application/json" \
-              --data "$data"
+          # ci-network-bench label: TPS and proving benchmarks, results go to bench/pr-N
+          if [[ "$HAS_BENCH" == "true" ]]; then
+            bench_data_dir="bench/pr-${PR_NUMBER}"
+            jobs=$(echo "$jobs" | jq --arg bdd "$bench_data_dir" --arg pr "$PR_NUMBER" '. + [
+              {name:"benchmark",        ci3_cmd:"network-bench",        scenario:"tps-scenario",    namespace:("pr-"+$pr+"-bench"),        docker_image:"", test_set:"", timeout:300, needs_cleanup:true, cleanup_cmd:"network-teardown",      download_cmd:"gh-spartan-bench",         bench_data_dir:$bdd, bench_name:"Spartan", bench_threshold:"120%", slack_channel:""},
+              {name:"proving-benchmark",ci3_cmd:"network-proving-bench",scenario:"prove-n-tps-fake",namespace:("pr-"+$pr+"-proving-bench"),docker_image:"", test_set:"", timeout:240, needs_cleanup:true, cleanup_cmd:"network-teardown",      download_cmd:"gh-spartan-proving-bench", bench_data_dir:$bdd, bench_name:"Spartan", bench_threshold:"120%", slack_channel:""}
+            ]')
           fi
 
-  # Spartan network benchmarks triggered on-demand from a PR label.
-  # Runs TPS and proving benchmarks in parallel, uploads results to a PR-specific
-  # path on the benchmark dashboard so nightly (bench/next) is never affected.
-  # One-time use: label is removed after the job runs.
-  ci-network-bench:
-    name: ${{ matrix.bench_type }}
+          # ci-network-scenario label: run both test sets from a PR
+          if [[ "$HAS_SCENARIO" == "true" ]]; then
+            jobs=$(echo "$jobs" | jq --arg ns "$base_namespace" '. + [
+              {name:"scenario-1",ci3_cmd:"network-scenarios",scenario:"next-scenario",namespace:$ns,docker_image:"",test_set:"1",timeout:350,needs_cleanup:true, cleanup_cmd:"network-teardown",download_cmd:"",bench_data_dir:"",bench_name:"",bench_threshold:"",slack_channel:""},
+              {name:"scenario-2",ci3_cmd:"network-scenarios",scenario:"next-scenario",namespace:$ns,docker_image:"",test_set:"2",timeout:350,needs_cleanup:true, cleanup_cmd:"network-teardown",download_cmd:"",bench_data_dir:"",bench_name:"",bench_threshold:"",slack_channel:""}
+            ]')
+          fi
+
+          # Tag-based scenario (nightly or release): results go to bench/next, notify Slack on failure
+          if [[ "$is_tag" == "true" ]]; then
+            needs_cleanup="$is_nightly"
+            jobs=$(echo "$jobs" | jq --arg ns "$base_namespace" --arg img "$docker_image" --argjson cleanup "$needs_cleanup" '. + [
+              {name:"scenario-1",ci3_cmd:"network-scenarios",scenario:"next-scenario",namespace:$ns,docker_image:$img,test_set:"1",timeout:350,needs_cleanup:$cleanup,cleanup_cmd:"network-teardown",download_cmd:"gh-deploy-bench",bench_data_dir:"bench/next",bench_name:"Aztec Benchmarks",bench_threshold:"105%",slack_channel:"#alerts-next-scenario"},
+              {name:"scenario-2",ci3_cmd:"network-scenarios",scenario:"next-scenario",namespace:$ns,docker_image:$img,test_set:"2",timeout:350,needs_cleanup:$cleanup,cleanup_cmd:"network-teardown",download_cmd:"gh-deploy-bench",bench_data_dir:"bench/next",bench_name:"Aztec Benchmarks",bench_threshold:"105%",slack_channel:"#alerts-next-scenario"}
+            ]')
+          fi
+
+          # ci-network-kind label: KIND-based e2e tests on EC2
+          if [[ "$HAS_KIND" == "true" ]]; then
+            jobs=$(echo "$jobs" | jq '. + [
+              {name:"kind",ci3_cmd:"network-tests-kind",scenario:"",namespace:"",docker_image:"",test_set:"",timeout:180,needs_cleanup:true,cleanup_cmd:"network-kind-teardown",download_cmd:"",bench_data_dir:"",bench_name:"",bench_threshold:"",slack_channel:""}
+            ]')
+          fi
+
+          echo "matrix=$(echo "$jobs" | jq -c '{include: .}')" >> $GITHUB_OUTPUT
+
+  # Runs network jobs generated by ci-network-setup: scenarios, benchmarks, and KIND tests.
+  # Fully parameterized via matrix — adding a new network job type only requires updating ci-network-setup.
+  ci-network:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    needs: [ci, ci-network-setup]
+    if: needs.ci-network-setup.result == 'success' && (needs.ci.result == 'success' || needs.ci.result == 'skipped')
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - bench_type: benchmark
-            ci3_cmd: network-bench
-            scenario: tps-scenario
-            namespace_suffix: bench
-            download_cmd: gh-spartan-bench
-            timeout: 300
-          - bench_type: proving-benchmark
-            ci3_cmd: network-proving-bench
-            scenario: prove-n-tps-fake
-            namespace_suffix: proving-bench
-            download_cmd: gh-spartan-proving-bench
-            timeout: 240
-    needs: ci
-    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'ci-network-bench') && (needs.ci.result == 'success' || needs.ci.result == 'skipped')
+      matrix: ${{ fromJson(needs.ci-network-setup.outputs.matrix) }}
     steps:
-      - name: Remove label (one-time use)
-        env:
-          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-network-bench --repo ${{ github.repository }} || true
-
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Run Network Benchmarks
+      - name: Run
         timeout-minutes: ${{ matrix.timeout }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -301,7 +265,6 @@ jobs:
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          # For pushing docker images built from the PR
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
@@ -309,13 +272,12 @@ jobs:
           AWS_SHUTDOWN_TIME: ${{ matrix.timeout }}
           NO_SPOT: 1
         run: |
-          namespace=pr-${{ github.event.pull_request.number }}-${{ matrix.namespace_suffix }}
-          echo "NAMESPACE=$namespace" >> $GITHUB_ENV
+          echo "NAMESPACE=${{ matrix.namespace }}" >> $GITHUB_ENV
           set -x
-          ./.github/ci3.sh ${{ matrix.ci3_cmd }} ${{ matrix.scenario }} "$namespace"
+          ./.github/ci3.sh ${{ matrix.ci3_cmd }} ${{ matrix.scenario }} "${{ matrix.namespace }}" "${{ matrix.docker_image }}" "${{ matrix.test_set }}"
 
       - name: Cleanup network resources
-        if: always()
+        if: always() && matrix.needs_cleanup
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -324,64 +286,46 @@ jobs:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           NO_SPOT: 1
-        run: ./.github/ci3.sh network-teardown ${{ matrix.scenario }} "${NAMESPACE}" || true
+        run: |
+          teardown_ns="${{ matrix.namespace }}"
+          [[ -n "${{ matrix.test_set }}" ]] && teardown_ns="${teardown_ns}-${{ matrix.test_set }}"
+          ./.github/ci3.sh ${{ matrix.cleanup_cmd }} ${{ matrix.scenario }} "$teardown_ns" || true
 
       - name: Download benchmarks
-        if: always()
+        if: always() && matrix.download_cmd != ''
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           if ./ci.sh ${{ matrix.download_cmd }}; then
-            echo "ENABLE_DEPLOY_BENCH=1" >> $GITHUB_ENV
+            echo "ENABLE_BENCH=1" >> $GITHUB_ENV
           fi
 
       - name: Upload benchmarks
-        if: always() && env.ENABLE_DEPLOY_BENCH == '1'
+        if: always() && env.ENABLE_BENCH == '1' && matrix.bench_data_dir != ''
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
-          name: Spartan
-          benchmark-data-dir-path: "bench/pr-${{ github.event.pull_request.number }}"
+          name: ${{ matrix.bench_name }}
+          benchmark-data-dir-path: ${{ matrix.bench_data_dir }}
           tool: "customSmallerIsBetter"
           output-file-path: ./bench-out/bench.json
           gh-repository: github.com/AztecProtocol/benchmark-page-data
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           auto-push: true
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          alert-threshold: "120%"
+          alert-threshold: ${{ matrix.bench_threshold }}
           comment-on-alert: false
           fail-on-alert: false
           max-items-in-chart: 100
 
-  # KIND-based e2e tests that run on a local Kubernetes cluster.
-  # One-time use: label is removed after the job runs.
-  ci-network-kind:
-    runs-on: ubuntu-latest
-    needs: ci
-    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'ci-network-kind')
-    timeout-minutes: 180 # 3 hours for KIND tests
-    steps:
-      - name: Remove label
+      - name: Notify Slack on failure
+        if: failure() && matrix.slack_channel != ''
         env:
-          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: gh pr edit ${{ github.event.pull_request.number }} --remove-label ci-network-kind --repo ${{ github.repository }}
-
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
-      - name: Run KIND Test
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          RUN_ID: ${{ github.run_id }}
-          AWS_SHUTDOWN_TIME: 180
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
-          ./.github/ci3.sh network-tests-kind
+          if [ -n "${SLACK_BOT_TOKEN:-}" ]; then
+            curl -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              --data "{\"channel\":\"${{ matrix.slack_channel }}\",\"text\":\"Network job '${{ matrix.name }}' FAILED: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>\"}"
+          fi
