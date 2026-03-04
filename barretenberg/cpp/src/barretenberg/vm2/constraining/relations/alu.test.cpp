@@ -981,8 +981,13 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivUnderflow)
 
     // All relations will pass...
     check_relation<alu>(trace);
-    // ... but now r > b, so the gt lookup will fail:
-    EXPECT_THROW_WITH_MESSAGE(check_all_interactions<AluTraceBuilder>(trace), "LOOKUP_ALU_INT_GT");
+    // ... but the remainder (p - 8) is not in range, so the range check fails:
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<AluTraceBuilder, lookup_alu_range_check_div_remainder_settings>(trace)),
+        "RANGE_CHECK_DIV_REMAINDER");
+    // ... and r > b, so the gt lookup also fails:
+    EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_int_gt_settings>(trace)),
+                              "LOOKUP_ALU_INT_GT");
 }
 
 TEST_F(AluDivConstrainingTest, NegativeAluDivU128Carry)
