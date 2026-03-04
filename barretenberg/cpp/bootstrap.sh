@@ -62,7 +62,7 @@ function build_preset() {
 function build_native_objects {
   set -eu
   if ! cache_exists barretenberg-$native_preset-$hash.zst; then
-    (cd src/barretenberg/nodejs_module && yarn --immutable)
+    (flock -x 200 && cd src/barretenberg/nodejs_module && yarn --immutable) 200>/tmp/bb-yarn.lock
     cmake --preset "$native_preset"
     targets=$(cmake --build --preset "$native_preset" --target help | awk -F: '$1 ~ /(_objects|_tests|_bench|_gen|.a)$/ && $1 !~ /^cmake_/{print $1}' | tr '\n' ' ')
     cmake --build --preset "$native_preset" --target $targets nodejs_module
@@ -95,7 +95,7 @@ function build_cross_objects {
   set -eu
   target=$1
   if ! cache_exists barretenberg-$target-$hash.zst; then
-    (cd src/barretenberg/nodejs_module && yarn --immutable)
+    (flock -x 200 && cd src/barretenberg/nodejs_module && yarn --immutable) 200>/tmp/bb-yarn.lock
     build_preset zig-$target --target barretenberg nodejs_module vm2_stub circuit_checker honk
   fi
 }
@@ -106,7 +106,7 @@ function build_cross {
   set -eu
   target=$1
   if ! cache_download barretenberg-$target-$hash.zst; then
-    (cd src/barretenberg/nodejs_module && yarn --immutable)
+    (flock -x 200 && cd src/barretenberg/nodejs_module && yarn --immutable) 200>/tmp/bb-yarn.lock
     build_preset zig-$target --target bb --target nodejs_module --target bb-external
     cache_upload barretenberg-$target-$hash.zst build-zig-$target/{bin,lib}
   fi
