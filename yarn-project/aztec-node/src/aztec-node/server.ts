@@ -348,9 +348,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We'll accumulate sentinel watchers here
     const watchers: Watcher[] = [];
 
-    // Create FullNodeCheckpointsBuilder for block proposal handling and tx validation
+    // Create FullNodeCheckpointsBuilder for block proposal handling and tx validation.
     const validatorCheckpointsBuilder = new FullNodeCheckpointsBuilder(
-      { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
+      {
+        ...config,
+        l1GenesisTime,
+        slotDuration: Number(slotDuration),
+      },
       worldStateSynchronizer,
       archiver,
       dateProvider,

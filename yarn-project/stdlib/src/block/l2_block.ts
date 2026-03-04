@@ -1,4 +1,5 @@
 import { type BlockBlobData, encodeBlockBlobData } from '@aztec/blob-lib/encoding';
+import { DA_GAS_PER_FIELD } from '@aztec/constants';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -136,6 +137,10 @@ export class L2Block {
       l1ToL2MessageRoot: isFirstBlock ? this.header.state.l1ToL2MessageTree.root : undefined,
       txs: this.body.toTxBlobData(),
     };
+  }
+
+  computeDAGasUsed(): number {
+    return this.body.txEffects.reduce((total, txEffect) => total + txEffect.getNumBlobFields(), 0) * DA_GAS_PER_FIELD;
   }
 
   static empty(header?: BlockHeader) {

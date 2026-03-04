@@ -24,6 +24,7 @@ import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol }
 import { OffenseType, WANT_TO_SLASH_EVENT, type Watcher, type WatcherEmitter } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestationsAndSigners, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import { validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
   CreateCheckpointProposalLastBlockData,
@@ -200,7 +201,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const metrics = new ValidatorMetrics(telemetry);
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
       txsPermitted: !config.disableTransactions,
-      maxTxsPerBlock: config.maxTxsPerBlock,
+      maxTxsPerBlock: config.validateMaxTxsPerBlock,
     });
     const blockProposalHandler = new BlockProposalHandler(
       checkpointsBuilder,
@@ -764,6 +765,19 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
           ...proposalInfo,
         });
         return { isValid: false, reason: 'out_hash_mismatch' };
+      }
+
+      // Final round of validations on the checkpoint, just in case.
+      try {
+        validateCheckpoint(computedCheckpoint, {
+          maxDABlockGas: this.config.validateMaxDABlockGas,
+          maxL2BlockGas: this.config.validateMaxL2BlockGas,
+          maxTxsPerBlock: this.config.validateMaxTxsPerBlock,
+          maxTxsPerCheckpoint: this.config.validateMaxTxsPerCheckpoint,
+        });
+      } catch (err) {
+        this.log.warn(`Checkpoint validation failed: ${err}`, proposalInfo);
+        return { isValid: false, reason: 'checkpoint_validation_failed' };
       }
 
       this.log.verbose(`Checkpoint proposal validation successful for slot ${slot}`, proposalInfo);
