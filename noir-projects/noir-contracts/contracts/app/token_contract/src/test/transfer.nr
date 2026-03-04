@@ -19,7 +19,13 @@ unconstrained fn transfer_private() {
     );
     utils::check_private_balance(env, token_contract_address, recipient, transfer_amount);
 
-    utils::check_private_transfer_event(token_contract_address, owner, recipient, transfer_amount);
+    utils::check_private_transfer_event(
+        env,
+        token_contract_address,
+        owner,
+        recipient,
+        transfer_amount,
+    );
 }
 
 #[test]
@@ -35,7 +41,7 @@ unconstrained fn transfer_private_to_self() {
     // Check balances
     utils::check_private_balance(env, token_contract_address, owner, mint_amount);
 
-    utils::check_private_transfer_event(token_contract_address, owner, owner, transfer_amount);
+    utils::check_private_transfer_event(env, token_contract_address, owner, owner, transfer_amount);
 }
 
 #[test]
@@ -62,6 +68,7 @@ unconstrained fn transfer_private_to_non_deployed_account() {
     utils::check_private_balance(env, token_contract_address, not_deployed, transfer_amount);
 
     utils::check_private_transfer_event(
+        env,
         token_contract_address,
         owner,
         not_deployed,

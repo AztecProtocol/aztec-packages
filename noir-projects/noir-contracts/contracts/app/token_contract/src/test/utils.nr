@@ -87,15 +87,13 @@ pub unconstrained fn check_private_balance(
 }
 
 pub unconstrained fn check_private_transfer_event(
+    env: TestEnvironment,
     token_contract_address: AztecAddress,
     from: AztecAddress,
     to: AztecAddress,
     amount: u128,
 ) {
-    let events = aztec::test::helpers::txe_oracles::get_private_events::<Token::Transfer>(
-        token_contract_address,
-        to,
-    );
+    let events = env.get_private_events::<Token::Transfer>(token_contract_address, to);
 
     assert_eq(events.len(), 1);
 
