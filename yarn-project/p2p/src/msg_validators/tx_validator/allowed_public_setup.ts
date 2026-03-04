@@ -2,14 +2,21 @@ import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { AuthRegistryArtifact } from '@aztec/protocol-contracts/auth-registry';
 import { FeeJuiceArtifact } from '@aztec/protocol-contracts/fee-juice';
-import { FunctionSelector, countArgumentsSize, getFunctionArtifactByName } from '@aztec/stdlib/abi';
-import type { ContractArtifact } from '@aztec/stdlib/abi';
+import { FunctionSelector, countArgumentsSize } from '@aztec/stdlib/abi';
+import type { ContractArtifact, FunctionAbi } from '@aztec/stdlib/abi';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 
 /** Returns the expected calldata length for a function: 1 (selector) + arguments size. */
 function getCalldataLength(artifact: ContractArtifact, functionName: string): number {
-  return 1 + countArgumentsSize(getFunctionArtifactByName(artifact, functionName));
+  const allFunctions: FunctionAbi[] = (artifact.functions as FunctionAbi[]).concat(
+    artifact.nonDispatchPublicFunctions || [],
+  );
+  const fn = allFunctions.find(f => f.name === functionName);
+  if (!fn) {
+    throw new Error(`Unknown function ${functionName} in artifact ${artifact.name}`);
+  }
+  return 1 + countArgumentsSize(fn);
 }
 
 let defaultAllowedSetupFunctions: AllowedElement[] | undefined;
