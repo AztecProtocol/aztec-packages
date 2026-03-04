@@ -158,7 +158,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
    */
   protected capLimitsByCheckpointBudgets(
     opts: PublicProcessorLimits,
-  ): Pick<PublicProcessorLimits, 'maxBlockGas' | 'maxBlobFields'> {
+  ): Pick<PublicProcessorLimits, 'maxBlockGas' | 'maxBlobFields' | 'maxTransactions'> {
     const existingBlocks = this.checkpointBuilder.getBlocks();
 
     // Remaining L2 gas (mana)
@@ -188,9 +188,21 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     const cappedBlobFields =
       opts.maxBlobFields !== undefined ? Math.min(opts.maxBlobFields, maxBlobFieldsForTxs) : maxBlobFieldsForTxs;
 
+    // Cap transaction count by remaining checkpoint tx budget
+    let cappedMaxTransactions: number | undefined;
+    if (this.config.maxTxsPerCheckpoint !== undefined) {
+      const usedTxs = sum(existingBlocks.map(b => b.body.txEffects.length));
+      const remainingTxs = Math.max(0, this.config.maxTxsPerCheckpoint - usedTxs);
+      cappedMaxTransactions =
+        opts.maxTransactions !== undefined ? Math.min(opts.maxTransactions, remainingTxs) : remainingTxs;
+    } else {
+      cappedMaxTransactions = opts.maxTransactions;
+    }
+
     return {
       maxBlockGas: new Gas(cappedDAGas, cappedL2Gas),
       maxBlobFields: cappedBlobFields,
+      maxTransactions: cappedMaxTransactions,
     };
   }
 

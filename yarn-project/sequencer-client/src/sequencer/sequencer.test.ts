@@ -873,7 +873,7 @@ describe('sequencer', () => {
       sequencer.updateConfig({ enforceTimeTable: true, maxTxsPerBlock: 4, blockDurationMs: 500 });
 
       const txs = await timesParallel(8, i => makeTx(i * 0x10000));
-      block = await makeBlock(txs);
+      block = await makeBlock(txs.slice(0, 4));
       TestUtils.mockPendingTxs(p2p, txs);
 
       await sequencer.work();
