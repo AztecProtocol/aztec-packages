@@ -193,6 +193,7 @@ describe('ValidatorClient HA Integration', () => {
     const metrics = new ValidatorMetrics(getTelemetryClient());
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
       txsPermitted: true,
+      maxTxsPerBlock: undefined,
     });
     const blockProposalHandler = new BlockProposalHandler(
       checkpointsBuilder,

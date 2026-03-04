@@ -69,13 +69,19 @@ export class ArchiverL1Synchronizer implements Traceable {
     private readonly epochCache: EpochCache,
     private readonly dateProvider: DateProvider,
     private readonly instrumentation: ArchiverInstrumentation,
-    private readonly l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr },
+    private readonly l1Constants: L1RollupConstants & {
+      l1StartBlockHash: Buffer32;
+      genesisArchiveRoot: Fr;
+      rollupManaLimit?: number;
+    },
     private readonly events: ArchiverEmitter,
     tracer: Tracer,
     l2TipsCache?: L2TipsCache,
     private readonly log: Logger = createLogger('archiver:l1-sync'),
   ) {
-    this.updater = new ArchiverDataStoreUpdater(this.store, l2TipsCache);
+    this.updater = new ArchiverDataStoreUpdater(this.store, l2TipsCache, {
+      rollupManaLimit: l1Constants.rollupManaLimit,
+    });
     this.tracer = tracer;
   }
 

@@ -239,11 +239,11 @@ L1 enforces gas and blob capacity per checkpoint. The node enforces these during
 
 Per-block budgets prevent one block from consuming the entire checkpoint budget.
 
-**Proposer**: `SequencerClient.computeBlockGasLimits()` derives budgets at startup as `min(checkpointLimit, ceil(checkpointLimit / maxBlocks * multiplier))`, where `maxBlocks` comes from the timetable and `multiplier` defaults to 2. The multiplier greater than 1 allows early blocks to use more than their even share of the checkpoint budget, since different blocks hit different limit dimensions (L2 gas, DA gas, blob fields) — a strict even split would waste capacity. Operators can override via `SEQ_MAX_L2_BLOCK_GAS` / `SEQ_MAX_DA_BLOCK_GAS` (capped at checkpoint limits).
+**Proposer**: `computeBlockLimits()` derives budgets at startup as `min(checkpointLimit, ceil(checkpointLimit / maxBlocks * multiplier))`, where `maxBlocks` comes from the timetable and `multiplier` defaults to 2. The multiplier greater than 1 allows early blocks to use more than their even share of the checkpoint budget, since different blocks hit different limit dimensions (L2 gas, DA gas, blob fields) — a strict even split would waste capacity. Operators can override via `SEQ_MAX_L2_BLOCK_GAS` / `SEQ_MAX_DA_BLOCK_GAS` / `SEQ_MAX_TX_PER_BLOCK` (capped at checkpoint limits). Per-block TX limits follow the same derivation pattern when `SEQ_MAX_TX_PER_CHECKPOINT` is set.
 
 **Validator**: Does not enforce per-block gas budgets. Only checkpoint-level limits are checked, so that proposers can freely distribute capacity across blocks within a checkpoint.
 
-**Checkpoint-level capping**: `CheckpointBuilder.capLimitsByCheckpointBudgets()` always runs before tx processing, capping per-block limits by `checkpointBudget - sum(used by prior blocks)` for all three dimensions. This applies to both proposer and validator paths.
+**Checkpoint-level capping**: `CheckpointBuilder.capLimitsByCheckpointBudgets()` always runs before tx processing, capping per-block limits by `checkpointBudget - sum(used by prior blocks)` for all three gas dimensions and for transaction count (when `SEQ_MAX_TX_PER_CHECKPOINT` is set). This applies to both proposer and validator paths.
 
 ### Per-transaction enforcement
 
@@ -257,6 +257,8 @@ Per-block budgets prevent one block from consuming the entire checkpoint budget.
 | --- | --- | --- |
 | `SEQ_MAX_L2_BLOCK_GAS` | *auto* | Per-block L2 gas. Auto-derived from `rollupManaLimit / maxBlocks * multiplier`. |
 | `SEQ_MAX_DA_BLOCK_GAS` | *auto* | Per-block DA gas. Auto-derived from checkpoint DA limit / maxBlocks * multiplier. |
+| `SEQ_MAX_TX_PER_BLOCK` | *none* | Per-block tx count. If `SEQ_MAX_TX_PER_CHECKPOINT` is set and per-block is not, derived as `ceil(checkpointLimit / maxBlocks * multiplier)`. |
+| `SEQ_MAX_TX_PER_CHECKPOINT` | *none* | Total txs across all blocks in a checkpoint. When set, per-block tx limit is derived from it (unless explicitly overridden) and checkpoint-level capping is enforced. |
 | `SEQ_GAS_PER_BLOCK_ALLOCATION_MULTIPLIER` | 2 | Multiplier for per-block budget computation. |
 
 ## Testing Patterns
