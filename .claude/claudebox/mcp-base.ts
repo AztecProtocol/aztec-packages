@@ -1321,24 +1321,19 @@ export function registerPRTools(server: McpServer, config: PRToolConfig): void {
       const { title, body, closes, force_push, include_claude_files, include_noir_submodule } = params;
       // Redirect v* branches to backport-to-v*-staging (never open PRs directly against version branches)
       let base: string = params.base;
-      const originalBase = base;
       if (/^v\d+/.test(base)) base = `backport-to-${base}-staging`;
       if (!GH_TOKEN) return { content: [{ type: "text", text: "No GH_TOKEN" }], isError: true };
 
-      // Verify commits are based on the actual target — rebase if needed
-      if (base !== originalBase || base !== SESSION_META.base_branch) {
+      // Verify commits are actually based on the target branch
+      if (base !== SESSION_META.base_branch) {
         try {
           git(config.workspace, "fetch", "origin", base);
           const mergeBase = git(config.workspace, "merge-base", `origin/${base}`, "HEAD").trim();
           const remoteTip = git(config.workspace, "rev-parse", `origin/${base}`).trim();
           if (mergeBase !== remoteTip) {
-            // Commits are not based on target — rebase onto it
-            const origRef = SESSION_META.base_branch ? `origin/${SESSION_META.base_branch}` : mergeBase;
-            git(config.workspace, "rebase", "--onto", `origin/${base}`, origRef, "HEAD");
+            return { content: [{ type: "text", text: `Your commits are not based on origin/${base}. Rebase first:\ngit fetch origin ${base} && git rebase --onto origin/${base} origin/${SESSION_META.base_branch || "next"} HEAD` }], isError: true };
           }
-        } catch (e: any) {
-          return { content: [{ type: "text", text: `Rebase onto origin/${base} failed: ${sanitizeError(e.message)}. Please rebase manually: git fetch origin ${base} && git rebase --onto origin/${base} <original-base> HEAD` }], isError: true };
-        }
+        } catch {}
       }
 
       if (config.blockedBases) {
