@@ -11,7 +11,7 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import type { L2BlockSink, L2BlockSource, L2BlockSourceEventEmitter } from '@aztec/stdlib/block';
 import type { ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -56,7 +56,7 @@ export class SequencerClient {
       worldStateSynchronizer: WorldStateSynchronizer;
       slasherClient: SlasherClientInterface | undefined;
       checkpointsBuilder: FullNodeCheckpointsBuilder;
-      l2BlockSource: L2BlockSource & L2BlockSink;
+      l2BlockSource: L2BlockSource & L2BlockSink & L2BlockSourceEventEmitter;
       l1ToL2MessageSource: L1ToL2MessageSource;
       telemetry: TelemetryClient;
       publisherFactory?: SequencerPublisherFactory;

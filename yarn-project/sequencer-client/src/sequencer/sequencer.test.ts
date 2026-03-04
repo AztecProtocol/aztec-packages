@@ -25,6 +25,8 @@ import {
   L2Block,
   type L2BlockSink,
   type L2BlockSource,
+  type L2BlockSourceEventEmitter,
+  L2BlockSourceEvents,
   type ValidateCheckpointNegativeResult,
 } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
@@ -44,6 +46,7 @@ import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validat
 
 import { expect } from '@jest/globals';
 import { type MockProxy, mock, mockDeep, mockFn } from 'jest-mock-extended';
+import EventEmitter from 'node:events';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { AttestorPublisherPair, SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
@@ -62,7 +65,7 @@ describe('sequencer', () => {
   let worldState: MockProxy<WorldStateSynchronizer>;
   let checkpointsBuilder: MockCheckpointsBuilder;
   let checkpointBuilder: MockCheckpointBuilder;
-  let l2BlockSource: MockProxy<L2BlockSource & L2BlockSink>;
+  let l2BlockSource: MockProxy<L2BlockSource & L2BlockSink & L2BlockSourceEventEmitter>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let slasherClient: MockProxy<SlasherClientInterface>;
   let publisherFactory: MockProxy<SequencerPublisherFactory>;
@@ -250,7 +253,8 @@ describe('sequencer', () => {
     // Use blockProvider so the mock returns whatever `block` is set to at call time
     checkpointBuilder.setBlockProvider(() => block);
 
-    l2BlockSource = mock<L2BlockSource & L2BlockSink>({
+    l2BlockSource = mock<L2BlockSource & L2BlockSink & L2BlockSourceEventEmitter>({
+      events: new EventEmitter() as any,
       getBlockData: mockFn().mockResolvedValue({
         header: BlockHeader.empty(),
         archive: AppendOnlyTreeSnapshot.empty(),
@@ -1021,6 +1025,40 @@ describe('sequencer', () => {
       expect(publisher.canProposeAtNextEthBlock).toHaveBeenCalled();
       // hasBlockProposalsForSlot should not be called
       expect(p2p.hasBlockProposalsForSlot).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('pipeline recovery', () => {
+    it('interrupts publisher when uncheckpointed blocks are pruned', async () => {
+      const prunedBlock = await L2Block.random(BlockNumber(1));
+      sequencer.start();
+
+      l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
+        type: 'l2PruneUncheckpointed',
+        slotNumber: SlotNumber(1),
+        blocks: [prunedBlock],
+      });
+
+      expect(publisherFactory.interruptAll).toHaveBeenCalled();
+
+      await sequencer.stop();
+    });
+
+    it('unsubscribes from prune events on stop', async () => {
+      const prunedBlock = await L2Block.random(BlockNumber(1));
+      sequencer.start();
+      await sequencer.stop();
+
+      publisherFactory.interruptAll.mockClear();
+
+      l2BlockSource.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
+        type: 'l2PruneUncheckpointed',
+        slotNumber: SlotNumber(1),
+        blocks: [prunedBlock],
+      });
+
+      // interruptAll is called once during stop(), but not from the event after stop
+      expect(publisherFactory.interruptAll).not.toHaveBeenCalled();
     });
   });
 

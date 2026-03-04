@@ -12,7 +12,15 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import type { BlockData, L2BlockSink, L2BlockSource, ValidateCheckpointResult } from '@aztec/stdlib/block';
+import type {
+  BlockData,
+  L2BlockSink,
+  L2BlockSource,
+  L2BlockSourceEventEmitter,
+  L2PruneUncheckpointedEvent,
+  ValidateCheckpointResult,
+} from '@aztec/stdlib/block';
+import { L2BlockSourceEvents } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotAtTimestamp, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
@@ -75,6 +83,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   /** The maximum number of seconds that the sequencer can be into a slot to transition to a particular state. */
   protected timetable!: SequencerTimetable;
 
+  /** Bound handler for uncheckpointed prune events, stored for proper listener removal. */
+  private boundHandleUncheckpointedPrune = this.handleUncheckpointedPrune.bind(this);
+
   /** Config for the sequencer */
   protected config: ResolvedSequencerConfig = DefaultSequencerConfig;
 
@@ -85,7 +96,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected p2pClient: P2P,
     protected worldState: WorldStateSynchronizer,
     protected slasherClient: SlasherClientInterface | undefined,
-    protected l2BlockSource: L2BlockSource & L2BlockSink,
+    protected l2BlockSource: L2BlockSource & L2BlockSink & L2BlockSourceEventEmitter,
     protected l1ToL2MessageSource: L1ToL2MessageSource,
     protected checkpointsBuilder: FullNodeCheckpointsBuilder,
     protected l1Constants: SequencerRollupConstants,
@@ -141,6 +152,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     );
     this.setState(SequencerState.IDLE, undefined, { force: true });
     this.runningPromise.start();
+    this.l2BlockSource.events.on(L2BlockSourceEvents.L2PruneUncheckpointed, this.boundHandleUncheckpointedPrune);
     this.log.info('Started sequencer');
   }
 
@@ -148,6 +160,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   public async stop(): Promise<void> {
     this.log.info(`Stopping sequencer`);
     this.setState(SequencerState.STOPPING, undefined, { force: true });
+    this.l2BlockSource.events.removeListener(
+      L2BlockSourceEvents.L2PruneUncheckpointed,
+      this.boundHandleUncheckpointedPrune,
+    );
     this.publisherFactory.interruptAll();
     await this.runningPromise?.stop();
     this.setState(SequencerState.STOPPED, undefined, { force: true });
@@ -901,6 +917,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.log.info('Invalidating checkpoint in fisherman mode, clearing pending requests');
       publisher.clearPendingRequests();
     }
+  }
+
+  /** Handles uncheckpointed block prune events by interrupting the publisher to prevent wasted L1 txs. */
+  private handleUncheckpointedPrune(event: L2PruneUncheckpointedEvent): void {
+    this.log.warn(`Uncheckpointed blocks pruned at slot ${event.slotNumber}, interrupting publisher`, {
+      slotNumber: event.slotNumber,
+      prunedBlocks: event.blocks.length,
+    });
+    this.publisherFactory.interruptAll();
   }
 
   private logStrategyComparison(epoch: EpochNumber, publisher: SequencerPublisher): void {
