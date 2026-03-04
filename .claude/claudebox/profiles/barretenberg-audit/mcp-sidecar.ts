@@ -438,6 +438,6 @@ Be honest about your assessment:
   return server;
 }
 
-// ── Start server (no docker proxy) ──────────────────────────────
+// ── Start server ────────────────────────────────────────────────
 
-startMcpHttpServer(createServer, { enableDockerProxy: false });
+startMcpHttpServer(createServer);

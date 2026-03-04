@@ -128,7 +128,8 @@ export function isGhAllowed(method: string, path: string, whitelist: Array<{ met
 }
 
 // ── Slack API whitelist ─────────────────────────────────────────
-export const SLACK_WHITELIST = new Set(["chat.postMessage", "chat.update", "chat.delete", "reactions.add", "conversations.replies", "conversations.history", "conversations.open", "users.list"]);
+// Only allow thread-scoped Slack operations — no channel history, no arbitrary reads
+export const SLACK_WHITELIST = new Set(["chat.postMessage", "chat.update", "reactions.add", "conversations.replies", "users.list"]);
 
 // ── Git helper ──────────────────────────────────────────────────
 export function git(workspace: string, ...args: string[]): string {
@@ -569,8 +570,8 @@ Use accept='application/vnd.github.v3.diff' for PR diffs.`,
 
   // ── slack_api ──────────────────────────────────────────────────
   server.tool("slack_api",
-    `Slack Web API proxy. Whitelisted: ${[...SLACK_WHITELIST].join(", ")}.
-channel and thread_ts auto-injected from session if not provided.`,
+    `Slack Web API proxy (thread-scoped). Whitelisted: ${[...SLACK_WHITELIST].join(", ")}.
+Channel and thread are locked to this session — you can only read/write your own thread.`,
     {
       method: z.string().describe("e.g. chat.postMessage"),
       args: z.record(z.any()).describe("Method arguments"),
@@ -583,16 +584,31 @@ channel and thread_ts auto-injected from session if not provided.`,
         return { content: [{ type: "text", text: "Quiet mode active — use respond_to_user to send your response" }], isError: true };
 
       const payload = { ...args };
-      if (!payload.channel && SESSION_META.slack_channel) payload.channel = SESSION_META.slack_channel;
-      if (!payload.thread_ts && SESSION_META.slack_thread_ts && method === "chat.postMessage")
+
+      // Enforce thread scoping — only allow access to the session's own thread
+      if (method !== "users.list") {
+        if (!SESSION_META.slack_channel)
+          return { content: [{ type: "text", text: "No Slack channel configured for this session" }], isError: true };
+        payload.channel = SESSION_META.slack_channel;
+      }
+      if (method === "chat.postMessage") {
+        if (!SESSION_META.slack_thread_ts)
+          return { content: [{ type: "text", text: "No Slack thread configured — use respond_to_user instead" }], isError: true };
         payload.thread_ts = SESSION_META.slack_thread_ts;
-      if (!payload.ts && SESSION_META.slack_message_ts && method === "chat.update")
+      }
+      if (method === "chat.update") {
+        if (!SESSION_META.slack_message_ts)
+          return { content: [{ type: "text", text: "No Slack message to update" }], isError: true };
         payload.ts = SESSION_META.slack_message_ts;
-      if (!payload.ts && SESSION_META.slack_thread_ts && method === "conversations.replies")
+      }
+      if (method === "conversations.replies") {
+        if (!SESSION_META.slack_thread_ts)
+          return { content: [{ type: "text", text: "No Slack thread configured for this session" }], isError: true };
         payload.ts = SESSION_META.slack_thread_ts;
+      }
 
       try {
-        const READ_METHODS = new Set(["conversations.replies", "conversations.history"]);
+        const READ_METHODS = new Set(["conversations.replies"]);
         const isRead = READ_METHODS.has(method);
         const url = isRead
           ? `https://slack.com/api/${method}?${new URLSearchParams(Object.entries(payload).map(([k, v]) => [k, String(v)])).toString()}`
@@ -1076,33 +1092,14 @@ export function readBody(req: IncomingMessage): Promise<string> {
 
 // ── HTTP Server scaffold ────────────────────────────────────────
 // Profiles call this to start the MCP HTTP server.
-// Pass enableDockerProxy: true + a handleDockerProxy function for profiles that need docker.
 
-export interface ServerOpts {
-  enableDockerProxy?: boolean;
-  handleDockerProxy?: (req: IncomingMessage, res: ServerResponse) => Promise<void>;
-}
-
-export function startMcpHttpServer(createMcpServer: () => McpServer, opts?: ServerOpts): void {
+export function startMcpHttpServer(createMcpServer: () => McpServer): void {
   const MCP_PATH = "/mcp";
 
   const httpServer = createHttpServer(async (req: IncomingMessage, res: ServerResponse) => {
     if (req.method === "GET" && req.url === "/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end('{"ok":true}');
-      return;
-    }
-
-    // Docker proxy endpoint (profile-provided)
-    if (opts?.enableDockerProxy && opts.handleDockerProxy && req.url === "/docker" && req.method === "POST") {
-      try {
-        await opts.handleDockerProxy(req, res);
-      } catch (e: any) {
-        if (!res.headersSent) {
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: e.message }));
-        }
-      }
       return;
     }
 
@@ -1130,7 +1127,7 @@ export function startMcpHttpServer(createMcpServer: () => McpServer, opts?: Serv
   });
 
   httpServer.listen(PORT, "0.0.0.0", () => {
-    console.log(`[Sidecar] :${PORT} gh=${GH_TOKEN ? "yes" : "no"} slack=${SLACK_BOT_TOKEN ? "yes" : "no"} linear=${LINEAR_API_KEY ? "yes" : "no"} quiet=${QUIET_MODE ? "yes" : "no"} ci_allow=${CI_ALLOW ? "yes" : "no"} docker=${opts?.enableDockerProxy ? "yes" : "no"}`);
+    console.log(`[Sidecar] :${PORT} gh=${GH_TOKEN ? "yes" : "no"} slack=${SLACK_BOT_TOKEN ? "yes" : "no"} linear=${LINEAR_API_KEY ? "yes" : "no"} quiet=${QUIET_MODE ? "yes" : "no"} ci_allow=${CI_ALLOW ? "yes" : "no"}`);
     initSlackFromPermalink();
     startTranscriptPoller();
   });
@@ -1463,243 +1460,6 @@ export function registerPRTools(server: McpServer, config: PRToolConfig): void {
         return { content: [{ type: "text", text: `update_pr: ${sanitizeError(e.message)}` }], isError: true };
       }
     });
-}
-
-// ── Docker proxy handler factory ────────────────────────────────
-
-export function createDockerProxyHandler(workspace: string): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
-  const dockerBin = existsSync("/usr/bin/docker") ? "/usr/bin/docker" : "docker";
-
-  const DANGEROUS_CAPS = new Set([
-    "SYS_ADMIN", "CAP_SYS_ADMIN", "SYS_PTRACE", "CAP_SYS_PTRACE",
-    "NET_ADMIN", "CAP_NET_ADMIN", "SYS_RAWIO", "CAP_SYS_RAWIO",
-    "DAC_OVERRIDE", "CAP_DAC_OVERRIDE",
-  ]);
-
-  const ALLOWED_MOUNT_PREFIXES = ["/workspace", "/tmp", process.env.HOME || "/root"];
-
-  function checkMount(mountSpec: string): string | null {
-    if (mountSpec.includes("docker.sock")) return "docker.sock mount not allowed";
-    const src = mountSpec.split(":")[0];
-    if (src.startsWith("/") && !ALLOWED_MOUNT_PREFIXES.some(p => src === p || src.startsWith(p + "/")))
-      return `bind mount '${src}' outside allowed prefixes (${ALLOWED_MOUNT_PREFIXES.join(", ")})`;
-    return null;
-  }
-
-  function flagVal(args: string[], i: number, flag: string): [string, number] {
-    const a = args[i];
-    if (a === flag && i + 1 < args.length) return [args[i + 1], 2];
-    if (a.startsWith(flag + "=")) return [a.slice(flag.length + 1), 1];
-    return ["", 0];
-  }
-
-  function validateAndSanitizeRunArgs(args: string[]): { error?: string; sanitized: string[] } {
-    const out: string[] = [];
-    let i = 0;
-    while (i < args.length) {
-      const a = args[i];
-
-      if (a === "--privileged") return { error: "privileged containers not allowed", sanitized: [] };
-      if (a === "--device" || a.startsWith("--device=")) return { error: "device mapping not allowed", sanitized: [] };
-      if (a === "--volumes-from" || a.startsWith("--volumes-from=")) return { error: "volumes-from not allowed", sanitized: [] };
-
-      {
-        const [val, consumed] = flagVal(args, i, "--security-opt");
-        if (consumed) {
-          const lower = val.toLowerCase();
-          if (lower.includes("seccomp=unconfined") || lower.includes("apparmor=unconfined") || lower.includes("no-new-privileges=false"))
-            return { error: `security-opt '${val}' not allowed`, sanitized: [] };
-        }
-      }
-
-      for (const flag of ["--cap-add"]) {
-        const [val, consumed] = flagVal(args, i, flag);
-        if (consumed) {
-          const upper = val.toUpperCase();
-          if (upper === "ALL" || upper === "CAP_ALL") return { error: "cap-add ALL not allowed", sanitized: [] };
-          if (DANGEROUS_CAPS.has(upper)) return { error: `capability ${upper} not allowed`, sanitized: [] };
-        }
-      }
-
-      for (const [flag, label] of [["--network", "network"], ["--net", "network"], ["--ipc", "IPC"], ["--uts", "UTS"], ["--userns", "user"]] as const) {
-        const [val, consumed] = flagVal(args, i, flag);
-        if (consumed && val === "host") return { error: `host ${label} namespace not allowed`, sanitized: [] };
-      }
-
-      {
-        const [val, consumed] = flagVal(args, i, "--pid");
-        if (consumed && val === "host") { i += consumed; continue; }
-      }
-
-      for (const flag of ["-v", "--volume"]) {
-        const [val, consumed] = flagVal(args, i, flag);
-        if (consumed) { const e = checkMount(val); if (e) return { error: e, sanitized: [] }; }
-      }
-      if (a.startsWith("-v") && a.length > 2 && !a.startsWith("-v ") && !a.startsWith("-v=")) {
-        const e = checkMount(a.slice(2));
-        if (e) return { error: e, sanitized: [] };
-      }
-
-      {
-        const [val, consumed] = flagVal(args, i, "--mount");
-        if (consumed) {
-          if (val.includes("docker.sock")) return { error: "docker.sock mount not allowed", sanitized: [] };
-          const srcMatch = val.match(/(?:source|src)=([^,]+)/i);
-          if (srcMatch) { const e = checkMount(srcMatch[1] + ":"); if (e) return { error: e, sanitized: [] }; }
-        }
-      }
-
-      out.push(a);
-      i++;
-    }
-    return { sanitized: out };
-  }
-
-  const referenceGit = existsSync("/reference-repo/.git") ? "/reference-repo/.git" : "";
-
-  function validateComposeFile(composefile: string): string | null {
-    if (!composefile.startsWith(workspace + "/")) return `compose file must be under ${workspace}/`;
-    if (!existsSync(composefile)) return `file not found: ${composefile}`;
-
-    const repoRelPath = composefile.replace(workspace + "/", "");
-    if (!referenceGit) {
-      console.log(`[docker-proxy] compose verify: no reference repo, allowing ${repoRelPath}`);
-      return null;
-    }
-
-    try {
-      const committed = execFileSync("git", ["--git-dir", referenceGit, "show", `HEAD:${repoRelPath}`], { encoding: "utf-8", timeout: 10000 });
-      const localContent = readFileSync(composefile, "utf-8");
-      const localHash = createHash("sha256").update(localContent).digest("hex");
-      const committedHash = createHash("sha256").update(committed).digest("hex");
-      if (localHash !== committedHash)
-        return `compose file '${repoRelPath}' has been modified (hash mismatch vs reference repo)`;
-    } catch (e: any) {
-      if (e.stderr?.includes("does not exist") || e.stderr?.includes("exists on disk"))
-        return `compose file '${repoRelPath}' not found in reference repo`;
-      return `compose file verification failed: ${e.message}`;
-    }
-    return null;
-  }
-
-  return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    const bodyStr = await readBody(req);
-    let payload: any;
-    try { payload = JSON.parse(bodyStr); } catch {
-      res.writeHead(400); res.end('{"error":"invalid JSON"}'); return;
-    }
-
-    const rawArgs: string[] = payload.args;
-    if (!Array.isArray(rawArgs) || rawArgs.length === 0) {
-      res.writeHead(400); res.end('{"error":"missing args array"}'); return;
-    }
-
-    const subcommand = rawArgs[0];
-    let dockerArgs: string[];
-    let timeout = 30 * 60 * 1000;
-
-    if (subcommand === "run" || subcommand === "create") {
-      const { error, sanitized } = validateAndSanitizeRunArgs(rawArgs.slice(1));
-      if (error) { res.writeHead(403); res.end(JSON.stringify({ error })); return; }
-      dockerArgs = [subcommand, ...sanitized];
-
-    } else if (subcommand === "build") {
-      const contextArg = rawArgs[rawArgs.length - 1];
-      if (contextArg.startsWith("/") && !ALLOWED_MOUNT_PREFIXES.some(p => contextArg === p || contextArg.startsWith(p + "/"))) {
-        res.writeHead(403); res.end(JSON.stringify({ error: `build context '${contextArg}' outside allowed prefixes` })); return;
-      }
-      dockerArgs = rawArgs;
-      timeout = 60 * 60 * 1000;
-
-    } else if (subcommand === "compose") {
-      const ALLOWED_COMPOSE_CMDS = ["up", "down", "ps", "logs", "stop", "start", "restart", "pull", "config", "top", "events"];
-      const skipNext = new Set(["-f", "--file", "-p", "--project-name", "--profile", "--env-file", "--project-directory"]);
-      let composeSub = "";
-      for (let ci = 1; ci < rawArgs.length; ci++) {
-        if (skipNext.has(rawArgs[ci])) { ci++; continue; }
-        if (rawArgs[ci].startsWith("-")) continue;
-        composeSub = rawArgs[ci]; break;
-      }
-      if (composeSub && !ALLOWED_COMPOSE_CMDS.includes(composeSub)) {
-        res.writeHead(403);
-        res.end(JSON.stringify({ error: `compose subcommand '${composeSub}' not allowed. Allowed: ${ALLOWED_COMPOSE_CMDS.join(", ")}` }));
-        return;
-      }
-
-      const composeFiles: string[] = [];
-      for (let ci = 1; ci < rawArgs.length; ci++) {
-        if (rawArgs[ci] === "-f" || rawArgs[ci] === "--file") {
-          if (ci + 1 < rawArgs.length) composeFiles.push(rawArgs[++ci]);
-        }
-      }
-      if (composeFiles.length === 0) {
-        const cwd = payload.cwd || workspace;
-        for (const name of ["docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"]) {
-          const p = join(cwd, name);
-          if (existsSync(p)) { composeFiles.push(p); break; }
-        }
-      }
-      for (const cf of composeFiles) {
-        const err = validateComposeFile(cf);
-        if (err) { res.writeHead(403); res.end(JSON.stringify({ error: err })); return; }
-      }
-
-      dockerArgs = rawArgs;
-      timeout = 30 * 60 * 1000;
-
-    } else if (subcommand === "buildx") {
-      const contextArg = rawArgs[rawArgs.length - 1];
-      if (contextArg.startsWith("/") && !ALLOWED_MOUNT_PREFIXES.some(p => contextArg === p || contextArg.startsWith(p + "/"))) {
-        res.writeHead(403); res.end(JSON.stringify({ error: `buildx context '${contextArg}' outside allowed prefixes` })); return;
-      }
-      dockerArgs = rawArgs;
-      timeout = 60 * 60 * 1000;
-
-    } else if (["ps", "images", "logs", "inspect", "wait", "port", "top", "stats",
-                "network", "volume", "info", "version", "tag", "pull", "save", "load",
-                "login", "logout"].includes(subcommand)) {
-      dockerArgs = rawArgs;
-
-    } else if (["stop", "rm", "kill", "start", "restart", "pause", "unpause"].includes(subcommand)) {
-      dockerArgs = rawArgs;
-
-    } else if (subcommand === "exec") {
-      dockerArgs = rawArgs;
-
-    } else {
-      const ALLOWED_LIST = [
-        "run", "create", "build", "buildx", "compose", "exec",
-        "ps", "images", "logs", "inspect", "wait", "port", "top", "stats",
-        "network", "volume", "info", "version", "tag", "pull", "save", "load",
-        "login", "logout", "stop", "rm", "kill", "start", "restart", "pause", "unpause",
-      ];
-      res.writeHead(403);
-      res.end(JSON.stringify({ error: `docker subcommand '${subcommand}' is not allowed. Allowed: ${ALLOWED_LIST.join(", ")}.` }));
-      return;
-    }
-
-    console.log(`[docker-proxy] ${dockerArgs.slice(0, 3).join(" ")}...`);
-
-    res.writeHead(200, {
-      "Content-Type": "application/octet-stream",
-      "Transfer-Encoding": "chunked",
-      "X-Accel-Buffering": "no",
-    });
-
-    const proc = spawn(dockerBin, dockerArgs, {
-      stdio: ["ignore", "pipe", "pipe"],
-      cwd: payload.cwd || workspace,
-      env: { ...process.env, ...(payload.env || {}) },
-    });
-    proc.stdout?.on("data", (d: Buffer) => { try { res.write(d); } catch {} });
-    proc.stderr?.on("data", (d: Buffer) => { try { res.write(d); } catch {} });
-    proc.on("close", (code) => {
-      try { res.end(`\n__DOCKERPROXY_EXIT__:${code ?? 1}\n`); } catch {}
-    });
-    const timer = setTimeout(() => { try { proc.kill("SIGTERM"); } catch {} }, timeout);
-    proc.on("close", () => clearTimeout(timer));
-    req.on("close", () => { try { proc.kill("SIGTERM"); } catch {} });
-  };
 }
 
 // Re-export z for profile sidecar convenience

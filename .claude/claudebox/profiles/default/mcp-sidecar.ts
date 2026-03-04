@@ -4,7 +4,6 @@
  *
  * Repo: AztecProtocol/aztec-packages (public)
  * Clone strategy: local reference repo (/reference-repo/.git)
- * Docker proxy: enabled
  */
 
 import {
@@ -12,7 +11,7 @@ import {
   SESSION_META,
   buildCommonGhWhitelist,
   registerCommonTools, registerCloneRepo, registerPRTools,
-  createDockerProxyHandler, startMcpHttpServer,
+  startMcpHttpServer,
 } from "../../mcp-base.ts";
 
 // ── Profile config ──────────────────────────────────────────────
@@ -55,5 +54,4 @@ function createServer(): McpServer {
 
 // ── Start server ────────────────────────────────────────────────
 
-const handleDockerProxy = createDockerProxyHandler(WORKSPACE);
-startMcpHttpServer(createServer, { enableDockerProxy: true, handleDockerProxy });
+startMcpHttpServer(createServer);

@@ -142,7 +142,8 @@ function isGhAllowed(method: string, path: string): boolean {
 
 // ── Slack API whitelist ─────────────────────────────────────────
 
-const SLACK_WHITELIST = new Set(["chat.postMessage", "chat.update", "chat.delete", "reactions.add", "conversations.replies", "conversations.history", "conversations.open", "users.list"]);
+// Only allow thread-scoped Slack operations — no channel history, no arbitrary reads
+const SLACK_WHITELIST = new Set(["chat.postMessage", "chat.update", "reactions.add", "conversations.replies", "users.list"]);
 
 // ── Git helper (runs locally in sidecar container) ──────────────
 
@@ -599,18 +600,34 @@ channel and thread_ts auto-injected from session if not provided.`,
         return { content: [{ type: "text", text: "Quiet mode active — use respond_to_user to send your response" }], isError: true };
 
       const payload = { ...args };
-      if (!payload.channel && SESSION_META.slack_channel) payload.channel = SESSION_META.slack_channel;
-      if (!payload.thread_ts && SESSION_META.slack_thread_ts && method === "chat.postMessage")
+
+      // Enforce thread scoping — only allow access to the session's own thread
+      // Force channel to session's channel (no cross-channel access)
+      if (method !== "users.list") {
+        if (!SESSION_META.slack_channel)
+          return { content: [{ type: "text", text: "No Slack channel configured for this session" }], isError: true };
+        payload.channel = SESSION_META.slack_channel;
+      }
+      // Force thread_ts / ts to session's thread (no cross-thread access)
+      if (method === "chat.postMessage") {
+        if (!SESSION_META.slack_thread_ts)
+          return { content: [{ type: "text", text: "No Slack thread configured — use respond_to_user instead" }], isError: true };
         payload.thread_ts = SESSION_META.slack_thread_ts;
-      if (!payload.ts && SESSION_META.slack_message_ts && method === "chat.update")
+      }
+      if (method === "chat.update") {
+        if (!SESSION_META.slack_message_ts)
+          return { content: [{ type: "text", text: "No Slack message to update" }], isError: true };
         payload.ts = SESSION_META.slack_message_ts;
-      // conversations.replies needs 'ts' (thread parent) — auto-inject from session
-      if (!payload.ts && SESSION_META.slack_thread_ts && method === "conversations.replies")
+      }
+      if (method === "conversations.replies") {
+        if (!SESSION_META.slack_thread_ts)
+          return { content: [{ type: "text", text: "No Slack thread configured for this session" }], isError: true };
         payload.ts = SESSION_META.slack_thread_ts;
+      }
 
       try {
         // Read methods need GET with query params (Slack rejects JSON body for these)
-        const READ_METHODS = new Set(["conversations.replies", "conversations.history"]);
+        const READ_METHODS = new Set(["conversations.replies"]);
         const isRead = READ_METHODS.has(method);
         const url = isRead
           ? `https://slack.com/api/${method}?${new URLSearchParams(Object.entries(payload).map(([k, v]) => [k, String(v)])).toString()}`
@@ -1182,351 +1199,12 @@ function readBody(req: IncomingMessage): Promise<string> {
 
 const MCP_PATH = "/mcp";
 
-// ── Docker proxy endpoint ────────────────────────────────────────
-// Drop-in docker replacement: receives raw docker args, validates, runs real docker.
-// Claude's container has a `docker` shim that POSTs args here.
-
-// Real docker binary — must not resolve to our own shim.
-const DOCKER_BIN = existsSync("/usr/bin/docker") ? "/usr/bin/docker" : "docker";
-
-const DANGEROUS_CAPS = new Set([
-  "SYS_ADMIN", "CAP_SYS_ADMIN", "SYS_PTRACE", "CAP_SYS_PTRACE",
-  "NET_ADMIN", "CAP_NET_ADMIN", "SYS_RAWIO", "CAP_SYS_RAWIO",
-  "DAC_OVERRIDE", "CAP_DAC_OVERRIDE",
-]);
-
-const ALLOWED_MOUNT_PREFIXES = [
-  "/workspace", "/tmp",
-  process.env.HOME || "/root",  // docker_isolate mounts $HOME:$HOME
-];
-
-/** Check if a mount source path is allowed. Returns error string or null. */
-function checkMount(mountSpec: string): string | null {
-  if (mountSpec.includes("docker.sock")) return "docker.sock mount not allowed";
-  const src = mountSpec.split(":")[0];
-  if (src.startsWith("/") && !ALLOWED_MOUNT_PREFIXES.some(p => src === p || src.startsWith(p + "/")))
-    return `bind mount '${src}' outside allowed prefixes (${ALLOWED_MOUNT_PREFIXES.join(", ")})`;
-  return null;
-}
-
-/** Parse a flag that may be --flag=val or --flag val. Returns the value and how many args consumed. */
-function flagVal(args: string[], i: number, flag: string): [string, number] {
-  const a = args[i];
-  if (a === flag && i + 1 < args.length) return [args[i + 1], 2];
-  if (a.startsWith(flag + "=")) return [a.slice(flag.length + 1), 1];
-  return ["", 0];
-}
-
-/** Validate docker run/create args. Strips dangerous flags, blocks forbidden ones. */
-function validateAndSanitizeRunArgs(args: string[]): { error?: string; sanitized: string[] } {
-  const out: string[] = [];
-  let i = 0;
-  while (i < args.length) {
-    const a = args[i];
-
-    if (a === "--privileged") return { error: "privileged containers not allowed", sanitized: [] };
-    if (a === "--device" || a.startsWith("--device=")) return { error: "device mapping not allowed", sanitized: [] };
-    if (a === "--volumes-from" || a.startsWith("--volumes-from=")) return { error: "volumes-from not allowed", sanitized: [] };
-
-    // Block --security-opt that disables sandboxing
-    {
-      const [val, consumed] = flagVal(args, i, "--security-opt");
-      if (consumed) {
-        const lower = val.toLowerCase();
-        if (lower.includes("seccomp=unconfined") || lower.includes("apparmor=unconfined") || lower.includes("no-new-privileges=false"))
-          return { error: `security-opt '${val}' not allowed — cannot disable seccomp/apparmor`, sanitized: [] };
-      }
-    }
-
-    // Dangerous capabilities (including ALL which grants everything)
-    for (const flag of ["--cap-add"]) {
-      const [val, consumed] = flagVal(args, i, flag);
-      if (consumed) {
-        const upper = val.toUpperCase();
-        if (upper === "ALL" || upper === "CAP_ALL") return { error: "cap-add ALL not allowed", sanitized: [] };
-        if (DANGEROUS_CAPS.has(upper)) return { error: `capability ${upper} not allowed`, sanitized: [] };
-      }
-    }
-
-    // Host namespace flags
-    for (const [flag, label] of [["--network", "network"], ["--net", "network"], ["--ipc", "IPC"], ["--uts", "UTS"], ["--userns", "user"]] as const) {
-      const [val, consumed] = flagVal(args, i, flag);
-      if (consumed && val === "host") return { error: `host ${label} namespace not allowed`, sanitized: [] };
-    }
-
-    // Strip --pid=host silently (docker_isolate uses it, works without)
-    {
-      const [val, consumed] = flagVal(args, i, "--pid");
-      if (consumed && val === "host") { i += consumed; continue; }
-    }
-
-    // Validate bind mounts (-v, --volume, -vPATH:DST)
-    for (const flag of ["-v", "--volume"]) {
-      const [val, consumed] = flagVal(args, i, flag);
-      if (consumed) { const e = checkMount(val); if (e) return { error: e, sanitized: [] }; }
-    }
-    // Handle -v/path:/dst (no space, short form)
-    if (a.startsWith("-v") && a.length > 2 && !a.startsWith("-v ") && !a.startsWith("-v=")) {
-      const e = checkMount(a.slice(2));
-      if (e) return { error: e, sanitized: [] };
-    }
-
-    // Validate --mount source=
-    {
-      const [val, consumed] = flagVal(args, i, "--mount");
-      if (consumed) {
-        if (val.includes("docker.sock")) return { error: "docker.sock mount not allowed", sanitized: [] };
-        const srcMatch = val.match(/(?:source|src)=([^,]+)/i);
-        if (srcMatch) { const e = checkMount(srcMatch[1] + ":"); if (e) return { error: e, sanitized: [] }; }
-      }
-    }
-
-    out.push(a);
-    i++;
-  }
-  return { sanitized: out };
-}
-
-/** Reference repo git dir — used to verify compose files match the committed version. */
-const REFERENCE_GIT = existsSync("/reference-repo/.git") ? "/reference-repo/.git" : "";
-
-/** Validate compose file content matches what's committed in the reference repo (next branch). */
-function validateComposeFile(composefile: string): string | null {
-  if (!composefile.startsWith(WORKSPACE + "/")) {
-    return `compose file must be under ${WORKSPACE}/`;
-  }
-  if (!existsSync(composefile)) return `file not found: ${composefile}`;
-
-  const repoRelPath = composefile.replace(WORKSPACE + "/", "");
-
-  if (!REFERENCE_GIT) {
-    // No reference repo — fall back to allowing if the file exists in the workspace
-    // (happens during local testing without the full container setup)
-    console.log(`[docker-proxy] compose verify: no reference repo, allowing ${repoRelPath}`);
-    return null;
-  }
-
-  // Use git show to get the committed version from the reference repo
-  try {
-    const committed = execFileSync("git", [
-      "--git-dir", REFERENCE_GIT, "show", `HEAD:${repoRelPath}`,
-    ], { encoding: "utf-8", timeout: 10000 });
-
-    const localContent = readFileSync(composefile, "utf-8");
-    const localHash = createHash("sha256").update(localContent).digest("hex");
-    const committedHash = createHash("sha256").update(committed).digest("hex");
-
-    if (localHash !== committedHash) {
-      return `compose file '${repoRelPath}' has been modified (hash mismatch vs reference repo)`;
-    }
-  } catch (e: any) {
-    // File doesn't exist in reference repo
-    if (e.stderr?.includes("does not exist") || e.stderr?.includes("exists on disk")) {
-      return `compose file '${repoRelPath}' not found in reference repo`;
-    }
-    return `compose file verification failed: ${e.message}`;
-  }
-
-  return null;
-}
-
-/** Handle POST /docker — receives {"args": ["run", "--rm", ...]} */
-async function handleDockerProxy(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const bodyStr = await readBody(req);
-  let payload: any;
-  try { payload = JSON.parse(bodyStr); } catch {
-    res.writeHead(400); res.end('{"error":"invalid JSON"}'); return;
-  }
-
-  const rawArgs: string[] = payload.args;
-  if (!Array.isArray(rawArgs) || rawArgs.length === 0) {
-    res.writeHead(400); res.end('{"error":"missing args array"}'); return;
-  }
-
-  const subcommand = rawArgs[0];
-  let dockerArgs: string[];
-  let timeout = 30 * 60 * 1000;
-
-  // ── docker run / create ────────────────────────────────────────
-  if (subcommand === "run" || subcommand === "create") {
-    const { error, sanitized } = validateAndSanitizeRunArgs(rawArgs.slice(1));
-    if (error) {
-      res.writeHead(403); res.end(JSON.stringify({ error })); return;
-    }
-    dockerArgs = [subcommand, ...sanitized];
-
-  // ── docker build ───────────────────────────────────────────────
-  } else if (subcommand === "build") {
-    // Allow builds — the build context must be under allowed prefixes
-    const contextArg = rawArgs[rawArgs.length - 1];
-    if (contextArg.startsWith("/") && !ALLOWED_MOUNT_PREFIXES.some(p => contextArg === p || contextArg.startsWith(p + "/"))) {
-      res.writeHead(403);
-      res.end(JSON.stringify({ error: `build context '${contextArg}' outside allowed prefixes (${ALLOWED_MOUNT_PREFIXES.join(", ")})` }));
-      return;
-    }
-    dockerArgs = rawArgs;
-    timeout = 60 * 60 * 1000;
-
-  // ── docker compose ─────────────────────────────────────────────
-  //
-  // Repo patterns (all use default compose file from cwd, never -f):
-  //   ci3/run_compose_test:  docker compose -p $name down [--remove-orphans --timeout 2 [-v]]
-  //                          docker compose -p $name up -d --force-recreate
-  //   playground/run_test:   docker compose -p $name down
-  //                          docker compose -p $name up --exit-code-from=X --abort-on-container-exit --force-recreate
-  //   e2e comments:          docker compose --profile metrics up
-  //
-  // Compose files live at:
-  //   docker-compose.yml  (repo root)
-  //   playground/docker-compose.yml
-  //   yarn-project/end-to-end/scripts/docker-compose.yml
-  //   yarn-project/end-to-end/scripts/ha/docker-compose.yml
-  //   yarn-project/end-to-end/scripts/web3signer/docker-compose.yml
-  //   yarn-project/p2p-bootstrap/scripts/docker-compose-bootstrap.yml
-  //
-  } else if (subcommand === "compose") {
-    // First: check compose subcommand is allowed (before file checks)
-    const ALLOWED_COMPOSE_CMDS = ["up", "down", "ps", "logs", "stop", "start", "restart", "pull", "config", "top", "events"];
-    // Find the compose subcommand — first positional arg that isn't a flag value
-    const skipNext = new Set(["-f", "--file", "-p", "--project-name", "--profile", "--env-file", "--project-directory"]);
-    let composeSub = "";
-    for (let i = 1; i < rawArgs.length; i++) {
-      if (skipNext.has(rawArgs[i])) { i++; continue; }
-      if (rawArgs[i].startsWith("-")) continue;
-      composeSub = rawArgs[i]; break;
-    }
-    if (composeSub && !ALLOWED_COMPOSE_CMDS.includes(composeSub)) {
-      res.writeHead(403);
-      res.end(JSON.stringify({
-        error: `compose subcommand '${composeSub}' not allowed. Allowed: ${ALLOWED_COMPOSE_CMDS.join(", ")}. ` +
-          `'compose exec' and 'compose run' are blocked — use 'docker exec' or 'docker run' directly for auditable arg checking.`,
-      }));
-      return;
-    }
-
-    // Block multiple -f (override stacking) — repo never uses it
-    let fileCount = 0;
-    let composefile = "";
-    for (let i = 1; i < rawArgs.length; i++) {
-      if ((rawArgs[i] === "-f" || rawArgs[i] === "--file") && i + 1 < rawArgs.length) {
-        composefile = rawArgs[i + 1]; fileCount++; i++;
-      } else if (rawArgs[i].startsWith("-f") && rawArgs[i].length > 2 && !rawArgs[i].startsWith("-f ")) {
-        composefile = rawArgs[i].slice(2); fileCount++;
-      } else if (rawArgs[i].startsWith("--file=")) {
-        composefile = rawArgs[i].split("=").slice(1).join("="); fileCount++;
-      }
-    }
-    if (fileCount > 1) {
-      res.writeHead(403);
-      res.end(JSON.stringify({ error: "multiple -f/--file flags not allowed — only a single verified compose file is permitted" }));
-      return;
-    }
-
-    // If no -f, resolve docker-compose.yml from cwd (this is how the repo uses it)
-    if (!composefile) {
-      const cwd = payload.cwd || WORKSPACE;
-      composefile = resolve(cwd, "docker-compose.yml");
-    }
-
-    // Verify compose file matches the committed version in the reference repo
-    const err = await validateComposeFile(composefile);
-    if (err) { res.writeHead(403); res.end(JSON.stringify({ error: err })); return; }
-
-    dockerArgs = rawArgs;
-    timeout = 60 * 60 * 1000;
-
-  // ── docker buildx ─────────────────────────────────────────────
-  } else if (subcommand === "buildx") {
-    // Only allow the specific buildx commands used in the repo
-    const bxSub = rawArgs[1] || "";
-    const ALLOWED_BUILDX = ["imagetools", "build", "ls", "inspect", "version"];
-    if (!ALLOWED_BUILDX.includes(bxSub)) {
-      res.writeHead(403);
-      res.end(JSON.stringify({
-        error: `docker buildx '${bxSub}' is not allowed. ` +
-          `Only these buildx subcommands are permitted: ${ALLOWED_BUILDX.join(", ")}. ` +
-          `'buildx create' is blocked because it spawns privileged builder containers. ` +
-          `If you need this command, ask the operator to add it to the allowlist in mcp-sidecar.ts.`,
-      }));
-      return;
-    }
-    dockerArgs = rawArgs;
-    timeout = 60 * 60 * 1000;
-
-  // ── Safe read-only commands ────────────────────────────────────
-  } else if (["ps", "images", "logs", "inspect", "wait", "port", "top", "stats",
-              "network", "volume", "info", "version", "tag", "pull", "save", "load",
-              "login", "logout"].includes(subcommand)) {
-    dockerArgs = rawArgs;
-
-  // ── Container lifecycle (stop, rm, kill) — allow freely ────────
-  } else if (["stop", "rm", "kill", "start", "restart", "pause", "unpause"].includes(subcommand)) {
-    dockerArgs = rawArgs;
-
-  // ── docker exec — allow but strip dangerous flags ──────────────
-  } else if (subcommand === "exec") {
-    // Strip --privileged from exec
-    dockerArgs = rawArgs.filter(a => a !== "--privileged");
-
-  // ── Block everything else ──────────────────────────────────────
-  } else {
-    const ALLOWED_LIST = [
-      "run", "create", "build", "buildx", "compose", "exec",
-      "ps", "images", "logs", "inspect", "wait", "port", "top", "stats",
-      "network", "volume", "info", "version", "tag", "pull", "save", "load",
-      "login", "logout", "stop", "rm", "kill", "start", "restart", "pause", "unpause",
-    ];
-    res.writeHead(403);
-    res.end(JSON.stringify({
-      error: `docker subcommand '${subcommand}' is not allowed through the docker proxy. ` +
-        `Allowed commands: ${ALLOWED_LIST.join(", ")}. ` +
-        `This container uses a docker proxy for security — commands must go through the sidecar. ` +
-        `If you need '${subcommand}', ask the operator to add it to the allowlist in mcp-sidecar.ts.`,
-    }));
-    return;
-  }
-
-  console.log(`[docker-proxy] ${dockerArgs.slice(0, 3).join(" ")}...`);
-
-  // Stream output back
-  res.writeHead(200, {
-    "Content-Type": "application/octet-stream",
-    "Transfer-Encoding": "chunked",
-    "X-Accel-Buffering": "no",
-  });
-
-  const proc = spawn(DOCKER_BIN, dockerArgs, {
-    stdio: ["ignore", "pipe", "pipe"],
-    cwd: payload.cwd || WORKSPACE,
-    env: { ...process.env, ...(payload.env || {}) },
-  });
-  proc.stdout?.on("data", (d: Buffer) => { try { res.write(d); } catch {} });
-  proc.stderr?.on("data", (d: Buffer) => { try { res.write(d); } catch {} });
-  proc.on("close", (code) => {
-    try { res.end(`\n__DOCKERPROXY_EXIT__:${code ?? 1}\n`); } catch {}
-  });
-  const timer = setTimeout(() => { try { proc.kill("SIGTERM"); } catch {} }, timeout);
-  proc.on("close", () => clearTimeout(timer));
-  req.on("close", () => { try { proc.kill("SIGTERM"); } catch {} });
-}
+// ── HTTP Server ─────────────────────────────────────────────────
 
 const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   if (req.method === "GET" && req.url === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end('{"ok":true}');
-    return;
-  }
-
-  // Docker proxy endpoint
-  if (req.url === "/docker" && req.method === "POST") {
-    try {
-      await handleDockerProxy(req, res);
-    } catch (e: any) {
-      if (!res.headersSent) {
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: e.message }));
-      }
-    }
     return;
   }
 

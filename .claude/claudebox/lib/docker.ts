@@ -229,7 +229,7 @@ export class DockerService {
     try {
       // Start sidecar
       const uid = `${process.getuid!()}:${process.getgid!()}`;
-      // Build sidecar binds — audit profile skips docker.sock and reference repo
+      // Build sidecar binds — audit profile skips reference repo
       const sidecarBinds = [
         `${workspaceDir}:/workspace:rw`,
         `${claudeProjectsDir}:/home/aztec-dev/.claude/projects/-workspace:ro`,
@@ -239,7 +239,6 @@ export class DockerService {
       ];
       if (profileDir !== "barretenberg-audit") {
         sidecarBinds.push(`${join(REPO_DIR, ".git")}:/reference-repo/.git:ro`);
-        sidecarBinds.push(`/var/run/docker.sock:/var/run/docker.sock`);
       }
 
       await this.docker.createContainer({
@@ -487,7 +486,6 @@ export class DockerService {
       ];
       if (profileDir !== "barretenberg-audit") {
         sidecarBinds.push(`${join(REPO_DIR, ".git")}:/reference-repo/.git:ro`);
-        sidecarBinds.push(`/var/run/docker.sock:/var/run/docker.sock`);
       }
       await this.docker.createContainer({
         name: sidecarName,

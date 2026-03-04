@@ -30,8 +30,3 @@ RUN printf "Host ci-bastion.aztecprotocol.com\n  StrictHostKeyChecking no\n  Use
 COPY container-entrypoint.sh /opt/claudebox/entrypoint.sh
 COPY profiles/default/container-claude.md /opt/claudebox/container-claude.md
 RUN chmod +x /opt/claudebox/entrypoint.sh
-
-# Docker shim — drop-in replacement that proxies through the MCP sidecar.
-# Claude's container has no docker socket; all docker commands go through this.
-COPY dockerbox /usr/local/bin/docker
-RUN chmod +x /usr/local/bin/docker

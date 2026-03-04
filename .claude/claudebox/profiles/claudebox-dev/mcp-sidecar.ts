@@ -5,7 +5,6 @@
  * For working on ClaudeBox infrastructure itself.
  * Repo: AztecProtocol/aztec-packages (public)
  * Clone strategy: local reference repo (/reference-repo/.git)
- * Docker proxy: enabled
  * Key differences from default:
  *   - .claude/ files are never blocked
  *   - push_branch tool for direct pushes to claudebox-workflow
@@ -18,7 +17,7 @@ import {
   buildCommonGhWhitelist, sanitizeError,
   git, logActivity, pushToRemote,
   registerCommonTools, registerCloneRepo, registerPRTools,
-  createDockerProxyHandler, startMcpHttpServer,
+  startMcpHttpServer,
 } from "../../mcp-base.ts";
 
 // ── Profile config ──────────────────────────────────────────────
@@ -93,5 +92,4 @@ function createServer(): McpServer {
 
 // ── Start server ────────────────────────────────────────────────
 
-const handleDockerProxy = createDockerProxyHandler(WORKSPACE);
-startMcpHttpServer(createServer, { enableDockerProxy: true, handleDockerProxy });
+startMcpHttpServer(createServer);
