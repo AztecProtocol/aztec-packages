@@ -294,19 +294,24 @@ inline const std::array<crypto::Sha256Hash, 257> BN254_CRS_CHUNK_HASHES = {{
  * @brief Verify downloaded CRS data against embedded SHA256 chunk hashes.
  *
  * @details Verifies the integrity of downloaded CRS data by checking SHA256 hashes
- * of each complete 8MB chunk in parallel across available cores. Only full chunks are
- * verified — trailing data smaller than the chunk size is not checked (the caller should
- * validate the first elements separately for small downloads). This provides integrity
- * verification for CRS data downloaded over HTTP without requiring SSL/TLS.
+ * of each 8MB chunk in parallel across available cores. The data must be aligned to
+ * the 8MB chunk size — callers should round up their download size to ensure this.
+ * This provides integrity verification for CRS data downloaded over HTTP without
+ * requiring SSL/TLS.
  *
- * @param data The downloaded CRS data bytes
- * @throws If any chunk hash does not match the expected value
+ * @param data The downloaded CRS data bytes (must be a multiple of CRS_HASH_CHUNK_SIZE)
+ * @throws If the data is not chunk-aligned or any chunk hash does not match
  */
 inline void verify_bn254_crs_integrity(const std::vector<uint8_t>& data)
 {
-    // Only verify full chunks. Partial trailing data (< 8MB) is not checked here.
-    size_t num_full_chunks = data.size() / CRS_HASH_CHUNK_SIZE;
-    size_t chunks_to_verify = std::min(num_full_chunks, CRS_NUM_CHUNK_HASHES);
+    if (data.size() % CRS_HASH_CHUNK_SIZE != 0) {
+        throw_or_abort("CRS data size (" + std::to_string(data.size()) +
+                       " bytes) is not a multiple of the chunk size (" + std::to_string(CRS_HASH_CHUNK_SIZE) +
+                       " bytes). Downloads must be aligned to 8MB chunk boundaries for hash verification.");
+    }
+
+    size_t num_chunks = data.size() / CRS_HASH_CHUNK_SIZE;
+    size_t chunks_to_verify = std::min(num_chunks, CRS_NUM_CHUNK_HASHES);
     if (chunks_to_verify == 0) {
         return;
     }
