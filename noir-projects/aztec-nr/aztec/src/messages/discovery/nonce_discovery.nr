@@ -1,10 +1,10 @@
 use crate::messages::{discovery::ComputeNoteHashAndNullifier, logs::note::MAX_NOTE_PACKED_LEN};
 
+use crate::logging::aztecnr_debug_log_format;
 use crate::protocol::{
     address::AztecAddress,
     constants::MAX_NOTE_HASHES_PER_TX,
     hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash},
-    logging::debug_log_format,
     traits::ToField,
 };
 
@@ -36,8 +36,9 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery<Env>(
 ) -> BoundedVec<DiscoveredNoteInfo, MAX_NOTE_HASHES_PER_TX> {
     let discovered_notes = &mut BoundedVec::new();
 
-    debug_log_format(
+    aztecnr_debug_log_format!(
         "Attempting nonce discovery on {0} potential notes on contract {1} for storage slot {2}",
+    )(
         [unique_note_hashes_in_tx.len() as Field, contract_address.to_field(), storage_slot],
     );
 
@@ -90,10 +91,7 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery<Env>(
         }
     });
 
-    debug_log_format(
-        "Found valid nonces for a total of {0} notes",
-        [discovered_notes.len() as Field],
-    );
+    aztecnr_debug_log_format!("Found valid nonces for a total of {0} notes")([discovered_notes.len() as Field]);
 
     *discovered_notes
 }
