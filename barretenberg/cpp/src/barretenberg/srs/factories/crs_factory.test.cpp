@@ -1,5 +1,4 @@
 #include "barretenberg/api/file_io.hpp"
-#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"

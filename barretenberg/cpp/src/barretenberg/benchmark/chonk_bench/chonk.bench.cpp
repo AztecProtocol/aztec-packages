@@ -6,10 +6,13 @@
 #include <benchmark/benchmark.h>
 #include <chrono>
 
+#include "barretenberg/api/file_io.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/chonk/test_bench_shared.hpp"
 #include "barretenberg/common/google_bb_bench.hpp"
+#include "barretenberg/common/thread.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 
 using namespace benchmark;
 using namespace bb;
@@ -96,6 +99,28 @@ BENCHMARK_REGISTER_F(ChonkBench, Full)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(ChonkBench, VerificationOnly)->Unit(benchmark::kMillisecond);
 BENCHMARK_REGISTER_F(ChonkBench, ProofCompress)->Unit(benchmark::kMillisecond);
 BENCHMARK_REGISTER_F(ChonkBench, ProofDecompress)->Unit(benchmark::kMillisecond);
+
+/**
+ * @brief Benchmark BN254 G1 point decompression (used by SRS compressed download)
+ */
+void bn254_point_decompression(benchmark::State& state)
+{
+    constexpr size_t NUM_POINTS = 1 << 17; // 131072 — typical circuit size
+
+    // Read compressed points from disk (32 bytes each, big-endian uint256_t)
+    auto compressed_buf = read_file(bb::srs::bb_crs_path() / "bn254_g1_compressed.dat", NUM_POINTS * sizeof(uint256_t));
+    std::vector<uint256_t> compressed(NUM_POINTS);
+    for (size_t i = 0; i < NUM_POINTS; ++i) {
+        compressed[i] = from_buffer<uint256_t>(compressed_buf, i * sizeof(uint256_t));
+    }
+
+    for (auto _ : state) {
+        std::vector<g1::affine_element> points(NUM_POINTS);
+        parallel_for(NUM_POINTS, [&](size_t i) { points[i] = g1::affine_element::from_compressed(compressed[i]); });
+        benchmark::DoNotOptimize(points);
+    }
+}
+BENCHMARK(bn254_point_decompression)->Unit(benchmark::kMillisecond);
 
 } // namespace
 
