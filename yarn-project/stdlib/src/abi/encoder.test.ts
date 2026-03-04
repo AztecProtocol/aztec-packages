@@ -214,6 +214,7 @@ describe('abi/encoder', () => {
     });
 
     it('encodes the lowered ABI shape for Some', () => {
+      // eslint-disable-next-line camelcase
       expect(encodeArguments(optionStructAbi, [{ _is_some: true, _value: someValue }])).toEqual([
         new Fr(1n),
         new Fr(1n),
@@ -224,6 +225,7 @@ describe('abi/encoder', () => {
     });
 
     it('encodes the lowered ABI shape for None without requiring _value', () => {
+      // eslint-disable-next-line camelcase
       expect(encodeArguments(optionStructAbi, [{ _is_some: false }])).toEqual([
         Fr.ZERO,
         Fr.ZERO,
