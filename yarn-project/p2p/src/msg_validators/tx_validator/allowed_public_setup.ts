@@ -22,6 +22,7 @@ export async function getDefaultAllowedSetupFunctions(): Promise<AllowedElement[
       {
         address: ProtocolContractAddress.AuthRegistry,
         selector: setAuthorizedInternalSelector,
+        onlySelf: true,
       },
       // AuthRegistry: needed for authwit support via public path (PublicFeePaymentMethod calls set_authorized directly)
       {
@@ -32,11 +33,13 @@ export async function getDefaultAllowedSetupFunctions(): Promise<AllowedElement[
       {
         address: ProtocolContractAddress.FeeJuice,
         selector: increaseBalanceSelector,
+        onlySelf: true,
       },
       // Token: needed for private transfers via FPC (transfer_to_public enqueues this)
       {
         classId: tokenClassId,
         selector: increaseBalanceSelector,
+        onlySelf: true,
       },
       // Token: needed for public transfers via FPC (fee_entrypoint_public enqueues this)
       {

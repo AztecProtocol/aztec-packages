@@ -7,6 +7,7 @@ export const TX_ERROR_GAS_LIMIT_TOO_HIGH = 'Gas limit is higher than the amount 
 // Phases
 export const TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED = 'Setup function not on allow list';
 export const TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT = 'Setup function targets unknown contract';
+export const TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER = 'Setup only_self function called with incorrect msg_sender';
 
 // Nullifiers
 export const TX_ERROR_DUPLICATE_NULLIFIER_IN_TX = 'Duplicate nullifier in tx';

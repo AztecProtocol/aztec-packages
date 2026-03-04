@@ -6,6 +6,7 @@ import { makeAztecAddress, makeSelector, mockTx } from '@aztec/stdlib/testing';
 import {
   TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED,
   TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT,
+  TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER,
   type Tx,
 } from '@aztec/stdlib/tx';
 
@@ -197,5 +198,120 @@ describe('PhasesTxValidator', () => {
     await expectValid(tx);
 
     expect(contractDataSource.getContract).not.toHaveBeenCalled();
+  });
+
+  describe('onlySelf validation', () => {
+    let allowedOnlySelfSelector: FunctionSelector;
+    let allowedOnlySelfContract: AztecAddress;
+    let allowedOnlySelfClass: Fr;
+
+    beforeEach(() => {
+      allowedOnlySelfSelector = makeSelector(10);
+      allowedOnlySelfContract = makeAztecAddress();
+      allowedOnlySelfClass = Fr.random();
+
+      txValidator = new PhasesTxValidator(
+        contractDataSource,
+        [
+          {
+            address: allowedOnlySelfContract,
+            selector: allowedOnlySelfSelector,
+            onlySelf: true,
+          },
+          {
+            classId: allowedOnlySelfClass,
+            selector: allowedOnlySelfSelector,
+            onlySelf: true,
+          },
+          {
+            address: allowedContract,
+            selector: allowedSetupSelector1,
+          },
+        ],
+        timestamp,
+      );
+    });
+
+    it('allows onlySelf address entry when msgSender equals contractAddress', async () => {
+      const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+      await patchNonRevertibleFn(tx, 0, {
+        address: allowedOnlySelfContract,
+        selector: allowedOnlySelfSelector,
+        msgSender: allowedOnlySelfContract,
+      });
+
+      await expectValid(tx);
+    });
+
+    it('rejects onlySelf address entry when msgSender differs from contractAddress', async () => {
+      const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+      await patchNonRevertibleFn(tx, 0, {
+        address: allowedOnlySelfContract,
+        selector: allowedOnlySelfSelector,
+        msgSender: makeAztecAddress(),
+      });
+
+      await expectInvalid(tx, TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER);
+    });
+
+    it('allows onlySelf class entry when msgSender equals contractAddress', async () => {
+      const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+      const address = await patchNonRevertibleFn(tx, 0, {
+        selector: allowedOnlySelfSelector,
+        msgSender: undefined, // will be patched below
+      });
+
+      // Patch msgSender to equal contractAddress
+      tx.data.forPublic!.nonRevertibleAccumulatedData.publicCallRequests[0].msgSender = address;
+
+      contractDataSource.getContract.mockImplementationOnce((contractAddress, atTimestamp) => {
+        if (timestamp !== atTimestamp) {
+          throw new Error('Unexpected timestamp');
+        }
+        if (address.equals(contractAddress)) {
+          return Promise.resolve({
+            currentContractClassId: allowedOnlySelfClass,
+            originalContractClassId: Fr.random(),
+          } as any);
+        }
+        return Promise.resolve(undefined);
+      });
+
+      await expectValid(tx);
+    });
+
+    it('rejects onlySelf class entry when msgSender differs from contractAddress', async () => {
+      const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+      const address = await patchNonRevertibleFn(tx, 0, {
+        selector: allowedOnlySelfSelector,
+        msgSender: makeAztecAddress(),
+      });
+
+      contractDataSource.getContract.mockImplementationOnce((contractAddress, atTimestamp) => {
+        if (timestamp !== atTimestamp) {
+          throw new Error('Unexpected timestamp');
+        }
+        if (address.equals(contractAddress)) {
+          return Promise.resolve({
+            currentContractClassId: allowedOnlySelfClass,
+            originalContractClassId: Fr.random(),
+          } as any);
+        }
+        return Promise.resolve(undefined);
+      });
+
+      await expectInvalid(tx, TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER);
+    });
+
+    it('allows non-onlySelf entry with different msgSender', async () => {
+      const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+      await patchNonRevertibleFn(tx, 0, {
+        address: allowedContract,
+        selector: allowedSetupSelector1,
+        msgSender: makeAztecAddress(),
+      });
+
+      await expectValid(tx);
+    });
   });
 });

@@ -7,6 +7,7 @@ import {
   TX_ERROR_DURING_VALIDATION,
   TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED,
   TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT,
+  TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER,
   Tx,
   TxExecutionPhase,
   type TxValidationResult,
@@ -84,6 +85,9 @@ export class PhasesTxValidator implements TxValidator<Tx> {
     for (const entry of allowList) {
       if ('address' in entry) {
         if (contractAddress.equals(entry.address) && entry.selector.equals(functionSelector)) {
+          if (entry.onlySelf && !publicCall.request.msgSender.equals(contractAddress)) {
+            return TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER;
+          }
           return undefined;
         }
       }
@@ -105,6 +109,9 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       }
 
       if (contractClassId.value === entry.classId.toString() && entry.selector.equals(functionSelector)) {
+        if (entry.onlySelf && !publicCall.request.msgSender.equals(contractAddress)) {
+          return TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER;
+        }
         return undefined;
       }
     }
