@@ -109,7 +109,9 @@ class WorkerClientManager {
    * Config uses raw string for peerIdPrivateKey (not SecretValue) for IPC serialization.
    */
   private spawnWorkerProcess(
-    config: Omit<P2PConfig, 'peerIdPrivateKey' | 'priceBumpPercentage'> & { peerIdPrivateKey: string } & Partial<ChainConfig>,
+    config: Omit<P2PConfig, 'peerIdPrivateKey' | 'priceBumpPercentage'> & {
+      peerIdPrivateKey: string;
+    } & Partial<ChainConfig>,
     clientIndex: number,
   ): [ChildProcess, Promise<void>] {
     const useCompiled = existsSync(workerJsPath);
