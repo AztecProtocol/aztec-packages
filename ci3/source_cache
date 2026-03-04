@@ -8,12 +8,12 @@ function cache_disk_transfer {
   local key="$1"
   local prefix="${key:0:4}"
 
-  if [ -n "${AZTEC_CREDS_PROXY:-}" ]; then
+  if [ -n "${AZTEC_MCP_SERVER:-}" ]; then
     curl -sf -X POST \
       -H "X-Cache-Key: $key" \
       -H "Content-Type: application/octet-stream" \
       --data-binary @- \
-      "${AZTEC_CREDS_PROXY}/cache-disk-transfer" >/dev/null
+      "${AZTEC_MCP_SERVER}/cache-disk-transfer" >/dev/null
   else
     # Transfer via SSH pipe using persistent multiplexed connection
     # Use first 4 chars as subdirectory to avoid too many files in one dir
@@ -30,13 +30,13 @@ function cache_disk_transfer_to {
   local subfolder="$1"
   local key="$2"
 
-  if [ -n "${AZTEC_CREDS_PROXY:-}" ]; then
+  if [ -n "${AZTEC_MCP_SERVER:-}" ]; then
     curl -sf -X POST \
       -H "X-Cache-Key: $key" \
       -H "X-Cache-Subfolder: $subfolder" \
       -H "Content-Type: application/octet-stream" \
       --data-binary @- \
-      "${AZTEC_CREDS_PROXY}/cache-disk-transfer" >/dev/null
+      "${AZTEC_MCP_SERVER}/cache-disk-transfer" >/dev/null
   else
     # Transfer via SSH pipe using persistent multiplexed connection
     ssh -F "${ci3}/aws/build_instance_ssh_config" \
@@ -59,7 +59,7 @@ function cache_persistent {
   cat "$tmpfile" | redis_cli -x SETEX "$key" "$expire" &>/dev/null
 
   # Transfer to bastion disk in background (only if disk logging enabled or proxy available)
-  if [ "${CI_USE_BUILD_INSTANCE_KEY:-0}" -eq 1 ] || [ -n "${AZTEC_CREDS_PROXY:-}" ]; then
+  if [ "${CI_USE_BUILD_INSTANCE_KEY:-0}" -eq 1 ] || [ -n "${AZTEC_MCP_SERVER:-}" ]; then
     {
       cat "$tmpfile" | cache_disk_transfer "$key"
       rm -f "$tmpfile"

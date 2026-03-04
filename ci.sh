@@ -353,12 +353,12 @@ case "$cmd" in
     elif [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
       redis_getz "$key" | $pager
     else
-      if [ -n "${AZTEC_CREDS_PROXY:-}" ]; then
-        curl -sf -H "X-Redis-Key: $key" "${AZTEC_CREDS_PROXY}/redis-getz" | $pager
+      if [ -n "${AZTEC_MCP_SERVER:-}" ]; then
+        curl -sf -H "X-Redis-Key: $key" "${AZTEC_MCP_SERVER}/redis-getz" | $pager
       elif [ -n "${CI_PASSWORD:-}" ]; then
         curl -sf "http://aztec:$CI_PASSWORD@ci.aztec-labs.com/$key.txt" | $pager
       else
-        echo "No redis available, CI_PASSWORD not set, and AZTEC_CREDS_PROXY not set."
+        echo "No redis available, CI_PASSWORD not set, and AZTEC_MCP_SERVER not set."
         exit 1
       fi
       if [ ${PIPESTATUS[0]} -ne 0 ]; then

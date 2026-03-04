@@ -1092,7 +1092,7 @@ export function readBody(req: IncomingMessage): Promise<string> {
 
 // ── Credential Proxy ────────────────────────────────────────────
 // HTTP endpoints that proxy credential-needing operations for Claude containers.
-// Scripts in ci3/ detect AZTEC_CREDS_PROXY and call these instead of using
+// Scripts in ci3/ detect AZTEC_MCP_SERVER and call these instead of using
 // local credentials (SSH keys, CI_PASSWORD, etc).
 
 const SSH_CONFIG = "/opt/claudebox/ci3-ssh-config";

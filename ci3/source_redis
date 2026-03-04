@@ -11,7 +11,7 @@ if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
   if nc -z $CI_REDIS 6379 &>/dev/null; then
     # Redis is found at given host, we're done.
     export CI_REDIS_AVAILABLE=1
-  elif [ -n "${AZTEC_CREDS_PROXY:-}" ]; then
+  elif [ -n "${AZTEC_MCP_SERVER:-}" ]; then
     # Credential proxy available — Redis ops will be proxied via HTTP.
     export CI_REDIS_AVAILABLE=1
     export CI_REDIS_VIA_PROXY=1
@@ -66,7 +66,7 @@ function redis_setexz {
       -H "X-Redis-Expire: $2" \
       -H "Content-Type: application/octet-stream" \
       --data-binary @- \
-      "${AZTEC_CREDS_PROXY}/redis-setexz" >/dev/null
+      "${AZTEC_MCP_SERVER}/redis-setexz" >/dev/null
   else
     gzip | redis_cli -x SETEX $1 $2 &>/dev/null
   fi
@@ -75,7 +75,7 @@ function redis_setexz {
 function redis_getz {
   if [ "${CI_REDIS_VIA_PROXY:-0}" = "1" ]; then
     local result
-    result=$(curl -sf -H "X-Redis-Key: $1" "${AZTEC_CREDS_PROXY}/redis-getz" 2>/dev/null)
+    result=$(curl -sf -H "X-Redis-Key: $1" "${AZTEC_MCP_SERVER}/redis-getz" 2>/dev/null)
     if [ -z "$result" ]; then
       echo "Key not found."
     else
@@ -103,7 +103,7 @@ function redis_publish {
     curl -sf -X POST \
       -H "Content-Type: application/json" \
       -d "{\"channel\":\"$channel\",\"message\":\"$message\"}" \
-      "${AZTEC_CREDS_PROXY}/redis-publish" >/dev/null
+      "${AZTEC_MCP_SERVER}/redis-publish" >/dev/null
   elif [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
     redis_cli PUBLISH "$channel" "$message" &>/dev/null
   fi
