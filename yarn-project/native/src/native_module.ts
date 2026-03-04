@@ -128,19 +128,13 @@ export function cancelSimulation(token: CancellationToken): void {
 }
 
 /**
- * Concurrency limiting for C++ AVM simulation to prevent libuv thread pool exhaustion.
- *
- * The C++ simulator uses NAPI BlockingCall to callback to TypeScript for contract data.
- * This blocks the libuv thread while waiting for the callback to complete. If all libuv
- * threads are blocked waiting for callbacks, no threads remain to service those callbacks,
- * causing deadlock.
- *
- * We limit concurrent simulations to UV_THREADPOOL_SIZE / 2 to ensure threads remain
- * available for callback processing.
+ * AVM simulations now run on dedicated std::threads (not the libuv thread pool),
+ * so there is no longer a risk of libuv thread pool exhaustion or deadlock from
+ * C++ BlockingCall callbacks. The semaphore is retained only as a resource guard
+ * to avoid spawning an unbounded number of simulation threads.
  */
-const UV_THREADPOOL_SIZE = parseInt(process.env.UV_THREADPOOL_SIZE ?? '4', 10);
-const MAX_CONCURRENT_AVM_SIMULATIONS = Math.max(1, Math.floor(UV_THREADPOOL_SIZE / 2));
-const avmSimulationSemaphore = new Semaphore(MAX_CONCURRENT_AVM_SIMULATIONS);
+const MAX_CONCURRENT_AVM_SIMULATIONS = parseInt(process.env.MAX_CONCURRENT_AVM_SIMULATIONS ?? '0', 10);
+const avmSimulationSemaphore = MAX_CONCURRENT_AVM_SIMULATIONS > 0 ? new Semaphore(MAX_CONCURRENT_AVM_SIMULATIONS) : null;
 
 /**
  * AVM simulation function that takes serialized inputs and a contract provider.
@@ -161,7 +155,9 @@ export async function avmSimulate(
   logger?: Logger,
   cancellationToken?: CancellationToken,
 ): Promise<Buffer> {
-  await avmSimulationSemaphore.acquire();
+  if (avmSimulationSemaphore) {
+    await avmSimulationSemaphore.acquire();
+  }
 
   try {
     return await nativeAvmSimulate(
@@ -173,7 +169,9 @@ export async function avmSimulate(
       cancellationToken,
     );
   } finally {
-    avmSimulationSemaphore.release();
+    if (avmSimulationSemaphore) {
+      avmSimulationSemaphore.release();
+    }
   }
 }
 
@@ -186,10 +184,14 @@ export async function avmSimulate(
  * @returns Promise resolving to msgpack-serialized simulation results buffer
  */
 export async function avmSimulateWithHintedDbs(inputs: Buffer, logLevel: LogLevel = 'info'): Promise<Buffer> {
-  await avmSimulationSemaphore.acquire();
+  if (avmSimulationSemaphore) {
+    await avmSimulationSemaphore.acquire();
+  }
   try {
     return await nativeAvmSimulateWithHintedDbs(inputs, LogLevels.indexOf(logLevel));
   } finally {
-    avmSimulationSemaphore.release();
+    if (avmSimulationSemaphore) {
+      avmSimulationSemaphore.release();
+    }
   }
 }
