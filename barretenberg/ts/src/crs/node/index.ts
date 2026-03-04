@@ -1,4 +1,4 @@
-import { NetCrs, NetGrumpkinCrs, decompressG1Points } from '../net_crs.js';
+import { NetCrs, NetGrumpkinCrs } from '../net_crs.js';
 import { closeSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync, createWriteStream } from 'fs';
 import { stat } from 'fs/promises';
 import { Readable } from 'stream';
@@ -62,9 +62,13 @@ export class Crs {
     ]);
   }
 
+  /** Whether G1 data is in compressed format (32 bytes/point). */
+  g1IsCompressed = false;
+
   /**
    * G1 points data for prover key.
-   * @returns The points data (64 bytes/point, uncompressed).
+   * @returns The points data. May be compressed (32 bytes/point) or uncompressed (64 bytes/point).
+   * Check g1IsCompressed to determine format. Decompression happens in C++ via SrsInitSrs.
    */
   getG1Data(): Uint8Array {
     const numPoints = Math.max(this.numPoints, 1);
@@ -76,7 +80,8 @@ export class Crs {
       const compressed = new Uint8Array(compressedLength);
       readSync(fd, compressed, 0, compressedLength, 0);
       closeSync(fd);
-      return decompressG1Points(compressed, numPoints);
+      this.g1IsCompressed = true;
+      return compressed;
     } catch {
       // Fall through to legacy
     }
@@ -87,6 +92,7 @@ export class Crs {
     const buffer = new Uint8Array(length);
     readSync(fd, buffer, 0, length, 0);
     closeSync(fd);
+    this.g1IsCompressed = false;
     return buffer;
   }
 

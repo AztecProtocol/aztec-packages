@@ -4,19 +4,31 @@
  */
 #include "barretenberg/bbapi/bbapi_srs.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/bn254/g2.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
 namespace bb::bbapi {
 
 SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
 {
-    // Parse G1 points from buffer (64 bytes each)
     std::vector<g1::affine_element> g1_points(num_points);
-    for (size_t i = 0; i < num_points; ++i) {
-        g1_points[i] = from_buffer<g1::affine_element>(points_buf.data(), i * 64);
+    if (compressed) {
+        // Decompress 32-byte compressed points in parallel using native field arithmetic
+        parallel_for([&](ThreadChunk chunk) {
+            for (auto i : chunk.range(static_cast<size_t>(num_points))) {
+                uint256_t c = from_buffer<uint256_t>(points_buf.data(), i * 32);
+                g1_points[i] = g1::affine_element::from_compressed(c);
+            }
+        });
+    } else {
+        // Parse uncompressed 64-byte points
+        for (size_t i = 0; i < num_points; ++i) {
+            g1_points[i] = from_buffer<g1::affine_element>(points_buf.data(), i * 64);
+        }
     }
 
     // Parse G2 point from buffer (128 bytes)

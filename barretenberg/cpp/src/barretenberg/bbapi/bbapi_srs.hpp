@@ -27,11 +27,12 @@ struct SrsInitSrs {
         bool operator==(const Response&) const = default;
     };
 
-    std::vector<uint8_t> points_buf; // G1 points (64 bytes each)
+    std::vector<uint8_t> points_buf; // G1 points (64 bytes uncompressed, or 32 bytes compressed)
     uint32_t num_points;
     std::vector<uint8_t> g2_point; // G2 point (128 bytes)
+    bool compressed = false;       // If true, points_buf contains compressed points (32 bytes each)
     Response execute(BBApiRequest& request) &&;
-    MSGPACK_FIELDS(points_buf, num_points, g2_point);
+    MSGPACK_FIELDS(points_buf, num_points, g2_point, compressed);
     bool operator==(const SrsInitSrs&) const = default;
 };
 
