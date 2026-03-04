@@ -25,7 +25,7 @@ describe('e2e_double_spend', () => {
       logger,
     } = await setup(1));
 
-    contract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress });
+    ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
 
     logger.info(`Test contract deployed at ${contract.address}`);
   });

@@ -31,7 +31,7 @@ describe('e2e_deploy_contract private initialization', () => {
   // The function has a noinitcheck flag so it can be called without initialization.
   it('executes a noinitcheck function in an uninitialized contract', async () => {
     const contract = await t.registerContract(wallet, TestContract);
-    const receipt = await contract.methods.emit_nullifier(10).send({ from: defaultAccountAddress });
+    const { receipt } = await contract.methods.emit_nullifier(10).send({ from: defaultAccountAddress });
     const txEffects = await aztecNode.getTxEffect(receipt.txHash);
 
     const expected = await siloNullifier(contract.address, new Fr(10));
@@ -45,11 +45,11 @@ describe('e2e_deploy_contract private initialization', () => {
     const contract = await t.registerContract(wallet, NoConstructorContract);
     await expect(
       contract.methods.is_private_mutable_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
-    ).resolves.toEqual(false);
+    ).resolves.toEqual(expect.objectContaining({ result: false }));
     await contract.methods.initialize_private_mutable(42).send({ from: defaultAccountAddress });
     await expect(
       contract.methods.is_private_mutable_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
-    ).resolves.toEqual(true);
+    ).resolves.toEqual(expect.objectContaining({ result: true }));
   });
 
   // Tests privately initializing an undeployed contract. Also requires pxe registration in advance.
@@ -60,10 +60,10 @@ describe('e2e_deploy_contract private initialization', () => {
     logger.info(`Calling the constructor for ${contract.address}`);
     await contract.methods.constructor(...initArgs).send({ from: defaultAccountAddress });
     logger.info(`Checking if the constructor was run for ${contract.address}`);
-    expect(await contract.methods.summed_values(owner).simulate({ from: owner })).toEqual(42n);
+    expect((await contract.methods.summed_values(owner).simulate({ from: owner })).result).toEqual(42n);
     logger.info(`Calling a private function that requires initialization on ${contract.address}`);
     await contract.methods.create_note(owner, 10).send({ from: defaultAccountAddress });
-    expect(await contract.methods.summed_values(owner).simulate({ from: owner })).toEqual(52n);
+    expect((await contract.methods.summed_values(owner).simulate({ from: owner })).result).toEqual(52n);
   });
 
   // Tests privately initializing multiple undeployed contracts on the same tx through an account contract.
@@ -75,8 +75,8 @@ describe('e2e_deploy_contract private initialization', () => {
     );
     const calls = contracts.map((c, i) => c.methods.constructor(...initArgs[i]));
     await new BatchCall(wallet, calls).send({ from: defaultAccountAddress });
-    expect(await contracts[0].methods.summed_values(owner).simulate({ from: owner })).toEqual(42n);
-    expect(await contracts[1].methods.summed_values(owner).simulate({ from: owner })).toEqual(52n);
+    expect((await contracts[0].methods.summed_values(owner).simulate({ from: owner })).result).toEqual(42n);
+    expect((await contracts[1].methods.summed_values(owner).simulate({ from: owner })).result).toEqual(52n);
   });
 
   it('initializes and calls a private function in a single tx', async () => {
@@ -89,7 +89,7 @@ describe('e2e_deploy_contract private initialization', () => {
     ]);
     logger.info(`Executing constructor and private function in batch at ${contract.address}`);
     await batch.send({ from: defaultAccountAddress });
-    expect(await contract.methods.summed_values(owner).simulate({ from: owner })).toEqual(52n);
+    expect((await contract.methods.summed_values(owner).simulate({ from: owner })).result).toEqual(52n);
   });
 
   it('refuses to initialize a contract twice', async () => {

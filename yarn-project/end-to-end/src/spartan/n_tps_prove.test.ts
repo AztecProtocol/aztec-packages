@@ -8,13 +8,13 @@ import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { SlotNumber } from '@aztec/foundation/branded-types';
-import { timesParallel } from '@aztec/foundation/collection';
+import { timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { DateProvider, Timer } from '@aztec/foundation/timer';
-import { AvmGadgetsTestContract } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
+import { DateProvider } from '@aztec/foundation/timer';
+import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
 import { GasFees } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -122,7 +122,7 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
   let producerPromises: Promise<void>[];
 
   let aztecNode: AztecNode;
-  let benchmarkContract: AvmGadgetsTestContract;
+  let benchmarkContract: BenchmarkingContract;
 
   let metrics: ProvingMetrics;
   let childProcesses: ChildProcess[];
@@ -269,7 +269,7 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
     );
 
     logger.info(`Creating ${NUM_WALLETS} wallet(s)...`);
-    testWallets = await timesParallel(NUM_WALLETS, i => {
+    testWallets = await timesAsync(NUM_WALLETS, i => {
       logger.info(`Creating wallet ${i + 1}/${NUM_WALLETS}`);
       return createWorkerWalletClient(rpcUrl, config.REAL_VERIFIER, logger);
     });
@@ -278,34 +278,36 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
     // Register FPC and create/deploy accounts
     const fpcAddress = await getSponsoredFPCAddress();
     const sponsor = new SponsoredFeePaymentMethod(fpcAddress);
-    accountAddresses = await Promise.all(
-      wallets.map(async wallet => {
-        const secret = Fr.random();
-        const salt = Fr.random();
-        const address = await wallet.registerAccount(secret, salt);
-        await registerSponsoredFPC(wallet);
-        const manager = await AccountManager.create(
-          wallet,
-          secret,
-          new SchnorrAccountContract(deriveSigningKey(secret)),
-          salt,
-        );
-        const deployMethod = await manager.getDeployMethod();
-        await deployMethod.send({
-          from: AztecAddress.ZERO,
-          fee: { paymentMethod: sponsor },
-          wait: { timeout: 2400 },
-        });
-        logger.info(`Account deployed at ${address}`);
-        return address;
-      }),
-    );
+    accountAddresses = [];
+    for (const wallet of wallets) {
+      const secret = Fr.random();
+      const salt = Fr.random();
+      // Register account inside worker (populates TestWallet.accounts map)
+      const address = await wallet.registerAccount(secret, salt);
+      // Register FPC in worker's PXE
+      await registerSponsoredFPC(wallet);
+      // Deploy via standard AccountManager flow (from: ZERO -> SignerlessAccount, no account lookup)
+      const manager = await AccountManager.create(
+        wallet,
+        secret,
+        new SchnorrAccountContract(deriveSigningKey(secret)),
+        salt,
+      );
+      const deployMethod = await manager.getDeployMethod();
+      await deployMethod.send({
+        from: AztecAddress.ZERO,
+        fee: { paymentMethod: sponsor },
+        wait: { timeout: 2400 },
+      });
+      logger.info(`Account deployed at ${address}`);
+      accountAddresses.push(address);
+    }
 
     logger.info('Deploying benchmark contract...');
-    benchmarkContract = await AvmGadgetsTestContract.deploy(wallets[0]).send({
+    ({ contract: benchmarkContract } = await BenchmarkingContract.deploy(wallets[0]).send({
       from: accountAddresses[0],
       fee: { paymentMethod: sponsor },
-    });
+    }));
 
     logger.info('Test setup complete');
   });
@@ -361,14 +363,6 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
 
     // scale to 10 agents in order to be able to prove the current epoch which contains up to 10 account contracts and the benchmark contract
     await scaleProverAgents(config.NAMESPACE, 10, logger);
-  });
-
-  afterAll(async () => {
-    try {
-      await scaleProverAgents(config.NAMESPACE, 2, logger);
-    } catch (err) {
-      logger.error(`Failed to scale prover agents: ${err}`);
-    }
   });
 
   it(`sends ${TARGET_TPS} TPS for a full epoch and waits for proof`, async () => {
@@ -438,8 +432,6 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
     let failureCount = 0;
 
     const batchSize = 10;
-    const TX_MINING_TIMEOUT_S = epochDurationSeconds;
-    const miningTimer = new Timer();
     while (pendingTxs.size > 0) {
       const entries = [...pendingTxs.entries()];
       const start = Math.floor(Math.random() * Math.max(1, entries.length - batchSize + 1));
@@ -472,22 +464,6 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
         );
       }
 
-      if (miningTimer.s() > TX_MINING_TIMEOUT_S) {
-        const remainingHashes = [...pendingTxs.values()].map(h => h.toString());
-        logger.warn(
-          `Timed out waiting for ${pendingTxs.size}/${totalSent} transactions after ${TX_MINING_TIMEOUT_S}s. ` +
-            `These transactions likely were not included in this epoch's blocks. ` +
-            `Remaining tx hashes: ${remainingHashes.join(', ')}`,
-        );
-        break;
-      }
-
-      if (processedCount === 0) {
-        logger.info(
-          `Still waiting for ${pendingTxs.size}/${totalSent} transactions (${Math.floor(miningTimer.s())}s elapsed)`,
-        );
-      }
-
       await sleep(500);
     }
 
@@ -507,8 +483,6 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
 
     // Poll for proof completion while detecting reorgs
     let lastBlockNumber = endBlockNumber;
-    const PROOF_TIMEOUT_S = epochDurationSeconds;
-    const proofTimer = new Timer();
 
     while (true) {
       const [provenBlock, currentBlockNumber] = await Promise.all([
@@ -533,13 +507,7 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
         break;
       }
 
-      if (proofTimer.s() > PROOF_TIMEOUT_S) {
-        throw new Error(
-          `Timed out waiting for proof after ${PROOF_TIMEOUT_S}s. Proven: ${provenBlock}, Target: ${targetProvenBlock}`,
-        );
-      }
-
-      logger.info(`Proven: ${provenBlock}, Pending: ${currentBlockNumber}, Target: ${targetProvenBlock}`);
+      logger.debug(`Proven: ${provenBlock}, Pending: ${currentBlockNumber}, Target: ${targetProvenBlock}`);
       lastBlockNumber = currentBlockNumber;
 
       await sleep(10 * 1000); // Poll every 10 seconds
@@ -562,7 +530,7 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
 async function createTx(
   wallet: WorkerWallet,
   accountAddress: AztecAddress,
-  benchmarkContract: AvmGadgetsTestContract,
+  benchmarkContract: BenchmarkingContract,
   logger: Logger,
 ): Promise<Tx> {
   logger.info('Creating prototype transaction...');
@@ -571,7 +539,7 @@ async function createTx(
     from: accountAddress,
     fee: { paymentMethod: sponsor, gasSettings: { maxPriorityFeesPerGas: GasFees.empty() } },
   };
-  const interaction = benchmarkContract.methods.keccak_hash_1400(Array(1400).fill(42));
+  const interaction = benchmarkContract.methods.sha256_hash_1024(Array(1024).fill(42));
   const execPayload = await interaction.request(options);
   const tx = await wallet.proveTx(execPayload, toSendOptions(options));
   logger.info('Prototype transaction created');
@@ -611,7 +579,7 @@ async function cloneTx(tx: Tx, aztecNode: AztecNode): Promise<Tx> {
 
 async function startProducing(
   producer: WalletTxProducer,
-  benchmarkContract: AvmGadgetsTestContract,
+  benchmarkContract: BenchmarkingContract,
   aztecNode: AztecNode,
   signal: AbortSignal,
   logger: Logger,

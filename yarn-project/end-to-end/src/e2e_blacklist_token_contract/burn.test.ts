@@ -27,7 +27,10 @@ describe('e2e_blacklist_token_contract burn', () => {
 
   describe('public', () => {
     it('burn less than balance', async () => {
-      const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+      const balance0 = await asset.methods
+        .balance_of_public(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balance0 / 2n;
       expect(amount).toBeGreaterThan(0n);
       await asset.methods.burn_public(adminAddress, amount, 0).send({ from: adminAddress });
@@ -36,7 +39,10 @@ describe('e2e_blacklist_token_contract burn', () => {
     });
 
     it('burn on behalf of other', async () => {
-      const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+      const balance0 = await asset.methods
+        .balance_of_public(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balance0 / 2n;
       expect(amount).toBeGreaterThan(0n);
       const authwitNonce = Fr.random();
@@ -61,7 +67,10 @@ describe('e2e_blacklist_token_contract burn', () => {
 
     describe('failure cases', () => {
       it('burn more than balance', async () => {
-        const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+        const balance0 = await asset.methods
+          .balance_of_public(adminAddress)
+          .simulate({ from: adminAddress })
+          .then(r => r.result);
         const amount = balance0 + 1n;
         const authwitNonce = 0;
         await expect(
@@ -70,7 +79,10 @@ describe('e2e_blacklist_token_contract burn', () => {
       });
 
       it('burn on behalf of self with non-zero nonce', async () => {
-        const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+        const balance0 = await asset.methods
+          .balance_of_public(adminAddress)
+          .simulate({ from: adminAddress })
+          .then(r => r.result);
         const amount = balance0 - 1n;
         expect(amount).toBeGreaterThan(0n);
         const authwitNonce = 1;
@@ -82,7 +94,10 @@ describe('e2e_blacklist_token_contract burn', () => {
       });
 
       it('burn on behalf of other without "approval"', async () => {
-        const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+        const balance0 = await asset.methods
+          .balance_of_public(adminAddress)
+          .simulate({ from: adminAddress })
+          .then(r => r.result);
         const amount = balance0 + 1n;
         const authwitNonce = Fr.random();
         await expect(
@@ -91,7 +106,10 @@ describe('e2e_blacklist_token_contract burn', () => {
       });
 
       it('burn more than balance on behalf of other', async () => {
-        const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+        const balance0 = await asset.methods
+          .balance_of_public(adminAddress)
+          .simulate({ from: adminAddress })
+          .then(r => r.result);
         const amount = balance0 + 1n;
         const authwitNonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
@@ -109,7 +127,10 @@ describe('e2e_blacklist_token_contract burn', () => {
       });
 
       it('burn on behalf of other, wrong designated caller', async () => {
-        const balance0 = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+        const balance0 = await asset.methods
+          .balance_of_public(adminAddress)
+          .simulate({ from: adminAddress })
+          .then(r => r.result);
         const amount = balance0 + 2n;
         const authwitNonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
@@ -138,7 +159,10 @@ describe('e2e_blacklist_token_contract burn', () => {
 
   describe('private', () => {
     it('burn less than balance', async () => {
-      const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const balance0 = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balance0 / 2n;
       expect(amount).toBeGreaterThan(0n);
       await asset.methods.burn(adminAddress, amount, 0).send({ from: adminAddress });
@@ -146,7 +170,10 @@ describe('e2e_blacklist_token_contract burn', () => {
     });
 
     it('burn on behalf of other', async () => {
-      const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const balance0 = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress })
+        .then(r => r.result);
       const amount = balance0 / 2n;
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
@@ -166,7 +193,10 @@ describe('e2e_blacklist_token_contract burn', () => {
 
     describe('failure cases', () => {
       it('burn more than balance', async () => {
-        const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+        const balance0 = await asset.methods
+          .balance_of_private(adminAddress)
+          .simulate({ from: adminAddress })
+          .then(r => r.result);
         const amount = balance0 + 1n;
         expect(amount).toBeGreaterThan(0n);
         await expect(asset.methods.burn(adminAddress, amount, 0).simulate({ from: adminAddress })).rejects.toThrow(
@@ -175,7 +205,10 @@ describe('e2e_blacklist_token_contract burn', () => {
       });
 
       it('burn on behalf of self with non-zero nonce', async () => {
-        const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+        const balance0 = await asset.methods
+          .balance_of_private(adminAddress)
+          .simulate({ from: adminAddress })
+          .then(r => r.result);
         const amount = balance0 - 1n;
         expect(amount).toBeGreaterThan(0n);
         await expect(asset.methods.burn(adminAddress, amount, 1).simulate({ from: adminAddress })).rejects.toThrow(
@@ -184,7 +217,10 @@ describe('e2e_blacklist_token_contract burn', () => {
       });
 
       it('burn more than balance on behalf of other', async () => {
-        const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+        const balance0 = await asset.methods
+          .balance_of_private(adminAddress)
+          .simulate({ from: adminAddress })
+          .then(r => r.result);
         const amount = balance0 + 1n;
         const authwitNonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
@@ -199,7 +235,10 @@ describe('e2e_blacklist_token_contract burn', () => {
       });
 
       it('burn on behalf of other without approval', async () => {
-        const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+        const balance0 = await asset.methods
+          .balance_of_private(adminAddress)
+          .simulate({ from: adminAddress })
+          .then(r => r.result);
         const amount = balance0 / 2n;
         const authwitNonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
@@ -218,7 +257,10 @@ describe('e2e_blacklist_token_contract burn', () => {
       });
 
       it('on behalf of other (invalid designated caller)', async () => {
-        const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+        const balance0 = await asset.methods
+          .balance_of_private(adminAddress)
+          .simulate({ from: adminAddress })
+          .then(r => r.result);
         const amount = balance0 + 2n;
         const authwitNonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);

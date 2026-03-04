@@ -152,9 +152,9 @@ describe('e2e_node_rpc_perf', () => {
     }));
 
     logger.info('Deploying token contract...');
-    tokenContract = await TokenContract.deploy(wallet, ownerAddress, 'TestToken', 'TST', 18n).send({
+    ({ contract: tokenContract } = await TokenContract.deploy(wallet, ownerAddress, 'TestToken', 'TST', 18n).send({
       from: ownerAddress,
-    });
+    }));
     contractAddress = tokenContract.address;
     logger.info(`Token contract deployed at ${contractAddress}`);
 
