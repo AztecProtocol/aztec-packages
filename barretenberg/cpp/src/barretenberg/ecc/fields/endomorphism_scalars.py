@@ -5,10 +5,12 @@ GLV Endomorphism: Constants and Scalar Splitting for Multiple Curves
 This document explains the "splitting scalars" algorithm in Barretenberg for all curves
 that admit an efficient endomorphism. We cover:
 
-  Part 0   (§0):     Preliminaries — the GLV lattice and how to find a short basis
-  Part I   (§1–§5):  BN254 Fr  — the scalar field of BN254 (254-bit, uses 2^256 shift)
-  Part II  (§6–§9):  BN254 Fq  — the base field of BN254 (254-bit, uses 2^256 shift)
-  Part III (§10–§14): secp256k1 Fr — the scalar field of secp256k1 (256-bit, now uses 2^256 shift)
+  Part 0   (§0):      Preliminaries — the GLV lattice and how to find a short basis
+  Part I   (§1–§5):   BN254 Fr  — the scalar field of BN254 (254-bit, uses 2^256 shift)
+  Part II  (§6–§9):   BN254 Fq  — the base field of BN254 (254-bit, uses 2^256 shift)
+  Part III (§10–§14):  secp256k1 Fr — the scalar field of secp256k1 (256-bit, now uses 2^256 shift)
+  Appendix (§16):      129-bit scalars for secp256k1
+  Appendix (§17):      Why the BN254 Fr and Fq lattice bases are nearly identical
 
 Reference: Gallant, Lambert, Vanstone, "Faster Point Multiplication on Elliptic Curves" (2001)
 
@@ -181,8 +183,12 @@ def find_short_lattice_basis(lambda_val, modulus):
 # § 1. BN254 Fr — FIELD PARAMETERS
 # ====================================================================================
 
+# The BN parameter x (see §17 for why the Fr and Fq lattice bases are nearly identical)
+x_bn = 4965661367192848881  # 0x44e992b44a6909f1, 63 bits
+
 # The scalar field modulus of BN254 (from bn254/fr.hpp)
 r = 0x30644E72E131A029B85045B68181585D2833E84879B9709143E1F593F0000001
+assert r == 36*x_bn**4 + 36*x_bn**3 + 18*x_bn**2 + 6*x_bn + 1, "r = 36x⁴ + 36x³ + 18x² + 6x + 1"
 
 # Montgomery parameter: R = 2^256 mod r
 # This is needed because fr.hpp stores values in Montgomery form
@@ -217,7 +223,13 @@ b1 = -0x6f4d8248eeb859fc8211bbeb7d4f1128  # 127 bits (negative)
 a2 = 0x6f4d8248eeb859fd0be4e1541221250b  # 127 bits
 b2 = 0x89d3256894d213e3                   # 64 bits
 
-# NOTE: a remarkable feature of this short basis is that a1 == b2, and indeed -b1 is rather close to a2.
+# NOTE: a1 == b2 (= 2x+1) and a2 ≈ |b1| (= 6x²+4x+1 vs 6x²+2x).
+# This is a structural consequence of the BN parameterization; see §17 for the full explanation.
+# In particular, we can verify these polynomial identities:
+assert a1 == 2 * x_bn + 1, "a1 = 2x + 1"
+assert b2 == 2 * x_bn + 1, "b2 = 2x + 1"
+assert a2 == 6 * x_bn**2 + 4 * x_bn + 1, "a2 = 6x^2 + 4x + 1"
+assert -b1 == 6 * x_bn**2 + 2 * x_bn, "|b1| = 6x^2 + 2x"
 
 # Verify that the vectors are in the lattice: ai + λ·bi ≡ 0 (mod r)
 assert (a1 + lambda_val * b1) % r == 0, "Lattice vector 1 must satisfy a1 + λ·b1 ≡ 0"
@@ -275,7 +287,6 @@ assert endo_b2 == expected_endo_b2, "endo_b2 must match fr.hpp"
 # ====================================================================================
 #
 # Computes (k1, k2) with k ≡ k1 - λ·k2 (mod r) and |k1|, |k2| < 2^128.
-# See §0 for the derivation (Babai's nearest plane).
 #
 # SUBTLETY — k2 CAN BE NEGATIVE:
 #
@@ -393,6 +404,8 @@ for m in [1, 2, 3]:
 
 # The base field modulus of BN254 (from bn254/fq.hpp)
 fq_modulus = 0x30644E72E131A029B85045B68181585D97816A916871CA8D3C208C16D87CFD47
+assert fq_modulus == 36*x_bn**4 + 36*x_bn**3 + 24*x_bn**2 + 6*x_bn + 1, "q = 36x⁴ + 36x³ + 24x² + 6x + 1"
+assert fq_modulus - r == 6 * x_bn**2, "q − r = 6x²"
 
 # Montgomery parameter for Fq: R = 2^256 mod q
 fq_R = pow(2, 256, fq_modulus)
@@ -429,6 +442,18 @@ assert (fq_a2 + fq_beta * fq_b2) % fq_modulus == 0, "Fq lattice vector 2"
 # Verify determinant
 fq_det = fq_a1 * fq_b2 - fq_a2 * fq_b1
 assert abs(fq_det) == fq_modulus, f"Fq lattice determinant must be ±q, got {fq_det}"
+
+# Verify polynomial structure and near-identity with Fr basis (see §17 for explanation):
+assert fq_a1 == 2 * x_bn, "Fq: a1 = 2x"
+assert fq_b2 == 2 * x_bn, "Fq: b2 = 2x"
+assert fq_a2 == 6 * x_bn**2 + 4 * x_bn + 1, "Fq: a2 = 6x² + 4x + 1 (same as Fr!)"
+assert -fq_b1 == 6 * x_bn**2 + 2 * x_bn + 1, "Fq: |b1| = 6x² + 2x + 1"
+
+# The Fr and Fq bases differ by at most 1 in each component:
+assert a1 - fq_a1 == 1, "a1: Fr has 2x+1, Fq has 2x"
+assert b2 - fq_b2 == 1, "b2: Fr has 2x+1, Fq has 2x"
+assert fq_a2 == a2, "a2: identical for both fields"
+assert (-fq_b1) - (-b1) == 1, "|b1|: Fq has 6x²+2x+1, Fr has 6x²+2x"
 
 
 # ====================================================================================
@@ -716,6 +741,40 @@ def measure_overflow_frequency(n_samples=500_000):
     assert 20 < pct_k1 < 35, f"Expected ~25% for k1, got {pct_k1}%"
     assert 0.1 < pct_k2 < 1.0, f"Expected ~0.3% for k2, got {pct_k2}%"
 
+# ====================================================================================
+# § 17. APPENDIX: WHY THE BN254 Fr AND Fq LATTICE BASES ARE NEARLY IDENTICAL
+# ====================================================================================
+#
+# BN254 is parameterized by a single integer x = 0x44e992b44a6909f1 (63 bits).
+# Both field primes are polynomials in x:
+#
+#     r = 36x⁴ + 36x³ + 18x² + 6x + 1    (scalar field, Fr)
+#     q = 36x⁴ + 36x³ + 24x² + 6x + 1    (base field, Fq)
+#
+# They differ by q − r = 6x² ≈ 2¹²⁷, tiny relative to the 254-bit primes.
+#
+# The GLV lattice basis vectors turn out to be simple polynomials in x:
+#
+#     Fr basis:  (a1, b1) = (2x+1, −(6x²+2x)),    (a2, b2) = (6x²+4x+1, 2x+1)
+#     Fq basis:  (a1, b1) = (2x,   −(6x²+2x+1)),  (a2, b2) = (6x²+4x+1, 2x  )
+#
+# These are verified by the determinant identities:
+#
+#     (2x+1)² + (6x²+4x+1)(6x²+2x)   = 36x⁴ + 36x³ + 18x² + 6x + 1 = r
+#     (2x)²   + (6x²+4x+1)(6x²+2x+1) = 36x⁴ + 36x³ + 24x² + 6x + 1 = q
+#
+# Notice a1 = b2 for both fields (the basis matrix is "almost symmetric"), and a2
+# is IDENTICAL for both. The only difference: Fr has the +1 on a1/b2, while Fq has
+# the +1 on |b1|. All four components differ by at most 1 between Fr and Fq.
+#
+# Reference: The BN prime parameterization is from Barreto–Naehrig (2006). The
+# polynomial structure of GLV short bases for CM curves is discussed in
+# B. Smith, "Easy scalar decompositions for efficient scalar multiplication
+# on elliptic curves and genus 2 Jacobians" (2013), eprint.iacr.org/2013/672.
+
+# ====================================================================================
+# § 18. Main function
+# ====================================================================================
 if __name__ == "__main__":
     print("=== Part I: BN254 Fr ===")
     print(f"  λ (cube root): {hex(lambda_val)}")
