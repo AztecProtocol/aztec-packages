@@ -358,13 +358,15 @@ impl MessageEncryption for AES128 {
 
         // Mask each content field with a Poseidon2-derived value, so that they appear as uniformly random `Field`
         // values
+        let mut offset = 1;
         for i in 0..message_bytes_as_fields.len() {
             let mask = derive_field_mask(ciphertext_shared_secret, i as u32);
-            ciphertext[1 + i] = message_bytes_as_fields[i] + mask;
+            ciphertext[offset + i] = message_bytes_as_fields[i] + mask;
         }
+        offset += message_bytes_as_fields.len();
 
         // Pad with random fields so that padding is indistinguishable from masked data fields.
-        for i in (1 + message_bytes_as_fields.len())..MESSAGE_CIPHERTEXT_LEN {
+        for i in offset..MESSAGE_CIPHERTEXT_LEN {
             // Safety: we assume that the sender wants for the message to be private - a malicious one could simply
             // reveal its contents publicly. It is therefore fine to trust the sender to provide random padding.
             ciphertext[i] = unsafe { random() };
@@ -391,7 +393,12 @@ impl MessageEncryption for AES128 {
             // Derive shared secret
             let ciphertext_shared_secret = get_shared_secret(recipient, eph_pk);
 
-            let unmasked_fields = masked_fields.mapi(|i, field| unmask_field(ciphertext_shared_secret, i, field));
+            let unmasked_fields = masked_fields.mapi(|i, field| {
+                let unmasked = unmask_field(ciphertext_shared_secret, i, field);
+                // If we failed to unmask the field, we are dealing with the random padding. We'll ignore it later,
+                // so we can simply set it to 0
+                unmasked.unwrap_or(0)
+            });
             let ciphertext_without_eph_pk_x = bytes_from_fields(unmasked_fields);
 
             // Derive symmetric keys:
@@ -438,13 +445,14 @@ impl MessageEncryption for AES128 {
 global TWO_POW_248: Field = 2.pow_32(248);
 
 /// Removes the Poseidon2-derived mask from a ciphertext field. Returns the unmasked value if it fits in 31 bytes
-/// (a content field), or zero if it doesn't (random padding).
-fn unmask_field(shared_secret: Point, index: u32, masked: Field) -> Field {
+/// (a content field), or `None` if it doesn't (random padding). Unconstrained to prevent accidental use in
+/// constrained context.
+unconstrained fn unmask_field(shared_secret: Point, index: u32, masked: Field) -> Option<Field> {
     let unmasked = masked - derive_field_mask(shared_secret, index);
     if unmasked.lt(TWO_POW_248) {
-        unmasked
+        Option::some(unmasked)
     } else {
-        0
+        Option::none()
     }
 }
 
