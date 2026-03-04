@@ -247,9 +247,6 @@ impl MessageEncryption for AES128 {
         // Derive ECDH shared secret with recipient using a fresh ephemeral keypair.
         let (eph_sk, eph_pk) = generate_positive_ephemeral_key_pair();
 
-        // (not to be confused with the tagging shared secret) TODO (#17158): Currently we unwrap the Option returned
-        // by derive_ecdh_shared_secret. We need to handle the case where the ephemeral public key is invalid to
-        // prevent potential DoS vectors.
         let ciphertext_shared_secret = derive_ecdh_shared_secret(
             eph_sk,
             recipient
@@ -269,7 +266,6 @@ impl MessageEncryption for AES128 {
                 )
                 .inner,
         );
-        // TODO: also use this shared secret for deriving note randomness.
 
         // AES128-CBC encrypt the plaintext bytes.
         // It is safe to call the `unsafe` function here, because we know the `shared_secret` was derived using an
