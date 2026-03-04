@@ -54,8 +54,6 @@ include "../precomputed.pil";
  *   length from the decomposition start row.
  * - bc_decomposition.pil: #[GET_PACKED_FIELD_0/1/2] (multi-permutation) — fetches
  *   packed field elements at the corresponding pc indices.
- * - bc_decomposition.pil: #[CHECK_FINAL_BYTES_REMAINING] (lookup) — verifies the
- *   claimed final field is genuinely the last by checking remaining bytes < 31.
  * - poseidon2_hash.pil: #[POSEIDON2_HASH] (lookup) — delegates each round's inputs,
  *   length, round counter, and output to the Poseidon2 hash sub-trace.
  *
@@ -264,11 +262,11 @@ namespace bc_hashing;
 
     // The rounds remaining decrement by 1 each row, and must equal 1 at the end row.
     // The two branches are combined into one expression:
-    //   When end == 0 (and not first_row): rounds_rem' == rounds_rem - 1
-    //   When end == 1:                     rounds_rem == 1
-    // Both are gated by sel to leave inactive rows unconstrained.
+    //   When end == 0 (and active row): rounds_rem == rounds_rem' + 1
+    //   When end == 1:                  rounds_rem == 1
+    // From #[SEL_ON_START_OR_END] we have `sel * end == end` and thus `sel * (1 - end) == sel - end`.
     #[ROUNDS_DECREMENT]
-    sel * ((1 - LATCH_CONDITION) * (rounds_rem' - rounds_rem + 1) + end * (rounds_rem - 1)) = 0;
+    rounds_rem = end + (sel - end) * (rounds_rem' + 1);
 
     // ==== HASH OUTPUT ====
 
