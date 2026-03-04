@@ -183,6 +183,7 @@ std::vector<uint8_t> download_bn254_g1_data_legacy(size_t num_points)
     }
 #else
     data = bb::srs::http_download(CRS_PRIMARY_URL_LEGACY, 0, g1_end);
+    static_cast<void>(CRS_FALLBACK_URL_LEGACY);
 #endif
 
     if (data.size() < sizeof(bb::g1::affine_element)) {
