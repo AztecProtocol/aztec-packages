@@ -22,6 +22,7 @@ describe('BBApi Exception Handling from bb.js', () => {
       numPoints: 100, // Request 100 points (requires 6400 bytes)
       pointsBuf: new Uint8Array(10), // Only 10 bytes - will cause exception
       g2Point: new Uint8Array(10), // Only 10 bytes (needs 128) - will cause exception
+      compressed: false,
     };
 
     // In WASM builds, throw_or_abort calls abort directly which throws a generic Error
@@ -37,6 +38,7 @@ describe('BBApi Exception Handling from bb.js', () => {
       numPoints: 100,
       pointsBuf: new Uint8Array(10),
       g2Point: new Uint8Array(10),
+      compressed: false,
     };
 
     try {
