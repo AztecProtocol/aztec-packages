@@ -349,14 +349,15 @@ impl MessageEncryption for AES128 {
         );
         assert(offset == message_bytes.len(), "unexpected encrypted message length");
 
-        // Pack message bytes into fields
+        // Pack message bytes into fields (31 bytes per field) and prepend eph_pk.x.
         let message_bytes_as_fields = bytes_to_fields(message_bytes);
 
         let mut ciphertext: [Field; MESSAGE_CIPHERTEXT_LEN] = [0; MESSAGE_CIPHERTEXT_LEN];
 
         ciphertext[0] = eph_pk.x;
 
-        //  Mask each field with a Poseidon2-derived value, so that they appear as uniformly random `Field` values
+        // Mask each content field with a Poseidon2-derived value, so that they appear as uniformly random `Field`
+        // values
         for i in 0..message_bytes_as_fields.len() {
             let mask = derive_field_mask(ciphertext_shared_secret, i as u32);
             ciphertext[1 + i] = message_bytes_as_fields[i] + mask;
@@ -390,8 +391,8 @@ impl MessageEncryption for AES128 {
             // Derive shared secret
             let ciphertext_shared_secret = get_shared_secret(recipient, eph_pk);
 
-            let fields = masked_fields.mapi(|i, field| unmask_field(ciphertext_shared_secret, i, field));
-            let ciphertext_without_eph_pk_x = bytes_from_fields(fields);
+            let unmasked_fields = masked_fields.mapi(|i, field| unmask_field(ciphertext_shared_secret, i, field));
+            let ciphertext_without_eph_pk_x = bytes_from_fields(unmasked_fields);
 
             // Derive symmetric keys:
             let pairs = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<2>(
@@ -448,7 +449,7 @@ fn unmask_field(shared_secret: Point, index: u32, masked: Field) -> Field {
 }
 
 /// Derives a field mask from an ECDH shared secret and field index. Applied only to data fields (those carrying
-/// packed message bytes) so the sender is incentivized to mask correctly. Padding fields use `random()` instead.
+/// packed message bytes). Padding fields use `random()` instead.
 fn derive_field_mask(shared_secret: Point, index: u32) -> Field {
     poseidon2_hash_with_separator(
         [shared_secret.x, shared_secret.y],
