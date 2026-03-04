@@ -232,7 +232,7 @@ while IFS= read -r ref_file; do
     while IFS='|' read -r src_file doc_file; do
       if [[ "$src_file" == "$ref_file" ]]; then
         # Store in associative array (append to existing value if key exists)
-        if [[ -n "${FILE_TO_DOCS_MAP[$ref_file]}" ]]; then
+        if [[ -n "${FILE_TO_DOCS_MAP[$ref_file]:-}" ]]; then
           FILE_TO_DOCS_MAP[$ref_file]="${FILE_TO_DOCS_MAP[$ref_file]}|${doc_file}"
         else
           FILE_TO_DOCS_MAP[$ref_file]="$doc_file"
