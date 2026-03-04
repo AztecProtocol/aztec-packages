@@ -15,6 +15,9 @@ REPO="${GITHUB_REPOSITORY:-AztecProtocol/aztec-packages}"
 echo "Installing socket CLI..."
 npm install -g socket
 
+# --- Configure socket org (enables server-side bulk analysis) ---
+export SOCKET_CLI_ORG_SLUG=AztecProtocol
+
 # --- Configure git ---
 git config user.name AztecBot
 git config user.email tech@aztecprotocol.com
