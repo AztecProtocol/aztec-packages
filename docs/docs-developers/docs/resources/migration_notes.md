@@ -13,10 +13,15 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 All SDK interaction methods now return structured objects that include offchain output alongside the primary result. This affects `.simulate()`, `.send()`, deploy `.send()`, and `Wallet.sendTx()`.
 
+**Impact**: Every call site that uses `.simulate()`, `.send()`, or deploy must destructure the result. This is a mechanical transformation. Custom wallet implementations must update `sendTx()` to return the new object shapes, using `extractOffchainOutput` to decode offchain messages from raw effects.
+
 The offchain output includes two fields:
 
 - `offchainEffects` — raw offchain effects emitted during execution, other than `offchainMessages`
 - `offchainMessages` — decoded messages intended for specific recipients
+
+We are making this change now so in the future we can add more fields to the responses of this APIs without breaking backwards compatibility,
+so this won't ever happen again.
 
 **`simulate()` — always returns `{ result, offchainEffects, offchainMessages }` object:**
 
@@ -94,8 +99,6 @@ If you implement the `Wallet` interface (or extend `BaseWallet`), the `sendTx()`
 +   return { receipt, ...offchainOutput };
   }
 ```
-
-**Impact**: Every call site that uses `.simulate()`, `.send()`, or deploy must destructure the result. This is a mechanical transformation. Custom wallet implementations must update `sendTx()` to return the new object shapes, using `extractOffchainOutput` to decode offchain messages from raw effects.
 
 ### [Aztec.js] Removed `SingleKeyAccountContract`
 
