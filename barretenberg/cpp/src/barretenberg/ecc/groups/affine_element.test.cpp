@@ -139,7 +139,10 @@ template <typename G1> class TestAffineElement : public testing::Test {
     {
         for (size_t i = 0; i < 10; i++) {
             affine_element P = affine_element(element::random_element());
-            uint256_t compressed = P.compress();
+            uint256_t compressed = uint256_t(P.x);
+            if (uint256_t(P.y).get_bit(0)) {
+                compressed.data[3] |= group_elements::UINT256_TOP_LIMB_MSB;
+            }
             affine_element Q = affine_element::from_compressed(compressed);
             EXPECT_EQ(P, Q);
         }
@@ -168,8 +171,6 @@ template <typename G1> class TestAffineElement : public testing::Test {
         affine_element R(0, P.y);
         ASSERT_FALSE(P == R);
     }
-    // Regression test to ensure that the point at infinity is not equal to its coordinate-wise reduction, which may lie
-    // on the curve, depending on the y-coordinate.
     static void test_infinity_ordering_regression()
     {
         affine_element P(0, 1);

@@ -263,7 +263,7 @@ export const genesisStateConfigMappings: ConfigMappingsType<GenesisStateConfig> 
   },
   prefundAddresses: {
     env: 'PREFUND_ADDRESSES',
-    description: 'Comma-separated list of Aztec addresses to prefund with fee juice at genesis.',
+    description: 'Comma-separated list of Aztec addresses to prefund with fee juice at genesis (local network only).',
     parseEnv: (val: string) =>
       val
         .split(',')

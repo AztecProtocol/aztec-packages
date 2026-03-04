@@ -6,9 +6,11 @@ import { Fr } from "@aztec/aztec.js/fields";
 import { SetPublicAuthwitContractInteraction } from "@aztec/aztec.js/authorization";
 
 // Setup: connect to network and deploy a token contract
-const node = createAztecNodeClient("http://localhost:8080");
+const node = createAztecNodeClient(
+  process.env.AZTEC_NODE_URL ?? "http://localhost:8080",
+);
 await waitForNode(node);
-const wallet = await EmbeddedWallet.create(node);
+const wallet = await EmbeddedWallet.create(node, { ephemeral: true });
 
 const testAccounts = await getInitialTestAccountsData();
 const [aliceAddress, bobAddress] = await Promise.all(
@@ -59,7 +61,13 @@ const privateWitness = await wallet.createAuthWit(aliceAddress, {
 });
 
 // Bob executes the transfer, providing the authwit
-await privateAction.send({ from: bobAddress, authWitnesses: [privateWitness] });
+// additionalScopes lets the PXE access Alice's private state
+// during authwit verification
+await privateAction.send({
+  from: bobAddress,
+  authWitnesses: [privateWitness],
+  additionalScopes: [aliceAddress],
+});
 // docs:end:private_authwit
 
 // docs:start:public_authwit

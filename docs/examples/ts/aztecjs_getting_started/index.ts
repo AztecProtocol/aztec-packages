@@ -2,8 +2,8 @@
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 
-const nodeUrl = "http://localhost:8080";
-const wallet = await EmbeddedWallet.create(nodeUrl);
+const nodeUrl = process.env.AZTEC_NODE_URL ?? "http://localhost:8080";
+const wallet = await EmbeddedWallet.create(nodeUrl, { ephemeral: true });
 
 const [alice, bob] = await getInitialTestAccountsData();
 await wallet.createSchnorrAccount(alice.secret, alice.salt);
