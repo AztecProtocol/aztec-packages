@@ -36,12 +36,13 @@ jobs:
 
       - name: Extract target branch from labels
         id: extract-branch
+        env:
+          LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
         run: |
-          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
-          echo "All labels: $LABELS"
+          echo "All labels: $LABELS_JSON"
 
           # Extract the branch name from backport-to-* label
-          TARGET_BRANCH=$(echo "$LABELS" | jq -r '.[] | select(startswith("backport-to-")) | sub("backport-to-"; "")')
+          TARGET_BRANCH=$(echo "$LABELS_JSON" | jq -r '.[] | select(startswith("backport-to-")) | sub("backport-to-"; "")')
 
           if [ -z "$TARGET_BRANCH" ]; then
             echo "No backport-to-* label found"
@@ -56,37 +57,40 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          TARGET_BRANCH: ${{ steps.extract-branch.outputs.target_branch }}
         run: |
           # Kludge. We should write this in Python or not checkout history.
           # Bash has an ugly footgun with changing history while running the script.
           buffer_script=$(cat ./scripts/backport_to_staging.sh)
           bash <(echo "$buffer_script") \
-            ${{ github.event.pull_request.number }} \
-            ${{ steps.extract-branch.outputs.target_branch }}
+            "$PR_NUMBER" \
+            "$TARGET_BRANCH"
 
       - name: Comment on original PR (success)
         if: steps.backport.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          TARGET_BRANCH: ${{ steps.extract-branch.outputs.target_branch }}
         run: |
-          TARGET_BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
           STAGING_BRANCH="backport-to-${TARGET_BRANCH}-staging"
           STAGING_PR=$(gh pr list --base "$TARGET_BRANCH" --head "$STAGING_BRANCH" --json number,url --jq '.[0]')
           STAGING_PR_NUMBER=$(echo "$STAGING_PR" | jq -r '.number')
           STAGING_PR_URL=$(echo "$STAGING_PR" | jq -r '.url')
 
-          gh pr comment "${{ github.event.pull_request.number }}" --body \
+          gh pr comment "$PR_NUMBER" --body \
             "✅ Successfully backported to [$STAGING_BRANCH #$STAGING_PR_NUMBER]($STAGING_PR_URL)."
 
       - name: Comment on original PR (failure)
         if: steps.backport.outcome == 'failure'
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          TARGET_BRANCH: ${{ steps.extract-branch.outputs.target_branch }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          TARGET_BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
-          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-          gh pr comment "${{ github.event.pull_request.number }}" --body \
+          gh pr comment "$PR_NUMBER" --body \
             "❌ Failed to cherry-pick to \`$TARGET_BRANCH\` due to conflicts. Dispatching ClaudeBox to resolve. [View backport run]($WORKFLOW_URL)."
 
       - name: Notify Slack and dispatch ClaudeBox on backport failure
@@ -94,16 +98,15 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          TARGET_BRANCH: ${{ steps.extract-branch.outputs.target_branch }}
         run: |
-          PR="${{ github.event.pull_request.number }}"
-          TITLE="${{ github.event.pull_request.title }}"
-          URL="${{ github.event.pull_request.html_url }}"
-          AUTHOR="${{ github.event.pull_request.user.login }}"
-          BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
-
           # Post single message to #backports, derive permalink from response
           TEXT=$(printf '⚠️ Backport failed: <%s|#%s %s> → `%s` (author: %s). Dispatching ClaudeBox…' \
-            "$URL" "$PR" "$TITLE" "$BRANCH" "$AUTHOR")
+            "$PR_URL" "$PR_NUMBER" "$PR_TITLE" "$TARGET_BRANCH" "$PR_AUTHOR")
           RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-type: application/json" \
@@ -118,5 +121,5 @@ jobs:
           fi
 
           gh workflow run claudebox.yml \
-            -f prompt="Backport PR #$PR ($TITLE) to $BRANCH. The automatic cherry-pick failed due to conflicts. Follow the backport skill (.claude/skills/backport/SKILL.md) to resolve conflicts and create a PR targeting $BRANCH." \
-            -f link="${LINK:-$URL}"
+            -f prompt="Backport PR #$PR_NUMBER ($PR_TITLE) to $TARGET_BRANCH. The automatic cherry-pick failed due to conflicts. Follow the backport skill (.claude/skills/backport/SKILL.md) to resolve conflicts and create a PR targeting $TARGET_BRANCH." \
+            -f link="${LINK:-$PR_URL}"
