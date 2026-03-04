@@ -28,7 +28,6 @@ export const QUIET_MODE = process.env.CLAUDEBOX_QUIET === "1";
 export const CI_ALLOW = process.env.CLAUDEBOX_CI_ALLOW === "1";
 export const STATS_DIR = process.env.CLAUDEBOX_STATS_DIR || "/stats";
 export const CLAUDEBOX_HOST = process.env.CLAUDEBOX_HOST || "claudebox.work";
-export const CI_PASSWORD = process.env.CI_PASSWORD || "";
 export const WORKTREE_ID = process.env.CLAUDEBOX_WORKTREE_ID || "";
 
 export const SESSION_META = {
@@ -1147,10 +1146,11 @@ function readRawBody(req: IncomingMessage, maxBytes = 10 * 1024 * 1024): Promise
 }
 
 async function handleCredentialRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  if (req.method !== "POST") {
+  const path = req.url!.replace("/creds/", "");
+  // redis-getz is a read — allow GET; everything else requires POST
+  if (path !== "redis-getz" && req.method !== "POST") {
     res.writeHead(405); res.end('{"error":"method not allowed"}'); return;
   }
-  const path = req.url!.replace("/creds/", "");
 
   try {
     if (path === "redis-setexz") {
@@ -1185,14 +1185,28 @@ async function handleCredentialRequest(req: IncomingMessage, res: ServerResponse
         ssh.on("error", reject);
       });
       res.writeHead(200); res.end('{"ok":true}');
-    } else if (path === "ci-log") {
-      const body = JSON.parse((await readRawBody(req)).toString());
-      if (!body.key) { res.writeHead(400); res.end('{"error":"missing key"}'); return; }
-      if (!CI_PASSWORD) { res.writeHead(500); res.end('{"error":"CI_PASSWORD not configured"}'); return; }
-      const upstream = await fetch(`http://aztec:${CI_PASSWORD}@ci.aztec-labs.com/${body.key}.txt`);
-      if (!upstream.ok) { res.writeHead(502); res.end(`{"error":"upstream ${upstream.status}"}`); return; }
-      res.writeHead(200, { "Content-Type": "text/plain" });
-      res.end(await upstream.text());
+    } else if (path === "redis-getz") {
+      const key = req.headers["x-redis-key"] as string;
+      if (!key) { res.writeHead(400); res.end('{"error":"missing key header"}'); return; }
+      if (!ensureRedisTunnel()) { res.writeHead(502); res.end('{"error":"redis tunnel unavailable"}'); return; }
+      try {
+        const raw = execFileSync("redis-cli", ["--raw", "GET", key], { timeout: 10000 });
+        if (!raw.length || raw.toString().trim() === "") {
+          res.writeHead(404); res.end('{"error":"key not found"}'); return;
+        }
+        // Check if gzipped (magic bytes 1f 8b) and decompress
+        if (raw[0] === 0x1f && raw[1] === 0x8b) {
+          const { gunzipSync } = await import("zlib");
+          const decompressed = gunzipSync(raw.subarray(0, raw.length - 1)); // trim trailing newline from redis-cli
+          res.writeHead(200, { "Content-Type": "text/plain" });
+          res.end(decompressed);
+        } else {
+          res.writeHead(200, { "Content-Type": "text/plain" });
+          res.end(raw);
+        }
+      } catch (e: any) {
+        res.writeHead(500); res.end(JSON.stringify({ error: `redis GET failed: ${e.message}` }));
+      }
     } else {
       res.writeHead(404); res.end('{"error":"unknown credential endpoint"}');
     }

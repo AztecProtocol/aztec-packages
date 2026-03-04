@@ -354,8 +354,7 @@ case "$cmd" in
       redis_getz "$key" | $pager
     else
       if [ -n "${AZTEC_CREDS_PROXY:-}" ]; then
-        curl -sf -X POST -H "Content-Type: application/json" \
-          -d "{\"key\":\"$key\"}" "${AZTEC_CREDS_PROXY}/ci-log" | $pager
+        curl -sf -H "X-Redis-Key: $key" "${AZTEC_CREDS_PROXY}/redis-getz" | $pager
       elif [ -n "${CI_PASSWORD:-}" ]; then
         curl -sf "http://aztec:$CI_PASSWORD@ci.aztec-labs.com/$key.txt" | $pager
       else
