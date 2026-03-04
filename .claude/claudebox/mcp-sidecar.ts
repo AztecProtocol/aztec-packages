@@ -14,7 +14,7 @@
 
 import { createServer, IncomingMessage, ServerResponse } from "http";
 import { execFileSync, execFile, spawn, ChildProcess } from "child_process";
-import { existsSync, readFileSync, appendFileSync, mkdirSync, readdirSync, statSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, readdirSync, statSync } from "fs";
 import { join, dirname, resolve } from "path";
 import { createHash } from "crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -30,6 +30,7 @@ const WORKSPACE = process.env.WORKSPACE || "/workspace/aztec-packages";
 const REPO = "AztecProtocol/aztec-packages";
 
 const QUIET_MODE = process.env.CLAUDEBOX_QUIET === "1";
+const CI_ALLOW = process.env.CLAUDEBOX_CI_ALLOW === "1";
 const STATS_DIR = process.env.CLAUDEBOX_STATS_DIR || "/stats";
 
 import { getSchema, allSchemas, schemasPrompt } from "./lib/stat-schemas.ts";
@@ -198,9 +199,10 @@ function addProgress(type: "status" | "response", text: string): void {
 // to the activity log as "context" entries (shown differently from direct replies).
 let transcriptPollTimer: ReturnType<typeof setInterval> | null = null;
 let transcriptLinesRead = 0;
+let transcriptInitialized = false;
 
 function startTranscriptPoller(): void {
-  const projDir = join(process.env.HOME || "/tmp/claudehome", ".claude", "projects", "-workspace-aztec-packages");
+  const projDir = join(process.env.HOME || "/home/aztec-dev", ".claude", "projects", "-workspace");
 
   transcriptPollTimer = setInterval(() => {
     try {
@@ -213,6 +215,13 @@ function startTranscriptPoller(): void {
       if (files.length === 0) return;
 
       const lines = readFileSync(join(projDir, files[0].name), "utf-8").split("\n").filter(l => l.trim());
+
+      // On first poll, skip existing lines (avoids re-emitting on --fork-session resume)
+      if (!transcriptInitialized) {
+        transcriptLinesRead = lines.length;
+        transcriptInitialized = true;
+        return;
+      }
 
       // Process only new lines since last poll
       for (let i = transcriptLinesRead; i < lines.length; i++) {
@@ -393,8 +402,109 @@ function createMcpServerWithTools(): McpServer {
       for (const [k, v] of Object.entries(SESSION_META)) {
         if (v) ctx[k] = v;
       }
-      ctx.tools = "respond_to_user, get_context, session_status, github_api, slack_api, create_pr, update_pr, create_gist, ci_failures, linear_get_issue, linear_create_issue, record_stat";
+      ctx.tools = "clone_repo, respond_to_user, get_context, session_status, github_api, slack_api, create_pr, update_pr, create_gist, create_skill, ci_failures, linear_get_issue, linear_create_issue, record_stat";
+      ctx.ci_allow = CI_ALLOW ? "true — you CAN modify .github/ workflow files" : "false — .github/ workflow files are blocked. If you need to propose CI changes, write them to .github-new/ instead.";
       return { content: [{ type: "text", text: JSON.stringify(ctx, null, 2) }] };
+    });
+
+  // ── clone_repo ───────────────────────────────────────────────
+
+  /** Shared helper: checkout ref, init submodules, return status message. */
+  function cloneRepoCheckoutAndInit(targetDir: string, ref: string): { text: string; isError?: boolean } {
+    // Checkout the requested ref
+    let checkedOutRef = ref;
+    try {
+      execFileSync("git", ["-C", targetDir, "checkout", "--detach", ref], {
+        timeout: 30_000, stdio: "pipe",
+      });
+    } catch {
+      // Ref not found locally — try fetching it
+      try {
+        execFileSync("git", ["-C", targetDir, "fetch", "origin", ref], {
+          timeout: 120_000, stdio: "pipe",
+        });
+        execFileSync("git", ["-C", targetDir, "checkout", "--detach", "FETCH_HEAD"], {
+          timeout: 30_000, stdio: "pipe",
+        });
+      } catch {
+        // Last resort: fall back to origin/next but tell the user
+        try {
+          execFileSync("git", ["-C", targetDir, "checkout", "--detach", "origin/next"], {
+            timeout: 30_000, stdio: "pipe",
+          });
+          checkedOutRef = "origin/next";
+        } catch (e: any) {
+          return { text: `Checkout failed for both ${ref} and origin/next: ${e.message}`, isError: true };
+        }
+      }
+    }
+    const head = execFileSync("git", ["-C", targetDir, "rev-parse", "--short", "HEAD"], {
+      encoding: "utf-8", timeout: 5_000,
+    }).trim();
+
+    const refNote = checkedOutRef !== ref ? ` (WARNING: ${ref} not found, fell back to ${checkedOutRef})` : "";
+
+    // Initialize/update submodules
+    let submoduleMsg = "";
+    try {
+      execFileSync("git", ["-C", targetDir, "submodule", "update", "--init", "--recursive"], {
+        timeout: 300_000, stdio: "pipe",
+      });
+      submoduleMsg = " Submodules initialized.";
+    } catch (e: any) {
+      submoduleMsg = ` ERROR: submodule init failed: ${e.message}. yarn-project builds will fail — try running: git submodule update --init --recursive`;
+    }
+
+    return { text: `${head}${refNote}.${submoduleMsg}` };
+  }
+
+  server.tool("clone_repo",
+    "Clone the aztec-packages repo into /workspace/aztec-packages from the local reference repo. " +
+    "Safe to call on resume — fetches new refs, updates submodules. Call FIRST before doing any work.",
+    { ref: z.string().describe("Branch, tag, or commit hash to check out (e.g. 'origin/next', 'abc123')") },
+    async ({ ref }) => {
+      const targetDir = "/workspace/aztec-packages";
+      const refGit = "/reference-repo/.git";
+
+      if (existsSync(join(targetDir, ".git"))) {
+        // Already cloned (resume session) — fetch, checkout, update submodules
+        try {
+          // Fetch latest refs so new commits/branches are available
+          try {
+            execFileSync("git", ["-C", targetDir, "fetch", "origin"], {
+              timeout: 120_000, stdio: "pipe",
+            });
+          } catch { /* fetch failure is non-fatal — ref might already be local */ }
+
+          const result = cloneRepoCheckoutAndInit(targetDir, ref);
+          if (result.isError) {
+            return { content: [{ type: "text", text: result.text }], isError: true };
+          }
+          return { content: [{ type: "text", text: `Repo already cloned. Checked out ${ref} (${result.text}) You can now work in /workspace/aztec-packages.` }] };
+        } catch (e: any) {
+          return { content: [{ type: "text", text: `Repo exists but operation failed: ${e.message}` }], isError: true };
+        }
+      }
+
+      // Fresh clone
+      try {
+        execFileSync("git", ["config", "--global", "--add", "safe.directory", refGit], { timeout: 5_000 });
+        execFileSync("git", ["config", "--global", "--add", "safe.directory", targetDir], { timeout: 5_000 });
+        execFileSync("git", ["clone", "--shared", refGit, targetDir], {
+          timeout: 120_000, stdio: "pipe",
+        });
+        execFileSync("git", ["-C", targetDir, "remote", "set-url", "origin",
+          "https://github.com/AztecProtocol/aztec-packages.git"], { timeout: 5_000 });
+
+        const result = cloneRepoCheckoutAndInit(targetDir, ref);
+        if (result.isError) {
+          return { content: [{ type: "text", text: `Clone succeeded but: ${result.text}` }], isError: true };
+        }
+        logActivity("clone", `Cloned repo at ${ref} (${result.text})`);
+        return { content: [{ type: "text", text: `Cloned repo to ${targetDir} at ${ref} (${result.text}) You can now work in /workspace/aztec-packages.` }] };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `Clone failed: ${e.message}` }], isError: true };
+      }
     });
 
   // ── session_status ─────────────────────────────────────────────
@@ -534,7 +644,7 @@ channel and thread_ts auto-injected from session if not provided.`,
 
   // ── create_pr ──────────────────────────────────────────────────
   server.tool("create_pr",
-    "Push workspace commits and create a draft PR. Always creates draft PRs. WARNING: .claude/ files are blocked by default — pass include_claude_files=true ONLY if your PR intentionally modifies ClaudeBox infrastructure.",
+    "Push workspace commits and create a draft PR. Always creates draft PRs. WARNING: .claude/ files are blocked by default — pass include_claude_files=true ONLY if your PR intentionally modifies ClaudeBox infrastructure. .github/ workflow files are also blocked unless the session was started with 'ci-allow'. If blocked, copy CI changes to .github-new/ instead.",
     {
       title: z.string().describe("PR title"),
       body: z.string().describe("PR description"),
@@ -542,8 +652,9 @@ channel and thread_ts auto-injected from session if not provided.`,
       closes: z.array(z.number()).optional().describe("Issue numbers to close, e.g. [123, 456]"),
       include_claude_files: z.boolean().optional().describe("Force-include .claude/ files in the commit. Only use for PRs that intentionally modify ClaudeBox infra."),
       include_noir_submodule: z.boolean().optional().describe("Force-include noir/noir-repo submodule changes. Only use if the PR intentionally updates the Noir submodule."),
+      force_push: z.boolean().optional().describe("Force-push to the branch (git push --force). Use when you need to overwrite the remote branch, e.g. after a rebase or amend."),
     },
-    async ({ title, body, base, closes, include_claude_files, include_noir_submodule }) => {
+    async ({ title, body, base, closes, include_claude_files, include_noir_submodule, force_push }) => {
       if (!GH_TOKEN) return { content: [{ type: "text", text: "No GH_TOKEN" }], isError: true };
       if (!/^[\w./-]+$/.test(base))
         return { content: [{ type: "text", text: `Invalid base: ${base}` }], isError: true };
@@ -564,6 +675,12 @@ channel and thread_ts auto-injected from session if not provided.`,
           if (claudeFiles.length > 0 && !include_claude_files) {
             git("reset", "HEAD", "--", ".claude");
             return { content: [{ type: "text", text: `Blocked: your commit includes .claude/ files (${claudeFiles.join(", ")}). Run 'git checkout -- .claude' to discard those changes, then retry. If this PR intentionally modifies .claude/ infra, pass include_claude_files=true.` }], isError: true };
+          }
+          // Block .github/ workflow files unless ci-allow is set
+          const ciFiles = staged.split("\n").filter(f => f.startsWith(".github/"));
+          if (ciFiles.length > 0 && !CI_ALLOW) {
+            git("reset", "HEAD", "--", ".github");
+            return { content: [{ type: "text", text: `Blocked: your commit includes .github/ workflow files (${ciFiles.join(", ")}). CI workflow changes require the 'ci-allow' prefix in the prompt. Copy your changes to .github-new/ instead so they can be reviewed and applied manually.` }], isError: true };
           }
           git("commit", "-m", title);
         }
@@ -590,7 +707,8 @@ channel and thread_ts auto-injected from session if not provided.`,
 
         // Push — token in URL, never on disk. execFileSync avoids shell.
         const pushUrl = `https://x-access-token:${GH_TOKEN}@github.com/${SESSION_META.repo}.git`;
-        execFileSync("git", ["push", pushUrl, `HEAD:refs/heads/${branch}`], {
+        const pushArgs = ["push", ...(force_push ? ["--force"] : []), pushUrl, `HEAD:refs/heads/${branch}`];
+        execFileSync("git", pushArgs, {
           cwd: WORKSPACE, encoding: "utf-8", timeout: 120000,
           env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
         });
@@ -636,7 +754,7 @@ channel and thread_ts auto-injected from session if not provided.`,
 
   // ── update_pr ────────────────────────────────────────────────
   server.tool("update_pr",
-    "Push workspace commits and/or update an existing PR. Only works on PRs with the 'claudebox' label. Use push=true to push current commits to the PR branch. WARNING: .claude/ files are blocked by default — pass include_claude_files=true ONLY if your PR intentionally modifies ClaudeBox infrastructure.",
+    "Push workspace commits and/or update an existing PR. Only works on PRs with the 'claudebox' label. Use push=true to push current commits to the PR branch. WARNING: .claude/ files are blocked by default — pass include_claude_files=true ONLY if your PR intentionally modifies ClaudeBox infrastructure. .github/ workflow files are also blocked unless the session was started with 'ci-allow'.",
     {
       pr_number: z.number().describe("PR number"),
       push: z.boolean().optional().describe("Push current workspace commits to the PR's branch"),
@@ -645,8 +763,10 @@ channel and thread_ts auto-injected from session if not provided.`,
       base: z.string().optional().describe("New base branch"),
       state: z.enum(["open", "closed"]).optional().describe("PR state"),
       include_claude_files: z.boolean().optional().describe("Force-include .claude/ files in the commit. Only use for PRs that intentionally modify ClaudeBox infra."),
+      include_noir_submodule: z.boolean().optional().describe("Force-include noir/noir-repo submodule changes. Only use if the PR intentionally updates the Noir submodule."),
+      force_push: z.boolean().optional().describe("Force-push to the branch (git push --force). Use when you need to overwrite the remote branch, e.g. after a rebase or amend."),
     },
-    async ({ pr_number, push, title, body, base, state, include_claude_files }) => {
+    async ({ pr_number, push, title, body, base, state, include_claude_files, include_noir_submodule, force_push }) => {
       if (!GH_TOKEN) return { content: [{ type: "text", text: "No GH_TOKEN" }], isError: true };
 
       try {
@@ -678,15 +798,32 @@ channel and thread_ts auto-injected from session if not provided.`,
               git("reset", "HEAD", "--", ".claude");
               return { content: [{ type: "text", text: `Blocked: your commit includes .claude/ files (${claudeFiles.join(", ")}). Run 'git checkout -- .claude' to discard those changes, then retry. If this PR intentionally modifies .claude/ infra, pass include_claude_files=true.` }], isError: true };
             }
+            const ciFiles = staged.split("\n").filter(f => f.startsWith(".github/"));
+            if (ciFiles.length > 0 && !CI_ALLOW) {
+              git("reset", "HEAD", "--", ".github");
+              return { content: [{ type: "text", text: `Blocked: your commit includes .github/ workflow files (${ciFiles.join(", ")}). CI workflow changes require the 'ci-allow' prefix in the prompt. Copy your changes to .github-new/ instead so they can be reviewed and applied manually.` }], isError: true };
+            }
             git("commit", "-m", title || `update PR #${pr_number}`);
           }
 
+          // Block noir submodule changes unless explicitly forced
+          const prBase = prData.base?.ref || "next";
+          if (!include_noir_submodule) {
+            try {
+              const diff = git("diff", "--name-only", `origin/${prBase}...HEAD`);
+              if (diff.split("\n").some(f => f.trim() === "noir/noir-repo")) {
+                return { content: [{ type: "text", text: `Blocked: your commits change the noir/noir-repo submodule. Noir submodule updates require follow-on steps (see noir-sync-update skill) and should not be pushed accidentally. If this is intentional, pass include_noir_submodule=true.` }], isError: true };
+              }
+            } catch {}
+          }
+
           const pushUrl = `https://x-access-token:${GH_TOKEN}@github.com/${SESSION_META.repo}.git`;
-          execFileSync("git", ["push", pushUrl, `HEAD:refs/heads/${branch}`], {
+          const pushArgs = ["push", ...(force_push ? ["--force"] : []), pushUrl, `HEAD:refs/heads/${branch}`];
+          execFileSync("git", pushArgs, {
             cwd: WORKSPACE, encoding: "utf-8", timeout: 120000,
             env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
           });
-          results.push(`Pushed to ${branch}`);
+          results.push(`${force_push ? "Force-pushed" : "Pushed"} to ${branch}`);
         }
 
         // Update PR metadata
@@ -980,6 +1117,52 @@ channel and thread_ts auto-injected from session if not provided.`,
         return { content: [{ type: "text", text: `${gist.html_url}\nID: ${gist.id}` }] };
       } catch (e: any) {
         return { content: [{ type: "text", text: `create_gist: ${e.message}` }], isError: true };
+      }
+    });
+
+  // ── create_skill ──────────────────────────────────────────────
+  server.tool("create_skill",
+    `Create or update a Claude Code skill. Writes .claude/skills/<name>/SKILL.md, commits, and pushes.
+
+A skill is a reusable prompt that Claude Code users invoke with /<name>. Skills have YAML frontmatter and a markdown body.
+
+Example:
+  name: "review-pr"
+  description: "Review a PR for correctness, style, and security"
+  argument_hint: "<PR number>"
+  body: "# Review PR\\n\\n## Steps\\n1. Fetch the PR diff...\\n2. Check for..."
+
+The body should be detailed, step-by-step instructions that Claude follows when the skill is invoked.`,
+    {
+      name: z.string().regex(/^[a-z0-9-]+$/).describe("Skill name (lowercase, hyphens only). Used as /<name> command."),
+      description: z.string().describe("One-line description shown in skill listings"),
+      argument_hint: z.string().optional().describe("Hint for arguments, e.g. '<PR number>' or '<url-or-hash>'"),
+      body: z.string().describe("Markdown body with detailed instructions for Claude to follow"),
+    },
+    async ({ name, description, argument_hint, body }) => {
+      const skillDir = join(WORKSPACE, ".claude", "skills", name);
+      const skillFile = join(skillDir, "SKILL.md");
+
+      let frontmatter = `---\nname: ${name}\ndescription: ${description}\n`;
+      if (argument_hint) frontmatter += `argument-hint: ${argument_hint}\n`;
+      frontmatter += `---\n\n`;
+
+      const content = frontmatter + body;
+      const action = existsSync(skillFile) ? "Updated" : "Created";
+
+      try {
+        mkdirSync(skillDir, { recursive: true });
+        writeFileSync(skillFile, content);
+
+        git("add", skillFile);
+        git("commit", "-m", `chore: ${action.toLowerCase()} skill /${name}`);
+        const branch = git("rev-parse", "--abbrev-ref", "HEAD").trim();
+        git("push", "origin", branch);
+
+        logActivity("artifact", `${action} skill [/${name}](https://github.com/${REPO}/blob/${branch}/.claude/skills/${name}/SKILL.md)`);
+        return { content: [{ type: "text", text: `${action} skill /${name} at .claude/skills/${name}/SKILL.md — committed and pushed to ${branch}` }] };
+      } catch (e: any) {
+        return { content: [{ type: "text", text: `create_skill: ${e.message}` }], isError: true };
       }
     });
 
@@ -1414,7 +1597,7 @@ async function initSlackFromPermalink(): Promise<void> {
 }
 
 httpServer.listen(PORT, "0.0.0.0", () => {
-  console.log(`[Sidecar] :${PORT} gh=${GH_TOKEN ? "yes" : "no"} slack=${SLACK_BOT_TOKEN ? "yes" : "no"} linear=${LINEAR_API_KEY ? "yes" : "no"} quiet=${QUIET_MODE ? "yes" : "no"} docker=${existsSync("/var/run/docker.sock") ? "yes" : "no"}`);
+  console.log(`[Sidecar] :${PORT} gh=${GH_TOKEN ? "yes" : "no"} slack=${SLACK_BOT_TOKEN ? "yes" : "no"} linear=${LINEAR_API_KEY ? "yes" : "no"} quiet=${QUIET_MODE ? "yes" : "no"} ci_allow=${CI_ALLOW ? "yes" : "no"} docker=${existsSync("/var/run/docker.sock") ? "yes" : "no"}`);
   // If we parsed a Slack permalink, claim it (update directly or reply in thread)
   initSlackFromPermalink();
   // Start polling Claude's JSONL transcript for assistant messages
@@ -1432,7 +1615,7 @@ function buildCompletionSummary(): string {
 
   // Otherwise build from transcript
   try {
-    const projDir = join(process.env.HOME || "/tmp/claudehome", ".claude", "projects", "-workspace-aztec-packages");
+    const projDir = join(process.env.HOME || "/home/aztec-dev", ".claude", "projects", "-workspace");
     if (existsSync(projDir)) {
       const files = readdirSync(projDir)
         .filter(f => f.endsWith(".jsonl"))
@@ -1472,9 +1655,12 @@ function buildCompletionSummary(): string {
   return parts.join(" | ");
 }
 
-/** DM the session author on Slack with a completion summary. */
+/** DM the session author on Slack with a completion summary.
+ *  Skips if the session was triggered from a DM (already updating in-place there). */
 async function dmAuthorOnCompletion(): Promise<void> {
   if (!SLACK_BOT_TOKEN || !SESSION_META.user) return;
+  // If we're already in the user's DM, the in-place status update is enough
+  if (SESSION_META.slack_channel && SESSION_META.slack_channel.startsWith("D")) return;
   try {
     // Build a short summary with links
     const parts: string[] = [];

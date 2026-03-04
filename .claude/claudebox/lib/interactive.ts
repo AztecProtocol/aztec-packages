@@ -116,7 +116,9 @@ export class InteractiveSessionManager {
         try {
           const msg = JSON.parse(str);
           if (msg.type === "resize" && msg.cols && msg.rows) {
-            resize(msg.cols, msg.rows);
+            const cols = Math.max(1, Math.min(500, Math.floor(Number(msg.cols))));
+            const rows = Math.max(1, Math.min(500, Math.floor(Number(msg.rows))));
+            if (Number.isFinite(cols) && Number.isFinite(rows)) resize(cols, rows);
             return;
           }
         } catch {}

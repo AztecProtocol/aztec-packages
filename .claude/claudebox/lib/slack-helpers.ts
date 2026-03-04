@@ -5,6 +5,18 @@ import type { DockerService } from "./docker.ts";
 import { truncate, extractHashFromUrl, sessionUrl } from "./util.ts";
 import { toTargetRef } from "./base-branch.ts";
 
+/**
+ * Convert Markdown-style links and bare URLs to Slack mrkdwn format.
+ * Handles: `[text](url)` → `<url|text>`, bare `https://...` → `<url>`
+ */
+export function markdownToSlack(text: string): string {
+  // Convert Markdown links [text](url) → <url|text>
+  let result = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<$2|$1>");
+  // Wrap remaining bare URLs that aren't already inside <...>
+  result = result.replace(/(?<![<|])(https?:\/\/[^\s>]+)/g, "<$1>");
+  return result;
+}
+
 export function resolveUserName(client: any, userId: string): Promise<string> {
   return client.users
     .info({ user: userId })
@@ -43,36 +55,63 @@ export function buildSlackStatusFromActivity(
 ): string {
   const parts: string[] = [];
 
-  // Header: prompt
-  if (prompt) {
-    parts.push(`ClaudeBox: _${truncate(prompt)}_`);
-  } else {
-    parts.push("ClaudeBox");
-  }
-
-  // Response entries (direct replies — most important)
+  // Only show the LAST response (not every intermediate respond_to_user call)
   const responses = activity.filter(a => a.type === "response");
-  for (const r of responses) {
-    const text = r.text.length > 200 ? r.text.slice(0, 200) + "…" : r.text;
-    parts.push(`> ${text}`);
+  if (responses.length > 0) {
+    const last = responses[responses.length - 1];
+    let text = last.text.length > 600 ? last.text.slice(0, 600) + "\u2026" : last.text;
+    parts.push(markdownToSlack(text));
   }
 
-  // Artifacts (PRs, issues)
+  // Artifacts (PRs, gists) — compact, deduplicated, short labels
   const artifacts = activity.filter(a => a.type === "artifact");
+  const seenUrls = new Set<string>();
+  const linkParts: string[] = [];
   for (const a of artifacts) {
-    parts.push(a.text);
+    // Extract URL from the artifact text
+    const urlMatch = a.text.match(/(https?:\/\/[^\s)>\]]+)/);
+    if (!urlMatch) continue;
+    const url = urlMatch[1];
+    if (seenUrls.has(url)) continue;
+    seenUrls.add(url);
+
+    // PR: #NNN
+    const prMatch = url.match(/\/pull\/(\d+)/);
+    if (prMatch) { linkParts.push(`<${url}|#${prMatch[1]}>`); continue; }
+
+    // Gist: short label
+    if (url.includes("gist.github")) { linkParts.push(`<${url}|gist>`); continue; }
+
+    // Issue: #NNN
+    const issueMatch = url.match(/\/issues\/(\d+)/);
+    if (issueMatch) { linkParts.push(`<${url}|#${issueMatch[1]}>`); continue; }
+
+    // Other: short domain label
+    linkParts.push(`<${url}|link>`);
   }
 
-  // Links
-  const links: string[] = [];
-  if (logUrl) links.push(`<${logUrl}|log>`);
-  if (worktreeId) links.push(`<${sessionUrl(worktreeId)}|status>`);
-  if (links.length) parts.push(links.join(" "));
-
-  // Final status
-  parts.push(`_${status}_`);
+  // Footer: artifacts + status link + status
+  const footer: string[] = [];
+  if (linkParts.length) footer.push(linkParts.join(" \u2022 "));
+  if (worktreeId) footer.push(`<${sessionUrl(worktreeId)}|status>`);
+  footer.push(`_${status}_`);
+  parts.push(footer.join("  \u2502  "));
 
   return parts.join("\n");
+}
+
+/** Add or swap a Slack reaction on a message. */
+async function setReaction(channel: string, ts: string, emoji: string, removeEmoji?: string): Promise<void> {
+  if (!SLACK_BOT_TOKEN) return;
+  const headers = { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" };
+  if (removeEmoji) {
+    await fetch("https://slack.com/api/reactions.remove", {
+      method: "POST", headers, body: JSON.stringify({ channel, timestamp: ts, name: removeEmoji }),
+    }).catch(() => {});
+  }
+  await fetch("https://slack.com/api/reactions.add", {
+    method: "POST", headers, body: JSON.stringify({ channel, timestamp: ts, name: emoji }),
+  }).catch(() => {});
 }
 
 export async function updateSlackStatus(
@@ -81,6 +120,16 @@ export async function updateSlackStatus(
 ): Promise<void> {
   // Build from activity log — never read back from Slack
   const activity = worktreeId ? store.readActivity(worktreeId).reverse() : []; // oldest first
+
+  // Auto-set workspace name from Claude's set_workspace_name tool
+  if (worktreeId) {
+    const nameEntry = activity.find(a => a.type === "name");
+    if (nameEntry?.text) {
+      const meta = store.getWorktreeMeta(worktreeId);
+      if (!meta.name) store.setWorktreeName(worktreeId, nameEntry.text);
+    }
+  }
+
   const text = buildSlackStatusFromActivity(activity, prompt, status, logUrl, worktreeId);
 
   await fetch("https://slack.com/api/chat.update", {
@@ -88,6 +137,11 @@ export async function updateSlackStatus(
     headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
     body: JSON.stringify({ channel, ts: messageTs, text }),
   });
+
+  // Swap reaction: running → done
+  const isSuccess = status.startsWith("completed");
+  const emoji = isSuccess ? "white_check_mark" : "warning";
+  await setReaction(channel, messageTs, emoji, "hourglass_flowing_sand");
 }
 
 export async function handleTerminalCommand(
@@ -132,6 +186,30 @@ export async function handleTerminalCommand(
   return true;
 }
 
+/** Drain queued Slack messages for a worktree and auto-resume if any exist. */
+function drainQueueAndResume(
+  client: any, channel: string, threadTs: string | null,
+  worktreeId: string, store: SessionStore, docker: DockerService,
+  baseBranch: string, channelName: string, profile: string,
+): void {
+  try {
+    const session = store.findByWorktreeId(worktreeId);
+    if (!session?._log_id) return;
+    const queued = store.drainQueue(session._log_id);
+    if (!queued.length) return;
+
+    const combined = queued.map(q => `[${q.user}]: ${q.text}`).join("\n\n");
+    console.log(`[QUEUE] Draining ${queued.length} queued message(s) for worktree ${worktreeId}`);
+
+    startReplySession(
+      client, channel, threadTs, combined, session,
+      queued[0].user, store, docker, baseBranch, false, channelName, false, profile,
+    );
+  } catch (e: any) {
+    console.error(`[QUEUE] Failed to drain queue for ${worktreeId}: ${e.message}`);
+  }
+}
+
 export async function startNewSession(
   client: any,
   channel: string,
@@ -144,8 +222,10 @@ export async function startNewSession(
   baseBranch = "next",
   quiet = false,
   channelName = "",
+  ciAllow = false,
+  profile = "",
 ) {
-  let status = prompt ? `ClaudeBox: _${truncate(prompt)}_ ...` : "ClaudeBox starting...";
+  let status = "ClaudeBox starting\u2026";
   try {
     const postArgs: any = { channel, text: status };
     if (threadTs) postArgs.thread_ts = threadTs;
@@ -153,9 +233,12 @@ export async function startNewSession(
     const messageTs = result.ts;
     if (!threadTs) threadTs = messageTs;
 
+    // Add running reaction
+    setReaction(channel, messageTs, "hourglass_flowing_sand");
+
     let fullPrompt = "";
-    if (threadContext) fullPrompt += `Slack thread context:\n${threadContext}\n\n`;
     if (prompt) fullPrompt += prompt;
+    if (threadContext) fullPrompt += `\n\nSlack thread context (recent):\n${threadContext}`;
 
     let capturedLogUrl = "";
     let capturedWorktreeId = "";
@@ -169,18 +252,21 @@ export async function startNewSession(
       slackMessageTs: messageTs,
       targetRef: toTargetRef(baseBranch),
       quiet,
+      ciAllow,
+      profile: profile || undefined,
     }, store, undefined, (logUrl, worktreeId) => {
       capturedLogUrl = logUrl;
       capturedWorktreeId = worktreeId;
-      const text = prompt
-        ? `ClaudeBox: _${truncate(prompt)}_ <${logUrl}|log> <${sessionUrl(worktreeId)}|status>`
-        : `ClaudeBox starting... <${logUrl}|log> <${sessionUrl(worktreeId)}|status>`;
-      client.chat.update({ channel, ts: messageTs, text }).catch(() => {});
+      if (threadTs) store.bindThread(channel, threadTs, worktreeId);
+      client.chat.update({ channel, ts: messageTs, text: `_working\u2026_ <${sessionUrl(worktreeId)}|status>` }).catch(() => {});
     }).then((exitCode) => {
       if (SLACK_BOT_TOKEN && messageTs && capturedLogUrl) {
         const statusSuffix = exitCode === 0 ? "completed" : `error (exit ${exitCode})`;
         updateSlackStatus(channel, messageTs, statusSuffix, capturedLogUrl, capturedWorktreeId, store, prompt)
           .catch((e) => console.warn(`[WARN] Slack status update failed: ${e}`));
+      }
+      if (capturedWorktreeId) {
+        drainQueueAndResume(client, channel, threadTs, capturedWorktreeId, store, docker, baseBranch, channelName, profile);
       }
     });
   } catch (e) {
@@ -200,25 +286,27 @@ export async function startReplySession(
   baseBranch = "next",
   quiet = false,
   channelName = "",
+  ciAllow = false,
+  profile = "",
 ) {
   const worktreeId = session.worktree_id;
-
-  let status = "ClaudeBox running, treating your message as a reply";
-  if (message) status += `: _${truncate(message)}_`;
-  status += " ...";
+  if (threadTs && worktreeId) store.bindThread(channel, threadTs, worktreeId);
 
   // Fetch thread context so the agent understands the conversation
   const threadContext = threadTs ? await getThreadContext(client, channel, threadTs) : "";
 
   try {
-    const postArgs: any = { channel, text: status };
+    const postArgs: any = { channel, text: "ClaudeBox replying\u2026" };
     if (threadTs) postArgs.thread_ts = threadTs;
     const result = await client.chat.postMessage(postArgs);
     const messageTs = result.ts;
 
+    // Add running reaction
+    setReaction(channel, messageTs, "hourglass_flowing_sand");
+
     let fullPrompt = "";
-    if (threadContext) fullPrompt += `Slack thread context:\n${threadContext}\n\n`;
     if (message) fullPrompt += message;
+    if (threadContext) fullPrompt += `\n\nSlack thread context (recent):\n${threadContext}`;
 
     let capturedLogUrl = "";
     let capturedWorktreeId = "";
@@ -233,18 +321,20 @@ export async function startReplySession(
       worktreeId,
       targetRef: toTargetRef(baseBranch),
       quiet,
+      ciAllow,
+      profile: profile || undefined,
     }, store, undefined, (logUrl, wtId) => {
       capturedLogUrl = logUrl;
       capturedWorktreeId = wtId;
-      let text = "ClaudeBox replying";
-      if (message) text += `: _${truncate(message)}_`;
-      text += ` <${logUrl}|log> <${sessionUrl(wtId)}|status>`;
-      client.chat.update({ channel, ts: messageTs, text }).catch(() => {});
+      client.chat.update({ channel, ts: messageTs, text: `_working\u2026_ <${sessionUrl(wtId)}|status>` }).catch(() => {});
     }).then((exitCode) => {
       if (SLACK_BOT_TOKEN && messageTs && capturedLogUrl) {
         const statusSuffix = exitCode === 0 ? "completed" : `error (exit ${exitCode})`;
         updateSlackStatus(channel, messageTs, statusSuffix, capturedLogUrl, capturedWorktreeId, store, message)
           .catch((e) => console.warn(`[WARN] Slack status update failed: ${e}`));
+      }
+      if (capturedWorktreeId) {
+        drainQueueAndResume(client, channel, threadTs, capturedWorktreeId, store, docker, baseBranch, channelName, profile);
       }
     });
   } catch (e) {

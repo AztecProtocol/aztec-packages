@@ -70,7 +70,7 @@ github_api(method="GET", path="repos/AztecProtocol/aztec-packages/actions/runs/7
 - `create_pr` runs `git add -A` and auto-commits with the PR title. Ensure your working tree is clean of scratch files.
 - `.claude/` files are **blocked** by default. Opt in with `include_claude_files=true` if the task requires it.
 - `.github/` workflow files are **blocked** unless the user prefixed their prompt with `ci-allow` (session-level, not per-call). Check `get_context` → `ci_allow` to see if you have permission. If blocked, write to `.github-new/` as a proposal instead.
-- `noir/noir-repo` submodule changes are **blocked** by default. Opt in with `include_noir_submodule=true` if the task intentionally updates the Noir submodule.
+- `noir/noir-repo` submodule is **auto-reset** before staging to prevent accidental changes from cherry-pick/rebase. Pass `include_noir_submodule=true` only if you intentionally updated the Noir submodule.
 - Use `closes` parameter to auto-add "Closes #N" to the PR body.
 ```
 create_pr(title="fix: resolve flaky test", body="...", closes=[123, 456])

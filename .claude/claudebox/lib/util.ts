@@ -36,14 +36,20 @@ export function parseMessage(text: string, findSession: (hash: string) => Sessio
 export interface ParsedKeywords {
   forceNew: boolean;
   quiet: boolean | null;  // null = use auto-detect
+  ciAllow: boolean;
+  profile: string;  // "" = default
   prompt: string;
 }
 
-/** Detect keywords (new-session, quiet, loud) at start of prompt, in any order. */
+const PROFILE_KEYWORDS = ["barretenberg-audit", "claudebox-dev"];
+
+/** Detect keywords (new-session, quiet, loud, ci-allow, profile names) at start of prompt, in any order. */
 export function parseKeywords(parsed: ParseResult): ParsedKeywords {
   let prompt = parsed.prompt;
   let forceNew = false;
   let quiet: boolean | null = null;
+  let ciAllow = false;
+  let profile = "";
 
   let changed = true;
   while (changed) {
@@ -57,14 +63,23 @@ export function parseKeywords(parsed: ParseResult): ParsedKeywords {
     if (/^loud\b/i.test(prompt)) {
       quiet = false; prompt = prompt.replace(/^loud\s*/i, ""); changed = true;
     }
+    if (/^(ci-allow|allow-ci)\b/i.test(prompt)) {
+      ciAllow = true; prompt = prompt.replace(/^(ci-allow|allow-ci)\s*/i, ""); changed = true;
+    }
+    for (const kw of PROFILE_KEYWORDS) {
+      const re = new RegExp(`^${kw}\\b`, "i");
+      if (re.test(prompt)) {
+        profile = kw; prompt = prompt.replace(new RegExp(`^${kw}\\s*`, "i"), ""); changed = true; break;
+      }
+    }
   }
-  return { forceNew, quiet, prompt };
+  return { forceNew, quiet, ciAllow, profile, prompt };
 }
 
 /** Validate a session for resume. Returns error message or null if OK. */
 export function validateResumeSession(session: SessionMeta | null, hash: string): string | null {
   if (!session) return `Session \`${hash}\` not found.`;
-  if (session.status === "running") return "Replies to ongoing conversations are not supported currently.";
+  if (session.status === "running") return "Session is still running. Your message will be queued.";
   if (!session.worktree_id) return `Session \`${hash}\` has no worktree.`;
   return null;
 }
@@ -87,4 +102,10 @@ export function worktreeIdFromLogUrl(logUrl: string): string {
 export function hashFromLogUrl(logUrl: string): string {
   const m = logUrl.match(/\/([a-f0-9][\w-]+)$/);
   return m ? m[1] : "";
+}
+
+/** Extract a PR binding key ("owner/repo#123") from a GitHub PR URL. Returns null if not a PR link. */
+export function prKeyFromUrl(url: string): string | null {
+  const m = url.match(/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/);
+  return m ? `${m[1]}#${m[2]}` : null;
 }

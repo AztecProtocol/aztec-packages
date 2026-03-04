@@ -26,6 +26,8 @@ export interface ContainerSessionOpts {
   worktreeId?: string;
   targetRef?: string;
   quiet?: boolean;
+  ciAllow?: boolean;
+  profile?: string;
 }
 
 export interface InteractiveSession {
@@ -47,4 +49,47 @@ export interface WorktreeInfo {
   worktreeId: string;
   workspaceDir: string;
   claudeProjectsDir: string;
+}
+
+// ── Personal Dashboard types ──────────────────────────────────────
+
+export interface Artifact {
+  type: string;  // "pr" | "gist" | "link"
+  text: string;
+  url: string;
+}
+
+/** Standalone base for EnrichedWorkspace — mirrors WorkspaceCard from html-templates.ts */
+export interface EnrichedWorkspace {
+  worktreeId: string;
+  name: string | null;
+  resolved: boolean;
+  alive: boolean;
+  status: string;
+  exitCode: number | null;
+  user: string;
+  prompt: string;
+  started: string | null;
+  baseBranch: string;
+  channelName: string;
+  runCount: number;
+  profile?: string;
+  // Enriched fields
+  latestResponse: string;
+  artifacts: Artifact[];
+  tags: string[];
+  threadTs: string;
+  channelId: string;
+}
+
+export interface ThreadGroup {
+  threadTs: string;
+  firstPrompt: string;
+  workspaces: EnrichedWorkspace[];
+}
+
+export interface ChannelGroup {
+  channel: string;
+  channelId: string;
+  threads: ThreadGroup[];
 }

@@ -65,7 +65,7 @@ if [[ "$MODE" == "dequeued" ]]; then
       -H "Accept: application/vnd.github.v3+json" \
       "https://api.github.com/repos/AztecProtocol/aztec-packages/actions/workflows/claudebox.yml/dispatches" \
       -d "$(jq -n --arg ref next \
-        --arg prompt "PR was dequeued from merge queue for $REF_NAME: $PR_URL — $commit_title by $commit_author. Investigate why the PR was dequeued (check CI logs, merge conflicts, etc.), fix the issue, and create a PR targeting $REF_NAME (the exact merge-train branch). Run ./bootstrap.sh ci to verify the fix locally and iterate until CI passes. Follow the merge-trains skill (.claude/skills/merge-trains/SKILL.md)." \
+        --arg prompt "PR was dequeued from merge queue for $REF_NAME: $PR_URL — $commit_title by $commit_author. Investigate why the PR was dequeued (check CI logs, merge conflicts, etc.), fix the issue, and create a PR targeting $REF_NAME (the exact merge-train branch). Run ./bootstrap.sh ci-fast to verify the fix locally and iterate until CI passes. Follow the merge-trains skill (.claude/skills/merge-trains/SKILL.md)." \
         --arg link "$LINK" \
         '{ref:$ref, inputs:{prompt:$prompt, link:$link}}')" || true
   fi
@@ -91,7 +91,7 @@ else
       -H "Accept: application/vnd.github.v3+json" \
       "https://api.github.com/repos/AztecProtocol/aztec-packages/actions/workflows/claudebox.yml/dispatches" \
       -d "$(jq -n --arg ref next \
-        --arg prompt "CI failure in merge-train branch $REF_NAME. Log: http://ci.aztec-labs.com/$ci_log_id — $commit_title by $commit_author. Investigate the failure, fix it, and create a PR targeting $REF_NAME (the exact merge-train branch). Run ./bootstrap.sh ci to verify the fix locally and iterate until CI passes. Follow the merge-trains skill (.claude/skills/merge-trains/SKILL.md)." \
+        --arg prompt "CI failure in merge-train branch $REF_NAME. Log: http://ci.aztec-labs.com/$ci_log_id — $commit_title by $commit_author. Investigate the failure, fix it, and create a PR targeting $REF_NAME (the exact merge-train branch). Run ./bootstrap.sh ci-fast to verify the fix locally and iterate until CI passes. Follow the merge-trains skill (.claude/skills/merge-trains/SKILL.md)." \
         --arg link "$LINK" \
         '{ref:$ref, inputs:{prompt:$prompt, link:$link}}')" || true
   fi

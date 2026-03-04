@@ -25,7 +25,14 @@ export const BASTION_SSH_KEY = join(homedir(), ".ssh", "build_instance_key");
 // ── Interactive session config ──────────────────────────────────
 export const CLAUDEBOX_HOST = process.env.CLAUDEBOX_HOST || "claudebox.work";
 export const SESSION_PAGE_USER = process.env.CLAUDEBOX_SESSION_USER || "aztec";
-export const SESSION_PAGE_PASS = process.env.CLAUDEBOX_SESSION_PASS || "cB!4z73c-xT9mR2q";
+export const SESSION_PAGE_PASS = (() => {
+  const v = process.env.CLAUDEBOX_SESSION_PASS;
+  if (!v) {
+    console.error("[FATAL] CLAUDEBOX_SESSION_PASS must be set");
+    process.exit(1);
+  }
+  return v;
+})();
 
 // ── Base branch defaults (channel name → branch) ────────────────
 export const CHANNEL_BASE_BRANCHES: Record<string, string> = {

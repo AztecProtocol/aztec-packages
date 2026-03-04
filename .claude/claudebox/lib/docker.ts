@@ -91,7 +91,7 @@ export class DockerService {
     while (Date.now() < deadline) {
       try {
         const exec = await this.docker.getContainer(containerName).exec({
-          Cmd: ["test", "-f", "/tmp/claudehome/bin/keepalive"],
+          Cmd: ["test", "-f", "/home/aztec-dev/bin/keepalive"],
           AttachStdout: true,
         });
         const stream = await exec.start({});
@@ -126,7 +126,7 @@ export class DockerService {
       AttachStderr: true,
       Tty: true,
       Cmd: ["bash", "--login"],
-      WorkingDir: "/workspace/aztec-packages",
+      WorkingDir: "/workspace",
     });
     const stream = await exec.start({ hijack: true, stdin: true, Tty: true });
     return {
@@ -165,19 +165,18 @@ export class DockerService {
     // Fix ownership
     try { execSync(`chown -R ${process.getuid!()}:${process.getgid!()} "${workspaceDir}"`, { timeout: 10_000 }); } catch {}
 
-    // Prepare workspace on host: clone, submodules, hardlink gitignored files
-    try {
-      store.prepareWorkspace(worktreeId, opts.targetRef || "origin/next");
-    } catch (e: any) {
-      console.warn(`[DOCKER] Workspace prep failed (will fall back to container clone): ${e.message}`);
-    }
+    // Profile-aware paths
+    const profileDir = opts.profile || "default";
+    const sidecarEntrypoint = `/opt/claudebox/profiles/${profileDir}/mcp-sidecar.ts`;
+    const claudeMdPath = `/opt/claudebox/profiles/${profileDir}/container-claude.md`;
 
-    console.log(`[DOCKER] Starting session ${logId} (worktree=${worktreeId})`);
+    console.log(`[DOCKER] Starting session ${logId} (worktree=${worktreeId} profile=${profileDir})`);
     console.log(`[DOCKER]   Sidecar:   ${sidecarName}`);
     console.log(`[DOCKER]   Claude:    ${claudeName}`);
     console.log(`[DOCKER]   Network:   ${networkName}`);
     console.log(`[DOCKER]   Worktree:  ${worktreeId}`);
     console.log(`[DOCKER]   Workspace: ${workspaceDir}`);
+    console.log(`[DOCKER]   Profile:   ${profileDir}`);
     console.log(`[DOCKER]   Log URL:   ${logUrl}`);
 
     // Write prompt file
@@ -185,6 +184,7 @@ export class DockerService {
     let fullPrompt = opts.prompt;
     fullPrompt += `\n\nLog URL: ${logUrl}`;
     fullPrompt += `\nBase branch: ${baseBranch}`;
+    fullPrompt += `\nTarget ref: ${opts.targetRef || "origin/next"}`;
     if (opts.runUrl) fullPrompt += `\nRun URL: ${opts.runUrl}`;
     if (opts.link) fullPrompt += `\nLink: ${opts.link}`;
     writeFileSync(join(workspaceDir, "prompt.txt"), fullPrompt);
@@ -203,6 +203,7 @@ export class DockerService {
       claude_session_id: sessionUuid,
       worktree_id: worktreeId,
       base_branch: baseBranch,
+      profile: opts.profile || "",
       started: new Date().toISOString(),
       status: "running",
     };
@@ -227,13 +228,26 @@ export class DockerService {
     try {
       // Start sidecar
       const uid = `${process.getuid!()}:${process.getgid!()}`;
+      // Build sidecar binds — audit profile skips docker.sock and reference repo
+      const sidecarBinds = [
+        `${workspaceDir}:/workspace:rw`,
+        `${claudeProjectsDir}:/home/aztec-dev/.claude/projects/-workspace:ro`,
+        `${CLAUDEBOX_CODE_DIR}:/opt/claudebox:ro`,
+        `${BASTION_SSH_KEY}:/home/aztec-dev/.ssh/build_instance_key:ro`,
+        `${CLAUDEBOX_STATS_DIR}:/stats:rw`,
+      ];
+      if (profileDir !== "barretenberg-audit") {
+        sidecarBinds.push(`${join(REPO_DIR, ".git")}:/reference-repo/.git:ro`);
+        sidecarBinds.push(`/var/run/docker.sock:/var/run/docker.sock`);
+      }
+
       await this.docker.createContainer({
         name: sidecarName,
         Image: DOCKER_IMAGE,
-        Entrypoint: ["/opt/claudebox/mcp-sidecar.ts"],
+        Entrypoint: [sidecarEntrypoint],
         User: uid,
         Env: [
-          `HOME=/tmp/claudehome`,
+          `HOME=/home/aztec-dev`,
           `MCP_PORT=9801`,
           `GH_TOKEN=${GH_TOKEN}`,
           `SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}`,
@@ -252,21 +266,15 @@ export class DockerService {
           `CLAUDEBOX_HOST=${CLAUDEBOX_HOST}`,
           `CLAUDEBOX_BASE_BRANCH=${baseBranch}`,
           `CLAUDEBOX_QUIET=${opts.quiet ? "1" : "0"}`,
+          `CLAUDEBOX_CI_ALLOW=${opts.ciAllow ? "1" : "0"}`,
+          `CLAUDEBOX_PROFILE=${profileDir}`,
         ],
         HostConfig: {
           NetworkMode: networkName,
-          Binds: [
-            `${join(REPO_DIR, ".git")}:/reference-repo/.git:ro`,
-            `${workspaceDir}:/workspace:rw`,
-            `${claudeProjectsDir}:/tmp/claudehome/.claude/projects/-workspace-aztec-packages:ro`,
-            `${CLAUDEBOX_CODE_DIR}:/opt/claudebox:ro`,
-            `/var/run/docker.sock:/var/run/docker.sock`,
-            `${BASTION_SSH_KEY}:/tmp/claudehome/.ssh/build_instance_key:ro`,
-            `${CLAUDEBOX_STATS_DIR}:/stats:rw`,
-          ],
+          Binds: sidecarBinds,
         },
       }).then(c => c.start());
-      console.log(`[DOCKER] Sidecar started: ${sidecarName} (quiet=${opts.quiet ? "yes" : "no"})`);
+      console.log(`[DOCKER] Sidecar started: ${sidecarName} (profile=${profileDir} quiet=${opts.quiet ? "yes" : "no"})`);
 
       await this.waitForHealth(sidecarName);
       console.log(`[DOCKER] Sidecar healthy`);
@@ -277,21 +285,29 @@ export class DockerService {
         "--name", claudeName,
         "--network", networkName,
         "--user", uid,
-        "-e", `HOME=/tmp/claudehome`,
-        "-v", `${join(REPO_DIR, ".git")}:/reference-repo/.git:ro`,
+        "-e", `HOME=/home/aztec-dev`,
         "-v", `${workspaceDir}:/workspace:rw`,
-        "-v", `${claudeProjectsDir}:/tmp/claudehome/.claude/projects/-workspace-aztec-packages:rw`,
+        // Mount session JSONL dir to both project keys: -workspace (initial cwd)
+        // and -workspace-aztec-packages (cwd after clone_repo). Without both,
+        // Claude can't find prior sessions when the cwd changes after clone.
+        "-v", `${join(homedir(), ".claude")}:/home/aztec-dev/.claude:rw`,
+        "-v", `${claudeProjectsDir}:/home/aztec-dev/.claude/projects/-workspace:rw`,
+        "-v", `${claudeProjectsDir}:/home/aztec-dev/.claude/projects/-workspace-aztec-packages:rw`,
         "-v", `${realpathSync(CLAUDE_BINARY)}:/usr/local/bin/claude:ro`,
-        "-v", `${join(homedir(), ".claude")}:/tmp/claudehome/.claude:rw`,
-        "-v", `${join(homedir(), ".claude.json")}:/tmp/claudehome/.claude.json:rw`,
-        "-v", `${BASTION_SSH_KEY}:/tmp/claudehome/.ssh/build_instance_key:ro`,
+        "-v", `${join(homedir(), ".claude.json")}:/home/aztec-dev/.claude.json:rw`,
+        "-v", `${BASTION_SSH_KEY}:/home/aztec-dev/.ssh/build_instance_key:ro`,
+        "-v", `${CLAUDEBOX_CODE_DIR}:/opt/claudebox:ro`,
         "-e", `CLAUDEBOX_MCP_URL=${mcpUrl}`,
-        "-e", `CLAUDEBOX_TARGET_REF=${opts.targetRef || "origin/next"}`,
         "-e", `SESSION_UUID=${sessionUuid}`,
         "-e", `CI_PASSWORD=${process.env.CI_PASSWORD || ""}`,
         "-e", `CLAUDEBOX_SIDECAR_HOST=${sidecarName}`,
         "-e", `CLAUDEBOX_SIDECAR_PORT=9801`,
+        "-e", `CLAUDEBOX_CONTAINER_CLAUDE_MD=${claudeMdPath}`,
       ];
+      // Mount reference repo for profiles that use local clone (not barretenberg-audit)
+      if (profileDir !== "barretenberg-audit") {
+        claudeArgs.push("-v", `${join(REPO_DIR, ".git")}:/reference-repo/.git:ro`);
+      }
 
       // Auto-detect resume
       if (opts.worktreeId) {
@@ -302,7 +318,7 @@ export class DockerService {
         }
       }
 
-      claudeArgs.push("--entrypoint", "bash", DOCKER_IMAGE, "/opt/claudebox/entrypoint.sh");
+      claudeArgs.push("--entrypoint", "bash", DOCKER_IMAGE, "/opt/claudebox/container-entrypoint.sh");
       console.log(`[DOCKER] Starting Claude container: ${claudeName}`);
 
       // Run Claude container (blocking, stream output)
@@ -329,9 +345,9 @@ export class DockerService {
             headerLines.push(`Container: ${claudeName}`);
             headerLines.push("");
 
-            cacheLogProc = spawn("bash", ["-c", `DUP=1 PARENT_LOG_ID="${parentLogId}" "${cacheLogBin}" claudebox "${logId}"`], {
+            cacheLogProc = spawn(cacheLogBin, ["claudebox", logId], {
               stdio: ["pipe", "inherit", "inherit"],
-              env: { ...process.env },
+              env: { ...process.env, DUP: "1", PARENT_LOG_ID: parentLogId },
             });
             cacheLogProc.stdin?.write(headerLines.join("\n"));
 
@@ -388,6 +404,16 @@ export class DockerService {
             exit_code: exitCode,
           });
 
+          // Record activity line count so status page doesn't replay old entries on resume
+          try {
+            const actLines = store.readActivity(worktreeId).length;
+            const metaPath = join(store.worktreesDir, worktreeId, "meta.json");
+            const m = store.getWorktreeMeta(worktreeId);
+            m.activity_synced_lines = actLines;
+            writeFileSync(metaPath, JSON.stringify(m, null, 2));
+          } catch {}
+
+
           resolve(exitCode);
         });
       });
@@ -417,11 +443,6 @@ export class DockerService {
       const wt = store.getOrCreateWorktree(worktreeId);
       workspaceDir = wt.workspaceDir;
       claudeProjectsDir = wt.claudeProjectsDir;
-      try {
-        store.prepareWorkspace(worktreeId, `origin/${session.base_branch || "next"}`);
-      } catch (e: any) {
-        console.warn(`[INTERACTIVE] Workspace prep failed: ${e.message}`);
-      }
     } else {
       const { CLAUDEBOX_SESSIONS_DIR } = await import("./config.ts");
       const logId = session._log_id || hash;
@@ -436,11 +457,15 @@ export class DockerService {
     const mcpUrl = `http://${sidecarName}:9801/mcp`;
     const keepaliveUrl = `http://host.docker.internal:${HTTP_PORT}/s/${worktreeId || hash}/keepalive`;
     const uid = `${process.getuid!()}:${process.getgid!()}`;
+    const profileDir = session.profile || "default";
+    const sidecarEntrypoint = `/opt/claudebox/profiles/${profileDir}/mcp-sidecar.ts`;
+    const claudeMdPath = `/opt/claudebox/profiles/${profileDir}/container-claude.md`;
 
     console.log(`[INTERACTIVE] Network: ${networkName}`);
     console.log(`[INTERACTIVE] Sidecar: ${sidecarName}`);
     console.log(`[INTERACTIVE] Container: ${containerName}`);
     console.log(`[INTERACTIVE] Workspace: ${workspaceDir}`);
+    console.log(`[INTERACTIVE] Profile: ${profileDir}`);
 
     // Clean up any stale resources from previous sessions with the same hash
     this.forceRemoveSync(containerName);
@@ -451,13 +476,24 @@ export class DockerService {
 
     try {
       // Sidecar
+      const sidecarBinds = [
+        `${workspaceDir}:/workspace:rw`,
+        `${claudeProjectsDir}:/home/aztec-dev/.claude/projects/-workspace:ro`,
+        `${CLAUDEBOX_CODE_DIR}:/opt/claudebox:ro`,
+        `${BASTION_SSH_KEY}:/home/aztec-dev/.ssh/build_instance_key:ro`,
+        `${CLAUDEBOX_STATS_DIR}:/stats:rw`,
+      ];
+      if (profileDir !== "barretenberg-audit") {
+        sidecarBinds.push(`${join(REPO_DIR, ".git")}:/reference-repo/.git:ro`);
+        sidecarBinds.push(`/var/run/docker.sock:/var/run/docker.sock`);
+      }
       await this.docker.createContainer({
         name: sidecarName,
         Image: DOCKER_IMAGE,
-        Entrypoint: ["/opt/claudebox/mcp-sidecar.ts"],
+        Entrypoint: [sidecarEntrypoint],
         User: uid,
         Env: [
-          `HOME=/tmp/claudehome`,
+          `HOME=/home/aztec-dev`,
           `MCP_PORT=9801`,
           `GH_TOKEN=${GH_TOKEN}`,
           `SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}`,
@@ -471,30 +507,38 @@ export class DockerService {
           `CLAUDEBOX_HOST=${CLAUDEBOX_HOST}`,
           `CLAUDEBOX_BASE_BRANCH=${session.base_branch || "next"}`,
           `CLAUDEBOX_QUIET=${!(session.slack_channel || "").startsWith("D") ? "1" : "0"}`,
+          `CLAUDEBOX_PROFILE=${profileDir}`,
         ],
         HostConfig: {
           NetworkMode: networkName,
-          Binds: [
-            `${join(REPO_DIR, ".git")}:/reference-repo/.git:ro`,
-            `${workspaceDir}:/workspace:rw`,
-            `${claudeProjectsDir}:/tmp/claudehome/.claude/projects/-workspace-aztec-packages:ro`,
-            `${CLAUDEBOX_CODE_DIR}:/opt/claudebox:ro`,
-            `/var/run/docker.sock:/var/run/docker.sock`,
-            `${BASTION_SSH_KEY}:/tmp/claudehome/.ssh/build_instance_key:ro`,
-            `${CLAUDEBOX_STATS_DIR}:/stats:rw`,
-          ],
+          Binds: sidecarBinds,
         },
       }).then(c => c.start());
       await this.waitForHealth(sidecarName);
 
       // Interactive container
+      const intBinds = [
+        `${workspaceDir}:/workspace:rw`,
+        `${join(homedir(), ".claude")}:/home/aztec-dev/.claude:rw`,
+        `${claudeProjectsDir}:/home/aztec-dev/.claude/projects/-workspace:rw`,
+        `${claudeProjectsDir}:/home/aztec-dev/.claude/projects/-workspace-aztec-packages:rw`,
+        `${realpathSync(CLAUDE_BINARY)}:/usr/local/bin/claude:ro`,
+        `${join(homedir(), ".claude.json")}:/home/aztec-dev/.claude.json:rw`,
+        `${BASTION_SSH_KEY}:/home/aztec-dev/.ssh/build_instance_key:ro`,
+        `${CLAUDEBOX_CODE_DIR}:/opt/claudebox:ro`,
+        `${CLAUDEBOX_STATS_DIR}:/stats:rw`,
+      ];
+      if (profileDir !== "barretenberg-audit") {
+        intBinds.push(`/var/run/docker.sock:/var/run/docker.sock`);
+        intBinds.push(`${join(REPO_DIR, ".git")}:/reference-repo/.git:ro`);
+      }
       await this.docker.createContainer({
         name: containerName,
         Image: DOCKER_IMAGE,
         Entrypoint: ["bash", "/opt/claudebox/container-interactive.sh"],
         User: uid,
         Env: [
-          `HOME=/tmp/claudehome`,
+          `HOME=/home/aztec-dev`,
           `GH_TOKEN=${GH_TOKEN}`,
           `CLAUDEBOX_MCP_URL=${mcpUrl}`,
           `CLAUDEBOX_SESSION_HASH=${hash}`,
@@ -503,7 +547,6 @@ export class DockerService {
           `CLAUDEBOX_WORKTREE_ID=${worktreeId || ""}`,
           `CLAUDEBOX_USER=${session.user || ""}`,
           `CLAUDEBOX_RESUME_ID=${resumeId}`,
-          `CLAUDEBOX_TARGET_REF=origin/${session.base_branch || "next"}`,
           `CLAUDEBOX_KEEPALIVE_URL=${keepaliveUrl}`,
           `CLAUDEBOX_SIDECAR_HOST=${sidecarName}`,
           `CLAUDEBOX_SIDECAR_PORT=9801`,
@@ -511,23 +554,13 @@ export class DockerService {
           `CLAUDEBOX_BASE_BRANCH=${session.base_branch || "next"}`,
           `CLAUDEBOX_SLACK_CHANNEL=${session.slack_channel || ""}`,
           `CLAUDEBOX_SLACK_THREAD_TS=${session.slack_thread_ts || ""}`,
+          `CLAUDEBOX_CONTAINER_CLAUDE_MD=${claudeMdPath}`,
           `CI_PASSWORD=${process.env.CI_PASSWORD || ""}`,
         ],
         HostConfig: {
           NetworkMode: networkName,
           ExtraHosts: ["host.docker.internal:host-gateway"],
-          Binds: [
-            `${join(REPO_DIR, ".git")}:/reference-repo/.git:ro`,
-            `${workspaceDir}:/workspace:rw`,
-            `${claudeProjectsDir}:/tmp/claudehome/.claude/projects/-workspace-aztec-packages:rw`,
-            `${realpathSync(CLAUDE_BINARY)}:/usr/local/bin/claude:ro`,
-            `${join(homedir(), ".claude")}:/tmp/claudehome/.claude:rw`,
-            `${join(homedir(), ".claude.json")}:/tmp/claudehome/.claude.json:rw`,
-            `${BASTION_SSH_KEY}:/tmp/claudehome/.ssh/build_instance_key:ro`,
-            `${CLAUDEBOX_CODE_DIR}:/opt/claudebox:ro`,
-            `/var/run/docker.sock:/var/run/docker.sock`,
-            `${CLAUDEBOX_STATS_DIR}:/stats:rw`,
-          ],
+          Binds: intBinds,
         },
       }).then(c => c.start());
       console.log(`[INTERACTIVE] Container started: ${containerName}`);

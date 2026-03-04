@@ -19,6 +19,7 @@ import { DockerService } from "./lib/docker.ts";
 import { InteractiveSessionManager } from "./lib/interactive.ts";
 import { registerSlackHandlers } from "./lib/slack-handlers.ts";
 import { createHttpServer } from "./lib/http-routes.ts";
+import { QuestionStore } from "./lib/question-store.ts";
 
 // Prevent unhandled Slack/WebSocket rejections from crashing the process
 process.on("unhandledRejection", (reason: any) => {
@@ -45,6 +46,32 @@ async function main() {
   // ── Reconcile stale sessions ──
   store.reconcile(docker);
   setInterval(() => store.reconcile(docker), 60_000);
+
+  // ── Question expiry timer ──
+  const questionStore = new QuestionStore();
+  setInterval(() => {
+    try {
+      const resolved = questionStore.expireOverdue();
+      for (const worktreeId of resolved) {
+        console.log(`[QUESTIONS] All questions resolved for ${worktreeId} — auto-resuming`);
+        const session = store.findByWorktreeId(worktreeId);
+        if (session && session.status !== "running" && store.isWorktreeAlive(worktreeId)) {
+          const prompt = questionStore.buildResumePrompt(worktreeId);
+          docker.runContainerSession({
+            prompt,
+            userName: session.user || "auto-resume",
+            worktreeId,
+            targetRef: session.base_branch ? `origin/${session.base_branch}` : undefined,
+            profile: session.profile || undefined,
+          }, store).catch(e => {
+            console.error(`[QUESTIONS] Auto-resume failed for ${worktreeId}: ${e.message}`);
+          });
+        }
+      }
+    } catch (e: any) {
+      console.error(`[QUESTIONS] Expiry check error: ${e.message}`);
+    }
+  }, 60_000);
 
   // ── Slack app (non-fatal — HTTP server should work even without Slack) ──
   try {

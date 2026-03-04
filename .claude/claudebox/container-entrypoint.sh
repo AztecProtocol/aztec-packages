@@ -1,43 +1,30 @@
 #!/usr/bin/env bash
 # container-entrypoint.sh — Runs INSIDE the Claude container.
-# Sets up full checkout via git alternates, writes MCP config, launches Claude.
+# Writes MCP config, installs CLAUDE.md, launches Claude.
+# Repo clone is lazy — Claude calls the clone_repo MCP tool when needed.
 #
 # Required env:  CLAUDEBOX_MCP_URL, SESSION_UUID
 # Prompt:        /workspace/prompt.txt (mounted by host)
-# Optional env:  CLAUDEBOX_TARGET_REF, CLAUDEBOX_RESUME_ID
+# Optional env:  CLAUDEBOX_RESUME_ID
 
 set -euxo pipefail
 trap 'echo ""; echo "━━━ Process exited ━━━"' EXIT
 
-WORKSPACE="/workspace/aztec-packages"
-REFERENCE_GIT="/reference-repo/.git"
+# Ensure cargo/rust tools are on PATH
+export PATH="$HOME/.cargo/bin:$PATH"
+
 MCP_URL="${CLAUDEBOX_MCP_URL:?required}"
 SESSION_UUID="${SESSION_UUID:?required}"
-TARGET_REF="${CLAUDEBOX_TARGET_REF:-origin/next}"
 RESUME_ID="${CLAUDEBOX_RESUME_ID:-}"
 PROMPT_FILE="/workspace/prompt.txt"
 CLAUDE_MD_TEMPLATE="${CLAUDEBOX_CONTAINER_CLAUDE_MD:-/opt/claudebox/container-claude.md}"
 
 echo "━━━ Container Bootstrap ━━━"
 echo "MCP:     $MCP_URL"
-echo "Ref:     $TARGET_REF"
 echo "Session: $SESSION_UUID"
 [ -n "$RESUME_ID" ] && echo "Resume:  $RESUME_ID"
 
-# ── Step 1: Full checkout via git clone --shared (zero-copy objects) ──
-if [ ! -d "$WORKSPACE/.git" ]; then
-    git config --global --add safe.directory "$REFERENCE_GIT"
-    git config --global --add safe.directory "$WORKSPACE"
-    git clone --shared "$REFERENCE_GIT" "$WORKSPACE"
-    cd "$WORKSPACE"
-    git remote set-url origin https://github.com/AztecProtocol/aztec-packages.git
-    git checkout --detach "$TARGET_REF" 2>/dev/null || git checkout --detach origin/next
-else
-    cd "$WORKSPACE"
-    echo "Workspace exists, reusing."
-fi
-
-# ── Step 2: MCP config ──────────────────────────────────────────
+# ── Step 1: MCP config ──────────────────────────────────────────
 cat > /tmp/mcp.json <<EOF
 {
   "mcpServers": {
@@ -49,15 +36,15 @@ cat > /tmp/mcp.json <<EOF
 }
 EOF
 
-# ── Step 3: Install CLAUDE.md ────────────────────────────────────
+# ── Step 2: Install CLAUDE.md ────────────────────────────────────
+# Placed at /workspace/.claude/CLAUDE.md — Claude will start in /workspace
+# and the repo (once cloned) lives at /workspace/aztec-packages
 if [ -f "$CLAUDE_MD_TEMPLATE" ]; then
-    mkdir -p "$WORKSPACE/.claude"
-    cp "$CLAUDE_MD_TEMPLATE" "$WORKSPACE/.claude/CLAUDE.md"
-    # Exclude from git so create_pr's `git add -A` doesn't commit it
-    echo ".claude/CLAUDE.md" >> "$WORKSPACE/.git/info/exclude"
+    mkdir -p /workspace/.claude
+    cp "$CLAUDE_MD_TEMPLATE" /workspace/.claude/CLAUDE.md
 fi
 
-# ── Step 4: Read prompt ──────────────────────────────────────────
+# ── Step 3: Read prompt ──────────────────────────────────────────
 if [ ! -f "$PROMPT_FILE" ]; then
     echo "ERROR: $PROMPT_FILE not found" >&2
     exit 1
@@ -68,7 +55,9 @@ echo ""
 echo "━━━ Launching Claude ━━━"
 echo ""
 
-# ── Step 5: Run Claude ───────────────────────────────────────────
+cd /workspace
+
+# ── Step 4: Run Claude ───────────────────────────────────────────
 COMMON_ARGS=(--print --dangerously-skip-permissions --mcp-config /tmp/mcp.json -p "$PROMPT")
 
 set +e
