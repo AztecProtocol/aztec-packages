@@ -819,7 +819,6 @@ TEST(InstrFetchingConstrainingTest, NegativeTruncatedBytecodeRepro)
     perm_builder.process(trace);
 
     check_relation<bb::avm2::bc_hashing<FF>>(trace);
-    check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_check_final_bytes_remaining_settings>(trace);
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_poseidon2_hash_settings>(trace)),
         "Failed.*LOOKUP_BC_HASHING_POSEIDON2_HASH. Could not find tuple in destination.");

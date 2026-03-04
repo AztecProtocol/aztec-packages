@@ -39,10 +39,10 @@ include "../precomputed.pil";
  *
  *   pc_index |  pc_index_1 |  pc_index_2 | bytecode_id |  p_f_0  |  p_f_1  |  p_f_2  |  output_hash  | latch | START | rounds_rem | padding |
  * -----------+-------------+-------------+-------------+---------+---------+---------+---------------+-------+-------+------------+---------+
- *     0      |      0      |      31     |      0      |   sep   |  0x111  |  0x222  |   bc_hash_0   |   0   |   1   |     3      |    0    |
- *     62     |      93     |      124    |      0      |  0x333  |  0x444  |  0x555  |   bc_hash_0   |   0   |   0   |     2      |    0    |
+ *     0      |      0      |      31     |      0      |   sep   |  0x111  |  0x222  |   bc_hash_0   |   0   |   1   |     3      |    1    |
+ *     62     |      93     |      124    |      0      |  0x333  |  0x444  |  0x555  |   bc_hash_0   |   0   |   0   |     2      |    1    |
  *     155    |      186    |      217    |      0      |  0x666  |  0x777  |    0    |   bc_hash_0   |   1   |   0   |     1      |    1    |
- *     0      |      0      |      31     |      1      |   sep   |  0xaaa  |  0xbbb  |   bc_hash_1   |   0   |   1   |     2      |    0    |
+ *     0      |      0      |      31     |      1      |   sep   |  0xaaa  |  0xbbb  |   bc_hash_1   |   0   |   1   |     2      |    2    |
  *     62     |      93     |      124    |      1      |  0xccc  |    0    |    0    |   bc_hash_1   |   1   |   0   |     1      |    2    |
  *
  * ERROR HANDLING:
@@ -121,13 +121,20 @@ namespace bc_hashing;
     // The PC increments by 31*3=93 each row as long as:
     // a) the row is not latched, in which case the next pc is zero
     // b) we are not at start, in which case we only read 2 fields, and => only increment pc by 31*2=62
-    #[PC_INCREMENTS]
-    sel' * (pc_index' - ((1 - LATCH_CONDITION) * (62 + pc_index + sel_not_start * 31))) = 0;
+    // Layout is: PC_INDEX, PC_INDEX_1, PC_INDEX_2
+    //                 0         0           31
+    //                62        93          124
+    //                155       186         217 ...
+    // PC_INDEX_1 is always a multiple of 93, PC_INDEX_2 is always 31 bytes after PC_INDEX_1.
+    // PC_INDEX is zero at start, otherwise it 31 less than PC_INDEX_1.
 
-    // At start, pc_index_1 == pc_index (same row; field 0 is the separator, field 1 is the first
-    // bytecode field at pc == 0). Otherwise, pc_index_1 == pc_index + 31.
+    // PC_INDEX is zero at start, otherwise it 31 less than PC_INDEX_1.
+    #[PC_INCREMENTS]
+    pc_index = sel_not_start * (pc_index_1 - 31);
+
+    // PC_INDEX_1 is always a multiple of 93, i.e., starts at zero and increments by 93 each row.
     #[PC_INCREMENTS_1]
-    sel * (pc_index_1 - start * pc_index - sel_not_start * (pc_index + 31)) = 0;
+    pc_index_1' = sel_not_start' * (pc_index_1 + 93);
 
     // pc_index_2 is always 31 bytes after pc_index_1.
     #[PC_INCREMENTS_2]
@@ -228,91 +235,26 @@ namespace bc_hashing;
     #[PADDED_BY_ZERO_2]
     PADDING_2 * packed_fields_2 = 0;
 
-    // ==== FINAL FIELD VERIFICATION ====
+    pol commit padding;
+    #[PADDING_COMPUTATION]
+    latch * (padding - PADDING_1 - PADDING_2) = 0;
 
-    // Value of bc_decomposition.pc at the final field. Only meaningful at latch rows (can be 0 on
-    // other rows). Committed because it is used in the #[CHECK_FINAL_BYTES_REMAINING] lookup.
-    pol commit pc_at_final_field;
-
-    // The decomp trace relies on decrementing counters. Instead of using range checks to show that
-    // we are at the last field (<==> bc_decomposition.bytes_remaining is within expected), we check
-    // that at the claimed final field (i.e. final occurrence of sel_packed = 1 in bc_decomp), we
-    // have less than 31 bytes remaining.
-    //
-    // In decomp: sel_windows_gt_remaining = 1 if bytes_remaining < WINDOW_SIZE.
-    // Currently, WINDOW_SIZE = 37 and we encode 31 bytes into each packed field => if
-    // sel_windows_gt_remaining = 1 && bytes_pc_plus_31..bytes_pc_plus_36 are all zero,
-    // then we have no further fields to hash.
-    //
-    // Example: bytecode of 80 bytes => hash 3 fields + 1 for sep => 2 rows, final row has padding
-    // of 2:
-    //   pc_index = 62, packed_fields_0 = final field, packed_fields_1 = padding = 0,
-    //   packed_fields_2 = padding = 0
-    // We want to show packed_fields_0 is the last field of the bytecode (=> our padding is correct).
-    // In bc_decomposition at pc_index = 62:
-    //   sel_packed = 1, packed_field = final field, bytes_remaining = 18
-    // To avoid using gt/range check to show bytes_remaining < 32, we instead lookup that
-    // sel_windows_gt_remaining = 1 (<==> bytes_remaining < 37) and bytes_pc_plus_31 through
-    // bytes_pc_plus_36 are empty.
-    //
-    // NOTE: This relies on the hardcoded WINDOW_SIZE = 37 and WILL BREAK if this ever changes!
-    // ASIDE NOTE: A simpler solution would be to lookup that at pc_index - 6 we have
-    // sel_windows_gt_remaining = 1 in bc_decomposition, but this would underflow if we have a
-    // bytecode of under 2 fields (pc_index = 0).
-    #[CHECK_FINAL_BYTES_REMAINING]
-    latch {
-        pc_at_final_field,
-        bytecode_id,
-        sel /* =1 */,
-        precomputed.zero /* =0 */,
-        precomputed.zero /* =0 */,
-        precomputed.zero /* =0 */,
-        precomputed.zero /* =0 */,
-        precomputed.zero /* =0 */,
-        precomputed.zero /* =0 */
-    } in bc_decomposition.sel_packed {
-        bc_decomposition.pc,
-        bc_decomposition.id,
-        bc_decomposition.sel_windows_gt_remaining,
-        bc_decomposition.bytes_pc_plus_31,
-        bc_decomposition.bytes_pc_plus_32,
-        bc_decomposition.bytes_pc_plus_33,
-        bc_decomposition.bytes_pc_plus_34,
-        bc_decomposition.bytes_pc_plus_35,
-        bc_decomposition.bytes_pc_plus_36
-    };
-
-    // When PADDING_1 = 1 & PADDING_2 = 1: pc_at_final_field = pc_index       (final_bytes_remaining <= 31)
-    // When PADDING_1 = 0 & PADDING_2 = 1: pc_at_final_field = pc_index_1     (31 < final_bytes_remaining <= 62)
-    // When PADDING_1 = 0 & PADDING_2 = 0: pc_at_final_field = pc_index_2     (62 < bytes_remaining <= 93)
-    // TODO: Technically when we have no padding (PADDING_2 = 0) we don't need to check the below
-    // because the decomp lookups cover us. However, this does constrain that when latch == 1, we are
-    // definitely at the last field of bc_decomp, I'm not sure whether this is required but kept in
-    // just in case.
-    #[PADDING_CORRECTNESS]
-    pc_at_final_field - latch * (
-        PADDING_1 * pc_index +            // two padding fields ==> pc_at_final_field = pc_index
-        (PADDING_2 - PADDING_1) * pc_index_1 + // one padding field ==> pc_at_final_field = pc_index_1
-        sel_not_padding_2 * pc_index_2    // no padding ==> pc_at_final_field = pc_index_2
-    ) = 0;
+    #[PADDING_PROPAGATION]
+    (1 - LATCH_CONDITION) * (padding' - padding) = 0;
 
     // ==== LENGTH AND ROUND COUNTING ====
 
     // The length of the hashed bytecode in fields, including the prepended field. We use it to look
     // up into poseidon2_hash to ensure that the hashed IV matches our bytecode length.
-    // Note: We constrain `input_len` at the final row (latch) by linking it to pc_at_final_field,
-    //       but correct usage of `poseidon2_hash` requires us to constrain it at the start row.
-    //       Therefore, we will constrain propagation of `input_len` on all rows of the computation.
+    // Note: poseidon2_hash.pil usage requires us to pass `input_len` to the lookup at the start row.
+    //       We constrain `input_len` at the start row by linking it to padding value and `rounds_rem`.
     pol commit input_len;
 
     // Minus one for the initial field not present in bc_decomposition, and one to include the final
     // field (pc_at_final_field marks the beginning of the last field).
     // Note: this doesn't underflow as we don't handle empty bytecode (see PRECONDITIONS).
     #[BYTECODE_LENGTH_FIELDS]
-    latch * (31 * (input_len - 2) - pc_at_final_field) = 0;
-
-    #[INPUT_LEN_PROPAGATION]
-    (1 - LATCH_CONDITION) * (input_len' - input_len) = 0;
+    start * (3 * rounds_rem - padding - input_len) = 0;
 
     // The number of rounds (rows) remaining to completely hash the bytecode.
     // Like input_len, its correctness is constrained at the final row (latch), where (due to

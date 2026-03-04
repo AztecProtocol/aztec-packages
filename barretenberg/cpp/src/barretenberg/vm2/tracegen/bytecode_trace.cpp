@@ -202,14 +202,17 @@ void BytecodeTraceBuilder::process_hashing(
         fields.insert(fields.end(), padding_amount, FF(0)); // Add padding fields.
 
         const auto num_rounds = fields.size() / 3;
-        uint32_t pc_index = 0;
 
         for (size_t i = 0; i < num_rounds; i++) {
             bool start_of_bytecode = i == 0;
             bool end_of_bytecode = i == num_rounds - 1;
             // When we start the bytecode, we want to look up field 1 at pc = 0 in the decomposition trace, since we
-            // force field 0 to be the separator:
-            uint32_t pc_index_1 = start_of_bytecode ? 0 : pc_index + 31;
+            // force field 0 to be the separator.
+            // Layouts is: PC_INDEX, PC_INDEX_1, PC_INDEX_2
+            //                 0         0           31
+            //                62        93          124
+            uint32_t pc_index_1 = 93 * static_cast<uint32_t>(i);
+            uint32_t pc_index = i > 0 ? pc_index_1 - 31 : 0;
             trace.set(row,
                       { { { C::bc_hashing_sel, 1 },
                           { C::bc_hashing_start, start_of_bytecode ? 1 : 0 },
@@ -228,24 +231,8 @@ void BytecodeTraceBuilder::process_hashing(
                           { C::bc_hashing_packed_fields_2, fields[(i * 3) + 2] },
                           { C::bc_hashing_sel_not_padding_1, end_of_bytecode && padding_amount == 2 ? 0 : 1 },
                           { C::bc_hashing_sel_not_padding_2, end_of_bytecode && padding_amount > 0 ? 0 : 1 },
+                          { C::bc_hashing_padding, padding_amount },
                           { C::bc_hashing_output_hash, id } } });
-            if (end_of_bytecode) {
-                // Below sets the pc at which the final field starts. We only use/constrain it at latch == 1.
-                // Note: It can't just be pc_index + 31 * padding_amount because we 'skip' 31 bytes at start == 1 to
-                // force the first field to be the separator.
-                FF pc_at_final_field =
-                    padding_amount == 2
-                        // Two padding fields => we are currently at the final field:
-                        ? pc_index
-                        // One padding field => the final field starts at pc_index_1
-                        // No padding fields => the final field starts at pc_index_2 (= pc_index_1 + 31):
-                        : pc_index_1 + (31 * (1 - padding_amount));
-                trace.set(row,
-                          { {
-                              { C::bc_hashing_pc_at_final_field, pc_at_final_field },
-                          } });
-            }
-            pc_index = pc_index_1 + 62;
             row++;
         }
     }
@@ -504,7 +491,6 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
     InteractionDefinition()
         // Bytecode Hashing
         .add<perm_bc_hashing_bytecode_length_bytes_settings, InteractionType::Permutation>()
-        .add<lookup_bc_hashing_check_final_bytes_remaining_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>()
         // Bytecode Retrieval
         .add<lookup_bc_retrieval_contract_instance_retrieval_settings, InteractionType::LookupSequential>()

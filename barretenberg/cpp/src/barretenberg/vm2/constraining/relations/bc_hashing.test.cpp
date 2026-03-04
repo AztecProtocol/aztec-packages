@@ -47,6 +47,7 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using bc_hashing = bb::avm2::bc_hashing<FF>;
+using bc_decomposition = bb::avm2::bc_decomposition<FF>;
 using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
 class BytecodeHashingConstrainingTest : public ::testing::Test {
@@ -109,23 +110,10 @@ class BytecodeHashingConstrainingTestTraceHelper : public BytecodeHashingConstra
                               { C::bc_hashing_sel, 1 },
                               { C::bc_hashing_sel_not_padding_1, end && padding_amount == 2 ? 0 : 1 },
                               { C::bc_hashing_sel_not_padding_2, end && padding_amount > 0 ? 0 : 1 },
+                              { C::bc_hashing_padding, padding_amount },
                               { C::bc_hashing_sel_not_start, !start },
                               { C::bc_hashing_start, start },
                           } });
-                if (end) {
-                    // Below sets the pc at which the final field starts. We only use/constrain it at latch == 1.
-                    FF pc_at_final_field =
-                        padding_amount == 2
-                            // Two padding fields => we are currently at the final field:
-                            ? pc_index
-                            // One padding field => the final field starts at pc_index_1
-                            // No padding fields => the final field starts at pc_index_2 (= pc_index_1 + 31):
-                            : pc_index_1 + (31 * (1 - padding_amount));
-                    trace.set(row,
-                              { {
-                                  { C::bc_hashing_pc_at_final_field, pc_at_final_field },
-                              } });
-                }
                 row++;
                 num_rounds--;
                 pc_index = pc_index_1 + 62;
@@ -166,7 +154,6 @@ TEST_F(BytecodeHashingConstrainingTest, SingleBytecodeHashOneRow)
             { C::bc_hashing_packed_fields_0, sep },
             { C::bc_hashing_packed_fields_1, 1 },
             { C::bc_hashing_packed_fields_2, 2 },
-            { C::bc_hashing_pc_at_final_field, 31 },
             { C::bc_hashing_pc_index_1, 0 },
             { C::bc_hashing_pc_index_2, 31 },
             { C::bc_hashing_sel_not_padding_1, 1 },
@@ -286,7 +273,6 @@ TEST_F(BytecodeHashingConstrainingTest, BytecodeInteractions)
         perm_builder(C::bc_decomposition_sel_packed);
     perm_builder.process(trace);
 
-    check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_check_final_bytes_remaining_settings>(trace);
     check_multipermutation_interaction<BytecodeTraceBuilder,
                                        perm_bc_hashing_get_packed_field_0_settings,
                                        perm_bc_hashing_get_packed_field_1_settings,
@@ -338,12 +324,16 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeInvalidPCIncrement)
         },
         trace);
     check_relation<bc_hashing>(trace, bc_hashing::SR_PC_INCREMENTS);
+    check_relation<bc_hashing>(trace, bc_hashing::SR_PC_INCREMENTS_1);
+    check_relation<bc_hashing>(trace, bc_hashing::SR_PC_INCREMENTS_2);
 
     // This is the last row of the bytecode hashing, pc_index should be 62
     trace.set(Column::bc_hashing_pc_index, 2, 10);
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PC_INCREMENTS), "PC_INCREMENTS");
-    // The next pc_index should be 93 = pc_index + 31
+    trace.set(Column::bc_hashing_pc_index, 2, 62);
+    trace.set(Column::bc_hashing_pc_index_1, 2, 97);
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PC_INCREMENTS_1), "PC_INCREMENTS_1");
+    trace.set(Column::bc_hashing_pc_index_1, 2, 93);
     // The next pc_index should be 124 = pc_index_1 + 31
     check_relation<bc_hashing>(trace, bc_hashing::SR_PC_INCREMENTS_2);
     trace.set(Column::bc_hashing_pc_index_2, 2, 10);
@@ -475,21 +465,19 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingUnder)
     // We cannot claim there is only one padding field:
     trace.set(Column::bc_hashing_sel_not_padding_1, 2, 1);
     // This will initially fail, because pc_at_final_field does not correspond to the pc at field 1...
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PADDING_CORRECTNESS),
-                              "PADDING_CORRECTNESS");
-    // ...setting it to that of field 2 will force the relation to pass...
-    trace.set(Column::bc_hashing_pc_at_final_field, 2, 93);
-    check_relation<bc_hashing>(trace, bc_hashing::SR_PADDING_CORRECTNESS);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PADDING_COMPUTATION),
+                              "PADDING_COMPUTATION");
+    // ...setting it to that padding = 1 and input_len = 5 will make all relations to pass...
+    trace.set(Column::bc_hashing_padding, 2, 1);
+    trace.set(Column::bc_hashing_padding, 1, 1);
+    trace.set(Column::bc_hashing_input_len, 1, 5);
+    check_relation<bc_hashing>(trace);
     // ...but the lookup to find field 1 will fail...
     EXPECT_THROW_WITH_MESSAGE((check_multipermutation_interaction<BytecodeTraceBuilder,
                                                                   perm_bc_hashing_get_packed_field_0_settings,
                                                                   perm_bc_hashing_get_packed_field_1_settings,
                                                                   perm_bc_hashing_get_packed_field_2_settings>(trace)),
                               "Failed.*GET_PACKED_FIELD_1. Could not find tuple in destination.");
-    // ...and the lookup to check the final field against bytes remaining will fail:
-    EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_check_final_bytes_remaining_settings>(trace)),
-        "Failed.*CHECK_FINAL_BYTES_REMAINING. Could not find tuple in destination.");
 }
 
 TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingOver)
@@ -497,22 +485,37 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingOver)
     // 100 bytes => hash 5 fields, one padding field
     std::vector<uint8_t> bytecode = random_bytes(100);
     std::vector<FF> fields = simulation::encode_bytecode(bytecode);
+    std::vector<FF> prepended_fields = { compute_public_bytecode_first_field(bytecode.size()) };
+    prepended_fields.insert(prepended_fields.end(), fields.begin(), fields.end());
+    FF hash = RawPoseidon2::hash(prepended_fields);
 
-    TestTraceContainer trace = process_bc_hashing_trace({ fields }, { 1 }, { bytecode.size() });
+    TestTraceContainer trace = process_bc_hashing_trace({ fields }, { hash }, { bytecode.size() });
     builder.process_decomposition(
-        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
+        { { .bytecode_id = hash, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
 
     // Row = 2 constrains the hashing for the last fields of the bytecode, plus 1 padding field
     // We cannot claim there are two padding fields (to attempt to skip processing the last bytecode field):
     trace.set(Column::bc_hashing_sel_not_padding_1, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PADDED_BY_ZERO_1), "PADDED_BY_ZERO_1");
-    // If we incorrectly set packed_fields_1 to 0 and pc_at_final_field to pc_index_1...
+    // Padding computation will fail:
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PADDING_COMPUTATION),
+                              "PADDING_COMPUTATION");
+    // ...setting it to that padding = 2, set fields_1 ==0, and input_len = 4 will make all relations to pass...
+    trace.set(Column::bc_hashing_padding, 2, 2);
+    trace.set(Column::bc_hashing_padding, 1, 2);
     trace.set(Column::bc_hashing_packed_fields_1, 2, 0);
-    trace.set(Column::bc_hashing_pc_at_final_field, 2, 62);
-    // ...then the lookup into decomp will fail (bytes_remaining > 31):
+    trace.set(Column::bc_hashing_input_len, 1, 4);
+    check_relation<bc_hashing>(trace);
+
+    // The multipermutation interaction will pass but a multipermutation selector `sel_packed_read[1]` will be
+    // untoggled, which will fail the #[PACKED_ROW_NEEDS_PERM_SELECTOR] (in bc_decomposition.pil) constraint.
+    check_multipermutation_interaction<BytecodeTraceBuilder,
+                                       perm_bc_hashing_get_packed_field_0_settings,
+                                       perm_bc_hashing_get_packed_field_1_settings,
+                                       perm_bc_hashing_get_packed_field_2_settings>(trace);
+
     EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_check_final_bytes_remaining_settings>(trace)),
-        "Failed.*CHECK_FINAL_BYTES_REMAINING. Could not find tuple in destination.");
+        check_relation<bc_decomposition>(trace, bc_decomposition::SR_PACKED_ROW_NEEDS_PERM_SELECTOR),
+        "PACKED_ROW_NEEDS_PERM_SELECTOR");
 }
 
 TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeInputLen)
@@ -533,8 +536,8 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeInputLen)
 
     trace.set(Column::bc_hashing_input_len, 1, 4);
 
-    // Set the incorrect input_len at the final row, and the constraining length check will fail:
-    trace.set(Column::bc_hashing_input_len, 2, 0);
+    // Set the incorrect input_len at the start row, and the constraining length check will fail:
+    trace.set(Column::bc_hashing_input_len, 1, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_BYTECODE_LENGTH_FIELDS),
                               "BYTECODE_LENGTH_FIELDS");
 }
@@ -581,8 +584,8 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashIncrements)
     Poseidon2 poseidon2 =
         Poseidon2(mock_execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
     // Attempt to skip some init fields:
-    // decomp: 3 fields 1, 2, 3 => real hash [ sep, 1, 2, 3 ] => try and claim hash [ sep, 2, 3 ] => start = 1, pc_index
-    // = 31. Note that this is protected by the addition of precomputed.first_row in #[PC_INCREMENTS]
+    // decomp: 3 fields 1, 2, 3 => real hash [ sep, 1, 2, 3 ] => try and claim hash [ sep, 2, 3 ] => start = 1,
+    // pc_index = 31. Note that this is protected by the addition of precomputed.first_row in #[PC_INCREMENTS]
     std::vector<uint8_t> bytecode = random_bytes(static_cast<size_t>(31 * 3));
     std::vector<FF> bytecode_fields = simulation::encode_bytecode(bytecode);
 
@@ -597,7 +600,6 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashIncrements)
             { C::bc_hashing_packed_fields_0, sep },
             { C::bc_hashing_packed_fields_1, bytecode_fields[1] },
             { C::bc_hashing_packed_fields_2, bytecode_fields[2] },
-            { C::bc_hashing_pc_at_final_field, 62 },
             { C::bc_hashing_pc_index_1, 31 },
             { C::bc_hashing_pc_index_2, 62 },
             { C::bc_hashing_sel_not_padding_1, 1 },
@@ -656,7 +658,6 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashLength)
             { C::bc_hashing_packed_fields_0, bytecode_fields[2] },
             { C::bc_hashing_packed_fields_1, 0 },
             { C::bc_hashing_packed_fields_2, 0 },
-            { C::bc_hashing_pc_at_final_field, 62 },
             { C::bc_hashing_pc_index_1, 93 },
             { C::bc_hashing_pc_index_2, 124 },
             { C::bc_hashing_bytecode_id, 1 },
@@ -688,8 +689,8 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashLengthBytes)
     Poseidon2 poseidon2 =
         Poseidon2(mock_execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
     // Attempt to extend the bytecode by zero value bytes (without requiring a new field)
-    // bc: 0xa...f of size 90 => real hash [ (90|sep), 0xa.., .., 0xf000000 ] => try and claim bc = 0xa...f0000 of size
-    // 92 with hash [ (92|sep), 0xa.., .., 0xf000000 ]
+    // bc: 0xa...f of size 90 => real hash [ (90|sep), 0xa.., .., 0xf000000 ] => try and claim bc = 0xa...f0000 of
+    // size 92 with hash [ (92|sep), 0xa.., .., 0xf000000 ]
     std::vector<uint8_t> bytecode = random_bytes(static_cast<size_t>(90));
     std::vector<FF> bytecode_fields = simulation::encode_bytecode(bytecode);
 
@@ -713,6 +714,7 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashLengthBytes)
             { C::bc_hashing_output_hash, bad_hash },
             { C::bc_hashing_pc_index, 0 },
             { C::bc_hashing_rounds_rem, 2 },
+            { C::bc_hashing_padding, 2 },
             { C::bc_hashing_sel, 1 },
             { C::bc_hashing_start, 1 },
         },
@@ -722,7 +724,6 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashLengthBytes)
             { C::bc_hashing_packed_fields_0, bytecode_fields[2] },
             { C::bc_hashing_packed_fields_1, 0 },
             { C::bc_hashing_packed_fields_2, 0 },
-            { C::bc_hashing_pc_at_final_field, 62 },
             { C::bc_hashing_pc_index_1, 93 },
             { C::bc_hashing_pc_index_2, 124 },
             { C::bc_hashing_bytecode_id, 1 },
@@ -788,7 +789,6 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashOutputConsiste
             { C::bc_hashing_packed_fields_0, bytecode_fields[2] },
             { C::bc_hashing_packed_fields_1, bytecode_fields[3] },
             { C::bc_hashing_packed_fields_2, bytecode_fields[4] },
-            { C::bc_hashing_pc_at_final_field, 124 },
             { C::bc_hashing_pc_index_1, 93 },
             { C::bc_hashing_pc_index_2, 124 },
             { C::bc_hashing_sel_not_padding_1, 1 },
@@ -806,17 +806,14 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashOutputConsiste
     builder.process_decomposition(
         { { .bytecode_id = good_hash, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
 
-    // The 'correct' rows (for input chunks [sep, 1, 2] and [3, 4, 5]) will exist in the poseidon trace, so the lookups
-    // will pass...
+    // The 'correct' rows (for input chunks [sep, 1, 2] and [3, 4, 5]) will exist in the poseidon trace, so the
+    // lookups will pass...
     check_all_interactions<BytecodeTraceBuilder>(trace);
     // ...but the hash check will fail:
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_HASH_IS_ID), "HASH_IS_ID");
     // Changing the id to match will fail the lookup into decomposition, and the propagation check:
     trace.set(Column::bc_hashing_bytecode_id, 2, bad_hash);
     check_relation<bc_hashing>(trace, bc_hashing::SR_HASH_IS_ID);
-    EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_check_final_bytes_remaining_settings>(trace)),
-        "Failed.*CHECK_FINAL_BYTES_REMAINING. Could not find tuple in destination.");
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_ID_PROPAGATION), "ID_PROPAGATION");
 }
 // =====================================================================
