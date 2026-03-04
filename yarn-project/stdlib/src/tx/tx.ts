@@ -1,8 +1,9 @@
+import { DA_GAS_PER_FIELD, TX_DA_GAS_OVERHEAD } from '@aztec/constants';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
-import type { FieldsOf } from '@aztec/foundation/types';
+import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
@@ -264,16 +265,24 @@ export class Tx extends Gossipable {
   }
 
   /**
-   * Estimates the tx size based on its private effects. Note that the actual size of the tx
-   * after processing will probably be larger, as public execution would generate more data.
+   * Returns the number of fields this tx's effects will occupy in the blob,
+   * based on its private side effects only. Accurate for txs without public calls.
+   * For txs with public calls, the actual size will be larger due to public execution outputs.
    */
-  getEstimatedPrivateTxEffectsSize() {
-    return (
-      this.data.getNonEmptyNoteHashes().length * Fr.SIZE_IN_BYTES +
-      this.data.getNonEmptyNullifiers().length * Fr.SIZE_IN_BYTES +
-      this.data.getEmittedPrivateLogsLength() * Fr.SIZE_IN_BYTES +
-      this.data.getEmittedContractClassLogsLength() * Fr.SIZE_IN_BYTES
-    );
+  getPrivateTxEffectsSizeInFields(): number {
+    // 3 fields overhead: tx_start_marker, tx_hash, tx_fee.
+    // TX_DA_GAS_OVERHEAD is defined as N * DA_GAS_PER_FIELD, so this division is always exact.
+    const overheadFields = TX_DA_GAS_OVERHEAD / DA_GAS_PER_FIELD;
+    const noteHashes = this.data.getNonEmptyNoteHashes().length;
+    const nullifiers = this.data.getNonEmptyNullifiers().length;
+    const l2ToL1Msgs = this.data.getNonEmptyL2ToL1Msgs().length;
+    // Each private log occupies (emittedLength + 1) fields: content + length field
+    const privateLogFields = this.data.getNonEmptyPrivateLogs().reduce((acc, log) => acc + log.emittedLength + 1, 0);
+    // Each contract class log occupies (length + 1) fields: content + contract address
+    const contractClassLogFields = this.data
+      .getNonEmptyContractClassLogsHashes()
+      .reduce((acc, log) => acc + log.logHash.length + 1, 0);
+    return overheadFields + noteHashes + nullifiers + l2ToL1Msgs + privateLogFields + contractClassLogFields;
   }
 
   /**
@@ -309,7 +318,7 @@ export class Tx extends Gossipable {
 
   /** Recomputes the tx hash. Used for testing purposes only when a property of the tx was mutated. */
   public async recomputeHash(): Promise<TxHash> {
-    (this as any).txHash = await Tx.computeTxHash(this);
+    unfreeze(this).txHash = await Tx.computeTxHash(this);
     return this.txHash;
   }
 

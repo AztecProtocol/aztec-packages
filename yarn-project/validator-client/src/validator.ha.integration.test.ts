@@ -90,6 +90,7 @@ describe('ValidatorClient HA Integration', () => {
       slotDuration: 24,
       l1ChainId: 1,
       rollupVersion: 1,
+      rollupManaLimit: 200_000_000,
     });
     worldState = mock<WorldStateSynchronizer>();
     epochCache = mock<EpochCache>();
@@ -192,6 +193,7 @@ describe('ValidatorClient HA Integration', () => {
     const metrics = new ValidatorMetrics(getTelemetryClient());
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
       txsPermitted: true,
+      maxTxsPerBlock: undefined,
     });
     const blockProposalHandler = new BlockProposalHandler(
       checkpointsBuilder,

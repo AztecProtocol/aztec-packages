@@ -5,9 +5,7 @@ import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-reg
 import { ContractInstancePublishedEvent } from '@aztec/protocol-contracts/instance-registry';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2Block } from '@aztec/stdlib/block';
-import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { ContractClassLog, PrivateLog } from '@aztec/stdlib/logs';
-import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import '@aztec/stdlib/testing/jest';
 
 import { readFileSync } from 'fs';
@@ -15,7 +13,7 @@ import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 import { KVArchiverDataStore } from '../store/kv_archiver_store.js';
-import { makePublishedCheckpoint } from '../test/mock_structs.js';
+import { makeCheckpoint, makePublishedCheckpoint } from '../test/mock_structs.js';
 import { ArchiverDataStoreUpdater } from './data_store_updater.js';
 
 /** Loads the sample ContractClassPublished event payload from protocol-contracts fixtures. */
@@ -110,12 +108,7 @@ describe('ArchiverDataStoreUpdater', () => {
       // Make sure it has a different archive root (which it will by default from random)
       expect(conflictingBlock.archive.root.equals(localBlock.archive.root)).toBe(false);
 
-      const checkpointWithConflict = new Checkpoint(
-        conflictingBlock.archive,
-        CheckpointHeader.random({ slotNumber: SlotNumber(100) }),
-        [conflictingBlock],
-        CheckpointNumber(1),
-      );
+      const checkpointWithConflict = makeCheckpoint([conflictingBlock]);
       const publishedCheckpoint = makePublishedCheckpoint(checkpointWithConflict, 10);
 
       // This should detect the conflict and prune the local block
@@ -135,8 +128,7 @@ describe('ArchiverDataStoreUpdater', () => {
       block.body.txEffects[0].contractClassLogs = [contractClassLog];
       block.body.txEffects[0].privateLogs = [PrivateLog.fromBuffer(getSampleContractInstancePublishedEventPayload())];
 
-      const checkpoint = new Checkpoint(block.archive, CheckpointHeader.random(), [block], CheckpointNumber(1));
-      const publishedCheckpoint = makePublishedCheckpoint(checkpoint, 10);
+      const publishedCheckpoint = makePublishedCheckpoint(makeCheckpoint([block]), 10);
 
       await updater.addCheckpoints([publishedCheckpoint]);
 
@@ -166,8 +158,7 @@ describe('ArchiverDataStoreUpdater', () => {
       await updater.addProposedBlocks([block]);
 
       // Create checkpoint with the SAME block (same archive root)
-      const checkpoint = new Checkpoint(block.archive, CheckpointHeader.random(), [block], CheckpointNumber(1));
-      const publishedCheckpoint = makePublishedCheckpoint(checkpoint, 10);
+      const publishedCheckpoint = makePublishedCheckpoint(makeCheckpoint([block]), 10);
 
       await updater.addCheckpoints([publishedCheckpoint]);
 
@@ -196,13 +187,7 @@ describe('ArchiverDataStoreUpdater', () => {
       });
       expect(checkpointBlock.archive.root.equals(localBlock.archive.root)).toBe(false);
 
-      const checkpoint = new Checkpoint(
-        checkpointBlock.archive,
-        CheckpointHeader.random({ slotNumber: SlotNumber(100) }),
-        [checkpointBlock],
-        CheckpointNumber(1),
-      );
-      await updater.addCheckpoints([makePublishedCheckpoint(checkpoint, 10)]);
+      await updater.addCheckpoints([makePublishedCheckpoint(makeCheckpoint([checkpointBlock]), 10)]);
 
       // Verify checkpoint block is stored
       const storedBlock = await store.getBlock(BlockNumber(1));

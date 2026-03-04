@@ -271,10 +271,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     config.l1Contracts = { ...config.l1Contracts, ...l1ContractsAddresses };
 
     const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
-    const [l1GenesisTime, slotDuration, rollupVersionFromRollup] = await Promise.all([
+    const [l1GenesisTime, slotDuration, rollupVersionFromRollup, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
       rollupContract.getVersion(),
+      rollupContract.getManaLimit().then(Number),
     ] as const);
 
     config.rollupVersion ??= Number(rollupVersionFromRollup);
@@ -342,15 +343,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       deps.p2pClientDeps,
     );
 
-    // We should really not be modifying the config object
-    config.txPublicSetupAllowList = config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
-
     // We'll accumulate sentinel watchers here
     const watchers: Watcher[] = [];
 
     // Create FullNodeCheckpointsBuilder for block proposal handling and tx validation
     const validatorCheckpointsBuilder = new FullNodeCheckpointsBuilder(
-      { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
+      { ...config, l1GenesisTime, slotDuration: Number(slotDuration), rollupManaLimit },
       worldStateSynchronizer,
       archiver,
       dateProvider,
@@ -489,7 +487,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
       // Create and start the sequencer client
       const checkpointsBuilder = new CheckpointsBuilder(
-        { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
+        { ...config, l1GenesisTime, slotDuration: Number(slotDuration), rollupManaLimit },
         worldStateSynchronizer,
         archiver,
         dateProvider,
@@ -620,7 +618,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getAllowedPublicSetup(): Promise<AllowedElement[]> {
-    return this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
+    return [...(await getDefaultAllowedSetupFunctions()), ...(this.config.txPublicSetupAllowListExtend ?? [])];
   }
 
   /**
@@ -1281,7 +1279,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config);
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
-      const [processedTxs, failedTxs, _usedTxs, returns, _blobFields, debugLogs] = await processor.process([tx]);
+      const [processedTxs, failedTxs, _usedTxs, returns, debugLogs] = await processor.process([tx]);
       // REFACTOR: Consider returning the error rather than throwing
       if (failedTxs.length) {
         this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
@@ -1321,7 +1319,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         blockNumber,
         l1ChainId: this.l1ChainId,
         rollupVersion: this.version,
-        setupAllowList: this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions()),
+        setupAllowList: [
+          ...(await getDefaultAllowedSetupFunctions()),
+          ...(this.config.txPublicSetupAllowListExtend ?? []),
+        ],
         gasFees: await this.getCurrentMinFees(),
         skipFeeEnforcement,
         txsPermitted: !this.config.disableTransactions,
