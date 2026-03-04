@@ -1,8 +1,23 @@
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { FunctionSelector } from '@aztec/stdlib/abi';
+import { AuthRegistryArtifact } from '@aztec/protocol-contracts/auth-registry';
+import { FeeJuiceArtifact } from '@aztec/protocol-contracts/fee-juice';
+import { FunctionSelector, countArgumentsSize } from '@aztec/stdlib/abi';
+import type { ContractArtifact, FunctionAbi } from '@aztec/stdlib/abi';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
+
+/** Returns the expected calldata length for a function: 1 (selector) + arguments size. */
+function getCalldataLength(artifact: ContractArtifact, functionName: string): number {
+  const allFunctions: FunctionAbi[] = (artifact.functions as FunctionAbi[]).concat(
+    artifact.nonDispatchPublicFunctions || [],
+  );
+  const fn = allFunctions.find(f => f.name === functionName);
+  if (!fn) {
+    throw new Error(`Unknown function ${functionName} in artifact ${artifact.name}`);
+  }
+  return 1 + countArgumentsSize(fn);
+}
 
 let defaultAllowedSetupFunctions: AllowedElement[] | undefined;
 
@@ -22,6 +37,7 @@ export async function getDefaultAllowedSetupFunctions(): Promise<AllowedElement[
       {
         address: ProtocolContractAddress.AuthRegistry,
         selector: setAuthorizedInternalSelector,
+        calldataLength: getCalldataLength(AuthRegistryArtifact, '_set_authorized'),
         onlySelf: true,
         rejectNullMsgSender: true,
       },
@@ -29,24 +45,28 @@ export async function getDefaultAllowedSetupFunctions(): Promise<AllowedElement[
       {
         address: ProtocolContractAddress.AuthRegistry,
         selector: setAuthorizedSelector,
+        calldataLength: getCalldataLength(AuthRegistryArtifact, 'set_authorized'),
         rejectNullMsgSender: true,
       },
       // FeeJuice: needed for claiming on the same tx as a spend (claim_and_end_setup enqueues this)
       {
         address: ProtocolContractAddress.FeeJuice,
         selector: increaseBalanceSelector,
+        calldataLength: getCalldataLength(FeeJuiceArtifact, '_increase_public_balance'),
         onlySelf: true,
       },
       // Token: needed for private transfers via FPC (transfer_to_public enqueues this)
       {
         classId: tokenClassId,
         selector: increaseBalanceSelector,
+        calldataLength: getCalldataLength(TokenContractArtifact, '_increase_public_balance'),
         onlySelf: true,
       },
       // Token: needed for public transfers via FPC (fee_entrypoint_public enqueues this)
       {
         classId: tokenClassId,
         selector: transferInPublicSelector,
+        calldataLength: getCalldataLength(TokenContractArtifact, 'transfer_in_public'),
       },
     ];
   }

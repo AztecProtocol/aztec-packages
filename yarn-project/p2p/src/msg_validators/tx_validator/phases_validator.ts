@@ -11,6 +11,7 @@ import {
   TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT,
   TX_ERROR_SETUP_NULL_MSG_SENDER,
   TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER,
+  TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH,
   Tx,
   TxExecutionPhase,
   type TxValidationResult,
@@ -88,6 +89,9 @@ export class PhasesTxValidator implements TxValidator<Tx> {
     for (const entry of allowList) {
       if ('address' in entry) {
         if (contractAddress.equals(entry.address) && entry.selector.equals(functionSelector)) {
+          if (entry.calldataLength !== undefined && publicCall.calldata.length !== entry.calldataLength) {
+            return TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH;
+          }
           if (entry.onlySelf && !publicCall.request.msgSender.equals(contractAddress)) {
             return TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER;
           }
@@ -118,6 +122,9 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       }
 
       if (contractClassId.value === entry.classId.toString() && entry.selector.equals(functionSelector)) {
+        if (entry.calldataLength !== undefined && publicCall.calldata.length !== entry.calldataLength) {
+          return TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH;
+        }
         if (entry.onlySelf && !publicCall.request.msgSender.equals(contractAddress)) {
           return TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER;
         }
