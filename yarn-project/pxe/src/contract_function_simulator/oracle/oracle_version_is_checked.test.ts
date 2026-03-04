@@ -41,8 +41,8 @@ describe('Oracle Version Check test suite', () => {
   let acirSimulator: ContractFunctionSimulator;
   let contractAddress: AztecAddress;
   let anchorBlockHeader: BlockHeader;
-  let utilityAssertCompatibleOracleVersionSpy: jest.SpiedFunction<
-    typeof UtilityExecutionOracle.prototype.utilityAssertCompatibleOracleVersion
+  let assertCompatibleOracleVersionSpy: jest.SpiedFunction<
+    typeof UtilityExecutionOracle.prototype.assertCompatibleOracleVersion
   >;
 
   beforeEach(async () => {
@@ -57,11 +57,8 @@ describe('Oracle Version Check test suite', () => {
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
-    utilityAssertCompatibleOracleVersionSpy = jest.spyOn(
-      UtilityExecutionOracle.prototype,
-      'utilityAssertCompatibleOracleVersion',
-    );
-    utilityAssertCompatibleOracleVersionSpy.mockClear();
+    assertCompatibleOracleVersionSpy = jest.spyOn(UtilityExecutionOracle.prototype, 'assertCompatibleOracleVersion');
+    assertCompatibleOracleVersionSpy.mockClear();
 
     aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
     anchorBlockHeader = BlockHeader.random();
@@ -107,7 +104,7 @@ describe('Oracle Version Check test suite', () => {
   });
 
   describe('private function execution', () => {
-    it('should call utilityAssertCompatibleOracleVersion oracle when private function is called', async () => {
+    it('should call assertCompatibleOracleVersion oracle when private function is called', async () => {
       // Load the artifact of the OracleVersionCheck::private_function contract function and set up the relevant oracle handler
       const privateFunctionArtifact = {
         ...OracleVersionCheckContractArtifact.functions.find(f => f.name === 'private_function')!,
@@ -149,12 +146,12 @@ describe('Oracle Version Check test suite', () => {
         scopes: 'ALL_SCOPES',
       });
 
-      expect(utilityAssertCompatibleOracleVersionSpy).toHaveBeenCalledTimes(1);
+      expect(assertCompatibleOracleVersionSpy).toHaveBeenCalledTimes(1);
     }, 30_000);
   });
 
   describe('utility function execution', () => {
-    it('should call utilityAssertCompatibleOracleVersion oracle when utility function is called', async () => {
+    it('should call assertCompatibleOracleVersion oracle when utility function is called', async () => {
       // Load the artifact of the OracleVersionCheck::utility_function contract function and set up the relevant oracle
       // handler
       const utilityFunctionArtifact = {
@@ -178,7 +175,7 @@ describe('Oracle Version Check test suite', () => {
       // Call the utility function
       await acirSimulator.runUtility(execRequest, [], anchorBlockHeader, [], 'test');
 
-      expect(utilityAssertCompatibleOracleVersionSpy).toHaveBeenCalledTimes(1);
+      expect(assertCompatibleOracleVersionSpy).toHaveBeenCalledTimes(1);
     }, 30_000);
   });
 });
