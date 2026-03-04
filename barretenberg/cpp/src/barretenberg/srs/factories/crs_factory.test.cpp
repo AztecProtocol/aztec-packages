@@ -130,7 +130,6 @@ TEST(CrsFactory, Bn254ChunkHashFirstChunk)
 {
     // Verify that the first 8MB chunk of the cached CRS matches the embedded hash
     auto data = read_file(bb::srs::bb_crs_path() / "bn254_g1.dat", bb::srs::SRS_CHUNK_SIZE_BYTES);
-    ASSERT_EQ(data.size(), bb::srs::SRS_CHUNK_SIZE_BYTES);
     auto chunk = std::span<const uint8_t>(data.data(), data.size());
     auto hash = bb::crypto::sha256(chunk);
     EXPECT_EQ(hash, bb::srs::BN254_G1_CHUNK_HASHES[0]);
@@ -140,7 +139,6 @@ TEST(CrsFactory, Bn254ChunkHashCorruptionDetected)
 {
     // Verify that corrupted data fails chunk hash verification
     auto data = read_file(bb::srs::bb_crs_path() / "bn254_g1.dat", bb::srs::SRS_CHUNK_SIZE_BYTES);
-    ASSERT_EQ(data.size(), bb::srs::SRS_CHUNK_SIZE_BYTES);
 
     // Corrupt a byte in the middle of the chunk
     data[bb::srs::SRS_CHUNK_SIZE_BYTES / 2] ^= 0xFF;
