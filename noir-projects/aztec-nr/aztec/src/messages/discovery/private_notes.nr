@@ -75,7 +75,18 @@ pub unconstrained fn attempt_note_discovery(
         packed_note,
     );
 
-    aztecnr_debug_log_format!("Discovered {0} notes from a private message")([discovered_notes.len() as Field]);
+    if discovered_notes.len() == 0 {
+        // A successfully decrypted message that results in no discovered notes means none of the computed note hashes
+        // matched any unique note hash in the transaction. This could indicate a malformed or malicious message (e.g.
+        // a sender providing bogus note content).
+        aztecnr_warn_log_format!(
+            "Discarding private note message from tx {0}: no matching note hash found in the tx",
+        )(
+            [tx_hash],
+        );
+    } else {
+        aztecnr_debug_log_format!("Discovered {0} notes from a private message")([discovered_notes.len() as Field]);
+    }
 
     discovered_notes.for_each(|discovered_note| {
         enqueue_note_for_validation(
