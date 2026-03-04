@@ -438,6 +438,76 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
                                                      const Fq& previous_accumulator,
                                                      const Fq& batching_challenge_v,
                                                      const Fq& evaluation_input_x);
+
+  private:
+    /**
+     * @brief Convert a uint512_t value into its 4 68-bit limbs as Fr scalars.
+     */
+    static std::array<Fr, NUM_BINARY_LIMBS> uint512_t_to_limbs(const uint512_t& original)
+    {
+        return { Fr(original.slice(0, NUM_LIMB_BITS).lo),
+                 Fr(original.slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS).lo),
+                 Fr(original.slice(2 * NUM_LIMB_BITS, 3 * NUM_LIMB_BITS).lo),
+                 Fr(original.slice(3 * NUM_LIMB_BITS, 4 * NUM_LIMB_BITS).lo) };
+    }
+
+    /**
+     * @brief Split a 136-bit Fr value (wide limb) into two 68-bit limbs.
+     */
+    static std::array<Fr, NUM_Z_LIMBS> split_wide_limb_into_2_limbs(const Fr& wide_limb)
+    {
+        return { Fr(uint256_t(wide_limb).slice(0, NUM_LIMB_BITS)),
+                 Fr(uint256_t(wide_limb).slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS)) };
+    }
+
+    /**
+     * @brief Split a limb of arbitrary bit size into 14-bit micro-limbs for range constraints.
+     */
+    static std::array<Fr, NUM_MICRO_LIMBS> split_limb_into_microlimbs(const Fr& limb, size_t num_bits);
+
+    /**
+     * @brief Assert that all standard limbs are < 2^68 and the last limb is < MAX_LAST_LIMB.
+     */
+    template <size_t total_limbs>
+    static void check_binary_limbs_maximum_values(const std::array<Fr, total_limbs>& limbs,
+                                                  const uint256_t& MAX_LAST_LIMB = (uint256_t(1) << NUM_LAST_LIMB_BITS))
+    {
+        for (size_t i = 0; i < total_limbs - 1; i++) {
+            BB_ASSERT_LT(uint256_t(limbs[i]), SHIFT_1);
+        }
+        BB_ASSERT_LT(uint256_t(limbs[total_limbs - 1]), MAX_LAST_LIMB);
+    }
+
+    /**
+     * @brief Assert that all micro-limbs are < 2^14.
+     */
+    template <size_t binary_limb_count, size_t micro_limb_count>
+    static void check_micro_limbs_maximum_values(
+        const std::array<std::array<Fr, micro_limb_count>, binary_limb_count>& limbs)
+    {
+        for (size_t i = 0; i < binary_limb_count; i++) {
+            for (size_t j = 0; j < micro_limb_count; j++) {
+                BB_ASSERT_LT(uint256_t(limbs[i][j]), MICRO_SHIFT);
+            }
+        }
+    }
+
+    /**
+     * @brief Place array_size Fr values into consecutive wire slots starting at starting_wire.
+     */
+    template <size_t array_size> void lay_limbs_in_row(std::array<Fr, array_size> input, WireIds starting_wire)
+    {
+        size_t wire_index = starting_wire;
+        for (auto element : input) {
+            wires[wire_index].push_back(add_variable(element));
+            wire_index++;
+        }
+    }
+
+    /**
+     * @brief Populate wires for a random op (op wire filled, all other wires zero-filled).
+     */
+    void process_random_op(const UltraOp& ultra_op);
 };
 
 } // namespace bb

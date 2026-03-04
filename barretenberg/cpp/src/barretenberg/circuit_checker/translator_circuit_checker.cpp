@@ -9,58 +9,31 @@
 
 namespace bb {
 
-TranslatorCircuitChecker::RelationInputs TranslatorCircuitChecker::compute_relation_inputs_limbs(
-    const Fq& batching_challenge_v, const Fq& evaluation_input_x)
-{
-    Fq v_squared = batching_challenge_v * batching_challenge_v;
-    Fq v_cubed = v_squared * batching_challenge_v;
-    Fq v_quarted = v_cubed * batching_challenge_v;
-    return RelationInputs{
-        .x_limbs = Builder::split_fq_into_limbs(evaluation_input_x),
-        .v_limbs = Builder::split_fq_into_limbs(batching_challenge_v),
-        .v_squared_limbs = Builder::split_fq_into_limbs(v_squared),
-        .v_cubed_limbs = Builder::split_fq_into_limbs(v_cubed),
-        .v_quarted_limbs = Builder::split_fq_into_limbs(v_quarted),
-    };
-}
-
 TranslatorCircuitChecker::Params TranslatorCircuitChecker::compute_relation_params(const Builder& circuit)
 {
     Params params;
 
-    // Compute decomposed limbs for evaluation_input_x and powers of batching_challenge_v
-    RelationInputs inputs = compute_relation_inputs_limbs(circuit.batching_challenge_v, circuit.evaluation_input_x);
+    const Fq v = circuit.batching_challenge_v;
+    const Fq v2 = v * v;
+    const Fq v3 = v2 * v;
+    const Fq v4 = v3 * v;
+
+    const auto x_limbs = Builder::split_fq_into_limbs(circuit.evaluation_input_x);
+    const auto v_limbs = Builder::split_fq_into_limbs(v);
+    const auto v2_limbs = Builder::split_fq_into_limbs(v2);
+    const auto v3_limbs = Builder::split_fq_into_limbs(v3);
+    const auto v4_limbs = Builder::split_fq_into_limbs(v4);
 
     // evaluation_input_x: 4 binary limbs + 1 native Fr representation
-    params.evaluation_input_x = { inputs.x_limbs[0],
-                                  inputs.x_limbs[1],
-                                  inputs.x_limbs[2],
-                                  inputs.x_limbs[3],
-                                  Fr(uint256_t(circuit.evaluation_input_x)) };
+    params.evaluation_input_x = {
+        x_limbs[0], x_limbs[1], x_limbs[2], x_limbs[3], Fr(uint256_t(circuit.evaluation_input_x))
+    };
 
     // batching_challenge_v^1 through v^4: each has 4 binary limbs + 1 native Fr
-    Fq v = circuit.batching_challenge_v;
-    Fq v2 = v * v;
-    Fq v3 = v2 * v;
-    Fq v4 = v3 * v;
-    params.batching_challenge_v[0] = {
-        inputs.v_limbs[0], inputs.v_limbs[1], inputs.v_limbs[2], inputs.v_limbs[3], Fr(uint256_t(v))
-    };
-    params.batching_challenge_v[1] = { inputs.v_squared_limbs[0],
-                                       inputs.v_squared_limbs[1],
-                                       inputs.v_squared_limbs[2],
-                                       inputs.v_squared_limbs[3],
-                                       Fr(uint256_t(v2)) };
-    params.batching_challenge_v[2] = { inputs.v_cubed_limbs[0],
-                                       inputs.v_cubed_limbs[1],
-                                       inputs.v_cubed_limbs[2],
-                                       inputs.v_cubed_limbs[3],
-                                       Fr(uint256_t(v3)) };
-    params.batching_challenge_v[3] = { inputs.v_quarted_limbs[0],
-                                       inputs.v_quarted_limbs[1],
-                                       inputs.v_quarted_limbs[2],
-                                       inputs.v_quarted_limbs[3],
-                                       Fr(uint256_t(v4)) };
+    params.batching_challenge_v[0] = { v_limbs[0], v_limbs[1], v_limbs[2], v_limbs[3], Fr(uint256_t(v)) };
+    params.batching_challenge_v[1] = { v2_limbs[0], v2_limbs[1], v2_limbs[2], v2_limbs[3], Fr(uint256_t(v2)) };
+    params.batching_challenge_v[2] = { v3_limbs[0], v3_limbs[1], v3_limbs[2], v3_limbs[3], Fr(uint256_t(v3)) };
+    params.batching_challenge_v[3] = { v4_limbs[0], v4_limbs[1], v4_limbs[2], v4_limbs[3], Fr(uint256_t(v4)) };
 
     // accumulated_result: the 4 binary limbs stored at RESULT_ROW.
     // The AccumulatorTransferRelation verifies this matches the accumulator at the result row.
