@@ -165,8 +165,9 @@ pub comptime fn derive_serialize_if_not_implemented(s: TypeDefinition) -> Quoted
     }
 }
 
-/// Generates a quote that implements `Deserialize` for a given struct `s`. If the struct already implements
-/// `Deserialize`, we return an empty quote.
+/// Returns an `impl` for `Deserialize` if not already implemented.
+///
+/// The returned quote will be empty if the type `s` already implements `Deserialize`.
 pub comptime fn derive_deserialize_if_not_implemented(s: TypeDefinition) -> Quoted {
     if s.as_type().implements(quote { crate::protocol::traits::Deserialize }.as_trait_constraint()) {
         quote {}
