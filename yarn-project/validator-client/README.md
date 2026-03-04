@@ -259,7 +259,7 @@ Per-block budgets prevent one block from consuming the entire checkpoint budget.
 | `SEQ_MAX_DA_BLOCK_GAS` | *auto* | Per-block DA gas. Auto-derived from checkpoint DA limit / maxBlocks * multiplier. |
 | `SEQ_MAX_TX_PER_BLOCK` | *none* | Per-block tx count. If `SEQ_MAX_TX_PER_CHECKPOINT` is set and per-block is not, derived as `ceil(checkpointLimit / maxBlocks * multiplier)`. |
 | `SEQ_MAX_TX_PER_CHECKPOINT` | *none* | Total txs across all blocks in a checkpoint. When set, per-block tx limit is derived from it (unless explicitly overridden) and checkpoint-level capping is enforced. |
-| `SEQ_GAS_PER_BLOCK_ALLOCATION_MULTIPLIER` | 2 | Multiplier for per-block budget computation. |
+| `SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER` | 2 | Multiplier for per-block budget computation. |
 | `VALIDATOR_MAX_L2_BLOCK_GAS` | *none* | Per-block L2 gas limit for validation. Proposals exceeding this are rejected. |
 | `VALIDATOR_MAX_DA_BLOCK_GAS` | *none* | Per-block DA gas limit for validation. Proposals exceeding this are rejected. |
 | `VALIDATOR_MAX_TX_PER_BLOCK` | *none* | Per-block tx count limit for validation. Proposals exceeding this are rejected. |
