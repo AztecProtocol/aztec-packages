@@ -2,7 +2,7 @@
 title: "Bridge Your NFT to Aztec"
 sidebar_position: 1
 description: "Build a private NFT bridge between Ethereum and Aztec using custom notes, PrivateSet, and cross-chain messaging portals."
-references: ["docs/examples/tutorials/token_bridge_contract/*"]
+references: ["docs/examples/contracts/nft/*", "docs/examples/contracts/nft_bridge/*", "docs/examples/solidity/nft_bridge/*", "docs/examples/ts/token_bridge/*"]
 ---
 
 ## Why Bridge an NFT?
