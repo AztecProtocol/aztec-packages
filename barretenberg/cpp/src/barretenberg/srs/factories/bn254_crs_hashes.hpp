@@ -1,7 +1,9 @@
 #pragma once
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -292,10 +294,10 @@ inline const std::array<crypto::Sha256Hash, 257> BN254_CRS_CHUNK_HASHES = {{
  * @brief Verify downloaded CRS data against embedded SHA256 chunk hashes.
  *
  * @details Verifies the integrity of downloaded CRS data by checking SHA256 hashes
- * of each complete 8MB chunk. Only full chunks are verified — trailing data smaller
- * than the chunk size is not checked (the caller should validate the first elements
- * separately for small downloads). This provides integrity verification for CRS data
- * downloaded over HTTP without requiring SSL/TLS.
+ * of each complete 8MB chunk in parallel across available cores. Only full chunks are
+ * verified — trailing data smaller than the chunk size is not checked (the caller should
+ * validate the first elements separately for small downloads). This provides integrity
+ * verification for CRS data downloaded over HTTP without requiring SSL/TLS.
  *
  * @param data The downloaded CRS data bytes
  * @throws If any chunk hash does not match the expected value
@@ -305,16 +307,36 @@ inline void verify_bn254_crs_integrity(const std::vector<uint8_t>& data)
     // Only verify full chunks. Partial trailing data (< 8MB) is not checked here.
     size_t num_full_chunks = data.size() / CRS_HASH_CHUNK_SIZE;
     size_t chunks_to_verify = std::min(num_full_chunks, CRS_NUM_CHUNK_HASHES);
+    if (chunks_to_verify == 0) {
+        return;
+    }
 
-    for (size_t i = 0; i < chunks_to_verify; i++) {
-        size_t offset = i * CRS_HASH_CHUNK_SIZE;
-        auto chunk = std::span<const uint8_t>(data.data() + offset, CRS_HASH_CHUNK_SIZE);
-        auto hash = crypto::sha256(chunk);
-        if (hash != BN254_CRS_CHUNK_HASHES[i]) {
-            throw_or_abort("CRS integrity check failed: SHA256 mismatch at chunk " + std::to_string(i) +
-                           " (bytes " + std::to_string(offset) + "-" +
-                           std::to_string(offset + CRS_HASH_CHUNK_SIZE - 1) + ")");
+    // Track the first failing chunk index across threads.
+    std::atomic<size_t> failed_chunk{ chunks_to_verify }; // sentinel = no failure
+
+    parallel_for([&](const ThreadChunk& tc) {
+        for (size_t i : tc.range(chunks_to_verify)) {
+            // Early exit if another thread already found a mismatch.
+            if (failed_chunk.load(std::memory_order_relaxed) < chunks_to_verify) {
+                return;
+            }
+            size_t offset = i * CRS_HASH_CHUNK_SIZE;
+            auto chunk = std::span<const uint8_t>(data.data() + offset, CRS_HASH_CHUNK_SIZE);
+            auto hash = crypto::sha256(chunk);
+            if (hash != BN254_CRS_CHUNK_HASHES[i]) {
+                // Store the smallest failing index we see.
+                size_t expected = chunks_to_verify;
+                failed_chunk.compare_exchange_strong(expected, i, std::memory_order_relaxed);
+            }
         }
+    });
+
+    size_t bad = failed_chunk.load();
+    if (bad < chunks_to_verify) {
+        size_t offset = bad * CRS_HASH_CHUNK_SIZE;
+        throw_or_abort("CRS integrity check failed: SHA256 mismatch at chunk " + std::to_string(bad) +
+                       " (bytes " + std::to_string(offset) + "-" +
+                       std::to_string(offset + CRS_HASH_CHUNK_SIZE - 1) + ")");
     }
 }
 
