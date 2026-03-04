@@ -18,7 +18,6 @@ import {
   type L2TipsStore,
 } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { type PeerInfo, tryStop } from '@aztec/stdlib/interfaces/server';
 import { type BlockProposal, CheckpointAttestation, type CheckpointProposal, type TopicType } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
@@ -110,27 +109,6 @@ export class P2PClient extends WithTracer implements P2P {
       this.log.createChild('tx-provider'),
       this.telemetry,
     );
-
-    // Default to collecting all txs when we see a valid proposal
-    // This can be overridden by the validator client to validate, and it will call getTxsForBlockProposal on its own
-    // Note: Validators do NOT attest to individual blocks - attestations are only for checkpoint proposals.
-    // TODO(palla/txs): We should not trigger a request for txs on a proposal before fully validating it. We need to bring
-    // validator-client code into here so we can validate a proposal is reasonable.
-    this.registerBlockProposalHandler(async (block, sender) => {
-      this.log.debug(`Received block proposal from ${sender.toString()}`);
-      // TODO(palla/txs): Need to subtract validatorReexecuteDeadlineMs from this deadline (see ValidatorClient.getReexecutionDeadline)
-      const constants = this.txCollection.getConstants();
-      const nextSlotTimestampSeconds = Number(getTimestampForSlot(SlotNumber(block.slotNumber + 1), constants));
-      const deadline = new Date(nextSlotTimestampSeconds * 1000);
-      const parentBlock = await this.l2BlockSource.getBlockHeaderByArchive(block.blockHeader.lastArchive.root);
-      if (!parentBlock) {
-        this.log.debug(`Cannot collect txs for proposal as parent block not found`);
-        return false;
-      }
-      const blockNumber = BlockNumber(parentBlock.getBlockNumber() + 1);
-      await this.txProvider.getTxsForBlockProposal(block, blockNumber, { pinnedPeer: sender, deadline });
-      return true;
-    });
 
     this.l2Tips = new L2TipsKVStore(store, 'p2p_client');
     this.synchedLatestSlot = store.openSingleton('p2p_pool_last_l2_slot');
