@@ -248,8 +248,6 @@ The `simulateUtility` method and related types have been renamed to `executeUtil
 + let result = env.execute_utility(my_contract_address, selector);
 ```
 
-## 4.0.0-devnet.2-patch.0
-
 ### [Protocol] `include_by_timestamp` renamed to `expiration_timestamp`
 
 The `include_by_timestamp` field has been renamed to `expiration_timestamp` across the protocol to better convey its meaning.
@@ -507,6 +505,8 @@ For this reason we've created place holder protocol contracts in `noir-projects/
 On your side all you need to do is update the dependency in `Nargo.toml`:
 
 ```diff
+-auth_contract = { path = "../../protocol/auth_registry_contract" }
++auth_contract = { path = "../../protocol_interface/auth_registry_interface" }
 -instance_contract = { path = "../../protocol/contract_instance_registry" }
 +instance_contract = { path = "../../protocol_interface/contract_instance_registry_interface" }
 ```

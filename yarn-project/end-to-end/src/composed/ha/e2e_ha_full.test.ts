@@ -23,14 +23,10 @@ import { sleep } from '@aztec/foundation/sleep';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { type AttestationInfo, getAttestationInfoFromPublishedCheckpoint } from '@aztec/stdlib/block';
-import type { ValidatorClient } from '@aztec/validator-client';
 import { PostgresSlashingProtectionDatabase } from '@aztec/validator-ha-signer/db';
 import { type DutyRow, DutyStatus, DutyType } from '@aztec/validator-ha-signer/types';
 
 import { jest } from '@jest/globals';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { Pool } from 'pg';
 
 import {
@@ -66,13 +62,12 @@ describe('HA Full Setup', () => {
   let config: AztecNodeConfig;
   let teardown: () => Promise<void>;
   let initialFundedAccounts: any[];
-  let dateProvider: TestDateProvider;
+  let dateProvider: TestDateProvider | undefined;
   let prefilledPublicData: any[] | undefined;
 
   // HA specific resources
   let haNodePools: Pool[]; // Database pools for HA nodes (for cleanup)
   let haNodeServices: AztecNodeService[]; // All N HA peer nodes
-  let haKeystoreDirs: string[];
   let mainPool: Pool;
   let databaseConfig: HADatabaseConfig;
   let attesterPrivateKeys: `0x${string}`[];
@@ -82,8 +77,6 @@ describe('HA Full Setup', () => {
   let web3SignerUrl: string;
   let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
   let governanceProposer: GovernanceProposerContract;
-  /** Per-node initial keystore JSON (all 4 attesters, node's own publisher) for restore after reload test */
-  let initialKeystoreJsons: string[];
 
   beforeAll(async () => {
     // Check required environment variables
@@ -161,10 +154,6 @@ describe('HA Full Setup', () => {
       slashingQuorum: 17, // >50% of 32 slots for tally quorum,
     }));
 
-    if (!dateProvider) {
-      throw new Error('dateProvider must be provided by setup for HA tests');
-    }
-
     logger.info(`Bootstrap node setup complete (validation disabled)`);
 
     // Get bootstrap node's P2P ENR for HA nodes to connect to
@@ -182,42 +171,17 @@ describe('HA Full Setup', () => {
     logger.info('L1 contract wrappers initialized');
 
     haNodeServices = [];
-    haKeystoreDirs = [];
     logger.info(`Starting ${NODE_COUNT} HA peer nodes...`);
-
-    // Per-node keystore: all attesters but only this node's publisher to avoid nonce conflicts.
-    // When keyStoreDirectory is set the node loads validators/publishers from file only, so we omit them from config.
-    initialKeystoreJsons = [];
 
     for (let i = 0; i < NODE_COUNT; i++) {
       const nodeId = `${databaseConfig.nodeId}-${i + 1}`;
       logger.info(`Starting HA peer node ${i} with nodeId: ${nodeId}`);
-
-      const keystoreContent = {
-        schemaVersion: 1,
-        validators: [
-          {
-            attester: attesterAddresses,
-            feeRecipient: AztecAddress.ZERO.toString(),
-            coinbase: EthAddress.fromString(attesterAddresses[0]).toChecksumString(),
-            remoteSigner: web3SignerUrl,
-            publisher: [publisherAddresses[i]],
-          },
-        ],
-      };
-      const keystoreJson = JSON.stringify(keystoreContent, null, 2);
-      initialKeystoreJsons.push(keystoreJson);
-
-      const keystoreDir = await mkdtemp(join(tmpdir(), `ha-keystore-${i}-`));
-      haKeystoreDirs.push(keystoreDir);
-      await writeFile(join(keystoreDir, 'keystore.json'), keystoreJson);
 
       const dataDirectory = config.dataDirectory ? `${config.dataDirectory}-${i}` : undefined;
 
       const nodeConfig: AztecNodeConfig = {
         ...config,
         nodeId,
-        keyStoreDirectory: keystoreDir,
         // Ensure txs are included in proposals to test full signing path
         publishTxsWithProposals: true,
         dataDirectory,
@@ -233,6 +197,11 @@ describe('HA Full Setup', () => {
         // Connect to bootstrap node for tx gossip
         bootstrapNodes: [bootstrapNodeEnr],
         web3SignerUrl,
+        validatorAddresses: attesterAddresses.map(addr => EthAddress.fromString(addr)),
+        sequencerPublisherAddresses: publisherAddresses.map(addr => EthAddress.fromString(addr)),
+        validatorPrivateKeys: new SecretValue(attesterPrivateKeys),
+        // Each node has a unique publisher key
+        sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[i])],
       };
 
       const nodeService = await withLoggerBindings({ actor: `HA-${i}` }, async () => {
@@ -268,17 +237,6 @@ describe('HA Full Setup', () => {
           await haNodeServices[i].stop();
         } catch (error) {
           logger.error(`Failed to stop HA peer node ${i}: ${error}`);
-        }
-      }
-    }
-
-    // Cleanup HA keystore temp directories
-    if (haKeystoreDirs) {
-      for (let i = 0; i < haKeystoreDirs.length; i++) {
-        try {
-          await rm(haKeystoreDirs[i], { recursive: true });
-        } catch (error) {
-          logger.error(`Failed to remove HA keystore dir ${i}: ${error}`);
         }
       }
     }
@@ -462,9 +420,9 @@ describe('HA Full Setup', () => {
     const round = await governanceProposer.computeRound(blockSlot);
     logger.info(`Block slot ${blockSlot}, governance round ${round}`);
 
-    // Poll L1 until at least one governance vote appears
+    // Poll L1 for governance votes
     logger.info('Polling L1 for governance votes...');
-    await retryUntil(
+    const l1VoteCount = await retryUntil(
       async () => {
         const voteCount = Number(
           await governanceProposer.getPayloadSignals(
@@ -479,6 +437,11 @@ describe('HA Full Setup', () => {
       6, // timeout in seconds (30 attempts * 200ms)
       0.2, // interval in seconds (200ms)
     );
+    logger.info(`Found ${l1VoteCount} governance vote(s) on L1 for payload ${mockGovernancePayload.toString()}`);
+
+    // Verify votes were actually sent to L1
+    expect(l1VoteCount).toBeGreaterThan(0);
+    logger.info(`Verified ${l1VoteCount} governance vote(s) successfully sent to L1`);
 
     // Get L1 round info to determine which slots have actually landed on L1.
     // We anchor the comparison on L1's lastSignalSlot since:
@@ -489,17 +452,6 @@ describe('HA Full Setup', () => {
       round,
     );
     const lastSignalSlot = Number(roundInfo.lastSignalSlot);
-
-    // Re-query L1 vote count after getting lastSignalSlot in case more votes landed between the poll and getRoundInfo:
-    // the retryUntil may return a stale count if more votes land between the poll and getRoundInfo
-    const l1VoteCount = Number(
-      await governanceProposer.getPayloadSignals(
-        deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-        round,
-        mockGovernancePayload.toString(),
-      ),
-    );
-    expect(l1VoteCount).toBeGreaterThan(0);
     logger.info(
       `L1 round ${round} info: lastSignalSlot=${lastSignalSlot}, l1VoteCount=${l1VoteCount}, payloadWithMostSignals=${roundInfo.payloadWithMostSignals}`,
     );
@@ -834,7 +786,6 @@ describe('HA Full Setup', () => {
           -1,
         );
 
-        // Wait for real database time to pass (duties need different timestamps in PostgreSQL)
         await sleep(100);
 
         // Node 2 in Tokyo creates and signs a duty at approximately the same time
@@ -914,22 +865,15 @@ describe('HA Full Setup', () => {
       expect(beforeCleanup.rows.length).toBe(1);
       expect(beforeCleanup.rows[0].status).toBe('signed');
 
-      // Simulate node with clock 2 hours ahead using dateProvider
-      // NOTE: Database cleanup uses PostgreSQL's CURRENT_TIMESTAMP, not application time
-      // This test verifies that even if the application clock is skewed, cleanup
-      // correctly uses database time to determine duty age
-      dateProvider.setTime(Date.now() + 2 * 60 * 60 * 1000); // 2 hours ahead
+      // Simulate node with clock 2 hours ahead
+      const realNow = Date.now;
+      jest.spyOn(Date, 'now').mockImplementation(() => realNow() + 2 * 60 * 60 * 1000);
 
-      try {
-        // Use our actual cleanupOldDuties method
-        const numCleaned = await spDb.cleanupOldDuties(60 * 60 * 1000); // 1 hour
+      // Use our actual cleanupOldDuties method
+      const numCleaned = await spDb.cleanupOldDuties(60 * 60 * 1000); // 1 hour
 
-        // Should NOT delete the duty we just created (it uses DB's clock, not node's)
-        expect(numCleaned).toBe(0);
-      } finally {
-        // Reset dateProvider back to real time
-        dateProvider.reset();
-      }
+      // Should NOT delete the duty we just created (it uses DB's clock, not node's)
+      expect(numCleaned).toBe(0);
 
       // Verify duty still exists
       const result = await mainPool.query<DutyRow>(
@@ -987,17 +931,13 @@ describe('HA Full Setup', () => {
       expect(beforeCleanup.rows[0].status).toBe('signed');
       expect(parseFloat(beforeCleanup.rows[0].age_seconds)).toBeGreaterThan(7000); // ~2 hours in seconds
 
-      // Simulate node with clock 1 hour behind using
-      dateProvider.setTime(Date.now() - 1 * 60 * 60 * 1000); // 1 hour behind
+      // Simulate node with clock 1 hour behind
+      const realNow = Date.now;
+      jest.spyOn(Date, 'now').mockImplementation(() => realNow() - 1 * 60 * 60 * 1000);
 
-      try {
-        // Use our actual cleanupOldDuties method - should delete based on DB time
-        const numCleaned = await spDb.cleanupOldDuties(60 * 60 * 1000); // 1 hour
-        expect(numCleaned).toBeGreaterThanOrEqual(1);
-      } finally {
-        // Reset dateProvider back to real time
-        dateProvider.reset();
-      }
+      // Use our actual cleanupOldDuties method - should delete based on DB time
+      const numCleaned = await spDb.cleanupOldDuties(60 * 60 * 1000); // 1 hour
+      expect(numCleaned).toBeGreaterThanOrEqual(1);
 
       // Verify duty was deleted
       const result = await mainPool.query<DutyRow>(
@@ -1024,18 +964,14 @@ describe('HA Full Setup', () => {
       // Don't call updateDutySigned - leave it in 'signing' state (stuck)
 
       // Simulate node with clock 3 hours ahead
-      dateProvider.setTime(Date.now() + 3 * 60 * 60 * 1000); // 3 hours ahead
+      const realNow = Date.now;
+      jest.spyOn(Date, 'now').mockImplementation(() => realNow() + 3 * 60 * 60 * 1000);
 
-      try {
-        // Use our actual cleanupOwnStuckDuties method
-        const numCleaned = await spDb.cleanupOwnStuckDuties('stuck-node', 60 * 60 * 1000); // 1 hour
+      // Use our actual cleanupOwnStuckDuties method
+      const numCleaned = await spDb.cleanupOwnStuckDuties('stuck-node', 60 * 60 * 1000); // 1 hour
 
-        // Should NOT delete the duty (it uses DB's clock, not node's)
-        expect(numCleaned).toBe(0);
-      } finally {
-        // Reset dateProvider back to real time
-        dateProvider.reset();
-      }
+      // Should NOT delete the duty (it uses DB's clock, not node's)
+      expect(numCleaned).toBe(0);
     });
   });
 });

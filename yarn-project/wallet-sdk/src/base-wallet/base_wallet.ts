@@ -42,7 +42,7 @@ import {
   decodeFromAbi,
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractInstanceWithAddress,
   computePartialAddress,
@@ -93,6 +93,12 @@ export abstract class BaseWallet implements Wallet {
     protected readonly aztecNode: AztecNode,
     protected log = createLogger('wallet-sdk:base_wallet'),
   ) {}
+
+  // When `from` is the zero address (e.g. when deploying a new account contract), we return an
+  // empty scope list which acts as deny-all: no notes are visible and no keys are accessible.
+  protected scopesFor(from: AztecAddress): AztecAddress[] {
+    return from.isZero() ? [] : [from];
+  }
 
   protected scopesFrom(from: AztecAddress, additionalScopes: AztecAddress[] = []): AztecAddress[] {
     const allScopes = from.isZero() ? additionalScopes : [from, ...additionalScopes];
