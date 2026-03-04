@@ -529,7 +529,6 @@ export class DockerService {
         `${CLAUDEBOX_STATS_DIR}:/stats:rw`,
       ];
       if (profileDir !== "barretenberg-audit") {
-        intBinds.push(`/var/run/docker.sock:/var/run/docker.sock`);
         intBinds.push(`${join(REPO_DIR, ".git")}:/reference-repo/.git:ro`);
       }
       await this.docker.createContainer({
@@ -539,7 +538,6 @@ export class DockerService {
         User: uid,
         Env: [
           `HOME=/home/aztec-dev`,
-          `GH_TOKEN=${GH_TOKEN}`,
           `CLAUDEBOX_MCP_URL=${mcpUrl}`,
           `CLAUDEBOX_SESSION_HASH=${hash}`,
           `CLAUDEBOX_LOG_ID=${logId}`,
