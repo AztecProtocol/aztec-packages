@@ -2,11 +2,11 @@ import { getPublicClient } from '@aztec/ethereum/client';
 import { GSEContract } from '@aztec/ethereum/contracts';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
-import type { Anvil } from '@viem/anvil';
 import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
 import { deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
+import type { Anvil } from '../test/start_anvil.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ViemClient } from '../types.js';
 

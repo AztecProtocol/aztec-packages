@@ -120,7 +120,7 @@ slasher: &slasher
   # Rounds after which an offense expires.
   SLASH_OFFENSE_EXPIRATION_ROUNDS: 4
   # Maximum size of slashing payload.
-  SLASH_MAX_PAYLOAD_SIZE: 50
+  SLASH_MAX_PAYLOAD_SIZE: 80
   # Rounds to look back when executing slashes.
   SLASH_EXECUTE_ROUNDS_LOOK_BACK: 4
   # Penalty for slashing validators of a valid pruned epoch.
@@ -303,7 +303,7 @@ networks:
     AZTEC_SLOT_DURATION: 72
     AZTEC_ACTIVATION_THRESHOLD: 200000e18
     AZTEC_EJECTION_THRESHOLD: 100000e18
-    AZTEC_LOCAL_EJECTION_THRESHOLD: 162000e18
+    AZTEC_LOCAL_EJECTION_THRESHOLD: 190000e18
     AZTEC_SLASH_AMOUNT_SMALL: 2000e18
     AZTEC_SLASH_AMOUNT_MEDIUM: 2000e18
     AZTEC_SLASH_AMOUNT_LARGE: 2000e18

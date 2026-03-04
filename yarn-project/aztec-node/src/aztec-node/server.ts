@@ -342,9 +342,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       deps.p2pClientDeps,
     );
 
-    // We should really not be modifying the config object
-    config.txPublicSetupAllowList = config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
-
     // We'll accumulate sentinel watchers here
     const watchers: Watcher[] = [];
 
@@ -618,7 +615,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getAllowedPublicSetup(): Promise<AllowedElement[]> {
-    return this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
+    return [...(await getDefaultAllowedSetupFunctions()), ...(this.config.txPublicSetupAllowListExtend ?? [])];
   }
 
   /**
@@ -1318,7 +1315,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         blockNumber,
         l1ChainId: this.l1ChainId,
         rollupVersion: this.version,
-        setupAllowList: this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions()),
+        setupAllowList: [
+          ...(await getDefaultAllowedSetupFunctions()),
+          ...(this.config.txPublicSetupAllowListExtend ?? []),
+        ],
         gasFees: await this.getCurrentMinFees(),
         skipFeeEnforcement,
         txsPermitted: !this.config.disableTransactions,

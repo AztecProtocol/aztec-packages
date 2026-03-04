@@ -110,7 +110,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   /** Updates sequencer config by the defined values and updates the timetable */
   public updateConfig(config: Partial<SequencerConfig>) {
     const filteredConfig = pickFromSchema(config, SequencerConfigSchema);
-    this.log.info(`Updated sequencer config`, omit(filteredConfig, 'txPublicSetupAllowList'));
+    this.log.info(`Updated sequencer config`, omit(filteredConfig, 'txPublicSetupAllowListExtend'));
     this.config = merge(this.config, filteredConfig);
     this.timetable = new SequencerTimetable(
       {

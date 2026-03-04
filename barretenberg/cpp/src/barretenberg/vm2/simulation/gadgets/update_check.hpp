@@ -1,9 +1,12 @@
 #pragma once
 
+#include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
-#include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
-#include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/interfaces/gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/interfaces/range_check.hpp"
 #include "barretenberg/vm2/simulation/interfaces/update_check.hpp"
 
 namespace bb::avm2::simulation {

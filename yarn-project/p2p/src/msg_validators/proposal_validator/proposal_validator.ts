@@ -9,10 +9,16 @@ export abstract class ProposalValidator<TProposal extends BlockProposal | Checkp
   protected epochCache: EpochCacheInterface;
   protected logger: Logger;
   protected txsPermitted: boolean;
+  protected maxTxsPerBlock?: number;
 
-  constructor(epochCache: EpochCacheInterface, opts: { txsPermitted: boolean }, loggerName: string) {
+  constructor(
+    epochCache: EpochCacheInterface,
+    opts: { txsPermitted: boolean; maxTxsPerBlock?: number },
+    loggerName: string,
+  ) {
     this.epochCache = epochCache;
     this.txsPermitted = opts.txsPermitted;
+    this.maxTxsPerBlock = opts.maxTxsPerBlock;
     this.logger = createLogger(loggerName);
   }
 
@@ -43,6 +49,14 @@ export abstract class ProposalValidator<TProposal extends BlockProposal | Checkp
       if (!this.txsPermitted && (proposal.txHashes.length > 0 || embeddedTxCount > 0)) {
         this.logger.warn(
           `Penalizing peer for proposal with ${proposal.txHashes.length} transaction(s) when transactions are not permitted`,
+        );
+        return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
+      }
+
+      // Max txs per block check
+      if (this.maxTxsPerBlock !== undefined && proposal.txHashes.length > this.maxTxsPerBlock) {
+        this.logger.warn(
+          `Penalizing peer for proposal with ${proposal.txHashes.length} transaction(s) when max is ${this.maxTxsPerBlock}`,
         );
         return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
       }

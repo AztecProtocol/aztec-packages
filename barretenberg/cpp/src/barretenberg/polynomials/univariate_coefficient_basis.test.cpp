@@ -48,27 +48,3 @@ TYPED_TEST(UnivariateCoefficientBasisTest, Multiplication)
     Univariate<fr, 3> expected = (f1.template extend_to<3>()) * (f2.template extend_to<3>());
     EXPECT_EQ(result, expected);
 }
-
-TYPED_TEST(UnivariateCoefficientBasisTest, Serialization)
-{
-    const size_t LENGTH = 2;
-    std::array<fr, LENGTH> evaluations;
-
-    for (size_t i = 0; i < LENGTH; ++i) {
-        evaluations[i] = fr::random_element();
-    }
-
-    // Instantiate a Univariate from the evaluations
-    auto univariate = Univariate<fr, LENGTH>(evaluations);
-    UnivariateCoefficientBasis<fr, LENGTH, true> univariate_m(univariate);
-    // Serialize univariate to buffer
-    std::vector<uint8_t> buffer = univariate_m.to_buffer();
-
-    // Deserialize
-    auto deserialized_univariate =
-        Univariate<fr, LENGTH>(UnivariateCoefficientBasis<fr, LENGTH, true>::serialize_from_buffer(&buffer[0]));
-
-    for (size_t i = 0; i < LENGTH; ++i) {
-        EXPECT_EQ(univariate.value_at(i), deserialized_univariate.value_at(i));
-    }
-}

@@ -50,14 +50,17 @@ export interface PublicProcessorValidator {
 
 export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
-  Pick<SequencerConfig, 'txPublicSetupAllowList' | 'fakeProcessingDelayPerTxMs' | 'fakeThrowAfterProcessingTxCount'>;
+  Pick<
+    SequencerConfig,
+    'txPublicSetupAllowListExtend' | 'fakeProcessingDelayPerTxMs' | 'fakeThrowAfterProcessingTxCount'
+  >;
 
 export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[] = [
   'l1GenesisTime',
   'slotDuration',
   'l1ChainId',
   'rollupVersion',
-  'txPublicSetupAllowList',
+  'txPublicSetupAllowListExtend',
   'fakeProcessingDelayPerTxMs',
   'fakeThrowAfterProcessingTxCount',
 ] as const;

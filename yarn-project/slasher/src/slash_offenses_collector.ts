@@ -1,3 +1,4 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import type { Prettify } from '@aztec/foundation/types';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -9,7 +10,11 @@ import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher } from './watch
 
 export type SlashOffensesCollectorConfig = Prettify<Pick<SlasherConfig, 'slashGracePeriodL2Slots'>>;
 export type SlashOffensesCollectorSettings = Prettify<
-  Pick<L1RollupConstants, 'epochDuration'> & { slashingAmounts: [bigint, bigint, bigint] | undefined }
+  Pick<L1RollupConstants, 'epochDuration'> & {
+    slashingAmounts: [bigint, bigint, bigint] | undefined;
+    /** L2 slot at which the rollup was registered as canonical in the Registry. Used to anchor the slash grace period. */
+    rollupRegisteredAtL2Slot: SlotNumber;
+  }
 >;
 
 /**
@@ -110,9 +115,9 @@ export class SlashOffensesCollector {
     return this.offensesStore.markAsSlashed(offenses);
   }
 
-  /** Returns whether to skip an offense if it happened during the grace period at the beginning of the chain */
+  /** Returns whether to skip an offense if it happened during the grace period after the network upgrade */
   private shouldSkipOffense(offense: Offense): boolean {
     const offenseSlot = getSlotForOffense(offense, this.settings);
-    return offenseSlot < this.config.slashGracePeriodL2Slots;
+    return offenseSlot < this.settings.rollupRegisteredAtL2Slot + this.config.slashGracePeriodL2Slots;
   }
 }

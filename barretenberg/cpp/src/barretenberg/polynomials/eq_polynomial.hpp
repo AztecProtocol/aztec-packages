@@ -223,7 +223,7 @@ template <typename FF> struct VerifierEqPolynomial {
     // ---- Evaluate eq(X, r) at u ----
     FF evaluate(std::span<const FF> u) const
     {
-        assert(u.size() == r.size());
+        BB_ASSERT_EQ(u.size(), r.size(), "expect u.size() == r.size()");
         FF acc = FF(1);
         for (size_t i = 0; i < u.size(); ++i) {
             // term_i = b_i + u_i * a_i
@@ -235,7 +235,7 @@ template <typename FF> struct VerifierEqPolynomial {
     // ---- Compute eq(r, u) without constructing the object ----
     static FF eval(std::span<const FF> r_in, std::span<const FF> u)
     {
-        assert(r_in.size() == u.size());
+        BB_ASSERT_EQ(r_in.size(), u.size(), "expect r_in.size() == u.size()");
         FF acc = FF(1);
         for (size_t i = 0; i < r_in.size(); ++i) {
             const FF ai = r_in[i] + r_in[i] - FF(1);
