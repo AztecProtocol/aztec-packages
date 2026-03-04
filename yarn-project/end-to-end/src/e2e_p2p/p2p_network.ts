@@ -407,6 +407,7 @@ export class P2PNetworkTest {
     expectedNodeCount?: number,
     timeoutSeconds = 30,
     checkIntervalSeconds = 0.1,
+    topics: TopicType[] = [TopicType.tx],
   ) {
     const nodeCount = expectedNodeCount ?? nodes.length;
     const minPeerCount = nodeCount - 1;
@@ -433,26 +434,28 @@ export class P2PNetworkTest {
 
     this.logger.warn('All nodes connected to P2P mesh');
 
-    // Wait for GossipSub mesh to form for the tx topic.
+    // Wait for GossipSub mesh to form for all specified topics.
     // We only require at least 1 mesh peer per node because GossipSub
     // stops grafting once it reaches Dlo peers and won't fill the mesh to all available peers.
-    this.logger.warn('Waiting for GossipSub mesh to form for tx topic...');
-    await Promise.all(
-      nodes.map(async (node, index) => {
-        const p2p = node.getP2P();
-        await retryUntil(
-          async () => {
-            const meshPeers = await p2p.getGossipMeshPeerCount(TopicType.tx);
-            this.logger.debug(`Node ${index} has ${meshPeers} gossip mesh peers for tx topic`);
-            return meshPeers >= 1 ? true : undefined;
-          },
-          `Node ${index} to have gossip mesh peers for tx topic`,
-          timeoutSeconds,
-          checkIntervalSeconds,
-        );
-      }),
-    );
-    this.logger.warn('All nodes have gossip mesh peers for tx topic');
+    for (const topic of topics) {
+      this.logger.warn(`Waiting for GossipSub mesh to form for ${topic} topic...`);
+      await Promise.all(
+        nodes.map(async (node, index) => {
+          const p2p = node.getP2P();
+          await retryUntil(
+            async () => {
+              const meshPeers = await p2p.getGossipMeshPeerCount(topic);
+              this.logger.debug(`Node ${index} has ${meshPeers} gossip mesh peers for ${topic} topic`);
+              return meshPeers >= 1 ? true : undefined;
+            },
+            `Node ${index} to have gossip mesh peers for ${topic} topic`,
+            timeoutSeconds,
+            checkIntervalSeconds,
+          );
+        }),
+      );
+      this.logger.warn(`All nodes have gossip mesh peers for ${topic} topic`);
+    }
   }
 
   async teardown() {

@@ -1,3 +1,4 @@
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -18,6 +19,7 @@ describe('SlashOffensesCollector', () => {
   const settings: SlashOffensesCollectorSettings = {
     epochDuration: 32,
     slashingAmounts: [100n, 200n, 300n],
+    rollupRegisteredAtL2Slot: 100 as SlotNumber,
   };
 
   const config: SlasherConfig = {
@@ -90,27 +92,28 @@ describe('SlashOffensesCollector', () => {
     });
   });
 
-  it('should skip offenses that happen during grace period', async () => {
+  it('should skip offenses that happen during grace period after upgrade', async () => {
     const validator1 = EthAddress.random();
     const validator2 = EthAddress.random();
 
-    // Create offense during grace period (slot < slashGracePeriodL2Slots = 10)
+    // Grace period is registeredSlot (100) + gracePeriodL2Slots (10) = 110
+    // Create offense during grace period (slot 105 < 110)
     const gracePeriodOffense: WantToSlashArgs[] = [
       {
         validator: validator1,
         amount: 1000000000000000000n,
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // Slot-based offense
-        epochOrSlot: 5n, // Within grace period (< 10)
+        epochOrSlot: 105n, // Within grace period (< 110)
       },
     ];
 
-    // Create offense after grace period
+    // Create offense after grace period (slot 115 >= 110)
     const validOffense: WantToSlashArgs[] = [
       {
         validator: validator2,
         amount: 2000000000000000000n,
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // Slot-based offense
-        epochOrSlot: 20n, // After grace period (>= 10)
+        epochOrSlot: 115n, // After grace period (>= 110)
       },
     ];
 
@@ -134,25 +137,26 @@ describe('SlashOffensesCollector', () => {
     const validator2 = EthAddress.random();
     const validator3 = EthAddress.random();
 
-    // Create an event with multiple offenses in a single array
+    // Grace period ends at registeredSlot (100) + gracePeriod (10) = 110
+    // All offenses are after the grace period
     const multipleOffensesArgs: WantToSlashArgs[] = [
       {
         validator: validator1,
         amount: 1000000000000000000n,
         offenseType: OffenseType.INACTIVITY,
-        epochOrSlot: 100n,
+        epochOrSlot: 100n, // epoch 100 → slot 3200, well past grace period
       },
       {
         validator: validator2,
         amount: 2000000000000000000n,
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
-        epochOrSlot: 50n,
+        epochOrSlot: 150n, // slot 150 >= 110
       },
       {
         validator: validator3,
         amount: 1500000000000000000n,
         offenseType: OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
-        epochOrSlot: 75n,
+        epochOrSlot: 175n, // slot 175 >= 110
       },
     ];
 
@@ -182,14 +186,14 @@ describe('SlashOffensesCollector', () => {
       validator: validator2,
       amount: 2000000000000000000n,
       offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
-      epochOrSlot: 50n,
+      epochOrSlot: 150n,
     });
 
     expect(offensesByValidator[validator3.toString()]).toMatchObject({
       validator: validator3,
       amount: 1500000000000000000n,
       offenseType: OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
-      epochOrSlot: 75n,
+      epochOrSlot: 175n,
     });
   });
 });

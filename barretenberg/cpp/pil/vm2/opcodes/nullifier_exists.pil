@@ -36,14 +36,14 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         // Inputs
         /*nullifier=*/ register[0],                      // input: siloed nullifier to check
         prev_nullifier_tree_root,                        // input: tree root from context
-        /*should_silo=0*/ precomputed.zero              // input: should_silo = 0 (nullifier is already siloed, address also omitted)
+        /*sel_silo=0*/ precomputed.zero                  // input: sel_silo = 0 (nullifier is already siloed, address also omitted)
     } in nullifier_check.sel {
         // Outputs
         nullifier_check.exists,
         // Inputs
         nullifier_check.nullifier,
         nullifier_check.root,
-        nullifier_check.should_silo
+        nullifier_check.sel_silo
     };
 
     // Tag result (`exists`) as u1 (via mem_tag_reg[1]).
