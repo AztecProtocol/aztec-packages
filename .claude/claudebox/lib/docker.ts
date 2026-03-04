@@ -303,6 +303,7 @@ export class DockerService {
         "-e", `CLAUDEBOX_SIDECAR_HOST=${sidecarName}`,
         "-e", `CLAUDEBOX_SIDECAR_PORT=9801`,
         "-e", `CLAUDEBOX_CONTAINER_CLAUDE_MD=${claudeMdPath}`,
+        "-e", `PARENT_LOG_ID=${logId}`,
       ];
       // Mount reference repo for profiles that use local clone (not barretenberg-audit)
       if (profileDir !== "barretenberg-audit") {

@@ -137,6 +137,21 @@ cd /workspace/aztec-packages/barretenberg/cpp && ./bootstrap.sh
 
 The container has all required toolchains (Rust, Node, etc.).
 
+### Build logs — `cache_log`
+
+**ALWAYS** pipe long-running commands (`./bootstrap.sh`, `make`, test suites, cargo builds) through `cache_log` so a persistent log link is created. This lets users see build output even after the session ends.
+
+```bash
+# From the repo root — pipe through cache_log with DUP=1 to also show output in real-time
+./bootstrap.sh 2>&1 | DUP=1 ci3/cache_log "yarn-project-bootstrap"
+make yarn-project 2>&1 | DUP=1 ci3/cache_log "make-yarn-project"
+cd barretenberg/cpp && cmake --build build 2>&1 | DUP=1 ci3/cache_log "bb-cpp-build"
+```
+
+The log URL is printed to stderr: `http://ci.aztec-labs.com/<key>`. After the command finishes, **report the log URL** via `session_status` so users can access it.
+
+If the command fails, the log link still persists — making it easy to diagnose failures after the fact.
+
 ## Tips — avoiding common failures
 
 - **Large files**: If `Read` fails with "exceeds maximum", use `offset`+`limit` to read chunks, or `Grep` to find what you need.

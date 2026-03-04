@@ -70,6 +70,14 @@ push_branch(branch="my-feature")  # pushes to a custom branch
 
 Keep it to 1-2 SHORT sentences. Print verbose output to stdout and reference the log.
 
+## Build Logs
+
+When running long commands (builds, tests), pipe through `cache_log` for persistent log links:
+```bash
+./bootstrap.sh 2>&1 | DUP=1 ci3/cache_log "bootstrap"
+```
+The log URL is printed to stderr (`http://ci.aztec-labs.com/<key>`). Report it via `session_status`.
+
 ## Tips
 
 - **Large files**: Use `offset`+`limit` on Read, or `Grep` to find what you need
