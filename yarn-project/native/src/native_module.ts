@@ -1,6 +1,5 @@
 import { findNapiBinary } from '@aztec/bb.js';
 import { type LogLevel, LogLevels, type Logger } from '@aztec/foundation/log';
-import { Semaphore } from '@aztec/foundation/queue';
 
 import { createRequire } from 'module';
 
@@ -128,17 +127,12 @@ export function cancelSimulation(token: CancellationToken): void {
 }
 
 /**
- * AVM simulations now run on dedicated std::threads (not the libuv thread pool),
- * so there is no longer a risk of libuv thread pool exhaustion or deadlock from
- * C++ BlockingCall callbacks. The semaphore is retained only as a resource guard
- * to avoid spawning an unbounded number of simulation threads.
- */
-const MAX_CONCURRENT_AVM_SIMULATIONS = parseInt(process.env.MAX_CONCURRENT_AVM_SIMULATIONS ?? '0', 10);
-const avmSimulationSemaphore = MAX_CONCURRENT_AVM_SIMULATIONS > 0 ? new Semaphore(MAX_CONCURRENT_AVM_SIMULATIONS) : null;
-
-/**
  * AVM simulation function that takes serialized inputs and a contract provider.
  * The contract provider enables C++ to callback to TypeScript for contract data during simulation.
+ *
+ * Simulations run on dedicated std::threads (not the libuv thread pool), so there is no risk
+ * of libuv thread pool exhaustion or deadlock from C++ BlockingCall callbacks.
+ *
  * @param inputs - Msgpack-serialized AvmFastSimulationInputs buffer
  * @param contractProvider - Object with callbacks for fetching contract instances and classes
  * @param worldStateHandle - Native handle to WorldState instance
@@ -147,7 +141,7 @@ const avmSimulationSemaphore = MAX_CONCURRENT_AVM_SIMULATIONS > 0 ? new Semaphor
  * @param cancellationToken - Optional token to enable cancellation support
  * @returns Promise resolving to msgpack-serialized AvmCircuitPublicInputs buffer
  */
-export async function avmSimulate(
+export function avmSimulate(
   inputs: Buffer,
   contractProvider: ContractProvider,
   worldStateHandle: any,
@@ -155,43 +149,27 @@ export async function avmSimulate(
   logger?: Logger,
   cancellationToken?: CancellationToken,
 ): Promise<Buffer> {
-  if (avmSimulationSemaphore) {
-    await avmSimulationSemaphore.acquire();
-  }
-
-  try {
-    return await nativeAvmSimulate(
-      inputs,
-      contractProvider,
-      worldStateHandle,
-      LogLevels.indexOf(logLevel),
-      logger ? (level: LogLevel, msg: string) => logger[level](msg) : null,
-      cancellationToken,
-    );
-  } finally {
-    if (avmSimulationSemaphore) {
-      avmSimulationSemaphore.release();
-    }
-  }
+  return nativeAvmSimulate(
+    inputs,
+    contractProvider,
+    worldStateHandle,
+    LogLevels.indexOf(logLevel),
+    logger ? (level: LogLevel, msg: string) => logger[level](msg) : null,
+    cancellationToken,
+  );
 }
 
 /**
  * AVM simulation function that uses pre-collected hints from TypeScript simulation.
  * All contract data and merkle tree hints are included in the AvmCircuitInputs, so no runtime
  * callbacks to TS or WS pointer are needed.
+ *
+ * Simulations run on dedicated std::threads (not the libuv thread pool).
+ *
  * @param inputs - Msgpack-serialized AvmCircuitInputs (AvmProvingInputs in C++) buffer
  * @param logLevel - Log level to control C++ verbosity
  * @returns Promise resolving to msgpack-serialized simulation results buffer
  */
-export async function avmSimulateWithHintedDbs(inputs: Buffer, logLevel: LogLevel = 'info'): Promise<Buffer> {
-  if (avmSimulationSemaphore) {
-    await avmSimulationSemaphore.acquire();
-  }
-  try {
-    return await nativeAvmSimulateWithHintedDbs(inputs, LogLevels.indexOf(logLevel));
-  } finally {
-    if (avmSimulationSemaphore) {
-      avmSimulationSemaphore.release();
-    }
-  }
+export function avmSimulateWithHintedDbs(inputs: Buffer, logLevel: LogLevel = 'info'): Promise<Buffer> {
+  return nativeAvmSimulateWithHintedDbs(inputs, LogLevels.indexOf(logLevel));
 }
