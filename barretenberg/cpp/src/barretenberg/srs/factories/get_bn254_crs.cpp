@@ -2,12 +2,16 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/common/flock.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/bn254/g2.hpp"
 #include "bn254_crs_data.hpp"
 #include "bn254_g1_chunk_hashes.hpp"
 #include "http_download.hpp"
+#include <algorithm>
+#include <atomic>
+#include <span>
 
 namespace {
 // Primary CRS URL (Cloudflare R2)
@@ -30,35 +34,60 @@ size_t round_up_to_chunk_boundary(size_t num_points)
 }
 
 /**
- * @brief Verify downloaded data against the embedded chunk hash table.
- * Every chunk in the data must match its expected SHA-256 hash.
+ * @brief Verify downloaded CRS data against embedded SHA-256 chunk hashes.
+ *
+ * @details Verifies all complete 8MB chunks in parallel across available cores with early-exit
+ * on first mismatch. Also verifies the partial last chunk (if present) so every downloaded byte
+ * is covered. Uses std::span to avoid per-chunk memory allocation.
  */
-void verify_bn254_g1_chunk_hashes(const std::vector<uint8_t>& data)
+void verify_bn254_crs_integrity(const std::vector<uint8_t>& data)
 {
-    size_t offset = 0;
-    size_t chunk_index = 0;
+    size_t num_full_chunks = data.size() / bb::srs::SRS_CHUNK_SIZE_BYTES;
+    size_t chunks_to_verify = std::min(num_full_chunks, static_cast<size_t>(bb::srs::SRS_NUM_FULL_CHUNKS));
 
-    while (offset < data.size()) {
-        if (chunk_index >= bb::srs::SRS_NUM_CHUNKS) {
-            throw_or_abort("Downloaded BN254 G1 CRS data exceeds expected size");
-        }
+    // Sentinel value means "no failure found yet"
+    const size_t sentinel = bb::srs::SRS_NUM_CHUNKS;
+    std::atomic<size_t> failed_chunk{ sentinel };
 
-        size_t chunk_size = std::min(bb::srs::SRS_CHUNK_SIZE_BYTES, data.size() - offset);
-        // Compute SHA-256 of this chunk
-        std::vector<uint8_t> chunk(data.begin() + static_cast<ptrdiff_t>(offset),
-                                   data.begin() + static_cast<ptrdiff_t>(offset + chunk_size));
-        auto hash = bb::crypto::sha256(chunk);
-
-        if (hash != bb::srs::BN254_G1_CHUNK_HASHES[chunk_index]) {
-            throw_or_abort("Downloaded BN254 G1 CRS chunk " + std::to_string(chunk_index) +
-                           " SHA-256 mismatch (bytes " + std::to_string(offset) + "-" +
-                           std::to_string(offset + chunk_size - 1) + ")");
-        }
-
-        offset += chunk_size;
-        chunk_index++;
+    // Verify all complete 8MB chunks in parallel
+    if (chunks_to_verify > 0) {
+        bb::parallel_for([&](const bb::ThreadChunk& tc) {
+            for (size_t i : tc.range(chunks_to_verify)) {
+                // Early exit if another thread already found a mismatch
+                if (failed_chunk.load(std::memory_order_relaxed) < sentinel) {
+                    return;
+                }
+                size_t offset = i * bb::srs::SRS_CHUNK_SIZE_BYTES;
+                auto chunk = std::span<const uint8_t>(data.data() + offset, bb::srs::SRS_CHUNK_SIZE_BYTES);
+                auto hash = bb::crypto::sha256(chunk);
+                if (hash != bb::srs::BN254_G1_CHUNK_HASHES[i]) {
+                    size_t expected = sentinel;
+                    failed_chunk.compare_exchange_strong(expected, i, std::memory_order_relaxed);
+                }
+            }
+        });
     }
-    vinfo("verified ", chunk_index, " BN254 G1 CRS chunks via SHA-256");
+
+    // Verify partial last chunk (e.g. the 64-byte tail of the full CRS)
+    size_t tail_offset = chunks_to_verify * bb::srs::SRS_CHUNK_SIZE_BYTES;
+    size_t tail_size = data.size() - tail_offset;
+    if (tail_size > 0 && chunks_to_verify < bb::srs::SRS_NUM_CHUNKS) {
+        auto tail = std::span<const uint8_t>(data.data() + tail_offset, tail_size);
+        auto hash = bb::crypto::sha256(tail);
+        if (hash != bb::srs::BN254_G1_CHUNK_HASHES[chunks_to_verify]) {
+            size_t expected = sentinel;
+            failed_chunk.compare_exchange_strong(expected, chunks_to_verify, std::memory_order_relaxed);
+        }
+    }
+
+    size_t bad = failed_chunk.load();
+    if (bad < sentinel) {
+        size_t offset = bad * bb::srs::SRS_CHUNK_SIZE_BYTES;
+        throw_or_abort("CRS integrity check failed: SHA-256 mismatch at chunk " + std::to_string(bad) + " (bytes " +
+                       std::to_string(offset) + "+)");
+    }
+
+    vinfo("verified ", chunks_to_verify + (tail_size > 0 ? 1 : 0), " BN254 G1 CRS chunks via SHA-256");
 }
 
 std::vector<uint8_t> download_bn254_g1_data(size_t num_points,
@@ -88,7 +117,14 @@ std::vector<uint8_t> download_bn254_g1_data(size_t num_points,
         throw_or_abort("Downloaded g1 data is too small");
     }
 
-    verify_bn254_g1_chunk_hashes(data);
+    // Quick sanity check: verify the first G1 point is the expected generator
+    auto first_element = from_buffer<bb::g1::affine_element>(data, 0);
+    if (first_element != bb::srs::BN254_G1_FIRST_ELEMENT) {
+        throw_or_abort("Downloaded BN254 G1 CRS first element does not match expected point.");
+    }
+
+    // Full integrity verification: SHA-256 chunk hashes in parallel
+    verify_bn254_crs_integrity(data);
 
     return data;
 }
