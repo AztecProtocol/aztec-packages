@@ -45,6 +45,11 @@ namespace bb {
 //
 // In Barretenberg, the main workhorse fields are the base and scalar fields of BN-254, which are "small" moduli: they
 // are each 254 bits. The field algorithms for them are constant-time.
+//
+// NOTE: For the 254-bit fields in Barretenberg, namely BN254 base and scalar fields, we also
+// use this constexpr branching to capture another (conceptually unrelated) property: that
+// the short basis of the lattice from the endomorphism is shorter than expected. See endomorphism_scalars.py for more
+// information.
 static constexpr uint64_t MODULUS_TOP_LIMB_LARGE_THRESHOLD = 0x4000000000000000ULL; // 2^62
 
 /**
@@ -466,71 +471,92 @@ template <class Params_> struct alignas(32) field {
      * We pre-compute scalars g1 = (2^256 * b1) / n, g2 = (2^256 * b2) / n, to avoid having to perform long division
      * on 512-bit scalars
      **/
-    static void split_into_endomorphism_scalars(const field& k, field& k1, field& k2)
+    /**
+     * @brief Shared core of the endomorphism scalar decomposition.
+     *
+     * Computes k2 = round(b2·k/r)·(-b1) + round((-b1)·k/r)·b2, using the
+     * 256-bit-shift approximation g = floor(b·2^256/r) for both BN254 and
+     * secp256k1. See endomorphism_scalars.py §0 for the proof that the
+     * approximation error is bounded to {0, -1} for any r < 2^256.
+     *
+     * The result is a raw (non-Montgomery) `field` whose low 128-or-129 bits
+     * hold k2. This function will be called in either the BN254 base/scalar field
+     * or the generic, secp256k1 branch.
+     */
+    static field compute_endomorphism_k2(const field& k)
     {
-        // if the modulus is a >= 255-bit integer, we need to use a basis where g1, g2 have been shifted by 2^384
-        if constexpr (Params::modulus_3 >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
-            split_into_endomorphism_scalars_384(k, k1, k2);
-        } else {
-            std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>> ret = split_into_endomorphism_scalars(k);
-            k1.data[0] = ret.first[0];
-            k1.data[1] = ret.first[1];
-
-#if !defined(__clang__) && defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Warray-bounds"
-#endif
-            k2.data[0] = ret.second[0]; // NOLINT
-            k2.data[1] = ret.second[1];
-#if !defined(__clang__) && defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif
-        }
-    }
-
-    // NOTE: this form is only usable if the modulus is 254 bits or less, otherwise see
-    // split_into_endomorphism_scalars_384.
-    // DOES NOT assume that the input is reduced; it can be in coarse form.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/851): Unify these APIs.
-    static std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>> split_into_endomorphism_scalars(const field& k)
-    {
-        static_assert(Params::modulus_3 < MODULUS_TOP_LIMB_LARGE_THRESHOLD);
+        // force into strict form.
         field input = k.reduce_once();
 
         constexpr field endo_g1 = { Params::endo_g1_lo, Params::endo_g1_mid, Params::endo_g1_hi, 0 };
-
         constexpr field endo_g2 = { Params::endo_g2_lo, Params::endo_g2_mid, 0, 0 };
-
         constexpr field endo_minus_b1 = { Params::endo_minus_b1_lo, Params::endo_minus_b1_mid, 0, 0 };
-
         constexpr field endo_b2 = { Params::endo_b2_lo, Params::endo_b2_mid, 0, 0 };
 
-        // compute c1 = (g2 * k) >> 256
+        // c1 = (g2 * k) >> 256,  c2 = (g1 * k) >> 256
         wide_array c1 = endo_g2.mul_512(input);
-        // compute c2 = (g1 * k) >> 256
         wide_array c2 = endo_g1.mul_512(input);
 
-        // (the bit shifts are implicit, as we only utilize the high limbs of c1, c2
+        // extract high halves
+        field c1_hi{ c1.data[4], c1.data[5], c1.data[6], c1.data[7] };
+        field c2_hi{ c2.data[4], c2.data[5], c2.data[6], c2.data[7] };
 
-        field c1_hi = {
-            c1.data[4], c1.data[5], c1.data[6], c1.data[7]
-        }; // *(field*)((uintptr_t)(&c1) + (4 * sizeof(uint64_t)));
-        field c2_hi = {
-            c2.data[4], c2.data[5], c2.data[6], c2.data[7]
-        }; // *(field*)((uintptr_t)(&c2) + (4 * sizeof(uint64_t)));
-
-        // compute q1 = c1 * -b1
+        // q1 = c1 * (-b1),  q2 = c2 * b2
         wide_array q1 = c1_hi.mul_512(endo_minus_b1);
-        // compute q2 = c2 * b2
         wide_array q2 = c2_hi.mul_512(endo_b2);
 
-        // FIX: Avoid using 512-bit multiplication as its not necessary.
-        // c1_hi, c2_hi can be uint256_t's and the final result (without montgomery reduction)
-        // could be casted to a field.
         field q1_lo{ q1.data[0], q1.data[1], q1.data[2], q1.data[3] };
         field q2_lo{ q2.data[0], q2.data[1], q2.data[2], q2.data[3] };
 
-        field t1 = (q2_lo - q1_lo).reduce_once();
+        return (q2_lo - q1_lo).reduce_once();
+    }
+
+    /**
+     * @brief Full-width endomorphism decomposition: k ≡ k1 - k2·λ (mod r).
+     * Modifies the field elements k1 and k2.
+     *
+     * For BN254 base/scalar fields, delegates to the 128-bit pair
+     * overload, which applies the negative-k2 fix. Returns k1, k2 in the low
+     * 2 limbs (upper limbs zeroed). Both fit in 128 bits.
+     *
+     * For generic 256-bit fields: returns k1, k2 as full field elements
+     * elements (non-Montgomery). k1 fits in ~128 bits; k2 fits in ~129 bits.
+     * No negative-k2 fix — the caller (biggroup_nafs.hpp) handles signs by
+     * inspecting the MSB of k2.
+     */
+    static void split_into_endomorphism_scalars(const field& k, field& k1, field& k2)
+    {
+        if constexpr (Params::modulus_3 < MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
+            // BN254 base or scalar field: use path that corresponds to 128-bit outputs.
+            auto ret = split_into_endomorphism_scalars(k);
+            k1 = { ret.first[0], ret.first[1], 0, 0 };
+            k2 = { ret.second[0], ret.second[1], 0, 0 };
+        } else {
+            // Large modulus (secp256k1): full-width path.
+            field t1 = compute_endomorphism_k2(k);
+            k2 = t1;
+            k1 = ((t1 * cube_root_of_unity()) + k).reduce_once();
+        }
+    }
+
+    /**
+     * @brief 128-bit endomorphism decomposition: k ≡ k1 - k2·λ (mod r).
+     *
+     * Returns { {k1_lo, k1_hi}, {k2_lo, k2_hi} } — each scalar as a pair of
+     * uint64_t representing its low 128 bits. Both k1 and k2 are guaranteed to
+     * fit in 128 bits (the negative-k2 fix ensures this for the ~2^{-64} of
+     * inputs where k2 would otherwise be slightly negative).
+     *
+     * Only valid for fields such that the splitting_scalars algorithm produces 128 bit outputs. In Barretenberg, these
+     * are just the base and scalar fields of BN254. These are the only "small modulus" fields, so we use a static
+     * assert to force this.
+     *
+     * Does NOT assume that the input is reduced
+     */
+    static std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>> split_into_endomorphism_scalars(const field& k)
+    {
+        static_assert(Params::modulus_3 < MODULUS_TOP_LIMB_LARGE_THRESHOLD);
+        field t1 = compute_endomorphism_k2(k);
 
         // k2 (= t1) can be slightly negative for ~2^{-64} of inputs.
         // When negative, t1 = k2 + r is 254 bits (upper limbs nonzero).
@@ -538,62 +564,15 @@ template <class Params_> struct alignas(32) field {
         // This shifts k2 by +|b1| (~127 bits, now positive) and k1 by -a1 (~64 bits),
         // keeping both within 128 bits. See endomorphism_scalars.py for more details.
         if (t1.data[2] != 0 || t1.data[3] != 0) {
+            constexpr field endo_minus_b1 = { Params::endo_minus_b1_lo, Params::endo_minus_b1_mid, 0, 0 };
             t1 = (t1 + endo_minus_b1).reduce_once();
         }
 
-        field beta = cube_root_of_unity();
-        field t2 = (t1 * beta + input).reduce_once();
+        field t2 = ((t1 * cube_root_of_unity()) + k).reduce_once();
         return {
             { t2.data[0], t2.data[1] },
             { t1.data[0], t1.data[1] },
         };
-    }
-
-    static void split_into_endomorphism_scalars_384(const field& input, field& k1_out, field& k2_out)
-    {
-        constexpr field minus_b1f{
-            Params::endo_minus_b1_lo,
-            Params::endo_minus_b1_mid,
-            0,
-            0,
-        };
-        constexpr field b2f{
-            Params::endo_b2_lo,
-            Params::endo_b2_mid,
-            0,
-            0,
-        };
-        constexpr uint256_t g1{
-            Params::endo_g1_lo,
-            Params::endo_g1_mid,
-            Params::endo_g1_hi,
-            Params::endo_g1_hihi,
-        };
-        constexpr uint256_t g2{
-            Params::endo_g2_lo,
-            Params::endo_g2_mid,
-            Params::endo_g2_hi,
-            Params::endo_g2_hihi,
-        };
-
-        field kf = input.reduce_once();
-        uint256_t k{ kf.data[0], kf.data[1], kf.data[2], kf.data[3] };
-
-        uint512_t c1 = (uint512_t(k) * static_cast<uint512_t>(g1)) >> 384;
-        uint512_t c2 = (uint512_t(k) * static_cast<uint512_t>(g2)) >> 384;
-
-        field c1f{ c1.lo.data[0], c1.lo.data[1], c1.lo.data[2], c1.lo.data[3] };
-        field c2f{ c2.lo.data[0], c2.lo.data[1], c2.lo.data[2], c2.lo.data[3] };
-
-        c1f.self_to_montgomery_form();
-        c2f.self_to_montgomery_form();
-        c1f = c1f * minus_b1f;
-        c2f = c2f * b2f;
-        field r2f = c1f - c2f;
-        field beta = cube_root_of_unity();
-        field r1f = input.reduce_once() - r2f * beta;
-        k1_out = r1f;
-        k2_out = -r2f;
     }
 
     // static constexpr auto coset_generators = compute_coset_generators();
