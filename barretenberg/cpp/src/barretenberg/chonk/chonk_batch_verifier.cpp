@@ -13,6 +13,8 @@ bool ChonkBatchVerifier::verify(std::span<const Input> inputs)
     }
 
     // Phase 1: Run all non-IPA verification for each proof, collecting IPA claims
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1651): Consider batching and/or multithreading the
+    // non-IPA portion of verification as well. Becomes significant for moderate batch sizes.
     std::vector<OpeningClaim<curve::Grumpkin>> ipa_claims;
     std::vector<std::shared_ptr<NativeTranscript>> ipa_transcripts;
     ipa_claims.reserve(num_proofs);
