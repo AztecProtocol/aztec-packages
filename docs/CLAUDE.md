@@ -110,6 +110,9 @@ Default content
 - `static/img/` - Static images and assets
 - `static/aztec-nr-api/` - Auto-generated Aztec.nr API documentation (HTML)
 - `static/typescript-api/` - Auto-generated TypeScript API documentation (markdown)
+- `examples/` - Code examples (Noir circuits, Noir contracts, Solidity, TypeScript)
+- `examples/ts/` - TypeScript aztec.js examples with `docker-compose.yml` for CI execution
+- `examples/ts/aztecjs_runner/` - Runner script that executes examples against a live network
 - `scripts/` - Build and utility scripts
 - `scripts/typescript_api_generation/` - TypeScript API doc generation scripts and config
 
@@ -141,6 +144,23 @@ Uses Docusaurus multi-instance versioning with separate version tracks:
 - Each docs instance has its own version dropdown in the navbar
 - Preprocessing macros (`#include_code`, `#release_version`, conditionals, etc.) only work in source folders, not in versioned copies
 - Create new versions with: `yarn docusaurus docs:version:<instance-id> <version>`
+
+### Code Examples Pipeline
+
+The `examples/` directory contains runnable code examples that are included in documentation via `#include_code` markers. The examples pipeline has two stages:
+
+**Validation (type-checking)**: `examples/bootstrap.sh` compiles Noir circuits, Noir contracts, Solidity, and type-checks TypeScript examples. This runs on every PR.
+
+**Execution (runtime testing)**: TypeScript examples in `examples/ts/` are executed against a live Aztec network via Docker Compose. The `examples/ts/docker-compose.yml` spins up Anvil (L1 fork), an Aztec local network, and a runner service that executes the examples.
+
+- **CI**: `docs/bootstrap.sh ci` calls `examples/bootstrap.sh execute`, which uses `run_compose_test` from `ci3/`
+- **Local**: Start a sandbox manually, then run `examples/ts/aztecjs_runner/run.sh`
+- **`AZTEC_NODE_URL`**: All example `index.ts` files and `run.sh` use this env var (defaults to `http://localhost:8080`). In Docker Compose, it points to `http://local-network:8080`.
+
+When adding new TypeScript examples:
+1. Create a directory under `examples/ts/` with `index.ts`, `config.yaml`, and empty `yarn.lock`
+2. Use `process.env.AZTEC_NODE_URL ?? "http://localhost:8080"` for the node URL
+3. Add the example to the list in `examples/ts/aztecjs_runner/run.sh` if it should be executed at runtime
 
 ## Documentation Review Standards
 
@@ -329,5 +349,5 @@ Approved external documentation sources:
 - Suggest improvements even if they go beyond pure editing
 - When making changes to documentation processes or tooling, remember to check and update READMEs, project documentation (like this file), and code comments
 
-Last updated: 2026-02-04
-Version: 1.4
+Last updated: 2026-02-23
+Version: 1.5

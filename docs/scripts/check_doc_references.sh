@@ -74,8 +74,14 @@ EOF
   return 0
 }
 
+# Compute SCRIPT_DIR before cd so relative BASH_SOURCE resolves correctly
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT"
+
+# Source shared library for reference extraction
+source "$SCRIPT_DIR/lib/extract_doc_references.sh"
 
 # Parse arguments
 PR_NUMBER_ARG=""
@@ -124,80 +130,19 @@ if [[ "$IS_DRAFT" == "true" ]]; then
   exit 0
 fi
 
-# Check if AztecProtocol/devrel team is already a requested reviewer
-echo "Checking if devrel team is already a requested reviewer..."
-
-# Get full review requests data for debugging
-REVIEW_REQUESTS_JSON=$(gh pr view "$PR_NUMBER" --json reviewRequests 2>/dev/null || echo "")
-
-# Extract both team slugs and user logins
-REQUESTED_TEAMS=$(echo "$REVIEW_REQUESTS_JSON" | jq -r '.reviewRequests[]? | select(.slug != null) | .slug' 2>/dev/null || echo "")
-REQUESTED_USERS=$(echo "$REVIEW_REQUESTS_JSON" | jq -r '.reviewRequests[]? | select(.login != null) | .login' 2>/dev/null || echo "")
-
-echo "Requested teams: ${REQUESTED_TEAMS:-none}"
-echo "Requested users: ${REQUESTED_USERS:-none}"
-
-# Check if devrel team is in the requested teams
-if [[ -n "$REQUESTED_TEAMS" ]] && echo "$REQUESTED_TEAMS" | grep -q "devrel"; then
-  echo "AztecProtocol/devrel team is already a requested reviewer for PR #$PR_NUMBER. Skipping."
-  exit 0
-fi
-
-# Check if any devrel team member has already approved
-# Note: GitHub's onBehalfOf field is broken, so we check team membership directly
-echo "Checking if devrel team member has already approved..."
-DEVREL_MEMBERS=$(gh api orgs/AztecProtocol/teams/devrel/members --jq '.[].login' 2>/dev/null || echo "")
-if [[ -n "$DEVREL_MEMBERS" ]]; then
-  APPROVERS=$(gh pr view "$PR_NUMBER" --json reviews -q '.reviews[] | select(.state == "APPROVED") | .author.login' 2>/dev/null || echo "")
-  if [[ -n "$APPROVERS" ]]; then
-    while IFS= read -r approver; do
-      if echo "$DEVREL_MEMBERS" | grep -qx "$approver"; then
-        echo "PR #$PR_NUMBER already approved by devrel team member: $approver. Skipping team review request."
-        exit 0
-      fi
-    done <<< "$APPROVERS"
-  fi
-fi
-
 # Extract all reference file paths from markdown frontmatter
 # Expected format: references: ["path/from/repo/root/file.ts", "another/file.ts"]
 # Paths should be absolute from repository root (not relative with ../)
 # Also create a mapping of source files to documentation files
-# Note: We only scan docs/docs/ (current docs), not versioned_docs/
+# Note: We only scan docs-developers, docs-operate, docs-participate (current docs), not versioned_docs/
 # Versioned docs are historical snapshots and should not be modified when references change
-echo "Extracting references from markdown files in $DOCS_DIR/docs..."
+echo "Extracting references from markdown files in $DOCS_DIR..."
 
 # Create a temporary file to store the mapping
 MAPPING_FILE=$(mktemp)
 trap "rm -f $MAPPING_FILE" EXIT
 
-find "$DOCS_DIR/docs" -type f -name "*.md" -print0 | while IFS= read -r -d '' doc_file; do
-  awk -v doc="$doc_file" '
-    BEGIN { in_frontmatter = 0 }
-    /^---$/ {
-      if (NR == 1) {
-        in_frontmatter = 1
-      } else if (in_frontmatter) {
-        in_frontmatter = 0
-      }
-      next
-    }
-    in_frontmatter && /^references:/ {
-      # Extract array: references: ["file1", "file2"]
-      if (match($0, /\[.*\]/)) {
-        refs = substr($0, RSTART, RLENGTH)
-        gsub(/[\[\]"'\'']/, "", refs)
-        split(refs, arr, /,[ ]*/)
-        for (i in arr) {
-          if (arr[i] != "") {
-            # Output format: source_file|doc_file
-            print arr[i] "|" doc
-          }
-        }
-      }
-    }
-  ' "$doc_file"
-done > "$MAPPING_FILE"
+extract_references_mapping "$DOCS_DIR" "$MAPPING_FILE"
 # Validate all referenced paths exist (can be files or directories)
 # Directory references use /* suffix (e.g., "src/context/*" means all files in that directory)
 echo "Validating referenced paths exist..."
@@ -306,6 +251,34 @@ echo ""
 echo "The following referenced files were changed in this PR:"
 echo -e "$CHANGED_REFERENCES"
 echo ""
+
+# Check if AztecProtocol/devrel team is already a requested reviewer
+echo "Checking if devrel team is already a requested reviewer..."
+
+REVIEW_REQUESTS_JSON=$(gh pr view "$PR_NUMBER" --json reviewRequests 2>/dev/null || echo "")
+REQUESTED_TEAMS=$(echo "$REVIEW_REQUESTS_JSON" | jq -r '.reviewRequests[]? | select(.slug != null) | .slug' 2>/dev/null || echo "")
+
+echo "Requested teams: ${REQUESTED_TEAMS:-none}"
+
+if [[ -n "$REQUESTED_TEAMS" ]] && echo "$REQUESTED_TEAMS" | grep -q "devrel"; then
+  echo "AztecProtocol/devrel team is already a requested reviewer for PR #$PR_NUMBER. Skipping."
+  exit 0
+fi
+
+# Check if any devrel team member has already approved
+echo "Checking if devrel team member has already approved..."
+DEVREL_MEMBERS=$(gh api orgs/AztecProtocol/teams/devrel/members --jq '.[].login' 2>/dev/null || echo "")
+if [[ -n "$DEVREL_MEMBERS" ]]; then
+  APPROVERS=$(gh pr view "$PR_NUMBER" --json reviews -q '.reviews[] | select(.state == "APPROVED") | .author.login' 2>/dev/null || echo "")
+  if [[ -n "$APPROVERS" ]]; then
+    while IFS= read -r approver; do
+      if echo "$DEVREL_MEMBERS" | grep -qx "$approver"; then
+        echo "PR #$PR_NUMBER already approved by devrel team member: $approver. Skipping team review request."
+        exit 0
+      fi
+    done <<< "$APPROVERS"
+  fi
+fi
 
 # Build Slack message with file-to-docs mapping
 # Get PR URL for linking

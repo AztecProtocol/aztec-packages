@@ -280,6 +280,12 @@ describe('e2e_node_rpc_perf', () => {
       expect(stats.avg).toBeLessThan(1000);
     });
 
+    it('benchmarks getCheckpointNumber', async () => {
+      const { stats } = await benchmark('getCheckpointNumber', () => aztecNode.getCheckpointNumber());
+      addResult('getCheckpointNumber', stats);
+      expect(stats.avg).toBeLessThan(1000);
+    });
+
     it('benchmarks getProvenBlockNumber', async () => {
       const { stats } = await benchmark('getProvenBlockNumber', () => aztecNode.getProvenBlockNumber());
       addResult('getProvenBlockNumber', stats);
@@ -414,10 +420,12 @@ describe('e2e_node_rpc_perf', () => {
   });
 
   describe('message APIs', () => {
-    it('benchmarks getL1ToL2MessageBlock', async () => {
+    it('benchmarks getL1ToL2MessageCheckpoint', async () => {
       const l1ToL2Message = Fr.random();
-      const { stats } = await benchmark('getL1ToL2MessageBlock', () => aztecNode.getL1ToL2MessageBlock(l1ToL2Message));
-      addResult('getL1ToL2MessageBlock', stats);
+      const { stats } = await benchmark('getL1ToL2MessageCheckpoint', () =>
+        aztecNode.getL1ToL2MessageCheckpoint(l1ToL2Message),
+      );
+      addResult('getL1ToL2MessageCheckpoint', stats);
       expect(stats.avg).toBeLessThan(2000);
     });
 

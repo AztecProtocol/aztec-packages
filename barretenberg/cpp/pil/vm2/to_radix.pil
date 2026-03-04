@@ -94,7 +94,7 @@ namespace to_radix;
     found * (1 - found) = 0;
 
     // ==== MULTI-ROW COMPUTATION SELECTORS ====
-    // See recipe: https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Contiguous-Multi-Rows-Computation-Trace
+    // See recipe: https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
 
     pol commit start; // @boolean
     start * (1 - start) = 0;

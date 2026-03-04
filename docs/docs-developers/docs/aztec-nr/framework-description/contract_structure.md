@@ -56,7 +56,7 @@ The `#[aztec]` macro performs a lot of the low-level operations required to take
 
 ## Imports
 
-Aside from the [`#[aztec]`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/macros/aztec/fn.aztec) macro import, all other imports need to go _inside_ the `contract` block - this is because `contract` acts like `mod`, creating a new [module](https://noir-lang.org/docs/noir/modules_packages_crates/modules).
+Aside from the [`#[aztec]`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/macros/fn.aztec) macro import, all other imports need to go _inside_ the `contract` block - this is because `contract` acts like `mod`, creating a new [module](https://noir-lang.org/docs/noir/modules_packages_crates/modules).
 
 ```rust
 use aztec::macros::aztec;

@@ -24,6 +24,7 @@ import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol }
 import { OffenseType, WANT_TO_SLASH_EVENT, type Watcher, type WatcherEmitter } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestationsAndSigners, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import { validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
   CreateCheckpointProposalLastBlockData,
@@ -89,6 +90,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   private lastEpochForCommitteeUpdateLoop: EpochNumber | undefined;
   private epochCacheUpdateLoop: RunningPromise;
+  /** Tracks the last epoch in which each attester successfully submitted at least one attestation. */
+  private lastAttestedEpochByAttester: Map<string, EpochNumber> = new Map();
 
   private proposersOfInvalidBlocks: Set<string> = new Set();
 
@@ -160,6 +163,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         this.log.trace(`No committee found for slot`);
         return;
       }
+      this.metrics.setCurrentEpoch(epoch);
       if (epoch !== this.lastEpochForCommitteeUpdateLoop) {
         const me = this.getValidatorAddresses();
         const committeeSet = new Set(committee.map(v => v.toString()));
@@ -197,7 +201,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const metrics = new ValidatorMetrics(telemetry);
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
       txsPermitted: !config.disableTransactions,
-      maxTxsPerBlock: config.maxTxsPerBlock,
+      maxTxsPerBlock: config.validateMaxTxsPerBlock,
     });
     const blockProposalHandler = new BlockProposalHandler(
       checkpointsBuilder,
@@ -516,11 +520,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       slotNumber,
       archive: proposal.archive.toString(),
       proposer: proposer.toString(),
-      txCount: proposal.txHashes.length,
     };
     this.log.info(`Received checkpoint proposal for slot ${slotNumber}`, {
       ...proposalInfo,
-      txHashes: proposal.txHashes.map(t => t.toString()),
       fishermanMode: this.config.fishermanMode || false,
     });
 
@@ -555,6 +557,17 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     });
 
     this.metrics.incSuccessfulAttestations(inCommittee.length);
+
+    // Track epoch participation per attester: count each (attester, epoch) pair at most once
+    const proposalEpoch = getEpochAtSlot(slotNumber, this.epochCache.getL1Constants());
+    for (const attester of inCommittee) {
+      const key = attester.toString();
+      const lastEpoch = this.lastAttestedEpochByAttester.get(key);
+      if (lastEpoch === undefined || proposalEpoch > lastEpoch) {
+        this.lastAttestedEpochByAttester.set(key, proposalEpoch);
+        this.metrics.incAttestedEpochCount(attester);
+      }
+    }
 
     // Determine which validators should attest
     let attestors: EthAddress[];
@@ -750,6 +763,20 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
           ...proposalInfo,
         });
         return { isValid: false, reason: 'out_hash_mismatch' };
+      }
+
+      // Final round of validations on the checkpoint, just in case.
+      try {
+        validateCheckpoint(computedCheckpoint, {
+          rollupManaLimit: this.checkpointsBuilder.getConfig().rollupManaLimit,
+          maxDABlockGas: this.config.validateMaxDABlockGas,
+          maxL2BlockGas: this.config.validateMaxL2BlockGas,
+          maxTxsPerBlock: this.config.validateMaxTxsPerBlock,
+          maxTxsPerCheckpoint: this.config.validateMaxTxsPerCheckpoint,
+        });
+      } catch (err) {
+        this.log.warn(`Checkpoint validation failed: ${err}`, proposalInfo);
+        return { isValid: false, reason: 'checkpoint_validation_failed' };
       }
 
       this.log.verbose(`Checkpoint proposal validation successful for slot ${slot}`, proposalInfo);

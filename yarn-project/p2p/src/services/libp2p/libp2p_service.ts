@@ -222,14 +222,12 @@ export class LibP2PService extends WithTracer implements P2PService {
       this.protocolVersion,
     );
 
-    this.blockProposalValidator = new BlockProposalValidator(epochCache, {
+    const proposalValidatorOpts = {
       txsPermitted: !config.disableTransactions,
-      maxTxsPerBlock: config.maxTxsPerBlock,
-    });
-    this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, {
-      txsPermitted: !config.disableTransactions,
-      maxTxsPerBlock: config.maxTxsPerBlock,
-    });
+      maxTxsPerBlock: config.validateMaxTxsPerBlock,
+    };
+    this.blockProposalValidator = new BlockProposalValidator(epochCache, proposalValidatorOpts);
+    this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, proposalValidatorOpts);
     this.checkpointAttestationValidator = config.fishermanMode
       ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry)
       : new CheckpointAttestationValidator(epochCache);
@@ -1621,7 +1619,10 @@ export class LibP2PService extends WithTracer implements P2PService {
     nextSlotTimestamp: UInt64,
   ): Promise<Record<string, TransactionValidator>> {
     const gasFees = await this.getGasFees(currentBlockNumber);
-    const allowedInSetup = this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
+    const allowedInSetup = [
+      ...(await getDefaultAllowedSetupFunctions()),
+      ...(this.config.txPublicSetupAllowListExtend ?? []),
+    ];
     const blockNumber = BlockNumber(currentBlockNumber + 1);
 
     return createFirstStageTxValidationsForGossipedTransactions(

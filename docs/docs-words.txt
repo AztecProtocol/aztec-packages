@@ -53,6 +53,7 @@ ciphertexts
 citizensˮ
 claimability
 clawback
+Cloneable
 cmov
 CMOV
 codealong

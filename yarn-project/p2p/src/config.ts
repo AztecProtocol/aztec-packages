@@ -1,6 +1,7 @@
 import {
   type ConfigMappingsType,
   SecretValue,
+  bigintConfigHelper,
   booleanConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
@@ -39,6 +40,9 @@ export interface P2PConfig
     TxCollectionConfig,
     TxFileStoreConfig,
     Pick<SequencerConfig, 'blockDurationMs' | 'expectedBlockProposalsPerSlot' | 'maxTxsPerBlock'> {
+  /** Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set. */
+  validateMaxTxsPerBlock?: number;
+
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
@@ -150,8 +154,8 @@ export interface P2PConfig
   /** The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb. */
   p2pStoreMapSizeKb?: number;
 
-  /** Which calls are allowed in the public setup phase of a tx. */
-  txPublicSetupAllowList: AllowedElement[];
+  /** Additional entries to extend the default setup allow list. */
+  txPublicSetupAllowListExtend: AllowedElement[];
 
   /** The maximum number of pending txs before evicting lower priority txs. */
   maxPendingTxCount: number;
@@ -190,11 +194,20 @@ export interface P2PConfig
 
   /** Minimum age (ms) a transaction must have been in the pool before it's eligible for block building. */
   minTxPoolAgeMs: number;
+
+  /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
+  priceBumpPercentage: bigint;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
+  validateMaxTxsPerBlock: {
+    env: 'VALIDATOR_MAX_TX_PER_BLOCK',
+    description:
+      'Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
   p2pEnabled: {
     env: 'P2P_ENABLED',
     description: 'A flag dictating whether the P2P subsystem should be enabled.',
@@ -393,12 +406,13 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
     description: 'The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb.',
   },
-  txPublicSetupAllowList: {
+  txPublicSetupAllowListExtend: {
     env: 'TX_PUBLIC_SETUP_ALLOWLIST',
     parseEnv: (val: string) => parseAllowList(val),
-    description: 'The list of functions calls allowed to run in setup',
+    description:
+      'Additional entries to extend the default setup allow list. Format: I:address:selector,C:classId:selector',
     printDefault: () =>
-      'AuthRegistry, FeeJuice.increase_public_balance, Token.increase_public_balance, FPC.prepare_fee',
+      'Default: AuthRegistry._set_authorized, FeeJuice._increase_public_balance, Token._increase_public_balance, Token.transfer_in_public',
   },
   maxPendingTxCount: {
     env: 'P2P_MAX_PENDING_TX_COUNT',
@@ -464,6 +478,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.',
     ...numberConfigHelper(2_000),
   },
+  priceBumpPercentage: {
+    env: 'P2P_RPC_PRICE_BUMP_PERCENTAGE',
+    description:
+      'Minimum percentage fee increase required to replace an existing tx via RPC. Even at 0%, replacement still requires paying at least 1 unit more.',
+    ...bigintConfigHelper(10n),
+  },
   ...sharedSequencerConfigMappings,
   ...p2pReqRespConfigMappings,
   ...batchTxRequesterConfigMappings,
@@ -523,11 +543,9 @@ export const bootnodeConfigMappings = pickConfigMappings(
 
 /**
  * Parses a string to a list of allowed elements.
- * Each encoded is expected to be of one of the following formats
- * `I:${address}`
- * `I:${address}:${selector}`
- * `C:${classId}`
- * `C:${classId}:${selector}`
+ * Each entry is expected to be of one of the following formats:
+ * `I:${address}:${selector}` — instance (contract address) with function selector
+ * `C:${classId}:${selector}` — class with function selector
  *
  * @param value The string to parse
  * @returns A list of allowed elements
@@ -540,31 +558,34 @@ export function parseAllowList(value: string): AllowedElement[] {
   }
 
   for (const val of value.split(',')) {
-    const [typeString, identifierString, selectorString] = val.split(':');
-    const selector = selectorString !== undefined ? FunctionSelector.fromString(selectorString) : undefined;
+    const trimmed = val.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const [typeString, identifierString, selectorString] = trimmed.split(':');
+
+    if (!selectorString) {
+      throw new Error(
+        `Invalid allow list entry "${trimmed}": selector is required. Expected format: I:address:selector or C:classId:selector`,
+      );
+    }
+
+    const selector = FunctionSelector.fromString(selectorString);
 
     if (typeString === 'I') {
-      if (selector) {
-        entries.push({
-          address: AztecAddress.fromString(identifierString),
-          selector,
-        });
-      } else {
-        entries.push({
-          address: AztecAddress.fromString(identifierString),
-        });
-      }
+      entries.push({
+        address: AztecAddress.fromString(identifierString),
+        selector,
+      });
     } else if (typeString === 'C') {
-      if (selector) {
-        entries.push({
-          classId: Fr.fromHexString(identifierString),
-          selector,
-        });
-      } else {
-        entries.push({
-          classId: Fr.fromHexString(identifierString),
-        });
-      }
+      entries.push({
+        classId: Fr.fromHexString(identifierString),
+        selector,
+      });
+    } else {
+      throw new Error(
+        `Invalid allow list entry "${trimmed}": unknown type "${typeString}". Expected "I" (instance) or "C" (class).`,
+      );
     }
   }
 

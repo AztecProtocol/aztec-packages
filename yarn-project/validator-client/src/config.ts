@@ -77,6 +77,26 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Agree to attest to equivocated checkpoint proposals (for testing purposes only)',
     ...booleanConfigHelper(false),
   },
+  validateMaxL2BlockGas: {
+    env: 'VALIDATOR_MAX_L2_BLOCK_GAS',
+    description: 'Maximum L2 block gas for validation. Proposals exceeding this limit are rejected.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
+  validateMaxDABlockGas: {
+    env: 'VALIDATOR_MAX_DA_BLOCK_GAS',
+    description: 'Maximum DA block gas for validation. Proposals exceeding this limit are rejected.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
+  validateMaxTxsPerBlock: {
+    env: 'VALIDATOR_MAX_TX_PER_BLOCK',
+    description: 'Maximum transactions per block for validation. Proposals exceeding this limit are rejected.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
+  validateMaxTxsPerCheckpoint: {
+    env: 'VALIDATOR_MAX_TX_PER_CHECKPOINT',
+    description: 'Maximum transactions per checkpoint for validation. Proposals exceeding this limit are rejected.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
   ...validatorHASignerConfigMappings,
 };
 

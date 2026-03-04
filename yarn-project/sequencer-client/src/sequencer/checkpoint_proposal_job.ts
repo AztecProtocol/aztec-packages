@@ -1,5 +1,3 @@
-import { NUM_CHECKPOINT_END_MARKER_FIELDS, getNumBlockEndBlobFields } from '@aztec/blob-lib/encoding';
-import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import {
   BlockNumber,
@@ -9,6 +7,11 @@ import {
   SlotNumber,
 } from '@aztec/foundation/branded-types';
 import { randomInt } from '@aztec/foundation/crypto/random';
+import {
+  flipSignature,
+  generateRecoverableSignature,
+  generateUnrecoverableSignature,
+} from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -27,7 +30,7 @@ import {
   type L2BlockSource,
   MaliciousCommitteeAttestationsAndSigners,
 } from '@aztec/stdlib/block';
-import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { type Checkpoint, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
@@ -262,6 +265,22 @@ export class CheckpointProposalJob implements Traceable {
       this.setStateFn(SequencerState.ASSEMBLING_CHECKPOINT, this.slot);
       const checkpoint = await checkpointBuilder.completeCheckpoint();
 
+      // Final validation round for the checkpoint before we propose it, just for safety
+      try {
+        validateCheckpoint(checkpoint, {
+          rollupManaLimit: this.l1Constants.rollupManaLimit,
+          maxL2BlockGas: this.config.maxL2BlockGas,
+          maxDABlockGas: this.config.maxDABlockGas,
+          maxTxsPerBlock: this.config.maxTxsPerBlock,
+          maxTxsPerCheckpoint: this.config.maxTxsPerCheckpoint,
+        });
+      } catch (err) {
+        this.log.error(`Built an invalid checkpoint at slot ${this.slot} (skipping proposal)`, err, {
+          checkpoint: checkpoint.header.toInspect(),
+        });
+        return undefined;
+      }
+
       // Record checkpoint-level build metrics
       this.metrics.recordCheckpointBuild(
         checkpointBuildTimer.ms(),
@@ -384,9 +403,6 @@ export class CheckpointProposalJob implements Traceable {
     const txHashesAlreadyIncluded = new Set<string>();
     const initialBlockNumber = BlockNumber(this.syncedToBlockNumber + 1);
 
-    // Remaining blob fields available for blocks (checkpoint end marker already subtracted)
-    let remainingBlobFields = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB - NUM_CHECKPOINT_END_MARKER_FIELDS;
-
     // Last block in the checkpoint will usually be flagged as pending broadcast, so we send it along with the checkpoint proposal
     let blockPendingBroadcast: { block: L2Block; txs: Tx[] } | undefined = undefined;
 
@@ -419,7 +435,6 @@ export class CheckpointProposalJob implements Traceable {
         blockNumber,
         indexWithinCheckpoint,
         txHashesAlreadyIncluded,
-        remainingBlobFields,
       });
 
       // TODO(palla/mbps): Review these conditions. We may want to keep trying in some scenarios.
@@ -445,11 +460,8 @@ export class CheckpointProposalJob implements Traceable {
         break;
       }
 
-      const { block, usedTxs, remainingBlobFields: newRemainingBlobFields } = buildResult;
+      const { block, usedTxs } = buildResult;
       blocksInCheckpoint.push(block);
-
-      // Update remaining blob fields for the next block
-      remainingBlobFields = newRemainingBlobFields;
 
       // Sync the proposed block to the archiver to make it available
       // Note that the checkpoint builder uses its own fork so it should not need to wait for this syncing
@@ -518,18 +530,10 @@ export class CheckpointProposalJob implements Traceable {
       indexWithinCheckpoint: IndexWithinCheckpoint;
       buildDeadline: Date | undefined;
       txHashesAlreadyIncluded: Set<string>;
-      remainingBlobFields: number;
     },
-  ): Promise<{ block: L2Block; usedTxs: Tx[]; remainingBlobFields: number } | { error: Error } | undefined> {
-    const {
-      blockTimestamp,
-      forceCreate,
-      blockNumber,
-      indexWithinCheckpoint,
-      buildDeadline,
-      txHashesAlreadyIncluded,
-      remainingBlobFields,
-    } = opts;
+  ): Promise<{ block: L2Block; usedTxs: Tx[] } | { error: Error } | undefined> {
+    const { blockTimestamp, forceCreate, blockNumber, indexWithinCheckpoint, buildDeadline, txHashesAlreadyIncluded } =
+      opts;
 
     this.log.verbose(
       `Preparing block ${blockNumber} index ${indexWithinCheckpoint} at checkpoint ${this.checkpointNumber} for slot ${this.slot}`,
@@ -563,16 +567,16 @@ export class CheckpointProposalJob implements Traceable {
       );
       this.setStateFn(SequencerState.CREATING_BLOCK, this.slot);
 
-      // Calculate blob fields limit for txs (remaining capacity - this block's end overhead)
-      const blockEndOverhead = getNumBlockEndBlobFields(indexWithinCheckpoint === 0);
-      const maxBlobFieldsForTxs = remainingBlobFields - blockEndOverhead;
-
+      // Per-block limits derived at startup by computeBlockLimits(), further capped
+      // by remaining checkpoint-level budgets inside CheckpointBuilder before each block is built.
       const blockBuilderOptions: PublicProcessorLimits = {
         maxTransactions: this.config.maxTxsPerBlock,
-        maxBlockSize: this.config.maxBlockSizeInBytes,
-        maxBlockGas: new Gas(this.config.maxDABlockGas, this.config.maxL2BlockGas),
-        maxBlobFields: maxBlobFieldsForTxs,
+        maxBlockGas:
+          this.config.maxL2BlockGas !== undefined || this.config.maxDABlockGas !== undefined
+            ? new Gas(this.config.maxDABlockGas ?? Infinity, this.config.maxL2BlockGas ?? Infinity)
+            : undefined,
         deadline: buildDeadline,
+        isBuildingProposal: true,
       };
 
       // Actually build the block by executing txs
@@ -602,7 +606,7 @@ export class CheckpointProposalJob implements Traceable {
       }
 
       // Block creation succeeded, emit stats and metrics
-      const { publicGas, block, publicProcessorDuration, usedTxs, usedTxBlobFields, blockBuildDuration } = buildResult;
+      const { block, publicProcessorDuration, usedTxs, blockBuildDuration } = buildResult;
 
       const blockStats = {
         eventName: 'l2-block-built',
@@ -613,7 +617,7 @@ export class CheckpointProposalJob implements Traceable {
 
       const blockHash = await block.hash();
       const txHashes = block.body.txEffects.map(tx => tx.txHash);
-      const manaPerSec = publicGas.l2Gas / (blockBuildDuration / 1000);
+      const manaPerSec = block.header.totalManaUsed.toNumberUnsafe() / (blockBuildDuration / 1000);
 
       this.log.info(
         `Built block ${block.number} at checkpoint ${this.checkpointNumber} for slot ${this.slot} with ${numTxs} txs`,
@@ -621,9 +625,9 @@ export class CheckpointProposalJob implements Traceable {
       );
 
       this.eventEmitter.emit('block-proposed', { blockNumber: block.number, slot: this.slot });
-      this.metrics.recordBuiltBlock(blockBuildDuration, publicGas.l2Gas);
+      this.metrics.recordBuiltBlock(blockBuildDuration, block.header.totalManaUsed.toNumberUnsafe());
 
-      return { block, usedTxs, remainingBlobFields: maxBlobFieldsForTxs - usedTxBlobFields };
+      return { block, usedTxs };
     } catch (err: any) {
       this.eventEmitter.emit('block-build-failed', { reason: err.message, slot: this.slot });
       this.log.error(`Error building block`, err, { blockNumber, slot: this.slot });
@@ -759,7 +763,12 @@ export class CheckpointProposalJob implements Traceable {
       const sorted = orderAttestations(trimmed, committee);
 
       // Manipulate the attestations if we've been configured to do so
-      if (this.config.injectFakeAttestation || this.config.shuffleAttestationOrdering) {
+      if (
+        this.config.injectFakeAttestation ||
+        this.config.injectHighSValueAttestation ||
+        this.config.injectUnrecoverableSignatureAttestation ||
+        this.config.shuffleAttestationOrdering
+      ) {
         return this.manipulateAttestations(proposal.slotNumber, epoch, seed, committee, sorted);
       }
 
@@ -788,7 +797,11 @@ export class CheckpointProposalJob implements Traceable {
       this.epochCache.computeProposerIndex(slotNumber, epoch, seed, BigInt(committee.length)),
     );
 
-    if (this.config.injectFakeAttestation) {
+    if (
+      this.config.injectFakeAttestation ||
+      this.config.injectHighSValueAttestation ||
+      this.config.injectUnrecoverableSignatureAttestation
+    ) {
       // Find non-empty attestations that are not from the proposer
       const nonProposerIndices: number[] = [];
       for (let i = 0; i < attestations.length; i++) {
@@ -798,8 +811,20 @@ export class CheckpointProposalJob implements Traceable {
       }
       if (nonProposerIndices.length > 0) {
         const targetIndex = nonProposerIndices[randomInt(nonProposerIndices.length)];
-        this.log.warn(`Injecting fake attestation in checkpoint for slot ${slotNumber} at index ${targetIndex}`);
-        unfreeze(attestations[targetIndex]).signature = Signature.random();
+        if (this.config.injectHighSValueAttestation) {
+          this.log.warn(
+            `Injecting high-s value attestation in checkpoint for slot ${slotNumber} at index ${targetIndex}`,
+          );
+          unfreeze(attestations[targetIndex]).signature = flipSignature(attestations[targetIndex].signature);
+        } else if (this.config.injectUnrecoverableSignatureAttestation) {
+          this.log.warn(
+            `Injecting unrecoverable signature attestation in checkpoint for slot ${slotNumber} at index ${targetIndex}`,
+          );
+          unfreeze(attestations[targetIndex]).signature = generateUnrecoverableSignature();
+        } else {
+          this.log.warn(`Injecting fake attestation in checkpoint for slot ${slotNumber} at index ${targetIndex}`);
+          unfreeze(attestations[targetIndex]).signature = generateRecoverableSignature();
+        }
       }
       return new CommitteeAttestationsAndSigners(attestations);
     }
@@ -808,11 +833,20 @@ export class CheckpointProposalJob implements Traceable {
       this.log.warn(`Shuffling attestation ordering in checkpoint for slot ${slotNumber} (proposer #${proposerIndex})`);
 
       const shuffled = [...attestations];
-      const [i, j] = [(proposerIndex + 1) % shuffled.length, (proposerIndex + 2) % shuffled.length];
-      const valueI = shuffled[i];
-      const valueJ = shuffled[j];
-      shuffled[i] = valueJ;
-      shuffled[j] = valueI;
+
+      // Find two non-proposer positions that both have non-empty signatures to swap.
+      // This ensures the bitmap doesn't change, so the MaliciousCommitteeAttestationsAndSigners
+      // signers array stays correctly aligned with L1's committee reconstruction.
+      const swappable: number[] = [];
+      for (let k = 0; k < shuffled.length; k++) {
+        if (!shuffled[k].signature.isEmpty() && k !== proposerIndex) {
+          swappable.push(k);
+        }
+      }
+      if (swappable.length >= 2) {
+        const [i, j] = [swappable[0], swappable[1]];
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
 
       const signers = new CommitteeAttestationsAndSigners(attestations).getSigners();
       return new MaliciousCommitteeAttestationsAndSigners(shuffled, signers);

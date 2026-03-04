@@ -483,7 +483,8 @@ class WorkerClientManager {
     };
 
     this.processes[0].send(aggregatorCmd);
-    const result = await this.waitForBenchResult(0, config.timeoutMs + 30000);
+    const aggregatorBudgetMs = config.timeoutMs + BENCHMARK_CONSTANTS.MAX_PEER_WAIT_MS + 30000;
+    const result = await this.waitForBenchResult(0, aggregatorBudgetMs);
 
     this.logger.info(
       `Benchmark complete: fetched=${result.fetchedCount}/${config.txCount}, duration=${result.durationMs.toFixed(0)}ms, success=${result.success}`,

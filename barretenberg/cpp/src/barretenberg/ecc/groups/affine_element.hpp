@@ -17,6 +17,11 @@
 #include <vector>
 
 namespace bb::group_elements {
+
+// MSB of the top 64-bit limb in a uint256_t (bit 255). Used in point compression to encode the
+// y-coordinate parity bit, and cleared when recovering the x-coordinate.
+static constexpr uint64_t UINT256_TOP_LIMB_MSB = 0x8000000000000000ULL;
+
 template <typename T>
 concept SupportsHashToCurve = T::can_hash_to_curve;
 template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine_element {
@@ -79,10 +84,6 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
     constexpr affine_element operator+(const affine_element& other) const noexcept;
 
     constexpr affine_element operator*(const Fr& exponent) const noexcept;
-
-    template <typename BaseField = Fq,
-              typename CompileTimeEnabled = std::enable_if_t<(BaseField::modulus >> 255) == uint256_t(0), void>>
-    [[nodiscard]] constexpr uint256_t compress() const noexcept;
 
     static constexpr affine_element infinity();
     constexpr affine_element set_infinity() const noexcept;

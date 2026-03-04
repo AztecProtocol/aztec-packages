@@ -125,6 +125,7 @@ template <typename Curve> class GeminiProver_ {
     class PolynomialBatcher {
 
         size_t full_batched_size = 0; // size of the full batched polynomial (generally the circuit size)
+        size_t actual_data_size_ = 0; // max end_index across all polynomials (actual data extent)
 
         Polynomial batched_unshifted;            // linear combination of unshifted polynomials
         Polynomial batched_to_be_shifted_by_one; // linear combination of to-be-shifted polynomials
@@ -133,10 +134,11 @@ template <typename Curve> class GeminiProver_ {
         RefVector<Polynomial> unshifted;            // set of unshifted polynomials
         RefVector<Polynomial> to_be_shifted_by_one; // set of polynomials to be left shifted by 1
 
-        PolynomialBatcher(const size_t full_batched_size)
+        PolynomialBatcher(const size_t full_batched_size, const size_t actual_data_size = 0)
             : full_batched_size(full_batched_size)
-            , batched_unshifted(full_batched_size)
-            , batched_to_be_shifted_by_one(Polynomial::shiftable(full_batched_size))
+            , actual_data_size_(actual_data_size == 0 ? full_batched_size : actual_data_size)
+            , batched_unshifted(actual_data_size_, full_batched_size)
+            , batched_to_be_shifted_by_one(Polynomial::shiftable(actual_data_size_, full_batched_size))
         {}
 
         bool has_unshifted() const { return unshifted.size() > 0; }
@@ -191,8 +193,8 @@ template <typename Curve> class GeminiProver_ {
          */
         std::pair<Polynomial, Polynomial> compute_partially_evaluated_batch_polynomials(const Fr& r_challenge)
         {
-            // Initialize A₀₊ and compute A₀₊ += F as necessary
-            Polynomial A_0_pos(full_batched_size); // A₀₊
+            // Initialize A₀₊ with only the actual data extent; virtual zeroes cover the rest
+            Polynomial A_0_pos(actual_data_size_, full_batched_size); // A₀₊
 
             if (has_unshifted()) {
                 A_0_pos += batched_unshifted; // A₀₊ += F

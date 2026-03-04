@@ -437,7 +437,7 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenValidInstance
             { C::nullifier_check_nullifier, contract_address },
             { C::nullifier_check_root, nullifier_tree_root },
             { C::nullifier_check_address, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
-            { C::nullifier_check_should_silo, 1 },
+            { C::nullifier_check_sel_silo, 1 },
             // For address derivation lookup
             { C::address_derivation_sel, 1 },
             { C::address_derivation_address, contract_address },
@@ -513,7 +513,7 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenNonExistentIn
                   { C::nullifier_check_nullifier, contract_address },
                   { C::nullifier_check_root, nullifier_tree_root },
                   { C::nullifier_check_address, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
-                  { C::nullifier_check_should_silo, 1 },
+                  { C::nullifier_check_sel_silo, 1 },
                   // For address derivation lookup
                   { C::address_derivation_sel, 0 }, // Not selected since nullifier doesn't exist
                   { C::address_derivation_address, contract_address },
@@ -591,7 +591,7 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenAddressZero)
                   { C::nullifier_check_nullifier, contract_address },
                   { C::nullifier_check_root, nullifier_tree_root },
                   { C::nullifier_check_address, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
-                  { C::nullifier_check_should_silo, 1 },
+                  { C::nullifier_check_sel_silo, 1 },
                   // For address derivation lookup
                   { C::address_derivation_sel, 0 }, // Not selected since nullifier doesn't exist
                   { C::address_derivation_address, contract_address },
@@ -678,7 +678,7 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenMultipleInsta
                 { C::nullifier_check_nullifier, FF(base_address + i) },
                 { C::nullifier_check_root, FF(base_nullifier_tree_root + i) },
                 { C::nullifier_check_address, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
-                { C::nullifier_check_should_silo, 1 },
+                { C::nullifier_check_sel_silo, 1 },
                 // For address derivation lookup (only when nullifier exists)
                 { C::address_derivation_sel, 1 },
                 { C::address_derivation_address, FF(base_address + i) },

@@ -374,17 +374,17 @@ TEST(NullifierTreeCheckConstrainingTest, NegativeNextSlotIsZero)
 
 TEST(NullifierTreeCheckConstrainingTest, NegativePassthrougSiloing)
 {
-    // Test constraint: sel * (1 - should_silo) * (nullifier - siloed_nullifier) = 0;
+    // Test constraint: sel * (1 - sel_silo) * (nullifier - siloed_nullifier) = 0;
     TestTraceContainer trace({
         {
             { C::nullifier_check_sel, 1 },
-            { C::nullifier_check_should_silo, 1 },
+            { C::nullifier_check_sel_silo, 1 },
             { C::nullifier_check_nullifier, 27 },
             { C::nullifier_check_siloed_nullifier, 42 },
         },
         {
             { C::nullifier_check_sel, 1 },
-            { C::nullifier_check_should_silo, 0 },
+            { C::nullifier_check_sel_silo, 0 },
             { C::nullifier_check_nullifier, 27 },
             { C::nullifier_check_siloed_nullifier, 27 },
         },
