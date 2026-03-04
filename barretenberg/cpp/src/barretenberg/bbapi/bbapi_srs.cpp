@@ -25,10 +25,12 @@ SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
             }
         });
     } else {
-        // Parse uncompressed 64-byte points
-        for (size_t i = 0; i < num_points; ++i) {
-            g1_points[i] = from_buffer<g1::affine_element>(points_buf.data(), i * 64);
-        }
+        // Parse uncompressed 64-byte points in parallel
+        parallel_for([&](ThreadChunk chunk) {
+            for (auto i : chunk.range(static_cast<size_t>(num_points))) {
+                g1_points[i] = from_buffer<g1::affine_element>(points_buf.data(), i * 64);
+            }
+        });
     }
 
     // Parse G2 point from buffer (128 bytes)
