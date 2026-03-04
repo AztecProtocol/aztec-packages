@@ -689,19 +689,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             a_zeros[i] = data.a_zero;
         }
 
-        // Phase 2: Generate batching challenge \alpha via Fiat-Shamir over all claims
-        NativeTranscript batch_transcript;
-        for (size_t i = 0; i < num_claims; i++) {
-            std::string idx = std::to_string(i);
-            batch_transcript.add_to_hash_buffer("IPA:batch_commitment_" + idx, opening_claims[i].commitment);
-            batch_transcript.add_to_hash_buffer("IPA:batch_challenge_" + idx, opening_claims[i].opening_pair.challenge);
-            batch_transcript.add_to_hash_buffer("IPA:batch_evaluation_" + idx,
-                                                opening_claims[i].opening_pair.evaluation);
-        }
-        Fr alpha = batch_transcript.template get_challenge<Fr>("IPA:batch_alpha");
-
-        // Phase 3: Batched computation
-        // Compute powers of \alpha
+        // Phase 2: Batched computation using random challenge alpha
+        Fr alpha = Fr::random_element();
         std::vector<Fr> alpha_pows(num_claims);
         alpha_pows[0] = Fr::one();
         for (size_t i = 1; i < num_claims; i++) {
@@ -715,7 +704,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             combined_s.add_scaled(s_vecs[i], scalar);
         }
 
-        // One big MSM: G_batch = pippenger(combined_s, SRS)
+        // Single MSM over combined scalars
         std::span<const Commitment> srs_elements = vk.get_monomial_points();
         if (poly_length > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
