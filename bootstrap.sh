@@ -577,7 +577,6 @@ function test_bootstrap_linux {
   trap "docker volume rm $name-volume &>/dev/null" EXIT
   docker run --rm -ti --name $name \
     --cpus=32 \
-    --memory=32g \
     --ulimit nofile=1048576:1048576 \
     -v $root:/aztec-packages:ro \
     --mount type=volume,src=$name-volume,dst=/root/aztec-packages \
