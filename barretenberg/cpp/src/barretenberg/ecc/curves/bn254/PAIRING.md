@@ -41,10 +41,10 @@ for i in signed_bit_decomposition[:-1].revert():
     result *= line_eval(running_point, running_point, P)
     running_point = running_point + running_point;
     if (i == 1):
-        result *= line_eval(running_point, Q, P);
+        result *= line_eval(Q, running_point, P);
         running_point += Q;
     elif (i == -1):
-        result *= line_eval(running_point, -Q, P);
+        result *= line_eval(-Q, running_point, P);
         running_point -= Q;
     else:
         pass
@@ -54,12 +54,17 @@ where `signed_bit_decomposition_m` is binary signed bit decomposition of `m`:
 $$\sum_{i} b_i 2^{i} = m \quad \quad b_i = \text{signed\_bit\_decomposition[i]}$$
 and `line_eval(Q_1, Q_2, P)` is the function that evaluates the line passing through $Q_1$ and $Q_2$ at $P$.
 
-To compute the line function we bring $Q_1, Q_2$ to $E$ and then evaluate there:
+To compute the line function:
+- we bring $Q_1, Q_2$ to $E$ and then evaluate there
+- we compute in projective coordinates to avoid inversions
+- we rescale the equations to optimize the calculations: we rescale the line equation of the doubling by $-2Y_{Q_1}Z_{Q_1}$, while we rescale the one of the addition by $X_{Q_2} - X_{Q_1}Z_{Q_2}$
+
+Below we write down the line equation in affine coordinates, from which the ones in projective coordinates can be derived
 $$
 \begin{aligned}
     l_{Q_1, Q_2}(P) &\;= l_{\Psi(Q_1), \Psi(Q_2)}(P) \\
-    &\;= y_P - y_{Q_2} \cdot w^3 - \lambda_{Q_1, Q_2} (x_P - x_{Q_2} \cdot w^2) \cdot w\\
-    &\;= y_P - \lambda_{Q_1, Q_2} x_P \cdot w + (\lambda_{Q_1, Q_2} x_{Q_2} - y_{Q_2}) \cdot w  v
+    &\;= y_P - y_{Q_1} \cdot w^3 - \lambda_{Q_1, Q_2} (x_P - x_{Q_1} \cdot w^2) \cdot w\\
+    &\;= y_P - \lambda_{Q_1, Q_2} x_P \cdot w + (\lambda_{Q_1, Q_2} x_{Q_1} - y_{Q_1}) \cdot w^3
 \end{aligned}
 $$
 
