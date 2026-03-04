@@ -83,47 +83,19 @@ pub unconstrained fn get_last_tx_effects() -> (Field, BoundedVec<Field, MAX_NOTE
 #[oracle(txeGetDefaultAddress)]
 pub unconstrained fn get_default_address() -> AztecAddress {}
 
-/// Returns up to `MAX_PRIVATE_EVENTS_PER_TXE_QUERY` private events of type `Event` that were emitted by
-/// `contract_address` and available in `scope`.
+/// Returns private events emitted in the last block.
+///
+/// Queries up to `MAX_PRIVATE_EVENTS_PER_TXE_QUERY` private events of type `Event` that were
+/// emitted by `contract_address` and are readable by `scope` (i.e. the recipient of the event).
+/// Only events in the most recently mined block are returned.
+///
+/// ---
 ///
 /// **Experimental** - there will be breaking API changes.
 ///
-/// Private events are emitted during private function execution via
-/// [`emit_event_in_private`](crate::event::event_emission::emit_event_in_private).
+/// ---
 ///
-/// ## Examples
-///
-/// Emitting a single event in a contract and reading it back:
-/// ```noir
-/// #[aztec]
-/// pub contract Token {
-///    ...
-///
-///    #[event]
-///    pub struct Transfer {
-///        pub from: AztecAddress,
-///        pub to: AztecAddress,
-///        pub amount: u128,
-///    }
-///
-///    ...
-///
-///    #[external("private")]
-///    fn transfer(to: AztecAddress, amount: u128) {
-///         ...
-///         self.emit(Transfer { from, to, amount }).deliver_to(
-///            to,
-///            MessageDelivery.ONCHAIN_UNCONSTRAINED,
-///        );
-///    }
-/// }
-/// ```
-///
-/// Querying events emitted by a deployed contract:
-/// ```noir
-/// let events = get_private_events::<Token::Transfer>(token_contract_address, recipient);
-/// assert_eq(events.get(0).amount, expected_amount);
-/// ```
+/// Prefer using [`TestEnvironment::get_private_events`] instead of calling this oracle directly.
 pub unconstrained fn get_private_events<Event>(
     contract_address: AztecAddress,
     scope: AztecAddress,
