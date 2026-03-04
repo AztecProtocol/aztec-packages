@@ -5,7 +5,7 @@ import { TxHash } from '@aztec/stdlib/tx';
 
 // Default BoundedVec storage capacity for contracts that don't explicitly store their capacity.
 // TODO(F-380): remove once all contracts store capacity explicitly.
-const DEFAULT_NOTE_BOUNDED_VEC_CAPACITY = 9;
+export const DEFAULT_NOTE_BOUNDED_VEC_CAPACITY = 9;
 
 /**
  * Intermediate struct used to perform batch note validation by PXE. The `utilityValidateAndStoreEnqueuedNotesAndEvents` oracle

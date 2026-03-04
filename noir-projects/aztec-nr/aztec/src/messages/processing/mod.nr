@@ -154,8 +154,8 @@ pub unconstrained fn enqueue_event_for_validation(
 ///
 /// This automatically clears both validation request queues, so no further work needs to be done by the caller.
 pub unconstrained fn validate_and_store_enqueued_notes_and_events(contract_address: AztecAddress) {
-    // Store BoundedVec capacities once so PXE knows the serialization layout. Contracts that don't store these
-    // will cause PXE to fall back to default capacities.
+    // Store BoundedVec capacities so PXE knows the serialization layout. Contracts that don't store these will
+    // cause PXE to fall back to default capacities.
     oracle::capsules::store(
         contract_address,
         NOTE_BOUNDED_VEC_CAPACITY_SLOT,

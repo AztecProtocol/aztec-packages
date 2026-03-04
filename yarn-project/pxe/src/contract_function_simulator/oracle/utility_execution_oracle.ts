@@ -44,8 +44,10 @@ import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interface
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 // Capsule slots where aztec-nr stores BoundedVec capacities (must match Noir globals in messages/processing/mod.nr).
-const NOTE_BOUNDED_VEC_CAPACITY_SLOT = sha256ToField([Buffer.from('AZTEC_NR::NOTE_BOUNDED_VEC_CAPACITY_SLOT')]);
-const EVENT_BOUNDED_VEC_CAPACITY_SLOT = sha256ToField([Buffer.from('AZTEC_NR::EVENT_BOUNDED_VEC_CAPACITY_SLOT')]);
+export const NOTE_BOUNDED_VEC_CAPACITY_SLOT = sha256ToField([Buffer.from('AZTEC_NR::NOTE_BOUNDED_VEC_CAPACITY_SLOT')]);
+export const EVENT_BOUNDED_VEC_CAPACITY_SLOT = sha256ToField([
+  Buffer.from('AZTEC_NR::EVENT_BOUNDED_VEC_CAPACITY_SLOT'),
+]);
 
 /** Args for UtilityExecutionOracle constructor. */
 export type UtilityExecutionOracleArgs = {
