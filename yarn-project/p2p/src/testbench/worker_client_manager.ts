@@ -81,13 +81,15 @@ class WorkerClientManager {
    * Note: We send the raw peerIdPrivateKey string instead of SecretValue
    * because SecretValue.toJSON() returns '[Redacted]', losing the value.
    * The worker must re-wrap it in SecretValue.
+   * We also omit priceBumpPercentage since it's a bigint and can't be
+   * serialized over IPC (which uses JSON under the hood).
    */
   private createClientConfig(
     clientIndex: number,
     port: number,
     otherNodes: string[],
-  ): Omit<P2PConfig, 'peerIdPrivateKey'> & { peerIdPrivateKey: string } & Partial<ChainConfig> {
-    return {
+  ): Omit<P2PConfig, 'peerIdPrivateKey' | 'priceBumpPercentage'> & { peerIdPrivateKey: string } & Partial<ChainConfig> {
+    const { priceBumpPercentage: _, ...config } = {
       ...getP2PDefaultConfig(),
       p2pEnabled: true,
       peerIdPrivateKey: this.peerIdPrivateKeys[clientIndex],
@@ -96,7 +98,10 @@ class WorkerClientManager {
       p2pPort: port,
       bootstrapNodes: [...otherNodes],
       ...this.p2pConfig,
-    } as Omit<P2PConfig, 'peerIdPrivateKey'> & { peerIdPrivateKey: string } & Partial<ChainConfig>;
+    };
+    return config as Omit<P2PConfig, 'peerIdPrivateKey' | 'priceBumpPercentage'> & {
+      peerIdPrivateKey: string;
+    } & Partial<ChainConfig>;
   }
 
   /**
@@ -104,7 +109,9 @@ class WorkerClientManager {
    * Config uses raw string for peerIdPrivateKey (not SecretValue) for IPC serialization.
    */
   private spawnWorkerProcess(
-    config: Omit<P2PConfig, 'peerIdPrivateKey'> & { peerIdPrivateKey: string } & Partial<ChainConfig>,
+    config: Omit<P2PConfig, 'peerIdPrivateKey' | 'priceBumpPercentage'> & {
+      peerIdPrivateKey: string;
+    } & Partial<ChainConfig>,
     clientIndex: number,
   ): [ChildProcess, Promise<void>] {
     const useCompiled = existsSync(workerJsPath);
