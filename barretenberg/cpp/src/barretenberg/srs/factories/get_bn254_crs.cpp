@@ -1,5 +1,6 @@
 #include "get_bn254_crs.hpp"
 #include "barretenberg/api/file_io.hpp"
+#include <algorithm>
 #include "barretenberg/common/flock.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
@@ -20,9 +21,17 @@ std::vector<uint8_t> download_bn254_g1_data(size_t num_points,
 {
     // Round up download size to next 8MB chunk boundary so every downloaded chunk
     // can be fully verified against embedded SHA256 hashes.
+    // Cap at 256 full chunks to avoid requesting past end-of-file (the full CRS has
+    // 256 full 8MB chunks + a 64-byte remainder that can't fill another chunk).
     constexpr size_t points_per_chunk = bb::srs::CRS_HASH_CHUNK_SIZE / sizeof(bb::g1::affine_element);
+    constexpr size_t max_aligned_points = bb::srs::CRS_NUM_FULL_CHUNKS * points_per_chunk;
     size_t aligned_points = ((num_points + points_per_chunk - 1) / points_per_chunk) * points_per_chunk;
-    size_t g1_end = (aligned_points * sizeof(bb::g1::affine_element)) - 1;
+    if (aligned_points > max_aligned_points) {
+        aligned_points = max_aligned_points;
+    }
+    // Request enough bytes for whichever is larger: the chunk-aligned amount or the actual request.
+    size_t download_points = std::max(aligned_points, num_points);
+    size_t g1_end = (download_points * sizeof(bb::g1::affine_element)) - 1;
 
     // Try primary URL first, with fallback on failure.
     // Note: WASM is compiled with -fno-exceptions, so try/catch is not available.

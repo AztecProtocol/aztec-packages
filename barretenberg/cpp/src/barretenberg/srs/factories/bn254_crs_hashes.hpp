@@ -27,6 +27,8 @@ namespace bb::srs {
  */
 constexpr size_t CRS_HASH_CHUNK_SIZE = 8388608;
 constexpr size_t CRS_NUM_CHUNK_HASHES = 257;
+// Number of full 8MB chunks in the CRS (the last chunk is only 64 bytes).
+constexpr size_t CRS_NUM_FULL_CHUNKS = 256;
 
 // clang-format off
 inline const std::array<crypto::Sha256Hash, 257> BN254_CRS_CHUNK_HASHES = {{
@@ -294,8 +296,8 @@ inline const std::array<crypto::Sha256Hash, 257> BN254_CRS_CHUNK_HASHES = {{
  * @brief Verify downloaded CRS data against embedded SHA256 chunk hashes.
  *
  * @details Verifies the integrity of downloaded CRS data by checking SHA256 hashes
- * of each 8MB chunk in parallel across available cores. The data must be aligned to
- * the 8MB chunk size — callers should round up their download size to ensure this.
+ * of each 8MB chunk in parallel across available cores. Any trailing bytes smaller
+ * than a chunk are skipped.
  * This provides integrity verification for CRS data downloaded over HTTP without
  * requiring SSL/TLS.
  *
@@ -304,19 +306,16 @@ inline const std::array<crypto::Sha256Hash, 257> BN254_CRS_CHUNK_HASHES = {{
  */
 inline void verify_bn254_crs_integrity(const std::vector<uint8_t>& data)
 {
-    if (data.size() % CRS_HASH_CHUNK_SIZE != 0) {
-        throw_or_abort("CRS data size (" + std::to_string(data.size()) +
-                       " bytes) is not a multiple of the chunk size (" + std::to_string(CRS_HASH_CHUNK_SIZE) +
-                       " bytes). Downloads must be aligned to 8MB chunk boundaries for hash verification.");
-    }
-
-    size_t num_chunks = data.size() / CRS_HASH_CHUNK_SIZE;
-    size_t chunks_to_verify = std::min(num_chunks, CRS_NUM_CHUNK_HASHES);
+    // Verify all complete 8MB chunks. Any trailing bytes smaller than a chunk are
+    // not covered by chunk hashes (the full CRS has a 64-byte remainder after 256
+    // full chunks) and are skipped.
+    size_t num_full_chunks = data.size() / CRS_HASH_CHUNK_SIZE;
+    size_t chunks_to_verify = std::min(num_full_chunks, CRS_NUM_CHUNK_HASHES);
     if (chunks_to_verify == 0) {
         return;
     }
 
-    // Track the first failing chunk index across threads.
+    // Track a failing chunk index across threads.
     std::atomic<size_t> failed_chunk{ chunks_to_verify }; // sentinel = no failure
 
     parallel_for([&](const ThreadChunk& tc) {
@@ -329,7 +328,7 @@ inline void verify_bn254_crs_integrity(const std::vector<uint8_t>& data)
             auto chunk = std::span<const uint8_t>(data.data() + offset, CRS_HASH_CHUNK_SIZE);
             auto hash = crypto::sha256(chunk);
             if (hash != BN254_CRS_CHUNK_HASHES[i]) {
-                // Store the smallest failing index we see.
+                // Record this failure (only the first CAS wins).
                 size_t expected = chunks_to_verify;
                 failed_chunk.compare_exchange_strong(expected, i, std::memory_order_relaxed);
             }
