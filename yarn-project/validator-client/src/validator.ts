@@ -201,7 +201,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const metrics = new ValidatorMetrics(telemetry);
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
       txsPermitted: !config.disableTransactions,
-      maxTxsPerBlock: config.maxTxsPerBlock,
+      maxTxsPerBlock: config.validateMaxTxsPerBlock,
     });
     const blockProposalHandler = new BlockProposalHandler(
       checkpointsBuilder,
@@ -769,8 +769,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       try {
         validateCheckpoint(computedCheckpoint, {
           rollupManaLimit: this.checkpointsBuilder.getConfig().rollupManaLimit,
-          maxDABlockGas: undefined,
-          maxL2BlockGas: undefined,
+          maxDABlockGas: this.config.validateMaxDABlockGas,
+          maxL2BlockGas: this.config.validateMaxL2BlockGas,
+          maxTxsPerBlock: this.config.validateMaxTxsPerBlock,
+          maxTxsPerCheckpoint: this.config.validateMaxTxsPerCheckpoint,
         });
       } catch (err) {
         this.log.warn(`Checkpoint validation failed: ${err}`, proposalInfo);
