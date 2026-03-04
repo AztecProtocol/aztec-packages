@@ -425,6 +425,12 @@ The BOB token shows how blockchain can enable new models of corporate benefits t
 - How to implement access control across execution contexts
 - How to build real-world privacy solutions on Aztec
 
+## Going Further: The AIP-20 Token Standard
+
+The BOB token you built in this tutorial implements a simplified version of the patterns formalized in **AIP-20**, Aztec's fungible token standard. AIP-20 extends these patterns with commitment-based transfers for DeFi composability, recursive note consumption for large balances, and tokenized vault support (AIP-4626).
+
+Read the full [AIP-20 standard reference](../../aztec-nr/standards/aip-20.md) for details, or explore all [Aztec Contract Standards](../../aztec-nr/standards/index.md).
+
 ### Continue Your Journey
 
 - Explore [cross-chain communication](../../foundational-topics/ethereum-aztec-messaging/index.md) to integrate with existing health systems
