@@ -90,7 +90,7 @@ template <typename FF> struct GateSeparatorPolynomial {
      * @param idx
      * @return FF const&
      */
-    FF const& operator[](size_t idx) const
+    FF operator[](size_t idx) const
     {
         // At round i, we only iterate over beta_products of indices that are multiples of 2^i,
         // Hence for the idx-th element we need to get the (idx * 2^i)-th element in #beta_products.

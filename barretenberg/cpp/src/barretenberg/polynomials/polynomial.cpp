@@ -107,8 +107,21 @@ Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other)
 // fully copying "expensive" constructor
 template <typename Fr> Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other, const size_t target_size)
 {
-    BB_ASSERT_LTE(other.size(), target_size);
-    coefficients_ = _clone(other.coefficients_, target_size - other.size());
+    if (other.compact_) {
+        // Deep-copy compact data
+        auto compact = std::make_unique<CompactData>();
+        compact->start = other.compact_->start;
+        compact->end = other.compact_->end;
+        compact->virtual_size = other.compact_->virtual_size;
+        const size_t n = compact->end - compact->start;
+        compact->backing = std::shared_ptr<uint32_t[]>(new uint32_t[n]);
+        compact->data = compact->backing.get();
+        memcpy(compact->data, other.compact_->data, sizeof(uint32_t) * n);
+        compact_ = std::move(compact);
+    } else {
+        BB_ASSERT_LTE(other.size(), target_size);
+        coefficients_ = _clone(other.coefficients_, target_size - other.size());
+    }
 }
 
 // interpolation constructor
@@ -139,14 +152,39 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(const Polynomia
     if (this == &other) {
         return *this;
     }
-    coefficients_ = _clone(other.coefficients_);
+    if (other.compact_) {
+        // Deep-copy compact data
+        auto compact = std::make_unique<CompactData>();
+        compact->start = other.compact_->start;
+        compact->end = other.compact_->end;
+        compact->virtual_size = other.compact_->virtual_size;
+        const size_t n = compact->end - compact->start;
+        compact->backing = std::shared_ptr<uint32_t[]>(new uint32_t[n]);
+        compact->data = compact->backing.get();
+        memcpy(compact->data, other.compact_->data, sizeof(uint32_t) * n);
+        compact_ = std::move(compact);
+        coefficients_ = {};
+    } else {
+        coefficients_ = _clone(other.coefficients_);
+        compact_.reset();
+    }
     return *this;
 }
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::share() const
 {
     Polynomial p;
-    p.coefficients_ = coefficients_;
+    if (compact_) {
+        // Shallow share of compact data
+        p.compact_ = std::make_unique<CompactData>();
+        p.compact_->backing = compact_->backing;
+        p.compact_->data = compact_->data;
+        p.compact_->start = compact_->start;
+        p.compact_->end = compact_->end;
+        p.compact_->virtual_size = compact_->virtual_size;
+    } else {
+        p.coefficients_ = coefficients_;
+    }
     return p;
 }
 
@@ -236,7 +274,11 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::create_non_parallel_zero_i
 template <typename Fr> void Polynomial<Fr>::shrink_end_index(const size_t new_end_index)
 {
     BB_ASSERT_LTE(new_end_index, end_index());
-    coefficients_.end_ = new_end_index;
+    if (compact_) {
+        compact_->end = new_end_index;
+    } else {
+        coefficients_.end_ = new_end_index;
+    }
 }
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const

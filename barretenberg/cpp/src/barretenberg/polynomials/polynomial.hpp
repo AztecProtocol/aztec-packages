@@ -147,6 +147,14 @@ template <typename Fr> class Polynomial {
         if (is_empty()) {
             throw_or_abort("Checking is_zero on an empty Polynomial!");
         }
+        if (compact_) {
+            for (size_t i = 0; i < size(); i++) {
+                if (compact_->data[i] != 0) {
+                    return false;
+                }
+            }
+            return true;
+        }
         for (size_t i = 0; i < size(); i++) {
             if (coefficients_.data()[i] != 0) {
                 return false;
@@ -164,9 +172,23 @@ template <typename Fr> class Polynomial {
      * @param virtual_padding For the rare case where we explicitly want the 0-returning behavior beyond our usual
      * virtual_size.
      */
-    const Fr& get(size_t i, size_t virtual_padding = 0) const { return coefficients_.get(i, virtual_padding); };
+    Fr get(size_t i, size_t virtual_padding = 0) const
+    {
+        if (compact_) {
+            if (i >= compact_->start && i < compact_->end) {
+                uint32_t v = compact_->data[i - compact_->start];
+                // Bit 31 is sign flag for public input entries (negated field elements)
+                if (v & 0x80000000U) {
+                    return -Fr(v & 0x7FFFFFFFU);
+                }
+                return Fr(v);
+            }
+            return Fr{};
+        }
+        return coefficients_.get(i, virtual_padding);
+    }
 
-    bool is_empty() const { return coefficients_.size() == 0; }
+    bool is_empty() const { return coefficients_.size() == 0 && !compact_; }
 
     /**
      * @brief Returns a Polynomial the left-shift of self.
@@ -264,12 +286,28 @@ template <typename Fr> class Polynomial {
         }
     }
 
-    std::size_t size() const { return coefficients_.size(); }
-    std::size_t virtual_size() const { return coefficients_.virtual_size(); }
-    void increase_virtual_size(const size_t size_in) { coefficients_.increase_virtual_size(size_in); };
+    std::size_t size() const { return compact_ ? compact_->end - compact_->start : coefficients_.size(); }
+    std::size_t virtual_size() const { return compact_ ? compact_->virtual_size : coefficients_.virtual_size(); }
+    void increase_virtual_size(const size_t size_in)
+    {
+        if (compact_) {
+            BB_ASSERT_GTE(size_in, compact_->virtual_size);
+            compact_->virtual_size = size_in;
+        } else {
+            coefficients_.increase_virtual_size(size_in);
+        }
+    }
 
-    Fr* data() { return coefficients_.data(); }
-    const Fr* data() const { return coefficients_.data(); }
+    Fr* data()
+    {
+        BB_ASSERT(!compact_);
+        return coefficients_.data();
+    }
+    const Fr* data() const
+    {
+        BB_ASSERT(!compact_);
+        return coefficients_.data();
+    }
 
     /**
      * @brief Our mutable accessor, unlike operator[].
@@ -279,11 +317,19 @@ template <typename Fr> class Polynomial {
      * @param index the index, to be subtracted by start_index() and read into the array memory
      * @return Fr& a mutable reference.
      */
-    Fr& at(size_t index) { return coefficients_[index]; }
-    const Fr& at(size_t index) const { return coefficients_[index]; }
+    Fr& at(size_t index)
+    {
+        BB_ASSERT(!compact_);
+        return coefficients_[index];
+    }
+    Fr at(size_t index) const
+    {
+        BB_ASSERT(!compact_);
+        return coefficients_[index];
+    }
 
-    const Fr& operator[](size_t i) { return get(i); }
-    const Fr& operator[](size_t i) const { return get(i); }
+    Fr operator[](size_t i) { return get(i); }
+    Fr operator[](size_t i) const { return get(i); }
 
     static Polynomial random(size_t size, size_t start_index = 0)
     {
@@ -326,8 +372,8 @@ template <typename Fr> class Polynomial {
     Polynomial full() const;
 
     // The extents of the actual memory-backed polynomial region
-    size_t start_index() const { return coefficients_.start_; }
-    size_t end_index() const { return coefficients_.end_; }
+    size_t start_index() const { return compact_ ? compact_->start : coefficients_.start_; }
+    size_t end_index() const { return compact_ ? compact_->end : coefficients_.end_; }
     bool is_shiftable() const { return start_index() == NUM_ZERO_ROWS; }
 
     /**
@@ -338,19 +384,35 @@ template <typename Fr> class Polynomial {
      *
      * @return std::span<Fr> a span covering start_index() to end_index()
      */
-    std::span<Fr> coeffs(size_t offset = 0) { return { data() + offset, data() + size() }; }
-    std::span<const Fr> coeffs(size_t offset = 0) const { return { data() + offset, data() + size() }; }
+    std::span<Fr> coeffs(size_t offset = 0)
+    {
+        BB_ASSERT(!compact_);
+        return { data() + offset, data() + size() };
+    }
+    std::span<const Fr> coeffs(size_t offset = 0) const
+    {
+        BB_ASSERT(!compact_);
+        return { data() + offset, data() + size() };
+    }
     /**
      * @brief Convert to an std::span bundled with our start index.
      * @return PolynomialSpan<Fr> A span covering the entire polynomial.
      */
-    operator PolynomialSpan<Fr>() { return { start_index(), coeffs() }; }
+    operator PolynomialSpan<Fr>()
+    {
+        BB_ASSERT(!compact_);
+        return { start_index(), coeffs() };
+    }
 
     /**
      * @brief Convert to an std::span bundled with our start index.
      * @return PolynomialSpan<Fr> A span covering the entire polynomial.
      */
-    operator PolynomialSpan<const Fr>() const { return { start_index(), coeffs() }; }
+    operator PolynomialSpan<const Fr>() const
+    {
+        BB_ASSERT(!compact_);
+        return { start_index(), coeffs() };
+    }
 
     auto indices() const { return std::ranges::iota_view(start_index(), end_index()); }
     auto indexed_values() { return zip_view(indices(), coeffs()); }
@@ -389,6 +451,91 @@ template <typename Fr> class Polynomial {
         }
     }
 
+    /**
+     * @brief Compact storage for polynomials whose values fit in uint32_t.
+     * @details Used for sigma/id permutation polynomials where values are small indices.
+     * Bit 31 is a sign flag for public input entries (negated field elements).
+     * Saves ~7/8 of memory compared to full Fr storage.
+     */
+    struct CompactData {
+        std::shared_ptr<uint32_t[]> backing;
+        uint32_t* data = nullptr;
+        size_t start = 0;
+        size_t end = 0;
+        size_t virtual_size = 0;
+    };
+
+    bool is_compact() const { return compact_ != nullptr; }
+
+    /**
+     * @brief Compress polynomial data from Fr to uint32_t representation.
+     * @details Each Fr value must fit in 31 bits. The sign bit (bit 31) encodes
+     * negated values (used for public input entries in sigma polynomials).
+     * Frees the original Fr backing memory after compression.
+     */
+    void compress_to_compact()
+    {
+        BB_ASSERT(!compact_);
+        BB_ASSERT(coefficients_.size() > 0);
+
+        auto compact = std::make_unique<CompactData>();
+        compact->start = coefficients_.start_;
+        compact->end = coefficients_.end_;
+        compact->virtual_size = coefficients_.virtual_size_;
+
+        const size_t n = coefficients_.size();
+        compact->backing = std::shared_ptr<uint32_t[]>(new uint32_t[n]);
+        compact->data = compact->backing.get();
+
+        const Fr* src = coefficients_.data();
+        uint32_t* dst = compact->data;
+
+        for (size_t i = 0; i < n; i++) {
+            const Fr& val = src[i];
+            uint64_t as_uint = static_cast<uint64_t>(val);
+            if (as_uint < 0x80000000ULL) {
+                // Positive value fits in 31 bits
+                dst[i] = static_cast<uint32_t>(as_uint);
+            } else {
+                // "Negative" value (> p/2): store magnitude of -val with sign bit
+                uint64_t neg_as_uint = static_cast<uint64_t>(-val);
+                BB_ASSERT(neg_as_uint < 0x80000000ULL);
+                dst[i] = static_cast<uint32_t>(neg_as_uint) | 0x80000000U;
+            }
+        }
+
+        // Free the Fr backing memory
+        coefficients_ = {};
+        compact_ = std::move(compact);
+    }
+
+    /**
+     * @brief Expand compact uint32_t data back to full Fr polynomial.
+     * @details Reconstructs the original Fr values from compact representation.
+     * Frees the compact backing memory after expansion.
+     */
+    void expand_from_compact()
+    {
+        BB_ASSERT(compact_);
+
+        const size_t n = compact_->end - compact_->start;
+        allocate_backing_memory(n, compact_->virtual_size, compact_->start);
+
+        Fr* dst = coefficients_.data();
+        const uint32_t* src = compact_->data;
+
+        for (size_t i = 0; i < n; i++) {
+            uint32_t v = src[i];
+            if (v & 0x80000000U) {
+                dst[i] = -Fr(v & 0x7FFFFFFFU);
+            } else {
+                dst[i] = Fr(v);
+            }
+        }
+
+        compact_.reset();
+    }
+
   private:
     // allocate a fresh memory pointer for backing memory
     // DOES NOT initialize memory
@@ -397,6 +544,9 @@ template <typename Fr> class Polynomial {
     // The underlying memory, with a bespoke (but minimal) shared array struct that fits our needs.
     // Namely, it supports polynomial shifts and 'virtual' zeroes past a size up until a 'virtual' size.
     SharedShiftedVirtualZeroesArray<Fr> coefficients_;
+
+    // Optional compact storage for polynomials whose values fit in uint32_t (e.g., sigma/id polynomials)
+    std::unique_ptr<CompactData> compact_;
 };
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)

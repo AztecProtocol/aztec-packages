@@ -74,6 +74,20 @@ template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Fla
     }
     commitment_key = CommitmentKey(key_size);
 
+    // Compress sigma/id polynomials to uint32_t representation to save ~7/8 memory.
+    // These polynomials contain small index values that fit in 31 bits.
+    // Must happen after VK construction (which commits them) but before sumcheck.
+    for (auto& sigma : prover_instance->polynomials.get_sigmas()) {
+        if (!sigma.is_compact()) {
+            sigma.compress_to_compact();
+        }
+    }
+    for (auto& id : prover_instance->polynomials.get_ids()) {
+        if (!id.is_compact()) {
+            id.compress_to_compact();
+        }
+    }
+
     OinkProver<Flavor> oink_prover(prover_instance, honk_vk, transcript);
     oink_prover.prove();
     vinfo("created oink proof");
@@ -124,6 +138,19 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
 {
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
+
+    // Expand compact sigma/id polynomials back to full Fr representation for PCS.
+    // PartiallyEvaluatedMultivariates are freed by this point, so this is memory-neutral.
+    for (auto& sigma : prover_instance->polynomials.get_sigmas()) {
+        if (sigma.is_compact()) {
+            sigma.expand_from_compact();
+        }
+    }
+    for (auto& id : prover_instance->polynomials.get_ids()) {
+        if (id.is_compact()) {
+            id.expand_from_compact();
+        }
+    }
 
     auto& ck = commitment_key;
 
