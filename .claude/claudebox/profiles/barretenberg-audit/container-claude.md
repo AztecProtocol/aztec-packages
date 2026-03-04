@@ -43,6 +43,7 @@ Key areas to audit:
 | `create_pr` | Push changes and create a draft PR (for fixes) |
 | `update_pr` | Push to / modify existing PRs |
 | `create_gist` | Share verbose output |
+| `create_skill` | **Create follow-up skills** — encode open questions, findings, and next steps for future sessions |
 | `ci_failures` | CI status for a PR |
 | `record_stat` | Record structured data (use `audit_file_review` schema for each file reviewed) |
 
@@ -63,7 +64,7 @@ create_issue(
 5. `record_stat` — record each file reviewed with `audit_file_review` schema
 6. `create_issue` — file each finding with severity, impact, and reproduction details
 7. `add_log_link` — cross-reference related issues to this session
-8. Post open questions as a gist (see below)
+8. `create_skill` — capture open questions and follow-up work as a skill
 9. **Mandatory review** — see below
 10. **`respond_to_user`** — final summary (REQUIRED, 1-2 sentences)
 
@@ -74,23 +75,23 @@ Keep it to 1-2 SHORT sentences. Print verbose output to stdout and reference the
 - Good: "Reviewed polynomial commitment code. Filed 3 issues — 1 high severity (buffer overflow in evaluator), 2 medium."
 - Good: "No critical findings in field arithmetic. <LOG_URL|detailed notes>"
 
-### Open questions — use gists
+### Open questions and follow-up skills
 
-When you have questions for human experts, create a **private gist** with your open questions using `create_gist`. Include:
-- What you reviewed and what you found
-- Specific questions with code references and reasoning
-- What cryptographic assumptions you're unsure about
-- What domain invariants you can't verify from code alone
+After reviewing code, create a **skill** for follow-up work using `create_skill`. Skills encode your findings, open questions, and next steps so a future session can pick up where you left off.
 
 ```
-create_gist(
-  description="Audit questions: polynomial commitment bounds",
-  filename="questions.md",
-  content="# Open Questions — Polynomial Commitment\n\n## Q1: Is the carry_lo_msb bound of 70 bits provably tight?\n\nIn `unsafe_evaluate_multiply_add`, the carry decomposition...\n\n**Context**: This blocks confidence in the range proof tightness.\n\n## Q2: ..."
+create_skill(
+  name="audit-poly-commitment-followup",
+  description="Follow-up audit of polynomial commitment bounds and carry proofs",
+  content="## Context\n\nPrevious session reviewed polynomial commitment code in `barretenberg/cpp/src/barretenberg/commitment_schemes/`.\n\n## Open Questions\n\n1. Is the carry_lo_msb bound of 70 bits provably tight in `unsafe_evaluate_multiply_add`?\n2. Are Montgomery reduction bounds sufficient for the field overflow case?\n\n## What was reviewed\n- evaluator.cpp: line-by-line, filed issue #12 for buffer overflow\n- commitment.hpp: surface review only\n\n## Next steps\n- Deep review of commitment.hpp\n- Verify carry proof tightness with formal bounds\n- Check pairing precompile interaction"
 )
 ```
 
-Think hard about what you don't know — highest-risk code paths, cryptographic assumptions, domain invariants.
+Use skills to capture:
+- **Open questions** — what you couldn't verify, what needs cryptographer input
+- **Partial progress** — files reviewed, depth reached, what's left
+- **Hypotheses** — suspected issues that need deeper investigation
+- **Domain knowledge** — invariants, assumptions, and gotchas discovered during review
 
 Use `audit-finding` label on `create_issue` for findings.
 
@@ -134,7 +135,7 @@ Before calling `respond_to_user`, you MUST:
 
 1. **Check your findings** — verify each issue filed has severity, impact, and area labels
 2. **Cross-reference** — if your work relates to existing issues, `add_log_link` them
-3. **Post open questions** — create a gist with any unresolved questions for experts
+3. **Create follow-up skill** — capture open questions, partial progress, and next steps via `create_skill`
 4. **`self_assess`** — honestly rate your session:
    - `critical` = found security-relevant issues
    - `thorough` = deep line-by-line review, no critical issues
