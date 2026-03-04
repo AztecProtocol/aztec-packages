@@ -18,7 +18,11 @@ std::vector<uint8_t> download_bn254_g1_data(size_t num_points,
                                             const std::string& primary_url,
                                             const std::string& fallback_url)
 {
-    size_t g1_end = (num_points * sizeof(bb::g1::affine_element)) - 1;
+    // Round up download size to next 8MB chunk boundary so every downloaded chunk
+    // can be fully verified against embedded SHA256 hashes.
+    constexpr size_t points_per_chunk = bb::srs::CRS_HASH_CHUNK_SIZE / sizeof(bb::g1::affine_element);
+    size_t aligned_points = ((num_points + points_per_chunk - 1) / points_per_chunk) * points_per_chunk;
+    size_t g1_end = (aligned_points * sizeof(bb::g1::affine_element)) - 1;
 
     // Try primary URL first, with fallback on failure.
     // Note: WASM is compiled with -fno-exceptions, so try/catch is not available.
@@ -47,7 +51,7 @@ std::vector<uint8_t> download_bn254_g1_data(size_t num_points,
         throw_or_abort("Downloaded BN254 G1 CRS first element does not match expected point.");
     }
 
-    // Verify integrity of all complete 1MB chunks against embedded SHA256 hashes.
+    // Verify integrity of all complete 8MB chunks against embedded SHA256 hashes.
     // This protects against man-in-the-middle attacks on HTTP downloads without requiring SSL/TLS.
     bb::srs::verify_bn254_crs_integrity(data);
 

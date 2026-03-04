@@ -127,18 +127,25 @@ TEST(CrsFactory, Bn254Fallback)
 TEST(CrsFactory, Bn254HashVerification)
 {
     // Test that SHA256 chunk hash verification works on network downloads.
-    // Download 2 full 1MB chunks worth of points (32768 points = 2MB).
-    const size_t num_points = 32768; // 2 * 1048576 / 64
+    // Request a non-aligned number of points — the download should round up to
+    // 2 full 8MB chunks (262144 points = 16MB) so every chunk is fully verified.
+    const size_t requested_points = 200000;
+    const size_t points_per_chunk = bb::srs::CRS_HASH_CHUNK_SIZE / sizeof(g1::affine_element); // 131072
+    const size_t expected_cached_points = 2 * points_per_chunk;                                 // 262144
     const std::filesystem::path& temp_crs_path = "barretenberg_srs_test_crs_bn254_hash";
     fs::remove_all(temp_crs_path);
     fs::create_directories(temp_crs_path);
 
-    auto points = bb::get_bn254_g1_data(temp_crs_path, num_points, /*allow_download=*/true);
-    EXPECT_EQ(points.size(), num_points);
+    auto points = bb::get_bn254_g1_data(temp_crs_path, requested_points, /*allow_download=*/true);
+    EXPECT_EQ(points.size(), requested_points);
     EXPECT_EQ(points[0], bb::srs::BN254_G1_FIRST_ELEMENT);
 
-    // Verify the cached file is correct by reading it back and checking hashes manually
-    auto data = read_file(temp_crs_path / "bn254_g1.dat", num_points * sizeof(g1::affine_element));
+    // The cached file should be rounded up to 8MB boundary
+    size_t cached_size = get_file_size(temp_crs_path / "bn254_g1.dat");
+    EXPECT_EQ(cached_size, expected_cached_points * sizeof(g1::affine_element));
+
+    // Read back and verify hashes pass
+    auto data = read_file(temp_crs_path / "bn254_g1.dat", cached_size);
     EXPECT_NO_THROW(bb::srs::verify_bn254_crs_integrity(data));
 
     // Corrupt a byte in the second chunk and verify that hash check catches it

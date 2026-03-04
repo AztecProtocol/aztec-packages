@@ -12,7 +12,7 @@ set -euo pipefail
 
 CRS_FILE="${1:-}"
 OUTPUT_FILE="${2:-}"
-CHUNK_SIZE=1048576  # 1MB
+CHUNK_SIZE=8388608  # 8MB
 
 # Download CRS if not provided
 if [ -z "$CRS_FILE" ]; then
@@ -56,6 +56,7 @@ with open(crs_file, 'rb') as f:
 file_size = os.path.getsize(crs_file)
 full_chunks = file_size // CHUNK_SIZE
 partial_size = file_size % CHUNK_SIZE
+points_per_chunk = CHUNK_SIZE // 64
 
 out = sys.stdout
 out.write('#pragma once\n')
@@ -73,11 +74,12 @@ out.write('\n')
 out.write('/**\n')
 out.write(' * @brief SHA256 hashes for integrity verification of downloaded BN254 CRS G1 data.\n')
 out.write(' *\n')
-out.write(' * @details The CRS file is divided into 1MB (1,048,576 byte) chunks. Each entry contains\n')
-out.write(' * the SHA256 hash of the corresponding chunk. The last chunk may be smaller than 1MB.\n')
+out.write(' * @details The CRS file is divided into 8MB (8,388,608 byte) chunks. Each entry contains\n')
+out.write(' * the SHA256 hash of the corresponding chunk. Downloads are rounded up to 8MB boundaries\n')
+out.write(' * so that every downloaded chunk can be fully verified.\n')
 out.write(' *\n')
 out.write(f' * Source file: bn254_g1.dat ({file_size} bytes, {file_size // 64} G1 points)\n')
-out.write(f' * Chunk size: {CHUNK_SIZE} bytes ({CHUNK_SIZE // 64} points per full chunk)\n')
+out.write(f' * Chunk size: {CHUNK_SIZE} bytes ({points_per_chunk} points per chunk)\n')
 out.write(f' * Total chunks: {len(hashes)} ({full_chunks} full + 1 partial of {partial_size} bytes)\n')
 out.write(' *\n')
 out.write(' * Regenerate with: barretenberg/scripts/generate_crs_hashes.sh\n')
@@ -98,7 +100,7 @@ out.write('/**\n')
 out.write(' * @brief Verify downloaded CRS data against embedded SHA256 chunk hashes.\n')
 out.write(' *\n')
 out.write(' * @details Verifies the integrity of downloaded CRS data by checking SHA256 hashes\n')
-out.write(' * of each complete 1MB chunk. Only full chunks are verified - trailing data smaller\n')
+out.write(' * of each complete 8MB chunk. Only full chunks are verified - trailing data smaller\n')
 out.write(' * than the chunk size is not checked (the caller should validate the first elements\n')
 out.write(' * separately for small downloads). This provides integrity verification for CRS data\n')
 out.write(' * downloaded over HTTP without requiring SSL/TLS.\n')
@@ -108,7 +110,7 @@ out.write(' * @throws If any chunk hash does not match the expected value\n')
 out.write(' */\n')
 out.write('inline void verify_bn254_crs_integrity(const std::vector<uint8_t>& data)\n')
 out.write('{\n')
-out.write('    // Only verify full chunks. Partial trailing data (< 1MB) is not checked here.\n')
+out.write('    // Only verify full chunks. Partial trailing data (< 8MB) is not checked here.\n')
 out.write('    size_t num_full_chunks = data.size() / CRS_HASH_CHUNK_SIZE;\n')
 out.write('    size_t chunks_to_verify = std::min(num_full_chunks, CRS_NUM_CHUNK_HASHES);\n')
 out.write('\n')
