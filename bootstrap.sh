@@ -101,7 +101,7 @@ function install_linux_deps {
     exit 1
   fi
   mkdir -p "$AZTEC_DEV_BIN"
-  spinner "Installing apt dependencies..." "sudo apt install -y jq parallel curl wget zstd redis-tools lsb-release software-properties-common gnupg build-essential cmake ninja-build xxd"
+  spinner "Installing apt dependencies..." "sudo apt install -y jq parallel curl wget zstd redis-tools lsb-release software-properties-common gnupg build-essential cmake ninja-build xxd doxygen"
   spinner "Installing llvm..." install_llvm
   spinner "Installing yq..." install_yq
   spinner "Installing ldid..." install_ldid
@@ -327,7 +327,7 @@ function pull_submodules {
     echo "Removing old noir clone..."
     rm -rf noir/noir-repo
   fi
-  denoise "git submodule update --init --recursive --depth 1 --jobs 8 && git -C noir/noir-repo fetch --tags"
+  denoise "git submodule update --init --recursive --depth 1 --jobs 8 && git -C noir/noir-repo fetch --tags &>/dev/null"
 }
 
 function start_txes {
