@@ -6,7 +6,7 @@ import { TxHash } from '@aztec/stdlib/tx';
 import { EventValidationRequest } from './event_validation_request.js';
 
 describe('EventValidationRequest', () => {
-  it('deserializes with default capacity when no arraySize is given', () => {
+  it('deserializes with default capacity when no capacity is given', () => {
     // 11 storage fields = default BoundedVec capacity (default)
     const serialized = [
       1, // contract_address
@@ -40,7 +40,7 @@ describe('EventValidationRequest', () => {
     expect(request.recipient).toEqual(AztecAddress.fromBigInt(8n));
   });
 
-  it('deserializes with explicit arraySize matching current capacity', () => {
+  it('deserializes with explicit capacity matching current capacity', () => {
     // 10 storage fields = current BoundedVec capacity
     const serialized = [
       1, // contract_address
@@ -69,8 +69,8 @@ describe('EventValidationRequest', () => {
     expect(request.eventCommitment).toEqual(new Fr(6));
   });
 
-  it('throws if arraySize does not match actual field count (reader not exhausted)', () => {
-    // Data has 11 storage fields but we claim arraySize=10, leaving 1 unconsumed field
+  it('throws if capacity does not match actual field count (reader not exhausted)', () => {
+    // Data has 11 storage fields but we claim capacity=10, leaving 1 unconsumed field
     const serialized = [
       1,
       2,
