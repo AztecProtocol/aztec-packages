@@ -121,11 +121,11 @@ export class P2PNetworkTest {
       ...initialValidatorConfig,
       ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
       aztecEpochDuration:
-        ciOverride.aztecEpochDuration ??
         initialValidatorConfig.aztecEpochDuration ??
+        ciOverride.aztecEpochDuration ??
         l1ContractsConfig.aztecEpochDuration,
       aztecSlotDuration:
-        ciOverride.aztecSlotDuration ?? initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
+        initialValidatorConfig.aztecSlotDuration ?? ciOverride.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
       aztecProofSubmissionEpochs:
         initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
       slashingRoundSizeInEpochs:
@@ -141,8 +141,8 @@ export class P2PNetworkTest {
     this.deployL1ContractsArgs = {
       ...initialValidatorConfig,
       aztecEpochDuration:
-        ciOverride.aztecEpochDuration ??
         initialValidatorConfig.aztecEpochDuration ??
+        ciOverride.aztecEpochDuration ??
         l1ContractsConfig.aztecEpochDuration,
       slashingRoundSizeInEpochs:
         initialValidatorConfig.slashingRoundSizeInEpochs ?? l1ContractsConfig.slashingRoundSizeInEpochs,
@@ -150,7 +150,7 @@ export class P2PNetworkTest {
 
       ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
       aztecSlotDuration:
-        ciOverride.aztecSlotDuration ?? initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
+        initialValidatorConfig.aztecSlotDuration ?? ciOverride.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
       aztecProofSubmissionEpochs:
         initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
       aztecTargetCommitteeSize: numberOfValidators,

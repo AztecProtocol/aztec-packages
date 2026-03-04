@@ -98,10 +98,10 @@ export class EpochsTestContext {
       : DEFAULT_L1_BLOCK_TIME;
     const ethereumSlotDuration = opts.ethereumSlotDuration ?? envEthereumSlotDuration;
     const aztecSlotDuration =
-      ciOverride.aztecSlotDuration ??
       opts.aztecSlotDuration ??
+      ciOverride.aztecSlotDuration ??
       (opts.aztecSlotDurationInL1Slots ?? 2) * ethereumSlotDuration;
-    const aztecEpochDuration = ciOverride.aztecEpochDuration ?? opts.aztecEpochDuration ?? 6;
+    const aztecEpochDuration = opts.aztecEpochDuration ?? ciOverride.aztecEpochDuration ?? 6;
     const aztecProofSubmissionEpochs = opts.aztecProofSubmissionEpochs ?? 1;
     const l1PublishingTime = opts.l1PublishingTime ?? 1;
     return {
