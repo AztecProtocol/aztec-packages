@@ -45,7 +45,6 @@ template <typename T> struct RelationParameters {
         beta = beta_challenge;
         beta_sqr = beta * beta;
         beta_cube = beta_sqr * beta;
-        beta_quartic = beta_sqr * beta_sqr;
     }
     // `eccvm_set_permutation_delta` is used in the set membership gadget in eccvm/ecc_set_relation.hpp, specifically to
     // constrain (pc, round, wnaf_slice) to match between the MSM table and the Precomputed table. The number of rows we
