@@ -5,7 +5,7 @@
  * Repo: AztecProtocol/barretenberg-claude (private fork)
  * Clone strategy: remote authenticated URL (no local reference)
  * Docker proxy: disabled
- * Extra tools: create_issue, close_issue, ask_questions, create_audit_label, add_log_link, list_questions, self_assess
+ * Extra tools: create_issue, close_issue, create_audit_label, add_log_link, self_assess
  */
 
 import { mkdirSync, appendFileSync } from "fs";
@@ -18,8 +18,6 @@ import {
   logActivity, updateRootComment, otherArtifacts,
   registerCommonTools, registerCloneRepo, registerPRTools, startMcpHttpServer,
 } from "../../mcp-base.ts";
-
-import { QuestionStore } from "../../lib/question-store.ts";
 
 // ── Profile config ──────────────────────────────────────────────
 const REPO = "AztecProtocol/barretenberg-claude";
@@ -40,7 +38,7 @@ const GH_WHITELIST = [
   { method: "PUT",  pattern: new RegExp(`^${R}/contents/.*$`) },
 ];
 
-const TOOL_LIST = "clone_repo, respond_to_user, get_context, session_status, github_api, slack_api, create_pr, update_pr, create_issue, close_issue, ask_questions, create_audit_label, add_log_link, list_questions, self_assess, create_gist, create_skill, ci_failures, linear_get_issue, linear_create_issue, record_stat";
+const TOOL_LIST = "clone_repo, respond_to_user, get_context, session_status, github_api, slack_api, create_pr, update_pr, create_issue, close_issue, create_audit_label, add_log_link, self_assess, create_gist, create_skill, ci_failures, linear_get_issue, linear_create_issue, record_stat";
 
 // ── Auth check at startup ───────────────────────────────────────
 if (GH_TOKEN) {
@@ -109,61 +107,6 @@ function createServer(): McpServer {
         return { content: [{ type: "text", text: `${issue.html_url}\n#${issue.number}` }] };
       } catch (e: any) {
         return { content: [{ type: "text", text: `create_issue: ${sanitizeError(e.message)}` }], isError: true };
-      }
-    });
-
-  // ── ask_questions — interactive multiple-choice questions for human experts ──
-  server.tool("ask_questions",
-    `Post 1-5 multiple-choice questions for human experts. Questions appear on the audit status page with countdown timers and are pushed to the repo's "questions" branch. The session will auto-resume when all questions are answered or expired.
-
-Each question is in "skill form" with separate description and body:
-- description: Short summary of what the question is about (like a skill description)
-- body: Detailed reasoning, code references, implementation plan context (like a skill body)
-- text: The actual question to ask
-- context: Why this matters
-- options: 2-4 multiple-choice answers (humans can also pick "Other" with freeform text)
-- urgency: "critical" (30min), "important" (2hr), or "nice-to-have" (24hr)
-
-Think carefully — provide clear options that reference your implementation plan and reasoning so the expert can give informed answers.`,
-    {
-      questions: z.array(z.object({
-        description: z.string().describe("Short summary of the question topic (skill description form)"),
-        body: z.string().describe("Detailed reasoning, code references, implementation plan (skill body form)"),
-        text: z.string().describe("The actual question to ask"),
-        context: z.string().describe("Why this matters — what blocks the audit without an answer"),
-        options: z.array(z.object({
-          label: z.string().describe("Short option label (1-5 words)"),
-          description: z.string().describe("What this option means or implies"),
-        })).min(2).max(4).describe("Multiple-choice options (human can also pick 'Other')"),
-        urgency: z.enum(["critical", "important", "nice-to-have"]).describe("How urgent — sets countdown deadline"),
-      })).min(1).max(5).describe("Questions to ask (1-5)"),
-    },
-    async ({ questions }) => {
-      try {
-        const questionStore = new QuestionStore();
-        const created = questionStore.addQuestions(WORKTREE_ID, questions);
-
-        // Push question files to the repo's "questions" branch
-        let pushResult = "";
-        if (GH_TOKEN) {
-          try {
-            const pushed = await questionStore.pushToQuestionsBranch(WORKTREE_ID, REPO, GH_TOKEN);
-            pushResult = pushed.length ? `\nPushed ${pushed.length} question files to questions branch.` : "";
-          } catch (e: any) {
-            pushResult = `\nWarning: failed to push to questions branch: ${e.message}`;
-          }
-        }
-
-        const summary = created.map((q, i) =>
-          `Q${i + 1} [${q.urgency}] (deadline: ${q.deadline}): ${q.description}\n  ${q.text}\n  Options: ${q.options.map(o => o.label).join(" | ")} | Other`
-        ).join("\n");
-
-        logActivity("artifact", `Posted ${created.length} questions to status page — awaiting expert answers`);
-        await updateRootComment();
-
-        return { content: [{ type: "text", text: `Posted ${created.length} questions to the audit status page.${pushResult}\n\n${summary}\n\nThe session will auto-resume when all questions are answered or their deadlines expire. Call respond_to_user now to end this session.` }] };
-      } catch (e: any) {
-        return { content: [{ type: "text", text: `ask_questions: ${sanitizeError(e.message)}` }], isError: true };
       }
     });
 
@@ -361,32 +304,6 @@ Use this when you discover a new area worth dedicated audit attention.`,
         return { content: [{ type: "text", text: `Linked session to #${issue_number}` }] };
       } catch (e: any) {
         return { content: [{ type: "text", text: `add_log_link: ${sanitizeError(e.message)}` }], isError: true };
-      }
-    });
-
-  // ── list_questions — see pending/answered/expired audit questions ──
-  server.tool("list_questions",
-    "List audit questions from the local question store. Use this to check what questions are pending, answered, or expired before filing new ones.",
-    {
-      state: z.enum(["pending", "answered", "expired", "all"]).default("all").describe("Question status filter"),
-    },
-    async ({ state }) => {
-      try {
-        const questionStore = new QuestionStore();
-        const filter = state === "all" ? undefined : state;
-        const questions = questionStore.getAll(filter);
-
-        if (!questions.length) return { content: [{ type: "text", text: `No questions found (status=${state})` }] };
-
-        const lines = questions.map((q) => {
-          const deadline = q.status === "pending" ? ` deadline:${q.deadline}` : "";
-          const answer = q.status === "answered" ? ` → ${q.selected_option}${q.freeform_answer ? " (+details)" : ""}` : "";
-          return `[${q.id}] [${q.status}] (${q.urgency}${deadline}) ${q.description}: ${q.text}${answer} — worktree:${q.worktree_id.slice(0, 8)}`;
-        });
-
-        return { content: [{ type: "text", text: lines.join("\n") }] };
-      } catch (e: any) {
-        return { content: [{ type: "text", text: `list_questions: ${sanitizeError(e.message)}` }], isError: true };
       }
     });
 

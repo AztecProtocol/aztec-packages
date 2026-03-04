@@ -37,10 +37,8 @@ Key areas to audit:
 | `slack_api` | Slack API proxy |
 | `create_issue` | **Create GitHub issues for findings** — use for each security finding |
 | `close_issue` | Close a GitHub issue — posts a tracking comment with session log before closing |
-| `ask_questions` | **Post 1-5 interactive multiple-choice questions** — shown on status page with countdown timers, session auto-resumes when all answered/expired |
 | `create_audit_label` | Create a new audit scope label + commit its prompt file to the repo |
 | `add_log_link` | Post a cross-reference comment linking an issue to this session's log |
-| `list_questions` | List open/closed audit-question issues — check prior Q&A before filing new ones |
 | `self_assess` | **REQUIRED** — rate your session before ending (critical/thorough/surface/incomplete) |
 | `create_pr` | Push changes and create a draft PR (for fixes) |
 | `update_pr` | Push to / modify existing PRs |
@@ -60,15 +58,14 @@ create_issue(
 ### Workflow:
 1. `clone_repo` — check out the target ref
 2. `get_context` — get session metadata
-3. `list_questions` — check existing questions and answers for context
-4. `session_status` — report progress frequently
-5. Review code systematically — focus on barretenberg/cpp
-6. `record_stat` — record each file reviewed with `audit_file_review` schema
-7. `create_issue` — file each finding with severity, impact, and reproduction details
-8. `add_log_link` — cross-reference related issues to this session
-9. `ask_questions` — post 3 expert questions (session auto-resumes when answered)
-10. **Mandatory review** — see below
-11. **`respond_to_user`** — final summary (REQUIRED, 1-2 sentences)
+3. `session_status` — report progress frequently
+4. Review code systematically — focus on barretenberg/cpp
+5. `record_stat` — record each file reviewed with `audit_file_review` schema
+6. `create_issue` — file each finding with severity, impact, and reproduction details
+7. `add_log_link` — cross-reference related issues to this session
+8. Post open questions as a gist (see below)
+9. **Mandatory review** — see below
+10. **`respond_to_user`** — final summary (REQUIRED, 1-2 sentences)
 
 ### Final response — `respond_to_user` (REQUIRED)
 
@@ -77,43 +74,23 @@ Keep it to 1-2 SHORT sentences. Print verbose output to stdout and reference the
 - Good: "Reviewed polynomial commitment code. Filed 3 issues — 1 high severity (buffer overflow in evaluator), 2 medium."
 - Good: "No critical findings in field arithmetic. <LOG_URL|detailed notes>"
 
-### Asking expert questions — `ask_questions`
+### Open questions — use gists
 
-Before finishing an audit session, use `ask_questions` to post 1-5 interactive multiple-choice questions for human experts.
-Questions appear on the status page with countdown timers and are pushed to the repo's `questions` branch.
+When you have questions for human experts, create a **private gist** with your open questions using `create_gist`. Include:
+- What you reviewed and what you found
+- Specific questions with code references and reasoning
+- What cryptographic assumptions you're unsure about
+- What domain invariants you can't verify from code alone
 
-Each question is in **skill form** with separate description and body:
 ```
-ask_questions({
-  questions: [{
-    description: "CRT carry range proof tightness",
-    body: "In unsafe_evaluate_multiply_add, the carry decomposition...\n\nMy implementation plan is to...\n\nThe reasoning behind checking this is...",
-    text: "Is the carry_lo_msb bound of 70 bits provably tight?",
-    context: "Blocks Phase 2 of the audit — carry proof analysis",
-    options: [
-      { label: "Yes, proven tight", description: "There is a formal proof or known result" },
-      { label: "Conservative but safe", description: "The bound has margin but is correct" },
-      { label: "Needs formal verification", description: "No existing proof, should be verified" }
-    ],
-    urgency: "critical"    // 30 min deadline
-  }]
-})
+create_gist(
+  description="Audit questions: polynomial commitment bounds",
+  filename="questions.md",
+  content="# Open Questions — Polynomial Commitment\n\n## Q1: Is the carry_lo_msb bound of 70 bits provably tight?\n\nIn `unsafe_evaluate_multiply_add`, the carry decomposition...\n\n**Context**: This blocks confidence in the range proof tightness.\n\n## Q2: ..."
+)
 ```
 
-**Urgency deadlines**:
-- `critical` — 30 minutes (blocks the audit)
-- `important` — 2 hours (significant but not blocking)
-- `nice-to-have` — 24 hours (would improve confidence)
-
-Think hard about what you don't know:
-- What is the **highest-risk** code path that needs cryptographer confirmation?
-- What **cryptographic assumptions** are you unsure about?
-- What **domain invariants** should hold but you can't verify from code alone?
-
-Provide clear options that reference your implementation plan and reasoning so the expert can give informed answers. The "body" field should contain your detailed analysis — code paths, reasoning, what you've checked and what you haven't.
-
-After posting questions, continue with the mandatory review and then call `respond_to_user`.
-The session will automatically resume when all questions are answered or their deadlines expire.
+Think hard about what you don't know — highest-risk code paths, cryptographic assumptions, domain invariants.
 
 Use `audit-finding` label on `create_issue` for findings.
 
@@ -155,9 +132,9 @@ record_stat(schema="audit_file_review", data={
 
 Before calling `respond_to_user`, you MUST:
 
-1. **`list_questions`** — check all accumulated questions (open and closed)
-2. **Check your findings** — verify each issue filed has severity, impact, and area labels
-3. **Cross-reference** — if your work relates to existing issues, `add_log_link` them
+1. **Check your findings** — verify each issue filed has severity, impact, and area labels
+2. **Cross-reference** — if your work relates to existing issues, `add_log_link` them
+3. **Post open questions** — create a gist with any unresolved questions for experts
 4. **`self_assess`** — honestly rate your session:
    - `critical` = found security-relevant issues
    - `thorough` = deep line-by-line review, no critical issues
