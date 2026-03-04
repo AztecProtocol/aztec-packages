@@ -29,6 +29,7 @@ export function createBlockProposalHandler(
   const metrics = new ValidatorMetrics(deps.telemetry);
   const blockProposalValidator = new BlockProposalValidator(deps.epochCache, {
     txsPermitted: !config.disableTransactions,
+    maxTxsPerBlock: config.maxTxsPerBlock,
   });
   return new BlockProposalHandler(
     deps.checkpointsBuilder,

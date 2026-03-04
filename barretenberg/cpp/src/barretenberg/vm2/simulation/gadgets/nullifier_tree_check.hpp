@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/nullifier_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
@@ -7,6 +8,11 @@
 #include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/nullifier_tree_check.hpp"
+#include "barretenberg/vm2/simulation/lib/db_types.hpp"
+
+#include <cstdint>
+#include <optional>
+#include <span>
 
 namespace bb::avm2::simulation {
 

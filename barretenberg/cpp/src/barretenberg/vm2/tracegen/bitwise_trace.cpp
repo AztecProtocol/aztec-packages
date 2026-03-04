@@ -1,16 +1,9 @@
 #include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
 
-#include <cstddef>
 #include <cstdint>
-#include <memory>
-#include <ranges>
-#include <stdexcept>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bitwise.hpp"
-#include "barretenberg/vm2/simulation/events/bitwise_event.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -18,17 +11,18 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
                                   TraceContainer& trace)
 {
     using C = Column;
-    // Important to not set last to 1 in the first row if there are no events. Otherwise, the skippable condition
-    // would be skipped wrongly as the sub-relation last * (1 - last) = 0 cannot be satisified (after the
-    // randomization process happening in the sumcheck protocol).
-    if (!events.empty()) {
-        // We activate last selector in the first row.
-        trace.set(C::bitwise_last, 0, 1);
-    }
 
-    // Precomputed inverses ranges from 0 to 16. (for columns bitwise_ctr_inv, bitwise_ctr_min_one_inv)
-    std::array<FF, 17> precomputed_inverses = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
-    FF::batch_invert(precomputed_inverses);
+    // Precomputed inverses ranges from 0 to 15. (for columns bitwise_ctr_min_one_inv, tag inverses)
+    // The max ctr value is 16 since the largest tag is U128 which has 16 bytes, we need inverses up to 15 for the ctr
+    // since we use ctr-1 in the bitwise_ctr_min_one_inv column.
+    static constexpr std::array<FF, 16> precomputed_inverses = [] {
+        std::array<FF, 16> inverses{ 0, 1 };
+        // skip 0 since it's not invertible, inverse(1) = 1 so we can skip it as well
+        for (size_t i = 2; i <= 15; i++) {
+            inverses[i] = FF(i).invert();
+        }
+        return inverses;
+    }();
 
     // Lambda to map the column selector of the op_id.
     const auto get_op_id_column_selector = [](BitwiseOperation op_id) {
@@ -50,6 +44,8 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
 
         // We start with full inputs and output and we shift
         // them byte-per-byte to the right.
+        // In the event of an error, the truncation caused by this casting does not matter since we will not use these
+        // in the error case (see below for details).
         uint128_t input_a = static_cast<uint128_t>(event.a.as_ff());
         uint128_t input_b = static_cast<uint128_t>(event.b.as_ff());
         uint128_t output_c = event.res;
@@ -75,12 +71,14 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
 
         if (is_tag_ff || is_tag_mismatch) {
             // There is an error, fill in values that are still needed to satisfy constraints despite the error.
+            // Error rows are single-row blocks: start=1, end=1, sel=1, err=1, sel_compute=0.
             trace.set(row,
                       { {
+                          { C::bitwise_sel, 1 },
                           { C::bitwise_op_id, static_cast<uint8_t>(event.operation) },
                           { C::bitwise_start, 1 },
                           { C::bitwise_sel_get_ctr, 0 },
-                          { C::bitwise_last, 1 }, // Error triggers a last
+                          { C::bitwise_end, 1 }, // Error triggers end
                           { C::bitwise_acc_ia, event.a.as_ff() },
                           { C::bitwise_acc_ib, event.b.as_ff() },
                           { C::bitwise_acc_ic, output_c },
@@ -108,7 +106,7 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
         // Note that for tag U1, we take only one bit. This is correctly
         // captured below since input_a/b and output_c are each a single bit
         // and the byte mask correctly extracts it.
-        const uint128_t mask_low_byte = (1 << 8) - 1;
+        constexpr uint128_t mask_low_byte = (1 << 8) - 1;
         const auto start_ctr = get_tag_bytes(tag);
 
         for (int ctr = start_ctr; ctr > 0; ctr--) {
@@ -117,6 +115,7 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
             uint8_t ib_byte = input_b & mask_low_byte;
             trace.set(row,
                       { { { C::bitwise_sel, 1 },
+                          { C::bitwise_sel_compute, 1 },
                           { get_op_id_column_selector(event.operation), 1 },
                           { C::bitwise_op_id, static_cast<uint8_t>(event.operation) },
                           // It is fine to use the truncated input_a/b here instead of event.a/b because if event.a/b
@@ -134,9 +133,8 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
                           { C::bitwise_tag_b, is_start ? tag_b_u8 : 0 },
                           { C::bitwise_tag_c, is_start ? tag_a_u8 : 0 }, // same as tag_a
                           { C::bitwise_ctr, ctr },
-                          { C::bitwise_ctr_inv, precomputed_inverses[static_cast<uint8_t>(ctr)] },
                           { C::bitwise_ctr_min_one_inv, precomputed_inverses[static_cast<uint8_t>(ctr - 1)] },
-                          { C::bitwise_last, ctr == 1 ? 1 : 0 },
+                          { C::bitwise_end, ctr == 1 ? 1 : 0 },
                           { C::bitwise_start, is_start ? 1 : 0 },
                           { C::bitwise_sel_get_ctr, is_start ? 1 : 0 }, // Same as bitwise_start but in non-error case
                           // Err Helpers, in the happy path we still need to prove we would not have errored

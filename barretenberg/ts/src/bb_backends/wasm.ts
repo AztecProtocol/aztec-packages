@@ -54,6 +54,7 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
    * @param options.logger Optional logging function
    * @param options.memory Optional initial and maximum memory configuration
    * @param options.useWorker Run on worker thread (default: true for browser safety)
+   * @param options.unref Unref worker handles so they don't prevent process exit
    */
   static async new(
     options: {
@@ -62,6 +63,7 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       logger?: (msg: string) => void;
       memory?: { initial?: number; maximum?: number };
       useWorker?: boolean;
+      unref?: boolean;
     } = {},
   ): Promise<BarretenbergWasmAsyncBackend> {
     // Default to worker mode for browser safety
@@ -79,12 +81,15 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
         options.memory?.initial,
         options.memory?.maximum,
       );
+      if (options.unref) {
+        worker.unref();
+      }
       return new BarretenbergWasmAsyncBackend(wasm, worker);
     } else {
       // Direct mode: runs on calling thread (faster but blocks thread)
       const wasm = new BarretenbergWasmMain();
       const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath, options.logger);
-      await wasm.init(module, threads, options.logger, options.memory?.initial, options.memory?.maximum);
+      await wasm.init(module, threads, options.logger, options.memory?.initial, options.memory?.maximum, options.unref);
       return new BarretenbergWasmAsyncBackend(wasm);
     }
   }

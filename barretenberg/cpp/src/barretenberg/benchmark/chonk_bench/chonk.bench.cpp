@@ -7,6 +7,7 @@
 #include <chrono>
 
 #include "barretenberg/chonk/chonk_verifier.hpp"
+#include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/chonk/test_bench_shared.hpp"
 #include "barretenberg/common/google_bb_bench.hpp"
 
@@ -58,10 +59,43 @@ BENCHMARK_DEFINE_F(ChonkBench, Full)(benchmark::State& state)
     }
 }
 
+/**
+ * @brief Benchmark proof compression (prover-side cost)
+ */
+BENCHMARK_DEFINE_F(ChonkBench, ProofCompress)(benchmark::State& state)
+{
+    size_t NUM_APP_CIRCUITS = 1;
+    auto precomputed_vks = precompute_vks(NUM_APP_CIRCUITS);
+    auto [proof, vk_and_hash] = accumulate_and_prove_with_precomputed_vks(NUM_APP_CIRCUITS, precomputed_vks);
+
+    for (auto _ : state) {
+        benchmark::DoNotOptimize(ProofCompressor::compress_chonk_proof(proof));
+    }
+}
+
+/**
+ * @brief Benchmark proof decompression (verifier-side cost)
+ */
+BENCHMARK_DEFINE_F(ChonkBench, ProofDecompress)(benchmark::State& state)
+{
+    size_t NUM_APP_CIRCUITS = 1;
+    auto precomputed_vks = precompute_vks(NUM_APP_CIRCUITS);
+    auto [proof, vk_and_hash] = accumulate_and_prove_with_precomputed_vks(NUM_APP_CIRCUITS, precomputed_vks);
+
+    auto compressed = ProofCompressor::compress_chonk_proof(proof);
+    size_t mega_num_pub_inputs = proof.mega_proof.size() - ChonkProof::HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS;
+
+    for (auto _ : state) {
+        benchmark::DoNotOptimize(ProofCompressor::decompress_chonk_proof(compressed, mega_num_pub_inputs));
+    }
+}
+
 #define ARGS Arg(ChonkBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)->Arg(2)
 
 BENCHMARK_REGISTER_F(ChonkBench, Full)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(ChonkBench, VerificationOnly)->Unit(benchmark::kMillisecond);
+BENCHMARK_REGISTER_F(ChonkBench, ProofCompress)->Unit(benchmark::kMillisecond);
+BENCHMARK_REGISTER_F(ChonkBench, ProofDecompress)->Unit(benchmark::kMillisecond);
 
 } // namespace
 

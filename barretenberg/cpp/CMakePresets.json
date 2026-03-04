@@ -35,55 +35,46 @@
     },
     {
       "name": "clang20",
-      "displayName": "Build with Clang-20",
-      "description": "Build with globally installed Clang-20",
+      "displayName": "Build with Zig (glibc 2.35)",
+      "description": "Build with Zig-wrapped Clang targeting glibc 2.35 (Ubuntu 22.04+)",
       "inherits": "default",
       "binaryDir": "build",
       "environment": {
-        "CC": "clang-20",
-        "CXX": "clang++-20"
+        "CC": "zig cc -target native-linux-gnu.2.35",
+        "CXX": "zig c++ -target native-linux-gnu.2.35"
       },
       "cacheVariables": {
+        "CMAKE_AR": "${sourceDir}/scripts/zig-ar.sh",
+        "CMAKE_RANLIB": "${sourceDir}/scripts/zig-ranlib.sh",
         "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/release/libavm_transpiler.a"
       }
     },
     {
       "name": "clang20-no-avm",
-      "displayName": "Build with Clang-20 plus AVM",
-      "description": "Build with globally installed Clang-20 plus AVM",
+      "displayName": "Build with Zig (no AVM, glibc 2.35)",
+      "description": "Build with Zig-wrapped Clang targeting glibc 2.35, AVM disabled",
       "inherits": "clang20",
       "binaryDir": "build",
-      "environment": {
-        "CC": "clang-20",
-        "CXX": "clang++-20"
-      },
       "cacheVariables": {
-        "AVM": "OFF",
-        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/release/libavm_transpiler.a"
+        "AVM": "OFF"
       }
     },
     {
       "name": "clang20-assert",
-      "displayName": "Build with Clang-20",
-      "description": "Build with globally installed Clang-20",
-      "inherits": "default",
+      "displayName": "Build with Zig (assertions, glibc 2.35)",
+      "description": "Build with Zig-wrapped Clang targeting glibc 2.35, assertions enabled",
+      "inherits": "clang20",
       "binaryDir": "build",
-      "environment": {
-        "CC": "clang-20",
-        "CXX": "clang++-20"
-      },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
       "name": "clang20-no-exceptions",
-      "displayName": "Build with Clang-20",
-      "description": "Build with globally installed Clang-20",
-      "inherits": "default",
+      "displayName": "Build with Zig (no exceptions, glibc 2.35)",
+      "description": "Build with Zig-wrapped Clang targeting glibc 2.35, exceptions disabled",
+      "inherits": "clang20",
       "environment": {
-        "CC": "clang-20",
-        "CXX": "clang++-20",
         "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS"
       }
     },
@@ -91,14 +82,17 @@
       "name": "debug",
       "displayName": "Debugging build with Clang-20",
       "description": "Build with globally installed Clang-20 in debug mode",
-      "inherits": "clang20",
+      "inherits": "default",
       "binaryDir": "build-debug",
       "environment": {
+        "CC": "clang-20",
+        "CXX": "clang++-20",
         "CFLAGS": "-gdwarf-4",
         "CXXFLAGS": "-gdwarf-4",
         "LDFLAGS": "-gdwarf-4"
       },
       "cacheVariables": {
+        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/release/libavm_transpiler.a",
         "CMAKE_BUILD_TYPE": "Debug",
         "ENABLE_ASAN": "OFF",
         "DISABLE_ASM": "OFF",
@@ -220,9 +214,13 @@
     {
       "name": "fuzzing",
       "displayName": "Build with fuzzing",
-      "description": "Build default preset but with fuzzing enabled",
-      "inherits": "clang20",
+      "description": "Build default preset but with fuzzing enabled. Uses clang-20 directly (zig does not provide libFuzzer/libclang_rt.fuzzer).",
+      "inherits": "default",
       "binaryDir": "build-fuzzing",
+      "environment": {
+        "CC": "clang-20",
+        "CXX": "clang++-20"
+      },
       "cacheVariables": {
         "FUZZING": "ON",
         "AVM": "OFF",
@@ -235,15 +233,10 @@
       "name": "fuzzing-noasm",
       "displayName": "Build with fuzzing and ASM disabled",
       "description": "Build default preset but with fuzzing enabled and ASM disabled",
-      "inherits": "clang20",
+      "inherits": "fuzzing",
       "binaryDir": "build-fuzzing-noasm",
       "cacheVariables": {
-        "FUZZING": "ON",
-        "AVM": "OFF",
-        "AVM_TRANSPILER_LIB": "",
-        "DISABLE_ASM": "ON",
-        "CMAKE_BUILD_TYPE": "RelWithAssert",
-        "MULTITHREADING": "OFF"
+        "DISABLE_ASM": "ON"
       }
     },
     {
@@ -267,17 +260,14 @@
       "name": "fuzzing-coverage",
       "displayName": "Build with coverage flags",
       "description": "Build default preset but with fuzzing and coverage enabled",
-      "inherits": "clang20",
+      "inherits": "fuzzing",
       "binaryDir": "build-fuzzing-cov",
       "cacheVariables": {
-        "FUZZING": "ON",
-        "AVM": "OFF",
-        "DISABLE_ASM": "ON",
-        "AVM_TRANSPILER_LIB": "",
-        "CMAKE_BUILD_TYPE": "RelWithAssert",
-        "MULTITHREADING": "OFF"
+        "DISABLE_ASM": "ON"
       },
       "environment": {
+        "CC": "clang-20",
+        "CXX": "clang++-20",
         "CXXFLAGS": "-fprofile-instr-generate -fcoverage-mapping"
       }
     },
@@ -287,13 +277,19 @@
       "description": "Build default preset but with fuzzing and AVM enabled",
       "inherits": "clang20",
       "binaryDir": "build-fuzzing-avm",
+      "environment": {
+        "CC": "clang-20",
+        "CXX": "clang++-20"
+      },
       "cacheVariables": {
         "FUZZING": "ON",
         "DISABLE_ASM": "OFF",
         "AVM_TRANSPILER_LIB": "",
         "FUZZING_AVM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert",
-        "MULTITHREADING": "ON"
+        "MULTITHREADING": "ON",
+        "CMAKE_AR": null,
+        "CMAKE_RANLIB": null
       }
     },
     {
@@ -314,10 +310,16 @@
     {
       "name": "smt-verification",
       "displayName": "Build with smt verification",
-      "description": "Build default preset but with smt library included",
+      "description": "Build clang20 preset but with smt library included, using clang-20 directly (cvc5 ExternalProject needs a plain compiler path)",
       "inherits": "clang20",
       "binaryDir": "build-smt",
+      "environment": {
+        "CC": "clang-20",
+        "CXX": "clang++-20"
+      },
       "cacheVariables": {
+        "CMAKE_AR": null,
+        "CMAKE_RANLIB": null,
         "AVM_TRANSPILER_LIB": "",
         "SMT": "ON"
       }
@@ -476,8 +478,8 @@
       "displayName": "Build for linux amd64 with Zig",
       "inherits": "zig-base",
       "environment": {
-        "CC": "zig cc -target x86_64-linux-gnu",
-        "CXX": "zig c++ -target x86_64-linux-gnu",
+        "CC": "zig cc -target x86_64-linux-gnu.2.35",
+        "CXX": "zig c++ -target x86_64-linux-gnu.2.35",
         "LDFLAGS": "-s"
       },
       "cacheVariables": {
@@ -490,8 +492,8 @@
       "name": "zig-arm64-linux",
       "inherits": "zig-base",
       "environment": {
-        "CC": "zig cc -target aarch64-linux-gnu",
-        "CXX": "zig c++ -target aarch64-linux-gnu",
+        "CC": "zig cc -target aarch64-linux-gnu.2.35",
+        "CXX": "zig c++ -target aarch64-linux-gnu.2.35",
         "LDFLAGS": "-s"
       },
       "cacheVariables": {

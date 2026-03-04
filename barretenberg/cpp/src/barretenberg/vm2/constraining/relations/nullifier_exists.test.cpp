@@ -124,7 +124,7 @@ TEST(NullifierExistsConstrainingTest, Interactions)
         .next_available_leaf_index = 128,
     };
 
-    // should_silo=false (address unused when not siloing)
+    // sel_silo=false (address unused when not siloing)
     nullifier_tree_check.assert_read(
         siloed_nullifier, /*contract_address=*/std::nullopt, /*exists=*/true, low_leaf, 0, {}, nullifier_tree_snapshot);
 

@@ -209,6 +209,33 @@ describe('abi/encoder', () => {
     expect(() => encodeArguments(testFunctionAbi, args)).toThrow(`Cannot convert garbage to a BigInt`);
   });
 
+  it("encodes negative signed integers as two's complement", () => {
+    const testFunctionAbi: FunctionAbi = {
+      name: 'test',
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isInitializer: false,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'value',
+          type: { kind: 'integer', sign: 'signed', width: 8 },
+          visibility: 'private',
+        },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    expect(encodeArguments(testFunctionAbi, [0])).toEqual([new Fr(0n)]);
+    expect(encodeArguments(testFunctionAbi, [-128])).toEqual([new Fr(128n)]);
+    expect(encodeArguments(testFunctionAbi, [127])).toEqual([new Fr(127n)]);
+    expect(encodeArguments(testFunctionAbi, [-1])).toEqual([new Fr(255n)]);
+
+    // Also check strings are properly encoded
+    expect(encodeArguments(testFunctionAbi, ['-1'])).toEqual([new Fr(255n)]);
+  });
+
   it('throws when passing object argument as field', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',

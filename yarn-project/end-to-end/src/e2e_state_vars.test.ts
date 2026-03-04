@@ -314,7 +314,7 @@ describe('e2e_state_vars', () => {
         from: defaultAccountAddress,
       });
 
-      if (aztecSlotDuration !== 36) {
+      if (aztecSlotDuration !== 72) {
         throw new Error(
           'Aztec slot duration changed and this will break this test. Update CHANGE_AUTHORIZED_DELAY constant in the Auth contract to be 5 slots again.',
         );

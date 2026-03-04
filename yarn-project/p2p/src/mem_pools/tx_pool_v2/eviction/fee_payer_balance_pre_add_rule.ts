@@ -35,6 +35,7 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
     // Create combined list with incoming tx
     const allTxs: Array<{
       txHash: string;
+      txHashBigInt: bigint;
       priorityFee: bigint;
       feeLimit: bigint;
       claimAmount: bigint;
@@ -42,6 +43,7 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
     }> = [
       ...existingTxs.map(t => ({
         txHash: t.txHash,
+        txHashBigInt: t.txHashBigInt,
         priorityFee: t.priorityFee,
         feeLimit: t.feeLimit,
         claimAmount: t.claimAmount,
@@ -49,6 +51,7 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
       })),
       {
         txHash: incomingMeta.txHash,
+        txHashBigInt: incomingMeta.txHashBigInt,
         priorityFee: incomingMeta.priorityFee,
         feeLimit: incomingMeta.feeLimit,
         claimAmount: incomingMeta.claimAmount,

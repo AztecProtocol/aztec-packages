@@ -1,13 +1,7 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress, L2BlockId } from '@aztec/stdlib/block';
-import type { ITxProvider, P2PApiFull } from '@aztec/stdlib/interfaces/server';
-import type {
-  BlockProposal,
-  CheckpointAttestation,
-  CheckpointProposal,
-  P2PClientType,
-  TopicType,
-} from '@aztec/stdlib/p2p';
+import type { ITxProvider, P2PClient } from '@aztec/stdlib/interfaces/server';
+import type { BlockProposal, CheckpointAttestation, CheckpointProposal, TopicType } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -54,7 +48,7 @@ export interface P2PSyncState {
 /**
  * Interface of a P2P client.
  **/
-export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & {
+export type P2P = P2PClient & {
   /**
    * Broadcasts a block proposal to other peers.
    *

@@ -3,7 +3,7 @@ import { sha256, sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { BLS12Fr } from '@aztec/foundation/curves/bls12';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
-import { BYTES_PER_BLOB, BYTES_PER_COMMITMENT, getKzg } from './kzg_context.js';
+import { getBytesPerBlob, getBytesPerCommitment, getKzg } from './kzg_context.js';
 import { SpongeBlob } from './sponge_blob.js';
 
 const VERSIONED_HASH_VERSION_KZG = 0x01;
@@ -45,8 +45,8 @@ export async function computeBlobFieldsHash(fields: Fr[]): Promise<Fr> {
 }
 
 export async function computeBlobCommitment(data: Uint8Array): Promise<Buffer> {
-  if (data.length !== BYTES_PER_BLOB) {
-    throw new Error(`Expected ${BYTES_PER_BLOB} bytes per blob. Got ${data.length}.`);
+  if (data.length !== getBytesPerBlob()) {
+    throw new Error(`Expected ${getBytesPerBlob()} bytes per blob. Got ${data.length}.`);
   }
 
   return Buffer.from(await getKzg().asyncBlobToKzgCommitment(data));
@@ -67,11 +67,11 @@ export async function computeBlobCommitment(data: Uint8Array): Promise<Buffer> {
  * @returns The fields representing the commitment buffer.
  */
 export function commitmentToFields(commitment: Buffer): [Fr, Fr] {
-  if (commitment.length !== BYTES_PER_COMMITMENT) {
-    throw new Error(`Expected ${BYTES_PER_COMMITMENT} bytes for blob commitment. Got ${commitment.length}.`);
+  if (commitment.length !== getBytesPerCommitment()) {
+    throw new Error(`Expected ${getBytesPerCommitment()} bytes for blob commitment. Got ${commitment.length}.`);
   }
 
-  return [new Fr(commitment.subarray(0, 31)), new Fr(commitment.subarray(31, BYTES_PER_COMMITMENT))];
+  return [new Fr(commitment.subarray(0, 31)), new Fr(commitment.subarray(31, getBytesPerCommitment()))];
 }
 
 export async function computeChallengeZ(blobFieldsHash: Fr, commitment: Buffer): Promise<Fr> {

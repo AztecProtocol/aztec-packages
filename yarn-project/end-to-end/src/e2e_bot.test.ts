@@ -134,6 +134,9 @@ describe('e2e_bot', () => {
         // TODO: this should be taken from the `setup` call above
         l1Mnemonic: new SecretValue('test test test test test test test test test test test junk'),
         flushSetupTransactions: true,
+        // Increase fee headroom to handle fee volatility from rapid block building in tests.
+        // Fees can escalate >10x due to blocks built by earlier tests and bridge operations.
+        minFeePadding: 99,
       };
 
       {
@@ -172,6 +175,10 @@ describe('e2e_bot', () => {
         // TODO: this should be taken from the `setup` call above
         l1Mnemonic: new SecretValue('test test test test test test test test test test test junk'),
         flushSetupTransactions: true,
+        // Increase fee headroom to handle fee volatility from rapid block building in tests.
+        // This test is especially susceptible because changing salt triggers a new bridge claim,
+        // adding more block building on top of what earlier tests already produced.
+        minFeePadding: 99,
       };
 
       {

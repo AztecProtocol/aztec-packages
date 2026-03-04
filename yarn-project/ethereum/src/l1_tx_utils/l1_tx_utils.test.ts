@@ -9,7 +9,6 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 
 import { jest } from '@jest/globals';
-import type { Anvil } from '@viem/anvil';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import assert from 'node:assert';
 import {
@@ -28,6 +27,7 @@ import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client, getPublicClient } from '../client.js';
 import { EthCheatCodes } from '../test/eth_cheat_codes.js';
+import type { Anvil } from '../test/start_anvil.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
@@ -137,6 +137,54 @@ describe('L1TxUtils', () => {
       gasUtils.interrupt();
       await gasUtils.waitMonitoringStopped(1);
     });
+
+    it('recovery send reuses nonce after sendRawTransaction fails', async () => {
+      // Send a successful tx first to advance the chain nonce
+      await gasUtils.sendAndMonitorTransaction(request);
+
+      const expectedNonce = await l1Client.getTransactionCount({
+        blockTag: 'pending',
+        address: l1Client.account.address,
+      });
+
+      // Next send fails at sendRawTransaction (e.g. network error / 429)
+      const originalSendRawTransaction = l1Client.sendRawTransaction.bind(l1Client);
+      using _sendSpy = jest
+        .spyOn(l1Client, 'sendRawTransaction')
+        .mockImplementationOnce(() => Promise.reject(new Error('network error')))
+        .mockImplementation(originalSendRawTransaction);
+
+      await expect(gasUtils.sendTransaction(request)).rejects.toThrow('network error');
+
+      // Recovery send should reuse the same nonce (not skip ahead)
+      const { txHash, state: recoveryState } = await gasUtils.sendTransaction(request);
+
+      expect(recoveryState.nonce).toBe(expectedNonce);
+      expect((await l1Client.getTransaction({ hash: txHash })).nonce).toBe(expectedNonce);
+    }, 30_000);
+
+    it('bumps nonce when getTransactionCount returns a stale value after a successful send', async () => {
+      // Send a successful tx first to advance the chain nonce
+      await gasUtils.sendAndMonitorTransaction(request);
+
+      const expectedNonce = await l1Client.getTransactionCount({
+        blockTag: 'pending',
+        address: l1Client.account.address,
+      });
+
+      // Simulate a stale fallback RPC node that returns the pre-send nonce
+      const originalGetTransactionCount = l1Client.getTransactionCount.bind(l1Client);
+      using _spy = jest
+        .spyOn(l1Client, 'getTransactionCount')
+        .mockImplementationOnce(() => Promise.resolve(expectedNonce - 1)) // stale: one behind
+        .mockImplementation(originalGetTransactionCount);
+
+      // Despite the stale count, the send should use lastSentNonce+1 = expectedNonce
+      const { txHash, state } = await gasUtils.sendTransaction(request);
+
+      expect(state.nonce).toBe(expectedNonce);
+      expect((await l1Client.getTransaction({ hash: txHash })).nonce).toBe(expectedNonce);
+    }, 30_000);
 
     // Regression for TMNT-312
     it('speed-up of blob tx sets non-zero maxFeePerBlobGas', async () => {
@@ -919,6 +967,8 @@ describe('L1TxUtils', () => {
     });
 
     it('does not consume nonce when transaction times out before sending', async () => {
+      // first send a transaction to advance the nonce
+      await gasUtils.sendAndMonitorTransaction(request);
       // Get the expected nonce before any transaction
       const expectedNonce = await l1Client.getTransactionCount({ address: l1Client.account.address });
 

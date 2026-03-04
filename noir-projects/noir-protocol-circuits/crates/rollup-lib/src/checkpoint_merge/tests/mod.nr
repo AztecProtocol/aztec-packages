@@ -44,7 +44,7 @@ impl TestBuilder {
         Self::validate_input_vk_index(left_rollup_vk_index, num_left_checkpoints);
         Self::validate_input_vk_index(right_rollup_vk_index, num_right_checkpoints);
 
-        let mut fixture_builder = RollupFixtureBuilder::new();
+        let fixture_builder = RollupFixtureBuilder::new();
         let start_slot_number = fixture_builder.start_slot_number;
 
         let left_rollup = fixture_builder.get_merged_checkpoint_rollup_public_inputs(

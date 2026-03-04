@@ -8,9 +8,11 @@
 #include <sys/types.h>
 #include <vector>
 
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
+#include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -26,6 +28,317 @@ using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
 using simulation::Instruction;
 using simulation::InstructionFetchingEvent;
+
+TEST(BytecodeTraceGenTest, BasicRetrieval)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder builder;
+
+    const AppendOnlyTreeSnapshot snapshot_before = { .root = 12, .next_available_leaf_index = 1 };
+    const AppendOnlyTreeSnapshot snapshot_after = { .root = 34, .next_available_leaf_index = 2 };
+
+    builder.process_retrieval({ {
+                                  .bytecode_id = 43,
+                                  .address = 0xc0ffee,
+                                  .current_class_id = 34,
+                                  .contract_class = { .artifact_hash = 100, .private_functions_root = 200 },
+                                  .nullifier_root = 300,
+                                  .public_data_tree_root = 400,
+                                  .retrieved_bytecodes_snapshot_before = snapshot_before,
+                                  .retrieved_bytecodes_snapshot_after = snapshot_after,
+                                  .is_new_class = true,
+                              } },
+                              trace);
+    const auto rows = trace.as_rows();
+
+    // One retrieval event.
+    ASSERT_EQ(rows.size(), 1);
+
+    EXPECT_THAT(
+        rows.at(0),
+        AllOf(ROW_FIELD_EQ(bc_retrieval_sel, 1),
+              ROW_FIELD_EQ(bc_retrieval_bytecode_id, 43),
+              ROW_FIELD_EQ(bc_retrieval_address, 0xc0ffee),
+              ROW_FIELD_EQ(bc_retrieval_current_class_id, 34),
+              ROW_FIELD_EQ(bc_retrieval_artifact_hash, 100),
+              ROW_FIELD_EQ(bc_retrieval_private_functions_root, 200),
+              ROW_FIELD_EQ(bc_retrieval_nullifier_tree_root, 300),
+              ROW_FIELD_EQ(bc_retrieval_public_data_tree_root, 400),
+              ROW_FIELD_EQ(bc_retrieval_prev_retrieved_bytecodes_tree_root, snapshot_before.root),
+              ROW_FIELD_EQ(bc_retrieval_prev_retrieved_bytecodes_tree_size, snapshot_before.next_available_leaf_index),
+              ROW_FIELD_EQ(bc_retrieval_next_retrieved_bytecodes_tree_root, snapshot_after.root),
+              ROW_FIELD_EQ(bc_retrieval_next_retrieved_bytecodes_tree_size, snapshot_after.next_available_leaf_index),
+              ROW_FIELD_EQ(bc_retrieval_instance_exists, 1),
+              ROW_FIELD_EQ(bc_retrieval_is_new_class, 1),
+              ROW_FIELD_EQ(bc_retrieval_no_remaining_bytecodes, 0),
+              ROW_FIELD_EQ(bc_retrieval_remaining_bytecodes_inv,
+                           FF(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS).invert()),
+              ROW_FIELD_EQ(bc_retrieval_error, 0),
+              ROW_FIELD_EQ(bc_retrieval_should_retrieve, 1)));
+}
+
+TEST(BytecodeTraceGenTest, RetrievalExistingClass)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder builder;
+
+    const AppendOnlyTreeSnapshot snapshot = { .root = FF(12), .next_available_leaf_index = 2 };
+
+    builder.process_retrieval({ {
+                                  .bytecode_id = 43,
+                                  .address = 0xc0ffee,
+                                  .current_class_id = 34,
+                                  .contract_class = { .artifact_hash = 100, .private_functions_root = 200 },
+                                  .nullifier_root = 300,
+                                  .public_data_tree_root = 400,
+                                  .retrieved_bytecodes_snapshot_before = snapshot,
+                                  .retrieved_bytecodes_snapshot_after = snapshot,
+                                  .is_new_class = false,
+                              } },
+                              trace);
+    const auto rows = trace.as_rows();
+
+    // One retrieval event.
+    ASSERT_EQ(rows.size(), 1);
+
+    EXPECT_THAT(
+        rows.at(0),
+        AllOf(ROW_FIELD_EQ(bc_retrieval_sel, 1),
+              ROW_FIELD_EQ(bc_retrieval_bytecode_id, 43),
+              ROW_FIELD_EQ(bc_retrieval_address, 0xc0ffee),
+              ROW_FIELD_EQ(bc_retrieval_current_class_id, 34),
+              ROW_FIELD_EQ(bc_retrieval_artifact_hash, 100),
+              ROW_FIELD_EQ(bc_retrieval_private_functions_root, 200),
+              ROW_FIELD_EQ(bc_retrieval_nullifier_tree_root, 300),
+              ROW_FIELD_EQ(bc_retrieval_public_data_tree_root, 400),
+              ROW_FIELD_EQ(bc_retrieval_instance_exists, 1),
+              ROW_FIELD_EQ(bc_retrieval_is_new_class, 0),
+              ROW_FIELD_EQ(bc_retrieval_no_remaining_bytecodes, 0),
+              ROW_FIELD_EQ(bc_retrieval_remaining_bytecodes_inv,
+                           FF(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS - 1).invert()),
+              ROW_FIELD_EQ(bc_retrieval_error, 0),
+              ROW_FIELD_EQ(bc_retrieval_should_retrieve, 1),
+              ROW_FIELD_EQ(bc_retrieval_prev_retrieved_bytecodes_tree_root, snapshot.root),
+              ROW_FIELD_EQ(bc_retrieval_prev_retrieved_bytecodes_tree_size, snapshot.next_available_leaf_index),
+              ROW_FIELD_EQ(bc_retrieval_next_retrieved_bytecodes_tree_root, snapshot.root),
+              ROW_FIELD_EQ(bc_retrieval_next_retrieved_bytecodes_tree_size, snapshot.next_available_leaf_index)));
+}
+
+TEST(BytecodeTraceGenTest, MultipleRetrievalEvents)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder builder;
+
+    const AppendOnlyTreeSnapshot snapshot_before = { .root = 12, .next_available_leaf_index = 1 };
+    const AppendOnlyTreeSnapshot snapshot_after_0 = { .root = 34, .next_available_leaf_index = 2 };
+    const AppendOnlyTreeSnapshot snapshot_after_1 = { .root = 56, .next_available_leaf_index = 3 };
+
+    // Two new bytecodes, one existing:
+    builder.process_retrieval(
+        {
+            simulation::BytecodeRetrievalEvent{
+                .bytecode_id = 43,
+                .address = 0xc0ffee,
+                .current_class_id = 34,
+                .contract_class = { .artifact_hash = 100, .private_functions_root = 200 },
+                .nullifier_root = 300,
+                .public_data_tree_root = 400,
+                .retrieved_bytecodes_snapshot_before = snapshot_before,
+                .retrieved_bytecodes_snapshot_after = snapshot_after_0,
+                .is_new_class = true,
+            },
+            simulation::BytecodeRetrievalEvent{
+                .bytecode_id = 21,
+                .address = 0xdeadbeef,
+                .current_class_id = 56,
+                .contract_class = { .artifact_hash = 100, .private_functions_root = 200 },
+                .nullifier_root = 300,
+                .public_data_tree_root = 400,
+                .retrieved_bytecodes_snapshot_before = snapshot_after_0,
+                .retrieved_bytecodes_snapshot_after = snapshot_after_1,
+                .is_new_class = true,
+            },
+            simulation::BytecodeRetrievalEvent{
+                .bytecode_id = 21,
+                .address = 0xdeadb33f,
+                .current_class_id = 56,
+                .contract_class = { .artifact_hash = 100, .private_functions_root = 200 },
+                .nullifier_root = 300,
+                .public_data_tree_root = 400,
+                .retrieved_bytecodes_snapshot_before = snapshot_after_1,
+                .retrieved_bytecodes_snapshot_after = snapshot_after_1,
+                .is_new_class = false,
+            },
+        },
+        trace);
+    const auto rows = trace.as_rows();
+
+    // Three retrieval events.
+    ASSERT_EQ(rows.size(), 3);
+
+    EXPECT_THAT(
+        rows.at(0),
+        AllOf(ROW_FIELD_EQ(bc_retrieval_sel, 1),
+              ROW_FIELD_EQ(bc_retrieval_bytecode_id, 43),
+              ROW_FIELD_EQ(bc_retrieval_address, 0xc0ffee),
+              ROW_FIELD_EQ(bc_retrieval_current_class_id, 34),
+              ROW_FIELD_EQ(bc_retrieval_artifact_hash, 100),
+              ROW_FIELD_EQ(bc_retrieval_private_functions_root, 200),
+              ROW_FIELD_EQ(bc_retrieval_nullifier_tree_root, 300),
+              ROW_FIELD_EQ(bc_retrieval_public_data_tree_root, 400),
+              ROW_FIELD_EQ(bc_retrieval_prev_retrieved_bytecodes_tree_root, snapshot_before.root),
+              ROW_FIELD_EQ(bc_retrieval_prev_retrieved_bytecodes_tree_size, snapshot_before.next_available_leaf_index),
+              ROW_FIELD_EQ(bc_retrieval_next_retrieved_bytecodes_tree_root, snapshot_after_0.root),
+              ROW_FIELD_EQ(bc_retrieval_next_retrieved_bytecodes_tree_size, snapshot_after_0.next_available_leaf_index),
+              ROW_FIELD_EQ(bc_retrieval_instance_exists, 1),
+              ROW_FIELD_EQ(bc_retrieval_is_new_class, 1),
+              ROW_FIELD_EQ(bc_retrieval_no_remaining_bytecodes, 0),
+              ROW_FIELD_EQ(bc_retrieval_remaining_bytecodes_inv,
+                           FF(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS).invert()),
+              ROW_FIELD_EQ(bc_retrieval_error, 0),
+              ROW_FIELD_EQ(bc_retrieval_should_retrieve, 1)));
+
+    EXPECT_THAT(
+        rows.at(1),
+        AllOf(ROW_FIELD_EQ(bc_retrieval_sel, 1),
+              ROW_FIELD_EQ(bc_retrieval_bytecode_id, 21),
+              ROW_FIELD_EQ(bc_retrieval_address, 0xdeadbeef),
+              ROW_FIELD_EQ(bc_retrieval_current_class_id, 56),
+              ROW_FIELD_EQ(bc_retrieval_artifact_hash, 100),
+              ROW_FIELD_EQ(bc_retrieval_private_functions_root, 200),
+              ROW_FIELD_EQ(bc_retrieval_nullifier_tree_root, 300),
+              ROW_FIELD_EQ(bc_retrieval_public_data_tree_root, 400),
+              ROW_FIELD_EQ(bc_retrieval_prev_retrieved_bytecodes_tree_root, snapshot_after_0.root),
+              ROW_FIELD_EQ(bc_retrieval_prev_retrieved_bytecodes_tree_size, snapshot_after_0.next_available_leaf_index),
+              ROW_FIELD_EQ(bc_retrieval_next_retrieved_bytecodes_tree_root, snapshot_after_1.root),
+              ROW_FIELD_EQ(bc_retrieval_next_retrieved_bytecodes_tree_size, snapshot_after_1.next_available_leaf_index),
+              ROW_FIELD_EQ(bc_retrieval_instance_exists, 1),
+              ROW_FIELD_EQ(bc_retrieval_is_new_class, 1),
+              ROW_FIELD_EQ(bc_retrieval_no_remaining_bytecodes, 0),
+              ROW_FIELD_EQ(bc_retrieval_remaining_bytecodes_inv,
+                           FF(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS - 1).invert()),
+              ROW_FIELD_EQ(bc_retrieval_error, 0),
+              ROW_FIELD_EQ(bc_retrieval_should_retrieve, 1)));
+
+    EXPECT_THAT(
+        rows.at(2),
+        AllOf(ROW_FIELD_EQ(bc_retrieval_sel, 1),
+              ROW_FIELD_EQ(bc_retrieval_bytecode_id, 21),
+              ROW_FIELD_EQ(bc_retrieval_address, 0xdeadb33f),
+              ROW_FIELD_EQ(bc_retrieval_current_class_id, 56),
+              ROW_FIELD_EQ(bc_retrieval_artifact_hash, 100),
+              ROW_FIELD_EQ(bc_retrieval_private_functions_root, 200),
+              ROW_FIELD_EQ(bc_retrieval_nullifier_tree_root, 300),
+              ROW_FIELD_EQ(bc_retrieval_public_data_tree_root, 400),
+              ROW_FIELD_EQ(bc_retrieval_prev_retrieved_bytecodes_tree_root, snapshot_after_1.root),
+              ROW_FIELD_EQ(bc_retrieval_prev_retrieved_bytecodes_tree_size, snapshot_after_1.next_available_leaf_index),
+              ROW_FIELD_EQ(bc_retrieval_next_retrieved_bytecodes_tree_root, snapshot_after_1.root),
+              ROW_FIELD_EQ(bc_retrieval_next_retrieved_bytecodes_tree_size, snapshot_after_1.next_available_leaf_index),
+              ROW_FIELD_EQ(bc_retrieval_instance_exists, 1),
+              ROW_FIELD_EQ(bc_retrieval_is_new_class, 0),
+              ROW_FIELD_EQ(bc_retrieval_no_remaining_bytecodes, 0),
+              ROW_FIELD_EQ(bc_retrieval_remaining_bytecodes_inv,
+                           FF(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS - 2).invert()),
+              ROW_FIELD_EQ(bc_retrieval_error, 0),
+              ROW_FIELD_EQ(bc_retrieval_should_retrieve, 1)));
+}
+
+TEST(BytecodeTraceGenTest, RetrievalInstanceNotFoundError)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder builder;
+
+    const AppendOnlyTreeSnapshot snapshot = { .root = FF(12), .next_available_leaf_index = 1 };
+
+    // The simulation sets class-related fields == 0 when the instance is not found.
+    builder.process_retrieval({ {
+                                  .bytecode_id = 0,
+                                  .address = 0xc0ffee,
+                                  .current_class_id = 0,
+                                  .contract_class = {},
+                                  .nullifier_root = 300,
+                                  .public_data_tree_root = 400,
+                                  .retrieved_bytecodes_snapshot_before = snapshot,
+                                  .retrieved_bytecodes_snapshot_after = snapshot,
+                                  .is_new_class = false,
+                                  .error = simulation::BytecodeRetrievalEventError::INSTANCE_NOT_FOUND,
+                              } },
+                              trace);
+    const auto rows = trace.as_rows();
+
+    // One retrieval event.
+    ASSERT_EQ(rows.size(), 1);
+
+    EXPECT_THAT(
+        rows.at(0),
+        AllOf(ROW_FIELD_EQ(bc_retrieval_sel, 1),
+              ROW_FIELD_EQ(bc_retrieval_address, 0xc0ffee),
+              ROW_FIELD_EQ(bc_retrieval_instance_exists, 0),
+              ROW_FIELD_EQ(bc_retrieval_is_new_class, 0),
+              ROW_FIELD_EQ(bc_retrieval_no_remaining_bytecodes, 0),
+              ROW_FIELD_EQ(bc_retrieval_remaining_bytecodes_inv,
+                           FF(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS).invert()),
+              ROW_FIELD_EQ(bc_retrieval_error, 1),
+              ROW_FIELD_EQ(bc_retrieval_should_retrieve, 0),
+              // Class-related fields are zeroed:
+              ROW_FIELD_EQ(bc_retrieval_bytecode_id, 0),
+              ROW_FIELD_EQ(bc_retrieval_current_class_id, 0),
+              ROW_FIELD_EQ(bc_retrieval_artifact_hash, 0),
+              ROW_FIELD_EQ(bc_retrieval_private_functions_root, 0),
+              ROW_FIELD_EQ(bc_retrieval_prev_retrieved_bytecodes_tree_root, snapshot.root),
+              ROW_FIELD_EQ(bc_retrieval_prev_retrieved_bytecodes_tree_size, snapshot.next_available_leaf_index),
+              ROW_FIELD_EQ(bc_retrieval_next_retrieved_bytecodes_tree_root, snapshot.root),
+              ROW_FIELD_EQ(bc_retrieval_next_retrieved_bytecodes_tree_size, snapshot.next_available_leaf_index)));
+}
+
+TEST(BytecodeTraceGenTest, RetrievalLimitError)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder builder;
+
+    // Set next leaf index to max tree size + 1:
+    const AppendOnlyTreeSnapshot snapshot = { .root = FF(12),
+                                              .next_available_leaf_index =
+                                                  MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1 };
+    // The simulation sets class-related fields == 0 when the limit is reached.
+    builder.process_retrieval({ {
+                                  .bytecode_id = 0,
+                                  .address = 0xc0ffee,
+                                  .current_class_id = 34,
+                                  .contract_class = {},
+                                  .nullifier_root = 300,
+                                  .public_data_tree_root = 400,
+                                  .retrieved_bytecodes_snapshot_before = snapshot,
+                                  .retrieved_bytecodes_snapshot_after = snapshot,
+                                  .is_new_class = true,
+                                  .error = simulation::BytecodeRetrievalEventError::TOO_MANY_BYTECODES,
+                              } },
+                              trace);
+    const auto rows = trace.as_rows();
+
+    // One retrieval event.
+    ASSERT_EQ(rows.size(), 1);
+
+    EXPECT_THAT(
+        rows.at(0),
+        AllOf(ROW_FIELD_EQ(bc_retrieval_sel, 1),
+              ROW_FIELD_EQ(bc_retrieval_address, 0xc0ffee),
+              ROW_FIELD_EQ(bc_retrieval_instance_exists, 1),
+              ROW_FIELD_EQ(bc_retrieval_is_new_class, 1),
+              ROW_FIELD_EQ(bc_retrieval_no_remaining_bytecodes, 1),
+              ROW_FIELD_EQ(bc_retrieval_remaining_bytecodes_inv, 0),
+              ROW_FIELD_EQ(bc_retrieval_error, 1),
+              ROW_FIELD_EQ(bc_retrieval_should_retrieve, 0),
+              ROW_FIELD_EQ(bc_retrieval_current_class_id, 34),
+              // Class-related fields are zeroed:
+              ROW_FIELD_EQ(bc_retrieval_bytecode_id, 0),
+              ROW_FIELD_EQ(bc_retrieval_artifact_hash, 0),
+              ROW_FIELD_EQ(bc_retrieval_private_functions_root, 0),
+              ROW_FIELD_EQ(bc_retrieval_prev_retrieved_bytecodes_tree_root, snapshot.root),
+              ROW_FIELD_EQ(bc_retrieval_prev_retrieved_bytecodes_tree_size, snapshot.next_available_leaf_index),
+              ROW_FIELD_EQ(bc_retrieval_next_retrieved_bytecodes_tree_root, snapshot.root),
+              ROW_FIELD_EQ(bc_retrieval_next_retrieved_bytecodes_tree_size, snapshot.next_available_leaf_index)));
+}
 
 TEST(BytecodeTraceGenTest, BasicShortLength)
 {
@@ -261,7 +574,7 @@ TEST(BytecodeTraceGenTest, MultipleEvents)
 
     std::transform(bc_sizes.begin(), bc_sizes.end(), bytecodes.begin(), [](uint32_t bc_size) -> std::vector<uint8_t> {
         std::vector<uint8_t> bytecode(bc_size);
-        for (uint8_t i = 0; i < bc_size; i++) {
+        for (uint8_t i = 0; i < static_cast<uint8_t>(bc_size); i++) {
             bytecode[i] = i * i; // Arbitrary bytecode that we will not inspect below
         }
 
@@ -291,7 +604,7 @@ TEST(BytecodeTraceGenTest, MultipleEvents)
     auto rows = trace.as_rows();
 
     // One extra empty row is prepended.
-    ASSERT_EQ(rows.size(), 2 * DECOMPOSE_WINDOW_SIZE + 20 + 1);
+    ASSERT_EQ(rows.size(), (2 * DECOMPOSE_WINDOW_SIZE) + 20 + 1);
 
     size_t row_pos = 1;
     for (uint32_t i = 0; i < 4; i++) {
@@ -485,7 +798,7 @@ TEST(BytecodeTraceGenTest, InstrDecompositionInBytesEachOpcode)
     builder.process_instruction_fetching(events, trace);
 
     for (uint32_t i = 0; i < num_opcodes; i++) {
-        const auto instr = instructions.at(i);
+        const auto& instr = instructions.at(i);
         const auto instr_encoded = instr.serialize();
         const auto w_opcode = static_cast<WireOpCode>(i);
 
@@ -550,7 +863,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
         const auto instr_size = get_wire_instruction_spec().at(opcodes.at(i)).size_in_bytes;
         const auto has_tag = get_wire_instruction_spec().at(opcodes.at(i)).tag_operand_idx.has_value();
         const auto tag_is_op2 =
-            has_tag ? get_wire_instruction_spec().at(opcodes.at(i)).tag_operand_idx.value() == 2 : 0;
+            has_tag ? static_cast<int>(get_wire_instruction_spec().at(opcodes.at(i)).tag_operand_idx.value() == 2) : 0;
         const auto bytes_remaining = bytecode_size - pc;
         const auto bytes_to_read = std::min<size_t>(DECOMPOSE_WINDOW_SIZE, bytes_remaining);
 
@@ -615,7 +928,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingMultipleBytecodes)
     EXPECT_EQ(rows.size(), 6 + 1);
 
     for (size_t i = 0; i < 3; i++) {
-        EXPECT_THAT(rows.at(2 * i + 1), ROW_FIELD_EQ(instr_fetching_pc, 0));
+        EXPECT_THAT(rows.at((2 * i) + 1), ROW_FIELD_EQ(instr_fetching_pc, 0));
     }
 }
 

@@ -83,7 +83,10 @@ avm-transpiler-cross-amd64-macos:
 avm-transpiler-cross-arm64-macos:
 	$(call build,$@,avm-transpiler,build_cross arm64-macos)
 
-avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos
+avm-transpiler-cross-arm64-linux:
+	$(call build,$@,avm-transpiler,build_cross arm64-linux)
+
+avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos avm-transpiler-cross-arm64-linux
 
 #==============================================================================
 # Barretenberg
@@ -134,7 +137,7 @@ bb-cpp-cross-arm64-macos-objects:
 	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-macos)
 
 # Cross-compile for ARM64 Linux (release only)
-bb-cpp-cross-arm64-linux: bb-cpp-cross-arm64-linux-objects avm-transpiler-native
+bb-cpp-cross-arm64-linux: bb-cpp-cross-arm64-linux-objects avm-transpiler-cross-arm64-linux
 	$(call build,$@,barretenberg/cpp,build_cross arm64-linux)
 
 # Cross-compile for AMD64 macOS (release only)

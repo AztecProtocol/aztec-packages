@@ -150,6 +150,15 @@ export -f hex_to_fields_json compile
 function build {
   set -eu
 
+  # If pinned-build.tar.gz exists, use it instead of compiling.
+  if [ -f pinned-build.tar.gz ]; then
+    echo_stderr "Using pinned-build.tar.gz instead of compiling."
+    rm -rf target
+    mkdir -p target
+    tar xzf pinned-build.tar.gz -C target
+    return
+  fi
+
   if [[ -z NOIR_PROTOCOL_CIRCUITS_SKIP_CHECK_WARNINGS ]]; then
     echo_stderr "Checking libraries for warnings..."
     parallel -v --line-buffer --tag $NARGO --program-dir {} check ::: \
@@ -242,6 +251,15 @@ function bench {
   rm -rf bench-out && mkdir -p bench-out
 
   bench_cmds | STRICT_SCHEDULING=1 parallelize
+}
+
+function pin-build {
+  # Force a real build by removing any existing pinned archive.
+  rm -f pinned-build.tar.gz
+  build
+  echo_stderr "Creating pinned-build.tar.gz from target..."
+  tar czf pinned-build.tar.gz -C target .
+  echo_stderr "Done. pinned-build.tar.gz created. Commit it to pin these artifacts."
 }
 
 case "$cmd" in

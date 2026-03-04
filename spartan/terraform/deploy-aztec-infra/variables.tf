@@ -229,6 +229,12 @@ variable "VALIDATOR_HA_REPLICAS" {
   default     = 0
 }
 
+variable "ADMIN_API_KEY_HASH" {
+  description = "SHA-256 hex hash of the admin API key. When set, enables admin API authentication on validator nodes. Leave empty to disable admin auth (default)."
+  type        = string
+  default     = ""
+}
+
 variable "PROVER_MNEMONIC" {
   description = "The prover mnemonic"
   type        = string
@@ -358,6 +364,13 @@ variable "SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT" {
 
 variable "SEQ_BLOCK_DURATION_MS" {
   description = "Duration per block in milliseconds when building multiple blocks per slot"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" {
+  description = "Time allocated for publishing to L1, in seconds"
   type        = string
   nullable    = true
   default     = null

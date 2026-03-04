@@ -42,7 +42,7 @@ mod tests {
 
     #[test]
     unconstrained fn reading_after_initialization_succeeds() {
-        let (mut env, contract_address) = setup();
+        let (env, contract_address) = setup();
         let test_contract = PublicImmutableContract::at(contract_address);
 
         // set x to 10

@@ -1,23 +1,89 @@
-use crate::macros::{
-    calls_generation::{
-        external_functions::{generate_external_function_calls, generate_external_function_self_calls_structs},
-        internal_functions::generate_call_internal_struct,
+use crate::{
+    macros::{
+        calls_generation::{
+            external_functions::{generate_external_function_calls, generate_external_function_self_calls_structs},
+            internal_functions::generate_call_internal_struct,
+        },
+        dispatch::generate_public_dispatch,
+        internals_functions_generation::{create_fn_abi_exports, process_functions},
+        notes::NOTES,
+        storage::STORAGE_LAYOUT_NAME,
+        utils::{
+            get_trait_impl_method, is_fn_contract_library_method, is_fn_external, is_fn_internal, is_fn_test,
+            module_has_storage,
+        },
     },
-    dispatch::generate_public_dispatch,
-    internals_functions_generation::{create_fn_abi_exports, process_functions},
-    notes::NOTES,
-    storage::STORAGE_LAYOUT_NAME,
-    utils::{
-        get_trait_impl_method, is_fn_contract_library_method, is_fn_external, is_fn_internal, is_fn_test,
-        module_has_storage,
-    },
+    messages::discovery::CustomMessageHandler,
 };
 
-/// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
-/// the `sync_state` utility function.
+/// Configuration for the [`aztec`] macro.
 ///
-/// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
-pub comptime fn aztec(m: Module) -> Quoted {
+/// This type lets users override different parts of the default aztec-nr contract behavior, such
+/// as message handling. These are advanced features that require careful understanding of
+/// the behavior of these systems.
+///
+/// ## Examples
+///
+/// ```noir
+/// #[aztec(aztec::macros::AztecConfig::new().custom_message_handler(my_handler))]
+/// contract MyContract { ... }
+/// ```
+pub struct AztecConfig {
+    custom_message_handler: Option<CustomMessageHandler<()>>,
+}
+
+impl AztecConfig {
+    /// Creates a new `AztecConfig` with default values.
+    ///
+    /// Calling `new` is equivalent to invoking the [`aztec`] macro with no parameters. The different methods
+    /// (e.g. [`AztecConfig::custom_message_handler`]) can then be used to change the default behavior.
+    pub comptime fn new() -> Self {
+        Self { custom_message_handler: Option::none() }
+    }
+
+    /// Sets a handler for custom messages.
+    ///
+    /// This enables contracts to process non-standard messages (i.e. any with a message type that is not in
+    /// [`crate::messages::msg_type`]).
+    ///
+    /// `handler` must be a `#[contract_library_method]` function that conforms to the
+    /// [`crate::messages::discovery::CustomMessageHandler`] type signature.
+    pub comptime fn custom_message_handler(_self: Self, handler: CustomMessageHandler<()>) -> Self {
+        Self { custom_message_handler: Option::some(handler) }
+    }
+}
+
+/// Enables aztec-nr features on a `contract`.
+///
+/// All aztec-nr contracts should have this macro invoked on them, as it is the one that processes all contract
+/// functions, notes, storage, generates interfaces for external calls, and creates the message processing
+/// boilerplate.
+///
+/// ## Examples
+///
+/// Most contracts can simply invoke the macro with no parameters, resulting in default aztec-nr behavior:
+/// ```noir
+/// #[aztec]
+/// contract MyContract { ... }
+/// ```
+///
+/// Advanced contracts can use [`AztecConfig`] to customize parts of its behavior, such as message
+/// processing.
+/// ```noir
+/// #[aztec(aztec::macros::AztecConfig::new().custom_message_handler(my_handler))]
+/// contract MyAdvancedContract { ... }
+/// ```
+#[varargs]
+pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
+    let num_args = args.len();
+    let config = if num_args == 0 {
+        AztecConfig::new()
+    } else if num_args == 1 {
+        args[0]
+    } else {
+        panic(f"#[aztec] expects 0 or 1 arguments, got {num_args}")
+    };
+
     // Functions that don't have #[external(...)], #[contract_library_method], or #[test] are not allowed in contracts.
     check_each_fn_macroified(m);
 
@@ -42,14 +108,21 @@ pub comptime fn aztec(m: Module) -> Quoted {
     } else {
         quote {}
     };
+    let process_custom_message_option = if config.custom_message_handler.is_some() {
+        let handler = config.custom_message_handler.unwrap();
+        quote { Option::some($handler) }
+    } else {
+        quote { Option::<aztec::messages::discovery::CustomMessageHandler<()>>::none() }
+    };
+
     let sync_state_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { sync_state }) {
-        generate_sync_state()
+        generate_sync_state(process_custom_message_option)
     } else {
         quote {}
     };
 
     let process_message_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { process_message }) {
-        generate_process_message()
+        generate_process_message(process_custom_message_option)
     } else {
         quote {}
     };
@@ -263,7 +336,8 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
     }
 }
 
-comptime fn generate_sync_state() -> Quoted {
+/// Generates the `sync_state` utility function that performs message discovery.
+comptime fn generate_sync_state(process_custom_message_option: Quoted) -> Quoted {
     quote {
         pub struct sync_state_parameters {}
 
@@ -275,13 +349,17 @@ comptime fn generate_sync_state() -> Quoted {
         #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
         unconstrained fn sync_state() {
             let address = aztec::context::UtilityContext::new().this_address();
-            
-            aztec::messages::discovery::do_sync_state(address, _compute_note_hash_and_nullifier);
+            aztec::messages::discovery::do_sync_state(
+                address,
+                _compute_note_hash_and_nullifier,
+                $process_custom_message_option,
+            );
         }
     }
 }
 
-comptime fn generate_process_message() -> Quoted {
+/// Generates the `process_message` utility function that processes a single message ciphertext.
+comptime fn generate_process_message(process_custom_message_option: Quoted) -> Quoted {
     quote {
         pub struct process_message_parameters {
             pub message_ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
@@ -303,6 +381,7 @@ comptime fn generate_process_message() -> Quoted {
             aztec::messages::discovery::process_message::process_message_ciphertext(
                 address,
                 _compute_note_hash_and_nullifier,
+                $process_custom_message_option,
                 message_ciphertext,
                 message_context,
             );
@@ -317,7 +396,7 @@ comptime fn generate_process_message() -> Quoted {
 /// Checks that all functions in the module have a context macro applied.
 ///
 /// Non-macroified functions are not allowed in contracts. They must all be one of
-/// [`external`](crate::macros::functions::external), [`internal`](crate::macros::functions::internal) or `test`.
+/// [`crate::macros::functions::external`], [`crate::macros::functions::internal`] or `test`.
 comptime fn check_each_fn_macroified(m: Module) {
     for f in m.functions() {
         let name = f.name();

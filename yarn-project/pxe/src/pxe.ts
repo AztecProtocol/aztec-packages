@@ -145,6 +145,7 @@ export type PXECreateArgs = {
 export class PXE {
   private constructor(
     private node: AztecNode,
+    private db: AztecAsyncKVStore,
     private blockStateSynchronizer: BlockSynchronizer,
     private keyStore: KeyStore,
     private contractStore: ContractStore,
@@ -240,6 +241,7 @@ export class PXE {
 
     const pxe = new PXE(
       node,
+      store,
       synchronizer,
       keyStore,
       contractStore,
@@ -958,7 +960,8 @@ export class PXE {
           const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
           validationTime = validationTimer.ms();
           if (validationResult.result === 'invalid') {
-            throw new Error('The simulated transaction is unable to be added to state and is invalid.');
+            const reason = validationResult.reason.length > 0 ? ` Reason: ${validationResult.reason.join(', ')}` : '';
+            throw new Error(`The simulated transaction is unable to be added to state and is invalid.${reason}`);
           }
         }
 
@@ -1129,9 +1132,10 @@ export class PXE {
   }
 
   /**
-   * Stops the PXE's job queue.
+   * Stops the PXE's job queue and closes the backing store.
    */
-  public stop(): Promise<void> {
-    return this.jobQueue.end();
+  public async stop(): Promise<void> {
+    await this.jobQueue.end();
+    await this.db.close();
   }
 }
