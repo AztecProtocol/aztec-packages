@@ -120,7 +120,7 @@ slasher: &slasher
   # Rounds after which an offense expires.
   SLASH_OFFENSE_EXPIRATION_ROUNDS: 4
   # Maximum size of slashing payload.
-  SLASH_MAX_PAYLOAD_SIZE: 50
+  SLASH_MAX_PAYLOAD_SIZE: 80
   # Rounds to look back when executing slashes.
   SLASH_EXECUTE_ROUNDS_LOOK_BACK: 4
   # Penalty for slashing validators of a valid pruned epoch.

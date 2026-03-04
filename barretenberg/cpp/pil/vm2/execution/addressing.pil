@@ -152,7 +152,7 @@ sel_do_base_check * (1 - sel_do_base_check) = 0;
 pol NUM_RELATIVE_OPERANDS = SEL_OP_IS_RELATIVE_EFFECTIVE_0_ + SEL_OP_IS_RELATIVE_EFFECTIVE_1_ + SEL_OP_IS_RELATIVE_EFFECTIVE_2_ + SEL_OP_IS_RELATIVE_EFFECTIVE_3_
                           + SEL_OP_IS_RELATIVE_EFFECTIVE_4_ + SEL_OP_IS_RELATIVE_EFFECTIVE_5_ + SEL_OP_IS_RELATIVE_EFFECTIVE_6_;
 pol commit num_relative_operands_inv;
-// See https://hackmd.io/moq6viBpRJeLpWrHAogCZw#With-Error-Support.
+// See https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#with-error-support.
 pol NUM_RELATIVE_X = NUM_RELATIVE_OPERANDS;
 pol NUM_RELATIVE_Y = num_relative_operands_inv;
 pol NUM_RELATIVE_E = 1 - sel_do_base_check;
@@ -172,7 +172,7 @@ sel_base_address_failure * (1 - sel_base_address_failure) = 0;
 // - sel_base_address_failure = (base_address_tag != U32)  if   sel_do_base_check
 // - sel_base_address_failure = 0                          otherwise
 pol commit base_address_tag_diff_inv;
-// See https://hackmd.io/moq6viBpRJeLpWrHAogCZw#With-Error-Support.
+// See https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#with-error-support.
 pol BASE_CHECK_X = sel_do_base_check * (base_address_tag - constants.MEM_TAG_U32);
 pol BASE_CHECK_Y = base_address_tag_diff_inv;
 pol BASE_CHECK_E = 1 - sel_base_address_failure;
@@ -341,7 +341,7 @@ is memory.sel_addressing_indirect[6] { memory.clk, memory.space_id, memory.addre
 pol commit sel_some_final_check_failed; // @boolean
 sel_some_final_check_failed * (1 - sel_some_final_check_failed) = 0;
 // Each tag takes at most 3 bits (guaranteed by mem lookup!), we can encode all of them in a field.
-// See https://hackmd.io/moq6viBpRJeLpWrHAogCZw?both#Batching-comparison-of-n-bit-numbers.
+// See https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#batching-comparison-of-n-bit-numbers.
 // This diff will be 0 iff all tags are U32.
 pol BATCHED_TAGS_DIFF = sel_should_apply_indirection[0] * 2**0  * (rop_tag[0] - constants.MEM_TAG_U32)
                       + sel_should_apply_indirection[1] * 2**3  * (rop_tag[1] - constants.MEM_TAG_U32)
@@ -371,7 +371,7 @@ pol ADDRESSING_ERROR_COLLECTION = sel_base_address_failure
                                 + sel_relative_overflow[4] + sel_relative_overflow[5] + sel_relative_overflow[6]
                                 + sel_some_final_check_failed;
 // This constrains that sel_addressing_error = (ADDRESSING_ERROR_COLLECTION != 0).
-// See https://hackmd.io/moq6viBpRJeLpWrHAogCZw#With-Error-Support.
+// See https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#with-error-support.
 pol commit addressing_error_collection_inv;
 pol ADDRESSING_COLLECTION_X = ADDRESSING_ERROR_COLLECTION;
 pol ADDRESSING_COLLECTION_Y = addressing_error_collection_inv;

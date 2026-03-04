@@ -432,4 +432,116 @@ describe('Archiver Store', () => {
       expect(result).toEqual([]);
     });
   });
+
+  describe('rollbackTo', () => {
+    beforeEach(() => {
+      publicClient.getBlock.mockImplementation(
+        (args: { blockNumber?: bigint } = {}) =>
+          Promise.resolve({ number: args.blockNumber ?? 0n, hash: `0x${'0'.repeat(64)}` }) as any,
+      );
+    });
+
+    it('rejects rollback to a block that is not at a checkpoint boundary', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
+      // Checkpoint 1: 3 blocks (1, 2, 3). Checkpoint 2: 3 blocks (4, 5, 6).
+      const testCheckpoints = await makeChainedCheckpoints(2, {
+        previousArchive: genesisArchive,
+        blocksPerCheckpoint: 3,
+      });
+      await archiverStore.addCheckpoints(testCheckpoints);
+
+      // Block 1 is not at a checkpoint boundary (checkpoint 1 ends at block 3)
+      await expect(archiver.rollbackTo(BlockNumber(1))).rejects.toThrow(
+        /not at a checkpoint boundary.*Use block 3 to roll back to this checkpoint.*or block 0 to roll back to the previous one/,
+      );
+
+      // Block 2 is also not at a checkpoint boundary
+      await expect(archiver.rollbackTo(BlockNumber(2))).rejects.toThrow(
+        /not at a checkpoint boundary.*Use block 3 to roll back to this checkpoint.*or block 0 to roll back to the previous one/,
+      );
+    });
+
+    it('allows rollback to the last block of a checkpoint and updates sync points', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
+      // Checkpoint 1: 3 blocks (1, 2, 3), L1 block 10. Checkpoint 2: 3 blocks (4, 5, 6), L1 block 20.
+      const testCheckpoints = await makeChainedCheckpoints(2, {
+        previousArchive: genesisArchive,
+        blocksPerCheckpoint: 3,
+      });
+      await archiverStore.addCheckpoints(testCheckpoints);
+
+      // Block 3 is the last block of checkpoint 1 — should succeed
+      await archiver.rollbackTo(BlockNumber(3));
+
+      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // Verify sync points are set to checkpoint 1's L1 block number (10)
+      const synchPoint = await archiverStore.getSynchPoint();
+      expect(synchPoint.blocksSynchedTo).toEqual(10n);
+      expect(synchPoint.messagesSynchedTo?.l1BlockNumber).toEqual(10n);
+    });
+
+    it('includes correct boundary info in error for mid-checkpoint rollback', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
+      // Checkpoint 1: 2 blocks (1, 2). Checkpoint 2: 3 blocks (3, 4, 5).
+      const checkpoints1 = await makeChainedCheckpoints(1, {
+        previousArchive: genesisArchive,
+        blocksPerCheckpoint: 2,
+      });
+      const checkpoints2 = await makeChainedCheckpoints(1, {
+        previousArchive: checkpoints1[0].checkpoint.blocks.at(-1)!.archive,
+        startCheckpointNumber: CheckpointNumber(2),
+        startBlockNumber: 3,
+        startL1BlockNumber: 20,
+        blocksPerCheckpoint: 3,
+      });
+      await archiverStore.addCheckpoints([...checkpoints1, ...checkpoints2]);
+
+      // Block 3 is the first of checkpoint 2 (spans 3-5)
+      // Should suggest block 5 (end of this checkpoint) or block 2 (end of previous)
+      await expect(archiver.rollbackTo(BlockNumber(3))).rejects.toThrow(
+        /Checkpoint 2 spans blocks 3 to 5.*Use block 5 to roll back to this checkpoint.*or block 2 to roll back to the previous one/,
+      );
+    });
+
+    it('rolls back proven checkpoint number when target is before proven block', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
+      // Checkpoint 1: blocks 1-2, Checkpoint 2: blocks 3-4, Checkpoint 3: blocks 5-6
+      const testCheckpoints = await makeChainedCheckpoints(3, {
+        previousArchive: genesisArchive,
+        blocksPerCheckpoint: 2,
+      });
+      await archiverStore.addCheckpoints(testCheckpoints);
+
+      // Mark checkpoint 2 as proven
+      await archiverStore.setProvenCheckpointNumber(CheckpointNumber(2));
+      expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(2));
+
+      // Roll back to block 2 (end of checkpoint 1), which is before proven block 4
+      await archiver.rollbackTo(BlockNumber(2));
+
+      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(1));
+    });
+
+    it('preserves proven checkpoint number when target is after proven block', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
+      // Checkpoint 1: blocks 1-2, Checkpoint 2: blocks 3-4, Checkpoint 3: blocks 5-6
+      const testCheckpoints = await makeChainedCheckpoints(3, {
+        previousArchive: genesisArchive,
+        blocksPerCheckpoint: 2,
+      });
+      await archiverStore.addCheckpoints(testCheckpoints);
+
+      // Mark checkpoint 1 as proven
+      await archiverStore.setProvenCheckpointNumber(CheckpointNumber(1));
+      expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // Roll back to block 4 (end of checkpoint 2), which is after proven block 2
+      await archiver.rollbackTo(BlockNumber(4));
+
+      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(2));
+      expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(1));
+    });
+  });
 });
