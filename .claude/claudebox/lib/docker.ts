@@ -191,7 +191,7 @@ export class DockerService {
 
     // Write session metadata
     const metadata: any = {
-      prompt: opts.prompt.slice(0, 500),
+      prompt: opts.prompt,
       user: opts.userName || "unknown",
       container: claudeName,
       sidecar: sidecarName,

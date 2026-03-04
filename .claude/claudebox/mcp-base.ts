@@ -366,10 +366,11 @@ export function startTranscriptPoller(): void {
                 if (name === "Agent" && item.input?.description) {
                   logActivity("agent_start", item.input.description);
                 } else if (name === "Bash" && item.input?.command) {
-                  logActivity("tool_use", `$ ${item.input.command}`);
+                  const cmd = item.input.command.length > 120 ? item.input.command.slice(0, 120) + "\u2026" : item.input.command;
+                  logActivity("tool_use", `$ ${cmd}`);
                 } else if (name === "Read" || name === "Glob" || name === "Grep") {
                   const target = item.input?.file_path || item.input?.pattern || item.input?.path || "";
-                  logActivity("tool_use", `${name} ${target}`);
+                  logActivity("tool_use", `${name} ${target.length > 80 ? target.slice(0, 80) + "\u2026" : target}`);
                 } else if (name === "Edit" || name === "Write") {
                   const fp = item.input?.file_path || "";
                   logActivity("tool_use", `${name} ${fp}`);

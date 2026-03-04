@@ -762,7 +762,7 @@ const routes: Route[] = [
           const activity = store.readActivity(latest.worktree_id); // newest first
           for (const a of activity) {
             if (a.type === "response" && !latestResponse) {
-              latestResponse = a.text.length > 200 ? a.text.slice(0, 200) + "..." : a.text;
+              latestResponse = a.text.length > 600 ? a.text.slice(0, 600) + "..." : a.text;
             }
             if (a.type === "artifact") {
               const urlMatch = a.text.match(/(https?:\/\/[^\s)>\]]+)/);
