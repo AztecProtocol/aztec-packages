@@ -838,6 +838,35 @@ impl TestEnvironment {
         );
     }
 
+    /// Returns private events emitted in the last block.
+    ///
+    /// Queries up to `MAX_PRIVATE_EVENTS_PER_TXE_QUERY` private events of type `Event` that were emitted by
+    /// `contract_address` and are readable by `scope` (i.e. the recipient of the event).
+    ///
+    /// **Experimental** - there will be breaking API changes.
+    ///
+    /// ---
+    ///
+    /// ## Examples
+    ///
+    /// Emitting a single event in a contract call and reading it back:
+    /// ```noir
+    /// env.call_private(owner, Token::at(token_address).transfer(recipient, 100));
+    ///
+    /// let events = env.get_private_events::<Token::Transfer>(token_address, recipient);
+    /// assert_eq(events.get(0).amount, 100 as u128);
+    /// ```
+    pub unconstrained fn get_private_events<Event>(
+        _self: Self,
+        contract_address: AztecAddress,
+        scope: AztecAddress,
+    ) -> BoundedVec<Event, crate::test::helpers::txe_oracles::MAX_PRIVATE_EVENTS_PER_TXE_QUERY>
+    where
+        Event: EventInterface + Deserialize,
+    {
+        txe_oracles::get_private_events(contract_address, scope)
+    }
+
     unconstrained fn discover_event_opts<Event>(
         self: Self,
         opts: EventDiscoveryOptions,
