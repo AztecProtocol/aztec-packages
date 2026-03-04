@@ -469,6 +469,12 @@ A complete private NFT bridge with:
    - Claim on L2 → private NFT minted
    - Later: Burn on L2 → message to L1 → unlock
 
+## Going Further: The AIP-721 NFT Standard
+
+The NFTPunk contract you built in this tutorial implements a simplified NFT with private ownership. The **AIP-721** standard formalizes these patterns and adds partial-note transfers, commitment-based handoffs, all 7 cross-domain transfer patterns, and authwit-based authorization.
+
+Read the full [AIP-721 standard reference](../../aztec-nr/standards/aip-721.md) for details, or explore all [Aztec Contract Standards](../../aztec-nr/standards/index.md).
+
 ## Next Steps
 
 - Add a web frontend for easy bridging
@@ -476,9 +482,11 @@ A complete private NFT bridge with:
 - Add metadata bridging
 - Write comprehensive tests
 - Add proper access controls
+- Explore the [AIP-721 standard](../../aztec-nr/standards/aip-721.md) for production-grade NFT patterns
 
 :::tip Learn More
 
 - [State management page](../../foundational-topics/state_management.md)
 - [Cross-chain messaging](../../foundational-topics/ethereum-aztec-messaging/index.md)
+- [Aztec Contract Standards](../../aztec-nr/standards/index.md)
   :::
