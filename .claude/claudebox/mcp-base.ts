@@ -1229,10 +1229,11 @@ export function startMcpHttpServer(createMcpServer: () => McpServer): void {
       return;
     }
 
-    if (req.url?.startsWith("/creds/")) {
-      await handleCredentialRequest(req, res);
-      return;
-    }
+    // TODO: enable after #21146 merges and AZTEC_MCP_SERVER is wired in docker.ts
+    // if (req.url?.startsWith("/creds/")) {
+    //   await handleCredentialRequest(req, res);
+    //   return;
+    // }
 
     if (req.url === MCP_PATH && req.method === "POST") {
       try {

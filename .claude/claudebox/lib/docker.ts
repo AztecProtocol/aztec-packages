@@ -295,10 +295,12 @@ export class DockerService {
         "-v", `${claudeProjectsDir}:/home/aztec-dev/.claude/projects/-workspace-aztec-packages:rw`,
         "-v", `${realpathSync(CLAUDE_BINARY)}:/usr/local/bin/claude:ro`,
         "-v", `${join(homedir(), ".claude.json")}:/home/aztec-dev/.claude.json:rw`,
+        "-v", `${BASTION_SSH_KEY}:/home/aztec-dev/.ssh/build_instance_key:ro`,
         "-v", `${CLAUDEBOX_CODE_DIR}:/opt/claudebox:ro`,
         "-e", `CLAUDEBOX_MCP_URL=${mcpUrl}`,
         "-e", `SESSION_UUID=${sessionUuid}`,
-        "-e", `AZTEC_MCP_SERVER=http://${sidecarName}:9801/creds`,
+        "-e", `CI_PASSWORD=${process.env.CI_PASSWORD || ""}`,
+        // "-e", `AZTEC_MCP_SERVER=http://${sidecarName}:9801/creds`,  // TODO: enable after #21146 merges
         "-e", `CLAUDEBOX_SIDECAR_HOST=${sidecarName}`,
         "-e", `CLAUDEBOX_SIDECAR_PORT=9801`,
         "-e", `CLAUDEBOX_CONTAINER_CLAUDE_MD=${claudeMdPath}`,
@@ -523,6 +525,7 @@ export class DockerService {
         `${claudeProjectsDir}:/home/aztec-dev/.claude/projects/-workspace-aztec-packages:rw`,
         `${realpathSync(CLAUDE_BINARY)}:/usr/local/bin/claude:ro`,
         `${join(homedir(), ".claude.json")}:/home/aztec-dev/.claude.json:rw`,
+        `${BASTION_SSH_KEY}:/home/aztec-dev/.ssh/build_instance_key:ro`,
         `${CLAUDEBOX_CODE_DIR}:/opt/claudebox:ro`,
         `${CLAUDEBOX_STATS_DIR}:/stats:rw`,
       ];
@@ -544,7 +547,8 @@ export class DockerService {
           `CLAUDEBOX_USER=${session.user || ""}`,
           `CLAUDEBOX_RESUME_ID=${resumeId}`,
           `CLAUDEBOX_KEEPALIVE_URL=${keepaliveUrl}`,
-          `AZTEC_MCP_SERVER=http://${sidecarName}:9801/creds`,
+          `CI_PASSWORD=${process.env.CI_PASSWORD || ""}`,
+          // `AZTEC_MCP_SERVER=http://${sidecarName}:9801/creds`,  // TODO: enable after #21146 merges
           `CLAUDEBOX_SIDECAR_HOST=${sidecarName}`,
           `CLAUDEBOX_SIDECAR_PORT=9801`,
           `CLAUDEBOX_HOST=${CLAUDEBOX_HOST}`,
