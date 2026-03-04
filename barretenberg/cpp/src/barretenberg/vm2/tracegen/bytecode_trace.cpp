@@ -231,8 +231,7 @@ void BytecodeTraceBuilder::process_hashing(
                           { C::bc_hashing_packed_fields_2, fields[(i * 3) + 2] },
                           { C::bc_hashing_sel_not_padding_1, end_of_bytecode && padding_amount == 2 ? 0 : 1 },
                           { C::bc_hashing_sel_not_padding_2, end_of_bytecode && padding_amount > 0 ? 0 : 1 },
-                          { C::bc_hashing_padding, padding_amount },
-                          { C::bc_hashing_output_hash, id } } });
+                          { C::bc_hashing_padding, padding_amount } } });
             row++;
         }
     }

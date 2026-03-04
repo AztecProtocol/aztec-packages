@@ -37,13 +37,13 @@ include "../precomputed.pil";
  * bc_hash_0 = H([sep, 0x111, 0x222, 0x333, 0x444, 0x555, 0x666, 0x777])
  * bc_hash_1 = H([sep, 0xaaa, 0xbbb, 0xccc])
  *
- *   pc_index |  pc_index_1 |  pc_index_2 | bytecode_id |  p_f_0  |  p_f_1  |  p_f_2  |  output_hash  | end   | start | rounds_rem | padding |
- * -----------+-------------+-------------+-------------+---------+---------+---------+---------------+-------+-------+------------+---------+
- *     0      |      0      |      31     |      0      |   sep   |  0x111  |  0x222  |   bc_hash_0   |   0   |   1   |     3      |    1    |
- *     62     |      93     |      124    |      0      |  0x333  |  0x444  |  0x555  |   bc_hash_0   |   0   |   0   |     2      |    1    |
- *     155    |      186    |      217    |      0      |  0x666  |  0x777  |    0    |   bc_hash_0   |   1   |   0   |     1      |    1    |
- *     0      |      0      |      31     |      1      |   sep   |  0xaaa  |  0xbbb  |   bc_hash_1   |   0   |   1   |     2      |    2    |
- *     62     |      93     |      124    |      1      |  0xccc  |    0    |    0    |   bc_hash_1   |   1   |   0   |     1      |    2    |
+ *   pc_index |  pc_index_1 |  pc_index_2 | bytecode_id |  p_f_0  |  p_f_1  |  p_f_2  | end   | start | rounds_rem | padding |
+ * -----------+-------------+-------------+-------------+---------+---------+---------+-------+-------+------------+---------+
+ *     0      |      0      |      31     |  bc_hash_0  |   sep   |  0x111  |  0x222  |   0   |   1   |     3      |    1    |
+ *     62     |      93     |      124    |  bc_hash_0  |  0x333  |  0x444  |  0x555  |   0   |   0   |     2      |    1    |
+ *     155    |      186    |      217    |  bc_hash_0  |  0x666  |  0x777  |    0    |   1   |   0   |     1      |    1    |
+ *     0      |      0      |      31     |  bc_hash_1  |   sep   |  0xaaa  |  0xbbb  |   0   |   1   |     2      |    2    |
+ *     62     |      93     |      124    |  bc_hash_1  |  0xccc  |    0    |    0    |   1   |   0   |     1      |    2    |
  *
  * ERROR HANDLING:
  * This gadget does not have error conditions. Bytecode hashing is infallible — a hash
@@ -61,15 +61,15 @@ include "../precomputed.pil";
  *
  * SECURITY NOTES:
  * Security assumptions depend on the Poseidon2 hash (intractable to find a meaningful
- * collision). The poseidon2_hash circuit propagates the final output_hash to each row
- * and constrains they are the same, chaining each round to the next.
+ * collision). The poseidon2_hash circuit propagates the final output_hash/bytecode_id
+ * to each row and constrains they are the same, chaining each round to the next.
  *
  * A prover can place the latch in any row and that value will test correctness of the
  * bytecode hash. We assume it is impossible, given inputs (i0, ..., iN), for the prover
  * to find a subsequence such that Hash(inputs) == Hash(subsequence).
  *
- * This trace relies on chaining and inc/decrementing of values per row, so the final
- * output_hash can only be considered correct once all values have been processed and
+ * This trace relies on chaining and inc/decrementing of values per row, so the
+ * bytecode_id can only be considered correct once all values have been processed and
  * the final state checked. Lookups into this trace should always be gated by end = 1.
  */
 namespace bc_hashing;
@@ -137,9 +137,9 @@ namespace bc_hashing;
 
     // ==== BYTECODE ID ====
 
-    // bytecode_id is freely chosen by the prover at start rows. It is constrained to equal
-    // output_hash on every active row (#[HASH_IS_ID]), which is in turn constrained by the
-    // Poseidon2 lookup (#[POSEIDON2_HASH]). Between start and end, the id is propagated unchanged:
+    // bytecode_id is freely chosen by the prover at start rows. It is constrained to be the correct
+    // Poseidon2 hash through the Poseidon2 lookup (#[POSEIDON2_HASH]).
+    // Between start and end, the bytecode_id is propagated unchanged:
     pol commit bytecode_id;
     #[ID_PROPAGATION]
     (1 - LATCH_CONDITION) * (bytecode_id' - bytecode_id) = 0;
@@ -272,20 +272,10 @@ namespace bc_hashing;
 
     // ==== HASH OUTPUT ====
 
-    pol commit output_hash;
-
-    // Since we constrain the id the same for each row (#[ID_PROPAGATION]) and id == output_hash
-    // below, there is no need for a separate HASH_PROPAGATION constraint.
-    // Note that we must constrain the below at *each row* to ensure that poseidon rows from different
-    // hashing traces (i.e. mismatched output_hash, matching tuple of inputs and length) are not
-    // inserted maliciously:
-    #[HASH_IS_ID]
-    sel * (bytecode_id - output_hash) = 0;
-
     // Delegate the actual Poseidon2 computation to poseidon2_hash.pil. Each active row maps to one
     // permutation round, sending the 3 inputs, the total input length, the remaining round count,
-    // and the expected output hash. This is what ultimately constrains that output_hash
-    // (== bytecode_id) is the correct Poseidon2 hash of the packed fields.
+    // and the expected output hash. This is what ultimately constrains that
+    // bytecode_id is the correct Poseidon2 hash of the packed fields.
     #[POSEIDON2_HASH]
     sel {
         start,
@@ -295,7 +285,7 @@ namespace bc_hashing;
         packed_fields_2,
         input_len,
         rounds_rem,
-        output_hash
+        bytecode_id
     } in poseidon2_hash.sel {
         poseidon2_hash.start,
         poseidon2_hash.end,

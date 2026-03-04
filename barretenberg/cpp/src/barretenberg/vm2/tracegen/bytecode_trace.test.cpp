@@ -671,8 +671,7 @@ TEST(BytecodeTraceGenTest, BasicHashing)
                       ROW_FIELD_EQ(bc_hashing_packed_fields_2, 20),
                       ROW_FIELD_EQ(bc_hashing_size_in_bytes, 93),
                       ROW_FIELD_EQ(bc_hashing_input_len, 4),
-                      ROW_FIELD_EQ(bc_hashing_rounds_rem, 2),
-                      ROW_FIELD_EQ(bc_hashing_output_hash, FF(0xdeadbeef))));
+                      ROW_FIELD_EQ(bc_hashing_rounds_rem, 2)));
 
     // Latched row
     EXPECT_THAT(rows.at(2),
@@ -690,8 +689,7 @@ TEST(BytecodeTraceGenTest, BasicHashing)
                       ROW_FIELD_EQ(bc_hashing_packed_fields_1, 0),
                       ROW_FIELD_EQ(bc_hashing_packed_fields_2, 0),
                       ROW_FIELD_EQ(bc_hashing_input_len, 4),
-                      ROW_FIELD_EQ(bc_hashing_rounds_rem, 1),
-                      ROW_FIELD_EQ(bc_hashing_output_hash, FF(0xdeadbeef))));
+                      ROW_FIELD_EQ(bc_hashing_rounds_rem, 1)));
 }
 
 std::vector<Instruction> gen_random_instructions(std::span<const WireOpCode> opcodes)
