@@ -880,7 +880,7 @@ Channel and thread are locked to this session — you can only read/write your o
 
   // ── create_skill ──────────────────────────────────────────────
   server.tool("create_skill",
-    `Create or update a Claude Code skill. Writes .claude/skills/<name>/SKILL.md, commits, and pushes.
+    `Create or update a Claude Code skill and open a draft PR for review.
 
 A skill is a reusable prompt that Claude Code users invoke with /<name>. Skills have YAML frontmatter and a markdown body.
 
@@ -890,14 +890,18 @@ Example:
   argument_hint: "<PR number>"
   body: "# Review PR\\n\\n## Steps\\n1. Fetch the PR diff...\\n2. Check for..."
 
-The body should be detailed, step-by-step instructions that Claude follows when the skill is invoked.`,
+The body should be detailed, step-by-step instructions that Claude follows when the skill is invoked.
+Creates a draft PR on a skill/<name> branch for human review.`,
     {
       name: z.string().regex(/^[a-z0-9-]+$/).describe("Skill name (lowercase, hyphens only). Used as /<name> command."),
       description: z.string().describe("One-line description shown in skill listings"),
       argument_hint: z.string().optional().describe("Hint for arguments, e.g. '<PR number>' or '<url-or-hash>'"),
       body: z.string().describe("Markdown body with detailed instructions for Claude to follow"),
+      base: z.string().optional().describe("Base branch for the PR (defaults to current branch)"),
     },
-    async ({ name, description, argument_hint, body }) => {
+    async ({ name, description, argument_hint, body, base }) => {
+      if (!GH_TOKEN) return { content: [{ type: "text", text: "No GH_TOKEN" }], isError: true };
+
       const skillDir = join(opts.workspace, ".claude", "skills", name);
       const skillFile = join(skillDir, "SKILL.md");
 
@@ -913,14 +917,44 @@ The body should be detailed, step-by-step instructions that Claude follows when 
         mkdirSync(skillDir, { recursive: true });
         writeFileSync(skillFile, content);
 
-        // Commit and push
+        // Commit to a skill branch and push
+        const branch = `skill/${name}`;
+        const currentBranch = git(opts.workspace, "rev-parse", "--abbrev-ref", "HEAD").trim();
+        const prBase = base || currentBranch || SESSION_META.base_branch || "next";
+
+        git(opts.workspace, "checkout", "-B", branch);
         git(opts.workspace, "add", skillFile);
         git(opts.workspace, "commit", "-m", `chore: ${action.toLowerCase()} skill /${name}`);
-        const branch = git(opts.workspace, "rev-parse", "--abbrev-ref", "HEAD").trim();
-        git(opts.workspace, "push", "origin", branch);
+        pushToRemote(opts.workspace, repo, branch, true);
 
-        logActivity("artifact", `${action} skill [/${name}](https://github.com/${repo}/blob/${branch}/.claude/skills/${name}/SKILL.md)`);
-        return { content: [{ type: "text", text: `${action} skill /${name} at .claude/skills/${name}/SKILL.md — committed and pushed to ${branch}` }] };
+        // Switch back to original branch
+        try { git(opts.workspace, "checkout", currentBranch); } catch {}
+
+        // Create draft PR
+        const prRes = await fetch(`https://api.github.com/repos/${repo}/pulls`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: "application/vnd.github.v3+json", "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: `skill: ${action.toLowerCase()} /${name} — ${description}`,
+            base: prBase,
+            head: branch,
+            draft: true,
+            body: `## Skill: \`/${name}\`\n\n${description}\n\n${SESSION_META.log_url ? `Session log: ${SESSION_META.log_url}` : ""}`,
+          }),
+        });
+        const pr = await prRes.json() as any;
+
+        if (prRes.ok) {
+          addTrackedPR(pr.number, `skill /${name}`, pr.html_url, "created");
+          logActivity("artifact", `Skill PR [/${name} #${pr.number}](${pr.html_url})`);
+          await updateRootComment();
+          return { content: [{ type: "text", text: `${action} skill /${name} — PR ${pr.html_url}` }] };
+        } else {
+          // PR creation failed but skill was pushed
+          logActivity("artifact", `${action} skill /${name} on branch ${branch} (PR failed: ${pr.message || "unknown"})`);
+          await updateRootComment();
+          return { content: [{ type: "text", text: `${action} skill /${name} — pushed to ${branch} but PR creation failed: ${pr.message || JSON.stringify(pr)}` }] };
+        }
       } catch (e: any) {
         return { content: [{ type: "text", text: `create_skill: ${e.message}` }], isError: true };
       }
