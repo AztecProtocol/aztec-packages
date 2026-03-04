@@ -278,13 +278,25 @@ function buildGhBody(_latestStatus: string): string {
 
 export function buildSlackText(status: string): string {
   const parts: string[] = [];
-  parts.push(truncateForSlack(status));
+  // Response is the main content; status goes in footer
   if (commentSections.response) {
     parts.push(truncateForSlack(commentSections.response));
+  } else {
+    parts.push(truncateForSlack(status));
   }
+  // Footer: artifacts | status-page | completion state
+  const footer: string[] = [];
   const artifacts = buildArtifactsSlack();
-  if (artifacts) parts.push(artifacts);
-  if (statusPageUrl) parts.push(`<${statusPageUrl}|status>`);
+  if (artifacts) footer.push(artifacts);
+  if (statusPageUrl) footer.push(`<${statusPageUrl}|status>`);
+  if (commentSections.response) {
+    // Show compact completion state (strip the response prefix if embedded in status)
+    const tag = status.includes("completed") ? "completed"
+      : status.includes("error") ? status.replace(commentSections.response, "").replace(/^\s*—?\s*/, "").trim() || "error"
+      : "";
+    if (tag) footer.push(`_${tag}_`);
+  }
+  if (footer.length) parts.push(footer.join("  \u2502  "));
   return parts.join("\n");
 }
 
