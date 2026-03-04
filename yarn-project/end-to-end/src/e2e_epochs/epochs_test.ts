@@ -96,8 +96,7 @@ export class EpochsTestContext {
     const envEthereumSlotDuration = process.env.L1_BLOCK_TIME
       ? parseInt(process.env.L1_BLOCK_TIME)
       : DEFAULT_L1_BLOCK_TIME;
-    const ethereumSlotDuration =
-      ciOverride.ethereumSlotDuration ?? opts.ethereumSlotDuration ?? envEthereumSlotDuration;
+    const ethereumSlotDuration = opts.ethereumSlotDuration ?? envEthereumSlotDuration;
     const aztecSlotDuration =
       ciOverride.aztecSlotDuration ??
       opts.aztecSlotDuration ??

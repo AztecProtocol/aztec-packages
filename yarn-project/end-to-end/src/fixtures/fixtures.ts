@@ -35,14 +35,18 @@ export const NO_L1_TO_L2_MSG_ERROR =
 export const STATIC_CALL_STATE_MODIFICATION_ERROR = /Static call cannot update the state.*/;
 export const STATIC_CONTEXT_ASSERTION_ERROR = /Assertion failed: Function .* can only be called statically.*/;
 
-/** Real system timing parameters used in CI to match production. */
+/** Production system timing parameters. Used as a reference for CI overrides and direct access. */
 export const CI_SYSTEM_TIMING = {
   ethereumSlotDuration: 12,
   aztecSlotDuration: 72,
   aztecEpochDuration: 32,
 } as const;
 
-/** Returns CI system timing override if in CI, empty object otherwise. */
-export function getCITimingOverride(): Partial<typeof CI_SYSTEM_TIMING> {
-  return process.env.CI ? { ...CI_SYSTEM_TIMING } : {};
+/** Returns longer aztec slot/epoch durations when in CI, empty object otherwise.
+ * Spread into setup opts to opt a test into CI timing. Does not override ethereumSlotDuration
+ * so anvil stays in automine mode. */
+export function getCITimingOverride(): { aztecSlotDuration?: number; aztecEpochDuration?: number } {
+  return process.env.CI
+    ? { aztecSlotDuration: CI_SYSTEM_TIMING.aztecSlotDuration, aztecEpochDuration: CI_SYSTEM_TIMING.aztecEpochDuration }
+    : {};
 }

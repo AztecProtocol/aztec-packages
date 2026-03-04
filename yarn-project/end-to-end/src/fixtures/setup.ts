@@ -302,7 +302,7 @@ export async function setup(
         throw new Error(`No ETHEREUM_HOSTS set but non anvil chain requested`);
       }
       const res = await startAnvil({
-        l1BlockTime: config.ethereumSlotDuration,
+        l1BlockTime: opts.ethereumSlotDuration,
         accounts: opts.anvilAccounts,
         port: opts.anvilPort ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : undefined),
       });

@@ -119,10 +119,7 @@ export class P2PNetworkTest {
     // Store setup options for later use
     this.setupOptions = {
       ...initialValidatorConfig,
-      ethereumSlotDuration:
-        ciOverride.ethereumSlotDuration ??
-        initialValidatorConfig.ethereumSlotDuration ??
-        l1ContractsConfig.ethereumSlotDuration,
+      ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
       aztecEpochDuration:
         ciOverride.aztecEpochDuration ??
         initialValidatorConfig.aztecEpochDuration ??
@@ -151,10 +148,7 @@ export class P2PNetworkTest {
         initialValidatorConfig.slashingRoundSizeInEpochs ?? l1ContractsConfig.slashingRoundSizeInEpochs,
       slasherFlavor: initialValidatorConfig.slasherFlavor ?? 'tally',
 
-      ethereumSlotDuration:
-        ciOverride.ethereumSlotDuration ??
-        initialValidatorConfig.ethereumSlotDuration ??
-        l1ContractsConfig.ethereumSlotDuration,
+      ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
       aztecSlotDuration:
         ciOverride.aztecSlotDuration ?? initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
       aztecProofSubmissionEpochs:
