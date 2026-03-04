@@ -40,7 +40,7 @@ export const DefaultSequencerConfig = {
   minTxsPerBlock: 1,
   buildCheckpointIfEmpty: false,
   publishTxsWithProposals: false,
-  gasPerBlockAllocationMultiplier: 2,
+  perBlockAllocationMultiplier: 2,
   enforceTimeTable: true,
   attestationPropagationTime: DEFAULT_P2P_PROPAGATION_TIME,
   secondsBeforeInvalidatingBlockAsCommitteeMember: 144, // 12 L1 blocks
@@ -105,12 +105,12 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'The maximum DA block gas.',
     parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
-  gasPerBlockAllocationMultiplier: {
-    env: 'SEQ_GAS_PER_BLOCK_ALLOCATION_MULTIPLIER',
+  perBlockAllocationMultiplier: {
+    env: 'SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER',
     description:
       'Per-block gas budget multiplier for both L2 and DA gas. Budget per block is (checkpointLimit / maxBlocks) * multiplier.' +
       ' Values greater than one allow early blocks to use more than their even share, relying on checkpoint-level capping for later blocks.',
-    ...numberConfigHelper(DefaultSequencerConfig.gasPerBlockAllocationMultiplier),
+    ...numberConfigHelper(DefaultSequencerConfig.perBlockAllocationMultiplier),
   },
   coinbase: {
     env: 'COINBASE',
