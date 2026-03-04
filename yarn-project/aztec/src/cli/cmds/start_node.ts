@@ -155,8 +155,7 @@ export async function startNode(
 
   const testAccounts = nodeConfig.testAccounts ? (await getInitialTestAccountsData()).map(a => a.address) : [];
   const sponsoredFPCAccounts = nodeConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
-  const prefundAddresses = (nodeConfig.prefundAddresses ?? []).map(a => AztecAddress.fromString(a));
-  const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts).concat(prefundAddresses);
+  const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
 
   userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
 
