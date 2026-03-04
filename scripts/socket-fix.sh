@@ -97,6 +97,7 @@ log "Workspaces: $WORKSPACES"
 # Build an associative array: GHSA_ID -> "workspace1 workspace2 ..."
 declare -A GHSA_WORKSPACES
 declare -A GHSA_SEVERITY
+GHSA_COUNT=0
 
 for workspace in $WORKSPACES; do
   log "========================================="
@@ -105,11 +106,10 @@ for workspace in $WORKSPACES; do
 
   output_file="/tmp/socket-fix-${workspace}-discovery.json"
 
-  # CI= unsets the CI env var so socket CLI runs in interactive mode (avoids CI-only behavior)
-  if ! CI= socket fix --all --no-apply-fixes --output-file "$output_file" "$workspace/" 2>&1; then
-    warn "socket fix dry run failed in $workspace, skipping"
-    continue
-  fi
+  # CI= unsets the CI env var so socket CLI runs in interactive mode (avoids CI-only behavior).
+  # Don't skip the workspace on non-zero exit — socket may still have written partial results.
+  CI= socket fix --all --no-apply-fixes --output-file "$output_file" "$workspace/" 2>&1 || \
+    warn "socket fix dry run returned non-zero in $workspace, attempting to parse output anyway"
 
   # Extract GHSA IDs from the structured JSON output (keys of the "fixes" object)
   ghsa_ids=$(jq -r '.fixes | keys[]' "$output_file" 2>/dev/null | sort -u || true)
@@ -127,6 +127,7 @@ for workspace in $WORKSPACES; do
         warn "Could not determine severity for $ghsa_id, treating as unknown"
       fi
       GHSA_SEVERITY[$ghsa_id]="$sev"
+      GHSA_COUNT=$((GHSA_COUNT + 1))
     fi
 
     # Track which workspaces this GHSA affects
@@ -142,26 +143,28 @@ done
 QUALIFYING_GHSAS=()
 SKIPPED_GHSAS=()
 
-for ghsa_id in "${!GHSA_SEVERITY[@]}"; do
-  sev="${GHSA_SEVERITY[$ghsa_id]}"
-  sev_num=$(severity_to_num "$sev")
+if [[ $GHSA_COUNT -gt 0 ]]; then
+  for ghsa_id in "${!GHSA_SEVERITY[@]}"; do
+    sev="${GHSA_SEVERITY[$ghsa_id]}"
+    sev_num=$(severity_to_num "$sev")
 
-  if [[ "$sev_num" -ge "$MIN_SEVERITY" ]]; then
-    QUALIFYING_GHSAS+=("$ghsa_id")
-  else
-    SKIPPED_GHSAS+=("$ghsa_id($sev)")
-  fi
-done
+    if [[ "$sev_num" -ge "$MIN_SEVERITY" ]]; then
+      QUALIFYING_GHSAS+=("$ghsa_id")
+    else
+      SKIPPED_GHSAS+=("$ghsa_id($sev)")
+    fi
+  done
+fi
 
 # --- Summary of discovered vulnerabilities ---
 log "========================================="
 log "Discovery complete"
 log "========================================="
-log "Total GHSAs found: ${#GHSA_SEVERITY[@]}"
+log "Total GHSAs found: $GHSA_COUNT"
 log "Qualifying (>= $SEVERITY): ${#QUALIFYING_GHSAS[@]}"
 log "Skipped (below threshold): ${#SKIPPED_GHSAS[@]}"
 
-if [[ ${#GHSA_SEVERITY[@]} -gt 0 ]]; then
+if [[ $GHSA_COUNT -gt 0 ]]; then
   log ""
   log "Vulnerability report:"
   for ghsa_id in "${!GHSA_SEVERITY[@]}"; do
@@ -185,7 +188,7 @@ if [[ "$DRY_RUN" == true ]]; then
   gh_output "skipped" "${SKIPPED_GHSAS[*]:-}"
   gh_output "qualifying_ids" "${QUALIFYING_GHSAS[*]:-}"
   gh_output "remaining_count" "${#QUALIFYING_GHSAS[@]}"
-  gh_output "total_found" "${#GHSA_SEVERITY[@]}"
+  gh_output "total_found" "$GHSA_COUNT"
   gh_output "qualifying_count" "${#QUALIFYING_GHSAS[@]}"
   exit 0
 fi
@@ -198,7 +201,7 @@ if [[ ${#QUALIFYING_GHSAS[@]} -eq 0 ]]; then
   gh_output "skipped" "${SKIPPED_GHSAS[*]:-}"
   gh_output "qualifying_ids" ""
   gh_output "remaining_count" "0"
-  gh_output "total_found" "${#GHSA_SEVERITY[@]}"
+  gh_output "total_found" "$GHSA_COUNT"
   gh_output "qualifying_count" "0"
   exit 0
 fi
@@ -264,5 +267,5 @@ gh_output "failed" "${FAILED[*]:-}"
 gh_output "skipped" "${SKIPPED_GHSAS[*]:-}"
 gh_output "qualifying_ids" "${QUALIFYING_GHSAS[*]:-}"
 gh_output "remaining_count" "${#FAILED[@]}"
-gh_output "total_found" "${#GHSA_SEVERITY[@]}"
+gh_output "total_found" "$GHSA_COUNT"
 gh_output "qualifying_count" "${#QUALIFYING_GHSAS[@]}"
