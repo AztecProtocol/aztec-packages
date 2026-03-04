@@ -130,8 +130,6 @@ const GH_WHITELIST: Array<{ method: string; pattern: RegExp }> = [
   // Search
   { method: "GET",   pattern: /^search\/(issues|users|code|repositories)(\?.*)?$/ },
   // Gists
-  { method: "POST",  pattern: /^gists$/ },
-  { method: "PATCH", pattern: /^gists\/[a-f0-9]+$/ },
   { method: "GET",   pattern: /^gists(\/[a-f0-9]+)?(\?.*)?$/ },
 ];
 
@@ -1105,8 +1103,7 @@ channel and thread_ts auto-injected from session if not provided.`,
     "Create a GitHub gist. Useful for sharing verbose output, logs, or large data that doesn't belong in a Slack message or PR description.",
     {
       description: z.string().describe("Short description of the gist"),
-      files: z.record(z.string()).describe("Map of filename → content, e.g. {\"output.log\": \"...\", \"analysis.md\": \"...\"}"),
-      public_gist: z.boolean().default(false).describe("Whether the gist is public (default: false/secret)"),
+      files: z.record(z.string()).describe("Map of filename → content, e.g. {\"output.log\": \"...\", \"analysis.md\": \"...\"}")
     },
     async ({ description, files, public_gist }) => {
       if (!GH_TOKEN) return { content: [{ type: "text", text: "No GH_TOKEN" }], isError: true };
@@ -1124,7 +1121,7 @@ channel and thread_ts auto-injected from session if not provided.`,
             Accept: "application/vnd.github.v3+json",
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ description, files: gistFiles, public: public_gist }),
+          body: JSON.stringify({ description, files: gistFiles, public: false }),
         });
         const gist = await res.json() as any;
         if (!res.ok)
