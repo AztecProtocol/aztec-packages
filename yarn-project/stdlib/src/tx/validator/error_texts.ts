@@ -9,6 +9,7 @@ export const TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED = 'Setup function not on allow 
 export const TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT = 'Setup function targets unknown contract';
 export const TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER = 'Setup only_self function called with incorrect msg_sender';
 export const TX_ERROR_SETUP_NULL_MSG_SENDER = 'Setup function called with null msg sender';
+export const TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH = 'Setup function called with wrong calldata length';
 
 // Nullifiers
 export const TX_ERROR_DUPLICATE_NULLIFIER_IN_TX = 'Duplicate nullifier in tx';

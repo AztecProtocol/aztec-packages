@@ -9,6 +9,7 @@ import {
   TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT,
   TX_ERROR_SETUP_NULL_MSG_SENDER,
   TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER,
+  TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH,
   type Tx,
 } from '@aztec/stdlib/tx';
 
@@ -311,6 +312,114 @@ describe('PhasesTxValidator', () => {
         address: allowedContract,
         selector: allowedSetupSelector1,
         msgSender: makeAztecAddress(),
+      });
+
+      await expectValid(tx);
+    });
+  });
+
+  describe('calldataLength validation', () => {
+    const expectedLength = 4; // 1 selector + 3 args
+    let calldataContract: AztecAddress;
+    let calldataSelector: FunctionSelector;
+    let calldataClassId: Fr;
+
+    beforeEach(() => {
+      calldataContract = makeAztecAddress(70);
+      calldataSelector = makeSelector(70);
+      calldataClassId = Fr.random();
+
+      txValidator = new PhasesTxValidator(
+        contractDataSource,
+        [
+          {
+            address: calldataContract,
+            selector: calldataSelector,
+            calldataLength: expectedLength,
+          },
+          {
+            classId: calldataClassId,
+            selector: calldataSelector,
+            calldataLength: expectedLength,
+          },
+        ],
+        timestamp,
+      );
+    });
+
+    it('allows address entry with correct calldata length', async () => {
+      const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+      await patchNonRevertibleFn(tx, 0, {
+        address: calldataContract,
+        selector: calldataSelector,
+        args: [Fr.random(), Fr.random(), Fr.random()],
+      });
+
+      await expectValid(tx);
+    });
+
+    it('rejects address entry with too short calldata', async () => {
+      const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+      await patchNonRevertibleFn(tx, 0, {
+        address: calldataContract,
+        selector: calldataSelector,
+        args: [Fr.random()],
+      });
+
+      await expectInvalid(tx, TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH);
+    });
+
+    it('rejects address entry with too long calldata', async () => {
+      const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+      await patchNonRevertibleFn(tx, 0, {
+        address: calldataContract,
+        selector: calldataSelector,
+        args: [Fr.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random()],
+      });
+
+      await expectInvalid(tx, TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH);
+    });
+
+    it('rejects class entry with wrong calldata length', async () => {
+      const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+      const address = await patchNonRevertibleFn(tx, 0, {
+        selector: calldataSelector,
+        args: [Fr.random()],
+      });
+
+      contractDataSource.getContract.mockImplementationOnce((contractAddress, atTimestamp) => {
+        if (timestamp !== atTimestamp) {
+          throw new Error('Unexpected timestamp');
+        }
+        if (address.equals(contractAddress)) {
+          return Promise.resolve({
+            currentContractClassId: calldataClassId,
+            originalContractClassId: Fr.random(),
+          } as any);
+        }
+        return Promise.resolve(undefined);
+      });
+
+      await expectInvalid(tx, TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH);
+    });
+
+    it('allows any calldata length when calldataLength is not set', async () => {
+      txValidator = new PhasesTxValidator(
+        contractDataSource,
+        [
+          {
+            address: calldataContract,
+            selector: calldataSelector,
+          },
+        ],
+        timestamp,
+      );
+
+      const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+      await patchNonRevertibleFn(tx, 0, {
+        address: calldataContract,
+        selector: calldataSelector,
+        args: [Fr.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random()],
       });
 
       await expectValid(tx);
