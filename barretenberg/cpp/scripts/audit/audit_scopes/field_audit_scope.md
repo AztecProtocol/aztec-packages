@@ -1,7 +1,7 @@
 # External Audit Scope: field
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: `458fb330efa8c470567ab4b84a8a92a58b00586a` ([link](https://github.com/AztecProtocol/aztec-packages/tree/458fb330efa8c470567ab4b84a8a92a58b00586a))
+Commit hash: `940351a2d7cb027bc9ce6844dfc1158fbc684333` ([link](https://github.com/AztecProtocol/aztec-packages/commit/940351a2d7cb027bc9ce6844dfc1158fbc684333))
 
 ## Files to Audit
 Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
