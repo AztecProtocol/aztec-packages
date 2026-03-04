@@ -1,17 +1,14 @@
 #include "barretenberg/vm2/tracegen/memory_trace.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
-#include <memory>
-#include <vector>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
-#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_memory.hpp"
-#include "barretenberg/vm2/simulation/events/memory_event.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 // Permutations.
 #include "barretenberg/vm2/generated/relations/perms_addressing.hpp"
@@ -27,6 +24,14 @@
 
 namespace bb::avm2::tracegen {
 
+/**
+ * @brief Processes memory events into the memory subtrace.
+ *
+ * Sorts events by (space_id, address, clk, rw) and populates the trace with
+ * derived columns (global_addr, timestamp, diff, limbs, etc.). Row 0 is left
+ * empty because shifted columns are used.
+ *
+ */
 void MemoryTraceBuilder::process(const simulation::EventEmitterInterface<simulation::MemoryEvent>::Container& events,
                                  TraceContainer& trace)
 {
@@ -85,6 +90,9 @@ void MemoryTraceBuilder::process(const simulation::EventEmitterInterface<simulat
             global_addr_diff = next_global_addr - global_addr;
             last_access = global_addr != next_global_addr;
             diff = last_access ? global_addr_diff : (next_timestamp - timestamp - two_consecutive_writes);
+
+            // Defensive: diff must fit in 48 bits for the 3x16-bit limb decomposition.
+            BB_ASSERT(diff < (1ULL << 48));
         }
 
         trace.set(row,

@@ -39,7 +39,7 @@ template <typename FF> class memory : public Relation<memoryImpl<FF>> {
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_ACTIVE_ROW_NEEDS_PERM_SELECTOR = 41;
-    static constexpr size_t SR_MEM_CONTIGUOUS = 46;
+    static constexpr size_t SR_MEM_CONTINUITY = 46;
     static constexpr size_t SR_SEL_RNG_CHK = 47;
     static constexpr size_t SR_GLOBAL_ADDR = 48;
     static constexpr size_t SR_TIMESTAMP = 49;
@@ -58,8 +58,8 @@ template <typename FF> class memory : public Relation<memoryImpl<FF>> {
         switch (index) {
         case SR_ACTIVE_ROW_NEEDS_PERM_SELECTOR:
             return "ACTIVE_ROW_NEEDS_PERM_SELECTOR";
-        case SR_MEM_CONTIGUOUS:
-            return "MEM_CONTIGUOUS";
+        case SR_MEM_CONTINUITY:
+            return "MEM_CONTINUITY";
         case SR_SEL_RNG_CHK:
             return "SEL_RNG_CHK";
         case SR_GLOBAL_ADDR:

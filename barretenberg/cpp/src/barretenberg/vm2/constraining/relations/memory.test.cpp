@@ -159,11 +159,11 @@ TEST(MemoryConstrainingTest, ContiguousTrace)
         { { C::memory_sel, 0 } },
     });
 
-    check_relation<memory>(trace, memory::SR_MEM_CONTIGUOUS);
+    check_relation<memory>(trace, memory::SR_MEM_CONTINUITY);
 
     // Mutate the trace to make it non-contiguous.
     trace.set(C::memory_sel, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEM_CONTIGUOUS), "MEM_CONTIGUOUS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<memory>(trace, memory::SR_MEM_CONTINUITY), "MEM_CONTINUITY");
 }
 
 // Boolean selector for range check is active at all active rows except the last one.
