@@ -103,6 +103,12 @@ function main {
   echo "BENCH_BRANCH=$bench_branch" >> $GITHUB_ENV
   echo "Bench branch: $bench_branch"
 
+  # Handle autoformat label
+  if has_label "ci-autoformat"; then
+    echo "SHOULD_AUTOFORMAT=1" >> $GITHUB_ENV
+    echo "Autoformat enabled by label"
+  fi
+
   # Handle no-cache label
   if has_label "no-cache"; then
     echo "NO_CACHE=1" >> $GITHUB_ENV

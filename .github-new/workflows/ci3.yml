@@ -120,6 +120,15 @@ jobs:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: ./.github/ci3_success.sh
 
+      - name: Autoformat (on failure)
+        if: failure() && env.SHOULD_AUTOFORMAT == '1'
+        env:
+          SHOULD_AUTOFORMAT: "1"
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: bash ./.github/ci3_post_jobs/autoformat.sh
+
       - name: Upload benchmarks
         if: env.SHOULD_UPLOAD_BENCHMARKS == '1'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
