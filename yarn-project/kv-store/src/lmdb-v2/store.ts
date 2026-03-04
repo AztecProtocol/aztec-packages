@@ -1,6 +1,6 @@
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { Semaphore, SerialQueue } from '@aztec/foundation/queue';
-import { MsgpackChannel, NativeLMDBStore } from '@aztec/native';
+import { MsgpackChannel, NativeLMDBStore, nativeThreadPoolSemaphore } from '@aztec/native';
 
 import { AsyncLocalStorage } from 'async_hooks';
 import { mkdir, rm } from 'fs/promises';
@@ -191,10 +191,14 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     }
 
     let response: LMDBResponseBody[T] | undefined = undefined;
+    // Gate LMDB NAPI calls through the shared thread pool semaphore to prevent
+    // LMDB + AVM from exhausting libuv threads and causing deadlock.
+    await nativeThreadPoolSemaphore.acquire();
     try {
       ({ response } = await this.channel.sendMessage(msgType, body));
       return response;
     } finally {
+      nativeThreadPoolSemaphore.release();
       if (
         (msgType === LMDBMessageType.START_CURSOR && response === undefined) ||
         msgType === LMDBMessageType.CLOSE_CURSOR ||

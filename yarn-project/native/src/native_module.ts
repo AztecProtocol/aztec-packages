@@ -128,18 +128,33 @@ export function cancelSimulation(token: CancellationToken): void {
 }
 
 /**
- * Concurrency limiting for C++ AVM simulation to prevent libuv thread pool exhaustion.
+ * Concurrency limiting for NAPI operations (AVM simulation + LMDB) to prevent libuv
+ * thread pool exhaustion and deadlock.
  *
- * The C++ simulator uses NAPI BlockingCall to callback to TypeScript for contract data.
- * This blocks the libuv thread while waiting for the callback to complete. If all libuv
- * threads are blocked waiting for callbacks, no threads remain to service those callbacks,
- * causing deadlock.
+ * Both AVM simulation and LMDB operations run as NAPI async workers that consume libuv
+ * threads. Additionally, AVM simulations use BlockingCall to callback to TypeScript for
+ * contract data, and those callbacks often trigger LMDB reads (another libuv thread).
  *
- * We limit concurrent simulations to UV_THREADPOOL_SIZE / 2 to ensure threads remain
- * available for callback processing.
+ * We reserve half the libuv pool for other work (HTTP, WorldState, etc.) via a shared
+ * semaphore (`nativeThreadPoolSemaphore`). AVM simulations are further sub-limited so
+ * they can't starve their own LMDB callbacks — each AVM simulation effectively needs
+ * ~2 libuv threads (1 for C++ execution + 1 for LMDB callbacks from BlockingCall).
+ *
+ * With UV_THREADPOOL_SIZE=8: shared budget=4, max AVM=2, 4 threads reserved.
+ * With UV_THREADPOOL_SIZE=4: shared budget=2, max AVM=1, 2 threads reserved.
  */
 const UV_THREADPOOL_SIZE = parseInt(process.env.UV_THREADPOOL_SIZE ?? '4', 10);
-const MAX_CONCURRENT_AVM_SIMULATIONS = Math.max(1, Math.floor(UV_THREADPOOL_SIZE / 2));
+const NATIVE_THREAD_BUDGET = Math.max(2, Math.floor(UV_THREADPOOL_SIZE / 2));
+const MAX_CONCURRENT_AVM_SIMULATIONS = Math.max(1, Math.floor(NATIVE_THREAD_BUDGET / 2));
+
+/**
+ * Shared semaphore limiting combined AVM + LMDB libuv thread usage.
+ * Both AVM simulations and LMDB NAPI calls acquire from this pool.
+ * Budget is half of UV_THREADPOOL_SIZE, reserving the other half for other work.
+ */
+export const nativeThreadPoolSemaphore = new Semaphore(NATIVE_THREAD_BUDGET);
+
+/** AVM-only sub-limit to prevent simulations from consuming all shared permits. */
 const avmSimulationSemaphore = new Semaphore(MAX_CONCURRENT_AVM_SIMULATIONS);
 
 /**
@@ -161,7 +176,10 @@ export async function avmSimulate(
   logger?: Logger,
   cancellationToken?: CancellationToken,
 ): Promise<Buffer> {
+  // Acquire AVM sub-limit first (prevents AVM from starving LMDB callbacks),
+  // then shared pool permit (prevents AVM+LMDB from exhausting libuv threads).
   await avmSimulationSemaphore.acquire();
+  await nativeThreadPoolSemaphore.acquire();
 
   try {
     return await nativeAvmSimulate(
@@ -173,6 +191,7 @@ export async function avmSimulate(
       cancellationToken,
     );
   } finally {
+    nativeThreadPoolSemaphore.release();
     avmSimulationSemaphore.release();
   }
 }
@@ -187,9 +206,11 @@ export async function avmSimulate(
  */
 export async function avmSimulateWithHintedDbs(inputs: Buffer, logLevel: LogLevel = 'info'): Promise<Buffer> {
   await avmSimulationSemaphore.acquire();
+  await nativeThreadPoolSemaphore.acquire();
   try {
     return await nativeAvmSimulateWithHintedDbs(inputs, LogLevels.indexOf(logLevel));
   } finally {
+    nativeThreadPoolSemaphore.release();
     avmSimulationSemaphore.release();
   }
 }
