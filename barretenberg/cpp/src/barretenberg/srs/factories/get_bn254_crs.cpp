@@ -5,6 +5,7 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/bn254/g2.hpp"
 #include "bn254_crs_data.hpp"
+#include "bn254_crs_hashes.hpp"
 #include "http_download.hpp"
 
 namespace {
@@ -40,19 +41,15 @@ std::vector<uint8_t> download_bn254_g1_data(size_t num_points,
         throw_or_abort("Downloaded g1 data is too small");
     }
 
-    // Verify first element matches our expected point.
+    // Verify first element matches the expected generator point (quick sanity check for all download sizes).
     auto first_element = from_buffer<bb::g1::affine_element>(data, 0);
     if (first_element != bb::srs::BN254_G1_FIRST_ELEMENT) {
         throw_or_abort("Downloaded BN254 G1 CRS first element does not match expected point.");
     }
 
-    // Verify second element if we have enough data
-    if (data.size() >= 2 * sizeof(bb::g1::affine_element)) {
-        auto second_element = from_buffer<bb::g1::affine_element>(data, sizeof(bb::g1::affine_element));
-        if (second_element != bb::srs::get_bn254_g1_second_element()) {
-            throw_or_abort("Downloaded BN254 G1 CRS second element does not match expected point.");
-        }
-    }
+    // Verify integrity of all complete 1MB chunks against embedded SHA256 hashes.
+    // This protects against man-in-the-middle attacks on HTTP downloads without requiring SSL/TLS.
+    bb::srs::verify_bn254_crs_integrity(data);
 
     return data;
 }

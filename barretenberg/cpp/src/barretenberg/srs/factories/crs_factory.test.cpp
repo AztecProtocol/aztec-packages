@@ -3,6 +3,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
 #include "barretenberg/srs/factories/bn254_crs_data.hpp"
+#include "barretenberg/srs/factories/bn254_crs_hashes.hpp"
 #include "barretenberg/srs/factories/get_bn254_crs.hpp"
 #include "barretenberg/srs/factories/mem_bn254_crs_factory.hpp"
 #include "barretenberg/srs/factories/mem_grumpkin_crs_factory.hpp"
@@ -119,6 +120,30 @@ TEST(CrsFactory, Bn254Fallback)
     EXPECT_EQ(points.size(), 1);
     // Verify the downloaded point matches the expected first element
     EXPECT_EQ(points[0], bb::srs::BN254_G1_FIRST_ELEMENT);
+
+    fs::remove_all(temp_crs_path);
+}
+
+TEST(CrsFactory, Bn254HashVerification)
+{
+    // Test that SHA256 chunk hash verification works on network downloads.
+    // Download 2 full 1MB chunks worth of points (32768 points = 2MB).
+    const size_t num_points = 32768; // 2 * 1048576 / 64
+    const std::filesystem::path& temp_crs_path = "barretenberg_srs_test_crs_bn254_hash";
+    fs::remove_all(temp_crs_path);
+    fs::create_directories(temp_crs_path);
+
+    auto points = bb::get_bn254_g1_data(temp_crs_path, num_points, /*allow_download=*/true);
+    EXPECT_EQ(points.size(), num_points);
+    EXPECT_EQ(points[0], bb::srs::BN254_G1_FIRST_ELEMENT);
+
+    // Verify the cached file is correct by reading it back and checking hashes manually
+    auto data = read_file(temp_crs_path / "bn254_g1.dat", num_points * sizeof(g1::affine_element));
+    EXPECT_NO_THROW(bb::srs::verify_bn254_crs_integrity(data));
+
+    // Corrupt a byte in the second chunk and verify that hash check catches it
+    data[bb::srs::CRS_HASH_CHUNK_SIZE + 100] ^= 0xFF;
+    EXPECT_ANY_THROW(bb::srs::verify_bn254_crs_integrity(data));
 
     fs::remove_all(temp_crs_path);
 }
