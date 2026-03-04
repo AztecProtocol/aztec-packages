@@ -65,7 +65,7 @@ template <typename T> struct RelationParameters {
                                    { T(0), T(0), T(0), T(0), T(0) },
                                    { T(0), T(0), T(0), T(0), T(0) },
                                    { T(0), T(0), T(0), T(0), T(0) } } };
-
+    // only used for testing
     static RelationParameters get_random()
     {
         RelationParameters result;
