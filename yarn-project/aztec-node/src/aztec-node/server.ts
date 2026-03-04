@@ -381,22 +381,24 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
           await validatorClient.registerHandlers();
         }
       }
+    }
 
-      // If there's no validator client but alwaysReexecuteBlockProposals is enabled,
-      // create a BlockProposalHandler to reexecute block proposals for monitoring
-      if (!validatorClient && config.alwaysReexecuteBlockProposals) {
-        log.info('Setting up block proposal reexecution for monitoring');
-        createBlockProposalHandler(config, {
-          checkpointsBuilder: validatorCheckpointsBuilder,
-          worldState: worldStateSynchronizer,
-          epochCache,
-          blockSource: archiver,
-          l1ToL2MessageSource: archiver,
-          p2pClient,
-          dateProvider,
-          telemetry,
-        }).registerForReexecution(p2pClient);
-      }
+    // If there's no validator client, create a BlockProposalHandler to handle block proposals
+    // for monitoring or reexecution. Reexecution (default) allows us to follow the pending chain,
+    // while non-reexecution is used for validating the proposals and collecting their txs.
+    if (!validatorClient) {
+      const reexecute = !!config.alwaysReexecuteBlockProposals;
+      log.info(`Setting up block proposal handler` + (reexecute ? ' with reexecution of proposals' : ''));
+      createBlockProposalHandler(config, {
+        checkpointsBuilder: validatorCheckpointsBuilder,
+        worldState: worldStateSynchronizer,
+        epochCache,
+        blockSource: archiver,
+        l1ToL2MessageSource: archiver,
+        p2pClient,
+        dateProvider,
+        telemetry,
+      }).register(p2pClient, reexecute);
     }
 
     // Start world state and wait for it to sync to the archiver.

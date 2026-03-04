@@ -1,6 +1,7 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
@@ -87,25 +88,28 @@ export class BlockProposalHandler {
     this.tracer = telemetry.getTracer('BlockProposalHandler');
   }
 
-  registerForReexecution(p2pClient: P2P): BlockProposalHandler {
-    // Non-validator handler that re-executes for monitoring but does not attest.
+  register(p2pClient: P2P, shouldReexecute: boolean): BlockProposalHandler {
+    // Non-validator handler that processes or re-executes for monitoring but does not attest.
     // Returns boolean indicating whether the proposal was valid.
     const handler = async (proposal: BlockProposal, proposalSender: PeerId): Promise<boolean> => {
       try {
-        const result = await this.handleBlockProposal(proposal, proposalSender, true);
+        const { slotNumber, blockNumber } = proposal;
+        const result = await this.handleBlockProposal(proposal, proposalSender, shouldReexecute);
         if (result.isValid) {
-          this.log.info(`Non-validator reexecution completed for slot ${proposal.slotNumber}`, {
+          this.log.info(`Non-validator block proposal ${blockNumber} at slot ${slotNumber} handled`, {
             blockNumber: result.blockNumber,
+            slotNumber,
             reexecutionTimeMs: result.reexecutionResult?.reexecutionTimeMs,
             totalManaUsed: result.reexecutionResult?.totalManaUsed,
             numTxs: result.reexecutionResult?.block?.body?.txEffects?.length ?? 0,
+            reexecuted: shouldReexecute,
           });
           return true;
         } else {
-          this.log.warn(`Non-validator reexecution failed for slot ${proposal.slotNumber}`, {
-            blockNumber: result.blockNumber,
-            reason: result.reason,
-          });
+          this.log.warn(
+            `Non-validator block proposal ${blockNumber} at slot ${slotNumber} failed processing with ${result.reason}`,
+            { blockNumber: result.blockNumber, slotNumber, reason: result.reason },
+          );
           return false;
         }
       } catch (error) {
@@ -184,6 +188,15 @@ export class BlockProposalHandler {
       deadline: this.getReexecutionDeadline(slotNumber, config),
     });
 
+    // If reexecution is disabled, bail. We are just interested in triggering tx collection.
+    if (!shouldReexecute) {
+      this.log.info(
+        `Received valid block ${blockNumber} proposal at index ${proposal.indexWithinCheckpoint} on slot ${slotNumber}`,
+        proposalInfo,
+      );
+      return { isValid: true, blockNumber };
+    }
+
     // Compute the checkpoint number for this block and validate checkpoint consistency
     const checkpointResult = this.computeCheckpointNumber(proposal, parentBlock, proposalInfo);
     if (checkpointResult.reason) {
@@ -210,30 +223,28 @@ export class BlockProposalHandler {
       return { isValid: false, blockNumber, reason: 'txs_not_available' };
     }
 
+    // Collect the out hashes of all the checkpoints before this one in the same epoch
+    const epoch = getEpochAtSlot(slotNumber, this.epochCache.getL1Constants());
+    const previousCheckpointOutHashes = (await this.blockSource.getCheckpointsDataForEpoch(epoch))
+      .filter(c => c.checkpointNumber < checkpointNumber)
+      .map(c => c.checkpointOutHash);
+
     // Try re-executing the transactions in the proposal if needed
     let reexecutionResult;
-    if (shouldReexecute) {
-      // Collect the out hashes of all the checkpoints before this one in the same epoch
-      const epoch = getEpochAtSlot(slotNumber, this.epochCache.getL1Constants());
-      const previousCheckpointOutHashes = (await this.blockSource.getCheckpointsDataForEpoch(epoch))
-        .filter(c => c.checkpointNumber < checkpointNumber)
-        .map(c => c.checkpointOutHash);
-
-      try {
-        this.log.verbose(`Re-executing transactions in the proposal`, proposalInfo);
-        reexecutionResult = await this.reexecuteTransactions(
-          proposal,
-          blockNumber,
-          checkpointNumber,
-          txs,
-          l1ToL2Messages,
-          previousCheckpointOutHashes,
-        );
-      } catch (error) {
-        this.log.error(`Error reexecuting txs while processing block proposal`, error, proposalInfo);
-        const reason = this.getReexecuteFailureReason(error);
-        return { isValid: false, blockNumber, reason, reexecutionResult };
-      }
+    try {
+      this.log.verbose(`Re-executing transactions in the proposal`, proposalInfo);
+      reexecutionResult = await this.reexecuteTransactions(
+        proposal,
+        blockNumber,
+        checkpointNumber,
+        txs,
+        l1ToL2Messages,
+        previousCheckpointOutHashes,
+      );
+    } catch (error) {
+      this.log.error(`Error reexecuting txs while processing block proposal`, error, proposalInfo);
+      const reason = this.getReexecuteFailureReason(error);
+      return { isValid: false, blockNumber, reason, reexecutionResult };
     }
 
     // If we succeeded, push this block into the archiver (unless disabled)
@@ -242,8 +253,8 @@ export class BlockProposalHandler {
     }
 
     this.log.info(
-      `Successfully processed block ${blockNumber} proposal at index ${proposal.indexWithinCheckpoint} on slot ${slotNumber}`,
-      proposalInfo,
+      `Successfully re-executed block ${blockNumber} proposal at index ${proposal.indexWithinCheckpoint} on slot ${slotNumber}`,
+      { ...proposalInfo, ...pick(reexecutionResult, 'reexecutionTimeMs', 'totalManaUsed') },
     );
 
     return { isValid: true, blockNumber, reexecutionResult };
@@ -488,10 +499,11 @@ export class BlockProposalHandler {
     const { block, failedTxs } = result;
     const numFailedTxs = failedTxs.length;
 
-    this.log.verbose(`Transaction re-execution complete for slot ${slot}`, {
+    this.log.verbose(`Block proposal ${blockNumber} at slot ${slot} transaction re-execution complete`, {
       numFailedTxs,
       numProposalTxs: txHashes.length,
       numProcessedTxs: block.body.txEffects.length,
+      blockNumber,
       slot,
     });
 
