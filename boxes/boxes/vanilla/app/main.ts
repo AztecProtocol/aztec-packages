@@ -200,7 +200,7 @@ async function updateVoteTally(wallet: Wallet, from: AztecAddress) {
 
   const batchResult = await new BatchCall(wallet, payloads).simulate({ from });
 
-  batchResult.forEach((value, i) => {
+  batchResult.forEach(({ result: value }, i) => {
     results[i + 1] = value;
   });
 
