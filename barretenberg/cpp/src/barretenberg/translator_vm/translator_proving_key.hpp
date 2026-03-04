@@ -10,7 +10,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 namespace bb {
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1317)
 class TranslatorProvingKey {
   public:
     using Flavor = TranslatorFlavor;
