@@ -184,7 +184,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       canonical: true,
     });
     const lenEnd = this.instance.getQueueLength();
-    this.log.debug(`World state fork took ${timer.ms().toFixed(2)}ms queue sizes start=${lenStart} end=${lenEnd}`);
+    this.log.info(`World state fork took ${timer.ms().toFixed(2)}ms queue sizes start=${lenStart} end=${lenEnd}`);
     return new MerkleTreesForkFacade(
       this.instance,
       this.initialHeader!,

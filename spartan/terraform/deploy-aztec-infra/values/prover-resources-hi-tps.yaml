@@ -75,14 +75,14 @@ agent:
     env:
       HARDWARE_CONCURRENCY: "1"
     nodeJsOptions:
-      - "--max-old-space-size=512"
+      - "--max-old-space-size=1024"
     resources:
       requests:
         cpu: "0.025"
         memory: "0.5Gi"
       limits:
         cpu: "0.1"
-        memory: "0.75Gi"
+        memory: "1Gi"
 
   nodeSelector:
     cores: "2"
