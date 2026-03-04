@@ -81,6 +81,7 @@ export class EpochsTestContext {
   public nodes: AztecNodeService[] = [];
 
   public epochDuration!: number;
+  public aztecSlotDuration!: number;
 
   public L1_BLOCK_TIME_IN_S!: number;
   public L2_SLOT_DURATION_IN_S!: number;
@@ -294,7 +295,7 @@ export class EpochsTestContext {
       this.l1Client,
       start - BigInt(this.L1_BLOCK_TIME_IN_S),
       undefined,
-      30 * this.epochDuration,
+      this.aztecSlotDuration * this.epochDuration,
     );
     return start;
   }
