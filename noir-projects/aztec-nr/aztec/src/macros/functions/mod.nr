@@ -196,13 +196,22 @@ pub comptime fn allow_phase_change(f: FunctionDefinition) {
 ///
 /// ## Initialization Checks
 ///
-/// `only_self` functions implicitly skip initialization checks (as if they had [`noinitcheck`]). This is because
-/// constructors need to call `only_self` functions via `call_self` during initialization, when the init nullifier
-/// has not yet been emitted. This is safe because `only_self` guarantees that only the contract itself can call
-/// these functions. Since the init nullifier is emitted after the initializer function completes, only the
-/// initializer and other functions called by the initializer can invoke `only_self` functions before initialization.
-/// The contract is therefore in complete control of the execution flow, and the init check provides no additional
-/// safety.
+/// `only_self` functions implicitly skip initialization checks (as if they had [`noinitcheck`]).
+/// We want `only_self` functions to be callable during initialization, so we can't have them
+/// check the init nullifier since it would fail.
+///
+/// This is safe because `only_self` functions cannot be called by external contracts, meaning
+/// execution must start with another external function in the same contract. Eventually the
+/// call stack reaches the `only_self` function, but let's focus on that external entry point:
+///  - If it already performed an init check, then we are safe.
+///  - If it skipped the init check (via [`noinitcheck`]), then the contract developer is
+///    explicitly choosing to not check for initialization, and so will our `only_self`
+///    function. That's a design choice by the developer. If we didn't skip the init check on
+///    `only_self`, the developer would just add `noinitcheck` to it anyway.
+///  - If it was the initializer, note that init nullifiers are emitted at the end of
+///    initialization: the private init nullifier after all private execution, and the public
+///    one after all public execution. So in terms of init checking, everything behaves as if
+///    the contract hasn't been initialized yet, and the same two points above still apply.
 pub comptime fn only_self(f: FunctionDefinition) {
     // Marker attribute - see the comment at the top of this file
 
