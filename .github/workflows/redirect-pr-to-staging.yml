@@ -1,0 +1,59 @@
+name: Redirect PR to Staging Branch
+
+# If a PR targets a v* branch (e.g. v4) and is NOT the backport-to-v*-staging branch,
+# automatically redirect the PR base to backport-to-v*-staging.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, edited]
+    branches:
+      - "v[0-9]*"
+
+jobs:
+  redirect-to-staging:
+    name: Redirect to staging branch
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    # Only redirect if the head branch is NOT the backport-to-v*-staging branch for this version
+    if: ${{ github.event.pull_request.head.ref != format('backport-to-{0}-staging', github.event.pull_request.base.ref) }}
+    steps:
+      - name: Redirect PR base to staging branch
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          BASE_REF="${{ github.event.pull_request.base.ref }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          STAGING_BRANCH="backport-to-${BASE_REF}-staging"
+
+          echo "PR #$PR_NUMBER targets $BASE_REF, checking for staging branch $STAGING_BRANCH"
+
+          # Check if the staging branch exists before redirecting
+          if ! gh api "repos/${{ github.repository }}/branches/$STAGING_BRANCH" --silent 2>/dev/null; then
+            echo "Staging branch $STAGING_BRANCH does not exist, skipping redirect"
+            gh pr comment "$PR_NUMBER" \
+              --repo "${{ github.repository }}" \
+              --body "⚠️ This PR targets \`$BASE_REF\` directly, but the expected staging branch \`$STAGING_BRANCH\` does not exist. Please ensure the staging branch is created before targeting \`$BASE_REF\`."
+            exit 0
+          fi
+
+          echo "Redirecting PR #$PR_NUMBER from $BASE_REF to $STAGING_BRANCH"
+
+          # Update the base branch to the staging branch
+          gh pr edit "$PR_NUMBER" \
+            --base "$STAGING_BRANCH" \
+            --repo "${{ github.repository }}"
+
+          # Only comment if no redirect comment has been posted yet
+          EXISTING_COMMENT=$(gh pr view "$PR_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --json comments \
+            --jq '.comments[].body | select(startswith("🔀 This PR was targeting"))')
+
+          if [ -z "$EXISTING_COMMENT" ]; then
+            gh pr comment "$PR_NUMBER" \
+              --repo "${{ github.repository }}" \
+              --body "🔀 This PR was targeting \`$BASE_REF\` directly. It has been automatically redirected to \`$STAGING_BRANCH\`.
+
+Changes intended for release branches should go through the staging branch first. If this is intentional and you need to target \`$BASE_REF\` directly, please contact the team."
+          fi
