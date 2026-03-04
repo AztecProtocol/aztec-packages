@@ -364,6 +364,11 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
     chatArea.scrollTop=chatArea.scrollHeight;
   }
 
+  function showUserMessage(text){
+    var html='<div class="chat-msg user"><div class="chat-bubble user-bubble"><div class="chat-text">'+esc(text)+'</div><div class="chat-time">just now</div></div><div class="chat-avatar user-avatar">YOU</div></div>';
+    appendEntry(html);
+  }
+
   function updateStatus(st,exitCode){
     if(st===currentStatus)return;
     var wasRunning=currentStatus==="running"||currentStatus==="interactive";
@@ -434,6 +439,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
   function sendNextQueued(){
     if(!messageQueue.length)return;
     var msg=messageQueue.shift();saveQueue();renderQueue();
+    showUserMessage(msg);
     requireAuth(function(){
       authFetch("/s/"+ID+"/resume",{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({prompt:msg})}).then(function(r){return r.json();}).then(function(d){
@@ -482,7 +488,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
       if(btn){btn.disabled=true;btn.textContent="Starting\u2026";}
       authFetch("/s/"+ID+"/resume",{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({prompt:prompt})}).then(function(r){return r.json();}).then(function(d){
-        if(d.ok){if(input)input.value="";updateReplyBar(true);currentStatus="running";
+        if(d.ok){showUserMessage(prompt);if(input)input.value="";updateReplyBar(true);currentStatus="running";
           var ti=document.createElement("div");ti.className="typing";ti.id="typing-indicator";
           ti.innerHTML='<div class="typing-dots"><span></span><span></span><span></span></div><span class="typing-label">working\u2026</span>';
           chatArea.appendChild(ti);chatArea.scrollTop=chatArea.scrollHeight;
