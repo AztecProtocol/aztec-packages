@@ -55,7 +55,5 @@ jobs:
               --repo "${{ github.repository }}" \
               --body "🔀 This PR was targeting \`$BASE_REF\` directly. It has been automatically redirected to \`$STAGING_BRANCH\`.
 
-Changes intended for release branches should go through the staging branch first. If this is intentional and you need to target \`$BASE_REF\` directly, please contact the team.
-
-![right to jail](https://media1.tenor.com/m/sFGB4cW82U8AAAAC/jail-right-to-jail.gif)"
+Changes intended for release branches should go through the staging branch first. If this is intentional and you need to target \`$BASE_REF\` directly, please contact the team."
           fi
