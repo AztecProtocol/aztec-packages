@@ -260,8 +260,22 @@ export const uniswapL1L2TestSuite = (
       const daiL1BalanceOfPortalBeforeSwap = await daiCrossChainHarness.getL1BalanceOf(
         daiCrossChainHarness.tokenPortalAddress,
       );
-      const swapResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, swapPrivateLeaf);
-      const withdrawResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, withdrawLeaf);
+      // Resolve per-tx message indices so we can use the txHash-based lookup.
+      const uniswapTxEffect = (await aztecNode.getTxEffect(l2UniswapInteractionReceipt.txHash))!;
+      const swapPrivateIndex = uniswapTxEffect.data.l2ToL1Msgs.findIndex(m => m.equals(swapPrivateLeaf));
+      const withdrawIndex = uniswapTxEffect.data.l2ToL1Msgs.findIndex(m => m.equals(withdrawLeaf));
+      const swapResult = await computeL2ToL1MembershipWitness(
+        aztecNode,
+        epoch,
+        l2UniswapInteractionReceipt.txHash,
+        swapPrivateIndex,
+      );
+      const withdrawResult = await computeL2ToL1MembershipWitness(
+        aztecNode,
+        epoch,
+        l2UniswapInteractionReceipt.txHash,
+        withdrawIndex,
+      );
 
       const swapPrivateL2MessageIndex = swapResult!.leafIndex;
       const swapPrivateSiblingPath = swapResult!.siblingPath;
@@ -840,8 +854,22 @@ export const uniswapL1L2TestSuite = (
 
       const block = await aztecNode.getBlock(withdrawReceipt.blockNumber!);
       const epoch = await rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
-      const swapResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, swapPrivateLeaf);
-      const withdrawResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, withdrawLeaf);
+      // Resolve per-tx message indices so we can use the txHash-based lookup.
+      const withdrawTxEffect = (await aztecNode.getTxEffect(withdrawReceipt.txHash))!;
+      const swapPrivateIndex2 = withdrawTxEffect.data.l2ToL1Msgs.findIndex(m => m.equals(swapPrivateLeaf));
+      const withdrawIndex2 = withdrawTxEffect.data.l2ToL1Msgs.findIndex(m => m.equals(withdrawLeaf));
+      const swapResult = await computeL2ToL1MembershipWitness(
+        aztecNode,
+        epoch,
+        withdrawReceipt.txHash,
+        swapPrivateIndex2,
+      );
+      const withdrawResult = await computeL2ToL1MembershipWitness(
+        aztecNode,
+        epoch,
+        withdrawReceipt.txHash,
+        withdrawIndex2,
+      );
 
       const swapPrivateL2MessageIndex = swapResult!.leafIndex;
       const swapPrivateSiblingPath = swapResult!.siblingPath;
@@ -973,8 +1001,22 @@ export const uniswapL1L2TestSuite = (
 
       const block = await aztecNode.getBlock(withdrawReceipt.blockNumber!);
       const epoch = await rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
-      const swapResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, swapPublicLeaf);
-      const withdrawResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, withdrawLeaf);
+      // Resolve per-tx message indices so we can use the txHash-based lookup.
+      const swapPublicTxEffect = (await aztecNode.getTxEffect(withdrawReceipt.txHash))!;
+      const swapPublicIndex = swapPublicTxEffect.data.l2ToL1Msgs.findIndex(m => m.equals(swapPublicLeaf));
+      const withdrawIndex3 = swapPublicTxEffect.data.l2ToL1Msgs.findIndex(m => m.equals(withdrawLeaf));
+      const swapResult = await computeL2ToL1MembershipWitness(
+        aztecNode,
+        epoch,
+        withdrawReceipt.txHash,
+        swapPublicIndex,
+      );
+      const withdrawResult = await computeL2ToL1MembershipWitness(
+        aztecNode,
+        epoch,
+        withdrawReceipt.txHash,
+        withdrawIndex3,
+      );
 
       const swapPublicL2MessageIndex = swapResult!.leafIndex;
       const swapPublicSiblingPath = swapResult!.siblingPath;

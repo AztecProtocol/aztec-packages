@@ -351,7 +351,7 @@ describe('e2e_p2p_add_rollup', () => {
         const block = await node.getBlock(l2OutgoingReceipt.blockNumber!);
         const epoch = await rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
 
-        const l2ToL1MessageResult = (await computeL2ToL1MembershipWitness(node, epoch, leaf))!;
+        const l2ToL1MessageResult = (await computeL2ToL1MembershipWitness(node, epoch, l2OutgoingReceipt.txHash, 0))!;
         const leafId = getL2ToL1MessageLeafId(l2ToL1MessageResult);
 
         // We need to advance to the next epoch so that the out hash will be set to outbox when the epoch is proven.

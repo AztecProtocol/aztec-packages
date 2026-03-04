@@ -192,6 +192,13 @@ export interface AztecNode
   getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]>;
 
   /**
+   * Returns all checkpointed blocks for a given epoch, ordered by slot then ascending block number.
+   * @param epoch - The epoch number.
+   * @returns The checkpointed blocks in the epoch.
+   */
+  getCheckpointedBlocksForEpoch(epoch: EpochNumber): Promise<CheckpointedL2Block[]>;
+
+  /**
    * Get a block specified by its block number or 'latest'.
    * @param blockParameter - The block parameter (block number, block hash, or 'latest').
    * @returns The requested block.
@@ -556,6 +563,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .function()
     .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
     .returns(z.array(CheckpointedL2Block.schema)),
+
+  getCheckpointedBlocksForEpoch: z.function().args(EpochNumberSchema).returns(z.array(CheckpointedL2Block.schema)),
 
   getCurrentMinFees: z.function().returns(GasFees.schema),
 

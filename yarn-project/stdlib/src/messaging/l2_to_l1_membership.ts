@@ -1,7 +1,11 @@
 import { OUT_HASH_TREE_LEAF_COUNT } from '@aztec/constants';
-import type { EpochNumber } from '@aztec/foundation/branded-types';
+import type { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { SiblingPath, UnbalancedMerkleTreeCalculator, computeUnbalancedShaRoot } from '@aztec/foundation/trees';
+
+import type { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
+import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
+import type { TxHash } from '../tx/tx_hash.js';
 
 /**
  * # L2-to-L1 Message Tree Structure and Leaf IDs
@@ -92,8 +96,12 @@ export function getL2ToL1MessageLeafId(
   return 2n ** BigInt(membershipWitness.siblingPath.pathSize) + membershipWitness.leafIndex;
 }
 
+/** Interface for looking up L2-to-L1 messages by transaction hash. */
 export interface MessageRetrieval {
-  getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]>;
+  /** Returns the indexed tx effect for the given tx hash (block number, tx index in block, and tx data). */
+  getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
+  /** Returns all checkpointed blocks for the given epoch, ordered by slot then ascending block number. */
+  getCheckpointedBlocksForEpoch(epoch: EpochNumber): Promise<CheckpointedL2Block[]>;
 }
 
 export type L2ToL1MembershipWitness = {
@@ -102,46 +110,94 @@ export type L2ToL1MembershipWitness = {
   siblingPath: SiblingPath<number>;
 };
 
+/**
+ * Computes the L2-to-L1 message membership witness for a specific message in a transaction.
+ *
+ * Uniquely identifies the message by its transaction hash and its index within that transaction,
+ * which correctly handles the case where multiple messages in an epoch share the same value.
+ *
+ * @param messageRetriever - Source for tx effects and checkpointed blocks.
+ * @param epoch - The epoch in which the message was emitted.
+ * @param txHash - The hash of the transaction that emitted the message.
+ * @param messageIndexInTx - The index of the message within the transaction's L2-to-L1 message array.
+ * @returns The membership witness, or undefined if the tx or epoch is not found.
+ */
 export async function computeL2ToL1MembershipWitness(
   messageRetriever: MessageRetrieval,
   epoch: EpochNumber,
-  message: Fr,
+  txHash: TxHash,
+  messageIndexInTx: number,
 ): Promise<L2ToL1MembershipWitness | undefined> {
-  const messagesInEpoch = await messageRetriever.getL2ToL1Messages(epoch);
-  if (messagesInEpoch.length === 0) {
+  const txEffect = await messageRetriever.getTxEffect(txHash);
+  if (!txEffect) {
     return undefined;
   }
 
-  return computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, message);
-}
+  const { l2BlockNumber, txIndexInBlock } = txEffect;
+  const l2ToL1Msgs = txEffect.data.l2ToL1Msgs;
 
-// TODO: Allow to specify the message to consume by its index or by an offset, in case there are multiple messages with
-// the same value.
-export function computeL2ToL1MembershipWitnessFromMessagesInEpoch(
-  messagesInEpoch: Fr[][][][],
-  message: Fr,
-): L2ToL1MembershipWitness {
-  // Find the index of the message in the tx, index of the tx in the block, and index of the block in the epoch.
-  let messageIndexInTx = -1;
-  let txIndex = -1;
-  let blockIndex = -1;
-  const checkpointIndex = messagesInEpoch.findIndex(messagesInCheckpoint => {
-    blockIndex = messagesInCheckpoint.findIndex(messagesInBlock => {
-      txIndex = messagesInBlock.findIndex(messagesInTx => {
-        messageIndexInTx = messagesInTx.findIndex(msg => msg.equals(message));
-        return messageIndexInTx !== -1;
-      });
-      return txIndex !== -1;
-    });
-    return blockIndex !== -1;
-  });
-
-  if (checkpointIndex === -1) {
-    throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
+  if (messageIndexInTx >= l2ToL1Msgs.length) {
+    throw new Error(
+      `Message index ${messageIndexInTx} is out of bounds: tx has ${l2ToL1Msgs.length} L2-to-L1 messages`,
+    );
   }
 
-  // Build the tx tree.
+  // Get all checkpointed blocks for this epoch, ordered by slot then block number.
+  const checkpointedBlocks = await messageRetriever.getCheckpointedBlocksForEpoch(epoch);
+  if (checkpointedBlocks.length === 0) {
+    return undefined;
+  }
+
+  // Group blocks by slot (same slot = same checkpoint), matching the tree structure in getL2ToL1Messages.
+  const checkpoints = groupCheckpointedBlocksBySlot(checkpointedBlocks);
+
+  // Build the 4D messages array while finding the exact position of our block.
+  let checkpointIndex = -1;
+  let blockIndex = -1;
+
+  const messagesInEpoch: Fr[][][][] = checkpoints.map((checkpointBlocks, ci) =>
+    checkpointBlocks.map((checkpointedBlock, bi) => {
+      if (checkpointedBlock.block.number === l2BlockNumber) {
+        checkpointIndex = ci;
+        blockIndex = bi;
+      }
+      return checkpointedBlock.block.body.txEffects.map(tx => tx.l2ToL1Msgs);
+    }),
+  );
+
+  if (checkpointIndex === -1) {
+    // The tx's block was not found among the epoch's checkpointed blocks.
+    return undefined;
+  }
+
+  return computeL2ToL1MembershipWitnessFromMessagesInEpoch(
+    messagesInEpoch,
+    checkpointIndex,
+    blockIndex,
+    txIndexInBlock,
+    messageIndexInTx,
+  );
+}
+
+/**
+ * Computes the L2-to-L1 membership witness given the full epoch message structure and the exact
+ * coordinates of the target message within that structure.
+ *
+ * @param messagesInEpoch - 4D array of messages organized as [checkpoint][block][tx][message].
+ * @param checkpointIndex - Index of the checkpoint within the epoch.
+ * @param blockIndex - Index of the block within the checkpoint.
+ * @param txIndex - Index of the transaction within the block.
+ * @param messageIndexInTx - Index of the message within the transaction.
+ */
+export function computeL2ToL1MembershipWitnessFromMessagesInEpoch(
+  messagesInEpoch: Fr[][][][],
+  checkpointIndex: number,
+  blockIndex: number,
+  txIndex: number,
+  messageIndexInTx: number,
+): L2ToL1MembershipWitness {
   const messagesInTx = messagesInEpoch[checkpointIndex][blockIndex][txIndex];
+  // Build the tx tree.
   const txTree = UnbalancedMerkleTreeCalculator.create(messagesInTx.map(msg => msg.toBuffer()));
   // Get the sibling path of the target message in the tx tree.
   const pathToMessageInTxSubtree = txTree.getSiblingPathByLeafIndex(messageIndexInTx);
@@ -205,6 +261,25 @@ export function computeL2ToL1MembershipWitnessFromMessagesInEpoch(
     leafIndex: BigInt(combinedIndex),
     siblingPath: new SiblingPath(combinedPath.length, combinedPath),
   };
+}
+
+/**
+ * Groups an ordered list of checkpointed blocks into per-checkpoint arrays.
+ * Blocks that share the same slot number belong to the same checkpoint.
+ * Assumes the input is already ordered by ascending block number (and therefore slot number).
+ */
+function groupCheckpointedBlocksBySlot(checkpointedBlocks: CheckpointedL2Block[]): CheckpointedL2Block[][] {
+  const checkpoints: CheckpointedL2Block[][] = [];
+  let previousSlotNumber: SlotNumber | undefined = undefined;
+  for (const checkpointedBlock of checkpointedBlocks) {
+    const slotNumber = checkpointedBlock.block.header.globalVariables.slotNumber;
+    if (slotNumber !== previousSlotNumber) {
+      checkpoints.push([]);
+      previousSlotNumber = slotNumber;
+    }
+    checkpoints[checkpoints.length - 1].push(checkpointedBlock);
+  }
+  return checkpoints;
 }
 
 function buildCheckpointTree(messagesInCheckpoint: Fr[][][]) {
