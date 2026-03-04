@@ -309,7 +309,7 @@ env.mine_block_at(block_timestamp);
 
 ## Testing private events [experimental]
 
-You can verify that private events were emitted correctly using `get_private_events`:
+You can verify that private events were emitted correctly in the last call using `get_private_events`:
 
 ```rust
 use aztec::test::helpers::txe_oracles::get_private_events;
