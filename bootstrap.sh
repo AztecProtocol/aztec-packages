@@ -694,6 +694,37 @@ case "$cmd" in
     build
     exec spartan/scripts/deploy_rollup_upgrade.sh "$@"
     ;;
+  ##########################
+  # BARRETENBERG VK UPDATE #
+  ##########################
+  "ci-vk-update")
+    set -e
+    export CI=1
+    build
+    # First, run the VK test normally to check if VKs actually need updating.
+    if barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh; then
+      echo "No VK changes detected, no update needed."
+      echo "Remove the VK-UPDATE commit."
+      exit 1
+    fi
+
+    # VKs are stale - regenerate them.
+    echo "VKs are stale, running --update_inputs to regenerate..."
+    barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh --update_inputs
+
+    # Ensure the pinned hash actually changed
+    if git diff --quiet barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh; then
+      echo "VK hash did not change after update, something is wrong."
+      exit 1
+    fi
+
+    # Commit and push the updated pinned hash
+    github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
+    git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${github_repository}"
+    git add barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh
+    git commit -m "chore: regenerate chonk VKs (auto-update)"
+    git push origin HEAD
+    ;;
 
   #################
   # SOCKET FIX    #

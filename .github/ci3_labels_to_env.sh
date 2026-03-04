@@ -68,6 +68,9 @@ function main {
     ci_mode="docs"
   elif has_label "ci-barretenberg-full"; then
     ci_mode="barretenberg-full"
+  elif git log --format=%s -n 1 HEAD | grep -q "^VK-UPDATE:"; then
+    echo "VK-UPDATE commit detected, using vk-update mode" >&2
+    ci_mode="vk-update"
   elif has_label "ci-barretenberg" || [ "$target_branch" == "merge-train/barretenberg" ]; then
     ci_mode="barretenberg"
   elif [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
