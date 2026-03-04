@@ -26,7 +26,7 @@ export interface SequencerConfig {
   /** The maximum DA block gas. */
   maxDABlockGas?: number;
   /** Per-block gas budget multiplier for both L2 and DA gas. Budget = (checkpointLimit / maxBlocks) * multiplier. */
-  gasPerBlockAllocationMultiplier?: number;
+  perBlockAllocationMultiplier?: number;
   /** Recipient of block reward. */
   coinbase?: EthAddress;
   /** Address to receive fees. */
@@ -93,7 +93,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     maxL2BlockGas: z.number().optional(),
     publishTxsWithProposals: z.boolean().optional(),
     maxDABlockGas: z.number().optional(),
-    gasPerBlockAllocationMultiplier: z.number().optional(),
+    perBlockAllocationMultiplier: z.number().optional(),
     coinbase: schemas.EthAddress.optional(),
     feeRecipient: schemas.AztecAddress.optional(),
     acvmWorkingDirectory: z.string().optional(),
@@ -142,7 +142,7 @@ type SequencerConfigOptionalKeys =
   | 'maxTxsPerCheckpoint'
   | 'maxL2BlockGas'
   | 'maxDABlockGas'
-  | 'gasPerBlockAllocationMultiplier';
+  | 'perBlockAllocationMultiplier';
 
 export type ResolvedSequencerConfig = Prettify<
   Required<Omit<SequencerConfig, SequencerConfigOptionalKeys>> & Pick<SequencerConfig, SequencerConfigOptionalKeys>
