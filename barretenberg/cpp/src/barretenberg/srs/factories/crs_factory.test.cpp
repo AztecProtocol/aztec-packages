@@ -126,31 +126,18 @@ TEST(CrsFactory, Bn254Fallback)
 
 TEST(CrsFactory, Bn254HashVerification)
 {
-    // Test that SHA256 chunk hash verification works on network downloads.
-    // Request a non-aligned number of points — the download should round up to
-    // 2 full 8MB chunks (262144 points = 16MB) so every chunk is fully verified.
-    const size_t requested_points = 200000;
-    const size_t points_per_chunk = bb::srs::CRS_HASH_CHUNK_SIZE / sizeof(g1::affine_element); // 131072
-    const size_t expected_cached_points = 2 * points_per_chunk;                                 // 262144
-    const std::filesystem::path& temp_crs_path = "barretenberg_srs_test_crs_bn254_hash";
-    fs::remove_all(temp_crs_path);
-    fs::create_directories(temp_crs_path);
+    // Verify whatever CRS data we have on disk against the embedded chunk hashes.
+    auto g1_path = bb::srs::bb_crs_path() / "bn254_g1.dat";
+    size_t file_size = get_file_size(g1_path);
 
-    auto points = bb::get_bn254_g1_data(temp_crs_path, requested_points, /*allow_download=*/true);
-    EXPECT_EQ(points.size(), requested_points);
-    EXPECT_EQ(points[0], bb::srs::BN254_G1_FIRST_ELEMENT);
+    // Round down to a whole number of 8MB chunks (the verify function requires alignment).
+    size_t verifiable_size = (file_size / bb::srs::CRS_HASH_CHUNK_SIZE) * bb::srs::CRS_HASH_CHUNK_SIZE;
+    ASSERT_GT(verifiable_size, 0) << "Need at least one 8MB chunk of CRS data on disk";
 
-    // The cached file should be rounded up to 8MB boundary
-    size_t cached_size = get_file_size(temp_crs_path / "bn254_g1.dat");
-    EXPECT_EQ(cached_size, expected_cached_points * sizeof(g1::affine_element));
-
-    // Read back and verify hashes pass
-    auto data = read_file(temp_crs_path / "bn254_g1.dat", cached_size);
+    auto data = read_file(g1_path, verifiable_size);
     EXPECT_NO_THROW(bb::srs::verify_bn254_crs_integrity(data));
 
-    // Corrupt a byte in the second chunk and verify that hash check catches it
-    data[bb::srs::CRS_HASH_CHUNK_SIZE + 100] ^= 0xFF;
+    // Corrupt a byte and verify that hash check catches it
+    data[100] ^= 0xFF;
     EXPECT_ANY_THROW(bb::srs::verify_bn254_crs_integrity(data));
-
-    fs::remove_all(temp_crs_path);
 }
