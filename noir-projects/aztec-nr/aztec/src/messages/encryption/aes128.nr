@@ -155,9 +155,9 @@ impl MessageEncryption for AES128 {
     /// ## Overview
     ///
     /// The plaintext is an array of up to `MESSAGE_PLAINTEXT_LEN` (12) fields. The output is always exactly
-    /// `MESSAGE_CIPHERTEXT_LEN` (15) fields, regardless of plaintext size. Unused trailing fields are masked
-    /// zeros (pseudorandom to observers without the shared secret) so that all encrypted messages are
-    /// indistinguishable by size.
+    /// `MESSAGE_CIPHERTEXT_LEN` (15) fields, regardless of plaintext size. All output fields except the
+    /// ephemeral public key are uniformly random `Field` values to any observer without knowledge of the
+    /// shared secret, making all encrypted messages indistinguishable by size or content.
     ///
     /// ## PKCS#7 Padding
     ///
@@ -215,28 +215,20 @@ impl MessageEncryption for AES128 {
     /// |<-------- padded to a multiple of 31 B -------->|
     /// ```
     ///
-    /// **Step 2 -- Pack into fields and pad.** The byte array is split into 31-byte chunks, each stored in one
-    /// field. Trailing fields are zero-filled so that all messages occupy exactly 14 fields:
+    /// **Step 2 -- Pack and mask.** The byte array is split into 31-byte chunks, each stored in one field. A
+    /// Poseidon2-derived mask (see `derive_field_mask`) is added to each so that the resulting fields appear as
+    /// uniformly random `Field` values to any observer without knowledge of the shared secret, hiding the fact
+    /// that the underlying ciphertext consists of 128-bit AES blocks.
+    ///
+    /// **Step 3 -- Assemble ciphertext.** The ephemeral public key x-coordinate is prepended and random field padding
+    /// is appended to fill to 15 fields:
     ///
     /// ```text
-    /// +-------------------------+-------------------+
-    /// |  message-byte fields    |   zero pad        |
-    /// | (packed 31 B per field) |  (fills to 14)    |
-    /// +-------------------------+-------------------+
-    /// ```
-    ///
-    /// **Step 3 -- Mask.** A pseudorandom field element is derived from the ECDH shared secret for each of the
-    /// 14 fields (see `derive_field_mask`) and added to it. Data fields become hidden; zero-pad fields become
-    /// pseudorandom.
-    ///
-    /// **Step 4 -- Prepend ephemeral public key.** The ephemeral public key x-coordinate is prepended, producing
-    /// the final 15-field ciphertext:
-    ///
-    /// ```text
-    /// +----------+----------------------------------------------+
-    /// | eph_pk.x |             masked fields (14)               |
-    /// +----------+----------------------------------------------+
-    /// |<------------ MESSAGE_CIPHERTEXT_LEN = 15 fields ------->|
+    /// +----------+-------------------------+-------------------+
+    /// | eph_pk.x |  masked message fields   | random field pad  |
+    /// |          | (packed 31 B per field)  |  (fills to 15)    |
+    /// +----------+-------------------------+-------------------+
+    /// |<---------- MESSAGE_CIPHERTEXT_LEN = 15 fields -------->|
     /// ```
     ///
     /// ## Key Derivation
@@ -357,24 +349,24 @@ impl MessageEncryption for AES128 {
         );
         assert(offset == message_bytes.len(), "unexpected encrypted message length");
 
-        // Pack message bytes into fields (31 bytes per field) and prepend eph_pk.x.
+        // Pack message bytes into fields
         let message_bytes_as_fields = bytes_to_fields(message_bytes);
 
         let mut ciphertext: [Field; MESSAGE_CIPHERTEXT_LEN] = [0; MESSAGE_CIPHERTEXT_LEN];
 
         ciphertext[0] = eph_pk.x;
 
+        //  Mask each field with a Poseidon2-derived value, so that they appear as uniformly random `Field` values
         for i in 0..message_bytes_as_fields.len() {
-            ciphertext[1 + i] = message_bytes_as_fields[i];
+            let mask = derive_field_mask(ciphertext_shared_secret, i as u32);
+            ciphertext[1 + i] = message_bytes_as_fields[i] + mask;
         }
 
-        // Mask all non-eph-pk fields. Message-byte fields get their data hidden; trailing zero fields become
-        // pseudorandom padding (indistinguishable from random to observers).
-        for i in 0..(MESSAGE_CIPHERTEXT_LEN - 1) {
-            // Safety: masking is not constrained but it is in the sender's interest to produce correct masks
-            // (otherwise the recipient cannot decrypt).
-            let mask = unsafe { derive_field_mask(ciphertext_shared_secret, i as u32) };
-            ciphertext[1 + i] += mask;
+        // Pad with random fields so that padding is indistinguishable from masked data fields.
+        for i in (1 + message_bytes_as_fields.len())..MESSAGE_CIPHERTEXT_LEN {
+            // Safety: we assume that the sender wants for the message to be private - a malicious one could simply
+            // reveal its contents publicly. It is therefore fine to trust the sender to provide random padding.
+            ciphertext[i] = unsafe { random() };
         }
 
         ciphertext
@@ -398,8 +390,7 @@ impl MessageEncryption for AES128 {
             // Derive shared secret
             let ciphertext_shared_secret = get_shared_secret(recipient, eph_pk);
 
-            // Unmask all non-eph-pk fields by subtracting the same Poseidon-derived masks used during encryption.
-            let fields = masked_fields.mapi(|i, field| field - derive_field_mask(ciphertext_shared_secret, i));
+            let fields = masked_fields.mapi(|i, field| unmask_field(ciphertext_shared_secret, i, field));
             let ciphertext_without_eph_pk_x = bytes_from_fields(fields);
 
             // Derive symmetric keys:
@@ -442,9 +433,23 @@ impl MessageEncryption for AES128 {
     }
 }
 
-/// Derives a pseudorandom field mask from an ECDH shared secret and field index. Used to hide the
-/// byte-packed ciphertext fields so that the wire format is indistinguishable from random data.
-unconstrained fn derive_field_mask(shared_secret: Point, index: u32) -> Field {
+/// 2^248: upper bound for values that fit in 31 bytes
+global TWO_POW_248: Field = 2.pow_32(248);
+
+/// Removes the Poseidon2-derived mask from a ciphertext field. Returns the unmasked value if it fits in 31 bytes
+/// (a content field), or zero if it doesn't (random padding).
+fn unmask_field(shared_secret: Point, index: u32, masked: Field) -> Field {
+    let unmasked = masked - derive_field_mask(shared_secret, index);
+    if unmasked.lt(TWO_POW_248) {
+        unmasked
+    } else {
+        0
+    }
+}
+
+/// Derives a field mask from an ECDH shared secret and field index. Applied only to data fields (those carrying
+/// packed message bytes) so the sender is incentivized to mask correctly. Padding fields use `random()` instead.
+fn derive_field_mask(shared_secret: Point, index: u32) -> Field {
     poseidon2_hash_with_separator(
         [shared_secret.x, shared_secret.y],
         DOM_SEP__CIPHERTEXT_FIELD_MASK + index,

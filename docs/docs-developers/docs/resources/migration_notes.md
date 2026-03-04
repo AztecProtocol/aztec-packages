@@ -9,6 +9,10 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] Removed `get_random_bytes`
+
+The `get_random_bytes` unconstrained function has been removed from `aztec::utils::random`. If you were using it, you can replace it with direct calls to the `random` oracle from `aztec::oracle::random` and convert to bytes yourself.
+
 ### [Aztec.js] Removed `SingleKeyAccountContract`
 
 The `SchnorrSingleKeyAccount` contract and its TypeScript wrapper `SingleKeyAccountContract` have been removed. This contract was insecure: it used `ivpk_m` (incoming viewing public key) as its Schnorr signing key, meaning anyone who received a user's viewing key could sign transactions on their behalf.
