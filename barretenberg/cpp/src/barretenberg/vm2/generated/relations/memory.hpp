@@ -14,10 +14,10 @@ template <typename FF_> class memoryImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 59> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    static constexpr std::array<size_t, 57> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
                                                                             3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
                                                                             3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3,
-                                                                            3, 4, 3, 2, 2, 5, 5, 2, 4, 4, 4, 4, 5, 3 };
+                                                                            3, 4, 3, 5, 5, 2, 4, 4, 4, 4, 5, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -41,17 +41,15 @@ template <typename FF> class memory : public Relation<memoryImpl<FF>> {
     static constexpr size_t SR_ACTIVE_ROW_NEEDS_PERM_SELECTOR = 41;
     static constexpr size_t SR_MEM_CONTINUITY = 46;
     static constexpr size_t SR_SEL_RNG_CHK = 47;
-    static constexpr size_t SR_GLOBAL_ADDR = 48;
-    static constexpr size_t SR_TIMESTAMP = 49;
-    static constexpr size_t SR_LAST_ACCESS = 50;
-    static constexpr size_t SR_DIFF = 51;
-    static constexpr size_t SR_DIFF_DECOMP = 52;
-    static constexpr size_t SR_MEMORY_INIT_VALUE = 53;
-    static constexpr size_t SR_MEMORY_INIT_TAG = 54;
-    static constexpr size_t SR_READ_WRITE_CONSISTENCY_VALUE = 55;
-    static constexpr size_t SR_READ_WRITE_CONSISTENCY_TAG = 56;
-    static constexpr size_t SR_TAG_IS_FF = 57;
-    static constexpr size_t SR_SEL_RNG_WRITE = 58;
+    static constexpr size_t SR_LAST_ACCESS = 48;
+    static constexpr size_t SR_DIFF = 49;
+    static constexpr size_t SR_DIFF_DECOMP = 50;
+    static constexpr size_t SR_MEMORY_INIT_VALUE = 51;
+    static constexpr size_t SR_MEMORY_INIT_TAG = 52;
+    static constexpr size_t SR_READ_WRITE_CONSISTENCY_VALUE = 53;
+    static constexpr size_t SR_READ_WRITE_CONSISTENCY_TAG = 54;
+    static constexpr size_t SR_TAG_IS_FF = 55;
+    static constexpr size_t SR_SEL_RNG_WRITE = 56;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -62,10 +60,6 @@ template <typename FF> class memory : public Relation<memoryImpl<FF>> {
             return "MEM_CONTINUITY";
         case SR_SEL_RNG_CHK:
             return "SEL_RNG_CHK";
-        case SR_GLOBAL_ADDR:
-            return "GLOBAL_ADDR";
-        case SR_TIMESTAMP:
-            return "TIMESTAMP";
         case SR_LAST_ACCESS:
             return "LAST_ACCESS";
         case SR_DIFF:

@@ -7,7 +7,7 @@ include "range_check.pil";
  *
  * This subtrace records all memory read/write events from the AVM execution.
  * Each active row represents one memory access. The trace is sorted by
- * (space_id, address, clk, rw) — equivalently by (global_addr, timestamp) —
+ * (space_id, address, clk, rw) — equivalently by (GLOBAL_ADDR, TIMESTAMP) —
  * and constraints enforce correct ordering, initialization, and read-write consistency.
  *
  * Link to design document:
@@ -21,7 +21,7 @@ include "range_check.pil";
  * Assumptions / Preconditions:
  * - space_id is 16-bit, address is 32-bit, clk is 32-bit.
  *   (Guaranteed by the source subtraces that emit memory events.)
- * - These ranges ensure global_addr fits in 48 bits and diff fits in 48 bits,
+ * - These ranges ensure GLOBAL_ADDR fits in 48 bits and diff fits in 48 bits,
  *   matching the 3x16-bit limb decomposition used for the range check.
  *
  * Memory invariants:
@@ -55,7 +55,7 @@ include "range_check.pil";
  * The values shown below reflect the constrained values.
  *
  * +-----+-----------+---------+-----+----+---------------+------------+-------------+--------------+-------------+
- * | sel | space_id  | address | clk | rw | global_addr   | timestamp  | last_access |    diff      | sel_rng_chk |
+ * | sel | space_id  | address | clk | rw | GLOBAL_ADDR   | TIMESTAMP  | last_access |    diff      | sel_rng_chk |
  * +-----+-----------+---------+-----+----+---------------+------------+-------------+--------------+-------------+
  * |   0 |        0  |      0  |   0 |  0 |           0   |          0 |           0 |          0   |           0 |
  * |   1 |        1  |     27  |   5 |  1 |     2^32 + 27 |  5 * 2 + 1 |           1 |         1    |           1 |
@@ -91,8 +91,6 @@ pol commit sel_tag_is_ff; // @boolean 1 iff tag == MEM_TAG_FF.
 pol commit sel_rng_write; // @boolean (by definition: rw * (1 - sel_tag_is_ff)) Active for non-FF writes.
 
 // Derived values.
-pol commit global_addr; // Global unique address: space_id * 2^32 + address (48-bit).
-pol commit timestamp; // Timestamp: 2 * clk + rw (33-bit).
 pol commit diff; // Non-negative difference between consecutive rows, proving correct sort order.
 pol commit limb[3]; // 16-bit LE decomposition limbs for diff.
 
@@ -241,11 +239,15 @@ sel_rng_chk = sel * sel';
 // Derived Values
 ////////////////////////////////////////////////
 
-#[GLOBAL_ADDR]
-global_addr = space_id * 2**32 + address;
+// Global unique address: space_id * 2^32 + address (48-bit).
+// GLOBAL_ADDR and GLOBAL_ADDR' defined here for readability
+pol GLOBAL_ADDR = space_id * 2**32 + address;
+pol NEXT_GLOBAL_ADDR = space_id' * 2**32 + address';
 
-#[TIMESTAMP]
-timestamp = 2 * clk + rw;
+// Timestamp: 2 * clk + rw (33-bit).
+// TIMESTAMP and TIMESTAMP' defined here for readability
+pol TIMESTAMP = 2 * clk + rw;
+pol NEXT_TIMESTAMP = 2 * clk' + rw';
 
 ////////////////////////////////////////////////
 // Trace Sorting
@@ -260,21 +262,23 @@ timestamp = 2 * clk + rw;
 // - If set to 0: READ_WRITE_CONSISTENCY applies instead, forcing the last active row's
 //   value = 0 and tag = MEM_TAG_FF (matching the padding row). This is strictly more
 //   constraining than the honest case, so it cannot help a malicious prover.
-pol GLOB_ADDR_DIFF = global_addr' - global_addr;
+pol GLOBAL_ADDR_DIFF = NEXT_GLOBAL_ADDR - GLOBAL_ADDR;
 pol commit glob_addr_diff_inv; // @zero-check Helper column for non-zero equality check
 #[LAST_ACCESS]
-sel_rng_chk * (GLOB_ADDR_DIFF * ((1 - last_access) * (1 - glob_addr_diff_inv) + glob_addr_diff_inv) - last_access) = 0;
+sel_rng_chk * (GLOBAL_ADDR_DIFF * ((1 - last_access) * (1 - glob_addr_diff_inv) + glob_addr_diff_inv) - last_access) = 0;
 
 // diff derivation: proves consecutive rows are in ascending order.
 // We alternate between two different diffs:
-// - last_access == 1: diff = global_addr' - global_addr (address transition)
-// - last_access == 0: diff = timestamp' - timestamp - rw' * rw (same address, time progression)
+// - last_access == 1: diff = GLOBAL_ADDR' - GLOBAL_ADDR (address transition)
+// - last_access == 0: diff = TIMESTAMP' - TIMESTAMP - rw' * rw (same address, time progression)
 // The `- rw' * rw` term subtracts 1 when both the current and next access are writes.
 // This prevents two writes to the same address at the same clock (diff would be -1,
 // failing the 48-bit range check), while still allowing concurrent reads (diff = 0)
 // and a read followed by a write at the same clock (diff = 1).
+
+pol TIMESTAMP_DIFF = NEXT_TIMESTAMP - TIMESTAMP;
 #[DIFF]
-diff = sel_rng_chk * (last_access * GLOB_ADDR_DIFF + (1 - last_access) * (timestamp' - timestamp - rw' * rw));
+diff = sel_rng_chk * (last_access * GLOBAL_ADDR_DIFF + (1 - last_access) * (TIMESTAMP_DIFF - rw' * rw));
 
 // Decompose diff into 16-bit limbs (global, applies to all rows).
 #[DIFF_DECOMP]
