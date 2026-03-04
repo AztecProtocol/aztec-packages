@@ -1,5 +1,6 @@
 import { findNapiBinary } from '@aztec/bb.js';
 import { type LogLevel, LogLevels, type Logger } from '@aztec/foundation/log';
+import { Semaphore } from '@aztec/foundation/queue';
 
 import { createRequire } from 'module';
 
@@ -127,11 +128,32 @@ export function cancelSimulation(token: CancellationToken): void {
 }
 
 /**
+ * Maximum number of concurrent AVM simulations. Each simulation spawns a dedicated OS thread,
+ * so this controls resource usage. Defaults to 4. Set to 0 for unlimited.
+ */
+const AVM_MAX_CONCURRENT_SIMULATIONS = parseInt(process.env.AVM_MAX_CONCURRENT_SIMULATIONS ?? '4', 10);
+const avmSimulationSemaphore =
+  AVM_MAX_CONCURRENT_SIMULATIONS > 0 ? new Semaphore(AVM_MAX_CONCURRENT_SIMULATIONS) : null;
+
+async function withAvmConcurrencyLimit<T>(fn: () => Promise<T>): Promise<T> {
+  if (!avmSimulationSemaphore) {
+    return fn();
+  }
+  await avmSimulationSemaphore.acquire();
+  try {
+    return await fn();
+  } finally {
+    avmSimulationSemaphore.release();
+  }
+}
+
+/**
  * AVM simulation function that takes serialized inputs and a contract provider.
  * The contract provider enables C++ to callback to TypeScript for contract data during simulation.
  *
  * Simulations run on dedicated std::threads (not the libuv thread pool), so there is no risk
  * of libuv thread pool exhaustion or deadlock from C++ BlockingCall callbacks.
+ * Concurrency is limited by AVM_MAX_CONCURRENT_SIMULATIONS (default 4, 0 = unlimited).
  *
  * @param inputs - Msgpack-serialized AvmFastSimulationInputs buffer
  * @param contractProvider - Object with callbacks for fetching contract instances and classes
@@ -149,13 +171,15 @@ export function avmSimulate(
   logger?: Logger,
   cancellationToken?: CancellationToken,
 ): Promise<Buffer> {
-  return nativeAvmSimulate(
-    inputs,
-    contractProvider,
-    worldStateHandle,
-    LogLevels.indexOf(logLevel),
-    logger ? (level: LogLevel, msg: string) => logger[level](msg) : null,
-    cancellationToken,
+  return withAvmConcurrencyLimit(() =>
+    nativeAvmSimulate(
+      inputs,
+      contractProvider,
+      worldStateHandle,
+      LogLevels.indexOf(logLevel),
+      logger ? (level: LogLevel, msg: string) => logger[level](msg) : null,
+      cancellationToken,
+    ),
   );
 }
 
@@ -165,11 +189,12 @@ export function avmSimulate(
  * callbacks to TS or WS pointer are needed.
  *
  * Simulations run on dedicated std::threads (not the libuv thread pool).
+ * Concurrency is limited by AVM_MAX_CONCURRENT_SIMULATIONS (default 4, 0 = unlimited).
  *
  * @param inputs - Msgpack-serialized AvmCircuitInputs (AvmProvingInputs in C++) buffer
  * @param logLevel - Log level to control C++ verbosity
  * @returns Promise resolving to msgpack-serialized simulation results buffer
  */
 export function avmSimulateWithHintedDbs(inputs: Buffer, logLevel: LogLevel = 'info'): Promise<Buffer> {
-  return nativeAvmSimulateWithHintedDbs(inputs, LogLevels.indexOf(logLevel));
+  return withAvmConcurrencyLimit(() => nativeAvmSimulateWithHintedDbs(inputs, LogLevels.indexOf(logLevel)));
 }
