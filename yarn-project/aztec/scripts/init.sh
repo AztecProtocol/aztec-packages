@@ -3,10 +3,11 @@ set -euo pipefail
 
 script_path=$(realpath $(dirname "$0"))
 
-# Check for help first
-for arg in "$@"; do
-  if [ "$arg" == "--help" ] || [ "$arg" == "-h" ]; then
-    cat << 'EOF'
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --help|-h)
+      cat << 'EOF'
 Aztec Init - Create a new Aztec Noir project in the current directory
 
 Usage: aztec init
@@ -21,8 +22,15 @@ adds the Aztec.nr dependency to both.
 If a workspace already exists in the current directory, use
 'aztec new <name>' instead to add another contract.
 EOF
-    exit 0
-  fi
+      exit 0
+      ;;
+    *)
+      echo "Error: unexpected argument '$1'"
+      echo "Usage: aztec init"
+      echo "Run 'aztec init --help' for more information"
+      exit 1
+      ;;
+  esac
 done
 
 package_name="$(basename $(pwd))"

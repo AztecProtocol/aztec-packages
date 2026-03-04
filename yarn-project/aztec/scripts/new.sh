@@ -29,10 +29,21 @@ When run inside an existing workspace (Nargo.toml with [workspace] exists):
 EOF
       exit 0
       ;;
+    -*)
+      echo "Error: unknown option '$1'"
+      echo "Usage: aztec new <NAME>"
+      echo "Run 'aztec new --help' for more information"
+      exit 1
+      ;;
     *)
+      if [ -n "$project_path" ]; then
+        echo "Error: unexpected argument '$1'"
+        echo "Usage: aztec new <NAME>"
+        echo "Run 'aztec new --help' for more information"
+        exit 1
+      fi
       project_path=$1
       shift
-      break
       ;;
   esac
 done
@@ -45,6 +56,13 @@ if [ -z "$project_path" ]; then
 fi
 
 package_name="$(basename $project_path)"
+
+# Validate that the name contains only valid Noir identifier characters
+if ! [[ "$package_name" =~ ^[a-zA-Z][a-zA-Z0-9_]*$ ]]; then
+  echo "Error: '$package_name' is not a valid contract name"
+  echo "Name must start with a letter and contain only letters, digits, and underscores"
+  exit 1
+fi
 
 # Check if we're inside an existing workspace
 if [ -f "Nargo.toml" ] && grep -q '\[workspace\]' Nargo.toml; then
