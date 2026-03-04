@@ -56,7 +56,10 @@ export interface WorkspacePageData {
 }
 
 function linkify(text: string): string {
-  return text.replace(/(https?:\/\/[^\s&<"']+)/g, '<a href="$1" target="_blank" class="link">$1</a>');
+  return text.replace(/(https?:\/\/[^\s&<"']+)/g, (m) => {
+    const url = m.replace(/[.,;:!?)}\]]+$/, '');
+    return `<a href="${url}" target="_blank" class="link">${url}</a>${m.slice(url.length)}`;
+  });
 }
 
 function renderUserMsg(promptText: string, t: string, user: string): string {
@@ -108,7 +111,7 @@ export function workspacePageHTML(data: WorkspacePageData): string {
     </div>
     ${artifacts.length ? `<div class="sidebar-section"><div class="sidebar-label">Artifacts (${artifacts.length})</div>${artifacts.map(a => {
       const text = esc(a.text.length > 120 ? a.text.slice(0, 120) + "\u2026" : a.text);
-      const linked = text.replace(/(https?:\/\/[^\s&<"']+)/g, '<a href="$1" target="_blank" class="link">$1</a>');
+      const linked = text.replace(/(https?:\/\/[^\s&<"']+)/g, (m) => { const u = m.replace(/[.,;:!?)}\]]+$/, ''); return `<a href="${u}" target="_blank" class="link">${u}</a>${m.slice(u.length)}`; });
       return `<div class="artifact-row">${linked}</div>`;
     }).join("\n")}</div>` : ""}`;
 
@@ -327,7 +330,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
   document.querySelectorAll("[data-msg]").forEach(function(el){seenMsgs.add(el.dataset.msg);});
 
   function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
-  function linkify(s){return s.replace(/(https?:\\/\\/[^\\s&<"']+)/g,'<a href="$1" target="_blank" class="link">$1</a>')}
+  function linkify(s){return s.replace(/(https?:\\/\\/[^\\s&<"']+)/g,function(m){var u=m.replace(/[.,;:!?)}\]]+$/,'');return'<a href="'+u+'" target="_blank" class="link">'+u+'</a>'+m.slice(u.length)})}
   function msgId(text){var h=0;for(var i=0;i<Math.min(text.length,50);i++){h=((h<<5)-h)+text.charCodeAt(i);h|=0;}return"m"+Math.abs(h).toString(36)}
   function timeAgo(iso){var ms=Date.now()-new Date(iso).getTime();if(ms<60000)return"just now";if(ms<3600000)return Math.floor(ms/60000)+"m ago";if(ms<86400000)return Math.floor(ms/3600000)+"h ago";return Math.floor(ms/86400000)+"d ago";}
 
@@ -1832,7 +1835,7 @@ export function personalDashboardHTML(): string {
     return Math.floor(ms/86400000)+"d ago";
   }
   function esc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
-  function linkify(s){return s.replace(/(https?:\\/\\/[^\\s&<"']+)/g,'<a href="$1" target="_blank" class="artifact-link">$1</a>');}
+  function linkify(s){return s.replace(/(https?:\\/\\/[^\\s&<"']+)/g,function(m){var u=m.replace(/[.,;:!?)}\]]+$/,'');return'<a href="'+u+'" target="_blank" class="artifact-link">'+u+'</a>'+m.slice(u.length)});}
 
   // ── Load sessions ─────────────────────────────────
   function loadSessions(){

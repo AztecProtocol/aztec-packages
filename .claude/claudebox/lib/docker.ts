@@ -200,6 +200,7 @@ export class DockerService {
       slack_channel: opts.slackChannel || "",
       slack_channel_name: opts.slackChannelName || "",
       slack_thread_ts: opts.slackThreadTs || "",
+      slack_message_ts: opts.slackMessageTs || "",
       claude_session_id: sessionUuid,
       worktree_id: worktreeId,
       base_branch: baseBranch,

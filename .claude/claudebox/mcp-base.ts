@@ -160,7 +160,7 @@ try {
         const entry = JSON.parse(line);
         if (entry.type === "artifact") {
           const m = entry.text.match(/(https?:\/\/[^\s)>\]]+)/);
-          if (m) _seenArtifactUrls.add(m[1]);
+          if (m) _seenArtifactUrls.add(m[1].replace(/[.,;:!?]+$/, ''));
         }
       } catch {}
     }
@@ -172,8 +172,9 @@ export function logActivity(type: string, text: string): void {
   if (type === "artifact") {
     const urlMatch = text.match(/(https?:\/\/[^\s)>\]]+)/);
     if (urlMatch) {
-      if (_seenArtifactUrls.has(urlMatch[1])) return;
-      _seenArtifactUrls.add(urlMatch[1]);
+      const cleanUrl = urlMatch[1].replace(/[.,;:!?]+$/, '');
+      if (_seenArtifactUrls.has(cleanUrl)) return;
+      _seenArtifactUrls.add(cleanUrl);
     }
   }
   try {

@@ -13,7 +13,10 @@ export function markdownToSlack(text: string): string {
   // Convert Markdown links [text](url) → <url|text>
   let result = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<$2|$1>");
   // Wrap remaining bare URLs that aren't already inside <...>
-  result = result.replace(/(?<![<|])(https?:\/\/[^\s>]+)/g, "<$1>");
+  result = result.replace(/(?<![<|])(https?:\/\/[^\s>]+)/g, (_, url) => {
+    const clean = url.replace(/[.,;:!?)+\]]+$/, '');
+    return `<${clean}>${url.slice(clean.length)}`;
+  });
   return result;
 }
 
@@ -71,7 +74,7 @@ export function buildSlackStatusFromActivity(
     // Extract URL from the artifact text
     const urlMatch = a.text.match(/(https?:\/\/[^\s)>\]]+)/);
     if (!urlMatch) continue;
-    const url = urlMatch[1];
+    const url = urlMatch[1].replace(/[.,;:!?]+$/, '');
     if (seenUrls.has(url)) continue;
     seenUrls.add(url);
 

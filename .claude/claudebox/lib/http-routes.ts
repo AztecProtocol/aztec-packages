@@ -10,6 +10,7 @@ import { workspacePageHTML, dashboardHTML, auditDashboardHTML, personalDashboard
 import { parseMessage, parseKeywords, validateResumeSession, truncate, prKeyFromUrl } from "./util.ts";
 import { QuestionStore } from "./question-store.ts";
 import { generateTags } from "./tagger.ts";
+import { updateSlackStatus } from "./slack-helpers.ts";
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -767,7 +768,7 @@ const routes: Route[] = [
             if (a.type === "artifact") {
               const urlMatch = a.text.match(/(https?:\/\/[^\s)>\]]+)/);
               if (urlMatch) {
-                const url = urlMatch[1];
+                const url = urlMatch[1].replace(/[.,;:!?]+$/, '');
                 if (!artifactMap.has(url)) {
                   const prMatch = url.match(/\/pull\/(\d+)/);
                   const issueMatch = url.match(/\/issues\/(\d+)/);
@@ -920,16 +921,30 @@ const routes: Route[] = [
       console.log(`[HTTP] POST /s/${params[0]}/resume worktree=${session.worktree_id} prompt=${truncate(prompt, 80)}`);
 
       let responded = false;
+      let capturedLogUrl = "";
       docker.runContainerSession({
         prompt,
         userName: body.user || session.user || "web",
         worktreeId: session.worktree_id,
+        slackChannel: session.slack_channel || "",
+        slackThreadTs: session.slack_thread_ts || "",
+        slackMessageTs: session.slack_message_ts || "",
         targetRef: session.base_branch ? `origin/${session.base_branch}` : undefined,
         profile: session.profile || undefined,
       }, store, undefined, (logUrl) => {
+        capturedLogUrl = logUrl;
         if (!responded) {
           responded = true;
           json(res, 202, { ok: true, log_url: logUrl, status: "started" });
+        }
+      }).then((exitCode) => {
+        // Update Slack status on completion (same as Slack-initiated sessions)
+        if (session.slack_channel && session.slack_message_ts && capturedLogUrl) {
+          const statusSuffix = exitCode === 0 ? "completed" : `error (exit ${exitCode})`;
+          updateSlackStatus(
+            session.slack_channel, session.slack_message_ts, statusSuffix,
+            capturedLogUrl, session.worktree_id!, store, prompt,
+          ).catch((e: any) => console.warn(`[WARN] Resume Slack update failed: ${e}`));
         }
       }).catch((e) => {
         console.error(`[HTTP] Resume error: ${e}`);
