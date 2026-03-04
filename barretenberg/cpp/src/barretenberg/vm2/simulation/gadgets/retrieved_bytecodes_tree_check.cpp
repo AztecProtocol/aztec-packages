@@ -21,7 +21,7 @@ bool RetrievedBytecodesTreeCheck::contains(const FF& class_id)
     auto low_leaf_preimage = tree.get_leaf_preimage(low_leaf_index);
 
     indexed_tree_check.assert_read(class_id,
-                                   std::nullopt,
+                                   std::nullopt, // No siloing
                                    exists,
                                    IndexedTreeLeafData{
                                        .value = low_leaf_preimage.leaf.class_id,
@@ -56,8 +56,8 @@ void RetrievedBytecodesTreeCheck::insert(const FF& class_id)
 
     AppendOnlyTreeSnapshot next_snapshot =
         indexed_tree_check.write(class_id,
-                                 std::nullopt,
-                                 std::nullopt,
+                                 std::nullopt, // No siloing
+                                 std::nullopt, // No public inputs write
                                  IndexedTreeLeafData{
                                      .value = low_leaf_preimage.leaf.class_id,
                                      .next_value = low_leaf_preimage.nextKey,

@@ -788,7 +788,7 @@ sel_execute_returndata_size * (mem_tag_reg[0] - constants.MEM_TAG_U32) = 0; // W
 #[RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED]
 (1 - sel_first_row_in_context) * (prev_retrieved_bytecodes_tree_size - retrieved_bytecodes_tree_size) = 0;
 
-// Shared between nullifier_exists.pil and emit_nullifier.pil.
+// Constant height set in nullifier_exists.pil and emit_nullifier.pil
 // Lookup constant support: Can be removed when we support constants in lookups.
 pol commit nullifier_tree_height;
 

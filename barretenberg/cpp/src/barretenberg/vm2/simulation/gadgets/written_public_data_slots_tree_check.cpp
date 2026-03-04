@@ -75,7 +75,7 @@ void WrittenPublicDataSlotsTreeCheck::insert(const AztecAddress& contract_addres
                                      .address = contract_address,
                                      .siloing_separator = DOM_SEP__PUBLIC_LEAF_SLOT,
                                  },
-                                 std::nullopt,
+                                 std::nullopt, // No public inputs write
                                  IndexedTreeLeafData{
                                      .value = low_leaf_preimage.leaf.slot,
                                      .next_value = low_leaf_preimage.nextKey,

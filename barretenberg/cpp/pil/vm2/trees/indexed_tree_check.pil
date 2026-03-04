@@ -196,9 +196,9 @@ namespace indexed_tree_check;
     in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
 
     // ========= HANDLE REDUNDANT WRITES  =========
-    // sel_insert implies sel since write implies sel
+    // sel_insert implies sel since write and not_exists imply sel
     pol commit sel_insert; // @boolean (by definition)
-    sel_insert = write * (1 - exists);
+    sel_insert = write * not_exists;
 
     // On a redundant write, the root must not change
     write * exists * (root - write_root) = 0;

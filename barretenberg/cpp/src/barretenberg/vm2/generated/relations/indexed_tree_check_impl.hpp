@@ -107,7 +107,7 @@ void indexed_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::indexed_tree_check_sel_insert)) -
                     static_cast<View>(in.get(C::indexed_tree_check_write)) *
-                        (FF(1) - static_cast<View>(in.get(C::indexed_tree_check_exists))));
+                        static_cast<View>(in.get(C::indexed_tree_check_not_exists)));
         std::get<12>(evals) += (tmp * scaling_factor);
     }
     {
