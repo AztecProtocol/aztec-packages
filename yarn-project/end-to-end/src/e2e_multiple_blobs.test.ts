@@ -36,7 +36,7 @@ describe('e2e_multiple_blobs', () => {
     } = await setup(1));
     aztecNodeAdmin = maybeAztecNodeAdmin!;
 
-    contract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress });
+    ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
 
   afterAll(() => teardown());
@@ -68,10 +68,10 @@ describe('e2e_multiple_blobs', () => {
     expect(provenTxs.length).toBe(TX_COUNT);
 
     // Send them simultaneously to be picked up by the sequencer
-    const txHashes = await Promise.all(provenTxs.map(tx => tx.send({ from: defaultAccountAddress, wait: NO_WAIT })));
+    const sendResults = await Promise.all(provenTxs.map(tx => tx.send({ from: defaultAccountAddress, wait: NO_WAIT })));
     // Wait for all to be mined
     const receipts = await Promise.all(
-      txHashes.map(txHash => {
+      sendResults.map(({ txHash }) => {
         return waitForTx(aztecNode, txHash);
       }),
     );

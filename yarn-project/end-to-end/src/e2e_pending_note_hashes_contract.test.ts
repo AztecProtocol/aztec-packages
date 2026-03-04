@@ -75,7 +75,7 @@ describe('e2e_pending_note_hashes_contract', () => {
 
   const deployContract = async () => {
     logger.debug(`Deploying L2 contract...`);
-    contract = await PendingNoteHashesContract.deploy(wallet).send({ from: owner });
+    ({ contract } = await PendingNoteHashesContract.deploy(wallet).send({ from: owner }));
     logger.info(`L2 contract deployed at ${contract.address}`);
     return contract;
   };

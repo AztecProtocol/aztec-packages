@@ -9,6 +9,97 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] `simulate()`, `send()`, and deploy return types changed to always return objects
+
+All SDK interaction methods now return structured objects that include offchain output alongside the primary result. This affects `.simulate()`, `.send()`, deploy `.send()`, and `Wallet.sendTx()`.
+
+**Impact**: Every call site that uses `.simulate()`, `.send()`, or deploy must destructure the result. This is a mechanical transformation. Custom wallet implementations must update `sendTx()` to return the new object shapes, using `extractOffchainOutput` to decode offchain messages from raw effects.
+
+The offchain output includes two fields:
+
+- `offchainEffects` — raw offchain effects emitted during execution, other than `offchainMessages`
+- `offchainMessages` — decoded messages intended for specific recipients
+
+We are making this change now so in the future we can add more fields to the responses of this APIs without breaking backwards compatibility,
+so this won't ever happen again.
+
+**`simulate()` — always returns `{ result, offchainEffects, offchainMessages }` object:**
+
+```diff
+- const value = await contract.methods.foo(args).simulate({ from: sender });
++ const { result: value } = await contract.methods.foo(args).simulate({ from: sender });
+```
+
+When using `includeMetadata` or `fee.estimateGas`, `stats` and `estimatedGas` are also available as optional fields on the same object:
+
+```diff
+- const { stats, estimatedGas } = await contract.methods.foo(args).simulate({
++ const sim = await contract.methods.foo(args).simulate({
+    from: sender,
+    includeMetadata: true,
+  });
++ const stats = sim.stats!;
++ const estimatedGas = sim.estimatedGas!;
+```
+
+`SimulationReturn` is no longer a generic conditional type — it's a single flat type with optional `stats` and `estimatedGas` fields.
+
+**`send()` — returns `{ receipt, offchainEffects, offchainMessages }` object:**
+
+```diff
+- const receipt = await contract.methods.foo(args).send({ from: sender });
++ const { receipt } = await contract.methods.foo(args).send({ from: sender });
+```
+
+When using `NO_WAIT`, returns `{ txHash, offchainEffects, offchainMessages }` instead of a bare `TxHash`:
+
+```diff
+- const txHash = await contract.methods.foo(args).send({ from: sender, wait: NO_WAIT });
++ const { txHash } = await contract.methods.foo(args).send({ from: sender, wait: NO_WAIT });
+```
+
+Offchain messages emitted by the transaction are available on the result:
+
+```typescript
+const { receipt, offchainMessages } = await contract.methods.foo(args).send({ from: sender });
+for (const msg of offchainMessages) {
+  console.log(`Message for ${msg.recipient} from contract ${msg.contractAddress}:`, msg.payload);
+}
+```
+
+**Deploy — returns `{ contract, receipt, offchainEffects, offchainMessages }` object:**
+
+```diff
+- const myContract = await MyContract.deploy(wallet, ...args).send({ from: sender });
++ const { contract: myContract } = await MyContract.deploy(wallet, ...args).send({ from: sender });
+```
+
+The deploy receipt is also available via `receipt` if needed (e.g. for `receipt.txHash` or `receipt.transactionFee`).
+
+**Custom wallet implementations — `sendTx()` must return objects:**
+
+If you implement the `Wallet` interface (or extend `BaseWallet`), the `sendTx()` method must now return objects that include offchain output. Use `extractOffchainOutput` to split raw effects into decoded messages and remaining effects:
+
+```diff
++ import { extractOffchainOutput } from '@aztec/aztec.js/contracts';
+
+  async sendTx(executionPayload, opts) {
+    const provenTx = await this.pxe.proveTx(...);
++   const offchainOutput = extractOffchainOutput(provenTx.getOffchainEffects());
+    const tx = await provenTx.toTx();
+    const txHash = tx.getTxHash();
+    await this.aztecNode.sendTx(tx);
+
+    if (opts.wait === NO_WAIT) {
+-     return txHash;
++     return { txHash, ...offchainOutput };
+    }
+    const receipt = await waitForTx(this.aztecNode, txHash, opts.wait);
+-   return receipt;
++   return { receipt, ...offchainOutput };
+  }
+```
+
 ### `aztec new` crate directories are now named after the contract
 
 `aztec new` and `aztec init` now name the generated crate directories after the contract instead of using generic `contract/` and `test/` names. For example, `aztec new counter` now creates:
