@@ -3,6 +3,7 @@ import {
   FunctionCall,
   FunctionSelector,
   FunctionType,
+  canBeMappedFromNullOrUndefined,
   decodeFromAbi,
   encodeArguments,
 } from '@aztec/stdlib/abi';
@@ -38,9 +39,28 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     private extraHashedArgs: HashedValues[] = [],
   ) {
     super(wallet, authWitnesses, capsules);
-    if (args.some(arg => arg === undefined || arg === null)) {
-      throw new Error(`All function interaction arguments must be defined and not null. Received: ${args}`);
+    // This may feel a bit ad-hoc here, so it warrants a comment. We accept Noir Option<T> parameters, and it's natural
+    // to map JS's null/undefined to Noir Option's None. One possible way to deal with null/undefined arguments at this
+    // point in the codebase is to conclude that they are accepted since at least one Noir type (ie: Option) can be
+    // encoded from them. Then we would let `encode` deal with potential mismatches. I chose not to do that because of
+    // the pervasiveness of null/undefined in JS, and how easy it is to inadvertently pass it around. Having this check
+    // here allows us to fail at a point where the boundaries and intent are clear.
+    if (this.hasInvalidNullOrUndefinedArguments(args)) {
+      throw new Error(
+        `Null or undefined function interaction arguments are only allowed for parameters that can be ABI encoded from them (e.g.: Option<T>). Received: ${args}`,
+      );
     }
+  }
+
+  private hasInvalidNullOrUndefinedArguments(args: any[]) {
+    return args.some((arg, index) => {
+      if (arg !== undefined && arg !== null) {
+        return false;
+      }
+
+      const parameterType = this.functionDao.parameters[index]?.type;
+      return !parameterType || !canBeMappedFromNullOrUndefined(parameterType);
+    });
   }
 
   /**

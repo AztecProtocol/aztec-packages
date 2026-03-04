@@ -110,6 +110,42 @@ describe('Contract Class', () => {
         debugSymbols: '',
         errorTypes: {},
       },
+      {
+        name: 'optionEcho',
+        isInitializer: false,
+        functionType: FunctionType.PRIVATE,
+        isOnlySelf: false,
+        isStatic: false,
+        parameters: [
+          {
+            name: 'value',
+            type: {
+              kind: 'struct',
+              path: 'std::option::Option',
+              fields: [
+                {
+                  name: '_is_some',
+                  type: {
+                    kind: 'boolean',
+                  },
+                },
+                {
+                  name: '_value',
+                  type: {
+                    kind: 'field',
+                  },
+                },
+              ],
+            },
+            visibility: 'private',
+          },
+        ],
+        returnTypes: [],
+        errorTypes: {},
+        bytecode: Buffer.alloc(8, 0xfd),
+        verificationKey: Buffer.alloc(4064).toString('base64'),
+        debugSymbols: '',
+      },
     ],
     nonDispatchPublicFunctions: [],
     outputs: {
@@ -159,5 +195,23 @@ describe('Contract Class', () => {
       expect.objectContaining({ scope: account.getAddress() }),
     );
     expect(result).toBe(42n);
+  });
+
+  it('allows nullish values for Option parameters', () => {
+    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+
+    expect(() => fooContract.methods.optionEcho(undefined)).not.toThrow();
+    expect(() => fooContract.methods.optionEcho(null)).not.toThrow();
+  });
+
+  it('still rejects nullish values for non-Option parameters', () => {
+    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+
+    expect(() => fooContract.methods.bar(undefined, 123n)).toThrow(
+      'Null or undefined function interaction arguments are only allowed for parameters that can be ABI encoded from them (e.g.: Option<T>).',
+    );
+    expect(() => fooContract.methods.qux(null)).toThrow(
+      'Null or undefined function interaction arguments are only allowed for parameters that can be ABI encoded from them (e.g.: Option<T>).',
+    );
   });
 });
