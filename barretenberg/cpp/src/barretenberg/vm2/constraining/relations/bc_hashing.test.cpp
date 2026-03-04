@@ -291,10 +291,10 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeLatchNotSel)
                   { C::bc_hashing_sel, 1 },
               } });
 
-    check_relation<bc_hashing>(trace, bc_hashing::SR_SEL_TOGGLED_AT_LATCH);
+    check_relation<bc_hashing>(trace, bc_hashing::SR_SEL_ON_START_OR_END);
     trace.set(C::bc_hashing_sel, 0, 0); // Mutate to wrong value
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_SEL_TOGGLED_AT_LATCH),
-                              "SEL_TOGGLED_AT_LATCH");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_SEL_ON_START_OR_END),
+                              "SEL_ON_START_OR_END");
 }
 
 TEST_F(BytecodeHashingConstrainingTest, NegativeInvalidStartAfterLatch)
