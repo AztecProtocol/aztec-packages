@@ -1,4 +1,4 @@
-import { NetCrs, NetGrumpkinCrs } from '../net_crs.js';
+import { NetCrs, NetGrumpkinCrs, decompressG1Points } from '../net_crs.js';
 import { closeSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync, createWriteStream } from 'fs';
 import { stat } from 'fs/promises';
 import { Readable } from 'stream';
@@ -29,36 +29,60 @@ export class Crs {
   async init(): Promise<void> {
     mkdirSync(this.path, { recursive: true });
 
-    const g1FileSize = await stat(this.path + '/bn254_g1.dat')
+    // Check compressed cache first, then legacy uncompressed
+    const compressedFileSize = await stat(this.path + '/bn254_g1_compressed.dat')
+      .then(stats => stats.size)
+      .catch(() => 0);
+    const legacyFileSize = await stat(this.path + '/bn254_g1.dat')
       .then(stats => stats.size)
       .catch(() => 0);
     const g2FileSize = await stat(this.path + '/bn254_g2.dat')
       .then(stats => stats.size)
       .catch(() => 0);
 
-    if (g1FileSize >= this.numPoints * 64 && g1FileSize % 64 == 0 && g2FileSize == 128) {
-      this.logger(`Using cached CRS of size ${g1FileSize / 64}`);
+    const hasCompressed = compressedFileSize >= this.numPoints * 32 && compressedFileSize % 32 == 0;
+    const hasLegacy = legacyFileSize >= this.numPoints * 64 && legacyFileSize % 64 == 0;
+
+    if ((hasCompressed || hasLegacy) && g2FileSize == 128) {
+      const cacheType = hasCompressed ? 'compressed' : 'legacy';
+      const cacheSize = hasCompressed ? compressedFileSize / 32 : legacyFileSize / 64;
+      this.logger(`Using cached ${cacheType} CRS of size ${cacheSize}`);
       return;
     }
 
     this.logger(`Downloading CRS of size ${this.numPoints} into ${this.path}`);
     const crs = new NetCrs(this.numPoints);
-    const [g1, g2] = await Promise.all([crs.streamG1Data(), crs.streamG2Data()]);
+    const g1Stream = await crs.streamG1Data();
+    const g2Stream = await crs.streamG2Data();
+    const g1File = crs.g1IsCompressed ? '/bn254_g1_compressed.dat' : '/bn254_g1.dat';
 
     await Promise.all([
-      finished(Readable.fromWeb(g1 as any).pipe(createWriteStream(this.path + '/bn254_g1.dat'))),
-      finished(Readable.fromWeb(g2 as any).pipe(createWriteStream(this.path + '/bn254_g2.dat'))),
+      finished(Readable.fromWeb(g1Stream as any).pipe(createWriteStream(this.path + g1File))),
+      finished(Readable.fromWeb(g2Stream as any).pipe(createWriteStream(this.path + '/bn254_g2.dat'))),
     ]);
   }
 
   /**
    * G1 points data for prover key.
-   * @returns The points data.
+   * @returns The points data (64 bytes/point, uncompressed).
    */
   getG1Data(): Uint8Array {
-    // Ensure length > 0, otherwise we might read a huge file.
-    // This is a backup.
-    const length = Math.max(this.numPoints, 1) * 64;
+    const numPoints = Math.max(this.numPoints, 1);
+
+    // Try compressed cache first
+    try {
+      const compressedLength = numPoints * 32;
+      const fd = openSync(this.path + '/bn254_g1_compressed.dat', 'r');
+      const compressed = new Uint8Array(compressedLength);
+      readSync(fd, compressed, 0, compressedLength, 0);
+      closeSync(fd);
+      return decompressG1Points(compressed, numPoints);
+    } catch {
+      // Fall through to legacy
+    }
+
+    // Legacy uncompressed cache
+    const length = numPoints * 64;
     const fd = openSync(this.path + '/bn254_g1.dat', 'r');
     const buffer = new Uint8Array(length);
     readSync(fd, buffer, 0, length, 0);

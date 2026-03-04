@@ -20,17 +20,22 @@ export class CachedNetCrs {
    * Download the data.
    */
   async init() {
-    // Check if data is in IndexedDB
-    const g1Data = await get('g1Data');
+    // Check for decompressed cache (new format) first, then legacy
+    const g1DataV2 = await get('g1DataV2');
+    const g1DataLegacy = await get('g1Data');
     const g2Data = await get('g2Data');
     const netCrs = new NetCrs(this.numPoints);
     const g1DataLength = this.numPoints * 64;
 
-    if (!g1Data || g1Data.length < g1DataLength) {
-      this.g1Data = await netCrs.downloadG1Data();
-      await set('g1Data', this.g1Data);
+    if (g1DataV2 && g1DataV2.length >= g1DataLength) {
+      this.g1Data = g1DataV2;
+    } else if (g1DataLegacy && g1DataLegacy.length >= g1DataLength) {
+      // Legacy uncompressed cache still valid
+      this.g1Data = g1DataLegacy;
     } else {
-      this.g1Data = g1Data;
+      // Downloads compressed, decompresses internally
+      this.g1Data = await netCrs.downloadG1Data();
+      await set('g1DataV2', this.g1Data);
     }
 
     if (!g2Data) {
