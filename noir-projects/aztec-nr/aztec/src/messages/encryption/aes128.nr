@@ -483,12 +483,12 @@ mod test {
 
             // Mock random values for deterministic test
             let eph_sk = 0x1358d15019d4639393d62b97e1588c095957ce74a1c32d6ec7d62fe6705d9538;
-            let _ = OracleMock::mock("utilityGetRandomField").returns(eph_sk).times(1);
+            let _ = OracleMock::mock("aztec_utl_getRandomField").returns(eph_sk).times(1);
 
             let randomness = 0x0101010101010101010101010101010101010101010101010101010101010101;
-            let _ = OracleMock::mock("utilityGetRandomField").returns(randomness).times(1000000);
+            let _ = OracleMock::mock("aztec_utl_getRandomField").returns(randomness).times(1000000);
 
-            let _ = OracleMock::mock("privateGetNextAppTagAsSender").returns(42);
+            let _ = OracleMock::mock("aztec_prv_getNextAppTagAsSender").returns(42);
 
             // Encrypt the message
             let encrypted_message = BoundedVec::from_array(AES128::encrypt(plaintext, recipient));
@@ -499,7 +499,7 @@ mod test {
                 recipient.to_address_point().unwrap().inner,
             );
 
-            let _ = OracleMock::mock("utilityGetSharedSecret").returns(shared_secret);
+            let _ = OracleMock::mock("aztec_utl_getSharedSecret").returns(shared_secret);
 
             // Decrypt the message
             let decrypted = AES128::decrypt(encrypted_message, recipient).unwrap();
