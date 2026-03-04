@@ -3,6 +3,8 @@
 
 using namespace bb;
 
+static constexpr uint256_t Z = 4965661367192848881UL;
+
 TEST(pairing, ReducedAtePairingCheckAgainstConstants)
 {
     constexpr g1::affine_element P = {
@@ -206,6 +208,7 @@ TEST(pairing, DoublingStep)
     EXPECT_EQ(line.w, Q.x.sqr().mul_by_fq(fq(3)));
     EXPECT_EQ(line.vw, g2::curve_b.mul_by_fq(fq(3)) * Q.z.sqr() - Q.y.sqr());
 
+    // Check correctness by comparing against the rescaling of the affine calculation
     fq2 gradient = Q.x.sqr().mul_by_fq(fq(3)) * (Q.z * Q.y.mul_by_fq(fq(2))).invert();
     fq2 multiplier = Q.y * Q.z.mul_by_fq(fq(2));
     EXPECT_EQ(line.o, multiplier);
@@ -241,6 +244,7 @@ TEST(pairing, AdditionStep)
     EXPECT_EQ(line.w, theta);
     EXPECT_EQ(line.vw, theta * Q.x - lambda * Q.y);
 
+    // Check correctness by comparing against the rescaling of the affine calculation
     fq2 gradient = (Q.y - current.y * current.z.invert()) * (Q.x - current.x * current.z.invert()).invert();
     fq2 multiplier = current.x - current.z * Q.x;
     EXPECT_EQ(line.o, multiplier);
@@ -275,7 +279,7 @@ TEST(pairing, FinalExponentiation)
         return result;
     };
 
-    fq z = uint256_t(4965661367192848881UL);
+    fq z = fq(Z);
     fq z2 = z.sqr();
     fq z3 = z * z2;
     fq mu0 = z3 * fq(12) + z2 * fq(12) + z * fq(6) + fq(1);
@@ -291,4 +295,27 @@ TEST(pairing, FinalExponentiation)
     expected = pairing::final_exponentiation_easy_part(expected);
     expected = pow(expected, mu0) + pow(expected, mu1).frobenius_map_one() + pow(expected, mu2).frobenius_map_two() +
                pow(expected, mu3).frobenius_map_three();
+}
+
+TEST(pairing, Constants)
+{
+    uint256_t six_z_plus_two = uint256_t(1);
+    for (const uint8_t& bit : pairing::loop_bits) {
+        six_z_plus_two = six_z_plus_two + six_z_plus_two;
+        if (bit == 1) {
+            six_z_plus_two = six_z_plus_two + uint256_t(1);
+        } else if (bit == 3) {
+            six_z_plus_two = six_z_plus_two - uint256_t(1);
+        }
+    }
+    EXPECT_EQ(six_z_plus_two, uint256_t(6) * Z + uint256_t(2));
+
+    uint256_t z_check = uint256_t(1);
+    for (const bool& bit : pairing::z_loop_bits) {
+        z_check = z_check + z_check;
+        if (bit) {
+            z_check = z_check + uint256_t(1);
+        }
+    }
+    EXPECT_EQ(z_check, Z);
 }

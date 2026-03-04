@@ -240,6 +240,8 @@ template <typename base_field, typename Fq6Params> class field6 {
     /**
      * @brief Multiply a field6 element by a0 + a1 * v.
      *
+     * @details Algorithm 6 from https://cacr.uwaterloo.ca/techreports/2012/cacr2012-17.pdf
+     *
      * @param a0
      * @param a1
      * @return constexpr field6

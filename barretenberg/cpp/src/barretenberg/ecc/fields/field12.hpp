@@ -132,6 +132,13 @@ template <typename quadratic_field, typename base_field, typename Fq12Params> cl
 
     constexpr void self_sqr() { *this = sqr(); }
 
+    /**
+     * @brief Multiply the element by a sparse element of the form ell.o + ell.w * w + ell.vw * wv.
+     *
+     * @details Algorithm 5 from https://cacr.uwaterloo.ca/techreports/2012/cacr2012-17.pdf
+     *
+     * @param ell
+     */
     constexpr void self_sparse_mul(const ell_coeffs& ell)
     {
         quadratic_field A0 = ell.o * c0.c0;

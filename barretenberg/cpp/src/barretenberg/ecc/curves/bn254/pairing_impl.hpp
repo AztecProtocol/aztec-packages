@@ -49,8 +49,8 @@ constexpr void doubling_step_for_miller_loop(g2Projective& work_point, fq12::ell
     fq2 F = E + E + E;                                      // F = 3 * E
     fq2 G = (B + F).mul_by_fq(two_inv);                     // G = (B + F) / 2
     fq2 H = (work_point.y + work_point.z).sqr() - B - C;    // H = (Y + Z)^2 - B - C
-    fq2 I = work_point.x.sqr();
-    fq2 J = E.sqr();
+    fq2 I = work_point.x.sqr();                             // I = X^2
+    fq2 J = E.sqr();                                        // J = E^2
 
     line.o = H;
     line.w = I + I + I;
@@ -89,7 +89,7 @@ constexpr void mixed_addition_step_for_miller_loop(const g2Projective& Q,
 
 constexpr void precompute_miller_lines(const g2Projective& Q, miller_lines& lines)
 {
-    g2Projective Q_neg{ Q.x, -Q.y, fq2::one() };
+    g2Projective Q_neg{ Q.x, -Q.y, Q.z };
     g2Projective work_point = Q;
 
     size_t it = 0;
@@ -116,12 +116,12 @@ constexpr void precompute_miller_lines(const g2Projective& Q, miller_lines& line
 constexpr void precompute_miller_lines(const g2::element& Q, miller_lines& lines)
 {
     if (Q.is_point_at_infinity()) {
-        throw_or_abort("Cannot precompute Miller lines for the point at infinity.");
+        throw_or_abort("precompute_miller_lines: Cannot precompute Miller lines for the point at infinity.");
     }
-    precompute_miller_lines(g2Projective{ Q.x, Q.y, fq2::one() }, lines);
+    precompute_miller_lines(g2Projective{ Q.x, Q.y, Q.z }, lines);
 }
 
-constexpr fq12 miller_loop(const g1Projective& P, const miller_lines& lines)
+constexpr fq12 miller_loop(const g1::affine_element& P, const miller_lines& lines)
 {
     fq12 work_scalar = fq12::one();
     fq minus_y_P = -P.y;
@@ -252,23 +252,30 @@ constexpr fq12 final_exponentiation_tricky_part(const fq12& elt)
     fq12 S = N * P;                              // \mu_0 + \mu_1 * q
     fq12 T = S * Q;                              // \mu_0 + \mu_1 * q + \mu_2 * q^2
 
-    return T * R;
+    return T * R; // \mu_0 + \mu_1 * q + \mu_2 * q^2 + \mu_3 * q^3
 }
 
 constexpr fq12 reduced_ate_pairing(const g1::affine_element& P_affine, const g2::affine_element& Q_affine)
 {
+    if (!P_affine.on_curve()) {
+        throw_or_abort("reduced_ate_pairing: P is not on the curve.");
+    }
+
+    if (!Q_affine.on_curve()) {
+        throw_or_abort("reduced_ate_pairing: Q is not on the curve.");
+    }
+
     // Early exit condition: e(P, Q) = 1 if either P or Q are the point at infinity
     if (Q_affine.is_point_at_infinity() || P_affine.is_point_at_infinity()) {
         return fq12::one();
     }
 
-    g1Projective P(P_affine.x, P_affine.y, fq::one());
     g2Projective Q{ Q_affine.x, Q_affine.y, fq2::one() };
 
     miller_lines lines;
     precompute_miller_lines(Q, lines);
 
-    fq12 result = miller_loop(P, lines);
+    fq12 result = miller_loop(P_affine, lines);
     result = final_exponentiation_easy_part(result);
     result = final_exponentiation_tricky_part(result);
     return result;
@@ -280,8 +287,11 @@ fq12 reduced_ate_pairing_batch_precomputed(const g1::affine_element* P_affines,
 {
     for (size_t i = 0; i < num_points; ++i) {
         if (P_affines[i].is_point_at_infinity()) {
-            throw_or_abort(
-                "Computing batch pairing with precomputed lines but one of the points is the point at infinity.");
+            throw_or_abort("reduced_ate_pairing_batch_precomputed: one of the points is the point at infinity.");
+        }
+
+        if (!P_affines[i].on_curve()) {
+            throw_or_abort("reduced_ate_pairing_batch_precomputed: one of the points is not on the curve.");
         }
     }
 
@@ -300,6 +310,13 @@ fq12 reduced_ate_pairing_batch(const g1::affine_element* P_affines,
 
     bool has_infinity_pair = false;
     for (size_t i = 0; i < num_points; ++i) {
+        if (!P_affines[i].on_curve()) {
+            throw_or_abort("reduced_ate_pairing_batch: one of the P points is not on the curve.");
+        }
+        if (!Q_affines[i].on_curve()) {
+            throw_or_abort("reduced_ate_pairing_batch: one of the Q points is not on the curve.");
+        }
+
         // If either P_i or Q_i is the point at infinity, then e(P_i, Q_i) = 1, so we can skip the calculation of
         // that pairing
         if (!P_affines[i].is_point_at_infinity() && !Q_affines[i].is_point_at_infinity()) {

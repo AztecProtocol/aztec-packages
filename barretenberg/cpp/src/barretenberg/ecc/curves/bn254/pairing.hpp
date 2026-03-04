@@ -27,15 +27,15 @@ constexpr size_t z_loop_length = 62;
 // 2 (final two lines)
 constexpr size_t precomputed_coefficients_length = 87;
 
-// Signed bit decomposition of (6 * z + 2) where z is the parameter of BN254, used in the Miller loop.
-// \f$6z + 2 = \sum_{i} b_i 2^i + 2^{64}\f$ where b_i = 1 if loop_bits[i] = 1, b_i = -1 if loop_bits[i] = 3 and b_i = 0
-// if loop_bits[i] = 0
+// Signed bit decomposition (from MSB to LSB) of (6 * z + 2) where z is the parameter of BN254, used in the Miller loop.
+// \f$6z + 2 = \sum_{i} b_i 2^i + 2^{64}\f$ where b_i = 1 if loop_bits[loop_length - i - 1] = 1, b_i = -1 if
+// loop_bits[loop_length - i - 1] = 3 and b_i = 0 if loop_bits[loop_length - i - 1] = 0
 constexpr std::array<uint8_t, loop_length> loop_bits{ 1, 0, 1, 0, 0, 0, 3, 0, 3, 0, 0, 0, 3, 0, 1, 0, 3, 0, 0, 3, 0, 0,
                                                       0, 0, 0, 1, 0, 0, 3, 0, 1, 0, 0, 3, 0, 0, 0, 0, 3, 0, 1, 0, 0, 0,
                                                       3, 0, 3, 0, 0, 1, 0, 0, 0, 3, 0, 0, 3, 0, 1, 0, 1, 0, 0, 0 };
 
-// Bit decomposition of z: \f$\sum_{i} b_i 2^i + 2^{64}\f$ where b_i = 1 if z_loop_bits[i] = 1 and b_i = 0 if
-// z_loop_bits[i] = 0
+// Bit decomposition of z (from MSB to LSB): \f$\sum_{i} b_i 2^i + 2^{64}\f$ where b_i = 1 if z_loop_bits[z_loop_length
+// - i - 1] = 1 and b_i = 0 if z_loop_bits[z_loop_length - i - 1] = 0
 constexpr std::array<bool, z_loop_length> z_loop_bits{
     false, false, false, true,  false, false, true,  true,  true, false, true,  false, false, true,  true,  false,
     false, true,  false, false, true,  false, true,  false, true, true,  false, true,  false, false, false, true,
@@ -109,7 +109,7 @@ constexpr void mixed_addition_step_for_miller_loop(const g2Projective& Q,
  * @brief Precomputation of Miller lines for a point Q in G2.
  *
  * @details This function computes the lines that are evaluated in the calculation of the Miller loop for the point Q.
- * Setting work_point = ±Q depending on the first bit in the signed decomposition of 6z + 2, for each bit in the signed
+ * Setting work_point = Q as the MSB bit in the signed decomposition of 6z + 2 is 1, for each bit in the signed
  * decomposition of 6z + 2 (except the MSB) we need:
  *  - The tangent line at work_point --> updated work_point = 2 * work_point
  *  - The line through:
@@ -120,8 +120,6 @@ constexpr void mixed_addition_step_for_miller_loop(const g2Projective& Q,
  *  - The line through (6z + 2)Q and Q' (image of Q under the Frobenius map)
  *  - The line through (6z + 2)Q + Q' and Q'' (minus the image of Q' under the Frobenius map)
  *
- * We data required for each of these lines: gradients between the relevant points, as well as coordinates of the
- * work_point.
  *
  * @param Q
  * @param lines
@@ -134,22 +132,25 @@ constexpr void precompute_miller_lines(const g2::element& Q, miller_lines& lines
 /**
  * @brief Miller loop implementation.
  *
- * @details This function computes the Miller loop \f$f_{6z + 2, Q}(P)\f$ for the point P and the precomputed Miller
- * lines of Q.
+ * @details This function computes the Miller loop
+ * \f[
+ *      f_{6z + 2, Q}(P) \cdot l_{(6z + 2)Q, Q'}(P) \cdot l_{(6z + 2)Q + Q', -Q''}(P)
+ * \f]
+ * where Q' is the image of Q under the Frobenius map and Q'' is minus the image of Q' under the Frobenius map. For the
+ * point P and the precomputed Miller lines of Q.
  *
  * @param P
  * @param lines
  * @return constexpr fq12
  */
-constexpr fq12 miller_loop(const g1Projective& P, const miller_lines& lines);
+constexpr fq12 miller_loop(const g1::affine_element& P, const miller_lines& lines);
 
 /**
  * @brief Compute the Miller loop for multiple pairs of points.
  *
- * @details The structure of the Miller loop allows computing the product \prod_i f_{6z + 2, Q_i}(P_i) for multiple
+ * @details The structure of the Miller loop allows computing the product of the Miller loops for multiple
  * pairs (P_i, Q_i) with a single loop over the bits of 6z + 2: at each step in the loop we aggregate all the
  * contributions from each point so to perform a single squaring.
- *
  *
  * @param points
  * @param lines
@@ -172,7 +173,7 @@ constexpr fq12 miller_loop_batch(const g1::affine_element* points, const miller_
 constexpr fq12 final_exponentiation_easy_part(const fq12& elt);
 
 /**
- * @brief Compute f^z for f a unitary element
+ * @brief Compute elt^z for elt a unitary element
  *
  * @param elt
  */
@@ -182,9 +183,10 @@ constexpr fq12 final_exponentiation_exp_by_z(const fq12& elt);
  * @brief Hard part of the final exponentiation.
  *
  *
- * @details This function computes \f$elt^{\frac{q^4 - q^2 + 1}{r}}\f$, where \f$elt\f$ is the result of the easy
- * part of the final exponentiation. The algorithm is based on Section 3.3 of "Efficient Implementation of Bilinear
- * Pairings on ARM Processors" https://cacr.uwaterloo.ca/techreports/2012/cacr2012-17.pdf.
+ * @details This function computes \f$elt^{\frac{q^4 - q^2 + 1}{r} \cdot \gamma}\f$, where \f$elt\f$ is the result of
+ * the easy part of the final exponentiation and \f$\gamma = 2z ( 6z^2 + 3z^2 + 1)\f$, with \f$z\f$ the parameter
+ * defining the BN254 curve. The algorithm is based on Section 3.3 of "Efficient Implementation of Bilinear Pairings on
+ * ARM Processors" https://cacr.uwaterloo.ca/techreports/2012/cacr2012-17.pdf.
  *
  * @param elt
  */
@@ -192,6 +194,12 @@ constexpr fq12 final_exponentiation_tricky_part(const fq12& elt);
 
 // ======================
 // Pairing
+//
+// NOTE: All points supplied for pairing calculations are checked to be on the curve. This is equivalent to a subgroup
+// membership check for points in G1 = BN254. We don't implement subgroup membership checks for G2 because the only
+// place in the codebase where we use pairings is in PairingPoints::check(), which takes two points P1, P2 in G1
+// and checks e(P1, [1]) * e(P2, [x]) = 1. The points [1] and [x] are taken from the SRS, so we know they belong to G2.
+//
 // ======================
 
 /**
