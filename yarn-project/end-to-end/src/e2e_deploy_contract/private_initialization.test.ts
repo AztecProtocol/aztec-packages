@@ -143,7 +143,7 @@ describe('e2e_deploy_contract private initialization', () => {
       contract.methods.public_fn_init_check_write_value(owner, 84),
       contract.methods.constructor(...initArgs),
     ]);
-    await expect(batch.send({ from: defaultAccountAddress })).rejects.toThrow(/app_logic_reverted/);
+    await expect(batch.simulate({ from: defaultAccountAddress })).rejects.toThrow(/Not initialized/);
   });
 
   it('allows calling a public function enqueued after private initialization in same tx', async () => {
@@ -196,8 +196,8 @@ describe('e2e_deploy_contract private initialization', () => {
       constructorName: 'initializer_enqueuing_public_init_checked',
     });
     await expect(
-      contract.methods.initializer_enqueuing_public_init_checked(...initArgs).send({ from: defaultAccountAddress }),
-    ).rejects.toThrow(/app_logic_reverted/);
+      contract.methods.initializer_enqueuing_public_init_checked(...initArgs).simulate({ from: defaultAccountAddress }),
+    ).rejects.toThrow(/Not initialized/);
   });
 
   it('refuses to initialize a contract with incorrect args', async () => {
