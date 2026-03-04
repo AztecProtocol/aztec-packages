@@ -962,20 +962,29 @@ async function dmAuthorOnCompletion(): Promise<void> {
   if (!SLACK_BOT_TOKEN || !SESSION_META.user) return;
   if (SESSION_META.slack_channel && SESSION_META.slack_channel.startsWith("D")) return;
   try {
+    // Build a brief DM with link back to context
     const parts: string[] = [];
-    if (commentSections.response) {
-      parts.push(commentSections.response);
-    } else {
-      parts.push("Session completed.");
+
+    // Context link — where the task was triggered
+    const contextLinks: string[] = [];
+    if (SESSION_META.slack_channel && SESSION_META.slack_thread_ts) {
+      const threadLink = `https://aztecprotocol.slack.com/archives/${SESSION_META.slack_channel}/p${SESSION_META.slack_thread_ts.replace(".", "")}`;
+      contextLinks.push(`<${threadLink}|thread>`);
     }
-    for (const [num, pr] of trackedPRs) {
-      const label = pr.action === "created" ? "Created" : "Updated";
-      parts.push(`${label}: <${pr.url}|#${num}: ${pr.title}>`);
+    if (SESSION_META.link) {
+      contextLinks.push(`<${SESSION_META.link}|source>`);
     }
-    const links: string[] = [];
-    if (statusPageUrl) links.push(`<${statusPageUrl}|status>`);
-    if (SESSION_META.log_url) links.push(`<${SESSION_META.log_url}|log>`);
-    if (links.length) parts.push(links.join(" "));
+
+    // Brief status + PR links
+    const prLinks = [...trackedPRs.entries()].map(([num, pr]) => `<${pr.url}|#${num}>`);
+    const hasError = lastStatus?.includes("error");
+    const status = hasError ? "Task failed" : "Task done";
+    parts.push(status + (prLinks.length ? ` ${prLinks.join(" ")}` : ""));
+
+    // Footer: context + status page
+    const footer: string[] = [...contextLinks];
+    if (statusPageUrl) footer.push(`<${statusPageUrl}|status>`);
+    if (footer.length) parts.push(footer.join(" \u2502 "));
 
     const searchResp = await fetch("https://slack.com/api/users.list?limit=200", {
       headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}` },
