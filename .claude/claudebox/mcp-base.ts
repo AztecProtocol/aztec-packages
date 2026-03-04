@@ -1318,7 +1318,10 @@ export function registerPRTools(server: McpServer, config: PRToolConfig): void {
     config.createDescription || "Push workspace commits and create a draft PR.",
     createSchema,
     async (params: any) => {
-      const { title, body, base, closes, force_push, include_claude_files, include_noir_submodule } = params;
+      const { title, body, closes, force_push, include_claude_files, include_noir_submodule } = params;
+      // Redirect v* branches to backport-to-v*-staging (never open PRs directly against version branches)
+      let base: string = params.base;
+      if (/^v\d+/.test(base)) base = `backport-to-${base}-staging`;
       if (!GH_TOKEN) return { content: [{ type: "text", text: "No GH_TOKEN" }], isError: true };
 
       if (config.blockedBases) {
@@ -1393,7 +1396,10 @@ export function registerPRTools(server: McpServer, config: PRToolConfig): void {
     config.updateDescription || "Push workspace commits and/or update an existing PR.",
     updateSchema,
     async (params: any) => {
-      const { pr_number, push, title, body, base, state, force_push, include_claude_files, include_noir_submodule } = params;
+      const { pr_number, push, title, body, state, force_push, include_claude_files, include_noir_submodule } = params;
+      // Redirect v* branches to backport-to-v*-staging
+      let base: string | undefined = params.base;
+      if (base && /^v\d+/.test(base)) base = `backport-to-${base}-staging`;
       if (!GH_TOKEN) return { content: [{ type: "text", text: "No GH_TOKEN" }], isError: true };
 
       try {
