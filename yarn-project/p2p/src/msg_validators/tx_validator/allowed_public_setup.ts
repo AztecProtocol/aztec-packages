@@ -22,21 +22,26 @@ export async function getDefaultAllowedSetupFunctions(): Promise<AllowedElement[
       {
         address: ProtocolContractAddress.AuthRegistry,
         selector: setAuthorizedInternalSelector,
+        onlySelf: true,
+        rejectNullMsgSender: true,
       },
       // AuthRegistry: needed for authwit support via public path (PublicFeePaymentMethod calls set_authorized directly)
       {
         address: ProtocolContractAddress.AuthRegistry,
         selector: setAuthorizedSelector,
+        rejectNullMsgSender: true,
       },
       // FeeJuice: needed for claiming on the same tx as a spend (claim_and_end_setup enqueues this)
       {
         address: ProtocolContractAddress.FeeJuice,
         selector: increaseBalanceSelector,
+        onlySelf: true,
       },
       // Token: needed for private transfers via FPC (transfer_to_public enqueues this)
       {
         classId: tokenClassId,
         selector: increaseBalanceSelector,
+        onlySelf: true,
       },
       // Token: needed for public transfers via FPC (fee_entrypoint_public enqueues this)
       {

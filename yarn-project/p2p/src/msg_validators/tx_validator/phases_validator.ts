@@ -1,5 +1,7 @@
+import { NULL_MSG_SENDER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { PublicContractsDB, getCallRequestsWithCalldataByPhase } from '@aztec/simulator/server';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 import {
@@ -7,6 +9,8 @@ import {
   TX_ERROR_DURING_VALIDATION,
   TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED,
   TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT,
+  TX_ERROR_SETUP_NULL_MSG_SENDER,
+  TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER,
   Tx,
   TxExecutionPhase,
   type TxValidationResult,
@@ -84,6 +88,15 @@ export class PhasesTxValidator implements TxValidator<Tx> {
     for (const entry of allowList) {
       if ('address' in entry) {
         if (contractAddress.equals(entry.address) && entry.selector.equals(functionSelector)) {
+          if (entry.onlySelf && !publicCall.request.msgSender.equals(contractAddress)) {
+            return TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER;
+          }
+          if (
+            entry.rejectNullMsgSender &&
+            publicCall.request.msgSender.equals(AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS))
+          ) {
+            return TX_ERROR_SETUP_NULL_MSG_SENDER;
+          }
           return undefined;
         }
       }
@@ -105,6 +118,15 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       }
 
       if (contractClassId.value === entry.classId.toString() && entry.selector.equals(functionSelector)) {
+        if (entry.onlySelf && !publicCall.request.msgSender.equals(contractAddress)) {
+          return TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER;
+        }
+        if (
+          entry.rejectNullMsgSender &&
+          publicCall.request.msgSender.equals(AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS))
+        ) {
+          return TX_ERROR_SETUP_NULL_MSG_SENDER;
+        }
         return undefined;
       }
     }
