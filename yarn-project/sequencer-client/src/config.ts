@@ -36,15 +36,13 @@ export type { SequencerConfig };
  * Default values for SequencerConfig.
  * Centralized location for all sequencer configuration defaults.
  */
-export const DefaultSequencerConfig: ResolvedSequencerConfig = {
+export const DefaultSequencerConfig = {
   sequencerPollingIntervalMS: 500,
   maxTxsPerBlock: DEFAULT_MAX_TXS_PER_BLOCK,
   minTxsPerBlock: 1,
   buildCheckpointIfEmpty: false,
   publishTxsWithProposals: false,
-  maxL2BlockGas: 10e9,
-  maxDABlockGas: 10e9,
-  maxBlockSizeInBytes: 1024 * 1024,
+  gasPerBlockAllocationMultiplier: 2,
   enforceTimeTable: true,
   attestationPropagationTime: DEFAULT_P2P_PROPAGATION_TIME,
   secondsBeforeInvalidatingBlockAsCommitteeMember: 144, // 12 L1 blocks
@@ -59,7 +57,7 @@ export const DefaultSequencerConfig: ResolvedSequencerConfig = {
   shuffleAttestationOrdering: false,
   skipPushProposedBlocksToArchiver: false,
   skipPublishingCheckpointsPercent: 0,
-};
+} satisfies ResolvedSequencerConfig;
 
 /**
  * Configuration settings for the SequencerClient.
@@ -97,12 +95,19 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   maxL2BlockGas: {
     env: 'SEQ_MAX_L2_BLOCK_GAS',
     description: 'The maximum L2 block gas.',
-    ...numberConfigHelper(DefaultSequencerConfig.maxL2BlockGas),
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
   maxDABlockGas: {
     env: 'SEQ_MAX_DA_BLOCK_GAS',
     description: 'The maximum DA block gas.',
-    ...numberConfigHelper(DefaultSequencerConfig.maxDABlockGas),
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+  },
+  gasPerBlockAllocationMultiplier: {
+    env: 'SEQ_GAS_PER_BLOCK_ALLOCATION_MULTIPLIER',
+    description:
+      'Per-block gas budget multiplier for both L2 and DA gas. Budget per block is (checkpointLimit / maxBlocks) * multiplier.' +
+      ' Values greater than one allow early blocks to use more than their even share, relying on checkpoint-level capping for later blocks.',
+    ...numberConfigHelper(DefaultSequencerConfig.gasPerBlockAllocationMultiplier),
   },
   coinbase: {
     env: 'COINBASE',
@@ -121,11 +126,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   acvmBinaryPath: {
     env: 'ACVM_BINARY_PATH',
     description: 'The path to the ACVM binary',
-  },
-  maxBlockSizeInBytes: {
-    env: 'SEQ_MAX_BLOCK_SIZE_IN_BYTES',
-    description: 'Max block size',
-    ...numberConfigHelper(DefaultSequencerConfig.maxBlockSizeInBytes),
   },
   enforceTimeTable: {
     env: 'SEQ_ENFORCE_TIME_TABLE',

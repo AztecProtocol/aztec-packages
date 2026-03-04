@@ -78,7 +78,9 @@ describe('sequencer', () => {
 
   let block: L2Block;
   let globalVariables: GlobalVariables;
-  let l1Constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>;
+  let l1Constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'> & {
+    rollupManaLimit: number;
+  };
 
   let sequencer: TestSequencer;
 
@@ -160,7 +162,7 @@ describe('sequencer', () => {
     );
 
     const l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
-    l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration };
+    l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration, rollupManaLimit: Infinity };
 
     epochCache = mockDeep<EpochCache>();
     epochCache.isEscapeHatchOpen.mockResolvedValue(false);
