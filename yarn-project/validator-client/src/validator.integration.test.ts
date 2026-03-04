@@ -127,7 +127,7 @@ describe('ValidatorClient Integration', () => {
         slotDuration: l1Constants.slotDuration,
         l1ChainId: chainId.toNumber(),
         rollupVersion: version.toNumber(),
-        txPublicSetupAllowList: [],
+        txPublicSetupAllowListExtend: [],
         rollupManaLimit: 200_000_000,
       },
       synchronizer,
