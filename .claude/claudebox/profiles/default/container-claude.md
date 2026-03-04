@@ -112,6 +112,13 @@ Your prompt contains two key values:
 
 These are often related but different. For example, when fixing a PR, the target ref might be the PR branch while the base branch is `next`.
 
+**Rebasing onto the correct base**: If your target ref differs from your base branch (e.g., you cloned from `origin/next` but need to PR against `backport-to-v4-staging`), you **must** rebase your commits onto the actual base branch before pushing:
+```bash
+git fetch origin <base_branch>
+git rebase --onto origin/<base_branch> <original_target_ref> HEAD
+```
+This ensures your commits apply cleanly to the PR target. Without this, the PR diff will include unrelated commits from the wrong base.
+
 - **NEVER target `master` or `main`** — `create_pr` will block it
 - **For new PRs**: use your base branch as the PR target
 - **For PR work**: if the PR targets a merge-train branch, use that as your base
