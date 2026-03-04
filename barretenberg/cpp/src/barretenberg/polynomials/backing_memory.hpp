@@ -136,10 +136,14 @@ template <typename Fr> struct BackingMemory {
         size_t required_bytes = size * sizeof(Fr);
 
         // Check and update storage usage to enforce budget
-        const size_t current_usage = current_storage_usage.fetch_add(required_bytes);
-        if (current_usage + required_bytes > storage_budget) {
-            current_storage_usage.fetch_sub(required_bytes);
-            return false;
+        size_t current_usage = current_storage_usage.load();
+        while (true) {
+            if (current_usage + required_bytes > storage_budget) {
+                return false;
+            }
+            if (current_storage_usage.compare_exchange_weak(current_usage, current_usage + required_bytes)) {
+                break;
+            }
         }
 
         size_t file_size = required_bytes;
