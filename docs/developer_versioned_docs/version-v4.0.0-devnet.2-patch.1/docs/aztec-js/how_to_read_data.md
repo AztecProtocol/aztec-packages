@@ -7,9 +7,11 @@ description: How to read data from contracts including simulating functions, rea
 
 This guide shows you how to read data from Aztec contracts in TypeScript, including simulating function calls, reading raw logs, and retrieving typed events.
 
+import { General } from '@site/src/components/Snippets/general_snippets';
+
 ## Prerequisites
 
-- [Connected to a network](./how_to_connect_to_local_network.md) with a `EmbeddedWallet` instance and funded accounts
+- <General.AztecJSPrerequisites />
 - A deployed contract instance (see [How to Deploy a Contract](./how_to_deploy_contract.md))
 
 ## Simulating functions
