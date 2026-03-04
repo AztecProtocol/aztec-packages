@@ -522,6 +522,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     await Promise.all([...noteStorePromises, ...eventStorePromises]);
 
     // Requests are cleared once we're done.
+    this.capsuleStore.deleteCapsule(contractAddress, NOTE_BOUNDED_VEC_CAPACITY_SLOT, this.jobId);
+    this.capsuleStore.deleteCapsule(contractAddress, EVENT_BOUNDED_VEC_CAPACITY_SLOT, this.jobId);
     await this.capsuleStore.setCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, [], this.jobId);
     await this.capsuleStore.setCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, [], this.jobId);
   }
