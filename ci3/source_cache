@@ -8,12 +8,20 @@ function cache_disk_transfer {
   local key="$1"
   local prefix="${key:0:4}"
 
-  # Transfer via SSH pipe using persistent multiplexed connection
-  # Use first 4 chars as subdirectory to avoid too many files in one dir
-  ssh -F "${ci3}/aws/build_instance_ssh_config" \
-      -o ConnectTimeout=5 \
-      ci-bastion.aztecprotocol.com \
-      "mkdir -p /logs-disk/${prefix} && cat > /logs-disk/${prefix}/${key}.log.gz" &>/dev/null
+  if [ -n "${AZTEC_CREDS_PROXY:-}" ]; then
+    curl -sf -X POST \
+      -H "X-Cache-Key: $key" \
+      -H "Content-Type: application/octet-stream" \
+      --data-binary @- \
+      "${AZTEC_CREDS_PROXY}/cache-disk-transfer" >/dev/null
+  else
+    # Transfer via SSH pipe using persistent multiplexed connection
+    # Use first 4 chars as subdirectory to avoid too many files in one dir
+    ssh -F "${ci3}/aws/build_instance_ssh_config" \
+        -o ConnectTimeout=5 \
+        ci-bastion.aztecprotocol.com \
+        "mkdir -p /logs-disk/${prefix} && cat > /logs-disk/${prefix}/${key}.log.gz" &>/dev/null
+  fi
 }
 
 # Transfer to bastion with explicit subfolder (accepts gzipped data on stdin)
@@ -22,11 +30,20 @@ function cache_disk_transfer_to {
   local subfolder="$1"
   local key="$2"
 
-  # Transfer via SSH pipe using persistent multiplexed connection
-  ssh -F "${ci3}/aws/build_instance_ssh_config" \
-      -o ConnectTimeout=5 \
-      ci-bastion.aztecprotocol.com \
-      "mkdir -p /logs-disk/${subfolder} && cat > /logs-disk/${subfolder}/${key}.log.gz" &>/dev/null
+  if [ -n "${AZTEC_CREDS_PROXY:-}" ]; then
+    curl -sf -X POST \
+      -H "X-Cache-Key: $key" \
+      -H "X-Cache-Subfolder: $subfolder" \
+      -H "Content-Type: application/octet-stream" \
+      --data-binary @- \
+      "${AZTEC_CREDS_PROXY}/cache-disk-transfer" >/dev/null
+  else
+    # Transfer via SSH pipe using persistent multiplexed connection
+    ssh -F "${ci3}/aws/build_instance_ssh_config" \
+        -o ConnectTimeout=5 \
+        ci-bastion.aztecprotocol.com \
+        "mkdir -p /logs-disk/${subfolder} && cat > /logs-disk/${subfolder}/${key}.log.gz" &>/dev/null
+  fi
 }
 
 # Persistent cache function that writes to both Redis and disk
@@ -41,8 +58,8 @@ function cache_persistent {
   # Write to Redis (synchronous - must complete before returning)
   cat "$tmpfile" | redis_cli -x SETEX "$key" "$expire" &>/dev/null
 
-  # Transfer to bastion disk in background (only if disk logging enabled)
-  if [ "${CI_USE_BUILD_INSTANCE_KEY:-0}" -eq 1 ]; then
+  # Transfer to bastion disk in background (only if disk logging enabled or proxy available)
+  if [ "${CI_USE_BUILD_INSTANCE_KEY:-0}" -eq 1 ] || [ -n "${AZTEC_CREDS_PROXY:-}" ]; then
     {
       cat "$tmpfile" | cache_disk_transfer "$key"
       rm -f "$tmpfile"

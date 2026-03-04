@@ -9,7 +9,7 @@
  */
 
 import { createServer as createHttpServer, IncomingMessage, ServerResponse } from "http";
-import { execFileSync, spawn } from "child_process";
+import { ChildProcess, execFileSync, execSync, spawn } from "child_process";
 import { createHash } from "crypto";
 import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, readdirSync, statSync } from "fs";
 import { join } from "path";
@@ -28,6 +28,7 @@ export const QUIET_MODE = process.env.CLAUDEBOX_QUIET === "1";
 export const CI_ALLOW = process.env.CLAUDEBOX_CI_ALLOW === "1";
 export const STATS_DIR = process.env.CLAUDEBOX_STATS_DIR || "/stats";
 export const CLAUDEBOX_HOST = process.env.CLAUDEBOX_HOST || "claudebox.work";
+export const CI_PASSWORD = process.env.CI_PASSWORD || "";
 export const WORKTREE_ID = process.env.CLAUDEBOX_WORKTREE_ID || "";
 
 export const SESSION_META = {
@@ -1090,6 +1091,117 @@ export function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
+// ── Credential Proxy ────────────────────────────────────────────
+// HTTP endpoints that proxy credential-needing operations for Claude containers.
+// Scripts in ci3/ detect AZTEC_CREDS_PROXY and call these instead of using
+// local credentials (SSH keys, CI_PASSWORD, etc).
+
+const SSH_CONFIG = "/opt/claudebox/ci3-ssh-config";
+const REDIS_HOST = "ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com";
+
+let _redisTunnel: ChildProcess | null = null;
+
+function ensureRedisTunnel(): boolean {
+  // Already connected?
+  try { execSync("nc -z localhost 6379", { timeout: 2000, stdio: "ignore" }); return true; } catch {}
+  // Already running but not yet connected?
+  if (_redisTunnel && !_redisTunnel.killed) {
+    try { execSync("nc -z localhost 6379", { timeout: 5000, stdio: "ignore" }); return true; } catch {}
+    return false;
+  }
+  // Open tunnel
+  try {
+    _redisTunnel = spawn("ssh", [
+      "-N", "-L", `6379:${REDIS_HOST}:6379`,
+      "-o", "ControlMaster=auto", "-o", "ControlPath=/tmp/ssh_mux_%h_%p_%r", "-o", "ControlPersist=480m",
+      "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10",
+      "-i", "/home/aztec-dev/.ssh/build_instance_key",
+      "ubuntu@ci-bastion.aztecprotocol.com",
+    ], { stdio: "ignore", detached: true });
+    _redisTunnel.unref();
+    // Wait for tunnel
+    for (let i = 0; i < 10; i++) {
+      try { execSync("nc -z localhost 6379", { timeout: 1000, stdio: "ignore" }); return true; } catch {}
+      execSync("sleep 0.5", { stdio: "ignore" });
+    }
+    console.error("[Creds] Redis tunnel opened but port not reachable");
+    return false;
+  } catch (e: any) {
+    console.error(`[Creds] Failed to open Redis tunnel: ${e.message}`);
+    return false;
+  }
+}
+
+function readRawBody(req: IncomingMessage, maxBytes = 10 * 1024 * 1024): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let total = 0;
+    req.on("data", (c: Buffer) => {
+      total += c.length;
+      if (total > maxBytes) { req.destroy(); reject(new Error("Body too large")); return; }
+      chunks.push(c);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
+}
+
+async function handleCredentialRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  if (req.method !== "POST") {
+    res.writeHead(405); res.end('{"error":"method not allowed"}'); return;
+  }
+  const path = req.url!.replace("/creds/", "");
+
+  try {
+    if (path === "redis-setexz") {
+      const key = req.headers["x-redis-key"] as string;
+      const expire = req.headers["x-redis-expire"] as string;
+      if (!key || !expire) { res.writeHead(400); res.end('{"error":"missing key/expire headers"}'); return; }
+      if (!ensureRedisTunnel()) { res.writeHead(502); res.end('{"error":"redis tunnel unavailable"}'); return; }
+      const data = await readRawBody(req);
+      execFileSync("redis-cli", ["--raw", "-x", "SETEX", key, expire], { input: data, timeout: 15000, stdio: ["pipe", "ignore", "ignore"] });
+      res.writeHead(200); res.end('{"ok":true}');
+    } else if (path === "redis-publish") {
+      const body = JSON.parse((await readRawBody(req)).toString());
+      if (!body.channel || !body.message) { res.writeHead(400); res.end('{"error":"missing channel/message"}'); return; }
+      if (!ensureRedisTunnel()) { res.writeHead(502); res.end('{"error":"redis tunnel unavailable"}'); return; }
+      execFileSync("redis-cli", ["PUBLISH", body.channel, body.message], { timeout: 5000, stdio: "ignore" });
+      res.writeHead(200); res.end('{"ok":true}');
+    } else if (path === "cache-disk-transfer") {
+      const key = req.headers["x-cache-key"] as string;
+      const subfolder = req.headers["x-cache-subfolder"] as string || undefined;
+      if (!key) { res.writeHead(400); res.end('{"error":"missing key header"}'); return; }
+      const data = await readRawBody(req);
+      const dir = subfolder || key.slice(0, 4);
+      const cmd = `mkdir -p /logs-disk/${dir} && cat > /logs-disk/${dir}/${key}.log.gz`;
+      const ssh = spawn("ssh", [
+        "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5",
+        "-i", "/home/aztec-dev/.ssh/build_instance_key",
+        "ubuntu@ci-bastion.aztecprotocol.com", cmd,
+      ], { stdio: ["pipe", "ignore", "ignore"] });
+      ssh.stdin.end(data);
+      await new Promise<void>((resolve, reject) => {
+        ssh.on("close", (code) => code === 0 ? resolve() : reject(new Error(`ssh exit ${code}`)));
+        ssh.on("error", reject);
+      });
+      res.writeHead(200); res.end('{"ok":true}');
+    } else if (path === "ci-log") {
+      const body = JSON.parse((await readRawBody(req)).toString());
+      if (!body.key) { res.writeHead(400); res.end('{"error":"missing key"}'); return; }
+      if (!CI_PASSWORD) { res.writeHead(500); res.end('{"error":"CI_PASSWORD not configured"}'); return; }
+      const upstream = await fetch(`http://aztec:${CI_PASSWORD}@ci.aztec-labs.com/${body.key}.txt`);
+      if (!upstream.ok) { res.writeHead(502); res.end(`{"error":"upstream ${upstream.status}"}`); return; }
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end(await upstream.text());
+    } else {
+      res.writeHead(404); res.end('{"error":"unknown credential endpoint"}');
+    }
+  } catch (e: any) {
+    console.error(`[Creds] ${path}: ${e.message}`);
+    if (!res.headersSent) { res.writeHead(500); res.end(JSON.stringify({ error: e.message })); }
+  }
+}
+
 // ── HTTP Server scaffold ────────────────────────────────────────
 // Profiles call this to start the MCP HTTP server.
 
@@ -1100,6 +1212,11 @@ export function startMcpHttpServer(createMcpServer: () => McpServer): void {
     if (req.method === "GET" && req.url === "/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end('{"ok":true}');
+      return;
+    }
+
+    if (req.url?.startsWith("/creds/")) {
+      await handleCredentialRequest(req, res);
       return;
     }
 

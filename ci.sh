@@ -353,11 +353,15 @@ case "$cmd" in
     elif [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
       redis_getz "$key" | $pager
     else
-      if [ -z "${CI_PASSWORD:-}" ]; then
-        echo "No redis available and CI_PASSWORD not set for http fallback."
+      if [ -n "${AZTEC_CREDS_PROXY:-}" ]; then
+        curl -sf -X POST -H "Content-Type: application/json" \
+          -d "{\"key\":\"$key\"}" "${AZTEC_CREDS_PROXY}/ci-log" | $pager
+      elif [ -n "${CI_PASSWORD:-}" ]; then
+        curl -sf "http://aztec:$CI_PASSWORD@ci.aztec-labs.com/$key.txt" | $pager
+      else
+        echo "No redis available, CI_PASSWORD not set, and AZTEC_CREDS_PROXY not set."
         exit 1
       fi
-      curl -sf "http://aztec:$CI_PASSWORD@ci.aztec-labs.com/$key.txt" | $pager
       if [ ${PIPESTATUS[0]} -ne 0 ]; then
         echo "Failed to fetch log via http."
         exit 1
