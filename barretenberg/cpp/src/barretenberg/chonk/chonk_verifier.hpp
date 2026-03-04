@@ -116,9 +116,9 @@ template <bool IsRecursive> class ChonkVerifier {
     };
 
     /**
-     * @brief Run all Chonk verification except IPA, returning the IPA claim for deferred verification.
+     * @brief Run Chonk verification up to but not including IPA, returning the IPA claim for deferred verification.
      * @details Verifies the MegaZK proof, databus consistency, and Goblin proof (merge/eccvm/translator),
-     * then returns the IPA opening claim and proof without performing the final IPA SRS MSM.
+     * then returns the IPA opening claim and proof without performing the final IPA MSM.
      * This enables batch IPA verification across multiple Chonk proofs.
      *
      * @param proof The Chonk proof to partially verify

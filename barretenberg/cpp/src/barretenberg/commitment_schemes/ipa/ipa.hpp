@@ -428,10 +428,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         Commitment G_zero_from_prover = transcript->template receive_from_prover<Commitment>("IPA:G_0");
         Fr a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
 
-        return {
-            std::move(C_zero), std::move(b_zero), std::move(s_vec), generator_challenge, std::move(G_zero_from_prover),
-            std::move(a_zero)
-        };
+        return { C_zero, b_zero, std::move(s_vec), generator_challenge, G_zero_from_prover, a_zero };
     }
 
     /**
