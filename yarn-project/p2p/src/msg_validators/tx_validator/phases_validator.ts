@@ -6,6 +6,7 @@ import {
   type PublicCallRequestWithCalldata,
   TX_ERROR_DURING_VALIDATION,
   TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED,
+  TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT,
   Tx,
   TxExecutionPhase,
   type TxValidationResult,
@@ -45,7 +46,8 @@ export class PhasesTxValidator implements TxValidator<Tx> {
 
       const setupFns = getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.SETUP);
       for (const setupFn of setupFns) {
-        if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
+        const rejectionReason = await this.checkAllowList(setupFn, this.setupAllowList);
+        if (rejectionReason) {
           this.#log.verbose(
             `Rejecting tx ${tx.getTxHash().toString()} because it calls setup function not on allow list: ${
               setupFn.request.contractAddress
@@ -53,7 +55,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
             { allowList: this.setupAllowList },
           );
 
-          return { result: 'invalid', reason: [TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED] };
+          return { result: 'invalid', reason: [rejectionReason] };
         }
       }
 
@@ -66,53 +68,47 @@ export class PhasesTxValidator implements TxValidator<Tx> {
     }
   }
 
-  private async isOnAllowList(
+  /** Returns a rejection reason if the call is not on the allow list, or undefined if it is allowed. */
+  private async checkAllowList(
     publicCall: PublicCallRequestWithCalldata,
     allowList: AllowedElement[],
-  ): Promise<boolean> {
+  ): Promise<string | undefined> {
     if (publicCall.isEmpty()) {
-      return true;
+      return undefined;
     }
 
     const contractAddress = publicCall.request.contractAddress;
     const functionSelector = publicCall.functionSelector;
 
-    // do these checks first since they don't require the contract class
+    // Check address-based entries first since they don't require the contract class.
     for (const entry of allowList) {
-      if ('address' in entry && !('selector' in entry)) {
-        if (contractAddress.equals(entry.address)) {
-          return true;
-        }
-      }
-
-      if ('address' in entry && 'selector' in entry) {
+      if ('address' in entry) {
         if (contractAddress.equals(entry.address) && entry.selector.equals(functionSelector)) {
-          return true;
-        }
-      }
-
-      const contractClass = await this.contractsDB.getContractInstance(contractAddress, this.timestamp);
-
-      if (!contractClass) {
-        throw new Error(`Contract not found: ${contractAddress}`);
-      }
-
-      if ('classId' in entry && !('selector' in entry)) {
-        if (contractClass.currentContractClassId.equals(entry.classId)) {
-          return true;
-        }
-      }
-
-      if ('classId' in entry && 'selector' in entry) {
-        if (
-          contractClass.currentContractClassId.equals(entry.classId) &&
-          (entry.selector === undefined || entry.selector.equals(functionSelector))
-        ) {
-          return true;
+          return undefined;
         }
       }
     }
 
-    return false;
+    // Check class-based entries. Fetch the contract instance lazily (only once).
+    let contractClassId: undefined | { value: string | undefined };
+    for (const entry of allowList) {
+      if (!('classId' in entry)) {
+        continue;
+      }
+
+      if (contractClassId === undefined) {
+        const instance = await this.contractsDB.getContractInstance(contractAddress, this.timestamp);
+        contractClassId = { value: instance?.currentContractClassId.toString() };
+        if (!contractClassId.value) {
+          return TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT;
+        }
+      }
+
+      if (contractClassId.value === entry.classId.toString() && entry.selector.equals(functionSelector)) {
+        return undefined;
+      }
+    }
+
+    return TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED;
   }
 }

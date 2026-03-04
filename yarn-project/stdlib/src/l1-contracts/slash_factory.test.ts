@@ -2,6 +2,7 @@ import { createExtendedL1Client, getPublicClient } from '@aztec/ethereum/client'
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import { deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { EthCheatCodes, startAnvil } from '@aztec/ethereum/test';
+import type { Anvil } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient, ViemClient } from '@aztec/ethereum/types';
 import { tryExtractEvent } from '@aztec/ethereum/utils';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -10,7 +11,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';
 
-import type { Anvil } from '@viem/anvil';
 import { type TransactionReceipt, decodeFunctionData } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';

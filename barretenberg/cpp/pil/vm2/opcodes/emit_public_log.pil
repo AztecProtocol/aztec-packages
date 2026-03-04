@@ -132,7 +132,7 @@ namespace emit_public_log;
     // Multi-row Computation Selectors
     ////////////////////////////////////////////////
     // We follow the recipe documented in:
-    // https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Contiguous-Multi-Rows-Computation-Trace
+    // https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
 
     // The start of the computation, used as selector for the permutation with execution trace.
     pol commit start; // @boolean

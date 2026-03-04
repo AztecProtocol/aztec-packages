@@ -239,4 +239,48 @@ struct ChonkStats {
     bool operator==(const ChonkStats&) const = default;
 };
 
+/**
+ * @struct ChonkCompressProof
+ * @brief Compress a Chonk proof to a compact byte representation
+ *
+ * @details Uses point compression and uniform 32-byte encoding to reduce proof size (~1.72x).
+ */
+struct ChonkCompressProof {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkCompressProof";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkCompressProofResponse";
+        std::vector<uint8_t> compressed_proof;
+        MSGPACK_FIELDS(compressed_proof);
+        bool operator==(const Response&) const = default;
+    };
+
+    ChonkProof proof;
+    Response execute(const BBApiRequest& request = {}) &&;
+    MSGPACK_FIELDS(proof);
+    bool operator==(const ChonkCompressProof&) const = default;
+};
+
+/**
+ * @struct ChonkDecompressProof
+ * @brief Decompress a compressed Chonk proof back to field elements
+ *
+ * @details Derives mega_num_public_inputs from the compressed size automatically.
+ */
+struct ChonkDecompressProof {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkDecompressProof";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkDecompressProofResponse";
+        ChonkProof proof;
+        MSGPACK_FIELDS(proof);
+        bool operator==(const Response&) const = default;
+    };
+
+    std::vector<uint8_t> compressed_proof;
+    Response execute(const BBApiRequest& request = {}) &&;
+    MSGPACK_FIELDS(compressed_proof);
+    bool operator==(const ChonkDecompressProof&) const = default;
+};
+
 } // namespace bb::bbapi

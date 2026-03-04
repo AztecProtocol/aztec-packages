@@ -131,7 +131,7 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
   }
 
   async getL2PublicBalanceOf(owner: AztecAddress) {
-    return await this.feeJuice.methods.balance_of_public(owner).simulate({ from: owner });
+    return (await this.feeJuice.methods.balance_of_public(owner).simulate({ from: owner })).result;
   }
 
   async expectPublicBalanceOnL2(owner: AztecAddress, expectedBalance: bigint) {

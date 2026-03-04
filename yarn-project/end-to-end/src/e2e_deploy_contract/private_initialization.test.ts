@@ -38,7 +38,7 @@ describe('e2e_deploy_contract private initialization', () => {
       initArgs: [0],
       constructorName: 'initialize',
     });
-    const receipt = await contract.methods
+    const { receipt } = await contract.methods
       .private_no_init_check_emit_nullifier(10)
       .send({ from: defaultAccountAddress });
     const txEffects = await aztecNode.getTxEffect(receipt.txHash);
@@ -54,11 +54,11 @@ describe('e2e_deploy_contract private initialization', () => {
     const contract = await t.registerContract(wallet, NoConstructorContract);
     await expect(
       contract.methods.is_private_mutable_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
-    ).resolves.toEqual(false);
+    ).resolves.toEqual(expect.objectContaining({ result: false }));
     await contract.methods.initialize_private_mutable(42).send({ from: defaultAccountAddress });
     await expect(
       contract.methods.is_private_mutable_initialized(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
-    ).resolves.toEqual(true);
+    ).resolves.toEqual(expect.objectContaining({ result: true }));
   });
 
   // Tests privately initializing an undeployed contract, then calling init-checked functions.
@@ -71,12 +71,14 @@ describe('e2e_deploy_contract private initialization', () => {
     await contract.methods.initialize(42).send({ from: defaultAccountAddress });
     logger.info(`Checking if the constructor was run for ${contract.address}`);
     expect(
-      await contract.methods.utility_read_value(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
+      (await contract.methods.utility_read_value(defaultAccountAddress).simulate({ from: defaultAccountAddress }))
+        .result,
     ).toEqual(42n);
     logger.info(`Calling a private function that requires initialization on ${contract.address}`);
     await contract.methods.private_init_check_write_value(43).send({ from: defaultAccountAddress });
     expect(
-      await contract.methods.utility_read_value(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
+      (await contract.methods.utility_read_value(defaultAccountAddress).simulate({ from: defaultAccountAddress }))
+        .result,
     ).toEqual(43n);
   });
 
@@ -90,10 +92,12 @@ describe('e2e_deploy_contract private initialization', () => {
     const calls = [42, 52].map((value, i) => contracts[i].methods.initialize(value));
     await new BatchCall(wallet, calls).send({ from: defaultAccountAddress });
     expect(
-      await contracts[0].methods.utility_read_value(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
+      (await contracts[0].methods.utility_read_value(defaultAccountAddress).simulate({ from: defaultAccountAddress }))
+        .result,
     ).toEqual(42n);
     expect(
-      await contracts[1].methods.utility_read_value(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
+      (await contracts[1].methods.utility_read_value(defaultAccountAddress).simulate({ from: defaultAccountAddress }))
+        .result,
     ).toEqual(52n);
   });
 
@@ -109,7 +113,8 @@ describe('e2e_deploy_contract private initialization', () => {
     logger.info(`Executing constructor and private function in batch at ${contract.address}`);
     await batch.send({ from: defaultAccountAddress });
     expect(
-      await contract.methods.utility_read_value(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
+      (await contract.methods.utility_read_value(defaultAccountAddress).simulate({ from: defaultAccountAddress }))
+        .result,
     ).toEqual(43n);
   });
 
@@ -155,7 +160,8 @@ describe('e2e_deploy_contract private initialization', () => {
     ]);
     await batch.send({ from: defaultAccountAddress });
     expect(
-      await contract.methods.public_fn_no_init_check_read_value(owner).simulate({ from: defaultAccountAddress }),
+      (await contract.methods.public_fn_no_init_check_read_value(owner).simulate({ from: defaultAccountAddress }))
+        .result,
     ).toEqual(84n);
   });
 

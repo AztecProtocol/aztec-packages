@@ -102,9 +102,12 @@ function cleanup {
 }
 trap cleanup EXIT
 
-# Signal handler to forward SIGTERM/SIGINT to test process.
+# Signal handler to forward SIGTERM/SIGINT to test process group.
+# We use set -m so exec_test runs in its own process group (leader PID = test_pid).
+# We must kill the process GROUP (-$pid) not just exec_test, otherwise children
+# like docker_isolate are orphaned and Docker containers keep running.
 function sig_handler {
-  kill -TERM ${test_pid:-} &>/dev/null
+  [ -n "${test_pid:-}" ] && kill -TERM -$test_pid &>/dev/null
   exit
 }
 trap sig_handler SIGTERM SIGINT
