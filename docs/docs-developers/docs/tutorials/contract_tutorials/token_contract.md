@@ -49,7 +49,7 @@ yarn add @aztec/aztec.js@#include_aztec_version @aztec/accounts@#include_aztec_v
 
 ## Contract structure
 
-The `aztec init` command created a workspace with two crates: a `contract` crate for your smart contract code and a `test` crate for Noir tests. In `contract/src/main.nr` we even have a proto-contract. Let's replace it with a simple starting point:
+The `aztec init` command created a workspace with two crates: a `bob_token_contract` crate for your smart contract code and a `bob_token_test` crate for Noir tests. In `bob_token_contract/src/main.nr` we even have a proto-contract. Let's replace it with a simple starting point:
 
 ```rust
 #include_code start /docs/examples/contracts/bob_token_contract/src/main.nr raw
@@ -59,7 +59,7 @@ The `aztec init` command created a workspace with two crates: a `contract` crate
 
 The `#[aztec]` macro transforms our contract code to work with Aztec's privacy protocol.
 
-Let's make sure the Aztec.nr library is listed in our dependencies in `contract/Nargo.toml`:
+Let's make sure the Aztec.nr library is listed in our dependencies in `bob_token_contract/Nargo.toml`:
 
 ```toml
 [package]
@@ -253,7 +253,7 @@ In this case, all that the network sees (including Giggle) is just "something ha
 
 ### Updating Storage for Privacy
 
-For something like balances, you can use a simple library called `easy_private_state` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../foundational-topics/state_management.md). For now, let's just import the library in `contract/Nargo.toml`:
+For something like balances, you can use a simple library called `easy_private_state` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../foundational-topics/state_management.md). For now, let's just import the library in `bob_token_contract/Nargo.toml`:
 
 ```toml
 [dependencies]

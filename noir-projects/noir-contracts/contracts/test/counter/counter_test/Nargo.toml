@@ -7,4 +7,4 @@ type = "lib"
 [dependencies]
 aztec = { path = "../../../../../aztec-nr/aztec" }
 balance_set = { path = "../../../../../aztec-nr/balance-set" }
-counter_contract = { path = "../contract" }
+counter_contract = { path = "../counter_contract" }
