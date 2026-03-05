@@ -372,17 +372,17 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
 
     logger.info(`Current slot ${currentSlot} (${slotsIntoEpoch}/${epochDurationSlots})`);
 
-    if (slotsUntilNextEpoch > SLOTS_BUFFER) {
-      const slotsToWait = slotsUntilNextEpoch - SLOTS_BUFFER;
-      const targetSlot = SlotNumber(Number(currentSlot) + slotsToWait);
-      // Use getSecondsUntilSlot to account for how far we are into the current slot
-      const secondsToWait = (await rollupCheatCodes.getSecondsUntilSlot(targetSlot)) + 1; // add a 1s buffer
-      const endTime = new Date(Date.now() + secondsToWait * 1000);
-      logger.info(
-        `Waiting ${formatDuration(secondsToWait)} (${slotsToWait} slots) until ${SLOTS_BUFFER} slot(s) before epoch boundary (until ${endTime.toISOString()})...`,
-      );
-      await sleep(secondsToWait * 1000);
-    }
+    //if (slotsUntilNextEpoch > SLOTS_BUFFER) {
+    //  const slotsToWait = slotsUntilNextEpoch - SLOTS_BUFFER;
+    //  const targetSlot = SlotNumber(Number(currentSlot) + slotsToWait);
+    //  // Use getSecondsUntilSlot to account for how far we are into the current slot
+    //  const secondsToWait = (await rollupCheatCodes.getSecondsUntilSlot(targetSlot)) + 1; // add a 1s buffer
+    //  const endTime = new Date(Date.now() + secondsToWait * 1000);
+    //  logger.info(
+    //    `Waiting ${formatDuration(secondsToWait)} (${slotsToWait} slots) until ${SLOTS_BUFFER} slot(s) before epoch boundary (until ${endTime.toISOString()})...`,
+    //  );
+    //  await sleep(secondsToWait * 1000);
+    //}
 
     // scale to 10 agents in order to be able to prove the current epoch which contains up to 10 account contracts and the benchmark contract
     await scaleProverAgents(config.NAMESPACE, 10, logger);
