@@ -275,11 +275,11 @@ networks:
     SPONSORED_FPC: true
     TRANSACTIONS_DISABLED: false
     # Sequencer
-    # Gives ~0.1 TPS @ 72s slot time, 36s publish time, 6s block time - max 4 blocks per slot
-    SEQ_MAX_TX_PER_BLOCK: 2
+    SEQ_MAX_TX_PER_CHECKPOINT: 72 # 1 TPS
     # Prover
     PROVER_REAL_PROOFS: true
     # P2P
+    P2P_MAX_PENDING_TX_COUNT: 1000
     P2P_TX_POOL_DELETE_TXS_AFTER_REORG: true
     # Slasher penalties
     SLASH_PRUNE_PENALTY: 10e18
@@ -326,16 +326,16 @@ networks:
     # Genesis state - no test accounts, no sponsored FPC
     TEST_ACCOUNTS: false
     SPONSORED_FPC: false
-    TRANSACTIONS_DISABLED: true  # Initially disabled
+    TRANSACTIONS_DISABLED: false
     # Sequencer
-    SEQ_MAX_TX_PER_BLOCK: 0
+    SEQ_MAX_TX_PER_CHECKPOINT: 72
     # Prover
     PROVER_REAL_PROOFS: true
     # Sync
     SYNC_SNAPSHOTS_URLS: "https://aztec-labs-snapshots.com/mainnet/"
     BLOB_ALLOW_EMPTY_SOURCES: true
     # P2P
-    P2P_MAX_PENDING_TX_COUNT: 0
+    P2P_MAX_PENDING_TX_COUNT: 1000
     P2P_TX_POOL_DELETE_TXS_AFTER_REORG: true
     # Telemetry
     PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ""
