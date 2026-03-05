@@ -34,7 +34,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     await t.setup();
 
     ({ logger: log, crossChainTestHarness, wallet, user1Address, aztecNode } = t);
-    testContract = await TestContract.deploy(wallet).send({ from: user1Address });
+    ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: user1Address }));
   }, 300_000);
 
   afterEach(async () => {
@@ -255,7 +255,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
           // We send a transaction, this advances the chain and the message MIGHT be consumed in the new block.
           // If it does get consumed then we check that the block contains the message.
           // If it fails we check that the block doesn't contain the message
-          const receipt = await consume().send({ from: user1Address, wait: { dontThrowOnRevert: true } });
+          const { receipt } = await consume().send({ from: user1Address, wait: { dontThrowOnRevert: true } });
           if (receipt.executionResult === TxExecutionResult.SUCCESS) {
             // The block the transaction included should be for the message checkpoint number
             // and be the first block in the checkpoint

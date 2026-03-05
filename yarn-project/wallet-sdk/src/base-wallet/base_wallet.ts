@@ -1,6 +1,11 @@
 import type { Account } from '@aztec/aztec.js/account';
 import type { CallIntent, IntentInnerHash } from '@aztec/aztec.js/authorization';
-import { type InteractionWaitOptions, NO_WAIT, type SendReturn } from '@aztec/aztec.js/contracts';
+import {
+  type InteractionWaitOptions,
+  NO_WAIT,
+  type SendReturn,
+  extractOffchainOutput,
+} from '@aztec/aztec.js/contracts';
 import type { FeePaymentMethod } from '@aztec/aztec.js/fee';
 import { waitForTx } from '@aztec/aztec.js/node';
 import type {
@@ -37,7 +42,7 @@ import {
   decodeFromAbi,
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractInstanceWithAddress,
   computePartialAddress,
@@ -93,6 +98,12 @@ export abstract class BaseWallet implements Wallet {
   // empty scope list which acts as deny-all: no notes are visible and no keys are accessible.
   protected scopesFor(from: AztecAddress): AztecAddress[] {
     return from.isZero() ? [] : [from];
+  }
+
+  protected scopesFrom(from: AztecAddress, additionalScopes: AztecAddress[] = []): AztecAddress[] {
+    const allScopes = from.isZero() ? additionalScopes : [from, ...additionalScopes];
+    const scopeSet = new Set(allScopes.map(address => address.toString()));
+    return [...scopeSet].map(AztecAddress.fromString);
   }
 
   protected abstract getAccountFromAddress(address: AztecAddress): Promise<Account>;
@@ -356,7 +367,7 @@ export abstract class BaseWallet implements Wallet {
             remainingPayload,
             opts.from,
             feeOptions,
-            this.scopesFor(opts.from),
+            this.scopesFrom(opts.from, opts.additionalScopes),
             opts.skipTxValidation,
             opts.skipFeeEnforcement ?? true,
           )
@@ -372,7 +383,7 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.profileTx(txRequest, {
       profileMode: opts.profileMode,
       skipProofGeneration: opts.skipProofGeneration ?? true,
-      scopes: this.scopesFor(opts.from),
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
     });
   }
 
@@ -382,7 +393,8 @@ export abstract class BaseWallet implements Wallet {
   ): Promise<SendReturn<W>> {
     const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
-    const provenTx = await this.pxe.proveTx(txRequest, this.scopesFor(opts.from));
+    const provenTx = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
+    const offchainOutput = extractOffchainOutput(provenTx.getOffchainEffects());
     const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
     if (await this.aztecNode.getTxEffect(txHash)) {
@@ -396,7 +408,7 @@ export abstract class BaseWallet implements Wallet {
 
     // If wait is NO_WAIT, return txHash immediately
     if (opts.wait === NO_WAIT) {
-      return txHash as SendReturn<W>;
+      return { txHash, ...offchainOutput } as SendReturn<W>;
     }
 
     // Otherwise, wait for the full receipt (default behavior on wait: undefined)
@@ -408,7 +420,7 @@ export abstract class BaseWallet implements Wallet {
       await displayDebugLogs(receipt.debugLogs, this.getContractName.bind(this));
     }
 
-    return receipt as SendReturn<W>;
+    return { receipt, ...offchainOutput } as SendReturn<W>;
   }
 
   /**

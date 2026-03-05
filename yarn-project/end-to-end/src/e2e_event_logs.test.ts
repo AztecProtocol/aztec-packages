@@ -47,7 +47,7 @@ describe('Logs', () => {
     await ensureAccountContractsPublished(wallet, [account1Address, account2Address]);
 
     log.warn(`Deploying test contract`);
-    testLogContract = await TestLogContract.deploy(wallet).send({ from: account1Address });
+    ({ contract: testLogContract } = await TestLogContract.deploy(wallet).send({ from: account1Address }));
   });
 
   afterAll(() => teardown());
@@ -57,9 +57,12 @@ describe('Logs', () => {
       const preimages = makeTuple(5, makeTuple.bind(undefined, 4, Fr.random)) as Tuple<Tuple<Fr, 4>, 5>;
 
       const txs = await Promise.all(
-        preimages.map(preimage =>
-          testLogContract.methods.emit_encrypted_events(account2Address, preimage).send({ from: account1Address }),
-        ),
+        preimages.map(async preimage => {
+          const { receipt } = await testLogContract.methods
+            .emit_encrypted_events(account2Address, preimage)
+            .send({ from: account1Address });
+          return receipt;
+        }),
       );
 
       const firstBlockNumber = Math.min(...txs.map(tx => tx.blockNumber!));
@@ -124,13 +127,13 @@ describe('Logs', () => {
       const preimage = makeTuple(5, makeTuple.bind(undefined, 4, Fr.random)) as Tuple<Tuple<Fr, 4>, 5>;
 
       let i = 0;
-      const firstTx = await testLogContract.methods
+      const { receipt: firstTx } = await testLogContract.methods
         .emit_unencrypted_events(preimage[i])
         .send({ from: account1Address });
       await timesParallel(3, () =>
         testLogContract.methods.emit_unencrypted_events(preimage[++i]).send({ from: account1Address }),
       );
-      const lastTx = await testLogContract.methods
+      const { receipt: lastTx } = await testLogContract.methods
         .emit_unencrypted_events(preimage[++i])
         .send({ from: account1Address });
 
@@ -181,7 +184,9 @@ describe('Logs', () => {
       const c = await AztecAddress.random();
       const extra = Fr.random();
 
-      const tx = await testLogContract.methods.emit_nested_event(a, b, c, extra).send({ from: account1Address });
+      const { receipt: tx } = await testLogContract.methods
+        .emit_nested_event(a, b, c, extra)
+        .send({ from: account1Address });
 
       const collectedEvents = await getPublicEvents<ExampleNestedEvent>(
         aztecNode,
@@ -212,7 +217,7 @@ describe('Logs', () => {
       const tx1NumLogs = 10;
       {
         // Call the private function that emits two encrypted logs per call and recursively nests 4 times
-        const tx = await testLogContract.methods
+        const { receipt: tx } = await testLogContract.methods
           .emit_encrypted_events_nested(account2Address, 4)
           .send({ from: account1Address });
 
@@ -231,7 +236,7 @@ describe('Logs', () => {
       const tx2NumLogs = 6;
       {
         // Call the private function that emits two encrypted logs per call and recursively nests 2 times
-        const tx = await testLogContract.methods
+        const { receipt: tx } = await testLogContract.methods
           .emit_encrypted_events_nested(account2Address, 2)
           .send({ from: account1Address });
 

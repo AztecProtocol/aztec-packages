@@ -46,7 +46,7 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
     // Deploy a contract that consumes L1 to L2 messages
     await context.aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
     logger.warn(`Deploying test contract`);
-    const testContract = await TestContract.deploy(context.wallet).send({ from: context.accounts[0] });
+    const { contract: testContract } = await TestContract.deploy(context.wallet).send({ from: context.accounts[0] });
     logger.warn(`Test contract deployed at ${testContract.address}`);
 
     // Send an l1 to l2 message to be consumed from the contract
@@ -63,7 +63,7 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
     // And we consume the message using the test contract. It's important that we don't wait for the membership witness
     // to be available, since we want to test the scenario where the message becomes available on the same block the tx lands.
     logger.warn(`Consuming message ${message.content.toString()} from the contract at ${testContract.address}`);
-    const txReceipt = await testContract.methods
+    const { receipt: txReceipt } = await testContract.methods
       .consume_message_from_arbitrary_sender_public(
         message.content,
         secret,
@@ -89,7 +89,7 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
     expect(provenBlockNumber).toBeGreaterThanOrEqual(txReceipt.blockNumber!);
 
     // Should not be able to consume the message again.
-    const failedReceipt = await testContract.methods
+    const { receipt: failedReceipt } = await testContract.methods
       .consume_message_from_arbitrary_sender_public(
         message.content,
         secret,
