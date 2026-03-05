@@ -109,22 +109,23 @@ function release {
   echo_header "aztec-up release"
   local version=${REF_NAME#v}
 
-  # Upload version-specific files to version directory.
-  do_or_dryrun aws s3 cp bin/0.0.1/install "s3://install.aztec.network/$version/install"
-  do_or_dryrun aws s3 cp bin/0.0.1/versions "s3://install.aztec.network/$version/versions"
-  do_or_dryrun aws s3 cp bin/0.0.1/aztec-install "s3://install.aztec.network/$version/aztec-install"
-  do_or_dryrun aws s3 cp bin/0.0.1/aztec-up "s3://install.aztec.network/$version/aztec-up"
+  # Upload each file in bin/0.0.1/, replacing VERSION= lines with the release version.
+  for file in bin/0.0.1/*; do
+    sed "s/^VERSION=.*/VERSION=$version/" "$file" | \
+      do_or_dryrun aws s3 cp - "s3://install.aztec.network/$version/$(basename $file)"
+  done
 
   # Update alias to point to new version.
-  # This has real impact outside of the version fence. i.e. if it's nightly dist tag, it affects nightly installs.
+  # This has real impact outside of the version fence. i.e. if it's a nightly dist tag, it affects nightly installs.
   do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/$(dist_tag)" <<< "$version"
 }
 
 # This is not done by CI.
 # It's a manual process, as updating the root installer and alias index requires careful consideration.
-function release_aztec_up {
-    # Update root scripts.
-    do_or_dryrun aws s3 cp bin/0.0.1/aztec-install "s3://install.aztec.network/aztec-install"
+function release_root_installer {
+    # Upload root aztec-install with VERSION defaulting to nightly (instead of local 0.0.1).
+    sed "s/^VERSION=.*/VERSION=\${VERSION:-nightly}/" bin/0.0.1/aztec-install | \
+      do_or_dryrun aws s3 cp - "s3://install.aztec.network/aztec-install"
     do_or_dryrun aws s3 cp bin/0.0.1/aztec-up "s3://install.aztec.network/aztec-up"
 
     # Update alias list.
@@ -198,7 +199,6 @@ function install_on_mac_vm {
     export npm_config_registry=http://$host_ip:$verdaccio_port
     export INSTALL_URI=http://$host_ip:$http_port
     export NO_NEW_SHELL=1
-    export NON_INTERACTIVE=1
 
     touch \$HOME/.zshrc
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
@@ -206,7 +206,7 @@ function install_on_mac_vm {
 
     echo
     echo "Running aztec install script..."
-    VERSION=0.0.1 bash <(curl -sL \$INSTALL_URI/0.0.1/aztec-install)
+    bash <(curl -sL \$INSTALL_URI/0.0.1/aztec-install)
 
     # Fake fresh shell.
     export PATH="\$HOME/.aztec/current/bin:\$HOME/.aztec/current/node_modules/.bin:\$HOME/.aztec/bin:\$PATH"

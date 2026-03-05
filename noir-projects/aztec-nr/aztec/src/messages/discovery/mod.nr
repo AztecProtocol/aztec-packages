@@ -1,4 +1,5 @@
-use crate::protocol::{address::AztecAddress, logging::{debug_log, debug_log_format}};
+use crate::logging::{aztecnr_debug_log, aztecnr_debug_log_format};
+use crate::protocol::address::AztecAddress;
 
 pub(crate) mod nonce_discovery;
 pub(crate) mod partial_notes;
@@ -107,16 +108,13 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ComputeNoteHashAndNullifierEnv>,
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
 ) {
-    debug_log("Performing state synchronization");
+    aztecnr_debug_log!("Performing state synchronization");
 
     // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
     // notes, private events, etc.
     let logs = get_private_logs(contract_address);
     logs.for_each(|i, pending_tagged_log: PendingTaggedLog| {
-        debug_log_format(
-            "Processing log with tag {0}",
-            [pending_tagged_log.log.get(0)],
-        );
+        aztecnr_debug_log_format!("Processing log with tag {0}")([pending_tagged_log.log.get(0)]);
 
         // We remove the tag from the pending tagged log and process the message ciphertext contained in it.
         let message_ciphertext = array::subbvec(pending_tagged_log.log, 1);

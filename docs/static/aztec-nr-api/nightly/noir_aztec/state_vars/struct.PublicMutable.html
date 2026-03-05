@@ -109,24 +109,7 @@ they have no way to guarantee that the value has not changed since then.
 <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html"><code>DelayedPublicMutable</code></a> are examples of public state variables that <em>can</em>
 be read privately by restricting mutation.</p></div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
-
-<div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <a href="#read"><span class="fn">read</span></a>(self) -> T
-<div class="where-clause">where
-    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
-
-<div class="padded-description"><div class="comments">
-<p>Returns the value at the anchor block.</p>
-<p>If <a href="../../noir_aztec/state_vars/struct.PublicMutable.html#write"><code>write</code></a> has never been called, then this returns the default empty public storage
-value, which is all zeroes - equivalent to <code>let t = T::unpack(std::mem::zeroed());</code>.</p>
-<p>It is not possible to detect if a <code>PublicMutable</code> has ever been initialized or not other than by testing for
-the zero sentinel value. For a more robust solution, store an <code>Option&lt;T&gt;</code> in the <code>PublicMutable</code>.</p>
-<h4>Examples</h4>
-<pre><code>#[external(<span class="string">"utility"</span>)]
-<span class="kw">fn</span> get_total_supply() -&gt; u128 {
-    self.storage.total_supply.read()
-}</code></pre></div>
-</div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, <a href="../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
+<h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, <a href="../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="read" class="code-header">pub fn <a href="#read"><span class="fn">read</span></a>(self) -> T
 <div class="where-clause">where
@@ -195,6 +178,23 @@ function:</p>
 }</code></pre>
 <h4>Cost</h4>
 <p>The <code>SSTORE</code> AVM opcode is invoked a number of times equal to <code>T</code>'s packed length.</p></div>
+</div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <a href="#read"><span class="fn">read</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the value at the anchor block.</p>
+<p>If <a href="../../noir_aztec/state_vars/struct.PublicMutable.html#write"><code>write</code></a> has never been called, then this returns the default empty public storage
+value, which is all zeroes - equivalent to <code>let t = T::unpack(std::mem::zeroed());</code>.</p>
+<p>It is not possible to detect if a <code>PublicMutable</code> has ever been initialized or not other than by testing for
+the zero sentinel value. For a more robust solution, store an <code>Option&lt;T&gt;</code> in the <code>PublicMutable</code>.</p>
+<h4>Examples</h4>
+<pre><code>#[external(<span class="string">"utility"</span>)]
+<span class="kw">fn</span> get_total_supply() -&gt; u128 {
+    self.storage.total_supply.read()
+}</code></pre></div>
 </div></div><h2>Trait implementations</h2>
 <h3 id="impl-StateVariable&lt;M, Context&gt;-for-PublicMutable<T, Context>"><code class="code-header">impl&lt;Context, let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../noir_aztec/state_vars/trait.StateVariable.html" class="trait">StateVariable</a>&lt;M, Context&gt; for <a href="../../noir_aztec/state_vars/struct.PublicMutable.html" class="struct">PublicMutable</a>&lt;T, Context&gt;
 <div class="where-clause">where

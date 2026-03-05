@@ -11,7 +11,8 @@ use crate::messages::{
     processing::MessageContext,
 };
 
-use crate::protocol::{address::AztecAddress, logging::{debug_log, warn_log_format}};
+use crate::logging::{aztecnr_debug_log, aztecnr_warn_log_format};
+use crate::protocol::address::AztecAddress;
 
 /// Processes a message that can contain notes, partial notes, or events.
 ///
@@ -43,10 +44,7 @@ pub unconstrained fn process_message_ciphertext<ComputeNoteHashAndNullifierEnv, 
             message_context,
         );
     } else {
-        warn_log_format(
-            "Could not decrypt message ciphertext from tx {0}, ignoring",
-            [message_context.tx_hash],
-        );
+        aztecnr_warn_log_format!("Could not decrypt message ciphertext from tx {0}, ignoring")([message_context.tx_hash]);
     }
 }
 
@@ -64,7 +62,7 @@ pub(crate) unconstrained fn process_message_plaintext<ComputeNoteHashAndNullifie
     let (msg_type_id, msg_metadata, msg_content) = decode_message(message_plaintext);
 
     if msg_type_id == PRIVATE_NOTE_MSG_TYPE_ID {
-        debug_log("Processing private note msg");
+        aztecnr_debug_log!("Processing private note msg");
 
         process_private_note_msg(
             contract_address,
@@ -77,7 +75,7 @@ pub(crate) unconstrained fn process_message_plaintext<ComputeNoteHashAndNullifie
             msg_content,
         );
     } else if msg_type_id == PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID {
-        debug_log("Processing partial note private msg");
+        aztecnr_debug_log!("Processing partial note private msg");
 
         process_partial_note_private_msg(
             contract_address,
@@ -86,7 +84,7 @@ pub(crate) unconstrained fn process_message_plaintext<ComputeNoteHashAndNullifie
             msg_content,
         );
     } else if msg_type_id == PRIVATE_EVENT_MSG_TYPE_ID {
-        debug_log("Processing private event msg");
+        aztecnr_debug_log!("Processing private event msg");
 
         process_private_event_msg(
             contract_address,
@@ -99,8 +97,9 @@ pub(crate) unconstrained fn process_message_plaintext<ComputeNoteHashAndNullifie
         // The message type ID falls in the range reserved for aztec.nr built-in types but wasn't matched above. This
         // most likely means the message is malformed or a custom message was incorrectly assigned a reserved ID.
         // Custom message types must use IDs allocated via `custom_msg_type_id`.
-        warn_log_format(
+        aztecnr_warn_log_format!(
             "Message type ID {0} is in the reserved range but is not recognized, ignoring. See https://docs.aztec.network/errors/3",
+        )(
             [msg_type_id as Field],
         );
     } else if process_custom_message.is_some() {
@@ -114,8 +113,9 @@ pub(crate) unconstrained fn process_message_plaintext<ComputeNoteHashAndNullifie
     } else {
         // A custom message was received but no handler is configured. This likely means the contract emits custom
         // messages but forgot to register a handler via `AztecConfig::custom_message_handler`.
-        warn_log_format(
+        aztecnr_warn_log_format!(
             "Received custom message with type id {0} but no handler is configured, ignoring. See https://docs.aztec.network/errors/2",
+        )(
             [msg_type_id as Field],
         );
     }
