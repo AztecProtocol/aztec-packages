@@ -3,7 +3,7 @@ set -eu
 
 # To run bb we need a crs.
 # Download ignition up front to ensure no race conditions at runtime.
-# 2^25 points + 1 because the first is the generator, *64 bytes per point, -1 because Range is inclusive.
+# 2^25 points + 1 because the first is the generator, *32 bytes per compressed point, -1 because Range is inclusive.
 # We make the file read only to ensure no test can attempt to grow it any larger. 2^25 is already huge...
 # TODO: Make bb just download and append/overwrite required range, then it becomes idempotent.
 
@@ -31,14 +31,14 @@ download_with_fallback() {
 
 crs_path=$HOME/.bb-crs
 crs_size=$((2**25+1))
-crs_size_bytes=$((crs_size*64))
-g1=$crs_path/bn254_g1.dat
+crs_size_bytes=$((crs_size*32))
+g1=$crs_path/bn254_g1_compressed.dat
 g2=$crs_path/bn254_g2.dat
 if [ ! -f "$g1" ] || [ $(stat -c%s "$g1") -lt $crs_size_bytes ]; then
-  echo "Downloading crs of size: ${crs_size} ($((crs_size_bytes/(1024*1024)))MB)"
+  echo "Downloading compressed crs of size: ${crs_size} ($((crs_size_bytes/(1024*1024)))MB)"
   mkdir -p $crs_path
-  download_with_fallback "$g1" "g1.dat" "bytes=0-$((crs_size_bytes-1))"
-  chmod a-w $crs_path/bn254_g1.dat
+  download_with_fallback "$g1" "g1_compressed.dat" "bytes=0-$((crs_size_bytes-1))"
+  chmod a-w "$g1"
 fi
 if [ ! -f "$g2" ]; then
   download_with_fallback "$g2" "g2.dat"
