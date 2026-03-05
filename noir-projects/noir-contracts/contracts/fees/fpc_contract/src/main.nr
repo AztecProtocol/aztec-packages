@@ -8,7 +8,7 @@ use aztec::macros::aztec;
 ///
 /// **WARNING**: This is an example/reference implementation. FPC-based fee payment with custom tokens will NOT work
 /// on mainnet alpha because Token class IDs change with aztec-nr releases and are not included in the default public
-/// setup allowlist. Node operators would need to manually extend the allowlist to support this contract.
+/// setup allowlist.
 ///
 /// ***Note:***
 /// Accepted asset funds sent by the users to this contract stay in this contract and later on can
