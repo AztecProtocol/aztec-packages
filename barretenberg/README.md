@@ -19,7 +19,6 @@ Barretenberg (or `bb` for short) is an optimized elliptic curve library for the 
     - [Testing](#testing)
       - [Integration tests with Aztec in Monorepo](#integration-tests-with-aztec-in-monorepo)
         - [Integration tests with Aztec in Barretenberg Standalone Repo](#integration-tests-with-aztec-in-barretenberg-standalone-repo)
-        - [Testing locally in docker](#testing-locally-in-docker)
     - [Docs Build](#docs-build)
     - [Benchmarks](#benchmarks)
       - [x86\_64](#x86_64)
@@ -118,15 +117,6 @@ NATIVE_PRESET=default ./bootstrap.sh build_native
 ```
 
 The resulting binary will be at `build/bin/bb`.
-
-If you prefer not to install dependencies on your host machine, you can use the Docker interactive script which has all dependencies pre-installed:
-
-```bash
-cd barretenberg/cpp
-./scripts/docker_interactive.sh
-# Inside the container:
-./bootstrap.sh
-```
 
 ### Build Options and Instructions
 
@@ -263,19 +253,6 @@ CI will automatically run integration tests against Aztec. It is located in the 
 ##### Integration tests with Aztec in Barretenberg Standalone Repo
 
 When working on a PR, you may want to point this file to a different Aztec branch or commit, but then it should probably be pointed back to master before merging.
-
-##### Testing locally in docker
-
-A common issue that arises is that our CI system has a different compiler version e.g. namely for GCC. If you need to mimic the CI operating system locally you can use bootstrap_docker.sh or run dockerfiles directly. However, there is a more efficient workflow for iterative development:
-
-```
-cd barretenberg/cpp
-./scripts/docker_interactive.sh
-mv build build-native # your native build folders are mounted, but will not work! have to clear them
-cmake --preset gcc ;  cmake --build build
-```
-
-This will allow you to rebuild as efficiently as if you were running native code, and not have to see a full compile cycle.
 
 ### Docs Build
 
