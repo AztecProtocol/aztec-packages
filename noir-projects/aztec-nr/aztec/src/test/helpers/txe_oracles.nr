@@ -18,8 +18,9 @@ pub unconstrained fn deploy<let M: u32, let N: u32, let P: u32>(
     initializer: str<P>,
     args: [Field; M],
     secret: Field,
+    salt: Field,
 ) -> ContractInstance {
-    let instance_fields = deploy_oracle(path, initializer, args, secret);
+    let instance_fields = deploy_oracle(path, initializer, args, secret, salt);
     ContractInstance::deserialize(instance_fields)
 }
 
@@ -116,6 +117,7 @@ pub unconstrained fn deploy_oracle<let N: u32, let P: u32>(
     initializer: str<P>,
     args: [Field],
     secret: Field,
+    salt: Field,
 ) -> [Field; CONTRACT_INSTANCE_LENGTH] {}
 
 #[oracle(aztec_txe_createAccount)]
