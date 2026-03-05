@@ -417,7 +417,17 @@ TYPED_TEST(FieldTest, FromMontgomeryForm)
     using FF = TypeParam;
 
     constexpr FF t0 = FF::one();
-    constexpr FF result = t0.from_montgomery_form();
+    // Use from_montgomery_form_reduced() for base fields to ensure full reduction to [0, p).
+    // The WASM Montgomery multiplication returns coarse results in [0, 2p), so without
+    // reduce_once() the raw limbs may hold p+1 instead of 1.
+    // Extension fields already call from_montgomery_form_reduced() on their components internally.
+    constexpr FF result = [&]() constexpr {
+        if constexpr (!IsExtensionField<FF>) {
+            return t0.from_montgomery_form_reduced();
+        } else {
+            return t0.from_montgomery_form();
+        }
+    }();
     constexpr uint256_t expected = 0x01;
     uint256_t to_be_compared;
 
