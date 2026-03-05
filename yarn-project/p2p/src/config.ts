@@ -410,9 +410,9 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'TX_PUBLIC_SETUP_ALLOWLIST',
     parseEnv: (val: string) => parseAllowList(val),
     description:
-      'Additional entries to extend the default setup allow list. Format: I:address:selector,C:classId:selector',
+      'Additional entries to extend the default setup allow list. Format: I:address:selector[:flags],C:classId:selector[:flags]. Flags: os (onlySelf), rn (rejectNullMsgSender), cl=N (calldataLength), joined with +.',
     printDefault: () =>
-      'Default: AuthRegistry._set_authorized, FeeJuice._increase_public_balance, Token._increase_public_balance, Token.transfer_in_public',
+      'Default: AuthRegistry._set_authorized, AuthRegistry.set_authorized, FeeJuice._increase_public_balance',
   },
   maxPendingTxCount: {
     env: 'P2P_MAX_PENDING_TX_COUNT',
@@ -542,10 +542,43 @@ export const bootnodeConfigMappings = pickConfigMappings(
 );
 
 /**
+ * Parses a `+`-separated flags string into validation properties for an allow list entry.
+ * Supported flags: `os` (onlySelf), `rn` (rejectNullMsgSender), `cl=N` (calldataLength).
+ */
+function parseFlags(
+  flags: string,
+  entry: string,
+): { onlySelf?: boolean; rejectNullMsgSender?: boolean; calldataLength?: number } {
+  const result: { onlySelf?: boolean; rejectNullMsgSender?: boolean; calldataLength?: number } = {};
+  for (const flag of flags.split('+')) {
+    if (flag === 'os') {
+      result.onlySelf = true;
+    } else if (flag === 'rn') {
+      result.rejectNullMsgSender = true;
+    } else if (flag.startsWith('cl=')) {
+      const n = parseInt(flag.slice(3), 10);
+      if (isNaN(n) || n < 0) {
+        throw new Error(
+          `Invalid allow list entry "${entry}": invalid calldataLength in flag "${flag}". Expected a non-negative integer.`,
+        );
+      }
+      result.calldataLength = n;
+    } else {
+      throw new Error(`Invalid allow list entry "${entry}": unknown flag "${flag}". Supported flags: os, rn, cl=N.`);
+    }
+  }
+  return result;
+}
+
+/**
  * Parses a string to a list of allowed elements.
  * Each entry is expected to be of one of the following formats:
  * `I:${address}:${selector}` — instance (contract address) with function selector
  * `C:${classId}:${selector}` — class with function selector
+ *
+ * An optional flags segment can be appended after the selector:
+ * `I:${address}:${selector}:${flags}` or `C:${classId}:${selector}:${flags}`
+ * where flags is a `+`-separated list of: `os` (onlySelf), `rn` (rejectNullMsgSender), `cl=N` (calldataLength).
  *
  * @param value The string to parse
  * @returns A list of allowed elements
@@ -562,7 +595,7 @@ export function parseAllowList(value: string): AllowedElement[] {
     if (!trimmed) {
       continue;
     }
-    const [typeString, identifierString, selectorString] = trimmed.split(':');
+    const [typeString, identifierString, selectorString, flagsString] = trimmed.split(':');
 
     if (!selectorString) {
       throw new Error(
@@ -571,16 +604,19 @@ export function parseAllowList(value: string): AllowedElement[] {
     }
 
     const selector = FunctionSelector.fromString(selectorString);
+    const flags = flagsString ? parseFlags(flagsString, trimmed) : {};
 
     if (typeString === 'I') {
       entries.push({
         address: AztecAddress.fromString(identifierString),
         selector,
+        ...flags,
       });
     } else if (typeString === 'C') {
       entries.push({
         classId: Fr.fromHexString(identifierString),
         selector,
+        ...flags,
       });
     } else {
       throw new Error(
