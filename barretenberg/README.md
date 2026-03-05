@@ -103,15 +103,19 @@ bbup
 bb --version
 ```
 
-If you need to build from source (e.g. to make changes), here is the minimal recipe to build the `bb` binary:
+If you need to build from source (e.g. to make changes), the bootstrap script handles configuration and compilation:
 
 ```bash
 cd barretenberg/cpp
-cmake --preset default
-cmake --build --preset default --target bb
+./bootstrap.sh
 ```
 
-The resulting binary will be at `build/bin/bb`.
+The resulting binary will be at `build/bin/bb`. You can also build specific targets:
+
+```bash
+cd barretenberg/cpp
+./bootstrap.sh build_native  # Build native binaries only (no WASM)
+```
 
 If you prefer not to install dependencies on your host machine, you can use the Docker interactive script:
 
@@ -119,8 +123,7 @@ If you prefer not to install dependencies on your host machine, you can use the 
 cd barretenberg/cpp
 ./scripts/docker_interactive.sh
 # Inside the container:
-cmake --preset default
-cmake --build --preset default --target bb
+./bootstrap.sh
 ```
 
 ### Bootstrap
