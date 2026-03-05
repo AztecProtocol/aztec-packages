@@ -12,17 +12,6 @@
 # Then we declare executables/libraries that are to be built from these object files.
 # These assets will only be linked as their dependencies complete, but we can parallelize the compilation at least.
 
-# This is an interface library that can be used as an install target to include all header files
-# encountered by the `barretenberg_module` function. There is probably a better way to do this,
-# especially if we want to exclude some of the header files being installed
-add_library(barretenberg_headers INTERFACE)
-target_sources(
-    barretenberg_headers
-    INTERFACE
-    FILE_SET HEADERS
-    BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-
 # barretenberg_module variant that allows specifying custom source and header files
 function(barretenberg_module_with_sources MODULE_NAME)
     # Parse named arguments for SOURCE_FILES and HEADER_FILES
@@ -41,13 +30,6 @@ function(barretenberg_module_with_sources MODULE_NAME)
 
     # Dependencies are either in ARG_DEPENDENCIES or ARG_UNPARSED_ARGUMENTS
     set(MODULE_DEPENDENCIES ${ARG_DEPENDENCIES} ${ARG_UNPARSED_ARGUMENTS})
-
-    target_sources(
-        barretenberg_headers
-        INTERFACE
-        FILE_SET HEADERS
-        FILES ${HEADER_FILES}
-    )
 
     if(SOURCE_FILES)
         add_library(
