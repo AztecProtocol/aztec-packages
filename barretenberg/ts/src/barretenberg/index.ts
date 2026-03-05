@@ -77,7 +77,7 @@ export class Barretenberg extends AsyncApi {
 
     // Load CRS into wasm global CRS state.
     // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
-    await this.srsInitSrs({ pointsBuf: crs.getG1Data(), numPoints: crs.numPoints, g2Point: crs.getG2Data(), compressed: crs.g1IsCompressed });
+    await this.srsInitSrs({ pointsBuf: crs.getG1Data(), numPoints: crs.numPoints, g2Point: crs.getG2Data() });
     await this.srsInitGrumpkinSrs({ pointsBuf: grumpkinCrs.getG1Data(), numPoints: grumpkinCrs.numPoints });
   }
 

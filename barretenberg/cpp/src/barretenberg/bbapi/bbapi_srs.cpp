@@ -15,23 +15,14 @@ namespace bb::bbapi {
 
 SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
 {
+    // Decompress 32-byte compressed points in parallel using native field arithmetic
     std::vector<g1::affine_element> g1_points(num_points);
-    if (compressed) {
-        // Decompress 32-byte compressed points in parallel using native field arithmetic
-        parallel_for([&](ThreadChunk chunk) {
-            for (auto i : chunk.range(static_cast<size_t>(num_points))) {
-                uint256_t c = from_buffer<uint256_t>(points_buf.data(), i * 32);
-                g1_points[i] = g1::affine_element::from_compressed(c);
-            }
-        });
-    } else {
-        // Parse uncompressed 64-byte points in parallel
-        parallel_for([&](ThreadChunk chunk) {
-            for (auto i : chunk.range(static_cast<size_t>(num_points))) {
-                g1_points[i] = from_buffer<g1::affine_element>(points_buf.data(), i * 64);
-            }
-        });
-    }
+    parallel_for([&](ThreadChunk chunk) {
+        for (auto i : chunk.range(static_cast<size_t>(num_points))) {
+            uint256_t c = from_buffer<uint256_t>(points_buf.data(), i * 32);
+            g1_points[i] = g1::affine_element::from_compressed(c);
+        }
+    });
 
     // Parse G2 point from buffer (128 bytes)
     auto g2_point_elem = from_buffer<g2::affine_element>(g2_point.data());

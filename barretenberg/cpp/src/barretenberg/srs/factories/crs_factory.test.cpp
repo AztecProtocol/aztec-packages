@@ -127,8 +127,8 @@ TEST(CrsFactory, Bn254Fallback)
     fs::create_directories(temp_crs_path);
 
     // Use a bad primary URL that will fail, forcing fallback to the real S3 URL
-    std::string bad_primary = "http://nonexistent.invalid/g1.dat";
-    std::string good_fallback = "http://crs.aztec-labs.com/g1.dat";
+    std::string bad_primary = "http://nonexistent.invalid/g1_compressed.dat";
+    std::string good_fallback = "http://crs.aztec-labs.com/g1_compressed.dat";
 
     // This should succeed by falling back to the working URL
     auto points = bb::get_bn254_g1_data(temp_crs_path, 1, /*allow_download=*/true, bad_primary, good_fallback);

@@ -29,11 +29,7 @@ export class Crs {
   async init(): Promise<void> {
     mkdirSync(this.path, { recursive: true });
 
-    // Check compressed cache first, then legacy uncompressed
     const compressedFileSize = await stat(this.path + '/bn254_g1_compressed.dat')
-      .then(stats => stats.size)
-      .catch(() => 0);
-    const legacyFileSize = await stat(this.path + '/bn254_g1.dat')
       .then(stats => stats.size)
       .catch(() => 0);
     const g2FileSize = await stat(this.path + '/bn254_g2.dat')
@@ -41,12 +37,9 @@ export class Crs {
       .catch(() => 0);
 
     const hasCompressed = compressedFileSize >= this.numPoints * 32 && compressedFileSize % 32 == 0;
-    const hasLegacy = legacyFileSize >= this.numPoints * 64 && legacyFileSize % 64 == 0;
 
-    if ((hasCompressed || hasLegacy) && g2FileSize == 128) {
-      const cacheType = hasCompressed ? 'compressed' : 'legacy';
-      const cacheSize = hasCompressed ? compressedFileSize / 32 : legacyFileSize / 64;
-      this.logger(`Using cached ${cacheType} CRS of size ${cacheSize}`);
+    if (hasCompressed && g2FileSize == 128) {
+      this.logger(`Using cached compressed CRS of size ${compressedFileSize / 32}`);
       return;
     }
 
@@ -54,46 +47,25 @@ export class Crs {
     const crs = new NetCrs(this.numPoints);
     const g1Stream = await crs.streamG1Data();
     const g2Stream = await crs.streamG2Data();
-    const g1File = crs.g1IsCompressed ? '/bn254_g1_compressed.dat' : '/bn254_g1.dat';
 
     await Promise.all([
-      finished(Readable.fromWeb(g1Stream as any).pipe(createWriteStream(this.path + g1File))),
+      finished(Readable.fromWeb(g1Stream as any).pipe(createWriteStream(this.path + '/bn254_g1_compressed.dat'))),
       finished(Readable.fromWeb(g2Stream as any).pipe(createWriteStream(this.path + '/bn254_g2.dat'))),
     ]);
   }
 
-  /** Whether G1 data is in compressed format (32 bytes/point). */
-  g1IsCompressed = false;
-
   /**
-   * G1 points data for prover key.
-   * @returns The points data. May be compressed (32 bytes/point) or uncompressed (64 bytes/point).
-   * Check g1IsCompressed to determine format. Decompression happens in C++ via SrsInitSrs.
+   * G1 points data for prover key (compressed, 32 bytes/point).
+   * Decompression happens in C++ via SrsInitSrs.
    */
   getG1Data(): Uint8Array {
     const numPoints = Math.max(this.numPoints, 1);
-
-    // Try compressed cache first
-    try {
-      const compressedLength = numPoints * 32;
-      const fd = openSync(this.path + '/bn254_g1_compressed.dat', 'r');
-      const compressed = new Uint8Array(compressedLength);
-      readSync(fd, compressed, 0, compressedLength, 0);
-      closeSync(fd);
-      this.g1IsCompressed = true;
-      return compressed;
-    } catch {
-      // Fall through to legacy
-    }
-
-    // Legacy uncompressed cache
-    const length = numPoints * 64;
-    const fd = openSync(this.path + '/bn254_g1.dat', 'r');
-    const buffer = new Uint8Array(length);
-    readSync(fd, buffer, 0, length, 0);
+    const compressedLength = numPoints * 32;
+    const fd = openSync(this.path + '/bn254_g1_compressed.dat', 'r');
+    const compressed = new Uint8Array(compressedLength);
+    readSync(fd, compressed, 0, compressedLength, 0);
     closeSync(fd);
-    this.g1IsCompressed = false;
-    return buffer;
+    return compressed;
   }
 
   /**
