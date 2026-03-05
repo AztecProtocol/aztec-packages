@@ -275,7 +275,7 @@ networks:
     SPONSORED_FPC: true
     TRANSACTIONS_DISABLED: false
     # Sequencer
-    SEQ_MAX_TX_PER_CHECKPOINT: 7 # 0.1 TPS
+    SEQ_MAX_TX_PER_CHECKPOINT: 72 # 1 TPS
     # Prover
     PROVER_REAL_PROOFS: true
     # P2P
