@@ -27,7 +27,7 @@ import {
   isWithForkId,
   isWithRevision,
 } from './message.js';
-import { WorldStateOpsQueue } from './world_state_ops_queue.js';
+import { WorldStateOpsQueue, type WorldStateOpsQueueStatus } from './world_state_ops_queue.js';
 
 const MAX_WORLD_STATE_THREADS = +(process.env.HARDWARE_CONCURRENCY || '16');
 
@@ -93,11 +93,11 @@ export class NativeWorldState implements NativeWorldStateInstance {
     );
     this.instance = new MsgpackChannel(ws);
     // Manually create the queue for the canonical fork
-    this.queues.set(0, new WorldStateOpsQueue());
+    this.queues.set(0, new WorldStateOpsQueue(log));
   }
 
-  public getQueueLength(forkId: number = 0): number {
-    return this.queues.get(forkId)?.length() ?? 0;
+  public getQueueStatus(forkId: number = 0): WorldStateOpsQueueStatus {
+    return this.queues.get(forkId)?.status() ?? { pending: 0, inFlight: 0, inFlightMutating: 0 };
   }
 
   public getDataDir() {
@@ -180,7 +180,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
     // Get the queue or create a new one
     let requestQueue = this.queues.get(forkId);
     if (requestQueue === undefined) {
-      requestQueue = new WorldStateOpsQueue();
+      requestQueue = new WorldStateOpsQueue(this.log);
       this.queues.set(forkId, requestQueue);
     }
 

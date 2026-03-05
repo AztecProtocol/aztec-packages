@@ -1,3 +1,4 @@
+import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 
 import { WorldStateMessageType } from './message.js';
@@ -19,8 +20,13 @@ import { WorldStateMessageType } from './message.js';
 type WorldStateOp = {
   requestId: number;
   mutating: boolean;
+  messageType: WorldStateMessageType;
   request: () => Promise<any>;
   promise: PromiseWithResolvers<any>;
+  enqueuedAt: number;
+  // Snapshot of in-flight counts when this op was queued (not sent immediately)
+  queuedInFlight?: number;
+  queuedInFlightMutating?: number;
 };
 
 // These are the set of message types that implement mutating operations
@@ -43,6 +49,12 @@ export const MUTATING_MSG_TYPES = new Set([
   WorldStateMessageType.REVERT_CHECKPOINT,
 ]);
 
+export type WorldStateOpsQueueStatus = {
+  pending: number;
+  inFlight: number;
+  inFlightMutating: number;
+};
+
 // This class implements the per-fork operation queue
 export class WorldStateOpsQueue {
   private requests: WorldStateOp[] = [];
@@ -53,8 +65,18 @@ export class WorldStateOpsQueue {
   private requestId = 0;
   private ops: Map<number, WorldStateOp> = new Map();
 
+  constructor(private readonly log?: Logger) {}
+
   public length(): number {
     return this.requests.length;
+  }
+
+  public status(): WorldStateOpsQueueStatus {
+    return {
+      pending: this.requests.length,
+      inFlight: this.inFlightCount,
+      inFlightMutating: this.inFlightMutatingCount,
+    };
   }
 
   // The primary public api, this is where an operation is queued
@@ -67,8 +89,10 @@ export class WorldStateOpsQueue {
     const op: WorldStateOp = {
       requestId: this.requestId++,
       mutating: MUTATING_MSG_TYPES.has(messageType),
+      messageType,
       request,
       promise: promiseWithResolvers(),
+      enqueuedAt: Date.now(),
     };
     this.ops.set(op.requestId, op);
 
@@ -90,6 +114,8 @@ export class WorldStateOpsQueue {
     if (this.inFlightCount === 0) {
       this.sendEnqueuedRequest(op);
     } else {
+      op.queuedInFlight = this.inFlightCount;
+      op.queuedInFlightMutating = this.inFlightMutatingCount;
       this.requests.push(op);
     }
   }
@@ -103,6 +129,8 @@ export class WorldStateOpsQueue {
     if (this.inFlightMutatingCount == 0 && this.requests.length == 0) {
       this.sendEnqueuedRequest(op);
     } else {
+      op.queuedInFlight = this.inFlightCount;
+      op.queuedInFlightMutating = this.inFlightMutatingCount;
       this.requests.push(op);
     }
   }
@@ -159,6 +187,16 @@ export class WorldStateOpsQueue {
   }
 
   private sendEnqueuedRequest(op: WorldStateOp) {
+    if (op.queuedInFlight !== undefined) {
+      const waitMs = Date.now() - op.enqueuedAt;
+      this.log?.debug(`Sending op ${WorldStateMessageType[op.messageType]} after ${waitMs}ms in queue`, {
+        waitMs,
+        mutating: op.mutating,
+        blockedByInFlight: op.queuedInFlight,
+        blockedByInFlightMutating: op.queuedInFlightMutating,
+      });
+    }
+
     // Here we increment the in flight counts before sending
     ++this.inFlightCount;
     if (op.mutating) {

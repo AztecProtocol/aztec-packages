@@ -177,14 +177,16 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     opts: { closeDelayMs?: number } = {},
   ): Promise<MerkleTreeWriteOperations> {
     const timer = new Timer();
-    const lenStart = this.instance.getQueueLength();
+    const statusStart = this.instance.getQueueStatus();
     const resp = await this.instance.call(WorldStateMessageType.CREATE_FORK, {
       latest: blockNumber === undefined,
       blockNumber: blockNumber ?? BlockNumber.ZERO,
       canonical: true,
     });
-    const lenEnd = this.instance.getQueueLength();
-    this.log.info(`World state fork took ${timer.ms().toFixed(2)}ms queue sizes start=${lenStart} end=${lenEnd}`);
+    const statusEnd = this.instance.getQueueStatus();
+    this.log.info(
+      `World state fork took ${timer.ms().toFixed(2)}ms queue status start=${JSON.stringify(statusStart)} end=${JSON.stringify(statusEnd)}`,
+    );
     return new MerkleTreesForkFacade(
       this.instance,
       this.initialHeader!,
