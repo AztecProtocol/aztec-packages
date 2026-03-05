@@ -1,14 +1,17 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
 #include "barretenberg/srs/factories/bn254_crs_data.hpp"
+#include "barretenberg/srs/factories/bn254_g1_chunk_hashes.hpp"
 #include "barretenberg/srs/factories/get_bn254_crs.hpp"
 #include "barretenberg/srs/factories/mem_bn254_crs_factory.hpp"
 #include "barretenberg/srs/factories/mem_grumpkin_crs_factory.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include <gtest/gtest.h>
+#include <span>
 #include <utility>
 
 using namespace bb;
@@ -103,7 +106,8 @@ TEST(CrsFactory, grumpkin)
     check_grumpkin_consistency(temp_crs_path, 1, /*allow_download=*/true);
 }
 
-TEST(CrsFactory, Bn254Fallback)
+// TODO: Re-enable once g1_compressed.dat is deployed to S3 fallback
+TEST(CrsFactory, DISABLED_Bn254Fallback)
 {
     // Test that fallback works when primary URL fails
     const std::filesystem::path& temp_crs_path = "barretenberg_srs_test_crs_bn254_fallback";
@@ -121,4 +125,24 @@ TEST(CrsFactory, Bn254Fallback)
     EXPECT_EQ(points[0], bb::srs::BN254_G1_FIRST_ELEMENT);
 
     fs::remove_all(temp_crs_path);
+}
+
+TEST(CrsFactory, Bn254CompressedChunkHashFirstChunk)
+{
+    // Verify that the first 4MB chunk of the compressed CRS matches the embedded hash
+    auto data = read_file(bb::srs::bb_crs_path() / "bn254_g1_compressed.dat", bb::srs::SRS_CHUNK_SIZE_BYTES);
+    auto chunk = std::span<const uint8_t>(data.data(), data.size());
+    auto hash = bb::crypto::sha256(chunk);
+    EXPECT_EQ(hash, bb::srs::BN254_G1_COMPRESSED_CHUNK_HASHES[0]);
+}
+
+TEST(CrsFactory, Bn254CompressedChunkHashCorruptionDetected)
+{
+    // Verify that corrupted data fails chunk hash verification
+    auto data = read_file(bb::srs::bb_crs_path() / "bn254_g1_compressed.dat", bb::srs::SRS_CHUNK_SIZE_BYTES);
+
+    data[bb::srs::SRS_CHUNK_SIZE_BYTES / 2] ^= 0xFF;
+    auto chunk = std::span<const uint8_t>(data.data(), data.size());
+    auto hash = bb::crypto::sha256(chunk);
+    EXPECT_NE(hash, bb::srs::BN254_G1_COMPRESSED_CHUNK_HASHES[0]);
 }
