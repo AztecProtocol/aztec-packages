@@ -43,7 +43,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   let crowdfundingContract: CrowdfundingContract;
   let claimContract: ClaimContract;
 
-  let crowdfundingSecretKey;
+  let crowdfundingSecretKey: Fr;
   let crowdfundingPublicKeys: PublicKeys;
   let cheatCodes: CheatCodes;
   let deadline: number; // end of crowdfunding period

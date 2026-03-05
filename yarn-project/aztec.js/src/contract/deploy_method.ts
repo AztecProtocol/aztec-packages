@@ -86,7 +86,7 @@ export type DeployOptionsWithoutWait = Omit<RequestDeployOptions, 'deployer'> & 
    * is mutually exclusive with "deployer"
    */
   universalDeploy?: boolean;
-} & Pick<SendInteractionOptionsWithoutWait, 'from' | 'fee'>;
+} & Pick<SendInteractionOptionsWithoutWait, 'from' | 'fee' | 'additionalScopes'>;
 
 /**
  * Extends the deployment options with the required parameters to send the transaction.

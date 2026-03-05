@@ -34,7 +34,7 @@ describe('docs_examples', () => {
     const newAccountAddress = newAccountManager.address;
     const defaultAccountAddress = prefundedAccount.address;
 
-    const deployedContract = await TokenContract.deploy(
+    const { contract: deployedContract } = await TokenContract.deploy(
       wallet, // wallet instance
       defaultAccountAddress, // account
       'TokenName', // constructor arg1
