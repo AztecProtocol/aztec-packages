@@ -157,10 +157,10 @@ done < "$MAPPING_FILE"
 
 if [[ -n "$MISSING_PATHS" ]]; then
   echo ""
-  echo "ERROR: The following referenced paths do not exist:"
+  echo "WARNING: The following referenced paths do not exist:"
   echo -e "$MISSING_PATHS"
   echo "Please update the 'references' frontmatter in the affected documentation files."
-  exit 1
+  send_slack_message "⚠️ *Stale doc references detected*\\nThe following paths in \`references\` frontmatter do not exist:\\n$(echo -e "$MISSING_PATHS" | sed 's/$/\\n/g')"
 fi
 # Extract unique referenced files
 REFERENCE_FILES=$(cut -d'|' -f1 "$MAPPING_FILE" | sort -u)
@@ -232,7 +232,7 @@ while IFS= read -r ref_file; do
     while IFS='|' read -r src_file doc_file; do
       if [[ "$src_file" == "$ref_file" ]]; then
         # Store in associative array (append to existing value if key exists)
-        if [[ -n "${FILE_TO_DOCS_MAP[$ref_file]}" ]]; then
+        if [[ -n "${FILE_TO_DOCS_MAP[$ref_file]:-}" ]]; then
           FILE_TO_DOCS_MAP[$ref_file]="${FILE_TO_DOCS_MAP[$ref_file]}|${doc_file}"
         else
           FILE_TO_DOCS_MAP[$ref_file]="$doc_file"
