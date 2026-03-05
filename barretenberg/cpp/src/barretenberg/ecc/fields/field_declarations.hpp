@@ -278,64 +278,21 @@ template <class Params_> struct alignas(32) field {
     static constexpr field neg_one() { return -field(1); }
     static constexpr field one() { return field(1); }
 
-    static constexpr field external_coset_generator()
+    static constexpr field coset_generator()
     {
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
         const field result{
-            Params::coset_generators_0[7],
-            Params::coset_generators_1[7],
-            Params::coset_generators_2[7],
-            Params::coset_generators_3[7],
+            Params::coset_generator_0,
+            Params::coset_generator_1,
+            Params::coset_generator_2,
+            Params::coset_generator_3,
         };
 #else
         const field result{
-            Params::coset_generators_wasm_0[7],
-            Params::coset_generators_wasm_1[7],
-            Params::coset_generators_wasm_2[7],
-            Params::coset_generators_wasm_3[7],
-        };
-#endif
-
-        return result;
-    }
-
-    static constexpr field tag_coset_generator()
-    {
-#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
-        const field result{
-            Params::coset_generators_0[6],
-            Params::coset_generators_1[6],
-            Params::coset_generators_2[6],
-            Params::coset_generators_3[6],
-        };
-#else
-        const field result{
-            Params::coset_generators_wasm_0[6],
-            Params::coset_generators_wasm_1[6],
-            Params::coset_generators_wasm_2[6],
-            Params::coset_generators_wasm_3[6],
-        };
-#endif
-
-        return result;
-    }
-
-    template <size_t idx> static constexpr field coset_generator()
-    {
-        static_assert(idx < 7);
-#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
-        const field result{
-            Params::coset_generators_0[idx],
-            Params::coset_generators_1[idx],
-            Params::coset_generators_2[idx],
-            Params::coset_generators_3[idx],
-        };
-#else
-        const field result{
-            Params::coset_generators_wasm_0[idx],
-            Params::coset_generators_wasm_1[idx],
-            Params::coset_generators_wasm_2[idx],
-            Params::coset_generators_wasm_3[idx],
+            Params::coset_generator_0,
+            Params::coset_generator_1,
+            Params::coset_generator_2,
+            Params::coset_generator_3,
         };
 #endif
 
@@ -575,9 +532,6 @@ template <class Params_> struct alignas(32) field {
         };
     }
 
-    // static constexpr auto coset_generators = compute_coset_generators();
-    // static constexpr std::array<field, 15> coset_generators = compute_coset_generators((1 << 30U));
-
     friend std::ostream& operator<<(std::ostream& os, const field& a)
     {
         field out = a.from_montgomery_form_reduced();
@@ -729,7 +683,6 @@ template <class Params_> struct alignas(32) field {
     BB_INLINE static void asm_self_reduce_once(const field& a) noexcept;
     static constexpr uint64_t zero_reference = 0x00ULL;
 #endif
-    static constexpr size_t COSET_GENERATOR_SIZE = 15;
     constexpr field tonelli_shanks_sqrt() const noexcept;
     static constexpr size_t primitive_root_log_size() noexcept;
 
