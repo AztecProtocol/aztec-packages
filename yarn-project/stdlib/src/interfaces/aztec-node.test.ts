@@ -249,6 +249,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([]);
   });
 
+  it('getCheckpointedBlocksForEpoch', async () => {
+    const response = await context.client.getCheckpointedBlocksForEpoch(EpochNumber(1));
+    expect(response).toEqual([]);
+  });
+
   it('getNodeVersion', async () => {
     const response = await context.client.getNodeVersion();
     expect(response).toBe('1.0.0');
@@ -529,6 +534,10 @@ class MockAztecNode implements AztecNode {
   }
 
   getCheckpointedBlocks(_from: BlockNumber, _limit: number) {
+    return Promise.resolve([]);
+  }
+
+  getCheckpointedBlocksForEpoch(_epoch: EpochNumber) {
     return Promise.resolve([]);
   }
 

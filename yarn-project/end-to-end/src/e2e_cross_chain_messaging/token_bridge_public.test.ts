@@ -1,4 +1,3 @@
-import { Fr } from '@aztec/aztec.js/fields';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 
 import { NO_L1_TO_L2_MSG_ERROR } from '../fixtures/fixtures.js';
@@ -75,14 +74,13 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
 
     // 5. Withdraw owner's funds from L2 to L1
     logger.verbose('5. Withdraw owner funds from L2 to L1');
-    const l2ToL1Message = await crossChainTestHarness.getL2ToL1MessageLeaf(withdrawAmount);
     const l2TxReceipt = await crossChainTestHarness.withdrawPublicFromAztecToL1(withdrawAmount, authwitNonce);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, afterBalance - withdrawAmount);
 
     // Advance the epoch until the tx is proven since the messages are inserted to the outbox when the epoch is proven.
     const epoch = await t.advanceToEpochProven(l2TxReceipt);
 
-    const l2ToL1MessageResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, l2ToL1Message);
+    const l2ToL1MessageResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, l2TxReceipt.txHash, 0);
 
     // Check balance before and after exit.
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);

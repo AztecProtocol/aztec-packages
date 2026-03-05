@@ -4,7 +4,7 @@ import { type EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
 import { EpochMonitor } from '@aztec/prover-node';
 import type { EthAddress, L2BlockSource } from '@aztec/stdlib/block';
-import { computeL2ToL1MembershipWitnessFromMessagesInEpoch } from '@aztec/stdlib/messaging';
+import { computeEpochOutHash } from '@aztec/stdlib/messaging';
 
 export class EpochTestSettler {
   private rollupCheatCodes: RollupCheatCodes;
@@ -51,9 +51,8 @@ export class EpochTestSettler {
       messagesInEpoch[checkpointIndex].push(block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs));
     }
 
-    const [firstMessage] = messagesInEpoch.flat(3);
-    if (firstMessage) {
-      const { root: outHash } = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, firstMessage);
+    if (messagesInEpoch.flat(3).length > 0) {
+      const outHash = computeEpochOutHash(messagesInEpoch);
       await this.rollupCheatCodes.insertOutbox(epoch, outHash.toBigInt());
     } else {
       this.log.info(`No L2 to L1 messages in epoch ${epoch}`);

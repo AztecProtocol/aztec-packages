@@ -37,22 +37,30 @@ describe('L2 to L1 membership', () => {
 
   const verifyMembershipForMessagesInEpoch = (messagesInEpoch: Fr[][][][]): L2ToL1MembershipWitness[] => {
     let root = Fr.ZERO;
-    const messages = messagesInEpoch.flat(3);
-    const witnesses = messages.map((msg, i) => {
-      const witness = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg);
-      const leafId = getL2ToL1MessageLeafId(witness);
-      expect(foundLeafIds.has(leafId)).toBe(false);
-      foundLeafIds.add(leafId);
-      verifyMembership(msg, witness);
+    const witnesses: L2ToL1MembershipWitness[] = [];
 
-      if (i === 0) {
-        root = witness.root;
-      } else {
-        expect(witness.root).toEqual(root);
+    for (let ci = 0; ci < messagesInEpoch.length; ci++) {
+      for (let bi = 0; bi < messagesInEpoch[ci].length; bi++) {
+        for (let ti = 0; ti < messagesInEpoch[ci][bi].length; ti++) {
+          for (let mi = 0; mi < messagesInEpoch[ci][bi][ti].length; mi++) {
+            const msg = messagesInEpoch[ci][bi][ti][mi];
+            const witness = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, ci, bi, ti, mi);
+            const leafId = getL2ToL1MessageLeafId(witness);
+            expect(foundLeafIds.has(leafId)).toBe(false);
+            foundLeafIds.add(leafId);
+            verifyMembership(msg, witness);
+
+            if (witnesses.length === 0) {
+              root = witness.root;
+            } else {
+              expect(witness.root).toEqual(root);
+            }
+
+            witnesses.push(witness);
+          }
+        }
       }
-
-      return witness;
-    });
+    }
 
     const computedRoot = computeEpochOutHash(messagesInEpoch);
     expect(root).toEqual(computedRoot);
@@ -65,12 +73,15 @@ describe('L2 to L1 membership', () => {
   });
 
   describe('one block in one checkpoint in the epoch', () => {
-    it('throws if the message is not found', () => {
-      const messagesInEpoch = [[[msgHashes(3), msgHashes(1)]]];
-      const targetMsg = Fr.random();
-      expect(() => computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, targetMsg)).toThrow(
-        'The L2ToL1Message you are trying to prove inclusion of does not exist',
-      );
+    it('correctly finds a message when duplicates exist', () => {
+      // Both txs emit the same message value. With value-based search this would always return the first,
+      // but coordinate-based search correctly finds each one at its own position.
+      const duplicateMsg = Fr.random();
+      const messagesInEpoch = [[[msgHashes(1).concat([duplicateMsg]), [duplicateMsg]]]];
+      const witness0 = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, 0, 0, 0, 1);
+      const witness1 = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, 0, 0, 1, 0);
+      // Both witnesses prove the same message leaf but have different positions.
+      expect(getL2ToL1MessageLeafId(witness0)).not.toBe(getL2ToL1MessageLeafId(witness1));
     });
 
     it('a single tx with 1 message', () => {
@@ -802,7 +813,8 @@ describe('L2 to L1 membership', () => {
         [[[], []]],
         [[[], []], [[]], [[], [], []], [[], []]],
       ];
-      const witness = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, msg);
+      // msg is in checkpoint 2, block 2 (first two blocks are empty), tx 0, message 0.
+      const witness = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, 2, 2, 0, 0);
       expect(witness.leafIndex).toBe(2n); // The message is the root of the second checkpoint.
       expect(witness.siblingPath.pathSize).toBe(epochTopTreeDepth);
     });

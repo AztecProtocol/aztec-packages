@@ -200,12 +200,6 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     // docs:end:setup-withdrawal
 
     // docs:start:l2-withdraw
-    const l2ToL1Message = await l1PortalManager.getL2ToL1MessageLeaf(
-      withdrawAmount,
-      EthAddress.fromString(ownerEthAddress),
-      l2BridgeContract.address,
-      EthAddress.ZERO,
-    );
     const l2TxReceipt = await l2BridgeContract.methods
       .exit_to_l1_public(EthAddress.fromString(ownerEthAddress), withdrawAmount, EthAddress.ZERO, authwitNonce)
       .send({ from: ownerAztecAddress });
@@ -222,7 +216,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     const block = await node.getBlock(l2TxReceipt.blockNumber!);
     const epoch = await rollup.getEpochNumberForCheckpoint(block!.checkpointNumber);
 
-    const result = await computeL2ToL1MembershipWitness(node, epoch, l2ToL1Message);
+    const result = await computeL2ToL1MembershipWitness(node, epoch, l2TxReceipt.txHash, 0);
     if (!result) {
       throw new Error('L2 to L1 message not found');
     }
