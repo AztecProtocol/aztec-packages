@@ -108,9 +108,10 @@ export function registerSlackHandlers(app: App, store: SessionStore, docker: Doc
     }, store, docker);
   });
 
-  // ── Direct messages ───────────────────────────────────────────
+  // ── Direct messages + group DMs ─────────────────────────────
   app.event("message", async ({ event, client, say }) => {
-    const channelType = (event as any).channel_type;
+    const channelType = (event as any).channel_type || "";
+    console.log(`[MSG_EVENT] channel_type=${channelType} channel=${event.channel} subtype=${(event as any).subtype || "none"} bot_id=${(event as any).bot_id || "none"}`);
     if (channelType !== "im" && channelType !== "mpim") return;
     if ((event as any).bot_id || (event as any).subtype) return;
 
