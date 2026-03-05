@@ -193,7 +193,7 @@ export async function handleTerminalCommand(
 function drainQueueAndResume(
   client: any, channel: string, threadTs: string | null,
   worktreeId: string, store: SessionStore, docker: DockerService,
-  baseBranch: string, channelName: string, profile: string,
+  baseBranch: string, channelName: string,
 ): void {
   try {
     const session = store.findByWorktreeId(worktreeId);
@@ -206,7 +206,7 @@ function drainQueueAndResume(
 
     startReplySession(
       client, channel, threadTs, combined, session,
-      queued[0].user, store, docker, baseBranch, false, channelName, false, profile,
+      queued[0].user, store, docker, baseBranch, false, channelName, false, session.profile || "",
     );
   } catch (e: any) {
     console.error(`[QUEUE] Failed to drain queue for ${worktreeId}: ${e.message}`);
@@ -269,7 +269,7 @@ export async function startNewSession(
           .catch((e) => console.warn(`[WARN] Slack status update failed: ${e}`));
       }
       if (capturedWorktreeId) {
-        drainQueueAndResume(client, channel, threadTs, capturedWorktreeId, store, docker, baseBranch, channelName, profile);
+        drainQueueAndResume(client, channel, threadTs, capturedWorktreeId, store, docker, baseBranch, channelName);
       }
     });
   } catch (e) {
@@ -337,7 +337,7 @@ export async function startReplySession(
           .catch((e) => console.warn(`[WARN] Slack status update failed: ${e}`));
       }
       if (capturedWorktreeId) {
-        drainQueueAndResume(client, channel, threadTs, capturedWorktreeId, store, docker, baseBranch, channelName, profile);
+        drainQueueAndResume(client, channel, threadTs, capturedWorktreeId, store, docker, baseBranch, channelName);
       }
     });
   } catch (e) {

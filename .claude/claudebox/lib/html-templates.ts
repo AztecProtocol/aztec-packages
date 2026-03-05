@@ -292,15 +292,14 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
   </div>
 </div>
 
-<!-- Auth overlay -->
-<div id="auth-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:100;align-items:center;justify-content:center">
+<!-- Auth overlay (visible by default — must authenticate before seeing content) -->
+<div id="auth-overlay" style="display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:100;align-items:center;justify-content:center">
   <form id="auth-form" autocomplete="on" style="background:#111;border:1px solid #333;border-radius:12px;padding:24px;width:280px;display:flex;flex-direction:column;gap:12px">
     <div style="color:#5FA7F1;font-weight:600;font-size:14px;text-align:center">ClaudeBox Login</div>
     <input id="auth-user" name="username" type="text" autocomplete="username" placeholder="Username" style="background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 12px;color:#d4d4d4;font-family:inherit;font-size:13px" required>
     <input id="auth-pass" name="password" type="password" autocomplete="current-password" placeholder="Password" style="background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 12px;color:#d4d4d4;font-family:inherit;font-size:13px" required>
     <div style="display:flex;gap:8px">
       <button type="submit" class="btn btn-blue" style="flex:1;padding:8px">Login</button>
-      <button type="button" class="btn" style="flex:1;padding:8px" onclick="hideAuth()">Cancel</button>
     </div>
     <div id="auth-error" style="color:#E94560;font-size:11px;text-align:center;display:none"></div>
   </form>
@@ -417,7 +416,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
       setTimeout(connectSSE,5000);
     };
   }
-  connectSSE();
+  // connectSSE() is called after authentication in onAuthenticated()
 
   // ── Message Queue ─────────────────────────────────────────────
   function saveQueue(){localStorage.setItem("cb_queue_"+ID,JSON.stringify(messageQueue));}
@@ -465,22 +464,33 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
     }
   }
 
-  // ── Auth ───────────────────────────────────────────────────────
+  // ── Auth (required on page load) ────────────────────────────────
   var _creds=null,_authCallback=null;
   function loadCreds(){if(_creds)return _creds;try{var s=sessionStorage.getItem("cb_auth");if(s){_creds=JSON.parse(s);return _creds;}}catch{}return null;}
   function saveCreds(u,p){_creds={user:u,pass:p,basic:"Basic "+btoa(u+":"+p)};try{sessionStorage.setItem("cb_auth",JSON.stringify(_creds));}catch{}return _creds;}
   function showAuth(cb){_authCallback=cb;var o=document.getElementById("auth-overlay");o.style.display="flex";document.getElementById("auth-error").style.display="none";document.getElementById("auth-user").focus();}
-  window.hideAuth=function(){document.getElementById("auth-overlay").style.display="none";_authCallback=null;};
+  function hideAuth(){document.getElementById("auth-overlay").style.display="none";_authCallback=null;}
+  function onAuthenticated(){hideAuth();connectSSE();}
   document.getElementById("auth-form").addEventListener("submit",function(e){
     e.preventDefault();var u=document.getElementById("auth-user").value,p=document.getElementById("auth-pass").value;
     fetch("/auth-check",{method:"POST",headers:{"Authorization":"Basic "+btoa(u+":"+p)}}).then(function(r){
       if(r.status===401){document.getElementById("auth-error").textContent="Invalid credentials";document.getElementById("auth-error").style.display="block";return;}
-      saveCreds(u,p);document.getElementById("auth-overlay").style.display="none";
+      saveCreds(u,p);onAuthenticated();
       if(_authCallback){var cb=_authCallback;_authCallback=null;cb();}
     }).catch(function(){document.getElementById("auth-error").textContent="Connection error";document.getElementById("auth-error").style.display="block";});
   });
   function requireAuth(cb){if(loadCreds()){cb();return;}showAuth(cb);}
   function authFetch(url,opts){var c=loadCreds();if(!c)return Promise.reject(new Error("Not logged in"));opts=opts||{};opts.headers=opts.headers||{};opts.headers["Authorization"]=c.basic;return fetch(url,opts);}
+
+  // Check cached creds on page load
+  var cached=loadCreds();
+  if(cached){
+    fetch("/auth-check",{method:"POST",headers:{"Authorization":cached.basic}})
+      .then(function(r){if(r.ok)onAuthenticated();else{_creds=null;sessionStorage.removeItem("cb_auth");document.getElementById("auth-user").focus();}})
+      .catch(function(){onAuthenticated();});
+  } else {
+    document.getElementById("auth-user").focus();
+  }
 
   // ── Resume / Send ─────────────────────────────────────────────
   window.resumeSession=function(){

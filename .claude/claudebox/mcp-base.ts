@@ -11,7 +11,7 @@
 import { createServer as createHttpServer, IncomingMessage, ServerResponse } from "http";
 import { ChildProcess, execFileSync, execSync, spawn } from "child_process";
 import { createHash } from "crypto";
-import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, readdirSync, statSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, readdirSync, statSync, unlinkSync } from "fs";
 import { join } from "path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -68,26 +68,14 @@ if (SLACK_BOT_TOKEN && SESSION_META.link && !SESSION_META.slack_channel) {
 // Returns the common whitelist patterns, parameterized by repo prefix R.
 export function buildCommonGhWhitelist(R: string): Array<{ method: string; pattern: RegExp }> {
   return [
-    // PRs
+    // PRs (read-only — writes handled by create_pr / update_pr)
     { method: "GET",   pattern: new RegExp(`^${R}/pulls(\\?.*)?$`) },
-    { method: "GET",   pattern: new RegExp(`^${R}/pulls/\\d+(/files|/reviews|/comments|/requested_reviewers)?$`) },
-    { method: "POST",  pattern: new RegExp(`^${R}/pulls$`) },
-    { method: "PATCH", pattern: new RegExp(`^${R}/pulls/\\d+$`) },
-    // Labels
-    { method: "POST",  pattern: new RegExp(`^${R}/issues/\\d+/labels$`) },
-    // Issues & comments
+    { method: "GET",   pattern: new RegExp(`^${R}/pulls/\\d+(/files|/reviews|/comments|/requested_reviewers|/commits)?(\\?.*)?$`) },
+    // Issues & comments (read-only — writes handled by respond_to_user / session_status / add_log_link)
     { method: "GET",   pattern: new RegExp(`^${R}/issues(\\?.*)?$`) },
     { method: "GET",   pattern: new RegExp(`^${R}/issues/\\d+(\\?.*)?$`) },
-    { method: "GET",   pattern: new RegExp(`^${R}/issues/\\d+/timeline(\\?.*)?$`) },
-    { method: "GET",   pattern: new RegExp(`^${R}/issues/\\d+/events(\\?.*)?$`) },
-    { method: "GET",   pattern: new RegExp(`^${R}/issues/\\d+/comments(\\?.*)?$`) },
+    { method: "GET",   pattern: new RegExp(`^${R}/issues/\\d+/(timeline|events|comments)(\\?.*)?$`) },
     { method: "GET",   pattern: new RegExp(`^${R}/issues/comments/\\d+$`) },
-    { method: "PATCH", pattern: new RegExp(`^${R}/issues/comments/\\d+$`) },
-    { method: "POST",  pattern: new RegExp(`^${R}/issues/\\d+/comments$`) },
-    // Reactions
-    { method: "POST",  pattern: new RegExp(`^${R}/issues/comments/\\d+/reactions$`) },
-    // PRs — commits list
-    { method: "GET",   pattern: new RegExp(`^${R}/pulls/\\d+/commits(\\?.*)?$`) },
     // Actions / CI
     { method: "GET",   pattern: new RegExp(`^${R}/actions/workflows(\\?.*)?$`) },
     { method: "GET",   pattern: new RegExp(`^${R}/actions/runs(\\?.*)?$`) },
@@ -115,9 +103,7 @@ export function buildCommonGhWhitelist(R: string): Array<{ method: string; patte
     { method: "GET",   pattern: /^users\/[^/]+(\/.*)?$/ },
     // Search
     { method: "GET",   pattern: /^search\/(issues|users|code|repositories)(\?.*)?$/ },
-    // Gists
-    { method: "POST",  pattern: /^gists$/ },
-    { method: "PATCH", pattern: /^gists\/[a-f0-9]+$/ },
+    // Gists (read-only — create handled by create_gist)
     { method: "GET",   pattern: /^gists(\/[a-f0-9]+)?(\?.*)?$/ },
   ];
 }
@@ -534,15 +520,15 @@ Avoid code blocks and long bullet lists — those belong in the log.`,
 
   // ── github_api ─────────────────────────────────────────────────
   server.tool("github_api",
-    `GitHub REST API proxy (whitelisted paths). Auth attached automatically.
-Use accept='application/vnd.github.v3.diff' for PR diffs.`,
+    `GitHub REST API proxy — READ-ONLY. Auth attached automatically.
+Use accept='application/vnd.github.v3.diff' for PR diffs.
+For writes, use dedicated tools: create_pr, update_pr, create_gist, create_issue, etc.`,
     {
-      method: z.enum(["GET", "POST", "PATCH", "PUT", "DELETE"]),
+      method: z.enum(["GET"]).describe("Only GET is allowed — use dedicated tools for writes"),
       path: z.string().describe(`API path, e.g. repos/${repo}/pulls/123`),
-      body: z.any().optional().describe("Request body for POST/PATCH/PUT"),
       accept: z.string().optional().describe("Accept header override"),
     },
-    async ({ method, path, body, accept }) => {
+    async ({ method, path, accept }) => {
       if (!isGhAllowed(method, path, ghWhitelist))
         return { content: [{ type: "text", text: `Blocked: ${method} ${path} not whitelisted` }], isError: true };
       if (!GH_TOKEN) return { content: [{ type: "text", text: "No GH_TOKEN" }], isError: true };
@@ -550,13 +536,10 @@ Use accept='application/vnd.github.v3.diff' for PR diffs.`,
       try {
         const url = `https://api.github.com/${path.replace(/^\//, "")}`;
         const res = await fetch(url, {
-          method,
           headers: {
             Authorization: `Bearer ${GH_TOKEN}`,
             Accept: accept || "application/vnd.github.v3+json",
-            "Content-Type": "application/json",
           },
-          body: body ? JSON.stringify(body) : undefined,
         });
         const text = await res.text();
         if (!res.ok)
@@ -823,12 +806,14 @@ Channel and thread are locked to this session — you can only read/write your o
       const s = getSchema(schema);
       if (!s) return { content: [{ type: "text", text: `Unknown schema '${schema}'. Available: ${allSchemas().map(s => s.name).join(", ")}` }], isError: true };
 
+      // Filter out _-prefixed keys from data to prevent metadata overwrites
+      const safeData = Object.fromEntries(Object.entries(data).filter(([k]) => !k.startsWith("_")));
       const entry = {
         _ts: new Date().toISOString(),
         _log_id: SESSION_META.log_id,
         _worktree_id: WORKTREE_ID,
         _user: SESSION_META.user,
-        ...data,
+        ...safeData,
       };
 
       try {
@@ -902,7 +887,7 @@ Creates a draft PR on a skill/<name> branch for human review.`,
     async ({ name, description, argument_hint, body, base }) => {
       if (!GH_TOKEN) return { content: [{ type: "text", text: "No GH_TOKEN" }], isError: true };
 
-      const skillDir = join(opts.workspace, ".claude", "skills", name);
+      const skillDir = join(opts.workspace, ".claude", "claudebox", "skills", name);
       const skillFile = join(skillDir, "SKILL.md");
 
       // Build frontmatter
@@ -938,7 +923,6 @@ Creates a draft PR on a skill/<name> branch for human review.`,
             title: `skill: ${action.toLowerCase()} /${name} — ${description}`,
             base: prBase,
             head: branch,
-            draft: true,
             body: `## Skill: \`/${name}\`\n\n${description}\n\n${SESSION_META.log_url ? `Session log: ${SESSION_META.log_url}` : ""}`,
           }),
         });
@@ -1187,17 +1171,22 @@ async function handleCredentialRequest(req: IncomingMessage, res: ServerResponse
   }
 
   try {
+    const redisKeyPattern = /^[a-zA-Z0-9:._\/-]+$/;
     if (path === "redis-setexz") {
       const key = req.headers["x-redis-key"] as string;
       const expire = req.headers["x-redis-expire"] as string;
       if (!key || !expire) { res.writeHead(400); res.end('{"error":"missing key/expire headers"}'); return; }
+      if (!redisKeyPattern.test(key)) { res.writeHead(400); res.end('{"error":"invalid key"}'); return; }
+      const expireNum = parseInt(expire, 10);
+      if (isNaN(expireNum) || expireNum <= 0 || expireNum > 2592000) { res.writeHead(400); res.end('{"error":"invalid expire (must be 1-2592000)"}'); return; }
       if (!ensureRedisTunnel()) { res.writeHead(502); res.end('{"error":"redis tunnel unavailable"}'); return; }
       const data = await readRawBody(req);
-      execFileSync("redis-cli", ["--raw", "-x", "SETEX", key, expire], { input: data, timeout: 15000, stdio: ["pipe", "ignore", "ignore"] });
+      execFileSync("redis-cli", ["--raw", "-x", "SETEX", key, String(expireNum)], { input: data, timeout: 15000, stdio: ["pipe", "ignore", "ignore"] });
       res.writeHead(200); res.end('{"ok":true}');
     } else if (path === "redis-publish") {
       const body = JSON.parse((await readRawBody(req)).toString());
       if (!body.channel || !body.message) { res.writeHead(400); res.end('{"error":"missing channel/message"}'); return; }
+      if (!redisKeyPattern.test(body.channel)) { res.writeHead(400); res.end('{"error":"invalid channel"}'); return; }
       if (!ensureRedisTunnel()) { res.writeHead(502); res.end('{"error":"redis tunnel unavailable"}'); return; }
       execFileSync("redis-cli", ["PUBLISH", body.channel, body.message], { timeout: 5000, stdio: "ignore" });
       res.writeHead(200); res.end('{"ok":true}');
@@ -1205,6 +1194,10 @@ async function handleCredentialRequest(req: IncomingMessage, res: ServerResponse
       const key = req.headers["x-cache-key"] as string;
       const subfolder = req.headers["x-cache-subfolder"] as string || undefined;
       if (!key) { res.writeHead(400); res.end('{"error":"missing key header"}'); return; }
+      // Validate key and subfolder to prevent shell injection in ssh command
+      const safePattern = /^[a-zA-Z0-9._-]+$/;
+      if (!safePattern.test(key)) { res.writeHead(400); res.end('{"error":"invalid key"}'); return; }
+      if (subfolder && !safePattern.test(subfolder)) { res.writeHead(400); res.end('{"error":"invalid subfolder"}'); return; }
       const data = await readRawBody(req);
       const dir = subfolder || key.slice(0, 4);
       const cmd = `mkdir -p /logs-disk/${dir} && cat > /logs-disk/${dir}/${key}.log.gz`;
@@ -1222,6 +1215,7 @@ async function handleCredentialRequest(req: IncomingMessage, res: ServerResponse
     } else if (path === "redis-getz") {
       const key = req.headers["x-redis-key"] as string;
       if (!key) { res.writeHead(400); res.end('{"error":"missing key header"}'); return; }
+      if (!redisKeyPattern.test(key)) { res.writeHead(400); res.end('{"error":"invalid key"}'); return; }
       if (!ensureRedisTunnel()) { res.writeHead(502); res.end('{"error":"redis tunnel unavailable"}'); return; }
       try {
         const raw = execFileSync("redis-cli", ["--raw", "GET", key], { timeout: 10000 });
@@ -1407,12 +1401,19 @@ function stageAndCommit(workspace: string, commitMsg: string, opts: {
 }
 
 export function pushToRemote(workspace: string, repo: string, branch: string, forcePush?: boolean): void {
-  const pushUrl = `https://x-access-token:${GH_TOKEN}@github.com/${repo}.git`;
-  const pushArgs = ["push", ...(forcePush ? ["--force"] : []), pushUrl, `HEAD:refs/heads/${branch}`];
-  execFileSync("git", pushArgs, {
-    cwd: workspace, encoding: "utf-8", timeout: 120000,
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
-  });
+  // Pass token via GIT_ASKPASS env var to avoid leaking in /proc/pid/cmdline
+  const askpass = join("/tmp", `.git-askpass-${process.pid}`);
+  writeFileSync(askpass, `#!/bin/sh\necho "$GIT_PASSWORD"\n`, { mode: 0o700 });
+  try {
+    const pushUrl = `https://x-access-token@github.com/${repo}.git`;
+    const pushArgs = ["push", ...(forcePush ? ["--force"] : []), pushUrl, `HEAD:refs/heads/${branch}`];
+    execFileSync("git", pushArgs, {
+      cwd: workspace, encoding: "utf-8", timeout: 120000,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_ASKPASS: askpass, GIT_PASSWORD: GH_TOKEN || "" },
+    });
+  } finally {
+    try { unlinkSync(askpass); } catch {}
+  }
 }
 
 // ── registerCloneRepo ───────────────────────────────────────────
@@ -1423,8 +1424,9 @@ export function registerCloneRepo(server: McpServer, config: CloneToolConfig): v
   const refHint = config.refHint || "'origin/next', 'abc123'";
 
   server.tool("clone_repo", desc,
-    { ref: z.string().describe(`Branch, tag, or commit hash to check out (e.g. ${refHint})`) },
+    { ref: z.string().regex(/^[a-zA-Z0-9._\/@-]+$/).describe(`Branch, tag, or commit hash to check out (e.g. ${refHint})`) },
     async ({ ref }) => {
+      if (ref.startsWith("-")) return { content: [{ type: "text", text: "Invalid ref: must not start with -" }], isError: true };
       const targetDir = config.workspace;
 
       if (existsSync(join(targetDir, ".git"))) {
@@ -1451,9 +1453,17 @@ export function registerCloneRepo(server: McpServer, config: CloneToolConfig): v
             execFileSync("git", ["-C", targetDir, "remote", "set-url", "origin", config.remoteUrl], { timeout: 5_000 });
           }
         } else {
-          const cloneUrl = `https://x-access-token:${GH_TOKEN}@github.com/${config.repo}.git`;
+          // Clone with token via GIT_ASKPASS (not in URL — avoids leaking in .git/config and /proc/pid/cmdline)
+          const askpass = join("/tmp", `.git-askpass-${process.pid}`);
+          writeFileSync(askpass, `#!/bin/sh\necho "$GIT_PASSWORD"\n`, { mode: 0o700 });
+          const cloneUrl = `https://x-access-token@github.com/${config.repo}.git`;
           execFileSync("git", ["config", "--global", "--add", "safe.directory", targetDir], { timeout: 5_000 });
-          execFileSync("git", ["clone", cloneUrl, targetDir], { timeout: 300_000, stdio: "pipe" });
+          try {
+            execFileSync("git", ["clone", cloneUrl, targetDir], {
+              timeout: 300_000, stdio: "pipe",
+              env: { ...process.env, GIT_ASKPASS: askpass, GIT_PASSWORD: GH_TOKEN || "" },
+            });
+          } finally { try { unlinkSync(askpass); } catch {} }
         }
 
         const result = cloneRepoCheckoutAndInit(targetDir, ref, config.fallbackRef);
@@ -1590,7 +1600,7 @@ export function registerPRTools(server: McpServer, config: PRToolConfig): void {
         if (config.label) {
           const labels: string[] = (prData.labels || []).map((l: any) => l.name);
           if (!labels.includes(config.label))
-            return { content: [{ type: "text", text: `PR #${pr_number} exists but lacks required '${config.label}' label. Only labeled PRs can be updated via update_pr. Add the label via github_api first, or use create_pr instead.` }], isError: true };
+            return { content: [{ type: "text", text: `PR #${pr_number} was not created by ClaudeBox (missing '${config.label}' label). You can only update PRs that were created via create_pr.` }], isError: true };
         }
 
         const results: string[] = [];

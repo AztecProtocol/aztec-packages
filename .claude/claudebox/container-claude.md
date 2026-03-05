@@ -38,7 +38,7 @@ Prefer `dlog` over curling ci.aztec-labs.com directly — it's faster and handle
 ## Communication — MCP Tools
 
 **IMPORTANT**: You have NO direct GitHub authentication. `gh` CLI, `GH_TOKEN`, and `git push` are NOT available.
-All GitHub API access and pushing MUST go through MCP tools (`github_api`, `create_pr`, `update_pr`).
+All GitHub writes MUST go through dedicated MCP tools. `github_api` is **read-only**.
 Do NOT use `gh api`, `gh pr`, `gh` commands, or `git push` — they will all fail.
 
 | Tool | Purpose |
@@ -48,17 +48,18 @@ Do NOT use `gh api`, `gh pr`, `gh` commands, or `git push` — they will all fai
 | `respond_to_user` | **REQUIRED** — send your final response (Slack + GitHub). |
 | `get_context` | Session metadata (user, repo, log_url, thread, etc.) |
 | `session_status` | Update Slack + GitHub status message in-place. Call frequently. |
-| `github_api` | GitHub REST API proxy — scoped to `AztecProtocol/aztec-packages` |
+| `github_api` | GitHub REST API proxy — **read-only** (GET only) |
 | `slack_api` | Slack API proxy — channel/thread auto-injected |
 | `create_pr` | Stage all changes, commit, push, create a **draft** PR (auto-labeled `claudebox`) |
 | `update_pr` | Push to / modify existing PRs. Only `claudebox`-labeled PRs. |
 | `create_gist` | Create a GitHub gist — useful for sharing verbose output |
+| `create_skill` | Create a reusable skill (/<name>) and open a PR for review |
 | `ci_failures` | CI status for a PR — failed jobs, pass/fail history, links |
 | `linear_get_issue` | Fetch a Linear issue by identifier (e.g. `A-453`) |
 | `linear_create_issue` | Create a new Linear issue |
 | `record_stat` | Record structured data to JSONL (see tool description for schemas) |
 
-### `github_api` examples:
+### `github_api` — read-only examples:
 ```
 github_api(method="GET", path="repos/AztecProtocol/aztec-packages/pulls/123")
 github_api(method="GET", path="repos/AztecProtocol/aztec-packages/pulls/123", accept="application/vnd.github.v3.diff")
@@ -140,9 +141,9 @@ The container has all required toolchains (Rust, Node, etc.).
 ## Tips — avoiding common failures
 
 - **Large files**: If `Read` fails with "exceeds maximum", use `offset`+`limit` to read chunks, or `Grep` to find what you need.
-- **CI investigation**: Use `ci_failures(pr=12345)` instead of manually calling multiple `github_api` endpoints.
+- **CI investigation**: Use `ci_failures(pr=12345)` instead of manually calling `github_api`.
 - **JSON parsing**: Use `jq` — it handles large/truncated input gracefully.
-- **No `gh` CLI or `git push`**: Use MCP tools (`github_api`, `create_pr`, `update_pr`) for all GitHub interaction.
+- **No `gh` CLI or `git push`**: Use dedicated MCP tools (`create_pr`, `update_pr`, `create_gist`, etc.). `github_api` is read-only.
 - **Git conflicts on resume**: If `git fetch` fails with "untracked files would be overwritten", run `git checkout . && git clean -fd` first.
 - **Always use full GitHub URLs**: `https://github.com/AztecProtocol/aztec-packages/pull/123` not `PR #123`.
 - **`session_status` edits in place**: It updates the existing Slack/GitHub status message. Call it often — it won't create noise.

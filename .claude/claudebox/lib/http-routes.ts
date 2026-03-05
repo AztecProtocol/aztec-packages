@@ -239,11 +239,13 @@ const routes: Route[] = [
       let worktreeId = body.worktree_id || "";
       const parsed = worktreeId ? null : parseMessage(prompt, (h) => store.findByHash(h));
 
+      let resumedSession: any = null;
       if (!worktreeId && parsed?.type === "reply-hash") {
         const prevSession = store.findByHash(parsed.hash);
         const err = validateResumeSession(prevSession, parsed.hash);
         if (err) { json(res, 400, { error: err }); return; }
         worktreeId = prevSession!.worktree_id || "";
+        resumedSession = prevSession;
       }
 
       // PR binding: reuse the worktree already associated with this PR
@@ -255,6 +257,7 @@ const routes: Route[] = [
           if (prev?.status === "running") { json(res, 409, { error: "Session already running for this PR" }); return; }
           if (prev?.worktree_id && store.isWorktreeAlive(prev.worktree_id)) {
             worktreeId = prev.worktree_id;
+            resumedSession = resumedSession || prev;
             console.log(`[HTTP] PR binding ${prKey} → worktree ${worktreeId}`);
           }
         }
@@ -273,7 +276,7 @@ const routes: Route[] = [
         worktreeId: worktreeId || undefined,
         targetRef: body.target_ref || undefined,
         ciAllow,
-        profile: runProfile || undefined,
+        profile: (resumedSession?.profile || runProfile) || undefined,
       }, store, undefined, (logUrl, newWorktreeId) => {
         if (prKey) store.bindPr(prKey, newWorktreeId);
         if (!responded) {
@@ -346,7 +349,7 @@ const routes: Route[] = [
     },
   },
 
-  // GET /s/<id> — workspace status page (public)
+  // GET /s/<id> — workspace status page (HTML shell — auth overlay handles login)
   {
     method: "GET", pattern: /^\/s\/([a-f0-9][\w-]+)$/, auth: "none",
     handler: async (_req, res, params, { store }) => {
@@ -372,7 +375,7 @@ const routes: Route[] = [
 
   // GET /s/<id>/activity — JSON activity feed (initial load + polling fallback)
   {
-    method: "GET", pattern: /^\/s\/([a-f0-9][\w-]+)\/activity$/, auth: "none",
+    method: "GET", pattern: /^\/s\/([a-f0-9][\w-]+)\/activity$/, auth: "basic",
     handler: async (req, res, params, { store }) => {
       const resolved = resolveSession(params[0], store);
       if (!resolved) { json(res, 404, { error: "not found" }); return; }
@@ -394,7 +397,7 @@ const routes: Route[] = [
 
   // GET /s/<id>/events — SSE stream of new activity entries
   {
-    method: "GET", pattern: /^\/s\/([a-f0-9][\w-]+)\/events$/, auth: "none",
+    method: "GET", pattern: /^\/s\/([a-f0-9][\w-]+)\/events$/, auth: "basic",
     handler: async (_req, res, params, { store }) => {
       const resolved = resolveSession(params[0], store);
       if (!resolved) { json(res, 404, { error: "not found" }); return; }
@@ -565,7 +568,7 @@ const routes: Route[] = [
 
   // POST /s/<id>/keepalive
   {
-    method: "POST", pattern: /^\/s\/([a-f0-9][\w-]+)\/keepalive$/, auth: "none",
+    method: "POST", pattern: /^\/s\/([a-f0-9][\w-]+)\/keepalive$/, auth: "basic",
     handler: async (req, res, params, { interactive }) => {
       const s = interactive.get(params[0]);
       if (!s) { json(res, 404, { error: "no active interactive session" }); return; }

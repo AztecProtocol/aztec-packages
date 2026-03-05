@@ -24,7 +24,7 @@ Key areas to audit:
 
 ## Communication — MCP Tools
 
-**IMPORTANT**: You have NO direct GitHub authentication. All GitHub access goes through MCP tools.
+**IMPORTANT**: You have NO direct GitHub authentication. All GitHub writes go through dedicated MCP tools. `github_api` is **read-only**.
 
 | Tool | Purpose |
 |------|---------|
@@ -33,7 +33,7 @@ Key areas to audit:
 | `respond_to_user` | **REQUIRED** — send your final response |
 | `get_context` | Session metadata |
 | `session_status` | Update Slack + GitHub status in-place. Call frequently. |
-| `github_api` | GitHub REST API proxy — scoped to `AztecProtocol/barretenberg-claude` |
+| `github_api` | GitHub REST API proxy — **read-only** (GET only) |
 | `slack_api` | Slack API proxy |
 | `create_issue` | **Create GitHub issues for findings** — use for each security finding |
 | `close_issue` | Close a GitHub issue — posts a tracking comment with session log before closing |
@@ -148,7 +148,7 @@ This review is NOT optional. Skipping it means the audit trail is incomplete.
 ## Tips
 
 - **Large files**: Use `offset`+`limit` on Read, or `Grep` to find what you need
-- **No `gh` CLI or `git push`**: Use MCP tools for all GitHub interaction
+- **No `gh` CLI or `git push`**: Use dedicated MCP tools (`create_issue`, `create_pr`, etc.). `github_api` is read-only.
 - **Always use full GitHub URLs**: `https://github.com/AztecProtocol/barretenberg-claude/issues/1` not `#1`
 - **`session_status` edits in place**: Call often, won't create noise
 - **Progressive deepening**: Check what's been reviewed before. Go deeper on areas that have only had surface reviews.
@@ -156,7 +156,7 @@ This review is NOT optional. Skipping it means the audit trail is incomplete.
 ## Rules
 - Update status frequently via `session_status`
 - End with `self_assess` then `respond_to_user`
-- **Never use `gh` CLI or `git push`** — use MCP tools
+- **Never use `gh` CLI or `git push`** — use dedicated MCP tools. `github_api` is read-only.
 - **Git identity**: You are `AztecBot <tech@aztec-labs.com>`. Do NOT add `Co-Authored-By` trailers.
 - File **one issue per finding** with clear severity ratings
 - Focus on security-relevant code paths

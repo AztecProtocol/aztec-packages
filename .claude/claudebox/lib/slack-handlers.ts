@@ -41,47 +41,48 @@ async function handleIncomingMessage(msg: IncomingMessage, store: SessionStore, 
   const baseBranch = await resolveBaseBranch(msg.client, msg.channel);
   const channelName = await resolveChannelName(msg.client, msg.channel);
   const parsed = parseMessage(cmd, (h) => store.findByHash(h));
-  const { forceNew, quiet: explicitQuiet, ciAllow, profile, prompt: effectivePrompt } = parseKeywords(parsed);
-  const quiet = await resolveQuietMode(msg.client, msg.channel, explicitQuiet);
 
   // Explicit hash-based resume — only if hash matches a known session
-  if (!forceNew && parsed.type === "reply-hash") {
+  if (parsed.type === "reply-hash") {
     const session = store.findByHash(parsed.hash);
     if (session) {
       const err = validateResumeSession(session, parsed.hash);
       if (err) { await msg.respond({ text: err, thread_ts: msg.threadTs }); return; }
       console.log(`[HANDLER] Resuming session ${parsed.hash}`);
-      await startReplySession(msg.client, msg.channel, msg.threadTs, parsed.prompt, session, userName, store, docker, baseBranch, quiet, channelName, ciAllow, profile);
+      const quiet = await resolveQuietMode(msg.client, msg.channel, null);
+      await startReplySession(msg.client, msg.channel, msg.threadTs, parsed.prompt, session, userName, store, docker, baseBranch, quiet, channelName, false, session.profile || "");
       return;
     }
     // Hash not a session (e.g. CI log URL) — fall through, use full text as prompt
     console.log(`[HANDLER] Hash ${parsed.hash} is not a session, treating as prompt`);
   }
 
-  // Use full original text when the URL wasn't a session reference
-  const prompt = (parsed.type === "reply-hash" && !store.findByHash(parsed.hash)) ? cmd : effectivePrompt;
-
-  // new-session: break the thread → worktree binding so a fresh worktree is created
-  if (forceNew && msg.isReply) {
-    store.clearThreadBinding(msg.channel, msg.threadTs);
-  }
-
   // Implicit resume: thread reply with a previous session
-  if (!forceNew && msg.isReply) {
+  if (msg.isReply) {
     const prevSession = store.findLastInThread(msg.channel, msg.threadTs);
     if (prevSession?.status === "running" && prevSession._log_id) {
-      store.queueMessage(prevSession._log_id, { text: prompt, user: userName, ts: new Date().toISOString() });
+      store.queueMessage(prevSession._log_id, { text: cmd, user: userName, ts: new Date().toISOString() });
       await msg.respond({ text: `:hourglass: Queued \u2014 your message will be sent when the current session finishes.`, thread_ts: msg.threadTs });
       return;
     }
     if (prevSession?.worktree_id) {
       console.log(`[HANDLER] Resuming worktree ${prevSession.worktree_id} from thread`);
-      await startReplySession(msg.client, msg.channel, msg.threadTs, prompt, prevSession, userName, store, docker, baseBranch, quiet, channelName, ciAllow, profile);
+      const quiet = await resolveQuietMode(msg.client, msg.channel, null);
+      await startReplySession(msg.client, msg.channel, msg.threadTs, cmd, prevSession, userName, store, docker, baseBranch, quiet, channelName, false, prevSession.profile || "");
       return;
     }
   }
 
-  // Fresh session
+  // New session — parse keywords (new-session, quiet, ci-allow, profile) only here
+  const { forceNew, quiet: explicitQuiet, ciAllow, profile, prompt: effectivePrompt } = parseKeywords(parsed);
+  const quiet = await resolveQuietMode(msg.client, msg.channel, explicitQuiet);
+  const prompt = (parsed.type === "reply-hash" && !store.findByHash(parsed.hash)) ? cmd : effectivePrompt;
+
+  // new-session in a thread: break the thread → worktree binding
+  if (forceNew && msg.isReply) {
+    store.clearThreadBinding(msg.channel, msg.threadTs);
+  }
+
   const threadContext = msg.isReply ? await getThreadContext(msg.client, msg.channel, msg.threadTs) : "";
   await startNewSession(msg.client, msg.channel, msg.threadTs, prompt, threadContext, userName, store, docker, baseBranch, quiet, channelName, ciAllow, profile);
 }
@@ -168,22 +169,24 @@ export function registerSlackHandlers(app: App, store: SessionStore, docker: Doc
     const baseBranch = await resolveBaseBranch(client, channel);
     const channelName = await resolveChannelName(client, channel);
     const parsed = parseMessage(text, (h) => store.findByHash(h));
-    const { forceNew, quiet: explicitQuiet, ciAllow: cmdCiAllow, profile: cmdProfile, prompt: effectivePrompt } = parseKeywords(parsed);
-    const quiet = await resolveQuietMode(client, channel, explicitQuiet);
 
-    // Hash-based resume
-    if (!forceNew && parsed.type === "reply-hash") {
+    // Hash-based resume — inherit session profile, don't parse keywords
+    if (parsed.type === "reply-hash") {
       const session = store.findByHash(parsed.hash);
       if (session) {
         const err = validateResumeSession(session, parsed.hash);
         if (err) { await ack({ text: err }); return; }
+        const quiet = await resolveQuietMode(client, channel, null);
         await ack({ text: `ClaudeBox replying to session \`${parsed.hash.slice(0, 8)}...\`: _${truncate(parsed.prompt)}_` });
-        await startReplySession(client, channel, null, parsed.prompt, session, userName, store, docker, baseBranch, quiet, channelName, cmdCiAllow, cmdProfile);
+        await startReplySession(client, channel, null, parsed.prompt, session, userName, store, docker, baseBranch, quiet, channelName, false, session.profile || "");
         return;
       }
       console.log(`[CMD] Hash ${parsed.hash} is not a session, treating as prompt`);
     }
 
+    // New session — parse keywords only here
+    const { forceNew, quiet: explicitQuiet, ciAllow: cmdCiAllow, profile: cmdProfile, prompt: effectivePrompt } = parseKeywords(parsed);
+    const quiet = await resolveQuietMode(client, channel, explicitQuiet);
     const prompt = (parsed.type === "reply-hash" && !store.findByHash(parsed.hash)) ? text : effectivePrompt;
     await ack({ text: `ClaudeBox starting: _${truncate(prompt)}_` });
     await startNewSession(client, channel, null, prompt, "", userName, store, docker, baseBranch, quiet, channelName, cmdCiAllow, cmdProfile);

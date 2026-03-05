@@ -28,14 +28,8 @@ SESSION_META.repo = REPO;
 
 const GH_WHITELIST = [
   ...buildCommonGhWhitelist(R),
-  { method: "POST", pattern: new RegExp(`^${R}/issues$`) },
-  { method: "PATCH", pattern: new RegExp(`^${R}/issues/\\d+$`) },
-  { method: "POST", pattern: new RegExp(`^${R}/issues/\\d+/comments$`) },
-  // Labels (create)
-  { method: "POST", pattern: new RegExp(`^${R}/labels$`) },
+  // Read-only extras — all writes handled by create_issue, close_issue, add_log_link, create_audit_label
   { method: "GET",  pattern: new RegExp(`^${R}/labels(\\?.*)?$`) },
-  // Contents (commit prompt files)
-  { method: "PUT",  pattern: new RegExp(`^${R}/contents/.*$`) },
 ];
 
 const TOOL_LIST = "clone_repo, respond_to_user, get_context, session_status, github_api, slack_api, create_pr, update_pr, create_issue, close_issue, create_audit_label, add_log_link, self_assess, create_gist, create_skill, ci_failures, linear_get_issue, linear_create_issue, record_stat";

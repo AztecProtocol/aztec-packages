@@ -259,6 +259,83 @@ export class SessionStore {
     }
   }
 
+  /**
+   * Garbage-collect worktrees to stay within a disk budget.
+   * Deletes workspace/ (git clone) for oldest worktrees first until total size
+   * is under maxSizeGB. Never deletes worktrees younger than minAgeDays.
+   * Keeps meta.json and claude-projects/ (session JSONL logs) always.
+   * Skips worktrees with running sessions.
+   */
+  gcWorktrees(maxSizeGB: number = 100, minAgeDays: number = 1): string[] {
+    if (!existsSync(this.worktreesDir)) return [];
+    const minAgeCutoff = Date.now() - minAgeDays * 24 * 60 * 60 * 1000;
+
+    // Get all workspace sizes in one du call (much faster than per-worktree)
+    const sizeMap = new Map<string, number>();
+    try {
+      const duOutput = execSync(
+        `du -sb ${this.worktreesDir}/*/workspace 2>/dev/null || true`,
+        { encoding: "utf-8", timeout: 120_000 }
+      );
+      for (const line of duOutput.trim().split("\n")) {
+        if (!line) continue;
+        const [sizeStr, path] = line.split("\t");
+        // Extract worktree ID from path: .../worktrees/<id>/workspace
+        const parts = path?.split("/");
+        const wsIdx = parts?.indexOf("workspace");
+        if (wsIdx && wsIdx > 0) {
+          const id = parts[wsIdx - 1];
+          sizeMap.set(id, parseInt(sizeStr) || 0);
+        }
+      }
+    } catch {}
+
+    // Build candidate list
+    const candidates: Array<{ id: string; wsDir: string; lastActivity: number; sizeBytes: number }> = [];
+    let totalSize = 0;
+
+    for (const id of readdirSync(this.worktreesDir)) {
+      const sizeBytes = sizeMap.get(id);
+      if (sizeBytes === undefined) continue; // no workspace dir
+
+      const meta = this.getWorktreeMeta(id);
+      const lastActivity = new Date(meta.last_session_started || meta.created || 0).getTime();
+
+      totalSize += sizeBytes;
+      candidates.push({ id, wsDir: join(this.worktreesDir, id, "workspace"), lastActivity, sizeBytes });
+    }
+
+    console.log(`[GC] Total workspace size: ${(totalSize / 1024 / 1024 / 1024).toFixed(1)} GB across ${candidates.length} worktrees (budget: ${maxSizeGB} GB)`);
+
+    const maxSizeBytes = maxSizeGB * 1024 * 1024 * 1024;
+    if (totalSize <= maxSizeBytes) return [];
+
+    // Sort oldest first
+    candidates.sort((a, b) => a.lastActivity - b.lastActivity);
+
+    const cleaned: string[] = [];
+    for (const c of candidates) {
+      if (totalSize <= maxSizeBytes) break;
+
+      // Never clean recent worktrees
+      if (c.lastActivity > minAgeCutoff) continue;
+
+      // Skip running sessions
+      const sessions = this.listByWorktree(c.id);
+      if (sessions.some(s => s.status === "running")) continue;
+
+      try {
+        rmSync(c.wsDir, { recursive: true, force: true });
+        totalSize -= c.sizeBytes;
+        cleaned.push(c.id);
+      } catch (e: any) {
+        console.error(`[GC] Failed to clean worktree ${c.id}: ${e.message}`);
+      }
+    }
+
+    return cleaned;
+  }
+
   // ── Bindings (thread/PR → worktree) ─────────────────────────
   //
   // Each Slack thread and each GitHub PR is bound to at most one worktree.

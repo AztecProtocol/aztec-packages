@@ -73,6 +73,18 @@ async function main() {
     }
   }, 60_000);
 
+  // ── Worktree GC — keep workspace dirs under 100GB, clean oldest first (daily) ──
+  const runGC = () => {
+    try {
+      const cleaned = store.gcWorktrees(100, 1); // 100GB budget, min 1 day old
+      if (cleaned.length > 0) console.log(`[GC] Cleaned ${cleaned.length} worktrees: ${cleaned.join(", ")}`);
+    } catch (e: any) {
+      console.error(`[GC] Error: ${e.message}`);
+    }
+  };
+  runGC(); // run once at startup
+  setInterval(runGC, 24 * 60 * 60 * 1000); // then daily
+
   // ── Slack app (non-fatal — HTTP server should work even without Slack) ──
   try {
     const slackApp = new App({
