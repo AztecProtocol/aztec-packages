@@ -26,7 +26,7 @@ bool ChonkBatchVerifier::verify(std::span<const Input> inputs)
         if (!result.all_checks_passed) {
             return false;
         }
-        ipa_claims.push_back(std::move(result.ipa_claim));
+        ipa_claims.push_back(result.ipa_claim);
         ipa_transcripts.push_back(std::make_shared<NativeTranscript>(result.ipa_proof));
     }
 
