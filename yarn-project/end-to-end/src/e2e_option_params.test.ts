@@ -34,7 +34,7 @@ describe('Option params', () => {
       accounts: [defaultAccountAddress],
     } = await setup(1));
 
-    contract = await OptionParamContract.deploy(wallet).send({ from: defaultAccountAddress });
+    contract = (await OptionParamContract.deploy(wallet).send({ from: defaultAccountAddress })).contract;
   });
 
   afterAll(() => teardown());
