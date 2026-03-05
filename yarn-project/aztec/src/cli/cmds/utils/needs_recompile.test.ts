@@ -5,9 +5,11 @@ import { join } from 'path';
 
 import { needsRecompile } from './needs_recompile.js';
 
-/** Create a file and backdate it to the given timestamp (seconds since epoch). */
+/** Create a file (if needed) and set its timestamp to the given value (seconds since epoch). */
 async function touch(filePath: string, timeSec: number) {
-  await writeFile(filePath, '');
+  // we apply the 'a' flag to mimic the behavior of touch command that does not change contents of a file if it already
+  // exist
+  await writeFile(filePath, '', { flag: 'a' });
   await utimes(filePath, timeSec, timeSec);
 }
 
