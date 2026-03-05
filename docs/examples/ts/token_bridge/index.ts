@@ -69,11 +69,11 @@ console.log(`NFTPortal: ${portalAddress}\n`);
 // docs:start:deploy_l2_contracts
 console.log("Deploying L2 contracts...\n");
 
-const l2Nft = await NFTPunkContract.deploy(aztecWallet, account.address).send({
+const { contract: l2Nft } = await NFTPunkContract.deploy(aztecWallet, account.address).send({
   from: account.address,
 });
 
-const l2Bridge = await NFTBridgeContract.deploy(
+const { contract: l2Bridge } = await NFTBridgeContract.deploy(
   aztecWallet,
   l2Nft.address,
 ).send({ from: account.address });
@@ -222,7 +222,7 @@ await mine2Blocks(aztecWallet, account.address);
 
 // Check notes before claiming (should be 0)
 console.log("Checking notes before claim...");
-const notesBefore = await l2Nft.methods
+const { result: notesBefore } = await l2Nft.methods
   .notes_of(account.address)
   .simulate({ from: account.address });
 console.log(`   Notes count: ${notesBefore}`);
@@ -235,7 +235,7 @@ console.log("NFT claimed on L2\n");
 
 // Check notes after claiming (should be 1)
 console.log("Checking notes after claim...");
-const notesAfterClaim = await l2Nft.methods
+const { result: notesAfterClaim } = await l2Nft.methods
   .notes_of(account.address)
   .simulate({ from: account.address });
 console.log(`   Notes count: ${notesAfterClaim}\n`);
@@ -249,7 +249,7 @@ await mine2Blocks(aztecWallet, account.address);
 
 const recipientEthAddress = EthAddress.fromString(ownerEthAddress);
 
-const exitReceipt = await l2Bridge.methods
+const { receipt: exitReceipt } = await l2Bridge.methods
   .exit(new Fr(Number(tokenId)), recipientEthAddress)
   .send({ from: account.address });
 
@@ -257,7 +257,7 @@ console.log(`Exit message sent (block: ${exitReceipt.blockNumber})\n`);
 
 // Check notes after burning (should be 0 again)
 console.log("Checking notes after burn...");
-const notesAfterBurn = await l2Nft.methods
+const { result: notesAfterBurn } = await l2Nft.methods
   .notes_of(account.address)
   .simulate({ from: account.address });
 console.log(`   Notes count: ${notesAfterBurn}\n`);

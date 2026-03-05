@@ -8,7 +8,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type Capsule, type HashedValues, type TxProfileResult, collectOffchainEffects } from '@aztec/stdlib/tx';
+import type { Capsule, HashedValues, TxProfileResult } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
@@ -18,7 +18,9 @@ import {
   type ProfileInteractionOptions,
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
-  type SimulationReturn,
+  type SimulationResult,
+  emptyOffchainOutput,
+  extractOffchainOutput,
   toProfileOptions,
   toSimulateOptions,
 } from './interaction_options.js';
@@ -97,17 +99,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * function or a rich object containing extra metadata, such as estimated gas costs (if requested via options),
    * execution statistics and emitted offchain effects
    */
-  public async simulate<T extends SimulateInteractionOptions>(
-    options: T,
-  ): Promise<SimulationReturn<Exclude<T['fee'], undefined>['estimateGas']>>;
-  // eslint-disable-next-line jsdoc/require-jsdoc
-  public async simulate<T extends SimulateInteractionOptions>(
-    options: T,
-  ): Promise<SimulationReturn<T['includeMetadata']>>;
-  // eslint-disable-next-line jsdoc/require-jsdoc
   public async simulate(
-    options: SimulateInteractionOptions,
-  ): Promise<SimulationReturn<typeof options.includeMetadata>> {
+    options: SimulateInteractionOptions = {} as SimulateInteractionOptions,
+  ): Promise<SimulationResult> {
     // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       const call = await this.getFunctionCall();
@@ -122,11 +116,11 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       if (options.includeMetadata) {
         return {
           stats: utilityResult.stats,
+          ...emptyOffchainOutput(),
           result: returnValue,
         };
-      } else {
-        return returnValue;
       }
+      return { result: returnValue, ...emptyOffchainOutput() };
     }
 
     const executionPayload = await this.request(options);
@@ -148,6 +142,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
 
     const returnValue = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
+    const offchainOutput = extractOffchainOutput(simulatedTx.offchainEffects);
 
     if (options.includeMetadata || options.fee?.estimateGas) {
       const { gasLimits, teardownGasLimits } = getGasLimits(simulatedTx, options.fee?.estimatedGasPadding);
@@ -156,13 +151,12 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       );
       return {
         stats: simulatedTx.stats,
-        offchainEffects: collectOffchainEffects(simulatedTx.privateExecutionResult),
+        ...offchainOutput,
         result: returnValue,
         estimatedGas: { gasLimits, teardownGasLimits },
       };
-    } else {
-      return returnValue;
     }
+    return { result: returnValue, ...offchainOutput };
   }
 
   /**

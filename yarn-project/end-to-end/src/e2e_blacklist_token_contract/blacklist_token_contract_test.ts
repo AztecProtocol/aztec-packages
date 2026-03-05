@@ -107,20 +107,24 @@ export class BlacklistTokenContractTest {
     await publicDeployAccounts(this.wallet, [this.adminAddress, this.otherAddress, this.blacklistedAddress]);
 
     this.logger.verbose(`Deploying TokenContract...`);
-    this.asset = await TokenBlacklistContract.deploy(this.wallet, this.adminAddress).send({
+    ({ contract: this.asset } = await TokenBlacklistContract.deploy(this.wallet, this.adminAddress).send({
       from: this.adminAddress,
-    });
+    }));
     this.logger.verbose(`Token deployed to ${this.asset.address}`);
 
     this.logger.verbose(`Deploying bad account...`);
-    this.badAccount = await InvalidAccountContract.deploy(this.wallet).send({ from: this.adminAddress });
+    ({ contract: this.badAccount } = await InvalidAccountContract.deploy(this.wallet).send({
+      from: this.adminAddress,
+    }));
     this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
     // Deploy a proxy contract for "on behalf of other" tests. The note owner must be the tx sender
     // (so their notes are in scope), but msg_sender in the target must differ from the note owner
     // to trigger authwit validation. The proxy forwards calls so that msg_sender != tx sender.
     this.logger.verbose(`Deploying generic proxy...`);
-    this.authwitProxy = await GenericProxyContract.deploy(this.wallet).send({ from: this.adminAddress });
+    ({ contract: this.authwitProxy } = await GenericProxyContract.deploy(this.wallet).send({
+      from: this.adminAddress,
+    }));
     this.logger.verbose(`Deployed to ${this.authwitProxy.address}.`);
 
     await this.crossTimestampOfChange();
@@ -133,9 +137,9 @@ export class BlacklistTokenContractTest {
       [this.adminAddress, this.otherAddress, this.blacklistedAddress],
     );
 
-    expect(await this.asset.methods.get_roles(this.adminAddress).simulate({ from: this.adminAddress })).toEqual(
-      new Role().withAdmin().toNoirStruct(),
-    );
+    expect(
+      (await this.asset.methods.get_roles(this.adminAddress).simulate({ from: this.adminAddress })).result,
+    ).toEqual(new Role().withAdmin().toNoirStruct());
   }
 
   async setup() {
@@ -189,9 +193,9 @@ export class BlacklistTokenContractTest {
 
     await this.crossTimestampOfChange();
 
-    expect(await this.asset.methods.get_roles(this.adminAddress).simulate({ from: this.adminAddress })).toEqual(
-      adminMinterRole.toNoirStruct(),
-    );
+    expect(
+      (await this.asset.methods.get_roles(this.adminAddress).simulate({ from: this.adminAddress })).result,
+    ).toEqual(adminMinterRole.toNoirStruct());
 
     this.logger.verbose(`Minting ${amount} publicly...`);
     await asset.methods.mint_public(this.adminAddress, amount).send({ from: this.adminAddress });
@@ -199,7 +203,7 @@ export class BlacklistTokenContractTest {
     this.logger.verbose(`Minting ${amount} privately...`);
     const secret = Fr.random();
     const secretHash = await computeSecretHash(secret);
-    const receipt = await asset.methods.mint_private(amount, secretHash).send({ from: this.adminAddress });
+    const { receipt } = await asset.methods.mint_private(amount, secretHash).send({ from: this.adminAddress });
 
     await this.addPendingShieldNoteToPXE(asset, this.adminAddress, amount, secretHash, receipt.txHash);
     await asset.methods.redeem_shield(this.adminAddress, amount, secret).send({ from: this.adminAddress });
@@ -207,20 +211,20 @@ export class BlacklistTokenContractTest {
 
     tokenSim.mintPublic(this.adminAddress, amount);
 
-    const publicBalance = await asset.methods
+    const { result: publicBalance } = await asset.methods
       .balance_of_public(this.adminAddress)
       .simulate({ from: this.adminAddress });
     this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
     expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(this.adminAddress));
 
     tokenSim.mintPrivate(this.adminAddress, amount);
-    const privateBalance = await asset.methods
+    const { result: privateBalance } = await asset.methods
       .balance_of_private(this.adminAddress)
       .simulate({ from: this.adminAddress });
     this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
     expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(this.adminAddress));
 
-    const totalSupply = await asset.methods.total_supply().simulate({ from: this.adminAddress });
+    const { result: totalSupply } = await asset.methods.total_supply().simulate({ from: this.adminAddress });
     this.logger.verbose(`Total supply: ${totalSupply}`);
     expect(totalSupply).toEqual(tokenSim.totalSupply);
   }

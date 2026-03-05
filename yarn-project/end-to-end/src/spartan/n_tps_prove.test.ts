@@ -304,10 +304,10 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
     }
 
     logger.info('Deploying benchmark contract...');
-    benchmarkContract = await BenchmarkingContract.deploy(wallets[0]).send({
+    ({ contract: benchmarkContract } = await BenchmarkingContract.deploy(wallets[0]).send({
       from: accountAddresses[0],
       fee: { paymentMethod: sponsor },
-    });
+    }));
 
     logger.info('Test setup complete');
   });
