@@ -61,12 +61,30 @@ function get_ip_for_instance {
     --output text)
 }
 
+function get_iid_for_instance {
+  iid=$(aws ec2 describe-instances \
+    --region us-east-2 \
+    --filters "Name=tag:Name,Values=$instance_name" "Name=instance-state-name,Values=running" \
+    --query "Reservations[].Instances[0].InstanceId" \
+    --output text | tr -d '\n\r' | xargs)
+}
+
 function get_latest_run_id {
   gh run list --workflow $ci3_workflow_id -b $BRANCH --limit 1 --json databaseId -q .[0].databaseId
 }
 
 # Jobs in the ci dashboards are grouped on a single line by RUN_ID.
 export RUN_ID=${RUN_ID:-$(date +%s%3N)}
+
+# Delegate to SSM (default) or SSH based on CI_USE_SSH.
+function bootstrap_remote {
+  if [ "${CI_USE_SSH:-0}" -eq 1 ]; then
+    bootstrap_ec2 "$@"
+  else
+    bootstrap_ssm "$@"
+  fi
+}
+export -f bootstrap_remote
 
 case "$cmd" in
   dash)
@@ -75,31 +93,31 @@ case "$cmd" in
   fast|docs|barretenberg|barretenberg-full)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-$cmd"
-    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    bootstrap_remote "./bootstrap.sh ci-$cmd"
     ;;
   socket-fix)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-socket-fix"
     export INSTANCE_POSTFIX="socket-fix"
     export CPUS=16
-    bootstrap_ec2 "./bootstrap.sh ci-socket-fix $*"
+    bootstrap_remote "./bootstrap.sh ci-socket-fix $*"
     ;;
   full|full-no-test-cache)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-$cmd"
     export AWS_SHUTDOWN_TIME=75
-    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    bootstrap_remote "./bootstrap.sh ci-$cmd"
     ;;
   barretenberg-debug)
     export CI_DASHBOARD="nightly"
     export JOB_ID="x-$cmd"
     export CPUS=16
-    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    bootstrap_remote "./bootstrap.sh ci-$cmd"
     ;;
   avm-inputs-collection|avm-check-circuit)
     export CI_DASHBOARD="nightly"
     export JOB_ID="x-$cmd"
-    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    bootstrap_remote "./bootstrap.sh ci-$cmd"
     ;;
   grind)
     # Grind a default of 5 times.
@@ -107,7 +125,7 @@ case "$cmd" in
     export DENOISE=1
     export DENOISE_WIDTH=32
     run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
+      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_remote './bootstrap.sh $3'"
     }
     export -f run
     seq 1 ${1:-5} | parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered \
@@ -125,7 +143,7 @@ case "$cmd" in
     export DENOISE=1
     export DENOISE_WIDTH=32
     run() {
-      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
+      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_remote './bootstrap.sh $3'"
     }
     export -f run
 
@@ -149,7 +167,7 @@ case "$cmd" in
     export DENOISE=1
     export DENOISE_WIDTH=32
     run() {
-      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
+      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_remote './bootstrap.sh $3'"
     }
     export -f run
 
@@ -181,7 +199,7 @@ case "$cmd" in
     export JOB_ID="grind-test-$test_hash"
     export INSTANCE_POSTFIX=$JOB_ID
     export CPUS=${CPUS:-192}
-    bootstrap_ec2 "./bootstrap.sh ci-grind-test $(printf %q "$full_cmd") $timeout $jobs_pct $memsuspend_pct $commit" | DUP=1 cache_log "Grind test CI run" $RUN_ID
+    bootstrap_remote "./bootstrap.sh ci-grind-test $(printf %q "$full_cmd") $timeout $jobs_pct $memsuspend_pct $commit" | DUP=1 cache_log "Grind test CI run" $RUN_ID
     ;;
   ##########################################
   # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
@@ -200,8 +218,9 @@ case "$cmd" in
     export CPUS=16
     run() {
       local set=$1
-      JOB_ID="x-${namespace}-${set}" INSTANCE_POSTFIX="n-deploy-${set}" \
-        bootstrap_ec2 "./bootstrap.sh ci-network-deploy $scenario ${namespace}-${set} \"$docker_image\" $set"
+      export JOB_ID="x-${namespace}-${set}"
+      export INSTANCE_POSTFIX="n-deploy-${set}"
+      bootstrap_remote "./bootstrap.sh ci-network-deploy $scenario ${namespace}-${set} \"$docker_image\" $set"
     }
     export -f run
     export scenario namespace docker_image
@@ -221,7 +240,7 @@ case "$cmd" in
     # Enough for the build, which should have a lot of caching, and the test harness.
     # Resources are on GCP.
     export CPUS=16
-    bootstrap_ec2 "./bootstrap.sh ci-network-deploy $*"
+    bootstrap_remote "./bootstrap.sh ci-network-deploy $*"
     ;;
   network-tests)
     # Args: <scenario> <namespace>
@@ -232,7 +251,7 @@ case "$cmd" in
     # Enough for the build, which should have a lot of caching, and the test harness.
     # Resources are on GCP.
     export CPUS=16
-    bootstrap_ec2 "./bootstrap.sh ci-network-tests $*"
+    bootstrap_remote "./bootstrap.sh ci-network-tests $*"
     ;;
   network-bench)
     # Args: <scenario> <namespace> [docker_image]
@@ -243,7 +262,7 @@ case "$cmd" in
     # Enough for the build, which should have a lot of caching, and the test harness.
     # Resources are on GCP.
     export CPUS=16
-    bootstrap_ec2 "./bootstrap.sh ci-network-bench $*"
+    bootstrap_remote "./bootstrap.sh ci-network-bench $*"
     ;;
   network-proving-bench)
     # Args: <scenario> <namespace> [docker_image]
@@ -251,7 +270,7 @@ case "$cmd" in
     export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-proving-bench" CPUS=16
     export INSTANCE_POSTFIX="n-proving-bench"
-    bootstrap_ec2 "./bootstrap.sh ci-network-proving-bench $*"
+    bootstrap_remote "./bootstrap.sh ci-network-proving-bench $*"
     ;;
   network-teardown)
     # Args: <scenario> <namespace>
@@ -259,7 +278,7 @@ case "$cmd" in
     export JOB_ID="x-${2:?namespace is required}-network-teardown"
     export CPUS=4
     export INSTANCE_POSTFIX="n-teardown"
-    bootstrap_ec2 "./bootstrap.sh ci-network-teardown $*"
+    bootstrap_remote "./bootstrap.sh ci-network-teardown $*"
     ;;
 
   network-tests-kind)
@@ -268,7 +287,7 @@ case "$cmd" in
     export AWS_SHUTDOWN_TIME=180 # 3 hours for KIND tests
     export CPUS=192
     export INSTANCE_POSTFIX="n-kind"
-    bootstrap_ec2 "./bootstrap.sh ci-network-kind-tests"
+    bootstrap_remote "./bootstrap.sh ci-network-kind-tests"
     ;;
   deploy-rollup-upgrade)
     # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
@@ -277,7 +296,7 @@ case "$cmd" in
     export JOB_ID="x-deploy-rollup-upgrade"
     export CPUS=8
     export INSTANCE_POSTFIX="rollup-upgrade"
-    bootstrap_ec2 "./bootstrap.sh ci-deploy-rollup-upgrade $*"
+    bootstrap_remote "./bootstrap.sh ci-deploy-rollup-upgrade $*"
     ;;
 
   ############
@@ -290,7 +309,7 @@ case "$cmd" in
     export DENOISE=1
     export DENOISE_WIDTH=32
     run() {
-      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-release'"
+      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_remote './bootstrap.sh ci-release'"
     }
     export -f run
 
@@ -310,17 +329,36 @@ case "$cmd" in
     ;;
   shell-container)
     # Drop into a shell in the current running build instance container.
-    get_ip_for_instance
-    [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-    [ "$#" -eq 0 ] && set -- "zsh" || true
-    ssh -tq -F $ci3/aws/build_instance_ssh_config ubuntu@$ip \
-      "docker start aztec_build &>/dev/null || true && docker exec -it --user aztec-dev aztec_build $@"
+    if [ "${CI_USE_SSH:-0}" -eq 1 ]; then
+      get_ip_for_instance
+      [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
+      [ "$#" -eq 0 ] && set -- "zsh" || true
+      ssh -tq -F $ci3/aws/build_instance_ssh_config ubuntu@$ip \
+        "docker start aztec_build &>/dev/null || true && docker exec -it --user aztec-dev aztec_build $@"
+    else
+      get_iid_for_instance
+      [ -z "$iid" ] || [ "$iid" = "None" ] && echo "No instance found: $instance_name" && exit 1
+      [ "$#" -eq 0 ] && set -- "zsh" || true
+      aws ssm start-session \
+        --region us-east-2 \
+        --target "$iid" \
+        --document-name "AWS-StartInteractiveCommand" \
+        --parameters "{\"command\":[\"runuser -u ubuntu -- bash -c 'docker start aztec_build &>/dev/null || true && docker exec -it --user aztec-dev aztec_build $@'\"]}"
+    fi
     ;;
   shell-host)
     # Drop into a shell in the current running build host.
-    get_ip_for_instance
-    [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
+    if [ "${CI_USE_SSH:-0}" -eq 1 ]; then
+      get_ip_for_instance
+      [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
+      ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
+    else
+      get_iid_for_instance
+      [ -z "$iid" ] || [ "$iid" = "None" ] && echo "No instance found: $instance_name" && exit 1
+      aws ssm start-session \
+        --region us-east-2 \
+        --target "$iid"
+    fi
     ;;
   kill)
     existing_instance=$(aws ec2 describe-instances \
