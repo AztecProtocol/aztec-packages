@@ -434,6 +434,12 @@ pol DIV_OPS_NON_U128 = (1 - sel_err) * sel_op_fdiv + sel_div_no_err * IS_NOT_U12
 #[ALU_FDIV_DIV_NON_U128]
 DIV_OPS_NON_U128 * (ib * ic - ia + sel_op_div * helper1) = 0;
 
+// Range check that the remainder (helper1) fits within max_bits (and importantly, always within 128 bits).
+// Without this, a malicious prover could set helper1 to an arbitrary field element that satisfies
+// the division relation. The GT gadget has a precondition that inputs must fit wiithin 128 bits.
+#[RANGE_CHECK_DIV_REMAINDER]
+sel_div_no_err { helper1, max_bits } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
+
 // ------------------------------------------------------------
 // EQ
 // ------------------------------------------------------------
