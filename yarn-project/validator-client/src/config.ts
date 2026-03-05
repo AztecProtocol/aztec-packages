@@ -6,7 +6,7 @@ import {
   secretValueConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { validatorHASignerConfigMappings } from '@aztec/stdlib/ha-signing';
+import { localSignerConfigMappings, validatorHASignerConfigMappings } from '@aztec/stdlib/ha-signing';
 import type { ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
 
 export type { ValidatorClientConfig };
@@ -97,6 +97,7 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Maximum transactions per checkpoint for validation. Proposals exceeding this limit are rejected.',
     parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
+  ...localSignerConfigMappings,
   ...validatorHASignerConfigMappings,
 };
 

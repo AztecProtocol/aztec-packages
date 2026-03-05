@@ -46,7 +46,7 @@ import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
-import { createHASigner } from '@aztec/validator-ha-signer/factory';
+import { createHASigner, createLocalSignerWithProtection } from '@aztec/validator-ha-signer/factory';
 import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
 import type { ValidatorHASigner } from '@aztec/validator-ha-signer/validator-ha-signer';
 
@@ -109,7 +109,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private config: ValidatorClientFullConfig,
     private blobClient: BlobClientInterface,
-    private haSigner: ValidatorHASigner | undefined,
+    private slashingProtectionSigner: ValidatorHASigner,
     private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
     log = createLogger('validator'),
@@ -218,18 +218,27 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     );
 
     const nodeKeystoreAdapter = NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager);
-    let validatorKeyStore: ExtendedValidatorKeyStore = nodeKeystoreAdapter;
-    let haSigner: ValidatorHASigner | undefined;
+    let slashingProtectionSigner: ValidatorHASigner;
     if (config.haSigningEnabled) {
+      // Multi-node HA mode: use PostgreSQL-backed distributed locking.
       // If maxStuckDutiesAgeMs is not explicitly set, compute it from Aztec slot duration
       const haConfig = {
         ...config,
         maxStuckDutiesAgeMs: config.maxStuckDutiesAgeMs ?? epochCache.getL1Constants().slotDuration * 2 * 1000,
       };
-      const { signer } = await createHASigner(haConfig, { telemetryClient: telemetry, dateProvider });
-      haSigner = signer;
-      validatorKeyStore = new HAKeyStore(nodeKeystoreAdapter, signer);
+      ({ signer: slashingProtectionSigner } = await createHASigner(haConfig, {
+        telemetryClient: telemetry,
+        dateProvider,
+      }));
+    } else {
+      // Single-node mode: use LMDB-backed local signing protection.
+      // This prevents double-signing if the node crashes and restarts mid-proposal.
+      ({ signer: slashingProtectionSigner } = await createLocalSignerWithProtection(config, {
+        telemetryClient: telemetry,
+        dateProvider,
+      }));
     }
+    const validatorKeyStore: ExtendedValidatorKeyStore = new HAKeyStore(nodeKeystoreAdapter, slashingProtectionSigner);
 
     const validator = new ValidatorClient(
       validatorKeyStore,
@@ -242,7 +251,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       l1ToL2MessageSource,
       config,
       blobClient,
-      haSigner,
+      slashingProtectionSigner,
       dateProvider,
       telemetry,
     );
@@ -281,24 +290,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   public reloadKeystore(newManager: KeystoreManager): void {
-    if (this.config.haSigningEnabled && !this.haSigner) {
-      this.log.warn(
-        'HA signing is enabled in config but was not initialized at startup. ' +
-          'Restart the node to enable HA signing.',
-      );
-    } else if (!this.config.haSigningEnabled && this.haSigner) {
-      this.log.warn(
-        'HA signing was disabled via config update but the HA signer is still active. ' +
-          'Restart the node to fully disable HA signing.',
-      );
-    }
-
     const newAdapter = NodeKeystoreAdapter.fromKeyStoreManager(newManager);
-    if (this.haSigner) {
-      this.keyStore = new HAKeyStore(newAdapter, this.haSigner);
-    } else {
-      this.keyStore = newAdapter;
-    }
+    this.keyStore = new HAKeyStore(newAdapter, this.slashingProtectionSigner);
     this.validationService = new ValidationService(this.keyStore, this.log.createChild('validation-service'));
   }
 
