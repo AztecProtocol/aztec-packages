@@ -24,10 +24,10 @@ export function useContract() {
       contractAddressSalt: salt,
     });
 
-    const contract = await toast.promise(deploymentPromise, {
+    const { contract } = await toast.promise(deploymentPromise, {
       pending: 'Deploying contract...',
       success: {
-        render: ({ data }) => `Address: ${data.address}`,
+        render: ({ data }) => `Address: ${data.contract.address}`,
       },
       error: 'Error deploying contract',
     });

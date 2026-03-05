@@ -100,7 +100,13 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
 
     // Deploy L2 token contract
     // docs:start:deploy-l2-token
-    const l2TokenContract = await TokenContract.deploy(wallet, ownerAztecAddress, 'L2 Token', 'L2', 18).send({
+    const { contract: l2TokenContract } = await TokenContract.deploy(
+      wallet,
+      ownerAztecAddress,
+      'L2 Token',
+      'L2',
+      18,
+    ).send({
       from: ownerAztecAddress,
     });
     logger.info(`L2 token contract deployed at ${l2TokenContract.address}`);
@@ -130,7 +136,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     // docs:end:deploy-portal
     // Deploy L2 bridge contract
     // docs:start:deploy-l2-bridge
-    const l2BridgeContract = await TokenBridgeContract.deploy(
+    const { contract: l2BridgeContract } = await TokenBridgeContract.deploy(
       wallet,
       l2TokenContract.address,
       l1PortalContractAddress,
@@ -175,7 +181,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     await l2BridgeContract.methods
       .claim_public(ownerAztecAddress, MINT_AMOUNT, claim.claimSecret, claim.messageLeafIndex)
       .send({ from: ownerAztecAddress });
-    const balance = await l2TokenContract.methods
+    const { result: balance } = await l2TokenContract.methods
       .balance_of_public(ownerAztecAddress)
       .simulate({ from: ownerAztecAddress });
     logger.info(`Public L2 balance of ${ownerAztecAddress} is ${balance}`);
@@ -206,12 +212,12 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
       l2BridgeContract.address,
       EthAddress.ZERO,
     );
-    const l2TxReceipt = await l2BridgeContract.methods
+    const { receipt: l2TxReceipt } = await l2BridgeContract.methods
       .exit_to_l1_public(EthAddress.fromString(ownerEthAddress), withdrawAmount, EthAddress.ZERO, authwitNonce)
       .send({ from: ownerAztecAddress });
     await waitForProven(node, l2TxReceipt, { provenTimeout: 500 });
 
-    const newL2Balance = await l2TokenContract.methods
+    const { result: newL2Balance } = await l2TokenContract.methods
       .balance_of_public(ownerAztecAddress)
       .simulate({ from: ownerAztecAddress });
     logger.info(`New L2 balance of ${ownerAztecAddress} is ${newL2Balance}`);

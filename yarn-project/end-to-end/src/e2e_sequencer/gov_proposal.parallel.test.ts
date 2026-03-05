@@ -112,7 +112,7 @@ describe('e2e_gov_proposal', () => {
 
     // Deploy a test contract to send msgs via the outbox, since this increases
     // gas cost of a proposal, which has triggered oog errors in the past.
-    testContract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress });
+    ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
     logger.warn(`Deployed test contract at ${testContract.address}`);
 
     await cheatCodes.rollup.advanceToEpoch(EpochNumber(4));
@@ -169,11 +169,12 @@ describe('e2e_gov_proposal', () => {
     // since we wait for the txs to be mined, and do so `roundDuration` times.
     // Simultaneously, we should be voting for the proposal in every slot.
     for (let i = 0; i < roundDuration; i++) {
-      const txHashes = await timesAsync(TXS_PER_BLOCK, () =>
-        testContract.methods
+      const txHashes = await timesAsync(TXS_PER_BLOCK, async () => {
+        const { txHash } = await testContract.methods
           .create_l2_to_l1_message_arbitrary_recipient_private(Fr.random(), EthAddress.random())
-          .send({ from: defaultAccountAddress, wait: NO_WAIT }),
-      );
+          .send({ from: defaultAccountAddress, wait: NO_WAIT });
+        return txHash;
+      });
       await Promise.all(
         txHashes.map((hash, j) => {
           logger.info(`Waiting for tx ${i}-${j}: ${hash} to be mined`);

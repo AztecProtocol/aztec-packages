@@ -916,7 +916,7 @@ This utility computes the address of the pre-deployed sponsored FPC contract. Th
 
 ### Start the Local Network
 
-In a separate terminal, start the [Aztec local network](../local_network.md):
+In a separate terminal, start the [Aztec local network](../../../getting_started_on_local_network.md):
 
 ```bash
 aztec start --local-network

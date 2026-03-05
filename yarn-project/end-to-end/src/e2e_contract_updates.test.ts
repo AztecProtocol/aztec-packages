@@ -110,7 +110,9 @@ describe('e2e_contract_updates', () => {
     }
     sequencer = maybeSequencer;
 
-    ({ contract, instance } = await UpdatableContract.deploy(wallet, constructorArgs[0]).send({
+    ({
+      receipt: { contract, instance },
+    } = await UpdatableContract.deploy(wallet, constructorArgs[0]).send({
       from: defaultAccountAddress,
       contractAddressSalt: salt,
       wait: { returnReceipt: true },
@@ -126,9 +128,10 @@ describe('e2e_contract_updates', () => {
 
   it('should update the contract', async () => {
     expect(
-      await contract.methods.get_private_value(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
+      (await contract.methods.get_private_value(defaultAccountAddress).simulate({ from: defaultAccountAddress }))
+        .result,
     ).toEqual(INITIAL_UPDATABLE_CONTRACT_VALUE);
-    expect(await contract.methods.get_public_value().simulate({ from: defaultAccountAddress })).toEqual(
+    expect((await contract.methods.get_public_value().simulate({ from: defaultAccountAddress })).result).toEqual(
       INITIAL_UPDATABLE_CONTRACT_VALUE,
     );
     await contract.methods.update_to(updatedContractClassId).send({ from: defaultAccountAddress });
@@ -141,18 +144,19 @@ describe('e2e_contract_updates', () => {
     await updatedContract.methods.set_private_value().send({ from: defaultAccountAddress });
     // Read state that was changed by the previous tx
     expect(
-      await updatedContract.methods.get_private_value(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
+      (await updatedContract.methods.get_private_value(defaultAccountAddress).simulate({ from: defaultAccountAddress }))
+        .result,
     ).toEqual(UPDATED_CONTRACT_PUBLIC_VALUE);
 
     // Call a public method with a new implementation
     await updatedContract.methods.set_public_value().send({ from: defaultAccountAddress });
-    expect(await updatedContract.methods.get_public_value().simulate({ from: defaultAccountAddress })).toEqual(
+    expect((await updatedContract.methods.get_public_value().simulate({ from: defaultAccountAddress })).result).toEqual(
       UPDATED_CONTRACT_PUBLIC_VALUE,
     );
   });
 
   it('should change the update delay and then update the contract', async () => {
-    expect(await contract.methods.get_update_delay().simulate({ from: defaultAccountAddress })).toEqual(
+    expect((await contract.methods.get_update_delay().simulate({ from: defaultAccountAddress })).result).toEqual(
       BigInt(DEFAULT_TEST_UPDATE_DELAY),
     );
 
@@ -161,7 +165,7 @@ describe('e2e_contract_updates', () => {
       .set_update_delay(BigInt(DEFAULT_TEST_UPDATE_DELAY) + 1n)
       .send({ from: defaultAccountAddress });
 
-    expect(await contract.methods.get_update_delay().simulate({ from: defaultAccountAddress })).toEqual(
+    expect((await contract.methods.get_update_delay().simulate({ from: defaultAccountAddress })).result).toEqual(
       BigInt(DEFAULT_TEST_UPDATE_DELAY) + 1n,
     );
 
