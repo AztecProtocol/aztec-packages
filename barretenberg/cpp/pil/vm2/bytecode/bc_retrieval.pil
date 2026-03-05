@@ -10,9 +10,9 @@ include "../trees/indexed_tree_check.pil";
  * and does not fetch the bytes themselves. In practice this means we:
  *  - Silo the address:
  *      - siloed_nullifier = H(DOM_SEP__SILOED_NULLIFIER, deployer_protocol_contract_address, address)
- *      - Enforced by lookup into contract_instance_retrieval.pil (#[CONTRACT_INSTANCE_RETRIEVAL]), which looks up nullifier_check.pil (#[DEPLOYMENT_NULLIFIER_READ]).
+ *      - Enforced by lookup into contract_instance_retrieval.pil (#[CONTRACT_INSTANCE_RETRIEVAL]), which looks up indexed_tree_check.pil (#[DEPLOYMENT_NULLIFIER_READ]).
  *  - Check if the nullifier exists.
- *      - Enforced in above lookup (contract_instance_retrieval.pil (#[CONTRACT_INSTANCE_RETRIEVAL]) -> nullifier_check.pil (#[DEPLOYMENT_NULLIFIER_READ])).
+ *      - Enforced in above lookup (contract_instance_retrieval.pil (#[CONTRACT_INSTANCE_RETRIEVAL]) -> indexed_tree_check.pil (#[DEPLOYMENT_NULLIFIER_READ])).
  *  - Derive the address.
  *      - Enforced in above lookup (contract_instance_retrieval.pil (#[CONTRACT_INSTANCE_RETRIEVAL]) -> address_derivation.pil (#[ADDRESS_DERIVATION])).
  *      - Note: for this trace, we only 'care' about the contract instance member current_class_id (not salt, deployer_addr, init_hash), which is validated in
@@ -63,7 +63,7 @@ include "../trees/indexed_tree_check.pil";
  * TRACE SHAPE: This subtrace retrieves one bytecode instance per row, anchored by the bytecode_id column.
  *
  * INTERACTIONS:
- *  execution.pil --> bc_retrieval.pil --> contract_instance_retrieval.pil --> nullifier_check.pil
+ *  execution.pil --> bc_retrieval.pil --> contract_instance_retrieval.pil --> indexed_tree_check.pil
  *                                                                         --> address_derivation.pil
  *                                                                         --> update_check.pil
  *                                     --> indexed_tree_check.pil
