@@ -76,7 +76,7 @@ pub unconstrained fn attempt_note_discovery(
     );
 
     if discovered_notes.len() == 0 {
-        // A successfully decrypted message that results in no discovered notes means none of the computed note hashes
+        // A private note message that results in no discovered notes means none of the computed note hashes
         // matched any unique note hash in the transaction. This could indicate a malformed or malicious message (e.g.
         // a sender providing bogus note content).
         aztecnr_warn_log_format!(
