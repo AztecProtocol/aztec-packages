@@ -52,9 +52,9 @@ export interface NoteData {
 export interface IMiscOracle {
   isMisc: true;
 
-  utilityGetRandomField(): Fr;
-  utilityAssertCompatibleOracleVersion(version: number): void;
-  utilityLog(level: number, message: string, fields: Fr[]): Promise<void>;
+  getRandomField(): Fr;
+  assertCompatibleOracleVersion(version: number): void;
+  log(level: number, message: string, fields: Fr[]): Promise<void>;
 }
 
 /**
@@ -64,30 +64,30 @@ export interface IMiscOracle {
 export interface IUtilityExecutionOracle {
   isUtility: true;
 
-  utilityGetUtilityContext(): UtilityContext;
-  utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest>;
-  utilityGetContractInstance(address: AztecAddress): Promise<ContractInstance>;
-  utilityGetNoteHashMembershipWitness(
+  getUtilityContext(): UtilityContext;
+  getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest>;
+  getContractInstance(address: AztecAddress): Promise<ContractInstance>;
+  getNoteHashMembershipWitness(
     anchorBlockHash: BlockHash,
     noteHash: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined>;
-  utilityGetBlockHashMembershipWitness(
+  getBlockHashMembershipWitness(
     anchorBlockHash: BlockHash,
     blockHash: BlockHash,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined>;
-  utilityGetNullifierMembershipWitness(
+  getNullifierMembershipWitness(
     anchorBlockHash: BlockHash,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined>;
-  utilityGetPublicDataWitness(anchorBlockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
-  utilityGetLowNullifierMembershipWitness(
+  getPublicDataWitness(anchorBlockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
+  getLowNullifierMembershipWitness(
     anchorBlockHash: BlockHash,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined>;
-  utilityGetBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined>;
-  utilityTryGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress | undefined>;
-  utilityGetAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
-  utilityGetNotes(
+  getBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined>;
+  tryGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress | undefined>;
+  getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
+  getNotes(
     owner: AztecAddress | undefined,
     storageSlot: Fr,
     numSelects: number,
@@ -104,35 +104,35 @@ export interface IUtilityExecutionOracle {
     offset: number,
     status: NoteStatus,
   ): Promise<NoteData[]>;
-  utilityCheckNullifierExists(innerNullifier: Fr): Promise<boolean>;
-  utilityGetL1ToL2MembershipWitness(
+  checkNullifierExists(innerNullifier: Fr): Promise<boolean>;
+  getL1ToL2MembershipWitness(
     contractAddress: AztecAddress,
     messageHash: Fr,
     secret: Fr,
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
-  utilityStorageRead(
+  storageRead(
     anchorBlockHash: BlockHash,
     contractAddress: AztecAddress,
     startStorageSlot: Fr,
     numberOfElements: number,
   ): Promise<Fr[]>;
-  utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr): Promise<void>;
-  utilityValidateAndStoreEnqueuedNotesAndEvents(
+  fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr): Promise<void>;
+  validateAndStoreEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void>;
-  utilityBulkRetrieveLogs(
+  bulkRetrieveLogs(
     contractAddress: AztecAddress,
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
   ): Promise<void>;
-  utilityStoreCapsule(contractAddress: AztecAddress, key: Fr, capsule: Fr[]): Promise<void>;
-  utilityLoadCapsule(contractAddress: AztecAddress, key: Fr): Promise<Fr[] | null>;
-  utilityDeleteCapsule(contractAddress: AztecAddress, key: Fr): Promise<void>;
-  utilityCopyCapsule(contractAddress: AztecAddress, srcKey: Fr, dstKey: Fr, numEntries: number): Promise<void>;
-  utilityAes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer>;
-  utilityGetSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point>;
+  storeCapsule(contractAddress: AztecAddress, key: Fr, capsule: Fr[]): Promise<void>;
+  loadCapsule(contractAddress: AztecAddress, key: Fr): Promise<Fr[] | null>;
+  deleteCapsule(contractAddress: AztecAddress, key: Fr): Promise<void>;
+  copyCapsule(contractAddress: AztecAddress, srcKey: Fr, dstKey: Fr, numEntries: number): Promise<void>;
+  aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer>;
+  getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point>;
 }
 
 /**
@@ -142,9 +142,9 @@ export interface IUtilityExecutionOracle {
 export interface IPrivateExecutionOracle {
   isPrivate: true;
 
-  privateStoreInExecutionCache(values: Fr[], hash: Fr): void;
-  privateLoadFromExecutionCache(hash: Fr): Promise<Fr[]>;
-  privateNotifyCreatedNote(
+  storeInExecutionCache(values: Fr[], hash: Fr): void;
+  loadFromExecutionCache(hash: Fr): Promise<Fr[]>;
+  notifyCreatedNote(
     owner: AztecAddress,
     storageSlot: Fr,
     randomness: Fr,
@@ -153,33 +153,33 @@ export interface IPrivateExecutionOracle {
     noteHash: Fr,
     counter: number,
   ): void;
-  privateNotifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number): Promise<void>;
-  privateNotifyCreatedNullifier(innerNullifier: Fr): Promise<void>;
-  privateIsNullifierPending(innerNullifier: Fr, contractAddress: AztecAddress): Promise<boolean>;
-  privateNotifyCreatedContractClassLog(log: ContractClassLog, counter: number): void;
-  privateCallPrivateFunction(
+  notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number): Promise<void>;
+  notifyCreatedNullifier(innerNullifier: Fr): Promise<void>;
+  isNullifierPending(innerNullifier: Fr, contractAddress: AztecAddress): Promise<boolean>;
+  notifyCreatedContractClassLog(log: ContractClassLog, counter: number): void;
+  callPrivateFunction(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
   ): Promise<{ endSideEffectCounter: Fr; returnsHash: Fr }>;
-  privateNotifyEnqueuedPublicFunctionCall(
+  notifyEnqueuedPublicFunctionCall(
     targetContractAddress: AztecAddress,
     calldataHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
   ): Promise<void>;
-  privateNotifySetPublicTeardownFunctionCall(
+  notifySetPublicTeardownFunctionCall(
     targetContractAddress: AztecAddress,
     calldataHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
   ): Promise<void>;
-  privateNotifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void>;
-  privateIsSideEffectCounterRevertible(sideEffectCounter: number): Promise<boolean>;
-  privateGetSenderForTags(): Promise<AztecAddress | undefined>;
-  privateSetSenderForTags(senderForTags: AztecAddress): Promise<void>;
-  privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag>;
-  utilityEmitOffchainEffect(data: Fr[]): Promise<void>;
+  notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void>;
+  isSideEffectCounterRevertible(sideEffectCounter: number): Promise<boolean>;
+  getSenderForTags(): Promise<AztecAddress | undefined>;
+  setSenderForTags(senderForTags: AztecAddress): Promise<void>;
+  getNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag>;
+  emitOffchainEffect(data: Fr[]): Promise<void>;
 }

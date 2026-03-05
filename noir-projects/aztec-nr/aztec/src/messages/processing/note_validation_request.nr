@@ -2,7 +2,7 @@ use crate::messages::logs::note::MAX_NOTE_PACKED_LEN;
 use crate::protocol::{address::AztecAddress, traits::Serialize};
 
 /// Intermediate struct used to perform batch note validation by PXE. The
-/// `utilityValidateAndStoreEnqueuedNotesAndEvents` oracle expects for values of this type to be stored in a
+/// `aztec_utl_validateAndStoreEnqueuedNotesAndEvents` oracle expects for values of this type to be stored in a
 /// `CapsuleArray`.
 #[derive(Serialize)]
 pub(crate) struct NoteValidationRequest {

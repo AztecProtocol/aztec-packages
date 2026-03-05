@@ -48,7 +48,7 @@ describe('e2e_nested_contract manual', () => {
       parentContract.methods.enqueue_call_to_child(childContract.address, pubSetValueSelector, 40n),
     ];
 
-    const tx = await new BatchCall(wallet, actions).send({ from: defaultAccountAddress });
+    const { receipt: tx } = await new BatchCall(wallet, actions).send({ from: defaultAccountAddress });
     const extendedLogs = (
       await aztecNode.getPublicLogs({
         fromBlock: tx.blockNumber!,

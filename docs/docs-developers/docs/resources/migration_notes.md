@@ -9,6 +9,142 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] Removed `get_random_bytes`
+
+The `get_random_bytes` unconstrained function has been removed from `aztec::utils::random`. If you were using it, you can replace it with direct calls to the `random` oracle from `aztec::oracle::random` and convert to bytes yourself.
+
+### [Aztec.js] `simulate()`, `send()`, and deploy return types changed to always return objects
+
+All SDK interaction methods now return structured objects that include offchain output alongside the primary result. This affects `.simulate()`, `.send()`, deploy `.send()`, and `Wallet.sendTx()`.
+
+**Impact**: Every call site that uses `.simulate()`, `.send()`, or deploy must destructure the result. This is a mechanical transformation. Custom wallet implementations must update `sendTx()` to return the new object shapes, using `extractOffchainOutput` to decode offchain messages from raw effects.
+
+The offchain output includes two fields:
+
+- `offchainEffects` — raw offchain effects emitted during execution, other than `offchainMessages`
+- `offchainMessages` — decoded messages intended for specific recipients
+
+We are making this change now so in the future we can add more fields to the responses of this APIs without breaking backwards compatibility,
+so this won't ever happen again.
+
+**`simulate()` — always returns `{ result, offchainEffects, offchainMessages }` object:**
+
+```diff
+- const value = await contract.methods.foo(args).simulate({ from: sender });
++ const { result: value } = await contract.methods.foo(args).simulate({ from: sender });
+```
+
+When using `includeMetadata` or `fee.estimateGas`, `stats` and `estimatedGas` are also available as optional fields on the same object:
+
+```diff
+- const { stats, estimatedGas } = await contract.methods.foo(args).simulate({
++ const sim = await contract.methods.foo(args).simulate({
+    from: sender,
+    includeMetadata: true,
+  });
++ const stats = sim.stats!;
++ const estimatedGas = sim.estimatedGas!;
+```
+
+`SimulationReturn` is no longer a generic conditional type — it's a single flat type with optional `stats` and `estimatedGas` fields.
+
+**`send()` — returns `{ receipt, offchainEffects, offchainMessages }` object:**
+
+```diff
+- const receipt = await contract.methods.foo(args).send({ from: sender });
++ const { receipt } = await contract.methods.foo(args).send({ from: sender });
+```
+
+When using `NO_WAIT`, returns `{ txHash, offchainEffects, offchainMessages }` instead of a bare `TxHash`:
+
+```diff
+- const txHash = await contract.methods.foo(args).send({ from: sender, wait: NO_WAIT });
++ const { txHash } = await contract.methods.foo(args).send({ from: sender, wait: NO_WAIT });
+```
+
+Offchain messages emitted by the transaction are available on the result:
+
+```typescript
+const { receipt, offchainMessages } = await contract.methods.foo(args).send({ from: sender });
+for (const msg of offchainMessages) {
+  console.log(`Message for ${msg.recipient} from contract ${msg.contractAddress}:`, msg.payload);
+}
+```
+
+**Deploy — returns `{ contract, receipt, offchainEffects, offchainMessages }` object:**
+
+```diff
+- const myContract = await MyContract.deploy(wallet, ...args).send({ from: sender });
++ const { contract: myContract } = await MyContract.deploy(wallet, ...args).send({ from: sender });
+```
+
+The deploy receipt is also available via `receipt` if needed (e.g. for `receipt.txHash` or `receipt.transactionFee`).
+
+**Custom wallet implementations — `sendTx()` must return objects:**
+
+If you implement the `Wallet` interface (or extend `BaseWallet`), the `sendTx()` method must now return objects that include offchain output. Use `extractOffchainOutput` to split raw effects into decoded messages and remaining effects:
+
+```diff
++ import { extractOffchainOutput } from '@aztec/aztec.js/contracts';
+
+  async sendTx(executionPayload, opts) {
+    const provenTx = await this.pxe.proveTx(...);
++   const offchainOutput = extractOffchainOutput(provenTx.getOffchainEffects());
+    const tx = await provenTx.toTx();
+    const txHash = tx.getTxHash();
+    await this.aztecNode.sendTx(tx);
+
+    if (opts.wait === NO_WAIT) {
+-     return txHash;
++     return { txHash, ...offchainOutput };
+    }
+    const receipt = await waitForTx(this.aztecNode, txHash, opts.wait);
+-   return receipt;
++   return { receipt, ...offchainOutput };
+  }
+```
+
+### `aztec new` crate directories are now named after the contract
+
+`aztec new` and `aztec init` now name the generated crate directories after the contract instead of using generic `contract/` and `test/` names. For example, `aztec new counter` now creates:
+
+```
+counter/
+├── Nargo.toml                # [workspace] members = ["counter_contract", "counter_test"]
+├── counter_contract/
+│   ├── src/main.nr
+│   └── Nargo.toml            # type = "contract"
+└── counter_test/
+    ├── src/lib.nr
+    └── Nargo.toml            # type = "lib"
+```
+
+This enables adding multiple contracts to a single workspace. Running `aztec new <name>` inside an existing workspace (a directory with a `Nargo.toml` containing `[workspace]`) now adds a new `<name>_contract` and `<name>_test` crate pair to the workspace instead of creating a new directory.
+
+**What changed:**
+- Crate directories are now `<name>_contract/` and `<name>_test/` instead of `contract/` and `test/`.
+- Contract code is now at `<name>_contract/src/main.nr` instead of `contract/src/main.nr`.
+- Contract dependencies go in `<name>_contract/Nargo.toml` instead of `contract/Nargo.toml`.
+- Tests import the contract by its new crate name (e.g., `use counter_contract::Main;` instead of `use counter::Main;`).
+
+### [CLI] `--name` flag removed from `aztec new` and `aztec init`
+
+The `--name` flag has been removed from both `aztec new` and `aztec init`. For `aztec new`, the positional argument now serves as both the contract name and the directory name. For `aztec init`, the directory name is always used as the contract name.
+
+**Migration:**
+
+```diff
+- aztec new my_project --name counter
++ aztec new counter
+```
+
+```diff
+- aztec init --name counter
++ aztec init
+```
+
+**Impact**: If you were using `--name` to set a contract name different from the directory name, rename your directory or use `aztec new` with the desired contract name directly.
+
 ### [Aztec.js] Removed `SingleKeyAccountContract`
 
 The `SchnorrSingleKeyAccount` contract and its TypeScript wrapper `SingleKeyAccountContract` have been removed. This contract was insecure: it used `ivpk_m` (incoming viewing public key) as its Schnorr signing key, meaning anyone who received a user's viewing key could sign transactions on their behalf.

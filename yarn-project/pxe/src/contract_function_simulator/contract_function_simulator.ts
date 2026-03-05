@@ -277,7 +277,7 @@ export class ContractFunctionSimulator {
       );
       const publicFunctionsCalldata = await Promise.all(
         publicCallRequests.map(async r => {
-          const calldata = await privateExecutionOracle.privateLoadFromExecutionCache(r.calldataHash);
+          const calldata = await privateExecutionOracle.loadFromExecutionCache(r.calldataHash);
           return new HashedValues(calldata, r.calldataHash);
         }),
       );
@@ -809,9 +809,9 @@ function meterGasUsed(data: PrivateToRollupAccumulatedData | PrivateToPublicAccu
   meteredL2Gas += numPrivatelogs * L2_GAS_PER_PRIVATE_LOG;
 
   const numContractClassLogs = arrayNonEmptyLength(data.contractClassLogsHashes, log => log.isEmpty());
-  // Every contract class log emits its length and contract address as additional fields
+  // Every contract class log emits its contract address as an additional field
   meteredDAFields += data.contractClassLogsHashes.reduce(
-    (acc, log) => (!log.isEmpty() ? acc + log.logHash.length + 2 : acc),
+    (acc, log) => (!log.isEmpty() ? acc + log.logHash.length + 1 : acc),
     0,
   );
   meteredL2Gas += numContractClassLogs * L2_GAS_PER_CONTRACT_CLASS_LOG;

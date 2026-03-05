@@ -247,11 +247,11 @@ class TXEDispatcher {
     }
 
     switch (functionName) {
-      case 'txeDeploy': {
+      case 'aztec_txe_deploy': {
         await this.#processDeployInputs(callData);
         break;
       }
-      case 'txeAddAccount': {
+      case 'aztec_txe_addAccount': {
         await this.#processAddAccountInputs(callData);
         break;
       }

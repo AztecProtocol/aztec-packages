@@ -30,7 +30,7 @@ const [aliceAddress, bobAddress] = await Promise.all(
 // docs:start:deploy_basic_local
 // wallet and aliceAddress are from the connection guide
 // Deploy with constructor arguments
-const token = await TokenContract.deploy(
+const { contract: token } = await TokenContract.deploy(
   wallet,
   aliceAddress,
   "TestToken",
@@ -49,7 +49,7 @@ await wallet.registerContract(sponsoredFPCInstance, SponsoredFPCContract.artifac
 const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPCInstance.address);
 
 // wallet is from the connection guide; sponsoredPaymentMethod is from the fees guide
-const sponsoredContract = await TokenContract.deploy(
+const { contract: sponsoredContract } = await TokenContract.deploy(
   wallet,
   aliceAddress,
   "SponsoredToken",
@@ -62,7 +62,7 @@ const sponsoredContract = await TokenContract.deploy(
 // wallet and aliceAddress are from the connection guide
 const customSalt = Fr.random();
 
-const saltedContract = await TokenContract.deploy(
+const { contract: saltedContract } = await TokenContract.deploy(
   wallet,
   aliceAddress,
   "SaltedToken",
@@ -95,7 +95,7 @@ console.log(`Contract will deploy at: ${predictedAddress}`);
 // token is from the deployment step above; aliceAddress is from the connection guide
 try {
   // Try calling a view function
-  const balance = await token.methods
+  const { result: balance } = await token.methods
     .balance_of_public(aliceAddress)
     .simulate({ from: aliceAddress });
   console.log("Contract is callable, balance:", balance);
@@ -132,7 +132,7 @@ await token.methods
 
 // docs:start:no_wait_deploy
 // Use NO_WAIT to get the transaction hash immediately and track deployment
-const txHash = await TokenContract.deploy(
+const { txHash } = await TokenContract.deploy(
   wallet,
   aliceAddress,
   "AnotherToken",
@@ -152,7 +152,7 @@ console.log(`Deployed in block ${receipt.blockNumber}`);
 
 // docs:start:no_wait_transaction
 // Use NO_WAIT for regular transactions too
-const transferTxHash = await token.methods
+const { txHash: transferTxHash } = await token.methods
   .transfer(bobAddress, 100n)
   .send({ from: aliceAddress, wait: NO_WAIT });
 
@@ -170,7 +170,7 @@ const batch = new BatchCall(wallet, [
   token.methods.transfer(bobAddress, 200n),
 ]);
 
-const batchReceipt = await batch.send({ from: aliceAddress });
+const { receipt: batchReceipt } = await batch.send({ from: aliceAddress });
 console.log(`Batch executed in block ${batchReceipt.blockNumber}`);
 // docs:end:batch_call
 
@@ -197,7 +197,7 @@ console.log(
 
 // docs:start:query_tx_status
 // Query transaction status after sending without waiting
-const statusTxHash = await token.methods
+const { txHash: statusTxHash } = await token.methods
   .transfer(bobAddress, 10n)
   .send({ from: aliceAddress, wait: NO_WAIT });
 
@@ -211,7 +211,7 @@ console.log(`Transaction fee: ${txReceipt.transactionFee}`);
 
 // docs:start:deploy_with_dependencies
 // Deploy contracts with dependencies - deploy sequentially and pass addresses
-const baseToken = await TokenContract.deploy(
+const { contract: baseToken } = await TokenContract.deploy(
   wallet,
   aliceAddress,
   "BaseToken",
@@ -220,7 +220,7 @@ const baseToken = await TokenContract.deploy(
 ).send({ from: aliceAddress });
 
 // A second contract could reference the first (example pattern)
-const derivedToken = await TokenContract.deploy(
+const { contract: derivedToken } = await TokenContract.deploy(
   wallet,
   baseToken.address, // Use first contract's address as admin
   "DerivedToken",
@@ -237,13 +237,13 @@ console.log(`Derived token at: ${derivedToken.address.toString()}`);
 const contracts = await Promise.all([
   TokenContract.deploy(wallet, aliceAddress, "Token1", "T1", 18).send({
     from: aliceAddress,
-  }),
+  }).then(({ contract }) => contract),
   TokenContract.deploy(wallet, aliceAddress, "Token2", "T2", 18).send({
     from: aliceAddress,
-  }),
+  }).then(({ contract }) => contract),
   TokenContract.deploy(wallet, aliceAddress, "Token3", "T3", 18).send({
     from: aliceAddress,
-  }),
+  }).then(({ contract }) => contract),
 ]);
 
 console.log(`Contract 1 at: ${contracts[0].address}`);
@@ -253,7 +253,7 @@ console.log(`Contract 3 at: ${contracts[2].address}`);
 
 // docs:start:skip_initialization
 // Deploy without running the constructor using skipInitialization
-const delayedToken = await TokenContract.deploy(
+const { contract: delayedToken } = await TokenContract.deploy(
   wallet,
   aliceAddress,
   "DelayedToken",

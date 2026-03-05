@@ -34,7 +34,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     await t.setup();
 
     ({ logger: log, crossChainTestHarness, wallet, user1Address, aztecNode } = t);
-    testContract = await TestContract.deploy(wallet).send({ from: user1Address });
+    ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: user1Address }));
   }, 300_000);
 
   afterEach(async () => {
@@ -219,7 +219,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
           // On public, we actually send the tx and check that it reverts due to the missing message.
           // This advances the block too as a side-effect. Note that we do not rely on a simulation since the cross chain messages
           // do not get added at the beginning of the block during node_simulatePublicCalls (maybe they should?).
-          const receipt = await consume().send({ from: user1Address, wait: { dontThrowOnRevert: true } });
+          const { receipt } = await consume().send({ from: user1Address, wait: { dontThrowOnRevert: true } });
           expect(receipt.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
           await t.context.watcher.markAsProven();
         }

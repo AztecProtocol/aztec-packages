@@ -63,7 +63,8 @@ describe('token transfer test', () => {
 
   it('can get info', async () => {
     const name = readFieldCompressedString(
-      await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }),
+      (await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }))
+        .result,
     );
     expect(name).toBe(testAccounts.tokenName);
   });
@@ -74,16 +75,20 @@ describe('token transfer test', () => {
 
     for (const acc of testAccounts.accounts) {
       expect(MINT_AMOUNT).toBe(
-        await testAccounts.tokenContract.methods
-          .balance_of_public(acc)
-          .simulate({ from: testAccounts.tokenAdminAddress }),
+        (
+          await testAccounts.tokenContract.methods
+            .balance_of_public(acc)
+            .simulate({ from: testAccounts.tokenAdminAddress })
+        ).result,
       );
     }
 
     expect(0n).toBe(
-      await testAccounts.tokenContract.methods
-        .balance_of_public(recipient)
-        .simulate({ from: testAccounts.tokenAdminAddress }),
+      (
+        await testAccounts.tokenContract.methods
+          .balance_of_public(recipient)
+          .simulate({ from: testAccounts.tokenAdminAddress })
+      ).result,
     );
 
     const defaultAccountAddress = testAccounts.accounts[0];
@@ -128,7 +133,7 @@ describe('token transfer test', () => {
       }),
     );
 
-    const recipientBalance = await testAccounts.tokenContract.methods
+    const { result: recipientBalance } = await testAccounts.tokenContract.methods
       .balance_of_public(recipient)
       .simulate({ from: testAccounts.tokenAdminAddress });
     logger.info(`recipientBalance: ${recipientBalance}`);

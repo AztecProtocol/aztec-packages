@@ -202,7 +202,7 @@ export class TXESession implements TXESessionStateHandler {
       chainId,
       new Map(),
     );
-    await topLevelOracleHandler.txeAdvanceBlocksBy(1);
+    await topLevelOracleHandler.advanceBlocksBy(1);
 
     return new TXESession(
       createLogger('txe:session'),
@@ -452,8 +452,8 @@ export class TXESession implements TXESessionStateHandler {
 
     // Note that while all public and private contexts do is build a single block that we then process when exiting
     // those, the top level context performs a large number of actions not captured in the following 'close' call. Among
-    // others, it will create empty blocks (via `txeAdvanceBlocksBy` and `deploy`), create blocks with transactions via
-    // `txePrivateCallNewFlow` and `txePublicCallNewFlow`, add accounts to PXE via `txeAddAccount`, etc. This is a
+    // others, it will create empty blocks (via `advanceBlocksBy` and `deploy`), create blocks with transactions via
+    // `privateCallNewFlow` and `publicCallNewFlow`, add accounts to PXE via `addAccount`, etc. This is a
     // slight inconsistency in the working model of this class, but is not too bad.
     // TODO: it's quite unfortunate that we need to capture the authwits created to later pass them again when the top
     // level context is re-created. This is because authwits create a temporary utility context that'd otherwise reset

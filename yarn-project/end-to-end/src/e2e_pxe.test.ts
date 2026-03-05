@@ -21,7 +21,7 @@ describe('e2e_pxe', () => {
       wallet,
       accounts: [defaultAccountAddress],
     } = await setup());
-    contract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress });
+    ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
 
   afterAll(() => teardown());
