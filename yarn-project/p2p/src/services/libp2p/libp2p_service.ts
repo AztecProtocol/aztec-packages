@@ -1,5 +1,6 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
+import { maxBy } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -19,6 +20,7 @@ import {
   P2PMessage,
   type ValidationResult as P2PValidationResult,
   PeerErrorSeverity,
+  PeerErrorSeverityByHarshness,
   TopicType,
   createTopicString,
   getTopicsForConfig,
@@ -1662,8 +1664,10 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     // A promise that resolves when all validations have been run
     const allValidations = await Promise.all(validationPromises);
-    const failed = allValidations.find(x => !x.isValid);
-    if (failed) {
+    const failures = allValidations.filter(x => !x.isValid);
+    if (failures.length > 0) {
+      // Pick the most severe failure (lowest tolerance = harshest penalty)
+      const failed = maxBy(failures, f => PeerErrorSeverityByHarshness.indexOf(f.severity))!;
       return {
         allPassed: false,
         failure: {
