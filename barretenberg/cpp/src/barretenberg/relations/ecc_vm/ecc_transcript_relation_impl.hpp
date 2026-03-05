@@ -501,7 +501,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
         auto accumulator_infinity_q_reset = q_reset_accumulator * (-is_accumulator_empty_shift + 1); // degree 2
         auto accumulator_infinity_from_add =
             any_add_is_active * (result_is_infinity - is_accumulator_empty_shift); // degree 3
-        // When opcode_is_zero (no-op row), the accumulator output is forced to (0,0) by lines 428-429.
+        // When opcode_is_zero (no-op row), the accumulator output is forced to (0,0) by subrelations 15 and 16.
         // We must also force is_accumulator_empty_shift = 1 so that the emptiness flag is consistent
         // with the (0,0) accumulator coordinates. Without this, a malicious prover could set
         // accumulator_not_empty = 1 on the next row while the accumulator is (0,0), creating an
