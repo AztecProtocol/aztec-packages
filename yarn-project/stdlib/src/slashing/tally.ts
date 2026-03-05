@@ -1,6 +1,7 @@
 import { sumBigint } from '@aztec/foundation/bigint';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { PartialBy } from '@aztec/foundation/types';
 
 import { getEpochForOffense } from './helpers.js';
@@ -12,6 +13,9 @@ import type { Offense, ValidatorSlashVote } from './types.js';
  * @param committees - Array of committees (each containing array of validator addresses)
  * @param epochsForCommittees - Array of epochs corresponding to each committee
  * @param settings - Settings including slashingAmounts and optional validator override lists
+ * @param settings.maxSlashedValidators - If set, limits the total number of [validator, epoch] pairs
+ *   with non-zero votes. The lowest-vote pairs are zeroed out to stay within the limit.
+ * @param logger - Logger, logs which validators were dropped.
  * @returns Array of ValidatorSlashVote, where each vote is how many slash units the validator in that position should be slashed
  */
 export function getSlashConsensusVotesFromOffenses(
@@ -22,9 +26,11 @@ export function getSlashConsensusVotesFromOffenses(
     slashingAmounts: [bigint, bigint, bigint];
     epochDuration: number;
     targetCommitteeSize: number;
+    maxSlashedValidators?: number;
   },
+  logger: Logger = createLogger('slasher:tally'),
 ): ValidatorSlashVote[] {
-  const { slashingAmounts, targetCommitteeSize } = settings;
+  const { slashingAmounts, targetCommitteeSize, maxSlashedValidators } = settings;
 
   if (committees.length !== epochsForCommittees.length) {
     throw new Error('committees and epochsForCommittees must have the same length');
@@ -52,6 +58,33 @@ export function getSlashConsensusVotesFromOffenses(
 
     return padArrayEnd(votes, 0, targetCommitteeSize);
   });
+
+  // if a cap is set, zero out the lowest-vote [validator, epoch] pairs so that the most severe slashes stay.
+  if (maxSlashedValidators === undefined) {
+    return votes;
+  }
+
+  const nonZeroByDescendingVote = [...votes.entries()].filter(([, vote]) => vote > 0).sort(([, a], [, b]) => b - a);
+
+  const toTruncate = nonZeroByDescendingVote.slice(maxSlashedValidators);
+  for (const [idx] of toTruncate) {
+    votes[idx] = 0;
+  }
+
+  if (toTruncate.length > 0) {
+    const truncated = toTruncate.map(([idx]) => {
+      const committeeIndex = Math.floor(idx / targetCommitteeSize);
+      const positionInCommittee = idx % targetCommitteeSize;
+      return {
+        validator: committees[committeeIndex][positionInCommittee].toString(),
+        epoch: epochsForCommittees[committeeIndex],
+      };
+    });
+    logger.warn(
+      `Truncated ${toTruncate.length} validator-epoch pairs to stay within limit of ${maxSlashedValidators}`,
+      { truncated },
+    );
+  }
 
   return votes;
 }
