@@ -166,7 +166,7 @@ export class EpochProvingJob implements Traceable {
       const previousBlockHeaders = this.gatherPreviousBlockHeaders();
       this.log.info(`Previous block headers gathered, entering asyncPool: ${timer.ms()}ms`);
 
-      await asyncPool(this.config.parallelBlockLimit ?? 32, this.checkpoints, async checkpoint => {
+      await asyncPool(this.config.parallelBlockLimit ?? 32, this.checkpoints.reverse(), async checkpoint => {
         this.checkState();
 
         const checkpointIndex = checkpoint.number - fromCheckpoint;
@@ -205,7 +205,7 @@ export class EpochProvingJob implements Traceable {
           uuid: this.uuid,
         });
 
-        for (let blockIndex = 0; blockIndex < checkpoint.blocks.length; blockIndex++) {
+        for (let blockIndex = checkpoint.blocks.length - 1; blockIndex >= 0; blockIndex--) {
           const block = checkpoint.blocks[blockIndex];
           const globalVariables = block.header.globalVariables;
           const txs = this.getTxs(block);
