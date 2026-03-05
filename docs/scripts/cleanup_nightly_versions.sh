@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Script to clean up nightly documentation versions
 # This removes all versions containing "nightly" from the Build docs
