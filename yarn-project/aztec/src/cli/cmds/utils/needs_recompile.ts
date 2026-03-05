@@ -2,6 +2,24 @@ import TOML from '@iarna/toml';
 import { readFile, readdir, stat } from 'fs/promises';
 import { join, resolve } from 'path';
 
+/**
+ * Returns true if recompilation is needed: either no artifacts exist in target/ or any .nr or Nargo.toml source file
+ * (including path-based dependencies) is newer than the oldest artifact. We compare against the oldest artifact so
+ * that a source change between the oldest and newest compilation (e.g. in a multi-contract workspace) still triggers
+ * a recompile.
+ *
+ * Note: The above implies that if there is a random json file in the target dir we would be always recompiling.
+ */
+export async function needsRecompile(): Promise<boolean> {
+  const oldestArtifactMs = await getOldestArtifactMtimeMs('target');
+  if (oldestArtifactMs === undefined) {
+    return true;
+  }
+
+  const sourceDirs = await collectSourceDirs('.');
+  return hasNewerSourceFile(sourceDirs, oldestArtifactMs);
+}
+
 /** Returns the mtime (in ms) of the oldest .json artifact in targetDir, or undefined if none exist. */
 async function getOldestArtifactMtimeMs(targetDir: string): Promise<number | undefined> {
   let entries: string[];
@@ -115,22 +133,4 @@ async function hasNewerSourceFile(sourceDirs: string[], thresholdMs: number): Pr
     }
   }
   return false;
-}
-
-/**
- * Returns true if recompilation is needed: either no artifacts exist in target/ or any .nr or Nargo.toml source file
- * (including path-based dependencies) is newer than the oldest artifact. We compare against the oldest artifact so
- * that a source change between the oldest and newest compilation (e.g. in a multi-contract workspace) still triggers
- * a recompile.
- *
- * Note: The above implies that if there is a random json file in the target dir we would be always recompiling.
- */
-export async function needsRecompile(): Promise<boolean> {
-  const oldestArtifactMs = await getOldestArtifactMtimeMs('target');
-  if (oldestArtifactMs === undefined) {
-    return true;
-  }
-
-  const sourceDirs = await collectSourceDirs('.');
-  return hasNewerSourceFile(sourceDirs, oldestArtifactMs);
 }
