@@ -110,7 +110,8 @@ export function registerSlackHandlers(app: App, store: SessionStore, docker: Doc
 
   // ── Direct messages ───────────────────────────────────────────
   app.event("message", async ({ event, client, say }) => {
-    if ((event as any).channel_type !== "im") return;
+    const channelType = (event as any).channel_type;
+    if (channelType !== "im" && channelType !== "mpim") return;
     if ((event as any).bot_id || (event as any).subtype) return;
 
     const channel = event.channel;
