@@ -175,6 +175,7 @@ describe('ValidatorClient Integration', () => {
         haSigningEnabled: false,
         skipCheckpointProposalValidation: false,
         skipPushProposedBlocksToArchiver: false,
+        dataStoreMapSizeKb: 128 * 1024,
         nodeId: 'test-node',
         pollingIntervalMs: 100,
         signingTimeoutMs: 3000,

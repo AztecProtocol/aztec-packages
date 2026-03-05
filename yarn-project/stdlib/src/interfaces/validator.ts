@@ -20,58 +20,64 @@ import type { PeerId } from '@libp2p/interface';
 import { z } from 'zod';
 
 import type { CommitteeAttestationsAndSigners } from '../block/index.js';
-import { type ValidatorHASignerConfig, ValidatorHASignerConfigSchema } from '../ha-signing/index.js';
+import {
+  type LocalSignerConfig,
+  LocalSignerConfigSchema,
+  type ValidatorHASignerConfig,
+  ValidatorHASignerConfigSchema,
+} from '../ha-signing/index.js';
 import { AllowedElementSchema } from './allowed_element.js';
 
 /**
  * Validator client configuration
  */
-export type ValidatorClientConfig = ValidatorHASignerConfig & {
-  /** The private keys of the validators participating in attestation duties */
-  validatorPrivateKeys?: SecretValue<`0x${string}`[]>;
+export type ValidatorClientConfig = ValidatorHASignerConfig &
+  LocalSignerConfig & {
+    /** The private keys of the validators participating in attestation duties */
+    validatorPrivateKeys?: SecretValue<`0x${string}`[]>;
 
-  /** The addresses of the validators to use with remote signers */
-  validatorAddresses?: EthAddress[];
+    /** The addresses of the validators to use with remote signers */
+    validatorAddresses?: EthAddress[];
 
-  /** Do not run the validator */
-  disableValidator: boolean;
+    /** Do not run the validator */
+    disableValidator: boolean;
 
-  /** Temporarily disable these specific validator addresses */
-  disabledValidators: EthAddress[];
+    /** Temporarily disable these specific validator addresses */
+    disabledValidators: EthAddress[];
 
-  /** Interval between polling for new attestations from peers */
-  attestationPollingIntervalMs: number;
+    /** Interval between polling for new attestations from peers */
+    attestationPollingIntervalMs: number;
 
-  /** Whether to re-execute transactions in a block proposal before attesting */
-  validatorReexecute: boolean;
+    /** Whether to re-execute transactions in a block proposal before attesting */
+    validatorReexecute: boolean;
 
-  /** Whether to always reexecute block proposals, even for non-validator nodes or when out of the currnet committee */
-  alwaysReexecuteBlockProposals?: boolean;
+    /** Whether to always reexecute block proposals, even for non-validator nodes or when out of the currnet committee */
+    alwaysReexecuteBlockProposals?: boolean;
 
-  /** Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus */
-  fishermanMode?: boolean;
+    /** Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus */
+    fishermanMode?: boolean;
 
-  /** Skip checkpoint proposal validation and always attest (default: false) */
-  skipCheckpointProposalValidation?: boolean;
+    /** Skip checkpoint proposal validation and always attest (default: false) */
+    skipCheckpointProposalValidation?: boolean;
 
-  /** Skip pushing re-executed blocks to archiver (default: false) */
-  skipPushProposedBlocksToArchiver?: boolean;
+    /** Skip pushing re-executed blocks to archiver (default: false) */
+    skipPushProposedBlocksToArchiver?: boolean;
 
-  /** Agree to attest to equivocated checkpoint proposals (for testing purposes only) */
-  attestToEquivocatedProposals?: boolean;
+    /** Agree to attest to equivocated checkpoint proposals (for testing purposes only) */
+    attestToEquivocatedProposals?: boolean;
 
-  /** Maximum L2 gas per block for validation. Proposals exceeding this limit are rejected. */
-  validateMaxL2BlockGas?: number;
+    /** Maximum L2 gas per block for validation. Proposals exceeding this limit are rejected. */
+    validateMaxL2BlockGas?: number;
 
-  /** Maximum DA gas per block for validation. Proposals exceeding this limit are rejected. */
-  validateMaxDABlockGas?: number;
+    /** Maximum DA gas per block for validation. Proposals exceeding this limit are rejected. */
+    validateMaxDABlockGas?: number;
 
-  /** Maximum transactions per block for validation. Proposals exceeding this limit are rejected. */
-  validateMaxTxsPerBlock?: number;
+    /** Maximum transactions per block for validation. Proposals exceeding this limit are rejected. */
+    validateMaxTxsPerBlock?: number;
 
-  /** Maximum transactions per checkpoint for validation. Proposals exceeding this limit are rejected. */
-  validateMaxTxsPerCheckpoint?: number;
-};
+    /** Maximum transactions per checkpoint for validation. Proposals exceeding this limit are rejected. */
+    validateMaxTxsPerCheckpoint?: number;
+  };
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
   Pick<SequencerConfig, 'txPublicSetupAllowListExtend' | 'broadcastInvalidBlockProposal'> &
@@ -87,7 +93,7 @@ export type ValidatorClientFullConfig = ValidatorClientConfig &
   };
 
 export const ValidatorClientConfigSchema = zodFor<Omit<ValidatorClientConfig, 'validatorPrivateKeys'>>()(
-  ValidatorHASignerConfigSchema.extend({
+  ValidatorHASignerConfigSchema.merge(LocalSignerConfigSchema).extend({
     validatorAddresses: z.array(schemas.EthAddress).optional(),
     disableValidator: z.boolean(),
     disabledValidators: z.array(schemas.EthAddress),

@@ -154,6 +154,7 @@ describe('ValidatorClient', () => {
       pollingIntervalMs: 1000,
       signingTimeoutMs: 1000,
       maxStuckDutiesAgeMs: 72000,
+      dataStoreMapSizeKb: 1024 * 1024,
     };
 
     keyStoreManager = new KeystoreManager(makeKeyStore({ attester: validatorPrivateKeys.map(key => key as Hex<32>) }));
@@ -1045,7 +1046,7 @@ describe('ValidatorClient', () => {
     it('should preserve HA signer and wrap new adapter in HAKeyStore after reload', () => {
       // Simulate HA mode by setting the haSigner and wrapping in HAKeyStore
       const mockHASigner = { nodeId: 'test-ha-node' };
-      (validatorClient as any).haSigner = mockHASigner;
+      (validatorClient as any).slashingProtectionSigner = mockHASigner;
       (validatorClient as any).keyStore = haKeyStore;
 
       const newCoinbase = EthAddress.random();
