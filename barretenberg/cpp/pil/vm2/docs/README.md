@@ -236,11 +236,9 @@ Subtraces that handle the different trees and squashing logic. Note: See [State 
 - [L1ToL2MessageTreeCheck](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/trees/l1_to_l2_message_tree_check.pil): Merkle proof for L1→L2 message tree reads.
 - [MerkleCheck](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/trees/merkle_check.pil): Generic Merkle read/write; one path node per row, Poseidon2 hashes.
 - [NoteHashTreeCheck](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/trees/note_hash_tree_check.pil): Note hash tree membership and insertions.
-- [NullifierCheck](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/trees/nullifier_check.pil): Nullifier tree membership and insertions.
+- [IndexedTreeCheck](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/trees/indexed_tree_check.pil): Generic indexed tree membership and insertions (nullifier tree, retrieved bytecodes tree, written public data slots tree, etc.). Callers provide tree height and optional siloing / public inputs parameters.
 - [PublicDataCheck](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/trees/public_data_check.pil): Public data tree read/write with siloed slots; uses public_data_squash.
 - [PublicDataSquash](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/trees/public_data_squash.pil): Squashes public data writes by leaf slot for public inputs.
-- [RetrievedBytecodesTreeCheck](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/trees/retrieved_bytecodes_tree_check.pil): Transient tree of retrieved class IDs per transaction.
-- [WrittenPublicDataSlotsTreeCheck](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/trees/written_public_data_slots_tree_check.pil): Transient tree of written (contract, slot) for gas and squash.
 
 **Gadgets**
 
@@ -437,19 +435,19 @@ flowchart TB
 
   PI[Public Inputs]
   NHT[NoteHashTreeCheck]
-  NC[NullifierCheck]
+  ITC[IndexedTreeCheck]
   PDC[PublicDataCheck]
 
   TXctx -->|read start/end tree roots and sizes| PI
   TX -->|NOTE_HASH_APPEND: leaf, prev/next root and size, discard| NHT
-  TX -->|NULLIFIER_APPEND: nullifier, prev/next root and size, discard, exists| NC
+  TX -->|NULLIFIER_APPEND: nullifier, prev/next root and size, discard, exists| ITC
   TX -->|BALANCE_READ: fee balance at slot| PDC
   TX <-->|BALANCE_UPDATE: fee deduction write| PDC
 ```
 
 - **TxContext** ([tx_context.pil](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/tx_context.pil)) owns the `prev_*` and `next_*` tree root/size columns for note hash, nullifier, public data, written public data slots, L1→L2 message, and retrieved bytecodes trees. It **reads** initial state from the public inputs at `start_tx` and end state at `is_cleanup` (lookups into [public_inputs.pil](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/public_inputs.pil)). It constrains **continuity** (e.g. `next_note_hash_tree_root` → `prev_note_hash_tree_root'` on the next row) and **immutability** when the current phase does not mutate a given tree. On revert, it **restores** tree state to the snapshot at the end of the setup phase (RESTORE_STATE_ON_REVERT).
 
-- **Note hash and nullifier insertions (from private):** In the non-revertible and revertible insertion phases, Tx matches each insertion row to the corresponding tree-check subtrace. **NOTE_HASH_APPEND** is a **lookup** from `should_note_hash_append` into [note_hash_tree_check.write](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/trees/note_hash_tree_check.pil): Tx supplies leaf value, prev root/size, next root, and discard; the tree check proves the Merkle update. **NULLIFIER_APPEND** is a **lookup** from `should_nullifier_append` into [nullifier_check.write](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/trees/nullifier_check.pil): Tx supplies the nullifier, prev/next root and size, `discard`, `nullifier_index` (used for public input indexing), and `sel_silo` with `address` for optional siloing; the gadget returns `exists` (whether the nullifier was already present, which can force a revert) and `write_root` (unchanged if `exists = 1`, updated otherwise). Internally the gadget distinguishes a successful write (`sel_insert = write ∧ ¬exists`) from a failing write (`exists = 1`) — on a failing write no Merkle update occurs and the root is passed through unchanged.
+- **Note hash and nullifier insertions (from private):** In the non-revertible and revertible insertion phases, Tx matches each insertion row to the corresponding tree-check subtrace. **NOTE_HASH_APPEND** is a **lookup** from `should_note_hash_append` into [note_hash_tree_check.write](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/trees/note_hash_tree_check.pil): Tx supplies leaf value, prev root/size, next root, and discard; the tree check proves the Merkle update. **NULLIFIER_APPEND** is a **lookup** from `should_nullifier_append` into [indexed_tree_check.write](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/trees/indexed_tree_check.pil): Tx supplies the nullifier, prev/next root and size, `discard`, `public_inputs_index` (used for public input indexing), `tree_height`, and `sel_silo` with `address` for optional siloing; the gadget returns `exists` (whether the nullifier was already present, which can force a revert) and `write_root` (unchanged if `exists = 1`, updated otherwise). Internally the gadget distinguishes a successful write (`sel_insert = write ∧ ¬exists`) from a failing write (`exists = 1`) — on a failing write no Merkle update occurs and the root is passed through unchanged.
 
 - **Fee payment (public data tree):** In the collect-fee phase, Tx derives the fee-payer balance slot (via [Poseidon2](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/poseidon2_hash.pil)), then **looks up** [public_data_check.sel](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/trees/public_data_check.pil) (**BALANCE_READ**) to bind the current balance at that slot and root. It enforces fee ≤ balance (via [ff_gt](https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/ff_gt.pil)) and then **permutes** with **public_data_check.protocol_write** (**BALANCE_UPDATE**) to prove the fee deduction write (new balance, root/size update, discard).
 

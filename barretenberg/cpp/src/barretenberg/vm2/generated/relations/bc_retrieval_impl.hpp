@@ -16,6 +16,7 @@ void bc_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     using C = ColumnAndShifts;
 
     const auto constants_MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS = FF(21);
+    const auto constants_AVM_RETRIEVED_BYTECODES_TREE_HEIGHT = FF(5);
     const auto constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE = FF(1);
     const auto bc_retrieval_REMAINING_BYTECODES = ((constants_MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS +
                                                     constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE) -
@@ -85,6 +86,13 @@ void bc_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     static_cast<View>(in.get(C::bc_retrieval_sel)) *
                         (FF(1) - static_cast<View>(in.get(C::bc_retrieval_error))));
         std::get<8>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::bc_retrieval_sel)) *
+                   (static_cast<View>(in.get(C::bc_retrieval_retrieved_bytecodes_tree_height)) -
+                    CView(constants_AVM_RETRIEVED_BYTECODES_TREE_HEIGHT));
+        std::get<9>(evals) += (tmp * scaling_factor);
     }
 }
 
