@@ -71,7 +71,17 @@ if [[ "$MODE" == "dequeued" ]]; then
   fi
 
 elif [[ "$MODE" == "merged" ]]; then
-  RESP=$(send_slack_message "PR merged: <$PR_URL|$commit_title> by $commit_author")
+  TEXT="PR merged: <$PR_URL|$commit_title> by $commit_author"
+  # Look up the next open PR for this merge-train branch
+  if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+    next_pr_url=$(curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" \
+      "https://api.github.com/repos/AztecProtocol/aztec-packages/pulls?state=open&head=AztecProtocol:$REF_NAME&per_page=1" \
+      | jq -r '.[0].html_url // empty')
+    if [[ -n "$next_pr_url" ]]; then
+      TEXT="$TEXT\nNext PR: <$next_pr_url|$REF_NAME>"
+    fi
+  fi
+  RESP=$(send_slack_message "$TEXT")
   echo "Slack response: $RESP"
 
 else
