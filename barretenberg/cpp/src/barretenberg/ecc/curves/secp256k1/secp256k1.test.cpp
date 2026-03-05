@@ -9,10 +9,23 @@ using namespace bb;
 // - barretenberg/ecc/fields/field.test.cpp (generic field tests)
 // - barretenberg/ecc/fields/prime_field.test.cpp (prime field specific tests)
 // The tests below are for the secp256k1 elliptic curve group operations.
+TEST(secp256k1, CurveCoefficients)
+{
+    secp256k1::fq expected_a = secp256k1::fq(0);
+    secp256k1::fq expected_b = secp256k1::fq(7);
+
+    EXPECT_EQ(secp256k1::G1Params::a, expected_a);
+    EXPECT_EQ(secp256k1::G1Params::b, expected_b);
+}
 
 TEST(secp256k1, GeneratorOnCurve)
 {
     secp256k1::g1::element result = secp256k1::g1::one;
+    secp256k1::fq expected_x = secp256k1::fq("0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
+    secp256k1::fq expected_y = secp256k1::fq("0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8");
+
+    EXPECT_EQ(result.x, expected_x);
+    EXPECT_EQ(result.y, expected_y);
     EXPECT_EQ(result.on_curve(), true);
 }
 

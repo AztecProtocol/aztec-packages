@@ -1,6 +1,6 @@
 # @aztec/pxe
 
-Version: v5.0.0-nightly.20260303
+Version: v5.0.0-nightly.20260305
 
 ## Quick Import Reference
 

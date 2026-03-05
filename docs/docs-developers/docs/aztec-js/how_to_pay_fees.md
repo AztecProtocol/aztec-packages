@@ -5,13 +5,13 @@ sidebar_position: 7
 description: Pay transaction fees on Aztec, understand mana costs, estimate gas, and retrieve fees from receipts.
 ---
 
-import { Fees } from '@site/src/components/Snippets/general_snippets';
+import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 
 This guide walks you through paying transaction fees on Aztec using various payment methods.
 
 ## Prerequisites
 
-- [Connected to a network](./how_to_connect_to_local_network.md) with a `EmbeddedWallet` instance and funded accounts
+- <General.AztecJSPrerequisites />
 - Understanding of [fee concepts](../foundational-topics/fees.md)
 
 :::info
