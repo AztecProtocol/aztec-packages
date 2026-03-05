@@ -45,7 +45,7 @@ describe('Keys', () => {
       initialFundedAccounts,
     } = await setup(1));
 
-    testContract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress });
+    ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
 
     secret = initialFundedAccounts[0].secret;
   });
@@ -125,7 +125,7 @@ describe('Keys', () => {
       const expectedOvskApp = await computeAppSecretKey(ovskM, testContract.address, 'ov');
 
       // Get the ovsk_app via the test contract
-      const ovskAppBigInt = await testContract.methods
+      const { result: ovskAppBigInt } = await testContract.methods
         .get_ovsk_app(ovpkMHash)
         .simulate({ from: defaultAccountAddress });
       const ovskApp = new Fr(ovskAppBigInt);

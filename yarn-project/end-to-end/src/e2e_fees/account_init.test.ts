@@ -89,10 +89,7 @@ describe('e2e_fees account_init', () => {
       const [bobsInitialGas] = await t.getGasBalanceFn(bobsAddress);
       expect(bobsInitialGas).toEqual(mintAmount);
 
-      const tx = await bobsDeployMethod.send({
-        from: AztecAddress.ZERO,
-        wait: { returnReceipt: true },
-      });
+      const { receipt: tx } = await bobsDeployMethod.send({ from: AztecAddress.ZERO, wait: { returnReceipt: true } });
 
       expect(tx.transactionFee!).toBeGreaterThan(0n);
       await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([bobsInitialGas - tx.transactionFee!]);
@@ -101,7 +98,7 @@ describe('e2e_fees account_init', () => {
     it('pays natively in the Fee Juice by bridging funds themselves', async () => {
       const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(bobsAddress);
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobsAddress, claim);
-      const tx = await bobsDeployMethod.send({
+      const { receipt: tx } = await bobsDeployMethod.send({
         from: AztecAddress.ZERO,
         fee: { paymentMethod },
         wait: { returnReceipt: true },
@@ -121,7 +118,7 @@ describe('e2e_fees account_init', () => {
       const maxFeesPerGas = (await aztecNode.getCurrentMinFees()).mul(1.5);
       const gasSettings = GasSettings.default({ maxFeesPerGas });
       const paymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
-      const tx = await bobsDeployMethod.send({
+      const { receipt: tx } = await bobsDeployMethod.send({
         from: AztecAddress.ZERO,
         fee: { paymentMethod },
         wait: { returnReceipt: true },
@@ -150,7 +147,7 @@ describe('e2e_fees account_init', () => {
       const maxFeesPerGas = (await aztecNode.getCurrentMinFees()).mul(1.5);
       const gasSettings = GasSettings.default({ maxFeesPerGas });
       const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
-      const tx = await bobsDeployMethod.send({
+      const { receipt: tx } = await bobsDeployMethod.send({
         from: AztecAddress.ZERO,
         skipInstancePublication: false,
         fee: { paymentMethod },
@@ -183,7 +180,7 @@ describe('e2e_fees account_init', () => {
       await t.mintPrivateBananas(mintedBananas, bobsAddress);
 
       const [aliceBalanceBefore] = await t.getGasBalanceFn(aliceAddress);
-      const tx = await SchnorrAccountContractInterface.deployWithPublicKeys(
+      const { receipt: tx } = await SchnorrAccountContractInterface.deployWithPublicKeys(
         bobsPublicKeys,
         wallet,
         bobsSigningPubKey.x,

@@ -6,6 +6,7 @@ set -euo pipefail
 # Must be called from the workspace root directory.
 
 package_name=$1
+script_path=$(realpath $(dirname "$0"))
 
 if [ -z "$package_name" ]; then
   echo "Error: package name is required"
@@ -13,76 +14,19 @@ if [ -z "$package_name" ]; then
 fi
 
 if [ -f "Nargo.toml" ]; then
-  echo "Error: Nargo.toml already exists in the current directory"
+  echo "Error: Nargo.toml already exists in the current directory."
+  echo "To add another contract crate to this workspace, use 'aztec new <name>' instead."
   exit 1
 fi
 
-# Get the actual aztec version for the git tag.
-AZTEC_VERSION=$(jq -r '.version' $(dirname $0)/../package.json)
-
-# Create workspace root Nargo.toml
+# Create workspace root Nargo.toml with empty members (add_crate.sh will populate)
 cat > Nargo.toml << 'EOF'
 [workspace]
-members = ["contract", "test"]
+members = []
 EOF
 
-# Create contract crate
-mkdir -p contract/src
-cat > contract/Nargo.toml << CEOF
-[package]
-name = "${package_name}"
-type = "contract"
-
-[dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-nr", tag="v${AZTEC_VERSION}", directory="aztec" }
-CEOF
-
-cat > contract/src/main.nr << 'EOF'
-use aztec::macros::aztec;
-
-#[aztec]
-pub contract Main {
-    use aztec::macros::functions::{external, initializer};
-
-    #[initializer]
-    #[external("private")]
-    fn constructor() {}
-}
-EOF
-
-# Create test crate
-mkdir -p test/src
-cat > test/Nargo.toml << TEOF
-[package]
-name = "${package_name}_test"
-type = "lib"
-
-[dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-nr", tag="v${AZTEC_VERSION}", directory="aztec" }
-${package_name} = { path = "../contract" }
-TEOF
-
-cat > test/src/lib.nr << 'NOIR'
-use aztec::test::helpers::test_environment::TestEnvironment;
-use __PACKAGE_NAME__::Main;
-
-#[test]
-unconstrained fn test_constructor() {
-    let mut env = TestEnvironment::new();
-    let deployer = env.create_light_account();
-
-    // Deploy the contract with the default constructor:
-    let contract_address = env.deploy("@__PACKAGE_NAME__/Main").with_private_initializer(
-        deployer,
-        Main::interface().constructor(),
-    );
-
-    // Deploy without an initializer:
-    let contract_address = env.deploy("@__PACKAGE_NAME__/Main").without_initializer();
-}
-NOIR
-
-sed -i "s/__PACKAGE_NAME__/${package_name}/g" test/src/lib.nr
+# Create the first crate pair
+$script_path/add_crate.sh "$package_name"
 
 # Create README
 cat > README.md << REOF
@@ -96,7 +40,7 @@ An Aztec Noir contract project.
 aztec compile
 \`\`\`
 
-This compiles the contract in \`contract/\` and outputs artifacts to \`target/\`.
+This compiles all contract crates and outputs artifacts to \`target/\`.
 
 ## Test
 
@@ -104,7 +48,7 @@ This compiles the contract in \`contract/\` and outputs artifacts to \`target/\`
 aztec test
 \`\`\`
 
-This runs the tests in \`test/\`.
+This runs all tests in the workspace.
 
 ## Generate TypeScript bindings
 
@@ -121,4 +65,4 @@ target/
 codegenCache.json
 GEOF
 
-echo "Created Aztec contract workspace with crates '${package_name}' and '${package_name}_test'"
+echo "Created Aztec contract workspace with crates '${package_name}_contract' and '${package_name}_test'"

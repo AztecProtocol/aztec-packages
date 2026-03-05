@@ -203,7 +203,7 @@ class TestVariant {
         );
         this.contractAddresses.push(accountManager.address);
         const deployMethod = await accountManager.getDeployMethod();
-        const txHash = await deployMethod.send({
+        const { txHash } = await deployMethod.send({
           from: deployAccount,
           skipClassPublication: true,
           skipInstancePublication: true,
@@ -218,7 +218,9 @@ class TestVariant {
       for (let i = 0; i < this.txCount; i++) {
         const recipient = this.accounts[(i + 1) % this.txCount];
         const tk = TokenContract.at(this.token.address, this.wallet);
-        txHashes.push(await tk.methods.transfer(recipient, 1n).send({ from: this.accounts[i], wait: NO_WAIT }));
+        txHashes.push(
+          (await tk.methods.transfer(recipient, 1n).send({ from: this.accounts[i], wait: NO_WAIT })).txHash,
+        );
       }
       return txHashes;
     } else if (this.txComplexity == TxComplexity.PublicTransfer) {
@@ -229,7 +231,7 @@ class TestVariant {
         const recipient = this.accounts[(i + 1) % this.txCount];
         const tk = TokenContract.at(this.token.address, this.wallet);
         txHashes.push(
-          await tk.methods.transfer_in_public(sender, recipient, 1n, 0).send({ from: sender, wait: NO_WAIT }),
+          (await tk.methods.transfer_in_public(sender, recipient, 1n, 0).send({ from: sender, wait: NO_WAIT })).txHash,
         );
       }
       return txHashes;
@@ -247,7 +249,7 @@ class TestVariant {
         ]);
 
         this.seed += 100n;
-        txHashes.push(await batch.send({ from: this.accounts[0], wait: NO_WAIT }));
+        txHashes.push((await batch.send({ from: this.accounts[0], wait: NO_WAIT })).txHash);
       }
       return txHashes;
     } else {
@@ -340,10 +342,16 @@ describe('e2e_synching', () => {
       variant.setWallet(wallet);
 
       // Deploy a token, such that we could use it
-      const token = await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n).send({
+      const { contract: token } = await TokenContract.deploy(
+        wallet,
+        defaultAccountAddress,
+        'TestToken',
+        'TST',
+        18n,
+      ).send({
         from: defaultAccountAddress,
       });
-      const spam = await SpamContract.deploy(wallet).send({ from: defaultAccountAddress });
+      const { contract: spam } = await SpamContract.deploy(wallet).send({ from: defaultAccountAddress });
 
       variant.setToken(token);
       variant.setSpam(spam);
@@ -542,15 +550,21 @@ describe('e2e_synching', () => {
             const defaultAccountAddress = (await variant.deployAccounts(opts.initialFundedAccounts!.slice(0, 1)))[0];
 
             contracts.push(
-              await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n).send({
-                from: defaultAccountAddress,
-              }),
+              (
+                await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n).send({
+                  from: defaultAccountAddress,
+                })
+              ).contract,
             );
-            contracts.push(await SchnorrHardcodedAccountContract.deploy(wallet).send({ from: defaultAccountAddress }));
             contracts.push(
-              await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n).send({
-                from: defaultAccountAddress,
-              }),
+              (await SchnorrHardcodedAccountContract.deploy(wallet).send({ from: defaultAccountAddress })).contract,
+            );
+            contracts.push(
+              (
+                await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n).send({
+                  from: defaultAccountAddress,
+                })
+              ).contract,
             );
 
             await watcher.stop();
