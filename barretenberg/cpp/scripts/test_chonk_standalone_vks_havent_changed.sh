@@ -151,6 +151,7 @@ elif [[ "${1:-}" == "--update_inputs" ]]; then
     echo "Running bootstrap to generate new IVC inputs..."
 
     cd ../../../
+    ./bootstrap.sh pull_submodules
     make yarn-project
     cd yarn-project/end-to-end
     ./bootstrap.sh build_bench # build bench to generate IVC inputs
