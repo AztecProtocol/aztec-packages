@@ -85,6 +85,8 @@ void ContractInstanceRetrievalTraceBuilder::process(
                 { C::contract_instance_retrieval_derived_address, derived_address },
                 { C::contract_instance_retrieval_is_protocol_contract, event.is_protocol_contract ? 1 : 0 },
                 { C::contract_instance_retrieval_should_check_nullifier, !event.is_protocol_contract ? 1 : 0 },
+                { C::contract_instance_retrieval_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+                { C::contract_instance_retrieval_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
                 { C::contract_instance_retrieval_should_check_for_update, check_update ? 1 : 0 },
             } });
         row++;

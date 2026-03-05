@@ -77,7 +77,7 @@ std::unordered_map<size_t, size_t> compute_reverted_in_map(const std::vector<Eve
  *
  * Checkpoint events themselves are consumed by this function and not passed to the callback.
  *
- * @tparam EventType The type of payload events (e.g., NullifierTreeReadWriteEvent).
+ * @tparam EventType The type of payload events (e.g., IndexedTreeReadWriteEvent).
  * @tparam ProcessEventFn A callable type accepting (const EventType&, bool discard).
  * @param events The vector of events containing both EventType and CheckPointEventType variants.
  * @param process_event The callback function to invoke for each payload event with its discard flag.

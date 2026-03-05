@@ -10,17 +10,18 @@
 
 namespace bb::avm2 {
 
-template <typename FF_> class written_public_data_slots_tree_checkImpl {
+template <typename FF_> class indexed_tree_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 14> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 4, 2, 3, 3, 3, 5, 3, 5 };
+    static constexpr std::array<size_t, 18> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            5, 3, 5, 3, 4, 2, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
 
-        return (in.get(C::written_public_data_slots_tree_check_sel)).is_zero();
+        return (in.get(C::indexed_tree_check_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -30,22 +31,24 @@ template <typename FF_> class written_public_data_slots_tree_checkImpl {
                            [[maybe_unused]] const FF& scaling_factor);
 };
 
-template <typename FF>
-class written_public_data_slots_tree_check : public Relation<written_public_data_slots_tree_checkImpl<FF>> {
+template <typename FF> class indexed_tree_check : public Relation<indexed_tree_checkImpl<FF>> {
   public:
-    static constexpr const std::string_view NAME = "written_public_data_slots_tree_check";
+    static constexpr const std::string_view NAME = "indexed_tree_check";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_EXISTS_CHECK = 11;
-    static constexpr size_t SR_NEXT_SLOT_IS_ZERO_CHECK = 13;
+    static constexpr size_t SR_PASSTHROUGH_SILOING = 7;
+    static constexpr size_t SR_EXISTS_CHECK = 9;
+    static constexpr size_t SR_NEXT_VALUE_IS_ZERO_CHECK = 11;
 
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
+        case SR_PASSTHROUGH_SILOING:
+            return "PASSTHROUGH_SILOING";
         case SR_EXISTS_CHECK:
             return "EXISTS_CHECK";
-        case SR_NEXT_SLOT_IS_ZERO_CHECK:
-            return "NEXT_SLOT_IS_ZERO_CHECK";
+        case SR_NEXT_VALUE_IS_ZERO_CHECK:
+            return "NEXT_VALUE_IS_ZERO_CHECK";
         }
         return std::to_string(index);
     }
