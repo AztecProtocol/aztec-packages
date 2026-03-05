@@ -307,7 +307,7 @@ struct SerializableEntry {
     uint64_t count;
     uint64_t num_threads;
 
-    MSGPACK_FIELDS(parent, time, time_max, time_mean, time_stddev, count, num_threads);
+    SERIALIZATION_FIELDS(parent, time, time_max, time_mean, time_stddev, count, num_threads);
 };
 
 void GlobalBenchStatsContainer::serialize_aggregate_data_json(std::ostream& os) const

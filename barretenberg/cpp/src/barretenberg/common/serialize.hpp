@@ -498,7 +498,7 @@ inline void _read_msgpack_field(auto& it, auto& field)
 }
 
 /**
- * @brief Automatically derived read for any object that defines .msgpack() (implicitly defined by MSGPACK_FIELDS).
+ * @brief Automatically derived read for any object that defines .msgpack() (implicitly defined by SERIALIZATION_FIELDS).
  * @param it The iterator to read from.
  * @param func The function to call with each field as an argument.
  */
@@ -520,7 +520,7 @@ inline void _write_msgpack_field(auto& it, const auto& field)
     write(it, field);
 }
 /**
- * @brief Automatically derived write for any object that defines .msgpack() (implicitly defined by MSGPACK_FIELDS).
+ * @brief Automatically derived write for any object that defines .msgpack() (implicitly defined by SERIALIZATION_FIELDS).
  * @param buf The buffer to write to.
  * @param obj The object to write.
  */

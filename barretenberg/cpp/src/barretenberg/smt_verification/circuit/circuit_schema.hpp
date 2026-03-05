@@ -37,7 +37,7 @@ struct CircuitSchema {
     std::vector<std::vector<std::vector<uint32_t>>> ram_records;
     std::vector<std::vector<uint32_t>> ram_states;
     bool circuit_finalized;
-    MSGPACK_FIELDS(modulus,
+    SERIALIZATION_FIELDS(modulus,
                    public_inps,
                    vars_of_interest,
                    variables,

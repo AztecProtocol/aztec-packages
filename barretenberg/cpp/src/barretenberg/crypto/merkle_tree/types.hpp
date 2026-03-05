@@ -99,7 +99,7 @@ struct TreeDBStats {
 
     ~TreeDBStats() = default;
 
-    MSGPACK_FIELDS(mapSize,
+    SERIALIZATION_FIELDS(mapSize,
                    physicalFileSize,
                    blocksDBStats,
                    nodesDBStats,

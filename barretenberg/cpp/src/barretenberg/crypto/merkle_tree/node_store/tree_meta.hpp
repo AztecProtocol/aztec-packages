@@ -27,7 +27,7 @@ struct TreeMeta {
     block_number_t unfinalizedBlockHeight;
     block_number_t finalizedBlockHeight;
 
-    MSGPACK_FIELDS(name,
+    SERIALIZATION_FIELDS(name,
                    depth,
                    size,
                    committedSize,

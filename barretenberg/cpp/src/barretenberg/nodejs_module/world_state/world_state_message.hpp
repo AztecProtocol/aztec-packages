@@ -64,45 +64,45 @@ enum WorldStateMessageType {
 
 struct TreeIdOnlyRequest {
     MerkleTreeId treeId;
-    MSGPACK_FIELDS(treeId);
+    SERIALIZATION_FIELDS(treeId);
 };
 
 struct CreateForkRequest {
     bool latest;
     block_number_t blockNumber;
-    MSGPACK_FIELDS(latest, blockNumber);
+    SERIALIZATION_FIELDS(latest, blockNumber);
 };
 
 struct CreateForkResponse {
     uint64_t forkId;
-    MSGPACK_FIELDS(forkId);
+    SERIALIZATION_FIELDS(forkId);
 };
 
 struct DeleteForkRequest {
     uint64_t forkId;
-    MSGPACK_FIELDS(forkId);
+    SERIALIZATION_FIELDS(forkId);
 };
 
 struct ForkIdOnlyRequest {
     uint64_t forkId;
-    MSGPACK_FIELDS(forkId);
+    SERIALIZATION_FIELDS(forkId);
 };
 
 struct TreeIdAndRevisionRequest {
     MerkleTreeId treeId;
     WorldStateRevision revision;
-    MSGPACK_FIELDS(treeId, revision);
+    SERIALIZATION_FIELDS(treeId, revision);
 };
 
 struct EmptyResponse {
     bool ok{ true };
-    MSGPACK_FIELDS(ok);
+    SERIALIZATION_FIELDS(ok);
 };
 
 struct GetTreeInfoRequest {
     MerkleTreeId treeId;
     WorldStateRevision revision;
-    MSGPACK_FIELDS(treeId, revision);
+    SERIALIZATION_FIELDS(treeId, revision);
 };
 
 struct GetTreeInfoResponse {
@@ -110,55 +110,55 @@ struct GetTreeInfoResponse {
     fr root;
     index_t size;
     uint32_t depth;
-    MSGPACK_FIELDS(treeId, root, size, depth);
+    SERIALIZATION_FIELDS(treeId, root, size, depth);
 };
 
 struct GetStateReferenceRequest {
     WorldStateRevision revision;
-    MSGPACK_FIELDS(revision);
+    SERIALIZATION_FIELDS(revision);
 };
 
 struct GetStateReferenceResponse {
     StateReference state;
-    MSGPACK_FIELDS(state);
+    SERIALIZATION_FIELDS(state);
 };
 
 struct GetInitialStateReferenceResponse {
     StateReference state;
-    MSGPACK_FIELDS(state);
+    SERIALIZATION_FIELDS(state);
 };
 
 struct GetLeafValueRequest {
     MerkleTreeId treeId;
     WorldStateRevision revision;
     index_t leafIndex;
-    MSGPACK_FIELDS(treeId, revision, leafIndex);
+    SERIALIZATION_FIELDS(treeId, revision, leafIndex);
 };
 
 struct GetLeafPreimageRequest {
     MerkleTreeId treeId;
     WorldStateRevision revision;
     index_t leafIndex;
-    MSGPACK_FIELDS(treeId, revision, leafIndex);
+    SERIALIZATION_FIELDS(treeId, revision, leafIndex);
 };
 
 struct GetSiblingPathRequest {
     MerkleTreeId treeId;
     WorldStateRevision revision;
     index_t leafIndex;
-    MSGPACK_FIELDS(treeId, revision, leafIndex);
+    SERIALIZATION_FIELDS(treeId, revision, leafIndex);
 };
 
 struct GetBlockNumbersForLeafIndicesRequest {
     MerkleTreeId treeId;
     WorldStateRevision revision;
     std::vector<index_t> leafIndices;
-    MSGPACK_FIELDS(treeId, revision, leafIndices);
+    SERIALIZATION_FIELDS(treeId, revision, leafIndices);
 };
 
 struct GetBlockNumbersForLeafIndicesResponse {
     std::vector<std::optional<block_number_t>> blockNumbers;
-    MSGPACK_FIELDS(blockNumbers);
+    SERIALIZATION_FIELDS(blockNumbers);
 };
 
 template <typename T> struct FindLeafIndicesRequest {
@@ -166,49 +166,49 @@ template <typename T> struct FindLeafIndicesRequest {
     WorldStateRevision revision;
     std::vector<T> leaves;
     index_t startIndex;
-    MSGPACK_FIELDS(treeId, revision, leaves, startIndex);
+    SERIALIZATION_FIELDS(treeId, revision, leaves, startIndex);
 };
 
 struct FindLeafIndicesResponse {
     std::vector<std::optional<index_t>> indices;
-    MSGPACK_FIELDS(indices);
+    SERIALIZATION_FIELDS(indices);
 };
 
 template <typename T> struct FindLeafPathsRequest {
     MerkleTreeId treeId;
     WorldStateRevision revision;
     std::vector<T> leaves;
-    MSGPACK_FIELDS(treeId, revision, leaves);
+    SERIALIZATION_FIELDS(treeId, revision, leaves);
 };
 
 struct FindLeafPathsResponse {
     std::vector<std::optional<SiblingPathAndIndex>> paths;
-    MSGPACK_FIELDS(paths);
+    SERIALIZATION_FIELDS(paths);
 };
 
 struct FindLowLeafRequest {
     MerkleTreeId treeId;
     WorldStateRevision revision;
     fr key;
-    MSGPACK_FIELDS(treeId, revision, key);
+    SERIALIZATION_FIELDS(treeId, revision, key);
 };
 
 struct FindLowLeafResponse {
     bool alreadyPresent;
     index_t index;
-    MSGPACK_FIELDS(alreadyPresent, index);
+    SERIALIZATION_FIELDS(alreadyPresent, index);
 };
 
 struct BlockShiftRequest {
     block_number_t toBlockNumber;
-    MSGPACK_FIELDS(toBlockNumber);
+    SERIALIZATION_FIELDS(toBlockNumber);
 };
 
 template <typename T> struct AppendLeavesRequest {
     MerkleTreeId treeId;
     std::vector<T> leaves;
     Fork::Id forkId{ CANONICAL_FORK_ID };
-    MSGPACK_FIELDS(treeId, leaves, forkId);
+    SERIALIZATION_FIELDS(treeId, leaves, forkId);
 };
 
 template <typename T> struct BatchInsertRequest {
@@ -216,21 +216,21 @@ template <typename T> struct BatchInsertRequest {
     std::vector<T> leaves;
     uint32_t subtreeDepth;
     Fork::Id forkId{ CANONICAL_FORK_ID };
-    MSGPACK_FIELDS(treeId, leaves, subtreeDepth, forkId);
+    SERIALIZATION_FIELDS(treeId, leaves, subtreeDepth, forkId);
 };
 
 template <typename T> struct InsertRequest {
     MerkleTreeId treeId;
     std::vector<T> leaves;
     Fork::Id forkId{ CANONICAL_FORK_ID };
-    MSGPACK_FIELDS(treeId, leaves, forkId);
+    SERIALIZATION_FIELDS(treeId, leaves, forkId);
 };
 
 struct UpdateArchiveRequest {
     StateReference blockStateRef;
     bb::fr blockHeaderHash;
     Fork::Id forkId{ CANONICAL_FORK_ID };
-    MSGPACK_FIELDS(blockStateRef, blockHeaderHash, forkId);
+    SERIALIZATION_FIELDS(blockStateRef, blockHeaderHash, forkId);
 };
 
 struct SyncBlockRequest {
@@ -241,7 +241,7 @@ struct SyncBlockRequest {
     std::vector<crypto::merkle_tree::NullifierLeafValue> paddedNullifiers;
     std::vector<crypto::merkle_tree::PublicDataLeafValue> publicDataWrites;
 
-    MSGPACK_FIELDS(blockNumber,
+    SERIALIZATION_FIELDS(blockNumber,
                    blockStateRef,
                    blockHeaderHash,
                    paddedNoteHashes,
@@ -253,7 +253,7 @@ struct SyncBlockRequest {
 struct CopyStoresRequest {
     std::string dstPath;
     std::optional<bool> compact;
-    MSGPACK_FIELDS(dstPath, compact);
+    SERIALIZATION_FIELDS(dstPath, compact);
 };
 
 } // namespace bb::nodejs
