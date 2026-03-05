@@ -45,11 +45,10 @@ export class EventService {
     }
 
     if (txEffect.l2BlockNumber > anchorBlockNumber) {
-      // If the message was delivered onchain, this would indicate a bug: `loadLogsForRange` should never load logs
-      // from blocks newer than the anchor block. If the event came via an offchain message, it would likely also be a
-      // bug, since we sync a new anchor block before calling `process_message`. For this not to be a bug, the message
-      // would need to come from a newer block than the anchor served by the node, implying the node isn't properly
-      // synced.
+      // If the message was delivered onchain, this would indicate a bug: log sync should never load logs from blocks
+      // newer than the anchor block. If the event came via an offchain message, it would likely also be a bug, since we
+      // sync a new anchor block before calling `process_message`. For this not to be a bug, the message would need to
+      // come from a newer block than the anchor served by the node, implying the node isn't properly synced.
       //     We therefore error out here rather than assuming the offchain message was constructed by a malicious
       // sender with the intention of bricking recipient's PXE (if we assumed that we would just ignore the message).
       throw new Error(
