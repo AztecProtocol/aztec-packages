@@ -752,6 +752,13 @@
     from = "/dev_docs/*"
     to = "/developers/getting_started_on_local_network"
 
+# Tutorial → Getting Started redirect (local_network.md content moved)
+[[redirects]]
+    from = "/developers/docs/tutorials/local_network"
+    to = "/developers/getting_started_on_local_network"
+    status = 301
+
+
 # =============================================================================
 # ERROR CODES
 # Sequential error code redirects for user-friendly error references.
