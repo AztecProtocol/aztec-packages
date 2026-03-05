@@ -64,6 +64,8 @@ comptime fn register_event_selector(event_selector: Field, event_name: Quoted) {
 /// [`EventInterface`](crate::event::event_interface::EventInterface) implementation (which provides the event type
 /// id) and a [`Serialize`](crate::protocol::traits::Serialize) implementation if one is not already provided.
 ///
+/// The macro automatically applies `pub` visibility to the struct.
+///
 /// ## Requirements
 ///
 /// The event struct must not exceed
@@ -76,6 +78,7 @@ pub comptime fn event(s: TypeDefinition) -> Quoted {
     let deserialize_impl = derive_deserialize_if_not_implemented(s);
 
     s.add_attribute("abi(events)");
+    s.set_visibility(quote { pub });
 
     quote {
         $event_interface_impl

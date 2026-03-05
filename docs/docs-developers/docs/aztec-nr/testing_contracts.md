@@ -329,17 +329,8 @@ unconstrained fn test_transfer_emits_event() {
 }
 ```
 
-:::warning
-The event struct must be declared with `pub` visibility to be accessible from the test crate:
-
-```rust
-#[event]
-pub struct Transfer {
-    pub from: AztecAddress,
-    pub to: AztecAddress,
-    pub amount: u128,
-}
-```
+:::info
+The `#[event]` macro automatically applies `pub` visibility to the struct, making it accessible from the test crate.
 :::
 
 ## Testing failure cases

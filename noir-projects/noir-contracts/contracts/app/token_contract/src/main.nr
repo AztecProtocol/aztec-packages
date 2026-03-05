@@ -45,7 +45,7 @@ pub contract Token {
     global RECURSIVE_TRANSFER_CALL_MAX_NOTES: u32 = 8;
 
     #[event]
-    pub struct Transfer {
+    struct Transfer {
         pub from: AztecAddress,
         pub to: AztecAddress,
         pub amount: u128,

@@ -5,7 +5,7 @@ use aztec::{
 };
 
 #[event]
-pub struct InvalidEvent {}
+struct InvalidEvent {}
 
 impl Serialize for InvalidEvent {
     let N: u32 = MAX_EVENT_SERIALIZED_LEN + 1;
