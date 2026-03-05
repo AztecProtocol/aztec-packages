@@ -277,6 +277,7 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
 </head>
 <body>
 
+<div id="app-content" style="display:none">
 <div class="header">
   <span class="header-title"><a href="/dashboard" class="link">ClaudeBox</a></span>
   <span class="header-id">${shortId}</span>
@@ -306,9 +307,11 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
   </div>
 </div>
 
-<!-- Auth overlay (visible by default — must authenticate before seeing content) -->
-<div id="auth-overlay" style="display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:100;align-items:center;justify-content:center">
-  <form id="auth-form" autocomplete="on" style="background:#111;border:1px solid #333;border-radius:12px;padding:24px;width:280px;display:flex;flex-direction:column;gap:12px">
+</div><!-- /app-content -->
+
+<!-- Auth overlay (visible by default — content hidden until authenticated) -->
+<div id="auth-overlay" style="display:flex;position:fixed;inset:0;background:#0a0a0a;z-index:100;align-items:center;justify-content:center">
+  <form id="auth-form" method="POST" action="" autocomplete="on" style="background:#111;border:1px solid #333;border-radius:12px;padding:24px;width:280px;display:flex;flex-direction:column;gap:12px">
     <div style="color:#5FA7F1;font-weight:600;font-size:14px;text-align:center">ClaudeBox Login</div>
     <input id="auth-user" name="username" type="text" autocomplete="username" placeholder="Username" style="background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 12px;color:#d4d4d4;font-family:inherit;font-size:13px" required>
     <input id="auth-pass" name="password" type="password" autocomplete="current-password" placeholder="Password" style="background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 12px;color:#d4d4d4;font-family:inherit;font-size:13px" required>
@@ -505,7 +508,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
   function saveCreds(u,p){_creds={user:u,pass:p,basic:"Basic "+btoa(u+":"+p)};try{sessionStorage.setItem("cb_auth",JSON.stringify(_creds));}catch{}return _creds;}
   function showAuth(cb){_authCallback=cb;var o=document.getElementById("auth-overlay");o.style.display="flex";document.getElementById("auth-error").style.display="none";document.getElementById("auth-user").focus();}
   function hideAuth(){document.getElementById("auth-overlay").style.display="none";_authCallback=null;}
-  function onAuthenticated(){hideAuth();connectSSE();}
+  function onAuthenticated(){hideAuth();var c=document.getElementById("app-content");if(c)c.style.display="";connectSSE();}
   document.getElementById("auth-form").addEventListener("submit",function(e){
     e.preventDefault();var u=document.getElementById("auth-user").value,p=document.getElementById("auth-pass").value;
     fetch("/auth-check",{method:"POST",headers:{"Authorization":"Basic "+btoa(u+":"+p)}}).then(function(r){
