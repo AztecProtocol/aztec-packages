@@ -5,8 +5,8 @@
 #include "barretenberg/vm2/simulation/lib/db_types.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <variant>
-#include <vector>
 
 namespace bb::avm2::simulation {
 
@@ -34,11 +34,11 @@ struct NullifierTreeReadWriteEvent {
     FF low_leaf_hash;
     uint64_t low_leaf_index;
 
-    bool write;
-    std::optional<NullifierSiloingData> siloing_data;
-    uint64_t nullifier_counter;
+    bool write = false;
+    std::optional<NullifierSiloingData> siloing_data = std::nullopt;
+    uint64_t nullifier_counter = 0;
 
-    std::optional<NullifierAppendData> append_data;
+    std::optional<NullifierAppendData> append_data = std::nullopt;
 
     bool operator==(const NullifierTreeReadWriteEvent& other) const = default;
 };

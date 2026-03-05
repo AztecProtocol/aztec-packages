@@ -45,6 +45,8 @@ const MAX_L1_TX_STATES = 32;
 
 export class L1TxUtils extends ReadOnlyL1TxUtils {
   protected txs: L1TxState[] = [];
+  /** Last nonce successfully sent to the chain. Used as a lower bound when a fallback RPC node returns a stale count. */
+  private lastSentNonce: number | undefined;
   /** Tx delayer for testing. Only set when enableDelayer config is true. */
   public delayer?: Delayer;
   /** KZG instance for blob operations. */
@@ -105,6 +107,11 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       this.metrics?.recordMinedTx(l1TxState, new Date(l1Timestamp));
     } else if (newState === TxUtilsState.NOT_MINED) {
       this.metrics?.recordDroppedTx(l1TxState);
+      // The tx was dropped: the chain nonce reverted to l1TxState.nonce, so our lower bound is
+      // no longer valid. Clear it so the next send fetches the real nonce from the chain.
+      if (this.lastSentNonce === l1TxState.nonce) {
+        this.lastSentNonce = undefined;
+      }
     }
 
     // Update state in the store
@@ -246,7 +253,11 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         );
       }
 
-      const nonce = await this.client.getTransactionCount({ address: account, blockTag: 'pending' });
+      const chainNonce = await this.client.getTransactionCount({ address: account, blockTag: 'pending' });
+      // If a fallback RPC node returns a stale count (lower than what we last sent), use our
+      // local lower bound to avoid sending a duplicate of an already-pending transaction.
+      const nonce =
+        this.lastSentNonce !== undefined && chainNonce <= this.lastSentNonce ? this.lastSentNonce + 1 : chainNonce;
 
       const baseState = { request, gasLimit, blobInputs, gasPrice, nonce };
       const txData = this.makeTxData(baseState, { isCancelTx: false });
@@ -254,6 +265,8 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       // Send the new tx
       const signedRequest = await this.prepareSignedTransaction(txData);
       const txHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
+      // Update after tx is sent successfully
+      this.lastSentNonce = nonce;
 
       // Create the new state for monitoring
       const l1TxState: L1TxState = {

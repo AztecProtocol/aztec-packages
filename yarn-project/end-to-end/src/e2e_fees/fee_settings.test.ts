@@ -26,7 +26,7 @@ describe('e2e_fees fee settings', () => {
     await t.setup();
     ({ aliceAddress, wallet, gasSettings, cheatCodes, aztecNode } = t);
 
-    testContract = await TestContract.deploy(wallet).send({ from: aliceAddress });
+    ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: aliceAddress }));
     gasSettings = { ...gasSettings, maxFeesPerGas: undefined };
   });
 

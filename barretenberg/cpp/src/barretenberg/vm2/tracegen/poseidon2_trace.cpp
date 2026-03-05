@@ -301,7 +301,8 @@ void Poseidon2TraceBuilder::process_permutation_with_memory(
             uint32_t target_tag = static_cast<uint32_t>(MemoryTag::FF);
             FF batched_tag_check = 0;
             // Performs the batched tag check described in the circuit.
-            // see https://hackmd.io/moq6viBpRJeLpWrHAogCZw#Batching-comparison-of-n-bit-numbers
+            // see
+            // https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#batching-comparison-of-n-bit-numbers
             for (uint32_t i = 0; i < event.input.size(); i++) {
                 uint32_t exponent = 3 * i;
                 uint32_t current_tag = static_cast<uint32_t>(event.input[i].get_tag());

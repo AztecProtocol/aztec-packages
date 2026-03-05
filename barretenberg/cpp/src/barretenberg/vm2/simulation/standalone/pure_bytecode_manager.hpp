@@ -11,7 +11,6 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/common/set.hpp"
-#include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/interfaces/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 

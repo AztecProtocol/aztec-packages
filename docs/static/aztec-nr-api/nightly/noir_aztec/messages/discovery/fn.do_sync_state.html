@@ -19,9 +19,6 @@
 <div id="crate-version">0.0.0</div>
 <h2>In module discovery</h2>
 <h3>Modules</h3><ul class="item-list">
-<li><a href="nonce_discovery/index.html">nonce_discovery</a></div></li>
-<li><a href="partial_notes/index.html">partial_notes</a></div></li>
-<li><a href="private_events/index.html">private_events</a></div></li>
 <li><a href="private_notes/index.html">private_notes</a></div></li>
 <li><a href="process_message/index.html">process_message</a></div></li>
 </ul>
@@ -30,6 +27,7 @@
 </ul>
 <h3>Type aliases</h3><ul class="item-list">
 <li><a href="type.ComputeNoteHashAndNullifier.html">ComputeNoteHashAndNullifier</a></div></li>
+<li><a href="type.CustomMessageHandler.html">CustomMessageHandler</a></div></li>
 </ul>
 <h3>Functions</h3><ul class="item-list">
 <li><a href="fn.do_sync_state.html">do_sync_state</a></div></li>
@@ -38,20 +36,19 @@
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">discovery</a></div>
 <h1>Function <span class="fn">do_sync_state</span></h1>
-<pre><code>pub unconstrained fn do_sync_state&lt;Env&gt;(
+<pre><code>pub unconstrained fn do_sync_state&lt;ComputeNoteHashAndNullifierEnv, CustomMessageHandlerEnv&gt;(
     contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-    compute_note_hash_and_nullifier: <a href="../../../noir_aztec/messages/discovery/type.ComputeNoteHashAndNullifier.html" class="type">ComputeNoteHashAndNullifier</a>&lt;Env&gt;,
+    compute_note_hash_and_nullifier: <a href="../../../noir_aztec/messages/discovery/type.ComputeNoteHashAndNullifier.html" class="type">ComputeNoteHashAndNullifier</a>&lt;ComputeNoteHashAndNullifierEnv&gt;,
+    process_custom_message: <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/messages/discovery/type.CustomMessageHandler.html" class="type">CustomMessageHandler</a>&lt;CustomMessageHandlerEnv&gt;&gt;,
 )</code></pre>
 
 <div class="comments">
-<p>Performs the state synchronization process, in which private logs are downloaded and inspected to find new private
-notes, partial notes and events, etc., and pending partial notes are processed to search for their completion logs.
-This is the mechanism via which a contract updates its knowledge of its private state.</p>
-<p>Note that the state is synchronized up to the latest block synchronized by PXE (referred to as &quot;anchor block&quot;).
-That should be close to the chain tip as block synchronization is performed before contract function simulation is
-done.</p>
-<p>Receives the address of the contract on which discovery is performed along with its
-<code>compute_note_hash_and_nullifier</code> function.</p>
+<p>Synchronizes the contract's private state with the network.</p>
+<p>As blocks are mined, it is possible for a contract's private state to change (e.g. with new notes being created),
+but because these changes are private they will be invisible to most actors. This is the function that processes
+new transactions in order to discover new notes, events, and other kinds of private state changes.</p>
+<p>The private state will be synchronized up to the block that will be used for private transactions (i.e. the anchor
+block. This will typically be close to the tip of the chain.</p>
 </div>
 </main>
 </span>

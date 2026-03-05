@@ -106,7 +106,9 @@ export class FullProverTest {
     await publicDeployAccounts(this.wallet, this.accounts.slice(0, 2));
 
     this.logger.info('Applying base setup: deploying token contract');
-    const { contract: asset, instance } = await TokenContract.deploy(
+    const {
+      receipt: { contract: asset, instance },
+    } = await TokenContract.deploy(
       this.wallet,
       this.accounts[0],
       FullProverTest.TOKEN_NAME,
@@ -121,7 +123,7 @@ export class FullProverTest {
 
     this.tokenSim = new TokenSimulator(this.fakeProofsAsset, this.wallet, this.accounts[0], this.logger, this.accounts);
 
-    expect(await this.fakeProofsAsset.methods.get_admin().simulate({ from: this.accounts[0] })).toBe(
+    expect((await this.fakeProofsAsset.methods.get_admin().simulate({ from: this.accounts[0] })).result).toBe(
       this.accounts[0].toBigInt(),
     );
   }
@@ -310,16 +312,20 @@ export class FullProverTest {
     } = this;
     tokenSim.mintPublic(address, publicAmount);
 
-    const publicBalance = await fakeProofsAsset.methods.balance_of_public(address).simulate({ from: address });
+    const { result: publicBalance } = await fakeProofsAsset.methods
+      .balance_of_public(address)
+      .simulate({ from: address });
     this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
     expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(address));
 
     tokenSim.mintPrivate(address, publicAmount);
-    const privateBalance = await fakeProofsAsset.methods.balance_of_private(address).simulate({ from: address });
+    const { result: privateBalance } = await fakeProofsAsset.methods
+      .balance_of_private(address)
+      .simulate({ from: address });
     this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
     expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(address));
 
-    const totalSupply = await fakeProofsAsset.methods.total_supply().simulate({ from: address });
+    const { result: totalSupply } = await fakeProofsAsset.methods.total_supply().simulate({ from: address });
     this.logger.verbose(`Total supply: ${totalSupply}`);
     expect(totalSupply).toEqual(tokenSim.totalSupply);
   }

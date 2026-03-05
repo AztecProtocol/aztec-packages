@@ -1,17 +1,19 @@
 use crate::protocol::{
     address::AztecAddress,
-    constants::{DOM_SEP__SYMMETRIC_KEY, DOM_SEP__SYMMETRIC_KEY_2},
+    constants::{DOM_SEP__CIPHERTEXT_FIELD_MASK, DOM_SEP__SYMMETRIC_KEY, DOM_SEP__SYMMETRIC_KEY_2},
     hash::poseidon2_hash_with_separator,
     point::Point,
     public_keys::AddressPoint,
+    traits::ToField,
 };
 
 use crate::{
-    keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_ephemeral_key_pair},
+    keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
+    logging::aztecnr_warn_log_format,
     messages::{
         encoding::{
-            EPH_PK_SIGN_BYTE_SIZE_IN_BYTES, EPH_PK_X_SIZE_IN_FIELDS, HEADER_CIPHERTEXT_SIZE_IN_BYTES,
-            MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN,
+            EPH_PK_X_SIZE_IN_FIELDS, HEADER_CIPHERTEXT_SIZE_IN_BYTES, MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN,
+            MESSAGE_PLAINTEXT_SIZE_IN_BYTES,
         },
         encryption::message_encryption::MessageEncryption,
         logs::arithmetic_generics_utils::{
@@ -25,8 +27,7 @@ use crate::{
             bytes_to_fields::{bytes_from_fields, bytes_to_fields},
             fields_to_bytes::{fields_from_bytes, fields_to_bytes},
         },
-        point::{get_sign_of_point, point_from_x_coord_and_sign},
-        random::get_random_bytes,
+        point::point_from_x_coord_and_sign,
     },
 };
 
@@ -150,29 +151,119 @@ pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_u
 pub struct AES128 {}
 
 impl MessageEncryption for AES128 {
+
+    /// AES128-CBC encryption for Aztec protocol messages.
+    ///
+    /// ## Overview
+    ///
+    /// The plaintext is an array of up to `MESSAGE_PLAINTEXT_LEN` (12) fields. The output is always exactly
+    /// `MESSAGE_CIPHERTEXT_LEN` (15) fields, regardless of plaintext size. All output fields except the
+    /// ephemeral public key are uniformly random `Field` values to any observer without knowledge of the
+    /// shared secret, making all encrypted messages indistinguishable by size or content.
+    ///
+    /// ## PKCS#7 Padding
+    ///
+    /// AES operates on 16-byte blocks, so the plaintext must be padded to a multiple of 16. PKCS#7 padding always
+    /// adds at least 1 byte (so the receiver can always detect and strip it), which means:
+    /// - 1 B plaintext  -> 15 B padding -> 16 B total
+    /// - 15 B plaintext ->  1 B padding -> 16 B total
+    /// - 16 B plaintext -> 16 B padding -> 32 B total (full extra block)
+    ///
+    /// In general: if the plaintext is already a multiple of 16, a full 16-byte padding block is appended.
+    ///
+    /// ## Encryption Steps
+    ///
+    /// **1. Body encryption.** The plaintext fields are serialized to bytes (32 bytes per field) and AES-128-CBC
+    /// encrypted. Since 32 is a multiple of 16, PKCS#7 always adds a full 16-byte padding block (see above):
+    ///
+    /// ```text
+    /// +---------------------------------------------+
+    /// |                   body ct                    |
+    /// |            PlaintextLen*32 + 16 B            |
+    /// +-------------------------------+--------------+
+    /// | encrypted plaintext fields    | PKCS#7 (16B) |
+    /// | (serialized at 32 B each)     |              |
+    /// +-------------------------------+--------------+
+    /// ```
+    ///
+    /// **2. Header encryption.** The byte length of `body_ct` is stored as a 2-byte big-endian integer. This 2-byte
+    /// header plaintext is then AES-encrypted; PKCS#7 pads the remaining 14 bytes to fill one 16-byte AES block,
+    /// producing a 16-byte header ciphertext:
+    ///
+    /// ```text
+    /// +---------------------------+
+    /// |         header ct         |
+    /// |            16 B           |
+    /// +--------+------------------+
+    /// | body ct| PKCS#7 (14B)     |
+    /// | length |                  |
+    /// | (2 B)  |                  |
+    /// +--------+------------------+
+    /// ```
+    ///
+    /// ## Wire Format
+    ///
+    /// Messages are transmitted as fields, not bytes. A field is ~254 bits and can safely store 31 whole bytes, so
+    /// we need to pack our byte data into 31-byte chunks. This packing drives the wire format.
+    ///
+    /// **Step 1 -- Assemble bytes.** The ciphertexts are laid out in a byte array, padded with zero bytes to a
+    /// multiple of 31 so it divides evenly into fields:
+    ///
+    /// ```text
+    /// +------------+-------------------------+---------+
+    /// | header ct  |        body ct          | byte pad|
+    /// |   16 B     | PlaintextLen*32 + 16 B  | (zeros) |
+    /// +------------+-------------------------+---------+
+    /// |<-------- padded to a multiple of 31 B -------->|
+    /// ```
+    ///
+    /// **Step 2 -- Pack and mask.** The byte array is split into 31-byte chunks, each stored in one field. A
+    /// Poseidon2-derived mask (see `derive_field_mask`) is added to each so that the resulting fields appear as
+    /// uniformly random `Field` values to any observer without knowledge of the shared secret, hiding the fact
+    /// that the underlying ciphertext consists of 128-bit AES blocks.
+    ///
+    /// **Step 3 -- Assemble ciphertext.** The ephemeral public key x-coordinate is prepended and random field padding
+    /// is appended to fill to 15 fields:
+    ///
+    /// ```text
+    /// +----------+-------------------------+-------------------+
+    /// | eph_pk.x |  masked message fields   | random field pad  |
+    /// |          | (packed 31 B per field)  |  (fills to 15)    |
+    /// +----------+-------------------------+-------------------+
+    /// |<---------- MESSAGE_CIPHERTEXT_LEN = 15 fields -------->|
+    /// ```
+    ///
+    /// ## Key Derivation
+    ///
+    /// Two (key, IV) pairs are derived from the ECDH shared secret via Poseidon2 hashing with different domain
+    /// separators: one pair for the body ciphertext and one for the header ciphertext.
     fn encrypt<let PlaintextLen: u32>(
         plaintext: [Field; PlaintextLen],
         recipient: AztecAddress,
     ) -> [Field; MESSAGE_CIPHERTEXT_LEN] {
+        std::static_assert(
+            PlaintextLen <= MESSAGE_PLAINTEXT_LEN,
+            "Plaintext length exceeds MESSAGE_PLAINTEXT_LEN",
+        );
+
         // AES 128 operates on bytes, not fields, so we need to convert the fields to bytes. (This process is then
         // reversed when processing the message in `process_message_ciphertext`)
         let plaintext_bytes = fields_to_bytes(plaintext);
 
-        // ***************************************************************************** Compute the shared secret
-        // *****************************************************************************
+        // Derive ECDH shared secret with recipient using a fresh ephemeral keypair.
+        let (eph_sk, eph_pk) = generate_positive_ephemeral_key_pair();
 
-        let (eph_sk, eph_pk) = generate_ephemeral_key_pair();
-
-        let eph_pk_sign_byte: u8 = get_sign_of_point(eph_pk) as u8;
-
-        // (not to be confused with the tagging shared secret) TODO (#17158): Currently we unwrap the Option returned
-        // by derive_ecdh_shared_secret. We need to handle the case where the ephemeral public key is invalid to
-        // prevent potential DoS vectors.
         let ciphertext_shared_secret = derive_ecdh_shared_secret(
             eph_sk,
             recipient
                 .to_address_point()
-                .unwrap_or(
+                .unwrap_or_else(|| {
+                    aztecnr_warn_log_format!(
+                        "Attempted to encrypt message for an invalid recipient ({0})",
+                    )(
+                        [recipient.to_field()],
+                    );
+
                     // Safety: if the recipient is an invalid address, then it is not possible to encrypt a message for
                     // them because we cannot establish a shared secret. This is never expected to occur during normal
                     // operation. However, it is technically possible for us to receive an invalid address, and we must
@@ -183,21 +274,14 @@ impl MessageEncryption for AES128 {
                     // random valid address. The sender is free to choose this address and hence shared secret, but
                     // this has no security implications as they already know not only the full plaintext but also the
                     // ephemeral private key anyway.
-                    unsafe { random_address_point() },
-                )
+                    unsafe {
+                        random_address_point()
+                    }
+                })
                 .inner,
         );
-        // TODO: also use this shared secret for deriving note randomness.
 
-        // ***************************************************************************** Convert the plaintext into
-        // whatever format the encryption function expects
-        // *****************************************************************************
-
-        // Already done for this strategy: AES expects bytes.
-
-        // ***************************************************************************** Encrypt the plaintext
-        // *****************************************************************************
-
+        // AES128-CBC encrypt the plaintext bytes.
         // It is safe to call the `unsafe` function here, because we know the `shared_secret` was derived using an
         // AztecAddress (the recipient). See the block comment at the start of this unsafe target function for more
         // info.
@@ -209,22 +293,15 @@ impl MessageEncryption for AES128 {
 
         let ciphertext_bytes = aes128_encrypt(plaintext_bytes, body_iv, body_sym_key);
 
-        // |full_pt| = |pt_length| + |pt|
-        // |pt_aes_padding| = 16 - (|full_pt| % 16)
-        // or... since a % b is the same as a - b * (a // b) (integer division), so:
-        // |pt_aes_padding| = 16 - (|full_pt| - 16 * (|full_pt| // 16))
-        // |ct| = |full_pt| + |pt_aes_padding|
-        //      = |full_pt| + 16 - (|full_pt| - 16 * (|full_pt| // 16)) = 16 + 16 * (|full_pt| // 16) = 16 * (1 +
-        // |full_pt| // 16)
+        // Each plaintext field is 32 bytes (a multiple of the 16-byte AES block
+        // size), so PKCS#7 always appends a full 16-byte padding block:
+        //   |ciphertext| = PlaintextLen*32 + 16 = 16 * (1 + PlaintextLen*32 / 16)
         std::static_assert(
             ciphertext_bytes.len() == 16 * (1 + (PlaintextLen * 32) / 16),
             "unexpected ciphertext length",
         );
 
-        // ***************************************************************************** Compute the header ciphertext
-        // *****************************************************************************
-
-        // Header contains only the length of the ciphertext stored in 2 bytes.
+        // Encrypt a 2-byte header containing the body ciphertext length.
         let mut header_plaintext: [u8; 2] = [0 as u8; 2];
         let ciphertext_bytes_length = ciphertext_bytes.len();
         header_plaintext[0] = (ciphertext_bytes_length >> 8) as u8;
@@ -233,21 +310,15 @@ impl MessageEncryption for AES128 {
         // Note: the aes128_encrypt builtin fn automatically appends bytes to the input, according to pkcs#7; hence why
         // the output `header_ciphertext_bytes` is 16 bytes larger than the input in this case.
         let header_ciphertext_bytes = aes128_encrypt(header_plaintext, header_iv, header_sym_key);
-        // I recall that converting a slice to an array incurs constraints, so I'll check the length this way instead:
+        // Verify expected header ciphertext size at compile time.
         std::static_assert(
             header_ciphertext_bytes.len() == HEADER_CIPHERTEXT_SIZE_IN_BYTES,
             "unexpected ciphertext header length",
         );
 
-        // ***************************************************************************** Prepend / append more bytes of
-        // data to the ciphertext, before converting back to fields.
-        // *****************************************************************************
-
-        let mut message_bytes_padding_to_mult_31 =
-            get_arr_of_size__message_bytes_padding__from_PT::<PlaintextLen * 32>();
-        // Safety: this randomness won't be constrained to be random. It's in the interest of the executor of this fn
-        // to encrypt with random bytes.
-        message_bytes_padding_to_mult_31 = unsafe { get_random_bytes() };
+        // Assemble the message byte array:
+        //  [header_ct (16B)] [body_ct] [padding to mult of 31]
+        let message_bytes_padding_to_mult_31 = get_arr_of_size__message_bytes_padding__from_PT::<PlaintextLen * 32>();
 
         let mut message_bytes = get_arr_of_size__message_bytes__from_PT::<PlaintextLen * 32>();
 
@@ -256,8 +327,7 @@ impl MessageEncryption for AES128 {
             "Unexpected error: message_bytes.len() should be divisible by 31, by construction.",
         );
 
-        message_bytes[0] = eph_pk_sign_byte;
-        let mut offset = 1;
+        let mut offset = 0;
         for i in 0..header_ciphertext_bytes.len() {
             message_bytes[offset + i] = header_ciphertext_bytes[i];
         }
@@ -279,42 +349,33 @@ impl MessageEncryption for AES128 {
         // computation used to obtain the offset computes the expected value (which we _can_ do in a static check), and
         // then add a cheap runtime check to also validate that the offset matches this.
         std::static_assert(
-            1 + header_ciphertext_bytes.len() + ciphertext_bytes.len() + message_bytes_padding_to_mult_31.len()
+            header_ciphertext_bytes.len() + ciphertext_bytes.len() + message_bytes_padding_to_mult_31.len()
                 == message_bytes.len(),
             "unexpected message length",
         );
         assert(offset == message_bytes.len(), "unexpected encrypted message length");
 
-        // ***************************************************************************** Convert bytes back to fields
-        // *****************************************************************************
-
-        // TODO(#12749): As Mike pointed out, we need to make messages produced by different encryption schemes
-        // indistinguishable from each other and for this reason the output here and in the last for-loop of this
-        // function should cover a full field.
+        // Pack message bytes into fields (31 bytes per field) and prepend eph_pk.x.
         let message_bytes_as_fields = bytes_to_fields(message_bytes);
-
-        // ***************************************************************************** Prepend / append fields, to
-        // create the final message *****************************************************************************
 
         let mut ciphertext: [Field; MESSAGE_CIPHERTEXT_LEN] = [0; MESSAGE_CIPHERTEXT_LEN];
 
         ciphertext[0] = eph_pk.x;
 
+        // Mask each content field with a Poseidon2-derived value, so that they appear as uniformly random `Field`
+        // values
         let mut offset = 1;
         for i in 0..message_bytes_as_fields.len() {
-            ciphertext[offset + i] = message_bytes_as_fields[i];
+            let mask = derive_field_mask(ciphertext_shared_secret, i as u32);
+            ciphertext[offset + i] = message_bytes_as_fields[i] + mask;
         }
         offset += message_bytes_as_fields.len();
 
+        // Pad with random fields so that padding is indistinguishable from masked data fields.
         for i in offset..MESSAGE_CIPHERTEXT_LEN {
-            // We need to get a random value that fits in 31 bytes to not leak information about the size of the
-            // message (all the "real" message fields contain at most 31 bytes because of the way we convert the bytes
-            // to fields). TODO(#12749): Long term, this is not a good solution.
-
             // Safety: we assume that the sender wants for the message to be private - a malicious one could simply
             // reveal its contents publicly. It is therefore fine to trust the sender to provide random padding.
-            let field_bytes = unsafe { get_random_bytes::<31>() };
-            ciphertext[i] = Field::from_be_bytes::<31>(field_bytes);
+            ciphertext[i] = unsafe { random() };
         }
 
         ciphertext
@@ -326,22 +387,25 @@ impl MessageEncryption for AES128 {
     ) -> Option<BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>> {
         let eph_pk_x = ciphertext.get(0);
 
-        let ciphertext_without_eph_pk_x_fields = array::subbvec::<Field, MESSAGE_CIPHERTEXT_LEN, MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS>(
+        let masked_fields = array::subbvec::<Field, MESSAGE_CIPHERTEXT_LEN, MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS>(
             ciphertext,
             EPH_PK_X_SIZE_IN_FIELDS,
         );
 
-        // Convert the ciphertext represented as fields to a byte representation (its original format)
-        let ciphertext_without_eph_pk_x = bytes_from_fields(ciphertext_without_eph_pk_x_fields);
-
-        // First byte of the ciphertext represents the ephemeral public key sign
-        let eph_pk_sign_bool = ciphertext_without_eph_pk_x.get(0) != 0;
-
-        // With the sign and the x-coordinate of the ephemeral public key, we can reconstruct the point. This may fail
-        // however, as not all x-coordinates are on the curve. In that case, we simply return `Option::none`.
-        point_from_x_coord_and_sign(eph_pk_x, eph_pk_sign_bool).map(|eph_pk| {
+        // With the x-coordinate of the ephemeral public key we can reconstruct the point as we know that the
+        // y-coordinate must be positive. This may fail however, as not all x-coordinates are on the curve. In that
+        // case, we simply return `Option::none`.
+        point_from_x_coord_and_sign(eph_pk_x, true).map(|eph_pk| {
             // Derive shared secret
             let ciphertext_shared_secret = get_shared_secret(recipient, eph_pk);
+
+            let unmasked_fields = masked_fields.mapi(|i, field| {
+                let unmasked = unmask_field(ciphertext_shared_secret, i, field);
+                // If we failed to unmask the field, we are dealing with the random padding. We'll ignore it later,
+                // so we can simply set it to 0
+                unmasked.unwrap_or(0)
+            });
+            let ciphertext_without_eph_pk_x = bytes_from_fields(unmasked_fields);
 
             // Derive symmetric keys:
             let pairs = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<2>(
@@ -351,7 +415,7 @@ impl MessageEncryption for AES128 {
             let (header_sym_key, header_iv) = pairs[1];
 
             // Extract the header ciphertext
-            let header_start = EPH_PK_SIGN_BYTE_SIZE_IN_BYTES; // Skip eph_pk_sign byte
+            let header_start = 0;
             let header_ciphertext: [u8; HEADER_CIPHERTEXT_SIZE_IN_BYTES] =
                 array::subarray(ciphertext_without_eph_pk_x.storage(), header_start);
             // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's designed to
@@ -368,19 +432,43 @@ impl MessageEncryption for AES128 {
 
             // Extract and decrypt main ciphertext
             let ciphertext_start = header_start + HEADER_CIPHERTEXT_SIZE_IN_BYTES;
-            let ciphertext_with_padding: [u8; (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES] =
+            let ciphertext_with_padding: [u8; MESSAGE_PLAINTEXT_SIZE_IN_BYTES] =
                 array::subarray(ciphertext_without_eph_pk_x.storage(), ciphertext_start);
-            let ciphertext: BoundedVec<u8, (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES> =
+            let ciphertext: BoundedVec<u8, MESSAGE_PLAINTEXT_SIZE_IN_BYTES> =
                 BoundedVec::from_parts(ciphertext_with_padding, ciphertext_length);
 
             // Decrypt main ciphertext and return it
             let plaintext_bytes = aes128_decrypt_oracle(ciphertext, body_iv, body_sym_key);
 
-            // Each field of the original note message was serialized to 32 bytes so we convert the bytes back to
-            // fields.
+            // Each field of the original message was serialized to 32 bytes so we convert
+            // the bytes back to fields.
             fields_from_bytes(plaintext_bytes)
         })
     }
+}
+
+/// 2^248: upper bound for values that fit in 31 bytes
+global TWO_POW_248: Field = 2.pow_32(248);
+
+/// Removes the Poseidon2-derived mask from a ciphertext field. Returns the unmasked value if it fits in 31 bytes
+/// (a content field), or `None` if it doesn't (random padding). Unconstrained to prevent accidental use in
+/// constrained context.
+unconstrained fn unmask_field(shared_secret: Point, index: u32, masked: Field) -> Option<Field> {
+    let unmasked = masked - derive_field_mask(shared_secret, index);
+    if unmasked.lt(TWO_POW_248) {
+        Option::some(unmasked)
+    } else {
+        Option::none()
+    }
+}
+
+/// Derives a field mask from an ECDH shared secret and field index. Applied only to data fields (those carrying
+/// packed message bytes). Padding fields use `random()` instead.
+fn derive_field_mask(shared_secret: Point, index: u32) -> Field {
+    poseidon2_hash_with_separator(
+        [shared_secret.x, shared_secret.y],
+        DOM_SEP__CIPHERTEXT_FIELD_MASK + index,
+    )
 }
 
 /// Produces a random valid address point, i.e. one that is on the curve. This is equivalent to calling
@@ -426,12 +514,12 @@ mod test {
 
             // Mock random values for deterministic test
             let eph_sk = 0x1358d15019d4639393d62b97e1588c095957ce74a1c32d6ec7d62fe6705d9538;
-            let _ = OracleMock::mock("utilityGetRandomField").returns(eph_sk).times(1);
+            let _ = OracleMock::mock("aztec_utl_getRandomField").returns(eph_sk).times(1);
 
             let randomness = 0x0101010101010101010101010101010101010101010101010101010101010101;
-            let _ = OracleMock::mock("utilityGetRandomField").returns(randomness).times(1000000);
+            let _ = OracleMock::mock("aztec_utl_getRandomField").returns(randomness).times(1000000);
 
-            let _ = OracleMock::mock("privateGetNextAppTagAsSender").returns(42);
+            let _ = OracleMock::mock("aztec_prv_getNextAppTagAsSender").returns(42);
 
             // Encrypt the message
             let encrypted_message = BoundedVec::from_array(AES128::encrypt(plaintext, recipient));
@@ -442,7 +530,7 @@ mod test {
                 recipient.to_address_point().unwrap().inner,
             );
 
-            let _ = OracleMock::mock("utilityGetSharedSecret").returns(shared_secret);
+            let _ = OracleMock::mock("aztec_utl_getSharedSecret").returns(shared_secret);
 
             // Decrypt the message
             let decrypted = AES128::decrypt(encrypted_message, recipient).unwrap();
@@ -487,6 +575,48 @@ mod test {
         // We just test that we produced some output and did not crash - the result is gibberish as it is encrypted
         // using a public key for which we do not know the private key.
         let _ = AES128::encrypt([1, 2, 3, 4], invalid_address);
+    }
+
+    // Documents the PKCS#7 padding behavior that `encrypt` relies on (see its static_assert).
+    #[test]
+    fn pkcs7_padding_always_adds_at_least_one_byte() {
+        let key = [0 as u8; 16];
+        let iv = [0 as u8; 16];
+
+        // 1 byte input + 15 bytes padding = 16 bytes
+        assert_eq(std::aes128::aes128_encrypt([0; 1], iv, key).len(), 16);
+
+        // 15 bytes input + 1 byte padding = 16 bytes
+        assert_eq(std::aes128::aes128_encrypt([0; 15], iv, key).len(), 16);
+
+        // 16 bytes input (block-aligned) + full 16-byte padding block = 32 bytes
+        assert_eq(std::aes128::aes128_encrypt([0; 16], iv, key).len(), 32);
+    }
+
+    #[test]
+    unconstrained fn encrypt_decrypt_max_size_plaintext() {
+        let mut env = TestEnvironment::new();
+        let recipient = env.create_light_account();
+
+        env.private_context(|_| {
+            let mut plaintext = [0; MESSAGE_PLAINTEXT_LEN];
+            for i in 0..MESSAGE_PLAINTEXT_LEN {
+                plaintext[i] = i as Field;
+            }
+            let ciphertext = AES128::encrypt(plaintext, recipient);
+
+            assert_eq(
+                AES128::decrypt(BoundedVec::from_array(ciphertext), recipient).unwrap(),
+                BoundedVec::from_array(plaintext),
+            );
+        });
+    }
+
+    #[test(should_fail_with = "Plaintext length exceeds MESSAGE_PLAINTEXT_LEN")]
+    unconstrained fn encrypt_oversized_plaintext() {
+        let address = AztecAddress { inner: 3 };
+        let plaintext: [Field; MESSAGE_PLAINTEXT_LEN + 1] = [0; MESSAGE_PLAINTEXT_LEN + 1];
+        let _ = AES128::encrypt(plaintext, address);
     }
 
     #[test]

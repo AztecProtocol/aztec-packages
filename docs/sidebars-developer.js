@@ -22,6 +22,10 @@ const sidebars = {
       id: "getting_started_on_devnet",
     },
     {
+      type: "doc",
+      id: "ai_tooling",
+    },
+    {
       type: "link",
       label: "Aztec Starter Repository",
       href: "https://github.com/AztecProtocol/aztec-starter",

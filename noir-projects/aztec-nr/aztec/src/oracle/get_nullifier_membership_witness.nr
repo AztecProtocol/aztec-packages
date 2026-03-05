@@ -11,7 +11,7 @@ pub struct NullifierMembershipWitness {
     pub path: [Field; NULLIFIER_TREE_HEIGHT],
 }
 
-#[oracle(utilityGetLowNullifierMembershipWitness)]
+#[oracle(aztec_utl_getLowNullifierMembershipWitness)]
 unconstrained fn get_low_nullifier_membership_witness_oracle(
     _block_hash: Field,
     _nullifier: Field,
@@ -27,7 +27,7 @@ pub unconstrained fn get_low_nullifier_membership_witness(
     get_low_nullifier_membership_witness_oracle(block_hash, nullifier)
 }
 
-#[oracle(utilityGetNullifierMembershipWitness)]
+#[oracle(aztec_utl_getNullifierMembershipWitness)]
 unconstrained fn get_nullifier_membership_witness_oracle(
     _block_hash: Field,
     _nullifier: Field,

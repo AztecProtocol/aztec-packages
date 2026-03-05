@@ -531,6 +531,16 @@ template <class Params_> struct alignas(32) field {
         field q2_lo{ q2.data[0], q2.data[1], q2.data[2], q2.data[3] };
 
         field t1 = (q2_lo - q1_lo).reduce_once();
+
+        // k2 (= t1) can be slightly negative for ~2^{-64} of inputs.
+        // When negative, t1 = k2 + r is 254 bits (upper limbs nonzero).
+        // Fix: decrement c1 by 1, equivalent to adding |b1| to k2.
+        // This shifts k2 by +|b1| (~127 bits, now positive) and k1 by -a1 (~64 bits),
+        // keeping both within 128 bits. See endomorphism_scalars.py for more details.
+        if (t1.data[2] != 0 || t1.data[3] != 0) {
+            t1 = (t1 + endo_minus_b1).reduce_once();
+        }
+
         field beta = cube_root_of_unity();
         field t2 = (t1 * beta + input).reduce_once();
         return {

@@ -46,7 +46,7 @@ Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires 
 
 ## Keep tests in the test crate
 
-When you create a project with `aztec new` or `aztec init`, the generated workspace has two crates: `contract` and `test`. It is important that all tests live in the `test` crate, **not** in the `contract` crate.
+When you create a project with `aztec new` or `aztec init`, the generated workspace has two crates: `<name>_contract` and `<name>_test`. It is important that all tests live in the `<name>_test` crate, **not** in the `<name>_contract` crate.
 
 If you place `#[test]` functions inside the contract crate, `aztec compile` will emit a warning:
 
@@ -60,7 +60,7 @@ The reason is **unnecessary recompilation**: the contract artifact depends on ev
 
 ## Basic test structure
 
-Tests live in `test/src/lib.nr` and import the contract crate by name (not `crate::`):
+Tests live in `<name>_test/src/lib.nr` and import the contract crate by name (not `crate::`):
 
 ```rust
 use my_contract::MyContract;
@@ -88,11 +88,11 @@ unconstrained fn test_basic_flow() {
 :::
 
 :::tip Organizing test files
-Tests live in the separate `test` crate that `aztec new` creates. You can organize them into modules:
+Tests live in the separate `<name>_test` crate that `aztec new` creates. You can organize them into modules:
 
-- Split tests into modules like `test/src/transfer_tests.nr`, `test/src/auth_tests.nr`
-- Import them in `test/src/lib.nr` with `mod transfer_tests;`, `mod auth_tests;`
-- Share setup functions in `test/src/utils.nr`
+- Split tests into modules like `<name>_test/src/transfer_tests.nr`, `<name>_test/src/auth_tests.nr`
+- Import them in `<name>_test/src/lib.nr` with `mod transfer_tests;`, `mod auth_tests;`
+- Share setup functions in `<name>_test/src/utils.nr`
   :::
 
 ## Deploying contracts

@@ -39,10 +39,10 @@ namespace bb {
  * `GateSeparatorPolynomial`. These contributions are added to the corresponding univariate accumulator \f$ A_i
  * \f$:
  * \f{align}{
- *   A_1 &\;\mathrel{+}=  \text{q_poseidon2_internal}\cdot \big(v_1 - w_{1,\text{shift}}\big) \cdot \hat{g} \\
- *   A_2 &\;\mathrel{+}=  \text{q_poseidon2_internal}\cdot \big(v_1 - w_{1,\text{shift}}\big) \cdot \hat{g} \\
- *   A_3 &\;\mathrel{+}=  \text{q_poseidon2_internal}\cdot \big(v_3 - w_{3,\text{shift}}\big) \cdot \hat{g} \\
- *   A_4 &\;\mathrel{+}=  \text{q_poseidon2_internal}\cdot \big(v_4 - w_{4,\text{shift}}\big) \cdot \hat{g}
+ *   A_1 &\;\mathrel{+}=  \text{q_poseidon2_external}\cdot \big(v_1 - w_{1,\text{shift}}\big) \cdot \hat{g} \\
+ *   A_2 &\;\mathrel{+}=  \text{q_poseidon2_external}\cdot \big(v_2 - w_{2,\text{shift}}\big) \cdot \hat{g} \\
+ *   A_3 &\;\mathrel{+}=  \text{q_poseidon2_external}\cdot \big(v_3 - w_{3,\text{shift}}\big) \cdot \hat{g} \\
+ *   A_4 &\;\mathrel{+}=  \text{q_poseidon2_external}\cdot \big(v_4 - w_{4,\text{shift}}\big) \cdot \hat{g}
  * \f}
  * At the end of each Sumcheck Round, the subrelation accumulators are aggregated with independent challenges
  * \f$\alpha_{i} = \alpha_{i, \text{Poseidon2Ext}}\f$ taken from the array of `SubrelationSeparators`

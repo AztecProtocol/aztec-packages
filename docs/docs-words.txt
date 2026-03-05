@@ -53,6 +53,7 @@ ciphertexts
 citizensˮ
 claimability
 clawback
+Cloneable
 cmov
 CMOV
 codealong
@@ -394,3 +395,14 @@ zkpassport
 aztecrc
 Dockerless
 tokenomics
+Codex
+critesjosh
+mcpServers
+NethermindEth
+Windsurf
+callee
+completer
+interoperate
+reentrancy
+variadic
+Wonderland

@@ -19,6 +19,7 @@ import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { SequencerState } from '@aztec/sequencer-client';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
@@ -138,9 +139,12 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
 
   const bananaFPC = await getBananaFPCAddress(initialAccounts);
   const sponsoredFPC = await getSponsoredFPCAddress();
-  const fundedAddresses = initialAccounts.length
-    ? [...initialAccounts.map(a => a.address), bananaFPC, sponsoredFPC]
-    : [];
+  const prefundAddresses = (aztecNodeConfig.prefundAddresses ?? []).map(a => AztecAddress.fromString(a));
+  const fundedAddresses = [
+    ...initialAccounts.map(a => a.address),
+    ...(initialAccounts.length ? [bananaFPC, sponsoredFPC] : []),
+    ...prefundAddresses,
+  ];
   const { genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(fundedAddresses);
 
   const dateProvider = new TestDateProvider();

@@ -31,8 +31,8 @@ export interface SequencerConfig {
   acvmWorkingDirectory?: string;
   /** The path to the ACVM binary */
   acvmBinaryPath?: string;
-  /** The list of functions calls allowed to run in setup */
-  txPublicSetupAllowList?: AllowedElement[];
+  /** Additional entries to extend the default setup allow list. */
+  txPublicSetupAllowListExtend?: AllowedElement[];
   /** Max block size */
   maxBlockSizeInBytes?: number;
   /** Payload address to vote for */
@@ -59,6 +59,10 @@ export interface SequencerConfig {
   broadcastInvalidBlockProposal?: boolean;
   /** Inject a fake attestation (for testing only) */
   injectFakeAttestation?: boolean;
+  /** Inject a malleable attestation with a high-s value (for testing only) */
+  injectHighSValueAttestation?: boolean;
+  /** Inject an attestation with an unrecoverable signature (for testing only) */
+  injectUnrecoverableSignatureAttestation?: boolean;
   /** Whether to run in fisherman mode: builds blocks on every slot for validation without publishing */
   fishermanMode?: boolean;
   /** Shuffle attestation ordering to create invalid ordering (for testing only) */
@@ -90,7 +94,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     feeRecipient: schemas.AztecAddress.optional(),
     acvmWorkingDirectory: z.string().optional(),
     acvmBinaryPath: z.string().optional(),
-    txPublicSetupAllowList: z.array(AllowedElementSchema).optional(),
+    txPublicSetupAllowListExtend: z.array(AllowedElementSchema).optional(),
     maxBlockSizeInBytes: z.number().optional(),
     governanceProposerPayload: schemas.EthAddress.optional(),
     l1PublishingTime: z.number().optional(),
@@ -104,6 +108,8 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     secondsBeforeInvalidatingBlockAsNonCommitteeMember: z.number(),
     broadcastInvalidBlockProposal: z.boolean().optional(),
     injectFakeAttestation: z.boolean().optional(),
+    injectHighSValueAttestation: z.boolean().optional(),
+    injectUnrecoverableSignatureAttestation: z.boolean().optional(),
     fishermanMode: z.boolean().optional(),
     shuffleAttestationOrdering: z.boolean().optional(),
     blockDurationMs: z.number().positive().optional(),
@@ -126,7 +132,7 @@ type SequencerConfigOptionalKeys =
   | 'fakeProcessingDelayPerTxMs'
   | 'fakeThrowAfterProcessingTxCount'
   | 'l1PublishingTime'
-  | 'txPublicSetupAllowList'
+  | 'txPublicSetupAllowListExtend'
   | 'minValidTxsPerBlock'
   | 'minBlocksForCheckpoint';
 
