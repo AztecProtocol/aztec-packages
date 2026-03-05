@@ -74,15 +74,14 @@ async function main() {
   }, 60_000);
 
   // ── Worktree GC — keep workspace dirs under 100GB, clean oldest first (daily) ──
-  const runGC = () => {
+  const runGC = async () => {
     try {
-      const cleaned = store.gcWorktrees(100, 1); // 100GB budget, min 1 day old
+      const cleaned = await store.gcWorktreesAsync(100, 1); // 100GB budget, min 1 day old
       if (cleaned.length > 0) console.log(`[GC] Cleaned ${cleaned.length} worktrees: ${cleaned.join(", ")}`);
     } catch (e: any) {
       console.error(`[GC] Error: ${e.message}`);
     }
   };
-  // Defer GC to avoid blocking startup (du scan takes ~30s)
   setTimeout(runGC, 30_000);
   setInterval(runGC, 24 * 60 * 60 * 1000); // then daily
 
@@ -93,6 +92,10 @@ async function main() {
       appToken: SLACK_APP_TOKEN,
       socketMode: true,
       port: HTTP_PORT + 1, // Bolt creates its own HTTP server; avoid conflicting with ours
+      logLevel: "INFO" as any,
+    });
+    slackApp.error(async (error) => {
+      console.error(`[SLACK_ERROR] ${error.message || error}`);
     });
     registerSlackHandlers(slackApp, store, docker);
     await slackApp.start();

@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync, existsSync, writeFileSync, mkdirSync, statSync, rmSync } from "fs";
 import { join, basename, dirname } from "path";
-import { execSync } from "child_process";
+import { execSync, exec } from "child_process";
 import type { SessionMeta, WorktreeInfo } from "./types.ts";
 import { SESSIONS_DIR, CLAUDEBOX_WORKTREES_DIR, CLAUDEBOX_DIR } from "./config.ts";
 import type { DockerService } from "./docker.ts";
@@ -324,6 +324,69 @@ export class SessionStore {
       const sessions = this.listByWorktree(c.id);
       if (sessions.some(s => s.status === "running")) continue;
 
+      try {
+        rmSync(c.wsDir, { recursive: true, force: true });
+        totalSize -= c.sizeBytes;
+        cleaned.push(c.id);
+      } catch (e: any) {
+        console.error(`[GC] Failed to clean worktree ${c.id}: ${e.message}`);
+      }
+    }
+
+    return cleaned;
+  }
+
+  /** Async version of gcWorktrees — doesn't block the event loop during du. */
+  async gcWorktreesAsync(maxSizeGB: number = 100, minAgeDays: number = 1): Promise<string[]> {
+    if (!existsSync(this.worktreesDir)) return [];
+    const minAgeCutoff = Date.now() - minAgeDays * 24 * 60 * 60 * 1000;
+
+    // Async du call — doesn't block the event loop
+    const sizeMap = new Map<string, number>();
+    try {
+      const duOutput = await new Promise<string>((resolve, reject) => {
+        exec(`du -sb ${this.worktreesDir}/*/workspace 2>/dev/null || true`,
+          { encoding: "utf-8", timeout: 120_000 },
+          (err, stdout) => err ? reject(err) : resolve(stdout));
+      });
+      for (const line of duOutput.trim().split("\n")) {
+        if (!line) continue;
+        const [sizeStr, path] = line.split("\t");
+        const parts = path?.split("/");
+        const wsIdx = parts?.indexOf("workspace");
+        if (wsIdx && wsIdx > 0) {
+          const id = parts[wsIdx - 1];
+          sizeMap.set(id, parseInt(sizeStr) || 0);
+        }
+      }
+    } catch {}
+
+    // Build candidate list
+    const candidates: Array<{ id: string; wsDir: string; lastActivity: number; sizeBytes: number }> = [];
+    let totalSize = 0;
+
+    for (const id of readdirSync(this.worktreesDir)) {
+      const sizeBytes = sizeMap.get(id);
+      if (sizeBytes === undefined) continue;
+      const meta = this.getWorktreeMeta(id);
+      const lastActivity = new Date(meta.last_session_started || meta.created || 0).getTime();
+      totalSize += sizeBytes;
+      candidates.push({ id, wsDir: join(this.worktreesDir, id, "workspace"), lastActivity, sizeBytes });
+    }
+
+    console.log(`[GC] Total workspace size: ${(totalSize / 1024 / 1024 / 1024).toFixed(1)} GB across ${candidates.length} worktrees (budget: ${maxSizeGB} GB)`);
+
+    const maxSizeBytes = maxSizeGB * 1024 * 1024 * 1024;
+    if (totalSize <= maxSizeBytes) return [];
+
+    candidates.sort((a, b) => a.lastActivity - b.lastActivity);
+
+    const cleaned: string[] = [];
+    for (const c of candidates) {
+      if (totalSize <= maxSizeBytes) break;
+      if (c.lastActivity > minAgeCutoff) continue;
+      const sessions = this.listByWorktree(c.id);
+      if (sessions.some(s => s.status === "running")) continue;
       try {
         rmSync(c.wsDir, { recursive: true, force: true });
         totalSize -= c.sizeBytes;
