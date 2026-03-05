@@ -33,9 +33,5 @@ template <typename CircuitType> struct secp256r1 {
     using AffineElement = Group;
 
     using Builder = CircuitType;
-    using witness_ct = witness_t<Builder>;
-    using public_witness_ct = public_witness_t<Builder>;
-    using byte_array_ct = byte_array<Builder>;
-    using bool_ct = bool_t<Builder>;
 };
 } // namespace bb::stdlib

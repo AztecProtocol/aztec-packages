@@ -30,7 +30,7 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
     using Fr = Curve::ScalarField;
     using Fq = Curve::BaseField;
     using G1 = Curve::Group;
-    using bool_t = Curve::bool_ct;
+    using bool_t = stdlib::bool_t<Builder>;
 
     // Reproducible signature
     static constexpr FrNative private_key =

@@ -35,10 +35,6 @@ template <typename CircuitBuilder> struct bn254 {
 
     // Additional types with no analog in the native description of the curve
     using Builder = CircuitBuilder;
-    using witness_ct = witness_t<CircuitBuilder>;
-    using public_witness_ct = public_witness_t<CircuitBuilder>;
-    using byte_array_ct = byte_array<CircuitBuilder>;
-    using bool_ct = bool_t<CircuitBuilder>;
 
     // Required by SmallSubgroupIPA argument. This constant needs to divide the size of the multiplicative subgroup of
     // the ScalarField and satisfy SUBGROUP_SIZE > CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH, for
