@@ -1,0 +1,6 @@
+# Generated contract artifacts (created by `yarn prep`)
+src/artifacts/
+
+# Extension build outputs (created by `yarn build:test-extension`)
+test-extension/dist/
+test-extension/wasm/
