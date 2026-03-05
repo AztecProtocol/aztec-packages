@@ -118,7 +118,7 @@ done < "$dots_fifo" &
 dots_pid=$!
 
 # Execute the command in background.
-PARENT_LOG_ID=$key bash -c "set -euo pipefail; $cmd" > >(redact > $outfile) 2>&1 &
+PARENT_LOG_ID=$key bash -c "set -euo pipefail; $cmd" 2>&1 | redact > $outfile &
 job_pid=$!
 
 # Wait for the job to finish and get its exit status.
