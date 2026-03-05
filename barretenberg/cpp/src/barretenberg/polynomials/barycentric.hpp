@@ -9,11 +9,6 @@
 #include "barretenberg/ecc/fields/field.hpp"
 #include <array>
 
-/* Future improvements (see https://github.com/AztecProtocol/barretenberg/issues/10): The code works for its intended
- * use but could be improved: Precomputing for all possible size pairs is
- * probably feasible and might be a better solution than instantiating many instances separately. Then perhaps we could
- * infer input type to `extend`.
- */
 namespace bb {
 
 /**

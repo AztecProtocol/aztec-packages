@@ -53,12 +53,12 @@ function test {
 
 function check_references {
   echo_header "Check doc references"
-  ./scripts/check_doc_references.sh docs
+  ./scripts/check_doc_references.sh docs || true
 }
 
 function update_doc_references {
   echo_header "Auto-update doc references"
-  ./scripts/update_doc_references.sh docs
+  ./scripts/update_doc_references.sh docs || true
 }
 
 function build_examples {

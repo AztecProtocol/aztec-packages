@@ -150,8 +150,12 @@ elif [[ "${1:-}" == "--update_inputs" ]]; then
     # Generate new inputs
     echo "Running bootstrap to generate new IVC inputs..."
 
-    BOOTSTRAP_TO=yarn-project ../../bootstrap.sh # bootstrap aztec-packages from root
-    ../../yarn-project/end-to-end/bootstrap.sh build_bench # build bench to generate IVC inputs
+    cd "$root"
+    ./bootstrap.sh pull_submodules
+    make yarn-project
+    cd yarn-project/end-to-end
+    ./bootstrap.sh build_bench # build bench to generate IVC inputs
+    cd "$root/barretenberg/cpp/scripts"
 
     compress_and_upload "$inputs_dir"
 
