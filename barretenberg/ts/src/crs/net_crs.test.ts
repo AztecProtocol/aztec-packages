@@ -17,7 +17,6 @@ describe('NetCrs', () => {
     await crs.init();
 
     const g1Data = crs.getG1Data();
-    expect(crs.g1IsCompressed).toBe(true);
     expect(g1Data.length).toBe(32); // 1 point * 32 bytes compressed
     expect(g1Data).toEqual(BN254_G1_FIRST_ELEMENT_COMPRESSED);
   }, 30000);
