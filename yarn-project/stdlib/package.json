@@ -123,7 +123,7 @@
     "@types/node": "^22.15.17",
     "@types/pako": "^2.0.3",
     "@typescript/native-preview": "7.0.0-dev.20260113.1",
-    "eslint": "^9.26.0",
+    "eslint": "^9.27.0",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "prettier": "^3.5.3",
