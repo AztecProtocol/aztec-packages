@@ -11,7 +11,6 @@ Barretenberg (or `bb` for short) is an optimized elliptic curve library for the 
 - [Barretenberg](#barretenberg)
   - [Development](#development)
     - [Quick Start](#quick-start)
-    - [Bootstrap](#bootstrap)
     - [Build Options and Instructions](#build-options-and-instructions)
       - [WASM build](#wasm-build)
       - [Fuzzing build](#fuzzing-build)
@@ -103,35 +102,29 @@ bbup
 bb --version
 ```
 
-If you need to build from source (e.g. to make changes), the bootstrap script handles configuration and compilation:
+To build from source, use the bootstrap script. By default it uses a [Zig](https://ziglang.org/)-wrapped Clang for portable binaries (glibc 2.35+). This requires `zig` to be installed in addition to the dependencies listed above:
 
 ```bash
 cd barretenberg/cpp
-./bootstrap.sh
+./bootstrap.sh               # Full build (native + WASM)
+./bootstrap.sh build_native  # Native only (faster)
 ```
 
-The resulting binary will be at `build/bin/bb`. You can also build specific targets:
+If you don't have Zig installed, you can use the `default` preset which only requires a standard Clang toolchain:
 
 ```bash
 cd barretenberg/cpp
-./bootstrap.sh build_native  # Build native binaries only (no WASM)
+NATIVE_PRESET=default ./bootstrap.sh build_native
 ```
 
-If you prefer not to install dependencies on your host machine, you can use the Docker interactive script:
+The resulting binary will be at `build/bin/bb`.
+
+If you prefer not to install dependencies on your host machine, you can use the Docker interactive script which has all dependencies pre-installed:
 
 ```bash
 cd barretenberg/cpp
 ./scripts/docker_interactive.sh
 # Inside the container:
-./bootstrap.sh
-```
-
-### Bootstrap
-
-The bootstrap script will build both the native and wasm versions of barretenberg:
-
-```bash
-cd cpp
 ./bootstrap.sh
 ```
 
