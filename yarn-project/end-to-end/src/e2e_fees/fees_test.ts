@@ -14,12 +14,16 @@ import { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscriptio
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
-import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import { TokenContract as BananaCoin, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
+import { FunctionSelector, countArgumentsSize } from '@aztec/stdlib/abi';
+import type { FunctionAbi } from '@aztec/stdlib/abi';
+import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 
 import { getContract } from 'viem';
 
@@ -36,6 +40,46 @@ import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import { type BalancesFn, getBalancesFn, setupSponsoredFPC } from '../fixtures/utils.js';
 import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
+
+/** Returns the calldata length for a function: 1 (selector) + arguments size. */
+function getCalldataLength(functionName: string): number {
+  const allFunctions: FunctionAbi[] = (TokenContractArtifact.functions as FunctionAbi[]).concat(
+    TokenContractArtifact.nonDispatchPublicFunctions || [],
+  );
+  const fn = allFunctions.find(f => f.name === functionName);
+  if (!fn) {
+    throw new Error(`Unknown function ${functionName} in Token artifact`);
+  }
+  return 1 + countArgumentsSize(fn);
+}
+
+/**
+ * Returns Token-specific allowlist entries needed for FPC-based fee payments.
+ * These are test-only — FPC-based fee payment with custom tokens won't work on mainnet alpha.
+ */
+async function getTokenAllowedSetupFunctions(): Promise<AllowedElement[]> {
+  const tokenClassId = (await getContractClassFromArtifact(TokenContractArtifact)).id;
+  const increaseBalanceSelector = await FunctionSelector.fromSignature('_increase_public_balance((Field),u128)');
+  const transferInPublicSelector = await FunctionSelector.fromSignature(
+    'transfer_in_public((Field),(Field),u128,Field)',
+  );
+
+  return [
+    // Token: needed for private transfers via FPC (transfer_to_public enqueues this)
+    {
+      classId: tokenClassId,
+      selector: increaseBalanceSelector,
+      calldataLength: getCalldataLength('_increase_public_balance'),
+      onlySelf: true,
+    },
+    // Token: needed for public transfers via FPC (fee_entrypoint_public enqueues this)
+    {
+      classId: tokenClassId,
+      selector: transferInPublicSelector,
+      calldataLength: getCalldataLength('transfer_in_public'),
+    },
+  ];
+}
 
 /**
  * Test fixture for testing fees. Provides the following setup steps:
@@ -104,12 +148,15 @@ export class FeesTest {
 
   async setup() {
     this.logger.verbose('Setting up fresh context...');
+    // Token allowlist entries are test-only: FPC-based fee payment with custom tokens won't work on mainnet alpha.
+    const tokenAllowList = await getTokenAllowedSetupFunctions();
     this.context = await setup(0, {
       startProverNode: true,
       ...this.setupOptions,
       fundSponsoredFPC: true,
       skipAccountDeployment: true,
       l1ContractsArgs: { ...this.setupOptions },
+      txPublicSetupAllowListExtend: [...(this.setupOptions.txPublicSetupAllowListExtend ?? []), ...tokenAllowList],
     });
 
     this.rollupContract = RollupContract.getFromConfig(this.context.config);

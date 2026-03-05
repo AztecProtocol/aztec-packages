@@ -16,11 +16,15 @@ import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { SequencerState } from '@aztec/sequencer-client';
+import { FunctionSelector, countArgumentsSize } from '@aztec/stdlib/abi';
+import type { FunctionAbi } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
+import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import type { AllowedElement, ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
@@ -43,6 +47,38 @@ import { getBananaFPCAddress, setupBananaFPC } from './banana_fpc.js';
 import { getSponsoredFPCAddress } from './sponsored_fpc.js';
 
 const logger = createLogger('local-network');
+
+/**
+ * Returns Token-specific allowlist entries for FPC-based fee payments.
+ * The local network deploys a banana FPC and Token contracts, so the node must allow Token setup functions.
+ */
+async function getTokenAllowedSetupFunctions(): Promise<AllowedElement[]> {
+  const tokenClassId = (await getContractClassFromArtifact(TokenContractArtifact)).id;
+  const allFunctions: FunctionAbi[] = (TokenContractArtifact.functions as FunctionAbi[]).concat(
+    TokenContractArtifact.nonDispatchPublicFunctions || [],
+  );
+  const getCalldataLength = (name: string) => {
+    const fn = allFunctions.find(f => f.name === name)!;
+    return 1 + countArgumentsSize(fn);
+  };
+  const increaseBalanceSelector = await FunctionSelector.fromSignature('_increase_public_balance((Field),u128)');
+  const transferInPublicSelector = await FunctionSelector.fromSignature(
+    'transfer_in_public((Field),(Field),u128,Field)',
+  );
+  return [
+    {
+      classId: tokenClassId,
+      selector: increaseBalanceSelector,
+      calldataLength: getCalldataLength('_increase_public_balance'),
+      onlySelf: true,
+    },
+    {
+      classId: tokenClassId,
+      selector: transferInPublicSelector,
+      calldataLength: getCalldataLength('transfer_in_public'),
+    },
+  ];
+}
 
 const localAnvil = foundry;
 
@@ -102,9 +138,14 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
     logger.warn(`Multiple L1 RPC URLs provided. Local networks will only use the first one: ${l1RpcUrl}`);
   }
 
+  // The local network deploys a banana FPC with Token contracts, so include Token entries
+  // in the setup allowlist so FPC-based fee payments work out of the box.
+  const tokenAllowList = await getTokenAllowedSetupFunctions();
+
   const aztecNodeConfig: AztecNodeConfig = {
     ...getConfigEnvVars(),
     ...config,
+    txPublicSetupAllowListExtend: [...tokenAllowList, ...(config.txPublicSetupAllowListExtend ?? [])],
   };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
   if (
