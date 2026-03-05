@@ -82,7 +82,8 @@ async function main() {
       console.error(`[GC] Error: ${e.message}`);
     }
   };
-  runGC(); // run once at startup
+  // Defer GC to avoid blocking startup (du scan takes ~30s)
+  setTimeout(runGC, 30_000);
   setInterval(runGC, 24 * 60 * 60 * 1000); // then daily
 
   // ── Slack app (non-fatal — HTTP server should work even without Slack) ──

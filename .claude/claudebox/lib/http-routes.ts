@@ -215,6 +215,14 @@ interface Route {
 }
 
 const routes: Route[] = [
+  // GET /health — unauthenticated health check
+  {
+    method: "GET", pattern: /^\/health$/, auth: "none",
+    handler: async (_req, res, _params, { store }) => {
+      json(res, 200, { status: "ok", active: getActiveSessions(), max: MAX_CONCURRENT });
+    },
+  },
+
   // POST /run — start a ClaudeBox session
   {
     method: "POST", pattern: /^\/run$/, auth: "api",
