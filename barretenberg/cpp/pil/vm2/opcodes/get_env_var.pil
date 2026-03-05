@@ -46,7 +46,7 @@ include "../public_inputs.pil";
  * columns in this gadget:
  * +-------+-----------------+-------------------+---------------------+--------------------+-------------------+------------+-----------+------------------+---------------+-----------------+--------------+----------------+-----------+
  * |  Row  | Env Variable    | invalid_envvar_   | sel_envvar_pi_col0  | sel_envvar_pi_col1 | envvar_pi_row_idx | is_address | is_sender | is_transactionfee| is_feeperl2gas| is_isstaticcall | is_l2gasleft | is_dagasleft   | out_tag   |
- * | (clk) |                 | enum              | lookup              | lookup             |                   |            |           |                  |               |                 |              |                |           |
+ * | (idx) |                 | enum              | lookup              | lookup             |                   |            |           |                  |               |                 |              |                |           |
  * +-------+-----------------+-------------------+---------------------+--------------------+-------------------+------------+-----------+------------------+---------------+-----------------+--------------+----------------+-----------+
  * |   0   | address         |         0         |          0          |          0         |         0         |     1      |     0     |        0         |       0       |         0       |      0       |      0         |    FF     |
  * |   1   | sender          |         0         |          0          |          0         |         0         |     0      |     1     |        0         |       0       |         0       |      0       |      0         |    FF     |
@@ -81,7 +81,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     pol commit is_isstaticcall;
     pol commit is_l2gasleft;
     pol commit is_dagasleft;
-    // This lookup must be valid for all clks up to max u8 (255)
+    // This lookup must be valid for all idx values up to max u8 (255)
     // to allow error handling for any invalid enum that fits in a u8 immediate.
     // So, use the `precomputed.sel_range_8` as selector into the precomputed table.
     #[PRECOMPUTED_INFO]
