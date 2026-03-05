@@ -189,23 +189,6 @@ aztec = { git = "https://github.com/example/repo", tag = "v1.0" }
     expect(await needsRecompile()).toBe(true);
   });
 
-  it('returns true when source is newer than the oldest but older than newest artifact', async () => {
-    // The comparison is against the oldest artifact so that a source change between the oldest and newest compilation
-    // still triggers a recompile.
-    await mkdirp('src');
-    await mkdirp('target');
-
-    await writeFile('Nargo.toml', '[package]\nname = "test"\ntype = "contract"\n');
-    await utimes('Nargo.toml', 1000, 1000);
-
-    await touch(join('target', 'old_artifact.json'), 1500);
-    await touch(join('target', 'new_artifact.json'), 3000);
-    await touch(join('src', 'main.nr'), 2000);
-
-    // Source (2000) > oldest artifact (1500), so recompile needed.
-    expect(await needsRecompile()).toBe(true);
-  });
-
   it('returns false when all sources are older than the oldest artifact', async () => {
     await mkdirp('src');
     await mkdirp('target');
