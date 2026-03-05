@@ -275,8 +275,7 @@ networks:
     SPONSORED_FPC: true
     TRANSACTIONS_DISABLED: false
     # Sequencer
-    # Gives ~0.1 TPS @ 72s slot time, 36s publish time, 6s block time - max 4 blocks per slot
-    SEQ_MAX_TX_PER_BLOCK: 2
+    SEQ_MAX_TX_PER_CHECKPOINT: 72
     # Prover
     PROVER_REAL_PROOFS: true
     # P2P
@@ -328,7 +327,7 @@ networks:
     SPONSORED_FPC: false
     TRANSACTIONS_DISABLED: true  # Initially disabled
     # Sequencer
-    SEQ_MAX_TX_PER_BLOCK: 0
+    SEQ_MAX_TX_PER_CHECKPOINT: 72
     # Prover
     PROVER_REAL_PROOFS: true
     # Sync
