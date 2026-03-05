@@ -179,7 +179,9 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     }
 
     if (!allow_download && compressed_points == 0) {
-        throw_or_abort("bn254 g1 data not found and download not allowed in this context");
+        throw_or_abort("bn254 g1 compressed data not found at " + compressed_path.string() +
+                       " and bb does not automatically download in this context." +
+                       " Run barretenberg/crs/bootstrap.sh to download.");
     } else if (!allow_download) {
         throw_or_abort(format("bn254 g1 data had ",
                               compressed_points,
