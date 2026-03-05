@@ -490,6 +490,10 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
     InteractionDefinition()
         // Bytecode Hashing
         .add<perm_bc_hashing_bytecode_length_bytes_settings, InteractionType::Permutation>()
+        .add<InteractionType::MultiPermutation,
+             perm_bc_hashing_get_packed_field_0_settings,
+             perm_bc_hashing_get_packed_field_1_settings,
+             perm_bc_hashing_get_packed_field_2_settings>(C::bc_decomposition_sel_packed)
         .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>()
         // Bytecode Retrieval
         .add<lookup_bc_retrieval_contract_instance_retrieval_settings, InteractionType::LookupSequential>()
@@ -498,10 +502,6 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
         .add<lookup_bc_retrieval_retrieved_bytecodes_insertion_settings, InteractionType::LookupSequential>()
         // Bytecode Decomposition
         .add<lookup_bc_decomposition_bytes_are_bytes_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<InteractionType::MultiPermutation,
-             perm_bc_hashing_get_packed_field_0_settings,
-             perm_bc_hashing_get_packed_field_1_settings,
-             perm_bc_hashing_get_packed_field_2_settings>(C::bc_decomposition_sel_packed)
         // Instruction Fetching
         .add<lookup_instr_fetching_bytes_from_bc_dec_settings, InteractionType::LookupGeneric>()
         .add<lookup_instr_fetching_bytecode_size_from_bc_dec_settings, InteractionType::LookupGeneric>()
