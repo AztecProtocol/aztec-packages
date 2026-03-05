@@ -57,7 +57,15 @@ export interface WorkspacePageData {
 
 function linkify(text: string): string {
   return text.replace(/(https?:\/\/[^\s&<"']+)/g, (m) => {
-    const url = m.replace(/[.,;:!?)}\]]+$/, '');
+    // Strip trailing punctuation, but preserve balanced parentheses within URLs
+    let url = m.replace(/[.,;:!?)}\]]+$/, '');
+    // If we stripped closing parens that have matching openers in the URL, restore them
+    const stripped = m.slice(url.length);
+    for (const ch of stripped) {
+      if (ch === ')' && (url.split('(').length > url.split(')').length)) {
+        url += ch;
+      } else break;
+    }
     return `<a href="${url}" target="_blank" class="link">${url}</a>${m.slice(url.length)}`;
   });
 }
@@ -343,7 +351,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
   document.querySelectorAll("[data-msg]").forEach(function(el){seenMsgs.add(el.dataset.msg);});
 
   function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
-  function linkify(s){return s.replace(/(https?:\\/\\/[^\\s&<"']+)/g,function(m){var u=m.replace(/[.,;:!?)}\]]+$/,'');return'<a href="'+u+'" target="_blank" class="link">'+u+'</a>'+m.slice(u.length)})}
+  function linkify(s){return s.replace(/(https?:\\/\\/[^\\s&<"']+)/g,function(m){var u=m.replace(/[.,;:!?)}\]]+$/,'');var rest=m.slice(u.length);for(var i=0;i<rest.length;i++){if(rest[i]===')'&&u.split('(').length>u.split(')').length){u+=rest[i]}else break}return'<a href="'+u+'" target="_blank" class="link">'+u+'</a>'+m.slice(u.length)})}
   function msgId(text){var h=0;for(var i=0;i<Math.min(text.length,50);i++){h=((h<<5)-h)+text.charCodeAt(i);h|=0;}return"m"+Math.abs(h).toString(36)}
   function timeAgo(iso){var ms=Date.now()-new Date(iso).getTime();if(ms<60000)return"just now";if(ms<3600000)return Math.floor(ms/60000)+"m ago";if(ms<86400000)return Math.floor(ms/3600000)+"h ago";return Math.floor(ms/86400000)+"d ago";}
 
@@ -1129,6 +1137,37 @@ export function auditDashboardHTML(): string {
 .finding-stat .count{font-size:18px;font-weight:bold;margin-right:4px}
 .finding-stat.open .count{color:#E94560}
 .finding-stat.closed .count{color:#61D668}
+/* Coverage panel */
+.cov-bar{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.cov-stat{background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:8px 14px;font-size:12px}
+.cov-stat .count{font-size:18px;font-weight:bold;margin-right:4px;color:#7aa2f7}
+.cov-modules{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-bottom:12px}
+.cov-mod{background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:10px 14px;cursor:pointer;transition:border-color 0.15s}
+.cov-mod:hover{border-color:#7aa2f7}
+.cov-mod-name{font-weight:600;color:#e0e0e0;margin-bottom:4px}
+.cov-mod-meta{font-size:11px;color:#888;display:flex;gap:12px}
+.cov-mod-meta .issues{color:#E94560}
+.cov-depth{display:inline-block;font-size:10px;padding:1px 6px;border-radius:8px;margin-right:4px}
+.cov-depth.deep{background:rgba(97,214,104,0.15);color:#61D668;border:1px solid rgba(97,214,104,0.25)}
+.cov-depth.line-by-line{background:rgba(122,162,247,0.15);color:#7aa2f7;border:1px solid rgba(122,162,247,0.25)}
+.cov-depth.cursory{background:rgba(136,136,136,0.15);color:#aaa;border:1px solid rgba(136,136,136,0.25)}
+.cov-files{display:none;margin-top:8px;border-top:1px solid #333;padding-top:8px}
+.cov-files.open{display:block}
+.cov-file{font-size:11px;color:#999;padding:3px 0;display:flex;gap:8px;align-items:center}
+.cov-file-path{color:#ccc;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cov-file-notes{font-size:10px;color:#666;padding-left:16px}
+/* Findings list */
+.findings-list{margin-top:8px}
+.finding-row{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:4px;color:#ccc;text-decoration:none;transition:background 0.15s}
+.finding-row:hover{background:#1a1a1a;text-decoration:none}
+.finding-row.closed{opacity:0.5}
+.finding-number{color:#888;font-size:11px;flex-shrink:0;min-width:32px}
+.finding-title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.finding-label{font-size:10px;padding:1px 6px;border-radius:8px;border:1px solid #333;color:#aaa;flex-shrink:0}
+.cov-summaries{margin-top:12px}
+.cov-summary{background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:10px 14px;margin-bottom:8px}
+.cov-summary-text{font-size:12px;color:#ccc;margin-bottom:4px}
+.cov-summary-meta{font-size:11px;color:#888;display:flex;gap:12px}
 </style>
 </head>
 <body>
@@ -1161,6 +1200,7 @@ export function auditDashboardHTML(): string {
 <div class="main" id="app-main" style="display:none">
   <div id="questions-panel"></div>
   <div id="findings-summary"></div>
+  <div id="coverage-panel"></div>
   <div id="ws-container"></div>
 </div>
 
@@ -1218,6 +1258,7 @@ export function auditDashboardHTML(): string {
     loadUsers();
     loadQuestions();
     loadFindings();
+    loadCoverage();
   }
 
   var cached=loadCreds();
@@ -1591,11 +1632,12 @@ export function auditDashboardHTML(): string {
   },1000);
 
   // ── Findings summary ──────────────────────────────────────────
+  var _findingsExpanded=false;
   function loadFindings(){
     authFetch("/api/audit/findings?state=all").then(function(r){return r.json();}).then(function(data){
       if(!Array.isArray(data)||!data.length){document.getElementById("findings-summary").innerHTML="";return;}
-      var open=data.filter(function(i){return i.state==="open";}).length;
-      var closed=data.length-open;
+      var openIssues=data.filter(function(i){return i.state==="open";});
+      var closedIssues=data.filter(function(i){return i.state!=="open";});
       var areas={};
       data.forEach(function(i){
         (i.labels||[]).forEach(function(l){
@@ -1604,16 +1646,170 @@ export function auditDashboardHTML(): string {
           }
         });
       });
-      var h='<div class="section"><div class="section-header">Findings <span class="count">('+data.length+')</span></div><div class="findings-bar">';
-      h+='<div class="finding-stat open"><span class="count">'+open+'</span>open</div>';
-      h+='<div class="finding-stat closed"><span class="count">'+closed+'</span>closed</div>';
+      var h='<div class="section"><div class="section-header" onclick="toggleFindings()">Findings <span class="count">('+data.length+')</span> <span class="toggle">'+(_findingsExpanded?"\u25BC":"\u25B6")+'</span></div><div class="findings-bar">';
+      h+='<div class="finding-stat open"><span class="count">'+openIssues.length+'</span>open</div>';
+      h+='<div class="finding-stat closed"><span class="count">'+closedIssues.length+'</span>closed</div>';
       Object.keys(areas).sort().forEach(function(a){
         h+='<div class="finding-stat"><span class="count">'+areas[a]+'</span>'+esc(a)+'</div>';
       });
-      h+='</div></div>';
+      h+='</div>';
+      if(_findingsExpanded){
+        h+='<div class="findings-list">';
+        if(openIssues.length){
+          h+='<div style="font-size:11px;color:#888;margin:8px 0 4px;text-transform:uppercase;letter-spacing:0.5px">Open</div>';
+          openIssues.forEach(function(i){
+            var labels=(i.labels||[]).filter(function(l){return l.name!=="audit-finding";}).map(function(l){
+              return '<span class="finding-label" style="border-color:#'+esc(l.color||"333")+'">'+esc(l.name)+'</span>';
+            }).join("");
+            h+='<a href="'+esc(i.html_url)+'" target="_blank" class="finding-row open">'
+              +'<span class="finding-number">#'+i.number+'</span>'
+              +'<span class="finding-title">'+esc(i.title)+'</span>'
+              +labels
+              +'</a>';
+          });
+        }
+        if(closedIssues.length){
+          h+='<div style="font-size:11px;color:#888;margin:8px 0 4px;text-transform:uppercase;letter-spacing:0.5px">Closed</div>';
+          closedIssues.forEach(function(i){
+            h+='<a href="'+esc(i.html_url)+'" target="_blank" class="finding-row closed">'
+              +'<span class="finding-number">#'+i.number+'</span>'
+              +'<span class="finding-title">'+esc(i.title)+'</span>'
+              +'</a>';
+          });
+        }
+        h+='</div>';
+      }
+      h+='</div>';
       document.getElementById("findings-summary").innerHTML=h;
     }).catch(function(){});
   }
+  window.toggleFindings=function(){_findingsExpanded=!_findingsExpanded;loadFindings();};
+
+  // ── Coverage panel ───────────────────────────────────────────
+  var _openCovMods={};  // modName -> true if expanded
+  function loadCoverage(){
+    authFetch("/api/audit/coverage").then(function(r){return r.json();}).then(function(data){
+      var panel=document.getElementById("coverage-panel");
+      if(!data){panel.innerHTML="";return;}
+
+      var mods=data.modules||{};
+      var modNames=Object.keys(mods).sort();
+      var totalIssues=0;
+      var totalReviewed=data.total_reviewed||0;
+      var totalRepo=data.total_repo_files||0;
+      var pct=totalRepo?Math.round(totalReviewed/totalRepo*100):0;
+      modNames.forEach(function(m){totalIssues+=mods[m].issues_found||0;});
+
+      // Only show modules that have files (either in repo or reviewed)
+      var activeModNames=modNames.filter(function(m){return mods[m].total_files>0||mods[m].files_reviewed>0;});
+
+      var h='<div class="section"><div class="section-header">Audit Coverage <span class="count">'+totalReviewed+'/'+totalRepo+' files ('+pct+'%)</span></div>';
+
+      // Overall progress bar
+      h+='<div style="margin-bottom:14px">';
+      h+='<div style="background:#1a1a1a;border:1px solid #333;border-radius:4px;height:22px;overflow:hidden;position:relative">';
+      h+='<div style="background:linear-gradient(90deg,#7aa2f7,#d876e3);height:100%;width:'+pct+'%;min-width:1px;transition:width 0.3s"></div>';
+      h+='<span style="position:absolute;top:3px;left:8px;font-size:11px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.8)">'+totalReviewed+' / '+totalRepo+' files reviewed ('+pct+'%)</span>';
+      h+='</div></div>';
+
+      // Stats bar
+      h+='<div class="cov-bar">';
+      h+='<div class="cov-stat"><span class="count" style="color:#7aa2f7">'+totalReviewed+'</span>reviewed</div>';
+      h+='<div class="cov-stat"><span class="count">'+totalRepo+'</span>total files</div>';
+      h+='<div class="cov-stat"><span class="count" style="color:#E94560">'+totalIssues+'</span>issues found</div>';
+      h+='<div class="cov-stat"><span class="count">'+data.total_reviews+'</span>total reviews</div>';
+      h+='</div>';
+
+      // Module cards — sort by coverage percentage (reviewed modules first, then by size)
+      activeModNames.sort(function(a,b){
+        var aR=mods[a].files_reviewed,bR=mods[b].files_reviewed;
+        if(aR>0&&bR===0)return -1;
+        if(bR>0&&aR===0)return 1;
+        if(aR>0&&bR>0)return (bR/mods[b].total_files)-(aR/mods[a].total_files);
+        return mods[b].total_files-mods[a].total_files;
+      });
+
+      h+='<div class="cov-modules">';
+      activeModNames.forEach(function(modName){
+        var m=mods[modName];
+        var modPct=m.total_files?Math.round(m.files_reviewed/m.total_files*100):0;
+        var depthCounts={deep:0,"line-by-line":0,cursory:0};
+        (m.files||[]).forEach(function(f){depthCounts[f.review_depth]=(depthCounts[f.review_depth]||0)+1;});
+
+        var borderColor=m.files_reviewed===0?"#333":modPct>=80?"#61D668":modPct>=30?"#7aa2f7":"#FAD979";
+
+        h+='<div class="cov-mod" style="border-color:'+borderColor+'" data-mod="'+esc(modName)+'" onclick="toggleCovFiles(this,event)">';
+        h+='<div style="display:flex;justify-content:space-between;align-items:center">';
+        h+='<div class="cov-mod-name">'+esc(modName)+'</div>';
+        h+='<span style="font-size:11px;color:'+(modPct>0?borderColor:"#555")+'">'+m.files_reviewed+'/'+m.total_files+' ('+modPct+'%)</span>';
+        h+='</div>';
+
+        // Mini progress bar
+        h+='<div style="background:#0d0d0d;border-radius:2px;height:4px;margin:6px 0;overflow:hidden">';
+        if(m.files_reviewed>0){
+          h+='<div style="height:100%;width:'+modPct+'%;min-width:2px;background:'+borderColor+';border-radius:2px"></div>';
+        }
+        h+='</div>';
+
+        h+='<div class="cov-mod-meta">';
+        if(m.issues_found)h+='<span class="issues">'+m.issues_found+' issues</span>';
+        h+='</div>';
+        if(m.files_reviewed>0){
+          h+='<div style="margin-top:4px">';
+          if(depthCounts.deep)h+='<span class="cov-depth deep">'+depthCounts.deep+' deep</span>';
+          if(depthCounts["line-by-line"])h+='<span class="cov-depth line-by-line">'+depthCounts["line-by-line"]+' line-by-line</span>';
+          if(depthCounts.cursory)h+='<span class="cov-depth cursory">'+depthCounts.cursory+' cursory</span>';
+          h+='</div>';
+        }
+
+        // Hidden file list (restored from _openCovMods)
+        if(m.files&&m.files.length){
+          h+='<div class="cov-files'+(_openCovMods[modName]?" open":"")+'">';
+          m.files.forEach(function(f){
+            h+='<div class="cov-file">';
+            h+='<span class="cov-depth '+esc(f.review_depth)+'">'+esc(f.review_depth)+'</span>';
+            h+='<span class="cov-file-path" title="'+esc(f.file_path)+'">'+esc(f.file_path.replace(/^barretenberg\\/cpp\\/src\\/barretenberg\\//,""))+'</span>';
+            if(f.issues_found)h+='<span style="color:#E94560;font-size:10px">'+f.issues_found+' issue'+(f.issues_found>1?"s":"")+'</span>';
+            h+='</div>';
+            if(f.notes)h+='<div class="cov-file-notes">'+esc(f.notes)+'</div>';
+          });
+          h+='</div>';
+        }
+
+        h+='</div>';
+      });
+      h+='</div>';
+
+      // Session summaries
+      if(data.summaries&&data.summaries.length){
+        h+='<div class="cov-summaries"><div style="font-size:11px;color:#666;margin-bottom:6px">Session Summaries</div>';
+        data.summaries.forEach(function(s){
+          h+='<div class="cov-summary">';
+          h+='<div class="cov-summary-text">'+esc(s.summary||"")+'</div>';
+          h+='<div class="cov-summary-meta">';
+          if(s.gist_url)h+='<a href="'+esc(s.gist_url)+'" target="_blank" class="link">gist</a>';
+          h+='<span>'+s.files_reviewed+' files</span>';
+          h+='<span>'+s.issues_filed+' issues</span>';
+          if(s.ts)h+='<span>'+timeAgo(s.ts)+'</span>';
+          h+='</div></div>';
+        });
+        h+='</div>';
+      }
+
+      h+='</div>';
+      panel.innerHTML=h;
+    }).catch(function(){});
+  }
+
+  window.toggleCovFiles=function(el,e){
+    // Don't toggle when clicking inside the expanded file list
+    if(e&&e.target.closest&&e.target.closest(".cov-files"))return;
+    var files=el.querySelector(".cov-files");
+    if(!files)return;
+    files.classList.toggle("open");
+    var mod=el.getAttribute("data-mod");
+    if(mod){if(files.classList.contains("open"))_openCovMods[mod]=true;else delete _openCovMods[mod];}
+  };
 
   setInterval(function(){
     if(document.visibilityState!=="visible")return;
@@ -1621,6 +1817,7 @@ export function auditDashboardHTML(): string {
     if(document.getElementById("new-modal").classList.contains("visible"))return;
     loadDashboard();
     loadFindings();
+    loadCoverage();
   },10000);
 
   // Questions refresh faster (5s) for interactive experience
@@ -1887,7 +2084,7 @@ export function personalDashboardHTML(): string {
     return Math.floor(ms/86400000)+"d ago";
   }
   function esc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
-  function linkify(s){return s.replace(/(https?:\\/\\/[^\\s&<"']+)/g,function(m){var u=m.replace(/[.,;:!?)}\]]+$/,'');return'<a href="'+u+'" target="_blank" class="artifact-link">'+u+'</a>'+m.slice(u.length)});}
+  function linkify(s){return s.replace(/(https?:\\/\\/[^\\s&<"']+)/g,function(m){var u=m.replace(/[.,;:!?)}\]]+$/,'');var rest=m.slice(u.length);for(var i=0;i<rest.length;i++){if(rest[i]===')'&&u.split('(').length>u.split(')').length){u+=rest[i]}else break}return'<a href="'+u+'" target="_blank" class="artifact-link">'+u+'</a>'+m.slice(u.length)});}
 
   // ── Load sessions ─────────────────────────────────
   function loadSessions(){
