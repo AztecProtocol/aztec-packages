@@ -23,7 +23,7 @@ namespace bb {
  *   sixth residue in Fq2.
  * - the coefficients required to compute the frobenius map on the twisted curve: if \Psi : E' --> E is the isomorphism
  *   between the twist E' and the base curve E, then the frobenius map on E' is \Psi^{-1} \circ Frobenius \circ \Psi.
- *   This map is given by (x, y) --> (\xi^{(q-1)/3} * x^p, \xi^{(q-1)/2}} * y^p). We precompute the two powers of \xi
+ *   This map is given by (x, y) --> (\xi^{(q-1)/3} * x^q, \xi^{(q-1)/2}} * y^q). We precompute the two powers of \xi
  *   and store them as frobenius_on_twisted_curve_x and frobenius_on_twisted_curve_y.
  */
 struct Bn254Fq2Params {

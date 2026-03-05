@@ -12,7 +12,7 @@
 
 namespace bb::grumpkin {
 
-// Max num bits such that all numbers represtented by that many bits are smaller than fr::modulus
+// Max num bits such that all numbers represented by that many bits are smaller than fr::modulus
 constexpr size_t MAX_NO_WRAP_INTEGER_BIT_LENGTH = 252;
 static_assert((uint256_t(1) << (MAX_NO_WRAP_INTEGER_BIT_LENGTH + 1)) - 1 < fr::modulus,
               "MAX_NO_WRAP_INTEGER_BIT_LENGTH is too large");
