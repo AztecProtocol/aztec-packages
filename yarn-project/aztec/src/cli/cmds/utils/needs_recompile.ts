@@ -16,8 +16,8 @@ export async function needsRecompile(): Promise<boolean> {
     return true;
   }
 
-  const sourceDirs = await collectSourceDirs('.');
-  return hasNewerSourceFile(sourceDirs, oldestArtifactMs);
+  const crateDirs = await collectCrateDirs('.');
+  return hasNewerSourceFile(crateDirs, oldestArtifactMs);
 }
 
 /** Returns the mtime (in ms) of the oldest .json artifact in targetDir, or undefined if none exist. */
@@ -47,17 +47,17 @@ async function getOldestArtifactMtimeMs(targetDir: string): Promise<number | und
 }
 
 /**
- * Recursively collects source directories starting from startDir by following path-based dependencies declared in
+ * Recursively collects crate directories starting from startCrateDir by following path-based dependencies declared in
  * Nargo.toml files. Git-based deps are ignored (they only change when Nargo.toml itself is modified since the deps are
  * tagged).
  */
-async function collectSourceDirs(startDir: string): Promise<string[]> {
+async function collectCrateDirs(startCrateDir: string): Promise<string[]> {
   // We have a set of visited dirs we check against when entering a new dir because we could stumble upon a directory
   // multiple times in case multiple deps shared a dep (e.g. dep A and dep B both sharing dep C).
   const visited = new Set<string>();
 
-  async function visit(dir: string): Promise<void> {
-    const absDir = resolve(dir);
+  async function visit(crateDir: string): Promise<void> {
+    const absDir = resolve(crateDir);
     if (visited.has(absDir)) {
       return;
     }
@@ -87,14 +87,14 @@ async function collectSourceDirs(startDir: string): Promise<string[]> {
     }
   }
 
-  await visit(startDir);
+  await visit(startCrateDir);
   return [...visited];
 }
 
 /**
- * Walks sourceDirs looking for .nr and Nargo.toml files newer than thresholdMs. Short-circuits on the first match.
+ * Walks crate dirs looking for .nr and Nargo.toml files newer than thresholdMs. Short-circuits on the first match.
  */
-async function hasNewerSourceFile(sourceDirs: string[], thresholdMs: number): Promise<boolean> {
+async function hasNewerSourceFile(crateDirs: string[], thresholdMs: number): Promise<boolean> {
   // Returns true if it find a new file than thresholdMs, false otherwise
   async function walkForNewer(dir: string): Promise<boolean> {
     let entries;
@@ -126,8 +126,8 @@ async function hasNewerSourceFile(sourceDirs: string[], thresholdMs: number): Pr
     return false;
   }
 
-  // We search through the source dirs
-  for (const dir of sourceDirs) {
+  // We search through the crate dirs
+  for (const dir of crateDirs) {
     if (await walkForNewer(dir)) {
       return true;
     }
