@@ -1,4 +1,6 @@
 import {
+  type ABIParameter,
+  type AbiType,
   type FunctionAbi,
   FunctionCall,
   FunctionSelector,
@@ -6,6 +8,7 @@ import {
   canBeMappedFromNullOrUndefined,
   decodeFromAbi,
   encodeArguments,
+  isOptionStruct,
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -46,8 +49,10 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     // the pervasiveness of null/undefined in JS, and how easy it is to inadvertently pass it around. Having this check
     // here allows us to fail at a point where the boundaries and intent are clear.
     if (this.hasInvalidNullOrUndefinedArguments(args)) {
+      const signature = formatFunctionSignature(this.functionDao.name, this.functionDao.parameters);
+      const received = args.map(formatArg).join(', ');
       throw new Error(
-        `Null or undefined function interaction arguments are only allowed for parameters that can be ABI encoded from them (e.g.: Option<T>). Received: ${args}`,
+        `Null or undefined arguments are only allowed for Option<T> parameters in ${signature}. Received: (${received}).`,
       );
     }
   }
@@ -229,4 +234,63 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       this.extraHashedArgs.concat(extraHashedArgs),
     );
   }
+}
+
+/**
+ *  Render an AbiType as a human readable string
+ * */
+function formatAbiType(abiType: AbiType): string {
+  switch (abiType.kind) {
+    case 'field':
+      return 'Field';
+    case 'boolean':
+      return 'bool';
+    case 'integer':
+      return `${abiType.sign === 'signed' ? 'i' : 'u'}${abiType.width}`;
+    case 'string':
+      return `str<${abiType.length}>`;
+    case 'array':
+      return `[${formatAbiType(abiType.type)}; ${abiType.length}]`;
+    case 'struct': {
+      if (isOptionStruct(abiType)) {
+        const innerType = abiType.fields.find(f => f.name === '_value')!.type;
+        return `Option<${formatAbiType(innerType)}>`;
+      }
+      return `(${abiType.fields.map(f => `${f.name}: ${formatAbiType(f.type)}`).join(', ')})`;
+    }
+    case 'tuple':
+      return `(${abiType.fields.map(formatAbiType).join(', ')})`;
+  }
+}
+
+/**
+ * Pretty print a function signature
+ */
+function formatFunctionSignature(name: string, parameters: ABIParameter[]): string {
+  const params = parameters.map(p => `${p.name}: ${formatAbiType(p.type)}`).join(', ');
+  return `${name}(${params})`;
+}
+
+/**
+ * Non-exhaustive pretty print of JS args to display in error messages in this module
+ */
+function formatArg(arg: unknown): string {
+  if (arg === undefined) {
+    return 'undefined';
+  }
+  if (arg === null) {
+    return 'null';
+  }
+  if (typeof arg === 'bigint') {
+    return `${arg}n`;
+  }
+  if (Array.isArray(arg)) {
+    return `[${arg.map(formatArg).join(', ')}]`;
+  }
+  if (typeof arg === 'object') {
+    const entries = Object.entries(arg).map(([k, v]) => `${k}: ${formatArg(v)}`);
+    return `{ ${entries.join(', ')} }`;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-base-to-string
+  return String(arg);
 }

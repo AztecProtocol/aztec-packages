@@ -146,6 +146,37 @@ describe('Contract Class', () => {
         verificationKey: Buffer.alloc(4064).toString('base64'),
         debugSymbols: '',
       },
+      {
+        name: 'mixedParams',
+        isInitializer: false,
+        functionType: FunctionType.PRIVATE,
+        isOnlySelf: false,
+        isStatic: false,
+        parameters: [
+          {
+            name: 'optValue',
+            type: {
+              kind: 'struct',
+              path: 'std::option::Option',
+              fields: [
+                { name: '_is_some', type: { kind: 'boolean' } },
+                { name: '_value', type: { kind: 'field' } },
+              ],
+            },
+            visibility: 'private',
+          },
+          {
+            name: 'aField',
+            type: { kind: 'field' },
+            visibility: 'private',
+          },
+        ],
+        returnTypes: [],
+        errorTypes: {},
+        bytecode: Buffer.alloc(8, 0xfe),
+        verificationKey: Buffer.alloc(4064).toString('base64'),
+        debugSymbols: '',
+      },
     ],
     nonDispatchPublicFunctions: [],
     outputs: {
@@ -208,10 +239,36 @@ describe('Contract Class', () => {
     const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
 
     expect(() => fooContract.methods.bar(undefined, 123n)).toThrow(
-      'Null or undefined function interaction arguments are only allowed for parameters that can be ABI encoded from them (e.g.: Option<T>).',
+      'Null or undefined arguments are only allowed for Option<T> parameters in bar(value: Field, value: Field). Received: (undefined, 123n).',
     );
     expect(() => fooContract.methods.qux(null)).toThrow(
-      'Null or undefined function interaction arguments are only allowed for parameters that can be ABI encoded from them (e.g.: Option<T>).',
+      'Null or undefined arguments are only allowed for Option<T> parameters in qux(value: Field). Received: (null).',
     );
+  });
+
+  it('rejects nullish non-Option param even when Option param is valid', () => {
+    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+
+    expect(() => fooContract.methods.mixedParams({ w: 1n }, undefined)).toThrow(
+      'Null or undefined arguments are only allowed for Option<T> parameters in mixedParams(optValue: Option<Field>, aField: Field). Received: ({ w: 1n }, undefined).',
+    );
+  });
+
+  // Check basic formatting of null/undefined related errors
+  it.each([
+    ['undefined', undefined, 'undefined'],
+    ['null', null, 'null'],
+    ['number', 42, '42'],
+    ['bigint', 123n, '123n'],
+    ['string', 'hello', 'hello'],
+    ['boolean', true, 'true'],
+    ['symbol', Symbol('test'), 'Symbol(test)'],
+    ['object', { a: 1n, b: 'x' }, '{ a: 1n, b: x }'],
+    ['array', [1n, 2n], '[1n, 2n]'],
+  ])('formats %s argument in error message', (_label, value, expectedFormatted) => {
+    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+
+    // pass the test value first and undefined second to trigger the error whose message we want to test for
+    expect(() => fooContract.methods.bar(value, undefined)).toThrow(`Received: (${expectedFormatted}, undefined).`);
   });
 });
