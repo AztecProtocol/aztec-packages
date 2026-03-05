@@ -1,0 +1,53 @@
+# Most basic setup.
+# Should work on old versions of bash.
+
+# Enter our script directory, allowing usage of scripts from any directory.
+[ -z "${NO_CD:-}" ] && cd "$(dirname $0)"
+
+# We export so we can use from exported functions.
+export root=${root:-$(git rev-parse --show-toplevel)}
+export ci3="$root/ci3"
+
+# Update PATH with ci3 tools.
+if [[ "$PATH" != *"$ci3:" ]]; then
+  export PATH=$ci3:$PATH
+
+  # We're on the github runner, we're about to launch ec2 instances with our container, but we need:
+  #  - redis-cli for logging.
+  #  - parallel for running commands in parallel.
+  if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+    export PATH=$ci3/bin:$PATH
+  fi
+fi
+
+# We use this path to normalise tool names.
+# e.g. on macos we link brews llvm clang++ binary to clang++20 to align with linux.
+export AZTEC_DEV_BIN="$HOME/.local/aztec-dev-bin"
+export PATH=$AZTEC_DEV_BIN:$PATH
+
+# On macOS, prefer GNU tools where available for better compatibility with our scripts.
+if [[ "$(os)" == "macos" ]]; then
+  brew_prefix=$(brew --prefix)
+  export PATH=$brew_prefix/opt/gnu-sed/libexec/gnubin:$brew_prefix/opt/coreutils/libexec/gnubin:$brew_prefix/opt/util-linux/bin:$brew_prefix/opt/grep/libexec/gnubin:$PATH
+fi
+
+[ -z "${CI:-}" ] && export CI=0
+[ "$CI" == "true" ] && export CI=1
+
+# We are fine using foundry nightly.
+export FOUNDRY_DISABLE_NIGHTLY_WARNING=1
+
+# Corepack should download without prompting.
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+
+# Silences some warnings from perl.
+export LC_ALL=
+export LANG=C
+
+# GNU parallel sets XDG_CACHE_HOME to empty string in child processes.
+# This causes corepack to resolve its cache as a relative path (node/corepack/),
+# placing yarn.js under the CWD. If a package.json there has "type": "module",
+# Node loads yarn.js as ESM, breaking its require() calls.
+# Setting COREPACK_HOME explicitly is robust: corepack checks it first,
+# and parallel doesn't touch it (only XDG_* vars).
+export COREPACK_HOME="${COREPACK_HOME:-${HOME}/.cache/node/corepack}"

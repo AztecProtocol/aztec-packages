@@ -35,13 +35,13 @@
     },
     {
       "name": "clang20",
-      "displayName": "Build with Zig (glibc 2.35)",
-      "description": "Build with Zig-wrapped Clang targeting glibc 2.35 (Ubuntu 22.04+)",
+      "displayName": "Build with Zig (glibc 2.35 on Linux)",
+      "description": "Build with Zig-wrapped Clang. On Linux, pins glibc 2.35 (Ubuntu 22.04+). On macOS, uses native target.",
       "inherits": "default",
       "binaryDir": "build",
       "environment": {
-        "CC": "zig cc -target native-linux-gnu.2.35",
-        "CXX": "zig c++ -target native-linux-gnu.2.35"
+        "CC": "${sourceDir}/scripts/zig-cc.sh",
+        "CXX": "${sourceDir}/scripts/zig-c++.sh"
       },
       "cacheVariables": {
         "CMAKE_AR": "${sourceDir}/scripts/zig-ar.sh",
