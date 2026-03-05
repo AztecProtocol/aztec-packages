@@ -42,9 +42,9 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder, const Ecd
 {
     using Builder = Curve::Builder;
 
-    using Fq = Curve::fq_ct;
-    using Fr = Curve::bigfr_ct;
-    using G1 = Curve::g1_bigfr_ct;
+    using Fq = Curve::BaseField;
+    using Fr = Curve::ScalarField;
+    using G1 = Curve::Group;
 
     using field_ct = bb::stdlib::field_t<Builder>;
     using bool_ct = bb::stdlib::bool_t<Builder>;

@@ -72,7 +72,7 @@ class EcdsaCircuit {
         }
 
         // IN CIRCUIT: create a witness with the pub key in our circuit
-        typename curve::g1_bigfr_ct public_key = curve::g1_bigfr_ct::from_witness(&builder, account.public_key);
+        typename curve::Group public_key = curve::Group::from_witness(&builder, account.public_key);
 
         std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
         std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
@@ -88,9 +88,9 @@ class EcdsaCircuit {
         // IN CIRCUIT: verify the signature
         typename curve::bool_ct signature_result = stdlib::ecdsa_verify_signature<Builder,
                                                                                   curve,
-                                                                                  typename curve::fq_ct,
-                                                                                  typename curve::bigfr_ct,
-                                                                                  typename curve::g1_bigfr_ct>(
+                                                                                  typename curve::BaseField,
+                                                                                  typename curve::ScalarField,
+                                                                                  typename curve::Group>(
             // hashed_message, public_key, sig);
             hashed_message,
             public_key,

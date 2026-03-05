@@ -23,8 +23,8 @@ auto& engine = numeric::get_debug_randomness();
 template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
   public:
     // We always use bigfield for secp256k1 as the scalar field is large.
-    using element_ct = typename Curve::g1_bigfr_ct;
-    using scalar_ct = typename Curve::bigfr_ct;
+    using element_ct = typename Curve::Group;
+    using scalar_ct = typename Curve::ScalarField;
 
     using fq = typename Curve::fq;
     using fr = typename Curve::fr;
@@ -47,7 +47,7 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
         // Helper for easier invocation
         auto get_val = [](uint64_t fragment_u64, uint64_t stagger, bool is_negative, bool wnaf_skew) {
             return stdlib::element_default::element_test_accessor::
-                get_staggered_wnaf_fragment_value<Builder, typename Curve::fq_ct, scalar_ct, g1, wnaf_size>(
+                get_staggered_wnaf_fragment_value<Builder, typename Curve::BaseField, scalar_ct, g1, wnaf_size>(
                     fragment_u64, stagger, is_negative, wnaf_skew);
         };
 

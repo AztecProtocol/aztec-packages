@@ -14,9 +14,6 @@ namespace bb::stdlib {
 
 template <typename CircuitBuilder> struct bn254 {
     static constexpr bb::CurveType type = bb::CurveType::BN254;
-    // TODO(#673): This flag is temporary. It is needed in the verifier classes (GeminiVerifier, etc.) while these
-    // classes are instantiated with "native" curve types. Eventually, the verifier classes will be instantiated only
-    // with stdlib types, and "native" verification will be acheived via a simulated builder.
     static constexpr bool is_stdlib_type = true;
     using NativeCurve = curve::BN254;
 
@@ -42,9 +39,6 @@ template <typename CircuitBuilder> struct bn254 {
     using public_witness_ct = public_witness_t<CircuitBuilder>;
     using byte_array_ct = byte_array<CircuitBuilder>;
     using bool_ct = bool_t<CircuitBuilder>;
-
-    using bigfr_ct = bigfield<CircuitBuilder, bb::Bn254FrParams>;
-    using g1_bigfr_ct = element<CircuitBuilder, BaseField, bigfr_ct, GroupNative>;
 
     // Required by SmallSubgroupIPA argument
     static constexpr size_t SUBGROUP_SIZE = 256;

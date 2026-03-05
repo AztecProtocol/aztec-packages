@@ -186,9 +186,9 @@ template <typename Builder> void generate_ecdsa_verification_test_circuit(Builde
     using G1Native = typename Curve::g1;
 
     // Stdlib types
-    using Fr = typename Curve::bigfr_ct;
-    using Fq = typename Curve::fq_ct;
-    using G1 = typename Curve::g1_bigfr_ct;
+    using Fr = typename Curve::ScalarField;
+    using Fq = typename Curve::BaseField;
+    using G1 = typename Curve::Group;
 
     std::string message_string = "Instructions unclear, ask again later.";
 

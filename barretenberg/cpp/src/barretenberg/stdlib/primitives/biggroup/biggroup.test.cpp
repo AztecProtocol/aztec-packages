@@ -36,15 +36,15 @@ concept HasGoblinBuilder = IsMegaBuilder<typename T::Curve::Builder>;
 
 // One can only define a TYPED_TEST with a single template paramter.
 // Our workaround is to pass parameters of the following type.
-template <typename _Curve, bool _use_bigfield = false> struct TestType {
+template <typename Curve_, typename ScalarField_, bool use_bigfield> struct TestType {
   public:
-    using Curve = _Curve;
-    static const bool use_bigfield = _use_bigfield;
-    using element_ct =
-        typename std::conditional<_use_bigfield, typename Curve::g1_bigfr_ct, typename Curve::Group>::type;
+    using Curve = Curve_;
+    // The base field is always a bigfield, so we only have to select the scalar field type
+    using bigfield_element = bb::stdlib::
+        element<typename Curve::Builder, typename Curve::BaseField, ScalarField_, typename Curve::GroupNative>;
+    using element_ct = std::conditional_t<use_bigfield, bigfield_element, typename Curve::Group>;
     // the field of scalars acting on element_ct
-    using scalar_ct =
-        typename std::conditional<_use_bigfield, typename Curve::bigfr_ct, typename Curve::ScalarField>::type;
+    using scalar_ct = ScalarField_;
 };
 
 STANDARD_TESTING_TAGS
@@ -2348,22 +2348,27 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 };
 
 // bn254 with ultra arithmetisation where scalar field is native field, base field is non-native field (bigfield)
-using bn254_with_ultra = stdlib_biggroup<TestType<stdlib::bn254<bb::UltraCircuitBuilder>, /*_use_bigfield=*/false>>;
+using bn254_with_ultra =
+    TestType<stdlib::bn254<bb::UltraCircuitBuilder>, stdlib::bn254<bb::UltraCircuitBuilder>::ScalarField, false>;
 
 // bn254 with ultra arithmetisation where both scalar and base fields are non-native fields
-using bn254_with_ultra_scalar_bigfield =
-    stdlib_biggroup<TestType<stdlib::bn254<bb::UltraCircuitBuilder>, /*_use_bigfield=*/true>>;
+using bn254_with_ultra_scalar_bigfield = TestType<stdlib::bn254<bb::UltraCircuitBuilder>,
+                                                  bb::stdlib::bigfield<bb::UltraCircuitBuilder, bb::Bn254FrParams>,
+                                                  true>;
 
 // bn254 with mega arithmetisation where scalar field is native field, base field is non-native field
-using bn254_with_mega = stdlib_biggroup<TestType<stdlib::bn254<bb::MegaCircuitBuilder>, /*_use_bigfield=*/false>>;
+using bn254_with_mega =
+    TestType<stdlib::bn254<bb::MegaCircuitBuilder>, stdlib::bn254<bb::MegaCircuitBuilder>::ScalarField, false>;
 
 // secp256r1 with ultra arithmetisation where both scalar and base fields are (naturally) non-native fields
-using secp256r1_with_ultra =
-    stdlib_biggroup<TestType<stdlib::secp256r1<bb::UltraCircuitBuilder>, /*_use_bigfield=*/true>>;
+using secp256r1_with_ultra = TestType<stdlib::secp256r1<bb::UltraCircuitBuilder>,
+                                      stdlib::secp256r1<bb::UltraCircuitBuilder>::ScalarField,
+                                      false>;
 
 // secp256k1 with ultra arithmetisation where both scalar and base fields are (naturally) non-native fields
-using secp256k1_with_ultra =
-    stdlib_biggroup<TestType<stdlib::secp256k1<bb::UltraCircuitBuilder>, /*_use_bigfield=*/true>>;
+using secp256k1_with_ultra = TestType<stdlib::secp256k1<bb::UltraCircuitBuilder>,
+                                      stdlib::secp256k1<bb::UltraCircuitBuilder>::ScalarField,
+                                      false>;
 
 using TestTypes = testing::Types<bn254_with_ultra,
                                  bn254_with_ultra_scalar_bigfield,
