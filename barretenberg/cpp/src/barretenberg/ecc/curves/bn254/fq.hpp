@@ -48,7 +48,7 @@ class Bn254FqParams {
     static constexpr uint64_t r_inv = 0x87d20782e4866389UL;
 
     // 2^(-64) mod Modulus
-    // Used in the reduction mechanism from https://hackmd.io/@Ingonyama/Barret-Montgomery
+    // Used in the reduction mechanism, see field_docs.md
     // Instead of computing k, we multiply the lowest limb by this value and then add to the following 5 limbs.
     // This saves us from having to compute k
     static constexpr uint64_t r_inv_0 = 0x327d7c1b18f7bd41UL;
@@ -94,7 +94,7 @@ class Bn254FqParams {
     static constexpr uint64_t r_squared_wasm_3 = 0x2a11a68c34ea65a6UL;
 
     // 2^(-29) mod Modulus
-    // Used in the reduction mechanism from https://hackmd.io/@Ingonyama/Barret-Montgomery
+    // Used in the reduction mechanism, see field_docs.md
     // Instead of computing k, we multiply the lowest limb by this value and then add to the following 10 limbs.
     // This saves us from having to compute k
     static constexpr uint64_t r_inv_wasm_0 = 0x17789a9f;

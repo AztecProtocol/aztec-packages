@@ -44,7 +44,7 @@ struct FqParams {
     static constexpr uint64_t r_inv = 1;
 
     // 2^(-64) mod Modulus
-    // Used in the reduction mechanism from https://hackmd.io/@Ingonyama/Barret-Montgomery
+    // Used in the reduction mechanism, see field_docs.md
     // Instead of computing k, we multiply the lowest limb by this value and then add to the following 5 limbs.
     // This saves us from having to compute k
     static constexpr uint64_t r_inv_0 = 0x100000000UL;
@@ -91,7 +91,7 @@ struct FqParams {
     static constexpr uint64_t r_squared_wasm_3 = 0x000013fffffff7ffUL;
 
     // 2^(-29) mod Modulus
-    // Used in the reduction mechanism from https://hackmd.io/@Ingonyama/Barret-Montgomery
+    // Used in the reduction mechanism, see field_docs.md
     // Instead of computing k, we multiply the lowest limb by this value and then add to the following 10 limbs.
     // This saves us from having to compute k
     static constexpr uint64_t r_inv_wasm_0 = 0x0;
@@ -160,7 +160,7 @@ struct FrParams {
     static constexpr uint64_t r_inv = 14758798090332847183ULL;
 
     // 2^(-64) mod Modulus
-    // Used in the reduction mechanism from https://hackmd.io/@Ingonyama/Barret-Montgomery
+    // Used in the reduction mechanism, see field_docs.md
     // Instead of computing k, we multiply the lowest limb by this value and then add to the following 5 limbs.
     // This saves us from having to compute k
     static constexpr uint64_t r_inv_0 = 0x230102a06d6251dcUL;
@@ -207,7 +207,7 @@ struct FrParams {
     static constexpr uint64_t r_squared_wasm_3 = 0x84b6556a65587f06UL;
 
     // 2^(-29) mod Modulus
-    // Used in the reduction mechanism from https://hackmd.io/@Ingonyama/Barret-Montgomery
+    // Used in the reduction mechanism, see field_docs.md
     // Instead of computing k, we multiply the lowest limb by this value and then add to the following 5 limbs.
     // This saves us from having to compute k
     static constexpr uint64_t r_inv_wasm_0 = 0x8517c79;

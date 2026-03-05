@@ -17,7 +17,7 @@ TEST(Bn254Constants, SubgroupGenerator)
 {
     fr subgroup_generator = bb::curve::BN254::subgroup_generator;
     fr subgroup_generator_inverse = bb::curve::BN254::subgroup_generator_inverse;
-    fr expected = fr(5).pow(fr::modulus / (uint256_t(1) << 8));
+    fr expected = fr(5).pow((fr::modulus - 1) / (uint256_t(1) << 8));
     fr expected_inverse = expected.invert();
 
     EXPECT_EQ(subgroup_generator, expected);
