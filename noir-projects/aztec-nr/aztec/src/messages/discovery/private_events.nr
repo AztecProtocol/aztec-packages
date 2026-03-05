@@ -1,5 +1,6 @@
 use crate::{
     event::event_interface::compute_private_serialized_event_commitment,
+    logging::aztecnr_warn_log_format,
     messages::{
         encoding::MAX_MESSAGE_CONTENT_LEN, logs::event::decode_private_event_message,
         processing::enqueue_event_for_validation,
@@ -20,15 +21,21 @@ pub(crate) unconstrained fn process_private_event_msg(
     let event_commitment =
         compute_private_serialized_event_commitment(serialized_event, randomness, event_type_id.to_field());
 
-    assert(check_nullifier_exists(event_commitment), "Event commitment is not present in the nullifier tree");
-
-    enqueue_event_for_validation(
-        contract_address,
-        event_type_id,
-        randomness,
-        serialized_event,
-        event_commitment,
-        tx_hash,
-        recipient,
-    );
+    if check_nullifier_exists(event_commitment) {
+        enqueue_event_for_validation(
+            contract_address,
+            event_type_id,
+            randomness,
+            serialized_event,
+            event_commitment,
+            tx_hash,
+            recipient,
+        );
+    } else {
+        aztecnr_warn_log_format!(
+            "Event commitment is not present in the nullifier tree for tx {0}, ignoring",
+        )(
+            [tx_hash],
+        );
+    }
 }
