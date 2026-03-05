@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
 import { API_SECRET, SESSION_PAGE_USER, SESSION_PAGE_PASS, MAX_CONCURRENT, getActiveSessions, SLACK_BOT_TOKEN, CHANNEL_BASE_BRANCHES, DEFAULT_BASE_BRANCH, GH_TOKEN } from "./config.ts";
-import { existsSync, readFileSync, watch } from "fs";
+import { existsSync, readFileSync, readdirSync, statSync, watch } from "fs";
 import { join } from "path";
 import type { SessionStore } from "./session-store.ts";
 import type { DockerService } from "./docker.ts";
@@ -658,6 +658,174 @@ const routes: Route[] = [
         .map(l => { try { return JSON.parse(l); } catch { return null; } })
         .filter(Boolean);
       json(res, 200, entries);
+    },
+  },
+
+  // GET /api/audit/coverage — file review coverage stats with local repo totals + quality dimensions
+  {
+    method: "GET", pattern: /^\/api\/audit\/coverage$/, auth: "basic",
+    handler: async (_req, res) => {
+      const statsDir = process.env.CLAUDEBOX_STATS_DIR || `${process.env.HOME}/.claudebox/stats`;
+
+      function readJsonl(filename: string): any[] {
+        const f = join(statsDir, filename);
+        if (!existsSync(f)) return [];
+        const entries: any[] = [];
+        readFileSync(f, "utf-8").split("\n").filter(l => l.trim()).forEach(l => {
+          try { entries.push(JSON.parse(l)); } catch {}
+        });
+        return entries;
+      }
+
+      const reviews = readJsonl("audit_file_review.jsonl");
+      const summaries = readJsonl("audit_summary.jsonl");
+      const artifacts = readJsonl("audit_artifact.jsonl");
+
+      // Dedupe files — keep deepest review per (file_path, dimension)
+      const depthOrder: Record<string, number> = { cursory: 0, "line-by-line": 1, deep: 2 };
+      const dims = ["code", "crypto", "test"];
+
+      // Also keep a flat dedup (any dimension) for backward compat
+      const byFile = new Map<string, any>();
+      const byFileDim = new Map<string, any>(); // key: "path::dim"
+      for (const r of reviews) {
+        const dim = r.quality_dimension || "code";
+
+        // Flat dedup (deepest across all dimensions)
+        const existingFlat = byFile.get(r.file_path);
+        if (!existingFlat || (depthOrder[r.review_depth] ?? 0) > (depthOrder[existingFlat.review_depth] ?? 0)) {
+          byFile.set(r.file_path, r);
+        }
+
+        // Per-dimension dedup
+        const key = `${r.file_path}::${dim}`;
+        const existingDim = byFileDim.get(key);
+        if (!existingDim || (depthOrder[r.review_depth] ?? 0) > (depthOrder[existingDim.review_depth] ?? 0)) {
+          byFileDim.set(key, { ...r, quality_dimension: dim });
+        }
+      }
+
+      // Scan local barretenberg repo for total file counts per module
+      const repoDir = process.env.CLAUDE_REPO_DIR || join(process.env.HOME || "", "aztec-packages");
+      const bbSrcDir = join(repoDir, "barretenberg/cpp/src/barretenberg");
+      const moduleTotals = new Map<string, string[]>();
+      function scanDir(dir: string, relBase: string) {
+        try {
+          for (const entry of readdirSync(dir)) {
+            const full = join(dir, entry);
+            const rel = relBase ? `${relBase}/${entry}` : entry;
+            try {
+              const st = statSync(full);
+              if (st.isDirectory()) scanDir(full, rel);
+              else if (entry.endsWith(".hpp") || entry.endsWith(".cpp")) {
+                const mod = relBase.split("/")[0] || "root";
+                if (!moduleTotals.has(mod)) moduleTotals.set(mod, []);
+                moduleTotals.get(mod)!.push(`barretenberg/cpp/src/barretenberg/${rel}`);
+              }
+            } catch {}
+          }
+        } catch {}
+      }
+      if (existsSync(bbSrcDir)) scanDir(bbSrcDir, "");
+
+      // Group reviews by module (flat)
+      const byModule = new Map<string, { files: any[], issues: number }>();
+      for (const r of byFile.values()) {
+        const mod = r.module || "unknown";
+        if (!byModule.has(mod)) byModule.set(mod, { files: [], issues: 0 });
+        const m = byModule.get(mod)!;
+        m.files.push(r);
+        m.issues += r.issues_found || 0;
+      }
+
+      // Group reviews by module + dimension
+      type DimData = { files: any[], issues: number };
+      const byModuleDim = new Map<string, Record<string, DimData>>();
+      for (const r of byFileDim.values()) {
+        const mod = r.module || "unknown";
+        const dim = r.quality_dimension || "code";
+        if (!byModuleDim.has(mod)) byModuleDim.set(mod, {});
+        const modData = byModuleDim.get(mod)!;
+        if (!modData[dim]) modData[dim] = { files: [], issues: 0 };
+        modData[dim].files.push(r);
+        modData[dim].issues += r.issues_found || 0;
+      }
+
+      // Build module response
+      const allModules = new Set([...byModule.keys(), ...moduleTotals.keys()]);
+      let totalRepoFiles = 0;
+      for (const files of moduleTotals.values()) totalRepoFiles += files.length;
+
+      const moduleData: Record<string, any> = {};
+      for (const mod of [...allModules].sort()) {
+        const reviewed = byModule.get(mod);
+        const total = moduleTotals.get(mod);
+        const dimData = byModuleDim.get(mod) || {};
+
+        const dimensions: Record<string, any> = {};
+        for (const dim of dims) {
+          const d = dimData[dim];
+          dimensions[dim] = {
+            files_reviewed: d?.files.length || 0,
+            issues_found: d?.issues || 0,
+            files: (d?.files || []).map((f: any) => ({
+              file_path: f.file_path,
+              review_depth: f.review_depth,
+              issues_found: f.issues_found,
+              notes: f.notes || "",
+              ts: f._ts,
+              session: f._log_id,
+            })),
+          };
+        }
+
+        moduleData[mod] = {
+          total_files: total?.length || 0,
+          files_reviewed: reviewed?.files.length || 0,
+          issues_found: reviewed?.issues || 0,
+          dimensions,
+          files: (reviewed?.files || []).map((f: any) => ({
+            file_path: f.file_path,
+            review_depth: f.review_depth,
+            issues_found: f.issues_found,
+            notes: f.notes || "",
+            ts: f._ts,
+            session: f._log_id,
+          })),
+        };
+      }
+
+      // Dimension totals
+      const dimensionTotals: Record<string, { files: number, issues: number }> = {};
+      for (const dim of dims) {
+        let files = 0, issues = 0;
+        for (const modData of byModuleDim.values()) {
+          if (modData[dim]) { files += modData[dim].files.length; issues += modData[dim].issues; }
+        }
+        dimensionTotals[dim] = { files, issues };
+      }
+
+      json(res, 200, {
+        total_repo_files: totalRepoFiles,
+        total_reviewed: byFile.size,
+        total_reviews: reviews.length,
+        modules: moduleData,
+        dimension_totals: dimensionTotals,
+        artifacts: {
+          issues: { open: 0, closed: 0, total: artifacts.filter(a => a.artifact_type === "issue").length },
+          prs: { total: artifacts.filter(a => a.artifact_type === "pr").length },
+          gists: artifacts.filter(a => a.artifact_type === "gist").length,
+        },
+        summaries: summaries.map(s => ({
+          gist_url: s.gist_url,
+          modules_covered: s.modules_covered,
+          files_reviewed: s.files_reviewed,
+          issues_filed: s.issues_filed,
+          summary: s.summary,
+          ts: s._ts,
+          session: s._log_id,
+        })),
+      });
     },
   },
 

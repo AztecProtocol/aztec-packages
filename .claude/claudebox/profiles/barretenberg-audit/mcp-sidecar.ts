@@ -63,12 +63,28 @@ function createServer(): McpServer {
     fallbackRef: "origin/master",
     refHint: "'origin/main', 'abc123'",
     description: "Clone the barretenberg-claude repo (private). Uses authenticated URL. Safe to call on resume — fetches new refs. Call FIRST before doing any work.",
+    skipSubmodules: true,
   });
 
   registerPRTools(server, {
     repo: REPO, workspace: WORKSPACE,
     branchPrefix: "audit/", defaultBase: "master",
   });
+
+  // ── Helpers ─────────────────────────────────────────────────────
+
+  function recordArtifact(artifact_type: string, artifact_url: string, artifact_id: string, quality_dimension: string, severity: string, modules: string[], title: string) {
+    try {
+      mkdirSync(STATS_DIR, { recursive: true });
+      appendFileSync(join(STATS_DIR, "audit_artifact.jsonl"), JSON.stringify({
+        _ts: new Date().toISOString(),
+        _log_id: SESSION_META.log_id,
+        _worktree_id: WORKTREE_ID,
+        _user: SESSION_META.user,
+        artifact_type, artifact_url, artifact_id, quality_dimension, severity, modules, title,
+      }) + "\n");
+    } catch {}
+  }
 
   // ── create_issue — audit-only ─────────────────────────────────
   server.tool("create_issue",
@@ -77,8 +93,11 @@ function createServer(): McpServer {
       title: z.string().describe("Issue title — short summary of the finding"),
       body: z.string().describe("Issue body (Markdown) — detailed description, affected code, severity, reproduction steps"),
       labels: z.array(z.string()).optional().describe("Labels, e.g. ['security', 'high-severity']"),
+      quality_dimension: z.enum(["code", "crypto", "test"]).default("code").describe("Quality axis: code (implementation), crypto (mathematical/cryptographic), test (test quality)"),
+      severity: z.enum(["critical", "high", "medium", "low", "info"]).default("medium").describe("Finding severity"),
+      modules: z.array(z.string()).optional().describe("Affected barretenberg modules, e.g. ['ecc', 'crypto']"),
     },
-    async ({ title, body, labels }) => {
+    async ({ title, body, labels, quality_dimension, severity, modules }) => {
       if (!GH_TOKEN) return { content: [{ type: "text", text: "No GH_TOKEN" }], isError: true };
 
       try {
@@ -98,6 +117,9 @@ function createServer(): McpServer {
         otherArtifacts.push(`- [Issue #${issue.number}: ${title}](${issue.html_url})`);
         logActivity("artifact", `Issue #${issue.number}: ${title} — ${issue.html_url}`);
         await updateRootComment();
+
+        // Auto-record artifact for correlation
+        recordArtifact("issue", issue.html_url, String(issue.number), quality_dimension, severity, modules || [], title);
 
         return { content: [{ type: "text", text: `${issue.html_url}\n#${issue.number}` }] };
       } catch (e: any) {
@@ -341,7 +363,12 @@ Be honest about your assessment:
 - critical = found security-relevant issues
 - thorough = deep line-by-line review, no critical issues found
 - surface = quick scan, identified areas for deeper review
-- incomplete = could not finish due to complexity or missing context`,
+- incomplete = could not finish due to complexity or missing context
+
+Also rate each quality dimension you covered:
+- code = implementation correctness (UB, memory safety, API design)
+- crypto = cryptographic correctness (math, protocol security, side-channels)
+- test = test adequacy (coverage, edge cases, assertions)`,
     {
       rating: z.enum(["critical", "thorough", "surface", "incomplete"]).describe("Self-assessment rating"),
       modules_reviewed: z.array(z.string()).describe("Source paths reviewed, e.g. ['barretenberg/cpp/src/barretenberg/ecc/curves']"),
@@ -349,8 +376,11 @@ Be honest about your assessment:
       questions_count: z.number().describe("Number of question issues posted this session"),
       confidence: z.number().min(0).max(1).describe("Confidence in the review (0 = guessing, 1 = certain)"),
       summary: z.string().describe("2-3 sentence summary of what was covered and key findings"),
+      code_rating: z.enum(["thorough", "surface", "none"]).default("none").describe("Code quality review depth"),
+      crypto_rating: z.enum(["thorough", "surface", "none"]).default("none").describe("Crypto quality review depth"),
+      test_rating: z.enum(["thorough", "surface", "none"]).default("none").describe("Test quality review depth"),
     },
-    async ({ rating, modules_reviewed, findings_count, questions_count, confidence, summary }) => {
+    async ({ rating, modules_reviewed, findings_count, questions_count, confidence, summary, code_rating, crypto_rating, test_rating }) => {
       try {
         const entry = {
           _ts: new Date().toISOString(),
@@ -363,6 +393,9 @@ Be honest about your assessment:
           questions_count,
           confidence,
           summary,
+          code_rating,
+          crypto_rating,
+          test_rating,
         };
 
         // Write to stats JSONL
@@ -370,10 +403,11 @@ Be honest about your assessment:
         appendFileSync(join(STATS_DIR, "audit_assessment.jsonl"), JSON.stringify(entry) + "\n");
 
         // Log to activity for status page
-        logActivity("status", `Assessment: ${rating.toUpperCase()} (${Math.round(confidence * 100)}% confidence) — ${summary}`);
+        const dims = [code_rating !== "none" ? `code:${code_rating}` : "", crypto_rating !== "none" ? `crypto:${crypto_rating}` : "", test_rating !== "none" ? `test:${test_rating}` : ""].filter(Boolean).join(", ");
+        logActivity("status", `Assessment: ${rating.toUpperCase()} (${Math.round(confidence * 100)}% confidence) [${dims}] — ${summary}`);
         await updateRootComment();
 
-        return { content: [{ type: "text", text: `Assessment recorded: ${rating} (${modules_reviewed.length} modules, ${findings_count} findings, ${questions_count} questions)` }] };
+        return { content: [{ type: "text", text: `Assessment recorded: ${rating} (${modules_reviewed.length} modules, ${findings_count} findings, ${questions_count} questions) [${dims}]` }] };
       } catch (e: any) {
         return { content: [{ type: "text", text: `self_assess: ${sanitizeError(e.message)}` }], isError: true };
       }
@@ -381,96 +415,116 @@ Be honest about your assessment:
 
   // ── audit_history — read prior audit stats for continuity ───────
   server.tool("audit_history",
-    `Get a summary of all prior audit work: file coverage by module, session assessments, session summary gists, and open issues.
+    `Get a summary of all prior audit work: file coverage by module and quality dimension, session assessments, artifacts, and gists.
 Call this EARLY in your session to understand what has already been reviewed and where to focus next.
-The response includes:
-- Per-module file coverage (reviewed vs total, depth levels)
-- Recent session assessments (rating, summary, confidence)
-- Session summary gist URLs (detailed findings)
-- List of all reviewed files with notes`,
+
+Quality dimensions tracked: code (implementation), crypto (cryptographic correctness), test (test quality).
+Each file can be reviewed independently on each dimension. Completion = all three dimensions adequately covered.`,
     {},
     async () => {
       const lines: string[] = [];
 
-      // Read file reviews
-      const reviewFile = join(STATS_DIR, "audit_file_review.jsonl");
-      const reviews: any[] = [];
-      if (existsSync(reviewFile)) {
-        readFileSync(reviewFile, "utf-8").split("\n").filter(l => l.trim()).forEach(l => {
-          try { reviews.push(JSON.parse(l)); } catch {}
+      function readJsonl(filename: string): any[] {
+        const f = join(STATS_DIR, filename);
+        if (!existsSync(f)) return [];
+        const entries: any[] = [];
+        readFileSync(f, "utf-8").split("\n").filter(l => l.trim()).forEach(l => {
+          try { entries.push(JSON.parse(l)); } catch {}
         });
+        return entries;
       }
 
-      // Read assessments
-      const assessFile = join(STATS_DIR, "audit_assessment.jsonl");
-      const assessments: any[] = [];
-      if (existsSync(assessFile)) {
-        readFileSync(assessFile, "utf-8").split("\n").filter(l => l.trim()).forEach(l => {
-          try { assessments.push(JSON.parse(l)); } catch {}
-        });
-      }
+      const reviews = readJsonl("audit_file_review.jsonl");
+      const assessments = readJsonl("audit_assessment.jsonl");
+      const summaries = readJsonl("audit_summary.jsonl");
+      const artifacts = readJsonl("audit_artifact.jsonl");
 
-      // Read summaries
-      const summaryFile = join(STATS_DIR, "audit_summary.jsonl");
-      const summaries: any[] = [];
-      if (existsSync(summaryFile)) {
-        readFileSync(summaryFile, "utf-8").split("\n").filter(l => l.trim()).forEach(l => {
-          try { summaries.push(JSON.parse(l)); } catch {}
-        });
-      }
-
-      // Dedupe files — keep deepest review per file_path
+      // Dedupe files — keep deepest review per (file_path, dimension) pair
       const depthOrder: Record<string, number> = { cursory: 0, "line-by-line": 1, deep: 2 };
-      const byFile = new Map<string, any>();
+      const dims = ["code", "crypto", "test"] as const;
+      // Key: "file_path::dimension"
+      const byFileDim = new Map<string, any>();
       for (const r of reviews) {
-        const existing = byFile.get(r.file_path);
+        const dim = r.quality_dimension || "code";
+        const key = `${r.file_path}::${dim}`;
+        const existing = byFileDim.get(key);
         if (!existing || (depthOrder[r.review_depth] ?? 0) > (depthOrder[existing.review_depth] ?? 0)) {
-          byFile.set(r.file_path, r);
+          byFileDim.set(key, { ...r, quality_dimension: dim });
         }
       }
 
-      // Group by module
-      const byModule = new Map<string, { files: any[], issues: number }>();
-      for (const r of byFile.values()) {
+      // Group by module → dimension
+      type DimStats = { files: any[], issues: number };
+      const byModule = new Map<string, Record<string, DimStats>>();
+      for (const r of byFileDim.values()) {
         const mod = r.module || "unknown";
-        if (!byModule.has(mod)) byModule.set(mod, { files: [], issues: 0 });
-        const m = byModule.get(mod)!;
-        m.files.push(r);
-        m.issues += r.issues_found || 0;
+        const dim = r.quality_dimension || "code";
+        if (!byModule.has(mod)) byModule.set(mod, {});
+        const modData = byModule.get(mod)!;
+        if (!modData[dim]) modData[dim] = { files: [], issues: 0 };
+        modData[dim].files.push(r);
+        modData[dim].issues += r.issues_found || 0;
       }
 
-      // Format output
+      // Unique files (any dimension)
+      const uniqueFiles = new Set<string>();
+      for (const r of byFileDim.values()) uniqueFiles.add(r.file_path);
+
       lines.push(`# Audit History`);
-      lines.push(`Total unique files reviewed: ${byFile.size}`);
-      lines.push(`Total review entries: ${reviews.length}`);
+      lines.push(`Total unique files reviewed: ${uniqueFiles.size}`);
+      lines.push(`Total review entries: ${reviews.length} (${byFileDim.size} deduped across dimensions)`);
       lines.push(`Total sessions assessed: ${assessments.length}`);
+      lines.push(`Total artifacts: ${artifacts.length} (${artifacts.filter(a => a.artifact_type === "issue").length} issues, ${artifacts.filter(a => a.artifact_type === "pr").length} PRs, ${artifacts.filter(a => a.artifact_type === "gist").length} gists)`);
       lines.push(``);
 
-      // Module coverage
-      lines.push(`## Module Coverage`);
-      for (const [mod, data] of [...byModule.entries()].sort((a, b) => b[1].files.length - a[1].files.length)) {
-        const depths: Record<string, number> = {};
-        data.files.forEach((f: any) => { depths[f.review_depth] = (depths[f.review_depth] || 0) + 1; });
-        const depthStr = Object.entries(depths).map(([d, n]) => `${n} ${d}`).join(", ");
-        lines.push(`- **${mod}**: ${data.files.length} files (${depthStr}), ${data.issues} issues`);
+      // Module coverage with dimension breakdown
+      lines.push(`## Module Coverage (by quality dimension)`);
+      const sortedMods = [...byModule.entries()].sort((a, b) => {
+        const aTotal = Object.values(a[1]).reduce((s, d) => s + d.files.length, 0);
+        const bTotal = Object.values(b[1]).reduce((s, d) => s + d.files.length, 0);
+        return bTotal - aTotal;
+      });
+      for (const [mod, dimData] of sortedMods) {
+        const totalFiles = Object.values(dimData).reduce((s, d) => s + d.files.length, 0);
+        const totalIssues = Object.values(dimData).reduce((s, d) => s + d.issues, 0);
+        lines.push(`- **${mod}**: ${totalFiles} reviews, ${totalIssues} issues`);
+        for (const dim of dims) {
+          const d = dimData[dim];
+          if (!d) { lines.push(`  - ${dim}: not reviewed`); continue; }
+          const depths: Record<string, number> = {};
+          d.files.forEach((f: any) => { depths[f.review_depth] = (depths[f.review_depth] || 0) + 1; });
+          const depthStr = Object.entries(depths).map(([dp, n]) => `${n} ${dp}`).join(", ");
+          lines.push(`  - ${dim}: ${d.files.length} files (${depthStr}), ${d.issues} issues`);
+        }
       }
       lines.push(``);
 
-      // Reviewed files detail
+      // Reviewed files detail (grouped by dimension)
       lines.push(`## Reviewed Files`);
-      for (const [path, r] of [...byFile.entries()].sort()) {
+      for (const [key, r] of [...byFileDim.entries()].sort()) {
         const noteStr = r.notes ? ` — ${r.notes}` : "";
         const issueStr = r.issues_found ? ` [${r.issues_found} issue(s)]` : "";
-        lines.push(`- \`${path}\` (${r.review_depth})${issueStr}${noteStr}`);
+        lines.push(`- \`${r.file_path}\` [${r.quality_dimension}] (${r.review_depth})${issueStr}${noteStr}`);
       }
       lines.push(``);
+
+      // Artifacts
+      if (artifacts.length) {
+        lines.push(`## Artifacts`);
+        for (const a of artifacts.slice().reverse()) {
+          const date = a._ts ? new Date(a._ts).toISOString().slice(0, 10) : "?";
+          lines.push(`- [${date}] ${a.artifact_type} #${a.artifact_id}: ${a.title} [${a.quality_dimension}/${a.severity}] — ${a.artifact_url}`);
+        }
+        lines.push(``);
+      }
 
       // Session assessments (most recent first)
       if (assessments.length) {
         lines.push(`## Session Assessments (${assessments.length} sessions)`);
         for (const a of assessments.slice().reverse().slice(0, 20)) {
           const date = a._ts ? new Date(a._ts).toISOString().slice(0, 10) : "?";
-          lines.push(`- [${date}] **${a.rating}** (${Math.round((a.confidence || 0) * 100)}% confidence) — ${a.summary || "no summary"}`);
+          const dimRatings = [a.code_rating && a.code_rating !== "none" ? `code:${a.code_rating}` : "", a.crypto_rating && a.crypto_rating !== "none" ? `crypto:${a.crypto_rating}` : "", a.test_rating && a.test_rating !== "none" ? `test:${a.test_rating}` : ""].filter(Boolean).join(", ");
+          lines.push(`- [${date}] **${a.rating}** (${Math.round((a.confidence || 0) * 100)}% confidence)${dimRatings ? ` [${dimRatings}]` : ""} — ${a.summary || "no summary"}`);
           if (a.modules_reviewed?.length) lines.push(`  Modules: ${a.modules_reviewed.join(", ")}`);
           lines.push(`  Findings: ${a.findings_count || 0}, Questions: ${a.questions_count || 0}, Session: ${a._log_id || "?"}`);
         }

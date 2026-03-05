@@ -92,10 +92,15 @@ async function main() {
       appToken: SLACK_APP_TOKEN,
       socketMode: true,
       port: HTTP_PORT + 1, // Bolt creates its own HTTP server; avoid conflicting with ours
-      logLevel: "INFO" as any,
     });
     slackApp.error(async (error) => {
       console.error(`[SLACK_ERROR] ${error.message || error}`);
+    });
+    slackApp.use(async ({ body, next }) => {
+      const eventType = (body as any)?.event?.type || (body as any)?.type || "unknown";
+      const channelType = (body as any)?.event?.channel_type || "";
+      console.log(`[SLACK_RAW] type=${eventType} channel_type=${channelType}`);
+      await next();
     });
     registerSlackHandlers(slackApp, store, docker);
     await slackApp.start();

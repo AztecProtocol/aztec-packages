@@ -396,7 +396,7 @@ export function stopTranscriptPoller(): void {
 }
 
 // ── Shared clone helper ─────────────────────────────────────────
-export function cloneRepoCheckoutAndInit(targetDir: string, ref: string, fallbackRef = "origin/next"): { text: string; isError?: boolean } {
+export function cloneRepoCheckoutAndInit(targetDir: string, ref: string, fallbackRef = "origin/next", opts?: { skipSubmodules?: boolean }): { text: string; isError?: boolean } {
   let checkedOutRef = ref;
   try {
     execFileSync("git", ["-C", targetDir, "checkout", "--detach", ref], {
@@ -428,13 +428,15 @@ export function cloneRepoCheckoutAndInit(targetDir: string, ref: string, fallbac
   const refNote = checkedOutRef !== ref ? ` (WARNING: ${ref} not found, fell back to ${checkedOutRef})` : "";
 
   let submoduleMsg = "";
-  try {
-    execFileSync("git", ["-C", targetDir, "submodule", "update", "--init", "--recursive"], {
-      timeout: 300_000, stdio: "pipe",
-    });
-    submoduleMsg = " Submodules initialized.";
-  } catch (e: any) {
-    submoduleMsg = ` ERROR: submodule init failed: ${e.message}. Builds may fail — try running: git submodule update --init --recursive`;
+  if (!opts?.skipSubmodules) {
+    try {
+      execFileSync("git", ["-C", targetDir, "submodule", "update", "--init", "--recursive"], {
+        timeout: 300_000, stdio: "pipe",
+      });
+      submoduleMsg = " Submodules initialized.";
+    } catch (e: any) {
+      submoduleMsg = ` ERROR: submodule init failed: ${e.message}. Builds may fail — try running: git submodule update --init --recursive`;
+    }
   }
 
   return { text: `${head}${refNote}.${submoduleMsg}` };
@@ -1334,6 +1336,8 @@ export interface CloneToolConfig {
   refHint?: string;
   /** Override tool description */
   description?: string;
+  /** Skip git submodule init (e.g. for repos where submodules aren't needed) */
+  skipSubmodules?: boolean;
 }
 
 export interface PRToolConfig {
@@ -1436,7 +1440,7 @@ export function registerCloneRepo(server: McpServer, config: CloneToolConfig): v
             execFileSync("git", ["-C", targetDir, "fetch", "origin"], { timeout: 120_000, stdio: "pipe" });
           } catch { /* fetch failure is non-fatal */ }
 
-          const result = cloneRepoCheckoutAndInit(targetDir, ref, config.fallbackRef);
+          const result = cloneRepoCheckoutAndInit(targetDir, ref, config.fallbackRef, { skipSubmodules: config.skipSubmodules });
           if (result.isError) return { content: [{ type: "text", text: result.text }], isError: true };
           return { content: [{ type: "text", text: `Repo already cloned. Checked out ${ref} (${result.text}) Work in ${targetDir}.` }] };
         } catch (e: any) {
@@ -1467,7 +1471,7 @@ export function registerCloneRepo(server: McpServer, config: CloneToolConfig): v
           } finally { try { unlinkSync(askpass); } catch {} }
         }
 
-        const result = cloneRepoCheckoutAndInit(targetDir, ref, config.fallbackRef);
+        const result = cloneRepoCheckoutAndInit(targetDir, ref, config.fallbackRef, { skipSubmodules: config.skipSubmodules });
         if (result.isError) return { content: [{ type: "text", text: `Clone succeeded but: ${result.text}` }], isError: true };
         logActivity("clone", `Cloned ${config.repo} at ${ref} (${result.text})`);
         return { content: [{ type: "text", text: `Cloned ${config.repo} to ${targetDir} at ${ref} (${result.text}) Work in ${targetDir}.` }] };

@@ -35,17 +35,19 @@ Key areas to audit:
 | `session_status` | Update Slack + GitHub status in-place. Call frequently. |
 | `github_api` | GitHub REST API proxy — **read-only** (GET only) |
 | `slack_api` | Slack API proxy |
-| `create_issue` | **Create GitHub issues for findings** — use for each security finding |
+| `create_issue` | **Create GitHub issues for findings** — specify quality_dimension + severity |
 | `close_issue` | Close a GitHub issue — posts a tracking comment with session log before closing |
+| `add_labels` | Add labels to an existing issue or PR |
 | `create_audit_label` | Create a new audit scope label + commit its prompt file to the repo |
 | `add_log_link` | Post a cross-reference comment linking an issue to this session's log |
-| `self_assess` | **REQUIRED** — rate your session before ending (critical/thorough/surface/incomplete) |
+| `self_assess` | **REQUIRED** — rate your session + each quality dimension (code/crypto/test) |
 | `create_pr` | Push changes and create a draft PR (for fixes) |
 | `update_pr` | Push to / modify existing PRs |
 | `create_gist` | Share verbose output |
 | `create_skill` | **Create follow-up skills** — encode open questions, findings, and next steps for future sessions |
 | `ci_failures` | CI status for a PR |
-| `record_stat` | Record structured data (use `audit_file_review` schema for each file reviewed) |
+| `audit_history` | **Call early** — get prior audit coverage, assessments, gist summaries, reviewed files |
+| `record_stat` | Record structured data (`audit_file_review` per file, `audit_summary` per session) |
 
 `github_api` is GET-only. Whitelisted reads (scoped to `AztecProtocol/barretenberg-claude`): pulls, issues, actions, contents, commits, branches, labels, search. For writes use dedicated tools: `create_issue`, `close_issue`, `create_pr`, `update_pr`, `add_log_link`, `create_gist`, `create_audit_label`.
 
@@ -54,28 +56,34 @@ Key areas to audit:
 create_issue(
   title="[AUDIT] Buffer overflow in polynomial evaluation",
   body="## Finding\n\nIn `barretenberg/cpp/src/...`, the function ...\n\n## Severity\nHigh\n\n## Impact\n...",
-  labels=["audit-finding", "area/crypto"]
+  labels=["audit-finding", "area/crypto"],
+  quality_dimension="code",
+  severity="high",
+  modules=["polynomials"]
 )
 ```
 
 ### Workflow:
 1. `clone_repo` — check out the target ref
 2. `get_context` — get session metadata
-3. `session_status` — report progress frequently
-4. Review code systematically — focus on barretenberg/cpp
-5. `record_stat` — record each file reviewed with `audit_file_review` schema
-6. `create_issue` — file each finding with severity, impact, and reproduction details
-7. `add_log_link` — cross-reference related issues to this session
-8. `create_skill` — capture open questions and follow-up work as a skill
-9. **Mandatory review** — see below
-10. **`respond_to_user`** — final summary (REQUIRED, 1-2 sentences)
+3. `audit_history` — **review prior work** to avoid re-covering ground and focus on gaps
+4. `session_status` — report progress frequently
+5. Review code systematically — focus on barretenberg/cpp, prioritize under-reviewed modules
+6. `record_stat` — record each file reviewed with `audit_file_review` schema
+7. `create_issue` — file each finding with severity, impact, and reproduction details
+8. `add_log_link` — cross-reference related issues to this session
+9. `create_gist` — **create a summary gist** with detailed findings, coverage table, open questions
+10. `record_stat` — record `audit_summary` with the gist URL
+11. `create_skill` — capture open questions and follow-up work as a skill
+12. **Mandatory review** — see below
+13. **`respond_to_user`** — final summary (REQUIRED, 1-2 sentences + gist link)
 
 ### Final response — `respond_to_user` (REQUIRED)
 
 Keep it to 1-2 SHORT sentences. Print verbose output to stdout and reference the log.
 
-- Good: "Reviewed polynomial commitment code. Filed 3 issues — 1 high severity (buffer overflow in evaluator), 2 medium."
-- Good: "No critical findings in field arithmetic. <LOG_URL|detailed notes>"
+- Good: "Reviewed polynomial commitment code. Filed 3 issues — 1 high severity (buffer overflow in evaluator), 2 medium. <GIST_URL|full report>"
+- Good: "No critical findings in field arithmetic. 12 files reviewed line-by-line. <GIST_URL|detailed notes>"
 
 ### Open questions and follow-up skills
 
@@ -118,16 +126,63 @@ create_audit_label(
 )
 ```
 
+### Quality Dimensions
+
+Every file review and issue is tagged with a **quality dimension** — the type of quality being assessed:
+
+| Dimension | What you're evaluating | Examples |
+|-----------|----------------------|----------|
+| **code** | Implementation correctness | Buffer overflows, UB, memory safety, API misuse, dead code, error handling, style |
+| **crypto** | Cryptographic/mathematical correctness | Proof soundness, field arithmetic, protocol security, side-channels, carry propagation |
+| **test** | Test adequacy | Missing test cases, weak assertions, untested edge cases, fuzzing gaps, regression coverage |
+
+**Rules:**
+- Pick ONE dimension per file review entry. If you reviewed both code and crypto aspects of a file, record TWO separate `record_stat` calls.
+- When creating issues, specify `quality_dimension` and `severity` — these are tracked for completion metrics.
+- Your `self_assess` at the end should rate each dimension you covered.
+
 ### Recording file reviews — `record_stat`
 
-Track each file reviewed for module coverage:
+Track each file reviewed for module coverage. One entry per (file, dimension):
 ```
 record_stat(schema="audit_file_review", data={
   file_path: "barretenberg/cpp/src/barretenberg/ecc/curves/bn254/bn254.hpp",
   module: "ecc",
+  quality_dimension: "crypto",
   review_depth: "line-by-line",
   issues_found: 1,
   notes: "Checked curve parameter validation, found missing infinity point check"
+})
+```
+
+### Session summary gist — `create_gist` + `record_stat`
+
+**Before finishing, create a summary gist.** This is the primary record of your work — the Slack response should be short, the gist should be thorough. The gist MUST contain these four sections:
+
+1. **Executive Summary** (2-4 lines) — What you reviewed, key findings, overall risk assessment.
+2. **Skill Improvements** — What changes to Claude skills/prompts would help future audit sessions? Missing context, unhelpful instructions, tools that should exist, knowledge gaps.
+3. **Recommended Remedial Actions** — Concrete fixes the team should make, ordered by priority. Reference issue numbers.
+4. **Recommended Next Audit Scope** — Where should the next session focus? Check existing `audit_file_review` and `audit_summary` stats first (read `~/.claudebox/stats/audit_file_review.jsonl` and `~/.claudebox/stats/audit_summary.jsonl`) to avoid re-covering ground. Suggest under-reviewed modules or deeper dives into areas with surface-only coverage.
+
+Also include a file coverage table and open questions.
+
+```
+create_gist(
+  description="Audit session: <module> review",
+  files={
+    "summary.md": "## Executive Summary\n\n<2-4 lines: what was reviewed, key findings, risk level>\n\n## Files Reviewed\n| File | Depth | Issues |\n|---|---|---|\n| ... | line-by-line | 2 |\n\n## Skill Improvements\n\n- <suggestions for improving audit prompts, tools, or context>\n\n## Recommended Remedial Actions\n\n1. **[HIGH]** Fix ... (issue #N)\n2. ...\n\n## Recommended Next Audit Scope\n\nPrevious sessions covered: <list from stats>.\nRecommended next: <module/area> because <rationale>.\n\n## Open Questions\n- ..."
+  }
+)
+```
+
+Then record it:
+```
+record_stat(schema="audit_summary", data={
+  gist_url: "<the gist URL>",
+  modules_covered: ["ecc", "crypto"],
+  files_reviewed: 8,
+  issues_filed: 3,
+  summary: "Deep review of ECC module. Filed 3 issues including 1 high-severity buffer overflow."
 })
 ```
 
@@ -137,13 +192,15 @@ Before calling `respond_to_user`, you MUST:
 
 1. **Check your findings** — verify each issue filed has severity, impact, and area labels
 2. **Cross-reference** — if your work relates to existing issues, `add_log_link` them
-3. **Create follow-up skill** — capture open questions, partial progress, and next steps via `create_skill`
-4. **`self_assess`** — honestly rate your session:
+3. **Create summary gist** — detailed findings, file coverage table, open questions (see above)
+4. **`record_stat`** — record `audit_summary` with gist URL
+5. **Create follow-up skill** — capture open questions, partial progress, and next steps via `create_skill`
+6. **`self_assess`** — honestly rate your session:
    - `critical` = found security-relevant issues
    - `thorough` = deep line-by-line review, no critical issues
    - `surface` = quick scan, identified areas for deeper review
    - `incomplete` = could not finish due to complexity or missing context
-5. **`respond_to_user`** — final 1-2 sentence summary
+7. **`respond_to_user`** — final 1-2 sentence summary + link to gist
 
 This review is NOT optional. Skipping it means the audit trail is incomplete.
 
@@ -154,7 +211,7 @@ This review is NOT optional. Skipping it means the audit trail is incomplete.
 - **No `gh` CLI or `git push`**: Use dedicated MCP tools (`create_issue`, `create_pr`, etc.). `github_api` is read-only.
 - **Always use full GitHub URLs**: `https://github.com/AztecProtocol/barretenberg-claude/issues/1` not `#1`
 - **`session_status` edits in place**: Call often, won't create noise
-- **Progressive deepening**: Check what's been reviewed before. Go deeper on areas that have only had surface reviews.
+- **Progressive deepening**: Call `audit_history` first. Go deeper on areas that have only had surface reviews. Prioritize unreviewed modules over re-reviewing covered files.
 
 ## Rules
 - Update status frequently via `session_status`

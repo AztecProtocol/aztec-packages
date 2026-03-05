@@ -77,6 +77,9 @@ register({
     { name: "questions_count", type: "number", description: "Number of questions posted this session" },
     { name: "confidence", type: "number", description: "0-1 confidence in the review thoroughness" },
     { name: "summary", type: "string", description: "2-3 sentence summary of what was covered and key findings" },
+    { name: "code_rating", type: "string?", description: "Code quality depth: thorough | surface | none" },
+    { name: "crypto_rating", type: "string?", description: "Crypto quality depth: thorough | surface | none" },
+    { name: "test_rating", type: "string?", description: "Test quality depth: thorough | surface | none" },
   ],
 });
 
@@ -90,7 +93,40 @@ register({
     { name: "file_path", type: "string", description: "Source file path relative to repo root" },
     { name: "module", type: "string", description: "Barretenberg module: ecc | crypto | polynomials | commitment_schemes | honk | ultra_honk | goblin | stdlib | vm2 | eccvm | common | etc." },
     { name: "review_depth", type: "string", description: "cursory | line-by-line | deep" },
+    { name: "quality_dimension", type: "string", description: "Quality axis: code (implementation correctness, UB, memory safety) | crypto (mathematical/cryptographic correctness, side-channels) | test (test coverage, edge cases, assertions)" },
     { name: "issues_found", type: "number", description: "Number of issues found in this file" },
     { name: "notes", type: "string?", description: "Brief notes on what was reviewed" },
+  ],
+});
+
+// ── audit_artifact ──────────────────────────────────────────────
+// Correlate GitHub artifacts (issues, PRs, gists) to sessions and quality dimensions.
+
+register({
+  name: "audit_artifact",
+  description: "Record a GitHub artifact (issue, PR, or gist) created during an audit session. Auto-recorded by create_issue/create_pr/create_gist.",
+  fields: [
+    { name: "artifact_type", type: "string", description: "issue | pr | gist" },
+    { name: "artifact_url", type: "string", description: "Full GitHub URL" },
+    { name: "artifact_id", type: "string", description: "Issue/PR number or gist ID" },
+    { name: "quality_dimension", type: "string", description: "code | crypto | test" },
+    { name: "severity", type: "string", description: "critical | high | medium | low | info (use info for PRs/gists)" },
+    { name: "modules", type: "string[]", description: "Affected barretenberg modules" },
+    { name: "title", type: "string", description: "Artifact title or description" },
+  ],
+});
+
+// ── audit_summary ────────────────────────────────────────────────
+// Session summary gist — detailed findings, coverage, and progress.
+
+register({
+  name: "audit_summary",
+  description: "Record a session summary gist URL. Create a gist with full findings/coverage details, then record the URL here.",
+  fields: [
+    { name: "gist_url", type: "string", description: "URL of the summary gist" },
+    { name: "modules_covered", type: "string[]", description: "Modules reviewed this session" },
+    { name: "files_reviewed", type: "number", description: "Number of files reviewed" },
+    { name: "issues_filed", type: "number", description: "Number of issues created" },
+    { name: "summary", type: "string", description: "1-2 sentence summary" },
   ],
 });

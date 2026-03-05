@@ -56,18 +56,28 @@ export interface WorkspacePageData {
 }
 
 function linkify(text: string): string {
-  return text.replace(/(https?:\/\/[^\s&<"']+)/g, (m) => {
-    // Strip trailing punctuation, but preserve balanced parentheses within URLs
-    let url = m.replace(/[.,;:!?)}\]]+$/, '');
-    // If we stripped closing parens that have matching openers in the URL, restore them
-    const stripped = m.slice(url.length);
-    for (const ch of stripped) {
-      if (ch === ')' && (url.split('(').length > url.split(')').length)) {
-        url += ch;
-      } else break;
-    }
-    return `<a href="${url}" target="_blank" class="link">${url}</a>${m.slice(url.length)}`;
+  // First convert markdown links [text](url) to HTML (escape label for XSS safety)
+  const withMdLinks = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (_, label, url) => {
+    return `<a href="${esc(url)}" target="_blank" class="link">${esc(label)}</a>`;
   });
+  // Then convert remaining bare URLs (skip those already inside <a> tags)
+  const parts = withMdLinks.split(/(<a [^>]*>.*?<\/a>)/g);
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i].startsWith("<a ")) continue; // already a link
+    // Escape non-link text
+    parts[i] = esc(parts[i]);
+    parts[i] = parts[i].replace(/(https?:\/\/[^\s&<"']+)/g, (m) => {
+      let url = m.replace(/[.,;:!?)}&amp;\]]+$/, '');
+      const stripped = m.slice(url.length);
+      for (const ch of stripped) {
+        if (ch === ')' && (url.split('(').length > url.split(')').length)) {
+          url += ch;
+        } else break;
+      }
+      return `<a href="${url}" target="_blank" class="link">${url}</a>${m.slice(url.length)}`;
+    });
+  }
+  return parts.join("");
 }
 
 function renderUserMsg(promptText: string, t: string, user: string): string {
@@ -75,8 +85,7 @@ function renderUserMsg(promptText: string, t: string, user: string): string {
 }
 
 function renderActivityEntry(a: ActivityEntry, agentLogUrl?: string): string {
-  const text = esc(a.text);
-  const linked = linkify(text);
+  const linked = linkify(a.text);
   const timeStr = a.ts ? timeAgo(a.ts) : "";
   const msgHash = Buffer.from(a.text.slice(0, 50)).toString("base64url").slice(0, 12);
   if (a.type === "response") {
@@ -121,9 +130,9 @@ export function workspacePageHTML(data: WorkspacePageData): string {
       ${logUrl ? `<div class="stat-row"><span class="dim">log</span> <a href="${safeHref(logUrl)}" target="_blank" class="link">view</a></div>` : ""}
     </div>
     ${artifacts.length ? `<div class="sidebar-section"><div class="sidebar-label">Artifacts (${artifacts.length})</div>${artifacts.map(a => {
-      const text = esc(a.text.length > 120 ? a.text.slice(0, 120) + "\u2026" : a.text);
-      const linked = text.replace(/(https?:\/\/[^\s&<"']+)/g, (m) => { const u = m.replace(/[.,;:!?)}\]]+$/, ''); return `<a href="${u}" target="_blank" class="link">${u}</a>${m.slice(u.length)}`; });
-      return `<div class="artifact-row">${linked}</div>`;
+      const raw = a.text.replace(/^- /, "");
+      const truncated = raw.length > 120 ? raw.slice(0, 120) + "\u2026" : raw;
+      return `<div class="artifact-row">${linkify(truncated)}</div>`;
     }).join("\n")}</div>` : ""}`;
 
   // Build unified timeline: user prompts + session runs + activity entries
@@ -351,7 +360,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
   document.querySelectorAll("[data-msg]").forEach(function(el){seenMsgs.add(el.dataset.msg);});
 
   function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
-  function linkify(s){return s.replace(/(https?:\\/\\/[^\\s&<"']+)/g,function(m){var u=m.replace(/[.,;:!?)}\]]+$/,'');var rest=m.slice(u.length);for(var i=0;i<rest.length;i++){if(rest[i]===')'&&u.split('(').length>u.split(')').length){u+=rest[i]}else break}return'<a href="'+u+'" target="_blank" class="link">'+u+'</a>'+m.slice(u.length)})}
+  function linkify(s){s=s.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,function(_,label,url){return'<a href="'+esc(url)+'" target="_blank" class="link">'+esc(label)+'</a>'});var parts=s.split(/(<a [^>]*>.*?<\/a>)/g);for(var i=0;i<parts.length;i++){if(parts[i].indexOf('<a ')===0)continue;parts[i]=esc(parts[i]);parts[i]=parts[i].replace(/(https?:\/\/[^\s&amp;<"']+)/g,function(m){var u=m.replace(/[.,;:!?)}\]&]+$/,'');var rest=m.slice(u.length);for(var j=0;j<rest.length;j++){if(rest[j]===')'&&u.split('(').length>u.split(')').length){u+=rest[j]}else break}return'<a href="'+u+'" target="_blank" class="link">'+u+'</a>'+m.slice(u.length)})}return parts.join("")}
   function msgId(text){var h=0;for(var i=0;i<Math.min(text.length,50);i++){h=((h<<5)-h)+text.charCodeAt(i);h|=0;}return"m"+Math.abs(h).toString(36)}
   function timeAgo(iso){var ms=Date.now()-new Date(iso).getTime();if(ms<60000)return"just now";if(ms<3600000)return Math.floor(ms/60000)+"m ago";if(ms<86400000)return Math.floor(ms/3600000)+"h ago";return Math.floor(ms/86400000)+"d ago";}
 
@@ -374,7 +383,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
       }
       return null;
     }
-    var text=esc(e.text);var linked=linkify(text);var t=e.ts?timeAgo(e.ts):"";var id=msgId(e.text);
+    var linked=linkify(e.text);var t=e.ts?timeAgo(e.ts):"";var id=msgId(e.text);
     if(seenMsgs.has(id))return null;seenMsgs.add(id);
     if(e.type==="response"){
       return '<div class="chat-msg bot" data-msg="'+id+'"><div class="chat-avatar reply-avatar">RE</div><div class="chat-bubble reply-bubble"><div class="chat-label reply-label">reply</div><div class="chat-text">'+linked+'</div><div class="chat-time">'+t+'</div></div></div>';
@@ -1693,6 +1702,7 @@ export function auditDashboardHTML(): string {
       if(!data){panel.innerHTML="";return;}
 
       var mods=data.modules||{};
+      var dimTotals=data.dimension_totals||{};
       var modNames=Object.keys(mods).sort();
       var totalIssues=0;
       var totalReviewed=data.total_reviewed||0;
@@ -1703,24 +1713,22 @@ export function auditDashboardHTML(): string {
       // Only show modules that have files (either in repo or reviewed)
       var activeModNames=modNames.filter(function(m){return mods[m].total_files>0||mods[m].files_reviewed>0;});
 
+      var dimColors={code:"#7aa2f7",crypto:"#d876e3",test:"#61D668"};
+      var dimLabels={code:"Code",crypto:"Crypto",test:"Test"};
+
       var h='<div class="section"><div class="section-header">Audit Coverage <span class="count">'+totalReviewed+'/'+totalRepo+' files ('+pct+'%)</span></div>';
 
-      // Overall progress bar
-      h+='<div style="margin-bottom:14px">';
-      h+='<div style="background:#1a1a1a;border:1px solid #333;border-radius:4px;height:22px;overflow:hidden;position:relative">';
-      h+='<div style="background:linear-gradient(90deg,#7aa2f7,#d876e3);height:100%;width:'+pct+'%;min-width:1px;transition:width 0.3s"></div>';
-      h+='<span style="position:absolute;top:3px;left:8px;font-size:11px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.8)">'+totalReviewed+' / '+totalRepo+' files reviewed ('+pct+'%)</span>';
-      h+='</div></div>';
-
-      // Stats bar
+      // Dimension totals bar
       h+='<div class="cov-bar">';
-      h+='<div class="cov-stat"><span class="count" style="color:#7aa2f7">'+totalReviewed+'</span>reviewed</div>';
+      ["code","crypto","test"].forEach(function(dim){
+        var dt=dimTotals[dim]||{files:0,issues:0};
+        h+='<div class="cov-stat"><span class="count" style="color:'+dimColors[dim]+'">'+dt.files+'</span>'+dimLabels[dim]+'</div>';
+      });
       h+='<div class="cov-stat"><span class="count">'+totalRepo+'</span>total files</div>';
-      h+='<div class="cov-stat"><span class="count" style="color:#E94560">'+totalIssues+'</span>issues found</div>';
-      h+='<div class="cov-stat"><span class="count">'+data.total_reviews+'</span>total reviews</div>';
+      h+='<div class="cov-stat"><span class="count" style="color:#E94560">'+totalIssues+'</span>issues</div>';
       h+='</div>';
 
-      // Module cards — sort by coverage percentage (reviewed modules first, then by size)
+      // Module cards
       activeModNames.sort(function(a,b){
         var aR=mods[a].files_reviewed,bR=mods[b].files_reviewed;
         if(aR>0&&bR===0)return -1;
@@ -1733,34 +1741,35 @@ export function auditDashboardHTML(): string {
       activeModNames.forEach(function(modName){
         var m=mods[modName];
         var modPct=m.total_files?Math.round(m.files_reviewed/m.total_files*100):0;
-        var depthCounts={deep:0,"line-by-line":0,cursory:0};
-        (m.files||[]).forEach(function(f){depthCounts[f.review_depth]=(depthCounts[f.review_depth]||0)+1;});
-
         var borderColor=m.files_reviewed===0?"#333":modPct>=80?"#61D668":modPct>=30?"#7aa2f7":"#FAD979";
+        var dims=m.dimensions||{};
 
         h+='<div class="cov-mod" style="border-color:'+borderColor+'" data-mod="'+esc(modName)+'" onclick="toggleCovFiles(this,event)">';
         h+='<div style="display:flex;justify-content:space-between;align-items:center">';
         h+='<div class="cov-mod-name">'+esc(modName)+'</div>';
-        h+='<span style="font-size:11px;color:'+(modPct>0?borderColor:"#555")+'">'+m.files_reviewed+'/'+m.total_files+' ('+modPct+'%)</span>';
+        h+='<span style="font-size:11px;color:'+(modPct>0?borderColor:"#555")+'">'+m.files_reviewed+'/'+m.total_files+'</span>';
         h+='</div>';
 
-        // Mini progress bar
-        h+='<div style="background:#0d0d0d;border-radius:2px;height:4px;margin:6px 0;overflow:hidden">';
-        if(m.files_reviewed>0){
-          h+='<div style="height:100%;width:'+modPct+'%;min-width:2px;background:'+borderColor+';border-radius:2px"></div>';
-        }
+        // Three dimension progress bars
+        h+='<div style="display:flex;flex-direction:column;gap:2px;margin:6px 0">';
+        ["code","crypto","test"].forEach(function(dim){
+          var d=dims[dim]||{files_reviewed:0};
+          var dp=m.total_files?Math.round(d.files_reviewed/m.total_files*100):0;
+          h+='<div style="display:flex;align-items:center;gap:6px">';
+          h+='<span style="font-size:9px;color:'+dimColors[dim]+';width:38px;text-align:right">'+dimLabels[dim]+'</span>';
+          h+='<div style="flex:1;background:#0d0d0d;border-radius:2px;height:3px;overflow:hidden">';
+          if(d.files_reviewed>0){
+            h+='<div style="height:100%;width:'+dp+'%;min-width:2px;background:'+dimColors[dim]+';border-radius:2px"></div>';
+          }
+          h+='</div>';
+          h+='<span style="font-size:9px;color:#555;width:24px">'+d.files_reviewed+'</span>';
+          h+='</div>';
+        });
         h+='</div>';
 
         h+='<div class="cov-mod-meta">';
         if(m.issues_found)h+='<span class="issues">'+m.issues_found+' issues</span>';
         h+='</div>';
-        if(m.files_reviewed>0){
-          h+='<div style="margin-top:4px">';
-          if(depthCounts.deep)h+='<span class="cov-depth deep">'+depthCounts.deep+' deep</span>';
-          if(depthCounts["line-by-line"])h+='<span class="cov-depth line-by-line">'+depthCounts["line-by-line"]+' line-by-line</span>';
-          if(depthCounts.cursory)h+='<span class="cov-depth cursory">'+depthCounts.cursory+' cursory</span>';
-          h+='</div>';
-        }
 
         // Hidden file list (restored from _openCovMods)
         if(m.files&&m.files.length){
@@ -2084,7 +2093,7 @@ export function personalDashboardHTML(): string {
     return Math.floor(ms/86400000)+"d ago";
   }
   function esc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
-  function linkify(s){return s.replace(/(https?:\\/\\/[^\\s&<"']+)/g,function(m){var u=m.replace(/[.,;:!?)}\]]+$/,'');var rest=m.slice(u.length);for(var i=0;i<rest.length;i++){if(rest[i]===')'&&u.split('(').length>u.split(')').length){u+=rest[i]}else break}return'<a href="'+u+'" target="_blank" class="artifact-link">'+u+'</a>'+m.slice(u.length)});}
+  function linkify(s){s=s.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,function(_,label,url){return'<a href="'+url+'" target="_blank" class="artifact-link">'+label+'</a>'});var parts=s.split(/(<a [^>]*>.*?<\/a>)/g);for(var i=0;i<parts.length;i++){if(parts[i].indexOf('<a ')===0)continue;parts[i]=parts[i].replace(/(https?:\/\/[^\s&<"']+)/g,function(m){var u=m.replace(/[.,;:!?)}\]]+$/,'');var rest=m.slice(u.length);for(var j=0;j<rest.length;j++){if(rest[j]===')'&&u.split('(').length>u.split(')').length){u+=rest[j]}else break}return'<a href="'+u+'" target="_blank" class="artifact-link">'+u+'</a>'+m.slice(u.length)})}return parts.join("")}
 
   // ── Load sessions ─────────────────────────────────
   function loadSessions(){
