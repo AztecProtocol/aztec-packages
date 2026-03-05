@@ -45,11 +45,19 @@ describe('Option params', () => {
     ).resolves.toBeUndefined();
 
     await expect(
+      contract.methods.return_public_optional_struct(null).simulate({ from: defaultAccountAddress }),
+    ).resolves.toBeUndefined();
+
+    await expect(
       contract.methods.return_public_optional_struct(someValue).simulate({ from: defaultAccountAddress }),
     ).resolves.toEqual(someValue);
   });
 
   it('accepts ergonomic Option params for utility functions', async () => {
+    await expect(
+      contract.methods.return_utility_optional_struct(undefined).simulate({ from: defaultAccountAddress }),
+    ).resolves.toBeUndefined();
+
     await expect(
       contract.methods.return_utility_optional_struct(null).simulate({ from: defaultAccountAddress }),
     ).resolves.toBeUndefined();
@@ -62,6 +70,10 @@ describe('Option params', () => {
   it('accepts ergonomic Option params for private functions', async () => {
     await expect(
       contract.methods.return_private_optional_struct(undefined).simulate({ from: defaultAccountAddress }),
+    ).resolves.toBeUndefined();
+
+    await expect(
+      contract.methods.return_private_optional_struct(null).simulate({ from: defaultAccountAddress }),
     ).resolves.toBeUndefined();
 
     await expect(
