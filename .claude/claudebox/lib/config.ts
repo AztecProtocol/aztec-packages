@@ -42,6 +42,11 @@ export const CHANNEL_BASE_BRANCHES: Record<string, string> = {
 };
 export const DEFAULT_BASE_BRANCH = "next";
 
+// ── Default profiles (channel ID → profile) ─────────────────────
+export const CHANNEL_PROFILES: Record<string, string> = {
+  "C0AJCUKUNGP": "barretenberg-audit",
+};
+
 // ── Mutable session counter ─────────────────────────────────────
 let _activeSessions = 0;
 export function getActiveSessions(): number { return _activeSessions; }

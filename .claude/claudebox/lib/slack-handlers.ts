@@ -1,7 +1,7 @@
 import type { App } from "@slack/bolt";
 import type { SessionStore } from "./session-store.ts";
 import type { DockerService } from "./docker.ts";
-import { MAX_CONCURRENT, getActiveSessions } from "./config.ts";
+import { MAX_CONCURRENT, getActiveSessions, CHANNEL_PROFILES } from "./config.ts";
 import { parseMessage, parseKeywords, validateResumeSession, truncate, extractHashFromUrl, sessionUrl } from "./util.ts";
 import {
   resolveUserName, getThreadContext, handleTerminalCommand,
@@ -74,7 +74,8 @@ async function handleIncomingMessage(msg: IncomingMessage, store: SessionStore, 
   }
 
   // New session — parse keywords (new-session, quiet, ci-allow, profile) only here
-  const { forceNew, quiet: explicitQuiet, ciAllow, profile, prompt: effectivePrompt } = parseKeywords(parsed);
+  const { forceNew, quiet: explicitQuiet, ciAllow, profile: keywordProfile, prompt: effectivePrompt } = parseKeywords(parsed);
+  const profile = keywordProfile || CHANNEL_PROFILES[msg.channel] || "";
   const quiet = await resolveQuietMode(msg.client, msg.channel, explicitQuiet);
   const prompt = (parsed.type === "reply-hash" && !store.findByHash(parsed.hash)) ? cmd : effectivePrompt;
 
