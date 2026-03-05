@@ -1,5 +1,4 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { DataInBlock } from '@aztec/stdlib/block';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
@@ -17,7 +16,6 @@ export class NoteService {
     private readonly aztecNode: AztecNode,
     private readonly anchorBlockHeader: BlockHeader,
     private readonly jobId: string,
-    private readonly log = createLogger('pxe:note_service'),
   ) {}
 
   /**
