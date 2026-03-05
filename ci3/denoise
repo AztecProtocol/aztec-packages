@@ -50,7 +50,7 @@ export FORCE_COLOR=${FORCE_COLOR:-1}
 # If stdout is connected to a terminal, print singular dots for each line.
 [ -t 1 ] && realtime=1 || realtime=0
 
-key=${DENOISE_KEY:-$(uuid)}
+key=$(uuid)
 url=http://ci.aztec-labs.com/$key
 outfile=/tmp/$key
 touch $outfile

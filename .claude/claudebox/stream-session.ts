@@ -400,14 +400,24 @@ async function main() {
         if (isSubagent) {
           // Wrap subagent output in denoise: dots for progress, live cache_log with URL
           try {
-            const subKey = randomBytes(16).toString("hex");
-            const subUrl = `http://ci.aztec-labs.com/${subKey}`;
             const proc = spawn(denoiseScript, ["cat"], {
-              stdio: ["pipe", "inherit", "inherit"],
-              env: { ...process.env, DENOISE: "1", DENOISE_KEY: subKey, DENOISE_DISPLAY_NAME: label, root: repoDir },
+              stdio: ["pipe", "pipe", "inherit"],
+              env: { ...process.env, DENOISE: "1", DENOISE_DISPLAY_NAME: label, root: repoDir },
+            });
+            // Capture URL from denoise's first "Executing: ... (URL)" line, pass rest through
+            let urlExtracted = false;
+            proc.stdout?.on("data", (chunk: Buffer) => {
+              const text = chunk.toString();
+              if (!urlExtracted) {
+                const urlMatch = text.match(/(https?:\/\/ci\.aztec-labs\.com\/[a-f0-9-]+)/);
+                if (urlMatch) {
+                  urlExtracted = true;
+                  writeActivity("agent_log", `${label} ${urlMatch[1]}`);
+                }
+              }
+              process.stdout.write(chunk);
             });
             tailer.subLogProc = proc;
-            writeActivity("agent_log", `${label} ${subUrl}`);
           } catch (e) {
             logInfo(`Failed to start denoise for subagent: ${e}`);
           }
