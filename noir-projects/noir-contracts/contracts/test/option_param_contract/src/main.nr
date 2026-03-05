@@ -7,7 +7,7 @@ pub contract OptionParam {
     use aztec::{macros::functions::external, protocol::traits::{Deserialize, Serialize}};
 
     #[derive(Serialize, Deserialize, Eq)]
-    pub struct OptionalStruct {
+    pub struct SomeStruct {
         pub w: Field,
         pub x: bool,
         pub y: u64,
@@ -15,19 +15,19 @@ pub contract OptionParam {
     }
 
     #[external("public")]
-    fn return_public_optional_struct(value: Option<OptionalStruct>) -> Option<OptionalStruct> {
+    fn return_public_optional_struct(value: Option<SomeStruct>) -> Option<SomeStruct> {
         value
     }
 
     #[external("private")]
-    fn return_private_optional_struct(value: Option<OptionalStruct>) -> Option<OptionalStruct> {
+    fn return_private_optional_struct(value: Option<SomeStruct>) -> Option<SomeStruct> {
         value
     }
 
     #[external("utility")]
     unconstrained fn return_utility_optional_struct(
-        value: Option<OptionalStruct>,
-    ) -> Option<OptionalStruct> {
+        value: Option<SomeStruct>,
+    ) -> Option<SomeStruct> {
         value
     }
 }

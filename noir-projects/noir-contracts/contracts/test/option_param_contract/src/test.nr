@@ -1,5 +1,5 @@
 use crate::OptionParam;
-use crate::OptionParam::OptionalStruct;
+use crate::OptionParam::SomeStruct;
 use aztec::{protocol::constants::MAX_FIELD_VALUE, test::helpers::test_environment::TestEnvironment};
 
 global U64_MAX: u64 = (2.pow_32(64) - 1) as u64;
@@ -19,13 +19,13 @@ unconstrained fn passes_public_optional_struct_parameter() {
     let some_value = env.call_public(
         sender,
         option_param.return_public_optional_struct(Option::some(
-            OptionalStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
+            SomeStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
         )),
     );
     assert_eq(
         some_value,
         Option::some(
-            OptionalStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
+            SomeStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
         ),
     );
 }
@@ -41,12 +41,12 @@ unconstrained fn passes_utility_optional_struct_parameter() {
     assert_eq(none_value, Option::none());
 
     let some_value = env.execute_utility(option_param.return_utility_optional_struct(Option::some(
-        OptionalStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
+        SomeStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
     )));
     assert_eq(
         some_value,
         Option::some(
-            OptionalStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
+            SomeStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
         ),
     );
 }
@@ -65,13 +65,13 @@ unconstrained fn passes_private_optional_struct_parameter() {
     let some_value = env.call_private(
         sender,
         option_param.return_private_optional_struct(Option::some(
-            OptionalStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
+            SomeStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
         )),
     );
     assert_eq(
         some_value,
         Option::some(
-            OptionalStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
+            SomeStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
         ),
     );
 }
