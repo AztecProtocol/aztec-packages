@@ -19,7 +19,7 @@ Aztec uses note tagging as its default discovery mechanism. When creating a note
 
 #### Every log has a tag
 
-In Aztec, each emitted log is an array of fields, e.g. `[tag, x, y, z]`. The first field is a _tag_ used to index and identify logs. The Aztec node indexes logs by their tag and exposes an API (`getLogsByTags()`) that retrieves logs matching specific tags.
+In Aztec, each emitted log is an array of fields, e.g. `[tag, x, y, z]`. The first field is a _tag_ used to index and identify logs. The Aztec node indexes logs by their tag and exposes an API (`getPrivateLogsByTags()`) that retrieves logs matching specific tags.
 
 #### Tag derivation
 
@@ -70,15 +70,15 @@ Notes sent to yourself are always discoverable — the PXE automatically adds al
 
 ### The sync process
 
-The `#[aztec]` macro automatically injects a `sync_state` function into every contract. This function orchestrates note discovery by calling PXE oracles that handle the cryptographic and networking operations. The process works as follows:
+The `#[aztec]` macro automatically injects an unconstrained `sync_state` utility function into every contract. This function is not callable externally — it is invoked by the PXE during note syncing to orchestrate discovery via oracles. The process works as follows:
 
 1. **Fetch tagged logs**: The contract calls the `fetchTaggedLogs` oracle. The PXE computes tags for every (sender, recipient) pair it knows about, queries the node for matching logs, and returns them to the contract.
 
-2. **Decrypt**: For each log, the contract strips the tag and attempts AES-128 decryption using the recipient's private key. Logs that don't decrypt are silently discarded (they were not intended for this recipient).
+2. **Decrypt**: For each log, the contract strips the tag and attempts AES-128 decryption using a symmetric key derived from the recipient's private key (via ECDH). Logs that don't decrypt are silently discarded (they were not intended for this recipient).
 
-3. **Parse message type**: Successfully decrypted messages are dispatched by type — private notes, partial notes, private events, or custom message types.
+3. **Parse message type**: Successfully decrypted messages are dispatched by type — private notes, partial notes, or private events.
 
-4. **Nonce discovery** (for notes): To confirm a decrypted note is valid, the system must match it against the note hash tree. It iterates the note hashes in the transaction, computes candidate nonces (`poseidon2(first_nullifier, position)`), and checks whether recomputing the note hash with each candidate nonce produces a match. A match confirms the note is real and provides the nonce needed to later nullify it.
+4. **Nonce discovery** (for notes): To confirm a decrypted note is valid, the system must match it against the note hash tree. It iterates the note hashes in the transaction, computes candidate nonces using `compute_note_hash_nonce(first_nullifier, note_index)` (a domain-separated Poseidon2 hash), and checks whether recomputing the note hash with each candidate nonce produces a match. A match confirms the note is real and provides the nonce needed to later nullify it.
 
 5. **Store**: Validated notes are added to the PXE database, making them available for use in future transactions.
 
@@ -88,9 +88,9 @@ Developers don't need to implement any of this manually — the `#[aztec]` macro
 
 The PXE doesn't scan all possible tag indexes — it uses a window-based approach to efficiently find new logs:
 
-- It tracks the **highest aged index**: the highest tag index seen in a block old enough that no new logs can appear at that index.
+- It tracks the **highest aged index**: the highest tag index seen in a block at least 24 hours old (`MAX_TX_LIFETIME`). Once a block is this old, no new transactions can reference it as an anchor, so no new logs can appear at or below that index.
 - It tracks the **highest finalized index**: the highest tag index seen in any finalized block.
-- It scans a window of 20 indexes ahead of the finalized index to catch recently emitted logs.
+- It scans from the aged index to 20 indexes beyond the finalized index, covering both recent and in-flight logs.
 
 This means there's a practical limit on how many logs a single sender can emit to the same recipient in the same contract within a short time period. For most applications this limit is not a concern.
 
