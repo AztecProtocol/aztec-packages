@@ -31,6 +31,7 @@
 #include "relations/get_contract_instance.hpp"
 #include "relations/get_env_var.hpp"
 #include "relations/gt.hpp"
+#include "relations/indexed_tree_check.hpp"
 #include "relations/instr_fetching.hpp"
 #include "relations/internal_call.hpp"
 #include "relations/internal_call_stack.hpp"
@@ -42,7 +43,6 @@
 #include "relations/merkle_check.hpp"
 #include "relations/note_hash_tree_check.hpp"
 #include "relations/notehash_exists.hpp"
-#include "relations/nullifier_check.hpp"
 #include "relations/nullifier_exists.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_mem.hpp"
@@ -50,7 +50,6 @@
 #include "relations/public_data_squash.hpp"
 #include "relations/range_check.hpp"
 #include "relations/registers.hpp"
-#include "relations/retrieved_bytecodes_tree_check.hpp"
 #include "relations/scalar_mul.hpp"
 #include "relations/send_l2_to_l1_msg.hpp"
 #include "relations/sha256.hpp"
@@ -63,7 +62,6 @@
 #include "relations/tx_context.hpp"
 #include "relations/tx_discard.hpp"
 #include "relations/update_check.hpp"
-#include "relations/written_public_data_slots_tree_check.hpp"
 
 // Optimized Relations
 #include "barretenberg/vm2/optimized/relations/poseidon2_perm.hpp"
@@ -93,6 +91,7 @@
 #include "relations/lookups_get_contract_instance.hpp"
 #include "relations/lookups_get_env_var.hpp"
 #include "relations/lookups_gt.hpp"
+#include "relations/lookups_indexed_tree_check.hpp"
 #include "relations/lookups_instr_fetching.hpp"
 #include "relations/lookups_internal_call.hpp"
 #include "relations/lookups_keccakf1600.hpp"
@@ -102,14 +101,12 @@
 #include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_note_hash_tree_check.hpp"
 #include "relations/lookups_notehash_exists.hpp"
-#include "relations/lookups_nullifier_check.hpp"
 #include "relations/lookups_nullifier_exists.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_poseidon2_mem.hpp"
 #include "relations/lookups_public_data_check.hpp"
 #include "relations/lookups_public_data_squash.hpp"
 #include "relations/lookups_range_check.hpp"
-#include "relations/lookups_retrieved_bytecodes_tree_check.hpp"
 #include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_send_l2_to_l1_msg.hpp"
 #include "relations/lookups_sha256.hpp"
@@ -121,7 +118,6 @@
 #include "relations/lookups_tx.hpp"
 #include "relations/lookups_tx_context.hpp"
 #include "relations/lookups_update_check.hpp"
-#include "relations/lookups_written_public_data_slots_tree_check.hpp"
 #include "relations/perms_addressing.hpp"
 #include "relations/perms_bc_hashing.hpp"
 #include "relations/perms_context.hpp"
@@ -145,10 +141,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 123;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3086;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 360;
-    static constexpr size_t NUM_WIRES = 2618;
-    static constexpr size_t NUM_ALL_ENTITIES = 3569;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3015;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 361;
+    static constexpr size_t NUM_WIRES = 2561;
+    static constexpr size_t NUM_ALL_ENTITIES = 3499;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -183,6 +179,7 @@ struct AvmFlavorVariables {
         avm2::get_contract_instance<FF_>,
         avm2::get_env_var<FF_>,
         avm2::gt<FF_>,
+        avm2::indexed_tree_check<FF_>,
         avm2::instr_fetching<FF_>,
         avm2::internal_call<FF_>,
         avm2::internal_call_stack<FF_>,
@@ -194,7 +191,6 @@ struct AvmFlavorVariables {
         avm2::merkle_check<FF_>,
         avm2::note_hash_tree_check<FF_>,
         avm2::notehash_exists<FF_>,
-        avm2::nullifier_check<FF_>,
         avm2::nullifier_exists<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_mem<FF_>,
@@ -202,7 +198,6 @@ struct AvmFlavorVariables {
         avm2::public_data_squash<FF_>,
         avm2::range_check<FF_>,
         avm2::registers<FF_>,
-        avm2::retrieved_bytecodes_tree_check<FF_>,
         avm2::scalar_mul<FF_>,
         avm2::send_l2_to_l1_msg<FF_>,
         avm2::sha256<FF_>,
@@ -214,8 +209,7 @@ struct AvmFlavorVariables {
         avm2::tx<FF_>,
         avm2::tx_context<FF_>,
         avm2::tx_discard<FF_>,
-        avm2::update_check<FF_>,
-        avm2::written_public_data_slots_tree_check<FF_>>;
+        avm2::update_check<FF_>>;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -246,6 +240,7 @@ struct AvmFlavorVariables {
         lookup_alu_range_check_decomposition_a_lo_relation<FF_>,
         lookup_alu_range_check_decomposition_b_hi_relation<FF_>,
         lookup_alu_range_check_decomposition_b_lo_relation<FF_>,
+        lookup_alu_range_check_div_remainder_relation<FF_>,
         lookup_alu_range_check_mul_c_hi_relation<FF_>,
         lookup_alu_range_check_trunc_mid_relation<FF_>,
         lookup_alu_shifts_two_pow_relation<FF_>,
@@ -312,6 +307,15 @@ struct AvmFlavorVariables {
         lookup_get_env_var_read_from_public_inputs_col0_relation<FF_>,
         lookup_get_env_var_read_from_public_inputs_col1_relation<FF_>,
         lookup_gt_gt_range_relation<FF_>,
+        lookup_indexed_tree_check_low_leaf_merkle_check_relation<FF_>,
+        lookup_indexed_tree_check_low_leaf_next_value_validation_relation<FF_>,
+        lookup_indexed_tree_check_low_leaf_poseidon2_relation<FF_>,
+        lookup_indexed_tree_check_low_leaf_value_validation_relation<FF_>,
+        lookup_indexed_tree_check_new_leaf_merkle_check_relation<FF_>,
+        lookup_indexed_tree_check_new_leaf_poseidon2_relation<FF_>,
+        lookup_indexed_tree_check_silo_poseidon2_relation<FF_>,
+        lookup_indexed_tree_check_updated_low_leaf_poseidon2_relation<FF_>,
+        lookup_indexed_tree_check_write_value_to_public_inputs_relation<FF_>,
         lookup_instr_fetching_bytecode_size_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_instr_abs_diff_positive_relation<FF_>,
@@ -465,15 +469,6 @@ struct AvmFlavorVariables {
         lookup_note_hash_tree_check_write_note_hash_to_public_inputs_relation<FF_>,
         lookup_notehash_exists_note_hash_leaf_index_in_range_relation<FF_>,
         lookup_notehash_exists_note_hash_read_relation<FF_>,
-        lookup_nullifier_check_low_leaf_merkle_check_relation<FF_>,
-        lookup_nullifier_check_low_leaf_next_nullifier_validation_relation<FF_>,
-        lookup_nullifier_check_low_leaf_nullifier_validation_relation<FF_>,
-        lookup_nullifier_check_low_leaf_poseidon2_relation<FF_>,
-        lookup_nullifier_check_new_leaf_merkle_check_relation<FF_>,
-        lookup_nullifier_check_new_leaf_poseidon2_relation<FF_>,
-        lookup_nullifier_check_silo_poseidon2_relation<FF_>,
-        lookup_nullifier_check_updated_low_leaf_poseidon2_relation<FF_>,
-        lookup_nullifier_check_write_nullifier_to_public_inputs_relation<FF_>,
         lookup_nullifier_exists_nullifier_exists_check_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
         lookup_poseidon2_mem_check_dst_addr_in_range_relation<FF_>,
@@ -507,13 +502,6 @@ struct AvmFlavorVariables {
         lookup_range_check_r5_is_u16_relation<FF_>,
         lookup_range_check_r6_is_u16_relation<FF_>,
         lookup_range_check_r7_is_u16_relation<FF_>,
-        lookup_retrieved_bytecodes_tree_check_low_leaf_class_id_validation_relation<FF_>,
-        lookup_retrieved_bytecodes_tree_check_low_leaf_merkle_check_relation<FF_>,
-        lookup_retrieved_bytecodes_tree_check_low_leaf_next_class_id_validation_relation<FF_>,
-        lookup_retrieved_bytecodes_tree_check_low_leaf_poseidon2_relation<FF_>,
-        lookup_retrieved_bytecodes_tree_check_new_leaf_merkle_check_relation<FF_>,
-        lookup_retrieved_bytecodes_tree_check_new_leaf_poseidon2_relation<FF_>,
-        lookup_retrieved_bytecodes_tree_check_updated_low_leaf_poseidon2_relation<FF_>,
         lookup_scalar_mul_add_relation<FF_>,
         lookup_scalar_mul_double_relation<FF_>,
         lookup_scalar_mul_to_radix_relation<FF_>,
@@ -617,14 +605,6 @@ struct AvmFlavorVariables {
         lookup_update_check_update_hash_public_data_read_relation<FF_>,
         lookup_update_check_update_hi_metadata_range_relation<FF_>,
         lookup_update_check_update_lo_metadata_range_relation<FF_>,
-        lookup_written_public_data_slots_tree_check_low_leaf_merkle_check_relation<FF_>,
-        lookup_written_public_data_slots_tree_check_low_leaf_next_slot_validation_relation<FF_>,
-        lookup_written_public_data_slots_tree_check_low_leaf_poseidon2_relation<FF_>,
-        lookup_written_public_data_slots_tree_check_low_leaf_slot_validation_relation<FF_>,
-        lookup_written_public_data_slots_tree_check_new_leaf_merkle_check_relation<FF_>,
-        lookup_written_public_data_slots_tree_check_new_leaf_poseidon2_relation<FF_>,
-        lookup_written_public_data_slots_tree_check_silo_poseidon2_relation<FF_>,
-        lookup_written_public_data_slots_tree_check_updated_low_leaf_poseidon2_relation<FF_>,
         perm_addressing_base_address_from_memory_relation<FF_>,
         perm_addressing_indirect_from_memory_0_relation<FF_>,
         perm_addressing_indirect_from_memory_1_relation<FF_>,

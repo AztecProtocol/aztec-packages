@@ -14,9 +14,9 @@ template <typename FF_> class txImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 62> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 4, 2, 3, 5, 3, 3, 3, 3, 7, 3, 3, 4, 3, 3, 4, 5, 3, 3, 3, 4, 3, 4, 3, 4, 4, 4, 4, 4, 2, 4,
-        5, 3, 3, 3, 4, 3, 5, 4, 3, 4, 4, 4, 5, 4, 3, 4, 3, 2, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
+    static constexpr std::array<size_t, 64> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 4, 2, 3, 5, 3, 3, 3, 3, 7, 3, 3, 4, 3, 3, 4, 5, 3, 3, 3, 4, 3, 4, 3, 4, 4, 4, 4, 4, 2, 4, 5,
+        3, 3, 3, 4, 3, 5, 4, 3, 3, 3, 4, 4, 4, 5, 4, 3, 4, 3, 2, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -57,15 +57,15 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
     static constexpr size_t SR_INCR_READ_PI_OFFSET = 22;
     static constexpr size_t SR_MAX_NOTE_HASH_WRITES_REACHED = 31;
     static constexpr size_t SR_MAX_NULLIFIER_WRITES_REACHED = 37;
-    static constexpr size_t SR_MAX_L2_L1_MSG_WRITES_REACHED = 43;
-    static constexpr size_t SR_UPDATE_NUM_L2_TO_L1_MSGS = 46;
-    static constexpr size_t SR_SEL_ACTIVE_ON_COLLECT_FEE = 47;
-    static constexpr size_t SR_COMPUTE_FEE = 49;
-    static constexpr size_t SR_TEARDOWN_GETS_FEE = 50;
-    static constexpr size_t SR_FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN = 51;
-    static constexpr size_t SR_PAD_NOTE_HASH_TREE = 59;
-    static constexpr size_t SR_PAD_NULLIFIER_TREE = 60;
-    static constexpr size_t SR_SEL_ACTIVE_ON_CLEANUP = 61;
+    static constexpr size_t SR_MAX_L2_L1_MSG_WRITES_REACHED = 45;
+    static constexpr size_t SR_UPDATE_NUM_L2_TO_L1_MSGS = 48;
+    static constexpr size_t SR_SEL_ACTIVE_ON_COLLECT_FEE = 49;
+    static constexpr size_t SR_COMPUTE_FEE = 51;
+    static constexpr size_t SR_TEARDOWN_GETS_FEE = 52;
+    static constexpr size_t SR_FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN = 53;
+    static constexpr size_t SR_PAD_NOTE_HASH_TREE = 61;
+    static constexpr size_t SR_PAD_NULLIFIER_TREE = 62;
+    static constexpr size_t SR_SEL_ACTIVE_ON_CLEANUP = 63;
 
     static std::string get_subrelation_label(size_t index)
     {

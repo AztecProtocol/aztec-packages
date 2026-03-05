@@ -122,6 +122,8 @@ MemoryValue Alu::div(const MemoryValue& a, const MemoryValue& b)
 
         // Check remainder < b:
         greater_than.gt(b, remainder);
+        // Range check that the remainder fits within max_bits (circuit pre-condition for gt call arguments).
+        range_check.assert_range(static_cast<uint128_t>(remainder.as_ff()), get_tag_bits(tag));
         if (tag == MemoryTag::U128) {
             // For u128, we decompose c and b into 64 bit chunks and discard the highest bits given by the product:
             auto c_decomp = decompose_128(static_cast<uint128_t>(c.as_ff()));
