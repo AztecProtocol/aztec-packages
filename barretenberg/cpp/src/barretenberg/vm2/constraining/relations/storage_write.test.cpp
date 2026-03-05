@@ -8,6 +8,7 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
+#include "barretenberg/vm2/simulation/events/indexed_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/gadgets/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/gadgets/public_data_tree_check.hpp"
@@ -15,27 +16,29 @@
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_indexed_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_note_hash_tree_check.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
+#include "barretenberg/vm2/tracegen/indexed_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_data_tree_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
-#include "barretenberg/vm2/tracegen/written_public_data_slots_tree_check_trace.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
 
 using tracegen::ExecutionTraceBuilder;
+using tracegen::IndexedTreeCheckTraceBuilder;
 using tracegen::PublicDataTreeTraceBuilder;
 using tracegen::TestTraceContainer;
-using tracegen::WrittenPublicDataSlotsTreeCheckTraceBuilder;
 
 using simulation::build_public_data_slots_tree;
 using simulation::EventEmitter;
+using simulation::IndexedTreeCheck;
+using simulation::IndexedTreeCheckEvent;
 using simulation::MockExecutionIdManager;
 using simulation::MockFieldGreaterThan;
 using simulation::MockMerkleCheck;
@@ -46,7 +49,6 @@ using simulation::PublicDataTreeLeafPreimage;
 using simulation::unconstrained_compute_leaf_slot;
 using simulation::unconstrained_root_from_path;
 using simulation::WrittenPublicDataSlotsTreeCheck;
-using simulation::WrittenPublicDataSlotsTreeCheckEvent;
 
 using testing::_;
 using testing::NiceMock;
@@ -211,9 +213,11 @@ TEST(SStoreConstrainingTest, Interactions)
     NiceMock<MockMerkleCheck> merkle_check;
     NiceMock<MockExecutionIdManager> execution_id_manager;
 
-    EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_emitter;
-    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(
-        poseidon2, merkle_check, field_gt, build_public_data_slots_tree(), written_public_data_slots_emitter);
+    EventEmitter<IndexedTreeCheckEvent> indexed_tree_check_emitter;
+    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, indexed_tree_check_emitter);
+
+    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(indexed_tree_check,
+                                                                         build_public_data_slots_tree());
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
@@ -269,6 +273,8 @@ TEST(SStoreConstrainingTest, Interactions)
             { C::execution_sel_execute_sstore, 1 },
             { C::execution_contract_address, contract_address },
             { C::execution_sel_gas_sstore, 1 },
+            { C::execution_written_slots_tree_height, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT },
+            { C::execution_written_slots_tree_siloing_separator, DOM_SEP__PUBLIC_LEAF_SLOT },
             { C::execution_dynamic_da_gas_factor, 1 },
             { C::execution_register_0_, value },
             { C::execution_register_1_, slot },
@@ -294,8 +300,8 @@ TEST(SStoreConstrainingTest, Interactions)
     PublicDataTreeTraceBuilder public_data_tree_trace_builder;
     public_data_tree_trace_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
 
-    WrittenPublicDataSlotsTreeCheckTraceBuilder written_slots_tree_trace_builder;
-    written_slots_tree_trace_builder.process(written_public_data_slots_emitter.dump_events(), trace);
+    IndexedTreeCheckTraceBuilder written_slots_tree_trace_builder;
+    written_slots_tree_trace_builder.process(indexed_tree_check_emitter.dump_events(), trace);
 
     check_relation<sstore>(trace);
     check_interaction<ExecutionTraceBuilder,
@@ -322,9 +328,10 @@ TEST(SStoreConstrainingTest, NegativeFullAttackWithAllTraces)
     NiceMock<MockMerkleCheck> merkle_check;
     NiceMock<MockExecutionIdManager> execution_id_manager;
 
-    EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_emitter;
-    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(
-        poseidon2, merkle_check, field_gt, build_public_data_slots_tree(), written_public_data_slots_emitter);
+    EventEmitter<IndexedTreeCheckEvent> indexed_tree_check_emitter;
+    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, indexed_tree_check_emitter);
+    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(indexed_tree_check,
+                                                                         build_public_data_slots_tree());
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
@@ -380,8 +387,8 @@ TEST(SStoreConstrainingTest, NegativeFullAttackWithAllTraces)
     PublicDataTreeTraceBuilder public_data_tree_trace_builder;
     public_data_tree_trace_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
 
-    WrittenPublicDataSlotsTreeCheckTraceBuilder written_slots_tree_trace_builder;
-    written_slots_tree_trace_builder.process(written_public_data_slots_emitter.dump_events(), trace);
+    IndexedTreeCheckTraceBuilder written_slots_tree_trace_builder;
+    written_slots_tree_trace_builder.process(indexed_tree_check_emitter.dump_events(), trace);
 
     // Inject ghost sstore at row 0 where precomputed_idx matches public_data_check.clk.
     // The mock execution_id_manager returns 0, so public_data_check.clk=0.

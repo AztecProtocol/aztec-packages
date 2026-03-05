@@ -34,10 +34,10 @@
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/get_contract_instance_event.hpp"
+#include "barretenberg/vm2/simulation/events/indexed_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
-#include "barretenberg/vm2/simulation/events/nullifier_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
@@ -163,18 +163,16 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     DefaultEventEmitter<ContextStackEvent> context_stack_emitter;
     DefaultEventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_emitter;
     DefaultEventEmitter<UpdateCheckEvent> update_check_emitter;
-    DefaultEventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_emitter;
+    DefaultEventEmitter<IndexedTreeCheckEvent> indexed_tree_check_emitter;
     DefaultEventEmitter<TxEvent> tx_event_emitter;
     DefaultEventEmitter<CalldataEvent> calldata_emitter;
     DefaultEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
     DefaultEventEmitter<NoteHashTreeCheckEvent> note_hash_tree_check_emitter;
-    DefaultEventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_tree_check_emitter;
     DefaultDeduplicatingEventEmitter<GreaterThanEvent> greater_than_emitter;
     DefaultEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
     DefaultEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
     DefaultEventEmitter<L1ToL2MessageTreeCheckEvent> l1_to_l2_msg_tree_check_emitter;
     DefaultEventEmitter<EmitPublicLogEvent> emit_public_log_emitter;
-    DefaultEventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
 
     ExecutionIdManager execution_id_manager(1);
     RangeCheck range_check(range_check_emitter);
@@ -186,14 +184,11 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
     PublicDataTreeCheck public_data_tree_check(
         poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_emitter);
-    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(poseidon2,
-                                                                         merkle_check,
-                                                                         field_gt,
-                                                                         build_public_data_slots_tree(),
-                                                                         written_public_data_slots_tree_check_emitter);
-    RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(
-        poseidon2, merkle_check, field_gt, build_retrieved_bytecodes_tree(), retrieved_bytecodes_tree_check_emitter);
-    NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
+    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, indexed_tree_check_emitter);
+
+    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(indexed_tree_check,
+                                                                         build_public_data_slots_tree());
+    RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(indexed_tree_check, build_retrieved_bytecodes_tree());
 
     // The protocol requires at least one non-revertible nullifier in the transaction (used for uniqueness of note
     // hashes).
@@ -218,12 +213,12 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
 
     MerkleDB base_merkle_db(raw_merkle_db,
                             public_data_tree_check,
-                            nullifier_tree_check,
+                            indexed_tree_check,
                             note_hash_tree_check,
                             written_public_data_slots_tree_check,
                             l1_to_l2_msg_tree_check);
     base_merkle_db.add_checkpoint_listener(note_hash_tree_check);
-    base_merkle_db.add_checkpoint_listener(nullifier_tree_check);
+    base_merkle_db.add_checkpoint_listener(indexed_tree_check);
     base_merkle_db.add_checkpoint_listener(public_data_tree_check);
     // This one is only needed for events.
     base_merkle_db.add_checkpoint_listener(emit_public_log_component);
@@ -356,17 +351,15 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
         context_stack_emitter.dump_events(),
         public_data_tree_check_emitter.dump_events(),
         update_check_emitter.dump_events(),
-        nullifier_tree_check_emitter.dump_events(),
+        indexed_tree_check_emitter.dump_events(),
         data_copy_emitter.dump_events(),
         calldata_emitter.dump_events(),
         internal_call_stack_emitter.dump_events(),
         note_hash_tree_check_emitter.dump_events(),
-        written_public_data_slots_tree_check_emitter.dump_events(),
         contract_instance_retrieval_emitter.dump_events(),
         get_contract_instance_emitter.dump_events(),
         l1_to_l2_msg_tree_check_emitter.dump_events(),
         emit_public_log_emitter.dump_events(),
-        retrieved_bytecodes_tree_check_emitter.dump_events(),
     };
 
     TxSimulationResult tx_simulation_result = {
@@ -407,8 +400,8 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
     NoopEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
     NoopEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
     NoopEventEmitter<EmitPublicLogEvent> emit_public_log_emitter;
-    NoopEventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
     NoopEventEmitter<UpdateCheckEvent> update_check_emitter;
+    NoopEventEmitter<IndexedTreeCheckEvent> indexed_tree_check_emitter;
 
     ExecutionIdManager execution_id_manager(1);
     RangeCheck range_check(range_check_emitter);
@@ -418,8 +411,8 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
     PurePoseidon2 poseidon2;
     MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
     PureWrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(poseidon2);
-    RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(
-        poseidon2, merkle_check, field_gt, build_retrieved_bytecodes_tree(), retrieved_bytecodes_tree_check_emitter);
+    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, indexed_tree_check_emitter);
+    RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(indexed_tree_check, build_retrieved_bytecodes_tree());
     EmitPublicLog emit_public_log_component(execution_id_manager, greater_than, emit_public_log_emitter);
     PureAlu alu;
     PureBitwise bitwise;
