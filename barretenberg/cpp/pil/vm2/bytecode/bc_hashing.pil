@@ -18,11 +18,29 @@ include "../precomputed.pil";
  * element. Finally, we copy through a multi-permutation based on the selector these
  * field elements to here (bc_hashing.pil) and then proceed to hashing.
  *
+ * In this subtrace, each computation block (per bytecode) lays out the "packed fields"
+ * obtained from bc_decomposition.pil over 3 columns: packed_fields_0, packed_fields_1, packed_fields_2.
+ * On each row, we also constrain the associated pc indices (pc_index, pc_index_1, pc_index_2)
+ * to be incremented by 31 in a rotation, starting with pc_index_1 because the
+ * first field is the separator. Layout is:
+ * PC_INDEX, PC_INDEX_1, PC_INDEX_2
+ *     0         0           31
+ *    62        93          124
+ *   155       186          217 ...
+ *
+ * Each computation block is constrained to have the same bytecode_id and therefore,
+ * the multi-permutation enforces that the packed fields from one block in bc_decomposition.pil
+ * are kept together in the same block in bc_hashing.pil. Strictly speaking we do not constrain
+ * in bc_decomposition.pil nor in this trace that each block has a different bytecode_id but
+ * if this happens we have the guarantee that the packed fields and `size_in_bytes` (part of
+ * the initial field) are the same for all blocks with the same bytecode_id. This is guaranteed
+ * by the collision resistance of Poseidon2.
+ *
  * PRECONDITIONS:
  * - Bytecodes must be non-empty (empty bytecode would cause input_len - 2 to
  *   underflow in #[BYTECODE_LENGTH_FIELDS]).
- * - size_in_bytes < MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS * 31 (enforced at the
- *   contract registration level, so the first-field computation does not overflow).
+ * - size_in_bytes < 2^232 (enforced at the contract registration level,
+ *   that MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 3000 anyway).
  *
  * TRACE SHAPE:
  * Variable-length: one row per Poseidon2 round, consuming 3 field inputs per row.
@@ -30,20 +48,20 @@ include "../precomputed.pil";
  * number of 31-byte packed fields from bc_decomposition and +1 accounts for the
  * prepended domain separator | length field. Rows for a single bytecode are
  * contiguous, starting from row 2 (row 1 is a zero row for shifts). The first row
- * of each bytecode group has start = 1; the last has end = 1.
+ * of each bytecode group has `start == 1`; the last has `end == 1`.
  *
  * Example (p_f = packed_fields):
  *
  * bc_hash_0 = H([sep, 0x111, 0x222, 0x333, 0x444, 0x555, 0x666, 0x777])
  * bc_hash_1 = H([sep, 0xaaa, 0xbbb, 0xccc])
  *
- *   pc_index |  pc_index_1 |  pc_index_2 | bytecode_id |  p_f_0  |  p_f_1  |  p_f_2  | end   | start | rounds_rem | padding |
- * -----------+-------------+-------------+-------------+---------+---------+---------+-------+-------+------------+---------+
- *     0      |      0      |      31     |  bc_hash_0  |   sep   |  0x111  |  0x222  |   0   |   1   |     3      |    1    |
- *     62     |      93     |      124    |  bc_hash_0  |  0x333  |  0x444  |  0x555  |   0   |   0   |     2      |    1    |
- *     155    |      186    |      217    |  bc_hash_0  |  0x666  |  0x777  |    0    |   1   |   0   |     1      |    1    |
- *     0      |      0      |      31     |  bc_hash_1  |   sep   |  0xaaa  |  0xbbb  |   0   |   1   |     2      |    2    |
- *     62     |      93     |      124    |  bc_hash_1  |  0xccc  |    0    |    0    |   1   |   0   |     1      |    2    |
+ *   pc_index |  pc_index_1 |  pc_index_2 | bytecode_id |  p_f_0  |  p_f_1  |  p_f_2  | end   | start | rounds_rem | padding | input_len |
+ * -----------+-------------+-------------+-------------+---------+---------+---------+-------+-------+------------+---------+-----------+
+ *     0      |      0      |      31     |  bc_hash_0  |   sep   |  0x111  |  0x222  |   0   |   1   |     3      |    1    |     8     |
+ *     62     |      93     |      124    |  bc_hash_0  |  0x333  |  0x444  |  0x555  |   0   |   0   |     2      |    1    |    unc    |
+ *     155    |      186    |      217    |  bc_hash_0  |  0x666  |  0x777  |    0    |   1   |   0   |     1      |    1    |    unc    |
+ *     0      |      0      |      31     |  bc_hash_1  |   sep   |  0xaaa  |  0xbbb  |   0   |   1   |     2      |    2    |     4     |
+ *     62     |      93     |      124    |  bc_hash_1  |  0xccc  |    0    |    0    |   1   |   0   |     1      |    2    |    unc    |
  *
  * ERROR HANDLING:
  * This gadget does not have error conditions. Bytecode hashing is infallible — a hash
@@ -57,18 +75,17 @@ include "../precomputed.pil";
  * - poseidon2_hash.pil: #[POSEIDON2_HASH] (lookup) — delegates each round's inputs,
  *   length, round counter, and output to the Poseidon2 hash sub-trace.
  *
+ * The only upstream trace interacting with bc_hashing.pil is bc_decomposition.pil through the permutations
+ * mentioned above. At highe level, the execution trace retrieves bytecode_id from bc_retrieval.pil and
+ * then by proceeding to instruction fetching, triggers the following interaction path:
+ * execution.pil --> instr_fetching.pil --> bc_decomposition.pil <-> bc_hashing.pil --> poseidon2_hash.pil
+ *
  * SECURITY NOTES:
  * Security assumptions depend on the Poseidon2 hash (intractable to find a meaningful
- * collision). The poseidon2_hash circuit propagates the final output_hash/bytecode_id
- * to each row and constrains they are the same, chaining each round to the next.
+ * collision) so that if the bytecode_id is correct, then the computation block (all rows
+ * between start and end) contains the correct packed fields and size_in_bytes corresponding
+ * to `bytecode_id`.
  *
- * A prover can place the latch in any row and that value will test correctness of the
- * bytecode hash. We assume it is impossible, given inputs (i0, ..., iN), for the prover
- * to find a subsequence such that Hash(inputs) == Hash(subsequence).
- *
- * This trace relies on chaining and inc/decrementing of values per row, so the
- * bytecode_id can only be considered correct once all values have been processed and
- * the final state checked. Lookups into this trace should always be gated by end = 1.
  */
 namespace bc_hashing;
 
@@ -147,7 +164,7 @@ namespace bc_hashing;
     // We need 3 packed fields to use as inputs for each Poseidon2 round.
     pol commit packed_fields_0, packed_fields_1, packed_fields_2;
 
-    // Only constrained at start for the prepended field (free on other rows; constrained by lookups below):
+    // Only constrained at start for the prepended field (free on other rows; constrained by the permutations below):
     pol commit size_in_bytes;
 
     // Fetch the bytecode length in bytes from bc_decomposition at start.
@@ -165,9 +182,9 @@ namespace bc_hashing;
     #[START_IS_FIRST_FIELD]
     start * (packed_fields_0 - FIRST_FIELD) = 0;
 
-    // ==== PACKED FIELD LOOKUPS ====
+    // ==== PACKED FIELD MULTI-PERMUTATION ====
 
-    // Fetch packed field elements from bc_decomposition via multi-permutation.
+    // Fetch the packed field elements from bc_decomposition via multi-permutation.
     // Each round consumes 3 fields at pc_index, pc_index_1, pc_index_2. Field 0 is
     // skipped at start (where it is forced to the separator via #[START_IS_FIRST_FIELD]).
     // Fields 1 and 2 are skipped when they are padding (sel_not_padding_X = 0).
@@ -220,6 +237,15 @@ namespace bc_hashing;
     #[PADDING_END]
     PADDING_2 * (1 - end) = 0;
 
+    // Note: #[PADDING_CONSISTENCY] and #[PADDING_END] are not strictly necessary because
+    // they should inherit from the constraints on bc_decomposition.pc. However, these
+    // 2 constraints are very cheap and allow the correct layout of the "pc_indices" to be
+    // self-contained within this trace.
+
+    // When we have a padding field, the corresponding packed field is not retrieved from the
+    // multi-permutation. We therefore need to constrain a padding field to be zero to feed
+    // poseidon2_hash.pil with the correct inputs because poseidon2_hash.pil does not constrain
+    // that padded fields == 0. Otherwise, a malicious prover could compute a wrong bytecode_id.
     // PADDING_1 == 1 ==> packed_fields_1 == 0
     #[PADDED_BY_ZERO_1]
     PADDING_1 * packed_fields_1 = 0;
@@ -228,7 +254,9 @@ namespace bc_hashing;
     #[PADDED_BY_ZERO_2]
     PADDING_2 * packed_fields_2 = 0;
 
-    pol commit padding;
+    // We compute the number of padding fields and propagate it to the `start` row in order
+    // to correctly constrain the `input_len` at the start row. (see #[BYTECODE_LENGTH_FIELDS] below).
+    pol commit padding; // Takes a value in {0, 1, 2}.
     #[PADDING_COMPUTATION]
     end * (padding - PADDING_1 - PADDING_2) = 0;
 
@@ -243,21 +271,16 @@ namespace bc_hashing;
     //       We constrain `input_len` at the start row by linking it to padding value and `rounds_rem`.
     pol commit input_len;
 
-    // Minus one for the initial field not present in bc_decomposition, and one to include the final
-    // field (pc_at_final_field marks the beginning of the last field).
     // Note: this doesn't underflow as we don't handle empty bytecode (see PRECONDITIONS).
+    // Alternatively, we could have constrained `input_len` based on `size_in_bytes` but this
+    // would have required some more costly range checks.
     #[BYTECODE_LENGTH_FIELDS]
     start * (3 * rounds_rem - padding - input_len) = 0;
 
     // The number of rounds (rows) remaining to completely hash the bytecode.
-    // Like input_len, its correctness is constrained at the final row (end), where (due to
-    // #[CHECK_FINAL_BYTES_REMAINING] and #[PADDING_CORRECTNESS]) we know we have reached the end of
-    // bytecode processed by bc_decomposition and we must have decremented uniformly until this point.
-    // We use it to ensure the ordering of Poseidon2 rounds is correct (i.e. a malicious prover
-    // cannot swap the order of poseidon rounds).
-    // (Note that we don't need to constrain this vs input_len because a. input_len is checked vs the
-    // incrementing pc values at end and b. the poseidon2_hash trace we lookup into links these
-    // values anyway.)
+    // This is required by poseidon2_hash.pil to ensure the ordering of Poseidon2 rounds is correct.
+    // Note that #[BYTECODE_LENGTH_FIELDS] links `rounds_rem` to `input_len` at the start row.
+    // Furthermore, the poseidon2_hash trace we lookup into links these values anyway.
     pol commit rounds_rem;
 
     // The rounds remaining decrement by 1 each row, and must equal 1 at the end row.
@@ -294,25 +317,3 @@ namespace bc_hashing;
         poseidon2_hash.num_perm_rounds_rem,
         poseidon2_hash.output
     };
-
-    // ==== PROOF SKETCH ====
-    //
-    // We want to show that the output_hash correctly enforces that it is the result of hashing
-    // the bytes of a given bytecode identified by bytecode_id. Thanks to #[TRACE_CONTINUITY] and
-    // #[SEL_TOGGLED_AT_LATCH], we have the guarantee that the rows above the final end are
-    // activated. If they are activated, then bytecode_id is maintained and pc_index decrements by
-    // 31 * 3 = 93 when we move to the top. From #[START_AFTER_LATCH], we have the guarantee that
-    // we cannot meet a row with end == 1 before we meet start == 1 when we go up. This shows
-    // that bytecode_id, pc_index, and incremental_hash evolution did not deviate from the happy path.
-    //
-    // When we reach a row with start == 1 (we know we must reach one thanks to #[START_AFTER_LATCH]
-    // enforcing it on the second row), then #[START_IS_FIRST_FIELD] implies that pc_index and
-    // packed_fields are correctly initialized. Note also that thanks to #[TRACE_CONTINUITY] and
-    // #[GET_PACKED_FIELD_i] we retrieved packed_field_i at the right pc_index_i from the
-    // bc_decomposition sub-trace.
-    //
-    // We remark that before reaching another latch, a prover might add additional rows without
-    // latch on top of the start or even add a row with start == 1. This does not have any security
-    // impact as what matters is the guarantee to have a correct initialization at start. What is
-    // more, having a row without end on top of the start would mean that a Poseidon2 pre-image
-    // for a small integer (bytes_remaining) must have been found.
