@@ -19,12 +19,16 @@ import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
-import { TokenContract as BananaCoin, TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TokenContract as BananaCoin, TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
+import { FunctionSelector, countArgumentsSize } from '@aztec/stdlib/abi';
+import type { FunctionAbi } from '@aztec/stdlib/abi';
+import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
+import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { MNEMONIC } from '../../fixtures/fixtures.js';
@@ -41,6 +45,35 @@ import { ProxyLogger } from './benchmark.js';
 import { type ClientFlowsConfig, FULL_FLOWS_CONFIG, KEY_FLOWS_CONFIG } from './config.js';
 
 const { BENCHMARK_CONFIG } = process.env;
+
+/** Returns Token-specific allowlist entries for FPC-based fee payments (test-only). */
+async function getTokenAllowedSetupFunctions(): Promise<AllowedElement[]> {
+  const tokenClassId = (await getContractClassFromArtifact(TokenContractArtifact)).id;
+  const allFunctions: FunctionAbi[] = (TokenContractArtifact.functions as FunctionAbi[]).concat(
+    TokenContractArtifact.nonDispatchPublicFunctions || [],
+  );
+  const getCalldataLength = (name: string) => {
+    const fn = allFunctions.find(f => f.name === name)!;
+    return 1 + countArgumentsSize(fn);
+  };
+  const increaseBalanceSelector = await FunctionSelector.fromSignature('_increase_public_balance((Field),u128)');
+  const transferInPublicSelector = await FunctionSelector.fromSignature(
+    'transfer_in_public((Field),(Field),u128,Field)',
+  );
+  return [
+    {
+      classId: tokenClassId,
+      selector: increaseBalanceSelector,
+      calldataLength: getCalldataLength('_increase_public_balance'),
+      onlySelf: true,
+    },
+    {
+      classId: tokenClassId,
+      selector: transferInPublicSelector,
+      calldataLength: getCalldataLength('transfer_in_public'),
+    },
+  ];
+}
 
 export type AccountType = 'ecdsar1' | 'schnorr';
 export type FeePaymentMethodGetter = (wallet: Wallet, sender: AztecAddress) => Promise<FeePaymentMethod | undefined>;
@@ -130,11 +163,14 @@ export class ClientFlowsBenchmark {
 
   async setup() {
     this.logger.info('Setting up subsystems from fresh');
+    // Token allowlist entries are test-only: FPC-based fee payment with custom tokens won't work on mainnet alpha.
+    const tokenAllowList = await getTokenAllowedSetupFunctions();
     this.context = await setup(0, {
       ...this.setupOptions,
       fundSponsoredFPC: true,
       skipAccountDeployment: true,
       l1ContractsArgs: this.setupOptions,
+      txPublicSetupAllowListExtend: [...(this.setupOptions.txPublicSetupAllowListExtend ?? []), ...tokenAllowList],
     });
     await this.applyBaseSetup();
 
