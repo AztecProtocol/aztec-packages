@@ -292,7 +292,7 @@ Circuits, however, do not take structures as inputs. They only take in columns (
 | **Col 2** | Public call **is_static_call**, L2→L1 **contract_address**                                                                                                                                                                                                                                                        |
 | **Col 3** | Public call **calldata_hash**                                                                                                                                                                                                                                                                                     |
 
-For more detail see the appendix section [Public Inputs Layout](#public-inputs-layout).
+For more detail see [`public_inputs.pil`](../public_inputs.pil).
 
 ## Connecting subtraces
 
@@ -459,70 +459,7 @@ flowchart TB
 
 ## Public Inputs Layout
 
-#### Row layout (by logical section) \- Inputs
-
-| Rows     | Section                                                             | Col 0                  | Col 1                     | Col 2            | Col 3         |
-| :------- | :------------------------------------------------------------------ | :--------------------- | :------------------------ | :--------------- | :------------ |
-| 0        | **global_variables.chain_id**                                       | chain_id               | —                         | —                | —             |
-| 1        | **global_variables.version**                                        | version                | —                         | —                | —             |
-| 2        | **global_variables.block_number**                                   | block_number           | —                         | —                | —             |
-| 3        | **global_variables.slot_number**                                    | slot_number            | —                         | —                | —             |
-| 4        | **global_variables.timestamp**                                      | timestamp              | —                         | —                | —             |
-| 5        | **global_variables.coinbase**                                       | coinbase               | —                         | —                | —             |
-| 6        | **global_variables.fee_recipient**                                  | fee_recipient          | —                         | —                | —             |
-| 7        | **global_variables.gas_fees**                                       | fee_per_da_gas         | fee_per_l2_gas            | —                | —             |
-| 8..18    | **protocol_contracts**                                              | serialized (11 fields) | —                         | —                | —             |
-| 19       | **start_tree_snapshots.l1_to_l2_message_tree**                      | root                   | next_available_leaf_index | —                | —             |
-| 20       | **start_tree_snapshots.note_hash_tree**                             | root                   | next_available_leaf_index | —                | —             |
-| 21       | **start_tree_snapshots.nullifier_tree**                             | root                   | next_available_leaf_index | —                | —             |
-| 22       | **start_tree_snapshots.public_data_tree**                           | root                   | next_available_leaf_index | —                | —             |
-| 23       | **start_gas_used**                                                  | da_gas                 | l2_gas                    | —                | —             |
-| 24       | **gas_settings.gas_limits**                                         | da_gas                 | l2_gas                    | —                | —             |
-| 25       | **gas_settings.teardown_gas_limits**                                | da_gas                 | l2_gas                    | —                | —             |
-| 26       | **gas_settings.max_fees_per_gas**                                   | fee_per_da_gas         | fee_per_l2_gas            | —                | —             |
-| 27       | **gas_settings.max_priority_fees_per_gas**                          | fee_per_da_gas         | fee_per_l2_gas            | —                | —             |
-| 28       | **effective_gas_fees**                                              | fee_per_da_gas         | fee_per_l2_gas            | —                | —             |
-| 29       | **fee_payer**                                                       | fee_payer              | —                         | —                | —             |
-| 30       | **prover_id**                                                       | prover_id              | —                         | —                | —             |
-| 31       | **public_call_request_array_lengths**                               | setup_calls            | —                         | —                | —             |
-| 32       |                                                                     | app_logic_calls        | —                         | —                | —             |
-| 33       |                                                                     | teardown_call          | —                         | —                | —             |
-| 34..65   | **public_setup_call_requests** \[0..32\]                            | msg_sender             | contract_address          | is_static_call   | calldata_hash |
-| 66..97   | **public_app_logic_call_requests** \[0..32\]                        | msg_sender             | contract_address          | is_static_call   | calldata_hash |
-| 98       | **public_teardown_call_request**                                    | msg_sender             | contract_address          | is_static_call   | calldata_hash |
-| 99       | **previous_non_revertible_accumulated_data_array_lengths**          | note_hashes            | —                         | —                | —             |
-| 100      |                                                                     | nullifiers             | —                         | —                | —             |
-| 101      |                                                                     | l2_to_l1_msgs          | —                         | —                | —             |
-| 102      | **previous_revertible_accumulated_data_array_lengths**              | note_hashes            | —                         | —                | —             |
-| 103      |                                                                     | nullifiers             | —                         | —                | —             |
-| 104      |                                                                     | l2_to_l1_msgs          | —                         | —                | —             |
-| 105..168 | **previous_non_revertible_accumulated_data.note_hashes** \[0..64\]  | note_hash\[i\]         | —                         | —                | —             |
-| 169..232 | **previous_non_revertible_accumulated_data.nullifiers** \[0..64\]   | nullifier\[i\]         | —                         | —                | —             |
-| 233..240 | **previous_non_revertible_accumulated_data.l2_to_l1_msgs** \[0..8\] | recipient              | content                   | contract_address | —             |
-| 241..304 | **previous_revertible_accumulated_data.note_hashes** \[0..64\]      | note_hash\[i\]         | —                         | —                | —             |
-| 305..368 | **previous_revertible_accumulated_data.nullifiers** \[0..64\]       | nullifier\[i\]         | —                         | —                | —             |
-| 369..376 | **previous_revertible_accumulated_data.l2_to_l1_msgs** \[0..8\]     | recipient              | content                   | contract_address | —             |
-
-#### Row layout (by logical section) \- Outputs
-
-| Rows       | Section                                           | Col 0                                         | Col 1                     | Col 2            | Col 3 |
-| :--------- | :------------------------------------------------ | :-------------------------------------------- | :------------------------ | :--------------- | :---- |
-| 377        | **end_tree_snapshots.l1_to_l2_message_tree**      | root                                          | next_available_leaf_index | —                | —     |
-| 378        | **end_tree_snapshots.note_hash_tree**             | root                                          | next_available_leaf_index | —                | —     |
-| 379        | **end_tree_snapshots.nullifier_tree**             | root                                          | next_available_leaf_index | —                | —     |
-| 380        | **end_tree_snapshots.public_data_tree**           | root                                          | next_available_leaf_index | —                | —     |
-| 381        | **end_gas_used**                                  | da_gas                                        | l2_gas                    | —                | —     |
-| 382        | **accumulated_data_array_lengths**                | note_hashes                                   | —                         | —                | —     |
-| 383        |                                                   | nullifiers                                    | —                         | —                | —     |
-| 384        |                                                   | l2_to_l1_msgs                                 | —                         | —                | —     |
-| 385        |                                                   | public_data_writes                            | —                         | —                | —     |
-| 386..449   | **accumulated_data.note_hashes** \[0..64\]        | note_hash\[i\]                                | —                         | —                | —     |
-| 450..513   | **accumulated_data.nullifiers** \[0..64\]         | nullifier\[i\]                                | —                         | —                | —     |
-| 514..521   | **accumulated_data.l2_to_l1_msgs** \[0..8\]       | recipient                                     | content                   | contract_address | —     |
-| 522..4618  | **accumulated_data.public_logs**                  | length (row 522), payload\[0..4095\] (col 0\) | —                         | —                | —     |
-| 4619..4682 | **accumulated_data.public_data_writes** \[0..64\] | leaf_slot                                     | value                     | —                | —     |
-| 4683       | **transaction_fee**                               | transaction_fee                               | —                         | —                | —     |
-| 4684       | **reverted**                                      | reverted (0/1)                                | —                         | —                | —     |
+The detailed row layout (row index, column contents, and interaction references) is documented in [`public_inputs.pil`](../public_inputs.pil).
 
 ## Generated C++ files
 
