@@ -12,21 +12,33 @@ CRS_PRIMARY_HOST="https://crs.aztec-cdn.foundation"
 # Fallback CRS host (AWS S3)
 CRS_FALLBACK_HOST="https://crs.aztec-labs.com"
 
-# Download with fallback: try primary first, then fallback on failure
+# Download with fallback and retries: try primary first, then fallback on failure
 download_with_fallback() {
   local output="$1"
   local file="$2"
   local range_header="${3:-}"
+  local max_retries=3
 
   local curl_args=(-s -f -o "$output")
   if [ -n "$range_header" ]; then
     curl_args+=(-H "Range: $range_header")
   fi
 
-  if ! curl "${curl_args[@]}" "${CRS_PRIMARY_HOST}/${file}" 2>/dev/null; then
-    echo "Primary CRS host failed, trying fallback..."
-    curl "${curl_args[@]}" "${CRS_FALLBACK_HOST}/${file}"
-  fi
+  for attempt in $(seq 1 $max_retries); do
+    if curl "${curl_args[@]}" "${CRS_PRIMARY_HOST}/${file}" 2>/dev/null; then
+      return 0
+    fi
+    echo "Primary CRS host failed (attempt $attempt/$max_retries), trying fallback..."
+    if curl "${curl_args[@]}" "${CRS_FALLBACK_HOST}/${file}" 2>/dev/null; then
+      return 0
+    fi
+    if [ "$attempt" -lt "$max_retries" ]; then
+      echo "Both hosts failed, retrying in 5s..."
+      sleep 5
+    fi
+  done
+  echo "ERROR: Failed to download ${file} after $max_retries attempts"
+  return 1
 }
 
 crs_path=$HOME/.bb-crs
