@@ -11,7 +11,7 @@ import { join, resolve } from 'path';
  * Note: The above implies that if there is a random json file in the target dir we would be always recompiling.
  */
 export async function needsRecompile(): Promise<boolean> {
-  const oldestArtifactMs = await getOldestArtifactMtimeMs('target');
+  const oldestArtifactMs = await getOldestArtifactModificationTime('target');
   if (oldestArtifactMs === undefined) {
     return true;
   }
@@ -20,8 +20,11 @@ export async function needsRecompile(): Promise<boolean> {
   return hasNewerSourceFile(crateDirs, oldestArtifactMs);
 }
 
-/** Returns the mtime (in ms) of the oldest .json artifact in targetDir, or undefined if none exist. */
-async function getOldestArtifactMtimeMs(targetDir: string): Promise<number | undefined> {
+/**
+ * Returns the last modification time (timestamp in ms) of the oldest .json artifact in targetDir, or undefined if
+ * none exist.
+ */
+async function getOldestArtifactModificationTime(targetDir: string): Promise<number | undefined> {
   let entries: string[];
   try {
     entries = (await readdir(targetDir)).filter(f => f.endsWith('.json'));
