@@ -93,6 +93,7 @@ pub contract ContractClassRegistry {
         // Emit the contract class id as a nullifier:
         // - to demonstrate that this contract class hasn't been published before
         // - to enable apps to read that this contract class has been published.
+        // We use no domain separators because these are the only nullifiers this contract uses.
         context.push_nullifier(contract_class_id.to_field());
 
         // Broadcast class info including public bytecode

@@ -9,6 +9,10 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] Made `compute_note_hash_for_nullification` unconstrained
+
+This function shouldn't have been constrained in the first place, as constrained computation of `HintedNote` nullifiers is dangerous. If you were calling this from a constrained function, consider using `compute_confirmed_note_hash_for_nullification` instead. Unconstrained usage is safe.
+
 ### [Aztec.nr] Removed `get_random_bytes`
 
 The `get_random_bytes` unconstrained function has been removed from `aztec::utils::random`. If you were using it, you can replace it with direct calls to the `random` oracle from `aztec::oracle::random` and convert to bytes yourself.
