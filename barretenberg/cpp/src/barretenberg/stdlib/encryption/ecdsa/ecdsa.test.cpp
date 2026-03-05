@@ -22,9 +22,9 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         std::conditional_t<Curve::type == bb::CurveType::SECP256K1, bb::curve::SECP256K1, bb::curve::SECP256R1>;
 
     // Native Types
-    using FrNative = Curve::fr;
-    using FqNative = Curve::fq;
-    using G1Native = Curve::g1;
+    using FrNative = Curve::ScalarFieldNative;
+    using FqNative = Curve::BaseFieldNative;
+    using G1Native = Curve::GroupNative;
 
     // Stdlib types
     using Fr = Curve::ScalarField;
@@ -499,9 +499,9 @@ TEST(EcdsaTests, Secp256k1PointAtInfinityRegression)
 {
     using Curve = stdlib::secp256k1<UltraCircuitBuilder>;
 
-    using FqNative = Curve::fq;
-    using FrNative = Curve::fr;
-    using G1Native = Curve::g1;
+    using FqNative = Curve::BaseFieldNative;
+    using FrNative = Curve::ScalarFieldNative;
+    using G1Native = Curve::GroupNative;
 
     using Builder = Curve::Builder;
     using FrStdlib = Curve::ScalarField;
@@ -576,9 +576,9 @@ TEST(EcdsaTests, Secp256r1NativeStdlibDiscrepancyRegression)
 {
     using Curve = stdlib::secp256r1<UltraCircuitBuilder>;
 
-    using FqNative = Curve::fq;
-    using FrNative = Curve::fr;
-    using G1Native = Curve::g1;
+    using FqNative = Curve::BaseFieldNative;
+    using FrNative = Curve::ScalarFieldNative;
+    using G1Native = Curve::GroupNative;
 
     using Builder = Curve::Builder;
     using FrStdlib = Curve::ScalarField;
@@ -643,8 +643,8 @@ TEST(EcdsaTests, Secp256r1NafOverflowRegression)
 {
     using Curve = stdlib::secp256r1<UltraCircuitBuilder>;
 
-    using FqNative = Curve::fq;
-    using G1Native = Curve::g1;
+    using FqNative = Curve::BaseFieldNative;
+    using G1Native = Curve::GroupNative;
 
     using Builder = Curve::Builder;
     using FrStdlib = Curve::ScalarField;

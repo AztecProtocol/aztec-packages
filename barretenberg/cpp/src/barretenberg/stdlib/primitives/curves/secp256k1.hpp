@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -16,10 +16,7 @@ namespace bb::stdlib {
 
 template <typename CircuitType> struct secp256k1 {
     static constexpr bb::CurveType type = bb::CurveType::SECP256K1;
-
-    using fq = ::bb::secp256k1::fq;
-    using fr = ::bb::secp256k1::fr;
-    using g1 = ::bb::secp256k1::g1;
+    static constexpr bool is_stdlib_type = true;
 
     // Native types
     using ScalarFieldNative = ::bb::secp256k1::fr;
@@ -38,7 +35,6 @@ template <typename CircuitType> struct secp256k1 {
     using Builder = CircuitType;
     using witness_ct = witness_t<Builder>;
     using public_witness_ct = public_witness_t<Builder>;
-    using fr_ct = field_t<Builder>;
     using byte_array_ct = byte_array<Builder>;
     using bool_ct = bool_t<Builder>;
 };

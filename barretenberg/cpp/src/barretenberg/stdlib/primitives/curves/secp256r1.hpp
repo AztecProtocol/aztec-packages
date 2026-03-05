@@ -16,10 +16,7 @@ namespace bb::stdlib {
 
 template <typename CircuitType> struct secp256r1 {
     static constexpr bb::CurveType type = bb::CurveType::SECP256R1;
-
-    using fq = bb::secp256r1::fq;
-    using fr = bb::secp256r1::fr;
-    using g1 = bb::secp256r1::g1;
+    static constexpr bool is_stdlib_type = true;
 
     // Native types
     using ScalarFieldNative = ::bb::secp256r1::fr;
@@ -38,7 +35,6 @@ template <typename CircuitType> struct secp256r1 {
     using Builder = CircuitType;
     using witness_ct = witness_t<Builder>;
     using public_witness_ct = public_witness_t<Builder>;
-    using fr_ct = field_t<Builder>;
     using byte_array_ct = byte_array<Builder>;
     using bool_ct = bool_t<Builder>;
 };

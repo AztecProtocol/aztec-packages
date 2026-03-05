@@ -404,10 +404,10 @@ TEST(PlookupTests, secp256k1_generator)
             curve::BaseField::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
 
         const auto res = curve::Group(x, y).get_value();
-        curve::fr scalar(i);
+        curve::ScalarFieldNative scalar(i);
         scalar = scalar + scalar;
         scalar = scalar - 255;
-        curve::g1::affine_element expec(curve::g1::one * scalar);
+        curve::GroupNative::affine_element expec(curve::GroupNative::one * scalar);
 
         EXPECT_EQ(res, expec);
     }
@@ -448,8 +448,8 @@ TEST(PlookupTests, secp256k1_generator)
         accumulator = accumulator - curve::Group::one(&builder);
     }
 
-    curve::g1::affine_element result = accumulator.get_value();
-    curve::g1::affine_element expected(curve::g1::one * input_value);
+    curve::GroupNative::affine_element result = accumulator.get_value();
+    curve::GroupNative::affine_element expected(curve::GroupNative::one * input_value);
     EXPECT_EQ(result, expected);
 
     bool proof_result = CircuitChecker::check(builder);

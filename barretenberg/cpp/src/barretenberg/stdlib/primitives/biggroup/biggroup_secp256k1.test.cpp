@@ -26,9 +26,9 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
     using element_ct = typename Curve::Group;
     using scalar_ct = typename Curve::ScalarField;
 
-    using fq = typename Curve::fq;
-    using fr = typename Curve::fr;
-    using g1 = typename Curve::g1;
+    using fq = typename Curve::BaseFieldNative;
+    using fr = typename Curve::ScalarFieldNative;
+    using g1 = typename Curve::GroupNative;
     using affine_element = typename g1::affine_element;
     using element = typename g1::element;
 
