@@ -140,6 +140,7 @@ describe('ValidatorClient HA Integration', () => {
       signingTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
       databaseUrl: 'postgresql://test',
+      dataStoreMapSizeKb: 128 * 1024 * 1024,
     };
 
     // Create 5 validator nodes with unique node IDs

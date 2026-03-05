@@ -7,13 +7,13 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { merge } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { ArchiverEmitter } from '@aztec/stdlib/block';
 import { type ContractClassPublic, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';

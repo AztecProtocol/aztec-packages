@@ -5,11 +5,11 @@ import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { tryRmDir } from '@aztec/foundation/fs';
 import type { Logger } from '@aztec/foundation/log';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { P2P_STORE_NAME } from '@aztec/p2p';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version/manager';
 import { type ReadOnlyFileStore, createReadOnlyFileStore } from '@aztec/stdlib/file-store';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import {
   type SnapshotMetadata,
   type SnapshotsIndexMetadata,
@@ -31,7 +31,8 @@ type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
   Pick<L1ContractsConfig, 'aztecEpochDuration'> &
   Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> &
-  Required<DataStoreConfig> &
+  DataStoreConfig &
+  Required<Pick<DataStoreConfig, 'l1Contracts'>> &
   EthereumClientConfig & {
     snapshotsUrls?: string[];
     minL1BlocksToTriggerReplace?: number;
