@@ -158,13 +158,13 @@ export function txHashFromBigInt(value: bigint): string {
 }
 
 /** Minimal fields required for priority comparison. */
-type PriorityComparable = Pick<TxMetaData, 'txHashBigInt' | 'priorityFee'>;
+export type PriorityComparable = Pick<TxMetaData, 'txHash' | 'txHashBigInt' | 'priorityFee'>;
 
 /**
  * Compares two priority fees in ascending order.
  * Returns negative if a < b, positive if a > b, 0 if equal.
  */
-export function compareFee(a: bigint, b: bigint): number {
+export function compareFee(a: bigint, b: bigint): -1 | 0 | 1 {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
@@ -173,7 +173,7 @@ export function compareFee(a: bigint, b: bigint): number {
  * Uses field element comparison for deterministic ordering.
  * Returns negative if a < b, positive if a > b, 0 if equal.
  */
-export function compareTxHash(a: bigint, b: bigint): number {
+export function compareTxHash(a: bigint, b: bigint): -1 | 0 | 1 {
   return Fr.cmpAsBigInt(a, b);
 }
 
@@ -182,7 +182,7 @@ export function compareTxHash(a: bigint, b: bigint): number {
  * Returns negative if a < b, positive if a > b, 0 if equal.
  * Use with sort() for ascending order, or negate/reverse for descending.
  */
-export function comparePriority(a: PriorityComparable, b: PriorityComparable): number {
+export function comparePriority(a: PriorityComparable, b: PriorityComparable): -1 | 0 | 1 {
   const feeComparison = compareFee(a.priorityFee, b.priorityFee);
   if (feeComparison !== 0) {
     return feeComparison;
