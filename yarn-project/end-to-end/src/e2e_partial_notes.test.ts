@@ -43,7 +43,8 @@ describe('partial notes', () => {
   it('mint to private', async () => {
     await mintTokensToPrivate(token0, adminAddress, liquidityProviderAddress, INITIAL_TOKEN_BALANCE);
     expect(
-      await token0.methods.balance_of_private(liquidityProviderAddress).simulate({ from: liquidityProviderAddress }),
+      (await token0.methods.balance_of_private(liquidityProviderAddress).simulate({ from: liquidityProviderAddress }))
+        .result,
     ).toEqual(INITIAL_TOKEN_BALANCE);
   });
 });

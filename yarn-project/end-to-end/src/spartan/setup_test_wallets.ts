@@ -130,7 +130,8 @@ async function deployAccountWithDiagnostics(
   const deployMethod = await account.getDeployMethod();
   let txHash;
   try {
-    txHash = await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod }, wait: NO_WAIT });
+    const deployResult = await deployMethod.send({ from: AztecAddress.ZERO, fee: { paymentMethod }, wait: NO_WAIT });
+    txHash = deployResult.txHash;
     await waitForTx(aztecNode, txHash, { timeout: 2400 });
     logger.info(`${accountLabel} deployed at ${account.address}`);
   } catch (error) {
@@ -266,7 +267,7 @@ async function bridgeL1FeeJuice(
   const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
 
   const isSynced = async () =>
-    (await aztecNode.getL1ToL2MessageBlock(Fr.fromHexString(claim.messageHash))) !== undefined;
+    (await aztecNode.getL1ToL2MessageCheckpoint(Fr.fromHexString(claim.messageHash))) !== undefined;
   await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 0.5);
 
   log.info(`Created a claim for ${amount} L1 fee juice to ${recipient}.`, claim);
@@ -298,13 +299,9 @@ async function deployTokenAndMint(
   logger: Logger,
 ) {
   logger.verbose(`Deploying TokenContract...`);
-  const { contract: tokenContract } = await TokenContract.deploy(
-    wallet,
-    admin,
-    TOKEN_NAME,
-    TOKEN_SYMBOL,
-    TOKEN_DECIMALS,
-  ).send({
+  const {
+    receipt: { contract: tokenContract },
+  } = await TokenContract.deploy(wallet, admin, TOKEN_NAME, TOKEN_SYMBOL, TOKEN_DECIMALS).send({
     from: admin,
     fee: {
       paymentMethod,

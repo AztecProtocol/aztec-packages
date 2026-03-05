@@ -303,6 +303,7 @@ export const SendOptionsSchema = z.object({
   capsules: optional(z.array(Capsule.schema)),
   fee: optional(GasSettingsOptionSchema),
   wait: optional(z.union([z.literal(NO_WAIT), WaitOptsSchema])),
+  additionalScopes: optional(z.array(schemas.AztecAddress)),
 });
 
 export const SimulateOptionsSchema = z.object({
@@ -313,6 +314,7 @@ export const SimulateOptionsSchema = z.object({
   skipTxValidation: optional(z.boolean()),
   skipFeeEnforcement: optional(z.boolean()),
   includeMetadata: optional(z.boolean()),
+  additionalScopes: optional(z.array(schemas.AztecAddress)),
 });
 
 export const ProfileOptionsSchema = SimulateOptionsSchema.extend({
@@ -379,6 +381,7 @@ export const ContractClassMetadataSchema = z.object({
 export const ContractFunctionPatternSchema = z.object({
   contract: z.union([schemas.AztecAddress, z.literal('*')]),
   function: z.union([z.string(), z.literal('*')]),
+  additionalScopes: optional(z.union([z.array(schemas.AztecAddress), z.literal('*')])),
 });
 
 export const AccountsCapabilitySchema = z.object({
@@ -489,6 +492,22 @@ export const WalletCapabilitiesSchema = z.object({
   expiresAt: optional(z.number()),
 });
 
+const OffchainEffectSchema = z.object({
+  data: z.array(schemas.Fr),
+  contractAddress: schemas.AztecAddress,
+});
+
+const OffchainMessageSchema = z.object({
+  recipient: schemas.AztecAddress,
+  payload: z.array(schemas.Fr),
+  contractAddress: schemas.AztecAddress,
+});
+
+const OffchainOutputSchema = z.object({
+  offchainEffects: z.array(OffchainEffectSchema),
+  offchainMessages: z.array(OffchainMessageSchema),
+});
+
 /**
  * Record of all wallet method schemas (excluding batch).
  * This is the single source of truth for method schemas - batch schemas are derived from this.
@@ -532,7 +551,12 @@ const WalletMethodSchemas = {
   sendTx: z
     .function()
     .args(ExecutionPayloadSchema, SendOptionsSchema)
-    .returns(z.union([TxHash.schema, TxReceipt.schema])),
+    .returns(
+      z.union([
+        z.object({ txHash: TxHash.schema }).merge(OffchainOutputSchema),
+        z.object({ receipt: TxReceipt.schema }).merge(OffchainOutputSchema),
+      ]),
+    ),
   createAuthWit: z.function().args(schemas.AztecAddress, MessageHashOrIntentSchema).returns(AuthWitness.schema),
   requestCapabilities: z.function().args(AppCapabilitiesSchema).returns(WalletCapabilitiesSchema),
 };

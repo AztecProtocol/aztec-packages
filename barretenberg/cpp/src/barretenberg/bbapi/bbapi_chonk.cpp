@@ -1,6 +1,7 @@
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
+#include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -251,6 +252,19 @@ ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request)
     builder.blocks.summarize();
 
     return response;
+}
+
+ChonkCompressProof::Response ChonkCompressProof::execute(const BBApiRequest& /*request*/) &&
+{
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    return { .compressed_proof = ProofCompressor::compress_chonk_proof(proof) };
+}
+
+ChonkDecompressProof::Response ChonkDecompressProof::execute(const BBApiRequest& /*request*/) &&
+{
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    size_t mega_num_pub = ProofCompressor::compressed_mega_num_public_inputs(compressed_proof.size());
+    return { .proof = ProofCompressor::decompress_chonk_proof(compressed_proof, mega_num_pub) };
 }
 
 } // namespace bb::bbapi

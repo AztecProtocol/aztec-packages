@@ -50,6 +50,12 @@ export interface L2BlockSource {
   getBlockNumber(): Promise<BlockNumber>;
 
   /**
+   * Gets the number of the latest L2 checkpoint processed by the block source implementation.
+   * @returns The number of the latest L2 checkpoint processed by the block source implementation.
+   */
+  getCheckpointNumber(): Promise<CheckpointNumber>;
+
+  /**
    * Gets the number of the latest L2 block proven seen by the block source implementation.
    * @returns The number of the latest L2 block proven seen by the block source implementation.
    */

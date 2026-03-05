@@ -52,7 +52,8 @@ describe('token transfer test', () => {
 
   it('can get info', async () => {
     const name = readFieldCompressedString(
-      await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }),
+      (await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }))
+        .result,
     );
     expect(name).toBe(testAccounts.tokenName);
   });
@@ -63,16 +64,20 @@ describe('token transfer test', () => {
 
     for (const a of testAccounts.accounts) {
       expect(MINT_AMOUNT).toBe(
-        await testAccounts.tokenContract.methods
-          .balance_of_public(a)
-          .simulate({ from: testAccounts.tokenAdminAddress }),
+        (
+          await testAccounts.tokenContract.methods
+            .balance_of_public(a)
+            .simulate({ from: testAccounts.tokenAdminAddress })
+        ).result,
       );
     }
 
     expect(0n).toBe(
-      await testAccounts.tokenContract.methods
-        .balance_of_public(recipient)
-        .simulate({ from: testAccounts.tokenAdminAddress }),
+      (
+        await testAccounts.tokenContract.methods
+          .balance_of_public(recipient)
+          .simulate({ from: testAccounts.tokenAdminAddress })
+      ).result,
     );
 
     // For each round, make both private and public transfers
@@ -94,14 +99,16 @@ describe('token transfer test', () => {
 
     for (const a of testAccounts.accounts) {
       expect(MINT_AMOUNT - ROUNDS * transferAmount).toBe(
-        await testAccounts.tokenContract.methods.balance_of_public(a).simulate({ from: a }),
+        (await testAccounts.tokenContract.methods.balance_of_public(a).simulate({ from: a })).result,
       );
     }
 
     expect(ROUNDS * transferAmount * BigInt(testAccounts.accounts.length)).toBe(
-      await testAccounts.tokenContract.methods
-        .balance_of_public(recipient)
-        .simulate({ from: testAccounts.tokenAdminAddress }),
+      (
+        await testAccounts.tokenContract.methods
+          .balance_of_public(recipient)
+          .simulate({ from: testAccounts.tokenAdminAddress })
+      ).result,
     );
   });
 });

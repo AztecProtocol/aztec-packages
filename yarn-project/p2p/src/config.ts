@@ -154,8 +154,8 @@ export interface P2PConfig
   /** The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb. */
   p2pStoreMapSizeKb?: number;
 
-  /** Which calls are allowed in the public setup phase of a tx. */
-  txPublicSetupAllowList: AllowedElement[];
+  /** Additional entries to extend the default setup allow list. */
+  txPublicSetupAllowListExtend: AllowedElement[];
 
   /** The maximum number of pending txs before evicting lower priority txs. */
   maxPendingTxCount: number;
@@ -409,12 +409,13 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
     description: 'The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb.',
   },
-  txPublicSetupAllowList: {
+  txPublicSetupAllowListExtend: {
     env: 'TX_PUBLIC_SETUP_ALLOWLIST',
     parseEnv: (val: string) => parseAllowList(val),
-    description: 'The list of functions calls allowed to run in setup',
+    description:
+      'Additional entries to extend the default setup allow list. Format: I:address:selector[:flags],C:classId:selector[:flags]. Flags: os (onlySelf), rn (rejectNullMsgSender), cl=N (calldataLength), joined with +.',
     printDefault: () =>
-      'AuthRegistry, FeeJuice.increase_public_balance, Token.increase_public_balance, FPC.prepare_fee',
+      'Default: AuthRegistry._set_authorized, AuthRegistry.set_authorized, FeeJuice._increase_public_balance',
   },
   maxPendingTxCount: {
     env: 'P2P_MAX_PENDING_TX_COUNT',
@@ -549,12 +550,43 @@ export const bootnodeConfigMappings = pickConfigMappings(
 );
 
 /**
+ * Parses a `+`-separated flags string into validation properties for an allow list entry.
+ * Supported flags: `os` (onlySelf), `rn` (rejectNullMsgSender), `cl=N` (calldataLength).
+ */
+function parseFlags(
+  flags: string,
+  entry: string,
+): { onlySelf?: boolean; rejectNullMsgSender?: boolean; calldataLength?: number } {
+  const result: { onlySelf?: boolean; rejectNullMsgSender?: boolean; calldataLength?: number } = {};
+  for (const flag of flags.split('+')) {
+    if (flag === 'os') {
+      result.onlySelf = true;
+    } else if (flag === 'rn') {
+      result.rejectNullMsgSender = true;
+    } else if (flag.startsWith('cl=')) {
+      const n = parseInt(flag.slice(3), 10);
+      if (isNaN(n) || n < 0) {
+        throw new Error(
+          `Invalid allow list entry "${entry}": invalid calldataLength in flag "${flag}". Expected a non-negative integer.`,
+        );
+      }
+      result.calldataLength = n;
+    } else {
+      throw new Error(`Invalid allow list entry "${entry}": unknown flag "${flag}". Supported flags: os, rn, cl=N.`);
+    }
+  }
+  return result;
+}
+
+/**
  * Parses a string to a list of allowed elements.
- * Each encoded is expected to be of one of the following formats
- * `I:${address}`
- * `I:${address}:${selector}`
- * `C:${classId}`
- * `C:${classId}:${selector}`
+ * Each entry is expected to be of one of the following formats:
+ * `I:${address}:${selector}` — instance (contract address) with function selector
+ * `C:${classId}:${selector}` — class with function selector
+ *
+ * An optional flags segment can be appended after the selector:
+ * `I:${address}:${selector}:${flags}` or `C:${classId}:${selector}:${flags}`
+ * where flags is a `+`-separated list of: `os` (onlySelf), `rn` (rejectNullMsgSender), `cl=N` (calldataLength).
  *
  * @param value The string to parse
  * @returns A list of allowed elements
@@ -567,31 +599,37 @@ export function parseAllowList(value: string): AllowedElement[] {
   }
 
   for (const val of value.split(',')) {
-    const [typeString, identifierString, selectorString] = val.split(':');
-    const selector = selectorString !== undefined ? FunctionSelector.fromString(selectorString) : undefined;
+    const trimmed = val.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const [typeString, identifierString, selectorString, flagsString] = trimmed.split(':');
+
+    if (!selectorString) {
+      throw new Error(
+        `Invalid allow list entry "${trimmed}": selector is required. Expected format: I:address:selector or C:classId:selector`,
+      );
+    }
+
+    const selector = FunctionSelector.fromString(selectorString);
+    const flags = flagsString ? parseFlags(flagsString, trimmed) : {};
 
     if (typeString === 'I') {
-      if (selector) {
-        entries.push({
-          address: AztecAddress.fromString(identifierString),
-          selector,
-        });
-      } else {
-        entries.push({
-          address: AztecAddress.fromString(identifierString),
-        });
-      }
+      entries.push({
+        address: AztecAddress.fromString(identifierString),
+        selector,
+        ...flags,
+      });
     } else if (typeString === 'C') {
-      if (selector) {
-        entries.push({
-          classId: Fr.fromHexString(identifierString),
-          selector,
-        });
-      } else {
-        entries.push({
-          classId: Fr.fromHexString(identifierString),
-        });
-      }
+      entries.push({
+        classId: Fr.fromHexString(identifierString),
+        selector,
+        ...flags,
+      });
+    } else {
+      throw new Error(
+        `Invalid allow list entry "${trimmed}": unknown type "${typeString}". Expected "I" (instance) or "C" (class).`,
+      );
     }
   }
 

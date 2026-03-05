@@ -343,9 +343,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       deps.p2pClientDeps,
     );
 
-    // We should really not be modifying the config object
-    config.txPublicSetupAllowList = config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
-
     // We'll accumulate sentinel watchers here
     const watchers: Watcher[] = [];
 
@@ -391,22 +388,24 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
           await validatorClient.registerHandlers();
         }
       }
+    }
 
-      // If there's no validator client but alwaysReexecuteBlockProposals is enabled,
-      // create a BlockProposalHandler to reexecute block proposals for monitoring
-      if (!validatorClient && config.alwaysReexecuteBlockProposals) {
-        log.info('Setting up block proposal reexecution for monitoring');
-        createBlockProposalHandler(config, {
-          checkpointsBuilder: validatorCheckpointsBuilder,
-          worldState: worldStateSynchronizer,
-          epochCache,
-          blockSource: archiver,
-          l1ToL2MessageSource: archiver,
-          p2pClient,
-          dateProvider,
-          telemetry,
-        }).registerForReexecution(p2pClient);
-      }
+    // If there's no validator client, create a BlockProposalHandler to handle block proposals
+    // for monitoring or reexecution. Reexecution (default) allows us to follow the pending chain,
+    // while non-reexecution is used for validating the proposals and collecting their txs.
+    if (!validatorClient) {
+      const reexecute = !!config.alwaysReexecuteBlockProposals;
+      log.info(`Setting up block proposal handler` + (reexecute ? ' with reexecution of proposals' : ''));
+      createBlockProposalHandler(config, {
+        checkpointsBuilder: validatorCheckpointsBuilder,
+        worldState: worldStateSynchronizer,
+        epochCache,
+        blockSource: archiver,
+        l1ToL2MessageSource: archiver,
+        p2pClient,
+        dateProvider,
+        telemetry,
+      }).register(p2pClient, reexecute);
     }
 
     // Start world state and wait for it to sync to the archiver.
@@ -626,7 +625,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getAllowedPublicSetup(): Promise<AllowedElement[]> {
-    return this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
+    return [...(await getDefaultAllowedSetupFunctions()), ...(this.config.txPublicSetupAllowListExtend ?? [])];
   }
 
   /**
@@ -751,6 +750,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public async getCheckpointedBlockNumber(): Promise<BlockNumber> {
     return await this.blockSource.getCheckpointedL2BlockNumber();
+  }
+
+  public getCheckpointNumber(): Promise<CheckpointNumber> {
+    return this.blockSource.getCheckpointNumber();
   }
 
   /**
@@ -1059,11 +1062,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return [witness.index, witness.path];
   }
 
-  public async getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<BlockNumber | undefined> {
+  public async getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined> {
     const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
-    return messageIndex
-      ? BlockNumber.fromCheckpointNumber(InboxLeaf.checkpointNumberFromIndex(messageIndex))
-      : undefined;
+    return messageIndex ? InboxLeaf.checkpointNumberFromIndex(messageIndex) : undefined;
   }
 
   /**
@@ -1325,7 +1326,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         blockNumber,
         l1ChainId: this.l1ChainId,
         rollupVersion: this.version,
-        setupAllowList: this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions()),
+        setupAllowList: [
+          ...(await getDefaultAllowedSetupFunctions()),
+          ...(this.config.txPublicSetupAllowListExtend ?? []),
+        ],
         gasFees: await this.getCurrentMinFees(),
         skipFeeEnforcement,
         txsPermitted: !this.config.disableTransactions,

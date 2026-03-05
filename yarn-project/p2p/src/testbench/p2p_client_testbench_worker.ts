@@ -340,6 +340,7 @@ process.on('message', async msg => {
       const config: P2PConfig = {
         ...rawConfig,
         peerIdPrivateKey: rawConfig.peerIdPrivateKey ? new SecretValue(rawConfig.peerIdPrivateKey) : undefined,
+        priceBumpPercentage: 10n,
       } as P2PConfig;
 
       workerConfig = config;

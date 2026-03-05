@@ -74,7 +74,7 @@ export type ValidatorClientConfig = ValidatorHASignerConfig & {
 };
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
-  Pick<SequencerConfig, 'txPublicSetupAllowList' | 'broadcastInvalidBlockProposal'> &
+  Pick<SequencerConfig, 'txPublicSetupAllowListExtend' | 'broadcastInvalidBlockProposal'> &
   Pick<
     SlasherConfig,
     'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty' | 'slashDuplicateAttestationPenalty'
@@ -107,7 +107,7 @@ export const ValidatorClientConfigSchema = zodFor<Omit<ValidatorClientConfig, 'v
 
 export const ValidatorClientFullConfigSchema = zodFor<Omit<ValidatorClientFullConfig, 'validatorPrivateKeys'>>()(
   ValidatorClientConfigSchema.extend({
-    txPublicSetupAllowList: z.array(AllowedElementSchema).optional(),
+    txPublicSetupAllowListExtend: z.array(AllowedElementSchema).optional(),
     broadcastInvalidBlockProposal: z.boolean().optional(),
     slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
     slashDuplicateProposalPenalty: schemas.BigInt,
