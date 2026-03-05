@@ -41,7 +41,9 @@ template <class T> constexpr field<T> field<T>::operator*(const field& other) co
         if (std::is_constant_evaluated()) {
             return montgomery_mul(other);
         }
-        return asm_mul_with_coarse_reduction(*this, other);
+        field result = asm_mul_with_coarse_reduction(*this, other);
+        result.assert_coarse_form();
+        return result;
     }
 }
 
@@ -56,6 +58,7 @@ template <class T> constexpr field<T>& field<T>::operator*=(const field& other) 
             *this = operator*(other);
         } else {
             asm_self_mul_with_coarse_reduction(*this, other);
+            assert_coarse_form();
         }
     }
     return *this;
@@ -75,7 +78,9 @@ template <class T> constexpr field<T> field<T>::sqr() const noexcept
         if (std::is_constant_evaluated()) {
             return montgomery_square();
         }
-        return asm_sqr_with_coarse_reduction(*this);
+        field result = asm_sqr_with_coarse_reduction(*this);
+        result.assert_coarse_form();
+        return result;
     }
 }
 
@@ -89,6 +94,7 @@ template <class T> constexpr void field<T>::self_sqr() & noexcept
             *this = montgomery_square();
         } else {
             asm_self_sqr_with_coarse_reduction(*this);
+            assert_coarse_form();
         }
     }
 }
@@ -107,7 +113,9 @@ template <class T> constexpr field<T> field<T>::operator+(const field& other) co
         if (std::is_constant_evaluated()) {
             return add(other);
         }
-        return asm_add_with_coarse_reduction(*this, other);
+        field result = asm_add_with_coarse_reduction(*this, other);
+        result.assert_coarse_form();
+        return result;
     }
 }
 
@@ -121,6 +129,7 @@ template <class T> constexpr field<T>& field<T>::operator+=(const field& other) 
             (*this) = operator+(other);
         } else {
             asm_self_add_with_coarse_reduction(*this, other);
+            assert_coarse_form();
         }
     }
     return *this;
@@ -153,7 +162,9 @@ template <class T> constexpr field<T> field<T>::operator-(const field& other) co
         if (std::is_constant_evaluated()) {
             return subtract(other);
         }
-        return asm_sub_with_coarse_reduction(*this, other);
+        field result = asm_sub_with_coarse_reduction(*this, other);
+        result.assert_coarse_form();
+        return result;
     }
 }
 
@@ -195,6 +206,7 @@ template <class T> constexpr field<T>& field<T>::operator-=(const field& other) 
             *this = subtract(other);
         } else {
             asm_self_sub_with_coarse_reduction(*this, other);
+            assert_coarse_form();
         }
     }
     return *this;

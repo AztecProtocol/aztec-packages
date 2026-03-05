@@ -731,6 +731,28 @@ template <class Params_> struct alignas(32) field {
     BB_INLINE constexpr field reduce() const noexcept;
     BB_INLINE constexpr field add(const field& other) const noexcept;
     BB_INLINE constexpr field subtract(const field& other) const noexcept;
+
+    // Debug-only assertion: checks that the field element is in the coarse form [0, 2p].
+    // Only meaningful for "small" moduli (<=254 bits) which use the coarse representation.
+    // The bound is 2p (inclusive) because the asm coarse reduction can produce exactly 2p (≡ 0 mod p).
+    // Skips the check when the MSB of data[3] is set, as this indicates a point-at-infinity sentinel.
+    // Not constexpr in debug builds (BB_ASSERT_DEBUG uses std::ostringstream).
+    // Callers must guard with `if (!std::is_constant_evaluated())` in constexpr functions.
+#ifdef NDEBUG
+    constexpr void assert_coarse_form() const noexcept {}
+#else
+    void assert_coarse_form() const noexcept
+    {
+        if constexpr (modulus.data[3] < MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
+            // Skip check for point-at-infinity sentinel (MSB set in top limb).
+            if ((data[3] >> 63) != 0) {
+                return;
+            }
+            uint256_t val{ data[0], data[1], data[2], data[3] };
+            BB_ASSERT_DEBUG(val <= twice_modulus, "field element exceeds 2p (coarse form violated)");
+        }
+    }
+#endif
     BB_INLINE constexpr field montgomery_mul(const field& other) const noexcept;
     BB_INLINE constexpr field montgomery_mul_big(const field& other) const noexcept;
     BB_INLINE constexpr field montgomery_square() const noexcept;
