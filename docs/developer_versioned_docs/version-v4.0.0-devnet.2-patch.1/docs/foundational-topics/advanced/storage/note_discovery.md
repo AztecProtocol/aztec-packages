@@ -43,7 +43,7 @@ The derivation has four stages:
 
 1. **Shared secret**: The sender and recipient compute the same shared secret via Diffie-Hellman key exchange on the Grumpkin curve. Each party uses their [incoming viewing secret key](../../accounts/keys.md#incoming-viewing-keys) (`ivsk`) and the other party's address point: `S = (preaddress + ivsk) × AddressPoint`.
 
-2. **App tagging secret**: The shared secret is hashed with the contract address to produce a per-contract secret: `poseidon2(S.x, S.y, contract_address)`. This ensures tags from different contracts are unlinkable.
+2. **App tagging secret**: The shared secret is hashed with the contract address to produce a per-contract secret: `poseidon2(S.x, S.y, contract_address)`. This ensures tags from different contracts cannot be linked.
 
 3. **Directional secret**: The app secret is hashed with the recipient address: `poseidon2(appSecret, recipient)`. This makes the secret asymmetric — tags from Alice to Bob differ from tags from Bob to Alice.
 

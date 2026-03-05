@@ -19,37 +19,25 @@ Aztec uses note tagging as its default discovery mechanism. When creating a note
 
 #### Every log has a tag
 
-In Aztec, each emitted log is an array of fields, e.g. `[tag, x, y, z]`. The first field is a _tag_ used to index and identify logs. The Aztec node indexes logs by their tag and exposes an API (`getLogsByTags()`) that retrieves logs matching specific tags.
+In Aztec, each emitted log is an array of fields, eg `[x, y, z]`. The first field (`x`) is a _tag_ field used to index and identify logs. The Aztec node exposes an API `getLogsByTags()` that can retrieve logs matching specific tags.
 
-#### Tag derivation
+#### Tag generation
 
-The sender and recipient share a predictable scheme for generating tags. Tags are derived through a layered hashing process that makes them specific to a particular sender-recipient pair, contract, and sequence number.
+The sender and recipient share a predictable scheme for generating tags. The tag is derived from a shared secret and an index (a shared counter that increments each time the sender creates a note for the recipient).
 
 ```mermaid
 flowchart LR
-    A[Sender ivsk + Address] --> B["Shared Secret (DH)"]
-    C[Recipient Address Point] --> B
-    B --> D{{"poseidon2(S.x, S.y, contract)"}}
+    A[Sender Keys] --> B[Shared Secret]
+    C[Recipient Keys] --> B
+    B --> D{{"hash(secret, contract)"}}
     D --> E[App Tagging Secret]
-    E --> F{{"poseidon2(appSecret, recipient)"}}
+    E --> F{{"hash(secret, recipient)"}}
     F --> G[Directional Secret]
-    G --> H{{"poseidon2(secret, index)"}}
+    G --> H{{"hash(secret, index)"}}
     H --> I[Tag]
-    I --> J{{"silo(contract, tag)"}}
-    J --> K[Siloed Tag]
 ```
 
-The derivation has four stages:
-
-1. **Shared secret**: The sender and recipient compute the same shared secret via Diffie-Hellman key exchange on the Grumpkin curve. Each party uses their [incoming viewing secret key](../../accounts/keys.md#incoming-viewing-keys) (`ivsk`) and the other party's address point: `S = (preaddress + ivsk) × AddressPoint`.
-
-2. **App tagging secret**: The shared secret is hashed with the contract address to produce a per-contract secret: `poseidon2(S.x, S.y, contract_address)`. This ensures tags from different contracts are unlinkable.
-
-3. **Directional secret**: The app secret is hashed with the recipient address: `poseidon2(appSecret, recipient)`. This makes the secret asymmetric — tags from Alice to Bob differ from tags from Bob to Alice.
-
-4. **Tag**: The directional secret is hashed with an index (a counter that increments for each log the sender emits to this recipient in this contract): `poseidon2(directionalSecret, index)`.
-
-When the log is emitted, the protocol kernel **siloes** the tag with the contract address before it appears onchain. This siloed tag is what the node stores and indexes. Both the sender and recipient can independently compute the siloed tags and use them to query the node.
+Both parties derive the same shared secret via Diffie-Hellman key exchange, then hash in the contract address, recipient, and index to produce identical tags.
 
 #### The sender in note tagging
 
@@ -57,44 +45,11 @@ The "sender" in note tagging is **not necessarily the transaction sender**. It's
 
 This sender address is used along with the recipient address to compute the shared secret via Diffie-Hellman key exchange, which is then used to derive the tag.
 
-#### Registering known senders
+#### Discovering notes in Aztec contracts
 
-To discover notes from a particular sender, the recipient's PXE must know the sender's address in advance so it can compute the shared tagging secret. Register senders using the wallet API:
+Note discovery is implemented in contract code rather than by the PXE. The `#[aztec]` macro automatically injects the necessary discovery logic, so developers don't need to implement it manually. However, this approach means users can customize or replace the discovery mechanism to suit their needs.
 
-```typescript
-// Register a sender so your PXE can discover notes from them
-await wallet.registerSender(senderAddress);
-```
-
-Notes sent to yourself are always discoverable — the PXE automatically adds all local accounts as implicit senders.
-
-### The sync process
-
-The `#[aztec]` macro automatically injects a `sync_state` function into every contract. This function orchestrates note discovery by calling PXE oracles that handle the cryptographic and networking operations. The process works as follows:
-
-1. **Fetch tagged logs**: The contract calls the `fetchTaggedLogs` oracle. The PXE computes tags for every (sender, recipient) pair it knows about, queries the node for matching logs, and returns them to the contract.
-
-2. **Decrypt**: For each log, the contract strips the tag and attempts AES-128 decryption using the recipient's private key. Logs that don't decrypt are silently discarded (they were not intended for this recipient).
-
-3. **Parse message type**: Successfully decrypted messages are dispatched by type — private notes, partial notes, private events, or custom message types.
-
-4. **Nonce discovery** (for notes): To confirm a decrypted note is valid, the system must match it against the note hash tree. It iterates the note hashes in the transaction, computes candidate nonces (`poseidon2(first_nullifier, position)`), and checks whether recomputing the note hash with each candidate nonce produces a match. A match confirms the note is real and provides the nonce needed to later nullify it.
-
-5. **Store**: Validated notes are added to the PXE database, making them available for use in future transactions.
-
-Developers don't need to implement any of this manually — the `#[aztec]` macro handles it. However, since the discovery logic lives in contract code (called via oracles to the PXE), users can customize or replace the discovery mechanism to suit their needs.
-
-#### The sliding window algorithm
-
-The PXE doesn't scan all possible tag indexes — it uses a window-based approach to efficiently find new logs:
-
-- It tracks the **highest aged index**: the highest tag index seen in a block old enough that no new logs can appear at that index.
-- It tracks the **highest finalized index**: the highest tag index seen in any finalized block.
-- It scans a window of 20 indexes ahead of the finalized index to catch recently emitted logs.
-
-This means there's a practical limit on how many logs a single sender can emit to the same recipient in the same contract within a short time period. For most applications this limit is not a concern.
-
-### Limitations and solutions
+### Limitations and Solutions
 
 #### You cannot receive tagged notes from an unknown sender
 
@@ -110,16 +65,16 @@ There are three broad families of solutions to this problem:
 - Is fast but leaks privacy (e.g., a public event with "new handshake for Alice!")
 - Is slow but doesn't leak (you brute force scan all logs from a handshake contract, testing if any handshakes are for you)
 
-The handshaking design space is large — for example, you could set up infrastructure where a server searches handshakes for you, trading off infrastructure requirements for performance.
+The handshaking design space is large - for example, you could set up infrastructure where a server searches handshakes for you, trading off infrastructure requirements for performance.
 
 **Handshaking is not currently implemented in Aztec.nr.** For now, if you need to receive notes from unknown senders, potential workarounds include:
 - Having senders register themselves in a contract first, allowing recipients to search for note tags from all registered senders
-- Using offchain communication to share sender addresses with recipients, who then call `wallet.registerSender(address)` to enable discovery
+- Using offchain communication to share sender addresses with recipients
 - Implementing a custom discovery mechanism in your contract
 
 See the [Note Delivery](../../../aztec-nr/framework-description/note_delivery.md) documentation for more details on how the sender is used when delivering notes.
 
-## Advanced cryptography techniques
+## Advanced Cryptography Techniques
 
 Beyond the tagging system described above, there are more advanced cryptographic techniques for note discovery:
 
