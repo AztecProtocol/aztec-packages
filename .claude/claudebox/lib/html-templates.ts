@@ -364,7 +364,6 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
         }
         if(!linked)agentLogUrls.push(m[1]);
       }
-      }
       return null;
     }
     var text=esc(e.text);var linked=linkify(text);var t=e.ts?timeAgo(e.ts):"";var id=msgId(e.text);
