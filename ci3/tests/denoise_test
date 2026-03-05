@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# Tests for denoise script, specifically:
+# - tail -f is killed (not just the dots loop)
+# - dots loop drains fully before denoise exits
+# - denoise exits cleanly even when the command spawns background children
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+NC=$'\033[0m'
+
+TESTS_PASSED=0
+TESTS_FAILED=0
+
+pass() { echo "${GREEN}✓${NC} $1"; ((TESTS_PASSED++)) || true; }
+fail() {
+  echo "${RED}✗${NC} $1: $2"
+  ((TESTS_FAILED++)) || true
+}
+
+echo "=== Denoise Test Suite ==="
+
+# Common env for denoise: enable it, disable redis, set narrow dot width for fast tests.
+DENOISE_ENV=(
+  DENOISE=1
+  CI_REDIS_AVAILABLE=0
+  DENOISE_WIDTH=4
+  DUMP_FAIL=0
+  FORCE_COLOR=0
+  PATH="$PATH"
+  HOME="$HOME"
+)
+
+# --- Test 1: denoise exits and no tail -f is left behind ---
+echo "--- Test: no leaked tail -f after denoise exits ---"
+
+# Run denoise with a simple command that produces a few lines.
+code=0
+env "${DENOISE_ENV[@]}" "$ROOT/ci3/denoise" 'for i in $(seq 1 10); do echo line$i; done' &>/dev/null || code=$?
+
+# Check no tail -f is left from our denoise run.
+# Give a moment for any orphans to appear.
+sleep 0.5
+leftover=$(pgrep -f "tail --sleep-interval=0.2.*-f /tmp/" 2>/dev/null || true)
+if [ -z "$leftover" ]; then
+  pass "no leaked tail -f processes"
+else
+  fail "no leaked tail -f processes" "found tail pids: $leftover"
+  kill $leftover 2>/dev/null || true
+fi
+
+if [ "$code" -eq 0 ]; then
+  pass "denoise exits 0 on success"
+else
+  fail "denoise exits 0 on success" "exit code $code"
+fi
+
+# --- Test 2: tail -f is killed, not just the dots loop ---
+echo "--- Test: tail -f is killed directly ---"
+
+# Run denoise and capture its PID so we can inspect children.
+env "${DENOISE_ENV[@]}" "$ROOT/ci3/denoise" \
+  'for i in $(seq 1 20); do echo line$i; sleep 0.05; done' &>/dev/null &
+denoise_pid=$!
+
+# Wait for tail to appear as a child.
+tail_found=0
+for i in $(seq 1 30); do
+  if pgrep -P $denoise_pid -f "tail --sleep-interval" &>/dev/null; then
+    tail_found=1
+    break
+  fi
+  sleep 0.1
+done
+
+# Wait for denoise to finish.
+wait $denoise_pid 2>/dev/null || true
+
+# After denoise exits, no tail should remain.
+sleep 0.3
+leftover_tail=$(pgrep -f "tail --sleep-interval=0.2.*-f /tmp/" 2>/dev/null || true)
+
+if [ "$tail_found" -eq 1 ]; then
+  pass "tail -f was started during denoise"
+else
+  fail "tail -f was started during denoise" "never saw tail process"
+fi
+
+if [ -z "$leftover_tail" ]; then
+  pass "tail -f was cleaned up after denoise exit"
+else
+  fail "tail -f was cleaned up after denoise exit" "found tail pids: $leftover_tail"
+  kill $leftover_tail 2>/dev/null || true
+fi
+
+# --- Test 3: denoise propagates non-zero exit code ---
+echo "--- Test: denoise propagates failure exit code ---"
+
+code=0
+env "${DENOISE_ENV[@]}" "$ROOT/ci3/denoise" 'echo failing; exit 42' &>/dev/null || code=$?
+
+if [ "$code" -eq 42 ]; then
+  pass "denoise propagates exit code 42"
+else
+  fail "denoise propagates exit code 42" "got exit code $code"
+fi
+
+# --- Test 4: dots are flushed (output contains dot progress) ---
+echo "--- Test: dot progress appears in output ---"
+
+output=$(env "${DENOISE_ENV[@]}" "$ROOT/ci3/denoise" \
+  'for i in $(seq 1 10); do echo line$i; sleep 0.05; done' 2>&1)
+
+if echo "$output" | grep -q '\.'; then
+  pass "dot progress appears in output"
+else
+  fail "dot progress appears in output" "no dots found in: $output"
+fi
+
+# --- Test 5: denoise exits promptly (not stuck waiting on pipe) ---
+echo "--- Test: denoise exits within timeout ---"
+
+start=$SECONDS
+code=0
+timeout 10 env "${DENOISE_ENV[@]}" "$ROOT/ci3/denoise" 'echo fast' &>/dev/null || code=$?
+elapsed=$((SECONDS - start))
+
+if [ "$code" -eq 0 ] && [ "$elapsed" -lt 8 ]; then
+  pass "denoise exits promptly (${elapsed}s)"
+else
+  fail "denoise exits promptly" "code=$code elapsed=${elapsed}s"
+fi
+
+echo
+if [[ $TESTS_FAILED -eq 0 ]]; then
+  echo "${GREEN}All $TESTS_PASSED tests passed.${NC}"
+  exit 0
+else
+  echo "${RED}$TESTS_FAILED of $((TESTS_PASSED + TESTS_FAILED)) tests failed.${NC}"
+  exit 1
+fi

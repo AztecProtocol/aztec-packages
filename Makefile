@@ -188,7 +188,7 @@ bb-docs:
 	$(call build,$@,barretenberg/docs)
 
 # BB Solidity - Solidity verifier contracts
-bb-sol: bb-cpp-native
+bb-sol: bb-cpp-native bb-crs
 	$(call build,$@,barretenberg/sol)
 
 #==============================================================================
