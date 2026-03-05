@@ -4,6 +4,7 @@ use crate::{
         encoding::MAX_MESSAGE_CONTENT_LEN, logs::event::decode_private_event_message,
         processing::enqueue_event_for_validation,
     },
+    oracle::nullifiers::check_nullifier_exists,
 };
 use crate::protocol::{address::AztecAddress, traits::ToField};
 
@@ -18,6 +19,8 @@ pub(crate) unconstrained fn process_private_event_msg(
 
     let event_commitment =
         compute_private_serialized_event_commitment(serialized_event, randomness, event_type_id.to_field());
+
+    assert(check_nullifier_exists(event_commitment), "Event commitment is not present in the nullifier tree");
 
     enqueue_event_for_validation(
         contract_address,
