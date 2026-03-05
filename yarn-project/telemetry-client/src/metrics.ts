@@ -1502,6 +1502,29 @@ export const IVC_VERIFIER_AGG_DURATION_AVG: MetricDefinition = {
   valueType: ValueType.DOUBLE,
 };
 
+// Adaptive verifier pool metrics
+export const IVC_VERIFIER_QUEUE_DEPTH: MetricDefinition = {
+  name: 'aztec.ivc_verifier.queue_depth',
+  description: 'Number of verification jobs waiting in queue at job start',
+  valueType: ValueType.INT,
+};
+export const IVC_VERIFIER_ACTIVE_JOBS: MetricDefinition = {
+  name: 'aztec.ivc_verifier.active_jobs',
+  description: 'Number of verification jobs currently running at job start',
+  valueType: ValueType.INT,
+};
+export const IVC_VERIFIER_ALLOCATED_THREADS: MetricDefinition = {
+  name: 'aztec.ivc_verifier.allocated_threads',
+  description: 'Number of CPU threads allocated to a verification job',
+  valueType: ValueType.INT,
+};
+export const IVC_VERIFIER_CPU_UTILIZATION: MetricDefinition = {
+  name: 'aztec.ivc_verifier.cpu_utilization',
+  description: 'System CPU utilization percentage at verification job start',
+  unit: '%',
+  valueType: ValueType.INT,
+};
+
 // HA Signer metrics
 export const HA_SIGNER_SIGNING_DURATION: MetricDefinition = {
   name: 'aztec.ha_signer.signing_duration',

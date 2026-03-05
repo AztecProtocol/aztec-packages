@@ -28,8 +28,9 @@ import {
 import type { BBConfig } from '../config.js';
 import { getUltraHonkFlavorForCircuit } from '../honk.js';
 import { writeChonkProofToPath } from '../prover/proof_utils.js';
+import type { AdaptiveThreadAware } from './adaptive_verifier_pool.js';
 
-export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
+export class BBCircuitVerifier implements ClientProtocolCircuitVerifier, AdaptiveThreadAware {
   private constructor(
     private config: BBConfig,
     private logger: Logger,
@@ -130,6 +131,54 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
           eventName: 'circuit-verification',
           proofType: 'chonk',
         } satisfies CircuitVerificationStats);
+      };
+      await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
+      return { valid: true, durationMs: verificationDuration, totalDurationMs: totalTimer.ms() };
+    } catch (err) {
+      this.logger.warn(`Failed to verify ${proofType} proof for tx ${tx.getTxHash().toString()}: ${String(err)}`);
+      return { valid: false, durationMs: 0, totalDurationMs: 0 };
+    }
+  }
+
+  /** Verify a chonk proof using a specified number of threads (for adaptive scheduling). */
+  public async verifyProofWithThreads(tx: Tx, threads: number): Promise<IVCProofVerificationResult> {
+    const proofType = 'Chonk';
+    try {
+      const totalTimer = new Timer();
+      let verificationDuration = 0;
+
+      const circuit: ClientProtocolArtifact = tx.data.forPublic ? 'HidingKernelToPublic' : 'HidingKernelToRollup';
+
+      const operation = async (bbWorkingDirectory: string) => {
+        const proofPath = path.join(bbWorkingDirectory, PROOF_FILENAME);
+        await writeChonkProofToPath(tx.chonkProof.attachPublicInputs(tx.data.publicInputs().toFields()), proofPath);
+
+        const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
+        const verificationKey = this.getVerificationKeyData(circuit);
+        await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
+
+        const timer = new Timer();
+        const result = await verifyChonkProof(
+          this.config.bbBinaryPath,
+          proofPath,
+          verificationKeyPath,
+          this.logger,
+          threads,
+        );
+        verificationDuration = timer.ms();
+
+        if (result.status === BB_RESULT.FAILURE) {
+          const errorMessage = `Failed to verify ${proofType} proof for ${circuit}!`;
+          throw new Error(errorMessage);
+        }
+
+        this.logger.debug(`${proofType} verification successful`, {
+          circuitName: mapProtocolArtifactNameToCircuitName(circuit),
+          duration: result.durationMs,
+          eventName: 'circuit-verification',
+          proofType: 'chonk',
+          threads,
+        } satisfies CircuitVerificationStats & { threads: number });
       };
       await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
       return { valid: true, durationMs: verificationDuration, totalDurationMs: totalTimer.ms() };

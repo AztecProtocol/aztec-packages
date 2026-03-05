@@ -1,5 +1,5 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
-import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import { AdaptiveVerifierPool, BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { Blob } from '@aztec/blob-lib';
 import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
@@ -322,7 +322,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       debugLogStore = new NullDebugLogStore();
     }
 
-    const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier);
+    const proofVerifier = new AdaptiveVerifierPool(config, circuitVerifier);
 
     const proverOnly = config.enableProverNode && config.disableValidator;
     if (proverOnly) {
