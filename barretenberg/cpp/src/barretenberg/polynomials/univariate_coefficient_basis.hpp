@@ -47,7 +47,7 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
      * @details This class represents a polynomial P(X) = a0 + a1.X + a2.X^2
      *          We define `coefficients[0] = a0` and `coefficients[1] = a1`
      *          If LENGTH == 2 AND `has_a0_plus_a1 = true` then `coefficients[2] = a0 + a1`
-     *          If LENGTH == 3 then `coefficients[3] = a2`
+     *          If LENGTH == 3 then `coefficients[2] = a2`
      */
     std::array<Fr, 3> coefficients;
 
@@ -79,55 +79,6 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
             coefficients[2] = 0;
         }
     };
-
-    size_t size() { return coefficients.size(); };
-
-    // Check if the UnivariateCoefficientBasis is identically zero
-    bool is_zero() const
-        requires(LENGTH == 2)
-    {
-        return coefficients[0].is_zero() || coefficients[1].is_zero();
-    }
-
-    // Check if the UnivariateCoefficientBasis is identically zero
-    bool is_zero() const
-        requires(LENGTH == 3)
-    {
-        return coefficients[2].is_zero() || coefficients[0].is_zero() || coefficients[1].is_zero();
-    }
-
-    // Write the Univariate coefficients to a buffer
-    [[nodiscard]] std::vector<uint8_t> to_buffer() const { return ::to_buffer(coefficients); }
-
-    // Static method for creating a Univariate from a buffer
-    // IMPROVEMENT: Could be made to identically match equivalent methods in e.g. field.hpp. Currently bypasses
-    // unnecessary ::from_buffer call
-    static UnivariateCoefficientBasis serialize_from_buffer(uint8_t const* buffer)
-    {
-        UnivariateCoefficientBasis result;
-        std::read(buffer, result.coefficients);
-        return result;
-    }
-
-    static UnivariateCoefficientBasis get_random()
-    {
-        auto output = UnivariateCoefficientBasis<Fr, domain_end, has_a0_plus_a1>();
-        for (size_t i = 0; i < LENGTH; ++i) {
-            output.value_at(i) = Fr::random_element();
-        }
-        return output;
-    };
-
-    static UnivariateCoefficientBasis zero()
-    {
-        auto output = UnivariateCoefficientBasis<Fr, domain_end, has_a0_plus_a1>();
-        for (size_t i = 0; i != LENGTH; ++i) {
-            output.coefficients[i] = Fr::zero();
-        }
-        return output;
-    }
-
-    static UnivariateCoefficientBasis random_element() { return get_random(); };
 
     // Operations between UnivariateCoefficientBasis and other UnivariateCoefficientBasis
     bool operator==(const UnivariateCoefficientBasis& other) const = default;
@@ -326,13 +277,6 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
         }
         return os;
     }
-
-    // Begin iterators
-    auto begin() { return coefficients.begin(); }
-    auto begin() const { return coefficients.begin(); }
-    // End iterators
-    auto end() { return coefficients.end(); }
-    auto end() const { return coefficients.end(); }
 };
 
 template <typename B, class Fr, size_t domain_end, bool has_a0_plus_a1>

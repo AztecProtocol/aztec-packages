@@ -30,6 +30,7 @@ import {
 } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
 import { EthCheatCodes, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import type { Anvil } from '@aztec/ethereum/test';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
@@ -49,7 +50,6 @@ import type { SequencerClient } from '@aztec/sequencer-client';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import type { P2PClientType } from '@aztec/stdlib/p2p';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
@@ -61,7 +61,6 @@ import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 import { deployFundedSchnorrAccounts } from '@aztec/wallets/testing';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import type { Anvil } from '@viem/anvil';
 import fs from 'fs/promises';
 import { tmpdir } from 'os';
 import path from 'path';
@@ -456,7 +455,7 @@ export async function setup(
     }
 
     let mockGossipSubNetwork: MockGossipSubNetwork | undefined;
-    let p2pClientDeps: P2PClientDeps<P2PClientType.Full> | undefined = undefined;
+    let p2pClientDeps: P2PClientDeps | undefined = undefined;
 
     if (opts.mockGossipSubNetwork) {
       mockGossipSubNetwork = new MockGossipSubNetwork();
@@ -503,7 +502,7 @@ export async function setup(
       const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
       const proverNodeDataDirectory = path.join(directoryToCleanup, randomBytes(8).toString('hex'));
 
-      const p2pClientDeps: Partial<P2PClientDeps<P2PClientType.Full>> = {
+      const p2pClientDeps: Partial<P2PClientDeps> = {
         p2pServiceFactory: mockGossipSubNetwork && getMockPubSubP2PServiceFactory(mockGossipSubNetwork!),
         rpcTxProviders: [aztecNodeService],
       };
@@ -719,7 +718,7 @@ export function createAndSyncProverNode(
   deps: {
     telemetry?: TelemetryClient;
     dateProvider: DateProvider;
-    p2pClientDeps?: P2PClientDeps<P2PClientType.Full>;
+    p2pClientDeps?: P2PClientDeps;
   },
   options: { prefilledPublicData: PublicDataTreeLeaf[]; dontStart?: boolean },
 ): Promise<{ proverNode: AztecNodeService }> {

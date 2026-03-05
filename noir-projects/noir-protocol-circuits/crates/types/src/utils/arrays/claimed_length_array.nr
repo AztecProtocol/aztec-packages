@@ -56,7 +56,7 @@ where
     pub fn pop(&mut self) -> T {
         assert(self.length != 0, "Array empty");
 
-        let mut top_index = self.length - 1;
+        let top_index = self.length - 1;
         let popped_item = self.array[top_index];
         self.array[top_index] = T::empty();
         self.length -= 1;

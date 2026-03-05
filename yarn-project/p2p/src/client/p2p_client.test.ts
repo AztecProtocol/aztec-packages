@@ -7,7 +7,6 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2Block } from '@aztec/stdlib/block';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
-import { P2PClientType } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
 
@@ -62,17 +61,7 @@ describe('P2P Client', () => {
   });
 
   const createClient = (config: Partial<P2PConfig> = {}) =>
-    new P2PClient(
-      P2PClientType.Full,
-      kvStore,
-      blockSource,
-      mempools,
-      p2pService,
-      txCollection,
-      undefined,
-      epochCache,
-      config,
-    );
+    new P2PClient(kvStore, blockSource, mempools, p2pService, txCollection, undefined, epochCache, config);
 
   const advanceToProvenBlock = async (blockNumber: BlockNumber) => {
     blockSource.setProvenBlockNumber(blockNumber);
@@ -392,12 +381,17 @@ describe('P2P Client', () => {
 
     it('triggers tx collection for missing txs from mined blocks', async () => {
       await client.start();
+      // Drain any initial background sync that processes the initial blocks (1-100),
+      // which may call startCollecting depending on timing.
+      await client.sync();
+
       const block = await L2Block.random(BlockNumber(101), { txsPerBlock: 3 });
       // Compute the block hash since it gets cached when the p2p client logs it
       await block.hash();
 
       txPool.hasTxs.mockResolvedValue([true, false, true]);
       blockSource.addProposedBlocks([block]);
+      txCollection.startCollecting.mockClear();
       await client.sync();
 
       expect(txCollection.startCollecting).toHaveBeenCalledTimes(1);

@@ -8,7 +8,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
-import { P2PClientType, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import type { Tx, TxValidationResult } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -114,7 +114,6 @@ async function startClient(config: P2PConfig, clientIndex: number) {
   };
 
   client = await createP2PClient(
-    P2PClientType.Full,
     config as P2PConfig & DataStoreConfig,
     l2BlockSource as L2BlockSource & ContractDataSource,
     proofVerifier as ClientProtocolCircuitVerifier,

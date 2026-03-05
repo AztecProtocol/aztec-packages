@@ -89,7 +89,7 @@ mod test {
     use crate::{
         messages::{
             encoding::decode_message,
-            logs::note::{decode_private_note_message, encode_private_note_message},
+            logs::note::{decode_private_note_message, encode_private_note_message, MAX_NOTE_PACKED_LEN},
             msg_type::PRIVATE_NOTE_MSG_TYPE_ID,
         },
         note::note_interface::NoteType,
@@ -120,5 +120,56 @@ mod test {
         assert_eq(storage_slot, STORAGE_SLOT);
         assert_eq(randomness, RANDOMNESS);
         assert_eq(packed_note, BoundedVec::from_array(note.pack()));
+    }
+
+    #[derive(Packable)]
+    struct MaxSizeNote {
+        data: [Field; MAX_NOTE_PACKED_LEN],
+    }
+
+    impl NoteType for MaxSizeNote {
+        fn get_id() -> Field {
+            0
+        }
+    }
+
+    #[test]
+    unconstrained fn encode_decode_max_size_note() {
+        let mut data = [0; MAX_NOTE_PACKED_LEN];
+        for i in 0..MAX_NOTE_PACKED_LEN {
+            data[i] = i as Field;
+        }
+        let note = MaxSizeNote { data };
+
+        let encoded = encode_private_note_message(note, OWNER, STORAGE_SLOT, RANDOMNESS);
+        let (msg_type_id, msg_metadata, msg_content) = decode_message(BoundedVec::from_array(encoded));
+
+        assert_eq(msg_type_id, PRIVATE_NOTE_MSG_TYPE_ID);
+
+        let (note_type_id, owner, storage_slot, randomness, packed_note) =
+            decode_private_note_message(msg_metadata, msg_content);
+
+        assert_eq(note_type_id, MaxSizeNote::get_id());
+        assert_eq(owner, OWNER);
+        assert_eq(storage_slot, STORAGE_SLOT);
+        assert_eq(randomness, RANDOMNESS);
+        assert_eq(packed_note, BoundedVec::from_array(data));
+    }
+
+    #[derive(Packable)]
+    struct OversizedNote {
+        data: [Field; MAX_NOTE_PACKED_LEN + 1],
+    }
+
+    impl NoteType for OversizedNote {
+        fn get_id() -> Field {
+            0
+        }
+    }
+
+    #[test(should_fail_with = "Invalid message content: it must have a length of at most MAX_MESSAGE_CONTENT_LEN")]
+    fn encode_oversized_note_fails() {
+        let note = OversizedNote { data: [0; MAX_NOTE_PACKED_LEN + 1] };
+        let _ = encode_private_note_message(note, OWNER, STORAGE_SLOT, RANDOMNESS);
     }
 }

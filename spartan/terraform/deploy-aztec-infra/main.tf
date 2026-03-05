@@ -213,6 +213,7 @@ locals {
     "validator.node.env.SEQ_MIN_TX_PER_BLOCK"                  = var.SEQ_MIN_TX_PER_BLOCK
     "validator.node.env.SEQ_MAX_TX_PER_BLOCK"                  = var.SEQ_MAX_TX_PER_BLOCK
     "validator.node.env.SEQ_BLOCK_DURATION_MS"                 = var.SEQ_BLOCK_DURATION_MS
+    "validator.node.env.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" = var.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT
     "validator.node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"         = var.SEQ_BUILD_CHECKPOINT_IF_EMPTY
     "validator.node.env.SEQ_ENFORCE_TIME_TABLE"                = var.SEQ_ENFORCE_TIME_TABLE
     "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"    = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
@@ -232,6 +233,7 @@ locals {
     "validator.node.env.WS_NUM_HISTORIC_CHECKPOINTS"           = var.WS_NUM_HISTORIC_CHECKPOINTS
     "validator.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
     "validator.node.env.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT"   = var.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT
+    "validator.node.adminApiKeyHash"                            = var.ADMIN_API_KEY_HASH
   }
 
   # Note: nonsensitive() is required here because helm_releases is used in for_each,

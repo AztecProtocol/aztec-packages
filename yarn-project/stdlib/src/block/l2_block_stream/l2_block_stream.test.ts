@@ -755,6 +755,60 @@ describe('L2BlockStream', () => {
       ]);
     });
 
+    describe('startingBlock with stale checkpoint state', () => {
+      // When a node restarts with startingBlock set and has local blocks but no checkpoint
+      // state (e.g. checkpoint tracking is new, or checkpoint state was reset), Loop 1
+      // should not spam checkpoint events for all historical checkpoints.
+
+      it('skips historical checkpoint events before startingBlock on restart with stale checkpoint state', async () => {
+        // node has blocks 1-15 locally (proposed=15) but no checkpoint state.
+        // Checkpoint 5 covers blocks 13-15 (the last checkpoint).
+        setRemoteTipsMultiBlock(15, 15);
+        localData.proposed.number = BlockNumber(15);
+        // localData.checkpointed starts at 0 - simulating stale/missing checkpoint state
+
+        blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+          batchSize: 10,
+          startingBlock: 13, // start from checkpoint 5 (blocks 13-15)
+        });
+
+        await blockStream.work();
+
+        // Should only emit checkpoint 5 (the one containing startingBlock=13), not all 5 checkpoints
+        expect(handler.events).toEqual([expectCheckpointed(5)]);
+        // Verify we don't spam checkpoints 1-4
+        const checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
+        expect(checkpointEvents).toHaveLength(1);
+      });
+
+      it('without startingBlock emits all historical checkpoints for already-local blocks', async () => {
+        // Same scenario without startingBlock: should emit all 5 checkpoints (correct catch-up behavior)
+        setRemoteTipsMultiBlock(15, 15);
+        localData.proposed.number = BlockNumber(15);
+        // localData.checkpointed starts at 0
+
+        await blockStream.work();
+
+        // All 5 checkpoints should be emitted since they're all for already-local blocks
+        const checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
+        expect(checkpointEvents).toHaveLength(5);
+      });
+
+      it('does not call getCheckpointedBlocks(0) when startingBlock is 0', async () => {
+        // getCheckpointedBlocks rejects block 0
+        setRemoteTipsMultiBlock(15, 15);
+        blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+          batchSize: 10,
+          startingBlock: 0,
+        });
+
+        await blockStream.work();
+
+        const calls = blockSource.getCheckpointedBlocks.mock.calls;
+        expect(calls.every(([blockNum]) => blockNum >= 1)).toBe(true);
+      });
+    });
+
     describe('checkpoint prefetching', () => {
       it('prefetches multiple checkpoints in a single RPC call', async () => {
         // Set up: 9 blocks in 3 checkpoints

@@ -19,7 +19,7 @@ use crate::protocol::address::AztecAddress;
 pub trait MessageEncryption {
     /// Encrypts a plaintext message to `recipient`.
     ///
-    /// The returned message ciphertext can be passed to [`decrypt`](MessageEncryption::decrypt) in order to obtain the
+    /// The returned message ciphertext can be passed to [`MessageEncryption::decrypt`] in order to obtain the
     /// original `plaintext`.
     ///
     /// ## Privacy
@@ -38,7 +38,7 @@ pub trait MessageEncryption {
 
     /// Decrypts a message ciphertext into its original plaintext.
     ///
-    /// Typically invoked with ciphertext obtained from calling [`encrypt`](MessageEncryption::encrypt) with
+    /// Typically invoked with ciphertext obtained from calling [`MessageEncryption::encrypt`] with
     /// `recipient`.
     ///
     /// Note that this function is unconstrained: decryption typically happens when processing messages in utility

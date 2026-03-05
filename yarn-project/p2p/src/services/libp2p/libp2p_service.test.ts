@@ -9,7 +9,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
-import { BlockProposal, P2PClientType, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import {
   makeBlockHeader,
   makeBlockProposal,
@@ -1118,7 +1118,6 @@ class TestLibP2PService extends LibP2PService {
     });
 
     super(
-      P2PClientType.Full,
       mockConfig,
       node,
       mockPeerDiscoveryService,
