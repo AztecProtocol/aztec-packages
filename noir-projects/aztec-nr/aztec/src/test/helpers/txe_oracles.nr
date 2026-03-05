@@ -15,7 +15,7 @@ use crate::protocol::{
     utils::reader::Reader,
 };
 
-global MAX_PRIVATE_EVENTS_PER_TXE_QUERY: u32 = 5;
+pub(crate) global MAX_PRIVATE_EVENTS_PER_TXE_QUERY: u32 = 5;
 global MAX_EVENT_SERIALIZATION_LENGTH: u32 = 12;
 
 pub unconstrained fn deploy<let M: u32, let N: u32, let P: u32>(
@@ -83,20 +83,7 @@ pub unconstrained fn get_last_tx_effects() -> (Field, BoundedVec<Field, MAX_NOTE
 #[oracle(txeGetDefaultAddress)]
 pub unconstrained fn get_default_address() -> AztecAddress {}
 
-/// Returns private events emitted in the last block.
-///
-/// Queries up to `MAX_PRIVATE_EVENTS_PER_TXE_QUERY` private events of type `Event` that were
-/// emitted by `contract_address` and are readable by `scope` (i.e. the recipient of the event).
-/// Only events in the most recently mined block are returned.
-///
-/// ---
-///
-/// **Experimental** - there will be breaking API changes.
-///
-/// ---
-///
-/// Prefer using [`TestEnvironment::get_private_events`] instead of calling this oracle directly.
-pub unconstrained fn get_private_events<Event>(
+pub(crate) unconstrained fn get_private_events<Event>(
     contract_address: AztecAddress,
     scope: AztecAddress,
 ) -> BoundedVec<Event, MAX_PRIVATE_EVENTS_PER_TXE_QUERY>
