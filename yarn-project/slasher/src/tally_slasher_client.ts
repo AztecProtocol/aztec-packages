@@ -46,7 +46,10 @@ export type TallySlasherSettings = Prettify<
 >;
 
 export type TallySlasherClientConfig = SlashOffensesCollectorConfig &
-  Pick<SlasherConfig, 'slashValidatorsAlways' | 'slashValidatorsNever' | 'slashExecuteRoundsLookBack'>;
+  Pick<
+    SlasherConfig,
+    'slashValidatorsAlways' | 'slashValidatorsNever' | 'slashExecuteRoundsLookBack' | 'slashMaxPayloadSize'
+  >;
 
 /**
  * The Tally Slasher client is responsible for managing slashable offenses using
