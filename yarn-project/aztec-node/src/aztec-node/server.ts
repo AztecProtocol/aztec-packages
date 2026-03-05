@@ -346,9 +346,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We'll accumulate sentinel watchers here
     const watchers: Watcher[] = [];
 
-    // Create FullNodeCheckpointsBuilder for block proposal handling and tx validation
+    // Create FullNodeCheckpointsBuilder for block proposal handling and tx validation.
+    // Override maxTxsPerCheckpoint with the validator-specific limit if set.
     const validatorCheckpointsBuilder = new FullNodeCheckpointsBuilder(
-      { ...config, l1GenesisTime, slotDuration: Number(slotDuration), rollupManaLimit },
+      {
+        ...config,
+        l1GenesisTime,
+        slotDuration: Number(slotDuration),
+        rollupManaLimit,
+        maxTxsPerCheckpoint: config.validateMaxTxsPerCheckpoint,
+      },
       worldStateSynchronizer,
       archiver,
       dateProvider,

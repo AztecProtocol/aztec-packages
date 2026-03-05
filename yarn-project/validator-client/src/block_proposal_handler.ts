@@ -11,6 +11,7 @@ import type { P2P, PeerId } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { Gas } from '@aztec/stdlib/gas';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
@@ -491,9 +492,15 @@ export class BlockProposalHandler {
 
     // Build the new block
     const deadline = this.getReexecutionDeadline(slot, config);
+    const maxBlockGas =
+      this.config.validateMaxL2BlockGas !== undefined || this.config.validateMaxDABlockGas !== undefined
+        ? new Gas(this.config.validateMaxDABlockGas ?? Infinity, this.config.validateMaxL2BlockGas ?? Infinity)
+        : undefined;
     const result = await checkpointBuilder.buildBlock(txs, blockNumber, blockHeader.globalVariables.timestamp, {
       deadline,
       expectedEndState: blockHeader.state,
+      maxTransactions: this.config.validateMaxTxsPerBlock,
+      maxBlockGas,
     });
 
     const { block, failedTxs } = result;
