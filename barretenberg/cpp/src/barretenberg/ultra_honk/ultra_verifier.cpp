@@ -135,6 +135,8 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
+    BB_BENCH_NAME("UltraVerifier::reduce_to_pairing_check");
+
     transcript->load_proof(proof);
 
     // Compute log_n first (needed for proof layout calculation)
@@ -151,7 +153,10 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     const size_t num_public_inputs = ProofLength::Honk<Flavor>::derive_num_public_inputs(proof.size(), log_n);
 
     OinkVerifier<Flavor> oink_verifier{ verifier_instance, transcript, num_public_inputs };
-    oink_verifier.verify();
+    {
+        BB_BENCH_NAME("UltraVerifier::oink_verify");
+        oink_verifier.verify();
+    }
 
     // Compute padding indicator array AFTER OinkVerifier so VK fields are properly tagged
     auto padding_indicator_array = compute_padding_indicator_array(log_n);
@@ -174,8 +179,12 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
     // Run the sumcheck verifier
-    SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(
-        verifier_instance->relation_parameters, verifier_instance->gate_challenges, padding_indicator_array);
+    SumcheckOutput<Flavor> sumcheck_output;
+    {
+        BB_BENCH_NAME("UltraVerifier::sumcheck_verify");
+        sumcheck_output = sumcheck.verify(
+            verifier_instance->relation_parameters, verifier_instance->gate_challenges, padding_indicator_array);
+    }
     // Get the claimed evaluation of the Libra polynomials for ZKFlavors
     if constexpr (Flavor::HasZK) {
         libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
@@ -269,19 +278,25 @@ typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_p
             output.ipa_proof = ipa_proof;
         }
     } else {
-        // Perform pairing check
-        bool pairing_verified = pi_pairing_points.check();
-        vinfo("UltraVerifier: pairing check: ", pairing_verified ? "true" : "false");
 
-        if (!pairing_verified) {
-            info("UltraVerifier: verification failed at pairing check");
-            return Output{};
+        {
+            BB_BENCH_NAME("UltraVerifier::reduce_to_pairing_check (native pairing check)");
+            // Perform pairing check
+            bool pairing_verified = pi_pairing_points.check();
+            vinfo("UltraVerifier: pairing check: ", pairing_verified ? "true" : "false");
+
+            if (!pairing_verified) {
+                info("UltraVerifier: verification failed at pairing check");
+                return Output{};
+            }
         }
 
-        // Perform IPA verification if IO requires it
-        if constexpr (IO::HasIPA) {
-            if (!verify_ipa(ipa_proof, inputs.ipa_claim)) {
-                return Output{};
+        { // Perform IPA verification if IO requires it
+            if constexpr (IO::HasIPA) {
+                BB_BENCH_NAME("UltraVerifier::reduce_to_pairing_check (IPA check)");
+                if (!verify_ipa(ipa_proof, inputs.ipa_claim)) {
+                    return Output{};
+                }
             }
         }
 

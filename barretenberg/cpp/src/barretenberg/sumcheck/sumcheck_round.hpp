@@ -809,6 +809,7 @@ template <typename Flavor, bool IsGrumpkin = IsGrumpkinFlavor<Flavor>> class Sum
                                  FF& round_challenge,
                                  const FF& indicator)
     {
+        BB_BENCH_NAME("compute_next_target_sum");
         target_total_sum = (FF(1) - indicator) * target_total_sum + indicator * univariate.evaluate(round_challenge);
     }
 
@@ -841,10 +842,18 @@ template <typename Flavor, bool IsGrumpkin = IsGrumpkinFlavor<Flavor>> class Sum
     {
         // Obtain the round univariate from the transcript
         std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
-        auto round_univariate =
-            transcript->template receive_from_prover<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
-                round_univariate_label);
-        FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
+        bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> round_univariate;
+        {
+            BB_BENCH_NAME("SumcheckVerifier::receive_univariate");
+            round_univariate =
+                transcript->template receive_from_prover<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
+                    round_univariate_label);
+        }
+        FF round_challenge;
+        {
+            BB_BENCH_NAME("SumcheckVerifier::get_challenge");
+            round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
+        }
         multivariate_challenge.emplace_back(round_challenge);
         // Check that $\tilde{S}^{i-1}(u_{i-1}) == \tilde{S}^{i}(0) + \tilde{S}^{i}(1)$
         // For i = 0, check that $\tilde{S}^0(u_0) == target_total_sum$

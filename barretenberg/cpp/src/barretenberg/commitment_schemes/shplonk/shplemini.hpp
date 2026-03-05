@@ -224,6 +224,7 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         const std::vector<std::array<Fr, 3>>& sumcheck_round_evaluations = {})
 
     {
+        BB_BENCH_NAME("ShpleminiVerifier::compute_batch_opening_claim");
         const size_t virtual_log_n = multivariate_challenge.size();
 
         const bool committed_sumcheck = !sumcheck_round_evaluations.empty();

@@ -507,15 +507,15 @@ template <class Fr, size_t domain_end> class Univariate {
             full_numerator_value *= u - i;
         }
 
-        // build set of domain size-many denominator inverses 1/(d_i*(x_k - x_j)). will multiply against
-        // each of these (rather than to divide by something) for each barycentric evaluation
+        // Precompute denominator values: lagrange_denominators[i] * (u - big_domain[i])
+        // warning: need to avoid zero here (u must not be in the domain)
         std::array<Fr, LENGTH> denominator_inverses;
         for (size_t i = 0; i != LENGTH; ++i) {
-            Fr inv = Data::lagrange_denominators[i];
-            inv *= u - Data::big_domain[i]; // warning: need to avoid zero here
-            inv = Fr(1) / inv;
-            denominator_inverses[i] = inv;
+            denominator_inverses[i] = Data::lagrange_denominators[i] * (u - Data::big_domain[i]);
         }
+
+        // Batch-invert (use Montgomery's trick for native fields, standard inversion for in-circuit fields)
+        Fr::batch_invert(denominator_inverses);
 
         Fr result = 0;
         // compute each term v_j / (d_j*(x-x_j)) of the sum
@@ -524,7 +524,7 @@ template <class Fr, size_t domain_end> class Univariate {
             term *= denominator_inverses[i];
             result += term;
         }
-        // scale the sum by the value of of B(x)
+        // scale the sum by the value of B(x)
         result *= full_numerator_value;
         return result;
     };

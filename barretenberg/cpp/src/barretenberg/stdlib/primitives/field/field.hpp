@@ -344,6 +344,18 @@ template <typename Builder_> class field_t {
         return field_t(fr::one()).divide_no_zero_check(*this);
     }
 
+    template <typename C>
+        requires requires(C& c) {
+            { c.size() } -> std::convertible_to<size_t>;
+            { c[0] };
+        }
+    static void batch_invert(C& coeffs) noexcept
+    {
+        for (size_t i = 0; i < coeffs.size(); ++i) {
+            coeffs[i] = coeffs[i].invert();
+        }
+    };
+
     field_t operator-() const
     {
         field_t result(*this);
@@ -470,8 +482,8 @@ template <typename Builder_> class field_t {
         return result;
     }
 
-    // Disallow from_witness for non-bb::fr types to prevent implicit conversions (specifically, using indices rather
-    // than values)
+    // Disallow from_witness for non-bb::fr types to prevent implicit conversions (specifically, using indices
+    // rather than values)
     template <typename T> static field_t from_witness(Builder* ctx, const T& input) = delete;
 
     static field_t reconstruct_from_public(const std::span<const field_t, PUBLIC_INPUTS_SIZE>& limbs)
@@ -481,8 +493,8 @@ template <typename Builder_> class field_t {
 
     /**
      * Fix a witness. The value of a witness is constrained with a selector.
-     * This means that any attempt to change the value of a fixed witness would lead to changing the q_c selector and
-     * its commitment.
+     * This means that any attempt to change the value of a fixed witness would lead to changing the q_c selector
+     * and its commitment.
      */
     void fix_witness()
     {

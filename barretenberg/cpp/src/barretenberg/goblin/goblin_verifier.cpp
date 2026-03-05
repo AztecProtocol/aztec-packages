@@ -27,9 +27,14 @@ typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_
             info("Goblin verification failed at Merge step");
             return ReductionResult();
         }
-        if (!merge_result.pairing_points.check()) {
-            info("Goblin verification failed at Merge pairing check");
-            return ReductionResult();
+
+        {
+            BB_BENCH_NAME("GoblinVerifier::reduce_to_pairing_check_and_ipa_opening (Merge pairing check)");
+            bool merge_pairing_verified = merge_result.pairing_points.check();
+            if (!merge_pairing_verified) {
+                info("Goblin verification failed at Merge pairing check");
+                return ReductionResult();
+            }
         }
     }
 
@@ -67,9 +72,13 @@ typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_
             return ReductionResult();
         }
 
-        if (!translator_result.pairing_points.check()) {
-            info("Goblin verification failed at Translator pairing check");
-            return ReductionResult();
+        {
+            BB_BENCH_NAME("GoblinVerifier::reduce_to_pairing_check_and_ipa_opening (Translator pairing check)");
+            bool translator_pairing_verified = translator_result.pairing_points.check();
+            if (!translator_pairing_verified) {
+                info("Goblin verification failed at Translator pairing check");
+                return ReductionResult();
+            }
         }
     }
 

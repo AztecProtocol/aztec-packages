@@ -114,6 +114,7 @@ template <typename Curve>
 typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to_pairing_check(
     const Proof& proof, const InputCommitments& input_commitments)
 {
+    BB_BENCH_NAME("MergeVerifier::reduce_to_pairing_check");
     transcript->load_proof(proof);
 
     // Receive shift size from prover

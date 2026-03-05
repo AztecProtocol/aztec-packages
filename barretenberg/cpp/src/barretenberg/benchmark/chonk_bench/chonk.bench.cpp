@@ -40,6 +40,7 @@ BENCHMARK_DEFINE_F(ChonkBench, VerificationOnly)(benchmark::State& state)
     auto [proof, vk_and_hash] = accumulate_and_prove_with_precomputed_vks(NUM_APP_CIRCUITS, precomputed_vks);
 
     for (auto _ : state) {
+        GOOGLE_BB_BENCH_REPORTER(state);
         ChonkNativeVerifier verifier(vk_and_hash);
         benchmark::DoNotOptimize(verifier.verify(proof));
     }

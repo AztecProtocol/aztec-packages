@@ -322,16 +322,28 @@ template <typename Curve> class GeminiVerifier_ {
                                                         std::span<const Fr> challenge_powers, // size = virtual_log_n
                                                         std::span<const Fr> fold_neg_evals)   // size = virtual_log_n
     {
+        BB_BENCH_NAME("GeminiVerifier::compute_fold_pos_evaluations");
         const size_t virtual_log_n = evaluation_point.size();
 
         std::vector<Fr> evals(fold_neg_evals.begin(), fold_neg_evals.end());
+
+        // Precompute denominators: challenge_power * (1 - u) + u for each level.
+        // These depend only on challenge_powers and evaluation_point (not on eval_pos_prev),
+        // so all virtual_log_n denominator values can be computed upfront and batch-inverted.
+        std::vector<Fr> inv_denominators(virtual_log_n);
+        for (size_t l = 0; l < virtual_log_n; ++l) {
+            inv_denominators[l] = challenge_powers[l] * (Fr(1) - evaluation_point[l]) + evaluation_point[l];
+        }
+
+        // Batch-invert (use Montgomery's trick for native fields, standard inversion for in-circuit fields)
+        Fr::batch_invert(inv_denominators);
 
         Fr eval_pos_prev = batched_evaluation;
 
         std::vector<Fr> fold_pos_evaluations;
         fold_pos_evaluations.reserve(virtual_log_n);
 
-        // Solve the sequence of linear equations
+        // Solve the sequence of linear equations using precomputed inverse denominators
         for (size_t l = virtual_log_n; l != 0; --l) {
             // Get r²⁽ˡ⁻¹⁾
             const Fr& challenge_power = challenge_powers[l - 1];
@@ -341,8 +353,8 @@ template <typename Curve> class GeminiVerifier_ {
             const Fr& eval_neg = evals[l - 1];
             // Compute the numerator
             Fr eval_pos = ((challenge_power * eval_pos_prev * 2) - eval_neg * (challenge_power * (Fr(1) - u) - u));
-            // Divide by the denominator
-            eval_pos *= (challenge_power * (Fr(1) - u) + u).invert();
+            // Multiply by precomputed inverse denominator (no per-iteration inversion here)
+            eval_pos *= inv_denominators[l - 1];
 
             // If current index is bigger than log_n, we propagate `batched_evaluation` to the next
             // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.

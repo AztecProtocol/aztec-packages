@@ -621,6 +621,18 @@ template <typename Builder, typename T> class bigfield {
      */
     bigfield invert() const { return (bigfield(1) / bigfield(*this)); }
 
+    template <typename C>
+        requires requires(C& c) {
+            { c.size() } -> std::convertible_to<size_t>;
+            { c[0] };
+        }
+    static void batch_invert(C& coeffs) noexcept
+    {
+        for (size_t i = 0; i < coeffs.size(); ++i) {
+            coeffs[i] = coeffs[i].invert();
+        }
+    };
+
     /**
      * Create a public one constant
      * */

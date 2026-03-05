@@ -139,6 +139,7 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
     using ClaimBatch = typename ClaimBatcher::Batch;
     using Sumcheck = SumcheckVerifier<Flavor>;
 
+    BB_BENCH_NAME("TranslatorVerifier::reduce_to_pairing_check");
     transcript->load_proof(proof);
 
     // Fiat-Shamir the vk hash

@@ -15,6 +15,8 @@ namespace bb {
  */
 template <> ChonkVerifier<false>::Output ChonkVerifier<false>::verify(const Proof& proof)
 {
+    BB_BENCH_NAME("ChonkVerifier::verify");
+
     // Step 1: Verify the Hiding kernel proof (includes pairing check)
     HidingKernelVerifier verifier{ vk_and_hash, transcript };
     auto verifier_output = verifier.verify_proof(proof.mega_proof);
@@ -49,13 +51,16 @@ template <> ChonkVerifier<false>::Output ChonkVerifier<false>::verify(const Proo
     }
 
     // Step 4: Verify IPA opening
-    auto ipa_transcript = std::make_shared<Goblin::Transcript>(goblin_output.ipa_proof);
-    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
-    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, goblin_output.ipa_claim, ipa_transcript);
-    vinfo("ChonkVerifier: Goblin IPA verified: ", ipa_verified);
-    if (!ipa_verified) {
-        info("ChonkVerifier: Chonk verification failed at IPA check");
-        return false;
+    {
+        BB_BENCH_NAME("ChonkVerifier::verify (Goblin IPA verification)");
+        auto ipa_transcript = std::make_shared<Goblin::Transcript>(goblin_output.ipa_proof);
+        auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+        bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, goblin_output.ipa_claim, ipa_transcript);
+        vinfo("ChonkVerifier: Goblin IPA verified: ", ipa_verified);
+        if (!ipa_verified) {
+            info("ChonkVerifier: Chonk verification failed at IPA check");
+            return false;
+        }
     }
 
     return true;
