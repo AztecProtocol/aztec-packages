@@ -6,6 +6,7 @@
 
 #include "./eccvm_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
@@ -19,6 +20,7 @@ namespace bb {
 template <typename Flavor>
 typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_to_ipa_opening()
 {
+    BB_BENCH_NAME("ECCVMVerifier::reduce");
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using Shplonk = ShplonkVerifier_<Curve>;
