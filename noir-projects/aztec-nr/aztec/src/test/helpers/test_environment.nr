@@ -838,10 +838,11 @@ impl TestEnvironment {
         );
     }
 
-    /// Returns private events emitted in the last block.
+    /// Returns private events emitted as of last block.
     ///
     /// Queries up to `MAX_PRIVATE_EVENTS_PER_TXE_QUERY` private events of type `Event` that were emitted by
-    /// `contract_address` and are readable by `scope` (i.e. the recipient of the event).
+    /// `contract_address` and are readable by `scope` (i.e. the address under which the event was added to pxe, this
+    /// is typically the event recipient).
     ///
     /// **Experimental** - there will be breaking API changes.
     ///
@@ -849,7 +850,7 @@ impl TestEnvironment {
     ///
     /// ## Examples
     ///
-    /// Emitting a single event in a contract call and reading it back:
+    /// Emitting a single event in a contract call and reading it back (transfer function emits the event):
     /// ```noir
     /// env.call_private(owner, Token::at(token_address).transfer(recipient, 100));
     ///
