@@ -47,6 +47,8 @@ Key areas to audit:
 | `ci_failures` | CI status for a PR |
 | `record_stat` | Record structured data (use `audit_file_review` schema for each file reviewed) |
 
+`github_api` is GET-only. Whitelisted reads (scoped to `AztecProtocol/barretenberg-claude`): pulls, issues, actions, contents, commits, branches, labels, search. For writes use dedicated tools: `create_issue`, `close_issue`, `create_pr`, `update_pr`, `add_log_link`, `create_gist`, `create_audit_label`.
+
 ### `create_issue` — for audit findings:
 ```
 create_issue(
@@ -147,6 +149,7 @@ This review is NOT optional. Skipping it means the audit trail is incomplete.
 
 ## Tips
 
+- **Absolute paths**: Always use absolute paths (e.g. `/workspace/barretenberg-claude/...`) with `Read`, `Glob`, `Grep`.
 - **Large files**: Use `offset`+`limit` on Read, or `Grep` to find what you need
 - **No `gh` CLI or `git push`**: Use dedicated MCP tools (`create_issue`, `create_pr`, etc.). `github_api` is read-only.
 - **Always use full GitHub URLs**: `https://github.com/AztecProtocol/barretenberg-claude/issues/1` not `#1`

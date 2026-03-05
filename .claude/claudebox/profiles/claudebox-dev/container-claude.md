@@ -46,6 +46,8 @@ Key directories:
 | `linear_create_issue` | Create a Linear issue |
 | `record_stat` | Record structured data |
 
+`github_api` is GET-only. Whitelisted reads: pulls, issues, actions, contents, commits, branches, search, gists. For writes use: `create_pr`, `update_pr`, `push_branch`, `create_gist`.
+
 ### `push_branch` — direct push:
 For small changes that don't need a PR, push directly to the development branch:
 ```

@@ -934,10 +934,11 @@ Creates a draft PR on a skill/<name> branch for human review.`,
           await updateRootComment();
           return { content: [{ type: "text", text: `${action} skill /${name} — PR ${pr.html_url}` }] };
         } else {
-          // PR creation failed but skill was pushed
-          logActivity("artifact", `${action} skill /${name} on branch ${branch} (PR failed: ${pr.message || "unknown"})`);
+          const errors = pr.errors?.map((e: any) => e.message || JSON.stringify(e)).join("; ") || "";
+          const errMsg = `${pr.message || "unknown"}${errors ? ` — ${errors}` : ""}`;
+          logActivity("artifact", `${action} skill /${name} on branch ${branch} (PR failed: ${errMsg})`);
           await updateRootComment();
-          return { content: [{ type: "text", text: `${action} skill /${name} — pushed to ${branch} but PR creation failed: ${pr.message || JSON.stringify(pr)}` }] };
+          return { content: [{ type: "text", text: `${action} skill /${name} — pushed to ${branch} but PR creation failed: ${errMsg}` }] };
         }
       } catch (e: any) {
         return { content: [{ type: "text", text: `create_skill: ${e.message}` }], isError: true };
@@ -1546,7 +1547,10 @@ export function registerPRTools(server: McpServer, config: PRToolConfig): void {
           }),
         });
         const pr = await prRes.json() as any;
-        if (!prRes.ok) return { content: [{ type: "text", text: `PR failed: ${pr.message || JSON.stringify(pr)}` }], isError: true };
+        if (!prRes.ok) {
+          const errors = pr.errors?.map((e: any) => e.message || JSON.stringify(e)).join("; ") || "";
+          return { content: [{ type: "text", text: `PR failed (${prRes.status}): ${pr.message || "unknown"}${errors ? ` — ${errors}` : ""}\nBase: ${base}, Head: ${branch}` }], isError: true };
+        }
 
         if (config.label) {
           try {
@@ -1637,7 +1641,8 @@ export function registerPRTools(server: McpServer, config: PRToolConfig): void {
           });
           if (!res.ok) {
             const errBody = await res.json().catch(() => ({})) as any;
-            return { content: [{ type: "text", text: `Update failed: ${errBody.message || JSON.stringify(errBody)}` }], isError: true };
+            const errors = errBody.errors?.map((e: any) => e.message || JSON.stringify(e)).join("; ") || "";
+            return { content: [{ type: "text", text: `Update failed (${res.status}): ${errBody.message || "unknown"}${errors ? ` — ${errors}` : ""}` }], isError: true };
           }
           results.push(`Updated PR metadata`);
         }

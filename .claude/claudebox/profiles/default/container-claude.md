@@ -59,7 +59,21 @@ Do NOT use `gh api`, `gh pr`, `gh` commands, or `git push` — they will all fai
 | `linear_create_issue` | Create a new Linear issue |
 | `record_stat` | Record structured data to JSONL (see tool description for schemas) |
 
-### `github_api` — read-only examples:
+### `github_api` — read-only, GET only
+
+Whitelisted paths (all scoped to `repos/AztecProtocol/aztec-packages`):
+- `pulls`, `pulls/:id`, `pulls/:id/files`, `pulls/:id/reviews`, `pulls/:id/comments`, `pulls/:id/commits`
+- `issues`, `issues/:id`, `issues/:id/timeline`, `issues/:id/events`, `issues/:id/comments`
+- `actions/workflows`, `actions/runs`, `actions/runs/:id/jobs`, `actions/jobs/:id/logs`
+- `check-runs/:id`, `check-suites/:id/check-runs`, `commits/:sha/status`, `commits/:sha/check-runs`
+- `contents/*`, `commits`, `compare/*`, `branches`, `git/ref/*`
+- `contributors`, `assignees`, `collaborators`
+- `search/issues`, `search/code` (global)
+- `gists/:id` (global, read-only)
+
+For writes use dedicated tools: `create_pr`, `update_pr`, `create_gist`.
+
+Examples:
 ```
 github_api(method="GET", path="repos/AztecProtocol/aztec-packages/pulls/123")
 github_api(method="GET", path="repos/AztecProtocol/aztec-packages/pulls/123", accept="application/vnd.github.v3.diff")
@@ -162,6 +176,7 @@ If the command fails, the log link still persists — making it easy to diagnose
 
 ## Tips — avoiding common failures
 
+- **Absolute paths**: Always use absolute paths (e.g. `/workspace/aztec-packages/...`) with `Read`, `Glob`, `Grep`. Relative paths will fail if your cwd changed.
 - **Large files**: If `Read` fails with "exceeds maximum", use `offset`+`limit` to read chunks, or `Grep` to find what you need.
 - **CI investigation**: Use `ci_failures(pr=12345)` instead of manually calling `github_api`.
 - **JSON parsing**: Use `jq` — it handles large/truncated input gracefully.
