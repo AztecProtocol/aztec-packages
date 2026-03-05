@@ -163,11 +163,15 @@ function test_cmds {
   echo "$browser_prefix $scripts/browser_prove.sh verify_honk_proof chrome"
   echo "$browser_prefix $scripts/browser_prove.sh a_1_mul chrome"
 
-  # bb.js tests.
+  # bb.js tests (multi-threaded WASM).
   # ecdsa_secp256r1_3x through bb.js on node to check 256k support.
-  echo "$tests_hash $scripts/bbjs_prove.sh ecdsa_secp256r1_3x"
+  echo "$tests_hash $scripts/bbjs_prove.sh ecdsa_secp256r1_3x --multi-threaded"
   # the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
-  echo "$tests_hash $scripts/bbjs_prove.sh a_6_array"
+  echo "$tests_hash $scripts/bbjs_prove.sh a_6_array --multi-threaded"
+
+  # bb.js tests (single-threaded WASM).
+  echo "$tests_hash $scripts/bbjs_prove.sh assert_statement"
+  echo "$tests_hash $scripts/bbjs_prove.sh a_1_mul"
 
   for t in $non_recursive_tests; do
     echo "$tests_hash $scripts/bb_prove.sh $(basename $t)"
@@ -197,8 +201,8 @@ function test_cmds {
   echo "$tests_hash $scripts/bb_prove.sh assert_statement --disable_zk"
 
   # prove and verify using bb.js classes
-  echo "$tests_hash $scripts/bbjs_prove.sh a_1_mul"
-  echo "$tests_hash $scripts/bbjs_prove.sh assert_statement"
+  echo "$tests_hash $scripts/bbjs_prove.sh a_1_mul --multi-threaded"
+  echo "$tests_hash $scripts/bbjs_prove.sh assert_statement --multi-threaded"
 
   # prove with bb.js and verify with bb cli
   echo "$tests_hash $scripts/bbjs_prove_bb_verify.sh a_1_mul"
