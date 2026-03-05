@@ -5,6 +5,8 @@ import {
   type SlotNumber,
 } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import { DateProvider } from '@aztec/foundation/timer';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import type { Pool } from 'pg';
 
@@ -53,7 +55,20 @@ export interface CreateHASignerDeps {
    * If provided, databaseUrl and poolConfig are ignored
    */
   pool?: Pool;
+  /**
+   * Optional telemetry client for metrics
+   */
+  telemetryClient?: TelemetryClient;
+  /**
+   * Optional date provider for timestamps
+   */
+  dateProvider?: DateProvider;
 }
+
+/**
+ * deps for creating a local signing protection signer
+ */
+export type CreateLocalSignerWithProtectionDeps = Omit<CreateHASignerDeps, 'pool'>;
 
 /**
  * Base context for signing operations
@@ -124,7 +139,6 @@ export function isHAProtectedContext(context: SigningContext): context is HAProt
  * - Other duties: returns the blockNumber from the context
  */
 export function getBlockNumberFromSigningContext(context: HAProtectedSigningContext): BlockNumber | CheckpointNumber {
-  // Check for duty types that have blockNumber
   if (
     context.dutyType === DutyType.BLOCK_PROPOSAL ||
     context.dutyType === DutyType.CHECKPOINT_PROPOSAL ||
@@ -133,44 +147,19 @@ export function getBlockNumberFromSigningContext(context: HAProtectedSigningCont
   ) {
     return context.blockNumber;
   }
-  // Vote duties (GOVERNANCE_VOTE, SLASHING_VOTE) don't have blockNumber
   return BlockNumber(0);
 }
 
 /**
  * Context required for slashing protection during signing operations.
- * Uses discriminated union to enforce type safety:
- * - BLOCK_PROPOSAL duties MUST have blockIndexWithinCheckpoint >= 0
- * - Other duty types do NOT have blockIndexWithinCheckpoint (internally -1)
- * - Vote duties only need slot (blockNumber is internally 0)
- * - AUTH_REQUEST and TXS duties don't need slot/blockNumber (no HA protection needed)
  */
 export type SigningContext = HAProtectedSigningContext | NoHAProtectionSigningContext;
 
 /**
  * Database interface for slashing protection operations
- * This abstraction allows for different database implementations (PostgreSQL, SQLite, etc.)
- *
- * The interface is designed around 3 core operations:
- * 1. tryInsertOrGetExisting - Atomically insert or get existing record (eliminates race conditions)
- * 2. updateDutySigned - Update to signed status on success
- * 3. deleteDuty - Delete a duty record on failure
  */
 export interface SlashingProtectionDatabase {
-  /**
-   * Atomically try to insert a new duty record, or get the existing one if present.
-   *
-   * @returns { isNew: true, record } if we successfully inserted and acquired the lock
-   * @returns { isNew: false, record } if a record already exists (caller should handle based on status)
-   */
   tryInsertOrGetExisting(params: CheckAndRecordParams): Promise<TryInsertOrGetResult>;
-
-  /**
-   * Update a duty to 'signed' status with the signature.
-   * Only succeeds if the lockToken matches (caller must be the one who created the duty).
-   *
-   * @returns true if the update succeeded, false if token didn't match or duty not found
-   */
   updateDutySigned(
     rollupAddress: EthAddress,
     validatorAddress: EthAddress,
@@ -180,14 +169,6 @@ export interface SlashingProtectionDatabase {
     lockToken: string,
     blockIndexWithinCheckpoint: number,
   ): Promise<boolean>;
-
-  /**
-   * Delete a duty record.
-   * Only succeeds if the lockToken matches (caller must be the one who created the duty).
-   * Used when signing fails to allow another node/attempt to retry.
-   *
-   * @returns true if the delete succeeded, false if token didn't match or duty not found
-   */
   deleteDuty(
     rollupAddress: EthAddress,
     validatorAddress: EthAddress,
@@ -196,31 +177,8 @@ export interface SlashingProtectionDatabase {
     lockToken: string,
     blockIndexWithinCheckpoint: number,
   ): Promise<boolean>;
-
-  /**
-   * Cleanup own stuck duties
-   * @returns the number of duties cleaned up
-   */
   cleanupOwnStuckDuties(nodeId: string, maxAgeMs: number): Promise<number>;
-
-  /**
-   * Cleanup duties with outdated rollup address.
-   * Removes all duties where the rollup address doesn't match the current one.
-   * Used after a rollup upgrade to clean up duties for the old rollup.
-   * @returns the number of duties cleaned up
-   */
   cleanupOutdatedRollupDuties(currentRollupAddress: EthAddress): Promise<number>;
-
-  /**
-   * Cleanup old signed duties.
-   * Removes only signed duties older than the specified age.
-   * @returns the number of duties cleaned up
-   */
   cleanupOldDuties(maxAgeMs: number): Promise<number>;
-
-  /**
-   * Close the database connection.
-   * Should be called during graceful shutdown.
-   */
   close(): Promise<void>;
 }

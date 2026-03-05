@@ -257,6 +257,7 @@ describe('CheckpointVoter HA Integration', () => {
       signingTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
       databaseUrl: 'postgresql://test',
+      dataStoreMapSizeKb: 128 * 1024 * 1024,
     };
 
     // Create HA signer with pglite pool

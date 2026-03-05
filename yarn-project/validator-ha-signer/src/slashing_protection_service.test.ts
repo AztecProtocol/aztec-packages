@@ -2,16 +2,20 @@ import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundatio
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
+import { TestDateProvider } from '@aztec/foundation/timer';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PGlite } from '@electric-sql/pglite';
 import { jest } from '@jest/globals';
 
+import type { BaseSignerConfig } from './config.js';
 import { PostgresSlashingProtectionDatabase } from './db/postgres.js';
 import { setupTestSchema } from './db/test_helper.js';
 import { DutyAlreadySignedError, SlashingProtectionError } from './errors.js';
+import { HASignerMetrics } from './metrics.js';
 import { SlashingProtectionService } from './slashing_protection_service.js';
 import { Pool } from './test/pglite_pool.js';
-import { type CheckAndRecordParams, DutyStatus, DutyType, type ValidatorHASignerConfig } from './types.js';
+import { type CheckAndRecordParams, DutyStatus, DutyType } from './types.js';
 
 // Test data constants
 const ROLLUP_ADDRESS = EthAddress.random();
@@ -31,7 +35,13 @@ describe('SlashingProtectionService', () => {
   let pool: Pool;
   let db: PostgresSlashingProtectionDatabase;
   let service: SlashingProtectionService;
-  let config: ValidatorHASignerConfig;
+  let config: BaseSignerConfig;
+  let dateProvider: TestDateProvider;
+  const telemetryClient = getTelemetryClient();
+
+  function createDeps(nodeId: string = NODE_ID) {
+    return { metrics: new HASignerMetrics(telemetryClient, nodeId), dateProvider };
+  }
 
   beforeEach(async () => {
     pglite = new PGlite();
@@ -41,15 +51,15 @@ describe('SlashingProtectionService', () => {
     db = new PostgresSlashingProtectionDatabase(pool);
     await db.initialize();
 
+    dateProvider = new TestDateProvider();
     config = {
-      haSigningEnabled: true,
       l1Contracts: { rollupAddress: ROLLUP_ADDRESS },
       nodeId: NODE_ID,
       pollingIntervalMs: 50,
       signingTimeoutMs: 1000,
       maxStuckDutiesAgeMs: 60_000,
     };
-    service = new SlashingProtectionService(db, config);
+    service = new SlashingProtectionService(db, config, createDeps());
   });
 
   afterEach(async () => {
@@ -283,7 +293,7 @@ describe('SlashingProtectionService', () => {
 
     it('should timeout if signing takes too long', async () => {
       const shortTimeoutConfig = { ...config, signingTimeoutMs: 200 };
-      const serviceWithShortTimeout = new SlashingProtectionService(db, shortTimeoutConfig);
+      const serviceWithShortTimeout = new SlashingProtectionService(db, shortTimeoutConfig, createDeps());
 
       try {
         const params: CheckAndRecordParams = {
@@ -555,7 +565,7 @@ describe('SlashingProtectionService', () => {
 
       // Create a new service with a very short maxStuckDutiesAgeMs
       const shortAgeConfig = { ...config, maxStuckDutiesAgeMs: 1 };
-      const newService = new SlashingProtectionService(db, shortAgeConfig);
+      const newService = new SlashingProtectionService(db, shortAgeConfig, createDeps());
 
       // Wait a bit for the duty to become "old"
       await sleep(10);
@@ -582,11 +592,11 @@ describe('SlashingProtectionService', () => {
       const service1 = new SlashingProtectionService(db, {
         ...config,
         l1Contracts: { rollupAddress: rollupAddress1 },
-      });
+      }, createDeps());
       const service2 = new SlashingProtectionService(db, {
         ...config,
         l1Contracts: { rollupAddress: rollupAddress2 },
-      });
+      }, createDeps());
 
       // Sign same slots for both rollups (e.g. rollup upgrade: slots reset, same slot numbers reused)
       for (let slotNum = 1; slotNum <= 5; slotNum++) {
@@ -661,11 +671,11 @@ describe('SlashingProtectionService', () => {
       const oldService = new SlashingProtectionService(db, {
         ...config,
         l1Contracts: { rollupAddress: oldRollupAddress },
-      });
+      }, createDeps());
       const newService = new SlashingProtectionService(db, {
         ...config,
         l1Contracts: { rollupAddress: newRollupAddress },
-      });
+      }, createDeps());
 
       // Old rollup: all validators sign slot 100
       for (const validator of validators) {
@@ -731,7 +741,7 @@ describe('SlashingProtectionService', () => {
       const service1 = new SlashingProtectionService(db, {
         ...config,
         l1Contracts: { rollupAddress: rollupAddress1 },
-      });
+      }, createDeps());
 
       const params: CheckAndRecordParams = {
         rollupAddress: rollupAddress1,
@@ -847,7 +857,7 @@ describe('SlashingProtectionService', () => {
         const newService = new SlashingProtectionService(db, {
           ...config,
           l1Contracts: { rollupAddress: newRollupAddress },
-        });
+        }, createDeps());
 
         // Start the service - this should trigger cleanup at startup
         await newService.start();
@@ -965,7 +975,7 @@ describe('SlashingProtectionService', () => {
         const cleanupService = new SlashingProtectionService(db, {
           ...config,
           cleanupOldDutiesAfterHours: 0.5, // 30 minutes
-        });
+        }, createDeps());
         await cleanupService.start();
         await sleep(50);
         await cleanupService.stop();
@@ -1028,7 +1038,7 @@ describe('SlashingProtectionService', () => {
           ...config,
           maxStuckDutiesAgeMs: 1,
           cleanupOldDutiesAfterHours: 0.000001, // ~3.6ms
-        });
+        }, createDeps());
 
         // Start the service - this should trigger cleanup
         await newService.start();
@@ -1047,7 +1057,7 @@ describe('SlashingProtectionService', () => {
           ...config,
           maxStuckDutiesAgeMs: 1,
           cleanupOldDutiesAfterHours: 0.001, // ~3.6s
-        });
+        }, createDeps());
 
         await newService.start();
         await sleep(50); // allow multiple cleanup cycles
@@ -1078,7 +1088,7 @@ describe('SlashingProtectionService', () => {
           ...config,
           maxStuckDutiesAgeMs: 1,
           // cleanupOldDutiesAfterHours is undefined
-        });
+        }, createDeps());
 
         // Start the service
         await newService.start();

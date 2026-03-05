@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     "./config": "./dest/config.js",
+    "./local-config": "./dest/local_config.js",
     "./db": "./dest/db/index.js",
     "./errors": "./dest/errors.js",
     "./factory": "./dest/factory.js",
@@ -11,7 +12,8 @@
     "./slashing-protection-service": "./dest/slashing_protection_service.js",
     "./types": "./dest/types.js",
     "./validator-ha-signer": "./dest/validator_ha_signer.js",
-    "./test": "./dest/test/pglite_pool.js"
+    "./test": "./dest/test/pglite_pool.js",
+    "./db/lmdb": "./dest/db/lmdb.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -76,6 +78,9 @@
   "dependencies": {
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/kv-store": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
+    "@aztec/telemetry-client": "workspace:^",
     "node-pg-migrate": "^8.0.4",
     "pg": "^8.11.3",
     "tslib": "^2.4.0",
