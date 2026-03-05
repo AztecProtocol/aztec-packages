@@ -277,7 +277,6 @@ a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
 </head>
 <body>
 
-<div id="app-content" style="display:none">
 <div class="header">
   <span class="header-title"><a href="/dashboard" class="link">ClaudeBox</a></span>
   <span class="header-id">${shortId}</span>
@@ -307,9 +306,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
   </div>
 </div>
 
-</div><!-- /app-content -->
-
-<!-- Auth overlay (visible by default — content hidden until authenticated) -->
+<!-- Auth overlay -->
 <div id="auth-overlay" style="display:flex;position:fixed;inset:0;background:#0a0a0a;z-index:100;align-items:center;justify-content:center">
   <form id="auth-form" autocomplete="on" style="background:#111;border:1px solid #333;border-radius:12px;padding:24px;width:280px;display:flex;flex-direction:column;gap:12px">
     <div style="color:#5FA7F1;font-weight:600;font-size:14px;text-align:center">ClaudeBox Login</div>
@@ -433,7 +430,9 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
   var evtSource=null;
   function connectSSE(){
     if(evtSource)evtSource.close();
-    evtSource=new EventSource("/s/"+ID+"/events");
+    var c=loadCreds();
+    var sseUrl="/s/"+ID+"/events"+(c?"?token="+btoa(c.user+":"+c.pass):"");
+    evtSource=new EventSource(sseUrl);
     evtSource.onmessage=function(ev){
       try{
         var d=JSON.parse(ev.data);
@@ -443,7 +442,13 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
         }else if(d.type==="status"){
           updateStatus(d.status,d.exit_code);
         }else if(d.type==="init"){
-          // Initial state already rendered server-side, just sync status
+          // Render activity from SSE (not server-rendered for security)
+          if(Array.isArray(d.activity)){
+            for(var i=0;i<d.activity.length;i++){
+              var h=renderEntry(d.activity[i]);
+              if(h)appendEntry(h);
+            }
+          }
           updateStatus(d.status,d.exit_code);
         }
       }catch(e){}
@@ -508,7 +513,7 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
   function saveCreds(u,p){_creds={user:u,pass:p,basic:"Basic "+btoa(u+":"+p)};try{sessionStorage.setItem("cb_auth",JSON.stringify(_creds));}catch{}return _creds;}
   function showAuth(cb){_authCallback=cb;var o=document.getElementById("auth-overlay");o.style.display="flex";document.getElementById("auth-error").style.display="none";document.getElementById("auth-user").focus();}
   function hideAuth(){document.getElementById("auth-overlay").style.display="none";_authCallback=null;}
-  function onAuthenticated(){hideAuth();var c=document.getElementById("app-content");if(c)c.style.display="";connectSSE();}
+  function onAuthenticated(){hideAuth();connectSSE();}
   document.getElementById("auth-form").addEventListener("submit",function(e){
     e.preventDefault();var u=document.getElementById("auth-user").value,p=document.getElementById("auth-pass").value;
     fetch("/auth-check",{method:"POST",headers:{"Authorization":"Basic "+btoa(u+":"+p)}}).then(function(r){

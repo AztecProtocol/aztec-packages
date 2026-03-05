@@ -48,14 +48,28 @@ function checkApiAuth(req: IncomingMessage): boolean {
 }
 
 function checkBasicAuth(req: IncomingMessage): boolean {
+  // Check Authorization header first
   const authHeader = req.headers.authorization || "";
-  if (!authHeader.startsWith("Basic ")) return false;
-  const decoded = Buffer.from(authHeader.slice(6), "base64").toString();
-  const idx = decoded.indexOf(":");
-  if (idx < 0) return false;
-  const u = decoded.slice(0, idx);
-  const p = decoded.slice(idx + 1);
-  return u === SESSION_PAGE_USER && p === SESSION_PAGE_PASS;
+  if (authHeader.startsWith("Basic ")) {
+    const decoded = Buffer.from(authHeader.slice(6), "base64").toString();
+    const idx = decoded.indexOf(":");
+    if (idx >= 0) {
+      const u = decoded.slice(0, idx);
+      const p = decoded.slice(idx + 1);
+      if (u === SESSION_PAGE_USER && p === SESSION_PAGE_PASS) return true;
+    }
+  }
+  // Fallback: ?token= query param (for EventSource which can't set headers)
+  const url = new URL(req.url || "/", "http://localhost");
+  const token = url.searchParams.get("token");
+  if (token) {
+    const decoded = Buffer.from(token, "base64").toString();
+    const idx = decoded.indexOf(":");
+    if (idx >= 0) {
+      return decoded.slice(0, idx) === SESSION_PAGE_USER && decoded.slice(idx + 1) === SESSION_PAGE_PASS;
+    }
+  }
+  return false;
 }
 
 function sendUnauthorized(res: ServerResponse, _type: "api" | "basic"): void {
@@ -357,7 +371,7 @@ const routes: Route[] = [
     },
   },
 
-  // GET /s/<id> — workspace status page (HTML shell — auth overlay handles login)
+  // GET /s/<id> — workspace status page (client-side auth like dashboard)
   {
     method: "GET", pattern: /^\/s\/([a-f0-9][\w-]+)$/, auth: "none",
     handler: async (_req, res, params, { store }) => {
@@ -375,9 +389,8 @@ const routes: Route[] = [
       const hash = session._log_id || params[0];
       const sessions = worktreeId ? store.listByWorktree(worktreeId) : [{ ...session, _log_id: hash }];
       const worktreeAlive = worktreeId ? store.isWorktreeAlive(worktreeId) : false;
-      const activity = worktreeId ? store.readActivity(worktreeId) : [];
-
-      html(res, 200, workspacePageHTML({ hash, session, sessions, worktreeAlive, activity }));
+      // Activity loaded client-side after auth (via SSE) — don't leak in HTML
+      html(res, 200, workspacePageHTML({ hash, session, sessions, worktreeAlive, activity: [] }));
     },
   },
 
