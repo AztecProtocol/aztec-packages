@@ -32,10 +32,15 @@ function cleanup {
     wait $tail_pid
     tail_pid=
   fi
+  if [ -n "${dots_pid:-}" ]; then
+    kill $dots_pid &>/dev/null
+    wait $dots_pid
+    dots_pid=
+  fi
 }
 trap cleanup SIGINT SIGTERM
 # Remove file on exit, so we can publish even after SIGINT or SIGTERM.
-trap 'cleanup; rm -f $outfile' EXIT
+trap 'cleanup; rm -f $outfile $dots_fifo' EXIT
 
 dots_per_line=${DENOISE_WIDTH:-64}
 dot_count=0
@@ -91,21 +96,26 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_info="(${yellow}${url}${reset})"
 fi
 
-# Dot logging.
+# Dot logging via named pipe so we can track both PIDs.
 set +e
 display_cmd="${DENOISE_DISPLAY_NAME:-$cmd}"
 echo -e "Executing: $display_cmd ${log_info:-}"
 echo -n "   0 "
-tail --sleep-interval=0.2 -n +1 -f "$outfile" |
-  while IFS= read -r line; do
+dots_fifo=$(mktemp -u)
+mkfifo "$dots_fifo"
+
+tail --sleep-interval=0.2 -n +1 -f "$outfile" > "$dots_fifo" &
+tail_pid=$!
+
+while IFS= read -r line; do
     dot_count=$((dot_count+1))
     [ $realtime -eq 1 ] && printf "."
     if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
       [ $realtime -eq 0 ] && printf '%.s.' $(seq 1 "$dots_per_line")
       printf "\n%4s " "$dot_count"
     fi
-  done &
-tail_pid=$!
+done < "$dots_fifo" &
+dots_pid=$!
 
 # Execute the command in background.
 PARENT_LOG_ID=$key bash -c "set -euo pipefail; $cmd" > >(redact > $outfile) 2>&1 &
@@ -119,10 +129,12 @@ time="${SECONDS}s"
 [ -n "${publish_pid:-}" ] && kill $publish_pid &>/dev/null || true
 publish_log_final
 
-# Kill the tail and ensure all our dots are flushed.
+# Kill tail (source), EOF propagates through fifo, dots loop drains and exits.
 kill $tail_pid &>/dev/null
-wait $tail_pid
+wait $tail_pid 2>/dev/null
 tail_pid=
+wait $dots_pid 2>/dev/null
+dots_pid=
 
 # Handle non-zero exit status
 if [ "$status" -ne 0 ]; then
