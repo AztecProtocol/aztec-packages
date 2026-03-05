@@ -40,44 +40,53 @@ describe('Option params', () => {
   afterAll(() => teardown());
 
   it('accepts ergonomic Option params for public functions', async () => {
-    await expect(
-      contract.methods.return_public_optional_struct(undefined).simulate({ from: defaultAccountAddress }),
-    ).resolves.toBeUndefined();
+    const { result } = await contract.methods
+      .return_public_optional_struct(undefined)
+      .simulate({ from: defaultAccountAddress });
+    expect(result).toBeUndefined();
 
-    await expect(
-      contract.methods.return_public_optional_struct(null).simulate({ from: defaultAccountAddress }),
-    ).resolves.toBeUndefined();
+    const { result: nullResult } = await contract.methods
+      .return_public_optional_struct(null)
+      .simulate({ from: defaultAccountAddress });
+    expect(nullResult).toBeUndefined();
 
-    await expect(
-      contract.methods.return_public_optional_struct(someValue).simulate({ from: defaultAccountAddress }),
-    ).resolves.toEqual(someValue);
+    const { result: someResult } = await contract.methods
+      .return_public_optional_struct(someValue)
+      .simulate({ from: defaultAccountAddress });
+    expect(someResult).toEqual(someValue);
   });
 
   it('accepts ergonomic Option params for utility functions', async () => {
-    await expect(
-      contract.methods.return_utility_optional_struct(undefined).simulate({ from: defaultAccountAddress }),
-    ).resolves.toBeUndefined();
+    const { result: undefinedResult } = await contract.methods
+      .return_utility_optional_struct(undefined)
+      .simulate({ from: defaultAccountAddress });
+    expect(undefinedResult).toBeUndefined();
 
-    await expect(
-      contract.methods.return_utility_optional_struct(null).simulate({ from: defaultAccountAddress }),
-    ).resolves.toBeUndefined();
+    const { result: nullResult } = await contract.methods
+      .return_utility_optional_struct(null)
+      .simulate({ from: defaultAccountAddress });
+    expect(nullResult).toBeUndefined();
 
-    await expect(
-      contract.methods.return_utility_optional_struct(someValue).simulate({ from: defaultAccountAddress }),
-    ).resolves.toEqual(someValue);
+    const { result: someResult } = await contract.methods
+      .return_utility_optional_struct(someValue)
+      .simulate({ from: defaultAccountAddress });
+    expect(someResult).toEqual(someValue);
   });
 
   it('accepts ergonomic Option params for private functions', async () => {
-    await expect(
-      contract.methods.return_private_optional_struct(undefined).simulate({ from: defaultAccountAddress }),
-    ).resolves.toBeUndefined();
+    const { result: undefinedResult } = await contract.methods
+      .return_private_optional_struct(undefined)
+      .simulate({ from: defaultAccountAddress });
+    expect(undefinedResult).toBeUndefined();
 
-    await expect(
-      contract.methods.return_private_optional_struct(null).simulate({ from: defaultAccountAddress }),
-    ).resolves.toBeUndefined();
+    const { result: nullResult } = await contract.methods
+      .return_private_optional_struct(null)
+      .simulate({ from: defaultAccountAddress });
+    expect(nullResult).toBeUndefined();
 
-    await expect(
-      contract.methods.return_private_optional_struct(someValue).simulate({ from: defaultAccountAddress }),
-    ).resolves.toEqual(someValue);
+    const { result: someResult } = await contract.methods
+      .return_private_optional_struct(someValue)
+      .simulate({ from: defaultAccountAddress });
+    expect(someResult).toEqual(someValue);
   });
 });
