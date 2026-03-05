@@ -10,7 +10,7 @@
  * Runs until killed by the parent process.
  */
 
-import { readdirSync, statSync, readFileSync, existsSync, watch, openSync, readSync, closeSync, fstatSync } from "fs";
+import { readdirSync, statSync, readFileSync, existsSync, watch, openSync, readSync, closeSync, fstatSync, appendFileSync } from "fs";
 import { join, basename } from "path";
 import { homedir } from "os";
 import { spawnSync, execFileSync, spawn } from "child_process";
@@ -46,6 +46,15 @@ const X = "\x1b[0m"; // reset
 
 function logInfo(msg: string) {
   console.log(`${C}[stream]${X} ${msg}`);
+}
+
+const ACTIVITY_LOG = process.env.ACTIVITY_LOG || "";
+
+function writeActivity(type: string, text: string): void {
+  if (!ACTIVITY_LOG) return;
+  try {
+    appendFileSync(ACTIVITY_LOG, JSON.stringify({ ts: new Date().toISOString(), type, text }) + "\n");
+  } catch {}
 }
 
 const SPILL_THRESHOLD = 1500; // chars before we create a sub-log link
@@ -391,11 +400,14 @@ async function main() {
         if (isSubagent) {
           // Wrap subagent output in denoise: dots for progress, live cache_log with URL
           try {
+            const subKey = randomBytes(16).toString("hex");
+            const subUrl = `http://ci.aztec-labs.com/${subKey}`;
             const proc = spawn(denoiseScript, ["cat"], {
               stdio: ["pipe", "inherit", "inherit"],
-              env: { ...process.env, DENOISE: "1", DENOISE_DISPLAY_NAME: label, root: repoDir },
+              env: { ...process.env, DENOISE: "1", DENOISE_KEY: subKey, DENOISE_DISPLAY_NAME: label, root: repoDir },
             });
             tailer.subLogProc = proc;
+            writeActivity("agent_log", `${label} ${subUrl}`);
           } catch (e) {
             logInfo(`Failed to start denoise for subagent: ${e}`);
           }

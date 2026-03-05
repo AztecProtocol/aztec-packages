@@ -353,9 +353,10 @@ export class DockerService {
             });
             cacheLogProc.stdin?.write(headerLines.join("\n"));
 
+            const activityLog = join(workspaceDir, "activity.jsonl");
             streamSessionProc = spawn(streamSessionBin, ["--dir", claudeProjectsDir], {
               stdio: ["ignore", "pipe", "inherit"],
-              env: { ...process.env, PARENT_LOG_ID: logId },
+              env: { ...process.env, PARENT_LOG_ID: logId, ACTIVITY_LOG: activityLog },
             });
             streamSessionProc.stdout?.on("data", (d: Buffer) => {
               cacheLogProc?.stdin?.write(d);

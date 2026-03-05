@@ -66,7 +66,7 @@ function renderUserMsg(promptText: string, t: string, user: string): string {
   return `<div class="chat-msg user"><div class="chat-bubble user-bubble"><div class="chat-text">${promptText}</div><div class="chat-time">${t}</div></div><div class="chat-avatar user-avatar">${esc(user.slice(0, 2).toUpperCase())}</div></div>`;
 }
 
-function renderActivityEntry(a: ActivityEntry): string {
+function renderActivityEntry(a: ActivityEntry, agentLogUrl?: string): string {
   const text = esc(a.text);
   const linked = linkify(text);
   const timeStr = a.ts ? timeAgo(a.ts) : "";
@@ -78,7 +78,10 @@ function renderActivityEntry(a: ActivityEntry): string {
   } else if (a.type === "artifact") {
     return `<div class="chat-msg bot" data-msg="${msgHash}"><div class="chat-avatar">CB</div><div class="chat-bubble artifact-bubble"><div class="chat-label artifact-label">artifact</div><div class="chat-text">${linked}</div><div class="chat-time">${timeStr}</div></div></div>`;
   } else if (a.type === "agent_start") {
-    return `<div class="chat-agent" data-msg="${msgHash}"><div class="agent-dot"></div><span>Agent: ${linked}</span><span class="dim" style="margin-left:auto;font-size:10px">${timeStr}</span></div>`;
+    const agentText = agentLogUrl
+      ? `<a href="${agentLogUrl}" target="_blank" class="link">Agent: ${linked}</a>`
+      : `Agent: ${linked}`;
+    return `<div class="chat-agent" data-msg="${msgHash}"><div class="agent-dot"></div><span>${agentText}</span><span class="dim" style="margin-left:auto;font-size:10px">${timeStr}</span></div>`;
   } else if (a.type === "tool_use") {
     return `<div class="chat-status" data-msg="${msgHash}"><span class="tool-icon">\u25B8</span><code>${linked}</code><span class="ts">${timeStr}</span></div>`;
   } else if (a.type === "status") {
@@ -136,8 +139,19 @@ export function workspacePageHTML(data: WorkspacePageData): string {
     });
   }
 
+  // Build queue of agent log URLs (from stream-session.ts) to attach to agent_start entries
+  const agentLogUrls: string[] = [];
   for (const a of activity) {
-    timeline.push({ ts: a.ts || "", html: renderActivityEntry(a) });
+    if (a.type === "agent_log") {
+      const urlMatch = a.text.match(/(https?:\/\/[^\s]+)/);
+      if (urlMatch) agentLogUrls.push(urlMatch[1]);
+    }
+  }
+  let agentLogIdx = 0;
+  for (const a of activity) {
+    if (a.type === "agent_log") continue; // rendered via agent_start
+    const logUrl = a.type === "agent_start" ? agentLogUrls[agentLogIdx++] : undefined;
+    timeline.push({ ts: a.ts || "", html: renderActivityEntry(a, logUrl) });
   }
 
   timeline.sort((a, b) => (a.ts || "").localeCompare(b.ts || ""));
@@ -333,7 +347,26 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
   function msgId(text){var h=0;for(var i=0;i<Math.min(text.length,50);i++){h=((h<<5)-h)+text.charCodeAt(i);h|=0;}return"m"+Math.abs(h).toString(36)}
   function timeAgo(iso){var ms=Date.now()-new Date(iso).getTime();if(ms<60000)return"just now";if(ms<3600000)return Math.floor(ms/60000)+"m ago";if(ms<86400000)return Math.floor(ms/3600000)+"h ago";return Math.floor(ms/86400000)+"d ago";}
 
+  var agentLogUrls=[];
   function renderEntry(e){
+    if(e.type==="agent_log"){
+      var m=e.text.match(/(https?:\\/\\/[^\\s]+)/);
+      if(m){
+        // Try to retroactively link an already-rendered unlinked agent_start
+        var agents=chatArea?chatArea.querySelectorAll(".chat-agent"):[];
+        var linked=false;
+        for(var i=0;i<agents.length;i++){
+          var sp=agents[i].querySelector("span");
+          if(sp&&sp.textContent.indexOf("Agent:")===0&&!sp.querySelector("a.link")){
+            sp.innerHTML='<a href="'+m[1]+'" target="_blank" class="link">'+sp.innerHTML+'</a>';
+            linked=true;break;
+          }
+        }
+        if(!linked)agentLogUrls.push(m[1]);
+      }
+      }
+      return null;
+    }
     var text=esc(e.text);var linked=linkify(text);var t=e.ts?timeAgo(e.ts):"";var id=msgId(e.text);
     if(seenMsgs.has(id))return null;seenMsgs.add(id);
     if(e.type==="response"){
@@ -343,7 +376,9 @@ ${!worktreeAlive && worktreeId ? `<div class="warning">Workspace has been delete
     }else if(e.type==="artifact"){
       return '<div class="chat-msg bot" data-msg="'+id+'"><div class="chat-avatar">CB</div><div class="chat-bubble artifact-bubble"><div class="chat-label artifact-label">artifact</div><div class="chat-text">'+linked+'</div><div class="chat-time">'+t+'</div></div></div>';
     }else if(e.type==="agent_start"){
-      return '<div class="chat-agent" data-msg="'+id+'"><div class="agent-dot"></div><span>Agent: '+linked+'</span><span class="dim" style="margin-left:auto;font-size:10px">'+t+'</span></div>';
+      var aUrl=agentLogUrls.shift();
+      var agentText=aUrl?'<a href="'+aUrl+'" target="_blank" class="link">Agent: '+linked+'</a>':'Agent: '+linked;
+      return '<div class="chat-agent" data-msg="'+id+'"><div class="agent-dot"></div><span>'+agentText+'</span><span class="dim" style="margin-left:auto;font-size:10px">'+t+'</span></div>';
     }else if(e.type==="tool_use"){
       return '<div class="chat-status" data-msg="'+id+'"><span class="tool-icon">\u25B8</span><code>'+linked+'</code><span class="ts">'+t+'</span></div>';
     }else if(e.type==="status"){
