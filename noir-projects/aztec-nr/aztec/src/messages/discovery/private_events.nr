@@ -33,9 +33,9 @@ pub(crate) unconstrained fn process_private_event_msg(
         );
     } else {
         aztecnr_warn_log_format!(
-            "Event commitment is not present in the nullifier tree for tx {0}, ignoring",
+            "Discarding private event message from tx {0}: event commitment {1} not found in the nullifier tree",
         )(
-            [tx_hash],
+            [tx_hash, event_commitment],
         );
     }
 }
