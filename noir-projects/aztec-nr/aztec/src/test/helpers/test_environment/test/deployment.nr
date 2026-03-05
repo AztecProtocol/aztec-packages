@@ -23,7 +23,7 @@ unconstrained fn deploy_with_same_salt_and_secret_fails() {
     let opts = DeployOptions::new().with_salt(42).with_secret(100);
 
     let _ = env.deploy_opts(opts, "../noir-contracts/@test_contract/Test").without_initializer();
-    // The this will result in the exact same address preimage and hence same address, and so the initialization
+    // This will result in the exact same address preimage and hence same address, and so the initialization
     // nullifiers will be duplicated.
     let _ = env.deploy_opts(opts, "../noir-contracts/@test_contract/Test").without_initializer();
 }
