@@ -1,6 +1,5 @@
 #include "barretenberg/vm2/simulation/gadgets/update_check.hpp"
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
@@ -9,8 +8,12 @@ namespace bb::avm2::simulation {
 
 namespace {
 
-using UnconstrainedPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
-
+/**
+ * @brief Read a leaf value from the public data tree at a given slot without emitting constrained events.
+ * @param merkle_db The low-level merkle database interface for unconstrained reads.
+ * @param leaf_slot The slot to read from in the public data tree.
+ * @return The leaf value if present, 0 otherwise.
+ */
 FF unconstrained_read(const LowLevelMerkleDBInterface& merkle_db, const FF& leaf_slot)
 {
     auto [present, index] = merkle_db.get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_slot);
@@ -20,6 +23,24 @@ FF unconstrained_read(const LowLevelMerkleDBInterface& merkle_db, const FF& leaf
 
 } // namespace
 
+/**
+ * @brief Validate that a contract's current class ID is consistent with the delayed public mutable update state.
+ *
+ * Reads the delayed public mutable hash from the public data tree. If the hash is zero, the contract was never
+ * updated and current_class_id must equal original_class_id. Otherwise, reads the preimage (metadata, pre, post)
+ * in unconstrained mode, verifies it against the hash, decomposes the metadata to extract the timestamp of change,
+ * and selects the pre or post class ID based on whether the update has taken effect yet.
+ *
+ * Emits a single UpdateCheckEvent on success with all fields populated. When the hash is zero, the preimage
+ * fields (metadata, pre_class_id, post_class_id) are all zero in the emitted event.
+ *
+ * @param address The contract address to check.
+ * @param instance The contract instance containing original and current class IDs to validate.
+ * @throws std::runtime_error If hash is zero and current_class_id does not match original_class_id.
+ * @throws std::runtime_error If the stored hash does not match the reconstructed preimage hash (sanity check).
+ * @throws std::runtime_error If the expected class ID (derived from update state and timestamp) does not match
+ *         current_class_id.
+ */
 void UpdateCheck::check_current_class_id(const AztecAddress& address, const ContractInstance& instance)
 {
     // Compute the public data tree slots
@@ -30,7 +51,8 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
     // where we store in one public data tree slot the hash of the whole structure. This is nice because in circuits you
     // can receive the preimage as a hint and just read 1 storage slot instead of 3. We do that here, we will constrain
     // the hash read but then read in unconstrained mode the preimage. The PIL for this gadget constrains the hash.
-    FF hash = merkle_db.storage_read(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, delayed_public_mutable_hash_slot);
+    FF update_hash =
+        merkle_db.storage_read(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, delayed_public_mutable_hash_slot);
 
     uint256_t update_preimage_metadata = 0;
     FF update_preimage_pre_class_id = 0;
@@ -38,14 +60,19 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
 
     uint64_t current_timestamp = globals.timestamp;
 
-    if (hash == 0) {
+    if (update_hash == 0) {
         // If the delayed public mutable has never been written, then the contract was never updated. We short circuit
         // early.
         if (instance.original_contract_class_id != instance.current_contract_class_id) {
             throw std::runtime_error("Current class id does not match expected class id");
         }
     } else {
-        // Read the preimage from the tree in unconstrained mode
+        // The preimage (metadata, pre_class_id, post_class_id) is read in unconstrained mode because
+        // the PIL constrains hash(metadata, pre, post) == stored_hash, making a single constrained
+        // hash read sufficient. The preimage slots are guaranteed to be consistent with the hash:
+        // all writes go through DelayedPublicMutable::write(), which atomically writes all 4 slots
+        // (3 preimage + hash) in a single storage_write call, and storage is siloed to the
+        // ContractInstanceRegistry contract so no external contract/actor can tamper with these slots.
         LowLevelMerkleDBInterface& unconstrained_merkle_db = merkle_db.as_unconstrained();
 
         std::vector<FF> update_preimage(3);
@@ -59,7 +86,7 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         // Double check that the unconstrained reads match the hash. This is just a sanity check, if slow, can be
         // removed.
         FF reconstructed_hash = poseidon2.hash(update_preimage);
-        if (hash != reconstructed_hash) {
+        if (update_hash != reconstructed_hash) {
             throw std::runtime_error("Stored hash does not match preimage hash");
         }
 
@@ -73,11 +100,14 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         // bit timestamp being packed in 32 bits is a tech debt that is not worth tackling.
         uint64_t timestamp_of_change =
             static_cast<uint64_t>(static_cast<uint32_t>(update_preimage_metadata & 0xffffffff));
+        // Constrain that these items fit in their respective bit-sizes so that malicious prover
+        // cannot provide larger values.
         range_check.assert_range(update_metadata_hi,
                                  UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE - TIMESTAMP_OF_CHANGE_BIT_SIZE);
         range_check.assert_range(timestamp_of_change, TIMESTAMP_OF_CHANGE_BIT_SIZE);
 
-        // pre and post can be zero, if they have never been touched. In that case we need to use the original class id.
+        // pre and post can be zero, if they have never been touched (or have been reset). In that case we need to use
+        // the original class id.
         FF pre_class =
             update_preimage_pre_class_id == 0 ? instance.original_contract_class_id : update_preimage_pre_class_id;
         FF post_class =
@@ -98,7 +128,7 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         .original_class_id = instance.original_contract_class_id,
         .public_data_tree_root = merkle_db.get_tree_state().public_data_tree.tree.root,
         .current_timestamp = current_timestamp,
-        .update_hash = hash,
+        .update_hash = update_hash,
         .update_preimage_metadata = update_preimage_metadata,
         .update_preimage_pre_class_id = update_preimage_pre_class_id,
         .update_preimage_post_class_id = update_preimage_post_class_id,

@@ -134,12 +134,16 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
     const FF beta = FF::random_element();
     const FF gamma = FF::random_element();
     const FF beta_sqr = beta * beta;
+    const FF beta_quartic = beta_sqr * beta_sqr;
     relation_parameters.gamma = gamma;
     relation_parameters.beta = beta;
     relation_parameters.beta_sqr = beta_sqr;
     relation_parameters.beta_cube = beta_sqr * beta;
-    relation_parameters.eccvm_set_permutation_delta =
-        gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
+    relation_parameters.beta_quartic = beta_quartic;
+    auto first_term_tag = beta_quartic; // FIRST_TERM_TAG (= 1) * beta_quartic
+    relation_parameters.eccvm_set_permutation_delta = (gamma + first_term_tag) * (gamma + beta_sqr + first_term_tag) *
+                                                      (gamma + beta_sqr + beta_sqr + first_term_tag) *
+                                                      (gamma + beta_sqr + beta_sqr + beta_sqr + first_term_tag);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
 
     const size_t unmasked_witness_size = pk->circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK;

@@ -13,7 +13,7 @@ describe('Storage proof', () => {
 
   beforeAll(async () => {
     ctx = await setup(1);
-    contract = await StorageProofTestContract.deploy(ctx.wallet).send({ from: ctx.accounts[0] });
+    ({ contract } = await StorageProofTestContract.deploy(ctx.wallet).send({ from: ctx.accounts[0] }));
   });
 
   afterAll(async () => {
@@ -26,7 +26,7 @@ describe('Storage proof', () => {
 
     ctx.logger.info('Sending storage proof TX...');
 
-    const receipt = await contract.methods
+    const { receipt } = await contract.methods
       .storage_proof(ethAddress, slotKey, slotContents, root)
       .with({ capsules })
       .send({ from: ctx.accounts[0] });

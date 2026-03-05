@@ -400,7 +400,10 @@ describe('e2e_multi_validator_node', () => {
     });
 
     const settledTransactions = await Promise.all(
-      sentTransactionPromises.map(async sentTransactionPromise => waitForTx(aztecNode, await sentTransactionPromise)),
+      sentTransactionPromises.map(async sentTransactionPromise => {
+        const { txHash } = await sentTransactionPromise;
+        return waitForTx(aztecNode, txHash);
+      }),
     );
 
     await Promise.all(

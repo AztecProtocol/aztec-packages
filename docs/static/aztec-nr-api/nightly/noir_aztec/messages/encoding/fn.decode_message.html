@@ -23,7 +23,6 @@
 <li><a href="fn.encode_message.html">encode_message</a></div></li>
 </ul>
 <h3>Globals</h3><ul class="item-list">
-<li><a href="global.EPH_PK_SIGN_BYTE_SIZE_IN_BYTES.html">EPH_PK_SIGN_BYTE_SIZE_IN_BYTES</a></div></li>
 <li><a href="global.EPH_PK_X_SIZE_IN_FIELDS.html">EPH_PK_X_SIZE_IN_FIELDS</a></div></li>
 <li><a href="global.MAX_MESSAGE_CONTENT_LEN.html">MAX_MESSAGE_CONTENT_LEN</a></div></li>
 <li><a href="global.MESSAGE_CIPHERTEXT_LEN.html">MESSAGE_CIPHERTEXT_LEN</a></div></li>
@@ -35,8 +34,8 @@
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">encoding</a></div>
 <h1>Function <span class="fn">decode_message</span></h1>
 <pre><code>pub unconstrained fn decode_message(
-    message: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>, 13&gt;,
-) -> (<a href="../../../std/primitive.u64.html" class="primitive">u64</a>, <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>, 12&gt;)</code></pre>
+    message: <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>, 12&gt;,
+) -> (<a href="../../../std/primitive.u64.html" class="primitive">u64</a>, <a href="../../../std/primitive.u64.html" class="primitive">u64</a>, <a href="../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../std/primitive.Field.html" class="primitive">Field</a>, 11&gt;)</code></pre>
 
 <div class="comments">
 <p>Decodes a standard aztec-nr message, i.e. one created via <code>encode_message</code>, returning the original encoded values.</p>

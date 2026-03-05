@@ -369,6 +369,13 @@ variable "SEQ_BLOCK_DURATION_MS" {
   default     = null
 }
 
+variable "SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" {
+  description = "Time allocated for publishing to L1, in seconds"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "SEQ_BUILD_CHECKPOINT_IF_EMPTY" {
   description = "Have sequencer build and publish an empty checkpoint if there are no txs"
   type        = string

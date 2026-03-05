@@ -359,3 +359,8 @@ tests:
     error_regex: "Cannot find module '@aztec/sequencer-client/config'"
     owners:
       - *palla
+
+  - regex: "yarn-project/scripts/run_test.sh bb-prover/src/avm_proving_tests/avm_"
+    error_regex: "timeout: sending signal"
+    owners:
+      - *charlie

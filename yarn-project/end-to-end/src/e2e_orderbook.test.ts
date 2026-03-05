@@ -52,9 +52,9 @@ describe('Orderbook', () => {
     ({ contract: token0 } = await deployToken(wallet, adminAddress, 0n, logger));
     ({ contract: token1 } = await deployToken(wallet, adminAddress, 0n, logger));
 
-    orderbook = await OrderbookContract.deploy(wallet, token0.address, token1.address).send({
+    ({ contract: orderbook } = await OrderbookContract.deploy(wallet, token0.address, token1.address).send({
       from: adminAddress,
-    });
+    }));
 
     // Mint tokens to maker and taker
     await mintTokensToPrivate(token0, adminAddress, makerAddress, bidAmount);
@@ -95,7 +95,9 @@ describe('Orderbook', () => {
       orderId = orderCreatedEvents[0].event.order_id;
 
       // Get order from orderbook and verify details
-      const [order, isFulfilled] = await orderbook.methods.get_order(orderId).simulate({ from: adminAddress });
+      const {
+        result: [order, isFulfilled],
+      } = await orderbook.methods.get_order(orderId).simulate({ from: adminAddress });
       expect(order.bid_amount).toEqual(bidAmount);
       expect(order.ask_amount).toEqual(askAmount);
       expect(order.bid_token_is_zero).toBeTrue();
@@ -103,10 +105,12 @@ describe('Orderbook', () => {
 
       // At this point, bidAmount of token0 should be transferred to the public balance of the orderbook and maker
       // should have 0.
-      const orderbookBalances0 = await token0.methods
+      const { result: orderbookBalances0 } = await token0.methods
         .balance_of_public(orderbook.address)
         .simulate({ from: makerAddress });
-      const makerBalances0 = await token0.methods.balance_of_private(makerAddress).simulate({ from: makerAddress });
+      const { result: makerBalances0 } = await token0.methods
+        .balance_of_private(makerAddress)
+        .simulate({ from: makerAddress });
       expect(orderbookBalances0).toEqual(bidAmount);
       expect(makerBalances0).toEqual(0n);
     });
@@ -142,10 +146,18 @@ describe('Orderbook', () => {
       expect(orderFulfilledEvents[0].event.order_id).toEqual(orderId);
 
       // Verify balances after order fulfillment
-      const makerBalances0 = await token0.methods.balance_of_private(makerAddress).simulate({ from: makerAddress });
-      const makerBalances1 = await token1.methods.balance_of_private(makerAddress).simulate({ from: makerAddress });
-      const takerBalances0 = await token0.methods.balance_of_private(takerAddress).simulate({ from: takerAddress });
-      const takerBalances1 = await token1.methods.balance_of_private(takerAddress).simulate({ from: takerAddress });
+      const { result: makerBalances0 } = await token0.methods
+        .balance_of_private(makerAddress)
+        .simulate({ from: makerAddress });
+      const { result: makerBalances1 } = await token1.methods
+        .balance_of_private(makerAddress)
+        .simulate({ from: makerAddress });
+      const { result: takerBalances0 } = await token0.methods
+        .balance_of_private(takerAddress)
+        .simulate({ from: takerAddress });
+      const { result: takerBalances1 } = await token1.methods
+        .balance_of_private(takerAddress)
+        .simulate({ from: takerAddress });
 
       // Full maker token 0 balance should be transferred to taker and hence maker should have 0
       expect(makerBalances0).toEqual(0n);
@@ -157,7 +169,9 @@ describe('Orderbook', () => {
       expect(takerBalances1).toEqual(0n);
 
       // Verify that the order is fulfilled
-      const [_, isFulfilled] = await orderbook.methods.get_order(orderId).simulate({ from: adminAddress });
+      const {
+        result: [_, isFulfilled],
+      } = await orderbook.methods.get_order(orderId).simulate({ from: adminAddress });
       expect(isFulfilled).toBeTrue();
     });
   });

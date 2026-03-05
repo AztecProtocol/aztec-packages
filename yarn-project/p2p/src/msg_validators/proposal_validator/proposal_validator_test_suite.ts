@@ -1,4 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { NoCommitteeError } from '@aztec/ethereum/contracts';
 import type { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import {
@@ -9,12 +10,13 @@ import {
 } from '@aztec/stdlib/p2p';
 import type { TxHash } from '@aztec/stdlib/tx';
 
+import { jest } from '@jest/globals';
 import type { MockProxy } from 'jest-mock-extended';
 
 export interface ProposalValidatorTestParams<TProposal extends BlockProposal | CheckpointProposal> {
   validatorFactory: (
     epochCache: EpochCacheInterface,
-    opts: { txsPermitted: boolean },
+    opts: { txsPermitted: boolean; maxTxsPerBlock?: number },
   ) => { validate: (proposal: TProposal) => Promise<ValidationResult> };
   makeProposal: (options?: any) => Promise<TProposal>;
   makeHeader: (epochNumber: number | bigint, slotNumber: number | bigint, blockNumber: number | bigint) => any;
@@ -105,6 +107,26 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
       expect(result).toEqual({ result: 'ignore' });
     });
 
+    it('returns mid tolerance error if proposal has invalid signature', async () => {
+      const currentProposer = getSigner();
+      const header = makeHeader(1, 100, 100);
+      const mockProposal = await makeProposal({
+        blockHeader: header,
+        lastBlockHeader: header,
+        signer: currentProposer,
+      });
+
+      // Override getSender to return undefined (invalid signature)
+      jest.spyOn(mockProposal as any, 'getSender').mockReturnValue(undefined);
+
+      mockGetProposer(getAddress(currentProposer), getAddress());
+      const result = await validator.validate(mockProposal);
+      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+
+      // Should not try to resolve proposer if signature is invalid
+      expect(epochCache.getProposerAttesterAddressInSlot).not.toHaveBeenCalled();
+    });
+
     it('returns mid tolerance error if proposer is not current proposer for current slot', async () => {
       const currentProposer = getSigner();
       const nextProposer = getSigner();
@@ -150,6 +172,34 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
       mockGetProposer(getAddress(currentProposer), getAddress(nextProposer));
       const result = await validator.validate(mockProposal);
       expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+    });
+
+    it('accepts proposal when proposer is undefined (open committee)', async () => {
+      const currentProposer = getSigner();
+      const header = makeHeader(1, 100, 100);
+      const mockProposal = await makeProposal({
+        blockHeader: header,
+        lastBlockHeader: header,
+        signer: currentProposer,
+      });
+
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(undefined);
+      const result = await validator.validate(mockProposal);
+      expect(result).toEqual({ result: 'accept' });
+    });
+
+    it('returns low tolerance error when getProposerAttesterAddressInSlot throws NoCommitteeError', async () => {
+      const currentProposer = getSigner();
+      const header = makeHeader(1, 100, 100);
+      const mockProposal = await makeProposal({
+        blockHeader: header,
+        lastBlockHeader: header,
+        signer: currentProposer,
+      });
+
+      epochCache.getProposerAttesterAddressInSlot.mockRejectedValue(new NoCommitteeError());
+      const result = await validator.validate(mockProposal);
+      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.LowToleranceError });
     });
 
     it('returns undefined if proposal is valid for current slot and proposer', async () => {
@@ -219,6 +269,99 @@ export function sharedProposalValidatorTests<TProposal extends BlockProposal | C
           lastBlockHeader: header,
           signer: currentProposer,
           txHashes: getTxHashes(2),
+        });
+
+        mockGetProposer(getAddress(currentProposer), getAddress());
+        const result = await validator.validate(mockProposal);
+        expect(result).toEqual({ result: 'accept' });
+      });
+    });
+
+    describe('embedded tx validation', () => {
+      it('returns mid tolerance error if embedded txs are not listed in txHashes', async () => {
+        const currentProposer = getSigner();
+        const txHashes = getTxHashes(2);
+        const header = makeHeader(1, 100, 100);
+        const mockProposal = await makeProposal({
+          blockHeader: header,
+          lastBlockHeader: header,
+          signer: currentProposer,
+          txHashes,
+        });
+
+        // Create a fake tx whose hash is NOT in txHashes
+        const fakeTxHash = getTxHashes(1)[0];
+        const fakeTx = { getTxHash: () => fakeTxHash, validateTxHash: () => Promise.resolve(true) };
+        Object.defineProperty(mockProposal, 'txs', { get: () => [fakeTx], configurable: true });
+
+        mockGetProposer(getAddress(currentProposer), getAddress());
+        const result = await validator.validate(mockProposal);
+        expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+      });
+
+      it('returns low tolerance error if embedded tx has invalid tx hash', async () => {
+        const currentProposer = getSigner();
+        const txHashes = getTxHashes(2);
+        const header = makeHeader(1, 100, 100);
+        const mockProposal = await makeProposal({
+          blockHeader: header,
+          lastBlockHeader: header,
+          signer: currentProposer,
+          txHashes,
+        });
+
+        // Create a fake tx whose hash IS in txHashes but validateTxHash returns false
+        const fakeTx = { getTxHash: () => txHashes[0], validateTxHash: () => Promise.resolve(false) };
+        Object.defineProperty(mockProposal, 'txs', { get: () => [fakeTx], configurable: true });
+
+        mockGetProposer(getAddress(currentProposer), getAddress());
+        const result = await validator.validate(mockProposal);
+        expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.LowToleranceError });
+      });
+    });
+
+    describe('maxTxsPerBlock validation', () => {
+      it('rejects proposal when txHashes exceed maxTxsPerBlock', async () => {
+        const validatorWithMaxTxs = validatorFactory(epochCache, { txsPermitted: true, maxTxsPerBlock: 2 });
+        const currentProposer = getSigner();
+        const header = makeHeader(1, 100, 100);
+        const mockProposal = await makeProposal({
+          blockHeader: header,
+          lastBlockHeader: header,
+          signer: currentProposer,
+          txHashes: getTxHashes(3),
+        });
+
+        mockGetProposer(getAddress(currentProposer), getAddress());
+        const result = await validatorWithMaxTxs.validate(mockProposal);
+        expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+      });
+
+      it('accepts proposal when txHashes count equals maxTxsPerBlock', async () => {
+        const validatorWithMaxTxs = validatorFactory(epochCache, { txsPermitted: true, maxTxsPerBlock: 2 });
+        const currentProposer = getSigner();
+        const header = makeHeader(1, 100, 100);
+        const mockProposal = await makeProposal({
+          blockHeader: header,
+          lastBlockHeader: header,
+          signer: currentProposer,
+          txHashes: getTxHashes(2),
+        });
+
+        mockGetProposer(getAddress(currentProposer), getAddress());
+        const result = await validatorWithMaxTxs.validate(mockProposal);
+        expect(result).toEqual({ result: 'accept' });
+      });
+
+      it('accepts proposal when maxTxsPerBlock is not set (unlimited)', async () => {
+        // Default validator has no maxTxsPerBlock
+        const currentProposer = getSigner();
+        const header = makeHeader(1, 100, 100);
+        const mockProposal = await makeProposal({
+          blockHeader: header,
+          lastBlockHeader: header,
+          signer: currentProposer,
+          txHashes: getTxHashes(10),
         });
 
         mockGetProposer(getAddress(currentProposer), getAddress());

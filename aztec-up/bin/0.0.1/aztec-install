@@ -5,13 +5,15 @@
 #    or: VERSION=0.85.0 bash -i <(curl -s https://install.aztec.network)
 set -euo pipefail
 
-# Colors
-g="\033[32m" # Green
-y="\033[33m" # Yellow
-b="\033[34m" # Blue
-p="\033[35m" # Purple
+# Colors (truecolor with 256-color fallback)
 r="\033[0m"  # Reset
 bold="\033[1m"
+g="\033[38;5;114m"              # green
+y="\033[38;5;222m"              # yellow
+b="\033[38;5;111m"              # blue
+p="\033[38;5;176m"              # purple
+red="\033[38;5;203m"            # red
+o="\033[38;5;214m"              # orange
 
 if [ ! -t 0 ]; then
   NON_INTERACTIVE=1
@@ -23,40 +25,66 @@ fi
 AZTEC_HOME="${AZTEC_HOME:-$HOME/.aztec}"
 shared_bin_path="$AZTEC_HOME/bin"
 
-VERSION="${VERSION:-nightly}"
+VERSION=${VERSION:-0.0.1}
 
 # Install URI (root, not version-specific)
 INSTALL_URI="${INSTALL_URI:-https://install.aztec-labs.com}"
 
-# Add color to the AZTEC ascii art.
-function print_colored() {
-  local b=$'\033[34m' # Blue
-  local y=$'\033[33m' # Yellow
-  local r=$'\033[0m'  # Reset
-  echo "$1" | sed -E "s/(█+)/${b}\1${y}/g"
+# Resolve alias (like "nightly") to actual version number.
+function resolve_version {
+  local version="$1"
+  local semver_regex='^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.]+)?$'
+  if [[ "$version" =~ $semver_regex ]]; then
+    echo "$version"
+  else
+    local resolved
+    if ! resolved=$(curl -fsSL "$INSTALL_URI/aliases/$version" 2>/dev/null); then
+      echo "Error: Could not resolve alias '$version'" >&2
+      exit 1
+    fi
+    echo "$resolved"
+  fi
+}
+
+VERSION=$(resolve_version "$VERSION")
+
+function typewriter {
+  trap 'printf "${r}\n"; exit 1' INT
+  local text="$1"
+  local color="${2:-}"
+  local delay="${3:-0.02}"
+  local width=80
+  local pad=$(( (width - ${#text}) / 2 ))
+  printf "\r\033[2K%${pad}s${color}" ""
+  for (( i=0; i<${#text}; i++ )); do printf '%s' "${text:$i:1}"; sleep "$delay"; done
+  trap - INT
 }
 
 function title {
   clear
+  if [ "${COLORTERM:-}" = "truecolor" ] || [ "${COLORTERM:-}" = "24bit" ]; then
+    curl -fsSL "$INSTALL_URI/$VERSION/aztec-banner-truecolor" 2>/dev/null || true
+  else
+    curl -fsSL "$INSTALL_URI/$VERSION/aztec-banner" 2>/dev/null || true
+  fi
+  typewriter "initializing stealth protocols..." "${p}"
+  sleep 1
+  typewriter "zk loaded." "${y}"
+  sleep 1
+  typewriter "privacy restored." "${g}${bold}"
+  sleep 1
+  printf "${r}\r"
+  echo -e "Welcome to ${bold}${b}Aztec${r}! Your journey into blockchain privacy begins... ${bold}${p}now${r}."
   echo
-  print_colored " █████╗ ███████╗████████╗███████╗ ██████╗"
-  print_colored "██╔══██╗╚══███╔╝╚══██╔══╝██╔════╝██╔════╝"
-  print_colored "███████║  ███╔╝    ██║   █████╗  ██║"
-  print_colored "██╔══██║ ███╔╝     ██║   ██╔══╝  ██║"
-  print_colored "██║  ██║███████╗   ██║   ███████╗╚██████╗"
-  print_colored "╚═╝  ╚═╝╚══════╝   ╚═╝   ╚══════╝ ╚═════╝"
-  echo -e "${r}"
-  echo -e "Welcome to the ${bold}${b}Aztec${r} installer! Your journey into blockchain privacy begins... ${bold}${p}now${r}."
+  echo -e "Installing version: ${bold}${o}$VERSION${r}"
   echo
-  echo -e "Installing version: ${bold}${g}$VERSION${r}"
-  echo
-  echo -e "This install script will install the following and update your PATH if necessary:"
-  echo -e "  ${bold}${g}nargo${r}          - the version of the noir programming language compatible with this version of aztec."
-  echo -e "  ${bold}${g}noir-profiler${r}  - a sampling profiler for analyzing and visualizing Noir programs."
-  echo -e "  ${bold}${g}bb${r}             - the version of the barretenberg proving backend compatible with this version of aztec."
-  echo -e "  ${bold}${g}aztec${r}          - a collection of tools to compile and test contracts, to launch subsystems and interact with the aztec network."
-  echo -e "  ${bold}${g}aztec-up${r}       - a tool to install and manage aztec toolchain versions."
-  echo -e "  ${bold}${g}aztec-wallet${r}   - our minimalistic CLI wallet"
+  echo -e "This script installs the following and updates your PATH if necessary:"
+  echo -e "  ${bold}${g}nargo${r}          - the noir programming language compiler and simulator."
+  echo -e "  ${bold}${g}noir-profiler${r}  - a profiler for analyzing and visualizing noir programs."
+  echo -e "  ${bold}${g}bb${r}             - the barretenberg proving backend."
+  echo -e "  ${bold}${g}aztec${r}          - compiles and tests contracts, interacts with the network."
+  echo -e "  ${bold}${g}aztec-up${r}       - installs and manages aztec toolchain versions."
+  echo -e "  ${bold}${g}aztec-wallet${r}   - a minimalistic wallet cli."
   echo
   read -p "Do you wish to continue? (y/n) " -n 1 -r
   echo

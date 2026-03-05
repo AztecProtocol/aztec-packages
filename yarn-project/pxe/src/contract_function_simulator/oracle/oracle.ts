@@ -69,12 +69,12 @@ export class Oracle {
       name => !excludedProps.includes(name as (typeof excludedProps)[number]),
     );
 
-    // Validate oracle names - these must be prefixed with either "private" or "utility" to indicate their scope
+    // Validate oracle names - these must be prefixed with either "aztec_prv_" or "aztec_utl_" to indicate their scope
     // and must correspond to a function on the Oracle class.
     oracleNames.forEach(name => {
-      if (!name.startsWith('private') && !name.startsWith('utility')) {
+      if (!name.startsWith('aztec_prv_') && !name.startsWith('aztec_utl_')) {
         throw new Error(
-          `Oracle function "${name}" must be prefixed with either "private" or "utility" to indicate its scope`,
+          `Oracle function "${name}" must be prefixed with either "aztec_prv_" or "aztec_utl_" to indicate its scope`,
         );
       }
 
@@ -92,41 +92,46 @@ export class Oracle {
     }, {} as ACIRCallback);
   }
 
-  utilityAssertCompatibleOracleVersion([version]: ACVMField[]) {
-    this.handlerAsMisc().utilityAssertCompatibleOracleVersion(Fr.fromString(version).toNumber());
+  // eslint-disable-next-line camelcase
+  aztec_utl_assertCompatibleOracleVersion([version]: ACVMField[]) {
+    this.handlerAsMisc().assertCompatibleOracleVersion(Fr.fromString(version).toNumber());
     return Promise.resolve([]);
   }
 
-  utilityGetRandomField(): Promise<ACVMField[]> {
-    const val = this.handlerAsMisc().utilityGetRandomField();
+  // eslint-disable-next-line camelcase
+  aztec_utl_getRandomField(): Promise<ACVMField[]> {
+    const val = this.handlerAsMisc().getRandomField();
     return Promise.resolve([toACVMField(val)]);
   }
 
-  privateStoreInExecutionCache(values: ACVMField[], [hash]: ACVMField[]): Promise<ACVMField[]> {
-    this.handlerAsPrivate().privateStoreInExecutionCache(values.map(Fr.fromString), Fr.fromString(hash));
+  // eslint-disable-next-line camelcase
+  aztec_prv_storeInExecutionCache(values: ACVMField[], [hash]: ACVMField[]): Promise<ACVMField[]> {
+    this.handlerAsPrivate().storeInExecutionCache(values.map(Fr.fromString), Fr.fromString(hash));
     return Promise.resolve([]);
   }
 
-  async privateLoadFromExecutionCache([returnsHash]: ACVMField[]): Promise<ACVMField[][]> {
-    const values = await this.handlerAsPrivate().privateLoadFromExecutionCache(Fr.fromString(returnsHash));
+  // eslint-disable-next-line camelcase
+  async aztec_prv_loadFromExecutionCache([returnsHash]: ACVMField[]): Promise<ACVMField[][]> {
+    const values = await this.handlerAsPrivate().loadFromExecutionCache(Fr.fromString(returnsHash));
     return [values.map(toACVMField)];
   }
 
-  utilityGetUtilityContext(): Promise<(ACVMField | ACVMField[])[]> {
-    const context = this.handlerAsUtility().utilityGetUtilityContext();
+  // eslint-disable-next-line camelcase
+  aztec_utl_getUtilityContext(): Promise<(ACVMField | ACVMField[])[]> {
+    const context = this.handlerAsUtility().getUtilityContext();
     return Promise.resolve(context.toNoirRepresentation());
   }
 
-  async utilityGetKeyValidationRequest([pkMHash]: ACVMField[]): Promise<ACVMField[]> {
-    const keyValidationRequest = await this.handlerAsUtility().utilityGetKeyValidationRequest(Fr.fromString(pkMHash));
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getKeyValidationRequest([pkMHash]: ACVMField[]): Promise<ACVMField[]> {
+    const keyValidationRequest = await this.handlerAsUtility().getKeyValidationRequest(Fr.fromString(pkMHash));
 
     return keyValidationRequest.toFields().map(toACVMField);
   }
 
-  async utilityGetContractInstance([address]: ACVMField[]): Promise<ACVMField[]> {
-    const instance = await this.handlerAsUtility().utilityGetContractInstance(
-      AztecAddress.fromField(Fr.fromString(address)),
-    );
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getContractInstance([address]: ACVMField[]): Promise<ACVMField[]> {
+    const instance = await this.handlerAsUtility().getContractInstance(AztecAddress.fromField(Fr.fromString(address)));
 
     return [
       instance.salt,
@@ -137,17 +142,15 @@ export class Oracle {
     ].map(toACVMField);
   }
 
-  async utilityGetNoteHashMembershipWitness(
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getNoteHashMembershipWitness(
     [anchorBlockHash]: ACVMField[],
     [noteHash]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
     const parsedAnchorBlockHash = BlockHash.fromString(anchorBlockHash);
     const parsedNoteHash = Fr.fromString(noteHash);
 
-    const witness = await this.handlerAsUtility().utilityGetNoteHashMembershipWitness(
-      parsedAnchorBlockHash,
-      parsedNoteHash,
-    );
+    const witness = await this.handlerAsUtility().getNoteHashMembershipWitness(parsedAnchorBlockHash, parsedNoteHash);
     if (!witness) {
       throw new Error(
         `Note hash ${noteHash} not found in the note hash tree at anchor block hash ${parsedAnchorBlockHash.toString()}.`,
@@ -156,17 +159,15 @@ export class Oracle {
     return witness.toNoirRepresentation();
   }
 
-  async utilityGetBlockHashMembershipWitness(
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getBlockHashMembershipWitness(
     [anchorBlockHash]: ACVMField[],
     [blockHash]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
     const parsedAnchorBlockHash = BlockHash.fromString(anchorBlockHash);
     const parsedBlockHash = BlockHash.fromString(blockHash);
 
-    const witness = await this.handlerAsUtility().utilityGetBlockHashMembershipWitness(
-      parsedAnchorBlockHash,
-      parsedBlockHash,
-    );
+    const witness = await this.handlerAsUtility().getBlockHashMembershipWitness(parsedAnchorBlockHash, parsedBlockHash);
     if (!witness) {
       throw new Error(
         `Block hash ${parsedBlockHash.toString()} not found in the archive tree at anchor block ${parsedAnchorBlockHash.toString()}.`,
@@ -175,17 +176,15 @@ export class Oracle {
     return witness.toNoirRepresentation();
   }
 
-  async utilityGetNullifierMembershipWitness(
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getNullifierMembershipWitness(
     [blockHash]: ACVMField[],
     [nullifier]: ACVMField[], // nullifier, we try to find the witness for (to prove inclusion)
   ): Promise<(ACVMField | ACVMField[])[]> {
     const parsedBlockHash = BlockHash.fromString(blockHash);
     const parsedNullifier = Fr.fromString(nullifier);
 
-    const witness = await this.handlerAsUtility().utilityGetNullifierMembershipWitness(
-      parsedBlockHash,
-      parsedNullifier,
-    );
+    const witness = await this.handlerAsUtility().getNullifierMembershipWitness(parsedBlockHash, parsedNullifier);
     if (!witness) {
       throw new Error(
         `Nullifier witness not found for nullifier ${parsedNullifier} at block hash ${parsedBlockHash.toString()}.`,
@@ -194,17 +193,15 @@ export class Oracle {
     return witness.toNoirRepresentation();
   }
 
-  async utilityGetLowNullifierMembershipWitness(
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getLowNullifierMembershipWitness(
     [blockHash]: ACVMField[],
     [nullifier]: ACVMField[], // nullifier, we try to find the low nullifier witness for (to prove non-inclusion)
   ): Promise<(ACVMField | ACVMField[])[]> {
     const parsedBlockHash = BlockHash.fromString(blockHash);
     const parsedNullifier = Fr.fromString(nullifier);
 
-    const witness = await this.handlerAsUtility().utilityGetLowNullifierMembershipWitness(
-      parsedBlockHash,
-      parsedNullifier,
-    );
+    const witness = await this.handlerAsUtility().getLowNullifierMembershipWitness(parsedBlockHash, parsedNullifier);
     if (!witness) {
       throw new Error(
         `Low nullifier witness not found for nullifier ${parsedNullifier} at block hash ${parsedBlockHash.toString()}.`,
@@ -213,14 +210,15 @@ export class Oracle {
     return witness.toNoirRepresentation();
   }
 
-  async utilityGetPublicDataWitness(
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getPublicDataWitness(
     [blockHash]: ACVMField[],
     [leafSlot]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
     const parsedBlockHash = BlockHash.fromString(blockHash);
     const parsedLeafSlot = Fr.fromString(leafSlot);
 
-    const witness = await this.handlerAsUtility().utilityGetPublicDataWitness(parsedBlockHash, parsedLeafSlot);
+    const witness = await this.handlerAsUtility().getPublicDataWitness(parsedBlockHash, parsedLeafSlot);
     if (!witness) {
       throw new Error(
         `Public data witness not found for slot ${parsedLeafSlot} at block hash ${parsedBlockHash.toString()}.`,
@@ -229,28 +227,31 @@ export class Oracle {
     return witness.toNoirRepresentation();
   }
 
-  async utilityGetBlockHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getBlockHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
     const parsedBlockNumber = Fr.fromString(blockNumber).toNumber();
 
-    const header = await this.handlerAsUtility().utilityGetBlockHeader(BlockNumber(parsedBlockNumber));
+    const header = await this.handlerAsUtility().getBlockHeader(BlockNumber(parsedBlockNumber));
     if (!header) {
       throw new Error(`Block header not found for block ${parsedBlockNumber}.`);
     }
     return header.toFields().map(toACVMField);
   }
 
-  async utilityGetAuthWitness([messageHash]: ACVMField[]): Promise<ACVMField[][]> {
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getAuthWitness([messageHash]: ACVMField[]): Promise<ACVMField[][]> {
     const messageHashField = Fr.fromString(messageHash);
-    const witness = await this.handlerAsUtility().utilityGetAuthWitness(messageHashField);
+    const witness = await this.handlerAsUtility().getAuthWitness(messageHashField);
     if (!witness) {
       throw new Error(`Unknown auth witness for message hash ${messageHashField}`);
     }
     return [witness.map(toACVMField)];
   }
 
-  async utilityTryGetPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
+  // eslint-disable-next-line camelcase
+  async aztec_utl_tryGetPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
     const parsedAddress = AztecAddress.fromField(Fr.fromString(address));
-    const result = await this.handlerAsUtility().utilityTryGetPublicKeysAndPartialAddress(parsedAddress);
+    const result = await this.handlerAsUtility().tryGetPublicKeysAndPartialAddress(parsedAddress);
 
     // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
     // with two fields: `some` (a boolean) and `value` (a field array in this case).
@@ -263,7 +264,8 @@ export class Oracle {
     }
   }
 
-  async utilityGetNotes(
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getNotes(
     [ownerSome]: ACVMField[],
     [ownerValue]: ACVMField[],
     [storageSlot]: ACVMField[],
@@ -285,7 +287,7 @@ export class Oracle {
   ): Promise<(ACVMField | ACVMField[])[]> {
     // Parse Option<AztecAddress>: ownerSome is 0 for None, 1 for Some
     const owner = Fr.fromString(ownerSome).toNumber() === 1 ? AztecAddress.fromString(ownerValue) : undefined;
-    const noteDatas = await this.handlerAsUtility().utilityGetNotes(
+    const noteDatas = await this.handlerAsUtility().getNotes(
       owner,
       Fr.fromString(storageSlot),
       +numSelects,
@@ -324,7 +326,8 @@ export class Oracle {
     return arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfACVMFieldArrays, +maxNotes, +packedHintedNoteLength);
   }
 
-  privateNotifyCreatedNote(
+  // eslint-disable-next-line camelcase
+  aztec_prv_notifyCreatedNote(
     [owner]: ACVMField[],
     [storageSlot]: ACVMField[],
     [randomness]: ACVMField[],
@@ -333,7 +336,7 @@ export class Oracle {
     [noteHash]: ACVMField[],
     [counter]: ACVMField[],
   ): Promise<ACVMField[]> {
-    this.handlerAsPrivate().privateNotifyCreatedNote(
+    this.handlerAsPrivate().notifyCreatedNote(
       AztecAddress.fromString(owner),
       Fr.fromString(storageSlot),
       Fr.fromString(randomness),
@@ -345,43 +348,47 @@ export class Oracle {
     return Promise.resolve([]);
   }
 
-  async privateNotifyNullifiedNote(
+  // eslint-disable-next-line camelcase
+  async aztec_prv_notifyNullifiedNote(
     [innerNullifier]: ACVMField[],
     [noteHash]: ACVMField[],
     [counter]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().privateNotifyNullifiedNote(
-      Fr.fromString(innerNullifier),
-      Fr.fromString(noteHash),
-      +counter,
-    );
+    await this.handlerAsPrivate().notifyNullifiedNote(Fr.fromString(innerNullifier), Fr.fromString(noteHash), +counter);
     return [];
   }
 
-  async privateNotifyCreatedNullifier([innerNullifier]: ACVMField[]): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().privateNotifyCreatedNullifier(Fr.fromString(innerNullifier));
+  // eslint-disable-next-line camelcase
+  async aztec_prv_notifyCreatedNullifier([innerNullifier]: ACVMField[]): Promise<ACVMField[]> {
+    await this.handlerAsPrivate().notifyCreatedNullifier(Fr.fromString(innerNullifier));
     return [];
   }
 
-  async privateIsNullifierPending([innerNullifier]: ACVMField[], [contractAddress]: ACVMField[]): Promise<ACVMField[]> {
-    const isPending = await this.handlerAsPrivate().privateIsNullifierPending(
+  // eslint-disable-next-line camelcase
+  async aztec_prv_isNullifierPending(
+    [innerNullifier]: ACVMField[],
+    [contractAddress]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    const isPending = await this.handlerAsPrivate().isNullifierPending(
       Fr.fromString(innerNullifier),
       AztecAddress.fromString(contractAddress),
     );
     return [toACVMField(isPending)];
   }
 
-  async utilityCheckNullifierExists([innerNullifier]: ACVMField[]): Promise<ACVMField[]> {
-    const exists = await this.handlerAsUtility().utilityCheckNullifierExists(Fr.fromString(innerNullifier));
+  // eslint-disable-next-line camelcase
+  async aztec_utl_checkNullifierExists([innerNullifier]: ACVMField[]): Promise<ACVMField[]> {
+    const exists = await this.handlerAsUtility().checkNullifierExists(Fr.fromString(innerNullifier));
     return [toACVMField(exists)];
   }
 
-  async utilityGetL1ToL2MembershipWitness(
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getL1ToL2MembershipWitness(
     [contractAddress]: ACVMField[],
     [messageHash]: ACVMField[],
     [secret]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const message = await this.handlerAsUtility().utilityGetL1ToL2MembershipWitness(
+    const message = await this.handlerAsUtility().getL1ToL2MembershipWitness(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(messageHash),
       Fr.fromString(secret),
@@ -389,13 +396,14 @@ export class Oracle {
     return message.toNoirRepresentation();
   }
 
-  async utilityStorageRead(
+  // eslint-disable-next-line camelcase
+  async aztec_utl_storageRead(
     [blockHash]: ACVMField[],
     [contractAddress]: ACVMField[],
     [startStorageSlot]: ACVMField[],
     [numberOfElements]: ACVMField[],
   ): Promise<ACVMField[][]> {
-    const values = await this.handlerAsUtility().utilityStorageRead(
+    const values = await this.handlerAsUtility().storageRead(
       BlockHash.fromString(blockHash),
       new AztecAddress(Fr.fromString(contractAddress)),
       Fr.fromString(startStorageSlot),
@@ -404,7 +412,8 @@ export class Oracle {
     return [values.map(toACVMField)];
   }
 
-  privateNotifyCreatedContractClassLog(
+  // eslint-disable-next-line camelcase
+  aztec_prv_notifyCreatedContractClassLog(
     [contractAddress]: ACVMField[],
     message: ACVMField[],
     [length]: ACVMField[],
@@ -413,11 +422,12 @@ export class Oracle {
     const logFields = new ContractClassLogFields(message.map(Fr.fromString));
     const log = new ContractClassLog(new AztecAddress(Fr.fromString(contractAddress)), logFields, +length);
 
-    this.handlerAsPrivate().privateNotifyCreatedContractClassLog(log, +counter);
+    this.handlerAsPrivate().notifyCreatedContractClassLog(log, +counter);
     return Promise.resolve([]);
   }
 
-  async utilityLog(
+  // eslint-disable-next-line camelcase
+  async aztec_utl_log(
     level: ACVMField[],
     message: ACVMField[],
     _ignoredFieldsSize: ACVMField[],
@@ -426,20 +436,21 @@ export class Oracle {
     const levelFr = Fr.fromString(level[0]);
     const messageStr = message.map(acvmField => String.fromCharCode(Fr.fromString(acvmField).toNumber())).join('');
     const fieldsFr = fields.map(Fr.fromString);
-    await this.handlerAsMisc().utilityLog(levelFr.toNumber(), messageStr, fieldsFr);
+    await this.handlerAsMisc().log(levelFr.toNumber(), messageStr, fieldsFr);
     return [];
   }
 
   // This function's name is directly hardcoded in `circuit_recorder.ts`. Don't forget to update it there if you
   // change the name here.
-  async privateCallPrivateFunction(
+  // eslint-disable-next-line camelcase
+  async aztec_prv_callPrivateFunction(
     [contractAddress]: ACVMField[],
     [functionSelector]: ACVMField[],
     [argsHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
   ): Promise<ACVMField[][]> {
-    const { endSideEffectCounter, returnsHash } = await this.handlerAsPrivate().privateCallPrivateFunction(
+    const { endSideEffectCounter, returnsHash } = await this.handlerAsPrivate().callPrivateFunction(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       FunctionSelector.fromField(Fr.fromString(functionSelector)),
       Fr.fromString(argsHash),
@@ -449,13 +460,14 @@ export class Oracle {
     return [[endSideEffectCounter, returnsHash].map(toACVMField)];
   }
 
-  async privateNotifyEnqueuedPublicFunctionCall(
+  // eslint-disable-next-line camelcase
+  async aztec_prv_notifyEnqueuedPublicFunctionCall(
     [contractAddress]: ACVMField[],
     [calldataHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().privateNotifyEnqueuedPublicFunctionCall(
+    await this.handlerAsPrivate().notifyEnqueuedPublicFunctionCall(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(calldataHash),
       Fr.fromString(sideEffectCounter).toNumber(),
@@ -464,13 +476,14 @@ export class Oracle {
     return [];
   }
 
-  async privateNotifySetPublicTeardownFunctionCall(
+  // eslint-disable-next-line camelcase
+  async aztec_prv_notifySetPublicTeardownFunctionCall(
     [contractAddress]: ACVMField[],
     [calldataHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().privateNotifySetPublicTeardownFunctionCall(
+    await this.handlerAsPrivate().notifySetPublicTeardownFunctionCall(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(calldataHash),
       Fr.fromString(sideEffectCounter).toNumber(),
@@ -479,41 +492,46 @@ export class Oracle {
     return [];
   }
 
-  async privateNotifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<
+  // eslint-disable-next-line camelcase
+  async aztec_prv_notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<
     ACVMField[]
   > {
-    await this.handlerAsPrivate().privateNotifySetMinRevertibleSideEffectCounter(
+    await this.handlerAsPrivate().notifySetMinRevertibleSideEffectCounter(
       Fr.fromString(minRevertibleSideEffectCounter).toNumber(),
     );
     return Promise.resolve([]);
   }
 
-  async privateIsSideEffectCounterRevertible([sideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
-    const isRevertible = await this.handlerAsPrivate().privateIsSideEffectCounterRevertible(
+  // eslint-disable-next-line camelcase
+  async aztec_prv_isSideEffectCounterRevertible([sideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
+    const isRevertible = await this.handlerAsPrivate().isSideEffectCounterRevertible(
       Fr.fromString(sideEffectCounter).toNumber(),
     );
     return Promise.resolve([toACVMField(isRevertible)]);
   }
 
-  async privateGetNextAppTagAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
-    const tag = await this.handlerAsPrivate().privateGetNextAppTagAsSender(
+  // eslint-disable-next-line camelcase
+  async aztec_prv_getNextAppTagAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
+    const tag = await this.handlerAsPrivate().getNextAppTagAsSender(
       AztecAddress.fromString(sender),
       AztecAddress.fromString(recipient),
     );
     return [toACVMField(tag.value)];
   }
 
-  async utilityFetchTaggedLogs([pendingTaggedLogArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
-    await this.handlerAsUtility().utilityFetchTaggedLogs(Fr.fromString(pendingTaggedLogArrayBaseSlot));
+  // eslint-disable-next-line camelcase
+  async aztec_utl_fetchTaggedLogs([pendingTaggedLogArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
+    await this.handlerAsUtility().fetchTaggedLogs(Fr.fromString(pendingTaggedLogArrayBaseSlot));
     return [];
   }
 
-  async utilityValidateAndStoreEnqueuedNotesAndEvents(
+  // eslint-disable-next-line camelcase
+  async aztec_utl_validateAndStoreEnqueuedNotesAndEvents(
     [contractAddress]: ACVMField[],
     [noteValidationRequestsArrayBaseSlot]: ACVMField[],
     [eventValidationRequestsArrayBaseSlot]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.handlerAsUtility().utilityValidateAndStoreEnqueuedNotesAndEvents(
+    await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(noteValidationRequestsArrayBaseSlot),
       Fr.fromString(eventValidationRequestsArrayBaseSlot),
@@ -522,12 +540,13 @@ export class Oracle {
     return [];
   }
 
-  async utilityBulkRetrieveLogs(
+  // eslint-disable-next-line camelcase
+  async aztec_utl_bulkRetrieveLogs(
     [contractAddress]: ACVMField[],
     [logRetrievalRequestsArrayBaseSlot]: ACVMField[],
     [logRetrievalResponsesArrayBaseSlot]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.handlerAsUtility().utilityBulkRetrieveLogs(
+    await this.handlerAsUtility().bulkRetrieveLogs(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(logRetrievalRequestsArrayBaseSlot),
       Fr.fromString(logRetrievalResponsesArrayBaseSlot),
@@ -535,12 +554,13 @@ export class Oracle {
     return [];
   }
 
-  async utilityStoreCapsule(
+  // eslint-disable-next-line camelcase
+  async aztec_utl_storeCapsule(
     [contractAddress]: ACVMField[],
     [slot]: ACVMField[],
     capsule: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.handlerAsUtility().utilityStoreCapsule(
+    await this.handlerAsUtility().storeCapsule(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       Fr.fromString(slot),
       capsule.map(Fr.fromString),
@@ -548,12 +568,13 @@ export class Oracle {
     return [];
   }
 
-  async utilityLoadCapsule(
+  // eslint-disable-next-line camelcase
+  async aztec_utl_loadCapsule(
     [contractAddress]: ACVMField[],
     [slot]: ACVMField[],
     [tSize]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const values = await this.handlerAsUtility().utilityLoadCapsule(
+    const values = await this.handlerAsUtility().loadCapsule(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       Fr.fromString(slot),
     );
@@ -569,21 +590,23 @@ export class Oracle {
     }
   }
 
-  async utilityDeleteCapsule([contractAddress]: ACVMField[], [slot]: ACVMField[]): Promise<ACVMField[]> {
-    await this.handlerAsUtility().utilityDeleteCapsule(
+  // eslint-disable-next-line camelcase
+  async aztec_utl_deleteCapsule([contractAddress]: ACVMField[], [slot]: ACVMField[]): Promise<ACVMField[]> {
+    await this.handlerAsUtility().deleteCapsule(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       Fr.fromString(slot),
     );
     return [];
   }
 
-  async utilityCopyCapsule(
+  // eslint-disable-next-line camelcase
+  async aztec_utl_copyCapsule(
     [contractAddress]: ACVMField[],
     [srcSlot]: ACVMField[],
     [dstSlot]: ACVMField[],
     [numEntries]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.handlerAsUtility().utilityCopyCapsule(
+    await this.handlerAsUtility().copyCapsule(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       Fr.fromString(srcSlot),
       Fr.fromString(dstSlot),
@@ -592,7 +615,8 @@ export class Oracle {
     return [];
   }
 
-  async utilityAes128Decrypt(
+  // eslint-disable-next-line camelcase
+  async aztec_utl_aes128Decrypt(
     ciphertextBVecStorage: ACVMField[],
     [ciphertextLength]: ACVMField[],
     iv: ACVMField[],
@@ -602,36 +626,40 @@ export class Oracle {
     const ivBuffer = fromUintArray(iv, 8);
     const symKeyBuffer = fromUintArray(symKey, 8);
 
-    const plaintext = await this.handlerAsUtility().utilityAes128Decrypt(ciphertext, ivBuffer, symKeyBuffer);
+    const plaintext = await this.handlerAsUtility().aes128Decrypt(ciphertext, ivBuffer, symKeyBuffer);
     return bufferToBoundedVec(plaintext, ciphertextBVecStorage.length);
   }
 
-  async utilityGetSharedSecret(
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getSharedSecret(
     [address]: ACVMField[],
     [ephPKField0]: ACVMField[],
     [ephPKField1]: ACVMField[],
     [ephPKField2]: ACVMField[],
   ): Promise<ACVMField[]> {
-    const secret = await this.handlerAsUtility().utilityGetSharedSecret(
+    const secret = await this.handlerAsUtility().getSharedSecret(
       AztecAddress.fromField(Fr.fromString(address)),
       Point.fromFields([ephPKField0, ephPKField1, ephPKField2].map(Fr.fromString)),
     );
     return secret.toFields().map(toACVMField);
   }
 
-  async utilityEmitOffchainEffect(data: ACVMField[]) {
-    await this.handlerAsPrivate().utilityEmitOffchainEffect(data.map(Fr.fromString));
+  // eslint-disable-next-line camelcase
+  async aztec_utl_emitOffchainEffect(data: ACVMField[]) {
+    await this.handlerAsPrivate().emitOffchainEffect(data.map(Fr.fromString));
     return [];
   }
 
-  async privateGetSenderForTags(): Promise<ACVMField[]> {
-    const sender = await this.handlerAsPrivate().privateGetSenderForTags();
+  // eslint-disable-next-line camelcase
+  async aztec_prv_getSenderForTags(): Promise<ACVMField[]> {
+    const sender = await this.handlerAsPrivate().getSenderForTags();
     // Return [1, address] for Some(address), [0, 0] for None
     return sender ? [toACVMField(1n), toACVMField(sender)] : [toACVMField(0n), toACVMField(0n)];
   }
 
-  async privateSetSenderForTags([senderForTags]: ACVMField[]): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().privateSetSenderForTags(AztecAddress.fromField(Fr.fromString(senderForTags)));
+  // eslint-disable-next-line camelcase
+  async aztec_prv_setSenderForTags([senderForTags]: ACVMField[]): Promise<ACVMField[]> {
+    await this.handlerAsPrivate().setSenderForTags(AztecAddress.fromField(Fr.fromString(senderForTags)));
     return [];
   }
 }

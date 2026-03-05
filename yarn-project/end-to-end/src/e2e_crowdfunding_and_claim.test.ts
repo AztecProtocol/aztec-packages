@@ -62,22 +62,22 @@ describe('e2e_crowdfunding_and_claim', () => {
     // We set the deadline to a week from now
     deadline = (await cheatCodes.eth.timestamp()) + 7 * 24 * 60 * 60;
 
-    donationToken = await TokenContract.deploy(
+    ({ contract: donationToken } = await TokenContract.deploy(
       wallet,
       operatorAddress,
       donationTokenMetadata.name,
       donationTokenMetadata.symbol,
       donationTokenMetadata.decimals,
-    ).send({ from: operatorAddress });
+    ).send({ from: operatorAddress }));
     logger.info(`Donation Token deployed to ${donationToken.address}`);
 
-    rewardToken = await TokenContract.deploy(
+    ({ contract: rewardToken } = await TokenContract.deploy(
       wallet,
       operatorAddress,
       rewardTokenMetadata.name,
       rewardTokenMetadata.symbol,
       rewardTokenMetadata.decimals,
-    ).send({ from: operatorAddress });
+    ).send({ from: operatorAddress }));
     logger.info(`Reward Token deployed to ${rewardToken.address}`);
 
     // We deploy the Crowdfunding contract as an escrow contract (i.e. with populated public keys that make it
@@ -94,16 +94,20 @@ describe('e2e_crowdfunding_and_claim', () => {
     );
     const crowdfundingInstance = await crowdfundingDeployment.getInstance();
     await wallet.registerContract(crowdfundingInstance, CrowdfundingContract.artifact, crowdfundingSecretKey);
-    crowdfundingContract = await crowdfundingDeployment.send({
+    ({ contract: crowdfundingContract } = await crowdfundingDeployment.send({
       from: operatorAddress,
       // The contract constructor initializes private storage vars that need the contract's own nullifier key.
       additionalScopes: [crowdfundingInstance.address],
-    });
+    }));
     logger.info(`Crowdfunding contract deployed at ${crowdfundingContract.address}`);
 
-    claimContract = await ClaimContract.deploy(wallet, crowdfundingContract.address, rewardToken.address).send({
+    ({ contract: claimContract } = await ClaimContract.deploy(
+      wallet,
+      crowdfundingContract.address,
+      rewardToken.address,
+    ).send({
       from: operatorAddress,
-    });
+    }));
     logger.info(`Claim contract deployed at ${claimContract.address}`);
 
     await rewardToken.methods.set_minter(claimContract.address, true).send({ from: operatorAddress });
@@ -133,7 +137,7 @@ describe('e2e_crowdfunding_and_claim', () => {
 
       // The donor should have exactly one note
       const pageIndex = 0;
-      const notes = await crowdfundingContract.methods
+      const { result: notes } = await crowdfundingContract.methods
         .get_donation_notes(donor1Address, pageIndex)
         .simulate({ from: donor1Address });
       expect(notes.len).toEqual(1n);
@@ -146,10 +150,12 @@ describe('e2e_crowdfunding_and_claim', () => {
     }
 
     // Since the RWT is minted 1:1 with the DNT, the balance of the reward token should be equal to the donation amount
-    const balanceRWT = await rewardToken.methods.balance_of_public(donor1Address).simulate({ from: operatorAddress });
+    const { result: balanceRWT } = await rewardToken.methods
+      .balance_of_public(donor1Address)
+      .simulate({ from: operatorAddress });
     expect(balanceRWT).toEqual(donationAmount);
 
-    const balanceDNTBeforeWithdrawal = await donationToken.methods
+    const { result: balanceDNTBeforeWithdrawal } = await donationToken.methods
       .balance_of_private(operatorAddress)
       .simulate({ from: operatorAddress });
     expect(balanceDNTBeforeWithdrawal).toEqual(0n);
@@ -160,7 +166,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       // Withdraw nullifies the contract's own token notes, which requires its nullifier key.
       .send({ from: operatorAddress, additionalScopes: [crowdfundingContract.address] });
 
-    const balanceDNTAfterWithdrawal = await donationToken.methods
+    const { result: balanceDNTAfterWithdrawal } = await donationToken.methods
       .balance_of_private(operatorAddress)
       .simulate({ from: operatorAddress });
 
@@ -191,7 +197,7 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     // The donor should have exactly one note
     const pageIndex = 0;
-    const notes = await crowdfundingContract.methods
+    const { result: notes } = await crowdfundingContract.methods
       .get_donation_notes(donorAddress, pageIndex)
       .simulate({ from: donorAddress });
     expect(notes.len).toEqual(1n);
@@ -230,11 +236,11 @@ describe('e2e_crowdfunding_and_claim', () => {
 
       const otherCrowdfundingInstance = await otherCrowdfundingDeployment.getInstance();
       await wallet.registerContract(otherCrowdfundingInstance, CrowdfundingContract.artifact, crowdfundingSecretKey);
-      otherCrowdfundingContract = await otherCrowdfundingDeployment.send({
+      ({ contract: otherCrowdfundingContract } = await otherCrowdfundingDeployment.send({
         from: operatorAddress,
         // The contract constructor initializes private storage vars that need the contract's own nullifier key.
         additionalScopes: [otherCrowdfundingInstance.address],
-      });
+      }));
       logger.info(`Crowdfunding contract deployed at ${otherCrowdfundingContract.address}`);
     }
 
@@ -254,11 +260,11 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     // 3) Get the donation note
     const pageIndex = 0;
-    const notes = await otherCrowdfundingContract.methods
+    const { result: notes2 } = await otherCrowdfundingContract.methods
       .get_donation_notes(donor1Address, pageIndex)
       .simulate({ from: donor1Address });
-    expect(notes.len).toEqual(1n);
-    const otherContractNote = notes.storage[0];
+    expect(notes2.len).toEqual(1n);
+    const otherContractNote = notes2.storage[0];
 
     // 4) Try to claim rewards using note from other contract
     await expect(

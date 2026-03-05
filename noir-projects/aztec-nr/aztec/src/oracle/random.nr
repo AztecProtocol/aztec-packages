@@ -6,5 +6,5 @@ pub unconstrained fn random() -> Field {
     rand_oracle()
 }
 
-#[oracle(utilityGetRandomField)]
+#[oracle(aztec_utl_getRandomField)]
 unconstrained fn rand_oracle() -> Field {}

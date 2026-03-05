@@ -142,7 +142,7 @@ namespace contract_instance_retrieval;
         nullifier_check.nullifier,
         nullifier_check.root,
         nullifier_check.address,
-        nullifier_check.should_silo
+        nullifier_check.sel_silo
     };
 
     // For protocol contracts we retrieve the derived address from the protocol contract trace, else use the input address

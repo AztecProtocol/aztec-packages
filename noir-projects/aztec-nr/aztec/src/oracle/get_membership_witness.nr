@@ -17,13 +17,13 @@ pub struct MembershipWitness<let N: u32, let M: u32> {
     pub path: [Field; N],
 }
 
-#[oracle(utilityGetNoteHashMembershipWitness)]
+#[oracle(aztec_utl_getNoteHashMembershipWitness)]
 unconstrained fn get_note_hash_membership_witness_oracle(
     anchor_block_hash: Field,
     note_hash: Field,
 ) -> MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> {}
 
-#[oracle(utilityGetBlockHashMembershipWitness)]
+#[oracle(aztec_utl_getBlockHashMembershipWitness)]
 unconstrained fn get_block_hash_membership_witness_oracle(
     anchor_block_hash: Field,
     block_hash: Field,

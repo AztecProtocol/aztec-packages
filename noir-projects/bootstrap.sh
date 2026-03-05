@@ -38,6 +38,13 @@ function format {
     parallel -k ./{}/bootstrap.sh format ::: noir-protocol-circuits noir-contracts aztec-nr
 }
 
+function pin-build {
+  echo_header "noir-projects pin-build"
+  parallel --tag --line-buffered --halt now,fail=1 './{}/bootstrap.sh pin-build' ::: \
+    mock-protocol-circuits \
+    noir-protocol-circuits
+}
+
 case "$cmd" in
   "")
     build

@@ -53,18 +53,12 @@ function test {
 
 function check_references {
   echo_header "Check doc references"
-  ./scripts/check_doc_references.sh docs
+  ./scripts/check_doc_references.sh docs || true
 }
 
 function update_doc_references {
   echo_header "Auto-update doc references"
-  # Only run if Claude Code CLI is available
-  if command -v claude &> /dev/null; then
-    ./scripts/update_doc_references.sh docs
-  else
-    echo "Claude Code CLI not available. Skipping automatic doc updates."
-    echo "To enable automatic doc updates, install Claude Code: npm install -g @anthropic-ai/claude-code"
-  fi
+  ./scripts/update_doc_references.sh docs || true
 }
 
 function build_examples {

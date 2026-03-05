@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# validate_api_ref_links - Validate that markdown links to aztec-nr API reference resolve to actual files
+# validate_api_ref_links - Validate that API reference links resolve to actual files
 #
-# Scans processed-docs/ (current build content) and developer_versioned_docs/ (pinned snapshots)
-# for pathname:///aztec-nr-api/ links (and JSX href variants) and checks that the target files
-# exist in static/aztec-nr-api/. Uses case-insensitive matching since Netlify's CDN is
-# case-insensitive, but warns about case mismatches.
+# Validates two types of API reference links:
+#   - Aztec.nr API: pathname:///aztec-nr-api/ links and JSX href variants → static/aztec-nr-api/
+#   - TypeScript API: <ApiFile path="..."/> and <ApiLink path="..."/> JSX components,
+#     plus pathname:///typescript-api/ links and JSX href variants → static/typescript-api/
+#
+# Scans processed-docs/ (current build content), developer_versioned_docs/ (pinned snapshots),
+# and docs-developers/ (source files, for TypeScript API JSX components only).
 #
 # Checks performed:
 #   1. Broken links - target file does not exist at all
@@ -20,9 +23,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCS_ROOT="$(dirname "$SCRIPT_DIR")"
 STATIC_API_DIR="$DOCS_ROOT/static/aztec-nr-api"
+TS_STATIC_API_DIR="$DOCS_ROOT/static/typescript-api"
 
-if [[ ! -d "$STATIC_API_DIR" ]]; then
-  echo "WARNING: static/aztec-nr-api/ directory not found. Skipping API ref link validation."
+if [[ ! -d "$STATIC_API_DIR" ]] && [[ ! -d "$TS_STATIC_API_DIR" ]]; then
+  echo "WARNING: Neither static/aztec-nr-api/ nor static/typescript-api/ found. Skipping API ref link validation."
   exit 0
 fi
 
@@ -31,7 +35,9 @@ echo "Validating API reference links..."
 # Collect directories to scan.
 # 1. processed-docs/ — current docs with macros resolved (available during build after preprocess:move)
 # 2. developer_versioned_docs/ — pinned version snapshots (macros already resolved at version time)
-# We skip docs-developers/ source files because they contain unresolved #api_ref_version macros.
+# 3. docs-developers/ — source files (for TypeScript API JSX components that don't use macros)
+# We skip docs-developers/ for aztec-nr-api links because they contain unresolved #api_ref_version macros,
+# but we DO scan it for TypeScript API links (ApiFile/ApiLink) which use runtime version resolution.
 SEARCH_DIRS=()
 
 # Processed docs (current build content — most important for catching regressions)
@@ -43,6 +49,11 @@ fi
 for dir in "$DOCS_ROOT"/developer_versioned_docs/version-*; do
   [[ -d "$dir" ]] && SEARCH_DIRS+=("$dir")
 done
+
+# Source docs (for TypeScript API JSX component validation only)
+if [[ -d "$DOCS_ROOT/docs-developers" ]]; then
+  SEARCH_DIRS+=("$DOCS_ROOT/docs-developers")
+fi
 
 if [[ ${#SEARCH_DIRS[@]} -eq 0 ]]; then
   echo "No docs directories found (no processed-docs/ or versioned docs). Skipping."
@@ -249,7 +260,7 @@ send_alert() {
     done
   fi
 
-  message+=$'\n'"*Action required:* Run \`yarn generate:aztec-nr-api\` to regenerate the API docs."
+  message+=$'\n'"*Action required:* Run \`yarn generate:aztec-nr-api\` and/or \`yarn generate:typescript-api\` to regenerate the API docs."
 
   if send_slack_message "$message"; then
     echo "Slack notification sent to #devrel-docs-updates."
@@ -326,9 +337,61 @@ process_link() {
   fi
 }
 
+# Get the expected TypeScript API version from a docs directory path.
+# Args: $1 = search directory path
+# Outputs: "nightly", "devnet", or "next" — the folder name under static/typescript-api/
+get_expected_ts_api_version() {
+  local search_dir="$1"
+  local dirname
+  dirname=$(basename "$search_dir")
+
+  if [[ "$dirname" =~ devnet ]]; then
+    echo "devnet"
+  elif [[ "$dirname" =~ nightly ]]; then
+    echo "nightly"
+  else
+    # processed-docs maps to "next"
+    echo "next"
+  fi
+}
+
+# Process a TypeScript API link found via ApiFile/ApiLink JSX props.
+# These reference files under static/typescript-api/{version}/.
+# Args: $1 = source file, $2 = line number, $3 = file path (e.g., "wallets.md"),
+#        $4 = expected TS API version
+process_ts_api_link() {
+  local source_file="$1"
+  local line_num="$2"
+  local file_path="$3"
+  local expected_version="${4:-nightly}"
+
+  TOTAL_COUNT=$((TOTAL_COUNT + 1))
+
+  local rel_source="${source_file#$DOCS_ROOT/}"
+
+  # Check if the file exists under static/typescript-api/{version}/
+  local full_path="$TS_STATIC_API_DIR/$expected_version/$file_path"
+  if [[ ! -f "$full_path" ]]; then
+    # Also try "nightly" as fallback since that's the only generated output currently
+    if [[ "$expected_version" != "nightly" ]] && [[ -f "$TS_STATIC_API_DIR/nightly/$file_path" ]]; then
+      return
+    fi
+    BROKEN_COUNT=$((BROKEN_COUNT + 1))
+    BROKEN_DETAILS+=("$rel_source:$line_num -> typescript-api/$expected_version/$file_path")
+    echo "  BROKEN: $rel_source:$line_num"
+    echo "    TypeScript API file not found: typescript-api/$expected_version/$file_path"
+  fi
+}
+
 # Regex patterns stored in variables to avoid bash parsing issues with special chars
 MD_LINK_PATTERN='][(]pathname:///aztec-nr-api/([^)]*)[)]'
 JSX_HREF_PATTERN='href="/aztec-nr-api/([^"]*)"'
+# TypeScript API patterns: <ApiFile path="..." /> and <ApiLink path="..." />
+TS_APIFILE_PATTERN='ApiFile path="([^"]*)"'
+TS_APILINK_PATTERN='ApiLink path="([^"]*)"'
+# TypeScript API markdown and JSX href links
+TS_MD_LINK_PATTERN='][(]pathname:///typescript-api/([^)]*)[)]'
+TS_JSX_HREF_PATTERN='href="/typescript-api/([^"]*)"'
 
 # Scan files for links
 for search_dir in "${SEARCH_DIRS[@]}"; do
@@ -339,6 +402,8 @@ for search_dir in "${SEARCH_DIRS[@]}"; do
   else
     echo "  $rel_search_dir"
   fi
+
+  expected_ts_version=$(get_expected_ts_api_version "$search_dir")
 
   # Find all .md and .mdx files
   while IFS= read -r -d '' file; do
@@ -364,6 +429,46 @@ for search_dir in "${SEARCH_DIRS[@]}"; do
         remaining="${remaining#*"$full_match"}"
       done
 
+      # Match TypeScript API JSX components: <ApiFile path="..." /> and <ApiLink path="..." />
+      remaining="$line"
+      while [[ "$remaining" =~ $TS_APIFILE_PATTERN ]]; do
+        ts_file_path="${BASH_REMATCH[1]}"
+        full_match="${BASH_REMATCH[0]}"
+        process_ts_api_link "$file" "$local_line_num" "$ts_file_path" "$expected_ts_version"
+        remaining="${remaining#*"$full_match"}"
+      done
+
+      remaining="$line"
+      while [[ "$remaining" =~ $TS_APILINK_PATTERN ]]; do
+        ts_file_path="${BASH_REMATCH[1]}"
+        full_match="${BASH_REMATCH[0]}"
+        process_ts_api_link "$file" "$local_line_num" "$ts_file_path" "$expected_ts_version"
+        remaining="${remaining#*"$full_match"}"
+      done
+
+      # Match markdown links: ](pathname:///typescript-api/...)
+      remaining="$line"
+      while [[ "$remaining" =~ $TS_MD_LINK_PATTERN ]]; do
+        ts_link="${BASH_REMATCH[1]}"
+        full_match="${BASH_REMATCH[0]}"
+        # Extract version and file path from e.g. "nightly/wallets.md"
+        if [[ "$ts_link" =~ ^([^/]+)/(.+)$ ]]; then
+          process_ts_api_link "$file" "$local_line_num" "${BASH_REMATCH[2]}" "${BASH_REMATCH[1]}"
+        fi
+        remaining="${remaining#*"$full_match"}"
+      done
+
+      # Match JSX href attributes: href="/typescript-api/..."
+      remaining="$line"
+      while [[ "$remaining" =~ $TS_JSX_HREF_PATTERN ]]; do
+        ts_link="${BASH_REMATCH[1]}"
+        full_match="${BASH_REMATCH[0]}"
+        if [[ "$ts_link" =~ ^([^/]+)/(.+)$ ]]; then
+          process_ts_api_link "$file" "$local_line_num" "${BASH_REMATCH[2]}" "${BASH_REMATCH[1]}"
+        fi
+        remaining="${remaining#*"$full_match"}"
+      done
+
     done < "$file"
   done < <(find "$search_dir" -type f \( -name "*.md" -o -name "*.mdx" \) -print0)
 done
@@ -377,8 +482,8 @@ echo "  - Version mismatches: $VERSION_MISMATCH_COUNT"
 if [[ $BROKEN_COUNT -gt 0 ]]; then
   echo ""
   echo "WARNING: $BROKEN_COUNT broken API reference link(s) found."
-  echo "These links point to files that don't exist in static/aztec-nr-api/."
-  echo "Run 'yarn generate:aztec-nr-api' to regenerate the API docs."
+  echo "These links point to files that don't exist in static/aztec-nr-api/ or static/typescript-api/."
+  echo "Run 'yarn generate:aztec-nr-api' or 'yarn generate:typescript-api' to regenerate the API docs."
 fi
 
 if [[ $VERSION_MISMATCH_COUNT -gt 0 ]]; then

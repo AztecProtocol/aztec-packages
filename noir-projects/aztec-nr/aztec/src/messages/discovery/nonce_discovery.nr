@@ -1,19 +1,19 @@
 use crate::messages::{discovery::ComputeNoteHashAndNullifier, logs::note::MAX_NOTE_PACKED_LEN};
 
+use crate::logging::aztecnr_debug_log_format;
 use crate::protocol::{
     address::AztecAddress,
     constants::MAX_NOTE_HASHES_PER_TX,
     hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash},
-    logging::debug_log_format,
     traits::ToField,
 };
 
 /// A struct with the discovered information of a complete note, required for delivery to PXE. Note that this is *not*
 /// the complete note information, since it does not include content, storage slot, etc.
-pub struct DiscoveredNoteInfo {
-    pub note_nonce: Field,
-    pub note_hash: Field,
-    pub inner_nullifier: Field,
+pub(crate) struct DiscoveredNoteInfo {
+    pub(crate) note_nonce: Field,
+    pub(crate) note_hash: Field,
+    pub(crate) inner_nullifier: Field,
 }
 
 /// Searches for note nonces that will result in a note that was emitted in a transaction. While rare, it is possible
@@ -23,7 +23,7 @@ pub struct DiscoveredNoteInfo {
 ///
 /// Due to how nonces are computed, this function requires knowledge of the transaction in which the note was created,
 /// more specifically the list of all unique note hashes in it plus the value of its first nullifier.
-pub unconstrained fn attempt_note_nonce_discovery<Env>(
+pub(crate) unconstrained fn attempt_note_nonce_discovery<Env>(
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
@@ -36,8 +36,9 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
 ) -> BoundedVec<DiscoveredNoteInfo, MAX_NOTE_HASHES_PER_TX> {
     let discovered_notes = &mut BoundedVec::new();
 
-    debug_log_format(
+    aztecnr_debug_log_format!(
         "Attempting nonce discovery on {0} potential notes on contract {1} for storage slot {2}",
+    )(
         [unique_note_hashes_in_tx.len() as Field, contract_address.to_field(), storage_slot],
     );
 
@@ -90,10 +91,7 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
         }
     });
 
-    debug_log_format(
-        "Found valid nonces for a total of {0} notes",
-        [discovered_notes.len() as Field],
-    );
+    aztecnr_debug_log_format!("Found valid nonces for a total of {0} notes")([discovered_notes.len() as Field]);
 
     *discovered_notes
 }
