@@ -349,6 +349,12 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
   default     = "8"
 }
 
+variable "SEQ_MAX_TX_PER_CHECKPOINT" {
+  description = "Maximum number of sequencer transactions per checkpoint"
+  type        = string
+  default     = null
+}
+
 variable "SEQ_ENFORCE_TIME_TABLE" {
   description = "Whether to enforce the time table when building blocks"
   type        = string
