@@ -133,7 +133,7 @@ TEST(CrsFactory, Bn254CompressedChunkHashFirstChunk)
     auto data = read_file(bb::srs::bb_crs_path() / "bn254_g1_compressed.dat", bb::srs::SRS_CHUNK_SIZE_BYTES);
     auto chunk = std::span<const uint8_t>(data.data(), data.size());
     auto hash = bb::crypto::sha256(chunk);
-    EXPECT_EQ(hash, bb::srs::BN254_G1_COMPRESSED_CHUNK_HASHES[0]);
+    EXPECT_EQ(hash, bb::srs::BN254_G1_CHUNK_HASHES[0]);
 }
 
 TEST(CrsFactory, Bn254CompressedChunkHashCorruptionDetected)
@@ -144,5 +144,5 @@ TEST(CrsFactory, Bn254CompressedChunkHashCorruptionDetected)
     data[bb::srs::SRS_CHUNK_SIZE_BYTES / 2] ^= 0xFF;
     auto chunk = std::span<const uint8_t>(data.data(), data.size());
     auto hash = bb::crypto::sha256(chunk);
-    EXPECT_NE(hash, bb::srs::BN254_G1_COMPRESSED_CHUNK_HASHES[0]);
+    EXPECT_NE(hash, bb::srs::BN254_G1_CHUNK_HASHES[0]);
 }
