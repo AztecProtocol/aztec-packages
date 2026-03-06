@@ -2,7 +2,6 @@
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/simulation/interfaces/field_gt.hpp"
 
 namespace bb::avm2::simulation {
 

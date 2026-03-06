@@ -1,16 +1,11 @@
 #include "barretenberg/vm2/tracegen/contract_instance_retrieval_trace.hpp"
 
-#include <memory>
-
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_contract_instance_retrieval.hpp"
-#include "barretenberg/vm2/simulation/events/contract_instance_retrieval_event.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
-#include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2::tracegen {
 
