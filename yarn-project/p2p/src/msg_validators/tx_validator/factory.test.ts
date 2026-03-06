@@ -16,6 +16,7 @@ import { AggregateTxValidator } from './aggregate_tx_validator.js';
 import { BlockHeaderTxValidator } from './block_header_validator.js';
 import { DataTxValidator } from './data_validator.js';
 import { DoubleSpendTxValidator } from './double_spend_validator.js';
+import { EffectsTxValidator } from './effects_validator.js';
 import {
   createFirstStageTxValidationsForGossipedTransactions,
   createSecondStageTxValidationsForGossipedTransactions,
@@ -73,6 +74,7 @@ describe('Validator factory functions', () => {
         'doubleSpendValidator',
         'gasValidator',
         'dataValidator',
+        'effectsValidator',
       ]);
     });
 
@@ -116,6 +118,7 @@ describe('Validator factory functions', () => {
       expect(validators.doubleSpendValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
       expect(validators.gasValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
       expect(validators.phasesValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
+      expect(validators.effectsValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
     });
 
     it('each entry has a validator with a validateTx method', () => {
@@ -170,6 +173,7 @@ describe('Validator factory functions', () => {
         MetadataTxValidator.name,
         SizeTxValidator.name,
         DataTxValidator.name,
+        EffectsTxValidator.name,
         TxProofValidator.name,
       ]);
     });
@@ -187,6 +191,7 @@ describe('Validator factory functions', () => {
         MetadataTxValidator.name,
         SizeTxValidator.name,
         DataTxValidator.name,
+        EffectsTxValidator.name,
         TxProofValidator.name,
       ]);
     });
@@ -220,6 +225,7 @@ describe('Validator factory functions', () => {
         BlockHeaderTxValidator.name,
         DoubleSpendTxValidator.name,
         DataTxValidator.name,
+        EffectsTxValidator.name,
         GasTxValidator.name,
         TxProofValidator.name,
       ]);

@@ -55,6 +55,7 @@ import { ArchiveCache } from './archive_cache.js';
 import { type ArchiveSource, BlockHeaderTxValidator } from './block_header_validator.js';
 import { DataTxValidator } from './data_validator.js';
 import { DoubleSpendTxValidator, type NullifierSource } from './double_spend_validator.js';
+import { EffectsTxValidator } from './effects_validator.js';
 import { GasLimitsValidator, GasTxValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { NullifierCache } from './nullifier_cache.js';
@@ -165,6 +166,10 @@ export function createFirstStageTxValidationsForGossipedTransactions(
       validator: new DataTxValidator(bindings),
       severity: PeerErrorSeverity.MidToleranceError,
     },
+    effectsValidator: {
+      validator: new EffectsTxValidator(bindings),
+      severity: PeerErrorSeverity.MidToleranceError,
+    },
   };
 }
 
@@ -216,6 +221,7 @@ function createTxValidatorForMinimumTxIntegrityChecks(
     ),
     new SizeTxValidator(bindings),
     new DataTxValidator(bindings),
+    new EffectsTxValidator(bindings),
     new TxProofValidator(verifier, bindings),
   );
 }
@@ -313,6 +319,7 @@ export function createTxValidatorForAcceptingTxsOverRPC(
     new BlockHeaderTxValidator(new ArchiveCache(db), bindings),
     new DoubleSpendTxValidator(new NullifierCache(db), bindings),
     new DataTxValidator(bindings),
+    new EffectsTxValidator(bindings),
   ];
 
   if (!skipFeeEnforcement) {
