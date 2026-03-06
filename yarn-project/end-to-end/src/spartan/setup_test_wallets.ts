@@ -275,7 +275,7 @@ async function bridgeL1FeeJuice(
   const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
 
   const isSynced = async () =>
-    (await aztecNode.getL1ToL2MessageBlock(Fr.fromHexString(claim.messageHash))) !== undefined;
+    (await aztecNode.getL1ToL2MessageCheckpoint(Fr.fromHexString(claim.messageHash))) !== undefined;
   await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 0.5);
 
   log.info(`Created a claim for ${amount} L1 fee juice to ${recipient}.`, claim);

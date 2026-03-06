@@ -10,6 +10,7 @@ import type { FeePaymentMethod } from './fee_payment_method.js';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.
+ * @deprecated Is not supported on mainnet. Use {@link FeeJuicePaymentMethodWithClaim} or `SponsoredFeePaymentMethod` instead.
  */
 export class PrivateFeePaymentMethod implements FeePaymentMethod {
   private assetPromise: Promise<AztecAddress> | null = null;
