@@ -14,6 +14,20 @@
 
 namespace bb::avm2::tracegen {
 
+/**
+ * @brief Process the contract instance retrieval events and populate the relevant columns in the trace.
+ *
+ * Events are emitted in the following flavors:
+ * - Protocol contract: is_protocol_contract=true, exists depends on derived address lookup,
+ *   deployment_nullifier is not set (default 0).
+ * - Non-existent contract: exists=false, is_protocol_contract=false, empty contract instance,
+ *   deployment_nullifier=contract_address.
+ * - Existing contract: exists=true, is_protocol_contract=false, full contract instance populated,
+ *   deployment_nullifier=contract_address.
+ *
+ * @param events Container of ContractInstanceRetrievalEvent to process.
+ * @param trace The trace container to populate.
+ */
 void ContractInstanceRetrievalTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::ContractInstanceRetrievalEvent>::Container& events,
     TraceContainer& trace)
