@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copies native bb binary and napi module to dest.
 set -e
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source

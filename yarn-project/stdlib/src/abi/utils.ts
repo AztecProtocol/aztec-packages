@@ -82,6 +82,31 @@ export function isBoundedVecStruct(abiType: AbiType) {
 }
 
 /**
+ * Returns whether the ABI type is Noir's std::option::Option lowered to a struct.
+ * @param abiType - Type to check.
+ * @returns A boolean indicating whether the ABI type is an Option struct.
+ */
+export function isOptionStruct(abiType: AbiType) {
+  return (
+    abiType.kind === 'struct' &&
+    abiType.path === 'std::option::Option' &&
+    abiType.fields.length === 2 &&
+    abiType.fields[0].name === '_is_some' &&
+    abiType.fields[1].name === '_value'
+  );
+}
+
+/**
+ * Returns whether `null` or `undefined` can be mapped to a valid ABI value for this type.
+ *
+ * @param abiType - Type to check.
+ * @returns A boolean indicating whether nullish values are valid shorthand for this ABI type.
+ */
+export function canBeMappedFromNullOrUndefined(abiType: AbiType) {
+  return isOptionStruct(abiType);
+}
+
+/**
  * Returns a bigint by parsing a serialized 2's complement signed int.
  * @param b - The signed int as a buffer
  * @returns - a deserialized bigint

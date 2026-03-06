@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Script to clean up nightly documentation versions for Barretenberg
 # This removes all versions containing "nightly" from Barretenberg docs
