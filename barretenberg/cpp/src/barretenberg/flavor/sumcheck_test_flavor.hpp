@@ -178,6 +178,7 @@ class SumcheckTestFlavor_ {
     // Non-ZK: 6 + 1 = 7
     // ZK: 6 + 3 = 9
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + (HasZK ? 3 : 1);
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = HasZK ? BATCHED_RELATION_PARTIAL_LENGTH : 0;
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
     using SubrelationSeparator = FF;
