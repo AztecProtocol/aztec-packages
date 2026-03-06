@@ -111,8 +111,8 @@ describe('e2e_deploy_contract deploy method', () => {
         { wallet, method: 'public_initializer_self_calling_init_checked' },
         owner,
         42,
-      ).send({ from: defaultAccountAddress }),
-    ).rejects.toThrow(/app_logic_reverted/);
+      ).simulate({ from: defaultAccountAddress }),
+    ).rejects.toThrow(/Not initialized/);
   });
 
   // Private functions execute before public functions, so the init check in create_note fails

@@ -4,18 +4,14 @@ use crate::{
             external_functions::{generate_external_function_calls, generate_external_function_self_calls_structs},
             internal_functions::generate_call_internal_struct,
         },
-        dispatch::{DispatchablePublicFunction, generate_public_dispatch},
-        functions::initialization_utils::{EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME, has_public_init_checked_functions},
-        internals_functions_generation::{
-            create_fn_abi_exports,
-            external_functions_registry::{get_private_functions, get_public_functions},
-            process_functions,
-        },
+        dispatch::generate_public_dispatch,
+        emit_public_init_nullifier::generate_emit_public_init_nullifier,
+        internals_functions_generation::{create_fn_abi_exports, process_functions},
         notes::NOTES,
         storage::STORAGE_LAYOUT_NAME,
         utils::{
-            get_trait_impl_method, get_type, is_fn_contract_library_method, is_fn_external, is_fn_initializer,
-            is_fn_internal, is_fn_test, module_has_storage,
+            get_trait_impl_method, is_fn_contract_library_method, is_fn_external, is_fn_internal, is_fn_test,
+            module_has_storage,
         },
     },
     messages::discovery::CustomMessageHandler,
@@ -131,9 +127,8 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
     } else {
         quote {}
     };
-    let (injected_fns, injected_fn_bodies) = generate_injected_public_fns(m);
-    let contract_fns = get_public_functions(m).map(DispatchablePublicFunction::from_fn);
-    let public_dispatch = generate_public_dispatch(contract_fns.append(injected_fns));
+    let (has_public_init_nullifier_fn, emit_public_init_nullifier_fn_body) = generate_emit_public_init_nullifier(m);
+    let public_dispatch = generate_public_dispatch(m, has_public_init_nullifier_fn);
 
     quote {
         $interface
@@ -145,7 +140,7 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
         $public_dispatch
         $sync_state_fn_and_abi_export
         $process_message_fn_and_abi_export
-        $injected_fn_bodies
+        $emit_public_init_nullifier_fn_body
     }
 }
 
@@ -399,50 +394,6 @@ comptime fn generate_process_message(process_custom_message_option: Quoted) -> Q
             aztec::messages::processing::validate_and_store_enqueued_notes_and_events(address);
         }
     }
-}
-
-/// Returns dispatch descriptors and function bodies for auto-generated public functions.
-///
-/// Sometimes we need to inject public functions into contracts that can be called by other functions (e.g. a private
-/// initializer enqueuing a public call). We can't add these via `Module.add_item()` because Noir resolves code
-/// immediately on injection, and resolved functions behave differently from unresolved ones (e.g. you can't read their
-/// body or mutate their properties). Instead, we return the function definitions as quoted code to be spliced into
-/// the module, and handle their dispatch explicitly via `generate_public_dispatch`.
-comptime fn generate_injected_public_fns(m: Module) -> ([DispatchablePublicFunction], Quoted) {
-    let mut fns: [DispatchablePublicFunction] = @[];
-    let mut bodies: [Quoted] = @[];
-
-    let has_private_initializer = get_private_functions(m).any(|f: FunctionDefinition| is_fn_initializer(f));
-    let has_public_fns_with_init_check = has_public_init_checked_functions(m);
-    if has_private_initializer & has_public_fns_with_init_check {
-        let (f, body) = generate_emit_public_init_nullifier();
-        fns = fns.push_back(f);
-        bodies = bodies.push_back(body);
-    }
-
-    (fns, bodies.join(quote {}))
-}
-
-/// Returns a `DispatchablePublicFunction` and function body that emits the public init nullifier.
-///
-/// Needed when a contract has a private initializer and public functions. Private initializers only emit the private
-/// init nullifier during private execution. The public init nullifier must be emitted during public execution, so the
-/// private initializer enqueues a call to this auto-generated function to do it.
-comptime fn generate_emit_public_init_nullifier() -> (DispatchablePublicFunction, Quoted) {
-    let name = EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME;
-    let assertion_message = f"Function {name} can only be called by the same contract".as_quoted_str();
-    let body = quote {
-        #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
-        unconstrained fn $name() {
-            let context = aztec::context::PublicContext::new(|| { 0 });
-            assert(
-                context.maybe_msg_sender().unwrap() == context.this_address(),
-                $assertion_message,
-            );
-            aztec::macros::functions::initialization_utils::mark_as_initialized_public(context);
-        }
-    };
-    (DispatchablePublicFunction::new(name, @[], get_type::<()>()), body)
 }
 
 /// Checks that all functions in the module have a context macro applied.

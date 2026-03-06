@@ -24,7 +24,7 @@ Contract initialization now emits two separate nullifiers instead of one: a **pr
 
 **`only_self` functions no longer have init checks.** They behave as if marked `noinitcheck`.
 
-**External functions called during initialization must be `#[only_self]` or `#[noinitcheck]`.** Init nullifiers are emitted at the end of the initializer, so any external functions called on the initializing contract (e.g. via `enqueue_self` or `call_self`) during initialization will fail the init check unless they skip it.
+**External functions called during initialization must be `#[only_self]`.** Init nullifiers are emitted at the end of the initializer, so any external functions called on the initializing contract (e.g. via `enqueue_self` or `call_self`) during initialization will fail the init check unless they skip it.
 
 **Breaking change for deployment:** If your contract has public functions and a private initializer, the class must be registered onchain before initialization. You can no longer pass `skipClassPublication: true`, because the auto-enqueued public call requires the class to be available.
 
@@ -166,7 +166,6 @@ The `--name` flag has been removed from both `aztec new` and `aztec init`. For `
 
 **Impact**: If you were using `--name` to set a contract name different from the directory name, rename your directory or use `aztec new` with the desired contract name directly.
 
->>>>>>> origin/merge-train/fairies
 ### [Aztec.js] Removed `SingleKeyAccountContract`
 
 The `SchnorrSingleKeyAccount` contract and its TypeScript wrapper `SingleKeyAccountContract` have been removed. This contract was insecure: it used `ivpk_m` (incoming viewing public key) as its Schnorr signing key, meaning anyone who received a user's viewing key could sign transactions on their behalf.
@@ -181,6 +180,7 @@ The `SchnorrSingleKeyAccount` contract and its TypeScript wrapper `SingleKeyAcco
 ```
 
 **Impact**: If you were using `@aztec/accounts/single_key`, switch to `@aztec/accounts/schnorr` which uses separate keys for encryption and authentication.
+
 ### `aztec new` and `aztec init` now create a 2-crate workspace
 
 `aztec new` and `aztec init` now create a workspace with two crates instead of a single contract crate:

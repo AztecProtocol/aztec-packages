@@ -23,7 +23,7 @@ use crate::{
 /// This function is injected into the public dispatch table for contracts with initializers.
 pub(crate) comptime global EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME: Quoted = quote { __emit_public_init_nullifier };
 
-/// Returns true if the module has any public functions that require initialization checks (i.e. that don't have
+/// Returns `true` if the module has any public functions that require initialization checks (i.e. that don't have
 /// `#[noinitcheck]`). If all public functions skip init checks, there's no point emitting the public init nullifier
 /// since nothing will check it.
 pub(crate) comptime fn has_public_init_checked_functions(m: Module) -> bool {
@@ -42,14 +42,14 @@ global EMIT_PUBLIC_INIT_NULLIFIER_SELECTOR: FunctionSelector = comptime {
 // initialization, then other previously enqueued public functions would observe the initialization nullifier as
 // existing _before_ the public initialization code ran.
 //
-// Private initializers emit only the private nullifier, then enqueue `__emit_public_init_nullifier` (an auto-generated
-// external public function) so the public nullifier is emitted in public. Public initializers emit both nullifiers
-// directly via `mark_as_initialized_from_public_initializer`.
+// Private initializers emit only the private nullifier, then enqueue an auto-generated external public function
+// so the public nullifier is emitted in public. Public initializers emit both nullifiers directly via
+// `mark_as_initialized_from_public_initializer`.
 
 /// Emits (only) the public initialization nullifier.
 ///
-/// This function is called by the aztec-nr auto-generated `__emit_public_init_nullifier` external public contract
-/// function (enqueued by private [`initializer`](crate::macros::functions::initializer) functions), and also by
+/// This function is called by the aztec-nr auto-generated external public contract function (enqueued by private
+///  [`initializer`](crate::macros::functions::initializer) functions), and also by
 /// [`mark_as_initialized_from_public_initializer`] for public initializers.
 pub fn mark_as_initialized_public(context: PublicContext) {
     let init_nullifier = compute_public_init_nullifier(context.this_address());
@@ -88,9 +88,9 @@ pub fn mark_as_initialized_from_public_initializer(context: PublicContext) {
 /// Checks that the public initialization nullifier exists.
 pub fn assert_is_initialized_public(context: PublicContext) {
     let init_nullifier = compute_public_init_nullifier(context.this_address());
-    // Safety: the public init nullifier is only ever emitted during public execution (either by a public initializer
-    // or by the auto-enqueued `__emit_public_init_nullifier`), so reading it in public via `nullifier_exists_unsafe`
-    // is consistent.
+    // Safety: the public init nullifier is only ever emitted by public functions, and so the timing concerns from
+    // nullifier_exists_unsafe do not apply. Additionally, it is emitted after all initializer functions have run,
+    // so initialization is guaranteed to be complete by the time it exists.'
     assert(context.nullifier_exists_unsafe(init_nullifier, context.this_address()), "Not initialized");
 }
 

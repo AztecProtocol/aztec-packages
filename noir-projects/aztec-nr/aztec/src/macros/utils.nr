@@ -102,12 +102,6 @@ pub(crate) comptime fn compute_fn_selector(fn_name: Quoted, parameters: [(Quoted
     unquote!(computation_quote)
 }
 
-/// Returns the `Type` corresponding to a generic parameter `T` at compile time.
-pub(crate) comptime fn get_type<T>() -> Type {
-    let t: T = std::mem::zeroed();
-    std::meta::type_of(t)
-}
-
 pub(crate) comptime fn compute_struct_selector(s: TypeDefinition, from_signature_fn: Quoted) -> Field {
     // The struct selector is computed from the type signature, similar to how one might type the constructor function.
     // For example, given:

@@ -70,8 +70,8 @@ use initialization_utils::EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME;
 /// nullifier and a public init nullifier) because private nullifiers are committed before public execution begins.
 ///
 /// - **Private initializers** emit the private init nullifier. For contracts that also have public functions, they
-///   auto-enqueue a call to an auto-generated `__emit_public_init_nullifier` function that emits the public init
-///   nullifier during public execution. This function name is reserved and cannot be used by contract developers.
+///   auto-enqueue a call to an auto-generated public function that emits the public init  nullifier during public
+//    execution. This function name is reserved and cannot be used by contract developers.
 /// - **Public initializers** emit both nullifiers directly.
 /// - **Private external functions** check the private init nullifier.
 /// - **Public external functions** check the public init nullifier.
