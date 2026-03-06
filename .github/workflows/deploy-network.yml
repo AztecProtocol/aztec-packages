@@ -30,6 +30,10 @@ on:
         required: false
         type: boolean
         default: false
+      source_tag:
+        description: "Source tag that triggered this deploy"
+        required: false
+        type: string
   workflow_dispatch:
     inputs:
       network:
@@ -59,6 +63,10 @@ on:
         required: false
         type: boolean
         default: false
+      source_tag:
+        description: "Source tag that triggered this deploy"
+        required: false
+        type: string
 
 concurrency:
   group: deploy-network-${{ inputs.network }}-${{ inputs.namespace || inputs.network }}-${{ inputs.semver }}-${{ github.ref || github.ref_name }}
@@ -89,6 +97,11 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
           submodules: recursive # Initialize git submodules for l1-contracts dependencies
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: Validate inputs
         run: |
@@ -135,6 +148,16 @@ jobs:
           terraform_version: "1.7.5"
           terraform_wrapper: false # Disable the wrapper that adds debug output, this messes with reading terraform output
 
+      - name: Setup SSH key for CI Redis
+        env:
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+        run: |
+          if [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
+            mkdir -p ~/.ssh
+            echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
+            chmod 600 ~/.ssh/build_instance_key
+          fi
+
       - name: Deploy network
         id: deploy-network
         env:
@@ -149,7 +172,6 @@ jobs:
           NAMESPACE: ${{ inputs.namespace }}
           AZTEC_DOCKER_IMAGE: "aztecprotocol/aztec:${{ inputs.docker_image_tag || inputs.semver }}"
           CREATE_ROLLUP_CONTRACTS: ${{ inputs.deploy_contracts == true && 'true' || '' }}
-          USE_NETWORK_CONFIG: ${{ inputs.deploy_contracts == true && 'false' || '' }}
           PROVER_AGENT_DOCKER_IMAGE: "aztecprotocol/aztec-prover-agent:${{ inputs.docker_image_tag || inputs.semver }}"
         run: |
           echo "Deploying network: ${{ inputs.network }}"
@@ -169,6 +191,22 @@ jobs:
           else
             echo "cluster=" >> $GITHUB_OUTPUT
           fi
+
+      - name: Step summary
+        if: always()
+        run: |
+          {
+            echo "## Deploy Network"
+            echo ""
+            echo "| Item | Value |"
+            echo "|------|-------|"
+            echo "| Network | \`${{ inputs.network }}\` |"
+            echo "| Semver | \`${{ inputs.semver }}\` |"
+            echo "| Ref | \`${{ steps.checkout-ref.outputs.ref }}\` |"
+            if [[ -n "${{ inputs.source_tag }}" ]]; then
+              echo "| Source Tag | [\`${{ inputs.source_tag }}\`](https://github.com/${{ github.repository }}/releases/tag/${{ inputs.source_tag }}) |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Notify Slack on failure
         if: failure()

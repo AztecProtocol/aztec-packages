@@ -4,7 +4,6 @@
 #include "../node_store/array_store.hpp"
 #include "../nullifier_tree/nullifier_memory_tree.hpp"
 #include "../test_fixtures.hpp"
-#include "./fixtures.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/common/thread_pool.hpp"
@@ -37,6 +36,22 @@ using PublicDataTreeType = ContentAddressedIndexedTree<PublicDataStore, Poseidon
 
 using CompletionCallback = TreeType::AddCompletionCallbackWithWitness;
 using SequentialCompletionCallback = TreeType::AddSequentiallyCompletionCallbackWithWitness;
+
+using IndexedNullifierLeafType = IndexedLeaf<NullifierLeafValue>;
+using IndexedPublicDataLeafType = IndexedLeaf<PublicDataLeafValue>;
+
+inline IndexedNullifierLeafType create_indexed_nullifier_leaf(const fr& value, index_t nextIndex, const fr& nextValue)
+{
+    return IndexedNullifierLeafType{ NullifierLeafValue(value), nextIndex, nextValue };
+}
+
+inline IndexedPublicDataLeafType create_indexed_public_data_leaf(const fr& slot,
+                                                                 const fr& value,
+                                                                 index_t nextIndex,
+                                                                 const fr& nextValue)
+{
+    return IndexedPublicDataLeafType{ PublicDataLeafValue(slot, value), nextIndex, nextValue };
+}
 
 class PersistedContentAddressedIndexedTreeTest : public testing::Test {
   protected:

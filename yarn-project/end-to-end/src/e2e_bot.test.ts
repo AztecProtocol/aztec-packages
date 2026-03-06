@@ -13,7 +13,7 @@ import {
   SupportedTokenContracts,
   getBotDefaultConfig,
 } from '@aztec/bot';
-import { AVM_MAX_PROCESSABLE_L2_GAS, MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT } from '@aztec/constants';
+import { MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import { SecretValue } from '@aztec/foundation/config';
 import { bufferToHex } from '@aztec/foundation/string';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -73,7 +73,7 @@ describe('e2e_bot', () => {
     });
 
     it('sends token transfers with hardcoded gas and no simulation', async () => {
-      bot.updateConfig({ daGasLimit: MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, l2GasLimit: AVM_MAX_PROCESSABLE_L2_GAS });
+      bot.updateConfig({ daGasLimit: MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, l2GasLimit: MAX_PROCESSABLE_L2_GAS });
       const { recipient: recipientBefore } = await bot.getBalances();
 
       await bot.run();
@@ -134,6 +134,9 @@ describe('e2e_bot', () => {
         // TODO: this should be taken from the `setup` call above
         l1Mnemonic: new SecretValue('test test test test test test test test test test test junk'),
         flushSetupTransactions: true,
+        // Increase fee headroom to handle fee volatility from rapid block building in tests.
+        // Fees can escalate >10x due to blocks built by earlier tests and bridge operations.
+        minFeePadding: 99,
       };
 
       {
@@ -172,6 +175,10 @@ describe('e2e_bot', () => {
         // TODO: this should be taken from the `setup` call above
         l1Mnemonic: new SecretValue('test test test test test test test test test test test junk'),
         flushSetupTransactions: true,
+        // Increase fee headroom to handle fee volatility from rapid block building in tests.
+        // This test is especially susceptible because changing salt triggers a new bridge claim,
+        // adding more block building on top of what earlier tests already produced.
+        minFeePadding: 99,
       };
 
       {

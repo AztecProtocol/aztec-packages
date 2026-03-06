@@ -79,7 +79,7 @@ describe('e2e_multi_validator_node', () => {
     } = await setup(1, {
       initialValidators,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
-      publisherPrivateKeys: publisherPrivateKeys.map(k => new SecretValue(k)),
+      sequencerPublisherPrivateKeys: publisherPrivateKeys.map(k => new SecretValue(k)),
       minTxsPerBlock: 1,
       archiverPollingIntervalMS: 200,
       sequencerPollingIntervalMS: 200,
@@ -114,7 +114,7 @@ describe('e2e_multi_validator_node', () => {
 
     const sender = ownerAddress;
     logger.info(`Deploying contract from ${sender}`);
-    const tx = await deployer.deploy(ownerAddress, sender, 1).send({
+    const { receipt: tx } = await deployer.deploy(ownerAddress, sender, 1).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(BigInt(1)),
       skipClassPublication: true,
@@ -177,7 +177,7 @@ describe('e2e_multi_validator_node', () => {
 
     logger.info(`Deploying contract from ${sender}`);
     const deployer = new ContractDeployer(artifact, wallet);
-    const tx = await deployer.deploy(ownerAddress, sender, 1).send({
+    const { receipt: tx } = await deployer.deploy(ownerAddress, sender, 1).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(BigInt(1)),
       skipClassPublication: true,

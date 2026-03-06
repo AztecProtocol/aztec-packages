@@ -19,7 +19,7 @@
 <div id="crate-version">0.0.0</div>
 <h3>Crate items</h3>
 <ul class="sidebar-list">
-<li><a href="#modules">Modules</a></li>
+<li><a href="#structs">Structs</a></li>
 </ul>
 <h3>Crates</h3>
 <ul class="sidebar-list">
@@ -34,8 +34,15 @@
 <main>
 <div><a href="../index.html">aztec-nr</a> - uint_note</div>
 <h1>Crate <span class="crate">uint_note</span></h1>
-<h2 id="modules">Modules</h2><ul class="item-list">
-<li><div class="item-name"><a href="uint_note/index.html" class="module">uint_note</a></div><div class="item-description"></div></li>
+<div class="comments">
+<p>Note for a numeric value.</p>
+</div>
+<h2 id="structs">Structs</h2><ul class="item-list">
+<li><div class="item-name"><a href="struct.PartialUintNote.html" class="struct">PartialUintNote</a></div><div class="item-description">A partial instance of a UintNote. This value represents a private commitment to the owner, randomness and storage
+slot, but the value field has not yet been set. A partial note can be completed in public with the <code>complete</code>
+function (revealing the value to the public), resulting in a UintNote that can be used like any other one (except
+of course that its value is known).</div></li>
+<li><div class="item-name"><a href="struct.UintNote.html" class="struct">UintNote</a></div><div class="item-description">A private note representing a numeric value associated to an account (e.g. a token balance).</div></li>
 </ul>
 </main>
 </span>

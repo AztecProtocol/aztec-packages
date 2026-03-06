@@ -117,8 +117,8 @@ describe('e2e_epochs/epochs_mbps', () => {
     // Unlike emit_nullifier (which has #[noinitcheck]), cross-chain methods require a deployed contract.
     if (deployCrossChainContract) {
       logger.warn(`Deploying cross-chain test contract before stopping initial sequencer`);
-      crossChainContract = await TestContract.deploy(wallet).send({ from });
-      logger.warn(`Cross-chain test contract deployed at ${crossChainContract.address}`);
+      ({ contract: crossChainContract } = await TestContract.deploy(wallet).send({ from }));
+      logger.warn(`Cross-chain test contract deployed at ${crossChainContract!.address}`);
     }
 
     // Halt block building in initial aztec node, which was not set up as a validator.
@@ -145,6 +145,20 @@ describe('e2e_epochs/epochs_mbps', () => {
 
   /** Retrieves all checkpoints from the archiver, checks that one has the target block count, and returns its number. */
   async function assertMultipleBlocksPerSlot(targetBlockCount: number, logger: Logger): Promise<CheckpointNumber> {
+    // Wait for the first validator's archiver to index a checkpoint with the target block count.
+    // waitForTx polls the initial setup node, but this archiver belongs to nodes[0] (the first
+    // validator). They sync L1 independently, so there's a race window of ~200-400ms.
+    const waitTimeout = test.L2_SLOT_DURATION_IN_S * 3;
+    await retryUntil(
+      async () => {
+        const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+        return checkpoints.some(pc => pc.checkpoint.blocks.length >= targetBlockCount) || undefined;
+      },
+      `checkpoint with at least ${targetBlockCount} blocks`,
+      waitTimeout,
+      0.5,
+    );
+
     const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
     logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
       checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
@@ -281,8 +295,17 @@ describe('e2e_epochs/epochs_mbps', () => {
 
     // Wait until all txs are mined
     const timeout = test.L2_SLOT_DURATION_IN_S * 5;
-    await Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout })));
+    const receipts = await Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout })));
     logger.warn(`All L2→L1 message txs have been mined`);
+
+    // wait for the other node to synch
+    const maxBlockNumber = Math.max(...receipts.map(r => r.blockNumber!));
+    await retryUntil(
+      async () => ((await archiver.getCheckpointedL2BlockNumber()) >= maxBlockNumber ? true : undefined),
+      `archiver to checkpoint block ${maxBlockNumber}`,
+      test.L2_SLOT_DURATION_IN_S * 3,
+      0.1,
+    );
 
     const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, logger);
 

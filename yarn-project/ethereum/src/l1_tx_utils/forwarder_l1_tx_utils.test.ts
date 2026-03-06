@@ -1,9 +1,9 @@
+import { Blob } from '@aztec/blob-lib';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
-import type { Anvil } from '@viem/anvil';
 import { type Hex, encodeFunctionData, parseEventLogs } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -11,6 +11,7 @@ import { foundry } from 'viem/chains';
 import { createExtendedL1Client } from '../client.js';
 import { FORWARDER_ABI, FORWARDER_BYTECODE } from '../forwarder_proxy.js';
 import { EthCheatCodes } from '../test/eth_cheat_codes.js';
+import type { Anvil } from '../test/start_anvil.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { ForwarderL1TxUtils } from './forwarder_l1_tx_utils.js';
@@ -104,6 +105,8 @@ describe('ForwarderL1TxUtils', () => {
       },
       false,
       undefined,
+      undefined,
+      Blob.getViemKzgInstance(),
       undefined,
       forwarderAddress,
     );

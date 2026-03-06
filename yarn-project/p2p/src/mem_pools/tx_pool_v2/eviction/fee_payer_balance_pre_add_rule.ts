@@ -1,7 +1,13 @@
 import { createLogger } from '@aztec/foundation/log';
 
 import { type TxMetaData, comparePriority } from '../tx_metadata.js';
-import type { PreAddPoolAccess, PreAddResult, PreAddRule } from './interfaces.js';
+import {
+  type PreAddContext,
+  type PreAddPoolAccess,
+  type PreAddResult,
+  type PreAddRule,
+  TxPoolRejectionCode,
+} from './interfaces.js';
 
 /**
  * Pre-add rule that checks if a fee payer has sufficient balance to cover the incoming transaction.
@@ -19,7 +25,7 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
 
   private log = createLogger('p2p:tx_pool_v2:fee_payer_balance_pre_add_rule');
 
-  async check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess): Promise<PreAddResult> {
+  async check(incomingMeta: TxMetaData, poolAccess: PreAddPoolAccess, _context?: PreAddContext): Promise<PreAddResult> {
     // Get fee payer's on-chain balance
     const initialBalance = await poolAccess.getFeePayerBalance(incomingMeta.feePayer);
 
@@ -29,6 +35,7 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
     // Create combined list with incoming tx
     const allTxs: Array<{
       txHash: string;
+      txHashBigInt: bigint;
       priorityFee: bigint;
       feeLimit: bigint;
       claimAmount: bigint;
@@ -36,6 +43,7 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
     }> = [
       ...existingTxs.map(t => ({
         txHash: t.txHash,
+        txHashBigInt: t.txHashBigInt,
         priorityFee: t.priorityFee,
         feeLimit: t.feeLimit,
         claimAmount: t.claimAmount,
@@ -43,6 +51,7 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
       })),
       {
         txHash: incomingMeta.txHash,
+        txHashBigInt: incomingMeta.txHashBigInt,
         priorityFee: incomingMeta.priorityFee,
         feeLimit: incomingMeta.feeLimit,
         claimAmount: incomingMeta.claimAmount,
@@ -78,7 +87,13 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
           return {
             shouldIgnore: true,
             txHashesToEvict: [],
-            reason: `fee payer ${incomingMeta.feePayer} has insufficient balance`,
+            reason: {
+              code: TxPoolRejectionCode.INSUFFICIENT_FEE_PAYER_BALANCE,
+              message: `Fee payer ${incomingMeta.feePayer} has insufficient balance. Balance at transaction: ${available}, required: ${incomingMeta.feeLimit}`,
+              currentBalance: initialBalance,
+              availableBalance: available,
+              feeLimit: incomingMeta.feeLimit,
+            },
           };
         } else {
           // Existing tx cannot be covered after adding incoming - mark for eviction
@@ -93,7 +108,6 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
       return {
         shouldIgnore: true,
         txHashesToEvict: [],
-        reason: 'internal error: tx coverage not determined',
       };
     }
 

@@ -16,7 +16,7 @@ pub struct PrivateToRollupKernelCircuitPublicInputs {
     pub end: PrivateToRollupAccumulatedData,
     pub gas_used: Gas,
     pub fee_payer: AztecAddress,
-    pub include_by_timestamp: u64,
+    pub expiration_timestamp: u64,
 }
 
 impl Empty for PrivateToRollupKernelCircuitPublicInputs {
@@ -26,7 +26,7 @@ impl Empty for PrivateToRollupKernelCircuitPublicInputs {
             constants: TxConstantData::empty(),
             gas_used: Gas::empty(),
             fee_payer: AztecAddress::empty(),
-            include_by_timestamp: 0,
+            expiration_timestamp: 0,
         }
     }
 }

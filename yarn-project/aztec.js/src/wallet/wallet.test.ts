@@ -11,14 +11,20 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
 import {
   ExecutionPayload,
+  type OffchainEffect,
   TxHash,
   TxProfileResult,
   TxReceipt,
   TxSimulationResult,
-  UtilitySimulationResult,
+  UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
 
-import { type InteractionWaitOptions, NO_WAIT, type SendReturn } from '../contract/interaction_options.js';
+import {
+  type InteractionWaitOptions,
+  NO_WAIT,
+  type OffchainMessage,
+  type SendReturn,
+} from '../contract/interaction_options.js';
 import type { AppCapabilities, WalletCapabilities } from './capabilities.js';
 import type {
   Aliased,
@@ -163,7 +169,7 @@ describe('WalletSchema', () => {
     expect(result).toBeInstanceOf(TxSimulationResult);
   });
 
-  it('simulateUtility', async () => {
+  it('executeUtility', async () => {
     const call = FunctionCall.from({
       name: 'testFunction',
       to: await AztecAddress.random(),
@@ -174,11 +180,11 @@ describe('WalletSchema', () => {
       args: [Fr.random()],
       returnTypes: [],
     });
-    const result = await context.client.simulateUtility(call, {
+    const result = await context.client.executeUtility(call, {
       scope: await AztecAddress.random(),
       authWitnesses: [AuthWitness.random()],
     });
-    expect(result).toBeInstanceOf(UtilitySimulationResult);
+    expect(result).toBeInstanceOf(UtilityExecutionResult);
   });
 
   it('profileTx', async () => {
@@ -209,12 +215,14 @@ describe('WalletSchema', () => {
     const resultWithWait = await context.client.sendTx(exec, {
       from: await AztecAddress.random(),
     });
-    expect(resultWithWait).toBeInstanceOf(TxReceipt);
+    expect(resultWithWait.receipt).toBeInstanceOf(TxReceipt);
+    expect(resultWithWait.offchainEffects).toEqual([]);
     const resultWithoutWait = await context.client.sendTx(exec, {
       from: await AztecAddress.random(),
       wait: NO_WAIT,
     });
-    expect(resultWithoutWait).toBeInstanceOf(TxHash);
+    expect(resultWithoutWait.txHash).toBeInstanceOf(TxHash);
+    expect(resultWithoutWait.offchainEffects).toEqual([]);
   });
 
   it('createAuthWit', async () => {
@@ -226,6 +234,8 @@ describe('WalletSchema', () => {
   });
 
   it('requestCapabilities', async () => {
+    const someAddress = await AztecAddress.random();
+    const anotherAddress = await AztecAddress.random();
     const manifest: AppCapabilities = {
       version: '1.0',
       metadata: {
@@ -238,6 +248,14 @@ describe('WalletSchema', () => {
           type: 'accounts',
           canGet: true,
           canCreateAuthWit: true,
+        },
+        {
+          type: 'transaction',
+          scope: [
+            { contract: someAddress, function: 'withdraw', additionalScopes: [anotherAddress] },
+            { contract: someAddress, function: 'transfer' },
+            { contract: someAddress, function: 'deposit', additionalScopes: '*' },
+          ],
         },
       ],
     };
@@ -325,7 +343,7 @@ describe('WalletSchema', () => {
       { name: 'getAccounts', args: [] },
       { name: 'registerContract', args: [mockInstance, mockArtifact, undefined] },
       { name: 'simulateTx', args: [exec, simulateOpts] },
-      { name: 'simulateUtility', args: [call, { scope: address3, authWitnesses: [AuthWitness.random()] }] },
+      { name: 'executeUtility', args: [call, { scope: address3, authWitnesses: [AuthWitness.random()] }] },
       { name: 'profileTx', args: [exec, profileOpts] },
       { name: 'sendTx', args: [exec, opts] },
       { name: 'createAuthWit', args: [address1, { consumer: await AztecAddress.random(), innerHash: Fr.random() }] },
@@ -351,9 +369,12 @@ describe('WalletSchema', () => {
       result: expect.objectContaining({ address: expect.any(AztecAddress) }),
     });
     expect(results[8]).toEqual({ name: 'simulateTx', result: expect.any(TxSimulationResult) });
-    expect(results[9]).toEqual({ name: 'simulateUtility', result: expect.any(UtilitySimulationResult) });
+    expect(results[9]).toEqual({ name: 'executeUtility', result: expect.any(UtilityExecutionResult) });
     expect(results[10]).toEqual({ name: 'profileTx', result: expect.any(TxProfileResult) });
-    expect(results[11]).toEqual({ name: 'sendTx', result: expect.any(TxReceipt) });
+    expect(results[11]).toEqual({
+      name: 'sendTx',
+      result: { receipt: expect.any(TxReceipt), offchainEffects: [], offchainMessages: [] },
+    });
     expect(results[12]).toEqual({ name: 'createAuthWit', result: expect.any(AuthWitness) });
   });
 });
@@ -430,11 +451,11 @@ class MockWallet implements Wallet {
     return Promise.resolve(TxSimulationResult.random());
   }
 
-  simulateUtility(
+  executeUtility(
     _call: any,
     _opts: { scope: AztecAddress; authWitnesses?: AuthWitness[] },
-  ): Promise<UtilitySimulationResult> {
-    return Promise.resolve(UtilitySimulationResult.random());
+  ): Promise<UtilityExecutionResult> {
+    return Promise.resolve(UtilityExecutionResult.random());
   }
 
   profileTx(_exec: ExecutionPayload, _opts: ProfileOptions): Promise<TxProfileResult> {
@@ -446,9 +467,17 @@ class MockWallet implements Wallet {
     opts: SendOptions<W>,
   ): Promise<SendReturn<W>> {
     if (opts.wait === NO_WAIT) {
-      return Promise.resolve(TxHash.random()) as Promise<SendReturn<W>>;
+      return Promise.resolve({
+        txHash: TxHash.random(),
+        offchainEffects: [] as OffchainEffect[],
+        offchainMessages: [] as OffchainMessage[],
+      }) as Promise<SendReturn<W>>;
     }
-    return Promise.resolve(TxReceipt.empty()) as Promise<SendReturn<W>>;
+    return Promise.resolve({
+      receipt: TxReceipt.empty(),
+      offchainEffects: [] as OffchainEffect[],
+      offchainMessages: [] as OffchainMessage[],
+    }) as Promise<SendReturn<W>>;
   }
 
   createAuthWit(_from: AztecAddress, _messageHashOrIntent: any): Promise<AuthWitness> {

@@ -5,7 +5,7 @@ import { EvictionEvent } from './interfaces.js';
 
 /**
  * Eviction rule that removes low-priority transactions when the pool exceeds configured limits.
- * Only triggers on TXS_ADDED events.
+ * Triggers on TXS_ADDED and CHAIN_PRUNED events.
  */
 export class LowPriorityEvictionRule implements EvictionRule {
   public readonly name = 'LowPriorityEviction';
@@ -18,7 +18,7 @@ export class LowPriorityEvictionRule implements EvictionRule {
   }
 
   async evict(context: EvictionContext, pool: PoolOperations): Promise<EvictionResult> {
-    if (context.event !== EvictionEvent.TXS_ADDED) {
+    if (context.event !== EvictionEvent.TXS_ADDED && context.event !== EvictionEvent.CHAIN_PRUNED) {
       return {
         reason: 'low_priority',
         success: true,
@@ -48,19 +48,22 @@ export class LowPriorityEvictionRule implements EvictionRule {
         };
       }
 
-      this.log.verbose(
-        `Evicting low priority txs. Pending tx count above limit: ${currentTxCount} > ${this.maxPoolSize}`,
-      );
+      this.log.info(`Evicting low priority txs. Pending tx count above limit: ${currentTxCount} > ${this.maxPoolSize}`);
       const numberToEvict = currentTxCount - this.maxPoolSize;
       const txsToEvict = pool.getLowestPriorityPending(numberToEvict);
 
       if (txsToEvict.length > 0) {
-        await pool.deleteTxs(txsToEvict);
+        if (context.event === EvictionEvent.TXS_ADDED) {
+          const toEvictSet = new Set(txsToEvict);
+          const numNewTxsEvicted = context.newTxHashes.filter(newTxHash => toEvictSet.has(newTxHash)).length;
+          this.log.info(`Evicted ${txsToEvict.length} low priority txs, including ${numNewTxsEvicted} newly added txs`);
+        } else {
+          this.log.info(`Evicted ${txsToEvict.length} low priority txs after chain prune`);
+        }
+        await pool.deleteTxs(txsToEvict, this.name);
       }
 
-      const numNewTxsEvicted = context.newTxHashes.filter(newTxHash => txsToEvict.includes(newTxHash)).length;
-
-      this.log.verbose(`Evicted ${txsToEvict.length} low priority txs, including ${numNewTxsEvicted} newly added txs`, {
+      this.log.debug(`Evicted ${txsToEvict.length} low priority txs`, {
         txHashes: txsToEvict,
       });
 

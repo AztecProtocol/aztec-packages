@@ -9,7 +9,6 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 
 import { jest } from '@jest/globals';
-import type { Anvil } from '@viem/anvil';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import assert from 'node:assert';
 import {
@@ -28,6 +27,7 @@ import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client, getPublicClient } from '../client.js';
 import { EthCheatCodes } from '../test/eth_cheat_codes.js';
+import type { Anvil } from '../test/start_anvil.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
@@ -41,10 +41,10 @@ import {
   ReadOnlyL1TxUtils,
   TxUtilsState,
   UnknownMinedTxError,
-  createL1TxUtilsFromViemWallet,
+  createL1TxUtils,
   defaultL1TxUtilsConfig,
 } from './index.js';
-import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
+import { L1TxUtils } from './l1_tx_utils.js';
 import { createViemSigner } from './signer.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
@@ -96,8 +96,8 @@ describe('L1TxUtils', () => {
     await anvil.stop().catch(err => createLogger('cleanup').error(err));
   }, 5000);
 
-  describe('L1TxUtilsWithBlobs', () => {
-    let gasUtils: TestL1TxUtilsWithBlobs;
+  describe('L1TxUtils with blobs', () => {
+    let gasUtils: TestL1TxUtils;
     let config: Partial<L1TxUtilsConfig>;
 
     const request = {
@@ -107,7 +107,7 @@ describe('L1TxUtils', () => {
     };
 
     const createL1TxUtils = () =>
-      new TestL1TxUtilsWithBlobs(
+      new TestL1TxUtils(
         l1Client,
         EthAddress.fromString(l1Client.account.address),
         createViemSigner(l1Client),
@@ -117,6 +117,8 @@ describe('L1TxUtils', () => {
         undefined,
         undefined,
         metrics,
+        Blob.getViemKzgInstance(),
+        undefined,
       );
 
     beforeEach(() => {
@@ -135,6 +137,54 @@ describe('L1TxUtils', () => {
       gasUtils.interrupt();
       await gasUtils.waitMonitoringStopped(1);
     });
+
+    it('recovery send reuses nonce after sendRawTransaction fails', async () => {
+      // Send a successful tx first to advance the chain nonce
+      await gasUtils.sendAndMonitorTransaction(request);
+
+      const expectedNonce = await l1Client.getTransactionCount({
+        blockTag: 'pending',
+        address: l1Client.account.address,
+      });
+
+      // Next send fails at sendRawTransaction (e.g. network error / 429)
+      const originalSendRawTransaction = l1Client.sendRawTransaction.bind(l1Client);
+      using _sendSpy = jest
+        .spyOn(l1Client, 'sendRawTransaction')
+        .mockImplementationOnce(() => Promise.reject(new Error('network error')))
+        .mockImplementation(originalSendRawTransaction);
+
+      await expect(gasUtils.sendTransaction(request)).rejects.toThrow('network error');
+
+      // Recovery send should reuse the same nonce (not skip ahead)
+      const { txHash, state: recoveryState } = await gasUtils.sendTransaction(request);
+
+      expect(recoveryState.nonce).toBe(expectedNonce);
+      expect((await l1Client.getTransaction({ hash: txHash })).nonce).toBe(expectedNonce);
+    }, 30_000);
+
+    it('bumps nonce when getTransactionCount returns a stale value after a successful send', async () => {
+      // Send a successful tx first to advance the chain nonce
+      await gasUtils.sendAndMonitorTransaction(request);
+
+      const expectedNonce = await l1Client.getTransactionCount({
+        blockTag: 'pending',
+        address: l1Client.account.address,
+      });
+
+      // Simulate a stale fallback RPC node that returns the pre-send nonce
+      const originalGetTransactionCount = l1Client.getTransactionCount.bind(l1Client);
+      using _spy = jest
+        .spyOn(l1Client, 'getTransactionCount')
+        .mockImplementationOnce(() => Promise.resolve(expectedNonce - 1)) // stale: one behind
+        .mockImplementation(originalGetTransactionCount);
+
+      // Despite the stale count, the send should use lastSentNonce+1 = expectedNonce
+      const { txHash, state } = await gasUtils.sendTransaction(request);
+
+      expect(state.nonce).toBe(expectedNonce);
+      expect((await l1Client.getTransaction({ hash: txHash })).nonce).toBe(expectedNonce);
+    }, 30_000);
 
     // Regression for TMNT-312
     it('speed-up of blob tx sets non-zero maxFeePerBlobGas', async () => {
@@ -915,6 +965,23 @@ describe('L1TxUtils', () => {
       expect(gasUtils.state).toBe(TxUtilsState.MINED);
       expect(result.receipt.status).toBe('reverted');
     });
+
+    it('does not consume nonce when transaction times out before sending', async () => {
+      // first send a transaction to advance the nonce
+      await gasUtils.sendAndMonitorTransaction(request);
+      // Get the expected nonce before any transaction
+      const expectedNonce = await l1Client.getTransactionCount({ address: l1Client.account.address });
+
+      // Try to send with an already-expired timeout (epoch 0 is well in the past)
+      const pastTimeout = new Date(0);
+      await expect(gasUtils.sendTransaction(request, { txTimeoutAt: pastTimeout })).rejects.toThrow(
+        /timed out before sending/,
+      );
+
+      // The next transaction should use the same nonce (not skip one due to a leaked consume)
+      const { state } = await gasUtils.sendTransaction(request);
+      expect(state.nonce).toBe(expectedNonce);
+    }, 10_000);
 
     it('stops trying after timeout once block is mined', async () => {
       await cheatCodes.setAutomine(false);
@@ -1777,7 +1844,7 @@ describe('L1TxUtils', () => {
     });
 
     it('L1TxUtils can be instantiated with wallet client and has write methods', () => {
-      const l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, { logger });
+      const l1TxUtils = createL1TxUtils(walletClient, { logger });
       expect(l1TxUtils).toBeDefined();
       expect(l1TxUtils.client).toBe(walletClient);
 
@@ -1789,7 +1856,7 @@ describe('L1TxUtils', () => {
     });
 
     it('L1TxUtils inherits all read-only methods from ReadOnlyL1TxUtils', () => {
-      const l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, { logger });
+      const l1TxUtils = createL1TxUtils(walletClient, { logger });
 
       // Verify all read-only methods are available
       expect(l1TxUtils.getBlock).toBeDefined();
@@ -1803,13 +1870,13 @@ describe('L1TxUtils', () => {
 
     it('L1TxUtils cannot be instantiated with public client', () => {
       expect(() => {
-        createL1TxUtilsFromViemWallet(publicClient as any, { logger });
+        createL1TxUtils(publicClient as any, { logger });
       }).toThrow();
     });
   });
 });
 
-class TestL1TxUtilsWithBlobs extends L1TxUtilsWithBlobs {
+class TestL1TxUtils extends L1TxUtils {
   declare public txs: L1TxState[];
 
   public setMetrics(metrics: IL1TxMetrics) {

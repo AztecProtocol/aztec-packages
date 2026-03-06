@@ -77,6 +77,12 @@ function validate-ts {
   (cd ts && ./bootstrap.sh "$@")
 }
 
+function execute-examples {
+  echo_header "Executing TypeScript documentation examples"
+  local COMPOSE_DIR="$REPO_ROOT/docs/examples/ts"
+  run_compose_test "docs_examples" "docs-examples" "$COMPOSE_DIR"
+}
+
 ##############################################################################
 # CI failure handling - send Slack notifications instead of blocking the build
 ##############################################################################
@@ -135,7 +141,7 @@ function send_slack_message {
 FAILED_STEPS=()
 FAILED_OUTPUTS=()
 
-# Run a step, collect failure if it fails
+# Run a step with retry, collect failure if it fails
 function run_step {
   local step_name=$1
   local step_func=$2
@@ -148,8 +154,18 @@ function run_step {
   set -e
   echo "$output"
 
+  # Retry once on failure
   if [[ $exit_code -ne 0 ]]; then
-    echo "WARNING: $step_name failed (exit code $exit_code)"
+    echo "WARNING: $step_name failed (exit code $exit_code), retrying..."
+    set +e
+    output=$($step_func 2>&1)
+    exit_code=$?
+    set -e
+    echo "$output"
+  fi
+
+  if [[ $exit_code -ne 0 ]]; then
+    echo "WARNING: $step_name failed after retry (exit code $exit_code)"
     FAILED_STEPS+=("$step_name")
     FAILED_OUTPUTS+=("$output")
   fi
@@ -194,9 +210,15 @@ case "$cmd" in
     run_step "Compile (Noir contracts)" compile
     run_step "Compile (Solidity)" compile-solidity
     run_step "TypeScript validation" validate-ts
+    run_step "Execute examples" execute-examples
 
     if [[ ${#FAILED_STEPS[@]} -gt 0 ]]; then
       send_failure_slack_message
+      # Block PRs on failure, but allow merge queue to proceed (may be transient infra issues)
+      if [[ ! "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
+        echo "ERROR: Docs examples validation failed. Failing the build."
+        exit 1
+      fi
     fi
     ;;
   compile-circuits)
@@ -204,6 +226,9 @@ case "$cmd" in
     ;;
   compile-solidity)
     compile-solidity
+    ;;
+  execute)
+    execute-examples
     ;;
   *)
     default_cmd_handler "$@"

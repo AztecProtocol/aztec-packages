@@ -1,7 +1,7 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress, L2BlockId } from '@aztec/stdlib/block';
-import type { P2PApiFull } from '@aztec/stdlib/interfaces/server';
-import type { BlockProposal, CheckpointAttestation, CheckpointProposal, P2PClientType } from '@aztec/stdlib/p2p';
+import type { ITxProvider, P2PClient } from '@aztec/stdlib/interfaces/server';
+import type { BlockProposal, CheckpointAttestation, CheckpointProposal, TopicType } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -48,7 +48,7 @@ export interface P2PSyncState {
 /**
  * Interface of a P2P client.
  **/
-export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & {
+export type P2P = P2PClient & {
   /**
    * Broadcasts a block proposal to other peers.
    *
@@ -108,13 +108,6 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   sendTx(tx: Tx): Promise<void>;
 
   /**
-   * Adds transactions to the pool. Does not send to peers or validate the tx.
-   * @param txs - The transactions.
-   * @returns The number of txs added to the pool. Note if the transaction already exists, it will not be added again.
-   **/
-  addTxsToPool(txs: Tx[]): Promise<number>;
-
-  /**
    * Handles failed transaction execution by removing txs from the pool.
    * @param txHashes - Hashes of the transactions that failed execution.
    **/
@@ -140,14 +133,6 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
    * @returns True or False for each hash
    */
   hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]>;
-
-  /**
-   * Returns transactions in the transaction pool by hash, requesting from the network if not found.
-   * @param txHashes  - Hashes of tx to return.
-   * @param pinnedPeerId - An optional peer id that will be used to request the tx from (in addition to other random peers).
-   * @returns An array of tx or undefined.
-   */
-  getTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId | undefined): Promise<(Tx | undefined)[]>;
 
   /**
    * Returns an archived transaction from the transaction pool by its hash.
@@ -220,10 +205,13 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   /** Identifies a p2p client. */
   isP2PClient(): true;
 
+  /** Returns the tx provider used for fetching transactions. */
+  getTxProvider(): ITxProvider;
+
   updateP2PConfig(config: Partial<P2PConfig>): Promise<void>;
 
-  /** Validates a set of txs. */
-  validate(txs: Tx[]): Promise<void>;
+  /** Validates a set of txs received in a block proposal. */
+  validateTxsReceivedInBlockProposal(txs: Tx[]): Promise<void>;
 
   /** Clears the db. */
   clear(): Promise<void>;
@@ -241,4 +229,7 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
 
   /** If node running this P2P stack is validator, passes in validator address to P2P layer */
   registerThisValidatorAddresses(address: EthAddress[]): void;
+
+  /** Returns the number of peers in the GossipSub mesh for a given topic type. */
+  getGossipMeshPeerCount(topicType: TopicType): Promise<number>;
 };

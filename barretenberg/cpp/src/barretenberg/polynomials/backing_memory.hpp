@@ -88,7 +88,8 @@ template <typename Fr> struct BackingMemory {
         return *this;
     }
 
-    // Allocate memory, preferring file-backed if in low memory mode
+    // Allocate memory, preferring file-backed if in low memory mode.
+    // Memory is NOT zeroed — callers that need zeroed memory must do so themselves.
     static BackingMemory allocate(size_t size)
     {
         BackingMemory memory;
@@ -106,11 +107,19 @@ template <typename Fr> struct BackingMemory {
     ~BackingMemory() = default;
 
   private:
+    // Use new Fr[] instead of std::make_shared<Fr[]>(n) to avoid serial
+    // value-initialization (zeroing). Polynomial's constructor handles
+    // zeroing in parallel where needed.
     static void allocate_aligned(BackingMemory& memory, size_t size)
     {
-        // Fr has alignas on it so this is fine post c++20.
-        memory.aligned_memory = std::make_shared<Fr[]>(size);
-        memory.raw_data = memory.aligned_memory.get();
+        if (size == 0) {
+            memory.aligned_memory = nullptr;
+            memory.raw_data = nullptr;
+            return;
+        }
+        Fr* ptr = new Fr[size];
+        memory.aligned_memory = std::shared_ptr<Fr[]>(ptr, [](Fr* p) { delete[] p; });
+        memory.raw_data = ptr;
     }
 
 #ifndef __wasm__
@@ -120,12 +129,21 @@ template <typename Fr> struct BackingMemory {
             return false;
         }
 
-        size_t required_bytes = size * sizeof(Fr);
-        size_t current_usage = current_storage_usage.load();
-
-        // Check if we're under the storage budget
-        if (current_usage + required_bytes > storage_budget) {
+        if (size > std::numeric_limits<size_t>::max() / sizeof(Fr)) {
             return false;
+        }
+
+        size_t required_bytes = size * sizeof(Fr);
+
+        // Check and update storage usage to enforce budget
+        size_t current_usage = current_storage_usage.load();
+        while (true) {
+            if (current_usage + required_bytes > storage_budget) {
+                return false;
+            }
+            if (current_storage_usage.compare_exchange_weak(current_usage, current_usage + required_bytes)) {
+                break;
+            }
         }
 
         size_t file_size = required_bytes;
@@ -143,12 +161,14 @@ template <typename Fr> struct BackingMemory {
 
         int fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
         if (fd < 0) {
+            current_storage_usage.fetch_sub(required_bytes);
             return false;
         }
 
         if (ftruncate(fd, static_cast<off_t>(file_size)) != 0) {
             close(fd);
             std::filesystem::remove(filename);
+            current_storage_usage.fetch_sub(required_bytes);
             return false;
         }
 
@@ -156,6 +176,7 @@ template <typename Fr> struct BackingMemory {
         if (addr == MAP_FAILED) {
             close(fd);
             std::filesystem::remove(filename);
+            current_storage_usage.fetch_sub(required_bytes);
             return false;
         }
 
@@ -167,8 +188,6 @@ template <typename Fr> struct BackingMemory {
 
         memory.raw_data = static_cast<Fr*>(addr);
         memory.file_backed = std::move(file_backed_data);
-
-        current_storage_usage.fetch_add(required_bytes);
 
         return true;
     }

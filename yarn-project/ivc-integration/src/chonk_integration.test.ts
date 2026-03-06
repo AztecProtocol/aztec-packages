@@ -1,7 +1,8 @@
-import { AztecClientBackend, BackendType, Barretenberg } from '@aztec/bb.js';
+import { AztecClientBackend, BackendType, Barretenberg, toChonkProof } from '@aztec/bb.js';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
+import { Decoder } from 'msgpackr';
 import { ungzip } from 'pako';
 
 import {
@@ -59,6 +60,29 @@ describe.each([BackendType.Wasm, BackendType.NativeUnixSocket])('Client IVC Inte
       const [, proof, vk] = await backend.prove(witnessStack, vks);
       const verified = await backend.verify(proof, vk);
       expect(verified).toBe(true);
+    });
+
+    it('Should compress and decompress a client IVC proof via bbapi', async () => {
+      const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(1, 0);
+      const ivcBackend = new AztecClientBackend(bytecodes, barretenberg);
+      const [, proof, vk] = await ivcBackend.prove(witnessStack, vks);
+
+      // Decode the msgpack-encoded proof back to a ChonkProof object
+      const chonkProof = toChonkProof(new Decoder({ useRecords: false }).decode(proof));
+
+      // Compress via bbapi
+      const compressResult = await barretenberg.chonkCompressProof({ proof: chonkProof });
+      expect(compressResult.compressedProof.length).toBeGreaterThan(0);
+      logger.info(`Compressed proof: ${compressResult.compressedProof.length} bytes`);
+
+      // Decompress via bbapi
+      const decompressResult = await barretenberg.chonkDecompressProof({
+        compressedProof: compressResult.compressedProof,
+      });
+
+      // Verify the decompressed proof matches the original
+      const verified = await barretenberg.chonkVerify({ proof: decompressResult.proof, vk });
+      expect(verified.valid).toBe(true);
     });
 
     it('Should generate an array of gate numbers for the stack of programs being proved by ClientIVC', async () => {

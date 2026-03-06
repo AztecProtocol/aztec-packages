@@ -3,6 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {CompressedSlot} from "@aztec/shared/libraries/CompressedTimeMath.sol";
+import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 // We are using a type instead of a struct as we don't want to throw away a full 8 bits
@@ -102,13 +103,14 @@ library FeeHeaderLib {
   function compress(FeeHeader memory _feeHeader) internal pure returns (CompressedFeeHeader) {
     uint256 value = 0;
     value |= uint256(_feeHeader.manaUsed.toUint32());
-    value |= uint256(_feeHeader.excessMana.toUint48()) << 32;
+    // Cap excessMana to uint48 max to prevent overflow during compression.
+    value |= Math.min(_feeHeader.excessMana, MASK_48_BITS) << 32;
     value |= uint256(_feeHeader.ethPerFeeAsset.toUint48()) << 80;
-    value |= uint256(_feeHeader.congestionCost.toUint64()) << 128;
-
-    uint256 proverCost = uint256(_feeHeader.proverCost.toUint64());
-    require(proverCost == proverCost & MASK_63_BITS);
-    value |= proverCost << 192;
+    // Cap congestionCost to uint64 max to prevent overflow during compression.
+    // The uncapped value is still used for fee validation; this only affects storage.
+    value |= Math.min(_feeHeader.congestionCost, MASK_64_BITS) << 128;
+    // Cap proverCost to uint63 max to prevent overflow during compression.
+    value |= Math.min(_feeHeader.proverCost, MASK_63_BITS) << 192;
 
     // Preheat
     value |= 1 << 255;

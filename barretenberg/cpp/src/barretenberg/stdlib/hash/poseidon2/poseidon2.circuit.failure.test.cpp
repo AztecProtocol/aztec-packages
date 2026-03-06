@@ -1,7 +1,7 @@
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
-#include "barretenberg/ultra_honk/witness_computation.hpp"
+#include "barretenberg/ultra_honk/witness_computation_test_utils.hpp"
 
 #include <gtest/gtest.h>
 
@@ -69,7 +69,7 @@ class Poseidon2FailureTests : public ::testing::Test {
         const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N;
 
         // Complete the prover instance (compute selectors, relation parameters, etc.)
-        WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_instance);
+        complete_prover_instance_for_test<Flavor>(prover_instance);
 
         auto prover_transcript = Transcript::test_prover_init_empty();
 

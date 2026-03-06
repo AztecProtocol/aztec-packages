@@ -103,13 +103,13 @@ jobs:
         run: |
           # Fetch the environment-specific secrets
           FUNDING_PRIVATE_KEY=$(gcloud secrets versions access latest --secret="sepolia-funding-private-key" --project="$GCP_PROJECT_ID")
+          echo "::add-mask::$FUNDING_PRIVATE_KEY"
 
           # Export to environment
           echo "FUNDING_PRIVATE_KEY=$FUNDING_PRIVATE_KEY" >> $GITHUB_ENV
 
       - name: Ensure funded environment
         env:
-          FUNDING_PRIVATE_KEY: ${{ env.FUNDING_PRIVATE_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           NAMESPACE: ${{ inputs.namespace }}
         run: |

@@ -1,7 +1,7 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
-import { L1TxUtils, createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
+import { L1TxUtils, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { sleep } from '@aztec/foundation/sleep';
 import {
@@ -60,7 +60,7 @@ describe('e2e_p2p_governance_proposer', () => {
     await t.setup();
     await t.applyBaseSetup();
 
-    l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
+    l1TxUtils = createL1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
   });
 
   afterEach(async () => {

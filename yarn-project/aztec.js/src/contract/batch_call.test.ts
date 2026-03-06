@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { ExecutionPayload, TxSimulationResult, UtilitySimulationResult } from '@aztec/stdlib/tx';
+import { ExecutionPayload, TxSimulationResult, UtilityExecutionResult } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -107,8 +107,8 @@ describe('BatchCall', () => {
       batchCall = new BatchCall(wallet, [utilityPayload1, privatePayload, utilityPayload2, publicPayload]);
 
       // Mock utility simulation results
-      const utilityResult1 = UtilitySimulationResult.random();
-      const utilityResult2 = UtilitySimulationResult.random();
+      const utilityResult1 = UtilityExecutionResult.random();
+      const utilityResult2 = UtilityExecutionResult.random();
 
       // Mock tx simulation result
       const privateReturnValues = [Fr.random(), Fr.random()];
@@ -119,11 +119,12 @@ describe('BatchCall', () => {
         nested: [{ values: privateReturnValues }],
       } as any);
       txSimResult.getPublicReturnValues.mockReturnValue([{ values: publicReturnValues }] as any);
+      Object.defineProperty(txSimResult, 'offchainEffects', { value: [] });
 
       // Mock wallet.batch to return both utility results and simulateTx result
       wallet.batch.mockResolvedValue([
-        { name: 'simulateUtility', result: utilityResult1 },
-        { name: 'simulateUtility', result: utilityResult2 },
+        { name: 'executeUtility', result: utilityResult1 },
+        { name: 'executeUtility', result: utilityResult2 },
         { name: 'simulateTx', result: txSimResult },
       ] as any);
 
@@ -133,14 +134,14 @@ describe('BatchCall', () => {
       expect(wallet.batch).toHaveBeenCalledTimes(1);
       expect(wallet.batch).toHaveBeenCalledWith([
         {
-          name: 'simulateUtility',
+          name: 'executeUtility',
           args: [
             expect.objectContaining({ name: 'getBalance', to: contractAddress1 }),
             expect.objectContaining({ scope: expect.any(AztecAddress) }),
           ],
         },
         {
-          name: 'simulateUtility',
+          name: 'executeUtility',
           args: [
             expect.objectContaining({ name: 'checkPermission', to: contractAddress3 }),
             expect.objectContaining({ scope: expect.any(AztecAddress) }),
@@ -160,19 +161,19 @@ describe('BatchCall', () => {
         },
       ]);
 
-      // Verify wallet.simulateTx/simulateUtility were NOT called directly
+      // Verify wallet.simulateTx/executeUtility were NOT called directly
       expect(wallet.simulateTx).not.toHaveBeenCalled();
-      expect(wallet.simulateUtility).not.toHaveBeenCalled();
+      expect(wallet.executeUtility).not.toHaveBeenCalled();
 
       expect(results).toHaveLength(4);
       // First utility - decoded from Fr[] to bigint (single field returns the value directly, not as array)
-      expect(results[0]).toEqual(utilityResult1.result[0].toBigInt());
+      expect(results[0].result).toEqual(utilityResult1.result[0].toBigInt());
       // Results[1] will be the decoded private values (decoded from privateReturnValues)
-      expect(results[1]).toEqual(privateReturnValues.map(v => v.toBigInt())); // Private call (decoded)
+      expect(results[1].result).toEqual(privateReturnValues.map(v => v.toBigInt())); // Private call (decoded)
       // Second utility - decoded from Fr[] to bigint
-      expect(results[2]).toEqual(utilityResult2.result[0].toBigInt());
+      expect(results[2].result).toEqual(utilityResult2.result[0].toBigInt());
       // Results[3] will be the decoded public value (single value is returned directly, not as array)
-      expect(results[3]).toEqual(publicReturnValues[0].toBigInt()); // Public call (decoded)
+      expect(results[3].result).toEqual(publicReturnValues[0].toBigInt()); // Public call (decoded)
     });
 
     it('should handle only utility calls without calling simulateTx', async () => {
@@ -184,13 +185,13 @@ describe('BatchCall', () => {
 
       batchCall = new BatchCall(wallet, [utilityPayload1, utilityPayload2]);
 
-      // Mock utility simulation results
-      const utilityResult1 = UtilitySimulationResult.random();
-      const utilityResult2 = UtilitySimulationResult.random();
+      // Mock utility execution results
+      const utilityResult1 = UtilityExecutionResult.random();
+      const utilityResult2 = UtilityExecutionResult.random();
 
       wallet.batch.mockResolvedValue([
-        { name: 'simulateUtility', result: utilityResult1 },
-        { name: 'simulateUtility', result: utilityResult2 },
+        { name: 'executeUtility', result: utilityResult1 },
+        { name: 'executeUtility', result: utilityResult2 },
       ] as any);
 
       const results = await batchCall.simulate({ from: await AztecAddress.random() });
@@ -198,14 +199,14 @@ describe('BatchCall', () => {
       expect(wallet.batch).toHaveBeenCalledTimes(1);
       expect(wallet.batch).toHaveBeenCalledWith([
         {
-          name: 'simulateUtility',
+          name: 'executeUtility',
           args: [
             expect.objectContaining({ name: 'view1', to: contractAddress1 }),
             expect.objectContaining({ scope: expect.any(AztecAddress) }),
           ],
         },
         {
-          name: 'simulateUtility',
+          name: 'executeUtility',
           args: [
             expect.objectContaining({ name: 'view2', to: contractAddress2 }),
             expect.objectContaining({ scope: expect.any(AztecAddress) }),
@@ -215,8 +216,8 @@ describe('BatchCall', () => {
 
       // Verify results - decoded from Fr[] to bigint
       expect(results).toHaveLength(2);
-      expect(results[0]).toEqual(utilityResult1.result[0].toBigInt());
-      expect(results[1]).toEqual(utilityResult2.result[0].toBigInt());
+      expect(results[0].result).toEqual(utilityResult1.result[0].toBigInt());
+      expect(results[1].result).toEqual(utilityResult2.result[0].toBigInt());
     });
 
     it('should handle only private/public calls using wallet.batch with simulateTx', async () => {
@@ -236,6 +237,7 @@ describe('BatchCall', () => {
         nested: [{ values: privateReturnValues }],
       } as any);
       txSimResult.getPublicReturnValues.mockReturnValue([{ values: publicReturnValues }] as any);
+      Object.defineProperty(txSimResult, 'offchainEffects', { value: [] });
 
       wallet.batch.mockResolvedValue([{ name: 'simulateTx', result: txSimResult }] as any);
 
@@ -259,8 +261,8 @@ describe('BatchCall', () => {
 
       // Verify results (decoded)
       expect(results).toHaveLength(2);
-      expect(results[0]).toEqual(privateReturnValues[0].toBigInt()); // Single value returned directly
-      expect(results[1]).toEqual(publicReturnValues[0].toBigInt()); // Single value returned directly
+      expect(results[0].result).toEqual(privateReturnValues[0].toBigInt()); // Single value returned directly
+      expect(results[1].result).toEqual(publicReturnValues[0].toBigInt()); // Single value returned directly
     });
 
     it('should handle empty batch', async () => {

@@ -122,8 +122,8 @@ describe('InvalidTxsAfterMiningRule', () => {
           numberOfRevertiblePublicCallRequests: 0,
         });
 
-        mockTx1.data.includeByTimestamp = 500n;
-        mockTx2.data.includeByTimestamp = 1500n;
+        mockTx1.data.expirationTimestamp = 500n;
+        mockTx2.data.expirationTimestamp = 1500n;
 
         const pendingTxs: PendingTxInfo[] = [
           { blockHash: Fr.ZERO, txHash: tx1, isEvictable: true },

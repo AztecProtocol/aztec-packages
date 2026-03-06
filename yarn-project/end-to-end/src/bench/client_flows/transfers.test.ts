@@ -151,7 +151,7 @@ describe('Transfer benchmark', () => {
 
             if (process.env.SANITY_CHECKS) {
               // Ensure we paid a fee
-              const tx = await transferInteraction.send(options);
+              const { receipt: tx } = await transferInteraction.send(options);
               expect(tx.transactionFee!).toBeGreaterThan(0n);
 
               // Sanity checks
@@ -179,7 +179,7 @@ describe('Transfer benchmark', () => {
                */
               expect(txEffects!.data.noteHashes.length).toBe(2 + (benchmarkingPaymentMethod === 'private_fpc' ? 2 : 0));
 
-              const senderBalance = await asset.methods
+              const { result: senderBalance } = await asset.methods
                 .balance_of_private(benchysAddress)
                 .simulate({ from: benchysAddress });
               expect(senderBalance).toEqual(expectedChange);

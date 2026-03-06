@@ -6,13 +6,14 @@ export const TX_ERROR_GAS_LIMIT_TOO_HIGH = 'Gas limit is higher than the amount 
 
 // Phases
 export const TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED = 'Setup function not on allow list';
+export const TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT = 'Setup function targets unknown contract';
 
 // Nullifiers
 export const TX_ERROR_DUPLICATE_NULLIFIER_IN_TX = 'Duplicate nullifier in tx';
 export const TX_ERROR_EXISTING_NULLIFIER = 'Existing nullifier';
 
 // Metadata
-export const TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP = 'Invalid expiration timestamp';
+export const TX_ERROR_INVALID_EXPIRATION_TIMESTAMP = 'Invalid expiration timestamp';
 export const TX_ERROR_INCORRECT_L1_CHAIN_ID = 'Incorrect L1 chain id';
 export const TX_ERROR_INCORRECT_ROLLUP_VERSION = 'Incorrect rollup version';
 export const TX_ERROR_INCORRECT_VK_TREE_ROOT = 'Incorrect verification keys tree root';

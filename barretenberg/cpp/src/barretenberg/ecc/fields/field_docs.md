@@ -1,33 +1,92 @@
 Prime field documentation    {#field_docs}
 ===
-Barretenberg has its own implementation of finite field arithmetic. The implementation targets 254 (bn254, grumpkin) and 256-bit (secp256k1, secp256r1) fields. Internally the field is represented as a little-endian C-array of 4 uint64_t limbs.
+Barretenberg has its own implementation of finite field arithmetic. The implementation targets 254-bit (bn254, grumpkin) and 256-bit (secp256k1, secp256r1) fields. Internally the field is represented as a little-endian C-array of 4 uint64_t limbs. For 254-bit fields, the internal representation must be in the range $[0, 2p)$ (which we refer to as the _coarse representation_), while for 256-bit fields the internal representation is an arbitrary `uint256_t`.
 
 ## Field arithmetic
 ### Introduction to Montgomery form {#field_docs_montgomery_explainer}
-We use Montgomery reduction to speed up field multiplication. For an original element  \f$ a ∈ F_p\f$ the element is represented internally as $$ a⋅R\ mod\ p$$ where \f$R = 2^d\ mod\ p\f$. The chosen \f$d\f$ depends on the build configuration:
-1. \f$d=29⋅9=261\f$ for builds that don't support the uint128_t type, for example, for WASM build
-2. \f$d=64⋅4=256\f$ for standard builds (x86_64).
+We use Montgomery multiplication to speed up field multiplication. For an original element  $ a \in \mathbb F_p$ the element is represented internally as $$ a⋅R\ mod\ p$$ where $R = 2^d\ mod\ p$. The chosen $d$ depends on the build configuration:
+1. $d=29⋅9=261$ for builds that don't support the `uint128_t` type, for example, for WASM build
+2. $d=64⋅4=256$ for standard builds (x86_64).
 
-The goal of using Montgomery form is to avoid heavy division modulo \f$p\f$. To compute a representative of element $$c = a⋅b\ mod\ p$$ we compute $$c⋅R = (a⋅R)⋅(b⋅R) / R\ mod\ p$$, but we use an efficient division trick to avoid straight modular division. Let's look into the standard 4⋅64 case:
+The goal of using Montgomery form is to avoid heavy division modulo $p$. To compute a representative of element $$c = a⋅b\ mod\ p$$ we compute $$c⋅R = (a⋅R)⋅(b⋅R) / R\ mod\ p,$$ but we use an efficient division trick to avoid the naive modular division. Let's look into the standard 4⋅64 case:
 1. First, we compute the value $$c_r=c⋅R⋅R = aR⋅bR$$ in integers and get a value with 8 64-bit limbs
-2. Then we take the lowest limb of \f$c_r\f$ (\f$c_r[0]\f$) and multiply it by a special value $$r_{inv} = -1 ⋅ p^{-1}\ mod\  2^{64}$$ As a result we get $$k = r_{inv}⋅ c_r[0]\ mod\ 2^{64}$$
-3. Next we update \f$c_r\f$ in integers by adding a value \f$k⋅p\f$: $$c_r += k⋅p$$ You might notice that the value of \f$c_r\ mod\ p\f$ hasn't changed, since we've added a multiple of the modulus. At the same time, if we look at the expression modulo \f$2^{64}\f$: $$c_r + k⋅p = c_r + c_r⋅r_{inv}⋅p = c_r + c_r⋅ (-1)⋅p^{-1}⋅p = c_r - c_r = 0\ mod\ 2^{64}$$ The result is equivalent modulo \f$p\f$, but we zeroed out the lowest limb
-4. We perform the same operation for \f$c_r[1]\f$, but instead of adding \f$k⋅p\f$, we add \f$2^{64}⋅k⋅p\f$. In the implementation, instead of adding \f$k⋅ p\f$ to limbs of \f$c_r\f$ starting with zero, we just start with limb 1. This ensures that \f$c_r[1]=0\f$. We then perform the same operation for 2 more limbs.
-5. At this stage we are left with a version of \f$c_r\f$ where the first 4 limbs of the total 8 limbs are zero. So if we treat the 4 high limbs as a separate integer \f$c_{r.high}\f$, $$c_r = c_{r.high}⋅2^{256}=c_{r.high}⋅R\ mod\ p \Rightarrow c_{r.high} = c\cdot R\ mod\ p$$ and we can get the evaluation simply by taking the 4 high limbs of \f$c_r\f$.
-6. The previous step has reduced the intermediate value of \f$cR\f$ to range \f$[0,2p)\f$, so we must check if it is more than \f$p\f$ and subtract the modulus once if it overflows.
+2. Then we take the lowest limb of $c_r$ (i.e., $c_r[0]$) and multiply it by a special _precomputed_ value $$r_{inv} = -1 ⋅ p^{-1}\ mod\  2^{64}$$ As a result we get $$k = r_{inv}⋅ c_r[0]\ mod\ 2^{64}$$
+3. Next we update $c_r$ in integers by adding $k⋅p$: $$c_r += k⋅p$$ You might notice that the value of $c_r\ mod\ p$ hasn't changed, since we've added a multiple of the modulus. At the same time, if we look at the expression modulo $2^{64}$: $$c_r + k⋅p = c_r + c_r⋅r_{inv}⋅p = c_r + c_r⋅ (-1)⋅p^{-1}⋅p = c_r - c_r = 0\ mod\ 2^{64}.$$ The result is equivalent modulo $p$, but we zeroed out the lowest limb
+4. We perform the same operation for $c_r[1]$, but instead of adding $k⋅p$, we add $2^{64}⋅k⋅p$. In the implementation, instead of adding $k⋅ p$ to limbs of $c_r$ starting with zero, we just start with limb 1. This ensures that $c_r[1]=0$. We then perform the same operation for 2 more limbs.
+5. At this stage the array $c_r$ has the property that the first 4 limbs of the total 8 limbs are zero. So if we treat the 4 high limbs as a separate integer $c_{r.high}$, $$c_r = c_{r.high}⋅2^{256}=c_{r.high}⋅R\ mod\ p \Rightarrow c_{r.high} = c\cdot R\ mod\ p$$ and we can get the evaluation simply by taking the 4 high limbs of $c_r$.
+6. The previous step has reduced the intermediate value of $cR$ to range $[0,2p)$, so we must check if it is more than $p$ and subtract the modulus once if it overflows.
 
-Why does this work? Originally both \f$aR\f$ and \f$bR\f$ are less than the modulus \f$p\f$ in integers, so $$aR\cdot bR <= (p-1)^2$$ During each of the \f$k\cdot p\f$ addition rounds we can add at most \f$(2^{64}-1)p\f$ to corresponding digits, so at most we add \f$(2^{256}-1)p\f$ and the total is $$aR\cdot bR + k_{0,1,2,3}p \le (p-1)^2+(2^{256}-1)p < 2\cdot 2^{256}p \Rightarrow c_{r.high} = \frac{aR\cdot bR + k_{0,1,2,3}p}{2^{256}} < 2p$$.
+On a high level, what we are doing is iteratively adding a multiple of $p$ until the current bottom limb is zero, then shifting by a limb (amounting to dividing by $2^{64}$).
+#### Bounds analysis
+Why does this work? We present several versions of the analysis, for completeness.
 
-For bn254 scalar and base fields we can do even better by employing a simple trick. The moduli of both fields are 254 bits, while 4 64-bit limbs allow 256 bits of storage. We relax the internal representation to use values in range \f$[0,2p)\f$. The addition, negation and subtraction operation logic doesn't change, we simply replace the modulus \f$p\f$ with \f$2p\f$, but the multiplication becomes more efficient. The multiplicands are in range \f$[0,2p)\f$, but we add multiples of modulus \f$p\f$ to reduce limbs, not \f$2p\f$. If we revisit the \f$c_r\f$ formula:
+* Suppose both $aR$ and $bR$ are less than the modulus $p$ in integers, so $$aR\cdot bR <= (p-1)^2.$$ During each of the $k\cdot p$ addition rounds we can add at most $(2^{64}-1)p$ to the corresponding digits, so at most we add $(2^{256}-1)p$ and the total is $$aR\cdot bR + k_{0,1,2,3}p \le (p-1)^2+(2^{256}-1)p < 2\cdot 2^{256}p \Rightarrow c_{r.high} = \frac{aR\cdot bR + k_{0,1,2,3}p}{2^{256}} < 2p.$$
+
+* For our 256-bit fields, we _cannot_ assume that $aR$ and $bR$ are less than the modulus $p$; we simply know that they are 256-bit numbers. Nonetheless, the same analysis shows that the output is less than $2^{256} + p -1$. This means that (conditionally) subtracting one copy of $p$ is enough to get us to the valid range of $[0, 2^{256})$.
+
+* For 254-bit fields (e.g. the BN-254 base and scalar fields) we can do even better by employing a simple trick. Note that 4 64-bit limbs allow 256 bits of storage. We relax the internal representation to use values in range $[0,2p)$. The addition, negation and subtraction operation logic doesn't change, we simply replace the modulus $p$ with $2p$, but the multiplication becomes more efficient. The multiplicands are in range $[0,2p)$, but we add multiples of modulus $p$ to reduce limbs, not $2p$. If we revisit the $c_r$ formula:
 $$aR\cdot bR + k_{0,1,2,3}p \le (2p-1)^2+(2^{256}-1)p = 2^{256}p+4p^2-5p+1 \Rightarrow$$ $$\Rightarrow c_{r.high} = \frac{aR\cdot bR + k_{0,1,2,3}p}{2^{256}} \le \frac{2^{256}p+4p^2-5p+1}{2^{256}}=p +\frac{4p^2 - 5p +1}{2^{256}}, 4p < 2^{256} \Rightarrow$$ $$\Rightarrow p +\frac{4p^2 - 5p +1}{2^{256}} < 2p$$ So we ended in the same range and we don't have to perform additional reductions.
 
-**N.B.** In the code we refer to this form as coarse
+**N.B.** In the code we refer to this form, when the limbs are only constrained to be in the range $[0,2p)$, as the coarse-representation.
 
+### Yuval reduction
+For our 254-bit multiplication in WASM, we use a reduction technique found by Yuval. For a reference, please see this [hackmd](https://hackmd.io/@Ingonyama/Barret-Montgomery).
 
+Recall that in standard Montgomery reduction, we zero out the lowest limb by adding a carefully chosen multiple of the modulus $p$. In particular, if we were to use standard Montgomery reduction given our limb-decomposition for WASM: given an accumulator $x = \sum_{i=0}^{n} \text{result}_i \cdot 2^{29i}$, we compute $k = \text{result}_0 \cdot (-p^{-1}) \mod 2^{29}$ and add $k \cdot p$ to $x$. This makes the lowest 29 bits zero (since $\text{result}_0 + k \cdot p_0 \equiv 0 \mod 2^{29}$), allowing us to "shift right" by discarding the zeroed limb.
 
+Yuval's method takes a different approach. Instead of adding a multiple of $p$ to zero out the low bits, we directly compute the equivalent value after the divide by $2^{29}$ step. Given the same accumulator $x$, we want to find $x / 2^{29} \mod p$. We can rewrite this as:
+$$x / 2^{29} = (x - \text{result}_0) / 2^{29} + \text{result}_0 / 2^{29} \mod p.$$
+
+The first term $(x - \text{result}_0) / 2^{29}$ is simply the higher limbs shifted down. The second term requires computing $\text{result}_0 \cdot 2^{-29} \mod p$, which we precompute as `r_inv_wasm` (stored in 9 limbs).
+
+So instead of computing $k = \text{result}_0 \cdot (-p^{-1})$ and adding $k \cdot p$ (9 multiply-accumulates), we compute $\text{result}_0 \cdot r\_inv\_wasm$ and add it to the higher limbs (also 9 multiply-accumulates). The key insight is that both approaches require the same number of operations, but Yuval's method avoids the need for a separate "zero out and shift" step—the shift is implicit in how we interpret the result.
+
+In code, `wasm_reduce_yuval` implements this as:
+```cpp
+result_1 += result_0_masked * wasm_r_inv[0] + (result_0 >> 29);
+result_2 += result_0_masked * wasm_r_inv[1];
+// ... and so on for result_3 through result_9
+```
+
+The term `(result_0 >> 29)` handles any overflow bits in `result_0` beyond the lowest 29 bits, propagating them to `result_1`. After this operation, `result_0` is effectively discarded, and `result_1` through `result_9` hold the Montgomery-reduced value.
+
+#### Structure of WASM Montgomery multiplication
+
+In 254-bit WASM multiplication, the full Montgomery reduction requires 9 limb-reductions (to divide by $2^{261} = 2^{29 \cdot 9}$). **We apply Yuval's method for the first 8 reductions, and standard Montgomery reduction for the 9th (final) reduction.**
+
+Why not use Yuval for all 9? The key issue is that Yuval's method takes a 10-limb input and produces a 10-limb output (the reduced value spans 9 limbs, shifted up by one position). If we used Yuval for the 9th reduction, we would end up with a 10-limb result instead of the desired 9-limb result. The standard Montgomery reduction (`wasm_reduce`), by contrast, takes 9 limbs and produces 9 limbs (with the lowest limb zeroed and discardable), giving us exactly the 9-limb output we need.
+
+#### Bounds analysis
+
+We must verify that the output is in $[0, 2p)$ (the coarse representation) without requiring an additional subtraction of $p$.
+
+After the 9 multiply-adds, we have $aR \cdot bR$ stored across 17 limbs. Since both $aR$ and $bR$ are in $[0, 2p)$, this product is at most $4p^2$.
+
+After 8 Yuval reductions and 1 standard reduction, we have computed:
+$$\frac{aR \cdot bR + k_0 \cdot r_{inv} + k_1 \cdot r_{inv} + \cdots + k_7 \cdot r_{inv} + k_8 \cdot p}{2^{261}}$$
+
+where each $k_i$ is the masked low 29 bits at reduction step $i$. By construction:
+- $k_0 < 2^{29}$
+- $k_1 < 2^{58}$ (since it includes carries from the previous step)
+- For $i < 8$, we have $k_i < 2^{29(i+1)}$
+- The sum $\sum_{i=0}^{7} k_i < 2^{232}$ (geometric series)
+- $k_8 < 2^{261} - 2^{232}$
+
+Since $r_{inv} = 2^{-29} \mod p < p$, the total added via Yuval reductions is bounded by $(2^{232} - 1) \cdot p$. The final standard reduction adds at most $(2^{261} - 2^{232}) \cdot p$.
+
+Therefore, the numerator is bounded by:
+$$4p^2 + (2^{232} - 1) \cdot p + (2^{261} - 2^{232}) \cdot p < 4p^2 + 2^{261} \cdot p$$
+
+Dividing by $2^{261}$:
+$$\frac{4p^2 + 2^{261} \cdot p}{2^{261}} = p + \frac{4p^2}{2^{261}}$$
+
+For 254-bit primes, $p < 2^{254}$, so $4p^2 < 4 \cdot 2^{508} = 2^{510}$, and:
+$$\frac{4p^2}{2^{261}} < 1 $$
+
+Thus the result is less than $p + 1$, which is of course in the coarse representation range $[0, 2p)$. No additional reduction is required.
 
 ### Converting to and from Montgomery form
-Obviously we want to avoid using standard form division when converting between forms, so we use Montgomery form to convert to Montgomery form. If we look at a value \f$a\ mod\ p\f$ we can notice that this is the Montgomery form of \f$a\cdot R^{-1}\ mod\ p\f$, so if we want to get \f$aR\f$ from it, we need to multiply it by the Montgomery form of \f$R\ mod\ p\f$, which is \f$R\cdot R\ mod\ p\f$. So using Montgomery multiplication we compute
+Obviously we want to avoid using standard form division when converting between forms, so we use Montgomery form to convert to Montgomery form. If we look at a value $a\ mod\ p$ we can notice that this is the Montgomery form of $a\cdot R^{-1}\ mod\ p$, so if we want to get $aR$ from it, we need to multiply it by the Montgomery form of $R\ mod\ p$, which is $R\cdot R\ mod\ p$. So using Montgomery multiplication we compute
 
 $$a \cdot R^2 / R  = a\cdot R\ mod\ p$$
 
@@ -72,11 +131,11 @@ Most of the time field is used with uint64_t or uint256_t in our codebase, but t
 
 Conversion from field elements exists only to unsigned integers and bools. The value is converted from montgomery and appropriate number of lowest bits is used to initialize the value.
 
-**N.B.** Functions for converting from uint256_t and back are not bijective, since values \f$ \ge p\f$ will be reduced.
+**N.B.** Functions for converting from uint256_t and back are not bijective, since values $ \ge p$ will be reduced.
 
 ## Field parameters
 
-The field template is instantiated with field parameter classes, for example, class bb::Bn254FqParams. Each such class contains at least the modulus (in 64-bit and 29-bit form), r_inv (used to efficient reductions) and 2 versions of r_squared used for converting to Montgomery form (64-bit and WASM/29-bit version). r_squared and other parameters (such as cube_root, primitive_root and coset_generators) are defined for wasm separately, because the values represent an element already in Montgomery form.
+The field template is instantiated with field parameter classes, for example, class bb::Bn254FqParams. Each such class contains at least the modulus (in 64-bit and 29-bit form), r_inv (used to efficient reductions) and 2 versions of r_squared used for converting to Montgomery form (64-bit and WASM/29-bit version). r_squared and other parameters (such as cube_root, primitive_root and coset_generator) are defined for wasm separately, because the values represent an element already in Montgomery form.
 
 ## Helpful python snippets
 

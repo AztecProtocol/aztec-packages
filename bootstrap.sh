@@ -11,16 +11,23 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 export DENOISE=${DENOISE:-1}
 
 # Number of TXE servers to run when testing.
-export NUM_TXES=8
+export NUM_TXES=1
 
+# Number of jobs for make. Defaults to number of CPUs.
+# TODO: We should dial this back on consumer hardware, maybe to just 1.
 export MAKEFLAGS="-j${MAKE_JOBS:-$(get_num_cpus)}"
+
+# We append all test commands to this file as they become available during build.
+# The test engine feeds it into parallel.
+export test_cmds_file="/tmp/test_cmds"
+export bench_cmds_file="/tmp/bench_cmds"
 
 # Cleanup function. Called on script exit.
 function cleanup {
   set +e
   if [ -n "${test_engine_pid:-}" ]; then
     echo "Sending SIGTERM to test engine process group..."
-    kill -SIGTERM -- -$test_engine_pgid &>/dev/null
+    kill -SIGTERM -- -$test_engine_pid &>/dev/null
     wait $test_engine_pid
     test_engine_pid=
   fi
@@ -30,12 +37,7 @@ function cleanup {
     wait $make_pid
     make_pid=
   fi
-  if [ -n "${txe_pids:-}" ]; then
-    echo "Sending SIGTERM to TXE processes..."
-    kill -SIGTERM $txe_pids &>/dev/null
-    wait $txe_pids
-    txe_pids=
-  fi
+  stop_txes
 }
 trap cleanup EXIT
 
@@ -189,6 +191,7 @@ set -euo pipefail
 ./noir/precommit.sh
 ./noir-projects/precommit.sh
 ./yarn-project/constants/precommit.sh
+./docs/examples/ts/precommit.sh
 EOF
   chmod +x $hooks_dir/pre-commit
 
@@ -198,142 +201,6 @@ set -euo pipefail
 git submodule update --init --recursive
 EOF
   chmod +x $hooks_dir/post-merge
-}
-
-function sort_by_cpus {
-  awk '
-    {
-      cpus = 0;  # Default value
-      # Split line on space, take first field ($1)
-      split($1, subfields, ":");  # Split first field on :
-      for (i in subfields) {
-        split(subfields[i], arr, "=");
-        if (arr[1] == "CPUS") {
-          cpus = arr[2];
-          break;
-        }
-      }
-      # Print padded CPUS value followed by original line
-      printf "%010d %s\n", cpus, $0
-    }
-  ' | sort -s -r -n -k1,1 | cut -d' ' -f2-
-}
-
-function test_cmds {
-  if [ "$#" -eq 0 ]; then
-    # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts docs ci3 release-image
-  fi
-  parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
-}
-
-function start_txes {
-  # Until Kev's kzg lib stops using Tokio.
-  export TOKIO_WORKER_THREADS=1
-
-  # Starting txe servers with incrementing port numbers.
-  for i in $(seq 0 $((NUM_TXES-1))); do
-    port=$((45730 + i))
-    existing_pid=$(lsof -ti :$port || true)
-    if [ -n "$existing_pid" ]; then
-      echo "Killing existing process $existing_pid on port: $port"
-      kill -9 $existing_pid &>/dev/null || true
-      while kill -0 $existing_pid &>/dev/null; do sleep 0.1; done
-    fi
-    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
-    txe_pids+="$! "
-  done
-
-  echo "Waiting for TXE's to start..."
-  for i in $(seq 0 $((NUM_TXES-1))); do
-      local j=0
-      while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do
-        [ $j == 60 ] && echo_stderr "TXE $i took too long to start. Exiting." && exit 1
-        sleep 1
-        j=$((j+1))
-      done
-  done
-}
-
-export test_cmds_file="/tmp/test_cmds"
-
-function prep {
-  pull_submodules
-  check_toolchains
-
-  # Ensure we have yarn set up.
-  corepack enable
-
-  rm -f $test_cmds_file
-}
-
-function build_and_test {
-  local target=${1:-}
-
-  prep
-  echo_header "build and test"
-
-  # Start the test engine.
-  rm -f $test_cmds_file
-  touch $test_cmds_file
-  # put it in it's own process group, we can terminate on cleanup.
-  setsid color_prefix "test-engine" "denoise \"test_engine $test_cmds_file\"" &
-  test_engine_pid=$!
-  test_engine_pgid=$(ps -o pgid= -p $test_engine_pid)
-  echo "Started test engine with $test_engine_pid in PGID $test_engine_pgid."
-
-  # Start the build.
-  if [ -z "$target" ]; then
-    [ "$CI_FULL" -eq 0 ] && target="all" || target="full"
-  fi
-  make $target &
-  make_pid=$!
-
-  # As soon as one of the above fails, terminate the other (as part of exit cleanup).
-  while [ -n "$make_pid" ] || [ -n "$test_engine_pid" ]; do
-    # This will return success only if build or test succeeds.
-    # Otherwise it's an error, which is an exit, which means we enter cleanup.
-    wait -p finished -n $make_pid $test_engine_pid &>/dev/null
-
-    # If make succeeded, start txes and add tests that depend on them.
-    if [ "$finished" == "$make_pid" ]; then
-      make_pid=
-
-      if [ -z "${1:-}" ]; then
-        # TODO: Handle this better to they can be run as part of the Makefile dependency tree.
-        start_txes
-        make noir-projects-txe-tests
-      fi
-
-      # Signal tests complete, handled by parallel -E STOP.
-      echo STOP >> $test_cmds_file
-    fi
-
-    if [ "$finished" == "$test_engine_pid" ]; then
-      test_engine_pid=
-    fi
-  done
-
-  return 0
-}
-
-function test {
-  echo_header "test all"
-
-  start_txes
-
-  # We will start half as many jobs as we have cpu's.
-  # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
-  # and also that half the cpus are logical, not physical.
-  echo "Gathering tests to run..."
-  tests=$(test_cmds $@)
-
-  # Note: Capturing strips last newline. The echo re-adds it.
-  local num
-  [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
-  echo "Gathered $num tests."
-
-  echo "$tests" | parallelize
 }
 
 function pull_submodules {
@@ -346,61 +213,113 @@ function pull_submodules {
   denoise "git submodule update --init --recursive --depth 1 --jobs 8 && git -C noir/noir-repo fetch --tags"
 }
 
+function start_txes {
+  # Until Kev's kzg lib stops using Tokio.
+  export TOKIO_WORKER_THREADS=1
+
+  # Starting txe servers with incrementing port numbers.
+  # Base port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
+  local txe_base_port=14730
+  for i in $(seq 0 $((NUM_TXES-1))); do
+    port=$((txe_base_port + i))
+    existing_pid=$(lsof -ti :$port || true)
+    if [ -n "$existing_pid" ]; then
+      echo "Killing existing process $existing_pid on port: $port"
+      check_port $port
+      kill -9 $existing_pid &>/dev/null || true
+      while kill -0 $existing_pid &>/dev/null; do sleep 0.1; done
+    fi
+    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
+    txe_pids+="$! "
+  done
+
+  echo "Waiting for TXE's to start..."
+  for i in $(seq 0 $((NUM_TXES-1))); do
+      local j=0
+      while ! nc -z 127.0.0.1 $((txe_base_port + i)) &>/dev/null; do
+        if [ $j == 60 ]; then
+          echo_stderr "TXE $i failed to start on port $((txe_base_port + i)) after 60s."
+          check_port $((txe_base_port + i))
+          exit 1
+        fi
+        sleep 1
+        j=$((j+1))
+      done
+  done
+}
+
+function stop_txes {
+  if [ -n "${txe_pids:-}" ]; then
+    echo "Stopping TXE processes..."
+    kill -SIGTERM $txe_pids &>/dev/null || true
+    wait $txe_pids || true
+    txe_pids=
+  fi
+}
+
+function prep {
+  check_toolchains
+  pull_submodules
+}
+
 function build {
   prep
+  echo_header "build"
+  make ${1:-fast}
+}
 
-  # These projects are dependent on each other and must be built linearly.
-  serial_projects=(
-    noir
-    avm-transpiler
-    barretenberg
-    noir-projects
-    l1-contracts
-    yarn-project
-    release-image
-  )
-  # These projects can be built in parallel.
-  parallel_cmds=(
-    yarn-project/end-to-end/bootstrap.sh
-    boxes/bootstrap.sh
-    playground/bootstrap.sh
-    docs/bootstrap.sh
-    aztec-up/bootstrap.sh
-  )
+function build_and_test {
+  prep
+  echo_header "build and test"
 
-  local start_building=false
-  for project in "${serial_projects[@]}"; do
-    # BOOTSTRAP_AFTER and BOOTSTRAP_TO are used to control the order of building.
-    # If BOOTSTRAP_AFTER is set, it should be one of our serial projects and we will only build projects after it.
-    # If BOOTSTRAP_TO is set, it should be one of our serial projects and we will only build projects up to it. We will skip parallel_cmds.
+  # Start the test engine.
+  rm -f $test_cmds_file
+  touch $test_cmds_file
+  # put it in it's own process group, we can terminate on cleanup.
+  setsid color_prefix "test-engine" "denoise \"test_engine $test_cmds_file\"" &
+  # setsid makes the child the session leader, so its PID is its PGID.
+  test_engine_pid=$!
+  echo "Started test engine with PGID $test_engine_pid."
 
-    # Start building after we've seen BOOTSTRAP_AFTER, skipping BOOTSTRAP_AFTER itself.
-    if [ "$project" == "${BOOTSTRAP_AFTER:-}" ]; then
-      start_building=true
-      continue
+  # Start the build.
+  make $1 &
+  make_pid=$!
+
+  # As soon as one of the above fails, terminate the other (as part of exit cleanup).
+  while [ -n "$make_pid" ] || [ -n "$test_engine_pid" ]; do
+    # This will return success only if build or test succeeds.
+    # Otherwise it's an error, which is an exit, which means we enter cleanup.
+    wait -p finished -n $make_pid $test_engine_pid &>/dev/null
+
+    # If make succeeded, start txes and add tests that depend on them.
+    if [ "$finished" == "$make_pid" ]; then
+      echo "Makefile build complete, starting TXEs and adding dependent tests..."
+      make_pid=
+
+      # TODO: Handle this better so they can be run as part of the Makefile dependency tree.
+      start_txes
+      make noir-projects-txe-tests
+
+      # Signal tests complete, handled by parallel -E STOP.
+      echo STOP >> $test_cmds_file
     fi
 
-    # Build the project if we should be building
-    if [[ -z "${BOOTSTRAP_AFTER:-}" || "$start_building" = true ]]; then
-      $project/bootstrap.sh ${1:-}
-    fi
-
-    # Stop the build if we've reached BOOTSTRAP_TO
-    # We therefore don't run parallel commands if BOOTSTRAP_TO is set.
-    if [ "$project" = "${BOOTSTRAP_TO:-}" ]; then
-      return
+    if [ "$finished" == "$test_engine_pid" ]; then
+      echo "Test engine completed successfully."
+      test_engine_pid=
     fi
   done
 
-  parallel --line-buffer --tag --halt now,fail=1 "denoise '{}'" ::: ${parallel_cmds[@]}
+  stop_txes
+
+  return 0
 }
 
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
-    # Ordered with longest running first, to ensure they get scheduled earliest.
     set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp,sol} noir-projects/noir-protocol-circuits l1-contracts
   fi
-  parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@ | sort_by_cpus
+  parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
 }
 
 function build_bench {
@@ -432,8 +351,10 @@ function bench {
   fi
   echo_header "bench all"
   build_bench
-  find . -type d -iname bench-out | xargs rm -rf
-  bench_cmds | STRICT_SCHEDULING=1 parallelize
+
+  bench_cmds > $bench_cmds_file
+  denoise "bench_engine $bench_cmds_file"
+
   rm -rf bench-out
   mkdir -p bench-out
   bench_merge
@@ -496,6 +417,7 @@ function release {
   projects=(
     barretenberg/cpp
     barretenberg/ts
+    barretenberg/rust
     noir
     l1-contracts
     noir-projects/aztec-nr
@@ -560,30 +482,20 @@ case "$cmd" in
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=0
-    build
-    test
+    build_and_test fast
     ;;
   "ci-full")
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=1
-    build
-    test
+    build_and_test full
     bench
     ;;
   "ci-full-no-test-cache")
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
-    build
-    test
-    bench
-    ;;
-  "ci-full-no-test-cache-makefile")
-    export CI=1
-    export USE_TEST_CACHE=0
-    export CI_FULL=1
-    build_and_test
+    build_and_test full
     bench
     ;;
   "ci-grind-test")
@@ -715,7 +627,7 @@ case "$cmd" in
     if ! semver check $REF_NAME; then
       exit 1
     fi
-    build
+    build release
     release
     ;;
 
@@ -725,8 +637,15 @@ case "$cmd" in
   "ci-docs")
     export CI=1
     export USE_TEST_CACHE=1
-    ./bootstrap.sh
+    BOOTSTRAP_TO=yarn-project ./bootstrap.sh
     docs/bootstrap.sh ci
+    ;;
+  "ci-barretenberg-debug")
+    export CI=1
+    export NATIVE_PRESET=debug
+    export AVM=0
+    export AVM_TRANSPILER=0
+    barretenberg/cpp/bootstrap.sh build
     ;;
   "ci-barretenberg")
     export CI=1
@@ -743,6 +662,7 @@ case "$cmd" in
     pull_submodules
     noir/bootstrap.sh build_native  # Build nargo for acir_tests
     barretenberg/bootstrap.sh ci
+    barretenberg/cpp/bootstrap.sh build_bench
     ;;
 
   #######################
@@ -773,6 +693,15 @@ case "$cmd" in
     export CI=1
     build
     exec spartan/scripts/deploy_rollup_upgrade.sh "$@"
+    ;;
+
+  #################
+  # SOCKET FIX    #
+  #################
+  "ci-socket-fix")
+    export CI=1
+    build
+    scripts/socket-fix-ci.sh "$@"
     ;;
 
   ##############################################

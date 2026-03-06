@@ -1,6 +1,6 @@
 // === AUDIT STATUS ===
 // internal:    { status: Complete, auditors: [Raju], commit: 05a381f8b31ae4648e480f1369e911b148216e8b}
-// external_1:  { status: not started, auditors: [], commit: }
+// external_1:  { status: Complete, auditors: [Sherlock], commit: e6694849223 }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
@@ -18,7 +18,6 @@ twin_rom_table<Builder>::twin_rom_table(const std::vector<std::array<field_pt, 2
     : raw_entries(table_entries)
     , length(raw_entries.size())
 {
-    static_assert(IsUltraOrMegaBuilder<Builder>);
     // get the builder context
     for (const auto& entry : table_entries) {
         if (entry[0].get_context() != nullptr) {

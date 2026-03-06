@@ -1,6 +1,6 @@
 // === AUDIT STATUS ===
 // internal:    { status: Complete, auditors: [Luke], commit: a48c205d6dcd4338f5b83b4fda18bff6015be07b}
-// external_1:  { status: not started, auditors: [], commit: }
+// external_1:  { status: Complete, auditors: [Sherlock], commit: 13c1b927c6c }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
@@ -109,11 +109,9 @@ cycle_group<Builder>::cycle_group(const field_t& x, const field_t& y, bool_t is_
         }
     }
 
-    // If both coordinates are constant, enforce that is_infinity is also constant.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1584): make this an assertion when possible
-    if (_x.is_constant() && _y.is_constant() && !_is_infinity.is_constant()) {
-        _is_infinity = bool_t(_is_infinity.get_value());
-    }
+    // If both coordinates are constant, is_infinity must also be constant.
+    BB_ASSERT(!(_x.is_constant() && _y.is_constant() && !_is_infinity.is_constant()),
+              "cycle_group: constant coordinates with non-constant infinity flag");
 
     // Elements are always expected to be on the curve but may or may not be constrained as such.
     BB_ASSERT(get_value().on_curve(), "cycle_group: Point is not on curve");

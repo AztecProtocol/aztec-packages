@@ -34,12 +34,25 @@ export class FeeAssetPriceOracle {
 
   @memoize
   async getUniswapOracle(): Promise<UniswapPriceOracle | undefined> {
-    if ((await this.client.getCode({ address: STATE_VIEW_ADDRESS.toString() })) === '0x') {
+    const code = await this.client.getCode({ address: STATE_VIEW_ADDRESS.toString() });
+    if (code === undefined || code === '0x') {
       this.log.warn('Uniswap V4 StateView contract not found, skipping fee asset price oracle');
       return undefined;
     }
     this.log.info('Uniswap V4 StateView contract found, initializing fee asset price oracle');
-    return new UniswapPriceOracle(this.client, this.log);
+    const oracle = new UniswapPriceOracle(this.client, this.log);
+
+    try {
+      if (!(await oracle.isPoolInitialized())) {
+        this.log.warn('Uniswap V4 pool not initialized, skipping fee asset price oracle');
+        return undefined;
+      }
+    } catch (err) {
+      this.log.warn(`Failed to check if Uniswap V4 pool is initialized: ${err}`);
+      return undefined;
+    }
+
+    return oracle;
   }
 
   /**
@@ -208,6 +221,11 @@ class UniswapPriceOracle {
       EthAddress.fromString('0xd53006d1e3110fD319a79AEEc4c527a0d265E080').toString(),
     ]);
     return keccak256(encoded);
+  }
+
+  async isPoolInitialized(): Promise<boolean> {
+    const [sqrtPriceX96] = await this.stateView.read.getSlot0([this.poolId], undefined);
+    return sqrtPriceX96 !== 0n;
   }
 
   /**

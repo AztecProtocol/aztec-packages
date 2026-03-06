@@ -11,7 +11,7 @@ import type {
   TxHash,
   TxReceipt,
   TxSimulationResult,
-  UtilitySimulationResult,
+  UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -31,7 +31,7 @@ describe('Contract Class', () => {
   const _mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockTxSimulationResult = { type: 'TxSimulationResult', result: 1n } as any as TxSimulationResult;
-  const mockUtilityResultValue = { result: [new Fr(42)] } as any as UtilitySimulationResult;
+  const mockUtilityResultValue = { result: [new Fr(42)] } as any as UtilityExecutionResult;
 
   const defaultArtifact: ContractArtifact = {
     name: 'FooContract',
@@ -136,15 +136,15 @@ describe('Contract Class', () => {
     wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);
     account.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.registerContract.mockResolvedValue(contractInstance);
-    wallet.sendTx.mockResolvedValue(mockTxReceipt);
-    wallet.simulateUtility.mockResolvedValue(mockUtilityResultValue);
+    wallet.sendTx.mockResolvedValue({ receipt: mockTxReceipt, offchainEffects: [], offchainMessages: [] });
+    wallet.executeUtility.mockResolvedValue(mockUtilityResultValue);
   });
 
   it('should create and send a contract method tx', async () => {
     const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
     const param0 = 12;
     const param1 = 345n;
-    const receipt = await fooContract.methods.bar(param0, param1).send({ from: account.getAddress() });
+    const { receipt } = await fooContract.methods.bar(param0, param1).send({ from: account.getAddress() });
 
     expect(receipt).toBe(mockTxReceipt);
     expect(wallet.sendTx).toHaveBeenCalledTimes(1);
@@ -152,9 +152,9 @@ describe('Contract Class', () => {
 
   it('should call view on a utility function', async () => {
     const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
-    const result = await fooContract.methods.qux(123n).simulate({ from: account.getAddress() });
-    expect(wallet.simulateUtility).toHaveBeenCalledTimes(1);
-    expect(wallet.simulateUtility).toHaveBeenCalledWith(
+    const { result } = await fooContract.methods.qux(123n).simulate({ from: account.getAddress() });
+    expect(wallet.executeUtility).toHaveBeenCalledTimes(1);
+    expect(wallet.executeUtility).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'qux', to: contractAddress }),
       expect.objectContaining({ scope: account.getAddress() }),
     );

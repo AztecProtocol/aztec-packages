@@ -35,8 +35,7 @@ class MergeProver {
 
     explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
                          std::shared_ptr<Transcript> transcript,
-                         MergeSettings settings = MergeSettings::PREPEND,
-                         const CommitmentKey& commitment_key = CommitmentKey());
+                         MergeSettings settings = MergeSettings::PREPEND);
 
     BB_PROFILE MergeProof construct_proof();
 

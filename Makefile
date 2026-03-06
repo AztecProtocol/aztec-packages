@@ -7,7 +7,7 @@
 # Note that "test" targets don't *run* tests, they just output test commands to /tmp/test_cmds.
 #
 # Expectation is to run with one of the following targets:
-# - make [all]
+# - make fast
 # - make full
 # - make release
 
@@ -47,23 +47,21 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: all noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up
+.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up
 
 #==============================================================================
 # BOOTSTRAP TARGETS
 #==============================================================================
 
-# Fast bootstrap
-all: release-image barretenberg boxes playground docs aztec-up \
-		 bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests release-image-tests
+# Fast bootstrap.
+fast: release-image barretenberg boxes playground docs aztec-up \
+		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests release-image-tests
 
-# Full bootstrap
-full: release-image barretenberg boxes playground docs aztec-up \
-			bb-cpp-full yarn-project-benches \
-		  bb-full-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests release-image-tests
+# Full bootstrap.
+full: fast bb-full-tests bb-cpp-full yarn-project-benches
 
 # Release. Everything plus copy bb cross compiles to ts projects.
-release: all bb-cpp-release-dir bb-ts-cross-copy
+release: fast bb-cpp-release-dir bb-ts-cross-copy
 
 #==============================================================================
 # Noir
@@ -85,7 +83,10 @@ avm-transpiler-cross-amd64-macos:
 avm-transpiler-cross-arm64-macos:
 	$(call build,$@,avm-transpiler,build_cross arm64-macos)
 
-avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos
+avm-transpiler-cross-arm64-linux:
+	$(call build,$@,avm-transpiler,build_cross arm64-linux)
+
+avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos avm-transpiler-cross-arm64-linux
 
 #==============================================================================
 # Barretenberg
@@ -136,7 +137,7 @@ bb-cpp-cross-arm64-macos-objects:
 	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-macos)
 
 # Cross-compile for ARM64 Linux (release only)
-bb-cpp-cross-arm64-linux: bb-cpp-cross-arm64-linux-objects avm-transpiler-native
+bb-cpp-cross-arm64-linux: bb-cpp-cross-arm64-linux-objects avm-transpiler-cross-arm64-linux
 	$(call build,$@,barretenberg/cpp,build_cross arm64-linux)
 
 # Cross-compile for AMD64 macOS (release only)
@@ -223,7 +224,7 @@ bb-bbup-tests: bb-bbup
 
 bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests
 
-bb-full-tests: bb-cpp-native-tests bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests  bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests
+bb-full-tests: bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests
 
 #==============================================================================
 # Noir Projects

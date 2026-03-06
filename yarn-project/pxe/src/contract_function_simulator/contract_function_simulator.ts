@@ -2,11 +2,8 @@ import {
   AVM_EMITNOTEHASH_BASE_L2_GAS,
   AVM_EMITNULLIFIER_BASE_L2_GAS,
   AVM_SENDL2TOL1MSG_BASE_L2_GAS,
-  DA_BYTES_PER_FIELD,
-  DA_GAS_PER_BYTE,
+  DA_GAS_PER_FIELD,
   FIXED_AVM_STARTUP_L2_GAS,
-  FIXED_DA_GAS,
-  FIXED_L2_GAS,
   L2_GAS_PER_CONTRACT_CLASS_LOG,
   L2_GAS_PER_L2_TO_L1_MSG,
   L2_GAS_PER_NOTE_HASH,
@@ -20,6 +17,9 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
+  PRIVATE_TX_L2_GAS_OVERHEAD,
+  PUBLIC_TX_L2_GAS_OVERHEAD,
+  TX_DA_GAS_OVERHEAD,
 } from '@aztec/constants';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -277,7 +277,7 @@ export class ContractFunctionSimulator {
       );
       const publicFunctionsCalldata = await Promise.all(
         publicCallRequests.map(async r => {
-          const calldata = await privateExecutionOracle.privateLoadFromExecutionCache(r.calldataHash);
+          const calldata = await privateExecutionOracle.loadFromExecutionCache(r.calldataHash);
           return new HashedValues(calldata, r.calldataHash);
         }),
       );
@@ -361,7 +361,7 @@ export class ContractFunctionSimulator {
           );
         });
 
-      this.log.verbose(`Utility simulation for ${call.to}.${call.selector} completed`);
+      this.log.verbose(`Utility execution for ${call.to}.${call.selector} completed`);
       return witnessMapToFields(acirExecutionResult.returnWitness);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
@@ -654,9 +654,14 @@ export async function generateSimulatedProvingResult(
 
   const publicInputs = new PrivateKernelTailCircuitPublicInputs(
     constantData,
-    /*gasUsed=*/ gasUsed.add(Gas.from({ l2Gas: FIXED_L2_GAS, daGas: FIXED_DA_GAS })),
+    /*gasUsed=*/ gasUsed.add(
+      Gas.from({
+        l2Gas: isPrivateOnlyTx ? PRIVATE_TX_L2_GAS_OVERHEAD : PUBLIC_TX_L2_GAS_OVERHEAD,
+        daGas: TX_DA_GAS_OVERHEAD,
+      }),
+    ),
     /*feePayer=*/ AztecAddress.zero(),
-    /*includeByTimestamp=*/ 0n,
+    /*expirationTimestamp=*/ 0n,
     hasPublicCalls ? inputsForPublic : undefined,
     !hasPublicCalls ? inputsForRollup : undefined,
   );
@@ -684,6 +689,7 @@ function squashTransientSideEffects(
     scopedNullifiersCLA,
     /*futureNoteHashReads=*/ [],
     /*futureNullifierReads=*/ [],
+    /*futureLogs=*/ [],
     noteHashNullifierCounterMap,
     minRevertibleSideEffectCounter,
   );
@@ -726,16 +732,8 @@ async function verifyReadRequests(
     nullifierReadRequests.length,
   );
 
-  const noteHashResetActions = getNoteHashReadRequestResetActions(
-    noteHashReadRequestsCLA,
-    scopedNoteHashesCLA,
-    /*futureNoteHashes=*/ [],
-  );
-  const nullifierResetActions = getNullifierReadRequestResetActions(
-    nullifierReadRequestsCLA,
-    scopedNullifiersCLA,
-    /*futureNullifiers=*/ [],
-  );
+  const noteHashResetActions = getNoteHashReadRequestResetActions(noteHashReadRequestsCLA, scopedNoteHashesCLA);
+  const nullifierResetActions = getNullifierReadRequestResetActions(nullifierReadRequestsCLA, scopedNullifiersCLA);
 
   const settledNoteHashReads: { index: number; value: Fr }[] = [];
   for (let i = 0; i < noteHashResetActions.actions.length; i++) {
@@ -811,14 +809,14 @@ function meterGasUsed(data: PrivateToRollupAccumulatedData | PrivateToPublicAccu
   meteredL2Gas += numPrivatelogs * L2_GAS_PER_PRIVATE_LOG;
 
   const numContractClassLogs = arrayNonEmptyLength(data.contractClassLogsHashes, log => log.isEmpty());
-  // Every contract class log emits its length and contract address as additional fields
+  // Every contract class log emits its contract address as an additional field
   meteredDAFields += data.contractClassLogsHashes.reduce(
-    (acc, log) => (!log.isEmpty() ? acc + log.logHash.length + 2 : acc),
+    (acc, log) => (!log.isEmpty() ? acc + log.logHash.length + 1 : acc),
     0,
   );
   meteredL2Gas += numContractClassLogs * L2_GAS_PER_CONTRACT_CLASS_LOG;
 
-  const meteredDAGas = meteredDAFields * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+  const meteredDAGas = meteredDAFields * DA_GAS_PER_FIELD;
 
   if ((data as PrivateToPublicAccumulatedData).publicCallRequests) {
     const dataForPublic = data as PrivateToPublicAccumulatedData;

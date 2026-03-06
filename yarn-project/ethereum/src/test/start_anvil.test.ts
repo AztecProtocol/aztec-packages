@@ -1,26 +1,23 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
-import type { Anvil } from '@viem/anvil';
 import { createPublicClient, http, parseAbiItem } from 'viem';
 
+import type { Anvil } from './start_anvil.js';
 import { startAnvil } from './start_anvil.js';
 
 describe('start_anvil', () => {
   let logger: Logger;
   let anvil: Anvil;
   let rpcUrl: string;
-  let sleepAfterTeardown: number;
 
   beforeEach(async () => {
-    sleepAfterTeardown = 0;
     logger = createLogger('ethereum:test:anvil');
     ({ anvil, rpcUrl } = await startAnvil());
   });
 
   afterEach(async () => {
     await anvil.stop().catch(err => logger.error(err));
-    await sleep(sleepAfterTeardown);
   });
 
   it('starts anvil on a free port', async () => {
@@ -48,10 +45,11 @@ describe('start_anvil', () => {
     const stopWatching = publicClient.watchEvent({ event: abiItem, onLogs: () => {} });
     await sleep(100);
 
-    sleepAfterTeardown = 3000;
-    setTimeout(() => {
-      logger.info('Stopping watch event');
-      stopWatching();
-    }, 500);
+    // Stop watching while anvil is still alive so the filter is cleanly uninstalled.
+    // Stopping anvil first and then calling stopWatching() causes eth_uninstallFilter
+    // to hit a dead server, leaving dangling undici sockets that prevent exit.
+    logger.info('Stopping watch event');
+    stopWatching();
+    await sleep(100);
   });
 });

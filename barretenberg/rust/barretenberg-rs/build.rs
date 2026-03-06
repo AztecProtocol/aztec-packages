@@ -10,13 +10,9 @@ fn main() {
         // libbb-external.a contains everything needed: barretenberg + env + vm2_stub
         println!("cargo:rustc-link-lib=static=bb-external");
 
-        // Link C++ standard library (different name on macOS/iOS vs Linux)
-        let target = std::env::var("TARGET").unwrap();
-        if target.contains("apple") || target.contains("android") {
-            println!("cargo:rustc-link-lib=dylib=c++");
-        } else {
-            println!("cargo:rustc-link-lib=dylib=stdc++");
-        }
+        // Link C++ standard library
+        // barretenberg is built with Clang/libc++ on all platforms
+        println!("cargo:rustc-link-lib=dylib=c++");
     }
 }
 
@@ -50,6 +46,9 @@ fn get_lib_dir() -> PathBuf {
 fn download_lib(out_dir: &PathBuf) {
     let target = std::env::var("TARGET").unwrap();
     let arch = match target.as_str() {
+        // Android (must check before linux since android targets contain "linux")
+        t if t.contains("aarch64") && t.contains("android") => "arm64-android",
+        t if t.contains("x86_64") && t.contains("android") => "x86_64-android",
         // Linux
         t if t.contains("x86_64") && t.contains("linux") => "amd64-linux",
         t if t.contains("aarch64") && t.contains("linux") => "arm64-linux",
@@ -62,9 +61,6 @@ fn download_lib(out_dir: &PathBuf) {
         }
         // iOS device
         t if t.contains("aarch64") && t.contains("apple") && t.contains("ios") => "arm64-ios",
-        // Android
-        t if t.contains("aarch64") && t.contains("android") => "arm64-android",
-        t if t.contains("x86_64") && t.contains("android") => "x86_64-android",
         _ => panic!(
             "Unsupported target for FFI backend: {}. \
              Supported: x86_64-linux, aarch64-linux, x86_64-apple-darwin, aarch64-apple-darwin, \

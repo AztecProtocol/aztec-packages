@@ -1,6 +1,6 @@
 // docs:start:generate_data
 import { Noir } from "@aztec/noir-noir_js";
-import circuitJson from "../../../../circuits/hello_circuit/target/hello_circuit.json" with { type: "json" };
+import circuitJson from "../circuits/target/hello_circuit.json" with { type: "json" };
 import { Barretenberg, UltraHonkBackend, deflattenFields } from "@aztec/bb.js";
 import fs from "fs";
 import { exit } from "process";

@@ -1,7 +1,6 @@
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
+import type { ExtendedDirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../constants.js';
@@ -11,11 +10,8 @@ import { loadAndStoreNewTaggingIndexes } from './utils/load_and_store_new_taggin
 /**
  * Syncs tagging indexes. This function needs to be called whenever a private log is being sent.
  *
- * @param secret - The secret that's unique for (sender, recipient, contract) tuple while the direction of
+ * @param secret - The secret that's unique for (sender, recipient, app) tuple while the direction of
  * sender -> recipient matters.
- * @param app - The address of the contract that the logs are tagged for. Needs to be provided because we perform
- * second round of siloing in this function which is necessary because kernels do it as well (they silo first field
- * of the private log which corresponds to the tag).
  * @remarks When syncing the indexes as sender we don't care about the log contents - we only care about the highest
  * pending and highest finalized indexes as that guides the next index choice when sending a log. The next index choice
  * is simply the highest pending index plus one (or finalized if pending is undefined).
@@ -23,8 +19,7 @@ import { loadAndStoreNewTaggingIndexes } from './utils/load_and_store_new_taggin
  * updates its status accordingly.
  */
 export async function syncSenderTaggingIndexes(
-  secret: DirectionalAppTaggingSecret,
-  app: AztecAddress,
+  secret: ExtendedDirectionalAppTaggingSecret,
   aztecNode: AztecNode,
   taggingStore: SenderTaggingStore,
   anchorBlockHash: BlockHash,
@@ -59,7 +54,7 @@ export async function syncSenderTaggingIndexes(
   while (true) {
     // Load and store indexes for the current window. These indexes may already exist in the database if txs using
     // them were previously sent from this PXE. Any duplicates are handled by the tagging data provider.
-    await loadAndStoreNewTaggingIndexes(secret, app, start, end, aztecNode, taggingStore, anchorBlockHash, jobId);
+    await loadAndStoreNewTaggingIndexes(secret, start, end, aztecNode, taggingStore, anchorBlockHash, jobId);
 
     // Retrieve all indexes within the current window from storage and update their status accordingly.
     const pendingTxHashes = await taggingStore.getTxHashesOfPendingIndexes(secret, start, end, jobId);

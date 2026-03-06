@@ -2,12 +2,12 @@ import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import type { Logger } from '@aztec/aztec.js/log';
 import { BatchedBlob } from '@aztec/blob-lib/types';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
+import { type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/l1-tx-utils';
+import { ChainMonitor } from '@aztec/ethereum/test';
 import type { ViemClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
-import type { ProverNodePublisher } from '@aztec/prover-node';
 import type { TestProverNode } from '@aztec/prover-node/test';
 import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { Proof } from '@aztec/stdlib/proofs';
@@ -56,13 +56,11 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     // Here we cause a re-org by not publishing the proof for epoch 0 until after the end of epoch 1
     // The proof will be rejected and a re-org will take place
 
-    // Ensure that there was at least one block mined in epoch 0, otherwise this test fails, since it
+    // Ensure that there was at least one checkpoint mined in epoch 0, otherwise this test fails, since it
     // relies on the proof for epoch zero not landing in time, which will never happen if there is
-    // nothing to prove on epoch zero. This is flakey because startup times change continuously.
-    // Also note that there should always be at least a checkpoint before we start since setup
-    // enforces it (search the comment "waiting for an empty block 1 to be mined" in `setup`).
-    const firstCheckpointNumber = (await test.monitor.run()).checkpointNumber;
-    expect(firstCheckpointNumber).toBeGreaterThanOrEqual(CheckpointNumber(1));
+    // nothing to prove on epoch zero. We need to wait for the checkpoint L1 tx to be mined, not just
+    // for the block to appear in the node's world state, since the propose tx may still be in-flight.
+    await test.waitUntilCheckpointNumber(CheckpointNumber(1));
     const firstCheckpoint = await rollup.getCheckpoint(CheckpointNumber(1));
     const firstCheckpointEpoch = getEpochAtSlot(firstCheckpoint.slotNumber, test.constants);
     expect(firstCheckpointEpoch).toEqual(EpochNumber(0));
@@ -72,8 +70,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     context.proverNode = proverNode;
 
     // Get the prover delayer from the newly created prover node
-    proverDelayer = (((proverNode as TestProverNode).publisher as ProverNodePublisher).l1TxUtils as DelayedTxUtils)
-      .delayer!;
+    proverDelayer = proverNode.getProverNode()!.getDelayer()!;
 
     // Hold off prover tx until end epoch 1
     const [epoch2Start] = getTimestampRangeForEpoch(EpochNumber(2), constants);
@@ -114,11 +111,11 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     const proverNode = await test.createProverNode({ cancelTxOnTimeout: false, maxSpeedUpAttempts: 0 });
 
     // Get the prover delayer from the newly created prover node
-    proverDelayer = (((proverNode as TestProverNode).publisher as ProverNodePublisher).l1TxUtils as DelayedTxUtils)
-      .delayer!;
+    const testProverNode = proverNode.getProverNode() as TestProverNode;
+    proverDelayer = testProverNode.getDelayer()!;
 
     // Inject a delay in prover node proving equal to the length of an epoch, to make sure deadline will be hit
-    const epochProverManager = (proverNode as TestProverNode).prover;
+    const epochProverManager = testProverNode.prover;
     const originalCreate = epochProverManager.createEpochProver.bind(epochProverManager);
     const finalizeEpochPromise = promiseWithResolvers<void>();
     let hasFinalizeEpochWaited = false;
