@@ -93,7 +93,7 @@ avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm6
 #==============================================================================
 
 # Barretenberg - Aggregate target for all barretenberg sub-projects.
-barretenberg: bb-cpp bb-ts bb-acir bb-docs bb-sol bb-bbup bb-crs
+barretenberg: bb-cpp bb-ts bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
 
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
@@ -179,6 +179,10 @@ bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native
 bb-ts-cross-copy: bb-ts bb-cpp-cross
 	$(call build,$@,barretenberg/ts,cross_copy)
 
+# BB Rust - barretenberg-rs FFI crate
+bb-rs: bb-ts bb-cpp-native
+	$(call build,$@,barretenberg/rust)
+
 # BB ACIR Tests - ACIR compatibility tests
 bb-acir: noir bb-cpp-native bb-ts
 	$(call build,$@,barretenberg/acir_tests)
@@ -222,7 +226,10 @@ bb-docs-tests: bb-docs
 bb-bbup-tests: bb-bbup
 	$(call test,$@,barretenberg/bbup)
 
-bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests
+bb-rs-tests: bb-rs
+	$(call test,$@,barretenberg/rust)
+
+bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests bb-rs-tests
 
 bb-full-tests: bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests
 
