@@ -102,10 +102,14 @@ function check_toolchains {
   fi
   if ! rustup show | grep $rust_version > /dev/null; then
     if [ "${CI:-0}" -eq 1 ]; then
-      echo "Attempting install of required Rust version $rust_version"
-      rustup self update 2>/dev/null || true
-      rustup toolchain install $rust_version
-      rustup default $rust_version
+      # Serialize rustup operations to avoid race conditions with parallel builds.
+      (
+        flock -x 200
+        echo "Attempting install of required Rust version $rust_version"
+        rustup self update 2>/dev/null || true
+        rustup toolchain install $rust_version
+        rustup default $rust_version
+      ) 200>/tmp/rustup.lock
     else
       # Cargo will download necessary version of rust at runtime but warn to alert that an update to the build-image
       # is desirable.
