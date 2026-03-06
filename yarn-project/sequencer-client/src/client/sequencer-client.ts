@@ -1,4 +1,5 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
+import { MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { getPublicClient } from '@aztec/ethereum/client';
@@ -18,10 +19,15 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { L1Metrics, type TelemetryClient } from '@aztec/telemetry-client';
 import { FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
-import { type SequencerClientConfig, getPublisherConfigFromSequencerConfig } from '../config.js';
+import {
+  DefaultSequencerConfig,
+  type SequencerClientConfig,
+  getPublisherConfigFromSequencerConfig,
+} from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
+import { SequencerTimetable } from '../sequencer/timetable.js';
 
 /**
  * Encapsulates the full sequencer and publisher.
@@ -137,17 +143,14 @@ export class SequencerClient {
       });
 
     const ethereumSlotDuration = config.ethereumSlotDuration;
-    const l1Constants = { l1GenesisTime, slotDuration: Number(slotDuration), ethereumSlotDuration };
 
-    const globalsBuilder = new GlobalVariableBuilder({ ...config, ...l1Constants, rollupVersion });
-
-    let sequencerManaLimit = config.maxL2BlockGas ?? rollupManaLimit;
-    if (sequencerManaLimit > rollupManaLimit) {
-      log.warn(
-        `Provided maxL2BlockGas ${sequencerManaLimit} is greater than the max allowed by L1. Setting limit to ${rollupManaLimit}.`,
-      );
-      sequencerManaLimit = rollupManaLimit;
-    }
+    const globalsBuilder = new GlobalVariableBuilder({
+      ...config,
+      l1GenesisTime,
+      slotDuration: Number(slotDuration),
+      ethereumSlotDuration,
+      rollupVersion,
+    });
 
     // When running in anvil, assume we can post a tx up until one second before the end of an L1 slot.
     // Otherwise, we need the full L1 slot duration for publishing to ensure inclusion.
@@ -156,6 +159,15 @@ export class SequencerClient {
     // See https://www.blocknative.com/blog/anatomy-of-a-slot#7 for more info.
     const l1PublishingTimeBasedOnChain = isAnvilTestChain(config.l1ChainId) ? 1 : ethereumSlotDuration;
     const l1PublishingTime = config.l1PublishingTime ?? l1PublishingTimeBasedOnChain;
+
+    const { maxL2BlockGas, maxDABlockGas, maxTxsPerBlock } = computeBlockLimits(
+      config,
+      rollupManaLimit,
+      l1PublishingTime,
+      log,
+    );
+
+    const l1Constants = { l1GenesisTime, slotDuration: Number(slotDuration), ethereumSlotDuration, rollupManaLimit };
 
     const sequencer = new Sequencer(
       publisherFactory,
@@ -171,7 +183,7 @@ export class SequencerClient {
       deps.dateProvider,
       epochCache,
       rollupContract,
-      { ...config, l1PublishingTime, maxL2BlockGas: sequencerManaLimit },
+      { ...config, l1PublishingTime, maxL2BlockGas, maxDABlockGas, maxTxsPerBlock },
       telemetryClient,
       log,
     );
@@ -233,4 +245,91 @@ export class SequencerClient {
   get maxL2BlockGas(): number | undefined {
     return this.sequencer.maxL2BlockGas;
   }
+}
+
+/**
+ * Computes per-block L2 gas, DA gas, and TX count budgets based on the L1 rollup limits and the timetable.
+ * If the user explicitly set a limit, it is capped at the corresponding checkpoint limit.
+ * Otherwise, derives it as (checkpointLimit / maxBlocks) * multiplier, capped at the checkpoint limit.
+ */
+export function computeBlockLimits(
+  config: SequencerClientConfig,
+  rollupManaLimit: number,
+  l1PublishingTime: number,
+  log: ReturnType<typeof createLogger>,
+): { maxL2BlockGas: number; maxDABlockGas: number; maxTxsPerBlock: number } {
+  const maxNumberOfBlocks = new SequencerTimetable({
+    ethereumSlotDuration: config.ethereumSlotDuration,
+    aztecSlotDuration: config.aztecSlotDuration,
+    l1PublishingTime,
+    p2pPropagationTime: config.attestationPropagationTime,
+    blockDurationMs: config.blockDurationMs,
+    enforce: config.enforceTimeTable ?? DefaultSequencerConfig.enforceTimeTable,
+  }).maxNumberOfBlocks;
+
+  const multiplier = config.perBlockAllocationMultiplier ?? DefaultSequencerConfig.perBlockAllocationMultiplier;
+
+  // Compute maxL2BlockGas
+  let maxL2BlockGas: number;
+  if (config.maxL2BlockGas !== undefined) {
+    if (config.maxL2BlockGas > rollupManaLimit) {
+      log.warn(
+        `Provided MAX_L2_BLOCK_GAS ${config.maxL2BlockGas} exceeds L1 rollup mana limit ${rollupManaLimit} (capping)`,
+      );
+      maxL2BlockGas = rollupManaLimit;
+    } else {
+      maxL2BlockGas = config.maxL2BlockGas;
+    }
+  } else {
+    maxL2BlockGas = Math.min(rollupManaLimit, Math.ceil((rollupManaLimit / maxNumberOfBlocks) * multiplier));
+  }
+
+  // Compute maxDABlockGas
+  const daCheckpointLimit = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
+  let maxDABlockGas: number;
+  if (config.maxDABlockGas !== undefined) {
+    if (config.maxDABlockGas > daCheckpointLimit) {
+      log.warn(
+        `Provided MAX_DA_BLOCK_GAS ${config.maxDABlockGas} exceeds DA checkpoint limit ${daCheckpointLimit} (capping)`,
+      );
+      maxDABlockGas = daCheckpointLimit;
+    } else {
+      maxDABlockGas = config.maxDABlockGas;
+    }
+  } else {
+    maxDABlockGas = Math.min(daCheckpointLimit, Math.ceil((daCheckpointLimit / maxNumberOfBlocks) * multiplier));
+  }
+
+  // Compute maxTxsPerBlock
+  const defaultMaxTxsPerBlock = 32;
+  let maxTxsPerBlock: number;
+  if (config.maxTxsPerBlock !== undefined) {
+    if (config.maxTxsPerCheckpoint !== undefined && config.maxTxsPerBlock > config.maxTxsPerCheckpoint) {
+      log.warn(
+        `Provided MAX_TX_PER_BLOCK ${config.maxTxsPerBlock} exceeds MAX_TX_PER_CHECKPOINT ${config.maxTxsPerCheckpoint} (capping)`,
+      );
+      maxTxsPerBlock = config.maxTxsPerCheckpoint;
+    } else {
+      maxTxsPerBlock = config.maxTxsPerBlock;
+    }
+  } else if (config.maxTxsPerCheckpoint !== undefined) {
+    maxTxsPerBlock = Math.min(
+      config.maxTxsPerCheckpoint,
+      Math.ceil((config.maxTxsPerCheckpoint / maxNumberOfBlocks) * multiplier),
+    );
+  } else {
+    maxTxsPerBlock = defaultMaxTxsPerBlock;
+  }
+
+  log.info(`Computed block limits L2=${maxL2BlockGas} DA=${maxDABlockGas} maxTxs=${maxTxsPerBlock}`, {
+    maxL2BlockGas,
+    maxDABlockGas,
+    maxTxsPerBlock,
+    rollupManaLimit,
+    daCheckpointLimit,
+    maxNumberOfBlocks,
+    multiplier,
+  });
+
+  return { maxL2BlockGas, maxDABlockGas, maxTxsPerBlock };
 }

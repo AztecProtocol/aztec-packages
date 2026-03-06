@@ -191,10 +191,10 @@ variable "VALIDATORS_PER_NODE" {
   default     = 12
 }
 
-variable "VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY" {
-  description = "Number of publisher EOAs per validator key"
+variable "VALIDATOR_PUBLISHERS_PER_REPLICA" {
+  description = "Number of publisher EOAs per validator replica (pod)"
   type        = number
-  default     = 1
+  default     = 4
 }
 
 variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
@@ -347,6 +347,12 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
   description = "Maximum number of sequencer transactions per block"
   type        = string
   default     = "8"
+}
+
+variable "SEQ_MAX_TX_PER_CHECKPOINT" {
+  description = "Maximum number of sequencer transactions per checkpoint"
+  type        = string
+  default     = null
 }
 
 variable "SEQ_ENFORCE_TIME_TABLE" {

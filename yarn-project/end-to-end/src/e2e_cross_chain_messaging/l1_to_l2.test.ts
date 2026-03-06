@@ -6,7 +6,7 @@ import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -56,7 +56,34 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     if (newBlock === block) {
       throw new Error(`Failed to advance block ${block}`);
     }
-    return undefined;
+    return newBlock;
+  };
+
+  const waitForBlockToCheckpoint = async (blockNumber: BlockNumber) => {
+    return await retryUntil(
+      async () => {
+        const checkpointedBlockNumber = await aztecNode.getCheckpointedBlockNumber();
+        const isCheckpointed = checkpointedBlockNumber >= blockNumber;
+        if (!isCheckpointed) {
+          return undefined;
+        }
+        const [checkpointedBlock] = await aztecNode.getCheckpointedBlocks(blockNumber, 1);
+        return checkpointedBlock.checkpointNumber;
+      },
+      'wait for block to checkpoint',
+      60,
+    );
+  };
+
+  const advanceCheckpoint = async () => {
+    let checkpoint = await aztecNode.getCheckpointNumber();
+    const originalCheckpoint = checkpoint;
+    log.warn(`Original checkpoint ${originalCheckpoint}`);
+    do {
+      const newBlock = await advanceBlock();
+      checkpoint = await waitForBlockToCheckpoint(newBlock);
+    } while (checkpoint <= originalCheckpoint);
+    log.warn(`At checkpoint ${checkpoint}`);
   };
 
   // Same as above but ignores errors. Useful if we expect a prune.
@@ -68,12 +95,19 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     }
   };
 
-  // Waits until the message is fetched by the archiver of the node and returns the msg target block
+  // Waits until the message is fetched by the archiver of the node and returns the msg target checkpoint
   const waitForMessageFetched = async (msgHash: Fr) => {
     log.warn(`Waiting until the message is fetched by the node`);
     return await retryUntil(
-      async () => (await aztecNode.getL1ToL2MessageBlock(msgHash)) ?? (await advanceBlock()),
-      'get msg block',
+      async () => {
+        const checkpoint = await aztecNode.getL1ToL2MessageCheckpoint(msgHash);
+        if (checkpoint !== undefined) {
+          return checkpoint;
+        }
+        await advanceBlock();
+        return undefined;
+      },
+      'get msg checkpoint',
       60,
     );
   };
@@ -84,20 +118,27 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     scope: 'private' | 'public',
     onNotReady?: (blockNumber: BlockNumber) => Promise<void>,
   ) => {
-    const msgBlock = await waitForMessageFetched(msgHash);
-    log.warn(`Waiting until L2 reaches msg block ${msgBlock} (current is ${await aztecNode.getBlockNumber()})`);
+    const msgCheckpoint = await waitForMessageFetched(msgHash);
+    log.warn(
+      `Waiting until L2 reaches the first block of msg checkpoint ${msgCheckpoint} (current is ${await aztecNode.getCheckpointNumber()})`,
+    );
     await retryUntil(
       async () => {
-        const blockNumber = await aztecNode.getBlockNumber();
+        const [blockNumber, checkpointNumber] = await Promise.all([
+          aztecNode.getBlockNumber(),
+          aztecNode.getCheckpointNumber(),
+        ]);
         const witness = await aztecNode.getL1ToL2MessageMembershipWitness('latest', msgHash);
-        const isReady = await isL1ToL2MessageReady(aztecNode, msgHash, { forPublicConsumption: scope === 'public' });
-        log.info(`Block is ${blockNumber}. Message block is ${msgBlock}. Witness ${!!witness}. Ready ${isReady}.`);
+        const isReady = await isL1ToL2MessageReady(aztecNode, msgHash);
+        log.info(
+          `Block is ${blockNumber}, checkpoint is ${checkpointNumber}. Message checkpoint is ${msgCheckpoint}. Witness ${!!witness}. Ready ${isReady}.`,
+        );
         if (!isReady) {
           await (onNotReady ? onNotReady(blockNumber) : advanceBlock());
         }
         return isReady;
       },
-      `wait for rollup to reach msg block ${msgBlock}`,
+      `wait for rollup to reach msg checkpoint ${msgCheckpoint}`,
       120,
     );
   };
@@ -118,12 +159,8 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
 
       await waitForMessageReady(message1Hash, scope);
 
-      // The waitForMessageReady returns true earlier for public-land, so we can only check the membership
-      // witness for private-land here.
-      if (scope === 'private') {
-        const [message1Index] = (await aztecNode.getL1ToL2MessageMembershipWitness('latest', message1Hash))!;
-        expect(actualMessage1Index.toBigInt()).toBe(message1Index);
-      }
+      const [message1Index] = (await aztecNode.getL1ToL2MessageMembershipWitness('latest', message1Hash))!;
+      expect(actualMessage1Index.toBigInt()).toBe(message1Index);
 
       // We consume the L1 to L2 message using the test contract either from private or public
       await getConsumeMethod(scope)(
@@ -143,12 +180,10 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       // We check that the duplicate message was correctly inserted by checking that its message index is defined
       await waitForMessageReady(message2Hash, scope);
 
-      if (scope === 'private') {
-        const [message2Index] = (await aztecNode.getL1ToL2MessageMembershipWitness('latest', message2Hash))!;
-        expect(message2Index).toBeDefined();
-        expect(message2Index).toBeGreaterThan(actualMessage1Index.toBigInt());
-        expect(actualMessage2Index.toBigInt()).toBe(message2Index);
-      }
+      const [message2Index] = (await aztecNode.getL1ToL2MessageMembershipWitness('latest', message2Hash))!;
+      expect(message2Index).toBeDefined();
+      expect(message2Index).toBeGreaterThan(actualMessage1Index.toBigInt());
+      expect(actualMessage2Index.toBigInt()).toBe(message2Index);
 
       // Now we consume the message again. Everything should pass because oracle should return the duplicate message
       // which is not nullified
@@ -162,21 +197,22 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     120_000,
   );
 
-  // Inbox block number can drift on two scenarios: if the rollup reorgs and rolls back its own
-  // block number, or if the inbox receives too many messages and they are inserted faster than
-  // they are consumed. In this test, we mine several blocks without marking them as proven until
+  // Inbox checkpoint number can drift on two scenarios: if the rollup reorgs and rolls back its own
+  // checkpoint number, or if the inbox receives too many messages and they are inserted faster than
+  // they are consumed. In this test, we mine several checkpoints without marking them as proven until
   // we can trigger a reorg, and then wait until the message can be processed to consume it.
   it.each(['private', 'public'] as const)(
     'can consume L1 to L2 message in %s after inbox drifts away from the rollup',
     async (scope: 'private' | 'public') => {
       // Stop proving
       const lastProven = await aztecNode.getBlockNumber();
-      log.warn(`Stopping proof submission at block ${lastProven} to allow drift`);
+      const [checkpointedProvenBlock] = await aztecNode.getCheckpointedBlocks(lastProven, 1);
+      log.warn(`Stopping proof submission at checkpoint ${checkpointedProvenBlock.checkpointNumber} to allow drift`);
       t.context.watcher.setIsMarkingAsProven(false);
 
-      // Mine several blocks to ensure drift
+      // Mine several checkpoints to ensure drift
       log.warn(`Mining blocks to allow drift`);
-      await timesAsync(4, advanceBlock);
+      await timesAsync(4, advanceCheckpoint);
 
       // Generate and send the message to the L1 contract
       log.warn(`Sending L1 to L2 message`);
@@ -185,9 +221,9 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       const { msgHash, globalLeafIndex } = await sendL1ToL2Message(message, crossChainTestHarness);
 
       // Wait until the Aztec node has synced it
-      const msgBlockNumber = await waitForMessageFetched(msgHash);
-      log.warn(`Message synced for block ${msgBlockNumber}`);
-      expect(lastProven + 4).toBeLessThan(msgBlockNumber);
+      const msgCheckpointNumber = await waitForMessageFetched(msgHash);
+      log.warn(`Message synced for checkpoint ${msgCheckpointNumber}`);
+      expect(checkpointedProvenBlock.checkpointNumber + 4).toBeLessThan(msgCheckpointNumber);
 
       // And keep mining until we prune back to the original block number. Now the "waiting for two blocks"
       // strategy for the message to be ready to use shouldn't work, since the lastProven block is more than
@@ -214,25 +250,33 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
           // On private, we simulate the tx locally and check that we get a missing message error, then we advance to the next block
           await expect(() => consume().simulate({ from: user1Address })).rejects.toThrow(/No L1 to L2 message found/);
           await tryAdvanceBlock();
-          await t.context.watcher.markAsProven();
         } else {
-          // On public, we actually send the tx and check that it reverts due to the missing message.
-          // This advances the block too as a side-effect. Note that we do not rely on a simulation since the cross chain messages
-          // do not get added at the beginning of the block during node_simulatePublicCalls (maybe they should?).
+          // In public it is harder to determine when a message becomes consumable.
+          // We send a transaction, this advances the chain and the message MIGHT be consumed in the new block.
+          // If it does get consumed then we check that the block contains the message.
+          // If it fails we check that the block doesn't contain the message
           const { receipt } = await consume().send({ from: user1Address, wait: { dontThrowOnRevert: true } });
-          expect(receipt.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
-          await t.context.watcher.markAsProven();
+          if (receipt.executionResult === TxExecutionResult.SUCCESS) {
+            // The block the transaction included should be for the message checkpoint number
+            // and be the first block in the checkpoint
+            const block = await aztecNode.getBlock(receipt.blockNumber!);
+            expect(block).toBeDefined();
+            expect(block!.checkpointNumber).toEqual(msgCheckpointNumber);
+            expect(block!.indexWithinCheckpoint).toEqual(IndexWithinCheckpoint.ZERO);
+          } else {
+            expect(receipt.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
+          }
         }
+        await t.context.watcher.markAsProven();
       });
 
       // Verify the membership witness is available for creating the tx (private-land only)
       if (scope === 'private') {
         const [messageIndex] = (await aztecNode.getL1ToL2MessageMembershipWitness('latest', msgHash))!;
         expect(messageIndex).toEqual(globalLeafIndex.toBigInt());
+        // And consume the message for private, public was already consumed.
+        await consume().send({ from: user1Address });
       }
-
-      // And consume the message
-      await consume().send({ from: user1Address });
     },
   );
 });

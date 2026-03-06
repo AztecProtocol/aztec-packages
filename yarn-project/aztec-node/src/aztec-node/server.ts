@@ -271,10 +271,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     config.l1Contracts = { ...config.l1Contracts, ...l1ContractsAddresses };
 
     const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
-    const [l1GenesisTime, slotDuration, rollupVersionFromRollup] = await Promise.all([
+    const [l1GenesisTime, slotDuration, rollupVersionFromRollup, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
       rollupContract.getVersion(),
+      rollupContract.getManaLimit().then(Number),
     ] as const);
 
     config.rollupVersion ??= Number(rollupVersionFromRollup);
@@ -345,9 +346,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We'll accumulate sentinel watchers here
     const watchers: Watcher[] = [];
 
-    // Create FullNodeCheckpointsBuilder for block proposal handling and tx validation
+    // Create FullNodeCheckpointsBuilder for block proposal handling and tx validation.
+    // Override maxTxsPerCheckpoint with the validator-specific limit if set.
     const validatorCheckpointsBuilder = new FullNodeCheckpointsBuilder(
-      { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
+      {
+        ...config,
+        l1GenesisTime,
+        slotDuration: Number(slotDuration),
+        rollupManaLimit,
+        maxTxsPerCheckpoint: config.validateMaxTxsPerCheckpoint,
+      },
       worldStateSynchronizer,
       archiver,
       dateProvider,
@@ -380,22 +388,24 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
           await validatorClient.registerHandlers();
         }
       }
+    }
 
-      // If there's no validator client but alwaysReexecuteBlockProposals is enabled,
-      // create a BlockProposalHandler to reexecute block proposals for monitoring
-      if (!validatorClient && config.alwaysReexecuteBlockProposals) {
-        log.info('Setting up block proposal reexecution for monitoring');
-        createBlockProposalHandler(config, {
-          checkpointsBuilder: validatorCheckpointsBuilder,
-          worldState: worldStateSynchronizer,
-          epochCache,
-          blockSource: archiver,
-          l1ToL2MessageSource: archiver,
-          p2pClient,
-          dateProvider,
-          telemetry,
-        }).registerForReexecution(p2pClient);
-      }
+    // If there's no validator client, create a BlockProposalHandler to handle block proposals
+    // for monitoring or reexecution. Reexecution (default) allows us to follow the pending chain,
+    // while non-reexecution is used for validating the proposals and collecting their txs.
+    if (!validatorClient) {
+      const reexecute = !!config.alwaysReexecuteBlockProposals;
+      log.info(`Setting up block proposal handler` + (reexecute ? ' with reexecution of proposals' : ''));
+      createBlockProposalHandler(config, {
+        checkpointsBuilder: validatorCheckpointsBuilder,
+        worldState: worldStateSynchronizer,
+        epochCache,
+        blockSource: archiver,
+        l1ToL2MessageSource: archiver,
+        p2pClient,
+        dateProvider,
+        telemetry,
+      }).register(p2pClient, reexecute);
     }
 
     // Start world state and wait for it to sync to the archiver.
@@ -484,7 +494,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
       // Create and start the sequencer client
       const checkpointsBuilder = new CheckpointsBuilder(
-        { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
+        { ...config, l1GenesisTime, slotDuration: Number(slotDuration), rollupManaLimit },
         worldStateSynchronizer,
         archiver,
         dateProvider,
@@ -740,6 +750,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public async getCheckpointedBlockNumber(): Promise<BlockNumber> {
     return await this.blockSource.getCheckpointedL2BlockNumber();
+  }
+
+  public getCheckpointNumber(): Promise<CheckpointNumber> {
+    return this.blockSource.getCheckpointNumber();
   }
 
   /**
@@ -1049,11 +1063,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return [witness.index, witness.path];
   }
 
-  public async getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<BlockNumber | undefined> {
+  public async getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined> {
     const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
-    return messageIndex
-      ? BlockNumber.fromCheckpointNumber(InboxLeaf.checkpointNumberFromIndex(messageIndex))
-      : undefined;
+    return messageIndex ? InboxLeaf.checkpointNumberFromIndex(messageIndex) : undefined;
   }
 
   /**
@@ -1275,7 +1287,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config);
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
-      const [processedTxs, failedTxs, _usedTxs, returns, _blobFields, debugLogs] = await processor.process([tx]);
+      const [processedTxs, failedTxs, _usedTxs, returns, debugLogs] = await processor.process([tx]);
       // REFACTOR: Consider returning the error rather than throwing
       if (failedTxs.length) {
         this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
