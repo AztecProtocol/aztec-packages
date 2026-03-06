@@ -84,8 +84,8 @@ template <typename Flavor> class SumcheckProverRound {
     // Note: since this is not initialized with {}, the univariates contain garbage.
     SumcheckTupleOfTuplesOfUnivariates univariate_accumulators;
 
-    // The length of the polynomials used to mask the Sumcheck Round Univariates.
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::Curve::LIBRA_UNIVARIATES_LENGTH;
+    // The number of evaluations of the Libra masking univariate sent per sumcheck round.
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::LIBRA_UNIVARIATES_LENGTH;
 
     // Prover constructor
     SumcheckProverRound(size_t initial_round_size)

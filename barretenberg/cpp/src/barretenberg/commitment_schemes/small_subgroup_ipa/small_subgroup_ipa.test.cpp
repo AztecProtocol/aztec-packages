@@ -200,8 +200,11 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistency)
     const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
         this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
 
-    bool consistency_checked = Verifier::check_libra_evaluations_consistency(
-        small_ipa_evaluations, this->evaluation_challenge, multivariate_challenge, claimed_inner_product);
+    bool consistency_checked = Verifier::check_libra_evaluations_consistency(small_ipa_evaluations,
+                                                                             this->evaluation_challenge,
+                                                                             multivariate_challenge,
+                                                                             claimed_inner_product,
+                                                                             TypeParam::LIBRA_UNIVARIATES_LENGTH);
 
     EXPECT_TRUE(consistency_checked);
 }
@@ -243,8 +246,11 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistencyFailure)
     const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
         this->evaluate_small_ipa_witnesses(witness_polynomials);
 
-    bool consistency_checked = Verifier::check_libra_evaluations_consistency(
-        small_ipa_evaluations, this->evaluation_challenge, multivariate_challenge, claimed_inner_product);
+    bool consistency_checked = Verifier::check_libra_evaluations_consistency(small_ipa_evaluations,
+                                                                             this->evaluation_challenge,
+                                                                             multivariate_challenge,
+                                                                             claimed_inner_product,
+                                                                             TypeParam::LIBRA_UNIVARIATES_LENGTH);
 
     // Since witness polynomials were modified, the consistency check must fail
     EXPECT_FALSE(consistency_checked);
@@ -384,8 +390,11 @@ TYPED_TEST(SmallSubgroupIPATest, EvaluationChallengeInSubgroupThrows)
     FF dummy_inner_product = FF::random_element();
 
     // The check should throw/abort because the evaluation challenge is in the subgroup
-    EXPECT_THROW(Verifier::check_libra_evaluations_consistency(
-                     dummy_evaluations, subgroup_element, multivariate_challenge, dummy_inner_product),
+    EXPECT_THROW(Verifier::check_libra_evaluations_consistency(dummy_evaluations,
+                                                               subgroup_element,
+                                                               multivariate_challenge,
+                                                               dummy_inner_product,
+                                                               TypeParam::LIBRA_UNIVARIATES_LENGTH),
                  std::runtime_error);
 }
 } // namespace bb

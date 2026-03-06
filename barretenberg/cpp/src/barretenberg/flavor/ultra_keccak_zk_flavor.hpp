@@ -22,8 +22,8 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
     // Determine the number of evaluations of Prover and Libra Polynomials that the Prover sends to the Verifier in
     // the rounds of ZK Sumcheck.
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = UltraKeccakFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
-    static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
-                  "LIBRA_UNIVARIATES_LENGTH must be equal to UltraKeccakZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
+    // Each Libra univariate has BATCHED_RELATION_PARTIAL_LENGTH coefficients
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = BATCHED_RELATION_PARTIAL_LENGTH;
 
     // Override AllEntities to use ZK version (this automatically updates ProverPolynomials and AllValues)
     template <typename DataType> using AllEntities = UltraFlavor::AllEntities_<DataType, HasZK>;

@@ -195,7 +195,7 @@ template <typename Flavor>
 void SmallSubgroupIPAProver<Flavor>::compute_challenge_polynomial(const std::vector<FF>& multivariate_challenge)
 {
     std::vector<FF> coeffs_lagrange_basis =
-        compute_challenge_polynomial_coeffs<typename Flavor::Curve>(multivariate_challenge);
+        compute_challenge_polynomial_coeffs<typename Flavor::Curve>(multivariate_challenge, LIBRA_UNIVARIATES_LENGTH);
 
     challenge_polynomial_lagrange = Polynomial<FF>(coeffs_lagrange_basis);
 

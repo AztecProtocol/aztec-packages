@@ -220,6 +220,7 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         const RepeatedCommitmentsData& repeated_commitments = {},
         const std::array<Commitment, NUM_LIBRA_COMMITMENTS>& libra_commitments = {},
         const Fr& libra_univariate_evaluation = Fr{ 0 },
+        size_t libra_univariate_length = 0,
         const std::vector<Commitment>& sumcheck_round_commitments = {},
         const std::vector<std::array<Fr, 3>>& sumcheck_round_evaluations = {})
 
@@ -364,8 +365,12 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
                         shplonk_batching_challenge_powers,
                         shplonk_evaluation_challenge);
 
-            consistency_checked = SmallSubgroupIPAVerifier<Curve>::check_libra_evaluations_consistency(
-                libra_evaluations, gemini_evaluation_challenge, multivariate_challenge, libra_univariate_evaluation);
+            consistency_checked =
+                SmallSubgroupIPAVerifier<Curve>::check_libra_evaluations_consistency(libra_evaluations,
+                                                                                     gemini_evaluation_challenge,
+                                                                                     multivariate_challenge,
+                                                                                     libra_univariate_evaluation,
+                                                                                     libra_univariate_length);
         }
 
         // Currently, only used in ECCVM

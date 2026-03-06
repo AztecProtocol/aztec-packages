@@ -196,6 +196,12 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
         }
     }();
 
+    // For ZK flavors, we mask the round polynomials with Libra univariates.
+    size_t libra_univariate_length = 0;
+    if constexpr (Flavor::HasZK) {
+        libra_univariate_length = Flavor::LIBRA_UNIVARIATES_LENGTH;
+    }
+
     auto shplemini_output = Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                                    claim_batcher,
                                                                    sumcheck_output.challenge,
@@ -203,7 +209,8 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
                                                                    transcript,
                                                                    Flavor::REPEATED_COMMITMENTS,
                                                                    libra_commitments,
-                                                                   sumcheck_output.claimed_libra_evaluation);
+                                                                   sumcheck_output.claimed_libra_evaluation,
+                                                                   libra_univariate_length);
 
     // Build reduction result
     ReductionResult result;

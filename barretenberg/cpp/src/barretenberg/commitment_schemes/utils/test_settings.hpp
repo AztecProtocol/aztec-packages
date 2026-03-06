@@ -16,6 +16,8 @@ class BN254Settings {
     using Transcript = NativeTranscript;
     using FF = typename Curve::ScalarField;
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
+    // Max LIBRA_UNIVARIATES_LENGTH across BN254 ZK flavors (UltraZK/MegaZK = 9, Translator = 8)
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = 9;
 };
 
 class GrumpkinSettings {
@@ -25,5 +27,7 @@ class GrumpkinSettings {
     using Transcript = NativeTranscript;
     using FF = typename Curve::ScalarField;
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
+    // ECCVM uses committed sumcheck with 3 values per round
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = 3;
 };
 } // namespace bb

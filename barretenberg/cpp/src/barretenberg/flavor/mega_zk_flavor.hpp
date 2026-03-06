@@ -33,8 +33,8 @@ class MegaZKFlavor : public bb::MegaFlavor {
 
     // The degree has to be increased because the relation is multiplied by the Row Disabling Polynomial
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
-    static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
-                  "LIBRA_UNIVARIATES_LENGTH must be equal to MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
+    // Each Libra univariate has BATCHED_RELATION_PARTIAL_LENGTH coefficients
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = BATCHED_RELATION_PARTIAL_LENGTH;
 
     // Shplemini's remove_repeated_commitments uses offset = HasZK ? 2 : 1. Since MegaZK has HasZK=true
     // but no masking poly in its entities, the offset is 1 larger than the actual entity layout.

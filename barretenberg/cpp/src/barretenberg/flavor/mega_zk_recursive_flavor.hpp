@@ -28,6 +28,7 @@ template <typename BuilderType> class MegaZKRecursiveFlavor_ : public MegaRecurs
     static constexpr size_t VIRTUAL_LOG_N = NativeFlavor::VIRTUAL_LOG_N;
 
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = NativeFlavor::LIBRA_UNIVARIATES_LENGTH;
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = NativeFlavor::REPEATED_COMMITMENTS;
 
