@@ -427,6 +427,13 @@ interface CreateForkRequest extends WithCanonicalForkId {
 
 interface CreateForkResponse {
   forkId: number;
+  blockNumber: number;
+  nullifierTreeTimeMs: number;
+  noteHashTreeTimeMs: number;
+  publicDataTreeTimeMs: number;
+  messageTreeTimeMs: number;
+  archiveTreeTimeMs: number;
+  totalTimeMs: number;
 }
 
 interface DeleteForkRequest extends WithForkId {}

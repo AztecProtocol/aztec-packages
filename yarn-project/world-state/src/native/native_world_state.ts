@@ -185,7 +185,19 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     });
     const statusEnd = this.instance.getQueueStatus();
     this.log.info(
-      `World state fork of ${blockNumber ?? BlockNumber.ZERO} took ${timer.ms().toFixed(2)}ms queue status start=${JSON.stringify(statusStart)} end=${JSON.stringify(statusEnd)}`,
+      `World state fork at block ${resp.blockNumber} created in ${resp.totalTimeMs}ms (e2e=${timer.ms().toFixed(0)}ms)`,
+      {
+        forkId: resp.forkId,
+        blockNumber: resp.blockNumber,
+        nullifierTreeTimeMs: resp.nullifierTreeTimeMs,
+        noteHashTreeTimeMs: resp.noteHashTreeTimeMs,
+        publicDataTreeTimeMs: resp.publicDataTreeTimeMs,
+        messageTreeTimeMs: resp.messageTreeTimeMs,
+        archiveTreeTimeMs: resp.archiveTreeTimeMs,
+        cppTotalTimeMs: resp.totalTimeMs,
+        queueStatusStart: statusStart,
+        queueStatusEnd: statusEnd,
+      },
     );
     return new MerkleTreesForkFacade(
       this.instance,

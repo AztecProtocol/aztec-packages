@@ -272,7 +272,18 @@ class WorldState {
      */
     void rollback();
 
-    uint64_t create_fork(const std::optional<block_number_t>& blockNumber);
+    struct CreateForkResult {
+        uint64_t forkId;
+        block_number_t blockNumber;
+        uint64_t nullifierTreeTimeMs;
+        uint64_t noteHashTreeTimeMs;
+        uint64_t publicDataTreeTimeMs;
+        uint64_t messageTreeTimeMs;
+        uint64_t archiveTreeTimeMs;
+        uint64_t totalTimeMs;
+    };
+
+    CreateForkResult create_fork(const std::optional<block_number_t>& blockNumber);
     void delete_fork(const uint64_t& forkId);
 
     WorldStateStatusSummary set_finalized_blocks(const block_number_t& toBlockNumber);
@@ -311,7 +322,7 @@ class WorldState {
                                uint64_t maxReaders);
 
     Fork::SharedPtr retrieve_fork(const uint64_t& forkId) const;
-    Fork::SharedPtr create_new_fork(const block_number_t& blockNumber);
+    Fork::SharedPtr create_new_fork(const block_number_t& blockNumber, CreateForkResult& timing);
     void remove_forks_for_block(const block_number_t& blockNumber);
 
     bool unwind_block(const block_number_t& blockNumber, WorldStateStatusFull& status);

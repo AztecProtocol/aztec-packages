@@ -781,7 +781,7 @@ TEST_F(WorldStateTest, SyncEmptyBlock)
 TEST_F(WorldStateTest, ForkingAtBlock0SameState)
 {
     WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
-    auto fork_id = ws.create_fork(0);
+    auto fork_id = ws.create_fork(0).forkId;
 
     assert_fork_state_unchanged(ws, fork_id, false);
     assert_fork_state_unchanged(ws, fork_id, true);
@@ -790,7 +790,7 @@ TEST_F(WorldStateTest, ForkingAtBlock0SameState)
 TEST_F(WorldStateTest, ForkingAtBlock0AndAdvancingFork)
 {
     WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
-    auto fork_id = ws.create_fork(0);
+    auto fork_id = ws.create_fork(0).forkId;
 
     auto canonical_archive_state_before = ws.get_tree_info(WorldStateRevision::uncommitted(), MerkleTreeId::ARCHIVE);
     auto fork_archive_state_before = ws.get_tree_info(
@@ -818,7 +818,7 @@ TEST_F(WorldStateTest, ForkingAtBlock0AndAdvancingFork)
 TEST_F(WorldStateTest, ForkingAtBlock0AndAdvancingCanonicalState)
 {
     WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
-    auto fork_id = ws.create_fork(0);
+    auto fork_id = ws.create_fork(0).forkId;
 
     auto canonical_archive_state_before = ws.get_tree_info(WorldStateRevision::uncommitted(), MerkleTreeId::ARCHIVE);
     auto fork_archive_state_before_insert = ws.get_tree_info(
@@ -876,7 +876,7 @@ TEST_F(WorldStateTest, ForkingAtBlock0AndAdvancingCanonicalState)
 TEST_F(WorldStateTest, BuildsABlockInAFork)
 {
     WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
-    auto fork_id = ws.create_fork(0);
+    auto fork_id = ws.create_fork(0).forkId;
 
     ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { 42 }, fork_id);
     ws.append_leaves<bb::fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { 43 }, fork_id);

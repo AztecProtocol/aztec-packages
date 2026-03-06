@@ -16,6 +16,7 @@
 #include "barretenberg/world_state/world_state_stores.hpp"
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -192,8 +193,9 @@ Fork::SharedPtr WorldState::retrieve_fork(const uint64_t& forkId) const
     }
     return it->second;
 }
-uint64_t WorldState::create_fork(const std::optional<block_number_t>& blockNumber)
+WorldState::CreateForkResult WorldState::create_fork(const std::optional<block_number_t>& blockNumber)
 {
+    auto totalStart = std::chrono::steady_clock::now();
     block_number_t blockNumberForFork = 0;
     if (!blockNumber.has_value()) {
         // we are forking at latest
@@ -203,12 +205,19 @@ uint64_t WorldState::create_fork(const std::optional<block_number_t>& blockNumbe
     } else {
         blockNumberForFork = blockNumber.value();
     }
-    Fork::SharedPtr fork = create_new_fork(blockNumberForFork);
+
+    CreateForkResult result{};
+    result.blockNumber = blockNumberForFork;
+
+    Fork::SharedPtr fork = create_new_fork(blockNumberForFork, result);
     std::unique_lock lock(mtx);
     uint64_t forkId = _forkId++;
     fork->_forkId = forkId;
     _forks[forkId] = fork;
-    return forkId;
+    result.forkId = forkId;
+    result.totalTimeMs = static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - totalStart).count());
+    return result;
 }
 
 void WorldState::remove_forks_for_block(const block_number_t& blockNumber)
@@ -243,34 +252,47 @@ void WorldState::delete_fork(const uint64_t& forkId)
     }
 }
 
-Fork::SharedPtr WorldState::create_new_fork(const block_number_t& blockNumber)
+Fork::SharedPtr WorldState::create_new_fork(const block_number_t& blockNumber, CreateForkResult& timing)
 {
     Fork::SharedPtr fork = std::make_shared<Fork>();
     fork->_blockNumber = blockNumber;
+
+    auto time_ms = [](auto start) -> uint64_t {
+        return static_cast<uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
+    };
+
     {
+        auto start = std::chrono::steady_clock::now();
         uint32_t levels = _tree_heights.at(MerkleTreeId::NULLIFIER_TREE);
         index_t initial_size = _initial_tree_size.at(MerkleTreeId::NULLIFIER_TREE);
         auto store = std::make_unique<NullifierStore>(
             getMerkleTreeName(MerkleTreeId::NULLIFIER_TREE), levels, blockNumber, _persistentStores->nullifierStore);
         auto tree = std::make_unique<NullifierTree>(std::move(store), _workers, initial_size);
         fork->_trees.insert({ MerkleTreeId::NULLIFIER_TREE, TreeWithStore(std::move(tree)) });
+        timing.nullifierTreeTimeMs = time_ms(start);
     }
     {
+        auto start = std::chrono::steady_clock::now();
         uint32_t levels = _tree_heights.at(MerkleTreeId::NOTE_HASH_TREE);
         auto store = std::make_unique<FrStore>(
             getMerkleTreeName(MerkleTreeId::NOTE_HASH_TREE), levels, blockNumber, _persistentStores->noteHashStore);
         auto tree = std::make_unique<FrTree>(std::move(store), _workers);
         fork->_trees.insert({ MerkleTreeId::NOTE_HASH_TREE, TreeWithStore(std::move(tree)) });
+        timing.noteHashTreeTimeMs = time_ms(start);
     }
     {
+        auto start = std::chrono::steady_clock::now();
         uint32_t levels = _tree_heights.at(MerkleTreeId::PUBLIC_DATA_TREE);
         index_t initial_size = _initial_tree_size.at(MerkleTreeId::PUBLIC_DATA_TREE);
         auto store = std::make_unique<PublicDataStore>(
             getMerkleTreeName(MerkleTreeId::PUBLIC_DATA_TREE), levels, blockNumber, _persistentStores->publicDataStore);
         auto tree = std::make_unique<PublicDataTree>(std::move(store), _workers, initial_size);
         fork->_trees.insert({ MerkleTreeId::PUBLIC_DATA_TREE, TreeWithStore(std::move(tree)) });
+        timing.publicDataTreeTimeMs = time_ms(start);
     }
     {
+        auto start = std::chrono::steady_clock::now();
         uint32_t levels = _tree_heights.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE);
         auto store = std::make_unique<FrStore>(getMerkleTreeName(MerkleTreeId::L1_TO_L2_MESSAGE_TREE),
                                                levels,
@@ -278,13 +300,16 @@ Fork::SharedPtr WorldState::create_new_fork(const block_number_t& blockNumber)
                                                _persistentStores->messageStore);
         auto tree = std::make_unique<FrTree>(std::move(store), _workers);
         fork->_trees.insert({ MerkleTreeId::L1_TO_L2_MESSAGE_TREE, TreeWithStore(std::move(tree)) });
+        timing.messageTreeTimeMs = time_ms(start);
     }
     {
+        auto start = std::chrono::steady_clock::now();
         uint32_t levels = _tree_heights.at(MerkleTreeId::ARCHIVE);
         auto store = std::make_unique<FrStore>(
             getMerkleTreeName(MerkleTreeId::ARCHIVE), levels, blockNumber, _persistentStores->archiveStore);
         auto tree = std::make_unique<FrTree>(std::move(store), _workers);
         fork->_trees.insert({ MerkleTreeId::ARCHIVE, TreeWithStore(std::move(tree)) });
+        timing.archiveTreeTimeMs = time_ms(start);
     }
     return fork;
 }

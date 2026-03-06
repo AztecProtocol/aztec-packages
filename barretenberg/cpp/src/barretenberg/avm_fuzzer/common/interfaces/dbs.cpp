@@ -200,7 +200,7 @@ void FuzzerWorldStateManager::initialize_world_state()
     ws = std::make_unique<world_state::WorldState>(
         /*thread_pool_size=*/4, DATA_DIR, MAP_SIZE_KB, tree_heights, tree_prefill, initial_header_generator_point);
 
-    fork_ids.push(ws->create_fork(std::nullopt));
+    fork_ids.push(ws->create_fork(std::nullopt).forkId);
 }
 
 WorldStateRevision FuzzerWorldStateManager::get_current_revision() const
@@ -210,7 +210,7 @@ WorldStateRevision FuzzerWorldStateManager::get_current_revision() const
 
 WorldStateRevision FuzzerWorldStateManager::fork()
 {
-    auto fork_id = ws->create_fork(std::nullopt);
+    auto fork_id = ws->create_fork(std::nullopt).forkId;
     fork_ids.push(fork_id);
     return WorldStateRevision{ .forkId = fork_id, .blockNumber = 0, .includeUncommitted = true };
 }

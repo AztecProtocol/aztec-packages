@@ -758,10 +758,18 @@ bool WorldStateWrapper::create_fork(msgpack::object& obj, msgpack::sbuffer& buf)
     std::optional<block_number_t> blockNumber =
         request.value.latest ? std::nullopt : std::optional<block_number_t>(request.value.blockNumber);
 
-    uint64_t forkId = _ws->create_fork(blockNumber);
+    auto result = _ws->create_fork(blockNumber);
 
     MsgHeader header(request.header.messageId);
-    messaging::TypedMessage<CreateForkResponse> resp_msg(WorldStateMessageType::CREATE_FORK, header, { forkId });
+    CreateForkResponse resp{ result.forkId,
+                             result.blockNumber,
+                             result.nullifierTreeTimeMs,
+                             result.noteHashTreeTimeMs,
+                             result.publicDataTreeTimeMs,
+                             result.messageTreeTimeMs,
+                             result.archiveTreeTimeMs,
+                             result.totalTimeMs };
+    messaging::TypedMessage<CreateForkResponse> resp_msg(WorldStateMessageType::CREATE_FORK, header, resp);
     msgpack::pack(buf, resp_msg);
 
     return true;

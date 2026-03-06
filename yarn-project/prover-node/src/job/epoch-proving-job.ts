@@ -205,7 +205,7 @@ export class EpochProvingJob implements Traceable {
           uuid: this.uuid,
         });
 
-        for (let blockIndex = checkpoint.blocks.length - 1; blockIndex >= 0; blockIndex--) {
+        for (let blockIndex = 0; blockIndex < checkpoint.blocks.length; blockIndex++) {
           const block = checkpoint.blocks[blockIndex];
           const globalVariables = block.header.globalVariables;
           const txs = this.getTxs(block);

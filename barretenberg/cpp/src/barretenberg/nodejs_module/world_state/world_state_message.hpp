@@ -75,7 +75,21 @@ struct CreateForkRequest {
 
 struct CreateForkResponse {
     uint64_t forkId;
-    MSGPACK_FIELDS(forkId);
+    uint64_t blockNumber;
+    uint64_t nullifierTreeTimeMs;
+    uint64_t noteHashTreeTimeMs;
+    uint64_t publicDataTreeTimeMs;
+    uint64_t messageTreeTimeMs;
+    uint64_t archiveTreeTimeMs;
+    uint64_t totalTimeMs;
+    MSGPACK_FIELDS(forkId,
+                   blockNumber,
+                   nullifierTreeTimeMs,
+                   noteHashTreeTimeMs,
+                   publicDataTreeTimeMs,
+                   messageTreeTimeMs,
+                   archiveTreeTimeMs,
+                   totalTimeMs);
 };
 
 struct DeleteForkRequest {
