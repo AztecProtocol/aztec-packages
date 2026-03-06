@@ -97,7 +97,7 @@ pub comptime fn generate_public_dispatch(m: Module, generate_emit_public_init_nu
         if_
     });
 
-    // If injected the auto-generated public function to emit the public initialization nullifier, then
+    // If we injected the auto-generated public function to emit the public initialization nullifier, then
     // we'll also need to handle its dispatch.
     if generate_emit_public_init_nullifier {
         let name = EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME;
