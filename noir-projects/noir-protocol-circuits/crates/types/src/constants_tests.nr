@@ -17,9 +17,10 @@ use crate::{
         DOM_SEP__PUBLIC_BYTECODE, DOM_SEP__PUBLIC_CALLDATA, DOM_SEP__PUBLIC_KEYS_HASH,
         DOM_SEP__PUBLIC_LEAF_SLOT, DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, DOM_SEP__PUBLIC_TX_HASH,
         DOM_SEP__SECRET_HASH, DOM_SEP__SIGNATURE_PAYLOAD, DOM_SEP__SILOED_NOTE_HASH,
-        DOM_SEP__SILOED_NULLIFIER, DOM_SEP__SYMMETRIC_KEY, DOM_SEP__SYMMETRIC_KEY_2, DOM_SEP__TSK_M,
-        DOM_SEP__TX_NULLIFIER, DOM_SEP__TX_REQUEST, DOM_SEP__UNIQUE_NOTE_HASH,
-        NULL_MSG_SENDER_CONTRACT_ADDRESS, SIDE_EFFECT_MASKING_ADDRESS, TX_START_PREFIX,
+        DOM_SEP__SILOED_NULLIFIER, DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER, DOM_SEP__SYMMETRIC_KEY,
+        DOM_SEP__SYMMETRIC_KEY_2, DOM_SEP__TSK_M, DOM_SEP__TX_NULLIFIER, DOM_SEP__TX_REQUEST,
+        DOM_SEP__UNIQUE_NOTE_HASH, NULL_MSG_SENDER_CONTRACT_ADDRESS, SIDE_EFFECT_MASKING_ADDRESS,
+        TX_START_PREFIX,
     },
     hash::poseidon2_hash_bytes,
     traits::{FromField, ToField},
@@ -129,7 +130,7 @@ impl<let NUM_VALUES: u32, let NUM_U32_VALUES: u32> HashedValueTester<NUM_VALUES,
 
 #[test]
 fn hashed_values_match_derived() {
-    let mut tester = HashedValueTester::<50, 43>::new();
+    let mut tester = HashedValueTester::<51, 44>::new();
 
     // -----------------
     // Domain separators
@@ -139,6 +140,10 @@ fn hashed_values_match_derived() {
     tester.assert_dom_sep_matches_derived(DOM_SEP__UNIQUE_NOTE_HASH, "unique_note_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__SILOED_NOTE_HASH, "siloed_note_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__NOTE_NULLIFIER, "note_nullifier");
+    tester.assert_dom_sep_matches_derived(
+        DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER,
+        "single_use_claim_nullifier",
+    );
     tester.assert_dom_sep_matches_derived(DOM_SEP__SILOED_NULLIFIER, "siloed_nullifier");
     tester.assert_dom_sep_matches_derived(
         DOM_SEP__PRIVATE_LOG_FIRST_FIELD,
