@@ -10,7 +10,7 @@ set -euo pipefail
 CI_MODE="${1:?CI_MODE must be provided as first argument}"
 shift
 
-NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source_base
 
 function setup_environment {
   echo_header "Setup"

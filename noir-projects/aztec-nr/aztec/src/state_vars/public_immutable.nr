@@ -214,7 +214,7 @@ impl<T> PublicImmutable<T, PublicContext> {
         WithHash::public_storage_read(self.context, self.storage_slot)
     }
 
-    /// Returns true if the `PublicImmutable` has been initialized.
+    /// Returns `true` if the `PublicImmutable` has been initialized.
     ///
     /// ## Examples:
     ///
@@ -263,7 +263,7 @@ impl<T> PublicImmutable<T, UtilityContext> {
         WithHash::utility_public_storage_read(self.context, self.storage_slot)
     }
 
-    /// Returns true if the `PublicImmutable` has been initialized.
+    /// Returns `true` if the `PublicImmutable` has been initialized.
     pub unconstrained fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_inner_nullifier();
         check_nullifier_exists(nullifier)
