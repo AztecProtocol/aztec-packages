@@ -192,6 +192,13 @@ export interface AztecNode
   getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]>;
 
   /**
+   * Returns the epoch number that a given block belongs to.
+   * @param blockNumber - The block number.
+   * @returns The epoch number, or undefined if the block is not found.
+   */
+  getEpochForBlock(blockNumber: BlockNumber): Promise<EpochNumber | undefined>;
+
+  /**
    * Get a block specified by its block number or 'latest'.
    * @param blockParameter - The block parameter (block number, block hash, or 'latest').
    * @returns The requested block.
@@ -525,6 +532,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .function()
     .args(EpochNumberSchema)
     .returns(z.array(z.array(z.array(z.array(schemas.Fr))))),
+
+  getEpochForBlock: z.function().args(BlockNumberSchema).returns(EpochNumberSchema.optional()),
 
   getBlock: z.function().args(BlockParameterSchema).returns(L2Block.schema.optional()),
 

@@ -20,7 +20,7 @@ import {
   serializeValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import { type CheckpointData, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
@@ -880,10 +880,11 @@ export class BlockStore {
     const blockNumber = BlockNumber(txEffect.l2BlockNumber);
 
     // Use existing archiver methods to determine finalization level
-    const [provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber] = await Promise.all([
+    const [provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber, block] = await Promise.all([
       this.getProvenBlockNumber(),
       this.getCheckpointedL2BlockNumber(),
       this.getFinalizedL2BlockNumber(),
+      this.getBlock(blockNumber),
     ]);
 
     let status: TxStatus;
@@ -897,6 +898,8 @@ export class BlockStore {
       status = TxStatus.PROPOSED;
     }
 
+    const epochNumber = block ? getEpochAtSlot(block.slot, this.l1Constants) : undefined;
+
     return new TxReceipt(
       txHash,
       status,
@@ -905,6 +908,7 @@ export class BlockStore {
       txEffect.data.transactionFee.toBigInt(),
       txEffect.l2BlockHash,
       blockNumber,
+      epochNumber,
     );
   }
 

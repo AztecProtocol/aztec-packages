@@ -134,6 +134,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response[0][0][0][0]).toBeInstanceOf(Fr);
   });
 
+  it('getEpochForBlock', async () => {
+    const response = await context.client.getEpochForBlock(BlockNumber(1));
+    expect(response).toEqual(EpochNumber(1));
+  });
+
   it('getBlockHashMembershipWitness', async () => {
     const response = await context.client.getBlockHashMembershipWitness(BlockNumber(1), BlockHash.random());
     expect(response).toBeInstanceOf(MembershipWitness);
@@ -596,6 +601,9 @@ class MockAztecNode implements AztecNode {
         ),
       ),
     );
+  }
+  getEpochForBlock(_blockNumber: BlockNumber): Promise<EpochNumber | undefined> {
+    return Promise.resolve(EpochNumber(1));
   }
   getNullifierMembershipWitness(
     referenceBlock: BlockParameter,

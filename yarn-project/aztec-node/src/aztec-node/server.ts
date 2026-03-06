@@ -57,6 +57,7 @@ import type {
   NodeInfo,
   ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
+import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import {
@@ -1064,6 +1065,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   public async isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
     const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
     return messageIndex !== undefined;
+  }
+
+  public async getEpochForBlock(blockNumber: BlockNumber): Promise<EpochNumber | undefined> {
+    const block = await this.blockSource.getL2Block(blockNumber);
+    if (!block) {
+      return undefined;
+    }
+    return getEpochAtSlot(block.slot, this.epochCache.getL1Constants());
   }
 
   /**
