@@ -6,6 +6,7 @@
 #include <exception>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <span>
 #include <string>
 #include <sys/types.h>
@@ -132,6 +133,29 @@ class IpcServer {
     virtual int accept() { return -1; }
 
     /**
+     * @brief Queued async response to be sent from the main loop
+     */
+    struct AsyncResponse {
+        int client_id;
+        std::vector<uint8_t> data;
+    };
+
+    /**
+     * @brief Enqueue an async response to be sent from the main event loop.
+     *
+     * Thread-safe. Called by worker threads when async jobs complete.
+     * Wakes the main loop so responses are sent promptly.
+     */
+    void enqueue_async_response(int client_id, std::vector<uint8_t> data)
+    {
+        {
+            std::lock_guard<std::mutex> lock(async_mutex_);
+            async_responses_.push_back(AsyncResponse{ client_id, std::move(data) });
+        }
+        wakeup_all(); // Wake main loop to drain the queue
+    }
+
+    /**
      * @brief Run server event loop with handler
      *
      * Continuously waits for client requests and invokes handler.
@@ -145,6 +169,7 @@ class IpcServer {
      *
      * This design ensures no messages are lost and enables zero-copy for shared memory.
      *
+     * Between iterations, drains any pending async responses from worker threads.
      * Server exits gracefully when handler throws ShutdownRequested exception.
      *
      * @param handler Function to process requests and generate responses
@@ -152,6 +177,9 @@ class IpcServer {
     virtual void run(const Handler& handler)
     {
         while (!shutdown_requested_.load(std::memory_order_acquire)) {
+            // Drain any pending async responses before waiting for new requests
+            drain_async_responses();
+
             // Try to accept new clients (non-blocking for socket servers)
             accept();
 
@@ -179,6 +207,9 @@ class IpcServer {
                 // Release message before shutting down
                 release(client_id, request.size());
 
+                // Drain any remaining async responses before final shutdown
+                drain_async_responses();
+
                 // Send final response before shutting down
                 if (!shutdown.response().empty()) {
                     send(client_id, shutdown.response().data(), shutdown.response().size());
@@ -203,8 +234,28 @@ class IpcServer {
      *
      * Wakes any threads blocked in wait_for_data() or other blocking operations.
      * Used by signal handlers to trigger graceful shutdown without waiting for timeouts.
+     * Also used by async worker threads to wake the main loop when results are ready.
      */
     virtual void wakeup_all() {};
+
+  private:
+    std::mutex async_mutex_;
+    std::vector<AsyncResponse> async_responses_;
+
+    /**
+     * @brief Send all pending async responses. Called from the main event loop only.
+     */
+    void drain_async_responses()
+    {
+        std::vector<AsyncResponse> responses;
+        {
+            std::lock_guard<std::mutex> lock(async_mutex_);
+            responses.swap(async_responses_);
+        }
+        for (auto& resp : responses) {
+            send(resp.client_id, resp.data.data(), resp.data.size());
+        }
+    }
 };
 
 } // namespace bb::ipc

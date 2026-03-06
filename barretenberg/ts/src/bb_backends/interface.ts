@@ -32,4 +32,13 @@ export interface IMsgpackBackendSync extends IMsgpackBackend {
 export interface IMsgpackBackendAsync extends IMsgpackBackend {
   call(inputBuffer: Uint8Array): Promise<Uint8Array>;
   destroy(): Promise<void>;
+
+  /**
+   * Send an async request with a request_id. Response may arrive out of order.
+   * The request is wrapped as [request_id, Command] in the new protocol.
+   * Returns the request_id and a promise for the response.
+   *
+   * Not all backends support this — callers should check before using.
+   */
+  callAsync?(inputBuffer: Uint8Array): Promise<{ requestId: number; response: Promise<Uint8Array> }>;
 }

@@ -1,6 +1,7 @@
 #include "barretenberg/api/api_msgpack.hpp"
 #include "barretenberg/bbapi/c_bind.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>
 #include <fstream>
@@ -197,28 +198,48 @@ int execute_msgpack_ipc_server(std::unique_ptr<ipc::IpcServer> server)
 
     std::cerr << "IPC server ready" << '\n';
 
+    // Track detached async worker threads so we can join them on shutdown
+    std::vector<std::thread> async_workers;
+    std::mutex workers_mutex;
+
     // Run server with msgpack handler
-    server->run([](int client_id, std::span<const uint8_t> request) -> std::vector<uint8_t> {
+    // Request format: [request_id, Command] (2-element array) or [Command] (1-element, legacy)
+    // Response format: [request_id, CommandResponse] (always 2-element for new protocol)
+    server->run([&server, &async_workers, &workers_mutex](int client_id,
+                                                          std::span<const uint8_t> request) -> std::vector<uint8_t> {
         try {
-            // Deserialize msgpack command
-            // The buffer should contain a tuple of arguments (array) matching the bbapi function signature.
-            // Since bbapi(Command) takes one argument, we expect a 1-element array containing the Command.
             auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(request.data()), request.size());
             auto obj = unpacked.get();
 
-            // First, expect an array (the tuple of arguments)
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
-                std::cerr << "Error: Expected an array of size 1 (tuple of arguments) from client " << client_id
-                          << '\n';
-                return {}; // Return empty to skip response
+            if (obj.type != msgpack::type::ARRAY) {
+                std::cerr << "Error: Expected an array from client " << client_id << '\n';
+                return {};
             }
 
+            // Detect protocol version by outer array size:
+            // - Size 1: legacy [Command] — request_id = 0
+            // - Size 2: new [request_id, Command]
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            auto& tuple_arr = obj.via.array;
-            auto& command_obj = tuple_arr.ptr[0];
+            auto& outer_arr = obj.via.array;
+            uint32_t request_id = 0;
+            msgpack::object* command_obj_ptr = nullptr;
 
-            // Now access the Command itself, which should be an array of size 2 [command-name, payload]
+            if (outer_arr.size == 2 && outer_arr.ptr[0].type == msgpack::type::POSITIVE_INTEGER) {
+                // New protocol: [request_id, Command]
+                request_id = outer_arr.ptr[0].via.u64;
+                command_obj_ptr = &outer_arr.ptr[1];
+            } else if (outer_arr.size == 1) {
+                // Legacy protocol: [Command]
+                command_obj_ptr = &outer_arr.ptr[0];
+            } else {
+                std::cerr << "Error: Unexpected array size " << outer_arr.size << " from client " << client_id << '\n';
+                return {};
+            }
+
+            auto& command_obj = *command_obj_ptr;
+
+            // Command should be [command-name, payload]
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
             if (command_obj.type != msgpack::type::ARRAY || command_obj.via.array.size != 2) {
                 std::cerr << "Error: Expected Command to be an array of size 2 [command-name, payload] from client "
@@ -234,46 +255,120 @@ int execute_msgpack_ipc_server(std::unique_ptr<ipc::IpcServer> server)
                 return {};
             }
 
-            // Check if this is a Shutdown command
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
             std::string command_name(command_arr.ptr[0].via.str.ptr, command_arr.ptr[0].via.str.size);
             bool is_shutdown = (command_name == "Shutdown");
 
-            // Convert to Command and execute
+            // Convert to Command
             bb::bbapi::Command command;
             command_obj.convert(command);
+
+            // Async dispatch: ChonkVerify with request_id > 0 runs on a worker thread
+            bool is_async_chonk_verify = (request_id > 0 && command_name == "ChonkVerify");
+
+            if (is_async_chonk_verify) {
+                // Spawn a worker thread for async verification
+                // ChonkVerify::execute() is stateless — safe for concurrent execution.
+                // Each std::thread gets its own thread-local parallel_for pool.
+                // We use a thread-local BBApiRequest to avoid racing on the global one.
+                auto worker =
+                    std::thread([srv = server.get(), client_id, request_id, cmd = std::move(command)]() mutable {
+                        try {
+                            // Use a thread-local BBApiRequest instead of the global one.
+                            // bbapi::bbapi() uses a global request which is not thread-safe
+                            // (execute() clears/checks error_message).
+                            bbapi::BBApiRequest local_request;
+                            auto response = bbapi::execute(local_request, std::move(cmd));
+
+                            // Serialize as [request_id, response]
+                            msgpack::sbuffer buf;
+                            msgpack::packer<msgpack::sbuffer> pk(&buf);
+                            pk.pack_array(2);
+                            pk.pack(request_id);
+                            pk.pack(response);
+
+                            std::vector<uint8_t> result(buf.data(), buf.data() + buf.size());
+                            srv->enqueue_async_response(client_id, std::move(result));
+                        } catch (const std::exception& e) {
+                            std::cerr << "Async ChonkVerify error (request_id=" << request_id << "): " << e.what()
+                                      << '\n';
+
+                            bb::bbapi::ErrorResponse error_response{ .message = std::string(e.what()) };
+                            bb::bbapi::CommandResponse err_resp = error_response;
+
+                            msgpack::sbuffer buf;
+                            msgpack::packer<msgpack::sbuffer> pk(&buf);
+                            pk.pack_array(2);
+                            pk.pack(request_id);
+                            pk.pack(err_resp);
+
+                            std::vector<uint8_t> result(buf.data(), buf.data() + buf.size());
+                            srv->enqueue_async_response(client_id, std::move(result));
+                        }
+                    });
+
+                {
+                    std::lock_guard<std::mutex> lock(workers_mutex);
+                    // Clean up finished workers before adding new one
+                    std::erase_if(async_workers, [](std::thread& t) {
+                        if (t.joinable()) {
+                            // Try to join non-blockingly isn't possible with std::thread,
+                            // so we detach completed ones during cleanup on shutdown
+                            return false;
+                        }
+                        return true;
+                    });
+                    async_workers.push_back(std::move(worker));
+                }
+
+                // Return empty — no sync response for async commands
+                return std::vector<uint8_t>{};
+            }
+
+            // Synchronous execution
             auto response = bbapi::bbapi(std::move(command));
 
-            // Serialize response
+            // Serialize response, wrapping with request_id if provided
             msgpack::sbuffer response_buffer;
-            msgpack::pack(response_buffer, response);
+            if (request_id > 0) {
+                msgpack::packer<msgpack::sbuffer> pk(&response_buffer);
+                pk.pack_array(2);
+                pk.pack(request_id);
+                pk.pack(response);
+            } else {
+                msgpack::pack(response_buffer, response);
+            }
             std::vector<uint8_t> result(response_buffer.data(), response_buffer.data() + response_buffer.size());
 
-            // If this was a shutdown command, throw exception with response
-            // This signals the server to send the response and then exit gracefully
             if (is_shutdown) {
                 throw ipc::ShutdownRequested(std::move(result));
             }
 
             return result;
         } catch (const ipc::ShutdownRequested&) {
-            // Re-throw shutdown request
             throw;
         } catch (const std::exception& e) {
-            // Log error to stderr for debugging (goes to log file if logger enabled)
             std::cerr << "Error processing request from client " << client_id << ": " << e.what() << '\n';
             std::cerr.flush();
 
-            // Create error response with exception message
             bb::bbapi::ErrorResponse error_response{ .message = std::string(e.what()) };
             bb::bbapi::CommandResponse response = error_response;
 
-            // Serialize and return error response to client
             msgpack::sbuffer response_buffer;
             msgpack::pack(response_buffer, response);
             return std::vector<uint8_t>(response_buffer.data(), response_buffer.data() + response_buffer.size());
         }
     });
+
+    // Wait for any in-flight async workers before closing
+    {
+        std::lock_guard<std::mutex> lock(workers_mutex);
+        for (auto& worker : async_workers) {
+            if (worker.joinable()) {
+                worker.join();
+            }
+        }
+    }
 
     server->close();
     return 0;

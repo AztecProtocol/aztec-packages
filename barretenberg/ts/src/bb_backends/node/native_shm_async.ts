@@ -1,6 +1,7 @@
 import { createRequire } from 'module';
 import { spawn, ChildProcess } from 'child_process';
 import { openSync, closeSync } from 'fs';
+import { Decoder, Encoder } from 'msgpackr';
 import { IMsgpackBackendAsync } from '../interface.js';
 import { findNapiBinary, findPackageRoot } from './platform.js';
 import { threadId } from 'worker_threads';
@@ -18,19 +19,34 @@ let instanceCounter = 0;
  * - TypeScript connects via NAPI wrapper (MsgpackClientAsync)
  * - TypeScript manages promise queue (single-threaded, no mutex needed)
  * - C++ background thread polls for responses, calls JavaScript callback
- * - JavaScript callback pops queue and resolves promises in FIFO order
+ * - JavaScript callback routes responses by FIFO (legacy) or request_id (async)
  */
 export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
   private process: ChildProcess;
   private client: any; // NAPI MsgpackClientAsync instance
   private logFd?: number; // File descriptor for logs
 
-  // Queue of pending callbacks for pipelined requests
-  // Responses come back in FIFO order, so we match them with queued callbacks
+  // FIFO queue for legacy sync responses (request_id == 0)
   private pendingCallbacks: Array<{
     resolve: (data: Uint8Array) => void;
     reject: (error: Error) => void;
   }> = [];
+
+  // Map for async responses (request_id > 0)
+  private asyncCallbacks: Map<
+    number,
+    {
+      resolve: (data: Uint8Array) => void;
+      reject: (error: Error) => void;
+    }
+  > = new Map();
+
+  // Monotonically increasing request ID counter for async calls
+  private nextRequestId: number = 1;
+
+  // Shared decoder/encoder for inspecting and wrapping messages
+  private decoder: Decoder = new Decoder({ useRecords: false });
+  private encoder: Encoder = new Encoder({ useRecords: false });
 
   private constructor(process: ChildProcess, client: any, logFd?: number) {
     this.process = process;
@@ -45,21 +61,46 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
   }
 
   /**
-   * Handle response from C++ background thread
-   * Dequeues the next pending callback and resolves it (FIFO order)
+   * Handle response from C++ background thread.
+   * Routes to async callback (by request_id) or FIFO callback (legacy).
    */
   private handleResponse(responseBuffer: Buffer): void {
-    // Response is complete - dequeue the next pending callback (FIFO)
-    const callback = this.pendingCallbacks.shift();
-    if (callback) {
-      callback.resolve(new Uint8Array(responseBuffer));
-    } else {
-      // This shouldn't happen - response without a pending request
-      console.warn('Received response but no pending callback');
+    const data = new Uint8Array(responseBuffer);
+
+    // Try to detect async response: [request_id, CommandResponse]
+    try {
+      const decoded = this.decoder.unpack(data);
+      if (Array.isArray(decoded) && decoded.length === 2 && typeof decoded[0] === 'number' && decoded[0] > 0) {
+        const requestId = decoded[0] as number;
+        const callback = this.asyncCallbacks.get(requestId);
+        if (callback) {
+          this.asyncCallbacks.delete(requestId);
+          // Re-encode just the inner CommandResponse
+          const innerBuffer = this.encoder.pack(decoded[1]);
+          callback.resolve(new Uint8Array(innerBuffer));
+        } else {
+          console.warn(`Received async response for unknown request_id ${requestId}`);
+        }
+        this.maybeReleaseRef();
+        return;
+      }
+    } catch {
+      // Fall through to legacy FIFO handling
     }
 
-    // If no more pending callbacks, release ref to allow process to exit
-    if (this.pendingCallbacks.length === 0) {
+    // Legacy FIFO response
+    const callback = this.pendingCallbacks.shift();
+    if (callback) {
+      callback.resolve(data);
+    } else {
+      console.warn('Received response but no pending callback');
+    }
+    this.maybeReleaseRef();
+  }
+
+  /** Release ref when no callbacks are pending, allowing process to exit. */
+  private maybeReleaseRef(): void {
+    if (this.pendingCallbacks.length === 0 && this.asyncCallbacks.size === 0) {
       this.client.release();
     }
   }
@@ -202,24 +243,13 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
   }
 
   /**
-   * Send a msgpack request asynchronously.
+   * Send a synchronous (FIFO) msgpack request.
    * Supports pipelining - can be called multiple times before awaiting responses.
-   * Use Promise.all() to send multiple requests concurrently.
-   *
-   * Example:
-   *   const results = await Promise.all([
-   *     backend.call(buf1),
-   *     backend.call(buf2),
-   *     backend.call(buf3)
-   *   ]);
-   *
-   * @param inputBuffer The msgpack-encoded request
-   * @returns Promise resolving to msgpack-encoded response
    */
   async call(inputBuffer: Uint8Array): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
       // If this is the first pending callback, acquire ref to keep event loop alive
-      if (this.pendingCallbacks.length === 0) {
+      if (this.pendingCallbacks.length === 0 && this.asyncCallbacks.size === 0) {
         this.client.acquire();
       }
 
@@ -228,20 +258,58 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
 
       try {
         // Send request to shared memory (synchronous write)
-        // C++ call() no longer returns a promise - we manage them here
         this.client.call(Buffer.from(inputBuffer));
       } catch (err: any) {
         // Send failed - dequeue the callback we just added and reject
         this.pendingCallbacks.pop();
 
         // If queue is now empty, release ref to allow exit
-        if (this.pendingCallbacks.length === 0) {
+        if (this.pendingCallbacks.length === 0 && this.asyncCallbacks.size === 0) {
           this.client.release();
         }
 
         reject(new Error(`Shared memory async call failed: ${err.message}`));
       }
     });
+  }
+
+  /**
+   * Send an async msgpack request with a request_id.
+   * Response is matched by request_id and may arrive out of order.
+   *
+   * The request is wrapped as [request_id, Command] before sending.
+   * Returns both the request_id (for tracking) and a promise for the response.
+   */
+  async callAsync(inputBuffer: Uint8Array): Promise<{ requestId: number; response: Promise<Uint8Array> }> {
+    const requestId = this.nextRequestId++;
+
+    // Wrap the command: input is [Command], we wrap as [request_id, Command]
+    const decoded = this.decoder.unpack(inputBuffer);
+    if (!Array.isArray(decoded) || decoded.length !== 1) {
+      throw new Error('Expected input to be a 1-element array [Command]');
+    }
+    const wrappedBuffer = this.encoder.pack([requestId, decoded[0]]);
+
+    const response = new Promise<Uint8Array>((resolve, reject) => {
+      // Acquire ref if this is the first pending callback
+      if (this.pendingCallbacks.length === 0 && this.asyncCallbacks.size === 0) {
+        this.client.acquire();
+      }
+
+      this.asyncCallbacks.set(requestId, { resolve, reject });
+
+      try {
+        this.client.call(Buffer.from(wrappedBuffer));
+      } catch (err: any) {
+        this.asyncCallbacks.delete(requestId);
+        if (this.pendingCallbacks.length === 0 && this.asyncCallbacks.size === 0) {
+          this.client.release();
+        }
+        reject(new Error(`Shared memory async call failed: ${err.message}`));
+      }
+    });
+
+    return { requestId, response };
   }
 
   async destroy(): Promise<void> {
