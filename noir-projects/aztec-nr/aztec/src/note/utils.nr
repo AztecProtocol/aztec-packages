@@ -7,7 +7,7 @@ use crate::protocol::{
 
 /// Computes a domain-separated note hash.
 ///
-/// Receives the `storage_slot` of the [`crate::state_vars::StateVariable`] that holds the note, plus any arbitrary
+/// Receives the `storage_slot` of the [`crate::state_vars::StateVariable`] that holds the note, plus any  arbitrary
 /// note `data`. This typically includes randomness, owner, and domain specific values (e.g. numeric amount, address,
 /// id, etc.).
 ///
@@ -15,8 +15,7 @@ use crate::protocol::{
 /// their underlying notes have different implementations.
 pub fn compute_note_hash<let N: u32>(storage_slot: Field, data: [Field; N]) -> Field {
     // All state variables have different storage slots, so by placing this at a fixed first position in the preimage
-    // we
-    // prevent collisions.
+    // we prevent collisions.
     poseidon2_hash_with_separator([storage_slot].concat(data), DOM_SEP__NOTE_HASH)
 }
 
@@ -24,15 +23,13 @@ pub fn compute_note_hash<let N: u32>(storage_slot: Field, data: [Field; N]) -> F
 ///
 /// Receives the `note_hash_for_nullification` of the note (usually returned by
 /// [`compute_confirmed_note_hash_for_nullification`]), plus any arbitrary note `data`. This typically includes
-/// secrets,
-/// such as the app-siloed nullifier hiding key of the note's owner.
+/// secrets, such as the app-siloed nullifier hiding key of the note's owner.
 ///
 /// Usage of this function guarantees that different state variables will never produce colliding note nullifiers, even
 /// if their underlying notes have different implementations.
 pub fn compute_note_nullifier<let N: u32>(note_hash_for_nullification: Field, data: [Field; N]) -> Field {
     // All notes have different note hashes for nullification (i.e. transient or settled), so by placing this at a
-    // fixed
-    // first position in the preimage we prevent collisions.
+    // fixed first position in the preimage we prevent collisions.
     poseidon2_hash_with_separator(
         [note_hash_for_nullification].concat(data),
         DOM_SEP__NOTE_NULLIFIER,
@@ -69,8 +66,7 @@ where
     Note: NoteHash,
 {
     // Creating a ConfirmedNote like we do here is typically unsafe, as we've not confirmed existence. We can do it
-    // here
-    // because this is an unconstrained function, so the returned value should not make its way to a constrained
+    // here because this is an unconstrained function, so the returned value should not make its way to a constrained
     // function. This lets us reuse the `compute_confirmed_note_hash_for_nullification` implementation.
     compute_confirmed_note_hash_for_nullification(ConfirmedNote::new(
         hinted_note,
