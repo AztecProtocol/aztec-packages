@@ -238,7 +238,10 @@ describe('aztec node', () => {
       tx.data.constants.txContext.chainId = new Fr(1n + chainId.toBigInt());
       await tx.recomputeHash();
 
-      expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: [TX_ERROR_INCORRECT_L1_CHAIN_ID] });
+      expect(await node.isValidTx(tx)).toEqual({
+        result: 'invalid',
+        reason: [expect.stringContaining(TX_ERROR_INCORRECT_L1_CHAIN_ID)],
+      });
     });
 
     it('tests that the node correctly validates rollup version', async () => {
@@ -249,7 +252,10 @@ describe('aztec node', () => {
       tx.data.constants.txContext.version = new Fr(1n + rollupVersion.toBigInt());
       await tx.recomputeHash();
 
-      expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: [TX_ERROR_INCORRECT_ROLLUP_VERSION] });
+      expect(await node.isValidTx(tx)).toEqual({
+        result: 'invalid',
+        reason: [expect.stringContaining(TX_ERROR_INCORRECT_ROLLUP_VERSION)],
+      });
     });
 
     it('tests that the node correctly validates oversized transactions', async () => {

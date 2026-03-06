@@ -137,7 +137,7 @@ export class MessageStore {
           );
         }
 
-        // Check the first message in a block has the correct index.
+        // Check the first message in a checkpoint has the correct index.
         if (
           (!lastMessage || message.checkpointNumber > lastMessage.checkpointNumber) &&
           message.index !== expectedStart

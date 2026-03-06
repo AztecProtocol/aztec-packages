@@ -9,11 +9,11 @@ import type { KeyStore } from '@aztec/key-store';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
-import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
+import type { CompleteAddress, ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { computeAddressSecret } from '@aztec/stdlib/keys';
+import { type PublicKeys, computeAddressSecret } from '@aztec/stdlib/keys';
 import { deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
@@ -232,12 +232,18 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Retrieve the complete address associated to a given address.
+   * Retrieve the public keys and partial address associated to a given address.
    * @param account - The account address.
-   * @returns A complete address associated with the input address, or `undefined` if not registered.
+   * @returns The public keys and partial address, or `undefined` if the account is not registered.
    */
-  public tryGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress | undefined> {
-    return this.addressStore.getCompleteAddress(account);
+  public async tryGetPublicKeysAndPartialAddress(
+    account: AztecAddress,
+  ): Promise<{ publicKeys: PublicKeys; partialAddress: PartialAddress } | undefined> {
+    const completeAddress = await this.addressStore.getCompleteAddress(account);
+    if (!completeAddress) {
+      return undefined;
+    }
+    return { publicKeys: completeAddress.publicKeys, partialAddress: completeAddress.partialAddress };
   }
 
   protected async getCompleteAddressOrFail(account: AztecAddress): Promise<CompleteAddress> {

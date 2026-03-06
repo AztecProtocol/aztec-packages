@@ -86,6 +86,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBlockNumber: z.function().args().returns(BlockNumberSchema),
   getProvenBlockNumber: z.function().args().returns(BlockNumberSchema),
   getCheckpointedL2BlockNumber: z.function().args().returns(BlockNumberSchema),
+  getCheckpointNumber: z.function().args().returns(CheckpointNumberSchema),
   getFinalizedL2BlockNumber: z.function().args().returns(BlockNumberSchema),
   getBlock: z.function().args(BlockNumberSchema).returns(L2Block.schema.optional()),
   getBlockHeader: z

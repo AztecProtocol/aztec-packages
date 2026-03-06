@@ -12,7 +12,7 @@ include "../constants_gen.pil";
  * - register[0] as the nullifier input register (FF)
  *
  * Interactions:
- * - The gadget performs a lookup into the nullifier_check gadget to attempt to write the nullifier.
+ * - The gadget performs a lookup into the indexed_tree_check gadget to attempt to write the nullifier.
  *     - This lookup is only performed if no limit error occurs.
  *
  * Errors:
@@ -54,28 +54,42 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
 
     // =========== OPCODE EXECUTION ===========
 
+    pol commit nullifier_pi_offset;
+    sel_write_nullifier * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX + prev_num_nullifiers_emitted - nullifier_pi_offset) = 0;
+
+    // From execution.pil.
+    sel_write_nullifier * (nullifier_tree_height - constants.NULLIFIER_TREE_HEIGHT) = 0;
+
+    // Lookup constant support: Can be removed when we support constants in lookups.
+    pol commit nullifier_siloing_separator;
+    sel_write_nullifier * (nullifier_siloing_separator - constants.DOM_SEP__SILOED_NULLIFIER) = 0;
+
     // Lookup into nullifier tree check to attempt write
     #[WRITE_NULLIFIER]
     sel_write_nullifier {
-        /*nullifier=*/ register[0],                       // input: nullifier to write
-        prev_nullifier_tree_root,                         // input: pre-write tree root (from context.pil)
-        /*exists=*/ sel_opcode_error,                     // output: 1 if nullifier already exists (error)
-        nullifier_tree_root,                              // output: new tree root (updates context.pil column!)
-        prev_nullifier_tree_size,                         // input: pre-write tree size (from context.pil)
-        discard,                                          // input: (from execution_discard) will this write eventually be reverted (so it shouldn't be written to public inputs)?
-        /*nullifier_index=*/ prev_num_nullifiers_emitted, // input: the nullifier index to write to in public inputs
-        /*sel_silo=1*/ sel_write_nullifier,               // input: sel_silo = 1 (always silo for contract nullifiers)
-        contract_address                                  // input: contract address for siloing (from context)
-    } in nullifier_check.write {
-        nullifier_check.nullifier,
-        nullifier_check.root,
-        nullifier_check.exists,               // nullifier collision
-        nullifier_check.write_root,           // post-write tree root
-        nullifier_check.tree_size_before_write,
-        nullifier_check.discard,
-        nullifier_check.nullifier_index,      // index to write to in public inputs
-        nullifier_check.sel_silo,
-        nullifier_check.address               // contract address for siloing
+        /*nullifier=*/ register[0],                  // input: nullifier to write
+        prev_nullifier_tree_root,                    // input: pre-write tree root (from context.pil)
+        /*exists=*/ sel_opcode_error,                // output: 1 if nullifier already exists (error)
+        nullifier_tree_root,                         // output: new tree root (updates context.pil column!)
+        prev_nullifier_tree_size,                    // input: pre-write tree size (from context.pil)
+        discard,                                     // input: (from execution_discard) will this write eventually be reverted (so it shouldn't be written to public inputs)?
+        nullifier_pi_offset,                         // input: the index to write to in public inputs
+        nullifier_tree_height,                       // input: the tree height
+        /*sel_silo=1*/ sel_write_nullifier,          // input: sel_silo = 1 (always silo for contract nullifiers)
+        nullifier_siloing_separator,                 // input: siloing separator
+        contract_address                             // input: contract address for siloing (from context)
+    } in indexed_tree_check.write {
+        indexed_tree_check.value,
+        indexed_tree_check.root,
+        indexed_tree_check.exists,                   // nullifier collision
+        indexed_tree_check.write_root,               // post-write tree root
+        indexed_tree_check.tree_size_before_write,
+        indexed_tree_check.discard,
+        indexed_tree_check.public_inputs_index,      // index to write to in public inputs
+        indexed_tree_check.tree_height,
+        indexed_tree_check.sel_silo,
+        indexed_tree_check.siloing_separator,
+        indexed_tree_check.address                   // contract address for siloing
     };
 
     pol SUCCESSFUL_WRITE = sel_write_nullifier * (1 - sel_opcode_error);

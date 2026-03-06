@@ -14,11 +14,9 @@ struct basis_vectors {
     uint64_t endo_g1_lo = 0;
     uint64_t endo_g1_mid = 0;
     uint64_t endo_g1_hi = 0;
-    uint64_t endo_g1_hihi = 0;
     uint64_t endo_g2_lo = 0;
     uint64_t endo_g2_mid = 0;
     uint64_t endo_g2_hi = 0;
-    uint64_t endo_g2_hihi = 0;
     uint64_t endo_minus_b1_lo = 0;
     uint64_t endo_minus_b1_mid = 0;
     uint64_t endo_b2_lo = 0;
@@ -108,7 +106,7 @@ struct basis_vectors {
     }
 
     uint512_t minus_b1 = -b1;
-    uint512_t shift256 = uint512_t(1) << 384;
+    uint512_t shift256 = uint512_t(1) << 256;
     uint512_t g1 = (-b1 * shift256) / uint512_t(secp256k1::fr::modulus);
     uint512_t g2 = (b2 * shift256) / uint512_t(secp256k1::fr::modulus);
 
@@ -116,11 +114,9 @@ struct basis_vectors {
     result.endo_g1_lo = g1.lo.data[0];
     result.endo_g1_mid = g1.lo.data[1];
     result.endo_g1_hi = g1.lo.data[2];
-    result.endo_g1_hihi = g1.lo.data[3];
     result.endo_g2_lo = g2.lo.data[0];
     result.endo_g2_mid = g2.lo.data[1];
     result.endo_g2_hi = g2.lo.data[2];
-    result.endo_g2_hihi = g2.lo.data[3];
     result.endo_minus_b1_lo = minus_b1.lo.data[0];
     result.endo_minus_b1_mid = minus_b1.lo.data[1];
     result.endo_b2_lo = b2.lo.data[0];

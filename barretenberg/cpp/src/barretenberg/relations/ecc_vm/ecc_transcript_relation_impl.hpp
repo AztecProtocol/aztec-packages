@@ -479,11 +479,20 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
         }
 
         /**
-         * @brief Validate `is_accumulator_empty` is updated correctly
-         * An add operation can produce a point at infinity
-         * Resetting the accumulator produces a point at infinity
-         * If we are not adding, performing an msm or resetting the accumulator (or doing a no-op),
-         * is_accumulator_empty should not update
+         * @brief Validate `is_accumulator_empty` is updated correctly.
+         *
+         * The relation is a sum of four mutually exclusive terms, each constraining `is_accumulator_empty_shift`
+         * for a specific case:
+         *   (A) accumulator_infinity_preserve: active when propagate_transcript_accumulator != 0
+         *       (i.e. q_mul without msm_transition, or q_eq without q_reset). Preserves the emptiness flag.
+         *   (B) accumulator_infinity_q_reset: active when q_reset_accumulator = 1. Forces empty.
+         *   (B) accumulator_infinity_from_add: active when any_add_is_active != 0 (q_add or msm_transition).
+         *       Sets emptiness from the add/msm result.
+         *   (C) accumulator_infinity_from_noop: active when opcode_is_zero != 0 (all selectors off). Forces empty.
+         *
+         * These are mutually exclusive because opcode_is_zero requires all selectors = 0 (which zeros out A and B),
+         * while A and B each require at least one selector to be non-zero (which zeros out C).
+         * Within A and B, exclusivity follows from the opcode exclusion constraint (subrelation 8).
          */
         auto accumulator_infinity_preserve_flag = propagate_transcript_accumulator; // degree 1
         auto accumulator_infinity_preserve = accumulator_infinity_preserve_flag *
@@ -492,10 +501,19 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
         auto accumulator_infinity_q_reset = q_reset_accumulator * (-is_accumulator_empty_shift + 1); // degree 2
         auto accumulator_infinity_from_add =
             any_add_is_active * (result_is_infinity - is_accumulator_empty_shift); // degree 3
+        // When opcode_is_zero (no-op row), the accumulator output is forced to (0,0) by subrelations 15 and 16.
+        // We must also force is_accumulator_empty_shift = 1 so that the emptiness flag is consistent
+        // with the (0,0) accumulator coordinates. Without this, a malicious prover could set
+        // accumulator_not_empty = 1 on the next row while the accumulator is (0,0), creating an
+        // inconsistency that bypasses on-curve checks (which are only performed on input coordinates).
+        auto opcode_is_zero =
+            (is_not_first_row) * (-q_add + 1) * (-q_mul + 1) * (-q_reset_accumulator + 1) * (-q_eq + 1); // degree 5
+        auto accumulator_infinity_from_noop = opcode_is_zero * (-is_accumulator_empty_shift + 1);        // degree 6
         auto accumulator_infinity_relation =
             accumulator_infinity_preserve +
-            (accumulator_infinity_q_reset + accumulator_infinity_from_add) * is_not_first_row; // degree 4
-        std::get<22>(accumulator) += accumulator_infinity_relation * scaling_factor;           // degree 4
+            (accumulator_infinity_q_reset + accumulator_infinity_from_add) * is_not_first_row +
+            accumulator_infinity_from_noop;                                          // degree 6
+        std::get<22>(accumulator) += accumulator_infinity_relation * scaling_factor; // degree 6
 
         /**
          * @brief Validate `transcript_add_x_equal` is well-formed

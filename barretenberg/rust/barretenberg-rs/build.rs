@@ -10,13 +10,9 @@ fn main() {
         // libbb-external.a contains everything needed: barretenberg + env + vm2_stub
         println!("cargo:rustc-link-lib=static=bb-external");
 
-        // Link C++ standard library (different name on macOS/iOS vs Linux)
-        let target = std::env::var("TARGET").unwrap();
-        if target.contains("apple") || target.contains("android") {
-            println!("cargo:rustc-link-lib=dylib=c++");
-        } else {
-            println!("cargo:rustc-link-lib=dylib=stdc++");
-        }
+        // Link C++ standard library
+        // barretenberg is built with Clang/libc++ on all platforms
+        println!("cargo:rustc-link-lib=dylib=c++");
     }
 }
 

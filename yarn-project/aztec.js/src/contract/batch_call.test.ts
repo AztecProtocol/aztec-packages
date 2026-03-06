@@ -220,6 +220,22 @@ describe('BatchCall', () => {
       expect(results[1].result).toEqual(utilityResult2.result[0].toBigInt());
     });
 
+    it('should include empty offchainEffects and offchainMessages in utility call results', async () => {
+      const contractAddress = await AztecAddress.random();
+      const utilityPayload = createUtilityExecutionPayload('view', [], contractAddress);
+
+      batchCall = new BatchCall(wallet, [utilityPayload]);
+
+      const utilityResult = UtilityExecutionResult.random();
+      wallet.batch.mockResolvedValue([{ name: 'executeUtility', result: utilityResult }] as any);
+
+      const results = await batchCall.simulate({ from: await AztecAddress.random() });
+
+      expect(results).toHaveLength(1);
+      expect(results[0].offchainEffects).toEqual([]);
+      expect(results[0].offchainMessages).toEqual([]);
+    });
+
     it('should handle only private/public calls using wallet.batch with simulateTx', async () => {
       const contractAddress1 = await AztecAddress.random();
       const contractAddress2 = await AztecAddress.random();
