@@ -153,13 +153,12 @@ mod test {
         messages::{
             discovery::{CustomMessageHandler, do_sync_state, NoteHashAndNullifier},
             logs::note::MAX_NOTE_PACKED_LEN,
-            processing::pending_tagged_log::PendingTaggedLog,
+            processing::{pending_tagged_log::PendingTaggedLog, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT},
         },
         oracle::capsules,
         test::helpers::test_environment::TestEnvironment,
     };
-    use crate::protocol::{address::AztecAddress, hash::sha256_to_field};
-    use std::test::OracleMock;
+    use crate::protocol::address::AztecAddress;
 
     #[test]
     unconstrained fn do_sync_state_skips_empty_logs() {
@@ -167,12 +166,8 @@ mod test {
 
         let contract_address = AztecAddress { inner: 0xdeadbeef };
 
-        let _ = OracleMock::mock("utilityFetchTaggedLogs");
-        let _ = OracleMock::mock("utilityBulkRetrieveLogs");
-        let _ = OracleMock::mock("utilityValidateAndStoreEnqueuedNotesAndEvents");
-
         env.utility_context_at(contract_address, |_| {
-            let base_slot = sha256_to_field("AZTEC_NR::PENDING_TAGGED_LOG_ARRAY_BASE_SLOT".as_bytes());
+            let base_slot = PENDING_TAGGED_LOG_ARRAY_BASE_SLOT;
 
             capsules::store(contract_address, base_slot, 1 as Field);
             capsules::store(

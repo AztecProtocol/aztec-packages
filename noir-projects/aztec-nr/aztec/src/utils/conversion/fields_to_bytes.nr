@@ -48,8 +48,8 @@ pub fn fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> BoundedVec<Fie
 /// length is not a multiple of 32 or if any 32-byte chunk exceeds the field modulus.
 pub fn try_fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> Option<BoundedVec<Field, N / 32>> {
     if bytes.len() % 32 == 0 {
-        let p = std::field::modulus_be_bytes();
         let mut fields = BoundedVec::new();
+        let p = std::field::modulus_be_bytes();
         let mut valid = true;
 
         // Since input length is a multiple of 32, we can simply process all chunks fully

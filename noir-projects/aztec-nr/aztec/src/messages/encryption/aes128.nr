@@ -414,10 +414,9 @@ impl MessageEncryption for AES128 {
                 let header_ciphertext: [u8; HEADER_CIPHERTEXT_SIZE_IN_BYTES] =
                     array::subarray(ciphertext_without_eph_pk_x.storage(), header_start);
                 // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's
-                // designed to
-                // work with messages with unknown length at compile time. This would not be necessary here as the
-                // header
-                // ciphertext length is fixed. But we do it anyway to not have to have duplicate oracles.
+                // designed to work with messages with unknown length at compile time. This would not be necessary
+                // here as the header ciphertext length is fixed. But we do it anyway to not have to have duplicate
+                // oracles.
                 let header_ciphertext_bvec =
                     BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(header_ciphertext);
 
@@ -438,8 +437,8 @@ impl MessageEncryption for AES128 {
                         // Decrypt main ciphertext and return it
                         let plaintext_bytes = aes128_decrypt_oracle(ciphertext, body_iv, body_sym_key);
 
-                        // Convert bytes back to fields (32 bytes per field). Returns None if the byte length
-                        // is not a multiple of 32 or any chunk exceeds the field modulus.
+                        // Convert bytes back to fields (32 bytes per field). Returns None if the actual bytes are not
+                        // valid.
                         try_fields_from_bytes(plaintext_bytes)
                     })
             })
