@@ -622,11 +622,11 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     return Promise.resolve();
   }
 
-  public notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void> {
+  public notifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void> {
     return this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
-  public isSideEffectCounterRevertible(sideEffectCounter: number): Promise<boolean> {
+  public inRevertiblePhase(sideEffectCounter: number): Promise<boolean> {
     return Promise.resolve(this.noteCache.isSideEffectCounterRevertible(sideEffectCounter));
   }
 

@@ -467,20 +467,14 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<
-    ACVMField[]
-  > {
-    await this.handlerAsPrivate().notifySetMinRevertibleSideEffectCounter(
-      Fr.fromString(minRevertibleSideEffectCounter).toNumber(),
-    );
+  async aztec_prv_notifyRevertiblePhaseStart([minRevertibleSideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
+    await this.handlerAsPrivate().notifyRevertiblePhaseStart(Fr.fromString(minRevertibleSideEffectCounter).toNumber());
     return Promise.resolve([]);
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_isSideEffectCounterRevertible([sideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
-    const isRevertible = await this.handlerAsPrivate().isSideEffectCounterRevertible(
-      Fr.fromString(sideEffectCounter).toNumber(),
-    );
+  async aztec_prv_inRevertiblePhase([sideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
+    const isRevertible = await this.handlerAsPrivate().inRevertiblePhase(Fr.fromString(sideEffectCounter).toNumber());
     return Promise.resolve([toACVMField(isRevertible)]);
   }
 

@@ -657,14 +657,14 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  public aztec_prv_notifySetMinRevertibleSideEffectCounter(_foreignMinRevertibleSideEffectCounter: ForeignCallSingle) {
+  public aztec_prv_notifyRevertiblePhaseStart(_foreignMinRevertibleSideEffectCounter: ForeignCallSingle) {
     throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
   // eslint-disable-next-line camelcase
-  public async aztec_prv_isSideEffectCounterRevertible(foreignSideEffectCounter: ForeignCallSingle) {
+  public async aztec_prv_inRevertiblePhase(foreignSideEffectCounter: ForeignCallSingle) {
     const sideEffectCounter = fromSingle(foreignSideEffectCounter).toNumber();
-    const isRevertible = await this.handlerAsPrivate().isSideEffectCounterRevertible(sideEffectCounter);
+    const isRevertible = await this.handlerAsPrivate().inRevertiblePhase(sideEffectCounter);
     return toForeignCallResult([toSingle(new Fr(isRevertible))]);
   }
 

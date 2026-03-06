@@ -11,9 +11,8 @@ use crate::{
         logs::notify_created_contract_class_log,
         notes::notify_nullified_note,
         nullifiers::notify_created_nullifier,
-        public_call::{
-            is_side_effect_counter_revertible, notify_set_min_revertible_side_effect_counter, validate_public_calldata,
-        },
+        public_call::validate_public_calldata,
+        tx_phase::{in_revertible_phase, notify_revertible_phase_start},
     },
 };
 use crate::logging::aztecnr_trace_log_format;
@@ -535,7 +534,7 @@ impl PrivateContext {
         let current_counter = self.side_effect_counter;
 
         // Safety: Kernel will validate that the claim is correct by validating the expected counters.
-        let is_revertible = unsafe { is_side_effect_counter_revertible(current_counter) };
+        let is_revertible = unsafe { in_revertible_phase(current_counter) };
 
         if is_revertible {
             if (self.expected_revertible_side_effect_counter == 0)
@@ -578,7 +577,7 @@ impl PrivateContext {
         self.side_effect_counter += 1;
         aztecnr_trace_log_format!("Ending setup at counter {0}")([self.side_effect_counter as Field]);
         self.min_revertible_side_effect_counter = self.next_counter();
-        notify_set_min_revertible_side_effect_counter(self.min_revertible_side_effect_counter);
+        notify_revertible_phase_start(self.min_revertible_side_effect_counter);
     }
 
     /// Sets a deadline (an "include-by timestamp") for when this transaction must be included in a block.
@@ -1345,7 +1344,8 @@ impl PrivateContext {
         is_static_call: bool,
         hide_msg_sender: bool,
     ) {
-        let counter = self.next_counter();
+        // TODO(benesjan): Can this be just dropped or do we need the counter to advance here?
+        let _counter = self.next_counter();
 
         let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
 

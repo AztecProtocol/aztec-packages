@@ -11,6 +11,7 @@ pub mod block_header;
 pub mod call_private_function;
 pub mod capsules;
 pub mod public_call;
+pub mod tx_phase;
 pub mod execution;
 pub mod execution_cache;
 pub mod get_contract_instance;

@@ -8,6 +8,7 @@ pub mod execution;
 pub mod get_l1_to_l2_membership_witness;
 pub mod nullifiers;
 pub mod public_call;
+pub mod tx_phase;
 pub mod call_private_function;
 pub mod logs;
 
