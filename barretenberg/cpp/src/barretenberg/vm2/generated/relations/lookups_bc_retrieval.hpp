@@ -78,20 +78,24 @@ using lookup_bc_retrieval_class_id_derivation_relation =
 struct lookup_bc_retrieval_is_new_class_check_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_BC_RETRIEVAL_IS_NEW_CLASS_CHECK";
     static constexpr std::string_view RELATION_NAME = "bc_retrieval";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::bc_retrieval_instance_exists;
-    static constexpr Column DST_SELECTOR = Column::retrieved_bytecodes_tree_check_sel;
+    static constexpr Column DST_SELECTOR = Column::indexed_tree_check_sel;
     static constexpr Column COUNTS = Column::lookup_bc_retrieval_is_new_class_check_counts;
     static constexpr Column INVERSES = Column::lookup_bc_retrieval_is_new_class_check_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::bc_retrieval_current_class_id,
         ColumnAndShifts::bc_retrieval_is_new_class,
-        ColumnAndShifts::bc_retrieval_prev_retrieved_bytecodes_tree_root
+        ColumnAndShifts::bc_retrieval_current_class_id,
+        ColumnAndShifts::bc_retrieval_prev_retrieved_bytecodes_tree_root,
+        ColumnAndShifts::bc_retrieval_retrieved_bytecodes_tree_height,
+        ColumnAndShifts::precomputed_zero
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::retrieved_bytecodes_tree_check_class_id,
-        ColumnAndShifts::retrieved_bytecodes_tree_check_leaf_not_exists,
-        ColumnAndShifts::retrieved_bytecodes_tree_check_root
+        ColumnAndShifts::indexed_tree_check_not_exists,
+        ColumnAndShifts::indexed_tree_check_value,
+        ColumnAndShifts::indexed_tree_check_root,
+        ColumnAndShifts::indexed_tree_check_tree_height,
+        ColumnAndShifts::indexed_tree_check_sel_silo
     };
 };
 
@@ -106,26 +110,28 @@ using lookup_bc_retrieval_is_new_class_check_relation =
 struct lookup_bc_retrieval_retrieved_bytecodes_insertion_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_BC_RETRIEVAL_RETRIEVED_BYTECODES_INSERTION";
     static constexpr std::string_view RELATION_NAME = "bc_retrieval";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 7;
     static constexpr Column SRC_SELECTOR = Column::bc_retrieval_should_retrieve;
-    static constexpr Column DST_SELECTOR = Column::retrieved_bytecodes_tree_check_sel;
+    static constexpr Column DST_SELECTOR = Column::indexed_tree_check_write;
     static constexpr Column COUNTS = Column::lookup_bc_retrieval_retrieved_bytecodes_insertion_counts;
     static constexpr Column INVERSES = Column::lookup_bc_retrieval_retrieved_bytecodes_insertion_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::bc_retrieval_current_class_id,
-        ColumnAndShifts::bc_retrieval_should_retrieve,
         ColumnAndShifts::bc_retrieval_prev_retrieved_bytecodes_tree_root,
-        ColumnAndShifts::bc_retrieval_prev_retrieved_bytecodes_tree_size,
         ColumnAndShifts::bc_retrieval_next_retrieved_bytecodes_tree_root,
-        ColumnAndShifts::bc_retrieval_next_retrieved_bytecodes_tree_size
+        ColumnAndShifts::bc_retrieval_prev_retrieved_bytecodes_tree_size,
+        ColumnAndShifts::bc_retrieval_next_retrieved_bytecodes_tree_size,
+        ColumnAndShifts::bc_retrieval_retrieved_bytecodes_tree_height,
+        ColumnAndShifts::precomputed_zero
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::retrieved_bytecodes_tree_check_class_id,
-        ColumnAndShifts::retrieved_bytecodes_tree_check_write,
-        ColumnAndShifts::retrieved_bytecodes_tree_check_root,
-        ColumnAndShifts::retrieved_bytecodes_tree_check_tree_size_before_write,
-        ColumnAndShifts::retrieved_bytecodes_tree_check_write_root,
-        ColumnAndShifts::retrieved_bytecodes_tree_check_tree_size_after_write
+        ColumnAndShifts::indexed_tree_check_value,
+        ColumnAndShifts::indexed_tree_check_root,
+        ColumnAndShifts::indexed_tree_check_write_root,
+        ColumnAndShifts::indexed_tree_check_tree_size_before_write,
+        ColumnAndShifts::indexed_tree_check_tree_size_after_write,
+        ColumnAndShifts::indexed_tree_check_tree_height,
+        ColumnAndShifts::indexed_tree_check_sel_silo
     };
 };
 

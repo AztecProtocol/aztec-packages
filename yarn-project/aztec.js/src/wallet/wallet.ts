@@ -492,6 +492,22 @@ export const WalletCapabilitiesSchema = z.object({
   expiresAt: optional(z.number()),
 });
 
+const OffchainEffectSchema = z.object({
+  data: z.array(schemas.Fr),
+  contractAddress: schemas.AztecAddress,
+});
+
+const OffchainMessageSchema = z.object({
+  recipient: schemas.AztecAddress,
+  payload: z.array(schemas.Fr),
+  contractAddress: schemas.AztecAddress,
+});
+
+const OffchainOutputSchema = z.object({
+  offchainEffects: z.array(OffchainEffectSchema),
+  offchainMessages: z.array(OffchainMessageSchema),
+});
+
 /**
  * Record of all wallet method schemas (excluding batch).
  * This is the single source of truth for method schemas - batch schemas are derived from this.
@@ -535,7 +551,12 @@ const WalletMethodSchemas = {
   sendTx: z
     .function()
     .args(ExecutionPayloadSchema, SendOptionsSchema)
-    .returns(z.union([TxHash.schema, TxReceipt.schema])),
+    .returns(
+      z.union([
+        z.object({ txHash: TxHash.schema }).merge(OffchainOutputSchema),
+        z.object({ receipt: TxReceipt.schema }).merge(OffchainOutputSchema),
+      ]),
+    ),
   createAuthWit: z.function().args(schemas.AztecAddress, MessageHashOrIntentSchema).returns(AuthWitness.schema),
   requestCapabilities: z.function().args(AppCapabilitiesSchema).returns(WalletCapabilitiesSchema),
 };

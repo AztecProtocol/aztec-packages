@@ -24,11 +24,11 @@ describe('e2e_token_contract transfer private', () => {
   });
 
   it('transfer less than balance', async () => {
-    const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+    const { result: balance0 } = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
 
-    const txReceipt = await asset.methods.transfer(account1Address, amount).send({ from: adminAddress });
+    const { receipt: txReceipt } = await asset.methods.transfer(account1Address, amount).send({ from: adminAddress });
     tokenSim.transferPrivate(adminAddress, account1Address, amount);
 
     const events = await wallet.getPrivateEvents<Transfer>(TokenContract.events.Transfer, {
@@ -53,7 +53,7 @@ describe('e2e_token_contract transfer private', () => {
   });
 
   it('transfer less than balance to non-deployed account', async () => {
-    const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+    const { result: balance0 } = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
 
@@ -68,7 +68,7 @@ describe('e2e_token_contract transfer private', () => {
   });
 
   it('transfer to self', async () => {
-    const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+    const { result: balance0 } = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
     await asset.methods.transfer(adminAddress, amount).send({ from: adminAddress });
@@ -77,7 +77,9 @@ describe('e2e_token_contract transfer private', () => {
 
   describe('failure cases', () => {
     it('transfer more than balance', async () => {
-      const balance0 = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+      const { result: balance0 } = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress });
       const amount = balance0 + 1n;
       expect(amount).toBeGreaterThan(0n);
       await expect(asset.methods.transfer(account1Address, amount).simulate({ from: adminAddress })).rejects.toThrow(

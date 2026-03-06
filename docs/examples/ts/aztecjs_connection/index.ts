@@ -112,7 +112,7 @@ const claim = await portalManager.bridgeTokensPublic(
 // docs:start:deploy_contract
 import { TokenContract } from "@aztec/noir-contracts.js/Token";
 
-const token = await TokenContract.deploy(
+const { contract: token } = await TokenContract.deploy(
   wallet,
   aliceAddress,
   "TestToken",
@@ -124,7 +124,7 @@ console.log(`Token deployed at: ${token.address.toString()}`);
 // docs:end:deploy_contract
 
 // docs:start:send_transaction
-const receipt = await token.methods
+const { receipt } = await token.methods
   .mint_to_public(aliceAddress, 1000n)
   .send({ from: aliceAddress });
 
@@ -133,7 +133,7 @@ console.log(`Transaction fee: ${receipt.transactionFee}`);
 // docs:end:send_transaction
 
 // docs:start:simulate_function
-const balance = await token.methods
+const { result: balance } = await token.methods
   .balance_of_public(aliceAddress)
   .simulate({ from: aliceAddress });
 

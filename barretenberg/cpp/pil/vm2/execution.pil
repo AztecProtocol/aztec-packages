@@ -24,11 +24,9 @@ include "execution/gas.pil";
 include "execution/registers.pil";
 
 include "trees/merkle_check.pil";
-include "trees/nullifier_check.pil";
+include "trees/indexed_tree_check.pil";
 include "trees/public_data_check.pil";
-include "trees/written_public_data_slots_tree_check.pil";
 include "trees/l1_to_l2_message_tree_check.pil";
-include "trees/retrieved_bytecodes_tree_check.pil";
 
 include "bytecode/address_derivation.pil";
 include "bytecode/bc_decomposition.pil";
@@ -517,21 +515,36 @@ sel_gas_to_radix * ((/*num_limbs=*/register[2] - num_p_limbs) * sel_use_num_limb
 //////////////////////////////////////////
 // SSTORE, Dynamic DA Gas Calculation
 //////////////////////////////////////////
+
+// Lookup constant support: Can be removed when we support constants in lookups.
+pol commit written_slots_tree_height;
+sel_gas_sstore * (written_slots_tree_height - constants.AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT) = 0;
+
+// Lookup constant support: Can be removed when we support constants in lookups.
+pol commit written_slots_tree_siloing_separator;
+sel_gas_sstore * (written_slots_tree_siloing_separator - constants.DOM_SEP__PUBLIC_LEAF_SLOT) = 0;
+
 // We can probably unconditionally write to the written_public_data_slots_tree here
 // to avoid writing later in opcode execution, since the root would be reverted if it errors before
 // the opcode execution. However, this feels like an early optimization
 // since the simulator would need to write at the gas step which is a bit weird.
 #[CHECK_WRITTEN_STORAGE_SLOT]
 sel_gas_sstore {
-    contract_address,
-    register[1], // slot
     dynamic_da_gas_factor,
-    prev_written_public_data_slots_tree_root
-} in written_public_data_slots_tree_check.sel {
-    written_public_data_slots_tree_check.address,
-    written_public_data_slots_tree_check.slot,
-    written_public_data_slots_tree_check.leaf_not_exists,
-    written_public_data_slots_tree_check.root
+    register[1], // value
+    prev_written_public_data_slots_tree_root,
+    written_slots_tree_height,
+    sel_gas_sstore, // sel_silo = 1
+    written_slots_tree_siloing_separator,
+    contract_address
+} in indexed_tree_check.sel {
+    indexed_tree_check.not_exists,
+    indexed_tree_check.value,
+    indexed_tree_check.root,
+    indexed_tree_check.tree_height,
+    indexed_tree_check.sel_silo,
+    indexed_tree_check.siloing_separator,
+    indexed_tree_check.address
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -774,6 +787,10 @@ sel_execute_returndata_size * (mem_tag_reg[0] - constants.MEM_TAG_U32) = 0; // W
 (1 - sel_first_row_in_context) * (prev_retrieved_bytecodes_tree_root - retrieved_bytecodes_tree_root) = 0;
 #[RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED]
 (1 - sel_first_row_in_context) * (prev_retrieved_bytecodes_tree_size - retrieved_bytecodes_tree_size) = 0;
+
+// Constant height set in nullifier_exists.pil and emit_nullifier.pil
+// Lookup constant support: Can be removed when we support constants in lookups.
+pol commit nullifier_tree_height;
 
 // Whether the opcode logic failed.
 pol commit sel_opcode_error; // @boolean
