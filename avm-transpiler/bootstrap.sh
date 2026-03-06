@@ -9,29 +9,17 @@ export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
 export RUSTFLAGS="-Dwarnings"
 
-# Ensure the rust toolchain is installed before any cargo commands.
-# When the build image lacks the expected version, cargo implicitly triggers rustup's
-# auto-install via rust-toolchain.toml, which is unreliable under parallel execution.
-function ensure_toolchain {
-  local version=$(grep '^channel' rust-toolchain.toml | sed 's/.*"\(.*\)"/\1/')
-  if ! rustup toolchain list | grep -q "^$version"; then
-    echo "Installing Rust toolchain $version"
-    rustup toolchain install $version --profile default --component rust-src
-  fi
-}
-
 function build_native {
   echo_header "avm-transpiler build_native"
   artifact=avm-transpiler-$hash.tar.gz
   if ! cache_download $artifact; then
-    # Serialize cargo/rustup operations to avoid race conditions when running parallel builds
-    # Cargo may trigger rustup to install components (rust-src, etc.) in shared directories
+    # Serialize cargo/rustup operations to avoid race conditions with noir build
+    # which may run in parallel and share the same RUSTUP_HOME/CARGO_HOME.
     (
       flock -x 200
-      ensure_toolchain
       denoise "cargo build --release --locked --bin avm-transpiler"
       denoise "cargo build --release --locked --lib"
-    ) 200>/tmp/rustup-avm-transpiler.lock
+    ) 200>/tmp/rustup.lock
 
     denoise "cargo fmt --check"
     denoise "cargo clippy"
@@ -66,10 +54,9 @@ function build_cross {
         ;;
     esac
 
-    # Serialize rustup operations to avoid race conditions when running parallel builds
+    # Serialize rustup operations to avoid race conditions with noir build
     (
       flock -x 200
-      ensure_toolchain
       if ! command -v cargo-zigbuild >/dev/null 2>&1; then
         cargo install --locked cargo-zigbuild
       fi
@@ -78,7 +65,7 @@ function build_cross {
         echo "Installing Rust target: $rust_target"
         rustup target add "$rust_target"
       fi
-    ) 200>/tmp/rustup-avm-transpiler.lock
+    ) 200>/tmp/rustup.lock
 
     cargo zigbuild --release --target "$rust_target" --lib
 
