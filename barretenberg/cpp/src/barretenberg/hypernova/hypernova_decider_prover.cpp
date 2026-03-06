@@ -11,7 +11,7 @@ HonkProof HypernovaDeciderProver::construct_proof(Accumulator& accumulator)
 {
     vinfo("HypernovaFoldingDecider: prove PCS...");
 
-    size_t actual_size = accumulator.non_shifted_polynomial.virtual_size();
+    size_t actual_size = accumulator.dyadic_size;
     CommitmentKey ck(actual_size);
 
     // Open the commitments with Shplemini
