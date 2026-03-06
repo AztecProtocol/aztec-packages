@@ -1,6 +1,10 @@
+include "../constants_gen.pil";
+include "../ff_gt.pil";
+include "../precomputed.pil";
+include "../public_inputs.pil";
+include "../trees/indexed_tree_check.pil";
 include "address_derivation.pil";
 include "update_check.pil";
-include "../ff_gt.pil";
 
 /**
  * Contract Instance Retrieval gadget.
