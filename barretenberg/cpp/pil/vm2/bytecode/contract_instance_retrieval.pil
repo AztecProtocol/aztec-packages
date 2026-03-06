@@ -9,40 +9,78 @@ include "update_check.pil";
 /**
  * Contract Instance Retrieval gadget.
  * For use by execution (GetContractInstance opcode) and by bytecode retrieval.
- *
  * Proves the existence of a deployed contract instance for the provided address,
  * along with its derivation from its parts (deployer, class id, init hash).
- * Does so via interactions with the following auxiliary gadgets:
- *     - Nullifier check: check (non)existence of the contract address nullifier.
- *     - Address derivation: constrain the derivation of the address from its parts (deployer, class id, init hash).
- *     - Update checking: enforce that the class id provided is the _current_ one.
  *
- * Usage (as from opcode or bytecode retrieval):
- * sel {
- *     // inputs
- *     execution_or_bc_retrieval.address,
- *     execution_or_bc_retrieval.nullifier_tree_root,
- *     execution_or_bc_retrieval.public_data_tree_root
- *     // outputs
- *     execution_or_bc_retrieval.exists
- *     execution_or_bc_retrieval.deployer_addr, // situational
- *     execution_or_bc_retrieval.current_class_id,
- *     execution_or_bc_retrieval.init_hash // situational
- * } in contract_instance_retrieval.sel {
- *     // inputs
- *     contract_instance_retrieval.address,
- *     contract_instance_retrieval.nullifier_tree_root,
- *     contract_instance_retrieval.public_data_tree_root,
- *     // outputs
- *     contract_instance_retrieval.exists,
- *     contract_instance_retrieval.deployer_addr, // situational
- *     contract_instance_retrieval.current_class_id,
- *     contract_instance_retrieval.init_hash // situational
- * };
+ * GADGET LOGIC:
+ *     The gadget first classifies the address as protocol or non-protocol, then follows
+ *     one of two paths to determine existence and validate the instance.
  *
- * Note: the missing instance member "salt" is not needed in the lookup and can instead just be hinted to the instance retrieval gadget.
+ *     For all addresses:
+ *     - Classify via range check: address in [1, MAX_PROTOCOL_CONTRACTS] => protocol contract.
+ *     - Force all instance members to 0 if the contract does not exist.
+ *     - If the contract exists, constrain address derivation from instance parts (salt, deployer,
+ *       original class id, init hash, public keys). Salt and public keys are hinted.
  *
- * Note: Forces instance members to 0 if the instance doesn't exist.
+ *     For protocol contracts:
+ *     - Read derived address from the public inputs column at a computed index.
+ *     - Existence is determined by whether the derived address is non-zero.
+ *     - No nullifier check or update check is performed.
+ *
+ *     For non-protocol contracts:
+ *     - Check (non)existence of the deployment nullifier (the contract address itself) in the
+ *       nullifier tree, siloed under the deployer protocol contract address.
+ *     - If the contract exists, enforce that the current class id is up-to-date via update check.
+ *
+ * PRECONDITIONS:
+ *     - The caller must constrain nullifier_tree_root and public_data_tree_root to the correct
+ *       tree roots for the current context.
+ *     - The contract database must be consistent with the nullifier tree: if a deployment nullifier
+ *       exists for a non-protocol address, the contract instance must be present in the DB.
+ *     - The contract database must be consistent with the protocol contracts table: a protocol
+ *       contract slot has a derived address if and only if the instance is present in the DB.
+ *
+ * USAGE:
+ *     This gadget is a lookup destination for get_contract_instance.pil and bc_retrieval.pil.
+ *     The "salt" member is not needed in the lookup — it is hinted to the retrieval gadget.
+ *
+ *     sel {
+ *         // inputs
+ *         caller.address,
+ *         caller.nullifier_tree_root,
+ *         caller.public_data_tree_root
+ *         // outputs
+ *         caller.exists,
+ *         caller.deployer_addr,   // situational - only if caller needs it
+ *         caller.current_class_id,
+ *         caller.init_hash        // situational - only if caller needs it
+ *     } in contract_instance_retrieval.sel {
+ *         contract_instance_retrieval.address,
+ *         contract_instance_retrieval.nullifier_tree_root,
+ *         contract_instance_retrieval.public_data_tree_root,
+ *         contract_instance_retrieval.exists,
+ *         contract_instance_retrieval.deployer_addr,
+ *         contract_instance_retrieval.current_class_id,
+ *         contract_instance_retrieval.init_hash
+ *     };
+ *
+ *     Situational columns (deployer_addr, init_hash) can be omitted if the caller doesn't need
+ *     them. When omitted, they are only hinted for address derivation. This is secure because
+ *     incorrect values would break derivation of the given address.
+ *
+ * TRACE SHAPE:
+ *     1 row per retrieval.
+ *
+ * ERROR HANDLING:
+ *     This gadget does not have error conditions. Errors (invalid enum, out-of-bounds writes)
+ *     are handled by the calling opcode gadget (get_contract_instance.pil).
+ *
+ * INTERACTIONS:
+ *     - ff_gt.pil: Determine if address is in protocol contract range. (#[CHECK_PROTOCOL_ADDRESS_RANGE])
+ *     - public_inputs.pil: Read derived address for protocol contracts. (#[READ_DERIVED_ADDRESS_FROM_PUBLIC_INPUTS])
+ *     - indexed_tree_check.pil: Check (non)existence of deployment nullifier. (#[DEPLOYMENT_NULLIFIER_READ])
+ *     - address_derivation.pil: Constrain address derivation from instance parts. (#[ADDRESS_DERIVATION])
+ *     - update_check.pil: Enforce current class id is up-to-date. (#[UPDATE_CHECK])
  */
 namespace contract_instance_retrieval;
 
