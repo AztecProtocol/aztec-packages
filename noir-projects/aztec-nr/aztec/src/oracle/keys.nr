@@ -8,7 +8,7 @@ pub unconstrained fn get_public_keys_and_partial_address(address: AztecAddress) 
     try_get_public_keys_and_partial_address(address).expect(f"Public keys not registered for account {address}")
 }
 
-#[oracle(utilityTryGetPublicKeysAndPartialAddress)]
+#[oracle(aztec_utl_tryGetPublicKeysAndPartialAddress)]
 unconstrained fn try_get_public_keys_and_partial_address_oracle(_address: AztecAddress) -> Option<[Field; 13]> {}
 
 pub unconstrained fn try_get_public_keys_and_partial_address(

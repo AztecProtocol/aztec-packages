@@ -38,7 +38,7 @@ export async function simulate(
   });
   if (verbose) {
     await printAuthorizations(
-      simulationResult.offchainEffects!,
+      simulationResult.offchainEffects,
       async (address: AztecAddress) => {
         const metadata = await wallet.getContractMetadata(address);
         if (!metadata.instance) {

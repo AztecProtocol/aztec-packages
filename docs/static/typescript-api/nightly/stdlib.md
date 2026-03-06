@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v5.0.0-nightly.20260303
+Version: v5.0.0-nightly.20260305
 
 ## Quick Import Reference
 
@@ -1752,7 +1752,7 @@ new Signature(r: Buffer32, s: Buffer32, v: number)
 - `getSize() => number`
 - `isEmpty() => boolean`
 - `static isValidString(sig: string) => boolean`
-- `static random() => Signature`
+- `static random() => Signature` - Generates a random valid ECDSA signature with a low s-value by signing a random message with a random key.
 - `toBuffer() => Buffer`
 - `toJSON() => string`
 - `toString() => string`
@@ -3942,6 +3942,11 @@ type TX_ERROR_INVALID_PROOF = "Invalid proof"
 ### TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED
 ```typescript
 type TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED = "Setup function not on allow list"
+```
+
+### TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT
+```typescript
+type TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT = "Setup function targets unknown contract"
 ```
 
 ### TX_ERROR_SIZE_ABOVE_LIMIT

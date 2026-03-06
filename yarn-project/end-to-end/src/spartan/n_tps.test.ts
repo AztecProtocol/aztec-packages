@@ -306,10 +306,10 @@ describe('sustained N TPS test', () => {
 
     logger.info('Deploying benchmark contract...');
     const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-    benchmarkContract = await BenchmarkingContract.deploy(localTestAccounts[0].wallet).send({
+    ({ contract: benchmarkContract } = await BenchmarkingContract.deploy(localTestAccounts[0].wallet).send({
       from: localTestAccounts[0].recipientAddress,
       fee: { paymentMethod: sponsor },
-    });
+    }));
     logger.info('Benchmark contract deployed', { address: benchmarkContract.address.toString() });
 
     logger.info(`Test setup complete`);
