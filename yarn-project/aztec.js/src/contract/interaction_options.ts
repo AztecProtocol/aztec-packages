@@ -1,8 +1,16 @@
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { FieldsOf } from '@aztec/foundation/types';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
-import type { Capsule, OffchainEffect, SimulationStats, TxHash, TxReceipt } from '@aztec/stdlib/tx';
+import {
+  type Capsule,
+  OFFCHAIN_MESSAGE_IDENTIFIER,
+  type OffchainEffect,
+  type SimulationStats,
+  type TxHash,
+  type TxReceipt,
+} from '@aztec/stdlib/tx';
 
 import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 import type { ProfileOptions, SendOptions, SimulateOptions } from '../wallet/index.js';
@@ -116,8 +124,8 @@ export type SimulateInteractionOptions = Omit<SendInteractionOptions, 'fee'> & {
   skipTxValidation?: boolean;
   /** Whether to ensure the fee payer is not empty and has enough balance to pay for the fee. */
   skipFeeEnforcement?: boolean;
-  /** Whether to include metadata such as offchain effects and performance statistics (e.g. timing information of the different circuits and oracles) in
-   * the simulation result, instead of just the return value of the function */
+  /** Whether to include metadata such as performance statistics (e.g. timing information of the different circuits and oracles) and gas estimation
+   * in the simulation result, in addition to the return value and offchain effects */
   includeMetadata?: boolean;
 };
 
@@ -131,31 +139,89 @@ export type ProfileInteractionOptions = SimulateInteractionOptions & {
   skipProofGeneration?: boolean;
 };
 
+/** A message emitted during execution or proving, to be delivered offchain. */
+export type OffchainMessage = {
+  /** The intended recipient of the message. */
+  recipient: AztecAddress;
+  /** The message payload (typically encrypted). */
+  payload: Fr[];
+  /** The contract that emitted the message. */
+  contractAddress: AztecAddress;
+};
+
+/** Groups all unproven outputs from private execution that are returned to the client. */
+export type OffchainOutput = {
+  /** Raw offchain effects emitted during execution. */
+  offchainEffects: OffchainEffect[];
+  /** Messages emitted during execution, to be delivered offchain. */
+  offchainMessages: OffchainMessage[];
+};
+
 /**
- * Represents the result type of a simulation.
- * By default, it will just be the return value of the simulated function
- * If `includeMetadata` is set to true in `SimulateInteractionOptions` on the input of `simulate(...)`,
- * it will provide extra information.
+ * Splits an array of offchain effects into decoded offchain messages and remaining effects.
+ * Effects whose data starts with `OFFCHAIN_MESSAGE_IDENTIFIER` are parsed as messages and removed
+ * from the effects array.
  */
-export type SimulationReturn<T extends boolean | undefined> = T extends true
-  ? {
-      /** Additional stats about the simulation */
-      stats: SimulationStats;
-      /** Offchain effects generated during the simulation */
-      offchainEffects: OffchainEffect[];
-      /**  Return value of the function */
-      result: any;
-      /** Gas estimation results */
-      estimatedGas: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>;
+export function extractOffchainOutput(effects: OffchainEffect[]): OffchainOutput {
+  const offchainEffects: OffchainEffect[] = [];
+  const offchainMessages: OffchainMessage[] = [];
+
+  for (const effect of effects) {
+    if (effect.data.length >= 2 && effect.data[0].equals(OFFCHAIN_MESSAGE_IDENTIFIER)) {
+      offchainMessages.push({
+        recipient: AztecAddress.fromField(effect.data[1]),
+        payload: effect.data.slice(2),
+        contractAddress: effect.contractAddress,
+      });
+    } else {
+      offchainEffects.push(effect);
     }
-  : any;
+  }
+
+  return { offchainEffects, offchainMessages };
+}
+
+/**
+ * Returns an empty `OffchainOutput` (no effects, no messages).
+ */
+export function emptyOffchainOutput(): OffchainOutput {
+  return { offchainEffects: [], offchainMessages: [] };
+}
+
+/**
+ * Represents the result of a simulation.
+ * Always includes the return value and offchain output.
+ * When `includeMetadata` or `fee.estimateGas` is set, also includes stats and gas estimation.
+ */
+export type SimulationResult = {
+  /** Return value of the function */
+  result: any;
+  /** Additional stats about the simulation. Present when `includeMetadata` is set. */
+  stats?: SimulationStats;
+  /** Gas estimation results. Present when `includeMetadata` or `fee.estimateGas` is set. */
+  estimatedGas?: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>;
+} & OffchainOutput;
+
+/** Result of sendTx when not waiting for mining. */
+export type TxSendResultImmediate = {
+  /** The hash of the sent transaction. */
+  txHash: TxHash;
+} & OffchainOutput;
+
+/** Result of sendTx when waiting for mining. */
+export type TxSendResultMined<TReturn = TxReceipt> = {
+  /** The transaction receipt. */
+  receipt: TReturn;
+} & OffchainOutput;
 
 /**
  * Represents the result type of sending a transaction.
- * If `wait` is NO_WAIT, returns TxHash immediately without waiting.
- * If `wait` is undefined or WaitOpts, returns TReturn (defaults to TxReceipt) after waiting.
+ * If `wait` is NO_WAIT, returns TxSendResultImmediate.
+ * Otherwise returns TxSendResultMined.
  */
-export type SendReturn<T extends InteractionWaitOptions, TReturn = TxReceipt> = T extends NoWait ? TxHash : TReturn;
+export type SendReturn<T extends InteractionWaitOptions, TReturn = TxReceipt> = T extends NoWait
+  ? TxSendResultImmediate
+  : TxSendResultMined<TReturn>;
 
 /**
  * Transforms and cleans up the higher level SendInteractionOptions defined by the interaction into

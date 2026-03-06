@@ -25,7 +25,7 @@ describe('e2e_expiration_timestamp', () => {
       aztecNode,
       accounts: [defaultAccountAddress],
     } = await setup());
-    contract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress });
+    ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
 
   afterAll(() => teardown());

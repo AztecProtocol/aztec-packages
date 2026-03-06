@@ -160,11 +160,15 @@ export class FeesTest {
 
   /** Alice mints bananaCoin tokens privately to the target address and redeems them. */
   async mintPrivateBananas(amount: bigint, address: AztecAddress) {
-    const balanceBefore = await this.bananaCoin.methods.balance_of_private(address).simulate({ from: address });
+    const { result: balanceBefore } = await this.bananaCoin.methods
+      .balance_of_private(address)
+      .simulate({ from: address });
 
     await mintTokensToPrivate(this.bananaCoin, this.aliceAddress, address, amount);
 
-    const balanceAfter = await this.bananaCoin.methods.balance_of_private(address).simulate({ from: address });
+    const { result: balanceAfter } = await this.bananaCoin.methods
+      .balance_of_private(address)
+      .simulate({ from: address });
     expect(balanceAfter).toEqual(balanceBefore + amount);
   }
 
@@ -226,7 +230,7 @@ export class FeesTest {
   async applyDeployBananaToken() {
     this.logger.info('Applying deploy banana token setup');
 
-    const bananaCoin = await BananaCoin.deploy(this.wallet, this.aliceAddress, 'BC', 'BC', 18n).send({
+    const { contract: bananaCoin } = await BananaCoin.deploy(this.wallet, this.aliceAddress, 'BC', 'BC', 18n).send({
       from: this.aliceAddress,
     });
     this.logger.info(`BananaCoin deployed at ${bananaCoin.address}`);
@@ -247,7 +251,7 @@ export class FeesTest {
     expect((await this.wallet.getContractMetadata(feeJuiceContract.address)).isContractPublished).toBe(true);
 
     const bananaCoin = this.bananaCoin;
-    const bananaFPC = await FPCContract.deploy(this.wallet, bananaCoin.address, this.fpcAdmin).send({
+    const { contract: bananaFPC } = await FPCContract.deploy(this.wallet, bananaCoin.address, this.fpcAdmin).send({
       from: this.aliceAddress,
     });
 

@@ -47,7 +47,7 @@ jobs:
 
               # Create PR with ci-no-squash label
               labels="ci-no-squash"
-              if [[ "$branch" == "merge-train/spartan" ]]; then
+              if [[ "$branch" == "merge-train/spartan" || "$branch" == "merge-train/ci" ]]; then
                 labels="$labels,ci-full-no-test-cache"
               fi
               gh pr create --base "$base_branch" --head "$branch" \

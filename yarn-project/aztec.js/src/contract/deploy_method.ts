@@ -9,14 +9,7 @@ import {
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import {
-  type Capsule,
-  HashedValues,
-  TxHash,
-  type TxProfileResult,
-  type TxReceipt,
-  collectOffchainEffects,
-} from '@aztec/stdlib/tx';
+import { type Capsule, HashedValues, type TxProfileResult, type TxReceipt } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import { publishContractClass } from '../deployment/publish_class.js';
@@ -29,11 +22,15 @@ import { getGasLimits } from './get_gas_limits.js';
 import {
   NO_WAIT,
   type NoWait,
+  type OffchainOutput,
   type ProfileInteractionOptions,
   type RequestInteractionOptions,
   type SendInteractionOptionsWithoutWait,
   type SimulationInteractionFeeOptions,
-  type SimulationReturn,
+  type SimulationResult,
+  type TxSendResultImmediate,
+  type TxSendResultMined,
+  extractOffchainOutput,
   toProfileOptions,
   toSendOptions,
   toSimulateOptions,
@@ -130,20 +127,32 @@ export type DeployTxReceipt<TContract extends ContractBase = ContractBase> = TxR
   instance: ContractInstanceWithAddress;
 };
 
+/** Wait options that request a full receipt instead of just the contract instance. */
+type WaitWithReturnReceipt = {
+  /** Request the full receipt instead of just the contract instance. */
+  returnReceipt: true;
+};
+
 /**
  * Represents the result type of deploying a contract.
  * - If wait is NO_WAIT, returns TxHash immediately.
  * - If wait has returnReceipt: true, returns DeployTxReceipt after waiting.
  * - Otherwise (undefined or DeployWaitOptions without returnReceipt), returns TContract after waiting.
  */
+/** Result of deploying a contract when waiting for mining (default case). */
+export type DeployResultMined<TContract extends ContractBase> = {
+  /** The deployed contract instance. */
+  contract: TContract;
+  /** The deploy transaction receipt. */
+  receipt: DeployTxReceipt<TContract>;
+} & OffchainOutput;
+
+/** Conditional return type for deploy based on wait options. */
 export type DeployReturn<TContract extends ContractBase, W extends DeployInteractionWaitOptions> = W extends NoWait
-  ? TxHash
-  : W extends {
-        // eslint-disable-next-line jsdoc/require-jsdoc
-        returnReceipt: true;
-      }
-    ? DeployTxReceipt<TContract>
-    : TContract;
+  ? TxSendResultImmediate
+  : W extends WaitWithReturnReceipt
+    ? TxSendResultMined<DeployTxReceipt<TContract>>
+    : DeployResultMined<TContract>;
 
 /**
  * Contract interaction for deployment.
@@ -343,8 +352,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * @returns TxHash (if wait is NO_WAIT), TContract (if wait is undefined or doesn't have returnReceipt), or DeployTxReceipt (if wait.returnReceipt is true)
    */
   // Overload for when wait is not specified at all - returns the contract
-  public override send(options: DeployOptionsWithoutWait): Promise<TContract>;
-  // Generic overload for explicit wait values
+  public override send(options: DeployOptionsWithoutWait): Promise<DeployResultMined<TContract>>;
   // eslint-disable-next-line jsdoc/require-jsdoc
   public override send<W extends DeployInteractionWaitOptions>(
     options: DeployOptions<W>,
@@ -355,12 +363,15 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
     const sendOptions = this.convertDeployOptionsToSendOptions(options);
 
     if (options.wait === NO_WAIT) {
-      const txHash = await this.wallet.sendTx(executionPayload, sendOptions as SendOptions<NoWait>);
-      this.log.debug(`Sent deployment tx ${txHash.hash} of ${this.artifact.name} contract`);
-      return txHash;
+      const result = await this.wallet.sendTx(executionPayload, sendOptions as SendOptions<NoWait>);
+      this.log.debug(`Sent deployment tx ${result.txHash.hash} of ${this.artifact.name} contract`);
+      return result;
     }
 
-    const receipt = await this.wallet.sendTx(executionPayload, sendOptions as SendOptions<WaitOpts | undefined>);
+    const { receipt, ...offchainOutput } = await this.wallet.sendTx(
+      executionPayload,
+      sendOptions as SendOptions<WaitOpts | undefined>,
+    );
     this.log.debug(`Deployed ${this.artifact.name} contract in tx ${receipt.txHash}`);
 
     // Attach contract instance
@@ -369,10 +380,10 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
 
     // Return full receipt if requested, otherwise just the contract
     if (options.wait && typeof options.wait === 'object' && options.wait.returnReceipt) {
-      return { ...receipt, contract, instance };
+      return { receipt: { ...receipt, contract, instance }, ...offchainOutput };
     }
 
-    return contract;
+    return { contract, receipt, ...offchainOutput };
   }
 
   /**
@@ -401,7 +412,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * @returns A simulation result object containing metadata of the execution, including gas
    * estimations (if requested via options), execution statistics and emitted offchain effects
    */
-  public async simulate(options: SimulateDeployOptions): Promise<SimulationReturn<true>> {
+  public async simulate(options: SimulateDeployOptions): Promise<SimulationResult> {
     const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
     const simulatedTx = await this.wallet.simulateTx(
       executionPayload,
@@ -414,7 +425,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
     );
     return {
       stats: simulatedTx.stats!,
-      offchainEffects: collectOffchainEffects(simulatedTx.privateExecutionResult),
+      ...extractOffchainOutput(simulatedTx.offchainEffects),
       result: undefined,
       estimatedGas: { gasLimits, teardownGasLimits },
     };

@@ -15,16 +15,20 @@ async function getBalances(
   await Promise.all([
     contract.methods
       .public_balance_of(aliceAddress)
-      .simulate({ from: aliceAddress }),
+      .simulate({ from: aliceAddress })
+      .then(({ result }) => result),
     contract.methods
       .private_balance_of(aliceAddress)
-      .simulate({ from: aliceAddress }),
+      .simulate({ from: aliceAddress })
+      .then(({ result }) => result),
     contract.methods
       .public_balance_of(bobAddress)
-      .simulate({ from: bobAddress }),
+      .simulate({ from: bobAddress })
+      .then(({ result }) => result),
     contract.methods
       .private_balance_of(bobAddress)
-      .simulate({ from: bobAddress }),
+      .simulate({ from: bobAddress })
+      .then(({ result }) => result),
   ]).then(
     ([
       alicePublicBalance,
@@ -69,7 +73,7 @@ async function main() {
   const aliceAddress = aliceAccountManager.address;
   const bobClinicAddress = bobClinicAccountManager.address;
 
-  const bobToken = await BobTokenContract.deploy(wallet).send({
+  const { contract: bobToken } = await BobTokenContract.deploy(wallet).send({
     from: giggleAddress,
   });
 

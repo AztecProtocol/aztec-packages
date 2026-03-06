@@ -47,10 +47,10 @@ export function useTransaction() {
 
       if (interaction instanceof DeployMethod) {
         const { from, fee, ...deployOpts } = opts as DeployOptions<W>;
-        txHash = await interaction.send({ from, fee, ...deployOpts, wait: NO_WAIT });
+        ({ txHash } = await interaction.send({ from, fee, ...deployOpts, wait: NO_WAIT }));
       } else {
         const { from, fee, authWitnesses, capsules } = opts as SendInteractionOptions<W>;
-        txHash = await interaction.send({ from, fee, authWitnesses, capsules, wait: NO_WAIT });
+        ({ txHash } = await interaction.send({ from, fee, authWitnesses, capsules, wait: NO_WAIT }));
       }
 
       setCurrentTx({

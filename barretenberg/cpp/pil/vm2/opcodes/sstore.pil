@@ -1,6 +1,6 @@
 include "../constants_gen.pil";
 include "../trees/public_data_check.pil";
-include "../trees/written_public_data_slots_tree_check.pil";
+include "../trees/indexed_tree_check.pil";
 
 // SSTORE opcode: Writes a value to storage at the provided slot
 //
@@ -14,7 +14,7 @@ include "../trees/written_public_data_slots_tree_check.pil";
 // - register[1]: Contains the storage slot to write to
 //
 // The opcode leverages the public_data_check gadget to verify the storage write operation
-// and the written_public_data_slots_tree_check gadget to track written slots for gas calculation.
+// and the indexed_tree_check gadget to track written slots for gas calculation.
 //
 namespace execution; // this is a virtual gadget that shares rows with the execution trace
 
@@ -55,21 +55,25 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
 
     #[RECORD_WRITTEN_STORAGE_SLOT]
     sel_write_public_data {
-        contract_address,
         register[1], // slot
-        sel_write_public_data/*=1*/,
         prev_written_public_data_slots_tree_root,
-        prev_written_public_data_slots_tree_size,
         written_public_data_slots_tree_root,
-        written_public_data_slots_tree_size
-    } in written_public_data_slots_tree_check.sel {
-        written_public_data_slots_tree_check.address,
-        written_public_data_slots_tree_check.slot,
-        written_public_data_slots_tree_check.write,
-        written_public_data_slots_tree_check.root,
-        written_public_data_slots_tree_check.tree_size_before_write,
-        written_public_data_slots_tree_check.write_root,
-        written_public_data_slots_tree_check.tree_size_after_write
+        prev_written_public_data_slots_tree_size,
+        written_public_data_slots_tree_size,
+        written_slots_tree_height,  // From execution.pil. Gated by sel_gas_sstore, which is a requirement for sel_write_public_data.
+        sel_write_public_data, // sel_silo = 1
+        written_slots_tree_siloing_separator, // From execution.pil. Gated by sel_gas_sstore, which is a requirement for sel_write_public_data.
+        contract_address
+    } in indexed_tree_check.write {
+        indexed_tree_check.value,
+        indexed_tree_check.root,
+        indexed_tree_check.write_root,
+        indexed_tree_check.tree_size_before_write,
+        indexed_tree_check.tree_size_after_write,
+        indexed_tree_check.tree_height,
+        indexed_tree_check.sel_silo,
+        indexed_tree_check.siloing_separator,
+        indexed_tree_check.address
     };
 
     #[STORAGE_WRITE]
