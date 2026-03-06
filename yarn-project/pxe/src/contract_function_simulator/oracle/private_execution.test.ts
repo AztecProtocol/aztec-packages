@@ -275,7 +275,7 @@ describe('Private Execution test suite', () => {
   const computeNoteHash = (note: Note, owner: AztecAddress, storageSlot: Fr, randomness: Fr) => {
     // We're assuming here that the note hash function is the default one injected by the #[note] macro.
     return poseidon2HashWithSeparator(
-      [...note.items, owner.toField(), storageSlot, randomness],
+      [storageSlot, ...note.items, owner.toField(), randomness],
       DomainSeparator.NOTE_HASH,
     );
   };
