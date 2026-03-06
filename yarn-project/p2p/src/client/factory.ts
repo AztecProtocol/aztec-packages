@@ -87,10 +87,12 @@ export async function createP2PClient(
           // We accept transactions if they are not expired by the next slot and block number (checked based on the ExpirationTimestamp field)
           const currentBlockNumber = await archiver.getBlockNumber();
           const { ts: nextSlotTimestamp } = epochCache.getEpochAndSlotInNextL1Slot();
+          const l1Constants = await archiver.getL1Constants();
           return createTxValidatorForTransactionsEnteringPendingTxPool(
             worldStateSynchronizer,
             nextSlotTimestamp,
             BlockNumber(currentBlockNumber + 1),
+            l1Constants.rollupManaLimit,
           );
         },
       },

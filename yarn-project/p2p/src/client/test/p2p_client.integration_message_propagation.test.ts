@@ -70,6 +70,7 @@ describe('p2p client integration message propagation', () => {
       ethereumSlotDuration: 12,
       proofSubmissionEpochs: 2,
       targetCommitteeSize: 48,
+      rollupManaLimit: Infinity,
     });
 
     const mockMerkleTreeOps = mock<MerkleTreeReadOperations>();

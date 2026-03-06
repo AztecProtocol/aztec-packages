@@ -138,6 +138,7 @@ describe('TallySlasherClient', () => {
       ethereumSlotDuration: 12,
       proofSubmissionEpochs: 8,
       targetCommitteeSize: 48,
+      rollupManaLimit: Infinity,
     });
 
     // Create mocks for L1 contracts

@@ -17,6 +17,7 @@ import {
   chainConfigMappings,
   sharedSequencerConfigMappings,
 } from '@aztec/stdlib/config';
+import { DEFAULT_PER_BLOCK_ALLOCATION_MULTIPLIER } from '@aztec/stdlib/gas';
 import type { ResolvedSequencerConfig } from '@aztec/stdlib/interfaces/server';
 import { DEFAULT_P2P_PROPAGATION_TIME } from '@aztec/stdlib/timetable';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
@@ -40,7 +41,7 @@ export const DefaultSequencerConfig = {
   minTxsPerBlock: 1,
   buildCheckpointIfEmpty: false,
   publishTxsWithProposals: false,
-  perBlockAllocationMultiplier: 2,
+  perBlockAllocationMultiplier: DEFAULT_PER_BLOCK_ALLOCATION_MULTIPLIER,
   enforceTimeTable: true,
   attestationPropagationTime: DEFAULT_P2P_PROPAGATION_TIME,
   secondsBeforeInvalidatingBlockAsCommitteeMember: 144, // 12 L1 blocks

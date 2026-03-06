@@ -78,7 +78,7 @@ describe('CheckpointProposalJob', () => {
   let job: TestCheckpointProposalJob;
 
   let timetable: SequencerTimetable;
-  let l1Constants: L1RollupConstants & { rollupManaLimit: number };
+  let l1Constants: L1RollupConstants;
   let config: ResolvedSequencerConfig;
 
   let lastBlockNumber: BlockNumber;

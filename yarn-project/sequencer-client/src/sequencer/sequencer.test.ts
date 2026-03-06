@@ -78,9 +78,10 @@ describe('sequencer', () => {
 
   let block: L2Block;
   let globalVariables: GlobalVariables;
-  let l1Constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'> & {
-    rollupManaLimit: number;
-  };
+  let l1Constants: Pick<
+    L1RollupConstants,
+    'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration' | 'rollupManaLimit'
+  >;
 
   let sequencer: TestSequencer;
 
