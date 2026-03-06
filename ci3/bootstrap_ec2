@@ -334,6 +334,7 @@ function run {
         -e GITHUB_ACTOR=${GITHUB_ACTOR:-} \
         -e EC2_INSTANCE_TYPE=${EC2_INSTANCE_TYPE:-unknown} \
         -e EC2_SPOT=${EC2_SPOT:-unknown} \
+        -e DRY_RUN=${DRY_RUN:-} \
         --pids-limit=65536 \
         --shm-size=2g \
         --ulimit nofile=1048576:1048576 \

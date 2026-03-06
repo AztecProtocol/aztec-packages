@@ -65,6 +65,26 @@ function get_latest_run_id {
   gh run list --workflow $ci3_workflow_id -b $BRANCH --limit 1 --json databaseId -q .[0].databaseId
 }
 
+function merge_queue_run {
+  if [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
+    export CI_DASHBOARD=${TARGET_BRANCH:-local}
+  else
+    export CI_DASHBOARD="prs"
+  fi
+  export AWS_SHUTDOWN_TIME=75
+  export AWS_SHUTDOWN_TIME_ARM=90
+  export DENOISE=1
+  export DENOISE_WIDTH=32
+  run() {
+    PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
+  }
+  export -f run
+
+  # Specify jobs as maybe we only have a couple of cpus.
+  parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+    "$@" | DUP=1 cache_log "Merge queue CI run" $RUN_ID
+}
+
 # Jobs in the ci dashboards are grouped on a single line by RUN_ID.
 export RUN_ID=${RUN_ID:-$(date +%s%3N)}
 
@@ -115,46 +135,13 @@ case "$cmd" in
     ;;
   merge-queue)
     # We perform full runs of all tests on multiple x86, and a single fast run on arm64.
-    if [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
-      export CI_DASHBOARD=${TARGET_BRANCH:-local}
-    else
-      export CI_DASHBOARD="prs"
-    fi
-    export AWS_SHUTDOWN_TIME=75
-    export AWS_SHUTDOWN_TIME_ARM=90
-    export DENOISE=1
-    export DENOISE_WIDTH=32
-    run() {
-      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
-    }
-    export -f run
-
-    # Specify jobs as maybe we only have a couple of cpus.
-    parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+    merge_queue_run \
       'run x1-full amd64 ci-full-no-test-cache' \
-      'run x2-full amd64 ci-full-no-test-cache' \
-      'run x3-full amd64 ci-full-no-test-cache' \
-      'run x4-full amd64 ci-full-no-test-cache' \
-      'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
+      'run a1-fast arm64 ci-fast'
     ;;
   merge-queue-heavy)
     # Heavy merge queue with 10 parallel grind runs, used for merge-train/spartan PRs.
-    if [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
-      export CI_DASHBOARD=${TARGET_BRANCH:-local}
-    else
-      export CI_DASHBOARD="prs"
-    fi
-    export AWS_SHUTDOWN_TIME=75
-    export AWS_SHUTDOWN_TIME_ARM=90
-    export DENOISE=1
-    export DENOISE_WIDTH=32
-    run() {
-      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
-    }
-    export -f run
-
-    # Specify jobs as maybe we only have a couple of cpus.
-    parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+    merge_queue_run \
       'run x1-full amd64 ci-full-no-test-cache' \
       'run x2-full amd64 ci-full-no-test-cache' \
       'run x3-full amd64 ci-full-no-test-cache' \
@@ -165,8 +152,25 @@ case "$cmd" in
       'run x8-full amd64 ci-full-no-test-cache' \
       'run x9-full amd64 ci-full-no-test-cache' \
       'run x10-full amd64 ci-full-no-test-cache' \
-      'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue heavy CI run" $RUN_ID
+      'run a1-fast arm64 ci-fast'
     ;;
+  merge-queue-ci)
+    # 10 parallel grind runs with no build cache and dry run of release, used for merge-train/ci PRs.
+    export DRY_RUN=1
+    export NO_CACHE=1
+    merge_queue_run \
+      'run x1-full amd64 ci-full-no-test-cache' \
+      'run x2-full amd64 ci-full-no-test-cache' \
+      'run x3-full amd64 ci-full-no-test-cache' \
+      'run x4-full amd64 ci-full-no-test-cache' \
+      'run x5-full amd64 ci-full-no-test-cache' \
+      'run x6-full amd64 ci-full-no-test-cache' \
+      'run x7-full amd64 ci-full-no-test-cache' \
+      'run x8-full amd64 ci-full-no-test-cache' \
+      'run x9-full amd64 ci-full-no-test-cache' \
+      'run x10-full amd64 ci-full-no-test-cache' \
+      'run a1-fast arm64 ci-fast' \
+      'run release amd64 ci-release'
   grind-test)
     full_cmd="$1"
     timeout="${2:-}"
