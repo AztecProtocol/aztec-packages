@@ -148,7 +148,23 @@ bb-cpp-cross-amd64-macos: bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-
 bb-cpp-cross-arm64-macos: bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos
 	$(call build,$@,barretenberg/cpp,build_cross arm64-macos)
 
-bb-cpp-cross: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos
+bb-cpp-cross: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-ios-sim bb-cpp-cross-arm64-android bb-cpp-cross-x86_64-android
+
+# Cross-compile for ARM64 iOS (release only, static lib only)
+bb-cpp-cross-arm64-ios:
+	$(call build,$@,barretenberg/cpp,build_ios zig-arm64-ios)
+
+# Cross-compile for ARM64 iOS Simulator (release only, static lib only)
+bb-cpp-cross-arm64-ios-sim:
+	$(call build,$@,barretenberg/cpp,build_ios zig-arm64-ios-sim)
+
+# Cross-compile for ARM64 Android (release only, static lib only)
+bb-cpp-cross-arm64-android:
+	$(call build,$@,barretenberg/cpp,build_android zig-arm64-android)
+
+# Cross-compile for x86_64 Android (release only, static lib only)
+bb-cpp-cross-x86_64-android:
+	$(call build,$@,barretenberg/cpp,build_android zig-x86_64-android)
 
 # GCC syntax check (CI only, non-release)
 bb-cpp-gcc:
