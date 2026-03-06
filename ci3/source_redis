@@ -11,6 +11,10 @@ if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
   if nc -z $CI_REDIS 6379 &>/dev/null; then
     # Redis is found at given host, we're done.
     export CI_REDIS_AVAILABLE=1
+  elif [ -n "${AZTEC_MCP_SERVER:-}" ]; then
+    # MCP server available — Redis ops will be proxied via HTTP.
+    export CI_REDIS_AVAILABLE=1
+    export CI_REDIS_VIA_PROXY=1
   elif [ -f ~/.ssh/build_instance_key ]; then
     # We have the build_instance_key.
     # Attempt to open a port to the remote redis cache via ssh through the bastion.
@@ -81,18 +85,37 @@ function redis_cli {
 }
 
 function redis_setexz {
-  gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+  if [ "${CI_REDIS_VIA_PROXY:-0}" = "1" ]; then
+    gzip | curl -sf -X POST \
+      -H "X-Redis-Key: $1" \
+      -H "X-Redis-Expire: $2" \
+      -H "Content-Type: application/octet-stream" \
+      --data-binary @- \
+      "${AZTEC_MCP_SERVER}/redis-setexz" >/dev/null
+  else
+    gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+  fi
 }
 
 function redis_getz {
-  hex=$(redis_cli --raw GET "$1" | head -c -1 | xxd -p)
-  if [ -z "$hex" ]; then
-    echo "Key not found."
-  fi
-  if [[ "${hex:0:4}" == "1f8b" ]]; then
-    echo "$hex" | xxd -r -p | gunzip
+  if [ "${CI_REDIS_VIA_PROXY:-0}" = "1" ]; then
+    local result
+    result=$(curl -sf -H "X-Redis-Key: $1" "${AZTEC_MCP_SERVER}/redis-getz" 2>/dev/null)
+    if [ -z "$result" ]; then
+      echo "Key not found."
+    else
+      echo "$result"
+    fi
   else
-    echo "$hex" | xxd -r -p
+    hex=$(redis_cli --raw GET "$1" | head -c -1 | xxd -p)
+    if [ -z "$hex" ]; then
+      echo "Key not found."
+    fi
+    if [[ "${hex:0:4}" == "1f8b" ]]; then
+      echo "$hex" | xxd -r -p | gunzip
+    else
+      echo "$hex" | xxd -r -p
+    fi
   fi
 }
 
@@ -101,7 +124,12 @@ function redis_getz {
 function redis_publish {
   local channel=$1
   local message=$2
-  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  if [ "${CI_REDIS_VIA_PROXY:-0}" = "1" ]; then
+    curl -sf -X POST \
+      -H "Content-Type: application/json" \
+      -d "{\"channel\":\"$channel\",\"message\":\"$message\"}" \
+      "${AZTEC_MCP_SERVER}/redis-publish" >/dev/null
+  elif [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
     redis_cli PUBLISH "$channel" "$message" &>/dev/null
   fi
 }
