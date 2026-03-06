@@ -9,7 +9,7 @@ import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
-import type { IMissingTxsTracker } from '../../tx_collection/missing_txs_tracker.js';
+import type { IRequestTracker } from '../../tx_collection/request_tracker.js';
 import { ReqRespSubProtocol } from '.././interface.js';
 import { BlockTxsRequest, BlockTxsResponse, type BlockTxsSource } from '.././protocols/index.js';
 import { ReqRespStatus } from '.././status.js';
@@ -60,7 +60,7 @@ export class BatchTxRequester {
   private readonly txBatchSize: number;
 
   constructor(
-    missingTxsTracker: IMissingTxsTracker,
+    requestTracker: IRequestTracker,
     blockTxsSource: BlockTxsSource,
     pinnedPeer: PeerId | undefined,
     timeoutMs: number,
@@ -98,7 +98,7 @@ export class BatchTxRequester {
         this.p2pService.peerScoring,
       );
     }
-    this.txsMetadata = new MissingTxMetadataCollection(missingTxsTracker, this.txBatchSize);
+    this.txsMetadata = new MissingTxMetadataCollection(requestTracker, this.txBatchSize);
     this.smartRequesterSemaphore = this.opts.semaphore ?? new Semaphore(0);
   }
 

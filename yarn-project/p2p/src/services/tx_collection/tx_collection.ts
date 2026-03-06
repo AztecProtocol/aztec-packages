@@ -19,7 +19,7 @@ import type { TxCollectionConfig } from './config.js';
 import { FastTxCollection } from './fast_tx_collection.js';
 import { FileStoreTxCollection } from './file_store_tx_collection.js';
 import type { FileStoreTxSource } from './file_store_tx_source.js';
-import type { IMissingTxsTracker } from './missing_txs_tracker.js';
+import type { IRequestTracker } from './request_tracker.js';
 import { SlowTxCollection, getProofDeadlineForSlot } from './slow_tx_collection.js';
 import { type TxAddContext, TxCollectionSink } from './tx_collection_sink.js';
 import type { TxSource } from './tx_source.js';
@@ -33,7 +33,7 @@ export type FastCollectionRequestInput =
   | { type: 'proposal'; blockProposal: BlockProposal; blockNumber: BlockNumber };
 
 export type FastCollectionRequest = FastCollectionRequestInput & {
-  missingTxTracker: IMissingTxsTracker;
+  requestTracker: IRequestTracker;
   deadline: Date;
   blockInfo: L2BlockInfo;
   promise: PromiseWithResolvers<void>;

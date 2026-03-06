@@ -19,7 +19,7 @@ import type { P2PConfig } from '../../../config.js';
 import { BatchTxRequesterCollector, SendBatchRequestCollector } from '../../../services/index.js';
 import type { IBatchRequestTxValidator } from '../../../services/reqresp/batch-tx-requester/tx_validator.js';
 import { RateLimitStatus } from '../../../services/reqresp/rate-limiter/rate_limiter.js';
-import { MissingTxsTracker } from '../../../services/tx_collection/missing_txs_tracker.js';
+import { RequestTracker } from '../../../services/tx_collection/request_tracker.js';
 import {
   AlwaysTrueCircuitVerifier,
   BENCHMARK_CONSTANTS,
@@ -212,12 +212,7 @@ async function runCollector(cmd: Extract<WorkerCommand, { type: 'RUN_COLLECTOR' 
       const collector = new BatchTxRequesterCollector(p2pService, logger, new DateProvider(), noopTxValidator);
       const fetched = await executeTimeout(
         (_signal: AbortSignal) =>
-          collector.collectTxs(
-            MissingTxsTracker.fromArray(parsedTxHashes),
-            parsedProposal,
-            pinnedPeer,
-            internalTimeoutMs,
-          ),
+          collector.collectTxs(RequestTracker.fromArray(parsedTxHashes), parsedProposal, pinnedPeer, internalTimeoutMs),
         timeoutMs,
         () => new Error(`Collector timed out after ${timeoutMs}ms`),
       );
@@ -230,12 +225,7 @@ async function runCollector(cmd: Extract<WorkerCommand, { type: 'RUN_COLLECTOR' 
       );
       const fetched = await executeTimeout(
         (_signal: AbortSignal) =>
-          collector.collectTxs(
-            MissingTxsTracker.fromArray(parsedTxHashes),
-            parsedProposal,
-            pinnedPeer,
-            internalTimeoutMs,
-          ),
+          collector.collectTxs(RequestTracker.fromArray(parsedTxHashes), parsedProposal, pinnedPeer, internalTimeoutMs),
         timeoutMs,
         () => new Error(`Collector timed out after ${timeoutMs}ms`),
       );
