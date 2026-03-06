@@ -133,6 +133,7 @@ describe('TxPoolV2', () => {
       l2BlockSource: mockL2BlockSource,
       worldStateSynchronizer: mockWorldState,
       createTxValidator: () => Promise.resolve(alwaysValidValidator),
+      checkAllowedSetupCalls: () => Promise.resolve(true),
     });
     await pool.start();
 
@@ -540,6 +541,7 @@ describe('TxPoolV2', () => {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(rejectingValidator),
+        checkAllowedSetupCalls: () => Promise.resolve(true),
       });
       await rejectingPool.start();
     });
@@ -655,6 +657,7 @@ describe('TxPoolV2', () => {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(new GasLimitsValidator<TxMetaData>()),
+        checkAllowedSetupCalls: () => Promise.resolve(true),
       });
       await gasPool.start();
     });
@@ -1290,6 +1293,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(mockValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await poolWithValidator.start();
       });
@@ -1998,6 +2002,7 @@ describe('TxPoolV2', () => {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(mockValidator),
+        checkAllowedSetupCalls: () => Promise.resolve(true),
       });
       await poolWithValidator.start();
     });
@@ -2179,6 +2184,7 @@ describe('TxPoolV2', () => {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(mockValidator),
+        checkAllowedSetupCalls: () => Promise.resolve(true),
       });
       await poolWithValidator.start();
     });
@@ -4391,6 +4397,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool1.start();
 
@@ -4416,6 +4423,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool2.start();
 
@@ -4444,6 +4452,7 @@ describe('TxPoolV2', () => {
             l2BlockSource: mockL2BlockSource,
             worldStateSynchronizer: mockWorldState,
             createTxValidator: () => Promise.resolve(alwaysValidValidator),
+            checkAllowedSetupCalls: () => Promise.resolve(true),
           },
           undefined, // telemetry
           { maxPendingTxCount: 100 },
@@ -4470,6 +4479,7 @@ describe('TxPoolV2', () => {
             l2BlockSource: mockL2BlockSource,
             worldStateSynchronizer: mockWorldState,
             createTxValidator: () => Promise.resolve(alwaysValidValidator),
+            checkAllowedSetupCalls: () => Promise.resolve(true),
           },
           undefined, // telemetry
           { maxPendingTxCount: 3 },
@@ -4502,6 +4512,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool1.start();
 
@@ -4519,6 +4530,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool2.start();
 
@@ -4548,6 +4560,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool1.start();
 
@@ -4582,6 +4595,7 @@ describe('TxPoolV2', () => {
             l2BlockSource: mockL2BlockSource,
             worldStateSynchronizer: mockWorldState,
             createTxValidator: () => Promise.resolve(alwaysValidValidator),
+            checkAllowedSetupCalls: () => Promise.resolve(true),
           },
           undefined, // telemetry
           { maxPendingTxCount: 0 }, // No pending txs allowed
@@ -4610,6 +4624,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool1.start();
 
@@ -4636,6 +4651,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(selectiveValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool2.start();
 
@@ -4661,6 +4677,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool1.start();
 
@@ -4686,6 +4703,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool2.start();
 
@@ -4880,6 +4898,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         },
         undefined, // telemetry
         { minTxPoolAgeMs: 2_000 },
@@ -4978,6 +4997,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         },
         undefined,
         { minTxPoolAgeMs: 2_000 },
@@ -5214,6 +5234,7 @@ describe('TxPoolV2', () => {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(mockValidator),
+        checkAllowedSetupCalls: () => Promise.resolve(true),
       });
       await poolWithValidator.start();
 
@@ -5280,6 +5301,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool1.start();
 
@@ -5314,6 +5336,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool2.start();
 
@@ -5348,6 +5371,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(throwingValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool1.start();
 
@@ -5373,6 +5397,7 @@ describe('TxPoolV2', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool2.start();
 

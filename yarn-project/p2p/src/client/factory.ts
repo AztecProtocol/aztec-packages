@@ -17,7 +17,11 @@ import { AttestationPool, type AttestationPoolApi } from '../mem_pools/attestati
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
 import { AztecKVTxPoolV2 } from '../mem_pools/tx_pool_v2/tx_pool_v2.js';
-import { createTxValidatorForTransactionsEnteringPendingTxPool } from '../msg_validators/index.js';
+import {
+  createCheckAllowedSetupCalls,
+  createTxValidatorForTransactionsEnteringPendingTxPool,
+  getDefaultAllowedSetupFunctions,
+} from '../msg_validators/index.js';
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
 import { createFileStoreTxSources } from '../services/tx_collection/file_store_tx_source.js';
@@ -75,6 +79,27 @@ export async function createP2PClient(
   const rollupAddress = inputConfig.l1Contracts.rollupAddress.toString().toLowerCase().replace(/^0x/, '');
   const txFileStoreBasePath = `aztec-${inputConfig.l1ChainId}-${inputConfig.rollupVersion}-0x${rollupAddress}`;
 
+  const allowedInSetup = [
+    ...(await getDefaultAllowedSetupFunctions()),
+    ...(inputConfig.txPublicSetupAllowListExtend ?? []),
+  ];
+  const checkAllowedSetupCalls = createCheckAllowedSetupCalls(
+    archiver,
+    allowedInSetup,
+    () => epochCache.getEpochAndSlotInNextL1Slot().ts,
+  );
+
+  const createTxValidator = async () => {
+    // We accept transactions if they are not expired by the next slot and block number (checked based on the ExpirationTimestamp field)
+    const currentBlockNumber = await archiver.getBlockNumber();
+    const { ts: nextSlotTimestamp } = epochCache.getEpochAndSlotInNextL1Slot();
+    return createTxValidatorForTransactionsEnteringPendingTxPool(
+      worldStateSynchronizer,
+      nextSlotTimestamp,
+      BlockNumber(currentBlockNumber + 1),
+    );
+  };
+
   const txPool =
     deps.txPool ??
     new AztecKVTxPoolV2(
@@ -83,16 +108,8 @@ export async function createP2PClient(
       {
         l2BlockSource: archiver,
         worldStateSynchronizer,
-        createTxValidator: async () => {
-          // We accept transactions if they are not expired by the next slot and block number (checked based on the ExpirationTimestamp field)
-          const currentBlockNumber = await archiver.getBlockNumber();
-          const { ts: nextSlotTimestamp } = epochCache.getEpochAndSlotInNextL1Slot();
-          return createTxValidatorForTransactionsEnteringPendingTxPool(
-            worldStateSynchronizer,
-            nextSlotTimestamp,
-            BlockNumber(currentBlockNumber + 1),
-          );
-        },
+        checkAllowedSetupCalls,
+        createTxValidator,
       },
       telemetry,
       {
