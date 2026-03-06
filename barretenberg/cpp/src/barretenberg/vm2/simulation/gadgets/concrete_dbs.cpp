@@ -1,6 +1,7 @@
 #include "barretenberg/vm2/simulation/gadgets/concrete_dbs.hpp"
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/simulation/events/indexed_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 
@@ -147,23 +148,32 @@ bool MerkleDB::siloed_nullifier_exists(const FF& nullifier) const
 bool MerkleDB::nullifier_exists_internal(std::optional<AztecAddress> contract_address, const FF& nullifier) const
 {
     FF siloed_nullifier = nullifier;
+    std::optional<IndexedTreeSiloingParameters> siloing_params = std::nullopt;
     if (contract_address.has_value()) {
         // Unconstrained siloing to fetch the hint, since the hints are keyed by siloed data.
         // The siloing will later be constrained in the nullifier tree check gadget.
         siloed_nullifier = unconstrained_silo_nullifier(contract_address.value(), nullifier);
+        siloing_params = IndexedTreeSiloingParameters{
+            .address = contract_address.value(),
+            .siloing_separator = DOM_SEP__SILOED_NULLIFIER,
+        };
     }
 
     auto [present, low_leaf_index] = raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::NULLIFIER_TREE, siloed_nullifier);
     auto low_leaf_path = raw_merkle_db.get_sibling_path(MerkleTreeId::NULLIFIER_TREE, low_leaf_index);
     auto low_leaf_preimage = raw_merkle_db.get_leaf_preimage_nullifier_tree(low_leaf_index);
 
-    nullifier_tree_check.assert_read(nullifier,
-                                     contract_address,
-                                     present,
-                                     low_leaf_preimage,
-                                     low_leaf_index,
-                                     low_leaf_path,
-                                     raw_merkle_db.get_tree_roots().nullifier_tree);
+    indexed_tree_check.assert_read(nullifier,
+                                   siloing_params,
+                                   present,
+                                   IndexedTreeLeafData{
+                                       .value = low_leaf_preimage.leaf.nullifier,
+                                       .next_value = low_leaf_preimage.nextKey,
+                                       .next_index = low_leaf_preimage.nextIndex,
+                                   },
+                                   low_leaf_index,
+                                   low_leaf_path,
+                                   raw_merkle_db.get_tree_roots().nullifier_tree);
 
     return present;
 }
@@ -182,10 +192,15 @@ void MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_add
 {
     uint32_t nullifier_counter = tree_counters_stack.top().nullifier_counter;
     FF siloed_nullifier = nullifier;
+    std::optional<IndexedTreeSiloingParameters> siloing_params = std::nullopt;
     if (contract_address.has_value()) {
         // Unconstrained siloing to fetch the hint, since the hints are keyed by siloed data.
         // The siloing will later be constrained in the nullifier tree check gadget.
         siloed_nullifier = unconstrained_silo_nullifier(contract_address.value(), nullifier);
+        siloing_params = IndexedTreeSiloingParameters{
+            .address = contract_address.value(),
+            .siloing_separator = DOM_SEP__SILOED_NULLIFIER,
+        };
     }
 
     auto [present, low_leaf_index] = raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::NULLIFIER_TREE, siloed_nullifier);
@@ -206,14 +221,19 @@ void MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_add
         insertion_path = insertion_result.insertion_witness_data.at(0).path;
     }
 
-    AppendOnlyTreeSnapshot snapshot_after = nullifier_tree_check.write(nullifier,
-                                                                       contract_address,
-                                                                       nullifier_counter,
-                                                                       low_leaf_preimage,
-                                                                       low_leaf_index,
-                                                                       low_leaf_path,
-                                                                       snapshot_before,
-                                                                       insertion_path);
+    AppendOnlyTreeSnapshot snapshot_after =
+        indexed_tree_check.write(nullifier,
+                                 siloing_params,
+                                 nullifier_counter + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
+                                 IndexedTreeLeafData{
+                                     .value = low_leaf_preimage.leaf.nullifier,
+                                     .next_value = low_leaf_preimage.nextKey,
+                                     .next_index = low_leaf_preimage.nextIndex,
+                                 },
+                                 low_leaf_index,
+                                 low_leaf_path,
+                                 snapshot_before,
+                                 insertion_path);
 
     // This will throw an unexpected exception if it fails.
     BB_ASSERT_EQ(snapshot_after, raw_merkle_db.get_tree_roots().nullifier_tree, "Snapshot after mismatch");

@@ -15,15 +15,16 @@
 #include "barretenberg/vm2/generated/relations/bc_retrieval.hpp"
 #include "barretenberg/vm2/generated/relations/class_id_derivation.hpp"
 #include "barretenberg/vm2/generated/relations/contract_instance_retrieval.hpp"
-#include "barretenberg/vm2/generated/relations/retrieved_bytecodes_tree_check.hpp"
+#include "barretenberg/vm2/generated/relations/indexed_tree_check.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
+#include "barretenberg/vm2/simulation/events/indexed_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
-#include "barretenberg/vm2/simulation/events/retrieved_bytecodes_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/indexed_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/merkle_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
@@ -37,9 +38,9 @@
 #include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
 #include "barretenberg/vm2/tracegen/contract_instance_retrieval_trace.hpp"
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
+#include "barretenberg/vm2/tracegen/indexed_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
-#include "barretenberg/vm2/tracegen/retrieved_bytecodes_tree_check.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
@@ -52,14 +53,17 @@ using tracegen::BytecodeTraceBuilder;
 using tracegen::ClassIdDerivationTraceBuilder;
 using tracegen::ContractInstanceRetrievalTraceBuilder;
 using tracegen::FieldGreaterThanTraceBuilder;
+using tracegen::IndexedTreeCheckTraceBuilder;
 using tracegen::Poseidon2TraceBuilder;
 using tracegen::PrecomputedTraceBuilder;
-using tracegen::RetrievedBytecodesTreeCheckTraceBuilder;
 using tracegen::TestTraceContainer;
 
-using simulation::ClassIdLeafValue;
 using simulation::EventEmitter;
 using simulation::FieldGreaterThan;
+using simulation::IndexedTreeCheck;
+using simulation::IndexedTreeCheckEvent;
+using simulation::IndexedTreeLeafData;
+using simulation::IndexedTreeReadWriteEvent;
 using simulation::MerkleCheck;
 using simulation::MockExecutionIdManager;
 using simulation::MockGreaterThan;
@@ -69,8 +73,6 @@ using simulation::Poseidon2PermutationEvent;
 using simulation::Poseidon2PermutationMemoryEvent;
 using simulation::RangeCheck;
 using simulation::RetrievedBytecodesTreeCheck;
-using simulation::RetrievedBytecodesTreeCheckEvent;
-using simulation::RetrievedBytecodesTreeLeafPreimage;
 
 using FF = AvmFlavorSettings::FF;
 using C = Column;
@@ -100,7 +102,7 @@ TEST_F(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
     BytecodeTraceBuilder builder;
     ContractInstanceRetrievalTraceBuilder contract_instance_retrieval_builder;
     ClassIdDerivationTraceBuilder class_id_builder;
-    RetrievedBytecodesTreeCheckTraceBuilder retrieved_bytecodes_tree_check_builder;
+    IndexedTreeCheckTraceBuilder indexed_tree_check_builder;
 
     FF nullifier_root = FF::random_element();
     FF public_data_tree_root = FF::random_element();
@@ -142,21 +144,25 @@ TEST_F(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
         .next_available_leaf_index = AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE + 1,
     };
 
-    retrieved_bytecodes_tree_check_builder.process(
+    indexed_tree_check_builder.process(
         { // Read the tree of the retrieved bytecodes
-          RetrievedBytecodesTreeCheckEvent{
-              .class_id = instance.current_contract_class_id,
+          IndexedTreeReadWriteEvent{
+              .value = instance.current_contract_class_id,
               .prev_snapshot = snapshot_before,
               .next_snapshot = snapshot_before,
-              .low_leaf_preimage = RetrievedBytecodesTreeLeafPreimage(ClassIdLeafValue(0), 0, 0),
+              .tree_height = AVM_RETRIEVED_BYTECODES_TREE_HEIGHT,
+              .low_leaf_data = IndexedTreeLeafData{ .value = 0, .next_value = 0, .next_index = 0 },
+              .low_leaf_hash = 0,
               .low_leaf_index = 0,
           },
           // Insertion in the retrieved bytecodes tree
-          RetrievedBytecodesTreeCheckEvent{
-              .class_id = instance.current_contract_class_id,
+          IndexedTreeReadWriteEvent{
+              .value = instance.current_contract_class_id,
               .prev_snapshot = snapshot_before,
               .next_snapshot = snapshot_after,
-              .low_leaf_preimage = RetrievedBytecodesTreeLeafPreimage(ClassIdLeafValue(0), 0, 0),
+              .tree_height = AVM_RETRIEVED_BYTECODES_TREE_HEIGHT,
+              .low_leaf_data = IndexedTreeLeafData{ .value = 0, .next_value = 0, .next_index = 0 },
+              .low_leaf_hash = 0,
               .low_leaf_index = 0,
               .write = true,
           } },
@@ -253,6 +259,7 @@ TEST_F(BytecodeRetrievalConstrainingTest, NonExistentInstance)
             { C::bc_retrieval_address, contract_address },
             { C::bc_retrieval_prev_retrieved_bytecodes_tree_size, 1 },
             { C::bc_retrieval_next_retrieved_bytecodes_tree_size, 1 },
+            { C::bc_retrieval_retrieved_bytecodes_tree_height, AVM_RETRIEVED_BYTECODES_TREE_HEIGHT },
             { C::bc_retrieval_remaining_bytecodes_inv, FF(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS).invert() },
             { C::bc_retrieval_error, 1 },
         } });
@@ -288,7 +295,7 @@ class BytecodeRetrievalConstrainingTestFewerMocks : public BytecodeRetrievalCons
     EventEmitter<simulation::MerkleCheckEvent> merkle_check_emitter;
     EventEmitter<simulation::RangeCheckEvent> range_check_emitter;
     EventEmitter<simulation::FieldGreaterThanEvent> field_gt_emitter;
-    EventEmitter<simulation::RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
+    EventEmitter<simulation::IndexedTreeCheckEvent> indexed_tree_check_event_emitter;
 
     StrictMock<MockGreaterThan> mock_gt;
     StrictMock<MockExecutionIdManager> mock_execution_id_manager;
@@ -300,18 +307,16 @@ class BytecodeRetrievalConstrainingTestFewerMocks : public BytecodeRetrievalCons
     MerkleCheck merkle_check = MerkleCheck(poseidon2, merkle_check_emitter);
     RangeCheck range_check = RangeCheck(range_check_emitter);
     FieldGreaterThan field_gt = FieldGreaterThan(range_check, field_gt_emitter);
+    IndexedTreeCheck indexed_tree_check =
+        IndexedTreeCheck(poseidon2, merkle_check, field_gt, indexed_tree_check_event_emitter);
 
     RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check =
-        RetrievedBytecodesTreeCheck(poseidon2,
-                                    merkle_check,
-                                    field_gt,
-                                    simulation::build_retrieved_bytecodes_tree(),
-                                    retrieved_bytecodes_tree_check_emitter);
+        RetrievedBytecodesTreeCheck(indexed_tree_check, simulation::build_retrieved_bytecodes_tree());
 
     BytecodeTraceBuilder builder;
     ContractInstanceRetrievalTraceBuilder contract_instance_retrieval_builder;
     ClassIdDerivationTraceBuilder class_id_builder;
-    RetrievedBytecodesTreeCheckTraceBuilder retrieved_bytecodes_tree_check_builder;
+    IndexedTreeCheckTraceBuilder indexed_tree_check_builder;
     FieldGreaterThanTraceBuilder field_gt_builder;
     PrecomputedTraceBuilder precomputed_builder;
 };
@@ -370,7 +375,7 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRetrievalFewerMock
 
     AppendOnlyTreeSnapshot snapshot_after = retrieved_bytecodes_tree_check.get_snapshot();
 
-    retrieved_bytecodes_tree_check_builder.process(retrieved_bytecodes_tree_check_emitter.dump_events(), trace);
+    indexed_tree_check_builder.process(indexed_tree_check_event_emitter.dump_events(), trace);
 
     // Build a bytecode retrieval event where instance exists
     builder.process_retrieval({ {
@@ -395,7 +400,7 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRetrievalFewerMock
     check_relation<bb::avm2::bc_hashing<FF>>(trace);
     check_relation<bb::avm2::contract_instance_retrieval<FF>>(trace);
     check_relation<bb::avm2::class_id_derivation<FF>>(trace);
-    check_relation<bb::avm2::retrieved_bytecodes_tree_check<FF>>(trace);
+    check_relation<bb::avm2::indexed_tree_check<FF>>(trace);
     check_all_interactions<BytecodeTraceBuilder>(trace);
     check_all_interactions<ClassIdDerivationTraceBuilder>(trace);
 }
@@ -462,7 +467,7 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRepeatedRetrievalF
     // 'Insertion' in the retrieved bytecodes tree (shouldn't write)
     retrieved_bytecodes_tree_check.insert(instance.current_contract_class_id);
 
-    retrieved_bytecodes_tree_check_builder.process(retrieved_bytecodes_tree_check_emitter.dump_events(), trace);
+    indexed_tree_check_builder.process(indexed_tree_check_event_emitter.dump_events(), trace);
 
     // Build a bytecode retrieval event where instance exists
     builder.process_retrieval({ {
@@ -498,7 +503,7 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRepeatedRetrievalF
     check_relation<bb::avm2::bc_hashing<FF>>(trace);
     check_relation<bb::avm2::contract_instance_retrieval<FF>>(trace);
     check_relation<bb::avm2::class_id_derivation<FF>>(trace);
-    check_relation<bb::avm2::retrieved_bytecodes_tree_check<FF>>(trace);
+    check_relation<bb::avm2::indexed_tree_check<FF>>(trace);
     check_all_interactions<BytecodeTraceBuilder>(trace);
     check_all_interactions<ClassIdDerivationTraceBuilder>(trace);
 
@@ -507,11 +512,12 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRepeatedRetrievalF
     // constrained in execution to either be continuous or correctly transitioned when adding a bytecode:
     trace.set(C::bc_retrieval_is_new_class, 1, 1);
     EXPECT_THROW_WITH_MESSAGE(check_all_interactions<BytecodeTraceBuilder>(trace), "IS_NEW_CLASS_CHECK");
-    // (2) Attempting to maliciously set leaf_not_exists == 1 will fail the transient tree's leaf checks:
-    trace.set(C::retrieved_bytecodes_tree_check_leaf_not_exists, 2, 1);
+    // (2) Attempting to maliciously set not_exists == 1 will fail the transient tree's leaf checks:
+    trace.set(C::indexed_tree_check_not_exists, 2, 1);
+    trace.set(C::indexed_tree_check_exists, 2, 0);
     check_all_interactions<BytecodeTraceBuilder>(trace);
     check_relation<bc_retrieval>(trace);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<bb::avm2::retrieved_bytecodes_tree_check<FF>>(trace), "EXISTS_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bb::avm2::indexed_tree_check<FF>>(trace), "EXISTS_CHECK");
 }
 
 } // namespace

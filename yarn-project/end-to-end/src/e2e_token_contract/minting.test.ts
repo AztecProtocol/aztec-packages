@@ -25,10 +25,12 @@ describe('e2e_token_contract minting', () => {
       await asset.methods.mint_to_public(adminAddress, amount).send({ from: adminAddress });
 
       tokenSim.mintPublic(adminAddress, amount);
-      expect(await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress })).toEqual(
+      expect((await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress })).result).toEqual(
         tokenSim.balanceOfPublic(adminAddress),
       );
-      expect(await asset.methods.total_supply().simulate({ from: adminAddress })).toEqual(tokenSim.totalSupply);
+      expect((await asset.methods.total_supply().simulate({ from: adminAddress })).result).toEqual(
+        tokenSim.totalSupply,
+      );
     });
 
     describe('failure cases', () => {
@@ -61,10 +63,12 @@ describe('e2e_token_contract minting', () => {
       await asset.methods.mint_to_private(adminAddress, amount).send({ from: adminAddress });
 
       tokenSim.mintPrivate(adminAddress, amount);
-      expect(await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress })).toEqual(
+      expect((await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress })).result).toEqual(
         tokenSim.balanceOfPrivate(adminAddress),
       );
-      expect(await asset.methods.total_supply().simulate({ from: adminAddress })).toEqual(tokenSim.totalSupply);
+      expect((await asset.methods.total_supply().simulate({ from: adminAddress })).result).toEqual(
+        tokenSim.totalSupply,
+      );
     });
 
     describe('failure cases', () => {

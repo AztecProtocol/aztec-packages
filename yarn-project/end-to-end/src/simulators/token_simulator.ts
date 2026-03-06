@@ -109,7 +109,9 @@ export class TokenSimulator {
       await Promise.all(
         chunk(calls, 5).map(batch => new BatchCall(this.defaultWallet, batch).simulate({ from: this.defaultAddress })),
       )
-    ).flat();
+    )
+      .flat()
+      .map(r => r.result);
     expect(results[0]).toEqual(this.totalSupply);
 
     // Check that all our balances match
@@ -123,7 +125,9 @@ export class TokenSimulator {
       const wallet = this.lookupProvider.get(address.toString());
       const asset = wallet ? this.token.withWallet(wallet) : this.token;
 
-      const actualPrivateBalance = await asset.methods.balance_of_private(address).simulate({ from: address });
+      const { result: actualPrivateBalance } = await asset.methods
+        .balance_of_private(address)
+        .simulate({ from: address });
       expect(actualPrivateBalance).toEqual(this.balanceOfPrivate(address));
     }
   }

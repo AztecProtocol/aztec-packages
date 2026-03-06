@@ -71,10 +71,13 @@ export async function deploy(
     skipInstancePublication,
   };
 
-  const { estimatedGas, stats } = await deploy.simulate({
+  const sim = await deploy.simulate({
     ...deployOpts,
     fee: { ...deployOpts.fee, estimateGas: true },
   });
+  // estimateGas: true guarantees these fields are present
+  const estimatedGas = sim.estimatedGas!;
+  const stats = sim.stats!;
 
   if (feeOpts.estimateOnly) {
     if (json) {
@@ -98,7 +101,7 @@ export async function deploy(
     const instance = await deploy.getInstance();
 
     if (wait) {
-      const receipt = await deploy.send({ ...deployOpts, wait: { timeout, returnReceipt: true } });
+      const { receipt } = await deploy.send({ ...deployOpts, wait: { timeout, returnReceipt: true } });
       const txHash = receipt.txHash;
       debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
       out.hash = txHash;
@@ -121,7 +124,7 @@ export async function deploy(
         };
       }
     } else {
-      const txHash = await deploy.send({ ...deployOpts, wait: NO_WAIT });
+      const { txHash } = await deploy.send({ ...deployOpts, wait: NO_WAIT });
       debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
       out.hash = txHash;
 

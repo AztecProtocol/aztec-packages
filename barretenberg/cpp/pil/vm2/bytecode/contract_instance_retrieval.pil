@@ -129,20 +129,32 @@ namespace contract_instance_retrieval;
     // Protocol contracts do not have an address nullifier in the nullifier tree.
     should_check_nullifier = sel * (1 - is_protocol_contract);
 
+    // Lookup constant support: Can be removed when we support constants in lookups.
+    pol commit nullifier_tree_height;
+    should_check_nullifier * (nullifier_tree_height - constants.NULLIFIER_TREE_HEIGHT) = 0;
+
+    // Lookup constant support: Can be removed when we support constants in lookups.
+    pol commit siloing_separator;
+    should_check_nullifier * (siloing_separator - constants.DOM_SEP__SILOED_NULLIFIER) = 0;
+
     // Nullifier existence check (deployment nullifier read)
     #[DEPLOYMENT_NULLIFIER_READ]
     should_check_nullifier {
         exists, // does the contract address nullifier exist? gates later lookups....
         address, // the deployment nullifier
         nullifier_tree_root,
-        deployer_protocol_contract_address,
-        sel // 1 (yes silo)
-    } in nullifier_check.sel {
-        nullifier_check.exists,
-        nullifier_check.nullifier,
-        nullifier_check.root,
-        nullifier_check.address,
-        nullifier_check.sel_silo
+        nullifier_tree_height,
+        sel, // 1 (yes silo)
+        siloing_separator,
+        deployer_protocol_contract_address
+    } in indexed_tree_check.sel {
+        indexed_tree_check.exists,
+        indexed_tree_check.value,
+        indexed_tree_check.root,
+        indexed_tree_check.tree_height,
+        indexed_tree_check.sel_silo,
+        indexed_tree_check.siloing_separator,
+        indexed_tree_check.address
     };
 
     // For protocol contracts we retrieve the derived address from the protocol contract trace, else use the input address

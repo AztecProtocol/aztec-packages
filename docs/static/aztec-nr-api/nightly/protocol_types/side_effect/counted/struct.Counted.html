@@ -62,6 +62,10 @@
 
 </div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;</code></h3>
 
+<div class="padded-methods"><code id="scope" class="code-header">pub fn <a href="#scope"><span class="fn">scope</span></a>(self, contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;Self&gt;</code>
+
+</div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;</code></h3>
+
 <div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(inner: T, counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>) -> Self</code>
 
 <code id="is_non_revertible" class="code-header">pub fn <a href="#is_non_revertible"><span class="fn">is_non_revertible</span></a>(
@@ -69,10 +73,6 @@
     is_private_only: <a href="../../../std/primitive.bool.html" class="primitive">bool</a>,
     claimed_revertible_counter: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>,
 ) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
-
-</div><h3><code class="code-header">impl&lt;T&gt; <a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;</code></h3>
-
-<div class="padded-methods"><code id="scope" class="code-header">pub fn <a href="#scope"><span class="fn">scope</span></a>(self, contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>) -> <a href="../../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;Self&gt;</code>
 
 </div><h2>Trait implementations</h2>
 <h3 id="impl-Deserialize-for-Counted<T>"><code class="code-header">impl&lt;T&gt; <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;T&gt;

@@ -2,14 +2,16 @@
  * Factory functions for creating validator HA signers
  */
 import { DateProvider } from '@aztec/foundation/timer';
-import type { ValidatorHASignerConfig } from '@aztec/stdlib/ha-signing';
+import { createStore } from '@aztec/kv-store/lmdb-v2';
+import type { LocalSignerConfig, ValidatorHASignerConfig } from '@aztec/stdlib/ha-signing';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { Pool } from 'pg';
 
+import { LmdbSlashingProtectionDatabase } from './db/lmdb.js';
 import { PostgresSlashingProtectionDatabase } from './db/postgres.js';
 import { HASignerMetrics } from './metrics.js';
-import type { CreateHASignerDeps, SlashingProtectionDatabase } from './types.js';
+import type { CreateHASignerDeps, CreateLocalSignerWithProtectionDeps, SlashingProtectionDatabase } from './types.js';
 import { ValidatorHASigner } from './validator_ha_signer.js';
 
 /**
@@ -27,7 +29,6 @@ import { ValidatorHASigner } from './validator_ha_signer.js';
  * ```typescript
  * const { signer, db } = await createHASigner({
  *   databaseUrl: process.env.DATABASE_URL,
- *   haSigningEnabled: true,
  *   nodeId: 'validator-node-1',
  *   pollingIntervalMs: 100,
  *   signingTimeoutMs: 3000,
@@ -87,7 +88,52 @@ export async function createHASigner(
   const metrics = new HASignerMetrics(telemetryClient, signerConfig.nodeId);
 
   // Create signer
-  const signer = new ValidatorHASigner(db, { ...signerConfig, databaseUrl }, { metrics, dateProvider });
+  const signer = new ValidatorHASigner(db, signerConfig, { metrics, dateProvider });
+
+  return { signer, db };
+}
+
+/**
+ * Create a local (single-node) signing protection signer backed by LMDB.
+ *
+ * This provides double-signing protection for nodes that are NOT running in a
+ * high-availability (multi-node) setup. It prevents a proposer from sending two
+ * proposals for the same slot if the node crashes and restarts mid-proposal.
+ *
+ * When `config.dataDirectory` is set, the protection database is persisted to disk
+ * and survives crashes/restarts. When unset, an ephemeral in-memory store is
+ * used which protects within a single run but not across restarts.
+ *
+ * @param config - Local signer config
+ * @param deps - Optional dependencies (telemetry, date provider).
+ * @returns An object containing the signer and database instances.
+ */
+export async function createLocalSignerWithProtection(
+  config: LocalSignerConfig,
+  deps?: CreateLocalSignerWithProtectionDeps,
+): Promise<{
+  signer: ValidatorHASigner;
+  db: SlashingProtectionDatabase;
+}> {
+  const telemetryClient = deps?.telemetryClient ?? getTelemetryClient();
+  const dateProvider = deps?.dateProvider ?? new DateProvider();
+
+  const kvStore = await createStore('signing-protection', LmdbSlashingProtectionDatabase.SCHEMA_VERSION, {
+    dataDirectory: config.dataDirectory,
+    dataStoreMapSizeKb: config.signingProtectionMapSizeKb ?? config.dataStoreMapSizeKb,
+    l1Contracts: config.l1Contracts,
+  });
+
+  const db = new LmdbSlashingProtectionDatabase(kvStore, dateProvider);
+
+  const signerConfig = {
+    ...config,
+    nodeId: config.nodeId || 'local',
+  };
+
+  const metrics = new HASignerMetrics(telemetryClient, signerConfig.nodeId, 'LocalSigningProtectionMetrics');
+
+  const signer = new ValidatorHASigner(db, signerConfig, { metrics, dateProvider });
 
   return { signer, db };
 }

@@ -285,7 +285,7 @@ describe('e2e_p2p_add_rollup', () => {
 
       const aliceAddress = aliceAccountManager.address;
 
-      const testContract = await TestContract.deploy(wallet).send({ from: aliceAddress });
+      const { contract: testContract } = await TestContract.deploy(wallet).send({ from: aliceAddress });
 
       const [secret, secretHash] = await generateClaimSecret();
 
@@ -304,7 +304,7 @@ describe('e2e_p2p_add_rollup', () => {
         // We poll isL1ToL2MessageSynced endpoint until the message is available
         await retryUntil(async () => await node.isL1ToL2MessageSynced(msgHash), 'message sync', 10);
 
-        const receipt = await testContract.methods
+        const { receipt } = await testContract.methods
           .create_l2_to_l1_message_arbitrary_recipient_private(contentOutFromRollup, ethRecipient)
           .send({ from: aliceAddress });
 

@@ -705,6 +705,7 @@ pub global DOM_SEP__AUTHWIT_NULLIFIER: u32 = 1239150694;
 
 pub global DOM_SEP__SYMMETRIC_KEY: u32 = 3882206064;
 pub global DOM_SEP__SYMMETRIC_KEY_2: u32 = 4129434989;
+pub global DOM_SEP__CIPHERTEXT_FIELD_MASK: u32 = 1870492847;
 
 pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 623934423;
 
@@ -1064,7 +1065,7 @@ pub global GAS_ESTIMATION_DA_GAS_LIMIT: u32 =
     GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT + MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
 
 // Default gas limits. Users should use gas estimation, or they will overpay gas fees.
-// TODO: consider moving to typescript
+// TODO: These are overridden in typescript-land. Remove them from here.
 pub global DEFAULT_TEARDOWN_L2_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
 pub global DEFAULT_L2_GAS_LIMIT: u32 = MAX_PROCESSABLE_L2_GAS; // Arbitrary default number.
 pub global DEFAULT_TEARDOWN_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 2; // Arbitrary default number.

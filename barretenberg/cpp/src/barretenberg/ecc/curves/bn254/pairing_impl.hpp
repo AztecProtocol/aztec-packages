@@ -19,8 +19,8 @@ inline constexpr g2::element mul_by_q(const g2::element& a)
     fq2 T0 = a.x.frobenius_map();
     fq2 T1 = a.y.frobenius_map();
     return {
-        fq2::twist_mul_by_q_x() * T0,
-        fq2::twist_mul_by_q_y() * T1,
+        fq2::frobenius_on_twisted_curve_x() * T0,
+        fq2::frobenius_on_twisted_curve_y() * T1,
         a.z.frobenius_map(),
     };
 }

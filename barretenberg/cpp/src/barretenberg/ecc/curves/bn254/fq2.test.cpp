@@ -1,53 +1,15 @@
+/**
+ * @brief BN254 quadratic extension of the base field (fq2) specific tests.
+ *
+ * Other field arithmetic tests (both compile-time and runtime) are in ecc/fields/generic_field.test.cpp and
+ * ecc/fields/prime_field.test.cpp. This file contains only BN254-specific functionality:
+ * - Fixed tests with field-specific expected values
+ * - Precomputed constants related to the twist of BN254
+ */
 #include "fq2.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
-
-TEST(fq2, eq)
-{
-    fq2 a{ { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } };
-    fq2 b{ { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } };
-    fq2 c{ { 0x01, 0x02, 0x03, 0x05 }, { 0x06, 0x07, 0x08, 0x09 } };
-    fq2 d{ { 0x01, 0x02, 0x04, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } };
-    fq2 e{ { 0x01, 0x03, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } };
-    fq2 f{ { 0x02, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x09 } };
-    fq2 g{ { 0x01, 0x02, 0x03, 0x04 }, { 0x07, 0x07, 0x08, 0x09 } };
-    fq2 h{ { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x08, 0x08, 0x09 } };
-    fq2 i{ { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x09, 0x09 } };
-    fq2 j{ { 0x01, 0x02, 0x03, 0x04 }, { 0x06, 0x07, 0x08, 0x0a } };
-
-    EXPECT_EQ(a == b, true);
-    EXPECT_EQ(a == c, false);
-    EXPECT_EQ(a == d, false);
-    EXPECT_EQ(a == e, false);
-    EXPECT_EQ(a == f, false);
-    EXPECT_EQ(a == g, false);
-    EXPECT_EQ(a == h, false);
-    EXPECT_EQ(a == i, false);
-    EXPECT_EQ(a == j, false);
-}
-
-TEST(fq2, IsZero)
-{
-    fq2 a = fq2::zero();
-    fq2 b = fq2::zero();
-    fq2 c = fq2::zero();
-    b.c0.data[0] = 1;
-    c.c1.data[0] = 1;
-    EXPECT_EQ(a.is_zero(), true);
-    EXPECT_EQ(b.is_zero(), false);
-    EXPECT_EQ(c.is_zero(), false);
-}
-
-TEST(fq2, RandomElement)
-{
-    fq2 a = fq2::random_element();
-    fq2 b = fq2::random_element();
-
-    EXPECT_EQ(a == b, false);
-    EXPECT_EQ(a.is_zero(), false);
-    EXPECT_EQ(b.is_zero(), false);
-}
 
 TEST(fq2, MulCheckAgainstConstants)
 {
@@ -134,93 +96,32 @@ TEST(fq2, SubCheckAgainstConstants)
     EXPECT_EQ(result, expected);
 }
 
-TEST(fq2, ToMontgomeryForm)
+TEST(fq2, XiNotSexticResidue)
 {
-    fq2 result = fq2::zero();
-    result.c0.data[0] = 1;
-    fq2 expected = fq2::one();
-    result.self_to_montgomery_form();
-    EXPECT_EQ(result, expected);
+    constexpr fq2 xi{ fq(9), fq(1) };                                // 9 + u
+    fq2 pow_xi = xi.pow((fq::modulus - 1) / 6).pow(fq::modulus + 1); // \xi^((q^2-1)/6) should not be 1
+    fq2 one = fq2::one();
+
+    EXPECT_NE(pow_xi, one);
 }
 
-TEST(fq2, FromMontgomeryForm)
+TEST(fq2, TwistBCoefficient)
 {
-    fq2 result = fq2::one();
-    fq2 expected = fq2::zero();
-    expected.c0.data[0] = 1;
-    result.self_from_montgomery_form();
-    EXPECT_EQ(result, expected);
+    constexpr fq2 twist_b{ Bn254Fq2Params::twist_coeff_b_0, Bn254Fq2Params::twist_coeff_b_1 };
+    fq2 expected = fq2{ fq(3), fq(0) } * fq2{ fq(9), fq(1) }.invert(); // 3 / (9+u)
+    EXPECT_EQ(twist_b, expected);
 }
 
-TEST(fq2, MulSqrConsistency)
+TEST(fq2, InverseTwistFrobeniusTwistCoefficients)
 {
-    fq2 a = fq2::random_element();
-    fq2 b = fq2::random_element();
-    fq2 t1;
-    fq2 t2;
-    fq2 mul_result;
-    fq2 sqr_result;
-    t1 = a - b;
-    t2 = a + b;
-    mul_result = t1 * t2;
-    t1 = a.sqr();
-    t2 = b.sqr();
-    sqr_result = t1 - t2;
-    EXPECT_EQ(mul_result, sqr_result);
-}
+    constexpr fq2 xi_q_minus_one_div_3{ Bn254Fq2Params::frobenius_on_twisted_curve_x_0,
+                                        Bn254Fq2Params::frobenius_on_twisted_curve_x_1 };
+    constexpr fq2 xi_q_minus_one_div_2{ Bn254Fq2Params::frobenius_on_twisted_curve_y_0,
+                                        Bn254Fq2Params::frobenius_on_twisted_curve_y_1 };
 
-TEST(fq2, AddMulConsistency)
-{
-    fq2 multiplicand = { { 0x09, 0x00, 0x00, 0x00 }, { 0x00, 0x00, 0x00, 0x00 } };
-    multiplicand = multiplicand.to_montgomery_form();
+    fq2 expected_x = fq2{ fq(9), fq(1) }.pow((fq::modulus - 1) / 3); // \xi^((q-1)/3)
+    fq2 expected_y = fq2{ fq(9), fq(1) }.pow((fq::modulus - 1) / 2); // \xi^((q-1)/2)
 
-    fq2 a = fq2::random_element();
-    fq2 result = a + a;
-    result += result;
-    result += result;
-    result += a;
-
-    fq2 expected = a * multiplicand;
-
-    EXPECT_EQ(result, expected);
-}
-
-TEST(fq2, SubMulConsistency)
-{
-    fq2 multiplicand = { { 0x05, 0, 0, 0 }, { 0x00, 0x00, 0x00, 0x00 } };
-    multiplicand = multiplicand.to_montgomery_form();
-
-    fq2 a = fq2::random_element();
-    fq2 result = a + a;
-    result += result;
-    result += result;
-    result -= a;
-    result -= a;
-    result -= a;
-
-    fq2 expected = a * multiplicand;
-
-    EXPECT_EQ(result, expected);
-}
-
-TEST(fq2, Invert)
-{
-    fq2 input = fq2::random_element();
-    fq2 inverse = input.invert();
-    fq2 result = inverse * input;
-    EXPECT_EQ(result, fq2::one());
-}
-
-TEST(fq2, Serialize)
-{
-    std::array<uint8_t, 64> buffer;
-    fq expected_c0 = { 0x1234567876543210, 0x2345678987654321, 0x3456789a98765432, 0x006789abcba98765 };
-    fq expected_c1 = { 0x12a4e67f76b43210, 0x23e56f898a65cc21, 0x005678add98e5432, 0x1f6789a2cba98700 };
-    fq2 expected{ expected_c0, expected_c1 };
-
-    fq2::serialize_to_buffer(expected, &buffer[0]);
-
-    fq2 result = fq2::serialize_from_buffer(&buffer[0]);
-
-    EXPECT_EQ(result, expected);
+    EXPECT_EQ(xi_q_minus_one_div_3, expected_x);
+    EXPECT_EQ(xi_q_minus_one_div_2, expected_y);
 }

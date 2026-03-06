@@ -13,6 +13,8 @@ export interface SequencerConfig {
   sequencerPollingIntervalMS?: number;
   /** The maximum number of txs to include in a block. */
   maxTxsPerBlock?: number;
+  /** The maximum number of txs across all blocks in a checkpoint. */
+  maxTxsPerCheckpoint?: number;
   /** The minimum number of txs to include in a block. */
   minTxsPerBlock?: number;
   /** The minimum number of valid txs (after execution) to include in a block. If not set, falls back to minTxsPerBlock. */
@@ -23,6 +25,8 @@ export interface SequencerConfig {
   maxL2BlockGas?: number;
   /** The maximum DA block gas. */
   maxDABlockGas?: number;
+  /** Per-block gas budget multiplier for both L2 and DA gas. Budget = (checkpointLimit / maxBlocks) * multiplier. */
+  perBlockAllocationMultiplier?: number;
   /** Recipient of block reward. */
   coinbase?: EthAddress;
   /** Address to receive fees. */
@@ -33,8 +37,6 @@ export interface SequencerConfig {
   acvmBinaryPath?: string;
   /** Additional entries to extend the default setup allow list. */
   txPublicSetupAllowListExtend?: AllowedElement[];
-  /** Max block size */
-  maxBlockSizeInBytes?: number;
   /** Payload address to vote for */
   governanceProposerPayload?: EthAddress;
   /** Whether to enforce the time table when building blocks */
@@ -85,17 +87,18 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
   z.object({
     sequencerPollingIntervalMS: z.number().optional(),
     maxTxsPerBlock: z.number().optional(),
+    maxTxsPerCheckpoint: z.number().optional(),
     minValidTxsPerBlock: z.number().optional(),
     minTxsPerBlock: z.number().optional(),
     maxL2BlockGas: z.number().optional(),
     publishTxsWithProposals: z.boolean().optional(),
     maxDABlockGas: z.number().optional(),
+    perBlockAllocationMultiplier: z.number().optional(),
     coinbase: schemas.EthAddress.optional(),
     feeRecipient: schemas.AztecAddress.optional(),
     acvmWorkingDirectory: z.string().optional(),
     acvmBinaryPath: z.string().optional(),
     txPublicSetupAllowListExtend: z.array(AllowedElementSchema).optional(),
-    maxBlockSizeInBytes: z.number().optional(),
     governanceProposerPayload: schemas.EthAddress.optional(),
     l1PublishingTime: z.number().optional(),
     enforceTimeTable: z.boolean().optional(),
@@ -134,7 +137,12 @@ type SequencerConfigOptionalKeys =
   | 'l1PublishingTime'
   | 'txPublicSetupAllowListExtend'
   | 'minValidTxsPerBlock'
-  | 'minBlocksForCheckpoint';
+  | 'minBlocksForCheckpoint'
+  | 'maxTxsPerBlock'
+  | 'maxTxsPerCheckpoint'
+  | 'maxL2BlockGas'
+  | 'maxDABlockGas'
+  | 'perBlockAllocationMultiplier';
 
 export type ResolvedSequencerConfig = Prettify<
   Required<Omit<SequencerConfig, SequencerConfigOptionalKeys>> & Pick<SequencerConfig, SequencerConfigOptionalKeys>

@@ -51,9 +51,9 @@ describe('Kernelless simulation', () => {
     ({ contract: token1 } = await deployToken(wallet, adminAddress, 0n, logger));
     ({ contract: liquidityToken } = await deployToken(wallet, adminAddress, 0n, logger));
 
-    amm = await AMMContract.deploy(wallet, token0.address, token1.address, liquidityToken.address).send({
+    ({ contract: amm } = await AMMContract.deploy(wallet, token0.address, token1.address, liquidityToken.address).send({
       from: adminAddress,
-    });
+    }));
 
     await liquidityToken.methods.set_minter(amm.address, true).send({ from: adminAddress });
 
@@ -75,15 +75,15 @@ describe('Kernelless simulation', () => {
 
     async function getWalletBalances(lpAddress: AztecAddress): Promise<Balance> {
       return {
-        token0: await token0.methods.balance_of_private(lpAddress).simulate({ from: lpAddress }),
-        token1: await token1.methods.balance_of_private(lpAddress).simulate({ from: lpAddress }),
+        token0: (await token0.methods.balance_of_private(lpAddress).simulate({ from: lpAddress })).result,
+        token1: (await token1.methods.balance_of_private(lpAddress).simulate({ from: lpAddress })).result,
       };
     }
 
     async function getAmmBalances(): Promise<Balance> {
       return {
-        token0: await token0.methods.balance_of_public(amm.address).simulate({ from: adminAddress }),
-        token1: await token1.methods.balance_of_public(amm.address).simulate({ from: adminAddress }),
+        token0: (await token0.methods.balance_of_public(amm.address).simulate({ from: adminAddress })).result,
+        token1: (await token1.methods.balance_of_public(amm.address).simulate({ from: adminAddress })).result,
       };
     }
 
@@ -224,7 +224,7 @@ describe('Kernelless simulation', () => {
 
       const nonceForAuthwits = Fr.random();
 
-      const amountOutMin = await amm.methods
+      const { result: amountOutMin } = await amm.methods
         .get_amount_out_for_exact_in(ammBalancesBefore.token0, ammBalancesBefore.token1, amountIn)
         .simulate({ from: swapperAddress });
 
@@ -237,10 +237,12 @@ describe('Kernelless simulation', () => {
       );
 
       wallet.enableSimulatedSimulations();
-      const { estimatedGas: swapKernellessGas } = await swapExactTokensInteraction.simulate({
-        from: swapperAddress,
-        includeMetadata: true,
-      });
+      const swapKernellessGas = (
+        await swapExactTokensInteraction.simulate({
+          from: swapperAddress,
+          includeMetadata: true,
+        })
+      ).estimatedGas!;
 
       const swapAuthwit = await wallet.createAuthWit(swapperAddress, {
         caller: amm.address,
@@ -248,11 +250,13 @@ describe('Kernelless simulation', () => {
       });
 
       wallet.disableSimulatedSimulations();
-      const { estimatedGas: swapWithKernelsGas } = await swapExactTokensInteraction.simulate({
-        from: swapperAddress,
-        includeMetadata: true,
-        authWitnesses: [swapAuthwit],
-      });
+      const swapWithKernelsGas = (
+        await swapExactTokensInteraction.simulate({
+          from: swapperAddress,
+          includeMetadata: true,
+          authWitnesses: [swapAuthwit],
+        })
+      ).estimatedGas!;
 
       logger.info(`Kernelless gas: L2=${swapKernellessGas.gasLimits.l2Gas} DA=${swapKernellessGas.gasLimits.daGas}`);
       logger.info(
@@ -268,7 +272,9 @@ describe('Kernelless simulation', () => {
     let pendingNoteHashesContract: PendingNoteHashesContract;
 
     beforeAll(async () => {
-      pendingNoteHashesContract = await PendingNoteHashesContract.deploy(wallet).send({ from: adminAddress });
+      ({ contract: pendingNoteHashesContract } = await PendingNoteHashesContract.deploy(wallet).send({
+        from: adminAddress,
+      }));
     });
 
     it('squashing produces same gas estimates as with-kernels path', async () => {
@@ -283,16 +289,20 @@ describe('Kernelless simulation', () => {
       );
 
       wallet.enableSimulatedSimulations();
-      const { estimatedGas: kernellessGas } = await interaction.simulate({
-        from: adminAddress,
-        includeMetadata: true,
-      });
+      const kernellessGas = (
+        await interaction.simulate({
+          from: adminAddress,
+          includeMetadata: true,
+        })
+      ).estimatedGas!;
 
       wallet.disableSimulatedSimulations();
-      const { estimatedGas: withKernelsGas } = await interaction.simulate({
-        from: adminAddress,
-        includeMetadata: true,
-      });
+      const withKernelsGas = (
+        await interaction.simulate({
+          from: adminAddress,
+          includeMetadata: true,
+        })
+      ).estimatedGas!;
 
       logger.info(`Kernelless gas: L2=${kernellessGas.gasLimits.l2Gas} DA=${kernellessGas.gasLimits.daGas}`);
       logger.info(`With kernels gas: L2=${withKernelsGas.gasLimits.l2Gas} DA=${withKernelsGas.gasLimits.daGas}`);
@@ -306,7 +316,9 @@ describe('Kernelless simulation', () => {
     let pendingNoteHashesContract: PendingNoteHashesContract;
 
     beforeAll(async () => {
-      pendingNoteHashesContract = await PendingNoteHashesContract.deploy(wallet).send({ from: adminAddress });
+      ({ contract: pendingNoteHashesContract } = await PendingNoteHashesContract.deploy(wallet).send({
+        from: adminAddress,
+      }));
     });
 
     it('verifies settled read requests against the note hash tree', async () => {

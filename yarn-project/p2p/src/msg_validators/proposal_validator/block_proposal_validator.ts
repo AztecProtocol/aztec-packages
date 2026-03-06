@@ -1,10 +1,20 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import type { BlockProposal, P2PValidator } from '@aztec/stdlib/p2p';
+import type { BlockProposal, P2PValidator, ValidationResult } from '@aztec/stdlib/p2p';
 
 import { ProposalValidator } from '../proposal_validator/proposal_validator.js';
 
-export class BlockProposalValidator extends ProposalValidator<BlockProposal> implements P2PValidator<BlockProposal> {
+export class BlockProposalValidator implements P2PValidator<BlockProposal> {
+  private proposalValidator: ProposalValidator;
+
   constructor(epochCache: EpochCacheInterface, opts: { txsPermitted: boolean; maxTxsPerBlock?: number }) {
-    super(epochCache, opts, 'p2p:block_proposal_validator');
+    this.proposalValidator = new ProposalValidator(epochCache, opts, 'p2p:block_proposal_validator');
+  }
+
+  async validate(proposal: BlockProposal): Promise<ValidationResult> {
+    const headerResult = await this.proposalValidator.validate(proposal);
+    if (headerResult.result !== 'accept') {
+      return headerResult;
+    }
+    return this.proposalValidator.validateTxs(proposal);
   }
 }

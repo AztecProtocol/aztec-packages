@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Given a valid cpuset string, count the number of CPUs.
 
 count=0

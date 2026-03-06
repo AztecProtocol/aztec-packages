@@ -1,9 +1,3 @@
-import {
-  NUM_BLOCK_END_BLOB_FIELDS,
-  NUM_CHECKPOINT_END_MARKER_FIELDS,
-  NUM_FIRST_BLOCK_END_BLOB_FIELDS,
-} from '@aztec/blob-lib/encoding';
-import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import {
   BlockNumber,
@@ -84,7 +78,7 @@ describe('CheckpointProposalJob', () => {
   let job: TestCheckpointProposalJob;
 
   let timetable: SequencerTimetable;
-  let l1Constants: L1RollupConstants;
+  let l1Constants: L1RollupConstants & { rollupManaLimit: number };
   let config: ResolvedSequencerConfig;
 
   let lastBlockNumber: BlockNumber;
@@ -147,6 +141,7 @@ describe('CheckpointProposalJob', () => {
       epochDuration: 16,
       proofSubmissionEpochs: 4,
       targetCommitteeSize: 48,
+      rollupManaLimit: Infinity,
     };
 
     dateProvider = new TestDateProvider();
@@ -768,53 +763,6 @@ describe('CheckpointProposalJob', () => {
       // waitUntilTimeInSlot should NOT be called since the only block is the last block
       expect(waitSpy).not.toHaveBeenCalled();
     });
-
-    it('tracks remaining blob field capacity across multiple blocks', async () => {
-      jest
-        .spyOn(job.getTimetable(), 'canStartNextBlock')
-        .mockReturnValueOnce({ canStart: true, deadline: 10, isLastBlock: false })
-        .mockReturnValueOnce({ canStart: true, deadline: 18, isLastBlock: true })
-        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
-
-      const txs = await Promise.all([makeTx(1, chainId), makeTx(2, chainId), makeTx(3, chainId)]);
-
-      p2p.getPendingTxCount.mockResolvedValue(10);
-      p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
-
-      // Create 2 blocks - block 1 has 2 txs, block 2 has 1 tx
-      const block1 = await makeBlock(txs.slice(0, 2), globalVariables);
-      const globalVariables2 = new GlobalVariables(
-        chainId,
-        version,
-        BlockNumber(newBlockNumber + 1),
-        SlotNumber(newSlotNumber),
-        0n,
-        coinbase,
-        feeRecipient,
-        gasFees,
-      );
-      const block2 = await makeBlock([txs[2]], globalVariables2);
-
-      checkpointBuilder.seedBlocks([block1, block2], [txs.slice(0, 2), [txs[2]]]);
-      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block2));
-
-      await job.execute();
-
-      // Verify blob field limits were correctly calculated
-      expect(checkpointBuilder.buildBlockCalls).toHaveLength(2);
-
-      const initialCapacity = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB - NUM_CHECKPOINT_END_MARKER_FIELDS;
-
-      // Block 1 (first in checkpoint): gets initial capacity - first block overhead (7)
-      const block1MaxBlobFields = initialCapacity - NUM_FIRST_BLOCK_END_BLOB_FIELDS;
-      expect(checkpointBuilder.buildBlockCalls[0].opts.maxBlobFields).toBe(block1MaxBlobFields);
-
-      // Block 2: gets remaining capacity - subsequent block overhead (6)
-      const block1BlobFieldsUsed = block1.body.txEffects.reduce((sum, tx) => sum + tx.getNumBlobFields(), 0);
-      const remainingAfterBlock1 = block1MaxBlobFields - block1BlobFieldsUsed;
-      const block2MaxBlobFields = remainingAfterBlock1 - NUM_BLOCK_END_BLOB_FIELDS;
-      expect(checkpointBuilder.buildBlockCalls[1].opts.maxBlobFields).toBe(block2MaxBlobFields);
-    });
   });
 
   describe('build single block', () => {
@@ -833,7 +781,6 @@ describe('CheckpointProposalJob', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
         buildDeadline: undefined,
         blockTimestamp: 0n,
-        remainingBlobFields: 1,
         txHashesAlreadyIncluded: new Set<string>(),
       });
 
@@ -855,7 +802,6 @@ describe('CheckpointProposalJob', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
         buildDeadline: undefined,
         blockTimestamp: 0n,
-        remainingBlobFields: 1,
         txHashesAlreadyIncluded: new Set<string>(),
       });
 
@@ -1116,9 +1062,8 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
       indexWithinCheckpoint: IndexWithinCheckpoint;
       buildDeadline: Date | undefined;
       txHashesAlreadyIncluded: Set<string>;
-      remainingBlobFields: number;
     },
-  ): Promise<{ block: L2Block; usedTxs: Tx[]; remainingBlobFields: number } | { error: Error } | undefined> {
+  ): Promise<{ block: L2Block; usedTxs: Tx[] } | { error: Error } | undefined> {
     return super.buildSingleBlock(checkpointBuilder, opts);
   }
 }

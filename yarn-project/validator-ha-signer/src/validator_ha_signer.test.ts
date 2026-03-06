@@ -4,7 +4,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { type ValidatorHASignerConfig, defaultValidatorHASignerConfig } from '@aztec/stdlib/ha-signing';
+import { type BaseSignerConfig, defaultValidatorHASignerConfig } from '@aztec/stdlib/ha-signing';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PGlite } from '@electric-sql/pglite';
@@ -34,7 +34,7 @@ describe('ValidatorHASigner', () => {
   let pglite: PGlite;
   let pool: Pool;
   let db: PostgresSlashingProtectionDatabase;
-  let config: ValidatorHASignerConfig;
+  let config: BaseSignerConfig;
   let dateProvider: TestDateProvider;
   const telemetryClient = getTelemetryClient();
 
@@ -49,13 +49,11 @@ describe('ValidatorHASigner', () => {
     dateProvider = new TestDateProvider();
 
     config = {
-      haSigningEnabled: true,
       l1Contracts: { rollupAddress: EthAddress.random() },
       nodeId: NODE_ID,
       pollingIntervalMs: 50,
       signingTimeoutMs: 1000,
       maxStuckDutiesAgeMs: 60_000,
-      databaseUrl: 'postgresql://user:pass@localhost:5432/testdb',
     };
   });
 
@@ -75,25 +73,8 @@ describe('ValidatorHASigner', () => {
         l1Contracts: { rollupAddress: EthAddress.random() },
       };
       const metrics = new HASignerMetrics(telemetryClient, 'test-node');
-      expect(
-        () =>
-          new ValidatorHASigner(
-            db,
-            {
-              ...defaultConfig,
-              databaseUrl: 'postgresql://user:pass@localhost:5432/testdb',
-              haSigningEnabled: true,
-            },
-            { metrics, dateProvider },
-          ),
-      ).toThrow('NODE_ID is required for high-availability setups');
-    });
-
-    it('should not initialize when enabled is false', () => {
-      const disabledConfig = { ...config, haSigningEnabled: false };
-      const metrics = new HASignerMetrics(telemetryClient, 'test-node');
-      expect(() => new ValidatorHASigner(db, disabledConfig, { metrics, dateProvider })).toThrow(
-        'Validator HA Signer is not enabled in config',
+      expect(() => new ValidatorHASigner(db, defaultConfig, { metrics, dateProvider })).toThrow(
+        'NODE_ID is required for high-availability setups',
       );
     });
   });
