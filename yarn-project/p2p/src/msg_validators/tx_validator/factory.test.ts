@@ -26,7 +26,9 @@ import {
   createTxValidatorForReqResponseReceivedTxs,
   createTxValidatorForTransactionsEnteringPendingTxPool,
 } from './factory.js';
-import { GasLimitsValidator, GasTxValidator } from './gas_validator.js';
+import { FeePayerBalanceValidator } from './fee_payer_balance_validator.js';
+import { FeePerGasValidator } from './fee_per_gas_validator.js';
+import { GasLimitsValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { AllowedSetupCallsMetaValidator, PhasesTxValidator } from './phases_validator.js';
 import { SizeTxValidator } from './size_validator.js';
@@ -56,7 +58,6 @@ describe('Validator factory functions', () => {
         0n,
         BlockNumber(2),
         synchronizer,
-        new GasFees(1, 1),
         1,
         2,
         Fr.ZERO,
@@ -72,7 +73,8 @@ describe('Validator factory functions', () => {
         'phasesValidator',
         'blockHeaderValidator',
         'doubleSpendValidator',
-        'gasValidator',
+        'gasLimitsValidator',
+        'feePayerBalanceValidator',
         'dataValidator',
         'effectsValidator',
       ]);
@@ -83,7 +85,6 @@ describe('Validator factory functions', () => {
         0n,
         BlockNumber(2),
         synchronizer,
-        new GasFees(1, 1),
         1,
         2,
         Fr.ZERO,
@@ -99,7 +100,6 @@ describe('Validator factory functions', () => {
         0n,
         BlockNumber(2),
         synchronizer,
-        new GasFees(1, 1),
         1,
         2,
         Fr.ZERO,
@@ -116,7 +116,8 @@ describe('Validator factory functions', () => {
       expect(validators.dataValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
       expect(validators.metadataValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
       expect(validators.doubleSpendValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
-      expect(validators.gasValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
+      expect(validators.gasLimitsValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
+      expect(validators.feePayerBalanceValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
       expect(validators.phasesValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
       expect(validators.effectsValidator.severity).toBe(PeerErrorSeverity.MidToleranceError);
     });
@@ -126,7 +127,6 @@ describe('Validator factory functions', () => {
         0n,
         BlockNumber(2),
         synchronizer,
-        new GasFees(1, 1),
         1,
         2,
         Fr.ZERO,
@@ -209,7 +209,7 @@ describe('Validator factory functions', () => {
         l1ChainId: 1,
         rollupVersion: 2,
         setupAllowList: [],
-        gasFees: new GasFees(1, 1),
+
         timestamp: 100n,
         blockNumber: BlockNumber(5),
         txsPermitted: true,
@@ -226,7 +226,8 @@ describe('Validator factory functions', () => {
         DoubleSpendTxValidator.name,
         DataTxValidator.name,
         EffectsTxValidator.name,
-        GasTxValidator.name,
+        GasLimitsValidator.name,
+        FeePayerBalanceValidator.name,
         TxProofValidator.name,
       ]);
     });
@@ -236,7 +237,7 @@ describe('Validator factory functions', () => {
         l1ChainId: 1,
         rollupVersion: 2,
         setupAllowList: [],
-        gasFees: new GasFees(1, 1),
+
         skipFeeEnforcement: true,
         timestamp: 100n,
         blockNumber: BlockNumber(5),
@@ -245,7 +246,8 @@ describe('Validator factory functions', () => {
 
       const aggregate = validator as AggregateTxValidator<unknown>;
       const names = getValidatorNames(aggregate);
-      expect(names).not.toContain(GasTxValidator.name);
+      expect(names).not.toContain(GasLimitsValidator.name);
+      expect(names).not.toContain(FeePayerBalanceValidator.name);
       expect(names).toContain(TxProofValidator.name);
     });
 
@@ -254,7 +256,7 @@ describe('Validator factory functions', () => {
         l1ChainId: 1,
         rollupVersion: 2,
         setupAllowList: [],
-        gasFees: new GasFees(1, 1),
+
         timestamp: 100n,
         blockNumber: BlockNumber(5),
         txsPermitted: true,
@@ -263,7 +265,8 @@ describe('Validator factory functions', () => {
       const aggregate = validator as AggregateTxValidator<unknown>;
       const names = getValidatorNames(aggregate);
       expect(names).not.toContain(TxProofValidator.name);
-      expect(names).toContain(GasTxValidator.name);
+      expect(names).toContain(GasLimitsValidator.name);
+      expect(names).toContain(FeePayerBalanceValidator.name);
     });
   });
 
@@ -288,7 +291,9 @@ describe('Validator factory functions', () => {
         PhasesTxValidator.name,
         BlockHeaderTxValidator.name,
         DoubleSpendTxValidator.name,
-        GasTxValidator.name,
+        GasLimitsValidator.name,
+        FeePerGasValidator.name,
+        FeePayerBalanceValidator.name,
       ]);
     });
 

@@ -36,7 +36,6 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress, protocolContractsHash } from '@aztec/protocol-contracts';
 import type { BlockHash } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import type { GasFees } from '@aztec/stdlib/gas';
 import type {
   AllowedElement,
   ClientProtocolCircuitVerifier,
@@ -56,7 +55,9 @@ import { type ArchiveSource, BlockHeaderTxValidator } from './block_header_valid
 import { DataTxValidator } from './data_validator.js';
 import { DoubleSpendTxValidator, type NullifierSource } from './double_spend_validator.js';
 import { EffectsTxValidator } from './effects_validator.js';
-import { GasLimitsValidator, GasTxValidator } from './gas_validator.js';
+import { FeePayerBalanceValidator } from './fee_payer_balance_validator.js';
+import { FeePerGasValidator } from './fee_per_gas_validator.js';
+import { GasLimitsValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { NullifierCache } from './nullifier_cache.js';
 import { AllowedSetupCallsMetaValidator, PhasesTxValidator } from './phases_validator.js';
@@ -90,7 +91,6 @@ export function createFirstStageTxValidationsForGossipedTransactions(
   timestamp: UInt64,
   blockNumber: BlockNumber,
   worldStateSynchronizer: WorldStateSynchronizer,
-  gasFees: GasFees,
   l1ChainId: number,
   rollupVersion: number,
   protocolContractsHash: Fr,
@@ -153,11 +153,14 @@ export function createFirstStageTxValidationsForGossipedTransactions(
       ),
       severity: PeerErrorSeverity.MidToleranceError, // This is handled specifically at the point of rejection by considering a recent window where it may have been valid
     },
-    gasValidator: {
-      validator: new GasTxValidator(
+    gasLimitsValidator: {
+      validator: new GasLimitsValidator(bindings),
+      severity: PeerErrorSeverity.MidToleranceError,
+    },
+    feePayerBalanceValidator: {
+      validator: new FeePayerBalanceValidator(
         new DatabasePublicStateSource(merkleTree),
         ProtocolContractAddress.FeeJuice,
-        gasFees,
         bindings,
       ),
       severity: PeerErrorSeverity.MidToleranceError,
@@ -279,7 +282,6 @@ export function createTxValidatorForAcceptingTxsOverRPC(
     l1ChainId,
     rollupVersion,
     setupAllowList,
-    gasFees,
     skipFeeEnforcement,
     timestamp,
     blockNumber,
@@ -288,7 +290,6 @@ export function createTxValidatorForAcceptingTxsOverRPC(
     l1ChainId: number;
     rollupVersion: number;
     setupAllowList: AllowedElement[];
-    gasFees: GasFees;
     skipFeeEnforcement?: boolean;
     timestamp: UInt64;
     blockNumber: BlockNumber;
@@ -324,7 +325,8 @@ export function createTxValidatorForAcceptingTxsOverRPC(
 
   if (!skipFeeEnforcement) {
     validators.push(
-      new GasTxValidator(new DatabasePublicStateSource(db), ProtocolContractAddress.FeeJuice, gasFees, bindings),
+      new GasLimitsValidator(bindings),
+      new FeePayerBalanceValidator(new DatabasePublicStateSource(db), ProtocolContractAddress.FeeJuice, bindings),
     );
   }
 
@@ -389,7 +391,9 @@ function createTxValidatorForValidatingAgainstCurrentState(
     new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.timestamp, bindings),
     new BlockHeaderTxValidator(archiveSource, bindings),
     new DoubleSpendTxValidator(nullifierSource, bindings),
-    new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, globalVariables.gasFees, bindings),
+    new GasLimitsValidator(bindings),
+    new FeePerGasValidator(globalVariables.gasFees, bindings),
+    new FeePayerBalanceValidator(publicStateSource, ProtocolContractAddress.FeeJuice, bindings),
   );
 }
 
@@ -425,6 +429,10 @@ export async function createTxValidatorForTransactionsEnteringPendingTxPool(
       return merkleTree.findLeafIndices(MerkleTreeId.ARCHIVE, archives);
     },
   };
+  // Fee payer balance is not checked here — the FeePayerBalanceEvictionRule and
+  // FeePayerBalancePreAddRule handle balance-based eviction in the pool.
+  // Fee per gas is not checked here — txs already in the pool may become eligible
+  // when block fees drop, so the check is deferred to block building.
   return new AggregateTxValidator<TxMetaData>(
     new GasLimitsValidator<TxMetaData>(bindings),
     new TimestampTxValidator<TxMetaData>({ timestamp, blockNumber }, bindings),

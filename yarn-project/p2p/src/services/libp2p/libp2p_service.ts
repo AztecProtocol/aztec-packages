@@ -9,7 +9,6 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { EthAddress, L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import {
   BlockProposal,
@@ -147,8 +146,6 @@ export class LibP2PService extends WithTracer implements P2PService {
 
   private protocolVersion = '';
   private topicStrings: Record<TopicType, string> = {} as Record<TopicType, string>;
-
-  private feesCache: { blockNumber: BlockNumber; gasFees: GasFees } | undefined;
 
   /** Callback invoked when a duplicate proposal is detected (triggers slashing). */
   private duplicateProposalCallback?: (info: {
@@ -1570,17 +1567,6 @@ export class LibP2PService extends WithTracer implements P2PService {
     });
   }
 
-  private async getGasFees(blockNumber: BlockNumber): Promise<GasFees> {
-    if (blockNumber === this.feesCache?.blockNumber) {
-      return this.feesCache.gasFees;
-    }
-
-    const header = await this.archiver.getBlockHeader(blockNumber);
-    const gasFees = header?.globalVariables.gasFees ?? GasFees.empty();
-    this.feesCache = { blockNumber, gasFees };
-    return gasFees;
-  }
-
   /**
    * Get the BatchTxRequesterLibP2PService dependencies for creating BatchTxRequester instances
    */
@@ -1620,7 +1606,6 @@ export class LibP2PService extends WithTracer implements P2PService {
     currentBlockNumber: BlockNumber,
     nextSlotTimestamp: UInt64,
   ): Promise<Record<string, TransactionValidator>> {
-    const gasFees = await this.getGasFees(currentBlockNumber);
     const allowedInSetup = [
       ...(await getDefaultAllowedSetupFunctions()),
       ...(this.config.txPublicSetupAllowListExtend ?? []),
@@ -1631,7 +1616,6 @@ export class LibP2PService extends WithTracer implements P2PService {
       nextSlotTimestamp,
       blockNumber,
       this.worldStateSynchronizer,
-      gasFees,
       this.config.l1ChainId,
       this.config.rollupVersion,
       protocolContractsHash,

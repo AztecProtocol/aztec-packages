@@ -197,7 +197,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
 
     context.halt();
 
-    // Such transactions should be filtered by GasTxValidator.
+    // Such transactions should be filtered by GasLimitsValidator.
     assert(
       context.getActualGasUsed().l2Gas <= MAX_PROCESSABLE_L2_GAS,
       `Transaction consumes ${context.getActualGasUsed().l2Gas} L2 gas, which exceeds the maximum processable gas of ${MAX_PROCESSABLE_L2_GAS}`,
@@ -511,7 +511,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     // When mocking the balance of the fee payer, the circuit should not be able to prove the simulation
 
     if (currentBalance.lt(txFee)) {
-      // Without "skipFeeEnforcement", such transactions should be filtered by GasTxValidator.
+      // Without "skipFeeEnforcement", such transactions should be filtered by FeePayerBalanceValidator.
       assert(
         this.config.skipFeeEnforcement,
         `Not enough balance for fee payer to pay for transaction (got ${currentBalance.toBigInt()} needs ${txFee.toBigInt()})`,

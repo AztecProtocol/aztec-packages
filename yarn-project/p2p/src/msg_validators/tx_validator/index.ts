@@ -6,6 +6,8 @@ export * from './metadata_validator.js';
 export * from './tx_proof_validator.js';
 export * from './block_header_validator.js';
 export * from './gas_validator.js';
+export * from './fee_per_gas_validator.js';
+export * from './fee_payer_balance_validator.js';
 export * from './phases_validator.js';
 export * from './test_utils.js';
 export * from './allowed_public_setup.js';

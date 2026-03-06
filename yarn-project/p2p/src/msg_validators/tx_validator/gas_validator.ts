@@ -5,21 +5,13 @@ import {
   TX_DA_GAS_OVERHEAD,
 } from '@aztec/constants';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
-import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { Gas, GasFees } from '@aztec/stdlib/gas';
-import type { PublicStateSource } from '@aztec/stdlib/trees';
+import { Gas } from '@aztec/stdlib/gas';
 import {
   TX_ERROR_GAS_LIMIT_TOO_HIGH,
-  TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE,
-  TX_ERROR_INSUFFICIENT_FEE_PER_GAS,
   TX_ERROR_INSUFFICIENT_GAS_LIMIT,
-  type Tx,
   type TxValidationResult,
   type TxValidator,
 } from '@aztec/stdlib/tx';
-
-import { getFeePayerClaimAmount, getTxFeeLimit } from './fee_payer_balance.js';
 
 /** Structural interface for types that carry gas limit data, used by {@link GasLimitsValidator}. */
 export interface HasGasLimitData {
@@ -45,7 +37,7 @@ export interface HasGasLimitData {
  * Generic over T so it can validate both full {@link Tx} objects and {@link TxMetaData}
  * (used during pending pool migration).
  *
- * Used by: pending pool migration (via factory), and indirectly by {@link GasTxValidator}.
+ * Used by: gossip (stage 1), RPC, block building, and pending pool migration validators.
  */
 export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidator<T> {
   #log: Logger;
@@ -82,105 +74,6 @@ export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidato
       return { result: 'invalid', reason: [TX_ERROR_GAS_LIMIT_TOO_HIGH] };
     }
 
-    return { result: 'valid' };
-  }
-}
-
-/**
- * Validates that a transaction can pay its gas fees.
- *
- * Runs three checks in order:
- * 1. **Gas limits** (delegates to {@link GasLimitsValidator}) — rejects if limits are
- *    out of bounds.
- * 2. **Max fee per gas** — skips (not rejects) the tx if its maxFeesPerGas is below
- *    the current block's gas fees. We skip rather than reject because the tx may
- *    become eligible in a later block with lower fees.
- * 3. **Fee payer balance** — reads the fee payer's FeeJuice balance from public state,
- *    adds any pending claim from a setup-phase `_increase_public_balance` call, and
- *    rejects if the total is less than the tx's fee limit (gasLimits * maxFeePerGas).
- *
- * Used by: gossip (stage 1), RPC, and block building validators.
- */
-export class GasTxValidator implements TxValidator<Tx> {
-  #log: Logger;
-  #publicDataSource: PublicStateSource;
-  #feeJuiceAddress: AztecAddress;
-  #gasFees: GasFees;
-
-  constructor(
-    publicDataSource: PublicStateSource,
-    feeJuiceAddress: AztecAddress,
-    gasFees: GasFees,
-    private bindings?: LoggerBindings,
-  ) {
-    this.#log = createLogger('sequencer:tx_validator:tx_gas', bindings);
-    this.#publicDataSource = publicDataSource;
-    this.#feeJuiceAddress = feeJuiceAddress;
-    this.#gasFees = gasFees;
-  }
-
-  async validateTx(tx: Tx): Promise<TxValidationResult> {
-    const gasLimitValidation = new GasLimitsValidator(this.bindings).validateGasLimit(tx);
-    if (gasLimitValidation.result === 'invalid') {
-      return Promise.resolve(gasLimitValidation);
-    }
-    if (this.#shouldSkip(tx)) {
-      return Promise.resolve({ result: 'skipped', reason: [TX_ERROR_INSUFFICIENT_FEE_PER_GAS] });
-    }
-    return await this.validateTxFee(tx);
-  }
-
-  /**
-   * Check whether the tx's max fees are valid for the current block, and skip if not.
-   * We skip instead of invalidating since the tx may become eligible later.
-   * Note that circuits check max fees even if fee payer is unset, so we
-   * keep this validation even if the tx does not pay fees.
-   */
-  #shouldSkip(tx: Tx): boolean {
-    const gasSettings = tx.data.constants.txContext.gasSettings;
-
-    // Skip the tx if its max fees are not enough for the current block's gas fees.
-    const maxFeesPerGas = gasSettings.maxFeesPerGas;
-    const notEnoughMaxFees =
-      maxFeesPerGas.feePerDaGas < this.#gasFees.feePerDaGas || maxFeesPerGas.feePerL2Gas < this.#gasFees.feePerL2Gas;
-
-    if (notEnoughMaxFees) {
-      this.#log.verbose(`Skipping transaction ${tx.getTxHash().toString()} due to insufficient fee per gas`, {
-        txMaxFeesPerGas: maxFeesPerGas.toInspect(),
-        currentGasFees: this.#gasFees.toInspect(),
-      });
-    }
-    return notEnoughMaxFees;
-  }
-
-  /**
-   * Checks the fee payer has enough FeeJuice balance to cover the tx's fee limit.
-   * Accounts for any pending claim from a setup-phase `_increase_public_balance` call.
-   */
-  public async validateTxFee(tx: Tx): Promise<TxValidationResult> {
-    const feePayer = tx.data.feePayer;
-
-    // Compute the maximum fee that this tx may pay, based on its gasLimits and maxFeePerGas
-    const feeLimit = getTxFeeLimit(tx);
-
-    // Read current balance of the feePayer
-    const initialBalance = await this.#publicDataSource.storageRead(
-      this.#feeJuiceAddress,
-      await computeFeePayerBalanceStorageSlot(feePayer),
-    );
-
-    // If there is a claim in this tx that increases the fee payer balance in Fee Juice, add it to balance
-    const claimAmount = await getFeePayerClaimAmount(tx, this.#feeJuiceAddress);
-    const balance = initialBalance.toBigInt() + claimAmount;
-
-    if (balance < feeLimit) {
-      this.#log.verbose(`Rejecting transaction due to not enough fee payer balance`, {
-        feePayer,
-        balance,
-        feeLimit,
-      });
-      return { result: 'invalid', reason: [TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE] };
-    }
     return { result: 'valid' };
   }
 }

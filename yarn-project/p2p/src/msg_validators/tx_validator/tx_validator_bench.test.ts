@@ -7,7 +7,6 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { LogHash } from '@aztec/stdlib/kernel';
 import { ContractClassLogFields } from '@aztec/stdlib/logs';
@@ -26,7 +25,8 @@ import { ArchiveCache } from './archive_cache.js';
 import { BlockHeaderTxValidator } from './block_header_validator.js';
 import { DataTxValidator } from './data_validator.js';
 import { DoubleSpendTxValidator, type NullifierSource } from './double_spend_validator.js';
-import { GasTxValidator } from './gas_validator.js';
+import { FeePayerBalanceValidator } from './fee_payer_balance_validator.js';
+import { GasLimitsValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { PhasesTxValidator } from './phases_validator.js';
 import { SizeTxValidator } from './size_validator.js';
@@ -67,7 +67,8 @@ describe('TxValidator: Benchmarks', () => {
   let permittedValidator: TxPermittedValidator;
   let sizeValidator: SizeTxValidator;
   let doubleSpendValidator: DoubleSpendTxValidator<Tx>;
-  let gasValidator: GasTxValidator;
+  let gasLimitsValidator: GasLimitsValidator<Tx>;
+  let feePayerBalanceValidator: FeePayerBalanceValidator;
   let phasesValidator: PhasesTxValidator;
   let blockHeaderValidator: BlockHeaderTxValidator<Tx>;
   let worldStateService: NativeWorldStateService;
@@ -156,11 +157,11 @@ describe('TxValidator: Benchmarks', () => {
     };
     doubleSpendValidator = new DoubleSpendTxValidator(nullifierSource);
 
-    // GasTxValidator
-    gasValidator = new GasTxValidator(
+    // GasLimitsValidator + FeePayerBalanceValidator
+    gasLimitsValidator = new GasLimitsValidator();
+    feePayerBalanceValidator = new FeePayerBalanceValidator(
       new DatabasePublicStateSource(merkleTree),
       ProtocolContractAddress.FeeJuice,
-      new GasFees(10, 10),
     );
 
     // PhasesTxValidator - private tx (early return)
@@ -204,7 +205,8 @@ describe('TxValidator: Benchmarks', () => {
     await permittedValidator.validateTx(permittedTx);
     await sizeValidator.validateTx(sizeTx);
     await doubleSpendValidator.validateTx(doubleSpendTx);
-    await gasValidator.validateTx(gasTx);
+    await gasLimitsValidator.validateTx(gasTx);
+    await feePayerBalanceValidator.validateTx(gasTx);
     await phasesValidator.validateTx(phasesPrivateTx);
     await phasesValidator.validateTx(phasesPublicTx);
     await blockHeaderValidator.validateTx(blockHeaderTx);
@@ -317,11 +319,12 @@ describe('TxValidator: Benchmarks', () => {
     }
   });
 
-  it('GasTxValidator', async () => {
-    const entry = makeEntry('GasTxValidator/validateTx', 'ms');
+  it('GasLimitsValidator + FeePayerBalanceValidator', async () => {
+    const entry = makeEntry('GasLimitsValidator+FeePayerBalanceValidator/validateTx', 'ms');
     for (let i = 0; i < RUNS; i++) {
       const timer = new Timer();
-      await gasValidator.validateTx(gasTx);
+      await gasLimitsValidator.validateTx(gasTx);
+      await feePayerBalanceValidator.validateTx(gasTx);
       entry.histogram.record(Math.max(1, Math.ceil(timer.ms())));
     }
   });
@@ -423,12 +426,11 @@ describe('TxValidator: Benchmarks', () => {
       }
     });
 
-    it('GasTxValidator', async () => {
-      const entry = makeEntry(`GasTxValidator-db${dbSize}/validateTx`, 'ms');
-      const validator = new GasTxValidator(
+    it('FeePayerBalanceValidator', async () => {
+      const entry = makeEntry(`FeePayerBalanceValidator-db${dbSize}/validateTx`, 'ms');
+      const validator = new FeePayerBalanceValidator(
         new DatabasePublicStateSource(localFork),
         ProtocolContractAddress.FeeJuice,
-        new GasFees(10, 10),
       );
       for (let i = 0; i < RUNS; i++) {
         const timer = new Timer();

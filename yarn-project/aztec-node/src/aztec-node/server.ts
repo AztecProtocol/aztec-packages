@@ -1331,7 +1331,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
           ...(await getDefaultAllowedSetupFunctions()),
           ...(this.config.txPublicSetupAllowListExtend ?? []),
         ],
-        gasFees: await this.getCurrentMinFees(),
         skipFeeEnforcement,
         txsPermitted: !this.config.disableTransactions,
       },
