@@ -70,7 +70,7 @@ Notes sent to yourself are always discoverable — the PXE automatically adds al
 
 ### The sync process
 
-The `#[aztec]` macro automatically injects an unconstrained `sync_state` utility function into every contract. This function is not callable externally — it is invoked by the PXE during note syncing to orchestrate discovery via oracles. The process works as follows:
+The `#[aztec]` macro automatically injects an unconstrained `sync_state` utility function into every contract. This function is invoked by the PXE during note syncing to orchestrate discovery via oracles; manual execution is forbidden by the PXE to prevent inconsistencies. The process works as follows:
 
 1. **Fetch tagged logs**: The contract calls the `fetchTaggedLogs` oracle. The PXE computes tags for every (sender, recipient) pair it knows about, queries the node for matching logs, and returns them to the contract.
 
@@ -78,7 +78,7 @@ The `#[aztec]` macro automatically injects an unconstrained `sync_state` utility
 
 3. **Parse message type**: Successfully decrypted messages are dispatched by type — private notes, partial notes, or private events.
 
-4. **Nonce discovery** (for notes): To confirm a decrypted note is valid, the system must match it against the note hash tree. It iterates the note hashes in the transaction, computes candidate nonces using `compute_note_hash_nonce(first_nullifier, note_index)` (a domain-separated Poseidon2 hash), and checks whether recomputing the note hash with each candidate nonce produces a match. A match confirms the note is real and provides the nonce needed to later nullify it.
+4. **Nonce discovery** (for notes): To confirm a decrypted note is valid, the system must match it against the unique note hashes emitted in the same transaction. It iterates the note hashes in the transaction, computes candidate nonces using `compute_note_hash_nonce(first_nullifier, note_index)` (a domain-separated Poseidon2 hash), and checks whether recomputing the unique note hash with each candidate nonce produces a match. A match confirms the note was emitted in this transaction and provides the nonce needed to later nullify it. (Note hash tree inclusion is validated separately.)
 
 5. **Store**: Validated notes are added to the PXE database, making them available for use in future transactions.
 
