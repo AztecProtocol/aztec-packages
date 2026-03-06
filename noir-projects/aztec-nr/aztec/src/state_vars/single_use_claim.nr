@@ -132,7 +132,7 @@ impl SingleUseClaim<&mut PrivateContext> {
 }
 
 impl SingleUseClaim<UtilityContext> {
-    /// Returns whether an owner has claimed this single use claim.
+    /// Returns `true` if an owner has claimed this single use claim.
     pub unconstrained fn has_claimed(self) -> bool {
         let owner_nhk_app = get_nhk_app(get_public_keys(self.owner).npk_m.hash());
         check_nullifier_exists(self.compute_nullifier(owner_nhk_app))

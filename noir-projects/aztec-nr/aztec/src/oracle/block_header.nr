@@ -2,7 +2,7 @@ use crate::protocol::{abis::block_header::BlockHeader, merkle_tree::root::root_f
 
 use crate::{context::PrivateContext, oracle::get_membership_witness::get_block_hash_membership_witness};
 
-#[oracle(utilityGetBlockHeader)]
+#[oracle(aztec_utl_getBlockHeader)]
 unconstrained fn get_block_header_at_oracle(_block_number: u32) -> BlockHeader {}
 
 unconstrained fn get_block_header_at_internal(block_number: u32) -> BlockHeader {

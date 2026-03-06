@@ -323,8 +323,9 @@ export class P2PNetworkTest {
       throw new Error('Call setupAccount before deploying spam contract');
     }
 
-    const spamContract = await SpamContract.deploy(this.wallet).send({ from: this.defaultAccountAddress! });
-    this.spamContract = spamContract;
+    ({ contract: this.spamContract } = await SpamContract.deploy(this.wallet).send({
+      from: this.defaultAccountAddress!,
+    }));
   }
 
   async removeInitialNode() {

@@ -37,10 +37,13 @@ export async function send(
     authWitnesses,
   };
 
-  const { estimatedGas, stats } = await call.simulate({
+  const sim = await call.simulate({
     ...sendOptions,
     fee: { ...sendOptions.fee, estimateGas: true },
   });
+  // estimateGas: true guarantees these fields are present
+  const estimatedGas = sim.estimatedGas!;
+  const stats = sim.stats!;
 
   if (feeOpts.estimateOnly) {
     return;
@@ -52,7 +55,7 @@ export async function send(
 
   if (wait) {
     try {
-      const receipt = await call.send({
+      const { receipt } = await call.send({
         ...sendOptions,
         fee: { ...sendOptions.fee, gasSettings: estimatedGas },
         wait: { timeout: DEFAULT_TX_TIMEOUT_S },
@@ -74,7 +77,7 @@ export async function send(
       throw err;
     }
   } else {
-    const txHash = await call.send({
+    const { txHash } = await call.send({
       ...sendOptions,
       fee: { ...sendOptions.fee, gasSettings: estimatedGas },
       wait: NO_WAIT,

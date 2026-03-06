@@ -65,7 +65,7 @@ async function main() {
 
   // Step 2: Deploy ValueNotEqual contract
   // Constructor args: initial counter (10), owner, VK hash
-  const valueNotEqual = await ValueNotEqualContract.deploy(
+  const { contract: valueNotEqual } = await ValueNotEqualContract.deploy(
     wallet,
     10, // Initial counter value
     accounts[0].item, // Owner address
@@ -84,9 +84,9 @@ async function main() {
 
   // Step 3: Read initial counter value
   // simulate() executes without submitting a transaction
-  let counterValue = await valueNotEqual.methods
+  let counterValue = (await valueNotEqual.methods
     .get_counter(accounts[0].item)
-    .simulate({ from: accounts[0].item });
+    .simulate({ from: accounts[0].item })).result;
   console.log(`Counter value: ${counterValue}`); // Should be 10
 
   // Step 4: Call increment() with proof data
@@ -107,9 +107,9 @@ async function main() {
   await interaction.send(opts);
 
   // Step 6: Read updated counter
-  counterValue = await valueNotEqual.methods
+  counterValue = (await valueNotEqual.methods
     .get_counter(accounts[0].item)
-    .simulate({ from: accounts[0].item });
+    .simulate({ from: accounts[0].item })).result;
   console.log(`Counter value: ${counterValue}`); // Should be 11
 
   assert(counterValue === 11n, "Counter should be 11 after verification");

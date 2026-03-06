@@ -42,7 +42,7 @@ export const submitComplexTxsTo = async (
   const spamCount = 15;
   for (let i = 0; i < numTxs; i++) {
     const method = spamContract.methods.spam(seed + BigInt(i * spamCount), spamCount, !!opts.callPublic);
-    const txHash = await method.send({ from, wait: NO_WAIT });
+    const { txHash } = await method.send({ from, wait: NO_WAIT });
     logger.info(`Tx sent with hash ${txHash.toString()}`);
     txs.push(txHash);
   }

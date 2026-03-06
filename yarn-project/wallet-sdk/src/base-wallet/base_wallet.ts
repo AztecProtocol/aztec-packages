@@ -1,6 +1,11 @@
 import type { Account } from '@aztec/aztec.js/account';
 import type { CallIntent, IntentInnerHash } from '@aztec/aztec.js/authorization';
-import { type InteractionWaitOptions, NO_WAIT, type SendReturn } from '@aztec/aztec.js/contracts';
+import {
+  type InteractionWaitOptions,
+  NO_WAIT,
+  type SendReturn,
+  extractOffchainOutput,
+} from '@aztec/aztec.js/contracts';
 import type { FeePaymentMethod } from '@aztec/aztec.js/fee';
 import { waitForTx } from '@aztec/aztec.js/node';
 import type {
@@ -383,6 +388,7 @@ export abstract class BaseWallet implements Wallet {
     const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     const provenTx = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
+    const offchainOutput = extractOffchainOutput(provenTx.getOffchainEffects());
     const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
     if (await this.aztecNode.getTxEffect(txHash)) {
@@ -396,7 +402,7 @@ export abstract class BaseWallet implements Wallet {
 
     // If wait is NO_WAIT, return txHash immediately
     if (opts.wait === NO_WAIT) {
-      return txHash as SendReturn<W>;
+      return { txHash, ...offchainOutput } as SendReturn<W>;
     }
 
     // Otherwise, wait for the full receipt (default behavior on wait: undefined)
@@ -408,7 +414,7 @@ export abstract class BaseWallet implements Wallet {
       await displayDebugLogs(receipt.debugLogs, this.getContractName.bind(this));
     }
 
-    return receipt as SendReturn<W>;
+    return { receipt, ...offchainOutput } as SendReturn<W>;
   }
 
   /**
