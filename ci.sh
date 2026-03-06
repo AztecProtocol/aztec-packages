@@ -171,6 +171,7 @@ case "$cmd" in
       'run x10-full amd64 ci-full-no-test-cache' \
       'run a1-fast arm64 ci-fast' \
       'run release amd64 ci-release'
+    ;;
   grind-test)
     full_cmd="$1"
     timeout="${2:-}"
