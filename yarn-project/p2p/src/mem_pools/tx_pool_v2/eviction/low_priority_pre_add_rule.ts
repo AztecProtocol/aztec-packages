@@ -1,6 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
 
-import { type TxMetaData, comparePriority } from '../tx_metadata.js';
+import { type TxMetaData, comparePriority, getMinimumPriceBumpFee } from '../tx_metadata.js';
 import {
   type EvictionConfig,
   type PreAddContext,
@@ -48,10 +48,14 @@ export class LowPriorityPreAddRule implements PreAddRule {
     }
 
     // Compare incoming tx against lowest priority tx.
-    // feeOnly mode (RPC): use strict fee comparison only — avoids churn from hash ordering
-    // Default (gossip): use full comparePriority (fee + tx hash tiebreaker) for determinism
+    // feeOnly mode (RPC): use strict fee comparison only — avoids churn from hash ordering.
+    // When price bump is also set, require the bumped fee threshold.
+    // Default (gossip): use full comparePriority (fee + tx hash tiebreaker) for determinism.
     const isHigherPriority = context?.feeComparisonOnly
-      ? incomingMeta.priorityFee > lowestPriorityMeta.priorityFee
+      ? context.priceBumpPercentage !== undefined
+        ? incomingMeta.priorityFee >=
+          getMinimumPriceBumpFee(lowestPriorityMeta.priorityFee, context.priceBumpPercentage)
+        : incomingMeta.priorityFee > lowestPriorityMeta.priorityFee
       : comparePriority(incomingMeta, lowestPriorityMeta) > 0;
 
     if (isHigherPriority) {
@@ -66,6 +70,11 @@ export class LowPriorityPreAddRule implements PreAddRule {
     }
 
     // Incoming tx has equal or lower priority - ignore it (it would be evicted anyway)
+    const minimumFee =
+      context?.feeComparisonOnly && context.priceBumpPercentage !== undefined
+        ? getMinimumPriceBumpFee(lowestPriorityMeta.priorityFee, context.priceBumpPercentage)
+        : lowestPriorityMeta.priorityFee + 1n;
+
     this.log.debug(
       `Pool at capacity (${currentCount}/${this.maxPoolSize}), ignoring ${incomingMeta.txHash} ` +
         `(priority ${incomingMeta.priorityFee}) - lower than existing minimum (priority ${lowestPriorityMeta.priorityFee})`,
@@ -75,8 +84,8 @@ export class LowPriorityPreAddRule implements PreAddRule {
       txHashesToEvict: [],
       reason: {
         code: TxPoolRejectionCode.LOW_PRIORITY_FEE,
-        message: `Tx does not meet minimum priority fee. Required: ${lowestPriorityMeta.priorityFee + 1n}, got: ${incomingMeta.priorityFee}`,
-        minimumPriorityFee: lowestPriorityMeta.priorityFee + 1n,
+        message: `Tx does not meet minimum priority fee. Required: ${minimumFee}, got: ${incomingMeta.priorityFee}`,
+        minimumPriorityFee: minimumFee,
         txPriorityFee: incomingMeta.priorityFee,
       },
     });

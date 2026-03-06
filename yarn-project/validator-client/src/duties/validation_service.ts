@@ -150,16 +150,10 @@ export class ValidationService {
     );
 
     // TODO(spy/ha): Use checkpointNumber instead of blockNumber once CheckpointHeader includes it.
-    // Currently using lastBlock.blockNumber as a proxy for checkpoint identification in HA signing.
+    // CheckpointProposalCore doesn't have lastBlock info, so use 0 as a proxy.
     // blockNumber is NOT used for the primary key so it's safe to use here.
     // See CheckpointHeader TODO and SigningContext types documentation.
-    let blockNumber: BlockNumber;
-    try {
-      blockNumber = proposal.blockNumber;
-    } catch {
-      // Checkpoint proposal may not have lastBlock, use 0 as fallback
-      blockNumber = BlockNumber(0);
-    }
+    const blockNumber = BlockNumber(0);
     const context: SigningContext = {
       slot: proposal.slotNumber,
       blockNumber,

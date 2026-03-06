@@ -3,7 +3,7 @@ import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } fr
 import type { EthAddress } from '@aztec/foundation/eth-address';
 
 export type DataStoreConfig = {
-  dataDirectory: string | undefined;
+  dataDirectory?: string;
   dataStoreMapSizeKb: number;
   l1Contracts?: { rollupAddress: EthAddress };
 };

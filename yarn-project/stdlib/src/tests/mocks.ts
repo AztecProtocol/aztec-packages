@@ -98,6 +98,7 @@ export const mockTx = async (
     publicCalldataSize = 2,
     feePayer,
     chonkProof = ChonkProof.random(),
+    gasLimits,
     maxFeesPerGas = new GasFees(10, 10),
     maxPriorityFeesPerGas,
     gasUsed = Gas.empty(),
@@ -114,6 +115,7 @@ export const mockTx = async (
     publicCalldataSize?: number;
     feePayer?: AztecAddress;
     chonkProof?: ChonkProof;
+    gasLimits?: Gas;
     maxFeesPerGas?: GasFees;
     maxPriorityFeesPerGas?: GasFees;
     gasUsed?: Gas;
@@ -132,7 +134,7 @@ export const mockTx = async (
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), Fr.ZERO, 0);
   data.constants.anchorBlockHeader = anchorBlockHeader;
-  data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas, maxPriorityFeesPerGas });
+  data.constants.txContext.gasSettings = GasSettings.default({ gasLimits, maxFeesPerGas, maxPriorityFeesPerGas });
   data.feePayer = feePayer ?? (await AztecAddress.random());
   data.gasUsed = gasUsed;
   data.constants.txContext.chainId = chainId;
@@ -425,10 +427,13 @@ export async function mockCheckpointAndMessages(
     Partial<Parameters<typeof L2Block.random>[1]> = {},
 ) {
   const slotNumber = options.slotNumber ?? SlotNumber(Number(checkpointNumber) * 10);
+  const globals = GlobalVariables.random({ slotNumber, ...options });
   const blocksAndMessages = [];
+
   // Track the previous block's archive to ensure consecutive blocks have consistent archive roots.
   // The current block's header.lastArchive must equal the previous block's archive.
   let lastArchive: AppendOnlyTreeSnapshot | undefined = previousArchive;
+
   // Pass maxEffects via txOptions so it reaches TxEffect.random
   const txOptions = maxEffects !== undefined ? { maxEffects } : {};
   for (let i = 0; i < (blocks?.length ?? numBlocks); i++) {
@@ -437,11 +442,11 @@ export async function mockCheckpointAndMessages(
       block:
         blocks?.[i] ??
         (await L2Block.random(blockNumber, {
+          ...globals,
           checkpointNumber,
           indexWithinCheckpoint: IndexWithinCheckpoint(i),
           txsPerBlock: numTxsPerBlock,
           txOptions,
-          slotNumber,
           ...options,
           ...makeBlockOptions(blockNumber),
           ...(lastArchive ? { lastArchive } : {}),
@@ -455,12 +460,18 @@ export async function mockCheckpointAndMessages(
 
   const messages = blocksAndMessages[0].messages;
   const inHash = computeInHashFromL1ToL2Messages(messages);
-  const checkpoint = await Checkpoint.random(checkpointNumber, { numBlocks: 0, slotNumber, inHash, ...options });
+  const firstBlockLastArchive = blocksAndMessages[0].block.header.lastArchive;
+  const checkpoint = await Checkpoint.random(checkpointNumber, {
+    numBlocks: 0,
+    inHash,
+    ...options,
+    ...globals,
+    lastArchive: firstBlockLastArchive,
+    lastArchiveRoot: firstBlockLastArchive.root,
+    archive: lastArchive,
+  });
+
   checkpoint.blocks = blocksAndMessages.map(({ block }) => block);
-  // Set the checkpoint's archive to match the last block's archive for proper chaining.
-  // When the archiver reconstructs checkpoints from L1, it uses the checkpoint's archive root
-  // from the L1 event to set the last block's archive. Without this, the archive chain breaks.
-  checkpoint.archive = lastArchive!;
 
   // Return lastArchive so callers can chain it across multiple checkpoints
   return { checkpoint, messages, lastArchive };
