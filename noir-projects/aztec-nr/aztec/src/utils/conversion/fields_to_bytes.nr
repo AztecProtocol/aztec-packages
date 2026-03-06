@@ -46,6 +46,8 @@ pub fn fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> BoundedVec<Fie
     let p = std::field::modulus_be_bytes();
 
     // Since input length is a multiple of 32, we can simply process all chunks fully
+    // TODO: Should be `for i in 0..N / 32 { if i < bytes.len() / 32 { ... } }` instead.
+    // This hasn't caused any problem because it's only used in an unconstrained fn at the moment.
     for i in 0..bytes.len() / 32 {
         let mut field = 0;
 

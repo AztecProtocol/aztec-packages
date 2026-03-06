@@ -40,7 +40,7 @@ use crate::protocol::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, MAX_TX_LIFETIME,
         NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
-    hash::poseidon2_hash,
+    hash::compute_contract_class_log_hash,
     messaging::l2_to_l1_message::L2ToL1Message,
     side_effect::{Counted, scoped::Scoped},
     traits::{Empty, Hash, ToField},
@@ -575,6 +575,12 @@ impl PrivateContext {
     pub fn end_setup(&mut self) {
         // Incrementing the side effect counter when ending setup ensures non ambiguity for the counter where we change
         // phases.
+        // TODO: Can remove this manually incrementing the side effect counter.
+        // It's not necessary to increment the side effect counter here, because the side effect counter is always
+        // incremented by the next_counter function every time a side effect is emitted.
+        // This was added because the code below used to be:
+        // `self.min_revertible_side_effect_counter = self.side_effect_counter;`
+        // which made it necessary to increment the side effect counter manually.
         self.side_effect_counter += 1;
         // crate::protocol::logging::debug_log_format(
         //     "Ending setup at counter {0}",
@@ -949,10 +955,10 @@ impl PrivateContext {
         // Safety: The below length is constrained in the base rollup, which will make sure that all the fields beyond
         // length are zero. However, it won't be able to check that we didn't add extra padding (trailing zeroes) or
         // that we cut trailing zeroes from the end.
-        let length = unsafe { trimmed_array_length_hint(log_to_emit) };
+        let length = unsafe { trimmed_array_length_hint(log) };
         // We hash the entire padded log to ensure a user cannot pass a shorter length and so emit incorrect shorter
         // bytecode.
-        let log_hash = poseidon2_hash(log_to_emit);
+        let log_hash = compute_contract_class_log_hash(log_to_emit);
         // Safety: the below only exists to broadcast the raw log, so we can provide it to the base rollup later to be
         // constrained.
         unsafe {
@@ -1110,6 +1116,9 @@ impl PrivateContext {
         args_hash: Field,
         is_static_call: bool,
     ) -> ReturnsHash {
+        // Q: It can be misleading to make a static call when the caller specifically requests a non-static call
+        // (`is_static_call == false`). Although this is not allowed and will cause the kernel to fail.
+        // But rather than altering the user's intent, throw an error from the simulator might be better?
         let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         let start_side_effect_counter = self.side_effect_counter;
 
@@ -1143,14 +1152,11 @@ impl PrivateContext {
             },
         );
 
-        // TODO (fees) figure out why this crashes the prover and enable it we need this in order to pay fees inside
-        // child call contexts assert(
-        //     (item.public_inputs.min_revertible_side_effect_counter == 0 as u32)
-        //     | (item.public_inputs.min_revertible_side_effect_counter
-        //         > self.min_revertible_side_effect_counter)
-        // ); if item.public_inputs.min_revertible_side_effect_counter
-        //     > self.min_revertible_side_effect_counter { self.min_revertible_side_effect_counter =
-        // item.public_inputs.min_revertible_side_effect_counter; }
+        // The kernel circuits ensure that end_side_effect_counter is greater than start_side_effect_counter,
+        // and that all side effects emitted in the child call have counters within the range
+        // [start_side_effect_counter, end_side_effect_counter].
+        // Therefore, we only need to ensure that the next side effect from the current call starts after the
+        // end side effect from the child call.
         self.side_effect_counter = end_side_effect_counter + 1; // TODO: call `next_counter`
         // instead, for consistency
         ReturnsHash::new(returns_hash)

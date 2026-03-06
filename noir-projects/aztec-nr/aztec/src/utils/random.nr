@@ -8,7 +8,7 @@ pub unconstrained fn get_random_bytes<let N: u32>() -> [u8; N] {
     for i in 0..N {
         if idx == 32 {
             randomness = random().to_be_bytes();
-            idx = 1; // Skip the first byte as it's always 0.
+            idx = 1; // Skip the first byte as it's biased (not uniformly distributed over 0-255).
         }
         bytes[i] = randomness[idx];
         idx += 1;

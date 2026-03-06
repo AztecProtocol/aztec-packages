@@ -83,6 +83,7 @@ impl<Context> SingleUseClaim<Context> {
     /// [`SingleUseClaim::assert_claimed`] and [`SingleUseClaim::has_claimed`] to coherently write and read state.
     fn compute_nullifier(self, owner_nhk_app: Field) -> Field {
         // TODO(F-180): make sure we follow the nullifier convention
+        // Q: The separator should be DOM_SEP__NULLIFIER?
         poseidon2_hash_with_separator([owner_nhk_app, self.storage_slot], DOM_SEP__NOTE_HASH)
     }
 }

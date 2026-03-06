@@ -16,22 +16,11 @@ pub fn field_from_bytes<let N: u32>(bytes: [u8; N], big_endian: bool) -> Field {
 
 // Convert a 32 byte array to a field element by truncating the final byte
 pub fn field_from_bytes_32_trunc(bytes32: [u8; 32]) -> Field {
-    // Convert it to a field element
-    let mut v = 1;
-    let mut high = 0 as Field;
-    let mut low = 0 as Field;
-
-    for i in 0..15 {
-        // covers bytes 16..30 (31 is truncated and ignored)
-        low = low + (bytes32[15 + 15 - i] as Field) * v;
-        v = v * 256;
-        // covers bytes 0..14
-        high = high + (bytes32[14 - i] as Field) * v;
+    let mut result = 0 as Field;
+    for i in 0..31 {
+        result = result * 256 + (bytes32[i] as Field);
     }
-    // covers byte 15
-    low = low + (bytes32[15] as Field) * v;
-
-    low + high * v
+    result
 }
 
 // TODO to radix returns u8, so we cannot use bigger radixes. It'd be ideal to use a radix of the maximum range-constrained integer noir supports

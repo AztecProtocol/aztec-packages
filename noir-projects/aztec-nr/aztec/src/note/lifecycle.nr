@@ -84,5 +84,17 @@ where
         note_hash_for_nullification
     };
 
+    // Note: The `confirmed_note`'s metadata (including its phase stage) is determined at the time the note is
+    // fetched via `get_note`/`get_notes`. If the execution phase changes between fetching and destroying the note
+    // (e.g. via `end_setup()` or a child call that triggers it), the metadata becomes stale: a note that was
+    // `PENDING_SAME_PHASE` at fetch time is now effectively `PENDING_PREVIOUS_PHASE`, but the metadata still says
+    // `PENDING_SAME_PHASE`. This causes the wrong note hash to be used for nullification (unsiloed instead of
+    // unique), and the kernel will reject the transaction because it cannot match the nullifier to a pending note
+    // hash in the same phase.
+    //
+    // This only affects `#[allow_phase_change]` functions, since all other functions assert that the phase does not
+    // change during execution. If you are writing an `#[allow_phase_change]` function, ensure that all
+    // `get_note`/`get_notes` and corresponding `destroy_note` calls happen on the same side of the phase boundary.
+
     context.push_nullifier_for_note_hash(nullifier, note_hash)
 }

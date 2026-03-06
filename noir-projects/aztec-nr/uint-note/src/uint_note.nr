@@ -50,6 +50,8 @@ impl NoteHash for UintNote {
 
         // Then compute the completion note hash. In a real partial note this step would be performed in public.
         partial_note.compute_complete_note_hash(self.value)
+
+        // Q: The partial note and the complete note probably shouldn't use the same domain separator?
     }
     // docs:end:compute_note_hash
 
@@ -225,6 +227,7 @@ impl PartialUintNote {
         // contract that emitted the nullifier) as it checks the value directly against the nullifier tree and all the
         // nullifiers in the tree are siloed by the protocol.
         let siloed_validity_commitment = compute_siloed_nullifier(context.this_address(), validity_commitment);
+        // Q: Why not use context.assert_nullifier_exists()?
         assert_nullifier_existed_by(
             context.get_anchor_block_header(),
             siloed_validity_commitment,

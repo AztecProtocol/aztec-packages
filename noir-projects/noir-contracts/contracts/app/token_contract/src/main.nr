@@ -464,6 +464,7 @@ pub contract Token {
         // Completer is the entity that can complete the partial note. In this case, it's the same as the minter
         // account.
         let minter_and_completer = self.msg_sender();
+        // TODO: This assertion can be removed. The same thing is checked in _finalize_mint_to_private.
         assert(self.storage.minters.at(minter_and_completer).read(), "caller is not minter");
 
         self.internal._finalize_mint_to_private(minter_and_completer, amount, partial_note);

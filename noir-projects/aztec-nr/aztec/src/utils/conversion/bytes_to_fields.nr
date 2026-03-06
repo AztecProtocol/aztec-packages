@@ -43,7 +43,7 @@ pub fn bytes_from_fields<let N: u32>(fields: BoundedVec<Field, N>) -> BoundedVec
     let mut bytes = BoundedVec::new();
 
     for i in 0..fields.len() {
-        let field = fields.get(i);
+        let field = fields.get_unchecked(i);
 
         // We expect that the field contains at most 31 bytes of information.
         field.assert_max_bit_size::<248>();

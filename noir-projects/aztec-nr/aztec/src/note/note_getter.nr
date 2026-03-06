@@ -33,6 +33,8 @@ fn extract_property_value_from_selector<let N: u32>(packed_note: [Field; N], sel
     let mut acc: Field = 1;
     for i in 0..32 {
         if i < length {
+            // TODO: Any non-zero offset will cause the index to be out of bounds.
+            // Is it supposed to be `31 - offset - 1`?
             value_field += value[(31 + offset - i) as u32] as Field * acc;
             acc = acc * 256;
         }
@@ -41,6 +43,12 @@ fn extract_property_value_from_selector<let N: u32>(packed_note: [Field; N], sel
 }
 
 fn check_packed_note<let N: u32>(packed_note: [Field; N], selects: BoundedVec<Option<Select>, N>) {
+    // TODO: selects.len() as a loop bound requires compile-time known length, which is true for the existing use
+    // cases.
+    // But if a caller conditionally pushes selects based on a runtime variable, this will fail to compile.
+    // Consider using `for i in 0..N { if i < selects.len() ... }` instead. When .len() is compile-time known, the
+    // compiler optimizes both forms to the same gate count.
+    // Same for `check_notes_order`.
     for i in 0..selects.len() {
         let select = selects.get_unchecked(i).unwrap_unchecked();
         let value_field = extract_property_value_from_selector(packed_note, select.property_selector);

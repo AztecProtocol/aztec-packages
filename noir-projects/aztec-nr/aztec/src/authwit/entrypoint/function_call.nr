@@ -29,6 +29,11 @@ impl FunctionCall {
         for i in 0..32 {
             bytes[i] = args_hash_bytes[i];
         }
+        // Q: The function selector is u32, so we should be able to just take the last 4 bytes.
+        // If it's used for hashing with sha256 (as suggested in DAppPayload.to_be_bytes()), it could save quite a bit
+        // of gates.
+        // But the code doesn't seem to be used anywhere. Hashing of the payload uses serialize() and poseidon instead.
+        // Do we want to keep this?
         let function_selector_bytes: [u8; 32] = self.function_selector.to_field().to_be_bytes();
         for i in 0..32 {
             bytes[i + 32] = function_selector_bytes[i];
