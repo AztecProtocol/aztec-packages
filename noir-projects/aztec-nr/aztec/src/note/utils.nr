@@ -7,7 +7,7 @@ use crate::protocol::{
 
 /// Computes a domain-separated note hash.
 ///
-/// Receives the `storage_slot` of the [`crate::state_vars::StateVariable`] that holds the note, plus any  arbitrary
+/// Receives the `storage_slot` of the [`crate::state_vars::StateVariable`] that holds the note, plus any arbitrary
 /// note `data`. This typically includes randomness, owner, and domain specific values (e.g. numeric amount, address,
 /// id, etc.).
 ///
