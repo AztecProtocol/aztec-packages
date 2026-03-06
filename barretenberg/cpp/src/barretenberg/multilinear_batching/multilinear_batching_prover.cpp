@@ -64,14 +64,25 @@ MultilinearBatchingProverClaim MultilinearBatchingProver::compute_new_claim()
     auto claim_batching_challenge = transcript->get_challenge<FF>("claim_batching_challenge");
 
     // New polynomials
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1604): Optimize new claim computation
-    bb::Polynomial<FF> new_non_shifted_polynomial(key.circuit_size);
-    new_non_shifted_polynomial += key.polynomials.batched_unshifted_instance;
-    new_non_shifted_polynomial.add_scaled(key.polynomials.batched_unshifted_accumulator, claim_batching_challenge);
+    bb::Polynomial<FF> new_non_shifted_polynomial;
+    if (key.polynomials.batched_unshifted_instance.size() > key.polynomials.batched_unshifted_accumulator.size()) {
+        new_non_shifted_polynomial = std::move(key.polynomials.batched_unshifted_instance);
+        new_non_shifted_polynomial.add_scaled(key.polynomials.batched_unshifted_accumulator, claim_batching_challenge);
+    } else {
+        new_non_shifted_polynomial = std::move(key.polynomials.batched_unshifted_accumulator);
+        new_non_shifted_polynomial *= claim_batching_challenge;
+        new_non_shifted_polynomial += key.polynomials.batched_unshifted_instance;
+    }
 
-    bb::Polynomial<FF> new_shifted_polynomial(bb::Polynomial<FF>::shiftable(key.circuit_size));
-    new_shifted_polynomial += key.preshifted_instance;
-    new_shifted_polynomial.add_scaled(key.preshifted_accumulator, claim_batching_challenge);
+    bb::Polynomial<FF> new_shifted_polynomial;
+    if (key.preshifted_instance.size() > key.preshifted_accumulator.size()) {
+        new_shifted_polynomial = std::move(key.preshifted_instance);
+        new_shifted_polynomial.add_scaled(key.preshifted_accumulator, claim_batching_challenge);
+    } else {
+        new_shifted_polynomial = std::move(key.preshifted_accumulator);
+        new_shifted_polynomial *= claim_batching_challenge;
+        new_shifted_polynomial += key.preshifted_instance;
+    }
 
     // New commitments
     auto new_non_shifted_commitment =
