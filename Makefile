@@ -93,7 +93,7 @@ avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm6
 #==============================================================================
 
 # Barretenberg - Aggregate target for all barretenberg sub-projects.
-barretenberg: bb-cpp bb-ts bb-acir bb-docs bb-sol bb-bbup bb-crs
+barretenberg: bb-cpp bb-ts bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
 
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
@@ -148,7 +148,23 @@ bb-cpp-cross-amd64-macos: bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-
 bb-cpp-cross-arm64-macos: bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos
 	$(call build,$@,barretenberg/cpp,build_cross arm64-macos)
 
-bb-cpp-cross: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos
+bb-cpp-cross: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-ios-sim bb-cpp-cross-arm64-android bb-cpp-cross-x86_64-android
+
+# Cross-compile for ARM64 iOS (release only, static lib only)
+bb-cpp-cross-arm64-ios:
+	$(call build,$@,barretenberg/cpp,build_ios zig-arm64-ios)
+
+# Cross-compile for ARM64 iOS Simulator (release only, static lib only)
+bb-cpp-cross-arm64-ios-sim:
+	$(call build,$@,barretenberg/cpp,build_ios zig-arm64-ios-sim)
+
+# Cross-compile for ARM64 Android (release only, static lib only)
+bb-cpp-cross-arm64-android:
+	$(call build,$@,barretenberg/cpp,build_android zig-arm64-android)
+
+# Cross-compile for x86_64 Android (release only, static lib only)
+bb-cpp-cross-x86_64-android:
+	$(call build,$@,barretenberg/cpp,build_android zig-x86_64-android)
 
 # GCC syntax check (CI only, non-release)
 bb-cpp-gcc:
@@ -178,6 +194,10 @@ bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native
 # Copies the cross-compiles into bb.js.
 bb-ts-cross-copy: bb-ts bb-cpp-cross
 	$(call build,$@,barretenberg/ts,cross_copy)
+
+# BB Rust - barretenberg-rs FFI crate
+bb-rs: bb-ts bb-cpp-native
+	$(call build,$@,barretenberg/rust)
 
 # BB ACIR Tests - ACIR compatibility tests
 bb-acir: noir bb-cpp-native bb-ts
@@ -222,7 +242,10 @@ bb-docs-tests: bb-docs
 bb-bbup-tests: bb-bbup
 	$(call test,$@,barretenberg/bbup)
 
-bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests
+bb-rs-tests: bb-rs
+	$(call test,$@,barretenberg/rust)
+
+bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests bb-rs-tests
 
 bb-full-tests: bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests
 
