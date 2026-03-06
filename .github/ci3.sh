@@ -82,6 +82,9 @@ function handle_release_pr {
   local github_repository
   github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
   git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${github_repository}"
+  # Unset the extraheader that actions/checkout persists — it uses the workflow's
+  # github.token (contents: read) which takes precedence over URL-embedded creds.
+  git config --unset-all http.https://github.com/.extraheader || true
   local tag_name="v0.0.1-commit.$(git rev-parse --short HEAD)"
   git tag "${tag_name}"
   git push origin "${tag_name}"
