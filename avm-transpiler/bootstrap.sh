@@ -9,6 +9,17 @@ export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
 export RUSTFLAGS="-Dwarnings"
 
+# Ensure the rust toolchain is installed before any cargo commands.
+# When the build image lacks the expected version, cargo implicitly triggers rustup's
+# auto-install via rust-toolchain.toml, which is unreliable under parallel execution.
+function ensure_toolchain {
+  local version=$(grep '^channel' rust-toolchain.toml | sed 's/.*"\(.*\)"/\1/')
+  if ! rustup toolchain list | grep -q "^$version"; then
+    echo "Installing Rust toolchain $version"
+    rustup toolchain install $version --profile default --component rust-src
+  fi
+}
+
 function build_native {
   echo_header "avm-transpiler build_native"
   artifact=avm-transpiler-$hash.tar.gz
@@ -17,6 +28,7 @@ function build_native {
     # Cargo may trigger rustup to install components (rust-src, etc.) in shared directories
     (
       flock -x 200
+      ensure_toolchain
       denoise "cargo build --release --locked --bin avm-transpiler"
       denoise "cargo build --release --locked --lib"
     ) 200>/tmp/rustup-avm-transpiler.lock
@@ -57,6 +69,7 @@ function build_cross {
     # Serialize rustup operations to avoid race conditions when running parallel builds
     (
       flock -x 200
+      ensure_toolchain
       if ! command -v cargo-zigbuild >/dev/null 2>&1; then
         cargo install --locked cargo-zigbuild
       fi

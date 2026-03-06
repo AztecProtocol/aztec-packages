@@ -81,7 +81,7 @@ function merge_queue_run {
   export -f run
 
   # Specify jobs as maybe we only have a couple of cpus.
-  parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+  parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 'run {}' ::: \
     "$@" | DUP=1 cache_log "Merge queue CI run" $RUN_ID
 }
 
@@ -136,41 +136,41 @@ case "$cmd" in
   merge-queue)
     # We perform full runs of all tests on multiple x86, and a single fast run on arm64.
     merge_queue_run \
-      'run x1-full amd64 ci-full-no-test-cache' \
-      'run a1-fast arm64 ci-fast'
+      'x1-full amd64 ci-full-no-test-cache' \
+      'a1-fast arm64 ci-fast'
     ;;
   merge-queue-heavy)
     # Heavy merge queue with 10 parallel grind runs, used for merge-train/spartan PRs.
     merge_queue_run \
-      'run x1-full amd64 ci-full-no-test-cache' \
-      'run x2-full amd64 ci-full-no-test-cache' \
-      'run x3-full amd64 ci-full-no-test-cache' \
-      'run x4-full amd64 ci-full-no-test-cache' \
-      'run x5-full amd64 ci-full-no-test-cache' \
-      'run x6-full amd64 ci-full-no-test-cache' \
-      'run x7-full amd64 ci-full-no-test-cache' \
-      'run x8-full amd64 ci-full-no-test-cache' \
-      'run x9-full amd64 ci-full-no-test-cache' \
-      'run x10-full amd64 ci-full-no-test-cache' \
-      'run a1-fast arm64 ci-fast'
+      'x1-full amd64 ci-full-no-test-cache' \
+      'x2-full amd64 ci-full-no-test-cache' \
+      'x3-full amd64 ci-full-no-test-cache' \
+      'x4-full amd64 ci-full-no-test-cache' \
+      'x5-full amd64 ci-full-no-test-cache' \
+      'x6-full amd64 ci-full-no-test-cache' \
+      'x7-full amd64 ci-full-no-test-cache' \
+      'x8-full amd64 ci-full-no-test-cache' \
+      'x9-full amd64 ci-full-no-test-cache' \
+      'x10-full amd64 ci-full-no-test-cache' \
+      'a1-fast arm64 ci-fast'
     ;;
   merge-queue-ci)
     # 10 parallel grind runs with no build cache and dry run of release, used for merge-train/ci PRs.
     export DRY_RUN=1
     export NO_CACHE=1
     merge_queue_run \
-      'run x1-full amd64 ci-full-no-test-cache' \
-      'run x2-full amd64 ci-full-no-test-cache' \
-      'run x3-full amd64 ci-full-no-test-cache' \
-      'run x4-full amd64 ci-full-no-test-cache' \
-      'run x5-full amd64 ci-full-no-test-cache' \
-      'run x6-full amd64 ci-full-no-test-cache' \
-      'run x7-full amd64 ci-full-no-test-cache' \
-      'run x8-full amd64 ci-full-no-test-cache' \
-      'run x9-full amd64 ci-full-no-test-cache' \
-      'run x10-full amd64 ci-full-no-test-cache' \
-      'run a1-fast arm64 ci-fast' \
-      'run release amd64 ci-release'
+      'x1-full amd64 ci-full-no-test-cache' \
+      'x2-full amd64 ci-full-no-test-cache' \
+      'x3-full amd64 ci-full-no-test-cache' \
+      'x4-full amd64 ci-full-no-test-cache' \
+      'x5-full amd64 ci-full-no-test-cache' \
+      'x6-full amd64 ci-full-no-test-cache' \
+      'x7-full amd64 ci-full-no-test-cache' \
+      'x8-full amd64 ci-full-no-test-cache' \
+      'x9-full amd64 ci-full-no-test-cache' \
+      'x10-full amd64 ci-full-no-test-cache' \
+      'a1-fast arm64 ci-fast' \
+      'release amd64 ci-release'
     ;;
   grind-test)
     full_cmd="$1"
