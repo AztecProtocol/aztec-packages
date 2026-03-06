@@ -392,7 +392,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
 
         auto transcript_input1 = transcript_pc + transcript_Px * beta + transcript_Py * beta_sqr + z1 * beta_cube +
                                  second_term_tag; // degree = 1
-        auto transcript_input2 = (transcript_pc - 1) + transcript_Px * cube_root_unity * beta -
+        auto transcript_input2 = (transcript_pc - lookup_first) + transcript_Px * cube_root_unity * beta -
                                  transcript_Py * beta_sqr + z2 * beta_cube + second_term_tag; // degree = 2
 
         // The following diagram expresses a fingerprint of part of the tuple. It does not include `transcript_pc` and
