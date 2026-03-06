@@ -461,34 +461,8 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_notifyEnqueuedPublicFunctionCall(
-    [contractAddress]: ACVMField[],
-    [calldataHash]: ACVMField[],
-    [sideEffectCounter]: ACVMField[],
-    [isStaticCall]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().notifyEnqueuedPublicFunctionCall(
-      AztecAddress.fromString(contractAddress),
-      Fr.fromString(calldataHash),
-      Fr.fromString(sideEffectCounter).toNumber(),
-      Fr.fromString(isStaticCall).toBool(),
-    );
-    return [];
-  }
-
-  // eslint-disable-next-line camelcase
-  async aztec_prv_notifySetPublicTeardownFunctionCall(
-    [contractAddress]: ACVMField[],
-    [calldataHash]: ACVMField[],
-    [sideEffectCounter]: ACVMField[],
-    [isStaticCall]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().notifySetPublicTeardownFunctionCall(
-      AztecAddress.fromString(contractAddress),
-      Fr.fromString(calldataHash),
-      Fr.fromString(sideEffectCounter).toNumber(),
-      Fr.fromString(isStaticCall).toBool(),
-    );
+  async aztec_prv_validatePublicCalldata([calldataHash]: ACVMField[]): Promise<ACVMField[]> {
+    await this.handlerAsPrivate().validatePublicCalldata(Fr.fromString(calldataHash));
     return [];
   }
 

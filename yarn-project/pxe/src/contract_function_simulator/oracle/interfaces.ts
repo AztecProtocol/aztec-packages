@@ -169,18 +169,7 @@ export interface IPrivateExecutionOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
   ): Promise<{ endSideEffectCounter: Fr; returnsHash: Fr }>;
-  notifyEnqueuedPublicFunctionCall(
-    targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    sideEffectCounter: number,
-    isStaticCall: boolean,
-  ): Promise<void>;
-  notifySetPublicTeardownFunctionCall(
-    targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    sideEffectCounter: number,
-    isStaticCall: boolean,
-  ): Promise<void>;
+  validatePublicCalldata(calldataHash: Fr): Promise<void>;
   notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void>;
   isSideEffectCounterRevertible(sideEffectCounter: number): Promise<boolean>;
   getSenderForTags(): Promise<AztecAddress | undefined>;

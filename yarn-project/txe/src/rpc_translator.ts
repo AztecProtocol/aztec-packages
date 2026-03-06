@@ -652,22 +652,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  public aztec_prv_notifyEnqueuedPublicFunctionCall(
-    _foreignTargetContractAddress: ForeignCallSingle,
-    _foreignCalldataHash: ForeignCallSingle,
-    _foreignSideEffectCounter: ForeignCallSingle,
-    _foreignIsStaticCall: ForeignCallSingle,
-  ) {
-    throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
-  }
-
-  // eslint-disable-next-line camelcase
-  public aztec_prv_notifySetPublicTeardownFunctionCall(
-    _foreignTargetContractAddress: ForeignCallSingle,
-    _foreignCalldataHash: ForeignCallSingle,
-    _foreignSideEffectCounter: ForeignCallSingle,
-    _foreignIsStaticCall: ForeignCallSingle,
-  ) {
+  public aztec_prv_validatePublicCalldata(_foreignCalldataHash: ForeignCallSingle) {
     throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 

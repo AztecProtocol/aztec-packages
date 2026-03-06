@@ -4,9 +4,9 @@ use crate::{
     messaging::process_l1_to_l2_message,
     oracle::{
         call_private_function::call_private_function_internal,
-        enqueue_public_function_call::{
-            is_side_effect_counter_revertible_oracle_wrapper, notify_enqueued_public_function_call,
-            notify_set_min_revertible_side_effect_counter,
+        public_call::{
+            is_side_effect_counter_revertible,
+            notify_set_min_revertible_side_effect_counter, validate_public_calldata,
         },
         execution_cache,
         logs::notify_created_contract_class_log,
@@ -198,7 +198,7 @@ impl PrivateContext {
 
         // Safety: Kernel will validate that the claim is correct by validating the expected counters.
         let is_revertible =
-            unsafe { is_side_effect_counter_revertible_oracle_wrapper(current_counter) };
+            unsafe { is_side_effect_counter_revertible(current_counter) };
 
         if is_revertible {
             if (self.expected_revertible_side_effect_counter == 0)
@@ -364,14 +364,9 @@ impl PrivateContext {
     ) {
         let counter = self.next_counter();
 
-        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
+        let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
 
-        notify_enqueued_public_function_call(
-            contract_address,
-            calldata_hash,
-            counter,
-            is_static_call,
-        );
+        validate_public_calldata(calldata_hash);
 
         let msg_sender = if hide_msg_sender {
             NULL_MSG_SENDER_CONTRACT_ADDRESS
