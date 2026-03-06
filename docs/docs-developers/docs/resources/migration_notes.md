@@ -11,7 +11,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ### [Aztec.nr] Made `compute_note_hash_for_nullification` unconstrained
 
-This function shouldn't have been constrained in the first place, as constrained computation of `HintedNote` nullifiers is dangerous. If you were calling this from a constrained function, consider using `compute_confirmed_note_hash_for_nullification` instead. Unconstrained usage is safe.
+This function shouldn't have been constrained in the first place, as constrained computation of `HintedNote` nullifiers is dangerous (constrained computation of nullifiers can be performed only on the `ComfirmedNote` type). If you were calling this from a constrained function, consider using `compute_confirmed_note_hash_for_nullification` instead. Unconstrained usage is safe.
 
 ### [Aztec.nr] Removed `get_random_bytes`
 
