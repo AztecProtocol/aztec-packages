@@ -68,8 +68,8 @@ EvaluationDomain<Fr>::EvaluationDomain(const size_t domain_size, const size_t ta
     , generator_size(target_generator_size ? target_generator_size : domain_size)
     , domain(Fr{ size, 0, 0, 0 }.to_montgomery_form())
     , domain_inverse(domain.invert())
-    , generator(Fr::template coset_generator<0>())
-    , generator_inverse(Fr::template coset_generator<0>().invert())
+    , generator(Fr::coset_generator())
+    , generator_inverse(Fr::coset_generator().invert())
     , roots(nullptr)
 {
     // Grumpkin does not have many roots of unity and, given these are not used for Honk, we set it to one.
