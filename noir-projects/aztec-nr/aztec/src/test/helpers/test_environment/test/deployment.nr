@@ -1,4 +1,4 @@
-use crate::test::helpers::test_environment::TestEnvironment;
+use crate::test::helpers::test_environment::{DeployOptions, TestEnvironment};
 
 #[test]
 unconstrained fn deploy_does_not_repeat_addresses() {
@@ -13,5 +13,45 @@ unconstrained fn deploy_does_not_repeat_addresses() {
     // Note that Test _does_ have an initializer, we're not invoking it and then testing calling contract functions
     // because contracts depend on aztec-nr, and so by importing a contract we'd be creating a circular dependency.
     // This at least does test that the basics of the deployment mechanism work.
+    assert(first_contract != second_contract);
+}
+
+#[test(should_fail_with = "NullifierTree")]
+unconstrained fn deploy_with_same_salt_and_secret_fails() {
+    let mut env = TestEnvironment::new();
+
+    let opts = DeployOptions::new().with_salt(42).with_secret(100);
+
+    let _ = env.deploy_opts(opts, "../noir-contracts/@test_contract/Test").without_initializer();
+    // This will result in the exact same address preimage and hence same address, and so the initialization
+    // nullifiers will be duplicated.
+    let _ = env.deploy_opts(opts, "../noir-contracts/@test_contract/Test").without_initializer();
+}
+
+#[test]
+unconstrained fn deploy_with_same_salt_does_not_repeat_addresses() {
+    let mut env = TestEnvironment::new();
+
+    let first_contract = env
+        .deploy_opts(DeployOptions::new().with_salt(42).with_secret(100), "../noir-contracts/@test_contract/Test")
+        .without_initializer();
+    let second_contract = env
+        .deploy_opts(DeployOptions::new().with_salt(42).with_secret(200), "../noir-contracts/@test_contract/Test")
+        .without_initializer();
+
+    assert(first_contract != second_contract);
+}
+
+#[test]
+unconstrained fn deploy_with_same_secret_does_not_repeat_addresses() {
+    let mut env = TestEnvironment::new();
+
+    let first_contract = env
+        .deploy_opts(DeployOptions::new().with_salt(42).with_secret(100), "../noir-contracts/@test_contract/Test")
+        .without_initializer();
+    let second_contract = env
+        .deploy_opts(DeployOptions::new().with_salt(43).with_secret(100), "../noir-contracts/@test_contract/Test")
+        .without_initializer();
+
     assert(first_contract != second_contract);
 }

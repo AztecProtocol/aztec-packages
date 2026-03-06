@@ -11,6 +11,7 @@ import {
   isBoundedVecStruct,
   isEthAddressStruct,
   isFunctionSelectorStruct,
+  isOptionStruct,
   isPublicKeysStruct,
   isWrappedFieldStruct,
 } from '@aztec/stdlib/abi';
@@ -54,6 +55,9 @@ function abiTypeToTypescript(type: ABIParameter['type']): string {
         // To make BoundedVec easier to work with, we expect a simple array on the input and then we encode it
         // as a BoundedVec in the ArgumentsEncoder.
         return `${abiTypeToTypescript(type.fields[0].type)}`;
+      }
+      if (isOptionStruct(type)) {
+        return `OptionLike<${abiTypeToTypescript(type.fields[1].type)}>`;
       }
       return `{ ${type.fields.map(f => `${f.name}: ${abiTypeToTypescript(f.type)}`).join(', ')} }`;
     default:
@@ -305,7 +309,7 @@ export async function generateTypescriptContractInterface(input: ContractArtifac
 
 /* eslint-disable */
 import { AztecAddress, CompleteAddress } from '@aztec/aztec.js/addresses';
-import { type AbiType, type AztecAddressLike, type ContractArtifact, EventSelector, decodeFromAbi, type EthAddressLike, type FieldLike, type FunctionSelectorLike, loadContractArtifact, loadContractArtifactForPublic, type NoirCompiledContract, type U128Like, type WrappedFieldLike } from '@aztec/aztec.js/abi';
+import { type AbiType, type AztecAddressLike, type ContractArtifact, EventSelector, decodeFromAbi, type EthAddressLike, type FieldLike, type FunctionSelectorLike, loadContractArtifact, loadContractArtifactForPublic, type NoirCompiledContract, type OptionLike, type U128Like, type WrappedFieldLike } from '@aztec/aztec.js/abi';
 import { Contract, ContractBase, ContractFunctionInteraction, type ContractMethod, type ContractStorageLayout, DeployMethod } from '@aztec/aztec.js/contracts';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr, Point } from '@aztec/aztec.js/fields';

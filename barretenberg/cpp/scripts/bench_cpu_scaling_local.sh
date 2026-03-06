@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # CPU scaling benchmark that runs benchmarks locally
 # This script runs a command multiple times with different HARDWARE_CONCURRENCY values
@@ -70,12 +70,12 @@ extract_bench_time() {
     # Extract time from JSON file using grep and sed
     # JSON format is: {"benchmark_name": time_in_nanoseconds, ...}
     local time_ns=""
-    
+
     if [ -f "$json_file" ]; then
         # Extract the value for the specific benchmark name from JSON
         time_ns=$(grep -oP "\"${bench_name//\\/\\\\}\":\s*\K\d+" "$json_file" 2>/dev/null | head -1)
     fi
-    
+
     # If JSON extraction failed, try to extract from log file (fallback)
     if [ -z "$time_ns" ] && [ -f "${json_file%/bench.json}/output.log" ]; then
         local log_file="${json_file%/bench.json}/output.log"
@@ -123,7 +123,7 @@ for cpu_count in "${CPU_COUNTS[@]}"; do
     # Execute the command locally with HARDWARE_CONCURRENCY environment variable
     # Add --bench_out flag to get JSON output
     HARDWARE_CONCURRENCY=$cpu_count eval "$COMMAND --bench_out $bench_json_file" 2>&1 | tee "$log_file"
-    
+
     end_time=$(date +%s.%N)
     wall_time=$(awk -v e="$end_time" -v s="$start_time" 'BEGIN{printf "%.2f", e-s}')
 
@@ -133,14 +133,14 @@ for cpu_count in "${CPU_COUNTS[@]}"; do
     if [ -z "$bench_time_ns" ] || [ "$bench_time_ns" = "0" ]; then
         echo -e "${RED}Warning: Could not extract timing for '$BENCH_NAME' from JSON${NC}"
         echo -e "${YELLOW}Check the JSON file: $bench_json_file${NC}"
-        
+
         # Show what's in the JSON file for debugging
         if [ -f "$bench_json_file" ]; then
             echo -e "${YELLOW}JSON content (first 500 chars):${NC}"
             head -c 500 "$bench_json_file"
             echo ""
         fi
-        
+
         echo "CPUs: $cpu_count - No timing data found" >> "$RESULTS_FILE"
         continue
     fi
