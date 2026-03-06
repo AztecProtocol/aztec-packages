@@ -177,15 +177,22 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     opts: { closeDelayMs?: number } = {},
   ): Promise<MerkleTreeWriteOperations> {
     const timer = new Timer();
-    const statusStart = this.instance.getQueueStatus();
-    const resp = await this.instance.call(WorldStateMessageType.CREATE_FORK, {
-      latest: blockNumber === undefined,
-      blockNumber: blockNumber ?? BlockNumber.ZERO,
-      canonical: true,
-    });
-    const statusEnd = this.instance.getQueueStatus();
+    const queueMetaOut: { value?: import('./world_state_ops_queue.js').WorldStateQueueMetadata } = {};
+    const resp = await this.instance.call(
+      WorldStateMessageType.CREATE_FORK,
+      {
+        latest: blockNumber === undefined,
+        blockNumber: blockNumber ?? BlockNumber.ZERO,
+        canonical: true,
+      },
+      undefined,
+      undefined,
+      queueMetaOut,
+    );
+    const queueMeta = queueMetaOut.value;
     this.log.info(
-      `World state fork at block ${resp.blockNumber} created in ${resp.totalTimeMs}ms (e2e=${timer.ms().toFixed(0)}ms)`,
+      `World state fork at block ${resp.blockNumber} created in ${resp.totalTimeMs}ms` +
+        ` (queueWait=${queueMeta?.queueWaitMs ?? 0}ms, e2e=${timer.ms().toFixed(0)}ms)`,
       {
         forkId: resp.forkId,
         blockNumber: resp.blockNumber,
@@ -195,8 +202,10 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         messageTreeTimeMs: resp.messageTreeTimeMs,
         archiveTreeTimeMs: resp.archiveTreeTimeMs,
         cppTotalTimeMs: resp.totalTimeMs,
-        queueStatusStart: statusStart,
-        queueStatusEnd: statusEnd,
+        queueWaitMs: queueMeta?.queueWaitMs,
+        blockedByInFlight: queueMeta?.blockedByInFlight,
+        blockedByInFlightMutating: queueMeta?.blockedByInFlightMutating,
+        blockedByOps: queueMeta?.blockedByOps,
       },
     );
     return new MerkleTreesForkFacade(

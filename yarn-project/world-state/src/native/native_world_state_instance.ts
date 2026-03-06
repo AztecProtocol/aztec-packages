@@ -27,7 +27,11 @@ import {
   isWithForkId,
   isWithRevision,
 } from './message.js';
-import { WorldStateOpsQueue, type WorldStateOpsQueueStatus } from './world_state_ops_queue.js';
+import {
+  WorldStateOpsQueue,
+  type WorldStateOpsQueueStatus,
+  type WorldStateQueueMetadata,
+} from './world_state_ops_queue.js';
 
 const MAX_WORLD_STATE_THREADS = +(process.env.HARDWARE_CONCURRENCY || '16');
 
@@ -155,6 +159,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
     // allows for the pre-processing of responses on the job queue before being passed back
     responseHandler = (response: WorldStateResponse[T]): WorldStateResponse[T] => response,
     errorHandler = (_: string) => {},
+    queueMetaOut?: { value?: WorldStateQueueMetadata },
   ): Promise<WorldStateResponse[T]> {
     // Here we determine which fork the request is being executed against and whether it requires uncommitted data
     // We use the fork Id to select the appropriate request queue and the uncommitted data flag to pass to the queue
@@ -185,7 +190,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
     }
 
     // Enqueue the request and wait for the response
-    const response = await requestQueue.execute(
+    const { result: response, queueMeta } = await requestQueue.execute(
       async () => {
         assert.notEqual(messageType, WorldStateMessageType.CLOSE, 'Use close() to close the native instance');
         assert.equal(this.open, true, 'Native instance is closed');
@@ -201,6 +206,10 @@ export class NativeWorldState implements NativeWorldStateInstance {
       messageType,
       committedOnly,
     );
+
+    if (queueMetaOut) {
+      queueMetaOut.value = queueMeta;
+    }
 
     // If the request was to delete the fork then we clean it up here
     if (messageType === WorldStateMessageType.DELETE_FORK) {
