@@ -161,7 +161,7 @@ mod test {
     use crate::protocol::address::AztecAddress;
 
     #[test]
-    unconstrained fn do_sync_state_skips_empty_logs() {
+    unconstrained fn do_sync_state_can_handle_empty_logs() {
         let env = TestEnvironment::new();
 
         let contract_address = AztecAddress { inner: 0xdeadbeef };
