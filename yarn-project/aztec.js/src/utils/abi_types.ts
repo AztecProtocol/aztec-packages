@@ -23,3 +23,10 @@ export type U128Like = bigint | number;
 
 /** Any type that can be converted into a struct with a single `inner` field. */
 export type WrappedFieldLike = { /** Wrapped value */ inner: FieldLike } | FieldLike;
+
+/** Noir `Option<T>` lowered ABI shape, plus ergonomic direct `T | null | undefined` inputs. */
+export type OptionLike<T> =
+  | T
+  | null
+  | undefined
+  | { /** Whether the option is populated */ _is_some: boolean; /** Wrapped value */ _value: T };

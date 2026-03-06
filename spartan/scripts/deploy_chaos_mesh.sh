@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -40,7 +40,7 @@ fi
 DESTROY_CHAOS_MESH=${DESTROY_CHAOS_MESH:-false}
 CREATE_CHAOS_MESH=${CREATE_CHAOS_MESH:-true}
 
-if [[ -z "${ENABLE_SAFE_MODE:-}" ]]; then 
+if [[ -z "${ENABLE_SAFE_MODE:-}" ]]; then
   if [[ "$CLUSTER" == "kind" ]]; then
     ENABLE_SAFE_MODE="false"
   else
