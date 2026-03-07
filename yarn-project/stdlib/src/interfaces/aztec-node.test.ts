@@ -537,6 +537,10 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve([]);
   }
 
+  getCheckpointsDataForEpoch(_epochNumber: EpochNumber) {
+    return Promise.resolve([]);
+  }
+
   findLeavesIndexes(
     referenceBlock: BlockParameter,
     treeId: MerkleTreeId,
