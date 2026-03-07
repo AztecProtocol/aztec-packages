@@ -40,11 +40,9 @@ function setup_environment {
     chmod 600 ~/.ssh/build_instance_key
     echo "SSH key configured"
   fi
-  # Validate instance profile and security group for SSM mode.
+  # Log SSM mode settings (defaults are baked into aws_request_instance_type).
   if [ "${CI_USE_SSH:-0}" -eq 0 ]; then
-    : "${CI3_INSTANCE_PROFILE_NAME:?CI3_INSTANCE_PROFILE_NAME must be set for SSM mode}"
-    : "${CI3_SECURITY_GROUP_ID:?CI3_SECURITY_GROUP_ID must be set}"
-    echo "SSM mode: using instance profile $CI3_INSTANCE_PROFILE_NAME"
+    echo "SSM mode: instance profile ${CI3_INSTANCE_PROFILE_NAME:-ci3-build-instance-profile}, SG ${CI3_SECURITY_GROUP_ID:-sg-01fe61a1c1aaeb393}"
   fi
 }
 
