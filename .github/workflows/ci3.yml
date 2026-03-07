@@ -43,6 +43,9 @@ jobs:
     # (github.event.pull_request.head.repo.fork resolves to nil if not a pull request)
     if: github.event.pull_request.head.repo.fork != true && (github.event.pull_request.draft == false || contains(github.event.pull_request.labels.*.name, 'ci-draft'))
     environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'master' || '' }}
+    permissions:
+      id-token: write   # required for OIDC assume-role with AWS
+      contents: read
     steps:
       - name: Remove wakeup label
         if: contains(github.event.pull_request.labels.*.name, 'ci-wakeup-pr-after-merge')
@@ -57,7 +60,15 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # Fetch PR commits depth (we'll deepen by 1 in squash script if needed)
           fetch-depth: ${{ github.event.pull_request.commits || 1 }}
-          persist-credentials: false
+          persist-credentials: true   # Required for bootstrap_ssm's git fetch
+
+      - name: Configure AWS credentials (OIDC)
+        if: vars.CI_USE_SSH != '1' || contains(github.event.pull_request.labels.*.name, 'ci-ssm')
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+          role-session-name: ci3-${{ github.run_id }}
 
       - name: Determine CI Mode
         env:
@@ -69,8 +80,10 @@ jobs:
 
       - name: Run
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          CI_USE_SSH: ${{ (vars.CI_USE_SSH == '1' && !contains(github.event.pull_request.labels.*.name, 'ci-ssm')) && '1' || '0' }}
+          # Only override AWS creds for SSH mode; omit for SSM so OIDC credentials pass through.
+          AWS_ACCESS_KEY_ID: ${{ (vars.CI_USE_SSH == '1' && !contains(github.event.pull_request.labels.*.name, 'ci-ssm')) && secrets.AWS_ACCESS_KEY_ID || env.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ (vars.CI_USE_SSH == '1' && !contains(github.event.pull_request.labels.*.name, 'ci-ssm')) && secrets.AWS_SECRET_ACCESS_KEY || env.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
@@ -96,14 +109,14 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_ACTOR: ${{ github.actor }}
+          CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
+          CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
+          AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
         # NOTE: $CI_MODE is set in the Determine CI Mode step.
         run: ./.github/ci3.sh $CI_MODE
 
       - name: Post-Actions
         env:
-          # For handling success cache, squash-and-merge, and benchmarks.
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           SHOULD_SQUASH_MERGE: ${{ contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge') && '1' || '0' }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -153,6 +166,9 @@ jobs:
   # Runs two test sets in parallel.
   ci-network-scenario:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -173,11 +189,16 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+          role-session-name: ci3-network-scenario-${{ github.run_id }}
+
       - name: Run Network Scenarios
         timeout-minutes: 350
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
@@ -186,6 +207,8 @@ jobs:
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
+          CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
           RUN_ID: ${{ github.run_id }}
           AWS_SHUTDOWN_TIME: 360
           NO_SPOT: 1
@@ -210,12 +233,12 @@ jobs:
         # Clean up if this is a CI label or nightly.
         if: always() && (!startsWith(github.ref, 'refs/tags/v') || contains(github.ref_name, '-nightly.'))
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
+          CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
           NO_SPOT: 1
         run: |
           ./.github/ci3.sh network-teardown next-scenario "${NAMESPACE}-${{ matrix.test_set }}" || true
@@ -225,9 +248,6 @@ jobs:
       #############
       - name: Download deploy benchmarks
         if: always() && startsWith(github.ref, 'refs/tags/v')
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           if ./ci.sh gh-deploy-bench; then
             echo "ENABLE_DEPLOY_BENCH=1" >> $GITHUB_ENV
@@ -357,6 +377,9 @@ jobs:
   # One-time use: label is removed after the job runs.
   ci-network-kind:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     needs: ci
     if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'ci-network-kind')
     timeout-minutes: 180 # 3 hours for KIND tests
@@ -371,16 +394,23 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+          role-session-name: ci3-network-kind-${{ github.run_id }}
+
       - name: Run KIND Test
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
+          CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
           RUN_ID: ${{ github.run_id }}
           AWS_SHUTDOWN_TIME: 180
         run: |

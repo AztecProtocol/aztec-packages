@@ -3,8 +3,10 @@
 # CI mode is passed as first argument.
 set -euo pipefail
 
-: "${AWS_ACCESS_KEY_ID:?required}"
-: "${AWS_SECRET_ACCESS_KEY:?required}"
+if [ "${CI_USE_SSH:-0}" -eq 1 ]; then
+  : "${AWS_ACCESS_KEY_ID:?required for SSH mode}"
+  : "${AWS_SECRET_ACCESS_KEY:?required for SSH mode}"
+fi
 : "${GITHUB_TOKEN:?required}"
 
 CI_MODE="${1:?CI_MODE must be provided as first argument}"
@@ -31,11 +33,18 @@ function setup_environment {
   fi
   # Setup SSH key for connecting to EC2 instances
   # Note: The key is used to SSH into instances but is only copied INTO instances when CI_USE_BUILD_INSTANCE_KEY=1 (internal CI only)
-  if [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
+  # SSH key is only needed when using the SSH bootstrap path.
+  if [ "${CI_USE_SSH:-0}" -eq 1 ] && [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
     mkdir -p ~/.ssh
     echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
     chmod 600 ~/.ssh/build_instance_key
     echo "SSH key configured"
+  fi
+  # Validate instance profile and security group for SSM mode.
+  if [ "${CI_USE_SSH:-0}" -eq 0 ]; then
+    : "${CI3_INSTANCE_PROFILE_NAME:?CI3_INSTANCE_PROFILE_NAME must be set for SSM mode}"
+    : "${CI3_SECURITY_GROUP_ID:?CI3_SECURITY_GROUP_ID must be set}"
+    echo "SSM mode: using instance profile $CI3_INSTANCE_PROFILE_NAME"
   fi
 }
 
@@ -74,6 +83,7 @@ function handle_release_pr {
   github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
   git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${github_repository}"
   local tag_name="v0.0.1-commit.$(git rev-parse --short HEAD)"
+  git config --unset-all http.https://github.com/.extraheader || true
   git tag "${tag_name}"
   git push origin "${tag_name}"
   echo "Created and pushed tag: ${tag_name}"
