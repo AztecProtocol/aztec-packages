@@ -59,9 +59,12 @@ pub contract Claim {
         // Given that there is only 1 state variable in the Crowdfunding contract we don't need to constrain the storage
         // slot of the note as there is no risk of claiming with a note that is not a donation note.
 
-        // 4) Consume the claim of this note, ensuring the reward can be claimed only once with the given note.
+        // 4) Consume the claim of this note, ensuring the reward can be claimed only once with the given note. Each
+        // claim being tied to their owner results in unlinkability of the claim's nullifier and the underlying note
+        // hash via the owner's nullifier hiding key (`nhk`).
+        //
         // Note: we're using the note's hash as the claim identifier, as it serves as a unique identifier (because we
-        // know the know is settled, and hence its note hash unique). This is not the same thing as nullifying the note
+        // know the note is settled, and hence its note hash unique). This is not the same thing as nullifying the note
         // however, which can only be done from the contract that emitted the note. From the point of view of the
         // Crowdfunding contract, the note is still active.
         let note_hash_for_nullification =
