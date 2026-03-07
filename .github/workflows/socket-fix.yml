@@ -46,7 +46,6 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           SOCKET_SECURITY_API_TOKEN: ${{ secrets.SOCKET_SECURITY_API_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GITHUB_REF_NAME: ${{ github.ref_name }}

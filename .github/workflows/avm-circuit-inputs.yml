@@ -33,18 +33,9 @@ jobs:
           echo "Tarball name: $TARBALL_NAME"
 
       - name: Collect AVM Circuit Inputs
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
         run: |
           set -eu
-          # Setup SSH key for EC2 access
-          mkdir -p ~/.ssh
-          echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
-          chmod 600 ~/.ssh/build_instance_key
-
-          # Run via ci.sh which spins up an EC2 instance and runs ./bootstrap.sh ci-avm-inputs-collection
+          # Run via ci.sh which spins up an EC2 instance (via SSM) and runs ./bootstrap.sh ci-avm-inputs-collection
           ./ci.sh avm-inputs-collection
 
       - name: Download and attach inputs as artifact
@@ -74,18 +65,9 @@ jobs:
           persist-credentials: false
 
       - name: Run AVM Check-Circuit
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
         run: |
           set -eu
-          # Setup SSH key for EC2 access
-          mkdir -p ~/.ssh
-          echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
-          chmod 600 ~/.ssh/build_instance_key
-
-          # Run via ci.sh which spins up an EC2 instance and runs ./bootstrap.sh ci-avm-check-circuit
+          # Run via ci.sh which spins up an EC2 instance (via SSM) and runs ./bootstrap.sh ci-avm-check-circuit
           ./ci.sh avm-check-circuit
 
       - name: Notify Slack on failure

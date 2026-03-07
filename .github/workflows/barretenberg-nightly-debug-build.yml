@@ -24,7 +24,6 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           RUN_ID: ${{ github.run_id }}
         run: |
           ./.github/ci3.sh barretenberg-debug
