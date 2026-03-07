@@ -1,6 +1,6 @@
 # @aztec/pxe
 
-Version: v5.0.0-nightly.20260305
+Version: v5.0.0-nightly.20260307
 
 ## Quick Import Reference
 
@@ -407,7 +407,7 @@ A filter used to fetch notes.
 
 ### ORACLE_VERSION
 ```typescript
-type ORACLE_VERSION = 12
+type ORACLE_VERSION = 14
 ```
 
 ### PXEConfig
@@ -479,7 +479,7 @@ This package references types from other Aztec packages:
 - `BlockNumber`, `BufferReader`, `ConfigMappingsType`, `Fr`, `Logger`, `LoggerBindings`, `MembershipWitness`
 
 **@aztec/kv-store**
-- `AztecAsyncKVStore`, `DataStoreConfig`
+- `AztecAsyncKVStore`
 
 **@aztec/stdlib**
-- `AztecAddress`, `AztecNode`, `BlockHeader`, `ChainConfig`, `CompleteAddress`, `ContractArtifact`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractInstance`, `ContractInstanceWithAddress`, `DataInBlock`, `DebugLog`, `EventSelector`, `ExtendedDirectionalAppTaggingSecret`, `FunctionAbi`, `FunctionArtifactWithContractName`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `InTx`, `Note`, `NoteDao`, `NoteStatus`, `PreTag`, `SimulationError`, `TxExecutionRequest`, `TxHash`, `TxProfileResult`, `TxProvingResult`, `TxSimulationResult`, `UtilityExecutionResult`
+- `AztecAddress`, `AztecNode`, `BlockHeader`, `ChainConfig`, `CompleteAddress`, `ContractArtifact`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractInstance`, `ContractInstanceWithAddress`, `DataInBlock`, `DataStoreConfig`, `DebugLog`, `EventSelector`, `ExtendedDirectionalAppTaggingSecret`, `FunctionAbi`, `FunctionArtifactWithContractName`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `InTx`, `Note`, `NoteDao`, `NoteStatus`, `PreTag`, `SimulationError`, `TxExecutionRequest`, `TxHash`, `TxProfileResult`, `TxProvingResult`, `TxSimulationResult`, `UtilityExecutionResult`

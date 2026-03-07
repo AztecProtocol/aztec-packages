@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: v5.0.0-nightly.20260305
+Version: v5.0.0-nightly.20260307
 
 ## Quick Import Reference
 
@@ -97,7 +97,7 @@ new BatchCall(wallet: Wallet, interactions: ExecutionPayload | BaseContractInter
 **Methods**
 - `getExecutionPayloads() => Promise<ExecutionPayload[]>`
 - `request(options: RequestInteractionOptions) => Promise<ExecutionPayload>` - Returns an execution request that represents this operation.
-- `send<TReturn>(options: SendInteractionOptionsWithoutWait) => Promise<TReturn>` - Sends a transaction to the contract function with the specified options. By default, waits for the transaction to be mined and returns the receipt (or custom type).
+- `send<TReturn>(options: SendInteractionOptionsWithoutWait) => Promise<TxSendResultMined<TReturn>>` - Sends a transaction to the contract function with the specified options. By default, waits for the transaction to be mined and returns the receipt (or custom type).
 - `simulate(options: SimulateInteractionOptions) => Promise<any>` - Simulates/executes the batch, supporting private, public and utility functions. Although this is a single interaction with the wallet, private and public functions will be grouped into a single ExecutionPayload that the wallet will simulate as a single transaction. Utility function calls will be executed one by one.
 
 ### Capsule
@@ -199,8 +199,8 @@ new ContractFunctionInteraction(wallet: Wallet, contractAddress: AztecAddress, f
 - `getFunctionCall() => Promise<FunctionCall>` - Returns the encoded function call wrapped by this interaction Useful when generating authwits
 - `profile(options: ProfileInteractionOptions) => Promise<TxProfileResult>` - Simulate a transaction and profile the gate count for each function in the transaction.
 - `request(options: RequestInteractionOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain.
-- `send<TReturn>(options: SendInteractionOptionsWithoutWait) => Promise<TReturn>` - Sends a transaction to the contract function with the specified options. By default, waits for the transaction to be mined and returns the receipt (or custom type).
-- `simulate<T extends SimulateInteractionOptions>(options: T) => Promise<SimulationReturn<Exclude<T["fee"], undefined>["estimateGas"]>>` - Simulate a transaction and get information from its execution. Differs from prove in a few important ways: 1. It returns the values of the function execution, plus additional metadata if requested 2. It supports `utility`, `private` and `public` functions
+- `send<TReturn>(options: SendInteractionOptionsWithoutWait) => Promise<TxSendResultMined<TReturn>>` - Sends a transaction to the contract function with the specified options. By default, waits for the transaction to be mined and returns the receipt (or custom type).
+- `simulate(options: SimulateInteractionOptions) => Promise<SimulationResult>` - Simulate a transaction and get information from its execution. Differs from prove in a few important ways: 1. It returns the values of the function execution, plus additional metadata if requested 2. It supports `utility`, `private` and `public` functions
 - `with(options: { authWitnesses?: AuthWitness[]; capsules?: Capsule[]; extraHashedArgs?: HashedValues[] }) => ContractFunctionInteraction` - Augments this ContractFunctionInteraction with additional metadata, such as authWitnesses, capsules, and extraHashedArgs. This is useful when creating a "batteries included" interaction, such as registering a contract class with its associated capsule instead of having the user provide them externally.
 
 ### DeployAccountMethod
@@ -235,8 +235,8 @@ new DeployAccountMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: Contra
 - `profile(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
 - `register(options?: RequestDeployOptions) => Promise<TContract>` - Adds this contract to the wallet and returns the Contract object.
 - `request(opts?: RequestDeployAccountOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain.
-- `send(options: DeployOptionsWithoutWait) => Promise<TContract>` - Send a contract deployment transaction (initialize and/or publish) using the provided options. By default, waits for the transaction to be mined and returns the deployed contract instance.
-- `simulate(options: SimulateDeployOptions) => Promise<{ estimatedGas: Pick<GasSettings, "gasLimits" | "teardownGasLimits">; offchainEffects: OffchainEffect[]; ... }>` - Simulate the deployment
+- `send(options: DeployOptionsWithoutWait) => Promise<DeployResultMined<TContract>>` - Send a contract deployment transaction (initialize and/or publish) using the provided options. By default, waits for the transaction to be mined and returns the deployed contract instance.
+- `simulate(options: SimulateDeployOptions) => Promise<SimulationResult>` - Simulate the deployment
 - `with(options: { authWitnesses?: AuthWitness[]; capsules?: Capsule[] }) => DeployMethod` - Augments this DeployMethod with additional metadata, such as authWitnesses and capsules.
 
 ### DeployMethod
@@ -271,8 +271,8 @@ new DeployMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: ContractArtif
 - `profile(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
 - `register(options?: RequestDeployOptions) => Promise<TContract>` - Adds this contract to the wallet and returns the Contract object.
 - `request(options: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain.
-- `send(options: DeployOptionsWithoutWait) => Promise<TContract>` - Send a contract deployment transaction (initialize and/or publish) using the provided options. By default, waits for the transaction to be mined and returns the deployed contract instance.
-- `simulate(options: SimulateDeployOptions) => Promise<{ estimatedGas: Pick<GasSettings, "gasLimits" | "teardownGasLimits">; offchainEffects: OffchainEffect[]; ... }>` - Simulate the deployment
+- `send(options: DeployOptionsWithoutWait) => Promise<DeployResultMined<TContract>>` - Send a contract deployment transaction (initialize and/or publish) using the provided options. By default, waits for the transaction to be mined and returns the deployed contract instance.
+- `simulate(options: SimulateDeployOptions) => Promise<SimulationResult>` - Simulate the deployment
 - `with(options: { authWitnesses?: AuthWitness[]; capsules?: Capsule[] }) => DeployMethod` - Augments this DeployMethod with additional metadata, such as authWitnesses and capsules.
 
 ### EventSelector
@@ -861,9 +861,9 @@ new Tx(txHash: TxHash, data: PrivateKernelTailCircuitPublicInputs, chonkProof: C
 - `generateP2PMessageIdentifier() => Promise<Buffer32>`
 - `getCalldataMap() => Map<string, Fr[]>`
 - `getContractClassLogs() => ContractClassLog[]`
-- `getEstimatedPrivateTxEffectsSize() => number` - Estimates the tx size based on its private effects. Note that the actual size of the tx after processing will probably be larger, as public execution would generate more data.
 - `getGasSettings() => GasSettings`
 - `getNonRevertiblePublicCallRequestsWithCalldata() => PublicCallRequestWithCalldata[]`
+- `getPrivateTxEffectsSizeInFields() => number` - Returns the number of fields this tx's effects will occupy in the blob, based on its private side effects only. Accurate for txs without public calls. For txs with public calls, the actual size will be larger due to public execution outputs.
 - `getPublicCallRequestsWithCalldata() => PublicCallRequestWithCalldata[]`
 - `getPublicLogs(logsSource: L2LogsSource) => Promise<GetPublicLogsResponse>` - Gets public logs emitted by this tx.
 - `getRevertiblePublicCallRequestsWithCalldata() => PublicCallRequestWithCalldata[]`
@@ -1286,11 +1286,23 @@ function deriveMasterIncomingViewingSecretKey(secretKey: Fr) => Fq
 function deriveMasterNullifierHidingKey(secretKey: Fr) => Fq
 ```
 
+### emptyOffchainOutput
+```typescript
+function emptyOffchainOutput() => OffchainOutput
+```
+Returns an empty `OffchainOutput` (no effects, no messages).
+
 ### encodeArguments
 ```typescript
 function encodeArguments(abi: FunctionAbi, args: any[]) => Fr[]
 ```
 Encodes all the arguments for a function call.
+
+### extractOffchainOutput
+```typescript
+function extractOffchainOutput(effects: OffchainEffect[]) => OffchainOutput
+```
+Splits an array of offchain effects into decoded offchain messages and remaining effects. Effects whose data starts with `OFFCHAIN_MESSAGE_IDENTIFIER` are parsed as messages and removed from the effects array.
 
 ### generateClaimSecret
 ```typescript
@@ -1567,11 +1579,17 @@ type DeployOptions = DeployOptionsWithoutWait & { wait?: W }
 ```
 Extends the deployment options with the required parameters to send the transaction.
 
+### DeployResultMined
+```typescript
+type DeployResultMined = { contract: TContract; receipt: DeployTxReceipt<TContract> } & OffchainOutput
+```
+Result of deploying a contract when waiting for mining (default case).
+
 ### DeployReturn
 ```typescript
 type DeployReturn = unknown
 ```
-Represents the result type of deploying a contract. - If wait is NO_WAIT, returns TxHash immediately. - If wait has returnReceipt: true, returns DeployTxReceipt after waiting. - Otherwise (undefined or DeployWaitOptions without returnReceipt), returns TContract after waiting.
+Conditional return type for deploy based on wait options.
 
 ### DeployTxReceipt
 ```typescript
@@ -1674,6 +1692,24 @@ type NoWait = typeof NO_WAIT
 ```
 Type for the NO_WAIT constant.
 
+### OffchainMessage
+```typescript
+type OffchainMessage = unknown
+```
+A message emitted during execution or proving, to be delivered offchain.
+
+### OffchainOutput
+```typescript
+type OffchainOutput = unknown
+```
+Groups all unproven outputs from private execution that are returned to the client.
+
+### OptionLike
+```typescript
+type OptionLike = T | null | undefined | { _is_some: boolean; _value: T }
+```
+Noir `Option<T>` lowered ABI shape, plus ergonomic direct `T | null | undefined` inputs.
+
 ### PartialAddress
 ```typescript
 type PartialAddress = Fr
@@ -1756,7 +1792,7 @@ Options for sending/proving interactions with the wallet. Overrides the fee sett
 ```typescript
 type SendReturn = unknown
 ```
-Represents the result type of sending a transaction. If `wait` is NO_WAIT, returns TxHash immediately without waiting. If `wait` is undefined or WaitOpts, returns TReturn (defaults to TxReceipt) after waiting.
+Represents the result type of sending a transaction. If `wait` is NO_WAIT, returns TxSendResultImmediate. Otherwise returns TxSendResultMined.
 
 ### SimulateDeployOptions
 ```typescript
@@ -1776,17 +1812,29 @@ type SimulateOptions = Omit<SimulateInteractionOptions, "fee"> & { fee?: GasSett
 ```
 Options for simulating interactions with the wallet. Overrides the fee settings of an interaction with a simplified version that only hints at the wallet whether the interaction contains a fee payment method or not
 
-### SimulationReturn
+### SimulationResult
 ```typescript
-type SimulationReturn = unknown
+type SimulationResult = { estimatedGas?: Pick<GasSettings, "gasLimits" | "teardownGasLimits">; result: any; stats?: SimulationStats } & OffchainOutput
 ```
-Represents the result type of a simulation. By default, it will just be the return value of the simulated function If `includeMetadata` is set to true in `SimulateInteractionOptions` on the input of `simulate(...)`, it will provide extra information.
+Represents the result of a simulation. Always includes the return value and offchain output. When `includeMetadata` or `fee.estimateGas` is set, also includes stats and gas estimation.
 
 ### SortedTxStatuses
 ```typescript
 type SortedTxStatuses = TxStatus[]
 ```
 Tx status sorted by finalization progress.
+
+### TxSendResultImmediate
+```typescript
+type TxSendResultImmediate = { txHash: TxHash } & OffchainOutput
+```
+Result of sendTx when not waiting for mining.
+
+### TxSendResultMined
+```typescript
+type TxSendResultMined = { receipt: TReturn } & OffchainOutput
+```
+Result of sendTx when waiting for mining.
 
 ### U128Like
 ```typescript
