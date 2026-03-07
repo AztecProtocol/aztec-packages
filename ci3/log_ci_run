@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
-status=${1:-RUNNING}
-key=${2:-}
+key=${1:?usage: log_ci_run <key> [status]}
+status=${2:-RUNNING}
 
 if [ -z "${RUN_ID:-}" ]; then
   echo_stderr "No RUN_ID set in log_ci_run. This ci run won't be seen on the dashboards."
@@ -26,8 +26,7 @@ else
   range_key="ci-run-$CI_DASHBOARD"
 fi
 
-if [ -z "$key" ]; then
-  key=$(date +%s%3N)
+if [ "$status" = "RUNNING" ]; then
   msg=$(git log -1 --pretty=format:"%s")
   author="$(git log -1 --pretty=format:"%an")"
   name=$REF_NAME
