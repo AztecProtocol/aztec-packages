@@ -11,6 +11,7 @@ export CI=1
 # Set to 0 in ci3-external.yml for external contributors who don't have SSH access.
 export CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1}
 
+export CI_LOG_ID=${CI_LOG_ID:-$(date +%s%3N)}
 export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-60}
 
 if [ "$arch" == "arm64" ]; then
@@ -136,7 +137,8 @@ container_script=$(
   git checkout FETCH_HEAD
   git checkout -b \$REF_NAME
   source ci3/source
-  ci_log_id=\$(log_ci_run)
+  ci_log_id=\$CI_LOG_ID
+  log_ci_run \$ci_log_id
 
   if [ -n "\$DOCKERHUB_PASSWORD" ]; then
     echo \$DOCKERHUB_PASSWORD | docker login -u \$DOCKERHUB_USERNAME --password-stdin
@@ -179,9 +181,9 @@ container_script=$(
 
   case \$code in
     155) ;;
-    0) log_ci_run PASSED \$ci_log_id ;;
+    0) log_ci_run \$ci_log_id PASSED ;;
     *)
-      log_ci_run FAILED \$ci_log_id
+      log_ci_run \$ci_log_id FAILED
       merge_train_failure_slack_notify \$ci_log_id
       release_canary_slack_notify \$ci_log_id
       ;;
@@ -294,6 +296,7 @@ function run {
         -e GOOGLE_APPLICATION_CREDENTIALS="${GOOGLE_APPLICATION_CREDENTIALS}" \
         -e NETWORK_ENV_FILE="${NETWORK_ENV_FILE}" \
         -e CI=1 \
+        -e CI_LOG_ID=${CI_LOG_ID:-} \
         -e RUN_ID=${RUN_ID:-} \
         -e JOB_ID=${JOB_ID:-} \
         -e REF_NAME=${REF_NAME:-} \

@@ -11,7 +11,7 @@ if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
   if nc -z $CI_REDIS 6379 &>/dev/null; then
     # Redis is found at given host, we're done.
     export CI_REDIS_AVAILABLE=1
-  elif [ -f ~/.ssh/build_instance_key ]; then
+  elif [ -f ~/.ssh/build_instance_key ] && [ "${CI_SSM_MODE:-0}" -eq 0 ]; then
     # We have the build_instance_key.
     # Attempt to open a port to the remote redis cache via ssh through the bastion.
     echo_stderr "Opening port to remote redis..."
