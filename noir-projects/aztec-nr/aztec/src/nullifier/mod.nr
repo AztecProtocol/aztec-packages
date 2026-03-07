@@ -27,5 +27,23 @@
 //! to
 //! use the contract they must prove that it has been initialized, and this requires them being able to compute the
 //! initialization nullifier.
-
+//!
+//! ## Nullfier Creation
+//!
+//! The low-level mechanisms to create new nullifiers are [`crate::context::PrivateContext::push_nullifier`] and
+//! [`crate::context::PublicContext::push_nullifier`], but these require care and can be hard to use correctly.
+//! Higher-level abstractions exist which safely create nullifiers, such as [`crate::note::lifecycle::destroy_note`]
+//! and
+//! [`crate::state_vars::SingleUseClaim`].
+//!
+//! ## Reading Nullifiers
+//!
+//! Private functions can prove that nullifiers have been created via
+//! [`crate::context::PrivateContext::assert_nullifier_exists`] and
+//! [`crate::history::nullifier::assert_nullifier_existed_by`], but the only general mechanism to privately prove that
+//! a
+//! nullifier _does not_ exist is to create it - which can only be done once.
+//!
+//! Public function on the other hand can prove both nullifier existence and non-existence via
+//! [`crate::context::PublicContext::nullifier_exists_unsafe`].
 pub mod utils;
