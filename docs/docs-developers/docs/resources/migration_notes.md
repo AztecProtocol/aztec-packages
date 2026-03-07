@@ -9,6 +9,28 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] `TxReceipt` now includes `epochNumber`
+
+`TxReceipt` now includes an `epochNumber` field that indicates which epoch the transaction was included in. This is `undefined` if the transaction hasn't been included in a proven epoch yet.
+
+### [Aztec.js] `computeL2ToL1MembershipWitness` signature changed
+
+The function signature has changed to resolve the epoch internally from a transaction hash, rather than requiring the caller to pass the epoch number.
+
+**Migration:**
+
+```diff
+- const witness = await computeL2ToL1MembershipWitness(aztecNode, epochNumber, messageHash);
+- // epoch was passed in by the caller
++ const witness = await computeL2ToL1MembershipWitness(aztecNode, messageHash, txHash);
++ // epoch is now available on the returned witness
++ const epoch = witness.epochNumber;
+```
+
+The return type `L2ToL1MembershipWitness` now includes `epochNumber`. An optional `messageIndexInTx` parameter can be passed as the fourth argument to disambiguate when a transaction emits multiple identical L2-to-L1 messages.
+
+**Impact**: All call sites that compute L2-to-L1 membership witnesses must update to the new argument order and extract `epochNumber` from the result instead of passing it in.
+
 ### [Aztec.nr] Removed `get_random_bytes`
 
 The `get_random_bytes` unconstrained function has been removed from `aztec::utils::random`. If you were using it, you can replace it with direct calls to the `random` oracle from `aztec::oracle::random` and convert to bytes yourself.
