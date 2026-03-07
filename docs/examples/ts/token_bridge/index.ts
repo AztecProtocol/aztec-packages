@@ -303,12 +303,11 @@ while (provenBlockNumber < exitReceipt.blockNumber!) {
 console.log("Block proven!\n");
 
 // Compute the membership witness using the message hash and the L2 tx hash
-const witnessResult = await computeL2ToL1MembershipWitness(node, msgLeaf, exitReceipt.txHash);
-const witness = witnessResult!;
-const epoch = witness.epochNumber;
+const witness = await computeL2ToL1MembershipWitness(node, msgLeaf, exitReceipt.txHash);
+const epoch = witness!.epochNumber;
 console.log(`   Epoch for block ${exitReceipt.blockNumber}: ${epoch}`);
 
-const siblingPathHex = witness.siblingPath
+const siblingPathHex = witness!.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);
 // docs:end:get_withdrawal_witness
