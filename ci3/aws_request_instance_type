@@ -28,14 +28,14 @@ fi
 # IamInstanceProfile is only attached in SSM mode (no KEY_NAME = SSM).
 # In SSH mode, the build_instance IAM user lacks iam:PassRole for this role.
 iam_profile_json=""
-if [ -z "${KEY_NAME:-}" ] && [ -n "${CI3_INSTANCE_PROFILE_NAME:-}" ]; then
+if [ -z "${KEY_NAME:-}" ]; then
+  CI3_INSTANCE_PROFILE_NAME=${CI3_INSTANCE_PROFILE_NAME:-ci3-build-instance-profile}
   iam_profile_json="\"IamInstanceProfile\": { \"Name\": \"$CI3_INSTANCE_PROFILE_NAME\" },"
 fi
 
 # In SSM mode use the CI3 security group; in SSH mode use the original SG (allows port 22).
 if [ -z "${KEY_NAME:-}" ]; then
-  : "${CI3_SECURITY_GROUP_ID:?CI3_SECURITY_GROUP_ID must be set in SSM mode}"
-  sg_id="$CI3_SECURITY_GROUP_ID"
+  sg_id="${CI3_SECURITY_GROUP_ID:-sg-01fe61a1c1aaeb393}"
 else
   sg_id="sg-0ccd4e5df0dcca0c9"
 fi
