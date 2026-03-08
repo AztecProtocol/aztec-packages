@@ -203,9 +203,19 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     // rdp_scalar = RDP(u_0,...,u_{d-1}) = 1 - u_2*...*u_{d-1}.
     const HidingFF rdp_scalar = HidingFF(1) - hiding_rdp.eval_at_1;
 
+    // Send hiding kernel evaluations immediately after the real rounds.
+    // These are P_j(u_0,...,u_{d-1}) — the natural d-variable evaluations without the tau factor.
+    // The verifier will extend them by zero (multiply by τ = ∏(1-u_k)) after drawing virtual-round challenges.
+    // This eliminates any prover freedom in the zero-padded region: the extension is verifier-determined.
+    for (auto [eval, poly] : zip_view(hiding_claimed_evals.get_all(), hiding_partial.get_all())) {
+        eval = poly[0];
+    }
+    transcript->send_to_verifier("Sumcheck:evaluations", hiding_claimed_evals.get_all());
+
     // ==================== Virtual rounds hiding_log_n..JOINT_LOG_N-1 ====================
-    // The hiding polynomials are zero-padded beyond 2^hiding_log_n. The only non-zero edge
-    // is (0,...,0), computed by compute_virtual_contribution and scaled by rdp_scalar.
+    // The hiding polynomials are zero-padded beyond 2^hiding_log_n. The virtual contribution
+    // is compute_virtual_contribution * rdp_scalar. The polynomial values are updated by
+    // (1-u_k) after each round for the virtual contribution computation.
     for (size_t round_idx = hiding_log_n; round_idx < JOINT_LOG_N; round_idx++) {
         U_joint = SumcheckRoundUnivariate::zero();
 
@@ -223,7 +233,7 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
 
         const HidingFF u = send_round(round_idx);
 
-        // Virtual: poly values *= (1 - u_k) to bake in the tau factor.
+        // Virtual: poly values *= (1 - u_k) for the next virtual contribution computation.
         for (auto& poly : hiding_partial.get_all()) {
             if (poly.end_index() > 0) {
                 poly.at(0) *= (HidingFF(1) - u);
@@ -233,19 +243,10 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         update_round_state(round_idx, u);
     }
 
-    // Extract claimed evaluations from the final partially-evaluated tables.
-    // Hiding evaluations now include the tau factor: p_j(u_0,...,u_{d-1}) * ∏_{k=d}^{N-1}(1-u_k).
-    for (auto [eval, poly] : zip_view(hiding_claimed_evals.get_all(), hiding_partial.get_all())) {
-        eval = poly[0];
-    }
+    // Extract and send translator evaluations after all rounds.
     for (auto [eval, poly] : zip_view(trans_claimed_evals.get_all(), translator_partial.get_all())) {
         eval = poly[0];
     }
-
-    // Send hiding kernel evaluations (all polynomials, with ZK masking applied during the loop).
-    transcript->send_to_verifier("Sumcheck:evaluations", hiding_claimed_evals.get_all());
-
-    // Send translator evaluations (full-circuit subset only, as in standalone translator prover).
     transcript->send_to_verifier("Sumcheck:evaluations_translator",
                                  TranslatorFlavor::get_full_circuit_evaluations(trans_claimed_evals));
 

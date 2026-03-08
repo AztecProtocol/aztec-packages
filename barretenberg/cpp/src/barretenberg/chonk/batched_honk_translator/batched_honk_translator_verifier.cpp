@@ -136,16 +136,24 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     GateSeparatorPolynomial<FF> gate_sep(gate_challenges);
 
+    const size_t hiding_log_n = [&]() -> size_t {
+        if constexpr (IsRecursive) {
+            return static_cast<size_t>(hiding_vk_and_hash->vk->log_circuit_size.get_value());
+        } else {
+            return static_cast<size_t>(hiding_vk_and_hash->vk->log_circuit_size);
+        }
+    }();
+
     joint_challenge.clear();
     joint_challenge.reserve(JOINT_LOG_N);
 
     bool verified = true;
 
-    for (size_t round_idx = 0; round_idx < JOINT_LOG_N; round_idx++) {
+    // ==================== Real rounds 0..hiding_log_n-1 ====================
+    for (size_t round_idx = 0; round_idx < hiding_log_n; round_idx++) {
         joint_round.process_round(transcript, joint_challenge, gate_sep, FF(1), round_idx);
         verified = verified && !joint_round.round_failed;
 
-        // Receive translator minicircuit evaluations at round LOG_MINI_CIRCUIT_SIZE - 1 = 12.
         if (round_idx == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
             TransFlavor::set_minicircuit_evaluations(
                 trans_evals,
@@ -154,11 +162,9 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Receive evaluations from both circuits.
-    // -------------------------------------------------------------------------
-
-    // Hiding kernel evaluations.
+    // Receive hiding kernel evaluations: P_j(u_0,...,u_{d-1}) without the tau factor.
+    // These are committed before virtual-round challenges are drawn, eliminating prover
+    // freedom in the zero-padded region.
     {
         auto transcript_evals =
             transcript->template receive_from_prover<std::array<FF, HidingFlavor::NUM_ALL_ENTITIES>>(
@@ -168,7 +174,32 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
         }
     }
 
-    // Translator evaluations (full-circuit subset, then complete from minicircuit + precomputed).
+    // ==================== Virtual rounds hiding_log_n..JOINT_LOG_N-1 ====================
+    for (size_t round_idx = hiding_log_n; round_idx < JOINT_LOG_N; round_idx++) {
+        joint_round.process_round(transcript, joint_challenge, gate_sep, FF(1), round_idx);
+        verified = verified && !joint_round.round_failed;
+
+        if (round_idx == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
+            TransFlavor::set_minicircuit_evaluations(
+                trans_evals,
+                transcript->template receive_from_prover<std::array<FF, TransFlavor::NUM_MINICIRCUIT_EVALUATIONS>>(
+                    "Sumcheck:minicircuit_evaluations"));
+        }
+    }
+
+    // Extend hiding evaluations by zero: multiply each by τ = ∏_{k=d}^{N-1}(1-u_k).
+    // This is the verifier-determined zero-padding extension — the prover has no control over it.
+    {
+        FF tau = FF(1);
+        for (size_t k = hiding_log_n; k < JOINT_LOG_N; k++) {
+            tau *= (FF(1) - joint_challenge[k]);
+        }
+        for (auto& eval : hiding_evals.get_all()) {
+            eval *= tau;
+        }
+    }
+
+    // Receive translator evaluations (full-circuit subset, then complete from minicircuit + precomputed).
     {
         auto get_full_circuit_evals =
             transcript->template receive_from_prover<std::array<FF, TransFlavor::NUM_FULL_CIRCUIT_EVALUATIONS>>(
@@ -194,15 +225,22 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     GateSeparatorPolynomial<FF> final_gate_sep(gate_challenges, joint_challenge);
 
-    // Hiding kernel FRV: evaluations include the tau factor from virtual rounds.
-    //   FRV_hiding = F(evals_with_tau) * pow_β_{17} * RDP_d
+    // Hiding kernel FRV: evaluations now include the verifier-computed tau factor.
     SumcheckVerifierRound<HidingFlavor> hiding_frv_round;
     FF frv_hiding = hiding_frv_round.compute_full_relation_purported_value(
         hiding_evals, hiding_relation_parameters, final_gate_sep, hiding_alphas);
 
-    // Apply row-disabling correction.
-    FF rdp_eval = RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, hiding_padding);
-    frv_hiding *= rdp_eval;
+    // Apply row-disabling polynomial: RDP_d = 1 - u_2·...·u_{d-1}.
+    FF rdp_d = [&]() {
+        if constexpr (IsRecursive) {
+            auto hiding_padding =
+                stdlib::compute_padding_indicator_array<Curve, JOINT_LOG_N>(hiding_vk_and_hash->vk->log_circuit_size);
+            return RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, hiding_padding);
+        } else {
+            return RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, hiding_log_n);
+        }
+    }();
+    frv_hiding *= rdp_d;
 
     // Translator FRV (no row-disabling).
     SumcheckVerifierRound<TransFlavor> trans_frv_round;
