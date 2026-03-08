@@ -30,7 +30,7 @@
     "@aztec/wallets": "latest"
   },
   "devDependencies": {
-    "@playwright/test": "1.49.0",
+    "@playwright/test": "1.55.1",
     "@types/node": "^22.15.17",
     "buffer": "^6.0.3",
     "css-loader": "^6.10.0",

@@ -69,7 +69,7 @@
     "@aztec/stdlib": "workspace:^",
     "change-case": "^5.4.4",
     "pako": "^2.1.0",
-    "playwright": "1.49.0",
+    "playwright": "1.55.1",
     "puppeteer": "^24.22.3",
     "tslib": "^2.4.0"
   },
@@ -82,7 +82,7 @@
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@jest/globals": "^30.0.0",
-    "@playwright/test": "1.49.0",
+    "@playwright/test": "1.55.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
     "@types/pako": "^2.0.3",
