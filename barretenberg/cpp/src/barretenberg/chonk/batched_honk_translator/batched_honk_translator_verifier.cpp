@@ -205,17 +205,23 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
     // Compute joint full-relation purported value.
     // -------------------------------------------------------------------------
 
+    // Translator uses the full JOINT_LOG_N-variable gate separator.
     GateSeparatorPolynomial<FF> final_gate_sep(gate_challenges, joint_challenge);
 
-    // Hiding kernel FRV (instance method, not static).
+    // Hiding kernel FRV: the prover's virtual round contributions carry the tau factor
+    // (∏_{k>=d}(1-u_k)) into the evaluations via compute_virtual_contribution. The evaluations
+    // received from the prover already include tau, so the FRV is:
+    //   FRV_hiding = F(evals_with_tau) * pow_β_{17} * RDP_d
+    // where RDP_d = 1 - u_2*...*u_{d-1} is the d-variable row-disabling correction.
     SumcheckVerifierRound<HidingFlavor> hiding_frv_round;
     FF frv_hiding = hiding_frv_round.compute_full_relation_purported_value(
         hiding_evals, hiding_relation_parameters, final_gate_sep, hiding_alphas);
 
-    // Apply row-disabling correction for hiding kernel.
-    frv_hiding *= RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, hiding_padding);
+    // Apply n-variable row-disabling correction (uses hiding_padding to compute the d-variable RDP).
+    FF rdp_eval = RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, hiding_padding);
+    frv_hiding *= rdp_eval;
 
-    // Translator FRV (no row-disabling; instance method).
+    // Translator FRV (no row-disabling; uses full JOINT_LOG_N-variable gate sep).
     SumcheckVerifierRound<TransFlavor> trans_frv_round;
     FF frv_translator = trans_frv_round.compute_full_relation_purported_value(
         trans_evals, translator_relation_parameters, final_gate_sep, translator_alphas);
@@ -240,7 +246,8 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
     frv_joint += libra_evaluation * libra_challenge;
 
     // Final sumcheck check.
-    verified = joint_round.perform_final_verification(frv_joint) && verified;
+    bool final_check = joint_round.perform_final_verification(frv_joint);
+    verified = final_check && verified;
 
     // -------------------------------------------------------------------------
     // Part 4: Joint Shplemini / KZG PCS
@@ -252,6 +259,10 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
             return Commitment::one();
         }
     }();
+
+    // The prover's hiding evaluations already include the tau factor
+    // (∏_{k=d}^{N-1}(1-u_k)) from the virtual round poly updates, so they represent
+    // the N-variable MLE at the full joint challenge. No additional scaling needed.
 
     // Build joint claim batchers.
     // get_unshifted/get_shifted return RefArrays; construct RefVectors explicitly so we can extend them.
@@ -307,8 +318,10 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
 
     auto pairing_points = HidingFlavor::PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
 
-    vinfo("BatchedHonkTranslatorVerifier: sumcheck verified: ", verified);
-    vinfo("BatchedHonkTranslatorVerifier: consistency checked: ", consistency_checked);
+    auto pairing_check = pairing_points.check();
+    info("BatchedHonkTranslatorVerifier: sumcheck verified: ", verified);
+    info("BatchedHonkTranslatorVerifier: consistency checked: ", consistency_checked);
+    info("BatchedHonkTranslatorVerifier: pairing check: ", pairing_check);
 
     return { pairing_points, verified && consistency_checked };
 }

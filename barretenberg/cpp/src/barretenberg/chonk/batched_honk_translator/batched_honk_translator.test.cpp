@@ -173,3 +173,54 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
     EXPECT_TRUE(result.reduction_succeeded);
     EXPECT_TRUE(result.pairing_points.check());
 }
+
+// =============================================================================
+// BatchedHonkTranslatorTests::ProveAndVerifySmallHiding
+// Tests the variable circuit size path: hiding_log_n < JOINT_LOG_N.
+// =============================================================================
+TEST_F(BatchedHonkTranslatorTests, ProveAndVerifySmallHiding)
+{
+    using HidingFlavor = MegaZKFlavor;
+    using HidingProverInst = ProverInstance_<HidingFlavor>;
+    using HidingVK = HidingFlavor::VerificationKey;
+    using HidingVKAndHash = HidingFlavor::VKAndHash;
+
+    const Fq batching_challenge_v = Fq::random_element();
+    const Fq evaluation_input_x = Fq::random_element();
+
+    auto translator_key = build_translator_key(batching_challenge_v, evaluation_input_x);
+    {
+        auto tmp = std::make_shared<Transcript>();
+        TranslatorProver init_prover(translator_key, tmp);
+    }
+    const Fq accumulated_result = get_accumulated_result(translator_key);
+    const auto op_queue_wire_commitments = commit_op_queue_wires(translator_key);
+
+    // Use a small hiding circuit — NOT padded to JOINT_LOG_N.
+    // hiding_log_n will be well below 17, exercising the variable-size code paths.
+    MegaCircuitBuilder hiding_circuit;
+    GoblinMockCircuits::construct_simple_circuit(hiding_circuit);
+
+    auto hiding_prover_inst = std::make_shared<HidingProverInst>(hiding_circuit);
+    auto hiding_vk_native = std::make_shared<HidingVK>(hiding_prover_inst->get_precomputed());
+    auto hiding_vk_and_hash = std::make_shared<HidingVKAndHash>(hiding_vk_native);
+
+    auto prover_transcript = std::make_shared<Transcript>();
+    BatchedHonkTranslatorProver prover(hiding_prover_inst, hiding_vk_native, translator_key, prover_transcript);
+    auto [hiding_proof, translator_and_joint_proof] = prover.construct_proof();
+
+    auto verifier_transcript = std::make_shared<Transcript>();
+    BatchedHonkTranslatorVerifier verifier(hiding_vk_and_hash,
+                                           verifier_transcript,
+                                           hiding_proof,
+                                           translator_and_joint_proof,
+                                           evaluation_input_x,
+                                           batching_challenge_v,
+                                           accumulated_result,
+                                           op_queue_wire_commitments);
+
+    auto result = verifier.reduce_to_pairing_check();
+
+    EXPECT_TRUE(result.reduction_succeeded);
+    EXPECT_TRUE(result.pairing_points.check());
+}

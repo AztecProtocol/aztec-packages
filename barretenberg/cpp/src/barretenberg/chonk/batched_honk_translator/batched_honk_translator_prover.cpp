@@ -52,8 +52,16 @@ void BatchedHonkTranslatorProver::execute_translator_pre_sumcheck()
  * @details Draws "Sumcheck:alpha" — binding to all pre-sumcheck messages from both circuits — then
  * runs 17 rounds, sending
  *   U_joint(x) = U_hiding(x) + α^{K_H} · U_translator(x) + L(x)
- * where L(x) is the joint Libra masking univariate. The hiding kernel's contribution is zero for
- * round 16 because its PartiallyEvaluatedMultivariates contain zeros in rows >= 2^16.
+ * where L(x) is the joint Libra masking univariate.
+ *
+ * For rounds 0..hiding_log_n-1 ("real rounds"), the hiding contribution is computed via standard
+ * compute_univariate minus compute_disabled_contribution (row-disabling for ZK).
+ *
+ * For rounds hiding_log_n..JOINT_LOG_N-1 ("virtual rounds"), the hiding polynomials are treated as
+ * zero-padded to 2^JOINT_LOG_N. The contribution is computed via compute_virtual_contribution
+ * (evaluating the relation at the only non-zero edge), scaled by the RDP factor from real rounds.
+ * After each virtual round, the partially-evaluated hiding polynomials are updated by multiplying
+ * by (1 - u_k), so the final claimed evaluations include the tau factor ∏(1 - u_k).
  */
 void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
 {
@@ -89,7 +97,8 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     zk_sumcheck_data = ZKData(JOINT_LOG_N, transcript, small_ck);
 
     // Gate separator polynomials:
-    //   Hiding kernel uses gate_challenges[0..hiding_log_n-1].
+    //   Hiding kernel uses gate_challenges[0..hiding_log_n-1] for beta_products (real rounds only).
+    //   During virtual rounds, only betas[] and partial_evaluation_result are accessed.
     //   Translator uses all JOINT_LOG_N challenges.
     GateSeparatorPolynomial<HidingFF> hiding_gate_sep(gate_challenges, hiding_log_n);
     GateSeparatorPolynomial<HidingFF> translator_gate_sep(gate_challenges, JOINT_LOG_N);
@@ -139,11 +148,16 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
 
     joint_challenge.reserve(JOINT_LOG_N);
 
+    // RDP scalar: captured after the last real hiding round so that virtual contributions
+    // can be scaled by RDP(u_0,...,u_{d-1}) = 1 - u_2*...*u_{d-1}.
+    HidingFF rdp_scalar(1);
+
     for (size_t round_idx = 0; round_idx < JOINT_LOG_N; round_idx++) {
         SumcheckRoundUnivariate U_joint = SumcheckRoundUnivariate::zero();
 
-        // --- Hiding kernel contribution (rounds 0..15 only) ---
+        // --- Hiding kernel contribution ---
         if (round_idx < hiding_log_n) {
+            // Real round: compute relation univariate and subtract disabled-row contribution.
             SumcheckRoundUnivariate U_H;
             if (round_idx == 0) {
                 U_H = hiding_round.compute_univariate(hiding_polys, hiding_params, hiding_gate_sep, hiding_alphas);
@@ -154,6 +168,17 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
                 U_H -= hiding_round.compute_disabled_contribution(
                     hiding_partial, hiding_params, hiding_gate_sep, hiding_alphas, round_idx, hiding_rdp);
             }
+            U_joint += U_H;
+        } else {
+            // Virtual round: the hiding polynomials are zero-padded beyond 2^hiding_log_n.
+            // Use compute_virtual_contribution which evaluates the relation at edge (0,...,0)
+            // — the only edge that contributes for a zero-padded polynomial.
+            // Scale by rdp_scalar because the RDP factor from real rounds must be carried through.
+            // The RDP "extended by 0" evaluates to 1 in virtual rounds (the zero-padded region
+            // has no disabled rows), so the only RDP contribution is the scalar from real rounds.
+            SumcheckRoundUnivariate U_H = hiding_round.compute_virtual_contribution(
+                hiding_partial, hiding_params, hiding_gate_sep, hiding_alphas);
+            U_H *= rdp_scalar;
             U_joint += U_H;
         }
 
@@ -191,6 +216,13 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         } else {
             if (round_idx < hiding_log_n) {
                 partially_evaluate_inplace(hiding_partial, round_challenge);
+            } else {
+                // Virtual round: zero-padding update — multiply each poly value by (1 - u_k).
+                for (auto& poly : hiding_partial.get_all()) {
+                    if (poly.end_index() > 0) {
+                        poly.at(0) *= (HidingFF(1) - round_challenge);
+                    }
+                }
             }
             partially_evaluate_inplace(translator_partial, round_challenge);
         }
@@ -203,14 +235,25 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
 
         // Update ZK data and gate separators for the next round.
         zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
-        hiding_rdp.update_evaluations(round_challenge, round_idx);
+
+        // Update RDP only during real rounds; capture scalar after the last real round.
+        if (round_idx < hiding_log_n) {
+            hiding_rdp.update_evaluations(round_challenge, round_idx);
+            if (round_idx + 1 == hiding_log_n) {
+                rdp_scalar = HidingFF(1) - hiding_rdp.eval_at_1;
+            }
+        }
+
         hiding_gate_sep.partially_evaluate(round_challenge);
         translator_gate_sep.partially_evaluate(round_challenge);
-        hiding_round.round_size >>= 1;
+        if (round_idx < hiding_log_n) {
+            hiding_round.round_size >>= 1;
+        }
         translator_round.round_size >>= 1;
     }
 
     // Extract claimed evaluations from the final partially-evaluated tables.
+    // Hiding evaluations now include the tau factor: p_j(u_0,...,u_{d-1}) * ∏_{k=d}^{N-1}(1-u_k).
     for (auto [eval, poly] : zip_view(hiding_claimed_evals.get_all(), hiding_partial.get_all())) {
         eval = poly[0];
     }
