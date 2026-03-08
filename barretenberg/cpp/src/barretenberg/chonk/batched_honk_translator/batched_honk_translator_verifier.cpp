@@ -42,45 +42,46 @@ BatchedHonkTranslatorVerifier_<Curve>::BatchedHonkTranslatorVerifier_(
     }
 }
 
+/**
+ * @brief Verify the hiding kernel's Oink pre-sumcheck phase.
+ * @details Loads the hiding proof, runs OinkVerifier, and returns the verifier commitments.
+ * Populates hiding_relation_parameters.
+ */
 template <typename Curve>
-typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTranslatorVerifier_<
-    Curve>::reduce_to_pairing_check()
+typename BatchedHonkTranslatorVerifier_<Curve>::HidingVerifierCommitments BatchedHonkTranslatorVerifier_<
+    Curve>::verify_hiding_kernel_oink()
 {
-    using HidingShplemini = ShpleminiVerifier_<Curve, HidingFlavor::HasZK>;
-    using ClaimBatcher = ClaimBatcher_<Curve>;
-    using ClaimBatch = typename ClaimBatcher::Batch;
-
-    // -------------------------------------------------------------------------
-    // Part 1: Hiding kernel pre-sumcheck (Oink phase)
-    // -------------------------------------------------------------------------
     transcript->load_proof(hiding_proof);
 
     auto hiding_verifier_instance = std::make_shared<HidingVerifierInstance>(hiding_vk_and_hash);
 
     // Derive num_public_inputs from the Oink-only hiding proof.
-    // hiding_proof contains: vk_hash + public_inputs + witness commitments (Oink data only, no sumcheck/PCS).
     const size_t num_public_inputs = hiding_proof.size() - ProofLength::Oink<HidingFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
 
     OinkVerifier<HidingFlavor> oink_verifier{ hiding_verifier_instance, transcript, num_public_inputs };
     oink_verifier.verify();
 
-    auto& hiding_params = hiding_verifier_instance->relation_parameters;
-    hiding_relation_parameters = hiding_params;
+    hiding_relation_parameters = hiding_verifier_instance->relation_parameters;
 
-    // Hiding kernel verifier commitments.
-    typename HidingFlavor::VerifierCommitments hiding_commitments{ hiding_verifier_instance->get_vk(),
-                                                                   hiding_verifier_instance->witness_commitments };
+    HidingVerifierCommitments hiding_commitments{ hiding_verifier_instance->get_vk(),
+                                                  hiding_verifier_instance->witness_commitments };
     if constexpr (HidingFlavor::HasZK) {
         hiding_commitments.gemini_masking_poly = hiding_verifier_instance->gemini_masking_commitment;
     }
 
-    // -------------------------------------------------------------------------
-    // Part 2: Translator pre-sumcheck (Oink-like phase)
-    // Delegate to TranslatorVerifier_<TransFlavor>::receive_pre_sumcheck(), which:
-    //   - loads translator_proof into the transcript,
-    //   - hashes the VK, sets relation parameters from ECCVM inputs,
-    //   - receives Gemini masking + wire commitments + beta/gamma + z_perm.
-    // -------------------------------------------------------------------------
+    return hiding_commitments;
+}
+
+/**
+ * @brief Verify the translator's pre-sumcheck (Oink-like) phase.
+ * @details Delegates to TranslatorVerifier_::receive_pre_sumcheck(), which loads the translator
+ * proof, hashes the VK, sets relation parameters, and receives wire + permutation commitments.
+ * Populates translator_relation_parameters.
+ */
+template <typename Curve>
+typename BatchedHonkTranslatorVerifier_<Curve>::TransVerifierCommitments BatchedHonkTranslatorVerifier_<
+    Curve>::verify_translator_pre_sumcheck()
+{
     TranslatorVerifier_<TransFlavor> trans_verifier(transcript,
                                                     translator_proof,
                                                     evaluation_input_x,
@@ -89,10 +90,19 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
                                                     op_queue_wire_commitments);
     auto trans_commitments = trans_verifier.receive_pre_sumcheck();
     translator_relation_parameters = trans_verifier.relation_parameters;
+    return trans_commitments;
+}
 
-    // -------------------------------------------------------------------------
-    // Part 3: Joint sumcheck verification
-    // -------------------------------------------------------------------------
+/**
+ * @brief Verify the joint 17-round sumcheck.
+ * @details Draws joint alpha, processes 17 sumcheck rounds, receives evaluations from both circuits,
+ * computes the joint full-relation purported value, and performs final verification.
+ * Populates joint_challenge, hiding_evals, trans_evals, libra_commitments, libra_evaluation, libra_challenge.
+ * @return true if sumcheck verification passed.
+ */
+template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joint_sumcheck()
+{
+    static constexpr size_t JOINT_LOG_N = TranslatorFlavor::CONST_TRANSLATOR_LOG_N; // 17
 
     // Draw joint alpha after all pre-sumcheck commitments from both circuits.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
@@ -107,26 +117,6 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
     auto hiding_alphas = initialize_relation_separator<FF, HidingFlavor::NUM_SUBRELATIONS - 1>(alpha);
     auto translator_alphas = initialize_relation_separator<FF, TransFlavor::NUM_SUBRELATIONS - 1>(alpha);
 
-    static constexpr size_t JOINT_LOG_N = TranslatorFlavor::CONST_TRANSLATOR_LOG_N; // 17
-
-    // Padding indicator arrays:
-    // - Hiding kernel: computed in-circuit from the VK's log_circuit_size.
-    // - Translator: all JOINT_LOG_N ones (full 2^17 circuit, no row disabling).
-    std::vector<FF> hiding_padding = [&]() {
-        if constexpr (IsRecursive) {
-            return stdlib::compute_padding_indicator_array<Curve, JOINT_LOG_N>(
-                hiding_vk_and_hash->vk->log_circuit_size);
-        } else {
-            const size_t hiding_log_n = static_cast<size_t>(hiding_vk_and_hash->vk->log_circuit_size);
-            std::vector<FF> arr(JOINT_LOG_N, FF(0));
-            for (size_t i = 0; i < hiding_log_n; i++) {
-                arr[i] = FF(1);
-            }
-            return arr;
-        }
-    }();
-    std::vector<FF> translator_padding(JOINT_LOG_N, FF(1));
-
     // Draw gate challenges.
     std::vector<FF> gate_challenges(JOINT_LOG_N);
     for (size_t i = 0; i < JOINT_LOG_N; i++) {
@@ -134,25 +124,22 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
     }
 
     // Receive Libra masking commitments.
-    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
+    libra_commitments = {};
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
     // ZK correction: receive Libra:Sum and Libra:Challenge to set initial target sum.
     FF libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
-    FF libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
+    libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
 
     // Initialise the joint sumcheck round verifier.
-    // We use MegaZKFlavor's round verifier to process the 17 joint univariates (same degree 9).
     SumcheckVerifierRound<HidingFlavor> joint_round(libra_total_sum * libra_challenge);
 
     GateSeparatorPolynomial<FF> gate_sep(gate_challenges);
 
-    std::vector<FF> joint_challenge;
+    joint_challenge.clear();
     joint_challenge.reserve(JOINT_LOG_N);
 
     bool verified = true;
-    typename HidingFlavor::AllValues hiding_evals;
-    typename TransFlavor::AllValues trans_evals;
 
     for (size_t round_idx = 0; round_idx < JOINT_LOG_N; round_idx++) {
         joint_round.process_round(transcript, joint_challenge, gate_sep, FF(1), round_idx);
@@ -205,23 +192,19 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
     // Compute joint full-relation purported value.
     // -------------------------------------------------------------------------
 
-    // Translator uses the full JOINT_LOG_N-variable gate separator.
     GateSeparatorPolynomial<FF> final_gate_sep(gate_challenges, joint_challenge);
 
-    // Hiding kernel FRV: the prover's virtual round contributions carry the tau factor
-    // (∏_{k>=d}(1-u_k)) into the evaluations via compute_virtual_contribution. The evaluations
-    // received from the prover already include tau, so the FRV is:
+    // Hiding kernel FRV: evaluations include the tau factor from virtual rounds.
     //   FRV_hiding = F(evals_with_tau) * pow_β_{17} * RDP_d
-    // where RDP_d = 1 - u_2*...*u_{d-1} is the d-variable row-disabling correction.
     SumcheckVerifierRound<HidingFlavor> hiding_frv_round;
     FF frv_hiding = hiding_frv_round.compute_full_relation_purported_value(
         hiding_evals, hiding_relation_parameters, final_gate_sep, hiding_alphas);
 
-    // Apply n-variable row-disabling correction (uses hiding_padding to compute the d-variable RDP).
+    // Apply row-disabling correction.
     FF rdp_eval = RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, hiding_padding);
     frv_hiding *= rdp_eval;
 
-    // Translator FRV (no row-disabling; uses full JOINT_LOG_N-variable gate sep).
+    // Translator FRV (no row-disabling).
     SumcheckVerifierRound<TransFlavor> trans_frv_round;
     FF frv_translator = trans_frv_round.compute_full_relation_purported_value(
         trans_evals, translator_relation_parameters, final_gate_sep, translator_alphas);
@@ -230,15 +213,13 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
     FF frv_joint = frv_hiding + alpha_power_KH * frv_translator;
 
     // Receive and apply Libra correction.
-    const FF libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
+    libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
 
-    // Receive Libra grand-sum and quotient commitments (sent by SmallSubgroupIPA::prove() in
-    // execute_joint_pcs(), which runs after execute_joint_sumcheck_rounds()).
+    // Receive Libra grand-sum and quotient commitments.
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     if constexpr (IsRecursive) {
-        // OriginTag false positive: libra_evaluation is PCS-bound (verified by Shplemini opening).
         const auto challenge_tag = joint_challenge.back().get_origin_tag();
         libra_evaluation.set_origin_tag(challenge_tag);
     }
@@ -247,11 +228,24 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
 
     // Final sumcheck check.
     bool final_check = joint_round.perform_final_verification(frv_joint);
-    verified = final_check && verified;
+    return final_check && verified;
+}
 
-    // -------------------------------------------------------------------------
-    // Part 4: Joint Shplemini / KZG PCS
-    // -------------------------------------------------------------------------
+/**
+ * @brief Execute the joint Shplemini / KZG PCS reduction.
+ * @details Combines commitments and evaluations from both circuits into a single batch opening
+ * claim, then reduces to a KZG pairing check.
+ */
+template <typename Curve>
+typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTranslatorVerifier_<Curve>::verify_joint_pcs(
+    bool sumcheck_verified, HidingVerifierCommitments& hiding_commitments, TransVerifierCommitments& trans_commitments)
+{
+    using HidingShplemini = ShpleminiVerifier_<Curve, HidingFlavor::HasZK>;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = typename ClaimBatcher::Batch;
+
+    static constexpr size_t JOINT_LOG_N = TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
+
     const Commitment one_commitment = [&]() {
         if constexpr (IsRecursive) {
             return Commitment::one(builder);
@@ -260,19 +254,13 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
         }
     }();
 
-    // The prover's hiding evaluations already include the tau factor
-    // (∏_{k=d}^{N-1}(1-u_k)) from the virtual round poly updates, so they represent
-    // the N-variable MLE at the full joint challenge. No additional scaling needed.
-
-    // Build joint claim batchers.
-    // get_unshifted/get_shifted return RefArrays; construct RefVectors explicitly so we can extend them.
+    // Build joint claim batchers from both circuits' commitments and evaluations.
     RefVector<Commitment> joint_unshifted_comms = hiding_commitments.get_unshifted();
     RefVector<FF> joint_unshifted_evals = hiding_evals.get_unshifted();
     RefVector<Commitment> joint_shifted_comms = hiding_commitments.get_to_be_shifted();
     RefVector<FF> joint_shifted_evals = hiding_evals.get_shifted();
 
     // Translator claim components.
-    // Reconstructed concatenated shifted evaluations use the native TranslatorFlavor method.
     auto concat_shift_evals = TranslatorFlavor::reconstruct_concatenated_evaluations(
         trans_evals.get_groups_to_be_concatenated_shifted(), std::span<const FF>(joint_challenge));
 
@@ -301,29 +289,36 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
     ClaimBatcher joint_claim_batcher{ .unshifted = ClaimBatch{ joint_unshifted_comms, joint_unshifted_evals },
                                       .shifted = ClaimBatch{ joint_shifted_comms, joint_shifted_evals } };
 
-    // Use a padding_indicator_array of all-ones for the joint Shplemini call.
-    // Row-disabling has already been applied in the FRV computation above; Shplemini itself
-    // does not need per-polynomial padding information.
+    // All-ones padding for the joint Shplemini call (row-disabling already applied in FRV).
     std::vector<FF> joint_padding(JOINT_LOG_N, FF(1));
 
-    auto [opening_claim, consistency_checked] =
-        HidingShplemini::compute_batch_opening_claim(joint_padding,
-                                                     joint_claim_batcher,
-                                                     joint_challenge,
-                                                     one_commitment,
-                                                     transcript,
-                                                     RepeatedCommitmentsData{}, // joint set has no deduplication
-                                                     libra_commitments,
-                                                     libra_evaluation);
+    auto [opening_claim, consistency_checked] = HidingShplemini::compute_batch_opening_claim(joint_padding,
+                                                                                             joint_claim_batcher,
+                                                                                             joint_challenge,
+                                                                                             one_commitment,
+                                                                                             transcript,
+                                                                                             RepeatedCommitmentsData{},
+                                                                                             libra_commitments,
+                                                                                             libra_evaluation);
 
     auto pairing_points = HidingFlavor::PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
 
     auto pairing_check = pairing_points.check();
-    info("BatchedHonkTranslatorVerifier: sumcheck verified: ", verified);
+    info("BatchedHonkTranslatorVerifier: sumcheck verified: ", sumcheck_verified);
     info("BatchedHonkTranslatorVerifier: consistency checked: ", consistency_checked);
     info("BatchedHonkTranslatorVerifier: pairing check: ", pairing_check);
 
-    return { pairing_points, verified && consistency_checked };
+    return { pairing_points, sumcheck_verified && consistency_checked };
+}
+
+template <typename Curve>
+typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTranslatorVerifier_<
+    Curve>::reduce_to_pairing_check()
+{
+    auto hiding_commitments = verify_hiding_kernel_oink();
+    auto trans_commitments = verify_translator_pre_sumcheck();
+    bool sumcheck_verified = verify_joint_sumcheck();
+    return verify_joint_pcs(sumcheck_verified, hiding_commitments, trans_commitments);
 }
 
 // Explicit instantiations.

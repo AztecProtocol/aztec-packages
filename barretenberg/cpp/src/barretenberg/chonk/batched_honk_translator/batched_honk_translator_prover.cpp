@@ -119,137 +119,118 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     HidingPartialEvals hiding_partial(hiding_polys, static_cast<size_t>(1) << hiding_log_n);
     TransPartialEvals translator_partial(translator_polys, static_cast<size_t>(1) << JOINT_LOG_N);
 
-    // Helper: partially evaluate from source into dest (first round: source != dest).
-    auto partially_evaluate = [](const auto& source, auto& dest, const HidingFF& challenge) {
-        auto src_view = source.get_all();
-        auto dst_view = dest.get_all();
-        bb::parallel_for(src_view.size(), [&](size_t j) {
-            const auto& poly = src_view[j];
-            const size_t limit = poly.end_index();
-            for (size_t i = 0; i < limit; i += 2) {
-                dst_view[j].at(i >> 1) = poly[i] + challenge * (poly[i + 1] - poly[i]);
-            }
-            dst_view[j].shrink_end_index((limit / 2) + (limit % 2));
-        });
-    };
-
-    // Helper: partially evaluate a table in-place.
-    auto partially_evaluate_inplace = [](auto& polys, const HidingFF& challenge) {
-        auto view = polys.get_all();
-        bb::parallel_for(view.size(), [&](size_t j) {
-            auto& poly = view[j];
-            const size_t limit = poly.end_index();
-            for (size_t i = 0; i < limit; i += 2) {
-                poly.at(i >> 1) = poly[i] + challenge * (poly[i + 1] - poly[i]);
-            }
-            poly.shrink_end_index((limit / 2) + (limit % 2));
-        });
-    };
+    // Type aliases for static partial-evaluation helpers from SumcheckProver.
+    using HidingSumcheck = SumcheckProver<HidingFlavor>;
+    using TransSumcheck = SumcheckProver<TranslatorFlavor>;
 
     joint_challenge.reserve(JOINT_LOG_N);
 
-    // RDP scalar: captured after the last real hiding round so that virtual contributions
-    // can be scaled by RDP(u_0,...,u_{d-1}) = 1 - u_2*...*u_{d-1}.
-    HidingFF rdp_scalar(1);
+    SumcheckRoundUnivariate U_joint;
 
-    for (size_t round_idx = 0; round_idx < JOINT_LOG_N; round_idx++) {
-        SumcheckRoundUnivariate U_joint = SumcheckRoundUnivariate::zero();
-
-        // --- Hiding kernel contribution ---
-        if (round_idx < hiding_log_n) {
-            // Real round: compute relation univariate and subtract disabled-row contribution.
-            SumcheckRoundUnivariate U_H;
-            if (round_idx == 0) {
-                U_H = hiding_round.compute_univariate(hiding_polys, hiding_params, hiding_gate_sep, hiding_alphas);
-                U_H -= hiding_round.compute_disabled_contribution(
-                    hiding_polys, hiding_params, hiding_gate_sep, hiding_alphas, round_idx, hiding_rdp);
-            } else {
-                U_H = hiding_round.compute_univariate(hiding_partial, hiding_params, hiding_gate_sep, hiding_alphas);
-                U_H -= hiding_round.compute_disabled_contribution(
-                    hiding_partial, hiding_params, hiding_gate_sep, hiding_alphas, round_idx, hiding_rdp);
-            }
-            U_joint += U_H;
-        } else {
-            // Virtual round: the hiding polynomials are zero-padded beyond 2^hiding_log_n.
-            // Use compute_virtual_contribution which evaluates the relation at edge (0,...,0)
-            // — the only edge that contributes for a zero-padded polynomial.
-            // Scale by rdp_scalar because the RDP factor from real rounds must be carried through.
-            // The RDP "extended by 0" evaluates to 1 in virtual rounds (the zero-padded region
-            // has no disabled rows), so the only RDP contribution is the scalar from real rounds.
-            SumcheckRoundUnivariate U_H = hiding_round.compute_virtual_contribution(
-                hiding_partial, hiding_params, hiding_gate_sep, hiding_alphas);
-            U_H *= rdp_scalar;
-            U_joint += U_H;
-        }
-
-        // --- Translator contribution (all 17 rounds) ---
-        {
-            SumcheckRoundUnivariate U_T;
-            if (round_idx == 0) {
-                U_T = translator_round.compute_univariate(
-                    translator_polys, translator_relation_parameters, translator_gate_sep, translator_alphas);
-            } else {
-                U_T = translator_round.compute_univariate(
-                    translator_partial, translator_relation_parameters, translator_gate_sep, translator_alphas);
-            }
-            // Translator does not use row-disabling (UseRowDisablingPolynomial<TranslatorFlavor> = false).
-            // Scale by α^{K_H} and accumulate.
-            for (auto& eval : U_T.evaluations) {
-                eval *= alpha_power_KH;
-            }
-            U_joint += U_T;
-        }
-
-        // --- Add joint Libra masking ---
+    // Per-round helper: add Libra masking, send the joint univariate, receive the round challenge.
+    auto send_round = [&](size_t round_idx) -> HidingFF {
         U_joint += HidingProverRound::compute_libra_univariate(zk_sumcheck_data, round_idx);
-
-        // Send joint univariate and get round challenge.
         transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), U_joint);
-        const HidingFF round_challenge =
-            transcript->template get_challenge<HidingFF>("Sumcheck:u_" + std::to_string(round_idx));
-        joint_challenge.emplace_back(round_challenge);
+        HidingFF u = transcript->template get_challenge<HidingFF>("Sumcheck:u_" + std::to_string(round_idx));
+        joint_challenge.emplace_back(u);
+        return u;
+    };
 
-        // Update partial evaluation tables.
-        if (round_idx == 0) {
-            partially_evaluate(hiding_polys, hiding_partial, round_challenge);
-            partially_evaluate(translator_polys, translator_partial, round_challenge);
-        } else {
-            if (round_idx < hiding_log_n) {
-                partially_evaluate_inplace(hiding_partial, round_challenge);
-            } else {
-                // Virtual round: zero-padding update — multiply each poly value by (1 - u_k).
-                for (auto& poly : hiding_partial.get_all()) {
-                    if (poly.end_index() > 0) {
-                        poly.at(0) *= (HidingFF(1) - round_challenge);
-                    }
-                }
-            }
-            partially_evaluate_inplace(translator_partial, round_challenge);
-        }
-
-        // Translator: send minicircuit evaluations mid-sumcheck (binds later round challenges to them).
+    // Per-round helper: update ZK data, gate separators, translator round size, and optionally send
+    // translator minicircuit evaluations.
+    auto update_round_state = [&](size_t round_idx, const HidingFF& u) {
         if (round_idx == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
             transcript->send_to_verifier("Sumcheck:minicircuit_evaluations",
                                          TranslatorFlavor::get_minicircuit_evaluations(translator_partial));
         }
+        zk_sumcheck_data.update_zk_sumcheck_data(u, round_idx);
+        hiding_gate_sep.partially_evaluate(u);
+        translator_gate_sep.partially_evaluate(u);
+        translator_round.round_size >>= 1;
+    };
 
-        // Update ZK data and gate separators for the next round.
-        zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
+    // ==================== Round 0: uses full polynomial tables ====================
+    {
+        U_joint = SumcheckRoundUnivariate::zero();
 
-        // Update RDP only during real rounds; capture scalar after the last real round.
-        if (round_idx < hiding_log_n) {
-            hiding_rdp.update_evaluations(round_challenge, round_idx);
-            if (round_idx + 1 == hiding_log_n) {
-                rdp_scalar = HidingFF(1) - hiding_rdp.eval_at_1;
+        auto U_H = hiding_round.compute_univariate(hiding_polys, hiding_params, hiding_gate_sep, hiding_alphas);
+        U_H -= hiding_round.compute_disabled_contribution(
+            hiding_polys, hiding_params, hiding_gate_sep, hiding_alphas, 0, hiding_rdp);
+        U_joint += U_H;
+
+        auto U_T = translator_round.compute_univariate(
+            translator_polys, translator_relation_parameters, translator_gate_sep, translator_alphas);
+        for (auto& eval : U_T.evaluations) {
+            eval *= alpha_power_KH;
+        }
+        U_joint += U_T;
+
+        const HidingFF u = send_round(0);
+
+        HidingSumcheck::partially_evaluate(hiding_polys, hiding_partial, u);
+        TransSumcheck::partially_evaluate(translator_polys, translator_partial, u);
+        hiding_rdp.update_evaluations(u, 0);
+        hiding_round.round_size >>= 1;
+        update_round_state(0, u);
+    }
+
+    // ==================== Real rounds 1..hiding_log_n-1 ====================
+    for (size_t round_idx = 1; round_idx < hiding_log_n; round_idx++) {
+        U_joint = SumcheckRoundUnivariate::zero();
+
+        auto U_H = hiding_round.compute_univariate(hiding_partial, hiding_params, hiding_gate_sep, hiding_alphas);
+        U_H -= hiding_round.compute_disabled_contribution(
+            hiding_partial, hiding_params, hiding_gate_sep, hiding_alphas, round_idx, hiding_rdp);
+        U_joint += U_H;
+
+        auto U_T = translator_round.compute_univariate(
+            translator_partial, translator_relation_parameters, translator_gate_sep, translator_alphas);
+        for (auto& eval : U_T.evaluations) {
+            eval *= alpha_power_KH;
+        }
+        U_joint += U_T;
+
+        const HidingFF u = send_round(round_idx);
+
+        HidingSumcheck::partially_evaluate_in_place(hiding_partial, u);
+        TransSumcheck::partially_evaluate_in_place(translator_partial, u);
+        hiding_rdp.update_evaluations(u, round_idx);
+        hiding_round.round_size >>= 1;
+        update_round_state(round_idx, u);
+    }
+
+    // Capture RDP scalar after all real hiding rounds for use in virtual rounds.
+    // rdp_scalar = RDP(u_0,...,u_{d-1}) = 1 - u_2*...*u_{d-1}.
+    const HidingFF rdp_scalar = HidingFF(1) - hiding_rdp.eval_at_1;
+
+    // ==================== Virtual rounds hiding_log_n..JOINT_LOG_N-1 ====================
+    // The hiding polynomials are zero-padded beyond 2^hiding_log_n. The only non-zero edge
+    // is (0,...,0), computed by compute_virtual_contribution and scaled by rdp_scalar.
+    for (size_t round_idx = hiding_log_n; round_idx < JOINT_LOG_N; round_idx++) {
+        U_joint = SumcheckRoundUnivariate::zero();
+
+        auto U_H =
+            hiding_round.compute_virtual_contribution(hiding_partial, hiding_params, hiding_gate_sep, hiding_alphas);
+        U_H *= rdp_scalar;
+        U_joint += U_H;
+
+        auto U_T = translator_round.compute_univariate(
+            translator_partial, translator_relation_parameters, translator_gate_sep, translator_alphas);
+        for (auto& eval : U_T.evaluations) {
+            eval *= alpha_power_KH;
+        }
+        U_joint += U_T;
+
+        const HidingFF u = send_round(round_idx);
+
+        // Virtual: poly values *= (1 - u_k) to bake in the tau factor.
+        for (auto& poly : hiding_partial.get_all()) {
+            if (poly.end_index() > 0) {
+                poly.at(0) *= (HidingFF(1) - u);
             }
         }
-
-        hiding_gate_sep.partially_evaluate(round_challenge);
-        translator_gate_sep.partially_evaluate(round_challenge);
-        if (round_idx < hiding_log_n) {
-            hiding_round.round_size >>= 1;
-        }
-        translator_round.round_size >>= 1;
+        TransSumcheck::partially_evaluate_in_place(translator_partial, u);
+        update_round_state(round_idx, u);
     }
 
     // Extract claimed evaluations from the final partially-evaluated tables.

@@ -43,6 +43,8 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     using HidingVerifierInstance = VerifierInstance_<HidingFlavor>;
     using HidingVKAndHash = typename HidingFlavor::VKAndHash;
     using Transcript = std::conditional_t<IsRecursive, UltraStdlibTranscript, NativeTranscript>;
+    using HidingVerifierCommitments = typename HidingFlavor::VerifierCommitments;
+    using TransVerifierCommitments = typename TransFlavor::VerifierCommitments;
 
     // Proof type: stdlib::Proof<UltraCircuitBuilder> for recursive, HonkProof for native.
     using Proof = std::conditional_t<IsRecursive, stdlib::Proof<UltraCircuitBuilder>, HonkProof>;
@@ -91,6 +93,14 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     [[nodiscard("Verification result should be checked")]] ReductionResult reduce_to_pairing_check();
 
   private:
+    // Methods mirroring the prover's structure.
+    HidingVerifierCommitments verify_hiding_kernel_oink();
+    TransVerifierCommitments verify_translator_pre_sumcheck();
+    bool verify_joint_sumcheck();
+    ReductionResult verify_joint_pcs(bool sumcheck_verified,
+                                     HidingVerifierCommitments& hiding_commitments,
+                                     TransVerifierCommitments& trans_commitments);
+
     std::shared_ptr<HidingVKAndHash> hiding_vk_and_hash;
     std::shared_ptr<Transcript> transcript;
     Proof hiding_proof;
@@ -105,9 +115,17 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     // Builder pointer (only meaningful for recursive, nullptr for native).
     std::conditional_t<IsRecursive, UltraCircuitBuilder*, std::nullptr_t> builder = nullptr;
 
-    // Relation parameters populated during verification.
+    // Relation parameters populated during verify_hiding_kernel_oink / verify_translator_pre_sumcheck.
     bb::RelationParameters<FF> hiding_relation_parameters;
     bb::RelationParameters<FF> translator_relation_parameters;
+
+    // State populated by verify_joint_sumcheck(), consumed by verify_joint_pcs().
+    std::vector<FF> joint_challenge;
+    typename HidingFlavor::AllValues hiding_evals;
+    typename TransFlavor::AllValues trans_evals;
+    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments;
+    FF libra_evaluation;
+    FF libra_challenge;
 };
 
 // Type aliases.
