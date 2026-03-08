@@ -71,13 +71,13 @@ a zero nonce are invalid, so those are used to signal non-existent values.</p>
 </div><code id="is_pending_same_phase" class="code-header">pub fn <a href="#is_pending_same_phase"><span class="fn">is_pending_same_phase</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Returns true if the note is pending <strong>and</strong> from the same phase, i.e. if it's been created in the current
+<p>Returns <code>true</code> if the note is pending <strong>and</strong> from the same phase, i.e. if it's been created in the current
 transaction during the current execution phase (either non-revertible or revertible).</p>
 </div>
 </div><code id="is_pending_previous_phase" class="code-header">pub fn <a href="#is_pending_previous_phase"><span class="fn">is_pending_previous_phase</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Returns true if the note is pending <strong>and</strong> from the previous phase, i.e. if it's been created in the current
+<p>Returns <code>true</code> if the note is pending <strong>and</strong> from the previous phase, i.e. if it's been created in the current
 transaction during an execution phase prior to the current one. Because private execution only has two phases
 with strict ordering, this implies that the note was created in the non-revertible phase, and that the current
 phase is the revertible phase.</p>
@@ -85,7 +85,8 @@ phase is the revertible phase.</p>
 </div><code id="is_settled" class="code-header">pub fn <a href="#is_settled"><span class="fn">is_settled</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Returns true if the note is settled, i.e. if it's been created in a prior transaction and is therefore already
+<p>Returns <code>true</code> if the note is settled, i.e. if it's been created in a prior transaction and is therefore
+already
 in the note hash tree.</p>
 </div>
 </div><code id="to_pending_same_phase" class="code-header">pub fn <a href="#to_pending_same_phase"><span class="fn">to_pending_same_phase</span></a>(self) -> <a href="../../../noir_aztec/note/note_metadata/struct.PendingSamePhaseNoteMetadata.html" class="struct">PendingSamePhaseNoteMetadata</a></code>
