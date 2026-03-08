@@ -1,8 +1,8 @@
-/// Validates public call calldata by checking that the preimage exists and the cumulative size is within limits.
+/// Validates public calldata by checking that the preimage exists and the cumulative size is within limits.
 ///
 /// The check is unconstrained and the only purpose of it is to fail early in case of calldata overflow or a bug in
 /// calldata hashing.
-pub fn validate_public_calldata(calldata_hash: Field) {
+pub(crate) fn validate_public_calldata(calldata_hash: Field) {
     // Safety: This oracle call returns nothing: we only call it for its side effects (validating the calldata).
     // It is therefore always safe to call.
     unsafe {
