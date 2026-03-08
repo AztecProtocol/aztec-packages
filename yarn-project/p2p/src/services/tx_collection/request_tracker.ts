@@ -27,6 +27,8 @@ export interface IRequestTracker {
   get cancelled(): boolean;
   /** Resolves when deadline expires or all txs are fetched. */
   get cancellationToken(): Promise<void>;
+  /** Externally cancel the request. */
+  cancel(): void;
 }
 
 export class RequestTracker implements IRequestTracker {
@@ -97,6 +99,10 @@ export class RequestTracker implements IRequestTracker {
 
   get cancellationToken(): Promise<void> {
     return this.cancellationTokenPromise.promise;
+  }
+
+  cancel(): void {
+    this.finish();
   }
 
   private finish() {

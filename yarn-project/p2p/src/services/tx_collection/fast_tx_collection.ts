@@ -84,7 +84,7 @@ export class FastTxCollection {
       ...input,
       blockInfo,
       promise,
-      requestTracker: RequestTracker.fromArray(txHashes),
+      requestTracker: RequestTracker.create(txHashes, opts.deadline, this.dateProvider),
       deadline: opts.deadline,
     };
 
@@ -366,6 +366,7 @@ export class FastTxCollection {
   public stopCollectingForBlocksUpTo(blockNumber: BlockNumber): void {
     for (const request of this.requests) {
       if (request.blockInfo.blockNumber <= blockNumber) {
+        request.requestTracker.cancel();
         request.promise.reject(new AbortError(`Stopped collecting txs up to block ${blockNumber}`));
         this.requests.delete(request);
       }
@@ -379,6 +380,7 @@ export class FastTxCollection {
   public stopCollectingForBlocksAfter(blockNumber: BlockNumber): void {
     for (const request of this.requests) {
       if (request.blockInfo.blockNumber > blockNumber) {
+        request.requestTracker.cancel();
         request.promise.reject(new AbortError(`Stopped collecting txs after block ${blockNumber}`));
         this.requests.delete(request);
       }
