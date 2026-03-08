@@ -1,10 +1,7 @@
-/// Notifies the PXE of the side effect counter at which the revertible phase begins.
+/// Notifies PXE of the side effect counter at which the revertible phase begins.
 ///
-/// Called by `end_setup` to mark the boundary between non-revertible (setup) and revertible (app logic) side effects.
-///
-/// Used for kernel hint building: PXE uses it to correctly classify notes and nullifiers as revertible or
-/// non-revertible in its note cache. The actual constraint is then enforced by the kernel circuits, which validate
-/// that `min_revertible_side_effect_counter` is consistent with the side effects produced.
+/// PXE uses it to classify notes and nullifiers as revertible or non-revertible in its note cache. This information is
+/// then fed to kernels as hints.
 pub(crate) fn notify_revertible_phase_start(counter: u32) {
     // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to
     // call.
