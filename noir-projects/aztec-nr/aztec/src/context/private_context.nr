@@ -1344,9 +1344,6 @@ impl PrivateContext {
         is_static_call: bool,
         hide_msg_sender: bool,
     ) {
-        // TODO(benesjan): Can this be just dropped or do we need the counter to advance here?
-        let _counter = self.next_counter();
-
         let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
 
         validate_public_calldata(calldata_hash);
