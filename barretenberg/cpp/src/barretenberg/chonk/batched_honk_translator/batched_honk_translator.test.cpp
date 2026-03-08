@@ -1,0 +1,175 @@
+/**
+ * @file batched_honk_translator.test.cpp
+ * @brief Tests for BatchedHonkTranslatorProver and BatchedHonkTranslatorVerifier_.
+ *
+ * @details Sets up a minimal-but-realistic proving environment:
+ *   - A standalone TranslatorCircuitBuilder (op_queue with mixed ECC ops, random translation challenges).
+ *   - A simple MegaZK circuit for the hiding kernel (independent op_queue).
+ *
+ * The ECCVM and merge proofs are intentionally omitted; the translation challenges
+ * (batching_challenge_v, evaluation_input_x) are drawn uniformly at random and
+ * the accumulated_result is read directly from the translator witness polynomials.
+ * This suffices to test that the batched sumcheck + Shplemini/KZG mechanism is sound.
+ */
+#include "batched_honk_translator_prover.hpp"
+#include "batched_honk_translator_verifier.hpp"
+
+#include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
+#include "barretenberg/translator_vm/translator_circuit_builder.hpp"
+#include "barretenberg/translator_vm/translator_prover.hpp"
+
+#include <gtest/gtest.h>
+
+using namespace bb;
+
+class BatchedHonkTranslatorTests : public ::testing::Test {
+  public:
+    using FF = TranslatorFlavor::FF;
+    using Fq = TranslatorFlavor::BF; // BN254 base field (= Grumpkin scalar field)
+    using G1 = TranslatorFlavor::Commitment;
+    using Transcript = NativeTranscript;
+
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+
+    // -------------------------------------------------------------------------
+    // Translator helpers (adapted from translator.test.cpp)
+    // -------------------------------------------------------------------------
+
+    static void add_random_ops(std::shared_ptr<ECCOpQueue>& op_queue, size_t count)
+    {
+        for (size_t i = 0; i < count; i++) {
+            op_queue->random_op_ultra_only();
+        }
+    }
+
+    static void add_mixed_ops(std::shared_ptr<ECCOpQueue>& op_queue, size_t count = 100)
+    {
+        auto P1 = G1::random_element();
+        auto P2 = G1::random_element();
+        auto z = FF::random_element();
+        for (size_t i = 0; i < count; i++) {
+            op_queue->add_accumulate(P1);
+            op_queue->mul_accumulate(P2, z);
+        }
+        op_queue->eq_and_reset();
+    }
+
+    /**
+     * @brief Build a translator circuit on a fresh op queue with random challenges.
+     * @details Mirrors TranslatorTests::generate_test_circuit. No ECCVM: challenges are random.
+     */
+    static std::shared_ptr<TranslatorProvingKey> build_translator_key(const Fq& batching_challenge_v,
+                                                                      const Fq& evaluation_input_x,
+                                                                      size_t circuit_size_param = 500)
+    {
+        auto op_queue = std::make_shared<ECCOpQueue>();
+        op_queue->no_op_ultra_only();
+        add_random_ops(op_queue, TranslatorCircuitBuilder::NUM_RANDOM_OPS_START);
+        add_mixed_ops(op_queue, circuit_size_param / 2);
+        op_queue->merge();
+        add_mixed_ops(op_queue, circuit_size_param / 2);
+        add_random_ops(op_queue, TranslatorCircuitBuilder::NUM_RANDOM_OPS_END);
+        op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+
+        TranslatorCircuitBuilder circuit(batching_challenge_v, evaluation_input_x, op_queue);
+        return std::make_shared<TranslatorProvingKey>(circuit);
+    }
+
+    /**
+     * @brief Read accumulated_result from the translator witness polynomials.
+     * @details Must be called after TranslatorProver has been constructed (which initialises the commitment key).
+     */
+    static Fq get_accumulated_result(const std::shared_ptr<TranslatorProvingKey>& key)
+    {
+        const size_t RESULT_ROW = TranslatorFlavor::RESULT_ROW;
+        auto& polys = key->proving_key->polynomials;
+        return Fq(uint256_t(polys.accumulators_binary_limbs_0[RESULT_ROW]) +
+                  (uint256_t(polys.accumulators_binary_limbs_1[RESULT_ROW]) << 68) +
+                  (uint256_t(polys.accumulators_binary_limbs_2[RESULT_ROW]) << 136) +
+                  (uint256_t(polys.accumulators_binary_limbs_3[RESULT_ROW]) << 204));
+    }
+
+    /**
+     * @brief Commit to the four op-queue wire polynomials.
+     * @details Mirrors the merge protocol's job; called after the commitment key is initialised.
+     */
+    static std::array<TranslatorFlavor::Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> commit_op_queue_wires(
+        const std::shared_ptr<TranslatorProvingKey>& key)
+    {
+        auto& ck = key->proving_key->commitment_key;
+        auto& polys = key->proving_key->polynomials;
+        return {
+            ck.commit(polys.op), ck.commit(polys.x_lo_y_hi), ck.commit(polys.x_hi_z_1), ck.commit(polys.y_lo_z_2)
+        };
+    }
+};
+
+// =============================================================================
+// BatchedHonkTranslatorTests::ProveAndVerify
+// =============================================================================
+TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
+{
+    using HidingFlavor = MegaZKFlavor;
+    using HidingProverInst = ProverInstance_<HidingFlavor>;
+    using HidingVK = HidingFlavor::VerificationKey;
+    using HidingVKAndHash = HidingFlavor::VKAndHash;
+
+    // -------------------------------------------------------------------------
+    // 1. Translator inputs (random translation challenges — no ECCVM needed).
+    // -------------------------------------------------------------------------
+    const Fq batching_challenge_v = Fq::random_element();
+    const Fq evaluation_input_x = Fq::random_element();
+
+    auto translator_key = build_translator_key(batching_challenge_v, evaluation_input_x);
+
+    // Initialise the translator commitment key (normally done by TranslatorProver ctor).
+    {
+        auto tmp = std::make_shared<Transcript>();
+        TranslatorProver init_prover(translator_key, tmp); // side-effect: initialises commitment_key
+    }
+    const Fq accumulated_result = get_accumulated_result(translator_key);
+    const auto op_queue_wire_commitments = commit_op_queue_wires(translator_key);
+
+    // -------------------------------------------------------------------------
+    // 2. Hiding kernel inputs: pad to JOINT_LOG_N = 17 so hiding_log_n == JOINT_LOG_N.
+    // -------------------------------------------------------------------------
+    MegaCircuitBuilder hiding_circuit;
+    GoblinMockCircuits::construct_simple_circuit(hiding_circuit);
+    // Pad so that hiding_log_n == JOINT_LOG_N.  We aim for JOINT_LOG_N-1 as the arithmetic
+    // target because MegaCircuitBuilder's execution-trace overhead grows the dyadic size by one.
+    static constexpr size_t JOINT_LOG_N = BatchedHonkTranslatorProver::JOINT_LOG_N;
+    MockCircuits::construct_arithmetic_circuit(hiding_circuit, JOINT_LOG_N - 1, /*include_public_inputs=*/false);
+
+    auto hiding_prover_inst = std::make_shared<HidingProverInst>(hiding_circuit);
+    auto hiding_vk_native = std::make_shared<HidingVK>(hiding_prover_inst->get_precomputed());
+    auto hiding_vk_and_hash = std::make_shared<HidingVKAndHash>(hiding_vk_native);
+
+    // -------------------------------------------------------------------------
+    // 3. Prove.
+    // -------------------------------------------------------------------------
+    auto prover_transcript = std::make_shared<Transcript>();
+    BatchedHonkTranslatorProver prover(hiding_prover_inst, hiding_vk_native, translator_key, prover_transcript);
+
+    auto [hiding_proof, translator_and_joint_proof] = prover.construct_proof();
+
+    // -------------------------------------------------------------------------
+    // 4. Verify.
+    // -------------------------------------------------------------------------
+    auto verifier_transcript = std::make_shared<Transcript>();
+    BatchedHonkTranslatorVerifier verifier(hiding_vk_and_hash,
+                                           verifier_transcript,
+                                           hiding_proof,
+                                           translator_and_joint_proof,
+                                           evaluation_input_x,
+                                           batching_challenge_v,
+                                           accumulated_result,
+                                           op_queue_wire_commitments);
+
+    auto result = verifier.reduce_to_pairing_check();
+
+    EXPECT_TRUE(result.reduction_succeeded);
+    EXPECT_TRUE(result.pairing_points.check());
+}
