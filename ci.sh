@@ -84,8 +84,6 @@ function bootstrap_remote {
 export -f bootstrap_remote
 
 function multi_job_run {
-  local log_label=${1:?log label required}
-  shift
   if [[ -z "${CI_DASHBOARD:-}" ]]; then
     if [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
       export CI_DASHBOARD=${TARGET_BRANCH:-local}
@@ -98,14 +96,15 @@ function multi_job_run {
   export DENOISE=1
   export DENOISE_WIDTH=32
   run() {
+    [ -n "${4:-}" ] && export REF_NAME=$4
     PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_remote './bootstrap.sh $3'"
   }
   export -f run
 
   parallel --colsep ' ' --jobs 100 --termseq 'TERM,10000' \
-    --tagstring '{= $_=~s/(\w+).*/$1/; =}' \
+    --tagstring '{1}' \
     --line-buffered --halt now,fail=1 \
-    'run {1} {2} {3}' ::: "$@" | DUP=1 cache_log "$log_label" $RUN_ID
+    'run {1} {2} {3} {4}' ::: "$@" | DUP=1 cache_log "CI run" $RUN_ID
 }
 
 # Jobs in the ci dashboards are grouped on a single line by RUN_ID.
@@ -158,13 +157,13 @@ case "$cmd" in
     ;;
   merge-queue)
     # We perform full runs of all tests on multiple x86, and a single fast run on arm64.
-    multi_job_run "Merge queue CI run" \
+    multi_job_run \
       'x1-full amd64 ci-full-no-test-cache' \
       'a1-fast arm64 ci-fast'
     ;;
   merge-queue-heavy)
     # Heavy merge queue with 10 parallel grind runs, used for merge-train/spartan PRs.
-    multi_job_run "Merge queue CI run" \
+    multi_job_run \
       'x'{1..10}'-full amd64 ci-full-no-test-cache' \
       'a1-fast arm64 ci-fast'
     ;;
@@ -172,10 +171,10 @@ case "$cmd" in
     # 10 parallel grind runs with no build cache and dry run of release, used for merge-train/ci PRs.
     export DRY_RUN=1
     export NO_CACHE=1
-    multi_job_run "Merge queue CI run" \
+    multi_job_run \
       'x'{1..10}'-full amd64 ci-full-no-test-cache' \
       'a1-fast arm64 ci-fast' \
-      'release amd64 ci-release'
+      "release amd64 ci-release v0.0.1-commit.$(git rev-parse --short HEAD)"
     ;;
   grind-test)
     full_cmd="$1"
@@ -297,7 +296,7 @@ case "$cmd" in
   release)
     # Spin up ec2 instance and run the release flow.
     export CI_DASHBOARD="releases"
-    multi_job_run "Release CI run" \
+    multi_job_run \
       'x-release amd64 ci-release' \
       'a-release arm64 ci-release'
     ;;

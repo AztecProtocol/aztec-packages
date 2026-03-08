@@ -141,6 +141,7 @@ start_build() {
     -e PARENT_LOG_ID=${PARENT_LOG_ID:-} \
     -e NO_CACHE=${NO_CACHE:-} \
     -e NO_FAIL_FAST=${NO_FAIL_FAST:-} \
+    -e DRY_RUN=${DRY_RUN:-} \
     -e CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1} \
     -e CI_SSM_MODE=1 \
     -e CI_LOGS_S3_LOCATION=${CI_LOGS_S3_LOCATION:-s3://aztec-ci-artifacts/logs} \
