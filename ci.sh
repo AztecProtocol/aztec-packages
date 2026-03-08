@@ -83,14 +83,18 @@ function bootstrap_remote {
 }
 export -f bootstrap_remote
 
-function merge_queue_run {
-  if [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
-    export CI_DASHBOARD=${TARGET_BRANCH:-local}
-  else
-    export CI_DASHBOARD="prs"
+function multi_job_run {
+  local log_label=${1:?log label required}
+  shift
+  if [[ -z "${CI_DASHBOARD:-}" ]]; then
+    if [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
+      export CI_DASHBOARD=${TARGET_BRANCH:-local}
+    else
+      export CI_DASHBOARD="prs"
+    fi
   fi
-  export AWS_SHUTDOWN_TIME=75
-  export AWS_SHUTDOWN_TIME_ARM=90
+  export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-75}
+  export AWS_SHUTDOWN_TIME_ARM=${AWS_SHUTDOWN_TIME_ARM:-90}
   export DENOISE=1
   export DENOISE_WIDTH=32
   run() {
@@ -98,9 +102,10 @@ function merge_queue_run {
   }
   export -f run
 
-  # Specify jobs as maybe we only have a couple of cpus.
-  parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 'run {}' ::: \
-    "$@" | DUP=1 cache_log "Merge queue CI run" $RUN_ID
+  parallel --colsep ' ' --jobs 100 --termseq 'TERM,10000' \
+    --tagstring '{= $_=~s/(\w+).*/$1/; =}' \
+    --line-buffered --halt now,fail=1 \
+    'run {1} {2} {3}' ::: "$@" | DUP=1 cache_log "$log_label" $RUN_ID
 }
 
 # Jobs in the ci dashboards are grouped on a single line by RUN_ID.
@@ -153,40 +158,22 @@ case "$cmd" in
     ;;
   merge-queue)
     # We perform full runs of all tests on multiple x86, and a single fast run on arm64.
-    merge_queue_run \
+    multi_job_run "Merge queue CI run" \
       'x1-full amd64 ci-full-no-test-cache' \
       'a1-fast arm64 ci-fast'
     ;;
   merge-queue-heavy)
     # Heavy merge queue with 10 parallel grind runs, used for merge-train/spartan PRs.
-    merge_queue_run \
-      'x1-full amd64 ci-full-no-test-cache' \
-      'x2-full amd64 ci-full-no-test-cache' \
-      'x3-full amd64 ci-full-no-test-cache' \
-      'x4-full amd64 ci-full-no-test-cache' \
-      'x5-full amd64 ci-full-no-test-cache' \
-      'x6-full amd64 ci-full-no-test-cache' \
-      'x7-full amd64 ci-full-no-test-cache' \
-      'x8-full amd64 ci-full-no-test-cache' \
-      'x9-full amd64 ci-full-no-test-cache' \
-      'x10-full amd64 ci-full-no-test-cache' \
+    multi_job_run "Merge queue CI run" \
+      'x'{1..10}'-full amd64 ci-full-no-test-cache' \
       'a1-fast arm64 ci-fast'
     ;;
   merge-queue-ci)
     # 10 parallel grind runs with no build cache and dry run of release, used for merge-train/ci PRs.
     export DRY_RUN=1
     export NO_CACHE=1
-    merge_queue_run \
-      'x1-full amd64 ci-full-no-test-cache' \
-      'x2-full amd64 ci-full-no-test-cache' \
-      'x3-full amd64 ci-full-no-test-cache' \
-      'x4-full amd64 ci-full-no-test-cache' \
-      'x5-full amd64 ci-full-no-test-cache' \
-      'x6-full amd64 ci-full-no-test-cache' \
-      'x7-full amd64 ci-full-no-test-cache' \
-      'x8-full amd64 ci-full-no-test-cache' \
-      'x9-full amd64 ci-full-no-test-cache' \
-      'x10-full amd64 ci-full-no-test-cache' \
+    multi_job_run "Merge queue CI run" \
+      'x'{1..10}'-full amd64 ci-full-no-test-cache' \
       'a1-fast arm64 ci-fast' \
       'release amd64 ci-release'
     ;;
@@ -310,17 +297,9 @@ case "$cmd" in
   release)
     # Spin up ec2 instance and run the release flow.
     export CI_DASHBOARD="releases"
-    export AWS_SHUTDOWN_TIME=75
-    export DENOISE=1
-    export DENOISE_WIDTH=32
-    run() {
-      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_remote './bootstrap.sh ci-release'"
-    }
-    export -f run
-
-    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x-release amd64' \
-      'run a-release arm64' | DUP=1 cache_log "Release CI run" $RUN_ID
+    multi_job_run "Release CI run" \
+      'x-release amd64 ci-release' \
+      'a-release arm64 ci-release'
     ;;
 
   ##################
