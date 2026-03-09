@@ -1,9 +1,8 @@
 import { chunkWrapAround } from '@aztec/foundation/collection';
-import { TimeoutError } from '@aztec/foundation/error';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { FifoMemoryQueue, type ISemaphore, Semaphore } from '@aztec/foundation/queue';
 import { sleep } from '@aztec/foundation/sleep';
-import { DateProvider, executeTimeout } from '@aztec/foundation/timer';
+import { DateProvider } from '@aztec/foundation/timer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
 
@@ -42,6 +41,7 @@ import { BatchRequestTxValidator, type IBatchRequestTxValidator } from './tx_val
  *    - Is the peer which was unable to send us successful response N times in a row
  * */
 export class BatchTxRequester {
+  private readonly requestTracker: IRequestTracker;
   private readonly blockTxsSource: BlockTxsSource;
   private readonly pinnedPeer: PeerId | undefined;
   private readonly timeoutMs: number;
@@ -51,7 +51,6 @@ export class BatchTxRequester {
   private readonly opts: BatchTxRequesterOptions;
   private readonly peers: IPeerCollection;
   private readonly txsMetadata: ITxMetadataCollection;
-  private readonly deadline: number;
   private readonly smartRequesterSemaphore: ISemaphore;
   private readonly txQueue: FifoMemoryQueue<Tx>;
   private readonly txValidator: IBatchRequestTxValidator;
@@ -69,6 +68,7 @@ export class BatchTxRequester {
     dateProvider?: DateProvider,
     opts?: BatchTxRequesterOptions,
   ) {
+    this.requestTracker = requestTracker;
     this.blockTxsSource = blockTxsSource;
     this.pinnedPeer = pinnedPeer;
     this.timeoutMs = timeoutMs;
@@ -82,7 +82,6 @@ export class BatchTxRequester {
     this.dumbParallelWorkerCount =
       this.opts.dumbParallelWorkerCount ?? DEFAULT_BATCH_TX_REQUESTER_DUMB_PARALLEL_WORKER_COUNT;
     this.txBatchSize = this.opts.txBatchSize ?? DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE;
-    this.deadline = this.dateProvider.now() + this.timeoutMs;
     this.txQueue = new FifoMemoryQueue(this.logger);
     this.txValidator = this.opts.txValidator ?? new BatchRequestTxValidator(this.p2pService.txValidatorConfig);
 
@@ -106,40 +105,30 @@ export class BatchTxRequester {
    * Fetches all missing transactions and yields them  one by one
    * */
   public async *run(): AsyncGenerator<Tx, Tx | undefined, unknown> {
-    // Our timeout is represented in milliseconds but queue expects seconds
-    // We also want to make sure we wait at least 1 second in case of very low timeouts
-    const timeoutQueueAfter = Math.max(Math.ceil(this.timeoutMs / 1_000), 1);
     try {
       if (this.txsMetadata.getMissingTxHashes().size === 0) {
         return undefined;
       }
 
-      // Start workers in background
-      const workersPromise = executeTimeout(
-        () => Promise.allSettled([this.smartRequester(), this.dumbRequester(), this.pinnedPeerRequester()]),
-        this.timeoutMs,
-      ).finally(() => {
+      // Start workers in background. Workers stop themselves via requestTracker.cancelled.
+      const workersPromise = Promise.allSettled([
+        this.smartRequester(),
+        this.dumbRequester(),
+        this.pinnedPeerRequester(),
+      ]).finally(() => {
         this.txQueue.end();
       });
 
+      // Yield txs as workers put them on the queue. The queue's end() drains remaining items
+      // before returning null, so we don't lose any txs.
       while (true) {
-        const tx = await this.txQueue.get(timeoutQueueAfter);
+        const tx = await this.txQueue.get();
 
-        // null indicates that the queue has ended
         if (tx === null) {
           break;
         }
 
         yield tx;
-
-        if (this.shouldStop()) {
-          // Drain queue before ending
-          let remaining;
-          while ((remaining = this.txQueue.getImmediate()) !== undefined) {
-            yield remaining;
-          }
-          break;
-        }
       }
 
       this.unlockSmartRequesterSemaphores();
@@ -360,7 +349,10 @@ export class BatchTxRequester {
   ) {
     try {
       this.logger.trace(`Smart worker ${workerIndex} started`);
-      await executeTimeout((_: AbortSignal) => this.smartRequesterSemaphore.acquire(), this.timeoutMs);
+      await Promise.race([this.smartRequesterSemaphore.acquire(), this.requestTracker.cancellationToken]);
+      if (this.requestTracker.cancelled) {
+        return;
+      }
       this.logger.trace(`Smart worker ${workerIndex} acquired semaphore`);
 
       while (!this.shouldStop()) {
@@ -384,7 +376,10 @@ export class BatchTxRequester {
           //
           // When a dumb peer responds with valid txIndices, it gets
           // promoted to smart and releases the semaphore, waking this worker.
-          await executeTimeout((_: AbortSignal) => this.smartRequesterSemaphore.acquire(), this.timeoutMs);
+          await Promise.race([this.smartRequesterSemaphore.acquire(), this.requestTracker.cancellationToken]);
+          if (this.requestTracker.cancelled) {
+            break;
+          }
           this.logger.debug(`Worker loop smart: acquired next smart peer`);
           continue;
         }
@@ -411,11 +406,7 @@ export class BatchTxRequester {
         });
       }
     } catch (err: any) {
-      if (err instanceof TimeoutError) {
-        this.logger.debug(`Smart worker ${workerIndex} timed out waiting for semaphore`);
-      } else {
-        this.logger.error(`Smart worker ${workerIndex} encountered an error: ${err}`);
-      }
+      this.logger.error(`Smart worker ${workerIndex} encountered an error: ${err}`);
     } finally {
       this.logger.debug(`Smart worker ${workerIndex} finished`);
     }
@@ -631,27 +622,14 @@ export class BatchTxRequester {
   }
 
   /*
-   * @returns true if all missing txs have been fetched */
-  private fetchedAllTxs() {
-    return this.txsMetadata.getMissingTxHashes().size == 0;
-  }
-
-  /*
-   * Checks if the BatchTxRequester should stop fetching missing txs
-   * Conditions for stopping are:
-   * - There have been no missing transactions to start with
-   * - All transactions have been fetched
-   * - The deadline has been hit (no more time to fetch)
-   * - This process has been cancelled via abortSignal
-   *
-   * @returns true if BatchTxRequester should stop, otherwise false*/
+   * Checks if the BatchTxRequester should stop fetching missing txs.
+   * Delegates to requestTracker which covers: deadline hit, all txs fetched, or external cancellation. */
   private shouldStop() {
-    const aborted = this.opts.abortSignal?.aborted ?? false;
-    if (aborted) {
+    if (this.requestTracker.cancelled) {
       this.unlockSmartRequesterSemaphores();
     }
 
-    return aborted || this.fetchedAllTxs() || this.dateProvider.now() > this.deadline;
+    return this.requestTracker.cancelled;
   }
 
   /*
@@ -669,10 +647,9 @@ export class BatchTxRequester {
    * This ensures we don't sleep past the deadline.
    * */
   private async sleepClampedToDeadline(durationMs: number) {
-    const remaining = this.deadline - this.dateProvider.now();
-    const thereIsTimeRemaining = remaining > 0;
-    if (thereIsTimeRemaining) {
-      await sleep(Math.min(durationMs, remaining));
+    if (this.requestTracker.cancelled) {
+      return;
     }
+    await Promise.race([sleep(durationMs), this.requestTracker.cancellationToken]);
   }
 }

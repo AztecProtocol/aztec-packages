@@ -1033,15 +1033,15 @@ describe('BatchTxRequester', () => {
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
-      // Create abort controller and immediately abort
-      const abortController = new AbortController();
-      abortController.abort();
+      // Create tracker and immediately cancel
+      const tracker = RequestTracker.fromArray(missing);
+      tracker.cancel();
 
       let requestsMade = 0;
       // eslint-disable-next-line require-await
       reqResp.sendRequestToPeer.mockImplementation(async () => {
         requestsMade++;
-        // This should never be called since we abort immediately
+        // This should never be called since we cancel immediately
         return {
           status: ReqRespStatus.SUCCESS,
           data: Buffer.alloc(0),
@@ -1049,7 +1049,7 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        tracker,
         blockProposal,
         undefined,
         deadline,
@@ -1059,7 +1059,6 @@ describe('BatchTxRequester', () => {
         {
           smartParallelWorkerCount: 2,
           dumbParallelWorkerCount: 2,
-          abortSignal: abortController.signal,
           txValidator,
         },
       );
@@ -1090,12 +1089,12 @@ describe('BatchTxRequester', () => {
         [peers[2].toString(), Array.from({ length: 10 }, (_, i) => i + 20)],
       ]);
 
-      const abortController = new AbortController();
+      const tracker = RequestTracker.fromArray(missing);
       let requestCount = 0;
 
       reqResp.sendRequestToPeer.mockImplementation(async (peerId: any) => {
         if (requestCount === 1) {
-          abortController.abort();
+          tracker.cancel();
         }
 
         // Return successful response with transactions
@@ -1112,7 +1111,7 @@ describe('BatchTxRequester', () => {
 
         requestCount++;
 
-        // Allow event loop to process abort signal
+        // Allow event loop to process cancellation
         await sleep(50);
         return {
           status: ReqRespStatus.SUCCESS,
@@ -1121,7 +1120,7 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        tracker,
         blockProposal,
         undefined,
         deadline,
@@ -1131,15 +1130,14 @@ describe('BatchTxRequester', () => {
         {
           smartParallelWorkerCount: 0,
           dumbParallelWorkerCount: 2,
-          abortSignal: abortController.signal,
           txValidator,
         },
       );
 
       const result = await BatchTxRequester.collectAllTxs(requester.run());
 
-      // Verify abort was actually triggered
-      expect(abortController.signal.aborted).toBe(true);
+      // Verify cancellation was actually triggered
+      expect(tracker.cancelled).toBe(true);
 
       expect(result).toBeDefined();
       expect(result!.length).toBeGreaterThan(0);
@@ -1169,12 +1167,12 @@ describe('BatchTxRequester', () => {
       const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions, 100);
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
-      const abortController = new AbortController();
+      const tracker = RequestTracker.fromArray(missing);
 
       // Create semaphore that starts with 0 permits to block smart workers
       const semaphore = new TestSemaphore(new Semaphore(0));
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        tracker,
         blockProposal,
         undefined,
         deadline,
@@ -1186,7 +1184,6 @@ describe('BatchTxRequester', () => {
           smartParallelWorkerCount: 2,
           dumbParallelWorkerCount: 2,
           peerCollection,
-          abortSignal: abortController.signal,
           txValidator,
         },
       );
@@ -1194,11 +1191,11 @@ describe('BatchTxRequester', () => {
       const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
       await sleep(1000); // Allow some time for smart workers to start and block on semaphore
-      abortController.abort(); // Trigger abort while smart workers are blocked
+      tracker.cancel(); // Trigger cancellation while smart workers are blocked
       const result = await runPromise;
 
-      // Verify abort was triggered
-      expect(abortController.signal.aborted).toBe(true);
+      // Verify cancellation was triggered
+      expect(tracker.cancelled).toBe(true);
 
       // Verify peer was promoted to smart
       expect(peerCollection.smartPeersMarked).toContain(peers[0].toString());
