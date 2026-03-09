@@ -7,6 +7,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 source "${REPO_ROOT}/ci3/source"
 
+# Load network defaults from YAML when NETWORK is set.
+# This must run before variable defaults below so YAML values take precedence
+# over hardcoded fallbacks, while pre-set env vars still override everything.
+if [[ -n "${NETWORK:-}" ]]; then
+  source "${REPO_ROOT}/l1-contracts/scripts/load_network_defaults.sh" "$NETWORK"
+fi
+
 # Basic logging helpers
 log() { echo "[INFO]  $(date -Is) - $*"; }
 err() { echo "[ERROR] $(date -Is) - $*" >&2; }
