@@ -31,7 +31,7 @@ global OFFCHAIN_READY_MESSAGES_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN
 pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
 
 /// Tolerance added to the `MAX_TX_LIFETIME` cap for message expiration.
-global TX_EXPIRATION_CAP_TOLERANCE: u64 = 3600; // 1 hour
+global TX_EXPIRATION_CAP_TOLERANCE: u64 = 7200; // 2 hours
 
 /// A function that manages offchain-delivered messages for processing during sync.
 ///
@@ -199,7 +199,7 @@ pub unconstrained fn sync_inbox(address: AztecAddress) -> CapsuleArray<OffchainM
         // Compute the message's effective expiration timestamp to determine if we can purge it from the inbox.
         let effective_expiration = if msg.tx_hash != 0 {
             // For messages with an associated transaction, we cap the sender-provided expiration timestamp to
-            // `received_at + MAX_TX_LIFETIME + 1 hour tolerance`: there's no point in keeping a message once the TX
+            // `received_at + MAX_TX_LIFETIME + 2 hours tolerance`: there's no point in keeping a message once the TX
             // can no longer possibly be included in a block.
             let tx_lifetime_cap = msg.received_at + MAX_TX_LIFETIME + TX_EXPIRATION_CAP_TOLERANCE;
             if msg.expiration_timestamp < tx_lifetime_cap {
