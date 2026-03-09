@@ -137,8 +137,7 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
     });
 
     if offchain_inbox_sync.is_some() {
-        let fetch = offchain_inbox_sync.unwrap();
-        let msgs: CapsuleArray<OffchainMessageWithContext> = fetch(contract_address);
+        let msgs: CapsuleArray<OffchainMessageWithContext> = offchain_inbox_sync.unwrap()(contract_address);
         msgs.for_each(|i, msg| {
             process_message_ciphertext(
                 contract_address,
