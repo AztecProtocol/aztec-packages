@@ -19,16 +19,15 @@ class MemBn254Crs : public Crs<curve::BN254> {
     MemBn254Crs& operator=(const MemBn254Crs&) = delete;
     MemBn254Crs& operator=(MemBn254Crs&&) = delete;
 
-    MemBn254Crs(std::vector<Curve::AffineElement> const& points, g2::affine_element const& g2_point)
+    MemBn254Crs(std::vector<Curve::AffineElement> points, g2::affine_element const& g2_point)
         : g2_x(g2_point)
         , precomputed_g2_lines(
               static_cast<pairing::miller_lines*>(aligned_alloc(64, sizeof(bb::pairing::miller_lines) * 2)))
-        , monomials_(points.size())
+        , monomials_(std::move(points))
     {
-        if (points.empty() || !points[0].on_curve()) {
+        if (monomials_.empty() || !monomials_[0].on_curve()) {
             throw_or_abort("invalid g1_identity passed to MemBn254CrsFactory");
         }
-        std::copy(points.begin(), points.end(), monomials_.begin());
         bb::pairing::precompute_miller_lines(bb::g2::one, precomputed_g2_lines[0]);
         bb::pairing::precompute_miller_lines(g2_x, precomputed_g2_lines[1]);
     }
@@ -54,9 +53,8 @@ class MemBn254Crs : public Crs<curve::BN254> {
 
 namespace bb::srs::factories {
 
-MemBn254CrsFactory::MemBn254CrsFactory(std::vector<g1::affine_element> const& points,
-                                       g2::affine_element const& g2_point)
-    : crs_(std::make_shared<MemBn254Crs>(points, g2_point))
+MemBn254CrsFactory::MemBn254CrsFactory(std::vector<g1::affine_element> points, g2::affine_element const& g2_point)
+    : crs_(std::make_shared<MemBn254Crs>(std::move(points), g2_point))
 {
     vinfo("Initialized ", curve::BN254::name, " CRS from memory with num points = ", crs_->get_monomial_size());
 }
