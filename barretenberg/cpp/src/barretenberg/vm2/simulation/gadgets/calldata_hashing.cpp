@@ -1,8 +1,9 @@
 #include "barretenberg/vm2/simulation/gadgets/calldata_hashing.hpp"
 
+#include <vector>
+
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/simulation/events/calldata_event.hpp"
-#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 namespace bb::avm2::simulation {
 

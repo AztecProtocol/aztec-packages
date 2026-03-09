@@ -1,11 +1,14 @@
 #include "barretenberg/vm2/tracegen/calldata_trace.hpp"
 
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_calldata.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_calldata_hashing.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
 
