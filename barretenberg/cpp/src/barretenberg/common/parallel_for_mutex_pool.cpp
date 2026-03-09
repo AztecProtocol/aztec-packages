@@ -157,7 +157,12 @@ void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(siz
     nested = true;
     {
         std::unique_lock<std::mutex> lock(pool_mutex);
-        pool.start_tasks(num_iterations, func);
+        // Wrap func so worker threads also set nested = true, preventing them from
+        // trying to re-enter parallel_for (which would deadlock on pool_mutex).
+        pool.start_tasks(num_iterations, [&func](size_t i) {
+            nested = true;
+            func(i);
+        });
     }
     nested = false;
 }
