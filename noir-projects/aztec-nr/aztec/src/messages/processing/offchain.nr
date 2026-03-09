@@ -35,8 +35,7 @@ pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
 /// locally stored in a persistent inbox.
 ///
 /// This function determines when each message in said inbox is ready for processing, when it can be safely disposed
-/// of,
-/// etc.
+/// of, etc.
 ///
 /// The only current implementation of an `OffchainInboxSync` is [`sync_inbox`], which manages an inbox with expiration
 /// based eviction and automatic transaction context resolution.
