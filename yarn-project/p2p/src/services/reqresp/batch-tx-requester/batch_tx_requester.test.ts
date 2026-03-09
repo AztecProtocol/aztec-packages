@@ -110,8 +110,9 @@ describe('BatchTxRequester', () => {
 
       const clock = new TestClock();
 
+      const tracker = RequestTracker.fromArray(missing);
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        tracker,
         blockProposal,
         undefined,
         deadline,
@@ -128,7 +129,7 @@ describe('BatchTxRequester', () => {
       const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
       await retryUntil(() => (requestCount() === rounds ? true : undefined), 'waitFor', 10, 0.01);
-      clock.advanceTo(deadline + 1);
+      tracker.cancel();
 
       await runPromise;
 
@@ -165,8 +166,9 @@ describe('BatchTxRequester', () => {
 
       const clock = new TestClock();
 
+      const tracker = RequestTracker.fromArray(missing);
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        tracker,
         blockProposal,
         undefined,
         deadline,
@@ -183,7 +185,7 @@ describe('BatchTxRequester', () => {
       const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
       await retryUntil(() => (requestCount() == numberOfRounds * peers.length ? true : undefined), 'waitFor', 10, 0.01);
-      clock.advanceTo(deadline + 1);
+      tracker.cancel();
 
       await runPromise;
 
@@ -348,7 +350,7 @@ describe('BatchTxRequester', () => {
       const semaphore = new TestSemaphore(new Semaphore(0));
 
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         undefined,
         deadline,
@@ -585,7 +587,7 @@ describe('BatchTxRequester', () => {
       );
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
         deadline,
@@ -662,7 +664,7 @@ describe('BatchTxRequester', () => {
       });
 
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
         deadline,
@@ -990,8 +992,9 @@ describe('BatchTxRequester', () => {
 
       const clock = new TestClock();
 
+      const tracker = RequestTracker.fromArray(missing);
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        tracker,
         blockProposal,
         undefined,
         shortDeadline,
@@ -1007,9 +1010,9 @@ describe('BatchTxRequester', () => {
 
       const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
-      // Wait for first request, then advance clock past deadline
+      // Wait for first request, then cancel the tracker
       await onFirstRequest;
-      clock.advanceTo(shortDeadline + 1);
+      tracker.cancel();
 
       await runPromise;
 
@@ -1034,7 +1037,7 @@ describe('BatchTxRequester', () => {
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
       // Create tracker and immediately cancel
-      const tracker = RequestTracker.fromArray(missing);
+      const tracker = RequestTracker.create(missing, new Date(Date.now() + deadline));
       tracker.cancel();
 
       let requestsMade = 0;
@@ -1089,7 +1092,7 @@ describe('BatchTxRequester', () => {
         [peers[2].toString(), Array.from({ length: 10 }, (_, i) => i + 20)],
       ]);
 
-      const tracker = RequestTracker.fromArray(missing);
+      const tracker = RequestTracker.create(missing, new Date(Date.now() + deadline));
       let requestCount = 0;
 
       reqResp.sendRequestToPeer.mockImplementation(async (peerId: any) => {
@@ -1167,7 +1170,7 @@ describe('BatchTxRequester', () => {
       const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions, 100);
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
-      const tracker = RequestTracker.fromArray(missing);
+      const tracker = RequestTracker.create(missing, new Date(Date.now() + deadline));
 
       // Create semaphore that starts with 0 permits to block smart workers
       const semaphore = new TestSemaphore(new Semaphore(0));
@@ -1247,7 +1250,7 @@ describe('BatchTxRequester', () => {
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         undefined,
         deadline,
@@ -1328,7 +1331,7 @@ describe('BatchTxRequester', () => {
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         undefined,
         deadline,
@@ -1399,7 +1402,7 @@ describe('BatchTxRequester', () => {
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         undefined,
         deadline,
@@ -1447,7 +1450,7 @@ describe('BatchTxRequester', () => {
       const peer = await createSecp256k1PeerId();
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer]);
 
-      const tracker = RequestTracker.fromArray(missing);
+      const tracker = RequestTracker.create(missing, new Date(Date.now() + deadline));
 
       // Peer has only first half of transactions
       const peerTransactions = new Map([[peer.toString(), Array.from({ length: TX_BATCH_SIZE }, (_, i) => i)]]);
@@ -1762,7 +1765,7 @@ describe('BatchTxRequester', () => {
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const requester = new BatchTxRequester(
-        RequestTracker.fromArray(missing),
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         pinnedPeer,
         deadline,
