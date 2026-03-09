@@ -100,7 +100,6 @@ void CalldataTraceBuilder::process_hashing(
             return i < calldata_with_sep.size() ? calldata_with_sep[i] : 0;
         };
 
-        FF output_hash = Poseidon2::hash(calldata_with_sep);
         // We must pad up to the next multiple of 3:
         // n % 3 == 0 => padding_amount = 0 = 2n % 3
         // n % 3 == 1 => padding_amount = 2 = 2n % 3
@@ -125,7 +124,7 @@ void CalldataTraceBuilder::process_hashing(
                     { C::calldata_hashing_input_0_, calldata_field_at(index) },
                     { C::calldata_hashing_input_1_, calldata_field_at(index + 1) },
                     { C::calldata_hashing_input_2_, calldata_field_at(index + 2) },
-                    { C::calldata_hashing_output_hash, output_hash },
+                    { C::calldata_hashing_output_hash, event.calldata_hash },
                     { C::calldata_hashing_sel_not_padding_1, (num_rounds_rem == 1) && (padding_amount == 2) ? 0 : 1 },
                     { C::calldata_hashing_sel_not_padding_2, (num_rounds_rem == 1) && (padding_amount > 0) ? 0 : 1 },
                     { C::calldata_hashing_latch, num_rounds_rem == 1 ? 1 : 0 },

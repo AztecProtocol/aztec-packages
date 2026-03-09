@@ -18,18 +18,22 @@ namespace bb::avm2::simulation {
  */
 void CalldataHasher::assert_calldata_hash(const FF& cd_hash, std::span<const FF> calldata)
 {
-    // todo(ilyas): this probably simulates faster at the cost of re-work in tracegen
     std::vector<FF> calldata_with_sep = { DOM_SEP__PUBLIC_CALLDATA };
+    calldata_with_sep.reserve(calldata.size() + 1);
+
     for (const auto& value : calldata) {
         // Note: Using `insert` breaks GCC.
         calldata_with_sep.push_back(value);
     }
+
+    // Right-hand term is required to emit poseidon2 hash/permutation events.
     FF computed_hash = hasher.hash(calldata_with_sep);
     BB_ASSERT_EQ(computed_hash, cd_hash);
 
     events.emit({
         .context_id = context_id,
         .calldata = { calldata.begin(), calldata.end() },
+        .calldata_hash = cd_hash,
     });
 }
 
