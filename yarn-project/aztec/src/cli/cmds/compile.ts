@@ -136,8 +136,14 @@ async function checkNoTestsInContracts(nargo: string, log: LogFn): Promise<void>
   }
 }
 
+/** Options for bb aztec_process that can be forwarded from `aztec compile`. */
+interface CompileOptions {
+  verbose?: boolean;
+  threads?: number;
+}
+
 /** Compiles Aztec Noir contracts and postprocesses artifacts. */
-async function compileAztecContract(nargoArgs: string[], log: LogFn): Promise<void> {
+async function compileAztecContract(nargoArgs: string[], opts: CompileOptions, log: LogFn): Promise<void> {
   if (!(await needsRecompile())) {
     log('No source changes detected, skipping compilation.');
     return;
@@ -156,6 +162,12 @@ async function compileAztecContract(nargoArgs: string[], log: LogFn): Promise<vo
   if (artifacts.length > 0) {
     log('Postprocessing contracts...');
     const bbArgs = artifacts.flatMap(a => ['-i', a]);
+    if (opts.verbose) {
+      bbArgs.push('--verbose');
+    }
+    if (opts.threads !== undefined) {
+      bbArgs.push('--threads', String(opts.threads));
+    }
     await run(bb, ['aztec_process', ...bbArgs]);
 
     // TODO: This should be part of bb aztec_process!
@@ -169,6 +181,8 @@ export function injectCompileCommand(program: Command, log: LogFn): Command {
   program
     .command('compile')
     .argument('[nargo-args...]')
+    .option('--verbose', 'Enable verbose logging from bb during artifact postprocessing')
+    .option('--threads <count>', 'Number of threads for bb to use during artifact postprocessing', parseInt)
     .passThroughOptions()
     .allowUnknownOption()
     .description(
@@ -184,7 +198,9 @@ export function injectCompileCommand(program: Command, log: LogFn): Command {
         return '\n(Run "nargo compile --help" to see available nargo options)';
       }
     })
-    .action((nargoArgs: string[]) => compileAztecContract(nargoArgs, log));
+    .action((nargoArgs: string[], opts: { verbose?: boolean; threads?: number }) =>
+      compileAztecContract(nargoArgs, opts, log),
+    );
 
   return program;
 }

@@ -639,6 +639,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
         artifact_output_path,
         "Output artifact JSON path (optional, same as input if not specified). Cannot be used with multiple -i flags.");
     aztec_process->add_flag("-f,--force", force_regenerate, "Force regeneration of verification keys");
+    uint32_t num_threads = 0;
+    aztec_process
+        ->add_option("--threads",
+                     num_threads,
+                     "Number of threads to use (default: auto-detected, max 32).\n"
+                     "Equivalent to setting HARDWARE_CONCURRENCY environment variable.")
+        ->check(CLI::Range(1u, 256u));
     add_verbose_flag(aztec_process);
     add_debug_flag(aztec_process);
 
@@ -859,6 +866,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
 #ifdef __wasm__
             throw_or_abort("Aztec artifact processing is not supported in WASM builds.");
 #else
+            if (num_threads > 0) {
+                set_parallel_for_concurrency(num_threads);
+                info("Using ", num_threads, " threads (set via --threads)");
+            }
+
             // Handle cache_paths subcommand
             if (cache_paths_command->parsed()) {
                 return get_cache_paths(cache_paths_input) ? 0 : 1;
