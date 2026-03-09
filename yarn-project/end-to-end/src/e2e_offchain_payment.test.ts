@@ -99,7 +99,7 @@ describe('e2e_offchain_payment', () => {
     const txBlockNumber = receipt.blockNumber!;
     const txHash = provenTx.getTxHash();
 
-    const { offchainMessages } = extractOffchainOutput(provenTx.offchainEffects);
+    const { offchainMessages } = extractOffchainOutput(provenTx.offchainEffects, provenTx.data.expirationTimestamp);
     const messageForBob = offchainMessages.find(msg => msg.recipient.equals(bob));
     expect(messageForBob).toBeTruthy();
 
