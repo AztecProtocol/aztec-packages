@@ -858,7 +858,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@modelcontextprotocol/sdk@npm:^1.8.0":
+"@modelcontextprotocol/sdk@npm:^1.27.1":
   version: 1.27.1
   resolution: "@modelcontextprotocol/sdk@npm:1.27.1"
   dependencies:
