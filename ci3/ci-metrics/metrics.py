@@ -209,8 +209,11 @@ def _handle_test_event(channel: str, data: dict):
     timestamp = data.get('timestamp', datetime.now(timezone.utc).isoformat())
     test_hash = hash_str_orig(test_cmd) if test_cmd else None
 
+    # Strip grind hash prefix ("xxxxxxxxxxxxxxxx cmd" — 16 hex chars then space) so
+    # the same test aggregates across runs instead of creating a unique row per run.
+    daily_cmd = _GRIND_HASH_PREFIX_RE.sub('', test_cmd, count=1)
     # Always update daily stats (lightweight aggregate)
-    _upsert_daily_stats(status, test_cmd, dashboard, timestamp, data.get('duration_secs'))
+    _upsert_daily_stats(status, daily_cmd, dashboard, timestamp, data.get('duration_secs'))
 
     db.execute('''
         INSERT INTO test_events
@@ -432,6 +435,7 @@ def get_phases(date_from: str, date_to: str, dashboard: str = '',
 
 _ANSI_STRIP = re.compile(r'\x1b\[[^m]*m|\x1b\]8;;[^\x07]*\x07')
 _GRIND_CMD_RE = re.compile(r'/grind\?cmd=([^&\x07"]+)')
+_GRIND_HASH_PREFIX_RE = re.compile(r'^[0-9a-f]{16} ')
 _LOG_KEY_RE = re.compile(r'ci\.aztec-labs\.com/([a-f0-9]{16})')
 _INLINE_CMD_RE = re.compile(r'(?:grind\)|[0-9a-f]{16}\)):?\s+(.+?)\s+\(\d+s\)')
 _DURATION_RE = re.compile(r'\((\d+)s\)')
@@ -440,6 +444,7 @@ _FLAKE_GROUP_RE = re.compile(r'group:(\S+)')
 
 _failed_tests_sync_ts = 0
 _FAILED_TESTS_SYNC_TTL = 3600  # 1 hour
+_FAILED_TESTS_SYNC_CACHE_KEY = '_sync:failed_tests'
 
 
 def _parse_failed_test_entry(raw: str, section: str) -> dict | None:
@@ -531,12 +536,23 @@ def _parse_failed_test_entry(raw: str, section: str) -> dict | None:
 
 
 def sync_failed_tests_to_sqlite(redis_conn):
-    """Read failed_tests_{section} lists from Redis and insert into test_events."""
+    """Read failed_tests_{section} lists from Redis and insert into test_events.
+
+    Uses a shared DB cache key so only one gunicorn worker runs the sync per TTL
+    period even if multiple workers receive concurrent requests.
+    """
     global _failed_tests_sync_ts
     now = time.time()
+    # Fast per-process gate (avoids DB lookup on every request within the same worker)
     if now - _failed_tests_sync_ts < _FAILED_TESTS_SYNC_TTL:
         return
+    # Cross-process gate: check if another worker already ran the sync recently
+    if db.cache_get(_FAILED_TESTS_SYNC_CACHE_KEY):
+        _failed_tests_sync_ts = now  # update local ts so we skip the DB check next time
+        return
     _failed_tests_sync_ts = now
+    # Mark the sync as in-progress/done before starting (prevents other workers racing in)
+    db.cache_set(_FAILED_TESTS_SYNC_CACHE_KEY, True, _FAILED_TESTS_SYNC_TTL)
 
     conn = db.get_db()
     # Track existing failed/flaked entries to avoid duplicates (this sync only
@@ -590,6 +606,8 @@ def sync_failed_tests_to_sqlite(redis_conn):
                     parsed['status'], parsed['test_cmd'],
                     parsed['dashboard'], parsed['timestamp'])
                 total += 1
+                if total % 50 == 0:
+                    conn.commit()  # Release write lock periodically
             except Exception as e:
                 print(f"[rk_metrics] Error inserting test event: {e}")
     conn.commit()
@@ -690,6 +708,7 @@ def _load_seed_data():
 
 _ci_sync_ts = 0
 _CI_SYNC_TTL = 3600  # 1 hour
+_CI_SYNC_CACHE_KEY = '_sync:ci_runs'
 
 
 def sync_ci_runs_to_sqlite(redis_conn):
@@ -704,7 +723,11 @@ def sync_ci_runs_to_sqlite(redis_conn):
     now = time.time()
     if now - _ci_sync_ts < _CI_SYNC_TTL:
         return
+    if db.cache_get(_CI_SYNC_CACHE_KEY):
+        _ci_sync_ts = now
+        return
     _ci_sync_ts = now
+    db.cache_set(_CI_SYNC_CACHE_KEY, True, _CI_SYNC_TTL)
 
     runs = _get_ci_runs_from_redis(redis_conn)
 
@@ -757,6 +780,8 @@ def sync_ci_runs_to_sqlite(redis_conn):
                 now_iso,
             ))
             count += 1
+            if count % 50 == 0:
+                conn.commit()  # Release write lock periodically so other threads can write
         except Exception as e:
             print(f"[rk_metrics] Error syncing run: {e}")
     conn.commit()
@@ -767,23 +792,14 @@ def sync_ci_runs_to_sqlite(redis_conn):
 def _backfill_daily_stats():
     """Populate test_daily_stats from existing test_events rows.
 
-    Uses INSERT OR IGNORE to fill gaps without overwriting data from the
-    real-time listener.  Safe to call repeatedly — skips dates/tests that
-    already have rows.
+    Skipped if the table already has data — the real-time listener keeps it
+    current and the backfill would re-create bloat from old hash-prefixed
+    test_cmds stored in test_events.
     """
     conn = db.get_db()
-    cur = conn.execute('''
-        INSERT OR IGNORE INTO test_daily_stats (date, test_cmd, dashboard, passed, failed, flaked)
-        SELECT substr(timestamp, 1, 10) as date, test_cmd, dashboard,
-               SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END),
-               SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END),
-               SUM(CASE WHEN status = 'flaked' THEN 1 ELSE 0 END)
-        FROM test_events
-        GROUP BY substr(timestamp, 1, 10), test_cmd, dashboard
-    ''')
-    conn.commit()
-    if cur.rowcount and cur.rowcount > 0:
-        print(f"[rk_metrics] Backfilled {cur.rowcount} daily stat rows from test_events")
+    count = conn.execute("SELECT COUNT(*) FROM test_daily_stats").fetchone()[0]
+    if count > 0:
+        return  # Already populated; skip to avoid re-creating hash-prefix bloat
 
 
 def _materialize_ci_run_daily_stats():
@@ -1126,7 +1142,6 @@ def start_ci_run_sync(redis_conn):
                 sync_failed_tests_to_sqlite(redis_conn)
                 resolve_unknown_instance_types()
                 _materialize_ci_run_daily_stats()
-                db.cache_cleanup()
             except Exception as e:
                 print(f"[rk_metrics] sync error: {e}")
             time.sleep(600)  # check every 10 min (TTL gates actual work)

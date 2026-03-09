@@ -37,31 +37,74 @@ def verify_password(username, password):
     return password == DASHBOARD_PASSWORD
 
 
+_LOCK_PATH = f'/tmp/ci-metrics-{os.getenv("CI_METRICS_PORT", "8081")}-bg.lock'
+
+
+def _maintenance_loop():
+    """Periodic DB maintenance: WAL checkpoint + data retention cleanup.
+    Runs every 10 minutes in the designated background worker."""
+    while True:
+        time.sleep(600)
+        try:
+            r = db.wal_checkpoint()
+            sizes = db.db_size_mb()
+            print(f"[ci-metrics] maintenance: checkpoint={r[0]},{r[1]},{r[2]} "
+                  f"db={sizes['db']}MB wal={sizes['-wal']}MB", flush=True)
+        except Exception as e:
+            print(f"[ci-metrics] WAL checkpoint failed: {e}", flush=True)
+        try:
+            db.retention_cleanup()
+            db.cache_cleanup()
+        except Exception as e:
+            print(f"[ci-metrics] retention cleanup failed: {e}", flush=True)
+
+
 def _init():
-    """Initialize SQLite, warm caches, and start background threads."""
+    """Initialize SQLite, warm caches, and start background threads.
+
+    Background threads (Redis listeners, sync loop, GitHub pollers) are started
+    by only ONE gunicorn worker using a file lock so we avoid N workers x M
+    threads all competing for SQLite write locks.
+    """
     try:
         db.get_db()
+        print(f"[ci-metrics] DB ready at {db._DB_PATH}", flush=True)
+    except Exception as e:
+        print(f"[ci-metrics] DB init failed: {e}", flush=True)
+
+    import fcntl
+    lock_fd = open(_LOCK_PATH, 'w')
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        print("[ci-metrics] Another worker owns bg threads, skipping", flush=True)
+        lock_fd.close()
+        return
+
+    # We got the lock — we're the designated background-thread worker
+    print("[ci-metrics] Starting background threads", flush=True)
+    try:
         metrics.start_test_listener(r)
         metrics.start_phase_listener(r)
         metrics.start_ci_run_sync(r)
         github_data.start_merge_queue_poller()
         github_data.start_pr_dirs_worker()
-        print("[ci-metrics] Background threads started")
+        threading.Thread(target=_maintenance_loop, daemon=True, name='db-maintenance').start()
+        print("[ci-metrics] Background threads started", flush=True)
     except Exception as e:
-        print(f"[ci-metrics] Warning: startup failed: {e}")
-    # Warm billing caches so first request isn't slow
-    try:
-        from billing.gcp import _ensure_cached as _warm_gcp
-        _warm_gcp()
-        print("[ci-metrics] GCP billing cache warmed")
-    except Exception as e:
-        print(f"[ci-metrics] GCP billing warmup failed: {e}")
-    try:
-        from billing.aws import _ensure_cached as _warm_aws
-        _warm_aws()
-        print("[ci-metrics] AWS costs cache warmed")
-    except Exception as e:
-        print(f"[ci-metrics] AWS costs warmup failed: {e}")
+        print(f"[ci-metrics] Background startup failed: {e}", flush=True)
+
+    for label, warmup in [
+        ("GCP billing", lambda: __import__('billing.gcp', fromlist=['_ensure_cached'])._ensure_cached()),
+        ("AWS billing", lambda: __import__('billing.aws', fromlist=['_ensure_cached'])._ensure_cached()),
+    ]:
+        try:
+            warmup()
+            print(f"[ci-metrics] {label} cache warmed", flush=True)
+        except Exception as e:
+            print(f"[ci-metrics] {label} warmup failed: {e}", flush=True)
+    # Keep lock_fd open (holds lock for process lifetime)
+
 
 threading.Thread(target=_init, daemon=True, name='metrics-init').start()
 
@@ -859,11 +902,11 @@ def api_flakes_by_command():
     date_to = request.args.get('to', datetime.now().strftime('%Y-%m-%d'))
     dashboard = request.args.get('dashboard', '')
     _ck = f'flakes:{date_from}:{date_to}:{dashboard}'
+    if cached := db.cache_get(_ck):
+        return _json(cached)
     _t0 = time.perf_counter()
     metrics.sync_failed_tests_to_sqlite(r)
     _t1 = time.perf_counter()
-    if cached := db.cache_get(_ck):
-        return _json(cached)
     _result = metrics.get_flakes_by_command(date_from, date_to, dashboard)
     _t2 = time.perf_counter()
     print(f"[perf] flakes_by_command {date_from}..{date_to} | sync={_t1-_t0:.3f}s get_flakes={_t2-_t1:.3f}s total={_t2-_t0:.3f}s", flush=True)
@@ -1031,7 +1074,7 @@ def api_test_timings():
     slowest = db.query(f'''
         SELECT test_cmd, status, duration_secs, dashboard,
                substr(timestamp,1,10) as date, commit_author, log_url
-        FROM test_events {sl_where}
+        FROM test_events INDEXED BY idx_te_dur_ts {sl_where}
         ORDER BY duration_secs DESC LIMIT 50
     ''', sl_params)
     _t3 = time.perf_counter()
