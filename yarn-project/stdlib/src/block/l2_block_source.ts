@@ -68,9 +68,8 @@ export interface L2BlockSource {
   getCheckpointedL2BlockNumber(): Promise<BlockNumber>;
 
   /**
-   * Computes the finalized block number based on the proven block number.
-   * A block is considered finalized when it's 2 epochs behind the proven block.
-   * TODO(#13569): Compute proper finalized block number based on L1 finalized block.
+   * Returns the finalized L2 block number. A block is finalized when it was proven
+   * in an L1 block that has itself been finalized on Ethereum.
    * @returns The finalized block number.
    */
   getFinalizedL2BlockNumber(): Promise<BlockNumber>;
