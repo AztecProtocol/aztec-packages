@@ -78,8 +78,8 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
     quote {
         impl aztec::note::note_interface::NoteHash for $name {
             fn compute_note_hash(self, owner: aztec::protocol::address::AztecAddress, storage_slot: Field, randomness: Field) -> Field {
-                let inputs = aztec::protocol::traits::Packable::pack(self).concat( [aztec::protocol::traits::ToField::to_field(owner), storage_slot, randomness]);
-                aztec::protocol::hash::poseidon2_hash_with_separator(inputs, aztec::protocol::constants::DOM_SEP__NOTE_HASH)
+                let data = aztec::protocol::traits::Packable::pack(self).concat([aztec::protocol::traits::ToField::to_field(owner), randomness]);
+                aztec::note::utils::compute_note_hash(storage_slot, data)
             }
 
             fn compute_nullifier(
@@ -93,10 +93,7 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
                 // in the quote to avoid "trait not in scope" compiler warnings.
                 let owner_npk_m_hash = aztec::protocol::traits::Hash::hash(owner_npk_m);
                 let secret = context.request_nhk_app(owner_npk_m_hash);
-                aztec::protocol::hash::poseidon2_hash_with_separator(
-                    [note_hash_for_nullification, secret],
-                    aztec::protocol::constants::DOM_SEP__NOTE_NULLIFIER as Field,
-                )
+                aztec::note::utils::compute_note_nullifier(note_hash_for_nullification, [secret])
             }
 
             unconstrained fn compute_nullifier_unconstrained(
@@ -113,10 +110,7 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
                     // in the quote to avoid "trait not in scope" compiler warnings.
                     let owner_npk_m_hash = aztec::protocol::traits::Hash::hash(owner_npk_m);
                     let secret = aztec::keys::getters::get_nhk_app(owner_npk_m_hash);
-                    aztec::protocol::hash::poseidon2_hash_with_separator(
-                        [note_hash_for_nullification, secret],
-                        aztec::protocol::constants::DOM_SEP__NOTE_NULLIFIER as Field,
-                    )
+                    aztec::note::utils::compute_note_nullifier(note_hash_for_nullification, [secret])
                 })
             }
         }
