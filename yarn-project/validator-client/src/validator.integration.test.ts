@@ -53,6 +53,7 @@ describe('ValidatorClient Integration', () => {
     proofSubmissionEpochs: 2,
     l1StartBlock: 0n,
     targetCommitteeSize: 48,
+    rollupManaLimit: 200_000_000,
   };
 
   const emptyL1ToL2Messages: Fr[] = [];
