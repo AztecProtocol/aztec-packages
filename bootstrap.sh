@@ -66,8 +66,8 @@ function install_node {
     curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
     . "$HOME/.nvm/nvm.sh" --no-use
   fi
-  nvm install --lts
-  nvm alias default lts/*
+  nvm install $expected_min_node_version
+  nvm alias default $expected_min_node_version
 }
 
 function install_node_utils {
