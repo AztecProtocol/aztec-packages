@@ -490,19 +490,20 @@ template <typename Fr> class Polynomial {
         const Fr* src = coefficients_.data();
         uint32_t* dst = compact->data;
 
-        for (size_t i = 0; i < n; i++) {
-            const Fr& val = src[i];
-            uint64_t as_uint = static_cast<uint64_t>(val);
-            if (as_uint < 0x80000000ULL) {
-                // Positive value fits in 31 bits
-                dst[i] = static_cast<uint32_t>(as_uint);
-            } else {
-                // "Negative" value (> p/2): store magnitude of -val with sign bit
-                uint64_t neg_as_uint = static_cast<uint64_t>(-val);
-                BB_ASSERT(neg_as_uint < 0x80000000ULL);
-                dst[i] = static_cast<uint32_t>(neg_as_uint) | 0x80000000U;
-            }
-        }
+        parallel_for_heuristic(
+            n,
+            [src, dst](size_t i) {
+                const Fr& val = src[i];
+                uint64_t as_uint = static_cast<uint64_t>(val);
+                if (as_uint < 0x80000000ULL) {
+                    dst[i] = static_cast<uint32_t>(as_uint);
+                } else {
+                    uint64_t neg_as_uint = static_cast<uint64_t>(-val);
+                    BB_ASSERT(neg_as_uint < 0x80000000ULL);
+                    dst[i] = static_cast<uint32_t>(neg_as_uint) | 0x80000000U;
+                }
+            },
+            thread_heuristics::FF_MULTIPLICATION_COST);
 
         // Free the Fr backing memory
         coefficients_ = {};
@@ -524,14 +525,17 @@ template <typename Fr> class Polynomial {
         Fr* dst = coefficients_.data();
         const uint32_t* src = compact_->data;
 
-        for (size_t i = 0; i < n; i++) {
-            uint32_t v = src[i];
-            if (v & 0x80000000U) {
-                dst[i] = -Fr(v & 0x7FFFFFFFU);
-            } else {
-                dst[i] = Fr(v);
-            }
-        }
+        parallel_for_heuristic(
+            n,
+            [src, dst](size_t i) {
+                uint32_t v = src[i];
+                if (v & 0x80000000U) {
+                    dst[i] = -Fr(v & 0x7FFFFFFFU);
+                } else {
+                    dst[i] = Fr(v);
+                }
+            },
+            thread_heuristics::FF_MULTIPLICATION_COST);
 
         compact_.reset();
     }

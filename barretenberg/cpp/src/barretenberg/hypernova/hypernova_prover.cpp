@@ -116,6 +116,16 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
 
     // Complete the incoming instance
     auto precomputed_vk = honk_vk ? honk_vk : std::make_shared<VerificationKey>(instance->get_precomputed());
+
+    // Compress sigma/id polynomials to uint32_t to reduce memory during oink + sumcheck peak.
+    // VK is already built (precomputed), so sigma/id don't need raw data for commitment.
+    for (auto& sigma : instance->polynomials.get_sigmas()) {
+        sigma.compress_to_compact();
+    }
+    for (auto& id : instance->polynomials.get_ids()) {
+        id.compress_to_compact();
+    }
+
     MegaOinkProver oink_prover{ instance, precomputed_vk, transcript };
     oink_prover.prove();
 
@@ -131,6 +141,19 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
                                 instance->relation_parameters,
                                 Flavor::VIRTUAL_LOG_N);
     auto sumcheck_output = sumcheck.prove();
+
+    // Expand compact sigma/id back to Fr for batch_polynomials (needs PolynomialSpan conversion).
+    // PEM is freed by this point, so this expansion is memory-neutral.
+    for (auto& sigma : instance->polynomials.get_sigmas()) {
+        if (sigma.is_compact()) {
+            sigma.expand_from_compact();
+        }
+    }
+    for (auto& id : instance->polynomials.get_ids()) {
+        if (id.is_compact()) {
+            id.expand_from_compact();
+        }
+    }
 
     Accumulator accumulator = sumcheck_output_to_accumulator(sumcheck_output, instance, precomputed_vk);
 
