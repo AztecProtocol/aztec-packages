@@ -82,6 +82,14 @@ class ChonkAPI : public API {
                   const std::filesystem::path& output_path) override;
 
     /**
+     * @brief Batch-verify multiple Chonk proofs from a directory of proof_N/vk_N pairs.
+     *
+     * @param proofs_dir Directory containing proof_0/vk_0, proof_1/vk_1, ...
+     * @return true if all proofs verify
+     */
+    bool batch_verify(const Flags& flags, const std::filesystem::path& proofs_dir);
+
+    /**
      * @brief Validate that precomputed VKs in ivc-inputs.msgpack match computed VKs.
      *
      * @details Iterates through all execution steps and verifies each precomputed VK.

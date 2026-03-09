@@ -7,7 +7,10 @@ pub contract Claim {
     // docs:end:history_import
     use aztec::{
         macros::{functions::{external, initializer}, storage::storage},
-        note::{HintedNote, note_interface::NoteHash, utils::compute_note_hash_for_nullification},
+        note::{
+            HintedNote, note_interface::NoteHash,
+            utils::compute_confirmed_note_hash_for_nullification,
+        },
         protocol::address::AztecAddress,
         state_vars::PublicImmutable,
     };
@@ -48,7 +51,7 @@ pub contract Claim {
         // 3) Prove that the note hash exists in the note hash tree
         // docs:start:prove_note_inclusion
         let header = self.context.get_anchor_block_header();
-        let _ = assert_note_existed_by(header, hinted_note);
+        let confirmed_note = assert_note_existed_by(header, hinted_note);
         // docs:end:prove_note_inclusion
 
         // 4) Compute and emit a nullifier which is unique to the note and this contract to ensure the reward can be
@@ -58,7 +61,8 @@ pub contract Claim {
         // the address of a contract it was emitted from.
         // TODO(#7775): manually computing the hash and passing it to compute_nullifier func is not great as note could
         // handle it on its own or we could make assert_note_existed_by return note_hash_for_nullification.
-        let note_hash_for_nullification = compute_note_hash_for_nullification(hinted_note);
+        let note_hash_for_nullification =
+            compute_confirmed_note_hash_for_nullification(confirmed_note);
         let nullifier = hinted_note.note.compute_nullifier(
             self.context,
             hinted_note.owner,

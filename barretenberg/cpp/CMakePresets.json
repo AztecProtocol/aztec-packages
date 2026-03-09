@@ -41,7 +41,9 @@
       "binaryDir": "build",
       "environment": {
         "CC": "${sourceDir}/scripts/zig-cc.sh",
-        "CXX": "${sourceDir}/scripts/zig-c++.sh"
+        "CXX": "${sourceDir}/scripts/zig-c++.sh",
+        "CFLAGS": "-g0",
+        "CXXFLAGS": "-g0"
       },
       "cacheVariables": {
         "CMAKE_AR": "${sourceDir}/scripts/zig-ar.sh",
@@ -464,7 +466,9 @@
       "binaryDir": "${sourceDir}/build-${presetName}",
       "environment": {
         "CC": "zig cc",
-        "CXX": "zig c++"
+        "CXX": "zig c++",
+        "CFLAGS": "-g0",
+        "CXXFLAGS": "-g0"
       },
       "cacheVariables": {
         "ENABLE_PIC": "ON",

@@ -152,16 +152,16 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; the
     tmp_breakdown_file="/tmp/benchmark_breakdown_${runtime}_${flow_name}_$$.json"
     cp "$benchmark_breakdown_file" "$tmp_breakdown_file"
 
-    # Upload to disk (bench/bb-breakdown subfolder) in background
+    # Upload to S3 (bench/bb-breakdown subfolder) in background
     # Key format: <runtime>-<flow_name>-<sha>
     disk_key="${runtime}-${flow_name}-${current_sha}"
     {
-      cat "$tmp_breakdown_file" | gzip | cache_disk_transfer_to "bench/bb-breakdown" "$disk_key"
+      cat "$tmp_breakdown_file" | gzip | cache_s3_transfer_to "bench/bb-breakdown" "$disk_key"
       # Clean up tmp file after upload completes
       rm -f "$tmp_breakdown_file"
     } &
 
-    echo "Uploaded benchmark breakdown to disk: bench/bb-breakdown/$disk_key"
+    echo "Uploaded benchmark breakdown to S3: bench/bb-breakdown/$disk_key"
   else
     echo "Warning: benchmark breakdown file not found at $benchmark_breakdown_file"
   fi

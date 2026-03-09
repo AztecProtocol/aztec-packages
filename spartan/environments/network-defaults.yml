@@ -272,7 +272,7 @@ networks:
     L1_CHAIN_ID: 11155111  # Sepolia
     # Genesis state
     TEST_ACCOUNTS: false
-    SPONSORED_FPC: true
+    SPONSORED_FPC: false
     TRANSACTIONS_DISABLED: false
     # Sequencer
     SEQ_MAX_TX_PER_CHECKPOINT: 72 # 1 TPS
