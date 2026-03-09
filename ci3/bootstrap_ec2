@@ -18,7 +18,7 @@ if [ "$arch" == "arm64" ]; then
   cores=64
   export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME_ARM:-$AWS_SHUTDOWN_TIME}
 else
-  cores=192,128,64
+  cores=128,64
 fi
 
 # Allow override.
@@ -337,6 +337,7 @@ function run {
         -e GITHUB_ACTOR=${GITHUB_ACTOR:-} \
         -e EC2_INSTANCE_TYPE=${EC2_INSTANCE_TYPE:-unknown} \
         -e EC2_SPOT=${EC2_SPOT:-unknown} \
+        -e DRY_RUN=${DRY_RUN:-} \
         --pids-limit=65536 \
         --shm-size=2g \
         --ulimit nofile=1048576:1048576 \
