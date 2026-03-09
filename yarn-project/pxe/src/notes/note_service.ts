@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { DataInBlock } from '@aztec/stdlib/block';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
@@ -11,6 +12,8 @@ import type { AccessScopes } from '../access_scopes.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 
 export class NoteService {
+  private readonly log = createLogger('pxe:note-service');
+
   constructor(
     private readonly noteStore: NoteStore,
     private readonly aztecNode: AztecNode,
@@ -162,10 +165,13 @@ export class NoteService {
       throw new Error(`Could not find tx effect for tx hash ${txHash} as of block number ${anchorBlockNumber}`);
     }
 
-    // Find the index of the note hash in the noteHashes array to determine note ordering within the tx
+    // Find the index of the note hash in the noteHashes array to determine note ordering within the tx.
+    // aztec-nr's nonce discovery already filters out note messages whose computed hash doesn't match any note hash
+    // in the tx, but we still check here to avoid storing notes that somehow bypassed that filter.
     const noteIndexInTx = txEffect.data.noteHashes.findIndex(nh => nh.equals(uniqueNoteHash));
     if (noteIndexInTx === -1) {
-      throw new Error(`Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present in tx ${txHash}`);
+      this.log.warn(`Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present in tx ${txHash}, dropping`);
+      return;
     }
 
     const noteDao = new NoteDao(

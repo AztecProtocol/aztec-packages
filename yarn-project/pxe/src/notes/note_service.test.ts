@@ -307,21 +307,23 @@ describe('NoteService', () => {
       ).rejects.toThrow(/Could not find tx effect/);
     });
 
-    it('should throw if note was not emitted in the tx', async () => {
-      await expect(
-        noteService.validateAndStoreNote(
-          contractAddress,
-          owner,
-          storageSlot,
-          randomness,
-          noteNonce,
-          content,
-          Fr.random(), // note hash
-          nullifier,
-          txHash,
-          recipient.address,
-        ),
-      ).rejects.toThrow(/is not present in tx/);
+    it('should silently drop note not emitted in the tx', async () => {
+      await noteService.validateAndStoreNote(
+        contractAddress,
+        owner,
+        storageSlot,
+        randomness,
+        noteNonce,
+        content,
+        Fr.random(), // note hash that doesn't match any note in the tx
+        nullifier,
+        txHash,
+        recipient.address,
+      );
+
+      // Verify no note was stored
+      const notes = await noteStore.getNotes({ contractAddress, scopes: [recipient.address] }, 'test');
+      expect(notes).toHaveLength(0);
     });
 
     it('should throw if tx was mined after synced block number', async () => {

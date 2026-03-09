@@ -106,10 +106,17 @@ describe('validateAndStoreEvent', () => {
     await expect(runStoreEvent).rejects.toThrow(/Could not find tx effect for tx hash .* as of block number/);
   });
 
-  it('should throw if event commitment is not in the tx effects', async () => {
-    await expect(runStoreEvent({ eventCommitment: Fr.random() })).rejects.toThrow(
-      /Event commitment .* is not present in tx/,
-    );
+  it('should silently drop event not present in the tx', async () => {
+    await runStoreEvent({ eventCommitment: Fr.random() });
+
+    // Verify no event was stored
+    const result = await privateEventStore.getPrivateEvents(eventSelector, {
+      contractAddress,
+      fromBlock: blockNumber,
+      toBlock: blockNumber + 1,
+      scopes: [recipient],
+    });
+    expect(result).toHaveLength(0);
   });
 
   it('should store event for later retrieval', async () => {

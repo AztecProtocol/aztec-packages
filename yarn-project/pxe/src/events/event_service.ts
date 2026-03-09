@@ -1,4 +1,5 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import { createLogger } from '@aztec/foundation/log';
 import type { EventSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { siloNullifier } from '@aztec/stdlib/hash';
@@ -8,6 +9,8 @@ import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 
 export class EventService {
+  private readonly log = createLogger('pxe:event-service');
+
   constructor(
     private readonly anchorBlockHeader: BlockHeader,
     private readonly aztecNode: AztecNode,
@@ -46,9 +49,10 @@ export class EventService {
     // Find the index of the event commitment in the nullifiers array to determine event ordering within the tx
     const eventIndexInTx = txEffect.data.nullifiers.findIndex(n => n.equals(siloedEventCommitment));
     if (eventIndexInTx === -1) {
-      throw new Error(
-        `Event commitment ${eventCommitment} (siloed as ${siloedEventCommitment}) is not present in tx ${txHash}`,
+      this.log.warn(
+        `Event commitment ${eventCommitment} (siloed as ${siloedEventCommitment}) is not present in tx ${txHash}, dropping`,
       );
+      return;
     }
 
     return this.privateEventStore.storePrivateEventLog(

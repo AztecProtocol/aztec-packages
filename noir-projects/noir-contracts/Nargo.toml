@@ -46,6 +46,7 @@ members = [
     "contracts/test/event_only_contract",
     "contracts/test/import_test_contract",
     "contracts/test/invalid_account_contract",
+    "contracts/test/invalid_message_contract",
     "contracts/test/no_constructor_contract",
     "contracts/test/note_getter_contract",
     "contracts/test/offchain_effect_contract",
