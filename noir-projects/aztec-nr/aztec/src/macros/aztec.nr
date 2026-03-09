@@ -263,12 +263,9 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                             );
                             Option::none()
                         } else {
-                            let note = $unpack(
-                                aztec::utils::array::subarray(packed_note.storage(), 0),
-                            );
+                            let note = $unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
 
-                            let note_hash =
-                                $compute_note_hash(note, owner, storage_slot, randomness);
+                            let note_hash = $compute_note_hash(note, owner, storage_slot, randomness);
 
                             // The message discovery process finds settled notes, that is, notes that were created in
                             // prior transactions and are therefore already part of the note hash tree. We therefore
