@@ -67,12 +67,12 @@ template <typename Curve>
 typename BatchedHonkTranslatorVerifier_<Curve>::TransVerifierCommitments BatchedHonkTranslatorVerifier_<
     Curve>::verify_translator_oink()
 {
-    // Pass the full translator_and_joint_proof to TranslatorVerifier. It calls
+    // Pass the full joint_proof to TranslatorVerifier. It calls
     // transcript->load_proof(proof) in receive_pre_sumcheck(), loading everything
     // (translator oink + joint sumcheck + joint PCS data) into the transcript buffer.
     // The joint phases that follow will read the remaining data in order.
     TranslatorVerifier_<TransFlavor> trans_verifier(transcript,
-                                                    translator_and_joint_proof,
+                                                    joint_proof,
                                                     evaluation_input_x,
                                                     batching_challenge_v,
                                                     accumulated_result,
@@ -334,15 +334,15 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
 }
 
 template <typename Curve>
-typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTranslatorVerifier_<Curve>::
-    verify_translator_and_joint(const Proof& translator_and_joint_proof,
-                                const TransBF& eval_input_x,
-                                const TransBF& batch_challenge_v,
-                                const TransBF& accum_result,
-                                const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& wire_commitments)
+typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTranslatorVerifier_<Curve>::verify(
+    const Proof& joint_proof,
+    const TransBF& eval_input_x,
+    const TransBF& batch_challenge_v,
+    const TransBF& accum_result,
+    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& wire_commitments)
 {
     // Store ECCVM-derived parameters and proof for use by verify_translator_oink.
-    this->translator_and_joint_proof = translator_and_joint_proof;
+    this->joint_proof = joint_proof;
     evaluation_input_x = eval_input_x;
     batching_challenge_v = batch_challenge_v;
     accumulated_result = accum_result;

@@ -23,14 +23,14 @@ std::vector<typename ChonkProof_<IsRecursive>::FF> ChonkProof_<IsRecursive>::to_
     proof.insert(proof.end(), merge_proof.begin(), merge_proof.end());
     proof.insert(proof.end(), eccvm_proof.begin(), eccvm_proof.end());
     proof.insert(proof.end(), ipa_proof.begin(), ipa_proof.end());
-    proof.insert(proof.end(), translator_and_joint_proof.begin(), translator_and_joint_proof.end());
+    proof.insert(proof.end(), joint_proof.begin(), joint_proof.end());
     return proof;
 };
 
 /**
  * @brief Split a flat vector of field elements into ChonkProof components.
  * @details Uses known fixed sizes for merge/eccvm/ipa proofs, and derives the mega_zk_proof and
- * translator_and_joint_proof sizes from the total.
+ * joint_proof sizes from the total.
  */
 template <bool IsRecursive>
 ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_field_elements(const std::vector<FF>& fields)
@@ -59,14 +59,14 @@ ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_field_elements(const std
     HonkProof ipa_proof_out(it, it + static_cast<std::ptrdiff_t>(ipa_size));
     it += static_cast<std::ptrdiff_t>(ipa_size);
 
-    // Remainder is the translator_and_joint_proof
-    HonkProof translator_and_joint_proof_out(it, fields.end());
+    // Remainder is the joint_proof
+    HonkProof joint_proof_out(it, fields.end());
 
     return ChonkProof_{ std::move(mega_zk_proof),
                         std::move(merge_proof_out),
                         std::move(eccvm_proof_out),
                         std::move(ipa_proof_out),
-                        std::move(translator_and_joint_proof_out) };
+                        std::move(joint_proof_out) };
 }
 
 // Explicit template instantiations

@@ -86,7 +86,7 @@ TEST_F(ChonkBatchVerifierTests, BatchVerifySwappedGoblinProofs)
     std::swap(proof1.merge_proof, proof2.merge_proof);
     std::swap(proof1.eccvm_proof, proof2.eccvm_proof);
     std::swap(proof1.ipa_proof, proof2.ipa_proof);
-    std::swap(proof1.translator_and_joint_proof, proof2.translator_and_joint_proof);
+    std::swap(proof1.joint_proof, proof2.joint_proof);
 
     std::vector<ChonkBatchVerifier::Input> inputs = {
         { std::move(proof1), vk1 },

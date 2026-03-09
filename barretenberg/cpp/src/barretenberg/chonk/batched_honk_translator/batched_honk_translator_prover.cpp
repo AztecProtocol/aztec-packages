@@ -308,8 +308,7 @@ HonkProof BatchedHonkTranslatorProver::prove_mega_zk_oink()
     return transcript->export_proof();
 }
 
-HonkProof BatchedHonkTranslatorProver::prove_translator_and_joint(
-    std::shared_ptr<TranslatorProvingKey> translator_proving_key)
+HonkProof BatchedHonkTranslatorProver::prove(std::shared_ptr<TranslatorProvingKey> translator_proving_key)
 {
     translator_key = std::move(translator_proving_key);
     execute_translator_oink();

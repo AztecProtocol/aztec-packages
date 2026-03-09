@@ -83,11 +83,11 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     /**
      * @brief Phase 2: Verify translator Oink + joint sumcheck + joint PCS.
      * @details Called after merge and ECCVM verification have been performed on the shared transcript.
-     * Loads translator_and_joint_proof, runs translator oink, joint sumcheck, and joint PCS.
+     * Loads joint_proof, runs translator oink, joint sumcheck, and joint PCS.
      * @return ReductionResult with pairing points and a success flag.
      */
-    [[nodiscard("Verification result should be checked")]] ReductionResult verify_translator_and_joint(
-        const Proof& translator_and_joint_proof,
+    [[nodiscard("Verification result should be checked")]] ReductionResult verify(
+        const Proof& joint_proof,
         const TransBF& evaluation_input_x,
         const TransBF& batching_challenge_v,
         const TransBF& accumulated_result,
@@ -120,10 +120,10 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     // Verifier instance stored after verify_mega_zk_oink (provides accessors)
     std::shared_ptr<MegaZKVerifierInstance> mega_zk_verifier_instance;
 
-    // Proof stored by verify_translator_and_joint, loaded by verify_translator_oink via TranslatorVerifier.
-    Proof translator_and_joint_proof;
+    // Proof stored by verify_joint, loaded by verify_translator_oink via TranslatorVerifier.
+    Proof joint_proof;
 
-    // Translator-specific parameters from ECCVM verifier (set by verify_translator_and_joint).
+    // Translator-specific parameters from ECCVM verifier (set by verify_joint).
     TransBF evaluation_input_x;
     TransBF batching_challenge_v;
     TransBF accumulated_result;

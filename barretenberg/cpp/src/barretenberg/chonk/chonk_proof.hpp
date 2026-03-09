@@ -23,7 +23,7 @@ namespace bb {
  *   2. merge_proof: Merge proof for the hiding kernel's ECC op subtable
  *   3. eccvm_proof: ECCVM proof
  *   4. ipa_proof: IPA opening proof for ECCVM (separate transcript)
- *   5. translator_and_joint_proof: Translator Oink + joint sumcheck + joint Shplemini/KZG PCS
+ *   5. joint_proof: Translator Oink + joint sumcheck + joint Shplemini/KZG PCS
  *
  * The joint sumcheck and PCS batch the MegaZK and translator circuits together,
  * eliminating separate sumcheck/PCS phases and reducing overall proof size.
@@ -33,22 +33,22 @@ template <bool IsRecursive = false> struct ChonkProof_ {
     using HonkProof = std::conditional_t<IsRecursive, stdlib::Proof<Builder>, ::bb::HonkProof>;
     using FF = std::conditional_t<IsRecursive, stdlib::field_t<Builder>, bb::fr>;
 
-    HonkProof mega_zk_proof;              // MegaZK Oink (pre-sumcheck only)
-    HonkProof merge_proof;                // Merge proof
-    HonkProof eccvm_proof;                // ECCVM proof
-    HonkProof ipa_proof;                  // IPA opening proof (separate transcript)
-    HonkProof translator_and_joint_proof; // Translator Oink + joint sumcheck + joint PCS
+    HonkProof mega_zk_proof; // MegaZK Oink (pre-sumcheck only)
+    HonkProof merge_proof;   // Merge proof
+    HonkProof eccvm_proof;   // ECCVM proof
+    HonkProof ipa_proof;     // IPA opening proof (separate transcript)
+    HonkProof joint_proof;   // Translator Oink + joint sumcheck + joint PCS
 
     // Default constructor
     ChonkProof_() = default;
 
     // 5-arg constructor
-    ChonkProof_(HonkProof mega_zk, HonkProof merge, HonkProof eccvm, HonkProof ipa, HonkProof translator_and_joint)
+    ChonkProof_(HonkProof mega_zk, HonkProof merge, HonkProof eccvm, HonkProof ipa, HonkProof joint)
         : mega_zk_proof(std::move(mega_zk))
         , merge_proof(std::move(merge))
         , eccvm_proof(std::move(eccvm))
         , ipa_proof(std::move(ipa))
-        , translator_and_joint_proof(std::move(translator_and_joint))
+        , joint_proof(std::move(joint))
     {}
 
     // Constructs a stdlib Chonk proof from a native Chonk proof
@@ -59,13 +59,12 @@ template <bool IsRecursive = false> struct ChonkProof_ {
         , merge_proof(builder, proof.merge_proof)
         , eccvm_proof(builder, proof.eccvm_proof)
         , ipa_proof(builder, proof.ipa_proof)
-        , translator_and_joint_proof(builder, proof.translator_and_joint_proof)
+        , joint_proof(builder, proof.joint_proof)
     {}
 
     size_t size() const
     {
-        return mega_zk_proof.size() + merge_proof.size() + eccvm_proof.size() + ipa_proof.size() +
-               translator_and_joint_proof.size();
+        return mega_zk_proof.size() + merge_proof.size() + eccvm_proof.size() + ipa_proof.size() + joint_proof.size();
     }
 
     /**
@@ -155,7 +154,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
         {}
     };
 
-    MSGPACK_FIELDS(mega_zk_proof, merge_proof, eccvm_proof, ipa_proof, translator_and_joint_proof);
+    MSGPACK_FIELDS(mega_zk_proof, merge_proof, eccvm_proof, ipa_proof, joint_proof);
     bool operator==(const ChonkProof_& other) const = default;
 };
 

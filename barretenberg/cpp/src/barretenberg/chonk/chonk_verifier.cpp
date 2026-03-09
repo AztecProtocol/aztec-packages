@@ -73,11 +73,11 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
     auto translator_input = eccvm_verifier.get_translator_input_data();
 
     // Step 5: Translator Oink + Joint sumcheck + Joint PCS
-    auto batched_result = batched_verifier.verify_translator_and_joint(proof.translator_and_joint_proof,
-                                                                       translator_input.evaluation_challenge_x,
-                                                                       translator_input.batching_challenge_v,
-                                                                       translator_input.accumulated_result,
-                                                                       merge_result.merged_commitments);
+    auto batched_result = batched_verifier.verify(proof.joint_proof,
+                                                  translator_input.evaluation_challenge_x,
+                                                  translator_input.batching_challenge_v,
+                                                  translator_input.accumulated_result,
+                                                  merge_result.merged_commitments);
     vinfo("ChonkVerifier: Batched translator+joint reduction: ", batched_result.reduction_succeeded ? "true" : "false");
 
     if (!batched_result.reduction_succeeded) {
@@ -162,11 +162,11 @@ template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof&
     auto translator_input = eccvm_verifier.get_translator_input_data();
 
     // Step 5: Translator Oink + Joint sumcheck + Joint PCS
-    auto batched_result = batched_verifier.verify_translator_and_joint(proof.translator_and_joint_proof,
-                                                                       translator_input.evaluation_challenge_x,
-                                                                       translator_input.batching_challenge_v,
-                                                                       translator_input.accumulated_result,
-                                                                       merge_result.merged_commitments);
+    auto batched_result = batched_verifier.verify(proof.joint_proof,
+                                                  translator_input.evaluation_challenge_x,
+                                                  translator_input.batching_challenge_v,
+                                                  translator_input.accumulated_result,
+                                                  merge_result.merged_commitments);
     vinfo("ChonkRecursiveVerifier: Batched translator+joint reduction: ",
           batched_result.reduction_succeeded ? "true" : "false");
 

@@ -21,7 +21,7 @@ Both circuits commit their witnesses to the shared transcript independently:
 1. **MegaZK** — `OinkProver<MegaZKFlavor>` runs its full pre-sumcheck phase (wire commitments, permutation grand products, relation parameters). Its proof segment is exported as `mega_zk_proof`.
 2. **Translator** — `TranslatorProver::execute_{preamble,wire,grand_product}_round()` runs the equivalent pre-sumcheck phase. Relation parameters are captured for use in the joint sumcheck.
 
-The two sub-proofs are separated at the transcript level so the verifier can check them independently: `mega_zk_proof` covers Oink only; `translator_and_joint_proof` covers the translator Oink, the joint sumcheck, and the joint PCS.
+The two sub-proofs are separated at the transcript level so the verifier can check them independently: `mega_zk_proof` covers Oink only; `joint_proof` covers the translator Oink, the joint sumcheck, and the joint PCS.
 
 ### Phase 2 — Joint Sumcheck
 
@@ -64,11 +64,11 @@ All polynomials from both circuits are combined into a single `PolynomialBatcher
 ```cpp
 struct Proof {
     HonkProof mega_zk_proof;              // Oink (pre-sumcheck) for the MegaZK circuit
-    HonkProof translator_and_joint_proof; // Translator Oink + joint sumcheck + PCS
+    HonkProof joint_proof; // Translator Oink + joint sumcheck + PCS
 };
 ```
 
-The two segments are produced by calling `transcript->export_proof()` after each phase. The verifier loads them onto the transcript in order: `mega_zk_proof` first (for the MegaZK Oink phase), then `translator_and_joint_proof` (for everything else).
+The two segments are produced by calling `transcript->export_proof()` after each phase. The verifier loads them onto the transcript in order: `mega_zk_proof` first (for the MegaZK Oink phase), then `joint_proof` (for everything else).
 
 ---
 

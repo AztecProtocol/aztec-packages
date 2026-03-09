@@ -580,7 +580,7 @@ ChonkProof Chonk::prove()
 
     // Phase 5: Translator Oink + Joint Sumcheck + Joint PCS on the shared transcript.
     vinfo("prove translator and joint...");
-    auto translator_and_joint_proof = batched_prover.prove_translator_and_joint(translator_key);
+    auto joint_proof = batched_prover.prove(translator_key);
     vinfo("finished translator and joint proving.");
 
     // Release the hiding kernel instance now that proving is complete.
@@ -590,7 +590,7 @@ ChonkProof Chonk::prove()
                        std::move(merge_proof),
                        std::move(goblin.goblin_proof.eccvm_proof),
                        std::move(goblin.goblin_proof.ipa_proof),
-                       std::move(translator_and_joint_proof) };
+                       std::move(joint_proof) };
 }
 
 std::shared_ptr<MegaZKFlavor::VKAndHash> Chonk::get_hiding_kernel_vk_and_hash() const
