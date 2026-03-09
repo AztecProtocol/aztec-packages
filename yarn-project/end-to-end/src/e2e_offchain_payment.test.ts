@@ -68,7 +68,6 @@ describe('e2e_offchain_payment', () => {
       .send({ from: alice });
     expect(offchainMessages.length).toBeGreaterThan(0);
 
-    // QR payload is the offchain message for Bob.
     const messageForBob = offchainMessages.find(msg => msg.recipient.equals(bob));
     expect(messageForBob).toBeTruthy();
 
