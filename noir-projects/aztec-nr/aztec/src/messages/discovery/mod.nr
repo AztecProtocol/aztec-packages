@@ -96,9 +96,6 @@ pub type CustomMessageHandler<Env> = unconstrained fn[Env](
 /* msg_content */ BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
 /* message_context */ MessageContext);
 
-/// Performs the state synchronization process, in which private logs are downloaded and inspected to find new private
-/// notes, partial notes and events, etc., and pending partial notes are processed to search for their completion logs.
-/// This is the mechanism via which a contract updates its knowledge of its private state.
 /// Synchronizes the contract's private state with the network.
 ///
 /// As blocks are mined, it is possible for a contract's private state to change (e.g. with new notes being created),
