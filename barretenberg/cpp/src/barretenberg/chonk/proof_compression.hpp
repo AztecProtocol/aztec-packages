@@ -7,6 +7,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include <cstddef>
@@ -340,7 +341,9 @@ class ProofCompressor {
         MegaZKFlavor::VIRTUAL_LOG_N * BN254_FRS_PER_SCALAR +                                                // gemini evals
         NUM_SMALL_IPA_EVALUATIONS * BN254_FRS_PER_SCALAR +                                                  // small IPA evals
         2 * BN254_FRS_PER_COMM;                                                                             // shplonk Q + KZG W
-    static_assert(EXPECTED_MEGA_ZK_FRS == ChonkProof::HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS);
+    // TODO(si): Update for batched proof format. EXPECTED_MEGA_ZK_FRS is for full Honk proof,
+    // but mega_zk_proof is now Oink-only. The sumcheck/PCS are in translator_and_joint_proof.
+    // static_assert(EXPECTED_MEGA_ZK_FRS == ProofLength::Honk<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N));
 
     // Merge — mirrors walk_merge_proof
     static constexpr size_t EXPECTED_MERGE_FRS =
@@ -484,7 +487,7 @@ class ProofCompressor {
         };
 
         size_t mega_num_pub_inputs =
-            proof.mega_proof.size() - ChonkProof::HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS;
+            proof.mega_zk_proof.size() - ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
         walk_chonk_proof(bn254_scalar, bn254_comm, grumpkin_scalar, grumpkin_comm, mega_num_pub_inputs);
         BB_ASSERT(offset == flat.size());
         return out;

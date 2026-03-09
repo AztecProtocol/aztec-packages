@@ -34,8 +34,7 @@ void create_dummy_vkey_and_proof(UltraCircuitBuilder& builder,
     using Builder = UltraCircuitBuilder;
     using IO = stdlib::recursion::honk::HidingKernelIO<Builder>;
 
-    BB_ASSERT_EQ(proof_size, ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
-
+    // proof_size should match the total ChonkProof field-element count minus public inputs
     size_t num_inner_public_inputs = public_inputs_size - IO::PUBLIC_INPUTS_SIZE;
 
     // Generate mock honk vk

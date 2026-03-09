@@ -12,6 +12,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs_test_serde.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -236,7 +237,7 @@ class ChonkTests : public ::testing::Test {
         size_t hiding_kernel_pub_inputs = vk_and_hash->vk->num_public_inputs;
         ASSERT_EQ(hiding_kernel_pub_inputs, HidingKernelIOSerde::PUBLIC_INPUTS_SIZE)
             << "HidingKernel should use HidingKernelIO format";
-        HidingKernelIOSerde hiding_io = HidingKernelIOSerde::from_proof(proof.mega_proof, hiding_kernel_pub_inputs);
+        HidingKernelIOSerde hiding_io = HidingKernelIOSerde::from_proof(proof.mega_zk_proof, hiding_kernel_pub_inputs);
 
         // Verify field propagated correctly from Tail kernel to HidingKernel
         switch (field_to_test) {
@@ -582,7 +583,8 @@ TEST_F(ChonkTests, ProofCompressionRoundtrip)
     // Compression should achieve at least 1.5x (commitments 4 Fr → 32 bytes, scalars 1:1)
     EXPECT_GE(ratio, 1.5) << "Compression ratio " << ratio << "x is below the expected minimum of 1.5x";
 
-    size_t mega_num_pub_inputs = proof.mega_proof.size() - ChonkProof::HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS;
+    size_t mega_num_pub_inputs =
+        proof.mega_zk_proof.size() - ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
     ChonkProof decompressed = ProofCompressor::decompress_chonk_proof(compressed, mega_num_pub_inputs);
 
     // Verify element-by-element roundtrip

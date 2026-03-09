@@ -5,67 +5,68 @@
 // =====================
 
 #include "barretenberg/chonk/chonk_proof.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 
 namespace bb {
 
 /**
- * @brief Serialize Chonk Proof
+ * @brief Serialize Chonk Proof to a flat vector of field elements.
  */
 template <bool IsRecursive>
 std::vector<typename ChonkProof_<IsRecursive>::FF> ChonkProof_<IsRecursive>::to_field_elements() const
 {
     HonkProof proof;
 
-    proof.insert(proof.end(), mega_proof.begin(), mega_proof.end());
-    proof.insert(proof.end(), goblin_proof.merge_proof.begin(), goblin_proof.merge_proof.end());
-    proof.insert(proof.end(), goblin_proof.eccvm_proof.begin(), goblin_proof.eccvm_proof.end());
-    proof.insert(proof.end(), goblin_proof.ipa_proof.begin(), goblin_proof.ipa_proof.end());
-    proof.insert(proof.end(), goblin_proof.translator_proof.begin(), goblin_proof.translator_proof.end());
+    proof.insert(proof.end(), mega_zk_proof.begin(), mega_zk_proof.end());
+    proof.insert(proof.end(), merge_proof.begin(), merge_proof.end());
+    proof.insert(proof.end(), eccvm_proof.begin(), eccvm_proof.end());
+    proof.insert(proof.end(), ipa_proof.begin(), ipa_proof.end());
+    proof.insert(proof.end(), translator_and_joint_proof.begin(), translator_and_joint_proof.end());
     return proof;
 };
 
 /**
- * @brief Split a vector of field elements into ChonkProof components.
+ * @brief Split a flat vector of field elements into ChonkProof components.
+ * @details Uses known fixed sizes for merge/eccvm/ipa proofs, and derives the mega_zk_proof and
+ * translator_and_joint_proof sizes from the total.
  */
 template <bool IsRecursive>
 ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_field_elements(const std::vector<FF>& fields)
 {
-    HonkProof mega_proof;
-    GoblinProof goblin_proof;
+    // Fixed-size components
+    constexpr size_t merge_size = MERGE_PROOF_SIZE;
+    constexpr size_t eccvm_size = ECCVMFlavor::PROOF_LENGTH;
+    constexpr size_t ipa_size = IPA_PROOF_LENGTH;
 
-    // Calculate custom public inputs size from total proof size
-    BB_ASSERT_GTE(fields.size(), PROOF_LENGTH, "Proof size is less than minimum proof length");
-    size_t custom_public_inputs_size = fields.size() - PROOF_LENGTH;
+    // MegaZK Oink proof size = oink data + public inputs (HidingKernelIO + custom)
+    constexpr size_t mega_zk_oink_without_pub_inputs = ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
+    const size_t mega_zk_oink_length = mega_zk_oink_without_pub_inputs + bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
+    // TODO(si): handle custom public inputs properly; for now assume none.
 
-    // Mega proof
-    auto start_idx = fields.begin();
-    auto end_idx =
-        start_idx + static_cast<std::ptrdiff_t>(HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS +
-                                                bb::HidingKernelIO::PUBLIC_INPUTS_SIZE + custom_public_inputs_size);
-    mega_proof.insert(mega_proof.end(), start_idx, end_idx);
+    auto it = fields.begin();
 
-    // Merge proof
-    start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(MERGE_PROOF_SIZE);
-    goblin_proof.merge_proof.insert(goblin_proof.merge_proof.end(), start_idx, end_idx);
+    HonkProof mega_zk_proof(it, it + static_cast<std::ptrdiff_t>(mega_zk_oink_length));
+    it += static_cast<std::ptrdiff_t>(mega_zk_oink_length);
 
-    // ECCVM proof
-    start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH);
-    goblin_proof.eccvm_proof.insert(goblin_proof.eccvm_proof.end(), start_idx, end_idx);
+    HonkProof merge_proof_out(it, it + static_cast<std::ptrdiff_t>(merge_size));
+    it += static_cast<std::ptrdiff_t>(merge_size);
 
-    // IPA proof
-    start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(IPA_PROOF_LENGTH);
-    goblin_proof.ipa_proof.insert(goblin_proof.ipa_proof.end(), start_idx, end_idx);
+    HonkProof eccvm_proof_out(it, it + static_cast<std::ptrdiff_t>(eccvm_size));
+    it += static_cast<std::ptrdiff_t>(eccvm_size);
 
-    // Translator proof
-    start_idx = end_idx;
-    end_idx += static_cast<std::ptrdiff_t>(TranslatorFlavor::PROOF_LENGTH);
-    goblin_proof.translator_proof.insert(goblin_proof.translator_proof.end(), start_idx, end_idx);
+    HonkProof ipa_proof_out(it, it + static_cast<std::ptrdiff_t>(ipa_size));
+    it += static_cast<std::ptrdiff_t>(ipa_size);
 
-    return ChonkProof_{ std::move(mega_proof), std::move(goblin_proof) };
+    // Remainder is the translator_and_joint_proof
+    HonkProof translator_and_joint_proof_out(it, fields.end());
+
+    return ChonkProof_{ std::move(mega_zk_proof),
+                        std::move(merge_proof_out),
+                        std::move(eccvm_proof_out),
+                        std::move(ipa_proof_out),
+                        std::move(translator_and_joint_proof_out) };
 }
 
 // Explicit template instantiations

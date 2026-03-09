@@ -10,6 +10,7 @@
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
@@ -124,7 +125,7 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
         throw_or_abort("Failed to verify the generated proof!");
     }
 
-    response.proof = ChonkProof{ std::move(proof.mega_proof), std::move(proof.goblin_proof) };
+    response.proof = std::move(proof);
 
     request.ivc_in_progress.reset();
     request.ivc_stack_depth = 0;
@@ -142,12 +143,12 @@ ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
     // Deserialize the hiding kernel verification key directly from buffer
     auto hiding_kernel_vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk));
 
-    // Validate proof size using VK's num_public_inputs before expensive verification
-    const size_t expected_proof_size =
-        static_cast<size_t>(hiding_kernel_vk->num_public_inputs) + ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
-    if (proof.size() != expected_proof_size) {
-        throw_or_abort("proof has wrong size: expected " + std::to_string(expected_proof_size) + ", got " +
-                       std::to_string(proof.size()));
+    // Validate mega_zk_proof size: it must match num_public_inputs + Oink fixed overhead
+    const size_t expected_mega_zk_size = static_cast<size_t>(hiding_kernel_vk->num_public_inputs) +
+                                         ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
+    if (proof.mega_zk_proof.size() != expected_mega_zk_size) {
+        throw_or_abort("ChonkVerify: mega_zk_proof has wrong size: expected " + std::to_string(expected_mega_zk_size) +
+                       ", got " + std::to_string(proof.mega_zk_proof.size()));
     }
 
     // Verify the proof using ChonkNativeVerifier
@@ -179,11 +180,12 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
         validate_vk_size<VerificationKey>(vks[i]);
         auto hiding_kernel_vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vks[i]));
 
-        const size_t expected_proof_size =
-            static_cast<size_t>(hiding_kernel_vk->num_public_inputs) + ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
-        if (proofs[i].size() != expected_proof_size) {
-            throw_or_abort("ChonkBatchVerify: proof[" + std::to_string(i) + "] has wrong size: expected " +
-                           std::to_string(expected_proof_size) + ", got " + std::to_string(proofs[i].size()));
+        const size_t expected_mega_zk_size = static_cast<size_t>(hiding_kernel_vk->num_public_inputs) +
+                                             ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
+        if (proofs[i].mega_zk_proof.size() != expected_mega_zk_size) {
+            throw_or_abort("ChonkBatchVerify: proof[" + std::to_string(i) +
+                           "].mega_zk_proof has wrong size: expected " + std::to_string(expected_mega_zk_size) +
+                           ", got " + std::to_string(proofs[i].mega_zk_proof.size()));
         }
 
         auto vk_and_hash = std::make_shared<ChonkNativeVerifier::VKAndHash>(hiding_kernel_vk);
