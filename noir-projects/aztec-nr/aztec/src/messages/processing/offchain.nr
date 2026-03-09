@@ -34,7 +34,7 @@ pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
 ///
 /// The default implementation is [`default_handler`], which manages an inbox with expiration-based eviction and
 /// automatic context resolution.
-pub type OffchainMessageHandler<Env> = unconstrained fn[Env](
+pub type OffchainInboxSync<Env> = unconstrained fn[Env](
 /* contract_address */AztecAddress) -> CapsuleArray<OffchainMessageWithContext>;
 
 /// A message delivered via the `offchain_receive` utility function.

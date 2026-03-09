@@ -14,7 +14,7 @@ use crate::{
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
-            get_private_logs, MessageContext, offchain::OffchainMessageHandler, OffchainMessageWithContext,
+            get_private_logs, MessageContext, offchain::OffchainInboxSync, OffchainMessageWithContext,
             pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
         },
     },
@@ -108,7 +108,7 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ComputeNoteHashAndNullifierEnv>,
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
-    offchain_message_handler: Option<OffchainMessageHandler<()>>,
+    offchain_inbox_sync: Option<OffchainInboxSync<()>>,
 ) {
     aztecnr_debug_log!("Performing state synchronization");
 
@@ -136,8 +136,8 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
         logs.remove(i);
     });
 
-    if offchain_message_handler.is_some() {
-        let fetch = offchain_message_handler.unwrap();
+    if offchain_inbox_sync.is_some() {
+        let fetch = offchain_inbox_sync.unwrap();
         let msgs: CapsuleArray<OffchainMessageWithContext> = fetch(contract_address);
         msgs.for_each(|i, msg| {
             process_message_ciphertext(
