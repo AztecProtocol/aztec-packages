@@ -109,10 +109,10 @@ aztec [options] [command]
 - `get-logs [options]` - Gets all the public logs from an intersection of all the filter params.
 - `get-node-info [options]` - Gets the information of an Aztec node from a PXE or directly from an Aztec node.
 - `help [command]` - display help for command
-- `init [folder] [options]` - creates a new Noir project
+- `init [options]` - creates a new Noir workspace in the current directory
 - `inspect-contract <contractArtifactFile>` - Shows list of external callable functions for a contract
 - `lsp` - starts the Nargo Language Server Protocol server
-- `new <path> [options]` - creates a new Noir project in a new directory
+- `new <name> [options]` - creates a new Noir workspace (or adds a contract to an existing workspace)
 - `parse-parameter-struct [options] <encodedString>` - Helper for parsing an encoded string into a contract's parameter struct.
 - `preload-crs` - Preload the points data needed for proving and verifying
 - `propose-with-lock [options]` - Makes a proposal to governance with a lock

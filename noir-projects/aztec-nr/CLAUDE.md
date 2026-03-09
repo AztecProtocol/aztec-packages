@@ -33,3 +33,8 @@ Follow the Rust stdlib style roughly. See `PublicImmutable` in `state_vars/publi
 - **Be precise with terminology.** For example, messages sent onchain are "messages that use logs", not "logs" themselves.
 - **Show practical patterns in examples.** Don't just show the API call — show it in context (e.g. inside a `#[external("public")]` function with realistic variable names).
 - **Document cost for methods.** When relevant, note which AVM opcodes are invoked and how many times (e.g. "`SLOAD` is invoked a number of times equal to `T`'s packed length").
+
+## Logging
+
+- **Always use the prefixed logging functions** from `crate::logging` (e.g. `logging::aztecnr_debug_log!`, `logging::aztecnr_debug_log_format!`). These automatically prepend `[aztec-nr] ` to all messages at compile time.
+- **Never use `crate::protocol::logging` directly** — those functions have no prefix, making logs harder to filter and identify.

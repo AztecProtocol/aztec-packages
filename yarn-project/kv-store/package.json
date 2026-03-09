@@ -8,8 +8,7 @@
     "./lmdb": "./dest/lmdb/index.js",
     "./lmdb-v2": "./dest/lmdb-v2/index.js",
     "./indexeddb": "./dest/indexeddb/index.js",
-    "./stores": "./dest/stores/index.js",
-    "./config": "./dest/config.js"
+    "./stores": "./dest/stores/index.js"
   },
   "scripts": {
     "build": "yarn clean && ../scripts/tsc.sh",

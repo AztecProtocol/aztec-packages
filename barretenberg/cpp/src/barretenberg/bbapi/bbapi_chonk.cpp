@@ -1,6 +1,8 @@
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
+#include "barretenberg/chonk/chonk_batch_verifier.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
+#include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -156,6 +158,43 @@ ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
     return { .valid = verified };
 }
 
+ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*request*/) &&
+{
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+
+    if (proofs.size() != vks.size()) {
+        throw_or_abort("ChonkBatchVerify: proofs.size() (" + std::to_string(proofs.size()) + ") != vks.size() (" +
+                       std::to_string(vks.size()) + ")");
+    }
+    if (proofs.empty()) {
+        throw_or_abort("ChonkBatchVerify: no proofs provided");
+    }
+
+    using VerificationKey = Chonk::MegaVerificationKey;
+
+    std::vector<ChonkBatchVerifier::Input> inputs;
+    inputs.reserve(proofs.size());
+
+    for (size_t i = 0; i < proofs.size(); ++i) {
+        validate_vk_size<VerificationKey>(vks[i]);
+        auto hiding_kernel_vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vks[i]));
+
+        const size_t expected_proof_size =
+            static_cast<size_t>(hiding_kernel_vk->num_public_inputs) + ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
+        if (proofs[i].size() != expected_proof_size) {
+            throw_or_abort("ChonkBatchVerify: proof[" + std::to_string(i) + "] has wrong size: expected " +
+                           std::to_string(expected_proof_size) + ", got " + std::to_string(proofs[i].size()));
+        }
+
+        auto vk_and_hash = std::make_shared<ChonkNativeVerifier::VKAndHash>(hiding_kernel_vk);
+        inputs.push_back({ .proof = std::move(proofs[i]), .vk_and_hash = std::move(vk_and_hash) });
+    }
+
+    const bool verified = ChonkBatchVerifier::verify(inputs);
+
+    return { .valid = verified };
+}
+
 static std::shared_ptr<Chonk::ProverInstance> get_acir_program_prover_instance(acir_format::AcirProgram& program)
 {
     Chonk::ClientCircuit builder = acir_format::create_circuit<Chonk::ClientCircuit>(program);
@@ -251,6 +290,19 @@ ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request)
     builder.blocks.summarize();
 
     return response;
+}
+
+ChonkCompressProof::Response ChonkCompressProof::execute(const BBApiRequest& /*request*/) &&
+{
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    return { .compressed_proof = ProofCompressor::compress_chonk_proof(proof) };
+}
+
+ChonkDecompressProof::Response ChonkDecompressProof::execute(const BBApiRequest& /*request*/) &&
+{
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    size_t mega_num_pub = ProofCompressor::compressed_mega_num_public_inputs(compressed_proof.size());
+    return { .proof = ProofCompressor::decompress_chonk_proof(compressed_proof, mega_num_pub) };
 }
 
 } // namespace bb::bbapi

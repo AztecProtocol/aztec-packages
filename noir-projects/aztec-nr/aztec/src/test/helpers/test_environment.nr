@@ -76,16 +76,17 @@ impl Counter {
 /// }
 /// ```
 pub struct TestEnvironment {
-    // The secrets to be used for light and contract account creation, as well as contract deployments. By keeping
-    // track of the last used secret we can issue new ones automatically without requiring the user to provide
+    // The secrets and salt to be used for light and contract account creation, as well as contract deployments. By
+    // keeping track of the last used secret we can issue new ones automatically without requiring the user to provide
     // different ones.
     //
-    // Additionally, having the secrets be deterministic for each set of accounts and all concurrent tests results in
-    // TXE being able to maximize cache usage and not have to recompute account addresses and contract artifacts, which
-    // are relatively expensive operations.
+    // Additionally, having the secrets and salt be deterministic for each set of accounts and all concurrent tests
+    // results in TXE being able to maximize cache usage and not have to recompute account addresses and contract
+    // artifacts, which are relatively expensive operations.
     light_account_secret: Counter,
     contract_account_secret: Counter,
     contract_deployment_secret: Counter,
+    contract_deployment_salt: Counter,
 }
 
 /// Configuration values for [`TestEnvironment::private_context_opts`]. Meant to be used by calling `new` and then
@@ -138,6 +139,38 @@ struct EventDiscoveryOptions {
     contract_address: Option<AztecAddress>,
 }
 
+/// Configuration values for [`TestEnvironment::deploy_opts`]. Meant to be used by calling `new` and then chaining
+/// methods setting each value, e.g.:
+/// ```noir
+/// env.deploy_opts(DeployOptions::new().with_salt(42).with_secret(100), "MyContract").without_initializer();
+/// ```
+pub struct DeployOptions {
+    salt: Option<Field>,
+    secret: Option<Field>,
+}
+
+impl DeployOptions {
+    /// Creates a new `DeployOptions` with default values, i.e. the same as if using the `deploy` method instead of
+    /// `deploy_opts`. Use the `with_salt` and `with_secret` methods to set the desired configuration values.
+    pub fn new() -> Self {
+        Self { salt: Option::none(), secret: Option::none() }
+    }
+
+    /// Sets the deployment salt. The salt affects the resulting contract address: the same contract deployed with
+    /// different salts will have different addresses.
+    pub fn with_salt(&mut self, salt: Field) -> Self {
+        self.salt = Option::some(salt);
+        *self
+    }
+
+    /// Sets the secret used for key derivation. The secret affects the contract's public keys and therefore its
+    /// address: the same contract deployed with different secrets will have different addresses.
+    pub fn with_secret(&mut self, secret: Field) -> Self {
+        self.secret = Option::some(secret);
+        *self
+    }
+}
+
 impl TestEnvironment {
     /// Creates a new `TestEnvironment`. This function should only be called once per test.
     pub unconstrained fn new() -> Self {
@@ -150,6 +183,9 @@ impl TestEnvironment {
             light_account_secret: Counter::new(),
             contract_account_secret: Counter::new_with_offset(1_000),
             contract_deployment_secret: Counter::new_with_offset(2_000),
+            // The salt counter does not need an offset because keys (derived from secret) and salt are unrelated: a
+            // collision between a salt and a secret value has no effect on the resulting contract address.
+            contract_deployment_salt: Counter::new(),
         }
     }
 
@@ -477,7 +513,19 @@ impl TestEnvironment {
     /// );
     /// ```
     pub unconstrained fn deploy<let N: u32>(&mut self, path: str<N>) -> ContractDeployment<N> {
-        ContractDeployment { env: *self, path, secret: self.contract_deployment_secret.next() }
+        self.deploy_opts(DeployOptions::new(), path)
+    }
+
+    /// Variant of `deploy` which allows specifying configuration values via `DeployOptions`, such as a custom salt
+    /// or secret. If not specified, the salt and secret default to values from internal counters.
+    pub unconstrained fn deploy_opts<let N: u32>(
+        &mut self,
+        opts: DeployOptions,
+        path: str<N>,
+    ) -> ContractDeployment<N> {
+        let secret = opts.secret.unwrap_or_else(|| self.contract_deployment_secret.next());
+        let salt = opts.salt.unwrap_or_else(|| self.contract_deployment_salt.next());
+        ContractDeployment { env: *self, path, secret, salt }
     }
 
     /// Performs a private contract function call, including the processing of any nested private calls and enqueued

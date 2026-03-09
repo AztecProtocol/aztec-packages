@@ -176,6 +176,12 @@ export class BlockHeader {
     this._cachedHash = Promise.resolve(new BlockHash(hashed));
   }
 
+  /** Recomputes the cached hash. Used for testing when header fields are mutated via unfreeze. */
+  recomputeHash(): Promise<BlockHash> {
+    this._cachedHash = undefined;
+    return this.hash();
+  }
+
   static random(overrides: Partial<FieldsOf<BlockHeader>> & Partial<FieldsOf<GlobalVariables>> = {}): BlockHeader {
     return BlockHeader.from({
       lastArchive: AppendOnlyTreeSnapshot.random(),

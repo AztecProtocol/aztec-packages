@@ -4,6 +4,12 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../yarn-project/bootstrap.sh hash))
 
 function build {
+  # Noop if user doesn't have docker.
+  if ! command -v docker &>/dev/null; then
+    echo "Docker not installed. Skipping..."
+    return
+  fi
+
   # Create versions.json so we know what to install.
   ../bootstrap.sh versions > ./bin/0.0.1/versions
   echo "Versions:"
@@ -109,22 +115,23 @@ function release {
   echo_header "aztec-up release"
   local version=${REF_NAME#v}
 
-  # Upload version-specific files to version directory.
-  do_or_dryrun aws s3 cp bin/0.0.1/install "s3://install.aztec.network/$version/install"
-  do_or_dryrun aws s3 cp bin/0.0.1/versions "s3://install.aztec.network/$version/versions"
-  do_or_dryrun aws s3 cp bin/0.0.1/aztec-install "s3://install.aztec.network/$version/aztec-install"
-  do_or_dryrun aws s3 cp bin/0.0.1/aztec-up "s3://install.aztec.network/$version/aztec-up"
+  # Upload each file in bin/0.0.1/, replacing VERSION= lines with the release version.
+  for file in bin/0.0.1/*; do
+    sed "s/^VERSION=.*/VERSION=$version/" "$file" | \
+      do_or_dryrun aws s3 cp - "s3://install.aztec.network/$version/$(basename $file)"
+  done
 
   # Update alias to point to new version.
-  # This has real impact outside of the version fence. i.e. if it's nightly dist tag, it affects nightly installs.
+  # This has real impact outside of the version fence. i.e. if it's a nightly dist tag, it affects nightly installs.
   do_or_dryrun aws s3 cp - "s3://install.aztec.network/aliases/$(dist_tag)" <<< "$version"
 }
 
 # This is not done by CI.
 # It's a manual process, as updating the root installer and alias index requires careful consideration.
-function release_aztec_up {
-    # Update root scripts.
-    do_or_dryrun aws s3 cp bin/0.0.1/aztec-install "s3://install.aztec.network/aztec-install"
+function release_root_installer {
+    # Upload root aztec-install with VERSION defaulting to nightly (instead of local 0.0.1).
+    sed "s/^VERSION=.*/VERSION=\${VERSION:-nightly}/" bin/0.0.1/aztec-install | \
+      do_or_dryrun aws s3 cp - "s3://install.aztec.network/aztec-install"
     do_or_dryrun aws s3 cp bin/0.0.1/aztec-up "s3://install.aztec.network/aztec-up"
 
     # Update alias list.
@@ -146,8 +153,9 @@ function prep_test_mac {
   fi
 
   # Cleanup background processes on exit.
-  local pids=()
-  trap 'kill "${pids[@]}" &>/dev/null || true' EXIT
+  # Note: can't use local - the trap fires after function scope is gone.
+  _bg_pids=()
+  trap 'kill "${_bg_pids[@]}" &>/dev/null || true' EXIT
 
   # Start Verdaccio in offline mode (no uplinks), bound to all interfaces.
   cat > /tmp/verdaccio-mac-test.yaml <<EOF
@@ -169,13 +177,13 @@ logs: { type: stdout, format: pretty, level: warn }
 EOF
 
   verdaccio --config /tmp/verdaccio-mac-test.yaml --listen 0.0.0.0:$verdaccio_port &>/dev/null &
-  pids+=($!)
+  _bg_pids+=($!)
   while ! nc -z localhost $verdaccio_port &>/dev/null; do sleep 1; done
   echo "Verdaccio running on 0.0.0.0:$verdaccio_port"
 
   # Serve bin/ directory over HTTP to mimic S3-hosted install scripts.
   python3 -m http.server $http_port --directory ./bin --bind 0.0.0.0 &>/dev/null &
-  pids+=($!)
+  _bg_pids+=($!)
   while ! nc -z localhost $http_port &>/dev/null; do sleep 1; done
   echo "HTTP server running on 0.0.0.0:$http_port (serving ./bin/)"
 }
@@ -198,7 +206,6 @@ function install_on_mac_vm {
     export npm_config_registry=http://$host_ip:$verdaccio_port
     export INSTALL_URI=http://$host_ip:$http_port
     export NO_NEW_SHELL=1
-    export NON_INTERACTIVE=1
 
     touch \$HOME/.zshrc
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
@@ -206,7 +213,7 @@ function install_on_mac_vm {
 
     echo
     echo "Running aztec install script..."
-    VERSION=0.0.1 bash <(curl -sL \$INSTALL_URI/0.0.1/aztec-install)
+    bash <(curl -sL \$INSTALL_URI/0.0.1/aztec-install)
 
     # Fake fresh shell.
     export PATH="\$HOME/.aztec/current/bin:\$HOME/.aztec/current/node_modules/.bin:\$HOME/.aztec/bin:\$PATH"
@@ -235,11 +242,18 @@ export -f install_on_mac_vm launch_and_install_on_mac_vm
 
 # Assumes a macos vm is already running.
 # Starts services, and runs install script on the mac vm via ssh.
-function test_mac {
-  echo_header "aztec-up test_mac"
+function test_on_mac_vm {
   local mac_name="${1:?Mac vm name (e.g. 14)}"
+  echo_header "aztec-up test_on_mac_vm"
   prep_test_mac
   install_on_mac_vm $mac_name
+}
+
+function test_mac {
+  local mac_name="${1:?Mac vm name (e.g. 14)}"
+  echo_header "aztec-up test_mac"
+  prep_test_mac
+  launch_and_install_on_mac_vm $mac_name
 }
 
 # Starts services, launches a mac vm for each version and runs install script via ssh.

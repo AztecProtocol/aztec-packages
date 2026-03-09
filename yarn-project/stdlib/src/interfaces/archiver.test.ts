@@ -81,6 +81,11 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual(BlockNumber(1));
   });
 
+  it('getCheckpointNumber', async () => {
+    const result = await context.client.getCheckpointNumber();
+    expect(result).toEqual(CheckpointNumber(1));
+  });
+
   it('getProvenBlockNumber', async () => {
     const result = await context.client.getProvenBlockNumber();
     expect(result).toEqual(BlockNumber(1));
@@ -404,6 +409,9 @@ class MockArchiver implements ArchiverApi {
   }
   getCheckpointedL2BlockNumber(): Promise<BlockNumber> {
     return Promise.resolve(BlockNumber(1));
+  }
+  getCheckpointNumber(): Promise<CheckpointNumber> {
+    return Promise.resolve(CheckpointNumber(1));
   }
   getFinalizedL2BlockNumber(): Promise<BlockNumber> {
     return Promise.resolve(BlockNumber(0));

@@ -5,9 +5,6 @@
 # - Redis publishing (started/failed/flaked events)
 # - Flake detection and owner notification
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
-source $ci3/source_redis
-source $ci3/source_cache
-source $ci3/source_refname
 
 # We must enable job control to ensure our test runs in it's own process group.
 # Otherwise, when parallel sends a TERM to the group, it will also kill any child process of the test.
@@ -173,7 +170,7 @@ if [ "$publish" -eq 1 ]; then
     --arg status "started" \
     --arg test_cmd "$cmd" \
     --arg log_id "$log_key" \
-    --arg log_url "http://ci.aztec-labs.com/$log_key" \
+    --arg log_url "$DASHBOARD_URL/$log_key" \
     --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
     --arg commit_hash "$COMMIT_HASH" \
     --arg commit_author "$COMMIT_AUTHOR" \
@@ -326,7 +323,7 @@ function fail {
   [ "$CI" -eq 1 ] && post_github_failure_status
 
   if [ "$slack_notify_fail" -eq 1 ]; then
-    slack_notify "Test FAILED on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key" "#alerts-next-scenario"
+    slack_notify "Test FAILED on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` $DASHBOARD_URL/$log_key" "#alerts-next-scenario"
   fi
 
   exit $code
@@ -357,7 +354,7 @@ function flake {
     for uid in $owners; do
       slack_uids+="<@$uid> "
     done
-    slack_notify "${slack_uids% }: Test flaked on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
+    slack_notify "${slack_uids% }: Test flaked on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` $DASHBOARD_URL/$log_key"
   fi
 
   exit 0

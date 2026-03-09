@@ -271,7 +271,7 @@ template <typename quadratic_field, typename base_field, typename Fq12Params> cl
         };
     }
 
-    constexpr field12 from_montgomery_form()
+    constexpr field12 from_montgomery_form() const
     {
         return {
             c0.from_montgomery_form(),
