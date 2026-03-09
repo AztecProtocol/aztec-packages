@@ -806,7 +806,7 @@ case "$cmd" in
     if ! semver check $REF_NAME; then
       exit 1
     fi
-    DRY_RUN= build release
+    build release
     release
     ;;
 
