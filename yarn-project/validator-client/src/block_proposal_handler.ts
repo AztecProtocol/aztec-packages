@@ -178,7 +178,8 @@ export class BlockProposalHandler {
     // Check that this block number does not exist already
     const existingBlock = await this.blockSource.getBlockHeader(blockNumber);
     if (existingBlock) {
-      this.log.warn(`Block number ${blockNumber} already exists, skipping processing`, proposalInfo);
+      // Expected in HA setups when the partner node already built and inserted this block
+      this.log.verbose(`Block number ${blockNumber} already exists, skipping processing`, proposalInfo);
       return { isValid: false, blockNumber, reason: 'block_number_already_exists' };
     }
 

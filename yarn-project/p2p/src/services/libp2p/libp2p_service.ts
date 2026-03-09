@@ -1192,7 +1192,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     // Note: Validators do NOT attest to individual blocks, only to checkpoint proposals.
     const isValid = await this.blockReceivedCallback(block, sender);
     if (!isValid) {
-      this.logger.warn(`Block proposal validation failed for block ${block.blockNumber}`, block.toBlockInfo());
+      this.logger.info(`Block proposal validation failed for block ${block.blockNumber}`, block.toBlockInfo());
     }
   }
 

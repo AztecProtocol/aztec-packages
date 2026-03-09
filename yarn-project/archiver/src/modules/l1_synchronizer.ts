@@ -828,7 +828,7 @@ export class ArchiverL1Synchronizer implements Traceable {
           const prunedCheckpointNumber = result.prunedBlocks[0].checkpointNumber;
           const prunedSlotNumber = result.prunedBlocks[0].header.globalVariables.slotNumber;
 
-          this.log.warn(
+          this.log.info(
             `Pruned ${result.prunedBlocks.length} mismatching blocks for checkpoint ${prunedCheckpointNumber}`,
             { prunedBlocks: result.prunedBlocks.map(b => b.toBlockInfo()), prunedSlotNumber, prunedCheckpointNumber },
           );

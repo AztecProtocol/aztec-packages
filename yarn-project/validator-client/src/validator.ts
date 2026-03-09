@@ -380,7 +380,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // Ignore proposals from ourselves (may happen in HA setups)
     if (this.getValidatorAddresses().some(addr => addr.equals(proposer))) {
-      this.log.warn(`Ignoring block proposal from self for slot ${slotNumber}`, {
+      this.log.debug(`Ignoring block proposal from self for slot ${slotNumber}`, {
         proposer: proposer.toString(),
         slotNumber,
       });
@@ -416,8 +416,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     );
 
     if (!validationResult.isValid) {
-      this.log.warn(`Block proposal validation failed: ${validationResult.reason}`, proposalInfo);
-
       const reason = validationResult.reason || 'unknown';
       // Classify failure reason: bad proposal vs node issue
       const badProposalReasons: BlockProposalValidationFailureReason[] = [
@@ -427,6 +425,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         'in_hash_mismatch',
         'parent_block_wrong_slot',
       ];
+      // block_number_already_exists is expected in HA setups when the partner node already built the block
+      const expectedReasons = ['block_number_already_exists'];
+      if (expectedReasons.includes(reason)) {
+        this.log.verbose(`Block proposal validation failed: ${reason}`, proposalInfo);
+      } else {
+        this.log.warn(`Block proposal validation failed: ${reason}`, proposalInfo);
+      }
 
       if (badProposalReasons.includes(reason as BlockProposalValidationFailureReason)) {
         this.metrics.incFailedAttestationsBadProposal(1, reason, partOfCommittee);
@@ -490,7 +495,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // Ignore proposals from ourselves (may happen in HA setups)
     if (this.getValidatorAddresses().some(addr => addr.equals(proposer))) {
-      this.log.warn(`Ignoring block proposal from self for slot ${slotNumber}`, {
+      this.log.debug(`Ignoring block proposal from self for slot ${slotNumber}`, {
         proposer: proposer.toString(),
         slotNumber,
       });
