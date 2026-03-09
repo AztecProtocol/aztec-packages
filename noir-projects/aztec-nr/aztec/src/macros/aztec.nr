@@ -13,7 +13,7 @@ use crate::{
             module_has_storage,
         },
     },
-    messages::discovery::{CustomMessageHandler, OffchainMessageHandler},
+    messages::discovery::CustomMessageHandler,
 };
 
 /// Configuration for the [`aztec`] macro.
@@ -30,7 +30,6 @@ use crate::{
 /// ```
 pub struct AztecConfig {
     custom_message_handler: Option<CustomMessageHandler<()>>,
-    offchain_message_handler: Option<OffchainMessageHandler<()>>,
 }
 
 impl AztecConfig {
@@ -39,7 +38,7 @@ impl AztecConfig {
     /// Calling `new` is equivalent to invoking the [`aztec`] macro with no parameters. The different methods
     /// (e.g. [`AztecConfig::custom_message_handler`]) can then be used to change the default behavior.
     pub comptime fn new() -> Self {
-        Self { custom_message_handler: Option::none(), offchain_message_handler: Option::none() }
+        Self { custom_message_handler: Option::none() }
     }
 
     /// Sets a handler for custom messages.
@@ -49,22 +48,8 @@ impl AztecConfig {
     ///
     /// `handler` must be a function that conforms to the
     /// [`crate::messages::discovery::CustomMessageHandler`] type signature.
-    pub comptime fn custom_message_handler(self: Self, handler: CustomMessageHandler<()>) -> Self {
-        Self { custom_message_handler: Option::some(handler), offchain_message_handler: self.offchain_message_handler }
-    }
-
-    /// Sets a handler to customize how offchain-delivered messages are discovered and managed by the contract.
-    ///
-    /// This is an advanced feature that requires knowledge about how offchain messages are stored, how to ensure
-    /// reprocessing under reorgs, etc. If you are unsure about how you could use this, it probably means you
-    /// should not.
-    ///
-    /// By default, the lifecycle of offchain messages is handled by
-    /// [`crate::messages::discovery::offchain::default_handler`].
-    ///
-    /// This config allows for the default behavior to be overridden.
-    pub comptime fn offchain_message_handler(self: Self, handler: OffchainMessageHandler<()>) -> Self {
-        Self { custom_message_handler: self.custom_message_handler, offchain_message_handler: Option::some(handler) }
+    pub comptime fn custom_message_handler(_self: Self, handler: CustomMessageHandler<()>) -> Self {
+        Self { custom_message_handler: Option::some(handler) }
     }
 }
 
@@ -130,11 +115,8 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
         quote { Option::<aztec::messages::discovery::CustomMessageHandler<()>>::none() }
     };
 
-    let offchain_message_handler_option = if config.offchain_message_handler.is_some() {
-        let handler = config.offchain_message_handler.unwrap();
-        quote { Option::some($handler) }
-    } else {
-        quote { Option::some(aztec::messages::discovery::offchain::default_handler) }
+    let offchain_message_handler_option = quote {
+        Option::some(aztec::messages::discovery::offchain::default_handler)
     };
 
     let sync_state_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { sync_state }) {
