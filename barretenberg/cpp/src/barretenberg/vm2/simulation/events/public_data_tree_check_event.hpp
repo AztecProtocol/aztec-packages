@@ -1,9 +1,10 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <variant>
-#include <vector>
 
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/checkpoint_event_type.hpp"
 #include "barretenberg/vm2/simulation/lib/db_types.hpp"
@@ -29,11 +30,11 @@ struct PublicDataTreeReadWriteEvent {
 
     PublicDataTreeLeafPreimage low_leaf_preimage;
     FF low_leaf_hash;
-    uint64_t low_leaf_index;
+    uint64_t low_leaf_index = 0;
 
-    std::optional<PublicDataWriteData> write_data;
+    std::optional<PublicDataWriteData> write_data = std::nullopt;
 
-    uint32_t execution_id;
+    uint32_t execution_id = 0;
 
     bool operator==(const PublicDataTreeReadWriteEvent& other) const = default;
 };
