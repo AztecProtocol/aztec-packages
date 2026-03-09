@@ -414,7 +414,7 @@ comptime fn generate_process_message(process_custom_message_option: Quoted) -> Q
 
 /// Generates an `offchain_receive` utility function that lets callers add messages to the offchain message inbox.
 ///
-/// For more details, see [`aztec::messages::processing::offchain::receive`].
+/// For more details, see `aztec::messages::processing::offchain::receive`.
 comptime fn generate_offchain_receive() -> Quoted {
     quote {
         pub struct offchain_receive_parameters {
@@ -431,7 +431,7 @@ comptime fn generate_offchain_receive() -> Quoted {
 
         /// Delivers offchain messages to this contract's offchain inbox for subsequent processing.
         ///
-        /// For more details, see [`aztec::messages::processing::offchain::receive`].
+        /// For more details, see `aztec::messages::processing::offchain::receive`.
         ///
         /// This function is automatically injected by the `#[aztec]` macro.
         #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]

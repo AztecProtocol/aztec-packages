@@ -1,9 +1,9 @@
 use crate::logging::{aztecnr_debug_log, aztecnr_debug_log_format};
 use crate::protocol::address::AztecAddress;
 
-pub mod nonce_discovery;
-pub mod partial_notes;
-pub mod private_events;
+pub(crate) mod nonce_discovery;
+pub(crate) mod partial_notes;
+pub(crate) mod private_events;
 pub mod private_notes;
 pub mod process_message;
 
