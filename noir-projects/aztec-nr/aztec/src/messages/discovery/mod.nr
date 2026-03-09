@@ -14,8 +14,8 @@ use crate::{
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
-            get_private_logs, MessageContext, OffchainMessageWithContext, pending_tagged_log::PendingTaggedLog,
-            validate_and_store_enqueued_notes_and_events,
+            get_private_logs, MessageContext, offchain::OffchainMessageHandler, OffchainMessageWithContext,
+            pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
         },
     },
     utils::array,
@@ -95,19 +95,6 @@ pub type CustomMessageHandler<Env> = unconstrained fn[Env](
 /* msg_metadata */ u64,
 /* msg_content */ BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
 /* message_context */ MessageContext);
-
-/// A function that manages offchain-delivered messages for processing during sync.
-///
-/// Offchain messages are transaction effects that are not broadcasted via onchain logs. They are instead delivered to
-/// the recipient through an external channel (e.g. a URL) and stored locally via the auto-generated `offchain_receive`
-/// utility function (injected by [`crate::macros::aztec`]). This handler is responsible for deciding when each message
-/// is ready for processing, when it can be safely disposed of, etc.
-///
-/// The default implementation is
-/// [`crate::messages::processing::offchain::default_handler`], which manages an inbox with
-/// expiration-based eviction and automatic context resolution.
-pub type OffchainMessageHandler<Env> = unconstrained fn[Env](
-/* contract_address */AztecAddress) -> CapsuleArray<OffchainMessageWithContext>;
 
 /// Performs the state synchronization process, in which private logs are downloaded and inspected to find new private
 /// notes, partial notes and events, etc., and pending partial notes are processed to search for their completion logs.

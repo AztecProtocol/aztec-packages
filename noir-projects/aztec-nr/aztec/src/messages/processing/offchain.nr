@@ -25,6 +25,18 @@ global OFFCHAIN_READY_MESSAGES_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN
 /// Maximum number of offchain messages accepted by `offchain_receive` in a single call.
 pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
 
+/// A function that manages offchain-delivered messages for processing during sync.
+///
+/// Offchain messages are transaction effects that are not broadcasted via onchain logs. They are instead delivered to
+/// the recipient through an external channel (e.g. a URL) and stored locally via the auto-generated
+/// `offchain_receive` utility function (injected by the `#[aztec]` macro). This handler is responsible for deciding
+/// when each message is ready for processing, when it can be safely disposed of, etc.
+///
+/// The default implementation is [`default_handler`], which manages an inbox with expiration-based eviction and
+/// automatic context resolution.
+pub type OffchainMessageHandler<Env> = unconstrained fn[Env](
+/* contract_address */AztecAddress) -> CapsuleArray<OffchainMessageWithContext>;
+
 /// A message delivered via the `offchain_receive` utility function.
 pub struct OffchainMessage {
     /// The encrypted message payload.
