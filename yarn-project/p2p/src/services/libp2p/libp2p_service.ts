@@ -1,5 +1,4 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
 import { maxBy } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -10,7 +9,7 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { EthAddress, L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { DEFAULT_PER_BLOCK_ALLOCATION_MULTIPLIER, GasFees, deriveMaxBlockL2Gas } from '@aztec/stdlib/gas';
+import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import {
   BlockProposal,
@@ -27,7 +26,6 @@ import {
   getTopicsForConfig,
   metricsTopicStrToLabels,
 } from '@aztec/stdlib/p2p';
-import { calculateMaxBlocksPerSlot } from '@aztec/stdlib/timetable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Tx, type TxHash, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -1630,18 +1628,6 @@ export class LibP2PService extends WithTracer implements P2PService {
     const blockNumber = BlockNumber(currentBlockNumber + 1);
     const l1Constants = await this.archiver.getL1Constants();
 
-    const l1PublishingTime = isAnvilTestChain(this.config.l1ChainId) ? 1 : l1Constants.ethereumSlotDuration;
-    const maxBlocksPerSlot = calculateMaxBlocksPerSlot(
-      l1Constants.slotDuration,
-      this.config.blockDurationMs ? this.config.blockDurationMs / 1000 : undefined,
-      { l1PublishingTime },
-    );
-    const maxBlockL2Gas = deriveMaxBlockL2Gas({
-      rollupManaLimit: l1Constants.rollupManaLimit,
-      maxBlocksPerSlot,
-      multiplier: DEFAULT_PER_BLOCK_ALLOCATION_MULTIPLIER,
-    });
-
     return createFirstStageTxValidationsForGossipedTransactions(
       nextSlotTimestamp,
       blockNumber,
@@ -1654,7 +1640,11 @@ export class LibP2PService extends WithTracer implements P2PService {
       !this.config.disableTransactions,
       allowedInSetup,
       this.logger.getBindings(),
-      { rollupManaLimit: l1Constants.rollupManaLimit, maxBlockL2Gas },
+      {
+        rollupManaLimit: l1Constants.rollupManaLimit,
+        maxBlockL2Gas: this.config.validateMaxL2BlockGas,
+        maxBlockDAGas: this.config.validateMaxDABlockGas,
+      },
     );
   }
 

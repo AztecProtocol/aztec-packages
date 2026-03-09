@@ -1336,7 +1336,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         skipFeeEnforcement,
         txsPermitted: !this.config.disableTransactions,
         rollupManaLimit: l1Constants.rollupManaLimit,
-        maxBlockL2Gas: this.sequencer?.maxL2BlockGas,
+        maxBlockL2Gas: this.config.validateMaxL2BlockGas,
+        maxBlockDAGas: this.config.validateMaxDABlockGas,
       },
       this.log.getBindings(),
     );

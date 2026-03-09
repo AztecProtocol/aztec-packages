@@ -97,7 +97,7 @@ export function createFirstStageTxValidationsForGossipedTransactions(
   txsPermitted: boolean,
   allowedInSetup: AllowedElement[] = [],
   bindings?: LoggerBindings,
-  gasLimitOpts?: { rollupManaLimit: number; maxBlockL2Gas?: number },
+  gasLimitOpts?: { rollupManaLimit?: number; maxBlockL2Gas?: number; maxBlockDAGas?: number },
 ): Record<string, TransactionValidator> {
   const merkleTree = worldStateSynchronizer.getCommitted();
 
@@ -282,6 +282,7 @@ export function createTxValidatorForAcceptingTxsOverRPC(
     txsPermitted,
     rollupManaLimit,
     maxBlockL2Gas,
+    maxBlockDAGas,
   }: {
     l1ChainId: number;
     rollupVersion: number;
@@ -293,6 +294,7 @@ export function createTxValidatorForAcceptingTxsOverRPC(
     txsPermitted: boolean;
     rollupManaLimit: number;
     maxBlockL2Gas?: number;
+    maxBlockDAGas?: number;
   },
   bindings?: LoggerBindings,
 ): TxValidator<Tx> {
@@ -326,6 +328,7 @@ export function createTxValidatorForAcceptingTxsOverRPC(
       new GasTxValidator(new DatabasePublicStateSource(db), ProtocolContractAddress.FeeJuice, gasFees, bindings, {
         rollupManaLimit,
         maxBlockL2Gas,
+        maxBlockDAGas,
       }),
     );
   }
@@ -412,7 +415,7 @@ export async function createTxValidatorForTransactionsEnteringPendingTxPool(
   worldStateSynchronizer: WorldStateSynchronizer,
   timestamp: bigint,
   blockNumber: BlockNumber,
-  rollupManaLimit: number,
+  gasLimitOpts: { rollupManaLimit?: number; maxBlockL2Gas?: number; maxBlockDAGas?: number },
   bindings?: LoggerBindings,
 ): Promise<TxValidator<TxMetaData>> {
   await worldStateSynchronizer.syncImmediate();
@@ -429,7 +432,7 @@ export async function createTxValidatorForTransactionsEnteringPendingTxPool(
     },
   };
   return new AggregateTxValidator<TxMetaData>(
-    new GasLimitsValidator<TxMetaData>({ rollupManaLimit, bindings }),
+    new GasLimitsValidator<TxMetaData>({ ...gasLimitOpts, bindings }),
     new TimestampTxValidator<TxMetaData>({ timestamp, blockNumber }, bindings),
     new DoubleSpendTxValidator<TxMetaData>(nullifierSource, bindings),
     new BlockHeaderTxValidator<TxMetaData>(archiveSource, bindings),

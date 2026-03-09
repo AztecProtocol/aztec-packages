@@ -92,7 +92,11 @@ export async function createP2PClient(
             worldStateSynchronizer,
             nextSlotTimestamp,
             BlockNumber(currentBlockNumber + 1),
-            l1Constants.rollupManaLimit,
+            {
+              rollupManaLimit: l1Constants.rollupManaLimit,
+              maxBlockL2Gas: config.validateMaxL2BlockGas,
+              maxBlockDAGas: config.validateMaxDABlockGas,
+            },
           );
         },
       },

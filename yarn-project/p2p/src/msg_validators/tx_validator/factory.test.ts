@@ -303,7 +303,7 @@ describe('Validator factory functions', () => {
         synchronizer,
         100n,
         BlockNumber(5),
-        Infinity,
+        { rollupManaLimit: Infinity },
       );
 
       const aggregate = validator as AggregateTxValidator<unknown>;
@@ -316,7 +316,9 @@ describe('Validator factory functions', () => {
     });
 
     it('syncs world state before creating the validator', async () => {
-      await createTxValidatorForTransactionsEnteringPendingTxPool(synchronizer, 100n, BlockNumber(5), Infinity);
+      await createTxValidatorForTransactionsEnteringPendingTxPool(synchronizer, 100n, BlockNumber(5), {
+        rollupManaLimit: Infinity,
+      });
 
       expect(synchronizer.syncImmediate).toHaveBeenCalled();
     });

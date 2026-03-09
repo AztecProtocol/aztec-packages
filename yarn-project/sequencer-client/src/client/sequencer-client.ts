@@ -13,7 +13,6 @@ import type { KeystoreManager } from '@aztec/node-keystore';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
-import { deriveMaxBlockL2Gas } from '@aztec/stdlib/gas';
 import type { ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -271,16 +270,18 @@ export function computeBlockLimits(
   const multiplier = config.perBlockAllocationMultiplier ?? DefaultSequencerConfig.perBlockAllocationMultiplier;
 
   // Compute maxL2BlockGas
-  const maxL2BlockGas = deriveMaxBlockL2Gas({
-    rollupManaLimit,
-    maxBlocksPerSlot: maxNumberOfBlocks,
-    multiplier,
-    explicitLimit: config.maxL2BlockGas,
-  });
-  if (config.maxL2BlockGas !== undefined && config.maxL2BlockGas > rollupManaLimit) {
-    log.warn(
-      `Provided MAX_L2_BLOCK_GAS ${config.maxL2BlockGas} exceeds L1 rollup mana limit ${rollupManaLimit} (capping)`,
-    );
+  let maxL2BlockGas: number;
+  if (config.maxL2BlockGas !== undefined) {
+    if (config.maxL2BlockGas > rollupManaLimit) {
+      log.warn(
+        `Provided MAX_L2_BLOCK_GAS ${config.maxL2BlockGas} exceeds L1 rollup mana limit ${rollupManaLimit} (capping)`,
+      );
+      maxL2BlockGas = rollupManaLimit;
+    } else {
+      maxL2BlockGas = config.maxL2BlockGas;
+    }
+  } else {
+    maxL2BlockGas = Math.min(rollupManaLimit, Math.ceil((rollupManaLimit / maxNumberOfBlocks) * multiplier));
   }
 
   // Compute maxDABlockGas
