@@ -99,7 +99,7 @@ Use the same MCP configuration format, pointing at `@aztec/mcp-server` and `noir
 These resources help you understand Aztec concepts, read docs, or provide additional context to your AI tool.
 
 - **API reference docs** - The docs site publishes auto-generated API references that are useful to feed to AI tools:
-  - [Aztec.nr API reference](./docs/aztec-nr/api/index.mdx) - generated from aztec-nr source with `nargo doc`
+  - [Aztec.nr API reference](./docs/aztec-nr/api.mdx) - generated from aztec-nr source with `nargo doc`
   - [TypeScript API reference](./docs/aztec-js/typescript_api_reference.mdx) - generated from yarn-project packages with TypeDoc
 
   These are especially useful as context for code generation since they reflect the current API surface.
