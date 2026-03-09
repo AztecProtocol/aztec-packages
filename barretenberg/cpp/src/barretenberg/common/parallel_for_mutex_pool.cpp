@@ -133,14 +133,18 @@ namespace bb {
  */
 void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func)
 {
+    // Use a global pool rather than thread_local to avoid TLS corruption when Rust and zig
+    // cross-compiled static libraries are linked together (the Rust library introduces a
+    // __thread_data Mach-O section that corrupts C++ thread_local variable offsets on x86_64-macos).
+    // A global pool is also more efficient: thread_local created O(N²) threads (each thread
+    // got its own pool of N-1 workers), while a global pool creates exactly N-1 workers total.
+    static ThreadPool pool(get_num_cpus() - 1);
+    static std::mutex pool_mutex;
 #ifdef __wasm__
-#define THREAD_LOCAL_MAYBE
+    static bool nested = false;
 #else
-#define THREAD_LOCAL_MAYBE thread_local
+    static thread_local bool nested = false;
 #endif
-
-    static THREAD_LOCAL_MAYBE ThreadPool pool(get_num_cpus() - 1);
-    static THREAD_LOCAL_MAYBE bool nested = false;
 
     // If nested, fall back to serial execution
     if (nested) {
@@ -151,7 +155,10 @@ void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(siz
     }
 
     nested = true;
-    pool.start_tasks(num_iterations, func);
+    {
+        std::unique_lock<std::mutex> lock(pool_mutex);
+        pool.start_tasks(num_iterations, func);
+    }
     nested = false;
 }
 } // namespace bb
