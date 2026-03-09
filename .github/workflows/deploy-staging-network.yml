@@ -39,6 +39,11 @@ concurrency:
   group: deploy-staging-network-${{ inputs.network }}-${{ inputs.semver }}-${{ github.ref || github.ref_name }}
   cancel-in-progress: true
 
+# Required so the called deploy-network workflow can request an OIDC token for AWS.
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   deploy-network:
     uses: ./.github/workflows/deploy-network.yml

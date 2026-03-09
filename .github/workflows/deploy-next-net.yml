@@ -18,6 +18,11 @@ concurrency:
   group: deploy-next-net-${{ inputs.image_tag || 'nightly' }}
   cancel-in-progress: true
 
+# Required so the called deploy-network workflow can request an OIDC token for AWS.
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   get-image-tag:
     runs-on: ubuntu-latest

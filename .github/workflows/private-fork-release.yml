@@ -4,6 +4,9 @@
 # The tag and release are created via the Releases API (not git push) so they
 # don't trigger ci3.yml. The API creates the tag as a side-effect of the release,
 # avoiding the tag protection ruleset that blocks GITHUB_TOKEN git pushes.
+#
+# TODO: This workflow needs a dedicated OIDC role (e.g. AWS_OIDC_ROLE_ARN_PRIVATE_FORK)
+# because it checks out code from aztec-packages-private.
 name: Release (Fork)
 on:
   workflow_dispatch:
@@ -19,6 +22,9 @@ jobs:
   release:
     runs-on: ubuntu-latest
     environment: master
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -53,6 +59,13 @@ jobs:
             echo "Created release ${{ inputs.tag }}"
           fi
 
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN_PRIVATE_FORK }}
+          aws-region: us-east-2
+          role-session-name: gha-${{ github.run_id }}
+
       - name: Release
         env:
           CI: "1"
@@ -60,8 +73,6 @@ jobs:
           REF_NAME: ${{ inputs.tag }}
           RUN_ID: ${{ github.run_id }}
           SOURCE_REPOSITORY: AztecProtocol/aztec-packages-private
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}

@@ -12,6 +12,11 @@ concurrency:
   group: devnet-deploys-${{ github.ref_name }}
   cancel-in-progress: true
 
+# Required so the called deploy-network workflow can request an OIDC token for AWS.
+permissions:
+  id-token: write
+  contents: read
+
 env:
   GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
