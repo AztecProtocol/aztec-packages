@@ -21,7 +21,7 @@ export class NoteValidationRequest {
     public recipient: AztecAddress,
   ) {}
 
-  static fromFields(fields: Fr[] | FieldReader, maxNotePackedLen: number): NoteValidationRequest {
+  static fromFields(fields: Fr[], maxNotePackedLen: number): NoteValidationRequest {
     const reader = FieldReader.asReader(fields);
 
     const contractAddress = AztecAddress.fromField(reader.readField());
@@ -41,7 +41,7 @@ export class NoteValidationRequest {
 
     if (reader.remainingFields() !== 0) {
       throw new Error(
-        `Error converting array of fields to NoteValidationRequest: ${reader.remainingFields()} remaining fields (maxNotePackedLen=${maxNotePackedLen}).`,
+        `Error converting array of fields to NoteValidationRequest: expected ${reader.cursor} fields but received ${fields.length} (maxNotePackedLen=${maxNotePackedLen}).`,
       );
     }
 

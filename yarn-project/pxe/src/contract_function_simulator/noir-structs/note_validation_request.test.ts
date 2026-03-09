@@ -65,7 +65,7 @@ describe('NoteValidationRequest', () => {
     ].map(Fr.fromHexString);
 
     expect(() => NoteValidationRequest.fromFields(serialized, 8)).toThrow(
-      'Error converting array of fields to NoteValidationRequest: 1 remaining fields (maxNotePackedLen=8).',
+      'Error converting array of fields to NoteValidationRequest: expected 18 fields but received 19 (maxNotePackedLen=8).',
     );
   });
 });

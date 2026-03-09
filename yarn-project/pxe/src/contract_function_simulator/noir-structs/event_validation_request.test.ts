@@ -61,7 +61,7 @@ describe('EventValidationRequest', () => {
     ].map(n => new Fr(n));
 
     expect(() => EventValidationRequest.fromFields(serialized, 10)).toThrow(
-      'Error converting array of fields to EventValidationRequest: 1 remaining fields (maxEventSerializedLen=10).',
+      'Error converting array of fields to EventValidationRequest: expected 17 fields but received 18 (maxEventSerializedLen=10).',
     );
   });
 });
