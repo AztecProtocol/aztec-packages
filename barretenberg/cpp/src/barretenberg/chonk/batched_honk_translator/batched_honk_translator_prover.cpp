@@ -11,11 +11,9 @@ namespace bb {
 
 BatchedHonkTranslatorProver::BatchedHonkTranslatorProver(std::shared_ptr<MegaZKProverInstance> mega_zk_instance,
                                                          std::shared_ptr<MegaZKVK> mega_zk_vk,
-                                                         std::shared_ptr<TranslatorProvingKey> translator_key,
                                                          std::shared_ptr<Transcript> transcript)
     : mega_zk_inst(std::move(mega_zk_instance))
     , mega_zk_vk(std::move(mega_zk_vk))
-    , translator_key(std::move(translator_key))
     , transcript(std::move(transcript))
 {}
 
@@ -304,19 +302,20 @@ void BatchedHonkTranslatorProver::execute_joint_pcs()
     MegaZKFlavor::PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
 }
 
-BatchedHonkTranslatorProver::Proof BatchedHonkTranslatorProver::construct_proof()
+HonkProof BatchedHonkTranslatorProver::prove_mega_zk_oink()
 {
     execute_mega_zk_oink();
-    // Export the Oink-only proof for the MegaZK circuit before writing translator data.
-    auto mega_zk_proof = transcript->export_proof();
+    return transcript->export_proof();
+}
 
+HonkProof BatchedHonkTranslatorProver::prove_translator_and_joint(
+    std::shared_ptr<TranslatorProvingKey> translator_proving_key)
+{
+    translator_key = std::move(translator_proving_key);
     execute_translator_oink();
     execute_joint_sumcheck_rounds();
     execute_joint_pcs();
-    // Export translator pre-sumcheck + joint sumcheck + PCS as a single segment.
-    auto translator_and_joint_proof = transcript->export_proof();
-
-    return { mega_zk_proof, translator_and_joint_proof };
+    return transcript->export_proof();
 }
 
 } // namespace bb

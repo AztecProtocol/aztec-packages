@@ -65,36 +65,49 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     };
 
     /**
-     * @brief Construct the batched verifier.
-     *
-     * @param mega_zk_vk_and_hash   Verification key + hash for the MegaZK circuit (MegaZK).
-     * @param transcript           Shared Fiat-Shamir transcript.
-     * @param mega_zk_proof         MegaZK circuit honk proof.
-     * @param translator_proof     Translator honk proof.
-     * @param evaluation_input_x   BF scalar from ECCVM (for translator relation parameters).
-     * @param batching_challenge_v BF scalar from ECCVM.
-     * @param accumulated_result   BF accumulated result from ECCVM.
-     * @param op_queue_wire_commitments Commitments to op-queue wires from the merge protocol.
+     * @brief Construct the batched verifier with minimal state.
+     * @details Only stores the VK and transcript. Proof data and ECCVM-derived params are passed
+     * to the two-phase verification methods.
      */
-    BatchedHonkTranslatorVerifier_(
-        std::shared_ptr<MegaZKVKAndHash> mega_zk_vk_and_hash,
-        std::shared_ptr<Transcript> transcript,
-        const Proof& mega_zk_proof,
-        const Proof& translator_proof,
+    BatchedHonkTranslatorVerifier_(std::shared_ptr<MegaZKVKAndHash> mega_zk_vk_and_hash,
+                                   std::shared_ptr<Transcript> transcript);
+
+    /**
+     * @brief Phase 1: Verify the MegaZK Oink phase on the shared transcript.
+     * @details Loads mega_zk_proof into the transcript, runs OinkVerifier, stores verifier instance.
+     * After this call, accessors (get_public_inputs, get_calldata_commitment, get_ecc_op_wires) are valid.
+     * @return Verifier commitments for the MegaZK circuit.
+     */
+    MegaZKVerifierCommitments verify_mega_zk_oink(const Proof& mega_zk_proof);
+
+    /**
+     * @brief Phase 2: Verify translator Oink + joint sumcheck + joint PCS.
+     * @details Called after merge and ECCVM verification have been performed on the shared transcript.
+     * Loads translator_and_joint_proof, runs translator oink, joint sumcheck, and joint PCS.
+     * @return ReductionResult with pairing points and a success flag.
+     */
+    [[nodiscard("Verification result should be checked")]] ReductionResult verify_translator_and_joint(
+        const Proof& translator_and_joint_proof,
         const TransBF& evaluation_input_x,
         const TransBF& batching_challenge_v,
         const TransBF& accumulated_result,
         const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments);
 
-    /**
-     * @brief Reduce both proofs to a single KZG pairing check.
-     * @return ReductionResult with pairing points and a success flag.
-     */
-    [[nodiscard("Verification result should be checked")]] ReductionResult reduce_to_pairing_check();
+    // Accessors (valid after verify_mega_zk_oink)
+    const std::vector<FF>& get_public_inputs() const { return mega_zk_verifier_instance->public_inputs; }
+
+    const Commitment& get_calldata_commitment() const
+    {
+        return mega_zk_verifier_instance->witness_commitments.calldata;
+    }
+
+    auto get_ecc_op_wires() const
+    {
+        return mega_zk_verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
+    }
 
   private:
     // Methods mirroring the prover's structure.
-    MegaZKVerifierCommitments verify_mega_zk_oink();
     TransVerifierCommitments verify_translator_oink();
     bool verify_joint_sumcheck();
     ReductionResult verify_joint_pcs(bool sumcheck_verified,
@@ -103,10 +116,14 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
 
     std::shared_ptr<MegaZKVKAndHash> mega_zk_vk_and_hash;
     std::shared_ptr<Transcript> transcript;
-    Proof mega_zk_proof;
-    Proof translator_proof;
 
-    // Translator-specific parameters from ECCVM verifier.
+    // Verifier instance stored after verify_mega_zk_oink (provides accessors)
+    std::shared_ptr<MegaZKVerifierInstance> mega_zk_verifier_instance;
+
+    // Proof stored by verify_translator_and_joint, loaded by verify_translator_oink via TranslatorVerifier.
+    Proof translator_and_joint_proof;
+
+    // Translator-specific parameters from ECCVM verifier (set by verify_translator_and_joint).
     TransBF evaluation_input_x;
     TransBF batching_challenge_v;
     TransBF accumulated_result;

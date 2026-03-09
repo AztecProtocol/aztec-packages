@@ -49,24 +49,12 @@ class BatchedHonkTranslatorProver {
     // Translator log circuit size (= JOINT_LOG_N).
     static constexpr size_t JOINT_LOG_N = TranslatorFlavor::CONST_TRANSLATOR_LOG_N; // 17
 
-    /**
-     * @brief Proof output from the batched prover.
-     * @details The verifier expects two separate proof segments:
-     *   - mega_zk_proof: Oink (pre-sumcheck) data for the MegaZK circuit.
-     *   - translator_and_joint_proof: Translator pre-sumcheck data + joint sumcheck + joint PCS.
-     * These are produced by calling transcript->export_proof() after each phase.
-     */
-    struct Proof {
-        HonkProof mega_zk_proof;              ///< Oink proof of the MegaZK circuit
-        HonkProof translator_and_joint_proof; ///< Translator pre-sumcheck + joint sumcheck + PCS
-    };
-
     BatchedHonkTranslatorProver(std::shared_ptr<MegaZKProverInstance> mega_zk_instance,
                                 std::shared_ptr<MegaZKVK> mega_zk_vk,
-                                std::shared_ptr<TranslatorProvingKey> translator_key,
                                 std::shared_ptr<Transcript> transcript);
 
-    Proof construct_proof();
+    HonkProof prove_mega_zk_oink();
+    HonkProof prove_translator_and_joint(std::shared_ptr<TranslatorProvingKey> translator_proving_key);
 
   private:
     std::shared_ptr<MegaZKProverInstance> mega_zk_inst;
@@ -74,7 +62,7 @@ class BatchedHonkTranslatorProver {
     std::shared_ptr<TranslatorProvingKey> translator_key;
     std::shared_ptr<Transcript> transcript;
 
-    // Prover state populated during construction
+    // Translator relation parameters captured during execute_translator_oink()
     bb::RelationParameters<FF> translator_relation_parameters;
 
     // Sumcheck state accumulated during execute_joint_sumcheck_rounds()

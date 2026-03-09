@@ -323,27 +323,165 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
     // 3. Prove.
     // -------------------------------------------------------------------------
     auto prover_transcript = std::make_shared<Transcript>();
-    BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, translator_key, prover_transcript);
+    BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
 
-    auto [mega_zk_proof, translator_and_joint_proof] = prover.construct_proof();
+    auto mega_zk_proof = prover.prove_mega_zk_oink();
+    auto translator_and_joint_proof = prover.prove_translator_and_joint(translator_key);
 
     // -------------------------------------------------------------------------
     // 4. Verify.
     // -------------------------------------------------------------------------
     auto verifier_transcript = std::make_shared<Transcript>();
-    BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash,
-                                           verifier_transcript,
-                                           mega_zk_proof,
-                                           translator_and_joint_proof,
-                                           evaluation_input_x,
-                                           batching_challenge_v,
-                                           accumulated_result,
-                                           op_queue_wire_commitments);
-
-    auto result = verifier.reduce_to_pairing_check();
+    BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash, verifier_transcript);
+    verifier.verify_mega_zk_oink(mega_zk_proof);
+    auto result = verifier.verify_translator_and_joint(translator_and_joint_proof,
+                                                       evaluation_input_x,
+                                                       batching_challenge_v,
+                                                       accumulated_result,
+                                                       op_queue_wire_commitments);
 
     EXPECT_TRUE(result.reduction_succeeded);
     EXPECT_TRUE(result.pairing_points.check());
+}
+
+// =============================================================================
+// BatchedHonkTranslatorTests::ProofSizeComparison
+// Compares batched proof size against the equivalent separate proofs and prints
+// a breakdown of the savings.
+// =============================================================================
+TEST_F(BatchedHonkTranslatorTests, ProofSizeComparison)
+{
+    using MegaZKProverInst = ProverInstance_<MegaZKFlavor>;
+    using MegaZKVK = MegaZKFlavor::VerificationKey;
+    using MegaZKVKAndHash = MegaZKFlavor::VKAndHash;
+
+    const Fq batching_challenge_v = Fq::random_element();
+    const Fq evaluation_input_x = Fq::random_element();
+
+    auto translator_key = build_translator_key(batching_challenge_v, evaluation_input_x);
+    {
+        auto tmp = std::make_shared<Transcript>();
+        TranslatorProver init_prover(translator_key, tmp);
+    }
+
+    // Build a hiding circuit padded to JOINT_LOG_N so mega_zk_log_n == JOINT_LOG_N == 17.
+    MegaCircuitBuilder mega_zk_circuit;
+    GoblinMockCircuits::construct_simple_circuit(mega_zk_circuit);
+    static constexpr size_t JOINT_LOG_N = BatchedHonkTranslatorProver::JOINT_LOG_N;
+    MockCircuits::construct_arithmetic_circuit(mega_zk_circuit, JOINT_LOG_N - 1, /*include_public_inputs=*/false);
+
+    auto mega_zk_inst = std::make_shared<MegaZKProverInst>(mega_zk_circuit);
+    auto mega_zk_vk = std::make_shared<MegaZKVK>(mega_zk_inst->get_precomputed());
+    auto mega_zk_vk_and_hash = std::make_shared<MegaZKVKAndHash>(mega_zk_vk);
+
+    // ----- Batched proof -----
+    auto prover_transcript = std::make_shared<Transcript>();
+    BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
+    auto mega_zk_proof = prover.prove_mega_zk_oink();
+    auto translator_and_joint_proof = prover.prove_translator_and_joint(translator_key);
+
+    const size_t batched_total = mega_zk_proof.size() + translator_and_joint_proof.size();
+
+    // ----- Standalone reference sizes (computed from flavor constants) -----
+    // Full standalone MegaZK Honk proof at mega_zk_log_n.
+    const size_t mega_zk_log_n = mega_zk_inst->log_dyadic_size();
+    const size_t num_pub_inputs = mega_zk_inst->num_public_inputs();
+    const size_t standalone_mega_zk_oink = num_pub_inputs + ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
+    const size_t standalone_mega_zk_sumcheck = ProofLength::Sumcheck<MegaZKFlavor>::LENGTH(mega_zk_log_n);
+    const size_t standalone_mega_zk_pcs = ProofLength::Shplemini<MegaZKFlavor>::LENGTH(mega_zk_log_n);
+    const size_t standalone_mega_zk = standalone_mega_zk_oink + standalone_mega_zk_sumcheck + standalone_mega_zk_pcs;
+
+    // Full standalone Translator proof (fixed size).
+    const size_t standalone_translator = TranslatorFlavor::PROOF_LENGTH;
+
+    const size_t standalone_total = standalone_mega_zk + standalone_translator;
+    const int64_t savings = static_cast<int64_t>(standalone_total) - static_cast<int64_t>(batched_total);
+
+    // ----- Compressed sizes (ProofCompressor point-compression technique) -----
+    // BN254: commitment (4 Fr) → 1 × 32 bytes; scalar (1 Fr) → 1 × 32 bytes.
+    // Compressed element count = total_Fr - 3 × num_commitments.
+    //
+    // Count BN254 commitments in each segment (mirrors walk_*_proof in proof_compression.hpp):
+    const size_t mega_zk_comms_batched = MegaZKFlavor::NUM_WITNESS_ENTITIES;
+    const size_t translator_and_joint_comms =
+        (2 + TranslatorFlavor::NUM_COMMITMENTS_IN_PROOF) + // translator oink: masking + wires + z_perm
+        1 +                                                // Libra concatenation commitment
+        2 +                                                // Libra grand_sum + quotient
+        (JOINT_LOG_N - 1) +                                // Gemini fold commitments
+        2;                                                 // Shplonk Q + KZG W
+
+    const size_t compressed_batched_mega_zk = mega_zk_proof.size() - 3 * mega_zk_comms_batched;
+    const size_t compressed_translator_and_joint = translator_and_joint_proof.size() - 3 * translator_and_joint_comms;
+    const size_t compressed_batched_total = compressed_batched_mega_zk + compressed_translator_and_joint;
+
+    // Standalone MegaZK (full honk): oink + Libra (1) + grand_sum+quotient (2) + Gemini folds + Shplonk+KZG (2)
+    const size_t mega_zk_comms_standalone = MegaZKFlavor::NUM_WITNESS_ENTITIES + 1 + 2 + (mega_zk_log_n - 1) + 2;
+    const size_t compressed_standalone_mega_zk = standalone_mega_zk - 3 * mega_zk_comms_standalone;
+    // Standalone Translator: same commitment count as translator_and_joint (batching adds no new comms)
+    const size_t compressed_standalone_translator = standalone_translator - 3 * translator_and_joint_comms;
+
+    const size_t compressed_standalone_total = compressed_standalone_mega_zk + compressed_standalone_translator;
+    const int64_t compressed_savings =
+        static_cast<int64_t>(compressed_standalone_total) - static_cast<int64_t>(compressed_batched_total);
+
+    info("=== Proof Size Comparison: Batched vs Separate ===");
+    info("  MegaZK log_n: ", mega_zk_log_n);
+    info("");
+    info("  [Uncompressed / Fr elements]");
+    info("  Standalone MegaZK:     ",
+         standalone_mega_zk,
+         " Fr  (oink ",
+         standalone_mega_zk_oink,
+         " + sumcheck ",
+         standalone_mega_zk_sumcheck,
+         " + pcs ",
+         standalone_mega_zk_pcs,
+         ")");
+    info("  Standalone Translator: ", standalone_translator, " Fr");
+    info("  Standalone total:      ", standalone_total, " Fr");
+    info("  Batched mega_zk_proof:              ", mega_zk_proof.size(), " Fr");
+    info("  Batched translator_and_joint_proof: ", translator_and_joint_proof.size(), " Fr");
+    info("  Batched total:                      ", batched_total, " Fr");
+    info("  Savings: ", savings, " Fr  (", 100 * savings / static_cast<int64_t>(standalone_total), "%)");
+    info("");
+    info("  [Compressed / 32-byte elements  (point compression, mirrors ProofCompressor)]");
+    info("  Standalone MegaZK:     ",
+         compressed_standalone_mega_zk,
+         " elems  (",
+         compressed_standalone_mega_zk * 32,
+         " bytes)");
+    info("  Standalone Translator: ",
+         compressed_standalone_translator,
+         " elems  (",
+         compressed_standalone_translator * 32,
+         " bytes)");
+    info("  Standalone total:      ",
+         compressed_standalone_total,
+         " elems  (",
+         compressed_standalone_total * 32,
+         " bytes)");
+    info("  Batched mega_zk_proof:              ",
+         compressed_batched_mega_zk,
+         " elems  (",
+         compressed_batched_mega_zk * 32,
+         " bytes)");
+    info("  Batched translator_and_joint_proof: ",
+         compressed_translator_and_joint,
+         " elems  (",
+         compressed_translator_and_joint * 32,
+         " bytes)");
+    info("  Batched total:                      ",
+         compressed_batched_total,
+         " elems  (",
+         compressed_batched_total * 32,
+         " bytes)");
+    info("  Savings: ",
+         compressed_savings,
+         " elems  (",
+         compressed_savings * 32,
+         " bytes,  ",
+         100 * compressed_savings / static_cast<int64_t>(compressed_standalone_total),
+         "%)");
 }
 
 // =============================================================================
@@ -379,21 +517,20 @@ TEST_F(BatchedHonkTranslatorTests, VerifierManifestConsistency)
     // Prove with manifest tracking enabled.
     auto prover_transcript = std::make_shared<Transcript>();
     prover_transcript->enable_manifest();
-    BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, translator_key, prover_transcript);
-    auto [mega_zk_proof, translator_and_joint_proof] = prover.construct_proof();
+    BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
+    auto mega_zk_proof = prover.prove_mega_zk_oink();
+    auto translator_and_joint_proof = prover.prove_translator_and_joint(translator_key);
 
     // Verify with manifest tracking enabled.
     auto verifier_transcript = std::make_shared<Transcript>();
     verifier_transcript->enable_manifest();
-    BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash,
-                                           verifier_transcript,
-                                           mega_zk_proof,
-                                           translator_and_joint_proof,
-                                           evaluation_input_x,
-                                           batching_challenge_v,
-                                           accumulated_result,
-                                           op_queue_wire_commitments);
-    [[maybe_unused]] auto _ = verifier.reduce_to_pairing_check();
+    BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash, verifier_transcript);
+    verifier.verify_mega_zk_oink(mega_zk_proof);
+    [[maybe_unused]] auto _ = verifier.verify_translator_and_joint(translator_and_joint_proof,
+                                                                   evaluation_input_x,
+                                                                   batching_challenge_v,
+                                                                   accumulated_result,
+                                                                   op_queue_wire_commitments);
 
     auto prover_manifest = prover_transcript->get_manifest();
     auto verifier_manifest = verifier_transcript->get_manifest();
@@ -436,8 +573,9 @@ TEST_F(BatchedHonkTranslatorTests, ProverManifestConsistency)
     // Prove with manifest tracking enabled.
     auto prover_transcript = std::make_shared<Transcript>();
     prover_transcript->enable_manifest();
-    BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, translator_key, prover_transcript);
-    [[maybe_unused]] auto _ = prover.construct_proof();
+    BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
+    [[maybe_unused]] auto _ = prover.prove_mega_zk_oink();
+    [[maybe_unused]] auto __ = prover.prove_translator_and_joint(translator_key);
 
     auto prover_manifest = prover_transcript->get_manifest();
     auto expected_manifest = build_expected_batched_manifest(mega_zk_log_n, num_mega_zk_pub_inputs);
@@ -480,20 +618,18 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerifySmallHiding)
     auto mega_zk_vk_and_hash = std::make_shared<MegaZKVKAndHash>(mega_zk_vk);
 
     auto prover_transcript = std::make_shared<Transcript>();
-    BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, translator_key, prover_transcript);
-    auto [mega_zk_proof, translator_and_joint_proof] = prover.construct_proof();
+    BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
+    auto mega_zk_proof = prover.prove_mega_zk_oink();
+    auto translator_and_joint_proof = prover.prove_translator_and_joint(translator_key);
 
     auto verifier_transcript = std::make_shared<Transcript>();
-    BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash,
-                                           verifier_transcript,
-                                           mega_zk_proof,
-                                           translator_and_joint_proof,
-                                           evaluation_input_x,
-                                           batching_challenge_v,
-                                           accumulated_result,
-                                           op_queue_wire_commitments);
-
-    auto result = verifier.reduce_to_pairing_check();
+    BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash, verifier_transcript);
+    verifier.verify_mega_zk_oink(mega_zk_proof);
+    auto result = verifier.verify_translator_and_joint(translator_and_joint_proof,
+                                                       evaluation_input_x,
+                                                       batching_challenge_v,
+                                                       accumulated_result,
+                                                       op_queue_wire_commitments);
 
     EXPECT_TRUE(result.reduction_succeeded);
     EXPECT_TRUE(result.pairing_points.check());
