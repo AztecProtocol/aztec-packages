@@ -791,3 +791,8 @@
     from = "/errors/5"
     to = "/aztec-nr-api/nightly/noir_aztec/macros/events/fn.event.html"
 
+[[redirects]]
+    # Aztec-nr: user-defined 'offchain_receive' is not allowed
+    from = "/errors/6"
+    to = "/aztec-nr-api/nightly/noir_aztec/messages/discovery/offchain/fn.receive.html"
+

@@ -128,11 +128,12 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
         quote {}
     };
 
-    let offchain_receive_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { offchain_receive }) {
-        generate_offchain_receive()
-    } else {
-        quote {}
-    };
+    if m.functions().any(|f| f.name() == quote { offchain_receive }) {
+        panic(
+            "User-defined 'offchain_receive' is not allowed. The function is auto-injected by the #[aztec] macro. See https://docs.aztec.network/errors/6",
+        );
+    }
+    let offchain_receive_fn_and_abi_export = generate_offchain_receive();
 
     let process_message_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { process_message }) {
         generate_process_message(process_custom_message_option)
