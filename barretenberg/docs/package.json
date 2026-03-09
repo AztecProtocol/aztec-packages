@@ -82,7 +82,7 @@
   },
   "resolutions": {
     "tar-fs": "^3.1.1",
-    "@docusaurus/mdx-loader/image-size": "1.2.1",
+    "@docusaurus/**/image-size": "1.2.1",
     "h3": "^1.15.5",
     "node-forge": "^1.3.2",
     "serve-handler": "^6.1.7",
