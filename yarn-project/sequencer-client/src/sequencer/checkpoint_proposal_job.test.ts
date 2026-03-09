@@ -13,6 +13,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
@@ -62,6 +63,7 @@ import {
   mockTxIterator,
   setupTxsAndBlock,
 } from '../test/utils.js';
+import { computePipelinedParentFeeHeader } from './chain_state_overrides.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import type { SequencerEvents } from './events.js';
 import type { SequencerMetrics } from './metrics.js';
@@ -309,7 +311,7 @@ describe('CheckpointProposalJob', () => {
 
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
 
-      const checkpoint = await job.execute();
+      const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
@@ -330,7 +332,7 @@ describe('CheckpointProposalJob', () => {
 
       job.updateConfig({ minTxsPerBlock: 2 });
 
-      const checkpoint = await job.execute();
+      const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeUndefined();
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
@@ -347,7 +349,7 @@ describe('CheckpointProposalJob', () => {
 
       job.updateConfig({ buildCheckpointIfEmpty: true, minTxsPerBlock: 1 });
 
-      const checkpoint = await job.execute();
+      const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
@@ -368,7 +370,7 @@ describe('CheckpointProposalJob', () => {
 
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
 
-      await job.execute();
+      await job.executeAndAwait();
 
       expect(validatorClient.collectAttestations).toHaveBeenCalledTimes(1);
       expect(validatorClient.collectAttestations).toHaveBeenCalledWith(
@@ -403,7 +405,7 @@ describe('CheckpointProposalJob', () => {
       checkpointBuilder.seedBlocks([block], [txs]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
 
-      await job.execute();
+      await job.executeAndAwait();
 
       // Verify startCheckpoint was called with the out hashes from previous checkpoints
       expect(checkpointsBuilder.startCheckpointCalls).toHaveLength(1);
@@ -444,7 +446,7 @@ describe('CheckpointProposalJob', () => {
       checkpointBuilder.seedBlocks([block], [txs]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
 
-      await job.execute();
+      await job.executeAndAwait();
 
       // Verify only the checkpoint before the current one is included
       expect(checkpointsBuilder.startCheckpointCalls).toHaveLength(1);
@@ -601,46 +603,9 @@ describe('CheckpointProposalJob', () => {
     );
   }
 
-  describe('computeForceProposedFeeHeader', () => {
+  describe('computePipelinedParentFeeHeader', () => {
     // Use checkpoint 3 so the grandparent (checkpoint 1) is valid
     const pipelinedCheckpointNumber = CheckpointNumber(3);
-
-    function createJobWithProposedCheckpoint(pendingData: ProposedCheckpointData): TestCheckpointProposalJob {
-      const setStateFn = jest.fn();
-      const eventEmitter = new EventEmitter() as TypedEventEmitter<SequencerEvents>;
-
-      return new TestCheckpointProposalJob(
-        SlotNumber(newSlotNumber),
-        SlotNumber(newSlotNumber),
-        epoch,
-        pipelinedCheckpointNumber,
-        lastBlockNumber,
-        proposer,
-        publisher,
-        attestorAddress,
-        undefined,
-        validatorClient,
-        globalVariableBuilder,
-        p2p,
-        worldState,
-        l1ToL2MessageSource,
-        l2BlockSource,
-        checkpointsBuilder as unknown as FullNodeCheckpointsBuilder,
-        blockSink,
-        l1Constants,
-        config,
-        timetable,
-        slasherClient,
-        epochCache,
-        dateProvider,
-        metrics,
-        eventEmitter,
-        setStateFn,
-        getTelemetryClient().getTracer('test'),
-        { actor: 'test' },
-        pendingData,
-      );
-    }
 
     const pendingData: ProposedCheckpointData = {
       checkpointNumber: CheckpointNumber(1),
@@ -662,7 +627,12 @@ describe('CheckpointProposalJob', () => {
     };
 
     it('returns undefined when proposedCheckpointData is not set', async () => {
-      const result = await job.computeForceProposedFeeHeader(CheckpointNumber(1));
+      const result = await computePipelinedParentFeeHeader({
+        checkpointNumber: pipelinedCheckpointNumber,
+        proposedCheckpointData: undefined,
+        rollup: publisher.rollupContract,
+        log: createLogger('test'),
+      });
       expect(result).toBeUndefined();
     });
 
@@ -673,16 +643,18 @@ describe('CheckpointProposalJob', () => {
     }
 
     it('computes fee header from grandparent checkpoint', async () => {
-      const jobWithPending = createJobWithProposedCheckpoint(pendingData);
       const manaTarget = 10_000n;
 
       mockRollup({ grandparentCheckpoint: { feeHeader: grandparentFeeHeader }, manaTarget });
 
-      const parentCheckpointNumber = CheckpointNumber(1);
-      const result = await jobWithPending.computeForceProposedFeeHeader(parentCheckpointNumber);
+      const result = await computePipelinedParentFeeHeader({
+        checkpointNumber: pipelinedCheckpointNumber,
+        proposedCheckpointData: pendingData,
+        rollup: publisher.rollupContract,
+        log: createLogger('test'),
+      });
 
       expect(result).toBeDefined();
-      expect(result!.checkpointNumber).toBe(parentCheckpointNumber);
 
       const expected = RollupContract.computeChildFeeHeader(
         grandparentFeeHeader,
@@ -690,43 +662,56 @@ describe('CheckpointProposalJob', () => {
         pendingData.feeAssetPriceModifier,
         manaTarget,
       );
-      expect(result!.feeHeader).toEqual(expected);
+      expect(result).toEqual(expected);
     });
 
     it('returns undefined when grandparent checkpoint is not found', async () => {
-      const jobWithPending = createJobWithProposedCheckpoint(pendingData);
       mockRollup({ grandparentCheckpoint: undefined });
 
-      const result = await jobWithPending.computeForceProposedFeeHeader(CheckpointNumber(1));
+      const result = await computePipelinedParentFeeHeader({
+        checkpointNumber: pipelinedCheckpointNumber,
+        proposedCheckpointData: pendingData,
+        rollup: publisher.rollupContract,
+        log: createLogger('test'),
+      });
       expect(result).toBeUndefined();
     });
 
     it('returns undefined when grandparent checkpoint has no feeHeader', async () => {
-      const jobWithPending = createJobWithProposedCheckpoint(pendingData);
       mockRollup({ grandparentCheckpoint: { feeHeader: undefined } });
 
-      const result = await jobWithPending.computeForceProposedFeeHeader(CheckpointNumber(1));
+      const result = await computePipelinedParentFeeHeader({
+        checkpointNumber: pipelinedCheckpointNumber,
+        proposedCheckpointData: pendingData,
+        rollup: publisher.rollupContract,
+        log: createLogger('test'),
+      });
       expect(result).toBeUndefined();
     });
 
     it('returns undefined when rollup calls throw', async () => {
-      const jobWithPending = createJobWithProposedCheckpoint(pendingData);
       jest.spyOn(publisher.rollupContract, 'getCheckpoint').mockRejectedValue(new Error('rpc error'));
 
-      const result = await jobWithPending.computeForceProposedFeeHeader(CheckpointNumber(1));
+      const result = await computePipelinedParentFeeHeader({
+        checkpointNumber: pipelinedCheckpointNumber,
+        proposedCheckpointData: pendingData,
+        rollup: publisher.rollupContract,
+        log: createLogger('test'),
+      });
       expect(result).toBeUndefined();
     });
   });
 
   describe('multiple block mode', () => {
     beforeEach(() => {
-      // Multiple block mode: set blockDurationMs to 8 seconds
+      // Keep the real L1 publish budget and use the largest valid non-pipelined
+      // block duration for a 24s slot under the stricter timing guards.
       job.setTimetable(
         new SequencerTimetable({
           ethereumSlotDuration,
           aztecSlotDuration: slotDuration,
           l1PublishingTime: ethereumSlotDuration,
-          blockDurationMs: 8000,
+          blockDurationMs: 3000,
           enforce: true,
         }),
       );
@@ -747,7 +732,7 @@ describe('CheckpointProposalJob', () => {
       // Install spy on waitUntilTimeInSlot to verify it's called with expected deadlines
       const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
 
-      const checkpoint = await job.execute();
+      const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(2);
@@ -777,7 +762,7 @@ describe('CheckpointProposalJob', () => {
       const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
 
       job.updateConfig({ minTxsPerBlock: 0 });
-      const checkpoint = await job.execute();
+      const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
@@ -806,7 +791,7 @@ describe('CheckpointProposalJob', () => {
       const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
 
       job.updateConfig({ minTxsPerBlock: 5, buildCheckpointIfEmpty: true });
-      const checkpoint = await job.execute();
+      const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
@@ -834,7 +819,7 @@ describe('CheckpointProposalJob', () => {
       const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
 
       job.updateConfig({ minTxsPerBlock: 5, buildCheckpointIfEmpty: false });
-      const checkpoint = await job.execute();
+      const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeUndefined();
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
@@ -867,7 +852,7 @@ describe('CheckpointProposalJob', () => {
       // Install spy on waitUntilTimeInSlot
       const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
 
-      const checkpoint = await job.execute();
+      const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
       // Only one block built due to time constraints
@@ -880,7 +865,7 @@ describe('CheckpointProposalJob', () => {
     });
 
     it('calls waitUntilTimeInSlot with expected deadline based on block duration', async () => {
-      const blockDurationSeconds = 8; // 8000ms / 1000
+      const blockDurationSeconds = 3; // 3000ms / 1000
 
       // Mock timetable to allow 3 blocks
       jest
@@ -896,13 +881,13 @@ describe('CheckpointProposalJob', () => {
 
       const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
 
-      await job.execute();
+      await job.executeAndAwait();
 
       // With 3 blocks where the 3rd is the last, waitUntilTimeInSlot should be called twice
       // (after block 1 and block 2, but not after block 3 since it's the last)
       expect(waitSpy).toHaveBeenCalledTimes(2);
-      expect(waitSpy.mock.calls[0][0]).toEqual(10);
-      expect(waitSpy.mock.calls[1][0]).toEqual(18);
+      expect(waitSpy.mock.calls[0][0]).toEqual(5);
+      expect(waitSpy.mock.calls[1][0]).toEqual(8);
     });
 
     it('does not call waitUntilTimeInSlot when building the last block', async () => {
@@ -925,7 +910,7 @@ describe('CheckpointProposalJob', () => {
 
       const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
 
-      const checkpoint = await job.execute();
+      const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
@@ -993,7 +978,7 @@ describe('CheckpointProposalJob', () => {
       p2p.getPendingTxCount.mockResolvedValue(txs.length);
       p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
-      const checkpoint = await job.execute();
+      const checkpoint = await job.executeAndAwait();
 
       // Should return undefined when no time available
       expect(checkpoint).toBeUndefined();
@@ -1011,7 +996,7 @@ describe('CheckpointProposalJob', () => {
 
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
 
-      const checkpoint = await job.execute();
+      const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
@@ -1034,7 +1019,7 @@ describe('CheckpointProposalJob', () => {
 
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
 
-      const checkpoint = await job.execute();
+      const checkpoint = await job.executeAndAwait();
 
       // Should still complete if first block succeeds
       expect(checkpoint).toBeDefined();
@@ -1052,7 +1037,7 @@ describe('CheckpointProposalJob', () => {
       checkpointBuilder.errorOnBuild = new Error('Block build failed');
 
       // The job catches the error internally and returns undefined
-      const checkpoint = await job.execute();
+      const checkpoint = await job.executeAndAwait();
       expect(checkpoint).toBeUndefined();
     });
 
@@ -1063,9 +1048,10 @@ describe('CheckpointProposalJob', () => {
       // Mock collectAttestations to fail with timeout
       validatorClient.collectAttestations.mockRejectedValue(new AttestationTimeoutError(0, 3, SlotNumber.ZERO));
 
-      const checkpoint = await job.execute();
+      // Checkpoint is returned after broadcast — attestation failure happens in the background
+      const checkpoint = await job.executeAndAwait();
 
-      expect(checkpoint).toBeUndefined();
+      expect(checkpoint).toBeDefined();
       expect(validatorClient.collectAttestations).toHaveBeenCalled();
     });
 
@@ -1112,7 +1098,7 @@ describe('CheckpointProposalJob', () => {
       const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
       checkpointBuilder.seedBlocks([block], [txs]);
 
-      const checkpoint = await job.execute();
+      const checkpoint = await job.executeAndAwait();
 
       // Should complete even with empty committee
       expect(checkpoint).toBeDefined();
@@ -1127,7 +1113,7 @@ describe('CheckpointProposalJob', () => {
       const attestations = getAttestations(block);
       validatorClient.collectAttestations.mockResolvedValue(attestations);
 
-      const checkpoint = await job.execute();
+      const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
       expect(validatorClient.collectAttestations).toHaveBeenCalled();
@@ -1139,9 +1125,9 @@ describe('CheckpointProposalJob', () => {
 
       validatorClient.collectAttestations.mockRejectedValue(new TimeoutError('Attestation collection timed out'));
 
-      await job.execute();
+      await job.executeAndAwait();
 
-      // Should handle timeout gracefully
+      // Should handle timeout gracefully (in background pipeline)
       expect(validatorClient.collectAttestations).toHaveBeenCalled();
     });
   });
@@ -1158,7 +1144,7 @@ describe('CheckpointProposalJob', () => {
           ethereumSlotDuration,
           aztecSlotDuration: slotDuration,
           l1PublishingTime: ethereumSlotDuration,
-          blockDurationMs: 8000,
+          blockDurationMs: 3000,
           enforce: true,
         }),
       );
@@ -1176,7 +1162,7 @@ describe('CheckpointProposalJob', () => {
         throw new DutyAlreadySignedError(SlotNumber(1), DutyType.BLOCK_PROPOSAL, 0, 'node-2');
       });
 
-      const result = await job.execute();
+      const result = await job.executeAndAwait();
 
       // Should return undefined and stop building
       expect(result).toBeUndefined();
@@ -1199,7 +1185,7 @@ describe('CheckpointProposalJob', () => {
           ethereumSlotDuration,
           aztecSlotDuration: slotDuration,
           l1PublishingTime: ethereumSlotDuration,
-          blockDurationMs: 8000,
+          blockDurationMs: 3000,
           enforce: true,
         }),
       );
@@ -1217,7 +1203,7 @@ describe('CheckpointProposalJob', () => {
         throw new SlashingProtectionError(SlotNumber(1), DutyType.BLOCK_PROPOSAL, 0, 'hash1', 'hash2', 'node-1');
       });
 
-      const result = await job.execute();
+      const result = await job.executeAndAwait();
 
       // Should return undefined and stop building
       expect(result).toBeUndefined();
@@ -1238,6 +1224,13 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
     return Promise.resolve();
   }
 
+  /** Wraps execute + awaitPendingSubmission so tests see the full pipeline complete. */
+  public async executeAndAwait(): Promise<Checkpoint | undefined> {
+    const result = await this.execute();
+    await this.awaitPendingSubmission();
+    return result;
+  }
+
   /** Update config for testing - allows tests to modify config after job creation */
   public updateConfig(partialConfig: Partial<ResolvedSequencerConfig>): void {
     this.config = { ...this.config, ...partialConfig };
@@ -1251,11 +1244,6 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
   /** Get timetable for testing - allows tests to spy on methods */
   public getTimetable(): SequencerTimetable {
     return this.timetable;
-  }
-
-  /** Expose computeForceProposedFeeHeader for testing */
-  public override computeForceProposedFeeHeader(parentCheckpointNumber: CheckpointNumber) {
-    return super.computeForceProposedFeeHeader(parentCheckpointNumber);
   }
 
   /** Expose internal buildSingleBlock method */

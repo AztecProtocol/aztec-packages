@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { type FeeHeader, RollupContract } from '@aztec/ethereum/contracts';
+import type { SimulationOverridesPlan } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -57,6 +57,10 @@ import { DutyAlreadySignedError, SlashingProtectionError } from '@aztec/validato
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
+import {
+  buildPipelinedParentSimulationOverridesPlan,
+  buildSubmissionSimulationOverridesPlan,
+} from './chain_state_overrides.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
@@ -68,7 +72,14 @@ import { SequencerState } from './utils.js';
 /** How much time to sleep while waiting for min transactions to accumulate for a block */
 const TXS_POLLING_MS = 500;
 
-/** Result from proposeCheckpoint when a checkpoint was successfully built and attested. */
+/** Result from proposeCheckpoint when a checkpoint was successfully built and broadcast. */
+type CheckpointProposalBroadcast = {
+  checkpoint: Checkpoint;
+  proposal: CheckpointProposal;
+  blockProposedAt: number;
+};
+
+/** Result after attestation collection and signing, ready for L1 submission. */
 type CheckpointProposalResult = {
   checkpoint: Checkpoint;
   attestations: CommitteeAttestationsAndSigners;
@@ -87,8 +98,8 @@ export class CheckpointProposalJob implements Traceable {
   /** Tracks the fire-and-forget L1 submission promise so it can be awaited during shutdown. */
   private pendingL1Submission: Promise<void> | undefined;
 
-  /** Fee header override computed during proposeCheckpoint, reused in enqueueCheckpointForSubmission. */
-  private computedForceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
+  /** Pipelined parent chain state used while building and later submitting this checkpoint. */
+  private pipelinedParentSimulationOverridesPlan?: SimulationOverridesPlan;
 
   constructor(
     private readonly slotNow: SlotNumber,
@@ -136,8 +147,9 @@ export class CheckpointProposalJob implements Traceable {
 
   /**
    * Executes the checkpoint proposal job.
-   * Builds blocks, collects attestations, enqueues requests, and schedules L1 submission as a
-   * background task so the work loop can return to IDLE immediately.
+   * Builds blocks, assembles checkpoint, and broadcasts the proposal (blocking).
+   * Attestation collection, signing, and L1 submission are backgrounded so the
+   * work loop can return to IDLE immediately for consecutive slot proposals.
    * Returns the built checkpoint if successful, undefined otherwise.
    */
   @trackSpan('CheckpointProposalJob.execute')
@@ -157,71 +169,99 @@ export class CheckpointProposalJob implements Traceable {
       this.log,
     ).enqueueVotes();
 
-    // Build and propose the checkpoint. Builds blocks, broadcasts, collects attestations, and signs.
-    // Does NOT enqueue to L1 yet — that happens after the pipeline sleep.
-    const proposalResult = await this.proposeCheckpoint();
-    const checkpoint = proposalResult?.checkpoint;
+    // Build blocks, assemble checkpoint, and broadcast proposal (BLOCKING).
+    // Returns after broadcast — attestation collection is deferred.
+    const broadcast = await this.proposeCheckpoint();
 
-    // Wait until the voting promises have resolved, so all requests are enqueued (not sent)
-    await Promise.all(votesPromises);
-
-    if (checkpoint) {
-      this.metrics.recordCheckpointProposalSuccess();
+    if (!broadcast) {
+      await Promise.all(votesPromises);
+      // Still submit votes even without a checkpoint
+      if (!this.config.fishermanMode) {
+        this.pendingL1Submission = this.publisher.sendRequestsAt(this.dateProvider.nowAsDate()).then(() => {});
+      }
+      return undefined;
     }
+
+    const { checkpoint } = broadcast;
+    this.metrics.recordCheckpointProposalSuccess();
 
     // Do not post anything to L1 if we are fishermen, but do perform L1 fee analysis
     if (this.config.fishermanMode) {
       await this.handleCheckpointEndAsFisherman(checkpoint);
-      return;
+      return checkpoint;
     }
 
-    // Enqueue the checkpoint for L1 submission
-    if (proposalResult) {
-      try {
-        await this.enqueueCheckpointForSubmission(proposalResult);
-      } catch (err) {
-        this.log.error(`Failed to enqueue checkpoint for L1 submission at slot ${this.targetSlot}`, err);
-        // Continue to sendRequestsAt so votes are still sent
-      }
-    }
-
-    // Compute the earliest time to submit: pipeline slot start when pipelining, now otherwise.
-    const submitAfter = this.epochCache.isProposerPipeliningEnabled()
-      ? new Date(Number(getTimestampForSlot(this.targetSlot, this.l1Constants)) * 1000)
-      : new Date(this.dateProvider.now());
-
-    // Schedule L1 submission in the background so the work loop returns immediately.
-    // The publisher will sleep until submitAfter, then send the bundled requests.
-    // The promise is stored so it can be awaited during shutdown.
-    this.pendingL1Submission = this.publisher
-      .sendRequestsAt(submitAfter)
-      .then(async l1Response => {
-        const proposedAction = l1Response?.successfulActions.find(a => a === 'propose');
-        if (proposedAction) {
-          this.eventEmitter.emit('checkpoint-published', { checkpoint: this.checkpointNumber, slot: this.targetSlot });
-          const coinbase = checkpoint?.header.coinbase;
-          await this.metrics.incFilledSlot(this.publisher.getSenderAddress().toString(), coinbase);
-        } else if (checkpoint) {
-          this.eventEmitter.emit('checkpoint-publish-failed', { ...l1Response, slot: this.targetSlot });
-
-          if (this.epochCache.isProposerPipeliningEnabled()) {
-            this.metrics.recordPipelineDiscard();
-          }
-        }
-      })
-      .catch(err => {
-        this.log.error(`Background L1 submission failed for slot ${this.targetSlot}`, err);
-        if (checkpoint) {
-          this.eventEmitter.emit('checkpoint-publish-failed', { slot: this.targetSlot });
-
-          if (this.epochCache.isProposerPipeliningEnabled()) {
-            this.metrics.recordPipelineDiscard();
-          }
-        }
-      });
+    // Background the attestation → signing → L1 pipeline so the work loop is unblocked
+    this.pendingL1Submission = this.waitForAttestationsAndEnqueueSubmissionAsync(broadcast, votesPromises);
 
     // Return the built checkpoint immediately — the work loop is now unblocked
     return checkpoint;
+  }
+
+  /**
+   * Background pipeline: collects attestations, signs them, enqueues the checkpoint, and submits to L1.
+   * Runs as a fire-and-forget task stored in `pendingL1Submission` so the work loop is unblocked.
+   */
+  private async waitForAttestationsAndEnqueueSubmissionAsync(
+    broadcast: CheckpointProposalBroadcast,
+    votesPromises: Promise<unknown>[],
+  ): Promise<void> {
+    const { checkpoint, proposal, blockProposedAt } = broadcast;
+    try {
+      await Promise.all(votesPromises);
+
+      this.setStateFn(SequencerState.COLLECTING_ATTESTATIONS, this.targetSlot);
+      const attestations = await this.waitForAttestations(proposal);
+
+      this.metrics.recordCheckpointAttestationDelay(this.dateProvider.now() - blockProposedAt);
+
+      // Proposer must sign over the attestations before pushing them to L1
+      const signer = this.proposer ?? this.publisher.getSenderAddress();
+      let attestationsSignature: Signature;
+      try {
+        attestationsSignature = await this.validatorClient.signAttestationsAndSigners(
+          attestations,
+          signer,
+          this.targetSlot,
+          this.checkpointNumber,
+        );
+      } catch (err) {
+        if (this.handleHASigningError(err, 'Attestations signature')) {
+          return;
+        }
+        throw err;
+      }
+
+      // Enqueue the checkpoint for L1 submission
+      await this.enqueueCheckpointForSubmission({ checkpoint, attestations, attestationsSignature });
+
+      // Compute the earliest time to submit: pipeline slot start when pipelining, now otherwise.
+      const submitAfter = this.epochCache.isProposerPipeliningEnabled()
+        ? new Date(Number(getTimestampForSlot(this.targetSlot, this.l1Constants)) * 1000)
+        : new Date(this.dateProvider.now());
+
+      const l1Response = await this.publisher.sendRequestsAt(submitAfter);
+      const proposedAction = l1Response?.successfulActions.find(a => a === 'propose');
+      if (proposedAction) {
+        this.eventEmitter.emit('checkpoint-published', { checkpoint: this.checkpointNumber, slot: this.targetSlot });
+        const coinbase = checkpoint.header.coinbase;
+        await this.metrics.incFilledSlot(this.publisher.getSenderAddress().toString(), coinbase);
+      } else {
+        this.eventEmitter.emit('checkpoint-publish-failed', { ...l1Response, slot: this.targetSlot });
+        if (this.epochCache.isProposerPipeliningEnabled()) {
+          this.metrics.recordPipelineDiscard();
+        }
+      }
+    } catch (err) {
+      if (err instanceof SequencerInterruptedError) {
+        return;
+      }
+      this.log.error(`Background attestation/L1 pipeline failed for slot ${this.targetSlot}`, err);
+      this.eventEmitter.emit('checkpoint-publish-failed', { slot: this.targetSlot });
+      if (this.epochCache.isProposerPipeliningEnabled()) {
+        this.metrics.recordPipelineDiscard();
+      }
+    }
   }
 
   /** Enqueues the checkpoint for L1 submission. Called after pipeline sleep in execute(). */
@@ -247,10 +287,17 @@ export class CheckpointProposalJob implements Traceable {
       }
     }
 
+    const isPipelining = this.epochCache.isProposerPipeliningEnabled();
+    const submissionSimulationOverridesPlan = buildSubmissionSimulationOverridesPlan({
+      pipelinedParentPlan: this.pipelinedParentSimulationOverridesPlan,
+      invalidateToPendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
+      lastArchiveRoot: checkpoint.header.lastArchiveRoot,
+      pipeliningEnabled: isPipelining,
+    });
+
     await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
       txTimeoutAt,
-      forcePendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
-      forceProposedFeeHeader: this.computedForceProposedFeeHeader,
+      ...(submissionSimulationOverridesPlan ? { simulationOverridesPlan: submissionSimulationOverridesPlan } : {}),
     });
   }
 
@@ -261,7 +308,7 @@ export class CheckpointProposalJob implements Traceable {
       [Attributes.SLOT_NUMBER]: this.targetSlot,
     };
   })
-  private async proposeCheckpoint(): Promise<CheckpointProposalResult | undefined> {
+  private async proposeCheckpoint(): Promise<CheckpointProposalBroadcast | undefined> {
     try {
       // Get operator configured coinbase and fee recipient for this attestor
       const coinbase = this.validatorClient.getCoinbaseForAttestor(this.attestorAddress);
@@ -287,21 +334,20 @@ export class CheckpointProposalJob implements Traceable {
       // When pipelining, force the proposed checkpoint number and fee header to our parent so the
       // fee computation sees the same chain tip that L1 will see once the previous pipelined checkpoint lands.
       const isPipelining = this.epochCache.isProposerPipeliningEnabled();
-      const parentCheckpointNumber = isPipelining ? CheckpointNumber(this.checkpointNumber - 1) : undefined;
-
-      // Compute the parent's fee header override when pipelining
-      if (isPipelining && this.proposedCheckpointData) {
-        this.computedForceProposedFeeHeader = await this.computeForceProposedFeeHeader(parentCheckpointNumber!);
-      }
+      this.pipelinedParentSimulationOverridesPlan = isPipelining
+        ? await buildPipelinedParentSimulationOverridesPlan({
+            checkpointNumber: this.checkpointNumber,
+            proposedCheckpointData: this.proposedCheckpointData,
+            rollup: this.publisher.rollupContract,
+            log: this.log,
+          })
+        : undefined;
 
       const checkpointGlobalVariables = await this.globalsBuilder.buildCheckpointGlobalVariables(
         coinbase,
         feeRecipient,
         this.targetSlot,
-        {
-          forcePendingCheckpointNumber: parentCheckpointNumber,
-          forceProposedFeeHeader: this.computedForceProposedFeeHeader,
-        },
+        this.pipelinedParentSimulationOverridesPlan,
       );
 
       // Collect L1 to L2 messages for the checkpoint and compute their hash
@@ -410,7 +456,7 @@ export class CheckpointProposalJob implements Traceable {
         Number(checkpoint.header.totalManaUsed.toBigInt()),
       );
 
-      // Do not collect attestations nor publish to L1 in fisherman mode
+      // In fisherman mode, return the checkpoint without broadcasting or collecting attestations
       if (this.config.fishermanMode) {
         this.log.info(
           `Built checkpoint for slot ${this.targetSlot} with ${blocksInCheckpoint.length} blocks. ` +
@@ -422,11 +468,8 @@ export class CheckpointProposalJob implements Traceable {
           },
         );
         this.metrics.recordCheckpointSuccess();
-        return {
-          checkpoint,
-          attestations: CommitteeAttestationsAndSigners.empty(),
-          attestationsSignature: Signature.empty(),
-        };
+        // Return a broadcast result with a dummy proposal — fisherman mode skips attestation collection
+        return { checkpoint, proposal: undefined!, blockProposedAt: this.dateProvider.now() };
       }
 
       // Create the checkpoint proposal and broadcast it
@@ -442,33 +485,8 @@ export class CheckpointProposalJob implements Traceable {
       const blockProposedAt = this.dateProvider.now();
       await this.p2pClient.broadcastCheckpointProposal(proposal);
 
-      this.setStateFn(SequencerState.COLLECTING_ATTESTATIONS, this.targetSlot);
-      const attestations = await this.waitForAttestations(proposal);
-      const blockAttestedAt = this.dateProvider.now();
-
-      this.metrics.recordCheckpointAttestationDelay(blockAttestedAt - blockProposedAt);
-
-      // Proposer must sign over the attestations before pushing them to L1
-      const signer = this.proposer ?? this.publisher.getSenderAddress();
-      let attestationsSignature: Signature;
-      try {
-        attestationsSignature = await this.validatorClient.signAttestationsAndSigners(
-          attestations,
-          signer,
-          this.targetSlot,
-          this.checkpointNumber,
-        );
-      } catch (err) {
-        // We shouldn't really get here since we yield to another HA node
-        // as soon as we see these errors when creating block or checkpoint proposals.
-        if (this.handleHASigningError(err, 'Attestations signature')) {
-          return undefined;
-        }
-        throw err;
-      }
-
-      // Return the result for the caller to enqueue after the pipeline sleep
-      return { checkpoint, attestations, attestationsSignature };
+      // Return immediately after broadcast — attestation collection happens in the background
+      return { checkpoint, proposal, blockProposedAt };
     } catch (err) {
       if (err && (err instanceof DutyAlreadySignedError || err instanceof SlashingProtectionError)) {
         // swallow this error. It's already been logged by a function deeper in the stack
@@ -864,7 +882,7 @@ export class CheckpointProposalJob implements Traceable {
     }
 
     const attestationTimeAllowed = this.config.enforceTimeTable
-      ? this.timetable.getMaxAllowedTime(SequencerState.PUBLISHING_CHECKPOINT)!
+      ? this.timetable.getCheckpointAttestationDeadline()
       : this.l1Constants.slotDuration;
     const attestationDeadline = new Date((this.getSlotStartBuildTimestamp() + attestationTimeAllowed) * 1000);
 
@@ -1068,56 +1086,6 @@ export class CheckpointProposalJob implements Traceable {
       return true;
     }
     return false;
-  }
-
-  /**
-   * In times of congestion we need to simulate using the correct fee header override for the previous block
-   * We calculate the correct fee header values.
-   *
-   * If we are in block 1, or the checkpoint we are querying does not exist, we return undefined. However
-   * If we are pipelining - where this function is called, the grandparentCheckpointNumber should always exist
-   * @param parentCheckpointNumber
-   * @returns
-   */
-  protected async computeForceProposedFeeHeader(parentCheckpointNumber: CheckpointNumber): Promise<
-    | {
-        checkpointNumber: CheckpointNumber;
-        feeHeader: FeeHeader;
-      }
-    | undefined
-  > {
-    if (!this.proposedCheckpointData) {
-      return undefined;
-    }
-
-    const rollup = this.publisher.rollupContract;
-    const grandparentCheckpointNumber = CheckpointNumber(this.checkpointNumber - 2);
-    try {
-      const [grandparentCheckpoint, manaTarget] = await Promise.all([
-        rollup.getCheckpoint(grandparentCheckpointNumber),
-        rollup.getManaTarget(),
-      ]);
-
-      if (!grandparentCheckpoint || !grandparentCheckpoint.feeHeader) {
-        this.log.error(
-          `Grandparent checkpoint or its feeHeader is undefined for checkpointNumber=${grandparentCheckpointNumber.toString()}`,
-        );
-        return undefined;
-      } else {
-        const parentFeeHeader = RollupContract.computeChildFeeHeader(
-          grandparentCheckpoint.feeHeader,
-          this.proposedCheckpointData.totalManaUsed,
-          this.proposedCheckpointData.feeAssetPriceModifier,
-          manaTarget,
-        );
-        return { checkpointNumber: parentCheckpointNumber, feeHeader: parentFeeHeader };
-      }
-    } catch (err) {
-      this.log.error(
-        `Failed to fetch grandparent checkpoint or mana target for checkpointNumber=${grandparentCheckpointNumber.toString()}: ${err}`,
-      );
-      return undefined;
-    }
   }
 
   /** Waits until a specific time within the current slot */

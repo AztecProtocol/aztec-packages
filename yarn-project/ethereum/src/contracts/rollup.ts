@@ -765,18 +765,10 @@ export class RollupContract {
     archive: Buffer,
     account: `0x${string}` | Account,
     timestamp: bigint,
-    opts: {
-      forcePendingCheckpointNumber?: CheckpointNumber;
-      forceArchive?: { checkpointNumber: CheckpointNumber; archive: Fr };
-    } = {},
+    stateOverride: StateOverride = [],
   ): Promise<{ slot: SlotNumber; checkpointNumber: CheckpointNumber; timeOfNextL1Slot: bigint }> {
     const timeOfNextL1Slot = timestamp;
     const who = typeof account === 'string' ? account : account.address;
-
-    const stateOverride = RollupContract.mergeStateOverrides(
-      await this.makePendingCheckpointNumberOverride(opts.forcePendingCheckpointNumber),
-      opts.forceArchive ? this.makeArchiveOverride(opts.forceArchive.checkpointNumber, opts.forceArchive.archive) : [],
-    );
 
     try {
       const {
