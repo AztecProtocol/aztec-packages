@@ -73,7 +73,14 @@ describe('e2e_offchain_payment', () => {
     expect(messageForBob).toBeTruthy();
 
     await contract.methods
-      .offchain_receive([{ ciphertext: messageForBob!.payload, recipient: bob, tx_hash: receipt.txHash.hash }])
+      .offchain_receive([
+        {
+          ciphertext: messageForBob!.payload,
+          recipient: bob,
+          tx_hash: receipt.txHash.hash,
+          expiration_timestamp: messageForBob!.expirationTimestamp,
+        },
+      ])
       .simulate({ from: bob });
 
     // Force an empty block so the PXE re-syncs and discovers the offchain-delivered note.
@@ -105,7 +112,14 @@ describe('e2e_offchain_payment', () => {
 
     // Deliver the offchain message for eventual processing
     await contract.methods
-      .offchain_receive([{ ciphertext: messageForBob!.payload, recipient: bob, tx_hash: txHash.hash }])
+      .offchain_receive([
+        {
+          ciphertext: messageForBob!.payload,
+          recipient: bob,
+          tx_hash: txHash.hash,
+          expiration_timestamp: messageForBob!.expirationTimestamp,
+        },
+      ])
       .simulate({ from: bob });
 
     // TODO: revisit this. The call to offchain_receive is a utility and as such it causes the contract to sync, which,
