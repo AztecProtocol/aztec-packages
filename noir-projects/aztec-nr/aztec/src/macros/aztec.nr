@@ -116,7 +116,7 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
     };
 
     let offchain_message_handler_option = quote {
-        Option::some(aztec::messages::discovery::offchain::default_handler)
+        Option::some(aztec::messages::processing::offchain::default_handler)
     };
 
     let sync_state_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { sync_state }) {
@@ -412,13 +412,15 @@ comptime fn generate_process_message(process_custom_message_option: Quoted) -> Q
     }
 }
 
-/// Generates the `offchain_receive` utility function that adds a message to the offchain message inbox.
+/// Generates an `offchain_receive` utility function that lets callers add messages to the offchain message inbox.
+///
+/// For more details, see [`aztec::messages::processing::offchain::receive`].
 comptime fn generate_offchain_receive() -> Quoted {
     quote {
         pub struct offchain_receive_parameters {
             pub messages: BoundedVec<
-                aztec::messages::discovery::offchain::OffchainMessage,
-                aztec::messages::discovery::offchain::MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL,
+                aztec::messages::processing::offchain::OffchainMessage,
+                aztec::messages::processing::offchain::MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL,
             >,
         }
 
@@ -429,18 +431,18 @@ comptime fn generate_offchain_receive() -> Quoted {
 
         /// Delivers offchain messages to this contract's offchain inbox for subsequent processing.
         ///
-        /// For more details, see [`aztec::messages::discovery::offchain::receive`].
+        /// For more details, see [`aztec::messages::processing::offchain::receive`].
         ///
         /// This function is automatically injected by the `#[aztec]` macro.
         #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
         unconstrained fn offchain_receive(
             messages: BoundedVec<
-                aztec::messages::discovery::offchain::OffchainMessage,
-                aztec::messages::discovery::offchain::MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL,
+                aztec::messages::processing::offchain::OffchainMessage,
+                aztec::messages::processing::offchain::MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL,
             >,
         ) {
             let address = aztec::context::UtilityContext::new().this_address();
-            aztec::messages::discovery::offchain::receive(address, messages);
+            aztec::messages::processing::offchain::receive(address, messages);
         }
     }
 }

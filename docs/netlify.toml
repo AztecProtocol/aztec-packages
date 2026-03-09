@@ -794,5 +794,5 @@
 [[redirects]]
     # Aztec-nr: user-defined 'offchain_receive' is not allowed
     from = "/errors/6"
-    to = "/aztec-nr-api/nightly/noir_aztec/messages/discovery/offchain/fn.receive.html"
+    to = "/aztec-nr-api/nightly/noir_aztec/messages/processing/offchain/fn.receive.html"
 

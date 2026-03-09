@@ -1,4 +1,5 @@
 pub(crate) mod event_validation_request;
+pub mod offchain;
 
 mod message_context;
 pub use message_context::MessageContext;

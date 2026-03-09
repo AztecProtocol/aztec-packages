@@ -2,7 +2,6 @@ use crate::logging::{aztecnr_debug_log, aztecnr_debug_log_format};
 use crate::protocol::address::AztecAddress;
 
 pub mod nonce_discovery;
-pub mod offchain;
 pub mod partial_notes;
 pub mod private_events;
 pub mod private_notes;
@@ -104,9 +103,9 @@ pub type CustomMessageHandler<Env> = unconstrained fn[Env](
 /// utility function (injected by [`crate::macros::aztec`]). This handler is responsible for deciding when each message
 /// is ready for processing, when it can be safely disposed of, etc.
 ///
-/// The default implementation is [`offchain::default_handler`], which manages an inbox with max TX TTL-based
-/// expiry and automatic context resolution. It can be overridden via
-/// [`crate::macros::AztecConfig::offchain_message_handler`].
+/// The default implementation is
+/// [`crate::messages::processing::offchain::default_handler`], which manages an inbox with
+/// expiration-based eviction and automatic context resolution.
 pub type OffchainMessageHandler<Env> = unconstrained fn[Env](
 /* contract_address */AztecAddress) -> CapsuleArray<OffchainMessageWithContext>;
 
