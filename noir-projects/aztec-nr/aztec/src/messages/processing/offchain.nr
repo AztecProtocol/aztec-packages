@@ -30,6 +30,9 @@ global OFFCHAIN_READY_MESSAGES_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN
 /// Maximum number of offchain messages accepted by `offchain_receive` in a single call.
 pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
 
+/// Tolerance added to the `MAX_TX_LIFETIME` cap for message expiration.
+global TX_EXPIRATION_CAP_TOLERANCE: u64 = 3600; // 1 hour
+
 /// A function that manages offchain-delivered messages for processing during sync.
 ///
 /// Offchain messages are messages that are not broadcasted via onchain logs. They are instead delivered to the
@@ -168,59 +171,63 @@ pub unconstrained fn sync_inbox(address: AztecAddress) -> CapsuleArray<OffchainM
 
     let mut j = inbox_len;
     while j > 0 {
+        // This loop decides what to do with each message in the offchain message inbox. We need to handle 3
+        // different scenarios for each message.
+        //
+        // 1. The TX that emitted this message is still not known to PXE: in this case we can't yet process this
+        // message, as any notes or events discovered will fail to be validated. So we leave the message in the inbox,
+        // awaiting for future syncs to detect that the TX became available.
+        //
+        // 2. The message is not associated to a TX to begin with. The current version of offchain message processing
+        // does not support this case, but in the future it will. Right now, a message without an associated TX will
+        // sit in the inbox until it expires.
+        //
+        // 3. The TX that emitted this message has been found by PXE. That gives us all the information needed to
+        // process the message. We add the message to the `ready_to_process` CapsuleArray so that the `sync_state` loop
+        // processes it.
+        //
+        // In all cases, if the message has expired, or the associated TX is older than than `MAX_TX_LIFETIME`
+        // (24 hours), we remove it from the inbox.
+        //
+        // Note: the loop runs backwards because it might call `inbox.remove(j)` to purge expired messages and we also
+        // need to align it with `resolved_contexts.get(j)`. Going from last to first simplifies the algorithm as
+        // not yet visited element indexes remain stable.
         j -= 1;
         let maybe_ctx = resolved_contexts.get(j);
         let msg = inbox.get(j);
 
-        // This loop decides what to do with each message in the offchain message inbox. We need to handle 5
-        // different scenarios for each message.
-        //
-        // 1. The message has expired. We remove it from the inbox.
-        //
-        // 2. The TX that emitted this message is still not known to PXE: in this case we can't yet process this
-        // message, as any notes or events discovered will fail to be validated. So we leave the message in the inbox,
-        // awaiting for future syncs to detect that the TX became available.
-        //
-        // 3. The TX that emitted this message had been included in a block known to PXE, but as result of a reorg,
-        // we no longer see it. From the point of view of this handler we're essentially in the same scenario: we need
-        // to keep the message in the inbox awaiting for the TX to be available to PXE (or eventually expire).
-        //
-        // 4. The message is not associated to a TX to begin with. The current version of offchain message processing
-        // does not support this case, but in the future it will. Right now, a message without an associated TX will
-        // sit in the inbox until it expires.
-        //
-        // 5. The TX that emitted this message has been found by PXE. We have a proper MessageContext, and the message
-        // is now processable. We add the message to the `ready_to_process` CapsuleArray and the sync_state loop will
-        // process it.
-
-        // Compute the effective expiration. For messages with an associated transaction, we cap the
-        // sender-provided expiration to `received_at + MAX_TX_LIFETIME`: there's no point in keeping a message
-        // around longer than the tx could possibly live.
+        // Compute the message's effective expiration timestamp to determine if we can purge it from the inbox.
         let effective_expiration = if msg.tx_hash != 0 {
-            let tx_lifetime_cap = msg.received_at + MAX_TX_LIFETIME;
+            // For messages with an associated transaction, we cap the sender-provided expiration timestamp to
+            // `received_at + MAX_TX_LIFETIME + 1 hour tolerance`: there's no point in keeping a message once the TX
+            // can no longer possibly be included in a block.
+            let tx_lifetime_cap = msg.received_at + MAX_TX_LIFETIME + TX_EXPIRATION_CAP_TOLERANCE;
             if msg.expiration_timestamp < tx_lifetime_cap {
                 msg.expiration_timestamp
             } else {
                 tx_lifetime_cap
             }
         } else {
+            // Messages with no associated TX expire on their `expiration_timestamp`
             msg.expiration_timestamp
         };
 
-        // Scenario 1: message expired. We remove it from the inbox.
+        // Message expired. We remove it from the inbox.
         if now > effective_expiration {
             inbox.remove(j);
-            continue;
         }
 
-        // Scenarios 2, 3: emitting TX not yet available. We keep the message in the inbox, as it might become
+        // Scenario 1: associated TX not yet available. We keep the message in the inbox, as it might become
         // processable as new blocks get mined.
-        // Scenario 4: no TX associated to message. The message will sit in the inbox until it expires.
+        // Scenario 2: no TX associated to message. The message will sit in the inbox until it expires.
         if maybe_ctx.is_none() {
             continue;
         }
 
-        // Scenario 5: Message is ready to process, add ready_to_process
+        // Scenario 3: Message is ready to process, add to result array. Note we still keep it in the inbox unless we
+        // consider it has expired: this is because we need to account for reorgs. If reorg occurs after we processed
+        // a message, the effects of processing the message get rewind. However, the associated TX can be included in
+        // a subsequent block. Should that happen, the message must be re-processed to ensure consistency.
         let ctx = maybe_ctx.unwrap();
         let message_context = MessageContext {
             tx_hash: ctx.tx_hash,
@@ -228,7 +235,6 @@ pub unconstrained fn sync_inbox(address: AztecAddress) -> CapsuleArray<OffchainM
             first_nullifier_in_tx: ctx.first_nullifier_in_tx,
             recipient: msg.recipient,
         };
-
         ready_to_process.push(OffchainMessageWithContext { message_ciphertext: msg.ciphertext, message_context });
     }
 
