@@ -17,4 +17,4 @@ pub mod fields_to_bytes;
 
 // Convenience re-exports
 pub use bytes_to_fields::{bytes_from_fields, bytes_to_fields};
-pub use fields_to_bytes::{fields_from_bytes, fields_to_bytes, try_fields_from_bytes};
+pub use fields_to_bytes::{fields_from_bytes, fields_to_bytes};

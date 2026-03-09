@@ -44,45 +44,48 @@ pub fn fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> BoundedVec<Fie
     try_fields_from_bytes(bytes).expect(f"Value does not fit in field")
 }
 
+/// Converts a single 32-byte big-endian chunk (starting at `offset`) into a Field, returning
+/// `Option::none()` if the chunk's value is >= the field modulus.
+fn try_field_from_be_bytes<let N: u32>(bytes: BoundedVec<u8, N>, offset: u32) -> Option<Field> {
+    let p = std::field::modulus_be_bytes();
+    let mut field = 0;
+    // Field arithmetic silently wraps values >= the modulus, so we compare each 32-byte chunk against
+    // the modulus byte-by-byte (big-endian, most significant first). The first byte that differs
+    // determines the result: if our byte is smaller we're valid, if larger we've overflowed.
+    // cmp tracks the result: 0 = equal so far, 1 = less than modulus, 2 = exceeds modulus.
+    let mut cmp: u8 = 0;
+    for j in 0..32 {
+        let byte = bytes.get(offset + j);
+        field = field * 256 + byte as Field;
+
+        if cmp == 0 {
+            if byte < p[j] {
+                cmp = 1;
+            } else if byte > p[j] {
+                cmp = 2;
+            }
+        }
+    }
+    if cmp == 1 {
+        Option::some(field)
+    } else {
+        Option::none()
+    }
+}
+
 /// Non-panicking version of `fields_from_bytes`. Returns `Option::none()` if the input
 /// length is not a multiple of 32 or if any 32-byte chunk exceeds the field modulus.
-pub fn try_fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> Option<BoundedVec<Field, N / 32>> {
+pub(crate) fn try_fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> Option<BoundedVec<Field, N / 32>> {
     if bytes.len() % 32 == 0 {
         let mut fields = BoundedVec::new();
-        let p = std::field::modulus_be_bytes();
-        let mut valid = true;
-
-        // Since input length is a multiple of 32, we can simply process all chunks fully
-        for i in 0..bytes.len() / 32 {
-            let mut field = 0;
-            // Field arithmetic silently wraps values >= the modulus, so we compare each 32-byte chunk against
-            // the modulus byte-by-byte (big-endian, most significant first). The first byte that differs
-            // determines the result: if our byte is smaller we're valid, if larger we've overflowed.
-            // cmp tracks the result: 0 = equal so far, 1 = less than modulus, 2 = exceeds modulus.
-            let mut cmp: u8 = 0;
-
-            // Process each byte in the 32-byte chunk
-            for j in 0..32 {
-                let byte = bytes.get(i * 32 + j);
-                field = field * 256 + byte as Field;
-
-                if cmp == 0 {
-                    if byte < p[j] {
-                        cmp = 1;
-                    } else if byte > p[j] {
-                        cmp = 2;
-                    }
-                }
+        let num_chunks = bytes.len() / 32;
+        for i in 0..num_chunks {
+            let field = try_field_from_be_bytes(bytes, i * 32);
+            if field.is_some() {
+                fields.push(field.unwrap());
             }
-            // Only strictly-less-than is valid: equal means the value is the modulus itself (wraps to 0).
-            if cmp != 1 {
-                valid = false;
-            }
-
-            fields.push(field);
         }
-
-        if valid {
+        if fields.len() as u32 == num_chunks {
             Option::some(fields)
         } else {
             Option::none()
@@ -168,9 +171,10 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn try_fields_from_bytes_returns_none_on_field_modulus_overflow() {
-        // 0xFF repeated 32 times is larger than the BN254 field modulus.
-        let input = BoundedVec::<_, 32>::from_array([0xFF as u8; 32]);
+    unconstrained fn try_fields_from_bytes_returns_none_on_field_modulus() {
+        // The field modulus itself is not a valid field value (it wraps to 0).
+        let p: [u8; 32] = std::field::modulus_be_bytes().as_array();
+        let input = BoundedVec::<u8, 32>::from_array(p);
         assert(try_fields_from_bytes(input).is_none());
     }
 

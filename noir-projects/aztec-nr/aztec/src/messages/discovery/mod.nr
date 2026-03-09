@@ -155,13 +155,12 @@ mod test {
             logs::note::MAX_NOTE_PACKED_LEN,
             processing::{pending_tagged_log::PendingTaggedLog, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT},
         },
-        oracle::capsules,
         test::helpers::test_environment::TestEnvironment,
     };
     use crate::protocol::address::AztecAddress;
 
     #[test]
-    unconstrained fn do_sync_state_can_handle_empty_logs() {
+    unconstrained fn do_sync_state_does_not_panic_on_empty_logs() {
         let env = TestEnvironment::new();
 
         let contract_address = AztecAddress { inner: 0xdeadbeef };
@@ -169,14 +168,8 @@ mod test {
         env.utility_context_at(contract_address, |_| {
             let base_slot = PENDING_TAGGED_LOG_ARRAY_BASE_SLOT;
 
-            capsules::store(contract_address, base_slot, 1 as Field);
-            capsules::store(
-                contract_address,
-                base_slot + 1,
-                PendingTaggedLog { log: BoundedVec::new(), context: std::mem::zeroed() },
-            );
-
             let logs: CapsuleArray<PendingTaggedLog> = CapsuleArray::at(contract_address, base_slot);
+            logs.push(PendingTaggedLog { log: BoundedVec::new(), context: std::mem::zeroed() });
             assert_eq(logs.len(), 1);
 
             let no_handler: Option<CustomMessageHandler<()>> = Option::none();

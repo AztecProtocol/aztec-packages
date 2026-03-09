@@ -302,10 +302,7 @@ impl MessageEncryption for AES128 {
         );
 
         // Encrypt a 2-byte header containing the body ciphertext length.
-        let mut header_plaintext: [u8; 2] = [0 as u8; 2];
-        let ciphertext_bytes_length = ciphertext_bytes.len();
-        header_plaintext[0] = (ciphertext_bytes_length >> 8) as u8;
-        header_plaintext[1] = ciphertext_bytes_length as u8;
+        let header_plaintext = encode_header(ciphertext_bytes.len());
 
         // Note: the aes128_encrypt builtin fn automatically appends bytes to the input, according to pkcs#7; hence why
         // the output `header_ciphertext_bytes` is 16 bytes larger than the input in this case.
@@ -386,79 +383,79 @@ impl MessageEncryption for AES128 {
         recipient: AztecAddress,
     ) -> Option<BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>> {
         // Extract the ephemeral public key x-coordinate and masked fields, returning None for empty ciphertext.
-        split_ciphertext(ciphertext).and_then(|(eph_pk_x, masked_fields)| {
-            // With the x-coordinate of the ephemeral public key we can reconstruct the point as we know that the
-            // y-coordinate must be positive. This may fail however, as not all x-coordinates are on the curve. In that
-            // case, we simply return `Option::none`.
-            point_from_x_coord_and_sign(eph_pk_x, true).and_then(|eph_pk| {
-                // Derive shared secret
-                let ciphertext_shared_secret = get_shared_secret(recipient, eph_pk);
-
-                let unmasked_fields = masked_fields.mapi(|i, field| {
-                    let unmasked = unmask_field(ciphertext_shared_secret, i, field);
-                    // If we failed to unmask the field, we are dealing with the random padding. We'll ignore it later,
-                    // so we can simply set it to 0
-                    unmasked.unwrap_or(0)
-                });
-                let ciphertext_without_eph_pk_x = bytes_from_fields(unmasked_fields);
-
-                // Derive symmetric keys:
-                let pairs = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<2>(
-                    ciphertext_shared_secret,
-                );
-                let (body_sym_key, body_iv) = pairs[0];
-                let (header_sym_key, header_iv) = pairs[1];
-
-                // Extract the header ciphertext
-                let header_start = 0;
-                let header_ciphertext: [u8; HEADER_CIPHERTEXT_SIZE_IN_BYTES] =
-                    array::subarray(ciphertext_without_eph_pk_x.storage(), header_start);
-                // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's
-                // designed to work with messages with unknown length at compile time. This would not be necessary
-                // here as the header ciphertext length is fixed. But we do it anyway to not have to have duplicate
-                // oracles.
-                let header_ciphertext_bvec =
-                    BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(header_ciphertext);
-
-                // Decrypt header
-                let header_plaintext = aes128_decrypt_oracle(header_ciphertext_bvec, header_iv, header_sym_key);
-
-                // Extract ciphertext length from header (2 bytes, big-endian)
-                extract_ciphertext_length(header_plaintext)
-                    .filter(|ciphertext_length| ciphertext_length <= MESSAGE_PLAINTEXT_SIZE_IN_BYTES)
-                    .and_then(|ciphertext_length| {
-                        // Extract and decrypt main ciphertext
-                        let ciphertext_start = header_start + HEADER_CIPHERTEXT_SIZE_IN_BYTES;
-                        let ciphertext_with_padding: [u8; MESSAGE_PLAINTEXT_SIZE_IN_BYTES] =
-                            array::subarray(ciphertext_without_eph_pk_x.storage(), ciphertext_start);
-                        let ciphertext: BoundedVec<u8, MESSAGE_PLAINTEXT_SIZE_IN_BYTES> =
-                            BoundedVec::from_parts(ciphertext_with_padding, ciphertext_length);
-
-                        // Decrypt main ciphertext and return it
-                        let plaintext_bytes = aes128_decrypt_oracle(ciphertext, body_iv, body_sym_key);
-
-                        // Convert bytes back to fields (32 bytes per field). Returns None if the actual bytes are not
-                        // valid.
-                        try_fields_from_bytes(plaintext_bytes)
-                    })
+        Option::some(ciphertext)
+            .and_then(|ciphertext| {
+                if ciphertext.len() > 0 {
+                    let masked_fields: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS> =
+                        array::subbvec(ciphertext, EPH_PK_X_SIZE_IN_FIELDS);
+                    Option::some((ciphertext.get(0), masked_fields))
+                } else {
+                    Option::none()
+                }
             })
-        })
+            .and_then(|(eph_pk_x, masked_fields)| {
+                // With the x-coordinate of the ephemeral public key we can reconstruct the point as we know that the
+                // y-coordinate must be positive. This may fail however, as not all x-coordinates are on the curve. In
+                // that case, we simply return `Option::none`.
+                point_from_x_coord_and_sign(eph_pk_x, true).and_then(|eph_pk| {
+                    // Derive shared secret
+                    let ciphertext_shared_secret = get_shared_secret(recipient, eph_pk);
+
+                    let unmasked_fields = masked_fields.mapi(|i, field| {
+                        let unmasked = unmask_field(ciphertext_shared_secret, i, field);
+                        // If we failed to unmask the field, we are dealing with the random padding. We'll ignore it
+                        // later, so we can simply set it to 0
+                        unmasked.unwrap_or(0)
+                    });
+                    let ciphertext_without_eph_pk_x = bytes_from_fields(unmasked_fields);
+
+                    // Derive symmetric keys:
+                    let pairs = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<2>(
+                        ciphertext_shared_secret,
+                    );
+                    let (body_sym_key, body_iv) = pairs[0];
+                    let (header_sym_key, header_iv) = pairs[1];
+
+                    // Extract the header ciphertext
+                    let header_start = 0;
+                    let header_ciphertext: [u8; HEADER_CIPHERTEXT_SIZE_IN_BYTES] =
+                        array::subarray(ciphertext_without_eph_pk_x.storage(), header_start);
+                    // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's
+                    // designed to work with messages with unknown length at compile time. This would not be necessary
+                    // here as the header ciphertext length is fixed. But we do it anyway to not have to have duplicate
+                    // oracles.
+                    let header_ciphertext_bvec =
+                        BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(header_ciphertext);
+
+                    // Decrypt header
+                    let header_plaintext = aes128_decrypt_oracle(header_ciphertext_bvec, header_iv, header_sym_key);
+
+                    // Extract ciphertext length from header (2 bytes, big-endian)
+                    extract_ciphertext_length(header_plaintext)
+                        .filter(|ciphertext_length| ciphertext_length <= MESSAGE_PLAINTEXT_SIZE_IN_BYTES)
+                        .and_then(|ciphertext_length| {
+                            // Extract and decrypt main ciphertext
+                            let ciphertext_start = header_start + HEADER_CIPHERTEXT_SIZE_IN_BYTES;
+                            let ciphertext_with_padding: [u8; MESSAGE_PLAINTEXT_SIZE_IN_BYTES] =
+                                array::subarray(ciphertext_without_eph_pk_x.storage(), ciphertext_start);
+                            let ciphertext: BoundedVec<u8, MESSAGE_PLAINTEXT_SIZE_IN_BYTES> =
+                                BoundedVec::from_parts(ciphertext_with_padding, ciphertext_length);
+
+                            // Decrypt main ciphertext and return it
+                            let plaintext_bytes = aes128_decrypt_oracle(ciphertext, body_iv, body_sym_key);
+
+                            // Convert bytes back to fields (32 bytes per field). Returns None if the actual bytes are
+                            // not valid.
+                            try_fields_from_bytes(plaintext_bytes)
+                        })
+                })
+            })
     }
 }
 
-/// Splits a ciphertext into the ephemeral public key x-coordinate and the remaining masked fields.
-///
-/// Returns `Option::none()` if the ciphertext is empty.
-unconstrained fn split_ciphertext(
-    ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
-) -> Option<(Field, BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS>)> {
-    if ciphertext.len() > 0 {
-        Option::some(
-            (ciphertext.get(0), array::subbvec(ciphertext, EPH_PK_X_SIZE_IN_FIELDS)),
-        )
-    } else {
-        Option::none()
-    }
+/// Encodes the body ciphertext length into a 2-byte big-endian header.
+fn encode_header(ciphertext_length: u32) -> [u8; 2] {
+    [(ciphertext_length >> 8) as u8, ciphertext_length as u8]
 }
 
 /// Extracts the body ciphertext length from a decrypted header as a 2-byte big-endian integer.
@@ -519,13 +516,13 @@ mod test {
     use crate::{
         keys::ecdh_shared_secret::derive_ecdh_shared_secret,
         messages::{
-            encoding::{HEADER_CIPHERTEXT_SIZE_IN_BYTES, MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN},
+            encoding::{HEADER_CIPHERTEXT_SIZE_IN_BYTES, MESSAGE_PLAINTEXT_LEN, MESSAGE_PLAINTEXT_SIZE_IN_BYTES},
             encryption::message_encryption::MessageEncryption,
         },
         test::helpers::test_environment::TestEnvironment,
     };
     use crate::protocol::{address::AztecAddress, traits::FromField};
-    use super::{AES128, random_address_point};
+    use super::{AES128, encode_header, random_address_point};
     use std::{embedded_curve_ops::EmbeddedCurveScalar, test::OracleMock};
 
     #[test]
@@ -681,14 +678,11 @@ mod test {
         let mut env = TestEnvironment::new();
         let recipient = env.create_light_account();
 
-        env.private_context(|_| {
-            let empty: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN> = BoundedVec::new();
-            assert(AES128::decrypt(empty, recipient).is_none());
-        });
+        env.private_context(|_| { assert(AES128::decrypt(BoundedVec::new(), recipient).is_none()); });
     }
 
-    // Mocks the header AES decrypt oracle to return an empty result, simulating wrong-key PKCS#7 stripping that
-    // produces fewer than the 2 bytes needed to parse the ciphertext length.
+    // Mocks the header AES decrypt oracle to return an empty result. The TS oracle never throws on invalid
+    // input: it decrypts to garbage bytes or returns empty
     #[test]
     unconstrained fn decrypt_returns_none_on_empty_header() {
         let mut env = TestEnvironment::new();
@@ -705,8 +699,8 @@ mod test {
         });
     }
 
-    // Mocks the header oracle to return a 2-byte header that decodes to ciphertext_length = 65535, which exceeds
-    // MESSAGE_PLAINTEXT_SIZE_IN_BYTES.
+    // Mocks the header oracle to return a 2-byte header that decodes to a ciphertext_length one past the maximum
+    // allowed value, verifying the edge case is handled correctly.
     #[test]
     unconstrained fn decrypt_returns_none_on_oversized_ciphertext_length() {
         let mut env = TestEnvironment::new();
@@ -716,10 +710,9 @@ mod test {
             let plaintext = [1, 2, 3];
             let ciphertext = BoundedVec::from_array(AES128::encrypt(plaintext, recipient));
 
-            let mut header_bytes = [0 as u8; HEADER_CIPHERTEXT_SIZE_IN_BYTES];
-            header_bytes[0] = 0xFF;
-            header_bytes[1] = 0xFF;
-            let bad_header = BoundedVec::from_parts(header_bytes, 2);
+            let bad_header = BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(encode_header(
+                MESSAGE_PLAINTEXT_SIZE_IN_BYTES + 1,
+            ));
             let _ = OracleMock::mock("aztec_utl_aes128Decrypt").returns(bad_header).times(1);
 
             assert(AES128::decrypt(ciphertext, recipient).is_none());
