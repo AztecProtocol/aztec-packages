@@ -18,6 +18,7 @@
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
+#include "barretenberg/transcript/transcript_manifest.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 
@@ -172,6 +173,68 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
 
     EXPECT_TRUE(result.reduction_succeeded);
     EXPECT_TRUE(result.pairing_points.check());
+}
+
+// =============================================================================
+// BatchedHonkTranslatorTests::VerifierManifestConsistency
+// Checks that the prover and verifier Fiat-Shamir transcripts produce the same
+// manifest (same sequence of send/receive/challenge entries), which pins the
+// joint proof structure and detects any prover/verifier protocol divergence.
+// =============================================================================
+TEST_F(BatchedHonkTranslatorTests, VerifierManifestConsistency)
+{
+    using MegaZKProverInst = ProverInstance_<MegaZKFlavor>;
+    using MegaZKVK = MegaZKFlavor::VerificationKey;
+    using MegaZKVKAndHash = MegaZKFlavor::VKAndHash;
+
+    const Fq batching_challenge_v = Fq::random_element();
+    const Fq evaluation_input_x = Fq::random_element();
+
+    auto translator_key = build_translator_key(batching_challenge_v, evaluation_input_x);
+    {
+        auto tmp = std::make_shared<Transcript>();
+        TranslatorProver init_prover(translator_key, tmp);
+    }
+    const Fq accumulated_result = get_accumulated_result(translator_key);
+    const auto op_queue_wire_commitments = commit_op_queue_wires(translator_key);
+
+    MegaCircuitBuilder mega_zk_circuit;
+    GoblinMockCircuits::construct_simple_circuit(mega_zk_circuit);
+
+    auto mega_zk_inst = std::make_shared<MegaZKProverInst>(mega_zk_circuit);
+    auto mega_zk_vk = std::make_shared<MegaZKVK>(mega_zk_inst->get_precomputed());
+    auto mega_zk_vk_and_hash = std::make_shared<MegaZKVKAndHash>(mega_zk_vk);
+
+    // Prove with manifest tracking enabled.
+    auto prover_transcript = std::make_shared<Transcript>();
+    prover_transcript->enable_manifest();
+    BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, translator_key, prover_transcript);
+    auto [mega_zk_proof, translator_and_joint_proof] = prover.construct_proof();
+
+    // Verify with manifest tracking enabled.
+    auto verifier_transcript = std::make_shared<Transcript>();
+    verifier_transcript->enable_manifest();
+    BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash,
+                                           verifier_transcript,
+                                           mega_zk_proof,
+                                           translator_and_joint_proof,
+                                           evaluation_input_x,
+                                           batching_challenge_v,
+                                           accumulated_result,
+                                           op_queue_wire_commitments);
+    [[maybe_unused]] auto _ = verifier.reduce_to_pairing_check();
+
+    auto prover_manifest = prover_transcript->get_manifest();
+    auto verifier_manifest = verifier_transcript->get_manifest();
+
+    ASSERT_GT(prover_manifest.size(), 0);
+    for (size_t round = 0; round < prover_manifest.size(); ++round) {
+        ASSERT_EQ(prover_manifest[round], verifier_manifest[round])
+            << "Prover/verifier manifest discrepancy in round " << round;
+    }
+
+    // Temporary: print the manifest so we can build the pinning test.
+    prover_manifest.print();
 }
 
 // =============================================================================

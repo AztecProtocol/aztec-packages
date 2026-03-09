@@ -136,7 +136,7 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     const size_t mega_zk_log_n = [&]() -> size_t {
         if constexpr (IsRecursive) {
-            return static_cast<size_t>(mega_zk_vk_and_hash->vk->log_circuit_size.get_value());
+            return static_cast<size_t>(static_cast<uint64_t>(mega_zk_vk_and_hash->vk->log_circuit_size.get_value()));
         } else {
             return static_cast<size_t>(mega_zk_vk_and_hash->vk->log_circuit_size);
         }
