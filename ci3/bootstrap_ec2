@@ -18,7 +18,7 @@ if [ "$arch" == "arm64" ]; then
   cores=64
   export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME_ARM:-$AWS_SHUTDOWN_TIME}
 else
-  cores=192,128,64
+  cores=128,64
 fi
 
 # Allow override.
