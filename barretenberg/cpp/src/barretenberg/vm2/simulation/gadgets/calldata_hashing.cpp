@@ -6,6 +6,15 @@
 
 namespace bb::avm2::simulation {
 
+/**
+ * @brief Assert that the given calldata hashes to the expected hash, and emit a calldata event.
+ *
+ * Prepends the public calldata domain separator, hashes via Poseidon2, and asserts the result
+ * matches the provided hash. Emits a CalldataEvent for trace generation.
+ *
+ * @param cd_hash The expected calldata hash.
+ * @param calldata The calldata fields to hash.
+ */
 void CalldataHasher::assert_calldata_hash(const FF& cd_hash, std::span<const FF> calldata)
 {
     // todo(ilyas): this probably simulates faster at the cost of re-work in tracegen

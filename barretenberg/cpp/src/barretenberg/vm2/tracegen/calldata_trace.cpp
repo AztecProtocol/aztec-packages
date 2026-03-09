@@ -11,6 +11,15 @@ using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldPar
 
 namespace bb::avm2::tracegen {
 
+/**
+ * @brief Populate the calldata retrieval trace (calldata.pil) from calldata events.
+ *
+ * Fills one row per calldata field per context, with index, value, context_id, and latch columns.
+ * Events must be sorted by context_id. Empty calldata gets a special row with index=0 and latch=1.
+ *
+ * @param events The calldata events, sorted by context_id.
+ * @param trace The trace container to populate.
+ */
 void CalldataTraceBuilder::process_retrieval(
     const simulation::EventEmitterInterface<simulation::CalldataEvent>::Container& events, TraceContainer& trace)
 {
@@ -63,6 +72,16 @@ void CalldataTraceBuilder::process_retrieval(
     }
 }
 
+/**
+ * @brief Populate the calldata hashing trace (calldata_hashing.pil) from calldata events.
+ *
+ * Processes each event's calldata through Poseidon2 in chunks of 3 fields, filling rows with
+ * input fields, indices, padding flags, round counters, and the output hash. Handles padding
+ * when the input length is not a multiple of 3.
+ *
+ * @param events The calldata events to hash.
+ * @param trace The trace container to populate.
+ */
 void CalldataTraceBuilder::process_hashing(
     const simulation::EventEmitterInterface<simulation::CalldataEvent>::Container& events, TraceContainer& trace)
 {
