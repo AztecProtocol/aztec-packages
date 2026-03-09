@@ -104,8 +104,10 @@ class ProofCompressor {
         process_commitment();
         // Libra sum
         process_scalar();
-        // Sumcheck round univariates
-        for (size_t i = 0; i < log_n * MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
+        // Sumcheck committed round univariates: commitment + eval_0 + eval_1 per round
+        for (size_t i = 0; i < log_n; i++) {
+            process_commitment();
+            process_scalar();
             process_scalar();
         }
         // Sumcheck evaluations
@@ -332,7 +334,7 @@ class ProofCompressor {
         MegaZKFlavor::NUM_WITNESS_ENTITIES * BN254_FRS_PER_COMM +                                           // witness comms
         1 * BN254_FRS_PER_COMM +                                                                            // libra concat
         1 * BN254_FRS_PER_SCALAR +                                                                          // libra sum
-        MegaZKFlavor::VIRTUAL_LOG_N * MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH * BN254_FRS_PER_SCALAR +// sumcheck univariates
+        MegaZKFlavor::VIRTUAL_LOG_N * (BN254_FRS_PER_COMM + 2 * BN254_FRS_PER_SCALAR) +                     // committed sumcheck univariates
         MegaZKFlavor::NUM_ALL_ENTITIES * BN254_FRS_PER_SCALAR +                                             // sumcheck evals
         1 * BN254_FRS_PER_SCALAR +                                                                          // libra claimed eval
         2 * BN254_FRS_PER_COMM +                                                                            // libra grand sum + quotient

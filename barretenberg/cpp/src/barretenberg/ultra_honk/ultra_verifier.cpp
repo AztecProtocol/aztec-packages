@@ -28,8 +28,11 @@ template <typename Flavor, class IO> size_t UltraVerifier_<Flavor, IO>::compute_
 {
     if constexpr (Flavor::USE_PADDING) {
         return static_cast<size_t>(Flavor::VIRTUAL_LOG_N);
+    } else if constexpr (IsRecursive) {
+        // Non-padded recursive: extract log_circuit_size witness value from stdlib VK
+        return static_cast<size_t>(uint256_t(verifier_instance->get_vk()->log_circuit_size.get_value()));
     } else {
-        // Non-padded: use actual circuit size from VK (native only)
+        // Non-padded native: use actual circuit size from VK
         return static_cast<size_t>(verifier_instance->get_vk()->log_circuit_size);
     }
 }
@@ -196,14 +199,29 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
         }
     }();
 
-    auto shplemini_output = Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                                                   claim_batcher,
-                                                                   sumcheck_output.challenge,
-                                                                   one_commitment,
-                                                                   transcript,
-                                                                   Flavor::REPEATED_COMMITMENTS,
-                                                                   libra_commitments,
-                                                                   sumcheck_output.claimed_libra_evaluation);
+    auto shplemini_output = [&]() {
+        if constexpr (UsesCommittedSumcheck<Flavor>) {
+            return Shplemini::compute_batch_opening_claim(padding_indicator_array,
+                                                          claim_batcher,
+                                                          sumcheck_output.challenge,
+                                                          one_commitment,
+                                                          transcript,
+                                                          Flavor::REPEATED_COMMITMENTS,
+                                                          libra_commitments,
+                                                          sumcheck_output.claimed_libra_evaluation,
+                                                          sumcheck_output.round_univariate_commitments,
+                                                          sumcheck_output.round_univariate_evaluations);
+        } else {
+            return Shplemini::compute_batch_opening_claim(padding_indicator_array,
+                                                          claim_batcher,
+                                                          sumcheck_output.challenge,
+                                                          one_commitment,
+                                                          transcript,
+                                                          Flavor::REPEATED_COMMITMENTS,
+                                                          libra_commitments,
+                                                          sumcheck_output.claimed_libra_evaluation);
+        }
+    }();
 
     // Build reduction result
     ReductionResult result;

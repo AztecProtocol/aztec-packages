@@ -147,7 +147,13 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
 
         for (size_t i = 0; i < virtual_log_n; ++i) {
             std::string idx = std::to_string(i);
-            manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx, frs_per_uni);
+            if constexpr (UsesCommittedSumcheck<Flavor>) {
+                manifest_expected.add_entry(round, "Sumcheck:univariate_comm_" + idx, data_types_per_G);
+                manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx + "_eval_0", data_types_per_Frs);
+                manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx + "_eval_1", data_types_per_Frs);
+            } else {
+                manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx, frs_per_uni);
+            }
             std::string label = "Sumcheck:u_" + idx;
             manifest_expected.add_challenge(round, label);
             round++;

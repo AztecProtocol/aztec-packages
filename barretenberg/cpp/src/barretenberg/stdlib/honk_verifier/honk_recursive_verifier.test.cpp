@@ -320,8 +320,13 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         switch (type) {
         case TamperType::MODIFY_SUMCHECK_UNIVARIATE: {
             FF delta = FF::random_element();
-            structured_proof.sumcheck_univariates[0].value_at(0) += delta;
-            structured_proof.sumcheck_univariates[0].value_at(1) -= delta;
+            if constexpr (UsesCommittedSumcheck<InnerFlavor>) {
+                structured_proof.sumcheck_round_eval_0s[0] += delta;
+                structured_proof.sumcheck_round_eval_1s[0] -= delta;
+            } else {
+                structured_proof.sumcheck_univariates[0].value_at(0) += delta;
+                structured_proof.sumcheck_univariates[0].value_at(1) -= delta;
+            }
             break;
         }
         case TamperType::MODIFY_SUMCHECK_EVAL:
@@ -484,8 +489,7 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, IndependentVKHash)
     using RecursiveFlavor = typename TypeParam::RecursiveFlavor;
     if constexpr (IsAnyOf<RecursiveFlavor,
                           UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                          UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
-                          MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
+                          UltraZKRecursiveFlavor_<UltraCircuitBuilder>>) {
         TestFixture::test_independent_vk_hash();
     } else {
         GTEST_SKIP() << "Not built for this parameter";

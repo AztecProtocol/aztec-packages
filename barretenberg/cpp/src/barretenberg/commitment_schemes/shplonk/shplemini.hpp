@@ -58,12 +58,11 @@ template <typename Curve> class ShpleminiProver_ {
             libra_opening_claims = compute_libra_opening_claims(gemini_r, libra_polynomials, transcript);
         }
 
-        // Currently, only used in ECCVM.
         std::vector<OpeningClaim> sumcheck_round_claims;
 
         if (!sumcheck_round_univariates.empty()) {
             sumcheck_round_claims = compute_sumcheck_round_claims(
-                circuit_size, multilinear_challenge, sumcheck_round_univariates, sumcheck_round_evaluations);
+                multilinear_challenge, sumcheck_round_univariates, sumcheck_round_evaluations);
         }
 
         return ShplonkProver::prove(
@@ -105,12 +104,11 @@ template <typename Curve> class ShpleminiProver_ {
     }
 
     /**
-     * @brief Create a vector of 3*log_n opening claims for the evaluations of Sumcheck Round Univariates at
+     * @brief Create a vector of 3*virtual_log_n opening claims for the evaluations of Sumcheck Round Univariates at
      * 0, 1, and a round challenge.
      *
      */
     static std::vector<OpeningClaim> compute_sumcheck_round_claims(
-        size_t circuit_size,
         std::span<FF> multilinear_challenge,
         const std::vector<Polynomial>& sumcheck_round_univariates,
         const std::vector<std::array<FF, 3>>& sumcheck_round_evaluations)
@@ -118,8 +116,8 @@ template <typename Curve> class ShpleminiProver_ {
         OpeningClaim new_claim;
         std::vector<OpeningClaim> sumcheck_round_claims = {};
 
-        const size_t log_n = numeric::get_msb(circuit_size);
-        for (size_t idx = 0; idx < log_n; idx++) {
+        const size_t virtual_log_n = multilinear_challenge.size();
+        for (size_t idx = 0; idx < virtual_log_n; idx++) {
             const std::vector<FF> evaluation_points = { FF(0), FF(1), multilinear_challenge[idx] };
             size_t eval_idx = 0;
             new_claim.polynomial = std::move(sumcheck_round_univariates[idx]);
@@ -369,7 +367,6 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
                 libra_evaluations, gemini_evaluation_challenge, multivariate_challenge, libra_univariate_evaluation);
         }
 
-        // Currently, only used in ECCVM
         if (committed_sumcheck) {
             batch_sumcheck_round_claims(commitments,
                                         scalars,
@@ -639,8 +636,8 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
 
         std::vector<Fr> denominators = {};
 
-        // The number of Gemini claims is equal to `2 * log_n` and `log_n` is equal to the size of
-        // `multilinear_challenge`, as this method is never used with padding.
+        // The number of Gemini claims is `2 * virtual_log_n` where `virtual_log_n` is the size of
+        // `multilinear_challenge` (includes padding rounds when applicable).
         const size_t num_gemini_claims = 2 * multilinear_challenge.size();
         // Denominators for the opening claims at 0 and 1. Need to be computed only once as opposed to the claims at the
         // sumcheck round challenges.
