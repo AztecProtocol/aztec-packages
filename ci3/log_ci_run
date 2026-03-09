@@ -9,7 +9,7 @@ if [ -z "${RUN_ID:-}" ]; then
   exit
 fi
 
-if [ -z "$CI_DASHBOARD:-}" ]; then
+if [ -z "${CI_DASHBOARD:-}" ]; then
   # This path is deprecated. Set CI_DASHBOARD explicitly in ci.sh.
   # CI runs are grouped by:
   # - The 'release' group if tagged with a semver.
@@ -73,17 +73,31 @@ if [ "$status" = "RUNNING" ]; then
 
   echo $key
 else
-  # Retrieve the current entry.
-  old_json=$(redis_cli ZRANGEBYSCORE $range_key $key $key)
-  # Compute duration.
-  now=$(date +%s%3N)
-  json=$(echo "$old_json" | jq -c -j \
-      --arg status "$status" \
-      --argjson complete "$now" \
-      '. * { status: $status, complete: $complete }')
-  # echo "$json" >&2
-  # Remove the old entry.
-  redis_cli ZREM $range_key "$old_json" &>/dev/null
-  # Add the updated entry with the same key.
-  redis_cli ZADD $range_key $key "$json" &>/dev/null
+  # Update the entry status (e.g. RUNNING -> PASSED/FAILED).
+  # Retry up to 3 times since transient Redis failures here leave stale RUNNING entries.
+  for attempt in 1 2 3; do
+    old_json=$(redis_cli ZRANGEBYSCORE $range_key $key $key)
+    if [ -z "$old_json" ]; then
+      echo_stderr "log_ci_run: ZRANGEBYSCORE returned empty for key=$key range_key=$range_key (attempt $attempt/3)"
+      sleep 1
+      continue
+    fi
+    now=$(date +%s%3N)
+    json=$(echo "$old_json" | jq -c -j \
+        --arg status "$status" \
+        --argjson complete "$now" \
+        '. * { status: $status, complete: $complete }')
+    if [ -z "$json" ] || [ "$json" = "null" ]; then
+      echo_stderr "log_ci_run: jq merge failed for key=$key (attempt $attempt/3)"
+      sleep 1
+      continue
+    fi
+    # Remove the old entry and add the updated entry with the same score.
+    redis_cli ZREM $range_key "$old_json" &>/dev/null
+    redis_cli ZADD $range_key $key "$json" &>/dev/null
+    break
+  done
+  if [ -z "$old_json" ] || [ -z "$json" ] || [ "$json" = "null" ]; then
+    echo_stderr "log_ci_run: FAILED to update status to $status for key=$key range_key=$range_key after 3 attempts"
+  fi
 fi
