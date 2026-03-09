@@ -5,7 +5,12 @@ use crate::{
         encoding::MESSAGE_CIPHERTEXT_LEN,
         processing::{MessageContext, MessageTxContext, OffchainMessageWithContext, resolve_message_contexts},
     },
-    protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Deserialize, Serialize}},
+    protocol::{
+        address::AztecAddress,
+        constants::MAX_TX_LIFETIME,
+        hash::sha256_to_field,
+        traits::{Deserialize, Serialize},
+    },
 };
 
 /// Base capsule slot for the persistent inbox of [`PendingOffchainMsg`] entries.
@@ -67,8 +72,14 @@ struct PendingOffchainMsg {
     recipient: AztecAddress,
     /// The hash of the transaction that produced this message. A value of 0 indicates a tx-less message.
     tx_hash: Field,
-    /// The timestamp after which this message can be evicted from the inbox.
+    /// The timestamp after which this message can be evicted from the inbox (as provided by the sender).
     expiration_timestamp: u64,
+    /// The timestamp at which this message was received (i.e. added to the inbox via `receive`).
+    ///
+    /// Used to cap the effective expiration of messages with an associated transaction: since a tx can only live for
+    /// `MAX_TX_LIFETIME`, we don't need to keep the message around longer than `received_at + MAX_TX_LIFETIME`,
+    /// regardless of the sender-provided `expiration_timestamp`.
+    received_at: u64,
 }
 
 /// Delivers offchain messages to the given contract's offchain inbox for subsequent processing.
@@ -81,8 +92,9 @@ struct PendingOffchainMsg {
 /// Messages are processed when their originating transaction is found onchain (providing the context needed to
 /// validate resulting notes and events).
 ///
-/// Messages are kept in the inbox until their expiration timestamp is reached. This is necessary to make the
-/// mechanism resilient to reorgs.
+/// Messages are kept in the inbox until their expiration timestamp is reached. For messages with an associated
+/// transaction, the effective expiration is capped to `received_at + MAX_TX_LIFETIME`, since there's no point in
+/// keeping a message around longer than its originating transaction could possibly live.
 ///
 /// Processing order is not guaranteed.
 pub unconstrained fn receive(
@@ -90,6 +102,7 @@ pub unconstrained fn receive(
     messages: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>,
 ) {
     let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(contract_address, OFFCHAIN_INBOX_SLOT);
+    let now = UtilityContext::new().timestamp();
     let mut i = 0;
     let messages_len = messages.len();
     while i < messages_len {
@@ -105,6 +118,7 @@ pub unconstrained fn receive(
                 recipient: msg.recipient,
                 tx_hash,
                 expiration_timestamp: msg.expiration_timestamp,
+                received_at: now,
             },
         );
         i += 1;
@@ -179,8 +193,22 @@ pub unconstrained fn sync_inbox(address: AztecAddress) -> CapsuleArray<OffchainM
         // is now processable. We add the message to the `ready_to_process` CapsuleArray and the sync_state loop will
         // process it.
 
+        // Compute the effective expiration. For messages with an associated transaction, we cap the
+        // sender-provided expiration to `received_at + MAX_TX_LIFETIME`: there's no point in keeping a message
+        // around longer than the tx could possibly live.
+        let effective_expiration = if msg.tx_hash != 0 {
+            let tx_lifetime_cap = msg.received_at + MAX_TX_LIFETIME;
+            if msg.expiration_timestamp < tx_lifetime_cap {
+                msg.expiration_timestamp
+            } else {
+                tx_lifetime_cap
+            }
+        } else {
+            msg.expiration_timestamp
+        };
+
         // Scenario 1: message expired. We remove it from the inbox.
-        if now > msg.expiration_timestamp {
+        if now > effective_expiration {
             inbox.remove(j);
             continue;
         }
