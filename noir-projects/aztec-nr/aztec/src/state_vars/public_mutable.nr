@@ -2,6 +2,8 @@ use crate::context::{PublicContext, UtilityContext};
 use crate::protocol::traits::Packable;
 use crate::state_vars::StateVariable;
 
+mod test;
+
 /// Mutable public values.
 ///
 /// This is one of the most basic public state variables. It is equivalent to a non-`immutable` non-`constant` Solidity

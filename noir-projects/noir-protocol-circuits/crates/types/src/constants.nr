@@ -634,16 +634,49 @@ pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 // See ./constants_tests.nr for how the values are generated.
 // ---------------------------------------------------------------
 
-// Note hash generator index which can be used by custom implementations of NoteHash::compute_note_hash
+/// Domain separator for note hashes.
+///
+/// This is not technically a protocol constant as note hashes are computed by each contract.
 pub global DOM_SEP__NOTE_HASH: u32 = 116501019;
-pub global DOM_SEP__NOTE_HASH_NONCE: u32 = 1721808740;
-pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 226850429;
+
+/// Domain separator for siloed note hashes.
+///
+/// Used by [`crate::hash::compute_siloed_note_hash`].
 pub global DOM_SEP__SILOED_NOTE_HASH: u32 = 3361878420;
 
+/// Domain separator for unique note hashes.
+///
+/// Used by [`crate::hash::compute_unique_note_hash`].
+pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 226850429;
+
+/// Domain separator for nonces.
+///
+/// Used by [`crate::hash::compute_note_hash_nonce`].
+pub global DOM_SEP__NOTE_HASH_NONCE: u32 = 1721808740;
+
+/// Domain separator for `SingleUseClaim` nullifiers.
+///
+/// This is not technically a protocol constant as these nullifiers are computed by each contract.
+pub global DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER: u32 = 1465998995;
+
+/// Domain separator for note nullifiers.
+///
+/// This is not technically a protocol constant as note nullifiers are computed by each contract.
 pub global DOM_SEP__NOTE_NULLIFIER: u32 = 50789342;
-pub global DOM_SEP__MESSAGE_NULLIFIER: u32 = 3754509616;
+
+/// Domain separator for siloed nullifiers.
+///
+/// Used by [`crate::hash::compute_siloed_nullifier`].
 pub global DOM_SEP__SILOED_NULLIFIER: u32 = 57496191;
 
+/// Domain separator for L1 to L2 message nullifiers.
+///
+/// This is not technically a protocol constant as message nullifiers are computed by each contract.
+pub global DOM_SEP__MESSAGE_NULLIFIER: u32 = 3754509616;
+
+/// Domain separator for private log tags.
+///
+/// Used by [`crate::hash::compute_siloed_private_log_first_field`].
 pub global DOM_SEP__PRIVATE_LOG_FIRST_FIELD: u32 = 2769976252;
 
 pub global DOM_SEP__PUBLIC_LEAF_SLOT: u32 = 1247650290;
@@ -710,11 +743,29 @@ pub global DOM_SEP__CIPHERTEXT_FIELD_MASK: u32 = 1870492847;
 pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 623934423;
 
 // ---------------------------------------------------------------
-// TODO: consider moving these to aztec-nr
+// TODO(F-397): move these to aztec-nr, along with note hash, note nullifier, message nullifier and single use claim
+// nullifier.
 
+/// Domain separator for state variable initialization.
+///
+/// Should not be reused for a given storage slot.
 pub global DOM_SEP__INITIALIZATION_NULLIFIER: u32 = 1653084894;
+
+/// Domain separator for L1 to L2 message secret hashes.
 pub global DOM_SEP__SECRET_HASH: u32 = 4199652938;
+
+/// Domain separator for transaction nullifiers.
+///
+/// Used to produce cancellable (replaceable) transactions.
+///
+/// This is not technically a protocol constant as cancellable transactions are an account contract feature.
 pub global DOM_SEP__TX_NULLIFIER: u32 = 1025801951;
+
+/// Domain separator for account contract payloads.
+///
+/// Used to check for authorization to execute a payload.
+///
+/// This is not technically a protocol constant as payload authorization is an account contract feature.
 pub global DOM_SEP__SIGNATURE_PAYLOAD: u32 = 463525807;
 
 // ---------------------------------------------------------------
