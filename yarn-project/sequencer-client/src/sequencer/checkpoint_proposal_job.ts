@@ -321,6 +321,19 @@ export class CheckpointProposalJob implements Traceable {
         checkpointProposalOptions,
       );
 
+      // Now that signing has succeeded, sync the last block to the archiver so peers can
+      // fetch it once we broadcast. Doing this after signing avoids storing a block that
+      // conflicts with the checkpointed one when the HA partner already signed first.
+      // Fire and forget - don't block the critical path, but log errors.
+      if (blockPendingBroadcast) {
+        this.syncProposedBlockToArchiver(blockPendingBroadcast.block).catch(err => {
+          this.log.error(`Failed to sync proposed block ${blockPendingBroadcast!.block.number} to archiver`, {
+            blockNumber: blockPendingBroadcast!.block.number,
+            err,
+          });
+        });
+      }
+
       const blockProposedAt = this.dateProvider.now();
       await this.p2pClient.broadcastCheckpointProposal(proposal);
 
@@ -463,17 +476,12 @@ export class CheckpointProposalJob implements Traceable {
       const { block, usedTxs } = buildResult;
       blocksInCheckpoint.push(block);
 
-      // Sync the proposed block to the archiver to make it available
-      // Note that the checkpoint builder uses its own fork so it should not need to wait for this syncing
-      // Eventually we should refactor the checkpoint builder to not need a separate long-lived fork
-      // Fire and forget - don't block the critical path, but log errors
-      this.syncProposedBlockToArchiver(block).catch(err => {
-        this.log.error(`Failed to sync proposed block ${block.number} to archiver`, { blockNumber: block.number, err });
-      });
-
       usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
 
-      // If this is the last block, exit the loop now so we start collecting attestations
+      // If this is the last block, exit the loop now so we start collecting attestations.
+      // We defer syncing it to the archiver until after the checkpoint proposal is signed,
+      // to avoid storing a block that may conflict with the checkpointed one in HA setups
+      // where the partner node may have already signed with a different payload.
       if (timingInfo.isLastBlock) {
         this.log.verbose(`Completed final block ${blockNumber} for slot ${this.slot}`, {
           slot: this.slot,
@@ -496,7 +504,25 @@ export class CheckpointProposalJob implements Traceable {
           this.proposer,
           blockProposalOptions,
         );
+        // Sync to the archiver only after signing succeeds. In HA setups the partner node may
+        // have already signed with a different payload, so we must not store a block that would
+        // conflict with whatever ends up checkpointed.
+        // Fire and forget - don't block the critical path, but log errors.
+        this.syncProposedBlockToArchiver(block).catch(err => {
+          this.log.error(`Failed to sync proposed block ${block.number} to archiver`, {
+            blockNumber: block.number,
+            err,
+          });
+        });
         await this.p2pClient.broadcastProposal(proposal);
+      } else {
+        // In fisherman mode there is no signing, so sync to the archiver immediately.
+        this.syncProposedBlockToArchiver(block).catch(err => {
+          this.log.error(`Failed to sync proposed block ${block.number} to archiver`, {
+            blockNumber: block.number,
+            err,
+          });
+        });
       }
 
       // Wait until the next block's start time
@@ -869,6 +895,11 @@ export class CheckpointProposalJob implements Traceable {
    * Adds the proposed block to the archiver so it's available via P2P.
    * Gossip doesn't echo messages back to the sender, so the proposer's archiver/world-state
    * would never receive its own block without this explicit sync.
+   *
+   * This must be called only after the signing step (createBlockProposal / createCheckpointProposal)
+   * succeeds. Calling it before signing risks storing a block that conflicts with the one that
+   * eventually gets checkpointed on L1 in HA setups where the partner node signed first with a
+   * different payload.
    */
   private async syncProposedBlockToArchiver(block: L2Block): Promise<void> {
     if (this.config.skipPushProposedBlocksToArchiver !== false) {
