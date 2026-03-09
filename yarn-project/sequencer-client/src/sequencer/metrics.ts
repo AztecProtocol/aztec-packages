@@ -68,6 +68,10 @@ export class SequencerMetrics {
   private fishermanMinedBlobTxPriorityFee: Histogram;
   private fishermanMinedBlobTxTotalCost: Histogram;
 
+  private blockInterBlockTime: Histogram;
+  private lastBlockBuiltTimestamp?: number;
+  private lastBlockBuiltSlot?: SlotNumber;
+
   private lastSeenSlot?: SlotNumber;
 
   constructor(
@@ -85,6 +89,8 @@ export class SequencerMetrics {
     this.blockBuildDuration = this.meter.createHistogram(Metrics.SEQUENCER_BLOCK_BUILD_DURATION);
 
     this.blockBuildManaPerSecond = this.meter.createGauge(Metrics.SEQUENCER_BLOCK_BUILD_MANA_PER_SECOND);
+
+    this.blockInterBlockTime = this.meter.createHistogram(Metrics.SEQUENCER_BLOCK_INTER_BLOCK_TIME);
 
     this.stateTransitionBufferDuration = this.meter.createHistogram(Metrics.SEQUENCER_STATE_TRANSITION_BUFFER_DURATION);
 
@@ -220,12 +226,20 @@ export class SequencerMetrics {
     this.timeToCollectAttestations.record(Math.ceil(durationMs));
   }
 
-  recordBuiltBlock(buildDurationMs: number, totalMana: number) {
+  recordBuiltBlock(buildDurationMs: number, totalMana: number, slot: SlotNumber) {
     this.blockCounter.add(1, {
       [Attributes.STATUS]: 'built',
     });
     this.blockBuildDuration.record(Math.ceil(buildDurationMs));
     this.blockBuildManaPerSecond.record(Math.ceil((totalMana * 1000) / buildDurationMs));
+
+    // Only record inter-block time between blocks built within the same slot.
+    const now = Date.now();
+    if (this.lastBlockBuiltTimestamp !== undefined && this.lastBlockBuiltSlot === slot) {
+      this.blockInterBlockTime.record(now - this.lastBlockBuiltTimestamp);
+    }
+    this.lastBlockBuiltTimestamp = now;
+    this.lastBlockBuiltSlot = slot;
   }
 
   recordFailedBlock() {

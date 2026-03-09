@@ -575,6 +575,7 @@ export class CheckpointProposalJob implements Traceable {
           blockNumber,
           blocksBuilt,
         });
+
         blockPendingBroadcast = proposal;
         break;
       }
@@ -751,7 +752,7 @@ export class CheckpointProposalJob implements Traceable {
         slot: this.targetSlot,
         buildSlot: this.slotNow,
       });
-      this.metrics.recordBuiltBlock(blockBuildDuration, block.header.totalManaUsed.toNumberUnsafe());
+      this.metrics.recordBuiltBlock(blockBuildDuration, block.header.totalManaUsed.toNumberUnsafe(), this.targetSlot);
 
       return { block, usedTxs };
     } catch (err: any) {
