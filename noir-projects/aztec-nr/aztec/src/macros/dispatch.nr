@@ -5,7 +5,11 @@ use super::functions::initialization_utils::EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME;
 use super::utils::compute_fn_selector;
 use std::panic;
 
-/// Returns an `fn public_dispatch(...)` function for the given module that's assumed to be an Aztec contract.
+/// Generates a `public_dispatch` function for an Aztec contract module `m`.
+///
+/// The generated function dispatches public calls based on selector to the appropriate contract function. If
+/// `generate_emit_public_init_nullifier` is true, it also handles dispatch to the macro-generated
+/// `__emit_public_init_nullifier` function.
 pub comptime fn generate_public_dispatch(m: Module, generate_emit_public_init_nullifier: bool) -> Quoted {
     let functions = get_public_functions(m);
 
