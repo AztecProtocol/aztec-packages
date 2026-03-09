@@ -1626,6 +1626,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       ...(this.config.txPublicSetupAllowListExtend ?? []),
     ];
     const blockNumber = BlockNumber(currentBlockNumber + 1);
+    const l1Constants = await this.archiver.getL1Constants();
 
     return createFirstStageTxValidationsForGossipedTransactions(
       nextSlotTimestamp,
@@ -1639,6 +1640,11 @@ export class LibP2PService extends WithTracer implements P2PService {
       !this.config.disableTransactions,
       allowedInSetup,
       this.logger.getBindings(),
+      {
+        rollupManaLimit: l1Constants.rollupManaLimit,
+        maxBlockL2Gas: this.config.validateMaxL2BlockGas,
+        maxBlockDAGas: this.config.validateMaxDABlockGas,
+      },
     );
   }
 

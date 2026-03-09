@@ -136,6 +136,7 @@ describe('aztec node', () => {
 
     l2BlockSource = mock<L2BlockSource>();
     l2BlockSource.getBlockNumber.mockImplementation(() => Promise.resolve(lastBlockNumber));
+    l2BlockSource.getL1Constants.mockResolvedValue(EmptyL1RollupConstants);
 
     const l2LogsSource = mock<L2LogsSource>();
 

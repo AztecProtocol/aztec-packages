@@ -72,7 +72,6 @@ export class ArchiverL1Synchronizer implements Traceable {
     private readonly l1Constants: L1RollupConstants & {
       l1StartBlockHash: Buffer32;
       genesisArchiveRoot: Fr;
-      rollupManaLimit?: number;
     },
     private readonly events: ArchiverEmitter,
     tracer: Tracer,
