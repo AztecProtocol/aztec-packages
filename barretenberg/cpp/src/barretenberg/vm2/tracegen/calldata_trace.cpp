@@ -93,42 +93,44 @@ void CalldataTraceBuilder::process_hashing(
 
     for (const auto& event : events) {
         std::vector<FF> calldata_with_sep = { DOM_SEP__PUBLIC_CALLDATA };
-        size_t input_size = event.calldata.size() + 1; // +1 for the separator
-        calldata_with_sep.reserve(input_size);
-        calldata_with_sep.insert(calldata_with_sep.end(), event.calldata.begin(), event.calldata.end());
-        auto calldata_field_at = [&calldata_with_sep](size_t i) -> FF {
-            return i < calldata_with_sep.size() ? calldata_with_sep[i] : 0;
-        };
+        const size_t input_len = event.calldata.size() + 1; // +1 for the separator
 
         // We must pad up to the next multiple of 3:
         // n % 3 == 0 => padding_amount = 0 = 2n % 3
         // n % 3 == 1 => padding_amount = 2 = 2n % 3
         // n % 3 == 2 => padding_amount = 1 = 2n % 3
-        auto padding_amount = (2 * calldata_with_sep.size()) % 3;
-        auto num_rounds_rem = (calldata_with_sep.size() + padding_amount) / 3;
+        const auto padding_amount = (2 * input_len) % 3;
+        const auto padded_len = input_len + padding_amount;
+
+        calldata_with_sep.reserve(padded_len); // We add zero padding values to simplify code below.
+        calldata_with_sep.insert(calldata_with_sep.end(), event.calldata.begin(), event.calldata.end());
+        calldata_with_sep.insert(calldata_with_sep.end(), padding_amount, FF(0));
+
+        auto num_rounds_rem = padded_len / 3;
         uint32_t index = 0;
         while (num_rounds_rem > 0) {
-            trace.set(
-                row,
-                { {
-                    { C::calldata_hashing_sel, 1 },
-                    { C::calldata_hashing_start, index == 0 ? 1 : 0 },
-                    { C::calldata_hashing_sel_not_start, index == 0 ? 0 : 1 },
-                    { C::calldata_hashing_context_id, event.context_id },
-                    { C::calldata_hashing_calldata_size, event.calldata.size() },
-                    { C::calldata_hashing_input_len, calldata_with_sep.size() },
-                    { C::calldata_hashing_rounds_rem, num_rounds_rem },
-                    { C::calldata_hashing_index_0_, index },
-                    { C::calldata_hashing_index_1_, index + 1 },
-                    { C::calldata_hashing_index_2_, index + 2 },
-                    { C::calldata_hashing_input_0_, calldata_field_at(index) },
-                    { C::calldata_hashing_input_1_, calldata_field_at(index + 1) },
-                    { C::calldata_hashing_input_2_, calldata_field_at(index + 2) },
-                    { C::calldata_hashing_output_hash, event.calldata_hash },
-                    { C::calldata_hashing_sel_not_padding_1, (num_rounds_rem == 1) && (padding_amount == 2) ? 0 : 1 },
-                    { C::calldata_hashing_sel_not_padding_2, (num_rounds_rem == 1) && (padding_amount > 0) ? 0 : 1 },
-                    { C::calldata_hashing_latch, num_rounds_rem == 1 ? 1 : 0 },
-                } });
+            bool start = index == 0;
+            bool end = num_rounds_rem == 1;
+            trace.set(row,
+                      { {
+                          { C::calldata_hashing_sel, 1 },
+                          { C::calldata_hashing_start, start ? 1 : 0 },
+                          { C::calldata_hashing_sel_not_start, !start ? 1 : 0 },
+                          { C::calldata_hashing_context_id, event.context_id },
+                          { C::calldata_hashing_calldata_size, event.calldata.size() },
+                          { C::calldata_hashing_input_len, input_len },
+                          { C::calldata_hashing_rounds_rem, num_rounds_rem },
+                          { C::calldata_hashing_index_0_, index },
+                          { C::calldata_hashing_index_1_, index + 1 },
+                          { C::calldata_hashing_index_2_, index + 2 },
+                          { C::calldata_hashing_input_0_, calldata_with_sep[index] },
+                          { C::calldata_hashing_input_1_, calldata_with_sep[index + 1] },
+                          { C::calldata_hashing_input_2_, calldata_with_sep[index + 2] },
+                          { C::calldata_hashing_output_hash, event.calldata_hash },
+                          { C::calldata_hashing_sel_not_padding_1, end && (padding_amount == 2) ? 0 : 1 },
+                          { C::calldata_hashing_sel_not_padding_2, end && (padding_amount > 0) ? 0 : 1 },
+                          { C::calldata_hashing_latch, end ? 1 : 0 },
+                      } });
             index += 3;
             row++;
             num_rounds_rem--;
