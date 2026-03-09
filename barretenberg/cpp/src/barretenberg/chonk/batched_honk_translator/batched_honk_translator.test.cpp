@@ -16,6 +16,7 @@
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/transcript/transcript_manifest.hpp"
@@ -91,6 +92,176 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
                   (uint256_t(polys.accumulators_binary_limbs_1[RESULT_ROW]) << 68) +
                   (uint256_t(polys.accumulators_binary_limbs_2[RESULT_ROW]) << 136) +
                   (uint256_t(polys.accumulators_binary_limbs_3[RESULT_ROW]) << 204));
+    }
+
+    /**
+     * @brief Build the expected transcript manifest for a BatchedHonkTranslator proof.
+     *
+     * @details The manifest structure (27 rounds, 0-26):
+     *   Round 0: MegaZK Oink — vk_hash, public inputs, masking commitment, wire/databus commitments → eta
+     *   Round 1: lookup counts/tags/W_4 → beta, gamma
+     *   Round 2: logderiv inverses + Z_PERM + translator Oink (vk_hash, masking, 10 wires) → beta, gamma
+     *   Round 3: translator Z_PERM → Sumcheck:alpha + 17 gate challenges
+     *   Round 4: Libra masking commitment + Sum → Libra:Challenge
+     *   Rounds 5..4+JOINT_LOG_N: joint sumcheck rounds (one per round); MegaZK evals sent before
+     *     the first virtual round univariate (round 5+mega_zk_log_n); minicircuit evals sent in
+     *     round 5+LOG_MINI_CIRCUIT_SIZE
+     *   Round 5+JOINT_LOG_N: MegaZK evals (if mega_zk_log_n==JOINT_LOG_N) + translator evals
+     *     + Libra stuff → rho
+     *   Round 6+JOINT_LOG_N: Gemini fold commitments → Gemini:r
+     *   Round 7+JOINT_LOG_N: Gemini evals + Libra evals → Shplonk:nu
+     *   Round 8+JOINT_LOG_N: Shplonk:Q → Shplonk:z
+     *   Round 9+JOINT_LOG_N: KZG:W → KZG:masking_challenge
+     *
+     * @param mega_zk_log_n  log₂(circuit_size) of the MegaZK instance
+     * @param num_mega_zk_pub_inputs  number of MegaZK public inputs
+     */
+    static TranscriptManifest build_expected_batched_manifest(const size_t mega_zk_log_n,
+                                                              const size_t num_mega_zk_pub_inputs)
+    {
+        using MZK = MegaZKFlavor;
+        using Trans = TranslatorFlavor;
+
+        constexpr size_t G = FrCodec::calc_num_fields<MZK::Commitment>(); // 4
+        constexpr size_t Fr = 1;
+        constexpr size_t JOINT_LOG_N = Trans::CONST_TRANSLATOR_LOG_N; // 17
+        constexpr size_t LOG_MINI = Trans::LOG_MINI_CIRCUIT_SIZE;     // 13
+
+        // Joint univariate size = max batched partial length across both circuits.
+        constexpr size_t UNI = Trans::BATCHED_RELATION_PARTIAL_LENGTH; // 9
+
+        TranscriptManifest m;
+        size_t round = 0;
+
+        // ── Round 0: MegaZK Oink ──────────────────────────────────────────────────
+        m.add_entry(round, "vk_hash", Fr);
+        for (size_t i = 0; i < num_mega_zk_pub_inputs; ++i) {
+            m.add_entry(round, "public_input_" + std::to_string(i), Fr);
+        }
+        m.add_entry(round, "Gemini:masking_poly_comm", G);
+        m.add_entry(round, "W_L", G);
+        m.add_entry(round, "W_R", G);
+        m.add_entry(round, "W_O", G);
+        for (size_t i = 1; i <= 4; ++i) {
+            m.add_entry(round, "ECC_OP_WIRE_" + std::to_string(i), G);
+        }
+        // DataBus entities: calldata, calldata_read_counts, calldata_read_tags,
+        //                   secondary_calldata, secondary_calldata_read_counts, secondary_calldata_read_tags,
+        //                   return_data, return_data_read_counts, return_data_read_tags
+        for (const auto& label : { "CALLDATA",
+                                   "CALLDATA_READ_COUNTS",
+                                   "CALLDATA_READ_TAGS",
+                                   "SECONDARY_CALLDATA",
+                                   "SECONDARY_CALLDATA_READ_COUNTS",
+                                   "SECONDARY_CALLDATA_READ_TAGS",
+                                   "RETURN_DATA",
+                                   "RETURN_DATA_READ_COUNTS",
+                                   "RETURN_DATA_READ_TAGS" }) {
+            m.add_entry(round, label, G);
+        }
+        m.add_challenge(round, "eta");
+        round++;
+
+        // ── Round 1: MegaZK lookup counts/tags/W_4 ───────────────────────────────
+        m.add_entry(round, "LOOKUP_READ_COUNTS", G);
+        m.add_entry(round, "LOOKUP_READ_TAGS", G);
+        m.add_entry(round, "W_4", G);
+        m.add_challenge(round, std::array<std::string, 2>{ "beta", "gamma" });
+        round++;
+
+        // ── Round 2: MegaZK logderiv inverses + Z_PERM + translator Oink ─────────
+        m.add_entry(round, "LOOKUP_INVERSES", G);
+        m.add_entry(round, "CALLDATA_INVERSES", G);
+        m.add_entry(round, "SECONDARY_CALLDATA_INVERSES", G);
+        m.add_entry(round, "RETURN_DATA_INVERSES", G);
+        m.add_entry(round, "Z_PERM", G);
+        // Translator Oink: vk_hash, masking commitment, 10 wire commitments
+        m.add_entry(round, "vk_hash", Fr);
+        m.add_entry(round, "Gemini:masking_poly_comm", G);
+        for (size_t i = 0; i < 4; ++i) {
+            m.add_entry(round, "CONCATENATED_RANGE_CONSTRAINTS_" + std::to_string(i), G);
+        }
+        m.add_entry(round, "CONCATENATED_NON_RANGE", G);
+        for (size_t i = 0; i < 5; ++i) {
+            m.add_entry(round, "ORDERED_RANGE_CONSTRAINTS_" + std::to_string(i), G);
+        }
+        m.add_challenge(round, std::array<std::string, 2>{ "beta", "gamma" });
+        round++;
+
+        // ── Round 3: translator Z_PERM, then joint alpha + gate challenges ────────
+        m.add_entry(round, "Z_PERM", G);
+        m.add_challenge(round, "Sumcheck:alpha");
+        for (size_t i = 0; i < JOINT_LOG_N; ++i) {
+            m.add_challenge(round, "Sumcheck:gate_challenge_" + std::to_string(i));
+        }
+        round++;
+
+        // ── Round 4: Libra masking commitment + Sum ───────────────────────────────
+        m.add_entry(round, "Libra:concatenation_commitment", G);
+        m.add_entry(round, "Libra:Sum", Fr);
+        m.add_challenge(round, "Libra:Challenge");
+        round++;
+
+        // ── Rounds 5..4+JOINT_LOG_N: joint sumcheck ──────────────────────────────
+        // Loop runs one extra iteration (i == JOINT_LOG_N) to place MegaZK evaluations in the
+        // post-sumcheck round when mega_zk_log_n == JOINT_LOG_N (no virtual rounds).
+        for (size_t i = 0; i <= JOINT_LOG_N; ++i) {
+            // MegaZK evaluations are sent immediately after the real rounds, before the first virtual
+            // round's univariate. In the transcript manifest they appear at the start of the round
+            // that contains univariate_{mega_zk_log_n} (or, when mega_zk_log_n == JOINT_LOG_N, in
+            // the post-sumcheck round before evaluations_translator).
+            if (i == mega_zk_log_n) {
+                m.add_entry(round, "Sumcheck:evaluations", MZK::NUM_ALL_ENTITIES);
+            }
+            if (i == JOINT_LOG_N) {
+                break; // No univariate/challenge for the extra iteration
+            }
+            // Translator mini-circuit evaluations are sent after round LOG_MINI_CIRCUIT_SIZE-1
+            // and appear before univariate_{LOG_MINI} in the manifest.
+            if (i == LOG_MINI) {
+                m.add_entry(round, "Sumcheck:minicircuit_evaluations", Trans::NUM_MINICIRCUIT_EVALUATIONS);
+            }
+            m.add_entry(round, "Sumcheck:univariate_" + std::to_string(i), UNI);
+            m.add_challenge(round, "Sumcheck:u_" + std::to_string(i));
+            round++;
+        }
+
+        // ── Post-sumcheck evaluations ─────────────────────────────────────────────
+        m.add_entry(round, "Sumcheck:evaluations_translator", Trans::NUM_FULL_CIRCUIT_EVALUATIONS);
+        m.add_entry(round, "Libra:claimed_evaluation", Fr);
+        m.add_entry(round, "Libra:grand_sum_commitment", G);
+        m.add_entry(round, "Libra:quotient_commitment", G);
+        m.add_challenge(round, "rho");
+        round++;
+
+        // ── Gemini fold commitments ───────────────────────────────────────────────
+        for (size_t i = 1; i < JOINT_LOG_N; ++i) {
+            m.add_entry(round, "Gemini:FOLD_" + std::to_string(i), G);
+        }
+        m.add_challenge(round, "Gemini:r");
+        round++;
+
+        // ── Gemini evaluations + Libra evals ─────────────────────────────────────
+        for (size_t i = 1; i <= JOINT_LOG_N; ++i) {
+            m.add_entry(round, "Gemini:a_" + std::to_string(i), Fr);
+        }
+        m.add_entry(round, "Libra:concatenation_eval", Fr);
+        m.add_entry(round, "Libra:shifted_grand_sum_eval", Fr);
+        m.add_entry(round, "Libra:grand_sum_eval", Fr);
+        m.add_entry(round, "Libra:quotient_eval", Fr);
+        m.add_challenge(round, "Shplonk:nu");
+        round++;
+
+        // ── Shplonk:Q ────────────────────────────────────────────────────────────
+        m.add_entry(round, "Shplonk:Q", G);
+        m.add_challenge(round, "Shplonk:z");
+        round++;
+
+        // ── KZG opening ──────────────────────────────────────────────────────────
+        m.add_entry(round, "KZG:W", G);
+        m.add_challenge(round, "KZG:masking_challenge");
+
+        return m;
     }
 
     /**
@@ -232,9 +403,49 @@ TEST_F(BatchedHonkTranslatorTests, VerifierManifestConsistency)
         ASSERT_EQ(prover_manifest[round], verifier_manifest[round])
             << "Prover/verifier manifest discrepancy in round " << round;
     }
+}
 
-    // Temporary: print the manifest so we can build the pinning test.
-    prover_manifest.print();
+// =============================================================================
+// BatchedHonkTranslatorTests::ProverManifestConsistency
+// Pins the joint transcript structure by comparing the prover manifest against
+// a hard-coded expected manifest built from flavor constants. Detects any
+// structural change in the Fiat-Shamir transcript ordering.
+// =============================================================================
+TEST_F(BatchedHonkTranslatorTests, ProverManifestConsistency)
+{
+    using MegaZKProverInst = ProverInstance_<MegaZKFlavor>;
+    using MegaZKVK = MegaZKFlavor::VerificationKey;
+
+    const Fq batching_challenge_v = Fq::random_element();
+    const Fq evaluation_input_x = Fq::random_element();
+
+    auto translator_key = build_translator_key(batching_challenge_v, evaluation_input_x);
+    {
+        auto tmp = std::make_shared<Transcript>();
+        TranslatorProver init_prover(translator_key, tmp);
+    }
+
+    MegaCircuitBuilder mega_zk_circuit;
+    GoblinMockCircuits::construct_simple_circuit(mega_zk_circuit);
+    auto mega_zk_inst = std::make_shared<MegaZKProverInst>(mega_zk_circuit);
+    auto mega_zk_vk = std::make_shared<MegaZKVK>(mega_zk_inst->get_precomputed());
+
+    const size_t mega_zk_log_n = mega_zk_inst->log_dyadic_size();
+    const size_t num_mega_zk_pub_inputs = mega_zk_inst->num_public_inputs();
+
+    // Prove with manifest tracking enabled.
+    auto prover_transcript = std::make_shared<Transcript>();
+    prover_transcript->enable_manifest();
+    BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, translator_key, prover_transcript);
+    [[maybe_unused]] auto _ = prover.construct_proof();
+
+    auto prover_manifest = prover_transcript->get_manifest();
+    auto expected_manifest = build_expected_batched_manifest(mega_zk_log_n, num_mega_zk_pub_inputs);
+
+    ASSERT_EQ(prover_manifest.size(), expected_manifest.size()) << "Manifest round count mismatch";
+    for (size_t round = 0; round < expected_manifest.size(); ++round) {
+        ASSERT_EQ(prover_manifest[round], expected_manifest[round]) << "Manifest discrepancy in round " << round;
+    }
 }
 
 // =============================================================================
