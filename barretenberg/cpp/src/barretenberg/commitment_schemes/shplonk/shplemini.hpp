@@ -62,7 +62,7 @@ template <typename Curve> class ShpleminiProver_ {
 
         if (!sumcheck_round_univariates.empty()) {
             sumcheck_round_claims = compute_sumcheck_round_claims(
-                multilinear_challenge, sumcheck_round_univariates, sumcheck_round_evaluations);
+                circuit_size, multilinear_challenge, sumcheck_round_univariates, sumcheck_round_evaluations);
         }
 
         return ShplonkProver::prove(
@@ -104,11 +104,12 @@ template <typename Curve> class ShpleminiProver_ {
     }
 
     /**
-     * @brief Create a vector of 3*virtual_log_n opening claims for the evaluations of Sumcheck Round Univariates at
+     * @brief Create a vector of 3*log_n opening claims for the evaluations of Sumcheck Round Univariates at
      * 0, 1, and a round challenge.
      *
      */
     static std::vector<OpeningClaim> compute_sumcheck_round_claims(
+        size_t circuit_size,
         std::span<FF> multilinear_challenge,
         const std::vector<Polynomial>& sumcheck_round_univariates,
         const std::vector<std::array<FF, 3>>& sumcheck_round_evaluations)
@@ -116,8 +117,8 @@ template <typename Curve> class ShpleminiProver_ {
         OpeningClaim new_claim;
         std::vector<OpeningClaim> sumcheck_round_claims = {};
 
-        const size_t virtual_log_n = multilinear_challenge.size();
-        for (size_t idx = 0; idx < virtual_log_n; idx++) {
+        const size_t log_n = numeric::get_msb(circuit_size);
+        for (size_t idx = 0; idx < log_n; idx++) {
             const std::vector<FF> evaluation_points = { FF(0), FF(1), multilinear_challenge[idx] };
             size_t eval_idx = 0;
             new_claim.polynomial = std::move(sumcheck_round_univariates[idx]);
