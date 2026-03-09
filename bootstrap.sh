@@ -228,6 +228,10 @@ function toolchain_incompatible {
 # Checks for required utilities, toolchains and their versions.
 # DO NOT INSTALL THINGS IN HERE.
 function check_toolchains {
+  # Ensure nvm-managed node is on PATH if nvm is installed (e.g. on devboxes).
+  if [ -s "$HOME/.nvm/nvm.sh" ] && ! type nvm &>/dev/null; then
+    . "$HOME/.nvm/nvm.sh"
+  fi
   # Check for various required utilities.
   for util in jq parallel awk git curl zstd corepack solhint; do
     if ! ensure $util; then
