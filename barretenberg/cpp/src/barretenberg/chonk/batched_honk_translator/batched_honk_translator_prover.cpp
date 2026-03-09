@@ -89,7 +89,7 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
 
     // Derive hiding kernel log_circuit_size from the proving instance.
     const size_t hiding_log_n = hiding_prover_inst->log_dyadic_size();
-    BB_ASSERT_EQ(hiding_log_n <= JOINT_LOG_N, true);
+    BB_ASSERT(hiding_log_n <= JOINT_LOG_N);
 
     // Joint ZK data: single Libra masking for all 17 rounds.
     constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(HidingCurve::SUBGROUP_SIZE));
@@ -115,7 +115,7 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     auto& hiding_params = hiding_prover_inst->relation_parameters;
     auto& translator_polys = translator_key->proving_key->polynomials;
 
-    // Allocate partially evaluated polynomial tables.
+    // Allocate partially evaluated polynomial tables (populated by the first partially_evaluate call).
     HidingPartialEvals hiding_partial(hiding_polys, static_cast<size_t>(1) << hiding_log_n);
     TransPartialEvals translator_partial(translator_polys, static_cast<size_t>(1) << JOINT_LOG_N);
 
@@ -149,24 +149,31 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         translator_round.round_size >>= 1;
     };
 
-    // ==================== Round 0: uses full polynomial tables ====================
-    {
+    // Per-round helper: compute U_joint = U_hiding + α^{K_H}·U_translator from given polynomial
+    // sources, add Libra masking, send to verifier, and return the round challenge.
+    // hpolys/tpolys are the full tables on round 0, the partial-eval tables on subsequent rounds.
+    auto do_round = [&](auto& hpolys, auto& tpolys, size_t round_idx) -> HidingFF {
         U_joint = SumcheckRoundUnivariate::zero();
 
-        auto U_H = hiding_round.compute_univariate(hiding_polys, hiding_params, hiding_gate_sep, hiding_alphas);
+        auto U_H = hiding_round.compute_univariate(hpolys, hiding_params, hiding_gate_sep, hiding_alphas);
         U_H -= hiding_round.compute_disabled_contribution(
-            hiding_polys, hiding_params, hiding_gate_sep, hiding_alphas, 0, hiding_rdp);
+            hpolys, hiding_params, hiding_gate_sep, hiding_alphas, round_idx, hiding_rdp);
         U_joint += U_H;
 
         auto U_T = translator_round.compute_univariate(
-            translator_polys, translator_relation_parameters, translator_gate_sep, translator_alphas);
+            tpolys, translator_relation_parameters, translator_gate_sep, translator_alphas);
         for (auto& eval : U_T.evaluations) {
             eval *= alpha_power_KH;
         }
         U_joint += U_T;
 
-        const HidingFF u = send_round(0);
+        return send_round(round_idx);
+    };
 
+    // ==================== Round 0: bootstraps hiding_partial and translator_partial ====================
+    // PartiallyEvaluatedMultivariates only allocates output buffers; values are populated here.
+    {
+        const HidingFF u = do_round(hiding_polys, translator_polys, 0);
         HidingSumcheck::partially_evaluate(hiding_polys, hiding_partial, u);
         TransSumcheck::partially_evaluate(translator_polys, translator_partial, u);
         hiding_rdp.update_evaluations(u, 0);
@@ -176,22 +183,7 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
 
     // ==================== Real rounds 1..hiding_log_n-1 ====================
     for (size_t round_idx = 1; round_idx < hiding_log_n; round_idx++) {
-        U_joint = SumcheckRoundUnivariate::zero();
-
-        auto U_H = hiding_round.compute_univariate(hiding_partial, hiding_params, hiding_gate_sep, hiding_alphas);
-        U_H -= hiding_round.compute_disabled_contribution(
-            hiding_partial, hiding_params, hiding_gate_sep, hiding_alphas, round_idx, hiding_rdp);
-        U_joint += U_H;
-
-        auto U_T = translator_round.compute_univariate(
-            translator_partial, translator_relation_parameters, translator_gate_sep, translator_alphas);
-        for (auto& eval : U_T.evaluations) {
-            eval *= alpha_power_KH;
-        }
-        U_joint += U_T;
-
-        const HidingFF u = send_round(round_idx);
-
+        const HidingFF u = do_round(hiding_partial, translator_partial, round_idx);
         HidingSumcheck::partially_evaluate_in_place(hiding_partial, u);
         TransSumcheck::partially_evaluate_in_place(translator_partial, u);
         hiding_rdp.update_evaluations(u, round_idx);

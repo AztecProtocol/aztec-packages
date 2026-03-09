@@ -798,18 +798,6 @@ template <typename Flavor, bool IsGrumpkin = IsGrumpkinFlavor<Flavor>> class Sum
             target_total_sum.assert_equal(total_sum);
         } else {
             sumcheck_round_failed = (target_total_sum != total_sum);
-            if (sumcheck_round_failed) {
-                info("check_sum FAILED: expected=",
-                     target_total_sum,
-                     " U(0)+U(1)=",
-                     total_sum,
-                     " U(0)=",
-                     univariate.value_at(0),
-                     " U(1)=",
-                     univariate.value_at(1),
-                     " diff=",
-                     total_sum - target_total_sum);
-            }
         }
         round_failed = round_failed || sumcheck_round_failed;
     };

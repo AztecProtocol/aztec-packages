@@ -341,11 +341,6 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
 
     auto pairing_points = HidingFlavor::PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
 
-    auto pairing_check = pairing_points.check();
-    info("BatchedHonkTranslatorVerifier: sumcheck verified: ", sumcheck_verified);
-    info("BatchedHonkTranslatorVerifier: consistency checked: ", consistency_checked);
-    info("BatchedHonkTranslatorVerifier: pairing check: ", pairing_check);
-
     return { pairing_points, sumcheck_verified && consistency_checked };
 }
 
