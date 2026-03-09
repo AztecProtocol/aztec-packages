@@ -116,7 +116,7 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
     };
 
     let offchain_inbox_sync_option = quote {
-        Option::some(aztec::messages::processing::offchain::default_handler)
+        Option::some(aztec::messages::processing::offchain::sync_inbox)
     };
 
     let sync_state_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { sync_state }) {

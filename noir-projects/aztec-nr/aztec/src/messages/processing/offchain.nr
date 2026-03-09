@@ -13,13 +13,13 @@ use crate::{
 /// This is the slot where we accumulate messages received through [`receive`].
 global OFFCHAIN_INBOX_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_INBOX_SLOT".as_bytes());
 
-/// Ephemeral capsule slot used by [`default_handler`] to pass tx hash resolution requests to PXE.
+/// Ephemeral capsule slot used by [`sync_inbox`] to pass tx hash resolution requests to PXE.
 global OFFCHAIN_CONTEXT_REQUESTS_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_CONTEXT_REQUESTS_SLOT".as_bytes());
 
-/// Ephemeral capsule slot used by [`default_handler`] to read tx context responses from PXE.
+/// Ephemeral capsule slot used by [`sync_inbox`] to read tx context responses from PXE.
 global OFFCHAIN_CONTEXT_RESPONSES_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_CONTEXT_RESPONSES_SLOT".as_bytes());
 
-/// Ephemeral capsule slot used by [`default_handler`] to collect messages ready for processing.
+/// Ephemeral capsule slot used by [`sync_inbox`] to collect messages ready for processing.
 global OFFCHAIN_READY_MESSAGES_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_READY_MESSAGES_SLOT".as_bytes());
 
 /// Maximum number of offchain messages accepted by `offchain_receive` in a single call.
@@ -32,7 +32,7 @@ pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
 /// `offchain_receive` utility function (injected by the `#[aztec]` macro). This handler is responsible for deciding
 /// when each message is ready for processing, when it can be safely disposed of, etc.
 ///
-/// The default implementation is [`default_handler`], which manages an inbox with expiration-based eviction and
+/// The default implementation is [`sync_inbox`], which manages an inbox with expiration-based eviction and
 /// automatic context resolution.
 pub type OffchainInboxSync<Env> = unconstrained fn[Env](
 /* contract_address */AztecAddress) -> CapsuleArray<OffchainMessageWithContext>;
@@ -112,7 +112,7 @@ pub unconstrained fn receive(
 ///
 /// Messages remain in the inbox and are reprocessed on each sync until their originating transaction is no longer at
 /// risk of being dropped by a reorg.
-pub unconstrained fn default_handler(address: AztecAddress) -> CapsuleArray<OffchainMessageWithContext> {
+pub unconstrained fn sync_inbox(address: AztecAddress) -> CapsuleArray<OffchainMessageWithContext> {
     let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
     let context_resolution_requests: CapsuleArray<Field> = CapsuleArray::at(address, OFFCHAIN_CONTEXT_REQUESTS_SLOT);
     let resolved_contexts: CapsuleArray<Option<MessageTxContext>> =
