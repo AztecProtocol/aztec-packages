@@ -14,16 +14,16 @@
 namespace bb {
 
 /**
- * @brief Verifier for the batched hiding kernel + translator sumcheck and PCS.
+ * @brief Verifier for the batched MegaZK circuit + translator sumcheck and PCS.
  *
  * @details Mirrors BatchedHonkTranslatorProver in the verification direction. Processes the
- * hiding kernel's Oink proof and the translator's pre-sumcheck commitments on a shared transcript,
+ * MegaZK circuit's Oink proof and the translator's pre-sumcheck commitments on a shared transcript,
  * then verifies a single joint 17-round sumcheck and a single Shplemini / KZG reduction.
  *
  * The final joint relation check is:
- *   FRV_joint = rdp_H · FRV_hiding(u) + α^{K_H} · FRV_translator(u) + libra_eval · libra_challenge
+ *   FRV_joint = rdp_MZK · FRV_MZK(u) + α^{K_H} · FRV_translator(u) + libra_eval · libra_challenge
  *
- * where rdp_H is the row-disabling polynomial for the hiding kernel evaluated at the joint
+ * where rdp_H is the row-disabling polynomial for the MegaZK circuit evaluated at the joint
  * sumcheck challenge, and TranslatorFlavor does not use row-disabling (UseRowDisablingPolynomial
  * is false for TranslatorFlavor).
  *
@@ -33,17 +33,17 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
   public:
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
 
-    // Select hiding-kernel flavor based on native vs recursive.
-    using HidingFlavor = std::conditional_t<IsRecursive, MegaZKRecursiveFlavor_<UltraCircuitBuilder>, MegaZKFlavor>;
+    // Select MegaZK flavor based on native vs recursive.
+    using MegaZKFlavorT = std::conditional_t<IsRecursive, MegaZKRecursiveFlavor_<UltraCircuitBuilder>, MegaZKFlavor>;
     // Select translator flavor based on native vs recursive.
     using TransFlavor = std::conditional_t<IsRecursive, TranslatorRecursiveFlavor, TranslatorFlavor>;
 
-    using FF = typename HidingFlavor::FF;
-    using Commitment = typename HidingFlavor::Commitment;
-    using HidingVerifierInstance = VerifierInstance_<HidingFlavor>;
-    using HidingVKAndHash = typename HidingFlavor::VKAndHash;
+    using FF = typename MegaZKFlavorT::FF;
+    using Commitment = typename MegaZKFlavorT::Commitment;
+    using MegaZKVerifierInstance = VerifierInstance_<MegaZKFlavorT>;
+    using MegaZKVKAndHash = typename MegaZKFlavorT::VKAndHash;
     using Transcript = std::conditional_t<IsRecursive, UltraStdlibTranscript, NativeTranscript>;
-    using HidingVerifierCommitments = typename HidingFlavor::VerifierCommitments;
+    using MegaZKVerifierCommitments = typename MegaZKFlavorT::VerifierCommitments;
     using TransVerifierCommitments = typename TransFlavor::VerifierCommitments;
 
     // Proof type: stdlib::Proof<UltraCircuitBuilder> for recursive, HonkProof for native.
@@ -67,9 +67,9 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     /**
      * @brief Construct the batched verifier.
      *
-     * @param hiding_vk_and_hash   Verification key + hash for the hiding kernel (MegaZK).
+     * @param mega_zk_vk_and_hash   Verification key + hash for the MegaZK circuit (MegaZK).
      * @param transcript           Shared Fiat-Shamir transcript.
-     * @param hiding_proof         Hiding kernel honk proof.
+     * @param mega_zk_proof         MegaZK circuit honk proof.
      * @param translator_proof     Translator honk proof.
      * @param evaluation_input_x   BF scalar from ECCVM (for translator relation parameters).
      * @param batching_challenge_v BF scalar from ECCVM.
@@ -77,9 +77,9 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
      * @param op_queue_wire_commitments Commitments to op-queue wires from the merge protocol.
      */
     BatchedHonkTranslatorVerifier_(
-        std::shared_ptr<HidingVKAndHash> hiding_vk_and_hash,
+        std::shared_ptr<MegaZKVKAndHash> mega_zk_vk_and_hash,
         std::shared_ptr<Transcript> transcript,
-        const Proof& hiding_proof,
+        const Proof& mega_zk_proof,
         const Proof& translator_proof,
         const TransBF& evaluation_input_x,
         const TransBF& batching_challenge_v,
@@ -94,16 +94,16 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
 
   private:
     // Methods mirroring the prover's structure.
-    HidingVerifierCommitments verify_hiding_kernel_oink();
-    TransVerifierCommitments verify_translator_pre_sumcheck();
+    MegaZKVerifierCommitments verify_mega_zk_oink();
+    TransVerifierCommitments verify_translator_oink();
     bool verify_joint_sumcheck();
     ReductionResult verify_joint_pcs(bool sumcheck_verified,
-                                     HidingVerifierCommitments& hiding_commitments,
+                                     MegaZKVerifierCommitments& mega_zk_commitments,
                                      TransVerifierCommitments& trans_commitments);
 
-    std::shared_ptr<HidingVKAndHash> hiding_vk_and_hash;
+    std::shared_ptr<MegaZKVKAndHash> mega_zk_vk_and_hash;
     std::shared_ptr<Transcript> transcript;
-    Proof hiding_proof;
+    Proof mega_zk_proof;
     Proof translator_proof;
 
     // Translator-specific parameters from ECCVM verifier.
@@ -115,13 +115,13 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     // Builder pointer (only meaningful for recursive, nullptr for native).
     std::conditional_t<IsRecursive, UltraCircuitBuilder*, std::nullptr_t> builder = nullptr;
 
-    // Relation parameters populated during verify_hiding_kernel_oink / verify_translator_pre_sumcheck.
-    bb::RelationParameters<FF> hiding_relation_parameters;
+    // Relation parameters populated during verify_mega_zk_oink / verify_translator_oink.
+    bb::RelationParameters<FF> mega_zk_relation_parameters;
     bb::RelationParameters<FF> translator_relation_parameters;
 
     // State populated by verify_joint_sumcheck(), consumed by verify_joint_pcs().
     std::vector<FF> joint_challenge;
-    typename HidingFlavor::AllValues hiding_evals;
+    typename MegaZKFlavorT::AllValues mega_zk_evals;
     typename TransFlavor::AllValues trans_evals;
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments;
     FF libra_evaluation;

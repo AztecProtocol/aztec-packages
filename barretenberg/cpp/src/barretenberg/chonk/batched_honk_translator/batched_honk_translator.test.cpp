@@ -112,10 +112,10 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
 // =============================================================================
 TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
 {
-    using HidingFlavor = MegaZKFlavor;
-    using HidingProverInst = ProverInstance_<HidingFlavor>;
-    using HidingVK = HidingFlavor::VerificationKey;
-    using HidingVKAndHash = HidingFlavor::VKAndHash;
+    using MegaZKFlavor = MegaZKFlavor;
+    using MegaZKProverInst = ProverInstance_<MegaZKFlavor>;
+    using MegaZKVK = MegaZKFlavor::VerificationKey;
+    using MegaZKVKAndHash = MegaZKFlavor::VKAndHash;
 
     // -------------------------------------------------------------------------
     // 1. Translator inputs (random translation challenges — no ECCVM needed).
@@ -136,32 +136,32 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
     // -------------------------------------------------------------------------
     // 2. Hiding kernel inputs: pad to JOINT_LOG_N = 17 so hiding_log_n == JOINT_LOG_N.
     // -------------------------------------------------------------------------
-    MegaCircuitBuilder hiding_circuit;
-    GoblinMockCircuits::construct_simple_circuit(hiding_circuit);
+    MegaCircuitBuilder mega_zk_circuit;
+    GoblinMockCircuits::construct_simple_circuit(mega_zk_circuit);
     // Pad so that hiding_log_n == JOINT_LOG_N.  We aim for JOINT_LOG_N-1 as the arithmetic
     // target because MegaCircuitBuilder's execution-trace overhead grows the dyadic size by one.
     static constexpr size_t JOINT_LOG_N = BatchedHonkTranslatorProver::JOINT_LOG_N;
-    MockCircuits::construct_arithmetic_circuit(hiding_circuit, JOINT_LOG_N - 1, /*include_public_inputs=*/false);
+    MockCircuits::construct_arithmetic_circuit(mega_zk_circuit, JOINT_LOG_N - 1, /*include_public_inputs=*/false);
 
-    auto hiding_prover_inst = std::make_shared<HidingProverInst>(hiding_circuit);
-    auto hiding_vk_native = std::make_shared<HidingVK>(hiding_prover_inst->get_precomputed());
-    auto hiding_vk_and_hash = std::make_shared<HidingVKAndHash>(hiding_vk_native);
+    auto mega_zk_inst = std::make_shared<MegaZKProverInst>(mega_zk_circuit);
+    auto mega_zk_vk = std::make_shared<MegaZKVK>(mega_zk_inst->get_precomputed());
+    auto mega_zk_vk_and_hash = std::make_shared<MegaZKVKAndHash>(mega_zk_vk);
 
     // -------------------------------------------------------------------------
     // 3. Prove.
     // -------------------------------------------------------------------------
     auto prover_transcript = std::make_shared<Transcript>();
-    BatchedHonkTranslatorProver prover(hiding_prover_inst, hiding_vk_native, translator_key, prover_transcript);
+    BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, translator_key, prover_transcript);
 
-    auto [hiding_proof, translator_and_joint_proof] = prover.construct_proof();
+    auto [mega_zk_proof, translator_and_joint_proof] = prover.construct_proof();
 
     // -------------------------------------------------------------------------
     // 4. Verify.
     // -------------------------------------------------------------------------
     auto verifier_transcript = std::make_shared<Transcript>();
-    BatchedHonkTranslatorVerifier verifier(hiding_vk_and_hash,
+    BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash,
                                            verifier_transcript,
-                                           hiding_proof,
+                                           mega_zk_proof,
                                            translator_and_joint_proof,
                                            evaluation_input_x,
                                            batching_challenge_v,
@@ -180,10 +180,10 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
 // =============================================================================
 TEST_F(BatchedHonkTranslatorTests, ProveAndVerifySmallHiding)
 {
-    using HidingFlavor = MegaZKFlavor;
-    using HidingProverInst = ProverInstance_<HidingFlavor>;
-    using HidingVK = HidingFlavor::VerificationKey;
-    using HidingVKAndHash = HidingFlavor::VKAndHash;
+    using MegaZKFlavor = MegaZKFlavor;
+    using MegaZKProverInst = ProverInstance_<MegaZKFlavor>;
+    using MegaZKVK = MegaZKFlavor::VerificationKey;
+    using MegaZKVKAndHash = MegaZKFlavor::VKAndHash;
 
     const Fq batching_challenge_v = Fq::random_element();
     const Fq evaluation_input_x = Fq::random_element();
@@ -198,21 +198,21 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerifySmallHiding)
 
     // Use a small hiding circuit — NOT padded to JOINT_LOG_N.
     // hiding_log_n will be well below 17, exercising the variable-size code paths.
-    MegaCircuitBuilder hiding_circuit;
-    GoblinMockCircuits::construct_simple_circuit(hiding_circuit);
+    MegaCircuitBuilder mega_zk_circuit;
+    GoblinMockCircuits::construct_simple_circuit(mega_zk_circuit);
 
-    auto hiding_prover_inst = std::make_shared<HidingProverInst>(hiding_circuit);
-    auto hiding_vk_native = std::make_shared<HidingVK>(hiding_prover_inst->get_precomputed());
-    auto hiding_vk_and_hash = std::make_shared<HidingVKAndHash>(hiding_vk_native);
+    auto mega_zk_inst = std::make_shared<MegaZKProverInst>(mega_zk_circuit);
+    auto mega_zk_vk = std::make_shared<MegaZKVK>(mega_zk_inst->get_precomputed());
+    auto mega_zk_vk_and_hash = std::make_shared<MegaZKVKAndHash>(mega_zk_vk);
 
     auto prover_transcript = std::make_shared<Transcript>();
-    BatchedHonkTranslatorProver prover(hiding_prover_inst, hiding_vk_native, translator_key, prover_transcript);
-    auto [hiding_proof, translator_and_joint_proof] = prover.construct_proof();
+    BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, translator_key, prover_transcript);
+    auto [mega_zk_proof, translator_and_joint_proof] = prover.construct_proof();
 
     auto verifier_transcript = std::make_shared<Transcript>();
-    BatchedHonkTranslatorVerifier verifier(hiding_vk_and_hash,
+    BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash,
                                            verifier_transcript,
-                                           hiding_proof,
+                                           mega_zk_proof,
                                            translator_and_joint_proof,
                                            evaluation_input_x,
                                            batching_challenge_v,

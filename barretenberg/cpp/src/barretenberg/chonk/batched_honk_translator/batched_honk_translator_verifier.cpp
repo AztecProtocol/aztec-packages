@@ -20,17 +20,17 @@ namespace bb {
 
 template <typename Curve>
 BatchedHonkTranslatorVerifier_<Curve>::BatchedHonkTranslatorVerifier_(
-    std::shared_ptr<HidingVKAndHash> hiding_vk_and_hash,
+    std::shared_ptr<MegaZKVKAndHash> mega_zk_vk_and_hash,
     std::shared_ptr<Transcript> transcript,
-    const Proof& hiding_proof,
+    const Proof& mega_zk_proof,
     const Proof& translator_proof,
     const TransBF& evaluation_input_x,
     const TransBF& batching_challenge_v,
     const TransBF& accumulated_result,
     const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments)
-    : hiding_vk_and_hash(std::move(hiding_vk_and_hash))
+    : mega_zk_vk_and_hash(std::move(mega_zk_vk_and_hash))
     , transcript(std::move(transcript))
-    , hiding_proof(hiding_proof)
+    , mega_zk_proof(mega_zk_proof)
     , translator_proof(translator_proof)
     , evaluation_input_x(evaluation_input_x)
     , batching_challenge_v(batching_challenge_v)
@@ -38,49 +38,47 @@ BatchedHonkTranslatorVerifier_<Curve>::BatchedHonkTranslatorVerifier_(
     , op_queue_wire_commitments(op_queue_wire_commitments)
 {
     if constexpr (IsRecursive) {
-        builder = hiding_proof.back().get_context();
+        builder = mega_zk_proof.back().get_context();
     }
 }
 
 /**
- * @brief Verify the hiding kernel's Oink pre-sumcheck phase.
+ * @brief Verify the MegaZK circuit's Oink phase.
  * @details Loads the hiding proof, runs OinkVerifier, and returns the verifier commitments.
- * Populates hiding_relation_parameters.
+ * Populates mega_zk_relation_parameters.
  */
 template <typename Curve>
-typename BatchedHonkTranslatorVerifier_<Curve>::HidingVerifierCommitments BatchedHonkTranslatorVerifier_<
-    Curve>::verify_hiding_kernel_oink()
+typename BatchedHonkTranslatorVerifier_<Curve>::MegaZKVerifierCommitments BatchedHonkTranslatorVerifier_<
+    Curve>::verify_mega_zk_oink()
 {
-    transcript->load_proof(hiding_proof);
+    transcript->load_proof(mega_zk_proof);
 
-    auto hiding_verifier_instance = std::make_shared<HidingVerifierInstance>(hiding_vk_and_hash);
+    auto mega_zk_verifier_instance = std::make_shared<MegaZKVerifierInstance>(mega_zk_vk_and_hash);
 
-    // Derive num_public_inputs from the Oink-only hiding proof.
-    const size_t num_public_inputs = hiding_proof.size() - ProofLength::Oink<HidingFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
+    // Derive num_public_inputs from the Oink-only MegaZK proof.
+    const size_t num_public_inputs = mega_zk_proof.size() - ProofLength::Oink<MegaZKFlavorT>::LENGTH_WITHOUT_PUB_INPUTS;
 
-    OinkVerifier<HidingFlavor> oink_verifier{ hiding_verifier_instance, transcript, num_public_inputs };
-    oink_verifier.verify();
+    OinkVerifier<MegaZKFlavorT> oink_verifier{ mega_zk_verifier_instance, transcript, num_public_inputs };
+    oink_verifier.verify(/*emit_alpha=*/false);
 
-    hiding_relation_parameters = hiding_verifier_instance->relation_parameters;
+    mega_zk_relation_parameters = mega_zk_verifier_instance->relation_parameters;
 
-    HidingVerifierCommitments hiding_commitments{ hiding_verifier_instance->get_vk(),
-                                                  hiding_verifier_instance->witness_commitments };
-    if constexpr (HidingFlavor::HasZK) {
-        hiding_commitments.gemini_masking_poly = hiding_verifier_instance->gemini_masking_commitment;
-    }
+    MegaZKVerifierCommitments mega_zk_commitments{ mega_zk_verifier_instance->get_vk(),
+                                                   mega_zk_verifier_instance->witness_commitments };
+    mega_zk_commitments.gemini_masking_poly = mega_zk_verifier_instance->gemini_masking_commitment;
 
-    return hiding_commitments;
+    return mega_zk_commitments;
 }
 
 /**
- * @brief Verify the translator's pre-sumcheck (Oink-like) phase.
+ * @brief Verify the translator's Oink phase.
  * @details Delegates to TranslatorVerifier_::receive_pre_sumcheck(), which loads the translator
  * proof, hashes the VK, sets relation parameters, and receives wire + permutation commitments.
  * Populates translator_relation_parameters.
  */
 template <typename Curve>
 typename BatchedHonkTranslatorVerifier_<Curve>::TransVerifierCommitments BatchedHonkTranslatorVerifier_<
-    Curve>::verify_translator_pre_sumcheck()
+    Curve>::verify_translator_oink()
 {
     TranslatorVerifier_<TransFlavor> trans_verifier(transcript,
                                                     translator_proof,
@@ -97,7 +95,7 @@ typename BatchedHonkTranslatorVerifier_<Curve>::TransVerifierCommitments Batched
  * @brief Verify the joint 17-round sumcheck.
  * @details Draws joint alpha, processes 17 sumcheck rounds, receives evaluations from both circuits,
  * computes the joint full-relation purported value, and performs final verification.
- * Populates joint_challenge, hiding_evals, trans_evals, libra_commitments, libra_evaluation, libra_challenge.
+ * Populates joint_challenge, mega_zk_evals, trans_evals, libra_commitments, libra_evaluation, libra_challenge.
  * @return true if sumcheck verification passed.
  */
 template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joint_sumcheck()
@@ -109,12 +107,12 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     // Compute α^{K_H}.
     FF alpha_power_KH = FF(1);
-    for (size_t i = 0; i < HidingFlavor::NUM_SUBRELATIONS; i++) {
+    for (size_t i = 0; i < MegaZKFlavorT::NUM_SUBRELATIONS; i++) {
         alpha_power_KH *= alpha;
     }
 
     // Subrelation separators.
-    auto hiding_alphas = initialize_relation_separator<FF, HidingFlavor::NUM_SUBRELATIONS - 1>(alpha);
+    auto mega_zk_alphas = initialize_relation_separator<FF, MegaZKFlavorT::NUM_SUBRELATIONS - 1>(alpha);
     auto translator_alphas = initialize_relation_separator<FF, TransFlavor::NUM_SUBRELATIONS - 1>(alpha);
 
     // Draw gate challenges.
@@ -132,15 +130,15 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
     libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
 
     // Initialise the joint sumcheck round verifier.
-    SumcheckVerifierRound<HidingFlavor> joint_round(libra_total_sum * libra_challenge);
+    SumcheckVerifierRound<MegaZKFlavorT> joint_round(libra_total_sum * libra_challenge);
 
     GateSeparatorPolynomial<FF> gate_sep(gate_challenges);
 
-    const size_t hiding_log_n = [&]() -> size_t {
+    const size_t mega_zk_log_n = [&]() -> size_t {
         if constexpr (IsRecursive) {
-            return static_cast<size_t>(hiding_vk_and_hash->vk->log_circuit_size.get_value());
+            return static_cast<size_t>(mega_zk_vk_and_hash->vk->log_circuit_size.get_value());
         } else {
-            return static_cast<size_t>(hiding_vk_and_hash->vk->log_circuit_size);
+            return static_cast<size_t>(mega_zk_vk_and_hash->vk->log_circuit_size);
         }
     }();
 
@@ -149,8 +147,8 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     bool verified = true;
 
-    // ==================== Real rounds 0..hiding_log_n-1 ====================
-    for (size_t round_idx = 0; round_idx < hiding_log_n; round_idx++) {
+    // ==================== Real rounds 0..mega_zk_log_n-1 ====================
+    for (size_t round_idx = 0; round_idx < mega_zk_log_n; round_idx++) {
         joint_round.process_round(transcript, joint_challenge, gate_sep, FF(1), round_idx);
         verified = verified && !joint_round.round_failed;
 
@@ -162,20 +160,20 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
         }
     }
 
-    // Receive hiding kernel evaluations: P_j(u_0,...,u_{d-1}) without the tau factor.
-    // These are committed before virtual-round challenges are drawn, eliminating prover
+    // Receive MegaZK circuit evaluations: P_j(u_0,...,u_{d-1}) without the tau factor.
+    // These are obtained before virtual-round challenges are drawn, eliminating prover
     // freedom in the zero-padded region.
     {
         auto transcript_evals =
-            transcript->template receive_from_prover<std::array<FF, HidingFlavor::NUM_ALL_ENTITIES>>(
+            transcript->template receive_from_prover<std::array<FF, MegaZKFlavorT::NUM_ALL_ENTITIES>>(
                 "Sumcheck:evaluations");
-        for (auto [eval, te] : zip_view(hiding_evals.get_all(), transcript_evals)) {
+        for (auto [eval, te] : zip_view(mega_zk_evals.get_all(), transcript_evals)) {
             eval = te;
         }
     }
 
-    // ==================== Virtual rounds hiding_log_n..JOINT_LOG_N-1 ====================
-    for (size_t round_idx = hiding_log_n; round_idx < JOINT_LOG_N; round_idx++) {
+    // ==================== Virtual rounds mega_zk_log_n..JOINT_LOG_N-1 ====================
+    for (size_t round_idx = mega_zk_log_n; round_idx < JOINT_LOG_N; round_idx++) {
         joint_round.process_round(transcript, joint_challenge, gate_sep, FF(1), round_idx);
         verified = verified && !joint_round.round_failed;
 
@@ -187,14 +185,14 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
         }
     }
 
-    // Extend hiding evaluations by zero: multiply each by τ = ∏_{k=d}^{N-1}(1-u_k).
+    // Extend MegaZK evaluations by zero: multiply each by τ = ∏_{k=d}^{N-1}(1-u_k).
     // This is the verifier-determined zero-padding extension — the prover has no control over it.
     {
         FF tau = FF(1);
-        for (size_t k = hiding_log_n; k < JOINT_LOG_N; k++) {
+        for (size_t k = mega_zk_log_n; k < JOINT_LOG_N; k++) {
             tau *= (FF(1) - joint_challenge[k]);
         }
-        for (auto& eval : hiding_evals.get_all()) {
+        for (auto& eval : mega_zk_evals.get_all()) {
             eval *= tau;
         }
     }
@@ -211,7 +209,7 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
     // Set OriginTag for recursive mode.
     if constexpr (IsRecursive) {
         const auto challenge_tag = joint_challenge.back().get_origin_tag();
-        for (auto& eval : hiding_evals.get_all()) {
+        for (auto& eval : mega_zk_evals.get_all()) {
             eval.set_origin_tag(challenge_tag);
         }
         for (auto& eval : trans_evals.get_all()) {
@@ -225,30 +223,30 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     GateSeparatorPolynomial<FF> final_gate_sep(gate_challenges, joint_challenge);
 
-    // Hiding kernel FRV: evaluations now include the verifier-computed tau factor.
-    SumcheckVerifierRound<HidingFlavor> hiding_frv_round;
-    FF frv_hiding = hiding_frv_round.compute_full_relation_purported_value(
-        hiding_evals, hiding_relation_parameters, final_gate_sep, hiding_alphas);
+    // MegaZK circuit FRV: evaluations now include the verifier-computed tau factor.
+    SumcheckVerifierRound<MegaZKFlavorT> mega_zk_frv_round;
+    FF frv_mega_zk = mega_zk_frv_round.compute_full_relation_purported_value(
+        mega_zk_evals, mega_zk_relation_parameters, final_gate_sep, mega_zk_alphas);
 
     // Apply row-disabling polynomial: RDP_d = 1 - u_2·...·u_{d-1}.
     FF rdp_d = [&]() {
         if constexpr (IsRecursive) {
-            auto hiding_padding =
-                stdlib::compute_padding_indicator_array<Curve, JOINT_LOG_N>(hiding_vk_and_hash->vk->log_circuit_size);
-            return RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, hiding_padding);
+            auto mega_zk_padding =
+                stdlib::compute_padding_indicator_array<Curve, JOINT_LOG_N>(mega_zk_vk_and_hash->vk->log_circuit_size);
+            return RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, mega_zk_padding);
         } else {
-            return RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, hiding_log_n);
+            return RowDisablingPolynomial<FF>::evaluate_at_challenge(joint_challenge, mega_zk_log_n);
         }
     }();
-    frv_hiding *= rdp_d;
+    frv_mega_zk *= rdp_d;
 
     // Translator FRV (no row-disabling).
     SumcheckVerifierRound<TransFlavor> trans_frv_round;
     FF frv_translator = trans_frv_round.compute_full_relation_purported_value(
         trans_evals, translator_relation_parameters, final_gate_sep, translator_alphas);
 
-    // Combine: FRV_joint = FRV_hiding + α^{K_H} · FRV_translator.
-    FF frv_joint = frv_hiding + alpha_power_KH * frv_translator;
+    // Combine: FRV_joint = FRV_MZK + α^{K_H} · FRV_translator.
+    FF frv_joint = frv_mega_zk + alpha_power_KH * frv_translator;
 
     // Receive and apply Libra correction.
     libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
@@ -276,9 +274,9 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
  */
 template <typename Curve>
 typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTranslatorVerifier_<Curve>::verify_joint_pcs(
-    bool sumcheck_verified, HidingVerifierCommitments& hiding_commitments, TransVerifierCommitments& trans_commitments)
+    bool sumcheck_verified, MegaZKVerifierCommitments& mega_zk_commitments, TransVerifierCommitments& trans_commitments)
 {
-    using HidingShplemini = ShpleminiVerifier_<Curve, HidingFlavor::HasZK>;
+    using MegaZKShplemini = ShpleminiVerifier_<Curve, MegaZKFlavorT::HasZK>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = typename ClaimBatcher::Batch;
 
@@ -293,10 +291,10 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
     }();
 
     // Build joint claim batchers from both circuits' commitments and evaluations.
-    RefVector<Commitment> joint_unshifted_comms = hiding_commitments.get_unshifted();
-    RefVector<FF> joint_unshifted_evals = hiding_evals.get_unshifted();
-    RefVector<Commitment> joint_shifted_comms = hiding_commitments.get_to_be_shifted();
-    RefVector<FF> joint_shifted_evals = hiding_evals.get_shifted();
+    RefVector<Commitment> joint_unshifted_comms = mega_zk_commitments.get_unshifted();
+    RefVector<FF> joint_unshifted_evals = mega_zk_evals.get_unshifted();
+    RefVector<Commitment> joint_shifted_comms = mega_zk_commitments.get_to_be_shifted();
+    RefVector<FF> joint_shifted_evals = mega_zk_evals.get_shifted();
 
     // Translator claim components.
     auto concat_shift_evals = TranslatorFlavor::reconstruct_concatenated_evaluations(
@@ -330,7 +328,7 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
     // All-ones padding for the joint Shplemini call (row-disabling already applied in FRV).
     std::vector<FF> joint_padding(JOINT_LOG_N, FF(1));
 
-    auto [opening_claim, consistency_checked] = HidingShplemini::compute_batch_opening_claim(joint_padding,
+    auto [opening_claim, consistency_checked] = MegaZKShplemini::compute_batch_opening_claim(joint_padding,
                                                                                              joint_claim_batcher,
                                                                                              joint_challenge,
                                                                                              one_commitment,
@@ -339,7 +337,7 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
                                                                                              libra_commitments,
                                                                                              libra_evaluation);
 
-    auto pairing_points = HidingFlavor::PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
+    auto pairing_points = MegaZKFlavorT::PCS::reduce_verify_batch_opening_claim(std::move(opening_claim), transcript);
 
     return { pairing_points, sumcheck_verified && consistency_checked };
 }
@@ -348,10 +346,10 @@ template <typename Curve>
 typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTranslatorVerifier_<
     Curve>::reduce_to_pairing_check()
 {
-    auto hiding_commitments = verify_hiding_kernel_oink();
-    auto trans_commitments = verify_translator_pre_sumcheck();
+    auto mega_zk_commitments = verify_mega_zk_oink();
+    auto trans_commitments = verify_translator_oink();
     bool sumcheck_verified = verify_joint_sumcheck();
-    return verify_joint_pcs(sumcheck_verified, hiding_commitments, trans_commitments);
+    return verify_joint_pcs(sumcheck_verified, mega_zk_commitments, trans_commitments);
 }
 
 // Explicit instantiations.
