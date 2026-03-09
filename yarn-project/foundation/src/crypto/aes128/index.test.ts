@@ -76,19 +76,17 @@ describe('aes128', () => {
     expect(result).not.toEqual(data);
   });
 
-  it('should not throw for ciphertext not a multiple of 16', async () => {
+  it('should return empty buffer for ciphertext not a multiple of 16', async () => {
     const key = randomBytes(16);
     const iv = randomBytes(16);
     const badCiphertext = randomBytes(17);
-    // Barretenberg returns a same-length garbage buffer without throwing.
-    // Padding removal then blindly strips based on the last garbage byte.
-    await expect(aes128.decryptBufferCBC(badCiphertext, iv, key)).resolves.toBeDefined();
+    const result = await aes128.decryptBufferCBC(badCiphertext, iv, key);
+    expect(result.length).toBe(0);
   });
 
   it('should return empty buffer for empty ciphertext', async () => {
     const key = randomBytes(16);
     const iv = randomBytes(16);
-    // Barretenberg returns empty, padding removal on empty buffer also returns empty.
     const result = await aes128.decryptBufferCBC(Buffer.alloc(0), iv, key);
     expect(result.length).toBe(0);
   });
