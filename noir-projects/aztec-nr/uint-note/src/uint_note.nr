@@ -4,14 +4,11 @@ use aztec::{
     keys::getters::{get_nhk_app, get_public_keys, try_get_public_keys},
     macros::notes::custom_note,
     messages::logs::partial_note::compute_partial_note_private_content_log,
-    note::note_interface::{NoteHash, NoteType},
+    note::{note_interface::{NoteHash, NoteType}, utils::compute_note_nullifier},
     oracle::random::random,
     protocol::{
         address::AztecAddress,
-        constants::{
-            DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_NULLIFIER, DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
-            PRIVATE_LOG_SIZE_IN_FIELDS,
-        },
+        constants::{DOM_SEP__NOTE_HASH, DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT, PRIVATE_LOG_SIZE_IN_FIELDS},
         hash::{compute_siloed_nullifier, poseidon2_hash_with_separator},
         traits::{Deserialize, FromField, Hash, Packable, Serialize, ToField},
     },
@@ -65,10 +62,7 @@ impl NoteHash for UintNote {
         let owner_npk_m = get_public_keys(owner).npk_m;
         let owner_npk_m_hash = owner_npk_m.hash();
         let secret = context.request_nhk_app(owner_npk_m_hash);
-        poseidon2_hash_with_separator(
-            [note_hash_for_nullification, secret],
-            DOM_SEP__NOTE_NULLIFIER,
-        )
+        compute_note_nullifier(note_hash_for_nullification, [secret])
     }
 
     unconstrained fn compute_nullifier_unconstrained(
@@ -80,10 +74,7 @@ impl NoteHash for UintNote {
             let owner_npk_m = public_keys.npk_m;
             let owner_npk_m_hash = owner_npk_m.hash();
             let secret = get_nhk_app(owner_npk_m_hash);
-            poseidon2_hash_with_separator(
-                [note_hash_for_nullification, secret],
-                DOM_SEP__NOTE_NULLIFIER,
-            )
+            compute_note_nullifier(note_hash_for_nullification, [secret])
         })
     }
 }
