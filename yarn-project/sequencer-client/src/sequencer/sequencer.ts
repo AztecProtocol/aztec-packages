@@ -73,7 +73,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private lastEpochForStrategyComparison: EpochNumber | undefined;
 
   /** The last checkpoint proposal job, tracked so we can await its pending L1 submission during shutdown. */
-  private lastCheckpointProposalJob: CheckpointProposalJob | undefined;
+  protected lastCheckpointProposalJob: CheckpointProposalJob | undefined;
 
   /** The maximum number of seconds that the sequencer can be into a slot to transition to a particular state. */
   protected timetable!: SequencerTimetable;

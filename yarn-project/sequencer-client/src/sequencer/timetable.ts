@@ -73,6 +73,12 @@ export class SequencerTimetable {
   /** Whether pipelining is enabled (checkpoint finalization deferred to next slot). */
   public readonly pipelining: boolean;
 
+  /**
+   * How far into the target slot attestation collection can extend when pipelining.
+   * Covers validator re-execution (one block duration) plus one-way attestation return.
+   */
+  public readonly pipeliningAttestationGracePeriod: number;
+
   constructor(
     opts: {
       ethereumSlotDuration: number;
@@ -117,15 +123,19 @@ export class SequencerTimetable {
       this.p2pPropagationTime * 2 + // Round-trip propagation
       this.l1PublishingTime; // L1 publishing
 
+    // Grace period for attestation collection into the target slot when pipelining
+    this.pipeliningAttestationGracePeriod = (this.blockDuration ?? 0) + this.p2pPropagationTime;
+
     // Calculate maximum number of blocks that fit in this slot
     if (!this.blockDuration) {
       this.maxNumberOfBlocks = 1; // Single block per slot
     } else {
-      // When pipelining, finalization is deferred to the next slot, but we still need
-      // a sub-slot for validator re-execution so they can produce attestations.
-      let timeReservedAtEnd = this.blockDuration; // Validatior re-execution only
-      if (!this.pipelining) {
-        timeReservedAtEnd += this.checkpointFinalizationTime;
+      let timeReservedAtEnd: number;
+      if (this.pipelining) {
+        // Proposal must reach validators within build slot: assembly + one-way broadcast
+        timeReservedAtEnd = this.checkpointAssembleTime + this.p2pPropagationTime;
+      } else {
+        timeReservedAtEnd = this.blockDuration + this.checkpointFinalizationTime;
       }
 
       const timeAvailableForBlocks = this.aztecSlotDuration - this.initializationOffset - timeReservedAtEnd;
@@ -155,6 +165,7 @@ export class SequencerTimetable {
         initializeDeadline: this.initializeDeadline,
         enforce: this.enforce,
         pipelining: this.pipelining,
+        pipeliningAttestationGracePeriod: this.pipeliningAttestationGracePeriod,
         minWorkToDo,
         blockDuration: this.blockDuration,
         maxNumberOfBlocks: this.maxNumberOfBlocks,
@@ -191,8 +202,16 @@ export class SequencerTimetable {
         return this.initializeDeadline + this.checkpointInitializationTime;
       case SequencerState.ASSEMBLING_CHECKPOINT:
       case SequencerState.COLLECTING_ATTESTATIONS:
+        if (this.pipelining) {
+          // Assembly + attestation collection extend into target slot
+          return this.aztecSlotDuration + this.pipeliningAttestationGracePeriod;
+        }
         return this.aztecSlotDuration - this.l1PublishingTime - 2 * this.p2pPropagationTime;
       case SequencerState.PUBLISHING_CHECKPOINT:
+        if (this.pipelining) {
+          // L1 submission happens in target slot, after attestations
+          return this.aztecSlotDuration + this.pipeliningAttestationGracePeriod;
+        }
         return this.aztecSlotDuration - this.l1PublishingTime;
       default: {
         const _exhaustiveCheck: never = state;

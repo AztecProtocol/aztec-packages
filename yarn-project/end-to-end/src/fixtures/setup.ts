@@ -179,6 +179,8 @@ export type SetupOptions = {
   proverNodeConfig?: Partial<ProverNodeConfig>;
   /** Whether to use a mock gossip sub network for p2p clients. */
   mockGossipSubNetwork?: boolean;
+  /** Whether to add simulated latency to the mock gossipsub network (in ms) */
+  mockGossipSubNetworkLatency?: number;
   /** Whether to disable the anvil test watcher (can still be manually started) */
   disableAnvilTestWatcher?: boolean;
   /** Whether to enable anvil automine during deployment of L1 contracts (consider defaulting this to true). */
@@ -470,7 +472,7 @@ export async function setup(
     let p2pClientDeps: P2PClientDeps | undefined = undefined;
 
     if (opts.mockGossipSubNetwork) {
-      mockGossipSubNetwork = new MockGossipSubNetwork();
+      mockGossipSubNetwork = new MockGossipSubNetwork(opts.mockGossipSubNetworkLatency);
       p2pClientDeps = { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) };
     }
 

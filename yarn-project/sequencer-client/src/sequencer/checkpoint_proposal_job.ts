@@ -68,7 +68,14 @@ import { SequencerState } from './utils.js';
 /** How much time to sleep while waiting for min transactions to accumulate for a block */
 const TXS_POLLING_MS = 500;
 
-/** Result from proposeCheckpoint when a checkpoint was successfully built and attested. */
+/** Result from proposeCheckpoint when a checkpoint was successfully built and broadcast. */
+type CheckpointProposalBroadcast = {
+  checkpoint: Checkpoint;
+  proposal: CheckpointProposal;
+  blockProposedAt: number;
+};
+
+/** Result after attestation collection and signing, ready for L1 submission. */
 type CheckpointProposalResult = {
   checkpoint: Checkpoint;
   attestations: CommitteeAttestationsAndSigners;
@@ -136,8 +143,9 @@ export class CheckpointProposalJob implements Traceable {
 
   /**
    * Executes the checkpoint proposal job.
-   * Builds blocks, collects attestations, enqueues requests, and schedules L1 submission as a
-   * background task so the work loop can return to IDLE immediately.
+   * Builds blocks, assembles checkpoint, and broadcasts the proposal (blocking).
+   * Attestation collection, signing, and L1 submission are backgrounded so the
+   * work loop can return to IDLE immediately for consecutive slot proposals.
    * Returns the built checkpoint if successful, undefined otherwise.
    */
   @trackSpan('CheckpointProposalJob.execute')
@@ -157,71 +165,99 @@ export class CheckpointProposalJob implements Traceable {
       this.log,
     ).enqueueVotes();
 
-    // Build and propose the checkpoint. Builds blocks, broadcasts, collects attestations, and signs.
-    // Does NOT enqueue to L1 yet — that happens after the pipeline sleep.
-    const proposalResult = await this.proposeCheckpoint();
-    const checkpoint = proposalResult?.checkpoint;
+    // Build blocks, assemble checkpoint, and broadcast proposal (BLOCKING).
+    // Returns after broadcast — attestation collection is deferred.
+    const broadcast = await this.proposeCheckpoint();
 
-    // Wait until the voting promises have resolved, so all requests are enqueued (not sent)
-    await Promise.all(votesPromises);
-
-    if (checkpoint) {
-      this.metrics.recordCheckpointProposalSuccess();
+    if (!broadcast) {
+      await Promise.all(votesPromises);
+      // Still submit votes even without a checkpoint
+      if (!this.config.fishermanMode) {
+        this.pendingL1Submission = this.publisher.sendRequestsAt(new Date(this.dateProvider.now())).then(() => {});
+      }
+      return undefined;
     }
+
+    const { checkpoint } = broadcast;
+    this.metrics.recordCheckpointProposalSuccess();
 
     // Do not post anything to L1 if we are fishermen, but do perform L1 fee analysis
     if (this.config.fishermanMode) {
       await this.handleCheckpointEndAsFisherman(checkpoint);
-      return;
+      return checkpoint;
     }
 
-    // Enqueue the checkpoint for L1 submission
-    if (proposalResult) {
-      try {
-        await this.enqueueCheckpointForSubmission(proposalResult);
-      } catch (err) {
-        this.log.error(`Failed to enqueue checkpoint for L1 submission at slot ${this.targetSlot}`, err);
-        // Continue to sendRequestsAt so votes are still sent
-      }
-    }
-
-    // Compute the earliest time to submit: pipeline slot start when pipelining, now otherwise.
-    const submitAfter = this.epochCache.isProposerPipeliningEnabled()
-      ? new Date(Number(getTimestampForSlot(this.targetSlot, this.l1Constants)) * 1000)
-      : new Date(this.dateProvider.now());
-
-    // Schedule L1 submission in the background so the work loop returns immediately.
-    // The publisher will sleep until submitAfter, then send the bundled requests.
-    // The promise is stored so it can be awaited during shutdown.
-    this.pendingL1Submission = this.publisher
-      .sendRequestsAt(submitAfter)
-      .then(async l1Response => {
-        const proposedAction = l1Response?.successfulActions.find(a => a === 'propose');
-        if (proposedAction) {
-          this.eventEmitter.emit('checkpoint-published', { checkpoint: this.checkpointNumber, slot: this.targetSlot });
-          const coinbase = checkpoint?.header.coinbase;
-          await this.metrics.incFilledSlot(this.publisher.getSenderAddress().toString(), coinbase);
-        } else if (checkpoint) {
-          this.eventEmitter.emit('checkpoint-publish-failed', { ...l1Response, slot: this.targetSlot });
-
-          if (this.epochCache.isProposerPipeliningEnabled()) {
-            this.metrics.recordPipelineDiscard();
-          }
-        }
-      })
-      .catch(err => {
-        this.log.error(`Background L1 submission failed for slot ${this.targetSlot}`, err);
-        if (checkpoint) {
-          this.eventEmitter.emit('checkpoint-publish-failed', { slot: this.targetSlot });
-
-          if (this.epochCache.isProposerPipeliningEnabled()) {
-            this.metrics.recordPipelineDiscard();
-          }
-        }
-      });
+    // Background the attestation → signing → L1 pipeline so the work loop is unblocked
+    this.pendingL1Submission = this.waitForAttestationsAndEnqueueSubmissionAsync(broadcast, votesPromises);
 
     // Return the built checkpoint immediately — the work loop is now unblocked
     return checkpoint;
+  }
+
+  /**
+   * Background pipeline: collects attestations, signs them, enqueues the checkpoint, and submits to L1.
+   * Runs as a fire-and-forget task stored in `pendingL1Submission` so the work loop is unblocked.
+   */
+  private async waitForAttestationsAndEnqueueSubmissionAsync(
+    broadcast: CheckpointProposalBroadcast,
+    votesPromises: Promise<unknown>[],
+  ): Promise<void> {
+    const { checkpoint, proposal, blockProposedAt } = broadcast;
+    try {
+      await Promise.all(votesPromises);
+
+      this.setStateFn(SequencerState.COLLECTING_ATTESTATIONS, this.targetSlot);
+      const attestations = await this.waitForAttestations(proposal);
+
+      this.metrics.recordCheckpointAttestationDelay(this.dateProvider.now() - blockProposedAt);
+
+      // Proposer must sign over the attestations before pushing them to L1
+      const signer = this.proposer ?? this.publisher.getSenderAddress();
+      let attestationsSignature: Signature;
+      try {
+        attestationsSignature = await this.validatorClient.signAttestationsAndSigners(
+          attestations,
+          signer,
+          this.targetSlot,
+          this.checkpointNumber,
+        );
+      } catch (err) {
+        if (this.handleHASigningError(err, 'Attestations signature')) {
+          return;
+        }
+        throw err;
+      }
+
+      // Enqueue the checkpoint for L1 submission
+      await this.enqueueCheckpointForSubmission({ checkpoint, attestations, attestationsSignature });
+
+      // Compute the earliest time to submit: pipeline slot start when pipelining, now otherwise.
+      const submitAfter = this.epochCache.isProposerPipeliningEnabled()
+        ? new Date(Number(getTimestampForSlot(this.targetSlot, this.l1Constants)) * 1000)
+        : new Date(this.dateProvider.now());
+
+      const l1Response = await this.publisher.sendRequestsAt(submitAfter);
+      const proposedAction = l1Response?.successfulActions.find(a => a === 'propose');
+      if (proposedAction) {
+        this.eventEmitter.emit('checkpoint-published', { checkpoint: this.checkpointNumber, slot: this.targetSlot });
+        const coinbase = checkpoint.header.coinbase;
+        await this.metrics.incFilledSlot(this.publisher.getSenderAddress().toString(), coinbase);
+      } else {
+        this.eventEmitter.emit('checkpoint-publish-failed', { ...l1Response, slot: this.targetSlot });
+        if (this.epochCache.isProposerPipeliningEnabled()) {
+          this.metrics.recordPipelineDiscard();
+        }
+      }
+    } catch (err) {
+      if (err instanceof SequencerInterruptedError) {
+        return;
+      }
+      this.log.error(`Background attestation/L1 pipeline failed for slot ${this.targetSlot}`, err);
+      this.eventEmitter.emit('checkpoint-publish-failed', { slot: this.targetSlot });
+      if (this.epochCache.isProposerPipeliningEnabled()) {
+        this.metrics.recordPipelineDiscard();
+      }
+    }
   }
 
   /** Enqueues the checkpoint for L1 submission. Called after pipeline sleep in execute(). */
@@ -247,10 +283,16 @@ export class CheckpointProposalJob implements Traceable {
       }
     }
 
+    const isPipelining = this.epochCache.isProposerPipeliningEnabled();
+    const parentCheckpointNumber = CheckpointNumber(this.checkpointNumber - 1);
+
     await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
       txTimeoutAt,
       forcePendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
       forceProposedFeeHeader: this.computedForceProposedFeeHeader,
+      forceProposedArchive: isPipelining
+        ? { checkpointNumber: parentCheckpointNumber, archive: checkpoint.header.lastArchiveRoot }
+        : undefined,
     });
   }
 
@@ -261,7 +303,7 @@ export class CheckpointProposalJob implements Traceable {
       [Attributes.SLOT_NUMBER]: this.targetSlot,
     };
   })
-  private async proposeCheckpoint(): Promise<CheckpointProposalResult | undefined> {
+  private async proposeCheckpoint(): Promise<CheckpointProposalBroadcast | undefined> {
     try {
       // Get operator configured coinbase and fee recipient for this attestor
       const coinbase = this.validatorClient.getCoinbaseForAttestor(this.attestorAddress);
@@ -410,7 +452,7 @@ export class CheckpointProposalJob implements Traceable {
         Number(checkpoint.header.totalManaUsed.toBigInt()),
       );
 
-      // Do not collect attestations nor publish to L1 in fisherman mode
+      // In fisherman mode, return the checkpoint without broadcasting or collecting attestations
       if (this.config.fishermanMode) {
         this.log.info(
           `Built checkpoint for slot ${this.targetSlot} with ${blocksInCheckpoint.length} blocks. ` +
@@ -422,11 +464,8 @@ export class CheckpointProposalJob implements Traceable {
           },
         );
         this.metrics.recordCheckpointSuccess();
-        return {
-          checkpoint,
-          attestations: CommitteeAttestationsAndSigners.empty(),
-          attestationsSignature: Signature.empty(),
-        };
+        // Return a broadcast result with a dummy proposal — fisherman mode skips attestation collection
+        return { checkpoint, proposal: undefined!, blockProposedAt: this.dateProvider.now() };
       }
 
       // Create the checkpoint proposal and broadcast it
@@ -442,33 +481,8 @@ export class CheckpointProposalJob implements Traceable {
       const blockProposedAt = this.dateProvider.now();
       await this.p2pClient.broadcastCheckpointProposal(proposal);
 
-      this.setStateFn(SequencerState.COLLECTING_ATTESTATIONS, this.targetSlot);
-      const attestations = await this.waitForAttestations(proposal);
-      const blockAttestedAt = this.dateProvider.now();
-
-      this.metrics.recordCheckpointAttestationDelay(blockAttestedAt - blockProposedAt);
-
-      // Proposer must sign over the attestations before pushing them to L1
-      const signer = this.proposer ?? this.publisher.getSenderAddress();
-      let attestationsSignature: Signature;
-      try {
-        attestationsSignature = await this.validatorClient.signAttestationsAndSigners(
-          attestations,
-          signer,
-          this.targetSlot,
-          this.checkpointNumber,
-        );
-      } catch (err) {
-        // We shouldn't really get here since we yield to another HA node
-        // as soon as we see these errors when creating block or checkpoint proposals.
-        if (this.handleHASigningError(err, 'Attestations signature')) {
-          return undefined;
-        }
-        throw err;
-      }
-
-      // Return the result for the caller to enqueue after the pipeline sleep
-      return { checkpoint, attestations, attestationsSignature };
+      // Return immediately after broadcast — attestation collection happens in the background
+      return { checkpoint, proposal, blockProposedAt };
     } catch (err) {
       if (err && (err instanceof DutyAlreadySignedError || err instanceof SlashingProtectionError)) {
         // swallow this error. It's already been logged by a function deeper in the stack
