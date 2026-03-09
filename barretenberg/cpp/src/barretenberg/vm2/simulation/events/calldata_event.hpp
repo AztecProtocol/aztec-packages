@@ -8,7 +8,7 @@
 namespace bb::avm2::simulation {
 
 struct CalldataEvent {
-    uint32_t context_id;
+    uint32_t context_id = 0;
     std::vector<FF> calldata;
 };
 
