@@ -223,6 +223,48 @@ This is useful for monitoring network health without participating in consensus.
 - `createCheckpointProposal(...)` → `CheckpointProposal`: Signs checkpoint proposal
 - `attestToCheckpointProposal(proposal, attestors)` → `CheckpointAttestation[]`: Creates attestations for given addresses
 
+## Block Building Limits
+
+L1 enforces gas and blob capacity per checkpoint. The node enforces these during block building to avoid L1 rejection. Three dimensions are metered: L2 gas (mana), DA gas, and blob fields. DA gas maps to blob fields today (`daGas = blobFields * 32`) but both are tracked independently.
+
+### Checkpoint limits
+
+| Dimension | Source | Budget |
+| --- | --- | --- |
+| L2 gas (mana) | `rollup.getManaLimit()` | Fetched from L1 at startup |
+| DA gas | `MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT` | 786,432 (6 blobs × 4096 fields × 32 gas/field) |
+| Blob fields | `BLOBS_PER_CHECKPOINT × FIELDS_PER_BLOB` | 24,576 minus checkpoint/block-end overhead |
+
+### Per-block budgets
+
+Per-block budgets prevent one block from consuming the entire checkpoint budget.
+
+**Proposer**: `computeBlockLimits()` derives budgets at startup as `min(checkpointLimit, ceil(checkpointLimit / maxBlocks * multiplier))`, where `maxBlocks` comes from the timetable and `multiplier` defaults to 2. The multiplier greater than 1 allows early blocks to use more than their even share of the checkpoint budget, since different blocks hit different limit dimensions (L2 gas, DA gas, blob fields) — a strict even split would waste capacity. Operators can override via `SEQ_MAX_L2_BLOCK_GAS` / `SEQ_MAX_DA_BLOCK_GAS` / `SEQ_MAX_TX_PER_BLOCK` (capped at checkpoint limits). Per-block TX limits follow the same derivation pattern when `SEQ_MAX_TX_PER_CHECKPOINT` is set.
+
+**Validator**: Optionally enforces per-block limits via `VALIDATOR_MAX_L2_BLOCK_GAS`, `VALIDATOR_MAX_DA_BLOCK_GAS`, and `VALIDATOR_MAX_TX_PER_BLOCK`. When set, these are passed to `buildBlock` during re-execution and to `validateCheckpoint` for final validation. When unset, no per-block limit is enforced for that dimension (checkpoint-level protocol limits still apply). These are independent of the `SEQ_` vars so operators can tune proposer and validation limits separately.
+
+**Checkpoint-level capping**: `CheckpointBuilder.capLimitsByCheckpointBudgets()` always runs before tx processing, capping per-block limits by `checkpointBudget - sum(used by prior blocks)` for all three gas dimensions and for transaction count (when `SEQ_MAX_TX_PER_CHECKPOINT` is set). This applies to both proposer and validator paths.
+
+### Per-transaction enforcement
+
+**Mempool entry** (`GasLimitsValidator`): L2 gas must be ≤ `MAX_PROCESSABLE_L2_GAS` (6,540,000) and ≥ fixed minimums.
+
+**Block building** (`PublicProcessor.process`): Before processing, txs are skipped if their estimated blob fields or gas limits would exceed the block budget. After processing, actual values are checked and the tx is reverted if limits are exceeded.
+
+### Gas limit configuration
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `SEQ_MAX_L2_BLOCK_GAS` | *auto* | Per-block L2 gas. Auto-derived from `rollupManaLimit / maxBlocks * multiplier`. |
+| `SEQ_MAX_DA_BLOCK_GAS` | *auto* | Per-block DA gas. Auto-derived from checkpoint DA limit / maxBlocks * multiplier. |
+| `SEQ_MAX_TX_PER_BLOCK` | *none* | Per-block tx count. If `SEQ_MAX_TX_PER_CHECKPOINT` is set and per-block is not, derived as `ceil(checkpointLimit / maxBlocks * multiplier)`. |
+| `SEQ_MAX_TX_PER_CHECKPOINT` | *none* | Total txs across all blocks in a checkpoint. When set, per-block tx limit is derived from it (unless explicitly overridden) and checkpoint-level capping is enforced. |
+| `SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER` | 2 | Multiplier for per-block budget computation. |
+| `VALIDATOR_MAX_L2_BLOCK_GAS` | *none* | Per-block L2 gas limit for validation. Proposals exceeding this are rejected. |
+| `VALIDATOR_MAX_DA_BLOCK_GAS` | *none* | Per-block DA gas limit for validation. Proposals exceeding this are rejected. |
+| `VALIDATOR_MAX_TX_PER_BLOCK` | *none* | Per-block tx count limit for validation. Proposals exceeding this are rejected. |
+| `VALIDATOR_MAX_TX_PER_CHECKPOINT` | *none* | Per-checkpoint tx count limit for validation. Proposals exceeding this are rejected. |
+
 ## Testing Patterns
 
 ### Common Mocks

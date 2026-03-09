@@ -1,6 +1,6 @@
 use crate::protocol::address::AztecAddress;
 
-#[oracle(privateNotifyEnqueuedPublicFunctionCall)]
+#[oracle(aztec_prv_notifyEnqueuedPublicFunctionCall)]
 unconstrained fn notify_enqueued_public_function_call_oracle(
     _contract_address: AztecAddress,
     _calldata_hash: Field,
@@ -40,7 +40,7 @@ pub fn notify_enqueued_public_function_call(
     }
 }
 
-#[oracle(privateNotifySetPublicTeardownFunctionCall)]
+#[oracle(aztec_prv_notifySetPublicTeardownFunctionCall)]
 unconstrained fn notify_set_public_teardown_function_call_oracle(
     _contract_address: AztecAddress,
     _calldata_hash: Field,
@@ -90,12 +90,12 @@ pub unconstrained fn notify_set_min_revertible_side_effect_counter_oracle_wrappe
     notify_set_min_revertible_side_effect_counter_oracle(counter);
 }
 
-#[oracle(privateNotifySetMinRevertibleSideEffectCounter)]
+#[oracle(aztec_prv_notifySetMinRevertibleSideEffectCounter)]
 unconstrained fn notify_set_min_revertible_side_effect_counter_oracle(_counter: u32) {}
 
 pub unconstrained fn is_side_effect_counter_revertible_oracle_wrapper(counter: u32) -> bool {
     is_side_effect_counter_revertible_oracle(counter)
 }
 
-#[oracle(privateIsSideEffectCounterRevertible)]
+#[oracle(aztec_prv_isSideEffectCounterRevertible)]
 unconstrained fn is_side_effect_counter_revertible_oracle(counter: u32) -> bool {}

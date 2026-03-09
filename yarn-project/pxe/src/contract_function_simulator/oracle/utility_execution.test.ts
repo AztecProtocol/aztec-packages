@@ -226,7 +226,7 @@ describe('Utility Execution test suite', () => {
 
     describe('Respects synced block number', () => {
       it('throws when getting block for future block number', async () => {
-        await expect(utilityExecutionOracle.utilityGetBlockHeader(BlockNumber(syncedBlockNumber + 1))).rejects.toThrow(
+        await expect(utilityExecutionOracle.getBlockHeader(BlockNumber(syncedBlockNumber + 1))).rejects.toThrow(
           `Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`,
         );
       });

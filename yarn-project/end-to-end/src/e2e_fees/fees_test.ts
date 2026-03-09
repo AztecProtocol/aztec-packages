@@ -1,7 +1,7 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { CheatCodes } from '@aztec/aztec/testing';
+import { CheatCodes, getTokenAllowedSetupFunctions } from '@aztec/aztec/testing';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsArgs } from '@aztec/ethereum/deploy-aztec-l1-contracts';
@@ -104,12 +104,15 @@ export class FeesTest {
 
   async setup() {
     this.logger.verbose('Setting up fresh context...');
+    // Token allowlist entries are test-only: FPC-based fee payment with custom tokens won't work on mainnet alpha.
+    const tokenAllowList = await getTokenAllowedSetupFunctions();
     this.context = await setup(0, {
       startProverNode: true,
       ...this.setupOptions,
       fundSponsoredFPC: true,
       skipAccountDeployment: true,
       l1ContractsArgs: { ...this.setupOptions },
+      txPublicSetupAllowListExtend: [...(this.setupOptions.txPublicSetupAllowListExtend ?? []), ...tokenAllowList],
     });
 
     this.rollupContract = RollupContract.getFromConfig(this.context.config);

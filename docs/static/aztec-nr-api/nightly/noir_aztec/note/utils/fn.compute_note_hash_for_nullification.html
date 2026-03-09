@@ -21,20 +21,22 @@
 <h3>Functions</h3><ul class="item-list">
 <li><a href="fn.compute_confirmed_note_hash_for_nullification.html">compute_confirmed_note_hash_for_nullification</a></div></li>
 <li><a href="fn.compute_note_existence_request.html">compute_note_existence_request</a></div></li>
+<li><a href="fn.compute_note_hash.html">compute_note_hash</a></div></li>
 <li><a href="fn.compute_note_hash_for_nullification.html">compute_note_hash_for_nullification</a></div></li>
+<li><a href="fn.compute_note_nullifier.html">compute_note_nullifier</a></div></li>
 </ul>
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">note</a>::<a href="index.html">utils</a></div>
 <h1>Function <span class="fn">compute_note_hash_for_nullification</span></h1>
-<pre><code>pub fn compute_note_hash_for_nullification&lt;Note&gt;(hinted_note: <a href="../../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a>
+<pre><code>pub unconstrained fn compute_note_hash_for_nullification&lt;Note&gt;(
+    hinted_note: <a href="../../../noir_aztec/note/struct.HintedNote.html" class="struct">HintedNote</a>&lt;Note&gt;,
+) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a>
 <div class="where-clause">where
     Note: <a href="../../../noir_aztec/note/note_interface/trait.NoteHash.html" class="trait">NoteHash</a></div></code></pre>
 
 <div class="comments">
-<p>Returns the note hash that must be used to compute a note's nullifier when calling <code>NoteHash::compute_nullifier</code> or
-<code>NoteHash::compute_nullifier_unconstrained</code>.</p>
-</div>
+<p>Unconstrained variant of <a href="../../../noir_aztec/note/utils/fn.compute_confirmed_note_hash_for_nullification.html"><code>compute_confirmed_note_hash_for_nullification</code></a>.</p></div>
 </main>
 </span>
 </body>

@@ -47,8 +47,9 @@
 <p>AES128-CBC encryption for Aztec protocol messages.</p>
 <h4>Overview</h4>
 <p>The plaintext is an array of up to <code>MESSAGE_PLAINTEXT_LEN</code> (12) fields. The output is always exactly
-<code>MESSAGE_CIPHERTEXT_LEN</code> (15) fields, regardless of plaintext size. Unused trailing fields are filled with
-random data so that all encrypted messages are indistinguishable by size.</p>
+<code>MESSAGE_CIPHERTEXT_LEN</code> (15) fields, regardless of plaintext size. All output fields except the
+ephemeral public key are uniformly random <code>Field</code> values to any observer without knowledge of the
+shared secret, making all encrypted messages indistinguishable by size or content.</p>
 <h4>PKCS#7 Padding</h4>
 <p>AES operates on 16-byte blocks, so the plaintext must be padded to a multiple of 16. PKCS#7 padding always
 adds at least 1 byte (so the receiver can always detect and strip it), which means:</p>
@@ -84,22 +85,25 @@ producing a 16-byte header ciphertext:</p>
 <h4>Wire Format</h4>
 <p>Messages are transmitted as fields, not bytes. A field is ~254 bits and can safely store 31 whole bytes, so
 we need to pack our byte data into 31-byte chunks. This packing drives the wire format.</p>
-<p><strong>Step 1 -- Assemble bytes.</strong> The ciphertexts are laid out in a byte array, padded with random bytes to a
+<p><strong>Step 1 -- Assemble bytes.</strong> The ciphertexts are laid out in a byte array, padded with zero bytes to a
 multiple of 31 so it divides evenly into fields:</p>
 <pre><code class="language-text">+------------+-------------------------+---------+
 | header ct  |        body ct          | byte pad|
-|   16 B     | PlaintextLen*32 + 16 B  | (random)|
+|   16 B     | PlaintextLen*32 + 16 B  | (zeros) |
 +------------+-------------------------+---------+
 |&lt;-------- padded to a multiple of 31 B --------&gt;|
 </code></pre>
-<p><strong>Step 2 -- Pack into fields.</strong> The byte array is split into 31-byte chunks, each stored in one field. The
-ephemeral public key x-coordinate is prepended as its own field. Any remaining fields (up to 15 total) are
-filled with random data so that all messages are the same size:</p>
+<p><strong>Step 2 -- Pack and mask.</strong> The byte array is split into 31-byte chunks, each stored in one field. A
+Poseidon2-derived mask (see <code>derive_field_mask</code>) is added to each so that the resulting fields appear as
+uniformly random <code>Field</code> values to any observer without knowledge of the shared secret, hiding the fact
+that the underlying ciphertext consists of 128-bit AES blocks.</p>
+<p><strong>Step 3 -- Assemble ciphertext.</strong> The ephemeral public key x-coordinate is prepended and random field padding
+is appended to fill to 15 fields:</p>
 <pre><code class="language-text">+----------+-------------------------+-------------------+
-| eph_pk.x |  message-byte fields    | random field pad  |
-|          | (packed 31 B per field)  |  (fills to 15)   |
+| eph_pk.x |  masked message fields   | random field pad  |
+|          | (packed 31 B per field)  |  (fills to 15)    |
 +----------+-------------------------+-------------------+
-|&lt;---------- MESSAGE_CIPHERTEXT_LEN = 15 fields -------&gt;|
+|&lt;---------- MESSAGE_CIPHERTEXT_LEN = 15 fields --------&gt;|
 </code></pre>
 <h4>Key Derivation</h4>
 <p>Two (key, IV) pairs are derived from the ECDH shared secret via Poseidon2 hashing with different domain

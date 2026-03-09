@@ -1,10 +1,10 @@
 import { ARCHIVER_DB_VERSION, type Archiver } from '@aztec/archiver';
 import { tryRmDir } from '@aztec/foundation/fs';
 import type { Logger } from '@aztec/foundation/log';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { createFileStore } from '@aztec/stdlib/file-store';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { uploadSnapshotToIndex } from '@aztec/stdlib/snapshots';
 import { WORLD_STATE_DB_VERSION } from '@aztec/world-state';
 

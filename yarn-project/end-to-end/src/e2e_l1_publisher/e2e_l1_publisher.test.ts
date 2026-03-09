@@ -450,7 +450,7 @@ describe('L1Publisher integration', () => {
         const checkpoint = await buildCheckpoint(globalVariables, txs, currentL1ToL2Messages);
         const block = checkpoint.blocks[0];
 
-        const totalManaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.totalGas.l2Gas)), Fr.ZERO);
+        const totalManaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
         expect(totalManaUsed.toBigInt()).toEqual(block.header.totalManaUsed.toBigInt());
 
         prevHeader = block.header;

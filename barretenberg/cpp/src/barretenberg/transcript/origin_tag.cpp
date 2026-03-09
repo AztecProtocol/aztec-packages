@@ -92,7 +92,8 @@ OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
 {
     // Elements with instant death should not be touched
     if (tag_a.instant_death || tag_b.instant_death) {
-        throw_or_abort("Touched an element that should not have been touched");
+        throw_or_abort("Touched an element that should not have been touched. tag_a id: " +
+                       std::to_string(tag_a.tag_id) + ", tag_b id: " + std::to_string(tag_b.tag_id));
     }
     // If one of the tags is a constant, just use the other tag
     if (tag_a.transcript_index == CONSTANT) {
@@ -107,7 +108,9 @@ OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
     // A free witness element should not interact with an element that has an origin
     if (tag_a.is_free_witness()) {
         if (!tag_b.is_free_witness() && !tag_b.is_empty()) {
-            throw_or_abort("A free witness element should not interact with an element that has an origin");
+            throw_or_abort(
+                "A free witness element (id: " + std::to_string(tag_a.tag_id) +
+                ") should not interact with an element that has an origin (id: " + std::to_string(tag_b.tag_id) + ")");
         } else {
             // If both are free witnesses or one of them is empty, just use tag_a
             *this = tag_a;
@@ -116,7 +119,9 @@ OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
     }
     if (tag_b.is_free_witness()) {
         if (!tag_a.is_free_witness() && !tag_a.is_empty()) {
-            throw_or_abort("A free witness element should not interact with an element that has an origin");
+            throw_or_abort(
+                "A free witness element (id: " + std::to_string(tag_b.tag_id) +
+                ") should not interact with an element that has an origin (id: " + std::to_string(tag_a.tag_id) + ")");
         } else {
             // If both are free witnesses or one of them is empty, just use tag_b
             *this = tag_b;
@@ -125,7 +130,10 @@ OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
     }
     // Elements from different transcripts shouldn't interact
     if (tag_a.transcript_index != tag_b.transcript_index) {
-        throw_or_abort("Tags from different transcripts were involved in the same computation");
+        throw_or_abort("Tags from different transcripts were involved in the same computation. tag_a: { id: " +
+                       std::to_string(tag_a.tag_id) + ", transcript: " + std::to_string(tag_a.transcript_index) +
+                       " } tag_b: { id: " + std::to_string(tag_b.tag_id) +
+                       ", transcript: " + std::to_string(tag_b.transcript_index) + " }");
     }
     // Check that submitted values from different rounds don't mix without challenges
     check_round_provenance(tag_a.round_provenance, tag_b.round_provenance);

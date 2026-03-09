@@ -120,8 +120,8 @@ export class FlatPublicLogs {
 
 export class PublicLog {
   constructor(
-    public contractAddress: AztecAddress,
-    public fields: Fr[],
+    public readonly contractAddress: AztecAddress,
+    public readonly fields: Fr[],
   ) {}
 
   static from(fields: FieldsOf<PublicLog>) {
@@ -146,7 +146,9 @@ export class PublicLog {
     return this.fields.length + PUBLIC_LOG_HEADER_LENGTH;
   }
 
+  /** Returns the serialized log (field as in noir field and not a struct field). */
   getEmittedFields() {
+    // We slice from 0 to return a shallow copy.
     return this.fields.slice(0);
   }
 

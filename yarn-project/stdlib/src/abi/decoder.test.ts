@@ -269,4 +269,60 @@ describe('decoder', () => {
       { x: 1n, y: 2n, is_infinite: false },
     ]);
   });
+
+  it('decodes Option::Some as the wrapped value', () => {
+    const decoded = decodeFromAbi(
+      [
+        {
+          kind: 'struct',
+          path: 'std::option::Option',
+          fields: [
+            { name: '_is_some', type: { kind: 'boolean' } },
+            {
+              name: '_value',
+              type: {
+                kind: 'struct',
+                path: 'Test::CustomStruct',
+                fields: [
+                  { name: 'w', type: { kind: 'field' } },
+                  { name: 'x', type: { kind: 'boolean' } },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+      [new Fr(1n), new Fr(7n), new Fr(1n)],
+    );
+
+    expect(decoded).toEqual({ w: 7n, x: true });
+  });
+
+  it('decodes Option::None as undefined', () => {
+    const decoded = decodeFromAbi(
+      [
+        {
+          kind: 'struct',
+          path: 'std::option::Option',
+          fields: [
+            { name: '_is_some', type: { kind: 'boolean' } },
+            {
+              name: '_value',
+              type: {
+                kind: 'struct',
+                path: 'Test::CustomStruct',
+                fields: [
+                  { name: 'w', type: { kind: 'field' } },
+                  { name: 'x', type: { kind: 'boolean' } },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+      [Fr.ZERO, new Fr(7n), new Fr(1n)],
+    );
+
+    expect(decoded).toBeUndefined();
+  });
 });

@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -12,7 +12,10 @@
 
 namespace bb::grumpkin {
 
+// Max num bits such that all numbers represented by that many bits are smaller than fr::modulus
 constexpr size_t MAX_NO_WRAP_INTEGER_BIT_LENGTH = 252;
+static_assert((uint256_t(1) << (MAX_NO_WRAP_INTEGER_BIT_LENGTH + 1)) - 1 < fr::modulus,
+              "MAX_NO_WRAP_INTEGER_BIT_LENGTH is too large");
 
 using fq = bb::fr;
 using fr = bb::fq;
@@ -22,7 +25,6 @@ struct G1Params {
     static constexpr bool can_hash_to_curve = true;
     static constexpr bool small_elements = true;
     static constexpr bool has_a = false;
-// have checked in grumpkin.test_b that b is Montgomery form of -17
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     static constexpr bb::fr b{ 0xdd7056026000005a, 0x223fa97acb319311, 0xcc388229877910c0, 0x34394632b724eaa };
 #else
@@ -30,7 +32,7 @@ struct G1Params {
 #endif
     static constexpr bb::fr a{ 0UL, 0UL, 0UL, 0UL };
 
-    // generator point = (x, y) = (1, sqrt(-16)), sqrt(-16) = 4i
+    // generator point = (x, y) = (1, sqrt(-16)) = (1, -4i)
     static constexpr bb::fr one_x = bb::fr::one();
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     static constexpr bb::fr one_y{
@@ -63,9 +65,6 @@ class Grumpkin {
     using AffineElement = typename Group::affine_element;
 
     static constexpr const char* name = "Grumpkin";
-    // TODO(#673): This flag is temporary. It is needed in the verifier classes (GeminiVerifier, etc.) while these
-    // classes are instantiated with "native" curve types. Eventually, the verifier classes will be instantiated only
-    // with stdlib types, and "native" verification will be acheived via a simulated builder.
     static constexpr bool is_stdlib_type = false;
 
     // Required by SmallSubgroupIPA argument. This constant needs to divide the size of the multiplicative subgroup of
