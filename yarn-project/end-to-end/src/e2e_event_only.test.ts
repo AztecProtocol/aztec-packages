@@ -26,14 +26,16 @@ describe('EventOnly', () => {
       accounts: [defaultAccountAddress],
     } = await setup(1));
     await ensureAccountContractsPublished(wallet, [defaultAccountAddress]);
-    eventOnlyContract = await EventOnlyContract.deploy(wallet).send({ from: defaultAccountAddress });
+    ({ contract: eventOnlyContract } = await EventOnlyContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
 
   afterAll(() => teardown());
 
   it('emits and retrieves a private event for a contract with no notes', async () => {
     const value = Fr.random();
-    const tx = await eventOnlyContract.methods.emit_event_for_msg_sender(value).send({ from: defaultAccountAddress });
+    const { receipt: tx } = await eventOnlyContract.methods
+      .emit_event_for_msg_sender(value)
+      .send({ from: defaultAccountAddress });
 
     const events = await wallet.getPrivateEvents<TestEvent>(EventOnlyContract.events.TestEvent, {
       contractAddress: eventOnlyContract.address,

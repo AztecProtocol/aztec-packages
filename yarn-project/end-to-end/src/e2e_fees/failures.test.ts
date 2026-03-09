@@ -84,7 +84,7 @@ describe('e2e_fees failures', () => {
 
     const currentSequencerRewards = await t.getCoinbaseSequencerRewards();
 
-    const txReceipt = await bananaCoin.methods
+    const { receipt: txReceipt } = await bananaCoin.methods
       .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
       .send({
         from: aliceAddress,
@@ -187,7 +187,7 @@ describe('e2e_fees failures', () => {
     );
 
     // if we skip simulation, it includes the failed TX
-    const txReceipt = await bananaCoin.methods
+    const { receipt: txReceipt } = await bananaCoin.methods
       .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
       .send({
         from: aliceAddress,
@@ -285,7 +285,7 @@ describe('e2e_fees failures', () => {
         }),
     ).rejects.toThrow();
 
-    const receipt = await bananaCoin.methods
+    const { receipt } = await bananaCoin.methods
       .mint_to_public(aliceAddress, 1n) // random operation
       .send({
         from: aliceAddress,

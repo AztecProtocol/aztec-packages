@@ -43,7 +43,9 @@ describe('e2e_fees Fee Juice payments', () => {
 
   describe('without initial funds', () => {
     beforeAll(async () => {
-      expect(await feeJuiceContract.methods.balance_of_public(bobAddress).simulate({ from: bobAddress })).toEqual(0n);
+      expect(
+        (await feeJuiceContract.methods.balance_of_public(bobAddress).simulate({ from: bobAddress })).result,
+      ).toEqual(0n);
     });
 
     it('fails to simulate a tx', async () => {
@@ -63,10 +65,12 @@ describe('e2e_fees Fee Juice payments', () => {
     it('claims bridged funds and pays with them on the same tx', async () => {
       const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(bobAddress);
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobAddress, claim);
-      const receipt = await feeJuiceContract.methods
+      const { receipt } = await feeJuiceContract.methods
         .check_balance(0n)
         .send({ from: bobAddress, fee: { gasSettings, paymentMethod } });
-      const endBalance = await feeJuiceContract.methods.balance_of_public(bobAddress).simulate({ from: bobAddress });
+      const { result: endBalance } = await feeJuiceContract.methods
+        .balance_of_public(bobAddress)
+        .simulate({ from: bobAddress });
 
       expect(endBalance).toBeGreaterThan(0n);
       expect(endBalance).toBeLessThan(claim.claimAmount);
@@ -76,28 +80,30 @@ describe('e2e_fees Fee Juice payments', () => {
 
   describe('with initial funds', () => {
     it('sends tx with payment in Fee Juice with public calls', async () => {
-      const initialBalance = await feeJuiceContract.methods
+      const { result: initialBalance } = await feeJuiceContract.methods
         .balance_of_public(aliceAddress)
         .simulate({ from: aliceAddress });
-      const { transactionFee } = await bananaCoin.methods
+      const {
+        receipt: { transactionFee },
+      } = await bananaCoin.methods
         .transfer_in_public(aliceAddress, bobAddress, 1n, 0n)
         .send({ fee: { gasSettings }, from: aliceAddress });
       expect(transactionFee).toBeGreaterThan(0n);
-      const endBalance = await feeJuiceContract.methods
+      const { result: endBalance } = await feeJuiceContract.methods
         .balance_of_public(aliceAddress)
         .simulate({ from: aliceAddress });
       expect(endBalance).toBeLessThan(initialBalance);
     });
 
     it('sends tx fee payment in Fee Juice with no public calls', async () => {
-      const initialBalance = await feeJuiceContract.methods
+      const { result: initialBalance } = await feeJuiceContract.methods
         .balance_of_public(aliceAddress)
         .simulate({ from: aliceAddress });
-      const { transactionFee } = await bananaCoin.methods
-        .transfer(bobAddress, 1n)
-        .send({ fee: { gasSettings }, from: aliceAddress });
+      const {
+        receipt: { transactionFee },
+      } = await bananaCoin.methods.transfer(bobAddress, 1n).send({ fee: { gasSettings }, from: aliceAddress });
       expect(transactionFee).toBeGreaterThan(0n);
-      const endBalance = await feeJuiceContract.methods
+      const { result: endBalance } = await feeJuiceContract.methods
         .balance_of_public(aliceAddress)
         .simulate({ from: aliceAddress });
       expect(endBalance).toBeLessThan(initialBalance);

@@ -59,6 +59,7 @@ describe('EpochPruneWatcher', () => {
       ethereumSlotDuration: 12,
       proofSubmissionEpochs: 1,
       targetCommitteeSize: 48,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
     };
 
     epochCache.getL1Constants.mockReturnValue(l1Constants);

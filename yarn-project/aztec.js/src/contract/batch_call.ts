@@ -6,6 +6,8 @@ import { BaseContractInteraction } from './base_contract_interaction.js';
 import {
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
+  emptyOffchainOutput,
+  extractOffchainOutput,
   toSimulateOptions,
 } from './interaction_options.js';
 
@@ -108,7 +110,10 @@ export class BatchCall extends BaseContractInteraction {
       const wrappedResult = batchResults[i];
       if (wrappedResult.name === 'executeUtility') {
         const rawReturnValues = (wrappedResult.result as UtilityExecutionResult).result;
-        results[resultIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
+        results[resultIndex] = {
+          result: rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [],
+          ...emptyOffchainOutput(),
+        };
       }
     }
 
@@ -127,7 +132,10 @@ export class BatchCall extends BaseContractInteraction {
               ? simulatedTx.getPrivateReturnValues()?.nested?.[resultIndex].values
               : simulatedTx.getPublicReturnValues()?.[resultIndex].values;
 
-          results[callIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
+          results[callIndex] = {
+            result: rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [],
+            ...extractOffchainOutput(simulatedTx.offchainEffects),
+          };
         });
       }
     }

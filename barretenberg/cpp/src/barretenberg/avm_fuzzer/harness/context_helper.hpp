@@ -10,6 +10,7 @@
 #include "barretenberg/vm2/simulation/gadgets/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
 #include "barretenberg/vm2/simulation/gadgets/gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/indexed_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/internal_call_stack_manager.hpp"
 #include "barretenberg/vm2/simulation/gadgets/merkle_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
@@ -87,17 +88,17 @@ class GadgetFuzzerContextHelper {
     EventEmitter<UpdateCheckEvent> update_check_emitter;
     EventEmitter<MerkleCheckEvent> merkle_check_emitter;
     EventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
-    EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_tree_check_emitter;
+    EventEmitter<IndexedTreeCheckEvent> indexed_tree_check_emitter;
     EventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
     EventEmitter<BytecodeHashingEvent> bytecode_hashing_emitter;
     EventEmitter<BytecodeDecompositionEvent> bytecode_decomposition_emitter;
-    EventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
     EventEmitter<CalldataEvent> calldata_event_emitter;
     DeduplicatingEventEmitter<InstructionFetchingEvent> instruction_fetching_emitter;
 
     // Gadgets:
     MerkleCheck merkle_check;
     Poseidon2 poseidon2;
+    IndexedTreeCheck indexed_tree_check;
     WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check;
     RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check;
     std::unique_ptr<TxBytecodeManager> tx_bytecode_manager;

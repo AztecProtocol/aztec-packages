@@ -32,6 +32,7 @@ import {
   type ForeignCallResult,
   ForeignCallResultSchema,
   type ForeignCallSingle,
+  addressFromSingle,
   fromArray,
   fromSingle,
   toSingle,
@@ -105,6 +106,8 @@ class TXEDispatcher {
 
     const decodedArgs = fromArray(inputs[3] as ForeignCallArray);
     const secret = fromSingle(inputs[4] as ForeignCallSingle);
+    const salt = fromSingle(inputs[5] as ForeignCallSingle);
+    const deployer = addressFromSingle(inputs[6] as ForeignCallSingle);
     const publicKeys = secret.equals(Fr.ZERO) ? PublicKeys.default() : (await deriveKeys(secret)).publicKeys;
     const publicKeysHash = await publicKeys.hash();
 
@@ -135,7 +138,7 @@ class TXEDispatcher {
 
     const cacheKey = `${contractDirectory ?? ''}-${contractFilename}-${initializer}-${decodedArgs
       .map(arg => arg.toString())
-      .join('-')}-${publicKeysHash}-${fileHash}`;
+      .join('-')}-${publicKeysHash}-${salt}-${deployer}-${fileHash}`;
 
     let instance;
     let artifact: ContractArtifactWithHash;
@@ -161,10 +164,10 @@ class TXEDispatcher {
           const computedInstance = await getContractInstanceFromInstantiationParams(computedArtifact, {
             constructorArgs: decodedArgs,
             skipArgsDecoding: true,
-            salt: Fr.ONE,
+            salt,
             publicKeys,
             constructorArtifact: initializer ? initializer : undefined,
-            deployer: AztecAddress.ZERO,
+            deployer,
           });
           const result = { artifact: computedArtifact, instance: computedInstance };
           TXEArtifactsCache.set(cacheKey, result);
@@ -247,11 +250,11 @@ class TXEDispatcher {
     }
 
     switch (functionName) {
-      case 'txeDeploy': {
+      case 'aztec_txe_deploy': {
         await this.#processDeployInputs(callData);
         break;
       }
-      case 'txeAddAccount': {
+      case 'aztec_txe_addAccount': {
         await this.#processAddAccountInputs(callData);
         break;
       }

@@ -94,6 +94,8 @@ TEST(ContractInstanceRetrievalConstrainingTest, CompleteValidTrace)
           { C::contract_instance_retrieval_init_hash, init_hash },
           { C::contract_instance_retrieval_public_data_tree_root, public_data_tree_root },
           { C::contract_instance_retrieval_nullifier_tree_root, nullifier_tree_root },
+          { C::contract_instance_retrieval_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+          { C::contract_instance_retrieval_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
           { C::contract_instance_retrieval_nullifier_key_x, nullifier_key_x },
           { C::contract_instance_retrieval_nullifier_key_y, nullifier_key_y },
           { C::contract_instance_retrieval_incoming_viewing_key_x, incoming_viewing_key_x },
@@ -146,6 +148,8 @@ TEST(ContractInstanceRetrievalConstrainingTest, MultipleInstancesTrace)
             { C::contract_instance_retrieval_init_hash, contract_instance.initialization_hash },
             { C::contract_instance_retrieval_public_data_tree_root, FF(base_public_data_tree_root + i) },
             { C::contract_instance_retrieval_nullifier_tree_root, FF(base_nullifier_tree_root + i) },
+            { C::contract_instance_retrieval_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+            { C::contract_instance_retrieval_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
             { C::contract_instance_retrieval_nullifier_key_x, contract_instance.public_keys.nullifier_key.x },
             { C::contract_instance_retrieval_nullifier_key_y, contract_instance.public_keys.nullifier_key.y },
             { C::contract_instance_retrieval_incoming_viewing_key_x,
@@ -195,6 +199,8 @@ TEST(ContractInstanceRetrievalConstrainingTest, NonExistentInstanceTrace)
           { C::contract_instance_retrieval_init_hash, 0 },
           { C::contract_instance_retrieval_public_data_tree_root, public_data_tree_root },
           { C::contract_instance_retrieval_nullifier_tree_root, nullifier_tree_root },
+          { C::contract_instance_retrieval_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+          { C::contract_instance_retrieval_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
           { C::contract_instance_retrieval_deployer_protocol_contract_address,
             CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
           // Protocol Contract conditionals
@@ -253,6 +259,8 @@ TEST(ContractInstanceRetrievalConstrainingTest, MaximumFieldValuesTrace)
           { C::contract_instance_retrieval_init_hash, max_field },
           { C::contract_instance_retrieval_public_data_tree_root, max_field },
           { C::contract_instance_retrieval_nullifier_tree_root, max_field },
+          { C::contract_instance_retrieval_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+          { C::contract_instance_retrieval_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
           { C::contract_instance_retrieval_nullifier_key_x, max_field },
           { C::contract_instance_retrieval_nullifier_key_y, max_field },
           { C::contract_instance_retrieval_incoming_viewing_key_x, max_field },
@@ -432,12 +440,14 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenValidInstance
     trace.set(
         1,
         { { // For deployment nullifier lookup
-            { C::nullifier_check_sel, 1 },
-            { C::nullifier_check_exists, 1 },
-            { C::nullifier_check_nullifier, contract_address },
-            { C::nullifier_check_root, nullifier_tree_root },
-            { C::nullifier_check_address, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
-            { C::nullifier_check_sel_silo, 1 },
+            { C::indexed_tree_check_sel, 1 },
+            { C::indexed_tree_check_exists, 1 },
+            { C::indexed_tree_check_value, contract_address },
+            { C::indexed_tree_check_root, nullifier_tree_root },
+            { C::indexed_tree_check_address, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
+            { C::indexed_tree_check_sel_silo, 1 },
+            { C::indexed_tree_check_tree_height, NULLIFIER_TREE_HEIGHT },
+            { C::indexed_tree_check_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
             // For address derivation lookup
             { C::address_derivation_sel, 1 },
             { C::address_derivation_address, contract_address },
@@ -508,12 +518,14 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenNonExistentIn
 
     trace.set(1,
               { { // For deployment nullifier read lookup
-                  { C::nullifier_check_sel, 1 },
-                  { C::nullifier_check_exists, 0 }, // Non-existent
-                  { C::nullifier_check_nullifier, contract_address },
-                  { C::nullifier_check_root, nullifier_tree_root },
-                  { C::nullifier_check_address, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
-                  { C::nullifier_check_sel_silo, 1 },
+                  { C::indexed_tree_check_sel, 1 },
+                  { C::indexed_tree_check_exists, 0 }, // Non-existent
+                  { C::indexed_tree_check_value, contract_address },
+                  { C::indexed_tree_check_root, nullifier_tree_root },
+                  { C::indexed_tree_check_address, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
+                  { C::indexed_tree_check_sel_silo, 1 },
+                  { C::indexed_tree_check_tree_height, NULLIFIER_TREE_HEIGHT },
+                  { C::indexed_tree_check_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
                   // For address derivation lookup
                   { C::address_derivation_sel, 0 }, // Not selected since nullifier doesn't exist
                   { C::address_derivation_address, contract_address },
@@ -586,12 +598,14 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenAddressZero)
 
     trace.set(1,
               { { // For deployment nullifier read lookup
-                  { C::nullifier_check_sel, 1 },
-                  { C::nullifier_check_exists, 0 }, // Non-existent
-                  { C::nullifier_check_nullifier, contract_address },
-                  { C::nullifier_check_root, nullifier_tree_root },
-                  { C::nullifier_check_address, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
-                  { C::nullifier_check_sel_silo, 1 },
+                  { C::indexed_tree_check_sel, 1 },
+                  { C::indexed_tree_check_exists, 0 }, // Non-existent
+                  { C::indexed_tree_check_value, contract_address },
+                  { C::indexed_tree_check_root, nullifier_tree_root },
+                  { C::indexed_tree_check_address, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
+                  { C::indexed_tree_check_sel_silo, 1 },
+                  { C::indexed_tree_check_tree_height, NULLIFIER_TREE_HEIGHT },
+                  { C::indexed_tree_check_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
                   // For address derivation lookup
                   { C::address_derivation_sel, 0 }, // Not selected since nullifier doesn't exist
                   { C::address_derivation_address, contract_address },
@@ -673,12 +687,14 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenMultipleInsta
 
         trace.set(
             row, // For deployment nullifier read lookup
-            { { { C::nullifier_check_sel, 1 },
-                { C::nullifier_check_exists, true },
-                { C::nullifier_check_nullifier, FF(base_address + i) },
-                { C::nullifier_check_root, FF(base_nullifier_tree_root + i) },
-                { C::nullifier_check_address, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
-                { C::nullifier_check_sel_silo, 1 },
+            { { { C::indexed_tree_check_sel, 1 },
+                { C::indexed_tree_check_exists, true },
+                { C::indexed_tree_check_value, FF(base_address + i) },
+                { C::indexed_tree_check_root, FF(base_nullifier_tree_root + i) },
+                { C::indexed_tree_check_address, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
+                { C::indexed_tree_check_sel_silo, 1 },
+                { C::indexed_tree_check_tree_height, NULLIFIER_TREE_HEIGHT },
+                { C::indexed_tree_check_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
                 // For address derivation lookup (only when nullifier exists)
                 { C::address_derivation_sel, 1 },
                 { C::address_derivation_address, FF(base_address + i) },
