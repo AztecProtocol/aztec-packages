@@ -27,13 +27,19 @@ pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
 
 /// A function that manages offchain-delivered messages for processing during sync.
 ///
-/// Offchain messages are transaction effects that are not broadcasted via onchain logs. They are instead delivered to
-/// the recipient through an external channel (e.g. a URL) and stored locally via the auto-generated
-/// `offchain_receive` utility function (injected by the `#[aztec]` macro). This handler is responsible for deciding
-/// when each message is ready for processing, when it can be safely disposed of, etc.
+/// Offchain messages are messages that are not broadcasted via onchain logs. They are instead delivered to the
+/// recipient by calling the `offchain_receive` utility function (injected by the `#[aztec]` macro). Message transport
+/// is the app's responsibility. Typical examples of transport methods are: messaging apps, email, QR codes, etc.
 ///
-/// The default implementation is [`sync_inbox`], which manages an inbox with expiration-based eviction and
-/// automatic context resolution.
+/// Once offchain messages are delivered to the recipient's private environment via `offchain_receive`, messages are
+/// locally stored in a persistent inbox.
+///
+/// This function determines when each message in said inbox is ready for processing, when it can be safely disposed
+/// of,
+/// etc.
+///
+/// The only current implementation of an `OffchainInboxSync` is [`sync_inbox`], which manages an inbox with expiration
+/// based eviction and automatic transaction context resolution.
 pub(crate) type OffchainInboxSync<Env> = unconstrained fn[Env](
 /* contract_address */AztecAddress) -> CapsuleArray<OffchainMessageWithContext>;
 
