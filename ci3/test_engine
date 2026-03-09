@@ -12,4 +12,6 @@ test_cmds_file=$1
 # Empty commands fed to run_test_cmd are no-ops, so we keep parallel processing results in timely fashion with this.
 while ! grep -Eq '^STOP$' $test_cmds_file; do sleep 5; echo | atomic_append $test_cmds_file; done &>/dev/null &
 # Continuously stream the test cmds into parallelize.
-parallelize < <(tail -n+0 -f $test_cmds_file) 2>/dev/null
+# Close inherited stderr in the process substitution to prevent tail -f from holding
+# the outer pipeline's pipe fd open (which would prevent denoise/redact from seeing EOF).
+parallelize < <(exec 2>/dev/null; tail -n+0 -f $test_cmds_file) 2>/dev/null
