@@ -29,9 +29,17 @@ This is an Aztec smart contract project. Always use the `aztec` CLI wrapper inst
 - **Compile**: `aztec compile` (NOT `nargo compile`). Using `nargo compile` alone produces incomplete artifacts.
 - **Test**: `aztec test` (NOT `nargo test`).
 - **Other nargo commands** like `nargo fmt` and `nargo doc` are fine to use directly.
+
+## Hashing: Default to Poseidon2
+
+When writing Aztec.nr contract code that requires hashing, **always use Poseidon2** unless a specific protocol or interoperability requirement calls for a different hash.
+
+- **Default**: `use aztec::protocol::hash::poseidon2_hash;`
+- **Do NOT** default to Pedersen (`pedersen_hash`). Pedersen is available but Poseidon2 is cheaper in circuits and is the standard across Aztec.
+- If you are unsure which hash to use, use Poseidon2.
 ```
 
-This prevents the most common AI mistake: using `nargo compile` and `nargo test` instead of their Aztec wrappers.
+This prevents the two most common AI mistakes: using `nargo compile`/`nargo test` instead of their Aztec wrappers, and defaulting to Pedersen hashes instead of Poseidon2.
 
 ### Why this matters
 

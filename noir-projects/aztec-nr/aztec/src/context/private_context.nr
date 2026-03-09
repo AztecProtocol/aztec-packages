@@ -727,10 +727,10 @@ impl PrivateContext {
         self.request_sk_app(npk_m_hash, NULLIFIER_INDEX)
     }
 
-    /// Requests the app-siloed nullifier secret key (nsk_app) for the given (hashed) master nullifier public key
-    /// (npk_m), from the user's PXE.
+    /// Requests the app-siloed outgoing viewing secret key (ovsk_app) for the given (hashed) master outgoing
+    /// viewing public key (ovpk_m), from the user's PXE.
     ///
-    /// See `request_nsk_app` and `request_sk_app` for more info.
+    /// See `request_nhk_app` and `request_sk_app` for more info.
     ///
     /// The intention of the "outgoing" keypair is to provide a second secret key for all of a user's outgoing activity
     /// (i.e. for notes that a user creates, as opposed to notes that a user receives from others). The separation of
