@@ -20,8 +20,11 @@ fi
 
 # explode(.) resolves YAML anchors (<<: *prodlike inheritance)
 # Output as props, filter comments, normalize spacing
+# Only set vars not already defined in environment, so callers can override.
 while IFS='=' read -r key value; do
-  export "$key"="$value"
+  if [[ -z "${!key:-}" ]]; then
+    export "$key"="$value"
+  fi
 done < <(yq -o=props "explode(.) | .networks.$network | with_entries(select(.key | test(\"^AZTEC_|^ETHEREUM_\")))" "$network_defaults" \
   | grep -v '^#' \
   | grep -v '^$' \
