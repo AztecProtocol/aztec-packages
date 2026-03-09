@@ -43,7 +43,7 @@
     "cspell": "^8.19.4",
     "docusaurus-plugin-llms": "^0.2.0",
     "dotenv": "^16.6.1",
-    "netlify-cli": "^23.7.3"
+    "netlify-cli": "^24.0.1"
   },
   "cspell": {
     "import": [
