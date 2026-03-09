@@ -29,6 +29,16 @@ This is an Aztec smart contract project. Always use the `aztec` CLI wrapper inst
 - **Compile**: `aztec compile` (NOT `nargo compile`). Using `nargo compile` alone produces incomplete artifacts.
 - **Test**: `aztec test` (NOT `nargo test`).
 - **Other nargo commands** like `nargo fmt` and `nargo doc` are fine to use directly.
+
+## Error Handling
+
+- NEVER silently swallow errors or fall back to default values. If a value is required, throw if it's missing.
+- NEVER use fallback values like `AztecAddress.ZERO`, `"unknown"`, `0`, or `null` to mask missing data. These hide bugs and cause failures elsewhere that are harder to trace.
+- NEVER add retry/polling logic unless explicitly asked. Retry loops with long timeouts may brick application loops and mask the real error.
+- NEVER wrap calls in try/catch that returns null or a default. Let errors propagate.
+- If a precondition isn't met, throw immediately with a descriptive message — don't try to "work around" it.
+- Prefer `T` return types over `T | null` when null would indicate a bug rather than a valid state.
+- Do not add `.catch(() => defaultValue)` to promises. If something fails, the caller needs to know.
 ```
 
 This prevents the most common AI mistake: using `nargo compile` and `nargo test` instead of their Aztec wrappers.
@@ -89,7 +99,7 @@ Use the same MCP configuration format, pointing at `@aztec/mcp-server` and `noir
 These resources help you understand Aztec concepts, read docs, or provide additional context to your AI tool.
 
 - **API reference docs** - The docs site publishes auto-generated API references that are useful to feed to AI tools:
-  - [Aztec.nr API reference](./docs/aztec-nr/api.mdx) - generated from aztec-nr source with `nargo doc`
+  - [Aztec.nr API reference](./docs/aztec-nr/api/index.mdx) - generated from aztec-nr source with `nargo doc`
   - [TypeScript API reference](./docs/aztec-js/typescript_api_reference.mdx) - generated from yarn-project packages with TypeDoc
 
   These are especially useful as context for code generation since they reflect the current API surface.
