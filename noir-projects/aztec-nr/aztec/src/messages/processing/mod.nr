@@ -46,9 +46,9 @@ global LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT: Field = sha256_to_field(
     "AZTEC_NR::LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT".as_bytes(),
 );
 
-/// An offchain-delivered message ready for processing during sync.
+/// An offchain-delivered message with resolved context, ready for processing during sync.
 #[derive(Serialize, Deserialize)]
-pub struct OffchainMessage {
+pub struct OffchainMessageWithContext {
     pub message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
     pub message_context: MessageContext,
 }

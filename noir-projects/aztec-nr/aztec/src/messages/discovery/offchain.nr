@@ -3,7 +3,7 @@ use crate::{
     context::UtilityContext,
     messages::{
         encoding::MESSAGE_CIPHERTEXT_LEN,
-        processing::{MessageContext, MessageTxContext, OffchainMessage, resolve_message_contexts},
+        processing::{MessageContext, MessageTxContext, OffchainMessageWithContext, resolve_message_contexts},
     },
     protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Deserialize, Serialize}},
 };
@@ -22,17 +22,30 @@ global OFFCHAIN_CONTEXT_RESPONSES_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCH
 /// Ephemeral capsule slot used by [`default_handler`] to collect messages ready for processing.
 global OFFCHAIN_READY_MESSAGES_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_READY_MESSAGES_SLOT".as_bytes());
 
+/// Maximum number of offchain messages accepted by `offchain_receive` in a single call.
+pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
+
 /// Minimum time that a message is kept in the inbox before eviction: 24 hours. After 24 hours, the protocol guarantees
 /// that the original TX that emitted the message can no longer be included in a block. This gives us a bounded time
 /// window within which we need to keep messages around in case we need to reprocess them after reorgs.
 global OFFCHAIN_MESSAGE_TTL_SECONDS: u64 = 24 * 3600;
+
+/// A message delivered via the `offchain_receive` utility function.
+pub struct OffchainMessage {
+    /// The encrypted message payload.
+    pub ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
+    /// The intended recipient of the message.
+    pub recipient: AztecAddress,
+    /// The hash of the transaction that produced this message. `Option::none` indicates a tx-less message.
+    pub tx_hash: Option<Field>,
+}
 
 /// An offchain message awaiting processing (or re-processing) in the inbox.
 ///
 /// Messages remain in the inbox until they expire after [`OFFCHAIN_MESSAGE_TTL_SECONDS`], even if they have already
 /// been processed. This is necessary to handle reorgs: a processed message may need to be re-processed if the
 /// transaction that provided its context is reverted. On each sync, resolved messages are promoted to
-/// [`OffchainMessage`] for processing.
+/// [`OffchainMessageWithContext`] for processing.
 #[derive(Serialize, Deserialize)]
 struct PendingOffchainMsg {
     /// The encrypted message payload.
@@ -45,11 +58,11 @@ struct PendingOffchainMsg {
     received_at: u64,
 }
 
-/// Delivers an offchain message to the given contract's offchain inbox for subsequent processing.
+/// Delivers offchain messages to the given contract's offchain inbox for subsequent processing.
 ///
 /// Offchain messages are transaction effects that are not broadcasted via onchain logs. Instead, the sender shares the
 /// message to the recipient through an external channel (e.g. a URL accessible by the recipient). The recipient then
-/// calls this function to hand the message to the contract so it can be processed through the same mechanisms as
+/// calls this function to hand the messages to the contract so they can be processed through the same mechanisms as
 /// onchain messages.
 ///
 /// Messages are processed when their originating transaction is found onchain (providing the context needed to
@@ -61,13 +74,22 @@ struct PendingOffchainMsg {
 /// Processing order is not guaranteed.
 pub unconstrained fn receive(
     contract_address: AztecAddress,
-    ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
-    recipient: AztecAddress,
-    tx_hash: Field,
+    messages: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>,
 ) {
-    CapsuleArray::at(contract_address, OFFCHAIN_INBOX_SLOT).push(
-        PendingOffchainMsg { ciphertext, recipient, tx_hash, received_at: UtilityContext::new().timestamp() },
-    );
+    let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(contract_address, OFFCHAIN_INBOX_SLOT);
+    let received_at = UtilityContext::new().timestamp();
+    let mut i = 0;
+    let messages_len = messages.len();
+    while i < messages_len {
+        let msg = messages.get(i);
+        let tx_hash = if msg.tx_hash.is_some() {
+            msg.tx_hash.unwrap()
+        } else {
+            0
+        };
+        inbox.push(PendingOffchainMsg { ciphertext: msg.ciphertext, recipient: msg.recipient, tx_hash, received_at });
+        i += 1;
+    }
 
     // TODO: Invoke an oracle to invalidate contract sync state cache
 }
@@ -76,12 +98,13 @@ pub unconstrained fn receive(
 ///
 /// Messages remain in the inbox and are reprocessed on each sync until their originating transaction is no longer at
 /// risk of being dropped by a reorg.
-pub unconstrained fn default_handler(address: AztecAddress) -> CapsuleArray<OffchainMessage> {
+pub unconstrained fn default_handler(address: AztecAddress) -> CapsuleArray<OffchainMessageWithContext> {
     let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
     let context_resolution_requests: CapsuleArray<Field> = CapsuleArray::at(address, OFFCHAIN_CONTEXT_REQUESTS_SLOT);
     let resolved_contexts: CapsuleArray<Option<MessageTxContext>> =
         CapsuleArray::at(address, OFFCHAIN_CONTEXT_RESPONSES_SLOT);
-    let ready_to_process: CapsuleArray<OffchainMessage> = CapsuleArray::at(address, OFFCHAIN_READY_MESSAGES_SLOT);
+    let ready_to_process: CapsuleArray<OffchainMessageWithContext> =
+        CapsuleArray::at(address, OFFCHAIN_READY_MESSAGES_SLOT);
 
     // Clear any stale ready messages from a previous run.
     ready_to_process.for_each(|i, _| { ready_to_process.remove(i); });
@@ -164,7 +187,7 @@ pub unconstrained fn default_handler(address: AztecAddress) -> CapsuleArray<Offc
             recipient: msg.recipient,
         };
 
-        ready_to_process.push(OffchainMessage { message_ciphertext: msg.ciphertext, message_context });
+        ready_to_process.push(OffchainMessageWithContext { message_ciphertext: msg.ciphertext, message_context });
     }
 
     ready_to_process

@@ -23,6 +23,10 @@ describe('e2e_offchain_payment', () => {
   let accounts: AztecAddress[];
   let teardown: () => Promise<void>;
   const logger = getLogger();
+  const someField = (value: bigint | string | number | { toField: () => any }) => ({
+    _is_some: true,
+    _value: value,
+  });
 
   jest.setTimeout(TIMEOUT);
 
@@ -72,7 +76,11 @@ describe('e2e_offchain_payment', () => {
     const messageForBob = offchainMessages.find(msg => msg.recipient.equals(bob));
     expect(messageForBob).toBeTruthy();
 
-    await contract.methods.offchain_receive(messageForBob!.payload, bob, receipt.txHash.hash).simulate({ from: bob });
+    await contract.methods
+      .offchain_receive([
+        { ciphertext: messageForBob!.payload, recipient: bob, tx_hash: someField(receipt.txHash.hash) },
+      ])
+      .simulate({ from: bob });
 
     // Force an empty block so the PXE re-syncs and discovers the offchain-delivered note.
     await forceEmptyBlock();
@@ -102,7 +110,9 @@ describe('e2e_offchain_payment', () => {
     expect(messageForBob).toBeTruthy();
 
     // Deliver the offchain message for eventual processing
-    await contract.methods.offchain_receive(messageForBob!.payload, bob, txHash.hash).simulate({ from: bob });
+    await contract.methods
+      .offchain_receive([{ ciphertext: messageForBob!.payload, recipient: bob, tx_hash: someField(txHash.hash) }])
+      .simulate({ from: bob });
 
     // TODO: revisit this. The call to offchain_receive is a utility and as such it causes the contract to sync, which,
     // in combination with our caching policies, means subsequent utility calls won't trigger a re-sync.

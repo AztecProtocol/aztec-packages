@@ -433,9 +433,10 @@ comptime fn generate_process_message(process_custom_message_option: Quoted) -> Q
 comptime fn generate_offchain_receive() -> Quoted {
     quote {
         pub struct offchain_receive_parameters {
-            pub ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
-            pub recipient: aztec::protocol::address::AztecAddress,
-            pub tx_hash: Field,
+            pub messages: BoundedVec<
+                aztec::messages::discovery::offchain::OffchainMessage,
+                aztec::messages::discovery::offchain::MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL,
+            >,
         }
 
         #[abi(functions)]
@@ -443,24 +444,20 @@ comptime fn generate_offchain_receive() -> Quoted {
             parameters: offchain_receive_parameters,
         }
 
-        /// Delivers an offchain message to this contract's offchain inbox for subsequent processing.
+        /// Delivers offchain messages to this contract's offchain inbox for subsequent processing.
         ///
         /// For more details, see [`aztec::messages::discovery::offchain::receive`].
         ///
         /// This function is automatically injected by the `#[aztec]` macro.
         #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
         unconstrained fn offchain_receive(
-            ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
-            recipient: aztec::protocol::address::AztecAddress,
-            tx_hash: Field,
+            messages: BoundedVec<
+                aztec::messages::discovery::offchain::OffchainMessage,
+                aztec::messages::discovery::offchain::MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL,
+            >,
         ) {
             let address = aztec::context::UtilityContext::new().this_address();
-            aztec::messages::discovery::offchain::receive(
-                address,
-                ciphertext,
-                recipient,
-                tx_hash,
-            );
+            aztec::messages::discovery::offchain::receive(address, messages);
         }
     }
 }

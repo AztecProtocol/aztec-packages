@@ -14,7 +14,7 @@ use crate::{
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
-            get_private_logs, MessageContext, OffchainMessage, pending_tagged_log::PendingTaggedLog,
+            get_private_logs, MessageContext, OffchainMessageWithContext, pending_tagged_log::PendingTaggedLog,
             validate_and_store_enqueued_notes_and_events,
         },
     },
@@ -107,7 +107,7 @@ pub type CustomMessageHandler<Env> = unconstrained fn[Env](
 /// expiry and automatic context resolution. It can be overridden via
 /// [`crate::macros::AztecConfig::offchain_message_handler`].
 pub type OffchainMessageHandler<Env> = unconstrained fn[Env](
-/* contract_address */AztecAddress) -> CapsuleArray<OffchainMessage>;
+/* contract_address */AztecAddress) -> CapsuleArray<OffchainMessageWithContext>;
 
 /// Performs the state synchronization process, in which private logs are downloaded and inspected to find new private
 /// notes, partial notes and events, etc., and pending partial notes are processed to search for their completion logs.
@@ -157,7 +157,7 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
 
     if offchain_message_handler.is_some() {
         let fetch = offchain_message_handler.unwrap();
-        let msgs: CapsuleArray<OffchainMessage> = fetch(contract_address);
+        let msgs: CapsuleArray<OffchainMessageWithContext> = fetch(contract_address);
         msgs.for_each(|i, msg| {
             process_message_ciphertext(
                 contract_address,
