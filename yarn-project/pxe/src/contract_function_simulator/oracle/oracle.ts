@@ -554,7 +554,8 @@ export class Oracle {
     return [];
   }
 
-  async utilityResolveMessageContexts(
+  // eslint-disable-next-line camelcase
+  async aztec_utl_utilityResolveMessageContexts(
     [contractAddress]: ACVMField[],
     [messageContextRequestsArrayBaseSlot]: ACVMField[],
     [messageContextResponsesArrayBaseSlot]: ACVMField[],
