@@ -127,8 +127,6 @@ start_build() {
     -v \$HOME/.bb-crs:/home/aztec-dev/.bb-crs \
     -v /dev/kmsg:/dev/kmsg \
     -v /tmp:/tmp \
-    -v \${GOOGLE_APPLICATION_CREDENTIALS}:\${GOOGLE_APPLICATION_CREDENTIALS}:ro \
-    -v \${NETWORK_ENV_FILE}:\${NETWORK_ENV_FILE}:ro \
     -e GOOGLE_APPLICATION_CREDENTIALS="\${GOOGLE_APPLICATION_CREDENTIALS}" \
     -e NETWORK_ENV_FILE="\${NETWORK_ENV_FILE}" \
     -e CI=1 \
