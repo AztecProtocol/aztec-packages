@@ -15,9 +15,11 @@ pub struct MessageContext {
 
 /// Transaction context needed to process a message.
 ///
-/// Like [`MessageContext`], but `MessageTxContext` does not include the recipient. This type is used when processing
-/// offchain messages. MessageTxContext's are resolved via a PXE oracle call, and then it's the contract who pairs
-/// that data up with a recipient to build a `MessageContext`.
+/// Like [`MessageContext`], but `MessageTxContext` does not include the recipient. MessageTxContext's are kind of
+/// adhoc: they are just the minimal data structure that the contract needs to get from a PXE oracle to prepare
+/// offchain messages to be processed. We reify it with a type just because it crosses Noir<->TS boundaries.
+/// The contract knows how to pair the context data with a recipient: then it is able to build a `MessageContext` for
+/// subsequent processing.
 #[derive(Serialize, Deserialize, Eq)]
 pub(crate) struct MessageTxContext {
     pub tx_hash: Field,
