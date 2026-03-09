@@ -55,23 +55,27 @@ pub struct NoteHashAndNullifier {
 /// ```noir
 /// |packed_note, owner, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
 ///     if note_type_id == MyNoteType::get_id() {
-///         assert(packed_note.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
+///         if packed_note.len() != MY_NOTE_TYPE_SERIALIZATION_LENGTH {
+///             Option::none()
+///         } else {
+///             let note = MyNoteType::unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
 ///
-///         let note = MyNoteType::unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
+///             let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
+///             let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
+///                 HintedNote {
+///                     note, contract_address, owner, randomness, storage_slot,
+///                     metadata: SettledNoteMetadata::new(note_nonce).into(),
+///                 },
+///             );
 ///
-///         let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
-///         let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
-///             HintedNote{ note, contract_address, metadata: SettledNoteMetadata::new(note_nonce).into() },
-///             storage_slot
-///         );
+///             let inner_nullifier = note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
 ///
-///         let inner_nullifier = note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
-///
-///         Option::some(
-///             aztec::messages::discovery::NoteHashAndNullifier {
-///                 note_hash, inner_nullifier
-///             }
-///         )
+///             Option::some(
+///                 aztec::messages::discovery::NoteHashAndNullifier {
+///                     note_hash, inner_nullifier
+///                 }
+///             )
+///         }
 ///     } else if note_type_id == MyOtherNoteType::get_id() {
 ///           ... // Similar to above but calling MyOtherNoteType::unpack_content
 ///     } else {

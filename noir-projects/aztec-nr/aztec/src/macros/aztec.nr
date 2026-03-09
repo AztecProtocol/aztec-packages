@@ -256,34 +256,53 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                         // unpack function on it.
                         let expected_len = <$typ as $crate::protocol::traits::Packable>::N;
                         let actual_len = packed_note.len();
-                        assert(
-                            actual_len == expected_len,
-                            f"Expected packed note of length {expected_len} but got {actual_len} for note type id {note_type_id}"
-                        );
+                        if actual_len != expected_len {
+                            aztec::protocol::logging::warn_log_format(
+                                "[aztec-nr] Packed note length mismatch: expected {0}, got {1} for note type id {2}",
+                                [expected_len as Field, actual_len as Field, note_type_id],
+                            );
+                            Option::none()
+                        } else {
+                            let note = $unpack(
+                                aztec::utils::array::subarray(packed_note.storage(), 0),
+                            );
 
-                        let note = $unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
+                            let note_hash =
+                                $compute_note_hash(note, owner, storage_slot, randomness);
 
-                        let note_hash = $compute_note_hash(note, owner, storage_slot, randomness);
-    
-                        // The message discovery process finds settled notes, that is, notes that were created in prior transactions and are therefore already part of the note hash tree. We therefore compute the nullification note hash by treating the note as a settled note with the provided note nonce.
-                        let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
-                            aztec::note::HintedNote{
+                            // The message discovery process finds settled notes, that is, notes that were created in
+                            // prior transactions and are therefore already part of the note hash tree. We therefore
+                            // compute the nullification note hash by treating the note as a settled note with the
+                            // provided note nonce.
+                            let note_hash_for_nullification =
+                                aztec::note::utils::compute_note_hash_for_nullification(
+                                    aztec::note::HintedNote {
+                                        note,
+                                        contract_address,
+                                        owner,
+                                        randomness,
+                                        storage_slot,
+                                        metadata:
+                                            aztec::note::note_metadata::SettledNoteMetadata::new(
+                                                note_nonce,
+                                            )
+                                            .into(),
+                                    },
+                                );
+
+                            let inner_nullifier = $compute_nullifier_unconstrained(
                                 note,
-                                contract_address,
                                 owner,
-                                randomness,
-                                storage_slot,
-                                metadata: aztec::note::note_metadata::SettledNoteMetadata::new(note_nonce).into()
-                            }
-                        );
+                                note_hash_for_nullification,
+                            );
 
-                        let inner_nullifier = $compute_nullifier_unconstrained(note, owner, note_hash_for_nullification);
-
-                        Option::some(
-                            aztec::messages::discovery::NoteHashAndNullifier {
-                                note_hash, inner_nullifier
-                            }
-                        )
+                            Option::some(
+                                aztec::messages::discovery::NoteHashAndNullifier {
+                                    note_hash,
+                                    inner_nullifier,
+                                },
+                            )
+                        }
                     }
                 },
             );
@@ -298,7 +317,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             ///
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
-            unconstrained fn _compute_note_hash_and_nullifier(
+            pub(crate) unconstrained fn _compute_note_hash_and_nullifier(
                 packed_note: BoundedVec<Field, aztec::messages::logs::note::MAX_NOTE_PACKED_LEN>,
                 owner: aztec::protocol::address::AztecAddress,
                 storage_slot: Field,
@@ -321,7 +340,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             ///
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
-            unconstrained fn _compute_note_hash_and_nullifier(
+            pub(crate) unconstrained fn _compute_note_hash_and_nullifier(
                 _packed_note: BoundedVec<Field, aztec::messages::logs::note::MAX_NOTE_PACKED_LEN>,
                 _owner: aztec::protocol::address::AztecAddress,
                 _storage_slot: Field,
