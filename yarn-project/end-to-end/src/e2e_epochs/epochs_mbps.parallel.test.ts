@@ -370,7 +370,7 @@ describe('e2e_epochs/epochs_mbps', () => {
       l1ToL2Messages.map(async ({ msgHash }, i) => {
         logger.warn(`Waiting for L1→L2 message ${i + 1} to be ready`);
         await retryUntil(
-          () => isL1ToL2MessageReady(context.aztecNode, msgHash, { forPublicConsumption: true }),
+          () => isL1ToL2MessageReady(context.aztecNode, msgHash),
           `L1→L2 message ${i + 1} ready`,
           test.L2_SLOT_DURATION_IN_S * 5,
         );

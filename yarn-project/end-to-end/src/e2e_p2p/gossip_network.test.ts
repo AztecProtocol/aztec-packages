@@ -213,7 +213,7 @@ describe('e2e_p2p_network', () => {
         return provenBlock > 0;
       },
       'proven block',
-      SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecProofSubmissionWindow * AZTEC_EPOCH_DURATION * AZTEC_SLOT_DURATION,
+      SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecProofSubmissionEpochs * AZTEC_EPOCH_DURATION * AZTEC_SLOT_DURATION,
     );
   });
 });

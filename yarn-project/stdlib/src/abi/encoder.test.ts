@@ -160,6 +160,82 @@ describe('abi/encoder', () => {
     expect(encodeArguments(abi, [{ inner: value }])).toEqual([value]);
   });
 
+  describe('option struct inputs', () => {
+    const optionStructAbi: FunctionAbi = {
+      name: 'test',
+      isInitializer: false,
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'value',
+          type: {
+            kind: 'struct',
+            path: 'std::option::Option',
+            fields: [
+              { name: '_is_some', type: { kind: 'boolean' } },
+              {
+                name: '_value',
+                type: {
+                  kind: 'struct',
+                  path: 'Test::CustomStruct',
+                  fields: [
+                    { name: 'w', type: { kind: 'field' } },
+                    { name: 'x', type: { kind: 'boolean' } },
+                    { name: 'y', type: { kind: 'integer', sign: 'unsigned', width: 64 } },
+                    { name: 'z', type: { kind: 'integer', sign: 'signed', width: 64 } },
+                  ],
+                },
+              },
+            ],
+          },
+          visibility: 'private',
+        },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    const someValue = { w: 1n, x: true, y: 2n, z: -3n };
+
+    it('encodes a direct value as Some', () => {
+      expect(encodeArguments(optionStructAbi, [someValue])).toEqual([
+        new Fr(1n),
+        new Fr(1n),
+        new Fr(1n),
+        new Fr(2n),
+        new Fr((1n << 64n) - 3n),
+      ]);
+    });
+
+    it.each([undefined, null])('encodes %p as None', value => {
+      expect(encodeArguments(optionStructAbi, [value])).toEqual([Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO]);
+    });
+
+    it('encodes the lowered ABI shape for Some', () => {
+      // eslint-disable-next-line camelcase
+      expect(encodeArguments(optionStructAbi, [{ _is_some: true, _value: someValue }])).toEqual([
+        new Fr(1n),
+        new Fr(1n),
+        new Fr(1n),
+        new Fr(2n),
+        new Fr((1n << 64n) - 3n),
+      ]);
+    });
+
+    it('encodes the lowered ABI shape for None without requiring _value', () => {
+      // eslint-disable-next-line camelcase
+      expect(encodeArguments(optionStructAbi, [{ _is_some: false }])).toEqual([
+        Fr.ZERO,
+        Fr.ZERO,
+        Fr.ZERO,
+        Fr.ZERO,
+        Fr.ZERO,
+      ]);
+    });
+  });
+
   it('throws when passing string argument as field', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',

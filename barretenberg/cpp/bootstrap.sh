@@ -35,6 +35,13 @@ function inject_version {
   # Version starts immediately after the sentinel
   local version_offset=$((sentinel_offset + ${#sentinel}))
   printf "$version\0" | dd of="$binary" bs=1 seek=$version_offset conv=notrunc 2>/dev/null
+
+  # Re-sign after modifying the binary.
+  if [[ "$(os)" == "macos" ]]; then
+    codesign -s - -f "$binary" 2>/dev/null || true
+  elif llvm-objdump --macho --private-header "$binary" &>/dev/null; then
+    ldid -S "$binary"
+  fi
 }
 
 # Define build commands for each preset
@@ -55,6 +62,7 @@ function build_preset() {
 function build_native_objects {
   set -eu
   if ! cache_exists barretenberg-$native_preset-$hash.zst; then
+    (flock -x 200 && cd src/barretenberg/nodejs_module && yarn --immutable) 200>/tmp/bb-yarn.lock
     cmake --preset "$native_preset"
     targets=$(cmake --build --preset "$native_preset" --target help | awk -F: '$1 ~ /(_objects|_tests|_bench|_gen|.a)$/ && $1 !~ /^cmake_/{print $1}' | tr '\n' ' ')
     cmake --build --preset "$native_preset" --target $targets nodejs_module
@@ -87,6 +95,7 @@ function build_cross_objects {
   set -eu
   target=$1
   if ! cache_exists barretenberg-$target-$hash.zst; then
+    (flock -x 200 && cd src/barretenberg/nodejs_module && yarn --immutable) 200>/tmp/bb-yarn.lock
     build_preset zig-$target --target barretenberg nodejs_module vm2_stub circuit_checker honk
   fi
 }
@@ -96,17 +105,13 @@ function build_cross_objects {
 function build_cross {
   set -eu
   target=$1
-  is_macos=${2:-false}
   if ! cache_download barretenberg-$target-$hash.zst; then
+    (flock -x 200 && cd src/barretenberg/nodejs_module && yarn --immutable) 200>/tmp/bb-yarn.lock
     build_preset zig-$target --target bb --target nodejs_module --target bb-external
     cache_upload barretenberg-$target-$hash.zst build-zig-$target/{bin,lib}
   fi
   # Always inject version (even for cached binaries) to ensure correct version on release
   inject_version build-zig-$target/bin/bb
-  # Code sign for macOS after version injection (must be last modification to binary)
-  if [ "$is_macos" == "true" ]; then
-    ldid -S build-zig-$target/bin/bb
-  fi
 }
 
 # Build static library (.a) for iOS using Zig cross-compilation from Linux.
@@ -294,8 +299,6 @@ function build {
     rm -rf build*
   fi
 
-  (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
-
   if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
     # Download mobile SDKs before parallel builds (shared across presets)
     bash scripts/download-ios-sdk.sh
@@ -306,8 +309,8 @@ function build {
       "build_wasm" \
       "build_wasm_threads" \
       "build_cross arm64-linux" \
-      "build_cross amd64-macos true" \
-      "build_cross arm64-macos true" \
+      "build_cross amd64-macos" \
+      "build_cross arm64-macos" \
       "build_ios zig-arm64-ios" \
       "build_ios zig-arm64-ios-sim" \
       "build_android zig-arm64-android" \
@@ -325,7 +328,7 @@ function build {
     if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
       bash scripts/download-ios-sdk.sh
       bash scripts/download-android-sysroot.sh
-      builds+=("build_cross arm64-macos true" build_smt_verification "build_ios zig-arm64-ios" "build_ios zig-arm64-ios-sim" "build_android zig-arm64-android" "build_android zig-x86_64-android")
+      builds+=("build_cross arm64-macos" build_smt_verification "build_ios zig-arm64-ios" "build_ios zig-arm64-ios-sim" "build_android zig-arm64-android" "build_android zig-x86_64-android")
     fi
     parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: "${builds[@]}"
   fi

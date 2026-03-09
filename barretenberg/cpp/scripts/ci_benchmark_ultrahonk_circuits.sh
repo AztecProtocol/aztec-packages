@@ -149,13 +149,13 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; the
     tmp_breakdown_file="/tmp/benchmark_breakdown_ultrahonk_${circuit_name}_cpus${cpus}_$$.json"
     cp "$output/benchmark_breakdown.json" "$tmp_breakdown_file"
 
-    # Upload to disk
+    # Upload to S3
     disk_key="ultrahonk-${circuit_name}-cpus${cpus}-${current_sha}"
     {
-      cat "$tmp_breakdown_file" | gzip | cache_disk_transfer_to "bench/ultrahonk-breakdown" "$disk_key"
+      cat "$tmp_breakdown_file" | gzip | cache_s3_transfer_to "bench/ultrahonk-breakdown" "$disk_key"
       rm -f "$tmp_breakdown_file"
     } &
 
-    echo "Uploaded benchmark breakdown to disk: bench/ultrahonk-breakdown/$disk_key"
+    echo "Uploaded benchmark breakdown to S3: bench/ultrahonk-breakdown/$disk_key"
   fi
 fi

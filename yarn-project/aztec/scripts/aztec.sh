@@ -20,6 +20,9 @@ function aztec {
 
 case $cmd in
   test)
+    # Attempt to compile, no-op if there are no changes
+    node --no-warnings "$script_dir/../dest/bin/index.js" compile
+
     export LOG_LEVEL="${LOG_LEVEL:-"error;trace:contract_log"}"
     aztec start --txe --port 8081 &
     server_pid=$!

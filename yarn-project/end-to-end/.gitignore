@@ -5,5 +5,5 @@ example-app-ivc-inputs-out
 dumped-avm-circuit-inputs
 ultrahonk-bench-inputs
 web/main.js*
-consensys_web3signer_25.11.0
+consensys_web3signer_*
 scripts/ha/postgres_data/

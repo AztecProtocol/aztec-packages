@@ -214,7 +214,9 @@ export class TxPoolV2Impl {
     // in-memory reads, and buffered DB writes. Nothing here can throw an unhandled exception.
     const poolAccess = this.#createPreAddPoolAccess();
     const preAddContext: PreAddContext | undefined =
-      opts.feeComparisonOnly !== undefined ? { feeComparisonOnly: opts.feeComparisonOnly } : undefined;
+      opts.feeComparisonOnly !== undefined
+        ? { feeComparisonOnly: opts.feeComparisonOnly, priceBumpPercentage: this.#config.priceBumpPercentage }
+        : undefined;
 
     await this.#store.transactionAsync(async () => {
       for (const tx of txs) {
