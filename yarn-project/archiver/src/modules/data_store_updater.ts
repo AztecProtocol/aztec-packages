@@ -11,7 +11,7 @@ import {
   ContractInstanceUpdatedEvent,
 } from '@aztec/protocol-contracts/instance-registry';
 import type { L2Block, ValidateCheckpointResult } from '@aztec/stdlib/block';
-import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { type PublishedCheckpoint, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
   type ExecutablePrivateFunctionWithMembershipProof,
   type UtilityFunctionWithMembershipProof,
@@ -48,6 +48,7 @@ export class ArchiverDataStoreUpdater {
   constructor(
     private store: KVArchiverDataStore,
     private l2TipsCache?: L2TipsCache,
+    private opts: { rollupManaLimit?: number } = {},
   ) {}
 
   /**
@@ -97,6 +98,10 @@ export class ArchiverDataStoreUpdater {
     checkpoints: PublishedCheckpoint[],
     pendingChainValidationStatus?: ValidateCheckpointResult,
   ): Promise<ReconcileCheckpointsResult> {
+    for (const checkpoint of checkpoints) {
+      validateCheckpoint(checkpoint.checkpoint, { rollupManaLimit: this.opts?.rollupManaLimit });
+    }
+
     const result = await this.store.transactionAsync(async () => {
       // Before adding checkpoints, check for conflicts with local blocks if any
       const { prunedBlocks, lastAlreadyInsertedBlockNumber } = await this.pruneMismatchingLocalBlocks(checkpoints);

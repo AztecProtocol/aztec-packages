@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Script to run AVM fuzzers with default parameters
 # Usage: ./run_fuzzer.sh <command> <fuzzer_type> [options]

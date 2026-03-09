@@ -4,6 +4,12 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../yarn-project/bootstrap.sh hash))
 
 function build {
+  # Noop if user doesn't have docker.
+  if ! command -v docker &>/dev/null; then
+    echo "Docker not installed. Skipping..."
+    return
+  fi
+
   # Create versions.json so we know what to install.
   ../bootstrap.sh versions > ./bin/0.0.1/versions
   echo "Versions:"
@@ -147,8 +153,9 @@ function prep_test_mac {
   fi
 
   # Cleanup background processes on exit.
-  local pids=()
-  trap 'kill "${pids[@]}" &>/dev/null || true' EXIT
+  # Note: can't use local - the trap fires after function scope is gone.
+  _bg_pids=()
+  trap 'kill "${_bg_pids[@]}" &>/dev/null || true' EXIT
 
   # Start Verdaccio in offline mode (no uplinks), bound to all interfaces.
   cat > /tmp/verdaccio-mac-test.yaml <<EOF
@@ -170,13 +177,13 @@ logs: { type: stdout, format: pretty, level: warn }
 EOF
 
   verdaccio --config /tmp/verdaccio-mac-test.yaml --listen 0.0.0.0:$verdaccio_port &>/dev/null &
-  pids+=($!)
+  _bg_pids+=($!)
   while ! nc -z localhost $verdaccio_port &>/dev/null; do sleep 1; done
   echo "Verdaccio running on 0.0.0.0:$verdaccio_port"
 
   # Serve bin/ directory over HTTP to mimic S3-hosted install scripts.
   python3 -m http.server $http_port --directory ./bin --bind 0.0.0.0 &>/dev/null &
-  pids+=($!)
+  _bg_pids+=($!)
   while ! nc -z localhost $http_port &>/dev/null; do sleep 1; done
   echo "HTTP server running on 0.0.0.0:$http_port (serving ./bin/)"
 }
@@ -235,11 +242,18 @@ export -f install_on_mac_vm launch_and_install_on_mac_vm
 
 # Assumes a macos vm is already running.
 # Starts services, and runs install script on the mac vm via ssh.
-function test_mac {
-  echo_header "aztec-up test_mac"
+function test_on_mac_vm {
   local mac_name="${1:?Mac vm name (e.g. 14)}"
+  echo_header "aztec-up test_on_mac_vm"
   prep_test_mac
   install_on_mac_vm $mac_name
+}
+
+function test_mac {
+  local mac_name="${1:?Mac vm name (e.g. 14)}"
+  echo_header "aztec-up test_mac"
+  prep_test_mac
+  launch_and_install_on_mac_vm $mac_name
 }
 
 # Starts services, launches a mac vm for each version and runs install script via ssh.

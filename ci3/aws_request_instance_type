@@ -19,11 +19,33 @@ trap 'cleanup' SIGINT SIGTERM
 
 export AWS_DEFAULT_REGION=us-east-2
 
+# KeyName is optional: omit when KEY_NAME is empty (SSM-only mode).
+key_name_json=""
+if [ -n "${KEY_NAME:-}" ]; then
+  key_name_json="\"KeyName\": \"$KEY_NAME\","
+fi
+
+# IamInstanceProfile is only attached in SSM mode (no KEY_NAME = SSM).
+# In SSH mode, the build_instance IAM user lacks iam:PassRole for this role.
+iam_profile_json=""
+if [ -z "${KEY_NAME:-}" ]; then
+  CI3_INSTANCE_PROFILE_NAME=${CI3_INSTANCE_PROFILE_NAME:-ci3-build-instance-profile}
+  iam_profile_json="\"IamInstanceProfile\": { \"Name\": \"$CI3_INSTANCE_PROFILE_NAME\" },"
+fi
+
+# In SSM mode use the CI3 security group; in SSH mode use the original SG (allows port 22).
+if [ -z "${KEY_NAME:-}" ]; then
+  sg_id="${CI3_SECURITY_GROUP_ID:-sg-01fe61a1c1aaeb393}"
+else
+  sg_id="sg-0ccd4e5df0dcca0c9"
+fi
+
 launch_spec=$(cat <<EOF
 {
   "ImageId": "$ami",
-  "KeyName": "${KEY_NAME:-build-instance}",
-  "SecurityGroupIds": ["sg-0ccd4e5df0dcca0c9"],
+  $key_name_json
+  $iam_profile_json
+  "SecurityGroupIds": ["$sg_id"],
   "InstanceType": "$instance_type",
   "BlockDeviceMappings": [
     {
@@ -77,10 +99,11 @@ if [ "${NO_SPOT:-0}" -ne 1 ]; then
 fi
 
 if [ -z "${iid:-}" -o "${iid:-}" == "None" ]; then
-  # Request on-demand instance.
+  # Request on-demand instance (with tags at launch for IAM RequestTag conditions).
   echo "Requesting $instance_type on-demand instance $info..."
   iid=$(aws ec2 run-instances \
     --cli-input-json file://$spec_path \
+    --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$name},{Key=Group,Value=build-instance}]" \
     --query "Instances[*].[InstanceId]" \
     --output text)
   echo $iid > $iid_path
@@ -112,18 +135,50 @@ while [ -z "${ip:-}" ]; do
   echo $ip > $ip_path
 done
 
-# Wait till ssh port is open.
-echo "Waiting for SSH at $ip..."
-SECONDS=0
-SSH_CONFIG_PATH=${SSH_CONFIG_PATH:-aws/build_instance_ssh_config}
-[ "${NO_TERMINATE:-0}" -eq 1 ] && LIVE_CMD=true || LIVE_CMD="sudo shutdown -h +${AWS_SHUTDOWN_TIME:-60}"
-while ! ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 $ip $LIVE_CMD > /dev/null 2>&1; do
-  if (( SECONDS >= 60 )); then
-    echo "Timeout: SSH could not login to $ip within 60 seconds."
+# When no key pair (SSM-only), wait for SSM registration and set the shutdown timer.
+if [ -z "${KEY_NAME:-}" ]; then
+  >&2 echo "Waiting for SSM registration for instance $iid..."
+  SECONDS=0
+  while (( SECONDS < 300 )); do
+    ssm_status=$(aws ssm describe-instance-information \
+      --region us-east-2 \
+      --filters "Key=InstanceIds,Values=$iid" \
+      --query "InstanceInformationList[0].PingStatus" \
+      --output text 2>/dev/null) || true
+    >&2 echo "SSM status: ${ssm_status:-Inactive}"
+    [ "$ssm_status" = "Online" ] && break
+    sleep 5
+  done
+
+  if [ "$ssm_status" != "Online" ]; then
+    >&2 echo "Timed out waiting for SSM to see instance $iid"
     exit 1
   fi
-  sleep 1
-done
 
-aws ec2 create-tags --resources $iid --tags "Key=Name,Value=$name"
-aws ec2 create-tags --resources $iid --tags "Key=Group,Value=build-instance"
+  # Set the shutdown timer via SSM, mirroring the SSH path. Fire-and-forget.
+  # Non-fatal: a failed timer shouldn't abort provisioning (reaper catches orphans).
+  if [ "${NO_TERMINATE:-0}" -ne 1 ]; then
+    >&2 echo "Setting shutdown timer (+${AWS_SHUTDOWN_TIME:-60} min) via SSM..."
+    SSM_NO_WAIT=1 ssm_send_command "$iid" "sudo shutdown -h +${AWS_SHUTDOWN_TIME:-60}" || \
+      >&2 echo "Warning: failed to set shutdown timer via SSM (non-fatal)."
+  fi
+else
+  # Wait till ssh port is open.
+  >&2 echo "Waiting for SSH at $ip..."
+  SECONDS=0
+  SSH_CONFIG_PATH=${SSH_CONFIG_PATH:-aws/build_instance_ssh_config}
+  [ "${NO_TERMINATE:-0}" -eq 1 ] && LIVE_CMD=true || LIVE_CMD="sudo shutdown -h +${AWS_SHUTDOWN_TIME:-60}"
+  while ! ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 $ip $LIVE_CMD > /dev/null 2>&1; do
+    if (( SECONDS >= 60 )); then
+      >&2 echo "Timeout: SSH could not login to $ip within 60 seconds."
+      exit 1
+    fi
+    sleep 1
+  done
+fi
+
+# For spot instances, tags must be applied post-launch (launch-specification doesn't support TagSpecifications).
+# On-demand instances are tagged at launch via --tag-specifications.
+if [ -n "${sir:-}" ]; then
+  aws ec2 create-tags --resources $iid --tags "Key=Name,Value=$name" "Key=Group,Value=build-instance"
+fi

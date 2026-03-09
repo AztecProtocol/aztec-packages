@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Script to copy Solidity verifier files into the C++ honk_contract.hpp file
 # This automates the manual process of copying verifier contracts

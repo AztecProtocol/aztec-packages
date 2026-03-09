@@ -1,4 +1,4 @@
-import { GENESIS_BLOCK_HEADER_HASH, INITIAL_L2_BLOCK_NUM, INITIAL_L2_CHECKPOINT_NUM } from '@aztec/constants';
+import { GENESIS_BLOCK_HEADER_HASH, INITIAL_CHECKPOINT_NUMBER, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -263,15 +263,15 @@ export class ServerWorldStateSynchronizer
       proposed: latestBlockId,
       checkpointed: {
         block: { number: INITIAL_L2_BLOCK_NUM, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-        checkpoint: { number: INITIAL_L2_CHECKPOINT_NUM, hash: genesisCheckpointHeaderHash },
+        checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
       },
       finalized: {
         block: { number: status.finalizedBlockNumber, hash: finalizedBlockHash ?? '' },
-        checkpoint: { number: INITIAL_L2_CHECKPOINT_NUM, hash: genesisCheckpointHeaderHash },
+        checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
       },
       proven: {
         block: { number: provenBlockNumber, hash: provenBlockHash ?? '' },
-        checkpoint: { number: INITIAL_L2_CHECKPOINT_NUM, hash: genesisCheckpointHeaderHash },
+        checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
       },
     };
   }

@@ -11,9 +11,9 @@ import {
   secretStringConfigHelper,
 } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 import { schemas, zodFor } from '@aztec/stdlib/schemas';
 import type { ComponentsVersions } from '@aztec/stdlib/versioning';
 
@@ -130,7 +130,6 @@ export const BotConfigSchema = zodFor<BotConfig>()(
       l1Mnemonic: undefined,
       l1PrivateKey: undefined,
       senderPrivateKey: undefined,
-      dataDirectory: undefined,
       dataStoreMapSizeKb: 1_024 * 1_024,
       ...config,
     })),
