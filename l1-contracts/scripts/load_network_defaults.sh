@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Load L1 contract defaults from network-defaults.yml for a given network.
-# Exports AZTEC_* and ETHEREUM_* env vars with YAML anchor inheritance resolved.
+# Load network defaults from network-defaults.yml for a given network.
+# Exports all env vars from the network section with YAML anchor inheritance resolved.
 #
 # Usage:
 #   source ./scripts/load_network_defaults.sh <network>
@@ -25,7 +25,7 @@ while IFS='=' read -r key value; do
   if [[ -z "${!key:-}" ]]; then
     export "$key"="$value"
   fi
-done < <(yq -o=props "explode(.) | .networks.$network | with_entries(select(.key | test(\"^AZTEC_|^ETHEREUM_\")))" "$network_defaults" \
+done < <(yq -o=props "explode(.) | .networks.$network" "$network_defaults" \
   | grep -v '^#' \
   | grep -v '^$' \
   | sed 's/ = /=/')
