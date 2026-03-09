@@ -14,7 +14,7 @@ const DEFAULT_L1_CONSTANTS: L1RollupConstants = {
   ethereumSlotDuration: 12,
   proofSubmissionEpochs: 2,
   targetCommitteeSize: 48,
-  rollupManaLimit: Infinity,
+  rollupManaLimit: Number.MAX_SAFE_INTEGER,
 };
 
 /**

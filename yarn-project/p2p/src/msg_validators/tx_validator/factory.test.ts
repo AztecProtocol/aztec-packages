@@ -208,7 +208,7 @@ describe('Validator factory functions', () => {
         timestamp: 100n,
         blockNumber: BlockNumber(5),
         txsPermitted: true,
-        rollupManaLimit: Infinity,
+        rollupManaLimit: Number.MAX_SAFE_INTEGER,
       });
 
       const aggregate = validator as AggregateTxValidator<unknown>;
@@ -236,7 +236,7 @@ describe('Validator factory functions', () => {
         timestamp: 100n,
         blockNumber: BlockNumber(5),
         txsPermitted: true,
-        rollupManaLimit: Infinity,
+        rollupManaLimit: Number.MAX_SAFE_INTEGER,
       });
 
       const aggregate = validator as AggregateTxValidator<unknown>;
@@ -254,7 +254,7 @@ describe('Validator factory functions', () => {
         timestamp: 100n,
         blockNumber: BlockNumber(5),
         txsPermitted: true,
-        rollupManaLimit: Infinity,
+        rollupManaLimit: Number.MAX_SAFE_INTEGER,
       });
 
       const aggregate = validator as AggregateTxValidator<unknown>;
@@ -303,7 +303,7 @@ describe('Validator factory functions', () => {
         synchronizer,
         100n,
         BlockNumber(5),
-        { rollupManaLimit: Infinity },
+        { rollupManaLimit: Number.MAX_SAFE_INTEGER },
       );
 
       const aggregate = validator as AggregateTxValidator<unknown>;
@@ -317,7 +317,7 @@ describe('Validator factory functions', () => {
 
     it('syncs world state before creating the validator', async () => {
       await createTxValidatorForTransactionsEnteringPendingTxPool(synchronizer, 100n, BlockNumber(5), {
-        rollupManaLimit: Infinity,
+        rollupManaLimit: Number.MAX_SAFE_INTEGER,
       });
 
       expect(synchronizer.syncImmediate).toHaveBeenCalled();

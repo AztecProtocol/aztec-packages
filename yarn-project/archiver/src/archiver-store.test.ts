@@ -72,7 +72,7 @@ describe('Archiver Store', () => {
       ethereumSlotDuration: 12,
       proofSubmissionEpochs: 1,
       targetCommitteeSize: 48,
-      rollupManaLimit: Infinity,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
       genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT),
     };
 

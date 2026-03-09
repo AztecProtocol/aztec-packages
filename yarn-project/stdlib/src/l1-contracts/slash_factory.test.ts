@@ -42,7 +42,7 @@ describe('SlashFactory', () => {
     ethereumSlotDuration: 12,
     proofSubmissionEpochs: 2,
     targetCommitteeSize: 48,
-    rollupManaLimit: Infinity,
+    rollupManaLimit: Number.MAX_SAFE_INTEGER,
     slashingRoundSize: 100,
     slashingPayloadLifetimeInRounds: 3,
     logsBatchSize: 50,

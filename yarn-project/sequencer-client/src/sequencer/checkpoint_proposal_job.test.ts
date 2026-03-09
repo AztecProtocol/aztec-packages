@@ -141,7 +141,7 @@ describe('CheckpointProposalJob', () => {
       epochDuration: 16,
       proofSubmissionEpochs: 4,
       targetCommitteeSize: 48,
-      rollupManaLimit: Infinity,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
     };
 
     dateProvider = new TestDateProvider();

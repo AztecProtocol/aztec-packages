@@ -163,7 +163,7 @@ describe('sequencer', () => {
     );
 
     const l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
-    l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration, rollupManaLimit: Infinity };
+    l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration, rollupManaLimit: Number.MAX_SAFE_INTEGER };
 
     epochCache = mockDeep<EpochCache>();
     epochCache.isEscapeHatchOpen.mockResolvedValue(false);
