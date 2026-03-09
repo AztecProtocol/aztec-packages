@@ -124,6 +124,13 @@ export type InvalidateCheckpointRequest = {
   lastArchive: Fr;
 };
 
+/** Options for overriding L1 state during propose simulation (used when pipelining). */
+type ProposeSimulationOverrides = {
+  forcePendingCheckpointNumber?: CheckpointNumber;
+  forceProposedArchive?: { checkpointNumber: CheckpointNumber; archive: Fr };
+  forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
+};
+
 interface RequestWithExpiry {
   action: Action;
   request: L1TxRequest;
@@ -891,10 +898,7 @@ export class SequencerPublisher {
     checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    options: {
-      forcePendingCheckpointNumber?: CheckpointNumber;
-      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
-    },
+    options: ProposeSimulationOverrides,
   ): Promise<void> {
     const blobFields = checkpoint.toBlobFields();
     const blobs = await getBlobsPerL1Block(blobFields);
@@ -1210,11 +1214,7 @@ export class SequencerPublisher {
     checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    opts: {
-      txTimeoutAt?: Date;
-      forcePendingCheckpointNumber?: CheckpointNumber;
-      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
-    } = {},
+    opts: ProposeSimulationOverrides & { txTimeoutAt?: Date } = {},
   ): Promise<void> {
     const checkpointHeader = checkpoint.header;
 
@@ -1400,10 +1400,7 @@ export class SequencerPublisher {
     this.l1TxUtils.restart();
   }
 
-  private async prepareProposeTx(
-    encodedData: L1ProcessArgs,
-    options: { forcePendingCheckpointNumber?: CheckpointNumber },
-  ) {
+  private async prepareProposeTx(encodedData: L1ProcessArgs, timestamp: bigint, options: ProposeSimulationOverrides) {
     const kzg = Blob.getViemKzgInstance();
     const blobInput = getPrefixedEthBlobCommitments(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
@@ -1498,10 +1495,8 @@ export class SequencerPublisher {
       ViemSignature,
       `0x${string}`,
     ],
-    options: {
-      forcePendingCheckpointNumber?: CheckpointNumber;
-      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
-    },
+    timestamp: bigint,
+    options: ProposeSimulationOverrides,
   ) {
     const rollupData = encodeFunctionData({
       abi: RollupAbi,
@@ -1526,12 +1521,23 @@ export class SequencerPublisher {
         : []
     ).flatMap(override => override.stateDiff ?? []);
 
+    // override the archive for a specific checkpoint number if requested (used when pipelining)
+    const forcePendingArchiveStateDiff = (
+      options.forceProposedArchive !== undefined
+        ? this.rollupContract.makeArchiveOverride(
+            options.forceProposedArchive.checkpointNumber,
+            options.forceProposedArchive.archive,
+          )
+        : []
+    ).flatMap(override => override.stateDiff ?? []);
+
     const stateOverrides: StateOverride = [
       {
         address: this.rollupContract.address,
         // @note we override checkBlob to false since blobs are not part simulate()
         stateDiff: [
           { slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true), value: toPaddedHex(0n, true) },
+          ...forcePendingArchiveStateDiff,
           ...forcePendingCheckpointNumberStateDiff,
           ...forceProposedFeeHeaderStateDiff,
         ],
@@ -1601,11 +1607,8 @@ export class SequencerPublisher {
   private async addProposeTx(
     checkpoint: Checkpoint,
     encodedData: L1ProcessArgs,
-    opts: {
-      txTimeoutAt?: Date;
-      forcePendingCheckpointNumber?: CheckpointNumber;
-      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
-    } = {},
+    opts: ProposeSimulationOverrides & { txTimeoutAt?: Date } = {},
+    timestamp: bigint,
     preCheck?: () => Promise<void>,
   ): Promise<void> {
     const slot = checkpoint.header.slotNumber;

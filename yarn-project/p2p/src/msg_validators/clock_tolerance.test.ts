@@ -3,7 +3,11 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 
 import { mock } from 'jest-mock-extended';
 
-import { MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS, isWithinClockTolerance } from './clock_tolerance.js';
+import {
+  MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS,
+  isWithinClockTolerance,
+  isWithinPipeliningGracePeriod,
+} from './clock_tolerance.js';
 
 describe('clock_tolerance', () => {
   describe('MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS', () => {
@@ -202,6 +206,100 @@ describe('clock_tolerance', () => {
 
       // Even though timing is within tolerance, the sanity check fails
       expect(isWithinClockTolerance(messageSlot, currentSlot, epochCache)).toBe(false);
+    });
+  });
+
+  describe('isWithinPipeliningGracePeriod', () => {
+    let epochCache: ReturnType<typeof mock<EpochCacheInterface>>;
+
+    beforeEach(() => {
+      epochCache = mock<EpochCacheInterface>();
+      epochCache.getSlotNow.mockReturnValue(SlotNumber(100));
+      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+    });
+
+    it('returns true when pipelining enabled, message is for current slot, and within grace period', () => {
+      // Grace period = DEFAULT_P2P_PROPAGATION_TIME * 1000 = 2000ms
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: 1 as any,
+        slot: SlotNumber(100),
+        ts: 1000n,
+        nowMs: 1001000n, // 1000ms elapsed, within 2000ms grace period
+      });
+
+      expect(isWithinPipeliningGracePeriod(SlotNumber(100), epochCache)).toBe(true);
+    });
+
+    it('returns true at exactly 0ms elapsed', () => {
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: 1 as any,
+        slot: SlotNumber(100),
+        ts: 1000n,
+        nowMs: 1000000n, // 0ms elapsed
+      });
+
+      expect(isWithinPipeliningGracePeriod(SlotNumber(100), epochCache)).toBe(true);
+    });
+
+    it('returns false when elapsed time exceeds grace period', () => {
+      // 3000ms elapsed > 2000ms grace period
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: 1 as any,
+        slot: SlotNumber(100),
+        ts: 1000n,
+        nowMs: 1003000n, // 3000ms elapsed
+      });
+
+      expect(isWithinPipeliningGracePeriod(SlotNumber(100), epochCache)).toBe(false);
+    });
+
+    it('returns false at exactly the grace period boundary', () => {
+      // 2000ms elapsed = DEFAULT_P2P_PROPAGATION_TIME * 1000 (not strictly less than)
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: 1 as any,
+        slot: SlotNumber(100),
+        ts: 1000n,
+        nowMs: 1002000n, // 2000ms elapsed
+      });
+
+      expect(isWithinPipeliningGracePeriod(SlotNumber(100), epochCache)).toBe(false);
+    });
+
+    it('returns false when pipelining is disabled', () => {
+      epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
+
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: 1 as any,
+        slot: SlotNumber(100),
+        ts: 1000n,
+        nowMs: 1001000n, // 1000ms elapsed, within grace period
+      });
+
+      expect(isWithinPipeliningGracePeriod(SlotNumber(100), epochCache)).toBe(false);
+    });
+
+    it('returns false when message is not for current slot', () => {
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: 1 as any,
+        slot: SlotNumber(100),
+        ts: 1000n,
+        nowMs: 1001000n,
+      });
+
+      // Message for slot 99, current slot is 100
+      expect(isWithinPipeliningGracePeriod(SlotNumber(99), epochCache)).toBe(false);
+    });
+
+    it('returns false when message is for a future slot', () => {
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: 1 as any,
+        slot: SlotNumber(100),
+        ts: 1000n,
+        nowMs: 1001000n,
+      });
+
+      // Message for slot 101, current slot is 100
+      expect(isWithinPipeliningGracePeriod(SlotNumber(101), epochCache)).toBe(false);
     });
   });
 });

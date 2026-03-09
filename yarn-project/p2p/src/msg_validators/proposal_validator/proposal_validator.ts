@@ -8,7 +8,7 @@ import {
   type ValidationResult,
 } from '@aztec/stdlib/p2p';
 
-import { isWithinClockTolerance } from '../clock_tolerance.js';
+import { isWithinClockTolerance, isWithinPipeliningGracePeriod } from '../clock_tolerance.js';
 
 /** Validates header-level and tx-level fields of block and checkpoint proposals. */
 export class ProposalValidator {
@@ -31,18 +31,22 @@ export class ProposalValidator {
   /** Validates header-level fields: slot, signature, and proposer. */
   public async validate(proposal: BlockProposal | CheckpointProposalCore): Promise<ValidationResult> {
     try {
-      // Slot check: use target slots since proposals target pipeline slots (slot + 1 when pipelining)
+      // Slot check: use target slots since proposals target pipeline slots (slot + 1 when pipelining).
       const { targetSlot, nextSlot } = this.epochCache.getTargetAndNextSlot();
 
       const slotNumber = proposal.slotNumber;
       if (slotNumber !== targetSlot && slotNumber !== nextSlot) {
-        // Check if message is for previous slot and within clock tolerance
-        if (!isWithinClockTolerance(slotNumber, targetSlot, this.epochCache)) {
+        // When pipelining, accept proposals for the current slot (built in the previous slot)
+        // if we're within the first ethereumSlotDuration/2 seconds of the slot.
+        if (isWithinPipeliningGracePeriod(slotNumber, this.epochCache)) {
+          // Fall through to remaining validation (signature, proposer, etc.)
+        } else if (!isWithinClockTolerance(slotNumber, targetSlot, this.epochCache)) {
           this.logger.warn(`Penalizing peer for invalid slot number ${slotNumber}`, { targetSlot, nextSlot });
           return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
+        } else {
+          this.logger.verbose(`Ignoring proposal for previous slot ${slotNumber} within clock tolerance`);
+          return { result: 'ignore' };
         }
-        this.logger.verbose(`Ignoring proposal for previous slot ${slotNumber} within clock tolerance`);
-        return { result: 'ignore' };
       }
 
       // Signature validity

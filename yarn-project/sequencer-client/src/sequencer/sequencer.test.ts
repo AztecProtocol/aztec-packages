@@ -373,6 +373,7 @@ describe('sequencer', () => {
     it('builds a block out of a single tx', async () => {
       await setupSingleTxBlock();
       await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
 
       expectPublisherProposeL2Block();
     });
@@ -417,6 +418,7 @@ describe('sequencer', () => {
       });
 
       await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
       // Now we should build and publish the checkpoint
       expect(checkpointBuilder.buildBlockCalls.length).toBeGreaterThan(0);
       expectPublisherProposeL2Block();
@@ -439,6 +441,7 @@ describe('sequencer', () => {
       block = await makeBlock(txs);
 
       await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
 
       expect(checkpointBuilder.buildBlockCalls.length).toBeGreaterThan(0);
       expectPublisherProposeL2Block();
@@ -455,6 +458,7 @@ describe('sequencer', () => {
       // Archiver reports synced to slot 0, which satisfies syncedL2Slot + 1 >= slot (slot=1)
       l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(0));
       await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalled();
     });
 
@@ -475,10 +479,9 @@ describe('sequencer', () => {
 
       publisher.enqueueProposeCheckpoint.mockRejectedValueOnce(new Error('Failed to enqueue propose checkpoint'));
 
+      // The error is caught in the background attestation/L1 pipeline and does not surface as an unhandled rejection
       await sequencer.work();
-
-      // We still call sendRequestsAt in case there are votes enqueued
-      expect(publisher.sendRequestsAt).toHaveBeenCalled();
+      await sequencer.awaitLastProposalSubmission();
     });
 
     it('should proceed with block proposal when there is no proposer yet', async () => {
@@ -497,6 +500,7 @@ describe('sequencer', () => {
       block = await makeBlock(txs);
 
       await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
 
       // Verify that the sequencer attempted to create and broadcast a block proposal
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalled();
@@ -579,6 +583,7 @@ describe('sequencer', () => {
         block = await makeBlock([tx]);
         TestUtils.mockPendingTxs(p2p, [tx]);
         await sequencer.work();
+        await sequencer.awaitLastProposalSubmission();
 
         const attestationsAndSigners = new CommitteeAttestationsAndSigners(getSignatures());
         expect(publishers[i].enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
@@ -928,6 +933,7 @@ describe('sequencer', () => {
       await setupSingleTxBlock();
 
       await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
 
       // Verify checkpoint was built and proposed
       expect(checkpointBuilder.buildBlockCalls.length).toBeGreaterThan(0);
@@ -941,6 +947,7 @@ describe('sequencer', () => {
       await setupSingleTxBlock();
 
       await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
 
       // Verify checkpoint was built and proposed
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
@@ -957,6 +964,7 @@ describe('sequencer', () => {
       TestUtils.mockPendingTxs(p2p, txs);
 
       await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
 
       expect(checkpointBuilder.buildBlockCalls.length).toBeGreaterThan(1);
       expect(validatorClient.createCheckpointProposal).toHaveBeenCalled();
@@ -1210,6 +1218,10 @@ class TestSequencer extends Sequencer {
       return;
     }
     return super.work();
+  }
+
+  public async awaitLastProposalSubmission() {
+    await this.lastCheckpointProposalJob?.awaitPendingSubmission();
   }
 
   public checkCanProposeForTest(slot: SlotNumber) {

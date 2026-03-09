@@ -1,5 +1,6 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { SlotNumber } from '@aztec/foundation/branded-types';
+import { DEFAULT_P2P_PROPAGATION_TIME } from '@aztec/stdlib/timetable';
 
 /**
  * Maximum clock disparity tolerance for P2P message validation (in milliseconds).
@@ -49,4 +50,34 @@ export function isWithinClockTolerance(
   const elapsedMs = Number(nowMs - slotStartMs);
 
   return elapsedMs < MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS;
+}
+
+/**
+ * Checks if a message should be accepted under the pipelining grace period.
+ *
+ * When pipelining is enabled, `targetSlot = slotNow + 1`. A proposal built in slot N-1
+ * for slot N arrives when validators are in slot N, so their `targetSlot = N+1`.
+ * This function accepts proposals for the current wallclock slot if we're within the
+ * first `DEFAULT_P2P_PROPAGATION_TIME` seconds of the slot (the pipelining grace period).
+ *
+ * @param messageSlot - The slot number from the received message
+ * @param epochCache - EpochCache to get timing and pipelining state
+ * @returns true if pipelining is enabled, the message is for the current slot, and we're within the grace period
+ */
+export function isWithinPipeliningGracePeriod(messageSlot: SlotNumber, epochCache: EpochCacheInterface): boolean {
+  if (!epochCache.isProposerPipeliningEnabled()) {
+    return false;
+  }
+
+  const currentSlot = epochCache.getSlotNow();
+  if (messageSlot !== currentSlot) {
+    return false;
+  }
+
+  const { ts: slotStartTs, nowMs } = epochCache.getEpochAndSlotNow();
+  const slotStartMs = slotStartTs * 1000n;
+  const elapsedMs = Number(nowMs - slotStartMs);
+  const gracePeriodMs = DEFAULT_P2P_PROPAGATION_TIME * 1000;
+
+  return elapsedMs < gracePeriodMs;
 }

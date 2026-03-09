@@ -57,11 +57,14 @@ export function calculateMaxBlocksPerSlot(
   // Calculate checkpoint finalization time (assembly + round-trip propagation + L1 publishing)
   const checkpointFinalizationTime = assembleTime + p2pTime * 2 + l1Time;
 
-  // When pipelining, finalization is deferred to the next slot, but we still reserve
-  // a sub-slot for validator re-execution so they can produce attestations.
-  let timeReservedAtEnd = blockDurationSec;
-  if (!opts.pipelining) {
-    timeReservedAtEnd += checkpointFinalizationTime;
+  // When pipelining, finalization is deferred to the next slot, so we only reserve
+  // time for assembly + one-way broadcast. Without pipelining, we also need a full
+  // block duration for validator re-execution plus full checkpoint finalization.
+  let timeReservedAtEnd: number;
+  if (opts.pipelining) {
+    timeReservedAtEnd = assembleTime + p2pTime;
+  } else {
+    timeReservedAtEnd = blockDurationSec + checkpointFinalizationTime;
   }
 
   // Time available for building blocks
