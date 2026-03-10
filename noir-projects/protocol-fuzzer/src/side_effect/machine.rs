@@ -184,9 +184,10 @@ impl SideEffectCommand {
 
 impl Batchable for SideEffectCommand {
     fn conflicts(&self, other: &Self) -> bool {
-        // Queries conflict with everything (flush before query).
+        // Queries don't change state so they can batch with each other, but a
+        // query/send mix must flush (query needs to observe prior sends).
         if self.is_query() || other.is_query() {
-            return true;
+            return !(self.is_query() && other.is_query());
         }
 
         // Same (slot, owner) pair -> conflict.
@@ -701,7 +702,7 @@ mod tests {
     }
 
     #[test]
-    fn query_conflicts_with_everything() {
+    fn query_conflicts_with_send() {
         let query = SideEffectCommand::ViewNotesMany {
             owner: 0, storage_slot: 1, active_or_nullified: false, offset: 0, from: 0,
         };
@@ -710,6 +711,17 @@ mod tests {
         };
         assert!(query.conflicts(&send));
         assert!(send.conflicts(&query));
+    }
+
+    #[test]
+    fn queries_do_not_conflict() {
+        let a = SideEffectCommand::ViewNotesMany {
+            owner: 0, storage_slot: 1, active_or_nullified: false, offset: 0, from: 0,
+        };
+        let b = SideEffectCommand::TestNoteInclusion {
+            owner: 1, storage_slot: 2, from: 1, via_parent: false,
+        };
+        assert!(!a.conflicts(&b));
     }
 
     fn make_state() -> SideEffectState {

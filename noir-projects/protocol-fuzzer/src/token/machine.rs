@@ -146,9 +146,10 @@ impl TokenCommand {
 
 impl Batchable for TokenCommand {
     fn conflicts(&self, other: &Self) -> bool {
-        // Queries conflict with everything (flush before query).
+        // Queries don't change state so they can batch with each other, but a
+        // query/send mix must flush (query needs to observe prior sends).
         if self.is_query() || other.is_query() {
-            return true;
+            return !(self.is_query() && other.is_query());
         }
         // Same token -> conflict (shared total_supply).
         self.token_id() == other.token_id()
@@ -628,5 +629,12 @@ mod tests {
         let send = TokenCommand::MintPublic { token: 0, to: 0, amount: 100, from: 0 };
         assert!(query.conflicts(&send));
         assert!(send.conflicts(&query));
+    }
+
+    #[test]
+    fn queries_do_not_conflict() {
+        let a = TokenCommand::BalanceOfPublic { token: 0, from: 0, address: 0 };
+        let b = TokenCommand::TotalSupply { token: 1, from: 1 };
+        assert!(!a.conflicts(&b));
     }
 }

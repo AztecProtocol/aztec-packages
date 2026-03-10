@@ -75,9 +75,8 @@ pub trait StateMachine {
 pub trait Batchable {
     /// Returns `true` if executing `self` and `other` concurrently could produce
     /// different results than executing them sequentially.
-    /// Non-state-changing commands (queries) must conflict with everything so they
-    /// flush the batch — even if they're executed as on-chain sends (e.g. kernel
-    /// verification checks like TestNoteInclusion).
+    /// Queries (non-state-changing commands) must conflict with sends so they
+    /// observe prior state, but two queries can safely batch together.
     fn conflicts(&self, other: &Self) -> bool;
 }
 
