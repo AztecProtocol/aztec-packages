@@ -22,12 +22,12 @@ next (v5 development)
 There are three ways to land code in `v4-next`:
 
 1. **Via v4**: Any PR merged to `v4` is automatically pulled into `v4-next`.
-2. **Backport from master**: Add the `backport-to-v4-next` label to a PR targeting `next`. On merge, the backport workflow will cherry-pick the changes into `v4-next` via a staging branch.
+2. **Backport from next**: Add the `backport-to-v4-next` label to a PR targeting `next`. On merge, the backport workflow will cherry-pick the changes into `v4-next` via a staging branch.
 3. **Direct PR**: Open a PR directly targeting `v4-next` for changes that are only relevant to the next release.
 
 ### Nightly releases
 
-Every night at 2:00 AM UTC, the `nightly-release-tag-v4-next` job in `nightly-release-tag.yml` creates a tag from `v4-next` in the format `v{version}-nightly.{date}`. This mirrors the nightly release process on `next`.
+Every night at 5:00 AM UTC, the `nightly-release-tag-v4-next` job in `nightly-release-tag.yml` creates a tag from `v4-next` in the format `v{version}-nightly.{date}`. This mirrors the nightly release process on `next`.
 
 ### Backports
 
@@ -43,5 +43,5 @@ The existing backport infrastructure (`backport.yml`) works with `v4-next` out o
 | Workflow | Trigger | Action |
 |---|---|---|
 | `pull-v4-into-v4-next.yml` | Push to `v4` | Merges `v4` into `v4-next`; creates conflict PR if needed |
-| `nightly-release-tag.yml` (v4-next job) | Daily at 02:00 UTC | Tags `v4-next` with `v{version}-nightly.{date}` |
+| `nightly-release-tag.yml` (v4-next job) | Daily at 05:00 UTC | Tags `v4-next` with `v{version}-nightly.{date}` |
 | `backport.yml` | `backport-to-v4-next` label + PR merge | Cherry-picks into `v4-next` via staging branch |
