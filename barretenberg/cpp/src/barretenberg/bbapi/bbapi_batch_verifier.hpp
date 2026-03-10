@@ -1,7 +1,7 @@
 #pragma once
 /**
  * @file bbapi_batch_verifier.hpp
- * @brief BBAPI commands for the adaptive batch IVC proof verification service.
+ * @brief BBAPI commands for the batch IVC proof verification service.
  *
  * These commands expose the ChonkBatchVerifierService as a set of RPC commands:
  *
@@ -98,9 +98,6 @@ struct ChonkBatchVerifierCancel {
 /**
  * @struct ChonkBatchVerifierCancelBySource
  * @brief Cancel all pending verifications from a given source (e.g. peer ID).
- *
- * The TypeScript caller uses this when it detects a bad proof from a source
- * to immediately cancel all remaining work from that source.
  */
 struct ChonkBatchVerifierCancelBySource {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierCancelBySource";
