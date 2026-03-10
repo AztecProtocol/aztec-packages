@@ -718,15 +718,21 @@ export class RPCTranslator {
     foreignContractAddress: ForeignCallSingle,
     foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
     foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
+    foreignMaxNotePackedLen: ForeignCallSingle,
+    foreignMaxEventSerializedLen: ForeignCallSingle,
   ) {
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
     const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
+    const maxNotePackedLen = fromSingle(foreignMaxNotePackedLen).toNumber();
+    const maxEventSerializedLen = fromSingle(foreignMaxEventSerializedLen).toNumber();
 
     await this.handlerAsUtility().utilityValidateAndStoreEnqueuedNotesAndEvents(
       contractAddress,
       noteValidationRequestsArrayBaseSlot,
       eventValidationRequestsArrayBaseSlot,
+      maxNotePackedLen,
+      maxEventSerializedLen,
     );
 
     return toForeignCallResult([]);
