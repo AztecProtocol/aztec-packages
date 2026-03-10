@@ -37,7 +37,10 @@ bool does_boolean_gate_exist(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
                              .set_q_c(FF::zero())
                              .set_q_arith(FF::one());
 
-    auto gates = analyzer.get_variable_gates(witness_idx);
+    // variable_gates is keyed by to_real(wire_idx) (see extract_gate_variables in graph.cpp:154).
+    // When assert_equal merges witness_idx into another equivalence class, to_real(witness_idx) changes,
+    // so we must look up by the real index. The filter still checks the raw wire value in the block.
+    auto gates = analyzer.get_variable_gates(analyzer.to_real(witness_idx));
     auto filtered_gates = filter_helper.filter_gates(gates);
     return !filtered_gates.empty();
 }
@@ -57,6 +60,71 @@ bool is_in_range_list(CircuitBuilder& builder, uint32_t witness, uint64_t target
     const auto& range_list = it->second;
     return std::find(range_list.variable_indices.begin(), range_list.variable_indices.end(), witness) !=
            range_list.variable_indices.end();
+}
+
+/**
+ * @brief Check if a witness has a range constraint via a limb linked by an arithmetic gate
+ * @details When `create_limbed_range_constraint(W, num_bits, 14)` is called for small num_bits (≤14):
+ *   1. Creates `limb_idx = add_variable(val)` — a NEW variable
+ *   2. `create_small_range_constraint(limb_idx, target_range)` — adds limb_idx to range_lists[target_range]
+ *   3. `create_big_add_gate({limb_idx, zero, zero, W, 1, 2^14, 2^28, -1, 0})` — links limb to W
+ *
+ *   The gate has a known pattern:
+ *     w_l = limb_idx, w_r = zero_idx, w_o = zero_idx, w_4 = W
+ *     q_1 = 1, q_2 = 2^14, q_3 = 2^28, q_4 = -1, q_c = 0, q_m = 0, q_arith = 1
+ *
+ *   After byte_array's `input.assert_equal(byte)`, the original witness and W share the same
+ *   real_variable_index. This function finds the big_add_gate via FilterFunctionBuilder with
+ *   the known selector/wire pattern, extracts w_l (limb_idx), and checks range_lists membership.
+ *   Complexity: O(G) per call (G = gates per variable, typically small).
+ *  * @note we intentionally do not consume the gate, because we just want to check that the variable is constrained by
+ * range_constraint.
+ */
+template <typename FF, typename CircuitBuilder>
+bool is_range_constrained_via_limb_lookup(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                          CircuitBuilder& builder,
+                                          uint32_t witness,
+                                          uint64_t target_range)
+{
+    constexpr uint64_t shift_1 = 1ULL << CircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM;       // 2^14
+    constexpr uint64_t shift_2 = 1ULL << (2 * CircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM); // 2^28
+
+    BB_ASSERT(target_range < shift_1, "target_range too large");
+    uint32_t real_witness = builder.real_variable_index[witness];
+
+    // Exact gate pattern from create_limbed_range_constraint (single limb, num_bits ≤ 14):
+    //   w_l = limb, w_r = zero, w_o = zero, w_4 = W
+    //   q_1=1, q_2=2^14, q_3=2^28, q_4=-1, q_c=0, q_m=0, q_arith=1
+    // Note: w_4 is checked manually via real_variable_index below because the raw wire value
+    // in the block (byte_idx) differs from our witness (byte_source_idx) — they're only linked
+    // by assert_equal, so set_w_4 (exact match) would fail.
+    auto filter_helper = FilterFunctionBuilder<CircuitBuilder, FF>(builder)
+                             .set_w_r(builder.zero_idx())
+                             .set_w_o(builder.zero_idx())
+                             .set_q_1(FF::one())
+                             .set_q_2(FF(shift_1))
+                             .set_q_3(FF(shift_2))
+                             .set_q_4(FF(-1))
+                             .set_q_c(FF::zero())
+                             .set_q_m(FF::zero())
+                             .set_q_arith(FF::one());
+
+    auto gates = analyzer.get_variable_gates(real_witness);
+    auto filtered_gates = filter_helper.filter_gates(gates);
+
+    for (auto [blk_idx, gate_idx] : filtered_gates) {
+        auto& block = builder.blocks.get()[blk_idx];
+        // We cannot use set_w_4 because we compare variable's equivalence class
+        if (builder.real_variable_index[block.w_4()[gate_idx]] != real_witness) {
+            continue;
+        }
+        // Extract limb_idx from w_l and verify it's in the range list
+        uint32_t limb = block.w_l()[gate_idx];
+        if (is_in_range_list<FF>(builder, limb, target_range)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**

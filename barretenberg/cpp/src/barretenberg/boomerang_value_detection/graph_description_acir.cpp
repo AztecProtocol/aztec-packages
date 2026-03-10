@@ -1,6 +1,7 @@
 #include "./graph_description_acir.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/cycle_group_helpers.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/cycle_scalar_helpers.hpp"
+#include "barretenberg/boomerang_value_detection/helpers/ecdsa_helpers.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/range_helpers.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include <optional>
@@ -388,6 +389,10 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_constraint_system()
             break;
         case AcirConstraintType::MULTI_SCALAR_MUL:
             result = process_multi_scalar_mul_constraints(constraint_info.ptr, next_constraint_witnesses);
+            break;
+        case AcirConstraintType::ECDSA_K1:
+        case AcirConstraintType::ECDSA_R1:
+            result = process_ecdsa_constraints(constraint_info.ptr, next_constraint_witnesses);
             break;
         default:
             // Constraint type not yet implemented - mark as not processed
@@ -1009,6 +1014,52 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_multi_scalar_mul_constrain
         WitnessOrConstant<FF>::from_index(constraint->out_point_is_infinite),
     };
     condition &= is_msm_result_constrained<FF>(analyzer, builder, output_point, constraint->predicate);
+
+    return condition;
+}
+
+// Verifies ECDSA constraint:
+// 1. All input byte fields (hashed_message, r, s, pub_x, pub_y) have conditional_assign + 8-bit range constraints
+// 2. The result is constrained to be boolean (from bool_ct result(result_field))
+// 3. The result participates in bool_t conditional_assign + assert_equal chain
+// TODO(defkit): implement proper stdlib::ecdsa_verify_signature tracing
+// We intentionally skip tracing ECDSA verification internals (biggroup/bigcurve).
+// Instead, we verify that:
+//   - All inputs are properly constrained (conditional_assign + 8-bit range)
+//   - The result is boolean and connected to the verification output via conditional_assign + assert_equal
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ecdsa_constraints(
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
+{
+    const auto* constraint = std::get<const EcdsaConstraint*>(ptr);
+    auto predicate_field = witness_or_constant_to_field<FF>(constraint->predicate, builder);
+
+    bool condition = true;
+
+    // 1. Validate all 5 input byte arrays: conditional_assign + 8-bit range
+    auto scalar_defaults = compute_scalar_default_bytes<FF>();
+    auto pub_x_defaults = compute_pubkey_default_bytes<FF>(constraint->type, /*is_x=*/true);
+    auto pub_y_defaults = compute_pubkey_default_bytes<FF>(constraint->type, /*is_x=*/false);
+
+    // r fields (first 32 bytes of signature)
+    std::array<uint32_t, 32> r_indices;
+    std::copy(constraint->signature.begin(), constraint->signature.begin() + 32, r_indices.begin());
+
+    // s fields (second 32 bytes of signature)
+    std::array<uint32_t, 32> s_indices;
+    std::copy(constraint->signature.begin() + 32, constraint->signature.begin() + 64, s_indices.begin());
+
+    condition &= is_ecdsa_input_bytes_constrained<FF>(
+        analyzer, builder, constraint->hashed_message, predicate_field, scalar_defaults);
+    condition &= is_ecdsa_input_bytes_constrained<FF>(analyzer, builder, r_indices, predicate_field, scalar_defaults);
+    condition &= is_ecdsa_input_bytes_constrained<FF>(analyzer, builder, s_indices, predicate_field, scalar_defaults);
+    condition &= is_ecdsa_input_bytes_constrained<FF>(
+        analyzer, builder, constraint->pub_x_indices, predicate_field, pub_x_defaults);
+    condition &= is_ecdsa_input_bytes_constrained<FF>(
+        analyzer, builder, constraint->pub_y_indices, predicate_field, pub_y_defaults);
+
+    // 2-3. Validate result: boolean gate + conditional_assign + assert_equal
+    condition &= is_ecdsa_result_constrained<FF>(analyzer, builder, constraint->result, predicate_field);
 
     return condition;
 }
