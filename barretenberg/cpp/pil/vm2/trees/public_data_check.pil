@@ -38,11 +38,11 @@ include "public_data_squash.pil";
  *
  * Errors:
  * All validation failures (mismatched value, invalid low leaf, nonzero value for non-existing slot)
- * are fatal (std::runtime_error) and abort execution. No error affects trace shape.
+ * are fatal errors. No error handling in the trace.
  *
  * Preconditions:
  * - clk must be a 32-bit number (enforced by the caller).
- * - clk must not repeat for writes (asserted by public_data_squash interaction)
+ * - clk must not repeat for writes to the same slot (asserted by public_data_squash interaction)
  * - low_leaf_index < 2^PUBLIC_DATA_TREE_HEIGHT (Merkle check requirement).
  * - tree_size_before_write < 2^PUBLIC_DATA_TREE_HEIGHT (Merkle check requirement).
  * - The tree genesis state must have an irreproducible hash for uninitialized leaves (0).

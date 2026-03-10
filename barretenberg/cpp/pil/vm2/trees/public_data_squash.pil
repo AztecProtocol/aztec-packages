@@ -8,8 +8,7 @@ include "../precomputed.pil";
  * The final value is the value written last to the given leaf slot.
  *
  * Shape:
- * One row per non-discarded write. Variable size depending on number of non-discarded writes.
- * Sorted by (leaf_slot ascending, clk ascending).
+ * One row per non-discarded write. Sorted by (leaf_slot ascending, clk ascending).
  *
  * Example:
  * +-----+-----------+-------+-----+-------------+----------------------+-------------+----------+-------------+
@@ -26,7 +25,7 @@ include "../precomputed.pil";
  *
  * Preconditions:
  * - clk must be a 32-bit number (enforced by the caller / public_data_check).
- * - clk must be strictly increasing (no two equal clocks allowed).
+ * - clk must be strictly increasing (no two equal clocks allowed for the same leaf slot).
  *
  * Interactions (destinations):
  * - ff_gt: Leaf slot ordering (leaf_slot_increase).
