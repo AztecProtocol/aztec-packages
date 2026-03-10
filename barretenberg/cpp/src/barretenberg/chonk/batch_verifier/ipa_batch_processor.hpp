@@ -55,14 +55,17 @@ class IPABatchProcessor {
     ~IPABatchProcessor();
 
   private:
+    using DeferredIPAClaim = ChonkNativeVerifier::DeferredIPAClaim;
+
     /**
-     * @brief Result of reduce_to_ipa_claim for a single proof.
+     * @brief Result of reduce_to_batch_ipa_claim for a single proof.
+     * Contains a DeferredIPAClaim (ECCVM Shplonk MSM not yet computed).
      * Cached so that bisection can reuse claims without re-running reduction.
      */
     struct ReduceResult {
         uint64_t request_id = 0;
         std::string source;
-        OpeningClaim<curve::Grumpkin> ipa_claim;
+        DeferredIPAClaim deferred_ipa_claim; // Deferred ECCVM Shplonk MSM + evaluation
         HonkProof ipa_proof;
         bool all_checks_passed = false;
         std::string error_message;

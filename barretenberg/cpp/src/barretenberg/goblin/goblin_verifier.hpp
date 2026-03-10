@@ -67,6 +67,22 @@ template <typename Curve> class GoblinVerifier_ {
     };
 
     /**
+     * @brief Like ReductionResult but with a deferred batch opening claim instead of a finalized IPA claim.
+     * @details The ECCVM's Shplonk MSM is deferred, allowing multiple proofs' claims to be batched.
+     */
+    struct BatchReductionResult {
+        using PairingPoints = typename ReductionResult::PairingPoints;
+        using DeferredIPAClaim = typename ECCVMVerifier::DeferredIPAClaim;
+        using IPAProof = typename ReductionResult::IPAProof;
+
+        PairingPoints merge_pairing_points;
+        PairingPoints translator_pairing_points;
+        DeferredIPAClaim deferred_ipa_claim; // Deferred ECCVM Shplonk MSM + evaluation
+        IPAProof ipa_proof;
+        bool all_checks_passed = false;
+    };
+
+    /**
      * @brief Construct a Goblin verifier
      * @param transcript Shared transcript for Fiat-Shamir
      * @param proof The complete Goblin proof containing Merge, ECCVM, IPA, and Translator proofs
@@ -100,6 +116,13 @@ template <typename Curve> class GoblinVerifier_ {
      * @warning Caller must verify ipa_claim using ipa_proof (deferred in both modes)
      */
     [[nodiscard("Verification result must be accumulated")]] ReductionResult reduce_to_pairing_check_and_ipa_opening();
+
+    /**
+     * @brief Like reduce_to_pairing_check_and_ipa_opening but defers the ECCVM Shplonk MSM.
+     * @details Returns a BatchOpeningClaim instead of a finalized IPA claim.
+     */
+    [[nodiscard("Batch opening claim must be finalized")]] BatchReductionResult
+    reduce_to_pairing_check_and_batch_opening_claim();
 
   private:
     std::shared_ptr<Transcript> transcript;

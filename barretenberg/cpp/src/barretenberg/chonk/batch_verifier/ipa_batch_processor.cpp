@@ -260,7 +260,7 @@ void IPABatchProcessor::coordinator_loop()
                     auto proof_start = std::chrono::steady_clock::now();
 
                     ChonkNativeVerifier verifier(vks_[req.vk_index]);
-                    auto result = verifier.reduce_to_ipa_claim(req.proof);
+                    auto result = verifier.reduce_to_batch_ipa_claim(req.proof);
 
                     auto proof_end = std::chrono::steady_clock::now();
                     double reduce_ms = std::chrono::duration<double, std::milli>(proof_end - proof_start).count();
@@ -268,7 +268,7 @@ void IPABatchProcessor::coordinator_loop()
                     reduce_results[idx] = ReduceResult{
                         .request_id = req.request_id,
                         .source = req.source,
-                        .ipa_claim = std::move(result.ipa_claim),
+                        .deferred_ipa_claim = std::move(result.deferred_ipa_claim),
                         .ipa_proof = std::move(result.ipa_proof),
                         .all_checks_passed = result.all_checks_passed,
                         .error_message =
@@ -400,7 +400,8 @@ bool IPABatchProcessor::batch_ipa_verify(const std::vector<ReduceResult>& result
     transcripts.reserve(indices.size());
 
     for (size_t idx : indices) {
-        claims.push_back(results[idx].ipa_claim);
+        // Finalize each deferred ECCVM Shplonk MSM to produce an IPA opening claim
+        claims.push_back(results[idx].deferred_ipa_claim.finalize());
         transcripts.push_back(std::make_shared<NativeTranscript>(results[idx].ipa_proof));
     }
 

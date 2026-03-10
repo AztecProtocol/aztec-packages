@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
@@ -44,6 +45,35 @@ template <typename Flavor> class ECCVMVerifier_ {
         bool reduction_succeeded = false; // Aggregate of sumcheck, consistency, and translation masking checks
     };
 
+    /**
+     * @brief Deferred IPA opening claim: contains the raw Shplonk MSM data plus the evaluation.
+     * @details When finalized via batch_mul(commitments, scalars), produces the commitment.
+     * Combined with {evaluation_point, evaluation}, forms the complete OpeningClaim for IPA.
+     */
+    struct DeferredIPAClaim {
+        BatchOpeningClaim<Curve> batch_opening_claim; // Commitments + scalars for deferred MSM
+        typename Curve::ScalarField evaluation;       // Shplonk evaluation (needed for IPA)
+
+        /** Finalize the deferred MSM to produce a standard OpeningClaim. */
+        OpeningClaim<Curve> finalize() const
+        {
+            using GroupElement = typename Curve::Element;
+            auto commitment = GroupElement::batch_mul(batch_opening_claim.commitments, batch_opening_claim.scalars);
+            return { { batch_opening_claim.evaluation_point, evaluation }, commitment };
+        }
+    };
+
+    /**
+     * @brief Result of reducing ECCVM proof to a deferred batch opening claim
+     * @details Like ReductionResult, but defers the final Shplonk MSM. The DeferredIPAClaim contains
+     * commitments, scalars, and the evaluation that together form the IPA opening claim when finalized.
+     * This enables batching: N proofs' deferred claims can be merged into a single MSM.
+     */
+    struct BatchReductionResult {
+        DeferredIPAClaim deferred_ipa_claim; // Deferred Shplonk MSM + evaluation
+        bool reduction_succeeded = false;
+    };
+
     // Unified constructor for both native and recursive verification
     // For recursive case, extracts builder from proof elements via get_context()
     ECCVMVerifier_(const std::shared_ptr<Transcript>& transcript, const Proof& proof)
@@ -78,6 +108,16 @@ template <typename Flavor> class ECCVMVerifier_ {
      *   - reduction_succeeded: true if sumcheck, consistency, and masking checks passed
      */
     [[nodiscard("Verification result must be checked")]] ReductionResult reduce_to_ipa_opening();
+
+    /**
+     * @brief Reduce the ECCVM proof to a deferred batch opening claim (no final MSM)
+     * @details Performs all internal verification (sumcheck, translation masking, Shplemini reduction) but
+     * defers the final Shplonk batch_mul. Returns a BatchOpeningClaim whose commitments and scalars can
+     * be merged with other proofs' claims for a single batched MSM.
+     *
+     * @return BatchReductionResult containing the deferred claim and verification status
+     */
+    [[nodiscard("Batch opening claim must be finalized")]] BatchReductionResult reduce_to_batch_opening_claim();
 
     /**
      * @brief Get the data required by the TranslatorVerifier

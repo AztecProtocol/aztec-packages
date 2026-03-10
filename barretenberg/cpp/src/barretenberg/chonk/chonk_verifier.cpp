@@ -12,11 +12,12 @@
 namespace bb {
 
 /**
- * @brief Run all Chonk verification except IPA, returning the IPA data for deferred verification.
+ * @brief Run all Chonk verification except IPA, returning a deferred batch opening claim.
  */
-template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduce_to_ipa_claim(const Proof& proof)
+template <>
+ChonkVerifier<false>::BatchIPAReductionResult ChonkVerifier<false>::reduce_to_batch_ipa_claim(const Proof& proof)
 {
-    BB_BENCH_NAME("ChonkVerifier::reduce_to_ipa_claim");
+    BB_BENCH_NAME("ChonkVerifier::reduce_to_batch_ipa_claim");
     // Step 1: Verify the Hiding kernel proof (includes pairing check)
     HidingKernelVerifier verifier{ vk_and_hash, transcript };
     auto verifier_output = verifier.verify_proof(proof.mega_proof);
@@ -39,18 +40,33 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
         return { {}, {}, false };
     }
 
-    // Step 3: Goblin verification (merge, eccvm, translator)
+    // Step 3: Goblin verification with deferred ECCVM Shplonk MSM
     MergeCommitments merge_commitments{ .t_commitments = verifier.get_ecc_op_wires(),
                                         .T_prev_commitments = kernel_io.ecc_op_tables };
     GoblinVerifier goblin_verifier{ transcript, proof.goblin_proof, merge_commitments, MergeSettings::APPEND };
-    GoblinReductionResult goblin_output = goblin_verifier.reduce_to_pairing_check_and_ipa_opening();
+    auto goblin_output = goblin_verifier.reduce_to_pairing_check_and_batch_opening_claim();
 
     if (!goblin_output.all_checks_passed) {
         info("ChonkVerifier: chonk verification failed at Goblin checks (merge/eccvm/translator reduction + pairing)");
         return { {}, {}, false };
     }
 
-    return { std::move(goblin_output.ipa_claim), std::move(goblin_output.ipa_proof), true };
+    return { std::move(goblin_output.deferred_ipa_claim), std::move(goblin_output.ipa_proof), true };
+}
+
+/**
+ * @brief Run all Chonk verification except IPA, returning the IPA data for deferred verification.
+ */
+template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduce_to_ipa_claim(const Proof& proof)
+{
+    auto batch_result = reduce_to_batch_ipa_claim(proof);
+    if (!batch_result.all_checks_passed) {
+        return { {}, {}, false };
+    }
+
+    // Finalize the deferred ECCVM Shplonk MSM
+    auto ipa_claim = batch_result.deferred_ipa_claim.finalize();
+    return { std::move(ipa_claim), std::move(batch_result.ipa_proof), true };
 }
 
 /**
@@ -136,6 +152,16 @@ template <>
 ChonkVerifier<true>::IPAReductionResult ChonkVerifier<true>::reduce_to_ipa_claim([[maybe_unused]] const Proof& proof)
 {
     throw_or_abort("reduce_to_ipa_claim is only available for native (non-recursive) ChonkVerifier");
+}
+
+/**
+ * @brief Stub for recursive mode.
+ */
+template <>
+ChonkVerifier<true>::BatchIPAReductionResult ChonkVerifier<true>::reduce_to_batch_ipa_claim(
+    [[maybe_unused]] const Proof& proof)
+{
+    throw_or_abort("reduce_to_batch_ipa_claim is only available for native (non-recursive) ChonkVerifier");
 }
 
 // Template instantiations
