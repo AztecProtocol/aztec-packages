@@ -19,6 +19,8 @@ export class MessageContextService {
     // TODO: optimize, we might be hitting the node to get the same txHash repeatedly
     return Promise.all(
       txHashes.map(async txHashField => {
+        // A zero tx hash indicates a tx-less offchain message (e.g. one not tied to any onchain transaction).
+        // These messages don't have a transaction context to resolve, so we return null.
         if (txHashField.isZero()) {
           return null;
         }
@@ -29,9 +31,11 @@ export class MessageContextService {
           return null;
         }
 
+        // Every tx has at least one nullifier (the first nullifier derived from the tx hash). Hitting this condition
+        // would mean a buggy node, but since we need to access data.nullifiers[0], the defensive check does no harm.
         const data = txEffect.data;
         if (data.nullifiers.length === 0) {
-          return null;
+          throw new Error(`Tx effect for ${txHash} has no nullifiers`);
         }
 
         return new MessageTxContext(data.txHash, data.noteHashes, data.nullifiers[0]);
