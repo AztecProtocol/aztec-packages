@@ -28,11 +28,15 @@ export async function createSimulator(
     try {
       await fs.access(config.acvmBinaryPath, fs.constants.R_OK);
       await fs.mkdir(config.acvmWorkingDirectory, { recursive: true });
-      logger.info(`Using native ACVM at ${config.acvmBinaryPath} and working directory ${config.acvmWorkingDirectory}`);
+      logger.info(
+        'Using native ACVM at %s and working directory %s',
+        config.acvmBinaryPath,
+        config.acvmWorkingDirectory,
+      );
       const acvmLogger = logger.createChild('acvm-native');
       return new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath, undefined, acvmLogger);
     } catch {
-      logger.warn(`Failed to access ACVM at ${config.acvmBinaryPath}, falling back to WASM`);
+      logger.warn('Failed to access ACVM at %s, falling back to WASM', config.acvmBinaryPath);
     }
   }
   logger.info('Using WASM ACVM simulation');

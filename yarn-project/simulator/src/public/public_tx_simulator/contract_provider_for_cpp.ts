@@ -21,14 +21,14 @@ export class ContractProviderForCpp implements ContractProvider {
   }
 
   public getContractInstance = async (address: string): Promise<Buffer | undefined> => {
-    this.log.trace(`Contract provider callback: getContractInstance(${address})`);
+    this.log.trace('Contract provider callback: getContractInstance(%s)', address);
 
     const aztecAddr = AztecAddress.fromString(address);
 
     const instance = await this.contractsDB.getContractInstance(aztecAddr, this.globalVariables.timestamp);
 
     if (!instance) {
-      this.log.debug(`Contract instance not found: ${address}`);
+      this.log.debug('Contract instance not found: %s', address);
       return undefined;
     }
 
@@ -36,7 +36,7 @@ export class ContractProviderForCpp implements ContractProvider {
   };
 
   public getContractClass = async (classId: string): Promise<Buffer | undefined> => {
-    this.log.trace(`Contract provider callback: getContractClass(${classId})`);
+    this.log.trace('Contract provider callback: getContractClass(%s)', classId);
 
     // Parse classId string to Fr
     const classIdFr = Fr.fromString(classId);
@@ -45,7 +45,7 @@ export class ContractProviderForCpp implements ContractProvider {
     const contractClass = await this.contractsDB.getContractClass(classIdFr);
 
     if (!contractClass) {
-      this.log.debug(`Contract class not found: ${classId}`);
+      this.log.debug('Contract class not found: %s', classId);
       return undefined;
     }
 
@@ -66,7 +66,7 @@ export class ContractProviderForCpp implements ContractProvider {
   };
 
   public getBytecodeCommitment = async (classId: string): Promise<Buffer | undefined> => {
-    this.log.trace(`Contract provider callback: getBytecodeCommitment(${classId})`);
+    this.log.trace('Contract provider callback: getBytecodeCommitment(%s)', classId);
 
     // Parse classId string to Fr
     const classIdFr = Fr.fromString(classId);
@@ -75,7 +75,7 @@ export class ContractProviderForCpp implements ContractProvider {
     const commitment = await this.contractsDB.getBytecodeCommitment(classIdFr);
 
     if (!commitment) {
-      this.log.debug(`Bytecode commitment not found: ${classId}`);
+      this.log.debug('Bytecode commitment not found: %s', classId);
       return undefined;
     }
 
@@ -84,7 +84,7 @@ export class ContractProviderForCpp implements ContractProvider {
   };
 
   public getDebugFunctionName = async (address: string, selector: string): Promise<string | undefined> => {
-    this.log.trace(`Contract provider callback: getDebugFunctionName(${address}, ${selector})`);
+    this.log.trace('Contract provider callback: getDebugFunctionName(%s, %s)', address, selector);
 
     // Parse address and selector strings
     const aztecAddr = AztecAddress.fromString(address);
@@ -92,7 +92,7 @@ export class ContractProviderForCpp implements ContractProvider {
     const functionSelector = FunctionSelector.fromFieldOrUndefined(selectorFr);
 
     if (!functionSelector) {
-      this.log.trace(`calldata[0] is not a function selector: ${selector}`);
+      this.log.trace('calldata[0] is not a function selector: %s', selector);
       return undefined;
     }
 
@@ -100,7 +100,7 @@ export class ContractProviderForCpp implements ContractProvider {
     const name = await this.contractsDB.getDebugFunctionName(aztecAddr, functionSelector);
 
     if (!name) {
-      this.log.trace(`Debug function name not found for ${address}:${selector}`);
+      this.log.trace('Debug function name not found for %s:%s', address, selector);
       return undefined;
     }
 

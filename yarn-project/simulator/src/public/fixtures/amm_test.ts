@@ -121,7 +121,7 @@ export async function ammTest(
   );
   expectToBeTrue(removeLiquidityResult.revertCode.isOK());
 
-  logger.info(`AMM public tx simulator test took ${timer.ms()}ms\n`);
+  logger.info('AMM public tx simulator test took %dms\n', timer.ms());
 }
 
 async function addLiquidity(

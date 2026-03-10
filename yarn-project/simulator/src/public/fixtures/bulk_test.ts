@@ -88,7 +88,7 @@ export async function bulkTest(
     },
   );
 
-  logger.info(`Bulk test took ${timer.ms()}ms\n`);
+  logger.info('Bulk test took %dms\n', timer.ms());
 
   return bulkResult;
 }
@@ -163,7 +163,7 @@ export async function megaBulkTest(
     },
   );
 
-  logger.info(`Mega bulk test took ${timer.ms()}ms\n`);
+  logger.info('Mega bulk test took %dms\n', timer.ms());
 
   return bulkResult;
 }

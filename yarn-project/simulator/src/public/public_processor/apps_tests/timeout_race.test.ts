@@ -184,7 +184,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
    */
   it('CppPublicTxSimulator BUG PROOF: race condition exists WITHOUT cancellation', async () => {
     const raceObservedCount = await runRaceConditionTest(false, MAX_BUG_PROOF_ITERATIONS);
-    logger.info(`Race condition observed in >0/${MAX_BUG_PROOF_ITERATIONS} iterations (expected: >0)`);
+    logger.info('Race condition observed in >0/%d iterations (expected: >0)', MAX_BUG_PROOF_ITERATIONS);
     expect(raceObservedCount).toBeGreaterThan(0);
   });
 
@@ -200,7 +200,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
    */
   it('CppPublicTxSimulator FIX PROOF: no race condition WITH cancellation', async () => {
     const raceObservedCount = await runRaceConditionTest(true, FIX_PROOF_ITERATIONS);
-    logger.info(`Race condition observed in ${raceObservedCount}/${FIX_PROOF_ITERATIONS} iterations (expected: 0)`);
+    logger.info('Race condition observed in %d/%d iterations (expected: 0)', raceObservedCount, FIX_PROOF_ITERATIONS);
     expect(raceObservedCount).toBe(0);
   });
 
@@ -344,7 +344,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
             ? 'BOTH'
             : 'checkWorldStateUnchanged only'
           : 'our check only (C++ corrupted AFTER checkWorldStateUnchanged)';
-        logger.verbose(`Iteration ${iteration}: corruption detected by ${caughtBy}`);
+        logger.verbose('Iteration %d: corruption detected by %s', iteration, caughtBy);
       }
 
       if (anyTreeCorrupted) {
@@ -353,7 +353,8 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
         // Always cancel simulation for clean test shutdown (prevent crash during afterEach)
         await realSimulator.cancel(1000);
         logger.verbose(
-          `Early exit: checkWorldStateUnchanged caught=${checkWorldStateUnchangedCaughtIt}, our check caught=true`,
+          'Early exit: checkWorldStateUnchanged caught=%s, our check caught=true',
+          checkWorldStateUnchangedCaughtIt,
         );
         return corruptionCount;
       }
@@ -374,7 +375,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
    */
   it('PublicProcessor BUG PROOF: state corruption occurs WITHOUT cancellation', async () => {
     const corruptionCount = await runPublicProcessorTimeoutTest(false, MAX_BUG_PROOF_ITERATIONS);
-    logger.info(`State corruption detected in >0/${MAX_BUG_PROOF_ITERATIONS} iterations (expected: >0)`);
+    logger.info('State corruption detected in >0/%d iterations (expected: >0)', MAX_BUG_PROOF_ITERATIONS);
     // BUG - Without cancellation, C++ corrupts state after process() completes
     expect(corruptionCount).toBeGreaterThan(0);
   });
@@ -387,7 +388,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
    */
   it('PublicProcessor FIX PROOF: no state corruption WITH cancellation', async () => {
     const corruptionCount = await runPublicProcessorTimeoutTest(true, FIX_PROOF_ITERATIONS);
-    logger.info(`State corruption detected in ${corruptionCount}/${FIX_PROOF_ITERATIONS} iterations (expected: 0)`);
+    logger.info('State corruption detected in %d/%d iterations (expected: 0)', corruptionCount, FIX_PROOF_ITERATIONS);
     // FIX - With cancellation, state should remain unchanged
     expect(corruptionCount).toBe(0);
   });

@@ -53,7 +53,7 @@ export async function acvm(
     initialWitness,
     (name: string, args: ForeignCallInput[]) => {
       try {
-        logger.debug(`Oracle callback ${name}`);
+        logger.debug('Oracle callback %s', name);
         const oracleFunction = callback[name];
         if (!oracleFunction) {
           throw new Error(`Oracle callback ${name} not found`);
@@ -67,7 +67,7 @@ export async function acvm(
         } else {
           typedError = new Error(`Error in oracle callback ${err}`);
         }
-        logger.error(`Error in oracle callback ${name}: ${typedError.message}`);
+        logger.error('Error in oracle callback %s: %s', name, typedError.message);
         throw typedError;
       }
     },

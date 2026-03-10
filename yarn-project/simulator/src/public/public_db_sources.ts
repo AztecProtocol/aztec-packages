@@ -180,7 +180,7 @@ export class PublicContractsDB implements PublicContractsDBInterface {
   ) {
     await Promise.all(
       contractClassEvents.map(async (event: ContractClassPublishedEvent) => {
-        this.log.debug(`Adding class ${event.contractClassId.toString()} to contract state`);
+        this.log.debug('Adding class %s to contract state', event.contractClassId);
         const contractClass = await event.toContractClassPublic();
         state.addClass(event.contractClassId, contractClass);
       }),
@@ -192,9 +192,7 @@ export class PublicContractsDB implements PublicContractsDBInterface {
     state: ContractsDbCheckpoint,
   ) {
     contractInstanceEvents.forEach(e => {
-      this.log.debug(
-        `Adding instance ${e.address.toString()} with class ${e.contractClassId.toString()} to contract state`,
-      );
+      this.log.debug('Adding instance %s with class %s to contract state', e.address, e.contractClassId);
       state.addInstance(e.address, e.toContractInstance());
     });
   }
@@ -240,7 +238,7 @@ export class PublicTreesDB implements PublicStateDBInterface {
     )) as PublicDataTreeLeafPreimage;
 
     const result = lowLeafResult.alreadyPresent ? preimage.leaf.value : Fr.ZERO;
-    this.logger.debug(`Storage read (contract=${contract}, slot=${slot}, value=${result})`, {
+    this.logger.debug('Storage read (contract=%s, slot=%s, value=%s)', contract, slot, result, {
       eventName: 'public-db-access',
       duration: timer.ms(),
       operation: 'storage-read',
@@ -255,7 +253,7 @@ export class PublicTreesDB implements PublicStateDBInterface {
     const publicDataWrite = new PublicDataWrite(leafSlot, newValue);
     await this.db.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [publicDataWrite.toBuffer()]);
 
-    this.logger.debug(`Storage write (contract=${contract}, slot=${slot}, value=${newValue})`, {
+    this.logger.debug('Storage write (contract=%s, slot=%s, value=%s)', contract, slot, newValue, {
       eventName: 'public-db-access',
       duration: timer.ms(),
       operation: 'storage-write',
@@ -272,7 +270,7 @@ export class PublicTreesDB implements PublicStateDBInterface {
     // TODO: We need this for the hints. See class comment for more details.
     await this.db.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, leafIndex);
 
-    this.logger.debug(`Fetched L1 to L2 message leaf value (leafIndex=${leafIndex}, value=${leafValue})`, {
+    this.logger.debug('Fetched L1 to L2 message leaf value (leafIndex=%s, value=%s)', leafIndex, leafValue, {
       eventName: 'public-db-access',
       duration: timer.ms(),
       operation: 'get-l1-to-l2-message-leaf-value',
@@ -290,7 +288,7 @@ export class PublicTreesDB implements PublicStateDBInterface {
     // TODO: We need this for the hints. See class comment for more details.
     await this.db.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
 
-    this.logger.debug(`Fetched note hash leaf value (leafIndex=${leafIndex}, value=${leafValue})`, {
+    this.logger.debug('Fetched note hash leaf value (leafIndex=%s, value=%s)', leafIndex, leafValue, {
       eventName: 'public-db-access',
       duration: timer.ms(),
       operation: 'get-note-hash',
@@ -302,7 +300,7 @@ export class PublicTreesDB implements PublicStateDBInterface {
     const timer = new Timer();
     await this.db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [noteHash]);
 
-    this.logger.debug(`Wrote note hash (noteHash=${noteHash})`, {
+    this.logger.debug('Wrote note hash (noteHash=%s)', noteHash, {
       eventName: 'public-db-access',
       duration: timer.ms(),
       operation: 'write-note-hash',
@@ -321,7 +319,7 @@ export class PublicTreesDB implements PublicStateDBInterface {
     await this.db.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, lowLeafResult.index);
     const exists = lowLeafResult.alreadyPresent;
 
-    this.logger.debug(`Checked nullifier exists (nullifier=${nullifier}, exists=${exists})`, {
+    this.logger.debug('Checked nullifier exists (nullifier=%s, exists=%s)', nullifier, exists, {
       eventName: 'public-db-access',
       duration: timer.ms(),
       operation: 'check-nullifier-exists',
@@ -333,7 +331,7 @@ export class PublicTreesDB implements PublicStateDBInterface {
     const timer = new Timer();
     await this.db.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()]);
 
-    this.logger.debug(`Wrote nullifier (nullifier=${siloedNullifier})`, {
+    this.logger.debug('Wrote nullifier (nullifier=%s)', siloedNullifier, {
       eventName: 'public-db-access',
       duration: timer.ms(),
       operation: 'write-nullifier',
@@ -368,7 +366,7 @@ export class PublicTreesDB implements PublicStateDBInterface {
         throw new Error(`Padding not supported for tree ${treeId}`);
     }
 
-    this.logger.debug(`Padded tree (tree=${getTreeName(treeId)}, leavesToInsert=${leavesToInsert})`, {
+    this.logger.debug('Padded tree (tree=%s, leavesToInsert=%d)', getTreeName(treeId), leavesToInsert, {
       eventName: 'public-db-access',
       duration: timer.ms(),
       operation: 'pad-tree',

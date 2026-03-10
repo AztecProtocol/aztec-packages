@@ -135,6 +135,6 @@ describe.each([
     expect(processedTxs.length).toBe(NUM_TRANSFERS + 2); // constructor, mint, transfers
     expect(failedTxs.length).toBe(0);
 
-    logger.verbose(`TokenContract public processor test took ${timer.ms()}ms\n`);
+    logger.verbose('TokenContract public processor test took %dms\n', timer.ms());
   });
 });

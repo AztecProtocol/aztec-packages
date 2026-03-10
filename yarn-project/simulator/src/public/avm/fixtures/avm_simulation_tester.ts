@@ -104,7 +104,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
     const simulator = new AvmSimulator(context);
     const result = await simulator.execute();
     if (result.reverted) {
-      this.logger.error(`Error in ${fnName}:`);
+      this.logger.error('Error in %s:', fnName);
       this.logger.error(
         resolveContractAssertionMessage(
           fnName,
@@ -114,7 +114,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
         )!,
       );
     } else {
-      this.logger.info(`Simulation of function ${fnName} succeeded!`);
+      this.logger.info('Simulation of function %s succeeded!', fnName);
       await this.stateManager.merge(persistableState);
     }
     return result;

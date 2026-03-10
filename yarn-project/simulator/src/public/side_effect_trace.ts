@@ -190,7 +190,12 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     this.publicDataWrites.push(new PublicDataUpdateRequest(leafSlot, value, this.sideEffectCounter));
 
     this.log.trace(
-      `Traced public data write (address=${contractAddress}, slot=${slot}): value=${value} (counter=${this.sideEffectCounter}, isProtocol:${protocolWrite})`,
+      'Traced public data write (address=%s, slot=%s): value=%s (counter=%d, isProtocol:%s)',
+      contractAddress,
+      slot,
+      value,
+      this.sideEffectCounter,
+      protocolWrite,
     );
     this.incrementSideEffectCounter();
     this.writtenPublicDataSlots.add(this.computePublicDataSlotKey(contractAddress, slot));
@@ -210,7 +215,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     }
 
     this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter));
-    this.log.trace(`Tracing new note hash (counter=${this.sideEffectCounter})`);
+    this.log.trace('Tracing new note hash (counter=%d)', this.sideEffectCounter);
     this.incrementSideEffectCounter();
   }
 
@@ -221,7 +226,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
 
     this.nullifiers.push(new Nullifier(siloedNullifier, /*noteHash=*/ Fr.ZERO, this.sideEffectCounter));
 
-    this.log.trace(`Tracing new nullifier (counter=${this.sideEffectCounter})`);
+    this.log.trace('Tracing new nullifier (counter=%d)', this.sideEffectCounter);
     this.incrementSideEffectCounter();
   }
 
@@ -232,7 +237,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
 
     const recipientAddress = EthAddress.fromField(recipient);
     this.l2ToL1Messages.push(new L2ToL1Message(recipientAddress, content).scope(contractAddress));
-    this.log.trace(`Tracing new l2 to l1 message (counter=${this.sideEffectCounter})`);
+    this.log.trace('Tracing new l2 to l1 message (counter=%d)', this.sideEffectCounter);
     this.incrementSideEffectCounter();
   }
 
@@ -248,7 +253,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     }
 
     this.publicLogs.push(publicLog);
-    this.log.trace(`Tracing new public log (counter=${this.sideEffectCounter})`);
+    this.log.trace('Tracing new public log (counter=%d)', this.sideEffectCounter);
     this.incrementSideEffectCounter();
   }
 
@@ -272,10 +277,10 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     // We limit the number of unique contract class IDs due to hashing and the trace length limit.
     if (exists && !this.uniqueClassIds.has(contractClassId.toString())) {
       if (this.uniqueClassIds.size() >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) {
-        this.log.debug(`Bytecode retrieval failure for contract class ID ${contractClassId} (limit reached)`);
+        this.log.debug('Bytecode retrieval failure for contract class ID %s (limit reached)', contractClassId);
         throw new MaxCallsToUniqueContractClassIdsError();
       }
-      this.log.trace(`Adding contract class ID ${contractClassId} (counter=${this.sideEffectCounter})`);
+      this.log.trace('Adding contract class ID %s (counter=%d)', contractClassId, this.sideEffectCounter);
       this.uniqueClassIds.add(contractClassId.toString());
       this.incrementSideEffectCounter();
     }

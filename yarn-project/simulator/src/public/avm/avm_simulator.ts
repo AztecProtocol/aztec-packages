@@ -150,9 +150,12 @@ export class AvmSimulator implements AvmSimulatorInterface {
         if (this.log.isLevelEnabled('trace')) {
           // Skip this entirely to avoid toStringing etc if trace is not enabled
           this.log.trace(
-            `[PC:${machineState.pc}] [IC:${machineState.instrCounter}] ${instruction.toString()} (gasLeft l2=${
-              machineState.l2GasLeft
-            } da=${machineState.daGasLeft})`,
+            '[PC:%d] [IC:%d] %s (gasLeft l2=%d da=%d)',
+            machineState.pc,
+            machineState.instrCounter,
+            instruction,
+            machineState.l2GasLeft,
+            machineState.daGasLeft,
           );
         }
         machineState.nextPc = machineState.pc + bytesRead;
@@ -194,26 +197,28 @@ export class AvmSimulator implements AvmSimulatorInterface {
         revertReason,
         machineState.instrCounter,
       );
-      this.log.debug(`Context execution results: ${results.toString()}`);
+      this.log.debug('Context execution results: %s', results);
       const totalGasUsed: Gas = {
         l2Gas: callStartGas.l2Gas - machineState.l2GasLeft,
         daGas: callStartGas.daGas - machineState.daGasLeft,
       };
-      this.log.debug(`Executed ${machineState.instrCounter} instructions and consumed ${totalGasUsed.l2Gas} L2 Gas`);
+      this.log.debug('Executed %d instructions and consumed %d L2 Gas', machineState.instrCounter, totalGasUsed.l2Gas);
 
       this.tallyPrintFunction();
 
-      this.log.debug(`Core AVM simulation took ${timer.ms()}ms`);
+      this.log.debug('Core AVM simulation took %dms', timer.ms());
 
       // Return results for processing by calling context
       return results;
     } catch (err: any) {
       this.log.info(
-        `Exceptional halt (revert by something other than REVERT opcode) for instruction
-         ${instructionName} at pc ${machineState.pc} and instruction counter ${machineState.instrCounter}`,
+        'Exceptional halt (revert by something other than REVERT opcode) for instruction %s at pc %d and instruction counter %d',
+        instructionName,
+        machineState.pc,
+        machineState.instrCounter,
       );
       if (!(err instanceof CheckedPublicExecutionError)) {
-        this.log.error(`Unchecked/unknown error thrown by AVM. This is a bug. Error: ${err}`);
+        this.log.error('Unchecked/unknown error thrown by AVM. This is a bug. Error: %s', err);
         throw err;
       }
 
@@ -228,7 +233,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
         revertReason,
         machineState.instrCounter,
       );
-      this.log.debug(`Context execution results: ${results.toString()}`);
+      this.log.debug('Context execution results: %s', results);
 
       this.tallyPrintFunction();
       // Return results for processing by calling context
@@ -273,7 +278,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
     const sortedOpcodes = Array.from(this.opcodeTallies.entries()).sort((a, b) => b[1].gas.l2Gas - a[1].gas.l2Gas);
     for (const [opcode, tally] of sortedOpcodes) {
       // NOTE: don't care to clutter the logs with DA gas for now
-      this.log.debug(`${opcode} executed ${tally.count} times consuming a total of ${tally.gas.l2Gas} L2 gas`);
+      this.log.debug('%s executed %d times consuming a total of %d L2 gas', opcode, tally.count, tally.gas.l2Gas);
     }
   }
 }

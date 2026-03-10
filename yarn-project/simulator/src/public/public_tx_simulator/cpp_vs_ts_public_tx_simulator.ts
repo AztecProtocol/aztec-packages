@@ -51,12 +51,12 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
    */
   public override async simulate(tx: Tx): Promise<PublicTxResult> {
     const txHash = this.computeTxHash(tx);
-    this.log.debug(`C++ simulation of ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, {
+    this.log.debug('C++ simulation of %d public calls for tx %s', tx.publicFunctionCalldata.length, txHash, {
       txHash,
     });
 
     // Run TS simulation to generate hints and public inputs
-    this.log.debug(`Running TS simulation for tx ${txHash}`);
+    this.log.debug('Running TS simulation for tx %s', txHash);
 
     // create checkpoint for ws
     let tsResult: PublicTxResult | undefined;
@@ -67,11 +67,15 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
       // Run the full TypeScript simulation using the parent class
       // This will modify the merkle tree with the transaction's state changes
       tsResult = await super.simulate(tx);
-      this.log.debug(`TS simulation completed for tx ${txHash}`);
+      this.log.debug('TS simulation completed for tx %s', txHash);
 
       tsStateRef = await this.merkleTree.getStateReference(); // capture tree roots for later comparsion
     } catch (error: any) {
-      this.log.warn(`TS simulation failed, but still continuing with C++ simulation: ${error.message} ${error.stack}`);
+      this.log.warn(
+        'TS simulation failed, but still continuing with C++ simulation: %s %s',
+        error.message,
+        error.stack,
+      );
     } finally {
       // revert checkpoint for ws and clear contract db changes
       // (cpp should reapply exactly the same changes if there are no bugs)
@@ -79,7 +83,7 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
       this.contractsDB.revertCheckpoint();
     }
 
-    this.log.debug(`Running C++ simulation for tx ${txHash}`);
+    this.log.debug('Running C++ simulation for tx %s', txHash);
 
     // Using the "as WorldStateRevisionWithHandle" is a bit of a "trust me bro", hence the assert.
     let wsRevision = this.merkleTree.getRevision();
@@ -90,7 +94,7 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
     const wsCppHandle = (wsRevision as WorldStateRevisionWithHandle).handle;
     wsRevision = wsRevision.toWorldStateRevision(); // for msgpack serialization, we don't include the handle in the type
 
-    this.log.debug(`Running C++ simulation with world state revision ${JSON.stringify(wsRevision)}`);
+    this.log.debug('Running C++ simulation with world state revision %s', JSON.stringify(wsRevision));
 
     // Create the fast simulation inputs
     const txHint = AvmTxHint.fromTx(tx, this.globalVariables.gasFees);
@@ -112,7 +116,7 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
 
     let resultBuffer: Buffer;
     try {
-      this.log.debug(`Calling C++ simulator for tx ${txHash}`);
+      this.log.debug('Calling C++ simulator for tx %s', txHash);
       resultBuffer = await avmSimulate(inputBuffer, contractProvider, wsCppHandle, logLevel);
     } catch (error: any) {
       throw new SimulationError(`C++ simulation failed: ${error.message}`, []);
@@ -124,7 +128,7 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
     assert(tsStateRef !== undefined, 'TS state reference should have been captured if C++ succeeded');
 
     // Deserialize the msgpack result
-    this.log.debug(`Deserializing C++ from buffer (size: ${resultBuffer.length})...`);
+    this.log.debug('Deserializing C++ from buffer (size: %d)...', resultBuffer.length);
     const cppResultJSON: object = deserializeFromMessagePack(resultBuffer);
     this.log.debug(`Deserializing C++ result to PublicTxResult...`);
     const cppResult = PublicTxResult.fromPlainObject(cppResultJSON);
@@ -200,7 +204,7 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
       `Tree roots mismatch between TS and C++ public simulations for tx ${txHash}`,
     );
 
-    this.log.debug(`C++ simulation completed for tx ${txHash}`, {
+    this.log.debug('C++ simulation completed for tx %s', txHash, {
       txHash,
       reverted: !cppResult.revertCode.isOK(),
       cppGasUsed: cppResult.gasUsed.totalGas.l2Gas,

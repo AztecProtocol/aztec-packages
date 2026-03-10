@@ -282,13 +282,14 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     let calldata: Fr[] = [];
     if (!call.fnName) {
       this.logger.debug(
-        `No function name specified for call to contract ${call.address.toString()}. Assuming this is a custom bytecode with no public_dispatch function.`,
+        'No function name specified for call to contract %s. Assuming this is a custom bytecode with no public_dispatch function.',
+        call.address,
       );
       this.logger.debug(`Not using ABI to encode arguments. Not prepending fn selector to calldata.`);
       try {
         calldata = call.args.map(arg => new Fr(arg));
       } catch (error) {
-        this.logger.warn(`Tried assuming that all arguments are Field-like. Failed. Error: ${error}`);
+        this.logger.warn('Tried assuming that all arguments are Field-like. Failed. Error: %s', error);
         throw error;
       }
     } else {

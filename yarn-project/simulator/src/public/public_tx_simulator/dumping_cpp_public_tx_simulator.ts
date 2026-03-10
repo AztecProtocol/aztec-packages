@@ -74,10 +74,10 @@ export class DumpingCppPublicTxSimulator extends CppPublicTxSimulator {
       // Write to disk
       writeFileSync(filepath, serialized);
 
-      this.log.debug(`Dumped AVM circuit inputs to ${filepath}`);
+      this.log.debug('Dumped AVM circuit inputs to %s', filepath);
     } catch (error) {
       // Non-blocking error handling - log but don't interrupt processing
-      this.log.warn(`Failed to dump AVM circuit inputs for tx ${txHash.toString()}: ${error}`);
+      this.log.warn('Failed to dump AVM circuit inputs for tx %s: %s', txHash, error);
     }
   }
 }

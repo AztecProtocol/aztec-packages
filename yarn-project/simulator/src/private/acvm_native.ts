@@ -100,7 +100,7 @@ export async function executeNativeCircuit(
       'output-witness',
     ];
 
-    logger.debug(`Calling ACVM with ${args.join(' ')}`);
+    logger.debug('Calling ACVM with %s', args.join(' '));
 
     const processPromise = new Promise<string>((resolve, reject) => {
       const outChunks: Buffer[] = [];
@@ -121,7 +121,7 @@ export async function executeNativeCircuit(
           resolve(Buffer.concat(outChunks, outLen).toString('utf-8'));
         } else {
           const stderr = Buffer.concat(errChunks, errLen);
-          logger.error(`From ACVM: ${stderr.toString('utf-8')}`);
+          logger.error('From ACVM: %s', stderr.toString('utf-8'));
           reject(stderr.toString('utf-8'));
         }
       });

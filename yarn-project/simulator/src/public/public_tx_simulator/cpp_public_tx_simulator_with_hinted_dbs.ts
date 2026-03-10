@@ -52,23 +52,23 @@ export class CppPublicTxSimulatorHintedDbs extends PublicTxSimulator implements 
    */
   public override async simulate(tx: Tx): Promise<PublicTxResult> {
     const txHash = this.computeTxHash(tx);
-    this.log.debug(`C++ hinted DB simulation of ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, {
+    this.log.debug('C++ hinted DB simulation of %d public calls for tx %s', tx.publicFunctionCalldata.length, txHash, {
       txHash,
     });
 
     // First, run TS simulation to generate hints and public inputs
-    this.log.debug(`Running TS simulation for tx ${txHash}`);
+    this.log.debug('Running TS simulation for tx %s', txHash);
 
     // Run the full TypeScript simulation using the parent class
     // This will modify the merkle tree with the transaction's state changes
     const tsResult = await super.simulate(tx);
-    this.log.debug(`TS simulation succeeded for tx ${txHash}`);
+    this.log.debug('TS simulation succeeded for tx %s', txHash);
 
     // Extract the full AvmCircuitInputs from the TS result
     const avmCircuitInputs = new AvmCircuitInputs(tsResult.hints!, tsResult.publicInputs!);
 
     // Second, run C++ simulation with hinted DBs
-    this.log.debug(`Running C++ simulation with hinted DBs for tx ${txHash}`);
+    this.log.debug('Running C++ simulation with hinted DBs for tx %s', txHash);
 
     // Serialize to msgpack and call the C++ simulator
     const inputBuffer = avmCircuitInputs.serializeWithMessagePack();
@@ -87,7 +87,7 @@ export class CppPublicTxSimulatorHintedDbs extends PublicTxSimulator implements 
     assert(cppResult.revertCode.equals(tsResult.revertCode));
     assert(cppResult.gasUsed.totalGas.equals(tsResult.gasUsed.totalGas));
 
-    this.log.debug(`C++ hinted simulation completed for tx ${txHash}`, {
+    this.log.debug('C++ hinted simulation completed for tx %s', txHash, {
       txHash,
       reverted: !tsResult.revertCode.isOK(),
       tsGasUsed: tsResult.gasUsed.totalGas.l2Gas,

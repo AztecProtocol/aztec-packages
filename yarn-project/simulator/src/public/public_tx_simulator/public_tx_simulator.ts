@@ -103,7 +103,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
    */
   public async simulate(tx: Tx): Promise<PublicTxResult> {
     const txHash = this.computeTxHash(tx);
-    this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
+    this.log.debug('Simulating %d public calls for tx %s', tx.publicFunctionCalldata.length, txHash, { txHash });
 
     // Create hinting DBs.
     const hints = new AvmExecutionHints(
@@ -254,7 +254,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
   protected async simulatePhase(phase: TxExecutionPhase, context: PublicTxContext): Promise<ProcessedPhase> {
     const callRequests = context.getCallRequestsForPhase(phase);
 
-    this.log.debug(`Processing phase ${TxExecutionPhase[phase]} for tx ${context.txHash}`, {
+    this.log.debug('Processing phase %s for tx %s', TxExecutionPhase[phase], context.txHash, {
       txHash: context.txHash.toString(),
       phase: TxExecutionPhase[phase],
       callRequests: callRequests.length,
@@ -321,7 +321,10 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     const gasUsed = allocatedGas.sub(result.gasLeft); // by enqueued call
     context.consumeGas(phase, gasUsed);
     this.log.debug(
-      `Simulated enqueued public call (${fnName}) consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
+      'Simulated enqueued public call (%s) consumed %d L2 gas ending with %d L2 gas left.',
+      fnName,
+      gasUsed.l2Gas,
+      result.gasLeft.l2Gas,
     );
 
     if (result.reverted) {
@@ -356,7 +359,10 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     const sender = request.msgSender;
 
     this.log.debug(
-      `Executing enqueued public call to external function ${fnName}@${address} with ${allocatedGas.l2Gas} allocated L2 gas.`,
+      'Executing enqueued public call to external function %s@%s with %d allocated L2 gas.',
+      fnName,
+      address,
+      allocatedGas.l2Gas,
     );
 
     const simulator = await AvmSimulator.create(
@@ -496,14 +502,14 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       // Real transactions are enforced by private kernel to have nonzero fee payer.
       // Real transactions cannot skip fee enforcement (skipping fee enforcement makes them unprovable).
       assert(this.config.skipFeeEnforcement, 'Fee payer cannot be 0 unless skipping fee enforcement for simulation');
-      this.log.debug(`Fee payer is 0. Skipping fee enforcement. No one is paying the fee of ${txFee.toBigInt()}`);
+      this.log.debug('Fee payer is 0. Skipping fee enforcement. No one is paying the fee of %s', txFee.toBigInt());
       return;
     }
 
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     const balanceSlot = await computeFeePayerBalanceStorageSlot(context.feePayer);
 
-    this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${context.feePayer}`);
+    this.log.debug('Deducting %s balance in Fee Juice for %s', txFee.toBigInt(), context.feePayer);
     const stateManager = context.state.getActiveStateManager();
 
     let currentBalance = await stateManager.readStorage(feeJuiceAddress, balanceSlot);

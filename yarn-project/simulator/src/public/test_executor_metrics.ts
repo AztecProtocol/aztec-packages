@@ -109,7 +109,7 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
 
     // total duration of tx
     txMetrics.totalDurationMs = this.txTimer!.ms();
-    this.logger.debug(`Public TX simulation of ${txLabel} took ${txMetrics.totalDurationMs}ms`);
+    this.logger.debug('Public TX simulation of %s took %dms', txLabel, txMetrics.totalDurationMs);
 
     // add manaUsed across all enqueued calls
     txMetrics.manaUsed = gasUsed?.publicGas.l2Gas;

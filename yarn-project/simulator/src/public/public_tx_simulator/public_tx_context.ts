@@ -165,7 +165,12 @@ export class PublicTxContext {
    * NOTE: this does not "halt" the entire transaction execution.
    */
   revert(phase: TxExecutionPhase, revertReason: SimulationError | undefined = undefined, culprit = '') {
-    this.log.warn(`${TxExecutionPhase[phase]} phase reverted! ${culprit} failed with reason: ${revertReason?.message}`);
+    this.log.warn(
+      '%s phase reverted! %s failed with reason: %s',
+      TxExecutionPhase[phase],
+      culprit,
+      revertReason?.message,
+    );
 
     if (revertReason && !this.revertReason) {
       // don't override revertReason

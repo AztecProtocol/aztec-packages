@@ -267,7 +267,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
     const word = this._mem.get(offset);
     //TaggedMemory.log.trace(`Memory read: ${offset} -> ${word}`);
     if (word === undefined) {
-      TaggedMemory.log.debug(`WARNING: Memory at offset ${offset} is undefined!`);
+      TaggedMemory.log.debug('WARNING: Memory at offset %d is undefined!', offset);
       return new Field(0) as T;
     }
     return word as T;
@@ -286,7 +286,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
       slice[i] = this._mem.get(offset + i) ?? new Field(0);
     }
 
-    TaggedMemory.log.trace(`getSlice(${offset}, ${size}) = ${slice}`);
+    TaggedMemory.log.trace('getSlice(%d, %d) = %s', offset, size, slice);
     return slice;
   }
 
@@ -314,7 +314,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
     slice.forEach((element, idx) => {
       this._mem.set(offset + idx, element);
     });
-    TaggedMemory.log.trace(`setSlice(${offset}, ${slice})`);
+    TaggedMemory.log.trace('setSlice(%d, %s)', offset, slice);
   }
 
   public getTag(offset: number): TypeTag {

@@ -195,7 +195,9 @@ export class PublicProcessor implements Traceable {
       const txBlobFields = tx.getPrivateTxEffectsSizeInFields();
       if (isBuildingProposal && maxBlobFields !== undefined && totalBlobFields + txBlobFields > maxBlobFields) {
         this.log.warn(
-          `Skipping tx ${txHash} with ${txBlobFields} fields from private side effects due to blob fields limit`,
+          'Skipping tx %s with %d fields from private side effects due to blob fields limit',
+          txHash,
+          txBlobFields,
           { txHash, txBlobFields, totalBlobFields, maxBlobFields },
         );
         continue;
@@ -205,7 +207,7 @@ export class PublicProcessor implements Traceable {
       // Only done during proposal building: during re-execution we must process the exact txs from the proposal.
       const txGasLimit = tx.data.constants.txContext.gasSettings.gasLimits;
       if (isBuildingProposal && maxBlockGas !== undefined && totalBlockGas.add(txGasLimit).gtAny(maxBlockGas)) {
-        this.log.warn(`Skipping processing of tx ${txHash} due to block gas limit`, {
+        this.log.warn('Skipping processing of tx %s due to block gas limit', txHash, {
           txHash,
           txGasLimit,
           totalBlockGas,
@@ -220,17 +222,17 @@ export class PublicProcessor implements Traceable {
         const txHash = tx.getTxHash();
         if (result.result === 'invalid') {
           const reason = result.reason.join(', ');
-          this.log.debug(`Rejecting tx ${txHash.toString()} due to pre-process validation fail: ${reason}`);
+          this.log.debug('Rejecting tx %s due to pre-process validation fail: %s', txHash, reason);
           failed.push({ tx, error: new Error(`Tx failed preprocess validation: ${reason}`) });
           returns.push(new NestedProcessReturnValues([]));
           continue;
         } else if (result.result === 'skipped') {
           const reason = result.reason.join(', ');
-          this.log.debug(`Skipping tx ${txHash.toString()} due to pre-process validation: ${reason}`);
+          this.log.debug('Skipping tx %s due to pre-process validation: %s', txHash, reason);
           returns.push(new NestedProcessReturnValues([]));
           continue;
         } else {
-          this.log.trace(`Tx ${txHash.toString()} is valid before processing.`);
+          this.log.trace('Tx %s is valid before processing.', txHash);
         }
       }
 
@@ -259,7 +261,9 @@ export class PublicProcessor implements Traceable {
         // Note: maxBlobFields already accounts for block end blob fields and previous blocks in checkpoint.
         if (maxBlobFields !== undefined && totalBlobFields + txBlobFields > maxBlobFields) {
           this.log.debug(
-            `Skipping processed tx ${txHash} with ${txBlobFields} blob fields due to max blob fields limit.`,
+            'Skipping processed tx %s with %d blob fields due to max blob fields limit.',
+            txHash,
+            txBlobFields,
             {
               txHash,
               txBlobFields,
@@ -281,7 +285,7 @@ export class PublicProcessor implements Traceable {
           maxBlockGas !== undefined &&
           totalBlockGas.add(processedTx.gasUsed.totalGas).gtAny(maxBlockGas)
         ) {
-          this.log.warn(`Stopping re-execution since tx ${txHash} would push block gas over limit`, {
+          this.log.warn('Stopping re-execution since tx %s would push block gas over limit', txHash, {
             txHash,
             txGas: processedTx.gasUsed.totalGas,
             totalBlockGas,
@@ -349,7 +353,7 @@ export class PublicProcessor implements Traceable {
         await this.guardedMerkleTree.getUnderlyingFork().revertAllCheckpoints();
         this.contractsDB.revertCheckpoint();
         const errorMessage = err instanceof Error || err instanceof AssertionError ? err.message : 'Unknown error';
-        this.log.warn(`Failed to process tx ${txHash.toString()}: ${errorMessage} ${err?.stack}`);
+        this.log.warn('Failed to process tx %s: %s %s', txHash, errorMessage, err?.stack);
         failed.push({ tx, error: err instanceof Error ? err : new Error(errorMessage) });
         returns.push(new NestedProcessReturnValues([]));
 
@@ -366,7 +370,7 @@ export class PublicProcessor implements Traceable {
     const rate = duration > 0 ? totalPublicGas.l2Gas / duration : 0;
     this.metrics.recordAllTxs(totalPublicGas, rate);
 
-    this.log.info(`Processed ${result.length} successful txs and ${failed.length} failed txs in ${duration}s`, {
+    this.log.info('Processed %d successful txs and %d failed txs in %ds', result.length, failed.length, duration, {
       duration,
       rate,
       totalPublicGas,
@@ -384,7 +388,7 @@ export class PublicProcessor implements Traceable {
   ): Promise<void> {
     const endStateReference = await this.guardedMerkleTree.getUnderlyingFork().getStateReference();
     if (!startStateReference.equals(endStateReference)) {
-      this.log.warn(`Fork state reference changed by tx ${txHash} after error in public processor`, {
+      this.log.warn('Fork state reference changed by tx %s after error in public processor', txHash, {
         expected: startStateReference.toInspect(),
         actual: endStateReference.toInspect(),
         cause,
@@ -467,7 +471,7 @@ export class PublicProcessor implements Traceable {
       fakeDelayPerTxMs && fakeDelayPerTxMs > 0
         ? async () => {
             const result = await innerProcessFn();
-            this.log.warn(`Sleeping ${fakeDelayPerTxMs}ms after processing tx ${tx.getTxHash().toString()}`);
+            this.log.warn('Sleeping %dms after processing tx %s', fakeDelayPerTxMs, tx.getTxHash());
             await sleep(fakeDelayPerTxMs);
             return result;
           }
@@ -483,7 +487,7 @@ export class PublicProcessor implements Traceable {
       throw new PublicProcessorTimeoutError();
     }
 
-    this.log.debug(`Processing tx ${txHash.toString()} within ${timeout}ms`, {
+    this.log.debug('Processing tx %s within %dms', txHash, timeout, {
       deadline: deadline.toISOString(),
       now: new Date(this.dateProvider.now()).toISOString(),
       txHash,
@@ -508,7 +512,7 @@ export class PublicProcessor implements Traceable {
     // This high-level db is used as a convenient helper. It could be done with the merkleTree directly.
     const treesDB = new PublicTreesDB(this.guardedMerkleTree);
 
-    this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${feePayer}`);
+    this.log.debug('Deducting %s balance in Fee Juice for %s', txFee.toBigInt(), feePayer);
 
     const balance = await treesDB.storageRead(feeJuiceAddress, balanceSlot);
 

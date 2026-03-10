@@ -144,7 +144,7 @@ export class PublicPersistableStateManager {
    * @param value - the value being written to the slot
    */
   public async writeStorage(contractAddress: AztecAddress, slot: Fr, value: Fr, protocolWrite = false): Promise<void> {
-    this.log.trace(`Storage write (address=${contractAddress}, slot=${slot}): value=${value}`);
+    this.log.trace('Storage write (address=%s, slot=%s): value=%s', contractAddress, slot, value);
 
     await this.trace.tracePublicStorageWrite(contractAddress, slot, value, protocolWrite);
 
@@ -174,7 +174,11 @@ export class PublicPersistableStateManager {
     } else {
       const read = await this.publicStorage.read(contractAddress, slot);
       this.log.trace(
-        `Storage read results (address=${contractAddress}, slot=${slot}): value=${read.value}, cached=${read.cached}`,
+        'Storage read results (address=%s, slot=%s): value=%s, cached=%s',
+        contractAddress,
+        slot,
+        read.value,
+        read.cached,
       );
       return read.value;
     }
@@ -194,7 +198,12 @@ export class PublicPersistableStateManager {
       const gotLeafValue = await this.treesDB.getNoteHash(leafIndex);
       const exists = gotLeafValue.equals(noteHash);
       this.log.trace(
-        `noteHashes(${contractAddress})@${noteHash} ?? leafIndex: ${leafIndex} | gotLeafValue: ${gotLeafValue}, exists: ${exists}.`,
+        'noteHashes(%s)@%s ?? leafIndex: %s | gotLeafValue: %s, exists: %s.',
+        contractAddress,
+        noteHash,
+        leafIndex,
+        gotLeafValue,
+        exists,
       );
       return Promise.resolve(exists);
     } catch (error) {
@@ -212,7 +221,7 @@ export class PublicPersistableStateManager {
    * @param noteHash - the unsiloed note hash to write
    */
   public async writeNoteHash(contractAddress: AztecAddress, noteHash: Fr): Promise<void> {
-    this.log.trace(`noteHashes(${contractAddress}) += ${noteHash}.`);
+    this.log.trace('noteHashes(%s) += %s.', contractAddress, noteHash);
     const siloedNoteHash = await siloNoteHash(contractAddress, noteHash);
     await this.writeSiloedNoteHash(siloedNoteHash);
   }
@@ -232,7 +241,7 @@ export class PublicPersistableStateManager {
    * @param uniqueNoteHash - the siloed unique hash to write
    */
   public async writeUniqueNoteHash(uniqueNoteHash: Fr): Promise<void> {
-    this.log.trace(`noteHashes += @${uniqueNoteHash}.`);
+    this.log.trace('noteHashes += @%s.', uniqueNoteHash);
     this.trace.traceNewNoteHash(uniqueNoteHash);
     if (this.doMerkleOperations) {
       await this.treesDB.writeNoteHash(uniqueNoteHash);
@@ -246,7 +255,7 @@ export class PublicPersistableStateManager {
    * @returns exists - whether the nullifier exists in the nullifier set
    */
   public async checkNullifierExists(contractAddress: AztecAddress, nullifier: Fr): Promise<boolean> {
-    this.log.trace(`Checking existence of nullifier (address=${contractAddress}, nullifier=${nullifier})`);
+    this.log.trace('Checking existence of nullifier (address=%s, nullifier=%s)', contractAddress, nullifier);
     const siloedNullifier = await siloNullifier(contractAddress, nullifier);
     return this.checkSiloedNullifierExists(siloedNullifier);
   }
@@ -259,11 +268,11 @@ export class PublicPersistableStateManager {
   public async checkSiloedNullifierExists(siloedNullifier: Fr): Promise<boolean> {
     if (this.doMerkleOperations) {
       const exists = await this.treesDB.checkNullifierExists(siloedNullifier);
-      this.log.trace(`Checked siloed nullifier ${siloedNullifier} (exists=${exists})`);
+      this.log.trace('Checked siloed nullifier %s (exists=%s)', siloedNullifier, exists);
       return Promise.resolve(exists);
     } else {
       const { exists, cacheHit } = await this.nullifiers.checkExists(siloedNullifier);
-      this.log.trace(`Checked siloed nullifier ${siloedNullifier} (exists=${exists}), cacheHit=${cacheHit}`);
+      this.log.trace('Checked siloed nullifier %s (exists=%s), cacheHit=%s', siloedNullifier, exists, cacheHit);
       return Promise.resolve(exists);
     }
   }
@@ -274,7 +283,7 @@ export class PublicPersistableStateManager {
    * @param nullifier - the unsiloed nullifier to write
    */
   public async writeNullifier(contractAddress: AztecAddress, nullifier: Fr) {
-    this.log.trace(`Inserting new nullifier (address=${nullifier}, nullifier=${contractAddress})`);
+    this.log.trace('Inserting new nullifier (address=%s, nullifier=%s)', nullifier, contractAddress);
     const siloedNullifier = await siloNullifier(contractAddress, nullifier);
     await this.writeSiloedNullifier(siloedNullifier);
   }
@@ -284,7 +293,7 @@ export class PublicPersistableStateManager {
    * @param siloedNullifier - the siloed nullifier to write
    */
   public async writeSiloedNullifier(siloedNullifier: Fr) {
-    this.log.trace(`Inserting siloed nullifier=${siloedNullifier}`);
+    this.log.trace('Inserting siloed nullifier=%s', siloedNullifier);
 
     this.trace.traceNewNullifier(siloedNullifier);
 
@@ -292,7 +301,7 @@ export class PublicPersistableStateManager {
       const exists = await this.treesDB.checkNullifierExists(siloedNullifier);
 
       if (exists) {
-        this.log.verbose(`Siloed nullifier ${siloedNullifier} already present in tree!`);
+        this.log.verbose('Siloed nullifier %s already present in tree!', siloedNullifier);
         throw new NullifierCollisionError(
           `Siloed nullifier ${siloedNullifier} already exists in parent cache or host.`,
         );
@@ -316,7 +325,11 @@ export class PublicPersistableStateManager {
       const valueAtIndex = await this.treesDB.getL1ToL2LeafValue(msgLeafIndex.toBigInt());
       const exists = valueAtIndex.equals(msgHash);
       this.log.trace(
-        `l1ToL2Messages(@${msgLeafIndex}) ?? exists: ${exists}, expected: ${msgHash}, found: ${valueAtIndex}.`,
+        'l1ToL2Messages(@%s) ?? exists: %s, expected: %s, found: %s.',
+        msgLeafIndex,
+        exists,
+        msgHash,
+        valueAtIndex,
       );
       return Promise.resolve(exists);
     } catch (error) {
@@ -336,7 +349,7 @@ export class PublicPersistableStateManager {
    * @param content - Message content.
    */
   public writeL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr) {
-    this.log.trace(`L2ToL1Messages(${contractAddress}) += (recipient: ${recipient}, content: ${content}).`);
+    this.log.trace('L2ToL1Messages(%s) += (recipient: %s, content: %s).', contractAddress, recipient, content);
     this.trace.traceNewL2ToL1Message(contractAddress, recipient, content);
   }
 
@@ -374,7 +387,7 @@ export class PublicPersistableStateManager {
    * @param log - log contents
    */
   public writePublicLog(contractAddress: AztecAddress, log: Fr[]) {
-    this.log.trace(`PublicLog(${contractAddress}) += event with ${log.length} fields.`);
+    this.log.trace('PublicLog(%s) += event with %d fields.', contractAddress, log.length);
     this.trace.tracePublicLog(contractAddress, log);
   }
 
@@ -384,7 +397,7 @@ export class PublicPersistableStateManager {
    * @returns the contract instance or undefined if it does not exist.
    */
   public async getContractInstance(contractAddress: AztecAddress): Promise<SerializableContractInstance | undefined> {
-    this.log.trace(`Getting contract instance for address ${contractAddress}`);
+    this.log.trace('Getting contract instance for address %s', contractAddress);
     const instanceWithAddress = await this.contractsDB.getContractInstance(contractAddress, this.timestamp);
     const exists = instanceWithAddress !== undefined;
 
@@ -392,7 +405,9 @@ export class PublicPersistableStateManager {
 
     if (contractAddressIsCanonical(contractAddress)) {
       this.log.trace(
-        `Got canonical contract instance (address=${contractAddress}): instance=${jsonStringify(instance!)}`,
+        'Got canonical contract instance (address=%s): instance=%s',
+        contractAddress,
+        jsonStringify(instance!),
       );
       return instance;
     }
@@ -411,11 +426,11 @@ export class PublicPersistableStateManager {
     );
 
     if (!exists) {
-      this.log.debug(`Contract instance NOT FOUND (address=${contractAddress})`);
+      this.log.debug('Contract instance NOT FOUND (address=%s)', contractAddress);
       return undefined;
     }
 
-    this.log.trace(`Got contract instance (address=${contractAddress}): instance=${jsonStringify(instance!)}`);
+    this.log.trace('Got contract instance (address=%s): instance=%s', contractAddress, jsonStringify(instance!));
 
     // All that is left is to check that the contract updatability information is correct.
     // That is, that the current and original contract class ids are correct.
@@ -490,7 +505,7 @@ export class PublicPersistableStateManager {
    * @returns the contract class or undefined if it does not exist.
    */
   private async getContractClass(classId: Fr): Promise<ContractClassPublicWithCommitment | undefined> {
-    this.log.trace(`Getting contract class for id ${classId}`);
+    this.log.trace('Getting contract class for id %s', classId);
     const contractClass = await this.contractsDB.getContractClass(classId);
     const exists = contractClass !== undefined;
     let extendedClass: ContractClassPublicWithCommitment | undefined = undefined;
@@ -498,7 +513,7 @@ export class PublicPersistableStateManager {
     // Note: We currently do not generate info to check the nullifier tree, because
     // this is not needed for our use cases.
     if (exists) {
-      this.log.trace(`Got contract class (id=${classId})`);
+      this.log.trace('Got contract class (id=%s)', classId);
       // Extend class information with public bytecode commitment.
       const bytecodeCommitment = await this.contractsDB.getBytecodeCommitment(classId);
       assert(
@@ -510,7 +525,7 @@ export class PublicPersistableStateManager {
         publicBytecodeCommitment: bytecodeCommitment,
       };
     } else {
-      this.log.debug(`Contract class NOT FOUND (id=${classId})`);
+      this.log.debug('Contract class NOT FOUND (id=%s)', classId);
     }
 
     // TODO(dbanks12): does this need to be moved to before the DB accesses as was done with writeNullifier?
@@ -522,7 +537,7 @@ export class PublicPersistableStateManager {
    * Get a contract's bytecode from the contracts DB, also trace the contract class and instance indirectly.
    */
   public async getBytecode(contractAddress: AztecAddress): Promise<Buffer | undefined> {
-    this.log.debug(`Getting bytecode for contract address ${contractAddress}`);
+    this.log.debug('Getting bytecode for contract address %s', contractAddress);
     const contractInstance = await this.getContractInstance(contractAddress);
 
     if (!contractInstance) {
