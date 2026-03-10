@@ -5,6 +5,7 @@
 // =====================
 
 #include "keccak_constraint.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 
@@ -24,6 +25,12 @@ template <typename Builder> void create_keccak_permutations_constraints(Builder&
 
     std::array<field_ct, bb::stdlib::keccak<Builder>::NUM_KECCAK_LANES> output_state =
         bb::stdlib::keccak<Builder>::permutation_opcode(state, &builder);
+
+    if (builder.is_write_vk_mode()) {
+        // Register input->output witness mapping for ACIR static analysis.
+        builder.acir_opcode_io.register_io(witness_or_constant_vector_from_vector<Builder>(constraint.state),
+                                           witness_or_constant_vector_from_vector<Builder>(output_state));
+    }
 
     for (size_t i = 0; i < output_state.size(); ++i) {
         output_state[i].assert_equal(field_ct::from_witness_index(&builder, constraint.result[i]));

@@ -630,6 +630,64 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     const std::unordered_set<uint32_t>& get_finalize_witnesses() const { return finalize_witnesses; }
 
     /**
+     * @brief Used for ACIR static analysis. Records witness-index-level input→output mappings for stdlib functions
+     * whose internal gate structure cannot be followed by static analysis alone.
+     *
+     * @details Some stdlib operations (e.g. batch_mul in msm) create complex internal
+     *          gate patterns that make it impractical for the static analyzer to trace which output witnesses
+     *          correspond to which inputs by inspecting gates alone.
+     *
+     *          Instead, the stdlib operation itself records its (input_witnesses → output_witnesses)
+     *          mapping here during circuit construction (guarded by is_write_vk_mode()).
+     *          The static analyzer then looks up these mappings to verify that the ACIR
+     *          constraint is actually processed.
+     *
+     *          The map key is the vector of input witness indices (using IS_CONSTANT for constant
+     *          inputs). The value is a list of output vectors, supporting repeated calls with
+     *          identical inputs.
+     *
+     * @see StaticAnalyzerAcir_
+     */
+    struct acir_opcode_io_record {
+        struct WitnessOrConstant {
+            uint32_t index;
+            typename ExecutionTrace_::FF value;
+            bool is_constant;
+
+            friend bool operator==(const WitnessOrConstant& lhs, const WitnessOrConstant& rhs) = default;
+        };
+        struct VectorHash {
+            size_t operator()(const std::vector<WitnessOrConstant>& v) const
+            {
+                size_t seed = 0;
+                for (const auto& elem : v) {
+                    size_t hash_val = 0;
+                    if (elem.is_constant) {
+                        hash_val = std::hash<typename ExecutionTrace_::FF>()(elem.value);
+                    } else {
+                        hash_val = std::hash<uint32_t>()(elem.index);
+                    }
+                    seed ^= hash_val + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+                }
+                return seed;
+            }
+        };
+
+        std::unordered_map<std::vector<acir_opcode_io_record::WitnessOrConstant>,
+                           std::vector<std::vector<acir_opcode_io_record::WitnessOrConstant>>,
+                           VectorHash>
+            io_map;
+
+        void register_io(const std::vector<acir_opcode_io_record::WitnessOrConstant>& inputs,
+                         const std::vector<acir_opcode_io_record::WitnessOrConstant>& outputs)
+        {
+            io_map[inputs].emplace_back(outputs);
+        }
+    };
+
+    acir_opcode_io_record acir_opcode_io;
+
+    /**
      * @brief Add a witness index to the boomerang exclusion list
      * @param var_idx Witness index to add to the boomerang exclusion list
      * @details Barretenberg has special boomerang value detection logic that detects variables that are used in one

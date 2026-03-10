@@ -6,6 +6,7 @@
 
 #include "blake2s_constraint.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/stdlib/hash/blake2s/blake2s.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 
@@ -34,6 +35,12 @@ template <typename Builder> void create_blake2s_constraints(Builder& builder, co
     }
 
     byte_array_ct output_bytes = stdlib::Blake2s<Builder>::hash(arr);
+
+    if (builder.is_write_vk_mode()) {
+        // Register input->output witness mapping for ACIR static analysis.
+        builder.acir_opcode_io.register_io(witness_or_constant_vector_from_vector<Builder>(constraint.inputs),
+                                           witness_or_constant_vector_from_vector<Builder>(output_bytes));
+    }
 
     for (const auto& [output_byte, result_byte_idx] : zip_view(output_bytes.bytes(), constraint.result)) {
         // Constrain each output byte to equal the corresponding witness
