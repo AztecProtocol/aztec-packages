@@ -799,7 +799,8 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
-  public async utilityResolveMessageContexts(
+  // eslint-disable-next-line camelcase
+  public async aztec_utl_utilityResolveMessageContexts(
     foreignContractAddress: ForeignCallSingle,
     foreignMessageContextRequestsArrayBaseSlot: ForeignCallSingle,
     foreignMessageContextResponsesArrayBaseSlot: ForeignCallSingle,
