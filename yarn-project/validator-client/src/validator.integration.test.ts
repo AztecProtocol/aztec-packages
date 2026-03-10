@@ -225,7 +225,7 @@ describe('ValidatorClient Integration', () => {
       proposerSigner.address,
     );
 
-    logger.warn(`Built block proposal for block ${blockNumber}`, { ...block.toBlockInfo() });
+    logger.warn('Built block proposal for block %d', blockNumber, { ...block.toBlockInfo() });
     return { block, proposal };
   };
 
@@ -252,7 +252,7 @@ describe('ValidatorClient Integration', () => {
     });
     txProvider.seed(txs);
     for (const tx of txs) {
-      logger.debug(`Built and seeded tx ${tx.getTxHash().toString()} with feePayer ${tx.data.feePayer.toString()}`);
+      logger.debug('Built and seeded tx %s with feePayer %s', tx.getTxHash(), tx.data.feePayer);
     }
     return txs;
   };
@@ -320,7 +320,7 @@ describe('ValidatorClient Integration', () => {
   /** Validates blocks by calling the validator client in the attestor. */
   const attestorValidateBlocks = async (blocks: BlockProposalResult[]) => {
     for (const block of blocks) {
-      logger.warn(`Validating block proposal ${block.proposal.blockNumber}`);
+      logger.warn('Validating block proposal %d', block.proposal.blockNumber);
       expect(await attestor.validator.validateBlockProposal(block.proposal, mockPeerId)).toBe(true);
     }
   };

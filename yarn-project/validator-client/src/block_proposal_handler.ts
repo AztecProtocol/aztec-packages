@@ -97,7 +97,7 @@ export class BlockProposalHandler {
         const { slotNumber, blockNumber } = proposal;
         const result = await this.handleBlockProposal(proposal, proposalSender, shouldReexecute);
         if (result.isValid) {
-          this.log.info(`Non-validator block proposal ${blockNumber} at slot ${slotNumber} handled`, {
+          this.log.info('Non-validator block proposal %d at slot %d handled', blockNumber, slotNumber, {
             blockNumber: result.blockNumber,
             slotNumber,
             reexecutionTimeMs: result.reexecutionResult?.reexecutionTimeMs,
@@ -108,7 +108,10 @@ export class BlockProposalHandler {
           return true;
         } else {
           this.log.warn(
-            `Non-validator block proposal ${blockNumber} at slot ${slotNumber} failed processing with ${result.reason}`,
+            'Non-validator block proposal %d at slot %d failed processing with %s',
+            blockNumber,
+            slotNumber,
+            result.reason,
             { blockNumber: result.blockNumber, slotNumber, reason: result.reason },
           );
           return false;
@@ -134,12 +137,12 @@ export class BlockProposalHandler {
 
     // Reject proposals with invalid signatures
     if (!proposer) {
-      this.log.warn(`Received proposal with invalid signature for slot ${slotNumber}`);
+      this.log.warn('Received proposal with invalid signature for slot %d', slotNumber);
       return { isValid: false, reason: 'invalid_proposal' };
     }
 
     const proposalInfo = { ...proposal.toBlockInfo(), proposer: proposer.toString() };
-    this.log.info(`Processing proposal for slot ${slotNumber}`, {
+    this.log.info('Processing proposal for slot %d', slotNumber, {
       ...proposalInfo,
       txHashes: proposal.txHashes.map(t => t.toString()),
     });
@@ -178,7 +181,7 @@ export class BlockProposalHandler {
     // Check that this block number does not exist already
     const existingBlock = await this.blockSource.getBlockHeader(blockNumber);
     if (existingBlock) {
-      this.log.warn(`Block number ${blockNumber} already exists, skipping processing`, proposalInfo);
+      this.log.warn('Block number %d already exists, skipping processing', blockNumber, proposalInfo);
       return { isValid: false, blockNumber, reason: 'block_number_already_exists' };
     }
 
@@ -192,7 +195,10 @@ export class BlockProposalHandler {
     // If reexecution is disabled, bail. We are just interested in triggering tx collection.
     if (!shouldReexecute) {
       this.log.info(
-        `Received valid block ${blockNumber} proposal at index ${proposal.indexWithinCheckpoint} on slot ${slotNumber}`,
+        'Received valid block %d proposal at index %d on slot %d',
+        blockNumber,
+        proposal.indexWithinCheckpoint,
+        slotNumber,
         proposalInfo,
       );
       return { isValid: true, blockNumber };
@@ -220,7 +226,7 @@ export class BlockProposalHandler {
 
     // Check that all of the transactions in the proposal are available
     if (missingTxs.length > 0) {
-      this.log.warn(`Missing ${missingTxs.length} txs to process proposal`, { ...proposalInfo, missingTxs });
+      this.log.warn('Missing %d txs to process proposal', missingTxs.length, { ...proposalInfo, missingTxs });
       return { isValid: false, blockNumber, reason: 'txs_not_available' };
     }
 
@@ -254,7 +260,10 @@ export class BlockProposalHandler {
     }
 
     this.log.info(
-      `Successfully re-executed block ${blockNumber} proposal at index ${proposal.indexWithinCheckpoint} on slot ${slotNumber}`,
+      'Successfully re-executed block %d proposal at index %d on slot %d',
+      blockNumber,
+      proposal.indexWithinCheckpoint,
+      slotNumber,
       { ...proposalInfo, ...pick(reexecutionResult, 'reexecutionTimeMs', 'totalManaUsed') },
     );
 
@@ -506,7 +515,7 @@ export class BlockProposalHandler {
     const { block, failedTxs } = result;
     const numFailedTxs = failedTxs.length;
 
-    this.log.verbose(`Block proposal ${blockNumber} at slot ${slot} transaction re-execution complete`, {
+    this.log.verbose('Block proposal %d at slot %d transaction re-execution complete', blockNumber, slot, {
       numFailedTxs,
       numProposalTxs: txHashes.length,
       numProcessedTxs: block.body.txEffects.length,
@@ -529,7 +538,7 @@ export class BlockProposalHandler {
     const archiveMatches = proposal.archive.equals(block.archive.root);
     const headerMatches = proposal.blockHeader.equals(block.header);
     if (!archiveMatches || !headerMatches) {
-      this.log.warn(`Re-execution state mismatch for slot ${slot}`, {
+      this.log.warn('Re-execution state mismatch for slot %d', slot, {
         expectedArchive: block.archive.root.toString(),
         actualArchive: proposal.archive.toString(),
         expectedHeader: block.header.toInspect(),

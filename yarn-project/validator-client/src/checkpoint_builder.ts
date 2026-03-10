@@ -77,7 +77,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
   ): Promise<BuildBlockInCheckpointResult> {
     const slot = this.checkpointBuilder.constants.slotNumber;
 
-    this.log.verbose(`Building block ${blockNumber} for slot ${slot} within checkpoint`, {
+    this.log.verbose('Building block %d for slot %d within checkpoint', blockNumber, slot, {
       slot,
       blockNumber,
       ...opts,
@@ -137,7 +137,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
   async completeCheckpoint(): Promise<Checkpoint> {
     const checkpoint = await this.checkpointBuilder.completeCheckpoint();
 
-    this.log.verbose(`Completed checkpoint ${checkpoint.number}`, {
+    this.log.verbose('Completed checkpoint %d', checkpoint.number, {
       checkpointNumber: checkpoint.number,
       numBlocks: checkpoint.blocks.length,
       archiveRoot: checkpoint.archive.root.toString(),
@@ -291,7 +291,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
     const stateReference = await fork.getStateReference();
     const archiveTree = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
 
-    this.log.verbose(`Building new checkpoint ${checkpointNumber}`, {
+    this.log.verbose('Building new checkpoint %d', checkpointNumber, {
       checkpointNumber,
       msgCount: l1ToL2Messages.length,
       initialStateReference: stateReference.toInspect(),
@@ -350,7 +350,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       );
     }
 
-    this.log.verbose(`Resuming checkpoint ${checkpointNumber} with ${existingBlocks.length} existing blocks`, {
+    this.log.verbose('Resuming checkpoint %d with %d existing blocks', checkpointNumber, existingBlocks.length, {
       checkpointNumber,
       msgCount: l1ToL2Messages.length,
       existingBlockCount: existingBlocks.length,

@@ -374,13 +374,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // Reject proposals with invalid signatures
     if (!proposer) {
-      this.log.warn(`Received block proposal with invalid signature for slot ${slotNumber}`);
+      this.log.warn('Received block proposal with invalid signature for slot %d', slotNumber);
       return false;
     }
 
     // Ignore proposals from ourselves (may happen in HA setups)
     if (this.getValidatorAddresses().some(addr => addr.equals(proposer))) {
-      this.log.warn(`Ignoring block proposal from self for slot ${slotNumber}`, {
+      this.log.warn('Ignoring block proposal from self for slot %d', slotNumber, {
         proposer: proposer.toString(),
         slotNumber,
       });
@@ -392,7 +392,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const partOfCommittee = inCommittee.length > 0;
 
     const proposalInfo = { ...proposal.toBlockInfo(), proposer: proposer.toString() };
-    this.log.info(`Received block proposal for slot ${slotNumber}`, {
+    this.log.info('Received block proposal for slot %d', slotNumber, {
       ...proposalInfo,
       txHashes: proposal.txHashes.map(t => t.toString()),
       fishermanMode: this.config.fishermanMode || false,
@@ -416,7 +416,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     );
 
     if (!validationResult.isValid) {
-      this.log.warn(`Block proposal validation failed: ${validationResult.reason}`, proposalInfo);
+      this.log.warn('Block proposal validation failed: %s', validationResult.reason, proposalInfo);
 
       const reason = validationResult.reason || 'unknown';
       // Classify failure reason: bad proposal vs node issue
@@ -448,7 +448,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return false;
     }
 
-    this.log.info(`Validated block proposal for slot ${slotNumber}`, {
+    this.log.info('Validated block proposal for slot %d', slotNumber, {
       ...proposalInfo,
       inCommittee: partOfCommittee,
       fishermanMode: this.config.fishermanMode || false,
@@ -456,7 +456,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     });
 
     if (escapeHatchOpen) {
-      this.log.warn(`Escape hatch open for slot ${slotNumber}, rejecting block proposal`, proposalInfo);
+      this.log.warn('Escape hatch open for slot %d, rejecting block proposal', slotNumber, proposalInfo);
       return false;
     }
 
@@ -478,19 +478,19 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // If escape hatch is open for this slot's epoch, do not attest.
     if (await this.epochCache.isEscapeHatchOpenAtSlot(slotNumber)) {
-      this.log.warn(`Escape hatch open for slot ${slotNumber}, skipping checkpoint attestation handling`);
+      this.log.warn('Escape hatch open for slot %d, skipping checkpoint attestation handling', slotNumber);
       return undefined;
     }
 
     // Reject proposals with invalid signatures
     if (!proposer) {
-      this.log.warn(`Received checkpoint proposal with invalid signature for slot ${slotNumber}`);
+      this.log.warn('Received checkpoint proposal with invalid signature for slot %d', slotNumber);
       return undefined;
     }
 
     // Ignore proposals from ourselves (may happen in HA setups)
     if (this.getValidatorAddresses().some(addr => addr.equals(proposer))) {
-      this.log.warn(`Ignoring block proposal from self for slot ${slotNumber}`, {
+      this.log.warn('Ignoring block proposal from self for slot %d', slotNumber, {
         proposer: proposer.toString(),
         slotNumber,
       });
@@ -500,7 +500,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     // Validate fee asset price modifier is within allowed range
     if (!validateFeeAssetPriceModifier(proposal.feeAssetPriceModifier)) {
       this.log.warn(
-        `Received checkpoint proposal with invalid feeAssetPriceModifier ${proposal.feeAssetPriceModifier} for slot ${slotNumber}`,
+        'Received checkpoint proposal with invalid feeAssetPriceModifier %s for slot %d',
+        proposal.feeAssetPriceModifier,
+        slotNumber,
       );
       return undefined;
     }
@@ -514,18 +516,18 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       archive: proposal.archive.toString(),
       proposer: proposer.toString(),
     };
-    this.log.info(`Received checkpoint proposal for slot ${slotNumber}`, {
+    this.log.info('Received checkpoint proposal for slot %d', slotNumber, {
       ...proposalInfo,
       fishermanMode: this.config.fishermanMode || false,
     });
 
     // Validate the checkpoint proposal before attesting (unless skipCheckpointProposalValidation is set)
     if (this.config.skipCheckpointProposalValidation) {
-      this.log.warn(`Skipping checkpoint proposal validation for slot ${slotNumber}`, proposalInfo);
+      this.log.warn('Skipping checkpoint proposal validation for slot %d', slotNumber, proposalInfo);
     } else {
       const validationResult = await this.validateCheckpointProposal(proposal, proposalInfo);
       if (!validationResult.isValid) {
-        this.log.warn(`Checkpoint proposal validation failed: ${validationResult.reason}`, proposalInfo);
+        this.log.warn('Checkpoint proposal validation failed: %s', validationResult.reason, proposalInfo);
         return undefined;
       }
     }
@@ -580,7 +582,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     if (this.config.fishermanMode) {
       // bail out early and don't save attestations to the pool in fisherman mode
-      this.log.info(`Creating checkpoint attestations for slot ${slotNumber}`, {
+      this.log.info('Creating checkpoint attestations for slot %d', slotNumber, {
         ...proposalInfo,
         attestors: attestors.map(a => a.toString()),
       });
@@ -603,7 +605,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     // Check if incoming slot is strictly greater than last attested
     if (this.lastAttestedProposal && slotNumber <= this.lastAttestedProposal.slotNumber) {
       this.log.warn(
-        `Refusing to process a proposal for slot ${slotNumber} given we already attested to a proposal for slot ${this.lastAttestedProposal.slotNumber}`,
+        'Refusing to process a proposal for slot %d given we already attested to a proposal for slot %d',
+        slotNumber,
+        this.lastAttestedProposal.slotNumber,
       );
       return false;
     }
@@ -673,7 +677,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     // Get all full blocks for the slot and checkpoint
     const blocks = await this.blockSource.getBlocksForSlot(slot);
     if (blocks.length === 0) {
-      this.log.warn(`No blocks found for slot ${slot}`, proposalInfo);
+      this.log.warn('No blocks found for slot %d', slot, proposalInfo);
       return { isValid: false, reason: 'no_blocks_for_slot' };
     }
 
@@ -683,7 +687,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return { isValid: false, reason: 'last_block_archive_mismatch' };
     }
 
-    this.log.debug(`Found ${blocks.length} blocks for slot ${slot}`, {
+    this.log.debug('Found %d blocks for slot %d', blocks.length, slot, {
       ...proposalInfo,
       blockNumbers: blocks.map(b => b.number),
     });
@@ -768,11 +772,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
           maxTxsPerCheckpoint: this.config.validateMaxTxsPerCheckpoint,
         });
       } catch (err) {
-        this.log.warn(`Checkpoint validation failed: ${err}`, proposalInfo);
+        this.log.warn('Checkpoint validation failed: %s', err, proposalInfo);
         return { isValid: false, reason: 'checkpoint_validation_failed' };
       }
 
-      this.log.verbose(`Checkpoint proposal validation successful for slot ${slot}`, proposalInfo);
+      this.log.verbose('Checkpoint proposal validation successful for slot %d', slot, proposalInfo);
       return { isValid: true };
     } finally {
       await fork.close();
@@ -815,12 +819,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       const blobFields = blocks.flatMap(b => b.toBlobFields());
       const blobs: Blob[] = await getBlobsPerL1Block(blobFields);
       await this.blobClient.sendBlobsToFilestore(blobs);
-      this.log.debug(`Uploaded ${blobs.length} blobs to filestore for checkpoint at slot ${proposal.slotNumber}`, {
+      this.log.debug('Uploaded %d blobs to filestore for checkpoint at slot %d', blobs.length, proposal.slotNumber, {
         ...proposalInfo,
         numBlobs: blobs.length,
       });
     } catch (err) {
-      this.log.warn(`Failed to upload blobs for checkpoint: ${err}`, proposalInfo);
+      this.log.warn('Failed to upload blobs for checkpoint: %s', err, proposalInfo);
     }
   }
 
@@ -858,7 +862,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private handleDuplicateProposal(info: DuplicateProposalInfo): void {
     const { slot, proposer, type } = info;
 
-    this.log.warn(`Triggering slash event for duplicate ${type} proposal from ${proposer.toString()} at slot ${slot}`, {
+    this.log.warn('Triggering slash event for duplicate %s proposal from %s at slot %d', type, proposer, slot, {
       proposer: proposer.toString(),
       slot,
       type,
@@ -882,7 +886,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private handleDuplicateAttestation(info: DuplicateAttestationInfo): void {
     const { slot, attester } = info;
 
-    this.log.warn(`Triggering slash event for duplicate attestation from ${attester.toString()} at slot ${slot}`, {
+    this.log.warn('Triggering slash event for duplicate attestation from %s at slot %d', attester, slot, {
       attester: attester.toString(),
       slot,
     });
@@ -921,7 +925,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     this.log.info(
-      `Assembling block proposal for block ${blockHeader.globalVariables.blockNumber} slot ${blockHeader.globalVariables.slotNumber}`,
+      'Assembling block proposal for block %d slot %d',
+      blockHeader.globalVariables.blockNumber,
+      blockHeader.globalVariables.slotNumber,
     );
     const newProposal = await this.validationService.createBlockProposal(
       blockHeader,
@@ -960,7 +966,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       }
     }
 
-    this.log.info(`Assembling checkpoint proposal for slot ${checkpointHeader.slotNumber}`);
+    this.log.info('Assembling checkpoint proposal for slot %d', checkpointHeader.slotNumber);
     const newProposal = await this.validationService.createCheckpointProposal(
       checkpointHeader,
       archive,
@@ -989,7 +995,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   async collectOwnAttestations(proposal: CheckpointProposal): Promise<CheckpointAttestation[]> {
     const slot = proposal.slotNumber;
     const inCommittee = await this.epochCache.filterInCommittee(slot, this.getValidatorAddresses());
-    this.log.debug(`Collecting ${inCommittee.length} self-attestations for slot ${slot}`, { inCommittee });
+    this.log.debug('Collecting %d self-attestations for slot %d', inCommittee.length, slot, { inCommittee });
     const attestations = await this.createCheckpointAttestationsFromProposal(proposal, inCommittee);
 
     if (!attestations) {
@@ -1012,7 +1018,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   ): Promise<CheckpointAttestation[]> {
     // Wait and poll the p2pClient's attestation pool for this checkpoint until we have enough attestations
     const slot = proposal.slotNumber;
-    this.log.debug(`Collecting ${required} attestations for slot ${slot} with deadline ${deadline.toISOString()}`);
+    this.log.debug('Collecting %d attestations for slot %d with deadline %s', required, slot, deadline.toISOString());
 
     if (+deadline < this.dateProvider.now()) {
       this.log.error(
@@ -1034,7 +1040,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         attestation => {
           if (!attestation.archive.equals(proposal.archive)) {
             this.log.warn(
-              `Received attestation for slot ${slot} with mismatched archive from ${attestation.getSender()?.toString()}`,
+              'Received attestation for slot %d with mismatched archive from %s',
+              slot,
+              attestation.getSender(),
               { attestationArchive: attestation.archive.toString(), proposalArchive: proposal.archive.toString() },
             );
             return false;
@@ -1049,20 +1057,20 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         const collectedSender = collected.getSender();
         // Skip attestations with invalid signatures
         if (!collectedSender) {
-          this.log.warn(`Skipping attestation with invalid signature for slot ${slot}`);
+          this.log.warn('Skipping attestation with invalid signature for slot %d', slot);
           continue;
         }
         if (
           !myAddresses.some(address => address.equals(collectedSender)) &&
           !oldSenders.some(sender => sender?.equals(collectedSender))
         ) {
-          this.log.debug(`Received attestation for slot ${slot} from ${collectedSender.toString()}`);
+          this.log.debug('Received attestation for slot %d from %s', slot, collectedSender);
         }
       }
       attestations = collectedAttestations;
 
       if (attestations.length >= required) {
-        this.log.verbose(`Collected all ${required} attestations for slot ${slot}`);
+        this.log.verbose('Collected all %d attestations for slot %d', required, slot);
         return attestations;
       }
 
@@ -1071,7 +1079,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         throw new AttestationTimeoutError(attestations.length, required, slot);
       }
 
-      this.log.debug(`Collected ${attestations.length} of ${required} attestations so far`);
+      this.log.debug('Collected %d of %d attestations so far', attestations.length, required);
       await sleep(this.config.attestationPollingIntervalMs);
     }
   }

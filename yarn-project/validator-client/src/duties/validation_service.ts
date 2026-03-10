@@ -62,7 +62,7 @@ export class ValidationService {
     // For testing: change the new archive to trigger state_mismatch validation failure
     if (options.broadcastInvalidBlockProposal) {
       archive = Fr.random();
-      this.log.warn(`Creating INVALID block proposal for slot ${blockHeader.globalVariables.slotNumber}`);
+      this.log.warn('Creating INVALID block proposal for slot %d', blockHeader.globalVariables.slotNumber);
     }
 
     // Create a signer that uses the appropriate address
@@ -103,7 +103,7 @@ export class ValidationService {
     // For testing: change the archive to trigger state_mismatch validation failure
     if (options.broadcastInvalidCheckpointProposal) {
       archive = Fr.random();
-      this.log.warn(`Creating INVALID checkpoint proposal for slot ${checkpointHeader.slotNumber}`);
+      this.log.warn('Creating INVALID checkpoint proposal for slot %d', checkpointHeader.slotNumber);
     }
 
     // Create a signer that takes payload and context, and uses the appropriate address
@@ -178,7 +178,9 @@ export class ValidationService {
         const error = result.reason;
         if (error instanceof DutyAlreadySignedError || error instanceof SlashingProtectionError) {
           this.log.info(
-            `Attestation for slot ${proposal.slotNumber} by ${attestors[i]} already signed by another High-Availability node`,
+            'Attestation for slot %d by %s already signed by another High-Availability node',
+            proposal.slotNumber,
+            attestors[i],
           );
           // Continue with remaining attestors
         } else {
