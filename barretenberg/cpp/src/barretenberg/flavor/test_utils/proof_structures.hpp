@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
@@ -514,7 +515,9 @@ template <typename Flavor> struct MegaZKStructuredProofBase : MegaStructuredProo
         for (size_t i = 0; i < num_public_inputs; ++i) {
             this->public_inputs.push_back(this->template deserialize_from_buffer<FF>(proof_data, offset));
         }
-        hiding_polynomial_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        if constexpr (flavor_has_gemini_masking<Flavor>()) {
+            hiding_polynomial_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        }
         this->deserialize_mega_witness_comms(proof_data, offset);
         libra_concatenation_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         libra_sum = this->template deserialize_from_buffer<FF>(proof_data, offset);
@@ -554,7 +557,9 @@ template <typename Flavor> struct MegaZKStructuredProofBase : MegaStructuredProo
         for (const auto& pi : this->public_inputs) {
             Base::serialize_to_buffer(pi, proof_data);
         }
-        Base::serialize_to_buffer(hiding_polynomial_commitment, proof_data);
+        if constexpr (flavor_has_gemini_masking<Flavor>()) {
+            Base::serialize_to_buffer(hiding_polynomial_commitment, proof_data);
+        }
         this->serialize_mega_witness_comms(proof_data);
         Base::serialize_to_buffer(libra_concatenation_commitment, proof_data);
         Base::serialize_to_buffer(libra_sum, proof_data);
