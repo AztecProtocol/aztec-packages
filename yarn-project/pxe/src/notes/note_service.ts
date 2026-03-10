@@ -168,9 +168,9 @@ export class NoteService {
     // Find the index of the note hash in the noteHashes array to determine note ordering within the tx.
     const noteIndexInTx = txEffect.data.noteHashes.findIndex(nh => nh.equals(uniqueNoteHash));
     if (noteIndexInTx === -1) {
-      // aztec-nr's nonce discovery already filters out note messages whose computed hash doesn't match any note hash
-      // in the tx, but we still check here to avoid storing notes that somehow bypassed that filter.
-      this.log.warn(`Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present in tx ${txHash}, dropping`);
+      // aztec-nr's nonce discovery already filters out note messages whose computed hash doesn't match any note hash in
+      // the tx, but we still check here to avoid storing notes that somehow bypassed that filter.
+      this.log.warn(`Note hash ${noteHash} (unique: ${uniqueNoteHash}) is not present in tx ${txHash}, dropping`);
       return;
     }
 
