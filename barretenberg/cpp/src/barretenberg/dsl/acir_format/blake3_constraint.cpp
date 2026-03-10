@@ -6,6 +6,7 @@
 
 #include "blake3_constraint.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 
@@ -32,6 +33,11 @@ template <typename Builder> void create_blake3_constraints(Builder& builder, con
     }
     BB_ASSERT_LTE(arr.size(), 1024U, "Barretenberg does not support blake3 inputs with more than 1024 bytes");
     byte_array_ct output_bytes = bb::stdlib::Blake3s<Builder>::hash(arr);
+
+    if (builder.is_write_vk_mode()) {
+        builder.acir_opcode_io.register_io(witness_or_constant_vector_from_vector<Builder>(constraint.inputs),
+                                           witness_or_constant_vector_from_vector<Builder>(output_bytes));
+    }
 
     for (const auto& [output_byte, result_byte_idx] : zip_view(output_bytes.bytes(), constraint.result)) {
         // Constrain each output byte to equal the corresponding witness

@@ -6,6 +6,7 @@
 
 #include "aes128_constraint.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/stdlib/encryption/aes128/aes128.hpp"
 #include <cstdint>
 #include <cstdio>
@@ -72,6 +73,18 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
 
     const std::vector<field_ct> output_bytes = bb::stdlib::aes128::encrypt_buffer_cbc<Builder>(
         converted_inputs, convert_input(constraint.iv, builder), convert_input(constraint.key, builder));
+
+    if (builder.is_write_vk_mode()) {
+        // Register input->output witness mapping for ACIR static analysis.
+        // Key: all input/iv/key byte witness indices. Value: packed encrypt output witness indices.
+
+        auto input_vector = witness_or_constant_vector_from_vector<Builder>(constraint.inputs);
+        const auto iv_vector = witness_or_constant_vector_from_vector<Builder>(constraint.iv);
+        input_vector.insert(input_vector.end(), iv_vector.begin(), iv_vector.end());
+        const auto key_vector = witness_or_constant_vector_from_vector<Builder>(constraint.key);
+        input_vector.insert(input_vector.end(), key_vector.begin(), key_vector.end());
+        builder.acir_opcode_io.register_io(input_vector, witness_or_constant_vector_from_vector<Builder>(output_bytes));
+    }
 
     for (size_t i = 0; i < output_bytes.size(); ++i) {
         output_bytes[i].assert_equal(converted_outputs[i]);

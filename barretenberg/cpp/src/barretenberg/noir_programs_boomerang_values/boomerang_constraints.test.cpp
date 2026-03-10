@@ -3,6 +3,7 @@
 #include "barretenberg/crypto/aes128/aes128.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
+#include "barretenberg/noir_programs_boomerang_values/helpers.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <gtest/gtest.h>
@@ -23,18 +24,6 @@ class BoomerangConstraintsTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
-
-// Helper to create WitnessOrConstant from index
-WitnessOrConstant<fr> witness_from_index(uint32_t idx)
-{
-    return WitnessOrConstant<fr>::from_index(idx);
-}
-
-// Helper to create WitnessOrConstant from constant value
-WitnessOrConstant<fr> constant_from_value(uint8_t val)
-{
-    return WitnessOrConstant<fr>::from_constant(fr(val));
-}
 
 // Helper to build AcirFormat from individual constraints through the full ACIR serde flow
 template <typename... Constraints>

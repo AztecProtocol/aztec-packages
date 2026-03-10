@@ -1,5 +1,13 @@
 #include "./graph_description_acir.hpp"
+#include "barretenberg/boomerang_value_detection/helpers/aes_helpers.hpp"
+#include "barretenberg/boomerang_value_detection/helpers/cycle_group_helpers.hpp"
+#include "barretenberg/boomerang_value_detection/helpers/cycle_scalar_helpers.hpp"
+#include "barretenberg/boomerang_value_detection/helpers/ecdsa_helpers.hpp"
+#include "barretenberg/boomerang_value_detection/helpers/range_helpers.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
+#include <optional>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -71,6 +79,67 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::is_boolean_gate(size_t block_idx, 
     auto q_4 = block.q_4()[gate_idx];
     return (q_arith == FF::one() && q_m == FF::one() && q_1 == FF(-1) && q_2 == FF::zero() && q_3 == FF::zero() &&
             q_4 == FF::zero() && q_c == FF::zero());
+}
+
+/* Check if the gate is a RAM/ROM access gate.
+ * The selectors are the same for RAM r/w and ROM r operations
+ * see apply_memory_selectors in ultra_circuit_builder.cpp
+ * | gate type                    | q_mem | q_1 | q_2 | q_3 | q_4 | q_m | q_c |
+ * | ---------------------------- | ----- | --- | --- | --- | --- | --- | --- |
+ * | RAM/ROM access gate          | 1     | 1   | 0   | 0   | 0   | 1   | --- |
+ * | RAM timestamp check          | 1     | 1   | 0   | 0   | 1   | 0   | --- |
+ * | ROM consistency check        | 1     | 1   | 1   | 0   | 0   | 0   | --- |
+ * | RAM consistency check        | 1     | 0   | 0   | 1   | 0   | 0   | 0   |
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::is_ram_rom_access_gate(size_t block_idx, size_t gate_idx)
+{
+    auto& block = builder.blocks.get()[block_idx];
+    auto q_1 = block.q_1()[gate_idx];
+    auto q_2 = block.q_2()[gate_idx];
+    auto q_3 = block.q_3()[gate_idx];
+    auto q_4 = block.q_4()[gate_idx];
+    auto q_m = block.q_m()[gate_idx];
+    auto q_memory = block.q_memory()[gate_idx];
+    // q_1 == 1, q_2 == 0, q_3 == 0, q_4 == 0, q_m == 1, q_c == 0/1 (R:W for RAM), q_memory == 1
+    return (q_1 == FF::one() && q_2 == FF::zero() && q_3 == FF::zero() && q_4 == FF::zero() && q_m == FF::one() &&
+            q_memory == FF::one());
+}
+
+// Check if the gate is busread gate.
+// These types of gates are only available in MegaCircuitBuilder.
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::is_busread_gate(size_t block_idx, size_t gate_idx, const BusId bus_idx)
+{
+    if constexpr (std::is_same_v<CircuitBuilder, UltraCircuitBuilder>) {
+        return false;
+    } else {
+        auto& block = builder.blocks.get()[block_idx];
+        auto q_1 = block.q_1()[gate_idx];
+        auto q_2 = block.q_2()[gate_idx];
+        auto q_3 = block.q_3()[gate_idx];
+        auto q_4 = block.q_4()[gate_idx];
+        auto q_m = block.q_m()[gate_idx];
+        auto q_c = block.q_c()[gate_idx];
+        auto q_busread = block.q_busread()[gate_idx];
+
+        // see mega_circuit_builder.cpp::apply_databus_selectors
+        bool default_mask = (q_4 == FF::zero() && q_m == FF::zero() && q_c == FF::zero() && q_busread == FF::one());
+        switch (bus_idx) {
+        case BusId::CALLDATA: {
+            return default_mask && q_1 == FF::one() && q_2 == FF::zero() && q_3 == FF::zero();
+        }
+        case BusId::SECONDARY_CALLDATA: {
+            return default_mask && q_1 == FF::zero() && q_2 == FF::one() && q_3 == FF::zero();
+        }
+        case BusId::RETURNDATA: {
+            return default_mask && q_1 == FF::zero() && q_2 == FF::zero() && q_3 == FF::one();
+        }
+        default: {
+            return false;
+        }
+        }
+    }
 }
 
 template <typename FF, typename CircuitBuilder>
@@ -295,6 +364,7 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_constraint_system()
         opcode_constraint_map = cdg::build_opcode_type_map(constraint_system);
         opcode_constraint_map_built = true;
     }
+    analyzer.clear_consumed_gates();
     for (auto it = opcode_constraint_map.begin(); it != opcode_constraint_map.end(); ++it) {
         auto& [opcode_idx, constraint_info] = *it;
         std::unordered_set<uint32_t> next_constraint_witnesses;
@@ -312,6 +382,28 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_constraint_system()
             break;
         case AcirConstraintType::RANGE:
             result = process_range_constraints(constraint_info.ptr);
+            break;
+        case AcirConstraintType::BLOCK:
+            result = process_block_constraint(constraint_info.ptr);
+            break;
+        case AcirConstraintType::EC_ADD:
+            result = process_ec_add_constraint(constraint_info.ptr);
+            break;
+        case AcirConstraintType::MULTI_SCALAR_MUL:
+            result = process_multi_scalar_mul_constraints(constraint_info.ptr, next_constraint_witnesses);
+            break;
+        case AcirConstraintType::ECDSA_K1:
+        case AcirConstraintType::ECDSA_R1:
+            result = process_ecdsa_constraints(constraint_info.ptr, next_constraint_witnesses);
+            break;
+        case AcirConstraintType::BLAKE2S:
+            result = process_blake2s_constraints(constraint_info.ptr, next_constraint_witnesses);
+            break;
+        case AcirConstraintType::BLAKE3:
+            result = process_blake3_constraints(constraint_info.ptr, next_constraint_witnesses);
+            break;
+        case AcirConstraintType::KECCAK_PERMUTATION:
+            result = process_keccak_permutation_constraints(constraint_info.ptr);
             break;
         default:
             // Constraint type not yet implemented - mark as not processed
@@ -549,47 +641,16 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(const Co
 
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_aes128_constraints(
-    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& next_constraint_witnesses)
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
 {
-    // AES128 constraint processing
-    // TODO: Implement validation logic
-    (void)ptr;
-    (void)next_constraint_witnesses;
-    return false; // Not yet implemented
+    const auto* constraint = std::get<const acir_format::AES128Constraint*>(ptr);
+    return validate_aes<FF>(analyzer, builder, *constraint);
 }
 
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_range_constraint(uint32_t witness, uint32_t num_bits)
 {
-    // Range constraint consists of variable index and num bits to be constrained.
-    // num bits == 1 => bool gate
-    // num bits <= 14 => arithmetic gate + create_new_range_constraint <=> arithmetic gate + list[tag]
-    // num bits > 14 => decompose_into_default_range => decompose chain with additional range constrains for sublimbs
-    //
-    const auto& variable_gates = analyzer.get_variable_gates(analyzer.to_real(witness));
-
-    if (num_bits == 1) {
-        for (auto [block_idx, gate_idx] : variable_gates) {
-            if (is_boolean_gate(block_idx, gate_idx)) {
-                return true;
-            }
-        }
-        return false;
-    } else if (num_bits <= bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM) {
-        // Small range: arithmetic gate + range list entry
-        uint64_t target_range = (1ULL << num_bits) - 1;
-        auto it = builder.range_lists.find(target_range);
-        if (it == builder.range_lists.end()) {
-            return false;
-        }
-        const auto& range_list = it->second;
-        return std::find(range_list.variable_indices.begin(), range_list.variable_indices.end(), witness) !=
-               range_list.variable_indices.end();
-    } else {
-        // Large range: decompose_into_default_range creates sublimbs with big_add gates
-        // Validate that the decompose chain was correctly created
-        return analyzer.validate_decompose_chain(witness, num_bits);
-    }
+    return cdg::validate_range_constraint<FF>(analyzer, builder, witness, num_bits);
 }
 
 template <typename FF, typename CircuitBuilder>
@@ -599,5 +660,548 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_range_constraints(const Co
     return validate_range_constraint(constraint->witness, constraint->num_bits);
 }
 
+// Checks that the ROM constraint is valid.
+// Checks that for every element in the init and trace there is a corresponding gate in the rom_gates
+// We intentionally ignore assert_equal gates during validation
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_rom_constraint(
+    const BlockConstraint& constraint, const std::vector<std::pair<uint32_t, uint32_t>>& rom_gates)
+{
+    // Helper: For the given index and value, count the number of corresponding ROM gates
+    auto find_corresponding_rom_gates_count = [this, rom_gates, constraint](uint32_t index, uint32_t value) {
+        return std::count_if(
+            rom_gates.begin(), rom_gates.end(), [this, index, value](const std::pair<uint32_t, uint32_t>& gate) {
+                auto block_idx = gate.first;
+                auto gate_idx = gate.second;
+                auto& block = builder.blocks.get()[block_idx];
+                bool condition = true;
+                // all other conditions are checked in is_rom_gate lamda
+                condition &= block.q_c()[gate_idx] == FF::zero();         // q_c is always zero for ROM access
+                condition &= block.w_o()[gate_idx] == builder.zero_idx(); // w_o is always zero_idx for ROM access
+                condition &= builder.get_variable(block.w_l()[gate_idx]) == index; // w_l = mem_op.index
+                condition &= builder.get_variable(block.w_r()[gate_idx]) == value; // w_r = mem_op.value
+                condition &= builder.get_variable(block.w_4()[gate_idx]) ==
+                             FF::zero(); // w_4 = record_witness, which is zero during vkgen
+                return condition;
+            });
+    };
+    // Validate init
+    for (uint32_t init_idx = 0; init_idx < constraint.init.size(); init_idx++) {
+        auto corresponding_gate_count = find_corresponding_rom_gates_count(init_idx, constraint.init[init_idx]);
+        if (corresponding_gate_count == 0) {
+            log_error("No corresponding gate found for init", init_idx);
+            return false; // no corresponding gate found
+        }
+    }
+
+    // Validate trace
+    for (uint32_t mem_op_idx = 0; mem_op_idx < constraint.trace.size(); mem_op_idx++) {
+        if (constraint.trace[mem_op_idx].index.is_constant) {
+            continue; // does not create gate on constant index
+        }
+
+        auto corresponding_gate_count =
+            find_corresponding_rom_gates_count(analyzer.to_real(constraint.trace[mem_op_idx].index.index),
+                                               analyzer.to_real(constraint.trace[mem_op_idx].value.index));
+        if (corresponding_gate_count == 0) {
+            log_error("No corresponding gate found for mem_op", mem_op_idx);
+            return false; // no corresponding gate found
+        }
+    }
+    return true;
+}
+
+// Checks that the RAM constraint is valid.
+// Checks that for every element in the init and trace there is a corresponding gate in the rom_gates
+// We intentionally ignore assert_equal gates during validation
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_ram_constraint(
+    const BlockConstraint& constraint, const std::vector<std::pair<uint32_t, uint32_t>>& ram_gates)
+{
+    // Helper: For the given index and value, count the number of corresponding RAM gates
+    auto find_corresponding_ram_gates_count = [this, ram_gates, constraint](
+                                                  uint32_t index, uint32_t value, bool is_write, uint32_t timestamp) {
+        return std::count_if(
+            ram_gates.begin(),
+            ram_gates.end(),
+            [this, index, value, is_write, timestamp](const std::pair<uint32_t, uint32_t>& gate) {
+                auto block_idx = gate.first;
+                auto gate_idx = gate.second;
+                auto& block = builder.blocks.get()[block_idx];
+                bool condition = true;
+                // all other conditions are checked in is_ram_gate lamda
+                condition &= block.q_c()[gate_idx] ==
+                             (is_write ? FF::one() : FF::zero()); // q_c is one for write and zero for read
+                condition &= builder.get_variable(block.w_o()[gate_idx]) == value; // w_o is not zero_idx for RAM access
+                condition &= builder.get_variable(block.w_l()[gate_idx]) == index; // w_l = mem_op.index
+                condition &= builder.get_variable(block.w_r()[gate_idx]) == timestamp; // w_r = timestamp
+                condition &= builder.get_variable(block.w_4()[gate_idx]) ==
+                             FF::zero(); // w_4 = record_witness, which is zero during vkgen
+                return condition;
+            });
+    };
+
+    // Process init.
+    // see rom_ram_logic.cpp:init_RAM_element, it is just WRITE ram gate for each init element
+    uint32_t timestamp = 0;
+    for (uint32_t init_idx = 0; init_idx < constraint.init.size(); init_idx++) {
+        auto corresponding_gate_count =
+            find_corresponding_ram_gates_count(init_idx, constraint.init[init_idx], /*is_write=*/true, timestamp);
+        if (corresponding_gate_count == 0) {
+            log_error("No corresponding gate found for init", init_idx);
+            return false; // no corresponding gate found
+        }
+        timestamp++;
+    }
+
+    // Process trace.
+    for (auto mem_op : constraint.trace) {
+        auto corresponding_gate_count = find_corresponding_ram_gates_count(analyzer.to_real(mem_op.index.index),
+                                                                           analyzer.to_real(mem_op.value.index),
+                                                                           mem_op.access_type == AccessType::Write,
+                                                                           timestamp);
+        if (corresponding_gate_count == 0) {
+            log_error("No corresponding gate found for mem_op at timestamp", timestamp);
+            return false; // no corresponding gate found
+        }
+        timestamp++;
+    }
+    return true;
+}
+
+// Checks that the calldata constraint is valid.
+// Checks that for every element in the trace there is a corresponding calldata databus read gate
+// We intentionally ignore assert_equal gates during validation
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_calldata_constraint(
+    const BlockConstraint& constraint, const std::vector<std::pair<uint32_t, uint32_t>>& calldata_gates)
+{
+    // Helper: For the given index and value, count the number of corresponding calldata databus read gates
+    auto find_corresponding_calldata_gates_count =
+        [this, calldata_gates, constraint](const FF& index, const FF& value, bool is_primary) {
+            return std::count_if(
+                calldata_gates.begin(),
+                calldata_gates.end(),
+                [this, index, value, is_primary](const std::pair<uint32_t, uint32_t>& gate) {
+                    auto block_idx = gate.first;
+                    auto gate_idx = gate.second;
+                    auto& block = builder.blocks.get()[block_idx];
+                    bool condition = true;
+                    // Databus read gate wires: w_l = value, w_r = index, w_o = 0, w_4 = 0
+                    condition &= builder.get_variable(block.w_l()[gate_idx]) == value;
+                    condition &= builder.get_variable(block.w_r()[gate_idx]) == index;
+                    condition &= builder.get_variable(block.w_o()[gate_idx]) == FF::zero();
+                    condition &= builder.get_variable(block.w_4()[gate_idx]) == FF::zero();
+                    if (is_primary) {
+                        condition &= block.q_1()[gate_idx] == FF::one();  // q_1 is one for primary calldata
+                        condition &= block.q_2()[gate_idx] == FF::zero(); // q_2 is zero for primary calldata
+                        condition &= block.q_3()[gate_idx] == FF::zero(); // q_3 is zero for primary calldata
+                    } else {
+                        condition &= block.q_1()[gate_idx] == FF::zero(); // q_1 is zero for secondary calldata
+                        condition &= block.q_2()[gate_idx] == FF::one();  // q_2 is one for secondary calldata
+                        condition &= block.q_3()[gate_idx] == FF::zero(); // q_3 is zero for secondary calldata
+                    }
+                    return condition;
+                });
+        };
+
+    // Process trace.
+    for (auto mem_op : constraint.trace) {
+        auto corresponding_gate_count = find_corresponding_calldata_gates_count(
+            mem_op.index.index, mem_op.value.index, constraint.calldata_id == CallDataType::Primary);
+        if (corresponding_gate_count == 0) {
+            log_error("No corresponding gate found for mem_op", analyzer.to_real(mem_op.index.index));
+            return false; // no corresponding gate found
+        } else if (corresponding_gate_count > 1) {
+            throw std::runtime_error("Found multiple gates for the same mem_op");
+        }
+    }
+    return true;
+}
+
+// Checks that the returndata constraint is valid.
+// Checks that for every element in the init there is a corresponding returndata databus read gate
+// We intentionally ignore assert_equal gates during validation
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_returndata_constraint(
+    const BlockConstraint& constraint, const std::vector<std::pair<uint32_t, uint32_t>>& returndata_gates)
+{
+    // Helper: For the given index and value, count the number of corresponding returndata databus read gates
+    auto find_corresponding_returndata_gates_count = [this, returndata_gates, constraint](const FF& index,
+                                                                                          const FF& value) {
+        return std::count_if(returndata_gates.begin(),
+                             returndata_gates.end(),
+                             [this, index, value](const std::pair<uint32_t, uint32_t>& gate) {
+                                 auto block_idx = gate.first;
+                                 auto gate_idx = gate.second;
+                                 auto& block = builder.blocks.get()[block_idx];
+                                 bool condition = true;
+                                 // Databus read gate wires: w_l = value, w_r = index, w_o = 0, w_4 = 0
+                                 condition &= builder.get_variable(block.w_l()[gate_idx]) == value;
+                                 condition &= builder.get_variable(block.w_r()[gate_idx]) == index;
+                                 condition &= builder.get_variable(block.w_o()[gate_idx]) == FF::zero();
+                                 condition &= builder.get_variable(block.w_4()[gate_idx]) == FF::zero();
+                                 // selectors are checked in is_returndata_gate lambda
+                                 return condition;
+                             });
+    };
+
+    for (uint32_t init_idx = 0; init_idx < constraint.init.size(); init_idx++) {
+        auto corresponding_gate_count = find_corresponding_returndata_gates_count(init_idx, constraint.init[init_idx]);
+        if (corresponding_gate_count == 0) {
+            log_error("No corresponding gate found for init", init_idx);
+            return false; // no corresponding gate found
+        }
+    }
+    return true;
+}
+// Checks that the block constraint is valid.
+// We intentionally ignore assert_equal gates during validation
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_block_constraint(const ConstraintPtr& ptr)
+{
+    auto is_calldata_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) {
+        return is_busread_gate(block_idx, gate_idx, BusId::CALLDATA) ||
+               is_busread_gate(block_idx, gate_idx, BusId::SECONDARY_CALLDATA);
+    };
+    auto is_returndata_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) {
+        return is_busread_gate(block_idx, gate_idx, BusId::RETURNDATA);
+    };
+
+    // The only difference between ROM and RAM access is the w_o value
+    // For ROM, w_o is zero_idx, for RAM, w_o is not zero_idx
+    auto is_rom_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) {
+        return is_ram_rom_access_gate(block_idx, gate_idx) &&
+               builder.blocks.get()[block_idx].w_o()[gate_idx] == builder.zero_idx();
+    };
+    auto is_ram_gate = [this](const uint32_t block_idx, const uint32_t gate_idx) {
+        return is_ram_rom_access_gate(block_idx, gate_idx) &&
+               builder.blocks.get()[block_idx].w_o()[gate_idx] != builder.zero_idx();
+    };
+
+    auto find_block_index = [this](const auto& block) {
+        auto blocks_data = builder.blocks.get();
+        for (uint32_t i = 0; i < blocks_data.size(); i++) {
+            if (std::addressof(blocks_data[i]) == std::addressof(block)) {
+                return i;
+            }
+        }
+        throw std::runtime_error("Block not found");
+    };
+
+    auto memory_block_idx = find_block_index(builder.blocks.memory);
+    uint32_t databus_block_idx = 0;
+    if constexpr (!std::is_same_v<CircuitBuilder, UltraCircuitBuilder>) {
+        databus_block_idx = find_block_index(builder.blocks.busread);
+    }
+
+    const auto* block_constraint = std::get<const acir_format::BlockConstraint*>(ptr);
+    switch (block_constraint->type) {
+    case BlockType::ROM:
+        return validate_rom_constraint(*block_constraint,
+                                       analyzer.get_gates_by_filter_function(memory_block_idx, is_rom_gate));
+    case BlockType::RAM:
+        return validate_ram_constraint(*block_constraint,
+                                       analyzer.get_gates_by_filter_function(memory_block_idx, is_ram_gate));
+    case BlockType::CallData:
+        if constexpr (std::is_same_v<CircuitBuilder, UltraCircuitBuilder>) {
+            // Ultra does not support the databus; skip validation to mirror builder behavior.
+            return true;
+        }
+        return validate_calldata_constraint(*block_constraint,
+                                            analyzer.get_gates_by_filter_function(databus_block_idx, is_calldata_gate));
+    case BlockType::ReturnData:
+        if constexpr (std::is_same_v<CircuitBuilder, UltraCircuitBuilder>) {
+            // Ultra does not support the databus; skip validation to mirror builder behavior.
+            return true;
+        }
+        return validate_returndata_constraint(
+            *block_constraint, analyzer.get_gates_by_filter_function(databus_block_idx, is_returndata_gate));
+    default:
+        throw std::runtime_error("Unexpected block constraint type");
+    }
+
+    return true;
+}
+
+// Checks that the ECADD constraint is valid.
+// Verifies:
+// 1. Both input points are asserted to be on curve
+// 2. The result point is constrained to be input1 + input2 (via operator+ trace and assert_equal)
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ec_add_constraint(const ConstraintPtr& ptr)
+{
+    const auto* constraint = std::get<const EcAdd*>(ptr);
+    Point<FF> input1_point = { constraint->input1_x, constraint->input1_y, constraint->input1_infinite };
+    Point<FF> input2_point = { constraint->input2_x, constraint->input2_y, constraint->input2_infinite };
+
+    bool condition = true;
+
+    // Compute real points for all inputs (get_real_point handles constant coordinates via constant folding).
+    // On-curve check is only needed for non-constant points (constant points are validated at compile time).
+    std::optional<RealPoint<CircuitBuilder>> real_input1, real_input2;
+    real_input1 = get_real_point<FF>(analyzer, builder, input1_point, constraint->predicate);
+    if (!real_input1.has_value()) {
+        log_error("Real point 1 is not valid");
+        condition = false;
+    } else if (!is_point_constant(input1_point)) {
+        condition &= is_on_curve_check_with_real_point<FF>(analyzer, builder, *real_input1);
+    }
+    real_input2 = get_real_point<FF>(analyzer, builder, input2_point, constraint->predicate);
+    if (!real_input2.has_value()) {
+        log_error("Real point 2 is not valid");
+        condition = false;
+    } else if (!is_point_constant(input2_point)) {
+        condition &= is_on_curve_check_with_real_point<FF>(analyzer, builder, *real_input2);
+    }
+
+    if (!real_input1.has_value() || !real_input2.has_value()) {
+        return false;
+    }
+
+    condition &= is_ec_add_result_constrained<FF>(analyzer,
+                                                  builder,
+                                                  *real_input1,
+                                                  *real_input2,
+                                                  constraint->result_x,
+                                                  constraint->result_y,
+                                                  constraint->result_infinite,
+                                                  constraint->predicate);
+
+    return condition;
+}
+
+// Verifies MSM constraint:
+// 1. All input points are asserted to be on curve (via to_grumpkin_point)
+// 2. All scalars are field-validated (via cycle_scalar + validate_split_in_field_unsafe)
+// 3. The result is connected to batch_mul output via conditional_assign + assert_equal
+//
+// TODO(defkit): implement proper batch_mul tracing
+// We intentionally skip tracing batch_mul internals. batch_mul is a complex multi-point
+// multiplication algorithm (Straus/Pippenger) whose internal gate structure is too complex
+// to trace statically. Instead, we verify that:
+//   - All inputs are properly constrained (on-curve + scalar field validation)
+//   - The batch_mul output is connected to the ACIR output via conditional_assign + assert_equal
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_multi_scalar_mul_constraints(
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
+{
+    const auto* constraint = std::get<const MultiScalarMul*>(ptr);
+
+    bool condition = true;
+
+    // 1. Compute real points once and verify on-curve check for all input points
+    for (size_t i = 0; i < constraint->points.size(); i += 3) {
+        Point<FF> point = { constraint->points[i], constraint->points[i + 1], constraint->points[i + 2] };
+        if (is_point_constant(point)) {
+            continue;
+        }
+        auto real_point = get_real_point<FF>(analyzer, builder, point, constraint->predicate);
+        if (!real_point.has_value()) {
+            log_error("Real point is not valid");
+            condition = false;
+            continue;
+        }
+        condition &= is_on_curve_check_with_real_point<FF>(analyzer, builder, *real_point);
+    }
+
+    // 2. Verify cycle_scalar field validation for all scalars
+    for (size_t i = 0; i < constraint->points.size(); i += 3) {
+        size_t scalar_idx = 2 * (i / 3);
+        condition &= is_cycle_scalar_constrained<FF>(analyzer,
+                                                     builder,
+                                                     constraint->scalars[scalar_idx],
+                                                     constraint->scalars[scalar_idx + 1],
+                                                     constraint->predicate);
+    }
+
+    // 3. Verify result connected via conditional_assign + assert_equal
+    Point<FF> output_point = {
+        WitnessOrConstant<FF>::from_index(constraint->out_point_x),
+        WitnessOrConstant<FF>::from_index(constraint->out_point_y),
+        WitnessOrConstant<FF>::from_index(constraint->out_point_is_infinite),
+    };
+    condition &= is_msm_result_constrained<FF>(analyzer, builder, output_point, *constraint);
+
+    return condition;
+}
+
+// Verifies ECDSA constraint:
+// 1. All input byte fields (hashed_message, r, s, pub_x, pub_y) have conditional_assign + 8-bit range constraints
+// 2. The result is constrained to be boolean (from bool_ct result(result_field))
+// 3. The result participates in bool_t conditional_assign + assert_equal chain
+// We intentionally skip tracing ECDSA verification internals (biggroup/bigcurve).
+// Instead, we verify that:
+//   - All inputs are properly constrained (conditional_assign + 8-bit range)
+//   - The result is boolean and connected to the verification output via conditional_assign + assert_equal
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ecdsa_constraints(
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
+{
+    const auto* constraint = std::get<const EcdsaConstraint*>(ptr);
+    auto predicate_field = witness_or_constant_to_field<FF>(constraint->predicate, builder);
+
+    bool condition = true;
+
+    // 1. Validate all 5 input byte arrays: conditional_assign + 8-bit range
+    auto scalar_defaults = compute_scalar_default_bytes<FF>();
+    auto pub_x_defaults = compute_pubkey_default_bytes<FF>(constraint->type, /*is_x=*/true);
+    auto pub_y_defaults = compute_pubkey_default_bytes<FF>(constraint->type, /*is_x=*/false);
+
+    // r fields (first 32 bytes of signature)
+    std::array<uint32_t, 32> r_indices;
+    std::copy(constraint->signature.begin(), constraint->signature.begin() + 32, r_indices.begin());
+
+    // s fields (second 32 bytes of signature)
+    std::array<uint32_t, 32> s_indices;
+    std::copy(constraint->signature.begin() + 32, constraint->signature.begin() + 64, s_indices.begin());
+
+    condition &= is_ecdsa_input_bytes_constrained<FF>(
+        analyzer, builder, constraint->hashed_message, predicate_field, scalar_defaults);
+    condition &= is_ecdsa_input_bytes_constrained<FF>(analyzer, builder, r_indices, predicate_field, scalar_defaults);
+    condition &= is_ecdsa_input_bytes_constrained<FF>(analyzer, builder, s_indices, predicate_field, scalar_defaults);
+    condition &= is_ecdsa_input_bytes_constrained<FF>(
+        analyzer, builder, constraint->pub_x_indices, predicate_field, pub_x_defaults);
+    condition &= is_ecdsa_input_bytes_constrained<FF>(
+        analyzer, builder, constraint->pub_y_indices, predicate_field, pub_y_defaults);
+
+    // 2-3. Validate result: boolean gate + conditional_assign + assert_equal
+    condition &= is_ecdsa_result_constrained<FF>(analyzer, builder, *constraint);
+
+    return condition;
+}
+
+/**
+ * @brief Verify blake2s/blake3 constraint: input bytes have 8-bit range constraints, outputs match stdlib IO.
+ * @details Blake2s/blake3 inputs are bytes (8-bit values). For each non-constant input, we verify that an 8-bit
+ * range constraint exists via limb lookup. For outputs, we use the IO registry (acir_opcode_io) to verify
+ * that each output byte produced by the stdlib is connected to the corresponding constraint.result[i]
+ * via assert_equal.
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_blake_constraint_internal(
+    const std::vector<WitnessOrConstant<bb::fr>>& inputs, const std::array<uint32_t, 32>& result)
+{
+    using field_ct = bb::stdlib::field_t<CircuitBuilder>;
+
+    // 1. Verify input byte range constraints
+    for (const auto& input : inputs) {
+        if (!input.is_constant) {
+            // Each non-constant input byte must have an 8-bit range constraint
+            if (!is_range_constrained_via_limb_lookup<FF>(analyzer, builder, input.index, 255)) {
+                return false;
+            }
+        }
+    }
+
+    // 2. Look up the registered outputs for these inputs
+    const auto& io_map = builder.acir_opcode_io.io_map;
+    auto it = io_map.find(witness_or_constant_vector_from_vector<CircuitBuilder>(inputs));
+    if (it == io_map.end()) {
+        return false;
+    }
+
+    const auto& all_outputs = it->second;
+    if (all_outputs.empty()) {
+        return false;
+    }
+
+    for (const auto& outputs_vector : all_outputs) {
+        // unexpected
+        BB_ASSERT_EQ(outputs_vector.size(), result.size(), "Output size mismatch");
+
+        auto condition = true;
+        for (size_t i = 0; i < outputs_vector.size(); i++) {
+            Field<CircuitBuilder> output_field{ outputs_vector[i].index,
+                                                field_ct::from_witness_index(&builder, outputs_vector[i].index) };
+            Field<CircuitBuilder> result_field{ result[i], field_ct::from_witness_index(&builder, result[i]) };
+            condition &= is_assert_equal_exists<FF>(analyzer, builder, output_field, result_field);
+        }
+        if (condition) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * @brief Verify blake2s constraint
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_blake2s_constraints(
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
+{
+    const auto* constraint = std::get<const acir_format::Blake2sConstraint*>(ptr);
+
+    return process_blake_constraint_internal(constraint->inputs, constraint->result);
+}
+
+/**
+ * @brief Verify blake3 constraint
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_blake3_constraints(
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
+{
+    const auto* constraint = std::get<const acir_format::Blake3Constraint*>(ptr);
+
+    return process_blake_constraint_internal(constraint->inputs, constraint->result);
+}
+
+/**
+ * @brief Verify keccak permutation constraint by checking that stdlib outputs are connected to ACIR results.
+ * @details The keccak stdlib registers its input->output witness mapping in builder.acir_opcode_io..
+ * We look up the ACIR constraint's input indices in that map to find the actual output witness indices
+ * produced by keccak, then verify that each output is connected to the corresponding constraint.result[i]
+ * via assert_equal (i.e. they share the same real variable index).
+ * Constant inputs use IS_CONSTANT as their key element (matching keccak::permutation_opcode behavior).
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_keccak_permutation_constraints(const ConstraintPtr& ptr)
+{
+    using field_ct = bb::stdlib::field_t<CircuitBuilder>;
+
+    const auto* constraint = std::get<const acir_format::Keccakf1600*>(ptr);
+
+    auto input_indices = witness_or_constant_vector_from_vector<CircuitBuilder>(constraint->state);
+
+    // Look up the registered outputs for these inputs
+    const auto& io_map = builder.acir_opcode_io.io_map;
+    auto it = io_map.find(input_indices);
+    if (it == io_map.end()) {
+        return false;
+    }
+
+    const auto& all_outputs = it->second;
+    if (all_outputs.empty()) {
+        return false;
+    }
+
+    // Iterate over all registered outputs for the case if multiple constraints with the same inputs are emitted.
+    for (const auto& output : all_outputs) {
+        // unexpected
+        BB_ASSERT_EQ(output.size(), constraint->result.size(), "Output size mismatch");
+
+        auto condition = true;
+        // Verify each output is connected to the corresponding constraint result via assert_equal.
+        for (size_t i = 0; i < output.size(); ++i) {
+            // output is never constant
+            Field<CircuitBuilder> output_field{ output[i].index,
+                                                field_ct::from_witness_index(&builder, output[i].index) };
+            Field<CircuitBuilder> result_field{ constraint->result[i],
+                                                field_ct::from_witness_index(&builder, constraint->result[i]) };
+            condition &= is_assert_equal_exists<FF>(analyzer, builder, output_field, result_field);
+        }
+
+        // If for all registered outputs assert_equal exists, return true
+        if (condition) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+template class StaticAnalyzerAcir_<fr, MegaCircuitBuilder>;
 template class StaticAnalyzerAcir_<fr, UltraCircuitBuilder>;
 } // namespace cdg
