@@ -234,6 +234,7 @@ locals {
     "validator.node.env.WS_NUM_HISTORIC_CHECKPOINTS"           = var.WS_NUM_HISTORIC_CHECKPOINTS
     "validator.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
     "validator.node.env.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT"   = var.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT
+    "validator.node.env.L1_TX_FAILED_STORE"                    = var.L1_TX_FAILED_STORE
     "validator.node.adminApiKeyHash"                            = var.ADMIN_API_KEY_HASH
   }
 
@@ -347,6 +348,7 @@ locals {
           "node.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
           "node.node.env.PROVER_FAILED_PROOF_STORE"             = var.PROVER_FAILED_PROOF_STORE
           "node.node.env.PROVER_PROOF_STORE"                    = var.PROVER_PROOF_STORE
+          "node.node.env.L1_TX_FAILED_STORE"                    = var.L1_TX_FAILED_STORE
           "node.node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"     = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
           "node.node.env.KEY_INDEX_START"                       = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
           "node.node.env.PUBLISHER_KEY_INDEX_START"             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX

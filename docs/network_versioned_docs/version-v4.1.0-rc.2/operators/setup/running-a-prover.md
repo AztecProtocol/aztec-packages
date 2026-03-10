@@ -3,7 +3,6 @@ id: running_a_prover
 displayed_sidebar: operatorsSidebar
 title: Running a Prover
 description: A comprehensive guide on how to run an Aztec prover on the network using Docker Compose in a distributed configuration.
-references: ["yarn-project/aztec/src/cli/cmds/start_prover_node.ts"]
 ---
 
 ## Overview
@@ -135,6 +134,7 @@ PROVER_BROKER_HOST=http://prover-broker:8080
 PROVER_PUBLISHER_PRIVATE_KEY=[your prover publisher private key, see prerequisites]
 AZTEC_PORT=8080
 AZTEC_ADMIN_PORT=8880
+SPONSORED_FPC=false
 
 # Prover Broker Configuration
 PROVER_BROKER_DATA_DIRECTORY=./prover-broker-data
@@ -149,7 +149,7 @@ Create `docker-compose.yml`:
 name: aztec-prover-node
 services:
   prover-node:
-    image: aztecprotocol/aztec:4.0.3
+    image: aztecprotocol/aztec:4.1.0-rc.2
     entrypoint: >-
       node
       --no-warnings
@@ -173,6 +173,7 @@ services:
       P2P_PORT: ${P2P_PORT}
       AZTEC_PORT: ${AZTEC_PORT}
       AZTEC_ADMIN_PORT: ${AZTEC_ADMIN_PORT}
+      SPONSORED_FPC: ${SPONSORED_FPC}
     ports:
       - ${AZTEC_PORT}:${AZTEC_PORT}
       - ${P2P_PORT}:${P2P_PORT}
@@ -182,7 +183,7 @@ services:
     restart: unless-stopped
 
   prover-broker:
-    image: aztecprotocol/aztec:4.0.3
+    image: aztecprotocol/aztec:4.1.0-rc.2
     entrypoint: >-
       node
       --no-warnings
@@ -262,7 +263,7 @@ Create `docker-compose.yml`:
 name: aztec-prover-agent
 services:
   prover-agent:
-    image: aztecprotocol/aztec:4.0.3
+    image: aztecprotocol/aztec:4.1.0-rc.2
     entrypoint: >-
       node
       --no-warnings
