@@ -558,32 +558,40 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     messageContextRequestsArrayBaseSlot: Fr,
     messageContextResponsesArrayBaseSlot: Fr,
   ) {
-    if (!this.contractAddress.equals(contractAddress)) {
-      throw new Error(`Got a message context request from ${contractAddress}, expected ${this.contractAddress}`);
+    try {
+      if (!this.contractAddress.equals(contractAddress)) {
+        throw new Error(`Got a message context request from ${contractAddress}, expected ${this.contractAddress}`);
+      }
+      const requestCapsules = await this.capsuleStore.readCapsuleArray(
+        contractAddress,
+        messageContextRequestsArrayBaseSlot,
+        this.jobId,
+      );
+
+      const txHashes = requestCapsules.map((fields, i) => {
+        if (fields.length !== 1) {
+          throw new Error(
+            `Malformed message context request at index ${i}: expected 1 field (tx hash), got ${fields.length}`,
+          );
+        }
+        return fields[0];
+      });
+
+      const maybeMessageContexts = await this.messageContextService.resolveMessageContexts(
+        txHashes,
+        this.anchorBlockHeader.getBlockNumber(),
+      );
+
+      // Leave response in response capsule array.
+      await this.capsuleStore.setCapsuleArray(
+        contractAddress,
+        messageContextResponsesArrayBaseSlot,
+        maybeMessageContexts.map(MessageTxContext.toSerializedOption),
+        this.jobId,
+      );
+    } finally {
+      await this.capsuleStore.setCapsuleArray(contractAddress, messageContextRequestsArrayBaseSlot, [], this.jobId);
     }
-
-    const requestCapsules = await this.capsuleStore.readCapsuleArray(
-      contractAddress,
-      messageContextRequestsArrayBaseSlot,
-      this.jobId,
-    );
-
-    const txHashes = requestCapsules.map(fields => fields[0] ?? Fr.ZERO);
-    const maybeMessageContexts = await this.messageContextService.resolveMessageContexts(
-      txHashes,
-      this.anchorBlockHeader.getBlockNumber(),
-    );
-
-    // Clear request capsule
-    await this.capsuleStore.setCapsuleArray(contractAddress, messageContextRequestsArrayBaseSlot, [], this.jobId);
-
-    // Leave response in response capsule array.
-    await this.capsuleStore.setCapsuleArray(
-      contractAddress,
-      messageContextResponsesArrayBaseSlot,
-      maybeMessageContexts.map(MessageTxContext.toSerializedOption),
-      this.jobId,
-    );
   }
 
   public storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
