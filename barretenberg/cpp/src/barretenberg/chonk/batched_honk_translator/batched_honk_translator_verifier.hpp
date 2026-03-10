@@ -94,6 +94,16 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     };
 
     /**
+     * @brief Result of Phase 1 (MegaZK Oink verification).
+     * @details Contains the data that callers need between Phase 1 and Phase 2.
+     */
+    struct OinkResult {
+        std::vector<FF> public_inputs;
+        Commitment calldata_commitment;
+        std::array<Commitment, MegaZKFlavorT::NUM_WIRES> ecc_op_wires;
+    };
+
+    /**
      * @brief Construct the batched verifier with minimal state.
      * @details Only stores the VK and transcript. Proof data and ECCVM-derived params are passed
      * to the two-phase verification methods.
@@ -104,10 +114,9 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     /**
      * @brief Phase 1: Verify the MegaZK Oink phase on the shared transcript.
      * @details Loads mega_zk_proof into the transcript, runs OinkVerifier, stores verifier instance.
-     * After this call, accessors (get_public_inputs, get_calldata_commitment, get_ecc_op_wires) are valid.
-     * @return Verifier commitments for the MegaZK circuit.
+     * @return OinkResult with public inputs, calldata commitment, and ECC op wires.
      */
-    MegaZKVerifierCommitments verify_mega_zk_oink(const Proof& mega_zk_proof);
+    OinkResult verify_mega_zk_oink(const Proof& mega_zk_proof);
 
     /**
      * @brief Phase 2: Verify translator Oink + joint sumcheck + joint PCS.
@@ -122,22 +131,14 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
         const TransBF& accumulated_result,
         const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments);
 
-    // Accessors (valid after verify_mega_zk_oink)
-    const std::vector<FF>& get_public_inputs() const { return mega_zk_verifier_instance->public_inputs; }
-
-    const Commitment& get_calldata_commitment() const
-    {
-        return mega_zk_verifier_instance->witness_commitments.calldata;
-    }
-
-    auto get_ecc_op_wires() const
-    {
-        return mega_zk_verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
-    }
-
   private:
     // Methods mirroring the prover's structure.
-    TransVerifierCommitments verify_translator_oink();
+    TransVerifierCommitments verify_translator_oink(
+        const Proof& translator_and_joint_proof,
+        const TransBF& evaluation_input_x,
+        const TransBF& batching_challenge_v,
+        const TransBF& accumulated_result,
+        const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments);
     bool verify_joint_sumcheck();
     ReductionResult verify_joint_pcs(bool sumcheck_verified,
                                      MegaZKVerifierCommitments& mega_zk_commitments,
@@ -148,15 +149,6 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
 
     // Verifier instance stored after verify_mega_zk_oink (provides accessors)
     std::shared_ptr<MegaZKVerifierInstance> mega_zk_verifier_instance;
-
-    // Proof stored by verify_translator_and_joint, loaded by verify_translator_oink via TranslatorVerifier.
-    Proof translator_and_joint_proof;
-
-    // Translator-specific parameters from ECCVM verifier (set by verify_translator_and_joint).
-    TransBF evaluation_input_x;
-    TransBF batching_challenge_v;
-    TransBF accumulated_result;
-    std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_wire_commitments;
 
     // Builder pointer (only meaningful for recursive, nullptr for native).
     std::conditional_t<IsRecursive, UltraCircuitBuilder*, std::nullptr_t> builder = nullptr;
