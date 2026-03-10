@@ -30,7 +30,7 @@ export class FileStoreL1TxFailedStore implements L1TxFailedStore {
       },
     });
 
-    this.log.info(`Saved failed L1 tx to ${uri}`, {
+    this.log.info('Saved failed L1 tx to %s', uri, {
       id: tx.id,
       failureType: tx.failureType,
       actions: tx.context.actions.join(','),

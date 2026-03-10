@@ -133,7 +133,9 @@ export class SequencerTimetable {
     this.initializeDeadline = initializeDeadline;
 
     this.log?.info(
-      `Sequencer timetable initialized with ${this.maxNumberOfBlocks} blocks per slot (${this.enforce ? 'enforced' : 'not enforced'})`,
+      'Sequencer timetable initialized with %d blocks per slot (%s)',
+      this.maxNumberOfBlocks,
+      this.enforce ? 'enforced' : 'not enforced',
       {
         ethereumSlotDuration: this.ethereumSlotDuration,
         aztecSlotDuration: this.aztecSlotDuration,
@@ -206,7 +208,7 @@ export class SequencerTimetable {
     }
 
     this.metrics?.recordStateTransitionBufferMs(Math.floor(bufferSeconds * 1000), newState);
-    this.log?.trace(`Enough time to transition to ${newState}`, { maxAllowedTime, secondsIntoSlot });
+    this.log?.trace('Enough time to transition to %s', newState, { maxAllowedTime, secondsIntoSlot });
   }
 
   /**
@@ -243,7 +245,9 @@ export class SequencerTimetable {
       const deadline = secondsIntoSlot + available;
 
       this.log?.verbose(
-        `${canStart ? 'Can' : 'Cannot'} start single-block checkpoint at ${secondsIntoSlot}s into slot`,
+        '%s start single-block checkpoint at %ds into slot',
+        canStart ? 'Can' : 'Cannot',
+        secondsIntoSlot,
         { secondsIntoSlot, maxAllowed, available, deadline },
       );
       return { canStart, deadline, isLastBlock: true };
@@ -263,7 +267,10 @@ export class SequencerTimetable {
         const isLastBlock = subSlot === this.maxNumberOfBlocks;
 
         this.log?.verbose(
-          `Can start ${isLastBlock ? 'last block' : 'block'} in sub-slot ${subSlot} with deadline ${deadline}s`,
+          'Can start %s in sub-slot %d with deadline %ds',
+          isLastBlock ? 'last block' : 'block',
+          subSlot,
+          deadline,
           { secondsIntoSlot, deadline, timeUntilDeadline, subSlot, maxBlocks: this.maxNumberOfBlocks },
         );
 

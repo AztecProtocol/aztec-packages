@@ -1033,7 +1033,7 @@ describe('CheckpointProposalJob', () => {
 class TestCheckpointProposalJob extends CheckpointProposalJob {
   /** Override to be a no-op for testing - allows tests to run without timing delays */
   public override waitUntilTimeInSlot(targetSecondsIntoSlot: number): Promise<void> {
-    this.log.warn(`Skipping waitUntilTimeInSlot(${targetSecondsIntoSlot}) in test`);
+    this.log.warn('Skipping waitUntilTimeInSlot(%d) in test', targetSecondsIntoSlot);
     return Promise.resolve();
   }
 

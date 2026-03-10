@@ -68,7 +68,7 @@ export class CheckpointVoter {
       return undefined;
     }
 
-    this.log.info(`Enqueuing vote for ${governanceProposerPayload} governance for slot ${this.slot}`, {
+    this.log.info('Enqueuing vote for %s governance for slot %s', governanceProposerPayload, this.slot, {
       slot: this.slot,
       governanceProposerPayload: governanceProposerPayload.toString(),
     });
@@ -101,7 +101,7 @@ export class CheckpointVoter {
         return undefined;
       }
 
-      this.log.info(`Enqueuing vote for ${actions.length} slashing actions for slot ${this.slot}`, {
+      this.log.info('Enqueuing vote for %d slashing actions for slot %s', actions.length, this.slot, {
         slot: this.slot,
         actionCount: actions.length,
       });

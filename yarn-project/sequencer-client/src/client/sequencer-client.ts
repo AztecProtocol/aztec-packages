@@ -321,7 +321,7 @@ export function computeBlockLimits(
     maxTxsPerBlock = defaultMaxTxsPerBlock;
   }
 
-  log.info(`Computed block limits L2=${maxL2BlockGas} DA=${maxDABlockGas} maxTxs=${maxTxsPerBlock}`, {
+  log.info('Computed block limits L2=%d DA=%d maxTxs=%d', maxL2BlockGas, maxDABlockGas, maxTxsPerBlock, {
     maxL2BlockGas,
     maxDABlockGas,
     maxTxsPerBlock,
