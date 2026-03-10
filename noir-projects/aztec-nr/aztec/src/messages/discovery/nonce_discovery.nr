@@ -51,8 +51,7 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery<Env>(
 
         // Given note nonce, note content and metadata, we can compute the note hash and silo it to check if it
         // matches the note hash at the array index we're currently processing. This computation may fail, in which
-        // case
-        // we skip the candidate.
+        // case we skip the candidate.
         let maybe_hashes = compute_note_hash_and_nullifier(
             packed_note,
             owner,
