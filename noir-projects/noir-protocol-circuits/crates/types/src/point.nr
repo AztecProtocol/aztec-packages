@@ -48,35 +48,35 @@ mod tests {
     use std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
     #[test]
-    unconstrained fn test_validate_on_curve_generator() {
+    fn test_validate_on_curve_generator() {
         // The generator point should be on the curve
         let generator = Point::generator();
         validate_on_curve(generator);
     }
 
     #[test]
-    unconstrained fn test_validate_on_curve_infinity() {
+    fn test_validate_on_curve_infinity() {
         // Canonical infinite point (x=0, y=0) should pass
         let infinity = Point { x: 0, y: 0, is_infinite: true };
         validate_on_curve(infinity);
     }
 
     #[test(should_fail_with = "Point not on curve")]
-    unconstrained fn test_validate_on_curve_invalid_point() {
+    fn test_validate_on_curve_invalid_point() {
         // A point not on the curve should fail
         let invalid = Point { x: 1, y: 1, is_infinite: false };
         validate_on_curve(invalid);
     }
 
     #[test(should_fail_with = "Point at infinity should have canonical representation (0 0)")]
-    unconstrained fn test_validate_on_curve_infinity_non_canonical_x() {
+    fn test_validate_on_curve_infinity_non_canonical_x() {
         // Infinite point with non-zero x should fail
         let invalid_infinity = Point { x: 1, y: 0, is_infinite: true };
         validate_on_curve(invalid_infinity);
     }
 
     #[test(should_fail_with = "Point at infinity should have canonical representation (0 0)")]
-    unconstrained fn test_validate_on_curve_infinity_non_canonical_y() {
+    fn test_validate_on_curve_infinity_non_canonical_y() {
         // Infinite point with non-zero y should fail
         let invalid_infinity = Point { x: 0, y: 1, is_infinite: true };
         validate_on_curve(invalid_infinity);

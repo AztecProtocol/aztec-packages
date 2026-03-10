@@ -196,7 +196,7 @@ fn test_sponge_blob_serialization() {
 }
 
 #[test]
-unconstrained fn absorb_in_chunks() {
+fn absorb_in_chunks() {
     // This tests that absorbing two arrays separately then squeezing matches absorbing everything as a single array.
     let mut chunk_sponge = SpongeBlob::init();
     let array0 = [1, 2, 3];
@@ -218,7 +218,7 @@ unconstrained fn absorb_in_chunks() {
 }
 
 #[test(should_fail_with = "Given in_len to absorb is larger than the input array len")]
-unconstrained fn absorb_incorrect_in_len() {
+fn absorb_incorrect_in_len() {
     let mut sponge_blob = SpongeBlob::init();
     let input_3 = [1, 2, 3];
     // The below should fail, as we try to absorb 10 inputs but only provide 3
@@ -245,7 +245,7 @@ fn should_not_absorb_more_than_len() {
 }
 
 #[test]
-unconstrained fn full_sponge_hash_match_typescript() {
+fn full_sponge_hash_match_typescript() {
     let mut fields = [0; BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB];
     for i in 0..fields.len() {
         fields[i] = (i as Field) + 123;

@@ -147,7 +147,7 @@ mod tests {
     };
 
     #[test]
-    unconstrained fn test_1_blob_batched() {
+    fn test_1_blob_batched() {
         // We evaluate 1 blob of 400 items using the batch methods.
         // This ensures a block with a single blob will work:
         let num_fields = 400;
@@ -224,7 +224,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn test_3_blobs_batched() {
+    fn test_3_blobs_batched() {
         let num_blobs = 3;
         // Create 2 full blobs and 1 blob with 123 fields.
         let num_fields = FIELDS_PER_BLOB * 2 + 123;
@@ -341,10 +341,11 @@ mod tests {
         let final_acc = output.finalize();
 
         assert_eq(final_acc.z, final_challenges.z);
-        assert_eq(
-            output.gamma_pow_acc,
-            final_challenges.gamma.__pow(BLS12_381_Fr::from(num_blobs as Field)),
-        );
+
+        // Safety: using unconstrained BigNum ops for verification
+        let gamma_pow_acc =
+            unsafe { final_challenges.gamma.__pow(BLS12_381_Fr::from(num_blobs as Field)) };
+        assert_eq(output.gamma_pow_acc, gamma_pow_acc);
 
         let expected_y = BLS12_381_Fr::from_limbs(y_limbs_3_blobs_from_ts);
 
@@ -360,7 +361,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn test_empty_blob() {
+    fn test_empty_blob() {
         let blob = [0; FIELDS_PER_BLOB];
         let final_challenges = FinalBlobBatchingChallenges::empty();
 
@@ -379,7 +380,7 @@ mod tests {
     }
 
     #[test(should_fail_with = "Non canonical x coordinate at infinity")]
-    unconstrained fn test_non_canonical_point_at_infinity_fails() {
+    fn test_non_canonical_point_at_infinity_fails() {
         let blob = [0; FIELDS_PER_BLOB];
         let point = BLSPoint { x: BLS12_381_Fq::one(), y: BLS12_381_Fq::zero(), is_infinity: true };
         let final_challenges = FinalBlobBatchingChallenges::empty();
@@ -398,7 +399,7 @@ mod tests {
     }
 
     #[test(should_fail)]
-    unconstrained fn test_point_not_on_curve_fails() {
+    fn test_point_not_on_curve_fails() {
         let blob = [0; FIELDS_PER_BLOB];
         let point = BLSPoint {
             x: BLS12_381_Fq::from_limbs([0, 0, 0, 42]),

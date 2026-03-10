@@ -150,7 +150,7 @@ fn option_array_serialization() {
 }
 
 #[test]
-unconstrained fn bounded_vec_serialization() {
+fn bounded_vec_serialization() {
     // Test empty BoundedVec
     let empty_vec: BoundedVec<Field, 3> = BoundedVec::from_array([]);
     let serialized = empty_vec.serialize();

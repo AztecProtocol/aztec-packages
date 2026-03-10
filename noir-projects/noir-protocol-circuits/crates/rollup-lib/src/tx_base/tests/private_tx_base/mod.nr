@@ -68,6 +68,14 @@ pub struct TestBuilder {
 
 impl TestBuilder {
     pub fn new() -> Self {
+        // Safety: building trees/hints is test-only setup that doesn't need constraining. Running in unconstrained mode
+        // to speed up testing.
+        unsafe {
+            Self::_new()
+        }
+    }
+
+    unconstrained fn _new() -> Self {
         let rollup_fixture_builder = RollupFixtureBuilder::new();
         let block_number = rollup_fixture_builder.start_block_number;
 
@@ -189,6 +197,11 @@ impl TestBuilder {
     }
 
     pub fn build_note_hash_tree(&mut self, start_index: Field) {
+        // Safety: test-only tree building doesn't need constraining.
+        *self = unsafe { self._build_note_hash_tree(start_index) };
+    }
+
+    unconstrained fn _build_note_hash_tree(mut self, start_index: Field) -> Self {
         self.note_hash_tree = SingleSubtreeMerkleTree::new_at_index(
             pad_end(self.pre_existing_note_hashes),
             start_index,
@@ -205,9 +218,16 @@ impl TestBuilder {
             self.note_hash_tree.get_sibling_path(next_available_leaf_index),
             NOTE_HASH_SUBTREE_HEIGHT,
         );
+
+        self
     }
 
     pub fn build_nullifier_tree(&mut self, start_index: Field) {
+        // Safety: test-only tree building doesn't need constraining.
+        *self = unsafe { self._build_nullifier_tree(start_index) };
+    }
+
+    unconstrained fn _build_nullifier_tree(mut self, start_index: Field) -> Self {
         let leaf_values = self.pre_existing_nullifiers.map(|nullifier| nullifier.as_leaf());
         self.nullifier_tree =
             SingleSubtreeMerkleTree::new_at_index(pad_end(leaf_values), start_index);
@@ -218,13 +238,19 @@ impl TestBuilder {
         };
 
         // If the tree is rebuilt, might need to call `build_hints_for_new_nullifiers` again to update the hints.
+
+        self
     }
 
     pub fn build_hints_for_new_nullifiers(&mut self) {
+        // Safety: test-only hint building doesn't need constraining.
+        *self = unsafe { self._build_hints_for_new_nullifiers() };
+    }
+
+    unconstrained fn _build_hints_for_new_nullifiers(mut self) -> Self {
         let new_nullifiers = self.private_tail.end.nullifiers;
 
-        // Safety: This is for testing only.
-        let sorted_tuples = unsafe { get_sorted_tuples(new_nullifiers, |a, b| b.lt(a)) };
+        let sorted_tuples = get_sorted_tuples(new_nullifiers, |a, b| b.lt(a));
         let sorted_nullifiers = sorted_tuples.map(|tuple| tuple.elem);
         let sorted_nullifier_indexes = sorted_tuples.map(|tuple| tuple.original_index);
         self.tree_snapshot_diff_hints.sorted_nullifiers = sorted_nullifiers;
@@ -236,16 +262,13 @@ impl TestBuilder {
             self.start_tree_snapshots.nullifier_tree.next_available_leaf_index;
         for i in 0..sorted_nullifiers.len() {
             let new_nullifier = sorted_nullifiers[i];
-            // Safety: This is for testing only.
-            let low_leaf_index = unsafe {
-                find_first_index(
-                    low_leaves,
-                    |leaf| {
-                        leaf.nullifier.lt(new_nullifier)
-                            & (new_nullifier.lt(leaf.next_nullifier) | (leaf.next_nullifier == 0))
-                    },
-                )
-            };
+            let low_leaf_index = find_first_index(
+                low_leaves,
+                |leaf| {
+                    leaf.nullifier.lt(new_nullifier)
+                        & (new_nullifier.lt(leaf.next_nullifier) | (leaf.next_nullifier == 0))
+                },
+            );
             if low_leaf_index != low_leaves.len() {
                 self.tree_snapshot_diff_hints.nullifier_predecessor_preimages[i] =
                     low_leaves[low_leaf_index];
@@ -271,9 +294,16 @@ impl TestBuilder {
             cloned_nullifier_tree.get_sibling_path(new_batch_start_index),
             NULLIFIER_SUBTREE_HEIGHT,
         );
+
+        self
     }
 
     pub fn build_public_data_tree(&mut self, start_index: Field) {
+        // Safety: test-only tree building doesn't need constraining.
+        *self = unsafe { self._build_public_data_tree(start_index) };
+    }
+
+    unconstrained fn _build_public_data_tree(mut self, start_index: Field) -> Self {
         self.public_data_tree = SingleSubtreeMerkleTree::new_at_index(
             self.pre_existing_public_data_preimages.map(|leaf| leaf.as_leaf()),
             start_index,
@@ -286,9 +316,16 @@ impl TestBuilder {
 
         // If the tree is rebuilt and the start index has changed, call `build_hints_for_fee_payer_balance` again to
         // update the hints.
+
+        self
     }
 
     pub fn build_hints_for_fee_payer_balance(&mut self) {
+        // Safety: test-only hint building doesn't need constraining.
+        *self = unsafe { self._build_hints_for_fee_payer_balance() };
+    }
+
+    unconstrained fn _build_hints_for_fee_payer_balance(mut self) -> Self {
         let start_index = self.public_data_tree.get_next_available_index()
             - TEST_PUBLIC_DATA_SUBTREE_WIDTH as Field;
         let leaf_index = start_index + self.fee_payer_preimage_index as Field;
@@ -296,6 +333,8 @@ impl TestBuilder {
             leaf_index,
             sibling_path: self.public_data_tree.get_sibling_path(leaf_index),
         };
+
+        self
     }
 
     pub fn execute(self) -> TxRollupPublicInputs {

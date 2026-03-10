@@ -363,7 +363,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn test_one_note() {
+    fn test_one_note() {
         let mut blob_fields: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
         blob_fields[0] = 1;
 
@@ -384,14 +384,18 @@ mod tests {
         //* p(z).(z - 1) = ---------
         //*                    d
         //
-        let rhs = super::compute_factor(challenge_z);
-        let z_minus_1 = challenge_z.__sub(BLS12_381_Fr::one());
-        let lhs = y.__mul(z_minus_1);
+        let rhs = compute_factor(challenge_z);
+        // Safety: using unconstrained BigNum ops for verification
+        let lhs = unsafe {
+            let z_minus_1 = challenge_z.__sub(BLS12_381_Fr::one());
+            y.__mul(z_minus_1)
+        };
+
         assert_eq(lhs, rhs);
     }
 
     #[test]
-    unconstrained fn test_400() {
+    fn test_400() {
         let blob_fields = [3; 400];
         let blob_fields_hash = poseidon2_hash(blob_fields);
 
@@ -414,7 +418,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn test_full_blob() {
+    fn test_full_blob() {
         let mut blob_fields = [0; FIELDS_PER_BLOB];
         for i in 0..FIELDS_PER_BLOB {
             blob_fields[i] = i as Field + 2;
@@ -455,19 +459,10 @@ mod tests {
         // evaluate the blob at z = 2 to yield y:
         let y = barycentric_evaluate_blob_at_z(ys, fracs, factor);
 
-        let mut expected_y: [u128; 3] = [0; 3];
-        if (FIELDS_PER_BLOB == 4096) {
-            // Computed with the eth consensus specs py lib
-            expected_y =
-                [0x0c62e352a428e8e9842eadc1c106bd, 0x902c5b4968d755b6f49c0231e15af8, 0x00049a];
-            // Also computed with cKzg, in the typescript tests:
-            // 0x049a902c5b4968d755b6f49c0231e15af80c62e352a428e8e9842eadc1c106bd
-        }
-        if (FIELDS_PER_BLOB == 8) {
-            // Computed with the eth consensus specs py lib (after hacking it to cope with blobs of size 8 instead of 4096):
-            expected_y =
-                [0xb04cdea4304000053abffffffb203a, 0x0000000002e30785c8afa4496f8e38, 0x000000];
-        }
+        // Computed with the eth consensus specs py lib
+        let expected_y =
+            [0x0c62e352a428e8e9842eadc1c106bd, 0x902c5b4968d755b6f49c0231e15af8, 0x00049a];
+
         assert(y.get_limbs() == expected_y);
     }
 
@@ -740,6 +735,7 @@ mod tests {
         let correct_factor = unsafe { super::__compute_factor_helper(z_pow_d_val) };
 
         // Add 1 to corrupt the factor
+        // Safety: using unconstrained BigNum ops to corrupt the value
         let invalid_factor = unsafe { correct_factor.__add(BLS12_381_Fr::one()) };
 
         // This should fail because the constraint won't be satisfied
@@ -763,14 +759,13 @@ mod tests {
     fn test_validate_fracs_rejects_invalid_frac() {
         // Test that validate_fracs rejects incorrect frac hints
         let z = BLS12_381_Fr::from_limbs([42, 0, 0]);
-        let mut ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
-        ys[0] = BLS12_381_Fr::from_limbs([100, 0, 0]);
 
         // Compute correct fracs, then corrupt one
         // Safety: computing correct values first
         let mut fracs = unsafe { __compute_fracs(z) };
 
         // Corrupt fracs[0] by adding 1
+        // Safety: using unconstrained BigNum ops to corrupt the value
         fracs[0] = unsafe { fracs[0].__add(BLS12_381_Fr::one()) };
 
         // This should fail because fracs[0] * (z - w^0) != ys[0]
@@ -781,9 +776,6 @@ mod tests {
     fn test_validate_fracs_rejects_swapped_fracs() {
         // Test that validate_fracs rejects fracs that are swapped between positions
         let z = BLS12_381_Fr::from_limbs([42, 0, 0]);
-        let mut ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB];
-        ys[0] = BLS12_381_Fr::from_limbs([100, 0, 0]);
-        ys[1] = BLS12_381_Fr::from_limbs([200, 0, 0]);
 
         // Compute correct fracs
         // Safety: computing correct values first
@@ -803,7 +795,6 @@ mod tests {
         // Test that when y[i] = 0, fracs[i] must also satisfy the constraint
         // (which means fracs[i] * (z - w^i) = 0)
         let z = BLS12_381_Fr::from_limbs([42, 0, 0]);
-        let ys = [BLS12_381_Fr::zero(); FIELDS_PER_BLOB]; // All zeros
 
         // Compute correct fracs (should all be zero)
         // Safety: computing correct values first

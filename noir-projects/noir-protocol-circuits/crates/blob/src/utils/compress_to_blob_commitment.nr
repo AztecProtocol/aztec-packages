@@ -61,7 +61,7 @@ mod tests {
     use types::constants::BLS12_POINT_COMPRESSED_BYTES;
 
     #[test]
-    unconstrained fn point_compression() {
+    fn point_compression() {
         let point = BLSPoint::offset_generator();
         let (flags, x) = get_flags(point);
         // is_compressed = true
@@ -76,17 +76,21 @@ mod tests {
         bytes[0] &= 31;
         let reconstructed_x = BLS12_381_Fq::from_be_bytes(bytes);
         assert_eq(reconstructed_x, x);
-        let (a, b) = (BLS12_381_PARAMS.a, BLS12_381_PARAMS.b);
-        // y^2 = x^3 + ax + b
-        let reconstructed_y_squared =
-            reconstructed_x.__pow(BLS12_381_Fq::from(3)).add(a.mul(reconstructed_x)).add(b);
-        let reconstructed_y = -(reconstructed_y_squared.__sqrt().unwrap());
+
+        // Safety: using unconstrained BigNum ops for verification
+        let reconstructed_y = unsafe {
+            // y^2 = x^3 + ax + b
+            let (a, b) = (BLS12_381_PARAMS.a, BLS12_381_PARAMS.b);
+            let reconstructed_y_squared =
+                reconstructed_x.__pow(BLS12_381_Fq::from(3)).add(a.mul(reconstructed_x)).add(b);
+            -(reconstructed_y_squared.__sqrt().unwrap())
+        };
 
         assert_eq(reconstructed_y, point.y);
     }
 
     #[test]
-    unconstrained fn infinity_point_compression() {
+    fn infinity_point_compression() {
         let point = BLSPoint::point_at_infinity();
         let (flags, x) = get_flags(point);
         // is_compressed = true
@@ -105,7 +109,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn test_point_compression_greater() {
+    fn test_point_compression_greater() {
         // Note that this p is the negation of p from the test test_point_compression_not_greater...
         let p = BLSPoint {
             x: BLS12_381_Fq::from_limbs([
@@ -135,7 +139,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn test_point_compression_not_greater() {
+    fn test_point_compression_not_greater() {
         // Note that this p is the negation of p from the test test_point_compression_greater...
         let p = BLSPoint {
             x: BLS12_381_Fq::from_limbs([

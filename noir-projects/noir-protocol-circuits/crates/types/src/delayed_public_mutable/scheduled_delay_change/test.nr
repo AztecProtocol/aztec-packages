@@ -2,7 +2,7 @@ use crate::delayed_public_mutable::scheduled_delay_change::ScheduledDelayChange;
 
 global TEST_INITIAL_DELAY: u64 = 13;
 
-unconstrained fn get_non_initial_delay_change(
+fn get_non_initial_delay_change(
     pre: u64,
     post: u64,
     timestamp_of_change: u64,
@@ -10,12 +10,12 @@ unconstrained fn get_non_initial_delay_change(
     ScheduledDelayChange::new(Option::some(pre), Option::some(post), timestamp_of_change)
 }
 
-unconstrained fn get_initial_delay_change() -> ScheduledDelayChange<TEST_INITIAL_DELAY> {
+fn get_initial_delay_change() -> ScheduledDelayChange<TEST_INITIAL_DELAY> {
     std::mem::zeroed()
 }
 
 #[test]
-unconstrained fn test_get_current() {
+fn test_get_current() {
     let pre = 1;
     let post = 2;
     let timestamp_of_change = 50;
@@ -29,7 +29,7 @@ unconstrained fn test_get_current() {
 }
 
 #[test]
-unconstrained fn test_get_current_initial() {
+fn test_get_current_initial() {
     let delay_change = get_initial_delay_change();
 
     assert_eq(delay_change.get_current(0), TEST_INITIAL_DELAY);
@@ -37,7 +37,7 @@ unconstrained fn test_get_current_initial() {
 }
 
 #[test]
-unconstrained fn test_get_scheduled() {
+fn test_get_scheduled() {
     let pre = 1;
     let post = 2;
     let timestamp_of_change = 50;
@@ -48,14 +48,14 @@ unconstrained fn test_get_scheduled() {
 }
 
 #[test]
-unconstrained fn test_get_scheduled_initial() {
+fn test_get_scheduled_initial() {
     let delay_change = get_initial_delay_change();
 
     assert_eq(delay_change.get_scheduled(), (TEST_INITIAL_DELAY, 0));
 }
 
 #[test]
-unconstrained fn test_schedule_change_to_shorter_delay_before_change() {
+fn test_schedule_change_to_shorter_delay_before_change() {
     let pre = 15;
     let post = 25;
     let timestamp_of_change = 500;
@@ -74,7 +74,7 @@ unconstrained fn test_schedule_change_to_shorter_delay_before_change() {
 }
 
 #[test]
-unconstrained fn test_schedule_change_to_shorter_delay_after_change() {
+fn test_schedule_change_to_shorter_delay_after_change() {
     let pre = 15;
     let post = 25;
     let timestamp_of_change = 500;
@@ -92,7 +92,7 @@ unconstrained fn test_schedule_change_to_shorter_delay_after_change() {
 }
 
 #[test]
-unconstrained fn test_schedule_change_to_shorter_delay_from_initial() {
+fn test_schedule_change_to_shorter_delay_from_initial() {
     let new = TEST_INITIAL_DELAY - 1;
     let current_timestamp = 50;
 
@@ -107,7 +107,7 @@ unconstrained fn test_schedule_change_to_shorter_delay_from_initial() {
 }
 
 #[test]
-unconstrained fn test_schedule_change_to_longer_delay_before_change() {
+fn test_schedule_change_to_longer_delay_before_change() {
     let pre = 15;
     let post = 25;
     let timestamp_of_change = 500;
@@ -127,7 +127,7 @@ unconstrained fn test_schedule_change_to_longer_delay_before_change() {
 }
 
 #[test]
-unconstrained fn test_schedule_change_to_longer_delay_after_change() {
+fn test_schedule_change_to_longer_delay_after_change() {
     let pre = 15;
     let post = 25;
     let timestamp_of_change = 500;
@@ -146,7 +146,7 @@ unconstrained fn test_schedule_change_to_longer_delay_after_change() {
 }
 
 #[test]
-unconstrained fn test_schedule_change_to_longer_delay_from_initial() {
+fn test_schedule_change_to_longer_delay_from_initial() {
     let new: u64 = TEST_INITIAL_DELAY + 1;
     let current_timestamp = 50;
 
@@ -161,7 +161,7 @@ unconstrained fn test_schedule_change_to_longer_delay_from_initial() {
     assert_eq(delay_change.get_current(current_timestamp), new);
 }
 
-unconstrained fn assert_effective_minimum_delay_invariants<let INITIAL_DELAY: u64>(
+fn assert_effective_minimum_delay_invariants<let INITIAL_DELAY: u64>(
     delay_change: &mut ScheduledDelayChange<INITIAL_DELAY>,
     anchor_block_timestamp: u64,
     effective_minimum_delay: u64,
@@ -199,7 +199,7 @@ unconstrained fn assert_effective_minimum_delay_invariants<let INITIAL_DELAY: u6
 }
 
 #[test]
-unconstrained fn test_get_effective_delay_at_before_change_in_far_future() {
+fn test_get_effective_delay_at_before_change_in_far_future() {
     let pre = 15;
     let post = 25;
     let timestamp_of_change = 500;
@@ -222,7 +222,7 @@ unconstrained fn test_get_effective_delay_at_before_change_in_far_future() {
 }
 
 #[test]
-unconstrained fn test_get_effective_delay_at_before_change_to_long_delay() {
+fn test_get_effective_delay_at_before_change_to_long_delay() {
     let pre = 15;
     let post = 25;
     let timestamp_of_change = 500;
@@ -246,7 +246,7 @@ unconstrained fn test_get_effective_delay_at_before_change_to_long_delay() {
 }
 
 #[test]
-unconstrained fn test_get_effective_delay_at_before_near_change_to_short_delay() {
+fn test_get_effective_delay_at_before_near_change_to_short_delay() {
     let pre = 15;
     let post = 3;
     let timestamp_of_change = 500;
@@ -272,7 +272,7 @@ unconstrained fn test_get_effective_delay_at_before_near_change_to_short_delay()
 }
 
 #[test]
-unconstrained fn test_get_effective_delay_at_after_change() {
+fn test_get_effective_delay_at_after_change() {
     let pre = 15;
     let post = 25;
     let timestamp_of_change = 500;
@@ -294,7 +294,7 @@ unconstrained fn test_get_effective_delay_at_after_change() {
 }
 
 #[test]
-unconstrained fn test_get_effective_delay_at_initial() {
+fn test_get_effective_delay_at_initial() {
     let mut delay_change = get_initial_delay_change();
 
     let anchor_block_timestamp = 200;

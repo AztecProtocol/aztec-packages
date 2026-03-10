@@ -405,12 +405,13 @@ fn l2_to_l1_message_hash_matches_typescript() {
 }
 
 #[test]
-unconstrained fn poseidon2_hash_with_separator_bounded_vec_matches_non_bounded_vec_version() {
+fn poseidon2_hash_with_separator_bounded_vec_matches_non_bounded_vec_version() {
     let inputs = BoundedVec::<Field, 4>::from_array([1, 2, 3]);
     let separator = 42;
 
     // Hash using bounded vec version
-    let bounded_result = poseidon2_hash_with_separator_bounded_vec(inputs, separator);
+    // Safety: Testing an unconstrained function.
+    let bounded_result = unsafe { poseidon2_hash_with_separator_bounded_vec(inputs, separator) };
 
     // Hash using regular version
     let regular_result = poseidon2_hash_with_separator([1, 2, 3], separator);

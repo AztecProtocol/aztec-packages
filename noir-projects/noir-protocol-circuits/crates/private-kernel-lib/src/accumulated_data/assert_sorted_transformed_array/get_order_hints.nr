@@ -51,20 +51,25 @@ mod tests {
     use super::{get_order_hints, OrderHints};
     use types::tests::{types::TestValue, utils::pad_end};
 
+    fn assert_eq_get_order_hints<let N: u32>(array: [TestValue; N], expected_hints: OrderHints<N>) {
+        // Safety: Testing an unconstrained function.
+        let hints = unsafe { get_order_hints(array) };
+        assert_eq(hints, expected_hints);
+    }
+
     #[test]
-    unconstrained fn full_non_empty_items() {
+    fn full_non_empty_items() {
         let array = [
             TestValue { value: 100, counter: 9 },
             TestValue { value: 200, counter: 3 },
             TestValue { value: 300, counter: 6 },
         ];
         let expected = OrderHints { sorted_counters: [3, 6, 9], sorted_indexes: [2, 0, 1] };
-        let hints = get_order_hints(array);
-        assert_eq(hints, expected);
+        assert_eq_get_order_hints(array, expected);
     }
 
     #[test]
-    unconstrained fn with_padded_empty_items() {
+    fn with_padded_empty_items() {
         let array = pad_end([
             TestValue { value: 100, counter: 9 },
             TestValue { value: 200, counter: 3 },
@@ -74,7 +79,6 @@ mod tests {
             sorted_counters: [3, 6, 9, 0, 0],
             sorted_indexes: [2, 0, 1, 3, 4], // `sorted_index` of the padded empty item equals `i`
         };
-        let hints = get_order_hints(array);
-        assert_eq(hints, expected);
+        assert_eq_get_order_hints(array, expected);
     }
 }

@@ -535,14 +535,6 @@ fn serialization_of_empty_avm_circuit_public_inputs() {
 }
 
 #[test]
-fn flat_columns_of_empty_avm_circuit_public_inputs() {
-    let item = AvmCircuitPublicInputs::empty();
-    let flat = item.serialize_to_columns();
-    // some assertion just to make sure it isn't optimized away
-    assert(flat.len() == AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
-}
-
-#[test]
 fn flat_columns_of_avm_circuit_public_inputs() {
     // Create a test instance with specific values
     let mut item = AvmCircuitPublicInputs::empty();
@@ -591,6 +583,8 @@ fn flat_columns_of_avm_circuit_public_inputs() {
 
     // Serialize to columns
     let flat = item.serialize_to_columns();
+
+    assert_eq(flat.len(), AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
 
     // Verify length
     // Define column offsets

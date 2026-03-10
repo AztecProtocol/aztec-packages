@@ -41,15 +41,17 @@ pub struct CheckpointMergeRollupPrivateInputs {
 pub fn execute(inputs: CheckpointMergeRollupPrivateInputs) -> CheckpointRollupPublicInputs {
     // Verify the previous rollup proofs and vks.
     if !::std::runtime::is_unconstrained() {
-        let vk_tree_root = inputs.previous_rollups[0].public_inputs.constants.vk_tree_root;
-
         for i in 0..2 {
             inputs.previous_rollups[i].verify_proof();
-            inputs.previous_rollups[i].vk_data.validate_allowed_in_vk_tree(
-                vk_tree_root,
-                ALLOWED_VK_INDICES,
-            );
         }
+    }
+
+    let vk_tree_root = inputs.previous_rollups[0].public_inputs.constants.vk_tree_root;
+    for i in 0..2 {
+        inputs.previous_rollups[i].vk_data.validate_allowed_in_vk_tree(
+            vk_tree_root,
+            ALLOWED_VK_INDICES,
+        );
     }
 
     let left = inputs.previous_rollups[0].public_inputs;

@@ -2,7 +2,7 @@ use super::TestBuilder;
 use types::{constants::MAX_PROCESSABLE_L2_GAS, tests::fixture_builder::FixtureBuilder};
 
 #[test(should_fail_with = "Membership check failed: anchor block header hash not found in archive tree")]
-unconstrained fn anchor_block_header_not_in_archive() {
+fn anchor_block_header_not_in_archive() {
     let mut builder = TestBuilder::new();
 
     builder.private_tail.constants.anchor_block_header.state.partial.note_hash_tree.root = 999;
@@ -11,7 +11,7 @@ unconstrained fn anchor_block_header_not_in_archive() {
 }
 
 #[test(should_fail_with = "Mismatched chain_id between kernel and rollup")]
-unconstrained fn mismatch_chain_id() {
+fn mismatch_chain_id() {
     let mut builder = TestBuilder::new();
 
     builder.private_tail.constants.tx_context.chain_id += 1;
@@ -20,7 +20,7 @@ unconstrained fn mismatch_chain_id() {
 }
 
 #[test(should_fail_with = "Mismatched version between kernel and rollup")]
-unconstrained fn mismatch_version() {
+fn mismatch_version() {
     let mut builder = TestBuilder::new();
 
     builder.private_tail.constants.tx_context.version += 1;
@@ -29,7 +29,7 @@ unconstrained fn mismatch_version() {
 }
 
 #[test(should_fail_with = "Mismatched protocol_contracts_hash between kernel and rollup")]
-unconstrained fn mismatch_protocol_contracts_hash() {
+fn mismatch_protocol_contracts_hash() {
     let mut builder = TestBuilder::new();
 
     builder.private_tail.constants.protocol_contracts_hash += 1;
@@ -38,7 +38,7 @@ unconstrained fn mismatch_protocol_contracts_hash() {
 }
 
 #[test(should_fail_with = "da gas is higher than the maximum specified by the tx")]
-unconstrained fn not_enough_fee_per_da_gas() {
+fn not_enough_fee_per_da_gas() {
     let mut builder = TestBuilder::new();
 
     builder.private_tail.constants.tx_context.gas_settings.max_fees_per_gas.fee_per_da_gas = 3;
@@ -48,7 +48,7 @@ unconstrained fn not_enough_fee_per_da_gas() {
 }
 
 #[test(should_fail_with = "l2 gas is higher than the maximum specified by the tx")]
-unconstrained fn not_enough_fee_per_l2_gas() {
+fn not_enough_fee_per_l2_gas() {
     let mut builder = TestBuilder::new();
 
     builder.private_tail.constants.tx_context.gas_settings.max_fees_per_gas.fee_per_l2_gas = 3;
@@ -58,7 +58,7 @@ unconstrained fn not_enough_fee_per_l2_gas() {
 }
 
 #[test(should_fail_with = "l2 gas limit exceeds max processable l2 gas")]
-unconstrained fn gas_settings_l2_gas_limit_exceeds_max_processable_l2_gas() {
+fn gas_settings_l2_gas_limit_exceeds_max_processable_l2_gas() {
     let mut builder = TestBuilder::new();
 
     builder.private_tail.constants.tx_context.gas_settings.gas_limits.l2_gas =
@@ -68,7 +68,7 @@ unconstrained fn gas_settings_l2_gas_limit_exceeds_max_processable_l2_gas() {
 }
 
 #[test(should_fail_with = "Mismatched contract class log hash")]
-unconstrained fn mismatch_contract_class_log_fields() {
+fn mismatch_contract_class_log_fields() {
     let mut builder = TestBuilder::new();
 
     // Add a contract class log.
@@ -83,7 +83,7 @@ unconstrained fn mismatch_contract_class_log_fields() {
 }
 
 #[test(should_fail_with = "Mismatched contract class log hash")]
-unconstrained fn extra_non_zero_contract_class_log_fields() {
+fn extra_non_zero_contract_class_log_fields() {
     let mut builder = TestBuilder::new();
 
     // Add a contract class log.
@@ -98,7 +98,7 @@ unconstrained fn extra_non_zero_contract_class_log_fields() {
 }
 
 #[test(should_fail_with = "Incorrect contract class log length")]
-unconstrained fn incorrect_contract_class_log_length() {
+fn incorrect_contract_class_log_length() {
     let mut builder = TestBuilder::new();
 
     // Add a contract class log.
@@ -113,7 +113,7 @@ unconstrained fn incorrect_contract_class_log_length() {
 }
 
 #[test(should_fail_with = "tx expiration_timestamp is smaller than block timestamp")]
-unconstrained fn expiration_timestamp_lower_than_block_timestamp() {
+fn expiration_timestamp_lower_than_block_timestamp() {
     let mut builder = TestBuilder::new();
 
     builder.private_tail.expiration_timestamp = builder.constants.global_variables.timestamp - 1;
@@ -122,7 +122,7 @@ unconstrained fn expiration_timestamp_lower_than_block_timestamp() {
 }
 
 #[test]
-unconstrained fn expiration_timestamp_equal_to_block_timestamp() {
+fn expiration_timestamp_equal_to_block_timestamp() {
     let mut builder = TestBuilder::new();
 
     builder.private_tail.expiration_timestamp = builder.constants.global_variables.timestamp;
@@ -132,7 +132,7 @@ unconstrained fn expiration_timestamp_equal_to_block_timestamp() {
 }
 
 #[test]
-unconstrained fn expiration_timestamp_higher_than_block_timestamp() {
+fn expiration_timestamp_higher_than_block_timestamp() {
     let mut builder = TestBuilder::new();
 
     builder.private_tail.expiration_timestamp = builder.constants.global_variables.timestamp + 1;

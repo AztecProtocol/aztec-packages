@@ -4,7 +4,7 @@ use types::{
 };
 
 #[test]
-unconstrained fn empty_l2_to_l1_msgs() {
+fn empty_l2_to_l1_msgs() {
     let builder = TestBuilder::new();
 
     let pi = builder.execute();
@@ -14,7 +14,7 @@ unconstrained fn empty_l2_to_l1_msgs() {
 }
 
 #[test]
-unconstrained fn max_l2_to_l1_msgs() {
+fn max_l2_to_l1_msgs() {
     let mut builder = TestBuilder::new();
 
     let mut fixture_builder = FixtureBuilder::new();
@@ -30,7 +30,7 @@ unconstrained fn max_l2_to_l1_msgs() {
 }
 
 #[test]
-unconstrained fn unbalanced_l2_to_l1_msg_tree() {
+fn unbalanced_l2_to_l1_msg_tree() {
     let mut builder = TestBuilder::new();
 
     let num_l2_to_l1_msgs = 3; // Will create a subtree of 2 and another subtree of 1.

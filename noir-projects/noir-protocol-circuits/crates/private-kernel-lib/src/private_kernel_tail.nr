@@ -59,9 +59,8 @@ pub fn execute(
     // Validate inputs.
     if !::std::runtime::is_unconstrained() {
         inputs.previous_kernel.verify(true);
-        inputs.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
     }
-
+    inputs.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
     validate_previous_kernel_for_tail(inputs.previous_kernel.public_inputs, false);
 
     // Generate output.

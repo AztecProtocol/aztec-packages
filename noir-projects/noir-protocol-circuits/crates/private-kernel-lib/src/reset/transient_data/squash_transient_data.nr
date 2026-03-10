@@ -127,7 +127,7 @@ mod tests {
     };
 
     #[test]
-    unconstrained fn squash_transient_data_squash_some() {
+    fn squash_transient_data_squash_some() {
         let mut builder = TransientDataFixtureBuilder::new();
 
         builder.add_note_hashes([
@@ -156,12 +156,15 @@ mod tests {
         builder.add_squashing_hint(0, 1); // Squash note_hashes[0] with nullifier[1]
         builder.add_squashing_hint(3, 3); // Squash note_hashes[3] with nullifier[3]
 
-        let (kept_note_hashes, kept_nullifiers, kept_logs) = squash_transient_data(
-            builder.note_hashes,
-            builder.nullifiers,
-            builder.logs,
-            builder.transient_data_squashing_hints,
-        );
+        // Safety: Testing an unconstrained function.
+        let (kept_note_hashes, kept_nullifiers, kept_logs) = unsafe {
+            squash_transient_data(
+                builder.note_hashes,
+                builder.nullifiers,
+                builder.logs,
+                builder.transient_data_squashing_hints,
+            )
+        };
 
         // Note hashes 0, 3, nullifiers 1, 3, and logs 0, 1, 4 are squashed.
         let note_hashes = builder.note_hashes.array;

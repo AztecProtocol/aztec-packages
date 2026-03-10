@@ -19,6 +19,16 @@ impl TestBuilder {
         self,
         new_note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
     ) -> AppendOnlyTreeSnapshot {
+        // Safety: test-only tree building doesn't need constraining. Running in unconstrained mode to speed up testing.
+        unsafe {
+            self._build_full_note_hash_tree(new_note_hashes)
+        }
+    }
+
+    unconstrained fn _build_full_note_hash_tree(
+        self,
+        new_note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
+    ) -> AppendOnlyTreeSnapshot {
         let note_hashes = self.pre_existing_note_hashes.concat(new_note_hashes);
 
         let existing_leaf_start_index =
@@ -36,6 +46,17 @@ impl TestBuilder {
     }
 
     pub fn build_full_nullifier_tree(
+        self,
+        updated_existing_nullifiers: [NullifierLeafPreimage; MAX_NULLIFIERS_PER_TX],
+        new_nullifiers: [NullifierLeafPreimage; MAX_NULLIFIERS_PER_TX],
+    ) -> AppendOnlyTreeSnapshot {
+        // Safety: test-only tree building doesn't need constraining. Running in unconstrained mode to speed up testing.
+        unsafe {
+            self._build_full_nullifier_tree(updated_existing_nullifiers, new_nullifiers)
+        }
+    }
+
+    unconstrained fn _build_full_nullifier_tree(
         self,
         updated_existing_nullifiers: [NullifierLeafPreimage; MAX_NULLIFIERS_PER_TX],
         new_nullifiers: [NullifierLeafPreimage; MAX_NULLIFIERS_PER_TX],
@@ -58,7 +79,7 @@ impl TestBuilder {
 }
 
 #[test]
-unconstrained fn tree_roots_not_change_if_no_side_effects_and_transaction_fee() {
+fn tree_roots_not_change_if_no_side_effects_and_transaction_fee() {
     let mut builder = TestBuilder::new();
 
     // Set gas fees to empty so that the transaction fee will be 0.
@@ -99,7 +120,7 @@ unconstrained fn tree_roots_not_change_if_no_side_effects_and_transaction_fee() 
 // --- Note hash tree ---
 
 #[test]
-unconstrained fn full_note_hashes() {
+fn full_note_hashes() {
     let mut builder = TestBuilder::new();
 
     // Fill new note hashes with values.
@@ -121,7 +142,7 @@ unconstrained fn full_note_hashes() {
 }
 
 #[test]
-unconstrained fn identical_note_hashes() {
+fn identical_note_hashes() {
     let mut builder = TestBuilder::new();
 
     let existing_note_hashes = builder.pre_existing_note_hashes;
@@ -137,7 +158,7 @@ unconstrained fn identical_note_hashes() {
 }
 
 #[test]
-unconstrained fn insert_at_large_index_to_fill_note_hash_tree() {
+fn insert_at_large_index_to_fill_note_hash_tree() {
     let mut builder = TestBuilder::new();
 
     let max_num_note_hashes = (1 << NOTE_HASH_TREE_HEIGHT as u64) as Field;
@@ -151,7 +172,7 @@ unconstrained fn insert_at_large_index_to_fill_note_hash_tree() {
 }
 
 #[test(should_fail_with = "Field failed to decompose into specified 36 limbs")]
-unconstrained fn insert_at_large_index_to_overfill_note_hash_tree() {
+fn insert_at_large_index_to_overfill_note_hash_tree() {
     let mut builder = TestBuilder::new();
 
     let max_num_note_hashes = (1 << NOTE_HASH_TREE_HEIGHT as u64) as Field;
@@ -164,7 +185,7 @@ unconstrained fn insert_at_large_index_to_overfill_note_hash_tree() {
 // --- Nullifier tree ---
 
 #[test]
-unconstrained fn full_nullifiers_all_larger_than_existing() {
+fn full_nullifiers_all_larger_than_existing() {
     let mut builder = TestBuilder::new();
 
     let largest_existing_nullifier_index = 1;
@@ -207,7 +228,7 @@ unconstrained fn full_nullifiers_all_larger_than_existing() {
 }
 
 #[test]
-unconstrained fn non_full_unordered_nullifiers() {
+fn non_full_unordered_nullifiers() {
     let mut builder = TestBuilder::new();
 
     // Pre-existing nullifiers are: 22, 44, 11, 33
@@ -272,7 +293,7 @@ unconstrained fn non_full_unordered_nullifiers() {
 }
 
 #[test(should_fail_with = "Empty low leaf")]
-unconstrained fn new_nullifier_same_as_existing_use_empty_leaf_as_low_leaf() {
+fn new_nullifier_same_as_existing_use_empty_leaf_as_low_leaf() {
     let mut builder = TestBuilder::new();
 
     // Set the first new nullifier to be the same as one of the pre-existing nullifiers.
@@ -291,7 +312,7 @@ unconstrained fn new_nullifier_same_as_existing_use_empty_leaf_as_low_leaf() {
 }
 
 #[test(should_fail_with = "Invalid low leaf: Value is not less than the next leaf")]
-unconstrained fn new_nullifier_same_as_existing_use_low_leaf_with_smaller_value() {
+fn new_nullifier_same_as_existing_use_low_leaf_with_smaller_value() {
     let mut builder = TestBuilder::new();
 
     // Set the first new nullifier to be the same as one of the pre-existing nullifiers.
@@ -314,7 +335,7 @@ unconstrained fn new_nullifier_same_as_existing_use_low_leaf_with_smaller_value(
 }
 
 #[test(should_fail_with = "Invalid low leaf: Value is not greater than the low leaf")]
-unconstrained fn new_nullifier_same_as_existing_use_low_leaf_with_valid_next_leaf() {
+fn new_nullifier_same_as_existing_use_low_leaf_with_valid_next_leaf() {
     let mut builder = TestBuilder::new();
 
     // Set the first new nullifier to be the same as one of the pre-existing nullifiers.
@@ -337,7 +358,7 @@ unconstrained fn new_nullifier_same_as_existing_use_low_leaf_with_valid_next_lea
 }
 
 #[test(should_fail_with = "Membership check failed: low leaf does not exist in tree")]
-unconstrained fn new_nullifier_same_as_existing_fake_low_leaf() {
+fn new_nullifier_same_as_existing_fake_low_leaf() {
     let mut builder = TestBuilder::new();
 
     // Set the first new nullifier to be the same as one of the pre-existing nullifiers.
@@ -357,7 +378,7 @@ unconstrained fn new_nullifier_same_as_existing_fake_low_leaf() {
 }
 
 #[test(should_fail_with = "Membership check failed: low leaf does not exist in tree")]
-unconstrained fn identical_new_nullifiers() {
+fn identical_new_nullifiers() {
     let mut builder = TestBuilder::new();
 
     // Add 2 nullifiers that are the same.
@@ -376,7 +397,7 @@ unconstrained fn identical_new_nullifiers() {
 }
 
 #[test]
-unconstrained fn insert_at_large_index_to_fill_nullifier_tree() {
+fn insert_at_large_index_to_fill_nullifier_tree() {
     let mut builder = TestBuilder::new();
 
     let max_num_nullifiers = (1 << NULLIFIER_TREE_HEIGHT as u64) as Field;
@@ -390,7 +411,7 @@ unconstrained fn insert_at_large_index_to_fill_nullifier_tree() {
 }
 
 #[test(should_fail_with = "Field failed to decompose into specified 36 limbs")]
-unconstrained fn insert_at_large_index_to_overfill_nullifier_tree() {
+fn insert_at_large_index_to_overfill_nullifier_tree() {
     let mut builder = TestBuilder::new();
 
     let max_num_nullifiers = (1 << NULLIFIER_TREE_HEIGHT as u64) as Field;
@@ -403,7 +424,7 @@ unconstrained fn insert_at_large_index_to_overfill_nullifier_tree() {
 // --- Public data tree ---
 
 #[test]
-unconstrained fn fee_payer_balance_leaf_updated() {
+fn fee_payer_balance_leaf_updated() {
     let mut builder = TestBuilder::new();
 
     let tx_fee = builder.get_transaction_fee();
@@ -437,7 +458,7 @@ unconstrained fn fee_payer_balance_leaf_updated() {
 }
 
 #[test]
-unconstrained fn fee_payer_balance_leaf_update_at_large_index() {
+fn fee_payer_balance_leaf_update_at_large_index() {
     let mut builder = TestBuilder::new();
 
     let tx_fee = builder.get_transaction_fee();
@@ -477,7 +498,7 @@ unconstrained fn fee_payer_balance_leaf_update_at_large_index() {
 }
 
 #[test(should_fail_with = "attempt to bit-shift with overflow")]
-unconstrained fn fee_payer_balance_leaf_index_too_large() {
+fn fee_payer_balance_leaf_index_too_large() {
     let mut builder = TestBuilder::new();
 
     // Tweak the index of the leaf to be beyond the tree size.

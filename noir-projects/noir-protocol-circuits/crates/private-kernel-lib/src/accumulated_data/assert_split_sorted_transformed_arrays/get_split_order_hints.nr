@@ -98,14 +98,15 @@ mod tests {
             TestBuilder { original_array: pad_end(values), split_counter }
         }
 
-        pub unconstrained fn expect_hints_equal(self, expected: SplitOrderHints<N>) {
-            let hints = get_split_order_hints(self.original_array, self.split_counter);
+        pub fn expect_hints_equal(self, expected: SplitOrderHints<N>) {
+            // Safety: Testing an unconstrained function.
+            let hints = unsafe { get_split_order_hints(self.original_array, self.split_counter) };
             assert_eq(hints, expected);
         }
     }
 
     #[test]
-    unconstrained fn full_non_empty_items_zero_split_counter() {
+    fn full_non_empty_items_zero_split_counter() {
         let builder = TestBuilder::new_full();
         builder.expect_hints_equal(
             SplitOrderHints {
@@ -117,7 +118,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn full_non_empty_items_non_zero_split_counter() {
+    fn full_non_empty_items_non_zero_split_counter() {
         let mut builder = TestBuilder::new_full();
 
         builder.split_counter = 25;
@@ -132,7 +133,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn empty_padded_zero_split_counter() {
+    fn empty_padded_zero_split_counter() {
         let builder = TestBuilder::new_padded();
         builder.expect_hints_equal(
             SplitOrderHints {
@@ -144,7 +145,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn empty_padded_non_zero_split_counter() {
+    fn empty_padded_non_zero_split_counter() {
         let mut builder = TestBuilder::new_padded();
 
         builder.split_counter = 25;
@@ -159,7 +160,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn empty_padded_non_zero_split_counter_equals_value() {
+    fn empty_padded_non_zero_split_counter_equals_value() {
         let mut builder = TestBuilder::new_padded();
 
         // The split counter equals one of the values.

@@ -38,6 +38,14 @@ struct TestBuilder {
 
 impl TestBuilder {
     pub fn new() -> Self {
+        // Safety: building fixtures is test-only setup that doesn't need constraining. Running in unconstrained mode
+        // to speed up testing.
+        unsafe {
+            Self::_new()
+        }
+    }
+
+    unconstrained fn _new() -> Self {
         let prover_id = 42;
         // --- Build things at tx level ---
         let mut builder = FixtureBuilder::new();

@@ -170,8 +170,8 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
 
         if !::std::runtime::is_unconstrained() {
             self.previous_kernel.verify(false);
-            self.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
+        self.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
         // Generate output.
         // Safety: The output is validated below by ResetOutputValidator.
