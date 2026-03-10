@@ -149,7 +149,7 @@ bool is_ecdsa_result_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
     auto predicate_field = witness_or_constant_to_field<FF>(input.predicate, builder);
 
     // Step 1: Verify boolean gate on result (from bool_ct result(result_field) at ecdsa_constraints.cpp:103)
-    if (!is_boolean_gate_exists<FF>(analyzer, builder, result_idx)) {
+    if (!does_boolean_gate_exist<FF>(analyzer, builder, result_idx)) {
         log_error("is_ecdsa_result_constrained: boolean gate not found for result=", result_idx);
         return false;
     }

@@ -937,35 +937,26 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ec_add_constraint(const Co
 
     bool condition = true;
 
-    // Both constant: addition computed natively, no gates to check
-    if (is_point_constant(input1_point) && is_point_constant(input2_point)) {
-        return true;
-    }
-
-    // Compute real points once (via get_real_point / to_grumpkin_point), then reuse for both
-    // the on-curve check and the EC add result validation.
+    // Compute real points for all inputs (get_real_point handles constant coordinates via constant folding).
+    // On-curve check is only needed for non-constant points (constant points are validated at compile time).
     std::optional<RealPoint<CircuitBuilder>> real_input1, real_input2;
-    if (!is_point_constant(input1_point)) {
-        real_input1 = get_real_point<FF>(analyzer, builder, input1_point, constraint->predicate);
-        if (!real_input1.has_value()) {
-            log_error("Real point 1 is not valid");
-            condition = false;
-        } else {
-            condition &= is_on_curve_check_with_real_point<FF>(analyzer, builder, *real_input1);
-        }
+    real_input1 = get_real_point<FF>(analyzer, builder, input1_point, constraint->predicate);
+    if (!real_input1.has_value()) {
+        log_error("Real point 1 is not valid");
+        condition = false;
+    } else if (!is_point_constant(input1_point)) {
+        condition &= is_on_curve_check_with_real_point<FF>(analyzer, builder, *real_input1);
     }
-    if (!is_point_constant(input2_point)) {
-        real_input2 = get_real_point<FF>(analyzer, builder, input2_point, constraint->predicate);
-        if (!real_input2.has_value()) {
-            log_error("Real point 2 is not valid");
-            condition = false;
-        } else {
-            condition &= is_on_curve_check_with_real_point<FF>(analyzer, builder, *real_input2);
-        }
+    real_input2 = get_real_point<FF>(analyzer, builder, input2_point, constraint->predicate);
+    if (!real_input2.has_value()) {
+        log_error("Real point 2 is not valid");
+        condition = false;
+    } else if (!is_point_constant(input2_point)) {
+        condition &= is_on_curve_check_with_real_point<FF>(analyzer, builder, *real_input2);
     }
 
     if (!real_input1.has_value() || !real_input2.has_value()) {
-        return condition;
+        return false;
     }
 
     condition &= is_ec_add_result_constrained<FF>(analyzer,
@@ -985,6 +976,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ec_add_constraint(const Co
 // 2. All scalars are field-validated (via cycle_scalar + validate_split_in_field_unsafe)
 // 3. The result is connected to batch_mul output via conditional_assign + assert_equal
 //
+// TODO(defkit): implement proper batch_mul tracing
 // We intentionally skip tracing batch_mul internals. batch_mul is a complex multi-point
 // multiplication algorithm (Straus/Pippenger) whose internal gate structure is too complex
 // to trace statically. Instead, we verify that:
