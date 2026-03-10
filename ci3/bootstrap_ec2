@@ -11,7 +11,7 @@ export CI=1
 # Set to 0 in ci3-external.yml for external contributors who don't have SSH access.
 export CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1}
 
-export CI_LOG_ID=${CI_LOG_ID:-$(date +%s%3N)}
+export CI_LOG_ID=$(date +%s%3N)
 export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-60}
 
 if [ "$arch" == "arm64" ]; then

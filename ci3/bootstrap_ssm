@@ -12,7 +12,7 @@ arch=${ARCH:-amd64}
 NO_TERMINATE=${NO_TERMINATE:-0}
 
 # Pre-generate a log ID and print the dashboard link.
-export CI_LOG_ID=${CI_LOG_ID:-$(date +%s%3N)}
+export CI_LOG_ID=$(date +%s%3N)
 dashboard_url="http://ci.aztec-labs.com/section/${CI_DASHBOARD:?CI_DASHBOARD must be set}"
 log_url="http://ci.aztec-labs.com/$CI_LOG_ID"
 echo "CI dashboard: $dashboard_url"
