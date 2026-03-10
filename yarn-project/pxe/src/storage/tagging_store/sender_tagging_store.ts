@@ -314,46 +314,42 @@ export class SenderTaggingStore implements StagedStore {
     });
   }
 
-  /** Prefetches all pending and finalized index data for every secret (from both DB and staged writes). */
-  #getSecretsWithPendingData(
+  /** Reads all pending and finalized index data for every secret (from both DB and staged writes). */
+  async #getSecretsWithPendingData(
     jobId: string,
   ): Promise<{ secret: string; pendingData: PendingIndexesEntry[]; lastFinalized: number | undefined }[]> {
-    return this.#store.transactionAsync(async () => {
-      // Prefetch all data, start reads during iteration to keep IndexedDB transaction alive
-      const secretDataPromises: Map<
-        string,
-        { pending: Promise<PendingIndexesEntry[]>; finalized: Promise<number | undefined> }
-      > = new Map();
+    const secretDataPromises: Map<
+      string,
+      { pending: Promise<PendingIndexesEntry[]>; finalized: Promise<number | undefined> }
+    > = new Map();
 
-      for await (const secret of this.#pendingIndexes.keysAsync()) {
+    for await (const secret of this.#pendingIndexes.keysAsync()) {
+      secretDataPromises.set(secret, {
+        pending: this.#readPendingIndexes(jobId, secret),
+        finalized: this.#readLastFinalizedIndex(jobId, secret),
+      });
+    }
+
+    // Add staged-only secrets (sync, no DB)
+    for (const secret of this.#getPendingIndexesForJob(jobId).keys()) {
+      if (!secretDataPromises.has(secret)) {
         secretDataPromises.set(secret, {
-          pending: this.#readPendingIndexes(jobId, secret),
-          finalized: this.#readLastFinalizedIndex(jobId, secret),
+          pending: Promise.resolve(this.#getPendingIndexesForJob(jobId).get(secret) ?? []),
+          finalized: Promise.resolve(this.#getLastFinalizedIndexesForJob(jobId).get(secret)),
         });
       }
+    }
 
-      // Add staged-only secrets (sync, no DB)
-      for (const secret of this.#getPendingIndexesForJob(jobId).keys()) {
-        if (!secretDataPromises.has(secret)) {
-          secretDataPromises.set(secret, {
-            pending: Promise.resolve(this.#getPendingIndexesForJob(jobId).get(secret) ?? []),
-            finalized: Promise.resolve(this.#getLastFinalizedIndexesForJob(jobId).get(secret)),
-          });
-        }
-      }
+    const secrets = [...secretDataPromises.keys()];
+    const dataResults = await Promise.all(
+      secrets.map(async secret => ({
+        secret,
+        pendingData: await secretDataPromises.get(secret)!.pending,
+        lastFinalized: await secretDataPromises.get(secret)!.finalized,
+      })),
+    );
 
-      // Await all reads together
-      const secrets = [...secretDataPromises.keys()];
-      const dataResults = await Promise.all(
-        secrets.map(async secret => ({
-          secret,
-          pendingData: await secretDataPromises.get(secret)!.pending,
-          lastFinalized: await secretDataPromises.get(secret)!.finalized,
-        })),
-      );
-
-      return dataResults.filter(r => r.pendingData.length > 0);
-    });
+    return dataResults.filter(r => r.pendingData.length > 0);
   }
 
   /**
@@ -361,6 +357,9 @@ export class SenderTaggingStore implements StagedStore {
    * indexes.
    */
   async finalizePendingIndexes(txHashes: TxHash[], jobId: string): Promise<void> {
+    // We don't use a database transaction here since we only read from the database and write to staged state. Hence
+    // atomicity is not a concern.
+
     if (txHashes.length === 0) {
       return;
     }
@@ -425,6 +424,9 @@ export class SenderTaggingStore implements StagedStore {
    * @param jobId - job context for staged writes to this store. See `JobCoordinator` for more details.
    */
   async finalizePendingIndexesOfAPartiallyRevertedTx(txEffect: TxEffect, jobId: string): Promise<void> {
+    // We don't use a database transaction here since we only read from the database and write to staged state. Hence
+    // atomicity is not a concern.
+
     const txHashStr = txEffect.txHash.toString();
 
     // Build a set of all siloed tag values that made it onchain (first field of each private log).
