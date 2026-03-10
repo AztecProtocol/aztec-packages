@@ -75,8 +75,6 @@ fi
 # how many characters we've already printed and only emit the new portion.
 SSM_POLL_TIMEOUT=${SSM_POLL_TIMEOUT:-7200}
 poll_start=$SECONDS
-prev_stdout_len=0
-prev_stderr_len=0
 
 while true; do
   if (( SECONDS - poll_start >= SSM_POLL_TIMEOUT )); then
@@ -90,17 +88,9 @@ while true; do
     --instance-id "$iid" \
     --output json 2>/dev/null || echo '{}')
 
+  # SSM output is a truncated 24KB snapshot; real logs go to cache_log/S3.
+  # We only need the status to know when the command finishes.
   status=$(printf '%s' "$inv" | jq -r '.Status // "Unknown"')
-  stdout=$(printf '%s' "$inv" | jq -r '.StandardOutputContent // ""')
-  stderr=$(printf '%s' "$inv" | jq -r '.StandardErrorContent // ""')
-
-  # Print only the new portion of stdout/stderr since the last poll.
-  new_stdout=${stdout:$prev_stdout_len}
-  new_stderr=${stderr:$prev_stderr_len}
-  [ -n "$new_stdout" ] && printf "%s" "$new_stdout"
-  [ -n "$new_stderr" ] && printf "%s" "$new_stderr" >&2
-  prev_stdout_len=${#stdout}
-  prev_stderr_len=${#stderr}
 
   case "$status" in
     Success|Cancelled|TimedOut|Failed)

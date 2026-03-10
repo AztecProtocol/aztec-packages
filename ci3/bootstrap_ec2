@@ -169,7 +169,7 @@ container_script=$(
   git config --global user.name "AztecBot"
   cd aztec-packages
   git config --global advice.detachedHead false
-  git init . &>/dev/null
+  git init .
   if [ -n "\${GITHUB_TOKEN:-}" ]; then
     git remote add origin "https://x-access-token:\$GITHUB_TOKEN@github.com/\$GITHUB_REPOSITORY.git"
   else
