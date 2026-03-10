@@ -100,7 +100,7 @@ export class TxFileStore {
     // Enforce max queue size by dropping oldest entries
     const overflow = this.uploadQueue.length - this.config.txFileStoreMaxQueueSize;
     if (overflow > 0) {
-      this.log.warn(`Upload queue overflow, dropping ${overflow} oldest txs`);
+      this.log.warn('Upload queue overflow, dropping %d oldest txs', overflow);
       this.uploadQueue.splice(0, overflow);
     }
 
@@ -153,10 +153,10 @@ export class TxFileStore {
         true, // failSilently - don't log errors during retries
       );
       const durationMs = Math.trunc(timer.ms());
-      this.log.debug(`Uploaded tx to file store`, { txHash, path, durationMs });
+      this.log.debug('Uploaded tx to file store', { txHash, path, durationMs });
       this.instrumentation.recordUploadSuccess(durationMs);
     } catch (err) {
-      this.log.warn(`Failed to upload tx to file store after retries`, { txHash, error: err });
+      this.log.warn('Failed to upload tx to file store after retries', { txHash, error: err });
       this.instrumentation.recordUploadFailed();
     }
   }

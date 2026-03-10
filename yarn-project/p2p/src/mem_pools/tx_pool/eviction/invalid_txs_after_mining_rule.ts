@@ -62,7 +62,7 @@ export class InvalidTxsAfterMiningRule implements EvictionRule {
         // Evict pending txs that share nullifiers with mined txs
         const txNullifiers = tx.data.getNonEmptyNullifiers();
         if (txNullifiers.some(nullifier => minedNullifiers.has(nullifier.toString()))) {
-          this.log.verbose(`Evicting tx ${txHash} from pool due to a duplicate nullifier with a mined tx`);
+          this.log.verbose('Evicting tx %s from pool due to a duplicate nullifier with a mined tx', txHash);
           txsToEvict.push(txHash);
           continue;
         }
@@ -71,7 +71,10 @@ export class InvalidTxsAfterMiningRule implements EvictionRule {
         const expirationTimestamp = tx.data.expirationTimestamp;
         if (expirationTimestamp <= timestamp) {
           this.log.verbose(
-            `Evicting tx ${txHash} from pool due to the tx being expired (expirationTimestamp: ${expirationTimestamp}, mined block timestamp: ${timestamp})`,
+            'Evicting tx %s from pool due to the tx being expired (expirationTimestamp: %s, mined block timestamp: %s)',
+            txHash,
+            expirationTimestamp,
+            timestamp,
           );
           txsToEvict.push(txHash);
           continue;
@@ -82,7 +85,7 @@ export class InvalidTxsAfterMiningRule implements EvictionRule {
         await txPool.deleteTxs(txsToEvict);
       }
 
-      this.log.debug(`Evicted ${txsToEvict.length} invalid txs after block mined`);
+      this.log.debug('Evicted %d invalid txs after block mined', txsToEvict.length);
 
       return {
         reason: 'block_mined_invalid_txs',

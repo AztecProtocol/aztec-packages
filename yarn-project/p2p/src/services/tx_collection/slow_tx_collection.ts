@@ -79,13 +79,18 @@ export class SlowTxCollection {
     const slot = block.header.getSlot();
     const deadline = this.getDeadlineForSlot(slot);
     if (+deadline < this.dateProvider.now()) {
-      this.log.debug(`Skipping collection of txs for block ${block.number} at slot ${slot} as it is already expired`, {
-        blockNumber: block.number,
-        slot: slot.toString(),
-        txHashes: txHashes.map(txHash => txHash.toString()),
-        deadline: +deadline,
-        now: this.dateProvider.now(),
-      });
+      this.log.debug(
+        'Skipping collection of txs for block %d at slot %s as it is already expired',
+        block.number,
+        slot,
+        {
+          blockNumber: block.number,
+          slot: slot.toString(),
+          txHashes: txHashes.map(txHash => txHash.toString()),
+          deadline: +deadline,
+          now: this.dateProvider.now(),
+        },
+      );
     }
 
     for (const txHash of txHashes) {
@@ -103,7 +108,7 @@ export class SlowTxCollection {
     // If we have any fast requests, we skip the slow collection for this node if configured to do so
     const requests = this.fastCollection.getFastCollectionRequests();
     if (this.config.txCollectionDisableSlowDuringFastRequests && requests.size > 0) {
-      this.log.trace(`Skipping node slow collection due to active fast requests`);
+      this.log.trace('Skipping node slow collection due to active fast requests');
       return;
     }
 
@@ -144,7 +149,7 @@ export class SlowTxCollection {
     // If we have any fast requests, we skip the slow collection if configured to do so
     const requests = this.fastCollection.getFastCollectionRequests();
     if (this.config.txCollectionDisableSlowDuringFastRequests && requests.size > 0) {
-      this.log.trace(`Skipping reqresp slow collection due to active fast requests`);
+      this.log.trace('Skipping reqresp slow collection due to active fast requests');
       return;
     }
 

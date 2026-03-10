@@ -204,10 +204,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   public addBlock(block: L2Block): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       this.blockQueue.push({ block, resolve, reject });
-      this.log.debug(`Queued block ${block.number} for processing`);
+      this.log.debug('Queued block %d for processing', block.number);
       // Trigger an immediate sync, but don't wait for it - the promise resolves when the block is processed
       this.syncImmediate().catch(err => {
-        this.log.error(`Sync immediate call failed: ${err}`);
+        this.log.error('Sync immediate call failed: %s', err);
       });
     });
   }
@@ -224,7 +224,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
     // Take all blocks from the queue
     const queuedItems = this.blockQueue.splice(0, this.blockQueue.length);
-    this.log.debug(`Processing ${queuedItems.length} queued block(s)`);
+    this.log.debug('Processing %d queued block(s)', queuedItems.length);
 
     // Calculate slot threshold for validation
     const l1Timestamp = this.synchronizer.getL1Timestamp();
@@ -236,7 +236,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       const blockSlot = block.header.globalVariables.slotNumber;
       if (slotAtNextL1Block !== undefined && blockSlot < slotAtNextL1Block) {
         this.log.warn(
-          `Rejecting proposed block ${block.number} for past slot ${blockSlot} (current is ${slotAtNextL1Block})`,
+          'Rejecting proposed block %d for past slot %s (current is %s)',
+          block.number,
+          blockSlot,
+          slotAtNextL1Block,
           { block: block.toBlockInfo(), l1Timestamp, slotAtNextL1Block },
         );
         reject(new Error(`Block ${block.number} is for past slot ${blockSlot} (current is ${slotAtNextL1Block})`));
@@ -245,10 +248,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
       try {
         await this.updater.addProposedBlocks([block]);
-        this.log.debug(`Added block ${block.number} to store`);
+        this.log.debug('Added block %d to store', block.number);
         resolve();
       } catch (err: any) {
-        this.log.error(`Failed to add block ${block.number} to store: ${err.message}`);
+        this.log.error('Failed to add block %d to store: %s', block.number, err.message);
         reject(err);
       }
     }
@@ -278,7 +281,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     if (currentL1BlockNumber !== undefined && !this.initialSyncComplete) {
       const l1BlockNumberAtEnd = await this.publicClient.getBlockNumber();
       if (currentL1BlockNumber + 1n >= l1BlockNumberAtEnd) {
-        this.log.info(`Initial archiver sync to L1 block ${currentL1BlockNumber} complete`, {
+        this.log.info('Initial archiver sync to L1 block %s complete', currentL1BlockNumber, {
           l1BlockNumber: currentL1BlockNumber,
           syncPoint: await this.store.getSynchPoint(),
           ...(await this.getL2Tips()),
@@ -293,9 +296,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   /** Resumes the archiver after a stop. */
   public resume() {
     if (this.runningPromise.isRunning()) {
-      this.log.warn(`Archiver already running`);
+      this.log.warn('Archiver already running');
     }
-    this.log.info(`Restarting archiver`);
+    this.log.info('Restarting archiver');
     this.runningPromise.start();
   }
 
@@ -444,16 +447,18 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     }
     const targetL1BlockHash = Buffer32.fromString(targetL1Block.hash);
     this.log.info(
-      `Removing checkpoints after checkpoint ${targetCheckpointNumber} (target block ${targetL2BlockNumber})`,
+      'Removing checkpoints after checkpoint %s (target block %d)',
+      targetCheckpointNumber,
+      targetL2BlockNumber,
     );
     await this.updater.removeCheckpointsAfter(targetCheckpointNumber);
-    this.log.info(`Rolling back L1 to L2 messages to checkpoint ${targetCheckpointNumber}`);
+    this.log.info('Rolling back L1 to L2 messages to checkpoint %s', targetCheckpointNumber);
     await this.store.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
-    this.log.info(`Setting L1 syncpoints to ${targetL1BlockNumber}`);
+    this.log.info('Setting L1 syncpoints to %s', targetL1BlockNumber);
     await this.store.setCheckpointSynchedL1BlockNumber(targetL1BlockNumber);
     await this.store.setMessageSynchedL1Block({ l1BlockNumber: targetL1BlockNumber, l1BlockHash: targetL1BlockHash });
     if (targetL2BlockNumber < currentProvenBlock) {
-      this.log.info(`Rolling back proven L2 checkpoint to ${targetCheckpointNumber}`);
+      this.log.info('Rolling back proven L2 checkpoint to %s', targetCheckpointNumber);
       await this.updater.setProvenCheckpointNumber(targetCheckpointNumber);
     }
     // TODO(palla/reorg): Set the finalized block when we add support for it.

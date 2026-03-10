@@ -178,7 +178,7 @@ export class TxPoolV2Impl {
         await this.#txsDB.delete(txHashStr);
       }
     });
-    this.#log.info(`Deleted ${toDelete.length} invalid/rejected transactions on startup`, { txHashes: toDelete });
+    this.#log.info('Deleted %d invalid/rejected transactions on startup', toDelete.length, { txHashes: toDelete });
   }
 
   async addPendingTxs(txs: Tx[], opts: { source?: string; feeComparisonOnly?: boolean }): Promise<AddTxsResult> {
@@ -304,7 +304,7 @@ export class TxPoolV2Impl {
     const preAddResult = await this.#evictionManager.runPreAddRules(precomputedMeta, poolAccess, preAddContext);
 
     if (preAddResult.shouldIgnore) {
-      this.#log.debug(`Ignoring tx ${txHashStr}: ${preAddResult.reason?.message ?? 'unknown reason'}`);
+      this.#log.debug('Ignoring tx %s: %s', txHashStr, preAddResult.reason?.message ?? 'unknown reason');
       if (preAddResult.reason && preAddResult.reason.code !== TxPoolRejectionCode.INTERNAL_ERROR) {
         errors.set(txHashStr, preAddResult.reason);
       }
@@ -326,7 +326,7 @@ export class TxPoolV2Impl {
         await this.#evictTxs(hashes, reason);
       }
       for (const evictHashStr of preAddResult.txHashesToEvict) {
-        this.#log.debug(`Evicted tx ${evictHashStr} due to higher-fee tx ${txHashStr}`, {
+        this.#log.debug('Evicted tx %s due to higher-fee tx %s', evictHashStr, txHashStr, {
           evictedTxHash: evictHashStr,
           replacementTxHash: txHashStr,
         });
@@ -340,7 +340,7 @@ export class TxPoolV2Impl {
 
     // Randomly drop the transaction for testing purposes (report as accepted so it propagates)
     if (this.#config.dropTransactionsProbability > 0 && Math.random() < this.#config.dropTransactionsProbability) {
-      this.#log.debug(`Dropping tx ${txHashStr} (simulated drop for testing)`);
+      this.#log.debug('Dropping tx %s (simulated drop for testing)', txHashStr);
       return { status: 'accepted' };
     }
 
@@ -436,7 +436,7 @@ export class TxPoolV2Impl {
       this.#instrumentation.recordSoftDeletedHits(softDeletedHits);
     }
     if (missing.length > 0) {
-      this.#log.debug(`protectTxs missing tx hashes: ${missing.map(h => h.toString()).join(', ')}`);
+      this.#log.debug('protectTxs missing tx hashes: %s', missing.map(h => h.toString()).join(', '));
       this.#instrumentation.recordMissingOnProtect(missing.length);
     }
     if (missingPreviouslyEvicted > 0) {
@@ -444,7 +444,10 @@ export class TxPoolV2Impl {
     }
 
     this.#log.info(
-      `Protected ${txHashes.length} txs, missing: ${missing.length}, soft-deleted hits: ${softDeletedHits}`,
+      'Protected %d txs, missing: %d, soft-deleted hits: %d',
+      txHashes.length,
+      missing.length,
+      softDeletedHits,
     );
 
     return missing;
@@ -505,7 +508,7 @@ export class TxPoolV2Impl {
       this.#callbacks.onTxsMined(found.map(m => m.txHash));
     }
 
-    this.#log.info(`Marked ${found.length} txs as mined in block ${blockId.number}`);
+    this.#log.info('Marked %d txs as mined in block %d', found.length, blockId.number);
   }
 
   async prepareForSlot(slotNumber: SlotNumber): Promise<void> {
@@ -522,11 +525,11 @@ export class TxPoolV2Impl {
       // Step 3: Filter to only txs that have metadata and are not mined
       const txsToRestore = this.#indices.filterRestorable(expiredProtected);
       if (txsToRestore.length === 0) {
-        this.#log.debug(`Preparing for slot ${slotNumber}, no txs to unprotect`);
+        this.#log.debug('Preparing for slot %d, no txs to unprotect', slotNumber);
         return;
       }
 
-      this.#log.info(`Preparing for slot ${slotNumber}: unprotecting ${txsToRestore.length} txs`);
+      this.#log.info('Preparing for slot %d: unprotecting %d txs', slotNumber, txsToRestore.length);
 
       // Step 4: Validate for pending pool
       const { valid, invalid } = await this.#revalidateMetadata(txsToRestore, 'during prepareForSlot');
@@ -554,11 +557,11 @@ export class TxPoolV2Impl {
     // Step 1: Find transactions mined after the prune point
     const txsToUnmine = this.#indices.findTxsMinedAfter(latestBlock.number);
     if (txsToUnmine.length === 0) {
-      this.#log.debug(`No transactions to un-mine for prune to block ${latestBlock.number}`);
+      this.#log.debug('No transactions to un-mine for prune to block %d', latestBlock.number);
       return;
     }
 
-    this.#log.info(`Handling prune to block ${latestBlock.number}: un-mining ${txsToUnmine.length} txs`);
+    this.#log.info('Handling prune to block %d: un-mining %d txs', latestBlock.number, txsToUnmine.length);
 
     await this.#store.transactionAsync(async () => {
       // Step 2: Mark ALL un-mined txs with their original mined block number
@@ -581,7 +584,9 @@ export class TxPoolV2Impl {
         const allTxHashes = txsToUnmine.map(m => m.txHash);
         await this.#deleteTxsBatch(allTxHashes);
         this.#log.info(
-          `Handled prune to block ${latestBlock.number} with deleteAllTxs: deleted ${allTxHashes.length} txs`,
+          'Handled prune to block %d with deleteAllTxs: deleted %d txs',
+          latestBlock.number,
+          allTxHashes.length,
         );
         return;
       }
@@ -600,7 +605,11 @@ export class TxPoolV2Impl {
       await this.#evictTxs(toEvict, 'NullifierConflict');
 
       this.#log.info(
-        `Handled prune to block ${latestBlock.number}: ${valid.length} txs restored to pending, ${invalid.length} invalid, ${toEvict.length} evicted due to nullifier conflicts`,
+        'Handled prune to block %d: %d txs restored to pending, %d invalid, %d evicted due to nullifier conflicts',
+        latestBlock.number,
+        valid.length,
+        invalid.length,
+        toEvict.length,
         { txHashesRestored: valid.map(m => m.txHash), txHashesInvalid: invalid, txHashesEvicted: toEvict },
       );
 
@@ -615,7 +624,7 @@ export class TxPoolV2Impl {
       await this.#deleteTxsBatch(txHashes.map(h => h.toString()));
     });
 
-    this.#log.info(`Deleted ${txHashes.length} failed txs`, { txHashes: txHashes.map(h => h.toString()) });
+    this.#log.info('Deleted %d failed txs', txHashes.length, { txHashes: txHashes.map(h => h.toString()) });
   }
 
   async handleFinalizedBlock(block: BlockHeader): Promise<void> {
@@ -649,7 +658,7 @@ export class TxPoolV2Impl {
     });
 
     if (minedTxsToFinalize.length > 0) {
-      this.#log.info(`Finalized ${minedTxsToFinalize.length} mined txs from blocks up to ${blockNumber}`, {
+      this.#log.info('Finalized %d mined txs from blocks up to %d', minedTxsToFinalize.length, blockNumber, {
         txHashes: minedTxsToFinalize,
       });
     }
@@ -811,7 +820,7 @@ export class TxPoolV2Impl {
     }
 
     const stateStr = typeof state === 'string' ? state : Object.keys(state)[0];
-    this.#log.debug(`Added tx ${txHashStr} as ${stateStr}`, {
+    this.#log.debug('Added tx %s as %s', txHashStr, stateStr, {
       eventName: 'tx-added-to-pool',
       txHash: txHashStr,
       state: stateStr,
@@ -850,7 +859,7 @@ export class TxPoolV2Impl {
     }
     this.#instrumentation.recordEvictions(txHashes.length, reason);
     for (const txHashStr of txHashes) {
-      this.#log.debug(`Evicting tx ${txHashStr}`, { txHash: txHashStr, reason });
+      this.#log.debug('Evicting tx %s', txHashStr, { txHash: txHashStr, reason });
       this.#addToEvictedCache(txHashStr);
     }
     await this.#deleteTxsBatch(txHashes);
@@ -876,7 +885,7 @@ export class TxPoolV2Impl {
     const result = await txValidator.validateTx(meta);
     if (result.result !== 'valid') {
       const contextStr = context ? ` ${context}` : '';
-      this.#log.info(`Tx ${meta.txHash}${contextStr} failed validation: ${result.reason?.join(', ')}`);
+      this.#log.info('Tx %s%s failed validation: %s', meta.txHash, contextStr, result.reason?.join(', '));
       return false;
     }
     return true;
@@ -979,7 +988,7 @@ export class TxPoolV2Impl {
         const meta = await buildTxMetaData(tx);
         loaded.push({ tx, meta });
       } catch (err) {
-        this.#log.warn(`Failed to deserialize tx ${txHashStr}, deleting`, { err });
+        this.#log.warn('Failed to deserialize tx %s, deleting', txHashStr, { err });
         errors.push(txHashStr);
       }
     }
@@ -999,7 +1008,7 @@ export class TxPoolV2Impl {
           };
         }
       } catch (err) {
-        this.#log.warn(`Failed to check mined status for tx ${meta.txHash}`, { err });
+        this.#log.warn('Failed to check mined status for tx %s', meta.txHash, { err });
       }
     }
   }
@@ -1022,7 +1031,9 @@ export class TxPoolV2Impl {
         // Transaction rejected - mark for deletion from DB
         rejected.push(meta.txHash);
         this.#log.debug(
-          `Rejected tx ${meta.txHash} during rebuild: ${preAddResult.reason?.message ?? 'unknown reason'}`,
+          'Rejected tx %s during rebuild: %s',
+          meta.txHash,
+          preAddResult.reason?.message ?? 'unknown reason',
         );
         continue;
       }
@@ -1035,7 +1046,7 @@ export class TxPoolV2Impl {
           this.#indices.remove(evictHashStr);
           rejected.push(evictHashStr);
           accepted.delete(evictHashStr);
-          this.#log.debug(`Evicted tx ${evictHashStr} during rebuild due to conflict with ${meta.txHash}`);
+          this.#log.debug('Evicted tx %s during rebuild due to conflict with %s', evictHashStr, meta.txHash);
         }
       }
 
@@ -1044,7 +1055,7 @@ export class TxPoolV2Impl {
       accepted.add(meta.txHash);
     }
 
-    this.#log.info(`Rebuilt pending pool: ${accepted.size} accepted, ${rejected.length} rejected`);
+    this.#log.info('Rebuilt pending pool: %d accepted, %d rejected', accepted.size, rejected.length);
     return { accepted: [...accepted], rejected };
   }
 

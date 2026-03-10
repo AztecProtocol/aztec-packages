@@ -36,13 +36,13 @@ export class BootstrapNode implements P2PBootstrapApi {
   public async start(config: BootnodeConfig) {
     const { p2pPort, listenAddress, p2pBroadcastPort, queryForIp } = config;
     let p2pIp = config.p2pIp;
-    this.logger.info(`Starting bootstrap node with config: ${JSON.stringify(config)}`);
+    this.logger.info('Starting bootstrap node with config: %s', JSON.stringify(config));
     if (!p2pIp) {
       if (queryForIp) {
         this.logger.info('Querying for public IP address...');
         const publicIp = await getPublicIp();
         p2pIp = publicIp;
-        this.logger.info(`Found public IP address: ${publicIp}`);
+        this.logger.info('Found public IP address: %s', publicIp);
       }
     }
 
@@ -66,7 +66,7 @@ export class BootstrapNode implements P2PBootstrapApi {
     );
     this.peerId = peerId;
 
-    this.logger.debug(`Starting bootstrap node ${peerId} listening on ${listenAddrUdp.toString()}`);
+    this.logger.debug('Starting bootstrap node %s listening on %s', peerId, listenAddrUdp);
 
     const metricsRegistry = new OtelMetricsAdapter(this.telemetry, this.logger.getBindings());
     this.node = Discv5.create({
@@ -85,7 +85,7 @@ export class BootstrapNode implements P2PBootstrapApi {
     });
     this.node.on('discovered', async (enr: SignableENR) => {
       const addr = await enr.getFullMultiaddr('udp');
-      this.logger.verbose(`Discovered new peer`, { enr: enr.encodeTxt(), addr: addr?.toString() });
+      this.logger.verbose('Discovered new peer', { enr: enr.encodeTxt(), addr: addr?.toString() });
     });
 
     try {
@@ -105,13 +105,13 @@ export class BootstrapNode implements P2PBootstrapApi {
       const otherBootnodeENRs = config.bootstrapNodes
         .map(x => ENR.decodeTxt(x))
         .filter(b => b.nodeId !== ourEnr.nodeId);
-      this.logger.info(`Adding bootstrap nodes ENRs: ${otherBootnodeENRs.map(x => x.encodeTxt()).join(', ')}`);
+      this.logger.info('Adding bootstrap nodes ENRs: %s', otherBootnodeENRs.map(x => x.encodeTxt()).join(', '));
       try {
         otherBootnodeENRs.forEach(enr => {
           this.node.addEnr(enr);
         });
       } catch (e) {
-        this.logger.error(`Error adding bootnode ENRs: ${e}`);
+        this.logger.error('Error adding bootnode ENRs: %s', e);
       }
     }
   }

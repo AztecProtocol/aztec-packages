@@ -90,7 +90,7 @@ export class TxProvider implements ITxProvider {
     const missingTxs = missingTxHashes?.length ?? 0;
 
     const level = missingTxs === 0 ? 'verbose' : 'warn';
-    this.log[level](`Retrieved ${txs.length} out of ${blockInfo.txCount} txs for ${request.type}`, {
+    this.log[level]('Retrieved %d out of %d txs for %s', txs.length, blockInfo.txCount, request.type, {
       ...blockInfo,
       txsFromProposal: txsFromProposal?.length,
       txsFromMempool: txsFromMempool?.length,
@@ -122,7 +122,7 @@ export class TxProvider implements ITxProvider {
   ) {
     const missingTxHashes = new Set(txHashes.map(txHash => txHash.toString()));
     if (missingTxHashes.size === 0) {
-      this.log.debug(`Received request with no transactions`, blockInfo);
+      this.log.debug('Received request with no transactions', blockInfo);
       return {};
     }
 
@@ -132,7 +132,9 @@ export class TxProvider implements ITxProvider {
     txsFromMempool.forEach(tx => missingTxHashes.delete(tx.getTxHash().toString()));
     this.instrumentation.incTxsFromMempool(txsFromMempool.length);
     this.log.debug(
-      `Retrieved ${txsFromMempool.length} txs from mempool for block proposal (${missingTxHashes.size} pending)`,
+      'Retrieved %d txs from mempool for block proposal (%d pending)',
+      txsFromMempool.length,
+      missingTxHashes.size,
       { ...blockInfo, missingTxHashes: [...missingTxHashes] },
     );
 
@@ -149,7 +151,7 @@ export class TxProvider implements ITxProvider {
     if (txsFromProposal.length > 0) {
       this.instrumentation.incTxsFromProposals(txsFromProposal.length);
       txsFromProposal.forEach(tx => missingTxHashes.delete(tx.txHash.toString()));
-      this.log.debug(`Retrieved ${txsFromProposal.length} txs from proposal body (${missingTxHashes.size} pending)`, {
+      this.log.debug('Retrieved %d txs from proposal body (%d pending)', txsFromProposal.length, missingTxHashes.size, {
         ...blockInfo,
         missingTxHashes: [...missingTxHashes],
       });
@@ -170,7 +172,9 @@ export class TxProvider implements ITxProvider {
     if (txsFromNetwork.length > 0) {
       txsFromNetwork.forEach(tx => missingTxHashes.delete(tx.txHash.toString()));
       this.log.debug(
-        `Retrieved ${txsFromNetwork.length} txs from network for block proposal (${missingTxHashes.size} pending)`,
+        'Retrieved %d txs from network for block proposal (%d pending)',
+        txsFromNetwork.length,
+        missingTxHashes.size,
         { ...blockInfo, missingTxHashes: [...missingTxHashes] },
       );
     }
@@ -187,7 +191,9 @@ export class TxProvider implements ITxProvider {
     if (moreTxsFromPool.length > 0) {
       this.instrumentation.incTxsFromMempool(moreTxsFromPool.length);
       this.log.debug(
-        `Retrieved ${moreTxsFromPool.length} txs from pool retry for block proposal (${missingTxHashes.size} pending)`,
+        'Retrieved %d txs from pool retry for block proposal (%d pending)',
+        moreTxsFromPool.length,
+        missingTxHashes.size,
         { ...blockInfo, missingTxHashes: [...missingTxHashes] },
       );
     }

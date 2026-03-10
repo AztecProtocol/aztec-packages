@@ -281,6 +281,7 @@ describe('Archiver Sync', () => {
       // Should have logged a warning about archive root mismatch
       expect(loggerSpy).toHaveBeenCalledWith(
         expect.stringMatching(/archive root mismatch/i),
+        expect.anything(),
         expect.objectContaining({
           actual: cp3.archive.root.toString(),
           expected: cp2.archive.root.toString(),
@@ -345,7 +346,11 @@ describe('Archiver Sync', () => {
       await archiver.syncImmediate();
 
       // Should log that there are no checkpoints to retrieve
-      expect(loggerSpy).toHaveBeenCalledWith(`No checkpoints to retrieve from 1 to 50, no checkpoints on chain`);
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('No checkpoints to retrieve from'),
+        expect.anything(),
+        expect.anything(),
+      );
 
       // Add checkpoints at L1 blocks 70 and 80
       await fake.addCheckpoint(CheckpointNumber(1), {
@@ -410,7 +415,7 @@ describe('Archiver Sync', () => {
       // Verify we got multiple blobs (the test is meaningful only if we have >1 blob)
       const blobs = fake.getCheckpointBlobs(CheckpointNumber(1));
       expect(blobs.length).toBeGreaterThan(1);
-      logger.info(`Created checkpoint with ${blobs.length} blobs`);
+      logger.info('Created checkpoint with %d blobs', blobs.length);
 
       // Set L1 block to see the checkpoint
       fake.setL1BlockNumber(100n);
@@ -825,7 +830,11 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(50n);
       logger.warn('Initial sync with no checkpoints to retrieve');
       await archiver.syncImmediate();
-      expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining(`No checkpoints to retrieve from 1 to 50`));
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('No checkpoints to retrieve from'),
+        expect.anything(),
+        expect.anything(),
+      );
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
 
       // Second sync: checkpoints 1 and 2 visible
@@ -848,7 +857,11 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(95n);
       await archiver.syncImmediate();
 
-      expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining(`L2 prune has been detected`), expect.anything());
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('L2 prune has been detected'),
+        expect.anything(),
+        expect.anything(),
+      );
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Verify L2Tips after pruning back to checkpoint 1

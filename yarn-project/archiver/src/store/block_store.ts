@@ -405,14 +405,14 @@ export class BlockStore {
       const latestCheckpointNumber = await this.getLatestCheckpointNumber();
 
       if (checkpointNumber >= latestCheckpointNumber) {
-        this.#log.warn(`No checkpoints to remove after ${checkpointNumber} (latest is ${latestCheckpointNumber})`);
+        this.#log.warn('No checkpoints to remove after %s (latest is %s)', checkpointNumber, latestCheckpointNumber);
         return { blocksRemoved: undefined };
       }
 
       // If the proven checkpoint is beyond the target, update it
       const proven = await this.getProvenCheckpointNumber();
       if (proven > checkpointNumber) {
-        this.#log.warn(`Updating proven checkpoint ${proven} to last valid checkpoint ${checkpointNumber}`);
+        this.#log.warn('Updating proven checkpoint %s to last valid checkpoint %s', proven, checkpointNumber);
         await this.setProvenCheckpointNumber(checkpointNumber);
       }
 
@@ -439,7 +439,7 @@ export class BlockStore {
           await this.#slotToCheckpoint.delete(slotNumber);
         }
         await this.#checkpoints.delete(c);
-        this.#log.debug(`Removed checkpoint ${c}`);
+        this.#log.debug('Removed checkpoint %s', c);
       }
 
       return { blocksRemoved };
@@ -554,13 +554,13 @@ export class BlockStore {
         const block = await this.getBlock(BlockNumber(bn));
 
         if (block === undefined) {
-          this.#log.warn(`Cannot remove block ${bn} from the store since we don't have it`);
+          this.#log.warn("Cannot remove block %d from the store since we don't have it", bn);
           continue;
         }
 
         removedBlocks.push(block);
         await this.deleteBlock(block);
-        this.#log.debug(`Removed block ${bn} ${(await block.hash()).toString()}`);
+        this.#log.debug('Removed block %d %s', bn, (await block.hash()).toString());
       }
 
       return removedBlocks;
@@ -825,7 +825,7 @@ export class BlockStore {
     const blockHashString = bufferToHex(blockStorage.blockHash);
     const blockTxsBuffer = await this.#blockTxs.getAsync(blockHashString);
     if (blockTxsBuffer === undefined) {
-      this.#log.warn(`Could not find body for block ${header.globalVariables.blockNumber} ${blockHash}`);
+      this.#log.warn('Could not find body for block %s %s', header.globalVariables.blockNumber, blockHash);
       return undefined;
     }
 
@@ -835,7 +835,7 @@ export class BlockStore {
       const txHash = reader.readObject(TxHash);
       const txEffect = await this.#txEffects.getAsync(txHash.toString());
       if (txEffect === undefined) {
-        this.#log.warn(`Could not find tx effect for tx ${txHash} in block ${blockNumber}`);
+        this.#log.warn('Could not find tx effect for tx %s in block %s', txHash, blockNumber);
         return undefined;
       }
       txEffects.push(deserializeIndexedTxEffect(txEffect).data);

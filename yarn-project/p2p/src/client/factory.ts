@@ -131,7 +131,7 @@ export async function createP2PClient(
     ...(deps.txCollectionNodeSources ?? []),
   ];
   if (nodeSources.length > 0) {
-    logger.info(`Using ${nodeSources.length} node RPC sources for tx collection.`, {
+    logger.info('Using %d node RPC sources for tx collection.', nodeSources.length, {
       nodes: nodeSources.map(n => n.getInfo()),
     });
   }
@@ -143,7 +143,7 @@ export async function createP2PClient(
     telemetry,
   );
   if (fileStoreSources.length > 0) {
-    logger.info(`Using ${fileStoreSources.length} file store sources for tx collection.`, {
+    logger.info('Using %d file store sources for tx collection.', fileStoreSources.length, {
       stores: fileStoreSources.map(s => s.getInfo()),
     });
   }

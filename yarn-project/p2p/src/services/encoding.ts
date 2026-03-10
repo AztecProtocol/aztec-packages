@@ -85,7 +85,7 @@ export class SnappyTransform implements DataTransform {
     const maxSizeKb = maxSizeKbOverride ?? this.maxSizesKb[topic!] ?? this.defaultMaxSizeKb;
     const { decompressedSize } = readSnappyPreamble(data);
     if (decompressedSize > maxSizeKb * 1024) {
-      this.logger.warn(`Decompressed size ${decompressedSize} exceeds maximum allowed size of ${maxSizeKb}kb`);
+      this.logger.warn('Decompressed size %d exceeds maximum allowed size of %dkb', decompressedSize, maxSizeKb);
       throw new Error(`Decompressed size ${decompressedSize} exceeds maximum allowed size of ${maxSizeKb}kb`);
     }
 

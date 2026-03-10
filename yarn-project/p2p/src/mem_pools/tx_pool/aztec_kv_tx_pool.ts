@@ -312,7 +312,7 @@ export class AztecKVTxPool
           const { txHash, txStats } = hashesAndStats[i];
           const key = txHash.toString();
           if (await this.#txs.hasAsync(key)) {
-            this.#log.debug(`Tx ${key} already exists in the pool`);
+            this.#log.debug('Tx %s already exists in the pool', key);
             continue;
           }
 
@@ -328,11 +328,11 @@ export class AztecKVTxPool
               const evictedKey = txHashToEvict.toString();
               await this.deletePendingTxInDbTx(txToDelete, evictedKey);
               replacedTxHashes.push(txHashToEvict);
-              this.#log.verbose(`Evicted tx ${evictedKey} due to higher-fee tx ${key}`);
+              this.#log.verbose('Evicted tx %s due to higher-fee tx %s', evictedKey, key);
             }
           }
 
-          this.#log.verbose(`Adding tx ${key} to pool`, {
+          this.#log.verbose('Adding tx %s to pool', key, {
             eventName: 'tx-added-to-pool',
             ...txStats,
           } satisfies TxAddedToPoolStats);
@@ -389,7 +389,7 @@ export class AztecKVTxPool
         const key = hash.toString();
         const tx = await this.getTxByHash(hash);
         if (!tx) {
-          this.#log.trace(`Skipping deletion of missing tx ${key} from pool`);
+          this.#log.trace('Skipping deletion of missing tx %s from pool', key);
           continue;
         }
 
@@ -407,7 +407,7 @@ export class AztecKVTxPool
       }
     });
     this.#metrics.transactionsRemoved(txHashes.map(hash => hash.toBigInt()));
-    this.#log.debug(`Deleted ${txHashes.length} txs from pool`, { txHashes });
+    this.#log.debug('Deleted %d txs from pool', txHashes.length, { txHashes });
 
     return this.#archivedTxLimit ? poolDbTx.then(() => this.archiveTxs(deletedTxs)) : poolDbTx;
   }
@@ -415,13 +415,13 @@ export class AztecKVTxPool
   private async deleteMinedTx(txHash: `0x${string}`, minedBlockNumber: BlockNumber, permanently: boolean) {
     await this.#minedTxHashToBlock.delete(txHash);
     if (permanently) {
-      this.#log.trace(`Deleting mined tx ${txHash} from pool`);
+      this.#log.trace('Deleting mined tx %s from pool', txHash);
       await this.#txs.delete(txHash);
       return;
     }
 
     // Soft-delete mined transactions: remove from mined set but keep in storage
-    this.#log.trace(`Soft-deleting mined tx ${txHash} from pool`);
+    this.#log.trace('Soft-deleting mined tx %s from pool', txHash);
     await this.#deletedMinedTxHashes.set(txHash, minedBlockNumber);
     await this.#blockToDeletedMinedTxHash.set(minedBlockNumber, txHash);
   }
@@ -429,7 +429,7 @@ export class AztecKVTxPool
   // Assumes being called within a DB transaction
   private async deletePendingTxInDbTx(tx: Tx, txHash: `0x${string}`) {
     // We always permanently delete pending transactions
-    this.#log.trace(`Deleting pending tx ${txHash} from pool`);
+    this.#log.trace('Deleting pending tx %s from pool', txHash);
     await this.removePendingTxIndicesInDbTx(tx, txHash);
     await this.#txs.delete(txHash);
     await this.#pendingTxHashToHistoricalBlockHeaderHash.delete(txHash);
@@ -465,7 +465,7 @@ export class AztecKVTxPool
     if (!historicalBlockHash) {
       const tx = await this.getTxByHash(txHash);
       if (!tx) {
-        this.#log.warn(`PendingTxInfo:tx ${txHash} not found`);
+        this.#log.warn('PendingTxInfo:tx %s not found', txHash);
         return undefined;
       }
 
@@ -606,7 +606,7 @@ export class AztecKVTxPool
     });
 
     if (deletedCount > 0) {
-      this.#log.debug(`Permanently deleted ${deletedCount} deleted mined txs from blocks up to ${blockNumber}`);
+      this.#log.debug('Permanently deleted %d deleted mined txs from blocks up to %d', deletedCount, blockNumber);
     }
     return deletedCount;
   }
@@ -665,11 +665,11 @@ export class AztecKVTxPool
           await this.#archivedTxIndices.set(headIdx, txHash);
           headIdx++;
         }
-        this.#log.debug(`Archived ${txs.length} txs`, { txHashes });
-        this.#log.debug(`Total archived txs: ${headIdx - tailIdx}`);
+        this.#log.debug('Archived %d txs', txs.length, { txHashes });
+        this.#log.debug('Total archived txs: %d', headIdx - tailIdx);
       });
     } catch (error) {
-      this.#log.error(`Error archiving txs`, { error });
+      this.#log.error('Error archiving txs', { error });
     }
   }
 

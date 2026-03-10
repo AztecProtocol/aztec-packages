@@ -203,7 +203,9 @@ export class AttestationPool {
       await this.addBlockProposal(blockProposal);
 
       this.log.debug(
-        `Added block proposal for slot ${blockProposal.slotNumber} and index ${blockProposal.indexWithinCheckpoint}`,
+        'Added block proposal for slot %d and index %d',
+        blockProposal.slotNumber,
+        blockProposal.indexWithinCheckpoint,
         {
           proposalId,
           slotNumber: blockProposal.slotNumber,
@@ -297,7 +299,7 @@ export class AttestationPool {
       // Add the proposal if cap not exceeded
       await this.addCheckpointProposal(proposal);
 
-      this.log.debug(`Added checkpoint proposal for slot ${proposal.slotNumber}`, {
+      this.log.debug('Added checkpoint proposal for slot %s', proposal.slotNumber, {
         proposalId,
         slotNumber: proposal.slotNumber,
       });
@@ -350,7 +352,7 @@ export class AttestationPool {
 
         // Skip attestations with invalid signatures
         if (!sender) {
-          this.log.warn(`Skipping own checkpoint attestation with invalid signature for slot ${slotNumber}`, {
+          this.log.warn('Skipping own checkpoint attestation with invalid signature for slot %s', slotNumber, {
             signature: attestation.signature.toString(),
             slotNumber,
             proposalId,
@@ -364,7 +366,7 @@ export class AttestationPool {
         await this.checkpointAttestations.set(ownKey, attestation.toBuffer());
         this.metrics.trackMempoolItemAdded(ownKey);
 
-        this.log.debug(`Added own checkpoint attestation for slot ${slotNumber} from ${address}`, {
+        this.log.debug('Added own checkpoint attestation for slot %s from %s', slotNumber, address, {
           signature: attestation.signature.toString(),
           slotNumber,
           address,
@@ -463,7 +465,7 @@ export class AttestationPool {
       }
     });
 
-    this.log.verbose(`Deleted old pool data`, {
+    this.log.verbose('Deleted old pool data', {
       oldestSlot,
       numberOfAttestations,
       numberOfCheckpointProposals,
@@ -511,12 +513,17 @@ export class AttestationPool {
 
       // Check if this signer has exceeded the per-signer cap for this slot
       if (signerAttestationCount >= MAX_ATTESTATIONS_PER_SLOT_AND_SIGNER) {
-        this.log.debug(`Rejecting attestation: signer ${signerAddress} exceeded per-slot cap for slot ${slotNumber}`, {
-          slotNumber,
+        this.log.debug(
+          'Rejecting attestation: signer %s exceeded per-slot cap for slot %s',
           signerAddress,
-          proposalId,
-          signerAttestationCount,
-        });
+          slotNumber,
+          {
+            slotNumber,
+            signerAddress,
+            proposalId,
+            signerAttestationCount,
+          },
+        );
         return {
           added: false,
           alreadyExists: false,
@@ -532,7 +539,7 @@ export class AttestationPool {
       const slotSignerKey = this.getSlotSignerKey(slotNumber, signerAddress);
       await this.checkpointAttestationsPerSlotAndSigner.set(slotSignerKey, proposalId);
 
-      this.log.debug(`Added checkpoint attestation for slot ${slotNumber} from ${signerAddress}`, {
+      this.log.debug('Added checkpoint attestation for slot %s from %s', slotNumber, signerAddress, {
         signature: attestation.signature.toString(),
         slotNumber,
         address: signerAddress,

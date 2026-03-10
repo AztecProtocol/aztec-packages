@@ -159,7 +159,7 @@ export class ArchiverDataStoreUpdater {
       const localBlocksInSlot = uncheckpointedLocalBlocks.filter(b => b.slot === slot);
 
       if (checkpointBlocks.length === 0) {
-        this.log.warn(`Checkpoint ${publishedCheckpoint.checkpoint.number} for slot ${slot} has no blocks`);
+        this.log.warn('Checkpoint %s for slot %s has no blocks', publishedCheckpoint.checkpoint.number, slot);
         continue;
       }
 
@@ -173,12 +173,12 @@ export class ArchiverDataStoreUpdater {
         };
 
         if (!existingBlock) {
-          this.log.verbose(`No local block found for checkpointed block number ${blockNumber}`, blockInfos);
+          this.log.verbose('No local block found for checkpointed block number %d', blockNumber, blockInfos);
         } else if (existingBlock.archive.root.equals(checkpointBlock.archive.root)) {
-          this.log.verbose(`Block number ${blockNumber} already inserted and matches checkpoint`, blockInfos);
+          this.log.verbose('Block number %d already inserted and matches checkpoint', blockNumber, blockInfos);
           lastAlreadyInsertedBlockNumber = blockNumber;
         } else {
-          this.log.warn(`Conflict detected at block ${blockNumber} between checkpointed and local block`, blockInfos);
+          this.log.warn('Conflict detected at block %d between checkpointed and local block', blockNumber, blockInfos);
           const prunedBlocks = await this.removeBlocksAfter(BlockNumber(blockNumber - 1));
           return { prunedBlocks, lastAlreadyInsertedBlockNumber };
         }
@@ -191,7 +191,11 @@ export class ArchiverDataStoreUpdater {
 
       if (lastLocalBlockNumber !== undefined && lastLocalBlockNumber > lastCheckpointBlockNumber) {
         this.log.warn(
-          `Local chain for slot ${slot} ends at block ${lastLocalBlockNumber} but checkpoint ends at ${lastCheckpointBlockNumber}. Pruning blocks after block ${lastCheckpointBlockNumber}.`,
+          'Local chain for slot %s ends at block %d but checkpoint ends at %d. Pruning blocks after block %d.',
+          slot,
+          lastLocalBlockNumber,
+          lastCheckpointBlockNumber,
+          lastCheckpointBlockNumber,
         );
         const prunedBlocks = await this.removeBlocksAfter(lastCheckpointBlockNumber);
         return { prunedBlocks, lastAlreadyInsertedBlockNumber };
@@ -323,7 +327,7 @@ export class ArchiverDataStoreUpdater {
 
     const contractClasses = await Promise.all(contractClassPublishedEvents.map(e => e.toContractClassPublic()));
     if (contractClasses.length > 0) {
-      contractClasses.forEach(c => this.log.verbose(`${Operation[operation]} contract class ${c.id.toString()}`));
+      contractClasses.forEach(c => this.log.verbose('%s contract class %s', Operation[operation], c.id));
       if (operation == Operation.Store) {
         // TODO: Will probably want to create some worker threads to compute these bytecode commitments as they are expensive
         const commitments = await Promise.all(
@@ -350,9 +354,7 @@ export class ArchiverDataStoreUpdater {
       .map(log => ContractInstancePublishedEvent.fromLog(log))
       .map(e => e.toContractInstance());
     if (contractInstances.length > 0) {
-      contractInstances.forEach(c =>
-        this.log.verbose(`${Operation[operation]} contract instance at ${c.address.toString()}`),
-      );
+      contractInstances.forEach(c => this.log.verbose('%s contract instance at %s', Operation[operation], c.address));
       if (operation == Operation.Store) {
         return await this.store.addContractInstances(contractInstances, blockNum);
       } else if (operation == Operation.Delete) {
@@ -377,7 +379,7 @@ export class ArchiverDataStoreUpdater {
 
     if (contractUpdates.length > 0) {
       contractUpdates.forEach(c =>
-        this.log.verbose(`${Operation[operation]} contract instance update at ${c.address.toString()}`),
+        this.log.verbose('%s contract instance update at %s', Operation[operation], c.address),
       );
       if (operation == Operation.Store) {
         return await this.store.addContractInstanceUpdates(contractUpdates, timestamp);
@@ -413,7 +415,7 @@ export class ArchiverDataStoreUpdater {
       const contractClassId = Fr.fromHexString(classIdString);
       const contractClass = await this.store.getContractClass(contractClassId);
       if (!contractClass) {
-        this.log.warn(`Skipping broadcasted functions as contract class ${contractClassId.toString()} was not found`);
+        this.log.warn('Skipping broadcasted functions as contract class %s was not found', contractClassId);
         continue;
       }
 
@@ -439,12 +441,12 @@ export class ArchiverDataStoreUpdater {
       const validUtilityFns = utilityFunctionsWithValidity.filter(({ valid }) => valid).map(({ fn }) => fn);
       const validFnCount = validPrivateFns.length + validUtilityFns.length;
       if (validFnCount !== allFns.length) {
-        this.log.warn(`Skipping ${allFns.length - validFnCount} invalid functions`);
+        this.log.warn('Skipping %d invalid functions', allFns.length - validFnCount);
       }
 
       // Store the functions in the contract class in a single operation
       if (validFnCount > 0) {
-        this.log.verbose(`Storing ${validFnCount} functions for contract class ${contractClassId.toString()}`);
+        this.log.verbose('Storing %d functions for contract class %s', validFnCount, contractClassId);
       }
       return await this.store.addFunctions(contractClassId, validPrivateFns, validUtilityFns);
     }

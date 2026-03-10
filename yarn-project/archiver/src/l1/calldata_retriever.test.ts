@@ -1061,7 +1061,12 @@ describe('CalldataRetriever', () => {
         'Failed to trace transaction ' + txHash + ' to extract propose calldata',
       );
       expect(warnSpy).toHaveBeenCalledTimes(1);
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Cannot decode L1 tx'));
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Cannot decode L1 tx'),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+      );
 
       // Second attempt: same tx, both fail again - should not log warn again
       debugClient.request.mockRejectedValueOnce(new Error('trace_transaction not supported'));

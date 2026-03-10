@@ -91,7 +91,7 @@ export class MessageStore {
           const existing = await this.#l1ToL2Messages.getAsync(this.indexToKey(message.index));
           if (existing && deserializeInboxMessage(existing).rollingHash.equals(message.rollingHash)) {
             // We reinsert instead of skipping in case the message was re-orged and got added in a different L1 block.
-            this.#log.trace(`Reinserting message with index ${message.index} in the store`);
+            this.#log.trace('Reinserting message with index %s in the store', message.index);
             await this.#l1ToL2Messages.set(this.indexToKey(message.index), serializeInboxMessage(message));
             continue;
           }
@@ -153,7 +153,7 @@ export class MessageStore {
         await this.#l1ToL2Messages.set(this.indexToKey(message.index), serializeInboxMessage(message));
         await this.#l1ToL2MessageIndices.set(this.leafToIndexKey(message.leaf), message.index);
         messageCount++;
-        this.#log.trace(`Inserted L1 to L2 message ${message.leaf} with index ${message.index} into the store`);
+        this.#log.trace('Inserted L1 to L2 message %s with index %s into the store', message.leaf, message.index);
         lastMessage = message;
       }
 
@@ -218,25 +218,25 @@ export class MessageStore {
   }
 
   public removeL1ToL2Messages(startIndex: bigint): Promise<void> {
-    this.#log.debug(`Deleting L1 to L2 messages from index ${startIndex}`);
+    this.#log.debug('Deleting L1 to L2 messages from index %s', startIndex);
     let deleteCount = 0;
 
     return this.db.transactionAsync(async () => {
       for await (const [key, msgBuffer] of this.#l1ToL2Messages.entriesAsync({
         start: this.indexToKey(startIndex),
       })) {
-        this.#log.trace(`Deleting L1 to L2 message with index ${key - 1} from the store`);
+        this.#log.trace('Deleting L1 to L2 message with index %d from the store', key - 1);
         await this.#l1ToL2Messages.delete(key);
         await this.#l1ToL2MessageIndices.delete(this.leafToIndexKey(deserializeInboxMessage(msgBuffer).leaf));
         deleteCount++;
       }
       await this.increaseTotalMessageCount(-deleteCount);
-      this.#log.warn(`Deleted ${deleteCount} L1 to L2 messages from index ${startIndex} from the store`);
+      this.#log.warn('Deleted %d L1 to L2 messages from index %s from the store', deleteCount, startIndex);
     });
   }
 
   public rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber: CheckpointNumber): Promise<void> {
-    this.#log.debug(`Deleting L1 to L2 messages up to target checkpoint ${targetCheckpointNumber}`);
+    this.#log.debug('Deleting L1 to L2 messages up to target checkpoint %s', targetCheckpointNumber);
     const startIndex = InboxLeaf.smallestIndexForCheckpoint(CheckpointNumber(targetCheckpointNumber + 1));
     return this.removeL1ToL2Messages(startIndex);
   }

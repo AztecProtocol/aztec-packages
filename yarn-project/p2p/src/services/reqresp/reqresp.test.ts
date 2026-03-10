@@ -288,6 +288,8 @@ describe('ReqResp', () => {
       // Make sure the error message is logged
       const peerId = nodes[1].p2p.peerId.toString();
       expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Timeout error'),
+        expect.anything(),
         expect.stringContaining('Request to peer timed out'),
         expect.objectContaining({ peerId, subProtocol: ReqRespSubProtocol.TX }),
       );

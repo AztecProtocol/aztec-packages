@@ -138,7 +138,7 @@ class TestLibP2PService extends LibP2PService {
 
       const txHash = tx.getTxHash();
       const txHashString = txHash.toString();
-      this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()}.`);
+      this.logger.verbose('Received tx %s from external peer %s.', txHashString, source);
       await this.mempools.txPool.addPendingTxs([tx]);
     } else {
       await super.handleGossipedTx(payload, msgId, source);
@@ -219,7 +219,7 @@ async function runAggregatorBenchmark(
     installUnlimitedRateLimits(client);
 
     const txHashes = blockProposal.txHashes;
-    logger.info(`[BENCH] Using block proposal with archive ${blockProposal.archive.toString().slice(0, 10)}...`);
+    logger.info('[BENCH] Using block proposal with archive %s...', blockProposal.archive.toString().slice(0, 10));
 
     const p2pService = (client as any).p2pService;
     const batchTxRequesterService: BatchTxRequesterLibP2PService = p2pService.getBatchTxRequesterService();
@@ -232,16 +232,16 @@ async function runAggregatorBenchmark(
     while (waited < maxWaitMs) {
       const connectedPeers = batchTxRequesterService.connectionSampler.getPeerListSortedByConnectionCountAsc();
       if (connectedPeers.length >= minPeersRequired) {
-        logger.info(`[BENCH] Aggregator has ${connectedPeers.length} connected peers, starting benchmark`);
+        logger.info('[BENCH] Aggregator has %d connected peers, starting benchmark', connectedPeers.length);
         break;
       }
-      logger.debug(`[BENCH] Waiting for peers: ${connectedPeers.length}/${minPeersRequired} (waited ${waited}ms)`);
+      logger.debug('[BENCH] Waiting for peers: %d/%d (waited %dms)', connectedPeers.length, minPeersRequired, waited);
       await sleep(waitInterval);
       waited += waitInterval;
     }
 
     const connectedPeers = batchTxRequesterService.connectionSampler.getPeerListSortedByConnectionCountAsc();
-    logger.info(`[BENCH] Aggregator has ${connectedPeers.length} connected peers`);
+    logger.info('[BENCH] Aggregator has %d connected peers', connectedPeers.length);
     logger.info(
       `[BENCH] Requesting ${txHashes.length} tx hashes: ${txHashes
         .slice(0, 3)
@@ -396,7 +396,7 @@ process.on('message', async msg => {
       await client.start();
       for (let i = 0; i < 100; i++) {
         const isReady = client.isReady();
-        workerLogger.debug(`Client ${clientIndex} isReady: ${isReady}`);
+        workerLogger.debug('Client %d isReady: %s', clientIndex, isReady);
         if (isReady) {
           break;
         }

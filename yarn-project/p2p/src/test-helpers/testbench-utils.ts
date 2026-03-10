@@ -147,7 +147,7 @@ export class InMemoryTxPool extends EventEmitter implements TxPoolV2 {
   getTxsByHash(hashes: TxHash[]): Promise<(Tx | undefined)[]> {
     const result = hashes.map(h => this.txsByHash.get(h.toString()));
     const found = result.filter(tx => tx !== undefined).length;
-    this.logger?.debug(`[TxPool] getTxsByHash: requested ${hashes.length}, found ${found}`);
+    this.logger?.debug('[TxPool] getTxsByHash: requested %d, found %d', hashes.length, found);
     return Promise.resolve(result);
   }
 

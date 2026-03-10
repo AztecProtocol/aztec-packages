@@ -73,9 +73,9 @@ export class GoodbyeProtocolHandler {
   public async sendGoodbye(peerId: PeerId, reason: GoodByeReason): Promise<void> {
     try {
       await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.GOODBYE, Buffer.from([reason]));
-      this.logger.debug(`Sent goodbye to peer ${peerId.toString()} with reason ${reason}`);
+      this.logger.debug('Sent goodbye to peer %s with reason %s', peerId, reason);
     } catch (error) {
-      this.logger.debug(`Failed to send goodbye to peer ${peerId.toString()}: ${error}`);
+      this.logger.debug('Failed to send goodbye to peer %s: %s', peerId, error);
     }
   }
 }

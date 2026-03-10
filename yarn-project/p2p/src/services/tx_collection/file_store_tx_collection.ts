@@ -139,7 +139,7 @@ export class FileStoreTxCollection {
           this.entries.delete(entry.txHash);
         }
       } catch (err) {
-        this.log.trace(`Error downloading tx ${entry.txHash} from ${source.getInfo()}`, { err });
+        this.log.trace('Error downloading tx %s from %s', entry.txHash, source.getInfo(), { err });
       }
     }
   }

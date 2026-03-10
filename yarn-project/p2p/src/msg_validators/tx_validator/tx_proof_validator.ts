@@ -15,10 +15,10 @@ export class TxProofValidator implements TxValidator<Tx> {
   async validateTx(tx: Tx): Promise<TxValidationResult> {
     const result = await this.verifier.verifyProof(tx);
     if (!result.valid) {
-      this.#log.verbose(`Rejecting tx ${tx.getTxHash().toString()} for invalid proof`);
+      this.#log.verbose('Rejecting tx %s for invalid proof', tx.getTxHash());
       return { result: 'invalid', reason: [TX_ERROR_INVALID_PROOF] };
     }
-    this.#log.trace(`Accepted ${tx.getTxHash().toString()} with valid proof`);
+    this.#log.trace('Accepted %s with valid proof', tx.getTxHash());
     return { result: 'valid' };
   }
 }

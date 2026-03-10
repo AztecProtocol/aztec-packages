@@ -186,7 +186,7 @@ describe('TxPoolV2: benchmarks', () => {
     const extraTxs = await createTxBatch(100, maxSize + 1);
     preCreatedTxs.set(-1, extraTxs); // Use -1 as key for "extra" txs
 
-    logger.info(`Pre-created ${maxSize} transactions + 100 extra for add benchmarks`);
+    logger.info('Pre-created %d transactions + 100 extra for add benchmarks', maxSize);
   });
 
   afterAll(async () => {
@@ -196,9 +196,9 @@ describe('TxPoolV2: benchmarks', () => {
     } else if (process.env.BENCH_OUTPUT_MD) {
       await writeFile(process.env.BENCH_OUTPUT_MD, metrics.toPrettyString());
     } else {
-      logger.info(`\n`);
+      logger.info('\n');
       logger.info(metrics.toPrettyString());
-      logger.info(`\n`);
+      logger.info('\n');
     }
   });
 

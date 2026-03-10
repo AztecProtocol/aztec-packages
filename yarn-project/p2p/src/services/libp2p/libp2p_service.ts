@@ -211,7 +211,7 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     const versions = getVersions(config);
     this.protocolVersion = compressComponentVersions(versions);
-    logger.info(`Started libp2p service with protocol version ${this.protocolVersion}`);
+    logger.info('Started libp2p service with protocol version %s', this.protocolVersion);
 
     this.topicStrings[TopicType.tx] = createTopicString(TopicType.tx, this.protocolVersion);
     this.topicStrings[TopicType.block_proposal] = createTopicString(TopicType.block_proposal, this.protocolVersion);
@@ -395,7 +395,7 @@ export class LibP2PService extends WithTracer implements P2PService {
             return false;
           }
 
-          logger.debug(`Connection gater: Denying inbound connection from ${maConn.remoteAddr.toString()}`);
+          logger.debug('Connection gater: Denying inbound connection from %s', maConn.remoteAddr);
           return true;
         },
         denyInboundEncryptedConnection: (peerId: PeerId, _maConn: MultiaddrConnection) => {
@@ -406,7 +406,7 @@ export class LibP2PService extends WithTracer implements P2PService {
             return false;
           }
 
-          logger.debug(`Connection gater: Denying inbound encrypted connection from ${peerId.toString()}`);
+          logger.debug('Connection gater: Denying inbound encrypted connection from %s', peerId);
           return true;
         },
       },
@@ -569,7 +569,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     );
     this.discoveryRunningPromise.start();
 
-    this.logger.info(`Started P2P service`, {
+    this.logger.info('Started P2P service', {
       listen: this.config.listenAddress,
       port: this.config.p2pPort,
       announce: announceTcpMultiaddr,
@@ -620,13 +620,13 @@ export class LibP2PService extends WithTracer implements P2PService {
   }
 
   private handleGossipSubEvent(e: CustomEvent<GossipsubMessage>) {
-    this.logger.trace(`Received PUBSUB message.`);
+    this.logger.trace('Received PUBSUB message.');
 
     const safeJob = async () => {
       try {
         await this.handleNewGossipMessage(e.detail.msg, e.detail.msgId, e.detail.propagationSource);
       } catch (err) {
-        this.logger.error(`Error handling gossipsub message: ${err}`);
+        this.logger.error('Error handling gossipsub message: %s', err);
       }
     };
     setImmediate(() => void safeJob());
@@ -745,7 +745,7 @@ export class LibP2PService extends WithTracer implements P2PService {
         topicType = TopicType.checkpoint_attestation;
         break;
       default:
-        this.logger.error(`Received message on unknown topic: ${msg.topic}`);
+        this.logger.error('Received message on unknown topic: %s', msg.topic);
         break;
     }
 
@@ -824,7 +824,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       } else if (msg.topic === this.topicStrings[TopicType.checkpoint_proposal]) {
         await this.handleGossipedCheckpointProposal(p2pMessage.payload, msgId, source);
       } else {
-        this.logger.error(`Received message on unknown topic: ${msg.topic}`);
+        this.logger.error('Received message on unknown topic: %s', msg.topic);
       }
     };
 
@@ -949,7 +949,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       const wasAccepted = addResult.accepted.some(h => h.equals(txHash));
       const wasIgnored = addResult.ignored.some(h => h.equals(txHash));
 
-      this.logger.trace(`Validate propagated tx`, {
+      this.logger.trace('Validate propagated tx', {
         wasAccepted,
         wasIgnored,
         [Attributes.P2P_ID]: source.toString(),
@@ -972,7 +972,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     // Tx was accepted into pool and will be propagated - just log and record metrics
     const txHash = tx.getTxHash();
     const txHashString = txHash.toString();
-    this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()} via gossip`, {
+    this.logger.verbose('Received tx %s from external peer %s via gossip', txHashString, source, {
       source: source.toString(),
       txHash: txHashString,
     });
@@ -1022,7 +1022,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     const validationResult = await this.checkpointAttestationValidator.validate(attestation);
 
     if (validationResult.result === 'reject') {
-      this.logger.warn(`Penalizing peer ${peerId} for checkpoint attestation validation failure`);
+      this.logger.warn('Penalizing peer %s for checkpoint attestation validation failure', peerId);
       this.peerManager.penalizePeer(peerId, validationResult.severity);
       return { result: TopicValidatorResult.Reject };
     }
@@ -1037,7 +1037,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     const { added, alreadyExists, count } =
       await this.mempools.attestationPool.tryAddCheckpointAttestation(attestation);
 
-    this.logger.trace(`Validate propagated checkpoint attestation`, {
+    this.logger.trace('Validate propagated checkpoint attestation', {
       added,
       alreadyExists,
       count,
@@ -1052,7 +1052,7 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     // Could not add (cap reached for signer), no need to re-broadcast
     if (!added) {
-      this.logger.warn(`Dropping checkpoint attestation due to cap`, {
+      this.logger.warn('Dropping checkpoint attestation due to cap', {
         slot: slot.toString(),
         archive: attestation.archive.toString(),
         source: peerId.toString(),
@@ -1067,7 +1067,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     if (count === 2) {
       const attester = attestation.getSender();
       if (attester) {
-        this.logger.warn(`Detected duplicate attestation (equivocation) at slot ${slot}`, {
+        this.logger.warn('Detected duplicate attestation (equivocation) at slot %s', slot, {
           slot: slot.toString(),
           archive: attestation.archive.toString(),
           source: peerId.toString(),
@@ -1113,7 +1113,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     const validationResult = await this.blockProposalValidator.validate(block);
 
     if (validationResult.result === 'reject') {
-      this.logger.warn(`Penalizing peer ${peerId} for block proposal validation failure`);
+      this.logger.warn('Penalizing peer %s for block proposal validation failure', peerId);
       this.peerManager.penalizePeer(peerId, validationResult.severity);
       return { result: TopicValidatorResult.Reject };
     }
@@ -1128,7 +1128,7 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     // Duplicate proposal received, no need to re-broadcast
     if (alreadyExists) {
-      this.logger.debug(`Ignoring duplicate block proposal received`, {
+      this.logger.debug('Ignoring duplicate block proposal received', {
         ...block.toBlockInfo(),
         indexWithinCheckpoint: block.indexWithinCheckpoint,
         proposer: block.getSender()?.toString(),
@@ -1140,7 +1140,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     // Too many blocks received for this slot and index, penalize peer and do not re-broadcast
     if (!added) {
       this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
-      this.logger.warn(`Penalizing peer for block proposal exceeding per-position cap`, {
+      this.logger.warn('Penalizing peer for block proposal exceeding per-position cap', {
         ...block.toBlockInfo(),
         indexWithinCheckpoint: block.indexWithinCheckpoint,
         count,
@@ -1154,7 +1154,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     // and do re-broadcast it so other nodes in the network know to slash the proposer
     if (isEquivocated) {
       const proposer = block.getSender();
-      this.logger.warn(`Detected duplicate block proposal (equivocation) at slot ${block.slotNumber}`, {
+      this.logger.warn('Detected duplicate block proposal (equivocation) at slot %s', block.slotNumber, {
         ...block.toBlockInfo(),
         source: peerId.toString(),
         proposer: proposer?.toString(),
@@ -1179,7 +1179,7 @@ export class LibP2PService extends WithTracer implements P2PService {
   }))
   protected async processValidBlockProposal(block: BlockProposal, sender: PeerId) {
     const slot = block.slotNumber;
-    this.logger.verbose(`Received block proposal for slot ${slot} from external peer ${sender.toString()}.`, {
+    this.logger.verbose('Received block proposal for slot %s from external peer %s.', slot, sender, {
       p2pMessageIdentifier: await block.p2pMessageLoggingIdentifier(),
       source: sender.toString(),
       ...block.toBlockInfo(),
@@ -1192,7 +1192,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     // Note: Validators do NOT attest to individual blocks, only to checkpoint proposals.
     const isValid = await this.blockReceivedCallback(block, sender);
     if (!isValid) {
-      this.logger.warn(`Block proposal validation failed for block ${block.blockNumber}`, block.toBlockInfo());
+      this.logger.warn('Block proposal validation failed for block %d', block.blockNumber, block.toBlockInfo());
     }
   }
 
@@ -1239,7 +1239,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     const validationResult = await this.checkpointProposalValidator.validate(checkpoint);
 
     if (validationResult.result === 'reject') {
-      this.logger.warn(`Penalizing peer ${peerId} for checkpoint proposal validation failure`);
+      this.logger.warn('Penalizing peer %s for checkpoint proposal validation failure', peerId);
       this.peerManager.penalizePeer(peerId, validationResult.severity);
       return { result: TopicValidatorResult.Reject };
     }
@@ -1252,7 +1252,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     const blockProposal = checkpoint.getBlockProposal();
     let processBlock = false;
     if (blockProposal) {
-      this.logger.debug(`Validating block proposal from propagated checkpoint`, {
+      this.logger.debug('Validating block proposal from propagated checkpoint', {
         [Attributes.SLOT_NUMBER]: checkpoint.slotNumber.toString(),
         [Attributes.P2P_ID]: peerId.toString(),
       });
@@ -1262,7 +1262,7 @@ export class LibP2PService extends WithTracer implements P2PService {
         metadata: { isEquivocated } = {},
       } = await this.validateAndStoreBlockProposal(peerId, blockProposal);
       if (result === TopicValidatorResult.Reject || !obj || isEquivocated) {
-        this.logger.debug(`Rejecting checkpoint due to invalid last block proposal`, {
+        this.logger.debug('Rejecting checkpoint due to invalid last block proposal', {
           [Attributes.SLOT_NUMBER]: checkpoint.slotNumber.toString(),
           [Attributes.P2P_ID]: peerId.toString(),
           isEquivocated,
@@ -1282,7 +1282,7 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     // Duplicate proposal received, do not re-broadcast
     if (alreadyExists) {
-      this.logger.debug(`Ignoring duplicate checkpoint proposal received`, {
+      this.logger.debug('Ignoring duplicate checkpoint proposal received', {
         ...checkpoint.toCheckpointInfo(),
         source: peerId.toString(),
       });
@@ -1297,7 +1297,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     // Note: We still return the checkpoint obj so the lastBlock can be processed if valid
     if (!added) {
       this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
-      this.logger.warn(`Penalizing peer for checkpoint proposal exceeding per-slot cap`, {
+      this.logger.warn('Penalizing peer for checkpoint proposal exceeding per-slot cap', {
         ...checkpoint.toCheckpointInfo(),
         count,
         source: peerId.toString(),
@@ -1309,7 +1309,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     // and do re-broadcast it so other nodes in the network know to slash the proposer
     if (isEquivocated) {
       const proposer = checkpoint.getSender();
-      this.logger.warn(`Detected duplicate checkpoint proposal (equivocation) at slot ${checkpoint.slotNumber}`, {
+      this.logger.warn('Detected duplicate checkpoint proposal (equivocation) at slot %s', checkpoint.slotNumber, {
         ...checkpoint.toCheckpointInfo(),
         source: peerId.toString(),
         proposer: proposer?.toString(),
@@ -1340,7 +1340,7 @@ export class LibP2PService extends WithTracer implements P2PService {
   }))
   protected async processValidCheckpointProposal(checkpoint: CheckpointProposalCore, sender: PeerId) {
     const slot = checkpoint.slotNumber;
-    this.logger.verbose(`Received checkpoint proposal for slot ${slot} from external peer ${sender.toString()}.`, {
+    this.logger.verbose('Received checkpoint proposal for slot %s from external peer %s.', slot, sender, {
       p2pMessageIdentifier: await checkpoint.p2pMessageLoggingIdentifier(),
       slot: checkpoint.slotNumber,
       archive: checkpoint.archive.toString(),
@@ -1365,9 +1365,9 @@ export class LibP2PService extends WithTracer implements P2PService {
    */
   public async propagate<T extends Gossipable>(message: T) {
     const p2pMessageIdentifier = await message.p2pMessageLoggingIdentifier();
-    this.logger.trace(`Message ${p2pMessageIdentifier} queued`, { p2pMessageIdentifier });
+    this.logger.trace('Message %s queued', p2pMessageIdentifier, { p2pMessageIdentifier });
     void this.sendToPeers(message).catch(error => {
-      this.logger.error(`Error propagating message ${p2pMessageIdentifier}`, { error });
+      this.logger.error('Error propagating message %s', p2pMessageIdentifier, { error });
     });
   }
 
@@ -1451,7 +1451,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       return true;
     } catch (e: any) {
       if (e instanceof ValidationError) {
-        this.logger.warn(`Failed validation for requested block txs from peer ${peerId.toString()}`);
+        this.logger.warn('Failed validation for requested block txs from peer %s', peerId);
       } else {
         this.logger.error(`Error during validation of requested block txs`, e);
       }
@@ -1488,7 +1488,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       return true;
     } catch (e: any) {
       if (e instanceof ValidationError) {
-        this.logger.warn(`Failed to validate requested txs from peer ${peerId.toString()}, reason ${e.message}`);
+        this.logger.warn('Failed to validate requested txs from peer %s, reason %s', peerId, e.message);
       } else {
         this.logger.error(`Error during validation of requested txs`, e);
       }
@@ -1528,7 +1528,7 @@ export class LibP2PService extends WithTracer implements P2PService {
         // We are missing the local block; we cannot verify the hash yet. Reject without penalizing.
         // TODO: Consider extending this validator to accept an expected hash or
         // performing quorum-based checks when using P2P syncing prior to L1 sync.
-        this.logger.warn(`Local block ${reqNum} not found; rejecting BLOCK response without hash verification`);
+        this.logger.warn('Local block %d not found; rejecting BLOCK response without hash verification', reqNum);
         return false;
       }
       const [localHash, respHash] = await Promise.all([local.hash(), responseBlock.hash()]);
@@ -1539,7 +1539,7 @@ export class LibP2PService extends WithTracer implements P2PService {
 
       return true;
     } catch (e) {
-      this.logger.warn(`Error validating requested block`, e);
+      this.logger.warn('Error validating requested block', e);
       return false;
     }
   }
@@ -1738,7 +1738,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     const result = await this.checkpointAttestationValidator.validate(attestation);
 
     if (result.result === 'reject') {
-      this.logger.warn(`Penalizing peer ${peerId} for checkpoint attestation validation failure`);
+      this.logger.warn('Penalizing peer %s for checkpoint attestation validation failure', peerId);
       this.peerManager.penalizePeer(peerId, result.severity);
     }
 
@@ -1757,10 +1757,10 @@ export class LibP2PService extends WithTracer implements P2PService {
     const parent = message.constructor as typeof Gossipable;
 
     const identifier = await message.p2pMessageLoggingIdentifier().then(i => i.toString());
-    this.logger.trace(`Sending message ${identifier}`, { p2pMessageIdentifier: identifier });
+    this.logger.trace('Sending message %s', identifier, { p2pMessageIdentifier: identifier });
 
     const recipientsNum = await this.publishToTopic(this.topicStrings[parent.p2pTopic], message);
-    this.logger.debug(`Sent message ${identifier} to ${recipientsNum} peers`, {
+    this.logger.debug('Sent message %s to %d peers', identifier, recipientsNum, {
       p2pMessageIdentifier: identifier,
       sourcePeer: this.node.peerId.toString(),
     });

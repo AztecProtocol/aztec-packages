@@ -304,7 +304,7 @@ export class TxCollection {
     const missingTxHashes = this.slowCollection.getMissingTxHashes();
     const foundTxs = compactArray(await this.txPool.getTxsByHash(missingTxHashes));
     if (foundTxs.length > 0) {
-      this.log.verbose(`Found ${foundTxs.length} txs in the pool during reconciliation`, {
+      this.log.verbose('Found %d txs in the pool during reconciliation', foundTxs.length, {
         foundTxs: foundTxs.map(t => t.getTxHash().toString()),
       });
       this.foundTxs(foundTxs);

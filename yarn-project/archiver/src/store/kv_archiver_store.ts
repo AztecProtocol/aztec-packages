@@ -134,7 +134,7 @@ export class KVArchiverDataStore implements ContractDataSource {
         const selector = await FunctionSelector.fromSignature(sig);
         this.functionNames.set(selector.toString(), sig.slice(0, sig.indexOf('(')).slice(0, MAX_FUNCTION_NAME_LEN));
       } catch {
-        this.#log.warn(`Failed to parse signature: ${sig}. Ignoring`);
+        this.#log.warn('Failed to parse signature: %s. Ignoring', sig);
       }
     }
   }

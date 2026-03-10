@@ -37,7 +37,7 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
     info: Record<string, any> & { description: string; method: CollectionMethod },
     context: TxAddContext,
   ) {
-    this.log.trace(`Requesting ${requested.length} txs via ${info.description}`, {
+    this.log.trace('Requesting %d txs via %s', requested.length, info.description, {
       ...info,
       requestedTxs: requested,
     });
@@ -56,7 +56,7 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
     });
 
     if (validTxs.length === 0 && invalidTxHashes.length === 0) {
-      this.log.trace(`No txs found via ${info.description}`, {
+      this.log.trace('No txs found via %s', info.description, {
         ...info,
         requestedTxs: requested,
       });
@@ -64,14 +64,14 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
     }
 
     if (invalidTxHashes.length > 0) {
-      this.log.warn(`Rejecting ${invalidTxHashes.length} txs with invalid hashes from ${info.description}`, {
+      this.log.warn('Rejecting %d txs with invalid hashes from %s', invalidTxHashes.length, info.description, {
         ...info,
         invalidTxHashes,
       });
     }
 
     if (validTxs.length === 0) {
-      this.log.trace(`No valid txs found via ${info.description} after validation`, {
+      this.log.trace('No valid txs found via %s after validation', info.description, {
         ...info,
         requestedTxs: requested,
         invalidTxHashes,
@@ -80,7 +80,11 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
     }
 
     this.log.verbose(
-      `Collected ${validTxs.length} txs out of ${requested.length} requested via ${info.description} in ${duration}ms`,
+      'Collected %d txs out of %d requested via %s in %dms',
+      validTxs.length,
+      requested.length,
+      info.description,
+      duration,
       {
         ...info,
         duration,

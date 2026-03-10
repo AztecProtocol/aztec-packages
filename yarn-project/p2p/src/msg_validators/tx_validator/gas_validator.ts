@@ -67,7 +67,7 @@ export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidato
     );
 
     if (minGasLimits.gtAny(gasLimits)) {
-      this.#log.verbose(`Rejecting transaction due to the gas limit(s) not being above the minimum gas limit`, {
+      this.#log.verbose('Rejecting transaction due to the gas limit(s) not being above the minimum gas limit', {
         gasLimits,
         minGasLimits,
       });
@@ -75,7 +75,7 @@ export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidato
     }
 
     if (gasLimits.l2Gas > MAX_PROCESSABLE_L2_GAS) {
-      this.#log.verbose(`Rejecting transaction due to the gas limit(s) being higher than the maximum processable gas`, {
+      this.#log.verbose('Rejecting transaction due to the gas limit(s) being higher than the maximum processable gas', {
         gasLimits,
         minGasLimits,
       });
@@ -145,7 +145,7 @@ export class GasTxValidator implements TxValidator<Tx> {
       maxFeesPerGas.feePerDaGas < this.#gasFees.feePerDaGas || maxFeesPerGas.feePerL2Gas < this.#gasFees.feePerL2Gas;
 
     if (notEnoughMaxFees) {
-      this.#log.verbose(`Skipping transaction ${tx.getTxHash().toString()} due to insufficient fee per gas`, {
+      this.#log.verbose('Skipping transaction %s due to insufficient fee per gas', tx.getTxHash(), {
         txMaxFeesPerGas: maxFeesPerGas.toInspect(),
         currentGasFees: this.#gasFees.toInspect(),
       });
@@ -174,7 +174,7 @@ export class GasTxValidator implements TxValidator<Tx> {
     const balance = initialBalance.toBigInt() + claimAmount;
 
     if (balance < feeLimit) {
-      this.#log.verbose(`Rejecting transaction due to not enough fee payer balance`, {
+      this.#log.verbose('Rejecting transaction due to not enough fee payer balance', {
         feePayer,
         balance,
         feeLimit,

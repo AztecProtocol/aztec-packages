@@ -128,7 +128,7 @@ function processLogFile(logFilePath: string, outputJsonPath?: string) {
 
   logger.info('Propagation delays (in ms) per peer:');
   for (const d of delays) {
-    logger.info(`${d.peerId}: ${d.delay} ms`);
+    logger.info('%s: %d ms', d.peerId, d.delay);
   }
 
   // Compute basic statistics
@@ -141,11 +141,11 @@ function processLogFile(logFilePath: string, outputJsonPath?: string) {
   const medianDelay = sortedDelays[Math.floor(sortedDelays.length / 2)];
 
   logger.info('\nBenchmark Statistics:');
-  logger.info(`Number of messages received: ${numberReceived}`);
-  logger.info(`Min delay: ${minDelay} ms`);
-  logger.info(`Max delay: ${maxDelay} ms`);
+  logger.info('Number of messages received: %d', numberReceived);
+  logger.info('Min delay: %d ms', minDelay);
+  logger.info('Max delay: %d ms', maxDelay);
   logger.info(`Average delay: ${avgDelay.toFixed(2)} ms`);
-  logger.info(`Median delay: ${medianDelay} ms`);
+  logger.info('Median delay: %d ms', medianDelay);
 
   // If output JSON path is provided, write results to file
   if (outputJsonPath) {
@@ -161,7 +161,7 @@ function processLogFile(logFilePath: string, outputJsonPath?: string) {
     };
 
     fs.writeFileSync(outputJsonPath, JSON.stringify(result, null, 2));
-    logger.info(`\nResults written to ${outputJsonPath}`);
+    logger.info('\nResults written to %s', outputJsonPath);
   }
 }
 

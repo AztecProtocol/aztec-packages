@@ -280,14 +280,14 @@ async function processCheckpointProposedLogs(
       );
 
       retrievedCheckpoints.push({ ...checkpoint, checkpointBlobData, l1, chainId, version });
-      logger.trace(`Retrieved checkpoint ${checkpointNumber} from L1 tx ${log.l1TransactionHash}`, {
+      logger.trace('Retrieved checkpoint %s from L1 tx %s', checkpointNumber, log.l1TransactionHash, {
         l1BlockNumber: log.l1BlockNumber,
         checkpointNumber,
         archive: archive.toString(),
         attestations: checkpoint.attestations,
       });
     } else {
-      logger.warn(`Ignoring checkpoint ${checkpointNumber} due to archive root mismatch`, {
+      logger.warn('Ignoring checkpoint %s due to archive root mismatch', checkpointNumber, {
         actual: archive.toString(),
         expected: archiveFromChain.toString(),
       });

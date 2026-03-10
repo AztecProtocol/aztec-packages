@@ -153,7 +153,7 @@ export class P2PClient extends WithTracer implements P2P {
   }
 
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
-    this.log.debug(`Handling block stream event ${event.type}`);
+    this.log.debug('Handling block stream event %s', event.type);
 
     switch (event.type) {
       case 'blocks-added':
@@ -226,7 +226,7 @@ export class P2PClient extends WithTracer implements P2P {
       this.setCurrentState(P2PClientState.RUNNING);
       this.syncPromise = Promise.resolve();
       await this.p2pService.start();
-      this.log.info(`Starting p2p client from block ${this.latestBlockNumberAtStart} with empty mempools`);
+      this.log.info('Starting p2p client from block %d with empty mempools', this.latestBlockNumberAtStart);
     } else if (
       syncedLatestBlock <= this.latestBlockNumberAtStart ||
       syncedProvenBlock <= this.provenBlockNumberAtStart ||
@@ -239,7 +239,7 @@ export class P2PClient extends WithTracer implements P2P {
       this.syncPromise = new Promise(resolve => {
         this.syncResolve = resolve;
       });
-      this.log.info(`Initiating p2p sync from ${syncedLatestBlock}`, {
+      this.log.info('Initiating p2p sync from %d', syncedLatestBlock, {
         syncedLatestBlock,
         syncedProvenBlock,
         syncedFinalizedBlock,
@@ -250,7 +250,7 @@ export class P2PClient extends WithTracer implements P2P {
       this.setCurrentState(P2PClientState.RUNNING);
       this.syncPromise = Promise.resolve();
       await this.p2pService.start();
-      this.log.info(`Starting P2P client synced to ${syncedLatestBlock}`, {
+      this.log.info('Starting P2P client synced to %d', syncedLatestBlock, {
         syncedLatestBlock,
         syncedProvenBlock,
         syncedFinalizedBlock,
@@ -328,12 +328,12 @@ export class P2PClient extends WithTracer implements P2P {
     [Attributes.P2P_ID]: (await proposal.p2pMessageLoggingIdentifier()).toString(),
   }))
   public async broadcastProposal(proposal: BlockProposal): Promise<void> {
-    this.log.verbose(`Broadcasting proposal for slot ${proposal.slotNumber} to peers`);
+    this.log.verbose('Broadcasting proposal for slot %s to peers', proposal.slotNumber);
     // Store our own proposal so we can respond to req/resp requests for it
     const { count } = await this.attestationPool.tryAddBlockProposal(proposal);
     if (count > 1) {
       if (this.config.broadcastEquivocatedProposals) {
-        this.log.warn(`Broadcasting equivocated block proposal for slot ${proposal.slotNumber}`, {
+        this.log.warn('Broadcasting equivocated block proposal for slot %s', proposal.slotNumber, {
           slot: proposal.slotNumber,
           archive: proposal.archive.toString(),
           count,
@@ -351,7 +351,7 @@ export class P2PClient extends WithTracer implements P2P {
     [Attributes.P2P_ID]: (await proposal.p2pMessageLoggingIdentifier()).toString(),
   }))
   public async broadcastCheckpointProposal(proposal: CheckpointProposal): Promise<void> {
-    this.log.verbose(`Broadcasting checkpoint proposal for slot ${proposal.slotNumber} to peers`);
+    this.log.verbose('Broadcasting checkpoint proposal for slot %s to peers', proposal.slotNumber);
     const blockProposal = proposal.getBlockProposal();
     if (blockProposal) {
       // Store our own last-block proposal so we can respond to req/resp requests for it.
@@ -361,7 +361,7 @@ export class P2PClient extends WithTracer implements P2P {
   }
 
   public async broadcastCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void> {
-    this.log.verbose(`Broadcasting ${attestations.length} checkpoint attestations to peers`);
+    this.log.verbose('Broadcasting %d checkpoint attestations to peers', attestations.length);
     await Promise.all(attestations.map(att => this.p2pService.propagate(att)));
   }
 
@@ -492,7 +492,7 @@ export class P2PClient extends WithTracer implements P2P {
     const txHashStr = tx.getTxHash().toString();
     const reason = result.errors?.get(txHashStr);
     if (reason) {
-      this.log.warn(`Tx ${txHashStr} not added to pool: ${reason.message}`);
+      this.log.warn('Tx %s not added to pool: %s', txHashStr, reason.message);
       throw new TxPoolError(reason);
     }
 
@@ -710,7 +710,7 @@ export class P2PClient extends WithTracer implements P2P {
       syncedProvenBlock >= this.provenBlockNumberAtStart &&
       syncedFinalizedBlock >= this.finalizedBlockNumberAtStart
     ) {
-      this.log.info(`Completed P2P client sync to block ${syncedLatestBlock}. Starting service.`, {
+      this.log.info('Completed P2P client sync to block %d. Starting service.', syncedLatestBlock, {
         syncedLatestBlock,
         syncedProvenBlock,
         syncedFinalizedBlock,
@@ -730,7 +730,7 @@ export class P2PClient extends WithTracer implements P2P {
   private setCurrentState(newState: P2PClientState) {
     const oldState = this.currentState;
     this.currentState = newState;
-    this.log.debug(`Moved from state ${P2PClientState[oldState]} to ${P2PClientState[this.currentState]}`);
+    this.log.debug('Moved from state %s to %s', P2PClientState[oldState], P2PClientState[this.currentState]);
   }
 
   public validateTxsReceivedInBlockProposal(txs: Tx[]): Promise<void> {

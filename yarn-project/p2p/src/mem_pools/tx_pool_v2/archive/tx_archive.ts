@@ -77,7 +77,7 @@ export class TxArchive {
           headIdx++;
         }
 
-        this.#log.debug(`Archived ${txs.length} txs, total: ${headIdx - tailIdx}`);
+        this.#log.debug('Archived %d txs, total: %d', txs.length, headIdx - tailIdx);
       });
     } catch (error) {
       this.#log.error('Error archiving transactions', { error });

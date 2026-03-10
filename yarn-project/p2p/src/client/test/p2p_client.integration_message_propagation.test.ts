@@ -103,11 +103,11 @@ describe('p2p client integration message propagation', () => {
         oldestHistoricBlockNumber: BlockNumber.ZERO,
       },
     });
-    logger.info(`Starting test ${expect.getState().currentTestName}`);
+    logger.info('Starting test %s', expect.getState().currentTestName);
   });
 
   afterEach(async () => {
-    logger.info(`Tearing down state for ${expect.getState().currentTestName}`);
+    logger.info('Tearing down state for %s', expect.getState().currentTestName);
     await shutdown(clients);
     logger.info('Shut down p2p clients');
 
@@ -288,7 +288,7 @@ describe('p2p client integration message propagation', () => {
 
       // Give the nodes time to discover each other
       await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers discovered', 12, 0.5);
-      logger.info(`Finished waiting for clients to discover each other`);
+      logger.info('Finished waiting for clients to discover each other');
 
       // Assert that messages get propagated
       await assertBroadcast(
@@ -297,7 +297,7 @@ describe('p2p client integration message propagation', () => {
       );
 
       // Now stop clients 2 and 3
-      logger.info(`Restarting clients 2 and 3`);
+      logger.info('Restarting clients 2 and 3');
       await Promise.all([client2.client.stop(), client3.client.stop()]);
 
       // We set client 3 to rollup version 2
@@ -323,7 +323,7 @@ describe('p2p client integration message propagation', () => {
       await startTestP2PClients(clients);
       // Give everyone time to connect again
       await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers rediscovered', 12, 0.5);
-      logger.info(`Finished waiting for clients to rediscover each other`);
+      logger.info('Finished waiting for clients to rediscover each other');
 
       // Client 1 sends a tx a block proposal and an attestation and only client 2 should receive them, client 3 is now on a new version
       {

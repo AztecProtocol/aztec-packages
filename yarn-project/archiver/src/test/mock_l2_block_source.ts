@@ -71,7 +71,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
   public addProposedBlocks(blocks: L2Block[]) {
     this.l2Blocks.push(...blocks);
-    this.log.verbose(`Added ${blocks.length} proposed blocks to the mock L2 block source`);
+    this.log.verbose('Added %d proposed blocks to the mock L2 block source', blocks.length);
   }
 
   public removeBlocks(numBlocks: number) {
@@ -86,7 +86,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     this.checkpointedBlockNumber = Math.min(this.checkpointedBlockNumber, maxBlockNum);
     this.provenBlockNumber = Math.min(this.provenBlockNumber, maxBlockNum);
     this.finalizedBlockNumber = Math.min(this.finalizedBlockNumber, maxBlockNum);
-    this.log.verbose(`Removed ${numBlocks} blocks from the mock L2 block source`);
+    this.log.verbose('Removed %d blocks from the mock L2 block source', numBlocks);
   }
 
   public setProvenBlockNumber(provenBlockNumber: number) {

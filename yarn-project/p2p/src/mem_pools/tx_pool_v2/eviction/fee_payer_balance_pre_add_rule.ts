@@ -104,7 +104,7 @@ export class FeePayerBalancePreAddRule implements PreAddRule {
 
     if (!incomingTxCovered) {
       // This shouldn't happen if the logic above is correct, but just in case
-      this.log.warn(`Incoming tx ${incomingMeta.txHash} was not covered but also not ignored - this is a bug`);
+      this.log.warn('Incoming tx %s was not covered but also not ignored - this is a bug', incomingMeta.txHash);
       return {
         shouldIgnore: true,
         txHashesToEvict: [],

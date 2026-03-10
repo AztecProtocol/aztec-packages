@@ -72,16 +72,16 @@ export class InvalidTxsAfterReorgRule implements EvictionRule {
       }
 
       if (txsToEvict.length > 0) {
-        this.log.info(`Evicting ${txsToEvict.length} txs from pool due to referencing pruned blocks`);
+        this.log.info('Evicting %d txs from pool due to referencing pruned blocks', txsToEvict.length);
         await pool.deleteTxs(txsToEvict, this.name);
       }
 
       const keptCount = pendingTxs.length - txsToEvict.length;
       if (keptCount > 0) {
-        this.log.verbose(`Kept ${keptCount} txs that did not reference pruned blocks`);
+        this.log.verbose('Kept %d txs that did not reference pruned blocks', keptCount);
       }
 
-      this.log.debug(`Evicted ${txsToEvict.length} invalid txs after reorg`, { txHashes: txsToEvict });
+      this.log.debug('Evicted %d invalid txs after reorg', txsToEvict.length, { txHashes: txsToEvict });
 
       return {
         reason: 'reorg_invalid_txs',

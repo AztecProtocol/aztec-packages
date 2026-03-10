@@ -70,11 +70,11 @@ describe('p2p client integration status handshake', () => {
         oldestHistoricBlockNumber: BlockNumber.ZERO,
       },
     });
-    logger.info(`Starting test ${expect.getState().currentTestName}`);
+    logger.info('Starting test %s', expect.getState().currentTestName);
   });
 
   afterEach(async () => {
-    logger.info(`Tearing down state for ${expect.getState().currentTestName}`);
+    logger.info('Tearing down state for %s', expect.getState().currentTestName);
     await shutdown(clients);
     logger.info('Shut down p2p clients');
 
@@ -110,7 +110,7 @@ describe('p2p client integration status handshake', () => {
 
     await startTestP2PClients(clients);
     await retryUntil(async () => (await client1.getPeers()).length == 1, 'peers discovered', 10, 0.5);
-    logger.info(`Finished waiting for clients to connect`);
+    logger.info('Finished waiting for clients to connect');
 
     for (const handshakeSpy of statusHandshakeSpies) {
       expect(handshakeSpy).toHaveBeenCalled();
@@ -141,7 +141,7 @@ describe('p2p client integration status handshake', () => {
 
     await startTestP2PClients(clients);
     await retryUntil(async () => (await client1.getPeers()).length == 1, 'peers discovered', 10, 0.5);
-    logger.info(`Finished waiting for clients to connect`);
+    logger.info('Finished waiting for clients to connect');
 
     for (const handshakeSpy of statusHandshakeSpies) {
       expect(handshakeSpy).toHaveBeenCalled();
@@ -162,7 +162,7 @@ describe('p2p client integration status handshake', () => {
       })
     ).map(x => x.client);
     const [_c0, c1, _c2] = clients;
-    logger.info(`Created p2p clients`);
+    logger.info('Created p2p clients');
 
     const statusHandshakeSpies = clients.map(c =>
       jest.spyOn((c as any).p2pService.peerManager, 'exchangeStatusHandshake'),
@@ -183,9 +183,9 @@ describe('p2p client integration status handshake', () => {
     });
 
     await startTestP2PClients(clients);
-    logger.info(`Started p2p clients`, { enrs: clients.map(c => c.getEnr()?.encodeTxt) });
+    logger.info('Started p2p clients', { enrs: clients.map(c => c.getEnr()?.encodeTxt) });
     await retryUntil(async () => (await c1.getPeers()).length >= 1, 'peers discovered', 10, 0.5);
-    logger.info(`Finished waiting for clients to connect`);
+    logger.info('Finished waiting for clients to connect');
 
     expect(disconnectSpies[1]).toHaveBeenCalled(); // c1 <> C0 disconnected
     expect(disconnectSpies[2]).not.toHaveBeenCalled(); // c2 is ok with both c0 and c1

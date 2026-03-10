@@ -232,7 +232,7 @@ export class ConnectionSampler {
       let updatedActiveConnectionsCount = undefined;
 
       if (!peerId) {
-        this.logger.warn(`Stream ${stream.id} does not have a peerId set`);
+        this.logger.warn('Stream %s does not have a peerId set', stream.id);
       } else {
         updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId.toString()) ?? 1) - 1;
         this.activeConnectionsCount.set(peerId.toString(), updatedActiveConnectionsCount);
@@ -246,7 +246,7 @@ export class ConnectionSampler {
       });
 
       if (!this.streams.has(stream)) {
-        this.logger.debug(`Stream ${stream.id} is not in the active streams set`);
+        this.logger.debug('Stream %s is not in the active streams set', stream.id);
       }
 
       await stream.close();
@@ -270,17 +270,15 @@ export class ConnectionSampler {
         // Check if we have lost track of accounting
         const peerId: PeerId = stream.metadata.peerId;
         if (!peerId) {
-          this.logger.warn(`Stream ${stream.id} does not have a peerId set`);
+          this.logger.warn('Stream %s does not have a peerId set', stream.id);
         } else if (this.activeConnectionsCount.get(peerId.toString()) === 0) {
           await this.close(stream);
           this.logger.debug('Cleaned up stale connection', { streamId: stream.id, peerId: peerId.toString() });
         }
       } catch (error) {
         this.logger.error(
-          `Error cleaning up stale connection to peer ${stream.metadata.peerId?.toString() ?? 'unknown'} stream ${
-            stream.id
-          }`,
-          { error },
+          `Error cleaning up stale connection to peer ${stream.metadata.peerId ?? 'unknown'} stream ${stream.id}`,
+          error,
         );
       }
     }

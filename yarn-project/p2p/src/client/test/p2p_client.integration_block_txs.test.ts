@@ -87,7 +87,7 @@ describe('p2p client integration block txs protocol ', () => {
         oldestHistoricBlockNumber: BlockNumber.ZERO,
       },
     });
-    logger.info(`Starting test ${expect.getState().currentTestName}`);
+    logger.info('Starting test %s', expect.getState().currentTestName);
 
     clients = (
       await makeAndStartTestP2PClients(NUMBER_OF_PEERS, {
@@ -111,7 +111,7 @@ describe('p2p client integration block txs protocol ', () => {
   });
 
   afterEach(async () => {
-    logger.info(`Tearing down state for ${expect.getState().currentTestName}`);
+    logger.info('Tearing down state for %s', expect.getState().currentTestName);
     await shutdown(clients);
     logger.info('Shut down p2p clients');
 

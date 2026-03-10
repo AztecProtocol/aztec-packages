@@ -67,10 +67,10 @@ async function main() {
 
   logger.info('Calldata Retriever Test Script');
   logger.info('===============================');
-  logger.info(`Rollup Address: ${rollupAddress.toString()}`);
-  logger.info(`Transaction Hash: ${txHash}`);
-  logger.info(`RPC URL: ${rpcUrl}`);
-  logger.info(`Target Committee Size: ${targetCommitteeSize}`);
+  logger.info('Rollup Address: %s', rollupAddress);
+  logger.info('Transaction Hash: %s', txHash);
+  logger.info('RPC URL: %s', rpcUrl);
+  logger.info('Target Committee Size: %d', targetCommitteeSize);
   logger.info('');
 
   try {
@@ -87,7 +87,7 @@ async function main() {
       throw new Error(`Transaction ${txHash} not found`);
     }
 
-    logger.info(`Transaction found in block ${tx.blockNumber}`);
+    logger.info('Transaction found in block %s', tx.blockNumber);
 
     // Create CalldataRetriever
     const retriever = new CalldataRetriever(
@@ -146,9 +146,9 @@ async function main() {
       payloadDigest: eventArgs.payloadDigest,
     };
 
-    logger.info(`Checkpoint Number: ${checkpointNumber}`);
-    logger.info(`Attestations Hash: ${expectedHashes.attestationsHash}`);
-    logger.info(`Payload Digest: ${expectedHashes.payloadDigest}`);
+    logger.info('Checkpoint Number: %s', checkpointNumber);
+    logger.info('Attestations Hash: %s', expectedHashes.attestationsHash);
+    logger.info('Payload Digest: %s', expectedHashes.payloadDigest);
 
     logger.info('');
     logger.info('Retrieving checkpoint from rollup transaction...');
@@ -160,19 +160,19 @@ async function main() {
     logger.info('');
     logger.info('Block Header Details:');
     logger.info('====================');
-    logger.info(`Checkpoint Number: ${result.checkpointNumber}`);
-    logger.info(`Block Hash: ${result.blockHash}`);
-    logger.info(`Archive Root: ${result.archiveRoot.toString()}`);
+    logger.info('Checkpoint Number: %s', result.checkpointNumber);
+    logger.info('Block Hash: %s', result.blockHash);
+    logger.info('Archive Root: %s', result.archiveRoot);
     logger.info('');
     logger.info('Header:');
-    logger.info(`  Slot Number: ${result.header.slotNumber.toString()}`);
-    logger.info(`  Timestamp: ${result.header.timestamp.toString()}`);
-    logger.info(`  Coinbase: ${result.header.coinbase.toString()}`);
-    logger.info(`  Fee Recipient: ${result.header.feeRecipient.toString()}`);
-    logger.info(`  Total Mana Used: ${result.header.totalManaUsed.toString()}`);
+    logger.info('  Slot Number: %s', result.header.slotNumber);
+    logger.info('  Timestamp: %s', result.header.timestamp);
+    logger.info('  Coinbase: %s', result.header.coinbase);
+    logger.info('  Fee Recipient: %s', result.header.feeRecipient);
+    logger.info('  Total Mana Used: %s', result.header.totalManaUsed);
     logger.info('');
     logger.info('Attestations:');
-    logger.info(`  Count: ${result.attestations.length}`);
+    logger.info('  Count: %d', result.attestations.length);
     logger.info(`  Non-empty attestations: ${result.attestations.filter((a: any) => !a.signature.isEmpty()).length}`);
 
     process.exit(0);

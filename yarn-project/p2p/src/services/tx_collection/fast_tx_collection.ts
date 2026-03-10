@@ -63,7 +63,7 @@ export class FastTxCollection {
   ) {
     const timeout = opts.deadline.getTime() - this.dateProvider.now();
     if (timeout <= 0) {
-      this.log.warn(`Deadline for fast tx collection is in the past (${timeout}ms)`, {
+      this.log.warn('Deadline for fast tx collection is in the past (%dms)', timeout, {
         deadline: opts.deadline.getTime(),
         now: this.dateProvider.now(),
       });
@@ -92,7 +92,11 @@ export class FastTxCollection {
     clearTimeout(timeoutTimer);
 
     this.log.verbose(
-      `Collected ${request.missingTxTracker.collectedTxs.length} txs out of ${txHashes.length} for ${input.type} at slot ${blockInfo.slotNumber}`,
+      'Collected %d txs out of %d for %s at slot %d',
+      request.missingTxTracker.collectedTxs.length,
+      txHashes.length,
+      input.type,
+      blockInfo.slotNumber,
       {
         ...blockInfo,
         duration,
@@ -111,7 +115,10 @@ export class FastTxCollection {
     const { blockInfo } = request;
 
     this.log.debug(
-      `Starting fast collection of ${request.missingTxTracker.numberOfMissingTxs} txs for ${request.type} at slot ${blockInfo.slotNumber}`,
+      'Starting fast collection of %d txs for %s at slot %d',
+      request.missingTxTracker.numberOfMissingTxs,
+      request.type,
+      blockInfo.slotNumber,
       { ...blockInfo, requestType: request.type, deadline: opts.deadline },
     );
 
@@ -125,7 +132,7 @@ export class FastTxCollection {
 
       // If we have collected all txs, we can stop here
       if (request.missingTxTracker.allFetched()) {
-        this.log.debug(`All txs collected for slot ${blockInfo.slotNumber} without reqresp`, blockInfo);
+        this.log.debug('All txs collected for slot %s without reqresp', blockInfo.slotNumber, blockInfo);
         return;
       }
 
@@ -141,9 +148,9 @@ export class FastTxCollection {
         missingTxs: request.missingTxTracker.missingTxHashes.values().map(txHash => txHash.toString()),
       };
       if (err instanceof Error && err.name === 'TimeoutError') {
-        this.log.warn(`Timed out collecting txs for ${request.type} at slot ${blockInfo.slotNumber}`, logCtx);
+        this.log.warn('Timed out collecting txs for %s at slot %s', request.type, blockInfo.slotNumber, logCtx);
       } else if (err instanceof Error && err.name === 'AbortError') {
-        this.log.warn(`Aborted collecting txs for ${request.type} at slot ${blockInfo.slotNumber}`, logCtx);
+        this.log.warn('Aborted collecting txs for %s at slot %s', request.type, blockInfo.slotNumber, logCtx);
       } else {
         this.log.error(`Error collecting txs for ${request.type} for slot ${blockInfo.slotNumber}`, err, logCtx);
       }
@@ -272,14 +279,19 @@ export class FastTxCollection {
     const slotNumber = blockInfo.slotNumber;
     if (timeoutMs < 100) {
       this.log.warn(
-        `Not initiating fast reqresp for txs for ${request.type} at slot ${blockInfo.slotNumber} due to timeout`,
+        'Not initiating fast reqresp for txs for %s at slot %d due to timeout',
+        request.type,
+        blockInfo.slotNumber,
         { timeoutMs, ...blockInfo },
       );
       return;
     }
 
     this.log.debug(
-      `Starting fast reqresp for ${request.missingTxTracker.numberOfMissingTxs} txs for ${request.type} at slot ${blockInfo.slotNumber}`,
+      'Starting fast reqresp for %d txs for %s at slot %d',
+      request.missingTxTracker.numberOfMissingTxs,
+      request.type,
+      blockInfo.slotNumber,
       { ...blockInfo, timeoutMs, pinnedPeer },
     );
 
@@ -341,7 +353,7 @@ export class FastTxCollection {
         const txHash = tx.txHash.toString();
         // Remove the tx hash from the missing set, and add it to the found set.
         if (request.missingTxTracker.markFetched(tx)) {
-          this.log.trace(`Found tx ${txHash} for fast collection request`, {
+          this.log.trace('Found tx %s for fast collection request', txHash, {
             ...request.blockInfo,
             txHash: tx.txHash.toString(),
             type: request.type,
@@ -349,7 +361,7 @@ export class FastTxCollection {
         }
         // If we found all txs for this request, we resolve the promise
         if (request.missingTxTracker.allFetched()) {
-          this.log.trace(`All txs found for fast collection request`, {
+          this.log.trace('All txs found for fast collection request', {
             ...request.blockInfo,
             type: request.type,
           });

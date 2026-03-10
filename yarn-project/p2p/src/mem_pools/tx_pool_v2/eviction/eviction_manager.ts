@@ -35,7 +35,7 @@ export class EvictionManager {
    */
   registerPreAddRule(rule: PreAddRule): void {
     this.preAddRules.push(rule);
-    this.log.debug(`Registered pre-add rule: ${rule.name}`);
+    this.log.debug('Registered pre-add rule: %s', rule.name);
   }
 
   /**
@@ -43,7 +43,7 @@ export class EvictionManager {
    */
   registerRule(rule: EvictionRule): void {
     this.postEventRules.push(rule);
-    this.log.debug(`Registered eviction rule: ${rule.name}`);
+    this.log.debug('Registered eviction rule: %s', rule.name);
   }
 
   /**
@@ -74,7 +74,7 @@ export class EvictionManager {
           }
         }
       } catch (err) {
-        this.log.error(`Error running pre-add rule ${rule.name}`, { err, txHash: incomingMeta.txHash });
+        this.log.error('Error running pre-add rule %s', rule.name, { err, txHash: incomingMeta.txHash });
         // On error, ignore the transaction to be safe
         return {
           shouldIgnore: true,
@@ -150,10 +150,10 @@ export class EvictionManager {
       try {
         const result = await rule.evict(context, this.pool);
         if (!result.success) {
-          this.log.warn(`Eviction rule ${rule.name} failed`, { error: result.error });
+          this.log.warn('Eviction rule %s failed', rule.name, { error: result.error });
         }
       } catch (err) {
-        this.log.error(`Error running eviction rule ${rule.name}`, { err });
+        this.log.error('Error running eviction rule %s', rule.name, { err });
       }
     }
   }

@@ -118,7 +118,7 @@ describe('ProposalTxCollector Benchmarks', () => {
   });
 
   beforeEach(() => {
-    logger.info(`Starting test ${expect.getState().currentTestName}`);
+    logger.info('Starting test %s', expect.getState().currentTestName);
   });
 
   describe.each(CASES)('$name (missing=$missingTxCount)', benchCase => {
@@ -132,7 +132,12 @@ describe('ProposalTxCollector Benchmarks', () => {
       const seed = blockNumber * 1_000_000;
 
       logger.info(
-        `Case=${benchCase.name}, missing=${missingTxCount}, collector=${collectorType}, peers=${peers}, timeoutMs=${timeoutMs}`,
+        'Case=%s, missing=%d, collector=%s, peers=%d, timeoutMs=%d',
+        benchCase.name,
+        missingTxCount,
+        collectorType,
+        peers,
+        timeoutMs,
       );
 
       try {

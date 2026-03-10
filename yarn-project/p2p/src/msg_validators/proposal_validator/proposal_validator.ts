@@ -37,24 +37,24 @@ export class ProposalValidator {
       if (slotNumber !== currentSlot && slotNumber !== nextSlot) {
         // Check if message is for previous slot and within clock tolerance
         if (!isWithinClockTolerance(slotNumber, currentSlot, this.epochCache)) {
-          this.logger.warn(`Penalizing peer for invalid slot number ${slotNumber}`, { currentSlot, nextSlot });
+          this.logger.warn('Penalizing peer for invalid slot number %s', slotNumber, { currentSlot, nextSlot });
           return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
         }
-        this.logger.verbose(`Ignoring proposal for previous slot ${slotNumber} within clock tolerance`);
+        this.logger.verbose('Ignoring proposal for previous slot %s within clock tolerance', slotNumber);
         return { result: 'ignore' };
       }
 
       // Signature validity
       const proposer = proposal.getSender();
       if (!proposer) {
-        this.logger.warn(`Penalizing peer for proposal with invalid signature`);
+        this.logger.warn('Penalizing peer for proposal with invalid signature');
         return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
       }
 
       // Proposer check
       const expectedProposer = await this.epochCache.getProposerAttesterAddressInSlot(slotNumber);
       if (expectedProposer !== undefined && !proposer.equals(expectedProposer)) {
-        this.logger.warn(`Penalizing peer for invalid proposer for current slot ${slotNumber}`, {
+        this.logger.warn('Penalizing peer for invalid proposer for current slot %s', slotNumber, {
           expectedProposer,
           proposer: proposer.toString(),
         });
@@ -76,7 +76,8 @@ export class ProposalValidator {
     const embeddedTxCount = proposal.txs?.length ?? 0;
     if (!this.txsPermitted && (proposal.txHashes.length > 0 || embeddedTxCount > 0)) {
       this.logger.warn(
-        `Penalizing peer for proposal with ${proposal.txHashes.length} transaction(s) when transactions are not permitted`,
+        'Penalizing peer for proposal with %d transaction(s) when transactions are not permitted',
+        proposal.txHashes.length,
       );
       return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
     }
@@ -84,7 +85,9 @@ export class ProposalValidator {
     // Max txs per block check
     if (this.maxTxsPerBlock !== undefined && proposal.txHashes.length > this.maxTxsPerBlock) {
       this.logger.warn(
-        `Penalizing peer for proposal with ${proposal.txHashes.length} transaction(s) when max is ${this.maxTxsPerBlock}`,
+        'Penalizing peer for proposal with %d transaction(s) when max is %d',
+        proposal.txHashes.length,
+        this.maxTxsPerBlock,
       );
       return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
     }
@@ -106,7 +109,7 @@ export class ProposalValidator {
 
     // Validate tx hashes for all txs embedded in the proposal
     if (!(await Promise.all(proposal.txs?.map(tx => tx.validateTxHash()) ?? [])).every(v => v)) {
-      this.logger.warn(`Penalizing peer for invalid tx hashes in proposal`);
+      this.logger.warn('Penalizing peer for invalid tx hashes in proposal');
       return { result: 'reject', severity: PeerErrorSeverity.LowToleranceError };
     }
 

@@ -72,7 +72,7 @@ export class LogStore {
       txEffect.privateLogs.forEach(log => {
         // Private logs use SiloedTag (already siloed by kernel)
         const tag = log.fields[0];
-        this.#log.debug(`Found private log with tag ${tag.toString()} in block ${block.number}`);
+        this.#log.debug('Found private log with tag %s in block %d', tag, block.number);
 
         const currentLogs = privateTaggedLogs.get(tag.toString()) ?? [];
         currentLogs.push(
@@ -462,7 +462,7 @@ export class LogStore {
           filter,
         );
         if (maxLogsHit) {
-          this.#log.debug(`Max logs hit at block ${blockNumber}`);
+          this.#log.debug('Max logs hit at block %d', blockNumber);
           break loopOverBlocks;
         }
       }
@@ -570,7 +570,7 @@ export class LogStore {
           filter,
         );
         if (maxLogsHit) {
-          this.#log.debug(`Max logs hit at block ${blockNumber}`);
+          this.#log.debug('Max logs hit at block %d', blockNumber);
           break loopOverBlocks;
         }
       }

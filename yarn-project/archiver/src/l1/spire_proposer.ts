@@ -58,7 +58,7 @@ export async function verifyProxyImplementation(
     });
 
     if (!implementationData) {
-      logger.warn(`No implementation found in EIP-1967 slot for proxy ${proxyAddress}`);
+      logger.warn('No implementation found in EIP-1967 slot for proxy %s', proxyAddress);
       return false;
     }
 
@@ -70,7 +70,7 @@ export async function verifyProxyImplementation(
     const matches = implementationAddress.toLowerCase() === expectedAddress.toLowerCase();
 
     if (!matches) {
-      logger.warn(`Proxy implementation mismatch: expected ${expectedAddress}, got ${implementationAddress}`, {
+      logger.warn('Proxy implementation mismatch: expected %s, got %s', expectedAddress, implementationAddress, {
         proxyAddress,
         expectedImplementation,
         actualImplementation: implementationAddress,
@@ -79,7 +79,7 @@ export async function verifyProxyImplementation(
 
     return matches;
   } catch (err) {
-    logger.warn(`Failed to verify proxy implementation for ${proxyAddress}: ${err}`);
+    logger.warn('Failed to verify proxy implementation for %s: %s', proxyAddress, err);
     return false;
   }
 }
@@ -103,7 +103,7 @@ export async function getCallsFromSpireProposer(
   try {
     // Check if transaction is to the Spire Proposer address
     if (!tx.to || !EthAddress.areEqual(tx.to, SPIRE_PROPOSER_ADDRESS)) {
-      logger.debug(`Transaction is not to Spire Proposer address (to: ${tx.to})`, { txHash });
+      logger.debug('Transaction is not to Spire Proposer address (to: %s)', tx.to, { txHash });
       return undefined;
     }
 
@@ -116,7 +116,7 @@ export async function getCallsFromSpireProposer(
     );
 
     if (!isValidProxy) {
-      logger.warn(`Spire Proposer proxy implementation verification failed`, { txHash, to: tx.to });
+      logger.warn('Spire Proposer proxy implementation verification failed', { txHash, to: tx.to });
       return undefined;
     }
 
@@ -128,12 +128,12 @@ export async function getCallsFromSpireProposer(
 
     // If not multicall, return undefined
     if (spireFunctionName !== 'multicall') {
-      logger.warn(`Transaction to Spire Proposer is not multicall (got ${spireFunctionName})`, { txHash });
+      logger.warn('Transaction to Spire Proposer is not multicall (got %s)', spireFunctionName, { txHash });
       return undefined;
     }
 
     if (spireArgs.length !== 1) {
-      logger.warn(`Unexpected number of arguments for Spire Proposer multicall (got ${spireArgs.length})`, {
+      logger.warn('Unexpected number of arguments for Spire Proposer multicall (got %d)', spireArgs.length, {
         txHash,
       });
       return undefined;
@@ -142,11 +142,11 @@ export async function getCallsFromSpireProposer(
     const [calls] = spireArgs;
 
     // Return all wrapped calls (hash matching in the caller determines which is the propose call)
-    logger.trace(`Decoded Spire Proposer with ${calls.length} call(s)`, { txHash });
+    logger.trace('Decoded Spire Proposer with %d call(s)', calls.length, { txHash });
     return calls.map(call => ({ to: call.target, data: call.data }));
   } catch (err) {
     // Any decoding error triggers fallback to trace
-    logger.warn(`Failed to decode Spire Proposer: ${err}`, { txHash });
+    logger.warn('Failed to decode Spire Proposer: %s', err, { txHash });
     return undefined;
   }
 }

@@ -33,20 +33,20 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
           );
           return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
         }
-        this.logger.debug(`Ignoring checkpoint attestation for previous slot ${slotNumber} within clock tolerance`);
+        this.logger.debug('Ignoring checkpoint attestation for previous slot %s within clock tolerance', slotNumber);
         return { result: 'ignore' };
       }
 
       // Verify the signature is valid
       const attester = message.getSender();
       if (attester === undefined) {
-        this.logger.warn(`Invalid signature in checkpoint attestation for slot ${slotNumber}`);
+        this.logger.warn('Invalid signature in checkpoint attestation for slot %s', slotNumber);
         return { result: 'reject', severity: PeerErrorSeverity.LowToleranceError };
       }
 
       // Verify the attester is in the committee for this slot
       if (!(await this.epochCache.isInCommittee(slotNumber, attester))) {
-        this.logger.warn(`Attester ${attester.toString()} is not in committee for slot ${slotNumber}`);
+        this.logger.warn('Attester %s is not in committee for slot %s', attester, slotNumber);
         return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
       }
 
@@ -56,17 +56,19 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
       const proposer = message.getProposer();
       const expectedProposer = await this.epochCache.getProposerAttesterAddressInSlot(slotNumber);
       if (!expectedProposer) {
-        this.logger.warn(`No proposer defined for slot ${slotNumber}`);
+        this.logger.warn('No proposer defined for slot %s', slotNumber);
         return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
       }
       if (!proposer) {
-        this.logger.warn(`Invalid proposer signature in checkpoint attestation for slot ${slotNumber}`);
+        this.logger.warn('Invalid proposer signature in checkpoint attestation for slot %s', slotNumber);
         return { result: 'reject', severity: PeerErrorSeverity.LowToleranceError };
       }
       if (!proposer.equals(expectedProposer)) {
         this.logger.warn(
-          `Proposer signature mismatch in checkpoint attestation. ` +
-            `Expected ${expectedProposer?.toString() ?? 'none'} but got ${proposer.toString()} for slot ${slotNumber}`,
+          'Proposer signature mismatch in checkpoint attestation. Expected %s but got %s for slot %s',
+          expectedProposer ?? 'none',
+          proposer,
+          slotNumber,
         );
         return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
       }
@@ -75,7 +77,7 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
     } catch (e) {
       // People shouldn't be sending us attestations if the committee doesn't exist
       if (e instanceof NoCommitteeError) {
-        this.logger.warn(`No committee exists for checkpoint attestation for slot ${slotNumber}`);
+        this.logger.warn('No committee exists for checkpoint attestation for slot %s', slotNumber);
         return { result: 'reject', severity: PeerErrorSeverity.LowToleranceError };
       }
       throw e;

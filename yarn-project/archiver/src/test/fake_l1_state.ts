@@ -195,7 +195,7 @@ export class FakeL1State {
     checkpointNumber: CheckpointNumber,
     options: AddCheckpointOptions,
   ): Promise<AddCheckpointResult> {
-    this.log.warn(`Adding checkpoint ${checkpointNumber}`);
+    this.log.warn('Adding checkpoint %s', checkpointNumber);
 
     const { l1BlockNumber, signers = [], messagesL1BlockNumber = l1BlockNumber - 3n } = options;
 

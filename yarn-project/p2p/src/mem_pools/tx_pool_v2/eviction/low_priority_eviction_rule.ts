@@ -48,7 +48,11 @@ export class LowPriorityEvictionRule implements EvictionRule {
         };
       }
 
-      this.log.info(`Evicting low priority txs. Pending tx count above limit: ${currentTxCount} > ${this.maxPoolSize}`);
+      this.log.info(
+        'Evicting low priority txs. Pending tx count above limit: %d > %d',
+        currentTxCount,
+        this.maxPoolSize,
+      );
       const numberToEvict = currentTxCount - this.maxPoolSize;
       const txsToEvict = pool.getLowestPriorityPending(numberToEvict);
 
@@ -56,14 +60,18 @@ export class LowPriorityEvictionRule implements EvictionRule {
         if (context.event === EvictionEvent.TXS_ADDED) {
           const toEvictSet = new Set(txsToEvict);
           const numNewTxsEvicted = context.newTxHashes.filter(newTxHash => toEvictSet.has(newTxHash)).length;
-          this.log.info(`Evicted ${txsToEvict.length} low priority txs, including ${numNewTxsEvicted} newly added txs`);
+          this.log.info(
+            'Evicted %d low priority txs, including %d newly added txs',
+            txsToEvict.length,
+            numNewTxsEvicted,
+          );
         } else {
-          this.log.info(`Evicted ${txsToEvict.length} low priority txs after chain prune`);
+          this.log.info('Evicted %d low priority txs after chain prune', txsToEvict.length);
         }
         await pool.deleteTxs(txsToEvict, this.name);
       }
 
-      this.log.debug(`Evicted ${txsToEvict.length} low priority txs`, {
+      this.log.debug('Evicted %d low priority txs', txsToEvict.length, {
         txHashes: txsToEvict,
       });
 

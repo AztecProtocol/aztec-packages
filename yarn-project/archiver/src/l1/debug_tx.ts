@@ -56,7 +56,7 @@ export async function getSuccessfulCallsFromDebug(
     throw new Error(`Failed to retrieve debug_traceTransaction for ${txHash}`);
   }
 
-  logger?.trace(`Retrieved debug_traceTransaction for ${txHash}`, { trace: rawTrace });
+  logger?.trace('Retrieved debug_traceTransaction for %s', txHash, { trace: rawTrace });
 
   // Validate the response with zod
   const trace = callTraceSchema.parse(rawTrace);

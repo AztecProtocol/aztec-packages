@@ -87,7 +87,7 @@ export class PeerScoring {
     const id = peerId.toString();
     const penaltyValue = this.peerPenalties[penalty];
     const newScore = this.updateScore(id, -penaltyValue);
-    this.logger.verbose(`Penalizing peer ${id} with ${penalty} (new score is ${newScore})`);
+    this.logger.verbose('Penalizing peer %s with %s (new score is %d)', id, penalty, newScore);
     return newScore;
   }
 

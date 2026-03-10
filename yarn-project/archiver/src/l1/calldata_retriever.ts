@@ -78,7 +78,7 @@ export class CalldataRetriever {
       payloadDigest: Hex;
     },
   ): Promise<CheckpointData> {
-    this.logger.trace(`Fetching checkpoint ${checkpointNumber} from rollup tx ${txHash}`);
+    this.logger.trace('Fetching checkpoint %s from rollup tx %s', checkpointNumber, txHash);
     const tx = await this.publicClient.getTransaction({ hash: txHash });
     return this.getCheckpointFromTx(tx, checkpointNumber, expectedHashes);
   }
@@ -92,7 +92,7 @@ export class CalldataRetriever {
     // Try to decode as multicall3 with hash-verified matching
     const multicall3Result = this.tryDecodeMulticall3(tx, expectedHashes, checkpointNumber, tx.blockHash!);
     if (multicall3Result) {
-      this.logger.trace(`Decoded propose calldata from multicall3 for tx ${tx.hash}`);
+      this.logger.trace('Decoded propose calldata from multicall3 for tx %s', tx.hash);
       this.instrumentation?.recordBlockProposalTxTarget(tx.to!, false);
       return multicall3Result;
     }
@@ -100,7 +100,7 @@ export class CalldataRetriever {
     // Try to decode as direct propose call
     const directResult = this.tryDecodeDirectPropose(tx, expectedHashes, checkpointNumber, tx.blockHash!);
     if (directResult) {
-      this.logger.trace(`Decoded propose calldata from direct call for tx ${tx.hash}`);
+      this.logger.trace('Decoded propose calldata from direct call for tx %s', tx.hash);
       this.instrumentation?.recordBlockProposalTxTarget(tx.to!, false);
       return directResult;
     }
@@ -108,14 +108,16 @@ export class CalldataRetriever {
     // Try to decode as Spire Proposer multicall wrapper
     const spireResult = await this.tryDecodeSpireProposer(tx, expectedHashes, checkpointNumber, tx.blockHash!);
     if (spireResult) {
-      this.logger.trace(`Decoded propose calldata from Spire Proposer for tx ${tx.hash}`);
+      this.logger.trace('Decoded propose calldata from Spire Proposer for tx %s', tx.hash);
       this.instrumentation?.recordBlockProposalTxTarget(tx.to!, false);
       return spireResult;
     }
 
     // Fall back to trace-based extraction
     this.logger.warn(
-      `Failed to decode multicall3, direct propose, or Spire proposer for L1 tx ${tx.hash}, falling back to trace for checkpoint ${checkpointNumber}`,
+      'Failed to decode multicall3, direct propose, or Spire proposer for L1 tx %s, falling back to trace for checkpoint %s',
+      tx.hash,
+      checkpointNumber,
     );
     this.instrumentation?.recordBlockProposalTxTarget(tx.to ?? EthAddress.ZERO.toString(), true);
     const tracedCalldata = await this.extractCalldataViaTrace(tx.hash);
@@ -153,7 +155,7 @@ export class CalldataRetriever {
       return undefined;
     }
 
-    this.logger.trace(`Decoded Spire Proposer wrapping for tx ${tx.hash}, ${spireWrappedCalls.length} inner call(s)`);
+    this.logger.trace('Decoded Spire Proposer wrapping for tx %s, %d inner call(s)', tx.hash, spireWrappedCalls.length);
 
     // Try each wrapped call as either multicall3 or direct propose
     for (const spireWrappedCall of spireWrappedCalls) {
@@ -161,19 +163,20 @@ export class CalldataRetriever {
 
       const multicall3Result = this.tryDecodeMulticall3(wrappedTx, expectedHashes, checkpointNumber, blockHash);
       if (multicall3Result) {
-        this.logger.trace(`Decoded propose calldata from Spire Proposer to multicall3 for tx ${tx.hash}`);
+        this.logger.trace('Decoded propose calldata from Spire Proposer to multicall3 for tx %s', tx.hash);
         return multicall3Result;
       }
 
       const directResult = this.tryDecodeDirectPropose(wrappedTx, expectedHashes, checkpointNumber, blockHash);
       if (directResult) {
-        this.logger.trace(`Decoded propose calldata from Spire Proposer to direct propose for tx ${tx.hash}`);
+        this.logger.trace('Decoded propose calldata from Spire Proposer to direct propose for tx %s', tx.hash);
         return directResult;
       }
     }
 
     this.logger.warn(
-      `Spire Proposer wrapped calls could not be decoded as multicall3 or direct propose for tx ${tx.hash}`,
+      'Spire Proposer wrapped calls could not be decoded as multicall3 or direct propose for tx %s',
+      tx.hash,
     );
     return undefined;
   }
@@ -199,7 +202,7 @@ export class CalldataRetriever {
     try {
       // Check if transaction is to Multicall3 address
       if (!tx.to || !EthAddress.areEqual(tx.to, MULTI_CALL_3_ADDRESS)) {
-        this.logger.debug(`Transaction is not to Multicall3 address (to: ${tx.to})`, { txHash, to: tx.to });
+        this.logger.debug('Transaction is not to Multicall3 address (to: %s)', tx.to, { txHash, to: tx.to });
         return undefined;
       }
 
@@ -211,12 +214,12 @@ export class CalldataRetriever {
 
       // If not aggregate3, return undefined (not a multicall3 transaction)
       if (multicall3Fn !== 'aggregate3') {
-        this.logger.warn(`Transaction is not multicall3 aggregate3 (got ${multicall3Fn})`, { txHash });
+        this.logger.warn('Transaction is not multicall3 aggregate3 (got %s)', multicall3Fn, { txHash });
         return undefined;
       }
 
       if (multicall3Args.length !== 1) {
-        this.logger.warn(`Unexpected number of arguments for multicall3 (got ${multicall3Args.length})`, { txHash });
+        this.logger.warn('Unexpected number of arguments for multicall3 (got %d)', multicall3Args.length, { txHash });
         return undefined;
       }
 
@@ -242,7 +245,7 @@ export class CalldataRetriever {
       }
 
       if (candidates.length === 0) {
-        this.logger.debug(`No propose candidates found in multicall3`, { txHash });
+        this.logger.debug('No propose candidates found in multicall3', { txHash });
         return undefined;
       }
 
@@ -256,7 +259,7 @@ export class CalldataRetriever {
       }
 
       if (verified.length === 1) {
-        this.logger.trace(`Verified single propose candidate via hash matching`, { txHash });
+        this.logger.trace('Verified single propose candidate via hash matching', { txHash });
         return verified[0];
       }
 
@@ -268,11 +271,11 @@ export class CalldataRetriever {
         return verified[0];
       }
 
-      this.logger.debug(`No candidates verified against expected hashes`, { txHash });
+      this.logger.debug('No candidates verified against expected hashes', { txHash });
       return undefined;
     } catch (err) {
       // Any decoding error triggers fallback to trace
-      this.logger.warn(`Failed to decode multicall3: ${err}`, { txHash });
+      this.logger.warn('Failed to decode multicall3: %s', err, { txHash });
       return undefined;
     }
   }
@@ -296,23 +299,23 @@ export class CalldataRetriever {
     try {
       // Check if transaction is to the rollup address
       if (!tx.to || !EthAddress.areEqual(tx.to, this.rollupAddress)) {
-        this.logger.debug(`Transaction is not to rollup address (to: ${tx.to})`, { txHash });
+        this.logger.debug('Transaction is not to rollup address (to: %s)', tx.to, { txHash });
         return undefined;
       }
 
       // Validate it's a propose call before full decode+verify
       const { functionName } = decodeFunctionData({ abi: RollupAbi, data: tx.input });
       if (functionName !== 'propose') {
-        this.logger.warn(`Transaction to rollup is not propose (got ${functionName})`, { txHash });
+        this.logger.warn('Transaction to rollup is not propose (got %s)', functionName, { txHash });
         return undefined;
       }
 
       // Decode, verify hashes, and build checkpoint data
-      this.logger.trace(`Validated direct propose call to rollup`, { txHash });
+      this.logger.trace('Validated direct propose call to rollup', { txHash });
       return this.tryDecodeAndVerifyPropose(tx.input, expectedHashes, checkpointNumber, blockHash);
     } catch (err) {
       // Any decoding error means it's not a valid propose call
-      this.logger.warn(`Failed to decode as direct propose: ${err}`, { txHash });
+      this.logger.warn('Failed to decode as direct propose: %s', err, { txHash });
       return undefined;
     }
   }
@@ -331,31 +334,33 @@ export class CalldataRetriever {
     let calls: CallInfo[];
     try {
       // Try trace_transaction first (using Parity/OpenEthereum/Erigon RPC)
-      this.logger.debug(`Attempting to trace transaction ${txHash} using trace_transaction`);
+      this.logger.debug('Attempting to trace transaction %s using trace_transaction', txHash);
       calls = await getSuccessfulCallsFromTrace(this.debugClient, txHash, rollupAddress, selector, this.logger);
-      this.logger.debug(`Successfully traced using trace_transaction, found ${calls.length} calls`);
+      this.logger.debug('Successfully traced using trace_transaction, found %d calls', calls.length);
     } catch (err) {
       const traceError = err instanceof Error ? err : new Error(String(err));
-      this.logger.verbose(`Failed trace_transaction for ${txHash}: ${traceError.message}`);
-      this.logger.debug(`Trace failure details for ${txHash}`, { traceError });
+      this.logger.verbose('Failed trace_transaction for %s: %s', txHash, traceError.message);
+      this.logger.debug('Trace failure details for %s', txHash, { traceError });
 
       try {
         // Fall back to debug_traceTransaction (Geth RPC)
-        this.logger.debug(`Attempting to trace transaction ${txHash} using debug_traceTransaction`);
+        this.logger.debug('Attempting to trace transaction %s using debug_traceTransaction', txHash);
         calls = await getSuccessfulCallsFromDebug(this.debugClient, txHash, rollupAddress, selector, this.logger);
-        this.logger.debug(`Successfully traced using debug_traceTransaction, found ${calls.length} calls`);
+        this.logger.debug('Successfully traced using debug_traceTransaction, found %d calls', calls.length);
       } catch (debugErr) {
         const debugError = debugErr instanceof Error ? debugErr : new Error(String(debugErr));
         // Log once per tx so we don't spam on every sync cycle when sync point doesn't advance
         if (!CalldataRetriever.traceFailureWarnedTxHashes.has(txHash)) {
           CalldataRetriever.traceFailureWarnedTxHashes.add(txHash);
           this.logger.warn(
-            `Cannot decode L1 tx ${txHash}: trace and debug RPC failed or unavailable. ` +
-              `trace_transaction: ${traceError.message}; debug_traceTransaction: ${debugError.message}`,
+            'Cannot decode L1 tx %s: trace and debug RPC failed or unavailable. trace_transaction: %s; debug_traceTransaction: %s',
+            txHash,
+            traceError.message,
+            debugError.message,
           );
         }
         // Full error objects can be very long; keep at debug only
-        this.logger.debug(`Trace/debug failure details for tx ${txHash}`, {
+        this.logger.debug('Trace/debug failure details for tx %s', txHash, {
           traceError,
           debugError,
           txHash,
@@ -411,7 +416,7 @@ export class CalldataRetriever {
           Buffer.from(hexToBytes(expectedHashes.attestationsHash)),
         )
       ) {
-        this.logger.warn(`Attestations hash mismatch during verification`, {
+        this.logger.warn('Attestations hash mismatch during verification', {
           computed: computedAttestationsHash,
           expected: expectedHashes.attestationsHash,
         });
@@ -426,7 +431,7 @@ export class CalldataRetriever {
       if (
         !Buffer.from(hexToBytes(computedPayloadDigest)).equals(Buffer.from(hexToBytes(expectedHashes.payloadDigest)))
       ) {
-        this.logger.warn(`Payload digest mismatch during verification`, {
+        this.logger.warn('Payload digest mismatch during verification', {
           computed: computedPayloadDigest,
           expected: expectedHashes.payloadDigest,
         });
@@ -435,7 +440,7 @@ export class CalldataRetriever {
 
       const attestations = CommitteeAttestation.fromPacked(packedAttestations, this.targetCommitteeSize);
 
-      this.logger.trace(`Validated and decoded propose calldata for checkpoint ${checkpointNumber}`, {
+      this.logger.trace('Validated and decoded propose calldata for checkpoint %s', checkpointNumber, {
         checkpointNumber,
         archive: decodedArgs.archive,
         header: decodedArgs.header,

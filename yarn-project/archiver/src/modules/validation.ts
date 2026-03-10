@@ -46,7 +46,7 @@ export async function validateCheckpointAttestations(
   const { committee, seed } = await epochCache.getCommitteeForEpoch(epoch);
   const logData = { checkpointNumber: checkpoint.number, slot, epoch, headerHash, archiveRoot };
 
-  logger?.debug(`Validating attestations for checkpoint ${checkpoint.number} at slot ${slot} in epoch ${epoch}`, {
+  logger?.debug('Validating attestations for checkpoint %s at slot %s in epoch %s', checkpoint.number, slot, epoch, {
     committee: (committee ?? []).map(member => member.toString()),
     recoveredAttestors: attestorInfos,
     postedAttestations: attestations.map(a => (a.address.isZero() ? a.signature : a.address).toString()),
@@ -55,14 +55,16 @@ export async function validateCheckpointAttestations(
 
   if (!committee || committee.length === 0) {
     logger?.warn(
-      `No committee found for epoch ${epoch} at slot ${slot}. Accepting checkpoint without validation.`,
+      'No committee found for epoch %s at slot %s. Accepting checkpoint without validation.',
+      epoch,
+      slot,
       logData,
     );
     return { valid: true };
   }
 
   if (await epochCache.isEscapeHatchOpen(epoch)) {
-    logger?.warn(`Escape hatch open for epoch ${epoch} at slot ${slot}, skipping checkpoint validation`);
+    logger?.warn('Escape hatch open for epoch %s at slot %s, skipping checkpoint validation', epoch, slot);
     return { valid: true };
   }
 
@@ -84,7 +86,7 @@ export async function validateCheckpointAttestations(
 
     // Fail on invalid signatures (no address recovered)
     if (info.status === 'invalid-signature' || info.status === 'empty') {
-      logger?.warn(`Attestation with empty or invalid signature at slot ${slot}`, {
+      logger?.warn('Attestation with empty or invalid signature at slot %s', slot, {
         committee,
         invalidIndex: i,
         ...logData,
@@ -99,7 +101,11 @@ export async function validateCheckpointAttestations(
 
       if (!expectedCommitteeMember || signer !== expectedCommitteeMember) {
         logger?.warn(
-          `Attestation at index ${i} from ${signer} does not match expected committee member ${expectedCommitteeMember} at slot ${slot}`,
+          'Attestation at index %d from %s does not match expected committee member %s at slot %s',
+          i,
+          signer,
+          expectedCommitteeMember,
+          slot,
           {
             committee,
             invalidIndex: i,
@@ -113,7 +119,7 @@ export async function validateCheckpointAttestations(
 
   const validAttestationCount = attestorInfos.filter(info => info.status === 'recovered-from-signature').length;
   if (validAttestationCount < requiredAttestationCount) {
-    logger?.warn(`Insufficient attestations for checkpoint at slot ${slot}`, {
+    logger?.warn('Insufficient attestations for checkpoint at slot %s', slot, {
       requiredAttestations: requiredAttestationCount,
       actualAttestations: validAttestationCount,
       ...logData,

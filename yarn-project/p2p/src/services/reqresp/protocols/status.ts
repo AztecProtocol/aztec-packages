@@ -112,13 +112,13 @@ export function reqRespStatusHandler(
   logger?: Logger,
 ) {
   return async (peerId: PeerId, _msg: Buffer) => {
-    logger?.trace(`Received status handshake request from ${peerId}`);
+    logger?.trace('Received status handshake request from %s', peerId);
     const status = StatusMessage.fromWorldStateSyncStatus(
       compressedComponentsVersion,
       (await worldStateSynchronizer.status()).syncSummary,
     );
     const response = status.toBuffer();
-    logger?.trace(`Responding status handshake from ${peerId}`, { data: bufferToHex(response) });
+    logger?.trace('Responding status handshake from %s', peerId, { data: bufferToHex(response) });
     return response;
   };
 }

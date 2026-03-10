@@ -14,7 +14,7 @@ export class TxPermittedValidator implements TxValidator<Tx> {
   validateTx(tx: Tx): Promise<TxValidationResult> {
     if (!this.permitted) {
       const txHash = tx.getTxHash();
-      this.#log.verbose(`Rejecting tx ${txHash.toString()}. Reason: Transactions are not permitted`);
+      this.#log.verbose('Rejecting tx %s. Reason: Transactions are not permitted', txHash);
       return Promise.resolve({ result: 'invalid', reason: ['Transactions are not permitted'] });
     }
     return Promise.resolve({ result: 'valid' });

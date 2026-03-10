@@ -177,7 +177,7 @@ export async function getPeerIdPrivateKey(
   }
   if (storedPeerIdPrivateKey) {
     if (peerIdPrivateKeyFilePath && !privateKeyFileExists) {
-      logger.verbose(`Peer ID private key found in the node's store, persisting it to ${peerIdPrivateKeyFilePath}`);
+      logger.verbose("Peer ID private key found in the node's store, persisting it to %s", peerIdPrivateKeyFilePath);
       await writePrivateKeyToFile(peerIdPrivateKeyFilePath, storedPeerIdPrivateKey);
     }
     return new SecretValue(storedPeerIdPrivateKey);
@@ -187,7 +187,7 @@ export async function getPeerIdPrivateKey(
   const newPeerIdPrivateKey = await generateKeyPair('secp256k1');
   const privateKeyString = Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
   if (peerIdPrivateKeyFilePath) {
-    logger.verbose(`Creating new peer ID private key and persisting it to ${peerIdPrivateKeyFilePath}`);
+    logger.verbose('Creating new peer ID private key and persisting it to %s', peerIdPrivateKeyFilePath);
     await writePrivateKeyToFile(peerIdPrivateKeyFilePath, privateKeyString);
   } else {
     logger.warn(

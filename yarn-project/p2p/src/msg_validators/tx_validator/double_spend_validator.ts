@@ -32,12 +32,12 @@ export class DoubleSpendTxValidator<T extends HasNullifierData> implements TxVal
     // Ditch this tx if it has repeated nullifiers
     const uniqueNullifiers = new Set(nullifiers.map(n => n.toBigInt()));
     if (uniqueNullifiers.size !== nullifiers.length) {
-      this.#log.verbose(`Rejecting tx ${tx.txHash} for emitting duplicate nullifiers`);
+      this.#log.verbose('Rejecting tx %s for emitting duplicate nullifiers', tx.txHash);
       return { result: 'invalid', reason: [TX_ERROR_DUPLICATE_NULLIFIER_IN_TX] };
     }
 
     if ((await this.#nullifierSource.nullifiersExist(nullifiers.map(n => n.toBuffer()))).some(Boolean)) {
-      this.#log.verbose(`Rejecting tx ${tx.txHash} for repeating a nullifier`);
+      this.#log.verbose('Rejecting tx %s for repeating a nullifier', tx.txHash);
       return { result: 'invalid', reason: [TX_ERROR_EXISTING_NULLIFIER] };
     }
 

@@ -154,7 +154,7 @@ class MockReqResp implements ReqRespInterface {
             break;
           }
         } catch (err) {
-          this.logger.debug(`Mock reqresp handler error from peer ${peer.peerId}`, { err });
+          this.logger.debug('Mock reqresp handler error from peer %s', peer.peerId, { err });
         }
       }
     }
@@ -243,7 +243,7 @@ class MockGossipSubService extends TypedEventEmitter<GossipsubEvents> implements
   };
 
   publish(topic: TopicStr, data: Uint8Array, _opts?: PublishOpts): Promise<PublishResult> {
-    this.logger.debug(`Publishing message on topic ${topic}`, { topic, sender: this.peerId.toString() });
+    this.logger.debug('Publishing message on topic %s', topic, { topic, sender: this.peerId.toString() });
     this.network.publishToPeers(topic, data, this.peerId);
     return Promise.resolve({ recipients: this.network.getPeers().filter(peer => !this.peerId.equals(peer)) });
   }
@@ -252,12 +252,12 @@ class MockGossipSubService extends TypedEventEmitter<GossipsubEvents> implements
     if (msg.propagationSource.equals(this.peerId)) {
       return; // Ignore messages from self
     }
-    this.logger.debug(`Received message on topic ${msg.msg.topic}`, { ...msg });
+    this.logger.debug('Received message on topic %s', msg.msg.topic, { ...msg });
     this.safeDispatchEvent<GossipsubMessage>(GossipSubEvent.MESSAGE, { detail: msg });
   }
 
   subscribe(topic: TopicStr): void {
-    this.logger.debug(`Subscribed to topic ${topic}`, { topic });
+    this.logger.debug('Subscribed to topic %s', topic, { topic });
     this.subscribedTopics.add(topic);
   }
 
@@ -308,7 +308,7 @@ export class MockGossipSubNetwork {
 
   public publishToPeers(topic: TopicStr, data: Uint8Array, sender: PeerId): void {
     const msgId = (this.nextMsgId++).toString();
-    this.logger.debug(`Network is distributing message on topic ${topic}`, {
+    this.logger.debug('Network is distributing message on topic %s', topic, {
       topic,
       size: data.length,
       sender: sender.toString(),

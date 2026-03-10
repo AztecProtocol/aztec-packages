@@ -50,12 +50,12 @@ export class FileStoreTxSource implements TxSource {
     try {
       const fileStore = await createReadOnlyFileStore(url, log);
       if (!fileStore) {
-        log.warn(`Failed to create file store for URL: ${url}`);
+        log.warn('Failed to create file store for URL: %s', url);
         return undefined;
       }
       return new FileStoreTxSource(fileStore, url, basePath, log, telemetry);
     } catch (err) {
-      log.warn(`Error creating file store for URL: ${url}`, { error: err });
+      log.warn('Error creating file store for URL: %s', url, { error: err });
       return undefined;
     }
   }

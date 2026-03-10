@@ -128,7 +128,7 @@ export class ReqResp implements ReqRespInterface {
 
     // Register all protocol handlers
     for (const subProtocol of Object.keys(subProtocolHandlers)) {
-      this.logger.debug(`Registering handler for sub protocol ${subProtocol}`);
+      this.logger.debug('Registering handler for sub protocol %s', subProtocol);
       await this.libp2p.handle(
         subProtocol,
         (data: IncomingStreamData) =>
@@ -147,7 +147,7 @@ export class ReqResp implements ReqRespInterface {
   ): Promise<void> {
     this.subProtocolHandlers[subProtocol] = handler;
     this.subProtocolValidators[subProtocol] = validator;
-    this.logger.debug(`Registering handler for sub protocol ${subProtocol}`);
+    this.logger.debug('Registering handler for sub protocol %s', subProtocol);
     await this.libp2p.handle(
       subProtocol,
       (data: IncomingStreamData) =>
@@ -320,7 +320,7 @@ export class ReqResp implements ReqRespInterface {
               };
 
               for (const index of indices) {
-                this.logger.info(`Sending request ${index} to peer ${peerAsString}`);
+                this.logger.info('Sending request %d to peer %s', index, peerAsString);
                 const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffers[index]);
 
                 // Check the status of the response buffer
@@ -354,13 +354,13 @@ export class ReqResp implements ReqRespInterface {
 
               // If peer had a hard failure (rate limit), replace it for future iterations
               if (shouldReplacePeer) {
-                this.logger.warn(`Peer ${peerAsString} hit a hard failure, removing from sampler`);
+                this.logger.warn('Peer %s hit a hard failure, removing from sampler', peerAsString);
                 batchSampler.removePeerAndReplace(peer);
               }
 
               return { peer, results: peerResults };
             } catch (error) {
-              this.logger.warn(`Failed batch request to peer ${peerAsString}:`, error);
+              this.logger.warn('Failed batch request to peer %s:', peerAsString, error);
               batchSampler.removePeerAndReplace(peer);
               return { peer, results: [] };
             }
@@ -381,7 +381,7 @@ export class ReqResp implements ReqRespInterface {
       }
 
       if (retryAttempts >= maxRetryAttempts) {
-        this.logger.warn(`Max retry attempts ${maxRetryAttempts} reached for batch request`);
+        this.logger.warn('Max retry attempts %d reached for batch request', maxRetryAttempts);
       }
 
       return responses;
@@ -394,7 +394,7 @@ export class ReqResp implements ReqRespInterface {
         () => new CollectiveReqRespTimeoutError(),
       );
     } catch (e: any) {
-      this.logger.warn(`${e.message} | subProtocol: ${subProtocol}`);
+      this.logger.warn('%s | subProtocol: %s', e.message, subProtocol);
       return [];
     }
   }
@@ -441,10 +441,13 @@ export class ReqResp implements ReqRespInterface {
       // Calculate expected response size based on the request payload
       const expectedSizeKb = subProtocolSizeCalculators[subProtocol](payload);
 
-      this.logger.trace(`Sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`);
+      this.logger.trace('Sending request to peer %s on sub protocol %s', peerId, subProtocol);
       stream = await this.connectionSampler.dialProtocol(peerId, subProtocol, dialTimeout);
       this.logger.trace(
-        `Opened stream ${stream.id} for sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`,
+        'Opened stream %s for sending request to peer %s on sub protocol %s',
+        stream.id,
+        peerId,
+        subProtocol,
       );
 
       const timeoutErr = new IndividualReqRespTimeoutError();
@@ -462,7 +465,7 @@ export class ReqResp implements ReqRespInterface {
       );
       return resp;
     } catch (e: any) {
-      this.logger.warn(`SUBPROTOCOL: ${subProtocol}\n`, e);
+      this.logger.warn('SUBPROTOCOL: %s', subProtocol, e);
       // On error we immediately abort the stream, this is preferred way,
       // because it signals to the sender that error happened, whereas
       // closing the stream only closes our side and is much slower
@@ -474,7 +477,7 @@ export class ReqResp implements ReqRespInterface {
       this.handleResponseError(e, peerId, subProtocol);
 
       // If there is an exception, we return an unknown response
-      this.logger.debug(`Error sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}: ${e}`);
+      this.logger.debug('Error sending request to peer %s on sub protocol %s: %s', peerId, subProtocol, e);
       return { status: ReqRespStatus.FAILURE };
     } finally {
       // Only close the stream if we created it
@@ -553,7 +556,7 @@ export class ReqResp implements ReqRespInterface {
         data: message,
       };
     } catch (e: any) {
-      this.logger.debug(`Reading message failed: ${e.message}`);
+      this.logger.debug('Reading message failed: %s', e.message);
 
       let status = ReqRespStatus.UNKNOWN;
       if (e instanceof ReqRespStatusError) {
@@ -748,7 +751,7 @@ export class ReqResp implements ReqRespInterface {
 
     //Punishable error - peer should never send badly formed request
     if (e instanceof ReqRespStatusError && e.status === ReqRespStatus.BADLY_FORMED_REQUEST) {
-      this.logger.debug(`Punishable error in ${subProtocol}: ${e.cause}`, logTags);
+      this.logger.debug('Punishable error in %s: %s', subProtocol, e.cause, logTags);
       return PeerErrorSeverity.LowToleranceError;
     }
 
@@ -776,7 +779,7 @@ export class ReqResp implements ReqRespInterface {
 
     // We do not punish a collective timeout, as the node triggers this interupt, independent of the peer's behaviour
     if (e instanceof CollectiveReqRespTimeoutError || e instanceof InvalidResponseError) {
-      this.logger.debug(`Non-punishable error in ${subProtocol}: ${e.message}`, logTags);
+      this.logger.debug('Non-punishable error in %s: %s', subProtocol, e.message, logTags);
       return undefined;
     }
 
@@ -794,7 +797,7 @@ export class ReqResp implements ReqRespInterface {
     const logTags = { peerId: peerId.toString(), subProtocol };
     // Do not punish if we are stopping the service
     if (e instanceof AbortError || e?.code == 'ABORT_ERR') {
-      this.logger.debug(`Request aborted: ${e.message}`, logTags);
+      this.logger.debug('Request aborted: %s', e.message, logTags);
       return undefined;
     }
 
@@ -808,7 +811,9 @@ export class ReqResp implements ReqRespInterface {
       e?.message?.includes('ended pushable')
     ) {
       this.logger.debug(
-        `Connection closed to peer from our side: ${peerId.toString()} (${e?.message ?? 'missing error message'})`,
+        'Connection closed to peer from our side: %s (%s)',
+        peerId,
+        e?.message ?? 'missing error message',
         logTags,
       );
       return undefined;
@@ -819,28 +824,28 @@ export class ReqResp implements ReqRespInterface {
     // it just signals an unreliable peer
     // We assume that the requesting node has a functioning networking stack.
     if (e?.code === 'ECONNRESET' || e?.code === 'EPIPE') {
-      this.logger.debug(`Connection reset: ${peerId.toString()}`, logTags);
+      this.logger.debug('Connection reset: %s', peerId, logTags);
       return PeerErrorSeverity.HighToleranceError;
     }
 
     if (e?.code === 'ECONNREFUSED') {
-      this.logger.debug(`Connection refused: ${peerId.toString()}`, logTags);
+      this.logger.debug('Connection refused: %s', peerId, logTags);
       return PeerErrorSeverity.HighToleranceError;
     }
 
     if (e?.code === 'ERR_UNEXPECTED_EOF') {
-      this.logger.debug(`Connection unexpected EOF: ${peerId.toString()}`, logTags);
+      this.logger.debug('Connection unexpected EOF: %s', peerId, logTags);
       return PeerErrorSeverity.HighToleranceError;
     }
 
     if (e?.code === 'ERR_UNSUPPORTED_PROTOCOL') {
-      this.logger.debug(`Sub protocol not supported by peer: ${peerId.toString()}`, logTags);
+      this.logger.debug('Sub protocol not supported by peer: %s', peerId, logTags);
       return PeerErrorSeverity.HighToleranceError;
     }
 
     // Timeout errors are punished with high tolerance, they can be due to a geographically far away or overloaded peer
     if (e instanceof IndividualReqRespTimeoutError || e instanceof TimeoutError) {
-      this.logger.debug(`Timeout error in ${subProtocol}: ${e.message}`, logTags);
+      this.logger.debug('Timeout error in %s: %s', subProtocol, e.message, logTags);
       return PeerErrorSeverity.HighToleranceError;
     }
 

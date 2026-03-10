@@ -71,7 +71,7 @@ export class DataTxValidator implements TxValidator<Tx> {
       const hash = await computeCalldataHash(calldata);
       if (!hash.equals(request.calldataHash)) {
         const reason = TX_ERROR_INCORRECT_CALLDATA;
-        this.#log.verbose(`Rejecting tx ${tx.getTxHash().toString()}. Reason: ${reason}. Call request index: ${i}.`);
+        this.#log.verbose('Rejecting tx %s. Reason: %s. Call request index: %d.', tx.getTxHash(), reason, i);
         return reason;
       }
     }

@@ -31,7 +31,7 @@ describe('Port Change', () => {
     logger.info('Starting test setup');
     // Use 5 node configuration for this test
     const configPath = path.join(__dirname, '../../testbench/configurations', 'normal-degree-5-nodes.json');
-    logger.info(`Loading config from ${configPath}`);
+    logger.info('Loading config from %s', configPath);
     const config = await import(configPath, { with: { type: 'json' } });
     testConfig = {
       ...testChainConfig,
@@ -40,7 +40,7 @@ describe('Port Change', () => {
       bootstrapNodesAsFullPeers: true,
     };
     numberOfClients = config.default.numberOfClients;
-    logger.info(`Creating ${numberOfClients} clients`);
+    logger.info('Creating %d clients', numberOfClients);
 
     workerClientManager = new WorkerClientManager(logger, testConfig);
     await workerClientManager.makeWorkerClients(numberOfClients);
@@ -64,7 +64,7 @@ describe('Port Change', () => {
         });
 
         workerClientManager.processes[clientIndex].send({ type: 'SEND_TX', tx: tx.toBuffer() });
-        logger.info(`Transaction sent from client ${clientIndex}`);
+        logger.info('Transaction sent from client %d', clientIndex);
 
         // Give time for message propagation
         await sleep(10_000); // Hopefully it will never take this long
@@ -72,19 +72,19 @@ describe('Port Change', () => {
 
         // Check message propagation results
         const numberOfClientsThatReceivedMessage = workerClientManager.numberOfClientsThatReceivedMessage();
-        logger.info(`Number of clients that received message: ${numberOfClientsThatReceivedMessage}`);
+        logger.info('Number of clients that received message: %d', numberOfClientsThatReceivedMessage);
 
         expect(numberOfClientsThatReceivedMessage).toBe(numberOfClients - 1);
         logger.info('All clients received message');
 
         workerClientManager.purgeMessageReceivedByClient();
 
-        logger.info(`Iteration ${i + 1} done`);
+        logger.info('Iteration %d done', i + 1);
 
         // change port for NODES_TO_CHANGE_PORT random clients
         for (let j = 0; j < NODES_TO_CHANGE_PORT; j++) {
           const clientIndexToChangePort = Math.floor(Math.random() * numberOfClients);
-          logger.info(`Changing port for client ${clientIndexToChangePort}`);
+          logger.info('Changing port for client %d', clientIndexToChangePort);
           await workerClientManager.changePort(clientIndexToChangePort, await getPort());
 
           // wait for 4 peer manager heartbeats for discovery

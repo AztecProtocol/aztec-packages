@@ -35,10 +35,10 @@ async function testTraceMethod(
     );
 
     schema.parse(result);
-    logger.debug(`${method} works for ${blockType} blocks`);
+    logger.debug('%s works for %s blocks', method, blockType);
     return true;
   } catch (error) {
-    logger.warn(`${method} failed for ${blockType} blocks: ${error}`);
+    logger.warn('%s failed for %s blocks: %s', method, blockType, error);
     return false;
   }
 }
@@ -81,7 +81,7 @@ export async function validateTraceAvailability(
 
     // Loop back to find a block with transactions (handles dev/test scenarios)
     while (!hasTxs(latestBlock) && latestBlock.number && latestBlock.number > 0n && --attempts > 0) {
-      logger.debug(`Block ${latestBlock.number} has no transactions, checking previous block`);
+      logger.debug('Block %s has no transactions, checking previous block', latestBlock.number);
       latestBlock = await client.getBlock({ blockNumber: latestBlock.number - 1n });
     }
 
@@ -125,7 +125,7 @@ export async function validateTraceAvailability(
 
     // Loop back to find a block with transactions (handles dev/test scenarios)
     while (!hasTxs(oldBlock) && oldBlock.number && oldBlock.number > 0n && --attempts > 0) {
-      logger.debug(`Block ${oldBlock.number} has no transactions, checking previous block`);
+      logger.debug('Block %s has no transactions, checking previous block', oldBlock.number);
       oldBlock = await client.getBlock({ blockNumber: oldBlock.number - 1n });
     }
 
@@ -158,7 +158,7 @@ export async function validateTraceAvailability(
       logger,
     );
   } catch (error) {
-    logger.warn(`Error validating debug_traceTransaction and trace_transaction availability: ${error}`);
+    logger.warn('Error validating debug_traceTransaction and trace_transaction availability: %s', error);
   }
 
   return result;
@@ -220,7 +220,7 @@ export async function validateAndLogTraceAvailability(
       'Ethereum debug client does not support debug_traceTransaction or trace_transaction methods. Transaction tracing will not be available. This may impact archiver syncing.';
 
     if (ethereumAllowNoDebugHosts) {
-      logger.warn(`${errorMessage} Continuing because ETHEREUM_ALLOW_NO_DEBUG_HOSTS is set to true.`);
+      logger.warn('%s Continuing because ETHEREUM_ALLOW_NO_DEBUG_HOSTS is set to true.', errorMessage);
     } else {
       logger.error(errorMessage);
       throw new Error(`${errorMessage} Set ETHEREUM_ALLOW_NO_DEBUG_HOSTS=true to bypass this check.`);

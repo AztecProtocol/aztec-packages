@@ -47,7 +47,7 @@ async function main() {
 
     // Check message propagation results
     const numberOfClientsThatReceivedMessage = workerClientManager.numberOfClientsThatReceivedMessage();
-    logger.info(`Number of clients that received message: ${numberOfClientsThatReceivedMessage}`);
+    logger.info('Number of clients that received message: %d', numberOfClientsThatReceivedMessage);
 
     assert(numberOfClientsThatReceivedMessage === numberOfClients - 1);
 

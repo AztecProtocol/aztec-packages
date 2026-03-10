@@ -87,7 +87,7 @@ export class EvictionManager {
           }
         }
       } catch (err) {
-        this.log.warn(`Pre-add eviction rule ${rule.name} unexpected error: ${String(err)}`, {
+        this.log.warn('Pre-add eviction rule %s unexpected error: %s', rule.name, String(err), {
           err,
           preAddRule: rule.name,
         });
@@ -121,7 +121,7 @@ export class EvictionManager {
       try {
         await rule.evict(ctx, this.txPool);
       } catch (err) {
-        this.log.warn(`Eviction rule ${rule.name} unexpected error: ${String(err)}`, {
+        this.log.warn('Eviction rule %s unexpected error: %s', rule.name, String(err), {
           err,
           evictionRule: rule.name,
           evictionEvent: ctx.event,

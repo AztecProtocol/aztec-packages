@@ -137,7 +137,7 @@ class WorkerClientManager {
     // Handle unexpected child process exit
     childProcess.on('exit', (code, signal) => {
       if (code !== 0) {
-        this.logger.warn(`Worker ${clientIndex} exited unexpectedly with code ${code} and signal ${signal}`);
+        this.logger.warn('Worker %d exited unexpectedly with code %s and signal %s', clientIndex, code, signal);
       }
     });
 
@@ -243,7 +243,7 @@ class WorkerClientManager {
         const batchPromises: Promise<void>[] = [];
 
         for (let i = batchStart; i < batchEnd; i++) {
-          this.logger.info(`Creating client ${i}`);
+          this.logger.info('Creating client %d', i);
 
           const otherNodes =
             bootstrapMode === 'all'
@@ -311,7 +311,7 @@ class WorkerClientManager {
       // Wait for the process to be ready with a timeout
       await sleep(10000);
 
-      this.logger.info(`Changing port for client ${clientIndex} to ${newPort}`);
+      this.logger.info('Changing port for client %d to %d', clientIndex, newPort);
 
       // Update the port in the ports array
       this.ports[clientIndex] = newPort;
@@ -324,7 +324,7 @@ class WorkerClientManager {
         (_, ind) => ind !== clientIndex && ind < Math.min(this.peerEnrs.length, 10),
       );
 
-      this.logger.info(`Changing port for client ${clientIndex} to ${newPort} with other nodes `, otherNodes);
+      this.logger.info('Changing port for client %d to %d with other nodes ', clientIndex, newPort, otherNodes);
 
       const config = this.createClientConfig(clientIndex, newPort, otherNodes);
       const [childProcess, readySignal] = this.spawnWorkerProcess(config, clientIndex);
@@ -358,7 +358,7 @@ class WorkerClientManager {
 
     return new Promise<void>(resolve => {
       const forceKillTimeout = setTimeout(() => {
-        this.logger.warn(`Process ${index} didn't exit gracefully, force killing...`);
+        this.logger.warn("Process %d didn't exit gracefully, force killing...", index);
         try {
           process.kill('SIGKILL');
         } catch (e) {
@@ -392,7 +392,7 @@ class WorkerClientManager {
    * Cleans up all worker processes with timeout and force kill if needed
    */
   async cleanup() {
-    this.logger.info(`Cleaning up ${this.processes.length} worker processes`);
+    this.logger.info('Cleaning up %d worker processes', this.processes.length);
 
     // Create array of promises for each process termination
     const terminationPromises = this.processes.map((process, index) => this.terminateProcess(process, index));

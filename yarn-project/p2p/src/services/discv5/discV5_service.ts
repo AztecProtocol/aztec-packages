@@ -142,7 +142,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     await this.discv5.start();
     this.startTime = Date.now();
 
-    this.logger.info(`DiscV5 service started`, {
+    this.logger.info('DiscV5 service started', {
       nodeId: this.enr.nodeId,
       peerId: this.peerId,
       enrUdp: await this.enr.getFullMultiaddr('udp'),
@@ -156,9 +156,9 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       // Do this conversion once since it involves an async function call
       this.bootstrapNodePeerIds = await Promise.all(this.bootstrapNodeEnrs.map(enr => enr.peerId()));
       this.logger.info(
-        `Adding ${this.bootstrapNodeEnrs.length} bootstrap nodes ENRs: ${this.bootstrapNodeEnrs
-          .map(enr => enr.encodeTxt())
-          .join(', ')}`,
+        'Adding %d bootstrap nodes ENRs: %s',
+        this.bootstrapNodeEnrs.length,
+        this.bootstrapNodeEnrs.map(enr => enr.encodeTxt()).join(', '),
       );
       for (const enr of this.bootstrapNodeEnrs) {
         try {
@@ -171,7 +171,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
           }
           this.discv5.addEnr(enr);
         } catch (e) {
-          this.logger.error(`Error adding bootratrap node ${enr.encodeTxt()}`, e);
+          this.logger.error('Error adding bootratrap node %s', enr.encodeTxt(), e);
         }
       }
     }
@@ -179,9 +179,9 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     // Add trusted peer ENRs if provided
     if (this.trustedPeerEnrs?.length) {
       this.logger.info(
-        `Adding ${this.trustedPeerEnrs.length} trusted peer ENRs: ${this.trustedPeerEnrs
-          .map(enr => enr.encodeTxt())
-          .join(', ')}`,
+        'Adding %d trusted peer ENRs: %s',
+        this.trustedPeerEnrs.length,
+        this.trustedPeerEnrs.map(enr => enr.encodeTxt()).join(', '),
       );
       for (const enr of this.trustedPeerEnrs) {
         this.discv5.addEnr(enr);
@@ -204,7 +204,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     try {
       await this.discv5.findRandomNode();
     } catch (err) {
-      this.logger.error(`Error running discV5 random node query: ${err}`);
+      this.logger.error('Error running discV5 random node query: %s', err);
     }
   }
 
@@ -244,7 +244,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   private async onEnrAdded(enr: ENR) {
     const multiAddrTcp = await enr.getFullMultiaddr('tcp');
     const multiAddrUdp = await enr.getFullMultiaddr('udp');
-    this.logger.debug(`Added ENR ${enr.encodeTxt()}`, { multiAddrTcp, multiAddrUdp, nodeId: enr.nodeId });
+    this.logger.debug('Added ENR %s', enr.encodeTxt(), { multiAddrTcp, multiAddrUdp, nodeId: enr.nodeId });
     this.onDiscovered(enr);
   }
 
@@ -262,7 +262,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       }
       if (!this.config.bootstrapNodeEnrVersionCheck) {
         // we do consider bootnodes to be full peers and we have been told to NOT version check them, so emit
-        this.logger.trace(`Skipping version check for bootnode ${enr.nodeId}`);
+        this.logger.trace('Skipping version check for bootnode %s', enr.nodeId);
         this.emit(PeerEvent.DISCOVERED, enr);
         return;
       }
@@ -277,7 +277,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     // Check the peer is an aztec peer
     const value = enr.kvs.get(AZTEC_ENR_KEY);
     if (!value) {
-      this.logger.debug(`Peer node ${enr.nodeId} does not have aztec key in ENR`);
+      this.logger.debug('Peer node %s does not have aztec key in ENR', enr.nodeId);
       return false;
     }
 
@@ -289,7 +289,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       return true;
     } catch (err: any) {
       if (err.name === 'ComponentsVersionsError') {
-        this.logger.debug(`Peer node ${enr.nodeId} has incorrect version: ${err.message}`, {
+        this.logger.debug('Peer node %s has incorrect version: %s', enr.nodeId, err.message, {
           compressedVersion,
           expected: this.versions,
         });

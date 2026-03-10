@@ -94,7 +94,7 @@ export class DeletedPool {
     }
 
     if (prunedCount > 0 || softDeletedCount > 0) {
-      this.#log.info(`Loaded ${prunedCount} txs from pruned blocks, ${softDeletedCount} soft-deleted`);
+      this.#log.info('Loaded %d txs from pruned blocks, %d soft-deleted', prunedCount, softDeletedCount);
     }
 
     // Slot-deleted txs are stale after restart - hard-delete them all
@@ -106,7 +106,7 @@ export class DeletedPool {
     }
 
     if (slotDeletedCount > 0) {
-      this.#log.info(`Hard-deleted ${slotDeletedCount} stale slot-deleted txs on startup`);
+      this.#log.info('Hard-deleted %d stale slot-deleted txs on startup', slotDeletedCount);
     }
   }
 
@@ -142,7 +142,7 @@ export class DeletedPool {
     }
 
     if (count > 0) {
-      this.#log.info(`Marked ${count} transactions from pruned blocks`);
+      this.#log.info('Marked %d transactions from pruned blocks', count);
     }
   }
 
@@ -186,7 +186,10 @@ export class DeletedPool {
       this.#state.delete(txHash);
       await this.#deletedTxsDB.delete(txHash);
       this.#log.debug(
-        `Cleared tracking for tx ${txHash}: re-mined at block ${minedAtBlock} (was ${existing.minedAtBlock})`,
+        'Cleared tracking for tx %s: re-mined at block %d (was %d)',
+        txHash,
+        minedAtBlock,
+        existing.minedAtBlock,
       );
     }
   }
@@ -237,7 +240,7 @@ export class DeletedPool {
       await this.#txsDB.delete(txHash);
     }
 
-    this.#log.debug(`Finalized ${toHardDelete.length} txs from pruned blocks at block ${finalizedBlockNumber}`, {
+    this.#log.debug('Finalized %d txs from pruned blocks at block %d', toHardDelete.length, finalizedBlockNumber, {
       txHashes: toHardDelete,
     });
     return toHardDelete;
@@ -270,7 +273,10 @@ export class DeletedPool {
     }
 
     this.#log.debug(
-      `Cleaned up ${toHardDelete.length} slot-deleted txs from slot ${previousSlot} (now slot ${currentSlot})`,
+      'Cleaned up %d slot-deleted txs from slot %d (now slot %d)',
+      toHardDelete.length,
+      previousSlot,
+      currentSlot,
       { txHashes: toHardDelete },
     );
   }

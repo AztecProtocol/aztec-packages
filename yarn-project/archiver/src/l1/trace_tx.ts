@@ -72,7 +72,7 @@ export async function getSuccessfulCallsFromTrace(
     throw new Error(`Failed to retrieve trace_transaction for ${txHash}`);
   }
 
-  logger?.trace(`Retrieved trace_transaction for ${txHash}`, { trace: rawTrace });
+  logger?.trace('Retrieved trace_transaction for %s', txHash, { trace: rawTrace });
 
   // Validate the response with zod
   const traces = traceTransactionResponseSchema.parse(rawTrace);

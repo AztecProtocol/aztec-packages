@@ -48,7 +48,11 @@ export class LowPriorityEvictionRule implements EvictionRule {
       const maxCount = this.config.maxPoolSize;
 
       if (currentTxCount <= maxCount) {
-        this.log.trace(`Not evicting low priority txs. Pending tx count below limit ${currentTxCount} <= ${maxCount}`);
+        this.log.trace(
+          'Not evicting low priority txs. Pending tx count below limit %d <= %d',
+          currentTxCount,
+          maxCount,
+        );
         return {
           reason: 'low_priority',
           success: true,
@@ -56,7 +60,7 @@ export class LowPriorityEvictionRule implements EvictionRule {
         };
       }
 
-      this.log.verbose(`Evicting low priority txs. Pending tx count above limit: ${currentTxCount} > ${maxCount}`);
+      this.log.verbose('Evicting low priority txs. Pending tx count above limit: %d > %d', currentTxCount, maxCount);
       const numberToEvict = currentTxCount - maxCount;
       const txsToEvict: TxHash[] = await txPool.getLowestPriorityEvictable(numberToEvict);
 
@@ -68,9 +72,14 @@ export class LowPriorityEvictionRule implements EvictionRule {
         txsToEvict.some(evictedTx => evictedTx.equals(newTxHash)),
       ).length;
 
-      this.log.verbose(`Evicted ${txsToEvict.length} low priority txs, including ${numNewTxsEvicted} newly added txs`, {
-        txsEvicted: txsToEvict,
-      });
+      this.log.verbose(
+        'Evicted %d low priority txs, including %d newly added txs',
+        txsToEvict.length,
+        numNewTxsEvicted,
+        {
+          txsEvicted: txsToEvict,
+        },
+      );
 
       return {
         reason: 'low_priority',
