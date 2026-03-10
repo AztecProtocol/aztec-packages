@@ -46,27 +46,29 @@ The tutorial walks through a complete working example. Clone it first, then foll
 
 ```bash
 git clone https://github.com/AztecProtocol/aztec-packages.git
-cd aztec-packages/docs/examples/webapp-tutorial
+cd aztec-packages
+git checkout #include_aztec_version
+cd docs/examples/webapp-tutorial
 yarn install
 ```
 
 ## Architecture
 
 ```text
-┌─────────────────────────────────────────────┐
-│                Browser                       │
-│                                              │
-│  ┌──────────┐   ┌──────┐   ┌─────────────┐ │
-│  │ React UI │──▸│Wallet│──▸│ PXE (WASM)  │ │
-│  └──────────┘   └──────┘   └──────┬──────┘ │
-│                                    │        │
-└────────────────────────────────────┼────────┘
-                                     │
-                              ┌──────▼──────┐
-                              │ Aztec Node  │
-                              │ (local or   │
-                              │  devnet)    │
-                              └─────────────┘
+┌──────────────────────────────────────────────────┐
+│                     Browser                       │
+│                                                   │
+│  ┌──────────┐    ┌────────┐    ┌──────────────┐  │
+│  │ React UI │───▸│ Wallet │───▸│ PXE  (WASM)  │  │
+│  └──────────┘    └────────┘    └──────┬───────┘  │
+│                                       │          │
+└───────────────────────────────────────┼──────────┘
+                                        │ RPC
+                                 ┌──────▼───────┐
+                                 │  Aztec Node  │
+                                 │  (local or   │
+                                 │   devnet)    │
+                                 └──────────────┘
 ```
 
 **PXE** (Private eXecution Environment) runs in the browser as WASM. It handles private state, note discovery, and proof generation — your secrets never leave the browser.
@@ -76,14 +78,14 @@ yarn install
 1. [The Contract](./01-the-contract.md) — understand the Pod Racing contract, compile it, deploy and interact via script
 2. [Project Setup](./02-project-setup.md) — project structure overview, Vite config, environment
 3. [Network & Wallet](./03-network-and-wallet.md) — connecting to Aztec, embedded wallet, wallet SDK
-4. [Wallet SDK](./wallet-sdk/index.md) — discovery, encrypted channels, capabilities, and integration on both dApp and wallet sides
-5. [Contract Interaction](./04-contract-interaction.md) — deploying and calling contracts from the webapp, game lobby and gameplay
-6. [Transactions & Fees](./05-transactions-and-fees.md) — tx lifecycle, SponsoredFPC
-7. [Putting It Together](./06-putting-it-together.md) — full App component, running the app
+4. [Contract Interaction](./04-contract-interaction.md) — deploying and calling contracts from the webapp, game lobby and gameplay
+5. [Transactions & Fees](./05-transactions-and-fees.md) — tx lifecycle, SponsoredFPC
+6. [Putting It Together](./06-putting-it-together.md) — full App component, running the app
+7. [Wallet SDK](./wallet-sdk/index.md) — deep dive into discovery, encrypted channels, capabilities, and integration on both dApp and wallet sides
 
 ## Completed example
 
-The full working example including the contract source is available at [`docs/examples/webapp-tutorial/`](https://github.com/AztecProtocol/aztec-packages/tree/next/docs/examples/webapp-tutorial).
+The full working example including the contract source is available at [`docs/examples/webapp-tutorial/`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/docs/examples/webapp-tutorial).
 
 The example also includes a **functional wallet extension** (`test-extension/`) that can deploy accounts and send real transactions on devnet using SponsoredFPC for fee payment. See the [Network & Wallet](./03-network-and-wallet.md#testing-with-the-tutorial-wallet-extension) section for setup instructions.
 

@@ -1,6 +1,6 @@
 ---
 title: "4. Contract Interaction & Gameplay"
-sidebar_position: 5
+sidebar_position: 4
 description: "Deploy and call the Pod Racing contract from the webapp, handle game lobby and private gameplay"
 ---
 
@@ -12,9 +12,7 @@ Now that you have a wallet, you can deploy the Pod Racing contract and interact 
 
 Before your PXE (Private eXecution Environment) can interact with a contract, it needs two pieces of information: the **artifact** (the compiled contract bytecode and ABI) and the **instance** (the deployed address and constructor parameters). Without these, PXE cannot construct proofs or route transactions to the correct contract.
 
-Open `src/contract.ts`:
-
-#include_code contract /docs/examples/webapp-tutorial/src/contract.ts typescript
+Open [`src/contract.ts`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/docs/examples/webapp-tutorial/src/contract.ts). This file imports the generated `PodRacingContract` class from the compiled artifacts and wraps each contract method in a simple async function that the UI components call. The key functions are described below.
 
 ### Deploying a new contract
 
@@ -22,7 +20,7 @@ The `deployContract` function calls `PodRacingContract.deploy()` to construct a 
 
 ### Attaching to an existing contract
 
-When joining someone else's game, you didn't deploy the contract, so your PXE doesn't know about it. `attachToContract` calls `PodRacingContract.at()` to create a typed contract handle bound to the existing contract address and wallet. Once attached, your PXE can construct and send transactions to this contract.
+When joining someone else's game, you didn't deploy the contract, so your PXE doesn't know about it. `attachToContract` first registers the contract with your PXE by fetching the on-chain instance from the node and providing the compiled artifact — this is required for private function execution, since PXE needs the contract bytecode locally to generate proofs. It then calls `PodRacingContract.at()` to create a typed contract handle bound to the existing contract address and wallet.
 
 ### Game actions
 
@@ -56,11 +54,7 @@ The opponent pastes the contract address and game ID to join. Under the hood, th
 
 ## The game board component
 
-Open `src/components/GameBoard.tsx`. The board lets you allocate points across 5 tracks each round. There is a constraint: your total points per round must sum to less than 10 (i.e., at most 9 points). This forces strategic trade-offs — you can't dominate every track.
-
-#include_code game-board-imports /docs/examples/webapp-tutorial/src/components/GameBoard.tsx typescript
-
-#include_code game-board-component /docs/examples/webapp-tutorial/src/components/GameBoard.tsx typescript
+Open [`src/components/GameBoard.tsx`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/docs/examples/webapp-tutorial/src/components/GameBoard.tsx). The board lets you allocate points across 5 tracks each round. There is a constraint: your total points per round must sum to less than 10 (i.e., at most 9 points). This forces strategic trade-offs — you can't dominate every track.
 
 ### Submitting a round (private transaction)
 

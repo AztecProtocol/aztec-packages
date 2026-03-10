@@ -6,7 +6,15 @@ description: "Build an Aztec wallet extension — handle discovery, manage sessi
 
 # Wallet Extension Integration
 
-This page covers the wallet extension side: handling discovery requests, managing encrypted sessions, routing messages, and implementing wallet methods. The patterns come from the [tutorial wallet extension](../../wallet-extension/index.md) in `test-extension/`.
+This page is a reference for wallet extension developers. It walks through each component of the SDK integration — you don't need to follow it step-by-step. For the full source, see the [`test-extension/`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/docs/examples/webapp-tutorial/test-extension) directory.
+
+## What you'll learn
+
+- How to set up a **content script** that relays messages between a dApp page and the extension background
+- How to use `BackgroundConnectionHandler` to manage **discovery**, **ECDH key exchange**, and **encrypted sessions**
+- How to **route wallet method calls** — deciding which need user approval and which auto-execute
+- How to extend `BaseWallet` to implement your own **wallet methods** (accounts, transactions, fees)
+- How to handle **session lifecycle** — trusted origins, cleanup, and state persistence across service worker restarts
 
 ## Overview
 
@@ -20,15 +28,7 @@ A wallet extension has three components that use the SDK:
 
 ## Content Script
 
-The content script is the simplest piece — it relays messages and never sees encryption keys:
-
-#include_code content-script docs/examples/webapp-tutorial/test-extension/src/content-script.ts typescript
-
-`ContentScriptConnectionHandler` needs a transport with two functions:
-- `sendToBackground(message)` — forward to the background service worker
-- `addBackgroundListener(handler)` — receive messages from background
-
-Call `handler.start()` immediately. The handler listens for discovery requests from the page and relays them.
+The content script is the simplest piece — it relays messages between the page and the background service worker, and never sees encryption keys. Create a `ContentScriptConnectionHandler` with a transport that provides `sendToBackground(message)` and `addBackgroundListener(handler)`, then call `handler.start()`. See [`test-extension/src/content-script.ts`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/docs/examples/webapp-tutorial/test-extension/src/content-script.ts) for the full implementation.
 
 ## Background Service Worker
 
@@ -36,20 +36,11 @@ The background script is where most of the SDK integration happens.
 
 ### Configuration
 
-Define your wallet's identity:
-
-#include_code wallet-config docs/examples/webapp-tutorial/test-extension/src/config.ts typescript
+Define your wallet's identity in a config object with `walletId`, `name`, `icon`, and `chainId`. See [`test-extension/src/config.ts`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/docs/examples/webapp-tutorial/test-extension/src/config.ts).
 
 ### Transport
 
-The background transport sends messages to content scripts and filters incoming messages:
-
-#include_code transport docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
-
-Key points:
-- `sendToTab` uses `chrome.tabs.sendMessage` to reach specific content scripts
-- `addContentListener` filters out popup messages (those have a `target` field) and storage proxy messages
-- Only discovery, key exchange, and encrypted wallet messages reach the handler
+The background transport sends messages to content scripts via `chrome.tabs.sendMessage` and filters incoming messages — only discovery, key exchange, and encrypted wallet messages reach the handler (popup and storage proxy messages are filtered out). See the transport setup in [`test-extension/src/background.ts`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/docs/examples/webapp-tutorial/test-extension/src/background.ts).
 
 ### Handler Initialization
 
@@ -68,7 +59,7 @@ The SDK provides four optional callbacks at different protocol stages. The tutor
 
 Called when a dApp broadcasts a discovery request. You decide whether to show an approval UI or auto-approve:
 
-#include_code callbacks docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
+#include_code callbacks /docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
 
 Key responsibilities:
 - **Stale session cleanup** — terminate sessions from the same tab (handles page refresh)
@@ -89,13 +80,13 @@ Called after ECDH key exchange completes. The session has a `verificationHash` f
 
 Called when a dApp sends an encrypted wallet method call. Messages arriving before emoji verification are queued and flushed after the user confirms:
 
-#include_code on-wallet-message docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
+#include_code on-wallet-message /docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
 
 ## Message Routing
 
 The core routing logic decides which methods need user approval:
 
-#include_code approval-check docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
+#include_code approval-check /docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
 
 The approval matrix:
 
@@ -132,13 +123,13 @@ await handler.sendResponse(session.sessionId, {
 
 For auto-executing methods, forward to the offscreen document and return the result:
 
-#include_code send-to-offscreen docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
+#include_code send-to-offscreen /docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
 
 ## Extending BaseWallet
 
 The offscreen document hosts your wallet implementation. Extend `BaseWallet` to get `sendTx`, `simulateTx`, `batch`, and other methods for free:
 
-#include_code wallet-instance docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
+#include_code wallet-instance /docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
 
 ### What You Must Implement
 
@@ -148,7 +139,7 @@ The offscreen document hosts your wallet implementation. Extend `BaseWallet` to 
 | `getAccounts()` | Return all accounts (with aliases) |
 
 :::tip Custom Fee Payment
-`completeFeeOptions` has a default implementation that uses the sender's fee juice balance. Override it to inject a custom fee payment strategy (e.g., `SponsoredFPC`). The tutorial wallet overrides this — see the `complete-fee-options` code block below.
+`completeFeeOptions` has a default implementation that uses the sender's fee juice balance. Override it to inject a custom fee payment strategy (e.g., `SponsoredFPC`). The tutorial wallet overrides this — see [`test-extension/src/offscreen/offscreen.ts`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts) for the implementation.
 :::
 
 ### What BaseWallet Provides
@@ -171,17 +162,13 @@ The offscreen document hosts your wallet implementation. Extend `BaseWallet` to 
 
 The offscreen document handles all wallet methods dynamically using `WalletSchema` for type-safe argument parsing:
 
-#include_code wallet-method-handler docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
+#include_code wallet-method-handler /docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts typescript
 
 ## Session Lifecycle
 
 ### Trusted Origins
 
-Store approved origins so returning users get auto-reconnected:
-
-#include_code trusted-origins docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
-
-When a trusted origin connects, the wallet:
+Store approved origins so returning users get auto-reconnected. When a trusted origin connects, the wallet:
 1. Auto-approves discovery (no popup)
 2. Auto-confirms the session (no emoji verification)
 3. Auto-grants capabilities (if requesting the same set)
@@ -201,11 +188,7 @@ The handler provides cleanup methods:
 
 ## State Persistence
 
-Service workers restart frequently. Persist critical state to survive restarts:
-
-#include_code state-persistence docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
-
-Use `chrome.storage.session` — it survives service worker restarts but clears when the browser closes.
+Service workers restart frequently. Use `chrome.storage.session` to persist critical state (like trusted origins) — it survives service worker restarts but clears when the browser closes.
 
 :::note
 The `BackgroundConnectionHandler`'s internal state (active sessions, pending discoveries) is **not** persisted — sessions don't survive extension reloads. On restart, dApps will re-discover and reconnect. Trusted origin auto-approve makes this seamless.
@@ -213,13 +196,9 @@ The `BackgroundConnectionHandler`'s internal state (active sessions, pending dis
 
 ## Extension Lifecycle
 
-Handle extension install/update and startup:
+On install/update, clear pending state since sessions don't survive reloads. On startup, restore persisted state and preload the offscreen document to warm up WASM. See the lifecycle handlers in [`test-extension/src/background.ts`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/docs/examples/webapp-tutorial/test-extension/src/background.ts).
 
-#include_code lifecycle docs/examples/webapp-tutorial/test-extension/src/background.ts typescript
-
-On install/update, clear pending state since sessions don't survive reloads. On startup, restore persisted state and preload the offscreen document to warm up WASM.
-
-## Next Steps
+## Next steps
 
 - [dApp Integration](./01-dapp-integration.md) — See how the other side connects to your wallet
 - [Wallet Extension Tutorial](../../wallet-extension/index.md) — Full step-by-step guide to building a wallet extension, including accounts, transactions, and approval UIs

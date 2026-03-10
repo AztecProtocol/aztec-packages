@@ -26,7 +26,8 @@ export async function createLocalPXE(nodeUrl: string) {
   const aztecNode = createAztecNodeClient(nodeUrl);
   const config = getPXEConfig();
   config.l1Contracts = await aztecNode.getL1ContractAddresses();
-  config.proverEnabled = true;
+  const isLocal = nodeUrl.includes('localhost') || nodeUrl.includes('127.0.0.1');
+  config.proverEnabled = !isLocal;
   const pxe = await createPXE(aztecNode, config, {});
   console.log('PXE connected to node at:', nodeUrl);
 

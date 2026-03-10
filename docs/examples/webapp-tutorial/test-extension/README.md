@@ -88,9 +88,11 @@ This compiles:
 
 ### Approve Transactions
 
-1. When a dApp calls `sendTx()` or `simulateTx()`, the extension shows an approval
+1. When a dApp calls `sendTx()`, the extension shows an approval popup
 2. Review the transaction details
 3. Click "Approve" to sign and submit
+
+Note: `simulateTx()` does **not** require approval — it auto-executes because simulations are read-only and don't change state. Only `sendTx()` (which submits a state-changing transaction) triggers the approval popup.
 
 ## File Structure
 

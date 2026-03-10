@@ -6,7 +6,11 @@ description: "Walk through the Pod Racing smart contract, compile it, and deploy
 
 # The Contract
 
-In this section you'll walk through the Pod Racing smart contract, compile it, and run a standalone script that deploys and plays a full game against a local network.
+:::note Prerequisites
+Make sure you've completed the [setup steps](./index.md#clone-the-example) before continuing.
+:::
+
+In this section, you walk through the Pod Racing smart contract, compile it, and run a standalone script that deploys and plays a full game against a local network.
 
 ## Overview
 
@@ -64,12 +68,12 @@ The fields `track1` through `track5` store the points allocated to each track fo
 
 ### How private notes work
 
-In Aztec, private state is stored as **notes** — encrypted data objects that live in your PXE local database. When a note is created, it is encrypted with the owner's public key so that only the owner's PXE can decrypt and read it. The note is also committed to the network as a hash (called a commitment). The network never sees the plaintext — it only stores the commitment, which proves the note exists without revealing its contents.
+In Aztec, private state is stored as **notes** — encrypted data objects that live in your PXE local database. When a note is created, it is encrypted with the owner's public key so that only the owner's PXE can decrypt and read it. The note is also committed to the network as a hash (called a commitment), which allows for proving the note exists without revealing its contents.
 
 When you call `play_round`, the contract creates a `GameRoundNote` with your allocation. The flow:
 1. You call `play_round(gameId, round, 3, 2, 1, 2, 1)` — a **private function**
 2. The contract creates a `GameRoundNote` with your allocation, stored privately
-3. It then enqueues a **public** call to `validate_and_play_round` which increments your round counter (visible) without revealing your points (hidden). "Enqueues" means the private function schedules a public function to run after the private execution completes — private functions cannot modify public state directly, so they use this mechanism to trigger public side effects.
+3. It then enqueues a **public** call to `validate_and_play_round` which increments your round counter (visible) without revealing your points (hidden). "Enqueues" means the private function schedules a public function to run after the private execution completes. Private functions cannot modify public state directly, so they use this mechanism to trigger public side effects (e.g., state changes or emitting logs).
 4. Your opponent's PXE cannot decrypt your notes — they only see that you completed a round
 
 This means:
@@ -136,7 +140,7 @@ This runs `yarn compile && yarn codegen`, producing `src/artifacts/PodRacing.ts`
 
 To verify everything works, run a standalone TypeScript script that deploys the contract and plays a full game against a local network.
 
-Open `scripts/deploy-and-interact.ts`. It follows the same pattern as the [aztec.js Getting Started](../../aztecjs-getting-started.md) guide.
+Open `scripts/deploy-and-interact.ts`. It follows the same pattern as the [aztec.js Getting Started](../aztecjs-getting-started.md) guide.
 
 ### Setup
 
@@ -166,17 +170,21 @@ Both players call `finish_game` to reveal their aggregated scores, then either p
 
 ### Run it
 
-Make sure you have a local network running, then:
+Make sure you have a local network running first:
 
 ```bash
 # Terminal 1: Start the local network
 aztec start --local-network
+```
 
+Once the network is ready (you can check with `curl http://localhost:8080/status`), run the script in a separate terminal:
+
+```bash
 # Terminal 2: Run the script
 yarn interact
 ```
 
-You should see output showing the contract deployment, game creation, rounds being played, and the winner being determined.
+You should see output showing the contract deployment, game creation, rounds being played, and the winner being determined. The script takes a few minutes to complete as each transaction requires proof generation.
 
 ## Next steps
 

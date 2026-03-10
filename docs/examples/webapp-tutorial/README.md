@@ -6,7 +6,7 @@ A sample Aztec webapp demonstrating wallet connection, contract deployment, and 
 
 - Node.js 22+
 - Yarn
-- Docker (for running the local Aztec network)
+- The Aztec CLI installed (`aztec` command available)
 
 ## Quick Start
 
@@ -30,22 +30,8 @@ yarn codegen
 
 ### 4. Start the local Aztec network
 
-Using Docker:
-
 ```bash
-# Create a network for the containers
-docker network create aztec-net
-
-# Start Anvil (L1)
-docker run -d --name anvil --network aztec-net -p 8545:8545 \
-  ghcr.io/foundry-rs/foundry:latest \
-  'anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337'
-
-# Start the Aztec local network
-docker run -d --name aztec-local-network --network aztec-net -p 8080:8080 \
-  -e ETHEREUM_HOSTS=http://anvil:8545 \
-  -e L1_CHAIN_ID=31337 \
-  aztecprotocol/aztec:latest start --local-network
+aztec start --local-network
 ```
 
 Wait for the network to be ready (check `curl http://localhost:8080/status`).
@@ -62,13 +48,6 @@ Open http://localhost:5173 in your browser.
 
 The project includes a test wallet extension for development and E2E testing.
 
-### Loading the Test Extension in Chrome
-
-1. Open Chrome and navigate to `chrome://extensions/`
-2. Enable **Developer mode** (toggle in the top right)
-3. Click **Load unpacked**
-4. Select the folder: `test-extension/`
-
 ### What the Test Extension Does
 
 The test extension is a fully functional wallet that:
@@ -78,17 +57,24 @@ The test extension is a fully functional wallet that:
 - **Signs and submits real transactions** with approval popups
 - **Connects to dApps** via the wallet SDK protocol with ECDH key exchange
 
-This wallet works on devnet and demonstrates how to build a production-style browser extension wallet for Aztec.
+This wallet works on the local network and devnet.
 
-### Rebuilding the Test Extension
+### Building the Test Extension
 
-If you modify the extension source files:
+Before loading the extension, build it first:
 
 ```bash
 node esbuild.extension.mjs
 ```
 
-Then reload the extension in Chrome (`chrome://extensions/` > click the refresh icon).
+### Loading the Test Extension in Chrome
+
+1. Open Chrome and navigate to `chrome://extensions/`
+2. Enable **Developer mode** (toggle in the top right)
+3. Click **Load unpacked**
+4. Select the folder: `test-extension/`
+
+If you modify the extension source files, rebuild with the command above and reload the extension in Chrome (`chrome://extensions/` > click the refresh icon).
 
 ## Project Structure
 
@@ -145,7 +131,7 @@ webapp-tutorial/
 
 ## Connecting to Different Networks
 
-- **Local**: Connects to `http://localhost:8080` (local Docker network)
+- **Local**: Connects to `http://localhost:8080` (local network via `aztec start --local-network`)
 - **Devnet**: Connects to Aztec devnet (requires a real wallet extension like Aztec Keychain)
 
 ## Troubleshooting

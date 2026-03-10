@@ -1,6 +1,6 @@
 // docs:start:wallet-connection
 import { Fr } from '@aztec/aztec.js/fields';
-import type { Wallet } from '@aztec/aztec.js/wallet';
+import type { Wallet, AppCapabilities } from '@aztec/aztec.js/wallet';
 import { WalletManager, type WalletProvider } from '@aztec/wallet-sdk/manager';
 import { hashToEmoji } from '@aztec/wallet-sdk/crypto';
 
@@ -91,4 +91,24 @@ export async function connectToProvider(
   };
 }
 // docs:end:connect-wallet
+
+// docs:start:app-capabilities
+export function getAppCapabilities(): AppCapabilities {
+  return {
+    version: '1.0',
+    metadata: {
+      name: 'Pod Racing',
+      version: '1.0.0',
+      description: 'Pod Racing game on Aztec',
+      url: window.location.origin,
+    },
+    capabilities: [
+      { type: 'accounts', canGet: true },
+      { type: 'contracts', contracts: '*', canRegister: true, canGetMetadata: true },
+      { type: 'simulation', transactions: { scope: '*' }, utilities: { scope: '*' } },
+      { type: 'transaction', scope: '*' },
+    ],
+  };
+}
+// docs:end:app-capabilities
 // docs:end:wallet-connection

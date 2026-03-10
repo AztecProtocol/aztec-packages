@@ -44,7 +44,7 @@ try {
 }
 ```
 
-`.send()` handles the full lifecycle: it generates a proof, submits the transaction to the node, waits for it to be included in a block, and returns the receipt. If you need to send without waiting, pass `wait: NO_WAIT` in the options to get a `TxHash` back immediately instead.
+`.send()` handles the full lifecycle: it generates a proof, submits the transaction to the node, waits for it to be included in a block, and returns the receipt. If you need to send without waiting, pass `wait: NO_WAIT` in the options to get a `TxHash` back immediately instead. `NO_WAIT` is exported from `@aztec/aztec.js/contracts`.
 
 ## Fee payment with SponsoredFPC
 
@@ -82,7 +82,7 @@ await contract.methods
 The `EmbeddedWallet` handles this automatically via `completeFeeOptions` — you don't need to pass `fee` options manually when using it.
 
 :::info
-SponsoredFPC is for development and testnet. Production apps use their own fee payment strategy.
+SponsoredFPC is for development and devnet. Production apps use their own fee payment strategy.
 :::
 
 ## Next steps

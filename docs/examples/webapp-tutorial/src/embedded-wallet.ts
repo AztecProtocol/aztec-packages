@@ -26,6 +26,7 @@ import {
   getStubAccountContractArtifact,
   createStubAccount,
 } from '@aztec/accounts/stub/lazy';
+import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 import { TxSimulationResult } from '@aztec/stdlib/tx';
 import { GasSettings } from '@aztec/stdlib/gas';
@@ -125,7 +126,8 @@ export class EmbeddedWallet extends BaseWallet {
     const aztecNode = createAztecNodeClient(nodeUrl);
     const config = getPXEConfig();
     config.l1Contracts = await aztecNode.getL1ContractAddresses();
-    config.proverEnabled = true;
+    const isLocal = nodeUrl.includes('localhost') || nodeUrl.includes('127.0.0.1');
+    config.proverEnabled = !isLocal;
     const pxe = await createPXE(aztecNode, config, {});
 
     // Register SponsoredFPC so we can pay fees
@@ -188,6 +190,19 @@ export class EmbeddedWallet extends BaseWallet {
     return this.connectedAccount;
   }
   // docs:end:connect-test-account
+
+  /**
+   * Fetches a contract instance from the Aztec node (on-chain) and registers it
+   * with this wallet's PXE. Required before calling private functions on contracts
+   * deployed by another wallet/PXE.
+   */
+  async registerContractFromNode(address: AztecAddress, artifact: ContractArtifact) {
+    const instance = await this.aztecNode.getContract(address);
+    if (!instance) {
+      throw new Error(`Contract not found on-chain at ${address}`);
+    }
+    await this.registerContract(instance, artifact);
+  }
   // docs:end:embedded-wallet-class
 
   private async getFakeAccountDataFor(address: AztecAddress) {

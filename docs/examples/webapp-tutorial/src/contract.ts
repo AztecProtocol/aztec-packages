@@ -2,8 +2,9 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 // @ts-ignore — generated artifact, may not exist until compiled
-import { PodRacingContract } from './artifacts/PodRacing';
+import { PodRacingContract, PodRacingContractArtifact } from './artifacts/PodRacing';
 import { createSponsoredFeePayment } from './fees';
+import { EmbeddedWallet } from './embedded-wallet';
 
 // docs:start:deploy-contract
 /**
@@ -23,11 +24,15 @@ export async function deployContract(wallet: Wallet, deployer: AztecAddress): Pr
 // docs:start:attach-contract
 /**
  * Attaches to an existing deployed Pod Racing contract.
+ * Registers the contract with PXE so private functions can execute locally.
  */
 export async function attachToContract(
   wallet: Wallet,
   contractAddress: AztecAddress
 ) {
+  if (wallet instanceof EmbeddedWallet) {
+    await wallet.registerContractFromNode(contractAddress, PodRacingContractArtifact);
+  }
   return PodRacingContract.at(contractAddress, wallet);
 }
 // docs:end:attach-contract

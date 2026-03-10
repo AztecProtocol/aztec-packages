@@ -1,11 +1,11 @@
 // docs:start:wallet-connect
 // docs:start:wallet-connect-imports
 import React, { useState, useEffect } from 'react';
-import type { Wallet, AppCapabilities, GrantedAccountsCapability } from '@aztec/aztec.js/wallet';
+import type { Wallet, GrantedAccountsCapability } from '@aztec/aztec.js/wallet';
 import type { WalletProvider } from '@aztec/wallet-sdk/manager';
 import type { NetworkType } from '../config';
 import { EmbeddedWallet } from '../embedded-wallet';
-import { discoverWallets, connectToProvider } from '../wallet-connection';
+import { discoverWallets, connectToProvider, getAppCapabilities } from '../wallet-connection';
 import { getNodeUrl } from '../config';
 import { useTransactionLog } from './TransactionLog';
 
@@ -98,21 +98,7 @@ export function WalletConnect({ network, onWalletConnected }: WalletConnectProps
       // Request capabilities — the dApp declares all permissions it needs upfront.
       // The extension shows an approval dialog; this call blocks until the user approves.
       setStatus('Requesting permissions from wallet extension...');
-      const manifest: AppCapabilities = {
-        version: '1.0',
-        metadata: {
-          name: 'Pod Racing',
-          version: '1.0.0',
-          description: 'Pod Racing game on Aztec',
-          url: window.location.origin,
-        },
-        capabilities: [
-          { type: 'accounts', canGet: true },
-          { type: 'contracts', contracts: '*', canRegister: true, canGetMetadata: true },
-          { type: 'simulation', transactions: { scope: '*' }, utilities: { scope: '*' } },
-          { type: 'transaction', scope: '*' },
-        ],
-      };
+      const manifest = getAppCapabilities();
 
       const capabilities = await wallet.requestCapabilities(manifest);
       setVerificationEmojis(null);

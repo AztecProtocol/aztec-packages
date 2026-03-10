@@ -12,7 +12,9 @@ This section covers connecting your webapp to the Aztec network and setting up a
 
 Before looking at code, it helps to understand two pieces of infrastructure that every Aztec app relies on:
 
-**PXE (Private eXecution Environment)** is a client-side runtime that runs in the browser as WASM. It stores your private notes, manages your encryption keys, executes private functions, and generates zero-knowledge proofs. Because PXE runs locally, your private data never leaves the browser. Every Aztec app needs a PXE — either one it creates itself or one provided by a wallet extension.
+**[PXE (Private eXecution Environment)](../../../foundational-topics/pxe/index.md)** is a client-side runtime that runs in the browser as WASM. It stores your private notes, manages your encryption keys, executes private functions, and generates zero-knowledge proofs. Because PXE runs locally, your private data never leaves the browser.
+
+Every Aztec app needs a PXE — either one it creates itself or one provided by a wallet extension.
 
 **Aztec node** is the server-side component that maintains the network's public state and sequences transactions into blocks. Your PXE connects to a node (a local network during development, or a remote devnet/mainnet node in production) to sync state and submit transactions. The node never sees your private data — it only receives proofs and encrypted outputs.
 
@@ -65,6 +67,10 @@ The local network ships with pre-deployed test accounts. These are Schnorr-signa
 
 Every Aztec transaction must pay a fee (similar to gas on Ethereum). Rather than requiring users to hold fee tokens during development, the embedded wallet overrides `completeFeeOptions` to inject SponsoredFPC as the default fee payer for every transaction. Callers never need to pass fee options manually.
 
+:::note
+SponsoredFPC only works on the local network and devnet. Production Aztec networks deployed to Ethereum mainnet require an alternative fee payment strategy.
+:::
+
 #include_code fee-options /docs/examples/webapp-tutorial/src/embedded-wallet.ts typescript
 
 ### Full class
@@ -75,7 +81,7 @@ The complete `EmbeddedWallet` puts these pieces together:
 
 ## Wallet SDK (devnet / production)
 
-On devnet and production, users connect via a browser extension wallet (like MetaMask on Ethereum). The wallet extension owns the PXE, manages keys, and signs transactions. Your app communicates with it through the **wallet SDK**, which handles discovery, secure channel setup, and verification.
+On devnet and production, users may connect via a browser extension wallet (like MetaMask on Ethereum). The wallet extension owns the PXE, manages keys, and signs transactions. Your app communicates with it through the **wallet SDK**, which handles discovery, secure channel setup, and verification.
 
 ### Testing with the tutorial wallet extension
 

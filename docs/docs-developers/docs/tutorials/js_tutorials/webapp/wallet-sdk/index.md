@@ -69,7 +69,7 @@ The protocol has three phases with increasing trust:
 
 3. **Verified channel (encrypted)** — The HMAC verification key produces a hash that both sides independently convert to a 9-emoji grid. The user visually confirms the emojis match on both the dApp and wallet extension, defending against man-in-the-middle attacks. After confirmation, all messages are encrypted with AES-256-GCM.
 
-## Next Steps
+## Next steps
 
 - **Building a dApp?** Start with [dApp Integration](./01-dapp-integration.md)
 - **Building a wallet?** Start with [Wallet Extension Integration](./02-wallet-integration.md)

@@ -21,6 +21,7 @@ type GamePhase = 'setup' | 'playing' | 'reveal' | 'finished';
 interface PlayerState {
   wallet: EmbeddedWallet | null;
   account: AztecAddress | null;
+  contract: PodRacingContract | null;
   connected: boolean;
   currentRound: number;
   allocations: [number, number, number, number, number];
@@ -33,6 +34,7 @@ interface PlayerState {
 const initialPlayerState: PlayerState = {
   wallet: null,
   account: null,
+  contract: null,
   connected: false,
   currentRound: 1,
   allocations: [2, 2, 2, 2, 1],
@@ -123,7 +125,7 @@ export function TwoPlayerLocal() {
       addLog(`[P1] Contract deployed: ${deployed.address.toString().slice(0, 10)}...`, 'success');
       setContract(deployed);
 
-      setPlayer1(p => ({ ...p, status: 'Creating game...' }));
+      setPlayer1(p => ({ ...p, contract: deployed, status: 'Creating game...' }));
       addLog('[P1] Creating game...', 'pending');
       await createGame(deployed, player1.account!, gameId);
       addLog(`[P1] Game ${gameId} created`, 'success');
@@ -151,7 +153,7 @@ export function TwoPlayerLocal() {
       );
       addLog('[P2] Contract registered', 'success');
 
-      setPlayer2(p => ({ ...p, status: 'Joining game...' }));
+      setPlayer2(p => ({ ...p, contract: p2Contract, status: 'Joining game...' }));
       addLog('[P2] Joining game...', 'pending');
       await joinGame(p2Contract, player2.account!, gameId);
       addLog(`[P2] Joined game ${gameId}`, 'success');
@@ -182,7 +184,7 @@ export function TwoPlayerLocal() {
     const setter = player === 1 ? setPlayer1 : setPlayer2;
     const tag = player === 1 ? '[P1]' : '[P2]';
 
-    if (!state.wallet || !state.account || !contract) return;
+    if (!state.wallet || !state.account || !state.contract) return;
 
     const total = state.allocations.reduce((sum, v) => sum + v, 0);
     if (total >= 10) {
@@ -195,7 +197,7 @@ export function TwoPlayerLocal() {
 
     try {
       await playRound(
-        contract,
+        state.contract,
         state.account!,
         gameId,
         state.currentRound,
@@ -225,13 +227,13 @@ export function TwoPlayerLocal() {
     const setter = player === 1 ? setPlayer1 : setPlayer2;
     const tag = player === 1 ? '[P1]' : '[P2]';
 
-    if (!state.wallet || !state.account || !contract) return;
+    if (!state.wallet || !state.account || !state.contract) return;
 
     setter(p => ({ ...p, loading: true, status: 'Revealing scores...' }));
     addLog(`${tag} Revealing scores...`, 'pending');
 
     try {
-      await finishGame(contract, state.account!, gameId);
+      await finishGame(state.contract, state.account!, gameId);
       addLog(`${tag} Scores revealed`, 'success');
 
       setter(p => ({
@@ -256,13 +258,13 @@ export function TwoPlayerLocal() {
 
   // Finalize game
   async function handleFinalize() {
-    if (!player1.wallet || !player1.account || !contract) return;
+    if (!player1.wallet || !player1.account || !player1.contract) return;
 
     setPlayer1(p => ({ ...p, loading: true, status: 'Finalizing game...' }));
     addLog('[P1] Finalizing game and determining winner...', 'pending');
 
     try {
-      await finalizeGame(contract, player1.account!, gameId);
+      await finalizeGame(player1.contract, player1.account!, gameId);
       addLog('Game finalized!', 'success');
       setWinner('Check contract events for winner!');
       setPlayer1(p => ({ ...p, loading: false, status: 'Game complete!' }));

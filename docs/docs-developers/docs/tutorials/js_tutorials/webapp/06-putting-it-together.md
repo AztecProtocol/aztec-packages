@@ -6,7 +6,7 @@ description: "Wire all components into a complete Pod Racing webapp and run it"
 
 # Putting It Together
 
-In this final section you wire all the components together into a working app and run it.
+In this final section, you wire all the components together into a working app and run it.
 
 ## Entry point
 
@@ -57,20 +57,21 @@ yarn dev
 
 Open `http://localhost:5173`.
 
-### Playing a game (local, two browser tabs)
+### Playing a game (local, split-screen)
 
-1. **Tab 1**: Select "Local" network → pick "Account 1" → click "Connect Test Account"
-2. **Tab 1**: Enter a game ID (e.g., `1`) → click "Deploy Contract & Create Game"
-3. **Tab 1**: Copy the contract address from the status message
-4. **Tab 2**: Select "Local" network → pick "Account 2" → click "Connect Test Account"
-5. **Tab 2**: Paste the contract address → enter game ID `1` → click "Join Game"
-6. **Both tabs**: Allocate points across 5 tracks (sum must be < 10) and submit for rounds 1, 2, and 3
-7. **Both tabs**: Click "Reveal Scores" to call `finish_game`
-8. **Either tab**: Click "Determine Winner" to call `finalize_game` (only works after the game's block deadline)
+When you select "Local" network, the app renders a two-player split-screen on a single page. Both players are side by side:
+
+1. **Player 1 panel**: Click "Connect Account #1" — initializes a PXE and connects the first test account
+2. **Player 2 panel**: Click "Connect Account #2" — initializes a separate PXE and connects the second test account
+3. **Player 1 panel**: Click "Deploy Contract & Create Game" — deploys the Pod Racing contract and creates a game
+4. **Player 2 panel**: Click "Join Game" — registers the contract with Player 2's PXE and joins the game
+5. **Both panels**: Adjust the track sliders (total must be < 10) and click "Submit Round" — repeat for rounds 1, 2, and 3
+6. **Both panels**: Click "Reveal Scores" to call `finish_game`
+7. **Player 1 panel**: Click "Finalize Game" to call `finalize_game` and determine the winner
 
 ### Against devnet
 
-1. Install an Aztec wallet browser extension
+1. Build and install the tutorial wallet extension (see [`test-extension/README.md`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/docs/examples/webapp-tutorial/test-extension) for build and install instructions)
 2. Run `yarn dev`
 3. Select "Devnet" → connect via the wallet extension → verify emojis match
 4. Play the same flow as above (share the contract address with your opponent)
@@ -97,7 +98,7 @@ Ensure SponsoredFPC is registered with PXE. The `EmbeddedWallet` does this autom
 
 Make sure the `aztec` CLI is installed and matches your package versions. Run `aztec --version` to check. The `Nargo.toml` dependency path must point to a valid `aztec-nr` location.
 
-## What's next
+## Next steps
 
 You now have a working Aztec webapp. From here you could:
 

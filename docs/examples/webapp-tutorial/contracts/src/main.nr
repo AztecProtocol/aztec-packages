@@ -34,7 +34,7 @@ pub contract PodRacing {
 
     // docs:start:game-constants
     global TOTAL_ROUNDS: u8 = 3;
-    global GAME_LENGTH: u32 = 300; // Games expire after 300 blocks
+    global GAME_LENGTH: u32 = 2; // Set to 2 for demo purposes
     // docs:end:game-constants
 
     // docs:start:storage

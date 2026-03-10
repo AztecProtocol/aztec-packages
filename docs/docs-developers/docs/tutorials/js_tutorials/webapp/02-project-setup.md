@@ -6,6 +6,8 @@ description: "Understand the webapp project structure, Vite configuration, and e
 
 # Project Setup
 
+## Overview
+
 This section walks through the project structure and key configuration files. Since you [cloned the example](./index.md#clone-the-example) in the introduction, everything is already in place — this page explains what each piece does.
 
 ## Project structure
@@ -34,6 +36,7 @@ webapp-tutorial/
 ├── index.html           # HTML entry point
 ├── vite.config.ts       # Vite configuration
 ├── tsconfig.json        # TypeScript configuration
+├── .env.example         # Environment variables to override
 └── package.json
 ```
 
@@ -54,7 +57,13 @@ The project uses a standard Vite + React TypeScript setup. `tsconfig.json` refer
 
 ## Environment variables
 
-Open `.env`:
+Copy `.env.example` to `.env`:
+
+```bash
+cp .env.example .env
+```
+
+and paste the below into the file.
 
 ```text
 AZTEC_NODE_URL=http://localhost:8080

@@ -6,7 +6,7 @@ description: "Connect your dApp to Aztec wallet extensions — discovery, secure
 
 # dApp Integration
 
-This page covers how a dApp discovers wallet extensions, establishes an encrypted channel, requests permissions, and uses the wallet. The patterns here come from the [Pod Racing tutorial](../03-network-and-wallet.md) and [GregoSwap](https://github.com/AztecProtocol/gregoswap), a production-style Aztec DEX.
+This page covers how a dApp discovers wallet extensions, establishes an encrypted channel, requests permissions, and uses the wallet. The patterns here come from the [Pod Racing tutorial](../03-network-and-wallet.md) and [GregoSwap](https://github.com/AztecProtocol/gregoswap), a reference Aztec DEX.
 
 ## Installation
 
@@ -29,7 +29,7 @@ import type { Wallet, AppCapabilities, GrantedAccountsCapability } from '@aztec/
 
 Wallet discovery broadcasts a request via `window.postMessage`. Any installed Aztec wallet extension that the user has approved responds with its info.
 
-#include_code discover-wallets docs/examples/webapp-tutorial/src/wallet-connection.ts typescript
+#include_code discover-wallets /docs/examples/webapp-tutorial/src/wallet-connection.ts typescript
 
 `WalletManager.configure()` accepts options to filter extensions:
 
@@ -62,7 +62,7 @@ Discovery requires user action in the wallet extension — the wallet won't reve
 
 Once the user picks a wallet, establish an encrypted channel using ECDH key exchange:
 
-#include_code connect-wallet docs/examples/webapp-tutorial/src/wallet-connection.ts typescript
+#include_code connect-wallet /docs/examples/webapp-tutorial/src/wallet-connection.ts typescript
 
 `establishSecureChannel()` performs the ECDH P-256 key exchange and returns a `PendingConnection` with:
 - `verificationHash` — hex string that both sides compute independently
@@ -104,25 +104,9 @@ On subsequent visits, the wallet extension can auto-approve discovery and skip e
 
 After connecting, your dApp should declare the permissions it needs using `requestCapabilities()`. The wallet extension shows the user an approval dialog.
 
-```typescript
-const manifest: AppCapabilities = {
-  version: '1.0',
-  metadata: {
-    name: 'My dApp',
-    version: '1.0.0',
-    description: 'A great Aztec app',
-    url: window.location.origin,
-  },
-  capabilities: [
-    { type: 'accounts', canGet: true },
-    { type: 'contracts', contracts: '*', canRegister: true, canGetMetadata: true },
-    { type: 'simulation', transactions: { scope: '*' }, utilities: { scope: '*' } },
-    { type: 'transaction', scope: '*' },
-  ],
-};
+The `AppCapabilities` manifest describes your dApp's identity and the permissions it requires. Each capability type maps to a set of wallet operations — for example, `accounts` lets you read account addresses, `transaction` lets you send transactions, and `simulation` lets you simulate without sending. The wallet may grant all, some, or none of the requested capabilities.
 
-const capabilities = await wallet.requestCapabilities(manifest);
-```
+#include_code app-capabilities /docs/examples/webapp-tutorial/src/wallet-connection.ts typescript
 
 ### Capability Types
 
@@ -227,15 +211,15 @@ const unsubscribe = provider.onDisconnect(handleUnexpectedDisconnect);
 
 Here's the full connection flow in a React component:
 
-#include_code devnet-connect docs/examples/webapp-tutorial/src/components/WalletConnect.tsx typescript
+#include_code devnet-connect /docs/examples/webapp-tutorial/src/components/WalletConnect.tsx typescript
 
 ## State Types
 
 For tracking wallet discovery state in your app:
 
-#include_code wallet-sdk-types docs/examples/webapp-tutorial/src/wallet-connection.ts typescript
+#include_code wallet-sdk-types /docs/examples/webapp-tutorial/src/wallet-connection.ts typescript
 
-## Next Steps
+## Next steps
 
 - [Wallet Extension Integration](./02-wallet-integration.md) — Build the other side: handle discovery, manage sessions, and extend `BaseWallet`
 - [Contract Interaction](../04-contract-interaction.md) — Deploy and call contracts with the connected wallet
