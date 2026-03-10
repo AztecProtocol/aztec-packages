@@ -41,7 +41,9 @@ export class ProvingJobController {
   public start(): void {
     if (this.status !== ProvingJobControllerStatus.IDLE) {
       this.log.warn(
-        `Job controller for jobId=${this.jobId} not starting because it is not idle currentStatus=${this.status}`,
+        'Job controller for jobId=%s not starting because it is not idle currentStatus=%s',
+        this.jobId,
+        this.status,
         {
           currentStatus: this.status,
           jobId: this.jobId,
@@ -52,7 +54,7 @@ export class ProvingJobController {
 
     this.promise = this.run();
 
-    this.log.info(`Job controller started jobId=${this.jobId}`, {
+    this.log.info('Job controller started jobId=%s', this.jobId, {
       jobId: this.jobId,
     });
   }
@@ -67,7 +69,7 @@ export class ProvingJobController {
 
   public abort(): void {
     if (this.status !== ProvingJobControllerStatus.RUNNING) {
-      this.log.warn(`Tried to abort job controller for jobId=${this.jobId} but it is not running`, {
+      this.log.warn('Tried to abort job controller for jobId=%s but it is not running', this.jobId, {
         currentStatus: this.status,
         jobId: this.jobId,
       });
@@ -75,7 +77,7 @@ export class ProvingJobController {
     }
 
     this.abortController.abort();
-    this.log.warn(`Aborted job controller for jobId=${this.jobId}`, {
+    this.log.warn('Aborted job controller for jobId=%s', this.jobId, {
       jobId: this.jobId,
     });
   }
@@ -110,7 +112,7 @@ export class ProvingJobController {
     }
 
     if (this.abortController.signal.aborted) {
-      this.log.warn(`Job controller for jobId=${this.jobId} completed but job was aborted`, {
+      this.log.warn('Job controller for jobId=%s completed but job was aborted', this.jobId, {
         currentStatus: this.status,
         jobId: this.jobId,
       });
@@ -122,7 +124,7 @@ export class ProvingJobController {
     try {
       this.onComplete();
     } catch (err) {
-      this.log.warn(`On complete handler error: ${err}`, { jobId: this.jobId });
+      this.log.warn('On complete handler error: %s', err, { jobId: this.jobId });
     }
   };
 

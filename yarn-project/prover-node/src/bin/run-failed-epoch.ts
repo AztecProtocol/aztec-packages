@@ -38,16 +38,16 @@ async function rerunFailedEpoch(provingJobUrl: string, baseLocalDir: string) {
     logger.info(`Using downloaded data`);
     metadata = jsonParseWithSchema(await readFile(metadataPath, 'utf-8'), UploadSnapshotMetadataSchema);
   } else {
-    logger.info(`Downloading epoch proving job data and state from ${provingJobUrl} to ${localDir}`);
+    logger.info('Downloading epoch proving job data and state from %s to %s', provingJobUrl, localDir);
     metadata = await downloadEpochProvingJob(provingJobUrl!, logger, {
       jobDataDownloadPath: jobPath,
       dataDirectory: dataDir,
     });
     await writeFile(metadataPath, jsonStringify(metadata, true));
-    logger.info(`Download to ${localDir} complete`);
+    logger.info('Download to %s complete', localDir);
   }
 
-  logger.info(`Rerunning proving job from ${jobPath} with state from ${dataDir}`, metadata);
+  logger.info('Rerunning proving job from %s with state from %s', jobPath, dataDir, metadata);
   const result = await rerunEpochProvingJob(jobPath, logger, {
     ...config,
     l1Contracts: { rollupAddress: metadata.rollupAddress } as L1ContractAddresses,

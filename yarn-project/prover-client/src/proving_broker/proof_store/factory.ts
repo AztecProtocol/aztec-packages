@@ -15,6 +15,6 @@ export async function createProofStore(
   }
 
   const fileStore = await createFileStore(config, logger);
-  logger.info(`Creating file store proof store at ${config}`);
+  logger.info('Creating file store proof store at %s', config);
   return new FileStoreProofStore(fileStore);
 }

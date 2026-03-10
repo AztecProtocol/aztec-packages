@@ -136,8 +136,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     await fs.mkdir(config.acvmWorkingDirectory, { recursive: true });
     await fs.access(config.bbBinaryPath, fs.constants.R_OK);
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
-    logger.info(`Using native BB at ${config.bbBinaryPath} and working directory ${config.bbWorkingDirectory}`);
-    logger.info(`Using native ACVM at ${config.acvmBinaryPath} and working directory ${config.acvmWorkingDirectory}`);
+    logger.info('Using native BB at %s and working directory %s', config.bbBinaryPath, config.bbWorkingDirectory);
+    logger.info('Using native ACVM at %s and working directory %s', config.acvmBinaryPath, config.acvmWorkingDirectory);
 
     return new BBNativeRollupProver(config, telemetry);
   }
@@ -468,7 +468,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const artifact = getServerCircuitArtifact(circuitType);
 
-    logger.debug(`Generating witness data for ${circuitType}`);
+    logger.debug('Generating witness data for %s', circuitType);
 
     const inputWitness = convertInput(input);
     const foreignCallHandler = undefined; // We don't handle foreign calls in the native ACVM simulator
@@ -489,7 +489,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     } satisfies CircuitWitnessGenerationStats);
 
     // Now prove the circuit from the generated witness
-    logger.debug(`Proving ${circuitType}...`);
+    logger.debug('Proving %s...', circuitType);
 
     const provingResult = await generateProof(
       this.config.bbBinaryPath,
@@ -503,7 +503,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     );
 
     if (provingResult.status === BB_RESULT.FAILURE) {
-      logger.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
+      logger.error('Failed to generate proof for %s: %s', circuitType, provingResult.reason);
       throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
     }
 
@@ -514,12 +514,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   private async generateAvmProofWithBB(input: AvmCircuitInputs, workingDirectory: string): Promise<BBSuccess> {
-    logger.info(`Proving avm-circuit for TX ${input.hints.tx.hash}...`);
+    logger.info('Proving avm-circuit for TX %s...', input.hints.tx.hash);
 
     const provingResult = await generateAvmProof(this.config.bbBinaryPath, workingDirectory, input, logger);
 
     if (provingResult.status === BB_RESULT.FAILURE) {
-      logger.error(`Failed to generate AVM proof for TX ${input.hints.tx.hash}: ${provingResult.reason}`);
+      logger.error('Failed to generate AVM proof for TX %s: %s', input.hints.tx.hash, provingResult.reason);
       throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
     }
 
@@ -599,9 +599,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       this.instrumentation.recordSize('circuitPublicInputCount', circuitName, vkData.numPublicInputs);
       this.instrumentation.recordSize('circuitSize', circuitName, vkData.circuitSize);
       logger.info(
-        `Generated proof for ${circuitType} in ${Math.ceil(provingResult.durationMs)} ms, size: ${
-          proof.proof.length
-        } fields`,
+        'Generated proof for %s in %d ms, size: %d fields',
+        circuitType,
+        Math.ceil(provingResult.durationMs),
+        proof.proof.length,
         {
           circuitName,
           circuitSize: vkData.circuitSize,
@@ -661,7 +662,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         throw new ProvingError(errorMessage, result, result.retry);
       }
 
-      logger.info(`Successfully verified proof from key in ${result.durationMs} ms`);
+      logger.info('Successfully verified proof from key in %d ms', result.durationMs);
     };
 
     await this.runInDirectory(operation);
@@ -708,7 +709,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       this.config.bbWorkingDirectory,
       (dir: string) =>
         fn(dir).catch(err => {
-          logger.error(`Error running operation at ${dir}: ${err}`);
+          logger.error('Error running operation at %s: %s', dir, err);
           throw err;
         }),
       this.config.bbSkipCleanup,

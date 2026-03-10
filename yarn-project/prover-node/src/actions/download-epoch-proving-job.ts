@@ -22,23 +22,23 @@ export async function downloadEpochProvingJob(
     jobDataDownloadPath: string;
   },
 ) {
-  log.info(`Downloading epoch proving job data from ${location}`);
+  log.info('Downloading epoch proving job data from %s', location);
   const fileStore = await createReadOnlyFileStore(location);
   const metadataUrl = urlJoin(location, 'metadata.json');
   const metadataRaw = await fileStore.read(metadataUrl);
   const metadata = jsonParseWithSchema(metadataRaw.toString(), UploadSnapshotMetadataSchema);
 
   const dataUrls = makeSnapshotPaths(location);
-  log.info(`Downloading state snapshot from ${location} to local data directory`, { metadata, dataUrls });
+  log.info('Downloading state snapshot from %s to local data directory', location, { metadata, dataUrls });
   await snapshotSync({ dataUrls }, log, { ...config, ...metadata, snapshotsUrl: location });
 
   const dataPath = urlJoin(location, 'data.bin');
   const localPath = config.jobDataDownloadPath;
-  log.info(`Downloading epoch proving job data from ${dataPath} to ${localPath}`);
+  log.info('Downloading epoch proving job data from %s to %s', dataPath, localPath);
   await fileStore.download(dataPath, localPath);
 
   const jobData = deserializeEpochProvingJobData(readFileSync(localPath));
-  log.info(`Epoch proving job data for epoch ${jobData.epochNumber} downloaded successfully`);
+  log.info('Epoch proving job data for epoch %s downloaded successfully', jobData.epochNumber);
 
   return metadata;
 }

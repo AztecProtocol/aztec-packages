@@ -261,7 +261,7 @@ export async function generateProof(
 
     const timer = new Timer();
     const logFunction = (message: string) => {
-      log.info(`${circuitName} BB out - ${message}`);
+      log.info('%s BB out - %s', circuitName, message);
     };
     const result = await executeBB(pathToBB, `prove`, args, logFunction);
     const duration = timer.ms();
@@ -344,7 +344,7 @@ export async function generateAvmProof(
 
     const cmd = checkCircuitOnly ? 'avm_check_circuit' : 'avm_prove';
     const logFunction = (message: string) => {
-      logger.verbose(`AvmCircuit (${cmd}) BB out - ${message}`);
+      logger.verbose('AvmCircuit (%s) BB out - %s', cmd, message);
     };
     const result = await executeBB(pathToBB, cmd, args, logFunction);
     const duration = timer.ms();
@@ -388,7 +388,7 @@ export async function verifyProof(
   // Take proofFullPath and remove the suffix past the / to get the directory.
   const proofDir = proofFullPath.substring(0, proofFullPath.lastIndexOf('/'));
   const publicInputsFullPath = join(proofDir, '/public_inputs');
-  logger.debug(`public inputs path: ${publicInputsFullPath}`);
+  logger.debug('public inputs path: %s', publicInputsFullPath);
 
   const args = [
     '-p',
@@ -488,7 +488,7 @@ async function verifyProofInternal(
   }
 
   const logFunction = (message: string) => {
-    logger.verbose(`bb-prover (verify) BB out - ${message}`);
+    logger.verbose('bb-prover (verify) BB out - %s', message);
   };
 
   try {

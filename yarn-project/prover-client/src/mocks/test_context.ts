@@ -145,7 +145,7 @@ export class TestContext {
       try {
         await fs.rm(dir, { recursive: true, force: true, maxRetries: 3 });
       } catch (err) {
-        this.logger.warn(`Failed to delete tmp directory $dir}: ${err}`);
+        this.logger.warn('Failed to delete tmp directory $dir}: %s', err);
       }
     }
   }

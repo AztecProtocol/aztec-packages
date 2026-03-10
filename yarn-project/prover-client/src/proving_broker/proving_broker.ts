@@ -170,7 +170,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     }
     this.logger.info('Proving Broker started');
     for await (const [item, result] of this.database.allProvingJobs()) {
-      this.logger.info(`Restoring proving job id=${item.id} settled=${!!result}`, {
+      this.logger.info('Restoring proving job id=%s settled=%s', item.id, !!result, {
         provingJobId: item.id,
         status: result ? result.status : 'pending',
       });
@@ -276,7 +276,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     if (this.jobsCache.has(job.id)) {
       const existing = this.jobsCache.get(job.id);
       assert.deepStrictEqual(job, existing, 'Duplicate proving job ID');
-      this.logger.warn(`Cached proving job id=${job.id} epochNumber=${job.epochNumber}. Not enqueuing again`, {
+      this.logger.warn('Cached proving job id=%s epochNumber=%s. Not enqueuing again', job.id, job.epochNumber, {
         provingJobId: job.id,
       });
       this.instrumentation.incCachedJobs(job.type);
@@ -284,13 +284,13 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     }
 
     if (this.isJobStale(job)) {
-      this.logger.warn(`Tried enqueueing stale proving job id=${job.id} epochNumber=${job.epochNumber}`, {
+      this.logger.warn('Tried enqueueing stale proving job id=%s epochNumber=%s', job.id, job.epochNumber, {
         provingJobId: job.id,
       });
       throw new Error(`Epoch too old: job epoch ${job.epochNumber}, current epoch: ${this.epochHeight}`);
     }
 
-    this.logger.info(`New proving job id=${job.id} epochNumber=${job.epochNumber}`, { provingJobId: job.id });
+    this.logger.info('New proving job id=%s epochNumber=%s', job.id, job.epochNumber, { provingJobId: job.id });
     try {
       // do this first so it acts as a "lock". If this job is enqueued again while we're saving it the if at the top will catch it.
       this.jobsCache.set(job.id, job);
@@ -307,13 +307,13 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
 
   async #cancelProvingJob(id: ProvingJobId): Promise<void> {
     if (!this.jobsCache.has(id)) {
-      this.logger.warn(`Can't cancel a job that doesn't exist id=${id}`, { provingJobId: id });
+      this.logger.warn("Can't cancel a job that doesn't exist id=%s", id, { provingJobId: id });
       return;
     }
 
     // notify listeners of the cancellation
     if (!this.resultsCache.has(id)) {
-      this.logger.info(`Cancelling job id=${id}`, { provingJobId: id });
+      this.logger.info('Cancelling job id=%s', id, { provingJobId: id });
       await this.#reportProvingJobError(id, 'Aborted', false, undefined, true);
     }
   }
@@ -402,12 +402,12 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     const retries = this.retries.get(id) ?? 0;
 
     if (!item) {
-      this.logger.warn(`Can't set error on unknown proving job id=${id} err=${err}`, { provingJoId: id });
+      this.logger.warn("Can't set error on unknown proving job id=%s err=%s", id, err, { provingJoId: id });
       return;
     }
 
     if (!info) {
-      this.logger.warn(`Proving job id=${id} type=${ProvingRequestType[item.type]} not in the in-progress set`, {
+      this.logger.warn('Proving job id=%s type=%s not in the in-progress set', id, ProvingRequestType[item.type], {
         provingJobId: id,
       });
     } else {
@@ -415,7 +415,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     }
 
     if (this.resultsCache.has(id)) {
-      this.logger.warn(`Proving job id=${id} is already settled, ignoring err=${err}`, {
+      this.logger.warn('Proving job id=%s is already settled, ignoring err=%s', id, err, {
         provingJobId: id,
       });
       return this.#getProvingJob(filter);
@@ -423,7 +423,11 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
 
     if (retry && retries + 1 < this.maxRetries && !this.isJobStale(item)) {
       this.logger.info(
-        `Retrying proving job id=${id} type=${ProvingRequestType[item.type]} retry=${retries + 1} err=${err}`,
+        'Retrying proving job id=%s type=%s retry=%d err=%s',
+        id,
+        ProvingRequestType[item.type],
+        retries + 1,
+        err,
         {
           provingJobId: id,
         },
@@ -441,9 +445,11 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     }
 
     this.logger.info(
-      `Marking proving job as failed id=${id} type=${ProvingRequestType[item.type]} totalAttempts=${
-        retries + 1
-      } err=${err}`,
+      'Marking proving job as failed id=%s type=%s totalAttempts=%d err=%s',
+      id,
+      ProvingRequestType[item.type],
+      retries + 1,
+      err,
       {
         provingJobId: id,
       },
@@ -486,12 +492,12 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
   ): { job: ProvingJob; time: number } | undefined {
     const job = this.jobsCache.get(id);
     if (!job) {
-      this.logger.warn(`Proving job id=${id} does not exist`, { provingJobId: id });
+      this.logger.warn('Proving job id=%s does not exist', id, { provingJobId: id });
       return this.#getProvingJob(filter);
     }
 
     if (this.resultsCache.has(id)) {
-      this.logger.warn(`Proving job id=${id} has already been completed`, { provingJobId: id });
+      this.logger.warn('Proving job id=%s has already been completed', id, { provingJobId: id });
       return this.#getProvingJob(filter);
     }
 
@@ -499,7 +505,9 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     const now = this.msTimeSource();
     if (!metadata) {
       this.logger.warn(
-        `Proving job id=${id} type=${ProvingRequestType[job.type]} not found in the in-progress cache, adding it`,
+        'Proving job id=%s type=%s not found in the in-progress cache, adding it',
+        id,
+        ProvingRequestType[job.type],
         { provingJobId: id },
       );
       // the queue will still contain the item at this point!
@@ -514,11 +522,16 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     } else if (startedAt <= metadata.startedAt) {
       if (startedAt < metadata.startedAt) {
         this.logger.info(
-          `Proving job id=${id} type=${ProvingRequestType[job.type]} startedAt=${startedAt} older agent has taken job`,
+          'Proving job id=%s type=%s startedAt=%d older agent has taken job',
+          id,
+          ProvingRequestType[job.type],
+          startedAt,
           { provingJobId: id },
         );
       } else {
-        this.logger.debug(`Proving job id=${id} type=${ProvingRequestType[job.type]} heartbeat`, { provingJobId: id });
+        this.logger.debug('Proving job id=%s type=%s heartbeat', id, ProvingRequestType[job.type], {
+          provingJobId: id,
+        });
       }
       metadata.startedAt = startedAt;
       metadata.lastUpdatedAt = now;
@@ -526,9 +539,9 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     }
 
     this.logger.warn(
-      `Proving job id=${id} type=${
-        ProvingRequestType[job.type]
-      } already being worked on by another agent. Sending new one`,
+      'Proving job id=%s type=%s already being worked on by another agent. Sending new one',
+      id,
+      ProvingRequestType[job.type],
       { provingJobId: id },
     );
 
@@ -544,12 +557,12 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     const item = this.jobsCache.get(id);
     const retries = this.retries.get(id) ?? 0;
     if (!item) {
-      this.logger.warn(`Proving job id=${id} not found`, { provingJobId: id });
+      this.logger.warn('Proving job id=%s not found', id, { provingJobId: id });
       return;
     }
 
     if (!info) {
-      this.logger.warn(`Proving job id=${id} type=${ProvingRequestType[item.type]} not in the in-progress set`, {
+      this.logger.warn('Proving job id=%s type=%s not in the in-progress set', id, ProvingRequestType[item.type], {
         provingJobId: id,
       });
     } else {
@@ -557,12 +570,15 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     }
 
     if (this.resultsCache.has(id)) {
-      this.logger.warn(`Proving job id=${id} already settled, ignoring result`, { provingJobId: id });
+      this.logger.warn('Proving job id=%s already settled, ignoring result', id, { provingJobId: id });
       return;
     }
 
     this.logger.info(
-      `Proving job complete id=${id} type=${ProvingRequestType[item.type]} totalAttempts=${retries + 1}`,
+      'Proving job complete id=%s type=%s totalAttempts=%d',
+      id,
+      ProvingRequestType[item.type],
+      retries + 1,
       { provingJobId: id },
     );
 
@@ -599,7 +615,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     const oldestEpochToKeep = this.oldestEpochToKeep();
     if (oldestEpochToKeep > 0) {
       await this.database.deleteAllProvingJobsOlderThanEpoch(EpochNumber(oldestEpochToKeep));
-      this.logger.trace(`Deleted all epochs older than ${oldestEpochToKeep}`);
+      this.logger.trace('Deleted all epochs older than %s', oldestEpochToKeep);
     }
   }
 
@@ -615,7 +631,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
 
     if (jobsToClean.length > 0) {
       this.cleanUpProvingJobState(jobsToClean);
-      this.logger.verbose(`Cleaned up proving jobs=${jobsToClean.length}`);
+      this.logger.verbose('Cleaned up proving jobs=%d', jobsToClean.length);
     }
   }
 
@@ -624,7 +640,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     for (const [id, metadata] of inProgressEntries) {
       const item = this.jobsCache.get(id);
       if (!item) {
-        this.logger.warn(`Proving job id=${id} not found. Removing it from the queue.`, { provingJobId: id });
+        this.logger.warn('Proving job id=%s not found. Removing it from the queue.', id, { provingJobId: id });
         this.inProgress.delete(id);
         continue;
       }
@@ -632,7 +648,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
       const now = this.msTimeSource();
       const msSinceLastUpdate = now - metadata.lastUpdatedAt;
       if (msSinceLastUpdate >= this.jobTimeoutMs) {
-        this.logger.warn(`Proving job id=${id} timed out. Adding it back to the queue.`, { provingJobId: id });
+        this.logger.warn('Proving job id=%s timed out. Adding it back to the queue.', id, { provingJobId: id });
         this.inProgress.delete(id);
         this.enqueueJobInternal(item);
         this.instrumentation.incTimedOutJobs(item.type);

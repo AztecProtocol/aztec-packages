@@ -28,12 +28,12 @@ describe('prover/orchestrator/multi-checkpoints', () => {
       async (numCheckpoints: number) => {
         const numBlocksPerCheckpoint = 1;
         const numTxsPerBlock = 1;
-        logger.info(`Seeding world state with ${numCheckpoints * numBlocksPerCheckpoint} blocks`);
+        logger.info('Seeding world state with %d blocks', numCheckpoints * numBlocksPerCheckpoint);
         const checkpoints = await timesAsync(numCheckpoints, () =>
           context.makeCheckpoint(numBlocksPerCheckpoint, { numTxsPerBlock }),
         );
 
-        logger.info(`Starting new epoch with ${numCheckpoints} checkpoints`);
+        logger.info('Starting new epoch with %d checkpoints', numCheckpoints);
         const finalBlobChallenges = await context.getFinalBlobChallenges();
         context.orchestrator.startNewEpoch(EpochNumber(1), numCheckpoints, finalBlobChallenges);
 
@@ -76,7 +76,7 @@ describe('prover/orchestrator/multi-checkpoints', () => {
         const numCheckpointsPerEpoch = 3;
         const numBlocksPerCheckpoint = 1;
         const numTxsPerBlock = 1;
-        logger.info(`Seeding world state with ${numEpochs * numCheckpointsPerEpoch * numBlocksPerCheckpoint} blocks`);
+        logger.info('Seeding world state with %d blocks', numEpochs * numCheckpointsPerEpoch * numBlocksPerCheckpoint);
         const epochs = await timesAsync(numEpochs, async () => {
           const checkpoints = await timesAsync(numCheckpointsPerEpoch, () =>
             context.makeCheckpoint(numBlocksPerCheckpoint, { numTxsPerBlock }),
@@ -89,7 +89,7 @@ describe('prover/orchestrator/multi-checkpoints', () => {
         for (let epochIndex = 0; epochIndex < numEpochs; epochIndex++) {
           const epochNumber = epochIndex + 1;
           const { checkpoints, finalBlobChallenges } = epochs[epochIndex];
-          logger.info(`Starting epoch ${epochNumber} with ${checkpoints.length} checkpoints`);
+          logger.info('Starting epoch %d with %d checkpoints', epochNumber, checkpoints.length);
           context.orchestrator.startNewEpoch(EpochNumber(epochNumber), checkpoints.length, finalBlobChallenges);
 
           for (let i = 0; i < checkpoints.length; i++) {

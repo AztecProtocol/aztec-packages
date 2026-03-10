@@ -145,11 +145,14 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       const epochDirectory = file.name;
       const epochNumber = parseInt(epochDirectory, 10);
       if (!Number.isSafeInteger(epochNumber) || epochNumber < 0) {
-        logger.warn(`Found invalid epoch directory ${fullDirectory} when loading epoch databases, ignoring`);
+        logger.warn('Found invalid epoch directory %s when loading epoch databases, ignoring', fullDirectory);
         continue;
       }
       logger.info(
-        `Loading broker database for epoch ${epochNumber} from ${fullDirectory} with map size ${config.dataStoreMapSizeKb}KB`,
+        'Loading broker database for epoch %d from %s with map size %dKB',
+        epochNumber,
+        fullDirectory,
+        config.dataStoreMapSizeKb,
       );
       const db = await openVersionedStoreAt(
         fullDirectory,
@@ -186,7 +189,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       if (!db) {
         continue;
       }
-      this.logger.verbose(`Deleting broker database for epoch ${old}`);
+      this.logger.verbose('Deleting broker database for epoch %d', old);
       await db.delete();
       this.epochs.delete(old);
     }
@@ -217,7 +220,10 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       const newEpochDirectory = join(this.config.dataDirectory!, epochNumber.toString());
       await mkdir(newEpochDirectory, { recursive: true });
       this.logger.info(
-        `Creating broker database for epoch ${epochNumber} at ${newEpochDirectory} with map size ${this.config.dataStoreMapSizeKb}`,
+        'Creating broker database for epoch %s at %s with map size %d',
+        epochNumber,
+        newEpochDirectory,
+        this.config.dataStoreMapSizeKb,
       );
       const db = await openVersionedStoreAt(
         newEpochDirectory,

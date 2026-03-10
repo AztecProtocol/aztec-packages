@@ -117,7 +117,7 @@ export class ProverNodePublisher {
           this.l1TxUtils.getSenderAddress().toString(),
         );
       } catch (err) {
-        this.log.warn(`Failed to record the ETH balance of the prover node: ${err}`);
+        this.log.warn('Failed to record the ETH balance of the prover node: %s', err);
       }
 
       // Tx was mined successfully
@@ -244,7 +244,7 @@ export class ProverNodePublisher {
           /*blobInputs*/ undefined,
           /*stateOverride*/ [],
         );
-        this.log.error(`Rollup submit epoch proof tx reverted with ${errorMsg ?? 'unknown error'}`);
+        this.log.error('Rollup submit epoch proof tx reverted with %s', errorMsg ?? 'unknown error');
         return undefined;
       }
       return receipt;

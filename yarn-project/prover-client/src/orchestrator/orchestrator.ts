@@ -137,7 +137,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     const { promise: _promise, resolve, reject } = promiseWithResolvers<ProvingResult>();
     const promise = _promise.catch((reason): ProvingResult => ({ status: 'failure', reason }));
-    this.logger.info(`Starting epoch ${epochNumber} with ${totalNumCheckpoints} checkpoints.`);
+    this.logger.info('Starting epoch %s with %d checkpoints.', epochNumber, totalNumCheckpoints);
     this.provingState = new EpochProvingState(
       epochNumber,
       totalNumCheckpoints,
@@ -229,7 +229,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     const constants = checkpointProvingState.constants;
-    this.logger.info(`Starting block ${blockNumber} for slot ${constants.slotNumber}.`);
+    this.logger.info('Starting block %s for slot %s.', blockNumber, constants.slotNumber);
 
     // Fork the db only when it's not already set. The db for the first block is set in `startNewCheckpoint`.
     if (!this.dbs.has(blockNumber)) {
@@ -310,7 +310,7 @@ export class ProvingOrchestrator implements EpochProver {
       throw new Error(`Block ${blockNumber} has been initialized with transactions.`);
     }
 
-    this.logger.info(`Adding ${txs.length} transactions to block ${blockNumber}`);
+    this.logger.info('Adding %d transactions to block %s', txs.length, blockNumber);
 
     const db = this.getDbForBlock(blockNumber);
     const lastArchive = provingState.lastArchiveTreeSnapshot;
@@ -325,7 +325,7 @@ export class ProvingOrchestrator implements EpochProver {
 
         validateTx(tx);
 
-        this.logger.debug(`Received transaction: ${tx.hash}`);
+        this.logger.debug('Received transaction: %s', tx.hash);
 
         const startSpongeBlob = spongeBlobState.clone();
         const [hints, treeSnapshots] = await this.prepareBaseRollupInputs(
@@ -346,10 +346,10 @@ export class ProvingOrchestrator implements EpochProver {
         const txIndex = provingState.addNewTx(txProvingState);
         if (txProvingState.requireAvmProof) {
           this.getOrEnqueueChonkVerifier(provingState, txIndex);
-          this.logger.debug(`Enqueueing public VM for tx ${txIndex}`);
+          this.logger.debug('Enqueueing public VM for tx %d', txIndex);
           this.enqueueVM(provingState, txIndex);
         } else {
-          this.logger.debug(`Enqueueing base rollup for private-only tx ${txIndex}`);
+          this.logger.debug('Enqueueing base rollup for private-only tx %d', txIndex);
           this.enqueueBaseRollup(provingState, txIndex);
         }
       } catch (err: any) {
@@ -392,7 +392,7 @@ export class ProvingOrchestrator implements EpochProver {
             typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
           >
         >();
-      this.logger.debug(`Starting chonk verifier circuit for tx ${txHash}`);
+      this.logger.debug('Starting chonk verifier circuit for tx %s', txHash);
       this.doEnqueueChonkVerifier(txHash, privateInputs, proof => {
         tubeProof.resolve(proof);
       });
@@ -432,11 +432,11 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     // Given we've applied every change from this block, now assemble the block header:
-    this.logger.verbose(`Block ${blockNumber} completed. Assembling header.`);
+    this.logger.verbose('Block %s completed. Assembling header.', blockNumber);
     const header = await provingState.buildBlockHeader();
 
     if (expectedHeader && !header.equals(expectedHeader)) {
-      this.logger.error(`Block header mismatch: header=${header} expectedHeader=${expectedHeader}`);
+      this.logger.error('Block header mismatch: header=%s expectedHeader=%s', header, expectedHeader);
       throw new Error('Block header mismatch');
     }
 
@@ -447,7 +447,9 @@ export class ProvingOrchestrator implements EpochProver {
     // Update the archive tree, capture the snapshot, and close the fork deterministically.
     try {
       this.logger.verbose(
-        `Updating archive tree with block ${provingState.blockNumber} header ${(await header.hash()).toString()}`,
+        'Updating archive tree with block %s header %s',
+        provingState.blockNumber,
+        (await header.hash()).toString(),
       );
       await db.updateArchive(header);
       provingState.setBuiltArchive(await getTreeSnapshot(MerkleTreeId.ARCHIVE, db));
@@ -483,7 +485,11 @@ export class ProvingOrchestrator implements EpochProver {
     const header = await buildHeaderFromCircuitOutputs(output);
 
     if (!(await header.hash()).equals(await builtBlockHeader.hash())) {
-      this.logger.error(`Block header mismatch.\nCircuit: ${inspect(header)}\nComputed: ${inspect(builtBlockHeader)}`);
+      this.logger.error(
+        'Block header mismatch.\nCircuit: %s\nComputed: %s',
+        inspect(header),
+        inspect(builtBlockHeader),
+      );
       provingState.reject(`Block header hash mismatch.`);
       return;
     }
@@ -492,9 +498,7 @@ export class ProvingOrchestrator implements EpochProver {
     const syncedArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.dbProvider.getSnapshot(blockNumber));
     if (!syncedArchive.equals(newArchive)) {
       this.logger.error(
-        `Archive tree mismatch for block ${blockNumber}: world state synced to ${inspect(
-          syncedArchive,
-        )} but built ${inspect(newArchive)}`,
+        `Archive tree mismatch for block ${blockNumber}: world state synced to ${inspect(syncedArchive)} but built ${inspect(newArchive)}`,
       );
       provingState.reject(`Archive tree mismatch.`);
       return;
@@ -502,7 +506,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     const circuitArchive = output.newArchive;
     if (!newArchive.equals(circuitArchive)) {
-      this.logger.error(`New archive mismatch.\nCircuit: ${output.newArchive}\nComputed: ${newArchive}`);
+      this.logger.error('New archive mismatch.\nCircuit: %s\nComputed: %s', output.newArchive, newArchive);
       provingState.reject(`New archive mismatch.`);
       return;
     }
@@ -703,7 +707,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     if (!provingState.tryStartProvingBase(txIndex)) {
-      this.logger.debug(`Base rollup for tx ${txIndex} already started.`);
+      this.logger.debug('Base rollup for tx %d already started.', txIndex);
       return;
     }
 
@@ -711,7 +715,7 @@ export class ProvingOrchestrator implements EpochProver {
     const { processedTx } = txProvingState;
     const { rollupType, inputs } = txProvingState.getBaseRollupTypeAndInputs();
 
-    this.logger.debug(`Enqueuing deferred proving base rollup for ${processedTx.hash.toString()}`);
+    this.logger.debug('Enqueuing deferred proving base rollup for %s', processedTx.hash);
 
     this.deferredProving(
       provingState,
@@ -735,7 +739,7 @@ export class ProvingOrchestrator implements EpochProver {
         },
       ),
       result => {
-        this.logger.debug(`Completed proof for ${rollupType} for tx ${processedTx.hash.toString()}`);
+        this.logger.debug('Completed proof for %s for tx %s', rollupType, processedTx.hash);
         validatePartialState(result.inputs.endTreeSnapshots, txProvingState.treeSnapshots);
         const leafLocation = provingState.setBaseRollupProof(txIndex, result);
         if (provingState.totalNumTxs === 1) {
@@ -764,19 +768,19 @@ export class ProvingOrchestrator implements EpochProver {
         typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
       >,
     ) => {
-      this.logger.debug(`Got chonk verifier proof for tx index: ${txIndex}`, { txHash });
+      this.logger.debug('Got chonk verifier proof for tx index: %d', txIndex, { txHash });
       txProvingState.setPublicChonkVerifierProof(result);
       this.provingState?.cachedChonkVerifierProofs.delete(txHash);
       this.checkAndEnqueueBaseRollup(provingState, txIndex);
     };
 
     if (this.provingState?.cachedChonkVerifierProofs.has(txHash)) {
-      this.logger.debug(`Chonk verifier proof already enqueued for tx index: ${txIndex}`, { txHash });
+      this.logger.debug('Chonk verifier proof already enqueued for tx index: %d', txIndex, { txHash });
       void this.provingState!.cachedChonkVerifierProofs.get(txHash)!.then(handleResult);
       return;
     }
 
-    this.logger.debug(`Enqueuing chonk verifier circuit for tx index: ${txIndex}`);
+    this.logger.debug('Enqueuing chonk verifier circuit for tx index: %d', txIndex);
     this.doEnqueueChonkVerifier(txHash, txProvingState.getPublicChonkVerifierPrivateInputs(), handleResult);
   }
 
@@ -857,7 +861,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     const { rollupType, inputs } = provingState.getBlockRootRollupTypeAndInputs();
 
-    this.logger.debug(`Enqueuing ${rollupType} for block ${provingState.blockNumber}.`);
+    this.logger.debug('Enqueuing %s for block %s.', rollupType, provingState.blockNumber);
 
     this.deferredProving(
       provingState,
@@ -882,7 +886,7 @@ export class ProvingOrchestrator implements EpochProver {
         },
       ),
       async result => {
-        this.logger.debug(`Completed ${rollupType} proof for block ${provingState.blockNumber}`);
+        this.logger.debug('Completed %s proof for block %s', rollupType, provingState.blockNumber);
 
         const leafLocation = provingState.setBlockRootRollupProof(result);
         const checkpointProvingState = provingState.parentCheckpoint;
@@ -913,7 +917,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     if (!provingState.tryStartProvingBaseParity(baseParityIndex)) {
-      this.logger.warn(`Base parity ${baseParityIndex} already started.`);
+      this.logger.warn('Base parity %d already started.', baseParityIndex);
       return;
     }
 
@@ -1020,7 +1024,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     const rollupType = provingState.getCheckpointRootRollupType();
 
-    this.logger.debug(`Enqueuing ${rollupType} for checkpoint ${provingState.index}.`);
+    this.logger.debug('Enqueuing %s for checkpoint %s.', rollupType, provingState.index);
 
     const inputs = await provingState.getCheckpointRootRollupInputs();
 
@@ -1045,15 +1049,15 @@ export class ProvingOrchestrator implements EpochProver {
         const circuitEndBlobAccumulatorState = result.inputs.endBlobAccumulator;
         if (!circuitEndBlobAccumulatorState.equals(computedEndBlobAccumulatorState)) {
           this.logger.error(
-            `Blob accumulator state mismatch.\nCircuit: ${inspect(circuitEndBlobAccumulatorState)}\nComputed: ${inspect(
-              computedEndBlobAccumulatorState,
-            )}`,
+            'Blob accumulator state mismatch.\nCircuit: %s\nComputed: %s',
+            inspect(circuitEndBlobAccumulatorState),
+            inspect(computedEndBlobAccumulatorState),
           );
           provingState.reject(`Blob accumulator state mismatch.`);
           return;
         }
 
-        this.logger.debug(`Completed ${rollupType} proof for checkpoint ${provingState.index}.`);
+        this.logger.debug('Completed %s proof for checkpoint %s.', rollupType, provingState.index);
 
         const leafLocation = provingState.setCheckpointRootRollupProof(result);
         const epochProvingState = provingState.parentEpoch;
@@ -1153,7 +1157,7 @@ export class ProvingOrchestrator implements EpochProver {
         signal => this.prover.getRootRollupProof(inputs, signal, provingState.epochNumber),
       ),
       result => {
-        this.logger.verbose(`Orchestrator completed root rollup for epoch ${provingState.epochNumber}`);
+        this.logger.verbose('Orchestrator completed root rollup for epoch %s', provingState.epochNumber);
         provingState.setRootRollupProof(result);
         provingState.resolve({ status: 'success' });
       },
@@ -1255,7 +1259,7 @@ export class ProvingOrchestrator implements EpochProver {
     );
 
     this.deferredProving(provingState, doAvmProving, proof => {
-      this.logger.debug(`Proven VM for tx index: ${txIndex}`);
+      this.logger.debug('Proven VM for tx index: %d', txIndex);
       txProvingState.setAvmProof(proof);
       this.checkAndEnqueueBaseRollup(provingState, txIndex);
     });
@@ -1268,7 +1272,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     // We must have completed all proving (chonk verifier proof and (if required) vm proof are generated), we now move to the base rollup.
-    this.logger.debug(`Public functions completed for tx ${txIndex} enqueueing base rollup`);
+    this.logger.debug('Public functions completed for tx %d enqueueing base rollup', txIndex);
 
     this.enqueueBaseRollup(provingState, txIndex);
   }

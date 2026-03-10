@@ -205,7 +205,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     const outputWitness = await this.simulator
       .executeProtocolCircuit(witnessMap, compiledCircuit, foreignCallHandler)
       .catch((err: Error) => {
-        this.log.debug(`Failed to simulate ${circuitType}`, {
+        this.log.debug('Failed to simulate %s', circuitType, {
           circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
           error: err,
         });
@@ -213,7 +213,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
       });
     const output = convertOutputs(outputWitness.witness, compiledCircuit.abi);
 
-    this.log.debug(`Simulated ${circuitType}`, {
+    this.log.debug('Simulated %s', circuitType, {
       eventName: 'circuit-simulation',
       circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
       duration: outputWitness.duration,
@@ -233,7 +233,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     convertInputs: (inputs: I, abi: Abi) => WitnessMap,
     convertOutputs: (outputs: WitnessMap, abi: Abi) => O,
   ): Promise<PrivateKernelSimulateOutput<O>> {
-    this.log.debug(`Generating witness for ${circuitType}`);
+    this.log.debug('Generating witness for %s', circuitType);
     const compiledCircuit: NoirCompiledCircuitWithName =
       await this.artifactProvider.getClientCircuitArtifactByName(circuitType);
 
@@ -241,7 +241,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     const outputWitness = await this.simulator.executeProtocolCircuit(witnessMap, compiledCircuit, foreignCallHandler);
     const output = convertOutputs(outputWitness.witness, compiledCircuit.abi);
 
-    this.log.debug(`Generated witness for ${circuitType}`, {
+    this.log.debug('Generated witness for %s', circuitType, {
       eventName: 'circuit-witness-generation',
       circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
       duration: outputWitness.duration,

@@ -37,7 +37,7 @@ export const getEnvironmentConfig = async (logger: Logger) => {
     const tempWorkingDirectory = `${TEMP_DIR}/${randomBytes(4).toString('hex')}`;
     const bbWorkingDirectory = BB_WORKING_DIRECTORY ? BB_WORKING_DIRECTORY : `${tempWorkingDirectory}/bb`;
     await fs.mkdir(bbWorkingDirectory, { recursive: true });
-    logger.info(`Found native BB binary at ${expectedBBPath} with working directory ${bbWorkingDirectory}`);
+    logger.info('Found native BB binary at %s with working directory %s', expectedBBPath, bbWorkingDirectory);
 
     const expectedAcvmPath = ACVM_BINARY_PATH
       ? ACVM_BINARY_PATH
@@ -45,10 +45,10 @@ export const getEnvironmentConfig = async (logger: Logger) => {
     await fs.access(expectedAcvmPath, fs.constants.R_OK);
     const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${tempWorkingDirectory}/acvm`;
     await fs.mkdir(acvmWorkingDirectory, { recursive: true });
-    logger.info(`Found native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
+    logger.info('Found native ACVM binary at %s with working directory %s', expectedAcvmPath, acvmWorkingDirectory);
 
     const bbSkipCleanup = ['1', 'true'].includes(BB_SKIP_CLEANUP);
-    bbSkipCleanup && logger.verbose(`Not going to clean up BB working directory ${bbWorkingDirectory} after run`);
+    bbSkipCleanup && logger.verbose('Not going to clean up BB working directory %s after run', bbWorkingDirectory);
 
     return {
       acvmWorkingDirectory,
@@ -59,7 +59,7 @@ export const getEnvironmentConfig = async (logger: Logger) => {
       bbSkipCleanup,
     };
   } catch (err) {
-    logger.info(`Native BB not available: ${err}`);
+    logger.info('Native BB not available: %s', err);
     return undefined;
   }
 };
@@ -73,12 +73,14 @@ export async function getSimulator(
       await fs.access(config.acvmBinaryPath, fs.constants.R_OK);
       await fs.mkdir(config.acvmWorkingDirectory, { recursive: true });
       logger?.info(
-        `Using native ACVM at ${config.acvmBinaryPath} and working directory ${config.acvmWorkingDirectory}`,
+        'Using native ACVM at %s and working directory %s',
+        config.acvmBinaryPath,
+        config.acvmWorkingDirectory,
       );
       const acvmLogger = logger?.createChild('acvm-native');
       return new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath, undefined, acvmLogger);
     } catch {
-      logger?.warn(`Failed to access ACVM at ${config.acvmBinaryPath}, falling back to WASM`);
+      logger?.warn('Failed to access ACVM at %s, falling back to WASM', config.acvmBinaryPath);
     }
   }
   logger?.info('Using WASM ACVM simulation');

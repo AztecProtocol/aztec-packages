@@ -185,7 +185,9 @@ export class LightweightCheckpointBuilder {
 
     if (opts.insertTxsEffects) {
       this.logger.debug(
-        `Inserting side effects for ${txs.length} txs for block ${globalVariables.blockNumber} into db`,
+        'Inserting side effects for %d txs for block %s into db',
+        txs.length,
+        globalVariables.blockNumber,
         { txs: txs.map(tx => tx.hash.toString()) },
       );
       let msInsertSideEffects = 0;
@@ -228,7 +230,7 @@ export class LightweightCheckpointBuilder {
     timings.spongeAbsorb = msSpongeAbsorb;
     this.blobFields.push(...blockBlobFields);
 
-    this.logger.debug(`Built block ${header.getBlockNumber()}`, {
+    this.logger.debug('Built block %s', header.getBlockNumber(), {
       globalVariables: globalVariables.toInspect(),
       archiveRoot: newArchive.root.toString(),
       stateReference: header.state.toInspect(),

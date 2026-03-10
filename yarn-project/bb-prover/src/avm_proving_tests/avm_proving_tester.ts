@@ -17,6 +17,7 @@ import { NativeWorldStateService } from '@aztec/world-state';
 
 import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { format } from 'node:util';
 import path from 'path';
 
 import { type BBResult, type BBSuccess, BB_RESULT, generateAvmProof, verifyAvmProof } from '../bb/execute.js';
@@ -50,7 +51,8 @@ class InterceptingLogger implements Logger {
   }
 
   private intercept(level: LogLevel, msg: string, ...args: any[]) {
-    this.logs.push(...msg.split('\n'));
+    const formatted = args.length > 0 ? format(msg, ...args) : msg;
+    this.logs.push(...formatted.split('\n'));
     // Forward to the wrapped logger
     (this.logger[level] as LogFn)(msg, ...args);
   }
@@ -136,7 +138,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       this.checkCircuitOnly,
     );
     if (proofRes.status === BB_RESULT.FAILURE) {
-      this.logger.error(`Proof generation failed: ${proofRes.reason}`);
+      this.logger.error('Proof generation failed: %s', proofRes.reason);
     }
     expect(proofRes.status).toEqual(BB_RESULT.SUCCESS);
 
@@ -226,7 +228,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       gasLimits,
     );
     const simDuration = simTimer.ms();
-    this.logger.info(`Simulation took ${simDuration} ms for tx ${txLabel}`);
+    this.logger.info('Simulation took %d ms for tx %s', simDuration, txLabel);
 
     if (!disableRevertCheck) {
       expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);
@@ -237,7 +239,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     const avmCircuitInputs = new AvmCircuitInputs(simRes.hints!, simRes.publicInputs!);
     const timer = new Timer();
     await this.proveVerify(avmCircuitInputs, txLabel);
-    this.logger.info(`${opString} took ${timer.ms()} ms for tx ${txLabel}`);
+    this.logger.info('%s took %d ms for tx %s', opString, timer.ms(), txLabel);
 
     return simRes;
   }

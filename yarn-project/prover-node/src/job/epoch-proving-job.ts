@@ -134,13 +134,19 @@ export class EpochProvingJob implements Traceable {
     const toCheckpoint = this.checkpoints.at(-1)!.number;
     const fromBlock = this.checkpoints[0].blocks[0].number;
     const toBlock = this.checkpoints.at(-1)!.blocks.at(-1)!.number;
-    this.log.info(`Starting epoch ${epochNumber} proving job with checkpoints ${fromCheckpoint} to ${toCheckpoint}`, {
-      fromBlock,
-      toBlock,
-      epochSizeTxs,
+    this.log.info(
+      'Starting epoch %s proving job with checkpoints %s to %s',
       epochNumber,
-      uuid: this.uuid,
-    });
+      fromCheckpoint,
+      toCheckpoint,
+      {
+        fromBlock,
+        toBlock,
+        epochSizeTxs,
+        epochNumber,
+        uuid: this.uuid,
+      },
+    );
 
     this.progressState('processing');
     const timer = new Timer();
@@ -149,9 +155,9 @@ export class EpochProvingJob implements Traceable {
 
     try {
       const blobFieldsPerCheckpoint = this.checkpoints.map(checkpoint => checkpoint.toBlobFields());
-      this.log.info(`Blob fields per checkpoint: ${timer.ms()}ms`);
+      this.log.info('Blob fields per checkpoint: %dms', timer.ms());
       const finalBlobBatchingChallenges = await buildFinalBlobChallenges(blobFieldsPerCheckpoint);
-      this.log.info(`Final blob batching challeneger: ${timer.ms()}ms`);
+      this.log.info('Final blob batching challeneger: %dms', timer.ms());
 
       this.prover.startNewEpoch(epochNumber, epochSizeCheckpoints, finalBlobBatchingChallenges);
       await this.prover.startChonkVerifierCircuits(Array.from(this.txs.values()));
@@ -179,7 +185,7 @@ export class EpochProvingJob implements Traceable {
         const previousHeader = previousBlockHeaders[checkpointIndex];
         const l1ToL2Messages = this.getL1ToL2Messages(checkpoint);
 
-        this.log.verbose(`Starting processing checkpoint ${checkpoint.number}`, {
+        this.log.verbose('Starting processing checkpoint %s', checkpoint.number, {
           number: checkpoint.number,
           checkpointHash: checkpoint.hash().toString(),
           lastArchive: checkpoint.header.lastArchiveRoot,
@@ -200,7 +206,7 @@ export class EpochProvingJob implements Traceable {
           const globalVariables = block.header.globalVariables;
           const txs = this.getTxs(block);
 
-          this.log.verbose(`Starting processing block ${block.number}`, {
+          this.log.verbose('Starting processing block %s', block.number, {
             number: block.number,
             blockHash: (await block.hash()).toString(),
             lastArchive: block.header.lastArchive.root,
@@ -232,7 +238,7 @@ export class EpochProvingJob implements Traceable {
           const processed = await this.processTxs(publicProcessor, txs);
           await this.prover.addTxs(processed);
           await db.close();
-          this.log.verbose(`Processed all ${txs.length} txs for block ${block.number}`, {
+          this.log.verbose('Processed all %d txs for block %s', txs.length, block.number, {
             blockNumber: block.number,
             blockHash: (await block.hash()).toString(),
             uuid: this.uuid,
@@ -248,13 +254,20 @@ export class EpochProvingJob implements Traceable {
 
       this.progressState('awaiting-prover');
       const { publicInputs, proof, batchedBlobInputs } = await this.prover.finalizeEpoch();
-      this.log.info(`Finalized proof for epoch ${epochNumber}`, { epochNumber, uuid: this.uuid, duration: timer.ms() });
+      this.log.info('Finalized proof for epoch %s', epochNumber, {
+        epochNumber,
+        uuid: this.uuid,
+        duration: timer.ms(),
+      });
 
       this.progressState('publishing-proof');
 
       if (this.config.skipSubmitProof) {
         this.log.info(
-          `Proof publishing is disabled. Dropping valid proof for epoch ${epochNumber} (checkpoints ${fromCheckpoint} to ${toCheckpoint})`,
+          'Proof publishing is disabled. Dropping valid proof for epoch %s (checkpoints %s to %s)',
+          epochNumber,
+          fromCheckpoint,
+          toCheckpoint,
         );
         this.state = 'completed';
         this.metrics.recordProvingJob(executionTime, timer.ms(), epochSizeCheckpoints, epochSizeBlocks, epochSizeTxs);
@@ -274,7 +287,7 @@ export class EpochProvingJob implements Traceable {
         throw new Error('Failed to submit epoch proof to L1');
       }
 
-      this.log.info(`Submitted proof for epoch ${epochNumber} (checkpoints ${fromCheckpoint} to ${toCheckpoint})`, {
+      this.log.info('Submitted proof for epoch %s (checkpoints %s to %s)', epochNumber, fromCheckpoint, toCheckpoint, {
         epochNumber,
         uuid: this.uuid,
       });
@@ -282,7 +295,7 @@ export class EpochProvingJob implements Traceable {
       this.metrics.recordProvingJob(executionTime, timer.ms(), epochSizeCheckpoints, epochSizeBlocks, epochSizeTxs);
     } catch (err: any) {
       if (err && err.name === 'HaltExecutionError') {
-        this.log.warn(`Halted execution of epoch ${epochNumber} prover job`, {
+        this.log.warn('Halted execution of epoch %s prover job', epochNumber, {
           uuid: this.uuid,
           epochNumber,
           details: err.message,
@@ -308,11 +321,11 @@ export class EpochProvingJob implements Traceable {
    * REFACTOR: The prover already spawns a db fork of its own for each block, so we may be able to do away with just one fork.
    */
   private async createFork(blockNumber: BlockNumber, l1ToL2Messages: Fr[] | undefined) {
-    this.log.verbose(`Creating fork at ${blockNumber}`, { blockNumber });
+    this.log.verbose('Creating fork at %s', blockNumber, { blockNumber });
     const db = await this.dbProvider.fork(blockNumber);
 
     if (l1ToL2Messages !== undefined) {
-      this.log.verbose(`Inserting ${l1ToL2Messages.length} L1 to L2 messages in fork`, {
+      this.log.verbose('Inserting %d L1 to L2 messages in fork', l1ToL2Messages.length, {
         blockNumber,
         l1ToL2Messages: l1ToL2Messages.map(m => m.toString()),
       });
@@ -401,7 +414,7 @@ export class EpochProvingJob implements Traceable {
       this.log,
       intervalMs,
     ).start();
-    this.log.verbose(`Scheduled epoch check for epoch ${this.epochNumber} every ${intervalMs}ms`);
+    this.log.verbose('Scheduled epoch check for epoch %s every %dms', this.epochNumber, intervalMs);
   }
 
   /* Returns the last block header in the previous checkpoint for all checkpoints in the epoch */

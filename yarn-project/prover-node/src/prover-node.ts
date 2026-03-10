@@ -124,12 +124,12 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    */
   async handleEpochReadyToProve(epochNumber: EpochNumber): Promise<boolean> {
     try {
-      this.log.debug(`Running jobs as ${epochNumber} is ready to prove`, {
+      this.log.debug('Running jobs as %s is ready to prove', epochNumber, {
         jobs: Array.from(this.jobs.values()).map(job => `${job.getEpochNumber()}:${job.getId()}`),
       });
       const activeJobs = await this.getActiveJobsForEpoch(epochNumber);
       if (activeJobs.length > 0) {
-        this.log.warn(`Not starting proof for ${epochNumber} since there are active jobs for the epoch`, {
+        this.log.warn('Not starting proof for %s since there are active jobs for the epoch', epochNumber, {
           activeJobs: activeJobs.map(job => job.uuid),
         });
         return true;
@@ -138,7 +138,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       return true;
     } catch (err) {
       if (err instanceof EmptyEpochError) {
-        this.log.info(`Not starting proof for ${epochNumber} since no blocks were found`);
+        this.log.info('Not starting proof for %s since no blocks were found', epochNumber);
       } else {
         this.log.error(`Error handling epoch completed`, err);
       }
@@ -156,7 +156,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     this.publisher = await this.publisherFactory.create();
     await this.rewardsMetrics.start();
     this.l1Metrics.start();
-    this.log.info(`Started Prover Node with prover id ${this.prover.getProverId().toString()}`, this.config);
+    this.log.info('Started Prover Node with prover id %s', this.prover.getProverId(), this.config);
   }
 
   /**
@@ -205,13 +205,13 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       ctx.state = state;
 
       if (state === 'reorg') {
-        this.log.warn(`Running new job for epoch ${epochNumber} due to reorg`, ctx);
+        this.log.warn('Running new job for epoch %s due to reorg', epochNumber, ctx);
         await this.createProvingJob(epochNumber);
       } else if (state === 'failed') {
         this.log.error(`Job for ${epochNumber} exited with state ${state}`, ctx);
         await this.tryUploadEpochFailure(job);
       } else {
-        this.log.verbose(`Job for ${epochNumber} exited with state ${state}`, ctx);
+        this.log.verbose('Job for %s exited with state %s', epochNumber, state, ctx);
       }
     } catch (err) {
       this.log.error(`Error proving epoch ${epochNumber}`, err, ctx);
@@ -281,7 +281,12 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     const fromBlock = epochData.checkpoints[0].blocks[0].number;
     const toBlock = epochData.checkpoints.at(-1)!.blocks.at(-1)!.number;
     this.log.verbose(
-      `Creating proving job for epoch ${epochNumber} for checkpoint range ${fromCheckpoint} to ${toCheckpoint} and block range ${fromBlock} to ${toBlock}`,
+      'Creating proving job for epoch %s for checkpoint range %s to %s and block range %s to %s',
+      epochNumber,
+      fromCheckpoint,
+      toCheckpoint,
+      fromBlock,
+      toBlock,
     );
 
     // Fast forward world state to right before the target block and get a fork
@@ -339,7 +344,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     const missingTxs = txsByBlock.map(({ missingTxs }) => missingTxs).flat();
 
     if (missingTxs.length === 0) {
-      this.log.verbose(`Gathered all ${txs.length} txs for epoch ${epochNumber}`, { epochNumber });
+      this.log.verbose('Gathered all %d txs for epoch %s', txs.length, epochNumber, { epochNumber });
       return txs;
     }
 
@@ -349,7 +354,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   private async gatherMessages(epochNumber: EpochNumber, checkpoints: Checkpoint[]) {
     const messages = await Promise.all(checkpoints.map(c => this.l1ToL2MessageSource.getL1ToL2Messages(c.number)));
     const messageCount = sum(messages.map(m => m.length));
-    this.log.verbose(`Gathered all ${messageCount} messages for epoch ${epochNumber}`, { epochNumber });
+    this.log.verbose('Gathered all %d messages for epoch %s', messageCount, epochNumber, { epochNumber });
     const messagesByCheckpoint: Record<CheckpointNumber, Fr[]> = {};
     for (let i = 0; i < checkpoints.length; i++) {
       messagesByCheckpoint[checkpoints[i].number] = messages[i];
@@ -366,7 +371,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       throw new Error(`Previous block header ${previousBlockNumber} not found for proving epoch ${epochNumber}`);
     }
 
-    this.log.verbose(`Gathered previous block header ${header.getBlockNumber()} for epoch ${epochNumber}`);
+    this.log.verbose('Gathered previous block header %s for epoch %s', header.getBlockNumber(), epochNumber);
     return header;
   }
 

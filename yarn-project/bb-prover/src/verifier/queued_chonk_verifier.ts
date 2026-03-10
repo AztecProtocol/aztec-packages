@@ -93,7 +93,7 @@ export class QueuedIVCVerifier implements ClientProtocolCircuitVerifier {
   ) {
     this.metrics = new IVCVerifierMetrics(this.telemetry, 'QueuedIVCVerifier');
     this.queue = new SerialQueue();
-    this.logger.info(`Starting QueuedIVCVerifier with ${config.numConcurrentIVCVerifiers} concurrent verifiers`);
+    this.logger.info('Starting QueuedIVCVerifier with %d concurrent verifiers', config.numConcurrentIVCVerifiers);
     this.queue.start(config.numConcurrentIVCVerifiers);
   }
 

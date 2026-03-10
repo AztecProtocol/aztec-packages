@@ -25,7 +25,7 @@ export async function rerunEpochProvingJob(
   config: DataStoreConfig & ProverBrokerConfig & ProverClientConfig & Pick<L1ContractsConfig, 'aztecEpochDuration'>,
 ) {
   const jobData = deserializeEpochProvingJobData(readFileSync(localPath));
-  log.info(`Loaded proving job data for epoch ${jobData.epochNumber}`);
+  log.info('Loaded proving job data for epoch %s', jobData.epochNumber);
 
   const telemetry = getTelemetryClient();
   const metrics = new ProverNodeJobMetrics(telemetry.getMeter('prover-job'), telemetry.getTracer('prover-job'));
@@ -56,8 +56,8 @@ export async function rerunEpochProvingJob(
     log.getBindings(),
   );
 
-  log.info(`Rerunning epoch proving job for epoch ${jobData.epochNumber}`);
+  log.info('Rerunning epoch proving job for epoch %s', jobData.epochNumber);
   await provingJob.run();
-  log.info(`Completed job for epoch ${jobData.epochNumber} with status ${provingJob.getState()}`);
+  log.info('Completed job for epoch %s with status %s', jobData.epochNumber, provingJob.getState());
   return provingJob.getState();
 }

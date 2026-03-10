@@ -37,7 +37,7 @@ export async function uploadEpochProofFailure(
   log: Logger,
 ) {
   const epochNumber = jobData.epochNumber;
-  log.warn(`Uploading epoch proof failure for ${epochNumber} to ${location}`, { epochNumber, jobId, location });
+  log.warn('Uploading epoch proof failure for %s to %s', epochNumber, location, { epochNumber, jobId, location });
 
   const backupDir = await mkdtemp(join(config.dataDirectory ?? tmpdir(), 'epoch-proof-data-'));
   const store = await createFileStore(location);
@@ -59,7 +59,7 @@ export async function uploadEpochProofFailure(
     ] as const);
 
     const baseUrl = dirname(metadataUrl);
-    log.warn(`Uploaded epoch ${epochNumber} proof failure data to ${baseUrl}`, {
+    log.warn('Uploaded epoch %s proof failure data to %s', epochNumber, baseUrl, {
       epochNumber,
       location,
       basePath,
@@ -70,7 +70,7 @@ export async function uploadEpochProofFailure(
     });
     return baseUrl;
   } finally {
-    log.info(`Cleaning up backup dir ${backupDir}`);
+    log.info('Cleaning up backup dir %s', backupDir);
     await tryRmDir(backupDir, log);
   }
 }

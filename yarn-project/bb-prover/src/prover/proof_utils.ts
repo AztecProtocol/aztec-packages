@@ -104,7 +104,11 @@ export async function readProofsFromOutputDirectory<PROOF_LENGTH extends number>
   // This buffer will have the form: [binary public inputs, binary proof]
   const binaryProofWithPublicInputs = Buffer.concat([binaryPublicInputs, binaryProof]);
   logger.debug(
-    `Circuit path: ${directory}, proof fields length: ${fieldsWithoutPublicInputs.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}`,
+    'Circuit path: %s, proof fields length: %d, num public inputs: %d, circuit size: %d',
+    directory,
+    fieldsWithoutPublicInputs.length,
+    numPublicInputs,
+    vkData.circuitSize,
   );
   return new RecursiveProof(
     fieldsWithoutPublicInputs,

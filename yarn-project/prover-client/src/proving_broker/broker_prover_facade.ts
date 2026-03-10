@@ -94,7 +94,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     // Check if there is already a promise for this job
     const existingJob = this.jobs.get(id);
     if (existingJob) {
-      this.log.verbose(`Job already found in facade id=${id} type=${ProvingRequestType[type]}`, {
+      this.log.verbose('Job already found in facade id=%s type=%s', id, ProvingRequestType[type], {
         provingJobId: id,
         provingJobType: ProvingRequestType[type],
       });
@@ -114,7 +114,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     );
     const abortFn = () => {
       signal?.removeEventListener('abort', abortFn);
-      void this.broker.cancelProvingJob(id).catch(err => this.log.warn(`Error cancelling job id=${id}`, err));
+      void this.broker.cancelProvingJob(id).catch(err => this.log.warn('Error cancelling job id=%s', id, err));
     };
     const job: ProvingJob = {
       id,
@@ -162,7 +162,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
       if (jobStatus.status === 'fulfilled' || jobStatus.status === 'rejected') {
         // Job was already completed by the broker
         // No need to notify the broker on aborted job
-        this.log.verbose(`Job already completed when sent to broker ${jobLogText}`, jobLogData);
+        this.log.verbose('Job already completed when sent to broker %s', jobLogText, jobLogData);
 
         // Job was not enqueued. It must be completed already, add to our set of already completed jobs
         this.jobsToRetrieve.add(id);
@@ -172,10 +172,10 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
 
         // Job added for the first time
         if (jobStatus.status === 'not-found') {
-          this.log.verbose(`Job enqueued with broker ${jobLogText}`, jobLogData);
+          this.log.verbose('Job enqueued with broker %s', jobLogText, jobLogData);
         } else {
           // Job was previously sent to the broker but is not completed
-          this.log.verbose(`Job already in queue or in progress when sent to broker ${jobLogText}`, jobLogData);
+          this.log.verbose('Job already in queue or in progress when sent to broker %s', jobLogText, jobLogData);
         }
       }
     } catch (err) {
@@ -248,7 +248,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     if (secondsSinceLastSnapshotSync > SNAPSHOT_SYNC_INTERVAL_MS) {
       this.timeOfLastSnapshotSync = currentTime;
       snapshotSyncIds.push(...this.jobs.keys());
-      this.log.trace(`Performing full snapshot sync of completed jobs with ${snapshotSyncIds.length} job(s)`);
+      this.log.trace('Performing full snapshot sync of completed jobs with %d job(s)', snapshotSyncIds.length);
     } else {
       this.log.trace(`Performing incremental sync of completed jobs`, { snapshotSyncIds });
     }
@@ -264,11 +264,18 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
 
     if (completedJobs.size > 0) {
       this.log.verbose(
-        `Check for job completion notifications returned ${completedJobs.size} job(s), snapshot ids length: ${snapshotIdsLength}, num outstanding jobs: ${this.jobs.size}, total jobs ready: ${this.jobsToRetrieve.size}`,
+        'Check for job completion notifications returned %d job(s), snapshot ids length: %d, num outstanding jobs: %d, total jobs ready: %d',
+        completedJobs.size,
+        snapshotIdsLength,
+        this.jobs.size,
+        this.jobsToRetrieve.size,
       );
     } else {
       this.log.trace(
-        `Check for job completion notifications returned 0 jobs, snapshot ids length: ${snapshotIdsLength}, num outstanding jobs: ${this.jobs.size}, total jobs ready: ${this.jobsToRetrieve.size}`,
+        'Check for job completion notifications returned 0 jobs, snapshot ids length: %d, num outstanding jobs: %d, total jobs ready: %d',
+        snapshotIdsLength,
+        this.jobs.size,
+        this.jobsToRetrieve.size,
       );
     }
   }
@@ -298,7 +305,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
 
     const processJob = async (job: ProvingJob) => {
       // First retrieve the settled job from the broker
-      this.log.debug(`Received notification of completed job id=${job.id} type=${ProvingRequestType[job.type]}`);
+      this.log.debug('Received notification of completed job id=%s type=%s', job.id, ProvingRequestType[job.type]);
       let settledResult;
       try {
         settledResult = await this.broker.getProvingJobStatus(job.id);
@@ -324,7 +331,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
       }
 
       if (result.success) {
-        this.log.verbose(`Resolved proving job id=${job.id} type=${ProvingRequestType[job.type]}`);
+        this.log.verbose('Resolved proving job id=%s type=%s', job.id, ProvingRequestType[job.type]);
         job.deferred.resolve(result.result);
       } else {
         this.log.error(
@@ -359,7 +366,10 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     }
     if (totalJobsToRetrieve > 0) {
       this.log.verbose(
-        `Successfully retrieved ${totalJobsRetrieved} of ${totalJobsToRetrieve} jobs that should be ready, total ready jobs is now: ${this.jobsToRetrieve.size}`,
+        'Successfully retrieved %d of %d jobs that should be ready, total ready jobs is now: %d',
+        totalJobsRetrieved,
+        totalJobsToRetrieve,
+        this.jobsToRetrieve.size,
       );
     }
   }
@@ -371,11 +381,17 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
       }
       const inputs = await this.proofStore.getProofInput(job.inputsUri);
       const uri = await this.failedProofStore.saveProofInput(job.id, inputs.type, inputs.inputs);
-      this.log.info(`Stored proof inputs for failed job id=${job.id} type=${ProvingRequestType[job.type]} at ${uri}`, {
-        id: job.id,
-        type: job.type,
+      this.log.info(
+        'Stored proof inputs for failed job id=%s type=%s at %s',
+        job.id,
+        ProvingRequestType[job.type],
         uri,
-      });
+        {
+          id: job.id,
+          type: job.type,
+          uri,
+        },
+      );
     } catch (err) {
       this.log.error(
         `Error backing up proof inputs for failed job id=${job.id} type=${ProvingRequestType[job.type]}`,

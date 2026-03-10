@@ -62,7 +62,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
       const verificationKey = this.getVerificationKeyData(circuit);
 
-      this.logger.debug(`${circuit} Verifying with key: ${verificationKey.keyAsFields.hash.toString()}`);
+      this.logger.debug('%s Verifying with key: %s', circuit, verificationKey.keyAsFields.hash);
 
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13189): Put this proof parsing logic in the proof class.
       await fs.writeFile(publicInputsFileName, proof.buffer.slice(0, proof.numPublicInputs * 32));
@@ -82,7 +82,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
         throw new Error(errorMessage);
       }
 
-      this.logger.debug(`${circuit} verification successful`, {
+      this.logger.debug('%s verification successful', circuit, {
         circuitName: mapProtocolArtifactNameToCircuitName(circuit),
         duration: result.durationMs,
         eventName: 'circuit-verification',
@@ -124,7 +124,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
           throw new Error(errorMessage);
         }
 
-        this.logger.debug(`${proofType} verification successful`, {
+        this.logger.debug('%s verification successful', proofType, {
           circuitName: mapProtocolArtifactNameToCircuitName(circuit),
           duration: result.durationMs,
           eventName: 'circuit-verification',
@@ -134,7 +134,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
       return { valid: true, durationMs: verificationDuration, totalDurationMs: totalTimer.ms() };
     } catch (err) {
-      this.logger.warn(`Failed to verify ${proofType} proof for tx ${tx.getTxHash().toString()}: ${String(err)}`);
+      this.logger.warn('Failed to verify %s proof for tx %s: %s', proofType, tx.getTxHash(), String(err));
       return { valid: false, durationMs: 0, totalDurationMs: 0 };
     }
   }

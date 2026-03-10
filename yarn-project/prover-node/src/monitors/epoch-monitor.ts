@@ -38,7 +38,7 @@ export class EpochMonitor implements Traceable {
     this.tracer = telemetry.getTracer('EpochMonitor');
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.options.pollingIntervalMs);
     if (this.options.provingDelayMs) {
-      this.log.warn(`Prover node epoch monitor running with delay of ${this.options.provingDelayMs}ms`);
+      this.log.warn('Prover node epoch monitor running with delay of %dms', this.options.provingDelayMs);
     }
   }
 
@@ -69,28 +69,28 @@ export class EpochMonitor implements Traceable {
 
   public async work() {
     const { epochToProve, blockNumber, slotNumber } = await this.getEpochNumberToProve();
-    this.log.debug(`Epoch to prove: ${epochToProve}`, { blockNumber, slotNumber });
+    this.log.debug('Epoch to prove: %s', epochToProve, { blockNumber, slotNumber });
     if (epochToProve === undefined) {
-      this.log.trace(`Next block to prove ${blockNumber} not yet mined`, { blockNumber });
+      this.log.trace('Next block to prove %s not yet mined', blockNumber, { blockNumber });
       return;
     }
     if (this.latestEpochNumber !== undefined && epochToProve <= this.latestEpochNumber) {
-      this.log.trace(`Epoch ${epochToProve} already processed`, { epochToProve, blockNumber, slotNumber });
+      this.log.trace('Epoch %s already processed', epochToProve, { epochToProve, blockNumber, slotNumber });
       return;
     }
 
     const isCompleted = await this.l2BlockSource.isEpochComplete(epochToProve);
     if (!isCompleted) {
-      this.log.trace(`Epoch ${epochToProve} is not complete`, { epochToProve, blockNumber, slotNumber });
+      this.log.trace('Epoch %s is not complete', epochToProve, { epochToProve, blockNumber, slotNumber });
       return;
     }
 
     if (this.options.provingDelayMs) {
-      this.log.debug(`Waiting ${this.options.provingDelayMs}ms before proving epoch ${epochToProve}`);
+      this.log.debug('Waiting %dms before proving epoch %s', this.options.provingDelayMs, epochToProve);
       await sleep(this.options.provingDelayMs);
     }
 
-    this.log.debug(`Epoch ${epochToProve} is ready to be proven`);
+    this.log.debug('Epoch %s is ready to be proven', epochToProve);
     if (await this.handler?.handleEpochReadyToProve(epochToProve)) {
       this.latestEpochNumber = epochToProve;
     }

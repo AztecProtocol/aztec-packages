@@ -41,7 +41,10 @@ describe('prover/bb_prover/full-rollup', () => {
     'proves an epoch with %i checkpoints with %i blocks each with %i txs',
     async (numCheckpoints, numBlockPerCheckpoint, numTxsPerBlock) => {
       log.info(
-        `Proving epoch with ${numCheckpoints} checkpoints and ${numBlockPerCheckpoint} blocks per checkpoint, with ${numTxsPerBlock} txs per block`,
+        'Proving epoch with %d checkpoints and %d blocks per checkpoint, with %d txs per block',
+        numCheckpoints,
+        numBlockPerCheckpoint,
+        numTxsPerBlock,
       );
 
       const checkpoints = await timesAsync(numCheckpoints, () =>
@@ -58,7 +61,7 @@ describe('prover/bb_prover/full-rollup', () => {
       for (let checkpointIndex = 0; checkpointIndex < numCheckpoints; checkpointIndex++) {
         const { constants, blocks, l1ToL2Messages, previousBlockHeader } = checkpoints[checkpointIndex];
 
-        log.info(`Starting new checkpoint #${checkpointIndex}`);
+        log.info('Starting new checkpoint #%d', checkpointIndex);
         await context.orchestrator.startNewCheckpoint(
           checkpointIndex,
           constants,
@@ -71,7 +74,7 @@ describe('prover/bb_prover/full-rollup', () => {
           const { header, txs } = blocks[i];
           const { blockNumber, timestamp } = header.globalVariables;
 
-          log.info(`Starting new block #${blockNumber}`);
+          log.info('Starting new block #%s', blockNumber);
           await context.orchestrator.startNewBlock(blockNumber, timestamp, txs.length);
           await context.orchestrator.addTxs(txs);
 

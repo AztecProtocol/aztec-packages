@@ -98,7 +98,8 @@ export class ProvingAgent {
           maybeJob = await this.reportResult(jobId, proofType, result);
         } else {
           this.log.warn(
-            `Job controller for job ${this.currentJobController.getJobId()} is done but doesn't have a result`,
+            "Job controller for job %s is done but doesn't have a result",
+            this.currentJobController.getJobId(),
             { jobId },
           );
           maybeJob = await this.reportResult(
@@ -111,9 +112,13 @@ export class ProvingAgent {
         this.currentJobController = undefined;
       } else {
         // IDLE status should not be seen because a job is started as soon as it is created
-        this.log.warn(`Idle job controller for job: ${this.currentJobController.getJobId()}. Skipping main loop work`, {
-          jobId: this.currentJobController.getJobId(),
-        });
+        this.log.warn(
+          'Idle job controller for job: %s. Skipping main loop work',
+          this.currentJobController.getJobId(),
+          {
+            jobId: this.currentJobController.getJobId(),
+          },
+        );
         return;
       }
     } else {
@@ -166,15 +171,19 @@ export class ProvingAgent {
 
     if (abortedProofJobId) {
       this.log.info(
-        `Aborting job id=${abortedProofJobId} type=${abortedProofName} to start new job id=${this.currentJobController.getJobId()} type=${this.currentJobController.getProofTypeName()} inputsUri=${truncate(
-          job.inputsUri,
-        )}`,
+        'Aborting job id=%s type=%s to start new job id=%s type=%s inputsUri=%s',
+        abortedProofJobId,
+        abortedProofName,
+        this.currentJobController.getJobId(),
+        this.currentJobController.getProofTypeName(),
+        truncate(job.inputsUri),
       );
     } else {
       this.log.info(
-        `Starting job id=${this.currentJobController.getJobId()} type=${this.currentJobController.getProofTypeName()} inputsUri=${truncate(
-          job.inputsUri,
-        )}`,
+        'Starting job id=%s type=%s inputsUri=%s',
+        this.currentJobController.getJobId(),
+        this.currentJobController.getProofTypeName(),
+        truncate(job.inputsUri),
       );
     }
 
@@ -189,7 +198,7 @@ export class ProvingAgent {
     let maybeJob: GetProvingJobResponse | undefined;
     if (result instanceof AbortError) {
       // no-op
-      this.log.warn(`Job id=${jobId} was aborted. Not reporting result back to broker`, result);
+      this.log.warn('Job id=%s was aborted. Not reporting result back to broker', jobId, result);
     } else if (result instanceof Error) {
       const retry = result.name === ProvingError.NAME ? (result as ProvingError).retry : false;
       this.log.error(
@@ -201,7 +210,7 @@ export class ProvingAgent {
       });
     } else {
       const outputUri = await this.proofStore.saveProofOutput(jobId, type, result);
-      this.log.info(`Job id=${jobId} type=${ProvingRequestType[type]} completed outputUri=${truncate(outputUri)}`);
+      this.log.info('Job id=%s type=%s completed outputUri=%s', jobId, ProvingRequestType[type], truncate(outputUri));
       maybeJob = await this.broker.reportProvingJobSuccess(jobId, outputUri, { allowList: this.proofAllowList });
     }
 
