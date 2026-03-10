@@ -49,6 +49,8 @@ import {
   CannotOverwriteCheckpointedBlockError,
   CheckpointNumberNotSequentialError,
   InitialCheckpointNumberNotSequentialError,
+  L1ToL2MessagesNotReadyError,
+  OutOfOrderLogInsertionError,
 } from '../errors.js';
 import { MessageStoreError } from '../store/message_store.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
@@ -1785,19 +1787,146 @@ describe('KVArchiverDataStore', () => {
     });
   });
 
-  it('deleteLogs', async () => {
-    const block = publishedCheckpoints[0].checkpoint.blocks[0];
-    await store.addProposedBlock(block);
-    await expect(store.addLogs([block])).resolves.toEqual(true);
+  describe('deleteLogs', () => {
+    it('deletes public logs for a block', async () => {
+      const block = publishedCheckpoints[0].checkpoint.blocks[0];
+      await store.addProposedBlock(block);
+      await expect(store.addLogs([block])).resolves.toEqual(true);
 
-    expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(
-      block.body.txEffects.map(txEffect => txEffect.publicLogs).flat().length,
-    );
+      expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(
+        block.body.txEffects.map(txEffect => txEffect.publicLogs).flat().length,
+      );
 
-    // This one is a pain for memory as we would never want to just delete memory in the middle.
-    await store.deleteLogs([block]);
+      await store.deleteLogs([block]);
 
-    expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(0);
+      expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(0);
+    });
+
+    it('deletes contract class logs for a block', async () => {
+      // Create a block that explicitly has contract class logs
+      const block = await L2Block.random(BlockNumber(1), {
+        txsPerBlock: 2,
+        txOptions: { numContractClassLogs: 1 },
+        state: makeStateForBlock(1, 2),
+      });
+      await store.addProposedBlock(block);
+      await store.addLogs([block]);
+
+      const logsBefore = await store.getContractClassLogs({ fromBlock: BlockNumber(1) });
+      expect(logsBefore.logs.length).toBeGreaterThan(0);
+
+      await store.deleteLogs([block]);
+
+      const logsAfter = await store.getContractClassLogs({ fromBlock: BlockNumber(1) });
+      expect(logsAfter.logs.length).toEqual(0);
+    });
+
+    it('retains private logs from non-reorged block when same tag appears in reorged block', async () => {
+      const sharedTag = makePrivateLogTag(1, 0, 0);
+
+      // Block 1 with a private log using sharedTag
+      const cp1 = await makeCheckpointWithLogs(1, {
+        numTxsPerBlock: 1,
+        privateLogs: { numLogsPerTx: 1 },
+      });
+      const block1 = cp1.checkpoint.blocks[0];
+
+      // Block 2 with a private log using the SAME tag
+      const cp2 = await makeCheckpointWithLogs(2, {
+        previousArchive: block1.archive,
+        numTxsPerBlock: 1,
+        privateLogs: { numLogsPerTx: 1 },
+      });
+      const block2 = cp2.checkpoint.blocks[0];
+      // Override block2's private log tag to match block1's
+      block2.body.txEffects[0].privateLogs[0] = makePrivateLog(sharedTag);
+
+      await addProposedBlocks(store, [block1, block2], { force: true });
+      await store.addLogs([block1, block2]);
+
+      // Both blocks' logs should be present
+      const logsBefore = await store.getPrivateLogsByTags([sharedTag]);
+      expect(logsBefore[0]).toHaveLength(2);
+
+      // Reorg: delete block 2
+      await store.deleteLogs([block2]);
+
+      // Block 1's log should still be present
+      const logsAfter = await store.getPrivateLogsByTags([sharedTag]);
+      expect(logsAfter[0]).toHaveLength(1);
+      expect(logsAfter[0][0].blockNumber).toEqual(1);
+    });
+
+    it('retains public logs from non-reorged block when same tag appears in reorged block', async () => {
+      const contractAddress = AztecAddress.fromNumber(543254);
+      const sharedTag = makePublicLogTag(1, 0, 0);
+
+      // Block 1 with a public log using sharedTag
+      const cp1 = await makeCheckpointWithLogs(1, {
+        numTxsPerBlock: 1,
+        publicLogs: { numLogsPerTx: 1, contractAddress },
+      });
+      const block1 = cp1.checkpoint.blocks[0];
+
+      // Block 2 with a public log using the SAME tag from the same contract
+      const cp2 = await makeCheckpointWithLogs(2, {
+        previousArchive: block1.archive,
+        numTxsPerBlock: 1,
+        publicLogs: { numLogsPerTx: 1, contractAddress },
+      });
+      const block2 = cp2.checkpoint.blocks[0];
+      // Override block2's public log tag to match block1's
+      block2.body.txEffects[0].publicLogs[0] = makePublicLog(sharedTag, contractAddress);
+
+      await addProposedBlocks(store, [block1, block2], { force: true });
+      await store.addLogs([block1, block2]);
+
+      // Both blocks' logs should be present
+      const logsBefore = await store.getPublicLogsByTagsFromContract(contractAddress, [sharedTag]);
+      expect(logsBefore[0]).toHaveLength(2);
+
+      // Reorg: delete block 2
+      await store.deleteLogs([block2]);
+
+      // Block 1's log should still be present
+      const logsAfter = await store.getPublicLogsByTagsFromContract(contractAddress, [sharedTag]);
+      expect(logsAfter[0]).toHaveLength(1);
+      expect(logsAfter[0][0].blockNumber).toEqual(1);
+    });
+
+    it('deletes multiple blocks at once', async () => {
+      const cp1 = await makeCheckpointWithLogs(1, {
+        numTxsPerBlock: 2,
+        privateLogs: { numLogsPerTx: 1 },
+        publicLogs: { numLogsPerTx: 1 },
+      });
+      const block1 = cp1.checkpoint.blocks[0];
+
+      const cp2 = await makeCheckpointWithLogs(2, {
+        previousArchive: block1.archive,
+        numTxsPerBlock: 2,
+        privateLogs: { numLogsPerTx: 1 },
+        publicLogs: { numLogsPerTx: 1 },
+      });
+      const block2 = cp2.checkpoint.blocks[0];
+
+      await addProposedBlocks(store, [block1, block2], { force: true });
+      await store.addLogs([block1, block2]);
+
+      // Verify logs exist
+      expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toBeGreaterThan(0);
+
+      // Delete both blocks at once
+      await store.deleteLogs([block1, block2]);
+
+      expect((await store.getPublicLogs({ fromBlock: BlockNumber(1) })).logs.length).toEqual(0);
+    });
+
+    it('is a no-op when deleting blocks with no logs', async () => {
+      const block = publishedCheckpoints[0].checkpoint.blocks[0];
+      // Don't add logs, just try to delete
+      await expect(store.deleteLogs([block])).resolves.toEqual(true);
+    });
   });
 
   describe('getTxEffect', () => {
@@ -2052,6 +2181,43 @@ describe('KVArchiverDataStore', () => {
 
       await store.removeL1ToL2Messages(msgs[13].index);
       await checkMessages(msgs.slice(0, 13));
+    });
+
+    describe('inbox tree in progress guard', () => {
+      it('throws when checkpointNumber >= treeInProgress', async () => {
+        const msgs = makeInboxMessages(3, { initialCheckpointNumber: CheckpointNumber(5) });
+        await store.addL1ToL2Messages(msgs);
+
+        // Set treeInProgress to 7, meaning checkpoints 5 and 6 are sealed, 7+ are not
+        await store.setInboxTreeInProgress(7n);
+
+        // Sealed checkpoint should succeed
+        await expect(store.getL1ToL2Messages(CheckpointNumber(5))).resolves.toEqual([msgs[0].leaf]);
+
+        // Unsealed checkpoint (== treeInProgress) should throw
+        await expect(store.getL1ToL2Messages(CheckpointNumber(7))).rejects.toThrow(L1ToL2MessagesNotReadyError);
+
+        // Future checkpoint should also throw
+        await expect(store.getL1ToL2Messages(CheckpointNumber(8))).rejects.toThrow(L1ToL2MessagesNotReadyError);
+      });
+
+      it('returns messages when checkpointNumber < treeInProgress', async () => {
+        const msgs = makeInboxMessages(3, { initialCheckpointNumber: CheckpointNumber(10) });
+        await store.addL1ToL2Messages(msgs);
+
+        await store.setInboxTreeInProgress(13n);
+
+        await expect(store.getL1ToL2Messages(CheckpointNumber(10))).resolves.toEqual([msgs[0].leaf]);
+        await expect(store.getL1ToL2Messages(CheckpointNumber(11))).resolves.toEqual([msgs[1].leaf]);
+      });
+
+      it('skips guard when treeInProgress is not set', async () => {
+        const msgs = makeInboxMessages(2, { initialCheckpointNumber: CheckpointNumber(1) });
+        await store.addL1ToL2Messages(msgs);
+
+        // No setInboxTreeInProgress call — guard should be permissive
+        await expect(store.getL1ToL2Messages(CheckpointNumber(1))).resolves.toEqual([msgs[0].leaf]);
+      });
     });
   });
 
@@ -2329,6 +2495,32 @@ describe('KVArchiverDataStore', () => {
       ]);
     });
 
+    it('throws on out-of-order private log insertion', async () => {
+      const sharedTag = makePrivateLogTag(99, 0, 0);
+
+      // Create blocks 4 and 5 with the same shared tag
+      const prevArchive1 = logsCheckpoints[logsCheckpoints.length - 1].checkpoint.blocks[0].archive;
+      const checkpoint4 = await makeCheckpointWithLogs(numBlocksForLogs + 1, {
+        previousArchive: prevArchive1,
+        numTxsPerBlock,
+        privateLogs: { numLogsPerTx: numPrivateLogsPerTx },
+      });
+      checkpoint4.checkpoint.blocks[0].body.txEffects[0].privateLogs[0] = makePrivateLog(sharedTag);
+
+      const prevArchive2 = checkpoint4.checkpoint.blocks[0].archive;
+      const checkpoint5 = await makeCheckpointWithLogs(numBlocksForLogs + 2, {
+        previousArchive: prevArchive2,
+        numTxsPerBlock,
+        privateLogs: { numLogsPerTx: numPrivateLogsPerTx },
+      });
+      checkpoint5.checkpoint.blocks[0].body.txEffects[0].privateLogs[0] = makePrivateLog(sharedTag);
+
+      // Store block 5's logs first (higher block number), then try to store block 4's logs
+      // (lower block number) — this should fail.
+      await store.addLogs([checkpoint5.checkpoint.blocks[0]]);
+      await expect(store.addLogs([checkpoint4.checkpoint.blocks[0]])).rejects.toThrow(OutOfOrderLogInsertionError);
+    });
+
     it('is possible to request logs for non-existing tags and determine their position', async () => {
       const tags = [makePrivateLogTag(99, 88, 77), makePrivateLogTag(1, 1, 1)];
 
@@ -2345,6 +2537,48 @@ describe('KVArchiverDataStore', () => {
           }),
         ],
       ]);
+    });
+
+    it('filters logs up to specified block number', async () => {
+      // Tags are unique per block, so create a shared tag across blocks by adding logs with the same tag
+      const sharedTag = makePrivateLogTag(1, 2, 1);
+
+      // Add extra blocks with logs sharing the same tag
+      for (let blockNum = numBlocksForLogs + 1; blockNum <= numBlocksForLogs + 2; blockNum++) {
+        const previousArchive = logsCheckpoints[logsCheckpoints.length - 1].checkpoint.blocks[0].archive;
+        const newCheckpoint = await makeCheckpointWithLogs(blockNum, {
+          previousArchive,
+          numTxsPerBlock,
+          privateLogs: { numLogsPerTx: numPrivateLogsPerTx },
+        });
+        const newLog = newCheckpoint.checkpoint.blocks[0].body.txEffects[1].privateLogs[1];
+        newLog.fields[0] = sharedTag.value;
+        newCheckpoint.checkpoint.blocks[0].body.txEffects[1].privateLogs[1] = newLog;
+        await store.addCheckpoints([newCheckpoint]);
+        await store.addLogs([newCheckpoint.checkpoint.blocks[0]]);
+        logsCheckpoints.push(newCheckpoint);
+      }
+
+      // Without filter, should return logs from block 1 and the extra blocks
+      const allLogs = await store.getPrivateLogsByTags([sharedTag]);
+      expect(allLogs[0].some(log => log.blockNumber > numBlocksForLogs)).toBe(true);
+
+      // With upToBlockNumber=numBlocksForLogs, should only return the original log from block 1
+      const filteredLogs = await store.getPrivateLogsByTags([sharedTag], 0, BlockNumber(numBlocksForLogs));
+      expect(filteredLogs[0].length).toBeGreaterThan(0);
+      for (const log of filteredLogs[0]) {
+        expect(log.blockNumber).toBeLessThanOrEqual(numBlocksForLogs);
+      }
+      expect(filteredLogs[0].length).toBeLessThan(allLogs[0].length);
+    });
+
+    it('returns all logs when upToBlockNumber is not set', async () => {
+      const tag = makePrivateLogTag(1, 2, 1);
+
+      const logsWithoutFilter = await store.getPrivateLogsByTags([tag]);
+      const logsWithUndefined = await store.getPrivateLogsByTags([tag], 0, undefined);
+
+      expect(logsWithoutFilter).toEqual(logsWithUndefined);
     });
 
     describe('pagination', () => {
@@ -2365,6 +2599,20 @@ describe('KVArchiverDataStore', () => {
           await store.addCheckpoints([newCheckpoint]);
           await store.addLogs([newCheckpoint.checkpoint.blocks[0]]);
           logsCheckpoints.push(newCheckpoint);
+        }
+      });
+
+      it('pagination works correctly with upToBlockNumber', async () => {
+        // With a low upToBlockNumber, the filtered set should be smaller than MAX_LOGS_PER_TAG
+        const filteredPage0 = await store.getPrivateLogsByTags([paginationTag], 0, BlockNumber(5));
+        for (const log of filteredPage0[0]) {
+          expect(log.blockNumber).toBeLessThanOrEqual(5);
+        }
+
+        // Page 1 with the same filter should only contain remaining filtered logs
+        const filteredPage1 = await store.getPrivateLogsByTags([paginationTag], 1, BlockNumber(5));
+        for (const log of filteredPage1[0]) {
+          expect(log.blockNumber).toBeLessThanOrEqual(5);
         }
       });
 
@@ -2535,6 +2783,32 @@ describe('KVArchiverDataStore', () => {
       ]);
     });
 
+    it('throws on out-of-order public log insertion', async () => {
+      const sharedTag = makePublicLogTag(99, 0, 0);
+
+      // Create blocks 4 and 5 with the same shared tag
+      const prevArchive1 = logsCheckpoints[logsCheckpoints.length - 1].checkpoint.blocks[0].archive;
+      const checkpoint4 = await makeCheckpointWithLogs(numBlocksForLogs + 1, {
+        previousArchive: prevArchive1,
+        numTxsPerBlock,
+        publicLogs: { numLogsPerTx: numPublicLogsPerTx, contractAddress },
+      });
+      checkpoint4.checkpoint.blocks[0].body.txEffects[0].publicLogs[0] = makePublicLog(sharedTag, contractAddress);
+
+      const prevArchive2 = checkpoint4.checkpoint.blocks[0].archive;
+      const checkpoint5 = await makeCheckpointWithLogs(numBlocksForLogs + 2, {
+        previousArchive: prevArchive2,
+        numTxsPerBlock,
+        publicLogs: { numLogsPerTx: numPublicLogsPerTx, contractAddress },
+      });
+      checkpoint5.checkpoint.blocks[0].body.txEffects[0].publicLogs[0] = makePublicLog(sharedTag, contractAddress);
+
+      // Store block 5's logs first (higher block number), then try to store block 4's logs
+      // (lower block number) — this should fail.
+      await store.addLogs([checkpoint5.checkpoint.blocks[0]]);
+      await expect(store.addLogs([checkpoint4.checkpoint.blocks[0]])).rejects.toThrow(OutOfOrderLogInsertionError);
+    });
+
     it('is possible to request logs for non-existing tags and determine their position', async () => {
       const tags = [makePublicLogTag(99, 88, 77), makePublicLogTag(1, 1, 0)];
 
@@ -2551,6 +2825,52 @@ describe('KVArchiverDataStore', () => {
           }),
         ],
       ]);
+    });
+
+    it('filters logs up to specified block number', async () => {
+      const sharedTag = makePublicLogTag(1, 2, 1);
+
+      // Add extra blocks with logs sharing the same tag
+      for (let blockNum = numBlocksForLogs + 1; blockNum <= numBlocksForLogs + 2; blockNum++) {
+        const previousArchive = logsCheckpoints[logsCheckpoints.length - 1].checkpoint.blocks[0].archive;
+        const newCheckpoint = await makeCheckpointWithLogs(blockNum, {
+          previousArchive,
+          numTxsPerBlock,
+          publicLogs: { numLogsPerTx: numPublicLogsPerTx, contractAddress },
+        });
+        const newLog = newCheckpoint.checkpoint.blocks[0].body.txEffects[1].publicLogs[1];
+        newLog.fields[0] = sharedTag.value;
+        newCheckpoint.checkpoint.blocks[0].body.txEffects[1].publicLogs[1] = newLog;
+        await store.addCheckpoints([newCheckpoint]);
+        await store.addLogs([newCheckpoint.checkpoint.blocks[0]]);
+        logsCheckpoints.push(newCheckpoint);
+      }
+
+      // Without filter, should return logs from block 1 and the extra blocks
+      const allLogs = await store.getPublicLogsByTagsFromContract(contractAddress, [sharedTag]);
+      expect(allLogs[0].some(log => log.blockNumber > numBlocksForLogs)).toBe(true);
+
+      // With upToBlockNumber=numBlocksForLogs, should only return the original log from block 1
+      const filteredLogs = await store.getPublicLogsByTagsFromContract(
+        contractAddress,
+        [sharedTag],
+        0,
+        BlockNumber(numBlocksForLogs),
+      );
+      expect(filteredLogs[0].length).toBeGreaterThan(0);
+      for (const log of filteredLogs[0]) {
+        expect(log.blockNumber).toBeLessThanOrEqual(numBlocksForLogs);
+      }
+      expect(filteredLogs[0].length).toBeLessThan(allLogs[0].length);
+    });
+
+    it('returns all logs when upToBlockNumber is not set', async () => {
+      const tag = makePublicLogTag(1, 2, 1);
+
+      const logsWithoutFilter = await store.getPublicLogsByTagsFromContract(contractAddress, [tag]);
+      const logsWithUndefined = await store.getPublicLogsByTagsFromContract(contractAddress, [tag], 0, undefined);
+
+      expect(logsWithoutFilter).toEqual(logsWithUndefined);
     });
 
     describe('pagination', () => {
@@ -2571,6 +2891,28 @@ describe('KVArchiverDataStore', () => {
           await store.addCheckpoints([newCheckpoint]);
           await store.addLogs([newCheckpoint.checkpoint.blocks[0]]);
           logsCheckpoints.push(newCheckpoint);
+        }
+      });
+
+      it('pagination works correctly with upToBlockNumber', async () => {
+        const filteredPage0 = await store.getPublicLogsByTagsFromContract(
+          contractAddress,
+          [paginationTag],
+          0,
+          BlockNumber(5),
+        );
+        for (const log of filteredPage0[0]) {
+          expect(log.blockNumber).toBeLessThanOrEqual(5);
+        }
+
+        const filteredPage1 = await store.getPublicLogsByTagsFromContract(
+          contractAddress,
+          [paginationTag],
+          1,
+          BlockNumber(5),
+        );
+        for (const log of filteredPage1[0]) {
+          expect(log.blockNumber).toBeLessThanOrEqual(5);
         }
       });
 
@@ -2782,6 +3124,24 @@ describe('KVArchiverDataStore', () => {
       }
     });
 
+    it('"tag" filter param is respected', async () => {
+      // Get a random tag from the logs
+      const targetBlockIndex = randomInt(numBlocksForPublicLogs);
+      const targetBlock = publishedCheckpoints[targetBlockIndex].checkpoint.blocks[0];
+      const targetTxIndex = randomInt(getTxsPerBlock(targetBlock));
+      const targetLogIndex = randomInt(getPublicLogsPerTx(targetBlock, targetTxIndex));
+      const targetTag = targetBlock.body.txEffects[targetTxIndex].publicLogs[targetLogIndex].fields[0];
+
+      const response = await store.getPublicLogs({ tag: targetTag });
+
+      expect(response.maxLogsHit).toBeFalsy();
+      expect(response.logs.length).toBeGreaterThan(0);
+
+      for (const extendedLog of response.logs) {
+        expect(extendedLog.log.fields[0].equals(targetTag)).toBeTruthy();
+      }
+    });
+
     it('"afterLog" filter param is respected', async () => {
       // Get a random log as reference
       const targetBlockIndex = randomInt(numBlocksForPublicLogs);
@@ -2817,13 +3177,13 @@ describe('KVArchiverDataStore', () => {
       }
     });
 
-    it('"txHash" filter param is ignored when "afterLog" is set', async () => {
-      // Get random txHash
+    it('"txHash" filter param is respected when "afterLog" is set', async () => {
+      // A random txHash should match nothing, even with afterLog set
       const txHash = TxHash.random();
       const afterLog = new LogId(BlockNumber(1), BlockHash.random(), TxHash.random(), 0, 0);
 
       const response = await store.getPublicLogs({ txHash, afterLog });
-      expect(response.logs.length).toBeGreaterThan(1);
+      expect(response.logs.length).toBe(0);
     });
 
     it('intersecting works', async () => {

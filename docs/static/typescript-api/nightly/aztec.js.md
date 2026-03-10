@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: v5.0.0-nightly.20260316
+Version: v5.0.0-nightly.20260319
 
 ## Quick Import Reference
 
@@ -57,7 +57,7 @@ new AccountWithSecretKey(account: Account, secretKey: Fr, salt: Salt)
 - `getCompleteAddress() => CompleteAddress` - Returns the complete address for this account.
 - `getEncryptionSecret() => Promise<Fq>` - Returns the encryption secret, the secret of the encryption point—the point that others use to encrypt messages to this account note - this ensures that the address secret always corresponds to an address point with y being positive dev - this is also referred to as the address secret, which decrypts payloads encrypted to an address point
 - `getSecretKey() => Fr` - Returns the encryption private key associated with this account.
-- `wrapExecutionPayload(exec: ExecutionPayload, options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed *via* this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
+- `wrapExecutionPayload(exec: ExecutionPayload, chainInfo: ChainInfo, options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed *via* this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
 
 ### BaseAccount
 
@@ -74,7 +74,7 @@ new BaseAccount(entrypoint: EntrypointInterface, authWitnessProvider: AuthWitnes
 - `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, chainInfo: ChainInfo, options: DefaultAccountEntrypointOptions) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
 - `getAddress() => AztecAddress` - Returns the address for this account.
 - `getCompleteAddress() => CompleteAddress` - Returns the complete address for this account.
-- `wrapExecutionPayload(exec: ExecutionPayload, options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed *via* this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
+- `wrapExecutionPayload(exec: ExecutionPayload, chainInfo: ChainInfo, options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed *via* this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
 
 ### BatchCall
 
@@ -98,7 +98,7 @@ new BatchCall(wallet: Wallet, interactions: ExecutionPayload | BaseContractInter
 - `getExecutionPayloads() => Promise<ExecutionPayload[]>`
 - `request(options: RequestInteractionOptions) => Promise<ExecutionPayload>` - Returns an execution request that represents this operation.
 - `send<TReturn>(options: SendInteractionOptionsWithoutWait) => Promise<TxSendResultMined<TReturn>>` - Sends a transaction to the contract function with the specified options. By default, waits for the transaction to be mined and returns the receipt (or custom type).
-- `simulate(options: SimulateInteractionOptions) => Promise<any>` - Simulates/executes the batch, supporting private, public and utility functions. Although this is a single interaction with the wallet, private and public functions will be grouped into a single ExecutionPayload that the wallet will simulate as a single transaction. Utility function calls will be executed one by one.
+- `simulate(options: SimulateInteractionOptions) => Promise<SimulationResult>` - Simulates/executes the batch, supporting private, public and utility functions. Although this is a single interaction with the wallet, private and public functions will be grouped into a single ExecutionPayload that the wallet will simulate as a single transaction. Utility function calls will be executed one by one.
 
 ### Capsule
 
@@ -814,7 +814,7 @@ new SignerlessAccount()
 - `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, chainInfo: ChainInfo) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
 - `getAddress() => AztecAddress` - Returns the address for this account.
 - `getCompleteAddress() => CompleteAddress` - Returns the complete address for this account.
-- `wrapExecutionPayload(exec: ExecutionPayload, options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed *via* this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
+- `wrapExecutionPayload(exec: ExecutionPayload, chainInfo: ChainInfo, options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed *via* this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
 
 ### SponsoredFeePaymentMethod
 

@@ -95,7 +95,6 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * @param dataStore - An archiver data store for storage & retrieval of blocks, encrypted logs & contract data.
    * @param config - Archiver configuration options.
    * @param blobClient - Client for retrieving blob data.
-   * @param epochCache - Cache for epoch-related data.
    * @param dateProvider - Provider for current date/time.
    * @param instrumentation - Instrumentation for metrics and tracing.
    * @param l1Constants - L1 rollup constants.

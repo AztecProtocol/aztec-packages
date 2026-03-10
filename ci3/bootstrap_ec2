@@ -21,6 +21,7 @@ export CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1}
 
 # Pre-generate a log ID and print the dashboard link.
 export CI_LOG_ID=$(date +%s%3N)$((100 + RANDOM % 900))
+echo "CI booting..." | redis_setexz "$CI_LOG_ID" 300
 log_url="http://ci.aztec-labs.com/$CI_LOG_ID"
 echo -e "CI Log: ${yellow}$log_url${reset}"
 if [ -n "${CI_DASHBOARD:-}" ]; then

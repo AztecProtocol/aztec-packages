@@ -72,6 +72,8 @@ export type TxPoolV2Dependencies = {
   worldStateSynchronizer: WorldStateSynchronizer;
   /** Factory that creates a validator for re-validating pool transactions using metadata */
   createTxValidator: () => Promise<TxValidator<TxMetaData>>;
+  /** Checks whether a tx's setup-phase calls are on the allow list. Precomputed at receipt time. */
+  checkAllowedSetupCalls: (tx: Tx) => Promise<boolean>;
 };
 
 /**
@@ -158,10 +160,10 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
   handleMinedBlock(block: L2Block): Promise<void>;
 
   /**
-   * Prepares the pool for a new slot.
-   * Unprotects transactions from earlier slots and validates them before
-   * returning to pending state.
-   * @param slotNumber - The slot number to prepare for
+   * Prepares the pool for a new slot by unprotecting transactions from earlier
+   * slots and re-validating them before returning to pending state.
+   * @param slotNumber - The pipeline slot we are building for (i.e. the slot
+   *   the resulting blocks will target on L1).
    */
   prepareForSlot(slotNumber: SlotNumber): Promise<void>;
 

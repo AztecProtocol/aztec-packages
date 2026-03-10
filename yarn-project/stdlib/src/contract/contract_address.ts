@@ -13,9 +13,9 @@ import type { ContractInstance } from './interfaces/contract_instance.js';
 /**
  * Returns the deployment address for a given contract instance.
  * ```
- * salted_initialization_hash = pedersen([salt, initialization_hash, deployer], GENERATOR__SALTED_INITIALIZATION_HASH)
- * partial_address = pedersen([contract_class_id, salted_initialization_hash], GENERATOR__CONTRACT_PARTIAL_ADDRESS_V1)
- * address = ((poseidon2Hash([public_keys_hash, partial_address, GENERATOR__CONTRACT_ADDRESS_V1]) * G) + ivpk_m).x <- the x-coordinate of the address point
+ * salted_initialization_hash = poseidon2(DOM_SEP__PARTIAL_ADDRESS, [salt, initialization_hash, deployer])
+ * partial_address = poseidon2(DOM_SEP__PARTIAL_ADDRESS, [contract_class_id, salted_initialization_hash])
+ * address = ((poseidon2(DOM_SEP__CONTRACT_ADDRESS_V1, [public_keys_hash, partial_address]) * G) + ivpk_m).x <- the x-coordinate of the address point
  * ```
  * @param instance - A contract instance for which to calculate the deployment address.
  */

@@ -50,8 +50,6 @@ class ECCVMProver {
     Proof export_proof();
     std::pair<Proof, OpeningClaim> construct_proof();
     void compute_translation_opening_claims();
-    void commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label);
-
     std::shared_ptr<Transcript> transcript;
 
     size_t unmasked_witness_size;

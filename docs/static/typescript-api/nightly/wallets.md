@@ -1,6 +1,6 @@
 # @aztec/wallets
 
-Version: v5.0.0-nightly.20260316
+Version: v5.0.0-nightly.20260319
 
 ## Quick Import Reference
 
@@ -30,6 +30,7 @@ new BrowserEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, ac
 - `accountContracts: AccountContractsProvider`
 - `readonly aztecNode: AztecNode`
 - `cancellableTransactions: boolean`
+- `estimatedGasPadding: number`
 - `log: Logger`
 - `minFeePadding: number`
 - `readonly pxe: PXE`
@@ -54,7 +55,7 @@ new BrowserEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, ac
 - `getAddressBook() => Promise<Aliased<AztecAddress>[]>` - Returns the list of aliased contacts associated with the wallet. This base implementation directly returns PXE's senders, but note that in general contacts are a superset of senders. - Senders: Addresses we check during synching in case they sent us notes, - Contacts: more general concept akin to a phone's contact list.
 - `getChainInfo() => Promise<ChainInfo>`
 - `getContractClassMetadata(id: Fr) => Promise<{ isArtifactRegistered: boolean; isContractClassPubliclyRegistered: boolean }>`
-- `getContractMetadata(address: AztecAddress) => Promise<{ instance: ContractInstanceWithAddress | undefined; isContractInitialized: boolean; ... }>`
+- `getContractMetadata(address: AztecAddress) => Promise<{ instance: ContractInstanceWithAddress | undefined; isContractInitialized: boolean | undefined; ... }>` - Returns metadata about a contract, including whether it has been initialized, published, and updated. `isContractInitialized` requires the contract instance to be registered in the PXE (for `init_hash`). When the instance is not available, `isContractInitialized` is `undefined` since it cannot be determined.
 - `getContractName(address: AztecAddress) => Promise<string | undefined>` - Resolves a contract address to a human-readable name via PXE, if available.
 - `getPrivateEvents<T>(eventDef: EventMetadataDefinition, eventFilter: PrivateEventFilter) => Promise<PrivateEvent<T>[]>`
 - `profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions) => Promise<TxProfileResult>`
@@ -62,10 +63,11 @@ new BrowserEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, ac
 - `registerSender(address: AztecAddress, alias: string) => Promise<AztecAddress>`
 - `requestCapabilities(_manifest: AppCapabilities) => Promise<WalletCapabilities>` - Request capabilities from the wallet. This method is wallet-implementation-dependent and must be provided by classes extending BaseWallet. Embedded wallets typically don't support capability-based authorization (no user authorization flow), while external wallets (browser extensions, hardware wallets) implement this to reduce authorization friction by allowing apps to request permissions upfront. Consider making it abstract so implementing it is a conscious decision. Leaving it as-is while the feature stabilizes.
 - `scopesFrom(from: AztecAddress, additionalScopes?: AztecAddress[]) => AztecAddress[]`
-- `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>`
+- `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>` - Overrides the base sendTx to add a pre-simulation step before the actual send. The simulation estimates actual gas usage and captures call authorization requests to generate the necessary authwitnesses.
+- `setEstimatedGasPadding(value?: number) => void`
 - `setMinFeePadding(value?: number) => void`
 - `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResult>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
-- `simulateViaEntrypoint(executionPayload: ExecutionPayload, from: AztecAddress, feeOptions: FeeOptions, scopes: AccessScopes, _skipTxValidation?: boolean, _skipFeeEnforcement?: boolean) => Promise<TxSimulationResult>` - Simulates calls via a stub account entrypoint, bypassing real account authorization. This allows kernelless simulation with contract overrides, skipping expensive private kernel circuit execution.
+- `simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) => Promise<TxSimulationResult>` - Simulates calls via a stub account entrypoint, bypassing real account authorization. This allows kernelless simulation with contract overrides, skipping expensive private kernel circuit execution.
 - `stop() => Promise<void>`
 
 ### NodeEmbeddedWallet
@@ -81,6 +83,7 @@ new NodeEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, accou
 - `accountContracts: AccountContractsProvider`
 - `readonly aztecNode: AztecNode`
 - `cancellableTransactions: boolean`
+- `estimatedGasPadding: number`
 - `log: Logger`
 - `minFeePadding: number`
 - `readonly pxe: PXE`
@@ -105,7 +108,7 @@ new NodeEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, accou
 - `getAddressBook() => Promise<Aliased<AztecAddress>[]>` - Returns the list of aliased contacts associated with the wallet. This base implementation directly returns PXE's senders, but note that in general contacts are a superset of senders. - Senders: Addresses we check during synching in case they sent us notes, - Contacts: more general concept akin to a phone's contact list.
 - `getChainInfo() => Promise<ChainInfo>`
 - `getContractClassMetadata(id: Fr) => Promise<{ isArtifactRegistered: boolean; isContractClassPubliclyRegistered: boolean }>`
-- `getContractMetadata(address: AztecAddress) => Promise<{ instance: ContractInstanceWithAddress | undefined; isContractInitialized: boolean; ... }>`
+- `getContractMetadata(address: AztecAddress) => Promise<{ instance: ContractInstanceWithAddress | undefined; isContractInitialized: boolean | undefined; ... }>` - Returns metadata about a contract, including whether it has been initialized, published, and updated. `isContractInitialized` requires the contract instance to be registered in the PXE (for `init_hash`). When the instance is not available, `isContractInitialized` is `undefined` since it cannot be determined.
 - `getContractName(address: AztecAddress) => Promise<string | undefined>` - Resolves a contract address to a human-readable name via PXE, if available.
 - `getPrivateEvents<T>(eventDef: EventMetadataDefinition, eventFilter: PrivateEventFilter) => Promise<PrivateEvent<T>[]>`
 - `profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions) => Promise<TxProfileResult>`
@@ -113,10 +116,11 @@ new NodeEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, accou
 - `registerSender(address: AztecAddress, alias: string) => Promise<AztecAddress>`
 - `requestCapabilities(_manifest: AppCapabilities) => Promise<WalletCapabilities>` - Request capabilities from the wallet. This method is wallet-implementation-dependent and must be provided by classes extending BaseWallet. Embedded wallets typically don't support capability-based authorization (no user authorization flow), while external wallets (browser extensions, hardware wallets) implement this to reduce authorization friction by allowing apps to request permissions upfront. Consider making it abstract so implementing it is a conscious decision. Leaving it as-is while the feature stabilizes.
 - `scopesFrom(from: AztecAddress, additionalScopes?: AztecAddress[]) => AztecAddress[]`
-- `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>`
+- `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>` - Overrides the base sendTx to add a pre-simulation step before the actual send. The simulation estimates actual gas usage and captures call authorization requests to generate the necessary authwitnesses.
+- `setEstimatedGasPadding(value?: number) => void`
 - `setMinFeePadding(value?: number) => void`
 - `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResult>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
-- `simulateViaEntrypoint(executionPayload: ExecutionPayload, from: AztecAddress, feeOptions: FeeOptions, scopes: AccessScopes, _skipTxValidation?: boolean, _skipFeeEnforcement?: boolean) => Promise<TxSimulationResult>` - Simulates calls via a stub account entrypoint, bypassing real account authorization. This allows kernelless simulation with contract overrides, skipping expensive private kernel circuit execution.
+- `simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) => Promise<TxSimulationResult>` - Simulates calls via a stub account entrypoint, bypassing real account authorization. This allows kernelless simulation with contract overrides, skipping expensive private kernel circuit execution.
 - `stop() => Promise<void>`
 
 ### WalletDB
@@ -174,10 +178,10 @@ This package references types from other Aztec packages:
 - `AztecAsyncKVStore`
 
 **@aztec/pxe**
-- `AccessScopes`, `PXE`
+- `PXE`
 
 **@aztec/stdlib**
 - `AuthWitness`, `AztecAddress`, `AztecNode`, `ContractArtifact`, `ContractInstanceWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `GasSettings`, `TxExecutionRequest`, `TxProfileResult`, `TxSimulationResult`, `UtilityExecutionResult`
 
 **@aztec/wallet-sdk**
-- `FeeOptions`, `W`
+- `FeeOptions`, `SimulateViaEntrypointOptions`

@@ -7,6 +7,8 @@ import { type NetworkNames, SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
 import type { LogFn } from '@aztec/foundation/log';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { ProvingJobConsumerSchema, createProvingJobBrokerClient } from '@aztec/prover-client/broker';
 import { type CliPXEOptions, type PXEConfig, allPxeConfigMappings } from '@aztec/pxe/config';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
@@ -92,7 +94,12 @@ export async function startNode(
 
   // Wait for a compatible rollup before proceeding with full L1 config fetch.
   // This prevents crashes when the canonical rollup hasn't been upgraded yet.
-  await waitForCompatibleRollup(nodeConfig, genesisArchiveRoot, options.port, userLog);
+  await waitForCompatibleRollup(
+    nodeConfig,
+    { genesisArchiveRoot, vkTreeRoot: getVKTreeRoot(), protocolContractsHash },
+    options.port,
+    userLog,
+  );
 
   const { addresses, config } = await getL1Config(
     nodeConfig.l1Contracts.registryAddress,

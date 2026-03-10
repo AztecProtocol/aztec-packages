@@ -14,6 +14,8 @@
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/translator_vm/translator_circuit_builder.hpp"
+#include "barretenberg/translator_vm/translator_proving_key.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 
@@ -404,11 +406,20 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
     debug_incoming_circuit(circuit, prover_instance, precomputed_vk);
 #endif
 
-    // For the hiding kernel (MEGA), skip straight to the ZK prover — no non-ZK ProverInstance needed.
+    // For the hiding kernel (MEGA), build the ZK proving key and store it.
+    // The actual proving is deferred to prove(), where it runs as part of the batched protocol:
+    // MegaZK Oink → Merge → ECCVM → Translator Oink + Joint Sumcheck + Joint PCS.
     if (queue_type == QUEUE_TYPE::MEGA) {
-        vinfo("Generating proof for hiding kernel");
-        HonkProof proof = construct_honk_proof_for_hiding_kernel(circuit, precomputed_vk);
-        VerifierInputs queue_entry{ std::move(proof), precomputed_vk, queue_type, /*is_kernel=*/true };
+        vinfo("Constructing hiding kernel instance (proving deferred to prove())");
+        hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit);
+        // Free circuit block memory now that trace data has been copied to prover polynomials
+        for (auto& block : circuit.blocks.get()) {
+            block.free_data();
+        }
+        hiding_vk = std::make_shared<MegaZKVerificationKey>(hiding_prover_inst->get_precomputed());
+
+        // Push VK to queue so get_hiding_kernel_vk_and_hash() can find it.
+        VerifierInputs queue_entry{ {}, precomputed_vk, queue_type, /*is_kernel=*/true };
         verification_queue.push_back(queue_entry);
         num_circuits_accumulated++;
         return;
@@ -526,47 +537,61 @@ void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 }
 
 /**
- * @brief Construct a zero-knowledge proof for the Hiding kernel, which recursively verifies the last folding,
- * merge and decider proof.
- */
-HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
-                                                        const std::shared_ptr<MegaVerificationKey>& verification_key)
-{
-    auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit);
-
-    // Free circuit block memory now that trace data has been copied to prover polynomials
-    for (auto& block : circuit.blocks.get()) {
-        block.free_data();
-    }
-
-    // Hiding kernel is proven by a MegaZKProver
-    MegaZKProver prover(hiding_prover_inst, verification_key, transcript);
-    HonkProof proof = prover.construct_proof();
-
-    return proof;
-}
-
-/**
- * @brief Construct Chonk proof, which, if verified, fully establishes the correctness of RCG
+ * @brief Construct Chonk proof using the batched MegaZK + Translator protocol.
  *
- * @return ChonkProof
+ * @details Orchestrates the batched proving flow on a shared transcript:
+ *   1. MegaZK Oink (pre-sumcheck commitments for the hiding kernel)
+ *   2. Merge proof (APPEND — final subtable from hiding kernel)
+ *   3. ECCVM proof (produces translation challenges v, x)
+ *   4. IPA proof (separate transcript)
+ *   5. Translator Oink + Joint sumcheck + Joint PCS
+ *
+ * The joint sumcheck and PCS batch the MegaZK and translator circuits together,
+ * eliminating separate sumcheck/PCS phases and reducing proof size.
  */
 ChonkProof Chonk::prove()
 {
-    // deallocate the accumulator
+    // Deallocate the HN accumulator — no longer needed.
     prover_accumulator = ProverAccumulator();
-    auto mega_proof = verification_queue.front().proof;
 
-    // A transcript is shared between the Hiding kernel prover and the Goblin prover
+    // Share transcript between all provers.
     goblin.transcript = transcript;
 
-    // Returns a proof for the Hiding kernel and the Goblin proof. The latter consists of Translator and ECCVM proof
-    // for the whole ecc op table and the merge proof for appending the subtable coming from the Hiding kernel. The
-    // final merging is done via appending to facilitate creating a zero-knowledge merge proof. This enables us to add
-    // randomness to the beginning of the tail kernel and the end of the hiding kernel, hiding the commitments and
-    // evaluations of both the previous table and the incoming subtable.
-    return ChonkProof{ mega_proof, goblin.prove() };
-};
+    // Phase 1: MegaZK Oink on the shared transcript.
+    BatchedHonkTranslatorProver batched_prover(hiding_prover_inst, hiding_vk, transcript);
+    auto hiding_oink_proof = batched_prover.prove_mega_zk_oink();
+
+    // Phase 2: Merge proof on the shared transcript (APPEND — hiding kernel's subtable).
+    goblin.prove_merge(transcript, MergeSettings::APPEND);
+    BB_ASSERT_EQ(goblin.merge_verification_queue.size(),
+                 1U,
+                 "Chonk::prove: merge_verification_queue should contain only a single proof at this stage.");
+    auto merge_proof = goblin.merge_verification_queue.back();
+
+    // Phase 3: ECCVM proof on the shared transcript.
+    vinfo("prove eccvm...");
+    goblin.prove_eccvm();
+    vinfo("finished eccvm proving.");
+
+    // Phase 4: Build translator proving key from ECCVM-derived challenges.
+    TranslatorCircuitBuilder translator_builder(
+        goblin.translation_batching_challenge_v, goblin.evaluation_challenge_x, goblin.op_queue);
+    auto translator_key = std::make_shared<TranslatorProvingKey>(translator_builder);
+
+    // Phase 5: Translator Oink + Joint Sumcheck + Joint PCS on the shared transcript.
+    vinfo("prove translator and joint...");
+    auto joint_proof = batched_prover.prove(translator_key);
+    vinfo("finished translator and joint proving.");
+
+    // Release the hiding kernel instance now that proving is complete.
+    hiding_prover_inst.reset();
+
+    return ChonkProof{ std::move(hiding_oink_proof),
+                       std::move(merge_proof),
+                       std::move(goblin.goblin_proof.eccvm_proof),
+                       std::move(goblin.goblin_proof.ipa_proof),
+                       std::move(joint_proof) };
+}
 
 std::shared_ptr<MegaZKFlavor::VKAndHash> Chonk::get_hiding_kernel_vk_and_hash() const
 {

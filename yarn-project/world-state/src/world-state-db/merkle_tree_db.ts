@@ -1,14 +1,12 @@
 import { MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import type { IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
 import type { L2Block } from '@aztec/stdlib/block';
 import type {
   ForkMerkleTreeOperations,
   MerkleTreeReadOperations,
   ReadonlyWorldStateAccess,
 } from '@aztec/stdlib/interfaces/server';
-import type { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { WorldStateStatusFull, WorldStateStatusSummary } from '../native/message.js';
 
@@ -30,14 +28,6 @@ import type { WorldStateStatusFull, WorldStateStatusSummary } from '../native/me
 export const INITIAL_NULLIFIER_TREE_SIZE = 2 * MAX_NULLIFIERS_PER_TX;
 
 export const INITIAL_PUBLIC_DATA_TREE_SIZE = 2 * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
-
-export type TreeSnapshots = {
-  [MerkleTreeId.NULLIFIER_TREE]: IndexedTreeSnapshot;
-  [MerkleTreeId.NOTE_HASH_TREE]: TreeSnapshot<Fr>;
-  [MerkleTreeId.PUBLIC_DATA_TREE]: IndexedTreeSnapshot;
-  [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: TreeSnapshot<Fr>;
-  [MerkleTreeId.ARCHIVE]: TreeSnapshot<Fr>;
-};
 
 export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations, ReadonlyWorldStateAccess {
   /**

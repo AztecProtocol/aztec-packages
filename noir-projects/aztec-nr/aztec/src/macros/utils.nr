@@ -30,7 +30,11 @@ pub(crate) comptime fn is_fn_initializer(f: FunctionDefinition) -> bool {
 }
 
 pub(crate) comptime fn fn_has_noinitcheck(f: FunctionDefinition) -> bool {
-    f.has_named_attribute("noinitcheck")
+    if f.has_named_attribute("noinitcheck") {
+        true
+    } else {
+        super::functions::function_in_extra_noinitcheck_list(f)
+    }
 }
 
 pub(crate) comptime fn fn_has_allow_phase_change(f: FunctionDefinition) -> bool {

@@ -5,6 +5,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import {
+  type BlockHash,
   GENESIS_CHECKPOINT_HEADER_HASH,
   type L2Block,
   type L2BlockId,
@@ -177,13 +178,10 @@ export class ServerWorldStateSynchronizer
   /**
    * Forces an immediate sync.
    * @param targetBlockNumber - The target block number that we must sync to. Will download unproven blocks if needed to reach it.
-   * @param skipThrowIfTargetNotReached - Whether to skip throwing if the target block number is not reached.
+   * @param blockHash - If provided, verifies the block at targetBlockNumber matches this hash. On mismatch, triggers a resync (reorg detection).
    * @returns A promise that resolves with the block number the world state was synced to
    */
-  public async syncImmediate(
-    targetBlockNumber?: BlockNumber,
-    skipThrowIfTargetNotReached?: boolean,
-  ): Promise<BlockNumber> {
+  public async syncImmediate(targetBlockNumber?: BlockNumber, blockHash?: BlockHash): Promise<BlockNumber> {
     if (this.currentState !== WorldStateRunningState.RUNNING) {
       throw new Error(`World State is not running. Unable to perform sync.`);
     }
@@ -195,7 +193,19 @@ export class ServerWorldStateSynchronizer
     // If we have been given a block number to sync to and we have reached that number then return
     const currentBlockNumber = await this.getLatestBlockNumber();
     if (targetBlockNumber !== undefined && targetBlockNumber <= currentBlockNumber) {
-      return currentBlockNumber;
+      if (blockHash === undefined) {
+        return currentBlockNumber;
+      }
+
+      // If a block hash was provided, verify we're on the expected fork
+      const currentHash = await this.getL2BlockHash(targetBlockNumber);
+      if (currentHash === blockHash.toString()) {
+        return currentBlockNumber;
+      }
+      // Hash mismatch: a reorg may have occurred, fall through to trigger sync
+      this.log.debug(
+        `World state block hash mismatch at ${targetBlockNumber} (expected ${blockHash}, got ${currentHash}). Triggering resync.`,
+      );
     }
     this.log.debug(`World State at ${currentBlockNumber} told to sync to ${targetBlockNumber ?? 'latest'}`);
 
@@ -213,7 +223,7 @@ export class ServerWorldStateSynchronizer
 
     // If we have been given a block number to sync to and we have not reached that number then fail
     const updatedBlockNumber = await this.getLatestBlockNumber();
-    if (!skipThrowIfTargetNotReached && targetBlockNumber !== undefined && targetBlockNumber > updatedBlockNumber) {
+    if (targetBlockNumber !== undefined && targetBlockNumber > updatedBlockNumber) {
       throw new WorldStateSynchronizerError(
         `Unable to sync to block number ${targetBlockNumber} (last synced is ${updatedBlockNumber})`,
         {
@@ -225,6 +235,24 @@ export class ServerWorldStateSynchronizer
           },
         },
       );
+    }
+
+    // If a block hash was provided, verify we're on the expected fork after syncing, throw otherwise
+    if (blockHash !== undefined && targetBlockNumber !== undefined) {
+      const updatedHash = await this.getL2BlockHash(targetBlockNumber);
+      if (updatedHash !== blockHash.toString()) {
+        throw new WorldStateSynchronizerError(
+          `Block hash mismatch at block ${targetBlockNumber} (expected ${blockHash} but got ${updatedHash})`,
+          {
+            cause: {
+              reason: 'block_hash_mismatch',
+              targetBlockNumber,
+              expectedHash: blockHash.toString(),
+              actualHash: updatedHash,
+            },
+          },
+        );
+      }
     }
 
     return updatedBlockNumber;
@@ -360,6 +388,18 @@ export class ServerWorldStateSynchronizer
 
   private async handleChainFinalized(blockNumber: BlockNumber) {
     this.log.verbose(`Finalized chain is now at block ${blockNumber}`);
+    // If the finalized block number is older than the oldest available block in world state,
+    // skip entirely. The finalized block number can jump backwards (e.g. when the finalization
+    // heuristic changes) and try to read block data that has already been pruned. When this
+    // happens, there is nothing useful to do — the native world state is already finalized
+    // past this point and pruning has already happened.
+    const currentSummary = await this.merkleTreeDb.getStatusSummary();
+    if (blockNumber < currentSummary.oldestHistoricalBlock || blockNumber < 1) {
+      this.log.trace(
+        `Finalized block ${blockNumber} is older than the oldest available block ${currentSummary.oldestHistoricalBlock}. Skipping.`,
+      );
+      return;
+    }
     const summary = await this.merkleTreeDb.setFinalized(blockNumber);
     if (this.historyToKeep === undefined) {
       return;
@@ -393,6 +433,12 @@ export class ServerWorldStateSynchronizer
     }
     // Find the block at the start of the checkpoint and remove blocks up to this one
     const newHistoricBlock = historicCheckpoint.checkpoint.blocks[0];
+    if (newHistoricBlock.number <= currentSummary.oldestHistoricalBlock) {
+      this.log.debug(
+        `Historic block ${newHistoricBlock.number} is not newer than oldest available ${currentSummary.oldestHistoricalBlock}. Skipping prune.`,
+      );
+      return;
+    }
     this.log.verbose(`Pruning historic blocks to ${newHistoricBlock.number}`);
     const status = await this.merkleTreeDb.removeHistoricalBlocks(BlockNumber(newHistoricBlock.number));
     this.log.debug(`World state summary `, status.summary);

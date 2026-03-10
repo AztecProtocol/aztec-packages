@@ -610,7 +610,7 @@ pub global ULTRA_KECCAK_PROOF_LENGTH: u32 = 331; // See UltraKeccakFlavor for fo
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
-pub global CHONK_PROOF_LENGTH: u32 = 1632;
+pub global CHONK_PROOF_LENGTH: u32 = 1330;
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
 pub global MEGA_VK_LENGTH_IN_FIELDS: u32 = 127; // size of a Mega verification key
@@ -751,6 +751,7 @@ pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 623934423;
 /// Should not be reused for a given storage slot.
 pub global DOM_SEP__INITIALIZATION_NULLIFIER: u32 = 1653084894;
 pub global DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER: u32 = 3342006647;
+pub global DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER: u32 = 3990889078;
 
 /// Domain separator for L1 to L2 message secret hashes.
 pub global DOM_SEP__SECRET_HASH: u32 = 4199652938;
