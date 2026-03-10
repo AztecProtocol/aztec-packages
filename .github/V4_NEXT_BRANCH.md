@@ -7,7 +7,7 @@
 ### Branch relationship
 
 ```
-master (v5 development)
+next (v5 development)
   │
   v4  ──────────────►  v4-next
   (stable v4 releases)   (next v4 features)
@@ -22,12 +22,12 @@ master (v5 development)
 There are three ways to land code in `v4-next`:
 
 1. **Via v4**: Any PR merged to `v4` is automatically pulled into `v4-next`.
-2. **Backport from master**: Add the `backport-to-v4-next` label to a PR targeting `master`. On merge, the backport workflow will cherry-pick the changes into `v4-next` via a staging branch.
+2. **Backport from master**: Add the `backport-to-v4-next` label to a PR targeting `next`. On merge, the backport workflow will cherry-pick the changes into `v4-next` via a staging branch.
 3. **Direct PR**: Open a PR directly targeting `v4-next` for changes that are only relevant to the next release.
 
 ### Nightly releases
 
-Every night at 2:00 AM UTC, the `nightly-release-tag-v4-next` job in `nightly-release-tag.yml` creates a tag from `v4-next` in the format `v{version}-nightly.{date}`. This mirrors the nightly release process on master.
+Every night at 2:00 AM UTC, the `nightly-release-tag-v4-next` job in `nightly-release-tag.yml` creates a tag from `v4-next` in the format `v{version}-nightly.{date}`. This mirrors the nightly release process on `next`.
 
 ### Backports
 
