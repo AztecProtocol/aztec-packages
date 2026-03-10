@@ -53,7 +53,7 @@ TEST(CalldataTraceGenTest, BasicHashing)
                       ROW_FIELD_EQ(calldata_hashing_sel_not_start, 0),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 1),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 1),
-                      ROW_FIELD_EQ(calldata_hashing_latch, 0),
+                      ROW_FIELD_EQ(calldata_hashing_end, 0),
                       ROW_FIELD_EQ(calldata_hashing_context_id, 1),
                       ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
                       ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
@@ -66,14 +66,14 @@ TEST(CalldataTraceGenTest, BasicHashing)
                       ROW_FIELD_EQ(calldata_hashing_rounds_rem, 2),
                       ROW_FIELD_EQ(calldata_hashing_output_hash, calldata_hash)));
 
-    // Latched row
+    // End row
     EXPECT_THAT(rows.at(2),
                 AllOf(ROW_FIELD_EQ(calldata_hashing_sel, 1),
                       ROW_FIELD_EQ(calldata_hashing_start, 0),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_start, 1),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 0),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 0),
-                      ROW_FIELD_EQ(calldata_hashing_latch, 1),
+                      ROW_FIELD_EQ(calldata_hashing_end, 1),
                       ROW_FIELD_EQ(calldata_hashing_context_id, 1),
                       ROW_FIELD_EQ(calldata_hashing_index_0_, 3),
                       ROW_FIELD_EQ(calldata_hashing_index_1_, 4),
@@ -114,14 +114,14 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashing)
     // One extra empty row is prepended.
     EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(calldata_sel, 1),
-                      ROW_FIELD_EQ(calldata_latch, 0),
+                      ROW_FIELD_EQ(calldata_end, 0),
                       ROW_FIELD_EQ(calldata_context_id, 1),
                       ROW_FIELD_EQ(calldata_index, 1),
                       ROW_FIELD_EQ(calldata_value, 1),
                       ROW_FIELD_EQ(calldata_diff_context_id, 0)));
     EXPECT_THAT(rows.at(2),
                 AllOf(ROW_FIELD_EQ(calldata_sel, 1),
-                      ROW_FIELD_EQ(calldata_latch, 1),
+                      ROW_FIELD_EQ(calldata_end, 1),
                       ROW_FIELD_EQ(calldata_context_id, 1),
                       ROW_FIELD_EQ(calldata_index, 2),
                       ROW_FIELD_EQ(calldata_value, 2),
@@ -129,7 +129,7 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashing)
                       ROW_FIELD_EQ(calldata_diff_context_id, 1)));
     EXPECT_THAT(rows.at(3),
                 AllOf(ROW_FIELD_EQ(calldata_sel, 1),
-                      ROW_FIELD_EQ(calldata_latch, 1),
+                      ROW_FIELD_EQ(calldata_end, 1),
                       ROW_FIELD_EQ(calldata_context_id, 3),
                       ROW_FIELD_EQ(calldata_index, 1),
                       ROW_FIELD_EQ(calldata_value, 3),
@@ -142,7 +142,7 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashing)
                       ROW_FIELD_EQ(calldata_hashing_sel_not_start, 0),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 1),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 1),
-                      ROW_FIELD_EQ(calldata_hashing_latch, 1),
+                      ROW_FIELD_EQ(calldata_hashing_end, 1),
                       ROW_FIELD_EQ(calldata_hashing_context_id, 1),
                       ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
                       ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
@@ -161,7 +161,7 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashing)
                       ROW_FIELD_EQ(calldata_hashing_sel_not_start, 0),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 1),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 0),
-                      ROW_FIELD_EQ(calldata_hashing_latch, 1),
+                      ROW_FIELD_EQ(calldata_hashing_end, 1),
                       ROW_FIELD_EQ(calldata_hashing_context_id, 3),
                       ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
                       ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
@@ -197,7 +197,7 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashingEmpty)
     // Retrieval tracegen should have created the special empty case row:
     EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(calldata_sel, 1),
-                      ROW_FIELD_EQ(calldata_latch, 1),
+                      ROW_FIELD_EQ(calldata_end, 1),
                       ROW_FIELD_EQ(calldata_context_id, 12),
                       // This is the only case where the index is 0 and sel is on:
                       ROW_FIELD_EQ(calldata_index, 0)));
@@ -208,7 +208,7 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashingEmpty)
                       ROW_FIELD_EQ(calldata_hashing_sel_not_start, 0),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 0),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 0),
-                      ROW_FIELD_EQ(calldata_hashing_latch, 1),
+                      ROW_FIELD_EQ(calldata_hashing_end, 1),
                       ROW_FIELD_EQ(calldata_hashing_context_id, 12),
                       ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
                       ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
@@ -274,7 +274,7 @@ TEST(CalldataTraceGenTest, LongerHash)
         EXPECT_THAT(row,
                     AllOf(ROW_FIELD_EQ(calldata_hashing_start, expected_index == 0 ? 1 : 0),
                           ROW_FIELD_EQ(calldata_hashing_sel_not_start, expected_index == 0 ? 0 : 1),
-                          ROW_FIELD_EQ(calldata_hashing_latch, expected_index == 99 ? 1 : 0),
+                          ROW_FIELD_EQ(calldata_hashing_end, expected_index == 99 ? 1 : 0),
                           ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 1),
                           // The final value is padded:
                           ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, expected_index == 99 ? 0 : 1)));

@@ -290,7 +290,7 @@ namespace tx;
         calldata_hash,
         calldata_size,
         next_context_id
-    } is calldata_hashing.latch {
+    } is calldata_hashing.end {
         calldata_hashing.output_hash,
         calldata_hashing.calldata_size,
         calldata_hashing.context_id

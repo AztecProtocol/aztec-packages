@@ -17,8 +17,8 @@ namespace bb::avm2::tracegen {
 /**
  * @brief Populate the calldata retrieval trace (calldata.pil) from calldata events.
  *
- * Fills one row per calldata field per context, with index, value, context_id, and latch columns.
- * Events must be sorted by context_id. Empty calldata gets a special row with index=0 and latch=1.
+ * Fills one row per calldata field per context, with index, value, context_id, and end columns.
+ * Events must be sorted by context_id. Empty calldata gets a special row with index=0 and end=1.
  *
  * @param events The calldata events, sorted by context_id.
  * @param trace The trace container to populate.
@@ -40,17 +40,17 @@ void CalldataTraceBuilder::process_retrieval(
         bool is_last = j == events.size() - 1;
 
         for (size_t i = 0; i < calldata.size(); i++) {
-            bool is_latch = i == calldata.size() - 1;
+            bool is_end = i == calldata.size() - 1;
             trace.set(row,
                       { {
                           { C::calldata_sel, 1 },
                           { C::calldata_context_id, context_id },
                           { C::calldata_value, calldata[i] },
                           { C::calldata_index, i + 1 },
-                          { C::calldata_latch, is_latch ? 1 : 0 },
+                          { C::calldata_end, is_end ? 1 : 0 },
                           // Note that the diff is shifted by 1 to ensure the context_ids are increasing:
                           { C::calldata_diff_context_id,
-                            (is_latch && !is_last) ? events[j + 1].context_id - context_id - 1 : 0 },
+                            (is_end && !is_last) ? events[j + 1].context_id - context_id - 1 : 0 },
                       } });
             row++;
         }
@@ -66,7 +66,7 @@ void CalldataTraceBuilder::process_retrieval(
                           { C::calldata_context_id, context_id },
                           { C::calldata_value, 0 },
                           { C::calldata_index, 0 },
-                          { C::calldata_latch, 1 },
+                          { C::calldata_end, 1 },
                           // Note that the diff is shifted by 1 to ensure the context_ids are increasing:
                           { C::calldata_diff_context_id, !is_last ? events[j + 1].context_id - context_id - 1 : 0 },
                       } });
@@ -129,7 +129,7 @@ void CalldataTraceBuilder::process_hashing(
                           { C::calldata_hashing_output_hash, event.calldata_hash },
                           { C::calldata_hashing_sel_not_padding_1, end && (padding_amount == 2) ? 0 : 1 },
                           { C::calldata_hashing_sel_not_padding_2, end && (padding_amount > 0) ? 0 : 1 },
-                          { C::calldata_hashing_latch, end ? 1 : 0 },
+                          { C::calldata_hashing_end, end ? 1 : 0 },
                       } });
             index += 3;
             row++;

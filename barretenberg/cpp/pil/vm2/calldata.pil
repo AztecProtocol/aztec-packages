@@ -7,7 +7,7 @@ include "precomputed.pil";
  * correctness is constrained by calldata_hashing.pil (which validates the hash and size).
  * The hash is matched against the tx's public inputs, and the size is looked up for each call.
  *
- * For empty calldata, a special row with index = 0, value = 0, and latch = 1 indicates that the
+ * For empty calldata, a special row with index = 0, value = 0, and end = 1 indicates that the
  * context_id has been processed. This is the only case where index = 0 and sel = 1. No lookups
  * should access this trace with index = 0 unless confirming empty calldata (data_copy and
  * calldata_hashing look up all existing values with a +1 offset).
@@ -32,20 +32,20 @@ include "precomputed.pil";
  *
  *   caller_sel { calldata_size, context_id }
  *   in
- *   calldata.latch { calldata.index, calldata.context_id };
+ *   calldata.end { calldata.index, calldata.context_id };
  *
  *   - Inputs: context_id.
  *   - Output: index (equals calldata_size at the final row).
- *   - Selector: calldata.latch (only the final row per context_id).
- *   - Note: for empty calldata, matches a special row where calldata.index = 0 and latch = 1.
+ *   - Selector: calldata.end (only the final row per context_id).
+ *   - Note: for empty calldata, matches a special row where calldata.index = 0 and end = 1.
  *
  * TRACE SHAPE:
  * Variable number of rows per context_id — one row per calldata field. The index increments
- * by one each row until latch = 1 marks the final row. context_id strictly increases between
- * latched groups.
+ * by one each row until end = 1 marks the final row. context_id strictly increases between
+ * groups.
  *
  * e.g. calldata: [0x111, 0x222, 0x333, 0x444]
- *  index |  value | context_id | latch |
+ *  index |  value | context_id |  end  |
  * -------+--------+------------+-------+
  *    1   |  0x111 |     1      |   0   |
  *    2   |  0x222 |     1      |   0   |
@@ -53,7 +53,7 @@ include "precomputed.pil";
  *    4   |  0x444 |     1      |   1   |
  *
  * e.g. empty calldata:
- *  index |  value | context_id | latch |
+ *  index |  value | context_id |  end  |
  * -------+--------+------------+-------+
  *    0   |    0   |     id     |   1   |
  *
@@ -69,7 +69,7 @@ include "precomputed.pil";
  * @column value The calldata field value (a hint, validated by calldata_hashing.pil).
  * @column context_id Identifies which enqueued call this calldata belongs to.
  * @column index The 1-based index of the calldata field within the call (0 only for empty calldata).
- * @column latch Designates the final row of calldata for a given context_id.
+ * @column end Designates the final row of calldata for a given context_id.
  * @column diff_context_id Used for range-checking that context_id strictly increases across calldata instances.
  */
 namespace calldata;
@@ -93,27 +93,27 @@ namespace calldata;
     // We could constrain this here by introducing a start column:
     //     pol commit start;
     // Adding relations like (see calldata_hashing.pil's):
-    //     #[START_AFTER_LATCH]
+    //     #[START_AFTER_END]
     //     sel' * (start' - FIRST_OR_LAST_CALLDATA) = 0;
     //     #[START_INDEX_IS_ONE]
     //     sel * start * (is_not_empty * (index - 1) + is_empty * index) = 0;
     // If start = 1, #[START_INDEX_IS_ONE] should constrain that index = 1 unless we have empty
-    // calldata. In that case the 'special' row must have latch = 1, index = 0, value = 0, and will
+    // calldata. In that case the 'special' row must have end = 1, index = 0, value = 0, and will
     // be constrained by calldata_hashing to have size = 0. This is a different case to a calldata
     // of one field of value 0, where index = 1.
     pol commit index;
 
     // Designates end of calldata for that context_id
-    pol commit latch; // @boolean
-    latch * (1 - latch) = 0;
+    pol commit end; // @boolean
+    end * (1 - end) = 0;
 
-    // latch == 1 ==> sel == 1
-    #[SEL_TOGGLED_AT_LATCH]
-    latch * (1 - sel) = 0;
+    // end == 1 ==> sel == 1
+    #[SEL_ON_END]
+    end * (1 - sel) = 0;
 
-    pol FIRST_OR_LAST_CALLDATA = precomputed.first_row + latch;
+    pol FIRST_OR_LAST_CALLDATA = precomputed.first_row + end;
 
-    // Index increments by 1 each row until latch (or first row)
+    // Index increments by 1 each row until end (or first row)
     #[INDEX_INCREMENT]
     sel * (1 - FIRST_OR_LAST_CALLDATA) * (index' - index - 1) = 0;
 
@@ -121,15 +121,15 @@ namespace calldata;
     #[TRACE_CONTINUITY]
     (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
 
-    // Context id does not change until we latch
+    // Context id does not change until end
     #[CONTEXT_ID_CONTINUITY]
     (1 - FIRST_OR_LAST_CALLDATA) * (context_id - context_id') = 0;
 
     // ==== CONTEXT ID ORDERING ====
 
-    // We ensure that context_id is always different and increasing at each latch:
+    // We ensure that context_id is always different and increasing at each end:
     pol commit diff_context_id;
-    diff_context_id = latch * sel' * (context_id' - context_id - 1);
+    diff_context_id = end * sel' * (context_id' - context_id - 1);
 
     #[RANGE_CHECK_CONTEXT_ID_DIFF]
-    latch { diff_context_id } in precomputed.sel_range_16 { precomputed.idx };
+    end { diff_context_id } in precomputed.sel_range_16 { precomputed.idx };

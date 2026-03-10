@@ -111,7 +111,7 @@ class CalldataHashingConstrainingTestTraceHelper : public CalldataHashingConstra
                         { C::calldata_hashing_output_hash, hash },
                         { C::calldata_hashing_sel_not_padding_1, (num_rounds == 1) && (padding_amount == 2) ? 0 : 1 },
                         { C::calldata_hashing_sel_not_padding_2, (num_rounds == 1) && (padding_amount > 0) ? 0 : 1 },
-                        { C::calldata_hashing_latch, (num_rounds == 1) ? 1 : 0 },
+                        { C::calldata_hashing_end, (num_rounds == 1) ? 1 : 0 },
                     } });
                 row++;
                 num_rounds--;
@@ -147,7 +147,7 @@ TEST_F(CalldataHashingConstrainingTest, SingleCalldataHashOneRow)
             { C::calldata_hashing_input_1_, 1 },
             { C::calldata_hashing_input_2_, 2 },
             { C::calldata_hashing_input_len, 3 },
-            { C::calldata_hashing_latch, 1 },
+            { C::calldata_hashing_end, 1 },
             { C::calldata_hashing_sel_not_padding_1, 1 },
             { C::calldata_hashing_sel_not_padding_2, 1 },
             { C::calldata_hashing_sel_not_start, 0 },
@@ -185,7 +185,7 @@ TEST_F(CalldataHashingConstrainingTest, SingleCalldataHashOneElt)
             { C::calldata_hashing_input_1_, 2 },
             { C::calldata_hashing_input_2_, 0 },
             { C::calldata_hashing_input_len, 2 },
-            { C::calldata_hashing_latch, 1 },
+            { C::calldata_hashing_end, 1 },
             { C::calldata_hashing_sel_not_padding_1, 1 },
             { C::calldata_hashing_sel_not_padding_2, 0 },
             { C::calldata_hashing_sel_not_start, 0 },
@@ -223,7 +223,7 @@ TEST_F(CalldataHashingConstrainingTest, EmptyCalldataHash)
             { C::calldata_hashing_input_1_, 0 },
             { C::calldata_hashing_input_2_, 0 },
             { C::calldata_hashing_input_len, 1 },
-            { C::calldata_hashing_latch, 1 },
+            { C::calldata_hashing_end, 1 },
             { C::calldata_hashing_sel_not_padding_1, 0 },
             { C::calldata_hashing_sel_not_padding_2, 0 },
             { C::calldata_hashing_sel_not_start, 0 },
@@ -281,44 +281,42 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, MultipleCalldataHash)
 
     check_relation<calldata_hashing>(trace);
     check_all_interactions<CalldataTraceBuilder>(trace);
-    uint32_t latch_row = 17;
+    uint32_t end_row = 17;
     // First calldata:
-    EXPECT_EQ(trace.get(C::calldata_hashing_latch, latch_row), 1);
-    EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_2, latch_row), 1);
+    EXPECT_EQ(trace.get(C::calldata_hashing_end, end_row), 1);
+    EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_2, end_row), 1);
     // Second calldata:
-    latch_row += 34;
-    EXPECT_EQ(trace.get(C::calldata_hashing_latch, latch_row), 1);
-    EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_2, latch_row), 0);
-    EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_1, latch_row), 1);
+    end_row += 34;
+    EXPECT_EQ(trace.get(C::calldata_hashing_end, end_row), 1);
+    EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_2, end_row), 0);
+    EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_1, end_row), 1);
     // Third calldata:
-    latch_row += 101;
-    EXPECT_EQ(trace.get(C::calldata_hashing_latch, latch_row), 1);
-    EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_2, latch_row), 0);
-    EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_1, latch_row), 0);
+    end_row += 101;
+    EXPECT_EQ(trace.get(C::calldata_hashing_end, end_row), 1);
+    EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_2, end_row), 0);
+    EXPECT_EQ(trace.get(C::calldata_hashing_sel_not_padding_1, end_row), 0);
 }
 
-// Negative test where latch == 1 and sel == 0
-TEST_F(CalldataHashingConstrainingTest, NegativeLatchNotSel)
+// Negative test where end == 1 and sel == 0
+TEST_F(CalldataHashingConstrainingTest, NegativeEndNotSel)
 {
     TestTraceContainer trace(
-        { { { C::precomputed_first_row, 1 } }, { { C::calldata_hashing_latch, 1 }, { C::calldata_hashing_sel, 1 } } });
+        { { { C::precomputed_first_row, 1 } }, { { C::calldata_hashing_end, 1 }, { C::calldata_hashing_sel, 1 } } });
 
-    check_relation<calldata_hashing>(trace, calldata_hashing::SR_SEL_TOGGLED_AT_LATCH);
+    check_relation<calldata_hashing>(trace, calldata_hashing::SR_SEL_ON_END);
     trace.set(C::calldata_hashing_sel, 1, 0); // Mutate to wrong value
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_SEL_TOGGLED_AT_LATCH),
-                              "SEL_TOGGLED_AT_LATCH");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_SEL_ON_END), "SEL_ON_END");
     // Same idea for calldata trace:
     trace.set(1,
               { {
-                  { C::calldata_latch, 1 },
+                  { C::calldata_end, 1 },
                   { C::calldata_sel, 1 },
               } });
 
-    check_relation<bb::avm2::calldata<FF>>(trace, bb::avm2::calldata<FF>::SR_SEL_TOGGLED_AT_LATCH);
+    check_relation<bb::avm2::calldata<FF>>(trace, bb::avm2::calldata<FF>::SR_SEL_ON_END);
     trace.set(C::calldata_sel, 1, 0); // Mutate to wrong value
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<bb::avm2::calldata<FF>>(trace, bb::avm2::calldata<FF>::SR_SEL_TOGGLED_AT_LATCH),
-        "SEL_TOGGLED_AT_LATCH");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bb::avm2::calldata<FF>>(trace, bb::avm2::calldata<FF>::SR_SEL_ON_END),
+                              "SEL_ON_END");
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeInvalidStartAfterLatch)
@@ -444,7 +442,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePaddingSelectors)
     check_relation<calldata_hashing>(trace);
     check_all_interactions<CalldataTraceBuilder>(trace);
 
-    // We cannot have padding anywhere but the last hashing row (= latch). Set padding to true on row 2:
+    // We cannot have padding anywhere but the last hashing row (= end). Set padding to true on row 2:
     trace.set(Column::calldata_hashing_sel_not_padding_2, 2, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_PADDING_END), "PADDING_END");
     trace.set(Column::calldata_hashing_sel_not_padding_2, 2, 1);
@@ -601,7 +599,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeOutputHash)
             { C::calldata_hashing_input_1_, calldata_fields[0] },
             { C::calldata_hashing_input_2_, calldata_fields[1] },
             { C::calldata_hashing_input_len, 6 },
-            { C::calldata_hashing_latch, 0 },
+            { C::calldata_hashing_end, 0 },
             { C::calldata_hashing_sel_not_padding_1, 1 },
             { C::calldata_hashing_sel_not_padding_2, 1 },
             { C::calldata_hashing_sel_not_start, 0 },
@@ -619,7 +617,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeOutputHash)
             { C::calldata_hashing_input_1_, calldata_fields[3] },
             { C::calldata_hashing_input_2_, calldata_fields[4] },
             { C::calldata_hashing_input_len, 6 },
-            { C::calldata_hashing_latch, 1 },
+            { C::calldata_hashing_end, 1 },
             { C::calldata_hashing_sel_not_padding_1, 1 },
             { C::calldata_hashing_sel_not_padding_2, 1 },
             { C::calldata_hashing_sel_not_start, 1 },
@@ -641,7 +639,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeOutputHash)
         calldata_fields[3],
         calldata_fields[4],
     });
-    // ...and an incorrect hash with a matching row at latch = 1:
+    // ...and an incorrect hash with a matching row at end = 1:
     auto bad_hash = poseidon2_int.hash({
         0xa,
         0xb,
@@ -652,7 +650,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeOutputHash)
     });
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     trace.set(Column::calldata_hashing_output_hash, 1, good_hash);
-    // Set the incorrect hash to latch:
+    // Set the incorrect hash to end:
     trace.set(Column::calldata_hashing_output_hash, 2, bad_hash);
     // All lookups will pass (i.e. we successfully lookup a bad row in the poseidon trace)...
     check_all_interactions<CalldataTraceBuilder>(trace);
@@ -677,7 +675,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePoseidonInteraction)
             { C::calldata_hashing_input_1_, calldata_fields[0] },
             { C::calldata_hashing_input_2_, calldata_fields[1] },
             { C::calldata_hashing_input_len, 11 },
-            { C::calldata_hashing_latch, 0 },
+            { C::calldata_hashing_end, 0 },
             { C::calldata_hashing_sel_not_padding_1, 1 },
             { C::calldata_hashing_sel_not_padding_2, 1 },
             { C::calldata_hashing_sel_not_start, 0 },
@@ -695,7 +693,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePoseidonInteraction)
             { C::calldata_hashing_input_1_, calldata_fields[3] },
             { C::calldata_hashing_input_2_, calldata_fields[4] },
             { C::calldata_hashing_input_len, 11 },
-            { C::calldata_hashing_latch, 0 },
+            { C::calldata_hashing_end, 0 },
             { C::calldata_hashing_sel_not_padding_1, 1 },
             { C::calldata_hashing_sel_not_padding_2, 1 },
             { C::calldata_hashing_sel_not_start, 1 },
@@ -712,7 +710,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePoseidonInteraction)
             { C::calldata_hashing_input_1_, calldata_fields[6] },
             { C::calldata_hashing_input_2_, calldata_fields[7] },
             { C::calldata_hashing_input_len, 11 },
-            { C::calldata_hashing_latch, 0 },
+            { C::calldata_hashing_end, 0 },
             { C::calldata_hashing_sel_not_padding_1, 1 },
             { C::calldata_hashing_sel_not_padding_2, 1 },
             { C::calldata_hashing_sel_not_start, 1 },
@@ -729,7 +727,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePoseidonInteraction)
             { C::calldata_hashing_input_1_, calldata_fields[9] },
             { C::calldata_hashing_input_2_, 0 },
             { C::calldata_hashing_input_len, 11 },
-            { C::calldata_hashing_latch, 1 },
+            { C::calldata_hashing_end, 1 },
             { C::calldata_hashing_sel_not_padding_1, 1 },
             { C::calldata_hashing_sel_not_padding_2, 0 },
             { C::calldata_hashing_sel_not_start, 1 },
@@ -807,7 +805,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePoseidonInteraction)
     // ...all lookups will pass...
     check_all_interactions<CalldataTraceBuilder>(trace);
     // ...but we protect against input_len manipulation with a consistency check, which would ensure incorrect values
-    // fail at latch:
+    // fail at end:
     EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_SIZE_CONSISTENCY),
                               "SIZE_CONSISTENCY");
 }
