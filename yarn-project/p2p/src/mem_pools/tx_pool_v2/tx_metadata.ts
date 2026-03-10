@@ -3,7 +3,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { BlockHash, type L2BlockId } from '@aztec/stdlib/block';
-import { Gas } from '@aztec/stdlib/gas';
+import { Gas, GasFees } from '@aztec/stdlib/gas';
 import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { getFeePayerBalanceDelta } from '../../msg_validators/tx_validator/fee_payer_balance.js';
@@ -23,7 +23,7 @@ export type TxMetaValidationData = {
       };
     };
     txContext: {
-      gasSettings: { gasLimits: Gas };
+      gasSettings: { gasLimits: Gas; maxFeesPerGas: GasFees };
     };
   };
 };
@@ -132,7 +132,10 @@ export async function buildTxMetaData(tx: Tx, allowedSetupCalls: boolean = true)
           globalVariables: { blockNumber: anchorBlockNumber },
         },
         txContext: {
-          gasSettings: { gasLimits: tx.data.constants.txContext.gasSettings.gasLimits },
+          gasSettings: {
+            gasLimits: tx.data.constants.txContext.gasSettings.gasLimits,
+            maxFeesPerGas: tx.data.constants.txContext.gasSettings.maxFeesPerGas,
+          },
         },
       },
     },
@@ -285,7 +288,9 @@ export function checkNullifierConflict(
 }
 
 /** Creates a stub TxMetaValidationData for tests that don't exercise validators. */
-export function stubTxMetaValidationData(overrides: { expirationTimestamp?: bigint } = {}): TxMetaValidationData {
+export function stubTxMetaValidationData(
+  overrides: { expirationTimestamp?: bigint; maxFeesPerGas?: GasFees } = {},
+): TxMetaValidationData {
   return {
     getNonEmptyNullifiers: () => [],
     expirationTimestamp: overrides.expirationTimestamp ?? 0n,
@@ -295,7 +300,7 @@ export function stubTxMetaValidationData(overrides: { expirationTimestamp?: bigi
         globalVariables: { blockNumber: BlockNumber(0) },
       },
       txContext: {
-        gasSettings: { gasLimits: Gas.empty() },
+        gasSettings: { gasLimits: Gas.empty(), maxFeesPerGas: overrides.maxFeesPerGas ?? GasFees.empty() },
       },
     },
   };
@@ -313,6 +318,7 @@ export function stubTxMetaData(
     expirationTimestamp?: bigint;
     anchorBlockHeaderHash?: string;
     allowedSetupCalls?: boolean;
+    maxFeesPerGas?: GasFees;
   } = {},
 ): TxMetaData {
   const txHashBigInt = Fr.fromHexString(txHash).toBigInt();
@@ -332,7 +338,7 @@ export function stubTxMetaData(
     allowedSetupCalls: overrides.allowedSetupCalls ?? true,
     receivedAt: 0,
     estimatedSizeBytes: 0,
-    data: stubTxMetaValidationData({ expirationTimestamp }),
+    data: stubTxMetaValidationData({ expirationTimestamp, maxFeesPerGas: overrides.maxFeesPerGas }),
   };
 }
 
