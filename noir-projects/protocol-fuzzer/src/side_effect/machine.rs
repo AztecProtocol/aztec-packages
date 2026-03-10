@@ -250,10 +250,6 @@ fn populated_slots(state: &SideEffectState) -> Vec<(StorageSlotId, AccountId)> {
     slots
 }
 
-/// Expected note values for a (slot, owner) pair, after skipping `offset` notes.
-/// The contract sorts by value ASC before applying the offset, so we sort and skip
-/// here too. With `active_or_nullified`, includes destroyed notes.
-///
 fn assert_expected(name: &str, expect_ok: bool, result: &anyhow::Result<String>) {
     if expect_ok {
         debug!("{name}: expecting success");
@@ -264,6 +260,10 @@ fn assert_expected(name: &str, expect_ok: bool, result: &anyhow::Result<String>)
     }
 }
 
+/// Expected note values for a (slot, owner) pair, after skipping `offset` notes.
+/// The contract sorts by value ASC before applying the offset, so we sort and skip
+/// here too. With `active_or_nullified`, includes destroyed notes.
+///
 /// TODO: Sort by counter instead of value. Notes with the same value can be
 /// returned in arbitrary order by the oracle, but counters are unique, giving
 /// a deterministic ordering the fuzzer model can predict exactly.

@@ -123,7 +123,7 @@ impl Bridge {
 
     /// POST JSON to the bridge and return the parsed response.
     /// Errors if the bridge returns `{ ok: false, error: "..." }`.
-    fn bridge_post(&self, endpoint: &str, body: &serde_json::Value) -> anyhow::Result<serde_json::Value> {
+    fn post(&self, endpoint: &str, body: &serde_json::Value) -> anyhow::Result<serde_json::Value> {
         let resp = self.client
             .post(format!("{}{endpoint}", self.url))
             .json(body)
@@ -190,7 +190,7 @@ impl Bridge {
 
         with_retry(&format!("{verb} {}", cmd.method), || {
             debug!("bridge POST /execute {}", body);
-            let result = self.bridge_post("/execute", &body)?;
+            let result = self.post("/execute", &body)?;
             let stdout = result["stdout"].as_str().unwrap_or("").to_string();
             debug!("bridge execute stdout: {stdout}");
             Ok(stdout)
@@ -200,7 +200,7 @@ impl Bridge {
     /// Import the 3 deterministic test accounts into the wallet.
     pub fn import_test_accounts(&self) -> anyhow::Result<()> {
         debug!("bridge POST /import-test-accounts");
-        let result = self.bridge_post("/import-test-accounts", &json!({ "prove": self.prove }))?;
+        let result = self.post("/import-test-accounts", &json!({ "prove": self.prove }))?;
 
         if let Some(accounts) = result["accounts"].as_array() {
             let mut book = self.address_book.lock().unwrap();
@@ -243,7 +243,7 @@ impl Bridge {
         });
         let result = with_retry("deploy", || {
             debug!("bridge POST /deploy {}", body);
-            self.bridge_post("/deploy", &body)
+            self.post("/deploy", &body)
         })?;
         let stdout = result["stdout"].as_str().unwrap_or("").to_string();
 

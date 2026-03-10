@@ -126,9 +126,8 @@ where
 
         // Flush if the new command conflicts with anything in the batch or if
         // the batch is at capacity.
-        if !batch.is_empty()
-            && (batch.len() >= max_batch_size
-                || batch.iter().any(|(prev, _)| cmd.conflicts(prev)))
+        if batch.len() >= max_batch_size
+            || batch.iter().any(|(prev, _)| cmd.conflicts(prev))
         {
             execute_batch(t, &mut system, bridge, &batch);
             if !t.check_system(&batch.last().unwrap().0, &model, &system) {
