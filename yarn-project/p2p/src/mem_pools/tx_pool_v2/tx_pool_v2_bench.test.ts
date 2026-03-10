@@ -5,7 +5,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Body, L2Block, type L2BlockId, type L2BlockSource } from '@aztec/stdlib/block';
-import { GasFees } from '@aztec/stdlib/gas';
+import { Gas, GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
 import {
@@ -78,6 +78,8 @@ describe('TxPoolV2: benchmarks', () => {
         await mockTx((startSeed + i) * 100, {
           numberOfNonRevertiblePublicCallRequests: 1,
           maxPriorityFeesPerGas: new GasFees(priorityFee, priorityFee),
+          maxFeesPerGas: new GasFees(priorityFee, priorityFee),
+          gasLimits: new Gas(1, 1),
           feePayer,
         }),
       );

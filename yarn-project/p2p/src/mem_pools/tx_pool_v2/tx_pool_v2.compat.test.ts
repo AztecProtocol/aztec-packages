@@ -12,7 +12,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { RevertCode } from '@aztec/stdlib/avm';
 import { Body, L2Block, type L2BlockId, type L2BlockSource } from '@aztec/stdlib/block';
-import { GasFees } from '@aztec/stdlib/gas';
+import { Gas, GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
 import {
@@ -97,7 +97,11 @@ describe('TxPoolV2 Compatibility Tests', () => {
   });
 
   const mockFixedSizeTx = async (maxPriorityFeesPerGas?: GasFees) => {
-    const tx = await mockTx(nextTxSeed++, { maxPriorityFeesPerGas, maxFeesPerGas: maxPriorityFeesPerGas });
+    const tx = await mockTx(nextTxSeed++, {
+      maxPriorityFeesPerGas,
+      maxFeesPerGas: maxPriorityFeesPerGas,
+      gasLimits: new Gas(1, 1),
+    });
     jest.spyOn(tx, 'getSize').mockReturnValue(mockFixedTxSize);
     return tx;
   };
@@ -275,6 +279,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
         const gs = unfreeze(tx.data.constants.txContext.gasSettings);
         gs.maxPriorityFeesPerGas = new GasFees(fee, fee);
         gs.maxFeesPerGas = new GasFees(fee, fee);
+        gs.gasLimits = new Gas(1, 1);
         return tx;
       };
 
@@ -374,42 +379,42 @@ describe('TxPoolV2 Compatibility Tests', () => {
     );
     await pool.start();
 
-    const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
-    const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2) });
-    const tx3 = await mockTx(3, { maxPriorityFeesPerGas: new GasFees(3, 3) });
+    const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1), gasLimits: new Gas(1, 1) });
+    const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2), gasLimits: new Gas(1, 1) });
+    const tx3 = await mockTx(3, { maxPriorityFeesPerGas: new GasFees(3, 3), gasLimits: new Gas(1, 1) });
     await pool.addPendingTxs([tx1, tx2, tx3]);
     await checkPendingTxConsistency();
     expect(await pool.getPendingTxHashes()).toEqual([tx3.getTxHash(), tx2.getTxHash(), tx1.getTxHash()]);
 
     // once the tx pool count limit is reached, the lowest priority txs (tx1, tx2) should be evicted
-    const tx4 = await mockTx(4, { maxPriorityFeesPerGas: new GasFees(4, 4) });
-    const tx5 = await mockTx(5, { maxPriorityFeesPerGas: new GasFees(5, 5) });
+    const tx4 = await mockTx(4, { maxPriorityFeesPerGas: new GasFees(4, 4), gasLimits: new Gas(1, 1) });
+    const tx5 = await mockTx(5, { maxPriorityFeesPerGas: new GasFees(5, 5), gasLimits: new Gas(1, 1) });
     await pool.addPendingTxs([tx4, tx5]);
     await checkPendingTxConsistency();
     expect(await pool.getPendingTxHashes()).toEqual([tx5.getTxHash(), tx4.getTxHash(), tx3.getTxHash()]);
 
     // if another low priority tx is added after the tx pool count limit is reached, it should be evicted
-    const tx6 = await mockTx(6, { maxPriorityFeesPerGas: new GasFees(1, 1) });
+    const tx6 = await mockTx(6, { maxPriorityFeesPerGas: new GasFees(1, 1), gasLimits: new Gas(1, 1) });
     await pool.addPendingTxs([tx6]);
     await checkPendingTxConsistency();
     expect(await pool.getPendingTxHashes()).toEqual([tx5.getTxHash(), tx4.getTxHash(), tx3.getTxHash()]);
 
     // if a tx is deleted via handleFailedExecution, any txs can be added until the limit is reached
     await pool.handleFailedExecution([tx3.getTxHash()]);
-    const tx7 = await mockTx(7, { maxPriorityFeesPerGas: new GasFees(2, 2) });
+    const tx7 = await mockTx(7, { maxPriorityFeesPerGas: new GasFees(2, 2), gasLimits: new Gas(1, 1) });
     await pool.addPendingTxs([tx7]);
     await checkPendingTxConsistency();
     expect(await pool.getPendingTxHashes()).toEqual([tx5.getTxHash(), tx4.getTxHash(), tx7.getTxHash()]);
 
     // if a tx is mined, any txs can be added until the limit is reached
     await pool.handleMinedBlock(makeBlock([tx4], block1Header));
-    const tx8 = await mockTx(8, { maxPriorityFeesPerGas: new GasFees(3, 3) });
+    const tx8 = await mockTx(8, { maxPriorityFeesPerGas: new GasFees(3, 3), gasLimits: new Gas(1, 1) });
     await pool.addPendingTxs([tx8]);
     await checkPendingTxConsistency();
     expect(await pool.getPendingTxHashes()).toEqual([tx5.getTxHash(), tx8.getTxHash(), tx7.getTxHash()]);
 
     // verify that the tx pool count limit is respected after mining and deletions
-    const tx9 = await mockTx(9, { maxPriorityFeesPerGas: new GasFees(1, 1) });
+    const tx9 = await mockTx(9, { maxPriorityFeesPerGas: new GasFees(1, 1), gasLimits: new Gas(1, 1) });
     await pool.addPendingTxs([tx9]);
     await checkPendingTxConsistency();
     expect(await pool.getPendingTxHashes()).toEqual([tx5.getTxHash(), tx8.getTxHash(), tx7.getTxHash()]);
@@ -645,10 +650,10 @@ describe('TxPoolV2 Compatibility Tests', () => {
       );
       await pool.start();
 
-      const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
-      const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2) });
-      const tx3 = await mockTx(3, { maxPriorityFeesPerGas: new GasFees(3, 3) });
-      const tx4 = await mockTx(4, { maxPriorityFeesPerGas: new GasFees(4, 4) });
+      const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1), gasLimits: new Gas(1, 1) });
+      const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2), gasLimits: new Gas(1, 1) });
+      const tx3 = await mockTx(3, { maxPriorityFeesPerGas: new GasFees(3, 3), gasLimits: new Gas(1, 1) });
+      const tx4 = await mockTx(4, { maxPriorityFeesPerGas: new GasFees(4, 4), gasLimits: new Gas(1, 1) });
       await pool.addPendingTxs([tx3, tx1, tx4, tx2]);
 
       const res1 = await pool.getLowestPriorityPending(1);
@@ -662,7 +667,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
     });
 
     it('respects zero limit', async () => {
-      const tx1 = await mockTx(10, { maxPriorityFeesPerGas: new GasFees(1, 1) });
+      const tx1 = await mockTx(10, { maxPriorityFeesPerGas: new GasFees(1, 1), gasLimits: new Gas(1, 1) });
       await pool.addPendingTxs([tx1]);
 
       expect(await pool.getLowestPriorityPending(0)).toEqual([]);
@@ -684,6 +689,7 @@ describe('TxPoolV2 Compatibility Tests', () => {
       mockTx(seed, {
         maxPriorityFeesPerGas: new GasFees(fee, fee),
         maxFeesPerGas: new GasFees(fee, fee),
+        gasLimits: new Gas(1, 1),
         numberOfNonRevertiblePublicCallRequests: 1,
       });
 
