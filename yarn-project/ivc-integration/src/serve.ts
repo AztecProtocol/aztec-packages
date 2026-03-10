@@ -102,9 +102,9 @@ if (!document.getElementById('status')) {
     button.innerText = 'Run Test';
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     button.addEventListener('click', async () => {
-      logger.info(`generating circuit and witness...`);
+      logger.info('generating circuit and witness...');
       const [bytecodes, witnessStack, _publicInputs, precomputedVks] = await generateTestingIVCStack(1, 0);
-      logger.info(`done. proving and verifying...`);
+      logger.info('done. proving and verifying...');
 
       const barretenberg = await Barretenberg.initSingleton({
         threads: 16,
@@ -115,7 +115,7 @@ if (!document.getElementById('status')) {
       const [, proof, vk] = await backend.prove(witnessStack, precomputedVks);
       const verified = await backend.verify(proof, vk);
 
-      logger.info(`verified? ${verified}`);
+      logger.info('verified? %s', verified);
 
       await Barretenberg.destroySingleton();
     });

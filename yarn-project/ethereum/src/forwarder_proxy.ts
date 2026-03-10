@@ -68,7 +68,7 @@ export async function deployForwarderProxy(client: ExtendedViemWalletClient, log
 
   log.info('Deploying forwarder proxy contract');
   const deployment = await deployer.deploy(FORWARDER_ARTIFACT, []);
-  log.info(`Forwarder proxy deployed at ${deployment.address.toString()}`);
+  log.info('Forwarder proxy deployed at %s', deployment.address);
 
   return deployment.address;
 }

@@ -128,7 +128,7 @@ export class L1TxStore implements IL1TxStore {
 
     const serializable = this.serializeState(state);
     await this.states.set(key, jsonStringify(serializable));
-    this.log.debug(`Saved tx state ${state.id} for account ${account} with nonce ${state.nonce}`);
+    this.log.debug('Saved tx state %d for account %s with nonce %d', state.id, account, state.nonce);
 
     return state as L1TxState;
   }
@@ -146,7 +146,7 @@ export class L1TxStore implements IL1TxStore {
     const key = this.makeKey(account, stateId);
     const blobData = this.serializeBlobInputs(blobInputs);
     await this.blobs.set(key, jsonStringify(blobData));
-    this.log.debug(`Saved blobs for state ${stateId} of account ${account}`);
+    this.log.debug('Saved blobs for state %d of account %s', stateId, account);
   }
 
   /**
@@ -188,7 +188,7 @@ export class L1TxStore implements IL1TxStore {
     // Sort by ID
     states.sort((a, b) => a.id - b.id);
 
-    this.log.debug(`Loaded ${states.length} tx states for account ${account}`);
+    this.log.debug('Loaded %d tx states for account %s', states.length, account);
     return states;
   }
 
@@ -258,7 +258,7 @@ export class L1TxStore implements IL1TxStore {
       }
 
       await this.stateIdCounter.delete(account);
-      this.log.info(`Cleared all tx states for account ${account}`);
+      this.log.info('Cleared all tx states for account %s', account);
     });
   }
 

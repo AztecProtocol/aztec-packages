@@ -100,7 +100,7 @@ export class DatabaseVersionManager<T> {
         // only turn off these logs if the data dir didn't exist before
         shouldLogDataReset = false;
       } else {
-        this.log.warn(`Failed to read stored version information: ${err}. Defaulting to empty version`);
+        this.log.warn('Failed to read stored version information: %s. Defaulting to empty version', err);
         storedVersion = DatabaseVersion.empty();
       }
     }
@@ -111,7 +111,11 @@ export class DatabaseVersionManager<T> {
     if (typeof cmp === 'number') {
       // only allow forward upgrades
       if (cmp === -1 && this.onUpgrade) {
-        this.log.info(`Upgrading from version ${storedVersion.schemaVersion} to ${this.currentVersion.schemaVersion}`);
+        this.log.info(
+          'Upgrading from version %d to %d',
+          storedVersion.schemaVersion,
+          this.currentVersion.schemaVersion,
+        );
         try {
           await this.onUpgrade(this.dataDirectory, storedVersion.schemaVersion, this.currentVersion.schemaVersion);
         } catch (error) {

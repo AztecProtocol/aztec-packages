@@ -97,7 +97,7 @@ export async function cachedFetch<T = any>(
     }
 
     if (!response.ok) {
-      log.warn(`Failed to fetch from ${url}: ${response.status} ${response.statusText}`);
+      log.warn('Failed to fetch from %s: %d %s', url, response.status, response.statusText);
       return cachedData;
     }
 
@@ -127,7 +127,7 @@ async function fetchAndParse<T>(
   try {
     const response = await fetch(url);
     if (!response.ok) {
-      log.warn(`Failed to fetch from ${url}: ${response.status} ${response.statusText}`);
+      log.warn('Failed to fetch from %s: %d %s', url, response.status, response.statusText);
       return undefined;
     }
     return (await response.json()) as T;

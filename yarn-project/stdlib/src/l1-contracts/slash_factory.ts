@@ -111,7 +111,7 @@ export class SlashFactoryContract {
 
     do {
       const fromBlock = maxBigint(earliestBlockNumber, toBlock - batchSize);
-      this.logger.trace(`Searching for slash payload ${payloadAddress} in blocks ${fromBlock} to ${toBlock}`);
+      this.logger.trace('Searching for slash payload %s in blocks %s to %s', payloadAddress, fromBlock, toBlock);
       const logs = await this.contract.getEvents.SlashPayloadCreated(
         { payloadAddress: payloadAddress.toString() },
         { fromBlock, toBlock, strict: true },

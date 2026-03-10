@@ -58,7 +58,7 @@ export class L1Deployer {
     args?: ContractConstructorArgs<TAbi>,
     opts: { gasLimit?: bigint; noSimulation?: boolean } = {},
   ): Promise<{ address: EthAddress; existed: boolean }> {
-    this.logger.debug(`Deploying ${params.name} contract`, { args });
+    this.logger.debug('Deploying %s contract', params.name, { args });
     try {
       const { txHash, address, deployedLibraries, existed } = await deployL1Contract(
         this.client,
@@ -78,7 +78,7 @@ export class L1Deployer {
       if (txHash) {
         this.txHashes.push(txHash);
       }
-      this.logger.debug(`Deployed ${params.name} at ${address}`, { args });
+      this.logger.debug('Deployed %s at %s', params.name, address, { args });
 
       if (this.createVerificationJson) {
         // Encode constructor args for verification
@@ -117,7 +117,7 @@ export class L1Deployer {
       return;
     }
 
-    this.logger.verbose(`Waiting for ${this.txHashes.length} transactions to be mined`, { txHashes: this.txHashes });
+    this.logger.verbose('Waiting for %d transactions to be mined', this.txHashes.length, { txHashes: this.txHashes });
     const receipts = await Promise.all(
       this.txHashes.map(txHash => this.client.waitForTransactionReceipt({ hash: txHash })),
     );
@@ -278,7 +278,7 @@ export async function deployL1Contract(
   let existed = false;
 
   if (saltFromOpts) {
-    logger?.info(`Deploying contract with salt ${saltFromOpts}`);
+    logger?.info('Deploying contract with salt %s', saltFromOpts);
     const { address, paddedSalt: salt, calldata } = getExpectedAddress(abi, bytecode, args, saltFromOpts);
     resultingAddress = address;
     const existing = await extendedClient.getCode({ address: resultingAddress });
@@ -297,9 +297,9 @@ export async function deployL1Contract(
       );
       txHash = res.txHash;
 
-      logger?.verbose(`Deployed contract with salt ${salt} to address ${resultingAddress} in tx ${txHash}.`);
+      logger?.verbose('Deployed contract with salt %s to address %s in tx %s.', salt, resultingAddress, txHash);
     } else {
-      logger?.verbose(`Skipping existing deployment of contract with salt ${salt} to address ${resultingAddress}`);
+      logger?.verbose('Skipping existing deployment of contract with salt %s to address %s', salt, resultingAddress);
       existed = true;
     }
   } else {

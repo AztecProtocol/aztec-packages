@@ -41,7 +41,7 @@ export async function executePrivateFunction(
   log = createLogger('simulator:private_execution'),
 ): Promise<PrivateCallExecutionResult> {
   const functionName = await privateExecutionOracle.getDebugFunctionName();
-  log.verbose(`Executing private function ${functionName}`, { contract: contractAddress });
+  log.verbose('Executing private function %s', functionName, { contract: contractAddress });
   const initialWitness = privateExecutionOracle.getInitialWitness(artifact);
   const acvmCallback = new Oracle(privateExecutionOracle);
   const timer = new Timer();
@@ -65,7 +65,7 @@ export async function executePrivateFunction(
 
   // TODO (alexg) estimate this size
   const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
-  log.debug(`Ran external function ${contractAddress.toString()}:${functionSelector}`, {
+  log.debug('Ran external function %s:%s', contractAddress, functionSelector, {
     circuitName: 'app-circuit',
     duration,
     eventName: 'circuit-witness-generation',
@@ -93,7 +93,7 @@ export async function executePrivateFunction(
     timerSubtractionList = timerSubtractionList.flatMap(nested => nested.nestedExecutionResults ?? []);
   }
 
-  log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
+  log.debug('Returning from call to %s:%s', contractAddress, functionSelector);
 
   return new PrivateCallExecutionResult(
     artifact.bytecode,

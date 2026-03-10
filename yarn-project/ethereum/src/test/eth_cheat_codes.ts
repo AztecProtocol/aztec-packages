@@ -41,7 +41,7 @@ export class EthCheatCodes {
   }
 
   public rpcCall(method: string, params: any[]) {
-    this.logger.debug(`Calling ${method} with params: ${jsonStringify(params)} on ${this.rpcUrls.join(', ')}`);
+    this.logger.debug('Calling %s with params: %s on %s', method, jsonStringify(params), this.rpcUrls.join(', '));
     return this.doRpcCall(method, params);
   }
 
@@ -99,7 +99,7 @@ export class EthCheatCodes {
    */
   public async mine(numberOfBlocks: number | bigint = 1): Promise<void> {
     await this.doMine(Number(numberOfBlocks));
-    this.logger.warn(`Mined ${numberOfBlocks} L1 blocks`);
+    this.logger.warn('Mined %s L1 blocks', numberOfBlocks);
   }
 
   private async doMine(numberOfBlocks = 1): Promise<void> {
@@ -116,7 +116,7 @@ export class EthCheatCodes {
   public async evmMine(): Promise<void> {
     try {
       await this.doRpcCall('evm_mine', []);
-      this.logger.warn(`Mined 1 L1 block with evm_mine`);
+      this.logger.warn('Mined 1 L1 block with evm_mine');
     } catch (err) {
       throw new Error(`Error mining: ${err}`);
     }
@@ -133,7 +133,7 @@ export class EthCheatCodes {
     } catch (err) {
       throw new Error(`Error setting balance for ${account}: ${err}`);
     }
-    this.logger.warn(`Set balance for ${account} to ${balance}`);
+    this.logger.warn('Set balance for %s to %s', account, balance);
   }
 
   public async getBalance(account: EthAddress | Hex): Promise<bigint> {
@@ -151,7 +151,7 @@ export class EthCheatCodes {
     } catch (err) {
       throw new Error(`Error setting block interval: ${err}`);
     }
-    this.logger.warn(`Set L1 block interval to ${interval}`);
+    this.logger.warn('Set L1 block interval to %d', interval);
   }
 
   /**
@@ -164,7 +164,7 @@ export class EthCheatCodes {
     } catch (err) {
       throw new Error(`Error setting next block base fee per gas: ${err}`);
     }
-    this.logger.warn(`Set L1 next block base fee per gas to ${baseFee}`);
+    this.logger.warn('Set L1 next block base fee per gas to %s', baseFee);
   }
 
   /**
@@ -190,7 +190,7 @@ export class EthCheatCodes {
       throw new Error(`Error setting interval mining: ${err}`);
     }
     if (!opts.silent) {
-      this.logger.warn(`Set L1 interval mining to ${seconds} seconds`);
+      this.logger.warn('Set L1 interval mining to %d seconds', seconds);
     }
   }
 
@@ -205,7 +205,7 @@ export class EthCheatCodes {
       throw new Error(`Error setting automine: ${err}`);
     }
     if (!opts.silent) {
-      this.logger.warn(`Set L1 automine to ${automine}`);
+      this.logger.warn('Set L1 automine to %s', automine);
     }
   }
 
@@ -219,7 +219,7 @@ export class EthCheatCodes {
     } catch (err) {
       throw new Error(`Error dropping transaction: ${err}`);
     }
-    this.logger.warn(`Dropped transaction ${txHash}`);
+    this.logger.warn('Dropped transaction %s', txHash);
   }
 
   /**
@@ -234,7 +234,7 @@ export class EthCheatCodes {
     } catch (err: any) {
       throw new Error(`Error setting next block timestamp: ${err.message}`);
     }
-    this.logger.warn(`Set L1 next block timestamp to ${timestamp}`);
+    this.logger.warn('Set L1 next block timestamp to %s', timestamp);
   }
 
   /**
@@ -273,7 +273,7 @@ export class EthCheatCodes {
       }
     }
     if (!opts.silent) {
-      this.logger.warn(`Warped L1 timestamp to ${timestamp}`);
+      this.logger.warn('Warped L1 timestamp to %s', timestamp);
     }
   }
 
@@ -307,7 +307,7 @@ export class EthCheatCodes {
       throw new Error(`Error setting storage for contract ${contract} at ${slot}: ${err}`);
     }
     if (!opts.silent) {
-      this.logger.warn(`Set L1 storage for contract ${contract} at ${slot} to ${value}`);
+      this.logger.warn('Set L1 storage for contract %s at %s to %s', contract, slot, value);
     }
   }
 
@@ -338,7 +338,7 @@ export class EthCheatCodes {
     } catch (err) {
       throw new Error(`Error impersonating ${who}: ${err}`);
     }
-    this.logger.warn(`Impersonating ${who}`);
+    this.logger.warn('Impersonating %s', who);
   }
 
   /**
@@ -351,7 +351,7 @@ export class EthCheatCodes {
     } catch (err) {
       throw new Error(`Error when stopping the impersonation of ${who}: ${err}`);
     }
-    this.logger.warn(`Stopped impersonating ${who}`);
+    this.logger.warn('Stopped impersonating %s', who);
   }
 
   /**
@@ -365,7 +365,7 @@ export class EthCheatCodes {
     } catch (err) {
       throw new Error(`Error setting bytecode for ${contract}: ${err}`);
     }
-    this.logger.warn(`Set bytecode for ${contract} to ${bytecode}`);
+    this.logger.warn('Set bytecode for %s to %s', contract, bytecode);
   }
 
   /**
@@ -418,14 +418,16 @@ export class EthCheatCodes {
       const currentTip = await this.publicClient.getBlockNumber();
       if (currentTip < BigInt(blockNumber)) {
         this.logger.warn(
-          `Can't call anvil_rollback, chain tip is behind target block: ${currentTip} < ${BigInt(blockNumber)}`,
+          "Can't call anvil_rollback, chain tip is behind target block: %s < %s",
+          currentTip,
+          BigInt(blockNumber),
         );
         return;
       }
 
       const depth = Number(currentTip - BigInt(blockNumber) + 1n);
       await this.rpcCall('anvil_rollback', [depth]);
-      this.logger.warn(`Reorged L1 chain to block number ${blockNumber} (depth ${depth})`);
+      this.logger.warn('Reorged L1 chain to block number %d (depth %d)', blockNumber, depth);
     });
   }
 
@@ -439,7 +441,7 @@ export class EthCheatCodes {
     depth: number,
     newBlocks: (Hex | { to: EthAddress | Hex; input?: Hex; from?: EthAddress | Hex; value?: number | bigint })[][] = [],
   ): Promise<void> {
-    this.logger.verbose(`Preparing L1 reorg with depth ${depth}`);
+    this.logger.verbose('Preparing L1 reorg with depth %d', depth);
     try {
       await this.rpcCall('anvil_reorg', [
         depth,
@@ -448,7 +450,7 @@ export class EthCheatCodes {
     } catch (err) {
       throw new Error(`Error reorging: ${err}`);
     }
-    this.logger.warn(`Reorged L1 chain with depth ${depth} and ${newBlocks.length} new blocks`, { depth, newBlocks });
+    this.logger.warn('Reorged L1 chain with depth %d and %d new blocks', depth, newBlocks.length, { depth, newBlocks });
   }
 
   public traceTransaction(txHash: Hex): Promise<any> {
@@ -474,7 +476,7 @@ export class EthCheatCodes {
       // Get all pending and queued transactions from the pool
       const txs = await this.getTxPoolContents();
 
-      this.logger.debug(`Found ${txs.length} transactions in pool`);
+      this.logger.debug('Found %d transactions in pool', txs.length);
 
       // Get raw transactions before dropping them
       const rawTxs: Hex[] = [];
@@ -483,16 +485,16 @@ export class EthCheatCodes {
           const rawTx = await this.doRpcCall('debug_getRawTransaction', [tx.hash]);
           if (rawTx) {
             rawTxs.push(rawTx);
-            this.logger.debug(`Got raw tx for ${tx.hash}`);
+            this.logger.debug('Got raw tx for %s', tx.hash);
           } else {
-            this.logger.warn(`No raw tx found for ${tx.hash}`);
+            this.logger.warn('No raw tx found for %s', tx.hash);
           }
         } catch {
-          this.logger.warn(`Failed to get raw transaction for ${tx.hash}`);
+          this.logger.warn('Failed to get raw transaction for %s', tx.hash);
         }
       }
 
-      this.logger.debug(`Retrieved ${rawTxs.length} raw transactions`);
+      this.logger.debug('Retrieved %d raw transactions', rawTxs.length);
 
       // Drop all transactions from the mempool
       await this.doRpcCall('anvil_dropAllTransactions', []);
@@ -504,18 +506,18 @@ export class EthCheatCodes {
       for (const rawTx of rawTxs) {
         try {
           const txHash = await this.doRpcCall('eth_sendRawTransaction', [rawTx]);
-          this.logger.debug(`Re-added transaction ${txHash}`);
+          this.logger.debug('Re-added transaction %s', txHash);
         } catch (err) {
-          this.logger.warn(`Failed to re-add transaction: ${err}`);
+          this.logger.warn('Failed to re-add transaction: %s', err);
         }
       }
 
       if (rawTxs.length !== txs.length) {
-        this.logger.warn(`Failed to add all txs back: had ${txs.length} but re-added ${rawTxs.length}`);
+        this.logger.warn('Failed to add all txs back: had %d but re-added %d', txs.length, rawTxs.length);
       }
     });
 
-    this.logger.warn(`Mined ${blockCount} empty L1 ${pluralize('block', blockCount)}`);
+    this.logger.warn('Mined %d empty L1 %s', blockCount, pluralize('block', blockCount));
   }
 
   public async execWithPausedAnvil<T>(fn: () => Promise<T>): Promise<T> {
@@ -537,7 +539,7 @@ export class EthCheatCodes {
           await this.setAutomine(true, { silent: true });
         }
       } catch (err) {
-        this.logger.warn(`Failed to reenable automining: ${err}`);
+        this.logger.warn('Failed to reenable automining: %s', err);
       }
 
       try {
@@ -546,7 +548,7 @@ export class EthCheatCodes {
           await this.setIntervalMining(blockInterval, { silent: true });
         }
       } catch (err) {
-        this.logger.warn(`Failed to reenable interval mining: ${err}`);
+        this.logger.warn('Failed to reenable interval mining: %s', err);
       }
     }
   }

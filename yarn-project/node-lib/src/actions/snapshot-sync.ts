@@ -77,7 +77,8 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
   const minL1BlocksToTriggerReplace = config.minL1BlocksToTriggerReplace ?? MIN_L1_BLOCKS_TO_TRIGGER_REPLACE;
   if (syncMode === 'snapshot' && archiverL2BlockNumber !== undefined && archiverL2BlockNumber >= INITIAL_L2_BLOCK_NUM) {
     log.verbose(
-      `Skipping non-forced snapshot sync as archiver is already synced to L2 block ${archiverL2BlockNumber}.`,
+      'Skipping non-forced snapshot sync as archiver is already synced to L2 block %d.',
+      archiverL2BlockNumber,
     );
     return false;
   }
@@ -89,9 +90,8 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
     currentL1BlockNumber - archiverL1BlockNumber < minL1BlocksToTriggerReplace
   ) {
     log.verbose(
-      `Skipping snapshot sync as archiver is less than ${
-        currentL1BlockNumber - archiverL1BlockNumber
-      } L1 blocks behind.`,
+      'Skipping snapshot sync as archiver is less than %d L1 blocks behind.',
+      currentL1BlockNumber - archiverL1BlockNumber,
       { archiverL1BlockNumber, currentL1BlockNumber, minL1BlocksToTriggerReplace },
     );
     return false;
@@ -128,13 +128,16 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
     }
 
     if (!snapshot) {
-      log.verbose(`No snapshot found at ${snapshotsUrl}. Skipping this URL.`, { ...indexMetadata, snapshotsUrl });
+      log.verbose('No snapshot found at %s. Skipping this URL.', snapshotsUrl, { ...indexMetadata, snapshotsUrl });
       continue;
     }
 
     if (snapshot.schemaVersions.archiver !== ARCHIVER_DB_VERSION) {
       log.warn(
-        `Skipping snapshot from ${snapshotsUrl} as it has schema version ${snapshot.schemaVersions.archiver} but expected ${ARCHIVER_DB_VERSION}.`,
+        'Skipping snapshot from %s as it has schema version %d but expected %d.',
+        snapshotsUrl,
+        snapshot.schemaVersions.archiver,
+        ARCHIVER_DB_VERSION,
         snapshot,
       );
       continue;
@@ -142,7 +145,10 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
 
     if (snapshot.schemaVersions.worldState !== WORLD_STATE_DB_VERSION) {
       log.warn(
-        `Skipping snapshot from ${snapshotsUrl} as it has world state schema version ${snapshot.schemaVersions.worldState} but we expected ${WORLD_STATE_DB_VERSION}.`,
+        'Skipping snapshot from %s as it has world state schema version %d but we expected %d.',
+        snapshotsUrl,
+        snapshot.schemaVersions.worldState,
+        WORLD_STATE_DB_VERSION,
         snapshot,
       );
       continue;
@@ -150,7 +156,10 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
 
     if (archiverL1BlockNumber && snapshot.l1BlockNumber < archiverL1BlockNumber) {
       log.verbose(
-        `Skipping snapshot from ${snapshotsUrl} since local archiver is at L1 block ${archiverL1BlockNumber} which is further than snapshot at ${snapshot.l1BlockNumber}`,
+        'Skipping snapshot from %s since local archiver is at L1 block %d which is further than snapshot at %d',
+        snapshotsUrl,
+        archiverL1BlockNumber,
+        snapshot.l1BlockNumber,
         { snapshot, archiverL1BlockNumber, snapshotsUrl },
       );
       continue;
@@ -158,9 +167,9 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
 
     if (archiverL1BlockNumber && snapshot.l1BlockNumber - Number(archiverL1BlockNumber) < minL1BlocksToTriggerReplace) {
       log.verbose(
-        `Skipping snapshot from ${snapshotsUrl} as archiver is less than ${
-          snapshot.l1BlockNumber - Number(archiverL1BlockNumber)
-        } L1 blocks behind this snapshot.`,
+        'Skipping snapshot from %s as archiver is less than %d L1 blocks behind this snapshot.',
+        snapshotsUrl,
+        snapshot.l1BlockNumber - Number(archiverL1BlockNumber),
         { snapshot, archiverL1BlockNumber, snapshotsUrl },
       );
       continue;
@@ -180,7 +189,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
   // Try each candidate in order until one succeeds
   for (const { snapshot, url } of snapshotCandidates) {
     const { l1BlockNumber, l2BlockNumber } = snapshot;
-    log.info(`Attempting to sync from snapshot at L1 block ${l1BlockNumber} L2 block ${l2BlockNumber}`, {
+    log.info('Attempting to sync from snapshot at L1 block %d L2 block %d', l1BlockNumber, l2BlockNumber, {
       snapshot,
       snapshotsUrl: url,
     });
@@ -191,7 +200,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
         rollupAddress: config.l1Contracts.rollupAddress,
         snapshotsUrl: url,
       });
-      log.info(`Snapshot synced to L1 block ${l1BlockNumber} L2 block ${l2BlockNumber}`, {
+      log.info('Snapshot synced to L1 block %d L2 block %d', l1BlockNumber, l2BlockNumber, {
         snapshot,
         snapshotsUrl: url,
       });
@@ -231,9 +240,9 @@ export async function snapshotSync(
     await mkdir(dataDirectory, { recursive: true });
     downloadDir = await mkdtemp(join(dataDirectory, 'download-'));
     const downloadPaths = makeSnapshotPaths(downloadDir);
-    log.info(`Downloading snapshot to ${downloadDir}`, { snapshot, downloadPaths });
+    log.info('Downloading snapshot to %s', downloadDir, { snapshot, downloadPaths });
     await downloadSnapshot(snapshot, downloadPaths, fileStore);
-    log.info(`Snapshot downloaded at ${downloadDir}`, { snapshot, downloadPaths });
+    log.info('Snapshot downloaded at %s', downloadDir, { snapshot, downloadPaths });
 
     // If download was successful, clear lock and version, and move download there
     const archiverPath = join(dataDirectory, ARCHIVER_STORE_NAME);
@@ -252,7 +261,7 @@ export async function snapshotSync(
       const path = join(worldStateBasePath, dir);
       await mkdir(path, { recursive: true });
       await rename(downloadPaths[name], join(path, 'data.mdb'));
-      log.info(`World state database ${name} set up from snapshot`, {
+      log.info('World state database %s set up from snapshot', name, {
         path,
         dbVersion: WORLD_STATE_DB_VERSION,
         rollupAddress,

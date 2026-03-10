@@ -262,7 +262,7 @@ export function injectCommands(
     const { wallet, node } = walletAndNodeWrapper;
     const artifactPath = await artifactPathPromise;
 
-    debugLogger.info(`Using wallet with address ${parsedFromAddress.toString()}`);
+    debugLogger.info('Using wallet with address %s', parsedFromAddress);
 
     const address = await deploy(
       wallet,
@@ -327,7 +327,7 @@ export function injectCommands(
     const { wallet, node } = walletAndNodeWrapper;
     const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
 
-    debugLogger.info(`Using wallet with address ${parsedFromAddress.toString()}`);
+    debugLogger.info('Using wallet with address %s', parsedFromAddress);
 
     const authWitnesses = cleanupAuthWitnesses(authWitnessArray);
     const sentTx = await send(

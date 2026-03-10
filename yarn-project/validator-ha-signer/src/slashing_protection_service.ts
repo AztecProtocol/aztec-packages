@@ -88,7 +88,7 @@ export class SlashingProtectionService {
     const { validatorAddress, slot, dutyType, messageHash, nodeId } = params;
     const startTime = this.dateProvider.now();
 
-    this.log.debug(`Checking duty: ${dutyType} for slot ${slot}`, {
+    this.log.debug('Checking duty: %s for slot %s', dutyType, slot, {
       validatorAddress: validatorAddress.toString(),
       nodeId,
     });
@@ -99,7 +99,7 @@ export class SlashingProtectionService {
 
       if (isNew) {
         // We successfully acquired the lock
-        this.log.info(`Acquired lock for duty ${dutyType} at slot ${slot}`, {
+        this.log.info('Acquired lock for duty %s at slot %s', dutyType, slot, {
           validatorAddress: validatorAddress.toString(),
           nodeId,
         });
@@ -111,7 +111,7 @@ export class SlashingProtectionService {
       if (record.status === DutyStatus.SIGNED) {
         // Duty was already signed - check if same or different data
         if (record.messageHash !== messageHash) {
-          this.log.verbose(`Slashing protection triggered for duty ${dutyType} at slot ${slot}`, {
+          this.log.verbose('Slashing protection triggered for duty %s at slot %s', dutyType, slot, {
             validatorAddress: validatorAddress.toString(),
             existingMessageHash: record.messageHash,
             attemptedMessageHash: messageHash,
@@ -133,7 +133,7 @@ export class SlashingProtectionService {
       } else if (record.status === DutyStatus.SIGNING) {
         // Another node is currently signing - check for timeout
         if (this.dateProvider.now() - startTime > this.signingTimeoutMs) {
-          this.log.warn(`Timeout waiting for signing to complete for duty ${dutyType} at slot ${slot}`, {
+          this.log.warn('Timeout waiting for signing to complete for duty %s at slot %s', dutyType, slot, {
             validatorAddress: validatorAddress.toString(),
             timeoutMs: this.signingTimeoutMs,
             signingNodeId: record.nodeId,
@@ -143,7 +143,7 @@ export class SlashingProtectionService {
         }
 
         // Wait and poll
-        this.log.debug(`Waiting for signing to complete for duty ${dutyType} at slot ${slot}`, {
+        this.log.debug('Waiting for signing to complete for duty %s at slot %s', dutyType, slot, {
           validatorAddress: validatorAddress.toString(),
           signingNodeId: record.nodeId,
         });
@@ -177,12 +177,12 @@ export class SlashingProtectionService {
     );
 
     if (success) {
-      this.log.info(`Recorded successful signing for duty ${dutyType} at slot ${slot}`, {
+      this.log.info('Recorded successful signing for duty %s at slot %s', dutyType, slot, {
         validatorAddress: validatorAddress.toString(),
         nodeId,
       });
     } else {
-      this.log.warn(`Failed to record successful signing for duty ${dutyType} at slot ${slot}: invalid token`, {
+      this.log.warn('Failed to record successful signing for duty %s at slot %s: invalid token', dutyType, slot, {
         validatorAddress: validatorAddress.toString(),
         nodeId,
       });
@@ -212,11 +212,11 @@ export class SlashingProtectionService {
     );
 
     if (success) {
-      this.log.info(`Deleted duty ${dutyType} at slot ${slot} to allow retry`, {
+      this.log.info('Deleted duty %s at slot %s to allow retry', dutyType, slot, {
         validatorAddress: validatorAddress.toString(),
       });
     } else {
-      this.log.warn(`Failed to delete duty ${dutyType} at slot ${slot}: invalid token`, {
+      this.log.warn('Failed to delete duty %s at slot %s: invalid token', dutyType, slot, {
         validatorAddress: validatorAddress.toString(),
       });
     }
@@ -243,7 +243,7 @@ export class SlashingProtectionService {
     // One-time cleanup at startup: remove duties from previous rollup versions
     const numOutdatedRollupDuties = await this.db.cleanupOutdatedRollupDuties(this.config.l1Contracts.rollupAddress);
     if (numOutdatedRollupDuties > 0) {
-      this.log.info(`Cleaned up ${numOutdatedRollupDuties} duties with outdated rollup address at startup`, {
+      this.log.info('Cleaned up %d duties with outdated rollup address at startup', numOutdatedRollupDuties, {
         currentRollupAddress: this.config.l1Contracts.rollupAddress.toString(),
       });
       this.metrics.recordCleanup('outdated_rollup', numOutdatedRollupDuties);
@@ -278,7 +278,7 @@ export class SlashingProtectionService {
     // 1. Clean up stuck duties (our own node's duties that got stuck in 'signing' status)
     const numStuckDuties = await this.db.cleanupOwnStuckDuties(this.config.nodeId, this.maxStuckDutiesAgeMs);
     if (numStuckDuties > 0) {
-      this.log.verbose(`Cleaned up ${numStuckDuties} stuck duties`, {
+      this.log.verbose('Cleaned up %d stuck duties', numStuckDuties, {
         nodeId: this.config.nodeId,
         maxStuckDutiesAgeMs: this.maxStuckDutiesAgeMs,
       });
@@ -296,7 +296,7 @@ export class SlashingProtectionService {
         const numOldDuties = await this.db.cleanupOldDuties(maxAgeMs);
         this.lastOldDutiesCleanupAtMs = nowMs;
         if (numOldDuties > 0) {
-          this.log.verbose(`Cleaned up ${numOldDuties} old signed duties`, {
+          this.log.verbose('Cleaned up %d old signed duties', numOldDuties, {
             cleanupOldDutiesAfterHours: this.config.cleanupOldDutiesAfterHours,
             maxAgeMs,
           });

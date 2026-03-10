@@ -62,10 +62,10 @@ describe('Avm circuit inputs', () => {
       const buffer = readTestData(file);
       const timerMP = new Timer();
       const json = deserializeFromMessagePack(buffer);
-      logger.info(`Deserialized ${file} in ${timerMP.ms()}ms (MessagePack)`);
+      logger.info('Deserialized %s in %dms (MessagePack)', file, timerMP.ms());
       const timerManual = new Timer();
       PublicTxResult.fromPlainObject(json);
-      logger.info(`Deserialized ${file} in ${timerManual.ms()}ms (manual)`);
+      logger.info('Deserialized %s in %dms (manual)', file, timerManual.ms());
     }
   });
 });

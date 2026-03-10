@@ -284,7 +284,7 @@ export class L1FeeAnalyzer {
           debugInfo: result.debugInfo,
         });
 
-        this.logger.debug(`Strategy "${strategy.name}" calculated priority fee`, {
+        this.logger.debug('Strategy "%s" calculated priority fee', strategy.name, {
           strategyId: strategy.id,
           priorityFee: formatGwei(result.priorityFee),
           ...result.debugInfo,
@@ -567,7 +567,7 @@ export class L1FeeAnalyzer {
         strategyResult.estimatedOverpaymentEth = estimatedOverpaymentEth;
 
         // Log per-strategy results
-        this.logger.info(`Strategy "${strategyResult.strategyName}" analysis`, {
+        this.logger.info('Strategy "%s" analysis', strategyResult.strategyName, {
           id: analysisId,
           strategyId: strategyResult.strategyId,
           strategyName: strategyResult.strategyName,

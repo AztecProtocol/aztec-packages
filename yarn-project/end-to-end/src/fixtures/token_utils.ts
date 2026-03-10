@@ -5,7 +5,7 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 export async function deployToken(wallet: Wallet, admin: AztecAddress, initialAdminBalance: bigint, logger: Logger) {
-  logger.info(`Deploying Token contract...`);
+  logger.info('Deploying Token contract...');
   const {
     receipt: { contract, instance },
   } = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18).send({
@@ -42,7 +42,7 @@ export async function expectTokenBalance(
   // Then check the balance
   const contractWithWallet = TokenContract.at(token.address, wallet);
   const { result: balance } = await contractWithWallet.methods.balance_of_private(owner).simulate({ from: owner });
-  logger.info(`Account ${owner} balance: ${balance}`);
+  logger.info('Account %s balance: %s', owner, balance);
   expect(balance).toBe(expectedBalance);
 }
 

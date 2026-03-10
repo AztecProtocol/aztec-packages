@@ -52,7 +52,7 @@ export async function proverStats(opts: {
     transport: fallback(l1RpcUrls.map(url => http(url, { batch: false }))),
   });
   const lastBlockNum = endBlock ?? (await publicClient.getBlockNumber());
-  debugLog.verbose(`Querying events on rollup at ${rollup.toString()} from ${startBlock} up to ${lastBlockNum}`);
+  debugLog.verbose('Querying events on rollup at %s from %s up to %s', rollup, startBlock, lastBlockNum);
 
   // Get all events for L2 proof submissions
   const events = await getL2ProofVerifiedEvents(startBlock, lastBlockNum, batchSize, debugLog, publicClient, rollup);
@@ -88,7 +88,9 @@ export async function proverStats(opts: {
     rollup,
   );
   debugLog.verbose(
-    `First checkpoint within range is ${checkpointEvents[0]?.args.checkpointNumber} at L1 block ${checkpointEvents[0]?.blockNumber}`,
+    'First checkpoint within range is %s at L1 block %s',
+    checkpointEvents[0]?.args.checkpointNumber,
+    checkpointEvents[0]?.blockNumber,
   );
 
   // Get the timestamps for every block on every log, both for proof and block submissions
@@ -98,7 +100,7 @@ export async function proverStats(opts: {
     const blocks = await Promise.all(
       l1Batch.map(blockNumber => publicClient.getBlock({ includeTransactions: false, blockNumber })),
     );
-    debugLog.verbose(`Queried ${blocks.length} L1 blocks between ${l1Batch[0]} and ${l1Batch[l1Batch.length - 1]}`);
+    debugLog.verbose('Queried %d L1 blocks between %s and %s', blocks.length, l1Batch[0], l1Batch[l1Batch.length - 1]);
     for (const block of blocks) {
       l1BlockTimestamps[block.number.toString()] = block.timestamp;
     }
@@ -134,14 +136,21 @@ export async function proverStats(opts: {
         const uploadedBlockNumber = checkpointSubmissions[e.checkpointNumber.toString()];
         if (!uploadedBlockNumber) {
           debugLog.verbose(
-            `Skipping ${proverId}'s proof for checkpoint ${e.checkpointNumber} as it was before the start block`,
+            "Skipping %s's proof for checkpoint %s as it was before the start block",
+            proverId,
+            e.checkpointNumber,
           );
           return undefined;
         }
         const uploadedTimestamp = l1BlockTimestamps[uploadedBlockNumber.toString()];
         const provingTime = provenTimestamp - uploadedTimestamp;
         debugLog.debug(
-          `prover=${e.proverId} checkpointNumber=${e.checkpointNumber} uploaded=${uploadedTimestamp} proven=${provenTimestamp} time=${provingTime}`,
+          'prover=%s checkpointNumber=%s uploaded=%s proven=%s time=%s',
+          e.proverId,
+          e.checkpointNumber,
+          uploadedTimestamp,
+          provenTimestamp,
+          provingTime,
         );
         return { provenTimestamp, uploadedTimestamp, provingTime, ...e };
       }),
@@ -176,7 +185,7 @@ async function getL2ProofVerifiedEvents(
     const end = blockNum + batchSize > lastBlockNum + 1n ? lastBlockNum + 1n : blockNum + batchSize;
     const newEvents = await retrieveL2ProofVerifiedEvents(publicClient, rollup, blockNum, end);
     events.push(...newEvents);
-    debugLog.verbose(`Got ${newEvents.length} events querying l2 proof verified from block ${blockNum} to ${end}`);
+    debugLog.verbose('Got %d events querying l2 proof verified from block %s to %s', newEvents.length, blockNum, end);
     blockNum += batchSize;
   }
   return events;
@@ -206,7 +215,12 @@ async function getCheckpointProposedEvents(
     });
 
     events.push(...newEvents);
-    debugLog.verbose(`Got ${newEvents.length} events querying checkpoints submitted from block ${blockNum} to ${end}`);
+    debugLog.verbose(
+      'Got %d events querying checkpoints submitted from block %s to %s',
+      newEvents.length,
+      blockNum,
+      end,
+    );
     blockNum += batchSize;
   }
   return events;

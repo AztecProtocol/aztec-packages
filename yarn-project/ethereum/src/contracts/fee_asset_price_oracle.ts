@@ -48,7 +48,7 @@ export class FeeAssetPriceOracle {
         return undefined;
       }
     } catch (err) {
-      this.log.warn(`Failed to check if Uniswap V4 pool is initialized: ${err}`);
+      this.log.warn('Failed to check if Uniswap V4 pool is initialized: %s', err);
       return undefined;
     }
 
@@ -89,7 +89,7 @@ export class FeeAssetPriceOracle {
 
       return modifier;
     } catch (err) {
-      this.log.warn(`Failed to compute price modifier, using 0: ${err}`);
+      this.log.warn('Failed to compute price modifier, using 0: %s', err);
       return 0n;
     }
   }
@@ -107,7 +107,7 @@ export class FeeAssetPriceOracle {
     try {
       return await uniswapOracle.getMeanEthPerFeeAssetE12();
     } catch (err) {
-      this.log.warn(`Failed to get oracle price: ${err}`);
+      this.log.warn('Failed to get oracle price: %s', err);
       return undefined;
     }
   }
@@ -201,7 +201,7 @@ class UniswapPriceOracle {
       client,
     });
     this.poolId = this.computePoolId();
-    this.log.debug(`Initialized UniswapPriceOracle with poolId: ${this.poolId}`);
+    this.log.debug('Initialized UniswapPriceOracle with poolId: %s', this.poolId);
   }
 
   /**
@@ -263,7 +263,7 @@ class UniswapPriceOracle {
         const price = await this.getEthPerFeeAssetE12(blockNumber);
         prices.push(price);
       } catch (err) {
-        this.log.warn(`Failed to get price at block ${blockNumber}: ${err}`);
+        this.log.warn('Failed to get price at block %s: %s', blockNumber, err);
         // Continue with fewer samples
       }
     }

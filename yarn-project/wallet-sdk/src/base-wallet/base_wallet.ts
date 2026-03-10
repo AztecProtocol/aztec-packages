@@ -394,11 +394,11 @@ export abstract class BaseWallet implements Wallet {
     if (await this.aztecNode.getTxEffect(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
-    this.log.debug(`Sending transaction ${txHash}`);
+    this.log.debug('Sending transaction %s', txHash);
     await this.aztecNode.sendTx(tx).catch(err => {
       throw this.contextualizeError(err, inspect(tx));
     });
-    this.log.info(`Sent transaction ${txHash}`);
+    this.log.info('Sent transaction %s', txHash);
 
     // If wait is NO_WAIT, return txHash immediately
     if (opts.wait === NO_WAIT) {

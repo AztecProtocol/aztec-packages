@@ -104,7 +104,7 @@ export class ContractSyncService implements StagedStore {
     jobId: string,
     scopes: AccessScopes,
   ): Promise<void> {
-    this.log.debug(`Syncing contract ${contractAddress}`);
+    this.log.debug('Syncing contract %s', contractAddress);
     await Promise.all([
       syncState(
         contractAddress,
@@ -119,12 +119,12 @@ export class ContractSyncService implements StagedStore {
       ),
       verifyCurrentClassId(contractAddress, this.aztecNode, this.contractStore, anchorBlockHeader),
     ]);
-    this.log.debug(`Contract ${contractAddress} synced`);
+    this.log.debug('Contract %s synced', contractAddress);
   }
 
   /** Clears sync cache. Called by BlockSynchronizer when anchor block changes. */
   wipe(): void {
-    this.log.debug(`Wiping contract sync cache (${this.syncedContracts.size} entries)`);
+    this.log.debug('Wiping contract sync cache (%d entries)', this.syncedContracts.size);
     this.syncedContracts.clear();
   }
 

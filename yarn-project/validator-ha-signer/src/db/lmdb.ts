@@ -96,7 +96,7 @@ export class LmdbSlashingProtectionDatabase implements SlashingProtectionDatabas
     });
 
     if (result.isNew) {
-      this.log.debug(`Acquired lock for duty ${params.dutyType} at slot ${params.slot}`, {
+      this.log.debug('Acquired lock for duty %s at slot %s', params.dutyType, params.slot, {
         validatorAddress: params.validatorAddress.toString(),
         nodeId: params.nodeId,
       });

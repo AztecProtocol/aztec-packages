@@ -103,29 +103,29 @@ export class BlacklistTokenContractTest {
 
     this.logger.info('Setting up blacklist token contract');
     // Create the token contract state.
-    this.logger.verbose(`Public deploy accounts...`);
+    this.logger.verbose('Public deploy accounts...');
     await publicDeployAccounts(this.wallet, [this.adminAddress, this.otherAddress, this.blacklistedAddress]);
 
-    this.logger.verbose(`Deploying TokenContract...`);
+    this.logger.verbose('Deploying TokenContract...');
     ({ contract: this.asset } = await TokenBlacklistContract.deploy(this.wallet, this.adminAddress).send({
       from: this.adminAddress,
     }));
-    this.logger.verbose(`Token deployed to ${this.asset.address}`);
+    this.logger.verbose('Token deployed to %s', this.asset.address);
 
-    this.logger.verbose(`Deploying bad account...`);
+    this.logger.verbose('Deploying bad account...');
     ({ contract: this.badAccount } = await InvalidAccountContract.deploy(this.wallet).send({
       from: this.adminAddress,
     }));
-    this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
+    this.logger.verbose('Deployed to %s.', this.badAccount.address);
 
     // Deploy a proxy contract for "on behalf of other" tests. The note owner must be the tx sender
     // (so their notes are in scope), but msg_sender in the target must differ from the note owner
     // to trigger authwit validation. The proxy forwards calls so that msg_sender != tx sender.
-    this.logger.verbose(`Deploying generic proxy...`);
+    this.logger.verbose('Deploying generic proxy...');
     ({ contract: this.authwitProxy } = await GenericProxyContract.deploy(this.wallet).send({
       from: this.adminAddress,
     }));
-    this.logger.verbose(`Deployed to ${this.authwitProxy.address}.`);
+    this.logger.verbose('Deployed to %s.', this.authwitProxy.address);
 
     await this.crossTimestampOfChange();
 
@@ -197,35 +197,35 @@ export class BlacklistTokenContractTest {
       (await this.asset.methods.get_roles(this.adminAddress).simulate({ from: this.adminAddress })).result,
     ).toEqual(adminMinterRole.toNoirStruct());
 
-    this.logger.verbose(`Minting ${amount} publicly...`);
+    this.logger.verbose('Minting %s publicly...', amount);
     await asset.methods.mint_public(this.adminAddress, amount).send({ from: this.adminAddress });
 
-    this.logger.verbose(`Minting ${amount} privately...`);
+    this.logger.verbose('Minting %s privately...', amount);
     const secret = Fr.random();
     const secretHash = await computeSecretHash(secret);
     const { receipt } = await asset.methods.mint_private(amount, secretHash).send({ from: this.adminAddress });
 
     await this.addPendingShieldNoteToPXE(asset, this.adminAddress, amount, secretHash, receipt.txHash);
     await asset.methods.redeem_shield(this.adminAddress, amount, secret).send({ from: this.adminAddress });
-    this.logger.verbose(`Minting complete.`);
+    this.logger.verbose('Minting complete.');
 
     tokenSim.mintPublic(this.adminAddress, amount);
 
     const { result: publicBalance } = await asset.methods
       .balance_of_public(this.adminAddress)
       .simulate({ from: this.adminAddress });
-    this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
+    this.logger.verbose('Public balance of wallet 0: %s', publicBalance);
     expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(this.adminAddress));
 
     tokenSim.mintPrivate(this.adminAddress, amount);
     const { result: privateBalance } = await asset.methods
       .balance_of_private(this.adminAddress)
       .simulate({ from: this.adminAddress });
-    this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
+    this.logger.verbose('Private balance of wallet 0: %s', privateBalance);
     expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(this.adminAddress));
 
     const { result: totalSupply } = await asset.methods.total_supply().simulate({ from: this.adminAddress });
-    this.logger.verbose(`Total supply: ${totalSupply}`);
+    this.logger.verbose('Total supply: %s', totalSupply);
     expect(totalSupply).toEqual(tokenSim.totalSupply);
   }
 }

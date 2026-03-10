@@ -56,11 +56,11 @@ export class AnvilTestWatcher {
       rollupAddress,
     });
 
-    this.logger.debug(`Watcher created for rollup at ${rollupAddress}`);
+    this.logger.debug('Watcher created for rollup at %s', rollupAddress);
   }
 
   setIsMarkingAsProven(isMarkingAsProven: boolean) {
-    this.logger.warn(`Watcher is now ${isMarkingAsProven ? 'marking' : 'not marking'} blocks as proven`);
+    this.logger.warn('Watcher is now %s blocks as proven', isMarkingAsProven ? 'marking' : 'not marking');
     this.isMarkingAsProven = isMarkingAsProven;
   }
 
@@ -99,9 +99,9 @@ export class AnvilTestWatcher {
       this.syncDateProviderPromise.start();
       this.markingAsProvenRunningPromise = new RunningPromise(() => this.markAsProven(), this.logger, 200);
       this.markingAsProvenRunningPromise.start();
-      this.logger.info(`Watcher started for rollup at ${this.rollup.address}`);
+      this.logger.info('Watcher started for rollup at %s', this.rollup.address);
     } else {
-      this.logger.info(`Watcher not started because not auto mining`);
+      this.logger.info('Watcher not started because not auto mining');
     }
   }
 
@@ -133,10 +133,10 @@ export class AnvilTestWatcher {
     const l1Time = (await this.cheatcodes.timestamp()) * 1000;
     const wallTime = this.dateProvider.now();
     if (l1Time > wallTime) {
-      this.logger.warn(`L1 is ahead of wall time. Syncing wall time to L1 time`);
+      this.logger.warn('L1 is ahead of wall time. Syncing wall time to L1 time');
       this.dateProvider.setTime(l1Time);
     } else if (l1Time + Number(this.l2SlotDuration) * 1000 < wallTime) {
-      this.logger.warn(`L1 is more than 1 L2 slot behind wall time. Warping to wall time`);
+      this.logger.warn('L1 is more than 1 L2 slot behind wall time. Warping to wall time');
       await this.cheatcodes.warp(Math.ceil(wallTime / 1000));
     }
   }
@@ -152,7 +152,7 @@ export class AnvilTestWatcher {
       if (BigInt(currentSlot) === checkpointLog.slotNumber) {
         // The current slot has been filled, we should jump to the next slot.
         await this.warpToTimestamp(nextSlotTimestamp);
-        this.logger.info(`Slot ${currentSlot} was filled, jumped to next slot`);
+        this.logger.info('Slot %d was filled, jumped to next slot', currentSlot);
         return;
       }
 
@@ -182,7 +182,7 @@ export class AnvilTestWatcher {
           if (realNow - this.unfilledSlotFirstSeen.realTime > 2000) {
             await this.warpToTimestamp(nextSlotTimestamp);
             this.unfilledSlotFirstSeen = undefined;
-            this.logger.info(`Slot ${currentSlot} was missed with pending txs, jumped to next slot`);
+            this.logger.info('Slot %d was missed with pending txs, jumped to next slot', currentSlot);
           }
 
           return;
@@ -193,7 +193,7 @@ export class AnvilTestWatcher {
       const currentTimestamp = this.dateProvider?.now() ?? Date.now();
       if (currentTimestamp > nextSlotTimestamp * 1000) {
         await this.warpToTimestamp(nextSlotTimestamp);
-        this.logger.info(`Slot ${currentSlot} was missed, jumped to next slot`);
+        this.logger.info('Slot %d was missed, jumped to next slot', currentSlot);
       }
     } catch {
       this.logger.error('mineIfSlotFilled failed');
@@ -204,7 +204,7 @@ export class AnvilTestWatcher {
     try {
       await this.cheatcodes.warp(timestamp, { resetBlockInterval: true });
     } catch (e) {
-      this.logger.error(`Failed to warp to timestamp ${timestamp}: ${e}`);
+      this.logger.error('Failed to warp to timestamp %d: %s', timestamp, e);
     }
   }
 }

@@ -119,13 +119,13 @@ class TXEDispatcher {
         // env.deploy("../path/to/workspace/root@packageName/contractName")
         const [workspace, pkg] = contractDirectory.split('@');
         const targetPath = join(rootPath, workspace, '/target');
-        this.logger.debug(`Looking for compiled artifact in workspace ${targetPath}`);
+        this.logger.debug('Looking for compiled artifact in workspace %s', targetPath);
         artifactPath = join(targetPath, `${pkg}-${contractFilename}.json`);
       } else {
         // We're deploying a standalone external contract
         // env.deploy("../path/to/contract/root/contractName")
         const targetPath = join(rootPath, contractDirectory, '/target');
-        this.logger.debug(`Looking for compiled artifact in ${targetPath}`);
+        this.logger.debug('Looking for compiled artifact in %s', targetPath);
         [artifactPath] = (await readdir(targetPath)).filter(file => file.endsWith(`-${contractFilename}.json`));
       }
     } else {
@@ -144,11 +144,11 @@ class TXEDispatcher {
     let artifact: ContractArtifactWithHash;
 
     if (TXEArtifactsCache.has(cacheKey)) {
-      this.logger.debug(`Using cached artifact for ${cacheKey}`);
+      this.logger.debug('Using cached artifact for %s', cacheKey);
       ({ artifact, instance } = TXEArtifactsCache.get(cacheKey)!);
     } else {
       if (!TXEArtifactsCacheInFlight.has(cacheKey)) {
-        this.logger.debug(`Loading compiled artifact ${artifactPath}`);
+        this.logger.debug('Loading compiled artifact %s', artifactPath);
         const compute = async () => {
           const artifactJSON = JSON.parse(await readFile(artifactPath, 'utf-8')) as NoirCompiledContract;
           const artifactWithoutHash = loadContractArtifact(artifactJSON);
@@ -191,7 +191,7 @@ class TXEDispatcher {
     let instance;
 
     if (TXEArtifactsCache.has(cacheKey)) {
-      this.logger.debug(`Using cached artifact for ${cacheKey}`);
+      this.logger.debug('Using cached artifact for %s', cacheKey);
       ({ artifact, instance } = TXEArtifactsCache.get(cacheKey)!);
     } else {
       if (!TXEArtifactsCacheInFlight.has(cacheKey)) {
@@ -231,10 +231,10 @@ class TXEDispatcher {
   // eslint-disable-next-line camelcase
   async resolve_foreign_call(callData: TXEForeignCallInput): Promise<ForeignCallResult> {
     const { session_id: sessionId, function: functionName, inputs } = callData;
-    this.logger.debug(`Calling ${functionName} on session ${sessionId}`);
+    this.logger.debug('Calling %s on session %s', functionName, sessionId);
 
     if (!sessions.has(sessionId)) {
-      this.logger.debug(`Creating new session ${sessionId}`);
+      this.logger.debug('Creating new session %s', sessionId);
       if (!this.contractStore) {
         const kvStore = await openTmpStore('txe-contracts');
         this.contractStore = new ContractStore(kvStore);

@@ -33,7 +33,7 @@ export async function getACVMConfig(logger: Logger): Promise<
     const tempWorkingDirectory = `${TEMP_DIR}/${randomBytes(4).toString('hex')}`;
     const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${tempWorkingDirectory}/acvm`;
     await fs.mkdir(acvmWorkingDirectory, { recursive: true });
-    logger.verbose(`Using native ACVM binary at ${acvmBinaryPath} with working directory ${acvmWorkingDirectory}`);
+    logger.verbose('Using native ACVM binary at %s with working directory %s', acvmBinaryPath, acvmWorkingDirectory);
 
     const directoryToCleanup = ACVM_WORKING_DIRECTORY ? undefined : tempWorkingDirectory;
 
@@ -45,7 +45,7 @@ export async function getACVMConfig(logger: Logger): Promise<
       cleanup,
     };
   } catch (err) {
-    logger.verbose(`Native ACVM not available, error: ${err}`);
+    logger.verbose('Native ACVM not available, error: %s', err);
     return undefined;
   }
 }

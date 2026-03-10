@@ -48,7 +48,7 @@ export class RegistryContract {
     try {
       return EthAddress.fromString(await this.registry.read.getRollup([version]));
     } catch {
-      this.log.warn(`Failed fetching rollup address for version ${version}. Retrying as index.`);
+      this.log.warn('Failed fetching rollup address for version %s. Retrying as index.', version);
     }
 
     try {

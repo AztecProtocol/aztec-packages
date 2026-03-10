@@ -29,7 +29,7 @@ export class TestDateProvider extends DateProvider {
 
   public setTime(timeMs: number) {
     this.offset = timeMs - Date.now();
-    this.logger.warn(`Time set to ${new Date(timeMs).toISOString()}`, { offset: this.offset, timeMs });
+    this.logger.warn('Time set to %s', new Date(timeMs).toISOString(), { offset: this.offset, timeMs });
   }
 
   /** Resets the time back to real time (offset = 0). */

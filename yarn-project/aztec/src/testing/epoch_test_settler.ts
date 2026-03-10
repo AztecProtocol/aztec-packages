@@ -56,14 +56,14 @@ export class EpochTestSettler {
       const { root: outHash } = computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, firstMessage);
       await this.rollupCheatCodes.insertOutbox(epoch, outHash.toBigInt());
     } else {
-      this.log.info(`No L2 to L1 messages in epoch ${epoch}`);
+      this.log.info('No L2 to L1 messages in epoch %s', epoch);
     }
 
     const lastCheckpoint = checkpointedBlocks.at(-1)?.checkpointNumber;
     if (lastCheckpoint !== undefined) {
       await this.rollupCheatCodes.markAsProven(lastCheckpoint);
     } else {
-      this.log.warn(`No checkpoint found for epoch ${epoch}`);
+      this.log.warn('No checkpoint found for epoch %s', epoch);
     }
 
     return true;

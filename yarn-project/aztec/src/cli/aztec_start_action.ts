@@ -100,7 +100,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       maxBodySizeBytes: options.rpcMaxBodySize,
     });
     const { port } = await startHttpRpcServer(rpcServer, { port: options.port });
-    debugLogger.info(`Aztec Server listening on port ${port}`, versions);
+    debugLogger.info('Aztec Server listening on port %d', port, versions);
   }
 
   // If there are any admin services, start a separate JSON-RPC server for them
@@ -131,7 +131,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       maxBodySizeBytes: options.rpcMaxBodySize,
     });
     const { port } = await startHttpRpcServer(rpcServer, { port: options.adminPort });
-    debugLogger.info(`Aztec Server admin API listening on port ${port}`, versions);
+    debugLogger.info('Aztec Server admin API listening on port %d', port, versions);
 
     // Display the API key after the server has started
     // Uses userLog which is never filtered by LOG_LEVEL.

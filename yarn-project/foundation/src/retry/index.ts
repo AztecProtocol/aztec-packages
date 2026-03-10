@@ -64,7 +64,7 @@ export async function retry<Result>(
       if (s === undefined) {
         throw err;
       }
-      log?.debug(`${name} failed. Will retry in ${s}s...`);
+      log?.debug('%s failed. Will retry in %ds...', name, s);
       !failSilently && log?.error(`Error while retrying ${name}`, err);
       await sleep(s * 1000);
       continue;

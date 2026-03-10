@@ -95,13 +95,15 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         const currentAnchorBlockNumber = currentAnchorBlockHeader.getBlockNumber();
         if (currentAnchorBlockNumber <= event.block.number) {
           this.log.verbose(
-            `Ignoring prune event to block ${event.block.number} greater than current anchor block ${currentAnchorBlockNumber}`,
+            'Ignoring prune event to block %d greater than current anchor block %d',
+            event.block.number,
+            currentAnchorBlockNumber,
             { pruneEvent: event, currentAnchorBlockHeader: currentAnchorBlockHeader.toInspect() },
           );
           return;
         }
 
-        this.log.warn(`Pruning data after block ${event.block.number} due to reorg`);
+        this.log.warn('Pruning data after block %d due to reorg', event.block.number);
 
         // Note that the following is not necessarily the anchor block that will be used in the transaction - if
         // the chain has already moved past the reorg, we'll also see blocks-added events that will push the anchor
@@ -131,7 +133,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     // Therefore, we clear the contract synchronization cache here such that the sync is re-triggered upon new
     // execution.
     this.contractSyncService.wipe();
-    this.log.verbose(`Updated pxe last block to ${blockHeader.getBlockNumber()}`, blockHeader.toInspect());
+    this.log.verbose('Updated pxe last block to %d', blockHeader.getBlockNumber(), blockHeader.toInspect());
     await this.anchorBlockStore.setHeader(blockHeader);
   }
 

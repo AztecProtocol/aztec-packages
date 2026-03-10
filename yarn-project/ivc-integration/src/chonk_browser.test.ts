@@ -67,7 +67,7 @@ describe('Chonk Integration - Browser with Puppeteer', () => {
     // Start HTTP server with COOP/COEP headers
     const port = await startTestServer();
     serverUrl = `http://localhost:${port}`;
-    logger.info(`Test server started on ${serverUrl}`);
+    logger.info('Test server started on %s', serverUrl);
 
     // Launch Puppeteer browser
     // Use Playwright's chromium if available (for CI compatibility)
@@ -81,7 +81,7 @@ describe('Chonk Integration - Browser with Puppeteer', () => {
       const { chromium } = await import('playwright');
       const playwrightPath = chromium.executablePath();
       if (existsSync(playwrightPath)) {
-        logger.info(`Using Playwright's chromium at: ${playwrightPath}`);
+        logger.info("Using Playwright's chromium at: %s", playwrightPath);
         launchOptions.executablePath = playwrightPath;
       }
     } catch {
@@ -115,24 +115,24 @@ describe('Chonk Integration - Browser with Puppeteer', () => {
         const text = msg.text();
         const prefix = `Browser[${type}]:`;
         if (type === 'error') {
-          logger.error(`${prefix} ${text}`);
+          logger.error('%s %s', prefix, text);
         } else if (type === 'warn') {
-          logger.warn(`${prefix} ${text}`);
+          logger.warn('%s %s', prefix, text);
         } else {
-          logger.info(`${prefix} ${text}`);
+          logger.info('%s %s', prefix, text);
         }
       });
 
       // Capture page errors and fail fast
       page.on('pageerror', error => {
-        logger.error(`Browser page error: ${error.message}`);
-        logger.error(`Browser page error stack: ${error.stack}`);
+        logger.error('Browser page error: %s', error.message);
+        logger.error('Browser page error stack: %s', error.stack);
         pageError = error;
       });
 
       // Navigate to test page
       await page.goto(`${serverUrl}/test.html`, { waitUntil: 'networkidle0', timeout: 10000 });
-      logger.info(`Navigated to test page`);
+      logger.info('Navigated to test page');
 
       // Check for page errors before waiting
       if (pageError) {
@@ -144,7 +144,7 @@ describe('Chonk Integration - Browser with Puppeteer', () => {
       logger.info('Test environment ready');
 
       // Run the test in the browser
-      logger.info(`Running test: ${testName} (creators: ${numCreatorApps}, readers: ${numReaderApps})`);
+      logger.info('Running test: %s (creators: %d, readers: %d)', testName, numCreatorApps, numReaderApps);
 
       const result = await page.evaluate(
         async (creators: number, readers: number) => {
@@ -155,11 +155,11 @@ describe('Chonk Integration - Browser with Puppeteer', () => {
       );
 
       if (!result.success) {
-        logger.error(`Test failed: ${result.error}`);
+        logger.error('Test failed: %s', result.error);
         return false;
       }
 
-      logger.info(`Test ${testName} completed, verified: ${result.verified}`);
+      logger.info('Test %s completed, verified: %s', testName, result.verified);
       return result.verified;
     } finally {
       await page.close();
@@ -177,7 +177,7 @@ describe('Chonk Integration - Browser with Puppeteer', () => {
       const distPath = join(projectRoot, 'dist');
 
       server = createServer((req, res) => {
-        logger.info(`[Server] ${req.method} ${req.url}`);
+        logger.info('[Server] %s %s', req.method, req.url);
 
         // Set COOP/COEP headers for SharedArrayBuffer support
         res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');

@@ -21,10 +21,10 @@ export const submitTxsTo = async (
       const deployMethod = await accountManager.getDeployMethod();
       const { txHash } = await deployMethod.send({ from: submitter, wait: NO_WAIT });
 
-      logger.info(`Tx sent with hash ${txHash}`);
+      logger.info('Tx sent with hash %s', txHash);
       const receipt: TxReceipt = await wallet.getTxReceipt(txHash);
       expect(receipt.status).toBe(TxStatus.PENDING);
-      logger.info(`Receipt received for ${txHash}`);
+      logger.info('Receipt received for %s', txHash);
       txHashes.push(txHash);
     }),
   );

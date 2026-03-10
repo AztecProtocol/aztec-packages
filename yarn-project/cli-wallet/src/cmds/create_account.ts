@@ -135,7 +135,7 @@ export async function createAccount(
       } else {
         ({ txHash } = await deployMethod.send({ ...sendOpts, wait: NO_WAIT }));
       }
-      debugLogger.debug(`Account contract tx sent with hash ${txHash.toString()}`);
+      debugLogger.debug('Account contract tx sent with hash %s', txHash);
       out.txHash = txHash;
     }
   }

@@ -123,7 +123,7 @@ export function createSafeJsonRpcClient<T extends object>(
       sendBatchTimeoutHandle = setTimeout(sendBatch, batchWindowMS);
     }
 
-    log.debug(`Executing JSON-RPC batch of size: ${rpcCalls.length} body size: ${bodySize} bytes`, {
+    log.debug('Executing JSON-RPC batch of size: %d body size: %d bytes', rpcCalls.length, bodySize, {
       methods: rpcCalls.map(({ request }) => request.method),
     });
     try {
@@ -160,7 +160,7 @@ export function createSafeJsonRpcClient<T extends object>(
           const { request, deferred } = rpcCalls[i];
 
           if (resp.id !== request.id) {
-            log.warn(`Invalid response received at index ${i} from JSON-RPC server: id mismatch`, {
+            log.warn('Invalid response received at index %d from JSON-RPC server: id mismatch', i, {
               requestMethod: request.method,
               requestId: request.id,
               responseId: resp.id,

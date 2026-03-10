@@ -179,7 +179,7 @@ export function verifyNoDuplicateAttestations(
     if (!validatorDuties[0].completedAt) {
       throw new Error(`Validator ${validatorAddress} attestation duty not completed`);
     }
-    logger?.info(`Validator ${validatorAddress} attested once via node ${validatorDuties[0].nodeId}`);
+    logger?.info('Validator %s attested once via node %s', validatorAddress, validatorDuties[0].nodeId);
   }
 
   return dutiesByValidator;

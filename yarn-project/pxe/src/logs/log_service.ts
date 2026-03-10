@@ -115,7 +115,7 @@ export class LogService {
   }
 
   public async fetchTaggedLogs(contractAddress: AztecAddress, pendingTaggedLogArrayBaseSlot: Fr, scopes: AccessScopes) {
-    this.log.verbose(`Fetching tagged logs for ${contractAddress.toString()}`);
+    this.log.verbose('Fetching tagged logs for %s', contractAddress);
 
     // We only load logs from block up to and including the anchor block number
     const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();

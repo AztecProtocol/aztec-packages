@@ -76,7 +76,7 @@ export function tryExtractEvent<
           }
         }
       } catch (err) {
-        logger?.warn(`Failed to decode event log for contract ${address}: ${err}`);
+        logger?.warn('Failed to decode event log for contract %s: %s', address, err);
       }
     }
   }

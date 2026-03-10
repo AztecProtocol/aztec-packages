@@ -19,7 +19,7 @@ export { Agent };
 
 export function makeUndiciFetch(client = new Agent()): JsonRpcFetch {
   return async (host: string, body: unknown, extraHeaders: Record<string, string> = {}, noRetry = false) => {
-    log.trace(`JsonRpcClient.fetch: ${host}`, { host, body });
+    log.trace('JsonRpcClient.fetch: %s', host, { host, body });
     let resp: Dispatcher.ResponseData;
     try {
       const jsonBody = Buffer.from(jsonStringify(body));

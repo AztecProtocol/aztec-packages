@@ -55,7 +55,7 @@ async function waitForRpc(client: ViemPublicClient, config: Config, logger?: Log
       try {
         chainId = await client.getChainId();
       } catch {
-        logger?.warn(`Failed to connect to Ethereum node at ${config.l1RpcUrls.join(', ')}. Retrying...`);
+        logger?.warn('Failed to connect to Ethereum node at %s. Retrying...', config.l1RpcUrls.join(', '));
       }
       return chainId;
     },

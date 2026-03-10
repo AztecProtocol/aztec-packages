@@ -37,7 +37,7 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
     bindings?: LoggerBindings,
   ) {
     this.log = createLogger('publisher:manager', bindings);
-    this.log.info(`PublisherManager initialized with ${publishers.length} publishers.`);
+    this.log.info('PublisherManager initialized with %d publishers.', publishers.length);
     this.publishers = publishers;
     this.config = pick(config, 'publisherAllowInvalidStates');
   }

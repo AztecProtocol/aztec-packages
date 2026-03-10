@@ -224,7 +224,11 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     const index = await this.#getIndexToUseForSecret(extendedSecret);
     this.logger.debug(
-      `Incrementing tagging index for sender: ${sender}, recipient: ${recipient}, contract: ${this.contractAddress} to ${index}`,
+      'Incrementing tagging index for sender: %s, recipient: %s, contract: %s to %d',
+      sender,
+      recipient,
+      this.contractAddress,
+      index,
     );
     this.taggingIndexCache.setLastUsedIndex(extendedSecret, index);
 
@@ -299,7 +303,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     // in the synched block, during private execution there's also the possibility of it being pending, i.e. created
     // in the current transaction.
 
-    this.logger.debug(`Checking existence of inner nullifier ${innerNullifier}`, {
+    this.logger.debug('Checking existence of inner nullifier %s', innerNullifier, {
       contractAddress: this.contractAddress,
     });
 
@@ -407,7 +411,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     noteHash: Fr,
     counter: number,
   ) {
-    this.logger.debug(`Notified of new note with inner hash ${noteHash}`, {
+    this.logger.debug('Notified of new note with inner hash %s', noteHash, {
       contractAddress: this.callContext.contractAddress,
       storageSlot,
       randomness,
@@ -457,7 +461,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param noteHash - A hash of the new note.
    */
   public notifyCreatedNullifier(innerNullifier: Fr) {
-    this.logger.debug(`Notified of new inner nullifier ${innerNullifier}`, { contractAddress: this.contractAddress });
+    this.logger.debug('Notified of new inner nullifier %s', innerNullifier, { contractAddress: this.contractAddress });
     return this.noteCache.nullifierCreated(this.callContext.contractAddress, innerNullifier);
   }
 
@@ -525,7 +529,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
     const simulatorSetupTimer = new Timer();
     this.logger.debug(
-      `Calling private function ${targetContractAddress}:${functionSelector} from ${this.callContext.contractAddress}`,
+      'Calling private function %s:%s from %s',
+      targetContractAddress,
+      functionSelector,
+      this.callContext.contractAddress,
     );
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;

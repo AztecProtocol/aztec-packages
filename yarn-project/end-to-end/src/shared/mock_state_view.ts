@@ -146,7 +146,7 @@ export class MockStateView {
     });
 
     const hash = await contract.write.setReturnValues([sqrtPriceX96, tick, protocolFee, lpFee]);
-    this.log.info(`Set sqrtPriceX96 to ${sqrtPriceX96}`);
+    this.log.info('Set sqrtPriceX96 to %s', sqrtPriceX96);
     return await this.walletClient.waitForTransactionReceipt({ hash });
   }
 

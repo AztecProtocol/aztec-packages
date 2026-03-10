@@ -54,7 +54,10 @@ export class Bot extends BaseBot {
     const { token, recipient, wallet } = this;
 
     this.log.verbose(
-      `Preparing tx with ${feePaymentMethod} fee with ${privateTransfersPerTx} private and ${publicTransfersPerTx} public transfers`,
+      'Preparing tx with %s fee with %d private and %d public transfers',
+      feePaymentMethod,
+      privateTransfersPerTx,
+      publicTransfersPerTx,
       logCtx,
     );
 

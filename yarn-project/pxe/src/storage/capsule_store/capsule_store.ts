@@ -150,7 +150,7 @@ export class CapsuleStore implements StagedStore {
   async loadCapsule(contractAddress: AztecAddress, slot: Fr, jobId: string): Promise<Fr[] | null> {
     const dataBuffer = await this.#getFromStage(jobId, dbSlotToKey(contractAddress, slot));
     if (!dataBuffer) {
-      this.logger.trace(`Data not found for contract ${contractAddress.toString()} and slot ${slot.toString()}`);
+      this.logger.trace('Data not found for contract %s and slot %s', contractAddress, slot);
       return null;
     }
     const capsule: Fr[] = [];

@@ -23,7 +23,7 @@ export class StandardTree<T extends Bufferable = Buffer> extends TreeBase<T> imp
     this.hasher.reset();
     const timer = new Timer();
     super.appendLeaves(leaves);
-    this.log.debug(`Inserted ${leaves.length} leaves into ${this.getName()} tree`, {
+    this.log.debug('Inserted %d leaves into %s tree', leaves.length, this.getName(), {
       eventName: 'tree-insertion',
       duration: timer.ms(),
       batchSize: leaves.length,

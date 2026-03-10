@@ -20,7 +20,7 @@ beforeEach(() => {
     return;
   }
   const logger = createLogger(`e2e:${basename(testPath).replace('.test.ts', '')}`);
-  logger.info(`Running test: ${currentTestName}`);
+  logger.info('Running test: %s', currentTestName);
   eluMonitor?.startTest(currentTestName);
 });
 

@@ -34,7 +34,7 @@ export async function runMigrations(databaseUrl: string, options: RunMigrationsO
   const migrationsDir = join(__dirname, 'db', 'migrations');
 
   try {
-    log.info(`Running migrations ${direction}...`);
+    log.info('Running migrations %s...', direction);
 
     // Filter out .d.ts and .d.ts.map files - node-pg-migrate only needs .js files
     const migrationFiles = readdirSync(migrationsDir);
@@ -62,7 +62,7 @@ export async function runMigrations(databaseUrl: string, options: RunMigrationsO
     if (appliedMigrations.length === 0) {
       log.info('No migrations to apply - schema is up to date');
     } else {
-      log.info(`Applied ${appliedMigrations.length} migration(s)`, {
+      log.info('Applied %d migration(s)', appliedMigrations.length, {
         migrations: appliedMigrations.map(m => m.name),
       });
     }

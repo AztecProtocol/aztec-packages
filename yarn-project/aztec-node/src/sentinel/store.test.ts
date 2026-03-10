@@ -151,7 +151,7 @@ describe('sentinel-store', () => {
     const validator = EthAddress.random();
     const totalEntries = 2000;
 
-    log.info(`Starting stress test with ${totalEntries} proven performance entries`);
+    log.info('Starting stress test with %d proven performance entries', totalEntries);
 
     // Track timing for additions
     const addTimes: number[] = [];
@@ -182,7 +182,7 @@ describe('sentinel-store', () => {
     const retrievalTimes: number[] = [];
     const numRetrievals = 10;
 
-    log.info(`Starting ${numRetrievals} retrieval tests`);
+    log.info('Starting %d retrieval tests', numRetrievals);
 
     for (let i = 0; i < numRetrievals; i++) {
       const retrievalStart = Date.now();

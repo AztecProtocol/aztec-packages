@@ -16,7 +16,7 @@ async function main() {
   const httpServer = createFaucetHttpServer(faucet, '/', logger);
   const port = parseInt(process.env?.AZTEC_PORT ?? '', 10) || 8080;
   httpServer.listen(port);
-  logger.info(`Aztec Faucet listening on port ${port}`);
+  logger.info('Aztec Faucet listening on port %d', port);
   await Promise.resolve();
 }
 

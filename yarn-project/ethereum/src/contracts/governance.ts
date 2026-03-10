@@ -224,23 +224,23 @@ export class GovernanceContract extends ReadOnlyGovernanceContract {
             address: this.governanceContract.address,
           };
           const errorMsg = await l1TxUtils.tryGetErrorFromRevertedTx(encodedVoteData, args, undefined, []);
-          logger.error(`Error voting on proposal ${proposalId}: ${errorMsg}`);
+          logger.error('Error voting on proposal %s: %s', proposalId, errorMsg);
         }
       } catch (error) {
-        logger.error(`Error voting on proposal ${proposalId}: ${error}`);
+        logger.error('Error voting on proposal %s: %s', proposalId, error);
       }
 
-      logger.info(`Retrying vote on proposal ${proposalId} in ${retryDelaySeconds} seconds`);
+      logger.info('Retrying vote on proposal %s in %d seconds', proposalId, retryDelaySeconds);
       await sleep(retryDelaySeconds * 1000);
     }
     if (!success) {
       throw new Error(`Failed to vote on proposal ${proposalId} after ${retries} retries`);
     }
-    logger.info(`Voted [${inFavor ? 'yea' : 'nay'}] on proposal [${proposalId}]`);
+    logger.info('Voted [%s] on proposal [%s]', inFavor ? 'yea' : 'nay', proposalId);
     const proposal = await this.getProposal(proposalId);
-    logger.info(`Proposal [${proposalId}] has cached state [${proposal.cachedState}]`);
-    logger.info(`Proposal [${proposalId}] has summedBallot yea [${proposal.summedBallot.yea}]`);
-    logger.info(`Proposal [${proposalId}] has summedBallot nay [${proposal.summedBallot.nay}]`);
+    logger.info('Proposal [%s] has cached state [%s]', proposalId, proposal.cachedState);
+    logger.info('Proposal [%s] has summedBallot yea [%s]', proposalId, proposal.summedBallot.yea);
+    logger.info('Proposal [%s] has summedBallot nay [%s]', proposalId, proposal.summedBallot.nay);
   }
 
   public async executeProposal({
@@ -279,19 +279,19 @@ export class GovernanceContract extends ReadOnlyGovernanceContract {
             address: this.governanceContract.address,
           };
           const errorMsg = await l1TxUtils.tryGetErrorFromRevertedTx(encodedExecuteData, args, undefined, []);
-          logger.error(`Error executing proposal ${proposalId}: ${errorMsg}`);
+          logger.error('Error executing proposal %s: %s', proposalId, errorMsg);
         }
       } catch (error) {
-        logger.error(`Error executing proposal ${proposalId}: ${error}`);
+        logger.error('Error executing proposal %s: %s', proposalId, error);
       }
 
-      logger.info(`Retrying execute proposal ${proposalId} in ${retryDelaySeconds} seconds`);
+      logger.info('Retrying execute proposal %s in %d seconds', proposalId, retryDelaySeconds);
       await sleep(retryDelaySeconds * 1000);
     }
     if (!success) {
       throw new Error(`Failed to execute proposal ${proposalId} after ${retries} retries`);
     } else {
-      logger.info(`Executed proposal ${proposalId}`);
+      logger.info('Executed proposal %s', proposalId);
     }
   }
 }

@@ -34,25 +34,25 @@ export async function executeGovernanceProposal(
   const cheatCodes = new EthCheatCodes(rpcUrls, new DateProvider(), logger);
 
   const timeToActive = proposal.creation + proposal.config.votingDelay;
-  logger.info(`Warping to ${timeToActive + 1n}`);
+  logger.info('Warping to %s', timeToActive + 1n);
   await cheatCodes.warp(Number(timeToActive + 1n));
-  logger.info(`Warped to ${timeToActive + 1n}`);
+  logger.info('Warped to %s', timeToActive + 1n);
   await waitL1Block();
 
-  logger.info(`Voting`);
+  logger.info('Voting');
   const voteTx = await governance.write.vote([proposalId, voteAmount, true], { account: privateKey });
   await l1Client.waitForTransactionReceipt({ hash: voteTx });
-  logger.info(`Voted`);
+  logger.info('Voted');
 
   const timeToExecutable = timeToActive + proposal.config.votingDuration + proposal.config.executionDelay + 1n;
-  logger.info(`Warping to ${timeToExecutable}`);
+  logger.info('Warping to %s', timeToExecutable);
   await cheatCodes.warp(Number(timeToExecutable));
-  logger.info(`Warped to ${timeToExecutable}`);
+  logger.info('Warped to %s', timeToExecutable);
   await waitL1Block();
 
   const executeTx = await governance.write.execute([proposalId], { account: privateKey });
   await l1Client.waitForTransactionReceipt({ hash: executeTx });
-  logger.info(`Executed proposal`);
+  logger.info('Executed proposal');
 }
 
 export async function createGovernanceProposal(
@@ -83,25 +83,25 @@ export async function createGovernanceProposal(
 
   const mintTx = await token.write.mint([privateKey.address, lockAmount + voteAmount], { account: privateKey });
   await publicClient.waitForTransactionReceipt({ hash: mintTx });
-  logger.info(`Minted tokens`);
+  logger.info('Minted tokens');
 
   const approveTx = await token.write.approve([addresses.governanceAddress.toString(), lockAmount + voteAmount], {
     account: privateKey,
   });
   await publicClient.waitForTransactionReceipt({ hash: approveTx });
-  logger.info(`Approved tokens`);
+  logger.info('Approved tokens');
 
   const depositTx = await governance.write.deposit([privateKey.address, lockAmount + voteAmount], {
     account: privateKey,
   });
   await publicClient.waitForTransactionReceipt({ hash: depositTx });
-  logger.info(`Deposited tokens`);
+  logger.info('Deposited tokens');
 
   const proposeTx = await governance.write.proposeWithLock([payloadAddress, privateKey.address], {
     account: privateKey,
   });
   const receipt = await publicClient.waitForTransactionReceipt({ hash: proposeTx });
-  logger.info(`Proposed upgrade`);
+  logger.info('Proposed upgrade');
 
   const proposalId = extractProposalIdFromLogs(receipt.logs);
 

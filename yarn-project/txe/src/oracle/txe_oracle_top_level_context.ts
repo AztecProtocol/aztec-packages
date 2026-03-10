@@ -173,7 +173,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
   async syncContractNonOracleMethod(contractAddress: AztecAddress, scope: AztecAddress, jobId: string) {
     if (contractAddress.equals(DEFAULT_ADDRESS)) {
-      this.logger.debug(`Skipping sync in getPrivateEvents because the events correspond to the default address.`);
+      this.logger.debug('Skipping sync in getPrivateEvents because the events correspond to the default address.');
       return;
     }
 
@@ -202,7 +202,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   async advanceBlocksBy(blocks: number) {
-    this.logger.debug(`time traveling ${blocks} blocks`);
+    this.logger.debug('time traveling %d blocks', blocks);
 
     for (let i = 0; i < blocks; i++) {
       await this.mineBlock();
@@ -210,7 +210,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   advanceTimestampBy(duration: UInt64) {
-    this.logger.debug(`time traveling ${duration} seconds`);
+    this.logger.debug('time traveling %s seconds', duration);
     this.nextBlockTimestamp += duration;
   }
 
@@ -230,21 +230,21 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     } else {
       await this.contractStore.addContractInstance(instance);
       await this.contractStore.addContractArtifact(artifact);
-      this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
+      this.logger.debug('Deployed %s at %s', artifact.name, instance.address);
     }
   }
 
   async addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
     const partialAddress = await computePartialAddress(instance);
 
-    this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
+    this.logger.debug('Deployed %s at %s', artifact.name, instance.address);
     await this.contractStore.addContractInstance(instance);
     await this.contractStore.addContractArtifact(artifact);
 
     const completeAddress = await this.keyStore.addAccount(secret, partialAddress);
     await this.accountStore.setAccount(completeAddress.address, completeAddress);
     await this.addressStore.addCompleteAddress(completeAddress);
-    this.logger.debug(`Created account ${completeAddress.address}`);
+    this.logger.debug('Created account %s', completeAddress.address);
 
     return completeAddress;
   }
@@ -254,7 +254,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const completeAddress = await this.keyStore.addAccount(secret, secret);
     await this.accountStore.setAccount(completeAddress.address, completeAddress);
     await this.addressStore.addCompleteAddress(completeAddress);
-    this.logger.debug(`Created account ${completeAddress.address}`);
+    this.logger.debug('Created account %s', completeAddress.address);
 
     return completeAddress;
   }
@@ -291,7 +291,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     await forkedWorldTrees.close();
 
-    this.logger.info(`Created block ${blockNumber} with timestamp ${block.header.globalVariables.timestamp}`);
+    this.logger.info('Created block %d with timestamp %s', blockNumber, block.header.globalVariables.timestamp);
 
     await this.stateMachine.handleL2Block(block);
   }
@@ -722,7 +722,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
     }
 
-    this.logger.verbose(`Executing utility function ${entryPointArtifact.name}`, {
+    this.logger.verbose('Executing utility function %s', entryPointArtifact.name, {
       contract: call.to,
       selector: call.selector,
     });
@@ -761,7 +761,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
           );
         });
 
-      this.logger.verbose(`Utility execution for ${call.to}.${call.selector} completed`);
+      this.logger.verbose('Utility execution for %s.%s completed', call.to, call.selector);
       return witnessMapToFields(acirExecutionResult.returnWitness);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during utility execution'));

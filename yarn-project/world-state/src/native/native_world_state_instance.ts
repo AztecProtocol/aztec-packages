@@ -276,7 +276,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
 
     try {
       const { duration, response } = await this.instance.sendMessage(messageType, body);
-      this.log.trace(`Call ${WorldStateMessageType[messageType]} took (ms)`, {
+      this.log.trace('Call %s took (ms)', WorldStateMessageType[messageType], {
         duration,
         ...logMetadata,
       });

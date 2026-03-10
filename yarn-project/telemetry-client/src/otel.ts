@@ -358,12 +358,12 @@ export class OpenTelemetryClient implements TelemetryClient {
         let mode: 'allow' | 'deny' = 'deny';
         if (config.otelExcludeMetrics.length > 0) {
           // Implement a blacklist as specified in config
-          log.info(`Excluding metrics from export: ${config.otelExcludeMetrics}`);
+          log.info('Excluding metrics from export: %s', config.otelExcludeMetrics);
           filter = config.otelExcludeMetrics;
           mode = 'deny';
         } else if (config.otelIncludeMetrics.length > 0) {
           // Implement a whitelist as specified in config
-          log.info(`Including only specified metrics for export: ${config.otelIncludeMetrics}`);
+          log.info('Including only specified metrics for export: %s', config.otelIncludeMetrics);
           filter = config.otelIncludeMetrics;
           mode = 'allow';
         }
@@ -380,7 +380,7 @@ export class OpenTelemetryClient implements TelemetryClient {
 
       let publicExporter: PublicOtelFilterMetricExporter | undefined;
       if (config.publicMetricsCollectorUrl && !config.publicMetricsOptOut) {
-        log.info(`Exporting public metrics: ${config.publicIncludeMetrics}`, {
+        log.info('Exporting public metrics: %s', config.publicIncludeMetrics, {
           publicMetrics: config.publicIncludeMetrics,
           collectorUrl: config.publicMetricsCollectorUrl,
         });

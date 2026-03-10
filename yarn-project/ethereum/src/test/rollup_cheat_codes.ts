@@ -99,13 +99,13 @@ export class RollupCheatCodes {
     const slot = await this.getSlot();
     const epochNum = await rollup.getEpochNumberForSlotNumber(slot);
 
-    this.logger.info(`Pending checkpoint num: ${pendingNum}`);
-    this.logger.info(`Proven checkpoint num: ${provenNum}`);
+    this.logger.info('Pending checkpoint num: %s', pendingNum);
+    this.logger.info('Proven checkpoint num: %s', provenNum);
     this.logger.info(`Validators: ${validators.map(v => v.toString()).join(', ')}`);
     this.logger.info(`Committee: ${committee?.map(v => v.toString()).join(', ')}`);
-    this.logger.info(`Archive: ${archive}`);
-    this.logger.info(`Epoch num: ${epochNum}`);
-    this.logger.info(`Slot: ${slot}`);
+    this.logger.info('Archive: %s', archive);
+    this.logger.info('Epoch num: %s', epochNum);
+    this.logger.info('Slot: %s', slot);
   }
 
   /** Fetches the epoch and slot duration config from the rollup contract */
@@ -137,9 +137,9 @@ export class RollupCheatCodes {
     const timestamp = (await this.rollup.read.getTimestampForSlot([BigInt(slotNumber)])) + BigInt(opts.offset ?? 0);
     try {
       await this.ethCheatCodes.warp(Number(timestamp), { ...opts, silent: true, resetBlockInterval: true });
-      this.logger.warn(`Warped to epoch ${epoch}`, { offset: opts.offset, timestamp });
+      this.logger.warn('Warped to epoch %s', epoch, { offset: opts.offset, timestamp });
     } catch (err) {
-      this.logger.warn(`Warp to epoch ${epoch} failed: ${err}`);
+      this.logger.warn('Warp to epoch %s failed: %s', epoch, err);
     }
     return timestamp;
   }
@@ -155,7 +155,7 @@ export class RollupCheatCodes {
       silent: true,
       resetBlockInterval: true,
     });
-    this.logger.warn(`Advanced to next epoch`);
+    this.logger.warn('Advanced to next epoch');
   }
 
   /** Warps time in L1 until the beginning of the next slot. */
@@ -164,7 +164,7 @@ export class RollupCheatCodes {
     const nextSlot = SlotNumber(currentSlot + 1);
     const timestamp = await this.rollup.read.getTimestampForSlot([BigInt(nextSlot)]);
     await this.ethCheatCodes.warp(Number(timestamp), { silent: true, resetBlockInterval: true });
-    this.logger.warn(`Advanced to slot ${nextSlot}`);
+    this.logger.warn('Advanced to slot %s', nextSlot);
     return [timestamp, nextSlot];
   }
 
@@ -178,7 +178,7 @@ export class RollupCheatCodes {
     const timeToWarp = BigInt(howMany) * BigInt(slotDuration);
     await this.ethCheatCodes.warp(l1Timestamp + timeToWarp, { silent: true, resetBlockInterval: true });
     const [slot, epoch] = await Promise.all([this.getSlot(), this.getEpoch()]);
-    this.logger.warn(`Advanced ${howMany} slots up to slot ${slot} in epoch ${epoch}`);
+    this.logger.warn('Advanced %d slots up to slot %s in epoch %s', howMany, slot, epoch);
   }
 
   /**
@@ -195,7 +195,7 @@ export class RollupCheatCodes {
         checkpointNumber = pending;
       }
       if (checkpointNumber <= proven) {
-        this.logger.debug(`Checkpoint ${checkpointNumber} is already proven`);
+        this.logger.debug('Checkpoint %s is already proven', checkpointNumber);
         return;
       }
 
@@ -213,7 +213,10 @@ export class RollupCheatCodes {
       }
 
       this.logger.info(
-        `Proven tip moved: ${tipsBefore.proven} -> ${tipsAfter.proven}. Pending tip: ${tipsAfter.pending}.`,
+        'Proven tip moved: %s -> %s. Pending tip: %s.',
+        tipsBefore.proven,
+        tipsAfter.proven,
+        tipsAfter.pending,
       );
     });
   }
@@ -245,7 +248,7 @@ export class RollupCheatCodes {
         silent: true,
       });
 
-      this.logger.warn(`Inbox inProgress advanced from ${currentInProgress} to ${newInProgress}`, {
+      this.logger.warn('Inbox inProgress advanced from %s to %s', currentInProgress, newInProgress, {
         inbox: inboxAddress,
         oldValue: '0x' + currentStateValue.toString(16),
         newValue: '0x' + newValue.toString(16),
@@ -264,7 +267,7 @@ export class RollupCheatCodes {
       const outboxAddress = await this.rollup.read.getOutbox();
       const epochRootSlot = OutboxContract.getEpochRootStorageSlot(epoch);
       await this.ethCheatCodes.store(EthAddress.fromString(outboxAddress), epochRootSlot, outHash);
-      this.logger.warn(`Advanced outbox to epoch ${epoch} with out hash ${outHash}`);
+      this.logger.warn('Advanced outbox to epoch %s with out hash %s', epoch, outHash);
     });
   }
 
@@ -289,7 +292,7 @@ export class RollupCheatCodes {
     await this.asOwner(async (account, rollup) => {
       const hash = await rollup.write.setupEpoch({ account });
       await this.client.waitForTransactionReceipt({ hash });
-      this.logger.warn(`Setup epoch`);
+      this.logger.warn('Setup epoch');
     });
   }
 
@@ -298,7 +301,7 @@ export class RollupCheatCodes {
     await this.asOwner(async (account, rollup) => {
       const hash = await rollup.write.updateL1GasFeeOracle({ account, chain: this.client.chain });
       await this.client.waitForTransactionReceipt({ hash });
-      this.logger.warn(`Updated L1 gas fee oracle`);
+      this.logger.warn('Updated L1 gas fee oracle');
     });
   }
 
@@ -324,7 +327,7 @@ export class RollupCheatCodes {
         gasLimit: 1000000n,
       });
       await this.client.waitForTransactionReceipt({ hash });
-      this.logger.warn(`Updated proving cost per mana to ${ethValue}`);
+      this.logger.warn('Updated proving cost per mana to %s', ethValue);
     });
   }
 }

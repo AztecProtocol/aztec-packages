@@ -55,7 +55,7 @@ export class FileStoreBlobClient {
         const json = JSON.parse(inboundTransform(data).toString()) as BlobJson;
         blobs.push(json);
       } catch (err) {
-        this.log.warn(`Failed to read blob ${blobHashes[i]} from filestore`, err);
+        this.log.warn('Failed to read blob %s from filestore', blobHashes[i], err);
       }
     }
 
@@ -84,7 +84,7 @@ export class FileStoreBlobClient {
     const versionedHash = `0x${computeEthVersionedBlobHash(blob.commitment).toString('hex')}`;
 
     if (skipIfExists && (await this.store.exists(this.blobPath(versionedHash)))) {
-      this.log.trace(`Blob ${versionedHash} already exists, skipping`);
+      this.log.trace('Blob %s already exists, skipping', versionedHash);
       return;
     }
 
@@ -93,7 +93,7 @@ export class FileStoreBlobClient {
       this.blobPath(versionedHash),
       outboundTransform(Buffer.from(JSON.stringify(json))),
     );
-    this.log.debug(`Saved blob ${versionedHash} to filestore`);
+    this.log.debug('Saved blob %s to filestore', versionedHash);
   }
 
   /**
@@ -121,7 +121,7 @@ export class FileStoreBlobClient {
     try {
       return await this.store.exists(this.healthcheckPath());
     } catch (err: any) {
-      this.log.warn(`Connection test failed: ${err?.message ?? String(err)}`);
+      this.log.warn('Connection test failed: %s', err?.message ?? String(err));
       return false;
     }
   }
@@ -137,7 +137,7 @@ export class FileStoreBlobClient {
     }
     const path = this.healthcheckPath();
     await (this.store as FileStore).save(path, Buffer.from(HEALTHCHECK_CONTENT));
-    this.log.debug(`Uploaded healthcheck file to ${path}`);
+    this.log.debug('Uploaded healthcheck file to %s', path);
   }
 
   /**

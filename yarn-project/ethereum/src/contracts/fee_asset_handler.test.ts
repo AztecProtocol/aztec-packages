@@ -66,7 +66,7 @@ describe('FeeAssetHandler', () => {
     for (let i = 1; i <= 10; i++) {
       const txHash = await feeAssetHandler.mint(txUtils, address);
       expect(txHash.receipt.status).toBe('success');
-      logger.verbose(`Minted fee asset in ${txHash.receipt.transactionHash}`);
+      logger.verbose('Minted fee asset in %s', txHash.receipt.transactionHash);
       const balance = await feeAsset.read.balanceOf([address.toString()]);
       expect(balance).toBe((await feeAssetHandler.getMintAmount()) * BigInt(i));
     }

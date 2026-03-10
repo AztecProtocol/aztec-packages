@@ -103,7 +103,7 @@ export class L2BlockStream {
 
       // Only log this entry once (for sanity)
       if (!this.hasStarted) {
-        this.log.verbose(`Starting sync from block number ${latestBlockNumber}`);
+        this.log.verbose('Starting sync from block number %d', latestBlockNumber);
         this.hasStarted = true;
       }
 
@@ -233,7 +233,7 @@ export class L2BlockStream {
       // Loop 3: Fetch any remaining uncheckpointed (proposed) blocks.
       while (nextBlockNumber <= sourceTips.proposed.number) {
         const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.proposed.number - nextBlockNumber + 1);
-        this.log.trace(`Requesting blocks from ${nextBlockNumber} limit ${limit}`);
+        this.log.trace('Requesting blocks from %d limit %d', nextBlockNumber, limit);
         const blocks = await this.l2BlockSource.getBlocks(BlockNumber(nextBlockNumber), BlockNumber(limit));
         if (blocks.length === 0) {
           break;
@@ -285,7 +285,7 @@ export class L2BlockStream {
       args.sourceCache.add({ number: blockNumber, hash: sourceBlockHash });
     }
 
-    this.log.trace(`Comparing block hashes for block ${blockNumber}`, { localBlockHash, sourceBlockHash });
+    this.log.trace('Comparing block hashes for block %d', blockNumber, { localBlockHash, sourceBlockHash });
     return localBlockHash === sourceBlockHash;
   }
 

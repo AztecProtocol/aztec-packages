@@ -175,7 +175,9 @@ export class PrivateKernelExecutionProver {
           minRevertibleSideEffectCounter,
         );
         this.log.debug(
-          `Calling private kernel init with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
+          'Calling private kernel init with isPrivateOnly %s and firstNullifierHint %s',
+          isPrivateOnlyTx,
+          proofInput.firstNullifierHint,
         );
 
         pushTestData('private-kernel-inputs-init', proofInput);
@@ -261,7 +263,8 @@ export class PrivateKernelExecutionProver {
     const previousKernelData = new PrivateKernelData(output.publicInputs, vkData);
 
     this.log.debug(
-      `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
+      'Calling private kernel tail with hwm %d',
+      previousKernelData.publicInputs.minRevertibleSideEffectCounter,
     );
 
     // TODO: Enable padding once we better understand the final amounts to pad to.
@@ -347,7 +350,7 @@ export class PrivateKernelExecutionProver {
     }
 
     if (generateWitnesses) {
-      this.log.info(`Private kernel witness generation took ${timer.ms()}ms`);
+      this.log.info('Private kernel witness generation took %dms', timer.ms());
     }
 
     let chonkProof: ChonkProof;

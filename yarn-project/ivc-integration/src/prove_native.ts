@@ -69,7 +69,7 @@ async function verifyProofWithKey(
   if (result.status === BB_RESULT.FAILURE) {
     throw new Error(`Failed to verify proof from key!`);
   }
-  logger.info(`Successfully verified proof from key in ${result.durationMs} ms`);
+  logger.info('Successfully verified proof from key in %d ms', result.durationMs);
 }
 
 async function proveRollupCircuit<T extends UltraHonkFlavor, ProofLength extends number>(

@@ -165,7 +165,8 @@ export class PrivateEventStore implements StagedStore {
         // Defensive, if it happens, there's a problem with how we're handling #eventsByContractAndEventSelector
         if (!eventBuffer) {
           this.logger.verbose(
-            `EventId ${eventId} does not exist in main index but it is referenced from contract event selector index`,
+            'EventId %s does not exist in main index but it is referenced from contract event selector index',
+            eventId,
           );
           continue;
         }
@@ -270,7 +271,7 @@ export class PrivateEventStore implements StagedStore {
       }
     }
 
-    this.logger.verbose(`Rolled back ${removedCount} private events after block ${blockNumber}`);
+    this.logger.verbose('Rolled back %d private events after block %d', removedCount, blockNumber);
   }
 
   /**

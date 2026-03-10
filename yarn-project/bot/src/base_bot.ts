@@ -31,16 +31,21 @@ export abstract class BaseBot {
     const txHash = await this.createAndSendTx(logCtx);
 
     if (followChain === 'NONE') {
-      this.log.info(`Transaction ${txHash.toString()} sent, not waiting for it to be mined`);
+      this.log.info('Transaction %s sent, not waiting for it to be mined', txHash);
       return txHash;
     }
 
     const waitForStatus = TxStatus[followChain];
-    this.log.verbose(`Awaiting tx ${txHash.toString()} to be on the ${followChain} chain`, logCtx);
+    this.log.verbose('Awaiting tx %s to be on the %s chain', txHash, followChain, logCtx);
     const receipt = await waitForTx(this.node, txHash, { timeout: txMinedWaitSeconds, waitForStatus });
     this.successes++;
     this.log.info(
-      `Tx #${this.attempts} ${receipt.txHash} successfully mined in block ${receipt.blockNumber} (stats: ${this.successes}/${this.attempts} success)`,
+      'Tx #%d %s successfully mined in block %d (stats: %d/%d success)',
+      this.attempts,
+      receipt.txHash,
+      receipt.blockNumber,
+      this.successes,
+      this.attempts,
       logCtx,
     );
 

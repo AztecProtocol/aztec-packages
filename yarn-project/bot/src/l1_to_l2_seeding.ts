@@ -34,7 +34,7 @@ export async function seedL1ToL2Message(
     [{ actor: l2Recipient.toString(), version: rollupVersion }, content.toString(), secretHash.toString()],
     { gas: 1_000_000n },
   );
-  log.info(`L1→L2 message sent in tx ${txHash}`);
+  log.info('L1→L2 message sent in tx %s', txHash);
 
   const txReceipt = await l1Client.waitForTransactionReceipt({ hash: txHash });
   if (txReceipt.status !== 'success') {
@@ -74,6 +74,6 @@ export async function seedL1ToL2Message(
   };
 
   await store.savePendingL1ToL2Message(msg);
-  log.info(`Seeded L1→L2 message msgHash=${msg.msgHash}`);
+  log.info('Seeded L1→L2 message msgHash=%s', msg.msgHash);
   return msg;
 }

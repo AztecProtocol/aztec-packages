@@ -86,11 +86,11 @@ export class SlashOffensesCollector {
       if (this.settings.slashingAmounts) {
         const minSlash = this.settings.slashingAmounts[0];
         if (arg.amount < minSlash) {
-          this.log.warn(`Offense amount ${arg.amount} is below minimum slashing amount ${minSlash}`);
+          this.log.warn('Offense amount %s is below minimum slashing amount %s', arg.amount, minSlash);
         }
       }
 
-      this.log.info(`Adding pending offense for validator ${arg.validator}`, pendingOffense);
+      this.log.info('Adding pending offense for validator %s', arg.validator, pendingOffense);
       await this.offensesStore.addPendingOffense(pendingOffense);
     }
   }
@@ -102,7 +102,7 @@ export class SlashOffensesCollector {
   public async handleNewRound(round: bigint) {
     const cleared = await this.offensesStore.clearExpiredOffenses(round);
     if (cleared && cleared > 0) {
-      this.log.debug(`Cleared ${cleared} expired offenses for round ${round}`);
+      this.log.debug('Cleared %d expired offenses for round %s', cleared, round);
     }
   }
 

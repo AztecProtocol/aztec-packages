@@ -312,7 +312,7 @@ export class TXESession implements TXESessionStateHandler {
     );
 
     this.state = { name: 'TOP_LEVEL' };
-    this.logger.debug(`Entered state ${this.state.name}`);
+    this.logger.debug('Entered state %s', this.state.name);
   }
 
   async enterPrivateState(
@@ -377,7 +377,7 @@ export class TXESession implements TXESessionStateHandler {
     // will be ongoing as the different oracles will be invoked from the Noir test, until eventually the private
     // execution finishes.
     this.state = { name: 'PRIVATE', nextBlockGlobalVariables, noteCache, taggingIndexCache };
-    this.logger.debug(`Entered state ${this.state.name}`);
+    this.logger.debug('Entered state %s', this.state.name);
 
     return (this.oracleHandler as PrivateExecutionOracle).getPrivateContextInputs();
   }
@@ -403,7 +403,7 @@ export class TXESession implements TXESessionStateHandler {
     );
 
     this.state = { name: 'PUBLIC' };
-    this.logger.debug(`Entered state ${this.state.name}`);
+    this.logger.debug('Entered state %s', this.state.name);
   }
 
   async enterUtilityState(contractAddress: AztecAddress = DEFAULT_ADDRESS) {
@@ -442,7 +442,7 @@ export class TXESession implements TXESessionStateHandler {
     });
 
     this.state = { name: 'UTILITY' };
-    this.logger.debug(`Entered state ${this.state.name}`);
+    this.logger.debug('Entered state %s', this.state.name);
   }
 
   private exitTopLevelState() {

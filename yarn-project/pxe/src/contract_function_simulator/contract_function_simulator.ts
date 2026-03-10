@@ -200,7 +200,9 @@ export class ContractFunctionSimulator {
 
     if (request.origin !== contractAddress) {
       this.log.warn(
-        `Request origin does not match contract address in simulation. Request origin: ${request.origin}, contract address: ${contractAddress}`,
+        'Request origin does not match contract address in simulation. Request origin: %s, contract address: %s',
+        request.origin,
+        contractAddress,
       );
     }
 
@@ -340,7 +342,7 @@ export class ContractFunctionSimulator {
     });
 
     try {
-      this.log.verbose(`Executing utility function ${entryPointArtifact.name}`, {
+      this.log.verbose('Executing utility function %s', entryPointArtifact.name, {
         contract: call.to,
         selector: call.selector,
       });
@@ -361,7 +363,7 @@ export class ContractFunctionSimulator {
           );
         });
 
-      this.log.verbose(`Utility execution for ${call.to}.${call.selector} completed`);
+      this.log.verbose('Utility execution for %s.%s completed', call.to, call.selector);
       return witnessMapToFields(acirExecutionResult.returnWitness);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));

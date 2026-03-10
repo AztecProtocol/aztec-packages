@@ -90,7 +90,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   protected async init() {
     this.initialSlot = this.epochCache.getEpochAndSlotNow().slot;
     const startingBlock = BlockNumber(await this.archiver.getBlockNumber());
-    this.logger.info(`Starting validator sentinel with initial slot ${this.initialSlot} and block ${startingBlock}`);
+    this.logger.info('Starting validator sentinel with initial slot %s and block %s', this.initialSlot, startingBlock);
     this.blockStream = new L2BlockStream(this.archiver, this.l2TipsStore, this, this.logger, { startingBlock });
   }
 
@@ -141,16 +141,16 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     const blockNumber = event.block.number;
     const header = await this.archiver.getBlockHeader(blockNumber);
     if (!header) {
-      this.logger.error(`Failed to get block header ${blockNumber}`);
+      this.logger.error('Failed to get block header %s', blockNumber);
       return;
     }
 
     // TODO(palla/slash): We should only be computing proven performance if this is
     // a full proof epoch and not a partial one, otherwise we'll end up with skewed stats.
     const epoch = getEpochAtSlot(header.getSlot(), this.epochCache.getL1Constants());
-    this.logger.debug(`Computing proven performance for epoch ${epoch}`);
+    this.logger.debug('Computing proven performance for epoch %s', epoch);
     const performance = await this.computeProvenPerformance(epoch);
-    this.logger.info(`Computed proven performance for epoch ${epoch}`, performance);
+    this.logger.info('Computed proven performance for epoch %s', epoch, performance);
 
     await this.store.updateProvenPerformance(epoch, performance);
     await this.handleProvenPerformance(epoch, performance);
@@ -160,11 +160,11 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     const [fromSlot, toSlot] = getSlotRangeForEpoch(epoch, this.epochCache.getL1Constants());
     const { committee, isEscapeHatchOpen } = await this.epochCache.getCommittee(fromSlot);
     if (isEscapeHatchOpen) {
-      this.logger.info(`Skipping proven performance for epoch ${epoch} - escape hatch is open`);
+      this.logger.info('Skipping proven performance for epoch %s - escape hatch is open', epoch);
       return {};
     }
     if (!committee) {
-      this.logger.trace(`No committee found for slot ${fromSlot}`);
+      this.logger.trace('No committee found for slot %s', fromSlot);
       return {};
     }
 
@@ -173,7 +173,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       toSlot,
       validators: committee,
     });
-    this.logger.debug(`Stats for epoch ${epoch}`, { ...stats, fromSlot, toSlot, epoch });
+    this.logger.debug('Stats for epoch %s', epoch, { ...stats, fromSlot, toSlot, epoch });
 
     // Note that we are NOT using the total slots in the epoch as `total` here, since we only
     // compute missed attestations over the blocks that had a proposal in them. So, let's say
@@ -231,7 +231,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       .filter(([_, { missed, total }]) => missed / total >= this.config.slashInactivityTargetPercentage)
       .map(([address]) => address);
 
-    this.logger.debug(`Found ${inactiveValidators.length} inactive validators in epoch ${epoch}`, {
+    this.logger.debug('Found %d inactive validators in epoch %s', inactiveValidators.length, epoch, {
       inactiveValidators,
       epoch,
       inactivityTargetPercentage: this.config.slashInactivityTargetPercentage,
@@ -289,13 +289,13 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
    */
   protected async isReadyToProcess(currentSlot: SlotNumber): Promise<SlotNumber | false> {
     if (currentSlot < 2) {
-      this.logger.trace(`Current slot ${currentSlot} too early.`);
+      this.logger.trace('Current slot %s too early.', currentSlot);
       return false;
     }
 
     const targetSlot = SlotNumber(currentSlot - 2);
     if (this.lastProcessedSlot && this.lastProcessedSlot >= targetSlot) {
-      this.logger.trace(`Already processed slot ${targetSlot}`, { lastProcessedSlot: this.lastProcessedSlot });
+      this.logger.trace('Already processed slot %s', targetSlot, { lastProcessedSlot: this.lastProcessedSlot });
       return false;
     }
 
@@ -305,13 +305,13 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     }
 
     if (targetSlot <= this.initialSlot) {
-      this.logger.trace(`Refusing to process slot ${targetSlot} given initial slot ${this.initialSlot}`);
+      this.logger.trace('Refusing to process slot %s given initial slot %s', targetSlot, this.initialSlot);
       return false;
     }
 
     const archiverSlot = await this.archiver.getL2SlotNumber();
     if (archiverSlot === undefined || archiverSlot < targetSlot) {
-      this.logger.debug(`Waiting for archiver to sync with L2 slot ${targetSlot}`, { archiverSlot, targetSlot });
+      this.logger.debug('Waiting for archiver to sync with L2 slot %s', targetSlot, { archiverSlot, targetSlot });
       return false;
     }
 
@@ -333,26 +333,26 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   protected async processSlot(slot: SlotNumber) {
     const { epoch, seed, committee, isEscapeHatchOpen } = await this.epochCache.getCommittee(slot);
     if (isEscapeHatchOpen) {
-      this.logger.info(`Skipping slot ${slot} at epoch ${epoch} - escape hatch is open`);
+      this.logger.info('Skipping slot %s at epoch %s - escape hatch is open', slot, epoch);
       this.lastProcessedSlot = slot;
       return;
     }
     if (!committee || committee.length === 0) {
-      this.logger.trace(`No committee found for slot ${slot} at epoch ${epoch}`);
+      this.logger.trace('No committee found for slot %s at epoch %s', slot, epoch);
       this.lastProcessedSlot = slot;
       return;
     }
     const proposerIndex = this.epochCache.computeProposerIndex(slot, epoch, seed, BigInt(committee.length));
     const proposer = committee[Number(proposerIndex)];
     const stats = await this.getSlotActivity(slot, epoch, proposer, committee);
-    this.logger.verbose(`Updating L2 slot ${slot} observed activity`, stats);
+    this.logger.verbose('Updating L2 slot %s observed activity', slot, stats);
     await this.updateValidators(slot, stats);
     this.lastProcessedSlot = slot;
   }
 
   /** Computes activity for a given slot. */
   protected async getSlotActivity(slot: SlotNumber, epoch: EpochNumber, proposer: EthAddress, committee: EthAddress[]) {
-    this.logger.debug(`Computing stats for slot ${slot} at epoch ${epoch}`, { slot, epoch, proposer, committee });
+    this.logger.debug('Computing stats for slot %s at epoch %s', slot, epoch, { slot, epoch, proposer, committee });
 
     // Check if there is an L2 block in L1 for this L2 slot
 
@@ -386,7 +386,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       const hasBlockProposals = await this.p2p.hasBlockProposalsForSlot(slot);
       status = hasBlockProposals ? 'checkpoint-missed' : 'blocks-missed';
     }
-    this.logger.debug(`Checkpoint status for slot ${slot}: ${status}`, { ...checkpoint, slot });
+    this.logger.debug('Checkpoint status for slot %s: %s', slot, status, { ...checkpoint, slot });
 
     // Get attestors that failed their checkpoint attestation duties, but only if there was a checkpoint proposed or mined
     const missedAttestors = new Set(
@@ -395,7 +395,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
         : committee.filter(v => !attestors.has(v.toString()) && !proposer.equals(v)).map(v => v.toString()),
     );
 
-    this.logger.debug(`Retrieved ${attestors.size} attestors out of ${committee.length} for slot ${slot}`, {
+    this.logger.debug('Retrieved %d attestors out of %d for slot %s', attestors.size, committee.length, slot, {
       status,
       proposer: proposer.toString(),
       ...checkpoint,

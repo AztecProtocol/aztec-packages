@@ -20,7 +20,7 @@ export class RandomnessSingleton {
   ) {
     this.log = createLogger('foundation:randomness_singleton', bindings);
     if (seed !== undefined) {
-      this.log.debug(`Using pseudo-randomness with seed: ${seed}`);
+      this.log.debug('Using pseudo-randomness with seed: %d', seed);
       this.counter = seed;
     } else {
       this.log.debug('Using true randomness');

@@ -294,7 +294,7 @@ export class CrossChainTestHarness {
 
   async expectPrivateBalanceOnL2(owner: AztecAddress, expectedBalance: bigint) {
     const balance = await this.getL2PrivateBalanceOf(owner);
-    this.logger.info(`Account ${owner} balance: ${balance}`);
+    this.logger.info('Account %s balance: %s', owner, balance);
     expect(balance).toBe(expectedBalance);
   }
 

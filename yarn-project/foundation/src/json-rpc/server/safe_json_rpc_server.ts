@@ -83,7 +83,7 @@ export class SafeJsonRpcServer {
         await next();
       } catch (err: any) {
         const method = (ctx.request.body as any)?.method ?? 'unknown';
-        this.log.warn(`Uncaught error in JSON RPC server call ${method}: ${inspect(err)}`);
+        this.log.warn('Uncaught error in JSON RPC server call %s: %s', method, inspect(err));
         if (err && 'name' in err && err.name === 'BadRequestError') {
           ctx.status = 400;
           ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32000, message: `Bad request: ${err.message}` } };
@@ -186,7 +186,7 @@ export class SafeJsonRpcServer {
         return res.value;
       }
 
-      this.log.warn(`Uncaught error executing request in batch: ${res.reason}.`);
+      this.log.warn('Uncaught error executing request in batch: %s.', res.reason);
       return { jsonrpc: '2.0', error: { code: -32600, message: 'Invalid Request' }, id: null };
     });
   }

@@ -40,11 +40,11 @@ export async function uploadSnapshot(
     const paths = await createBackups(backupDir, archiver, worldState, log);
     const versions = { archiver: ARCHIVER_DB_VERSION, worldState: WORLD_STATE_DB_VERSION };
     const metadata = await buildSnapshotMetadata(archiver, config);
-    log.info(`Uploading snapshot to ${location}`, { snapshot: metadata });
+    log.info('Uploading snapshot to %s', location, { snapshot: metadata });
     const snapshot = await uploadSnapshotToIndex(paths, versions, metadata, store);
     log.info(`Snapshot uploaded successfully`, { snapshot });
   } finally {
-    log.info(`Cleaning up backup dir ${backupDir}`);
+    log.info('Cleaning up backup dir %s', backupDir);
     await tryRmDir(backupDir, log);
   }
 }

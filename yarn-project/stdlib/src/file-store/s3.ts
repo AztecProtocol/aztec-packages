@@ -163,7 +163,7 @@ export class S3FileStore implements FileStore {
       if (code === 404 || code === 'NotFound' || code === 'NoSuchKey') {
         return false;
       }
-      this.log.warn(`Error checking existence for ${pathOrUrlStr}: ${err?.message ?? String(err)}`);
+      this.log.warn('Error checking existence for %s: %s', pathOrUrlStr, err?.message ?? String(err));
       return false;
     }
   }

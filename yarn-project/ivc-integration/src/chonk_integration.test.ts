@@ -73,7 +73,7 @@ describe.each([BackendType.Wasm, BackendType.NativeUnixSocket])('Client IVC Inte
       // Compress via bbapi
       const compressResult = await barretenberg.chonkCompressProof({ proof: chonkProof });
       expect(compressResult.compressedProof.length).toBeGreaterThan(0);
-      logger.info(`Compressed proof: ${compressResult.compressedProof.length} bytes`);
+      logger.info('Compressed proof: %d bytes', compressResult.compressedProof.length);
 
       // Decompress via bbapi
       const decompressResult = await barretenberg.chonkDecompressProof({

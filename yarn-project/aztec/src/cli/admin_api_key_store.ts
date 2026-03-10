@@ -86,10 +86,10 @@ export async function resolveAdminApiKey(
           log.info('Admin API key authentication enabled (loaded stored key hash from disk)');
           return { apiKeyHash: Buffer.from(storedHash, 'hex') };
         }
-        log.warn(`Invalid stored admin API key hash at ${hashFilePath}, regenerating...`);
+        log.warn('Invalid stored admin API key hash at %s, regenerating...', hashFilePath);
       } catch (err: any) {
         if (err.code !== 'ENOENT') {
-          log.warn(`Failed to read admin API key hash from ${hashFilePath}: ${err.message}`);
+          log.warn('Failed to read admin API key hash from %s: %s', hashFilePath, err.message);
         }
         // File doesn't exist — fall through to generate
       }

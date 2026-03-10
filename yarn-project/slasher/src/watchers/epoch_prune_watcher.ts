@@ -90,11 +90,11 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   private async emitSlashForEpoch(offense: OffenseType, epochNumber: EpochNumber): Promise<void> {
     const validators = await this.getValidatorsForEpoch(epochNumber);
     if (validators.length === 0) {
-      this.log.warn(`No validators found for epoch ${epochNumber} (cannot slash for ${getOffenseTypeName(offense)})`);
+      this.log.warn('No validators found for epoch %s (cannot slash for %s)', epochNumber, getOffenseTypeName(offense));
       return;
     }
     const args = this.validatorsToSlashingArgs(validators, offense, epochNumber);
-    this.log.verbose(`Created slash for ${getOffenseTypeName(offense)} at epoch ${epochNumber}`, args);
+    this.log.verbose('Created slash for %s at epoch %s', getOffenseTypeName(offense), epochNumber, args);
     this.emit(WANT_TO_SLASH_EVENT, args);
   }
 
@@ -103,16 +103,19 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
       const l1Constants = this.epochCache.getL1Constants();
       const epochBlocks = blocks.filter(b => getEpochAtSlot(b.header.getSlot(), l1Constants) === epochNumber);
       this.log.info(
-        `Detected chain prune. Validating epoch ${epochNumber} with blocks ${epochBlocks[0]?.number} to ${epochBlocks[epochBlocks.length - 1]?.number}.`,
+        'Detected chain prune. Validating epoch %s with blocks %s to %s.',
+        epochNumber,
+        epochBlocks[0]?.number,
+        epochBlocks[epochBlocks.length - 1]?.number,
         { blocks: epochBlocks.map(b => b.toBlockInfo()) },
       );
 
       await this.validateBlocks(epochBlocks, epochNumber);
-      this.log.info(`Pruned epoch ${epochNumber} was valid. Want to slash committee for not having it proven.`);
+      this.log.info('Pruned epoch %s was valid. Want to slash committee for not having it proven.', epochNumber);
       await this.emitSlashForEpoch(OffenseType.VALID_EPOCH_PRUNED, epochNumber);
     } catch (error) {
       if (error instanceof TransactionsNotAvailableError) {
-        this.log.info(`Data for pruned epoch ${epochNumber} was not available. Will want to slash.`, {
+        this.log.info('Data for pruned epoch %s was not available. Will want to slash.', epochNumber, {
           message: error.message,
         });
         await this.emitSlashForEpoch(OffenseType.DATA_WITHHOLDING, epochNumber);
@@ -161,7 +164,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     fork: MerkleTreeWriteOperations,
   ): Promise<void> {
     const checkpointNumber = checkpointBlocks[0].checkpointNumber;
-    this.log.debug(`Validating pruned checkpoint ${checkpointNumber} with ${checkpointBlocks.length} blocks`);
+    this.log.debug('Validating pruned checkpoint %d with %d blocks', checkpointNumber, checkpointBlocks.length);
 
     // Get L1ToL2Messages once for the entire checkpoint
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
@@ -199,7 +202,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     blockFromL1: L2Block,
     checkpointBuilder: ICheckpointBlockBuilder,
   ): Promise<void> {
-    this.log.debug(`Validating pruned block ${blockFromL1.header.globalVariables.blockNumber}`);
+    this.log.debug('Validating pruned block %d', blockFromL1.header.globalVariables.blockNumber);
     const txHashes = blockFromL1.body.txEffects.map(txEffect => txEffect.txHash);
     // We load txs from the mempool directly, since the TxCollector running in the background has already been
     // trying to fetch them from nodes or via reqresp. If we haven't managed to collect them by now,
@@ -228,7 +231,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   private async getValidatorsForEpoch(epochNumber: EpochNumber): Promise<EthAddress[]> {
     const { committee } = await this.epochCache.getCommitteeForEpoch(epochNumber);
     if (!committee) {
-      this.log.trace(`No committee found for epoch ${epochNumber}`);
+      this.log.trace('No committee found for epoch %s', epochNumber);
       return [];
     }
     return committee;

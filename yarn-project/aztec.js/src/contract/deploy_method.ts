@@ -364,7 +364,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
 
     if (options.wait === NO_WAIT) {
       const result = await this.wallet.sendTx(executionPayload, sendOptions as SendOptions<NoWait>);
-      this.log.debug(`Sent deployment tx ${result.txHash.hash} of ${this.artifact.name} contract`);
+      this.log.debug('Sent deployment tx %s of %s contract', result.txHash.hash, this.artifact.name);
       return result;
     }
 
@@ -372,7 +372,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
       executionPayload,
       sendOptions as SendOptions<WaitOpts | undefined>,
     );
-    this.log.debug(`Deployed ${this.artifact.name} contract in tx ${receipt.txHash}`);
+    this.log.debug('Deployed %s contract in tx %s', this.artifact.name, receipt.txHash);
 
     // Attach contract instance
     const instance = await this.getInstance(options);

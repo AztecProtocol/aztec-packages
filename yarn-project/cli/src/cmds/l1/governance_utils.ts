@@ -26,7 +26,7 @@ export async function depositGovernanceTokens({
   debugLogger: Logger;
   mint: boolean;
 }) {
-  debugLogger.info(`Depositing ${amount} governance tokens to ${recipient}`);
+  debugLogger.info('Depositing %s governance tokens to %s', amount, recipient);
   const chain = createEthereumChain(rpcUrls, chainId);
   const extendedClient = createExtendedL1Client(
     rpcUrls,
@@ -44,14 +44,14 @@ export async function depositGovernanceTokens({
   const governance = new GovernanceContract(governanceAddress, extendedClient);
   if (mint) {
     await feeJuice.mint(recipient, amount);
-    debugLogger.info(`Minted ${amount} tokens to ${recipient}`);
+    debugLogger.info('Minted %s tokens to %s', amount, recipient);
   }
 
   await feeJuice.approve(governanceAddress, amount);
-  debugLogger.info(`Approved ${amount} tokens for governance`);
+  debugLogger.info('Approved %s tokens for governance', amount);
 
   await governance.deposit(recipient, amount);
-  debugLogger.info(`Deposited ${amount} tokens to ${recipient}`);
+  debugLogger.info('Deposited %s tokens to %s', amount, recipient);
 }
 
 export async function proposeWithLock({
@@ -77,7 +77,7 @@ export async function proposeWithLock({
   log: LogFn;
   json: boolean;
 }) {
-  debugLogger.info(`Proposing with lock from ${payloadAddress} to ${registryAddress}`);
+  debugLogger.info('Proposing with lock from %s to %s', payloadAddress, registryAddress);
   const chain = createEthereumChain(rpcUrls, chainId);
   const client = createExtendedL1Client(rpcUrls, privateKey ?? mnemonic, chain.chainInfo, undefined, mnemonicIndex);
 
@@ -135,7 +135,7 @@ export async function voteOnGovernanceProposal({
   const governance = new GovernanceContract(governanceAddress, client);
   const state = await governance.getProposalState(proposalId);
   if (state !== ProposalState.Active && !waitTilActive) {
-    debugLogger.warn(`Proposal is not active, but waitTilActive is false. Not voting.`);
+    debugLogger.warn('Proposal is not active, but waitTilActive is false. Not voting.');
     return;
   }
 
@@ -164,7 +164,7 @@ export async function executeGovernanceProposal({
   mnemonicIndex: number;
   debugLogger: Logger;
 }) {
-  debugLogger.info(`Executing proposal ${proposalId}`);
+  debugLogger.info('Executing proposal %s', proposalId);
   const chain = createEthereumChain(rpcUrls, chainId);
   const client = createExtendedL1Client(rpcUrls, privateKey ?? mnemonic, chain.chainInfo, undefined, mnemonicIndex);
 
@@ -174,7 +174,7 @@ export async function executeGovernanceProposal({
   const governance = new GovernanceContract(governanceAddress, client);
   const state = await governance.getProposalState(proposalId);
   if (state !== ProposalState.Executable && !waitTilExecutable) {
-    debugLogger.warn(`Proposal is not executable, but waitTilExecutable is false. Not executing.`);
+    debugLogger.warn('Proposal is not executable, but waitTilExecutable is false. Not executing.');
     return;
   }
 

@@ -62,7 +62,7 @@ export class JobCoordinator {
       throw new Error(`Store "${store.storeName}" is already registered`);
     }
     this.#stores.set(store.storeName, store);
-    this.log.debug(`Registered staged store: ${store.storeName}`);
+    this.log.debug('Registered staged store: %s', store.storeName);
   }
 
   /**
@@ -90,7 +90,7 @@ export class JobCoordinator {
     const jobId = randomBytes(8).toString('hex');
     this.#currentJobId = jobId;
 
-    this.log.debug(`Started job ${jobId}`);
+    this.log.debug('Started job %s', jobId);
     return jobId;
   }
 
@@ -106,7 +106,7 @@ export class JobCoordinator {
       );
     }
 
-    this.log.debug(`Committing job ${jobId}`);
+    this.log.debug('Committing job %s', jobId);
 
     // Commit all stores atomically in a single transaction.
     // Each store's commit is a no-op if it has no staged data (but that's up to each store to handle).
@@ -117,7 +117,7 @@ export class JobCoordinator {
     });
 
     this.#currentJobId = undefined;
-    this.log.debug(`Job ${jobId} committed successfully`);
+    this.log.debug('Job %s committed successfully', jobId);
   }
 
   /**
@@ -128,17 +128,17 @@ export class JobCoordinator {
   async abortJob(jobId: string): Promise<void> {
     if (!this.#currentJobId || this.#currentJobId !== jobId) {
       // Job may have already been aborted or never started properly
-      this.log.warn(`Abort called for job ${jobId} but current job is ${this.#currentJobId ?? 'none'}`);
+      this.log.warn('Abort called for job %s but current job is %s', jobId, this.#currentJobId ?? 'none');
     }
 
-    this.log.debug(`Aborting job ${jobId}`);
+    this.log.debug('Aborting job %s', jobId);
 
     for (const store of this.#stores.values()) {
       await store.discardStaged(jobId);
     }
 
     this.#currentJobId = undefined;
-    this.log.debug(`Job ${jobId} aborted`);
+    this.log.debug('Job %s aborted', jobId);
   }
 
   /**

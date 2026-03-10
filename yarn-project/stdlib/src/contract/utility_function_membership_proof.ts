@@ -48,7 +48,7 @@ export async function createUtilityFunctionMembershipProof(
   const artifactTreeLeafIndex = artifactTree.getIndex(functionArtifactHash.toBuffer());
   const artifactTreeSiblingPath = artifactTree.getSiblingPath(artifactTreeLeafIndex).map(Fr.fromBuffer);
 
-  log.debug(`Computed proof for utility function with selector ${selector.toString()}`, {
+  log.debug('Computed proof for utility function with selector %s', selector, {
     functionArtifactHash,
     functionMetadataHash,
     artifactMetadataHash,

@@ -58,7 +58,7 @@ describe('ForwarderL1TxUtils', () => {
     });
     const forwarderReceipt = await l1Client.waitForTransactionReceipt({ hash: forwarderDeployHash });
     forwarderAddress = EthAddress.fromString(forwarderReceipt.contractAddress!);
-    logger.debug(`Forwarder deployed at ${forwarderAddress.toString()}`);
+    logger.debug('Forwarder deployed at %s', forwarderAddress);
 
     // Deploy TestERC20 contract
     const erc20DeployHash = await l1Client.deployContract({
@@ -68,7 +68,7 @@ describe('ForwarderL1TxUtils', () => {
     });
     const erc20Receipt = await l1Client.waitForTransactionReceipt({ hash: erc20DeployHash });
     testERC20Address = EthAddress.fromString(erc20Receipt.contractAddress!);
-    logger.debug(`TestERC20 deployed at ${testERC20Address.toString()}`);
+    logger.debug('TestERC20 deployed at %s', testERC20Address);
 
     // Add the forwarder as a minter so it can call mint on behalf of users
     const addMinterData = encodeFunctionData({

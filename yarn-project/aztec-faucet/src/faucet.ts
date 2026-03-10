@@ -75,7 +75,7 @@ export class Faucet {
     await this.l1Client.waitForTransactionReceipt({ hash });
 
     this.updateThrottle(to, 'ETH');
-    this.log.info(`Sent ETH ${this.config.ethAmount} to ${to} in tx ${hash}`);
+    this.log.info('Sent ETH %s to %s in tx %s', this.config.ethAmount, to, hash);
   }
 
   public async sendERC20(to: EthAddress, assetName: string): Promise<void> {
@@ -91,7 +91,7 @@ export class Faucet {
 
     this.updateThrottle(to, assetName);
 
-    this.log.info(`Sent ${assetName} ${asset.amount} to ${to} in tx ${hash}`);
+    this.log.info('Sent %s %s to %s in tx %s', assetName, asset.amount, to, hash);
   }
 
   public async addL1Asset(l1AssetConfig: L1AssetConfig): Promise<void> {
@@ -113,7 +113,7 @@ export class Faucet {
       this.l1Assets.has(name) &&
       this.l1Assets.get(name)!.contract.address.toLowerCase() !== l1AssetConfig.address.toString().toLowerCase()
     ) {
-      this.log.warn(`Updating asset ${name} to address=${contract.address}`);
+      this.log.warn('Updating asset %s to address=%s', name, contract.address);
     }
 
     this.l1Assets.set(name, { contract, amount: l1AssetConfig.amount });

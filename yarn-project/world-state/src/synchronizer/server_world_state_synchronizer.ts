@@ -108,17 +108,21 @@ export class ServerWorldStateSynchronizer
     if (blockToDownloadFrom <= this.latestBlockNumberAtStart) {
       // If there are blocks to be retrieved, go to a synching state
       this.setCurrentState(WorldStateRunningState.SYNCHING);
-      this.log.verbose(`Starting sync from ${blockToDownloadFrom} to latest block ${this.latestBlockNumberAtStart}`);
+      this.log.verbose('Starting sync from %d to latest block %d', blockToDownloadFrom, this.latestBlockNumberAtStart);
     } else {
       // If no blocks to be retrieved, go straight to running
       this.setCurrentState(WorldStateRunningState.RUNNING);
       this.syncPromise.resolve();
-      this.log.debug(`Next block ${blockToDownloadFrom} already beyond latest block ${this.latestBlockNumberAtStart}`);
+      this.log.debug(
+        'Next block %d already beyond latest block %d',
+        blockToDownloadFrom,
+        this.latestBlockNumberAtStart,
+      );
     }
 
     this.blockStream = this.createBlockStream();
     this.blockStream.start();
-    this.log.info(`Started world state synchronizer from block ${blockToDownloadFrom}`);
+    this.log.info('Started world state synchronizer from block %d', blockToDownloadFrom);
     return this.syncPromise.promise;
   }
 
@@ -197,13 +201,13 @@ export class ServerWorldStateSynchronizer
     if (targetBlockNumber !== undefined && targetBlockNumber <= currentBlockNumber) {
       return currentBlockNumber;
     }
-    this.log.debug(`World State at ${currentBlockNumber} told to sync to ${targetBlockNumber ?? 'latest'}`);
+    this.log.debug('World State at %d told to sync to %s', currentBlockNumber, targetBlockNumber ?? 'latest');
 
     // If the archiver is behind the target block, force an archiver sync
     if (targetBlockNumber) {
       const archiverLatestBlock = BlockNumber(await this.l2BlockSource.getBlockNumber());
       if (archiverLatestBlock < targetBlockNumber) {
-        this.log.debug(`Archiver is at ${archiverLatestBlock} behind target block ${targetBlockNumber}.`);
+        this.log.debug('Archiver is at %d behind target block %d.', archiverLatestBlock, targetBlockNumber);
         await this.l2BlockSource.syncImmediate();
       }
     }
@@ -300,7 +304,7 @@ export class ServerWorldStateSynchronizer
    * @returns Whether the block handled was produced by this same node.
    */
   private async handleL2Blocks(l2Blocks: L2Block[]) {
-    this.log.debug(`Handling L2 blocks ${l2Blocks[0].number} to ${l2Blocks.at(-1)!.number}`);
+    this.log.debug('Handling L2 blocks %d to %d', l2Blocks[0].number, l2Blocks.at(-1)!.number);
 
     // Fetch the L1->L2 messages for the first block in a checkpoint.
     const messagesForBlocks = new Map<BlockNumber, Fr[]>();
@@ -318,7 +322,7 @@ export class ServerWorldStateSynchronizer
       const [duration, result] = await elapsed(() =>
         this.handleL2Block(block, messagesForBlocks.get(block.number) ?? []),
       );
-      this.log.info(`World state updated with L2 block ${block.number}`, {
+      this.log.info('World state updated with L2 block %d', block.number, {
         eventName: 'l2-block-handled',
         duration,
         unfinalizedBlockNumber: BigInt(result.summary.unfinalizedBlockNumber),
@@ -341,7 +345,7 @@ export class ServerWorldStateSynchronizer
    * @returns Whether the block handled was produced by this same node.
    */
   private async handleL2Block(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
-    this.log.debug(`Pushing L2 block ${l2Block.number} to merkle tree db `, {
+    this.log.debug('Pushing L2 block %d to merkle tree db ', l2Block.number, {
       blockNumber: l2Block.number,
       blockHash: await l2Block.hash().then(h => h.toString()),
       l1ToL2Messages: l1ToL2Messages.map(msg => msg.toString()),
@@ -359,7 +363,7 @@ export class ServerWorldStateSynchronizer
   }
 
   private async handleChainFinalized(blockNumber: BlockNumber) {
-    this.log.verbose(`Finalized chain is now at block ${blockNumber}`);
+    this.log.verbose('Finalized chain is now at block %d', blockNumber);
     const summary = await this.merkleTreeDb.setFinalized(blockNumber);
     if (this.historyToKeep === undefined) {
       return;
@@ -383,29 +387,29 @@ export class ServerWorldStateSynchronizer
       1,
     );
     if (historicCheckpoints.length === 0 || historicCheckpoints[0] === undefined) {
-      this.log.warn(`Failed to retrieve checkpoint number ${newHistoricCheckpointNumber} from Archiver`);
+      this.log.warn('Failed to retrieve checkpoint number %d from Archiver', newHistoricCheckpointNumber);
       return;
     }
     const historicCheckpoint = historicCheckpoints[0];
     if (historicCheckpoint.checkpoint.blocks.length === 0 || historicCheckpoint.checkpoint.blocks[0] === undefined) {
-      this.log.warn(`Retrieved checkpoint number ${newHistoricCheckpointNumber} has no blocks!`);
+      this.log.warn('Retrieved checkpoint number %d has no blocks!', newHistoricCheckpointNumber);
       return;
     }
     // Find the block at the start of the checkpoint and remove blocks up to this one
     const newHistoricBlock = historicCheckpoint.checkpoint.blocks[0];
-    this.log.verbose(`Pruning historic blocks to ${newHistoricBlock.number}`);
+    this.log.verbose('Pruning historic blocks to %d', newHistoricBlock.number);
     const status = await this.merkleTreeDb.removeHistoricalBlocks(BlockNumber(newHistoricBlock.number));
     this.log.debug(`World state summary `, status.summary);
   }
 
   private handleChainProven(blockNumber: BlockNumber) {
     this.provenBlockNumber = blockNumber;
-    this.log.debug(`Proven chain is now at block ${blockNumber}`);
+    this.log.debug('Proven chain is now at block %d', blockNumber);
     return Promise.resolve();
   }
 
   private async handleChainPruned(blockNumber: BlockNumber) {
-    this.log.warn(`Chain pruned to block ${blockNumber}`);
+    this.log.warn('Chain pruned to block %d', blockNumber);
     const status = await this.merkleTreeDb.unwindBlocks(blockNumber);
     this.provenBlockNumber = undefined;
     this.instrumentation.updateWorldStateMetrics(status);
@@ -417,6 +421,6 @@ export class ServerWorldStateSynchronizer
    */
   private setCurrentState(newState: WorldStateRunningState) {
     this.currentState = newState;
-    this.log.debug(`Moved to state ${WorldStateRunningState[this.currentState]}`);
+    this.log.debug('Moved to state %s', WorldStateRunningState[this.currentState]);
   }
 }

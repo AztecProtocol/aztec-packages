@@ -226,7 +226,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
    * Clears expired payloads and offenses from stores.
    */
   protected async handleNewRound(round: bigint) {
-    this.log.info(`Starting new slashing round ${round}`);
+    this.log.info('Starting new slashing round %s', round);
     await this.payloadsStore.clearExpiredPayloads(round);
     await this.offensesCollector.handleNewRound(round);
   }
@@ -238,7 +238,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
   protected async handleProposalExecutable(payloadAddress: EthAddress, round: bigint) {
     // Track this payload for execution later
     this.executablePayloads.push({ payload: payloadAddress, round });
-    this.log.verbose(`Proposal ${payloadAddress.toString()} is executable for round ${round}`, {
+    this.log.verbose('Proposal %s is executable for round %s', payloadAddress, round, {
       payloadAddress,
       round,
     });
@@ -257,7 +257,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
       (await this.payloadsStore.getPayload(payloadAddress)) ??
       (await this.slashFactoryContract.getSlashPayloadFromEvents(payloadAddress, this.settings));
     if (!payload) {
-      this.log.warn(`No payload found for ${payloadAddress.toString()} in round ${round}`);
+      this.log.warn('No payload found for %s in round %s', payloadAddress, round);
       return;
     }
 
@@ -270,7 +270,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
    * Removes the proposal from the list of executable ones.
    */
   protected handleProposalExecuted(payload: EthAddress, round: bigint) {
-    this.log.verbose(`Proposal ${payload.toString()} on round ${round} has been executed`);
+    this.log.verbose('Proposal %s on round %s has been executed', payload, round);
     const index = this.executablePayloads.findIndex(p => p.payload.equals(payload));
     if (index !== -1) {
       this.executablePayloads.splice(index, 1);
@@ -286,10 +286,10 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
   protected async handleProposalSignalled(payloadAddress: EthAddress, round: bigint, signaller: EthAddress) {
     const payload = await this.payloadsStore.getPayload(payloadAddress);
     if (!payload) {
-      this.log.debug(`Fetching payload for signal at ${payloadAddress.toString()}`);
+      this.log.debug('Fetching payload for signal at %s', payloadAddress);
       const payload = await this.slashFactoryContract.getSlashPayloadFromEvents(payloadAddress, this.settings);
       if (!payload) {
-        this.log.warn(`No payload found for signal at ${payloadAddress.toString()}`);
+        this.log.warn('No payload found for signal at %s', payloadAddress);
         return;
       }
       const votes = await this.slashingProposer.getPayloadSignals(
@@ -298,10 +298,10 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
         payloadAddress.toString(),
       );
       await this.payloadsStore.addPayload({ ...payload, votes, round });
-      this.log.verbose(`Added payload at ${payloadAddress}`, { ...payload, votes, round, signaller });
+      this.log.verbose('Added payload at %s', payloadAddress, { ...payload, votes, round, signaller });
     } else {
       const votes = await this.payloadsStore.incrementPayloadVotes(payloadAddress, round);
-      this.log.verbose(`Added vote for payload at ${payloadAddress}`, { votes, signaller, round });
+      this.log.verbose('Added vote for payload at %s', payloadAddress, { votes, signaller, round });
     }
   }
 
@@ -324,7 +324,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
     const { slashMaxPayloadSize } = this.config;
     const selectedOffenses = sortedOffenses.slice(0, slashMaxPayloadSize);
     if (selectedOffenses.length !== sortedOffenses.length) {
-      this.log.warn(`Offense list of ${sortedOffenses.length} truncated to max size of ${slashMaxPayloadSize}`);
+      this.log.warn('Offense list of %d truncated to max size of %d', sortedOffenses.length, slashMaxPayloadSize);
     }
 
     return selectedOffenses;
@@ -380,19 +380,19 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
     for (const payload of this.executablePayloads) {
       const executableRound = payload.round + BigInt(this.settings.slashingExecutionDelayInRounds) + 1n;
       if (round < executableRound) {
-        this.log.debug(`Payload ${payload.payload} for round ${payload.round} is not executable yet`);
+        this.log.debug('Payload %s for round %s is not executable yet', payload.payload, payload.round);
         continue;
       }
 
       if (payload.round + BigInt(this.settings.slashingPayloadLifetimeInRounds) < round) {
-        this.log.verbose(`Payload ${payload.payload} for round ${payload.round} has expired`);
+        this.log.verbose('Payload %s for round %s has expired', payload.payload, payload.round);
         toRemove.push(payload);
         continue;
       }
 
       const roundInfo = await this.slashingProposer.getRoundInfo(this.rollup.address, payload.round);
       if (roundInfo.executed) {
-        this.log.verbose(`Payload ${payload.payload} for round ${payload.round} has already been executed`);
+        this.log.verbose('Payload %s for round %s has already been executed', payload.payload, payload.round);
         toRemove.push(payload);
         continue;
       }
@@ -407,12 +407,12 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
       const isVetoed = await this.slasher.isPayloadVetoed(payload.payload);
 
       if (isVetoed) {
-        this.log.info(`Payload ${payload.payload} from round ${payload.round} is vetoed (skipping execution)`);
+        this.log.info('Payload %s from round %s is vetoed (skipping execution)', payload.payload, payload.round);
         toRemove.push(payload);
         continue;
       }
 
-      this.log.info(`Executing payload ${payload.payload} from round ${payload.round}`);
+      this.log.info('Executing payload %s from round %s', payload.payload, payload.round);
       toExecute = payload;
       break;
     }
@@ -431,7 +431,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
 
     // If override payload is active, vote for it
     if (this.overridePayloadActive && this.config.slashOverridePayload && !this.config.slashOverridePayload.isZero()) {
-      this.log.info(`Overriding slash payload to ${this.config.slashOverridePayload.toString()}`, logData);
+      this.log.info('Overriding slash payload to %s', this.config.slashOverridePayload, logData);
       return [{ type: 'vote-empire-payload', payload: this.config.slashOverridePayload }];
     }
 
@@ -439,7 +439,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
     const existingPayloads = await this.payloadsStore.getPayloadsForRound(round);
     const winningPayload = existingPayloads.find(p => p.votes >= quorumSize);
     if (winningPayload) {
-      this.log.verbose(`No need to vote as payload ${winningPayload.address} has already won`, logData);
+      this.log.verbose('No need to vote as payload %s has already won', winningPayload.address, logData);
       return [];
     }
 
@@ -458,9 +458,9 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
         idealOffenses.length === 0
           ? undefined
           : { slashes: offensesToValidatorSlash(idealOffenses), votes: 0n, address: EthAddress.ZERO };
-      this.log.debug(`Collected offenses for ideal payload for round ${round}`, { ...logData, idealOffenses });
+      this.log.debug('Collected offenses for ideal payload for round %s', round, { ...logData, idealOffenses });
     } else {
-      this.log.debug(`Past nomination phase, will not create new payloads for round ${round}`, logData);
+      this.log.debug('Past nomination phase, will not create new payloads for round %s', round, logData);
     }
 
     // Find the best existing payload. We filter out those that have no chance of winning given how many voting
@@ -474,7 +474,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
 
     // Debug all payloads info
     if (this.log.isLevelEnabled('debug')) {
-      this.log.debug(`Scored payloads for round ${round}`, {
+      this.log.debug('Scored payloads for round %s', round, {
         ...logData,
         idealPayload,
         existingPayloads: existingPayloads.map(p => ({
@@ -494,7 +494,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
 
     if (bestPayload === undefined || this.calculatePayloadScore(bestPayload) === 0n) {
       // No payloads to vote for, do nothing
-      this.log.verbose(`No suitable slash payloads to vote for in round ${round}`, {
+      this.log.verbose('No suitable slash payloads to vote for in round %s', round, {
         ...logData,
         existingPayloadsCount: existingPayloads.length,
         feasiblePayloadsCount: feasiblePayloads.length,
@@ -505,7 +505,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
     } else if (bestPayload === idealPayload) {
       // If our ideal payload is the best, we create it (if not deployed yet) and vote for it
       const { address, isDeployed } = await this.slashFactoryContract.getAddressAndIsDeployed(idealPayload.slashes);
-      this.log.info(`Proposing and voting for payload ${address.toString()} in round ${round}`, {
+      this.log.info('Proposing and voting for payload %s in round %s', address, round, {
         ...logData,
         payload: bestPayload,
       });
@@ -516,7 +516,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
       return compactArray<ProposerSlashAction>([createAction, voteAction]);
     } else {
       // Otherwise, vote for our favorite payload
-      this.log.info(`Voting for existing payload ${bestPayload.address.toString()} in round ${round}`, {
+      this.log.info('Voting for existing payload %s in round %s', bestPayload.address, round, {
         ...logData,
         payload: bestPayload,
       });
@@ -551,12 +551,12 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
       for (const { offenseType, epochOrSlot } of slash.offenses) {
         const offense: OffenseIdentifier = { validator: slash.validator, offenseType, epochOrSlot };
         if (!(await this.offensesStore.hasPendingOffense(offense))) {
-          this.log.debug(`Rejecting payload ${payload.address} due to offense not found`, { offense, payload });
+          this.log.debug('Rejecting payload %s due to offense not found', payload.address, { offense, payload });
           return false;
         }
         const [minRound, maxRound] = this.getRoundRangeForOffense(offense);
         if (round < minRound || round > maxRound) {
-          this.log.debug(`Rejecting payload ${payload.address} due to offense not from valid round`, {
+          this.log.debug('Rejecting payload %s due to offense not from valid round', payload.address, {
             offense,
             payload,
             round,
@@ -568,7 +568,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
       }
       const [minSlashAmount, maxSlashAmount] = this.getSlashAmountValidRange(slash.offenses);
       if (slash.amount < minSlashAmount || slash.amount > maxSlashAmount) {
-        this.log.debug(`Rejecting payload ${payload.address} due to slash amount out of range`, {
+        this.log.debug('Rejecting payload %s due to slash amount out of range', payload.address, {
           amount: slash.amount,
           minSlashAmount,
           maxSlashAmount,

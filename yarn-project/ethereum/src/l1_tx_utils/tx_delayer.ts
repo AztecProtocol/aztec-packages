@@ -36,7 +36,7 @@ export function waitUntilBlock<T extends Client>(
   return retryUntil(
     async () => {
       const currentBlockNumber = await publicClient.getBlockNumber({ cacheTime: 0 });
-      logger?.debug(`Block number is ${currentBlockNumber} (waiting until ${blockNumber})`);
+      logger?.debug('Block number is %s (waiting until %s)', currentBlockNumber, blockNumber);
       return currentBlockNumber >= BigInt(blockNumber);
     },
     `Wait until L1 block ${blockNumber}`,
@@ -66,7 +66,7 @@ export function waitUntilL1Timestamp<T extends Client>(
       lastBlock = currentBlockNumber;
       const currentBlock = await publicClient.getBlock({ includeTransactions: false, blockNumber: currentBlockNumber });
       const currentTs = currentBlock.timestamp;
-      logger?.debug(`Block timstamp is ${currentTs} (waiting until ${timestamp})`);
+      logger?.debug('Block timstamp is %s (waiting until %s)', currentTs, timestamp);
       return currentTs >= BigInt(timestamp);
     },
     `Wait until L1 timestamp ${timestamp}`,
@@ -190,7 +190,7 @@ export function wrapClientWithDelayer<T extends ViemClient>(client: T, delayer: 
 
           // Cancel tx outright if instructed
           if ('indefinitely' in waitUntil && waitUntil.indefinitely) {
-            logger.info(`Cancelling tx ${txHash}`, { sender });
+            logger.info('Cancelling tx %s', txHash, { sender });
             delayer.cancelledTxs.push(serializedTransaction);
             return Promise.resolve(txHash);
           }
@@ -203,7 +203,7 @@ export function wrapClientWithDelayer<T extends ViemClient>(client: T, delayer: 
                 ? waitUntilL1Timestamp(publicClient, waitUntil.l1Timestamp - delayer.ethereumSlotDuration, logger)
                 : undefined;
 
-          logger.info(`Delaying tx ${txHash} until ${inspect(waitUntil)}`, {
+          logger.info('Delaying tx %s until %s', txHash, inspect(waitUntil), {
             sender,
             argsLen: args.length,
             ...omit(parseTransaction(serializedTransaction), 'data', 'sidecars'),
@@ -226,10 +226,10 @@ export function wrapClientWithDelayer<T extends ViemClient>(client: T, delayer: 
           if (now / 1000 - Number(lastBlockTimestamp) > delayer.maxInclusionTimeIntoSlot) {
             // If the last block was mined more than `maxInclusionTimeIntoSlot` seconds ago, then we cannot include
             // any txs in the current slot, so we delay the tx until the next slot.
-            logger.info(`Delaying inclusion of tx ${txHash} until the next slot since it was sent too late`, logData);
+            logger.info('Delaying inclusion of tx %s until the next slot since it was sent too late', txHash, logData);
             wait = waitUntilBlock(publicClient, number + 1n, logger);
           } else {
-            logger.debug(`Immediately sending tx ${txHash} as it was received early enough in the slot`, logData);
+            logger.debug('Immediately sending tx %s as it was received early enough in the slot', txHash, logData);
           }
         }
 
@@ -246,14 +246,14 @@ export function wrapClientWithDelayer<T extends ViemClient>(client: T, delayer: 
                   computedTxHash: txHash,
                 });
               }
-              logger.info(`Sent previously delayed tx ${clientTxHash}`, { sender });
+              logger.info('Sent previously delayed tx %s', clientTxHash, { sender });
               delayer.sentTxHashes.push(clientTxHash);
             })
             .catch(err => logger.error(`Error sending tx after delay`, err));
           return Promise.resolve(txHash!);
         } else {
           const txHash = await client.sendRawTransaction(...args);
-          logger.debug(`Sent tx immediately ${txHash}`, { sender });
+          logger.debug('Sent tx immediately %s', txHash, { sender });
           delayer.sentTxHashes.push(txHash);
           return txHash;
         }

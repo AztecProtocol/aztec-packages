@@ -208,15 +208,15 @@ export class BotFactory {
     const accountManager = await this.wallet.createSchnorrAccount(secret, salt, signingKey);
     const metadata = await this.wallet.getContractMetadata(accountManager.address);
     if (metadata.isContractInitialized) {
-      this.log.info(`Account at ${accountManager.address.toString()} already initialized`);
+      this.log.info('Account at %s already initialized', accountManager.address);
       const timer = new Timer();
       const address = accountManager.address;
-      this.log.info(`Account at ${address} registered. duration=${timer.ms()}`);
+      this.log.info('Account at %s registered. duration=%dms', address, timer.ms());
       await this.store.deleteBridgeClaim(address);
       return address;
     } else {
       const address = accountManager.address;
-      this.log.info(`Deploying account at ${address}`);
+      this.log.info('Deploying account at %s', address);
 
       const claim = await this.getOrCreateBridgeClaim(address);
 
@@ -231,10 +231,10 @@ export class BotFactory {
           fee: { gasSettings, paymentMethod },
           wait: NO_WAIT,
         });
-        this.log.info(`Sent tx for account deployment with hash ${txHash.toString()}`);
+        this.log.info('Sent tx for account deployment with hash %s', txHash);
         return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
       });
-      this.log.info(`Account deployed at ${address}`);
+      this.log.info('Account deployed at %s', address);
 
       // Clean up the consumed bridge claim
       await this.store.deleteBridgeClaim(address);
@@ -293,12 +293,12 @@ export class BotFactory {
     const address = tokenInstance?.address ?? (await deploy.getInstance(deployOpts)).address;
     const metadata = await this.wallet.getContractMetadata(address);
     if (metadata.isContractPublished) {
-      this.log.info(`Token at ${address.toString()} already deployed`);
+      this.log.info('Token at %s already deployed', address);
       await deploy.register();
     } else {
-      this.log.info(`Deploying token contract at ${address.toString()}`);
+      this.log.info('Deploying token contract at %s', address);
       const { txHash } = await deploy.send({ ...deployOpts, wait: NO_WAIT });
-      this.log.info(`Sent tx for token setup with hash ${txHash.toString()}`);
+      this.log.info('Sent tx for token setup with hash %s', txHash);
       await this.withNoMinTxsPerBlock(async () => {
         await waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
         return token;
@@ -337,11 +337,11 @@ export class BotFactory {
     const instance = await this.registerOrDeployContract('AMM', deploy, deployOpts);
     const amm = AMMContract.at(instance.address, this.wallet);
 
-    this.log.info(`AMM deployed at ${amm.address}`);
+    this.log.info('AMM deployed at %s', amm.address);
     const { receipt: minterReceipt } = await lpToken.methods
       .set_minter(amm.address, true)
       .send({ from: deployer, wait: { timeout: this.config.txMinedWaitSeconds } });
-    this.log.info(`Set LP token minter to AMM txHash=${minterReceipt.txHash.toString()}`);
+    this.log.info('Set LP token minter to AMM txHash=%s', minterReceipt.txHash);
     this.log.info(`Liquidity token initialized`);
 
     return amm;
@@ -414,7 +414,7 @@ export class BotFactory {
       token1.methods.mint_to_private(liquidityProvider, MINT_BALANCE),
     ]).send({ from: liquidityProvider, wait: { timeout: this.config.txMinedWaitSeconds } });
 
-    this.log.info(`Sent mint tx: ${mintReceipt.txHash.toString()}`);
+    this.log.info('Sent mint tx: %s', mintReceipt.txHash);
 
     const { receipt: addLiquidityReceipt } = await amm.methods
       .add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, authwitNonce)
@@ -424,7 +424,7 @@ export class BotFactory {
         wait: { timeout: this.config.txMinedWaitSeconds },
       });
 
-    this.log.info(`Sent tx to add liquidity to the AMM: ${addLiquidityReceipt.txHash.toString()}`);
+    this.log.info('Sent tx to add liquidity to the AMM: %s', addLiquidityReceipt.txHash);
     this.log.info(`Liquidity added`);
 
     const [newT0Bal, newT1Bal, newLPBal] = await getPrivateBalances();
@@ -442,13 +442,13 @@ export class BotFactory {
     const address = instance.address;
     const metadata = await this.wallet.getContractMetadata(address);
     if (metadata.isContractPublished) {
-      this.log.info(`Contract ${name} at ${address.toString()} already deployed`);
+      this.log.info('Contract %s at %s already deployed', name, address);
       await deploy.register();
     } else {
-      this.log.info(`Deploying contract ${name} at ${address.toString()}`);
+      this.log.info('Deploying contract %s at %s', name, address);
       await this.withNoMinTxsPerBlock(async () => {
         const { txHash } = await deploy.send({ ...deployOpts, wait: NO_WAIT });
-        this.log.info(`Sent contract ${name} setup tx with hash ${txHash.toString()}`);
+        this.log.info('Sent contract %s setup tx with hash %s', name, txHash);
         return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
       });
     }
@@ -472,7 +472,7 @@ export class BotFactory {
 
     const calls: ContractFunctionInteraction[] = [];
     if (privateBalance < MIN_BALANCE) {
-      this.log.info(`Minting private tokens for ${minter.toString()}`);
+      this.log.info('Minting private tokens for %s', minter);
 
       calls.push(
         isStandardToken
@@ -481,11 +481,11 @@ export class BotFactory {
       );
     }
     if (isStandardToken && publicBalance < MIN_BALANCE) {
-      this.log.info(`Minting public tokens for ${minter.toString()}`);
+      this.log.info('Minting public tokens for %s', minter);
       calls.push(token.methods.mint_to_public(minter, MINT_BALANCE));
     }
     if (calls.length === 0) {
-      this.log.info(`Skipping minting as ${minter.toString()} has enough tokens`);
+      this.log.info('Skipping minting as %s has enough tokens', minter);
       return;
     }
 
@@ -497,7 +497,7 @@ export class BotFactory {
         additionalScopes,
         wait: NO_WAIT,
       });
-      this.log.info(`Sent token mint tx with hash ${txHash.toString()}`);
+      this.log.info('Sent token mint tx with hash %s', txHash);
       return waitForTx(this.aztecNode, txHash, { timeout: this.config.txMinedWaitSeconds });
     });
   }
@@ -511,7 +511,7 @@ export class BotFactory {
     // Check if we have an existing claim in the store
     const existingClaim = await this.store.getBridgeClaim(recipient);
     if (existingClaim) {
-      this.log.info(`Found existing bridge claim for ${recipient.toString()}, checking validity...`);
+      this.log.info('Found existing bridge claim for %s, checking validity...', recipient);
 
       // Check if the message is ready on L2
       try {
@@ -523,7 +523,7 @@ export class BotFactory {
         );
         return existingClaim.claim;
       } catch (err) {
-        this.log.warn(`Failed to verify existing claim, creating new one: ${err}`);
+        this.log.warn('Failed to verify existing claim, creating new one: %s', err);
         await this.store.deleteBridgeClaim(recipient);
       }
     }
@@ -560,7 +560,7 @@ export class BotFactory {
       }),
     );
 
-    this.log.info(`Created a claim for ${mintAmount} L1 fee juice to ${recipient}.`, claim);
+    this.log.info('Created a claim for %s L1 fee juice to %s.', mintAmount, recipient, claim);
 
     return claim as L2AmountClaim;
   }
@@ -571,12 +571,12 @@ export class BotFactory {
       return fn();
     }
     const { minTxsPerBlock } = await this.aztecNodeAdmin.getConfig();
-    this.log.warn(`Setting sequencer minTxsPerBlock to 0 from ${minTxsPerBlock} to flush setup transactions`);
+    this.log.warn('Setting sequencer minTxsPerBlock to 0 from %d to flush setup transactions', minTxsPerBlock);
     await this.aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
     try {
       return await fn();
     } finally {
-      this.log.warn(`Restoring sequencer minTxsPerBlock to ${minTxsPerBlock}`);
+      this.log.warn('Restoring sequencer minTxsPerBlock to %d', minTxsPerBlock);
       await this.aztecNodeAdmin.setConfig({ minTxsPerBlock });
     }
   }

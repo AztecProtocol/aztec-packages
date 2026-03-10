@@ -99,7 +99,11 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     l1TxState.status = newState;
     const sender = this.getSenderAddress().toString();
     this.logger.debug(
-      `Tx state changed from ${TxUtilsState[oldState]} to ${TxUtilsState[newState]} for nonce ${l1TxState.nonce} account ${sender}`,
+      'Tx state changed from %s to %s for nonce %d account %s',
+      TxUtilsState[oldState],
+      TxUtilsState[newState],
+      l1TxState.nonce,
+      sender,
     );
 
     // Record metrics
@@ -151,14 +155,17 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     const loadedStates = await this.store.loadStates(account);
 
     if (loadedStates.length === 0) {
-      this.logger.debug(`No states to rehydrate for account ${account}`);
+      this.logger.debug('No states to rehydrate for account %s', account);
       return;
     }
 
     // Clean up excess states if we have more than MAX_L1_TX_STATES
     if (loadedStates.length > MAX_L1_TX_STATES) {
       this.logger.warn(
-        `Found ${loadedStates.length} tx states for account ${account}, pruning to most recent ${MAX_L1_TX_STATES}`,
+        'Found %d tx states for account %s, pruning to most recent %d',
+        loadedStates.length,
+        account,
+        MAX_L1_TX_STATES,
       );
 
       // Keep only the most recent MAX_L1_TX_STATES
@@ -171,12 +178,15 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
       this.txs = statesToKeep;
       this.logger.info(
-        `Cleaned up ${statesToDelete.length} old tx states, kept ${statesToKeep.length} for account ${account}`,
+        'Cleaned up %d old tx states, kept %d for account %s',
+        statesToDelete.length,
+        statesToKeep.length,
+        account,
       );
     } else {
       // Convert loaded states (which have id) to the txs format
       this.txs = loadedStates;
-      this.logger.info(`Rehydrated ${loadedStates.length} tx states for account ${account}`);
+      this.logger.info('Rehydrated %d tx states for account %s', loadedStates.length, account);
     }
 
     // Find all pending states and resume monitoring
@@ -185,7 +195,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       return;
     }
 
-    this.logger.info(`Resuming monitoring for ${pendingStates.length} pending transactions for account ${account}`, {
+    this.logger.info('Resuming monitoring for %d pending transactions for account %s', pendingStates.length, account, {
       txs: pendingStates.map(s => ({ id: s.id, nonce: s.nonce, status: TxUtilsState[s.status] })),
     });
 
@@ -238,7 +248,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       } else {
         gasLimit = await this.estimateGas(account, request, gasConfig);
       }
-      this.logger.trace(`Computed gas limit ${gasLimit}`, { gasLimit, ...request });
+      this.logger.trace('Computed gas limit %s', gasLimit, { gasLimit, ...request });
 
       const gasPrice = await this.getGasPrice(gasConfig, !!blobInputs);
 
@@ -293,7 +303,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         }
       }
 
-      this.logger.info(`Sent L1 transaction ${txHash}`, {
+      this.logger.info('Sent L1 transaction %s', txHash, {
         to: request.to,
         value: request.value,
         nonce,
@@ -329,9 +339,9 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           const account = this.getSenderAddress().toString();
           const what = isCancelTx ? 'Cancellation L1 transaction' : 'L1 transaction';
           if (receipt.status === 'reverted') {
-            this.logger.warn(`${what} ${hash} with nonce ${nonce} reverted`, { receipt, nonce, account });
+            this.logger.warn('%s %s with nonce %d reverted', what, hash, nonce, { receipt, nonce, account });
           } else {
-            this.logger.info(`${what} ${hash} with nonce ${nonce} mined`, { receipt, nonce, account });
+            this.logger.info('%s %s with nonce %d mined', what, hash, nonce, { receipt, nonce, account });
           }
           return receipt;
         }
@@ -361,7 +371,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     const { txTimeoutAt, txTimeoutMs, maxSpeedUpAttempts } = txConfig;
     const isCancelTx = state.cancelTxHashes.length > 0;
 
-    this.logger.trace(`Tx timeout check for ${account} with nonce ${nonce}`, {
+    this.logger.trace('Tx timeout check for %s with nonce %d', account, nonce, {
       nonce,
       account,
       l1Timestamp,
@@ -374,7 +384,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     });
 
     if (this.interrupted) {
-      this.logger.warn(`Tx monitoring interrupted during nonce ${nonce} for ${account} check`, { nonce, account });
+      this.logger.warn('Tx monitoring interrupted during nonce %d for %s check', nonce, account, { nonce, account });
       return true;
     }
 
@@ -446,7 +456,9 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         // If it is a regular tx, we let the loop speed it up after the stall time
         if (isCancelTx && pendingNonce <= nonce && timePassed >= gasConfig.txUnseenConsideredDroppedMs) {
           this.logger.warn(
-            `Cancellation tx with nonce ${nonce} for account ${account} has been dropped from the visible mempool`,
+            'Cancellation tx with nonce %d for account %s has been dropped from the visible mempool',
+            nonce,
+            account,
             { nonce, account, pendingNonce, timePassed },
           );
           await this.updateState(state, TxUtilsState.NOT_MINED);
@@ -465,9 +477,13 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           state.gasPrice = newGasPrice;
 
           this.logger.debug(
-            `Tx ${currentTxHash} with nonce ${nonce} from ${account} appears stuck. ` +
-              `Attempting speed-up ${attempts}/${maxSpeedUpAttempts} ` +
-              `with new priority fee ${formatGwei(newGasPrice.maxPriorityFeePerGas)} gwei.`,
+            'Tx %s with nonce %d from %s appears stuck. Attempting speed-up %d/%d with new priority fee %s gwei.',
+            currentTxHash,
+            nonce,
+            account,
+            attempts,
+            maxSpeedUpAttempts,
+            formatGwei(newGasPrice.maxPriorityFeePerGas),
             {
               account,
               nonce,
@@ -483,7 +499,11 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           const newHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
 
           this.logger.verbose(
-            `Sent L1 speed-up tx ${newHash} replacing ${currentTxHash} for nonce ${nonce} from ${account}`,
+            'Sent L1 speed-up tx %s replacing %s for nonce %d from %s',
+            newHash,
+            currentTxHash,
+            nonce,
+            account,
             {
               nonce,
               account,
@@ -505,7 +525,11 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         }
 
         this.logger.debug(
-          `Tx ${currentTxHash} from ${account} with nonce ${nonce} still pending after ${timePassed}ms`,
+          'Tx %s from %s with nonce %d still pending after %dms',
+          currentTxHash,
+          account,
+          nonce,
+          timePassed,
           {
             account,
             nonce,
@@ -556,7 +580,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     }
 
     const what = isCancelTx ? 'Cancellation L1' : 'L1';
-    this.logger.warn(`${what} transaction ${initialTxHash} with nonce ${nonce} from ${account} timed out`, {
+    this.logger.warn('%s transaction %s with nonce %d from %s timed out', what, initialTxHash, nonce, account, {
       initialTxHash,
       currentTxHash,
       nonce,
@@ -616,7 +640,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       `monitoring stopped for ${account}`,
       timeoutSeconds,
       0.1,
-    ).catch(() => this.logger.warn(`Timeout waiting for monitoring loops to stop for ${account}`));
+    ).catch(() => this.logger.warn('Timeout waiting for monitoring loops to stop for %s', account));
   }
 
   /**
@@ -676,7 +700,9 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     // Do not send cancellation if interrupted
     if (this.interrupted) {
       this.logger.warn(
-        `Not sending cancellation for L1 tx from account ${account} with nonce ${nonce} as interrupted`,
+        'Not sending cancellation for L1 tx from account %s with nonce %d as interrupted',
+        account,
+        nonce,
         { nonce, account },
       );
       await this.updateState(state, TxUtilsState.NOT_MINED);
@@ -687,7 +713,9 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     const currentNonce = await this.client.getTransactionCount({ address: account, blockTag: 'pending' });
     if (currentNonce < nonce) {
       this.logger.verbose(
-        `Not sending cancellation for L1 tx from account ${account} with nonce ${nonce} as it is dropped`,
+        'Not sending cancellation for L1 tx from account %s with nonce %d as it is dropped',
+        account,
+        nonce,
         { nonce, account, currentNonce },
       );
       await this.updateState(state, TxUtilsState.NOT_MINED);
@@ -708,7 +736,10 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
     const { maxFeePerGas, maxPriorityFeePerGas, maxFeePerBlobGas } = cancelGasPrice;
     this.logger.verbose(
-      `Attempting to cancel L1 ${isBlobTx ? 'blob' : 'vanilla'} transaction from account ${account} with nonce ${nonce} after time out`,
+      'Attempting to cancel L1 %s transaction from account %s with nonce %d after time out',
+      isBlobTx ? 'blob' : 'vanilla',
+      account,
+      nonce,
       {
         maxFeePerGas: formatGwei(maxFeePerGas),
         maxPriorityFeePerGas: formatGwei(maxPriorityFeePerGas),
@@ -727,7 +758,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     state.cancelTxHashes.push(cancelTxHash);
     await this.updateState(state, TxUtilsState.CANCELLED);
 
-    this.logger.warn(`Sent cancellation tx ${cancelTxHash} for timed out tx from ${account} with nonce ${nonce}`, {
+    this.logger.warn('Sent cancellation tx %s for timed out tx from %s with nonce %d', cancelTxHash, account, nonce, {
       nonce,
       cancelGasPrice,
       isBlobTx,

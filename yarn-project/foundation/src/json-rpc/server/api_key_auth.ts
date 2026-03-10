@@ -36,7 +36,7 @@ export function getApiKeyAuthMiddleware(
 
     const providedKey = ctx.get('x-api-key') || ctx.get('authorization')?.replace(/^Bearer\s+/i, '');
     if (!providedKey) {
-      log.warn(`Rejected admin RPC request from ${ctx.ip}: missing API key`);
+      log.warn('Rejected admin RPC request from %s: missing API key', ctx.ip);
       ctx.status = 401;
       ctx.body = {
         jsonrpc: '2.0',
@@ -48,7 +48,7 @@ export function getApiKeyAuthMiddleware(
 
     const providedHashBuf = sha256Hash(providedKey);
     if (!timingSafeEqual(apiKeyHash, providedHashBuf)) {
-      log.warn(`Rejected admin RPC request from ${ctx.ip}: invalid API key`);
+      log.warn('Rejected admin RPC request from %s: invalid API key', ctx.ip);
       ctx.status = 401;
       ctx.body = {
         jsonrpc: '2.0',

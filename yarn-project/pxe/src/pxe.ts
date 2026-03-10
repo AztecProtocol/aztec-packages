@@ -273,7 +273,7 @@ export class PXE {
     pxe.jobQueue.start();
 
     await pxe.#registerProtocolContracts();
-    log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.rollupVersion}`);
+    log.info('Started PXE connected to chain %s version %s', info.l1ChainId, info.rollupVersion);
     return pxe;
   }
 
@@ -328,16 +328,16 @@ export class PXE {
 
     return this.jobQueue.put(async () => {
       const jobId = this.jobCoordinator.beginJob();
-      this.log.verbose(`Beginning job ${jobId}`);
+      this.log.verbose('Beginning job %s', jobId);
 
       try {
         const result = await fn(jobId);
-        this.log.verbose(`Committing job ${jobId}`);
+        this.log.verbose('Committing job %s', jobId);
 
         await this.jobCoordinator.commitJob(jobId);
         return result;
       } catch (err) {
-        this.log.verbose(`Aborting job ${jobId}`);
+        this.log.verbose('Aborting job %s', jobId);
         await this.jobCoordinator.abortJob(jobId);
         throw err;
       }
@@ -385,7 +385,7 @@ export class PXE {
         scopes,
         jobId,
       });
-      this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionSelector}`);
+      this.log.debug('Private simulation completed for %s:%s', contractAddress, functionSelector);
       return result;
     } catch (err) {
       if (err instanceof SimulationError) {
@@ -476,7 +476,7 @@ export class PXE {
       !this.proverEnabled,
       this.log.getBindings(),
     );
-    this.log.debug(`Executing kernel trace prover (${JSON.stringify(config)})...`);
+    this.log.debug('Executing kernel trace prover (%s)...', JSON.stringify(config));
     return await kernelTraceProver.proveWithKernels(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
   }
 
@@ -522,11 +522,11 @@ export class PXE {
     const accounts = await this.keyStore.getAccounts();
     const accountCompleteAddress = await this.keyStore.addAccount(secretKey, partialAddress);
     if (accounts.includes(accountCompleteAddress.address)) {
-      this.log.info(`Account:\n "${accountCompleteAddress.address.toString()}"\n already registered.`);
+      this.log.info('Account:\n "%s"\n already registered.', accountCompleteAddress.address);
       return accountCompleteAddress;
     } else {
-      this.log.info(`Registered account ${accountCompleteAddress.address.toString()}`);
-      this.log.debug(`Registered account\n ${accountCompleteAddress.toReadableString()}`);
+      this.log.info('Registered account %s', accountCompleteAddress.address);
+      this.log.debug('Registered account\n %s', accountCompleteAddress.toReadableString());
     }
 
     await this.addressStore.addCompleteAddress(accountCompleteAddress);
@@ -546,16 +546,16 @@ export class PXE {
   public async registerSender(sender: AztecAddress): Promise<AztecAddress> {
     const accounts = await this.keyStore.getAccounts();
     if (accounts.includes(sender)) {
-      this.log.info(`Sender:\n "${sender.toString()}"\n already registered.`);
+      this.log.info('Sender:\n "%s"\n already registered.', sender);
       return sender;
     }
 
     const wasAdded = await this.senderAddressBookStore.addSender(sender);
 
     if (wasAdded) {
-      this.log.info(`Added sender:\n ${sender.toString()}`);
+      this.log.info('Added sender:\n %s', sender);
     } else {
-      this.log.info(`Sender:\n "${sender.toString()}"\n already registered.`);
+      this.log.info('Sender:\n "%s"\n already registered.', sender);
     }
 
     return sender;
@@ -577,9 +577,9 @@ export class PXE {
     const wasRemoved = await this.senderAddressBookStore.removeSender(sender);
 
     if (wasRemoved) {
-      this.log.info(`Removed sender:\n ${sender.toString()}`);
+      this.log.info('Removed sender:\n %s', sender);
     } else {
-      this.log.info(`Sender:\n "${sender.toString()}"\n not registered in PXE.`);
+      this.log.info('Sender:\n "%s"\n not registered in PXE.', sender);
     }
   }
 
@@ -604,7 +604,7 @@ export class PXE {
    */
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
     const contractClassId = await this.contractStore.addContractArtifact(artifact);
-    this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
+    this.log.info('Added contract class %s with id %s', artifact.name, contractClassId);
   }
 
   /**
@@ -691,7 +691,7 @@ export class PXE {
         this.contractStore.addContractArtifact(artifact, contractClass),
         this.contractStore.addContractInstance(currentInstance),
       ]);
-      this.log.info(`Updated contract ${artifact.name} at ${contractAddress.toString()} to class ${contractClass.id}`);
+      this.log.info('Updated contract %s at %s to class %s', artifact.name, contractAddress, contractClass.id);
     });
   }
 
@@ -754,7 +754,7 @@ export class PXE {
             totalTime - ((syncTime ?? 0) + (proving ?? 0) + perFunction.reduce((acc, { time }) => acc + time, 0)),
         };
 
-        this.log.debug(`Proving completed in ${totalTime}ms`, { timings });
+        this.log.debug('Proving completed in %dms', totalTime, { timings });
 
         const txProvingResult = new TxProvingResult(privateExecutionResult, publicInputs, chonkProof!, {
           timings,
@@ -989,7 +989,7 @@ export class PXE {
               perFunction.reduce((acc, { time }) => acc + time, 0)),
         };
 
-        this.log.info(`Simulation completed for ${txHash.toString()} in ${totalTime}ms`, {
+        this.log.info('Simulation completed for %s in %dms', txHash, totalTime, {
           txHash,
           ...txInfo,
           ...(publicOutput

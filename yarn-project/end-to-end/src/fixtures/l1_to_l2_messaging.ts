@@ -35,7 +35,7 @@ export async function sendL1ToL2Message(
       gas: 1_000_000n,
     },
   );
-  logger.info(`L1 to L2 message sent in tx ${txHash}`);
+  logger.info('L1 to L2 message sent in tx %s', txHash);
 
   // We check that the message was correctly injected by checking the emitted event
   const txReceipt = await ctx.l1Client.waitForTransactionReceipt({ hash: txHash });
@@ -44,7 +44,7 @@ export async function sendL1ToL2Message(
     throw new Error(`L1 to L2 message failed to be sent in tx ${txHash}. Status: ${txReceipt.status}`);
   }
 
-  logger.info(`L1 to L2 message receipt retrieved for tx ${txReceipt.transactionHash}`, txReceipt);
+  logger.info('L1 to L2 message receipt retrieved for tx %s', txReceipt.transactionHash, txReceipt);
 
   if (txReceipt.transactionHash !== txHash) {
     throw new Error(`Receipt transaction hash mismatch: ${txReceipt.transactionHash} !== ${txHash}`);

@@ -57,19 +57,19 @@ export async function openTmpStore(
 ): Promise<AztecLMDBStoreV2> {
   const log = createLogger('kv-store:lmdb-v2:' + name, bindings);
   const dataDir = await mkdtemp(join(tmpdir(), name + '-'));
-  log.debug(`Created temporary data store at: ${dataDir} with size: ${dbMapSizeKb} KB (LMDB v2)`);
+  log.debug('Created temporary data store at: %s with size: %d KB (LMDB v2)', dataDir, dbMapSizeKb);
 
   // pass a cleanup callback because process.on('beforeExit', cleanup) does not work under Jest
   const cleanup = async () => {
     if (ephemeral) {
       try {
         await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
-        log.debug(`Deleted temporary data store: ${dataDir}`);
+        log.debug('Deleted temporary data store: %s', dataDir);
       } catch (err) {
-        log.warn(`Failed to delete temporary data directory (LMDB v2) ${dataDir}: ${err}`);
+        log.warn('Failed to delete temporary data directory (LMDB v2) %s: %s', dataDir, err);
       }
     } else {
-      log.debug(`Leaving temporary data store: ${dataDir}`);
+      log.debug('Leaving temporary data store: %s', dataDir);
     }
   };
 
@@ -85,7 +85,7 @@ export async function openStoreAt(
   bindings?: LoggerBindings,
 ): Promise<AztecLMDBStoreV2> {
   const log = createLogger('kv-store:lmdb-v2', bindings);
-  log.debug(`Opening data store at: ${dataDir} with size: ${dbMapSizeKb} KB (LMDB v2)`);
+  log.debug('Opening data store at: %s with size: %d KB (LMDB v2)', dataDir, dbMapSizeKb);
   return await AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, undefined, bindings);
 }
 
@@ -98,7 +98,7 @@ export async function openVersionedStoreAt(
   bindings?: LoggerBindings,
 ): Promise<AztecLMDBStoreV2> {
   const log = createLogger('kv-store:lmdb-v2', bindings);
-  log.debug(`Opening data store at: ${dataDirectory} with size: ${dbMapSizeKb} KB (LMDB v2)`);
+  log.debug('Opening data store at: %s with size: %d KB (LMDB v2)', dataDirectory, dbMapSizeKb);
   const [store] = await new DatabaseVersionManager({
     schemaVersion,
     rollupAddress,

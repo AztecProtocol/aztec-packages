@@ -59,7 +59,7 @@ export class VersionChecker extends EventEmitter<EventMap> {
         this.emit('newVersion', { name, latestVersion, currentVersion });
       }
     } catch (err) {
-      this.logger.warn(`Error checking for new ${name} versions: ${err}`, { err });
+      this.logger.warn('Error checking for new %s versions: %s', name, err, { err });
     }
   }
 }

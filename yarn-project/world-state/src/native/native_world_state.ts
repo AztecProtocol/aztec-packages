@@ -108,15 +108,15 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       messageTreeMapSizeKb: dbMapSizeKb,
       publicDataTreeMapSizeKb: dbMapSizeKb,
     };
-    log.debug(`Created temporary world state database at: ${dataDir} with tree map size: ${dbMapSizeKb}`);
+    log.debug('Created temporary world state database at: %s with tree map size: %d', dataDir, dbMapSizeKb);
 
     // pass a cleanup callback because process.on('beforeExit', cleanup) does not work under Jest
     const cleanup = async () => {
       if (cleanupTmpDir) {
         await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
-        log.debug(`Deleted temporary world state database: ${dataDir}`);
+        log.debug('Deleted temporary world state database: %s', dataDir);
       } else {
-        log.debug(`Leaving temporary world state database: ${dataDir}`);
+        log.debug('Leaving temporary world state database: %s', dataDir);
       }
     };
 

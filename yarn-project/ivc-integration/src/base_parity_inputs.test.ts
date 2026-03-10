@@ -27,12 +27,12 @@ describe('Base Parity Benchmark Inputs', () => {
       logger.info('Skipping base parity bench input generation (BASE_PARITY_BENCH_DIR not set)');
       return;
     }
-    logger.info(`Generating base parity bench inputs to ${outputDir}`);
+    logger.info('Generating base parity bench inputs to %s', outputDir);
 
     await fs.mkdir(outputDir, { recursive: true });
 
     // Generate random L1-to-L2 messages
-    logger.info(`Generating ${NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP} random L1-to-L2 messages...`);
+    logger.info('Generating %d random L1-to-L2 messages...', NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
     const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(null).map(() => Fr.random());
 
     // Create base parity inputs for the first slice
@@ -60,17 +60,17 @@ describe('Base Parity Benchmark Inputs', () => {
     // Save bytecode as JSON (bb expects the full JSON artifact)
     const bytecodeOutputPath = path.join(outputDir, 'parity_base.json');
     await fs.writeFile(bytecodeOutputPath, JSON.stringify(artifact));
-    logger.info(`Wrote bytecode to ${bytecodeOutputPath}`);
+    logger.info('Wrote bytecode to %s', bytecodeOutputPath);
 
     // Save witness (already gzipped by Noir) - bb expects .gz format
     const witnessOutputPath = path.join(outputDir, 'witness.gz');
     await fs.writeFile(witnessOutputPath, witness);
-    logger.info(`Wrote witness to ${witnessOutputPath}`);
+    logger.info('Wrote witness to %s', witnessOutputPath);
 
     logger.info('Base parity bench inputs generated successfully');
-    logger.info(`Output directory: ${outputDir}`);
+    logger.info('Output directory: %s', outputDir);
     logger.info('Files:');
-    logger.info(`  - ${bytecodeOutputPath} (circuit bytecode)`);
-    logger.info(`  - ${witnessOutputPath} (compressed witness)`);
+    logger.info('  - %s (circuit bytecode)', bytecodeOutputPath);
+    logger.info('  - %s (compressed witness)', witnessOutputPath);
   });
 });

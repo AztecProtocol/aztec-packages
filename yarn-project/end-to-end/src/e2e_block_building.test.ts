@@ -99,15 +99,15 @@ describe('e2e_block_building', () => {
       const TX_COUNT = MAX_TXS_FIT_IN_DEADLINE * (EXPECTED_BLOCKS - 1) + 1;
 
       // print out the test parameters
-      logger.info(`multi-block timetable test parameters:`);
-      logger.info(`  Deadline per block: ${DEADLINE_MS} ms`);
-      logger.info(`  Fake delay per tx: ${FAKE_DELAY_PER_TX_MS} ms`);
-      logger.info(`  Max txs that should fit in deadline: ${MAX_TXS_FIT_IN_DEADLINE}`);
-      logger.info(`  Total txs to send: ${TX_COUNT}`);
-      logger.info(`  Expected minimum blocks: ${EXPECTED_BLOCKS}`);
+      logger.info('multi-block timetable test parameters:');
+      logger.info('  Deadline per block: %d ms', DEADLINE_MS);
+      logger.info('  Fake delay per tx: %d ms', FAKE_DELAY_PER_TX_MS);
+      logger.info('  Max txs that should fit in deadline: %d', MAX_TXS_FIT_IN_DEADLINE);
+      logger.info('  Total txs to send: %d', TX_COUNT);
+      logger.info('  Expected minimum blocks: %d', EXPECTED_BLOCKS);
 
       const { contract } = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress });
-      logger.info(`Deployed stateful test contract at ${contract.address}`);
+      logger.info('Deployed stateful test contract at %s', contract.address);
 
       // Configure sequencer with a small delay per tx and enforce timetable
       await aztecNodeAdmin.setConfig({
@@ -127,9 +127,9 @@ describe('e2e_block_building', () => {
       // Flood the mempool with TX_COUNT simultaneous txs
       const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
       const provenTxs = await asyncMap(methods, method => proveInteraction(wallet, method, { from: ownerAddress }));
-      logger.info(`Sending ${TX_COUNT} txs to the node`);
+      logger.info('Sending %d txs to the node', TX_COUNT);
       const txHashes = await Promise.all(provenTxs.map(tx => tx.send({ wait: NO_WAIT })));
-      logger.info(`All ${TX_COUNT} txs have been sent`, {
+      logger.info('All %d txs have been sent', TX_COUNT, {
         txs: txHashes.map(h => h.toString()),
       });
 
@@ -166,9 +166,9 @@ describe('e2e_block_building', () => {
 
       // Send them simultaneously to be picked up by the sequencer
       const txHashes = await Promise.all(provenTxs.map(tx => tx.send({ wait: NO_WAIT })));
-      logger.info(`Txs sent with hashes: `);
+      logger.info('Txs sent with hashes: ');
       for (const hash of txHashes) {
-        logger.info(` ${hash.toString()}`);
+        logger.info(' %s', hash);
       }
 
       // Await txs to be mined and assert they are all mined on the same block
@@ -199,9 +199,9 @@ describe('e2e_block_building', () => {
 
       // Send them simultaneously to be picked up by the sequencer
       const txHashes = await Promise.all(provenTxs.map(tx => tx.send({ wait: NO_WAIT })));
-      logger.info(`Txs sent with hashes: `);
+      logger.info('Txs sent with hashes: ');
       for (const hash of txHashes) {
-        logger.info(` ${hash.toString()}`);
+        logger.info(' %s', hash);
       }
 
       // Await txs to be mined and assert they are all mined on the same block
@@ -227,7 +227,7 @@ describe('e2e_block_building', () => {
         sentNullifierTxs.push(another.methods.emit_nullifier(Fr.random()).send({ from: ownerAddress, wait: NO_WAIT }));
       }
       await Promise.all(sentNullifierTxs);
-      logger.info(`Nullifier txs sent`);
+      logger.info('Nullifier txs sent');
 
       await aztecNodeAdmin.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 4 });
 
@@ -241,7 +241,7 @@ describe('e2e_block_building', () => {
       }
 
       await Promise.all(sentTxs);
-      logger.info(`Txs sent`);
+      logger.info('Txs sent');
     });
 
     // Uses priority fees to guarantee the deploy tx is ordered before the call tx within the same block.
@@ -295,7 +295,7 @@ describe('e2e_block_building', () => {
         accounts: [ownerAddress],
       } = await setup(1));
       ({ contract } = await TestContract.deploy(wallet).send({ from: ownerAddress }));
-      logger.info(`Test contract deployed at ${contract.address}`);
+      logger.info('Test contract deployed at %s', contract.address);
     });
 
     afterAll(() => teardown());
@@ -421,7 +421,7 @@ describe('e2e_block_building', () => {
         accounts: [ownerAddress],
       } = await setup(1));
 
-      logger.info(`Deploying test contract`);
+      logger.info('Deploying test contract');
       ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: ownerAddress }));
     }, 60_000);
 
@@ -564,7 +564,7 @@ describe('e2e_block_building', () => {
       } = context);
 
       const { contract: testContract } = await TestContract.deploy(wallet).send({ from: ownerAddress });
-      logger.warn(`Test contract deployed at ${testContract.address}`);
+      logger.warn('Test contract deployed at %s', testContract.address);
 
       // We want the sequencer to wait until both txs have arrived (so minTxsPerBlock=2), but agree to build
       // a block with 1 tx only. We also want to simulate an AVM failure in tx processing for only one of the txs.
@@ -584,10 +584,10 @@ describe('e2e_block_building', () => {
 
       const txHashResults = await Promise.all(batches.map(batch => batch.send({ from: ownerAddress, wait: NO_WAIT })));
       const txHashes = txHashResults.map(({ txHash }) => txHash);
-      logger.warn(`Sent two txs to test contract`, { txs: txHashes.map(hash => hash.toString()) });
+      logger.warn('Sent two txs to test contract', { txs: txHashes.map(hash => hash.toString()) });
       await Promise.race(txHashes.map(txHash => waitForTx(aztecNode, txHash, { timeout: 60 })));
 
-      logger.warn(`At least one tx has been mined`);
+      logger.warn('At least one tx has been mined');
       const lastBlock = await context.aztecNode.getBlockHeader();
       expect(lastBlock).toBeDefined();
 
@@ -617,7 +617,7 @@ describe('e2e_block_building', () => {
 
       ({ contract } = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress }));
       initialBlockNumber = await aztecNode.getBlockNumber();
-      logger.info(`Stateful test contract deployed at ${contract.address}`);
+      logger.info('Stateful test contract deployed at %s', contract.address);
 
       await cheatCodes.rollup.advanceToNextEpoch();
 
@@ -656,7 +656,7 @@ describe('e2e_block_building', () => {
       );
 
       // Wait until the sequencer kicks out tx1
-      logger.info(`Waiting for node to prune tx1`);
+      logger.info('Waiting for node to prune tx1');
       await retryUntil(
         async () => (await aztecNode.getTxReceipt(tx1.txHash)).status === TxStatus.PENDING,
         'wait for pruning',
@@ -665,7 +665,7 @@ describe('e2e_block_building', () => {
       );
 
       // And wait until it is brought back tx1
-      logger.info(`Waiting for node to re-include tx1`);
+      logger.info('Waiting for node to re-include tx1');
       await retryUntil(
         async () => {
           const receipt = await aztecNode.getTxReceipt(tx1.txHash);

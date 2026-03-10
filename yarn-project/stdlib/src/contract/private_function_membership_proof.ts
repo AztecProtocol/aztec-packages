@@ -68,7 +68,7 @@ export async function createPrivateFunctionMembershipProof(
   const artifactTreeLeafIndex = artifactTree.getIndex(functionArtifactHash.toBuffer());
   const artifactTreeSiblingPath = artifactTree.getSiblingPath(artifactTreeLeafIndex).map(Fr.fromBuffer);
 
-  log.debug(`Computed proof for private function with selector ${selector.toString()}`, {
+  log.debug('Computed proof for private function with selector %s', selector, {
     functionArtifactHash,
     functionMetadataHash,
     functionLeaf: '0x' + functionLeaf.toString('hex'),

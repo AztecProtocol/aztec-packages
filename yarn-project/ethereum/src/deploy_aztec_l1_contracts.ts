@@ -95,7 +95,7 @@ function runProcess<T>(
 // Despite the profile apparently sometimes cached code remains (so says Lasse after his ignition-monorepo arc).
 async function maybeForgeForceProductionBuild(l1ContractsPath: string, script: string, chainId: number) {
   if (chainId === mainnet.id) {
-    logger.info(`Recompiling ${script} with production profile for mainnet deployment`);
+    logger.info('Recompiling %s with production profile for mainnet deployment', script);
     logger.info('This may take a minute but ensures production BlobLib is used.');
     await runProcess('forge', ['build', script, '--force'], { FOUNDRY_PROFILE: 'production' }, l1ContractsPath);
   }
@@ -155,14 +155,14 @@ function cleanupDeployDir() {
  */
 export function prepareL1ContractsForDeployment(): string {
   if (preparedDeployDir && existsSync(preparedDeployDir)) {
-    logger.verbose(`Using cached deployment directory: ${preparedDeployDir}`);
+    logger.verbose('Using cached deployment directory: %s', preparedDeployDir);
     return preparedDeployDir;
   }
 
   const basePath = getL1ContractsPath();
-  logger.verbose(`Preparing L1 contracts from: ${basePath}`);
+  logger.verbose('Preparing L1 contracts from: %s', basePath);
   const tempDir = mkdtempSync(join(tmpdir(), '.foundry-deploy-'));
-  logger.verbose(`Created temp directory for deployment: ${tempDir}`);
+  logger.verbose('Created temp directory for deployment: %s', tempDir);
   preparedDeployDir = tempDir;
   process.on('exit', cleanupDeployDir);
 
@@ -189,7 +189,7 @@ export function prepareL1ContractsForDeployment(): string {
     const solcVersion = solcPathMatch[1];
     const absoluteSolcPath = join(basePath, `solc-${solcVersion}`);
     foundryToml = foundryToml.replace(/solc\s*=\s*"\.\/solc-[^"]+"/, `solc = "${absoluteSolcPath}"`);
-    logger.verbose(`Updated solc path in foundry.toml to: ${absoluteSolcPath}`);
+    logger.verbose('Updated solc path in foundry.toml to: %s', absoluteSolcPath);
   }
   writeFileSync(join(tempDir, 'foundry.toml'), foundryToml);
 
@@ -283,7 +283,7 @@ export async function deployAztecL1Contracts(
   chainId: number,
   args: DeployAztecL1ContractsArgs,
 ): Promise<DeployAztecL1ContractsReturnType> {
-  logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
+  logger.info('Deploying L1 contracts with config: %s', jsonStringify(args));
   if (args.initialValidators && args.initialValidators.length > 0 && args.existingTokenAddress) {
     throw new Error(
       'Cannot deploy with both initialValidators and existingTokenAddress. ' +
@@ -294,14 +294,14 @@ export async function deployAztecL1Contracts(
 
   const l1Client = createExtendedL1Client([rpcUrl], privateKey, chain.chainInfo);
   const rpcCall = async (method: string, params: any[]) => {
-    logger.info(`Calling ${method} with params: ${JSON.stringify(params)}`);
+    logger.info('Calling %s with params: %s', method, JSON.stringify(params));
     return (await l1Client.transport.request({
       method,
       params,
     })) as any;
   };
 
-  logger.verbose(`Deploying contracts from ${l1Client.account.address.toString()}`);
+  logger.verbose('Deploying contracts from %s', l1Client.account.address);
 
   // Deploy multicall3 if it does not exist in this network
   // Sepolia and mainnet will have this.
@@ -312,9 +312,9 @@ export async function deployAztecL1Contracts(
       // We are assuming that you are running this on a local anvil node which have 1s block times
       // To align better with actual deployment, we update the block interval to 12s
       await rpcCall('anvil_setBlockTimestampInterval', [args.ethereumSlotDuration]);
-      logger.warn(`Set block interval to ${args.ethereumSlotDuration}`);
+      logger.warn('Set block interval to %s', args.ethereumSlotDuration);
     } catch (e) {
-      logger.error(`Error setting block interval: ${e}`);
+      logger.error('Error setting block interval: %s', e);
     }
   }
 
@@ -330,8 +330,9 @@ export async function deployAztecL1Contracts(
 
   if (isVerifiableChain && !process.env.ETHERSCAN_API_KEY) {
     logger.warn(
-      `Deploying to chain ${chainId} (${chainId === mainnet.id ? 'mainnet' : 'sepolia'}) without ETHERSCAN_API_KEY. ` +
-        `Contracts will NOT be verified on Etherscan. Set ETHERSCAN_API_KEY environment variable to enable verification.`,
+      'Deploying to chain %d (%s) without ETHERSCAN_API_KEY. Contracts will NOT be verified on Etherscan. Set ETHERSCAN_API_KEY environment variable to enable verification.',
+      chainId,
+      chainId === mainnet.id ? 'mainnet' : 'sepolia',
     );
   }
 
@@ -361,7 +362,7 @@ export async function deployAztecL1Contracts(
   if (!result) {
     throw new Error('Forge script did not output deployment result');
   }
-  logger.info(`Deployed L1 contracts with L1 addresses: ${jsonStringify(result)}`);
+  logger.info('Deployed L1 contracts with L1 addresses: %s', jsonStringify(result));
 
   const rollup = new RollupContract(l1Client, result.rollupAddress);
 

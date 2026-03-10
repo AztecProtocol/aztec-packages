@@ -115,11 +115,11 @@ export class FullProverTest {
       FullProverTest.TOKEN_SYMBOL,
       FullProverTest.TOKEN_DECIMALS,
     ).send({ from: this.accounts[0], wait: { returnReceipt: true } });
-    this.logger.verbose(`Token deployed to ${asset.address}`);
+    this.logger.verbose('Token deployed to %s', asset.address);
 
     this.fakeProofsAsset = asset;
     this.fakeProofsAssetInstance = instance;
-    this.logger.verbose(`Token contract address: ${this.fakeProofsAsset.address}`);
+    this.logger.verbose('Token contract address: %s', this.fakeProofsAsset.address);
 
     this.tokenSim = new TokenSimulator(this.fakeProofsAsset, this.wallet, this.accounts[0], this.logger, this.accounts);
 
@@ -141,7 +141,7 @@ export class FullProverTest {
     await this.applyBaseSetup();
     await this.applyMint();
 
-    this.logger.info(`Enabling proving`, { realProofs: this.realProofs });
+    this.logger.info('Enabling proving', { realProofs: this.realProofs });
 
     // We don't wish to mark as proven automatically, so we set the flag to false
     this.context.watcher.setIsMarkingAsProven(false);
@@ -173,33 +173,33 @@ export class FullProverTest {
       const verifier = await BBCircuitVerifier.new(bbConfig);
       this.circuitProofVerifier = new QueuedIVCVerifier(bbConfig, verifier);
 
-      this.logger.debug(`Configuring the node for real proofs...`);
+      this.logger.debug('Configuring the node for real proofs...');
       await this.aztecNodeAdmin.setConfig({
         realProofs: true,
         minTxsPerBlock: this.minNumberOfTxsPerBlock,
       });
     } else {
-      this.logger.debug(`Configuring the node min txs per block ${this.minNumberOfTxsPerBlock}...`);
+      this.logger.debug('Configuring the node min txs per block %d...', this.minNumberOfTxsPerBlock);
       this.circuitProofVerifier = new TestCircuitVerifier();
       await this.aztecNodeAdmin.setConfig({
         minTxsPerBlock: this.minNumberOfTxsPerBlock,
       });
     }
 
-    this.logger.verbose(`Move to a clean epoch`);
+    this.logger.verbose('Move to a clean epoch');
     await this.context.cheatCodes.rollup.advanceToNextEpoch();
 
-    this.logger.verbose(`Marking current block as proven`);
+    this.logger.verbose('Marking current block as proven');
     await this.context.cheatCodes.rollup.markAsProven();
 
-    this.logger.verbose(`Main setup completed, initializing full prover PXE, Node, and Prover Node`);
+    this.logger.verbose('Main setup completed, initializing full prover PXE, Node, and Prover Node');
     const { wallet: provenWallet, teardown: provenTeardown } = await setupPXEAndGetWallet(
       this.aztecNode,
       { proverEnabled: this.realProofs },
       undefined,
       'pxe-proven',
     );
-    this.logger.debug(`Contract address ${this.fakeProofsAsset.address}`);
+    this.logger.debug('Contract address %s', this.fakeProofsAsset.address);
     await provenWallet.registerContract(this.fakeProofsAssetInstance, TokenContract.artifact);
 
     for (let i = 0; i < 2; i++) {
@@ -214,7 +214,7 @@ export class FullProverTest {
     });
     this.provenAsset = asset;
     this.provenWallet = provenWallet;
-    this.logger.info(`Full prover PXE started`);
+    this.logger.info('Full prover PXE started');
 
     // Shutdown the current, simulated prover node (by stopping its hosting aztec node)
     this.logger.verbose('Shutting down simulated prover node');
@@ -226,7 +226,7 @@ export class FullProverTest {
     const proverNodeSenderAddress = privateKeyToAddress(new Buffer32(proverNodePrivateKey!).toString());
     this.proverAddress = EthAddress.fromString(proverNodeSenderAddress);
 
-    this.logger.verbose(`Funding prover node at ${proverNodeSenderAddress}`);
+    this.logger.verbose('Funding prover node at %s', proverNodeSenderAddress);
     await this.mintFeeJuice(proverNodeSenderAddress);
 
     this.logger.verbose('Starting prover node');
@@ -262,13 +262,13 @@ export class FullProverTest {
       { dateProvider: this.context.dateProvider, p2pClientDeps: { rpcTxProviders: [this.aztecNode] } },
       { prefilledPublicData },
     );
-    this.logger.warn(`Proofs are now enabled`, { realProofs: this.realProofs });
+    this.logger.warn('Proofs are now enabled', { realProofs: this.realProofs });
     return this;
   }
 
   private async mintFeeJuice(recipient: Hex) {
     const handlerAddress = this.context.deployL1ContractsValues.l1ContractAddresses.feeAssetHandlerAddress!;
-    this.logger.verbose(`Minting fee juice to ${recipient} using handler at ${handlerAddress}`);
+    this.logger.verbose('Minting fee juice to %s using handler at %s', recipient, handlerAddress);
     const client = this.context.deployL1ContractsValues.l1Client;
     const handler = getContract({ abi: FeeAssetHandlerAbi, address: handlerAddress.toString(), client });
     const hash = await handler.write.mint([recipient]);
@@ -300,10 +300,10 @@ export class FullProverTest {
     this.logger.verbose(`Minting ${privateAmount + publicAmount} publicly...`);
     await asset.methods.mint_to_public(accounts[0], privateAmount + publicAmount).send({ from: accounts[0] });
 
-    this.logger.verbose(`Transferring ${privateAmount} to private...`);
+    this.logger.verbose('Transferring %s to private...', privateAmount);
     await asset.methods.transfer_to_private(accounts[0], privateAmount).send({ from: accounts[0] });
 
-    this.logger.info(`Minting complete`);
+    this.logger.info('Minting complete');
 
     const {
       fakeProofsAsset,
@@ -315,18 +315,18 @@ export class FullProverTest {
     const { result: publicBalance } = await fakeProofsAsset.methods
       .balance_of_public(address)
       .simulate({ from: address });
-    this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
+    this.logger.verbose('Public balance of wallet 0: %s', publicBalance);
     expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(address));
 
     tokenSim.mintPrivate(address, publicAmount);
     const { result: privateBalance } = await fakeProofsAsset.methods
       .balance_of_private(address)
       .simulate({ from: address });
-    this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
+    this.logger.verbose('Private balance of wallet 0: %s', privateBalance);
     expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(address));
 
     const { result: totalSupply } = await fakeProofsAsset.methods.total_supply().simulate({ from: address });
-    this.logger.verbose(`Total supply: ${totalSupply}`);
+    this.logger.verbose('Total supply: %s', totalSupply);
     expect(totalSupply).toEqual(tokenSim.totalSupply);
   }
 }

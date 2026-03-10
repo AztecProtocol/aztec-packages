@@ -57,7 +57,7 @@ export class BotRunner implements BotRunnerApi, Traceable {
   public async start() {
     await this.setup();
     if (!this.runningPromise.isRunning()) {
-      this.log.info(`Starting bot with interval of ${this.config.txIntervalSeconds}s`);
+      this.log.info('Starting bot with interval of %ds', this.config.txIntervalSeconds);
       this.runningPromise.start();
     }
   }
@@ -174,7 +174,7 @@ export class BotRunner implements BotRunnerApi, Traceable {
     if (this.config.maxPendingTxs > 0) {
       const pendingTxCount = await this.aztecNode.getPendingTxCount();
       if (pendingTxCount >= this.config.maxPendingTxs) {
-        this.log.verbose(`Not sending bot tx since node has ${pendingTxCount} pending txs`);
+        this.log.verbose('Not sending bot tx since node has %d pending txs', pendingTxCount);
         return;
       }
     }

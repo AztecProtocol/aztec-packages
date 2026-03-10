@@ -19,7 +19,7 @@ export class EthCheatCodesWithState extends EthCheatCodes {
       throw new Error(`Error dumping state: ${e}`);
     }
     fs.writeFileSync(`${fileName}.json`, res, 'utf8');
-    this.logger.verbose(`Dumped state to ${fileName}`);
+    this.logger.verbose('Dumped state to %s', fileName);
   }
 
   /**
@@ -33,6 +33,6 @@ export class EthCheatCodesWithState extends EthCheatCodes {
     } catch (e) {
       throw new Error(`Error loading state: ${e}`);
     }
-    this.logger.verbose(`Loaded state from ${fileName}`);
+    this.logger.verbose('Loaded state from %s', fileName);
   }
 }

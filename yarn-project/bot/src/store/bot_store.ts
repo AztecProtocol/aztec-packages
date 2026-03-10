@@ -65,7 +65,7 @@ export class BotStore {
     };
 
     await this.bridgeClaims.set(recipient.toString(), JSON.stringify(data));
-    this.log.info(`Saved bridge claim for ${recipient.toString()}`);
+    this.log.info('Saved bridge claim for %s', recipient);
   }
 
   /**
@@ -100,7 +100,7 @@ export class BotStore {
    */
   public async deleteBridgeClaim(recipient: AztecAddress): Promise<void> {
     await this.bridgeClaims.delete(recipient.toString());
-    this.log.info(`Deleted bridge claim for ${recipient.toString()}`);
+    this.log.info('Deleted bridge claim for %s', recipient);
   }
 
   /**
@@ -145,7 +145,7 @@ export class BotStore {
       if (now - parsed.timestamp > maxAgeMs) {
         await this.bridgeClaims.delete(key);
         cleanedCount++;
-        this.log.info(`Cleaned up old bridge claim for ${parsed.recipient}`);
+        this.log.info('Cleaned up old bridge claim for %s', parsed.recipient);
       }
     }
 
@@ -155,7 +155,7 @@ export class BotStore {
   /** Saves a pending L1→L2 message keyed by msgHash. */
   public async savePendingL1ToL2Message(msg: PendingL1ToL2Message): Promise<void> {
     await this.pendingL1ToL2.set(msg.msgHash, JSON.stringify(msg));
-    this.log.info(`Saved pending L1→L2 message ${msg.msgHash}`);
+    this.log.info('Saved pending L1→L2 message %s', msg.msgHash);
   }
 
   /** Returns all unconsumed pending L1→L2 messages. */
@@ -170,7 +170,7 @@ export class BotStore {
   /** Deletes a consumed L1→L2 message from the store. */
   public async deleteL1ToL2Message(msgHash: string): Promise<void> {
     await this.pendingL1ToL2.delete(msgHash);
-    this.log.info(`Deleted consumed L1→L2 message ${msgHash}`);
+    this.log.info('Deleted consumed L1→L2 message %s', msgHash);
   }
 
   /** Cleans up pending L1→L2 messages older than maxAgeMs. */
@@ -182,7 +182,7 @@ export class BotStore {
       if (now - parsed.timestamp > maxAgeMs) {
         await this.pendingL1ToL2.delete(key);
         cleanedCount++;
-        this.log.info(`Cleaned up old pending L1→L2 message ${key}`);
+        this.log.info('Cleaned up old pending L1→L2 message %s', key);
       }
     }
     return cleanedCount;

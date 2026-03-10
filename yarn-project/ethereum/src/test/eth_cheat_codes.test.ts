@@ -53,7 +53,7 @@ describe('EthCheatCodes', () => {
 
   describe('reorgs', () => {
     const deployToken = async () => {
-      logger.warn(`Deploying token contract`);
+      logger.warn('Deploying token contract');
       const { address, txHash } = await deployL1Contract(l1Client, TestERC20Abi, TestERC20Bytecode, [
         'Test Token',
         'TEST',

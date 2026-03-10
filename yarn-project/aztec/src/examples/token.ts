@@ -29,7 +29,7 @@ async function main() {
   const alice = aliceInitialAccountData.address;
   const bob = bobInitialAccountData.address;
 
-  logger.info(`Fetched Alice and Bob accounts: ${alice.toString()}, ${bob.toString()}`);
+  logger.info('Fetched Alice and Bob accounts: %s, %s', alice, bob);
 
   logger.info('Deploying Token...');
   const { contract: token } = await TokenContract.deploy(wallet, alice, 'TokenName', 'TokenSymbol', 18).send({
@@ -38,24 +38,24 @@ async function main() {
   logger.info('Token deployed');
 
   // Mint tokens to Alice
-  logger.info(`Minting ${ALICE_MINT_BALANCE} more coins to Alice...`);
+  logger.info('Minting %d more coins to Alice...', ALICE_MINT_BALANCE);
   await token.methods.mint_to_private(alice, ALICE_MINT_BALANCE).send({ from: alice });
 
-  logger.info(`${ALICE_MINT_BALANCE} tokens were successfully minted by Alice and transferred to private`);
+  logger.info('%d tokens were successfully minted by Alice and transferred to private', ALICE_MINT_BALANCE);
 
   const { result: balanceAfterMint } = await token.methods.balance_of_private(alice).simulate({ from: alice });
-  logger.info(`Tokens successfully minted. New Alice's balance: ${balanceAfterMint}`);
+  logger.info("Tokens successfully minted. New Alice's balance: %s", balanceAfterMint);
 
   // We will now transfer tokens from Alice to Bob
-  logger.info(`Transferring ${TRANSFER_AMOUNT} tokens from Alice to Bob...`);
+  logger.info('Transferring %d tokens from Alice to Bob...', TRANSFER_AMOUNT);
   await token.methods.transfer(bob, TRANSFER_AMOUNT).send({ from: alice });
 
   // Check the new balances
   const { result: aliceBalance } = await token.methods.balance_of_private(alice).simulate({ from: alice });
-  logger.info(`Alice's balance ${aliceBalance}`);
+  logger.info("Alice's balance %s", aliceBalance);
 
   const { result: bobBalance } = await token.methods.balance_of_private(bob).simulate({ from: bob });
-  logger.info(`Bob's balance ${bobBalance}`);
+  logger.info("Bob's balance %s", bobBalance);
 }
 
 main()

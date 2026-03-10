@@ -100,7 +100,7 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
     throw new Error('An L1 RPC URL is required');
   }
   if ((config.l1RpcUrls?.length || 0) > 1) {
-    logger.warn(`Multiple L1 RPC URLs provided. Local networks will only use the first one: ${l1RpcUrl}`);
+    logger.warn('Multiple L1 RPC URLs provided. Local networks will only use the first one: %s', l1RpcUrl);
   }
 
   // The local network deploys a banana FPC with Token contracts, so include Token entries

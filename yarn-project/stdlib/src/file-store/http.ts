@@ -43,12 +43,12 @@ export class HttpFileStore implements ReadOnlyFileStore {
   public async download(pathOrUrl: string, destPath: string): Promise<void> {
     const url = this.getUrl(pathOrUrl);
     try {
-      this.log.debug(`Downloading file from ${url} to ${destPath}`);
+      this.log.debug('Downloading file from %s to %s', url, destPath);
       const response = await this.fetch<Readable>({ url, method: 'GET', responseType: 'stream' });
-      this.log.debug(`Response ${response.status} (${response.statusText}) from ${url}, writing to ${destPath}`);
+      this.log.debug('Response %d (%s) from %s, writing to %s', response.status, response.statusText, url, destPath);
       await mkdir(dirname(destPath), { recursive: true });
       await pipeline(response.data, createWriteStream(destPath));
-      this.log.debug(`Download of ${url} to ${destPath} complete`);
+      this.log.debug('Download of %s to %s complete', url, destPath);
     } catch (error) {
       throw new Error(`Error fetching file from ${url}`, { cause: error });
     }

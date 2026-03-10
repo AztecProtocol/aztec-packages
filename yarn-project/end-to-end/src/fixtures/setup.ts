@@ -313,7 +313,7 @@ export async function setup(
     // Enable logging metrics to a local file named after the test suite
     if (isMetricsLoggingRequested()) {
       const filename = path.join('log', getJobName() + '.jsonl');
-      logger.info(`Logging metrics to ${filename}`);
+      logger.info('Logging metrics to %s', filename);
       setupMetricsLogger(filename);
     }
 
@@ -685,7 +685,7 @@ export async function setupSponsoredFPC(wallet: Wallet) {
   });
 
   await wallet.registerContract(instance, SponsoredFPCContract.artifact);
-  getLogger().info(`SponsoredFPC: ${instance.address}`);
+  getLogger().info('SponsoredFPC: %s', instance.address);
   return instance;
 }
 
@@ -740,7 +740,7 @@ export function createAndSyncProverNode(
       throw new Error('Prover node subsystem was not created despite enableProverNode being set');
     }
 
-    getLogger().info(`Created and synced prover node`);
+    getLogger().info('Created and synced prover node');
     return { proverNode };
   });
 }

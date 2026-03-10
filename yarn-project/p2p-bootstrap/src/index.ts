@@ -31,7 +31,7 @@ async function main(
 
   httpApp.use(router.routes()).use(router.allowedMethods());
   httpApp.listen(HTTP_PORT, () => {
-    logger.info(`HTTP server listening on port ${HTTP_PORT}`);
+    logger.info('HTTP server listening on port %d', HTTP_PORT);
   });
 
   const stop = async () => {

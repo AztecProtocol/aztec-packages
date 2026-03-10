@@ -152,7 +152,7 @@ export class ReadOnlyL1TxUtils {
       // Apply bump percentage to competitive fee
       const competitivePriorityFee = (priorityFee * (100_00n + BigInt(configBump * 1_00))) / 100_00n;
 
-      this.logger?.debug(`Speed-up attempt ${attempt}: using competitive fee strategy`, {
+      this.logger?.debug('Speed-up attempt %d: using competitive fee strategy', attempt, {
         networkEstimate: formatGwei(priorityFee),
         competitiveFee: formatGwei(competitivePriorityFee),
         minRequired: formatGwei(minPriorityFee),
@@ -168,7 +168,7 @@ export class ReadOnlyL1TxUtils {
       maxFeePerGas += finalPriorityFee;
       maxFeePerGas = maxFeePerGas > minMaxFee ? maxFeePerGas : minMaxFee;
 
-      this.logger?.debug(`Speed-up fee decision: using ${feeSource} fee`, {
+      this.logger?.debug('Speed-up fee decision: using %s fee', feeSource, {
         finalPriorityFee: formatGwei(finalPriorityFee),
       });
     } else {
@@ -212,7 +212,9 @@ export class ReadOnlyL1TxUtils {
     }
 
     this.logger?.trace(
-      `Computed L1 gas price max fee ${formatGwei(maxFeePerGas)} and max priority fee ${formatGwei(maxPriorityFeePerGas)}`,
+      'Computed L1 gas price max fee %s and max priority fee %s',
+      formatGwei(maxFeePerGas),
+      formatGwei(maxPriorityFeePerGas),
       {
         attempt,
         baseFee: formatGwei(baseFee),
@@ -253,7 +255,7 @@ export class ReadOnlyL1TxUtils {
         blockTag: 'latest',
       });
 
-      this.logger?.trace(`Estimated gas for blob tx: ${initialEstimate}`);
+      this.logger?.trace('Estimated gas for blob tx: %s', initialEstimate);
     } else {
       initialEstimate = await this.client.estimateGas({
         account,
@@ -261,7 +263,7 @@ export class ReadOnlyL1TxUtils {
         gas: MAX_L1_TX_LIMIT,
         blockTag: 'latest',
       });
-      this.logger?.trace(`Estimated gas for non-blob tx: ${initialEstimate}`);
+      this.logger?.trace('Estimated gas for non-blob tx: %s', initialEstimate);
     }
 
     // Add buffer based on either fixed amount or percentage
@@ -394,7 +396,8 @@ export class ReadOnlyL1TxUtils {
       if (err instanceof MethodNotFoundRpcError || err instanceof MethodNotSupportedRpcError) {
         if (gasConfig.fallbackGasEstimate) {
           this.logger?.warn(
-            `Node does not support eth_simulateV1 API. Using fallback gas estimate: ${gasConfig.fallbackGasEstimate}`,
+            'Node does not support eth_simulateV1 API. Using fallback gas estimate: %s',
+            gasConfig.fallbackGasEstimate,
           );
           return { gasUsed: gasConfig.fallbackGasEstimate, result: '0x' as `0x${string}` };
         }
@@ -409,7 +412,7 @@ export class ReadOnlyL1TxUtils {
     const bumpedGasLimit = gasLimit + (gasLimit * BigInt((gasConfig?.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
 
     const cleanGasConfig = pickBy(gasConfig, (_, key) => key in l1TxUtilsConfigMappings);
-    this.logger?.trace(`Bumping gas limit from ${gasLimit} to ${bumpedGasLimit}`, {
+    this.logger?.trace('Bumping gas limit from %s to %s', gasLimit, bumpedGasLimit, {
       gasLimit,
       gasConfig: cleanGasConfig,
       bumpedGasLimit,

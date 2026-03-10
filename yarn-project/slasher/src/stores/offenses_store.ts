@@ -81,7 +81,7 @@ export class SlasherOffensesStore {
       await this.offenses.set(key, serializeOffense(offense));
       await this.roundsOffenses.set(this.getRoundKey(round), key);
     });
-    this.log.trace(`Adding pending offense ${key} for round ${round}`);
+    this.log.trace('Adding pending offense %s for round %s', key, round);
   }
 
   /** Marks the given offenses as slashed (regardless of whether they are known or not)  */
@@ -123,12 +123,12 @@ export class SlasherOffensesStore {
     // Remove expired stuff in a transaction
     await this.kvStore.transactionAsync(async () => {
       for (const key of expiredOffenseKeys) {
-        this.log.trace(`Deleting offense ${key}`);
+        this.log.trace('Deleting offense %s', key);
         await this.offenses.delete(key);
         await this.offensesSlashed.delete(key);
       }
       for (const roundKey of expiredRoundKeys) {
-        this.log.trace(`Deleting round info for ${roundKey}`);
+        this.log.trace('Deleting round info for %s', roundKey);
         await this.roundsOffenses.delete(roundKey);
       }
     });

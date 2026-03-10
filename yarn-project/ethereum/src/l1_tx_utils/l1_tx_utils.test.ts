@@ -1018,7 +1018,7 @@ describe('L1TxUtils', () => {
       const { txHash, state } = await gasUtils.sendTransaction(request);
       const initialTx = await l1Client.getTransaction({ hash: txHash });
       expect(gasUtils.state).toBe(TxUtilsState.SENT);
-      logger.warn(`Tx ${txHash} has been sent`);
+      logger.warn('Tx %s has been sent', txHash);
 
       // Try to monitor with a short timeout
       const testState: L1TxState = {
@@ -1026,7 +1026,7 @@ describe('L1TxUtils', () => {
         txConfigOverrides: { ...state.txConfigOverrides, txTimeoutMs: 100 },
       };
       const monitorPromise = gasUtils.monitorTransaction(testState);
-      logger.warn(`Monitoring tx ${txHash}`);
+      logger.warn('Monitoring tx %s', txHash);
 
       // Mine a block to advance the timestamp and trigger the timeout
       await cheatCodes.mineEmptyBlock();
@@ -1045,7 +1045,7 @@ describe('L1TxUtils', () => {
       const pendingBlock = await l1Client.getBlock({ blockTag: 'pending' });
       const pendingTxHash = pendingBlock.transactions[0];
       const cancelTx = await l1Client.getTransaction({ hash: pendingTxHash });
-      logger.warn(`Got cancel tx ${pendingTxHash}`);
+      logger.warn('Got cancel tx %s', pendingTxHash);
 
       // Verify cancellation tx
       expect(cancelTx).toBeDefined();

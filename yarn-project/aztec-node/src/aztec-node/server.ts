@@ -161,8 +161,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
 
-    this.log.info(`Aztec Node version: ${this.packageVersion}`);
-    this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
+    this.log.info('Aztec Node version: %s', this.packageVersion);
+    this.log.info('Aztec Node started on chain 0x%s', l1ChainId.toString(16), config.l1Contracts);
 
     // A defensive check that protects us against introducing a bug in the complex `createAndSync` function. We must
     // never have debugLogStore enabled when not in test mode because then we would be accumulating debug logs in
@@ -861,14 +861,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (valid.result !== 'valid') {
       const reason = valid.reason.join(', ');
       this.metrics.receivedTx(timer.ms(), false);
-      this.log.warn(`Received invalid tx ${txHash}: ${reason}`, { txHash });
+      this.log.warn('Received invalid tx %s: %s', txHash, reason, { txHash });
       throw new Error(`Invalid tx: ${reason}`);
     }
 
     await this.p2pClient!.sendTx(tx);
     const duration = timer.ms();
     this.metrics.receivedTx(duration, true);
-    this.log.info(`Received tx ${txHash} in ${duration}ms`, { txHash });
+    this.log.info('Received tx %s in %dms', txHash, duration, { txHash });
   }
 
   public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
@@ -1149,7 +1149,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
     const { index, alreadyPresent } = findResult;
     if (alreadyPresent) {
-      this.log.warn(`Nullifier ${nullifier.toBigInt()} already exists in the tree`);
+      this.log.warn('Nullifier %s already exists in the tree', nullifier.toBigInt());
     }
     const preimageData = (await committedDb.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index))!;
 
@@ -1264,7 +1264,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       this.log.getBindings(),
     );
 
-    this.log.verbose(`Simulating public calls for tx ${txHash}`, {
+    this.log.verbose('Simulating public calls for tx %s', txHash, {
       globalVariables: newGlobalVariables.toInspect(),
       txHash,
       blockNumber,
@@ -1290,7 +1290,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       const [processedTxs, failedTxs, _usedTxs, returns, debugLogs] = await processor.process([tx]);
       // REFACTOR: Consider returning the error rather than throwing
       if (failedTxs.length) {
-        this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
+        this.log.warn('Simulated tx %s fails: %s', txHash, failedTxs[0].error, { txHash });
         throw failedTxs[0].error;
       }
 
@@ -1427,7 +1427,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       .catch(err => {
         this.isUploadingSnapshot = false;
         this.metrics.recordSnapshotError();
-        this.log.error(`Error uploading snapshot: ${err}`);
+        this.log.error('Error uploading snapshot: %s', err);
       });
 
     return Promise.resolve();
@@ -1442,7 +1442,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const finalizedBlock = await archiver.getL2Tips().then(tips => tips.finalized.block.number);
     if (targetBlock < finalizedBlock) {
       if (force) {
-        this.log.warn(`Clearing world state database to allow rolling back behind finalized block ${finalizedBlock}`);
+        this.log.warn('Clearing world state database to allow rolling back behind finalized block %s', finalizedBlock);
         await this.worldStateSynchronizer.clear();
         await this.p2pClient.clear();
       } else {
@@ -1456,7 +1456,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       await this.worldStateSynchronizer.stopSync();
       const currentBlock = await archiver.getBlockNumber();
       const blocksToUnwind = currentBlock - targetBlock;
-      this.log.info(`Unwinding ${count(blocksToUnwind, 'block')} from L2 block ${currentBlock} to ${targetBlock}`);
+      this.log.info('Unwinding %s from L2 block %s to %s', count(blocksToUnwind, 'block'), currentBlock, targetBlock);
       await archiver.rollbackTo(targetBlock);
       this.log.info(`Unwinding complete.`);
     } catch (err) {
@@ -1606,11 +1606,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       // Attempt to sync the world state if necessary
       blockSyncedTo = await this.#syncWorldState();
     } catch (err) {
-      this.log.error(`Error getting world state: ${err}`);
+      this.log.error('Error getting world state: %s', err);
     }
 
     if (block === 'latest') {
-      this.log.debug(`Using committed db for block 'latest', world state synced upto ${blockSyncedTo}`);
+      this.log.debug("Using committed db for block 'latest', world state synced upto %s", blockSyncedTo);
       return this.worldStateSynchronizer.getCommitted();
     }
 
@@ -1628,7 +1628,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         );
       }
       const blockNumber = header.getBlockNumber();
-      this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
+      this.log.debug('Using snapshot for block %s, world state synced upto %s', blockNumber, blockSyncedTo);
       return this.worldStateSynchronizer.getSnapshot(blockNumber);
     }
 
@@ -1640,7 +1640,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         throw new Error(`Queried block ${block} not yet synced by the node (node is synced upto ${blockSyncedTo}).`);
       }
 
-      this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
+      this.log.debug('Using snapshot for block %s, world state synced upto %s', blockNumber, blockSyncedTo);
       return this.worldStateSynchronizer.getSnapshot(blockNumber);
     }
   }

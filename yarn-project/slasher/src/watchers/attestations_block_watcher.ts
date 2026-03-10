@@ -89,11 +89,11 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
 
     // Check if we already have processed this checkpoint, archiver may emit the same event multiple times
     if (this.invalidArchiveRoots.has(checkpoint.archive.toString())) {
-      this.log.trace(`Already processed invalid checkpoint ${checkpoint.checkpointNumber}`);
+      this.log.trace('Already processed invalid checkpoint %d', checkpoint.checkpointNumber);
       return;
     }
 
-    this.log.verbose(`Detected invalid checkpoint ${checkpoint.checkpointNumber}`, {
+    this.log.verbose('Detected invalid checkpoint %d', checkpoint.checkpointNumber, {
       ...checkpoint,
       reason: validationResult.valid === false ? validationResult.reason : 'unknown',
     });
@@ -115,7 +115,8 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
     if (this.invalidArchiveRoots.has(parentArchive)) {
       const attestors = validationResult.attestors;
       this.log.info(
-        `Want to slash attestors of checkpoint ${checkpoint.checkpointNumber} built on invalid checkpoint`,
+        'Want to slash attestors of checkpoint %d built on invalid checkpoint',
+        checkpoint.checkpointNumber,
         {
           ...checkpoint,
           ...attestors,
@@ -148,7 +149,7 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
     const proposer = this.epochCache.getProposerFromEpochCommittee(epochCommitteeInfo, slot);
 
     if (!proposer) {
-      this.log.warn(`No proposer found for checkpoint ${checkpointNumber} at slot ${slot}`);
+      this.log.warn('No proposer found for checkpoint %d at slot %s', checkpointNumber, slot);
       return;
     }
 
@@ -161,7 +162,7 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
       epochOrSlot: BigInt(slot),
     };
 
-    this.log.info(`Want to slash proposer of checkpoint ${checkpointNumber} due to ${reason}`, {
+    this.log.info('Want to slash proposer of checkpoint %d due to %s', checkpointNumber, reason, {
       ...checkpoint,
       ...args,
     });

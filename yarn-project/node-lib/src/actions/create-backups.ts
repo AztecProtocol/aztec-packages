@@ -17,7 +17,7 @@ export async function createBackups(
     await archiver.stop();
     await worldState.stopSync();
 
-    log.info(`Creating backups of lmdb environments to ${backupDir}`);
+    log.info('Creating backups of lmdb environments to %s', backupDir);
     const [archiverPath, worldStatePaths] = await Promise.all([
       archiver.backupTo(join(backupDir, 'archiver')),
       worldState.backupTo(join(backupDir, 'world-state')),
@@ -29,7 +29,7 @@ export async function createBackups(
       throw new Error(`Missing backup files: ${missing.map(([key, path]) => `${path} (${key})`).join(', ')}`);
     }
 
-    log.info(`Data stores backed up to ${backupDir}`, { paths });
+    log.info('Data stores backed up to %s', backupDir, { paths });
     return paths;
   } catch (err) {
     throw new Error(`Error creating backups for snapshot upload: ${err}`);

@@ -59,7 +59,7 @@ export async function createSlasherFacade(
       rollupRegisteredAtL2Slot = SlotNumber(0);
     }
     await settingsMap.set(cacheKey, rollupRegisteredAtL2Slot);
-    logger.info(`Canonical rollup registered at L2 slot ${rollupRegisteredAtL2Slot}`);
+    logger.info('Canonical rollup registered at L2 slot %s', rollupRegisteredAtL2Slot);
   }
 
   const slashValidatorsNever = config.slashSelfAllowed

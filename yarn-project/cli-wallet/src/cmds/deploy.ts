@@ -103,7 +103,7 @@ export async function deploy(
     if (wait) {
       const { receipt } = await deploy.send({ ...deployOpts, wait: { timeout, returnReceipt: true } });
       const txHash = receipt.txHash;
-      debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
+      debugLogger.debug('Deploy tx sent with hash %s', txHash);
       out.hash = txHash;
 
       if (!json) {
@@ -125,7 +125,7 @@ export async function deploy(
       }
     } else {
       const { txHash } = await deploy.send({ ...deployOpts, wait: NO_WAIT });
-      debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
+      debugLogger.debug('Deploy tx sent with hash %s', txHash);
       out.hash = txHash;
 
       if (!json) {

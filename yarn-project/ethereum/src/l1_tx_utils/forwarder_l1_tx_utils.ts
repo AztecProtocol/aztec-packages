@@ -71,7 +71,7 @@ export class ForwarderL1TxUtils extends L1TxUtils {
    * Override sendAndMonitorTransaction to wrap the request in a forwarder call.
    */
   public override sendAndMonitorTransaction(request: L1TxRequest, gasConfig?: L1TxConfig, blobInputs?: L1BlobInputs) {
-    this.logger.debug(`Wrapping transaction to ${request.to} in forwarder at ${this.forwarderAddress.toString()}`);
+    this.logger.debug('Wrapping transaction to %s in forwarder at %s', request.to, this.forwarderAddress);
     const wrappedRequest = this.wrapInForwarder(request);
     return super.sendAndMonitorTransaction(wrappedRequest, gasConfig, blobInputs);
   }

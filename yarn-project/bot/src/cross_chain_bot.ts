@@ -99,7 +99,7 @@ export class CrossChainBot extends BaseBot {
     // Send an L1→L2 message if we're below the threshold and not already seeding one
     if (pendingMessages.length < this.config.l1ToL2SeedCount && !this.pendingSeedPromise) {
       this.pendingSeedPromise = this.seedNewL1ToL2Message()
-        .catch(err => this.log.warn(`Failed to seed L1→L2 message: ${err}`, logCtx))
+        .catch(err => this.log.warn('Failed to seed L1→L2 message: %s', err, logCtx))
         .finally(() => {
           this.pendingSeedPromise = undefined;
         });
@@ -139,7 +139,7 @@ export class CrossChainBot extends BaseBot {
     const batch = new BatchCall(this.wallet, calls);
     const opts = await this.getSendMethodOpts(batch);
 
-    this.log.verbose(`Sending cross-chain batch with ${calls.length} calls`, logCtx);
+    this.log.verbose('Sending cross-chain batch with %d calls', calls.length, logCtx);
     const { txHash } = await batch.send({ ...opts, wait: NO_WAIT });
     return txHash;
   }
@@ -183,7 +183,7 @@ export class CrossChainBot extends BaseBot {
       // Time-based stale detection: if the message is old and still not ready, remove it
       if (now - msg.timestamp > STALE_MESSAGE_THRESHOLD_MS) {
         await this.store.deleteL1ToL2Message(msg.msgHash);
-        this.log.warn(`Removed stale L1→L2 message ${msg.msgHash}`);
+        this.log.warn('Removed stale L1→L2 message %s', msg.msgHash);
       }
     }
     return undefined;
