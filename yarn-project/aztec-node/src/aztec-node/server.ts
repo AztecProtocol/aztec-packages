@@ -866,8 +866,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
 
     await this.p2pClient!.sendTx(tx);
-    this.metrics.receivedTx(timer.ms(), true);
-    this.log.info(`Received tx ${txHash}`, { txHash });
+    const duration = timer.ms();
+    this.metrics.receivedTx(duration, true);
+    this.log.info(`Received tx ${txHash} in ${duration}ms`, { txHash });
   }
 
   public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
@@ -1317,6 +1318,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const blockNumber = BlockNumber((await this.blockSource.getBlockNumber()) + 1);
+    const l1Constants = await this.blockSource.getL1Constants();
     const validator = createTxValidatorForAcceptingTxsOverRPC(
       db,
       this.contractDataSource,
@@ -1333,6 +1335,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         gasFees: await this.getCurrentMinFees(),
         skipFeeEnforcement,
         txsPermitted: !this.config.disableTransactions,
+        rollupManaLimit: l1Constants.rollupManaLimit,
+        maxBlockL2Gas: this.config.validateMaxL2BlockGas,
+        maxBlockDAGas: this.config.validateMaxDABlockGas,
       },
       this.log.getBindings(),
     );

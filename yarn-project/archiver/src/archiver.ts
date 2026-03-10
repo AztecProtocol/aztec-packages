@@ -123,7 +123,6 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     protected override readonly l1Constants: L1RollupConstants & {
       l1StartBlockHash: Buffer32;
       genesisArchiveRoot: Fr;
-      rollupManaLimit?: number;
     },
     synchronizer: ArchiverL1Synchronizer,
     events: ArchiverEmitter,
