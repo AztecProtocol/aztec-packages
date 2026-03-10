@@ -208,19 +208,19 @@ function run {
   if semver check "\$REF_NAME"; then
     echo "Performing a release because \$REF_NAME is a semver."
   fi
-  mpstat 2 > >(cache_log cpufile) &
-  cpu_pid=\$!
-  vmstat -w -S M 2 > >(add_timestamps | cache_log memfile) &
-  mem_pid=\$!
-  bash -c "while true; do pstree -ag; echo; echo; sleep 10; done" 2>&1 > >(add_timestamps | cache_log processes) &
-  pstree_pid=\$!
+  # Background monitors. cache_log and add_timestamps both close inherited pipeline
+  # fds internally, so these long-running processes won't block the outer pipeline.
+  mpstat 2 2>&1 | cache_log cpufile &
+  vmstat -w -S M 2 2>&1 | add_timestamps | cache_log memfile &
+  bash -c "while true; do pstree -agl; echo; echo; sleep 10; done" 2>&1 | add_timestamps | cache_log processes &
+
   set +e
   set -x
   $cmd
   local code=\${PIPESTATUS[0]}
-  set +x
-  sudo dmesg 2>&1 | cache_log "dmesg"
-  kill "\$cpu_pid" "\$mem_pid" "\$pstree_pid" &>/dev/null || true
+
+  sudo dmesg 2>&1 | cache_log 'dmesg'
+
   return \$code
 }
 export -f run
