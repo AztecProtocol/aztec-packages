@@ -401,7 +401,7 @@ some computations which require multiple (possibly variable) rows. We assume the
 
 The relations below provide the following guarantees:
 
-1. The active part of the trace (rows with `sel == 1`) is contiguous and start at the second row (just after `precomputed.first_row == 1`), i.e., as soon as a row (except first one) is inactive the following rows are inactive.
+1. The active part of the trace (rows with `sel == 1`) is contiguous and starts at the second row (just after `precomputed.first_row == 1`), i.e., as soon as a row (except first one) is inactive the following rows are inactive.
 2. The active part of the trace starts with `start == 1` and finishes with `end == 1`.
 3. In the middle of the active trace, `end == 1` is followed on the next row by `start == 1` and a row where`start==1` must have a previous row with `end == 1`.
 4. `start == 1` and `end == 1` cannot happen on the inactive part of the trace.
@@ -429,6 +429,30 @@ LATCH_CONDITION is an alias expression and is not a committed column.
 ### Proof
 
 From #[SEL_ON_START_OR_END], we directly get property 4.
-Note that `sel == 0` on the first row (This is a guarantee of the proving system.) and by #[SEL_ON_START_OR_END], `start == 0` and `end ==0`. This implies that `LATCH_CONDITION` is a boolean because `end == 1` is mutually exclusive to `precomputed.first_row == 1`. If at the second row,`sel == 0` then the whole trace is inactive. Namely, `LATCH_CONDITION == 0` on this row (`end == 0`) and `sel' == 0` by #[TRACE_CONTINUITY]. Same reasoning applies to the following rows. Similarly, if `sel == 1` at the second row, then `sel == 1` must propagate until the last occurence `end == 1`. Only on a row after `end == 1`, we can have `sel == 0`. With the same reasoning as before, as soon as we reach `sel == 0` we can never encounter (moving top down) `sel == 1` again. Note also that if we never reach `end == 1`, at the last row of the trace we will have `sel == 1` and if `end == 0`, by #[TRACE_CONTINUITY] `sel' == 1`. However, the proving system guarantees that any shifted column such as `sel'` must zero on the last row. This demonstrates 1.
+Note that `sel == 0` on the first row (This is a guarantee of the proving system.) and by #[SEL_ON_START_OR_END], `start == 0` and `end ==0`. This implies that `LATCH_CONDITION` is a boolean because `end == 1` is mutually exclusive to `precomputed.first_row == 1`. If at the second row,`sel == 0` then the whole trace is inactive. Namely, `LATCH_CONDITION == 0` on this row (`end == 0`) and `sel' == 0` by #[TRACE_CONTINUITY]. Same reasoning applies to the following rows. Similarly, if `sel == 1` at the second row, then `sel == 1` must propagate until the last occurrence `end == 1`. Only on a row after `end == 1`, we can have `sel == 0`. With the same reasoning as before, as soon as we reach `sel == 0` we can never encounter (moving top down) `sel == 1` again. Note also that if we never reach `end == 1`, at the last row of the trace we will have `sel == 1` and if `end == 0`, by #[TRACE_CONTINUITY] `sel' == 1`. However, the proving system guarantees that any shifted column such as `sel'` must be zero on the last row. This demonstrates 1.
 The property 2. follows from #[START_AFTER_LATCH] because if the active trace is non-empty,`sel == 1` on the second row and `start == 1` by #[START_AFTER_LATCH]. We showed above that the active trace must finish with `end == 1`.
 Finally, 3. follows also from #[START_AFTER_LATCH].
+
+### Variant without Start
+
+Sometimes a multi-row computation does not need the `start` selector but only the `end` selector. In such a case, we can simplify the constraints as follows:
+
+```
+sel * (1 - sel) = 0;
+end * (1 - end) = 0;
+
+pol LATCH_CONDITION = end + precomputed.first_row;
+
+#[SEL_ON_END]
+end * (1 - sel) = 0;
+
+#[TRACE_CONTINUITY]
+(1 - LATCH_CONDITION) * (sel - sel') = 0;
+
+```
+
+These constraints enforce a similar trace shape, i.e., contiguous from the second row and the last active row has `end == 1`. The above proof can basically be used to show:
+
+1. The active part of the trace (rows with `sel == 1`) is contiguous and starts at the second row (just after `precomputed.first_row == 1`), i.e., as soon as a row (except first one) is inactive the following rows are inactive.
+2. The active part of the trace finishes with `end == 1`.
+3. `end == 1` cannot happen on the inactive part of the trace.
