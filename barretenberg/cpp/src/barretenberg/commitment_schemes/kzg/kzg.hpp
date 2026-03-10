@@ -129,8 +129,13 @@ template <typename Curve_> class KZG {
     {
         auto quotient_commitment = transcript->template receive_from_prover<Commitment>("KZG:W");
 
-        // OriginTag false positive: The quotient commitment is PCS-bound - the prover cannot
-        // choose it freely because it must satisfy the batched opening equation.
+        // OriginTag suppression: The tag system flags patterns like A*α + B where A, B are
+        // prover-supplied and α is a challenge derived without hashing them. The quotient commitment
+        // W is prover-supplied and scaled by z in C + W·z, so it triggers this pattern.
+        // This is a false positive: the pairing check e(C + W·z, [1]₂) · e(−W, [x]₂) = 1 forces W
+        // to be the honest quotient commitment, so the prover cannot tamper with it.
+        // We assign W the tag of z (evaluation_point): the challenge it is scaled by,
+        // so the tag system does not flag the multiplication.
         if constexpr (Curve::is_stdlib_type) {
             const auto challenge_tag = batch_opening_claim.evaluation_point.get_origin_tag();
             quotient_commitment.set_origin_tag(challenge_tag);
