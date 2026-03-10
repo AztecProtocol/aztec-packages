@@ -31,7 +31,7 @@ include "precomputed.pil";
  * Pattern 2 — Check final calldata size (calldata_hashing.pil #[CHECK_FINAL_SIZE]):
  *
  *   caller_sel { calldata_size, context_id }
- *   in
+ *   is
  *   calldata.end { calldata.index, calldata.context_id };
  *
  *   - Inputs: context_id.

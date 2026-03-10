@@ -239,11 +239,11 @@ namespace calldata_hashing;
     // Check that our claimed calldata_size matches the final index given by calldata.pil.
     // Note: we do not need to check the value here, because #[CHECK_FINAL_INDEX] checks that
     // calldata_size is one of the values of index[] looked up above.
-    // For empty calldata, the below looks up a special row where calldata.end = 1 and
+    // For empty calldata, the below permutation matches a special row where calldata.end = 1 and
     // calldata.index = 0:
     #[CHECK_FINAL_SIZE]
     end { calldata_size, context_id }
-    in
+    is
     calldata.end { calldata.index, calldata.context_id };
 
     // ==== HASH OUTPUT ====

@@ -9,6 +9,7 @@
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_calldata.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_calldata_hashing.hpp"
+#include "barretenberg/vm2/generated/relations/perms_calldata_hashing.hpp"
 
 using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
 
@@ -144,7 +145,7 @@ const InteractionDefinition CalldataTraceBuilder::interactions =
         .add<lookup_calldata_hashing_get_calldata_field_0_settings, InteractionType::LookupSequential>()
         .add<lookup_calldata_hashing_get_calldata_field_1_settings, InteractionType::LookupSequential>()
         .add<lookup_calldata_hashing_get_calldata_field_2_settings, InteractionType::LookupSequential>()
-        .add<lookup_calldata_hashing_check_final_size_settings, InteractionType::LookupSequential>()
+        .add<perm_calldata_hashing_check_final_size_settings, InteractionType::Permutation>()
         .add<lookup_calldata_hashing_poseidon2_hash_settings,
              InteractionType::LookupGeneric>(); // Note: using lookup generic to avoid dedup issues
 

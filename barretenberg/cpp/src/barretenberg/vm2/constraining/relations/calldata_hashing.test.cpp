@@ -11,6 +11,7 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_calldata_hashing.hpp"
+#include "barretenberg/vm2/generated/relations/perms_calldata_hashing.hpp"
 #include "barretenberg/vm2/generated/relations/poseidon2_hash.hpp"
 #include "barretenberg/vm2/simulation/events/calldata_event.hpp"
 #include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
@@ -491,10 +492,10 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePaddingUnder)
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_get_calldata_field_1_settings>(trace)),
         "Failed.*GET_CALLDATA_FIELD_1. Could not find tuple in destination.");
-    // ...as will the lookup in the final row to check the calldata size against the index:
+    // ...as will the permutation in the final row to check the calldata size against the index:
     EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_check_final_size_settings>(trace)),
-        "Failed.*CHECK_FINAL_SIZE. Could not find tuple in destination.");
+        (check_interaction<CalldataTraceBuilder, perm_calldata_hashing_check_final_size_settings>(trace)),
+        "Failure to build permutation.*CHECK_FINAL_SIZE");
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePaddingOver)
@@ -523,10 +524,10 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePaddingOver)
     }
     // Now all relations pass...
     check_relation<calldata_hashing>(trace);
-    // ...but the lookup in the final row to check the calldata size against the index will fail:
+    // ...but the permutation in the final row to check the calldata size against the index will fail:
     EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_check_final_size_settings>(trace)),
-        "Failed.*CHECK_FINAL_SIZE. Could not find tuple in destination.");
+        (check_interaction<CalldataTraceBuilder, perm_calldata_hashing_check_final_size_settings>(trace)),
+        "Failure to build permutation.*CHECK_FINAL_SIZE");
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeInputLen)
@@ -565,10 +566,10 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeInputLen)
     trace.set(Column::calldata_hashing_sel_not_padding_2, 3, 0);
     trace.set(Column::calldata_hashing_input_2_, 3, 0);
     check_relation<calldata_hashing>(trace);
-    // ...but the lookup in the final row to check the calldata size against the index will fail:
+    // ...but the permutation in the final row to check the calldata size against the index will fail:
     EXPECT_THROW_WITH_MESSAGE(
-        (check_interaction<CalldataTraceBuilder, lookup_calldata_hashing_check_final_size_settings>(trace)),
-        "Failed.*CHECK_FINAL_SIZE. Could not find tuple in destination.");
+        (check_interaction<CalldataTraceBuilder, perm_calldata_hashing_check_final_size_settings>(trace)),
+        "Failure to build permutation.*CHECK_FINAL_SIZE");
 }
 
 TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeRounds)
