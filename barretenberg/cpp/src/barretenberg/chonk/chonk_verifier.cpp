@@ -29,14 +29,14 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
 
     // Step 1: Verify MegaZK Oink on the shared transcript
     BatchedHonkTranslatorVerifier batched_verifier(vk_and_hash, transcript);
-    batched_verifier.verify_mega_zk_oink(proof.mega_zk_proof);
+    auto oink_result = batched_verifier.verify_mega_zk_oink(proof.mega_zk_proof);
 
     // Extract public inputs and kernel data
     HidingKernelIO kernel_io;
-    kernel_io.reconstruct_from_public(batched_verifier.get_public_inputs());
+    kernel_io.reconstruct_from_public(oink_result.public_inputs);
 
     // Step 2: Databus consistency check
-    const Commitment calldata_commitment = batched_verifier.get_calldata_commitment();
+    const Commitment calldata_commitment = oink_result.calldata_commitment;
     const Commitment return_data_commitment = kernel_io.kernel_return_data;
     bool databus_consistency_verified = (calldata_commitment == return_data_commitment);
     vinfo("ChonkVerifier: databus consistency verified: ", databus_consistency_verified);
@@ -46,7 +46,7 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
     }
 
     // Step 3: Merge verification
-    MergeCommitments merge_commitments{ .t_commitments = batched_verifier.get_ecc_op_wires(),
+    MergeCommitments merge_commitments{ .t_commitments = oink_result.ecc_op_wires,
                                         .T_prev_commitments = kernel_io.ecc_op_tables };
     GoblinVerifier::MergeVerifier merge_verifier{ MergeSettings::APPEND, transcript };
     auto merge_result = merge_verifier.reduce_to_pairing_check(proof.merge_proof, merge_commitments);
@@ -133,21 +133,21 @@ template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof&
 {
     // Step 1: Verify MegaZK Oink on the shared transcript
     BatchedHonkTranslatorRecursiveVerifier batched_verifier(vk_and_hash, transcript);
-    batched_verifier.verify_mega_zk_oink(proof.mega_zk_proof);
+    auto oink_result = batched_verifier.verify_mega_zk_oink(proof.mega_zk_proof);
 
     // Extract public inputs and kernel data
     HidingKernelIO kernel_io;
-    kernel_io.reconstruct_from_public(batched_verifier.get_public_inputs());
+    kernel_io.reconstruct_from_public(oink_result.public_inputs);
 
     // Step 2: Databus consistency check (in-circuit)
-    const Commitment calldata_commitment = batched_verifier.get_calldata_commitment();
+    const Commitment calldata_commitment = oink_result.calldata_commitment;
     if (kernel_io.kernel_return_data.get_value() != calldata_commitment.get_value()) {
         info("ChonkRecursiveVerifier: Databus Consistency check failure");
     }
     kernel_io.kernel_return_data.incomplete_assert_equal(calldata_commitment);
 
     // Step 3: Merge verification
-    MergeCommitments merge_commitments{ .t_commitments = batched_verifier.get_ecc_op_wires(),
+    MergeCommitments merge_commitments{ .t_commitments = oink_result.ecc_op_wires,
                                         .T_prev_commitments = kernel_io.ecc_op_tables };
     typename GoblinVerifier::MergeVerifier merge_verifier{ MergeSettings::APPEND, transcript };
     auto merge_result = merge_verifier.reduce_to_pairing_check(proof.merge_proof, merge_commitments);
