@@ -512,4 +512,41 @@ mod test {
             assert_eq(inbox.get(0).tx_hash, survivor_tx_hash);
         });
     }
+
+    // -- Resolved context (ready to process) ------------------------------
+
+    #[test]
+    unconstrained fn resolved_msg_is_ready_to_process() {
+        let env = TestEnvironment::new();
+        // TestEnvironment::new() deploys protocol contracts, creating blocks with tx effects.
+        // In TXE, tx hashes equal Fr(blockNumber), so Fr(1) is the tx effect from block 1.
+        // We use this as a "known resolvable" tx hash.
+        let known_tx_hash: Field = 1;
+        let receive_time = advance_by(env, 10);
+
+        env.utility_context(|context| {
+            let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
+            msgs.push(make_msg(Option::some(known_tx_hash), receive_time + MAX_MSG_TTL));
+            receive(context.this_address(), msgs);
+        });
+
+        let _now = advance_by(env, 100);
+
+        env.utility_context(|context| {
+            let address = context.this_address();
+            let result = sync_inbox(address);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+
+            // The message should be ready to process since its tx context was resolved.
+            assert_eq(result.len(), 1);
+
+            let ctx = result.get(0).message_context;
+            assert_eq(ctx.tx_hash, known_tx_hash);
+            assert_eq(ctx.recipient, AztecAddress::from_field(42));
+            assert(ctx.first_nullifier_in_tx != 0, "resolved context must have a first nullifier");
+
+            // Message stays in inbox (not expired) for potential reorg reprocessing.
+            assert_eq(inbox.len(), 1);
+        });
+    }
 }
