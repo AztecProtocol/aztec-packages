@@ -463,9 +463,18 @@ export class BatchTxRequester {
    *   this implies we will query these peers couple of more times and give them a chance to "redeem" themselves before completely ignoring them
    */
   private handleFailResponseFromPeer(peerId: PeerId, responseStatus: ReqRespStatus) {
-    //TODO: Should we ban these peers?
     if (responseStatus === ReqRespStatus.FAILURE || responseStatus === ReqRespStatus.UNKNOWN) {
       this.peers.penalisePeer(peerId, PeerErrorSeverity.HighToleranceError);
+      this.peers.markPeerDumb(peerId);
+      this.txsMetadata.clearPeerData(peerId);
+      return;
+    }
+
+    // NOT_FOUND means the peer pruned its block proposal — it can no longer serve
+    // index-based requests, but this is a legitimate state so we don't penalize.
+    if (responseStatus === ReqRespStatus.NOT_FOUND) {
+      this.peers.markPeerDumb(peerId);
+      this.txsMetadata.clearPeerData(peerId);
       return;
     }
 
@@ -555,10 +564,11 @@ export class BatchTxRequester {
       return;
     }
 
-    // If block response is invalid we still want to query this peer in the future
-    // Because they sent successful response, so they might become smart peer in the future
-    // Or send us needed txs
+    // If block response is invalid, demote the peer back to dumb if it was smart.
+    // This happens when the peer pruned its proposal and can no longer serve index-based requests.
     if (!this.isBlockResponseValid(response)) {
+      this.peers.markPeerDumb(peerId);
+      this.txsMetadata.clearPeerData(peerId);
       return;
     }
 

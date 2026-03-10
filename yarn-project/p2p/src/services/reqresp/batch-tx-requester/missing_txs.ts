@@ -158,4 +158,11 @@ export class MissingTxMetadataCollection implements ITxMetadataCollection {
         }
       });
   }
+
+  public clearPeerData(peerId: PeerId) {
+    const peerIdStr = peerId.toString();
+    for (const txMeta of this.txMetadata.values()) {
+      txMeta.peers.delete(peerIdStr);
+    }
+  }
 }
