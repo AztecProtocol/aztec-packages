@@ -1,61 +1,80 @@
-# Batched Honk Translator
+# Batched Honk and Translator Proofs
 
-## Purpose
+## Role in Chonk
 
-`BatchedHonkTranslator` proves the **MegaZK circuit** and the **translator circuit** (TranslatorVM) jointly — using a single sumcheck and a single Shplemini/KZG polynomial commitment scheme — rather than running two independent protocols.
+A Chonk proof attests to the correct execution of a sequence of Aztec private function calls. The final proof contains five components verified on a shared Fiat-Shamir transcript:
 
-Both circuits operate over BN254 scalars, so their polynomial openings can be batched into one pairing check. The joint sumcheck additionally binds the two circuits to a shared Fiat-Shamir transcript, strengthening the soundness argument.
+```
+MegaZK Oink  →  Merge  →  ECCVM  →  Translator Oink  →  Joint Sumcheck  →  Joint PCS  →  Pairing Check
+```
 
-In the Chonk proof system this component is the final step after IVC folding: the MegaZK circuit verifies the folding decider and masks the op-queue, while the translator proves the consistency of the ECC op-queue with the ECCVM transcript.
+`BatchedHonkTranslator` implements the MegaZK Oink, the Translator Oink, and the joint sumcheck + PCS. Both circuits operate over BN254 scalars, allowing their **sumcheck protocols and polynomial openings to be batched into a single reduction**. This avoids running two independent Honk proofs and reduces proof size.
+
+The verifier exposes a **two-phase API** so that the `ChonkVerifier` can run merge and ECCVM verification in between:
+
+```
+Phase 1: verify_mega_zk_oink()  →  OinkResult (public inputs, calldata, ecc_op_wires)
+            ↓  caller runs merge + ECCVM  ↓
+Phase 2: verify(joint_proof, translator_params...)  →  ReductionResult (pairing points)
+```
 
 ---
 
 ## Protocol Overview
 
-The protocol has three phases:
+### Phase 1 — MegaZK Oink
 
-### Phase 1 — Oink (pre-sumcheck)
+`OinkProver<MegaZKFlavor>` runs the pre-sumcheck phase (wire commitments, permutation grand products, relation parameters). The proof segment is exported as `mega_zk_proof`.
 
-Both circuits commit their witnesses to the shared transcript independently:
+The verifier's `verify_mega_zk_oink()` returns an `OinkResult` containing:
+- Public inputs (the `HidingKernelIO`)
+- Calldata commitment (for the databus consistency check)
+- ECC op wire commitments (for merge verification)
 
-1. **MegaZK** — `OinkProver<MegaZKFlavor>` runs its full pre-sumcheck phase (wire commitments, permutation grand products, relation parameters). Its proof segment is exported as `mega_zk_proof`.
-2. **Translator** — `TranslatorProver::execute_{preamble,wire,grand_product}_round()` runs the equivalent pre-sumcheck phase. Relation parameters are captured for use in the joint sumcheck.
+### Interlude — Merge + ECCVM
 
-The two sub-proofs are separated at the transcript level so the verifier can check them independently: `mega_zk_proof` covers Oink only; `translator_and_joint_proof` covers the translator Oink, the joint sumcheck, and the joint PCS.
+The `ChonkProver`/`ChonkVerifier` uses the MegaZK Oink outputs to run merge verification and ECCVM verification on the same shared transcript. The ECCVM produces the translator's input parameters (`evaluation_input_x`, `batching_challenge_v`, `accumulated_result`).
 
-### Phase 2 — Joint Sumcheck
+### Phase 2a — Translator Oink
 
-After all pre-sumcheck messages from both circuits are committed, a joint alpha `α` is drawn. The joint round univariate is:
+`TranslatorProver::execute_{preamble,wire,grand_product}_round()` runs the translator's pre-sumcheck phase on the shared transcript. The proof is appended to `translator_and_joint_proof`.
+
+### Phase 2b — Joint Sumcheck
+
+A joint alpha `α` is drawn after all pre-sumcheck commitments. The joint round univariate is:
 
 ```
-U_joint(x) = U_MZK(x) + α^{K_H} · U_translator(x) + L(x)
+U_joint(x) = U_MegaZK(x) + α^{K_H} · U_translator(x) + L(x)
 ```
 
-where:
-- `K_H = MegaZKFlavor::NUM_SUBRELATIONS` — translator subrelations start at power `α^{K_H}`, immediately after MegaZK's subrelations.
-- `L(x)` — joint Libra masking univariate (single masking polynomial covering all 17 rounds).
+where `L(x)` is the joint Libra masking univariate. The offset `α^{K_H}` (with `K_H = MegaZKFlavor::NUM_SUBRELATIONS`) ensures the translator relations use powers of `α` that do not collide with the powers already used to combine the MegaZK subrelations.
 
-The sumcheck runs for `JOINT_LOG_N = 17` rounds (the translator's circuit size). The MegaZK circuit has `mega_zk_log_n ≤ 17` variables.
+The sumcheck runs for `JOINT_LOG_N = 17` rounds (the translator's fixed circuit size). The MegaZK circuit has `mega_zk_log_n ≤ 17` variables, so:
 
-#### Real rounds (`0 .. mega_zk_log_n - 1`)
+- **Real rounds** (`0 .. mega_zk_log_n - 1`): Both circuits contribute normally. MegaZK uses row-disabling for ZK. After the last real round, MegaZK evaluations are sent *before* virtual-round challenges are drawn, eliminating prover freedom in the zero-padded region.
 
-Both circuits contribute normally. The MegaZK contribution uses `compute_univariate` minus `compute_disabled_contribution` (row-disabling polynomial, RDP) for ZK. After each round, partial evaluations are accumulated in-place.
+- **Virtual rounds** (`mega_zk_log_n .. 16`): The smaller MegaZK circuit is embedded into the translator's larger sumcheck domain via **extension-by-zero (EBZ)**: its contribution uses `compute_virtual_contribution`, and the verifier applies `τ = ∏_{k≥d}(1 - u_k)` to the MegaZK evaluations, which is the EBZ factor for the zero-padded region.
 
-After the last real round, the MegaZK circuit's claimed evaluations `P_j(u_0, …, u_{d-1})` are sent to the verifier **before** the virtual-round challenges are drawn. This eliminates any prover freedom in the zero-padded region: the verifier applies the tau factor `τ = ∏_{k=d}^{N-1}(1 - u_k)` itself after drawing the virtual-round challenges.
+### Phase 2c — Joint PCS
 
-#### Virtual rounds (`mega_zk_log_n .. JOINT_LOG_N - 1`)
+All polynomials from both circuits are combined into a single `ClaimBatcher`. `ShpleminiProver_<BN254>::prove()` reduces all openings at the joint challenge to a single KZG claim, with a `SmallSubgroupIPA` proof for the joint Libra polynomial. This proves that all claimed evaluations used in the joint sumcheck correspond to openings of the committed polynomials.
 
-The MegaZK circuit is treated as zero-padded to `2^JOINT_LOG_N`. Its contribution is computed via `compute_virtual_contribution`, evaluating the relation at the single non-zero edge, scaled by the RDP scalar `rdp_scalar = 1 - u_2 · … · u_{d-1}` accumulated during the real rounds.
+The verifier's `verify()` returns `{ pairing_points, reduction_succeeded }`.
 
-After each virtual round, the partially-evaluated MegaZK polynomial values are multiplied by `(1 - u_k)` so that the final poly[0] entries carry the accumulated `τ` factor.
+---
 
-The translator contributes normally for all 17 rounds.
+## Repeated Commitments Optimization
 
-### Phase 3 — Joint PCS
+The joint PCS passes a `REPEATED_COMMITMENTS` to Shplemini that identifies commitments appearing in both the unshifted and shifted batches, avoiding redundant scalar multiplications in the final MSM. The joint layout (after Shplemini's offset for Q and the gemini masking poly) is:
 
-All polynomials from both circuits are combined into a single `PolynomialBatcher` at `joint_circuit_size = 2^JOINT_LOG_N`. The translator's commitment key (sized to `2^17`) is used for all PCS work, since it covers the larger range.
+```
+Unshifted: [MegaZK_precomputed | MegaZK_witness | Trans_PCS_unshifted]
+Shifted:   [MegaZK_shifted     | Trans_PCS_shifted]
+```
 
-`ShpleminiProver_<BN254>::prove()` reduces all unshifted and shifted polynomial openings at the joint challenge `(u_0, …, u_16)` to a single KZG opening claim. A `SmallSubgroupIPA` proof covers the joint Libra polynomial.
+Two ranges are identified:
+- **Range 1 (MegaZK):** The first `NUM_SHIFTED_ENTITIES` witness commitments in the unshifted section duplicate the MegaZK shifted commitments.
+- **Range 2 (Translator):** 5 ordered range-constraint wires, the permutation accumulator (`z_perm`), and 5 concatenation wires (11 total) in the translator's unshifted section duplicate their counterparts in the shifted section. The translator's two standalone ranges (see [`TranslatorFlavor::REPEATED_COMMITMENTS`](../../translator_vm/translator_flavor.hpp)) are contiguous and merged into one.
 
 ---
 
@@ -63,12 +82,12 @@ All polynomials from both circuits are combined into a single `PolynomialBatcher
 
 ```cpp
 struct Proof {
-    HonkProof mega_zk_proof;              // Oink (pre-sumcheck) for the MegaZK circuit
-    HonkProof translator_and_joint_proof; // Translator Oink + joint sumcheck + PCS
+    HonkProof mega_zk_proof;              // MegaZK Oink only
+    HonkProof translator_and_joint_proof; // Translator Oink + joint sumcheck + joint PCS
 };
 ```
 
-The two segments are produced by calling `transcript->export_proof()` after each phase. The verifier loads them onto the transcript in order: `mega_zk_proof` first (for the MegaZK Oink phase), then `translator_and_joint_proof` (for everything else).
+The split allows the `ChonkVerifier` to interleave merge and ECCVM verification between the two segments on the shared transcript.
 
 ---
 
@@ -78,16 +97,17 @@ The two segments are produced by calling `transcript->export_proof()` after each
 
 | Alias | Curve | Use |
 |---|---|---|
-| `BatchedHonkTranslatorVerifier` | `curve::BN254` | Native verification |
-| `BatchedHonkTranslatorRecursiveVerifier` | `stdlib::bn254<UltraCircuitBuilder>` | In-circuit recursive verification |
+| `BatchedHonkTranslatorVerifier` | `curve::BN254` | Native (used in `ChonkVerifier<false>`) |
+| `BatchedHonkTranslatorRecursiveVerifier` | `stdlib::bn254<Builder>` | In-circuit (used in `ChonkVerifier<true>`) |
 
-The verifier mirrors the prover's structure exactly:
-1. `verify_mega_zk_oink()` — runs `OinkVerifier<MegaZKFlavor>`, returns commitments.
-2. `verify_translator_oink()` — runs `TranslatorVerifier_::receive_pre_sumcheck()`, returns commitments.
-3. `verify_joint_sumcheck()` — processes 17 rounds, applies tau to MegaZK evals, computes the joint full-relation purported value `FRV_joint = rdp_MZK · FRV_MZK + α^{K_H} · FRV_translator + libra_eval · libra_challenge`, and performs the final sumcheck check.
-4. `verify_joint_pcs()` — assembles the joint claim batcher from both circuits' commitments and evaluations, runs `ShpleminiVerifier_`, and reduces to a `PairingPoints` check.
+Public API:
+1. `verify_mega_zk_oink(mega_zk_proof)` → `OinkResult`
+2. `verify(joint_proof, eval_x, batch_v, accum_result, op_queue_comms)` → `ReductionResult`
 
-`reduce_to_pairing_check()` runs all four steps and returns `{ pairing_points, reduction_succeeded }`.
+Internally, `verify()` delegates to:
+- `verify_translator_oink()` — translator pre-sumcheck via `TranslatorVerifier_::receive_pre_sumcheck()`
+- `verify_joint_sumcheck()` — 17-round joint sumcheck with `FRV_joint = rdp · FRV_MegaZK + α^{K_H} · FRV_translator + libra_eval · libra_challenge`
+- `verify_joint_pcs()` — joint Shplemini with `REPEATED_COMMITMENTS`, reduces to `PairingPoints`
 
 ---
 
@@ -97,4 +117,4 @@ The verifier mirrors the prover's structure exactly:
 |---|---|
 | `batched_honk_translator_prover.hpp/.cpp` | Prover |
 | `batched_honk_translator_verifier.hpp/.cpp` | Verifier (native and recursive) |
-| `batched_honk_translator.test.cpp` | Tests: `ProveAndVerify` (MegaZK at full size) and `ProveAndVerifySmallHiding` (MegaZK smaller than translator) |
+| `batched_honk_translator.test.cpp` | Tests: `ProveAndVerify`, `ProveAndVerifySmallHiding`, `ProofSizeComparison`, `VerifierManifestConsistency`, `ProverManifestConsistency` |

@@ -54,7 +54,7 @@ class BatchedHonkTranslatorProver {
                                 std::shared_ptr<Transcript> transcript);
 
     HonkProof prove_mega_zk_oink();
-    HonkProof prove_translator_and_joint(std::shared_ptr<TranslatorProvingKey> translator_proving_key);
+    HonkProof prove(std::shared_ptr<TranslatorProvingKey> translator_proving_key);
 
   private:
     std::shared_ptr<MegaZKProverInstance> mega_zk_inst;

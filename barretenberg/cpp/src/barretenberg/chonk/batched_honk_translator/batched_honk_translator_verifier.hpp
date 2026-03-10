@@ -121,11 +121,11 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     /**
      * @brief Phase 2: Verify translator Oink + joint sumcheck + joint PCS.
      * @details Called after merge and ECCVM verification have been performed on the shared transcript.
-     * Loads translator_and_joint_proof, runs translator oink, joint sumcheck, and joint PCS.
+     * Loads joint_proof, runs translator oink, joint sumcheck, and joint PCS.
      * @return ReductionResult with pairing points and a success flag.
      */
-    [[nodiscard("Verification result should be checked")]] ReductionResult verify_translator_and_joint(
-        const Proof& translator_and_joint_proof,
+    [[nodiscard("Verification result should be checked")]] ReductionResult verify(
+        const Proof& joint_proof,
         const TransBF& evaluation_input_x,
         const TransBF& batching_challenge_v,
         const TransBF& accumulated_result,
@@ -134,7 +134,7 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
   private:
     // Methods mirroring the prover's structure.
     TransVerifierCommitments verify_translator_oink(
-        const Proof& translator_and_joint_proof,
+        const Proof& joint_proof,
         const TransBF& evaluation_input_x,
         const TransBF& batching_challenge_v,
         const TransBF& accumulated_result,

@@ -326,7 +326,7 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
     BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
 
     auto mega_zk_proof = prover.prove_mega_zk_oink();
-    auto translator_and_joint_proof = prover.prove_translator_and_joint(translator_key);
+    auto joint_proof = prover.prove(translator_key);
 
     // -------------------------------------------------------------------------
     // 4. Verify.
@@ -334,11 +334,8 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
     auto verifier_transcript = std::make_shared<Transcript>();
     BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash, verifier_transcript);
     verifier.verify_mega_zk_oink(mega_zk_proof);
-    auto result = verifier.verify_translator_and_joint(translator_and_joint_proof,
-                                                       evaluation_input_x,
-                                                       batching_challenge_v,
-                                                       accumulated_result,
-                                                       op_queue_wire_commitments);
+    auto result = verifier.verify(
+        joint_proof, evaluation_input_x, batching_challenge_v, accumulated_result, op_queue_wire_commitments);
 
     EXPECT_TRUE(result.reduction_succeeded);
     EXPECT_TRUE(result.pairing_points.check());
@@ -379,18 +376,15 @@ TEST_F(BatchedHonkTranslatorTests, VerifierManifestConsistency)
     prover_transcript->enable_manifest();
     BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
     auto mega_zk_proof = prover.prove_mega_zk_oink();
-    auto translator_and_joint_proof = prover.prove_translator_and_joint(translator_key);
+    auto joint_proof = prover.prove(translator_key);
 
     // Verify with manifest tracking enabled.
     auto verifier_transcript = std::make_shared<Transcript>();
     verifier_transcript->enable_manifest();
     BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash, verifier_transcript);
     verifier.verify_mega_zk_oink(mega_zk_proof);
-    [[maybe_unused]] auto _ = verifier.verify_translator_and_joint(translator_and_joint_proof,
-                                                                   evaluation_input_x,
-                                                                   batching_challenge_v,
-                                                                   accumulated_result,
-                                                                   op_queue_wire_commitments);
+    [[maybe_unused]] auto _ = verifier.verify(
+        joint_proof, evaluation_input_x, batching_challenge_v, accumulated_result, op_queue_wire_commitments);
 
     auto prover_manifest = prover_transcript->get_manifest();
     auto verifier_manifest = verifier_transcript->get_manifest();
@@ -435,7 +429,7 @@ TEST_F(BatchedHonkTranslatorTests, ProverManifestConsistency)
     prover_transcript->enable_manifest();
     BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
     [[maybe_unused]] auto _ = prover.prove_mega_zk_oink();
-    [[maybe_unused]] auto __ = prover.prove_translator_and_joint(translator_key);
+    [[maybe_unused]] auto __ = prover.prove(translator_key);
 
     auto prover_manifest = prover_transcript->get_manifest();
     auto expected_manifest = build_expected_batched_manifest(mega_zk_log_n, num_mega_zk_pub_inputs);
@@ -480,16 +474,13 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerifySmallHiding)
     auto prover_transcript = std::make_shared<Transcript>();
     BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
     auto mega_zk_proof = prover.prove_mega_zk_oink();
-    auto translator_and_joint_proof = prover.prove_translator_and_joint(translator_key);
+    auto joint_proof = prover.prove(translator_key);
 
     auto verifier_transcript = std::make_shared<Transcript>();
     BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash, verifier_transcript);
     verifier.verify_mega_zk_oink(mega_zk_proof);
-    auto result = verifier.verify_translator_and_joint(translator_and_joint_proof,
-                                                       evaluation_input_x,
-                                                       batching_challenge_v,
-                                                       accumulated_result,
-                                                       op_queue_wire_commitments);
+    auto result = verifier.verify(
+        joint_proof, evaluation_input_x, batching_challenge_v, accumulated_result, op_queue_wire_commitments);
 
     EXPECT_TRUE(result.reduction_succeeded);
     EXPECT_TRUE(result.pairing_points.check());

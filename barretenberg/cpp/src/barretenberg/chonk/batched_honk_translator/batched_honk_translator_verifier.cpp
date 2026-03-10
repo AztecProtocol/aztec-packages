@@ -66,19 +66,19 @@ typename BatchedHonkTranslatorVerifier_<Curve>::OinkResult BatchedHonkTranslator
  */
 template <typename Curve>
 typename BatchedHonkTranslatorVerifier_<Curve>::TransVerifierCommitments BatchedHonkTranslatorVerifier_<
-    Curve>::verify_translator_oink(const Proof& translator_and_joint_proof,
+    Curve>::verify_translator_oink(const Proof& joint_proof,
                                    const TransBF& evaluation_input_x,
                                    const TransBF& batching_challenge_v,
                                    const TransBF& accumulated_result,
                                    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>&
                                        op_queue_wire_commitments)
 {
-    // Pass the full translator_and_joint_proof to TranslatorVerifier. It calls
+    // Pass the full joint_proof to TranslatorVerifier. It calls
     // transcript->load_proof(proof) in receive_pre_sumcheck(), loading everything
     // (translator oink + joint sumcheck + joint PCS data) into the transcript buffer.
     // The joint phases that follow will read the remaining data in order.
     TranslatorVerifier_<TransFlavor> trans_verifier(transcript,
-                                                    translator_and_joint_proof,
+                                                    joint_proof,
                                                     evaluation_input_x,
                                                     batching_challenge_v,
                                                     accumulated_result,
@@ -340,24 +340,20 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
 }
 
 template <typename Curve>
-typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTranslatorVerifier_<
-    Curve>::verify_translator_and_joint(const Proof& translator_and_joint_proof,
-                                        const TransBF& evaluation_input_x,
-                                        const TransBF& batching_challenge_v,
-                                        const TransBF& accumulated_result,
-                                        const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>&
-                                            op_queue_wire_commitments)
+typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTranslatorVerifier_<Curve>::verify(
+    const Proof& joint_proof,
+    const TransBF& evaluation_input_x,
+    const TransBF& batching_challenge_v,
+    const TransBF& accumulated_result,
+    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& op_queue_wire_commitments)
 {
     // Reconstruct MegaZK commitments from the stored verifier instance.
     MegaZKVerifierCommitments mega_zk_commitments{ mega_zk_verifier_instance->get_vk(),
                                                    mega_zk_verifier_instance->witness_commitments };
     mega_zk_commitments.gemini_masking_poly = mega_zk_verifier_instance->gemini_masking_commitment;
 
-    auto trans_commitments = verify_translator_oink(translator_and_joint_proof,
-                                                    evaluation_input_x,
-                                                    batching_challenge_v,
-                                                    accumulated_result,
-                                                    op_queue_wire_commitments);
+    auto trans_commitments = verify_translator_oink(
+        joint_proof, evaluation_input_x, batching_challenge_v, accumulated_result, op_queue_wire_commitments);
     bool sumcheck_verified = verify_joint_sumcheck();
     return verify_joint_pcs(sumcheck_verified, mega_zk_commitments, trans_commitments);
 }
