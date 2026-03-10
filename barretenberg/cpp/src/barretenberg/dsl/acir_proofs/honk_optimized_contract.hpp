@@ -1438,7 +1438,7 @@ contract HonkVerifier is IVerifier {
 
                     // Partially evaluate POW
                     let gate_challenge := mload(gate_challenge_off)
-                    let gate_challenge_minus_one := sub(gate_challenge, 1)
+                    let gate_challenge_minus_one := addmod(gate_challenge, sub(p, 1), p)
 
                     let univariate_evaluation := addmod(1, mulmod(round_challenge, gate_challenge_minus_one, p), p)
 
