@@ -20,7 +20,7 @@
 #ifndef __wasm__
 
 #include "barretenberg/bbapi/bbapi_shared.hpp"
-#include "barretenberg/chonk/chonk_batch_verifier_service.hpp"
+#include "barretenberg/chonk/batch_verifier/chonk_batch_verifier_service.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <string>
 #include <vector>

@@ -134,7 +134,8 @@ void ChonkBatchVerifierService::writer_loop()
             if (output_fd_ >= 0) {
                 auto written = ::write(output_fd_, size_buf, 4);
                 if (written == 4) {
-                    ::write(output_fd_, buffer.data(), buffer.size());
+                    written = ::write(output_fd_, buffer.data(), buffer.size());
+                    static_cast<void>(written);
                 }
             }
         }

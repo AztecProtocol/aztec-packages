@@ -17,8 +17,13 @@
 
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/test.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/goblin/goblin_verifier.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 #include <fcntl.h>
 #include <filesystem>
@@ -369,6 +374,181 @@ TEST_F(ChonkBatchVerifierServiceTests, FullServiceMixedTrustedUntrusted)
 
     // Clean up
     std::filesystem::remove(fifo_path);
+}
+
+// --- Piece-by-piece verification timing ---
+
+/**
+ * @brief Time each sub-step of Chonk verification to identify what can be skipped for fast IPA claim extraction.
+ *
+ * Breaks reduce_to_ipa_claim into its constituent steps:
+ * 1. MegaZK verify_proof (hiding kernel honk verification + pairing check)
+ * 2. Databus consistency check
+ * 3. Goblin sub-steps:
+ *    a. Merge reduce_to_pairing_check
+ *    b. ECCVM reduce_to_ipa_opening  ← this produces the IPA claim
+ *    c. Translator reduce_to_pairing_check
+ * 4. Single IPA verify
+ * 5. Batch IPA verify at various N
+ */
+TEST_F(ChonkBatchVerifierServiceTests, PiecewiseVerificationTiming)
+{
+    auto [proof, vk] = generate_proof();
+
+    constexpr int ITERS = 5;
+    constexpr uint32_t NUM_CORES = 1;
+    set_parallel_for_concurrency(NUM_CORES);
+    info("=== Piecewise Verification Timing (", NUM_CORES, " cores) ===");
+
+    // Warmup
+    {
+        ChonkNativeVerifier v(vk);
+        v.reduce_to_ipa_claim(proof);
+    }
+
+    // --- Sub-step timing of reduce_to_ipa_claim ---
+    // Replicate the steps from chonk_verifier.cpp with timers around each
+    using Transcript = NativeTranscript;
+    using HidingKernelVerifier = bb::MegaZKVerifier;
+    using NativeGoblinVerifier = bb::GoblinVerifier;
+    using MergeCommitments = typename NativeGoblinVerifier::MergeCommitments;
+
+    double mega_total = 0, databus_total = 0, merge_total = 0, eccvm_total = 0, translator_total = 0;
+    OpeningClaim<curve::Grumpkin> last_ipa_claim;
+    HonkProof last_ipa_proof;
+
+    for (int i = 0; i < ITERS; i++) {
+        auto transcript = std::make_shared<Transcript>();
+
+        // Step 1: MegaZK verify_proof
+        auto t0 = std::chrono::steady_clock::now();
+        HidingKernelVerifier mega_verifier{ vk, transcript };
+        auto mega_output = mega_verifier.verify_proof(proof.mega_proof);
+        auto t1 = std::chrono::steady_clock::now();
+        double mega_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+        mega_total += mega_ms;
+        ASSERT_TRUE(mega_output.result);
+
+        // Step 2: Databus consistency
+        auto t2 = std::chrono::steady_clock::now();
+        HidingKernelIO kernel_io;
+        kernel_io.reconstruct_from_public(mega_verifier.get_public_inputs());
+        auto calldata = mega_verifier.get_calldata_commitment();
+        bool databus_ok = (calldata == kernel_io.kernel_return_data);
+        auto t3 = std::chrono::steady_clock::now();
+        double databus_ms = std::chrono::duration<double, std::milli>(t3 - t2).count();
+        databus_total += databus_ms;
+        ASSERT_TRUE(databus_ok);
+
+        // Step 3a: Merge
+        MergeCommitments merge_commits{ .t_commitments = mega_verifier.get_ecc_op_wires(),
+                                        .T_prev_commitments = kernel_io.ecc_op_tables };
+        auto t4 = std::chrono::steady_clock::now();
+        MergeVerifier_<curve::BN254> merge_verifier{ MergeSettings::APPEND, transcript };
+        auto merge_result = merge_verifier.reduce_to_pairing_check(proof.goblin_proof.merge_proof, merge_commits);
+        auto t5 = std::chrono::steady_clock::now();
+        double merge_ms = std::chrono::duration<double, std::milli>(t5 - t4).count();
+        merge_total += merge_ms;
+
+        // Step 3b: ECCVM
+        auto t6 = std::chrono::steady_clock::now();
+        ECCVMVerifier_<ECCVMFlavor> eccvm_verifier{ transcript, proof.goblin_proof.eccvm_proof };
+        auto eccvm_result = eccvm_verifier.reduce_to_ipa_opening();
+        auto t7 = std::chrono::steady_clock::now();
+        double eccvm_ms = std::chrono::duration<double, std::milli>(t7 - t6).count();
+        eccvm_total += eccvm_ms;
+
+        // Step 3c: Translator
+        auto translator_input = eccvm_verifier.get_translator_input_data();
+        auto t8 = std::chrono::steady_clock::now();
+        TranslatorVerifier_<TranslatorFlavor> translator_verifier{ transcript,
+                                                                   proof.goblin_proof.translator_proof,
+                                                                   translator_input.evaluation_challenge_x,
+                                                                   translator_input.batching_challenge_v,
+                                                                   translator_input.accumulated_result,
+                                                                   merge_result.merged_commitments };
+        [[maybe_unused]] auto translator_result = translator_verifier.reduce_to_pairing_check();
+        auto t9 = std::chrono::steady_clock::now();
+        double translator_ms = std::chrono::duration<double, std::milli>(t9 - t8).count();
+        translator_total += translator_ms;
+
+        last_ipa_claim = std::move(eccvm_result.ipa_claim);
+        last_ipa_proof = proof.goblin_proof.ipa_proof;
+
+        info("  [",
+             i,
+             "] mega=",
+             mega_ms,
+             " databus=",
+             databus_ms,
+             " merge=",
+             merge_ms,
+             " eccvm=",
+             eccvm_ms,
+             " translator=",
+             translator_ms,
+             " total=",
+             mega_ms + databus_ms + merge_ms + eccvm_ms + translator_ms,
+             " ms");
+    }
+
+    info("  --- Averages over ", ITERS, " iterations ---");
+    info("  MegaZK verify:    ", mega_total / ITERS, " ms");
+    info("  Databus check:    ", databus_total / ITERS, " ms");
+    info("  Merge verify:     ", merge_total / ITERS, " ms");
+    info("  ECCVM reduce:     ", eccvm_total / ITERS, " ms  ← produces IPA claim");
+    info("  Translator verify:", translator_total / ITERS, " ms");
+    double reduce_avg = (mega_total + databus_total + merge_total + eccvm_total + translator_total) / ITERS;
+    info("  Total reduce:     ", reduce_avg, " ms");
+
+    // --- IPA timing ---
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+
+    double ipa_single_total = 0;
+    for (int i = 0; i < ITERS; i++) {
+        auto t = std::make_shared<NativeTranscript>(last_ipa_proof);
+        auto t0 = std::chrono::steady_clock::now();
+        bool ok = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, last_ipa_claim, t);
+        auto t1 = std::chrono::steady_clock::now();
+        double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+        ipa_single_total += ms;
+        EXPECT_TRUE(ok);
+    }
+    info("  IPA single verify:", ipa_single_total / ITERS, " ms");
+
+    // --- Batch IPA timing ---
+    constexpr size_t MAX_BATCH = 16;
+    std::vector<OpeningClaim<curve::Grumpkin>> claims;
+    std::vector<HonkProof> ipa_proofs;
+    for (size_t i = 0; i < MAX_BATCH; i++) {
+        ChonkNativeVerifier verifier(vk);
+        auto result = verifier.reduce_to_ipa_claim(proof);
+        ASSERT_TRUE(result.all_checks_passed);
+        claims.push_back(std::move(result.ipa_claim));
+        ipa_proofs.push_back(std::move(result.ipa_proof));
+    }
+
+    for (size_t batch_size : { size_t(1), size_t(2), size_t(4), size_t(8), size_t(16) }) {
+        double batch_total_ms = 0;
+        for (int iter = 0; iter < ITERS; iter++) {
+            std::vector<OpeningClaim<curve::Grumpkin>> batch_claims(
+                claims.begin(), claims.begin() + static_cast<ptrdiff_t>(batch_size));
+            std::vector<std::shared_ptr<NativeTranscript>> batch_transcripts;
+            batch_transcripts.reserve(batch_size);
+            for (size_t i = 0; i < batch_size; i++) {
+                batch_transcripts.push_back(std::make_shared<NativeTranscript>(ipa_proofs[i]));
+            }
+
+            auto t0 = std::chrono::steady_clock::now();
+            bool ok = IPA<curve::Grumpkin>::batch_reduce_verify(ipa_vk, batch_claims, batch_transcripts);
+            auto t1 = std::chrono::steady_clock::now();
+            batch_total_ms += std::chrono::duration<double, std::milli>(t1 - t0).count();
+            EXPECT_TRUE(ok);
+        }
+        info("  batch IPA N=", batch_size, " avg: ", batch_total_ms / ITERS, " ms");
+    }
+
+    info("=== End Piecewise Timing ===");
 }
 
 #endif // __wasm__
