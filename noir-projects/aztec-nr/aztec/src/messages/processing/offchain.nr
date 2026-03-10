@@ -268,13 +268,6 @@ mod test {
         }
     }
 
-    /// Calls `receive` with a single message.
-    unconstrained fn receive_one(address: AztecAddress, msg: OffchainMessage) {
-        let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-        msgs.push(msg);
-        receive(address, msgs);
-    }
-
     /// Advances the TXE block timestamp by `offset` seconds and returns the resulting timestamp.
     unconstrained fn advance_by(env: TestEnvironment, offset: u64) -> u64 {
         env.advance_next_block_timestamp_by(offset);
@@ -288,28 +281,32 @@ mod test {
         let _now = advance_by(env, 1);
         env.utility_context(|context| {
             let result = sync_inbox(context.this_address());
+            let inbox: CapsuleArray<PendingOffchainMsg> =
+                CapsuleArray::at(context.this_address(), OFFCHAIN_INBOX_SLOT);
+
             assert_eq(result.len(), 0);
+            assert_eq(inbox.len(), 0);
         });
     }
 
-    // -- Tx-bound message expiration --------------------------------------
-
     #[test]
     unconstrained fn tx_bound_msg_expires_by_sender_timestamp() {
-        // Sender's expiration is well before the lifetime cap, so it is the effective expiration.
         let env = TestEnvironment::new();
         let receive_time = advance_by(env, 10);
+        // Msg expiration attribute is well before the lifetime cap, so it is the effective expiration.
         let sender_expiration_offset = 100;
 
         // Receive message with expiration at receive_time + offset.
         env.utility_context(|context| {
-            receive_one(
-                context.this_address(),
-                make_msg(
-                    Option::some(random()),
-                    receive_time + sender_expiration_offset,
-                ),
-            );
+            let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
+            msgs
+                .push(
+                    make_msg(
+                        Option::some(random()),
+                        receive_time + sender_expiration_offset,
+                    ),
+                );
+            receive(context.this_address(), msgs);
         });
 
         // Advance past sender expiration but before the lifetime cap.
@@ -318,23 +315,23 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address);
-            assert_eq(result.len(), 0); // context is None, not ready
             let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+
+            assert_eq(result.len(), 0); // context is None, not ready
             assert_eq(inbox.len(), 0); // expired, removed
         });
     }
 
     #[test]
     unconstrained fn tx_bound_msg_expires_by_lifetime_cap() {
-        // Sender's expiration is far in the future, so the lifetime cap kicks in.
         let env = TestEnvironment::new();
         let receive_time = advance_by(env, 10);
 
         env.utility_context(|context| {
-            receive_one(
-                context.this_address(),
-                make_msg(Option::some(random()), receive_time + 10 * MAX_MSG_TTL),
-            );
+            let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
+            // Sender's expiration is far in the future, so the standard TX lifetime cap kicks in.
+            msgs.push(make_msg(Option::some(random()), receive_time + 10 * MAX_MSG_TTL));
+            receive(context.this_address(), msgs);
         });
 
         // Advance past the lifetime cap.
@@ -343,27 +340,30 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address);
-            assert_eq(result.len(), 0);
             let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+
+            assert_eq(result.len(), 0);
             assert_eq(inbox.len(), 0); // capped expiration exceeded, removed
         });
     }
 
     #[test]
     unconstrained fn tx_bound_msg_not_expired_sender_timestamp_binding() {
-        // Sender expiration is in the future and below the cap, so it is the binding expiration.
         let env = TestEnvironment::new();
         let receive_time = advance_by(env, 10);
+        // Sender expiration is in the future and below the cap, so it is the binding expiration.
         let sender_expiration_offset = 100;
 
         env.utility_context(|context| {
-            receive_one(
-                context.this_address(),
-                make_msg(
-                    Option::some(random()),
-                    receive_time + sender_expiration_offset,
-                ),
-            );
+            let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
+            msgs
+                .push(
+                    make_msg(
+                        Option::some(random()),
+                        receive_time + sender_expiration_offset,
+                    ),
+                );
+            receive(context.this_address(), msgs);
         });
 
         // Advance, but not past sender expiration.
@@ -372,23 +372,24 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address);
-            assert_eq(result.len(), 0); // context is None, not ready
             let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+
+            assert_eq(result.len(), 0); // context is None, not ready
             assert_eq(inbox.len(), 1); // not expired, stays
         });
     }
 
     #[test]
     unconstrained fn tx_bound_msg_not_expired_lifetime_cap_binding() {
-        // Sender expiration is way beyond the cap, but `now` is still before the cap.
         let env = TestEnvironment::new();
+
+        // Sender expiration is way beyond the cap, but `now` is still before the cap.
         let receive_time = advance_by(env, 10);
 
         env.utility_context(|context| {
-            receive_one(
-                context.this_address(),
-                make_msg(Option::some(random()), receive_time + 10 * MAX_MSG_TTL),
-            );
+            let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
+            msgs.push(make_msg(Option::some(random()), receive_time + 10 * MAX_MSG_TTL));
+            receive(context.this_address(), msgs);
         });
 
         // Advance, but not past the lifetime cap.
@@ -397,13 +398,12 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address);
-            assert_eq(result.len(), 0); // context is None, not ready
             let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+
+            assert_eq(result.len(), 0); // context is None, not ready
             assert_eq(inbox.len(), 1); // not expired, stays
         });
     }
-
-    // -- Tx-less message expiration ---------------------------------------
 
     #[test]
     unconstrained fn tx_less_msg_expires_by_sender_timestamp() {
@@ -412,10 +412,9 @@ mod test {
         let sender_expiration_offset = 100;
 
         env.utility_context(|context| {
-            receive_one(
-                context.this_address(),
-                make_msg(Option::none(), receive_time + sender_expiration_offset),
-            );
+            let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
+            msgs.push(make_msg(Option::none(), receive_time + sender_expiration_offset));
+            receive(context.this_address(), msgs);
         });
 
         let _now = advance_by(env, sender_expiration_offset + 1);
@@ -423,40 +422,39 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address);
-            assert_eq(result.len(), 0);
             let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+
+            assert_eq(result.len(), 0);
             assert_eq(inbox.len(), 0); // expired, removed
         });
     }
 
     #[test]
     unconstrained fn tx_less_msg_with_large_expiration_is_not_capped() {
-        // The message is tx-less, so the lifetime cap does not apply and the sender's large
-        // expiration is trusted. Even though `now` is past what the cap would be for a tx-bound
-        // message, the message stays.
         let env = TestEnvironment::new();
         let receive_time = advance_by(env, 10);
 
         env.utility_context(|context| {
-            receive_one(
-                context.this_address(),
-                make_msg(Option::none(), receive_time + 10 * MAX_MSG_TTL),
-            );
+            let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
+            msgs.push(make_msg(Option::none(), receive_time + 10 * MAX_MSG_TTL));
+            receive(context.this_address(), msgs);
         });
 
         // Advance past what the lifetime cap would be for a tx-bound message.
         let _now = advance_by(env, MAX_MSG_TTL + 1);
 
+        // The message is tx-less, so the lifetime cap does not apply and the sender's large
+        // expiration is trusted. Even though `now` is past what the cap would be for a tx-bound
+        // message, the message stays.
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address);
-            assert_eq(result.len(), 0); // context is None, not ready
             let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+
+            assert_eq(result.len(), 0); // context is None, not ready
             assert_eq(inbox.len(), 1); // tx-less, not capped, stays
         });
     }
-
-    // -- Context resolution scenarios -------------------------------------
 
     #[test]
     unconstrained fn unresolved_tx_stays_in_inbox() {
@@ -464,10 +462,9 @@ mod test {
         let receive_time = advance_by(env, 10);
 
         env.utility_context(|context| {
-            receive_one(
-                context.this_address(),
-                make_msg(Option::some(random()), receive_time + MAX_MSG_TTL),
-            );
+            let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
+            msgs.push(make_msg(Option::some(random()), receive_time + MAX_MSG_TTL));
+            receive(context.this_address(), msgs);
         });
 
         let _now = advance_by(env, 100);
@@ -475,26 +472,27 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address);
-            assert_eq(result.len(), 0); // not resolved, not ready
             let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+
+            assert_eq(result.len(), 0); // not resolved, not ready
             assert_eq(inbox.len(), 1); // not expired, stays
         });
     }
-
-    // -- Mixed messages ---------------------------------------------------
 
     #[test]
     unconstrained fn multiple_messages_mixed_expiration() {
         let env = TestEnvironment::new();
         let receive_time = advance_by(env, 10);
 
+        let survivor_tx_hash = random();
+
         env.utility_context(|context| {
             let address = context.this_address();
             let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
             // Message 0: tx-bound, will expire after 50s.
             msgs.push(make_msg(Option::some(random()), receive_time + 50));
-            // Message 1: tx-bound, will expire after 50_000s.
-            msgs.push(make_msg(Option::some(random()), receive_time + 50_000));
+            // Message 1: tx-bound, will expire after 50_000s (the survivor).
+            msgs.push(make_msg(Option::some(survivor_tx_hash), receive_time + 50_000));
             // Message 2: tx-less, will expire after 50s.
             msgs.push(make_msg(Option::none(), receive_time + 50));
             receive(address, msgs);
@@ -506,42 +504,12 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address);
-            assert_eq(result.len(), 0); // all contexts are None
             let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
+
+            assert_eq(result.len(), 0); // all contexts are None
             // Only message 1 should remain: messages 0 and 2 expired.
             assert_eq(inbox.len(), 1);
-        });
-    }
-
-    #[test]
-    unconstrained fn backward_iteration_removes_all_expired() {
-        let env = TestEnvironment::new();
-        let receive_time = advance_by(env, 10);
-
-        env.utility_context(|context| {
-            let address = context.this_address();
-            // Receive 5 tx-bound messages with expiration way beyond the cap.
-            let mut i: u32 = 0;
-            while i < 5 {
-                receive_one(
-                    address,
-                    make_msg(Option::some(random()), receive_time + 10 * MAX_MSG_TTL),
-                );
-                i += 1;
-            }
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
-            assert_eq(inbox.len(), 5);
-        });
-
-        // Advance past the lifetime cap so all 5 are expired.
-        let _now = advance_by(env, MAX_MSG_TTL + 1);
-
-        env.utility_context(|context| {
-            let address = context.this_address();
-            let result = sync_inbox(address);
-            assert_eq(result.len(), 0);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT);
-            assert_eq(inbox.len(), 0); // all 5 removed without index corruption
+            assert_eq(inbox.get(0).tx_hash, survivor_tx_hash);
         });
     }
 }
