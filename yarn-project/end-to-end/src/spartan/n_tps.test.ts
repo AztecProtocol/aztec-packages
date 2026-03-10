@@ -355,7 +355,6 @@ describe('sustained N TPS test', () => {
     let prototypeTx = prototypeTxs.get(from.toString());
     if (!prototypeTx) {
       prototypeTx = await submitProven(wallet);
-      console.log(`Tx gas limits `, prototypeTx.data.constants.txContext.gasSettings.gasLimits);
       prototypeTxs.set(from.toString(), prototypeTx);
     }
 
