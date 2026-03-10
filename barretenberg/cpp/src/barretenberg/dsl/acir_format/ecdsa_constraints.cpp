@@ -113,6 +113,14 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder, const Ecd
     bool_ct signature_result =
         stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, { r, s });
 
+    if (builder.is_write_vk_mode()) {
+        // Register input->output witness mapping for ACIR static analysis.
+        // Key: all input witness indices. Value: packed signature result witness index.
+        builder.acir_opcode_io.register_io(witness_or_constant_vector_from_ecdsa_constraint<Builder>(input),
+                                           witness_or_constant_vector_from_vector<Builder>(
+                                               std::vector<uint32_t>{ signature_result.get_witness_index() }));
+    }
+
     // Step 5.
     // Ensure the circuit is satisfied when predicate is witness false
     signature_result.assert_equal(bool_ct::conditional_assign(predicate, result, signature_result));

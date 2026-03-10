@@ -1,4 +1,5 @@
 #include "./graph_description_acir.hpp"
+#include "barretenberg/boomerang_value_detection/helpers/aes_helpers.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/cycle_group_helpers.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/cycle_scalar_helpers.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/ecdsa_helpers.hpp"
@@ -395,6 +396,12 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_constraint_system()
         case AcirConstraintType::ECDSA_R1:
             result = process_ecdsa_constraints(constraint_info.ptr, next_constraint_witnesses);
             break;
+        case AcirConstraintType::BLAKE2S:
+            result = process_blake2s_constraints(constraint_info.ptr, next_constraint_witnesses);
+            break;
+        case AcirConstraintType::BLAKE3:
+            result = process_blake3_constraints(constraint_info.ptr, next_constraint_witnesses);
+            break;
         case AcirConstraintType::KECCAK_PERMUTATION:
             result = process_keccak_permutation_constraints(constraint_info.ptr);
             break;
@@ -634,13 +641,10 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(const Co
 
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_aes128_constraints(
-    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& next_constraint_witnesses)
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
 {
-    // AES128 constraint processing
-    // TODO: Implement validation logic
-    (void)ptr;
-    (void)next_constraint_witnesses;
-    return false; // Not yet implemented
+    const auto* constraint = std::get<const acir_format::AES128Constraint*>(ptr);
+    return validate_aes<FF>(analyzer, builder, *constraint);
 }
 
 template <typename FF, typename CircuitBuilder>
@@ -1025,7 +1029,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_multi_scalar_mul_constrain
         WitnessOrConstant<FF>::from_index(constraint->out_point_y),
         WitnessOrConstant<FF>::from_index(constraint->out_point_is_infinite),
     };
-    condition &= is_msm_result_constrained<FF>(analyzer, builder, output_point, constraint->predicate);
+    condition &= is_msm_result_constrained<FF>(analyzer, builder, output_point, *constraint);
 
     return condition;
 }
@@ -1034,7 +1038,6 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_multi_scalar_mul_constrain
 // 1. All input byte fields (hashed_message, r, s, pub_x, pub_y) have conditional_assign + 8-bit range constraints
 // 2. The result is constrained to be boolean (from bool_ct result(result_field))
 // 3. The result participates in bool_t conditional_assign + assert_equal chain
-// TODO(defkit): implement proper stdlib::ecdsa_verify_signature tracing
 // We intentionally skip tracing ECDSA verification internals (biggroup/bigcurve).
 // Instead, we verify that:
 //   - All inputs are properly constrained (conditional_assign + 8-bit range)
@@ -1071,9 +1074,86 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ecdsa_constraints(
         analyzer, builder, constraint->pub_y_indices, predicate_field, pub_y_defaults);
 
     // 2-3. Validate result: boolean gate + conditional_assign + assert_equal
-    condition &= is_ecdsa_result_constrained<FF>(analyzer, builder, constraint->result, predicate_field);
+    condition &= is_ecdsa_result_constrained<FF>(analyzer, builder, *constraint);
 
     return condition;
+}
+
+/**
+ * @brief Verify blake2s/blake3 constraint: input bytes have 8-bit range constraints, outputs match stdlib IO.
+ * @details Blake2s/blake3 inputs are bytes (8-bit values). For each non-constant input, we verify that an 8-bit
+ * range constraint exists via limb lookup. For outputs, we use the IO registry (acir_opcode_io) to verify
+ * that each output byte produced by the stdlib is connected to the corresponding constraint.result[i]
+ * via assert_equal.
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_blake_constraint_internal(
+    const std::vector<WitnessOrConstant<bb::fr>>& inputs, const std::array<uint32_t, 32>& result)
+{
+    using field_ct = bb::stdlib::field_t<CircuitBuilder>;
+
+    // 1. Verify input byte range constraints
+    for (const auto& input : inputs) {
+        if (!input.is_constant) {
+            // Each non-constant input byte must have an 8-bit range constraint
+            if (!is_range_constrained_via_limb_lookup<FF>(analyzer, builder, input.index, 255)) {
+                return false;
+            }
+        }
+    }
+
+    // 2. Look up the registered outputs for these inputs
+    const auto& io_map = builder.acir_opcode_io.io_map;
+    auto it = io_map.find(witness_or_constant_vector_from_vector<CircuitBuilder>(inputs));
+    if (it == io_map.end()) {
+        return false;
+    }
+
+    const auto& all_outputs = it->second;
+    if (all_outputs.empty()) {
+        return false;
+    }
+
+    for (const auto& outputs_vector : all_outputs) {
+        // unexpected
+        BB_ASSERT_EQ(outputs_vector.size(), result.size(), "Output size mismatch");
+
+        auto condition = true;
+        for (size_t i = 0; i < outputs_vector.size(); i++) {
+            Field<CircuitBuilder> output_field{ outputs_vector[i].index,
+                                                field_ct::from_witness_index(&builder, outputs_vector[i].index) };
+            Field<CircuitBuilder> result_field{ result[i], field_ct::from_witness_index(&builder, result[i]) };
+            condition &= is_assert_equal_exists<FF>(analyzer, builder, output_field, result_field);
+        }
+        if (condition) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * @brief Verify blake2s constraint
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_blake2s_constraints(
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
+{
+    const auto* constraint = std::get<const acir_format::Blake2sConstraint*>(ptr);
+
+    return process_blake_constraint_internal(constraint->inputs, constraint->result);
+}
+
+/**
+ * @brief Verify blake3 constraint
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_blake3_constraints(
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
+{
+    const auto* constraint = std::get<const acir_format::Blake3Constraint*>(ptr);
+
+    return process_blake_constraint_internal(constraint->inputs, constraint->result);
 }
 
 /**

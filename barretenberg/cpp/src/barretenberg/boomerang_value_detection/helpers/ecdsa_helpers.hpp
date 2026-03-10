@@ -11,6 +11,7 @@
 #include "barretenberg/boomerang_value_detection/helpers/field_t_helpers.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/range_helpers.hpp"
 #include "barretenberg/dsl/acir_format/ecdsa_constraints.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
 
@@ -140,10 +141,12 @@ bool is_ecdsa_input_bytes_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analy
 template <typename FF, typename CircuitBuilder>
 bool is_ecdsa_result_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
                                  CircuitBuilder& builder,
-                                 uint32_t result_idx,
-                                 const Field<CircuitBuilder>& predicate_field)
+                                 const EcdsaConstraint& input)
 {
     using bool_ct = bb::stdlib::bool_t<CircuitBuilder>;
+
+    auto result_idx = input.result;
+    auto predicate_field = witness_or_constant_to_field<FF>(input.predicate, builder);
 
     // Step 1: Verify boolean gate on result (from bool_ct result(result_field) at ecdsa_constraints.cpp:103)
     if (!is_boolean_gate_exists<FF>(analyzer, builder, result_idx)) {
@@ -170,41 +173,47 @@ bool is_ecdsa_result_constrained(StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
         return true;
     }
 
-    // Step 2: Find AND gate 1: predicate && result (using get_and_result from bool_t_helpers.hpp)
-    auto and1 = get_and_result<FF>(analyzer, builder, predicate_bool, result_bool);
-    if (!and1.has_value()) {
-        log_error("is_ecdsa_result_constrained: AND gate (predicate && result) not found");
+    // Step 2: Get the result from acir_opcode_io
+
+    auto it =
+        builder.acir_opcode_io.io_map.find(witness_or_constant_vector_from_ecdsa_constraint<CircuitBuilder>(input));
+    if (it == builder.acir_opcode_io.io_map.end()) {
+        log_error("is_ecdsa_result_constrained: no resolved outputs found for key vector");
         return false;
     }
 
-    // Step 3: Find AND gate 2: !predicate && signature_result
-    // signature_result is unknown — use find_and_unknown_rhs to discover all candidates.
-    // Multiple candidates may exist when the predicate is shared across ECDSA constraints.
-    auto inverted_predicate = Bool<CircuitBuilder>{ predicate_bool.witness_index, !predicate_bool.witness };
-    auto and2_candidates = find_and_unknown_rhs<FF>(analyzer, builder, inverted_predicate);
-    if (and2_candidates.empty()) {
-        log_error("is_ecdsa_result_constrained: AND gate (!predicate && signature_result) not found");
+    const auto& resolved_outputs = it->second;
+
+    if (resolved_outputs.empty()) {
+        log_error("is_ecdsa_result_constrained: no resolved outputs found for key vector");
         return false;
     }
 
-    // Try each candidate — only the correct one will have a matching OR gate and assert_equal
-    for (const auto& [signature_result_bool, and2] : and2_candidates) {
-        // Step 4: Find OR gate: and1 || and2
-        auto or_result = get_or_result<FF>(analyzer, builder, *and1, and2);
-        if (!or_result.has_value()) {
+    // Step 3: iterate over the resolved outputs and find the one that matches
+    // `signature_result.assert_equal(bool_ct::conditional_assign(predicate, result, signature_result));`
+    // If found, return true.
+    for (const auto& resolved_output : resolved_outputs) {
+        if (resolved_output.size() != 1) {
+            log_error("is_ecdsa_result_constrained: resolved output size is not 1");
+            return false;
+        }
+        auto resolved_output_bool =
+            Bool<CircuitBuilder>{ resolved_output.front().index,
+                                  bool_ct::from_witness_index_unsafe(&builder, resolved_output.front().index) };
+        auto conditional_assign_result =
+            get_boolean_conditional_assign_result(analyzer, builder, predicate_bool, result_bool, resolved_output_bool);
+        if (!conditional_assign_result.has_value()) {
             continue;
         }
-
-        // Step 5: Verify assert_equal (copy constraint) on the OR result
-        if (analyzer.to_real(or_result->witness_index) == or_result->witness_index) {
-            continue;
+        if (is_assert_equal_exists<FF>(analyzer,
+                                       builder,
+                                       bool_to_field<FF>(*conditional_assign_result, builder),
+                                       bool_to_field<FF>(resolved_output_bool, builder))) {
+            return true;
         }
-
-        return true;
     }
 
-    log_error("is_ecdsa_result_constrained: no AND candidate produced a valid OR + assert_equal chain");
+    log_error("is_ecdsa_result_constrained: no stdlib result found corresponding to the ECDSA constraint");
     return false;
 }
-
 } // namespace cdg
