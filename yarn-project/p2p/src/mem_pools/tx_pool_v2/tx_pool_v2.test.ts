@@ -152,7 +152,8 @@ describe('TxPoolV2', () => {
     await archiveStore.delete();
   });
 
-  const mockTxWithFee = (seed: number, fee: number) => mockTx(seed, { maxPriorityFeesPerGas: new GasFees(fee, fee) });
+  const mockTxWithFee = (seed: number, fee: number) =>
+    mockTx(seed, { maxPriorityFeesPerGas: new GasFees(fee, fee), maxFeesPerGas: new GasFees(fee, fee) });
 
   // Helper functions for string-based TxHash comparisons
   const toStrings = (hashes: TxHash[]) => hashes.map(h => h.toString());
@@ -161,6 +162,7 @@ describe('TxPoolV2', () => {
   const mockPublicTx = (seed: number, fee: number = 1) =>
     mockTx(seed, {
       maxPriorityFeesPerGas: new GasFees(fee, fee),
+      maxFeesPerGas: new GasFees(fee, fee),
       numberOfNonRevertiblePublicCallRequests: 1,
     });
 
