@@ -67,7 +67,7 @@ pub(crate) unconstrained fn decode_private_event_message(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
 ) -> Option<(EventSelector, Field, BoundedVec<Field, MAX_EVENT_SERIALIZED_LEN>)> {
-    if msg_content.len() < PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN {
+    if msg_content.len() <= PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN {
         Option::none()
     } else {
         let event_type_id = EventSelector::from_field(msg_metadata as Field);
@@ -127,9 +127,8 @@ mod test {
     }
 
     #[test]
-    unconstrained fn decode_succeeds_with_only_reserved_fields() {
+    unconstrained fn decode_with_only_reserved_fields_returns_none() {
         let content = BoundedVec::from_array([0]);
-        let (_, _, serialized_event) = decode_private_event_message(0, content).unwrap();
-        assert_eq(serialized_event.len(), 0);
+        assert(decode_private_event_message(0, content).is_none());
     }
 }

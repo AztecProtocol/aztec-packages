@@ -64,7 +64,7 @@ pub(crate) unconstrained fn decode_private_note_message(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
 ) -> Option<(Field, AztecAddress, Field, Field, BoundedVec<Field, MAX_NOTE_PACKED_LEN>)> {
-    if msg_content.len() < PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN {
+    if msg_content.len() <= PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN {
         Option::none()
     } else {
         let note_type_id = msg_metadata as Field; // TODO: make note type id not be a full field
@@ -181,9 +181,8 @@ mod test {
     }
 
     #[test]
-    unconstrained fn decode_succeeds_with_only_reserved_fields() {
+    unconstrained fn decode_with_only_reserved_fields_returns_none() {
         let content = BoundedVec::from_array([0, 0, 0]);
-        let (_, _, _, _, packed_note) = decode_private_note_message(0, content).unwrap();
-        assert_eq(packed_note.len(), 0);
+        assert(decode_private_note_message(0, content).is_none());
     }
 }
