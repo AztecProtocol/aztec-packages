@@ -8,10 +8,15 @@
 
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/streams.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/goblin/types.hpp"
+#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/translator_vm/translator_flavor.hpp"
 #include <fstream>
 
 namespace bb {
@@ -38,6 +43,17 @@ template <bool IsRecursive = false> struct ChonkProof_ {
     HonkProof eccvm_proof;   // ECCVM proof
     HonkProof ipa_proof;     // IPA opening proof (separate transcript)
     HonkProof joint_proof;   // Translator Oink + joint sumcheck + joint PCS
+
+    // Sub-proof sizes (in field elements, excluding public inputs).
+    static constexpr size_t MEGA_ZK_OINK_LENGTH = ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
+
+    // Joint proof = translator proof structure + MegaZK evaluations injected into sumcheck.
+    // The translator evals (minicircuit + full-circuit) are sent as before; MegaZK evals are added.
+    static constexpr size_t JOINT_PROOF_LENGTH = TranslatorFlavor::PROOF_LENGTH + MegaZKFlavor::NUM_ALL_ENTITIES;
+
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        MEGA_ZK_OINK_LENGTH + MERGE_PROOF_SIZE + ECCVMFlavor::PROOF_LENGTH + IPA_PROOF_LENGTH + JOINT_PROOF_LENGTH;
+    static constexpr size_t PROOF_LENGTH = PROOF_LENGTH_WITHOUT_PUB_INPUTS + bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
 
     // Default constructor
     ChonkProof_() = default;

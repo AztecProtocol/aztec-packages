@@ -40,10 +40,9 @@ ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_field_elements(const std
     constexpr size_t eccvm_size = ECCVMFlavor::PROOF_LENGTH;
     constexpr size_t ipa_size = IPA_PROOF_LENGTH;
 
-    // MegaZK Oink proof size = oink data + public inputs (HidingKernelIO + custom)
+    // MegaZK Oink proof size = oink data + public inputs (HidingKernelIO only; no custom public inputs)
     constexpr size_t mega_zk_oink_without_pub_inputs = ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
     const size_t mega_zk_oink_length = mega_zk_oink_without_pub_inputs + bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
-    // TODO(si): handle custom public inputs properly; for now assume none.
 
     auto it = fields.begin();
 

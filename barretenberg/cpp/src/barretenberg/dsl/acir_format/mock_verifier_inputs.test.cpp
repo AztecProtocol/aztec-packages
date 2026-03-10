@@ -1,4 +1,5 @@
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
+#include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 
 #include <gtest/gtest.h>
@@ -31,8 +32,7 @@ static_assert(
     ProofLength::Honk<UltraFlavor>::expected_proof_size<stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
         UltraFlavor::VIRTUAL_LOG_N) == 449,
     "RECURSIVE_PROOF_LENGTH changed - update constants.nr");
-// TODO(#chonk-batching): ChonkProof::PROOF_LENGTH was removed during batched proof restructuring.
-// Re-add a static_assert once the new proof layout stabilizes and constants.nr is updated.
+static_assert(ChonkProof::PROOF_LENGTH == 1381, "CHONK_PROOF_LENGTH changed - update constants.nr");
 static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH == 121,
               "MultilinearBatching proof size changed - update constants.nr");
 
@@ -185,8 +185,7 @@ TEST_F(MockVerifierInputsTest, MockChonkProofSize)
 {
     using Builder = MegaCircuitBuilder;
     HonkProof chonk_proof = create_mock_chonk_proof<Builder>();
-    // Verify the mock proof is non-empty (exact size depends on batched proof layout)
-    EXPECT_GT(chonk_proof.size(), 0);
+    EXPECT_EQ(chonk_proof.size(), ChonkProof::PROOF_LENGTH);
 }
 
 /**

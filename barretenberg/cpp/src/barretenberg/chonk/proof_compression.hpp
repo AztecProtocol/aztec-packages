@@ -96,7 +96,7 @@ class ProofCompressor {
         for (size_t i = 0; i < num_public_inputs; i++) {
             process_scalar();
         }
-        // Witness commitments (gemini masking poly + wires + lookup + databus + z_perm = NUM_WITNESS_ENTITIES)
+        // Witness commitments (wires + lookup + databus + z_perm = NUM_WITNESS_ENTITIES)
         for (size_t i = 0; i < MegaZKFlavor::NUM_WITNESS_ENTITIES; i++) {
             process_commitment();
         }
@@ -400,6 +400,10 @@ class ProofCompressor {
         JOINT_LOG_N * BN254_FRS_PER_SCALAR +                                                                       // gemini evals
         NUM_SMALL_IPA_EVALUATIONS * BN254_FRS_PER_SCALAR +                                                         // small IPA evals
         2 * BN254_FRS_PER_COMM;                                                                                    // shplonk Q + KZG W
+    // Cross-check: walk-based count must match ChonkProof's structural constants
+    static_assert(EXPECTED_MEGA_ZK_OINK_FRS + EXPECTED_MERGE_FRS + EXPECTED_ECCVM_FRS + EXPECTED_IPA_FRS +
+                      EXPECTED_JOINT_FRS ==
+                  ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     // clang-format on
 
   public:
