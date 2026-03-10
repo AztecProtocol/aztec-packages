@@ -8,6 +8,9 @@
 #include <condition_variable>
 #include <functional>
 #include <mutex>
+#ifndef __wasm__
+#include <pthread.h>
+#endif
 #include <queue>
 #include <thread>
 #include <vector>
@@ -124,6 +127,45 @@ void ThreadPool::worker_loop(size_t /*unused*/)
     }
     // info("worker exit ", worker_num);
 }
+struct PerThreadPoolData {
+    ThreadPool pool;
+    bool nested = false;
+    PerThreadPoolData(size_t num_threads)
+        : pool(num_threads)
+    {}
+};
+
+#ifndef __wasm__
+// Use POSIX pthread keys for per-thread pool storage instead of C++ thread_local.
+// Zig's Mach-O linker corrupts C++ thread_local offsets when a Rust static library
+// with __thread_vars sections is linked into the same binary, causing segfaults on
+// x86_64-macos. pthread_key uses a different TLS mechanism (runtime hashtable)
+// unaffected by this linker bug.
+pthread_key_t pool_key;
+pthread_once_t pool_key_once = PTHREAD_ONCE_INIT;
+
+void destroy_pool_data(void* ptr)
+{
+    delete static_cast<PerThreadPoolData*>(ptr);
+}
+
+void init_pool_key()
+{
+    pthread_key_create(&pool_key, destroy_pool_data);
+}
+
+PerThreadPoolData& get_pool_data()
+{
+    pthread_once(&pool_key_once, init_pool_key);
+    auto* data = static_cast<PerThreadPoolData*>(pthread_getspecific(pool_key));
+    if (data == nullptr) {
+        data = new PerThreadPoolData(bb::get_num_cpus() - 1);
+        pthread_setspecific(pool_key, data);
+    }
+    return *data;
+}
+#endif
+
 } // namespace
 
 namespace bb {
@@ -133,38 +175,28 @@ namespace bb {
  */
 void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func)
 {
-    // Use a global pool rather than thread_local to avoid TLS corruption when Rust and zig
-    // cross-compiled static libraries are linked together (the Rust library introduces a
-    // __thread_data Mach-O section that corrupts C++ thread_local variable offsets on x86_64-macos).
-    // A global pool is also more efficient: thread_local created O(N²) threads (each thread
-    // got its own pool of N-1 workers), while a global pool creates exactly N-1 workers total.
-    static ThreadPool pool(get_num_cpus() - 1);
-    static std::mutex pool_mutex;
 #ifdef __wasm__
+    static ThreadPool pool(get_num_cpus() - 1);
     static bool nested = false;
+    auto& pool_ref = pool;
+    auto& nested_ref = nested;
 #else
-    static thread_local bool nested = false;
+    auto& data = get_pool_data();
+    auto& pool_ref = data.pool;
+    auto& nested_ref = data.nested;
 #endif
 
     // If nested, fall back to serial execution
-    if (nested) {
+    if (nested_ref) {
         for (size_t i = 0; i < num_iterations; ++i) {
             func(i);
         }
         return;
     }
 
-    nested = true;
-    {
-        std::unique_lock<std::mutex> lock(pool_mutex);
-        // Wrap func so worker threads also set nested = true, preventing them from
-        // trying to re-enter parallel_for (which would deadlock on pool_mutex).
-        pool.start_tasks(num_iterations, [&func](size_t i) {
-            nested = true;
-            func(i);
-        });
-    }
-    nested = false;
+    nested_ref = true;
+    pool_ref.start_tasks(num_iterations, func);
+    nested_ref = false;
 }
 } // namespace bb
 #endif
