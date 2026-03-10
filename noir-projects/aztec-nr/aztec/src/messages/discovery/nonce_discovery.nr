@@ -1,6 +1,6 @@
 use crate::messages::{discovery::ComputeNoteHashAndNullifier, logs::note::MAX_NOTE_PACKED_LEN};
 
-use crate::logging::aztecnr_debug_log_format;
+use crate::logging::{aztecnr_debug_log_format, aztecnr_warn_log_format};
 use crate::protocol::{
     address::AztecAddress,
     constants::MAX_NOTE_HASHES_PER_TX,
@@ -49,10 +49,11 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery<Env>(
         // note hashes array. We therefore know for each note in every transaction what its nonce is.
         let candidate_nonce = compute_note_hash_nonce(first_nullifier_in_tx, i);
 
-        // Given note nonce, note content and metadata, we can compute the note hash and silo it to check if it matches
-        // the note hash at the array index we're currently processing. TODO(#11157): handle failed
-        // note_hash_and_nullifier computation
-        let hashes = compute_note_hash_and_nullifier(
+        // Given note nonce, note content and metadata, we can compute the note hash and silo it to check if it
+        // matches the note hash at the array index we're currently processing. This computation may fail, in which
+        // case
+        // we skip the candidate.
+        let maybe_hashes = compute_note_hash_and_nullifier(
             packed_note,
             owner,
             storage_slot,
@@ -60,34 +61,46 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery<Env>(
             contract_address,
             randomness,
             candidate_nonce,
-        )
-            .expect(f"Failed to compute a note hash for note type {note_type_id}");
+        );
 
-        let siloed_note_hash = compute_siloed_note_hash(contract_address, hashes.note_hash);
-        let unique_note_hash = compute_unique_note_hash(candidate_nonce, siloed_note_hash);
+        if maybe_hashes.is_some() {
+            let hashes = maybe_hashes.unwrap();
 
-        if unique_note_hash == expected_unique_note_hash {
-            // Note that while we did check that the note hash is the preimage of the expected unique note hash, we
-            // perform no validations on the nullifier - we fundamentally cannot, since only the application knows how
-            // to compute nullifiers. We simply trust it to have provided the correct one: if it hasn't, then PXE may
-            // fail to realize that a given note has been nullified already, and calls to the application could result
-            // in invalid transactions (with duplicate nullifiers). This is not a concern because an application
-            // already has more direct means of making a call to it fail the transaction.
-            discovered_notes.push(
-                DiscoveredNoteInfo {
-                    note_nonce: candidate_nonce,
-                    note_hash: hashes.note_hash,
-                    // TODO: The None case will be handled in a followup PR.
-                    // https://linear.app/aztec-labs/issue/F-265/store-external-notes
-                    inner_nullifier: hashes.inner_nullifier.expect(
-                        f"Failed to compute nullifier for note type {note_type_id}",
-                    ),
-                },
-            );
+            let siloed_note_hash = compute_siloed_note_hash(contract_address, hashes.note_hash);
+            let unique_note_hash = compute_unique_note_hash(candidate_nonce, siloed_note_hash);
 
-            // We don't exit the loop - it is possible (though rare) for the exact same note content to be present
-            // multiple times in the same transaction with different nonces. This typically doesn't happen due to notes
-            // containing random values in order to hide their contents.
+            if unique_note_hash == expected_unique_note_hash {
+                // Note that while we did check that the note hash is the preimage of the expected unique note
+                // hash, we perform no validations on the nullifier - we fundamentally cannot, since only the
+                // application knows how to compute nullifiers. We simply trust it to have provided the correct
+                // one: if it hasn't, then PXE may fail to realize that a given note has been nullified already,
+                // and calls to the application could result in invalid transactions (with duplicate nullifiers).
+                // This is not a concern because an application already has more direct means of making a call to
+                // it fail the transaction.
+                // TODO(F-265): consider the case for external notes even when nullifier is not computable
+                if hashes.inner_nullifier.is_some() {
+                    discovered_notes.push(
+                        DiscoveredNoteInfo {
+                            note_nonce: candidate_nonce,
+                            note_hash: hashes.note_hash,
+                            inner_nullifier: hashes.inner_nullifier.unwrap(),
+                        },
+                    );
+                } else {
+                    // The nullifier could not be computed (e.g. the owner's nullifier secret key is not
+                    // available). We skip this note because without a nullifier we cannot track whether it
+                    // has been spent.
+                    aztecnr_warn_log_format!(
+                        "Skipping note discovery: nullifier could not be computed for note type {0} on contract {1}",
+                    )(
+                        [note_type_id, contract_address.to_field()],
+                    );
+                }
+
+                // We don't exit the loop - it is possible (though rare) for the exact same note content to be
+                // present multiple times in the same transaction with different nonces. This typically doesn't
+                // happen due to notes containing random values in order to hide their contents.
+            }
         }
     });
 
@@ -152,6 +165,30 @@ mod test {
         }
     }
 
+    // Like compute_note_hash_and_nullifier but returns None for the inner nullifier.
+    unconstrained fn compute_note_hash_only(
+        packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+        owner: AztecAddress,
+        storage_slot: Field,
+        note_type_id: Field,
+        contract_address: AztecAddress,
+        randomness: Field,
+        note_nonce: Field,
+    ) -> Option<NoteHashAndNullifier> {
+        compute_note_hash_and_nullifier(
+            packed_note,
+            owner,
+            storage_slot,
+            note_type_id,
+            contract_address,
+            randomness,
+            note_nonce,
+        )
+            .map(|hashes: NoteHashAndNullifier| {
+                NoteHashAndNullifier { note_hash: hashes.note_hash, inner_nullifier: Option::none() }
+            })
+    }
+
     global VALUE: Field = 7;
     global FIRST_NULLIFIER_IN_TX: Field = 47;
     global CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(13);
@@ -179,8 +216,8 @@ mod test {
         assert_eq(discovered_notes.len(), 0);
     }
 
-    #[test(should_fail_with = "Failed to compute a note hash")]
-    unconstrained fn failed_hash_computation() {
+    #[test]
+    unconstrained fn unknown_note_type_is_skipped() {
         let unique_note_hashes_in_tx = BoundedVec::from_array([random()]);
         let packed_note = BoundedVec::new();
         let note_type_id = 0; // This note type id is unknown to compute_note_hash_and_nullifier
@@ -260,6 +297,33 @@ mod test {
         assert_eq(discovered_note.note_nonce, note_and_data.note_nonce);
         assert_eq(discovered_note.note_hash, note_and_data.note_hash);
         assert_eq(discovered_note.inner_nullifier, note_and_data.inner_nullifier);
+    }
+
+    #[test]
+    unconstrained fn note_without_nullifier_is_skipped() {
+        let note_index_in_tx = 2;
+        let note_and_data = construct_note(VALUE, note_index_in_tx);
+
+        let mut unique_note_hashes_in_tx = BoundedVec::from_array([
+            random(), random(), random(), random(), random(), random(), random(),
+        ]);
+        unique_note_hashes_in_tx.set(note_index_in_tx, note_and_data.unique_note_hash);
+
+        // Simulates a note without a nullifier: the note hash is computed correctly but the nullifier is None.
+        let discovered_notes = attempt_note_nonce_discovery(
+            unique_note_hashes_in_tx,
+            FIRST_NULLIFIER_IN_TX,
+            compute_note_hash_only,
+            CONTRACT_ADDRESS,
+            OWNER,
+            STORAGE_SLOT,
+            RANDOMNESS,
+            MockNote::get_id(),
+            BoundedVec::from_array(note_and_data.note.pack()),
+        );
+
+        // The note hash matches but the nullifier couldn't be computed, so the note should be skipped.
+        assert_eq(discovered_notes.len(), 0);
     }
 
     #[test]
