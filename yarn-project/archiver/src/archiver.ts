@@ -120,7 +120,11 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     },
     private readonly blobClient: BlobClientInterface,
     instrumentation: ArchiverInstrumentation,
-    protected override readonly l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr },
+    protected override readonly l1Constants: L1RollupConstants & {
+      l1StartBlockHash: Buffer32;
+      genesisArchiveRoot: Fr;
+      rollupManaLimit?: number;
+    },
     synchronizer: ArchiverL1Synchronizer,
     events: ArchiverEmitter,
     l2TipsCache?: L2TipsCache,
@@ -133,7 +137,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     this.synchronizer = synchronizer;
     this.events = events;
     this.l2TipsCache = l2TipsCache ?? new L2TipsCache(this.dataStore.blockStore);
-    this.updater = new ArchiverDataStoreUpdater(this.dataStore, this.l2TipsCache);
+    this.updater = new ArchiverDataStoreUpdater(this.dataStore, this.l2TipsCache, {
+      rollupManaLimit: l1Constants.rollupManaLimit,
+    });
 
     // Running promise starts with a small interval inbetween runs, so all iterations needed for the initial sync
     // are done as fast as possible. This then gets updated once the initial sync completes.
@@ -399,7 +405,6 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   }
 
   public async rollbackTo(targetL2BlockNumber: BlockNumber): Promise<void> {
-    // TODO(pw/mbps): This still assumes 1 block per checkpoint
     const currentBlocks = await this.getL2Tips();
     const currentL2Block = currentBlocks.proposed.number;
     const currentProvenBlock = currentBlocks.proven.block.number;
@@ -411,8 +416,25 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     if (!targetL2Block) {
       throw new Error(`Target L2 block ${targetL2BlockNumber} not found`);
     }
-    const targetL1BlockNumber = targetL2Block.l1.blockNumber;
     const targetCheckpointNumber = targetL2Block.checkpointNumber;
+
+    // Rollback operates at checkpoint granularity: the target block must be the last block of its checkpoint.
+    const checkpointData = await this.store.getCheckpointData(targetCheckpointNumber);
+    if (checkpointData) {
+      const lastBlockInCheckpoint = BlockNumber(checkpointData.startBlock + checkpointData.blockCount - 1);
+      if (targetL2BlockNumber !== lastBlockInCheckpoint) {
+        const previousCheckpointBoundary =
+          checkpointData.startBlock > 1 ? BlockNumber(checkpointData.startBlock - 1) : BlockNumber(0);
+        throw new Error(
+          `Target L2 block ${targetL2BlockNumber} is not at a checkpoint boundary. ` +
+            `Checkpoint ${targetCheckpointNumber} spans blocks ${checkpointData.startBlock} to ${lastBlockInCheckpoint}. ` +
+            `Use block ${lastBlockInCheckpoint} to roll back to this checkpoint, ` +
+            `or block ${previousCheckpointBoundary} to roll back to the previous one.`,
+        );
+      }
+    }
+
+    const targetL1BlockNumber = targetL2Block.l1.blockNumber;
     const targetL1Block = await this.publicClient.getBlock({
       blockNumber: targetL1BlockNumber,
       includeTransactions: false,
@@ -431,13 +453,14 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     await this.store.setCheckpointSynchedL1BlockNumber(targetL1BlockNumber);
     await this.store.setMessageSynchedL1Block({ l1BlockNumber: targetL1BlockNumber, l1BlockHash: targetL1BlockHash });
     if (targetL2BlockNumber < currentProvenBlock) {
-      this.log.info(`Clearing proven L2 block number`);
-      await this.updater.setProvenCheckpointNumber(CheckpointNumber.ZERO);
+      this.log.info(`Rolling back proven L2 checkpoint to ${targetCheckpointNumber}`);
+      await this.updater.setProvenCheckpointNumber(targetCheckpointNumber);
     }
     // TODO(palla/reorg): Set the finalized block when we add support for it.
+    // const currentFinalizedBlock = currentBlocks.finalized.block.number;
     // if (targetL2BlockNumber < currentFinalizedBlock) {
-    //   this.log.info(`Clearing finalized L2 block number`);
-    //   await this.store.setFinalizedL2BlockNumber(0);
+    //   this.log.info(`Rolling back finalized L2 checkpoint to ${targetCheckpointNumber}`);
+    //   await this.updater.setFinalizedCheckpointNumber(targetCheckpointNumber);
     // }
   }
 }

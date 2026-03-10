@@ -17,6 +17,7 @@ use crate::{
         nullifiers::notify_created_nullifier,
     },
 };
+use crate::logging::aztecnr_trace_log_format;
 use crate::protocol::{
     abis::{
         block_header::BlockHeader,
@@ -187,7 +188,7 @@ impl PrivateContext {
             is_fee_payer: false,
             args_hash,
             return_hash: 0,
-            expiration_timestamp: inputs.anchor_block_header.global_variables.timestamp + MAX_TX_LIFETIME,
+            expiration_timestamp: inputs.anchor_block_header.timestamp() + MAX_TX_LIFETIME,
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             key_validation_requests_and_separators: BoundedVec::new(),
@@ -527,7 +528,7 @@ impl PrivateContext {
     /// balance (>= the gas limits specified in the TxContext) by the time we reach the public setup phase of the tx.
     ///
     pub fn set_as_fee_payer(&mut self) {
-        crate::protocol::logging::debug_log_format("Setting {0} as fee payer", [self.this_address().to_field()]);
+        aztecnr_trace_log_format!("Setting {0} as fee payer")([self.this_address().to_field()]);
         self.is_fee_payer = true;
     }
 
@@ -576,10 +577,7 @@ impl PrivateContext {
         // Incrementing the side effect counter when ending setup ensures non ambiguity for the counter where we change
         // phases.
         self.side_effect_counter += 1;
-        // crate::protocol::logging::debug_log_format(
-        //     "Ending setup at counter {0}",
-        //     [self.side_effect_counter as Field]
-        // );
+        aztecnr_trace_log_format!("Ending setup at counter {0}")([self.side_effect_counter as Field]);
         self.min_revertible_side_effect_counter = self.next_counter();
         notify_set_min_revertible_side_effect_counter(self.min_revertible_side_effect_counter);
     }
@@ -729,10 +727,10 @@ impl PrivateContext {
         self.request_sk_app(npk_m_hash, NULLIFIER_INDEX)
     }
 
-    /// Requests the app-siloed nullifier secret key (nsk_app) for the given (hashed) master nullifier public key
-    /// (npk_m), from the user's PXE.
+    /// Requests the app-siloed outgoing viewing secret key (ovsk_app) for the given (hashed) master outgoing
+    /// viewing public key (ovpk_m), from the user's PXE.
     ///
-    /// See `request_nsk_app` and `request_sk_app` for more info.
+    /// See `request_nhk_app` and `request_sk_app` for more info.
     ///
     /// The intention of the "outgoing" keypair is to provide a second secret key for all of a user's outgoing activity
     /// (i.e. for notes that a user creates, as opposed to notes that a user receives from others). The separation of
@@ -1110,7 +1108,7 @@ impl PrivateContext {
         args_hash: Field,
         is_static_call: bool,
     ) -> ReturnsHash {
-        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
+        let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         let start_side_effect_counter = self.side_effect_counter;
 
         // Safety: The oracle simulates the private call and returns the value of the side effects counter after
@@ -1277,7 +1275,7 @@ impl PrivateContext {
     ) {
         let counter = self.next_counter();
 
-        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
+        let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
 
         notify_enqueued_public_function_call(contract_address, calldata_hash, counter, is_static_call);
 
@@ -1350,7 +1348,7 @@ impl PrivateContext {
     ) {
         let counter = self.next_counter();
 
-        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
+        let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
 
         notify_set_public_teardown_function_call(contract_address, calldata_hash, counter, is_static_call);
 

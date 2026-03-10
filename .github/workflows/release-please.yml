@@ -28,111 +28,73 @@ jobs:
           config-file: .github/release-please-${{ github.ref_name }}.json
           target-branch: ${{ github.ref_name }}
 
-  auto-tag:
+  dedupe-release-notes:
+    name: Deduplicate release notes
     needs: [release-please]
-    if: ${{ startsWith(github.ref, 'refs/heads/v') }}
+    if: ${{ needs.release-please.outputs.release-pr }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     steps:
-      - name: Checkout repository
+      - name: Check if release notes branch exists
+        id: check-branch
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          NOTES_BRANCH="${{ fromJSON(needs.release-please.outputs.release-pr).headBranchName }}--release-notes"
+          if git ls-remote --exit-code "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" "refs/heads/$NOTES_BRANCH" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "branch=$NOTES_BRANCH" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Release notes branch $NOTES_BRANCH does not exist, skipping deduplication"
+          fi
+
+      - name: Checkout release notes branch
+        if: steps.check-branch.outputs.exists == 'true'
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          fetch-depth: 0
+          ref: ${{ steps.check-branch.outputs.branch }}
+          fetch-depth: 1
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
+      - name: Fetch dedupe script from target branch
+        if: steps.check-branch.outputs.exists == 'true'
+        run: |
+          git fetch origin ${{ github.ref_name }} --depth=1
+          git show origin/${{ github.ref_name }}:scripts/dedupe_release_notes.py > /tmp/dedupe_release_notes.py
+
       - name: Configure Git
+        if: steps.check-branch.outputs.exists == 'true'
         run: |
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
-      - name: Extract version from branch name
-        id: version
+      - name: Deduplicate release notes
+        if: steps.check-branch.outputs.exists == 'true'
         run: |
-          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-          MAJOR_VERSION="${BRANCH_NAME#v}"
-          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
-          echo "major=$MAJOR_VERSION" >> $GITHUB_OUTPUT
+          if [ -f release-notes.md ]; then
+            python3 /tmp/dedupe_release_notes.py release-notes.md
+            git add release-notes.md
+            if ! git diff --cached --quiet; then
+              git commit -m "chore: deduplicate release notes"
+              git push
+            fi
+          fi
 
-      - name: Determine next version
-        id: next_version
+      - name: Update PR body with deduped notes
+        if: steps.check-branch.outputs.exists == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          # Read current version from release-please manifest and use it directly
-          if [ ! -f .release-please-manifest.json ]; then
-            echo "Error: .release-please-manifest.json not found"
-            exit 1
+          if [ -f release-notes.md ]; then
+            PR_NUMBER=${{ fromJSON(needs.release-please.outputs.release-pr).number }}
+            NOTES_SIZE=$(wc -c < release-notes.md)
+            if [ "$NOTES_SIZE" -lt 60000 ]; then
+              gh pr edit "$PR_NUMBER" --body "$(cat release-notes.md)"
+            fi
           fi
-
-          MANIFEST_VERSION=$(jq -r '."."' .release-please-manifest.json)
-          echo "Manifest version: $MANIFEST_VERSION"
-
-          # Ensure manifest major matches vX branch major
-          BRANCH_MAJOR="${{ steps.version.outputs.major }}"
-          if [ -z "$BRANCH_MAJOR" ]; then
-            echo "Error: Branch major version not available from previous step"
-            exit 1
-          fi
-
-          MANIFEST_MAJOR="${MANIFEST_VERSION%%.*}"
-          if [ "$MANIFEST_MAJOR" != "$BRANCH_MAJOR" ]; then
-            echo "Error: Manifest major ($MANIFEST_MAJOR) does not match branch major ($BRANCH_MAJOR)"
-            exit 1
-          fi
-
-          # Accept stable versions (X.Y.Z) and prerelease versions (X.Y.Z-suffix.N)
-          if [[ "$MANIFEST_VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9.]+)?$ ]]; then
-            NEXT_VERSION="$MANIFEST_VERSION"
-          else
-            echo "Error: Invalid manifest version format: $MANIFEST_VERSION"
-            echo "Expected: X.Y.Z or X.Y.Z-prerelease.N"
-            exit 1
-          fi
-
-          echo "version=$NEXT_VERSION" >> $GITHUB_OUTPUT
-          echo "Next version will be: $NEXT_VERSION"
-
-      - name: Get next RC number
-        id: rc
-        run: |
-          # Get all existing RC tags for this specific version
-          EXISTING_TAGS=$(git tag -l "v${{ steps.next_version.outputs.version }}-rc.*" | sort -V)
-
-          if [ -z "$EXISTING_TAGS" ]; then
-            # No RC tags exist yet for this version, start with 1
-            NEXT_RC=1
-          else
-            # Extract the highest RC number and increment
-            LAST_TAG=$(echo "$EXISTING_TAGS" | tail -n 1)
-            LAST_RC=$(echo "$LAST_TAG" | sed 's/.*-rc\.\([0-9]\+\)$/\1/')
-            NEXT_RC=$((LAST_RC + 1))
-          fi
-
-          echo "number=$NEXT_RC" >> $GITHUB_OUTPUT
-          echo "Next RC number: $NEXT_RC"
-
-      - name: Check if commit already tagged
-        id: check_tag
-        run: |
-          # Check if current commit already has any RC tag
-          EXISTING_TAGS=$(git tag --points-at HEAD | grep "^v.*-rc\." || true)
-
-          if [ -n "$EXISTING_TAGS" ]; then
-            echo "Commit already tagged as: $EXISTING_TAGS"
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create and push new RC tag
-        if: steps.check_tag.outputs.skip != 'true'
-        run: |
-          TAG_NAME="v${{ steps.next_version.outputs.version }}-rc.${{ steps.rc.outputs.number }}"
-
-          # Create annotated tag
-          git tag -a "$TAG_NAME" -m "Release candidate ${{ steps.rc.outputs.number }} for v${{ steps.next_version.outputs.version }}"
-          git push origin "$TAG_NAME"
-
-          echo "✅ Created tag: $TAG_NAME"
 
   update-docs:
     name: Update docs

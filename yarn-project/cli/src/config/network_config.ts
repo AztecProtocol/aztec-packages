@@ -9,7 +9,6 @@ import { enrichEthAddressVar, enrichVar } from './enrich_env.js';
 const DEFAULT_CONFIG_URL =
   'https://raw.githubusercontent.com/AztecProtocol/networks/refs/heads/main/network_config.json';
 const FALLBACK_CONFIG_URL = 'https://metadata.aztec.network/network_config.json';
-const NETWORK_CONFIG_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
 
 /**
  * Fetches remote network configuration from GitHub with caching support.
@@ -87,7 +86,6 @@ async function fetchNetworkConfigFromUrl(
 
   if (url.protocol === 'http:' || url.protocol === 'https:') {
     rawConfig = await cachedFetch(url.href, {
-      cacheDurationMs: NETWORK_CONFIG_CACHE_DURATION_MS,
       cacheFile: cacheDir ? join(cacheDir, networkName, 'network_config.json') : undefined,
     });
   } else if (url.protocol === 'file:') {
@@ -143,5 +141,8 @@ export async function enrichEnvironmentWithNetworkConfig(networkName: NetworkNam
   }
   if (networkConfig.blockDurationMs !== undefined) {
     enrichVar('SEQ_BLOCK_DURATION_MS', String(networkConfig.blockDurationMs));
+  }
+  if (networkConfig.txPublicSetupAllowListExtend) {
+    enrichVar('TX_PUBLIC_SETUP_ALLOWLIST', networkConfig.txPublicSetupAllowListExtend);
   }
 }

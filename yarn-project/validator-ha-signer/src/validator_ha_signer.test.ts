@@ -3,15 +3,18 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
+import { TestDateProvider } from '@aztec/foundation/timer';
+import { type BaseSignerConfig, defaultValidatorHASignerConfig } from '@aztec/stdlib/ha-signing';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PGlite } from '@electric-sql/pglite';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-import { type ValidatorHASignerConfig, defaultValidatorHASignerConfig } from './config.js';
 import { PostgresSlashingProtectionDatabase } from './db/postgres.js';
 import { setupTestSchema } from './db/test_helper.js';
 import { DutyStatus, DutyType } from './db/types.js';
 import { DutyAlreadySignedError, SlashingProtectionError } from './errors.js';
+import { HASignerMetrics } from './metrics.js';
 import { Pool } from './test/pglite_pool.js';
 import { ValidatorHASigner } from './validator_ha_signer.js';
 
@@ -31,7 +34,9 @@ describe('ValidatorHASigner', () => {
   let pglite: PGlite;
   let pool: Pool;
   let db: PostgresSlashingProtectionDatabase;
-  let config: ValidatorHASignerConfig;
+  let config: BaseSignerConfig;
+  let dateProvider: TestDateProvider;
+  const telemetryClient = getTelemetryClient();
 
   beforeEach(async () => {
     pglite = new PGlite();
@@ -41,14 +46,14 @@ describe('ValidatorHASigner', () => {
     db = new PostgresSlashingProtectionDatabase(pool);
     await db.initialize();
 
+    dateProvider = new TestDateProvider();
+
     config = {
-      haSigningEnabled: true,
       l1Contracts: { rollupAddress: EthAddress.random() },
       nodeId: NODE_ID,
       pollingIntervalMs: 50,
       signingTimeoutMs: 1000,
       maxStuckDutiesAgeMs: 60_000,
-      databaseUrl: 'postgresql://user:pass@localhost:5432/testdb',
     };
   });
 
@@ -67,25 +72,17 @@ describe('ValidatorHASigner', () => {
         ...defaultValidatorHASignerConfig,
         l1Contracts: { rollupAddress: EthAddress.random() },
       };
-      expect(
-        () =>
-          new ValidatorHASigner(db, {
-            ...defaultConfig,
-            databaseUrl: 'postgresql://user:pass@localhost:5432/testdb',
-            haSigningEnabled: true,
-          }),
-      ).toThrow('NODE_ID is required for high-availability setups');
-    });
-
-    it('should not initialize when enabled is false', () => {
-      const disabledConfig = { ...config, haSigningEnabled: false };
-      expect(() => new ValidatorHASigner(db, disabledConfig)).toThrow('Validator HA Signer is not enabled in config');
+      const metrics = new HASignerMetrics(telemetryClient, 'test-node');
+      expect(() => new ValidatorHASigner(db, defaultConfig, { metrics, dateProvider })).toThrow(
+        'NODE_ID is required for high-availability setups',
+      );
     });
   });
 
   describe('lifecycle', () => {
     it('should start and stop without error when enabled', async () => {
-      const signer = new ValidatorHASigner(db, config);
+      const metrics = new HASignerMetrics(telemetryClient, config.nodeId);
+      const signer = new ValidatorHASigner(db, config, { metrics, dateProvider });
       await signer.start();
       await signer.stop();
     });
@@ -96,7 +93,8 @@ describe('ValidatorHASigner', () => {
     let signFn: jest.Mock<(messageHash: Buffer32) => Promise<Signature>>;
 
     beforeEach(async () => {
-      signer = new ValidatorHASigner(db, config);
+      const metrics = new HASignerMetrics(telemetryClient, config.nodeId);
+      signer = new ValidatorHASigner(db, config, { metrics, dateProvider });
       await signer.start();
       signFn = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
       signFn.mockResolvedValue(mockSignature);
@@ -774,7 +772,17 @@ describe('ValidatorHASigner', () => {
       const nodeIds = Array.from({ length: numSigners }, (_, i) => `node-${i + 1}`);
 
       // Create separate signers with different node IDs for the same validator
-      const signers = nodeIds.map(nodeId => new ValidatorHASigner(db, { ...config, nodeId }));
+      const signers = nodeIds.map(
+        nodeId =>
+          new ValidatorHASigner(
+            db,
+            { ...config, nodeId },
+            {
+              metrics: new HASignerMetrics(telemetryClient, nodeId),
+              dateProvider,
+            },
+          ),
+      );
 
       // Start all signers
       await Promise.all(signers.map(signer => signer.start()));
@@ -971,10 +979,14 @@ describe('ValidatorHASigner', () => {
       const newRollupAddress = EthAddress.random();
 
       // Create signer with old rollup address
-      const oldSigner = new ValidatorHASigner(db, {
-        ...config,
-        l1Contracts: { rollupAddress: oldRollupAddress },
-      });
+      const oldSigner = new ValidatorHASigner(
+        db,
+        {
+          ...config,
+          l1Contracts: { rollupAddress: oldRollupAddress },
+        },
+        { metrics: new HASignerMetrics(telemetryClient, config.nodeId), dateProvider },
+      );
       await oldSigner.start();
 
       try {
@@ -997,10 +1009,14 @@ describe('ValidatorHASigner', () => {
         expect(signFn).toHaveBeenCalledTimes(1);
 
         // "Upgrade" - create new signer with new rollup address
-        const newSigner = new ValidatorHASigner(db, {
-          ...config,
-          l1Contracts: { rollupAddress: newRollupAddress },
-        });
+        const newSigner = new ValidatorHASigner(
+          db,
+          {
+            ...config,
+            l1Contracts: { rollupAddress: newRollupAddress },
+          },
+          { metrics: new HASignerMetrics(telemetryClient, config.nodeId), dateProvider },
+        );
         // Starting the new signer will clean up duties with outdated rollup addresses
         await newSigner.start();
 

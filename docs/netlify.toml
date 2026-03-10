@@ -752,6 +752,13 @@
     from = "/dev_docs/*"
     to = "/developers/getting_started_on_local_network"
 
+# Tutorial → Getting Started redirect (local_network.md content moved)
+[[redirects]]
+    from = "/developers/docs/tutorials/local_network"
+    to = "/developers/getting_started_on_local_network"
+    status = 301
+
+
 # =============================================================================
 # ERROR CODES
 # Sequential error code redirects for user-friendly error references.
@@ -759,7 +766,28 @@
 # Add new error codes sequentially (1, 2, 3, ...).
 # =============================================================================
 
-# Example (uncomment and modify when adding error codes):
-# [[redirects]]
-#     from = "/errors/1"
-#     to = "/developers/docs/aztec-nr/framework-description/functions/how_to_define_functions"
+[[redirects]]
+    from = "/errors/1"
+    # A warning that is shown when `aztec compile` is run and the contract crate contains tests
+    to = "/developers/docs/aztec-nr/testing_contracts#keep-tests-in-the-test-crate"
+
+[[redirects]]
+    # Aztec-nr: custom message was received but no handler was configured
+    from = "/errors/2"
+    to = "/aztec-nr-api/nightly/noir_aztec/macros/struct.AztecConfig.html"
+
+[[redirects]]
+    # Aztec-nr: message received with message type ID in the range reserved for future aztec.nr built-in message types
+    from = "/errors/3"
+    to = "/aztec-nr-api/nightly/noir_aztec/messages/msg_type/index.html"
+
+[[redirects]]
+    # Aztec-nr: note packed length exceeds MAX_NOTE_PACKED_LEN
+    from = "/errors/4"
+    to = "/aztec-nr-api/nightly/noir_aztec/macros/notes/fn.note.html"
+
+[[redirects]]
+    # Aztec-nr: event serialized length exceeds MAX_EVENT_SERIALIZED_LEN
+    from = "/errors/5"
+    to = "/aztec-nr-api/nightly/noir_aztec/macros/events/fn.event.html"
+

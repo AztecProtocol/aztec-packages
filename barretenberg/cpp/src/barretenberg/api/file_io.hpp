@@ -8,7 +8,6 @@
 #include <filesystem>
 #include <fstream>
 #include <ios>
-#include <iostream>
 #include <sstream>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -29,63 +28,95 @@ inline size_t get_file_size(std::string const& filename)
 
 inline std::vector<uint8_t> read_file(const std::string& filename, size_t bytes = 0)
 {
-    // Standard input. We'll iterate over the stream and reallocate.
+    // Used for stdin and non-seekable fds (pipes, process substitution) where we don't know the
+    // size in advance. Reads in 64 KiB chunks to avoid the O(n²) reallocation pattern that arises
+    // from the istreambuf_iterator range constructor.
+    constexpr size_t CHUNK = 65536;
+    auto read_chunked = [](int fd, const std::string& name) {
+        std::vector<uint8_t> result;
+        size_t total = 0;
+        ssize_t n = 0;
+        while (true) {
+            // Standard libraries will usually do geometric capacity growth here so that copying is amortized.
+            result.resize(total + CHUNK);
+            n = ::read(fd, result.data() + total, CHUNK);
+            if (n <= 0) {
+                break;
+            }
+            total += static_cast<size_t>(n);
+        }
+        result.resize(total);
+        if (n < 0) {
+            THROW std::runtime_error("Failed to read from " + name + ": " + strerror(errno));
+        }
+        return result;
+    };
+
+    // "-" is the conventional sentinel for stdin.
     if (filename == "-") {
-        return { (std::istreambuf_iterator<char>(std::cin)), std::istreambuf_iterator<char>() };
+        return read_chunked(STDIN_FILENO, "stdin");
     }
 
-    std::ifstream file(filename, std::ios::binary);
-    if (!file) {
-        THROW std::runtime_error("Unable to open file: " + filename);
+    // std::filesystem::file_size is a single stat() call — no seek-to-end / rewind needed.
+    // The error_code overload returns -1 and sets ec instead of throwing for non-regular
+    // files (pipes, devices), which we treat as "unknown size" and handle with chunked I/O.
+    std::error_code ec;
+    auto raw_size = std::filesystem::file_size(filename, ec);
+    std::optional<size_t> file_size = ec ? std::nullopt : std::optional<size_t>(static_cast<size_t>(raw_size));
+
+    int fd = open(filename.c_str(), O_RDONLY);
+    if (fd == -1) {
+        THROW std::runtime_error("Unable to open file: " + filename + " (" + strerror(errno) + ")");
     }
 
-    // Unseekable, pipe or process substitution. We'll iterate over the stream and reallocate.
-    if (!file.seekg(0, std::ios::end)) {
-        file.clear();
-        return { (std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>() };
+    std::vector<uint8_t> fileData;
+    if (!file_size.has_value()) {
+        // Size unknown (pipe, device, etc.): read without pre-allocation.
+        fileData = read_chunked(fd, filename);
+    } else {
+        // Pre-allocate exactly what we need: either the caller's limit or the whole file.
+        // Using POSIX read() directly avoids the extra buffering layer of std::ifstream.
+        size_t to_read = bytes == 0 ? *file_size : bytes;
+        fileData.resize(to_read);
+        size_t total = 0;
+        while (total < to_read) {
+            ssize_t got = ::read(fd, fileData.data() + total, to_read - total);
+            if (got < 0) {
+                close(fd);
+                THROW std::runtime_error("Failed to read file: " + filename + " (" + strerror(errno) + ")");
+            }
+            if (got == 0) {
+                break; // Unexpected EOF (file shrunk between stat and read).
+            }
+            total += static_cast<size_t>(got);
+        }
+        fileData.resize(total); // Shrink if the file was shorter than expected.
     }
-
-    // Get the file size.
-    auto size = static_cast<size_t>(file.tellg());
-    file.seekg(0, std::ios::beg);
-
-    // Create a vector preallocated with enough space for the file data and read it.
-    auto to_read = bytes == 0 ? size : bytes;
-    std::vector<uint8_t> fileData(to_read);
-    file.read(reinterpret_cast<char*>(fileData.data()), (std::streamsize)to_read);
+    close(fd);
     return fileData;
 }
 
-inline void write_file(const std::string& filename, std::vector<uint8_t> const& data)
+inline void write_file(const std::string& filename, std::span<const uint8_t> data)
 {
-    struct stat st;
-    if (stat(filename.c_str(), &st) == 0 && S_ISFIFO(st.st_mode)) {
-        // Writing to a pipe or file descriptor
-        int fd = open(filename.c_str(), O_WRONLY);
-        if (fd == -1) {
-            THROW std::runtime_error("Failed to open file descriptor: " + filename);
-        }
-
-        size_t total_written = 0;
-        size_t data_size = data.size();
-        while (total_written < data_size) {
-            ssize_t written = ::write(fd, data.data() + total_written, data_size - total_written);
-            if (written == -1) {
-                close(fd);
-                THROW std::runtime_error("Failed to write to file descriptor: " + filename);
-            }
-            total_written += static_cast<size_t>(written);
-        }
-        close(fd);
-    } else {
-        std::ofstream file(filename, std::ios::binary);
-        if (!file) {
-            THROW std::runtime_error("Failed to open data file for writing: " + filename + " (" + strerror(errno) +
-                                     ")");
-        }
-        file.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
-        file.close();
+    // For regular files, truncate and create if missing (O_TRUNC | O_CREAT).
+    // For FIFOs/pipes the file already exists and O_CREAT/O_TRUNC are no-ops, so
+    // the same flags work uniformly for both cases — no need to stat() first.
+    int fd = open(filename.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd == -1) {
+        THROW std::runtime_error("Failed to open file for writing: " + filename + " (" + strerror(errno) + ")");
     }
+
+    // Loop to handle short writes (required by POSIX, common on pipes and sockets).
+    size_t total_written = 0;
+    while (total_written < data.size()) {
+        ssize_t written = ::write(fd, data.data() + total_written, data.size() - total_written);
+        if (written < 0) {
+            close(fd);
+            THROW std::runtime_error("Failed to write to file: " + filename + " (" + strerror(errno) + ")");
+        }
+        total_written += static_cast<size_t>(written);
+    }
+    close(fd);
 }
 
 template <typename Fr> inline std::string field_elements_to_json(const std::vector<Fr>& fields)

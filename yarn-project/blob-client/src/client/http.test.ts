@@ -85,16 +85,22 @@ describe('HttpBlobClient', () => {
           return;
         }
 
-        if (req.url?.includes('/eth/v1/beacon/headers/')) {
+        if (req.url?.includes('/eth/v1/config/genesis')) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ data: { genesisTime: '1000' } }));
+        } else if (req.url?.includes('/eth/v1/config/spec')) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ data: { secondsPerSlot: '12' } }));
+        } else if (req.url?.includes('/eth/v1/beacon/headers/')) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ data: { header: { message: { slot: latestSlotNumber } } } }));
-        } else if (req.url?.includes('/eth/v1/beacon/blob_sidecars/')) {
+        } else if (req.url?.includes('/eth/v1/beacon/blobs/')) {
           if (missedSlots.some(slot => req.url?.includes(`/${slot}`))) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Not Found' }));
           } else {
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ data: blobData }));
+            res.end(JSON.stringify({ data: blobData.map(b => b.blob) }));
           }
         } else {
           res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -133,6 +139,61 @@ describe('HttpBlobClient', () => {
       expect(retrievedBlobs).toHaveLength(2);
       expect(retrievedBlobs[0].commitment).toEqual(testBlobs[0].commitment);
       expect(retrievedBlobs[1].commitment).toEqual(testBlobs[1].commitment);
+    });
+
+    it('should compute slot from l1BlockTimestamp without headers call when genesis config is cached', async () => {
+      await startExecutionHostServer();
+      await startConsensusHostServer();
+
+      const client = new HttpBlobClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+      });
+
+      // Call start() to fetch and cache genesis config (genesis_time=1000, SECONDS_PER_SLOT=12)
+      await client.start();
+
+      const fetchSpy = jest.spyOn(client as any, 'fetch');
+
+      // slot = (l1BlockTimestamp - genesis_time) / seconds_per_slot = (1024 - 1000) / 12 = 2
+      // so blobs should be fetched at slot 2
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes, {
+        l1BlockTimestamp: 1024n,
+      });
+
+      expect(retrievedBlobs).toHaveLength(2);
+      expect(retrievedBlobs[0].commitment).toEqual(testBlobs[0].commitment);
+      expect(retrievedBlobs[1].commitment).toEqual(testBlobs[1].commitment);
+
+      // Headers call for slot resolution should NOT have been made
+      expect(fetchSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining('/eth/v1/beacon/headers/0x'),
+        expect.anything(),
+      );
+      // Blobs fetched at the computed slot (2)
+      expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/eth/v1/beacon/blobs/2'), expect.anything());
+    });
+
+    it('should fall back to headers call when l1BlockTimestamp is not provided', async () => {
+      await startExecutionHostServer();
+      await startConsensusHostServer();
+
+      const client = new HttpBlobClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+      });
+
+      // Call start() to cache genesis config, but do NOT pass l1BlockTimestamp
+      await client.start();
+
+      const fetchSpy = jest.spyOn(client as any, 'fetch');
+
+      // No l1BlockTimestamp — should fall back to headers call
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
+
+      expect(retrievedBlobs).toHaveLength(2);
+      // Headers call for slot resolution SHOULD have been made (via parentBeaconBlockRoot from execution RPC)
+      expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/eth/v1/beacon/headers/'), expect.anything());
     });
 
     it('should handle when multiple consensus hosts are provided', async () => {
@@ -423,11 +484,11 @@ describe('HttpBlobClient', () => {
       // Verify we hit the 404 for slot 33 before trying slot 34, and that we use the api key header
       // (see issue https://github.com/AztecProtocol/aztec-packages/issues/13415)
       expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/eth/v1/beacon/blob_sidecars/33'),
+        expect.stringContaining('/eth/v1/beacon/blobs/33'),
         expect.objectContaining({ headers: { ['X-API-KEY']: 'my-api-key' } }),
       );
       expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/eth/v1/beacon/blob_sidecars/34'),
+        expect.stringContaining('/eth/v1/beacon/blobs/34'),
         expect.objectContaining({ headers: { ['X-API-KEY']: 'my-api-key' } }),
       );
     });
@@ -458,10 +519,7 @@ describe('HttpBlobClient', () => {
 
       expect(fetchSpy).toHaveBeenCalledTimes(latestSlotNumber - 33 + 2);
       for (let i = 33; i <= latestSlotNumber; i++) {
-        expect(fetchSpy).toHaveBeenCalledWith(
-          expect.stringContaining(`/eth/v1/beacon/blob_sidecars/${i}`),
-          expect.anything(),
-        );
+        expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining(`/eth/v1/beacon/blobs/${i}`), expect.anything());
       }
     });
 
@@ -519,27 +577,12 @@ describe('HttpBlobClient', () => {
       ];
       expect(await client.getBlobSidecar('0x1234', [blobHash])).toEqual([]);
 
-      // Incorrect bytes for the commitment.
-      blobData = [
-        ...originalBlobData,
-        {
-          ...blobJson,
-          // eslint-disable-next-line camelcase
-          kzg_commitment: 'abcdefghijk',
-        },
-      ];
+      // Blob from a different hash, commitment is computed correctly but doesn't match requested hash.
+      const otherBlob = await makeRandomBlob(3);
+      blobData = [...originalBlobData, otherBlob.toJSON()];
       expect(await client.getBlobSidecar('0x1234', [blobHash])).toEqual([]);
 
-      // Commitment does not exist.
-      blobData = [
-        ...originalBlobData,
-        {
-          blob: blobJson.blob,
-        } as BlobJson,
-      ];
-      expect(await client.getBlobSidecar('0x1234', [blobHash])).toEqual([]);
-
-      // Correct blob json.
+      // Correct blob hex json.
       blobData = [...originalBlobData, blobJson];
       const result = await client.getBlobSidecar('0x1234', [blobHash]);
       expect(result).toHaveLength(1);
@@ -906,9 +949,9 @@ describe('HttpBlobClient FileStore Integration', () => {
         if (req.url?.includes('/eth/v1/beacon/headers/')) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ data: { header: { message: { slot: 1 } } } }));
-        } else if (req.url?.includes('/eth/v1/beacon/blob_sidecars/')) {
+        } else if (req.url?.includes('/eth/v1/beacon/blobs/')) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ data: blobData }));
+          res.end(JSON.stringify({ data: blobData.map(b => b.blob) }));
         } else {
           res.writeHead(404, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Not Found' }));
@@ -951,8 +994,8 @@ describe('HttpBlobClient FileStore Integration', () => {
       const retrievedBlobs = await client.getBlobSidecar('0x1234', testBlobsHashes);
 
       expect(retrievedBlobs).toHaveLength(2);
-      // Consensus should not be called for blob_sidecars since filestore had all blobs
-      expect(fetchSpy).not.toHaveBeenCalledWith(expect.stringContaining('blob_sidecars'), expect.anything());
+      // Consensus should not be called for blobs since filestore had all blobs
+      expect(fetchSpy).not.toHaveBeenCalledWith(expect.stringContaining('/beacon/blobs/'), expect.anything());
     });
 
     it('should fall back to consensus when filestore has partial blobs', async () => {

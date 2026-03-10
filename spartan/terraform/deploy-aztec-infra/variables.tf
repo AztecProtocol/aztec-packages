@@ -191,10 +191,10 @@ variable "VALIDATORS_PER_NODE" {
   default     = 12
 }
 
-variable "VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY" {
-  description = "Number of publisher EOAs per validator key"
+variable "VALIDATOR_PUBLISHERS_PER_REPLICA" {
+  description = "Number of publisher EOAs per validator replica (pod)"
   type        = number
-  default     = 1
+  default     = 4
 }
 
 variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
@@ -227,6 +227,12 @@ variable "VALIDATOR_HA_REPLICAS" {
   description = "Number of additional HA validator releases (0 = no HA, 1 = primary + 1 HA, etc.)"
   type        = number
   default     = 0
+}
+
+variable "ADMIN_API_KEY_HASH" {
+  description = "SHA-256 hex hash of the admin API key. When set, enables admin API authentication on validator nodes. Leave empty to disable admin auth (default)."
+  type        = string
+  default     = ""
 }
 
 variable "PROVER_MNEMONIC" {
@@ -343,6 +349,19 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
   default     = "8"
 }
 
+variable "SEQ_MAX_TX_PER_CHECKPOINT" {
+  description = "Maximum number of sequencer transactions per checkpoint"
+  type        = string
+  default     = null
+}
+
+variable "SEQ_ENFORCE_TIME_TABLE" {
+  description = "Whether to enforce the time table when building blocks"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT" {
   description = "Percentage probability of skipping checkpoint publishing"
   type        = string
@@ -351,6 +370,13 @@ variable "SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT" {
 
 variable "SEQ_BLOCK_DURATION_MS" {
   description = "Duration per block in milliseconds when building multiple blocks per slot"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" {
+  description = "Time allocated for publishing to L1, in seconds"
   type        = string
   nullable    = true
   default     = null
@@ -758,12 +784,6 @@ variable "P2P_GOSSIPSUB_DHI" {
   description = "The P2P Gossipsub D parameter"
   type        = string
   default     = "12"
-}
-
-variable "P2P_DROP_TX" {
-  description = "Whether to randomly drop incoming transactions in the P2P layer (for testing)"
-  type        = bool
-  default     = false
 }
 
 variable "P2P_DROP_TX_CHANCE" {

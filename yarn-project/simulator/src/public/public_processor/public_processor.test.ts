@@ -188,6 +188,22 @@ describe('public_processor', () => {
       expect(failed).toEqual([]);
     });
 
+    it('skips tx before processing if estimated blob fields would exceed limit', async function () {
+      const tx = await mockTxWithPublicCalls();
+      // Add note hashes to inflate the estimated blob fields size
+      for (let i = 0; i < 10; i++) {
+        tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes[i] = Fr.random();
+      }
+      // 3 overhead + 1 nullifier + 10 note hashes = 14 estimated fields
+      // Set a limit that is too small for even one tx
+      const [processed, failed] = await processor.process([tx], { maxBlobFields: 10, isBuildingProposal: true });
+
+      expect(processed).toEqual([]);
+      expect(failed).toEqual([]);
+      // The simulator should not have been called since the tx was skipped pre-processing
+      expect(publicTxSimulator.simulate).not.toHaveBeenCalled();
+    });
+
     it('does not exceed max blob fields limit', async function () {
       // Create 3 private-only transactions
       const txs = await Promise.all(Array.from([1, 2, 3], seed => mockPrivateOnlyTx({ seed })));
@@ -201,16 +217,13 @@ describe('public_processor', () => {
       const maxBlobFields = actualBlobFields * 2;
 
       // Process all 3 transactions with the blob field limit
-      const [processed, failed, _usedTxs, _returns, usedTxBlobFields] = await processor.process(txs, { maxBlobFields });
+      const [processed, failed] = await processor.process(txs, { maxBlobFields });
 
       // Should only process 2 transactions due to blob field limit
       expect(processed.length).toBe(2);
       expect(processed[0].hash).toEqual(txs[0].getTxHash());
       expect(processed[1].hash).toEqual(txs[1].getTxHash());
       expect(failed).toEqual([]);
-
-      const expectedBlobFields = actualBlobFields * 2;
-      expect(usedTxBlobFields).toBe(expectedBlobFields);
     });
 
     it('does not send a transaction to the prover if pre validation fails', async function () {

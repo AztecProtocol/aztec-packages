@@ -79,13 +79,13 @@ where
 unconstrained fn get_num_padded_items<Value, let N: u32>(
     padded_items: [Value; N],
     original_array_length: u32,
-    CappedSize: u32,
+    capped_size: u32,
 ) -> u32
 where
     Value: Ordered,
 {
     let mut num_padded_items = 0;
-    for i in original_array_length..CappedSize {
+    for i in original_array_length..capped_size {
         if padded_items[i].counter() == MAX_U32_VALUE {
             // Only padding items have this counter.
             num_padded_items += 1;
@@ -109,7 +109,7 @@ where
 {
     // Safety: The hints are constrained by `assert_sorted_padded_transformed_i_array_capped_size_with_hints`.
     let (sorted_index_hints, num_padded_items_hint) = unsafe {
-        let sorted_indexes = get_order_hints(original_array.array).sorted_indexes;
+        let sorted_indexes = get_sorted_indexes(original_array.array);
         let num_padded_items =
             get_num_padded_items(padded_items, original_array.length, CappedSize);
         (sorted_indexes, num_padded_items)
@@ -123,6 +123,13 @@ where
         sorted_index_hints,
         num_padded_items_hint,
     )
+}
+
+unconstrained fn get_sorted_indexes<T, let N: u32>(original_array: [T; N]) -> [u32; N]
+where
+    T: Ordered + Empty,
+{
+    get_order_hints(original_array).sorted_indexes
 }
 
 /// @param original_array - is technically the so-called `kept_` array that's already been through squashing; it's "original" from

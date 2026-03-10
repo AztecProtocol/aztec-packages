@@ -64,6 +64,16 @@ class ProverPolynomialsBase : public AllEntitiesBase {
         }
     }
 
+    // Returns the maximum end_index across all polynomials (i.e. the actual data extent)
+    [[nodiscard]] size_t max_end_index() const
+    {
+        size_t result = 0;
+        for (const auto& poly : this->get_all()) {
+            result = std::max(result, poly.end_index());
+        }
+        return result;
+    }
+
     void increase_polynomials_virtual_size(const size_t size_in)
     {
         for (auto& polynomial : this->get_all()) {

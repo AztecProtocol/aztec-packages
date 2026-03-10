@@ -258,7 +258,9 @@ void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
     if (output_path == "-") {
         std::cout << response.solidity_code;
     } else {
-        write_file(output_path, { response.solidity_code.begin(), response.solidity_code.end() });
+        write_file(output_path,
+                   std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(response.solidity_code.c_str()),
+                                            response.solidity_code.size()));
         if (flags.disable_zk) {
             info("Honk solidity verifier saved to ", output_path);
         } else {

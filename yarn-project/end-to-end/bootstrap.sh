@@ -27,20 +27,10 @@ function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   local prefix="$hash:ISOLATE=1"
 
-  # Longest-running tests first
-  # Can't run full prover tests on ARM because AVM is disabled.
-  if ../../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm; then
-    if [ "$CI_FULL" -eq 1 ]; then
-      echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_client_real $run_test_script simple e2e_prover/client"
-    else
-      echo "$prefix:NAME=e2e_prover_client_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/client"
-    fi
+  if [ "$CI_FULL" -eq 1 ]; then
+    echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
   else
-    if [ "$CI_FULL" -eq 1 ]; then
-      echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
-    else
-      echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
-    fi
+    echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
   fi
   echo "$prefix:TIMEOUT=15m:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
 
@@ -127,9 +117,9 @@ function bench_cmds {
   done
   echo "$hash:ISOLATE=1:NET=1:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_browser_memory.sh ../../yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc"
 
-  # UltraHonk circuit benchmarks at different CPU counts
+  # UltraHonk circuit benchmarks at different CPU counts (run serially for cache/bandwidth isolation)
   for cpus in 8 16 32; do
-    echo "$hash:CPUS=$cpus barretenberg/cpp/scripts/ci_benchmark_ultrahonk_circuits.sh parity_base ../../yarn-project/end-to-end/$ultrahonk_bench_dir $cpus"
+    echo "$hash:CPUS=$cpus:PARALLEL=0 barretenberg/cpp/scripts/ci_benchmark_ultrahonk_circuits.sh parity_base ../../yarn-project/end-to-end/$ultrahonk_bench_dir $cpus"
   done
 }
 

@@ -1,6 +1,11 @@
 import type { Account } from '@aztec/aztec.js/account';
 import type { CallIntent, IntentInnerHash } from '@aztec/aztec.js/authorization';
-import { type InteractionWaitOptions, NO_WAIT, type SendReturn } from '@aztec/aztec.js/contracts';
+import {
+  type InteractionWaitOptions,
+  NO_WAIT,
+  type SendReturn,
+  extractOffchainOutput,
+} from '@aztec/aztec.js/contracts';
 import type { FeePaymentMethod } from '@aztec/aztec.js/fee';
 import { waitForTx } from '@aztec/aztec.js/node';
 import type {
@@ -28,7 +33,7 @@ import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
-import type { AccessScopes, ContractNameResolver } from '@aztec/pxe/client/lazy';
+import { type AccessScopes, displayDebugLogs } from '@aztec/pxe/client/lazy';
 import type { PXE, PackedPrivateEvent } from '@aztec/pxe/server';
 import {
   type ContractArtifact,
@@ -338,15 +343,6 @@ export abstract class BaseWallet implements Wallet {
       blockHeader = (await this.aztecNode.getBlockHeader())!;
     }
 
-    const getContractName: ContractNameResolver = async address => {
-      const instance = await this.pxe.getContractInstance(address);
-      if (!instance) {
-        return undefined;
-      }
-      const artifact = await this.pxe.getContractArtifact(instance.currentContractClassId);
-      return artifact?.name;
-    };
-
     const [optimizedResults, normalResult] = await Promise.all([
       optimizableCalls.length > 0
         ? simulateViaNode(
@@ -357,7 +353,7 @@ export abstract class BaseWallet implements Wallet {
             feeOptions.gasSettings,
             blockHeader,
             opts.skipFeeEnforcement ?? true,
-            getContractName,
+            this.getContractName.bind(this),
           )
         : Promise.resolve([]),
       remainingCalls.length > 0
@@ -392,6 +388,7 @@ export abstract class BaseWallet implements Wallet {
     const feeOptions = await this.completeFeeOptions(opts.from, executionPayload.feePayer, opts.fee?.gasSettings);
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
     const provenTx = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
+    const offchainOutput = extractOffchainOutput(provenTx.getOffchainEffects());
     const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
     if (await this.aztecNode.getTxEffect(txHash)) {
@@ -405,12 +402,32 @@ export abstract class BaseWallet implements Wallet {
 
     // If wait is NO_WAIT, return txHash immediately
     if (opts.wait === NO_WAIT) {
-      return txHash as SendReturn<W>;
+      return { txHash, ...offchainOutput } as SendReturn<W>;
     }
 
     // Otherwise, wait for the full receipt (default behavior on wait: undefined)
     const waitOpts = typeof opts.wait === 'object' ? opts.wait : undefined;
-    return (await waitForTx(this.aztecNode, txHash, waitOpts)) as SendReturn<W>;
+    const receipt = await waitForTx(this.aztecNode, txHash, waitOpts);
+
+    // Display debug logs from public execution if present (served in test mode only)
+    if (receipt.debugLogs?.length) {
+      await displayDebugLogs(receipt.debugLogs, this.getContractName.bind(this));
+    }
+
+    return { receipt, ...offchainOutput } as SendReturn<W>;
+  }
+
+  /**
+   * Resolves a contract address to a human-readable name via PXE, if available.
+   * @param address - The contract address to resolve.
+   */
+  protected async getContractName(address: AztecAddress): Promise<string | undefined> {
+    const instance = await this.pxe.getContractInstance(address);
+    if (!instance) {
+      return undefined;
+    }
+    const artifact = await this.pxe.getContractArtifact(instance.currentContractClassId);
+    return artifact?.name;
   }
 
   protected contextualizeError(err: Error, ...context: string[]): Error {

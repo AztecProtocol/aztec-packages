@@ -796,3 +796,31 @@ where
 mod impls {
     use crate::serialization::{Deserialize, Serialize};
 }
+
+#[test]
+unconstrained fn bounded_vec_serialization() {
+    // Test empty BoundedVec
+    let empty_vec: BoundedVec<Field, 3> = BoundedVec::from_array([]);
+    let serialized = empty_vec.serialize();
+    let deserialized = BoundedVec::<Field, 3>::deserialize(serialized);
+    assert_eq(empty_vec, deserialized);
+    assert_eq(deserialized.len(), 0);
+
+    // Test partially filled BoundedVec
+    let partial_vec: BoundedVec<[u32; 2], 3> = BoundedVec::from_array([[1, 2]]);
+    let serialized = partial_vec.serialize();
+    let deserialized = BoundedVec::<[u32; 2], 3>::deserialize(serialized);
+    assert_eq(partial_vec, deserialized);
+    assert_eq(deserialized.len(), 1);
+    assert_eq(deserialized.get(0), [1, 2]);
+
+    // Test full BoundedVec
+    let full_vec: BoundedVec<[u32; 2], 3> = BoundedVec::from_array([[1, 2], [3, 4], [5, 6]]);
+    let serialized = full_vec.serialize();
+    let deserialized = BoundedVec::<[u32; 2], 3>::deserialize(serialized);
+    assert_eq(full_vec, deserialized);
+    assert_eq(deserialized.len(), 3);
+    assert_eq(deserialized.get(0), [1, 2]);
+    assert_eq(deserialized.get(1), [3, 4]);
+    assert_eq(deserialized.get(2), [5, 6]);
+}

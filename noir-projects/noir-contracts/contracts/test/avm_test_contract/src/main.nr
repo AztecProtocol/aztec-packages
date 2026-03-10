@@ -253,8 +253,8 @@ pub contract AvmTest {
     fn bitwise_ops(x: u32, y: u32) -> u32 {
         let mut result = x & y;
         result = result | x;
-        result = result >> x;
-        result = result << y;
+        result = result >> (x % 32);
+        result = result << (y % 32);
         result ^ y
     }
 

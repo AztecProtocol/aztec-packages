@@ -19,10 +19,10 @@
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_indexed_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_l1_to_l2_message_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_note_hash_tree_check.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -54,11 +54,11 @@ using simulation::GreaterThanEvent;
 using simulation::MerkleDB;
 using simulation::MockFieldGreaterThan;
 using simulation::MockGreaterThan;
+using simulation::MockIndexedTreeCheck;
 using simulation::MockL1ToL2MessageTreeCheck;
 using simulation::MockLowLevelMerkleDB;
 using simulation::MockMerkleCheck;
 using simulation::MockNoteHashTreeCheck;
-using simulation::MockNullifierTreeCheck;
 using simulation::MockWrittenPublicDataSlotsTreeCheck;
 using simulation::NoopEventEmitter;
 using simulation::Poseidon2;
@@ -106,7 +106,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 
     NiceMock<MockFieldGreaterThan> mock_field_gt;
     NiceMock<MockMerkleCheck> mock_merkle_check;
-    NiceMock<MockNullifierTreeCheck> mock_nullifier_tree_check;
+    NiceMock<MockIndexedTreeCheck> mock_indexed_tree_check;
     NiceMock<MockNoteHashTreeCheck> mock_note_hash_tree_check;
     NiceMock<MockWrittenPublicDataSlotsTreeCheck> mock_written_public_data_slots_tree_check;
     NiceMock<MockL1ToL2MessageTreeCheck> mock_l1_to_l2_message_tree_check;
@@ -121,7 +121,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 
     MerkleDB merkle_db(mock_low_level_merkle_db,
                        public_data_tree_check,
-                       mock_nullifier_tree_check,
+                       mock_indexed_tree_check,
                        mock_note_hash_tree_check,
                        mock_written_public_data_slots_tree_check,
                        mock_l1_to_l2_message_tree_check);
@@ -196,7 +196,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     NiceMock<MockFieldGreaterThan> mock_field_gt;
     NiceMock<MockMerkleCheck> mock_merkle_check;
-    NiceMock<MockNullifierTreeCheck> mock_nullifier_tree_check;
+    NiceMock<MockIndexedTreeCheck> mock_indexed_tree_check;
     NiceMock<MockNoteHashTreeCheck> mock_note_hash_tree_check;
     NiceMock<MockWrittenPublicDataSlotsTreeCheck> mock_written_public_data_slots_tree_check;
     NiceMock<MockL1ToL2MessageTreeCheck> mock_l1_to_l2_message_tree_check;
@@ -213,7 +213,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     MerkleDB merkle_db(mock_low_level_merkle_db,
                        public_data_tree_check,
-                       mock_nullifier_tree_check,
+                       mock_indexed_tree_check,
                        mock_note_hash_tree_check,
                        mock_written_public_data_slots_tree_check,
                        mock_l1_to_l2_message_tree_check);

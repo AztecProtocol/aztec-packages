@@ -61,10 +61,6 @@ template <typename Curve> class ShplonkProver_ {
                 max_poly_size = std::max(max_poly_size, claim.polynomial.size());
             }
         }
-        // The polynomials in Sumcheck Round claims and Libra opening claims are generally not dyadic,
-        // so we round up to the next power of 2.
-        max_poly_size = numeric::round_up_power_2(max_poly_size);
-
         // Q(X) = ∑ⱼ νʲ ⋅ ( fⱼ(X) − vⱼ) / ( X − xⱼ )
         Polynomial Q(max_poly_size);
         Polynomial tmp(max_poly_size);

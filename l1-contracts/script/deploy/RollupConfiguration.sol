@@ -71,7 +71,7 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     uint16 sequencerBps;
     uint96 checkpointReward;
     sequencerBps = 7000;
-    checkpointReward = 400e18;
+    checkpointReward = 500e18;
 
     return RewardConfig({
       rewardDistributor: _rewardDistributor,

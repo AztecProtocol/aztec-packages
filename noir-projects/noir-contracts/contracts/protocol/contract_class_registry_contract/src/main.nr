@@ -73,7 +73,7 @@ pub contract ContractClassRegistry {
 
         // Safety: We load the bytecode via a capsule, which is unconstrained. In order to ensure the loaded bytecode
         // matches the expected one, we recompute the commitment and assert it matches the one provided by the caller.
-        let mut packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] = unsafe {
+        let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] = unsafe {
             capsules::load(
                 context.this_address(),
                 CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
@@ -93,6 +93,7 @@ pub contract ContractClassRegistry {
         // Emit the contract class id as a nullifier:
         // - to demonstrate that this contract class hasn't been published before
         // - to enable apps to read that this contract class has been published.
+        // We use no domain separators because these are the only nullifiers this contract uses.
         context.push_nullifier(contract_class_id.to_field());
 
         // Broadcast class info including public bytecode

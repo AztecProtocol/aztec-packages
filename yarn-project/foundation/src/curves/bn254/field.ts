@@ -118,12 +118,16 @@ abstract class BaseField {
   }
 
   cmp(rhs: BaseField): -1 | 0 | 1 {
-    const rhsBigInt = rhs.asBigInt;
-    return this.asBigInt === rhsBigInt ? 0 : this.asBigInt < rhsBigInt ? -1 : 1;
+    return BaseField.cmpAsBigInt(this.asBigInt, rhs.asBigInt);
   }
 
   static cmp(lhs: BaseField, rhs: BaseField): -1 | 0 | 1 {
     return lhs.cmp(rhs);
+  }
+
+  // Actual bigint comparison. Arguments must have been validated previously.
+  static cmpAsBigInt(lhs: bigint, rhs: bigint): -1 | 0 | 1 {
+    return lhs === rhs ? 0 : lhs < rhs ? -1 : 1;
   }
 
   isZero(): boolean {

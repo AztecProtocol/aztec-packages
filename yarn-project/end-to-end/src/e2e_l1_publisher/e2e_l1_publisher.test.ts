@@ -27,6 +27,7 @@ import { type DeployAztecL1ContractsArgs, deployAztecL1Contracts } from '@aztec/
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { TxUtilsState, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { EthCheatCodesWithState, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
+import type { Anvil } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { range } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -75,7 +76,6 @@ import {
 } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import type { Anvil } from '@viem/anvil';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type Address, encodeFunctionData, getAbiItem, getAddress, multicall3Abi } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
@@ -450,7 +450,7 @@ describe('L1Publisher integration', () => {
         const checkpoint = await buildCheckpoint(globalVariables, txs, currentL1ToL2Messages);
         const block = checkpoint.blocks[0];
 
-        const totalManaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.totalGas.l2Gas)), Fr.ZERO);
+        const totalManaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
         expect(totalManaUsed.toBigInt()).toEqual(block.header.totalManaUsed.toBigInt());
 
         prevHeader = block.header;

@@ -19,10 +19,11 @@ export function createPublicTxSimulatorForBlockBuilding(
   globalVariables: GlobalVariables,
   telemetryClient: TelemetryClient,
   bindings?: LoggerBindings,
+  collectDebugLogs = false,
 ) {
   const config = PublicSimulatorConfig.from({
     skipFeeEnforcement: false,
-    collectDebugLogs: false,
+    collectDebugLogs,
     collectHints: false,
     collectPublicInputs: false,
     collectStatistics: false,

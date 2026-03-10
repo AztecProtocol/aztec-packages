@@ -3,8 +3,10 @@
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
+#include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/chonk/test_bench_shared.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -562,4 +564,34 @@ TEST_F(ChonkTests, KernelReturnDataPropagationConsistency)
 TEST_F(ChonkTests, MTailPropagationConsistency)
 {
     ChonkTests::test_hiding_kernel_io_propagation(HidingKernelIOField::ECC_OP_TABLES);
+}
+
+TEST_F(ChonkTests, ProofCompressionRoundtrip)
+{
+    TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
+    auto [proof, vk_and_hash] = accumulate_and_prove_ivc(/*num_app_circuits=*/1, settings);
+
+    auto original_flat = proof.to_field_elements();
+    info("Original proof size: ", original_flat.size(), " Fr elements (", original_flat.size() * 32, " bytes)");
+
+    auto compressed = ProofCompressor::compress_chonk_proof(proof);
+    double ratio = static_cast<double>(original_flat.size() * 32) / static_cast<double>(compressed.size());
+    info("Compressed proof size: ", compressed.size(), " bytes");
+    info("Compression ratio: ", ratio, "x");
+
+    // Compression should achieve at least 1.5x (commitments 4 Fr → 32 bytes, scalars 1:1)
+    EXPECT_GE(ratio, 1.5) << "Compression ratio " << ratio << "x is below the expected minimum of 1.5x";
+
+    size_t mega_num_pub_inputs = proof.mega_proof.size() - ChonkProof::HIDING_KERNEL_PROOF_LENGTH_WITHOUT_PUBLIC_INPUTS;
+    ChonkProof decompressed = ProofCompressor::decompress_chonk_proof(compressed, mega_num_pub_inputs);
+
+    // Verify element-by-element roundtrip
+    auto decompressed_flat = decompressed.to_field_elements();
+    ASSERT_EQ(decompressed_flat.size(), original_flat.size());
+    for (size_t i = 0; i < original_flat.size(); i++) {
+        ASSERT_EQ(decompressed_flat[i], original_flat[i]) << "Mismatch at element " << i;
+    }
+
+    // Verify the decompressed proof
+    EXPECT_TRUE(verify_chonk(decompressed, vk_and_hash));
 }

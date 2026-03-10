@@ -570,24 +570,13 @@ Building on the DevRel review automation, the docs CI can analyze PRs and notify
 - `SLACK_DOC_UPDATE_CHANNEL` - Slack channel for notifications (default: `#devrel`)
 - `DRY_RUN=1` - Skip Slack notification, just print what would be sent
 
-**Implementation**: The automation is handled by `scripts/update_doc_references.sh`, which runs as part of the docs CI pipeline after `check_doc_references.sh`.
+**Implementation**: The automation is handled by `scripts/check_doc_references.sh`, which detects changed references, requests devrel review, sends a Slack notification, and dispatches ClaudeBox — all in a single pass.
 
 **Script Architecture**:
 
-- `scripts/update_doc_references.sh` - Main script that orchestrates the workflow
+- `scripts/check_doc_references.sh` - Main script that handles detection, review requests, Slack, and ClaudeBox dispatch
 - `scripts/lib/extract_doc_references.sh` - Shared library for parsing frontmatter references
 - `scripts/lib/create_doc_update_pr.sh` - (Reserved for future use) PR creation logic
-- `scripts/test_update_doc_references.sh` - Local testing helper
-
-**Local Testing**:
-
-```bash
-# Find a PR with referenced file changes and test
-./scripts/test_update_doc_references.sh
-
-# Test against a specific PR
-LOCAL_TEST=1 DRY_RUN=1 ./scripts/update_doc_references.sh 19803
-```
 
 **Limitations**:
 

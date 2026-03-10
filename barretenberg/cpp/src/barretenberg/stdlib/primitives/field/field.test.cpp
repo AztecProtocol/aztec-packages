@@ -36,7 +36,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct c = a + b;
         EXPECT_TRUE(field_ct::witness_indices_match(c, a));
         EXPECT_TRUE(builder.get_num_finalized_gates_inefficient() == num_gates);
-        field_ct d(&builder, fr::coset_generator<0>()); // like b, d is just a constant and not a wire value
+        field_ct d(&builder, fr::coset_generator()); // like b, d is just a constant and not a wire value
 
         // by this point, we shouldn't have added any constraints in our circuit
         for (size_t i = 0; i < 17; ++i) {

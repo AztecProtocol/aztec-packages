@@ -208,7 +208,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
   let slasherClient: MockProxy<SlasherClientInterface>;
   let metrics: MockProxy<SequencerMetrics>;
 
-  let l1Constants: L1RollupConstants;
+  let l1Constants: L1RollupConstants & { rollupManaLimit: number };
   let config: ResolvedSequencerConfig;
 
   // Test state
@@ -330,6 +330,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       epochDuration: 16,
       proofSubmissionEpochs: 4,
       targetCommitteeSize: 48,
+      rollupManaLimit: Infinity,
     };
 
     // Initialize test state
@@ -436,6 +437,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     validatorClient.signAttestationsAndSigners.mockResolvedValue(mockedSig);
     validatorClient.getCoinbaseForAttestor.mockReturnValue(coinbase);
     validatorClient.getFeeRecipientForAttestor.mockReturnValue(globalVariables.feeRecipient);
+    validatorClient.getValidatorAddresses.mockReturnValue([attestorAddress]);
 
     slasherClient = mock<SlasherClientInterface>();
     slasherClient.getProposerActions.mockResolvedValue([]);

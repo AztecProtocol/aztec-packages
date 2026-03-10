@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
 # Configuration
@@ -6,6 +6,7 @@ SHM_FILE="/dev/shm/cpu_alloc.shm"
 SEM_BIN="./semc"
 MUTEX_NAME="/cpu_alloc_mutex"
 FREE_SEM="/cpu_alloc_free"
+NUMA_FILE="/dev/shm/cpu_numa.shm"
 
 function init {
   # Build semc if not already built.
@@ -18,6 +19,21 @@ function init {
   head -c $n < /dev/zero | tr '\0' '0' > "$SHM_FILE"
   $SEM_BIN --name "$FREE_SEM" --init $n
   $SEM_BIN --name "$MUTEX_NAME" --init 1
+
+  # Write NUMA node boundaries (physical cores only) to companion file.
+  # Format: one line per node, each line is "start end" (inclusive).
+  > "$NUMA_FILE"
+  for node_dir in /sys/devices/system/node/node*; do
+    [ ! -f "$node_dir/cpulist" ] && continue
+    # Parse cpulist (e.g. "0-23,96-119") — take first range (physical cores).
+    range=$(cut -d, -f1 < "$node_dir/cpulist")
+    start=${range%-*}
+    end=${range#*-}
+    # Clamp to managed CPUs (0..n-1).
+    [ "$start" -ge "$n" ] && continue
+    [ "$end" -ge "$n" ] && end=$((n - 1))
+    echo "$start $end" >> "$NUMA_FILE"
+  done
 }
 
 # Acquire mutex to update shared memory and select free CPUs
@@ -25,23 +41,63 @@ function acquire {
   local num_cpus="${1:-2}"
   local timeout="${2:-0}"
 
-  # Block until num_cpus are available.
+  # Block until num_cpus are available globally.
   $SEM_BIN --name "$FREE_SEM" --atomic --timeout $timeout -$num_cpus
 
   # Update the shared memory to mark the allocated CPUs.
   $SEM_BIN --name "$MUTEX_NAME" -1
   data=$(cat "$SHM_FILE")
-  len=${#data}
   allocated_list=()
-  for ((i=0; i<len && ${#allocated_list[@]} < num_cpus; i++)); do
-    if [ "${data:$i:1}" == "0" ]; then
-      allocated_list+=($i)
-      data="${data:0:$i}1${data:$((i+1))}"
+
+  # Try NUMA-local allocation if topology info exists.
+  if [ -f "$NUMA_FILE" ] && [ -s "$NUMA_FILE" ]; then
+    # Check if request can fit on a single node at all.
+    local fits_on_node=0
+    while read -r ns ne; do
+      [ $((ne - ns + 1)) -ge "$num_cpus" ] && fits_on_node=1 && break
+    done < "$NUMA_FILE"
+
+    if [ "$fits_on_node" -eq 1 ]; then
+      # Find a node with enough free CPUs.
+      while read -r node_start node_end; do
+        local free=0
+        for ((i=node_start; i<=node_end; i++)); do
+          [ "${data:$i:1}" == "0" ] && free=$((free + 1))
+        done
+        if [ "$free" -ge "$num_cpus" ]; then
+          for ((i=node_start; i<=node_end && ${#allocated_list[@]} < num_cpus; i++)); do
+            if [ "${data:$i:1}" == "0" ]; then
+              allocated_list+=($i)
+              data="${data:0:$i}1${data:$((i+1))}"
+            fi
+          done
+          break
+        fi
+      done < "$NUMA_FILE"
+
+      # No single node had enough free — release semaphore and fail.
+      # Caller will wait for a job to finish and retry.
+      if [ "${#allocated_list[@]}" -lt "$num_cpus" ]; then
+        $SEM_BIN --name "$MUTEX_NAME" +1
+        $SEM_BIN --name "$FREE_SEM" +$num_cpus
+        return 1
+      fi
     fi
-  done
+  fi
+
+  # Fallback: linear scan (no NUMA file, or request exceeds any single node).
+  if [ "${#allocated_list[@]}" -lt "$num_cpus" ]; then
+    local len=${#data}
+    for ((i=0; i<len && ${#allocated_list[@]} < num_cpus; i++)); do
+      if [ "${data:$i:1}" == "0" ]; then
+        allocated_list+=($i)
+        data="${data:0:$i}1${data:$((i+1))}"
+      fi
+    done
+  fi
+
   echo -n "$data" > "$SHM_FILE"
   cpu_list=$(IFS=, ; echo "${allocated_list[*]}")
-
   $SEM_BIN --name "$MUTEX_NAME" +1
   echo $cpu_list
 }

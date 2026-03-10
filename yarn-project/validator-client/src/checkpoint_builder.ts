@@ -1,10 +1,12 @@
+import { NUM_CHECKPOINT_END_MARKER_FIELDS, getNumBlockEndBlobFields } from '@aztec/blob-lib/encoding';
+import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB, MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
-import { merge, pick } from '@aztec/foundation/collection';
+import { merge, pick, sum } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, elapsed } from '@aztec/foundation/timer';
-import { getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
+import { createTxValidatorForBlockBuilding, getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
 import {
   GuardedMerkleTreeOperations,
@@ -28,11 +30,10 @@ import {
   type PublicProcessorLimits,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
+import { type DebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { type CheckpointGlobalVariables, GlobalVariables, StateReference, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
-
-import { createValidatorForBlockBuilding } from './tx_validator/tx_validator_factory.js';
 
 // Re-export for backward compatibility
 export type { BuildBlockInCheckpointResult } from '@aztec/stdlib/interfaces/server';
@@ -52,6 +53,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     private dateProvider: DateProvider,
     private telemetryClient: TelemetryClient,
     bindings?: LoggerBindings,
+    private debugLogStore: DebugLogStore = new NullDebugLogStore(),
   ) {
     this.log = createLogger('checkpoint-builder', {
       ...bindings,
@@ -65,6 +67,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
 
   /**
    * Builds a single block within this checkpoint.
+   * Automatically caps gas and blob field limits based on checkpoint-level budgets and prior blocks.
    */
   async buildBlock(
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
@@ -94,8 +97,14 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     });
     const { processor, validator } = await this.makeBlockBuilderDeps(globalVariables, this.fork);
 
-    const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs, _, usedTxBlobFields]] = await elapsed(() =>
-      processor.process(pendingTxs, opts, validator),
+    // Cap gas limits amd available blob fields by remaining checkpoint-level budgets
+    const cappedOpts: PublicProcessorLimits & { expectedEndState?: StateReference } = {
+      ...opts,
+      ...this.capLimitsByCheckpointBudgets(opts),
+    };
+
+    const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
+      processor.process(pendingTxs, cappedOpts, validator),
     );
 
     // Throw if we didn't collect a single valid tx and we're not allowed to build empty blocks
@@ -105,12 +114,9 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     }
 
     // Add block to checkpoint
-    const block = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
+    const { block } = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
       expectedEndState: opts.expectedEndState,
     });
-
-    // How much public gas was processed
-    const publicGas = processedTxs.reduce((acc, tx) => acc.add(tx.gasUsed.publicGas), Gas.empty());
 
     this.log.debug('Built block within checkpoint', {
       header: block.header.toInspect(),
@@ -120,12 +126,10 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
 
     return {
       block,
-      publicGas,
       publicProcessorDuration,
       numTxs: processedTxs.length,
       failedTxs,
       usedTxs,
-      usedTxBlobFields,
     };
   }
 
@@ -147,10 +151,70 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     return this.checkpointBuilder.clone().completeCheckpoint();
   }
 
+  /**
+   * Caps per-block gas and blob field limits by remaining checkpoint-level budgets.
+   * Computes remaining L2 gas (mana), DA gas, and blob fields from blocks already added to the checkpoint,
+   * then returns opts with maxBlockGas and maxBlobFields capped accordingly.
+   */
+  protected capLimitsByCheckpointBudgets(
+    opts: PublicProcessorLimits,
+  ): Pick<PublicProcessorLimits, 'maxBlockGas' | 'maxBlobFields' | 'maxTransactions'> {
+    const existingBlocks = this.checkpointBuilder.getBlocks();
+
+    // Remaining L2 gas (mana)
+    // IMPORTANT: This assumes mana is computed solely based on L2 gas used in transactions.
+    // This may change in the future.
+    const usedMana = sum(existingBlocks.map(b => b.header.totalManaUsed.toNumber()));
+    const remainingMana = this.config.rollupManaLimit - usedMana;
+
+    // Remaining DA gas
+    const usedDAGas = sum(existingBlocks.map(b => b.computeDAGasUsed())) ?? 0;
+    const remainingDAGas = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT - usedDAGas;
+
+    // Remaining blob fields (block blob fields include both tx data and block-end overhead)
+    const usedBlobFields = sum(existingBlocks.map(b => b.toBlobFields().length));
+    const totalBlobCapacity = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB - NUM_CHECKPOINT_END_MARKER_FIELDS;
+    const isFirstBlock = existingBlocks.length === 0;
+    const blockEndOverhead = getNumBlockEndBlobFields(isFirstBlock);
+    const maxBlobFieldsForTxs = totalBlobCapacity - usedBlobFields - blockEndOverhead;
+
+    // Cap L2 gas by remaining checkpoint mana
+    const cappedL2Gas = Math.min(opts.maxBlockGas?.l2Gas ?? remainingMana, remainingMana);
+
+    // Cap DA gas by remaining checkpoint DA gas budget
+    const cappedDAGas = Math.min(opts.maxBlockGas?.daGas ?? remainingDAGas, remainingDAGas);
+
+    // Cap blob fields by remaining checkpoint blob capacity
+    const cappedBlobFields =
+      opts.maxBlobFields !== undefined ? Math.min(opts.maxBlobFields, maxBlobFieldsForTxs) : maxBlobFieldsForTxs;
+
+    // Cap transaction count by remaining checkpoint tx budget
+    let cappedMaxTransactions: number | undefined;
+    if (this.config.maxTxsPerCheckpoint !== undefined) {
+      const usedTxs = sum(existingBlocks.map(b => b.body.txEffects.length));
+      const remainingTxs = Math.max(0, this.config.maxTxsPerCheckpoint - usedTxs);
+      cappedMaxTransactions =
+        opts.maxTransactions !== undefined ? Math.min(opts.maxTransactions, remainingTxs) : remainingTxs;
+    } else {
+      cappedMaxTransactions = opts.maxTransactions;
+    }
+
+    return {
+      maxBlockGas: new Gas(cappedDAGas, cappedL2Gas),
+      maxBlobFields: cappedBlobFields,
+      maxTransactions: cappedMaxTransactions,
+    };
+  }
+
   protected async makeBlockBuilderDeps(globalVariables: GlobalVariables, fork: MerkleTreeWriteOperations) {
-    const txPublicSetupAllowList = this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
+    const txPublicSetupAllowList = [
+      ...(await getDefaultAllowedSetupFunctions()),
+      ...(this.config.txPublicSetupAllowListExtend ?? []),
+    ];
     const contractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings());
     const guardedFork = new GuardedMerkleTreeOperations(fork);
+
+    const collectDebugLogs = this.debugLogStore.isEnabled;
 
     const bindings = this.log.getBindings();
     const publicTxSimulator = createPublicTxSimulatorForBlockBuilding(
@@ -159,6 +223,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       globalVariables,
       this.telemetryClient,
       bindings,
+      collectDebugLogs,
     );
 
     const processor = new PublicProcessor(
@@ -170,9 +235,10 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       this.telemetryClient,
       createLogger('simulator:public-processor', bindings),
       this.config,
+      this.debugLogStore,
     );
 
-    const validator = createValidatorForBlockBuilding(
+    const validator = createTxValidatorForBlockBuilding(
       fork,
       this.contractDataSource,
       globalVariables,
@@ -197,6 +263,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
     private contractDataSource: ContractDataSource,
     private dateProvider: DateProvider,
     private telemetryClient: TelemetryClient = getTelemetryClient(),
+    private debugLogStore: DebugLogStore = new NullDebugLogStore(),
   ) {
     this.log = createLogger('checkpoint-builder');
   }
@@ -251,6 +318,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       this.dateProvider,
       this.telemetryClient,
       bindings,
+      this.debugLogStore,
     );
   }
 
@@ -311,6 +379,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       this.dateProvider,
       this.telemetryClient,
       bindings,
+      this.debugLogStore,
     );
   }
 

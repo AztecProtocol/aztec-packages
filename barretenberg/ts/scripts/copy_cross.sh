@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copies native bb binary and napi module to dest.
 set -e
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
@@ -27,5 +27,6 @@ elif semver check "${REF_NAME:-}" && [[ "$(arch)" == "amd64" ]]; then
   llvm-strip-20 ./build/*/*
 else
   echo "This task is expected to be run in an x86 release context."
-  exit 1
+  # TODO bring back. was being called by release.
+  # exit 1
 fi

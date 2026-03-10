@@ -9,15 +9,23 @@ import type { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-
-import type { ValidatorHASignerConfig } from './config.js';
-import { type DutyIdentifier, DutyType } from './db/types.js';
-import { SlashingProtectionService } from './slashing_protection_service.js';
+import type { DateProvider } from '@aztec/foundation/timer';
 import {
+  type BaseSignerConfig,
+  DutyType,
   type HAProtectedSigningContext,
-  type SlashingProtectionDatabase,
   getBlockNumberFromSigningContext,
-} from './types.js';
+} from '@aztec/stdlib/ha-signing';
+
+import type { DutyIdentifier } from './db/types.js';
+import type { HASignerMetrics } from './metrics.js';
+import { SlashingProtectionService } from './slashing_protection_service.js';
+import type { SlashingProtectionDatabase } from './types.js';
+
+export interface ValidatorHASignerDeps {
+  metrics: HASignerMetrics;
+  dateProvider: DateProvider;
+}
 
 /**
  * Validator High Availability Signer
@@ -43,22 +51,27 @@ export class ValidatorHASigner {
   private readonly slashingProtection: SlashingProtectionService;
   private readonly rollupAddress: EthAddress;
 
+  private readonly dateProvider: DateProvider;
+  private readonly metrics: HASignerMetrics;
+
   constructor(
     db: SlashingProtectionDatabase,
-    private readonly config: ValidatorHASignerConfig,
+    private readonly config: BaseSignerConfig,
+    deps: ValidatorHASignerDeps,
   ) {
     this.log = createLogger('validator-ha-signer');
 
-    if (!config.haSigningEnabled) {
-      // this shouldn't happen, the validator should use different signer for non-HA setups
-      throw new Error('Validator HA Signer is not enabled in config');
-    }
+    this.metrics = deps.metrics;
+    this.dateProvider = deps.dateProvider;
 
     if (!config.nodeId || config.nodeId === '') {
       throw new Error('NODE_ID is required for high-availability setups');
     }
     this.rollupAddress = config.l1Contracts.rollupAddress;
-    this.slashingProtection = new SlashingProtectionService(db, config);
+    this.slashingProtection = new SlashingProtectionService(db, config, {
+      metrics: deps.metrics,
+      dateProvider: deps.dateProvider,
+    });
     this.log.info('Validator HA Signer initialized with slashing protection', {
       nodeId: config.nodeId,
       rollupAddress: this.rollupAddress.toString(),
@@ -88,6 +101,9 @@ export class ValidatorHASigner {
     context: HAProtectedSigningContext,
     signFn: (messageHash: Buffer32) => Promise<Signature>,
   ): Promise<Signature> {
+    const startTime = this.dateProvider.now();
+    const dutyType = context.dutyType;
+
     let dutyIdentifier: DutyIdentifier;
     if (context.dutyType === DutyType.BLOCK_PROPOSAL) {
       dutyIdentifier = {
@@ -107,6 +123,7 @@ export class ValidatorHASigner {
     }
 
     // Acquire lock and get the token for ownership verification
+    // DutyAlreadySignedError and SlashingProtectionError may be thrown here and are recorded in the service
     const blockNumber = getBlockNumberFromSigningContext(context);
     const lockToken = await this.slashingProtection.checkAndRecord({
       ...dutyIdentifier,
@@ -122,6 +139,7 @@ export class ValidatorHASigner {
     } catch (error: any) {
       // Delete duty to allow retry (only succeeds if we own the lock)
       await this.slashingProtection.deleteDuty({ ...dutyIdentifier, lockToken });
+      this.metrics.recordSigningError(dutyType);
       throw error;
     }
 
@@ -132,6 +150,9 @@ export class ValidatorHASigner {
       nodeId: this.config.nodeId,
       lockToken,
     });
+
+    const duration = this.dateProvider.now() - startTime;
+    this.metrics.recordSigningSuccess(dutyType, duration);
 
     return signature;
   }

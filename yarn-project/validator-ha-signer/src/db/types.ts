@@ -1,6 +1,12 @@
-import type { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
-import type { EthAddress } from '@aztec/foundation/eth-address';
+import {
+  BlockNumber,
+  type CheckpointNumber,
+  type IndexWithinCheckpoint,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
+import { DutyType } from '@aztec/stdlib/ha-signing';
 
 /**
  * Row type from PostgreSQL query
@@ -23,24 +29,34 @@ export interface DutyRow {
 }
 
 /**
+ * Plain-primitive representation of a duty record suitable for serialization
+ * (e.g. msgpackr for LMDB). All domain types are stored as their string/number
+ * equivalents. Timestamps are Unix milliseconds.
+ */
+export interface StoredDutyRecord {
+  rollupAddress: string;
+  validatorAddress: string;
+  slot: string;
+  blockNumber: string;
+  blockIndexWithinCheckpoint: number;
+  dutyType: DutyType;
+  status: DutyStatus;
+  messageHash: string;
+  signature?: string;
+  nodeId: string;
+  lockToken: string;
+  /** Unix timestamp in milliseconds when signing started */
+  startedAtMs: number;
+  /** Unix timestamp in milliseconds when signing completed */
+  completedAtMs?: number;
+  errorMessage?: string;
+}
+
+/**
  * Row type from INSERT_OR_GET_DUTY query (includes is_new flag)
  */
 export interface InsertOrGetRow extends DutyRow {
   is_new: boolean;
-}
-
-/**
- * Type of validator duty being performed
- */
-export enum DutyType {
-  BLOCK_PROPOSAL = 'BLOCK_PROPOSAL',
-  CHECKPOINT_PROPOSAL = 'CHECKPOINT_PROPOSAL',
-  ATTESTATION = 'ATTESTATION',
-  ATTESTATIONS_AND_SIGNERS = 'ATTESTATIONS_AND_SIGNERS',
-  GOVERNANCE_VOTE = 'GOVERNANCE_VOTE',
-  SLASHING_VOTE = 'SLASHING_VOTE',
-  AUTH_REQUEST = 'AUTH_REQUEST',
-  TXS = 'TXS',
 }
 
 /**
@@ -51,8 +67,12 @@ export enum DutyStatus {
   SIGNED = 'signed',
 }
 
+// Re-export DutyType from stdlib
+export { DutyType };
+
 /**
- * Record of a validator duty in the database
+ * Rich representation of a validator duty, with branded types and Date objects.
+ * This is the common output type returned by all SlashingProtectionDatabase implementations.
  */
 export interface ValidatorDutyRecord {
   /** Ethereum address of the rollup contract */
@@ -83,6 +103,31 @@ export interface ValidatorDutyRecord {
   completedAt?: Date;
   /** Error message (currently unused) */
   errorMessage?: string;
+}
+
+/**
+ * Convert a {@link StoredDutyRecord} (plain-primitive wire format) to a
+ * {@link ValidatorDutyRecord} (rich domain type).
+ *
+ * Shared by LMDB and any future non-Postgres backend implementations.
+ */
+export function recordFromFields(stored: StoredDutyRecord): ValidatorDutyRecord {
+  return {
+    rollupAddress: EthAddress.fromString(stored.rollupAddress),
+    validatorAddress: EthAddress.fromString(stored.validatorAddress),
+    slot: SlotNumber.fromString(stored.slot),
+    blockNumber: BlockNumber.fromString(stored.blockNumber),
+    blockIndexWithinCheckpoint: stored.blockIndexWithinCheckpoint,
+    dutyType: stored.dutyType,
+    status: stored.status,
+    messageHash: stored.messageHash,
+    signature: stored.signature,
+    nodeId: stored.nodeId,
+    lockToken: stored.lockToken,
+    startedAt: new Date(stored.startedAtMs),
+    completedAt: stored.completedAtMs !== undefined ? new Date(stored.completedAtMs) : undefined,
+    errorMessage: stored.errorMessage,
+  };
 }
 
 /**

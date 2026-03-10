@@ -21,7 +21,7 @@ import type { BlockProposal, CheckpointAttestation, CheckpointProposal, TopicTyp
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 export class DummyP2P implements P2P {
-  public validate(_txs: Tx[]): Promise<void> {
+  public validateTxsReceivedInBlockProposal(_txs: Tx[]): Promise<void> {
     return Promise.resolve();
   }
 

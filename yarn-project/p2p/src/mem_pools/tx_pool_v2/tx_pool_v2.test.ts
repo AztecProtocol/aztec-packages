@@ -1,3 +1,11 @@
+import {
+  DEFAULT_DA_GAS_LIMIT,
+  DEFAULT_TEARDOWN_DA_GAS_LIMIT,
+  MAX_PROCESSABLE_L2_GAS,
+  PRIVATE_TX_L2_GAS_OVERHEAD,
+  PUBLIC_TX_L2_GAS_OVERHEAD,
+  TX_DA_GAS_OVERHEAD,
+} from '@aztec/constants';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -6,7 +14,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Body, L2Block, type L2BlockId, type L2BlockSource } from '@aztec/stdlib/block';
-import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
 import {
@@ -19,6 +27,7 @@ import { BlockHeader, GlobalVariables, type Tx, TxEffect, TxHash, type TxValidat
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { GasLimitsValidator } from '../../msg_validators/tx_validator/gas_validator.js';
 import type { TxMetaData } from './tx_metadata.js';
 import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
 
@@ -553,16 +562,6 @@ describe('TxPoolV2', () => {
       expect(await rejectingPool.getPendingTxCount()).toBe(0);
     });
 
-    it('canAddPendingTx returns rejected for transaction that fails validation', async () => {
-      const tx = await mockTx(1);
-      txsToReject.add(tx.getTxHash().toString());
-
-      const result = await rejectingPool.canAddPendingTx(tx);
-
-      expect(result).toBe('rejected');
-      expect(await rejectingPool.getPendingTxCount()).toBe(0); // State unchanged
-    });
-
     it('addPendingTxs handles batch with mixed accepted and rejected', async () => {
       const tx1 = await mockTx(1);
       const tx2 = await mockTx(2);
@@ -641,6 +640,117 @@ describe('TxPoolV2', () => {
       expect(result.accepted).toHaveLength(0);
       expect(result.ignored).toHaveLength(0);
       expect(toStrings(result.rejected)).toContain(hashOf(tx2));
+    });
+  });
+
+  describe('gas limits validation', () => {
+    let gasPool: AztecKVTxPoolV2;
+    let gasStore: Awaited<ReturnType<typeof openTmpStore>>;
+    let gasArchiveStore: Awaited<ReturnType<typeof openTmpStore>>;
+
+    beforeEach(async () => {
+      gasStore = await openTmpStore('p2p');
+      gasArchiveStore = await openTmpStore('archive');
+      gasPool = new AztecKVTxPoolV2(gasStore, gasArchiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        createTxValidator: () => Promise.resolve(new GasLimitsValidator<TxMetaData>()),
+      });
+      await gasPool.start();
+    });
+
+    afterEach(async () => {
+      await gasPool.stop();
+      await gasStore.delete();
+      await gasArchiveStore.delete();
+    });
+
+    const makePublicTxWithGas = async (seed: number, gasLimits: Gas) => {
+      const tx = await mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 1 });
+      tx.data.constants.txContext.gasSettings = GasSettings.default({
+        gasLimits,
+        maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
+      });
+      return tx;
+    };
+
+    const makePrivateTxWithGas = async (seed: number, gasLimits: Gas) => {
+      const tx = await mockTx(seed, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 0,
+        hasPublicTeardownCallRequest: false,
+      });
+      tx.data.constants.txContext.gasSettings = GasSettings.default({
+        gasLimits,
+        maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
+      });
+      return tx;
+    };
+
+    it('accepts public tx at exactly the minimum gas limits', async () => {
+      const tx = await makePublicTxWithGas(1, new Gas(TX_DA_GAS_OVERHEAD, PUBLIC_TX_L2_GAS_OVERHEAD));
+      const result = await gasPool.addPendingTxs([tx]);
+      expect(result.accepted).toHaveLength(1);
+      expect(result.rejected).toHaveLength(0);
+    });
+
+    it('accepts private tx at exactly the minimum gas limits', async () => {
+      const tx = await makePrivateTxWithGas(1, new Gas(TX_DA_GAS_OVERHEAD, PRIVATE_TX_L2_GAS_OVERHEAD));
+      const result = await gasPool.addPendingTxs([tx]);
+      expect(result.accepted).toHaveLength(1);
+      expect(result.rejected).toHaveLength(0);
+    });
+
+    it('rejects public tx below the public L2 gas minimum', async () => {
+      const tx = await makePublicTxWithGas(1, new Gas(TX_DA_GAS_OVERHEAD, PUBLIC_TX_L2_GAS_OVERHEAD - 1));
+      const result = await gasPool.addPendingTxs([tx]);
+      expect(result.accepted).toHaveLength(0);
+      expect(toStrings(result.rejected)).toContain(hashOf(tx));
+    });
+
+    it('rejects private tx below the private L2 gas minimum', async () => {
+      const tx = await makePrivateTxWithGas(1, new Gas(TX_DA_GAS_OVERHEAD, PRIVATE_TX_L2_GAS_OVERHEAD - 1));
+      const result = await gasPool.addPendingTxs([tx]);
+      expect(result.accepted).toHaveLength(0);
+      expect(toStrings(result.rejected)).toContain(hashOf(tx));
+    });
+
+    it('rejects public tx at private L2 gas minimum (between the two thresholds)', async () => {
+      const tx = await makePublicTxWithGas(1, new Gas(TX_DA_GAS_OVERHEAD, PRIVATE_TX_L2_GAS_OVERHEAD));
+      const result = await gasPool.addPendingTxs([tx]);
+      expect(result.accepted).toHaveLength(0);
+      expect(toStrings(result.rejected)).toContain(hashOf(tx));
+    });
+
+    it('rejects tx below DA gas minimum', async () => {
+      const tx = await makePublicTxWithGas(1, new Gas(TX_DA_GAS_OVERHEAD - 1, PUBLIC_TX_L2_GAS_OVERHEAD));
+      const result = await gasPool.addPendingTxs([tx]);
+      expect(result.accepted).toHaveLength(0);
+      expect(toStrings(result.rejected)).toContain(hashOf(tx));
+    });
+
+    it('rejects public tx if L2 gas limit is too high', async () => {
+      const tx = await makePublicTxWithGas(1, new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1));
+      tx.data.constants.txContext.gasSettings = GasSettings.default({
+        gasLimits: new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1),
+        maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
+        teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
+      });
+      const result = await gasPool.addPendingTxs([tx]);
+      expect(result.accepted).toHaveLength(0);
+      expect(toStrings(result.rejected)).toContain(hashOf(tx));
+    });
+
+    it('rejects private tx if L2 gas limit is too high', async () => {
+      const tx = await makePrivateTxWithGas(1, new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1));
+      tx.data.constants.txContext.gasSettings = GasSettings.default({
+        gasLimits: new Gas(DEFAULT_DA_GAS_LIMIT, MAX_PROCESSABLE_L2_GAS + 1),
+        maxFeesPerGas: DEFAULT_MAX_FEES_PER_GAS,
+        teardownGasLimits: new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, 1),
+      });
+      const result = await gasPool.addPendingTxs([tx]);
+      expect(result.accepted).toHaveLength(0);
+      expect(toStrings(result.rejected)).toContain(hashOf(tx));
     });
   });
 
@@ -1816,6 +1926,58 @@ describe('TxPoolV2', () => {
       expect(pending).toContain(hashOf(txPendingLow));
       expect(await pool.getTxStatus(txMined.getTxHash())).toBe('deleted');
       expectRemovedTxs(txMined); // txMined deleted
+    });
+
+    it('evicts low priority txs after chain prune when pool exceeds limit', async () => {
+      const txLow = await mockTxWithFee(1, 1);
+      const txMed = await mockTxWithFee(2, 5);
+      const txHigh = await mockTxWithFee(3, 10);
+
+      // Add all 3 txs (no pool limit by default)
+      await pool.addPendingTxs([txLow, txMed, txHigh]);
+      expectAddedTxs(txLow, txMed, txHigh);
+      expect(await pool.getPendingTxCount()).toBe(3);
+
+      // Mine all three
+      await pool.handleMinedBlock(makeBlock([txLow, txMed, txHigh], slot1Header));
+      expectNoCallbacks();
+      expect(await pool.getPendingTxCount()).toBe(0);
+
+      // Now set pool limit to 2
+      await pool.updateConfig({ maxPendingTxCount: 2 });
+
+      // Prune - all 3 txs return to pending, but pool limit is 2
+      await pool.handlePrunedBlocks(block0Id);
+
+      // Lowest priority tx should be evicted
+      const pending = toStrings(await pool.getPendingTxHashes());
+      expect(pending).toHaveLength(2);
+      expect(pending).toContain(hashOf(txMed));
+      expect(pending).toContain(hashOf(txHigh));
+      expect(await pool.getTxStatus(txLow.getTxHash())).toBe('deleted');
+    });
+
+    it('does not evict txs after chain prune when pool is within limit', async () => {
+      const tx1 = await mockTxWithFee(1, 1);
+      const tx2 = await mockTxWithFee(2, 2);
+
+      await pool.addPendingTxs([tx1, tx2]);
+      expectAddedTxs(tx1, tx2);
+      expect(await pool.getPendingTxCount()).toBe(2);
+
+      // Mine both
+      await pool.handleMinedBlock(makeBlock([tx1, tx2], slot1Header));
+      expectNoCallbacks();
+
+      // Set limit to 3 (above what will be restored)
+      await pool.updateConfig({ maxPendingTxCount: 3 });
+
+      // Prune - both txs return to pending, under the limit
+      await pool.handlePrunedBlocks(block0Id);
+
+      expect(await pool.getPendingTxCount()).toBe(2);
+      expect(await pool.getTxStatus(tx1.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx2.getTxHash())).toBe('pending');
     });
   });
 
@@ -5105,6 +5267,123 @@ describe('TxPoolV2', () => {
       await pool.prepareForSlot(SlotNumber(2));
       expect(await pool.getTxByHash(tx.getTxHash())).toBeUndefined();
       expect(await pool.getTxStatus(tx.getTxHash())).toBeUndefined();
+    });
+  });
+
+  describe('persistence consistency', () => {
+    it('pool state is consistent across restart when getTxEffect throws for a later tx in batch', async () => {
+      const testStore = await openTmpStore('p2p-comeback-gettxeffect');
+      const testArchiveStore = await openTmpStore('archive-comeback-gettxeffect');
+
+      try {
+        const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
+        });
+        await pool1.start();
+
+        // Add tx1 (fee=5) with a nullifier
+        const tx1 = await mockPublicTx(1, 5);
+        await pool1.addPendingTxs([tx1]);
+        expect(await pool1.getTxStatus(tx1.getTxHash())).toBe('pending');
+
+        // Create tx2 (same nullifier as tx1, higher fee — will evict tx1) and tx3 (different nullifiers)
+        const tx2 = await mockPublicTx(2, 10);
+        setNullifier(tx2, 0, getNullifier(tx1, 0));
+        const tx3 = await mockPublicTx(3, 1);
+
+        // Mock getTxEffect to throw for tx3 (simulates L2BlockSource I/O failure)
+        const tx3HashStr = tx3.getTxHash().toString();
+        mockL2BlockSource.getTxEffect.mockImplementation((txHash: TxHash) => {
+          if (txHash.toString() === tx3HashStr) {
+            throw new Error('Simulated L2BlockSource failure');
+          }
+          return Promise.resolve(undefined);
+        });
+
+        // Batch fails because tx3's getMinedBlockId throws
+        await expect(pool1.addPendingTxs([tx2, tx3])).rejects.toThrow('Simulated L2BlockSource failure');
+
+        const statusBeforeRestart = await pool1.getTxStatus(tx1.getTxHash());
+
+        await pool1.stop();
+        mockL2BlockSource.getTxEffect.mockResolvedValue(undefined);
+
+        const pool2 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
+        });
+        await pool2.start();
+
+        const statusAfterRestart = await pool2.getTxStatus(tx1.getTxHash());
+        expect(statusAfterRestart).toBe(statusBeforeRestart);
+
+        await pool2.stop();
+      } finally {
+        mockL2BlockSource.getTxEffect.mockResolvedValue(undefined);
+        await testStore.delete();
+        await testArchiveStore.delete();
+      }
+    });
+
+    it('pool state is consistent across restart when validateMeta throws for a later tx in batch', async () => {
+      const testStore = await openTmpStore('p2p-comeback-validatemeta');
+      const testArchiveStore = await openTmpStore('archive-comeback-validatemeta');
+
+      try {
+        // Create a validator that throws (not rejects) for tx3
+        let tx3HashStr = '';
+        const throwingValidator: TxValidator<TxMetaData> = {
+          validateTx: (meta: TxMetaData) => {
+            if (meta.txHash === tx3HashStr) {
+              throw new Error('Simulated validator crash');
+            }
+            return Promise.resolve({ result: 'valid' });
+          },
+        };
+
+        const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          createTxValidator: () => Promise.resolve(throwingValidator),
+        });
+        await pool1.start();
+
+        // Add tx1 (fee=5) with a nullifier
+        const tx1 = await mockPublicTx(1, 5);
+        await pool1.addPendingTxs([tx1]);
+        expect(await pool1.getTxStatus(tx1.getTxHash())).toBe('pending');
+
+        // Create tx2 (same nullifier as tx1, higher fee — will evict tx1) and tx3 (different nullifiers)
+        const tx2 = await mockPublicTx(2, 10);
+        setNullifier(tx2, 0, getNullifier(tx1, 0));
+        const tx3 = await mockPublicTx(3, 1);
+        tx3HashStr = tx3.getTxHash().toString();
+
+        // Batch fails because tx3's validateMeta throws
+        await expect(pool1.addPendingTxs([tx2, tx3])).rejects.toThrow('Simulated validator crash');
+
+        const statusBeforeRestart = await pool1.getTxStatus(tx1.getTxHash());
+
+        await pool1.stop();
+
+        const pool2 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
+        });
+        await pool2.start();
+
+        const statusAfterRestart = await pool2.getTxStatus(tx1.getTxHash());
+        expect(statusAfterRestart).toBe(statusBeforeRestart);
+
+        await pool2.stop();
+      } finally {
+        await testStore.delete();
+        await testArchiveStore.delete();
+      }
     });
   });
 });

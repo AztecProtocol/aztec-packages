@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Script to manually clean up stuck Helm releases
 # Usage: ./cleanup_helm.sh [release-name] [namespace]

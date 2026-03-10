@@ -25,7 +25,7 @@ import type {
   PublicProcessorValidator,
   SequencerConfig,
 } from '@aztec/stdlib/interfaces/server';
-import type { DebugLog } from '@aztec/stdlib/logs';
+import { type DebugLog, type DebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
@@ -140,6 +140,7 @@ export class PublicProcessor implements Traceable {
     telemetryClient: TelemetryClient = getTelemetryClient(),
     private log: Logger,
     private opts: Pick<SequencerConfig, 'fakeProcessingDelayPerTxMs' | 'fakeThrowAfterProcessingTxCount'> = {},
+    private debugLogStore: DebugLogStore = new NullDebugLogStore(),
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
   }
@@ -159,8 +160,8 @@ export class PublicProcessor implements Traceable {
     txs: Iterable<Tx> | AsyncIterable<Tx>,
     limits: PublicProcessorLimits = {},
     validator: PublicProcessorValidator = {},
-  ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[], number, DebugLog[]]> {
-    const { maxTransactions, maxBlockSize, deadline, maxBlockGas, maxBlobFields } = limits;
+  ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[], DebugLog[]]> {
+    const { maxTransactions, deadline, maxBlockGas, maxBlobFields, isBuildingProposal } = limits;
     const { preprocessValidator, nullifierCache } = validator;
     const result: ProcessedTx[] = [];
     const usedTxs: Tx[] = [];
@@ -187,22 +188,23 @@ export class PublicProcessor implements Traceable {
         break;
       }
 
-      // Skip this tx if it'd exceed max block size
       const txHash = tx.getTxHash().toString();
-      const preTxSizeInBytes = tx.getEstimatedPrivateTxEffectsSize();
-      if (maxBlockSize !== undefined && totalSizeInBytes + preTxSizeInBytes > maxBlockSize) {
-        this.log.warn(`Skipping processing of tx ${txHash} sized ${preTxSizeInBytes} bytes due to block size limit`, {
-          txHash,
-          sizeInBytes: preTxSizeInBytes,
-          totalSizeInBytes,
-          maxBlockSize,
-        });
+
+      // Skip this tx if its estimated blob fields would exceed the limit.
+      // Only done during proposal building: during re-execution we must process the exact txs from the proposal.
+      const txBlobFields = tx.getPrivateTxEffectsSizeInFields();
+      if (isBuildingProposal && maxBlobFields !== undefined && totalBlobFields + txBlobFields > maxBlobFields) {
+        this.log.warn(
+          `Skipping tx ${txHash} with ${txBlobFields} fields from private side effects due to blob fields limit`,
+          { txHash, txBlobFields, totalBlobFields, maxBlobFields },
+        );
         continue;
       }
 
-      // Skip this tx if its gas limit would exceed the block gas limit
+      // Skip this tx if its gas limit would exceed the block gas limit (either da or l2).
+      // Only done during proposal building: during re-execution we must process the exact txs from the proposal.
       const txGasLimit = tx.data.constants.txContext.gasSettings.gasLimits;
-      if (maxBlockGas !== undefined && totalBlockGas.add(txGasLimit).gtAny(maxBlockGas)) {
+      if (isBuildingProposal && maxBlockGas !== undefined && totalBlockGas.add(txGasLimit).gtAny(maxBlockGas)) {
         this.log.warn(`Skipping processing of tx ${txHash} due to block gas limit`, {
           txHash,
           txGasLimit,
@@ -251,23 +253,9 @@ export class PublicProcessor implements Traceable {
         }
 
         const txBlobFields = processedTx.txEffect.getNumBlobFields();
-
-        // If the actual size of this tx would exceed block size, skip it
         const txSize = txBlobFields * Fr.SIZE_IN_BYTES;
-        if (maxBlockSize !== undefined && totalSizeInBytes + txSize > maxBlockSize) {
-          this.log.debug(`Skipping processed tx ${txHash} sized ${txSize} due to max block size.`, {
-            txHash,
-            sizeInBytes: txSize,
-            totalSizeInBytes,
-            maxBlockSize,
-          });
-          // Need to revert the checkpoint here and don't go any further
-          await checkpoint.revert();
-          this.contractsDB.revertCheckpoint();
-          continue;
-        }
 
-        // If the actual blob fields of this tx would exceed the limit, skip it
+        // If the actual blob fields of this tx would exceed the limit, skip it.
         // Note: maxBlobFields already accounts for block end blob fields and previous blocks in checkpoint.
         if (maxBlobFields !== undefined && totalBlobFields + txBlobFields > maxBlobFields) {
           this.log.debug(
@@ -285,6 +273,25 @@ export class PublicProcessor implements Traceable {
           continue;
         }
 
+        // During re-execution, check if the actual gas used by this tx would push the block over the gas limit.
+        // Unlike the proposal-building check (which uses declared gas limits pessimistically before processing),
+        // this uses actual gas and stops processing when the limit is exceeded.
+        if (
+          !isBuildingProposal &&
+          maxBlockGas !== undefined &&
+          totalBlockGas.add(processedTx.gasUsed.totalGas).gtAny(maxBlockGas)
+        ) {
+          this.log.warn(`Stopping re-execution since tx ${txHash} would push block gas over limit`, {
+            txHash,
+            txGas: processedTx.gasUsed.totalGas,
+            totalBlockGas,
+            maxBlockGas,
+          });
+          await checkpoint.revert();
+          this.contractsDB.revertCheckpoint();
+          break;
+        }
+
         // FIXME(fcarreiro): it's ugly to have to notify the validator of nullifiers.
         // I'd rather pass the validators the processedTx as well and let them deal with it.
         nullifierCache?.addNullifiers(processedTx.txEffect.nullifiers.map(n => n.toBuffer()));
@@ -292,6 +299,8 @@ export class PublicProcessor implements Traceable {
         usedTxs.push(tx);
         returns = returns.concat(returnValues);
         debugLogs.push(...txDebugLogs);
+
+        this.debugLogStore.storeLogs(processedTx.hash.toString(), txDebugLogs);
 
         totalPublicGas = totalPublicGas.add(processedTx.gasUsed.publicGas);
         totalBlockGas = totalBlockGas.add(processedTx.gasUsed.totalGas);
@@ -365,7 +374,7 @@ export class PublicProcessor implements Traceable {
       totalSizeInBytes,
     });
 
-    return [result, failed, usedTxs, returns, totalBlobFields, debugLogs];
+    return [result, failed, usedTxs, returns, debugLogs];
   }
 
   private async checkWorldStateUnchanged(

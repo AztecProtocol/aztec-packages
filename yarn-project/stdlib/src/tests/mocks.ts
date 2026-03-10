@@ -1,10 +1,11 @@
 import {
-  FIXED_DA_GAS,
-  FIXED_L2_GAS,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_TX_LIFETIME,
+  PRIVATE_TX_L2_GAS_OVERHEAD,
+  PUBLIC_TX_L2_GAS_OVERHEAD,
+  TX_DA_GAS_OVERHEAD,
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
@@ -97,6 +98,7 @@ export const mockTx = async (
     publicCalldataSize = 2,
     feePayer,
     chonkProof = ChonkProof.random(),
+    gasLimits,
     maxFeesPerGas = new GasFees(10, 10),
     maxPriorityFeesPerGas,
     gasUsed = Gas.empty(),
@@ -113,6 +115,7 @@ export const mockTx = async (
     publicCalldataSize?: number;
     feePayer?: AztecAddress;
     chonkProof?: ChonkProof;
+    gasLimits?: Gas;
     maxFeesPerGas?: GasFees;
     maxPriorityFeesPerGas?: GasFees;
     gasUsed?: Gas;
@@ -131,7 +134,7 @@ export const mockTx = async (
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), Fr.ZERO, 0);
   data.constants.anchorBlockHeader = anchorBlockHeader;
-  data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas, maxPriorityFeesPerGas });
+  data.constants.txContext.gasSettings = GasSettings.default({ gasLimits, maxFeesPerGas, maxPriorityFeesPerGas });
   data.feePayer = feePayer ?? (await AztecAddress.random());
   data.gasUsed = gasUsed;
   data.constants.txContext.chainId = chainId;
@@ -205,8 +208,11 @@ export async function mockProcessedTx({
   feePayer,
   feePaymentPublicDataWrite,
   // The default gasUsed is the tx overhead.
-  gasUsed = Gas.from({ daGas: FIXED_DA_GAS, l2Gas: FIXED_L2_GAS }),
   privateOnly = false,
+  gasUsed = Gas.from({
+    daGas: TX_DA_GAS_OVERHEAD,
+    l2Gas: privateOnly ? PRIVATE_TX_L2_GAS_OVERHEAD : PUBLIC_TX_L2_GAS_OVERHEAD,
+  }),
   avmAccumulatedData,
   ...mockTxOpts
 }: {
@@ -421,10 +427,13 @@ export async function mockCheckpointAndMessages(
     Partial<Parameters<typeof L2Block.random>[1]> = {},
 ) {
   const slotNumber = options.slotNumber ?? SlotNumber(Number(checkpointNumber) * 10);
+  const globals = GlobalVariables.random({ slotNumber, ...options });
   const blocksAndMessages = [];
+
   // Track the previous block's archive to ensure consecutive blocks have consistent archive roots.
   // The current block's header.lastArchive must equal the previous block's archive.
   let lastArchive: AppendOnlyTreeSnapshot | undefined = previousArchive;
+
   // Pass maxEffects via txOptions so it reaches TxEffect.random
   const txOptions = maxEffects !== undefined ? { maxEffects } : {};
   for (let i = 0; i < (blocks?.length ?? numBlocks); i++) {
@@ -433,11 +442,11 @@ export async function mockCheckpointAndMessages(
       block:
         blocks?.[i] ??
         (await L2Block.random(blockNumber, {
+          ...globals,
           checkpointNumber,
           indexWithinCheckpoint: IndexWithinCheckpoint(i),
           txsPerBlock: numTxsPerBlock,
           txOptions,
-          slotNumber,
           ...options,
           ...makeBlockOptions(blockNumber),
           ...(lastArchive ? { lastArchive } : {}),
@@ -451,12 +460,18 @@ export async function mockCheckpointAndMessages(
 
   const messages = blocksAndMessages[0].messages;
   const inHash = computeInHashFromL1ToL2Messages(messages);
-  const checkpoint = await Checkpoint.random(checkpointNumber, { numBlocks: 0, slotNumber, inHash, ...options });
+  const firstBlockLastArchive = blocksAndMessages[0].block.header.lastArchive;
+  const checkpoint = await Checkpoint.random(checkpointNumber, {
+    numBlocks: 0,
+    inHash,
+    ...options,
+    ...globals,
+    lastArchive: firstBlockLastArchive,
+    lastArchiveRoot: firstBlockLastArchive.root,
+    archive: lastArchive,
+  });
+
   checkpoint.blocks = blocksAndMessages.map(({ block }) => block);
-  // Set the checkpoint's archive to match the last block's archive for proper chaining.
-  // When the archiver reconstructs checkpoints from L1, it uses the checkpoint's archive root
-  // from the L1 event to set the last block's archive. Without this, the archive chain breaks.
-  checkpoint.archive = lastArchive!;
 
   // Return lastArchive so callers can chain it across multiple checkpoints
   return { checkpoint, messages, lastArchive };
