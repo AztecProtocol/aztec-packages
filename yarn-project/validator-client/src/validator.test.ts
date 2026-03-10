@@ -121,6 +121,8 @@ describe('ValidatorClient', () => {
     blockSource.getCheckpointedBlocksForEpoch.mockResolvedValue([]);
     blockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);
     blockSource.getBlocksForSlot.mockResolvedValue([]);
+    blockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(Number.MAX_SAFE_INTEGER));
+    blockSource.syncImmediate.mockResolvedValue(undefined);
     epochCache.isEscapeHatchOpenAtSlot.mockResolvedValue(false);
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     txProvider = mock<TxProvider>();
@@ -312,6 +314,7 @@ describe('ValidatorClient', () => {
       worldState.fork.mockResolvedValue({
         close: () => Promise.resolve(),
         [Symbol.asyncDispose]: () => Promise.resolve(),
+        getTreeInfo: () => Promise.resolve({ root: proposal.blockHeader.lastArchive.root.toBuffer() }),
       } as never);
     };
 
@@ -529,7 +532,8 @@ describe('ValidatorClient', () => {
       blockSource.getBlockDataByArchive.mockResolvedValueOnce(undefined);
       blockSource.getBlockDataByArchive.mockResolvedValueOnce(undefined);
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
-      expect(blockSource.getBlockDataByArchive).toHaveBeenCalledTimes(4);
+      // Initial getParentBlock retries 3 undefined + 1 success = 4, then re-check after sync = 5
+      expect(blockSource.getBlockDataByArchive).toHaveBeenCalledTimes(5);
       expect(isValid).toBe(true);
     });
 
