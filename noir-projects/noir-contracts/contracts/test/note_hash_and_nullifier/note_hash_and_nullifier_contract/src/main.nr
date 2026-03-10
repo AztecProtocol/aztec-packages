@@ -6,7 +6,6 @@ use aztec::macros::aztec;
 /// A minimal contract used to test the macro-generated `_compute_note_hash_and_nullifier` function.
 #[aztec]
 pub contract NoteHashAndNullifier {
-    use crate::test_note::TestNote;
     use aztec::{
         messages::{
             discovery::NoteHashAndNullifier as NoteHashAndNullifierResult,
