@@ -27,7 +27,7 @@ import { BlockHeader, GlobalVariables, type Tx, TxEffect, TxHash, type TxValidat
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { GasLimitsValidator } from '../../msg_validators/tx_validator/gas_validator.js';
+import { GasLimitsValidator, MaxFeePerGasValidator } from '../../msg_validators/tx_validator/gas_validator.js';
 import type { TxMetaData } from './tx_metadata.js';
 import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
 
@@ -5384,6 +5384,225 @@ describe('TxPoolV2', () => {
         await testStore.delete();
         await testArchiveStore.delete();
       }
+    });
+  });
+
+  describe('max fee per gas validation', () => {
+    let feePool: AztecKVTxPoolV2;
+    let feeStore: Awaited<ReturnType<typeof openTmpStore>>;
+    let feeArchiveStore: Awaited<ReturnType<typeof openTmpStore>>;
+
+    // Block gas fees that the validator will compare against
+    const blockGasFees = new GasFees(10, 20);
+
+    beforeEach(async () => {
+      feeStore = await openTmpStore('p2p');
+      feeArchiveStore = await openTmpStore('archive');
+      feePool = new AztecKVTxPoolV2(feeStore, feeArchiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        createTxValidator: () => Promise.resolve(new MaxFeePerGasValidator<TxMetaData>(blockGasFees)),
+      });
+      await feePool.start();
+    });
+
+    afterEach(async () => {
+      await feePool.stop();
+      await feeStore.delete();
+      await feeArchiveStore.delete();
+    });
+
+    const makeTxWithMaxFees = async (seed: number, maxFeesPerGas: GasFees) => {
+      const tx = await mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 1 });
+      tx.data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas });
+      return tx;
+    };
+
+    it('accepts tx with maxFeesPerGas exactly equal to block gas fees', async () => {
+      const tx = await makeTxWithMaxFees(1, new GasFees(10, 20));
+      const result = await feePool.addPendingTxs([tx]);
+      expect(result.accepted).toHaveLength(1);
+      expect(result.rejected).toHaveLength(0);
+    });
+
+    it('accepts tx with maxFeesPerGas above block gas fees', async () => {
+      const tx = await makeTxWithMaxFees(1, new GasFees(100, 200));
+      const result = await feePool.addPendingTxs([tx]);
+      expect(result.accepted).toHaveLength(1);
+      expect(result.rejected).toHaveLength(0);
+    });
+
+    it('rejects tx with insufficient DA fee per gas', async () => {
+      const tx = await makeTxWithMaxFees(1, new GasFees(9, 20)); // DA too low
+      const result = await feePool.addPendingTxs([tx]);
+      expect(result.accepted).toHaveLength(0);
+      expect(toStrings(result.rejected)).toContain(hashOf(tx));
+    });
+
+    it('rejects tx with insufficient L2 fee per gas', async () => {
+      const tx = await makeTxWithMaxFees(1, new GasFees(10, 19)); // L2 too low
+      const result = await feePool.addPendingTxs([tx]);
+      expect(result.accepted).toHaveLength(0);
+      expect(toStrings(result.rejected)).toContain(hashOf(tx));
+    });
+
+    it('rejects tx with both DA and L2 fee per gas insufficient', async () => {
+      const tx = await makeTxWithMaxFees(1, new GasFees(5, 10));
+      const result = await feePool.addPendingTxs([tx]);
+      expect(result.accepted).toHaveLength(0);
+      expect(toStrings(result.rejected)).toContain(hashOf(tx));
+    });
+
+    it('handles batch with mixed sufficient and insufficient fees', async () => {
+      const txGood = await makeTxWithMaxFees(1, new GasFees(10, 20));
+      const txBadDA = await makeTxWithMaxFees(2, new GasFees(9, 20));
+      const txBadL2 = await makeTxWithMaxFees(3, new GasFees(10, 19));
+      const txAlsoGood = await makeTxWithMaxFees(4, new GasFees(50, 50));
+
+      const result = await feePool.addPendingTxs([txGood, txBadDA, txBadL2, txAlsoGood]);
+
+      expect(toStrings(result.accepted)).toContain(hashOf(txGood));
+      expect(toStrings(result.accepted)).toContain(hashOf(txAlsoGood));
+      expect(toStrings(result.rejected)).toContain(hashOf(txBadDA));
+      expect(toStrings(result.rejected)).toContain(hashOf(txBadL2));
+      expect(await feePool.getPendingTxCount()).toBe(2);
+    });
+  });
+
+  describe('max fee per gas eviction after block mined', () => {
+    // The default pool already has InsufficientFeePerGasEvictionRule registered.
+    // Default mockTx uses maxFeesPerGas = GasFees(10, 10).
+    // The existing slot headers (slot1Header, slot2Header) use GasFees.empty() (0, 0),
+    // so we need a header with non-zero gas fees to trigger eviction.
+
+    const makeTxWithMaxFees = async (seed: number, maxFeesPerGas: GasFees) => {
+      const tx = await mockTx(seed, {
+        numberOfNonRevertiblePublicCallRequests: 1,
+        maxPriorityFeesPerGas: new GasFees(1, 1),
+      });
+      tx.data.constants.txContext.gasSettings = GasSettings.default({
+        maxFeesPerGas,
+        maxPriorityFeesPerGas: new GasFees(1, 1),
+      });
+      return tx;
+    };
+
+    const headerWithGasFees = (gasFees: GasFees) =>
+      BlockHeader.empty({
+        globalVariables: GlobalVariables.empty({
+          blockNumber: BlockNumber(1),
+          slotNumber: SlotNumber(1),
+          timestamp: 0n,
+          gasFees,
+        }),
+      });
+
+    it('evicts pending txs when mined block has higher gas fees', async () => {
+      // Txs with maxFeesPerGas = (10, 10)
+      const tx1 = await makeTxWithMaxFees(1, new GasFees(10, 10));
+      const tx2 = await makeTxWithMaxFees(2, new GasFees(10, 10));
+
+      await pool.addPendingTxs([tx1, tx2]);
+      expect(await pool.getPendingTxCount()).toBe(2);
+
+      // Mine a block with gas fees (20, 20) - higher than txs' maxFeesPerGas
+      const blockHeader = headerWithGasFees(new GasFees(20, 20));
+      await pool.handleMinedBlock(makeEmptyBlock(blockHeader));
+
+      // Both txs should be evicted since their maxFeesPerGas (10, 10) < block fees (20, 20)
+      expect(await pool.getTxStatus(tx1.getTxHash())).toBe('deleted');
+      expect(await pool.getTxStatus(tx2.getTxHash())).toBe('deleted');
+      expect(await pool.getPendingTxCount()).toBe(0);
+    });
+
+    it('keeps pending txs when their maxFeesPerGas meets block gas fees', async () => {
+      // Txs with maxFeesPerGas = (50, 50)
+      const tx1 = await makeTxWithMaxFees(1, new GasFees(50, 50));
+      const tx2 = await makeTxWithMaxFees(2, new GasFees(50, 50));
+
+      await pool.addPendingTxs([tx1, tx2]);
+      expect(await pool.getPendingTxCount()).toBe(2);
+
+      // Mine a block with gas fees (20, 20) - lower than txs' maxFeesPerGas
+      const blockHeader = headerWithGasFees(new GasFees(20, 20));
+      await pool.handleMinedBlock(makeEmptyBlock(blockHeader));
+
+      // Both txs should remain pending since their maxFeesPerGas (50, 50) >= block fees (20, 20)
+      expect(await pool.getTxStatus(tx1.getTxHash())).toBe('pending');
+      expect(await pool.getTxStatus(tx2.getTxHash())).toBe('pending');
+      expect(await pool.getPendingTxCount()).toBe(2);
+    });
+
+    it('selectively evicts only txs with insufficient fees', async () => {
+      const txLowFee = await makeTxWithMaxFees(1, new GasFees(5, 5));
+      const txHighFee = await makeTxWithMaxFees(2, new GasFees(50, 50));
+      const txBorderline = await makeTxWithMaxFees(3, new GasFees(20, 20));
+
+      await pool.addPendingTxs([txLowFee, txHighFee, txBorderline]);
+      expect(await pool.getPendingTxCount()).toBe(3);
+
+      // Mine a block with gas fees (20, 20)
+      const blockHeader = headerWithGasFees(new GasFees(20, 20));
+      await pool.handleMinedBlock(makeEmptyBlock(blockHeader));
+
+      // txLowFee (5, 5) < (20, 20) -> evicted
+      expect(await pool.getTxStatus(txLowFee.getTxHash())).toBe('deleted');
+      // txHighFee (50, 50) >= (20, 20) -> still pending
+      expect(await pool.getTxStatus(txHighFee.getTxHash())).toBe('pending');
+      // txBorderline (20, 20) >= (20, 20) -> still pending (exactly equal is sufficient)
+      expect(await pool.getTxStatus(txBorderline.getTxHash())).toBe('pending');
+      expect(await pool.getPendingTxCount()).toBe(2);
+    });
+
+    it('evicts when only DA fee is insufficient', async () => {
+      const tx = await makeTxWithMaxFees(1, new GasFees(5, 50)); // DA too low, L2 fine
+
+      await pool.addPendingTxs([tx]);
+      expect(await pool.getPendingTxCount()).toBe(1);
+
+      const blockHeader = headerWithGasFees(new GasFees(20, 20));
+      await pool.handleMinedBlock(makeEmptyBlock(blockHeader));
+
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('deleted');
+    });
+
+    it('evicts when only L2 fee is insufficient', async () => {
+      const tx = await makeTxWithMaxFees(1, new GasFees(50, 5)); // L2 too low, DA fine
+
+      await pool.addPendingTxs([tx]);
+      expect(await pool.getPendingTxCount()).toBe(1);
+
+      const blockHeader = headerWithGasFees(new GasFees(20, 20));
+      await pool.handleMinedBlock(makeEmptyBlock(blockHeader));
+
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('deleted');
+    });
+
+    it('does not evict when block gas fees are zero', async () => {
+      const tx = await makeTxWithMaxFees(1, new GasFees(10, 10));
+
+      await pool.addPendingTxs([tx]);
+      expect(await pool.getPendingTxCount()).toBe(1);
+
+      // Mine a block with zero gas fees (GasFees.empty)
+      await pool.handleMinedBlock(makeEmptyBlock(slot1Header));
+
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('pending');
+    });
+
+    it('does not evict protected txs even with insufficient fees', async () => {
+      const tx = await makeTxWithMaxFees(1, new GasFees(5, 5));
+
+      // Add as protected (not pending)
+      await pool.addProtectedTxs([tx], slot1Header);
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
+
+      // Mine a block with gas fees higher than the tx's maxFeesPerGas
+      const blockHeader = headerWithGasFees(new GasFees(20, 20));
+      await pool.handleMinedBlock(makeEmptyBlock(blockHeader));
+
+      // Protected tx should not be evicted (eviction rules only check pending txs)
+      expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
     });
   });
 });
