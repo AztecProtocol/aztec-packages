@@ -20,13 +20,18 @@ local function matches_any(str, patterns)
   return false
 end
 
-local allMembers = redis.call('ZREVRANGE', key, 0, -1)
-for _, member in ipairs(allMembers) do
+local allMembers = redis.call('ZREVRANGE', key, 0, -1, 'WITHSCORES')
+for i = 1, #allMembers, 2 do
+  local member = allMembers[i]
+  local score = allMembers[i + 1]
   local ok, parsed = pcall(cjson.decode, member)
   if ok then
+    -- Inject the exact score as ci_log_id (avoids float precision loss)
+    if not parsed["ci_log_id"] then
+      parsed["ci_log_id"] = score
+    end
     if parsed["status"] == "RUNNING" then
-      local ts = parsed["timestamp"]
-      local hb_key = "hb-" .. tostring(ts)
+      local hb_key = "hb-" .. score
       if redis.call("EXISTS", hb_key) == 0 then
         parsed["status"] = "INACTIVE"
       end

@@ -48,6 +48,10 @@ def get_list_as_string(key, limit=None):
         value = f"Error retrieving list: {str(e)}"
     return value
 
+def to_ms(ts):
+    """Strip random suffix from 16-digit CI_LOG_ID to get real 13-digit ms timestamp."""
+    return ts // 1000 if ts > 10**15 else ts
+
 def render(group: list) -> str:
     # Use the first JSON object for common properties.
     data = group[0]
@@ -68,9 +72,12 @@ def render(group: list) -> str:
             link_color = GREEN
         else:
             link_color = RESET
-        job_links.append(f"{link_color}{hyperlink(BASE_URL + '/' + str(job['timestamp']), job['job_id'])}{RESET}")
+        log_id = job.get('ci_log_id', job['timestamp'])
+        # Ensure log_id is an integer string (Lua may decode large numbers as floats)
+        log_id = str(int(float(log_id))) if isinstance(log_id, (int, float)) else log_id
+        job_links.append(f"{link_color}{hyperlink(BASE_URL + '/' + log_id, job['job_id'])}{RESET}")
     links_str = ",".join(job_links)
-    date_time = datetime.fromtimestamp(ts // 1000).strftime("%m-%d %H:%M:%S")
+    date_time = datetime.fromtimestamp(to_ms(ts) // 1000).strftime("%m-%d %H:%M:%S")
 
     statuses = [job.get('status') for job in group if 'status' in job]
     if statuses and all(s == 'INACTIVE' for s in statuses):
@@ -83,9 +90,9 @@ def render(group: list) -> str:
         if job.get('status') == 'INACTIVE':
             continue
         if 'timestamp' in job:
-            job_start = job['timestamp']
+            job_start = to_ms(job['timestamp'])
             job_complete = job.get('complete')
-            job_end = job_complete if job_complete is not None else current_time
+            job_end = to_ms(job_complete) if job_complete is not None else current_time
             durations.append(job_end - job_start)
     max_duration = max(durations) if durations else 0
     duration = max_duration // 1000
