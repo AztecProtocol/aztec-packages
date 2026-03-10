@@ -124,6 +124,8 @@ export interface IUtilityExecutionOracle {
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
+    maxNotePackedLen: number,
+    maxEventSerializedLen: number,
   ): Promise<void>;
   utilityBulkRetrieveLogs(
     contractAddress: AztecAddress,
