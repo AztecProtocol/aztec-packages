@@ -68,13 +68,13 @@ impl NoteMetadata {
         }
     }
 
-    /// Returns true if the note is pending **and** from the same phase, i.e. if it's been created in the current
+    /// Returns `true` if the note is pending **and** from the same phase, i.e. if it's been created in the current
     /// transaction during the current execution phase (either non-revertible or revertible).
     pub fn is_pending_same_phase(self) -> bool {
         self.stage == NoteStage.PENDING_SAME_PHASE
     }
 
-    /// Returns true if the note is pending **and** from the previous phase, i.e. if it's been created in the current
+    /// Returns `true` if the note is pending **and** from the previous phase, i.e. if it's been created in the current
     /// transaction during an execution phase prior to the current one. Because private execution only has two phases
     /// with strict ordering, this implies that the note was created in the non-revertible phase, and that the current
     /// phase is the revertible phase.
