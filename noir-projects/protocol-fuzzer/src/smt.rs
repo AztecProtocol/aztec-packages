@@ -1,9 +1,6 @@
 // Copyright 2022-2024 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 use arbitrary::Unstructured;
-use log::debug;
-
-use crate::wallet::{self, Bridge};
 
 /// State machine tests inspired by [ScalaCheck](https://github.com/typelevel/scalacheck/blob/main/doc/UserGuide.md#stateful-testing)
 /// and [quickcheck-state-machine](https://hackage.haskell.org/package/quickcheck-state-machine).
@@ -34,6 +31,21 @@ pub trait StateMachine {
 
     /// Apply a command on the System Under Test.
     fn run_command(&self, system: &mut Self::System, cmd: &Self::Command) -> Self::Result;
+
+    /// Execute a batch of commands, potentially in parallel.
+    ///
+    /// The default implementation runs them sequentially via `run_command`.
+    /// Machines that want parallel execution should override this, delegating
+    /// to their System (which holds the transport/bridge).
+    fn run_command_batch(
+        &self,
+        system: &mut Self::System,
+        cmds: &[Self::Command],
+    ) -> Vec<Self::Result> {
+        cmds.iter()
+            .map(|cmd| self.run_command(system, cmd))
+            .collect()
+    }
 
     /// Use assertions to check that the result returned by the System Under Test
     /// was correct, given the model pre-state.
@@ -96,90 +108,69 @@ pub fn run<T: StateMachine>(
 ///
 /// Commands are generated sequentially and deterministically. Consecutive non-conflicting
 /// state-changing commands are buffered into a batch and fired concurrently via
-/// `wallet::execute_many()`. Non-state-changing commands (queries) and conflicting
-/// commands flush the pending batch first.
+/// `StateMachine::run_command_batch()`. Non-state-changing commands (queries) and
+/// conflicting commands flush the pending batch first.
 pub fn run_batched<T>(
     u: &mut Unstructured,
     t: &mut T,
-    bridge: &Bridge,
     max_steps: usize,
     max_batch_size: usize,
 ) -> arbitrary::Result<()>
 where
     T: StateMachine<Result = anyhow::Result<String>>,
     T::Command: Batchable,
-    for<'a> wallet::WalletCommand: From<&'a T::Command>,
 {
     let state = t.gen_state(u)?;
     let mut system = t.new_system(&state);
-    let mut step = 0;
 
-    // Pending batch: (command, model pre-state before this command).
-    let mut batch: Vec<(T::Command, T::State)> = Vec::new();
-    // Model state -- tracks the effect of all generated commands, including those
-    // still pending in the batch. Used for gen_command and pre-state snapshots.
+    // Two parallel vecs (not Vec<(Cmd, State)>) so we can pass &[Command] to
+    // run_command_batch without allocating a temporary vec of references.
+    let mut batch_cmds: Vec<T::Command> = Vec::new();
+    let mut batch_states: Vec<T::State> = Vec::new();
+    // Model state tracks all generated commands (including those still pending
+    // in the batch). Used for gen_command and pre-state snapshots.
     let mut model = state;
 
-    while step < max_steps {
+    let flush = |t: &T, system: &mut T::System, cmds: &[T::Command], states: &[T::State]| {
+        let results = t.run_command_batch(system, cmds);
+        for ((cmd, pre_state), result) in cmds.iter().zip(states).zip(results) {
+            t.check_result(cmd, pre_state, result);
+        }
+    };
+
+    for _ in 0..max_steps {
         ensure_has_randomness(u)?;
         let cmd = t.gen_command(u, &model)?;
 
         // Flush if the new command conflicts with anything in the batch or if
         // the batch is at capacity.
-        if batch.len() >= max_batch_size
-            || batch.iter().any(|(prev, _)| cmd.conflicts(prev))
+        if batch_cmds.len() >= max_batch_size
+            || batch_cmds.iter().any(|prev| cmd.conflicts(prev))
         {
-            execute_batch(t, &mut system, bridge, &batch);
-            if !t.check_system(&batch.last().unwrap().0, &model, &system) {
+            flush(t, &mut system, &batch_cmds, &batch_states);
+            // check_system checks invariants and returns false to stop early.
+            // The cmd arg is required by the trait but unused by current machines;
+            // we pass the last command since intermediate states don't exist
+            // (the batch ran in parallel). Clear afterward.
+            if !t.check_system(batch_cmds.last().unwrap(), &model, &system) {
                 return Ok(());
             }
-            batch.clear();
+            batch_cmds.clear();
+            batch_states.clear();
         }
 
-        let pre_state = model.clone();
+        // Snapshot model *before* applying the command (for check_result later).
+        batch_states.push(model.clone());
         model = t.next_state(&cmd, model);
-        batch.push((cmd, pre_state));
-        step += 1;
+        batch_cmds.push(cmd);
     }
 
-    // Flush remaining commands.
-    if !batch.is_empty() {
-        execute_batch(t, &mut system, bridge, &batch);
-        t.check_system(&batch.last().unwrap().0, &model, &system);
+    if !batch_cmds.is_empty() {
+        flush(t, &mut system, &batch_cmds, &batch_states);
+        t.check_system(batch_cmds.last().unwrap(), &model, &system);
     }
 
     Ok(())
-}
-
-/// Execute a batch of commands -- in parallel if >1, sequentially otherwise.
-/// A multi-item batch is guaranteed to contain only state-changing commands,
-/// because queries conflict with everything and would have flushed the batch.
-fn execute_batch<T>(
-    t: &T,
-    system: &mut T::System,
-    bridge: &Bridge,
-    batch: &[(T::Command, T::State)],
-) where
-    T: StateMachine<Result = anyhow::Result<String>>,
-    T::Command: Batchable,
-    for<'a> wallet::WalletCommand: From<&'a T::Command>,
-{
-    if batch.len() > 1 {
-        debug!("Executing batch of {} sends in parallel", batch.len());
-        let wallet_cmds: Vec<wallet::WalletCommand> = batch
-            .iter()
-            .map(|(cmd, _)| wallet::WalletCommand::from(cmd))
-            .collect();
-        let results = bridge.execute_many(&wallet_cmds);
-        for ((cmd, pre_state), result) in batch.iter().zip(results) {
-            t.check_result(cmd, pre_state, result);
-        }
-    } else {
-        for (cmd, pre_state) in batch {
-            let result = t.run_command(system, cmd);
-            t.check_result(cmd, pre_state, result);
-        }
-    }
 }
 
 /// Once we run out of randomness, most of the arbitrary data generated by it will

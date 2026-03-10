@@ -523,6 +523,14 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
         system.execute_command(cmd)
     }
 
+    fn run_command_batch(
+        &self,
+        system: &mut Self::System,
+        cmds: &[Self::Command],
+    ) -> Vec<Self::Result> {
+        system.execute_command_batch(cmds)
+    }
+
     fn check_result(&self, cmd: &Self::Command, pre_state: &Self::State, result: Self::Result) {
         use SideEffectCommand::*;
 

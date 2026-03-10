@@ -113,7 +113,6 @@ fn main() {
                 smt::run_batched(
                     u,
                     &mut machine,
-                    &bridge,
                     token_args.common.max_steps,
                     token_args.common.max_batch_size,
                 )
@@ -133,7 +132,6 @@ fn main() {
                 smt::run_batched(
                     u,
                     &mut machine,
-                    &bridge,
                     se_args.common.max_steps,
                     se_args.common.max_batch_size,
                 )
