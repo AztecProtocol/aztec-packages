@@ -3,10 +3,7 @@
 # CI mode is passed as first argument.
 set -euo pipefail
 
-if [ "${CI_USE_SSH:-0}" -eq 1 ]; then
-  : "${AWS_ACCESS_KEY_ID:?required for SSH mode}"
-  : "${AWS_SECRET_ACCESS_KEY:?required for SSH mode}"
-fi
+# AWS credentials are handled by instance profiles on all paths.
 : "${GITHUB_TOKEN:?required}"
 
 CI_MODE="${1:?CI_MODE must be provided as first argument}"

@@ -25,13 +25,9 @@ if [ -n "${KEY_NAME:-}" ]; then
   key_name_json="\"KeyName\": \"$KEY_NAME\","
 fi
 
-# IamInstanceProfile is only attached in SSM mode (no KEY_NAME = SSM).
-# In SSH mode, the build_instance IAM user lacks iam:PassRole for this role.
-iam_profile_json=""
-if [ -z "${KEY_NAME:-}" ]; then
-  CI3_INSTANCE_PROFILE_NAME=${CI3_INSTANCE_PROFILE_NAME:-ci3-build-instance-profile}
-  iam_profile_json="\"IamInstanceProfile\": { \"Name\": \"$CI3_INSTANCE_PROFILE_NAME\" },"
-fi
+# Always attach the instance profile so containers can use instance-profile credentials.
+CI3_INSTANCE_PROFILE_NAME=${CI3_INSTANCE_PROFILE_NAME:-ci3-build-instance-profile}
+iam_profile_json="\"IamInstanceProfile\": { \"Name\": \"$CI3_INSTANCE_PROFILE_NAME\" },"
 
 # In SSM mode use the CI3 security group; in SSH mode use the original SG (allows port 22).
 if [ -z "${KEY_NAME:-}" ]; then
