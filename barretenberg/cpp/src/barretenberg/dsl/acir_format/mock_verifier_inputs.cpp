@@ -472,21 +472,78 @@ HonkProof create_mock_translator_proof()
     return proof;
 }
 
-template <typename Builder> HonkProof create_mock_chonk_proof(const size_t acir_public_inputs_size)
+/**
+ * @brief Create a mock batched joint proof (Translator Oink + joint sumcheck + joint PCS).
+ * @details Matches the structure produced by BatchedHonkTranslatorProver::prove():
+ *   - Translator Oink: gemini masking commitment, wire commitments, z_perm commitment
+ *   - Joint Sumcheck: Libra masking, 17-round univariates, minicircuit evals,
+ *                     MegaZK evaluations, translator evaluations, Libra evaluation
+ *   - Joint PCS: Gemini folds, Libra evals, Shplonk, KZG
+ */
+HonkProof create_mock_batched_joint_proof()
 {
+    using TransFlavor = TranslatorFlavor;
+    using Curve = TransFlavor::Curve;
+    using FF = TransFlavor::FF;
+
     HonkProof proof;
 
-    HonkProof mega_proof =
-        create_mock_honk_proof<MegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<Builder>>(acir_public_inputs_size);
+    // === Translator Oink ===
+    // 1. Gemini masking poly commitment
+    populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
+    // 2. Wire commitments: concatenated(5) + ordered(5) = 10
+    populate_field_elements_for_mock_commitments<Curve>(proof,
+                                                        /*num_commitments=*/TransFlavor::NUM_COMMITMENTS_IN_PROOF);
+    // 3. Z_PERM commitment
+    populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
+
+    // === Joint Sumcheck ===
+    // 4. Libra concatenation commitment
+    populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
+    // 5. Libra sum
+    populate_field_elements<FF>(proof, 1);
+    // 6. Joint sumcheck univariates (17 rounds)
+    // MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH == TransFlavor::BATCHED_RELATION_PARTIAL_LENGTH
+    // (both equal Curve::LIBRA_UNIVARIATES_LENGTH)
+    populate_field_elements<FF>(proof,
+                                TransFlavor::CONST_TRANSLATOR_LOG_N * MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH);
+    // 7. Minicircuit evaluations (sent mid-sumcheck at round LOG_MINI_CIRCUIT_SIZE-1)
+    populate_field_elements<FF>(proof, TransFlavor::NUM_MINICIRCUIT_EVALUATIONS);
+    // 8. MegaZK evaluations (sent after real rounds, before virtual rounds)
+    populate_field_elements<FF>(proof, MegaZKFlavor::NUM_ALL_ENTITIES);
+    // 9. Translator full circuit evaluations (sent after all rounds)
+    populate_field_elements<FF>(proof, TransFlavor::NUM_FULL_CIRCUIT_EVALUATIONS);
+    // 10. Libra claimed evaluation
+    populate_field_elements<FF>(proof, 1);
+    // 11. Libra grand sum commitment
+    populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
+    // 12. Libra quotient commitment
+    populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
+
+    // === Joint PCS (same structure as standalone translator PCS, using JOINT_LOG_N = 17) ===
+    HonkProof pcs_proof = create_mock_pcs_proof<TransFlavor>();
+    proof.insert(proof.end(), pcs_proof.begin(), pcs_proof.end());
+
+    return proof;
+}
+
+template <typename Builder> HonkProof create_mock_chonk_proof(const size_t acir_public_inputs_size)
+{
+    // MegaZK Oink only (no decider — sumcheck+PCS are batched into the joint proof)
+    HonkProof mega_zk_oink =
+        create_mock_oink_proof<MegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<Builder>>(acir_public_inputs_size);
     Goblin::MergeProof merge_proof = create_mock_merge_proof();
     HonkProof eccvm_proof{ create_mock_eccvm_proof() };
     HonkProof ipa_proof = create_mock_ipa_proof();
-    HonkProof translator_proof = create_mock_translator_proof();
+    // Batched joint proof: Translator Oink + joint sumcheck + joint PCS
+    HonkProof joint_proof = create_mock_batched_joint_proof();
 
-    ChonkProof chonk_proof{ mega_proof, merge_proof, eccvm_proof, ipa_proof, translator_proof };
-    proof = chonk_proof.to_field_elements();
-
-    return proof;
+    ChonkProof chonk_proof{ std::move(mega_zk_oink),
+                            std::move(merge_proof),
+                            std::move(eccvm_proof),
+                            std::move(ipa_proof),
+                            std::move(joint_proof) };
+    return chonk_proof.to_field_elements();
 }
 
 template <typename Flavor, class PublicInputs>
@@ -510,6 +567,10 @@ std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size
 template HonkProof create_mock_oink_proof<MegaFlavor, stdlib::recursion::honk::AppIO>(const size_t);
 template HonkProof create_mock_oink_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(const size_t);
 template HonkProof create_mock_oink_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>(
+    const size_t);
+template HonkProof create_mock_oink_proof<MegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>(
+    const size_t);
+template HonkProof create_mock_oink_proof<MegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>(
     const size_t);
 
 template HonkProof create_mock_oink_proof<UltraFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
