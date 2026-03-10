@@ -84,7 +84,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     this.config = {
       proverNodePollingIntervalMs: 1_000,
       proverNodeMaxPendingJobs: 100,
-      proverNodeMaxParallelBlocksPerEpoch: 32,
+      proverNodeMaxParallelBlocksPerEpoch: 0,
       txGatheringIntervalMs: 1_000,
       txGatheringBatchSize: 10,
       txGatheringMaxParallelRequestsPerNode: 100,
