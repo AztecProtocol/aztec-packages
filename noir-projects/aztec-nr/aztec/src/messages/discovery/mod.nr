@@ -50,7 +50,7 @@ pub struct NoteHashAndNullifier {
 ///
 /// The [`[#aztec]`](crate::macros::aztec::aztec) macro automatically creates a correct implementation of this function
 /// for each contract by inspecting all note types in use and the storage layout. This injected function is a
-/// `#[contract_library_function]` called `_compute_note_hash_and_nullifier`, and it looks something like this:
+/// `#[contract_library_method]` called `_compute_note_hash_and_nullifier`, and it looks something like this:
 ///
 /// ```noir
 /// |packed_note, owner, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
@@ -77,7 +77,7 @@ pub struct NoteHashAndNullifier {
 ///             )
 ///         }
 ///     } else if note_type_id == MyOtherNoteType::get_id() {
-///           ... // Similar to above but calling MyOtherNoteType::unpack_content
+///           ... // Similar to above but calling MyOtherNoteType::unpack
 ///     } else {
 ///         Option::none() // Unknown note type ID
 ///     };
