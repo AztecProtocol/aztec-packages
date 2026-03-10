@@ -3,14 +3,59 @@ include "precomputed.pil";
 /**
  * Calldata Retrieval
  *
- * Stores one calldata field per row, grouped by context_id. The values are hints whose
- * correctness is constrained by calldata_hashing.pil (which validates the hash and size).
- * The hash is matched against the tx's public inputs, and the size is looked up for each call.
+ * Stores one calldata field per row, grouped by context_id. Each row holds a (index, value)
+ * pair. The values are hints — their correctness is enforced by calldata_hashing.pil, which
+ * looks up every field from this trace and verifies the resulting Poseidon2 hash matches the
+ * hash submitted in the transaction's public inputs.
  *
- * For empty calldata, a special row with index = 0, value = 0, and end = 1 indicates that the
- * context_id has been processed. This is the only case where index = 0 and sel = 1. No lookups
- * should access this trace with index = 0 unless confirming empty calldata (data_copy and
- * calldata_hashing look up all existing values with a +1 offset).
+ * SECURITY ARGUMENT — WHY CALLDATA VALUES ARE TRUSTWORTHY:
+ *
+ * The calldata pipeline works as follows (see diagram in calldata_hashing.pil):
+ *
+ *   1. tx.pil reads the calldata_hash from the transaction's public inputs
+ *      (tx.pil #[READ_PUBLIC_CALL_REQUEST_PHASE]).
+ *
+ *   2. tx.pil performs a permutation into calldata_hashing.pil at end rows
+ *      (tx.pil #[READ_CALLDATA_HASH]), matching (output_hash, calldata_size, context_id).
+ *      This ensures that calldata_hashing produces exactly the hash and size declared by the
+ *      transaction for each enqueued call.
+ *
+ *   3. calldata_hashing.pil rebuilds the hash from scratch: it prepends a domain separator,
+ *      then looks up every calldata field from this trace via #[GET_CALLDATA_FIELD_0/1/2],
+ *      feeds them into a Poseidon2 hash (via #[POSEIDON2_HASH]), and checks that the
+ *      resulting hash equals output_hash. This guarantees that the values stored here are
+ *      exactly the preimage of the hash committed in the public inputs.
+ *
+ *   4. calldata_hashing.pil also enforces the size: #[CHECK_FINAL_INDEX] constrains that
+ *      calldata_size equals the last non-padding index, and #[CHECK_FINAL_SIZE] is a
+ *      permutation between calldata_hashing (at end rows for non-empty calldata) and this
+ *      trace (at end rows), checking that (calldata_size, context_id) match
+ *      (calldata.index, calldata.context_id). This binds the length of data in this trace
+ *      to the length declared in calldata_hashing.
+ *
+ *   5. tx.pil dispatches calldata_size to the execution trace (tx.pil #[DISPATCH_EXEC_START]),
+ *      which passes it to data_copy.pil for CALLDATACOPY operations. data_copy.pil reads
+ *      individual field values from this trace (data_copy.pil #[COL_READ]).
+ *
+ * Because calldata_hashing looks up every field from index 1..calldata_size in this trace,
+ * a malicious prover cannot insert extra fields, omit fields, or alter values without
+ * breaking the hash equality checked against the public inputs.
+ *
+ * INDEX CORRECTNESS:
+ * Within each computation block, #[INDEX] constrains that the index starts at 1 after a
+ * latch and increments by 1 each row. The final index at end == 1 equals the calldata size,
+ * which is enforced by the #[CHECK_FINAL_SIZE] permutation with calldata_hashing.pil.
+ * Although this trace does not have a dedicated start column or an explicit "index starts at
+ * 1" constraint, correctness follows from #[INDEX]: at a latch boundary, the next row's index
+ * is set to sel' * LATCH_CONDITION = 1 (since sel' = 1 for the next active block). Combined
+ * with the size permutation, a prover cannot start at the wrong index without mismatching the
+ * calldata_size at the end row.
+ *
+ * EMPTY CALLDATA:
+ * When calldata is empty, calldata_hashing.pil hashes only the domain separator (size = 0).
+ * The #[CHECK_FINAL_SIZE] permutation uses sel_end_not_empty as its source selector, which
+ * evaluates to 0 for empty calldata (start = 1, PADDING_1 = 1). Therefore, no entry in this
+ * trace is required for empty calldata — no rows are generated and no permutation fires.
  *
  * PRECONDITIONS:
  * - Events must be sorted by context_id (ascending, strictly increasing). This is required
@@ -30,19 +75,19 @@ include "precomputed.pil";
  *
  * Pattern 2 — Check final calldata size (calldata_hashing.pil #[CHECK_FINAL_SIZE]):
  *
- *   caller_sel { calldata_size, context_id }
+ *   sel_end_not_empty { calldata_size, context_id }
  *   is
  *   calldata.end { calldata.index, calldata.context_id };
  *
  *   - Inputs: context_id.
  *   - Output: index (equals calldata_size at the final row).
- *   - Selector: calldata.end (only the final row per context_id).
- *   - Note: for empty calldata, matches a special row where calldata.index = 0 and end = 1.
+ *   - Selector on source: sel_end_not_empty (end rows of non-empty calldata only).
+ *   - Selector on destination: calldata.end (the final row per context_id).
  *
  * TRACE SHAPE:
  * Variable number of rows per context_id — one row per calldata field. The index increments
  * by one each row until end = 1 marks the final row. context_id strictly increases between
- * groups.
+ * groups. Empty calldata produces no rows in this trace.
  *
  * e.g. calldata: [0x111, 0x222, 0x333, 0x444]
  *  index |  value | context_id |  end  |
@@ -52,23 +97,19 @@ include "precomputed.pil";
  *    3   |  0x333 |     1      |   0   |
  *    4   |  0x444 |     1      |   1   |
  *
- * e.g. empty calldata:
- *  index |  value | context_id |  end  |
- * -------+--------+------------+-------+
- *    0   |    0   |     id     |   1   |
- *
  * ERROR HANDLING: This gadget does not have error conditions. The values are hints
  * validated by calldata_hashing.pil.
  *
  * INTERACTIONS:
- * - calldata_hashing: lookups for calldata field values and final size check.
- * - data_copy: lookups for calldata field values during CALLDATACOPY.
+ * - calldata_hashing: lookups for calldata field values (#[GET_CALLDATA_FIELD_0/1/2]) and
+ *   final size permutation (#[CHECK_FINAL_SIZE]).
+ * - data_copy: lookups for calldata field values during CALLDATACOPY (#[COL_READ]).
  * - precomputed: range check for context_id difference via #[RANGE_CHECK_CONTEXT_ID_DIFF].
  *
  * @column sel Selector for active rows.
  * @column value The calldata field value (a hint, validated by calldata_hashing.pil).
  * @column context_id Identifies which enqueued call this calldata belongs to.
- * @column index The 1-based index of the calldata field within the call (0 only for empty calldata).
+ * @column index The 1-based index of the calldata field within the call.
  * @column end Designates the final row of calldata for a given context_id.
  * @column diff_context_id Used for range-checking that context_id strictly increases across calldata instances.
  */
@@ -105,24 +146,8 @@ namespace calldata;
     pol commit value;
     pol commit context_id;
 
-    // **NOTE** The index starts at one in this trace (see above comment for special case of empty
-    // calldata and index = 0). We do not currently constrain this (or the existence of a 'start'
-    // column) since calldata_hashing constrains it and all looked up calldata values are basically
-    // hints which must also go through calldata_hashing.
-    //     e.g. data_copy will look up values in this trace by context_id. We know that these values
-    //     are valid (and start at index=1) because data_copy also looks up the calldata size by the
-    //     same context_id, constrained by calldata_hashing, which itself constrains the index.
-    // We could constrain this here by introducing a start column:
-    //     pol commit start;
-    // Adding relations like (see calldata_hashing.pil's):
-    //     #[START_AFTER_END]
-    //     sel' * (start' - LATCH_CONDITION) = 0;
-    //     #[START_INDEX_IS_ONE]
-    //     sel * start * (is_not_empty * (index - 1) + is_empty * index) = 0;
-    // If start = 1, #[START_INDEX_IS_ONE] should constrain that index = 1 unless we have empty
-    // calldata. In that case the 'special' row must have end = 1, index = 0, value = 0, and will
-    // be constrained by calldata_hashing to have size = 0. This is a different case to a calldata
-    // of one field of value 0, where index = 1.
+    // The index starts at 1 (no dedicated start column). See INDEX CORRECTNESS above for
+    // why this is sound. All values in this trace are hints validated by calldata_hashing.pil.
     pol commit index;
 
     // Index initializes to 1 at the beginning of a computation block/latch.
