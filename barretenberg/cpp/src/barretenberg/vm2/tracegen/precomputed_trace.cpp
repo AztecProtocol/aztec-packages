@@ -171,7 +171,7 @@ void PrecomputedTraceBuilder::process_tag_parameters(TraceContainer& trace)
 /**
  * @brief Populate the wire-level instruction specification table.
  * @details One row per WireOpCode (0..67). Each row holds the operand decomposition selectors
- * (sel_op_dc_0..17), the corresponding ExecutionOpCode, instruction size in bytes, and tag
+ * (sel_op_dc_0..16), the corresponding ExecutionOpCode, instruction size in bytes, and tag
  * operand metadata. Rows beyond the last valid opcode are flagged with opcode_out_of_range.
  * Used by the instruction-fetch subtrace to decode bytecode.
  */
@@ -183,7 +183,7 @@ void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trac
         C::precomputed_sel_op_dc_6,  C::precomputed_sel_op_dc_7,  C::precomputed_sel_op_dc_8,
         C::precomputed_sel_op_dc_9,  C::precomputed_sel_op_dc_10, C::precomputed_sel_op_dc_11,
         C::precomputed_sel_op_dc_12, C::precomputed_sel_op_dc_13, C::precomputed_sel_op_dc_14,
-        C::precomputed_sel_op_dc_15, C::precomputed_sel_op_dc_16, C::precomputed_sel_op_dc_17,
+        C::precomputed_sel_op_dc_15, C::precomputed_sel_op_dc_16,
     };
 
     // First set the selector for this table lookup.

@@ -306,7 +306,7 @@ TEST(DecompositionSelectors, CodeGen)
     info(" Precomputed Selectors Table:");
     info("#################################\n");
 
-    info("constexpr size_t NUM_OP_DC_SELECTORS = 18;\n\n");
+    info("constexpr size_t NUM_OP_DC_SELECTORS = ", set_of_bitmasks.size(), ";\n\n");
 
     info("const std::unordered_map<WireOpCode, std::array<uint8_t, NUM_OP_DC_SELECTORS>> WireOpCode_DC_SELECTORS = "
          "{");
