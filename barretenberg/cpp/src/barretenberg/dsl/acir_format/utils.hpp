@@ -204,4 +204,42 @@ std::vector<typename Builder::acir_opcode_io_record::WitnessOrConstant> witness_
     return result;
 }
 
+template <typename Builder>
+std::vector<typename Builder::acir_opcode_io_record::WitnessOrConstant>
+witness_or_constant_vector_from_ecdsa_constraint(const EcdsaConstraint& constraint)
+{
+    std::vector<typename Builder::acir_opcode_io_record::WitnessOrConstant> result;
+    result.reserve(constraint.hashed_message.size() + constraint.signature.size() + constraint.pub_x_indices.size() +
+                   constraint.pub_y_indices.size() + /* predicate */ 1 + /* result */ 1);
+    auto append_vector = [&](const std::vector<typename Builder::acir_opcode_io_record::WitnessOrConstant>& vec) {
+        result.insert(result.end(), vec.begin(), vec.end());
+    };
+    append_vector(witness_or_constant_vector_from_vector<Builder>(constraint.hashed_message));
+    append_vector(witness_or_constant_vector_from_vector<Builder>(constraint.signature));
+    append_vector(witness_or_constant_vector_from_vector<Builder>(constraint.pub_x_indices));
+    append_vector(witness_or_constant_vector_from_vector<Builder>(constraint.pub_y_indices));
+    append_vector(witness_or_constant_vector_from_vector<Builder>(
+        std::vector<WitnessOrConstant<typename Builder::FF>>{ constraint.predicate }));
+    append_vector(witness_or_constant_vector_from_vector<Builder>(std::vector<uint32_t>{ constraint.result }));
+    return result;
+}
+
+template <typename Builder>
+std::vector<typename Builder::acir_opcode_io_record::WitnessOrConstant>
+witness_or_constant_vector_from_multi_scalar_mul_constraint(const MultiScalarMul& constraint)
+{
+    std::vector<typename Builder::acir_opcode_io_record::WitnessOrConstant> result;
+    result.reserve(constraint.points.size() + constraint.scalars.size() + /* predicate */ 1 + /* result point */ 3);
+    auto append_vector = [&](const std::vector<typename Builder::acir_opcode_io_record::WitnessOrConstant>& vec) {
+        result.insert(result.end(), vec.begin(), vec.end());
+    };
+    append_vector(witness_or_constant_vector_from_vector<Builder>(constraint.points));
+    append_vector(witness_or_constant_vector_from_vector<Builder>(constraint.scalars));
+    append_vector(witness_or_constant_vector_from_vector<Builder>(
+        std::vector<WitnessOrConstant<typename Builder::FF>>{ constraint.predicate }));
+    append_vector(witness_or_constant_vector_from_vector<Builder>(
+        std::vector<uint32_t>{ constraint.out_point_x, constraint.out_point_y, constraint.out_point_is_infinite }));
+    return result;
+}
+
 } // namespace acir_format

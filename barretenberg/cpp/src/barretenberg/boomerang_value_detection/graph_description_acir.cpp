@@ -1,4 +1,5 @@
 #include "./graph_description_acir.hpp"
+#include "barretenberg/boomerang_value_detection/helpers/aes_helpers.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/cycle_group_helpers.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/cycle_scalar_helpers.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/ecdsa_helpers.hpp"
@@ -640,13 +641,10 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(const Co
 
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_aes128_constraints(
-    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& next_constraint_witnesses)
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
 {
-    // AES128 constraint processing
-    // TODO: Implement validation logic
-    (void)ptr;
-    (void)next_constraint_witnesses;
-    return false; // Not yet implemented
+    const auto* constraint = std::get<const acir_format::AES128Constraint*>(ptr);
+    return validate_aes<FF>(analyzer, builder, *constraint);
 }
 
 template <typename FF, typename CircuitBuilder>
@@ -1031,7 +1029,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_multi_scalar_mul_constrain
         WitnessOrConstant<FF>::from_index(constraint->out_point_y),
         WitnessOrConstant<FF>::from_index(constraint->out_point_is_infinite),
     };
-    condition &= is_msm_result_constrained<FF>(analyzer, builder, output_point, constraint->predicate);
+    condition &= is_msm_result_constrained<FF>(analyzer, builder, output_point, *constraint);
 
     return condition;
 }
@@ -1040,7 +1038,6 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_multi_scalar_mul_constrain
 // 1. All input byte fields (hashed_message, r, s, pub_x, pub_y) have conditional_assign + 8-bit range constraints
 // 2. The result is constrained to be boolean (from bool_ct result(result_field))
 // 3. The result participates in bool_t conditional_assign + assert_equal chain
-// TODO(defkit): implement proper stdlib::ecdsa_verify_signature tracing
 // We intentionally skip tracing ECDSA verification internals (biggroup/bigcurve).
 // Instead, we verify that:
 //   - All inputs are properly constrained (conditional_assign + 8-bit range)
@@ -1077,7 +1074,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ecdsa_constraints(
         analyzer, builder, constraint->pub_y_indices, predicate_field, pub_y_defaults);
 
     // 2-3. Validate result: boolean gate + conditional_assign + assert_equal
-    condition &= is_ecdsa_result_constrained<FF>(analyzer, builder, constraint->result, predicate_field);
+    condition &= is_ecdsa_result_constrained<FF>(analyzer, builder, *constraint);
 
     return condition;
 }

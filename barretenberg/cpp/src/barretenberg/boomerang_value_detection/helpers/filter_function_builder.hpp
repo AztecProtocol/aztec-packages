@@ -34,7 +34,6 @@ template <typename CircuitBuilder, typename FF> class FilterFunctionBuilder {
     FilterFunctionBuilder& set_q_arith(FF q_arith);
     FilterFunctionBuilder& set_q_elliptic(FF q_elliptic);
 
-    std::function<bool(size_t, size_t)> build() const;
     std::vector<std::pair<size_t, size_t>> filter_gates(std::vector<std::pair<size_t, size_t>>& gates) const;
 
     template <typename Analyzer>
@@ -42,6 +41,8 @@ template <typename CircuitBuilder, typename FF> class FilterFunctionBuilder {
                                                           Analyzer& analyzer) const;
 
   private:
+    std::function<bool(size_t, size_t)> build() const;
+
     CircuitBuilder& builder;
     std::optional<uint32_t> w_l = std::nullopt;
     std::optional<uint32_t> w_r = std::nullopt;
@@ -225,12 +226,6 @@ inline std::optional<std::pair<size_t, size_t>> FilterFunctionBuilder<CircuitBui
 }
 
 // Wire extraction helpers: get the witness index from a specific wire at a gate location.
-template <typename CircuitBuilder>
-inline uint32_t get_w_l_at(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
-{
-    return builder.blocks.get()[gate_location.first].w_l()[gate_location.second];
-}
-
 template <typename CircuitBuilder>
 inline uint32_t get_w_r_at(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
 {
