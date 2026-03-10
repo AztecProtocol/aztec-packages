@@ -38,7 +38,9 @@ for _, member in ipairs(allMembers) do
         end
         -- Patch status via string replace to avoid cjson number truncation.
         if parsed["status"] == "RUNNING" then
-          local hb_key = "hb-" .. tostring(parsed["timestamp"])
+          -- Extract timestamp from raw JSON string to avoid Lua double truncation.
+          local ts_str = string.match(member, '"timestamp":(%d+)')
+          local hb_key = "hb-" .. (ts_str or "0")
           if redis.call("EXISTS", hb_key) == 0 then
             local patched = string.gsub(member, '"status":"RUNNING"', '"status":"INACTIVE"', 1)
             table.insert(result, patched)
