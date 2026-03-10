@@ -31,16 +31,16 @@ impl NoteHash for TestNote {
         _owner: AztecAddress,
         _note_hash_for_nullification: Field,
     ) -> Field {
+        // Not used in any meaningful way
         0
     }
 
-    // Returns a hardcoded value so we can verify in tests that the macro-generated
-    // `_compute_note_hash_and_nullifier` propagates the inner nullifier correctly.
     unconstrained fn compute_nullifier_unconstrained(
         _self: Self,
         _owner: AztecAddress,
         _note_hash_for_nullification: Field,
     ) -> Option<Field> {
+        // Returns a hardcoded value so we can verify that `_compute_note_hash_and_nullifier` propagates it correctly.
         Option::some(2)
     }
 }

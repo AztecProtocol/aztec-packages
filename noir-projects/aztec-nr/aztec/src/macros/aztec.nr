@@ -258,7 +258,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                         let actual_len = packed_note.len();
                         if actual_len != expected_len {
                             aztec::protocol::logging::warn_log_format(
-                                "[aztec-nr] Packed note length mismatch: expected {0}, got {1} for note type id {2}",
+                                "[aztec-nr] Packed note length mismatch for note type id {2}: expected {0} fields, got {1}. Skipping note.",
                                 [expected_len as Field, actual_len as Field, note_type_id],
                             );
                             Option::none()
