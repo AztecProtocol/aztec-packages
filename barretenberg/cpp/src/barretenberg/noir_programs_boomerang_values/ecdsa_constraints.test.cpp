@@ -52,7 +52,7 @@ template <typename Curve> struct EcdsaTestData {
     static constexpr FrNative private_key =
         FrNative("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
 
-    static std::pair<EcdsaConstraint, WitnessVector> generate_valid_constraint(bool predicate_is_witness)
+    static EcdsaConstraint generate_valid_constraint(bool predicate_is_witness)
     {
         std::string message_string = "Instructions unclear, ask again later.";
         std::vector<uint8_t> message_buffer(message_string.begin(), message_string.end());
@@ -96,15 +96,13 @@ template <typename Curve> struct EcdsaTestData {
             predicate = WitnessOrConstant<bb::fr>::from_constant(bb::fr(1));
         }
 
-        EcdsaConstraint ecdsa_constraint = { .type = Curve::type,
-                                             .hashed_message = hashed_message_indices,
-                                             .signature = signature_indices,
-                                             .pub_x_indices = pub_x_indices,
-                                             .pub_y_indices = pub_y_indices,
-                                             .predicate = predicate,
-                                             .result = result_index };
-
-        return { ecdsa_constraint, witness_values };
+        return { .type = Curve::type,
+                 .hashed_message = hashed_message_indices,
+                 .signature = signature_indices,
+                 .pub_x_indices = pub_x_indices,
+                 .pub_y_indices = pub_y_indices,
+                 .predicate = predicate,
+                 .result = result_index };
     }
 
     /**
@@ -113,7 +111,7 @@ template <typename Curve> struct EcdsaTestData {
      *          means !predicate participates in AND gates from both constraints' conditional_assign
      *          chains, testing whether find_and_unknown_rhs can disambiguate.
      */
-    static std::tuple<EcdsaConstraint, EcdsaConstraint, WitnessVector> generate_two_constraints_shared_predicate()
+    static std::pair<EcdsaConstraint, EcdsaConstraint> generate_two_constraints_shared_predicate()
     {
         ecdsa_key_pair<FrNative, G1Native> account;
         account.private_key = private_key;
@@ -178,7 +176,7 @@ template <typename Curve> struct EcdsaTestData {
                                    .predicate = predicate,
                                    .result = result2 };
 
-        return { ecdsa1, ecdsa2, witness_values };
+        return { ecdsa1, ecdsa2 };
     }
 };
 
@@ -189,50 +187,40 @@ using R1Curve = bb::stdlib::secp256r1<UltraCircuitBuilder>;
 
 TEST_F(EcdsaConstraintsTests, ValidateEcdsaK1Constraint)
 {
-    auto [ecdsa_constraint, witness] = EcdsaTestData<K1Curve>::generate_valid_constraint(/*predicate_is_witness=*/true);
-    AcirFormat constraint_system = build_acir_format(static_cast<uint32_t>(witness.size() - 1), ecdsa_constraint);
+    auto ecdsa_constraint = EcdsaTestData<K1Curve>::generate_valid_constraint(/*predicate_is_witness=*/true);
+    AcirFormat constraint_system = build_acir_format(0, ecdsa_constraint);
 
-    auto program = AcirProgram{ constraint_system, witness };
-    auto builder = create_circuit<UltraCircuitBuilder>(program);
-
-    StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
+    StaticAnalyzerAcir analyzer(std::move(constraint_system));
     analyzer.process_constraint_system();
     EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
 }
 
 TEST_F(EcdsaConstraintsTests, ValidateEcdsaR1Constraint)
 {
-    auto [ecdsa_constraint, witness] = EcdsaTestData<R1Curve>::generate_valid_constraint(/*predicate_is_witness=*/true);
-    AcirFormat constraint_system = build_acir_format(static_cast<uint32_t>(witness.size() - 1), ecdsa_constraint);
+    auto ecdsa_constraint = EcdsaTestData<R1Curve>::generate_valid_constraint(/*predicate_is_witness=*/true);
+    AcirFormat constraint_system = build_acir_format(0, ecdsa_constraint);
 
-    auto program = AcirProgram{ constraint_system, witness };
-    auto builder = create_circuit<UltraCircuitBuilder>(program);
-
-    StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
+    StaticAnalyzerAcir analyzer(std::move(constraint_system));
     analyzer.process_constraint_system();
     EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
 }
 
 TEST_F(EcdsaConstraintsTests, ValidateEcdsaK1ConstantPredicate)
 {
-    auto [ecdsa_constraint, witness] =
-        EcdsaTestData<K1Curve>::generate_valid_constraint(/*predicate_is_witness=*/false);
-    AcirFormat constraint_system = build_acir_format(static_cast<uint32_t>(witness.size() - 1), ecdsa_constraint);
+    auto ecdsa_constraint = EcdsaTestData<K1Curve>::generate_valid_constraint(/*predicate_is_witness=*/false);
+    AcirFormat constraint_system = build_acir_format(0, ecdsa_constraint);
 
-    auto program = AcirProgram{ constraint_system, witness };
-    auto builder = create_circuit<UltraCircuitBuilder>(program);
-
-    StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
+    StaticAnalyzerAcir analyzer(std::move(constraint_system));
     analyzer.process_constraint_system();
     EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty());
 }
 
 TEST_F(EcdsaConstraintsTests, DetectCorruptedBooleanConstraint)
 {
-    auto [ecdsa_constraint, witness] = EcdsaTestData<K1Curve>::generate_valid_constraint(/*predicate_is_witness=*/true);
-    AcirFormat constraint_system = build_acir_format(static_cast<uint32_t>(witness.size() - 1), ecdsa_constraint);
+    auto ecdsa_constraint = EcdsaTestData<K1Curve>::generate_valid_constraint(/*predicate_is_witness=*/true);
+    AcirFormat constraint_system = build_acir_format(0, ecdsa_constraint);
 
-    auto program = AcirProgram{ constraint_system, witness };
+    auto program = AcirProgram{ constraint_system, {} };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Corrupt: disable all boolean gates by zeroing q_arith in arithmetic block
@@ -263,10 +251,10 @@ TEST_F(EcdsaConstraintsTests, DetectCorruptedBooleanConstraint)
 
 TEST_F(EcdsaConstraintsTests, DetectCorruptedRangeConstraint)
 {
-    auto [ecdsa_constraint, witness] = EcdsaTestData<K1Curve>::generate_valid_constraint(/*predicate_is_witness=*/true);
-    AcirFormat constraint_system = build_acir_format(static_cast<uint32_t>(witness.size() - 1), ecdsa_constraint);
+    auto ecdsa_constraint = EcdsaTestData<K1Curve>::generate_valid_constraint(/*predicate_is_witness=*/true);
+    AcirFormat constraint_system = build_acir_format(0, ecdsa_constraint);
 
-    auto program = AcirProgram{ constraint_system, witness };
+    auto program = AcirProgram{ constraint_system, {} };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Corrupt: clear the 8-bit range list (range_lists[255])
@@ -283,10 +271,10 @@ TEST_F(EcdsaConstraintsTests, DetectCorruptedRangeConstraint)
 
 TEST_F(EcdsaConstraintsTests, DetectCorruptedConditionalAssign)
 {
-    auto [ecdsa_constraint, witness] = EcdsaTestData<K1Curve>::generate_valid_constraint(/*predicate_is_witness=*/true);
-    AcirFormat constraint_system = build_acir_format(static_cast<uint32_t>(witness.size() - 1), ecdsa_constraint);
+    auto ecdsa_constraint = EcdsaTestData<K1Curve>::generate_valid_constraint(/*predicate_is_witness=*/true);
+    AcirFormat constraint_system = build_acir_format(0, ecdsa_constraint);
 
-    auto program = AcirProgram{ constraint_system, witness };
+    auto program = AcirProgram{ constraint_system, {} };
     auto builder = create_circuit<UltraCircuitBuilder>(program);
 
     // Corrupt: disable all arithmetic gates to break conditional_assign patterns
@@ -307,13 +295,10 @@ TEST_F(EcdsaConstraintsTests, DetectCorruptedConditionalAssign)
 // the !predicate && signature_result pattern.
 TEST_F(EcdsaConstraintsTests, TwoConstraintsSharedPredicateDoNotInterfere)
 {
-    auto [ecdsa1, ecdsa2, witness] = EcdsaTestData<K1Curve>::generate_two_constraints_shared_predicate();
-    AcirFormat constraint_system = build_acir_format(static_cast<uint32_t>(witness.size() - 1), ecdsa1, ecdsa2);
+    auto [ecdsa1, ecdsa2] = EcdsaTestData<K1Curve>::generate_two_constraints_shared_predicate();
+    AcirFormat constraint_system = build_acir_format(0, ecdsa1, ecdsa2);
 
-    auto program = AcirProgram{ constraint_system, witness };
-    auto builder = create_circuit<UltraCircuitBuilder>(program);
-
-    StaticAnalyzerAcir analyzer(std::move(constraint_system), std::move(builder));
+    StaticAnalyzerAcir analyzer(std::move(constraint_system));
     analyzer.process_constraint_system();
     EXPECT_TRUE(analyzer.get_incorrect_opcodes().empty())
         << "Analyzer should validate both ECDSA constraints when they share a predicate witness";
