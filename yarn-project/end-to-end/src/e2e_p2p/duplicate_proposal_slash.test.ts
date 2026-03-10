@@ -231,15 +231,17 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
 
     t.logger.warn(`Collected offenses`, { offenses });
 
-    // Verify the offense is correct
-    expect(offenses.length).toBeGreaterThan(0);
-    for (const offense of offenses) {
-      expect(offense.offenseType).toEqual(OffenseType.DUPLICATE_PROPOSAL);
+    // Filter to only DUPLICATE_PROPOSAL offenses. The two malicious nodes sharing the same key
+    // will also each self-attest to their own (different) checkpoint proposals, which causes honest
+    // nodes to detect a DUPLICATE_ATTESTATION as well. We only care about proposals here.
+    const proposalOffenses = offenses.filter(o => o.offenseType === OffenseType.DUPLICATE_PROPOSAL);
+    expect(proposalOffenses.length).toBeGreaterThan(0);
+    for (const offense of proposalOffenses) {
       expect(offense.validator.toString()).toEqual(maliciousValidatorAddress.toString());
     }
 
     // Verify that for each offense, the proposer for that slot is the malicious validator
-    for (const offense of offenses) {
+    for (const offense of proposalOffenses) {
       const offenseSlot = SlotNumber(Number(offense.epochOrSlot));
       const proposerForSlot = await epochCache.getProposerAttesterAddressInSlot(offenseSlot);
       t.logger.info(`Offense slot ${offenseSlot}: proposer is ${proposerForSlot?.toString()}`);
