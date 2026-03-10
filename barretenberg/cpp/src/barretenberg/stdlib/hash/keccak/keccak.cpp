@@ -12,6 +12,7 @@
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_rho.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_theta.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 namespace bb::stdlib {
 
 using namespace bb::plookup;

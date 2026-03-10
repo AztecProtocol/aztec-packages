@@ -1,6 +1,11 @@
 #include "./graph_description_acir.hpp"
+#include "barretenberg/boomerang_value_detection/helpers/aes_helpers.hpp"
 #include "barretenberg/boomerang_value_detection/helpers/cycle_group_helpers.hpp"
+#include "barretenberg/boomerang_value_detection/helpers/cycle_scalar_helpers.hpp"
+#include "barretenberg/boomerang_value_detection/helpers/ecdsa_helpers.hpp"
+#include "barretenberg/boomerang_value_detection/helpers/range_helpers.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include <optional>
 #include <type_traits>
 #include <unordered_map>
@@ -359,6 +364,7 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_constraint_system()
         opcode_constraint_map = cdg::build_opcode_type_map(constraint_system);
         opcode_constraint_map_built = true;
     }
+    analyzer.clear_consumed_gates();
     for (auto it = opcode_constraint_map.begin(); it != opcode_constraint_map.end(); ++it) {
         auto& [opcode_idx, constraint_info] = *it;
         std::unordered_set<uint32_t> next_constraint_witnesses;
@@ -382,6 +388,22 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_constraint_system()
             break;
         case AcirConstraintType::EC_ADD:
             result = process_ec_add_constraint(constraint_info.ptr);
+            break;
+        case AcirConstraintType::MULTI_SCALAR_MUL:
+            result = process_multi_scalar_mul_constraints(constraint_info.ptr, next_constraint_witnesses);
+            break;
+        case AcirConstraintType::ECDSA_K1:
+        case AcirConstraintType::ECDSA_R1:
+            result = process_ecdsa_constraints(constraint_info.ptr, next_constraint_witnesses);
+            break;
+        case AcirConstraintType::BLAKE2S:
+            result = process_blake2s_constraints(constraint_info.ptr, next_constraint_witnesses);
+            break;
+        case AcirConstraintType::BLAKE3:
+            result = process_blake3_constraints(constraint_info.ptr, next_constraint_witnesses);
+            break;
+        case AcirConstraintType::KECCAK_PERMUTATION:
+            result = process_keccak_permutation_constraints(constraint_info.ptr);
             break;
         default:
             // Constraint type not yet implemented - mark as not processed
@@ -619,47 +641,16 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_logic_constraints(const Co
 
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_aes128_constraints(
-    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& next_constraint_witnesses)
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
 {
-    // AES128 constraint processing
-    // TODO: Implement validation logic
-    (void)ptr;
-    (void)next_constraint_witnesses;
-    return false; // Not yet implemented
+    const auto* constraint = std::get<const acir_format::AES128Constraint*>(ptr);
+    return validate_aes<FF>(analyzer, builder, *constraint);
 }
 
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzerAcir_<FF, CircuitBuilder>::validate_range_constraint(uint32_t witness, uint32_t num_bits)
 {
-    // Range constraint consists of variable index and num bits to be constrained.
-    // num bits == 1 => bool gate
-    // num bits <= 14 => arithmetic gate + create_new_range_constraint <=> arithmetic gate + list[tag]
-    // num bits > 14 => decompose_into_default_range => decompose chain with additional range constrains for sublimbs
-    //
-    const auto& variable_gates = analyzer.get_variable_gates(analyzer.to_real(witness));
-
-    if (num_bits == 1) {
-        for (auto [block_idx, gate_idx] : variable_gates) {
-            if (is_boolean_gate(block_idx, gate_idx)) {
-                return true;
-            }
-        }
-        return false;
-    } else if (num_bits <= bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM) {
-        // Small range: arithmetic gate + range list entry
-        uint64_t target_range = (1ULL << num_bits) - 1;
-        auto it = builder.range_lists.find(target_range);
-        if (it == builder.range_lists.end()) {
-            return false;
-        }
-        const auto& range_list = it->second;
-        return std::find(range_list.variable_indices.begin(), range_list.variable_indices.end(), witness) !=
-               range_list.variable_indices.end();
-    } else {
-        // Large range: decompose_into_default_range creates sublimbs with big_add gates
-        // Validate that the decompose chain was correctly created
-        return analyzer.validate_decompose_chain(witness, num_bits);
-    }
+    return cdg::validate_range_constraint<FF>(analyzer, builder, witness, num_bits);
 }
 
 template <typename FF, typename CircuitBuilder>
@@ -945,25 +936,270 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ec_add_constraint(const Co
     Point<FF> input2_point = { constraint->input2_x, constraint->input2_y, constraint->input2_infinite };
 
     bool condition = true;
-    condition &= is_on_curve_check_exists<FF>(analyzer, builder, input1_point, constraint->predicate);
-    condition &= is_on_curve_check_exists<FF>(analyzer, builder, input2_point, constraint->predicate);
 
-    // Check that result point is constrained to be input1 + input2
-    if (is_point_constant(input1_point) && is_point_constant(input2_point)) {
-        // Both constant: addition computed natively, no gates to check
-        return condition;
+    // Compute real points for all inputs (get_real_point handles constant coordinates via constant folding).
+    // On-curve check is only needed for non-constant points (constant points are validated at compile time).
+    std::optional<RealPoint<CircuitBuilder>> real_input1, real_input2;
+    real_input1 = get_real_point<FF>(analyzer, builder, input1_point, constraint->predicate);
+    if (!real_input1.has_value()) {
+        log_error("Real point 1 is not valid");
+        condition = false;
+    } else if (!is_point_constant(input1_point)) {
+        condition &= is_on_curve_check_with_real_point<FF>(analyzer, builder, *real_input1);
+    }
+    real_input2 = get_real_point<FF>(analyzer, builder, input2_point, constraint->predicate);
+    if (!real_input2.has_value()) {
+        log_error("Real point 2 is not valid");
+        condition = false;
+    } else if (!is_point_constant(input2_point)) {
+        condition &= is_on_curve_check_with_real_point<FF>(analyzer, builder, *real_input2);
+    }
+
+    if (!real_input1.has_value() || !real_input2.has_value()) {
+        return false;
     }
 
     condition &= is_ec_add_result_constrained<FF>(analyzer,
                                                   builder,
-                                                  input1_point,
-                                                  input2_point,
+                                                  *real_input1,
+                                                  *real_input2,
                                                   constraint->result_x,
                                                   constraint->result_y,
                                                   constraint->result_infinite,
                                                   constraint->predicate);
 
     return condition;
+}
+
+// Verifies MSM constraint:
+// 1. All input points are asserted to be on curve (via to_grumpkin_point)
+// 2. All scalars are field-validated (via cycle_scalar + validate_split_in_field_unsafe)
+// 3. The result is connected to batch_mul output via conditional_assign + assert_equal
+//
+// TODO(defkit): implement proper batch_mul tracing
+// We intentionally skip tracing batch_mul internals. batch_mul is a complex multi-point
+// multiplication algorithm (Straus/Pippenger) whose internal gate structure is too complex
+// to trace statically. Instead, we verify that:
+//   - All inputs are properly constrained (on-curve + scalar field validation)
+//   - The batch_mul output is connected to the ACIR output via conditional_assign + assert_equal
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_multi_scalar_mul_constraints(
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
+{
+    const auto* constraint = std::get<const MultiScalarMul*>(ptr);
+
+    bool condition = true;
+
+    // 1. Compute real points once and verify on-curve check for all input points
+    for (size_t i = 0; i < constraint->points.size(); i += 3) {
+        Point<FF> point = { constraint->points[i], constraint->points[i + 1], constraint->points[i + 2] };
+        if (is_point_constant(point)) {
+            continue;
+        }
+        auto real_point = get_real_point<FF>(analyzer, builder, point, constraint->predicate);
+        if (!real_point.has_value()) {
+            log_error("Real point is not valid");
+            condition = false;
+            continue;
+        }
+        condition &= is_on_curve_check_with_real_point<FF>(analyzer, builder, *real_point);
+    }
+
+    // 2. Verify cycle_scalar field validation for all scalars
+    for (size_t i = 0; i < constraint->points.size(); i += 3) {
+        size_t scalar_idx = 2 * (i / 3);
+        condition &= is_cycle_scalar_constrained<FF>(analyzer,
+                                                     builder,
+                                                     constraint->scalars[scalar_idx],
+                                                     constraint->scalars[scalar_idx + 1],
+                                                     constraint->predicate);
+    }
+
+    // 3. Verify result connected via conditional_assign + assert_equal
+    Point<FF> output_point = {
+        WitnessOrConstant<FF>::from_index(constraint->out_point_x),
+        WitnessOrConstant<FF>::from_index(constraint->out_point_y),
+        WitnessOrConstant<FF>::from_index(constraint->out_point_is_infinite),
+    };
+    condition &= is_msm_result_constrained<FF>(analyzer, builder, output_point, *constraint);
+
+    return condition;
+}
+
+// Verifies ECDSA constraint:
+// 1. All input byte fields (hashed_message, r, s, pub_x, pub_y) have conditional_assign + 8-bit range constraints
+// 2. The result is constrained to be boolean (from bool_ct result(result_field))
+// 3. The result participates in bool_t conditional_assign + assert_equal chain
+// We intentionally skip tracing ECDSA verification internals (biggroup/bigcurve).
+// Instead, we verify that:
+//   - All inputs are properly constrained (conditional_assign + 8-bit range)
+//   - The result is boolean and connected to the verification output via conditional_assign + assert_equal
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_ecdsa_constraints(
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
+{
+    const auto* constraint = std::get<const EcdsaConstraint*>(ptr);
+    auto predicate_field = witness_or_constant_to_field<FF>(constraint->predicate, builder);
+
+    bool condition = true;
+
+    // 1. Validate all 5 input byte arrays: conditional_assign + 8-bit range
+    auto scalar_defaults = compute_scalar_default_bytes<FF>();
+    auto pub_x_defaults = compute_pubkey_default_bytes<FF>(constraint->type, /*is_x=*/true);
+    auto pub_y_defaults = compute_pubkey_default_bytes<FF>(constraint->type, /*is_x=*/false);
+
+    // r fields (first 32 bytes of signature)
+    std::array<uint32_t, 32> r_indices;
+    std::copy(constraint->signature.begin(), constraint->signature.begin() + 32, r_indices.begin());
+
+    // s fields (second 32 bytes of signature)
+    std::array<uint32_t, 32> s_indices;
+    std::copy(constraint->signature.begin() + 32, constraint->signature.begin() + 64, s_indices.begin());
+
+    condition &= is_ecdsa_input_bytes_constrained<FF>(
+        analyzer, builder, constraint->hashed_message, predicate_field, scalar_defaults);
+    condition &= is_ecdsa_input_bytes_constrained<FF>(analyzer, builder, r_indices, predicate_field, scalar_defaults);
+    condition &= is_ecdsa_input_bytes_constrained<FF>(analyzer, builder, s_indices, predicate_field, scalar_defaults);
+    condition &= is_ecdsa_input_bytes_constrained<FF>(
+        analyzer, builder, constraint->pub_x_indices, predicate_field, pub_x_defaults);
+    condition &= is_ecdsa_input_bytes_constrained<FF>(
+        analyzer, builder, constraint->pub_y_indices, predicate_field, pub_y_defaults);
+
+    // 2-3. Validate result: boolean gate + conditional_assign + assert_equal
+    condition &= is_ecdsa_result_constrained<FF>(analyzer, builder, *constraint);
+
+    return condition;
+}
+
+/**
+ * @brief Verify blake2s/blake3 constraint: input bytes have 8-bit range constraints, outputs match stdlib IO.
+ * @details Blake2s/blake3 inputs are bytes (8-bit values). For each non-constant input, we verify that an 8-bit
+ * range constraint exists via limb lookup. For outputs, we use the IO registry (acir_opcode_io) to verify
+ * that each output byte produced by the stdlib is connected to the corresponding constraint.result[i]
+ * via assert_equal.
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_blake_constraint_internal(
+    const std::vector<WitnessOrConstant<bb::fr>>& inputs, const std::array<uint32_t, 32>& result)
+{
+    using field_ct = bb::stdlib::field_t<CircuitBuilder>;
+
+    // 1. Verify input byte range constraints
+    for (const auto& input : inputs) {
+        if (!input.is_constant) {
+            // Each non-constant input byte must have an 8-bit range constraint
+            if (!is_range_constrained_via_limb_lookup<FF>(analyzer, builder, input.index, 255)) {
+                return false;
+            }
+        }
+    }
+
+    // 2. Look up the registered outputs for these inputs
+    const auto& io_map = builder.acir_opcode_io.io_map;
+    auto it = io_map.find(witness_or_constant_vector_from_vector<CircuitBuilder>(inputs));
+    if (it == io_map.end()) {
+        return false;
+    }
+
+    const auto& all_outputs = it->second;
+    if (all_outputs.empty()) {
+        return false;
+    }
+
+    for (const auto& outputs_vector : all_outputs) {
+        // unexpected
+        BB_ASSERT_EQ(outputs_vector.size(), result.size(), "Output size mismatch");
+
+        auto condition = true;
+        for (size_t i = 0; i < outputs_vector.size(); i++) {
+            Field<CircuitBuilder> output_field{ outputs_vector[i].index,
+                                                field_ct::from_witness_index(&builder, outputs_vector[i].index) };
+            Field<CircuitBuilder> result_field{ result[i], field_ct::from_witness_index(&builder, result[i]) };
+            condition &= is_assert_equal_exists<FF>(analyzer, builder, output_field, result_field);
+        }
+        if (condition) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * @brief Verify blake2s constraint
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_blake2s_constraints(
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
+{
+    const auto* constraint = std::get<const acir_format::Blake2sConstraint*>(ptr);
+
+    return process_blake_constraint_internal(constraint->inputs, constraint->result);
+}
+
+/**
+ * @brief Verify blake3 constraint
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_blake3_constraints(
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& /*next_constraint_witnesses*/)
+{
+    const auto* constraint = std::get<const acir_format::Blake3Constraint*>(ptr);
+
+    return process_blake_constraint_internal(constraint->inputs, constraint->result);
+}
+
+/**
+ * @brief Verify keccak permutation constraint by checking that stdlib outputs are connected to ACIR results.
+ * @details The keccak stdlib registers its input->output witness mapping in builder.acir_opcode_io..
+ * We look up the ACIR constraint's input indices in that map to find the actual output witness indices
+ * produced by keccak, then verify that each output is connected to the corresponding constraint.result[i]
+ * via assert_equal (i.e. they share the same real variable index).
+ * Constant inputs use IS_CONSTANT as their key element (matching keccak::permutation_opcode behavior).
+ */
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_keccak_permutation_constraints(const ConstraintPtr& ptr)
+{
+    using field_ct = bb::stdlib::field_t<CircuitBuilder>;
+
+    const auto* constraint = std::get<const acir_format::Keccakf1600*>(ptr);
+
+    auto input_indices = witness_or_constant_vector_from_vector<CircuitBuilder>(constraint->state);
+
+    // Look up the registered outputs for these inputs
+    const auto& io_map = builder.acir_opcode_io.io_map;
+    auto it = io_map.find(input_indices);
+    if (it == io_map.end()) {
+        return false;
+    }
+
+    const auto& all_outputs = it->second;
+    if (all_outputs.empty()) {
+        return false;
+    }
+
+    // Iterate over all registered outputs for the case if multiple constraints with the same inputs are emitted.
+    for (const auto& output : all_outputs) {
+        // unexpected
+        BB_ASSERT_EQ(output.size(), constraint->result.size(), "Output size mismatch");
+
+        auto condition = true;
+        // Verify each output is connected to the corresponding constraint result via assert_equal.
+        for (size_t i = 0; i < output.size(); ++i) {
+            // output is never constant
+            Field<CircuitBuilder> output_field{ output[i].index,
+                                                field_ct::from_witness_index(&builder, output[i].index) };
+            Field<CircuitBuilder> result_field{ constraint->result[i],
+                                                field_ct::from_witness_index(&builder, constraint->result[i]) };
+            condition &= is_assert_equal_exists<FF>(analyzer, builder, output_field, result_field);
+        }
+
+        // If for all registered outputs assert_equal exists, return true
+        if (condition) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 template class StaticAnalyzerAcir_<fr, MegaCircuitBuilder>;

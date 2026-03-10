@@ -31,9 +31,16 @@ template <typename CircuitBuilder> struct Bool {
 template <typename FF, typename CircuitBuilder>
 Bool<CircuitBuilder> get_bool_from_w_o(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
 {
-    auto block_idx = gate_location.first;
-    auto gate_idx = gate_location.second;
-    auto result_idx = builder.blocks.get()[block_idx].w_o()[gate_idx];
+    auto result_idx = get_w_o_at(builder, gate_location);
+    return Bool<CircuitBuilder>{ result_idx,
+                                 bb::stdlib::bool_t<CircuitBuilder>::from_witness_index_unsafe(&builder, result_idx) };
+}
+
+// Takes block_idx, gate_idx from FilterFunctionBuilder::filter_gates result and returns the Bool from w_r
+template <typename FF, typename CircuitBuilder>
+Bool<CircuitBuilder> get_bool_from_w_r(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
+{
+    auto result_idx = get_w_r_at(builder, gate_location);
     return Bool<CircuitBuilder>{ result_idx,
                                  bb::stdlib::bool_t<CircuitBuilder>::from_witness_index_unsafe(&builder, result_idx) };
 }
@@ -42,9 +49,7 @@ Bool<CircuitBuilder> get_bool_from_w_o(CircuitBuilder& builder, std::pair<size_t
 template <typename FF, typename CircuitBuilder>
 Bool<CircuitBuilder> get_bool_from_w_4(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
 {
-    auto block_idx = gate_location.first;
-    auto gate_idx = gate_location.second;
-    auto result_idx = builder.blocks.get()[block_idx].w_4()[gate_idx];
+    auto result_idx = get_w_4_at(builder, gate_location);
     return Bool<CircuitBuilder>{ result_idx,
                                  bb::stdlib::bool_t<CircuitBuilder>::from_witness_index_unsafe(&builder, result_idx) };
 }
@@ -87,13 +92,13 @@ std::optional<Bool<CircuitBuilder>> get_normalization_result(StaticAnalyzer_<FF,
                              .set_q_arith(FF::one());
 
     auto gates = analyzer.get_variable_gates(a_idx);
-    auto filtered_gates = filter_helper.filter_gates(gates);
-    if (filtered_gates.empty()) {
+    auto gate = filter_helper.filter_gates(gates, analyzer);
+    if (!gate.has_value()) {
         log_error("No normalization gate found for bool ", a_idx);
         return std::nullopt;
     }
 
-    return get_bool_from_w_o<FF>(builder, filtered_gates[0]);
+    return get_bool_from_w_o<FF>(builder, *gate);
 }
 
 /**
@@ -146,12 +151,67 @@ std::optional<Bool<CircuitBuilder>> get_and_result(StaticAnalyzer_<FF, CircuitBu
                              .set_q_arith(FF::one());
 
     auto gates = analyzer.get_variable_gates(a_idx);
-    auto filtered_gates = filter_helper.filter_gates(gates);
-    if (filtered_gates.empty()) {
+    auto gate = filter_helper.filter_gates(gates, analyzer);
+    if (!gate.has_value()) {
         return std::nullopt;
     }
 
-    return get_bool_from_w_o<FF>(builder, filtered_gates[0]);
+    return get_bool_from_w_o<FF>(builder, *gate);
+}
+
+/**
+ * @brief Find all AND gates with the given lhs operand and an unknown rhs
+ * @details When one operand of an AND gate is known but the other is not (e.g. in ECDSA where
+ *          !predicate && signature_result and signature_result is unknown), this helper discovers
+ *          all matching gates. Assumes the unknown rhs is non-inverted (i_b=0).
+ *          Returns all candidates because the predicate may participate in multiple AND gates
+ *          (e.g. when two ECDSA constraints share the same predicate witness).
+ * @param analyzer The analyzer
+ * @param builder The builder
+ * @param a_bool The known lhs boolean_t (may have witness_inverted set)
+ * @return Vector of (rhs_bool, and_result_bool) pairs, empty if no matching gates found
+ */
+template <typename FF, typename CircuitBuilder>
+std::vector<std::pair<Bool<CircuitBuilder>, Bool<CircuitBuilder>>> find_and_unknown_rhs(
+    StaticAnalyzer_<FF, CircuitBuilder>& analyzer, CircuitBuilder& builder, const Bool<CircuitBuilder>& a_bool)
+{
+    auto a_idx = a_bool.witness_index;
+    auto a = a_bool.witness;
+    if (a.is_constant()) {
+        return {};
+    }
+
+    // Assume unknown rhs is non-inverted (i_b = 0)
+    int i_a = static_cast<int>(a.is_inverted());
+    int i_b = 0;
+    FF q_m{ 1 - (2 * i_b) - (2 * i_a) + (4 * i_a * i_b) };
+    FF q_l{ i_b * (1 - (2 * i_a)) };
+    FF q_r{ i_a * (1 - (2 * i_b)) };
+    FF q_o{ FF::neg_one() };
+    FF q_c{ i_a * i_b };
+
+    auto filter_helper = FilterFunctionBuilder<CircuitBuilder, FF>(builder)
+                             .set_w_l(a_idx)
+                             .set_w_4(builder.zero_idx())
+                             .set_q_m(q_m)
+                             .set_q_1(q_l)
+                             .set_q_2(q_r)
+                             .set_q_3(q_o)
+                             .set_q_4(FF::zero())
+                             .set_q_c(q_c)
+                             .set_q_arith(FF::one());
+
+    auto gates = analyzer.get_variable_gates(a_idx);
+    auto filtered_gates = filter_helper.filter_gates(gates);
+
+    std::vector<std::pair<Bool<CircuitBuilder>, Bool<CircuitBuilder>>> results;
+    results.reserve(filtered_gates.size());
+    for (const auto& gate : filtered_gates) {
+        auto rhs = get_bool_from_w_r<FF>(builder, gate);
+        auto result = get_bool_from_w_o<FF>(builder, gate);
+        results.emplace_back(rhs, result);
+    }
+    return results;
 }
 
 /**
@@ -203,13 +263,13 @@ std::optional<Bool<CircuitBuilder>> get_or_result(StaticAnalyzer_<FF, CircuitBui
                              .set_q_arith(FF::one());
 
     auto gates = analyzer.get_variable_gates(a_idx);
-    auto filtered_gates = filter_helper.filter_gates(gates);
-    if (filtered_gates.empty()) {
+    auto gate = filter_helper.filter_gates(gates, analyzer);
+    if (!gate.has_value()) {
         log_error("No or gate found for bools ", a_idx, " and ", b_idx);
         return std::nullopt;
     }
 
-    return get_bool_from_w_o<FF>(builder, filtered_gates[0]);
+    return get_bool_from_w_o<FF>(builder, *gate);
 }
 
 /**

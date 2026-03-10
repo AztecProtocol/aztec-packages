@@ -162,6 +162,14 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
 
     std::vector<std::pair<size_t, size_t>> get_variable_gates(uint32_t var_idx) const;
 
+    /**
+     * @brief Mark a gate as consumed and return whether it was newly consumed.
+     * @param gate_location A (block_idx, gate_idx) pair identifying the gate.
+     * @return true if the gate was not previously consumed (newly inserted), false if already consumed.
+     */
+    bool consume_gate(std::pair<size_t, size_t> gate_location);
+    void clear_consumed_gates() { consumed_gates.clear(); }
+
     // If constant_initialized is false, iterates over the arithmetic gates and saves the fixed witness indices to the
     // constant_variable_indices map. Then, it returns the witness index for the given value. If the value is not found,
     // returns std::nullopt.
@@ -208,6 +216,10 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     std::unordered_set<uint32_t> constant_variable_indices_set;
 
     std::vector<ConnectedComponent> connected_components;
+
+    // Tracks gates that have been matched by filter_gates to prevent the same gate from being
+    // matched twice when identical inputs produce duplicate gate chains.
+    std::unordered_set<KeyPair, KeyHasher, KeyEquals> consumed_gates;
 
     bool constants_initialized = false;
     std::unordered_map<FF, uint32_t> constant_variable_indices;

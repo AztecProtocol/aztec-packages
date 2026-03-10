@@ -34,10 +34,15 @@ template <typename CircuitBuilder, typename FF> class FilterFunctionBuilder {
     FilterFunctionBuilder& set_q_arith(FF q_arith);
     FilterFunctionBuilder& set_q_elliptic(FF q_elliptic);
 
-    std::function<bool(size_t, size_t)> build() const;
     std::vector<std::pair<size_t, size_t>> filter_gates(std::vector<std::pair<size_t, size_t>>& gates) const;
 
+    template <typename Analyzer>
+    std::optional<std::pair<size_t, size_t>> filter_gates(std::vector<std::pair<size_t, size_t>>& gates,
+                                                          Analyzer& analyzer) const;
+
   private:
+    std::function<bool(size_t, size_t)> build() const;
+
     CircuitBuilder& builder;
     std::optional<uint32_t> w_l = std::nullopt;
     std::optional<uint32_t> w_r = std::nullopt;
@@ -202,4 +207,41 @@ inline std::vector<std::pair<size_t, size_t>> FilterFunctionBuilder<CircuitBuild
     });
     return filtered_gates;
 }
+
+// Filters gates and returns the first unconsumed match, auto-consuming it via the analyzer.
+template <typename CircuitBuilder, typename FF>
+template <typename Analyzer>
+inline std::optional<std::pair<size_t, size_t>> FilterFunctionBuilder<CircuitBuilder, FF>::filter_gates(
+    std::vector<std::pair<size_t, size_t>>& gates, Analyzer& analyzer) const
+{
+    auto res_function = build();
+    for (const auto& gate : gates) {
+        if (res_function(gate.first, gate.second)) {
+            if (analyzer.consume_gate(gate)) {
+                return gate;
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+// Wire extraction helpers: get the witness index from a specific wire at a gate location.
+template <typename CircuitBuilder>
+inline uint32_t get_w_r_at(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
+{
+    return builder.blocks.get()[gate_location.first].w_r()[gate_location.second];
+}
+
+template <typename CircuitBuilder>
+inline uint32_t get_w_o_at(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
+{
+    return builder.blocks.get()[gate_location.first].w_o()[gate_location.second];
+}
+
+template <typename CircuitBuilder>
+inline uint32_t get_w_4_at(CircuitBuilder& builder, std::pair<size_t, size_t> gate_location)
+{
+    return builder.blocks.get()[gate_location.first].w_4()[gate_location.second];
+}
+
 } // namespace cdg

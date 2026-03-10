@@ -31,10 +31,13 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
     bool validate_range_constraint(uint32_t witness, uint32_t num_bits);
     bool process_sha256compression_constraints(const ConstraintPtr& ptr,
                                                const std::unordered_set<uint32_t>& next_constraint_witnesses);
+
+    bool process_blake_constraint_internal(const std::vector<WitnessOrConstant<bb::fr>>& inputs,
+                                           const std::array<uint32_t, 32>& result);
     bool process_blake2s_constraints(const ConstraintPtr& ptr,
                                      const std::unordered_set<uint32_t>& next_constraint_witnesses);
-    bool process_blake3s_constraints(const ConstraintPtr& ptr,
-                                     const std::unordered_set<uint32_t>& next_constraint_witnesses);
+    bool process_blake3_constraints(const ConstraintPtr& ptr,
+                                    const std::unordered_set<uint32_t>& next_constraint_witnesses);
     bool process_poseidon2s_constraints(const ConstraintPtr& ptr,
                                         const std::unordered_set<uint32_t>& next_constraint_witnesses);
     bool process_recursion_constraints(const ConstraintPtr& ptr,
@@ -46,6 +49,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
     bool process_embedded_curve_add_constraints(const ConstraintPtr& ptr,
                                                 const std::unordered_set<uint32_t>& next_constraint_witnesses);
     bool process_block_constraint(const ConstraintPtr& ptr);
+    bool process_keccak_permutation_constraints(const ConstraintPtr& ptr);
 
     bool process_ec_add_constraint(const ConstraintPtr& ptr);
     bool validate_rom_constraint(const BlockConstraint& constraint,

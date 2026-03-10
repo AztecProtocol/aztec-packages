@@ -6,6 +6,7 @@
 
 #include "multi_scalar_mul.hpp"
 #include "barretenberg/dsl/acir_format/serde/acir.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/honk/execution_trace/gate_data.hpp"
@@ -56,6 +57,12 @@ void create_multi_scalar_mul_constraint(Builder& builder, const MultiScalarMul& 
     // Step 2: Compute result and connect it to the expected result reconstructed from inputs
     auto result = cycle_group_ct::batch_mul(input.points, input.scalars);
     cycle_group_ct to_be_asserted_equal = cycle_group_ct::conditional_assign(input.predicate, input.result, result);
+    if (builder.is_write_vk_mode()) {
+        builder.acir_opcode_io.register_io(
+            witness_or_constant_vector_from_multi_scalar_mul_constraint<Builder>(constraint_input),
+            witness_or_constant_vector_from_vector<Builder>(
+                std::vector<stdlib::field_t<Builder>>{ result.x(), result.y(), result.is_point_at_infinity() }));
+    }
     result.assert_equal(to_be_asserted_equal);
 }
 
