@@ -1,0 +1,142 @@
+#pragma once
+/**
+ * @file bbapi_batch_verifier.hpp
+ * @brief BBAPI commands for the adaptive batch IVC proof verification service.
+ *
+ * These commands expose the ChonkBatchVerifierService as a set of RPC commands:
+ *
+ * - ChonkBatchVerifierStart: Initialize the service with VKs, output FIFO, and config
+ * - ChonkBatchVerifierQueue: Queue a single proof for verification
+ * - ChonkBatchVerifierCancel: Cancel a pending verification by request ID
+ * - ChonkBatchVerifierCancelBySource: Cancel all pending verifications from a source
+ * - ChonkBatchVerifierStop: Shut down the service
+ *
+ * Results are streamed as size-delimited msgpack over a named FIFO pipe (not via RPC responses).
+ * This decouples result delivery from the request channel, enabling high-throughput streaming.
+ *
+ * @note Disabled for WASM builds — the threading model requires OS threads and FIFO support.
+ */
+
+#ifndef __wasm__
+
+#include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/chonk/chonk_batch_verifier_service.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
+#include <string>
+#include <vector>
+
+namespace bb::bbapi {
+
+/**
+ * @struct ChonkBatchVerifierStart
+ * @brief Initialize the batch verifier service with VKs and configuration.
+ */
+struct ChonkBatchVerifierStart {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierStart";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierStartResponse";
+        void msgpack(auto&& pack_fn) { pack_fn(); }
+        bool operator==(const Response&) const = default;
+    };
+
+    std::vector<std::vector<uint8_t>> vks;
+    std::string output_fifo_path;
+    BatchVerifierConfig config;
+
+    Response execute(BBApiRequest& request) &&;
+    MSGPACK_FIELDS(vks, output_fifo_path, config);
+    bool operator==(const ChonkBatchVerifierStart&) const = default;
+};
+
+/**
+ * @struct ChonkBatchVerifierQueue
+ * @brief Queue a single proof for verification. Results come via the output FIFO.
+ */
+struct ChonkBatchVerifierQueue {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierQueue";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierQueueResponse";
+        bool accepted = false;
+        MSGPACK_FIELDS(accepted);
+        bool operator==(const Response&) const = default;
+    };
+
+    uint64_t request_id = 0;
+    ChonkProof proof;
+    uint32_t vk_index = 0;
+    bool trusted = false;
+    std::string source;
+
+    Response execute(BBApiRequest& request) &&;
+    MSGPACK_FIELDS(request_id, proof, vk_index, trusted, source);
+    bool operator==(const ChonkBatchVerifierQueue&) const = default;
+};
+
+/**
+ * @struct ChonkBatchVerifierCancel
+ * @brief Cancel a pending verification request by ID.
+ */
+struct ChonkBatchVerifierCancel {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierCancel";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierCancelResponse";
+        bool found = false;
+        MSGPACK_FIELDS(found);
+        bool operator==(const Response&) const = default;
+    };
+
+    uint64_t request_id = 0;
+
+    Response execute(BBApiRequest& request) &&;
+    MSGPACK_FIELDS(request_id);
+    bool operator==(const ChonkBatchVerifierCancel&) const = default;
+};
+
+/**
+ * @struct ChonkBatchVerifierCancelBySource
+ * @brief Cancel all pending verifications from a given source (e.g. peer ID).
+ *
+ * The TypeScript caller uses this when it detects a bad proof from a source
+ * to immediately cancel all remaining work from that source.
+ */
+struct ChonkBatchVerifierCancelBySource {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierCancelBySource";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierCancelBySourceResponse";
+        uint32_t cancelled_count = 0;
+        MSGPACK_FIELDS(cancelled_count);
+        bool operator==(const Response&) const = default;
+    };
+
+    std::string source;
+
+    Response execute(BBApiRequest& request) &&;
+    MSGPACK_FIELDS(source);
+    bool operator==(const ChonkBatchVerifierCancelBySource&) const = default;
+};
+
+/**
+ * @struct ChonkBatchVerifierStop
+ * @brief Shut down the batch verifier service.
+ */
+struct ChonkBatchVerifierStop {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierStop";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifierStopResponse";
+        void msgpack(auto&& pack_fn) { pack_fn(); }
+        bool operator==(const Response&) const = default;
+    };
+
+    Response execute(BBApiRequest& request) &&;
+    void msgpack(auto&& pack_fn) { pack_fn(); }
+    bool operator==(const ChonkBatchVerifierStop&) const = default;
+};
+
+} // namespace bb::bbapi
+
+#endif // __wasm__
