@@ -15,11 +15,15 @@ pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(
     contract_address: AztecAddress,
     note_validation_requests_array_base_slot: Field,
     event_validation_requests_array_base_slot: Field,
+    max_note_packed_len: Field,
+    max_event_serialized_len: Field,
 ) {
     validate_and_store_enqueued_notes_and_events_oracle(
         contract_address,
         note_validation_requests_array_base_slot,
         event_validation_requests_array_base_slot,
+        max_note_packed_len,
+        max_event_serialized_len,
     );
 }
 
@@ -28,6 +32,8 @@ unconstrained fn validate_and_store_enqueued_notes_and_events_oracle(
     contract_address: AztecAddress,
     note_validation_requests_array_base_slot: Field,
     event_validation_requests_array_base_slot: Field,
+    max_note_packed_len: Field,
+    max_event_serialized_len: Field,
 ) {}
 
 pub(crate) unconstrained fn bulk_retrieve_logs(

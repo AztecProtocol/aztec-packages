@@ -530,11 +530,15 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [noteValidationRequestsArrayBaseSlot]: ACVMField[],
     [eventValidationRequestsArrayBaseSlot]: ACVMField[],
+    [maxNotePackedLen]: ACVMField[],
+    [maxEventSerializedLen]: ACVMField[],
   ): Promise<ACVMField[]> {
     await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(noteValidationRequestsArrayBaseSlot),
       Fr.fromString(eventValidationRequestsArrayBaseSlot),
+      Fr.fromString(maxNotePackedLen).toNumber(),
+      Fr.fromString(maxEventSerializedLen).toNumber(),
     );
 
     return [];

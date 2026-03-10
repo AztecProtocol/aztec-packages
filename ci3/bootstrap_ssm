@@ -25,7 +25,7 @@ if [ "$arch" == "arm64" ]; then
   cores=64
   export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-90}
 else
-  cores=192,128,64
+  cores=128,64
   if [ "${CI_FULL:-0}" -eq 1 ]; then
     export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-75}
   fi
@@ -141,6 +141,7 @@ start_build() {
     -e PARENT_LOG_ID=${PARENT_LOG_ID:-} \
     -e NO_CACHE=${NO_CACHE:-} \
     -e NO_FAIL_FAST=${NO_FAIL_FAST:-} \
+    -e DRY_RUN=${DRY_RUN:-} \
     -e CI_USE_BUILD_INSTANCE_KEY=${CI_USE_BUILD_INSTANCE_KEY:-1} \
     -e CI_SSM_MODE=1 \
     -e CI_LOGS_S3_LOCATION=${CI_LOGS_S3_LOCATION:-s3://aztec-ci-artifacts/logs} \
@@ -207,19 +208,19 @@ function run {
   if semver check "\$REF_NAME"; then
     echo "Performing a release because \$REF_NAME is a semver."
   fi
-  mpstat 2 > >(cache_log cpufile) &
-  cpu_pid=\$!
-  vmstat -w -S M 2 > >(add_timestamps | cache_log memfile) &
-  mem_pid=\$!
-  bash -c "while true; do pstree -ag; echo; echo; sleep 10; done" 2>&1 > >(add_timestamps | cache_log processes) &
-  pstree_pid=\$!
+  # Background monitors. cache_log and add_timestamps both close inherited pipeline
+  # fds internally, so these long-running processes won't block the outer pipeline.
+  mpstat 2 2>&1 | cache_log cpufile &
+  vmstat -w -S M 2 2>&1 | add_timestamps | cache_log memfile &
+  bash -c "while true; do pstree -agl; echo; echo; sleep 10; done" 2>&1 | add_timestamps | cache_log processes &
+
   set +e
   set -x
   $cmd
   local code=\${PIPESTATUS[0]}
-  set +x
-  sudo dmesg 2>&1 | cache_log "dmesg"
-  kill "\$cpu_pid" "\$mem_pid" "\$pstree_pid" &>/dev/null || true
+
+  sudo dmesg 2>&1 | cache_log 'dmesg'
+
   return \$code
 }
 export -f run

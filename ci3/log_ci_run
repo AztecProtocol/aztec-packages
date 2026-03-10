@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
+set -x
+
 key=${1:?usage: log_ci_run <key> [status]}
 status=${2:-RUNNING}
 
@@ -9,7 +11,7 @@ if [ -z "${RUN_ID:-}" ]; then
   exit
 fi
 
-if [ -z "$CI_DASHBOARD:-}" ]; then
+if [ -z "${CI_DASHBOARD:-}" ]; then
   # This path is deprecated. Set CI_DASHBOARD explicitly in ci.sh.
   # CI runs are grouped by:
   # - The 'release' group if tagged with a semver.
