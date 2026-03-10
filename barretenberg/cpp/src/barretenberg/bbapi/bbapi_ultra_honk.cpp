@@ -6,7 +6,6 @@
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_optimized_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
-#include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"

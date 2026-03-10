@@ -113,10 +113,10 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
 
     /**
      * @brief Phase 1: Verify the MegaZK Oink phase on the shared transcript.
-     * @details Loads mega_zk_proof into the transcript, runs OinkVerifier, stores verifier instance.
+     * @details Loads hiding_oink_proof into the transcript, runs OinkVerifier, stores verifier instance.
      * @return OinkResult with public inputs, calldata commitment, and ECC op wires.
      */
-    OinkResult verify_mega_zk_oink(const Proof& mega_zk_proof);
+    OinkResult verify_mega_zk_oink(const Proof& hiding_oink_proof);
 
     /**
      * @brief Phase 2: Verify translator Oink + joint sumcheck + joint PCS.

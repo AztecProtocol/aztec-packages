@@ -559,7 +559,7 @@ ChonkProof Chonk::prove()
 
     // Phase 1: MegaZK Oink on the shared transcript.
     BatchedHonkTranslatorProver batched_prover(hiding_prover_inst, hiding_vk, transcript);
-    auto mega_zk_proof = batched_prover.prove_mega_zk_oink();
+    auto hiding_oink_proof = batched_prover.prove_mega_zk_oink();
 
     // Phase 2: Merge proof on the shared transcript (APPEND — hiding kernel's subtable).
     goblin.prove_merge(transcript, MergeSettings::APPEND);
@@ -586,7 +586,7 @@ ChonkProof Chonk::prove()
     // Release the hiding kernel instance now that proving is complete.
     hiding_prover_inst.reset();
 
-    return ChonkProof{ std::move(mega_zk_proof),
+    return ChonkProof{ std::move(hiding_oink_proof),
                        std::move(merge_proof),
                        std::move(goblin.goblin_proof.eccvm_proof),
                        std::move(goblin.goblin_proof.ipa_proof),

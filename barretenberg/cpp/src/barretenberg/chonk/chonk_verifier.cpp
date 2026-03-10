@@ -29,7 +29,7 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
 
     // Step 1: Verify MegaZK Oink on the shared transcript
     BatchedHonkTranslatorVerifier batched_verifier(vk_and_hash, transcript);
-    auto oink_result = batched_verifier.verify_mega_zk_oink(proof.mega_zk_proof);
+    auto oink_result = batched_verifier.verify_mega_zk_oink(proof.hiding_oink_proof);
 
     // Extract public inputs and kernel data
     HidingKernelIO kernel_io;
@@ -133,7 +133,7 @@ template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof&
 {
     // Step 1: Verify MegaZK Oink on the shared transcript
     BatchedHonkTranslatorRecursiveVerifier batched_verifier(vk_and_hash, transcript);
-    auto oink_result = batched_verifier.verify_mega_zk_oink(proof.mega_zk_proof);
+    auto oink_result = batched_verifier.verify_mega_zk_oink(proof.hiding_oink_proof);
 
     // Extract public inputs and kernel data
     HidingKernelIO kernel_io;

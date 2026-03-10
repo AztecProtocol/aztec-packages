@@ -19,7 +19,7 @@ std::vector<typename ChonkProof_<IsRecursive>::FF> ChonkProof_<IsRecursive>::to_
 {
     HonkProof proof;
 
-    proof.insert(proof.end(), mega_zk_proof.begin(), mega_zk_proof.end());
+    proof.insert(proof.end(), hiding_oink_proof.begin(), hiding_oink_proof.end());
     proof.insert(proof.end(), merge_proof.begin(), merge_proof.end());
     proof.insert(proof.end(), eccvm_proof.begin(), eccvm_proof.end());
     proof.insert(proof.end(), ipa_proof.begin(), ipa_proof.end());
@@ -29,7 +29,7 @@ std::vector<typename ChonkProof_<IsRecursive>::FF> ChonkProof_<IsRecursive>::to_
 
 /**
  * @brief Split a flat vector of field elements into ChonkProof components.
- * @details Uses known fixed sizes for merge/eccvm/ipa proofs, and derives the mega_zk_proof and
+ * @details Uses known fixed sizes for merge/eccvm/ipa proofs, and derives the hiding_oink_proof and
  * joint_proof sizes from the total.
  */
 template <bool IsRecursive>
@@ -46,7 +46,7 @@ ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_field_elements(const std
 
     auto it = fields.begin();
 
-    HonkProof mega_zk_proof(it, it + static_cast<std::ptrdiff_t>(mega_zk_oink_length));
+    HonkProof hiding_oink_proof(it, it + static_cast<std::ptrdiff_t>(mega_zk_oink_length));
     it += static_cast<std::ptrdiff_t>(mega_zk_oink_length);
 
     HonkProof merge_proof_out(it, it + static_cast<std::ptrdiff_t>(merge_size));
@@ -61,7 +61,7 @@ ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_field_elements(const std
     // Remainder is the joint_proof
     HonkProof joint_proof_out(it, fields.end());
 
-    return ChonkProof_{ std::move(mega_zk_proof),
+    return ChonkProof_{ std::move(hiding_oink_proof),
                         std::move(merge_proof_out),
                         std::move(eccvm_proof_out),
                         std::move(ipa_proof_out),

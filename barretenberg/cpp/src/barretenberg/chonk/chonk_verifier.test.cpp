@@ -38,6 +38,7 @@ class ChonkRecursionTests : public testing::Test {
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc);
         }
+
         return { ivc.prove(), ivc.get_hiding_kernel_vk_and_hash() };
     }
 };

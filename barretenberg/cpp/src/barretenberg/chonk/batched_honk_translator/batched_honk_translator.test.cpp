@@ -324,7 +324,7 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
     auto prover_transcript = std::make_shared<Transcript>();
     BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
 
-    auto mega_zk_proof = prover.prove_mega_zk_oink();
+    auto hiding_oink_proof = prover.prove_mega_zk_oink();
     auto joint_proof = prover.prove(translator_key);
 
     // -------------------------------------------------------------------------
@@ -332,7 +332,7 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerify)
     // -------------------------------------------------------------------------
     auto verifier_transcript = std::make_shared<Transcript>();
     BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash, verifier_transcript);
-    verifier.verify_mega_zk_oink(mega_zk_proof);
+    verifier.verify_mega_zk_oink(hiding_oink_proof);
     auto result = verifier.verify(
         joint_proof, evaluation_input_x, batching_challenge_v, accumulated_result, op_queue_wire_commitments);
 
@@ -374,14 +374,14 @@ TEST_F(BatchedHonkTranslatorTests, VerifierManifestConsistency)
     auto prover_transcript = std::make_shared<Transcript>();
     prover_transcript->enable_manifest();
     BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
-    auto mega_zk_proof = prover.prove_mega_zk_oink();
+    auto hiding_oink_proof = prover.prove_mega_zk_oink();
     auto joint_proof = prover.prove(translator_key);
 
     // Verify with manifest tracking enabled.
     auto verifier_transcript = std::make_shared<Transcript>();
     verifier_transcript->enable_manifest();
     BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash, verifier_transcript);
-    verifier.verify_mega_zk_oink(mega_zk_proof);
+    verifier.verify_mega_zk_oink(hiding_oink_proof);
     [[maybe_unused]] auto _ = verifier.verify(
         joint_proof, evaluation_input_x, batching_challenge_v, accumulated_result, op_queue_wire_commitments);
 
@@ -472,12 +472,12 @@ TEST_F(BatchedHonkTranslatorTests, ProveAndVerifySmallHiding)
 
     auto prover_transcript = std::make_shared<Transcript>();
     BatchedHonkTranslatorProver prover(mega_zk_inst, mega_zk_vk, prover_transcript);
-    auto mega_zk_proof = prover.prove_mega_zk_oink();
+    auto hiding_oink_proof = prover.prove_mega_zk_oink();
     auto joint_proof = prover.prove(translator_key);
 
     auto verifier_transcript = std::make_shared<Transcript>();
     BatchedHonkTranslatorVerifier verifier(mega_zk_vk_and_hash, verifier_transcript);
-    verifier.verify_mega_zk_oink(mega_zk_proof);
+    verifier.verify_mega_zk_oink(hiding_oink_proof);
     auto result = verifier.verify(
         joint_proof, evaluation_input_x, batching_challenge_v, accumulated_result, op_queue_wire_commitments);
 

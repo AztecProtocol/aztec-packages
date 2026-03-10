@@ -82,7 +82,7 @@ TEST_F(ChonkBatchVerifierTests, BatchVerifySwappedGoblinProofs)
     auto [proof1, vk1] = generate_chonk_proof();
     auto [proof2, vk2] = generate_chonk_proof();
 
-    // Swap non-MegaZK proof components: each mega_zk_proof is now paired with the wrong sub-proofs
+    // Swap non-MegaZK proof components: each hiding_oink_proof is now paired with the wrong sub-proofs
     std::swap(proof1.merge_proof, proof2.merge_proof);
     std::swap(proof1.eccvm_proof, proof2.eccvm_proof);
     std::swap(proof1.ipa_proof, proof2.ipa_proof);

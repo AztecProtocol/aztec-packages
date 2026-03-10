@@ -233,7 +233,8 @@ class ChonkTests : public ::testing::Test {
         size_t hiding_kernel_pub_inputs = vk_and_hash->vk->num_public_inputs;
         ASSERT_EQ(hiding_kernel_pub_inputs, HidingKernelIOSerde::PUBLIC_INPUTS_SIZE)
             << "HidingKernel should use HidingKernelIO format";
-        HidingKernelIOSerde hiding_io = HidingKernelIOSerde::from_proof(proof.mega_zk_proof, hiding_kernel_pub_inputs);
+        HidingKernelIOSerde hiding_io =
+            HidingKernelIOSerde::from_proof(proof.hiding_oink_proof, hiding_kernel_pub_inputs);
 
         EXPECT_EQ(tail_io.kernel_return_data, hiding_io.kernel_return_data)
             << "kernel_return_data mismatch: Tail has " << tail_io.kernel_return_data << " but HidingKernel has "
@@ -539,7 +540,7 @@ TEST_F(ChonkTests, ProofCompressionRoundtrip)
     EXPECT_GE(ratio, 1.5) << "Compression ratio " << ratio << "x is below the expected minimum of 1.5x";
 
     size_t mega_num_pub_inputs =
-        proof.mega_zk_proof.size() - ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
+        proof.hiding_oink_proof.size() - ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
     ChonkProof decompressed = ProofCompressor::decompress_chonk_proof(compressed, mega_num_pub_inputs);
 
     // Verify element-by-element roundtrip

@@ -33,18 +33,19 @@ BatchedHonkTranslatorVerifier_<Curve>::BatchedHonkTranslatorVerifier_(
  */
 template <typename Curve>
 typename BatchedHonkTranslatorVerifier_<Curve>::OinkResult BatchedHonkTranslatorVerifier_<Curve>::verify_mega_zk_oink(
-    const Proof& mega_zk_proof)
+    const Proof& hiding_oink_proof)
 {
-    transcript->load_proof(mega_zk_proof);
+    transcript->load_proof(hiding_oink_proof);
 
     if constexpr (IsRecursive) {
-        builder = mega_zk_proof.back().get_context();
+        builder = hiding_oink_proof.back().get_context();
     }
 
     mega_zk_verifier_instance = std::make_shared<MegaZKVerifierInstance>(mega_zk_vk_and_hash);
 
-    // Derive num_public_inputs from the Oink-only MegaZK proof.
-    const size_t num_public_inputs = mega_zk_proof.size() - ProofLength::Oink<MegaZKFlavorT>::LENGTH_WITHOUT_PUB_INPUTS;
+    // Derive num_public_inputs from the Oink-only hiding kernel proof.
+    const size_t num_public_inputs =
+        hiding_oink_proof.size() - ProofLength::Oink<MegaZKFlavorT>::LENGTH_WITHOUT_PUB_INPUTS;
 
     OinkVerifier<MegaZKFlavorT> oink_verifier{ mega_zk_verifier_instance, transcript, num_public_inputs };
     oink_verifier.verify(/*emit_alpha=*/false);

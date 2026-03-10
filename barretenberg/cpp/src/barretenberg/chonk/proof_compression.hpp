@@ -301,7 +301,7 @@ class ProofCompressor {
 
     /**
      * @brief Walk a full Chonk proof (5 sub-proofs across two curves).
-     * @details Layout: mega_zk_oink (BN254) | merge (BN254) | eccvm (Grumpkin) | ipa (Grumpkin) | joint (BN254)
+     * @details Layout: hiding_oink (BN254) | merge (BN254) | eccvm (Grumpkin) | ipa (Grumpkin) | joint (BN254)
      */
     template <typename BN254ScalarFn, typename BN254CommFn, typename GrumpkinScalarFn, typename GrumpkinCommFn>
     static void walk_chonk_proof(BN254ScalarFn&& bn254_scalar,
@@ -330,10 +330,10 @@ class ProofCompressor {
     static constexpr size_t GRUMPKIN_FRS_PER_COMM = 2;   // Fr x,y coordinates
 
     // clang-format off
-    // MegaZK Oink (without public inputs) — mirrors walk_mega_zk_oink_proof with num_public_inputs=0
-    static constexpr size_t EXPECTED_MEGA_ZK_OINK_FRS =
+    // Hiding Oink (without public inputs) — mirrors walk_mega_zk_oink_proof with num_public_inputs=0
+    static constexpr size_t EXPECTED_HIDING_OINK_FRS =
         MegaZKFlavor::NUM_WITNESS_ENTITIES * BN254_FRS_PER_COMM;                                                   // witness comms
-    static_assert(EXPECTED_MEGA_ZK_OINK_FRS == ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS);
+    static_assert(EXPECTED_HIDING_OINK_FRS == ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS);
 
     // Merge — mirrors walk_merge_proof
     static constexpr size_t EXPECTED_MERGE_FRS =
@@ -401,7 +401,7 @@ class ProofCompressor {
         NUM_SMALL_IPA_EVALUATIONS * BN254_FRS_PER_SCALAR +                                                         // small IPA evals
         2 * BN254_FRS_PER_COMM;                                                                                    // shplonk Q + KZG W
     // Cross-check: walk-based count must match ChonkProof's structural constants
-    static_assert(EXPECTED_MEGA_ZK_OINK_FRS + EXPECTED_MERGE_FRS + EXPECTED_ECCVM_FRS + EXPECTED_IPA_FRS +
+    static_assert(EXPECTED_HIDING_OINK_FRS + EXPECTED_MERGE_FRS + EXPECTED_ECCVM_FRS + EXPECTED_IPA_FRS +
                       EXPECTED_JOINT_FRS ==
                   ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     // clang-format on
@@ -493,7 +493,7 @@ class ProofCompressor {
         };
 
         size_t mega_num_pub_inputs =
-            proof.mega_zk_proof.size() - ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
+            proof.hiding_oink_proof.size() - ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
         walk_chonk_proof(bn254_scalar, bn254_comm, grumpkin_scalar, grumpkin_comm, mega_num_pub_inputs);
         BB_ASSERT(offset == flat.size());
         return out;

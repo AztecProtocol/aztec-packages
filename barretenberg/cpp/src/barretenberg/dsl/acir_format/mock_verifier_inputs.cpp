@@ -530,7 +530,7 @@ HonkProof create_mock_batched_joint_proof()
 template <typename Builder> HonkProof create_mock_chonk_proof(const size_t acir_public_inputs_size)
 {
     // MegaZK Oink only (no decider — sumcheck+PCS are batched into the joint proof)
-    HonkProof mega_zk_oink =
+    HonkProof hiding_oink =
         create_mock_oink_proof<MegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<Builder>>(acir_public_inputs_size);
     Goblin::MergeProof merge_proof = create_mock_merge_proof();
     HonkProof eccvm_proof{ create_mock_eccvm_proof() };
@@ -538,7 +538,7 @@ template <typename Builder> HonkProof create_mock_chonk_proof(const size_t acir_
     // Batched joint proof: Translator Oink + joint sumcheck + joint PCS
     HonkProof joint_proof = create_mock_batched_joint_proof();
 
-    ChonkProof chonk_proof{ std::move(mega_zk_oink),
+    ChonkProof chonk_proof{ std::move(hiding_oink),
                             std::move(merge_proof),
                             std::move(eccvm_proof),
                             std::move(ipa_proof),

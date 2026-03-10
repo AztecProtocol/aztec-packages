@@ -24,7 +24,7 @@ namespace bb {
 /**
  * @brief Chonk proof type.
  * @details Contains five proof segments produced by the batched MegaZK + Translator protocol:
- *   1. mega_zk_proof: MegaZK Oink (pre-sumcheck commitments for the hiding kernel)
+ *   1. hiding_oink_proof: Hiding kernel Oink (pre-sumcheck commitments for the hiding kernel)
  *   2. merge_proof: Merge proof for the hiding kernel's ECC op subtable
  *   3. eccvm_proof: ECCVM proof
  *   4. ipa_proof: IPA opening proof for ECCVM (separate transcript)
@@ -38,21 +38,21 @@ template <bool IsRecursive = false> struct ChonkProof_ {
     using HonkProof = std::conditional_t<IsRecursive, stdlib::Proof<Builder>, ::bb::HonkProof>;
     using FF = std::conditional_t<IsRecursive, stdlib::field_t<Builder>, bb::fr>;
 
-    HonkProof mega_zk_proof; // MegaZK Oink (pre-sumcheck only)
-    HonkProof merge_proof;   // Merge proof
-    HonkProof eccvm_proof;   // ECCVM proof
-    HonkProof ipa_proof;     // IPA opening proof (separate transcript)
-    HonkProof joint_proof;   // Translator Oink + joint sumcheck + joint PCS
+    HonkProof hiding_oink_proof; // Hiding kernel Oink (pre-sumcheck only)
+    HonkProof merge_proof;       // Merge proof
+    HonkProof eccvm_proof;       // ECCVM proof
+    HonkProof ipa_proof;         // IPA opening proof (separate transcript)
+    HonkProof joint_proof;       // Translator Oink + joint sumcheck + joint PCS
 
     // Sub-proof sizes (in field elements, excluding public inputs).
-    static constexpr size_t MEGA_ZK_OINK_LENGTH = ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
+    static constexpr size_t HIDING_OINK_LENGTH = ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
 
     // Joint proof = translator proof structure + MegaZK evaluations injected into sumcheck.
     // The translator evals (minicircuit + full-circuit) are sent as before; MegaZK evals are added.
     static constexpr size_t JOINT_PROOF_LENGTH = TranslatorFlavor::PROOF_LENGTH + MegaZKFlavor::NUM_ALL_ENTITIES;
 
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        MEGA_ZK_OINK_LENGTH + MERGE_PROOF_SIZE + ECCVMFlavor::PROOF_LENGTH + IPA_PROOF_LENGTH + JOINT_PROOF_LENGTH;
+        HIDING_OINK_LENGTH + MERGE_PROOF_SIZE + ECCVMFlavor::PROOF_LENGTH + IPA_PROOF_LENGTH + JOINT_PROOF_LENGTH;
     static constexpr size_t PROOF_LENGTH = PROOF_LENGTH_WITHOUT_PUB_INPUTS + bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
 
     // Default constructor
@@ -60,7 +60,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
 
     // 5-arg constructor
     ChonkProof_(HonkProof mega_zk, HonkProof merge, HonkProof eccvm, HonkProof ipa, HonkProof joint)
-        : mega_zk_proof(std::move(mega_zk))
+        : hiding_oink_proof(std::move(mega_zk))
         , merge_proof(std::move(merge))
         , eccvm_proof(std::move(eccvm))
         , ipa_proof(std::move(ipa))
@@ -71,7 +71,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
     template <typename B = Builder>
         requires IsRecursive
     ChonkProof_(B& builder, const ChonkProof_<false>& proof)
-        : mega_zk_proof(builder, proof.mega_zk_proof)
+        : hiding_oink_proof(builder, proof.hiding_oink_proof)
         , merge_proof(builder, proof.merge_proof)
         , eccvm_proof(builder, proof.eccvm_proof)
         , ipa_proof(builder, proof.ipa_proof)
@@ -80,7 +80,8 @@ template <bool IsRecursive = false> struct ChonkProof_ {
 
     size_t size() const
     {
-        return mega_zk_proof.size() + merge_proof.size() + eccvm_proof.size() + ipa_proof.size() + joint_proof.size();
+        return hiding_oink_proof.size() + merge_proof.size() + eccvm_proof.size() + ipa_proof.size() +
+               joint_proof.size();
     }
 
     /**
@@ -170,7 +171,7 @@ template <bool IsRecursive = false> struct ChonkProof_ {
         {}
     };
 
-    MSGPACK_FIELDS(mega_zk_proof, merge_proof, eccvm_proof, ipa_proof, joint_proof);
+    MSGPACK_FIELDS(hiding_oink_proof, merge_proof, eccvm_proof, ipa_proof, joint_proof);
     bool operator==(const ChonkProof_& other) const = default;
 };
 
