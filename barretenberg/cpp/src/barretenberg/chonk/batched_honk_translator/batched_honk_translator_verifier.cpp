@@ -324,7 +324,7 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
                                                                                              joint_challenge,
                                                                                              one_commitment,
                                                                                              transcript,
-                                                                                             RepeatedCommitmentsData{},
+                                                                                             REPEATED_COMMITMENTS,
                                                                                              libra_commitments,
                                                                                              libra_evaluation);
 

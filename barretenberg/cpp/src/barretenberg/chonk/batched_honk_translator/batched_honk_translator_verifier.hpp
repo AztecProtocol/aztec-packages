@@ -56,6 +56,35 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     // BF type from the translator flavor (BN254 base field elements).
     using TransBF = typename TransFlavor::BF;
 
+    // Joint RepeatedCommitmentsData for Shplemini's remove_repeated_commitments optimization.
+    // After Shplemini's offset=2 (Q_commitment + gemini_masking_poly), the virtual layout is:
+    //   Unshifted: [MegaZK_precomputed(P) | MegaZK_witness(W) | Trans_PCS_unshifted(TU)]
+    //   Shifted:   [MegaZK_shifted(S) | Trans_PCS_shifted(TS)]
+    //
+    // Range 1 (MegaZK): witness[0..S-1] ↔ mega_zk_shifted[0..S-1]
+    // Range 2 (Translator merged): ordered(5)+z_perm(1)+concat(5) in unshifted ↔ same in shifted
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = [] {
+        constexpr size_t P = MegaZKFlavorT::NUM_PRECOMPUTED_ENTITIES;
+        // W = MegaFlavor::NUM_WITNESS_ENTITIES (without masking, which is handled by Shplemini's offset)
+        constexpr size_t W = MegaZKFlavorT::REPEATED_COMMITMENTS.first.duplicate_start -
+                             MegaZKFlavorT::REPEATED_COMMITMENTS.first.original_start;
+        constexpr size_t S = MegaZKFlavorT::NUM_SHIFTED_ENTITIES;
+        constexpr size_t TU = TranslatorFlavor::NUM_PCS_UNSHIFTED;
+        // Skip before repeated entries: masking(1)+ordered_extra(1)+op(1)=3 in unshifted, op_queue(3) in shifted
+        constexpr size_t TRANS_UNSHIFTED_SKIP = TranslatorFlavor::REPEATED_COMMITMENTS.first.original_start + 1;
+        constexpr size_t TRANS_SHIFTED_SKIP =
+            TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED -
+            (TranslatorFlavor::REPEATED_COMMITMENTS.first.count + TranslatorFlavor::REPEATED_COMMITMENTS.second.count);
+        return RepeatedCommitmentsData(
+            P,                                   // MegaZK original: start of witness in unshifted
+            P + W + TU,                          // MegaZK duplicate: start of mega_zk_shifted
+            S,                                   // MegaZK count
+            P + W + TRANS_UNSHIFTED_SKIP,        // Translator original: ordered+z_perm+concat in unshifted
+            P + W + TU + S + TRANS_SHIFTED_SKIP, // Translator duplicate: same entries in shifted
+            TranslatorFlavor::REPEATED_COMMITMENTS.first.count +
+                TranslatorFlavor::REPEATED_COMMITMENTS.second.count); // Translator count
+    }();
+
     /**
      * @brief Result of the batched sumcheck/PCS reduction.
      */
