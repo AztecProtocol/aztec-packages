@@ -312,6 +312,219 @@ describe('pino-logger', () => {
     });
   });
 
+  describe('format string interpolation', () => {
+    it('interpolates %s format specifiers', () => {
+      const testLogger = createLogger('fmt-test');
+      capturingStream.clear();
+
+      testLogger.info('Hello %s, welcome to %s', 'Alice', 'Aztec');
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatchObject({
+        module: 'fmt-test',
+        msg: 'Hello Alice, welcome to Aztec',
+      });
+    });
+
+    it('interpolates %d format specifiers for numbers', () => {
+      const testLogger = createLogger('fmt-num-test');
+      capturingStream.clear();
+
+      testLogger.info('Block %d processed with %d txs', 42, 10);
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatchObject({
+        msg: 'Block 42 processed with 10 txs',
+      });
+    });
+
+    it('supports mixed format specifiers', () => {
+      const testLogger = createLogger('fmt-mixed-test');
+      capturingStream.clear();
+
+      testLogger.info('User %s processed %d items', 'Bob', 5);
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatchObject({
+        msg: 'User Bob processed 5 items',
+      });
+    });
+
+    it('passes trailing object as structured data alongside format args', () => {
+      const testLogger = createLogger('fmt-data-test');
+      capturingStream.clear();
+
+      testLogger.info('Checkpoint %d ready', 7, { slot: 100, proposer: 'alice' });
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatchObject({
+        msg: 'Checkpoint 7 ready',
+        slot: 100,
+        proposer: 'alice',
+      });
+    });
+
+    it('handles BigInt with %s specifier', () => {
+      const testLogger = createLogger('fmt-bigint-test');
+      capturingStream.clear();
+
+      const bigValue = 123456789012345678901234n;
+      testLogger.info('Amount is %s', bigValue);
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatchObject({
+        msg: 'Amount is 123456789012345678901234',
+      });
+    });
+
+    it('does not trigger format path for escaped %% sequences', () => {
+      const testLogger = createLogger('fmt-escape-test');
+      capturingStream.clear();
+
+      testLogger.info('100%% complete', { status: 'done' });
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatchObject({
+        msg: '100%% complete',
+        status: 'done',
+      });
+    });
+
+    it('preserves existing (msg, data) behavior when no format specifiers', () => {
+      const testLogger = createLogger('fmt-compat-test');
+      capturingStream.clear();
+
+      testLogger.info('Simple message', { key: 'value', count: 42 });
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatchObject({
+        msg: 'Simple message',
+        key: 'value',
+        count: 42,
+      });
+    });
+
+    it('preserves existing (msg) behavior with no args', () => {
+      const testLogger = createLogger('fmt-noarg-test');
+      capturingStream.clear();
+
+      testLogger.info('Just a message');
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatchObject({
+        msg: 'Just a message',
+      });
+    });
+
+    it('does not evaluate format args when level is disabled', () => {
+      capturingStream.clear();
+
+      // Set parent level to error BEFORE creating child logger so it inherits correctly.
+      const savedLevel = logger.level;
+      logger.level = 'error';
+
+      try {
+        const testLogger = createLogger('fmt-level-test');
+
+        // Verify debug is actually disabled for this logger
+        expect(testLogger.isLevelEnabled('debug')).toBe(false);
+
+        let toStringCalled = false;
+        const obj = {
+          toString() {
+            toStringCalled = true;
+            return 'expensive';
+          },
+        };
+
+        // debug is below error, so this should be a no-op
+        testLogger.debug('Value is %s', obj);
+
+        // toString should NOT have been called since debug is disabled
+        expect(toStringCalled).toBe(false);
+        expect(capturingStream.lines).toHaveLength(0);
+      } finally {
+        logger.level = savedLevel;
+      }
+    });
+
+    it('works with warn level', () => {
+      const testLogger = createLogger('fmt-warn-test');
+      capturingStream.clear();
+
+      testLogger.warn('Warning %s at step %d', 'overflow', 3);
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatchObject({ msg: 'Warning overflow at step 3', level: 40 });
+    });
+
+    it('handles format string with no trailing data object', () => {
+      const testLogger = createLogger('fmt-nodata-test');
+      capturingStream.clear();
+
+      testLogger.info('Block %d at slot %d', 42, 100);
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+      const entry = entries[0] as Record<string, unknown>;
+      expect(entry.msg).toBe('Block 42 at slot 100');
+      // Should not have extraneous data keys beyond standard pino fields
+      expect(entry).not.toHaveProperty('0');
+      expect(entry).not.toHaveProperty('1');
+    });
+
+    it('consumes object as format arg when it matches a specifier position', () => {
+      const testLogger = createLogger('fmt-obj-as-arg-test');
+      capturingStream.clear();
+
+      // When %s is present and an object is the first arg, it is consumed as a format arg,
+      // NOT as structured data. This matches Pino's native behavior.
+      testLogger.info('User %s logged in', { name: 'Alice' });
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+      const entry = entries[0] as Record<string, unknown>;
+      // The object is stringified via %s as [object Object] — it is NOT treated as structured data.
+      expect(entry.msg).toBe('User [object Object] logged in');
+      expect(entry).not.toHaveProperty('name');
+    });
+
+    it('does not crash when error is called with undefined message', () => {
+      const testLogger = createLogger('fmt-undef-test');
+      capturingStream.clear();
+
+      // Callers may pass undefined as the message (e.g. from a failed assertion).
+      // This should not throw — it should log gracefully.
+      expect(() => testLogger.error(undefined as unknown as string)).not.toThrow();
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+    });
+
+    it('error and fatal do not support format string interpolation', () => {
+      const testLogger = createLogger('fmt-error-test');
+      capturingStream.clear();
+
+      // error treats second arg as err (passed through inspect), not as a format arg.
+      testLogger.error('Step %d failed', 42);
+
+      const entries = capturingStream.getJsonLines();
+      expect(entries).toHaveLength(1);
+      const entry = entries[0] as Record<string, unknown>;
+      // %d is NOT interpolated — the 42 is treated as an error and appended via inspect.
+      expect(entry.msg).toBe('Step %d failed: 42');
+    });
+  });
+
   describe('actor colors', () => {
     beforeEach(() => {
       resetActorColors();

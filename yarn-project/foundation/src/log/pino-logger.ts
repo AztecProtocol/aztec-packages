@@ -47,6 +47,33 @@ function getBindingsFromHandlers(): LoggerBindings | undefined {
   return undefined;
 }
 
+/** Returns true if msg contains a Pino-style format specifier (%s, %d, %i, %f, %o, %O, %j). */
+function hasFormatSpecifier(msg: string): boolean {
+  if (typeof msg !== 'string') {
+    return false;
+  }
+  for (let i = 0; i < msg.length - 1; i++) {
+    if (msg.charCodeAt(i) === 37 /* % */) {
+      const next = msg.charCodeAt(i + 1);
+      if (next === 37) {
+        i++; // skip %% escape
+      } else if (
+        next === 115 ||
+        next === 100 ||
+        next === 105 ||
+        next === 102 ||
+        next === 106 ||
+        next === 111 ||
+        next === 79
+      ) {
+        // s=115 d=100 i=105 f=102 j=106 o=111 O=79
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 export function createLogger(module: string, bindings?: LoggerBindings): Logger {
   module = module.replace(/^aztec:/, '');
 
@@ -61,8 +88,29 @@ export function createLogger(module: string, bindings?: LoggerBindings): Logger 
 
   // We check manually for isLevelEnabled to avoid calling processLogData unnecessarily.
   // Note that isLevelEnabled is missing from the browser version of pino.
-  const logFn = (level: LogLevel, msg: string, data?: unknown) =>
-    isLevelEnabled(pinoLogger, level) && pinoLogger[level](processLogData((data as LogData) ?? {}), msg);
+  // SECURITY: Format interpolation args bypass processLogData and Pino's redact config.
+  // Never pass sensitive values (keys, mnemonics) as format args — use structured data instead.
+  const logFn = (level: LogLevel, msg: string, ...args: unknown[]) => {
+    if (!isLevelEnabled(pinoLogger, level)) {
+      return;
+    }
+
+    if (args.length === 0) {
+      pinoLogger[level]({}, msg);
+    } else if (!hasFormatSpecifier(msg)) {
+      // No format specifiers: first arg is structured data.
+      pinoLogger[level](processLogData((args[0] as LogData) ?? {}), msg);
+    } else {
+      // Format string path: let Pino handle interpolation natively.
+      // If last arg is a plain object (and not the only arg), treat it as structured data.
+      const last = args[args.length - 1];
+      if (args.length > 1 && last !== null && last !== undefined && typeof last === 'object' && !Array.isArray(last)) {
+        pinoLogger[level](processLogData(last as LogData), msg, ...args.slice(0, -1));
+      } else {
+        pinoLogger[level]({}, msg, ...args);
+      }
+    }
+  };
 
   return {
     silent: () => {},
@@ -72,15 +120,15 @@ export function createLogger(module: string, bindings?: LoggerBindings): Logger 
     /** Log as error. Use for errors in general. */
     error: (msg: string, err?: unknown, data?: unknown) => logFn('error', formatErr(msg, err), data),
     /** Log as warn. Use for when we stray from the happy path. */
-    warn: (msg: string, data?: unknown) => logFn('warn', msg, data),
+    warn: (msg: string, ...args: unknown[]) => logFn('warn', msg, ...args),
     /** Log as info. Use for providing an operator with info on what the system is doing. */
-    info: (msg: string, data?: unknown) => logFn('info', msg, data),
+    info: (msg: string, ...args: unknown[]) => logFn('info', msg, ...args),
     /** Log as verbose. Use for when we need additional insight on what a subsystem is doing. */
-    verbose: (msg: string, data?: unknown) => logFn('verbose', msg, data),
+    verbose: (msg: string, ...args: unknown[]) => logFn('verbose', msg, ...args),
     /** Log as debug. Use for when we need debugging info to troubleshoot an issue on a specific component. */
-    debug: (msg: string, data?: unknown) => logFn('debug', msg, data),
+    debug: (msg: string, ...args: unknown[]) => logFn('debug', msg, ...args),
     /** Log as trace. Use for when we want to denial-of-service any recipient of the logs. */
-    trace: (msg: string, data?: unknown) => logFn('trace', msg, data),
+    trace: (msg: string, ...args: unknown[]) => logFn('trace', msg, ...args),
     /** Level of the logger */
     level: pinoLogger.level as LogLevel,
     /** Whether the given level is enabled for this logger. */
@@ -354,12 +402,15 @@ export function registerLoggingStream(stream: Writable): void {
 }
 
 /** Log function that accepts an exception object */
-type ErrorLogFn = (msg: string, err?: unknown, data?: LogData) => void;
+type ErrorLogFn = (msg: string, err?: unknown, data?: unknown) => void;
 
 /**
  * Logger that supports multiple severity levels.
  */
-export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ error: ErrorLogFn } & {
+export type Logger = { [K in Exclude<LogLevel, 'error' | 'fatal'>]: LogFn } & {
+  /** Error log function */ error: ErrorLogFn;
+  /** Fatal log function */ fatal: ErrorLogFn;
+} & {
   level: LogLevel;
   isLevelEnabled: (level: LogLevel) => boolean;
   module: string;
