@@ -1,0 +1,2 @@
+[workspace]
+members = ["note_hash_and_nullifier_contract", "note_hash_and_nullifier_test"]

@@ -1,13 +1,13 @@
-use crate::{Test, test_note::TestNote};
 use aztec::note::note_interface::{NoteHash, NoteType};
 use aztec::protocol::address::AztecAddress;
+use note_hash_and_nullifier_contract::{NoteHashAndNullifier, test_note::TestNote};
 
 #[test]
 unconstrained fn returns_none_for_bad_note_length() {
     // TestNote has Packable N=1, but we provide 2 fields
     let packed_note = BoundedVec::from_array([42, 99]);
 
-    let result = Test::_compute_note_hash_and_nullifier(
+    let result = NoteHashAndNullifier::test_compute_note_hash_and_nullifier(
         packed_note,
         AztecAddress::zero(),
         0,
@@ -29,7 +29,7 @@ unconstrained fn returns_correct_note_hash_and_nullifier() {
     let storage_slot = 0;
     let randomness = 0;
 
-    let result = Test::_compute_note_hash_and_nullifier(
+    let result = NoteHashAndNullifier::test_compute_note_hash_and_nullifier(
         packed_note,
         owner,
         storage_slot,
