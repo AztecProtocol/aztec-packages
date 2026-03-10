@@ -149,6 +149,10 @@ export async function runReqrespTxTest(params: {
   const submittedTxs = await Promise.all(
     txBatches.map(async (batch, batchIndex) => {
       const proposerNode = nodes[proposerIndexes[batchIndex]];
+      const txHashes = batch.map(tx => tx.getTxHash().toString());
+      t.logger.info(
+        `Sending batch ${batchIndex} to proposer ${getNodePort(proposerIndexes[batchIndex])}: ${txHashes.join(', ')}`,
+      );
       await Promise.all(
         batch.map(async tx => {
           try {
@@ -162,6 +166,12 @@ export async function runReqrespTxTest(params: {
       return batch.map(tx => ({ node: proposerNode, txHash: tx.getTxHash() }));
     }),
   );
+
+  // Log pool state per node after sending
+  for (let i = 0; i < NUM_VALIDATORS; i++) {
+    const count = await nodes[i].getPendingTxCount();
+    t.logger.info(`Node ${getNodePort(i)} pool has ${count} pending txs`);
+  }
 
   t.logger.info('Waiting for all transactions to be mined');
   await Promise.all(
