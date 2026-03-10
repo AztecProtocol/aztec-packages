@@ -98,7 +98,7 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
      * @brief Build the expected transcript manifest for a BatchedHonkTranslator proof.
      *
      * @details The manifest structure (27 rounds, 0-26):
-     *   Round 0: MegaZK Oink — vk_hash, public inputs, masking commitment, wire/databus commitments → eta
+     *   Round 0: MegaZK Oink — vk_hash, public inputs, wire/databus commitments → eta
      *   Round 1: lookup counts/tags/W_4 → beta, gamma
      *   Round 2: logderiv inverses + Z_PERM + translator Oink (vk_hash, masking, 10 wires) → beta, gamma
      *   Round 3: translator Z_PERM → Sumcheck:alpha + 17 gate challenges
@@ -138,7 +138,6 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
         for (size_t i = 0; i < num_mega_zk_pub_inputs; ++i) {
             m.add_entry(round, "public_input_" + std::to_string(i), Fr);
         }
-        m.add_entry(round, "Gemini:masking_poly_comm", G);
         m.add_entry(round, "W_L", G);
         m.add_entry(round, "W_R", G);
         m.add_entry(round, "W_O", G);

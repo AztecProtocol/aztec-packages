@@ -23,7 +23,7 @@ namespace bb {
 template <typename Flavor> void OinkVerifier<Flavor>::verify(bool emit_alpha)
 {
     receive_vk_hash_and_public_inputs();
-    if constexpr (Flavor::HasZK) {
+    if constexpr (flavor_has_gemini_masking<Flavor>()) {
         verifier_instance->gemini_masking_commitment =
             transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
     }
