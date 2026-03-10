@@ -57,9 +57,17 @@ include "precomputed.pil";
  * evaluates to 0 for empty calldata (start = 1, PADDING_1 = 1). Therefore, no entry in this
  * trace is required for empty calldata — no rows are generated and no permutation fires.
  *
- * PRECONDITIONS:
- * - Events must be sorted by context_id (ascending, strictly increasing). This is required
- *   to satisfy the #[RANGE_CHECK_CONTEXT_ID_DIFF] constraint.
+ * CONTEXT_ID UNIQUENESS:
+ * Each computation block has a unique context_id, but this is NOT enforced locally by this
+ * trace. Instead, it follows from the permutation chain:
+ *   - tx.pil assigns a unique context_id per enqueued call.
+ *   - #[READ_CALLDATA_HASH] (tx.pil) is a permutation into calldata_hashing.end, so
+ *     calldata_hashing has unique context_ids at end rows.
+ *   - #[CHECK_FINAL_SIZE] is a permutation between calldata_hashing end rows and
+ *     calldata.end rows, enforcing a 1-to-1 correspondence.
+ * Therefore, each calldata.end row must correspond to a distinct context_id. A prover
+ * cannot add extra computation blocks (the permutation count would not match) or duplicate
+ * a context_id (it would require a duplicate in calldata_hashing, which is impossible).
  *
  * USAGE:
  *
@@ -86,8 +94,8 @@ include "precomputed.pil";
  *
  * TRACE SHAPE:
  * Variable number of rows per context_id — one row per calldata field. The index increments
- * by one each row until end = 1 marks the final row. context_id strictly increases between
- * groups. Empty calldata produces no rows in this trace.
+ * by one each row until end = 1 marks the final row. Empty calldata produces no rows in
+ * this trace.
  *
  * e.g. calldata: [0x111, 0x222, 0x333, 0x444]
  *  index |  value | context_id |  end  |
@@ -104,14 +112,12 @@ include "precomputed.pil";
  * - calldata_hashing: lookups for calldata field values (#[GET_CALLDATA_FIELD_0/1/2]) and
  *   final size permutation (#[CHECK_FINAL_SIZE]).
  * - data_copy: lookups for calldata field values during CALLDATACOPY (#[COL_READ]).
- * - precomputed: range check for context_id difference via #[RANGE_CHECK_CONTEXT_ID_DIFF].
  *
  * @column sel Selector for active rows.
  * @column value The calldata field value (a hint, validated by calldata_hashing.pil).
  * @column context_id Identifies which enqueued call this calldata belongs to.
  * @column index The 1-based index of the calldata field within the call.
  * @column end Designates the final row of calldata for a given context_id.
- * @column diff_context_id Used for range-checking that context_id strictly increases across calldata instances.
  */
 namespace calldata;
 
@@ -161,11 +167,3 @@ namespace calldata;
     #[CONTEXT_ID_CONTINUITY]
     (1 - LATCH_CONDITION) * (context_id - context_id') = 0;
 
-    // ==== CONTEXT ID ORDERING ====
-
-    // We ensure that context_id is always different and increasing at each end:
-    pol commit diff_context_id;
-    diff_context_id = end * sel' * (context_id' - context_id - 1);
-
-    #[RANGE_CHECK_CONTEXT_ID_DIFF]
-    end { diff_context_id } in precomputed.sel_range_16 { precomputed.idx };

@@ -6,7 +6,6 @@
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_calldata.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_calldata_hashing.hpp"
 #include "barretenberg/vm2/generated/relations/perms_calldata_hashing.hpp"
 
@@ -16,9 +15,9 @@ namespace bb::avm2::tracegen {
  * @brief Populate the calldata retrieval trace (calldata.pil) from calldata events.
  *
  * Fills one row per calldata field per context, with index, value, context_id, and end columns.
- * Events must be sorted by context_id. Empty calldata gets a special row with index=0 and end=1.
+ * Empty calldata produces no rows (see calldata.pil EMPTY CALLDATA).
  *
- * @param events The calldata events, sorted by context_id.
+ * @param events The calldata events.
  * @param trace The trace container to populate.
  */
 void CalldataTraceBuilder::process_retrieval(
@@ -26,16 +25,11 @@ void CalldataTraceBuilder::process_retrieval(
 {
     using C = Column;
 
-    // The calldata events must be sorted by context_id according to simulation.
-    // This is a prerequisite to satisfy the constraint #[RANGE_CHECK_CONTEXT_ID_DIFF].
-
     uint32_t row = 1; // Has shifted columns
 
-    for (uint32_t j = 0; j < events.size(); j++) {
-        const auto& event = events[j];
+    for (const auto& event : events) {
         const auto& calldata = event.calldata;
         const auto context_id = event.context_id;
-        bool is_last = j == events.size() - 1;
 
         for (size_t i = 0; i < calldata.size(); i++) {
             bool is_end = i == calldata.size() - 1;
@@ -46,9 +40,6 @@ void CalldataTraceBuilder::process_retrieval(
                           { C::calldata_value, calldata[i] },
                           { C::calldata_index, i + 1 },
                           { C::calldata_end, is_end ? 1 : 0 },
-                          // Note that the diff is shifted by 1 to ensure the context_ids are increasing:
-                          { C::calldata_diff_context_id,
-                            (is_end && !is_last) ? events[j + 1].context_id - context_id - 1 : 0 },
                       } });
             row++;
         }
@@ -121,7 +112,6 @@ void CalldataTraceBuilder::process_hashing(
 
 const InteractionDefinition CalldataTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_calldata_range_check_context_id_diff_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_calldata_hashing_get_calldata_field_0_settings, InteractionType::LookupSequential>()
         .add<lookup_calldata_hashing_get_calldata_field_1_settings, InteractionType::LookupSequential>()
         .add<lookup_calldata_hashing_get_calldata_field_2_settings, InteractionType::LookupSequential>()
