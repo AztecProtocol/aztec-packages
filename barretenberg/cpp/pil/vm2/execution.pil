@@ -479,6 +479,8 @@ sel_gas_to_radix * (two_five_six - 256) = 0; // While we don't support constants
 // make simulator code less readable (to_radix would not be self-contained).
 // sel_radix_gt_256 = 1 iff radix > 256
 pol commit sel_radix_gt_256; // @boolean (when `sel_gas_to_radix == 1` according to gt.pil)
+// Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+// `register[1]` (radix) is tag-checked to U32 by the execution trace. `two_five_six` = 256.
 #[CHECK_RADIX_GT_256]
 sel_gas_to_radix { /*radix=*/register[1], two_five_six, sel_radix_gt_256 }
 in
@@ -504,6 +506,10 @@ precomputed.sel_to_radix_p_limb_counts
 // If so then dynamic_l2_gas_factor = num_limbs
 // Otherwise dynamic_l2_gas_factor = num_p_limbs
 pol commit sel_use_num_limbs; // @boolean (when `sel_gas_to_radix == 1` by gt.pil)
+// Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+// `register[2]` (num_limbs) is tag-checked to U32. For `radix > 256`,
+// `num_p_limbs == 32` (by #[NUM_P_LIMBS_CEIL]) and otherwise smaller than 254
+// (number of bits of the field modulus).
 #[GET_MAX_LIMBS]
 sel_gas_to_radix { /*num_limbs=*/register[2], num_p_limbs, sel_use_num_limbs }
 in
