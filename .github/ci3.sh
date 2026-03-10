@@ -31,10 +31,9 @@ function setup_environment {
     echo "INSTANCE_POSTFIX=$INSTANCE_POSTFIX" >> $GITHUB_ENV
     echo "Instance postfix set to: $INSTANCE_POSTFIX"
   fi
-  # Setup SSH key for connecting to EC2 instances
-  # Note: The key is used to SSH into instances but is only copied INTO instances when CI_USE_BUILD_INSTANCE_KEY=1 (internal CI only)
-  # SSH key is only needed when using the SSH bootstrap path.
-  if [ "${CI_USE_SSH:-0}" -eq 1 ] && [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
+  # Setup SSH key — needed for the Redis tunnel (denoise logs) even in SSM mode,
+  # and for direct SSH bootstrap when CI_USE_SSH=1.
+  if [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
     mkdir -p ~/.ssh
     echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
     chmod 600 ~/.ssh/build_instance_key
