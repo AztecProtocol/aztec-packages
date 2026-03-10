@@ -27,10 +27,10 @@ export class SenderTaggingStore implements StagedStore {
   // onchain.
   //
   // directional app tagging secret => { lowestIndex, highestIndex, txHash }[]
-  #pendingIndexes: AztecAsyncMap<string, PendingEntry[]>;
+  #pendingIndexes: AztecAsyncMap<string, PendingIndexesEntry[]>;
 
   // jobId => directional app tagging secret => { lowestIndex, highestIndex, txHash }[]
-  #pendingIndexesForJob: Map<string, Map<string, PendingEntry[]>>;
+  #pendingIndexesForJob: Map<string, Map<string, PendingIndexesEntry[]>>;
 
   // Stores the last (highest) finalized index for each directional app tagging secret. We care only about the last
   // index because unlike the pending indexes, it will never happen that a finalized index would be removed and hence
@@ -52,7 +52,7 @@ export class SenderTaggingStore implements StagedStore {
     this.#lastFinalizedIndexesForJob = new Map();
   }
 
-  #getPendingIndexesForJob(jobId: string): Map<string, PendingEntry[]> {
+  #getPendingIndexesForJob(jobId: string): Map<string, PendingIndexesEntry[]> {
     let pendingIndexesForJob = this.#pendingIndexesForJob.get(jobId);
     if (!pendingIndexesForJob) {
       pendingIndexesForJob = new Map();
@@ -70,7 +70,7 @@ export class SenderTaggingStore implements StagedStore {
     return jobStagedLastFinalizedIndexes;
   }
 
-  async #readPendingIndexes(jobId: string, secret: string): Promise<PendingEntry[]> {
+  async #readPendingIndexes(jobId: string, secret: string): Promise<PendingIndexesEntry[]> {
     // Always issue DB read to keep IndexedDB transaction alive (they auto-commit when a new micro-task starts and there
     // are no pending read requests). The staged value still takes precedence if it exists.
     const dbValue = await this.#pendingIndexes.getAsync(secret);
@@ -78,7 +78,7 @@ export class SenderTaggingStore implements StagedStore {
     return staged !== undefined ? staged : (dbValue ?? []);
   }
 
-  #writePendingIndexes(jobId: string, secret: string, pendingIndexes: PendingEntry[]) {
+  #writePendingIndexes(jobId: string, secret: string, pendingIndexes: PendingIndexesEntry[]) {
     this.#getPendingIndexesForJob(jobId).set(secret, pendingIndexes);
   }
 
@@ -278,7 +278,7 @@ export class SenderTaggingStore implements StagedStore {
 
     return this.#store.transactionAsync(async () => {
       // Prefetch all data, start reads during iteration to keep IndexedDB transaction alive
-      const secretReadPromises: Map<string, Promise<PendingEntry[]>> = new Map();
+      const secretReadPromises: Map<string, Promise<PendingIndexesEntry[]>> = new Map();
 
       for await (const secret of this.#pendingIndexes.keysAsync()) {
         secretReadPromises.set(secret, this.#readPendingIndexes(jobId, secret));
@@ -322,7 +322,7 @@ export class SenderTaggingStore implements StagedStore {
     jobId: string,
     callback: (ctx: {
       secret: string;
-      pendingData: PendingEntry[];
+      pendingData: PendingIndexesEntry[];
       lastFinalized: number | undefined;
     }) => Promise<void> | void,
   ): Promise<void> {
@@ -330,7 +330,7 @@ export class SenderTaggingStore implements StagedStore {
       // Prefetch all data, start reads during iteration to keep IndexedDB transaction alive
       const secretDataPromises: Map<
         string,
-        { pending: Promise<PendingEntry[]>; finalized: Promise<number | undefined> }
+        { pending: Promise<PendingIndexesEntry[]>; finalized: Promise<number | undefined> }
       > = new Map();
 
       for await (const secret of this.#pendingIndexes.keysAsync()) {
