@@ -675,6 +675,13 @@ variable "PROVER_FAILED_PROOF_STORE" {
   default     = ""
 }
 
+variable "L1_TX_FAILED_STORE" {
+  description = "Optional GCS/URI to store failed L1 transaction inputs (e.g. gs://bucket/path)"
+  type        = string
+  nullable    = false
+  default     = ""
+}
+
 variable "PROVER_PROOF_STORE" {
   description = "Optional GCS/S3/file URI to store proof inputs and outputs (e.g. gs://bucket/path, s3://bucket/path, file:///path)"
   type        = string
