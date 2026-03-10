@@ -43,6 +43,8 @@ unconstrained fn returns_correct_note_hash_and_nullifier() {
     let note = TestNote { value: 42 };
     let expected_note_hash = note.compute_note_hash(owner, storage_slot, randomness);
     assert_eq(note_hash_and_nullifier.note_hash, expected_note_hash);
-    // TestNote::compute_nullifier_unconstrained always returns None
-    assert(note_hash_and_nullifier.inner_nullifier.is_none());
+
+    // TestNote::compute_nullifier_unconstrained returns a hardcoded Some(2) so we can verify the
+    // macro-generated function propagates the inner nullifier correctly.
+    assert_eq(note_hash_and_nullifier.inner_nullifier.unwrap(), 2);
 }
