@@ -12,7 +12,7 @@ Here's a complete example with all monitoring components integrated with your Az
 services:
   # Your Aztec node (example for full node)
   aztec-node:
-    image: "aztecprotocol/aztec:4.0.3"
+    image: "aztecprotocol/aztec:4.1.0-rc.2"
     container_name: "aztec-node"
     ports:
       - ${AZTEC_PORT}:${AZTEC_PORT}
@@ -28,6 +28,7 @@ services:
       P2P_IP: ${P2P_IP}
       P2P_PORT: ${P2P_PORT}
       AZTEC_PORT: ${AZTEC_PORT}
+      SPONSORED_FPC: ${SPONSORED_FPC}
       OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://otel-collector:4318/v1/metrics
     entrypoint: >-
       node

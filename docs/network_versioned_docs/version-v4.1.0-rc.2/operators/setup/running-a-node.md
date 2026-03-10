@@ -53,6 +53,7 @@ P2P_IP=[your external IP address]
 P2P_PORT=40400
 AZTEC_PORT=8080
 AZTEC_ADMIN_PORT=8880
+SPONSORED_FPC=false
 ```
 
 :::tip
@@ -72,7 +73,7 @@ Create a `docker-compose.yml` file in your `aztec-node` directory:
 ```yaml
 services:
   aztec-node:
-    image: "aztecprotocol/aztec:4.0.3"
+    image: "aztecprotocol/aztec:4.1.0-rc.2"
     container_name: "aztec-node"
     ports:
       - ${AZTEC_PORT}:${AZTEC_PORT}
@@ -90,6 +91,7 @@ services:
       P2P_PORT: ${P2P_PORT}
       AZTEC_PORT: ${AZTEC_PORT}
       AZTEC_ADMIN_PORT: ${AZTEC_ADMIN_PORT}
+      SPONSORED_FPC: ${SPONSORED_FPC}
     entrypoint: >-
       node
       --no-warnings
