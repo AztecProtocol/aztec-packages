@@ -19,6 +19,9 @@ class MegaZKFlavor : public bb::MegaFlavor {
     // MegaZK is only used in production to prove the Hiding Kernel
     static constexpr size_t VIRTUAL_LOG_N = HIDING_KERNEL_LOG_N;
 
+    // The hiding kernel circuit is fixed-size (2^HIDING_KERNEL_LOG_N), so no padding is needed.
+    static constexpr bool USE_PADDING = false;
+
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
 
@@ -40,10 +43,10 @@ class MegaZKFlavor : public bb::MegaFlavor {
     // NUM_UNSHIFTED_ENTITIES includes gemini_masking_poly
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES + NUM_MASKING_POLYNOMIALS;
 
-    // Size of the final PCS MSM for ZK = non-ZK size + NUM_LIBRA_COMMITMENTS (3)
+    // Size of the final PCS MSM for ZK = non-ZK size + NUM_LIBRA_COMMITMENTS (3) + log_n (committed sumcheck)
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = MegaFlavor::VIRTUAL_LOG_N)
     {
-        return NUM_UNSHIFTED_ENTITIES + log_n + 2 + NUM_LIBRA_COMMITMENTS;
+        return NUM_UNSHIFTED_ENTITIES + log_n + 2 + NUM_LIBRA_COMMITMENTS + log_n;
     }
 
     using AllValues = MegaFlavor::AllValues_<HasZK>;

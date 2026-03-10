@@ -141,12 +141,23 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
             zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
         small_subgroup_ipa_prover.prove();
 
-        prover_opening_claim = ShpleminiProver_<Curve>::prove(prover_instance->dyadic_size(),
-                                                              polynomial_batcher,
-                                                              sumcheck_output.challenge,
-                                                              ck,
-                                                              transcript,
-                                                              small_subgroup_ipa_prover.get_witness_polynomials());
+        if constexpr (UsesCommittedSumcheck<Flavor>) {
+            prover_opening_claim = ShpleminiProver_<Curve>::prove(prover_instance->dyadic_size(),
+                                                                  polynomial_batcher,
+                                                                  sumcheck_output.challenge,
+                                                                  ck,
+                                                                  transcript,
+                                                                  small_subgroup_ipa_prover.get_witness_polynomials(),
+                                                                  sumcheck_output.round_univariates,
+                                                                  sumcheck_output.round_univariate_evaluations);
+        } else {
+            prover_opening_claim = ShpleminiProver_<Curve>::prove(prover_instance->dyadic_size(),
+                                                                  polynomial_batcher,
+                                                                  sumcheck_output.challenge,
+                                                                  ck,
+                                                                  transcript,
+                                                                  small_subgroup_ipa_prover.get_witness_polynomials());
+        }
     }
     vinfo("executed multivariate-to-univariate reduction");
     PCS::compute_opening_proof(ck, prover_opening_claim, transcript);

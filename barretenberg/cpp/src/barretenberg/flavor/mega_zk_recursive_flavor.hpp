@@ -23,6 +23,7 @@ template <typename BuilderType> class MegaZKRecursiveFlavor_ : public MegaRecurs
     using FF = typename MegaRecursiveFlavor_<BuilderType>::FF;
 
     static constexpr bool HasZK = true;
+    static constexpr bool USE_PADDING = NativeFlavor::USE_PADDING;
 
     // Get constants from NativeFlavor to ensure consistency
     static constexpr size_t VIRTUAL_LOG_N = NativeFlavor::VIRTUAL_LOG_N;

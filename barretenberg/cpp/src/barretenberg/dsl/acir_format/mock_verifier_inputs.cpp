@@ -1,6 +1,7 @@
 #include "mock_verifier_inputs.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -159,8 +160,16 @@ template <typename Flavor> HonkProof create_mock_decider_proof()
     }
 
     // Sumcheck univariates
-    const size_t TOTAL_SIZE_SUMCHECK_UNIVARIATES = const_proof_log_n * Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
-    populate_field_elements<FF>(proof, TOTAL_SIZE_SUMCHECK_UNIVARIATES);
+    if constexpr (UsesCommittedSumcheck<Flavor>) {
+        // Interleave commitment + 2 evaluations per round to match transcript order
+        for (size_t i = 0; i < const_proof_log_n; i++) {
+            populate_field_elements_for_mock_commitments<Curve>(proof, 1);
+            populate_field_elements<FF>(proof, 2);
+        }
+    } else {
+        const size_t TOTAL_SIZE = const_proof_log_n * Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
+        populate_field_elements<FF>(proof, TOTAL_SIZE);
+    }
 
     // Sumcheck multilinear evaluations
     populate_field_elements<FF>(proof, Flavor::NUM_ALL_ENTITIES);

@@ -9,6 +9,7 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include <cstddef>
 
 namespace bb::ProofLength {
@@ -44,6 +45,8 @@ template <typename Flavor> struct Oink : CodecConstants<Flavor> {
  * @brief Computes Sumcheck proof length from flavor traits.
  * @details Sumcheck sends univariates (one per round) and final evaluations.
  *          ZK flavors add Libra masking data.
+ *          Committed sumcheck flavors send (commitment + eval_0 + eval_1) per round
+ *          instead of BATCHED_RELATION_PARTIAL_LENGTH scalars per round.
  */
 template <typename Flavor> struct Sumcheck : CodecConstants<Flavor> {
     using CodecConstants<Flavor>::num_frs_in_scalar;
@@ -51,9 +54,15 @@ template <typename Flavor> struct Sumcheck : CodecConstants<Flavor> {
 
     static constexpr size_t LENGTH(size_t log_n)
     {
-        size_t base_length =
-            /* univariates */ (log_n * Flavor::BATCHED_RELATION_PARTIAL_LENGTH * num_frs_in_scalar) +
-            /* evaluations */ (Flavor::NUM_ALL_ENTITIES * num_frs_in_scalar);
+        size_t univariate_length = 0;
+        if constexpr (UsesCommittedSumcheck<Flavor>) {
+            univariate_length = log_n * (num_frs_in_comm + 2 * num_frs_in_scalar);
+        } else {
+            univariate_length = log_n * Flavor::BATCHED_RELATION_PARTIAL_LENGTH * num_frs_in_scalar;
+        }
+
+        size_t base_length = univariate_length +
+                             /* evaluations */ (Flavor::NUM_ALL_ENTITIES * num_frs_in_scalar);
 
         if constexpr (Flavor::HasZK) {
             // Libra adds: concatenation_commitment, grand_sum_commitment, quotient_commitment (3 comms)

@@ -75,9 +75,9 @@ TYPED_TEST(MegaHonkTests, ProofLengthCheck)
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
     UltraProver_<Flavor> prover(prover_instance, verification_key);
     HonkProof mega_proof = prover.construct_proof();
+    const size_t log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : prover_instance->log_dyadic_size();
     EXPECT_EQ(mega_proof.size(),
-              ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(Flavor::VIRTUAL_LOG_N) +
-                  DefaultIO::PUBLIC_INPUTS_SIZE);
+              ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(log_n) + DefaultIO::PUBLIC_INPUTS_SIZE);
 }
 
 /**

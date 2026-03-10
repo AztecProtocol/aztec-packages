@@ -506,10 +506,18 @@ template <typename Flavor> struct MegaZKStructuredProofBase : MegaStructuredProo
     FF libra_grand_sum_eval;
     FF libra_quotient_eval;
 
+    // Committed sumcheck rounds (each round: commitment + eval_0 + eval_1, interleaved in proof)
+    std::vector<Commitment> sumcheck_round_comms;
+    std::vector<FF> sumcheck_round_eval_0s;
+    std::vector<FF> sumcheck_round_eval_1s;
+
     void deserialize(ProofData& proof_data, size_t num_public_inputs, size_t log_n)
     {
         size_t offset = 0;
         this->clear_vectors();
+        sumcheck_round_comms.clear();
+        sumcheck_round_eval_0s.clear();
+        sumcheck_round_eval_1s.clear();
 
         for (size_t i = 0; i < num_public_inputs; ++i) {
             this->public_inputs.push_back(this->template deserialize_from_buffer<FF>(proof_data, offset));
@@ -519,15 +527,17 @@ template <typename Flavor> struct MegaZKStructuredProofBase : MegaStructuredProo
         libra_concatenation_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         libra_sum = this->template deserialize_from_buffer<FF>(proof_data, offset);
 
-        // Sumcheck univariates
+        // Committed sumcheck rounds (comm, eval_0, eval_1 per round)
         for (size_t i = 0; i < log_n; ++i) {
-            this->sumcheck_univariates.push_back(
-                this->template deserialize_from_buffer<bb::Univariate<FF, Base::BATCHED_RELATION_PARTIAL_LENGTH>>(
-                    proof_data, offset));
+            sumcheck_round_comms.push_back(this->template deserialize_from_buffer<Commitment>(proof_data, offset));
+            sumcheck_round_eval_0s.push_back(this->template deserialize_from_buffer<FF>(proof_data, offset));
+            sumcheck_round_eval_1s.push_back(this->template deserialize_from_buffer<FF>(proof_data, offset));
         }
-        libra_claimed_evaluation = this->template deserialize_from_buffer<FF>(proof_data, offset);
+
+        // Sumcheck evaluations
         this->sumcheck_evaluations =
             this->template deserialize_from_buffer<std::array<FF, Base::NUM_ALL_ENTITIES>>(proof_data, offset);
+        libra_claimed_evaluation = this->template deserialize_from_buffer<FF>(proof_data, offset);
         libra_grand_sum_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         libra_quotient_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
 
@@ -559,12 +569,16 @@ template <typename Flavor> struct MegaZKStructuredProofBase : MegaStructuredProo
         Base::serialize_to_buffer(libra_concatenation_commitment, proof_data);
         Base::serialize_to_buffer(libra_sum, proof_data);
 
-        // Sumcheck univariates
+        // Committed sumcheck rounds (comm, eval_0, eval_1 per round)
         for (size_t i = 0; i < log_n; ++i) {
-            Base::serialize_to_buffer(this->sumcheck_univariates[i], proof_data);
+            Base::serialize_to_buffer(sumcheck_round_comms[i], proof_data);
+            Base::serialize_to_buffer(sumcheck_round_eval_0s[i], proof_data);
+            Base::serialize_to_buffer(sumcheck_round_eval_1s[i], proof_data);
         }
-        Base::serialize_to_buffer(libra_claimed_evaluation, proof_data);
+
+        // Sumcheck evaluations
         Base::serialize_to_buffer(this->sumcheck_evaluations, proof_data);
+        Base::serialize_to_buffer(libra_claimed_evaluation, proof_data);
         Base::serialize_to_buffer(libra_grand_sum_commitment, proof_data);
         Base::serialize_to_buffer(libra_quotient_commitment, proof_data);
 

@@ -25,6 +25,14 @@ concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor,
                                     MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                     MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 
+
+
+template <typename T>
+concept UsesCommittedSumcheck = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor, SumcheckTestFlavorGrumpkinZK,
+                                            MegaZKFlavor,
+                                            MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+                                            MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
+
 template <typename T>
 concept HasDataBus = IsMegaFlavor<T>;
 
@@ -58,7 +66,7 @@ concept IsKeccakFlavor = IsAnyOf<T, UltraKeccakFlavor, UltraKeccakZKFlavor>;
 template <typename T>
 concept isMultilinearBatchingFlavor =IsAnyOf<T, MultilinearBatchingFlavor>;
 
-// This concept is relevant for the Sumcheck Prover, where the logic differs between BN254 and Grumpkin
+// Grumpkin-specific flavor concept (e.g. for IPA-based PCS logic). For committed sumcheck dispatch, use UsesCommittedSumcheck.
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor, SumcheckTestFlavorGrumpkinZK>;
 template <typename Container, typename Element>
 inline std::string flavor_get_label(Container&& container, const Element& element) {
