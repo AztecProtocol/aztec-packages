@@ -80,6 +80,28 @@ namespace calldata;
     pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
+    // ==== MULTI-ROW COMPUTATION SELECTORS (variant without start) ====
+    // See recipe: https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#variant-without-start
+
+    pol commit end; // @boolean
+    end * (1 - end) = 0;
+
+    pol LATCH_CONDITION = end + precomputed.first_row;
+
+    // end == 1 ==> sel == 1
+    #[SEL_ON_END]
+    end * (1 - sel) = 0;
+
+    // Note: sel * (1 - LATCH_CONDITION) simplifies to (sel - end) because:
+    //   - end == 1 ==> sel == 1 (by #[SEL_ON_END]), so sel * end = end.
+    //   - sel == 0 on the first row (proving system guarantee), so sel * first_row = 0.
+
+    // sel is continuous within a computation block: it cannot change except at a latch.
+    #[TRACE_CONTINUITY]
+    (1 - LATCH_CONDITION) * (sel - sel') = 0;
+
+    // ==== INPUTS AND OUTPUTS ====
+
     pol commit value;
     pol commit context_id;
 
@@ -94,7 +116,7 @@ namespace calldata;
     //     pol commit start;
     // Adding relations like (see calldata_hashing.pil's):
     //     #[START_AFTER_END]
-    //     sel' * (start' - FIRST_OR_LAST_CALLDATA) = 0;
+    //     sel' * (start' - LATCH_CONDITION) = 0;
     //     #[START_INDEX_IS_ONE]
     //     sel * start * (is_not_empty * (index - 1) + is_empty * index) = 0;
     // If start = 1, #[START_INDEX_IS_ONE] should constrain that index = 1 unless we have empty
@@ -103,27 +125,15 @@ namespace calldata;
     // of one field of value 0, where index = 1.
     pol commit index;
 
-    // Designates end of calldata for that context_id
-    pol commit end; // @boolean
-    end * (1 - end) = 0;
-
-    // end == 1 ==> sel == 1
-    #[SEL_ON_END]
-    end * (1 - sel) = 0;
-
-    pol FIRST_OR_LAST_CALLDATA = precomputed.first_row + end;
-
     // Index increments by 1 each row until end (or first row)
     #[INDEX_INCREMENT]
-    sel * (1 - FIRST_OR_LAST_CALLDATA) * (index' - index - 1) = 0;
+    (sel - end) * (index' - index - 1) = 0;
 
-    // If sel = 0, sel' != 1
-    #[TRACE_CONTINUITY]
-    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+    // ==== COLUMN CONTINUITY ====
 
     // Context id does not change until end
     #[CONTEXT_ID_CONTINUITY]
-    (1 - FIRST_OR_LAST_CALLDATA) * (context_id - context_id') = 0;
+    (1 - LATCH_CONDITION) * (context_id - context_id') = 0;
 
     // ==== CONTEXT ID ORDERING ====
 

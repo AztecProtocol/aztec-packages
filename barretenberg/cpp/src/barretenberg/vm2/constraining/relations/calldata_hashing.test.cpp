@@ -303,9 +303,10 @@ TEST_F(CalldataHashingConstrainingTest, NegativeEndNotSel)
     TestTraceContainer trace(
         { { { C::precomputed_first_row, 1 } }, { { C::calldata_hashing_end, 1 }, { C::calldata_hashing_sel, 1 } } });
 
-    check_relation<calldata_hashing>(trace, calldata_hashing::SR_SEL_ON_END);
+    check_relation<calldata_hashing>(trace, calldata_hashing::SR_SEL_ON_START_OR_END);
     trace.set(C::calldata_hashing_sel, 1, 0); // Mutate to wrong value
-    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_SEL_ON_END), "SEL_ON_END");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<calldata_hashing>(trace, calldata_hashing::SR_SEL_ON_START_OR_END),
+                              "SEL_ON_START_OR_END");
     // Same idea for calldata trace:
     trace.set(1,
               { {

@@ -87,20 +87,37 @@ namespace calldata_hashing;
     pol commit sel; // @boolean
     sel * (1 - sel) = 0;
 
-    // If sel = 0, sel' != 1
-    #[TRACE_CONTINUITY]
-    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+    // ==== MULTI-ROW COMPUTATION SELECTORS ====
+    // See recipe: https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
 
+    pol commit start; // @boolean
+    start * (1 - start) = 0;
     pol commit end; // @boolean
     end * (1 - end) = 0;
 
-    // end == 1 ==> sel == 1
-    #[SEL_ON_END]
-    end * (1 - sel) = 0;
-
-    // Given both end and first_row are boolean and that end cannot be activated at first row
-    // (sel would have to be activated which is impossible on first row), LATCH_CONDITION is boolean.
     pol LATCH_CONDITION = end + precomputed.first_row;
+
+    // If start or end is active, sel must be active.
+    #[SEL_ON_START_OR_END]
+    (start + end) * (1 - sel) = 0;
+
+    // Note: sel * (1 - LATCH_CONDITION) simplifies to (sel - end) because:
+    //   - end == 1 ==> sel == 1 (by #[SEL_ON_START_OR_END]), so sel * end = end.
+    //   - sel == 0 on the first row (proving system guarantee), so sel * first_row = 0.
+
+    // sel is continuous within a computation block: it cannot change except at a latch.
+    #[TRACE_CONTINUITY]
+    (1 - LATCH_CONDITION) * (sel - sel') = 0;
+
+    // A new computation block must start immediately after a latch.
+    #[START_AFTER_LATCH]
+    sel' * (start' - LATCH_CONDITION) = 0;
+
+    // Needs to be a committed column as it is used in the lookup.
+    // sel * (1 - start) simplifies to (sel - start) because start == 1 ==> sel == 1
+    // (by #[SEL_ON_START_OR_END]), so sel * start = start.
+    pol commit sel_not_start; // @boolean (by definition)
+    sel_not_start = sel - start;
 
     // ==== COLUMN CONTINUITY ====
 
@@ -113,20 +130,6 @@ namespace calldata_hashing;
     // Calldata size does not change until end
     #[SIZE_CONSISTENCY]
     (1 - LATCH_CONDITION) * (calldata_size' - calldata_size) = 0;
-
-    // ==== START / INDEX MANAGEMENT ====
-
-    // The start of a new context id and new set of hashing runs:
-    pol commit start; // @boolean
-    start * (1 - start) = 0;
-
-    // Needs to be a committed column as it is used in the lookup:
-    pol commit sel_not_start; // @boolean (by definition)
-    sel_not_start = sel * (1 - start);
-
-    // If the current row is an end or the first row, the next row should be a start (if active):
-    #[START_AFTER_LATCH]
-    sel' * (start' - LATCH_CONDITION) = 0;
 
     // The inputs to the poseidon2 hash. The very first input (index == 0) is the separator,
     // the remaining inputs are calldata fields matching those in calldata.pil.
@@ -149,7 +152,7 @@ namespace calldata_hashing;
 
     // The index increments by 3 each row (unless we are at end):
     #[INDEX_INCREMENTS]
-    sel * (1 - LATCH_CONDITION) * (index[0]' - (index[0] + 3)) = 0;
+    (sel - end) * (index[0]' - (index[0] + 3)) = 0;
 
     // Each index in the array increments (note: ideally we would just use a single index, but
     // we need to use index + 1 and index + 2 in the lookups to calldata.pil):
