@@ -1,3 +1,4 @@
+/* eslint-disable camelcase */
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT, extractOffchainOutput } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
