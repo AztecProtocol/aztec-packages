@@ -169,22 +169,11 @@ export interface IPrivateExecutionOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
   ): Promise<{ endSideEffectCounter: Fr; returnsHash: Fr }>;
-  privateNotifyEnqueuedPublicFunctionCall(
-    targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    sideEffectCounter: number,
-    isStaticCall: boolean,
-  ): Promise<void>;
-  privateNotifySetPublicTeardownFunctionCall(
-    targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    sideEffectCounter: number,
-    isStaticCall: boolean,
-  ): Promise<void>;
-  privateNotifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void>;
-  privateIsSideEffectCounterRevertible(sideEffectCounter: number): Promise<boolean>;
-  privateGetSenderForTags(): Promise<AztecAddress | undefined>;
-  privateSetSenderForTags(senderForTags: AztecAddress): Promise<void>;
-  privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag>;
-  utilityEmitOffchainEffect(data: Fr[]): Promise<void>;
+  validatePublicCalldata(calldataHash: Fr): Promise<void>;
+  notifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void>;
+  inRevertiblePhase(sideEffectCounter: number): Promise<boolean>;
+  getSenderForTags(): Promise<AztecAddress | undefined>;
+  setSenderForTags(senderForTags: AztecAddress): Promise<void>;
+  getNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag>;
+  emitOffchainEffect(data: Fr[]): Promise<void>;
 }
