@@ -68,7 +68,8 @@ def render(group: list) -> str:
             link_color = GREEN
         else:
             link_color = RESET
-        job_links.append(f"{link_color}{hyperlink(BASE_URL + '/' + str(job['timestamp']), job['job_id'])}{RESET}")
+        log_id = job.get('ci_log_id', job['timestamp'])
+        job_links.append(f"{link_color}{hyperlink(BASE_URL + '/' + str(log_id), job['job_id'])}{RESET}")
     links_str = ",".join(job_links)
     date_time = datetime.fromtimestamp(ts // 1000).strftime("%m-%d %H:%M:%S")
 

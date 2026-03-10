@@ -25,8 +25,8 @@ for _, member in ipairs(allMembers) do
   local ok, parsed = pcall(cjson.decode, member)
   if ok then
     if parsed["status"] == "RUNNING" then
-      local ts = parsed["timestamp"]
-      local hb_key = "hb-" .. tostring(ts)
+      local log_id = parsed["ci_log_id"] or parsed["timestamp"]
+      local hb_key = "hb-" .. tostring(log_id)
       if redis.call("EXISTS", hb_key) == 0 then
         parsed["status"] = "INACTIVE"
       end
