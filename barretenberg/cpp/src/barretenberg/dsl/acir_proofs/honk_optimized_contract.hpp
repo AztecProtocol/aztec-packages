@@ -45,10 +45,6 @@ inline std::string generate_memory_offsets(int log_n)
     };
 
     // Data arrays from Python script
-    const std::vector<std::string> vk_fr = { "VK_CIRCUIT_SIZE_LOC",
-                                             "VK_NUM_PUBLIC_INPUTS_LOC",
-                                             "VK_PUB_INPUTS_OFFSET_LOC" };
-
     const std::vector<std::string> vk_g1 = { "Q_M",
                                              "Q_C",
                                              "Q_L",
@@ -157,10 +153,6 @@ inline std::string generate_memory_offsets(int log_n)
 
     // VK INDICIES
     print_header_centered("VK INDICIES");
-    for (const auto& item : vk_fr) {
-        print_fr(pointer, item);
-        pointer += 32;
-    }
     for (const auto& item : vk_g1) {
         print_g1(pointer, item);
         pointer += 64;

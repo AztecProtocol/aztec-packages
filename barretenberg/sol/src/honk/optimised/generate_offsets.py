@@ -2,12 +2,6 @@
 
 ## A mini python script to help generate the locations in memory of the indicies requred to generate a proof
 
-vk_fr = [
-    "VK_CIRCUIT_SIZE_LOC",
-    "VK_NUM_PUBLIC_INPUTS_LOC",
-    "VK_PUB_INPUTS_OFFSET_LOC",
-]
-
 vk_g1 = [
     "Q_M",
     "Q_C",
@@ -169,10 +163,6 @@ def print_g1(pointer: int, name: str):
 
 
 def print_vk(pointer: int):
-    for item in vk_fr:
-        print_fr(pointer, item)
-        pointer += 32
-
     for item in vk_g1:
         print_small_g1(pointer, item)
         pointer += (4*32)
