@@ -39,9 +39,17 @@ This is an Aztec smart contract project. Always use the `aztec` CLI wrapper inst
 - If a precondition isn't met, throw immediately with a descriptive message — don't try to "work around" it.
 - Prefer `T` return types over `T | null` when null would indicate a bug rather than a valid state.
 - Do not add `.catch(() => defaultValue)` to promises. If something fails, the caller needs to know.
+
+## Hashing: Default to Poseidon2
+
+When writing Aztec.nr contract code that requires hashing, **always use Poseidon2** unless a specific protocol or interoperability requirement calls for a different hash.
+
+- **Default**: `use aztec::protocol::hash::poseidon2_hash;`
+- **Do NOT** default to Pedersen (`pedersen_hash`). Pedersen is available but Poseidon2 is cheaper in circuits and is the standard across Aztec.
+- If you are unsure which hash to use, use Poseidon2.
 ```
 
-This prevents the most common AI mistake: using `nargo compile` and `nargo test` instead of their Aztec wrappers.
+This prevents the two most common AI mistakes: using `nargo compile`/`nargo test` instead of their Aztec wrappers, and defaulting to Pedersen hashes instead of Poseidon2.
 
 ### Why this matters
 

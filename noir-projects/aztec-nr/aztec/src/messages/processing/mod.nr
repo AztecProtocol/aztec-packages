@@ -154,6 +154,8 @@ pub unconstrained fn validate_and_store_enqueued_notes_and_events(contract_addre
         contract_address,
         NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
         EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
+        MAX_NOTE_PACKED_LEN as Field,
+        MAX_EVENT_SERIALIZED_LEN as Field,
     );
 }
 

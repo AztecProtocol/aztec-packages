@@ -143,6 +143,9 @@ function live_publish_log {
   wait $sleep_pid
   publish_log
   echo -e "${blue}RUNNING${reset}${log_info:-}: $test_cmd"
+  # Close inherited stdout/stderr so this background process can't hold the outer
+  # pipeline's pipe fds open (which would prevent denoise/redact from seeing EOF).
+  exec >&- 2>&-
   while [ -f $tmp_file ]; do
     local stat=$(stat -c %Y "$tmp_file" || echo 0)
     if [ $(( $(date +%s) - "$stat" )) -le 5 ]; then
