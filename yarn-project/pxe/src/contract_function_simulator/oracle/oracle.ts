@@ -449,47 +449,20 @@ export class Oracle {
     return [[endSideEffectCounter, returnsHash].map(toACVMField)];
   }
 
-  async privateNotifyEnqueuedPublicFunctionCall(
-    [contractAddress]: ACVMField[],
-    [calldataHash]: ACVMField[],
-    [sideEffectCounter]: ACVMField[],
-    [isStaticCall]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().privateNotifyEnqueuedPublicFunctionCall(
-      AztecAddress.fromString(contractAddress),
-      Fr.fromString(calldataHash),
-      Fr.fromString(sideEffectCounter).toNumber(),
-      Fr.fromString(isStaticCall).toBool(),
-    );
+  async privateValidatePublicCalldata([calldataHash]: ACVMField[]): Promise<ACVMField[]> {
+    await this.handlerAsPrivate().privateValidatePublicCalldata(Fr.fromString(calldataHash));
     return [];
   }
 
-  async privateNotifySetPublicTeardownFunctionCall(
-    [contractAddress]: ACVMField[],
-    [calldataHash]: ACVMField[],
-    [sideEffectCounter]: ACVMField[],
-    [isStaticCall]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().privateNotifySetPublicTeardownFunctionCall(
-      AztecAddress.fromString(contractAddress),
-      Fr.fromString(calldataHash),
-      Fr.fromString(sideEffectCounter).toNumber(),
-      Fr.fromString(isStaticCall).toBool(),
-    );
-    return [];
-  }
-
-  async privateNotifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<
-    ACVMField[]
-  > {
-    await this.handlerAsPrivate().privateNotifySetMinRevertibleSideEffectCounter(
+  async privateNotifyRevertiblePhaseStart([minRevertibleSideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
+    await this.handlerAsPrivate().privateNotifyRevertiblePhaseStart(
       Fr.fromString(minRevertibleSideEffectCounter).toNumber(),
     );
     return Promise.resolve([]);
   }
 
-  async privateIsSideEffectCounterRevertible([sideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
-    const isRevertible = await this.handlerAsPrivate().privateIsSideEffectCounterRevertible(
+  async privateInRevertiblePhase([sideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
+    const isRevertible = await this.handlerAsPrivate().privateInRevertiblePhase(
       Fr.fromString(sideEffectCounter).toNumber(),
     );
     return Promise.resolve([toACVMField(isRevertible)]);

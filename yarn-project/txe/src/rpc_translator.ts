@@ -614,31 +614,17 @@ export class RPCTranslator {
     return toForeignCallResult([toArray(authWitness)]);
   }
 
-  public privateNotifyEnqueuedPublicFunctionCall(
-    _foreignTargetContractAddress: ForeignCallSingle,
-    _foreignCalldataHash: ForeignCallSingle,
-    _foreignSideEffectCounter: ForeignCallSingle,
-    _foreignIsStaticCall: ForeignCallSingle,
-  ) {
+  public privateValidatePublicCalldata(_foreignCalldataHash: ForeignCallSingle) {
     throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
-  public privateNotifySetPublicTeardownFunctionCall(
-    _foreignTargetContractAddress: ForeignCallSingle,
-    _foreignCalldataHash: ForeignCallSingle,
-    _foreignSideEffectCounter: ForeignCallSingle,
-    _foreignIsStaticCall: ForeignCallSingle,
-  ) {
+  public privateNotifyRevertiblePhaseStart(_foreignMinRevertibleSideEffectCounter: ForeignCallSingle) {
     throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
-  public privateNotifySetMinRevertibleSideEffectCounter(_foreignMinRevertibleSideEffectCounter: ForeignCallSingle) {
-    throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
-  }
-
-  public async privateIsSideEffectCounterRevertible(foreignSideEffectCounter: ForeignCallSingle) {
+  public async privateInRevertiblePhase(foreignSideEffectCounter: ForeignCallSingle) {
     const sideEffectCounter = fromSingle(foreignSideEffectCounter).toNumber();
-    const isRevertible = await this.handlerAsPrivate().privateIsSideEffectCounterRevertible(sideEffectCounter);
+    const isRevertible = await this.handlerAsPrivate().privateInRevertiblePhase(sideEffectCounter);
     return toForeignCallResult([toSingle(new Fr(isRevertible))]);
   }
 

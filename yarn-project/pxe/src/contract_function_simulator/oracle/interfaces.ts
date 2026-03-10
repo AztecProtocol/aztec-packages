@@ -167,20 +167,9 @@ export interface IPrivateExecutionOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
   ): Promise<{ endSideEffectCounter: Fr; returnsHash: Fr }>;
-  privateNotifyEnqueuedPublicFunctionCall(
-    targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    sideEffectCounter: number,
-    isStaticCall: boolean,
-  ): Promise<void>;
-  privateNotifySetPublicTeardownFunctionCall(
-    targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    sideEffectCounter: number,
-    isStaticCall: boolean,
-  ): Promise<void>;
-  privateNotifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void>;
-  privateIsSideEffectCounterRevertible(sideEffectCounter: number): Promise<boolean>;
+  privateValidatePublicCalldata(calldataHash: Fr): Promise<void>;
+  privateNotifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void>;
+  privateInRevertiblePhase(sideEffectCounter: number): Promise<boolean>;
   privateGetSenderForTags(): Promise<AztecAddress | undefined>;
   privateSetSenderForTags(senderForTags: AztecAddress): Promise<void>;
   privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag>;
