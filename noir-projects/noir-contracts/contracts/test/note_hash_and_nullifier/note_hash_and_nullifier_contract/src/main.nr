@@ -1,4 +1,5 @@
 pub mod test_note;
+mod test;
 
 use aztec::macros::aztec;
 

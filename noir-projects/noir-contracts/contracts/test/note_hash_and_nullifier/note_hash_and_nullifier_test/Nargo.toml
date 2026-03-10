@@ -1,9 +1,0 @@
-[package]
-name = "note_hash_and_nullifier_test"
-authors = [""]
-compiler_version = ">=0.25.0"
-type = "lib"
-
-[dependencies]
-aztec = { path = "../../../../../aztec-nr/aztec" }
-note_hash_and_nullifier_contract = { path = "../note_hash_and_nullifier_contract" }

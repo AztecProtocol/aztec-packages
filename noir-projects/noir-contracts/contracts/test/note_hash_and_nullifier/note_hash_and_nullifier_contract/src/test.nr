@@ -1,6 +1,6 @@
+use crate::{NoteHashAndNullifier, test_note::TestNote};
 use aztec::note::note_interface::{NoteHash, NoteType};
 use aztec::protocol::address::AztecAddress;
-use note_hash_and_nullifier_contract::{NoteHashAndNullifier, test_note::TestNote};
 
 #[test]
 unconstrained fn returns_none_for_bad_note_length() {
