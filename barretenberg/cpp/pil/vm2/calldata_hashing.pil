@@ -236,13 +236,15 @@ namespace calldata_hashing;
         sel_not_padding_2 * index[2] // no padding ==> calldata_size = index[2]
     )) = 0;
 
+    pol commit sel_end_not_empty; // @boolean (by definition)
+    sel_end_not_empty = end * (1 - start * PADDING_1);
+
     // Check that our claimed calldata_size matches the final index given by calldata.pil.
     // Note: we do not need to check the value here, because #[CHECK_FINAL_INDEX] checks that
     // calldata_size is one of the values of index[] looked up above.
-    // For empty calldata, the below permutation matches a special row where calldata.end = 1 and
-    // calldata.index = 0:
+    // For empty calldata, we do not need any entry in calldata.pil.
     #[CHECK_FINAL_SIZE]
-    end { calldata_size, context_id }
+    sel_end_not_empty { calldata_size, context_id }
     is
     calldata.end { calldata.index, calldata.context_id };
 

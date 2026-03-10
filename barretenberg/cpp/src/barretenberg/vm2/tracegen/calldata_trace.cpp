@@ -4,14 +4,11 @@
 #include <cstdint>
 #include <vector>
 
-#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_calldata.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_calldata_hashing.hpp"
 #include "barretenberg/vm2/generated/relations/perms_calldata_hashing.hpp"
-
-using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
 
 namespace bb::avm2::tracegen {
 
@@ -52,24 +49,6 @@ void CalldataTraceBuilder::process_retrieval(
                           // Note that the diff is shifted by 1 to ensure the context_ids are increasing:
                           { C::calldata_diff_context_id,
                             (is_end && !is_last) ? events[j + 1].context_id - context_id - 1 : 0 },
-                      } });
-            row++;
-        }
-
-        // Handle empty calldata:
-        if (calldata.size() == 0) {
-            // To ensure that we indicate a certain context_id has been processed, we include a special row
-            // in the calldata trace. This is the only case where sel = 1 and index = 0. Lookups into this trace
-            // to access values always shift by 1, so should never attempt to access a non-existent value:
-            trace.set(row,
-                      { {
-                          { C::calldata_sel, 1 },
-                          { C::calldata_context_id, context_id },
-                          { C::calldata_value, 0 },
-                          { C::calldata_index, 0 },
-                          { C::calldata_end, 1 },
-                          // Note that the diff is shifted by 1 to ensure the context_ids are increasing:
-                          { C::calldata_diff_context_id, !is_last ? events[j + 1].context_id - context_id - 1 : 0 },
                       } });
             row++;
         }
@@ -131,6 +110,7 @@ void CalldataTraceBuilder::process_hashing(
                           { C::calldata_hashing_sel_not_padding_1, end && (padding_amount == 2) ? 0 : 1 },
                           { C::calldata_hashing_sel_not_padding_2, end && (padding_amount > 0) ? 0 : 1 },
                           { C::calldata_hashing_end, end ? 1 : 0 },
+                          { C::calldata_hashing_sel_end_not_empty, end && !event.calldata.empty() ? 1 : 0 },
                       } });
             index += 3;
             row++;

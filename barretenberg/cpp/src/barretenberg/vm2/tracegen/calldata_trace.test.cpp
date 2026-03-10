@@ -54,6 +54,7 @@ TEST(CalldataTraceGenTest, BasicHashing)
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 1),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 1),
                       ROW_FIELD_EQ(calldata_hashing_end, 0),
+                      ROW_FIELD_EQ(calldata_hashing_sel_end_not_empty, 0),
                       ROW_FIELD_EQ(calldata_hashing_context_id, 1),
                       ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
                       ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
@@ -74,6 +75,7 @@ TEST(CalldataTraceGenTest, BasicHashing)
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 0),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 0),
                       ROW_FIELD_EQ(calldata_hashing_end, 1),
+                      ROW_FIELD_EQ(calldata_hashing_sel_end_not_empty, 1),
                       ROW_FIELD_EQ(calldata_hashing_context_id, 1),
                       ROW_FIELD_EQ(calldata_hashing_index_0_, 3),
                       ROW_FIELD_EQ(calldata_hashing_index_1_, 4),
@@ -143,6 +145,7 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashing)
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 1),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 1),
                       ROW_FIELD_EQ(calldata_hashing_end, 1),
+                      ROW_FIELD_EQ(calldata_hashing_sel_end_not_empty, 1),
                       ROW_FIELD_EQ(calldata_hashing_context_id, 1),
                       ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
                       ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
@@ -162,6 +165,7 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashing)
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 1),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 0),
                       ROW_FIELD_EQ(calldata_hashing_end, 1),
+                      ROW_FIELD_EQ(calldata_hashing_sel_end_not_empty, 1),
                       ROW_FIELD_EQ(calldata_hashing_context_id, 3),
                       ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
                       ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
@@ -194,13 +198,9 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashingEmpty)
 
     // One extra empty row is prepended.
 
-    // Retrieval tracegen should have created the special empty case row:
-    EXPECT_THAT(rows.at(1),
-                AllOf(ROW_FIELD_EQ(calldata_sel, 1),
-                      ROW_FIELD_EQ(calldata_end, 1),
-                      ROW_FIELD_EQ(calldata_context_id, 12),
-                      // This is the only case where the index is 0 and sel is on:
-                      ROW_FIELD_EQ(calldata_index, 0)));
+    // Retrieval tracegen should NOT create a row for empty calldata (no special row needed
+    // since sel_end_not_empty = 0 for empty calldata, so no permutation entry is required).
+    EXPECT_THAT(rows.at(1), AllOf(ROW_FIELD_EQ(calldata_sel, 0), ROW_FIELD_EQ(calldata_end, 0)));
     // Hashing tracegen should set the output hash as H(sep):
     EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(calldata_hashing_sel, 1),
@@ -209,6 +209,7 @@ TEST(CalldataTraceGenTest, BasicRetrievalAndHashingEmpty)
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 0),
                       ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, 0),
                       ROW_FIELD_EQ(calldata_hashing_end, 1),
+                      ROW_FIELD_EQ(calldata_hashing_sel_end_not_empty, 0),
                       ROW_FIELD_EQ(calldata_hashing_context_id, 12),
                       ROW_FIELD_EQ(calldata_hashing_index_0_, 0),
                       ROW_FIELD_EQ(calldata_hashing_index_1_, 1),
@@ -275,6 +276,7 @@ TEST(CalldataTraceGenTest, LongerHash)
                     AllOf(ROW_FIELD_EQ(calldata_hashing_start, expected_index == 0 ? 1 : 0),
                           ROW_FIELD_EQ(calldata_hashing_sel_not_start, expected_index == 0 ? 0 : 1),
                           ROW_FIELD_EQ(calldata_hashing_end, expected_index == 99 ? 1 : 0),
+                          ROW_FIELD_EQ(calldata_hashing_sel_end_not_empty, expected_index == 99 ? 1 : 0),
                           ROW_FIELD_EQ(calldata_hashing_sel_not_padding_1, 1),
                           // The final value is padded:
                           ROW_FIELD_EQ(calldata_hashing_sel_not_padding_2, expected_index == 99 ? 0 : 1)));

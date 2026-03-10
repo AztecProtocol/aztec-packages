@@ -89,6 +89,7 @@ class CalldataHashingConstrainingTestTraceHelper : public CalldataHashingConstra
             events.push_back({
                 .context_id = context_id,
                 .calldata = all_calldata_fields[j],
+                .calldata_hash = hash,
             });
             auto padding_amount = (3 - (calldata_fields.size() % 3)) % 3;
             auto num_rounds = (calldata_fields.size() + padding_amount) / 3;
@@ -113,6 +114,8 @@ class CalldataHashingConstrainingTestTraceHelper : public CalldataHashingConstra
                         { C::calldata_hashing_sel_not_padding_1, (num_rounds == 1) && (padding_amount == 2) ? 0 : 1 },
                         { C::calldata_hashing_sel_not_padding_2, (num_rounds == 1) && (padding_amount > 0) ? 0 : 1 },
                         { C::calldata_hashing_end, (num_rounds == 1) ? 1 : 0 },
+                        { C::calldata_hashing_sel_end_not_empty,
+                          (num_rounds == 1) && calldata_fields.size() > 1 ? 1 : 0 },
                     } });
                 row++;
                 num_rounds--;
@@ -159,6 +162,7 @@ TEST_F(CalldataHashingConstrainingTest, SingleCalldataHashOneRow)
             { C::calldata_hashing_rounds_rem, 1 },
             { C::calldata_hashing_sel, 1 },
             { C::calldata_hashing_start, 1 },
+            { C::calldata_hashing_sel_end_not_empty, 1 },
         },
     });
 
@@ -197,6 +201,7 @@ TEST_F(CalldataHashingConstrainingTest, SingleCalldataHashOneElt)
             { C::calldata_hashing_rounds_rem, 1 },
             { C::calldata_hashing_sel, 1 },
             { C::calldata_hashing_start, 1 },
+            { C::calldata_hashing_sel_end_not_empty, 1 },
         },
     });
 
@@ -628,6 +633,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativeOutputHash)
             { C::calldata_hashing_index_0_, 3 },
             { C::calldata_hashing_rounds_rem, 1 },
             { C::calldata_hashing_sel, 1 },
+            { C::calldata_hashing_sel_end_not_empty, 1 },
         },
     });
 
@@ -738,6 +744,7 @@ TEST_F(CalldataHashingConstrainingTestTraceHelper, NegativePoseidonInteraction)
             { C::calldata_hashing_index_0_, 9 },
             { C::calldata_hashing_rounds_rem, 1 },
             { C::calldata_hashing_sel, 1 },
+            { C::calldata_hashing_sel_end_not_empty, 1 },
         },
     });
 

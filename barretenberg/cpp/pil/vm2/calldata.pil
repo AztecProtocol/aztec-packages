@@ -125,9 +125,10 @@ namespace calldata;
     // of one field of value 0, where index = 1.
     pol commit index;
 
-    // Index increments by 1 each row until end (or first row)
-    #[INDEX_INCREMENT]
-    (sel - end) * (index' - index - 1) = 0;
+    // Index initializes to 1 at the beginning of a computation block/latch.
+    // Index increments by 1 each row until `end == 1`.
+    #[INDEX]
+    index' = (sel - end) * (index + 1) + sel' * LATCH_CONDITION;
 
     // ==== COLUMN CONTINUITY ====
 
