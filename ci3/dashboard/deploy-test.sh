@@ -26,7 +26,7 @@ echo "Using instance: $INSTANCE_ID"
 echo "Packaging dashboard files..."
 STAGING=$(mktemp -d /tmp/rk-test-stage-XXXXXX)
 TARBALL="$STAGING.tar.gz"
-rsync -a --exclude='deploy.sh' --exclude='deploy-test.sh' "$SCRIPT_DIR"/ "$STAGING"/
+rsync -a --exclude='deploy.sh' --exclude='deploy-test.sh' "$SCRIPT_DIR"/ "$STAGING/dashboard/"
 rsync -a "$SCRIPT_DIR/../ci-metrics/" "$STAGING/ci-metrics/"
 tar -czf "$TARBALL" -C "$STAGING" .
 rm -rf "$STAGING"
