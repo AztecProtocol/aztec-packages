@@ -1,7 +1,7 @@
 use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
-    constants::{DOM_SEP__INITIALIZER, DOM_SEP__PUBLIC_INITIALIZER},
+    constants::{DOM_SEP__INITIALIZER, DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER},
     hash::poseidon2_hash_with_separator,
     traits::ToField,
 };
@@ -49,7 +49,7 @@ global EMIT_PUBLIC_INIT_NULLIFIER_SELECTOR: FunctionSelector = comptime {
 /// Emits (only) the public initialization nullifier.
 ///
 /// This function is called by the aztec-nr auto-generated external public contract function (enqueued by private
-///  [`initializer`](crate::macros::functions::initializer) functions), and also by
+/// [`initializer`](crate::macros::functions::initializer) functions), and also by
 /// [`mark_as_initialized_from_public_initializer`] for public initializers.
 pub fn mark_as_initialized_public(context: PublicContext) {
     let init_nullifier = compute_public_init_nullifier(context.this_address());
@@ -90,7 +90,7 @@ pub fn assert_is_initialized_public(context: PublicContext) {
     let init_nullifier = compute_public_init_nullifier(context.this_address());
     // Safety: the public init nullifier is only ever emitted by public functions, and so the timing concerns from
     // nullifier_exists_unsafe do not apply. Additionally, it is emitted after all initializer functions have run,
-    // so initialization is guaranteed to be complete by the time it exists.'
+    // so initialization is guaranteed to be complete by the time it exists.
     assert(context.nullifier_exists_unsafe(init_nullifier, context.this_address()), "Not initialized");
 }
 
@@ -110,7 +110,10 @@ fn compute_private_init_nullifier(address: AztecAddress) -> Field {
 }
 
 fn compute_public_init_nullifier(address: AztecAddress) -> Field {
-    poseidon2_hash_with_separator([address.to_field()], DOM_SEP__PUBLIC_INITIALIZER)
+    poseidon2_hash_with_separator(
+        [address.to_field()],
+        DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER,
+    )
 }
 
 // Used by `create_assert_correct_initializer_args` (you won't find it through searching)
