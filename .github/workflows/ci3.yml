@@ -60,10 +60,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # Fetch PR commits depth (we'll deepen by 1 in squash script if needed)
           fetch-depth: ${{ github.event.pull_request.commits || 1 }}
-          persist-credentials: true   # Required for bootstrap_ssm's git fetch
+          persist-credentials: true   # Required for bootstrap_ec2's git fetch
 
       - name: Configure AWS credentials (OIDC)
-        if: vars.CI_USE_SSH != '1' || contains(github.event.pull_request.labels.*.name, 'ci-ssm')
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
@@ -81,9 +80,6 @@ jobs:
       - name: Run
         env:
           CI_USE_SSH: ${{ (vars.CI_USE_SSH == '1' && !contains(github.event.pull_request.labels.*.name, 'ci-ssm')) && '1' || '0' }}
-          # Only override AWS creds for SSH mode; omit for SSM so OIDC credentials pass through.
-          AWS_ACCESS_KEY_ID: ${{ (vars.CI_USE_SSH == '1' && !contains(github.event.pull_request.labels.*.name, 'ci-ssm')) && secrets.AWS_ACCESS_KEY_ID || env.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ (vars.CI_USE_SSH == '1' && !contains(github.event.pull_request.labels.*.name, 'ci-ssm')) && secrets.AWS_SECRET_ACCESS_KEY || env.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
