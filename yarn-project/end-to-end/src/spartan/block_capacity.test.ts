@@ -360,10 +360,10 @@ describe('block capacity benchmark', () => {
       const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
       // Deploy BenchmarkingContract using the first wallet
       logger.info('Deploying benchmark contract...');
-      benchmarkContract = await BenchmarkingContract.deploy(wallets[0]).send({
+      ({ contract: benchmarkContract } = await BenchmarkingContract.deploy(wallets[0]).send({
         from: accountAddresses[0],
         fee: { paymentMethod: sponsor },
-      });
+      }));
       logger.info('BenchmarkingContract deployed', { address: benchmarkContract.address.toString() });
 
       // Register benchmark contract with all other wallets
@@ -392,11 +392,17 @@ describe('block capacity benchmark', () => {
       const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
       // Deploy TokenContract using the first wallet
       logger.info('Deploying token contract...');
-      tokenContract = await TokenContract.deploy(wallets[0], accountAddresses[0], 'USDC', 'USD', 18n).send({
+      ({ contract: tokenContract } = await TokenContract.deploy(
+        wallets[0],
+        accountAddresses[0],
+        'USDC',
+        'USD',
+        18n,
+      ).send({
         from: accountAddresses[0],
         fee: { paymentMethod: sponsor },
         wait: { timeout: 600 },
-      });
+      }));
       logger.info('TokenContract deployed', { address: tokenContract.address.toString() });
 
       // Register token contract with all other wallets
@@ -411,7 +417,7 @@ describe('block capacity benchmark', () => {
       logger.info(`Minting 1e18 tokens to each account...`);
       const mintTxHashes = [];
       for (const acc of accountAddresses) {
-        const txHash = await TokenContract.at(tokenContract.address, wallets[0])
+        const { txHash } = await TokenContract.at(tokenContract.address, wallets[0])
           .methods.mint_to_public(acc, 10n ** 18n)
           .send({ from: accountAddresses[0], fee: { paymentMethod: sponsor }, wait: NO_WAIT });
         mintTxHashes.push(txHash);

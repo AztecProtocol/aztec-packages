@@ -2180,10 +2180,51 @@ describe('TxPoolV2', () => {
       expect(await poolWithValidator.getPendingTxCount()).toBe(1);
     });
 
-    it('startup rejects tx with disallowed setup calls after reloading from store', async () => {
-      // First, create a pool that allows setup calls and add a pending tx
-      const sharedStore = await openTmpStore('p2p-reload');
-      const sharedArchiveStore = await openTmpStore('archive-reload');
+    it('prepareForSlot handles mixed allowed/disallowed setup calls on unprotect', async () => {
+      // Create a pool where checkAllowedSetupCalls returns false for specific txs
+      const mixedStore = await openTmpStore('p2p-mixed');
+      const mixedArchiveStore = await openTmpStore('archive-mixed');
+
+      const txAllowed = await mockTx(1);
+      const txDisallowed = await mockTx(2);
+      const txAlsoAllowed = await mockTx(3);
+      const disallowedHash = txDisallowed.getTxHash().toString();
+
+      const setupValidator = new AggregateTxValidator(mockValidator, new AllowedSetupCallsMetaValidator<TxMetaData>());
+      const mixedPool = new AztecKVTxPoolV2(mixedStore, mixedArchiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        createTxValidator: () => Promise.resolve(setupValidator),
+        // Only disallow setup calls for the second tx
+        checkAllowedSetupCalls: async tx => tx.getTxHash().toString() !== disallowedHash,
+      });
+      await mixedPool.start();
+
+      // Add all as protected
+      await mixedPool.addProtectedTxs([txAllowed, txDisallowed, txAlsoAllowed], slot1Header);
+      expect(await mixedPool.getTxStatus(txAllowed.getTxHash())).toBe('protected');
+      expect(await mixedPool.getTxStatus(txDisallowed.getTxHash())).toBe('protected');
+      expect(await mixedPool.getTxStatus(txAlsoAllowed.getTxHash())).toBe('protected');
+
+      // Unprotect all - only txDisallowed should be deleted
+      await mixedPool.prepareForSlot(SlotNumber(2));
+
+      expect(await mixedPool.getTxStatus(txAllowed.getTxHash())).toBe('pending');
+      expect(await mixedPool.getTxStatus(txDisallowed.getTxHash())).toBe('deleted');
+      expect(await mixedPool.getTxStatus(txAlsoAllowed.getTxHash())).toBe('pending');
+      expect(await mixedPool.getPendingTxCount()).toBe(2);
+
+      await mixedPool.stop();
+      await mixedStore.delete();
+      await mixedArchiveStore.delete();
+    });
+
+    it('handlePrunedBlocks deletes tx with disallowed setup calls after reload and un-mining', async () => {
+      db.findLeafIndices.mockResolvedValue([1n]); // Anchor block valid
+
+      // Step 1: Start a pool that allows setup calls, add and mine a tx
+      const sharedStore = await openTmpStore('p2p-disallow-prune');
+      const sharedArchiveStore = await openTmpStore('archive-disallow-prune');
       const pool1 = new AztecKVTxPoolV2(sharedStore, sharedArchiveStore, {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
@@ -2194,11 +2235,12 @@ describe('TxPoolV2', () => {
 
       const tx = await mockTx(1);
       await pool1.addPendingTxs([tx]);
-      expect(await pool1.getPendingTxCount()).toBe(1);
+      await pool1.handleMinedBlock(makeBlock([tx], slot1Header));
+      expect(await pool1.getTxStatus(tx.getTxHash())).toBe('mined');
       await pool1.stop();
 
-      // Restart the pool with checkAllowedSetupCalls returning false.
-      // On reload, the tx gets allowedSetupCalls=false and revalidation rejects it.
+      // Step 2: Restart pool with checkAllowedSetupCalls returning false.
+      // On reload, tx gets allowedSetupCalls=false in metadata.
       const setupValidator = new AggregateTxValidator(mockValidator, new AllowedSetupCallsMetaValidator<TxMetaData>());
       const pool2 = new AztecKVTxPoolV2(sharedStore, sharedArchiveStore, {
         l2BlockSource: mockL2BlockSource,
@@ -2206,15 +2248,52 @@ describe('TxPoolV2', () => {
         createTxValidator: () => Promise.resolve(setupValidator),
         checkAllowedSetupCalls: () => Promise.resolve(false),
       });
+      // Mock getTxEffect to return the mined tx so it stays mined on reload
+      mockL2BlockSource.getTxEffect.mockResolvedValue({
+        txEffect: TxEffect.empty(),
+        l2BlockNumber: 1,
+        l2BlockHash: '0x1',
+      } as any);
       await pool2.start();
+      expect(await pool2.getTxStatus(tx.getTxHash())).toBe('mined');
 
+      // Restore original mock
+      mockL2BlockSource.getTxEffect.mockResolvedValue(undefined);
+
+      // Step 3: Prune - tx gets un-mined and revalidated.
+      // AllowedSetupCallsMetaValidator rejects it since allowedSetupCalls=false.
+      await pool2.handlePrunedBlocks(block0Id);
+
+      expect(await pool2.getTxStatus(tx.getTxHash())).toBe('deleted');
       expect(await pool2.getPendingTxCount()).toBe(0);
-      // Tx was never mined, so it gets hard-deleted (no soft-delete tracking)
-      expect(await pool2.getTxStatus(tx.getTxHash())).toBeUndefined();
 
       await pool2.stop();
       await sharedStore.delete();
       await sharedArchiveStore.delete();
+    });
+
+    it('pending tx via addPendingTxs has allowedSetupCalls=true regardless of checkAllowedSetupCalls', async () => {
+      // Create a pool where checkAllowedSetupCalls always returns false
+      const disallowStore = await openTmpStore('p2p-disallow-pending');
+      const disallowArchiveStore = await openTmpStore('archive-disallow-pending');
+      const disallowPool = new AztecKVTxPoolV2(disallowStore, disallowArchiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        createTxValidator: () => Promise.resolve(mockValidator),
+        checkAllowedSetupCalls: () => Promise.resolve(false),
+      });
+      await disallowPool.start();
+
+      const tx = await mockTx(1);
+
+      // Add via addPendingTxs - this does NOT call checkAllowedSetupCalls,
+      // so allowedSetupCalls defaults to true
+      await disallowPool.addPendingTxs([tx]);
+      expect(disallowPool.getPoolReadAccess().getMetadata(tx.getTxHash().toString())?.allowedSetupCalls).toBe(true);
+
+      await disallowPool.stop();
+      await disallowStore.delete();
+      await disallowArchiveStore.delete();
     });
 
     it('validation runs before nullifier conflict check in prepareForSlot', async () => {
@@ -4793,6 +4872,44 @@ describe('TxPoolV2', () => {
         const pending = toStrings(await pool2.getPendingTxHashes());
         expect(pending).toContain(hashOf(txProtectedHighPriority));
         expect(pending).not.toContain(hashOf(txPendingLowPriority));
+
+        await pool2.stop();
+      } finally {
+        await testStore.delete();
+        await testArchiveStore.delete();
+      }
+    });
+
+    it('hydration recomputes allowedSetupCalls from checkAllowedSetupCalls', async () => {
+      const testStore = await openTmpStore('p2p-hydration-setup-test');
+      const testArchiveStore = await openTmpStore('archive-hydration-setup-test');
+
+      try {
+        // Add a tx with allowedSetupCalls=true (default for addPendingTxs)
+        const pool1 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
+        });
+        await pool1.start();
+
+        const tx = await mockTx(1);
+        await pool1.addPendingTxs([tx]);
+        const txHashStr = tx.getTxHash().toString();
+        expect(pool1.getPoolReadAccess().getMetadata(txHashStr)?.allowedSetupCalls).toBe(true);
+        await pool1.stop();
+
+        // Restart with checkAllowedSetupCalls returning false — metadata should reflect it
+        const pool2 = new AztecKVTxPoolV2(testStore, testArchiveStore, {
+          l2BlockSource: mockL2BlockSource,
+          worldStateSynchronizer: mockWorldState,
+          createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(false),
+        });
+        await pool2.start();
+
+        expect(pool2.getPoolReadAccess().getMetadata(txHashStr)?.allowedSetupCalls).toBe(false);
 
         await pool2.stop();
       } finally {
