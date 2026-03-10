@@ -16,8 +16,7 @@ export CI_LOG_ID=${CI_LOG_ID:-$(date +%s%3N)}
 dashboard_url="http://ci.aztec-labs.com/section/${CI_DASHBOARD:?CI_DASHBOARD must be set}"
 log_url="http://ci.aztec-labs.com/$CI_LOG_ID"
 echo "CI dashboard: $dashboard_url"
-echo "CI log: $log_url"
-
+echo -e "CI Log: ${yellow}$log_url${reset}"
 # We're always "in CI" if we're running on a remote instance.
 export CI=1
 
@@ -98,12 +97,15 @@ host_script=$(
   cat <<EOF
 set -euo pipefail
 
+echo "HOST: fetching EC2 metadata token..."
 aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
+echo "HOST: metadata token acquired."
 
 GOOGLE_APPLICATION_CREDENTIALS=\${GOOGLE_APPLICATION_CREDENTIALS:-/tmp/gcp-key.json}
 NETWORK_ENV_FILE=\${NETWORK_ENV_FILE:-/tmp/network.env}
 
 # Decode GCP service account key if provided (base64-encoded by the caller).
+echo "HOST: decoding credentials..."
 if [ -n "${GCP_SA_KEY_B64:-}" ]; then
   echo "${GCP_SA_KEY_B64:-}" | base64 -d > "\${GOOGLE_APPLICATION_CREDENTIALS}"
 fi
@@ -114,7 +116,7 @@ if [ -n "${NETWORK_ENV_FILE_B64:-}" ]; then
 fi
 
 start_build() {
-  echo "Starting devbox via SSM..."
+  echo "HOST: preparing devbox (uid/gid, docker run)..."
   local_uid=\$(id -u)
   local_gid=\$(id -g)
 
@@ -237,9 +239,10 @@ INNER
     )")
 }
 
-echo "Starting build via SSM..."
+echo "HOST: starting devbox container..."
 start_build &
 build_pid=\$!
+echo "HOST: devbox container launched (pid=\$build_pid). Monitoring for spot termination..."
 
 # While the docker container is running, check for spot termination notices.
 while kill -0 \$build_pid &>/dev/null; do
