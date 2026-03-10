@@ -36,7 +36,7 @@ describe('e2e_offchain_payment', () => {
     ({ contract } = await OffchainPaymentContract.deploy(wallet).send({ from: accounts[0] }));
   });
 
-  const forceEmptyBlock = async () => {
+  async function forceEmptyBlock() {
     const blockBefore = await aztecNode.getBlockNumber();
     logger.info(`Forcing empty block. Current L2 block: ${blockBefore}`);
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
@@ -51,7 +51,27 @@ describe('e2e_offchain_payment', () => {
       1,
     );
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
-  };
+  }
+
+  async function forceReorg(block: BlockNumber) {
+    await retryUntil(
+      async () => {
+        const tips = await aztecNode.getL2Tips();
+        return tips.checkpointed.block.number >= block;
+      },
+      'checkpointed block',
+      30,
+      1,
+    );
+
+    await aztecNodeAdmin.pauseSync();
+
+    await cheatCodes.eth.reorg(1);
+    await aztecNodeAdmin.rollbackTo(Number(block) - 1);
+    expect(await aztecNode.getBlockNumber()).toBe(Number(block) - 1);
+
+    await aztecNodeAdmin.resumeSync();
+  }
 
   it('processes an offchain-delivered private payment via QR-style handoff', async () => {
     const [alice, bob] = accounts;
@@ -82,7 +102,7 @@ describe('e2e_offchain_payment', () => {
       ])
       .simulate({ from: bob });
 
-    // Force an empty block so the PXE re-syncs and discovers the offchain-delivered note.
+    // Force an empty block so the PXE re-syncs and discovers the offchain-delivered notes.
     await forceEmptyBlock();
 
     const { result: bobBalance } = await contract.methods.get_balance(bob).simulate({ from: bob });
@@ -91,9 +111,10 @@ describe('e2e_offchain_payment', () => {
 
   it('reprocesses an offchain-delivered payment after an L1 reorg', async () => {
     const [alice, bob] = accounts;
+    const mintAmount = 100n;
     const paymentAmount = 40n;
 
-    await contract.methods.mint(100n, alice).send({ from: alice });
+    await contract.methods.mint(mintAmount, alice).send({ from: alice });
 
     const provenTx = await proveInteraction(wallet, contract.methods.transfer_offchain(paymentAmount, bob), {
       from: alice,
@@ -133,24 +154,7 @@ describe('e2e_offchain_payment', () => {
     const { result: bobBalance } = await contract.methods.get_balance(bob).simulate({ from: bob });
     expect(bobBalance).toBe(paymentAmount);
 
-    // Force a re-org
-    await retryUntil(
-      async () => {
-        const tips = await aztecNode.getL2Tips();
-        return tips.checkpointed.block.number >= txBlockNumber;
-      },
-      'checkpointed block',
-      30,
-      1,
-    );
-
-    await aztecNodeAdmin.pauseSync();
-
-    await cheatCodes.eth.reorg(1);
-    await aztecNodeAdmin.rollbackTo(Number(txBlockNumber) - 1);
-    expect(await aztecNode.getBlockNumber()).toBe(Number(txBlockNumber) - 1);
-
-    await aztecNodeAdmin.resumeSync();
+    await forceReorg(txBlockNumber);
 
     // Verify that the payment TX is no longer present after the reorg
     const txEffectAfterRollback = await aztecNode.getTxEffect(txHash);
