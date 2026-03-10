@@ -6,7 +6,7 @@ import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/constants.js';
 
 /** Internal representation of a pending index range entry. */
-type PendingEntry = { lowestIndex: number; highestIndex: number; txHash: string };
+type PendingIndexesEntry = { lowestIndex: number; highestIndex: number; txHash: string };
 
 /**
  * Data provider of tagging data used when syncing the sender tagging indexes. The recipient counterpart of this class
