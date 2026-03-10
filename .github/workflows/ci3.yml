@@ -63,12 +63,11 @@ jobs:
           persist-credentials: true   # Required for bootstrap_ssm's git fetch
 
       - name: Configure AWS credentials (OIDC)
-        if: vars.CI_USE_SSH != '1' || contains(github.event.pull_request.labels.*.name, 'ci-ssm')
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: us-east-2
-          role-session-name: ci3-${{ github.run_id }}
+          role-session-name: gha-${{ github.run_id }}
 
       - name: Determine CI Mode
         env:
@@ -81,9 +80,6 @@ jobs:
       - name: Run
         env:
           CI_USE_SSH: ${{ (vars.CI_USE_SSH == '1' && !contains(github.event.pull_request.labels.*.name, 'ci-ssm')) && '1' || '0' }}
-          # Only override AWS creds for SSH mode; omit for SSM so OIDC credentials pass through.
-          AWS_ACCESS_KEY_ID: ${{ (vars.CI_USE_SSH == '1' && !contains(github.event.pull_request.labels.*.name, 'ci-ssm')) && secrets.AWS_ACCESS_KEY_ID || env.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ (vars.CI_USE_SSH == '1' && !contains(github.event.pull_request.labels.*.name, 'ci-ssm')) && secrets.AWS_SECRET_ACCESS_KEY || env.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
@@ -190,11 +186,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: us-east-2
-          role-session-name: ci3-network-scenario-${{ github.run_id }}
+          role-session-name: gha-${{ github.run_id }}
+          role-duration-seconds: 22800 # 6h20m — covers 350min step timeout + buffer
 
       - name: Run Network Scenarios
         timeout-minutes: 350
@@ -283,6 +280,9 @@ jobs:
   ci-network-bench:
     name: ${{ matrix.bench_type }}
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -312,11 +312,17 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+          role-session-name: gha-${{ github.run_id }}
+          role-duration-seconds: 19800 # 5h30m — covers 300min max matrix timeout + buffer
+
       - name: Run Network Benchmarks
         timeout-minutes: ${{ matrix.timeout }}
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
@@ -337,8 +343,6 @@ jobs:
       - name: Cleanup network resources
         if: always()
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
@@ -348,9 +352,6 @@ jobs:
 
       - name: Download benchmarks
         if: always()
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           if ./ci.sh ${{ matrix.download_cmd }}; then
             echo "ENABLE_DEPLOY_BENCH=1" >> $GITHUB_ENV
@@ -395,11 +396,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: us-east-2
-          role-session-name: ci3-network-kind-${{ github.run_id }}
+          role-session-name: gha-${{ github.run_id }}
+          role-duration-seconds: 12600 # 3h30m — covers 180min job timeout + buffer
 
       - name: Run KIND Test
         env:

@@ -18,6 +18,11 @@ concurrency:
   group: deploy-staging-networks-${{ (github.event_name == 'workflow_run' && github.event.workflow_run.head_sha) || (github.event_name == 'workflow_dispatch' && inputs.semver) || github.sha }}
   cancel-in-progress: true
 
+# Required so called workflows (deploy-network, deploy-fisherman-network) can request OIDC tokens for AWS.
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   determine-semver:
     if: |

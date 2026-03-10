@@ -29,6 +29,9 @@ on:
 jobs:
   deploy-rollup:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     env:
       GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
     steps:
@@ -47,10 +50,15 @@ jobs:
           printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
           jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
 
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+          role-session-name: gha-${{ github.run_id }}
+
       - name: Deploy rollup upgrade via EC2
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
