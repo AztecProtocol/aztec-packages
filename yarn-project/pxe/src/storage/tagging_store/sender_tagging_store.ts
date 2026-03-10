@@ -314,18 +314,10 @@ export class SenderTaggingStore implements StagedStore {
     });
   }
 
-  /**
-   * Prefetches all pending and finalized index data for every secret (from both DB and staged writes),
-   * then invokes the provided callback for each secret that has pending data. Runs within a DB transaction.
-   */
-  #forEachSecretWithPendingData(
+  /** Prefetches all pending and finalized index data for every secret (from both DB and staged writes). */
+  #getSecretsWithPendingData(
     jobId: string,
-    callback: (ctx: {
-      secret: string;
-      pendingData: PendingIndexesEntry[];
-      lastFinalized: number | undefined;
-    }) => Promise<void> | void,
-  ): Promise<void> {
+  ): Promise<{ secret: string; pendingData: PendingIndexesEntry[]; lastFinalized: number | undefined }[]> {
     return this.#store.transactionAsync(async () => {
       // Prefetch all data, start reads during iteration to keep IndexedDB transaction alive
       const secretDataPromises: Map<
@@ -360,12 +352,7 @@ export class SenderTaggingStore implements StagedStore {
         })),
       );
 
-      for (const result of dataResults) {
-        if (!result.pendingData || result.pendingData.length === 0) {
-          continue;
-        }
-        await callback(result);
-      }
+      return dataResults.filter(r => r.pendingData.length > 0);
     });
   }
 
@@ -373,14 +360,15 @@ export class SenderTaggingStore implements StagedStore {
    * Updates pending indexes corresponding to the given transaction hashes to be finalized and prunes any lower pending
    * indexes.
    */
-  finalizePendingIndexes(txHashes: TxHash[], jobId: string): Promise<void> {
+  async finalizePendingIndexes(txHashes: TxHash[], jobId: string): Promise<void> {
     if (txHashes.length === 0) {
-      return Promise.resolve();
+      return;
     }
 
     const txHashStrings = new Set(txHashes.map(tx => tx.toString()));
+    const secretsWithData = await this.#getSecretsWithPendingData(jobId);
 
-    return this.#forEachSecretWithPendingData(jobId, ({ secret, pendingData, lastFinalized }) => {
+    for (const { secret, pendingData, lastFinalized } of secretsWithData) {
       let currentPending = pendingData;
       let currentFinalized = lastFinalized;
 
@@ -425,7 +413,7 @@ export class SenderTaggingStore implements StagedStore {
       if (currentPending !== pendingData) {
         this.#writePendingIndexes(jobId, secret, currentPending);
       }
-    });
+    }
   }
 
   /**
@@ -436,18 +424,20 @@ export class SenderTaggingStore implements StagedStore {
    * @param txEffect - The tx effect of the partially reverted transaction.
    * @param jobId - job context for staged writes to this store. See `JobCoordinator` for more details.
    */
-  finalizePendingIndexesOfAPartiallyRevertedTx(txEffect: TxEffect, jobId: string): Promise<void> {
+  async finalizePendingIndexesOfAPartiallyRevertedTx(txEffect: TxEffect, jobId: string): Promise<void> {
     const txHashStr = txEffect.txHash.toString();
 
     // Build a set of all siloed tag values that made it onchain (first field of each private log).
     const onChainTags = new Set<string>(txEffect.privateLogs.map(log => log.fields[0].toString()));
 
-    return this.#forEachSecretWithPendingData(jobId, async ({ secret, pendingData, lastFinalized }) => {
+    const secretsWithData = await this.#getSecretsWithPendingData(jobId);
+
+    for (const { secret, pendingData, lastFinalized } of secretsWithData) {
       const matchingEntries = pendingData.filter(item => item.txHash === txHashStr);
       if (matchingEntries.length === 0) {
         // This is expected as a higher index might have already been finalized which would lead to pruning of
         // pending entries.
-        return;
+        continue;
       }
 
       if (matchingEntries.length > 1) {
@@ -481,6 +471,6 @@ export class SenderTaggingStore implements StagedStore {
       }
 
       this.#writePendingIndexes(jobId, secret, currentPending);
-    });
+    }
   }
 }
