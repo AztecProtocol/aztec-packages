@@ -82,29 +82,14 @@ EOF
             echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
           fi
 
-      - name: Notify Slack and dispatch ClaudeBox
+      - name: Notify Slack
         if: steps.merge.outputs.conflict == 'true'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           PR_URL="${{ steps.conflict-pr.outputs.pr_url }}"
-          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-          TEXT=$(printf '⚠️ Auto-merge v4 → v4-next failed due to conflicts. <%s|View PR>. Dispatching ClaudeBox…' "$PR_URL")
-          RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
+          TEXT=$(printf '⚠️ Auto-merge v4 → v4-next failed due to conflicts. <%s|View PR>. @Claudebox' "$PR_URL")
+          curl -sS -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-type: application/json" \
-            -d "$(jq -n --arg c "#backports" --arg t "$TEXT" '{channel:$c, text:$t}')")
-          echo "Slack response: $RESP"
-          TS=$(echo "$RESP" | jq -r '.ts // empty')
-          CHANNEL_ID=$(echo "$RESP" | jq -r '.channel // empty')
-
-          LINK=""
-          if [[ -n "$TS" && -n "$CHANNEL_ID" ]]; then
-            LINK="https://aztecprotocol.slack.com/archives/$CHANNEL_ID/p${TS//./}"
-          fi
-
-          gh workflow run claudebox.yml \
-            -f prompt="Merge v4 into v4-next. The automatic merge failed due to conflicts. Resolve the conflicts on the sync branch and push. PR: $PR_URL" \
-            -f link="${LINK:-$PR_URL}"
+            -d "$(jq -n --arg c "#backports" --arg t "$TEXT" '{channel:$c, text:$t}')"
