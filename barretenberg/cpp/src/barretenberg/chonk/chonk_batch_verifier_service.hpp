@@ -6,14 +6,15 @@
  *
  * Three-class architecture:
  * - UntrustedVerifierPool: dedicated threadpool for individual untrusted proof verification
- * - BatchTurnProcessor: turn-based trusted batch verification with cross-turn bisection
+ * - IPABatchProcessor: 3-phase trusted batch verification pipeline
  * - ChonkBatchVerifierService: routes requests, owns FIFO writer, lifecycle management
  *
- * ## Trusted Verification (BatchTurnProcessor)
+ * ## Trusted Verification (IPABatchProcessor)
  *
- * Proofs are accumulated until batch_size, then verified as a batch using batched IPA.
- * If a batch fails, it's split in half and both halves are re-queued for the next turn.
- * This continues until individual bad proofs are isolated (O(log N) re-verifications).
+ * 3-phase pipeline optimized for minimum latency:
+ * 1. Parallel reduce: Run reduce_to_ipa_claim for each proof on sumcheck worker threads.
+ * 2. Batch IPA verify: Batch-verify all IPA claims via single MSM on dedicated IPA cores.
+ * 3. Emit / bisect: If IPA passes, emit OK. If IPA fails, bisect using cached claims.
  *
  * ## Untrusted Verification (UntrustedVerifierPool)
  *
@@ -32,8 +33,8 @@
  * Each message is [4-byte big-endian length][msgpack payload].
  */
 
-#include "batch_turn_processor.hpp"
 #include "batch_verifier_types.hpp"
+#include "ipa_batch_processor.hpp"
 #include "untrusted_verifier_pool.hpp"
 
 #include <atomic>
@@ -68,7 +69,7 @@ class ChonkBatchVerifierService {
     void emit_result(VerifyResult result);
     void writer_loop();
 
-    BatchTurnProcessor trusted_processor_;
+    IPABatchProcessor trusted_processor_;
     UntrustedVerifierPool untrusted_pool_;
 
     // Result queue (fed by both processors via emit_result callback)

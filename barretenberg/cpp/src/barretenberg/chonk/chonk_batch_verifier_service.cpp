@@ -29,7 +29,8 @@ void ChonkBatchVerifierService::start(std::vector<std::shared_ptr<MegaZKFlavor::
     auto on_result = [this](VerifyResult result) { emit_result(std::move(result)); };
 
     // Start both processors
-    trusted_processor_.start(vks, config.num_trusted_cores, config.trusted_batch_size, on_result);
+    trusted_processor_.start(
+        vks, config.num_ipa_cores, config.num_sumcheck_cores, config.trusted_batch_size, on_result);
     untrusted_pool_.start(std::move(vks), config.num_untrusted_cores, on_result);
 
     info("ChonkBatchVerifierService started");

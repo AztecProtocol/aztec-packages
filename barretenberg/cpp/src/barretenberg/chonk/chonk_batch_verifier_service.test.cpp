@@ -4,23 +4,27 @@
  * @brief Tests for the 3-class batch verification architecture with real Chonk proofs.
  *
  * Tests cover:
- * - BatchTurnProcessor: turn-based batch verification with bisection
+ * - IPABatchProcessor: 3-phase pipeline (parallel reduce → batch IPA → emit/bisect)
  * - UntrustedVerifierPool: individual proof verification on dedicated threads
  * - ChonkBatchVerifierService: full service with FIFO streaming
  * - Corruption scenarios: IPA-corrupted and sumcheck-corrupted proofs
  */
 
 #include "chonk_batch_verifier_service.hpp"
-#include "batch_turn_processor.hpp"
 #include "batch_verifier_types.hpp"
+#include "ipa_batch_processor.hpp"
 #include "untrusted_verifier_pool.hpp"
 
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/common/test.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 
+#include <fcntl.h>
 #include <filesystem>
 #include <future>
+#include <sys/stat.h>
+#include <unistd.h>
 
 using namespace bb;
 
@@ -108,7 +112,7 @@ class ChonkBatchVerifierServiceTests : public ::testing::Test {
     };
 };
 
-// --- BatchTurnProcessor Tests ---
+// --- IPABatchProcessor Tests ---
 
 TEST_F(ChonkBatchVerifierServiceTests, TrustedBatchAllValid)
 {
@@ -116,8 +120,8 @@ TEST_F(ChonkBatchVerifierServiceTests, TrustedBatchAllValid)
     std::vector<std::shared_ptr<MegaZKFlavor::VKAndHash>> vks = { vk };
 
     ResultCollector collector;
-    BatchTurnProcessor processor;
-    processor.start(vks, /*num_cores=*/2, /*batch_size=*/2, collector.callback());
+    IPABatchProcessor processor;
+    processor.start(vks, /*num_ipa_cores=*/2, /*num_sumcheck_cores=*/2, /*batch_size=*/2, collector.callback());
 
     // Queue 2 copies of the valid proof
     processor.enqueue(VerifyRequest{ .request_id = 1, .proof = proof, .vk_index = 0 });
@@ -142,9 +146,9 @@ TEST_F(ChonkBatchVerifierServiceTests, TrustedBatchWithIPACorruption)
     std::vector<std::shared_ptr<MegaZKFlavor::VKAndHash>> vks = { vk };
 
     ResultCollector collector;
-    BatchTurnProcessor processor;
+    IPABatchProcessor processor;
     // batch_size=2 so both go in same batch, then bisection identifies the bad one
-    processor.start(vks, /*num_cores=*/2, /*batch_size=*/2, collector.callback());
+    processor.start(vks, /*num_ipa_cores=*/2, /*num_sumcheck_cores=*/2, /*batch_size=*/2, collector.callback());
 
     processor.enqueue(VerifyRequest{ .request_id = 1, .proof = proof, .vk_index = 0 });
     processor.enqueue(VerifyRequest{ .request_id = 2, .proof = bad_proof, .vk_index = 0 });
@@ -173,8 +177,8 @@ TEST_F(ChonkBatchVerifierServiceTests, TrustedBatchWithSumcheckCorruption)
     std::vector<std::shared_ptr<MegaZKFlavor::VKAndHash>> vks = { vk };
 
     ResultCollector collector;
-    BatchTurnProcessor processor;
-    processor.start(vks, /*num_cores=*/2, /*batch_size=*/2, collector.callback());
+    IPABatchProcessor processor;
+    processor.start(vks, /*num_ipa_cores=*/2, /*num_sumcheck_cores=*/2, /*batch_size=*/2, collector.callback());
 
     processor.enqueue(VerifyRequest{ .request_id = 1, .proof = proof, .vk_index = 0 });
     processor.enqueue(VerifyRequest{ .request_id = 2, .proof = bad_proof, .vk_index = 0 });
@@ -196,9 +200,9 @@ TEST_F(ChonkBatchVerifierServiceTests, TrustedBatchCancelBySource)
     std::vector<std::shared_ptr<MegaZKFlavor::VKAndHash>> vks = { vk };
 
     ResultCollector collector;
-    BatchTurnProcessor processor;
+    IPABatchProcessor processor;
     // Large batch size so proofs stay queued
-    processor.start(vks, /*num_cores=*/2, /*batch_size=*/100, collector.callback());
+    processor.start(vks, /*num_ipa_cores=*/2, /*num_sumcheck_cores=*/2, /*batch_size=*/100, collector.callback());
 
     processor.enqueue(VerifyRequest{ .request_id = 1, .proof = proof, .vk_index = 0, .source = "peer-A" });
     processor.enqueue(VerifyRequest{ .request_id = 2, .proof = proof, .vk_index = 0, .source = "peer-B" });
@@ -276,35 +280,61 @@ TEST_F(ChonkBatchVerifierServiceTests, FullServiceMixedTrustedUntrusted)
     // Create a temporary FIFO
     std::string fifo_path = "/tmp/chonk_batch_test_" + std::to_string(getpid()) + ".fifo";
 
-    // Open FIFO reader in background thread (so service's open() doesn't block)
-    std::thread reader_thread;
-    std::vector<uint8_t> fifo_data;
-    std::atomic<bool> reader_done{ false };
+    // Open FIFO reader in background thread that parses size-delimited msgpack messages
+    std::mutex fifo_mutex;
+    std::vector<VerifyResult> fifo_results;
+    std::atomic<size_t> fifo_result_count{ 0 };
 
     // Create FIFO first
     mkfifo(fifo_path.c_str(), 0600);
 
-    reader_thread = std::thread([&]() {
+    std::thread reader_thread([&]() {
         int fd = open(fifo_path.c_str(), O_RDONLY);
         if (fd < 0) {
             return;
         }
 
-        uint8_t buf[4096];
+        // Read size-delimited msgpack messages: [4-byte BE length][payload]
         while (true) {
-            ssize_t n = read(fd, buf, sizeof(buf));
+            uint8_t size_buf[4];
+            ssize_t n = read(fd, size_buf, 4);
             if (n <= 0) {
                 break;
             }
-            fifo_data.insert(fifo_data.end(), buf, buf + n);
+            if (n != 4) {
+                continue;
+            }
+
+            uint32_t size = (static_cast<uint32_t>(size_buf[0]) << 24) | (static_cast<uint32_t>(size_buf[1]) << 16) |
+                            (static_cast<uint32_t>(size_buf[2]) << 8) | static_cast<uint32_t>(size_buf[3]);
+
+            std::vector<uint8_t> payload(size);
+            size_t read_so_far = 0;
+            while (read_so_far < size) {
+                n = read(fd, payload.data() + read_so_far, size - read_so_far);
+                if (n <= 0) {
+                    break;
+                }
+                read_so_far += static_cast<size_t>(n);
+            }
+
+            if (read_so_far == size) {
+                VerifyResult result;
+                msgpack::unpack(reinterpret_cast<const char*>(payload.data()), payload.size()).get().convert(result);
+                {
+                    std::lock_guard lock(fifo_mutex);
+                    fifo_results.push_back(std::move(result));
+                }
+                fifo_result_count.fetch_add(1);
+            }
         }
         close(fd);
-        reader_done = true;
     });
 
     ChonkBatchVerifierService service;
     BatchVerifierConfig config{
-        .num_trusted_cores = 2,
+        .num_ipa_cores = 2,
+        .num_sumcheck_cores = 2,
         .num_untrusted_cores = 1,
         .trusted_batch_size = 2,
     };
@@ -317,18 +347,25 @@ TEST_F(ChonkBatchVerifierServiceTests, FullServiceMixedTrustedUntrusted)
     // Queue untrusted proof
     service.queue(VerifyRequest{ .request_id = 3, .proof = proof, .vk_index = 0, .trusted = false });
 
-    // Let proofs process
-    std::this_thread::sleep_for(std::chrono::seconds(30));
-
+    // Stop blocks until all work is drained and FIFO is closed
     service.stop();
 
-    // Wait for reader to finish
+    // Wait for reader to finish (FIFO EOF after service closes fd)
     if (reader_thread.joinable()) {
         reader_thread.join();
     }
 
-    // Verify we got data on the FIFO
-    EXPECT_GT(fifo_data.size(), 0u) << "Expected result data on FIFO";
+    // Verify we got exactly 3 results on the FIFO
+    {
+        std::lock_guard lock(fifo_mutex);
+        ASSERT_EQ(fifo_results.size(), 3u) << "Expected 3 results on FIFO";
+
+        // All should be verified OK
+        for (const auto& r : fifo_results) {
+            EXPECT_TRUE(r.verified) << "Request " << r.request_id << " should have verified";
+            EXPECT_EQ(r.status, static_cast<uint8_t>(VerifyStatus::OK));
+        }
+    }
 
     // Clean up
     std::filesystem::remove(fifo_path);
