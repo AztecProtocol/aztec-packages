@@ -428,34 +428,6 @@ template <typename Curve> class ShplonkVerifier_ {
     }
 
     /**
-     * @brief Replace a single placeholder claim with an expanded BatchOpeningClaim
-     *
-     * @details After reduce_verification_no_finalize, one of the claims may have been a placeholder whose commitment
-     * represents a deferred batch_mul. This method removes the placeholder and folds the batch claim's commitments
-     * and scalars into the verifier state, each scaled by the Shplonk scalar that was assigned to the placeholder.
-     *
-     * @param claim_idx Index of the claim (0-based among the opening claims, NOT including the quotient commitment)
-     * @param batch_claim The deferred BatchOpeningClaim whose commitments+scalars replace the placeholder
-     */
-    void expand_claim_with_batch(size_t claim_idx, const BatchOpeningClaim<Curve>& batch_claim)
-    {
-        // commitments[0] is the quotient commitment, so the claim at index claim_idx has its
-        // commitment at commitments[claim_idx + 1] with scalar scalars[claim_idx + 1].
-        const size_t internal_idx = claim_idx + 1;
-        Fr shplonk_scalar = scalars[internal_idx];
-
-        // Remove the placeholder entry
-        commitments.erase(commitments.begin() + static_cast<std::ptrdiff_t>(internal_idx));
-        scalars.erase(scalars.begin() + static_cast<std::ptrdiff_t>(internal_idx));
-
-        // Fold in the batch claim's commitments, each scaled by the Shplonk scalar
-        for (size_t i = 0; i < batch_claim.commitments.size(); i++) {
-            commitments.emplace_back(batch_claim.commitments[i]);
-            scalars.emplace_back(shplonk_scalar * batch_claim.scalars[i]);
-        }
-    }
-
-    /**
      * @brief Instantiate a Shplonk verifier and update its state with the provided claims.
      *
      * @param claims List of opening claims \f$(C_j, x_j, v_j)\f$ for a witness polynomial \f$f_j(X)\f$, s.t.

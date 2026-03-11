@@ -121,20 +121,15 @@ typename ECCVMVerifier_<Flavor>::BatchReductionResult ECCVMVerifier_<Flavor>::re
                                                         commitments.transcript_z2 };
     compute_translation_opening_claims(translation_commitments);
 
-    // Instead of eagerly computing the ~148-point Shplemini batch_mul, place a placeholder claim for the
-    // multivariate-to-univariate opening. The placeholder has the correct evaluation point and evaluation (0),
-    // but uses the identity as a stand-in commitment. After Shplonk reduction, we expand this placeholder
-    // with the original Shplemini commitments+scalars, deferring the MSM to the final batched verification.
-    opening_claims.back() = { { sumcheck_batch_opening_claims.evaluation_point, FF(0) }, pcs_g1_identity };
+    // Reduce the Shplemini accumulator to a single opening claim (Grumpkin MSM)
+    OpeningClaim multivariate_to_univariate_opening_claim =
+        PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
+
+    opening_claims.back() = multivariate_to_univariate_opening_claim;
 
     // Construct the combined opening claim via Shplonk reduction.
     // We use reduce_verification_no_finalize + export_batch_opening_claim to defer the final MSM.
     auto shplonk_verifier = Shplonk::reduce_verification_no_finalize(opening_claims, transcript);
-
-    // Replace the placeholder with the expanded Shplemini batch claim (~148 commitments+scalars)
-    constexpr size_t MULTIVARIATE_CLAIM_IDX = NUM_OPENING_CLAIMS - 1;
-    shplonk_verifier.expand_claim_with_batch(MULTIVARIATE_CLAIM_IDX, sumcheck_batch_opening_claims);
-
     BatchOpeningClaim<Curve> batch_claim = shplonk_verifier.export_batch_opening_claim(pcs_g1_identity);
 
     bool sumcheck_verified = sumcheck_output.verified;
