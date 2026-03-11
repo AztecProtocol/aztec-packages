@@ -14,6 +14,8 @@ pub struct TestNote {
     pub value: Field,
 }
 
+pub global TEST_NOTE_NULLIFIER: Field = 2;
+
 impl NoteHash for TestNote {
     fn compute_note_hash(
         self,
@@ -41,6 +43,6 @@ impl NoteHash for TestNote {
         _note_hash_for_nullification: Field,
     ) -> Option<Field> {
         // Returns a hardcoded value so we can verify that `_compute_note_hash_and_nullifier` propagates it correctly.
-        Option::some(2)
+        Option::some(TEST_NOTE_NULLIFIER)
     }
 }
