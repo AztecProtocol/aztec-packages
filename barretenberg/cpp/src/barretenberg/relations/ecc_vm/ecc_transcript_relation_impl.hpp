@@ -399,7 +399,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
             // (i.e. one or both outputs are points at infinity, or produce a point at infinity)
             // This should be validated by the lambda_relation
             auto x3 = lambda_sqr - lhs_x - rhs_x;          // degree 2
-            auto y3 = lambda * (lhs_x - out_x) - lhs_y;    // degree 3
+            auto y3 = lambda * (lhs_x - x3) - lhs_y;       // degree 3
             x3 += result_is_lhs * (rhs_x + lhs_x + lhs_x); // degree 4
             x3 += result_is_rhs * (lhs_x + rhs_x + rhs_x); // degree 4
             x3 += result_is_infinity * (lhs_x + rhs_x);    // degree 4
