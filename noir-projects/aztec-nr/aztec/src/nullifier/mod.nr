@@ -1,7 +1,8 @@
 //! Nullifier-related utilities.
 //!
 //! Nullifiers are one of the key primitives of private state. A nullifier is a `Field` value that is stored in one of
-//! Aztec state trees: the nullifier tree. Only unique values can be inserted into this tree: attempting to create an
+//! the Aztec state trees: the nullifier tree. Only unique values can be inserted into this tree: attempting to create
+//! an
 //! already existing nullifier (a duplicate nullifier) will result in either the transaction being unprovable, invalid,
 //! or reverting, depending on exactly when the duplicate is created.
 //!
@@ -28,7 +29,7 @@
 //! use the contract they must prove that it has been initialized, and this requires them being able to compute the
 //! initialization nullifier.
 //!
-//! ## Nullfier Creation
+//! ## Nullifier Creation
 //!
 //! The low-level mechanisms to create new nullifiers are [`crate::context::PrivateContext::push_nullifier`] and
 //! [`crate::context::PublicContext::push_nullifier`], but these require care and can be hard to use correctly.
@@ -44,6 +45,6 @@
 //! a
 //! nullifier _does not_ exist is to create it - which can only be done once.
 //!
-//! Public function on the other hand can prove both nullifier existence and non-existence via
+//! Public functions on the other hand can prove both nullifier existence and non-existence via
 //! [`crate::context::PublicContext::nullifier_exists_unsafe`].
 pub mod utils;

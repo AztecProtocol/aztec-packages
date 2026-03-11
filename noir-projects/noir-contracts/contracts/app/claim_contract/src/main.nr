@@ -28,6 +28,7 @@ pub contract Claim {
     #[storage]
     struct Storage<Context> {
         config: PublicImmutable<ClaimConfig, Context>,
+        // Maps a note hash to owner-specific single-use claims, preventing double-claiming of rewards.
         note_hash_claims: Map<Field, Owned<SingleUseClaim<Context>, Context>, Context>,
     }
 
@@ -60,7 +61,7 @@ pub contract Claim {
         // slot of the note as there is no risk of claiming with a note that is not a donation note.
 
         // 4) Consume the claim of this note, ensuring the reward can be claimed only once with the given note. Each
-        // claim being tied to their owner results in unlinkability of the claim's nullifier and the underlying note
+        // claim being tied to its owner results in unlinkability of the claim's nullifier and the underlying note
         // hash via the owner's nullifier hiding key (`nhk`).
         //
         // Note: we're using the note's hash as the claim identifier, as it serves as a unique identifier (because we
