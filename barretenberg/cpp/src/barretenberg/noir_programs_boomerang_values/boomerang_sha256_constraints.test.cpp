@@ -314,7 +314,7 @@ TEST_F(BoomerangSHA256ConstraintsTests, FindSha256SubcircuitBoundaries)
     AcirFormat constraint_system_copy = constraint_system;
     auto static_analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
 
-    auto boundaries = static_analyzer.find_sha256_subcircuit_boundaries(setup.constraint);
+    auto boundaries = static_analyzer.find_sha256_subcircuit_boundaries(&setup.constraint);
     ASSERT_TRUE(boundaries.has_value());
 
     // Compare against standalone sha256_block reference circuit.
@@ -347,7 +347,7 @@ TEST_F(BoomerangSHA256ConstraintsTests, ValidateSha256SubcircuitSelectors)
     AcirFormat constraint_system_copy = constraint_system;
     auto static_analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
 
-    auto boundaries = static_analyzer.find_sha256_subcircuit_boundaries(setup.constraint);
+    auto boundaries = static_analyzer.find_sha256_subcircuit_boundaries(&setup.constraint);
     ASSERT_TRUE(boundaries.has_value()) << "Failed to find SHA256 subcircuit boundaries";
 
     EXPECT_TRUE(static_analyzer.validate_sha256_subcircuit_selectors(*boundaries));
@@ -832,14 +832,98 @@ TEST_F(BoomerangSHA256ConstraintsTests, TwoSHA256Constraints)
 
     EXPECT_TRUE(incorrect_opcodes.empty());
     // Verify boundaries are found for both constraints and selectors validate
-    auto boundaries_1 = analyzer.find_sha256_subcircuit_boundaries(constraint_1);
+    auto boundaries_1 = analyzer.find_sha256_subcircuit_boundaries(&constraint_1);
     ASSERT_TRUE(boundaries_1.has_value());
     EXPECT_TRUE(analyzer.validate_sha256_subcircuit_selectors(*boundaries_1));
 
-    auto boundaries_2 = analyzer.find_sha256_subcircuit_boundaries(constraint_2);
+    auto boundaries_2 = analyzer.find_sha256_subcircuit_boundaries(&constraint_2);
     ASSERT_TRUE(boundaries_2.has_value());
     EXPECT_TRUE(analyzer.validate_sha256_subcircuit_selectors(*boundaries_2));
 
     // Lookup subtraces should be disjoint
     EXPECT_NE(boundaries_1->lookup.first, boundaries_2->lookup.first);
+}
+
+/**
+ * @brief Test chained SHA256 constraints with shared witness indices (BFS bleed-through).
+ *
+ * Unlike TwoSHA256Constraints which creates fresh witnesses for constraint_2.hash_values,
+ * this test directly reuses constraint_1.result[i] as constraint_2.hash_values[i] — the
+ * same witness index appears in both constraints. This is how a real Noir program behaves
+ * when chaining: `sha256_compression(sha256_compression(h, m1), m2)`.
+ *
+ * This exercises find_subtrace_gates: when result[i] of constraint_1 is also hash_values[i]
+ * of constraint_2, the BFS starting from constraint_1's witnesses may discover arithmetic
+ * gates belonging to constraint_2 (and vice versa), inflating the gate set and causing the
+ * selector hash to not match the pinned SHA256 constants.
+ */
+TEST_F(BoomerangSHA256ConstraintsTests, ChainedSHA256SharedWitness)
+{
+    using FF = fr;
+
+    WitnessVector witness_values;
+    auto make_witness = [&](uint32_t value) -> WitnessOrConstant<FF> {
+        uint32_t idx = static_cast<uint32_t>(witness_values.size());
+        witness_values.emplace_back(FF(value));
+        return WitnessOrConstant<FF>::from_index(idx);
+    };
+
+    // First constraint: standard IV + block
+    std::array<uint32_t, 16> input_block_1 = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+    std::array<uint32_t, 8> hash_values_1;
+    std::copy(std::begin(SHA256_IV), std::end(SHA256_IV), hash_values_1.begin());
+    auto result_1 = crypto::sha256_block(hash_values_1, input_block_1);
+
+    Sha256Compression constraint_1;
+    for (size_t i = 0; i < 16; ++i) {
+        constraint_1.inputs[i] = make_witness(input_block_1[i]);
+    }
+    for (size_t i = 0; i < 8; ++i) {
+        constraint_1.hash_values[i] = make_witness(hash_values_1[i]);
+    }
+    // Record result witness indices — these will be REUSED for constraint_2.hash_values
+    std::array<uint32_t, 8> result_1_witness_indices;
+    for (size_t i = 0; i < 8; ++i) {
+        result_1_witness_indices[i] = static_cast<uint32_t>(witness_values.size());
+        constraint_1.result[i] = result_1_witness_indices[i];
+        witness_values.emplace_back(FF(result_1[i]));
+    }
+
+    // Second constraint: chain from first result
+    // Key difference from TwoSHA256Constraints: hash_values[i] reuses the SAME witness
+    // index as constraint_1.result[i] instead of creating new witnesses.
+    std::array<uint32_t, 16> input_block_2 = { 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 };
+    auto result_2 = crypto::sha256_block(result_1, input_block_2);
+
+    Sha256Compression constraint_2;
+    for (size_t i = 0; i < 16; ++i) {
+        constraint_2.inputs[i] = make_witness(input_block_2[i]);
+    }
+    for (size_t i = 0; i < 8; ++i) {
+        // Directly reuse constraint_1.result[i] witness index — same variable in the circuit
+        constraint_2.hash_values[i] = witness_from_index(result_1_witness_indices[i]);
+    }
+    for (size_t i = 0; i < 8; ++i) {
+        constraint_2.result[i] = static_cast<uint32_t>(witness_values.size());
+        witness_values.emplace_back(FF(result_2[i]));
+    }
+
+    std::vector<Sha256Compression> constraints = { constraint_1, constraint_2 };
+    AcirFormat constraint_system = constraint_to_acir_format(constraints);
+    AcirProgram program{ constraint_system, witness_values };
+    auto builder = create_circuit<UltraCircuitBuilder>(program, ProgramMetadata{});
+
+    // The circuit itself is valid
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    AcirFormat constraint_system_copy = constraint_system;
+    auto analyzer = StaticAnalyzerAcir(std::move(constraint_system_copy), std::move(builder));
+    std::unordered_set<size_t> incorrect_opcodes = analyzer.get_incorrect_opcodes();
+
+    // Both constraints are valid — analyzer should not report false positives
+    EXPECT_TRUE(incorrect_opcodes.empty())
+        << "False positive: valid chained SHA256 constraints reported as incorrect. "
+        << "Shared witness indices between constraint_1.result and constraint_2.hash_values "
+        << "likely caused BFS bleed-through in find_subtrace_gates, inflating the gate set "
+        << "and breaking the selector hash comparison.";
 }

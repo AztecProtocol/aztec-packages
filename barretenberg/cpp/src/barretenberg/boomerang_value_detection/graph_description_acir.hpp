@@ -32,6 +32,9 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
     bool is_inverse_gate(size_t block_idx, size_t gate_idx);
     bool is_boolean_gate(size_t block_idx, size_t gate_idx);
     bool is_uncostrained_arithmetic_gate(size_t gate_index);
+    std::optional<size_t> find_sha256_add_normalize_gate(uint32_t result_real, uint32_t hash_real);
+    std::optional<std::vector<size_t>> find_sha256_decompose_gate(uint32_t result_real);
+
     std::vector<size_t> find_range_list_unconstrained_gates(const CircuitBuilder::RangeList& range_list);
     std::optional<size_t> find_gate_matching_state(auto& block,
                                                    const std::array<uint32_t, CircuitBuilder::NUM_WIRES>& state);
@@ -51,7 +54,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
      * Uses constraint witnesses to find start positions and known gate counts for sizes.
      */
     std::optional<Sha256SubcircuitBoundaries> find_sha256_subcircuit_boundaries(
-        const acir_format::Sha256Compression& constraint);
+        const acir_format::Sha256Compression* constraint);
 
     /**
      * @brief Validate that selectors within a SHA256 subcircuit match known-good hashes.
@@ -68,8 +71,9 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
      * @param target_block_idx Block index (0=pub_inputs, 1=lookup, 2=arithmetic, 3=delta_range, ...)
      * @return Sorted vector of gate indices, empty if none found
      */
-    std::vector<size_t> find_subtrace_gates(const std::unordered_set<uint32_t>& seed_witnesses,
-                                            size_t target_block_idx);
+    std::vector<size_t> find_sha256_arithmetic_subtrace(const std::unordered_set<uint32_t>& seed_witnesses,
+                                                        const acir_format::Sha256Compression* constraint,
+                                                        const std::unordered_set<uint32_t>& constraint_boundary);
     bool process_blake2s_constraints(const ConstraintPtr& ptr,
                                      const std::unordered_set<uint32_t>& next_constraint_witnesses);
     bool process_blake3s_constraints(const ConstraintPtr& ptr,

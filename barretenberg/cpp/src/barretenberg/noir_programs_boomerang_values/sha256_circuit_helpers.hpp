@@ -17,8 +17,9 @@
 
 namespace sha256_helpers {
 
-constexpr size_t HASH_COMBINE_CONSTANT = 0x9e3779b9;
-// Block names matching UltraTraceBlockData::get() order
+static constexpr size_t HASH_COMBINE_CONSTANT = 0x9e3779b9;
+static constexpr size_t SHA256_LOOKUP_GATE_COUNT = 2896;
+// selector constants for direct gate validation
 inline const std::array<std::string, 9> BLOCK_NAMES = {
     "pub_inputs", "lookup", "arithmetic",         "delta_range",       "elliptic",
     "memory",     "nnf",    "poseidon2_external", "poseidon2_internal"
