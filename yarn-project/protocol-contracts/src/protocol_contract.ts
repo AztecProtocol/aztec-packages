@@ -16,8 +16,17 @@ export interface ProtocolContract {
   address: AztecAddress;
 }
 
+/** Returns true if the address is one of the actual protocol contracts (ContractInstanceRegistry,
+ * ContractClassRegistry or FeeJuice).
+ *
+ * TODO(F-416): Drop this function when protocol contracts are redeployed.
+ */
 export function isProtocolContract(address: AztecAddress) {
-  return Object.values(ProtocolContractAddress).some(a => a.equals(address));
+  return (
+    address.equals(ProtocolContractAddress.ContractInstanceRegistry) ||
+    address.equals(ProtocolContractAddress.ContractClassRegistry) ||
+    address.equals(ProtocolContractAddress.FeeJuice)
+  );
 }
 
 export { type ProtocolContractsProvider } from './provider/protocol_contracts_provider.js';
