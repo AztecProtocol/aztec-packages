@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 94f596f8b3bbbc216f9ad7dc33253256141156b2 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -9,7 +9,6 @@
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "iterate_over_domain.hpp"
 #include <math.h>
 #include <memory.h>
 #include <memory>
@@ -158,9 +157,14 @@ template <typename Fr>
 void ifft(Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain)
 {
     fft_inner_parallel(coeffs, target, domain, domain.root_inverse, domain.get_inverse_round_roots());
-    ITERATE_OVER_DOMAIN_START(domain);
-    target[i] *= domain.domain_inverse;
-    ITERATE_OVER_DOMAIN_END;
+
+    parallel_for(domain.num_threads, [&](size_t j) {
+        const size_t start = j * domain.thread_size;
+        const size_t end = (j + 1) * domain.thread_size;
+        for (size_t i = start; i < end; ++i) {
+            target[i] *= domain.domain_inverse;
+        }
+    });
 }
 
 template <typename Fr> Fr evaluate(const Fr* coeffs, const Fr& z, const size_t n)

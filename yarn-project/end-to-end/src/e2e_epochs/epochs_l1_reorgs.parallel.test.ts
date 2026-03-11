@@ -407,8 +407,9 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       );
 
     it('updates L1 to L2 messages changed due to an L1 reorg', async () => {
-      // Send L2 txs to trigger multi-block checkpoints
+      // Send L2 txs to trigger multi-block checkpoints and wait for them to land in a checkpoint
       await sendTransactions(TX_COUNT, 100);
+      await test.waitUntilCheckpointNumber(CheckpointNumber(2), L2_SLOT_DURATION_IN_S * 4);
 
       // Send 3 messages and wait for archiver sync
       logger.warn(`Sending 3 cross chain messages`);

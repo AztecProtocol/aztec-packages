@@ -45,6 +45,7 @@ import { TxPoolIndices } from './tx_pool_indices.js';
 export interface TxPoolV2Callbacks {
   onTxsAdded: (txs: Tx[], opts: { source?: string }) => void;
   onTxsRemoved: (txHashes: string[] | bigint[]) => void;
+  onTxsMined: (txHashes: string[]) => void;
 }
 
 /**
@@ -213,7 +214,9 @@ export class TxPoolV2Impl {
     // in-memory reads, and buffered DB writes. Nothing here can throw an unhandled exception.
     const poolAccess = this.#createPreAddPoolAccess();
     const preAddContext: PreAddContext | undefined =
-      opts.feeComparisonOnly !== undefined ? { feeComparisonOnly: opts.feeComparisonOnly } : undefined;
+      opts.feeComparisonOnly !== undefined
+        ? { feeComparisonOnly: opts.feeComparisonOnly, priceBumpPercentage: this.#config.priceBumpPercentage }
+        : undefined;
 
     await this.#store.transactionAsync(async () => {
       for (const tx of txs) {
@@ -497,6 +500,10 @@ export class TxPoolV2Impl {
       // Step 5: Run post-event eviction rules (inside transaction for atomicity)
       await this.#evictionManager.evictAfterNewBlock(block.header, nullifiers, feePayers);
     });
+
+    if (found.length > 0) {
+      this.#callbacks.onTxsMined(found.map(m => m.txHash));
+    }
 
     this.#log.info(`Marked ${found.length} txs as mined in block ${blockId.number}`);
   }

@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 94f596f8b3bbbc216f9ad7dc33253256141156b2 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -186,8 +186,13 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan
 
 template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z) const
 {
-    BB_ASSERT(size() == virtual_size());
-    return polynomial_arithmetic::evaluate(data(), z, size());
+    // Evaluate only the backing data; virtual zeroes beyond backing contribute nothing.
+    // When start_index > 0, multiply by z^start_index to account for the offset.
+    Fr result = polynomial_arithmetic::evaluate(data(), z, size());
+    if (start_index() > 0) {
+        result *= z.pow(start_index());
+    }
+    return result;
 }
 
 template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evaluation_points, bool shift) const

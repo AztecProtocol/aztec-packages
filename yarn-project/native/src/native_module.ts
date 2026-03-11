@@ -128,23 +128,33 @@ export function cancelSimulation(token: CancellationToken): void {
 }
 
 /**
- * Concurrency limiting for C++ AVM simulation to prevent libuv thread pool exhaustion.
- *
- * The C++ simulator uses NAPI BlockingCall to callback to TypeScript for contract data.
- * This blocks the libuv thread while waiting for the callback to complete. If all libuv
- * threads are blocked waiting for callbacks, no threads remain to service those callbacks,
- * causing deadlock.
- *
- * We limit concurrent simulations to UV_THREADPOOL_SIZE / 2 to ensure threads remain
- * available for callback processing.
+ * Maximum number of concurrent AVM simulations. Each simulation spawns a dedicated OS thread,
+ * so this controls resource usage. Defaults to 4. Set to 0 for unlimited.
  */
-const UV_THREADPOOL_SIZE = parseInt(process.env.UV_THREADPOOL_SIZE ?? '4', 10);
-const MAX_CONCURRENT_AVM_SIMULATIONS = Math.max(1, Math.floor(UV_THREADPOOL_SIZE / 2));
-const avmSimulationSemaphore = new Semaphore(MAX_CONCURRENT_AVM_SIMULATIONS);
+const AVM_MAX_CONCURRENT_SIMULATIONS = parseInt(process.env.AVM_MAX_CONCURRENT_SIMULATIONS ?? '4', 10);
+const avmSimulationSemaphore =
+  AVM_MAX_CONCURRENT_SIMULATIONS > 0 ? new Semaphore(AVM_MAX_CONCURRENT_SIMULATIONS) : null;
+
+async function withAvmConcurrencyLimit<T>(fn: () => Promise<T>): Promise<T> {
+  if (!avmSimulationSemaphore) {
+    return fn();
+  }
+  await avmSimulationSemaphore.acquire();
+  try {
+    return await fn();
+  } finally {
+    avmSimulationSemaphore.release();
+  }
+}
 
 /**
  * AVM simulation function that takes serialized inputs and a contract provider.
  * The contract provider enables C++ to callback to TypeScript for contract data during simulation.
+ *
+ * Simulations run on dedicated std::threads (not the libuv thread pool), so there is no risk
+ * of libuv thread pool exhaustion or deadlock from C++ BlockingCall callbacks.
+ * Concurrency is limited by AVM_MAX_CONCURRENT_SIMULATIONS (default 4, 0 = unlimited).
+ *
  * @param inputs - Msgpack-serialized AvmFastSimulationInputs buffer
  * @param contractProvider - Object with callbacks for fetching contract instances and classes
  * @param worldStateHandle - Native handle to WorldState instance
@@ -153,7 +163,7 @@ const avmSimulationSemaphore = new Semaphore(MAX_CONCURRENT_AVM_SIMULATIONS);
  * @param cancellationToken - Optional token to enable cancellation support
  * @returns Promise resolving to msgpack-serialized AvmCircuitPublicInputs buffer
  */
-export async function avmSimulate(
+export function avmSimulate(
   inputs: Buffer,
   contractProvider: ContractProvider,
   worldStateHandle: any,
@@ -161,35 +171,30 @@ export async function avmSimulate(
   logger?: Logger,
   cancellationToken?: CancellationToken,
 ): Promise<Buffer> {
-  await avmSimulationSemaphore.acquire();
-
-  try {
-    return await nativeAvmSimulate(
+  return withAvmConcurrencyLimit(() =>
+    nativeAvmSimulate(
       inputs,
       contractProvider,
       worldStateHandle,
       LogLevels.indexOf(logLevel),
       logger ? (level: LogLevel, msg: string) => logger[level](msg) : null,
       cancellationToken,
-    );
-  } finally {
-    avmSimulationSemaphore.release();
-  }
+    ),
+  );
 }
 
 /**
  * AVM simulation function that uses pre-collected hints from TypeScript simulation.
  * All contract data and merkle tree hints are included in the AvmCircuitInputs, so no runtime
  * callbacks to TS or WS pointer are needed.
+ *
+ * Simulations run on dedicated std::threads (not the libuv thread pool).
+ * Concurrency is limited by AVM_MAX_CONCURRENT_SIMULATIONS (default 4, 0 = unlimited).
+ *
  * @param inputs - Msgpack-serialized AvmCircuitInputs (AvmProvingInputs in C++) buffer
  * @param logLevel - Log level to control C++ verbosity
  * @returns Promise resolving to msgpack-serialized simulation results buffer
  */
-export async function avmSimulateWithHintedDbs(inputs: Buffer, logLevel: LogLevel = 'info'): Promise<Buffer> {
-  await avmSimulationSemaphore.acquire();
-  try {
-    return await nativeAvmSimulateWithHintedDbs(inputs, LogLevels.indexOf(logLevel));
-  } finally {
-    avmSimulationSemaphore.release();
-  }
+export function avmSimulateWithHintedDbs(inputs: Buffer, logLevel: LogLevel = 'info'): Promise<Buffer> {
+  return withAvmConcurrencyLimit(() => nativeAvmSimulateWithHintedDbs(inputs, LogLevels.indexOf(logLevel)));
 }

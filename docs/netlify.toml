@@ -752,6 +752,13 @@
     from = "/dev_docs/*"
     to = "/developers/getting_started_on_local_network"
 
+# Tutorial → Getting Started redirect (local_network.md content moved)
+[[redirects]]
+    from = "/developers/docs/tutorials/local_network"
+    to = "/developers/getting_started_on_local_network"
+    status = 301
+
+
 # =============================================================================
 # ERROR CODES
 # Sequential error code redirects for user-friendly error references.
@@ -774,8 +781,18 @@
     from = "/errors/3"
     to = "/aztec-nr-api/nightly/noir_aztec/messages/msg_type/index.html"
 
-# Example (uncomment and modify when adding error codes):
-# [[redirects]]
-#     from = "/errors/4"
-#     to = "/developers/docs/aztec-nr/framework-description/functions/how_to_define_functions"
+[[redirects]]
+    # Aztec-nr: note packed length exceeds MAX_NOTE_PACKED_LEN
+    from = "/errors/4"
+    to = "/aztec-nr-api/nightly/noir_aztec/macros/notes/fn.note.html"
+
+[[redirects]]
+    # Aztec-nr: event serialized length exceeds MAX_EVENT_SERIALIZED_LEN
+    from = "/errors/5"
+    to = "/aztec-nr-api/nightly/noir_aztec/macros/events/fn.event.html"
+
+[[redirects]]
+    # Aztec-nr: direct invocation of contract functions is not supported
+    from = "/errors/6"
+    to = "/developers/docs/aztec-nr/framework-description/calling_contracts"
 

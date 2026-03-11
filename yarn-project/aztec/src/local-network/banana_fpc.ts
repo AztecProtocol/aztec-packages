@@ -48,7 +48,7 @@ export async function getBananaFPCAddress(initialAccounts: InitialAccountData[])
 export async function setupBananaFPC(initialAccounts: InitialAccountData[], wallet: Wallet, log: LogFn) {
   const bananaCoinAddress = await getBananaCoinAddress(initialAccounts);
   const admin = getBananaAdmin(initialAccounts);
-  const [bananaCoin, fpc] = await Promise.all([
+  const [{ contract: bananaCoin }, { contract: fpc }] = await Promise.all([
     TokenContract.deploy(wallet, admin, bananaCoinArgs.name, bananaCoinArgs.symbol, bananaCoinArgs.decimal).send({
       from: admin,
       contractAddressSalt: BANANA_COIN_SALT,

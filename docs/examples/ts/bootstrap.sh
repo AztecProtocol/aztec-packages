@@ -2,6 +2,7 @@
 set -euo pipefail
 
 source "$(git rev-parse --show-toplevel)/ci3/source_bootstrap"
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 export REPO_ROOT=$(git rev-parse --show-toplevel)
 export ARTIFACTS_DIR="$REPO_ROOT/docs/target"
@@ -56,6 +57,7 @@ validate_config() {
     return 0
 }
 export -f validate_config
+export -f parse_dependencies
 
 # Function to validate a single TS project
 # Must be exported for parallel execution
@@ -137,45 +139,13 @@ validate_project() {
         # Read dependencies from config.yaml
         echo_stderr "Installing dependencies for '${project_name}'..."
 
-        # Separate @aztec packages (linked) from npm packages (external)
-        local aztec_deps=()
-        local explicit_link_deps=()
-        local npm_deps=()
-        local pkg
-        local has_deps=false
+        parse_dependencies config.yaml "$REPO_ROOT"
 
-        while IFS= read -r pkg; do
-            has_deps=true
-            # Remove quotes and whitespace
-            pkg="${pkg//\"/}"
-            pkg="${pkg#"${pkg%%[![:space:]]*}"}"  # ltrim
-            pkg="${pkg%"${pkg##*[![:space:]]}"}"  # rtrim
+        local aztec_deps=("${AZTEC_DEPS[@]}")
+        local explicit_link_deps=("${EXPLICIT_LINK_DEPS[@]}")
+        local npm_deps=("${NPM_DEPS[@]}")
 
-            if [ -z "$pkg" ]; then
-                continue
-            fi
-
-            # Check if it's an external npm package (prefixed with npm:)
-            if [[ "$pkg" =~ ^npm: ]]; then
-                # External package: npm:viem -> viem
-                local npm_pkg="${pkg#npm:}"
-                npm_deps+=("$npm_pkg")
-            elif [[ "$pkg" =~ ^link: ]]; then
-                # Explicit link: link:@aztec/bb.js:barretenberg/ts -> @aztec/bb.js@link:$REPO_ROOT/barretenberg/ts
-                local link_spec="${pkg#link:}"
-                local link_pkg_name="${link_spec%%:*}"
-                local link_path="${link_spec#*:}"
-                explicit_link_deps+=("${link_pkg_name}@link:$REPO_ROOT/${link_path}")
-            elif [[ "$pkg" =~ ^@ ]]; then
-                # @aztec/* package - auto-link from yarn-project/
-                local pkg_name="${pkg#@aztec/}"
-                aztec_deps+=("${pkg}@link:$REPO_ROOT/yarn-project/${pkg_name}")
-            else
-                echo_stderr "Warning: Unknown dependency format '$pkg' (use '@aztec/pkg', 'link:pkg:path', or 'npm:pkg')"
-            fi
-        done < <(yq eval '.dependencies[]' config.yaml)
-
-        if [ "$has_deps" = true ]; then
+        if [ "$PARSED_DEPS_FOUND" = true ]; then
             # Install linked @aztec dependencies from yarn-project/
             if [ ${#aztec_deps[@]} -gt 0 ]; then
                 echo_stderr "Adding aztec deps: ${aztec_deps[*]}"

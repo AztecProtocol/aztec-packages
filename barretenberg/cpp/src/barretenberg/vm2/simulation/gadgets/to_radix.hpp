@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 #include "barretenberg/vm2/simulation/interfaces/gt.hpp"

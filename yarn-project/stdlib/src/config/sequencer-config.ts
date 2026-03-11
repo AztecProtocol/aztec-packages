@@ -2,6 +2,9 @@ import type { ConfigMappingsType } from '@aztec/foundation/config';
 
 import type { SequencerConfig } from '../interfaces/configs.js';
 
+/** Default maximum number of transactions per block. */
+export const DEFAULT_MAX_TXS_PER_BLOCK = 32;
+
 /**
  * Partial sequencer config mappings for fields that need to be shared across packages.
  * The full sequencer config mappings remain in sequencer-client, but shared fields
@@ -9,7 +12,7 @@ import type { SequencerConfig } from '../interfaces/configs.js';
  * to avoid duplication.
  */
 export const sharedSequencerConfigMappings: ConfigMappingsType<
-  Pick<SequencerConfig, 'blockDurationMs' | 'expectedBlockProposalsPerSlot'>
+  Pick<SequencerConfig, 'blockDurationMs' | 'expectedBlockProposalsPerSlot' | 'maxTxsPerBlock'>
 > = {
   blockDurationMs: {
     env: 'SEQ_BLOCK_DURATION_MS',
@@ -25,5 +28,10 @@ export const sharedSequencerConfigMappings: ConfigMappingsType<
       '0 (default) disables block proposal scoring. Set to a positive value to enable.',
     parseEnv: (val: string) => (val ? parseInt(val, 10) : 0),
     defaultValue: 0,
+  },
+  maxTxsPerBlock: {
+    env: 'SEQ_MAX_TX_PER_BLOCK',
+    description: 'The maximum number of txs to include in a block.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
 };

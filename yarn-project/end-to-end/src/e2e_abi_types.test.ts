@@ -29,19 +29,19 @@ describe('AbiTypes', () => {
       wallet,
       accounts: [defaultAccountAddress],
     } = await setup(1));
-    abiTypesContract = await AbiTypesContract.deploy(wallet).send({ from: defaultAccountAddress });
+    ({ contract: abiTypesContract } = await AbiTypesContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
 
   afterAll(() => teardown());
 
   it('passes public parameters', async () => {
-    const minResult = await abiTypesContract.methods
+    const { result: minResult } = await abiTypesContract.methods
       .return_public_parameters(false, 0n, 0n, I64_MIN, { w: 0n, x: false, y: 0n, z: I64_MIN })
       .simulate({ from: defaultAccountAddress });
 
     expect(minResult).toEqual([false, 0n, 0n, I64_MIN, { w: 0n, x: false, y: 0n, z: I64_MIN }]);
 
-    const maxResult = await abiTypesContract.methods
+    const { result: maxResult } = await abiTypesContract.methods
       .return_public_parameters(true, MAX_FIELD_VALUE, U64_MAX, I64_MAX, {
         w: MAX_FIELD_VALUE,
         x: true,
@@ -60,13 +60,13 @@ describe('AbiTypes', () => {
   });
 
   it('passes private parameters', async () => {
-    const minResult = await abiTypesContract.methods
+    const { result: minResult } = await abiTypesContract.methods
       .return_private_parameters(false, 0n, 0n, I64_MIN, { w: 0n, x: false, y: 0n, z: I64_MIN })
       .simulate({ from: defaultAccountAddress });
 
     expect(minResult).toEqual([false, 0n, 0n, I64_MIN, { w: 0n, x: false, y: 0n, z: I64_MIN }]);
 
-    const maxResult = await abiTypesContract.methods
+    const { result: maxResult } = await abiTypesContract.methods
       .return_private_parameters(true, MAX_FIELD_VALUE, U64_MAX, I64_MAX, {
         w: MAX_FIELD_VALUE,
         x: true,
@@ -85,13 +85,13 @@ describe('AbiTypes', () => {
   });
 
   it('passes utility parameters', async () => {
-    const minResult = await abiTypesContract.methods
+    const { result: minResult } = await abiTypesContract.methods
       .return_utility_parameters(false, 0n, 0n, I64_MIN, { w: 0n, x: false, y: 0n, z: I64_MIN })
       .simulate({ from: defaultAccountAddress });
 
     expect(minResult).toEqual([false, 0n, 0n, I64_MIN, { w: 0n, x: false, y: 0n, z: I64_MIN }]);
 
-    const maxResult = await abiTypesContract.methods
+    const { result: maxResult } = await abiTypesContract.methods
       .return_utility_parameters(true, MAX_FIELD_VALUE, U64_MAX, I64_MAX, {
         w: MAX_FIELD_VALUE,
         x: true,

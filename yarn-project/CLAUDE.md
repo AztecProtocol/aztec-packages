@@ -24,6 +24,25 @@ Prefer native tools over bash equivalents—they don't require permissions and p
 - **Grep** instead of `grep`, `rg` for searching content
 - **Edit/Write** instead of `sed`, `awk`, `echo >` for modifying files
 
+## Bash Command Rules
+
+**NEVER `cd` before running a command.** The working directory is already `yarn-project`. Run commands directly:
+
+```bash
+# GOOD
+yarn build
+yarn workspace @aztec/sequencer-client test src/file.test.ts
+git diff HEAD
+
+# BAD — never do this
+cd /home/santiago/Projects/aztec-3/yarn-project && yarn build
+cd /home/santiago/Projects/aztec-3 && git diff HEAD
+```
+
+Git commands work from any subdirectory of a repo—there is no need to `cd` to the git root. The Bash tool already runs in `yarn-project`, so never prefix commands with `cd` to `yarn-project` or the git root.
+
+**NEVER append `; echo "EXIT: $?"` or similar** to any command. The Bash tool already reports exit codes directly.
+
 ## Essential Workflow
 
 ### When to Run Bootstrap
@@ -75,7 +94,7 @@ For long-running tests or verbose output, redirect to a temp file and use native
 yarn workspace @aztec/<package-name> test src/file.test.ts > /tmp/test-output.log 2>&1
 ```
 
-Then use **Read** or **Grep** to examine `/tmp/test-output.log`. Never use `| tail` or `| head` to limit output—use native tools instead. Never append `; echo "EXIT: $?"` or similar—the Bash tool already reports exit codes directly.
+Then use **Read** or **Grep** to examine `/tmp/test-output.log`. Never use `| tail` or `| head` to limit output—use native tools instead.
 
 ### End-to-End Tests
 

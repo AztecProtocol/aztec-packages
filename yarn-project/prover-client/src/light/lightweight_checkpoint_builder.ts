@@ -154,6 +154,10 @@ export class LightweightCheckpointBuilder {
     return this.blocks.length;
   }
 
+  public getBlocks() {
+    return this.blocks;
+  }
+
   /**
    * Adds a new block to the checkpoint. The tx effects must have already been inserted into the db if
    * this is called after tx processing, if that's not the case, then set `insertTxsEffects` to true.

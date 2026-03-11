@@ -145,9 +145,9 @@ pub contract Orderbook {
 
         // Nullify the order such that it cannot be fulfilled again. We emit a nullifier instead of deleting the order
         // from public storage because we get no refund for resetting public storage to zero and just emitting
-        // a nullifier is cheaper (1 Field in DA instead of multiple Fields for the order). We use the `order_id`
-        // itself as the nullifier because this contract does not work with notes and hence there is no risk of
-        // colliding with a real note nullifier.
+        // a nullifier is cheaper (1 Field in DA instead of multiple Fields for the order).
+        // TODO(F-399): pushing a raw nullifier with no domain separator like we do here is unsafe: we should instead
+        // use something like a singleton `SingleUseClaim`.
         self.context.push_nullifier(order_id);
 
         // Enqueue the fulfillment to finalize both partial notes

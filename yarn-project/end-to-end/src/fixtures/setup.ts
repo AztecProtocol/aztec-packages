@@ -30,6 +30,7 @@ import {
 } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
 import { EthCheatCodes, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import type { Anvil } from '@aztec/ethereum/test';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto/random';
@@ -60,7 +61,6 @@ import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 import { deployFundedSchnorrAccounts } from '@aztec/wallets/testing';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import type { Anvil } from '@viem/anvil';
 import fs from 'fs/promises';
 import { tmpdir } from 'os';
 import path from 'path';
@@ -753,7 +753,9 @@ export function getBalancesFn(
 ): (...addresses: (AztecAddress | { address: AztecAddress })[]) => Promise<bigint[]> {
   const balances = async (...addressLikes: (AztecAddress | { address: AztecAddress })[]) => {
     const addresses = addressLikes.map(addressLike => ('address' in addressLike ? addressLike.address : addressLike));
-    const b = await Promise.all(addresses.map(address => method(address).simulate({ from: address })));
+    const b = await Promise.all(
+      addresses.map(async address => (await method(address).simulate({ from: address })).result),
+    );
     const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
     logger.verbose(debugString);
     return b;
@@ -871,7 +873,7 @@ export async function publicDeployAccounts(
 
   const batch = new BatchCall(wallet, calls);
 
-  const txReceipt = await batch.send({ from: accountsToDeploy[0] });
+  const { receipt: txReceipt } = await batch.send({ from: accountsToDeploy[0] });
   if (waitUntilProven) {
     if (!node) {
       throw new Error('Need to provide an AztecNode to wait for proven.');

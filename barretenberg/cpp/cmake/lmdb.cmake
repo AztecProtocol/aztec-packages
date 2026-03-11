@@ -15,7 +15,7 @@ ExternalProject_Add(
     SOURCE_DIR ${LMDB_PREFIX}/src/lmdb_repo
     BUILD_IN_SOURCE YES
     CONFIGURE_COMMAND "" # No configure step
-    BUILD_COMMAND ${CMAKE_COMMAND} -E env CC=${CMAKE_C_COMPILER}${CMAKE_C_COMPILER_ARG1} AR=${CMAKE_AR} make -e -C libraries/liblmdb XCFLAGS=-fPIC liblmdb.a
+    BUILD_COMMAND ${CMAKE_COMMAND} -E env --unset=CFLAGS --unset=CXXFLAGS CC=${CMAKE_C_COMPILER}${CMAKE_C_COMPILER_ARG1} AR=${CMAKE_AR} make -e -C libraries/liblmdb XCFLAGS=-fPIC liblmdb.a
     INSTALL_COMMAND ""
     UPDATE_COMMAND "" # No update step
     BUILD_BYPRODUCTS ${LMDB_LIB}

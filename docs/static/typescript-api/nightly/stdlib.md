@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v5.0.0-nightly.20260224
+Version: v5.0.0-nightly.20260311
 
 ## Quick Import Reference
 
@@ -132,6 +132,7 @@ new BlockHash(hash: Fr)
 - `[custom]() => string`
 - `add(rhs: Fr) => Fr` - Arithmetic
 - `static cmp(lhs: BaseField, rhs: BaseField) => -1 | 0 | 1`
+- `static cmpAsBigInt(lhs: bigint, rhs: bigint) => -1 | 0 | 1`
 - `div(rhs: Fr) => Fr`
 - `ediv(rhs: Fr) => Fr`
 - `equals(rhs: BaseField) => boolean`
@@ -198,6 +199,7 @@ new BlockHeader(lastArchive: AppendOnlyTreeSnapshot, state: StateReference, spon
 - `hash() => Promise<BlockHash>`
 - `isEmpty() => boolean`
 - `static random(overrides: Partial<FieldsOf<BlockHeader>> & Partial<FieldsOf<GlobalVariables>>) => BlockHeader`
+- `recomputeHash() => Promise<BlockHash>` - Recomputes the cached hash. Used for testing when header fields are mutated via unfreeze.
 - `setHash(hashed: Fr) => void` - Manually set the hash for this block header if already computed
 - `toBuffer() => Buffer<ArrayBufferLike>`
 - `toFields() => Fr[]`
@@ -521,18 +523,6 @@ new DebugLog(contractAddress: AztecAddress, level: "silent" | "fatal" | "error" 
 **Methods**
 - `static fromPlainObject(obj: any) => DebugLog` - Creates a DebugLog from a plain object without Zod validation. This method is optimized for performance and skips validation, making it suitable for deserializing trusted data (e.g., from C++ via MessagePack).
 
-### DirectionalAppTaggingSecret
-
-Directional application tagging secret used for log tagging. "Directional" because the derived secret is bound to the recipient address: A→B differs from B→A even with the same participants and app. Note: It's a bit unfortunate that this type resides in `stdlib` as the rest of the tagging functionality resides in `pxe/src/tagging`. We need to use this type in `PreTag` that in turn is used by other types in stdlib hence there doesn't seem to be a good way around this.
-
-**Properties**
-- `readonly value: Fr`
-
-**Methods**
-- `static compute(localAddress: CompleteAddress, localIvsk: Fq, externalAddress: AztecAddress, app: AztecAddress, recipient: AztecAddress) => Promise<DirectionalAppTaggingSecret>` - Derives shared tagging secret and from that, the app address and recipient derives the directional app tagging secret.
-- `static fromString(str: string) => DirectionalAppTaggingSecret`
-- `toString() => string`
-
 ### EmptyTxValidator
 Implements: `TxValidator<T>`
 
@@ -653,6 +643,19 @@ new ExtendedContractClassLog(id: LogId, log: ContractClassLog)
 - `static random() => Promise<ExtendedContractClassLog>`
 - `toBuffer() => Buffer` - Serializes log to a buffer.
 - `toString() => string` - Serializes log to a string.
+
+### ExtendedDirectionalAppTaggingSecret
+
+Extended directional application tagging secret used for log tagging. "Extended" because it bundles the directional app tagging secret with the app (contract) address. This bundling was done because where this type is used we commonly need access to both the secret and the address. "Directional" because the derived secret is bound to the recipient address: A→B differs from B→A even with the same participants and app. Note: It's a bit unfortunate that this type resides in `stdlib` as the rest of the tagging functionality resides in `pxe/src/tagging`. We need to use this type in `PreTag` that in turn is used by other types in stdlib hence there doesn't seem to be a good way around this.
+
+**Properties**
+- `readonly app: AztecAddress`
+- `readonly secret: Fr`
+
+**Methods**
+- `static compute(localAddress: CompleteAddress, localIvsk: Fq, externalAddress: AztecAddress, app: AztecAddress, recipient: AztecAddress) => Promise<ExtendedDirectionalAppTaggingSecret>` - Derives shared tagging secret and from that, the app address and recipient derives the directional app tagging secret.
+- `static fromString(str: string) => ExtendedDirectionalAppTaggingSecret`
+- `toString() => string`
 
 ### ExtendedPublicLog
 
@@ -999,6 +1002,7 @@ new L2Block(archive: AppendOnlyTreeSnapshot, header: BlockHeader, body: Body, ch
 - `timestamp: unknown`
 
 **Methods**
+- `computeDAGasUsed() => number` - Compute how much DA gas this block uses.
 - `static empty(header?: BlockHeader) => L2Block`
 - `equals(other: this) => boolean` - Checks if this block equals another block.
 - `static fromBuffer(buf: Buffer<ArrayBufferLike> | BufferReader) => L2Block` - Deserializes a block from a buffer
@@ -1617,8 +1621,8 @@ new PublicLog(contractAddress: AztecAddress, fields: Fr[])
 ```
 
 **Properties**
-- `contractAddress: AztecAddress`
-- `fields: Fr[]`
+- `readonly contractAddress: AztecAddress`
+- `readonly fields: Fr[]`
 - `static schema: unknown`
 
 **Methods**
@@ -1629,7 +1633,7 @@ new PublicLog(contractAddress: AztecAddress, fields: Fr[])
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => PublicLog`
 - `static fromFields(fields: FieldReader | Fr[]) => PublicLog`
 - `static fromPlainObject(obj: any) => PublicLog`
-- `getEmittedFields() => Fr[]`
+- `getEmittedFields() => Fr[]` - Returns the serialized log (field as in noir field and not a struct field).
 - `getEmittedFieldsWithoutTag() => Fr[]`
 - `static getFields(fields: FieldsOf<PublicLog>) => readonly []`
 - `isEmpty() => boolean`
@@ -1750,7 +1754,7 @@ new Signature(r: Buffer32, s: Buffer32, v: number)
 - `getSize() => number`
 - `isEmpty() => boolean`
 - `static isValidString(sig: string) => boolean`
-- `static random() => Signature`
+- `static random() => Signature` - Generates a random valid ECDSA signature with a low s-value by signing a random message with a random key.
 - `toBuffer() => Buffer`
 - `toJSON() => string`
 - `toString() => string`
@@ -1772,7 +1776,8 @@ new SiloedTag(value: Fr)
 - `readonly value: Fr`
 
 **Methods**
-- `static compute(tag: Tag, app: AztecAddress) => Promise<SiloedTag>`
+- `static compute(preTag: PreTag) => Promise<SiloedTag>`
+- `static computeFromTagAndApp(tag: Tag, app: AztecAddress) => Promise<SiloedTag>`
 - `equals(other: SiloedTag) => boolean`
 - `toJSON() => string`
 - `toString() => string`
@@ -1895,9 +1900,9 @@ new Tx(txHash: TxHash, data: PrivateKernelTailCircuitPublicInputs, chonkProof: C
 - `generateP2PMessageIdentifier() => Promise<Buffer32>`
 - `getCalldataMap() => Map<string, Fr[]>`
 - `getContractClassLogs() => ContractClassLog[]`
-- `getEstimatedPrivateTxEffectsSize() => number` - Estimates the tx size based on its private effects. Note that the actual size of the tx after processing will probably be larger, as public execution would generate more data.
 - `getGasSettings() => GasSettings`
 - `getNonRevertiblePublicCallRequestsWithCalldata() => PublicCallRequestWithCalldata[]`
+- `getPrivateTxEffectsSizeInFields() => number` - Returns the number of fields this tx's effects will occupy in the blob, based on its private side effects only. Accurate for txs without public calls. For txs with public calls, the actual size will be larger due to public execution outputs.
 - `getPublicCallRequestsWithCalldata() => PublicCallRequestWithCalldata[]`
 - `getPublicLogs(logsSource: L2LogsSource) => Promise<GetPublicLogsResponse>` - Gets public logs emitted by this tx.
 - `getRevertiblePublicCallRequestsWithCalldata() => PublicCallRequestWithCalldata[]`
@@ -2215,6 +2220,7 @@ new TxSimulationResult(privateExecutionResult: PrivateExecutionResult, publicInp
 
 **Properties**
 - `gasUsed: unknown`
+- `offchainEffects: unknown`
 - `privateExecutionResult: PrivateExecutionResult`
 - `publicInputs: PrivateKernelTailCircuitPublicInputs`
 - `publicOutput?: PublicSimulationOutput`
@@ -2222,7 +2228,7 @@ new TxSimulationResult(privateExecutionResult: PrivateExecutionResult, publicInp
 - `stats?: SimulationStats`
 
 **Methods**
-- `static from(fields: Omit<FieldsOf<TxSimulationResult>, "gasUsed">) => TxSimulationResult`
+- `static from(fields: Omit<FieldsOf<TxSimulationResult>, "gasUsed" | "offchainEffects">) => TxSimulationResult`
 - `static fromPrivateSimulationResultAndPublicOutput(privateSimulationResult: PrivateSimulationResult, publicOutput?: PublicSimulationOutput, stats?: SimulationStats) => TxSimulationResult`
 - `getPrivateReturnValues() => NestedProcessReturnValues`
 - `getPublicReturnValues() => NestedProcessReturnValues[]`
@@ -2509,6 +2515,7 @@ Interface of classes allowing for the retrieval of L2 blocks.
 - `getCheckpointedBlocks(from: BlockNumber, limit: number) => Promise<CheckpointedL2Block[]>`
 - `getCheckpointedBlocksForEpoch(epochNumber: EpochNumber) => Promise<CheckpointedL2Block[]>` - Returns all checkpointed blocks for a given epoch.
 - `getCheckpointedL2BlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block checkpointed seen by the block source implementation.
+- `getCheckpointNumber() => Promise<CheckpointNumber>` - Gets the number of the latest L2 checkpoint processed by the block source implementation.
 - `getCheckpoints(checkpointNumber: CheckpointNumber, limit: number) => Promise<PublishedCheckpoint[]>` - Retrieves a collection of checkpoints.
 - `getCheckpointsDataForEpoch(epochNumber: EpochNumber) => Promise<CheckpointData[]>` - Gets lightweight checkpoint metadata for a given epoch, without fetching full block data.
 - `getCheckpointsForEpoch(epochNumber: EpochNumber) => Promise<Checkpoint[]>` - Gets the checkpoints for a given epoch
@@ -2558,6 +2565,7 @@ Extends: `L2BlockSource`
 - `getCheckpointedBlocks(from: BlockNumber, limit: number) => Promise<CheckpointedL2Block[]>`
 - `getCheckpointedBlocksForEpoch(epochNumber: EpochNumber) => Promise<CheckpointedL2Block[]>` - Returns all checkpointed blocks for a given epoch.
 - `getCheckpointedL2BlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block checkpointed seen by the block source implementation.
+- `getCheckpointNumber() => Promise<CheckpointNumber>` - Gets the number of the latest L2 checkpoint processed by the block source implementation.
 - `getCheckpoints(checkpointNumber: CheckpointNumber, limit: number) => Promise<PublishedCheckpoint[]>` - Retrieves a collection of checkpoints.
 - `getCheckpointsDataForEpoch(epochNumber: EpochNumber) => Promise<CheckpointData[]>` - Gets lightweight checkpoint metadata for a given epoch, without fetching full block data.
 - `getCheckpointsForEpoch(epochNumber: EpochNumber) => Promise<Checkpoint[]>` - Gets the checkpoints for a given epoch
@@ -2721,6 +2729,12 @@ Formats a buffer as an array of fields. Splits the input into 31-byte chunks, an
 function bufferFromFields(fields: Fr[]) => Buffer
 ```
 Recovers a buffer from an array of fields.
+
+### canBeMappedFromNullOrUndefined
+```typescript
+function canBeMappedFromNullOrUndefined(abiType: AbiType) => boolean
+```
+Returns whether `null` or `undefined` can be mapped to a valid ABI value for this type.
 
 ### collectNested
 ```typescript
@@ -3246,6 +3260,12 @@ function isFunctionSelectorStruct(abiType: AbiType) => boolean
 ```
 Returns whether the ABI type is an Function Selector defined in Aztec.nr.
 
+### isOptionStruct
+```typescript
+function isOptionStruct(abiType: AbiType) => boolean
+```
+Returns whether the ABI type is Noir's std::option::Option lowered to a struct.
+
 ### isPublicKeysStruct
 ```typescript
 function isPublicKeysStruct(abiType: AbiType) => boolean
@@ -3429,7 +3449,7 @@ A named type.
 
 ### AbiDecoded
 ```typescript
-type AbiDecoded = bigint | boolean | string | AztecAddress | AbiDecoded[] | {}
+type AbiDecoded = bigint | boolean | string | AztecAddress | AbiDecoded[] | {} | undefined
 ```
 The type of our decoded ABI.
 
@@ -3589,6 +3609,7 @@ Represents the data generated as part of contract deployment.
 ```typescript
 type EventMetadataDefinition = unknown
 ```
+Metadata for a contract event, used to decode emitted event logs back into structured data.
 
 ### ExecutablePrivateFunctionWithMembershipProof
 ```typescript
@@ -3939,6 +3960,26 @@ type TX_ERROR_INVALID_PROOF = "Invalid proof"
 ### TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED
 ```typescript
 type TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED = "Setup function not on allow list"
+```
+
+### TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT
+```typescript
+type TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT = "Setup function targets unknown contract"
+```
+
+### TX_ERROR_SETUP_NULL_MSG_SENDER
+```typescript
+type TX_ERROR_SETUP_NULL_MSG_SENDER = "Setup function called with null msg sender"
+```
+
+### TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER
+```typescript
+type TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER = "Setup only_self function called with incorrect msg_sender"
+```
+
+### TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH
+```typescript
+type TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH = "Setup function called with wrong calldata length"
 ```
 
 ### TX_ERROR_SIZE_ABOVE_LIMIT

@@ -9,7 +9,6 @@ import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider } from '@aztec/foundation/timer';
 import { TallySlashingProposerAbi } from '@aztec/l1-artifacts/TallySlashingProposerAbi';
 
-import type { Anvil } from '@viem/anvil';
 import { type Hex, type TypedDataDefinition, encodeFunctionData, hashTypedData } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -17,6 +16,7 @@ import { foundry } from 'viem/chains';
 import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
 import { type DeployAztecL1ContractsArgs, deployAztecL1Contracts } from '../deploy_aztec_l1_contracts.js';
+import type { Anvil } from '../test/start_anvil.js';
 import { RollupContract, decodeSlashConsensusVotes } from './index.js';
 import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
 

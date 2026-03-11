@@ -62,13 +62,14 @@ export async function createTxForPublicCalls(
   feePayer = AztecAddress.zero(),
   gasUsedByPrivate: Gas = Gas.empty(),
   globals: GlobalVariables = GlobalVariables.empty(),
+  gasLimits?: Gas,
 ): Promise<Tx> {
   assert(
     setupCallRequests.length > 0 || appCallRequests.length > 0 || teardownCallRequest !== undefined,
     "Can't create public tx with no enqueued calls",
   );
   // use max limits
-  const gasLimits = new Gas(DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT);
+  gasLimits = gasLimits ?? new Gas(DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT);
 
   const forPublic = PartialPrivateTailPublicInputsForPublic.empty();
 

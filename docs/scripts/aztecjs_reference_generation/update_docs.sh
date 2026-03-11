@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Script to regenerate auto-generated Aztec.js API documentation
 # Usage: ./scripts/aztecjs_reference_generation/update_docs.sh [target_version]
 #

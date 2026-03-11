@@ -1,10 +1,9 @@
-import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
 import { Fr } from '@aztec/aztec.js/fields';
-import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { getL1Config } from '@aztec/cli/config';
 import { getPublicClient } from '@aztec/ethereum/client';
-import { SecretValue } from '@aztec/foundation/config';
+import { getGenesisStateConfigEnvVars } from '@aztec/ethereum/config';
+import { type NetworkNames, SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
 import type { LogFn } from '@aztec/foundation/log';
@@ -19,16 +18,16 @@ import {
   telemetryClientConfigMappings,
 } from '@aztec/telemetry-client';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
-import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { createAztecNode } from '../../local-network/index.js';
 import {
   extractNamespacedOptions,
   extractRelevantOptions,
   preloadCrsDataForVerifying,
-  setupUpdateMonitor,
+  setupVersionChecker,
 } from '../util.js';
 import { getVersions } from '../versioning.js';
+import { computeExpectedGenesisRoot, waitForCompatibleRollup } from './standby.js';
 import { startProverBroker } from './start_prover_broker.js';
 
 export async function startNode(
@@ -37,6 +36,7 @@ export async function startNode(
   services: NamespacedApiHandlers,
   adminServices: NamespacedApiHandlers,
   userLog: LogFn,
+  networkName: NetworkNames,
 ): Promise<{ config: AztecNodeConfig }> {
   // All options set from environment variables
   const configFromEnvVars = getConfigEnvVars();
@@ -80,15 +80,8 @@ export async function startNode(
 
   await preloadCrsDataForVerifying(nodeConfig, userLog);
 
-  const testAccounts = nodeConfig.testAccounts ? (await getInitialTestAccountsData()).map(a => a.address) : [];
-  const sponsoredFPCAccounts = nodeConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
-  const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
-
-  userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
-
-  const { genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
-
-  userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
+  const genesisConfig = getGenesisStateConfigEnvVars();
+  const { genesisArchiveRoot, prefilledPublicData } = await computeExpectedGenesisRoot(genesisConfig, userLog);
 
   const followsCanonicalRollup =
     typeof nodeConfig.rollupVersion !== 'number' || (nodeConfig.rollupVersion as unknown as string) === 'canonical';
@@ -96,6 +89,11 @@ export async function startNode(
   if (!nodeConfig.l1Contracts.registryAddress || nodeConfig.l1Contracts.registryAddress.isZero()) {
     throw new Error('L1 registry address is required to start Aztec Node');
   }
+
+  // Wait for a compatible rollup before proceeding with full L1 config fetch.
+  // This prevents crashes when the canonical rollup hasn't been upgraded yet.
+  await waitForCompatibleRollup(nodeConfig, genesisArchiveRoot, options.port, userLog);
+
   const { addresses, config } = await getL1Config(
     nodeConfig.l1Contracts.registryAddress,
     nodeConfig.l1RpcUrls,
@@ -182,16 +180,19 @@ export async function startNode(
     await addBot(options, signalHandlers, services, wallet, node, telemetry, undefined);
   }
 
-  if (nodeConfig.autoUpdate !== 'disabled' && nodeConfig.autoUpdateUrl) {
-    await setupUpdateMonitor(
-      nodeConfig.autoUpdate,
-      new URL(nodeConfig.autoUpdateUrl),
-      followsCanonicalRollup,
-      getPublicClient(nodeConfig!),
-      nodeConfig.l1Contracts.registryAddress,
-      signalHandlers,
-      async config => node.setConfig((await AztecNodeAdminApiSchema.setConfig.parameters().parseAsync([config]))[0]),
-    );
+  if (nodeConfig.enableVersionCheck && networkName !== 'local') {
+    const cacheDir = process.env.DATA_DIRECTORY ? `${process.env.DATA_DIRECTORY}/cache` : undefined;
+    try {
+      await setupVersionChecker(
+        networkName,
+        followsCanonicalRollup,
+        getPublicClient(nodeConfig!),
+        signalHandlers,
+        cacheDir,
+      );
+    } catch {
+      /* no-op */
+    }
   }
 
   return { config: nodeConfig };

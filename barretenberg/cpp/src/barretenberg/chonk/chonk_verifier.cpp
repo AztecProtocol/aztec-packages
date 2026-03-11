@@ -7,20 +7,22 @@
 #include "chonk_verifier.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 
 namespace bb {
 
 /**
- * @brief Verifies a Chonk IVC proof (Native specialization).
+ * @brief Run all Chonk verification except IPA, returning the IPA data for deferred verification.
  */
-template <> ChonkVerifier<false>::Output ChonkVerifier<false>::verify(const Proof& proof)
+template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduce_to_ipa_claim(const Proof& proof)
 {
+    BB_BENCH_NAME("ChonkVerifier::reduce_to_ipa_claim");
     // Step 1: Verify the Hiding kernel proof (includes pairing check)
     HidingKernelVerifier verifier{ vk_and_hash, transcript };
     auto verifier_output = verifier.verify_proof(proof.mega_proof);
     if (!verifier_output.result) {
         info("ChonkVerifier: verification failed at MegaZK verification step");
-        return false;
+        return { {}, {}, false };
     }
 
     // Extract public inputs and kernel data
@@ -34,7 +36,7 @@ template <> ChonkVerifier<false>::Output ChonkVerifier<false>::verify(const Proo
     vinfo("ChonkVerifier: databus consistency verified: ", databus_consistency_verified);
     if (!databus_consistency_verified) {
         info("Chonk Verifier: verification failed at databus consistency check");
-        return false;
+        return { {}, {}, false };
     }
 
     // Step 3: Goblin verification (merge, eccvm, translator)
@@ -45,13 +47,27 @@ template <> ChonkVerifier<false>::Output ChonkVerifier<false>::verify(const Proo
 
     if (!goblin_output.all_checks_passed) {
         info("ChonkVerifier: chonk verification failed at Goblin checks (merge/eccvm/translator reduction + pairing)");
+        return { {}, {}, false };
+    }
+
+    return { std::move(goblin_output.ipa_claim), std::move(goblin_output.ipa_proof), true };
+}
+
+/**
+ * @brief Verifies a Chonk IVC proof (Native specialization).
+ */
+template <> ChonkVerifier<false>::Output ChonkVerifier<false>::verify(const Proof& proof)
+{
+    BB_BENCH_NAME("ChonkVerifier::verify");
+    auto result = reduce_to_ipa_claim(proof);
+    if (!result.all_checks_passed) {
         return false;
     }
 
     // Step 4: Verify IPA opening
-    auto ipa_transcript = std::make_shared<Goblin::Transcript>(goblin_output.ipa_proof);
+    auto ipa_transcript = std::make_shared<Goblin::Transcript>(result.ipa_proof);
     auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
-    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, goblin_output.ipa_claim, ipa_transcript);
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, result.ipa_claim, ipa_transcript);
     vinfo("ChonkVerifier: Goblin IPA verified: ", ipa_verified);
     if (!ipa_verified) {
         info("ChonkVerifier: Chonk verification failed at IPA check");
@@ -111,6 +127,15 @@ template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof&
                             .ipa_claim = std::move(goblin_output.ipa_claim),
                             .ipa_proof = std::move(goblin_output.ipa_proof),
                             .all_checks_passed = mega_reduction_succeeded && goblin_output.all_checks_passed };
+}
+
+/**
+ * @brief Stub for recursive mode (not meaningful — reduce_to_ipa_claim is only used in native batch verification).
+ */
+template <>
+ChonkVerifier<true>::IPAReductionResult ChonkVerifier<true>::reduce_to_ipa_claim([[maybe_unused]] const Proof& proof)
+{
+    throw_or_abort("reduce_to_ipa_claim is only available for native (non-recursive) ChonkVerifier");
 }
 
 // Template instantiations

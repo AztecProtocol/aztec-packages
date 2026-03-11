@@ -5,9 +5,6 @@
 # - Redis publishing (started/failed/flaked events)
 # - Flake detection and owner notification
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
-source $ci3/source_redis
-source $ci3/source_cache
-source $ci3/source_refname
 
 # We must enable job control to ensure our test runs in it's own process group.
 # Otherwise, when parallel sends a TERM to the group, it will also kill any child process of the test.
@@ -102,9 +99,12 @@ function cleanup {
 }
 trap cleanup EXIT
 
-# Signal handler to forward SIGTERM/SIGINT to test process.
+# Signal handler to forward SIGTERM/SIGINT to test process group.
+# We use set -m so exec_test runs in its own process group (leader PID = test_pid).
+# We must kill the process GROUP (-$pid) not just exec_test, otherwise children
+# like docker_isolate are orphaned and Docker containers keep running.
 function sig_handler {
-  kill -TERM ${test_pid:-} &>/dev/null
+  [ -n "${test_pid:-}" ] && kill -TERM -$test_pid &>/dev/null
   exit
 }
 trap sig_handler SIGTERM SIGINT
@@ -143,6 +143,9 @@ function live_publish_log {
   wait $sleep_pid
   publish_log
   echo -e "${blue}RUNNING${reset}${log_info:-}: $test_cmd"
+  # Close inherited stdout/stderr so this background process can't hold the outer
+  # pipeline's pipe fds open (which would prevent denoise/redact from seeing EOF).
+  exec >&- 2>&-
   while [ -f $tmp_file ]; do
     local stat=$(stat -c %Y "$tmp_file" || echo 0)
     if [ $(( $(date +%s) - "$stat" )) -le 5 ]; then
@@ -170,7 +173,7 @@ if [ "$publish" -eq 1 ]; then
     --arg status "started" \
     --arg test_cmd "$cmd" \
     --arg log_id "$log_key" \
-    --arg log_url "http://ci.aztec-labs.com/$log_key" \
+    --arg log_url "$DASHBOARD_URL/$log_key" \
     --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
     --arg commit_hash "$COMMIT_HASH" \
     --arg commit_author "$COMMIT_AUTHOR" \
@@ -323,7 +326,7 @@ function fail {
   [ "$CI" -eq 1 ] && post_github_failure_status
 
   if [ "$slack_notify_fail" -eq 1 ]; then
-    slack_notify "Test FAILED on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key" "#alerts-next-scenario"
+    slack_notify "Test FAILED on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` $DASHBOARD_URL/$log_key" "#alerts-next-scenario"
   fi
 
   exit $code
@@ -354,7 +357,7 @@ function flake {
     for uid in $owners; do
       slack_uids+="<@$uid> "
     done
-    slack_notify "${slack_uids% }: Test flaked on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
+    slack_notify "${slack_uids% }: Test flaked on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` $DASHBOARD_URL/$log_key"
   fi
 
   exit 0
