@@ -248,11 +248,8 @@ class ECCVMTranscriptBuilder {
 
             if (msm_transition) {
                 process_msm_transition(row, updated_state, state);
-            } else {
-                msm_accumulator_trace[i] = Element::infinity();
-                intermediate_accumulator_trace[i] = Element::infinity();
             }
-
+            // else, these will be set to the neutral element further below.
             if (is_add) {
                 process_add(entry, updated_state, state);
             }
