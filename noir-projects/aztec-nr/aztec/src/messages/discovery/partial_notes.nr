@@ -5,8 +5,9 @@ use crate::{
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::partial_note::{decode_partial_note_private_message, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN},
         processing::{
-            enqueue_note_for_validation, get_pending_partial_notes_completion_logs,
-            log_retrieval_response::LogRetrievalResponse,
+            enqueue_note_for_validation,
+            get_pending_partial_notes_completion_logs,
+            log_retrieval_response::{LogRetrievalResponse, MAX_LOG_CONTENT_LEN},
         },
     },
     utils::array,
@@ -25,7 +26,6 @@ pub(crate) global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Fie
 #[derive(Serialize, Deserialize)]
 pub(crate) struct DeliveredPendingPartialNote {
     pub(crate) owner: AztecAddress,
-    pub(crate) storage_slot: Field,
     pub(crate) randomness: Field,
     pub(crate) note_completion_log_tag: Field,
     pub(crate) note_type_id: Field,
@@ -41,12 +41,11 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
 ) {
     // We store the information of the partial note we found in a persistent capsule in PXE, so that we can later
     // search for the public log that will complete it.
-    let (owner, storage_slot, randomness, note_completion_log_tag, note_type_id, packed_private_note_content) =
+    let (owner, randomness, note_completion_log_tag, note_type_id, packed_private_note_content) =
         decode_partial_note_private_message(msg_metadata, msg_content);
 
     let pending = DeliveredPendingPartialNote {
         owner,
-        storage_slot,
         randomness,
         note_completion_log_tag,
         note_type_id,
@@ -105,12 +104,17 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
             ]);
             let log = maybe_log.unwrap();
 
-            // Public fields are assumed to all be placed at the end of the packed representation, so we combine the
-            // private and public packed fields (i.e. the contents of the private message and public log plaintext to
-            // get the complete packed content.
+            // The first field in the completion log payload is the storage slot, followed by the public note
+            // content fields.
+            let storage_slot = log.log_payload.get(0);
+            let public_note_content: BoundedVec<Field, MAX_LOG_CONTENT_LEN - 1> = array::subbvec(log.log_payload, 1);
+
+            // Public fields are assumed to all be placed at the end of the packed representation, so we combine
+            // the private and public packed fields (i.e. the contents of the private message and public log
+            // plaintext) to get the complete packed content.
             let complete_packed_note = array::append(
                 pending_partial_note.packed_private_note_content,
-                log.log_payload,
+                public_note_content,
             );
 
             let discovered_notes = attempt_note_nonce_discovery(
@@ -119,7 +123,7 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
                 compute_note_hash_and_nullifier,
                 contract_address,
                 pending_partial_note.owner,
-                pending_partial_note.storage_slot,
+                storage_slot,
                 pending_partial_note.randomness,
                 pending_partial_note.note_type_id,
                 complete_packed_note,
@@ -142,7 +146,7 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
                 enqueue_note_for_validation(
                     contract_address,
                     pending_partial_note.owner,
-                    pending_partial_note.storage_slot,
+                    storage_slot,
                     pending_partial_note.randomness,
                     discovered_note.note_nonce,
                     complete_packed_note,

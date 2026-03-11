@@ -792,7 +792,11 @@
     to = "/aztec-nr-api/nightly/noir_aztec/macros/events/fn.event.html"
 
 [[redirects]]
-    # Aztec-nr: user-defined 'offchain_receive' is not allowed
+    # Aztec-nr: direct invocation of contract functions is not supported
     from = "/errors/6"
-    to = "/aztec-nr-api/nightly/noir_aztec/messages/processing/offchain/fn.receive.html"
+    to = "/developers/docs/aztec-nr/framework-description/calling_contracts"
 
+[[redirects]]
+    # Aztec-nr: user-defined 'offchain_receive' is not allowed
+    from = "/errors/7"
+    to = "/aztec-nr-api/nightly/noir_aztec/messages/processing/offchain/fn.receive.html"
