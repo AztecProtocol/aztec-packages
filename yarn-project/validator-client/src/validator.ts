@@ -417,6 +417,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     if (!validationResult.isValid) {
       const reason = validationResult.reason || 'unknown';
+
+      this.log.warn(`Block proposal validation failed: ${reason}`, proposalInfo);
+
       // Classify failure reason: bad proposal vs node issue
       const badProposalReasons: BlockProposalValidationFailureReason[] = [
         'invalid_proposal',
@@ -425,13 +428,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         'in_hash_mismatch',
         'parent_block_wrong_slot',
       ];
-      // block_number_already_exists is expected in HA setups when the partner node already built the block
-      const expectedReasons = ['block_number_already_exists'];
-      if (expectedReasons.includes(reason)) {
-        this.log.verbose(`Block proposal validation failed: ${reason}`, proposalInfo);
-      } else {
-        this.log.warn(`Block proposal validation failed: ${reason}`, proposalInfo);
-      }
 
       if (badProposalReasons.includes(reason as BlockProposalValidationFailureReason)) {
         this.metrics.incFailedAttestationsBadProposal(1, reason, partOfCommittee);
