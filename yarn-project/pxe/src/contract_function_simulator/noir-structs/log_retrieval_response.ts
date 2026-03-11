@@ -3,10 +3,7 @@ import { range } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { TxHash } from '@aztec/stdlib/tx';
 
-import { MAX_NOTE_PACKED_LEN } from './note_validation_request.js';
-
-const MAX_PUBLIC_LOG_LEN_FOR_NOTE_COMPLETION = MAX_NOTE_PACKED_LEN;
-const MAX_LOG_CONTENT_LEN = Math.max(MAX_PUBLIC_LOG_LEN_FOR_NOTE_COMPLETION, PRIVATE_LOG_CIPHERTEXT_LEN);
+const MAX_LOG_CONTENT_LEN = PRIVATE_LOG_CIPHERTEXT_LEN;
 
 /**
  * Intermediate struct used to perform batch log retrieval by PXE. The `utilityBulkRetrieveLogs` oracle stores values of this
