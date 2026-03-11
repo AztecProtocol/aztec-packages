@@ -97,7 +97,7 @@ function build_cross_objects {
   if ! cache_exists barretenberg-$target-$hash.zst; then
     if [[ "$target" == *-windows ]]; then
       # Windows builds exclude nodejs_module (N-API requires MSVC, not MinGW)
-      build_preset zig-$target --target barretenberg vm2_stub circuit_checker honk
+      AVM_TRANSPILER=0 build_preset zig-$target --target barretenberg vm2_stub circuit_checker honk
     else
       (flock -x 200 && cd src/barretenberg/nodejs_module && yarn --immutable) 200>/tmp/bb-yarn.lock
       build_preset zig-$target --target barretenberg nodejs_module vm2_stub circuit_checker honk
@@ -125,7 +125,7 @@ function build_cross_windows {
   set -eu
   target=$1
   if ! cache_download barretenberg-$target-$hash.zst; then
-    build_preset zig-$target --target bb --target bb-external
+    AVM_TRANSPILER=0 build_preset zig-$target --target bb --target bb-external
     cache_upload barretenberg-$target-$hash.zst build-zig-$target/{bin,lib}
   fi
   # Always inject version (even for cached binaries) to ensure correct version on release

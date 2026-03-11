@@ -808,6 +808,11 @@
       "inheritConfigureEnvironment": true
     },
     {
+      "name": "zig-amd64-windows",
+      "configurePreset": "zig-amd64-windows",
+      "inheritConfigureEnvironment": true
+    },
+    {
       "name": "zig-arm64-ios",
       "configurePreset": "zig-arm64-ios",
       "inheritConfigureEnvironment": true
