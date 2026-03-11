@@ -19,7 +19,7 @@
 // also present (from Rust static libraries). Adding an alignas(16) initialized
 // thread_local forces __thread_data alignment to 16, ensuring __thread_bss starts
 // at a 16-byte-aligned TLS template offset.
-// See: https://codeberg.org/AztecProtocol/zig-macho-tls-bug
+// See: https://codeberg.org/ziglang/zig/issues/31461
 // NOLINTBEGIN
 alignas(16) thread_local char tls_alignment_pad[16] __attribute__((used)) = { 1 };
 // NOLINTEND
