@@ -1,6 +1,8 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/multi_mega_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
 #include "barretenberg/flavor/test_utils/proof_structures.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
@@ -9,6 +11,8 @@
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/multi_honk_prover.hpp"
+#include "barretenberg/ultra_honk/multi_honk_verifier.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -25,10 +29,18 @@ using FlavorTypes = ::testing::Types<UltraFlavor,
                                      UltraZKFlavor,
                                      UltraKeccakZKFlavor,
                                      MegaFlavor,
-                                     MegaZKFlavor>;
+                                     MegaZKFlavor,
+                                     MultiMegaFlavor,
+                                     MultiMegaZKFlavor>;
 #else
-using FlavorTypes =
-    ::testing::Types<UltraFlavor, UltraKeccakFlavor, UltraZKFlavor, UltraKeccakZKFlavor, MegaFlavor, MegaZKFlavor>;
+using FlavorTypes = ::testing::Types<UltraFlavor,
+                                     UltraKeccakFlavor,
+                                     UltraZKFlavor,
+                                     UltraKeccakZKFlavor,
+                                     MegaFlavor,
+                                     MegaZKFlavor,
+                                     MultiMegaFlavor,
+                                     MultiMegaZKFlavor>;
 #endif
 
 template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
@@ -40,9 +52,22 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
     using Commitment = Flavor::Commitment;
     using ProverInstance = ProverInstance_<Flavor>;
     using Builder = Flavor::CircuitBuilder;
-    using Prover = UltraProver_<Flavor>;
     using IO = DefaultIO;
-    using Verifier = UltraVerifier_<Flavor, IO>;
+    template <typename F, bool = IsMultiMegaFlavor<F>> struct ProverType {
+        using type = UltraProver_<F>;
+    };
+    template <typename F> struct ProverType<F, true> {
+        using type = MultiHonkProver_<F>;
+    };
+    using Prover = typename ProverType<Flavor>::type;
+
+    template <typename F, bool = IsMultiMegaFlavor<F>> struct VerifierType {
+        using type = UltraVerifier_<F, IO>;
+    };
+    template <typename F> struct VerifierType<F, true> {
+        using type = MultiHonkVerifier_<F, IO>;
+    };
+    using Verifier = typename VerifierType<Flavor>::type;
     using Proof = typename Flavor::Transcript::Proof;
 
     /**
@@ -194,6 +219,133 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
         return manifest_expected;
     }
 
+    /**
+     * @brief Construct a manifest for a MultiHonk proof (interleaved commitments)
+     */
+    TranscriptManifest construct_multi_honk_manifest()
+        requires IsMultiMegaFlavor<Flavor>
+    {
+        TranscriptManifest manifest_expected;
+
+        const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N;
+        const size_t pcs_log_n = virtual_log_n + Flavor::INTERLEAVING_LOG_K;
+
+        size_t NUM_PUBLIC_INPUTS = IO::PUBLIC_INPUTS_SIZE;
+        size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
+
+        size_t frs_per_Fr = FrCodec::calc_num_fields<FF>();
+        size_t frs_per_G = FrCodec::calc_num_fields<Commitment>();
+        size_t frs_per_uni = MAX_PARTIAL_RELATION_LENGTH * frs_per_Fr;
+        size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
+
+        size_t round = 0;
+        manifest_expected.add_entry(round, "vk_hash", frs_per_Fr);
+        manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
+        for (size_t i = 0; i < NUM_PUBLIC_INPUTS; i++) {
+            manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), frs_per_Fr);
+        }
+        // For ZK flavors: interleaved masking polynomial commitment is sent before wire commitments
+        if constexpr (Flavor::HasZK) {
+            manifest_expected.add_entry(round, "INTERLEAVED_MASKING", frs_per_G);
+        }
+        manifest_expected.add_entry(round, "INTERLEAVED_WIRES", frs_per_G);
+        manifest_expected.add_entry(round, "INTERLEAVED_ECC_OP_WIRES", frs_per_G);
+        manifest_expected.add_entry(round, "ECC_OP_WIRE_1", frs_per_G);
+        manifest_expected.add_entry(round, "ECC_OP_WIRE_2", frs_per_G);
+        manifest_expected.add_entry(round, "ECC_OP_WIRE_3", frs_per_G);
+        manifest_expected.add_entry(round, "ECC_OP_WIRE_4", frs_per_G);
+        manifest_expected.add_entry(round, "INTERLEAVED_CALLDATA", frs_per_G);
+        manifest_expected.add_entry(round, "INTERLEAVED_SECONDARY_CALLDATA", frs_per_G);
+        manifest_expected.add_entry(round, "INTERLEAVED_DATABUS_TAGS", frs_per_G);
+        manifest_expected.add_entry(round, "INTERLEAVED_RETURN_DATA_TAGS", frs_per_G);
+        manifest_expected.add_entry(round, "INTERLEAVED_RETURN_DATA", frs_per_G);
+        manifest_expected.add_challenge(round, "eta");
+
+        round++;
+        manifest_expected.add_entry(round, "INTERLEAVED_W_4", frs_per_G);
+        manifest_expected.add_entry(round, "INTERLEAVED_LOOKUP", frs_per_G);
+        manifest_expected.add_challenge(round, std::array{ "beta", "gamma" });
+
+        round++;
+        manifest_expected.add_entry(round, "INTERLEAVED_INVERSES", frs_per_G);
+        manifest_expected.add_entry(round, "INTERLEAVED_Z_PERM", frs_per_G);
+        manifest_expected.add_challenge(round, "alpha");
+        manifest_expected.add_challenge(round, "Sumcheck:gate_challenge");
+
+        round++;
+
+        if constexpr (Flavor::HasZK) {
+            manifest_expected.add_entry(round, "Libra:concatenation_commitment", frs_per_G);
+            manifest_expected.add_entry(round, "Libra:Sum", frs_per_Fr);
+            manifest_expected.add_challenge(round, "Libra:Challenge");
+            round++;
+        }
+
+        for (size_t i = 0; i < virtual_log_n; ++i) {
+            manifest_expected.add_entry(round, "Sumcheck:univariate_" + std::to_string(i), frs_per_uni);
+            manifest_expected.add_challenge(round, "Sumcheck:u_" + std::to_string(i));
+            round++;
+        }
+
+        constexpr size_t NUM_UNSHIFTED = Flavor::NUM_ALL_INTERLEAVED_COMMITMENTS;
+        constexpr size_t NUM_SHIFTED = Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
+        manifest_expected.add_entry(round, "Sumcheck:evaluations", frs_per_evals);
+
+        if constexpr (Flavor::HasZK) {
+            manifest_expected.add_entry(round, "Libra:claimed_evaluation", frs_per_Fr);
+        }
+
+        // Interleaving challenges are in the evaluations round
+        manifest_expected.add_challenge(round, "Shplemini:interleaving_challenge_0");
+        manifest_expected.add_challenge(round, "Shplemini:interleaving_challenge_1");
+
+        if constexpr (Flavor::HasZK) {
+            // SmallSubgroupIPA sends commitments after interleaving challenges → new round
+            round++;
+            manifest_expected.add_entry(round, "Libra:grand_sum_commitment", frs_per_G);
+            manifest_expected.add_entry(round, "Libra:quotient_commitment", frs_per_G);
+        }
+
+        // Batching challenges (same round as SmallSubgroupIPA entries for ZK, or evaluations round for non-ZK)
+        for (size_t i = 0; i < NUM_UNSHIFTED - 1; i++) {
+            manifest_expected.add_challenge(round, "unshifted_challenge_" + std::to_string(i));
+        }
+        for (size_t i = 0; i < NUM_SHIFTED - 1; i++) {
+            manifest_expected.add_challenge(round, "shifted_challenge_" + std::to_string(i));
+        }
+        manifest_expected.add_challenge(round, "rho");
+
+        round++;
+        for (size_t i = 1; i < pcs_log_n; ++i) {
+            manifest_expected.add_entry(round, "Gemini:FOLD_" + std::to_string(i), frs_per_G);
+        }
+        manifest_expected.add_challenge(round, "Gemini:r");
+
+        round++;
+        for (size_t i = 1; i <= pcs_log_n; ++i) {
+            manifest_expected.add_entry(round, "Gemini:a_" + std::to_string(i), frs_per_Fr);
+        }
+
+        if constexpr (Flavor::HasZK) {
+            manifest_expected.add_entry(round, "Libra:concatenation_eval", frs_per_Fr);
+            manifest_expected.add_entry(round, "Libra:shifted_grand_sum_eval", frs_per_Fr);
+            manifest_expected.add_entry(round, "Libra:grand_sum_eval", frs_per_Fr);
+            manifest_expected.add_entry(round, "Libra:quotient_eval", frs_per_Fr);
+        }
+
+        manifest_expected.add_challenge(round, "Shplonk:nu");
+
+        round++;
+        manifest_expected.add_entry(round, "Shplonk:Q", frs_per_G);
+        manifest_expected.add_challenge(round, "Shplonk:z");
+
+        round++;
+        manifest_expected.add_entry(round, "KZG:W", frs_per_G);
+        manifest_expected.add_challenge(round, "KZG:masking_challenge");
+
+        return manifest_expected;
+    }
+
     void generate_test_circuit(Builder& builder)
     {
         FF a = 1;
@@ -232,11 +384,13 @@ TYPED_TEST(HonkTranscriptTests, ProverManifestConsistency)
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
-    auto manifest_expected = TestFixture::construct_honk_manifest(prover.log_dyadic_size());
+    TranscriptManifest manifest_expected;
+    if constexpr (IsMultiMegaFlavor<TypeParam>) {
+        manifest_expected = TestFixture::construct_multi_honk_manifest();
+    } else {
+        manifest_expected = TestFixture::construct_honk_manifest(prover.log_dyadic_size());
+    }
     auto prover_manifest = prover.get_transcript()->get_manifest();
-    // Note: a manifest can be printed using manifest.print()
-    manifest_expected.print();
-    prover_manifest.print();
     ASSERT_GT(manifest_expected.size(), 0);
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
         if (prover_manifest[round] != manifest_expected[round]) {
@@ -316,51 +470,56 @@ TYPED_TEST(HonkTranscriptTests, ChallengeGenerationTest)
 TYPED_TEST(HonkTranscriptTests, StructureTest)
 {
     using Flavor = TypeParam;
-    using FF = Flavor::FF;
-    using Commitment = Flavor::Commitment;
-    // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
-    auto builder = typename TestFixture::Builder();
-    TestFixture::generate_test_circuit(builder);
+    if constexpr (IsMultiMegaFlavor<Flavor>) {
+        GTEST_SKIP() << "StructureTest not applicable for MultiMega flavors (different proof structure)";
+    } else {
+        using FF = Flavor::FF;
+        using Commitment = Flavor::Commitment;
+        // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
+        auto builder = typename TestFixture::Builder();
+        TestFixture::generate_test_circuit(builder);
 
-    // Automatically generate a transcript manifest by constructing a proof
-    auto prover_instance = std::make_shared<typename TestFixture::ProverInstance>(builder);
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(prover_instance->get_precomputed());
-    auto vk_and_hash = std::make_shared<typename TypeParam::VKAndHash>(verification_key);
-    typename TestFixture::Prover prover(prover_instance, verification_key);
-    auto proof = prover.construct_proof();
-    typename TestFixture::Verifier verifier(vk_and_hash);
-    EXPECT_TRUE(verifier.verify_proof(proof).result);
+        // Automatically generate a transcript manifest by constructing a proof
+        auto prover_instance = std::make_shared<typename TestFixture::ProverInstance>(builder);
+        auto verification_key =
+            std::make_shared<typename TestFixture::VerificationKey>(prover_instance->get_precomputed());
+        auto vk_and_hash = std::make_shared<typename TypeParam::VKAndHash>(verification_key);
+        typename TestFixture::Prover prover(prover_instance, verification_key);
+        auto proof = prover.construct_proof();
+        typename TestFixture::Verifier verifier(vk_and_hash);
+        EXPECT_TRUE(verifier.verify_proof(proof).result);
 
-    const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : prover_instance->log_dyadic_size();
+        const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : prover_instance->log_dyadic_size();
 
-    // Use StructuredProof test utility to deserialize/serialize proof data
-    StructuredProof<Flavor> proof_structure;
+        // Use StructuredProof test utility to deserialize/serialize proof data
+        StructuredProof<Flavor> proof_structure;
 
-    // try deserializing and serializing with no changes and check proof is still valid
-    proof_structure.deserialize(
-        prover.get_transcript()->test_get_proof_data(), verification_key->num_public_inputs, virtual_log_n);
-    proof_structure.serialize(prover.get_transcript()->test_get_proof_data(), virtual_log_n);
+        // try deserializing and serializing with no changes and check proof is still valid
+        proof_structure.deserialize(
+            prover.get_transcript()->test_get_proof_data(), verification_key->num_public_inputs, virtual_log_n);
+        proof_structure.serialize(prover.get_transcript()->test_get_proof_data(), virtual_log_n);
 
-    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs(), virtual_log_n);
-    // we have changed nothing so proof is still valid
-    typename TestFixture::Verifier verifier2(vk_and_hash);
-    EXPECT_TRUE(verifier2.verify_proof(proof).result);
+        proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs(), virtual_log_n);
+        // we have changed nothing so proof is still valid
+        typename TestFixture::Verifier verifier2(vk_and_hash);
+        EXPECT_TRUE(verifier2.verify_proof(proof).result);
 
-    Commitment one_group_val = Commitment::one();
-    FF rand_val = FF::random_element();
-    proof_structure.z_perm_comm = one_group_val * rand_val; // choose random object to modify
-    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs(), virtual_log_n);
-    // we have not serialized it back to the proof so it should still be fine
-    typename TestFixture::Verifier verifier3(vk_and_hash);
-    EXPECT_TRUE(verifier3.verify_proof(proof).result);
+        Commitment one_group_val = Commitment::one();
+        FF rand_val = FF::random_element();
+        proof_structure.z_perm_comm = one_group_val * rand_val; // choose random object to modify
+        proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs(), virtual_log_n);
+        // we have not serialized it back to the proof so it should still be fine
+        typename TestFixture::Verifier verifier3(vk_and_hash);
+        EXPECT_TRUE(verifier3.verify_proof(proof).result);
 
-    proof_structure.serialize(prover.get_transcript()->test_get_proof_data(), virtual_log_n);
-    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs(), virtual_log_n);
-    // the proof is now wrong after serializing it
-    typename TestFixture::Verifier verifier4(vk_and_hash);
-    EXPECT_FALSE(verifier4.verify_proof(proof).result);
+        proof_structure.serialize(prover.get_transcript()->test_get_proof_data(), virtual_log_n);
+        proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs(), virtual_log_n);
+        // the proof is now wrong after serializing it
+        typename TestFixture::Verifier verifier4(vk_and_hash);
+        EXPECT_FALSE(verifier4.verify_proof(proof).result);
 
-    proof_structure.deserialize(
-        prover.get_transcript()->test_get_proof_data(), verification_key->num_public_inputs, virtual_log_n);
-    EXPECT_EQ(static_cast<Commitment>(proof_structure.z_perm_comm), one_group_val * rand_val);
+        proof_structure.deserialize(
+            prover.get_transcript()->test_get_proof_data(), verification_key->num_public_inputs, virtual_log_n);
+        EXPECT_EQ(static_cast<Commitment>(proof_structure.z_perm_comm), one_group_val * rand_val);
+    }
 }

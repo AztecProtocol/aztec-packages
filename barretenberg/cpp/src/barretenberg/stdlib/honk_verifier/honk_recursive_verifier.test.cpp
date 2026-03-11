@@ -3,9 +3,13 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/multi_mega_recursive_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/test_utils/proof_structures.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/ultra_honk/multi_honk_prover.hpp"
+#include "barretenberg/ultra_honk/multi_honk_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "ultra_verification_keys_comparator.hpp"
@@ -30,7 +34,11 @@ using TestConfigs = testing::Types<
     RecursiveVerifierTestParams<UltraZKRecursiveFlavor_<UltraCircuitBuilder>, DefaultIO<UltraCircuitBuilder>>,
     RecursiveVerifierTestParams<UltraZKRecursiveFlavor_<MegaCircuitBuilder>, DefaultIO<MegaCircuitBuilder>>,
     RecursiveVerifierTestParams<MegaZKRecursiveFlavor_<MegaCircuitBuilder>, DefaultIO<MegaCircuitBuilder>>,
-    RecursiveVerifierTestParams<MegaZKRecursiveFlavor_<UltraCircuitBuilder>, DefaultIO<UltraCircuitBuilder>>>;
+    RecursiveVerifierTestParams<MegaZKRecursiveFlavor_<UltraCircuitBuilder>, DefaultIO<UltraCircuitBuilder>>,
+    RecursiveVerifierTestParams<MultiMegaRecursiveFlavor_<UltraCircuitBuilder>, DefaultIO<UltraCircuitBuilder>>,
+    RecursiveVerifierTestParams<MultiMegaRecursiveFlavor_<MegaCircuitBuilder>, DefaultIO<MegaCircuitBuilder>>,
+    RecursiveVerifierTestParams<MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>, DefaultIO<UltraCircuitBuilder>>,
+    RecursiveVerifierTestParams<MultiMegaZKRecursiveFlavor_<MegaCircuitBuilder>, DefaultIO<MegaCircuitBuilder>>>;
 
 /**
  * @brief Test suite for recursive verification of  Honk proofs for both Ultra and Mega arithmetisation.
@@ -47,7 +55,20 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
 
     // Define types for the inner circuit, i.e. the circuit whose proof will be recursively verified
     using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
-    using InnerProver = UltraProver_<InnerFlavor>;
+    // Deferred type selection: use MultiHonk* for MultiMega flavors, Ultra* otherwise
+    template <typename F, bool = IsMultiMegaFlavor<F>> struct ProverSelector {
+        using type = UltraProver_<F>;
+    };
+    template <typename F> struct ProverSelector<F, true> {
+        using type = MultiHonkProver_<F>;
+    };
+    template <typename F, typename IO_T, bool = IsMultiMegaFlavor<F>> struct VerifierSelector {
+        using type = bb::UltraVerifier_<F, IO_T>;
+    };
+    template <typename F, typename IO_T> struct VerifierSelector<F, IO_T, true> {
+        using type = MultiHonkVerifier_<F, IO_T>;
+    };
+    using InnerProver = typename ProverSelector<InnerFlavor>::type;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
     using InnerProverInstance = ProverInstance_<InnerFlavor>;
     using InnerCommitment = InnerFlavor::Commitment;
@@ -56,7 +77,7 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
 
     // IO types: InnerIO uses InnerBuilder, OuterIO uses OuterBuilder
     using NativeIO = std::conditional_t<IO::HasIPA, bb::RollupIO, bb::DefaultIO>;
-    using InnerVerifier = bb::UltraVerifier_<InnerFlavor, NativeIO>;
+    using InnerVerifier = typename VerifierSelector<InnerFlavor, NativeIO>::type;
     using InnerIO = std::conditional_t<IO::HasIPA, RollupIO, DefaultIO<InnerBuilder>>;
 
     // Defines types for the outer circuit, i.e. the circuit of the recursive verifier
@@ -69,7 +90,7 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
     using OuterIO = IO;
 
     // RecursiveVerifier uses IO that matches the test's IO type
-    using RecursiveVerifier = bb::UltraVerifier_<RecursiveFlavor, IO>;
+    using RecursiveVerifier = typename VerifierSelector<RecursiveFlavor, IO>::type;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
     using PairingObject = PairingPoints<OuterBuilder>;
@@ -494,7 +515,12 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, IndependentVKHash)
 
 HEAVY_TYPED_TEST(RecursiveVerifierTest, SingleRecursiveVerificationFailure)
 {
-    TestFixture::test_recursive_verification_fails();
+    using InnerFlavor = typename TypeParam::RecursiveFlavor::NativeFlavor;
+    if constexpr (IsMultiMegaFlavor<InnerFlavor>) {
+        GTEST_SKIP() << "StructuredProof not available for MultiMega flavors";
+    } else {
+        TestFixture::test_recursive_verification_fails();
+    }
 };
 
 /**

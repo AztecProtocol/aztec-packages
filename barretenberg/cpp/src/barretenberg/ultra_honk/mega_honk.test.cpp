@@ -4,11 +4,15 @@
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/flavor/multi_mega_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include "barretenberg/ultra_honk/multi_honk_prover.hpp"
+#include "barretenberg/ultra_honk/multi_honk_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -16,7 +20,7 @@ using namespace bb;
 
 auto& engine = numeric::get_debug_randomness();
 
-using FlavorTypes = ::testing::Types<MegaFlavor, MegaZKFlavor>;
+using FlavorTypes = ::testing::Types<MegaFlavor, MegaZKFlavor, MultiMegaFlavor, MultiMegaZKFlavor>;
 
 template <typename Flavor> class MegaHonkTests : public ::testing::Test {
   public:
@@ -26,8 +30,22 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     using FF = Curve::ScalarField;
     using Point = Curve::AffineElement;
     using CommitmentKey = bb::CommitmentKey<Curve>;
-    using Prover = UltraProver_<Flavor>;
-    using Verifier = UltraVerifier_<Flavor, DefaultIO>;
+    // Use deferred type selection to avoid evaluating constrained templates for wrong flavors
+    template <typename F, bool = IsMultiMegaFlavor<F>> struct ProverType {
+        using type = UltraProver_<F>;
+    };
+    template <typename F> struct ProverType<F, true> {
+        using type = MultiHonkProver_<F>;
+    };
+    using Prover = typename ProverType<Flavor>::type;
+
+    template <typename F, bool = IsMultiMegaFlavor<F>> struct VerifierType {
+        using type = UltraVerifier_<F, DefaultIO>;
+    };
+    template <typename F> struct VerifierType<F, true> {
+        using type = MultiHonkVerifier_<F, DefaultIO>;
+    };
+    using Verifier = typename VerifierType<Flavor>::type;
     using VerificationKey = typename Flavor::VerificationKey;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;
@@ -73,7 +91,7 @@ TYPED_TEST(MegaHonkTests, ProofLengthCheck)
     // Construct a mega proof and ensure its size matches expectation; if not, the constant may need to be updated
     auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
-    UltraProver_<Flavor> prover(prover_instance, verification_key);
+    typename TestFixture::Prover prover(prover_instance, verification_key);
     HonkProof mega_proof = prover.construct_proof();
     EXPECT_EQ(mega_proof.size(),
               ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(Flavor::VIRTUAL_LOG_N) +
@@ -106,14 +124,14 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
 {
     using Flavor = TypeParam;
 
-    // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i for
+    // ZK flavors mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i for
     // i=1,2,3. This mechanism does not work with structured polynomials yet.
-    if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
-        GTEST_SKIP() << "Skipping 'DynamicVirtualSizeIncrease' test for MegaZKFlavor.";
+    if constexpr (Flavor::HasZK) {
+        GTEST_SKIP() << "Skipping 'DynamicVirtualSizeIncrease' test for ZK flavors.";
     }
     typename Flavor::CircuitBuilder builder;
-    using Prover = UltraProver_<Flavor>;
-    using Verifier = UltraVerifier_<Flavor, DefaultIO>;
+    using Prover = typename TestFixture::Prover;
+    using Verifier = typename TestFixture::Verifier;
 
     GoblinMockCircuits::construct_simple_circuit(builder);
 
@@ -126,8 +144,6 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
 
     auto doubled_circuit_size = 2 * circuit_size;
     prover_instance_copy->polynomials.increase_polynomials_virtual_size(doubled_circuit_size);
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1158)
-    // prover_instance_copy->dyadic_circuit_size = doubled_circuit_size;
 
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
     Prover prover(prover_instance, verification_key);
@@ -170,10 +186,10 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
 TYPED_TEST(MegaHonkTests, PolySwap)
 {
     using Flavor = TypeParam;
-    // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i, for
+    // ZK flavors mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i, for
     // i=1,2,3. This mechanism does not work with structured polynomials yet.
-    if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
-        GTEST_SKIP() << "Skipping 'PolySwap' test for MegaZKFlavor.";
+    if constexpr (Flavor::HasZK) {
+        GTEST_SKIP() << "Skipping 'PolySwap' test for ZK flavors.";
     }
     using Builder = Flavor::CircuitBuilder;
 
