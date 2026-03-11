@@ -107,6 +107,9 @@ describe('e2e_offchain_payment', () => {
     // Force an empty block so the PXE re-syncs and discovers the offchain-delivered notes.
     await forceEmptyBlock();
 
+    // TODO(F-413): we need to implement scopes on capsules so we can check Alice's balance too here. This is not
+    // possible right now because the offchain inbox is shared for all accounts using this contract in the same PXE,
+    // which is bad.
     const { result: bobBalance } = await contract.methods.get_balance(bob).simulate({ from: bob });
     expect(bobBalance).toBe(paymentAmount);
   });

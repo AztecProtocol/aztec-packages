@@ -423,7 +423,7 @@ comptime fn generate_offchain_receive() -> Quoted {
             parameters: offchain_receive_parameters,
         }
 
-        /// Delivers offchain messages to this contract's offchain inbox for subsequent processing.
+        /// Receives offchain messages into this contract's offchain inbox for subsequent processing.
         ///
         /// For more details, see `aztec::messages::processing::offchain::receive`.
         ///

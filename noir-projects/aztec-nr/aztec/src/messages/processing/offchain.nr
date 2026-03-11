@@ -18,25 +18,25 @@ use crate::{
 /// This is the slot where we accumulate messages received through [`receive`].
 global OFFCHAIN_INBOX_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_INBOX_SLOT".as_bytes());
 
-/// Ephemeral capsule slot used by [`sync_inbox`] to pass tx hash resolution requests to PXE.
+/// Capsule array slot used by [`sync_inbox`] to pass tx hash resolution requests to PXE.
 global OFFCHAIN_CONTEXT_REQUESTS_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_CONTEXT_REQUESTS_SLOT".as_bytes());
 
-/// Ephemeral capsule slot used by [`sync_inbox`] to read tx context responses from PXE.
+/// Capsule array slot used by [`sync_inbox`] to read tx context responses from PXE.
 global OFFCHAIN_CONTEXT_RESPONSES_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_CONTEXT_RESPONSES_SLOT".as_bytes());
 
-/// Ephemeral capsule slot used by [`sync_inbox`] to collect messages ready for processing.
+/// Capsule array slot used by [`sync_inbox`] to collect messages ready for processing.
 global OFFCHAIN_READY_MESSAGES_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_READY_MESSAGES_SLOT".as_bytes());
 
 /// Maximum number of offchain messages accepted by `offchain_receive` in a single call.
 pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
 
 /// Tolerance added to the `MAX_TX_LIFETIME` cap for message expiration.
-global TX_EXPIRATION_CAP_TOLERANCE: u64 = 7200; // 2 hours
+global TX_EXPIRATION_TOLERANCE: u64 = 7200; // 2 hours
 
 /// Maximum time-to-live for a tx-bound offchain message: `MAX_TX_LIFETIME + TX_EXPIRATION_CAP_TOLERANCE`.
 ///
 /// After `received_at + MAX_MSG_TTL`, the message is evicted regardless of the sender-provided expiration.
-global MAX_MSG_TTL: u64 = MAX_TX_LIFETIME + TX_EXPIRATION_CAP_TOLERANCE;
+global MAX_MSG_TTL: u64 = MAX_TX_LIFETIME + TX_EXPIRATION_TOLERANCE;
 
 /// A function that manages offchain-delivered messages for processing during sync.
 ///
@@ -278,7 +278,6 @@ mod test {
     #[test]
     unconstrained fn empty_inbox_returns_empty_result() {
         let env = TestEnvironment::new();
-        let _now = advance_by(env, 1);
         env.utility_context(|context| {
             let result = sync_inbox(context.this_address());
             let inbox: CapsuleArray<PendingOffchainMsg> =

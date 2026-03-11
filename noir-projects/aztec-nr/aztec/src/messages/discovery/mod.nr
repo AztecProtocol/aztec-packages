@@ -146,6 +146,8 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
                 msg.message_ciphertext,
                 msg.message_context,
             );
+            // The inbox sync returns _a copy_ of messages to process, so we clear them as we do so. This is a
+            // volatile array with the to-process message, not the actual persistent storage of them.
             msgs.remove(i);
         });
     }
