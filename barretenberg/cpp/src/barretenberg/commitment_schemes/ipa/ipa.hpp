@@ -705,6 +705,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                 }
             };
 
+            // Save concurrency before Phase 1 workers set it to 1
+            const size_t saved_concurrency = get_num_cpus();
             if (num_workers <= 1) {
                 // Single claim: run directly without spawning threads
                 process_claims();
@@ -720,6 +722,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                     t.join();
                 }
             }
+            // Restore concurrency for Phase 2's pippenger MSM
+            set_parallel_for_concurrency(saved_concurrency);
         }
 
         // Phase 2: Batched computation using random challenge alpha

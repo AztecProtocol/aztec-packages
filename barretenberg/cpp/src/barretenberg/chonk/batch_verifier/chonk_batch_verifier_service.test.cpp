@@ -551,4 +551,138 @@ TEST_F(ChonkBatchVerifierServiceTests, PiecewiseVerificationTiming)
     info("=== End Piecewise Timing ===");
 }
 
+/**
+ * @brief Scale benchmark: batch pipeline vs naive work-stealing at 4 cores, 120 proofs.
+ *
+ * Compares:
+ * A) Batch pipeline: work-stealing reduce → batch pairing → batch IPA
+ * B) Naive work-stealing: 4 threads each doing full individual verify (reduce + individual IPA)
+ */
+TEST_F(ChonkBatchVerifierServiceTests, DISABLED_ScaleBenchmark)
+{
+    BB_DISABLE_ASSERTS();
+    auto [proof, vk] = generate_proof();
+    auto bad_ipa_proof = corrupt_ipa(proof);
+    auto bad_sumcheck_proof = corrupt_sumcheck(proof);
+    std::vector<std::shared_ptr<MegaZKFlavor::VKAndHash>> vks = { vk };
+
+    constexpr uint32_t NUM_CORES = 4;
+    constexpr size_t NUM_PROOFS = 120;
+
+    struct Scenario {
+        std::string name;
+        size_t num_bad_ipa;
+        size_t num_bad_sumcheck;
+    };
+
+    std::vector<Scenario> scenarios = {
+        { "all valid", 0, 0 },
+        { "1 bad IPA", 1, 0 },
+        { "5 bad sumcheck", 0, 5 },
+        { "mixed (2 bad IPA + 5 bad sumcheck)", 2, 5 },
+    };
+
+    info("=== Scale Benchmark: 120 proofs, 4 cores ===");
+
+    // ─── A) Batch pipeline ───
+    info("--- A) Batch Pipeline ---");
+    for (const auto& scenario : scenarios) {
+        ResultCollector collector;
+        IPABatchProcessor processor;
+        processor.start(vks,
+                        /*num_ipa_cores=*/NUM_CORES,
+                        /*num_sumcheck_cores=*/NUM_CORES,
+                        /*batch_size=*/NUM_PROOFS,
+                        collector.callback());
+
+        auto t0 = std::chrono::steady_clock::now();
+
+        uint64_t req_id = 1;
+        size_t num_valid = NUM_PROOFS - scenario.num_bad_ipa - scenario.num_bad_sumcheck;
+        for (size_t i = 0; i < num_valid; i++) {
+            processor.enqueue(VerifyRequest{ .request_id = req_id++, .proof = proof, .vk_index = 0 });
+        }
+        for (size_t i = 0; i < scenario.num_bad_ipa; i++) {
+            processor.enqueue(VerifyRequest{ .request_id = req_id++, .proof = bad_ipa_proof, .vk_index = 0 });
+        }
+        for (size_t i = 0; i < scenario.num_bad_sumcheck; i++) {
+            processor.enqueue(VerifyRequest{ .request_id = req_id++, .proof = bad_sumcheck_proof, .vk_index = 0 });
+        }
+
+        processor.stop();
+
+        auto t1 = std::chrono::steady_clock::now();
+        double total_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+
+        size_t ok_count = 0;
+        for (const auto& r : collector.results) {
+            if (r.verified) {
+                ok_count++;
+            }
+        }
+        EXPECT_EQ(collector.results.size(), NUM_PROOFS);
+
+        info("  ",
+             scenario.name,
+             ": total=",
+             total_ms,
+             "ms, per_proof=",
+             total_ms / NUM_PROOFS,
+             "ms (ok=",
+             ok_count,
+             " fail=",
+             NUM_PROOFS - ok_count,
+             ")");
+    }
+
+    // ─── B) Naive work-stealing: N threads each doing full individual verify ───
+    info("--- B) Naive Work-Stealing (individual verify) ---");
+    {
+        // All valid scenario
+        auto ipa_vk = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(ECCVMFlavor::ECCVM_FIXED_SIZE);
+        std::atomic<size_t> work_index{ 0 };
+        std::atomic<size_t> pass_count{ 0 };
+
+        auto t0 = std::chrono::steady_clock::now();
+
+        std::vector<std::thread> workers;
+        for (uint32_t w = 0; w < NUM_CORES; w++) {
+            workers.emplace_back([&]() {
+                set_parallel_for_concurrency(1);
+                while (true) {
+                    size_t idx = work_index.fetch_add(1, std::memory_order_relaxed);
+                    if (idx >= NUM_PROOFS) {
+                        break;
+                    }
+                    ChonkNativeVerifier verifier(vk);
+                    auto result = verifier.reduce_to_ipa_claim(proof);
+                    if (result.all_checks_passed) {
+                        auto transcript = std::make_shared<NativeTranscript>(result.ipa_proof);
+                        bool ok = IPA<curve::Grumpkin>::reduce_verify(*ipa_vk, result.ipa_claim, transcript);
+                        if (ok) {
+                            pass_count.fetch_add(1, std::memory_order_relaxed);
+                        }
+                    }
+                }
+            });
+        }
+        for (auto& t : workers) {
+            t.join();
+        }
+
+        auto t1 = std::chrono::steady_clock::now();
+        double total_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+        EXPECT_EQ(pass_count.load(), NUM_PROOFS);
+        info("  all valid: total=",
+             total_ms,
+             "ms, per_proof=",
+             total_ms / NUM_PROOFS,
+             "ms (ok=",
+             pass_count.load(),
+             ")");
+    }
+
+    info("=== End Scale Benchmark ===");
+}
+
 #endif // __wasm__
