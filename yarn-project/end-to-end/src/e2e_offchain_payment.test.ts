@@ -29,7 +29,11 @@ describe('e2e_offchain_payment', () => {
   jest.setTimeout(TIMEOUT);
 
   beforeAll(async () => {
-    ({ teardown, wallet, accounts, aztecNode, aztecNodeAdmin, cheatCodes } = await setup(2));
+    ({ teardown, wallet, accounts, aztecNode, aztecNodeAdmin, cheatCodes } = await setup(2, {
+      // Use 32 slots/epoch so Anvil's finalized block lags far behind latest,
+      // preventing the reorg test from hitting "Cannot rollback to block N as it is before finalized M".
+      anvilSlotsInAnEpoch: 32,
+    }));
   });
 
   afterAll(() => teardown());
