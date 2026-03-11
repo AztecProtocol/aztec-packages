@@ -111,7 +111,7 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
      *   Round 6+JOINT_LOG_N: Gemini fold commitments → Gemini:r
      *   Round 7+JOINT_LOG_N: Gemini evals + Libra evals → Shplonk:nu
      *   Round 8+JOINT_LOG_N: Shplonk:Q → Shplonk:z
-     *   Round 9+JOINT_LOG_N: KZG:W → KZG:masking_challenge
+     *   Round 9+JOINT_LOG_N: KZG:W
      *
      * @param mega_zk_log_n  log₂(circuit_size) of the MegaZK instance
      * @param num_mega_zk_pub_inputs  number of MegaZK public inputs
@@ -259,7 +259,6 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
 
         // ── KZG opening ──────────────────────────────────────────────────────────
         m.add_entry(round, "KZG:W", G);
-        m.add_challenge(round, "KZG:masking_challenge");
 
         return m;
     }
