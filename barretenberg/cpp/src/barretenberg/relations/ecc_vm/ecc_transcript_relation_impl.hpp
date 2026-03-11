@@ -273,16 +273,12 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
         auto is_double = transcript_add_x_equal * transcript_add_y_equal; // degree 2
         // `is_add == 1` iff the x-values of the point-to-add and the accumulator are _not_ equal. this ensures that
         // it is not a double and that the result is not the point-at-infinity. Used for both `add` and MSM operations.
-        auto is_add = -transcript_add_x_equal + 1; // degree 1
-        // `add_result_is_infinity == 1` iff the op_code is `add`, the x-value of the point-to-add and the accumulator
-        // are equal, and the y-values are unequal. then the result of the accumulation is of course the
-        // point-at-infinity.
-        auto add_result_is_infinity = transcript_add_x_equal * (-transcript_add_y_equal + 1); // degree 2
-        auto rhs_x = transcript_accumulator_x;                                                // degree 1
-        auto rhs_y = transcript_accumulator_y;                                                // degree 1
-        auto out_x = transcript_accumulator_x_shift;                                          // degree 1
-        auto out_y = transcript_accumulator_y_shift;                                          // degree 1
-        auto lambda = transcript_add_lambda;                                                  // degree 1
+        auto is_add = -transcript_add_x_equal + 1;   // degree 1
+        auto rhs_x = transcript_accumulator_x;       // degree 1
+        auto rhs_y = transcript_accumulator_y;       // degree 1
+        auto out_x = transcript_accumulator_x_shift; // degree 1
+        auto out_y = transcript_accumulator_y_shift; // degree 1
+        auto lambda = transcript_add_lambda;         // degree 1
         // note that `msm_transition` and `q_add` are mutually exclusive booleans. (they can also both be off.)
         // therefore `(lhs_x, lhs_y)` is either the point in the `add` VM instruction _or_ the output of the
         // just-completed MSM.
@@ -337,9 +333,9 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
                 // `lambda_relation_invalid != 0` means that lambda does not enter into our calculation for
                 // point-at-infinity reasons. in this case, `lambda` is constrained to be 0.
                 auto lambda_relation_invalid =
-                    (transcript_msm_infinity + is_accumulator_empty + add_result_is_infinity); // degree 2
-                auto lambda_relation = lambda * lambda_relation_invalid;                       // degree 4
-                transcript_msm_lambda_relation += lambda_relation;                             // degree 6
+                    (transcript_msm_infinity + is_accumulator_empty + result_infinity_from_operation); // degree 2
+                auto lambda_relation = lambda * lambda_relation_invalid;                               // degree 4
+                transcript_msm_lambda_relation += lambda_relation;                                     // degree 6
             }
             // relation is only touched if we are at an msm_transition
             transcript_lambda_relation = transcript_msm_lambda_relation * msm_transition; // degree 7
@@ -372,9 +368,9 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
                 // `lambda_relation_invalid != 0` means that lambda does not enter into our calculation for
                 // point-at-infinity reasons. in this case, `lambda` is constrained to be 0.
                 auto lambda_relation_invalid =
-                    (transcript_Pinfinity + is_accumulator_empty + add_result_is_infinity); // degree 2
-                auto lambda_relation = lambda * lambda_relation_invalid;                    // degree 4
-                transcript_add_lambda_relation += lambda_relation;                          // degree 6
+                    (transcript_Pinfinity + is_accumulator_empty + result_infinity_from_operation); // degree 2
+                auto lambda_relation = lambda * lambda_relation_invalid;                            // degree 4
+                transcript_add_lambda_relation += lambda_relation;                                  // degree 6
             }
             // relation is only touched if we are at an `add` instruction.
             transcript_lambda_relation += transcript_add_lambda_relation * q_add;
