@@ -68,6 +68,7 @@ import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
 import { JobCoordinator } from './job_coordinator/job_coordinator.js';
+import { MessageContextService } from './messages/message_context_service.js';
 import {
   PrivateKernelExecutionProver,
   type PrivateKernelExecutionProverConfig,
@@ -157,6 +158,7 @@ export class PXE {
     private addressStore: AddressStore,
     private privateEventStore: PrivateEventStore,
     private contractSyncService: ContractSyncService,
+    private messageContextService: MessageContextService,
     private simulator: CircuitSimulator,
     private proverEnabled: boolean,
     private proofCreator: PrivateKernelProver,
@@ -212,6 +214,8 @@ export class PXE {
       noteStore,
       createLogger('pxe:contract_sync', bindings),
     );
+    const messageContextService = new MessageContextService(node);
+
     const synchronizer = new BlockSynchronizer(
       node,
       store,
@@ -252,6 +256,7 @@ export class PXE {
       addressStore,
       privateEventStore,
       contractSyncService,
+      messageContextService,
       simulator,
       proverEnabled,
       proofCreator,
@@ -293,6 +298,7 @@ export class PXE {
       privateEventStore: this.privateEventStore,
       simulator: this.simulator,
       contractSyncService: this.contractSyncService,
+      messageContextService: this.messageContextService,
     });
   }
 

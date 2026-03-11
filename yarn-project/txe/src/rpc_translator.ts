@@ -750,7 +750,31 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
+<<<<<<< HEAD
   async utilityStoreCapsule(
+=======
+  // eslint-disable-next-line camelcase
+  public async aztec_utl_utilityResolveMessageContexts(
+    foreignContractAddress: ForeignCallSingle,
+    foreignMessageContextRequestsArrayBaseSlot: ForeignCallSingle,
+    foreignMessageContextResponsesArrayBaseSlot: ForeignCallSingle,
+  ) {
+    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
+    const messageContextRequestsArrayBaseSlot = fromSingle(foreignMessageContextRequestsArrayBaseSlot);
+    const messageContextResponsesArrayBaseSlot = fromSingle(foreignMessageContextResponsesArrayBaseSlot);
+
+    await this.handlerAsUtility().utilityResolveMessageContexts(
+      contractAddress,
+      messageContextRequestsArrayBaseSlot,
+      messageContextResponsesArrayBaseSlot,
+    );
+
+    return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_storeCapsule(
+>>>>>>> b1ada99eef (feat: offchain reception (#20893))
     foreignContractAddress: ForeignCallSingle,
     foreignSlot: ForeignCallSingle,
     foreignCapsule: ForeignCallArray,

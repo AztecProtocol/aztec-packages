@@ -535,7 +535,26 @@ export class Oracle {
     return [];
   }
 
+<<<<<<< HEAD
   async utilityStoreCapsule(
+=======
+  // eslint-disable-next-line camelcase
+  async aztec_utl_utilityResolveMessageContexts(
+    [contractAddress]: ACVMField[],
+    [messageContextRequestsArrayBaseSlot]: ACVMField[],
+    [messageContextResponsesArrayBaseSlot]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    await this.handlerAsUtility().utilityResolveMessageContexts(
+      AztecAddress.fromString(contractAddress),
+      Fr.fromString(messageContextRequestsArrayBaseSlot),
+      Fr.fromString(messageContextResponsesArrayBaseSlot),
+    );
+    return [];
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_storeCapsule(
+>>>>>>> b1ada99eef (feat: offchain reception (#20893))
     [contractAddress]: ACVMField[],
     [slot]: ACVMField[],
     capsule: ACVMField[],
