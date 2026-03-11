@@ -236,7 +236,7 @@ class AvmFlavor {
         {}
 
         // Only const-access is allowed here. That's all that the logderivative library requires.
-        const auto& get(ColumnAndShifts c) const { return pp.get(c)[row_idx]; }
+        auto get(ColumnAndShifts c) const { return pp.get(c)[row_idx]; }
 
       private:
         const size_t row_idx;
