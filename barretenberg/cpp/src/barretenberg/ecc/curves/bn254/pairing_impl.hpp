@@ -286,10 +286,6 @@ fq12 reduced_ate_pairing_batch_precomputed(const g1::affine_element* P_affines,
                                            const size_t num_points)
 {
     for (size_t i = 0; i < num_points; ++i) {
-        if (P_affines[i].is_point_at_infinity()) {
-            throw_or_abort("reduced_ate_pairing_batch_precomputed: one of the points is the point at infinity.");
-        }
-
         if (!P_affines[i].on_curve()) {
             throw_or_abort("reduced_ate_pairing_batch_precomputed: one of the points is not on the curve.");
         }
