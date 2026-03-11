@@ -281,6 +281,15 @@ class UltraEccOpsTable {
 
     size_t get_current_subtable_size() const { return table.get_current_subtable_size(); }
 
+    size_t get_num_subtables() const { return table.num_subtables(); }
+
+    // Construct polynomials for a specific subtable (0-indexed in deque order; 0 = most recently prepended).
+    ColumnPolynomials construct_individual_subtable_columns(size_t subtable_idx) const
+    {
+        const size_t subtable_rows = table.get()[subtable_idx].size() * NUM_ROWS_PER_OP;
+        return construct_column_polynomials_from_subtables(subtable_rows, subtable_idx, subtable_idx + 1);
+    }
+
     std::vector<UltraOp> get_reconstructed() const
     {
         if (has_fixed_append && fixed_append_offset.has_value()) {

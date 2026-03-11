@@ -13,6 +13,7 @@ namespace bb::stdlib::recursion::honk {
  * @brief **For test purposes only**: Native representation and serde for KernelIO public inputs
  * @details Used for testing and verification with native bb::fr vectors.
  * Mirrors the structure of stdlib KernelIO but works with native types.
+ * Uses ecc_op_hash instead of ecc_op_tables (see TailKernelIOSerde for the tail kernel variant).
  */
 class KernelIOSerde {
   public:
@@ -20,14 +21,13 @@ class KernelIOSerde {
     using NativeG1 = curve::BN254::AffineElement;
     using NativeFq = curve::BN254::BaseField;
     using NativePairingPoints = bb::PairingPoints<curve::BN254>;
-    using NativeTableCommitments = std::array<NativeG1, GOBLIN_NUM_COLUMNS>;
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;
 
     NativePairingPoints pairing_inputs;
     NativeG1 kernel_return_data;
     NativeG1 app_return_data;
-    NativeTableCommitments ecc_op_tables;
+    NativeFF ecc_op_hash;
     NativeFF output_hn_accum_hash;
 
     /**
@@ -55,9 +55,7 @@ class KernelIOSerde {
         result.pairing_inputs.P1() = deserialize_point();
         result.kernel_return_data = deserialize_point();
         result.app_return_data = deserialize_point();
-        for (auto& commitment : result.ecc_op_tables) {
-            commitment = deserialize_point();
-        }
+        result.ecc_op_hash = proof[idx++];
         result.output_hn_accum_hash = proof[idx];
 
         return result;
@@ -76,6 +74,87 @@ class KernelIOSerde {
         // Serialize fq to 2 fr limbs using 136-bit encoding (matching FrCodec)
         auto serialize_fq = [&](const NativeFq& fq_val) {
             constexpr uint64_t NUM_LIMB_BITS = 2 * NUM_LIMB_BITS_IN_FIELD_SIMULATION; // 136 bits
+            constexpr uint256_t LIMB_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
+            uint256_t val = static_cast<uint256_t>(fq_val);
+            proof[idx++] = NativeFF(val & LIMB_MASK);
+            proof[idx++] = NativeFF((val >> NUM_LIMB_BITS) & LIMB_MASK);
+        };
+
+        auto serialize_point = [&](const NativeG1& point) {
+            serialize_fq(point.x);
+            serialize_fq(point.y);
+        };
+
+        serialize_point(pairing_inputs.P0());
+        serialize_point(pairing_inputs.P1());
+        serialize_point(kernel_return_data);
+        serialize_point(app_return_data);
+        proof[idx++] = ecc_op_hash;
+        proof[idx] = output_hn_accum_hash;
+    }
+};
+
+/**
+ * @brief **For test purposes only**: Native representation and serde for TailKernelIO public inputs
+ * @details Mirrors the structure of stdlib TailKernelIO but works with native types.
+ * Uses ecc_op_tables (the batch merge result) instead of ecc_op_hash.
+ */
+class TailKernelIOSerde {
+  public:
+    using NativeFF = bb::fr;
+    using NativeG1 = curve::BN254::AffineElement;
+    using NativeFq = curve::BN254::BaseField;
+    using NativePairingPoints = bb::PairingPoints<curve::BN254>;
+    using NativeTableCommitments = std::array<NativeG1, GOBLIN_NUM_COLUMNS>;
+
+    static constexpr size_t PUBLIC_INPUTS_SIZE = TAIL_KERNEL_PUBLIC_INPUTS_SIZE;
+
+    NativePairingPoints pairing_inputs;
+    NativeG1 kernel_return_data;
+    NativeG1 app_return_data;
+    NativeTableCommitments ecc_op_tables;
+    NativeFF output_hn_accum_hash;
+
+    /**
+     * @brief Deserialize TailKernelIO from a proof vector
+     * @param proof The proof vector (public inputs are at the beginning)
+     * @param num_public_inputs Total number of public inputs in the proof
+     */
+    static TailKernelIOSerde from_proof(const std::vector<NativeFF>& proof, size_t num_public_inputs)
+    {
+        TailKernelIOSerde result;
+        size_t idx = num_public_inputs - PUBLIC_INPUTS_SIZE;
+
+        auto deserialize_point = [&]() {
+            std::span<const NativeFF, NativeG1::PUBLIC_INPUTS_SIZE> limbs(proof.data() + idx,
+                                                                          NativeG1::PUBLIC_INPUTS_SIZE);
+            idx += NativeG1::PUBLIC_INPUTS_SIZE;
+            return FrCodec::deserialize_from_fields<NativeG1>(limbs);
+        };
+
+        result.pairing_inputs.P0() = deserialize_point();
+        result.pairing_inputs.P1() = deserialize_point();
+        result.kernel_return_data = deserialize_point();
+        result.app_return_data = deserialize_point();
+        for (auto& commitment : result.ecc_op_tables) {
+            commitment = deserialize_point();
+        }
+        result.output_hn_accum_hash = proof[idx];
+
+        return result;
+    }
+
+    /**
+     * @brief Serialize TailKernelIO back to a proof vector
+     * @param proof The proof vector to write to
+     * @param num_public_inputs Total number of public inputs in the proof
+     */
+    void to_proof(std::vector<NativeFF>& proof, size_t num_public_inputs) const
+    {
+        size_t idx = num_public_inputs - PUBLIC_INPUTS_SIZE;
+
+        auto serialize_fq = [&](const NativeFq& fq_val) {
+            constexpr uint64_t NUM_LIMB_BITS = 2 * NUM_LIMB_BITS_IN_FIELD_SIMULATION;
             constexpr uint256_t LIMB_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
             uint256_t val = static_cast<uint256_t>(fq_val);
             proof[idx++] = NativeFF(val & LIMB_MASK);

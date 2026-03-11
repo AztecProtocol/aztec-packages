@@ -53,8 +53,17 @@ static constexpr std::size_t INVALID_PUBLIC_INPUTS_SIZE = 0;
 // Number of wires in the Mega execution trace, they must be re-defined to avoid circular dependencies
 static constexpr std::size_t MEGA_EXECUTION_TRACE_NUM_WIRES = 4;
 
-// Number of bb::fr elements used to represent the public inputs of an INIT/INNER/RESET/TAIL kernel
+// Number of bb::fr elements used to represent the public inputs of an INIT/INNER/RESET kernel
 static constexpr std::size_t KERNEL_PUBLIC_INPUTS_SIZE =
+    /*pairing_inputs*/ PAIRING_POINTS_SIZE +
+    /*kernel_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
+    /*app_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
+    /*ecc_op_hash*/ FR_PUBLIC_INPUTS_SIZE +
+    /*output_hn_accum_hash*/ FR_PUBLIC_INPUTS_SIZE;
+
+// Number of bb::fr elements used to represent the public inputs of the TAIL kernel
+// (same structure as original KernelIO but uses ecc_op_tables instead of ecc_op_hash)
+static constexpr std::size_t TAIL_KERNEL_PUBLIC_INPUTS_SIZE =
     /*pairing_inputs*/ PAIRING_POINTS_SIZE +
     /*kernel_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
     /*app_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +

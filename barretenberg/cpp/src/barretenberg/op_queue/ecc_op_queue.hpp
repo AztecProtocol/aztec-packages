@@ -104,6 +104,15 @@ class ECCOpQueue {
         return ultra_ops_table.construct_current_ultra_ops_subtable_columns();
     }
 
+    // Number of fully merged subtables currently in the op queue deque (0 = most recently prepended).
+    size_t get_num_subtables() const { return ultra_ops_table.get_num_subtables(); }
+
+    // Construct polynomials for a specific subtable (0-indexed; 0 = most recently prepended subtable).
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_individual_subtable_columns(size_t subtable_idx) const
+    {
+        return ultra_ops_table.construct_individual_subtable_columns(subtable_idx);
+    }
+
     // Reconstruct the full table of eccvm ops in contiguous memory from the independent subtables
     void construct_full_eccvm_ops_table() { eccvm_ops_reconstructed = eccvm_ops_table.get_reconstructed(); }
 

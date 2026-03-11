@@ -55,10 +55,98 @@ std::array<typename bn254<Builder>::Group, GOBLIN_NUM_COLUMNS> empty_ecc_op_tabl
 }
 
 /**
- * @brief Manages the data that is propagated on the public inputs of a kernel circuit
+ * @brief Manages the data that is propagated on the public inputs of an INIT/INNER/RESET kernel circuit.
  *
+ * @details Uses ecc_op_hash (a running Poseidon2 hash over ECC op column commitments) instead of
+ * ecc_op_tables. The tail kernel uses TailKernelIO which retains ecc_op_tables.
  */
 class KernelIO {
+  public:
+    using Builder = MegaCircuitBuilder;   // kernel builder is always Mega
+    using Curve = stdlib::bn254<Builder>; // curve is always bn254
+    using G1 = Curve::Group;
+    using FF = Curve::ScalarField;
+    using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
+
+    using PublicPoint = stdlib::PublicInputComponent<G1>;
+    using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
+    using PublicFF = stdlib::PublicInputComponent<FF>;
+
+    PairingInputs pairing_inputs; // Inputs {P0, P1} to an EC pairing check
+    G1 kernel_return_data;        // Commitment to the return data of a kernel circuit
+    G1 app_return_data;           // Commitment to the return data of an app circuit
+    FF ecc_op_hash;               // Running Poseidon2 hash over ECC op column commitments
+    FF output_hn_accum_hash;      // hash of the output HN verifier accumulator
+
+    // Total size of the kernel IO public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;
+    static constexpr bool HasIPA = false;
+
+    /**
+     * @brief Reconstructs the IO components from a public inputs array.
+     *
+     * @param public_inputs Public inputs array containing the serialized kernel public inputs.
+     */
+    void reconstruct_from_public(const std::vector<FF>& public_inputs)
+    {
+        // Assumes that the kernel-io public inputs are at the end of the public_inputs vector
+        size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
+
+        pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += PairingInputs::PUBLIC_INPUTS_SIZE;
+        kernel_return_data = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += G1::PUBLIC_INPUTS_SIZE;
+        app_return_data = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += G1::PUBLIC_INPUTS_SIZE;
+        ecc_op_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += FF::PUBLIC_INPUTS_SIZE;
+        output_hn_accum_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += FF::PUBLIC_INPUTS_SIZE;
+    }
+
+    /**
+     * @brief Set each IO component to be a public input of the underlying circuit.
+     *
+     */
+    void set_public()
+    {
+        Builder* builder = output_hn_accum_hash.get_context();
+
+        pairing_inputs.set_public(builder);
+        kernel_return_data.set_public();
+        app_return_data.set_public();
+        ecc_op_hash.set_public();
+        output_hn_accum_hash.set_public();
+
+        // Finalize the public inputs to ensure no more public inputs can be added hereafter.
+        builder->finalize_public_inputs();
+    }
+
+    /**
+     * @brief Add default public inputs when they are not present
+     *
+     */
+    static void add_default(Builder& builder)
+    {
+        KernelIO inputs;
+
+        inputs.pairing_inputs = PairingInputs::construct_default();
+        inputs.kernel_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
+        inputs.app_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
+        inputs.ecc_op_hash = FF::from_witness(&builder, typename FF::native(0));
+        inputs.output_hn_accum_hash = FF::from_witness(&builder, typename FF::native(0));
+        inputs.set_public();
+    }
+};
+
+/**
+ * @brief Manages the data that is propagated on the public inputs of the TAIL kernel circuit.
+ *
+ * @details The tail kernel performs a single batch merge of all accumulated ECC op subtables.
+ * Unlike regular KernelIO (which propagates a running hash), TailKernelIO outputs the merged
+ * table commitments that the hiding kernel needs for its own merge.
+ */
+class TailKernelIO {
   public:
     using Builder = MegaCircuitBuilder;   // kernel builder is always Mega
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
@@ -74,21 +162,21 @@ class KernelIO {
     PairingInputs pairing_inputs;   // Inputs {P0, P1} to an EC pairing check
     G1 kernel_return_data;          // Commitment to the return data of a kernel circuit
     G1 app_return_data;             // Commitment to the return data of an app circuit
-    TableCommitments ecc_op_tables; // commitments to merged tables obtained from recursive Merge verification
+    TableCommitments ecc_op_tables; // commitments to merged tables from the batch merge
     FF output_hn_accum_hash;        // hash of the output HN verifier accumulator
 
-    // Total size of the kernel IO public inputs
-    static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;
+    // Total size of the tail kernel IO public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = TAIL_KERNEL_PUBLIC_INPUTS_SIZE;
     static constexpr bool HasIPA = false;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
      *
-     * @param public_inputs Public inputs array containing the serialized kernel public inputs.
+     * @param public_inputs Public inputs array containing the serialized tail kernel public inputs.
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
-        // Assumes that the kernel-io public inputs are at the end of the public_inputs vector
+        // Assumes that the tail-kernel-io public inputs are at the end of the public_inputs vector
         size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
 
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
@@ -131,7 +219,7 @@ class KernelIO {
      */
     static void add_default(Builder& builder)
     {
-        KernelIO inputs;
+        TailKernelIO inputs;
 
         inputs.pairing_inputs = PairingInputs::construct_default();
         inputs.kernel_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);

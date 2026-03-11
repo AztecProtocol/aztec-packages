@@ -9,6 +9,8 @@
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/goblin/batch_merge_prover.hpp"
+#include "barretenberg/goblin/batch_merge_verifier.hpp"
 #include "barretenberg/goblin/merge_prover.hpp"
 #include "barretenberg/goblin/merge_verifier.hpp"
 #include "barretenberg/goblin/types.hpp"
@@ -43,9 +45,12 @@ class Goblin {
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
     using MergeRecursiveVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier<BATCH_SIZE, MegaBuilder>;
+    using BatchMergeVerifierNative = BatchMergeVerifier<BATCH_SIZE>;
+    using BatchMergeRecursiveVerifier = stdlib::recursion::goblin::BatchMergeRecursiveVerifier<BATCH_SIZE, MegaBuilder>;
     using PairingPoints = MergeRecursiveVerifier::PairingPoints;
     using TableCommitments = MergeVerifier<BATCH_SIZE>::TableCommitments;
     using RecursiveTableCommitments = MergeRecursiveVerifier::TableCommitments;
+    using BatchRecursiveTableCommitments = BatchMergeRecursiveVerifier::TableCommitments;
     using MergeCommitments = MergeVerifier<BATCH_SIZE>::InputCommitments;
     using RecursiveMergeCommitments = MergeRecursiveVerifier::InputCommitments;
     using RecursiveCommitment = MergeRecursiveVerifier::Commitment;
@@ -61,7 +66,8 @@ class Goblin {
     fq evaluation_challenge_x;              // challenge for evaluating the translation polynomials
     std::shared_ptr<Transcript> transcript; // shared between ECCVM and Translator
 
-    std::deque<MergeProof> merge_verification_queue; // queue of merge proofs to be verified
+    std::deque<MergeProof> merge_verification_queue;            // queue of merge proofs to be verified
+    std::optional<MergeProof> batch_merge_proof = std::nullopt; // batch merge proof (tail kernel)
 
     struct VerificationKey {
         std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key = std::make_shared<ECCVMVerificationKey>();
@@ -116,6 +122,29 @@ class Goblin {
         const RecursiveMergeCommitments& merge_commitments,
         const std::shared_ptr<RecursiveTranscript>& transcript,
         const MergeSettings merge_settings = MergeSettings::PREPEND);
+
+    /**
+     * @brief Construct a batch merge proof for all accumulated subtables (for the tail kernel).
+     * @details Proves that the full merged table T is the correct concatenation of all N subtables
+     * currently in the op_queue. Called after the last HN_TAIL accumulation step.
+     *
+     * @param transcript The prover transcript (shared with the tail kernel's HN proof).
+     */
+    void prove_batch_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+
+    /**
+     * @brief Recursively verify the batch merge proof in a circuit.
+     * @details Called in the tail kernel's complete_kernel_circuit_logic().
+     *
+     * @param builder               The kernel circuit.
+     * @param subtable_commitments  [C_0]..[C_{M-1}] collected from the HN proof verifications.
+     * @param transcript            The recursive transcript.
+     * @return Pair of PairingPoints and merged table commitments [T].
+     */
+    std::pair<PairingPoints, BatchRecursiveTableCommitments> recursively_verify_batch_merge(
+        MegaBuilder& builder,
+        const std::vector<BatchRecursiveTableCommitments>& subtable_commitments,
+        const std::shared_ptr<RecursiveTranscript>& transcript);
 };
 
 } // namespace bb

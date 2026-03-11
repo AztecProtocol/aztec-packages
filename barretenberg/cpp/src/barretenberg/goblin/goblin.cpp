@@ -107,4 +107,26 @@ std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recu
     return { merge_result.pairing_points, merge_result.merged_commitments };
 }
 
+void Goblin::prove_batch_merge(const std::shared_ptr<Transcript>& transcript)
+{
+    BB_BENCH_NAME("Goblin::prove_batch_merge");
+    BatchMergeProver<BATCH_SIZE> prover{ op_queue, transcript, CHONK_MAX_ACCUMULATION_STEPS };
+    batch_merge_proof = prover.construct_proof();
+}
+
+std::pair<Goblin::PairingPoints, Goblin::BatchRecursiveTableCommitments> Goblin::recursively_verify_batch_merge(
+    MegaBuilder& builder,
+    const std::vector<BatchRecursiveTableCommitments>& subtable_commitments,
+    const std::shared_ptr<RecursiveTranscript>& transcript)
+{
+    BB_ASSERT(batch_merge_proof.has_value(), "Goblin::recursively_verify_batch_merge: no batch merge proof available");
+    const stdlib::Proof<MegaBuilder> stdlib_proof(builder, *batch_merge_proof);
+
+    BatchMergeRecursiveVerifier verifier{ transcript };
+    auto result = verifier.reduce_to_pairing_check(stdlib_proof, subtable_commitments);
+
+    batch_merge_proof.reset(); // consume the proof
+    return { result.pairing_points, result.merged_commitments };
+}
+
 } // namespace bb

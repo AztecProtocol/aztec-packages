@@ -76,7 +76,7 @@ class ChonkTests : public ::testing::Test {
     /**
      * @brief Enum for specifying which KernelIO field to tamper with in tests
      */
-    enum class KernelIOField { PAIRING_INPUTS, ACCUMULATOR_HASH, KERNEL_RETURN_DATA, APP_RETURN_DATA, ECC_OP_TABLES };
+    enum class KernelIOField { PAIRING_INPUTS, ACCUMULATOR_HASH, KERNEL_RETURN_DATA, APP_RETURN_DATA, ECC_OP_HASH };
 
     /**
      * @brief Enum for specifying which HidingKernelIO field to test for propagation consistency
@@ -175,8 +175,8 @@ class ChonkTests : public ::testing::Test {
                 case KernelIOField::APP_RETURN_DATA:
                     kernel_io.app_return_data = kernel_io.app_return_data + Commitment::one();
                     break;
-                case KernelIOField::ECC_OP_TABLES:
-                    kernel_io.ecc_op_tables[0] = kernel_io.ecc_op_tables[0] + Commitment::one();
+                case KernelIOField::ECC_OP_HASH:
+                    kernel_io.ecc_op_hash += FF(1);
                     break;
                 }
 
@@ -200,6 +200,7 @@ class ChonkTests : public ::testing::Test {
      */
     static void test_hiding_kernel_io_propagation(HidingKernelIOField field_to_test)
     {
+        using TailKernelIOSerde = bb::stdlib::recursion::honk::TailKernelIOSerde;
         using HidingKernelIOSerde = bb::stdlib::recursion::honk::HidingKernelIOSerde;
 
         const size_t NUM_APP_CIRCUITS = 2;
@@ -214,14 +215,14 @@ class ChonkTests : public ::testing::Test {
             ivc.accumulate(circuit, vk);
         }
 
-        // Extract field from Tail kernel's proof before prove() generates HidingKernel
-        HidingKernelIOSerde tail_io;
+        // Extract field from Tail kernel's proof (uses TailKernelIO format) before prove() generates HidingKernel
+        TailKernelIOSerde tail_io;
         for (auto& it : std::ranges::reverse_view(ivc.verification_queue)) {
             if (it.is_kernel) {
                 size_t num_public_inputs = it.honk_vk->num_public_inputs;
-                ASSERT_EQ(num_public_inputs, HidingKernelIOSerde::PUBLIC_INPUTS_SIZE)
-                    << "Tail kernel should use HidingKernelIO format";
-                tail_io = HidingKernelIOSerde::from_proof(it.proof, num_public_inputs);
+                ASSERT_EQ(num_public_inputs, TailKernelIOSerde::PUBLIC_INPUTS_SIZE)
+                    << "Tail kernel should use TailKernelIO format";
+                tail_io = TailKernelIOSerde::from_proof(it.proof, num_public_inputs);
                 break;
             }
         }
@@ -524,13 +525,13 @@ TEST_F(ChonkTests, AppReturnDataTamperingFailure)
 }
 
 /**
- * @brief Test that tampering with ecc_op_tables causes verification to fail
- * @details ecc_op_tables contains commitments to merged ECC operation tables (T_prev).
- * Tampering causes the recursive merge verification to fail.
+ * @brief Test that tampering with ecc_op_hash causes verification to fail
+ * @details ecc_op_hash is a running Poseidon2 hash of ECC op column commitments accumulated across kernels.
+ * Tampering causes the hash consistency check in the next kernel to fail.
  */
-TEST_F(ChonkTests, EccOpTablesTamperingFailure)
+TEST_F(ChonkTests, EccOpHashTamperingFailure)
 {
-    ChonkTests::test_kernel_io_tampering(KernelIOField::ECC_OP_TABLES);
+    ChonkTests::test_kernel_io_tampering(KernelIOField::ECC_OP_HASH);
 }
 
 /**

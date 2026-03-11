@@ -67,6 +67,7 @@ class Chonk : public IVCBase {
     using RecursiveTranscript = RecursiveFlavor::Transcript;
     using PairingPoints = stdlib::recursion::PairingPoints<stdlib::bn254<ClientCircuit>>;
     using KernelIO = bb::stdlib::recursion::honk::KernelIO;
+    using TailKernelIO = bb::stdlib::recursion::honk::TailKernelIO;
     using HidingKernelIO = bb::stdlib::recursion::honk::HidingKernelIO<ClientCircuit>;
     using AppIO = bb::stdlib::recursion::honk::AppIO;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
@@ -182,14 +183,16 @@ class Chonk : public IVCBase {
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                                                const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
 
-    [[nodiscard("Pairing points should be accumulated")]] std::
-        tuple<std::optional<RecursiveVerifierAccumulator>, std::vector<PairingPoints>, TableCommitments>
-        perform_recursive_verification_and_databus_consistency_checks(
-            ClientCircuit& circuit,
-            const StdlibVerifierInputs& verifier_inputs,
-            const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
-            const TableCommitments& T_prev_commitments,
-            const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
+    [[nodiscard("Pairing points should be accumulated")]] std::tuple<std::optional<RecursiveVerifierAccumulator>,
+                                                                     std::vector<PairingPoints>,
+                                                                     StdlibFF,
+                                                                     std::optional<TableCommitments>>
+    perform_recursive_verification_and_databus_consistency_checks(
+        ClientCircuit& circuit,
+        const StdlibVerifierInputs& verifier_inputs,
+        const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
+        const StdlibFF& running_hash,
+        const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
     // Complete the logic of a kernel circuit (e.g. HN/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);

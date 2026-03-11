@@ -17,6 +17,7 @@
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 
@@ -91,21 +92,19 @@ void Chonk::instantiate_stdlib_verification_queue(ClientCircuit& circuit,
  */
 std::tuple<std::optional<Chonk::RecursiveVerifierAccumulator>,
            std::vector<Chonk::PairingPoints>,
-           Chonk::TableCommitments>
+           Chonk::StdlibFF,
+           std::optional<Chonk::TableCommitments>>
 Chonk::perform_recursive_verification_and_databus_consistency_checks(
     ClientCircuit& circuit,
     const StdlibVerifierInputs& verifier_inputs,
     const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
-    const TableCommitments& T_prev_commitments,
+    const StdlibFF& running_hash,
     const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
     using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
 
     // PairingPoints to be returned for aggregation
     std::vector<PairingPoints> pairing_points;
-
-    // Input commitments to be passed to the merge recursive verification
-    MergeCommitments merge_commitments{ .T_prev_commitments = T_prev_commitments };
 
     auto verifier_instance = std::make_shared<RecursiveVerifierInstance>(verifier_inputs.honk_vk_and_hash);
 
@@ -126,9 +125,6 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         auto [_, new_verifier_accumulator] =
             folding_verifier.instance_to_accumulator(verifier_instance, verifier_inputs.proof);
         output_verifier_accumulator = std::move(new_verifier_accumulator);
-
-        // T_prev = 0 in the first recursive verification
-        merge_commitments.T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(circuit);
         break;
     }
     case QUEUE_TYPE::HN:
@@ -162,53 +158,106 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
     InterleavedCommitments interleaved_commitments = std::move(verifier_instance->interleaved_commitments);
     std::vector<StdlibFF> public_inputs = std::move(verifier_instance->public_inputs);
 
+    // updated_hash is the running Poseidon2 hash updated with this step's ecc op commitments.
+    // For the hiding kernel (HN_FINAL), this return value is unused (no hash propagation needed).
+    StdlibFF updated_hash = StdlibFF(&circuit, 0);
+    // hiding_merged_tables is set only for HN_FINAL (hiding kernel) and contains the merged table
+    // commitments from the hiding kernel's merge, to be placed in HidingKernelIO.
+    std::optional<TableCommitments> hiding_merged_tables = std::nullopt;
+
     if (verifier_inputs.is_kernel) {
-        // Reconstruct the input from the previous kernel from its public inputs
-        KernelIO kernel_input; // pairing points, databus return data commitments
-        kernel_input.reconstruct_from_public(public_inputs);
-        // Add pairing points for aggregation
-        pairing_points.emplace_back(kernel_input.pairing_inputs);
-        // Perform databus consistency checks using interleaved commitments.
-        // W₃ = [calldata, 0, 0, 0] and W₄ = [secondary_calldata, 0, 0, 0] are binding commitments
-        // to the underlying polynomials (using SRS subset {G[4i]}), so equality of interleaved
-        // commitments implies equality of the underlying polynomials.
-        bool kernel_return_data_match =
-            kernel_input.kernel_return_data.get_value() == interleaved_commitments.interleaved_calldata.get_value();
-        BB_ASSERT_DEBUG(kernel_return_data_match,
-                        "kernel_return_data mismatch: proof contains "
-                            << kernel_input.kernel_return_data.get_value() << " but calldata commitment is "
-                            << interleaved_commitments.interleaved_calldata.get_value());
-        kernel_input.kernel_return_data.incomplete_assert_equal(interleaved_commitments.interleaved_calldata);
-
-        bool app_return_data_match = kernel_input.app_return_data.get_value() ==
-                                     interleaved_commitments.interleaved_secondary_calldata.get_value();
-        BB_ASSERT_DEBUG(app_return_data_match,
-                        "app_return_data mismatch: proof contains "
-                            << kernel_input.app_return_data.get_value() << " but secondary_calldata commitment is "
-                            << interleaved_commitments.interleaved_secondary_calldata.get_value());
-        kernel_input.app_return_data.incomplete_assert_equal(interleaved_commitments.interleaved_secondary_calldata);
-
-        // T_prev is read by the public input of the previous kernel K_{i-1} at the beginning of the recursive
-        // verification of of the folding of K_{i-1} (kernel), A_{i} (app). This verification happens in K_{i}
-        merge_commitments.T_prev_commitments = std::move(kernel_input.ecc_op_tables);
-
         BB_ASSERT_EQ(verifier_inputs.type == QUEUE_TYPE::HN || verifier_inputs.type == QUEUE_TYPE::HN_TAIL ||
                          verifier_inputs.type == QUEUE_TYPE::HN_FINAL,
                      true,
                      "Kernel circuits should be folded.");
-        // Get the previous accum hash
-        info("Accumulator hash from IO: ", kernel_input.output_hn_accum_hash);
-        BB_ASSERT(prev_accum_hash.has_value());
-        bool accum_hash_match = kernel_input.output_hn_accum_hash.get_value() == prev_accum_hash->get_value();
-        BB_ASSERT_DEBUG(accum_hash_match,
-                        "output_hn_accum_hash mismatch: proof contains "
-                            << kernel_input.output_hn_accum_hash.get_value() << " but expected "
-                            << prev_accum_hash->get_value());
-        kernel_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);
 
-        // Set the kernel return data commitment to be propagated via the public inputs.
-        // Uses the interleaved commitment W₇ = [return_data, 0, 0, 0].
-        bus_depot.set_kernel_return_data_commitment(interleaved_commitments.interleaved_return_data);
+        if (verifier_inputs.type == QUEUE_TYPE::HN_FINAL) {
+            // Hiding kernel: reconstruct TailKernelIO to get the batch-merged table commitments
+            TailKernelIO tail_input;
+            tail_input.reconstruct_from_public(public_inputs);
+            // Add pairing points for aggregation
+            pairing_points.emplace_back(tail_input.pairing_inputs);
+            // Databus consistency checks
+            bool kernel_return_data_match =
+                tail_input.kernel_return_data.get_value() == interleaved_commitments.interleaved_calldata.get_value();
+            BB_ASSERT_DEBUG(kernel_return_data_match,
+                            "kernel_return_data mismatch: proof contains "
+                                << tail_input.kernel_return_data.get_value() << " but calldata commitment is "
+                                << interleaved_commitments.interleaved_calldata.get_value());
+            tail_input.kernel_return_data.incomplete_assert_equal(interleaved_commitments.interleaved_calldata);
+
+            bool app_return_data_match = tail_input.app_return_data.get_value() ==
+                                         interleaved_commitments.interleaved_secondary_calldata.get_value();
+            BB_ASSERT_DEBUG(app_return_data_match,
+                            "app_return_data mismatch: proof contains "
+                                << tail_input.app_return_data.get_value() << " but secondary_calldata commitment is "
+                                << interleaved_commitments.interleaved_secondary_calldata.get_value());
+            tail_input.app_return_data.incomplete_assert_equal(interleaved_commitments.interleaved_secondary_calldata);
+
+            // Verify accumulator hash
+            info("Accumulator hash from TailKernelIO: ", tail_input.output_hn_accum_hash);
+            BB_ASSERT(prev_accum_hash.has_value());
+            bool accum_hash_match = tail_input.output_hn_accum_hash.get_value() == prev_accum_hash->get_value();
+            BB_ASSERT_DEBUG(accum_hash_match,
+                            "output_hn_accum_hash mismatch: proof contains "
+                                << tail_input.output_hn_accum_hash.get_value() << " but expected "
+                                << prev_accum_hash->get_value());
+            tail_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);
+
+            // Use the batch-merged table commitments from the tail kernel for the hiding kernel's merge
+            MergeCommitments merge_commitments{ .t_commitments = interleaved_commitments.get_ecc_op_wires().get_copy(),
+                                                .T_prev_commitments = std::move(tail_input.ecc_op_tables) };
+            auto [merge_pairing_points, merged_table_commitments] =
+                goblin.recursively_verify_merge(circuit, merge_commitments, accumulation_recursive_transcript);
+            pairing_points.emplace_back(merge_pairing_points);
+            hiding_merged_tables = std::move(merged_table_commitments);
+
+            bus_depot.set_kernel_return_data_commitment(interleaved_commitments.interleaved_return_data);
+        } else {
+            // Regular kernel (HN or HN_TAIL): reconstruct KernelIO to get the running hash
+            KernelIO kernel_input;
+            kernel_input.reconstruct_from_public(public_inputs);
+            // Add pairing points for aggregation
+            pairing_points.emplace_back(kernel_input.pairing_inputs);
+            // Perform databus consistency checks using interleaved commitments.
+            // W₃ = [calldata, 0, 0, 0] and W₄ = [secondary_calldata, 0, 0, 0] are binding commitments
+            // to the underlying polynomials (using SRS subset {G[4i]}), so equality of interleaved
+            // commitments implies equality of the underlying polynomials.
+            bool kernel_return_data_match =
+                kernel_input.kernel_return_data.get_value() == interleaved_commitments.interleaved_calldata.get_value();
+            BB_ASSERT_DEBUG(kernel_return_data_match,
+                            "kernel_return_data mismatch: proof contains "
+                                << kernel_input.kernel_return_data.get_value() << " but calldata commitment is "
+                                << interleaved_commitments.interleaved_calldata.get_value());
+            kernel_input.kernel_return_data.incomplete_assert_equal(interleaved_commitments.interleaved_calldata);
+
+            bool app_return_data_match = kernel_input.app_return_data.get_value() ==
+                                         interleaved_commitments.interleaved_secondary_calldata.get_value();
+            BB_ASSERT_DEBUG(app_return_data_match,
+                            "app_return_data mismatch: proof contains "
+                                << kernel_input.app_return_data.get_value() << " but secondary_calldata commitment is "
+                                << interleaved_commitments.interleaved_secondary_calldata.get_value());
+            kernel_input.app_return_data.incomplete_assert_equal(
+                interleaved_commitments.interleaved_secondary_calldata);
+
+            // Verify the running hash propagated by the previous kernel matches our computed running_hash
+            info("ECC op hash from KernelIO: ", kernel_input.ecc_op_hash);
+            kernel_input.ecc_op_hash.assert_equal(running_hash);
+
+            // Get the previous accum hash
+            info("Accumulator hash from KernelIO: ", kernel_input.output_hn_accum_hash);
+            BB_ASSERT(prev_accum_hash.has_value());
+            bool accum_hash_match = kernel_input.output_hn_accum_hash.get_value() == prev_accum_hash->get_value();
+            BB_ASSERT_DEBUG(accum_hash_match,
+                            "output_hn_accum_hash mismatch: proof contains "
+                                << kernel_input.output_hn_accum_hash.get_value() << " but expected "
+                                << prev_accum_hash->get_value());
+            kernel_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);
+
+            // Set the kernel return data commitment to be propagated via the public inputs.
+            // Uses the interleaved commitment W₇ = [return_data, 0, 0, 0].
+            bus_depot.set_kernel_return_data_commitment(interleaved_commitments.interleaved_return_data);
+        }
     } else {
         // Reconstruct the input from the previous app from its public inputs
         AppIO app_input; // pairing points
@@ -221,15 +270,27 @@ Chonk::perform_recursive_verification_and_databus_consistency_checks(
         bus_depot.set_app_return_data_commitment(interleaved_commitments.interleaved_return_data);
     }
 
-    // Extract the commitments to the subtable corresponding to the incoming circuit
-    merge_commitments.t_commitments = interleaved_commitments.get_ecc_op_wires().get_copy();
+    // Update the running hash with this step's ECC op column commitments (Poseidon2 hash chain).
+    // For the hiding kernel (HN_FINAL), this update is skipped since the hash is no longer propagated.
+    if (verifier_inputs.type != QUEUE_TYPE::HN_FINAL) {
+        // Extract the ECC op column commitments for this accumulation step.
+        // Each RecursiveCommitment (goblin_element) has x() and y() coordinates as goblin_field,
+        // each with 2 limbs (lo=136-bit, hi=remainder), giving 4 StdlibFF elements per commitment.
+        auto ecc_op_col_commitments = interleaved_commitments.get_ecc_op_wires().get_copy();
 
-    // Recursively verify the corresponding merge proof
-    auto [merge_pairing_points, merged_table_commitments] =
-        goblin.recursively_verify_merge(circuit, merge_commitments, accumulation_recursive_transcript);
-    pairing_points.emplace_back(merge_pairing_points);
+        // Build the Poseidon2 input: running_hash || x_lo || x_hi || y_lo || y_hi (for each column)
+        std::vector<StdlibFF> hash_inputs;
+        hash_inputs.push_back(running_hash);
+        for (const auto& commitment : ecc_op_col_commitments) {
+            hash_inputs.push_back(commitment.x().limbs[0]);
+            hash_inputs.push_back(commitment.x().limbs[1]);
+            hash_inputs.push_back(commitment.y().limbs[0]);
+            hash_inputs.push_back(commitment.y().limbs[1]);
+        }
+        updated_hash = stdlib::poseidon2<ClientCircuit>::hash(hash_inputs);
+    }
 
-    return { output_verifier_accumulator, pairing_points, merged_table_commitments };
+    return { output_verifier_accumulator, pairing_points, updated_hash, hiding_merged_tables };
 }
 
 /**
@@ -252,8 +313,8 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // Transcript is shared across recursive verification of the folding of K_{i-1} (kernel) and A_{i} (app)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
 
-    // T_prev: commitment to previous merged table, propagated via public inputs
-    TableCommitments T_prev_commitments;
+    // running_hash: Poseidon2 running hash over ECC op column commitments, propagated via public inputs
+    StdlibFF running_hash(&circuit, 0);
 
     // Convert native verification queue to circuit witnesses
     if (stdlib_verification_queue.empty()) {
@@ -293,6 +354,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     std::vector<PairingPoints> points_accumulator;
     std::optional<RecursiveVerifierAccumulator> current_stdlib_verifier_accumulator;
+    std::optional<TableCommitments> hiding_merged_tables;
     if (!is_init_kernel) {
         current_stdlib_verifier_accumulator = RecursiveVerifierAccumulator::stdlib_from_native<RecursiveFlavor::Curve>(
             &circuit, recursive_verifier_native_accum);
@@ -300,15 +362,19 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
 
-        auto [output_stdlib_verifier_accumulator, pairing_points, merged_table_commitments] =
+        auto [output_stdlib_verifier_accumulator, pairing_points, updated_hash, merged_tables_opt] =
             perform_recursive_verification_and_databus_consistency_checks(circuit,
                                                                           verifier_input,
                                                                           current_stdlib_verifier_accumulator,
-                                                                          T_prev_commitments,
+                                                                          running_hash,
                                                                           accumulation_recursive_transcript);
         points_accumulator.insert(points_accumulator.end(), pairing_points.begin(), pairing_points.end());
-        // Update commitment to the status of the op_queue
-        T_prev_commitments = merged_table_commitments;
+        // Update the running hash over ECC op column commitments (only meaningful for non-hiding-kernel steps)
+        running_hash = updated_hash;
+        // Capture merged table commitments from the hiding kernel merge (only set for HN_FINAL)
+        if (merged_tables_opt.has_value()) {
+            hiding_merged_tables = std::move(merged_tables_opt);
+        }
         // Update the output verifier accumulator
         current_stdlib_verifier_accumulator = output_stdlib_verifier_accumulator;
 
@@ -319,17 +385,50 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     PairingPoints pairing_points_aggregator = PairingPoints::aggregate_multiple(points_accumulator);
 
-    // Output differs based on kernel type: HidingKernelIO (no accum hash) vs KernelIO (with accum hash)
+    // Output differs based on kernel type:
+    //   - HidingKernelIO (hiding kernel): no accum hash, no ecc_op_hash
+    //   - TailKernelIO (tail kernel): accum hash + ecc_op_tables from batch merge
+    //   - KernelIO (all other kernels): accum hash + running ecc_op_hash
     if (is_hiding_kernel) {
         BB_ASSERT_EQ(current_stdlib_verifier_accumulator.has_value(), false);
         // Add randomness at the end of the hiding kernel (whose ecc ops fall right at the end of the op queue table) to
         // ensure the Chonk proof doesn't leak information about the actual content of the op queue
         hide_op_queue_content_in_hiding(circuit);
 
+        // The hiding kernel merge (with T_prev from TailKernelIO) was handled inside
+        // perform_recursive_verification_and_databus_consistency_checks for HN_FINAL type.
+        // The merged table commitments are propagated back via hiding_merged_tables.
+        BB_ASSERT(hiding_merged_tables.has_value(),
+                  "Hiding kernel expected merged table commitments from HN_FINAL recursive verification");
         HidingKernelIO hiding_output{ pairing_points_aggregator,
                                       bus_depot.get_kernel_return_data_commitment(circuit),
-                                      T_prev_commitments };
+                                      std::move(*hiding_merged_tables) };
         hiding_output.set_public();
+    } else if (is_tail_kernel) {
+        BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), false);
+        // Extract native verifier accumulator from the stdlib accum to use it in the next round
+        recursive_verifier_native_accum = current_stdlib_verifier_accumulator->get_value<VerifierAccumulator>();
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/XXXX): Perform batch merge verification here.
+        // For now, use empty table commitments as placeholder until batch merge is implemented.
+        TailKernelIO tail_output;
+        tail_output.pairing_inputs = pairing_points_aggregator;
+        tail_output.kernel_return_data = bus_depot.get_kernel_return_data_commitment(circuit);
+        tail_output.app_return_data = bus_depot.get_app_return_data_commitment(circuit);
+        // Placeholder: batch merge result — will be replaced when batch merge prover/verifier is implemented
+        for (auto& table_commitment : tail_output.ecc_op_tables) {
+            table_commitment = TailKernelIO::G1::constant_infinity(&circuit);
+        }
+        RecursiveTranscript hash_transcript;
+        tail_output.output_hn_accum_hash =
+            current_stdlib_verifier_accumulator->hash_with_origin_tagging(hash_transcript);
+        info("Tail kernel output accumulator hash: ", tail_output.output_hn_accum_hash);
+#ifndef NDEBUG
+        info("Chonk recursive verification: accumulator hash set in the public inputs matches the one "
+             "computed natively: ",
+             tail_output.output_hn_accum_hash.get_value() == native_verifier_accum_hash ? "true" : "false");
+#endif
+        tail_output.set_public();
     } else {
         BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), false);
         // Extract native verifier accumulator from the stdlib accum to use it in the next round
@@ -339,7 +438,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         kernel_output.pairing_inputs = pairing_points_aggregator;
         kernel_output.kernel_return_data = bus_depot.get_kernel_return_data_commitment(circuit);
         kernel_output.app_return_data = bus_depot.get_app_return_data_commitment(circuit);
-        kernel_output.ecc_op_tables = T_prev_commitments;
+        kernel_output.ecc_op_hash = running_hash;
         RecursiveTranscript hash_transcript;
         kernel_output.output_hn_accum_hash =
             current_stdlib_verifier_accumulator->hash_with_origin_tagging(hash_transcript);
@@ -475,15 +574,34 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
     VerifierInputs queue_entry{ std::move(proof), precomputed_vk, queue_type, is_kernel };
     verification_queue.push_back(queue_entry);
 
-    // Construct merge proof (excluded for hiding kernel since accumulation terminates with
-    // tail kernel and hiding merge proof is constructed as part of goblin proving)
-    if (queue_entry.type != QUEUE_TYPE::MEGA) {
+    // Merge proof handling (new delayed-merge protocol):
+    // - OINK/HN: No per-circuit merge proof. Just reset the op queue subtable for the next circuit.
+    // - HN_TAIL: Create the batch merge proof covering all accumulated subtables (for tail kernel to verify).
+    //            The tail kernel circuit's complete_kernel_circuit_logic will dequeue and verify this proof.
+    // - HN_FINAL (tail kernel): Keep the individual merge proof for the tail kernel's own subtable.
+    //            The hiding kernel circuit's complete_kernel_circuit_logic will dequeue and verify this proof.
+    // - MEGA (hiding kernel): merge handled in goblin.prove() as before.
+    if (queue_entry.type == QUEUE_TYPE::OINK || queue_entry.type == QUEUE_TYPE::HN ||
+        queue_entry.type == QUEUE_TYPE::HN_TAIL) {
 #ifndef NDEBUG
         // In debugging builds update native verifier accumulator
         update_native_verifier_accumulator(queue_entry, verifier_transcript);
 #endif
+        // Reset the op queue subtable so the next circuit can start a fresh subtable.
+        // (Previously this was done implicitly by prove_merge which called op_queue->merge() internally.)
+        // For HN_TAIL, we additionally need to construct the batch merge proof once that infrastructure
+        // is in place: TODO(https://github.com/AztecProtocol/barretenberg/issues/XXXX):
+        // goblin.prove_batch_merge(prover_accumulation_transcript, /* C_1..C_M */);
+        goblin.op_queue->merge();
+    } else if (queue_entry.type == QUEUE_TYPE::HN_FINAL) {
+#ifndef NDEBUG
+        update_native_verifier_accumulator(queue_entry, verifier_transcript);
+#endif
+        // The tail kernel's individual subtable is still merged individually so the hiding kernel
+        // can verify it (unchanged hiding kernel merge protocol).
         goblin.prove_merge(prover_accumulation_transcript);
     }
+    // MEGA: no action here; goblin.prove() handles the hiding kernel merge.
 
     num_circuits_accumulated++;
 }
