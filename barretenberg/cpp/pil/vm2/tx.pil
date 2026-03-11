@@ -3,7 +3,7 @@ include "precomputed.pil";
 include "constants_gen.pil";
 include "execution.pil";
 include "trees/note_hash_tree_check.pil";
-include "trees/nullifier_check.pil";
+include "trees/indexed_tree_check.pil";
 include "trees/public_data_check.pil";
 include "poseidon2_hash.pil";
 include "calldata_hashing.pil";
@@ -61,7 +61,7 @@ include "ff_gt.pil";
  * - public_inputs.pil: for reading the phase lengths, write side-effects, counters, etc.
  * - precomputed.pil: for reading the phase specifications.
  * - trees/note_hash_tree_check.pil: for handling note hashes emission.
- * - trees/nullifier_check.pil: for handling nullifiers emission.
+ * - trees/indexed_tree_check.pil: for handling nullifiers emission.
  * - trees/public_data_check.pil: for handling public data reads/writes (fee-related).
  * - poseidon2_hash.pil: for deriving fee balance slot.
  * - calldata_hashing.pil: for hashing the calldata.
@@ -533,6 +533,13 @@ namespace tx;
     pol commit should_nullifier_append; // @boolean (follows from definition)
     should_nullifier_append = should_try_nullifier_append * (1 - nullifier_limit_error);
 
+    pol commit write_nullifier_pi_offset;
+    should_nullifier_append * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX + prev_num_nullifiers_emitted - write_nullifier_pi_offset) = 0;
+
+    // Lookup constant support: Can be removed when we support constants in lookups.
+    pol commit nullifier_tree_height;
+    should_nullifier_append * (nullifier_tree_height - constants.NULLIFIER_TREE_HEIGHT) = 0;
+
     // We revert if the nullifier already exists.
     #[NULLIFIER_APPEND]
     should_nullifier_append {
@@ -542,18 +549,19 @@ namespace tx;
         next_nullifier_tree_root,
         prev_nullifier_tree_size,
         discard, // from tx_discard.pil virtual trace
-        prev_num_nullifiers_emitted,
+        write_nullifier_pi_offset,
+        nullifier_tree_height,
         precomputed.zero // sel_silo = 0 (nullifiers already siloed)
-    } in
-    nullifier_check.write {
-        nullifier_check.nullifier,
-        nullifier_check.root,
-        nullifier_check.exists,
-        nullifier_check.write_root,
-        nullifier_check.tree_size_before_write,
-        nullifier_check.discard,
-        nullifier_check.nullifier_index,
-        nullifier_check.sel_silo
+    } in indexed_tree_check.write {
+        indexed_tree_check.value,
+        indexed_tree_check.root,
+        indexed_tree_check.exists,
+        indexed_tree_check.write_root,
+        indexed_tree_check.tree_size_before_write,
+        indexed_tree_check.discard,
+        indexed_tree_check.public_inputs_index,
+        indexed_tree_check.tree_height,
+        indexed_tree_check.sel_silo
     };
 
     // If reverted, the next state is unconstrained. This is okay since we are going to restore the state at the end of setup.

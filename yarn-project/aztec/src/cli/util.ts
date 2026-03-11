@@ -1,17 +1,18 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
 import type { AccountManager } from '@aztec/aztec.js/wallet';
+import { getNetworkConfig } from '@aztec/cli/config';
+import { RegistryContract } from '@aztec/ethereum/contracts';
 import type { ViemClient } from '@aztec/ethereum/types';
-import type { ConfigMappingsType } from '@aztec/foundation/config';
-import { EthAddress } from '@aztec/foundation/eth-address';
+import type { ConfigMappingsType, NetworkNames } from '@aztec/foundation/config';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
-import type { SharedNodeConfig } from '@aztec/node-lib/config';
 import type { ProverConfig } from '@aztec/stdlib/interfaces/server';
-import { getTelemetryClient } from '@aztec/telemetry-client/start';
+import { type VersionCheck, getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import chalk from 'chalk';
 import type { Command } from 'commander';
+import type { Hex } from 'viem';
 
 import { type AztecStartOption, aztecStartOptions } from './aztec_start_options.js';
 
@@ -290,92 +291,58 @@ export async function preloadCrsDataForServerSideProving(
   }
 }
 
-export async function setupUpdateMonitor(
-  autoUpdateMode: SharedNodeConfig['autoUpdate'],
-  updatesLocation: URL,
+export async function setupVersionChecker(
+  network: NetworkNames,
   followsCanonicalRollup: boolean,
   publicClient: ViemClient,
-  registryContractAddress: EthAddress,
   signalHandlers: Array<() => Promise<void>>,
-  updateNodeConfig?: (config: object) => Promise<void>,
-) {
-  const logger = createLogger('update-check');
-  const { UpdateChecker } = await import('@aztec/stdlib/update-checker');
-  const checker = await UpdateChecker.new({
-    baseURL: updatesLocation,
-    publicClient,
-    registryContractAddress,
+  cacheDir?: string,
+): Promise<void> {
+  const networkConfig = await getNetworkConfig(network, cacheDir);
+  if (!networkConfig) {
+    return;
+  }
+
+  const { VersionChecker } = await import('@aztec/stdlib/update-checker');
+
+  const logger = createLogger('version_check');
+  const registry = new RegistryContract(publicClient, networkConfig.registryAddress as Hex);
+
+  const checks: Array<VersionCheck> = [];
+  checks.push({
+    name: 'node',
+    currentVersion: getPackageVersion() ?? 'unknown',
+    getLatestVersion: async () => {
+      const cfg = await getNetworkConfig(network, cacheDir);
+      return cfg?.nodeVersion;
+    },
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  checker.on('newRollupVersion', async ({ latestVersion, currentVersion }) => {
+  if (followsCanonicalRollup) {
+    const getLatestVersion = async () => {
+      const version = (await registry.getRollupVersions()).at(-1);
+      return version !== undefined ? String(version) : undefined;
+    };
+    const currentVersion = await getLatestVersion();
+    if (currentVersion !== undefined) {
+      checks.push({
+        name: 'rollup',
+        currentVersion,
+        getLatestVersion,
+      });
+    }
+  }
+
+  const checker = new VersionChecker(checks, 600_000, logger);
+  checker.on('newVersion', ({ name, latestVersion, currentVersion }) => {
     if (isShuttingDown()) {
       return;
     }
 
-    // if node follows canonical rollup then this is equivalent to a config update
-    if (!followsCanonicalRollup) {
-      return;
-    }
-
-    if (autoUpdateMode === 'config' || autoUpdateMode === 'config-and-version') {
-      logger.info(`New rollup version detected. Please restart the node`, { latestVersion, currentVersion });
-      await shutdown(logger.info, ExitCode.ROLLUP_UPGRADE, signalHandlers);
-    } else if (autoUpdateMode === 'notify') {
-      logger.warn(`New rollup detected. Please restart the node`, { latestVersion, currentVersion });
-    }
+    logger.warn(`New ${name} version available`, { latestVersion, currentVersion });
   });
-
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  checker.on('newNodeVersion', async ({ latestVersion, currentVersion }) => {
-    if (isShuttingDown()) {
-      return;
-    }
-    if (autoUpdateMode === 'config-and-version') {
-      logger.info(`New node version detected. Please update and restart the node`, { latestVersion, currentVersion });
-      await shutdown(logger.info, ExitCode.VERSION_UPGRADE, signalHandlers);
-    } else if (autoUpdateMode === 'notify') {
-      logger.info(`New node version detected. Please update and restart the node`, { latestVersion, currentVersion });
-    }
-  });
-
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  checker.on('updateNodeConfig', async config => {
-    if (isShuttingDown()) {
-      return;
-    }
-
-    if ((autoUpdateMode === 'config' || autoUpdateMode === 'config-and-version') && updateNodeConfig) {
-      logger.warn(`Config change detected. Updating node`, config);
-      try {
-        await updateNodeConfig(config);
-      } catch (err) {
-        logger.warn('Failed to update config', { err });
-      }
-    }
-    // don't notify on these config changes
-  });
-
-  checker.on('updatePublicTelemetryConfig', config => {
-    if (autoUpdateMode === 'config' || autoUpdateMode === 'config-and-version') {
-      logger.warn(`Public telemetry config change detected. Updating telemetry client`, config);
-      try {
-        const publicIncludeMetrics: unknown = (config as any).publicIncludeMetrics;
-        if (Array.isArray(publicIncludeMetrics) && publicIncludeMetrics.every(m => typeof m === 'string')) {
-          getTelemetryClient().setExportedPublicTelemetry(publicIncludeMetrics);
-        }
-        const publicMetricsCollectFrom: unknown = (config as any).publicMetricsCollectFrom;
-        if (Array.isArray(publicMetricsCollectFrom) && publicMetricsCollectFrom.every(m => typeof m === 'string')) {
-          getTelemetryClient().setPublicTelemetryCollectFrom(publicMetricsCollectFrom);
-        }
-      } catch (err) {
-        logger.warn('Failed to update config', { err });
-      }
-    }
-    // don't notify on these config changes
-  });
-
   checker.start();
+  signalHandlers.push(() => checker.stop());
 }
 
 export function stringifyConfig(config: object): string {

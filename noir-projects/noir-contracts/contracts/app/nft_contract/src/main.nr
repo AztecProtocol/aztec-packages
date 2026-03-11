@@ -21,7 +21,7 @@ pub contract NFT {
             note_interface::NoteProperties, note_viewer_options::NoteViewerOptions,
         },
         protocol::{address::AztecAddress, traits::ToField},
-        state_vars::{Map, Owned, PrivateSet, PublicImmutable, PublicMutable},
+        state_vars::{Map, Owned, PrivateSet, PublicImmutable, PublicMutable, StateVariable},
         utils::comparison::Comparator,
     };
     use compressed_string::FieldCompressedString;
@@ -167,13 +167,7 @@ pub contract NFT {
     #[internal("private")]
     fn _prepare_private_balance_increase(to: AztecAddress) -> PartialNFTNote {
         // We setup a partial note with unpopulated/zero token id for 'to'.
-        let partial_note = NFTNote::partial(
-            to,
-            self.storage.private_nfts.at(to).storage_slot,
-            self.context,
-            to,
-            self.msg_sender(),
-        );
+        let partial_note = NFTNote::partial(to, self.context, to, self.msg_sender());
 
         partial_note
     }
@@ -222,7 +216,12 @@ pub contract NFT {
         public_owners_storage.write(AztecAddress::zero());
 
         // We finalize the transfer by completing the partial note.
-        partial_note.complete(self.context, from_and_completer, token_id);
+        partial_note.complete(
+            self.context,
+            from_and_completer,
+            self.storage.private_nfts.get_storage_slot(),
+            token_id,
+        );
     }
 
     /**

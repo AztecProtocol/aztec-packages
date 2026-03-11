@@ -16,6 +16,8 @@ struct Bn254G1Params {
     static constexpr bool can_hash_to_curve = true;
     static constexpr bool small_elements = true;
     static constexpr bool has_a = false;
+
+    // Generator = (1, sqrt(4)) = (1, 2)
     static constexpr fq one_x = fq::one();
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     static constexpr fq one_y{ 0xa6ba871b8b1e1b3aUL, 0x14f1d651eb8e167bUL, 0xccdd46def0f28c58UL, 0x1c14ef83340fbe5eUL };

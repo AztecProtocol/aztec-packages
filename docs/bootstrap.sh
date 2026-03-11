@@ -52,13 +52,12 @@ function test {
 }
 
 function check_references {
+  if [[ "${GITHUB_EVENT_NAME:-}" != "merge_group" ]]; then
+    echo "Skipping doc reference check (only runs in merge queue)."
+    return
+  fi
   echo_header "Check doc references"
   ./scripts/check_doc_references.sh docs || true
-}
-
-function update_doc_references {
-  echo_header "Auto-update doc references"
-  ./scripts/update_doc_references.sh docs || true
 }
 
 function build_examples {
@@ -72,7 +71,6 @@ case "$cmd" in
     build_docs
     test
     check_references
-    update_doc_references
     ;;
   "")
     build_examples

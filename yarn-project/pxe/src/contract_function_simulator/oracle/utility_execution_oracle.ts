@@ -6,14 +6,15 @@ import { Point } from '@aztec/foundation/curves/grumpkin';
 import { LogLevels, type Logger, createLogger } from '@aztec/foundation/log';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
+import { isActualProtocolContract } from '@aztec/protocol-contracts';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
-import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
+import type { CompleteAddress, ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { computeAddressSecret } from '@aztec/stdlib/keys';
+import { type PublicKeys, computeAddressSecret } from '@aztec/stdlib/keys';
 import { deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
@@ -24,6 +25,7 @@ import type { AccessScopes } from '../../access_scopes.js';
 import { createContractLogger, logContractMessage } from '../../contract_logging.js';
 import { EventService } from '../../events/event_service.js';
 import { LogService } from '../../logs/log_service.js';
+import { MessageContextService } from '../../messages/message_context_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import { ORACLE_VERSION } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
@@ -36,6 +38,7 @@ import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
+import { MessageTxContext } from '../noir-structs/message_tx_context.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
@@ -58,6 +61,7 @@ export type UtilityExecutionOracleArgs = {
   senderAddressBookStore: SenderAddressBookStore;
   capsuleStore: CapsuleStore;
   privateEventStore: PrivateEventStore;
+  messageContextService: MessageContextService;
   jobId: string;
   log?: ReturnType<typeof createLogger>;
   scopes: AccessScopes;
@@ -85,6 +89,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly senderAddressBookStore: SenderAddressBookStore;
   protected readonly capsuleStore: CapsuleStore;
   protected readonly privateEventStore: PrivateEventStore;
+  protected readonly messageContextService: MessageContextService;
   protected readonly jobId: string;
   protected logger: ReturnType<typeof createLogger>;
   protected readonly scopes: AccessScopes;
@@ -103,12 +108,19 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.senderAddressBookStore = args.senderAddressBookStore;
     this.capsuleStore = args.capsuleStore;
     this.privateEventStore = args.privateEventStore;
+    this.messageContextService = args.messageContextService;
     this.jobId = args.jobId;
     this.logger = args.log ?? createLogger('simulator:client_view_context');
     this.scopes = args.scopes;
   }
 
   public assertCompatibleOracleVersion(version: number): void {
+    // Alpha payload protocol contracts (ContractInstanceRegistry, ContractClassRegistry, FeeJuice) shipped with
+    // committed bytecode that cannot be changed. Skip the version check for these contracts.
+    // TODO(F-416): Remove this hack on v5 when protocol contracts are redeployed.
+    if (isActualProtocolContract(this.contractAddress)) {
+      return;
+    }
     if (version !== ORACLE_VERSION) {
       throw new Error(`Incompatible oracle version. Expected version ${ORACLE_VERSION}, got ${version}.`);
     }
@@ -232,12 +244,18 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Retrieve the complete address associated to a given address.
+   * Retrieve the public keys and partial address associated to a given address.
    * @param account - The account address.
-   * @returns A complete address associated with the input address, or `undefined` if not registered.
+   * @returns The public keys and partial address, or `undefined` if the account is not registered.
    */
-  public tryGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress | undefined> {
-    return this.addressStore.getCompleteAddress(account);
+  public async tryGetPublicKeysAndPartialAddress(
+    account: AztecAddress,
+  ): Promise<{ publicKeys: PublicKeys; partialAddress: PartialAddress } | undefined> {
+    const completeAddress = await this.addressStore.getCompleteAddress(account);
+    if (!completeAddress) {
+      return undefined;
+    }
+    return { publicKeys: completeAddress.publicKeys, partialAddress: completeAddress.partialAddress };
   }
 
   protected async getCompleteAddressOrFail(account: AztecAddress): Promise<CompleteAddress> {
@@ -448,6 +466,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
+    maxNotePackedLen: number,
+    maxEventSerializedLen: number,
   ) {
     // TODO(#10727): allow other contracts to store notes
     if (!this.contractAddress.equals(contractAddress)) {
@@ -458,11 +478,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     // faster as we don't need to wait for the network round-trip.
     const noteValidationRequests = (
       await this.capsuleStore.readCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, this.jobId)
-    ).map(NoteValidationRequest.fromFields);
+    ).map(fields => NoteValidationRequest.fromFields(fields, maxNotePackedLen));
 
     const eventValidationRequests = (
       await this.capsuleStore.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, this.jobId)
-    ).map(EventValidationRequest.fromFields);
+    ).map(fields => EventValidationRequest.fromFields(fields, maxEventSerializedLen));
 
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
     const noteStorePromises = noteValidationRequests.map(request =>
@@ -540,6 +560,47 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption),
       this.jobId,
     );
+  }
+
+  public async utilityResolveMessageContexts(
+    contractAddress: AztecAddress,
+    messageContextRequestsArrayBaseSlot: Fr,
+    messageContextResponsesArrayBaseSlot: Fr,
+  ) {
+    try {
+      if (!this.contractAddress.equals(contractAddress)) {
+        throw new Error(`Got a message context request from ${contractAddress}, expected ${this.contractAddress}`);
+      }
+      const requestCapsules = await this.capsuleStore.readCapsuleArray(
+        contractAddress,
+        messageContextRequestsArrayBaseSlot,
+        this.jobId,
+      );
+
+      const txHashes = requestCapsules.map((fields, i) => {
+        if (fields.length !== 1) {
+          throw new Error(
+            `Malformed message context request at index ${i}: expected 1 field (tx hash), got ${fields.length}`,
+          );
+        }
+        return fields[0];
+      });
+
+      const maybeMessageContexts = await this.messageContextService.resolveMessageContexts(
+        txHashes,
+        this.anchorBlockHeader.getBlockNumber(),
+      );
+
+      // Leave response in response capsule array.
+      await this.capsuleStore.setCapsuleArray(
+        contractAddress,
+        messageContextResponsesArrayBaseSlot,
+        maybeMessageContexts.map(MessageTxContext.toSerializedOption),
+        this.jobId,
+      );
+    } finally {
+      await this.capsuleStore.setCapsuleArray(contractAddress, messageContextRequestsArrayBaseSlot, [], this.jobId);
+    }
   }
 
   public storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {

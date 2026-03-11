@@ -23,12 +23,39 @@ typename Group::affine_element naive_scalar_mul(const typename Group::element& b
 }
 } // namespace
 
+// =========================
+// Parameter-related tests
+// =========================
+
 TEST(grumpkin, CheckB)
 {
     auto b = grumpkin::g1::curve_b;
     fr seventeen = 17;
     EXPECT_EQ(seventeen, -b);
 }
+
+TEST(grumpkin, SubgroupGenerator)
+{
+    bb::fq subgroup_generator = bb::curve::Grumpkin::subgroup_generator;
+    bb::fq subgroup_generator_inverse = bb::curve::Grumpkin::subgroup_generator_inverse;
+
+    EXPECT_NE(subgroup_generator.pow(3), fq::one());
+    EXPECT_NE(subgroup_generator.pow(29), fq::one());
+    EXPECT_EQ(subgroup_generator.pow(87), fq::one());
+    EXPECT_EQ(subgroup_generator * subgroup_generator_inverse, fq::one());
+}
+
+TEST(grumpkin, OneYIsCorrect)
+{
+    fr one_y = bb::grumpkin::G1Params::one_y;
+    auto [_, expected] = (bb::grumpkin::G1Params::b + fr::one()).sqrt();
+
+    EXPECT_EQ(one_y, -expected);
+}
+
+// =========================
+// Group-related tests
+// =========================
 
 TEST(grumpkin, RandomElement)
 {

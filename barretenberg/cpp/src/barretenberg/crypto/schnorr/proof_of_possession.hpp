@@ -48,7 +48,6 @@ template <typename G1, typename Hash> struct SchnorrProofOfPossession {
         // uniformly random bits. For example, when compiling into a wasm binary, it is essential that the random_get
         // method is overloaded to utilise a suitable entropy source
         // (see https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md)
-        // TODO: securely erase `k`
         Fr k = Fr::random_element();
 
         affine_element R = G1::one * k;
@@ -58,6 +57,8 @@ template <typename G1, typename Hash> struct SchnorrProofOfPossession {
 
         Fr challenge_fr = Fr::serialize_from_buffer(&challenge_bytes[0]);
         response = k - challenge_fr * secret_key;
+        secure_erase_bytes(&k, sizeof(k));
+        secure_erase_bytes(&secret_key, sizeof(secret_key));
     }
 
     /**

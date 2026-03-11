@@ -240,6 +240,27 @@ struct ChonkStats {
 };
 
 /**
+ * @struct ChonkBatchVerify
+ * @brief Batch-verify multiple Chonk proofs with a single IPA SRS MSM
+ */
+struct ChonkBatchVerify {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerify";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifyResponse";
+        bool valid;
+        MSGPACK_FIELDS(valid);
+        bool operator==(const Response&) const = default;
+    };
+
+    std::vector<ChonkProof> proofs;
+    std::vector<std::vector<uint8_t>> vks;
+    Response execute(const BBApiRequest& request = {}) &&;
+    MSGPACK_FIELDS(proofs, vks);
+    bool operator==(const ChonkBatchVerify&) const = default;
+};
+
+/**
  * @struct ChonkCompressProof
  * @brief Compress a Chonk proof to a compact byte representation
  *

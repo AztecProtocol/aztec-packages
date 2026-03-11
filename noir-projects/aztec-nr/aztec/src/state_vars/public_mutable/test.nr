@@ -1,4 +1,4 @@
-use crate::{context::{PublicContext, UtilityContext}, state_vars::PublicMutable};
+use crate::{context::{PublicContext, UtilityContext}, state_vars::{PublicMutable, StateVariable}};
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::MockStruct};
 use std::mem::zeroed;
 

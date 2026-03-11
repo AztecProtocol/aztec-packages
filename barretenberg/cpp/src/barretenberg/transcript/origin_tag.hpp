@@ -16,6 +16,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include <atomic>
 #include <cstddef>
 #include <iterator>
 #include <ostream>
@@ -68,6 +69,11 @@ void check_round_provenance(const uint256_t& provenance_a, const uint256_t& prov
 #ifndef AZTEC_NO_ORIGIN_TAGS
 struct OriginTag {
 
+    // Unique per-object ID for debugging: when a tag merge fails, the error message includes
+    // the IDs of both tags so you can trace which specific field elements were involved.
+    static inline std::atomic<uint64_t> next_tag_id{ 0 };
+    uint64_t tag_id = next_tag_id.fetch_add(1, std::memory_order_relaxed);
+
     static constexpr size_t CONSTANT = static_cast<size_t>(-1);
     static constexpr size_t FREE_WITNESS = static_cast<size_t>(-2);
     // transcript_index represents the index of a unique transcript object that generated the value. It uses
@@ -96,7 +102,7 @@ struct OriginTag {
     OriginTag& operator=(const OriginTag& other) = default;
     OriginTag& operator=(OriginTag&& other) noexcept
     {
-
+        tag_id = other.tag_id;
         transcript_index = other.transcript_index;
         round_provenance = other.round_provenance;
         instant_death = other.instant_death;
@@ -204,8 +210,8 @@ struct OriginTag {
 };
 inline std::ostream& operator<<(std::ostream& os, OriginTag const& v)
 {
-    return os << "{ transcript_idx: " << v.transcript_index << ", round_prov: " << v.round_provenance
-              << ", instadeath: " << v.instant_death << " }";
+    return os << "{ id: " << v.tag_id << ", transcript_idx: " << v.transcript_index
+              << ", round_prov: " << v.round_provenance << ", instadeath: " << v.instant_death << " }";
 }
 
 #else

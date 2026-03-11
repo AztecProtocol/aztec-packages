@@ -57,7 +57,7 @@ The main entry point is `terraform/deploy-aztec-infra/`:
 **aztec-validator** (extends aztec-node):
 - Wrapper chart with `aztec-node` as dependency (aliased as `validator`)
 - Adds validator-specific ConfigMap (`env.configmap.yaml`)
-- Configures mnemonic, validators-per-node, publisher keys
+- Configures mnemonic, validators-per-node, publishers-per-replica
 
 **aztec-prover-stack**:
 - Multi-component: prover node, broker, and agent replicas
@@ -263,26 +263,31 @@ locals {
 
 **Key derivation via Terraform + `setup-attester-keystore.sh`:**
 
-Each release receives a different `PUBLISHER_KEY_INDEX_START` from Terraform:
+Publishers are allocated **per replica (pod)**, not per attester key. Each release receives a different `PUBLISHER_KEY_INDEX_START` from Terraform:
 
 ```hcl
 # In main.tf custom_settings per release:
 "validator.node.env.PUBLISHER_KEY_INDEX_START" = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX +
-  (idx * (var.VALIDATORS_PER_NODE * var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY * var.VALIDATOR_REPLICAS))
+  (idx * (var.VALIDATOR_PUBLISHERS_PER_REPLICA * var.VALIDATOR_REPLICAS))
 ```
 
-Example with 4 replicas, 12 validators/node, 2 publishers/key, base index 5000:
+Example with 4 replicas, 4 publishers/replica, base index 5000:
 - Primary (idx=0): `PUBLISHER_KEY_INDEX_START = 5000`
-- HA-1 (idx=1): `PUBLISHER_KEY_INDEX_START = 5000 + (1 * 12 * 2 * 4) = 5096`
+- HA-1 (idx=1): `PUBLISHER_KEY_INDEX_START = 5000 + (1 * 4 * 4) = 5016`
 
 At runtime, `setup-attester-keystore.sh` calculates publisher indices:
 
 ```bash
 # POD_INDEX extracted from pod name (validator-0 → 0, validator-1 → 1, etc.)
-PUBLISHER_KEY_INDEX=$((POD_INDEX * VALIDATORS_PER_NODE * PUBLISHERS_PER_VALIDATOR_KEY + PUBLISHER_KEY_INDEX_START))
+PUBLISHER_KEY_INDEX=$((POD_INDEX * VALIDATOR_PUBLISHERS_PER_REPLICA + PUBLISHER_KEY_INDEX_START))
 ```
 
-This ensures each release uses non-overlapping publisher key ranges.
+The keystore uses **schema v2** with a top-level `publisher` array shared by all validators on the pod:
+```json
+{"schemaVersion": 2, "publisher": ["0x1", "0x2", "0x3", "0x4"], "validators": [{"attester": "..."}]}
+```
+
+This ensures each release uses non-overlapping publisher key ranges while decoupling publisher count from attester count.
 
 **HA coordination:**
 - Both releases connect to shared PostgreSQL via `VALIDATOR_HA_DATABASE_URL`

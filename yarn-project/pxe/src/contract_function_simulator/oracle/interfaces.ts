@@ -6,8 +6,9 @@ import { MembershipWitness } from '@aztec/foundation/trees';
 import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
-import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
+import type { ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
+import type { PublicKeys } from '@aztec/stdlib/keys';
 import type { ContractClassLog, Tag } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -85,7 +86,9 @@ export interface IUtilityExecutionOracle {
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined>;
   getBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined>;
-  tryGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress | undefined>;
+  tryGetPublicKeysAndPartialAddress(
+    account: AztecAddress,
+  ): Promise<{ publicKeys: PublicKeys; partialAddress: PartialAddress } | undefined>;
   getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
   getNotes(
     owner: AztecAddress | undefined,
@@ -121,11 +124,18 @@ export interface IUtilityExecutionOracle {
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
+    maxNotePackedLen: number,
+    maxEventSerializedLen: number,
   ): Promise<void>;
   bulkRetrieveLogs(
     contractAddress: AztecAddress,
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
+  ): Promise<void>;
+  utilityResolveMessageContexts(
+    contractAddress: AztecAddress,
+    messageContextRequestsArrayBaseSlot: Fr,
+    messageContextResponsesArrayBaseSlot: Fr,
   ): Promise<void>;
   storeCapsule(contractAddress: AztecAddress, key: Fr, capsule: Fr[]): Promise<void>;
   loadCapsule(contractAddress: AztecAddress, key: Fr): Promise<Fr[] | null>;
@@ -164,20 +174,9 @@ export interface IPrivateExecutionOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
   ): Promise<{ endSideEffectCounter: Fr; returnsHash: Fr }>;
-  notifyEnqueuedPublicFunctionCall(
-    targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    sideEffectCounter: number,
-    isStaticCall: boolean,
-  ): Promise<void>;
-  notifySetPublicTeardownFunctionCall(
-    targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    sideEffectCounter: number,
-    isStaticCall: boolean,
-  ): Promise<void>;
-  notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void>;
-  isSideEffectCounterRevertible(sideEffectCounter: number): Promise<boolean>;
+  validatePublicCalldata(calldataHash: Fr): Promise<void>;
+  notifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void>;
+  inRevertiblePhase(sideEffectCounter: number): Promise<boolean>;
   getSenderForTags(): Promise<AztecAddress | undefined>;
   setSenderForTags(senderForTags: AztecAddress): Promise<void>;
   getNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag>;

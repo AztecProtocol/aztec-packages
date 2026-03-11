@@ -29,20 +29,14 @@ jobs:
         run: |
           ./.github/ci3.sh barretenberg-debug
 
-      - name: Notify Slack on failure
+      - name: Notify Slack and dispatch ClaudeBox on failure
         if: failure() && github.event_name != 'workflow_dispatch'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          if [ -n "${SLACK_BOT_TOKEN}" ]; then
-            read -r -d '' data <<EOF || true
-            {
-              "channel": "#honk-team",
-              "text": "Nightly debug build FAILED: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
-            }
-          EOF
-            curl -X POST https://slack.com/api/chat.postMessage \
-              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-              -H "Content-type: application/json" \
-              --data "$data"
-          fi
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./ci3/slack_notify_with_claudebox_kickoff "#honk-team" \
+            "Nightly debug build FAILED: <${RUN_URL}|View Run> (🤖)" \
+            "Nightly barretenberg debug build failed. CI run: ${RUN_URL}. Investigate the build failure, identify the root cause, and create a fix PR targeting next." \
+            --link "$RUN_URL"

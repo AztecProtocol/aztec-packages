@@ -23,6 +23,30 @@ typename Group::affine_element naive_scalar_mul(const typename Group::element& b
 }
 } // namespace
 
+// =========================
+// Parameter-related tests
+// =========================
+
+TEST(g1, BIsCorrect)
+{
+    fq b = Bn254G1Params::b;
+    fq expected = fq(3);
+
+    EXPECT_EQ(b, expected);
+}
+
+TEST(g1, OneYIsCorrect)
+{
+    fq one_y = Bn254G1Params::one_y;
+    auto [_, expected] = (Bn254G1Params::b + fq::one()).sqrt();
+
+    EXPECT_EQ(one_y, expected);
+}
+
+// =========================
+// Group-related tests
+// =========================
+
 TEST(g1, RandomElement)
 {
     g1::element result = g1::element::random_element();
