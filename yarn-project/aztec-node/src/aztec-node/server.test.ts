@@ -16,7 +16,7 @@ import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-ju
 import type { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import { BlockHash, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -395,6 +395,130 @@ describe('aztec node', () => {
         l2BlockSource.getL2Block.mockResolvedValue(undefined);
         expect(await node.getBlock(BlockNumber(3))).toEqual(undefined);
         expect(l2BlockSource.getL2Block).toHaveBeenCalledWith(3);
+      });
+    });
+
+    describe('findLeavesIndexes', () => {
+      const blockHash1 = Fr.random();
+      const blockHash2 = Fr.random();
+
+      beforeEach(() => {
+        lastBlockNumber = BlockNumber(2);
+      });
+
+      it('returns results for all found leaves', async () => {
+        merkleTreeOps.findLeafIndices.mockResolvedValue([10n, 20n]);
+        merkleTreeOps.getBlockNumbersForLeafIndices.mockResolvedValue([BlockNumber(1), BlockNumber(2)]);
+        (merkleTreeOps as any).getLeafValue.mockImplementation((_treeId: any, index: bigint) => {
+          if (index === 1n) {
+            return Promise.resolve(blockHash1);
+          }
+          if (index === 2n) {
+            return Promise.resolve(blockHash2);
+          }
+          return Promise.resolve(undefined);
+        });
+
+        const result = await node.findLeavesIndexes('latest', MerkleTreeId.NOTE_HASH_TREE, [Fr.random(), Fr.random()]);
+
+        expect(result).toEqual([
+          { l2BlockNumber: BlockNumber(1), l2BlockHash: new BlockHash(blockHash1), data: 10n },
+          { l2BlockNumber: BlockNumber(2), l2BlockHash: new BlockHash(blockHash2), data: 20n },
+        ]);
+      });
+
+      it('returns undefined for leaves not found', async () => {
+        merkleTreeOps.findLeafIndices.mockResolvedValue([undefined, undefined]);
+
+        const result = await node.findLeavesIndexes('latest', MerkleTreeId.NOTE_HASH_TREE, [Fr.random(), Fr.random()]);
+
+        expect(result).toEqual([undefined, undefined]);
+      });
+
+      it('returns correct results when some leaves are not found', async () => {
+        merkleTreeOps.findLeafIndices.mockResolvedValue([undefined, 10n, 20n]);
+        merkleTreeOps.getBlockNumbersForLeafIndices.mockResolvedValue([BlockNumber(1), BlockNumber(2)]);
+        (merkleTreeOps as any).getLeafValue.mockImplementation((_treeId: any, index: bigint) => {
+          if (index === 1n) {
+            return Promise.resolve(blockHash1);
+          }
+          if (index === 2n) {
+            return Promise.resolve(blockHash2);
+          }
+          return Promise.resolve(undefined);
+        });
+
+        const result = await node.findLeavesIndexes('latest', MerkleTreeId.NOTE_HASH_TREE, [
+          Fr.random(),
+          Fr.random(),
+          Fr.random(),
+        ]);
+
+        expect(result).toEqual([
+          undefined,
+          { l2BlockNumber: BlockNumber(1), l2BlockHash: new BlockHash(blockHash1), data: 10n },
+          { l2BlockNumber: BlockNumber(2), l2BlockHash: new BlockHash(blockHash2), data: 20n },
+        ]);
+        // Only defined indices should be passed
+        expect(merkleTreeOps.getBlockNumbersForLeafIndices).toHaveBeenCalledWith(MerkleTreeId.NOTE_HASH_TREE, [
+          10n,
+          20n,
+        ]);
+      });
+
+      it('handles multiple leaves in the same block', async () => {
+        merkleTreeOps.findLeafIndices.mockResolvedValue([10n, 20n, 30n]);
+        merkleTreeOps.getBlockNumbersForLeafIndices.mockResolvedValue([BlockNumber(1), BlockNumber(1), BlockNumber(2)]);
+        (merkleTreeOps as any).getLeafValue.mockImplementation((_treeId: any, index: bigint) => {
+          if (index === 1n) {
+            return Promise.resolve(blockHash1);
+          }
+          if (index === 2n) {
+            return Promise.resolve(blockHash2);
+          }
+          return Promise.resolve(undefined);
+        });
+
+        const result = await node.findLeavesIndexes('latest', MerkleTreeId.NOTE_HASH_TREE, [
+          Fr.random(),
+          Fr.random(),
+          Fr.random(),
+        ]);
+
+        expect(result).toEqual([
+          { l2BlockNumber: BlockNumber(1), l2BlockHash: new BlockHash(blockHash1), data: 10n },
+          { l2BlockNumber: BlockNumber(1), l2BlockHash: new BlockHash(blockHash1), data: 20n },
+          { l2BlockNumber: BlockNumber(2), l2BlockHash: new BlockHash(blockHash2), data: 30n },
+        ]);
+        // getLeafValue should be called only for unique block numbers
+        expect(merkleTreeOps.getLeafValue).toHaveBeenCalledTimes(2);
+      });
+
+      it('returns empty array for empty input', async () => {
+        merkleTreeOps.findLeafIndices.mockResolvedValue([]);
+
+        const result = await node.findLeavesIndexes('latest', MerkleTreeId.NOTE_HASH_TREE, []);
+
+        expect(result).toEqual([]);
+      });
+
+      it('throws when block number is undefined for a found leaf', async () => {
+        merkleTreeOps.findLeafIndices.mockResolvedValue([10n]);
+        merkleTreeOps.getBlockNumbersForLeafIndices.mockResolvedValue([undefined]);
+
+        await expect(node.findLeavesIndexes('latest', MerkleTreeId.NOTE_HASH_TREE, [Fr.random()])).rejects.toThrow(
+          /Block number is undefined/,
+        );
+      });
+
+      it('throws when block hash is undefined for a found block number', async () => {
+        merkleTreeOps.findLeafIndices.mockResolvedValue([10n]);
+        merkleTreeOps.getBlockNumbersForLeafIndices.mockResolvedValue([BlockNumber(1)]);
+        merkleTreeOps.getLeafValue.mockResolvedValue(undefined);
+
+        await expect(node.findLeavesIndexes('latest', MerkleTreeId.NOTE_HASH_TREE, [Fr.random()])).rejects.toThrow(
+          /Block hash is undefined/,
+        );
       });
     });
   });

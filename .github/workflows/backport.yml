@@ -87,7 +87,7 @@ jobs:
           WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           gh pr comment "${{ github.event.pull_request.number }}" --body \
-            "❌ Failed to cherry-pick to \`$TARGET_BRANCH\` due to conflicts. Dispatching ClaudeBox to resolve. [View backport run]($WORKFLOW_URL)."
+            "❌ Failed to cherry-pick to \`$TARGET_BRANCH\` due to conflicts. (🤖) [View backport run]($WORKFLOW_URL)."
 
       - name: Notify Slack and dispatch ClaudeBox on backport failure
         if: steps.backport.outcome == 'failure'
@@ -102,7 +102,7 @@ jobs:
           BRANCH="${{ steps.extract-branch.outputs.target_branch }}"
 
           # Post single message to #backports, derive permalink from response
-          TEXT=$(printf '⚠️ Backport failed: <%s|#%s %s> → `%s` (author: %s). Dispatching ClaudeBox…' \
+          TEXT=$(printf '⚠️ Backport failed: <%s|#%s %s> → `%s` (author: %s) (🤖)' \
             "$URL" "$PR" "$TITLE" "$BRANCH" "$AUTHOR")
           RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
