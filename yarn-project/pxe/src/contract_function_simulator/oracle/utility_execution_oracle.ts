@@ -6,6 +6,7 @@ import { Point } from '@aztec/foundation/curves/grumpkin';
 import { LogLevels, type Logger, createLogger } from '@aztec/foundation/log';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
+import { isActualProtocolContract } from '@aztec/protocol-contracts';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
@@ -109,6 +110,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   public assertCompatibleOracleVersion(version: number): void {
+    // Alpha payload protocol contracts (ContractInstanceRegistry, ContractClassRegistry, FeeJuice) shipped with
+    // committed bytecode that cannot be changed. Skip the version check for these contracts.
+    // TODO(F-416): Remove this hack on v5 when protocol contracts are redeployed.
+    if (isActualProtocolContract(this.contractAddress)) {
+      return;
+    }
     if (version !== ORACLE_VERSION) {
       throw new Error(`Incompatible oracle version. Expected version ${ORACLE_VERSION}, got ${version}.`);
     }
