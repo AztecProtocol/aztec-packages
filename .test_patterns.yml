@@ -94,6 +94,13 @@ tests:
     owners:
       - *nico
 
+  # TXE timeout under CI resource pressure (2 CPUs, 8GB RAM)
+  # http://ci.aztec-labs.com/e68a1409fa91cdb1
+  - regex: "noir-contracts orderbook_contract test::test::full_flow"
+    error_regex: "Timeout waiting for TypeScript callback"
+    owners:
+      - *nico
+
   # e2e tests skipped
   - regex: "testbench/port_change.test.ts"
     skip: true
