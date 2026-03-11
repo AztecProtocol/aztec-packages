@@ -27,6 +27,12 @@ function test_cmds {
 function release {
   echo_header "playground release"
 
+  # Ensure build artifacts exist (dist/ may not be present if the release
+  # runs separately from the build phase, e.g. on canary releases).
+  if [ ! -d ./dist ]; then
+    build
+  fi
+
   do_or_dryrun aws s3 sync ./dist s3://play.aztec.network/$(dist_tag) --quiet
   do_or_dryrun aws s3 sync ./dist s3://play.aztec.network/$REF_NAME --quiet
 
