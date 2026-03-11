@@ -14,6 +14,16 @@
 
 #include "barretenberg/common/compiler_hints.hpp"
 
+// Work around an LLVM Mach-O linker bug (affects both Zig's linker and ld64.lld)
+// where __thread_bss TLS template offsets are misaligned when __thread_data is
+// also present (from Rust static libraries). Adding an alignas(16) initialized
+// thread_local forces __thread_data alignment to 16, ensuring __thread_bss starts
+// at a 16-byte-aligned TLS template offset.
+// See: https://github.com/AztecProtocol/aztec-packages/pull/21253
+// NOLINTBEGIN
+alignas(16) thread_local char tls_alignment_pad[16] __attribute__((used)) = { 1 };
+// NOLINTEND
+
 namespace {
 
 class ThreadPool {
