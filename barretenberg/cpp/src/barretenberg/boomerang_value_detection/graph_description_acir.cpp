@@ -1173,6 +1173,7 @@ std::vector<size_t> StaticAnalyzerAcir_<FF, CircuitBuilder>::find_sha256_arithme
                     used_decompose_gates.insert(best_gate);
                     subtrace_max_gate = std::max(best_gate, subtrace_max_gate);
                 }
+                info("witness index ", *itR, " best_gate == ", best_gate, "\n-----------");
                 gate_set.insert(best_gate);
             } else {
                 gate_set.insert(decompose_gates_opt->front());
