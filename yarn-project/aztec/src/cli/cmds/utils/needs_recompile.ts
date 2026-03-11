@@ -78,7 +78,7 @@ async function collectCrateDirs(startCrateDir: string): Promise<string[]> {
     const members = (parsed.workspace as Record<string, any>)?.members as string[] | undefined;
 
     if (Array.isArray(members)) {
-      // The crate is a workspace root and has member defined so we visit the members
+      // The crate is a workspace root and has members defined so we visit the members
       for (const member of members) {
         const memberPath = resolve(absDir, member);
         await visit(memberPath);
