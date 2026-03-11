@@ -1,7 +1,7 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
 import { EpochCache } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
@@ -16,7 +16,8 @@ import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-ju
 import type { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import { BlockHash, CheckpointedL2Block, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import { L1PublishedData } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -35,6 +36,7 @@ import {
   TX_ERROR_INVALID_EXPIRATION_TIMESTAMP,
   TX_ERROR_SIZE_ABOVE_LIMIT,
   Tx,
+  TxEffect,
 } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { ValidatorClient } from '@aztec/validator-client';
@@ -808,6 +810,56 @@ describe('aztec node', () => {
         // reload rejected before mutation
         expect(validatorClient.reloadKeystore).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('getL2ToL1Messages', () => {
+    const makeCheckpointedBlock = (slotNumber: number, l2ToL1MsgsByTx: Fr[][]): CheckpointedL2Block => {
+      const block = L2Block.empty(
+        BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({ slotNumber: SlotNumber(slotNumber) }),
+        }),
+      );
+      // Override the body's txEffects with our custom l2ToL1Msgs
+      unfreeze(block.body).txEffects = l2ToL1MsgsByTx.map(msgs => ({ l2ToL1Msgs: msgs }) as TxEffect);
+      return new CheckpointedL2Block(CheckpointNumber(0), block, new L1PublishedData(0n, 0n, '0x0'), []);
+    };
+
+    it('groups blocks by slot number into checkpoints', async () => {
+      const msg1 = Fr.random();
+      const msg2 = Fr.random();
+      const msg3 = Fr.random();
+
+      // Two blocks in slot 1, one block in slot 2
+      const blocks = [
+        makeCheckpointedBlock(1, [[msg1]]),
+        makeCheckpointedBlock(1, [[msg2]]),
+        makeCheckpointedBlock(2, [[msg3]]),
+      ];
+
+      l2BlockSource.getCheckpointedBlocksForEpoch.mockResolvedValue(blocks);
+
+      const result = await node.getL2ToL1Messages(EpochNumber(0));
+
+      // First checkpoint (slot 1): 2 blocks, each with 1 tx with 1 message
+      // Second checkpoint (slot 2): 1 block with 1 tx with 1 message
+      expect(result).toEqual([[[[msg1]], [[msg2]]], [[[msg3]]]]);
+    });
+
+    it('correctly includes blocks in slot zero', async () => {
+      const msg1 = Fr.random();
+      const msg2 = Fr.random();
+
+      // Block in slot 0, block in slot 1
+      const blocks = [makeCheckpointedBlock(0, [[msg1]]), makeCheckpointedBlock(1, [[msg2]])];
+
+      l2BlockSource.getCheckpointedBlocksForEpoch.mockResolvedValue(blocks);
+
+      const result = await node.getL2ToL1Messages(EpochNumber(0));
+
+      // First checkpoint (slot 0): 1 block with 1 tx with 1 message
+      // Second checkpoint (slot 1): 1 block with 1 tx with 1 message
+      expect(result).toEqual([[[[msg1]]], [[[msg2]]]]);
     });
   });
 });
