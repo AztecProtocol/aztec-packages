@@ -281,6 +281,17 @@ export class ArchiverDataStoreUpdater {
     });
   }
 
+  /**
+   * Updates the finalized checkpoint number and refreshes the L2 tips cache.
+   * @param checkpointNumber - The checkpoint number to set as finalized.
+   */
+  public async setFinalizedCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
+    await this.store.transactionAsync(async () => {
+      await this.store.setFinalizedCheckpointNumber(checkpointNumber);
+      await this.l2TipsCache?.refresh();
+    });
+  }
+
   /** Extracts and stores contract data from a single block. */
   private addContractDataToDb(block: L2Block): Promise<boolean> {
     return this.updateContractDataOnDb(block, Operation.Store);

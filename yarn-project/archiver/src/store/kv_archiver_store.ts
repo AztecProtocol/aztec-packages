@@ -22,7 +22,6 @@ import type {
   ExecutablePrivateFunctionWithMembershipProof,
   UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { BlockHeader, TxHash, TxReceipt } from '@aztec/stdlib/tx';
@@ -71,9 +70,8 @@ export class KVArchiverDataStore implements ContractDataSource {
   constructor(
     private db: AztecAsyncKVStore,
     logsMaxPageSize: number = 1000,
-    l1Constants: Pick<L1RollupConstants, 'epochDuration'>,
   ) {
-    this.#blockStore = new BlockStore(db, l1Constants);
+    this.#blockStore = new BlockStore(db);
     this.#logStore = new LogStore(db, this.#blockStore, logsMaxPageSize);
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
@@ -540,6 +538,22 @@ export class KVArchiverDataStore implements ContractDataSource {
    */
   async setProvenCheckpointNumber(checkpointNumber: CheckpointNumber) {
     await this.#blockStore.setProvenCheckpointNumber(checkpointNumber);
+  }
+
+  /**
+   * Gets the number of the latest finalized checkpoint processed.
+   * @returns The number of the latest finalized checkpoint processed.
+   */
+  getFinalizedCheckpointNumber(): Promise<CheckpointNumber> {
+    return this.#blockStore.getFinalizedCheckpointNumber();
+  }
+
+  /**
+   * Stores the number of the latest finalized checkpoint processed.
+   * @param checkpointNumber - The number of the latest finalized checkpoint processed.
+   */
+  async setFinalizedCheckpointNumber(checkpointNumber: CheckpointNumber) {
+    await this.#blockStore.setFinalizedCheckpointNumber(checkpointNumber);
   }
 
   async setBlockSynchedL1BlockNumber(l1BlockNumber: bigint) {

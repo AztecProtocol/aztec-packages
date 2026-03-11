@@ -513,8 +513,9 @@ export class RollupContract {
     return CheckpointNumber.fromBigInt(await this.rollup.read.getPendingCheckpointNumber());
   }
 
-  async getProvenCheckpointNumber(): Promise<CheckpointNumber> {
-    return CheckpointNumber.fromBigInt(await this.rollup.read.getProvenCheckpointNumber());
+  async getProvenCheckpointNumber(options?: { blockNumber?: bigint }): Promise<CheckpointNumber> {
+    await checkBlockTag(options?.blockNumber, this.client);
+    return CheckpointNumber.fromBigInt(await this.rollup.read.getProvenCheckpointNumber(options));
   }
 
   async getSlotNumber(): Promise<SlotNumber> {
