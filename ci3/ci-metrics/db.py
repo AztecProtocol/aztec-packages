@@ -2,6 +2,10 @@
 
 Stores test events (from Redis pub/sub) and merge queue daily stats
 (backfilled from GitHub API).
+
+The DB lives on /logs-disk by default (large attached volume) to avoid
+filling up the root partition. WAL autocheckpoint is set aggressively
+so the WAL file stays small.
 """
 import json
 import os
@@ -11,10 +15,16 @@ import time
 
 _DB_PATH = os.getenv('METRICS_DB_PATH',
                      os.path.join(os.getenv('LOGS_DISK_PATH', '/logs-disk'), 'metrics.db'))
+
+# How many days of data to keep in each table.
+RETENTION_DAYS = int(os.getenv('METRICS_RETENTION_DAYS', '120'))
+
 _local = threading.local()
+_schema_initialized = threading.Event()
 
 SCHEMA = """
 PRAGMA journal_mode=WAL;
+PRAGMA wal_autocheckpoint = 1000;
 
 CREATE TABLE IF NOT EXISTS test_events (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,6 +94,7 @@ CREATE TABLE IF NOT EXISTS test_daily_stats (
 );
 CREATE INDEX IF NOT EXISTS idx_tds_date ON test_daily_stats(date);
 CREATE INDEX IF NOT EXISTS idx_tds_dashboard ON test_daily_stats(dashboard);
+CREATE INDEX IF NOT EXISTS idx_tds_agg ON test_daily_stats(date, passed, failed, flaked, total_secs, count_timed);
 
 CREATE TABLE IF NOT EXISTS merge_queue_snapshots (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -148,9 +159,7 @@ CREATE TABLE IF NOT EXISTS pr_cache (
 );
 """
 
-
 _MIGRATIONS = [
-    # Add columns introduced after initial schema
     "ALTER TABLE ci_runs ADD COLUMN instance_vcpus INTEGER",
     "ALTER TABLE ci_runs ADD COLUMN job_id TEXT DEFAULT ''",
     "ALTER TABLE ci_runs ADD COLUMN arch TEXT DEFAULT ''",
@@ -159,12 +168,13 @@ _MIGRATIONS = [
     "CREATE INDEX IF NOT EXISTS idx_test_events_hash ON test_events(test_hash)",
     "ALTER TABLE merge_queue_daily ADD COLUMN avg_depth REAL",
     "ALTER TABLE merge_queue_daily ADD COLUMN peak_depth INTEGER",
-    "CREATE INDEX IF NOT EXISTS idx_test_events_duration_ts ON test_events(timestamp) WHERE duration_secs IS NOT NULL AND duration_secs > 0",
     "ALTER TABLE test_daily_stats ADD COLUMN total_secs REAL NOT NULL DEFAULT 0",
     "ALTER TABLE test_daily_stats ADD COLUMN count_timed INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE test_daily_stats ADD COLUMN min_secs REAL",
     "ALTER TABLE test_daily_stats ADD COLUMN max_secs REAL",
-    "CREATE INDEX IF NOT EXISTS idx_test_events_duration ON test_events(duration_secs DESC) WHERE duration_secs IS NOT NULL AND duration_secs > 0",
+    "CREATE INDEX IF NOT EXISTS idx_te_dur_ts ON test_events(duration_secs DESC, timestamp) WHERE duration_secs IS NOT NULL AND duration_secs > 0",
+    "DROP INDEX IF EXISTS idx_test_events_duration_ts",
+    "DROP INDEX IF EXISTS idx_test_events_duration",
 ]
 
 
@@ -172,17 +182,21 @@ def get_db() -> sqlite3.Connection:
     conn = getattr(_local, 'conn', None)
     if conn is None:
         os.makedirs(os.path.dirname(_DB_PATH), exist_ok=True)
-        conn = sqlite3.connect(_DB_PATH)
-        conn.execute('PRAGMA busy_timeout = 5000')
+        conn = sqlite3.connect(_DB_PATH, timeout=10)
+        conn.execute('PRAGMA busy_timeout = 10000')
+        conn.execute('PRAGMA wal_autocheckpoint = 1000')
         conn.row_factory = sqlite3.Row
-        conn.executescript(SCHEMA)
-        # Run migrations (ignore "duplicate column" errors for idempotency)
-        for sql in _MIGRATIONS:
-            try:
-                conn.execute(sql)
-            except sqlite3.OperationalError:
-                pass
-        conn.commit()
+        if not _schema_initialized.is_set():
+            conn.executescript(SCHEMA)
+            for sql in _MIGRATIONS:
+                try:
+                    conn.execute(sql)
+                except sqlite3.OperationalError:
+                    pass
+            conn.commit()
+            _schema_initialized.set()
+        else:
+            conn.execute('PRAGMA journal_mode=WAL')
         _local.conn = conn
     return conn
 
@@ -201,18 +215,25 @@ def execute(sql: str, params=()):
 
 def cache_get(key: str):
     """Return cached value (parsed JSON) if not expired, else None."""
-    rows = query('SELECT value, created_at, ttl_secs FROM api_cache WHERE key = ?', (key,))
-    if rows and time.time() - rows[0]['created_at'] < rows[0]['ttl_secs']:
-        return json.loads(rows[0]['value'])
+    try:
+        rows = query('SELECT value, created_at, ttl_secs FROM api_cache WHERE key = ?', (key,))
+        if rows and time.time() - rows[0]['created_at'] < rows[0]['ttl_secs']:
+            return json.loads(rows[0]['value'])
+    except Exception:
+        pass
     return None
 
 
 def cache_set(key: str, data, ttl_secs: int = 300) -> None:
-    """Store data as JSON in the cache with a TTL."""
-    execute(
-        'INSERT OR REPLACE INTO api_cache (key, value, created_at, ttl_secs) VALUES (?, ?, ?, ?)',
-        (key, json.dumps(data, default=str), time.time(), ttl_secs),
-    )
+    """Store data as JSON in the cache with a TTL.
+    Best-effort: failures are silently ignored."""
+    try:
+        execute(
+            'INSERT OR REPLACE INTO api_cache (key, value, created_at, ttl_secs) VALUES (?, ?, ?, ?)',
+            (key, json.dumps(data, default=str), time.time(), ttl_secs),
+        )
+    except Exception:
+        pass
 
 
 def cache_invalidate_prefix(prefix: str) -> None:
@@ -222,6 +243,51 @@ def cache_invalidate_prefix(prefix: str) -> None:
 
 def cache_cleanup() -> None:
     """Remove expired entries."""
-    execute(
-        "DELETE FROM api_cache WHERE created_at + ttl_secs < unixepoch('now')"
-    )
+    execute("DELETE FROM api_cache WHERE created_at + ttl_secs < unixepoch('now')")
+
+
+def retention_cleanup() -> None:
+    """Delete data older than RETENTION_DAYS from large tables.
+    Commits after each table to keep write transactions short."""
+    conn = get_db()
+    cutoff = f"date('now', '-{RETENTION_DAYS} days')"
+    for sql in [
+        f"DELETE FROM test_events WHERE timestamp < {cutoff}",
+        f"DELETE FROM test_daily_stats WHERE date < {cutoff}",
+        f"DELETE FROM ci_phases WHERE timestamp < {cutoff}",
+        f"DELETE FROM ci_runs WHERE timestamp_ms < (unixepoch('now') - {RETENTION_DAYS} * 86400) * 1000",
+        f"DELETE FROM ci_run_daily_stats WHERE date < {cutoff}",
+        f"DELETE FROM merge_queue_snapshots WHERE timestamp < {cutoff}",
+    ]:
+        try:
+            cur = conn.execute(sql)
+            if cur.rowcount:
+                conn.commit()
+                print(f"[ci-metrics] retention: deleted {cur.rowcount} rows via {sql[:60]}…", flush=True)
+            else:
+                conn.commit()
+        except Exception as e:
+            print(f"[ci-metrics] retention error: {e}", flush=True)
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+
+
+def wal_checkpoint() -> tuple:
+    """Run a passive WAL checkpoint. Returns (busy, log, checkpointed)."""
+    conn = get_db()
+    return conn.execute('PRAGMA wal_checkpoint(PASSIVE)').fetchone()
+
+
+def db_size_mb() -> dict:
+    """Return approximate sizes of the DB and WAL files."""
+    import os as _os
+    sizes = {}
+    for suffix in ('', '-wal', '-shm'):
+        p = _DB_PATH + suffix
+        try:
+            sizes[suffix or 'db'] = round(_os.path.getsize(p) / 1e6, 1)
+        except OSError:
+            sizes[suffix or 'db'] = 0
+    return sizes

@@ -57,9 +57,15 @@ if os.path.isdir(_ci_metrics_dir):
             _time.sleep(0.5)
         except (subprocess.CalledProcessError, OSError):
             pass
-        _ci_metrics_env = {**os.environ, 'CI_METRICS_PORT': str(CI_METRICS_PORT)}
+        _ci_metrics_env = {
+            **os.environ,
+            'CI_METRICS_PORT': str(CI_METRICS_PORT),
+            # Store DB on the large /logs-disk volume, not the small root partition.
+            'METRICS_DB_PATH': os.path.join(
+                os.getenv('LOGS_DISK_PATH', '/logs-disk'), 'rk-data', 'metrics.db'),
+        }
         subprocess.Popen(
-            ['gunicorn', '-w', '1', '-b', f'0.0.0.0:{CI_METRICS_PORT}',
+            ['gunicorn', '-w', '4', '-b', f'0.0.0.0:{CI_METRICS_PORT}',
              '--timeout', '120', 'app:app'],
             cwd=_ci_metrics_dir,
             env=_ci_metrics_env,
@@ -598,6 +604,7 @@ def _proxy(path):
 @app.route('/test-timings')
 @app.route('/ci-health-report')
 @app.route('/flake-prs')
+@app.route('/commits')
 @auth.login_required
 def proxy_dashboard():
     return _proxy(request.path)
