@@ -473,11 +473,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       this.log.info(`Rolling back proven L2 checkpoint to ${targetCheckpointNumber}`);
       await this.updater.setProvenCheckpointNumber(targetCheckpointNumber);
     }
-    // TODO(palla/reorg): Set the finalized block when we add support for it.
-    // const currentFinalizedBlock = currentBlocks.finalized.block.number;
-    // if (targetL2BlockNumber < currentFinalizedBlock) {
-    //   this.log.info(`Rolling back finalized L2 checkpoint to ${targetCheckpointNumber}`);
-    //   await this.updater.setFinalizedCheckpointNumber(targetCheckpointNumber);
-    // }
+    const currentFinalizedBlock = currentBlocks.finalized.block.number;
+    if (targetL2BlockNumber < currentFinalizedBlock) {
+      this.log.info(`Rolling back finalized L2 checkpoint to ${targetCheckpointNumber}`);
+      await this.updater.setFinalizedCheckpointNumber(targetCheckpointNumber);
+    }
   }
 }
