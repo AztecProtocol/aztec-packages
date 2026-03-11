@@ -33,27 +33,7 @@ pub struct NoteHashAndNullifier {
 /// a contract. The `#[aztec]` macro automatically creates such a contract library method called
 /// `_compute_note_hash_and_nullifier`, which looks something like this:
 ///
-<<<<<<< HEAD
 /// ```
-=======
-/// This function takes a note's packed content, storage slot, note type ID, address of the emitting contract,
-/// randomness and note nonce, and attempts to compute its inner note hash (not siloed by address nor uniqued by nonce)
-/// and inner nullifier (not siloed by address).
-///
-/// ## Transient Notes
-///
-/// This function is meant to always be used on **settled** notes, i.e. those that have been inserted into the trees
-/// and for which the nonce is known. It is never invoked in the context of a transient note, as those are not involved
-/// in message processing.
-///
-/// ## Automatic Implementation
-///
-/// The [`[#aztec]`](crate::macros::aztec::aztec) macro automatically creates a correct implementation of this function
-/// for each contract by inspecting all note types in use and the storage layout. This injected function is a
-/// `#[contract_library_method]` called `_compute_note_hash_and_nullifier`, and it looks something like this:
-///
-/// ```noir
->>>>>>> 20d6c29c81 (fix: handle bad note lengths on compute_note_hash_and_nullifier (#21271))
 /// |packed_note, owner, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
 ///     if note_type_id == MyNoteType::get_id() {
 ///         if packed_note.len() != MY_NOTE_TYPE_SERIALIZATION_LENGTH {
