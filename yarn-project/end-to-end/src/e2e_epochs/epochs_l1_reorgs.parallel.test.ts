@@ -102,7 +102,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     /** Returns the last proven checkpoint number for a node */
     const getProvenCheckpointNumber = (node: AztecNode) => node.getL2Tips().then(tips => tips.proven.checkpoint.number);
 
-    it.only('prunes L2 blocks if a proof is removed due to an L1 reorg', async () => {
+    it('prunes L2 blocks if a proof is removed due to an L1 reorg', async () => {
       /** Logs a full state snapshot: L1 latest/finalized and archiver L2 tips. */
       const logState = async (label: string) => {
         const [l1Latest, l1Finalized, archiverTips] = await Promise.all([
