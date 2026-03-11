@@ -74,7 +74,6 @@
 #include "relations/lookups_bc_hashing.hpp"
 #include "relations/lookups_bc_retrieval.hpp"
 #include "relations/lookups_bitwise.hpp"
-#include "relations/lookups_calldata.hpp"
 #include "relations/lookups_calldata_hashing.hpp"
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_context.hpp"
@@ -120,6 +119,7 @@
 #include "relations/lookups_update_check.hpp"
 #include "relations/perms_addressing.hpp"
 #include "relations/perms_bc_hashing.hpp"
+#include "relations/perms_calldata_hashing.hpp"
 #include "relations/perms_context.hpp"
 #include "relations/perms_data_copy.hpp"
 #include "relations/perms_ecc_mem.hpp"
@@ -141,10 +141,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 122;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3012;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3009;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 363;
-    static constexpr size_t NUM_WIRES = 2559;
-    static constexpr size_t NUM_ALL_ENTITIES = 3497;
+    static constexpr size_t NUM_WIRES = 2557;
+    static constexpr size_t NUM_ALL_ENTITIES = 3494;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -253,12 +253,10 @@ struct AvmFlavorVariables {
         lookup_bc_retrieval_retrieved_bytecodes_insertion_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
-        lookup_calldata_hashing_check_final_size_relation<FF_>,
         lookup_calldata_hashing_get_calldata_field_0_relation<FF_>,
         lookup_calldata_hashing_get_calldata_field_1_relation<FF_>,
         lookup_calldata_hashing_get_calldata_field_2_relation<FF_>,
         lookup_calldata_hashing_poseidon2_hash_relation<FF_>,
-        lookup_calldata_range_check_context_id_diff_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_0_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_1_relation<FF_>,
         lookup_context_ctx_stack_return_relation<FF_>,
@@ -616,6 +614,7 @@ struct AvmFlavorVariables {
         perm_bc_hashing_get_packed_field_0_relation<FF_>,
         perm_bc_hashing_get_packed_field_1_relation<FF_>,
         perm_bc_hashing_get_packed_field_2_relation<FF_>,
+        perm_calldata_hashing_check_final_size_relation<FF_>,
         perm_context_ctx_stack_call_relation<FF_>,
         perm_data_copy_mem_read_relation<FF_>,
         perm_data_copy_mem_write_relation<FF_>,

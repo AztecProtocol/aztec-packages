@@ -233,7 +233,7 @@ void keccak_memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
              (FF(1) - CView(keccak_memory_LATCH_CONDITION)) * static_cast<View>(in.get(C::keccak_memory_val_6__shift)));
         std::get<29>(evals) += (tmp * scaling_factor);
     }
-    { // VAL8
+    { // VAL08
         using View = typename std::tuple_element_t<30, ContainerOverSubrelations>::View;
         auto tmp =
             (static_cast<View>(in.get(C::keccak_memory_val_8_)) -
