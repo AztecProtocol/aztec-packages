@@ -7,16 +7,19 @@ Write:
 2. $\mathbb{F}_{q^6} = \mathbb{F}_{q^2}[v] \left/ (v^3 - \xi) \right.$, $\xi = 9 + u$
 3. $\mathbb{F}_{q^{12}} = \mathbb{F}_{q^6}[w] \left / (w^2 - v) \right.$
 
-Write $E'$ for the twist of the BN254 curve defined by the equation $E' : y^2 = x^3 + 3 / \xi$, and
-$$\Psi \colon E' \rightarrow E, (x, y) \mapsto (w^2 x, w^3 y)$$
-for the untwisting morphism (which is an isomorphism on $\mathbb{F}_{q^{12}}$).
+Write $E'(\mathbb{F}_{q^2})$ for the twist of the BN254 curve defined by the equation $E'(\mathbb{F}_{q^2}) : y^2 = x^3 + 3 / \xi$ over the field $\mathbb{F}_{q^2}$, and
+$$\Psi \colon E'(\mathbb{F}_{q^2}) \rightarrow E(\mathbb{F}_{q^{12}}), (x, y) \mapsto (w^2 x, w^3 y)$$
+for the untwisting morphism (which is an isomorphism on $E'(\mathbb{F}_{q^{12}})$).
 
-Write $\mathbb{G}_1 = E(\mathbb{F}_q)$ and $\mathbb{G}_2 \subset E'(\mathbb{F}_{q^2})$ for the source groups of the optimal Ate pairing, and $\mathbb{G}_{T} \subset \mathbb{F}_{q^{12}}^{\times}$ for the target group
+Write $\mathbb{G}_1 = E(\mathbb{F}_q)$ and $\mathbb{G}_2 \subset E'(\mathbb{F}_{q^{12}})$ for the source groups of the optimal Ate pairing, and $\mathbb{G}_{T} \subset \mathbb{F}_{q^{12}}^{\times}$ for the target group
 $$
     e \colon \mathbb{G}_1 \times \mathbb{G}_2 \rightarrow \mathbb{G}_T
-$$
+$$ As $\Psi^{-1}(\mathbb{G}_2) \subset E'(\mathbb{F}_{q^2})$, see [The Eta pairing revisited, § 5](https://eprint.iacr.org/2006/110.pdf), we replace $\mathbb{G}_2$ with its preimage under $\Psi$ but we keep referring to it as $\mathbb{G}_2$.
 
-Write $\phi_q \colon E \rightarrow E, (x, y) \mapsto (x^q, y^q)$ for the Frobenius morphism, and $\phi_q := \Psi^{-1} \circ \phi_q \circ \Psi$ for the lift to the twist.
+Write $\phi_q \colon E \rightarrow E, (x, y) \mapsto (x^q, y^q)$ for the Frobenius morphism, and $$
+\phi_q(x,y) := \left( \Psi^{-1} \circ \phi_q \circ \Psi \right)(x,y) = (\xi^{\frac{q-1}{3}}x, \xi^{\frac{q-1}{2}}y)
+$$
+for the lift to the twist $E'(\mathbb{F}_{q^2})$.
 
 Given $(P, Q) \in \mathbb{G}_1 \times \mathbb{G}_2$, the optimal Ate pairing is defined as (more on $\gamma$ later)
 $$
@@ -55,7 +58,7 @@ $$\sum_{i} b_i 2^{i} = m \quad \quad b_i = \text{signed\_bit\_decomposition[i]}$
 and `line_eval(Q_1, Q_2, P)` is the function that evaluates the line passing through $Q_1$ and $Q_2$ at $P$.
 
 To compute the line function:
-- we bring $Q_1, Q_2$ to $E$ and then evaluate there
+- we map $Q_1, Q_2$ from $E'(\mathbb{F}_{q^2})$ to $E'(\mathbb{F}_{q^{12}})$ and then apply $\Psi$ to transport them to $E(\mathbb{F_{q^{12}}})$
 - we compute in projective coordinates to avoid inversions
 - we rescale the equations to optimize the calculations: we rescale the line equation of the doubling by $-2Y_{Q_1}Z_{Q_1}$, while we rescale the one of the addition by $X_{Q_2} - X_{Q_1}Z_{Q_2}$
 
@@ -89,6 +92,6 @@ $$
         \mu_0 &\;= 1 + 6z + 12z^2 + 12z^3\\
         \mu_1 &\;= 4z + 6z^2 + 12 z^3\\
         \mu_2 &\;= 6z + 6z^2 + 12 z^3\\
-        \mu_3 &\; -1 + 4z^2 + 6z^2 + 12z^3\\
+        \mu_3 &\; -1 + 4z + 6z^2 + 12z^3\\
     \end{aligned}
 $$

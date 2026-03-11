@@ -28,7 +28,7 @@ inline constexpr g2Projective frobenius(const g2Projective& a)
 {
     // We map a = [X : Y : Z] to its affine coordinates (X/Z, Y/Z) and then apply the Frobenius map to get
     // (\xi^{(q-1)/3} X^q/Z^q, \xi^{(q-1)/2} Y^q/Z^q). We then homogeneize again to get
-    // [\xi^{(q-1)/3} X^q :, \xi^{(q-1)/2} Y^q : Z^q]
+    // [\xi^{(q-1)/3} X^q : \xi^{(q-1)/2} Y^q : Z^q]
     fq2 T0 = a.x.frobenius_map();
     fq2 T1 = a.y.frobenius_map();
 
