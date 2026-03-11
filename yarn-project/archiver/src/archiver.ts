@@ -242,7 +242,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       }
 
       try {
-        await this.updater.addProposedBlocks([block]);
+        await this.updater.addProposedBlock(block);
         this.log.debug(`Added block ${block.number} to store`);
         resolve();
       } catch (err: any) {

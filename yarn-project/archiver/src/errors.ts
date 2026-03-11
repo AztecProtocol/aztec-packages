@@ -6,24 +6,9 @@ export class NoBlobBodiesFoundError extends Error {
   }
 }
 
-export class InitialBlockNumberNotSequentialError extends Error {
-  constructor(
-    public readonly newBlockNumber: number,
-    public readonly previousBlockNumber: number | undefined,
-  ) {
-    super(
-      `Cannot insert new block ${newBlockNumber} given previous block number in store is ${
-        previousBlockNumber ?? 'undefined'
-      }`,
-    );
-  }
-}
-
 export class BlockNumberNotSequentialError extends Error {
   constructor(newBlockNumber: number, previous: number | undefined) {
-    super(
-      `Cannot insert new block ${newBlockNumber} given previous block number in batch is ${previous ?? 'undefined'}`,
-    );
+    super(`Cannot insert new block ${newBlockNumber} given previous block number is ${previous ?? 'undefined'}`);
   }
 }
 
@@ -44,14 +29,6 @@ export class CheckpointNumberNotSequentialError extends Error {
   constructor(newCheckpointNumber: number, previous: number | undefined) {
     super(
       `Cannot insert new checkpoint ${newCheckpointNumber} given previous checkpoint number in batch is ${previous ?? 'undefined'}`,
-    );
-  }
-}
-
-export class CheckpointNumberNotConsistentError extends Error {
-  constructor(newCheckpointNumber: number, previous: number | undefined) {
-    super(
-      `Cannot insert block for new checkpoint ${newCheckpointNumber} given previous block was checkpoint ${previous ?? 'undefined'}`,
     );
   }
 }
