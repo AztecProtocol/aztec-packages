@@ -905,6 +905,7 @@ impl TestEnvironment {
             process_message_plaintext(
                 context.this_address(),
                 compute_note_hash_and_nullifier,
+                Option::<crate::messages::discovery::CustomMessageHandler<()>>::none(),
                 message_plaintext,
                 message_context,
             );

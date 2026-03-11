@@ -69,7 +69,7 @@ randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 /// A handler for custom messages.
 ///
 /// Contracts that emit custom messages (i.e. any with a message type that is not in [`crate::messages::msg_type`])
-/// need to use [`crate::macros::AztecConfig::custom_message_handler`] with a function of this type in order to
+/// need to use [`crate::macros::aztec::AztecConfig::custom_message_handler`] with a function of this type in order to
 /// process them. They will otherwise be **silently ignored**.
 pub type CustomMessageHandler<Env> = unconstrained fn[Env](
 /* contract_address */AztecAddress,

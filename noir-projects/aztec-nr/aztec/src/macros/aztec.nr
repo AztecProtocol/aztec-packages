@@ -13,6 +13,8 @@ use crate::macros::{
     },
 };
 
+use crate::messages::discovery::CustomMessageHandler;
+
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
 /// the `sync_state` utility function.
 ///
@@ -391,6 +393,7 @@ comptime fn generate_process_message() -> Quoted {
             aztec::messages::discovery::process_message::process_message_ciphertext(
                 address,
                 _compute_note_hash_and_nullifier,
+                Option::<aztec::messages::discovery::CustomMessageHandler<()>>::none(),
                 message_ciphertext,
                 message_context,
             );
