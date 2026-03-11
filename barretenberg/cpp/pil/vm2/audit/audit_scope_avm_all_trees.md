@@ -1,10 +1,9 @@
 # External Audit Scope: All Tree Subtraces
 
-Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: `ab47a6e7754a0cc86278fe9d47c9c8884ca6d363` ([link](https://github.com/AztecProtocol/aztec-packages/tree/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363))
+Commit hash: _TBD_
 
 **Prerequisites:** This audit requires understanding of components covered in:
-1. The "Core Components, ALU, and Bitwise" audit scope (`audit_scope_avm_core_alu_bitwise.md`)
+1. The "Core Gadgets" audit scope (`audit_scope_avm_core.md`)
 2. The "Poseidon2, Merkle Trees, and Note Hash Tree" audit scope (`audit_scope_avm_poseidon_merkle_note_hash.md`)
 
 ## Prerequisite Components
@@ -13,7 +12,7 @@ The following PIL files are dependencies of this audit scope but are covered in 
 
 Note: Paths relative to `aztec-packages/barretenberg/cpp/pil/vm2`
 
-**From "Core Components, ALU, and Bitwise" audit (`audit_scope_avm_core_alu_bitwise.md`):**
+**From "Core Gadgets" audit (`audit_scope_avm_core.md`):**
 - `precomputed.pil` -- Shared precomputed columns: lookup tables, range selectors, and static AVM parameters.
 - `constants_gen.pil` -- Auto-generated protocol constants.
 - `ff_gt.pil` -- Field greater-than gadget and canonical decomposition. Used by `indexed_tree_check`, `public_data_check`, and `public_data_squash` for low-leaf and leaf-slot ordering validation.
@@ -40,68 +39,20 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/pil/vm2`
 4. `trees/public_data_squash.pil`
     - Utility trace for left-squashing public data writes. Sorted by (leaf_slot, clk). For each unique leaf slot, emits the first occurrence to public inputs with the final (last-written) value. Uses FieldGT for leaf slot ordering and precomputed range checks for clock ordering. Depends on `ff_gt.pil` and `precomputed.pil`.
 5. `public_inputs.pil` (**limited scope**: only the interactions referenced by tree gadgets -- reading first nullifier, writing note hashes, writing nullifiers, writing public data)
-    - Public inputs columns. The full public inputs subtrace is out of scope; only the tree-facing interface is relevant.
+    - Public inputs columns. The full public inputs subtrace is out of scope; only the tree-facing interface is relevant. The public inputs are further constrained on the consumer side by the [AVM circuit public inputs](../../../../../../noir-projects/noir-protocol-circuits/crates/types/src/abis/avm_circuit_public_inputs.nr) definition and the [public base rollup circuit](../../../../../../noir-projects/noir-protocol-circuits/crates/rollup-lib/src/tx_base/public_tx_base_rollup.nr).
 
-### Simulation (gadgets, events, and libraries)
+### Generated C++ (confirm faithfulness to PIL)
 
-Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg/vm2`
+Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg/vm2/generated/relations`
 
-**L1-to-L2 Message Tree**
+The following files are auto-generated from the PIL files above by `bb-pilcom`. The audit should confirm that the generated C++ directly reflects the PIL source of truth.
 
-6. `simulation/gadgets/l1_to_l2_message_tree_check.hpp`
-7. `simulation/gadgets/l1_to_l2_message_tree_check.cpp`
-    - L1-to-L2 message tree check simulation gadget.
-8. `simulation/events/l1_to_l2_message_tree_check_event.hpp`
-    - Event structure for L1-to-L2 message tree check trace rows.
+- `l1_to_l2_message_tree_check_impl.hpp`
+- `indexed_tree_check_impl.hpp`
+- `public_data_check_impl.hpp`
+- `public_data_squash_impl.hpp`
 
-**Indexed Tree**
-
-9. `simulation/gadgets/indexed_tree_check.hpp`
-10. `simulation/gadgets/indexed_tree_check.cpp`
-    - Generic indexed tree check simulation gadget: low-leaf lookup, existence/non-existence, insertion.
-11. `simulation/events/indexed_tree_check_event.hpp`
-    - Event structure for indexed tree check trace rows.
-
-**Public Data Tree**
-
-12. `simulation/gadgets/public_data_tree_check.hpp`
-13. `simulation/gadgets/public_data_tree_check.cpp`
-    - Public data tree check simulation gadget: reads, writes, squashing.
-14. `simulation/events/public_data_tree_check_event.hpp`
-    - Event structure for public data tree check trace rows.
-
-**Written Public Data Slots Tree** (transient indexed tree tracking which slots have been written)
-
-15. `simulation/gadgets/written_public_data_slots_tree_check.hpp`
-16. `simulation/gadgets/written_public_data_slots_tree_check.cpp`
-    - Simulation gadget for the written public data slots tree (uses indexed_tree_check internally).
-17. `simulation/standalone/written_public_data_slots_tree_check.hpp`
-18. `simulation/standalone/written_public_data_slots_tree_check.cpp`
-    - Standalone version for fast simulation (no event emission).
-
-### Trace Generation
-
-19. `tracegen/l1_to_l2_message_tree_trace.hpp`
-20. `tracegen/l1_to_l2_message_tree_trace.cpp`
-    - Processes L1-to-L2 message tree check events and populates trace columns.
-21. `tracegen/indexed_tree_check_trace.hpp`
-22. `tracegen/indexed_tree_check_trace.cpp`
-    - Processes indexed tree check events and populates trace columns.
-23. `tracegen/public_data_tree_trace.hpp`
-24. `tracegen/public_data_tree_trace.cpp`
-    - Processes public data tree check events and populates public_data_check and public_data_squash trace columns.
-
-### Interfaces and Mocks
-
-25. `simulation/interfaces/l1_to_l2_message_tree_check.hpp`
-26. `simulation/interfaces/indexed_tree_check.hpp`
-27. `simulation/interfaces/public_data_tree_check.hpp`
-28. `simulation/interfaces/written_public_data_slots_tree_check.hpp`
-    - Abstract interfaces for the gadgets.
-29. `simulation/testing/mock_l1_to_l2_message_tree_check.hpp`
-30. `simulation/testing/mock_indexed_tree_check.hpp`
-31. `simulation/testing/mock_written_public_data_slots_tree_check.hpp`
-    - Mock implementations used in unit tests.
+Note: `public_inputs.pil` defines columns and does not have a generated relation file.
 
 ## Summary of Module
 
@@ -127,34 +78,28 @@ The dependency chain for components in this audit is:
 
 ## Reference Documentation
 
-For background on the Aztec Virtual Machine -- its purpose, execution model, instruction set, memory model, gas metering, and error handling -- see the [AVM Reference Documentation](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/yarn-project/simulator/docs/avm/README.md). This is the primary reference for the VM that the circuit is designed to prove.
+For background on the Aztec Virtual Machine -- its purpose, execution model, instruction set, memory model, gas metering, and error handling -- see the [AVM Reference Documentation](../../../../../yarn-project/simulator/docs/avm/README.md). This is the primary reference for the VM that the circuit is designed to prove.
 
-For a comprehensive guide to the AVM **circuit** architecture, trace structure, subtraces, and the proving system, see the [AVM Circuit Guide](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/README.md). In particular, see the sections on [Merkle Trees / Tree State](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/README.md#merkle-trees--tree-state) and [TX-level traces and tree state](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/README.md#tx-level-traces-and-tree-state).
+For a comprehensive guide to the AVM **circuit** architecture, trace structure, subtraces, and the proving system, see the [AVM Circuit Guide](../docs/README.md). In particular, see the sections on [Merkle Trees / Tree State](../docs/README.md#merkle-trees--tree-state) and [TX-level traces and tree state](../docs/README.md#tx-level-traces-and-tree-state).
 
 For Aztec protocol background on state management and indexed Merkle trees, see [State Management](https://docs.aztec.network/developers/docs/foundational-topics/state_management) and [Indexed Trees](https://docs.aztec.network/developers/docs/foundational-topics/advanced/storage/indexed_merkle_tree).
 
-For standard algebraic patterns and recipes used throughout PIL files, see [VM Circuit Recipes](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/recipes.md).
+For standard algebraic patterns and recipes used throughout PIL files, see [VM Circuit Recipes](../docs/recipes.md).
 
 ## Test Files
 
-### Constraint Tests (relation-level)
-1. `vm2/constraining/relations/l1_to_l2_message_tree_check.test.cpp`
-2. `vm2/constraining/relations/indexed_tree_check.test.cpp`
-3. `vm2/constraining/relations/public_data_tree.test.cpp`
+Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
-### Tracegen Tests
-4. `vm2/tracegen/indexed_tree_check_trace.test.cpp`
+- `vm2/constraining/relations/l1_to_l2_message_tree_check.test.cpp`
+- `vm2/constraining/relations/indexed_tree_check.test.cpp`
+- `vm2/constraining/relations/public_data_tree.test.cpp`
+- `vm2/tracegen/indexed_tree_check_trace.test.cpp`
+- `vm2/simulation/gadgets/l1_to_l2_message_tree_check.test.cpp`
+- `vm2/simulation/gadgets/indexed_tree_check.test.cpp`
+- `vm2/simulation/gadgets/public_data_tree_check.test.cpp`
+- `vm2/simulation/gadgets/written_public_data_slots_tree_check.test.cpp`
+- `vm2/simulation/testing/mock_l1_to_l2_message_tree_check.test.cpp`
+- `vm2/simulation/testing/mock_indexed_tree_check.test.cpp`
+- `vm2/simulation/testing/mock_written_public_data_slots_tree_check.test.cpp`
+- `vm2/constraining/relations/l1_to_l2_message_exists.test.cpp`
 
-### Simulation/Gadget Tests
-5. `vm2/simulation/gadgets/l1_to_l2_message_tree_check.test.cpp`
-6. `vm2/simulation/gadgets/indexed_tree_check.test.cpp`
-7. `vm2/simulation/gadgets/public_data_tree_check.test.cpp`
-8. `vm2/simulation/gadgets/written_public_data_slots_tree_check.test.cpp`
-
-### Mock Tests
-9. `vm2/simulation/testing/mock_l1_to_l2_message_tree_check.test.cpp`
-10. `vm2/simulation/testing/mock_indexed_tree_check.test.cpp`
-11. `vm2/simulation/testing/mock_written_public_data_slots_tree_check.test.cpp`
-
-### Opcode-level Constraint Tests (callers of tree gadgets, for reference)
-12. `vm2/constraining/relations/l1_to_l2_message_exists.test.cpp`

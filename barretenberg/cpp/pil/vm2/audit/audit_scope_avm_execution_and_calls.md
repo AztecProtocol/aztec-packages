@@ -1,10 +1,9 @@
 # External Audit Scope: Execution, Memory, and Calls
 
-Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: `ab47a6e7754a0cc86278fe9d47c9c8884ca6d363` ([link](https://github.com/AztecProtocol/aztec-packages/tree/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363))
+Commit hash: _TBD_
 
 **Prerequisites:** This audit requires understanding of components covered in:
-1. The "Core Components, ALU, and Bitwise" audit scope (`audit_scope_avm_core_alu_bitwise.md`)
+1. The "Core Gadgets" audit scope (`audit_scope_avm_core.md`)
 
 ## Prerequisite Components
 
@@ -12,13 +11,13 @@ The following PIL files are dependencies of this audit scope but are covered in 
 
 Note: Paths relative to `aztec-packages/barretenberg/cpp/pil/vm2`
 
-**From "Core Components, ALU, and Bitwise" audit (`audit_scope_avm_core_alu_bitwise.md`):**
+**From "Core Gadgets" audit (`audit_scope_avm_core.md`):**
 - `precomputed.pil` -- Shared precomputed columns. Used by `execution.pil` (instruction specs, opcode dispatch), `execution/addressing.pil` (addressing mode lookup), `execution/gas.pil` (addressing gas lookup), `memory.pil` (range check tables, tag parameters), and `internal_call_stack.pil` (first_row).
 - `constants_gen.pil` -- Auto-generated protocol constants. Used by `execution/addressing.pil` (memory limits), `execution/gas.pil` (gas constants), and `memory.pil` (tag constants).
 - `range_check.pil` -- Range check gadget. Used by `memory.pil` (address ordering, write range check) and `execution/addressing.pil` (overflow checks).
 - `gt.pil` -- Integer greater-than gadget. Used by `execution/gas.pil` (gas limit comparison), `execution/addressing.pil` (bounds checks), and `opcodes/external_call.pil` (gas clamping).
-- `alu.pil` -- Arithmetic/comparison operations. Used by `execution.pil` (ALU dispatch).
-- `bitwise.pil` -- Bitwise AND/OR/XOR. Used by `execution.pil` (bitwise dispatch).
+
+Note: `execution.pil` dispatches to `alu.pil` and `bitwise.pil` via selector-gated lookups. These are audited in the "ALU and Bitwise" scope (`audit_scope_avm_alu_and_bitwise.md`), which comes after this scope. For purposes of this audit, the dispatch interface (selector + lookup tuple) should be verified, but the ALU and Bitwise internals are deferred.
 
 ## Files to Audit
 
@@ -49,73 +48,23 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/pil/vm2`
 11. `opcodes/internal_call.pil`
     - INTERNALCALL/INTERNALRETURN virtual gadget (shares rows with execution trace). Manages internal call IDs, pushes to and pops from the internal call stack, constrains PC on return. Handles empty-stack error on INTERNALRETURN. Depends on `execution.pil`, `context.pil`, and `internal_call_stack.pil`.
 
-### Simulation (gadgets, events, and libraries)
+### Generated C++ (confirm faithfulness to PIL)
 
-Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg/vm2`
+Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg/vm2/generated/relations`
 
-**Execution**
+The following files are auto-generated from the PIL files above by `bb-pilcom`. The audit should confirm that the generated C++ directly reflects the PIL source of truth.
 
-12. `simulation/gadgets/execution.hpp`
-13. `simulation/gadgets/execution.cpp`
-    - Execution simulation gadget: runs the instruction loop (fetch, decode, execute), dispatches to sub-gadgets, manages context, and emits execution events.
-14. `simulation/gadgets/execution_components.hpp`
-15. `simulation/gadgets/execution_components.cpp`
-    - Execution components: shared helper logic used by the execution gadget (e.g., addressing resolution, register handling).
-16. `simulation/events/execution_event.hpp`
-    - Event structure for execution trace rows (one event per instruction).
-17. `simulation/events/addressing_event.hpp`
-    - Event structure for addressing resolution trace rows.
-
-**Memory**
-
-18. `simulation/gadgets/memory.hpp`
-19. `simulation/gadgets/memory.cpp`
-    - Memory simulation gadget: tracks memory state per space_id, handles reads/writes, and emits memory events.
-20. `simulation/events/memory_event.hpp`
-21. `simulation/events/memory_event.cpp`
-    - Event structure for memory trace rows.
-
-**Context**
-
-22. `simulation/gadgets/context.hpp`
-23. `simulation/gadgets/context.cpp`
-    - Context simulation gadget: manages execution context state, call/return/revert transitions.
-24. `simulation/gadgets/context_provider.hpp`
-25. `simulation/gadgets/context_provider.cpp`
-    - Context provider: creates and manages context objects for the execution gadget.
-26. `simulation/events/context_events.hpp`
-    - Event structures for context and context stack trace rows.
-
-### Trace Generation
-
-27. `tracegen/execution_trace.hpp`
-28. `tracegen/execution_trace.cpp`
-    - Processes execution events and populates the execution, addressing, registers, gas, discard, context, external_call, and internal_call trace columns.
-29. `tracegen/memory_trace.hpp`
-30. `tracegen/memory_trace.cpp`
-    - Processes memory events, sorts them, and populates the memory trace columns.
-
-### Interfaces and Mocks
-
-31. `simulation/interfaces/execution.hpp`
-32. `simulation/interfaces/execution_components.hpp`
-33. `simulation/interfaces/memory.hpp`
-34. `simulation/interfaces/context.hpp`
-35. `simulation/interfaces/context_provider.hpp`
-    - Abstract interfaces for the gadgets.
-36. `simulation/testing/mock_execution.hpp`
-37. `simulation/testing/mock_execution_components.hpp`
-38. `simulation/testing/mock_execution_id_manager.hpp`
-39. `simulation/testing/mock_memory.hpp`
-40. `simulation/testing/mock_context.hpp`
-41. `simulation/testing/mock_context_provider.hpp`
-    - Mock implementations used in unit tests.
-42. `simulation/standalone/hybrid_execution.hpp`
-43. `simulation/standalone/hybrid_execution.cpp`
-    - Hybrid execution for mixed fast/witness-generation mode.
-44. `simulation/standalone/pure_execution_components.hpp`
-45. `simulation/standalone/pure_execution_components.cpp`
-    - Standalone execution components for fast simulation (no event emission).
+- `execution_impl.hpp`
+- `addressing_impl.hpp`
+- `registers_impl.hpp`
+- `gas_impl.hpp`
+- `discard_impl.hpp`
+- `memory_impl.hpp`
+- `context_impl.hpp`
+- `context_stack_impl.hpp`
+- `external_call_impl.hpp`
+- `internal_call_stack_impl.hpp`
+- `internal_call_impl.hpp`
 
 ## Summary of Module
 
@@ -143,36 +92,32 @@ The **internal call stack** (`internal_call_stack.pil`) and **internal call** ga
 
 ## Reference Documentation
 
-For background on the Aztec Virtual Machine -- its purpose, execution model, instruction set, memory model, gas metering, and error handling -- see the [AVM Reference Documentation](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/yarn-project/simulator/docs/avm/README.md). This is the primary reference for the VM that the circuit is designed to prove.
+For background on the Aztec Virtual Machine -- its purpose, execution model, instruction set, memory model, gas metering, and error handling -- see the [AVM Reference Documentation](../../../../../yarn-project/simulator/docs/avm/README.md). This is the primary reference for the VM that the circuit is designed to prove.
 
-For a comprehensive guide to the AVM **circuit** architecture, trace structure, subtraces, and the proving system, see the [AVM Circuit Guide](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/README.md). In particular, see the sections on [Execution](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/README.md#execution) and [Memory](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/README.md#memory).
+For a comprehensive guide to the AVM **circuit** architecture, trace structure, subtraces, and the proving system, see the [AVM Circuit Guide](../docs/README.md). In particular, see the sections on [Execution](../docs/README.md#execution) and [Memory](../docs/README.md#memory).
 
-For standard algebraic patterns and recipes used throughout PIL files, see [VM Circuit Recipes](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/recipes.md).
+For standard algebraic patterns and recipes used throughout PIL files, see [VM Circuit Recipes](../docs/recipes.md).
 
 ## Test Files
 
-### Constraint Tests (relation-level)
-1. `vm2/constraining/relations/execution.test.cpp`
-2. `vm2/constraining/relations/execution_discard.test.cpp`
-3. `vm2/constraining/relations/addressing.test.cpp`
-4. `vm2/constraining/relations/registers.test.cpp`
-5. `vm2/constraining/relations/gas.test.cpp`
-6. `vm2/constraining/relations/memory.test.cpp`
-7. `vm2/constraining/relations/context.test.cpp`
-8. `vm2/constraining/relations/context_stack.test.cpp`
-9. `vm2/constraining/relations/internal_call.test.cpp`
+Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
-### Tracegen Tests
-10. `vm2/tracegen/execution_trace.test.cpp`
-11. `vm2/tracegen/memory_trace.test.cpp`
+- `vm2/constraining/relations/execution.test.cpp`
+- `vm2/constraining/relations/execution_discard.test.cpp`
+- `vm2/constraining/relations/addressing.test.cpp`
+- `vm2/constraining/relations/registers.test.cpp`
+- `vm2/constraining/relations/gas.test.cpp`
+- `vm2/constraining/relations/memory.test.cpp`
+- `vm2/constraining/relations/context.test.cpp`
+- `vm2/constraining/relations/context_stack.test.cpp`
+- `vm2/constraining/relations/internal_call.test.cpp`
+- `vm2/tracegen/execution_trace.test.cpp`
+- `vm2/tracegen/memory_trace.test.cpp`
+- `vm2/simulation/gadgets/execution.test.cpp`
+- `vm2/simulation/testing/mock_execution.test.cpp`
+- `vm2/simulation/testing/mock_execution_components.test.cpp`
+- `vm2/simulation/testing/mock_execution_id_manager.test.cpp`
+- `vm2/simulation/testing/mock_memory.test.cpp`
+- `vm2/simulation/testing/mock_context.test.cpp`
+- `vm2/simulation/testing/mock_context_provider.test.cpp`
 
-### Simulation/Gadget Tests
-12. `vm2/simulation/gadgets/execution.test.cpp`
-
-### Mock Tests
-13. `vm2/simulation/testing/mock_execution.test.cpp`
-14. `vm2/simulation/testing/mock_execution_components.test.cpp`
-15. `vm2/simulation/testing/mock_execution_id_manager.test.cpp`
-16. `vm2/simulation/testing/mock_memory.test.cpp`
-17. `vm2/simulation/testing/mock_context.test.cpp`
-18. `vm2/simulation/testing/mock_context_provider.test.cpp`

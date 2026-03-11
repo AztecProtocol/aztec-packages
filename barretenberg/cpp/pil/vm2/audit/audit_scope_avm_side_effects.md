@@ -1,10 +1,9 @@
 # External Audit Scope: Side-Effect Traces (Public Logs and L2-to-L1 Messages)
 
-Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: `ab47a6e7754a0cc86278fe9d47c9c8884ca6d363` ([link](https://github.com/AztecProtocol/aztec-packages/tree/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363))
+Commit hash: _TBD_
 
 **Prerequisites:** This audit requires understanding of components covered in:
-1. The "Core Components, ALU, and Bitwise" audit scope (`audit_scope_avm_core_alu_bitwise.md`)
+1. The "Core Gadgets" audit scope (`audit_scope_avm_core.md`)
 
 ## Prerequisite Components
 
@@ -12,7 +11,7 @@ The following PIL files are dependencies of this audit scope but are covered in 
 
 Note: Paths relative to `aztec-packages/barretenberg/cpp/pil/vm2`
 
-**From "Core Components, ALU, and Bitwise" audit (`audit_scope_avm_core_alu_bitwise.md`):**
+**From "Core Gadgets" audit (`audit_scope_avm_core.md`):**
 - `precomputed.pil` -- Shared precomputed columns: lookup tables, range selectors, and static AVM parameters.
 - `constants_gen.pil` -- Auto-generated protocol constants.
 - `gt.pil` -- Integer greater-than gadget. Used by `emit_public_log` for memory bounds checking and log field count validation.
@@ -29,44 +28,18 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/pil/vm2`
 2. `opcodes/send_l2_to_l1_msg.pil`
     - Virtual gadget (shares rows with the execution trace) for sending L2-to-L1 messages. Validates the recipient is a valid Ethereum address (at most 160 bits) via a lookup into `ff_gt`. Checks the per-transaction L2-to-L1 message limit (`MAX_L2_TO_L1_MSGS_PER_TX`). Writes the recipient, content, and contract address to public inputs. Errors on limit reached, static context, or invalid recipient. Depends on `ff_gt.pil` (for recipient validation), `public_inputs.pil` (for message output), and `constants_gen.pil`.
 3. `public_inputs.pil` (**limited scope**: only the interactions referenced by the side-effect gadgets -- writing public logs and writing L2-to-L1 messages)
-    - Public inputs columns. The full public inputs subtrace is out of scope; only the interface used by emit_public_log and send_l2_to_l1_msg is relevant.
+    - Public inputs columns. The full public inputs subtrace is out of scope; only the interface used by emit_public_log and send_l2_to_l1_msg is relevant. The public inputs are further constrained on the consumer side by the [AVM circuit public inputs](../../../../../../noir-projects/noir-protocol-circuits/crates/types/src/abis/avm_circuit_public_inputs.nr) definition and the [public base rollup circuit](../../../../../../noir-projects/noir-protocol-circuits/crates/rollup-lib/src/tx_base/public_tx_base_rollup.nr).
 
-### Simulation (gadgets, events, and libraries)
+### Generated C++ (confirm faithfulness to PIL)
 
-Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg/vm2`
+Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg/vm2/generated/relations`
 
-**Emit Public Log**
+The following files are auto-generated from the PIL files above by `bb-pilcom`. The audit should confirm that the generated C++ directly reflects the PIL source of truth.
 
-4. `simulation/gadgets/emit_public_log.hpp`
-5. `simulation/gadgets/emit_public_log.cpp`
-    - Emit public log simulation gadget: reads log data from memory, validates tags and bounds, emits events for trace generation.
-6. `simulation/events/emit_public_log_event.hpp`
-    - Event structure for emit public log trace rows.
+- `emit_public_log_impl.hpp`
+- `send_l2_to_l1_msg_impl.hpp`
 
-**Send L2-to-L1 Message**
-
-Note: `send_l2_to_l1_msg` is a virtual gadget that shares rows with the execution trace. Its simulation logic lives in the execution gadget (`simulation/gadgets/execution.cpp`, method `send_l2_to_l1_msg`). There is no dedicated simulation gadget or event type; the execution event captures the L2-to-L1 message columns. For this audit, only the `send_l2_to_l1_msg` method within the execution gadget is relevant -- the rest of the execution gadget is out of scope.
-
-7. `simulation/gadgets/execution.hpp` (**limited scope**: only the `send_l2_to_l1_msg` method declaration and related members)
-8. `simulation/gadgets/execution.cpp` (**limited scope**: only the `send_l2_to_l1_msg` method implementation)
-
-### Trace Generation
-
-9. `tracegen/opcodes/emit_public_log_trace.hpp`
-10. `tracegen/opcodes/emit_public_log_trace.cpp`
-    - Processes emit public log events and populates the emit_public_log trace columns.
-
-Note: `send_l2_to_l1_msg` trace generation is handled by the execution trace builder (`tracegen/execution_trace.cpp`) since it is a virtual gadget. For this audit, only the send_l2_to_l1_msg-related logic within the execution trace builder is relevant.
-
-11. `tracegen/execution_trace.hpp` (**limited scope**: only send_l2_to_l1_msg-related trace generation)
-12. `tracegen/execution_trace.cpp` (**limited scope**: only send_l2_to_l1_msg-related trace generation)
-
-### Interfaces and Mocks
-
-13. `simulation/interfaces/emit_public_log.hpp`
-    - Abstract interface for the emit public log gadget.
-14. `simulation/testing/mock_emit_public_log.hpp`
-    - Mock implementation used in unit tests.
+Note: `public_inputs.pil` defines columns and does not have a generated relation file.
 
 ## Summary of Module
 
@@ -82,20 +55,18 @@ The remaining side-effect opcodes -- `emit_nullifier`, `emit_notehash`, `nullifi
 
 ## Reference Documentation
 
-For background on the Aztec Virtual Machine -- its purpose, execution model, instruction set, memory model, gas metering, and error handling -- see the [AVM Reference Documentation](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/yarn-project/simulator/docs/avm/README.md). This is the primary reference for the VM that the circuit is designed to prove.
+For background on the Aztec Virtual Machine -- its purpose, execution model, instruction set, memory model, gas metering, and error handling -- see the [AVM Reference Documentation](../../../../../yarn-project/simulator/docs/avm/README.md). This is the primary reference for the VM that the circuit is designed to prove.
 
-For a comprehensive guide to the AVM **circuit** architecture, trace structure, subtraces, and the proving system, see the [AVM Circuit Guide](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/README.md).
+For a comprehensive guide to the AVM **circuit** architecture, trace structure, subtraces, and the proving system, see the [AVM Circuit Guide](../docs/README.md).
 
-For standard algebraic patterns and recipes used throughout PIL files, see [VM Circuit Recipes](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/recipes.md).
+For standard algebraic patterns and recipes used throughout PIL files, see [VM Circuit Recipes](../docs/recipes.md).
 
 ## Test Files
 
-### Constraint Tests (relation-level)
-1. `vm2/constraining/relations/emit_public_log.test.cpp`
-2. `vm2/constraining/relations/send_l2_to_l1_msg.test.cpp`
+Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
-### Simulation/Gadget Tests
-3. `vm2/simulation/gadgets/emit_public_log.test.cpp`
+- `vm2/constraining/relations/emit_public_log.test.cpp`
+- `vm2/constraining/relations/send_l2_to_l1_msg.test.cpp`
+- `vm2/simulation/gadgets/emit_public_log.test.cpp`
+- `vm2/simulation/testing/mock_emit_public_log.test.cpp`
 
-### Mock Tests
-4. `vm2/simulation/testing/mock_emit_public_log.test.cpp`

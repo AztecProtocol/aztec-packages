@@ -1,10 +1,9 @@
 # External Audit Scope: TX Traces and Calldata
 
-Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: `ab47a6e7754a0cc86278fe9d47c9c8884ca6d363` ([link](https://github.com/AztecProtocol/aztec-packages/tree/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363))
+Commit hash: _TBD_
 
 **Prerequisites:** This audit requires understanding of components covered in:
-1. The "Core Components, ALU, and Bitwise" audit scope (`audit_scope_avm_core_alu_bitwise.md`)
+1. The "Core Gadgets" audit scope (`audit_scope_avm_core.md`)
 2. The "Poseidon2, Merkle Trees, and Note Hash Tree" audit scope (`audit_scope_avm_poseidon_merkle_note_hash.md`)
 3. The "All Tree Subtraces" audit scope (`audit_scope_avm_all_trees.md`)
 
@@ -14,7 +13,7 @@ The following PIL files are dependencies of this audit scope but are covered in 
 
 Note: Paths relative to `aztec-packages/barretenberg/cpp/pil/vm2`
 
-**From "Core Components, ALU, and Bitwise" audit (`audit_scope_avm_core_alu_bitwise.md`):**
+**From "Core Gadgets" audit (`audit_scope_avm_core.md`):**
 - `precomputed.pil` -- Shared precomputed columns. Used by `tx.pil` (phase selectors, row markers), `calldata.pil` (range check for context ID diff, first_row), and `calldata_hashing.pil` (first_row, trace continuity).
 - `constants_gen.pil` -- Auto-generated protocol constants. Used by `tx.pil` (phase constants, limits), `tx_context.pil` (tree/side-effect limits), `calldata_hashing.pil` (domain separator), and `tx_discard.pil`.
 - `gt.pil` -- Integer greater-than gadget. Used by `tx.pil` (gas remaining checks).
@@ -27,7 +26,6 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/pil/vm2`
 **From "All Tree Subtraces" audit (`audit_scope_avm_all_trees.md`):**
 - `trees/indexed_tree_check.pil` -- Indexed tree gadget. Used by `tx.pil` (nullifier tree padding phase).
 - `trees/public_data_check.pil` -- Public data tree gadget. Used by `tx.pil` (public data tree padding phase).
-- `public_inputs.pil` -- Public inputs columns. Used by `tx.pil` (reading/writing TX-level public inputs) and `tx_context.pil` (state initialization and finalization).
 - `execution.pil` -- Execution trace. Used by `tx.pil` (dispatching execution phases). The full execution trace is out of scope; only the interface used by tx.pil is relevant.
 
 ## Files to Audit
@@ -46,48 +44,22 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/pil/vm2`
     - Calldata storage subtrace. Holds one calldata field per row, indexed by a 1-based index and grouped by `context_id`. Constrains index incrementing within a context, context ID continuity and strictly increasing context IDs across calldata instances (via range-checked diff), and latch marking the final row of each context's calldata. Handles empty calldata as a special case (index = 0, latch = 1). Values are hints whose correctness is constrained by `calldata_hashing.pil`. Depends on `precomputed.pil` and `calldata_hashing.pil` (mutual dependency: calldata_hashing looks up into calldata, and calldata includes calldata_hashing).
 5. `calldata_hashing.pil`
     - Calldata hashing subtrace. Computes the calldata hash as a Poseidon2 hash over calldata fields prepended with a domain separator. Each row corresponds to a Poseidon2 permutation (3 fields). Handles padding for non-multiple-of-3 field counts. Constrains index ordering, round counting, size consistency, and that the final hash matches the output. For empty calldata, hashes just the domain separator. The output hash and calldata size are looked up by `tx.pil` to match against public inputs. Depends on `calldata.pil`, `precomputed.pil`, `poseidon2_hash.pil`, and `constants_gen.pil`.
+6. `public_inputs.pil` (**limited scope**: only the interactions referenced by `tx.pil` and `tx_context.pil` -- reading/writing TX-level public inputs such as transaction fee, gas limits, calldata hash, tree sizes, side-effect counters, and unencrypted log hash)
+    - Public inputs columns. The full public inputs subtrace is out of scope; only the TX-facing interface is relevant. The public inputs are further constrained on the consumer side by the [AVM circuit public inputs](../../../../../../noir-projects/noir-protocol-circuits/crates/types/src/abis/avm_circuit_public_inputs.nr) definition and the [public base rollup circuit](../../../../../../noir-projects/noir-protocol-circuits/crates/rollup-lib/src/tx_base/public_tx_base_rollup.nr).
 
-### Simulation (gadgets, events, and libraries)
+### Generated C++ (confirm faithfulness to PIL)
 
-Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg/vm2`
+Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg/vm2/generated/relations`
 
-**TX Execution (covers tx.pil, tx_context.pil, tx_discard.pil)**
+The following files are auto-generated from the PIL files above by `bb-pilcom`. The audit should confirm that the generated C++ directly reflects the PIL source of truth.
 
-6. `simulation/gadgets/tx_execution.hpp`
-7. `simulation/gadgets/tx_execution.cpp`
-    - TX execution simulation gadget: orchestrates the full transaction lifecycle including phase sequencing, execution dispatch, tree padding, gas collection, revert handling, and public input reads/writes.
-8. `simulation/gadgets/tx_context.hpp`
-    - TX context helper: tracks tree and side-effect state across phases for the simulation.
-9. `simulation/events/tx_events.hpp`
-    - Event structures for TX trace rows (phase markers, gas, fee distribution, tree padding, cleanup).
-10. `simulation/events/tx_context_event.hpp`
-    - Event structure for TX context trace rows (state initialization, continuity, revert restoration, finalization).
+- `tx_impl.hpp`
+- `tx_context_impl.hpp`
+- `tx_discard_impl.hpp`
+- `calldata_impl.hpp`
+- `calldata_hashing_impl.hpp`
 
-**Calldata Hashing (covers calldata.pil and calldata_hashing.pil)**
-
-11. `simulation/gadgets/calldata_hashing.hpp`
-12. `simulation/gadgets/calldata_hashing.cpp`
-    - Calldata hashing simulation gadget: computes the calldata hash and emits events for both calldata and calldata_hashing traces.
-13. `simulation/events/calldata_event.hpp`
-    - Event structures for calldata and calldata hashing trace rows.
-
-### Trace Generation
-
-14. `tracegen/tx_trace.hpp`
-15. `tracegen/tx_trace.cpp`
-    - Processes TX events and TX context events, populating the tx, tx_context, and tx_discard trace columns.
-16. `tracegen/lib/discard_reconstruction.hpp`
-    - Shared template library for discard reconstruction: scans checkpoint events (CREATE, COMMIT, REVERT) to determine which events fall within reverted checkpoints, and attaches a discard flag to each payload event. Used by the TX trace builder and tree trace builders.
-17. `tracegen/calldata_trace.hpp`
-18. `tracegen/calldata_trace.cpp`
-    - Processes calldata events and populates the calldata and calldata_hashing trace columns.
-
-### Interfaces and Mocks
-
-19. `simulation/interfaces/calldata_hashing.hpp`
-    - Abstract interface for the calldata hashing gadget.
-20. `simulation/standalone/noop_calldata_hashing.hpp`
-    - No-op calldata hashing for fast simulation (skips hash computation).
+Note: `public_inputs.pil` defines columns and does not have a generated relation file.
 
 ## Summary of Module
 
@@ -114,24 +86,22 @@ Note: The execution trace (`execution.pil`) and the individual opcode gadgets di
 
 ## Reference Documentation
 
-For background on the Aztec Virtual Machine -- its purpose, execution model, instruction set, memory model, gas metering, and error handling -- see the [AVM Reference Documentation](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/yarn-project/simulator/docs/avm/README.md). This is the primary reference for the VM that the circuit is designed to prove.
+For background on the Aztec Virtual Machine -- its purpose, execution model, instruction set, memory model, gas metering, and error handling -- see the [AVM Reference Documentation](../../../../../yarn-project/simulator/docs/avm/README.md). This is the primary reference for the VM that the circuit is designed to prove.
 
-For a comprehensive guide to the AVM **circuit** architecture, trace structure, subtraces, and the proving system, see the [AVM Circuit Guide](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/README.md). In particular, see the sections on [Transaction Lifecycle](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/README.md#transaction-lifecycle).
+For a comprehensive guide to the AVM **circuit** architecture, trace structure, subtraces, and the proving system, see the [AVM Circuit Guide](../docs/README.md). In particular, see the sections on [Transaction Lifecycle](../docs/README.md#transaction-lifecycle).
 
-For standard algebraic patterns and recipes used throughout PIL files, see [VM Circuit Recipes](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/recipes.md).
+For standard algebraic patterns and recipes used throughout PIL files, see [VM Circuit Recipes](../docs/recipes.md).
 
 ## Test Files
 
-### Constraint Tests (relation-level)
-1. `vm2/constraining/relations/tx.test.cpp`
-2. `vm2/constraining/relations/tx_context.test.cpp`
-3. `vm2/constraining/relations/tx_discard.test.cpp`
-4. `vm2/constraining/relations/calldata_hashing.test.cpp`
+Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
-### Tracegen Tests
-5. `vm2/tracegen/tx_trace.test.cpp`
-6. `vm2/tracegen/calldata_trace.test.cpp`
+- `vm2/constraining/relations/tx.test.cpp`
+- `vm2/constraining/relations/tx_context.test.cpp`
+- `vm2/constraining/relations/tx_discard.test.cpp`
+- `vm2/constraining/relations/calldata_hashing.test.cpp`
+- `vm2/tracegen/tx_trace.test.cpp`
+- `vm2/tracegen/calldata_trace.test.cpp`
+- `vm2/simulation/gadgets/tx_execution.test.cpp`
+- `vm2/simulation/gadgets/calldata_hashing.test.cpp`
 
-### Simulation/Gadget Tests
-7. `vm2/simulation/gadgets/tx_execution.test.cpp`
-8. `vm2/simulation/gadgets/calldata_hashing.test.cpp`

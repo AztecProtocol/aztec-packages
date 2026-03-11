@@ -1,13 +1,13 @@
 # External Audit Scope: Hash Gadgets and Memory-Aware Opcode Wrappers
 
-Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: `ab47a6e7754a0cc86278fe9d47c9c8884ca6d363` ([link](https://github.com/AztecProtocol/aztec-packages/tree/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363))
+Commit hash: _TBD_
 
 **Prerequisites:** This audit requires understanding of components covered in:
-1. The "Core Components, ALU, and Bitwise" audit scope (`audit_scope_avm_core_alu_bitwise.md`)
+1. The "Core Gadgets" audit scope (`audit_scope_avm_core.md`)
 2. The "Poseidon2, Merkle Trees, and Note Hash Tree" audit scope (`audit_scope_avm_poseidon_merkle_note_hash.md`)
 3. The "Derivations, ECC, and Radix Decomposition" audit scope (`audit_scope_avm_derivations_and_ecc.md`)
 4. The "Execution, Memory, and Calls" audit scope (`audit_scope_avm_execution_and_calls.md`)
+5. The "ALU and Bitwise" audit scope (`audit_scope_avm_alu_and_bitwise.md`)
 
 ## Prerequisite Components
 
@@ -15,11 +15,13 @@ The following PIL files are dependencies of this audit scope but are covered in 
 
 Note: Paths relative to `aztec-packages/barretenberg/cpp/pil/vm2`
 
-**From "Core Components, ALU, and Bitwise" audit (`audit_scope_avm_core_alu_bitwise.md`):**
+**From "Core Gadgets" audit (`audit_scope_avm_core.md`):**
 - `precomputed.pil` -- Shared precomputed columns. Used by `sha256.pil` (round constants), `keccakf1600.pil` (round constants, range checks), `poseidon2_mem.pil` (range selectors), `ecc_mem.pil` (range checks), and `to_radix_mem.pil` (range checks).
 - `constants_gen.pil` -- Auto-generated protocol constants. Used by `keccakf1600.pil`, `sha256.pil`, `poseidon2_mem.pil`, `ecc_mem.pil`, `keccak_memory.pil`, `sha256_mem.pil`, and `to_radix_mem.pil` (memory limits, tag constants).
 - `gt.pil` -- Integer greater-than gadget. Used by `sha256.pil` (bounds checks), `keccakf1600.pil` (bounds checks), `poseidon2_mem.pil` (out-of-bounds check), `ecc_mem.pil` (out-of-bounds check), `sha256_mem.pil` (out-of-bounds check), and `to_radix_mem.pil` (bounds checks).
 - `range_check.pil` -- Range check gadget. Used by `keccakf1600.pil` (rotation limb range checks).
+
+**From "ALU and Bitwise" audit (`audit_scope_avm_alu_and_bitwise.md`):**
 - `bitwise.pil` -- Bitwise AND/OR/XOR. Used by `keccakf1600.pil` (XOR operations via `start_keccak` selector) and `sha256.pil` (bitwise operations via `start_sha256` selector).
 
 **From "Poseidon2, Merkle Trees, and Note Hash Tree" audit (`audit_scope_avm_poseidon_merkle_note_hash.md`):**
@@ -53,47 +55,19 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/pil/vm2`
 7. `to_radix_mem.pil`
     - TORADIXBE opcode memory wrapper. Receives a value, radix, num_limbs, and is_output_bits from execution registers, performs radix decomposition via to_radix lookup, reverses the output to big-endian, and writes each limb to memory. Multi-row: one row per limb (vertical memory writes). Handles out-of-bounds and radix validation errors. Depends on `constants_gen.pil`, `gt.pil`, `memory.pil`, `precomputed.pil`, and `to_radix.pil`.
 
-### Simulation (gadgets, events, and libraries)
+### Generated C++ (confirm faithfulness to PIL)
 
-Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg/vm2`
+Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg/vm2/generated/relations`
 
-**SHA256**
+The following files are auto-generated from the PIL files above by `bb-pilcom`. The audit should confirm that the generated C++ directly reflects the PIL source of truth.
 
-8. `simulation/gadgets/sha256.hpp`
-9. `simulation/gadgets/sha256.cpp`
-    - SHA256 simulation gadget: performs SHA256 compression, handles memory reads/writes, and emits events.
-10. `simulation/events/sha256_event.hpp`
-    - Event structure for SHA256 trace rows.
-
-**Keccak**
-
-11. `simulation/gadgets/keccakf1600.hpp`
-12. `simulation/gadgets/keccakf1600.cpp`
-    - Keccak-f1600 simulation gadget: performs keccak permutation, handles memory slices, and emits events.
-13. `simulation/events/keccakf1600_event.hpp`
-    - Event structure for keccak trace rows.
-
-Note: The poseidon2_mem, ecc_mem, and to_radix_mem wrappers are virtual gadgets whose simulation logic lives within the execution gadget (`simulation/gadgets/execution.cpp`). They do not have dedicated simulation gadget files. Their trace generation is handled by the execution trace builder.
-
-### Trace Generation
-
-14. `tracegen/sha256_trace.hpp`
-15. `tracegen/sha256_trace.cpp`
-    - Processes SHA256 events and populates the sha256 and sha256_mem trace columns.
-16. `tracegen/keccakf1600_trace.hpp`
-17. `tracegen/keccakf1600_trace.cpp`
-    - Processes keccak events and populates the keccakf1600 and keccak_memory trace columns.
-
-Note: poseidon2_mem, ecc_mem, and to_radix_mem trace generation is handled by the execution trace builder (`tracegen/execution_trace.cpp`), covered in the Execution audit scope.
-
-### Interfaces and Mocks
-
-18. `simulation/interfaces/sha256.hpp`
-19. `simulation/interfaces/keccakf1600.hpp`
-    - Abstract interfaces for the SHA256 and keccak gadgets.
-20. `simulation/testing/mock_sha256.hpp`
-21. `simulation/testing/mock_keccakf1600.hpp`
-    - Mock implementations used in unit tests.
+- `sha256_impl.hpp`
+- `sha256_mem_impl.hpp`
+- `keccakf1600_impl.hpp`
+- `keccak_memory_impl.hpp`
+- `poseidon2_mem_impl.hpp`
+- `ecc_mem_impl.hpp`
+- `to_radix_mem_impl.hpp`
 
 ## Summary of Module
 
@@ -111,25 +85,21 @@ The **to_radix_mem** wrapper (`to_radix_mem.pil`) handles the TORADIXBE opcode b
 
 ## Reference Documentation
 
-For background on the Aztec Virtual Machine -- its purpose, execution model, instruction set, memory model, gas metering, and error handling -- see the [AVM Reference Documentation](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/yarn-project/simulator/docs/avm/README.md). This is the primary reference for the VM that the circuit is designed to prove.
+For background on the Aztec Virtual Machine -- its purpose, execution model, instruction set, memory model, gas metering, and error handling -- see the [AVM Reference Documentation](../../../../../yarn-project/simulator/docs/avm/README.md). This is the primary reference for the VM that the circuit is designed to prove.
 
-For a comprehensive guide to the AVM **circuit** architecture, trace structure, subtraces, and the proving system, see the [AVM Circuit Guide](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/README.md).
+For a comprehensive guide to the AVM **circuit** architecture, trace structure, subtraces, and the proving system, see the [AVM Circuit Guide](../docs/README.md).
 
-For standard algebraic patterns and recipes used throughout PIL files, see [VM Circuit Recipes](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/recipes.md).
+For standard algebraic patterns and recipes used throughout PIL files, see [VM Circuit Recipes](../docs/recipes.md).
 
 ## Test Files
 
-### Constraint Tests (relation-level)
-1. `vm2/constraining/relations/sha256.test.cpp`
-2. `vm2/constraining/relations/keccakf1600.test.cpp`
+Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
-### Tracegen Tests
-3. `vm2/tracegen/keccakf1600_trace.test.cpp`
+- `vm2/constraining/relations/sha256.test.cpp`
+- `vm2/constraining/relations/keccakf1600.test.cpp`
+- `vm2/tracegen/keccakf1600_trace.test.cpp`
+- `vm2/simulation/gadgets/sha256.test.cpp`
+- `vm2/simulation/gadgets/keccakf1600.test.cpp`
+- `vm2/simulation/testing/mock_sha256.test.cpp`
+- `vm2/simulation/testing/mock_keccakf1600.test.cpp`
 
-### Simulation/Gadget Tests
-4. `vm2/simulation/gadgets/sha256.test.cpp`
-5. `vm2/simulation/gadgets/keccakf1600.test.cpp`
-
-### Mock Tests
-6. `vm2/simulation/testing/mock_sha256.test.cpp`
-7. `vm2/simulation/testing/mock_keccakf1600.test.cpp`

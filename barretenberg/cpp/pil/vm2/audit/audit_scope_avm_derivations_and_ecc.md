@@ -1,10 +1,9 @@
 # External Audit Scope: Derivations, ECC, and Radix Decomposition
 
-Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: `ab47a6e7754a0cc86278fe9d47c9c8884ca6d363` ([link](https://github.com/AztecProtocol/aztec-packages/tree/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363))
+Commit hash: _TBD_
 
 **Prerequisites:** This audit requires understanding of components covered in:
-1. The "Core Components, ALU, and Bitwise" audit scope (`audit_scope_avm_core_alu_bitwise.md`)
+1. The "Core Gadgets" audit scope (`audit_scope_avm_core.md`)
 2. The "Poseidon2, Merkle Trees, and Note Hash Tree" audit scope (`audit_scope_avm_poseidon_merkle_note_hash.md`)
 
 ## Prerequisite Components
@@ -13,7 +12,7 @@ The following PIL files are dependencies of this audit scope but are covered in 
 
 Note: Paths relative to `aztec-packages/barretenberg/cpp/pil/vm2`
 
-**From "Core Components, ALU, and Bitwise" audit (`audit_scope_avm_core_alu_bitwise.md`):**
+**From "Core Gadgets" audit (`audit_scope_avm_core.md`):**
 - `precomputed.pil` -- Shared precomputed columns: lookup tables, range selectors, and static AVM parameters. Used by `to_radix`, `scalar_mul`, `address_derivation`, and `class_id_derivation` for lookup table access.
 
 **From "Poseidon2, Merkle Trees, and Note Hash Tree" audit (`audit_scope_avm_poseidon_merkle_note_hash.md`):**
@@ -36,81 +35,17 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/pil/vm2`
 5. `bytecode/address_derivation.pil`
     - Contract address derivation. Derives a contract address from its preimage components through a multi-step process: (1) salted initialization hash via Poseidon2, (2) partial address via Poseidon2, (3) public keys hash via Poseidon2 (4 public key pairs hashed across 5 permutation rounds), (4) preaddress via Poseidon2, (5) preaddress public key via scalar multiplication of preaddress * G1, (6) final address as x-coordinate of preaddress_public_key + incoming_viewing_key via point addition. One row per address derivation. Depends on `ecc.pil`, `scalar_mul.pil`, `poseidon2_hash.pil`, `constants_gen.pil`, and `precomputed.pil`.
 
-### Simulation (gadgets, events, and libraries)
+### Generated C++ (confirm faithfulness to PIL)
 
-Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg/vm2`
+Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg/vm2/generated/relations`
 
-**ECC (Point Addition and Scalar Multiplication)**
+The following files are auto-generated from the PIL files above by `bb-pilcom`. The audit should confirm that the generated C++ directly reflects the PIL source of truth.
 
-Note: The ECC simulation gadget handles both point addition (`ecc.pil`) and scalar multiplication (`scalar_mul.pil`). The `ScalarMulEvent` is defined alongside `EccEvent` in the shared events file.
-
-6. `simulation/gadgets/ecc.hpp`
-7. `simulation/gadgets/ecc.cpp`
-    - ECC simulation gadget: computes point addition and scalar multiplication over the Grumpkin curve, emits ECC and scalar mul events.
-8. `simulation/events/ecc_events.hpp`
-    - Event structures for ECC point addition (`EccEvent`) and scalar multiplication (`ScalarMulEvent`, including `ScalarMulIntermediateState`) trace rows.
-
-**Radix Decomposition**
-
-9. `simulation/gadgets/to_radix.hpp`
-10. `simulation/gadgets/to_radix.cpp`
-    - Radix decomposition simulation gadget: decomposes field elements into limbs, emits to_radix events.
-11. `simulation/events/to_radix_event.hpp`
-    - Event structure for radix decomposition trace rows.
-12. `simulation/standalone/pure_to_radix.hpp`
-13. `simulation/standalone/pure_to_radix.cpp`
-    - Standalone radix decomposition used in fast simulation (no event emission).
-14. `common/to_radix.hpp`
-15. `common/to_radix.cpp`
-    - Shared radix decomposition utilities used by both the gadget and standalone implementations.
-
-**Class ID Derivation**
-
-16. `simulation/gadgets/class_id_derivation.hpp`
-17. `simulation/gadgets/class_id_derivation.cpp`
-    - Class ID derivation simulation gadget: computes class ID hash and emits events.
-18. `simulation/events/class_id_derivation_event.hpp`
-    - Event structure for class ID derivation trace rows.
-
-**Address Derivation**
-
-19. `simulation/gadgets/address_derivation.hpp`
-20. `simulation/gadgets/address_derivation.cpp`
-    - Address derivation simulation gadget: orchestrates the multi-step address derivation (hashing, scalar mul, point addition) and emits events.
-21. `simulation/events/address_derivation_event.hpp`
-    - Event structure for address derivation trace rows.
-
-### Trace Generation
-
-22. `tracegen/ecc_trace.hpp`
-23. `tracegen/ecc_trace.cpp`
-    - Processes ECC point addition events and scalar multiplication events, populating both the `ecc` and `scalar_mul` trace columns.
-24. `tracegen/to_radix_trace.hpp`
-25. `tracegen/to_radix_trace.cpp`
-    - Processes radix decomposition events and populates the `to_radix` trace columns.
-26. `tracegen/class_id_derivation_trace.hpp`
-27. `tracegen/class_id_derivation_trace.cpp`
-    - Processes class ID derivation events and populates the trace columns.
-28. `tracegen/address_derivation_trace.hpp`
-29. `tracegen/address_derivation_trace.cpp`
-    - Processes address derivation events and populates the trace columns.
-
-### Interfaces and Mocks
-
-30. `simulation/interfaces/ecc.hpp`
-    - Abstract interface for the ECC gadget (point addition and scalar multiplication).
-31. `simulation/interfaces/to_radix.hpp`
-    - Abstract interface for the radix decomposition gadget.
-32. `simulation/interfaces/class_id_derivation.hpp`
-    - Abstract interface for the class ID derivation gadget.
-33. `simulation/interfaces/address_derivation.hpp`
-    - Abstract interface for the address derivation gadget.
-34. `simulation/testing/mock_ecc.hpp`
-    - Mock ECC implementation used in unit tests.
-35. `simulation/testing/mock_to_radix.hpp`
-    - Mock radix decomposition implementation used in unit tests.
-36. `simulation/testing/mock_class_id_derivation.hpp`
-    - Mock class ID derivation implementation used in unit tests.
+- `ecc_impl.hpp`
+- `scalar_mul_impl.hpp`
+- `to_radix_impl.hpp`
+- `class_id_derivation_impl.hpp`
+- `address_derivation_impl.hpp`
 
 ## Summary of Module
 
@@ -137,34 +72,28 @@ Note: The memory-aware opcode wrappers `ecc_mem.pil` (ECADD opcode) and `to_radi
 
 ## Reference Documentation
 
-For background on the Aztec Virtual Machine -- its purpose, execution model, instruction set, memory model, gas metering, and error handling -- see the [AVM Reference Documentation](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/yarn-project/simulator/docs/avm/README.md). This is the primary reference for the VM that the circuit is designed to prove.
+For background on the Aztec Virtual Machine -- its purpose, execution model, instruction set, memory model, gas metering, and error handling -- see the [AVM Reference Documentation](../../../../../yarn-project/simulator/docs/avm/README.md). This is the primary reference for the VM that the circuit is designed to prove.
 
-For a comprehensive guide to the AVM **circuit** architecture, trace structure, subtraces, and the proving system, see the [AVM Circuit Guide](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/README.md).
+For a comprehensive guide to the AVM **circuit** architecture, trace structure, subtraces, and the proving system, see the [AVM Circuit Guide](../docs/README.md).
 
-For standard algebraic patterns and recipes used throughout PIL files, see [VM Circuit Recipes](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/recipes.md).
+For standard algebraic patterns and recipes used throughout PIL files, see [VM Circuit Recipes](../docs/recipes.md).
 
 ## Test Files
 
-### Constraint Tests (relation-level)
-1. `vm2/constraining/relations/ecc.test.cpp`
-2. `vm2/constraining/relations/to_radix.test.cpp`
-3. `vm2/constraining/relations/class_id_derivation.test.cpp`
-4. `vm2/constraining/relations/address_derivation.test.cpp`
+Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
-### Tracegen Tests
-5. `vm2/tracegen/ecc_trace.test.cpp`
-6. `vm2/tracegen/class_id_derivation_trace.test.cpp`
+- `vm2/constraining/relations/ecc.test.cpp`
+- `vm2/constraining/relations/to_radix.test.cpp`
+- `vm2/constraining/relations/class_id_derivation.test.cpp`
+- `vm2/constraining/relations/address_derivation.test.cpp`
+- `vm2/tracegen/ecc_trace.test.cpp`
+- `vm2/tracegen/class_id_derivation_trace.test.cpp`
+- `vm2/simulation/gadgets/ecc.test.cpp`
+- `vm2/simulation/gadgets/to_radix.test.cpp`
+- `vm2/simulation/gadgets/class_id_derivation.test.cpp`
+- `vm2/simulation/gadgets/address_derivation.test.cpp`
+- `vm2/simulation/testing/mock_ecc.test.cpp`
+- `vm2/simulation/testing/mock_to_radix.test.cpp`
+- `vm2/simulation/testing/mock_class_id_derivation.test.cpp`
+- `vm2/common/to_radix.test.cpp`
 
-### Simulation/Gadget Tests
-7. `vm2/simulation/gadgets/ecc.test.cpp`
-8. `vm2/simulation/gadgets/to_radix.test.cpp`
-9. `vm2/simulation/gadgets/class_id_derivation.test.cpp`
-10. `vm2/simulation/gadgets/address_derivation.test.cpp`
-
-### Mock Tests
-11. `vm2/simulation/testing/mock_ecc.test.cpp`
-12. `vm2/simulation/testing/mock_to_radix.test.cpp`
-13. `vm2/simulation/testing/mock_class_id_derivation.test.cpp`
-
-### Common Utility Tests
-14. `vm2/common/to_radix.test.cpp`

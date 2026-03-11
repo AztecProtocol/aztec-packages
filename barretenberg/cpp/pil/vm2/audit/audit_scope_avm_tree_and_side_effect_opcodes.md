@@ -1,10 +1,9 @@
 # External Audit Scope: Tree and Side-Effect Opcode Wrappers
 
-Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: `ab47a6e7754a0cc86278fe9d47c9c8884ca6d363` ([link](https://github.com/AztecProtocol/aztec-packages/tree/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363))
+Commit hash: _TBD_
 
 **Prerequisites:** This audit requires understanding of components covered in:
-1. The "Core Components, ALU, and Bitwise" audit scope (`audit_scope_avm_core_alu_bitwise.md`)
+1. The "Core Gadgets" audit scope (`audit_scope_avm_core.md`)
 2. The "Poseidon2, Merkle Trees, and Note Hash Tree" audit scope (`audit_scope_avm_poseidon_merkle_note_hash.md`)
 3. The "All Tree Subtraces" audit scope (`audit_scope_avm_all_trees.md`)
 4. The "Bytecode Pipeline" audit scope (`audit_scope_avm_bytecode.md`)
@@ -16,7 +15,7 @@ The following PIL files are dependencies of this audit scope but are covered in 
 
 Note: Paths relative to `aztec-packages/barretenberg/cpp/pil/vm2`
 
-**From "Core Components, ALU, and Bitwise" audit (`audit_scope_avm_core_alu_bitwise.md`):**
+**From "Core Gadgets" audit (`audit_scope_avm_core.md`):**
 - `constants_gen.pil` -- Auto-generated protocol constants. Used by all opcode wrappers in this scope (limits, tag constants).
 - `range_check.pil` -- Range check gadget. Used by `opcodes/emit_notehash.pil`, `opcodes/notehash_exists.pil`, and `opcodes/l1_to_l2_message_exists.pil` (leaf index range checks).
 - `gt.pil` -- Integer greater-than gadget. Used by `opcodes/notehash_exists.pil` and `opcodes/l1_to_l2_message_exists.pil` (leaf index in-range checks).
@@ -59,37 +58,20 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/pil/vm2`
 8. `opcodes/get_contract_instance.pil`
     - GETCONTRACTINSTANCE dedicated opcode gadget. Retrieves a contract instance by address via contract_instance_retrieval lookup. Validates member enum, performs out-of-bounds checking, selects the requested member (deployer, class_id, init_hash), and writes the exists flag and member value to memory. Depends on `bytecode/contract_instance_retrieval.pil`.
 
-### Simulation (gadgets, events, and libraries)
+### Generated C++ (confirm faithfulness to PIL)
 
-Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg/vm2`
+Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg/vm2/generated/relations`
 
-Note: The tree and side-effect opcodes (emit_nullifier, emit_notehash, nullifier_exists, notehash_exists, l1_to_l2_message_exists, sload, sstore) are virtual gadgets whose simulation logic lives within the execution gadget (`simulation/gadgets/execution.cpp`). They do not have dedicated simulation files. Their events are captured in the execution event structure.
+The following files are auto-generated from the PIL files above by `bb-pilcom`. The audit should confirm that the generated C++ directly reflects the PIL source of truth.
 
-**Get Contract Instance**
-
-9. `simulation/gadgets/get_contract_instance.hpp`
-10. `simulation/gadgets/get_contract_instance.cpp`
-    - GetContractInstance simulation gadget: retrieves contract instance, selects member, and emits events.
-11. `simulation/events/get_contract_instance_event.hpp`
-    - Event structure for GetContractInstance trace rows.
-
-### Trace Generation
-
-Note: Tree/side-effect opcode trace generation is handled by the execution trace builder (`tracegen/execution_trace.cpp`), covered in the Execution audit scope.
-
-12. `tracegen/opcodes/get_contract_instance_trace.hpp`
-13. `tracegen/opcodes/get_contract_instance_trace.cpp`
-    - Processes GetContractInstance events and populates the trace columns.
-14. `tracegen/lib/get_contract_instance_spec.hpp`
-15. `tracegen/lib/get_contract_instance_spec.cpp`
-    - Shared specification for GetContractInstance member selection logic, used by both the opcode trace and the contract instance retrieval trace.
-
-### Interfaces and Mocks
-
-16. `simulation/interfaces/get_contract_instance.hpp`
-    - Abstract interface for the GetContractInstance gadget.
-17. `simulation/testing/mock_get_contract_instance.hpp`
-    - Mock implementation used in unit tests.
+- `emit_nullifier_impl.hpp`
+- `emit_notehash_impl.hpp`
+- `nullifier_exists_impl.hpp`
+- `notehash_exists_impl.hpp`
+- `l1_to_l2_message_exists_impl.hpp`
+- `sload_impl.hpp`
+- `sstore_impl.hpp`
+- `get_contract_instance_impl.hpp`
 
 ## Summary of Module
 
@@ -107,24 +89,22 @@ These opcodes are all **virtual gadgets** that share rows with the execution tra
 
 ## Reference Documentation
 
-For background on the Aztec Virtual Machine -- its purpose, execution model, instruction set, memory model, gas metering, and error handling -- see the [AVM Reference Documentation](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/yarn-project/simulator/docs/avm/README.md). This is the primary reference for the VM that the circuit is designed to prove.
+For background on the Aztec Virtual Machine -- its purpose, execution model, instruction set, memory model, gas metering, and error handling -- see the [AVM Reference Documentation](../../../../../yarn-project/simulator/docs/avm/README.md). This is the primary reference for the VM that the circuit is designed to prove.
 
-For a comprehensive guide to the AVM **circuit** architecture, trace structure, subtraces, and the proving system, see the [AVM Circuit Guide](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/README.md).
+For a comprehensive guide to the AVM **circuit** architecture, trace structure, subtraces, and the proving system, see the [AVM Circuit Guide](../docs/README.md).
 
-For standard algebraic patterns and recipes used throughout PIL files, see [VM Circuit Recipes](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/recipes.md).
+For standard algebraic patterns and recipes used throughout PIL files, see [VM Circuit Recipes](../docs/recipes.md).
 
 ## Test Files
 
-### Constraint Tests (relation-level)
-1. `vm2/constraining/relations/emit_nullifier.test.cpp`
-2. `vm2/constraining/relations/emit_notehash.test.cpp`
-3. `vm2/constraining/relations/nullifier_exists.test.cpp`
-4. `vm2/constraining/relations/notehash_exists.test.cpp`
-5. `vm2/constraining/relations/l1_to_l2_message_exists.test.cpp`
-6. `vm2/constraining/relations/get_contract_instance.test.cpp`
+Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
-### Tracegen Tests
-7. `vm2/tracegen/opcodes/get_contract_instance_trace.test.cpp`
+- `vm2/constraining/relations/emit_nullifier.test.cpp`
+- `vm2/constraining/relations/emit_notehash.test.cpp`
+- `vm2/constraining/relations/nullifier_exists.test.cpp`
+- `vm2/constraining/relations/notehash_exists.test.cpp`
+- `vm2/constraining/relations/l1_to_l2_message_exists.test.cpp`
+- `vm2/constraining/relations/get_contract_instance.test.cpp`
+- `vm2/tracegen/opcodes/get_contract_instance_trace.test.cpp`
+- `vm2/simulation/testing/mock_get_contract_instance.test.cpp`
 
-### Mock Tests
-8. `vm2/simulation/testing/mock_get_contract_instance.test.cpp`

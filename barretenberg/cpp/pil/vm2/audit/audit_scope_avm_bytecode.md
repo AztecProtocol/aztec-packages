@@ -1,10 +1,9 @@
 # External Audit Scope: Bytecode Pipeline
 
-Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: `ab47a6e7754a0cc86278fe9d47c9c8884ca6d363` ([link](https://github.com/AztecProtocol/aztec-packages/tree/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363))
+Commit hash: _TBD_
 
 **Prerequisites:** This audit requires understanding of components covered in:
-1. The "Core Components, ALU, and Bitwise" audit scope (`audit_scope_avm_core_alu_bitwise.md`)
+1. The "Core Gadgets" audit scope (`audit_scope_avm_core.md`)
 2. The "Poseidon2, Merkle Trees, and Note Hash Tree" audit scope (`audit_scope_avm_poseidon_merkle_note_hash.md`)
 3. The "All Tree Subtraces" audit scope (`audit_scope_avm_all_trees.md`)
 4. The "Derivations, ECC, and Radix Decomposition" audit scope (`audit_scope_avm_derivations_and_ecc.md`)
@@ -15,7 +14,7 @@ The following PIL files are dependencies of this audit scope but are covered in 
 
 Note: Paths relative to `aztec-packages/barretenberg/cpp/pil/vm2`
 
-**From "Core Components, ALU, and Bitwise" audit (`audit_scope_avm_core_alu_bitwise.md`):**
+**From "Core Gadgets" audit (`audit_scope_avm_core.md`):**
 - `precomputed.pil` -- Shared precomputed columns. Used by `bc_decomposition` (byte range checks), `bc_hashing`, `instr_fetching` (instruction specs, opcode validation, tag validation), and `bc_retrieval`.
 - `constants_gen.pil` -- Auto-generated protocol constants. Used by `bc_retrieval`, `bc_hashing`, `instr_fetching`, `contract_instance_retrieval`, and `update_check`.
 - `range_check.pil` -- Range check gadget. Used by `instr_fetching` (pc out-of-range check) and `update_check` (metadata decomposition).
@@ -28,7 +27,6 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/pil/vm2`
 **From "All Tree Subtraces" audit (`audit_scope_avm_all_trees.md`):**
 - `trees/indexed_tree_check.pil` -- Indexed tree gadget. Used by `bc_retrieval` (retrieved bytecodes tree insertion, new class check) and `contract_instance_retrieval` (deployment nullifier read).
 - `trees/public_data_check.pil` -- Public data tree gadget. Used by `update_check` (reading update hash from public data tree).
-- `public_inputs.pil` -- Public inputs columns. Used by `update_check` (timestamp read) and `contract_instance_retrieval` (protocol contract derived address read).
 
 **From "Derivations, ECC, and Radix Decomposition" audit (`audit_scope_avm_derivations_and_ecc.md`):**
 - `bytecode/address_derivation.pil` -- Contract address derivation. Used by `contract_instance_retrieval` (address derivation lookup).
@@ -52,64 +50,23 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/pil/vm2`
     - Contract upgrade validation gadget. Validates the current class ID by reading the delayed public mutable hash from the public data tree, decomposing the metadata to extract the timestamp of change, and selecting between the pre and post class IDs based on the current timestamp. Handles the case where no update has ever been written (hash is zero). Depends on `poseidon2_hash.pil`, `public_data_check.pil`, `public_inputs.pil`, `range_check.pil`, `gt.pil`, `constants_gen.pil`, and `precomputed.pil`.
 6. `bytecode/contract_instance_retrieval.pil`
     - Contract instance retrieval gadget. Proves existence of a deployed contract instance by checking the deployment nullifier (via `indexed_tree_check`), deriving the address (via `address_derivation`), and checking for contract updates (via `update_check`). Handles protocol contracts separately by reading the derived address from public inputs. Forces instance members to zero if the instance doesn't exist. Depends on `address_derivation.pil`, `update_check.pil`, `ff_gt.pil`, `indexed_tree_check.pil`, `public_inputs.pil`, and `constants_gen.pil`.
+7. `public_inputs.pil` (**limited scope**: only the interactions referenced by `update_check.pil` and `contract_instance_retrieval.pil` -- reading the current timestamp and reading protocol contract derived addresses)
+    - Public inputs columns. The full public inputs subtrace is out of scope; only the interface used by the bytecode pipeline gadgets is relevant. The public inputs are further constrained on the consumer side by the [AVM circuit public inputs](../../../../../../noir-projects/noir-protocol-circuits/crates/types/src/abis/avm_circuit_public_inputs.nr) definition and the [public base rollup circuit](../../../../../../noir-projects/noir-protocol-circuits/crates/rollup-lib/src/tx_base/public_tx_base_rollup.nr).
 
-### Simulation (gadgets, events, and libraries)
+### Generated C++ (confirm faithfulness to PIL)
 
-Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg/vm2`
+Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg/vm2/generated/relations`
 
-**Bytecode Manager (covers bc_retrieval, bc_decomposition, bc_hashing, instr_fetching)**
+The following files are auto-generated from the PIL files above by `bb-pilcom`. The audit should confirm that the generated C++ directly reflects the PIL source of truth.
 
-7. `simulation/gadgets/bytecode_manager.hpp`
-8. `simulation/gadgets/bytecode_manager.cpp`
-    - Bytecode manager simulation gadget: orchestrates bytecode retrieval, decomposition, hashing, and instruction fetching.
-9. `simulation/gadgets/bytecode_hashing.hpp`
-10. `simulation/gadgets/bytecode_hashing.cpp`
-    - Bytecode hashing simulation gadget: computes the bytecode commitment hash.
-11. `simulation/events/bytecode_events.hpp`
-    - Event structures for bytecode-related trace rows (decomposition, hashing, retrieval, instruction fetching).
+- `bc_decomposition_impl.hpp`
+- `bc_hashing_impl.hpp`
+- `instr_fetching_impl.hpp`
+- `bc_retrieval_impl.hpp`
+- `update_check_impl.hpp`
+- `contract_instance_retrieval_impl.hpp`
 
-**Update Check**
-
-12. `simulation/gadgets/update_check.hpp`
-13. `simulation/gadgets/update_check.cpp`
-    - Update check simulation gadget: reads delayed public mutable, verifies hash preimage, resolves current class ID.
-14. `simulation/events/update_check.hpp`
-    - Event structure for update check trace rows.
-15. `simulation/standalone/noop_update_check.hpp`
-    - No-op update check for fast simulation (skips update validation).
-
-**Contract Instance Retrieval**
-
-16. `simulation/gadgets/contract_instance_manager.hpp`
-17. `simulation/gadgets/contract_instance_manager.cpp`
-    - Contract instance manager simulation gadget: handles contract instance retrieval, nullifier checks, address derivation, and update validation.
-18. `simulation/events/contract_instance_retrieval_event.hpp`
-    - Event structure for contract instance retrieval trace rows.
-
-### Trace Generation
-
-19. `tracegen/bytecode_trace.hpp`
-20. `tracegen/bytecode_trace.cpp`
-    - Processes bytecode events and populates the bc_decomposition, bc_hashing, bc_retrieval, and instr_fetching trace columns.
-21. `tracegen/update_check_trace.hpp`
-22. `tracegen/update_check_trace.cpp`
-    - Processes update check events and populates the trace columns.
-23. `tracegen/contract_instance_retrieval_trace.hpp`
-24. `tracegen/contract_instance_retrieval_trace.cpp`
-    - Processes contract instance retrieval events and populates the trace columns.
-
-### Interfaces and Mocks
-
-25. `simulation/interfaces/bytecode_manager.hpp`
-    - Abstract interface for the bytecode manager.
-26. `simulation/interfaces/bytecode_hashing.hpp`
-    - Abstract interface for bytecode hashing.
-27. `simulation/interfaces/update_check.hpp`
-    - Abstract interface for update check.
-28. `simulation/interfaces/contract_instance_manager.hpp`
-    - Abstract interface for the contract instance manager.
-29. `simulation/testing/mock_update_check.hpp`
-    - Mock update check implementation used in unit tests.
+Note: `public_inputs.pil` defines columns and does not have a generated relation file.
 
 ## Summary of Module
 
@@ -141,32 +98,28 @@ Note: The `get_contract_instance.pil` opcode (used by the GetContractInstance op
 
 ## Reference Documentation
 
-For background on the Aztec Virtual Machine -- its purpose, execution model, instruction set, memory model, gas metering, and error handling -- see the [AVM Reference Documentation](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/yarn-project/simulator/docs/avm/README.md). This is the primary reference for the VM that the circuit is designed to prove.
+For background on the Aztec Virtual Machine -- its purpose, execution model, instruction set, memory model, gas metering, and error handling -- see the [AVM Reference Documentation](../../../../../yarn-project/simulator/docs/avm/README.md). This is the primary reference for the VM that the circuit is designed to prove.
 
-For a comprehensive guide to the AVM **circuit** architecture, trace structure, subtraces, and the proving system, see the [AVM Circuit Guide](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/README.md). In particular, see the sections on [Bytecode Retrieval](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/README.md#bytecode-retrieval).
+For a comprehensive guide to the AVM **circuit** architecture, trace structure, subtraces, and the proving system, see the [AVM Circuit Guide](../docs/README.md). In particular, see the sections on [Bytecode Retrieval](../docs/README.md#bytecode-retrieval).
 
-For standard algebraic patterns and recipes used throughout PIL files, see [VM Circuit Recipes](https://github.com/AztecProtocol/aztec-packages/blob/ab47a6e7754a0cc86278fe9d47c9c8884ca6d363/barretenberg/cpp/pil/vm2/docs/recipes.md).
+For standard algebraic patterns and recipes used throughout PIL files, see [VM Circuit Recipes](../docs/recipes.md).
 
 ## Test Files
 
-### Constraint Tests (relation-level)
-1. `vm2/constraining/relations/bc_decomposition.test.cpp`
-2. `vm2/constraining/relations/bc_hashing.test.cpp`
-3. `vm2/constraining/relations/bc_retrieval.test.cpp`
-4. `vm2/constraining/relations/instr_fetching.test.cpp`
-5. `vm2/constraining/relations/update_check.test.cpp`
-6. `vm2/constraining/relations/contract_instance_retrieval.test.cpp`
+Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
-### Tracegen Tests
-7. `vm2/tracegen/bytecode_trace.test.cpp`
-8. `vm2/tracegen/update_check_trace.test.cpp`
-9. `vm2/tracegen/contract_instance_retrieval_trace.test.cpp`
+- `vm2/constraining/relations/bc_decomposition.test.cpp`
+- `vm2/constraining/relations/bc_hashing.test.cpp`
+- `vm2/constraining/relations/bc_retrieval.test.cpp`
+- `vm2/constraining/relations/instr_fetching.test.cpp`
+- `vm2/constraining/relations/update_check.test.cpp`
+- `vm2/constraining/relations/contract_instance_retrieval.test.cpp`
+- `vm2/tracegen/bytecode_trace.test.cpp`
+- `vm2/tracegen/update_check_trace.test.cpp`
+- `vm2/tracegen/contract_instance_retrieval_trace.test.cpp`
+- `vm2/simulation/gadgets/bytecode_manager.test.cpp`
+- `vm2/simulation/gadgets/bytecode_hashing.test.cpp`
+- `vm2/simulation/gadgets/update_check.test.cpp`
+- `vm2/simulation/gadgets/contract_instance_manager.test.cpp`
+- `vm2/simulation/testing/mock_update_check.test.cpp`
 
-### Simulation/Gadget Tests
-10. `vm2/simulation/gadgets/bytecode_manager.test.cpp`
-11. `vm2/simulation/gadgets/bytecode_hashing.test.cpp`
-12. `vm2/simulation/gadgets/update_check.test.cpp`
-13. `vm2/simulation/gadgets/contract_instance_manager.test.cpp`
-
-### Mock Tests
-14. `vm2/simulation/testing/mock_update_check.test.cpp`
