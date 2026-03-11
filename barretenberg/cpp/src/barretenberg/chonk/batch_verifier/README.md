@@ -188,25 +188,83 @@ The core optimization: batch N IPA verifications into a single MSM.
                       └──────────────────┘
 ```
 
+## Bad Proof Behavior
+
+Invalid proofs are handled at two points in the pipeline, with different costs:
+
+### Phase 1 failures (cheap): sumcheck / Goblin reduction errors
+
+Proofs that fail MegaZK verification, databus consistency, Merge, ECCVM sumcheck, or Translator
+reduction are caught during Phase 1 (`reduce_to_batch_ipa_claim`). These are emitted as FAILED
+immediately — they never enter the IPA batch and do not slow down other proofs.
+
+Cost: only the reduce time for that proof (~60ms with real txs). No impact on batch throughput.
+
+### Phase 2 failures (expensive): IPA bisection
+
+If a proof passes Phase 1 but has an invalid IPA proof (e.g., corrupted Grumpkin commitments),
+it causes the batch IPA to fail. The system then **bisects** the batch:
+
+1. Split the batch in half
+2. Re-verify each half's IPA (using cached claims — no re-reduction)
+3. Recurse on failing halves until the bad proof(s) are isolated
+
+Cost: O(log N) additional IPA verifications per batch. Each IPA verification takes ~170ms on 4 cores.
+With batch_size=30 and 1 bad proof: ~5 extra IPA calls → ~850ms overhead on top of the original ~170ms.
+
+**Benchmark results (120 proofs, 4 cores, batch_size=30):**
+```
+  All good:        1.43s (6.6x speedup)
+  10% sumcheck-bad: 1.35s (7.0x — cheap, caught in Phase 1)
+  10% IPA-bad:     6.89s (1.4x — expensive, triggers bisection)
+  50% IPA-bad:    12.41s (0.8x — slower than sequential)
+```
+
+### Why this is acceptable
+
+IPA-bad proofs require a valid-looking ECCVM sumcheck + Translator but an invalid IPA proof.
+In practice, this requires deliberate adversarial construction — accidental corruption almost
+always fails at the sumcheck level (Phase 1).
+
+The networking layer handles adversarial peers out-of-band: peers that repeatedly send proofs
+triggering IPA bisection are gradually penalized (reduced trust score, eventual disconnection).
+This makes sustained IPA-bad attacks costly for the attacker while keeping the batch verifier's
+happy path fast.
+
 ## Untrusted Pipeline (UntrustedVerifierPool)
 
 Simple fixed-size thread pool. Each proof gets full individual verification (reduce + IPA) on one thread. No batching. The caller promotes sources to trusted after gaining confidence.
 
-## Performance (small test circuits, single machine)
+## Performance
 
-Verification sub-step costs at 1 core:
+### Real transactions (11 Aztec tx types, 120 proofs, 4 cores)
+
+```
+  Sequential:       9.44s   1.0x
+  Batch=8:          2.08s   4.5x
+  Batch=16:         1.64s   5.8x
+  Batch=30:         1.43s   6.6x
+  Batch=60:         1.31s   7.2x
+  Batch=120:        1.26s   7.5x
+```
+
+Real proofs have ~60ms reduce time (vs ~24ms for small test circuits), so the IPA
+bottleneck is proportionally less dominant. The batch pipeline still achieves 6-7x
+speedup on 4 cores. More cores shift the balance further toward IPA batching.
+
+### Piecewise timing (1 core, small test circuits)
 
 ```
   reduce_to_ipa_claim breakdown:
-    MegaZK verify:      7.2 ms   (skippable for fast claim extraction)
+    MegaZK verify:      7.2 ms
     Databus check:      0.0 ms
-    Merge verify:       1.0 ms   (skippable for fast claim extraction)
+    Merge verify:       1.0 ms
     ECCVM reduce:       7.3 ms   ← produces IPA claim (Grumpkin MSM)
-    Translator verify:  5.4 ms   (skippable for fast claim extraction)
+    Translator verify:  5.4 ms
     ─────────────────────────
     Total reduce:      20.9 ms
 
-  IPA single verify:  163.6 ms   (Grumpkin MSM — the bottleneck)
+  IPA single verify:  163.6 ms   (Grumpkin SRS MSM — the bottleneck)
 
   Batch IPA (1 core):
     N=1:   164.9 ms
@@ -215,6 +273,12 @@ Verification sub-step costs at 1 core:
     N=8:   188.3 ms
     N=16:  214.9 ms   ← 16 proofs for the price of ~1.3
 ```
+
+### Why IPA batching works
+
+IPA verification is dominated by a single Grumpkin pippenger MSM of size 2^20 (~1M points).
+`IPA::batch_reduce_verify` combines N proofs' s-vectors with random challenge α, so
+N separate 2^20-MSMs become one 2^20-MSM. The cost grows sublinearly with N.
 
 ## Source Files
 

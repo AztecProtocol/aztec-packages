@@ -16,6 +16,13 @@
  * 3. **Emit results / bisect**: If IPA passes, emit OK for all. If IPA fails,
  *    bisect using cached claims (no re-reduction needed) to find bad proofs.
  *
+ * Bad proof handling:
+ * - Phase 1 failures (sumcheck/Goblin errors): caught during reduce, emitted as FAILED immediately.
+ *   Cost: only reduce time for that proof. No impact on batch throughput.
+ * - Phase 2 failures (invalid IPA): triggers bisection of the batch using cached claims.
+ *   Cost: O(log N) additional IPA verifications. Expensive but requires adversarial construction.
+ *   The networking layer penalizes peers that trigger repeated bisections out-of-band.
+ *
  * Threading: sumcheck workers and IPA cores are dedicated allocations.
  * Sumcheck workers run reduce_to_ipa_claim in parallel (each with set_parallel_for_concurrency(1)).
  * IPA batch uses all IPA cores via parallel_for for the MSM.
