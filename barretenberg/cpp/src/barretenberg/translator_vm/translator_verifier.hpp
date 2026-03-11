@@ -90,6 +90,14 @@ template <typename Flavor> class TranslatorVerifier_ {
     }
 
     /**
+     * @brief Load translator proof and run the pre-sumcheck (Oink-like) phase on the shared transcript.
+     * @details Hashes the VK, sets relation parameters from ECCVM inputs, and receives wire/z_perm
+     * commitments and beta/gamma challenges. After this call, `relation_parameters` is populated.
+     * @return VerifierCommitments populated with the received commitments.
+     */
+    VerifierCommitments receive_pre_sumcheck();
+
+    /**
      * @brief Reduce the translator proof to a pairing check
      * @details Verifies the Translator circuit's internal checks (sumcheck, Libra evaluations consistency) and reduces
      * all polynomial opening claims to a KZG pairing check. This method does NOT perform the final pairing
@@ -110,12 +118,14 @@ template <typename Flavor> class TranslatorVerifier_ {
      */
     std::shared_ptr<VerificationKey> get_verification_key() const { return key; }
 
+    // Relation parameters populated by receive_pre_sumcheck(); public for use by batched verifier.
+    RelationParams relation_parameters;
+
   private:
     std::shared_ptr<VerificationKey> key;
     FF vk_hash;
     std::shared_ptr<Transcript> transcript;
     Proof proof;
-    RelationParams relation_parameters;
 
     // Translation inputs from ECCVM verifier
     BF evaluation_input_x;
