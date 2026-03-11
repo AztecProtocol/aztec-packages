@@ -608,7 +608,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     };
   }
 
-  #onNewPublicFunctionCall(calldataHash: Fr) {
+  /** Validates the calldata preimage exists in the cache and checks cumulative calldata size is within limits. */
+  public validatePublicCalldata(calldataHash: Fr) {
     const calldata = this.executionCache.getPreimage(calldataHash);
     if (!calldata) {
       throw new Error('Calldata for public call not found in cache');
@@ -618,47 +619,14 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     if (this.totalPublicCalldataCount > MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS) {
       throw new Error(`Too many total args to all enqueued public calls! (> ${MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS})`);
     }
-  }
-
-  /**
-   * Verify relevant information when a public function is enqueued.
-   * @param targetContractAddress - The address of the contract to call.
-   * @param calldataHash - The hash of the function selector and arguments.
-   * @param sideEffectCounter - The side effect counter at the start of the call.
-   * @param isStaticCall - Whether the call is a static call.
-   */
-  public notifyEnqueuedPublicFunctionCall(
-    _targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    _sideEffectCounter: number,
-    _isStaticCall: boolean,
-  ) {
-    this.#onNewPublicFunctionCall(calldataHash);
     return Promise.resolve();
   }
 
-  /**
-   * Verify relevant information when a public teardown function is set.
-   * @param targetContractAddress - The address of the contract to call.
-   * @param argsHash - The arguments hash to pass to the function.
-   * @param sideEffectCounter - The side effect counter at the start of the call.
-   * @param isStaticCall - Whether the call is a static call.
-   */
-  public notifySetPublicTeardownFunctionCall(
-    _targetContractAddress: AztecAddress,
-    calldataHash: Fr,
-    _sideEffectCounter: number,
-    _isStaticCall: boolean,
-  ) {
-    this.#onNewPublicFunctionCall(calldataHash);
-    return Promise.resolve();
-  }
-
-  public notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void> {
+  public notifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void> {
     return this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
   }
 
-  public isSideEffectCounterRevertible(sideEffectCounter: number): Promise<boolean> {
+  public inRevertiblePhase(sideEffectCounter: number): Promise<boolean> {
     return Promise.resolve(this.noteCache.isSideEffectCounterRevertible(sideEffectCounter));
   }
 

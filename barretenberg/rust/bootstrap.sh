@@ -67,7 +67,7 @@ function release {
     echo "No GitHub release found for v$version, adding --no-verify (pass REF_NAME matching a release for full verification)"
     extra_flags="--no-verify"
   fi
-  BB_LIB_DIR="$(cd ../cpp/build/lib && pwd)" retry "denoise 'cargo publish --allow-dirty $extra_flags -p barretenberg-rs'"
+  BB_LIB_DIR="$(cd ../cpp/build/lib && pwd)" retry "denoise 'do_or_dryrun cargo publish --allow-dirty $extra_flags -p barretenberg-rs'"
 }
 
 function test_download {

@@ -1,6 +1,7 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -30,7 +31,7 @@ class NoopL1Synchronizer implements FunctionsOf<ArchiverL1Synchronizer> {
     return 0n;
   }
   getL1Timestamp(): bigint | undefined {
-    return 0n;
+    return undefined;
   }
   testEthereumNodeSynced(): Promise<void> {
     return Promise.resolve();
@@ -95,6 +96,11 @@ export class NoopL1Archiver extends Archiver {
     // Just start the running promise without L1 checks
     this.runningPromise.start();
     return Promise.resolve();
+  }
+
+  /** Always reports as fully synced since there is no real L1 to sync from. */
+  public override getSyncedL2SlotNumber(): Promise<SlotNumber | undefined> {
+    return Promise.resolve(SlotNumber(Number.MAX_SAFE_INTEGER));
   }
 }
 

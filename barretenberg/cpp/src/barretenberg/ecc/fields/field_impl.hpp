@@ -520,12 +520,12 @@ template <class T> constexpr field<T> field<T>::tonelli_shanks_sqrt() const noex
     // -----------------------------------------------------------------------------------------
     // STEP 3: Set up precomputed lookup tables for the discrete log computation
     // -----------------------------------------------------------------------------------------
-    // g = r^Q where r is a quadratic non-residue (coset_generator<0>).
+    // g = r^Q where r is a quadratic non-residue (coset_generator).
     // Since r has order (p-1) and Q is the odd part, g has order exactly 2^S.
-    constexpr field g = coset_generator<0>().pow(Q);
+    constexpr field g = coset_generator().pow(Q);
 
     // g_inv = g^{-1} = r^{-Q} = r^{p-1-Q}
-    constexpr field g_inv = coset_generator<0>().pow(modulus - 1 - Q);
+    constexpr field g_inv = coset_generator().pow(modulus - 1 - Q);
 
     // S = primitive_root_log_size() is the 2-adic valuation of (p-1), i.e., the largest power of 2 dividing (p-1).
     constexpr size_t root_bits = primitive_root_log_size();

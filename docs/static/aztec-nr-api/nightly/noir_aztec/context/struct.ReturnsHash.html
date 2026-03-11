@@ -45,12 +45,11 @@
 { <span class="comment">/* private fields */</span> }
 </code></pre>
 <div class="comments">
-<p>A hash that represents a private contract function call's return value. Call <code>get_preimage</code> to get the underlying
-value.</p>
+<p>The hash of a private contract function call's return value.</p>
+<p>Use <a href="../../noir_aztec/context/struct.ReturnsHash.html#get_preimage"><code>ReturnsHash::get_preimage</code></a> to get the underlying value.</p>
 <p>The kernels don't process the actual return values but instead their hashes, so it is up to contracts to populate
 oracles with the preimages of these hashes on return to make them available to their callers.</p>
-<p>Public calls don't utilize this mechanism since the AVM does process the full return values.</p>
-</div>
+<p>Public calls don't utilize this mechanism since the AVM does process the full return values.</p></div>
 <h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../noir_aztec/context/struct.ReturnsHash.html" class="struct">ReturnsHash</a></code></h3>
 

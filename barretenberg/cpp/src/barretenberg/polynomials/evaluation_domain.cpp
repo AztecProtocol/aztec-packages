@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 94f596f8b3bbbc216f9ad7dc33253256141156b2 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -68,8 +68,8 @@ EvaluationDomain<Fr>::EvaluationDomain(const size_t domain_size, const size_t ta
     , generator_size(target_generator_size ? target_generator_size : domain_size)
     , domain(Fr{ size, 0, 0, 0 }.to_montgomery_form())
     , domain_inverse(domain.invert())
-    , generator(Fr::template coset_generator<0>())
-    , generator_inverse(Fr::template coset_generator<0>().invert())
+    , generator(Fr::coset_generator())
+    , generator_inverse(Fr::coset_generator().invert())
     , roots(nullptr)
 {
     // Grumpkin does not have many roots of unity and, given these are not used for Honk, we set it to one.

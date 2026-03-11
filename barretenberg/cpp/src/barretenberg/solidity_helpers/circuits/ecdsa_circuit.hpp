@@ -23,6 +23,12 @@ class EcdsaCircuit {
     using public_witness_ct = stdlib::public_witness_t<Builder>;
     using byte_array_ct = stdlib::byte_array<Builder>;
     using curve = stdlib::secp256k1<Builder>;
+    using base_field = typename curve::BaseField;
+    using scalar_field = typename curve::ScalarField;
+    using base_field_native = typename curve::BaseFieldNative;
+    using scalar_field_native = typename curve::ScalarFieldNative;
+    using group_native = typename curve::GroupNative;
+    using group = typename curve::Group;
     using IO = stdlib::recursion::honk::DefaultIO<Builder>;
 
     static constexpr size_t NUM_PUBLIC_INPUTS = 6;
@@ -33,11 +39,11 @@ class EcdsaCircuit {
 
         // IN CIRCUIT
         // Create an input buffer from public inputs (treating each as a single byte)
-        typename curve::byte_array_ct input_buffer(&builder, std::vector<uint8_t>());
+        byte_array_ct input_buffer(&builder, std::vector<uint8_t>());
         for (size_t i = 0; i < NUM_PUBLIC_INPUTS; ++i) {
             field_ct byte_value = public_witness_ct(&builder, public_inputs[i]);
             // Constrain to be a single byte and create byte_array
-            typename curve::byte_array_ct single_byte(byte_value, 1);
+            byte_array_ct single_byte(byte_value, 1);
             input_buffer.write(single_byte);
         }
 
@@ -46,7 +52,7 @@ class EcdsaCircuit {
         for (size_t i = 0; i < NUM_PUBLIC_INPUTS; ++i) {
             message_string[i] = static_cast<char>(static_cast<uint8_t>(public_inputs[i]));
         }
-        auto message = typename curve::byte_array_ct(&builder, message_string);
+        auto message = byte_array_ct(&builder, message_string);
 
         // Assert that the public inputs buffer matches the message we want
         for (size_t i = 0; i < NUM_PUBLIC_INPUTS; ++i) {
@@ -54,43 +60,38 @@ class EcdsaCircuit {
         }
 
         // UNCONSTRAINED: create a random keypair to sign with
-        crypto::ecdsa_key_pair<typename curve::fr, typename curve::g1> account;
-        account.private_key = curve::fr::random_element();
-        account.public_key = curve::g1::one * account.private_key;
+        crypto::ecdsa_key_pair<scalar_field_native, group_native> account;
+        account.private_key = curve::ScalarFieldNative::random_element();
+        account.public_key = curve::GroupNative::one * account.private_key;
 
         // UNCONSTRAINED: create a sig
         crypto::ecdsa_signature signature = crypto::
-            ecdsa_construct_signature<crypto::Sha256Hasher, typename curve::fq, typename curve::fr, typename curve::g1>(
+            ecdsa_construct_signature<crypto::Sha256Hasher, base_field_native, scalar_field_native, group_native>(
                 message_string, account);
 
         // UNCONSTRAINED: verify the created signature
-        bool dry_run = crypto::
-            ecdsa_verify_signature<crypto::Sha256Hasher, typename curve::fq, typename curve::fr, typename curve::g1>(
+        bool dry_run =
+            crypto::ecdsa_verify_signature<crypto::Sha256Hasher, base_field_native, scalar_field_native, group_native>(
                 message_string, account.public_key, signature);
         if (!dry_run) {
             throw_or_abort("[non circuit]: Sig verification failed");
         }
 
         // IN CIRCUIT: create a witness with the pub key in our circuit
-        typename curve::g1_bigfr_ct public_key = curve::g1_bigfr_ct::from_witness(&builder, account.public_key);
+        group public_key = group::from_witness(&builder, account.public_key);
 
         std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
         std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
 
         // IN CIRCUIT: create a witness with the sig in our circuit
-        stdlib::ecdsa_signature<Builder> sig{ typename curve::byte_array_ct(&builder, rr),
-                                              typename curve::byte_array_ct(&builder, ss) };
+        stdlib::ecdsa_signature<Builder> sig{ byte_array_ct(&builder, rr), byte_array_ct(&builder, ss) };
 
         // Compute H(m) natively and pass as witness (mirrors ACIR which takes pre-hashed message)
         auto hash_arr = crypto::sha256(std::vector<uint8_t>(message_string.begin(), message_string.end()));
-        stdlib::byte_array<Builder> hashed_message(&builder, std::vector<uint8_t>(hash_arr.begin(), hash_arr.end()));
+        byte_array_ct hashed_message(&builder, std::vector<uint8_t>(hash_arr.begin(), hash_arr.end()));
 
         // IN CIRCUIT: verify the signature
-        typename curve::bool_ct signature_result = stdlib::ecdsa_verify_signature<Builder,
-                                                                                  curve,
-                                                                                  typename curve::fq_ct,
-                                                                                  typename curve::bigfr_ct,
-                                                                                  typename curve::g1_bigfr_ct>(
+        bool_ct signature_result = stdlib::ecdsa_verify_signature<Builder, curve, base_field, scalar_field, group>(
             // hashed_message, public_key, sig);
             hashed_message,
             public_key,
