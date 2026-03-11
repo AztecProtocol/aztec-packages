@@ -17,8 +17,9 @@ include "precomputed.pil";
  *
  *   2. tx.pil performs a permutation into calldata_hashing.pil at end rows
  *      (tx.pil #[READ_CALLDATA_HASH]), matching (output_hash, calldata_size, context_id).
- *      This ensures that calldata_hashing produces exactly the hash and size declared by the
- *      transaction for each enqueued call.
+ *      This ensures that calldata_hashing produces exactly the hash declared by the
+ *      transaction for each enqueued call. The `calldata_size` is "returned back" from
+ *      calldata_hashing.pil.
  *
  *   3. calldata_hashing.pil rebuilds the hash from scratch: it prepends a domain separator,
  *      then looks up every calldata field from this trace via #[GET_CALLDATA_FIELD_0/1/2],
@@ -31,7 +32,8 @@ include "precomputed.pil";
  *      permutation between calldata_hashing (at end rows for non-empty calldata) and this
  *      trace (at end rows), checking that (calldata_size, context_id) match
  *      (calldata.index, calldata.context_id). This binds the length of data in this trace
- *      to the length declared in calldata_hashing.
+ *      to the length declared in calldata_hashing. Each computation block in this trace
+ *      enforces to start at index 1, increment by 1 each row and ends at index `calldata_size`.
  *
  *   5. tx.pil dispatches calldata_size to the execution trace (tx.pil #[DISPATCH_EXEC_START]),
  *      which passes it to data_copy.pil for CALLDATACOPY operations. data_copy.pil reads
@@ -45,11 +47,6 @@ include "precomputed.pil";
  * Within each computation block, #[INDEX] constrains that the index starts at 1 after a
  * latch and increments by 1 each row. The final index at end == 1 equals the calldata size,
  * which is enforced by the #[CHECK_FINAL_SIZE] permutation with calldata_hashing.pil.
- * Although this trace does not have a dedicated start column or an explicit "index starts at
- * 1" constraint, correctness follows from #[INDEX]: at a latch boundary, the next row's index
- * is set to sel' * LATCH_CONDITION = 1 (since sel' = 1 for the next active block). Combined
- * with the size permutation, a prover cannot start at the wrong index without mismatching the
- * calldata_size at the end row.
  *
  * EMPTY CALLDATA:
  * When calldata is empty, calldata_hashing.pil hashes only the domain separator (size = 0).
@@ -79,7 +76,7 @@ include "precomputed.pil";
  *
  *   - Inputs: index (starts at 1), context_id.
  *   - Output: value (the calldata field).
- *   - Selector: calldata.sel.
+ *   - Selector on destination: calldata.sel.
  *
  * Pattern 2 — Check final calldata size (calldata_hashing.pil #[CHECK_FINAL_SIZE]):
  *
@@ -87,8 +84,10 @@ include "precomputed.pil";
  *   is
  *   calldata.end { calldata.index, calldata.context_id };
  *
- *   - Inputs: context_id.
- *   - Output: index (equals calldata_size at the final row).
+ *   - Inputs: calldata_size, context_id
+ *   - Outputs: There are no outputs from this permutation. This permutation serves to enforce a
+ *              1-to-1 correspondence between the computation blocks in calldata_hashing.pil and
+ *              this trace for a non-empty calldata.
  *   - Selector on source: sel_end_not_empty (end rows of non-empty calldata only).
  *   - Selector on destination: calldata.end (the final row per context_id).
  *
@@ -109,9 +108,8 @@ include "precomputed.pil";
  * validated by calldata_hashing.pil.
  *
  * INTERACTIONS:
- * - calldata_hashing: lookups for calldata field values (#[GET_CALLDATA_FIELD_0/1/2]) and
- *   final size permutation (#[CHECK_FINAL_SIZE]).
- * - data_copy: lookups for calldata field values during CALLDATACOPY (#[COL_READ]).
+ * This trace is not the source of any interaction. See USAGE above to learn which traces
+ * interact with this trace.
  *
  * @column sel Selector for active rows.
  * @column value The calldata field value (a hint, validated by calldata_hashing.pil).
@@ -151,9 +149,6 @@ namespace calldata;
 
     pol commit value;
     pol commit context_id;
-
-    // The index starts at 1 (no dedicated start column). See INDEX CORRECTNESS above for
-    // why this is sound. All values in this trace are hints validated by calldata_hashing.pil.
     pol commit index;
 
     // Index initializes to 1 at the beginning of a computation block/latch.
