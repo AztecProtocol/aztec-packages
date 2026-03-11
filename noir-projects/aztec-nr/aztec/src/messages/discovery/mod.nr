@@ -8,13 +8,14 @@ pub mod private_notes;
 pub mod process_message;
 
 use crate::{
+    capsules::CapsuleArray,
     messages::{
         discovery::process_message::process_message_ciphertext,
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
-            get_private_logs, MessageContext, pending_tagged_log::PendingTaggedLog,
-            validate_and_store_enqueued_notes_and_events,
+            get_private_logs, MessageContext, offchain::OffchainInboxSync, OffchainMessageWithContext,
+            pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
         },
     },
     utils::array,
@@ -107,6 +108,7 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ComputeNoteHashAndNullifierEnv>,
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
+    offchain_inbox_sync: Option<OffchainInboxSync<()>>,
 ) {
     aztecnr_debug_log!("Performing state synchronization");
 
@@ -133,6 +135,22 @@ pub unconstrained fn do_sync_state<ComputeNoteHashAndNullifierEnv, CustomMessage
         // including any enqueued validation requests.
         logs.remove(i);
     });
+
+    if offchain_inbox_sync.is_some() {
+        let msgs: CapsuleArray<OffchainMessageWithContext> = offchain_inbox_sync.unwrap()(contract_address);
+        msgs.for_each(|i, msg| {
+            process_message_ciphertext(
+                contract_address,
+                compute_note_hash_and_nullifier,
+                process_custom_message,
+                msg.message_ciphertext,
+                msg.message_context,
+            );
+            // The inbox sync returns _a copy_ of messages to process, so we clear them as we do so. This is a
+            // volatile array with the to-process message, not the actual persistent storage of them.
+            msgs.remove(i);
+        });
+    }
 
     // Then we process all pending partial notes, regardless of whether they were found in the current or previous
     // executions.

@@ -425,7 +425,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
     );
     return {
       stats: simulatedTx.stats!,
-      ...extractOffchainOutput(simulatedTx.offchainEffects),
+      ...extractOffchainOutput(simulatedTx.offchainEffects, simulatedTx.publicInputs.expirationTimestamp),
       result: undefined,
       estimatedGas: { gasLimits, teardownGasLimits },
     };
