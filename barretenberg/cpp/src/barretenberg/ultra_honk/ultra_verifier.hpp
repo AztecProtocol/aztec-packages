@@ -224,7 +224,7 @@ template <typename Flavor, class IO> class UltraVerifier_ {
         return verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
     }
 
-  private:
+  protected:
     std::shared_ptr<VKAndHash> vk_and_hash;
     std::shared_ptr<Instance> verifier_instance;
     std::shared_ptr<Transcript> transcript;

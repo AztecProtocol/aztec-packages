@@ -40,7 +40,7 @@ template <typename Flavor_> class UltraProver_ {
     size_t log_dyadic_size() const { return prover_instance->log_dyadic_size(); }
     const std::shared_ptr<Transcript>& get_transcript() const { return transcript; }
 
-  private:
+  protected:
     std::shared_ptr<ProverInstance> prover_instance;
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<HonkVK> honk_vk;

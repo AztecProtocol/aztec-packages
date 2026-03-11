@@ -43,7 +43,7 @@ namespace bb {
  *
  * @tparam Flavor_ MultiMegaFlavor or MultiMegaZKFlavor
  */
-template <IsMultiMegaFlavor Flavor_> class MultiMegaOinkProver_ {
+template <IsMultiMegaFlavor Flavor_> class MultiHonkOinkProver_ {
     using Flavor = Flavor_;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using HonkVK = typename Flavor::VerificationKey;
@@ -70,7 +70,7 @@ template <IsMultiMegaFlavor Flavor_> class MultiMegaOinkProver_ {
     // Storage for interleaved commitments
     typename Flavor::InterleavedCommitments interleaved_commitments;
 
-    MultiMegaOinkProver_(std::shared_ptr<ProverInstance> prover_instance,
+    MultiHonkOinkProver_(std::shared_ptr<ProverInstance> prover_instance,
                          std::shared_ptr<HonkVK> honk_vk,
                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
                          std::string domain_separator = "")
@@ -105,6 +105,6 @@ template <IsMultiMegaFlavor Flavor_> class MultiMegaOinkProver_ {
                                            const std::string& label);
 };
 
-using MultiMegaOinkProver = MultiMegaOinkProver_<MultiMegaFlavor>;
+using MultiHonkOinkProver = MultiHonkOinkProver_<MultiMegaFlavor>;
 
 } // namespace bb

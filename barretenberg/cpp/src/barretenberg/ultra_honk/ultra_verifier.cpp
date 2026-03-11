@@ -10,6 +10,10 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_recursive_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
@@ -301,6 +305,9 @@ template class UltraVerifier_<UltraFlavor, RollupIO>; // Rollup uses UltraFlavor
 template class UltraVerifier_<MegaFlavor, DefaultIO>;
 template class UltraVerifier_<MegaZKFlavor, DefaultIO>;
 template class UltraVerifier_<MegaZKFlavor, HidingKernelIO>; // Chonk
+// MultiMega flavors: only base class utility methods are instantiated here.
+// MultiHonkVerifier_ (in multi_honk_verifier.cpp) overrides reduce_to_pairing_check/verify_proof,
+// so we don't need full UltraVerifier_ instantiation for these flavors.
 
 #ifdef STARKNET_GARAGA_FLAVORS
 template class UltraVerifier_<UltraStarknetFlavor, DefaultIO>;
@@ -343,5 +350,59 @@ template class UltraVerifier_<MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
 // MegaRecursiveFlavor with GoblinAvmIO
 template class UltraVerifier_<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
                               stdlib::recursion::honk::GoblinAvmIO<UltraCircuitBuilder>>;
+
+// MultiMega: explicit member instantiation for base class utility methods used by MultiHonkVerifier_.
+// Full class instantiation would fail because reduce_to_pairing_check uses VerifierCommitments
+// that don't exist for MultiMega flavors (they use interleaved commitments instead).
+
+// Native
+template size_t UltraVerifier_<MultiMegaFlavor, DefaultIO>::compute_log_n() const;
+template std::vector<MultiMegaFlavor::FF> UltraVerifier_<MultiMegaFlavor, DefaultIO>::compute_padding_indicator_array(
+    size_t) const;
+
+template size_t UltraVerifier_<MultiMegaZKFlavor, DefaultIO>::compute_log_n() const;
+template std::vector<MultiMegaZKFlavor::FF> UltraVerifier_<MultiMegaZKFlavor,
+                                                           DefaultIO>::compute_padding_indicator_array(size_t) const;
+
+template size_t UltraVerifier_<MultiMegaZKFlavor, HidingKernelIO>::compute_log_n() const;
+template std::vector<MultiMegaZKFlavor::FF> UltraVerifier_<MultiMegaZKFlavor,
+                                                           HidingKernelIO>::compute_padding_indicator_array(size_t)
+    const;
+
+// Recursive
+template size_t UltraVerifier_<MultiMegaRecursiveFlavor_<UltraCircuitBuilder>,
+                               stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>::compute_log_n() const;
+template auto UltraVerifier_<
+    MultiMegaRecursiveFlavor_<UltraCircuitBuilder>,
+    stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>::compute_padding_indicator_array(size_t) const
+    -> std::vector<FF>;
+
+template size_t UltraVerifier_<MultiMegaRecursiveFlavor_<MegaCircuitBuilder>,
+                               stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>::compute_log_n() const;
+template auto UltraVerifier_<
+    MultiMegaRecursiveFlavor_<MegaCircuitBuilder>,
+    stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>::compute_padding_indicator_array(size_t) const
+    -> std::vector<FF>;
+
+template size_t UltraVerifier_<MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                               stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>::compute_log_n() const;
+template auto UltraVerifier_<
+    MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+    stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>::compute_padding_indicator_array(size_t) const
+    -> std::vector<FF>;
+
+template size_t UltraVerifier_<MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                               stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>::compute_log_n() const;
+template auto UltraVerifier_<
+    MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+    stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>::compute_padding_indicator_array(size_t) const
+    -> std::vector<FF>;
+
+template size_t UltraVerifier_<MultiMegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+                               stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>::compute_log_n() const;
+template auto UltraVerifier_<
+    MultiMegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+    stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>::compute_padding_indicator_array(size_t) const
+    -> std::vector<FF>;
 
 } // namespace bb

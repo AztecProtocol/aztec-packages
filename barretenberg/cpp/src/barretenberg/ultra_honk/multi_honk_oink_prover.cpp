@@ -4,20 +4,19 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
-#include "barretenberg/ultra_honk/multi_mega_oink_prover.hpp"
+#include "barretenberg/ultra_honk/multi_honk_oink_prover.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
-#include "barretenberg/relations/databus_lookup_relation.hpp"
-#include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
+#include "barretenberg/ultra_honk/oink_prover.hpp"
 
 namespace bb {
 
-template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::prove()
+template <IsMultiMegaFlavor Flavor> void MultiHonkOinkProver_<Flavor>::prove()
 {
-    BB_BENCH_NAME("MultiMegaOinkProver::prove");
+    BB_BENCH_NAME("MultiHonkOinkProver::prove");
     if (!commitment_key.initialized()) {
         commitment_key = CommitmentKey(prover_instance->dyadic_size() * BATCH_SIZE);
     }
@@ -43,17 +42,17 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::prove()
 }
 
 template <IsMultiMegaFlavor Flavor>
-typename MultiMegaOinkProver_<Flavor>::Proof MultiMegaOinkProver_<Flavor>::export_proof()
+typename MultiHonkOinkProver_<Flavor>::Proof MultiHonkOinkProver_<Flavor>::export_proof()
 {
     return transcript->export_proof();
 }
 
-template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_preamble_round()
+template <IsMultiMegaFlavor Flavor> void MultiHonkOinkProver_<Flavor>::execute_preamble_round()
 {
-    BB_BENCH_NAME("MultiMegaOinkProver::execute_preamble_round");
+    BB_BENCH_NAME("MultiHonkOinkProver::execute_preamble_round");
     FF vk_hash = honk_vk->hash_with_origin_tagging(*transcript);
     transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
-    vinfo("vk hash in MultiMegaOink prover: ", vk_hash);
+    vinfo("vk hash in MultiHonkOink prover: ", vk_hash);
 
     for (size_t i = 0; i < prover_instance->num_public_inputs(); ++i) {
         auto public_input_i = prover_instance->public_inputs[i];
@@ -61,7 +60,7 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_p
     }
 }
 
-template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::commit_to_masking_poly()
+template <IsMultiMegaFlavor Flavor> void MultiHonkOinkProver_<Flavor>::commit_to_masking_poly()
 {
     if constexpr (Flavor::HasZK) {
         auto& polys = prover_instance->polynomials;
@@ -85,7 +84,7 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::commit_to
 
 template <IsMultiMegaFlavor Flavor>
 template <size_t NUM_POLYS>
-typename MultiMegaOinkProver_<Flavor>::Commitment MultiMegaOinkProver_<Flavor>::commit_interleaved_and_send(
+typename MultiHonkOinkProver_<Flavor>::Commitment MultiHonkOinkProver_<Flavor>::commit_interleaved_and_send(
     std::array<PolynomialSpan<const FF>, NUM_POLYS> polynomials, const std::string& label)
 {
     static_assert(NUM_POLYS <= BATCH_SIZE, "Cannot batch more than BATCH_SIZE polynomials");
@@ -113,9 +112,9 @@ typename MultiMegaOinkProver_<Flavor>::Commitment MultiMegaOinkProver_<Flavor>::
  *   W₆  (unshiftable): [return_data_read_tags, return_data_read_counts, ZERO, ZERO]
  *   W₇  (unshiftable): [return_data, ZERO, ZERO, ZERO]
  */
-template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_wire_commitments_round()
+template <IsMultiMegaFlavor Flavor> void MultiHonkOinkProver_<Flavor>::execute_wire_commitments_round()
 {
-    BB_BENCH_NAME("MultiMegaOinkProver::execute_wire_commitments_round");
+    BB_BENCH_NAME("MultiHonkOinkProver::execute_wire_commitments_round");
 
     auto& polys = prover_instance->polynomials;
 
@@ -201,25 +200,15 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_w
  *   W₆ (shiftable):   [w_4, ZERO, ZERO, ZERO]
  *   W₇ (unshiftable): [lookup_read_counts, lookup_read_tags, ZERO, ZERO]
  */
-template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_sorted_list_accumulator_round()
+template <IsMultiMegaFlavor Flavor> void MultiHonkOinkProver_<Flavor>::execute_sorted_list_accumulator_round()
 {
-    BB_BENCH_NAME("MultiMegaOinkProver::execute_sorted_list_accumulator_round");
+    BB_BENCH_NAME("MultiHonkOinkProver::execute_sorted_list_accumulator_round");
 
     // Get eta challenge and compute powers (eta, eta², eta³)
     prover_instance->relation_parameters.compute_eta_powers(transcript->template get_challenge<FF>("eta"));
 
-    auto wires = prover_instance->polynomials.get_wires();
-    const auto& eta = prover_instance->relation_parameters.eta;
-    const auto& eta_two = prover_instance->relation_parameters.eta_two;
-    const auto& eta_three = prover_instance->relation_parameters.eta_three;
-    for (const auto& gate_idx : prover_instance->memory_read_records) {
-        wires[3].at(gate_idx) =
-            wires[2][gate_idx] * eta_three + wires[1][gate_idx] * eta_two + wires[0][gate_idx] * eta;
-    }
-    for (const auto& gate_idx : prover_instance->memory_write_records) {
-        wires[3].at(gate_idx) =
-            wires[2][gate_idx] * eta_three + wires[1][gate_idx] * eta_two + wires[0][gate_idx] * eta + 1;
-    }
+    // Add RAM/ROM memory records to wire 4 (reuse OinkProver's static method)
+    OinkProver<Flavor>::add_ram_rom_memory_records_to_wire_4(*prover_instance);
 
     auto& polys = prover_instance->polynomials;
 
@@ -245,26 +234,17 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_s
  * Round 3 (after beta/gamma) - 1 interleaved commit:
  *   W₈ (unshiftable): [lookup_inverses, calldata_inverses, secondary_calldata_inverses, return_data_inverses]
  */
-template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_log_derivative_inverse_round()
+template <IsMultiMegaFlavor Flavor> void MultiHonkOinkProver_<Flavor>::execute_log_derivative_inverse_round()
 {
-    BB_BENCH_NAME("MultiMegaOinkProver::execute_log_derivative_inverse_round");
+    BB_BENCH_NAME("MultiHonkOinkProver::execute_log_derivative_inverse_round");
 
     auto [beta, gamma] = transcript->template get_challenges<FF>(
         std::array<std::string, 2>{ domain_separator + "beta", domain_separator + "gamma" });
     prover_instance->relation_parameters.compute_beta_powers(beta);
     prover_instance->relation_parameters.gamma = gamma;
 
-    // Compute the inverses used in log-derivative lookup relations
-    auto& polynomials = prover_instance->polynomials;
-    auto& relation_parameters = prover_instance->relation_parameters;
-    const size_t circuit_size = prover_instance->dyadic_size();
-    LogDerivLookupRelation<FF>::compute_logderivative_inverse(polynomials, relation_parameters, circuit_size);
-    DatabusLookupRelation<FF>::template compute_logderivative_inverse<0>(
-        polynomials, relation_parameters, circuit_size);
-    DatabusLookupRelation<FF>::template compute_logderivative_inverse<1>(
-        polynomials, relation_parameters, circuit_size);
-    DatabusLookupRelation<FF>::template compute_logderivative_inverse<2>(
-        polynomials, relation_parameters, circuit_size);
+    // Compute the inverses used in log-derivative lookup relations (reuse OinkProver's static method)
+    OinkProver<Flavor>::compute_logderivative_inverses(*prover_instance);
 
     auto& polys = prover_instance->polynomials;
 
@@ -287,16 +267,12 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_l
  * Round 4 - 1 interleaved commit:
  *   W₉ (shiftable): [z_perm, ZERO, ZERO, ZERO]
  */
-template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_grand_product_computation_round()
+template <IsMultiMegaFlavor Flavor> void MultiHonkOinkProver_<Flavor>::execute_grand_product_computation_round()
 {
-    BB_BENCH_NAME("MultiMegaOinkProver::execute_grand_product_computation_round");
+    BB_BENCH_NAME("MultiHonkOinkProver::execute_grand_product_computation_round");
 
-    // Compute the permutation grand product polynomial
-    auto& rel_params = prover_instance->relation_parameters;
-    rel_params.public_input_delta = compute_public_input_delta<Flavor>(
-        prover_instance->public_inputs, rel_params.beta, rel_params.gamma, prover_instance->pub_inputs_offset());
-    compute_grand_product<Flavor, UltraPermutationRelation<FF>>(
-        prover_instance->polynomials, rel_params, prover_instance->get_final_active_wire_idx() + 1);
+    // Compute the permutation grand product polynomial (reuse OinkProver's static method)
+    OinkProver<Flavor>::compute_grand_product_polynomial(*prover_instance);
 
     auto& polys = prover_instance->polynomials;
 
@@ -309,9 +285,9 @@ template <IsMultiMegaFlavor Flavor> void MultiMegaOinkProver_<Flavor>::execute_g
 }
 
 template <IsMultiMegaFlavor Flavor>
-typename MultiMegaOinkProver_<Flavor>::SubrelationSeparator MultiMegaOinkProver_<Flavor>::generate_alpha_round()
+typename MultiHonkOinkProver_<Flavor>::SubrelationSeparator MultiHonkOinkProver_<Flavor>::generate_alpha_round()
 {
-    BB_BENCH_NAME("MultiMegaOinkProver::generate_alpha_round");
+    BB_BENCH_NAME("MultiHonkOinkProver::generate_alpha_round");
 
     // Get the single alpha challenge for sumcheck computation
     // Powers of this challenge will be used to batch subrelations
@@ -319,7 +295,7 @@ typename MultiMegaOinkProver_<Flavor>::SubrelationSeparator MultiMegaOinkProver_
 }
 
 // Explicit template instantiations
-template class MultiMegaOinkProver_<MultiMegaFlavor>;
-template class MultiMegaOinkProver_<MultiMegaZKFlavor>;
+template class MultiHonkOinkProver_<MultiMegaFlavor>;
+template class MultiHonkOinkProver_<MultiMegaZKFlavor>;
 
 } // namespace bb

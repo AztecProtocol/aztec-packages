@@ -6,7 +6,7 @@
  * representing F(X) = f₀(X⁴) + X·f₁(X⁴) + X²·f₂(X⁴) + X³·f₃(X⁴), and opening both
  * F(u) and F_shifted(u) with shift_exponent=4.
  *
- * Mimics the flow in MultiMegaProver/Verifier where:
+ * Mimics the flow in MultiHonkProver/Verifier where:
  * - Prover commits to interleaved polynomial
  * - Sumcheck produces individual polynomial evaluations
  * - Verifier reconstructs batched evaluation using Lagrange basis
@@ -86,7 +86,7 @@ class ShpleminiInterleavedTest : public CommitmentTest<curve::BN254> {
     }
 
     /**
-     * @brief Compute Lagrange basis for interleaving (same as MultiMegaVerifier)
+     * @brief Compute Lagrange basis for interleaving (same as MultiHonkVerifier)
      * @details L₀ = (1-u₀)(1-u₁), L₁ = u₀(1-u₁), L₂ = (1-u₀)u₁, L₃ = u₀·u₁
      */
     std::array<Fr, BATCH_SIZE> compute_lagrange_basis(const Fr& u0, const Fr& u1)
@@ -100,7 +100,7 @@ class ShpleminiInterleavedTest : public CommitmentTest<curve::BN254> {
     }
 
     /**
-     * @brief Compute batched evaluation (same as MultiMegaVerifier::compute_batched_evaluation)
+     * @brief Compute batched evaluation (same as MultiHonkVerifier::compute_batched_evaluation)
      * @details F(u) = Σⱼ fⱼ(u) · Lⱼ(u₀,u₁)
      */
     Fr compute_batched_evaluation(const std::array<Fr, BATCH_SIZE>& lagrange_basis,

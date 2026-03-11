@@ -4,7 +4,7 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
-#include "barretenberg/ultra_honk/multi_mega_verifier.hpp"
+#include "barretenberg/ultra_honk/multi_honk_verifier.hpp"
 #include "barretenberg/commitment_schemes/interleaved_group_batching.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
@@ -18,83 +18,56 @@
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
-#include "barretenberg/ultra_honk/multi_mega_oink_verifier.hpp"
+#include "barretenberg/ultra_honk/multi_honk_oink_verifier.hpp"
 
 namespace bb {
 
-template <IsMultiMegaFlavor Flavor, class IO> size_t MultiMegaVerifier_<Flavor, IO>::compute_log_n() const
-{
-    if constexpr (Flavor::USE_PADDING) {
-        return static_cast<size_t>(Flavor::VIRTUAL_LOG_N);
-    } else {
-        return static_cast<size_t>(verifier_instance->get_vk()->log_circuit_size);
-    }
-}
-
 template <IsMultiMegaFlavor Flavor, class IO>
-std::vector<typename MultiMegaVerifier_<Flavor, IO>::FF> MultiMegaVerifier_<Flavor, IO>::
-    compute_padding_indicator_array(size_t log_n) const
-{
-    std::vector<FF> padding_indicator_array(log_n, FF{ 1 });
-    if constexpr (Flavor::HasZK && Flavor::USE_PADDING) {
-        auto vk_ptr = verifier_instance->get_vk();
-        if constexpr (IsRecursive) {
-            padding_indicator_array =
-                stdlib::compute_padding_indicator_array<Curve, Flavor::VIRTUAL_LOG_N>(vk_ptr->log_circuit_size);
-        } else {
-            const size_t log_circuit_size = static_cast<size_t>(vk_ptr->log_circuit_size);
-            for (size_t idx = 0; idx < log_n; idx++) {
-                padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
-            }
-        }
-    }
-    return padding_indicator_array;
-}
-
-template <IsMultiMegaFlavor Flavor, class IO>
-typename MultiMegaVerifier_<Flavor, IO>::ReductionResult MultiMegaVerifier_<Flavor, IO>::reduce_to_pairing_check(
+typename MultiHonkVerifier_<Flavor, IO>::ReductionResult MultiHonkVerifier_<Flavor, IO>::reduce_to_pairing_check(
     const Proof& proof)
 {
     using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
 
-    transcript->load_proof(proof);
+    this->transcript->load_proof(proof);
 
-    // Compute log_n first (needed for proof layout calculation)
-    const size_t log_n = compute_log_n();
+    // Reuse base class compute_log_n
+    const size_t log_n = this->compute_log_n();
 
     // Derive num_public_inputs from proof size
     const size_t num_public_inputs = ProofLength::Honk<Flavor>::derive_num_public_inputs(proof.size(), log_n);
 
-    // Use MultiMegaOinkVerifier to receive interleaved commitments only
-    MultiMegaOinkVerifier_<Flavor> oink_verifier{ verifier_instance, transcript, num_public_inputs };
+    // Use MultiHonkOinkVerifier to receive interleaved commitments
+    MultiHonkOinkVerifier_<Flavor> oink_verifier{ this->verifier_instance, this->transcript, num_public_inputs };
     oink_verifier.verify();
 
-    // Compute padding indicator array for sumcheck
-    auto sumcheck_padding_indicator_array = compute_padding_indicator_array(log_n);
-    verifier_instance->gate_challenges =
-        transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
+    // Reuse base class compute_padding_indicator_array
+    auto sumcheck_padding_indicator_array = this->compute_padding_indicator_array(log_n);
+    this->verifier_instance->gate_challenges =
+        this->transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
 
     // Construct the sumcheck verifier
-    SumcheckVerifier<Flavor> sumcheck(transcript, verifier_instance->alpha, log_n);
+    SumcheckVerifier<Flavor> sumcheck(this->transcript, this->verifier_instance->alpha, log_n);
 
     // Receive commitments to Libra masking polynomials for ZKFlavors
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     if constexpr (Flavor::HasZK) {
-        libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+        libra_commitments[0] =
+            this->transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
 
     // Run the sumcheck verifier
-    SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(
-        verifier_instance->relation_parameters, verifier_instance->gate_challenges, sumcheck_padding_indicator_array);
+    SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(this->verifier_instance->relation_parameters,
+                                                             this->verifier_instance->gate_challenges,
+                                                             sumcheck_padding_indicator_array);
 
     // Get interleaving challenges (must match prover order - before Libra grand_sum/quotient)
-    FF u0 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_0");
-    FF u1 = transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_1");
+    FF u0 = this->transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_0");
+    FF u1 = this->transcript->template get_challenge<FF>("Shplemini:interleaving_challenge_1");
 
     // Receive Libra grand_sum and quotient commitments (sent by SmallSubgroupIPA after interleaving challenges)
     if constexpr (Flavor::HasZK) {
-        libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
-        libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
+        libra_commitments[1] = this->transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
+        libra_commitments[2] = this->transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
     }
 
     // Compute Lagrange basis from the interleaving challenges
@@ -108,8 +81,6 @@ typename MultiMegaVerifier_<Flavor, IO>::ReductionResult MultiMegaVerifier_<Flav
     full_challenge.insert(full_challenge.end(), sumcheck_output.challenge.begin(), sumcheck_output.challenge.end());
 
     // PCS padding indicator array must match full_challenge size (= log_n + INTERLEAVING_LOG_K).
-    // The interleaving rounds are always "real" (indicator=1), then sumcheck rounds use the
-    // sumcheck padding indicator (which has 0s for ZK padding rounds beyond log_circuit_size).
     const size_t pcs_log_n = full_challenge.size();
     std::vector<FF> pcs_padding_indicator_array;
     pcs_padding_indicator_array.reserve(pcs_log_n);
@@ -120,12 +91,12 @@ typename MultiMegaVerifier_<Flavor, IO>::ReductionResult MultiMegaVerifier_<Flav
                                        sumcheck_padding_indicator_array.begin(),
                                        sumcheck_padding_indicator_array.end());
 
-    auto& interleaved = verifier_instance->interleaved_commitments;
+    auto& interleaved = this->verifier_instance->interleaved_commitments;
     auto& evals = sumcheck_output.claimed_evaluations;
-    auto vk = verifier_instance->get_vk();
+    auto vk = this->verifier_instance->get_vk();
 
-    constexpr size_t NUM_UNSHIFTED = Flavor::NUM_ALL_INTERLEAVED_COMMITMENTS;     // 17 (non-ZK) or 18 (ZK)
-    constexpr size_t NUM_SHIFTED = Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS; // 3
+    constexpr size_t NUM_UNSHIFTED = Flavor::NUM_ALL_INTERLEAVED_COMMITMENTS;
+    constexpr size_t NUM_SHIFTED = Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
     constexpr size_t BATCH_SIZE = Flavor::INTERLEAVING_BATCH_SIZE;
 
     // Collect commitments into vectors
@@ -143,7 +114,7 @@ typename MultiMegaVerifier_<Flavor, IO>::ReductionResult MultiMegaVerifier_<Flav
 
     // Get batching challenges and batch claims using shared module
     auto [unshifted_challenges, shifted_challenges] =
-        get_interleaved_batching_challenges<FF>(transcript, NUM_UNSHIFTED, NUM_SHIFTED);
+        get_interleaved_batching_challenges<FF>(this->transcript, NUM_UNSHIFTED, NUM_SHIFTED);
 
     auto [batched_unshifted_comm, batched_shifted_comm, batched_unshifted_eval, batched_shifted_eval] =
         batch_interleaved_verifier_claims(unshifted_comms_vec,
@@ -157,8 +128,6 @@ typename MultiMegaVerifier_<Flavor, IO>::ReductionResult MultiMegaVerifier_<Flav
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
-    // With ψ pre-batching, pass 1 unshifted + 1 shifted commitment/evaluation to Shplemini.
-    // The ρ layer inside Shplemini is trivially correct with 2 polynomials.
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ RefVector<Commitment>(batched_unshifted_comm), RefVector<FF>(batched_unshifted_eval) },
         .shifted = ClaimBatch{ RefVector<Commitment>(batched_shifted_comm), RefVector<FF>(batched_shifted_eval) },
@@ -167,7 +136,7 @@ typename MultiMegaVerifier_<Flavor, IO>::ReductionResult MultiMegaVerifier_<Flav
 
     const Commitment one_commitment = [&]() {
         if constexpr (IsRecursive) {
-            return Commitment::one(builder);
+            return Commitment::one(this->builder);
         } else {
             return Commitment::one();
         }
@@ -177,24 +146,25 @@ typename MultiMegaVerifier_<Flavor, IO>::ReductionResult MultiMegaVerifier_<Flav
                                                                    claim_batcher,
                                                                    full_challenge,
                                                                    one_commitment,
-                                                                   transcript,
+                                                                   this->transcript,
                                                                    Flavor::REPEATED_COMMITMENTS,
                                                                    libra_commitments,
                                                                    sumcheck_output.claimed_libra_evaluation);
 
     ReductionResult result;
+    using PCS = typename Flavor::PCS;
     result.pairing_points = PCS::reduce_verify_batch_opening_claim(
-        std::move(shplemini_output.batch_opening_claim), transcript, Flavor::FINAL_PCS_MSM_SIZE(log_n));
+        std::move(shplemini_output.batch_opening_claim), this->transcript, Flavor::FINAL_PCS_MSM_SIZE(log_n));
 
     if constexpr (Flavor::HasZK) {
         bool consistency_checked = shplemini_output.consistency_checked;
-        vinfo("MultiMegaVerifier (ZK): consistency_checked=",
+        vinfo("MultiHonkVerifier (ZK): consistency_checked=",
               consistency_checked ? "true" : "false",
               " sumcheck_verified=",
               sumcheck_output.verified ? "true" : "false");
         result.reduction_succeeded = sumcheck_output.verified && consistency_checked;
     } else {
-        vinfo("MultiMegaVerifier sumcheck_verified: ", sumcheck_output.verified ? "true" : "false");
+        vinfo("MultiHonkVerifier sumcheck_verified: ", sumcheck_output.verified ? "true" : "false");
         result.reduction_succeeded = sumcheck_output.verified;
     }
 
@@ -202,22 +172,22 @@ typename MultiMegaVerifier_<Flavor, IO>::ReductionResult MultiMegaVerifier_<Flav
 }
 
 template <IsMultiMegaFlavor Flavor, class IO>
-typename MultiMegaVerifier_<Flavor, IO>::Output MultiMegaVerifier_<Flavor, IO>::verify_proof(const Proof& proof)
+typename MultiHonkVerifier_<Flavor, IO>::Output MultiHonkVerifier_<Flavor, IO>::verify_proof(const Proof& proof)
 {
     // Reduce to pairing check
     auto [pcs_pairing_points, reduction_succeeded] = reduce_to_pairing_check(proof);
-    vinfo("MultiMegaVerifier: reduced to pairing check: ", reduction_succeeded ? "true" : "false");
+    vinfo("MultiHonkVerifier: reduced to pairing check: ", reduction_succeeded ? "true" : "false");
 
     if constexpr (!IsRecursive) {
         if (!reduction_succeeded) {
-            vinfo("MultiMegaVerifier: verification failed at reduction step");
+            vinfo("MultiHonkVerifier: verification failed at reduction step");
             return Output{};
         }
     }
 
     // Process public inputs
     IO inputs;
-    inputs.reconstruct_from_public(verifier_instance->public_inputs);
+    inputs.reconstruct_from_public(this->verifier_instance->public_inputs);
 
     // Aggregate pairing points
     PairingPoints pi_pairing_points = inputs.pairing_inputs;
@@ -233,7 +203,7 @@ typename MultiMegaVerifier_<Flavor, IO>::Output MultiMegaVerifier_<Flavor, IO>::
         bool pairing_verified = pi_pairing_points.check();
 
         if (!pairing_verified) {
-            vinfo("MultiMegaVerifier: verification failed at pairing check");
+            vinfo("MultiHonkVerifier: verification failed at pairing check");
             return Output{};
         }
 
@@ -244,20 +214,20 @@ typename MultiMegaVerifier_<Flavor, IO>::Output MultiMegaVerifier_<Flavor, IO>::
 }
 
 // Native flavor instantiations
-template class MultiMegaVerifier_<MultiMegaFlavor, DefaultIO>;
-template class MultiMegaVerifier_<MultiMegaZKFlavor, DefaultIO>;
-template class MultiMegaVerifier_<MultiMegaZKFlavor, HidingKernelIO>;
+template class MultiHonkVerifier_<MultiMegaFlavor, DefaultIO>;
+template class MultiHonkVerifier_<MultiMegaZKFlavor, DefaultIO>;
+template class MultiHonkVerifier_<MultiMegaZKFlavor, HidingKernelIO>;
 
 // Recursive flavor instantiations
-template class MultiMegaVerifier_<MultiMegaRecursiveFlavor_<UltraCircuitBuilder>,
+template class MultiHonkVerifier_<MultiMegaRecursiveFlavor_<UltraCircuitBuilder>,
                                   stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>;
-template class MultiMegaVerifier_<MultiMegaRecursiveFlavor_<MegaCircuitBuilder>,
+template class MultiHonkVerifier_<MultiMegaRecursiveFlavor_<MegaCircuitBuilder>,
                                   stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>;
-template class MultiMegaVerifier_<MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+template class MultiHonkVerifier_<MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
                                   stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>;
-template class MultiMegaVerifier_<MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+template class MultiHonkVerifier_<MultiMegaZKRecursiveFlavor_<UltraCircuitBuilder>,
                                   stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>;
-template class MultiMegaVerifier_<MultiMegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+template class MultiHonkVerifier_<MultiMegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                   stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>;
 
 } // namespace bb

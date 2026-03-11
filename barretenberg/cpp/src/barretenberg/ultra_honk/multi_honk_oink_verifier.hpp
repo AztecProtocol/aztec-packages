@@ -41,7 +41,7 @@ namespace bb {
  *
  * @tparam Flavor_ MultiMegaFlavor, MultiMegaZKFlavor, or recursive variants
  */
-template <IsMultiMegaFlavor Flavor_> class MultiMegaOinkVerifier_ {
+template <IsMultiMegaFlavor Flavor_> class MultiHonkOinkVerifier_ {
     using Flavor = Flavor_;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
@@ -62,7 +62,7 @@ template <IsMultiMegaFlavor Flavor_> class MultiMegaOinkVerifier_ {
     // Number of public inputs - provided by caller
     size_t num_public_inputs;
 
-    MultiMegaOinkVerifier_(const std::shared_ptr<Instance>& verifier_instance,
+    MultiHonkOinkVerifier_(const std::shared_ptr<Instance>& verifier_instance,
                            const std::shared_ptr<Transcript>& transcript,
                            size_t num_public_inputs,
                            std::string domain_separator = "")
@@ -82,6 +82,6 @@ template <IsMultiMegaFlavor Flavor_> class MultiMegaOinkVerifier_ {
     SubrelationSeparator generate_alpha_round();
 };
 
-using MultiMegaOinkVerifier = MultiMegaOinkVerifier_<MultiMegaFlavor>;
+using MultiHonkOinkVerifier = MultiHonkOinkVerifier_<MultiMegaFlavor>;
 
 } // namespace bb

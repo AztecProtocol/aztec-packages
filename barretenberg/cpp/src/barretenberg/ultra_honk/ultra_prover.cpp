@@ -8,6 +8,8 @@
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 namespace bb {
@@ -157,5 +159,18 @@ template class UltraProver_<UltraKeccakZKFlavor>;
 template class UltraProver_<MegaFlavor>;
 template class UltraProver_<MegaZKFlavor>;
 template class UltraProver_<MegaAvmFlavor>;
+
+// MultiMega: explicit member instantiation (full class instantiation would fail for construct_proof/execute_pcs)
+template UltraProver_<MultiMegaFlavor>::UltraProver_(std::shared_ptr<ProverInstance>,
+                                                     const std::shared_ptr<HonkVK>&,
+                                                     const std::shared_ptr<Transcript>&);
+template UltraProver_<MultiMegaFlavor>::Proof UltraProver_<MultiMegaFlavor>::export_proof();
+template void UltraProver_<MultiMegaFlavor>::generate_gate_challenges();
+
+template UltraProver_<MultiMegaZKFlavor>::UltraProver_(std::shared_ptr<ProverInstance>,
+                                                       const std::shared_ptr<HonkVK>&,
+                                                       const std::shared_ptr<Transcript>&);
+template UltraProver_<MultiMegaZKFlavor>::Proof UltraProver_<MultiMegaZKFlavor>::export_proof();
+template void UltraProver_<MultiMegaZKFlavor>::generate_gate_challenges();
 
 } // namespace bb

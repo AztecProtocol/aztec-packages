@@ -8,6 +8,7 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/multi_mega_flavor.hpp"
+#include "barretenberg/flavor/multi_mega_zk_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
@@ -295,5 +296,13 @@ template class OinkProver<UltraKeccakZKFlavor>;
 template class OinkProver<MegaFlavor>;
 template class OinkProver<MegaZKFlavor>;
 template class OinkProver<MegaAvmFlavor>;
+
+// MultiMega: only static helper methods (called by MultiHonkOinkProver)
+template void OinkProver<MultiMegaFlavor>::add_ram_rom_memory_records_to_wire_4(ProverInstance_<MultiMegaFlavor>&);
+template void OinkProver<MultiMegaFlavor>::compute_logderivative_inverses(ProverInstance_<MultiMegaFlavor>&);
+template void OinkProver<MultiMegaFlavor>::compute_grand_product_polynomial(ProverInstance_<MultiMegaFlavor>&);
+template void OinkProver<MultiMegaZKFlavor>::add_ram_rom_memory_records_to_wire_4(ProverInstance_<MultiMegaZKFlavor>&);
+template void OinkProver<MultiMegaZKFlavor>::compute_logderivative_inverses(ProverInstance_<MultiMegaZKFlavor>&);
+template void OinkProver<MultiMegaZKFlavor>::compute_grand_product_polynomial(ProverInstance_<MultiMegaZKFlavor>&);
 
 } // namespace bb
