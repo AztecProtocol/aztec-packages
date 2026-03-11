@@ -532,8 +532,8 @@ describe('ValidatorClient', () => {
       blockSource.getBlockDataByArchive.mockResolvedValueOnce(undefined);
       blockSource.getBlockDataByArchive.mockResolvedValueOnce(undefined);
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
-      // Initial getParentBlock retries 3 undefined + 1 success = 4, then re-check after sync = 5
-      expect(blockSource.getBlockDataByArchive).toHaveBeenCalledTimes(5);
+      // Direct call returns undefined, then retryUntil: 2 undefined + 1 success = 4 total
+      expect(blockSource.getBlockDataByArchive).toHaveBeenCalledTimes(4);
       expect(isValid).toBe(true);
     });
 
