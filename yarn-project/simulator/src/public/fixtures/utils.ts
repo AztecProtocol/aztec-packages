@@ -62,13 +62,14 @@ export async function createTxForPublicCalls(
   feePayer = AztecAddress.zero(),
   gasUsedByPrivate: Gas = Gas.empty(),
   globals: GlobalVariables = GlobalVariables.empty(),
+  gasLimits?: Gas,
 ): Promise<Tx> {
   assert(
     setupCallRequests.length > 0 || appCallRequests.length > 0 || teardownCallRequest !== undefined,
     "Can't create public tx with no enqueued calls",
   );
   // use max limits
-  const gasLimits = new Gas(DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT);
+  gasLimits = gasLimits ?? new Gas(DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT);
 
   const forPublic = PartialPrivateTailPublicInputsForPublic.empty();
 
@@ -134,13 +135,13 @@ export async function createTxForPublicCalls(
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
   const header = BlockHeader.empty({ globalVariables: globals });
   const constantData = new TxConstantData(header, txContext, Fr.zero(), Fr.zero());
-  const includeByTimestamp = 0n; // Not used in the simulator.
+  const expirationTimestamp = 0n; // Not used in the simulator.
 
   const txData = new PrivateKernelTailCircuitPublicInputs(
     constantData,
     /*gasUsed=*/ gasUsedByPrivate,
     feePayer,
-    includeByTimestamp,
+    expirationTimestamp,
     forPublic,
   );
 
@@ -171,13 +172,13 @@ export async function createTxForPrivateOnly(
   const gasSettings = new GasSettings(gasLimits, Gas.empty(), maxFeesPerGas, GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
   const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
-  const includeByTimestamp = 0n; // Not used in the simulator.
+  const expirationTimestamp = 0n; // Not used in the simulator.
 
   const txData = new PrivateKernelTailCircuitPublicInputs(
     constantData,
     /*gasUsed=*/ gasUsedByPrivate,
     feePayer,
-    includeByTimestamp,
+    expirationTimestamp,
     /*forPublic=*/ undefined,
     forRollup,
   );

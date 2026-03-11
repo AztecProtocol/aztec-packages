@@ -1,17 +1,22 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { DefaultL1ContractsConfig, type L1ContractsConfig } from '@aztec/ethereum/config';
+import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
   type EmpireSlashingProposerContract,
   type GovernanceProposerContract,
   Multicall3,
   type RollupContract,
 } from '@aztec/ethereum/contracts';
-import { type GasPrice, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from '@aztec/ethereum/l1-tx-utils';
-import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import {
+  type GasPrice,
+  type L1TxUtils,
+  type L1TxUtilsConfig,
+  defaultL1TxUtilsConfig,
+} from '@aztec/ethereum/l1-tx-utils';
 import { FormattedViemError } from '@aztec/ethereum/utils';
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -58,7 +63,7 @@ describe('SequencerPublisher', () => {
   let slashingProposerContract: MockProxy<EmpireSlashingProposerContract>;
   let governanceProposerContract: MockProxy<GovernanceProposerContract>;
   let slashFactoryContract: MockProxy<SlashFactoryContract>;
-  let l1TxUtils: MockProxy<L1TxUtilsWithBlobs>;
+  let l1TxUtils: MockProxy<L1TxUtils>;
   let l1Metrics: MockProxy<SequencerPublisherMetrics>;
   let forwardSpy: jest.SpiedFunction<typeof Multicall3.forward>;
 
@@ -101,7 +106,7 @@ describe('SequencerPublisher', () => {
     testHarnessAttesterAccount = privateKeyToAccount(
       '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
     );
-    l1TxUtils = mock<L1TxUtilsWithBlobs>();
+    l1TxUtils = mock<L1TxUtils>();
     l1TxUtils.getBlock.mockResolvedValue({ timestamp: 12n } as any);
     l1TxUtils.getBlockNumber.mockResolvedValue(1n);
     l1TxUtils.getSenderAddress.mockReturnValue(EthAddress.fromString(testHarnessAttesterAccount.address));
@@ -113,7 +118,6 @@ describe('SequencerPublisher', () => {
         rollupAddress: EthAddress.ZERO.toString(),
         governanceProposerAddress: mockGovernanceProposerAddress,
       },
-      ethereumSlotDuration: DefaultL1ContractsConfig.ethereumSlotDuration,
 
       ...defaultL1TxUtilsConfig,
     } as unknown as TxSenderConfig &
@@ -123,6 +127,7 @@ describe('SequencerPublisher', () => {
 
     rollup = mock<RollupContract>();
     rollup.validateHeader.mockReturnValue(Promise.resolve());
+    rollup.getL1StartBlock.mockResolvedValue(1n);
     (rollup as any).address = mockRollupAddress;
     forwardSpy = jest.spyOn(Multicall3, 'forward');
 
@@ -203,7 +208,7 @@ describe('SequencerPublisher', () => {
 
   it('bundles propose and vote tx to l1', async () => {
     const checkpoint = new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber);
-    const expectedBlobs = getBlobsPerL1Block(checkpoint.toBlobFields());
+    const expectedBlobs = await getBlobsPerL1Block(checkpoint.toBlobFields());
     await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty());
 
     const { govPayload, voteSig } = mockGovernancePayload();
@@ -293,6 +298,140 @@ describe('SequencerPublisher', () => {
     );
     const result = await publisher.sendRequests();
     expect(result).toEqual(undefined);
+  });
+
+  describe('publisher rotation on send failure', () => {
+    let secondL1TxUtils: MockProxy<L1TxUtils>;
+    let getNextPublisher: jest.MockedFunction<(excludeAddresses: EthAddress[]) => Promise<L1TxUtils | undefined>>;
+    let rotatingPublisher: SequencerPublisher;
+
+    beforeEach(() => {
+      secondL1TxUtils = mock<L1TxUtils>();
+      secondL1TxUtils.getBlockNumber.mockResolvedValue(1n);
+      secondL1TxUtils.getSenderAddress.mockReturnValue(EthAddress.random());
+      secondL1TxUtils.getSenderBalance.mockResolvedValue(1000n);
+
+      getNextPublisher = jest.fn();
+
+      const epochCache = mock<EpochCache>();
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(2),
+        ts: 3n,
+        nowMs: 3000n,
+      });
+      epochCache.getCommittee.mockResolvedValue({
+        committee: [],
+        seed: 1n,
+        epoch: EpochNumber(1),
+        isEscapeHatchOpen: false,
+      });
+
+      rotatingPublisher = new SequencerPublisher({ ethereumSlotDuration: 12, l1ChainId: 1 } as any, {
+        blobClient,
+        rollupContract: rollup,
+        l1TxUtils,
+        epochCache,
+        slashingProposerContract,
+        governanceProposerContract,
+        slashFactoryContract,
+        dateProvider: new TestDateProvider(),
+        metrics: l1Metrics,
+        lastActions: {},
+        getNextPublisher,
+      });
+    });
+
+    it('rotates to next publisher when forward throws and retries successfully', async () => {
+      forwardSpy
+        .mockRejectedValueOnce(new Error('RPC error'))
+        .mockResolvedValueOnce({ receipt: proposeTxReceipt, errorMsg: undefined });
+      getNextPublisher.mockResolvedValueOnce(secondL1TxUtils);
+
+      await rotatingPublisher.enqueueProposeCheckpoint(
+        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+        CommitteeAttestationsAndSigners.empty(),
+        Signature.empty(),
+      );
+      const result = await rotatingPublisher.sendRequests();
+
+      expect(forwardSpy).toHaveBeenCalledTimes(2);
+      // First call uses original publisher, second uses the rotated one
+      expect(forwardSpy).toHaveBeenNthCalledWith(
+        1,
+        expect.anything(),
+        l1TxUtils,
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+      );
+      expect(forwardSpy).toHaveBeenNthCalledWith(
+        2,
+        expect.anything(),
+        secondL1TxUtils,
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+      );
+      expect(getNextPublisher).toHaveBeenCalledWith([l1TxUtils.getSenderAddress()]);
+      // Result is defined (rotation succeeded and tx was sent)
+      expect(result).toBeDefined();
+      expect(result?.sentActions).toContain('propose');
+      // l1TxUtils updated to the one that succeeded
+      expect(rotatingPublisher.l1TxUtils).toBe(secondL1TxUtils);
+    });
+
+    it('does not rotate on TimeoutError, re-throws instead', async () => {
+      forwardSpy.mockRejectedValueOnce(new TimeoutError('timed out'));
+
+      await rotatingPublisher.enqueueProposeCheckpoint(
+        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+        CommitteeAttestationsAndSigners.empty(),
+        Signature.empty(),
+      );
+      // TimeoutError propagates to the outer catch in sendRequests which returns undefined
+      const result = await rotatingPublisher.sendRequests();
+
+      expect(result).toBeUndefined();
+      expect(getNextPublisher).not.toHaveBeenCalled();
+      expect(forwardSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns undefined when all publishers are exhausted', async () => {
+      forwardSpy
+        .mockRejectedValueOnce(new Error('RPC error on first'))
+        .mockRejectedValueOnce(new Error('RPC error on second'));
+      getNextPublisher.mockResolvedValueOnce(secondL1TxUtils).mockResolvedValueOnce(undefined);
+
+      await rotatingPublisher.enqueueProposeCheckpoint(
+        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+        CommitteeAttestationsAndSigners.empty(),
+        Signature.empty(),
+      );
+      const result = await rotatingPublisher.sendRequests();
+
+      expect(forwardSpy).toHaveBeenCalledTimes(2);
+      expect(getNextPublisher).toHaveBeenCalledTimes(2);
+      expect(result).toBeUndefined();
+    });
+
+    it('does not rotate when forward returns a revert (on-chain failure)', async () => {
+      forwardSpy.mockResolvedValue({ receipt: { ...proposeTxReceipt, status: 'reverted' }, errorMsg: 'revert reason' });
+
+      await rotatingPublisher.enqueueProposeCheckpoint(
+        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+        CommitteeAttestationsAndSigners.empty(),
+        Signature.empty(),
+      );
+      const result = await rotatingPublisher.sendRequests();
+
+      expect(forwardSpy).toHaveBeenCalledTimes(1);
+      expect(getNextPublisher).not.toHaveBeenCalled();
+      // Result contains the reverted receipt (no rotation)
+      expect(result?.result).toMatchObject({ receipt: { status: 'reverted' } });
+    });
   });
 
   it('does not send propose tx if rollup validation fails', async () => {
@@ -414,5 +553,120 @@ describe('SequencerPublisher', () => {
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
     ).toEqual(false);
+  });
+
+  it('stops signalling when payload was previously proposed', async () => {
+    const { govPayload } = mockGovernancePayload();
+    governanceProposerContract.hasPayloadBeenProposed.mockResolvedValue(true);
+
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(2),
+        1n,
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(false);
+  });
+
+  it('continues signalling when payload was NOT proposed', async () => {
+    const { govPayload } = mockGovernancePayload();
+    governanceProposerContract.hasPayloadBeenProposed.mockResolvedValue(false);
+
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(2),
+        1n,
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(true);
+  });
+
+  it('caches proposed result and prevents repeated L1 calls', async () => {
+    const { govPayload } = mockGovernancePayload();
+    governanceProposerContract.hasPayloadBeenProposed.mockResolvedValue(true);
+
+    await publisher.enqueueGovernanceCastSignal(
+      govPayload,
+      SlotNumber(2),
+      1n,
+      EthAddress.fromString(testHarnessAttesterAccount.address),
+      msg => testHarnessAttesterAccount.signTypedData(msg),
+    );
+
+    await publisher.enqueueGovernanceCastSignal(
+      govPayload,
+      SlotNumber(3),
+      2n,
+      EthAddress.fromString(testHarnessAttesterAccount.address),
+      msg => testHarnessAttesterAccount.signTypedData(msg),
+    );
+
+    expect(governanceProposerContract.hasPayloadBeenProposed).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries on transient RPC failure and succeeds', async () => {
+    const { govPayload } = mockGovernancePayload();
+    governanceProposerContract.hasPayloadBeenProposed
+      .mockRejectedValueOnce(new Error('RPC error'))
+      .mockRejectedValueOnce(new Error('RPC error'))
+      .mockResolvedValueOnce(false);
+
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(2),
+        1n,
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(true);
+  });
+
+  it('fails closed on persistent RPC failure', async () => {
+    const { govPayload } = mockGovernancePayload();
+    governanceProposerContract.hasPayloadBeenProposed.mockRejectedValue(new Error('RPC error'));
+
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(2),
+        1n,
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(false);
+  });
+
+  it('does not cache false result and re-checks on subsequent calls', async () => {
+    const { govPayload } = mockGovernancePayload();
+    governanceProposerContract.hasPayloadBeenProposed.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+
+    // First call: not proposed, signalling proceeds
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(2),
+        1n,
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(true);
+
+    // Second call: now proposed, signalling stops
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(3),
+        2n,
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(false);
+
+    expect(governanceProposerContract.hasPayloadBeenProposed).toHaveBeenCalledTimes(2);
   });
 });

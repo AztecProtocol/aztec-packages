@@ -28,8 +28,7 @@
 //! [`TestEnvironment`](crate::test::helpers::test_environment::TestEnvironment) and [mocks](crate::test::mocks).
 
 pub mod context;
-mod contract_self;
-pub use contract_self::ContractSelf;
+pub mod contract_self;
 pub mod publish_contract_instance;
 pub mod hash;
 pub mod history;
@@ -39,10 +38,11 @@ pub mod note;
 pub mod nullifier;
 pub mod oracle;
 pub mod state_vars;
-mod capsules;
+pub mod capsules;
 pub mod event;
 pub mod messages;
 pub use protocol_types as protocol;
+pub(crate) mod logging;
 pub mod utils;
 pub mod authwit;
 pub mod macros;

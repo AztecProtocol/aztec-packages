@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Luke], commit: }
+// internal:    { status: Complete, auditors: [Luke], commit: dd03c4a23ab067274b4964cacb36d1545f73fb14}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -194,5 +194,6 @@ template Sha256Hash sha256<std::vector<uint8_t>>(const std::vector<uint8_t>& inp
 template Sha256Hash sha256<std::array<uint8_t, 32>>(const std::array<uint8_t, 32>& input);
 template Sha256Hash sha256<std::string>(const std::string& input);
 template Sha256Hash sha256<std::span<uint8_t>>(const std::span<uint8_t>& input);
+template Sha256Hash sha256<std::span<const uint8_t>>(const std::span<const uint8_t>& input);
 
 } // namespace bb::crypto

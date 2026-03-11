@@ -2,7 +2,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
-import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
+import { Secp256k1Signer, flipSignature } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { CommitteeAttestation, EthAddress } from '@aztec/stdlib/block';
@@ -22,8 +22,16 @@ describe('validateCheckpointAttestations', () => {
 
   const constants = { epochDuration: 10 };
 
-  const makeCheckpoint = async (signers: Secp256k1Signer[], committee: EthAddress[], slot?: number) => {
-    const checkpoint = await Checkpoint.random(CheckpointNumber(1), { slotNumber: SlotNumber(slot ?? 1) });
+  const makeCheckpoint = async (
+    signers: Secp256k1Signer[],
+    committee: EthAddress[],
+    slot?: number,
+    feeAssetPriceModifier?: bigint,
+  ) => {
+    const checkpoint = await Checkpoint.random(CheckpointNumber(1), {
+      slotNumber: SlotNumber(slot ?? 1),
+      feeAssetPriceModifier,
+    });
     return makeSignedPublishedCheckpoint(checkpoint, signers, committee);
   };
 
@@ -77,6 +85,16 @@ describe('validateCheckpointAttestations', () => {
   describe('with committee', () => {
     beforeEach(() => {
       setCommittee(committee);
+    });
+
+    it('uses feeAssetPriceModifier when recovering attestors', async () => {
+      const checkpoint = await makeCheckpoint(signers.slice(0, 4), committee, 1, 1n);
+
+      const attestationInfos = getAttestationInfoFromPublishedCheckpoint(checkpoint);
+      expect(attestationInfos.filter(a => a.status === 'recovered-from-signature').length).toBe(4);
+
+      const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
+      expect(result.valid).toBe(true);
     });
 
     it('requests committee for the correct epoch', async () => {
@@ -133,6 +151,27 @@ describe('validateCheckpointAttestations', () => {
       expect(result.checkpoint.archive.toString()).toEqual(checkpoint.checkpoint.archive.root.toString());
       expect(result.committee).toEqual(committee);
       expect(result.invalidIndex).toBe(0);
+    });
+
+    it('fails if an attestation signature has a high-s value (malleable signature)', async () => {
+      const checkpoint = await makeCheckpoint(signers.slice(0, 4), committee);
+
+      // Flip the signature at index 2 to give it a high-s value
+      const original = checkpoint.attestations[2];
+      const flipped = flipSignature(original.signature);
+      checkpoint.attestations[2] = new CommitteeAttestation(original.address, flipped);
+
+      // Verify the flipped signature is detected as invalid
+      const attestations = getAttestationInfoFromPublishedCheckpoint(checkpoint);
+      expect(attestations[2].status).toBe('invalid-signature');
+
+      const result = await validateCheckpointAttestations(checkpoint, epochCache, constants, logger);
+      assert(!result.valid);
+      assert(result.reason === 'invalid-attestation');
+      expect(result.checkpoint.checkpointNumber).toEqual(checkpoint.checkpoint.number);
+      expect(result.checkpoint.archive.toString()).toEqual(checkpoint.checkpoint.archive.root.toString());
+      expect(result.committee).toEqual(committee);
+      expect(result.invalidIndex).toBe(2);
     });
 
     it('reports correct index when invalid attestation follows provided address', async () => {

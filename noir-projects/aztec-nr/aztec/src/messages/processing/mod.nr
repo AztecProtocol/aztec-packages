@@ -54,9 +54,10 @@ pub(crate) unconstrained fn get_private_logs(contract_address: AztecAddress) -> 
     CapsuleArray::at(contract_address, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT)
 }
 
-/// Enqueues a note for validation by PXE, so that it becomes aware of a note's existence allowing for later retrieval
-/// via `get_notes` oracle. The note will be scoped to `contract_address`, meaning other contracts will not be able to
-/// access it unless authorized.
+/// Enqueues a note for validation and storage by PXE.
+///
+/// Once validated, the note becomes retrievable via the `get_notes` oracle. The note will be scoped to
+/// `contract_address`, meaning other contracts will not be able to access it unless authorized.
 ///
 /// In order for the note validation and insertion to occur, `validate_and_store_enqueued_notes_and_events` must be
 /// later called. For optimal performance, accumulate as many note validation requests as possible and then validate
@@ -75,7 +76,7 @@ pub(crate) unconstrained fn get_private_logs(contract_address: AztecAddress) -> 
 /// This determines which PXE account can see the note - other accounts will not be able to access it (e.g. other
 /// accounts will not be able to see one another's token balance notes, even in the same PXE) unless authorized. In
 /// most cases `recipient` equals `owner`, but they can differ in scenarios like delegated discovery.
-pub(crate) unconstrained fn enqueue_note_for_validation(
+pub unconstrained fn enqueue_note_for_validation(
     contract_address: AztecAddress,
     owner: AztecAddress,
     storage_slot: Field,
@@ -105,13 +106,19 @@ pub(crate) unconstrained fn enqueue_note_for_validation(
     )
 }
 
-/// Enqueues an event for validation by PXE, so that it can be efficiently validated and then inserted into the event
-/// store.
+/// Enqueues an event for validation and storage by PXE.
+///
+/// This is the primary way for custom message handlers (registered via
+/// [`crate::macros::AztecConfig::custom_message_handler`]) to deliver reassembled events back to PXE after processing
+/// application-specific message formats.
 ///
 /// In order for the event validation and insertion to occur, `validate_and_store_enqueued_notes_and_events` must be
 /// later called. For optimal performance, accumulate as many event validation requests as possible and then validate
 /// them all at the end (which results in PXE minimizing the number of network round-trips).
-pub(crate) unconstrained fn enqueue_event_for_validation(
+///
+/// Note that `validate_and_store_enqueued_notes_and_events` is called by Aztec.nr after processing messages, so custom
+/// message processors do not need to be concerned with this.
+pub unconstrained fn enqueue_event_for_validation(
     contract_address: AztecAddress,
     event_type_id: EventSelector,
     randomness: Field,
@@ -135,9 +142,11 @@ pub(crate) unconstrained fn enqueue_event_for_validation(
     )
 }
 
-/// Validates all note and event validation requests enqueued via `enqueue_note_for_validation` and
-/// `enqueue_event_for_validation`, inserting them into the note database and event store respectively, making them
-/// queryable via `get_notes` oracle and our TS API (PXE::getPrivateEvents).
+/// Validates and stores all enqueued notes and events.
+///
+/// Processes all requests enqueued via [`enqueue_note_for_validation`] and [`enqueue_event_for_validation`], inserting
+/// them into the note database and event store respectively, making them queryable via `get_notes` oracle and our TS
+/// API (PXE::getPrivateEvents).
 ///
 /// This automatically clears both validation request queues, so no further work needs to be done by the caller.
 pub unconstrained fn validate_and_store_enqueued_notes_and_events(contract_address: AztecAddress) {
@@ -145,6 +154,8 @@ pub unconstrained fn validate_and_store_enqueued_notes_and_events(contract_addre
         contract_address,
         NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
         EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
+        MAX_NOTE_PACKED_LEN as Field,
+        MAX_EVENT_SERIALIZED_LEN as Field,
     );
 }
 

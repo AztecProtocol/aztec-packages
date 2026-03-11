@@ -6,12 +6,12 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { OffchainEffectContract, type TestEvent } from '@aztec/noir-test-contracts.js/OffchainEffect';
 import { MessageContext } from '@aztec/stdlib/logs';
 import { OFFCHAIN_MESSAGE_IDENTIFIER } from '@aztec/stdlib/tx';
-import type { TestWallet } from '@aztec/test-wallet/server';
-import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
+import { proveInteraction } from './test-wallet/utils.js';
 
 const TIMEOUT = 120_000;
 
@@ -33,11 +33,33 @@ describe('e2e_offchain_effect', () => {
       accounts: [defaultAccountAddress],
       aztecNode,
     } = await setup(1));
-    contract1 = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress });
-    contract2 = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress });
+    ({ contract: contract1 } = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress }));
+    ({ contract: contract2 } = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
 
   afterAll(() => teardown());
+
+  it('should return offchain effects from send()', async () => {
+    const effects = Array(2)
+      .fill(null)
+      .map(() => ({
+        data: [Fr.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random()],
+        // eslint-disable-next-line camelcase
+        next_contract: contract1.address,
+      }));
+
+    const { receipt, offchainEffects } = await contract1.methods
+      .emit_offchain_effects(effects)
+      .send({ from: defaultAccountAddress });
+
+    expect(receipt.hasExecutionSucceeded()).toBe(true);
+    // Effects are popped from the end of the BoundedVec, so they come out reversed
+    expect(offchainEffects).toHaveLength(2);
+    expect(offchainEffects[0].contractAddress).toEqual(contract1.address);
+    expect(offchainEffects[0].data).toEqual(effects[1].data);
+    expect(offchainEffects[1].contractAddress).toEqual(contract1.address);
+    expect(offchainEffects[1].data).toEqual(effects[0].data);
+  });
 
   it('should emit offchain effects', async () => {
     const effects = Array(3)
@@ -164,7 +186,9 @@ describe('e2e_offchain_effect', () => {
       .simulate({ from: defaultAccountAddress });
 
     // Get the note value
-    const noteValue = await contract1.methods.get_note_value(owner).simulate({ from: defaultAccountAddress });
+    const { result: noteValue } = await contract1.methods
+      .get_note_value(owner)
+      .simulate({ from: defaultAccountAddress });
     expect(noteValue).toBe(value);
   });
 });

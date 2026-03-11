@@ -46,7 +46,10 @@ export type TallySlasherSettings = Prettify<
 >;
 
 export type TallySlasherClientConfig = SlashOffensesCollectorConfig &
-  Pick<SlasherConfig, 'slashValidatorsAlways' | 'slashValidatorsNever' | 'slashExecuteRoundsLookBack'>;
+  Pick<
+    SlasherConfig,
+    'slashValidatorsAlways' | 'slashValidatorsNever' | 'slashExecuteRoundsLookBack' | 'slashMaxPayloadSize'
+  >;
 
 /**
  * The Tally Slasher client is responsible for managing slashable offenses using
@@ -349,24 +352,22 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
       return undefined;
     }
 
-    const offensesToSlashLog = offensesToSlash.map(offense => ({
-      ...offense,
-      amount: offense.amount.toString(),
-    }));
     this.log.info(`Voting to slash ${offensesToSlash.length} offenses`, {
       slotNumber,
       currentRound,
       slashedRound,
-      offensesToSlash: offensesToSlashLog,
+      offensesToSlash,
     });
 
     const committees = await this.collectCommitteesActiveDuringRound(slashedRound);
     const epochsForCommittees = getEpochsForRound(slashedRound, this.settings);
+    const { slashMaxPayloadSize } = this.config;
     const votes = getSlashConsensusVotesFromOffenses(
       offensesToSlash,
       committees,
       epochsForCommittees.map(e => BigInt(e)),
-      this.settings,
+      { ...this.settings, maxSlashedValidators: slashMaxPayloadSize },
+      this.log,
     );
     if (votes.every(v => v === 0)) {
       this.log.warn(`Computed votes for offenses are all zero. Skipping vote.`, {

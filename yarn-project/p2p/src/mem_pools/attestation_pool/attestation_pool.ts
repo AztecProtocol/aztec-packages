@@ -43,6 +43,7 @@ export type AttestationPoolApi = Pick<
   | 'deleteOlderThan'
   | 'getCheckpointAttestationsForSlot'
   | 'getCheckpointAttestationsForSlotAndProposal'
+  | 'hasBlockProposalsForSlot'
   | 'isEmpty'
 >;
 
@@ -254,6 +255,13 @@ export class AttestationPool {
     return undefined;
   }
 
+  /** Checks if any block proposals exist for a given slot (at index 0). */
+  public async hasBlockProposalsForSlot(slot: SlotNumber): Promise<boolean> {
+    const positionKey = this.getBlockPositionKey(slot, 0);
+    const count = await this.blockProposalsForSlotAndIndex.getValueCountAsync(positionKey);
+    return count > 0;
+  }
+
   /**
    * Attempts to add a checkpoint proposal to the pool.
    *
@@ -351,11 +359,10 @@ export class AttestationPool {
         }
 
         const address = sender.toString();
+        const ownKey = this.getAttestationKey(slotNumber, proposalId, address);
 
-        await this.checkpointAttestations.set(
-          this.getAttestationKey(slotNumber, proposalId, address),
-          attestation.toBuffer(),
-        );
+        await this.checkpointAttestations.set(ownKey, attestation.toBuffer());
+        this.metrics.trackMempoolItemAdded(ownKey);
 
         this.log.debug(`Added own checkpoint attestation for slot ${slotNumber} from ${address}`, {
           signature: attestation.signature.toString(),
@@ -421,6 +428,7 @@ export class AttestationPool {
       const attestationEndKey = new Fr(oldestSlot).toString();
       for await (const key of this.checkpointAttestations.keysAsync({ end: attestationEndKey })) {
         await this.checkpointAttestations.delete(key);
+        this.metrics.trackMempoolItemRemoved(key);
         numberOfAttestations++;
       }
 
@@ -518,6 +526,7 @@ export class AttestationPool {
 
       // Add the attestation
       await this.checkpointAttestations.set(key, attestation.toBuffer());
+      this.metrics.trackMempoolItemAdded(key);
 
       // Track this attestation in the per-signer-per-slot index for duplicate detection
       const slotSignerKey = this.getSlotSignerKey(slotNumber, signerAddress);

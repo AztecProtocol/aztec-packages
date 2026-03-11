@@ -9,12 +9,13 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
-import { BlockProposal, P2PClientType, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import {
   makeBlockHeader,
   makeBlockProposal,
   makeCheckpointHeader,
   makeCheckpointProposal,
+  mockTx,
 } from '@aztec/stdlib/testing';
 import { type Tx, TxArray, TxHashArray, type TxValidator } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -32,7 +33,8 @@ import {
   MAX_CHECKPOINT_PROPOSALS_PER_SLOT,
 } from '../../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../../mem_pools/interface.js';
-import type { TxPool } from '../../mem_pools/tx_pool/tx_pool.js';
+import type { TxPoolV2 } from '../../mem_pools/tx_pool_v2/interfaces.js';
+import type { TransactionValidator } from '../../msg_validators/tx_validator/factory.js';
 import type { PubSubLibp2p } from '../../util.js';
 import type { PeerManagerInterface } from '../peer-manager/interface.js';
 import type { ReqRespInterface } from '../reqresp/interface.js';
@@ -123,6 +125,190 @@ describe('LibP2PService', () => {
 
       // Verify that the peer was penalized
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
+    });
+  });
+
+  describe('handleGossipedTx - propagation based on pool acceptance', () => {
+    let txService: TestLibP2PService;
+    let txPeerManager: MockProxy<PeerManagerInterface>;
+    let txPeerId: MockProxy<PeerId>;
+    let txReportSpy: jest.Mock;
+    let txPool: MockProxy<TxPoolV2>;
+
+    beforeEach(() => {
+      txPeerManager = mock<PeerManagerInterface>();
+      txPeerId = mock<PeerId>({
+        toString: () => MOCK_PEER_ID,
+      });
+      txReportSpy = jest.fn();
+      txPool = mock<TxPoolV2>();
+
+      const txNode = mock<PubSubLibp2p>();
+      txNode.services = {
+        pubsub: {
+          reportMessageValidationResult: txReportSpy,
+        },
+      } as any;
+
+      const txArchiver = mock<L2BlockSource & ContractDataSource>();
+      txArchiver.getBlockNumber.mockResolvedValue(BlockNumber(1));
+
+      const txEpochCache = mock<EpochCacheInterface>();
+      txEpochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: 0n,
+        slot: 1n,
+        ts: 100n,
+      } as any);
+
+      txService = createTestLibP2PService({
+        peerManager: txPeerManager,
+        node: txNode,
+        txPool,
+        archiver: txArchiver,
+        epochCache: txEpochCache,
+      });
+      // By default, canAddPendingTx returns 'accepted' so the flow proceeds to pool add
+      txPool.canAddPendingTx.mockResolvedValue('accepted');
+    });
+
+    it('should propagate (Accept) when pool accepts the transaction', async () => {
+      const tx = await mockTx();
+      const txHash = tx.getTxHash();
+
+      txPool.addPendingTxs.mockResolvedValue({
+        accepted: [txHash],
+        ignored: [],
+        rejected: [],
+      });
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Accept);
+      expect(txPool.addPendingTxs).toHaveBeenCalled();
+    });
+
+    it('should NOT propagate (Ignore) when pool ignores the transaction', async () => {
+      const tx = await mockTx();
+      const txHash = tx.getTxHash();
+
+      txPool.addPendingTxs.mockResolvedValue({
+        accepted: [],
+        ignored: [txHash],
+        rejected: [],
+      });
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Ignore);
+      expect(txPool.addPendingTxs).toHaveBeenCalled();
+    });
+
+    it('should NOT propagate (Reject) when pool rejects the transaction', async () => {
+      const tx = await mockTx();
+      const txHash = tx.getTxHash();
+
+      txPool.addPendingTxs.mockResolvedValue({
+        accepted: [],
+        ignored: [],
+        rejected: [txHash],
+      });
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Reject);
+      expect(txPool.addPendingTxs).toHaveBeenCalled();
+    });
+
+    it('should NOT propagate (Reject) when gossip validation fails', async () => {
+      const tx = await mockTx();
+
+      txService.firstStageValidationPasses = false;
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Reject);
+      expect(txPool.addPendingTxs).not.toHaveBeenCalled();
+    });
+
+    it('should Ignore and skip proof verification when canAddPendingTx returns ignored', async () => {
+      const tx = await mockTx();
+
+      txPool.canAddPendingTx.mockResolvedValue('ignored');
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Ignore);
+      // Pool pre-check was called
+      expect(txPool.canAddPendingTx).toHaveBeenCalled();
+      // addPendingTxs should NOT be called — we short-circuited before it
+      expect(txPool.addPendingTxs).not.toHaveBeenCalled();
+    });
+
+    it('should not call canAddPendingTx when first-stage validation fails', async () => {
+      const tx = await mockTx();
+
+      txService.firstStageValidationPasses = false;
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      expect(txPool.canAddPendingTx).not.toHaveBeenCalled();
+      expect(txPool.addPendingTxs).not.toHaveBeenCalled();
+    });
+
+    it('should Reject and penalize peer when second-stage (proof) validation fails', async () => {
+      const tx = await mockTx();
+
+      txService.secondStageValidationPasses = false;
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Reject);
+      expect(txPeerManager.penalizePeer).toHaveBeenCalledWith(txPeerId, PeerErrorSeverity.LowToleranceError);
+      // canAddPendingTx was called (first stage passed), but addPendingTxs was NOT (second stage failed)
+      expect(txPool.canAddPendingTx).toHaveBeenCalled();
+      expect(txPool.addPendingTxs).not.toHaveBeenCalled();
+    });
+
+    it('should penalize peer with the severity from the failing first-stage validator', async () => {
+      const tx = await mockTx();
+
+      txService.firstStageValidationPasses = false;
+      txService.firstStageSeverity = PeerErrorSeverity.MidToleranceError;
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      expect(txPeerManager.penalizePeer).toHaveBeenCalledWith(txPeerId, PeerErrorSeverity.MidToleranceError);
+    });
+
+    it('should not penalize peer when canAddPendingTx returns ignored', async () => {
+      const tx = await mockTx();
+
+      txPool.canAddPendingTx.mockResolvedValue('ignored');
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      expect(txPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    it('should call addPendingTxs only after both validation stages pass and pool pre-check accepts', async () => {
+      const tx = await mockTx();
+      const txHash = tx.getTxHash();
+
+      txPool.canAddPendingTx.mockResolvedValue('accepted');
+      txPool.addPendingTxs.mockResolvedValue({
+        accepted: [txHash],
+        ignored: [],
+        rejected: [],
+      });
+
+      await txService.handleGossipedTx(tx.toBuffer(), 'test-msg-id', txPeerId);
+
+      // Verify the full happy path: canAddPendingTx → addPendingTxs → Accept
+      expect(txPool.canAddPendingTx).toHaveBeenCalled();
+      expect(txPool.addPendingTxs).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({})]), {
+        source: 'gossip',
+      });
+      expect(txReportSpy).toHaveBeenCalledWith('test-msg-id', MOCK_PEER_ID, TopicValidatorResult.Accept);
     });
   });
 
@@ -376,7 +562,7 @@ describe('LibP2PService', () => {
 
   describe('processBlockFromPeer', () => {
     let attestationPool: AttestationPool;
-    let mockTxPool: MockProxy<TxPool>;
+    let mockTxPool: MockProxy<TxPoolV2>;
     let mockEpochCache: MockProxy<EpochCacheInterface>;
     let signer: Secp256k1Signer;
     let blockReceivedCallback: jest.Mock;
@@ -388,8 +574,8 @@ describe('LibP2PService', () => {
     beforeEach(() => {
       signer = Secp256k1Signer.random();
       attestationPool = new AttestationPool(openTmpStore(true));
-      mockTxPool = mock<TxPool>();
-      mockTxPool.markTxsAsNonEvictable.mockResolvedValue();
+      mockTxPool = mock<TxPoolV2>();
+      mockTxPool.protectTxs.mockResolvedValue([]);
 
       mockEpochCache = mock<EpochCacheInterface>();
       mockEpochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot, nextSlot });
@@ -429,7 +615,7 @@ describe('LibP2PService', () => {
       expect(blockReceivedCallback).toHaveBeenCalledWith(expect.any(Object), mockPeerId);
 
       // Verify txs were marked as non-evictable
-      expect(mockTxPool.markTxsAsNonEvictable).toHaveBeenCalledTimes(1);
+      expect(mockTxPool.protectTxs).toHaveBeenCalledTimes(1);
 
       // Verify message was accepted
       expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Accept);
@@ -614,7 +800,7 @@ describe('LibP2PService', () => {
 
   describe('handleGossipedCheckpointProposal', () => {
     let attestationPool: AttestationPool;
-    let mockTxPool: MockProxy<TxPool>;
+    let mockTxPool: MockProxy<TxPoolV2>;
     let mockEpochCache: MockProxy<EpochCacheInterface>;
     let signer: Secp256k1Signer;
     let blockReceivedCallback: jest.Mock;
@@ -627,8 +813,8 @@ describe('LibP2PService', () => {
     beforeEach(() => {
       signer = Secp256k1Signer.random();
       attestationPool = new AttestationPool(openTmpStore(true));
-      mockTxPool = mock<TxPool>();
-      mockTxPool.markTxsAsNonEvictable.mockResolvedValue();
+      mockTxPool = mock<TxPoolV2>();
+      mockTxPool.protectTxs.mockResolvedValue([]);
 
       mockEpochCache = mock<EpochCacheInterface>();
       mockEpochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot, nextSlot });
@@ -731,7 +917,7 @@ describe('LibP2PService', () => {
       expect(checkpointReceivedCallback).toHaveBeenCalledTimes(1);
 
       // Verify txs were marked as non-evictable (for the lastBlock)
-      expect(mockTxPool.markTxsAsNonEvictable).toHaveBeenCalledTimes(1);
+      expect(mockTxPool.protectTxs).toHaveBeenCalledTimes(1);
 
       // Verify both were stored in attestation pool
       const storedCheckpoint = await attestationPool.getCheckpointProposal(proposal.archive.toString());
@@ -761,7 +947,7 @@ describe('LibP2PService', () => {
       blockReceivedCallback.mockClear();
       checkpointReceivedCallback.mockClear();
       reportMessageValidationResultSpy.mockClear();
-      mockTxPool.markTxsAsNonEvictable.mockClear();
+      mockTxPool.protectTxs.mockClear();
       mockPeerManager.penalizePeer.mockClear();
 
       // Create checkpoint with lastBlock that would exceed the cap
@@ -796,7 +982,7 @@ describe('LibP2PService', () => {
       expect(storedBlock).toBeDefined();
 
       // Txs were marked as non-evictable since the block was processed
-      expect(mockTxPool.markTxsAsNonEvictable).toHaveBeenCalled();
+      expect(mockTxPool.protectTxs).toHaveBeenCalled();
     });
 
     it('checkpoint rejected when lastBlock is equivocated', async () => {
@@ -872,7 +1058,7 @@ interface CreateTestLibP2PServiceOptions {
   node: MockProxy<PubSubLibp2p>;
   archiver?: MockProxy<L2BlockSource & ContractDataSource>;
   attestationPool?: AttestationPool;
-  txPool?: MockProxy<TxPool>;
+  txPool?: MockProxy<TxPoolV2>;
   epochCache?: MockProxy<EpochCacheInterface>;
 }
 
@@ -883,6 +1069,18 @@ interface CreateTestLibP2PServiceOptions {
 class TestLibP2PService extends LibP2PService {
   /** Mocked validateRequestedTx for testing. */
   public validateRequestedTxMock: jest.Mock;
+
+  /** Controls whether first-stage gossip validation passes. Set to false to simulate first-stage failure. */
+  public firstStageValidationPasses = true;
+
+  /** Controls whether second-stage gossip validation passes. Set to false to simulate proof verification failure. */
+  public secondStageValidationPasses = true;
+
+  /** Controls the name of the failing first-stage validator (e.g., 'doubleSpendValidator' to trigger special handling). */
+  public firstStageFailingValidatorName = 'failingValidator';
+
+  /** Controls the severity returned by the failing first-stage validator. */
+  public firstStageSeverity: PeerErrorSeverity = PeerErrorSeverity.LowToleranceError;
 
   /** Stub validator returned by createRequestedTxValidator. */
   private stubValidator: TxValidator;
@@ -920,7 +1118,6 @@ class TestLibP2PService extends LibP2PService {
     });
 
     super(
-      P2PClientType.Full,
       mockConfig,
       node,
       mockPeerDiscoveryService,
@@ -945,6 +1142,37 @@ class TestLibP2PService extends LibP2PService {
   /** Exposes the protected handleNewGossipMessage for testing. */
   public override handleNewGossipMessage(msg: Message, msgId: string, source: PeerId): Promise<void> {
     return super.handleNewGossipMessage(msg, msgId, source);
+  }
+
+  /** Exposes the protected handleGossipedTx for testing. */
+  public override handleGossipedTx(payloadData: Buffer, msgId: string, source: PeerId): Promise<void> {
+    return super.handleGossipedTx(payloadData, msgId, source);
+  }
+
+  /** Override to use test flag for first-stage validators. Returns a failing validator when firstStageValidationPasses is false. */
+  protected override createFirstStageMessageValidators(): Promise<Record<string, TransactionValidator>> {
+    if (this.firstStageValidationPasses) {
+      return Promise.resolve({});
+    }
+    return Promise.resolve({
+      [this.firstStageFailingValidatorName]: {
+        validator: { validateTx: () => Promise.resolve({ result: 'invalid' as const, reason: ['Test failure'] }) },
+        severity: this.firstStageSeverity,
+      },
+    });
+  }
+
+  /** Override to use test flag for second-stage validators. Returns a failing validator when secondStageValidationPasses is false. */
+  protected override createSecondStageMessageValidators(): Record<string, TransactionValidator> {
+    if (this.secondStageValidationPasses) {
+      return {};
+    }
+    return {
+      proofValidator: {
+        validator: { validateTx: () => Promise.resolve({ result: 'invalid' as const, reason: ['Proof failure'] }) },
+        severity: PeerErrorSeverity.LowToleranceError,
+      },
+    };
   }
 
   /** Exposes the protected validateRequestedBlock for testing. */
@@ -999,7 +1227,7 @@ function createTestLibP2PService(options: CreateTestLibP2PServiceOptions): TestL
     node,
     archiver = mock<L2BlockSource & ContractDataSource>(),
     attestationPool = new AttestationPool(openTmpStore(true)),
-    txPool = mock<TxPool>(),
+    txPool = mock<TxPoolV2>(),
     epochCache = mock<EpochCacheInterface>(),
   } = options;
 
@@ -1018,7 +1246,7 @@ function createTestLibP2PServiceWithPools(
   mockPeerManager: MockProxy<PeerManagerInterface>,
   reportMessageValidationResultSpy: jest.Mock,
   attestationPool: AttestationPool,
-  mockTxPool: MockProxy<TxPool>,
+  mockTxPool: MockProxy<TxPoolV2>,
   mockEpochCache: MockProxy<EpochCacheInterface>,
 ): TestLibP2PService {
   const mockNode = mock<PubSubLibp2p>();

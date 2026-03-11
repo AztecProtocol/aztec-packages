@@ -10,7 +10,8 @@ pub mod auth_witness;
 pub mod block_header;
 pub mod call_private_function;
 pub mod capsules;
-pub mod enqueue_public_function_call;
+pub mod public_call;
+pub mod tx_phase;
 pub mod execution;
 pub mod execution_cache;
 pub mod get_contract_instance;
@@ -30,6 +31,6 @@ pub mod random;
 pub mod shared_secret;
 pub mod storage;
 
-// debug_log oracle is used by both noir-protocol-circuits and this crate and for this reason we just re-export it
+// logging oracle is used by both noir-protocol-circuits and this crate and for this reason we just re-export it
 // here from protocol circuits.
-pub use crate::protocol::debug_log;
+pub use crate::protocol::logging;

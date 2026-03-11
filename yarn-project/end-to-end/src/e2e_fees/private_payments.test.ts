@@ -6,10 +6,10 @@ import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { GasSettings } from '@aztec/stdlib/gas';
 import { TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE } from '@aztec/stdlib/tx';
-import type { TestWallet } from '@aztec/test-wallet/server';
-import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { expectMapping } from '../fixtures/utils.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees private_payment', () => {
@@ -155,7 +155,7 @@ describe('e2e_fees private_payment', () => {
      * increase Alice's private banana balance by feeAmount by finalizing partial note
      */
     const newlyMintedBananas = 10n;
-    const tx = await bananaCoin.methods.mint_to_private(aliceAddress, newlyMintedBananas).send({
+    const { receipt: tx } = await bananaCoin.methods.mint_to_private(aliceAddress, newlyMintedBananas).send({
       from: aliceAddress,
       fee: {
         paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
@@ -200,12 +200,14 @@ describe('e2e_fees private_payment', () => {
      * increase Alice's private banana balance by feeAmount by finalizing partial note
      */
     const amountTransferredToPrivate = 1n;
-    const tx = await bananaCoin.methods.transfer_to_private(aliceAddress, amountTransferredToPrivate).send({
-      from: aliceAddress,
-      fee: {
-        paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
-      },
-    });
+    const { receipt: tx } = await bananaCoin.methods
+      .transfer_to_private(aliceAddress, amountTransferredToPrivate)
+      .send({
+        from: aliceAddress,
+        fee: {
+          paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
+        },
+      });
 
     const feeAmount = tx.transactionFee!;
 
@@ -249,7 +251,7 @@ describe('e2e_fees private_payment', () => {
      * increase sequencer/fee recipient/FPC admin private banana balance by feeAmount by finalizing partial note
      * increase Alice's private banana balance by feeAmount by finalizing partial note
      */
-    const tx = await new BatchCall(wallet, [
+    const { receipt: tx } = await new BatchCall(wallet, [
       bananaCoin.methods.transfer(bobAddress, amountTransferredInPrivate),
       bananaCoin.methods.transfer_to_private(aliceAddress, amountTransferredToPrivate),
     ]).send({
@@ -283,7 +285,7 @@ describe('e2e_fees private_payment', () => {
 
   it('rejects txs that dont have enough balance to cover gas costs', async () => {
     // deploy a copy of bananaFPC but don't fund it!
-    const bankruptFPC = await FPCContract.deploy(wallet, bananaCoin.address, aliceAddress).send({
+    const { contract: bankruptFPC } = await FPCContract.deploy(wallet, bananaCoin.address, aliceAddress).send({
       from: aliceAddress,
     });
 

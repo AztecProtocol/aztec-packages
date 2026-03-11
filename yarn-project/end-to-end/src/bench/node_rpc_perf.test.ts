@@ -18,7 +18,6 @@ import { BlockHash } from '@aztec/stdlib/block';
 import { SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
-import { type TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import { mkdir, writeFile } from 'fs/promises';
@@ -26,6 +25,8 @@ import 'jest-extended';
 import * as path from 'path';
 
 import { setup } from '../fixtures/utils.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
 
 /** Number of iterations for fast RPC calls */
 const BENCHMARK_ITERATIONS_FAST = 20;
@@ -151,9 +152,9 @@ describe('e2e_node_rpc_perf', () => {
     }));
 
     logger.info('Deploying token contract...');
-    tokenContract = await TokenContract.deploy(wallet, ownerAddress, 'TestToken', 'TST', 18n).send({
+    ({ contract: tokenContract } = await TokenContract.deploy(wallet, ownerAddress, 'TestToken', 'TST', 18n).send({
       from: ownerAddress,
-    });
+    }));
     contractAddress = tokenContract.address;
     logger.info(`Token contract deployed at ${contractAddress}`);
 
@@ -276,6 +277,12 @@ describe('e2e_node_rpc_perf', () => {
     it('benchmarks getBlockNumber', async () => {
       const { stats } = await benchmark('getBlockNumber', () => aztecNode.getBlockNumber());
       addResult('getBlockNumber', stats);
+      expect(stats.avg).toBeLessThan(1000);
+    });
+
+    it('benchmarks getCheckpointNumber', async () => {
+      const { stats } = await benchmark('getCheckpointNumber', () => aztecNode.getCheckpointNumber());
+      addResult('getCheckpointNumber', stats);
       expect(stats.avg).toBeLessThan(1000);
     });
 
@@ -413,10 +420,12 @@ describe('e2e_node_rpc_perf', () => {
   });
 
   describe('message APIs', () => {
-    it('benchmarks getL1ToL2MessageBlock', async () => {
+    it('benchmarks getL1ToL2MessageCheckpoint', async () => {
       const l1ToL2Message = Fr.random();
-      const { stats } = await benchmark('getL1ToL2MessageBlock', () => aztecNode.getL1ToL2MessageBlock(l1ToL2Message));
-      addResult('getL1ToL2MessageBlock', stats);
+      const { stats } = await benchmark('getL1ToL2MessageCheckpoint', () =>
+        aztecNode.getL1ToL2MessageCheckpoint(l1ToL2Message),
+      );
+      addResult('getL1ToL2MessageCheckpoint', stats);
       expect(stats.avg).toBeLessThan(2000);
     });
 

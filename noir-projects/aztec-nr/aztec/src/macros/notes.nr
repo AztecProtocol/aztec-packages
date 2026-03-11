@@ -48,8 +48,8 @@ comptime fn generate_note_type_impl(s: TypeDefinition, note_type_id: Field) -> Q
                 // directly into the error message doesn't work.
                 let note_type_name = $note_type_name;
                 let max_note_packed_len: u32 = $max_note_packed_len; // Casting to u32 to avoid the value to be printed in hex.
-                let note_packed_len = <$typ as Packable>::N;
-                std::static_assert(note_packed_len <= $max_note_packed_len, f"{note_type_name} has a packed length of {note_packed_len} fields, which exceeds the maximum allowed length of {max_note_packed_len} fields");
+                let note_packed_len = <$typ as aztec::protocol::traits::Packable>::N;
+                std::static_assert(note_packed_len <= $max_note_packed_len, f"{note_type_name} has a packed length of {note_packed_len} fields, which exceeds the maximum allowed length of {max_note_packed_len} fields. See https://docs.aztec.network/errors/4");
 
                 $note_type_id
             }
@@ -78,8 +78,8 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
     quote {
         impl aztec::note::note_interface::NoteHash for $name {
             fn compute_note_hash(self, owner: aztec::protocol::address::AztecAddress, storage_slot: Field, randomness: Field) -> Field {
-                let inputs = aztec::protocol::traits::Packable::pack(self).concat( [aztec::protocol::traits::ToField::to_field(owner), storage_slot, randomness]);
-                aztec::protocol::hash::poseidon2_hash_with_separator(inputs, aztec::protocol::constants::DOM_SEP__NOTE_HASH)
+                let data = aztec::protocol::traits::Packable::pack(self).concat([aztec::protocol::traits::ToField::to_field(owner), randomness]);
+                aztec::note::utils::compute_note_hash(storage_slot, data)
             }
 
             fn compute_nullifier(
@@ -93,10 +93,7 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
                 // in the quote to avoid "trait not in scope" compiler warnings.
                 let owner_npk_m_hash = aztec::protocol::traits::Hash::hash(owner_npk_m);
                 let secret = context.request_nhk_app(owner_npk_m_hash);
-                aztec::protocol::hash::poseidon2_hash_with_separator(
-                    [note_hash_for_nullification, secret],
-                    aztec::protocol::constants::DOM_SEP__NOTE_NULLIFIER as Field,
-                )
+                aztec::note::utils::compute_note_nullifier(note_hash_for_nullification, [secret])
             }
 
             unconstrained fn compute_nullifier_unconstrained(
@@ -113,10 +110,7 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
                     // in the quote to avoid "trait not in scope" compiler warnings.
                     let owner_npk_m_hash = aztec::protocol::traits::Hash::hash(owner_npk_m);
                     let secret = aztec::keys::getters::get_nhk_app(owner_npk_m_hash);
-                    aztec::protocol::hash::poseidon2_hash_with_separator(
-                        [note_hash_for_nullification, secret],
-                        aztec::protocol::constants::DOM_SEP__NOTE_NULLIFIER as Field,
-                    )
+                    aztec::note::utils::compute_note_nullifier(note_hash_for_nullification, [secret])
                 })
             }
         }
@@ -280,7 +274,7 @@ pub comptime fn custom_note(s: TypeDefinition) -> Quoted {
     }
 }
 
-/// Asserts that the given note implements the `Packable` trait.
+/// Asserts that the given note implements the [`Packable`](crate::protocol::traits::Packable) trait.
 ///
 /// We require that notes have the `Packable` trait implemented because it is used when emitting a note in a log or as
 /// an offchain message.

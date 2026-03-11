@@ -11,7 +11,6 @@ import { FeePaymentSelector } from '../../common/FeePaymentSelector';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import Autocomplete from '@mui/material/Autocomplete';
-import { parseAliasedBuffersAsString } from '../../../utils/conversion';
 import { dialogBody, form, progressIndicator } from '../../../styles/common';
 import Divider from '@mui/material/Divider';
 import { DialogContent } from '@mui/material';
@@ -38,7 +37,7 @@ export function ConfigureInteractionDialog({ name, interaction, open, onClose }:
     const refreshAuthwits = async () => {
       setLoading(true);
       const authwitBuffers = await playgroundDB.listAliases('authwits');
-      const authwits = parseAliasedBuffersAsString(authwitBuffers).map(({ alias, item }) => ({
+      const authwits = authwitBuffers.map(({ alias, item }) => ({
         alias,
         item: AuthWitness.fromString(item),
       }));

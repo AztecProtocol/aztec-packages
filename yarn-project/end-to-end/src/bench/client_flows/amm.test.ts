@@ -7,11 +7,11 @@ import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { RoundTripStats } from '@aztec/stdlib/tx';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { mintNotes } from '../../fixtures/token_utils.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { captureProfile } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
@@ -199,7 +199,7 @@ describe('AMM benchmark', () => {
             );
 
             if (process.env.SANITY_CHECKS) {
-              const tx = await addLiquidityInteraction.send({ from: benchysAddress });
+              const { receipt: tx } = await addLiquidityInteraction.send({ from: benchysAddress });
               expect(tx.transactionFee!).toBeGreaterThan(0n);
             }
 

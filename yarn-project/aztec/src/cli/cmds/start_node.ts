@@ -1,30 +1,34 @@
-import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
 import { Fr } from '@aztec/aztec.js/fields';
-import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { getL1Config } from '@aztec/cli/config';
 import { getPublicClient } from '@aztec/ethereum/client';
-import { SecretValue } from '@aztec/foundation/config';
+import { getGenesisStateConfigEnvVars } from '@aztec/ethereum/config';
+import { type NetworkNames, SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
 import type { LogFn } from '@aztec/foundation/log';
+import { ProvingJobConsumerSchema, createProvingJobBrokerClient } from '@aztec/prover-client/broker';
 import { type CliPXEOptions, type PXEConfig, allPxeConfigMappings } from '@aztec/pxe/config';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
-import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
+import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import {
   type TelemetryClientConfig,
   initTelemetryClient,
+  makeTracedFetch,
   telemetryClientConfigMappings,
 } from '@aztec/telemetry-client';
-import { TestWallet } from '@aztec/test-wallet/server';
-import { getGenesisValues } from '@aztec/world-state/testing';
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { createAztecNode } from '../../local-network/index.js';
 import {
   extractNamespacedOptions,
   extractRelevantOptions,
   preloadCrsDataForVerifying,
-  setupUpdateMonitor,
+  setupVersionChecker,
 } from '../util.js';
+import { getVersions } from '../versioning.js';
+import { computeExpectedGenesisRoot, waitForCompatibleRollup } from './standby.js';
+import { startProverBroker } from './start_prover_broker.js';
 
 export async function startNode(
   options: any,
@@ -32,6 +36,7 @@ export async function startNode(
   services: NamespacedApiHandlers,
   adminServices: NamespacedApiHandlers,
   userLog: LogFn,
+  networkName: NetworkNames,
 ): Promise<{ config: AztecNodeConfig }> {
   // All options set from environment variables
   const configFromEnvVars = getConfigEnvVars();
@@ -45,22 +50,38 @@ export async function startNode(
     ...relevantOptions,
   };
 
+  // Prover node configuration and broker setup
+  // REFACTOR: Move the broker setup out of here and into the prover-node factory
+  let broker: ProvingJobBroker | undefined = undefined;
   if (options.proverNode) {
-    userLog(`Running a Prover Node within a Node is not yet supported`);
-    process.exit(1);
+    nodeConfig.enableProverNode = true;
+    if (nodeConfig.proverAgentCount === 0) {
+      userLog(
+        `Running prover node without local prover agent. Connect prover agents or pass --proverAgent.proverAgentCount`,
+      );
+    }
+    if (nodeConfig.proverBrokerUrl) {
+      // at 1TPS we'd enqueue ~1k chonk verifier proofs and ~1k AVM proofs immediately
+      // set a lower connection limit such that we don't overload the server
+      // Keep retrying up to 30s
+      const fetch = makeTracedFetch(
+        [1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+        false,
+        makeUndiciFetch(new Agent({ connections: 100 })),
+      );
+      broker = createProvingJobBrokerClient(nodeConfig.proverBrokerUrl, getVersions(nodeConfig), fetch);
+    } else if (options.proverBroker) {
+      ({ broker } = await startProverBroker(options, signalHandlers, services, userLog));
+    } else {
+      userLog(`--prover-broker-url or --prover-broker is required to start a Prover Node`);
+      process.exit(1);
+    }
   }
 
   await preloadCrsDataForVerifying(nodeConfig, userLog);
 
-  const testAccounts = nodeConfig.testAccounts ? (await getInitialTestAccountsData()).map(a => a.address) : [];
-  const sponsoredFPCAccounts = nodeConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
-  const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
-
-  userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
-
-  const { genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
-
-  userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
+  const genesisConfig = getGenesisStateConfigEnvVars();
+  const { genesisArchiveRoot, prefilledPublicData } = await computeExpectedGenesisRoot(genesisConfig, userLog);
 
   const followsCanonicalRollup =
     typeof nodeConfig.rollupVersion !== 'number' || (nodeConfig.rollupVersion as unknown as string) === 'canonical';
@@ -68,6 +89,11 @@ export async function startNode(
   if (!nodeConfig.l1Contracts.registryAddress || nodeConfig.l1Contracts.registryAddress.isZero()) {
     throw new Error('L1 registry address is required to start Aztec Node');
   }
+
+  // Wait for a compatible rollup before proceeding with full L1 config fetch.
+  // This prevents crashes when the canonical rollup hasn't been upgraded yet.
+  await waitForCompatibleRollup(nodeConfig, genesisArchiveRoot, options.port, userLog);
+
   const { addresses, config } = await getL1Config(
     nodeConfig.l1Contracts.registryAddress,
     nodeConfig.l1RpcUrls,
@@ -101,12 +127,17 @@ export async function startNode(
       ...extractNamespacedOptions(options, 'sequencer'),
     };
     // If no publisher private keys have been given, use the first validator key
-    if (sequencerConfig.publisherPrivateKeys === undefined || !sequencerConfig.publisherPrivateKeys.length) {
+    if (
+      sequencerConfig.sequencerPublisherPrivateKeys === undefined ||
+      !sequencerConfig.sequencerPublisherPrivateKeys.length
+    ) {
       if (sequencerConfig.validatorPrivateKeys?.getValue().length) {
-        sequencerConfig.publisherPrivateKeys = [new SecretValue(sequencerConfig.validatorPrivateKeys.getValue()[0])];
+        sequencerConfig.sequencerPublisherPrivateKeys = [
+          new SecretValue(sequencerConfig.validatorPrivateKeys.getValue()[0]),
+        ];
       }
     }
-    nodeConfig.publisherPrivateKeys = sequencerConfig.publisherPrivateKeys;
+    nodeConfig.sequencerPublisherPrivateKeys = sequencerConfig.sequencerPublisherPrivateKeys;
   }
 
   if (nodeConfig.p2pEnabled) {
@@ -120,12 +151,21 @@ export async function startNode(
   const telemetry = await initTelemetryClient(telemetryConfig);
 
   // Create and start Aztec Node
-  const node = await createAztecNode(nodeConfig, { telemetry }, { prefilledPublicData });
+  const node = await createAztecNode(nodeConfig, { telemetry, proverBroker: broker }, { prefilledPublicData });
 
   // Add node and p2p to services list
   services.node = [node, AztecNodeApiSchema];
   services.p2p = [node.getP2P(), P2PApiSchema];
   adminServices.nodeAdmin = [node, AztecNodeAdminApiSchema];
+
+  // Register prover-node services if the prover node subsystem is running
+  const proverNode = node.getProverNode();
+  if (proverNode) {
+    services.prover = [proverNode, ProverNodeApiSchema];
+    if (!nodeConfig.proverBrokerUrl) {
+      services.provingJobSource = [proverNode.getProver().getProvingJobSource(), ProvingJobConsumerSchema];
+    }
+  }
 
   // Add node stop function to signal handlers
   signalHandlers.push(node.stop.bind(node));
@@ -135,21 +175,24 @@ export async function startNode(
     const { addBot } = await import('./start_bot.js');
 
     const pxeConfig = extractRelevantOptions<PXEConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
-    const wallet = await TestWallet.create(node, pxeConfig);
+    const wallet = await EmbeddedWallet.create(node, { pxeConfig });
 
     await addBot(options, signalHandlers, services, wallet, node, telemetry, undefined);
   }
 
-  if (nodeConfig.autoUpdate !== 'disabled' && nodeConfig.autoUpdateUrl) {
-    await setupUpdateMonitor(
-      nodeConfig.autoUpdate,
-      new URL(nodeConfig.autoUpdateUrl),
-      followsCanonicalRollup,
-      getPublicClient(nodeConfig!),
-      nodeConfig.l1Contracts.registryAddress,
-      signalHandlers,
-      async config => node.setConfig((await AztecNodeAdminApiSchema.setConfig.parameters().parseAsync([config]))[0]),
-    );
+  if (nodeConfig.enableVersionCheck && networkName !== 'local') {
+    const cacheDir = process.env.DATA_DIRECTORY ? `${process.env.DATA_DIRECTORY}/cache` : undefined;
+    try {
+      await setupVersionChecker(
+        networkName,
+        followsCanonicalRollup,
+        getPublicClient(nodeConfig!),
+        signalHandlers,
+        cacheDir,
+      );
+    } catch {
+      /* no-op */
+    }
   }
 
   return { config: nodeConfig };

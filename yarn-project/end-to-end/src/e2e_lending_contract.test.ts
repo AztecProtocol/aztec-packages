@@ -8,13 +8,13 @@ import type { TestDateProvider } from '@aztec/foundation/timer';
 import { LendingContract } from '@aztec/noir-contracts.js/Lending';
 import { PriceFeedContract } from '@aztec/noir-contracts.js/PriceFeed';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { afterAll, jest } from '@jest/globals';
 
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 import { LendingAccount, LendingSimulator, TokenSimulator } from './simulators/index.js';
+import type { TestWallet } from './test-wallet/test_wallet.js';
 
 describe('e2e_lending_contract', () => {
   jest.setTimeout(100_000);
@@ -39,11 +39,13 @@ describe('e2e_lending_contract', () => {
 
   const deployContracts = async () => {
     logger.info(`Deploying price feed contract...`);
-    const priceFeedContract = await PriceFeedContract.deploy(wallet).send({ from: defaultAccountAddress });
+    const { contract: priceFeedContract } = await PriceFeedContract.deploy(wallet).send({
+      from: defaultAccountAddress,
+    });
     logger.info(`Price feed deployed to ${priceFeedContract.address}`);
 
     logger.info(`Deploying collateral asset feed contract...`);
-    const collateralAsset = await TokenContract.deploy(
+    const { contract: collateralAsset } = await TokenContract.deploy(
       wallet,
       defaultAccountAddress,
       'TokenName',
@@ -53,13 +55,19 @@ describe('e2e_lending_contract', () => {
     logger.info(`Collateral asset deployed to ${collateralAsset.address}`);
 
     logger.info(`Deploying stable coin contract...`);
-    const stableCoin = await TokenContract.deploy(wallet, defaultAccountAddress, 'TokenName', 'TokenSymbol', 18).send({
+    const { contract: stableCoin } = await TokenContract.deploy(
+      wallet,
+      defaultAccountAddress,
+      'TokenName',
+      'TokenSymbol',
+      18,
+    ).send({
       from: defaultAccountAddress,
     });
     logger.info(`Stable coin asset deployed to ${stableCoin.address}`);
 
     logger.info(`Deploying L2 public contract...`);
-    const lendingContract = await LendingContract.deploy(wallet).send({ from: defaultAccountAddress });
+    const { contract: lendingContract } = await LendingContract.deploy(wallet).send({ from: defaultAccountAddress });
     logger.info(`CDP deployed at ${lendingContract.address}`);
 
     await collateralAsset.methods.set_minter(lendingContract.address, true).send({ from: defaultAccountAddress });

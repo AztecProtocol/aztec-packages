@@ -2,14 +2,15 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy';
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { type EndToEndContext, deployAccounts, publicDeployAccounts, setup, teardown } from '../fixtures/setup.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 const { METRICS_PORT: metricsPort } = process.env;
 
@@ -25,6 +26,7 @@ export class TokenContractTest {
   node!: AztecNode;
 
   badAccount!: InvalidAccountContract;
+  authwitProxy!: GenericProxyContract;
   wallet!: TestWallet;
   adminAddress!: AztecAddress;
   account1Address!: AztecAddress;
@@ -79,25 +81,36 @@ export class TokenContractTest {
     await publicDeployAccounts(this.wallet, [this.adminAddress, this.account1Address]);
 
     this.logger.verbose(`Deploying TokenContract...`);
-    this.asset = await TokenContract.deploy(
+    ({ contract: this.asset } = await TokenContract.deploy(
       this.wallet,
       this.adminAddress,
       TokenContractTest.TOKEN_NAME,
       TokenContractTest.TOKEN_SYMBOL,
       TokenContractTest.TOKEN_DECIMALS,
-    ).send({ from: this.adminAddress });
+    ).send({ from: this.adminAddress }));
     this.logger.verbose(`Token deployed to ${this.asset.address}`);
 
     this.logger.verbose(`Deploying bad account...`);
-    this.badAccount = await InvalidAccountContract.deploy(this.wallet).send({ from: this.adminAddress });
+    ({ contract: this.badAccount } = await InvalidAccountContract.deploy(this.wallet).send({
+      from: this.adminAddress,
+    }));
     this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
+
+    // Deploy a proxy contract for "on behalf of other" tests. The note owner must be the tx sender
+    // (so their notes are in scope), but msg_sender in the target must differ from the note owner
+    // to trigger authwit validation. The proxy forwards calls so that msg_sender != tx sender.
+    this.logger.verbose(`Deploying generic proxy...`);
+    ({ contract: this.authwitProxy } = await GenericProxyContract.deploy(this.wallet).send({
+      from: this.adminAddress,
+    }));
+    this.logger.verbose(`Deployed to ${this.authwitProxy.address}.`);
 
     this.tokenSim = new TokenSimulator(this.asset, this.wallet, this.adminAddress, this.logger, [
       this.adminAddress,
       this.account1Address,
     ]);
 
-    expect(await this.asset.methods.get_admin().simulate({ from: this.adminAddress })).toBe(
+    expect((await this.asset.methods.get_admin().simulate({ from: this.adminAddress })).result).toBe(
       this.adminAddress.toBigInt(),
     );
   }
@@ -131,7 +144,9 @@ export class TokenContractTest {
     await asset.methods.mint_to_public(adminAddress, amount).send({ from: adminAddress });
     tokenSim.mintPublic(adminAddress, amount);
 
-    const publicBalance = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+    const { result: publicBalance } = await asset.methods
+      .balance_of_public(adminAddress)
+      .simulate({ from: adminAddress });
     this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
     expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(adminAddress));
 
@@ -139,11 +154,13 @@ export class TokenContractTest {
     await mintTokensToPrivate(asset, adminAddress, adminAddress, amount);
     tokenSim.mintPrivate(adminAddress, amount);
 
-    const privateBalance = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
+    const { result: privateBalance } = await asset.methods
+      .balance_of_private(adminAddress)
+      .simulate({ from: adminAddress });
     this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
     expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(adminAddress));
 
-    const totalSupply = await asset.methods.total_supply().simulate({ from: adminAddress });
+    const { result: totalSupply } = await asset.methods.total_supply().simulate({ from: adminAddress });
     this.logger.verbose(`Total supply: ${totalSupply}`);
     expect(totalSupply).toEqual(tokenSim.totalSupply);
 

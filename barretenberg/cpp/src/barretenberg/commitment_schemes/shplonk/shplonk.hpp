@@ -61,10 +61,6 @@ template <typename Curve> class ShplonkProver_ {
                 max_poly_size = std::max(max_poly_size, claim.polynomial.size());
             }
         }
-        // The polynomials in Sumcheck Round claims and Libra opening claims are generally not dyadic,
-        // so we round up to the next power of 2.
-        max_poly_size = numeric::round_up_power_2(max_poly_size);
-
         // Q(X) = ∑ⱼ νʲ ⋅ ( fⱼ(X) − vⱼ) / ( X − xⱼ )
         Polynomial Q(max_poly_size);
         Polynomial tmp(max_poly_size);
@@ -93,11 +89,10 @@ template <typename Curve> class ShplonkProver_ {
             current_nu *= nu;
         }
         // We use the same batching challenge for Gemini and Libra opening claims. The number of the claims
-        // batched before adding Libra commitments and evaluations is bounded by 2 * `virtual_log_n` + 2, where
-        // 2 * `virtual_log_n` is the number of fold claims including the dummy ones, and +2 is reserved for
-        // interleaving.
+        // batched before adding Libra commitments and evaluations is bounded by 2 * `virtual_log_n`,
+        // which is the number of fold claims including the dummy ones.
         if (!libra_opening_claims.empty()) {
-            current_nu = nu.pow(2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS);
+            current_nu = nu.pow(2 * virtual_log_n);
         }
 
         for (const auto& claim : libra_opening_claims) {
@@ -205,7 +200,7 @@ template <typename Curve> class ShplonkProver_ {
 
         // Take into account the constant proof size in Gemini
         if (!libra_opening_claims.empty()) {
-            current_nu = nu_challenge.pow(2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS);
+            current_nu = nu_challenge.pow(2 * virtual_log_n);
         }
 
         for (auto& claim : libra_opening_claims) {
@@ -545,11 +540,8 @@ static std::vector<Fr> compute_shplonk_batching_challenge_powers(const Fr& shplo
                                                                  bool has_zk = false,
                                                                  bool committed_sumcheck = false)
 {
-    // Minimum size of `denominators`
-    // Note that when the claim batch has no interleaving this will create one power more than it is used, so the
-    // circuit will have a witness appearing only in one gate. Getting rid of this extra power is complicated because of
-    // how Gemini and interleaving are coupled. This is not a security issue, we just compute a value that we never use.
-    size_t num_powers = 2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS;
+    // Minimum number of powers: 2 * virtual_log_n for the Gemini fold claims
+    size_t num_powers = 2 * virtual_log_n;
     // Each round univariate is opened at 0, 1, and a round challenge.
     static constexpr size_t NUM_COMMITTED_SUMCHECK_CLAIMS_PER_ROUND = 3;
 

@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -11,10 +11,9 @@
 
 namespace bb {
 
-/*!
-\brief Child class of MegaFlavor that runs with ZK Sumcheck.
- See more in \ref docs/src/sumcheck-outline.md "Sumcheck Outline".
-*/
+/**
+ * @brief Child class of MegaFlavor that runs with ZK Sumcheck.
+ */
 class MegaZKFlavor : public bb::MegaFlavor {
   public:
     // MegaZK is only used in production to prove the Hiding Kernel

@@ -32,6 +32,15 @@ export interface ContractFunctionPattern {
 
   /** Function name or '*' for any function */
   function: string;
+
+  /**
+   * Additional addresses whose private state and keys are accessible
+   * when calling this function, beyond the sender's.
+   * - undefined: No additional scopes allowed
+   * - AztecAddress[]: Only these specific addresses allowed as additional scopes
+   * - '*': All known address allowed as an additional scope
+   */
+  additionalScopes?: AztecAddress[] | '*';
 }
 
 /**
@@ -180,11 +189,11 @@ export interface ContractClassesCapability {
 export interface GrantedContractClassesCapability extends ContractClassesCapability {}
 
 /**
- * Transaction simulation capability - for simulating transactions and utilities.
+ * Transaction simulation capability - for simulating transactions and executing utilities.
  *
  * Maps to wallet methods:
  * - simulateTx (when transactions scope specified)
- * - simulateUtility (when utilities scope specified)
+ * - executeUtility (when utilities scope specified)
  * - profileTx (when transactions scope specified)
  *
  * @example
@@ -200,7 +209,7 @@ export interface GrantedContractClassesCapability extends ContractClassesCapabil
  * \}
  *
  * @example
- * // Simulate any transaction and utility call
+ * // Simulate any transaction and execute any utility call
  * \{
  *   type: 'simulation',
  *   transactions: \{ scope: '*' \},
@@ -221,7 +230,7 @@ export interface SimulationCapability {
     scope: '*' | ContractFunctionPattern[];
   };
 
-  /** Utility simulation scope (unconstrained calls). Maps to: simulateUtility */
+  /** Utility execution scope (unconstrained calls). Maps to: executeUtility */
   utilities?: {
     /**
      * Which contracts/functions to allow:

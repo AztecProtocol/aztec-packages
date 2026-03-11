@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Luke], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -303,9 +303,9 @@ std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::barrett_reductio
     }
     uintx remainder = x - qm_lo;
 
-    // because redc_parameter is an imperfect representation of 2^{2k} / n (might be too small),
-    // the computed quotient may be off by up to 4 (classic algorithm should be up to 1,
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1051): investigate, why)
+    // The quotient estimate can be off by up to 4. Classic Barrett guarantees at most 1 correction
+    // when k = ceil(log2(modulus)) and x < modulus^2. Here k = base_uint::length() - 1 (a fixed,
+    // conservative choice), so x / 2^{2k} can be up to 3, giving an error bound of 4.
     size_t i = 0;
     while (remainder >= uintx(modulus)) {
         BB_ASSERT_LT(i, 4U);

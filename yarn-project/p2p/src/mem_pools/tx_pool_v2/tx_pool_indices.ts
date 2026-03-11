@@ -1,7 +1,8 @@
+import { insertIntoSortedArray, removeFromSortedArray } from '@aztec/foundation/array';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import type { L2BlockId } from '@aztec/stdlib/block';
 
-import { type TxMetaData, type TxState, compareFee, compareTxHash } from './tx_metadata.js';
+import { type PriorityComparable, type TxMetaData, type TxState, comparePriority } from './tx_metadata.js';
 
 /**
  * Manages in-memory indices for the transaction pool.
@@ -22,8 +23,8 @@ export class TxPoolIndices {
   #nullifierToTxHash: Map<string, string> = new Map();
   /** Fee payer to txHashes index (pending txs only) */
   #feePayerToTxHashes: Map<string, Set<string>> = new Map();
-  /** Pending txHashes grouped by priority fee */
-  #pendingByPriority: Map<bigint, Set<string>> = new Map();
+  /** Pending transactions sorted ascending by priority fee, ties broken by txHash */
+  #pendingByPriority: PriorityComparable[] = [];
   /** Protected transactions: txHash -> slotNumber */
   #protectedTransactions: Map<string, SlotNumber> = new Map();
 
@@ -72,21 +73,31 @@ export class TxPoolIndices {
    * Iterates pending transaction hashes in priority order.
    * @param order - 'desc' for highest priority first, 'asc' for lowest priority first
    */
-  *iteratePendingByPriority(order: 'asc' | 'desc'): Generator<string> {
-    // Use compareFee from tx_metadata, swap args for descending order
-    const feeCompareFn = order === 'desc' ? (a: bigint, b: bigint) => compareFee(b, a) : compareFee;
-    const hashCompareFn = order === 'desc' ? (a: string, b: string) => compareTxHash(b, a) : compareTxHash;
+  *iteratePendingByPriority(order: 'asc' | 'desc', filter?: (hash: string) => boolean): Generator<string> {
+    const arr = this.#pendingByPriority;
+    const start = order === 'asc' ? 0 : arr.length - 1;
+    const step = order === 'asc' ? 1 : -1;
+    const inBounds = order === 'asc' ? (i: number) => i < arr.length : (i: number) => i >= 0;
 
-    const sortedFees = [...this.#pendingByPriority.keys()].sort(feeCompareFn);
-
-    for (const fee of sortedFees) {
-      const hashesAtFee = this.#pendingByPriority.get(fee)!;
-      // Use compareTxHash from tx_metadata, swap args for descending order
-      const sortedHashes = [...hashesAtFee].sort(hashCompareFn);
-      for (const hash of sortedHashes) {
-        yield hash;
+    for (let i = start; inBounds(i); i += step) {
+      if (filter === undefined || filter(arr[i].txHash)) {
+        yield arr[i].txHash;
       }
     }
+  }
+
+  /**
+   * Iterates pending transaction hashes in priority order, skipping txs received after maxReceivedAt.
+   * @param order - 'desc' for highest priority first, 'asc' for lowest priority first
+   * @param maxReceivedAt - Only yield txs with receivedAt <= this value
+   */
+  *iterateEligiblePendingByPriority(order: 'asc' | 'desc', maxReceivedAt: number): Generator<string> {
+    const filter = (hash: string) => {
+      const meta = this.#metadata.get(hash);
+      return meta !== undefined && meta.receivedAt <= maxReceivedAt;
+    };
+
+    yield* this.iteratePendingByPriority(order, filter);
   }
 
   /** Iterates all metadata entries */
@@ -211,11 +222,7 @@ export class TxPoolIndices {
 
   /** Gets the count of pending transactions */
   getPendingTxCount(): number {
-    let count = 0;
-    for (const hashes of this.#pendingByPriority.values()) {
-      count += hashes.size;
-    }
-    return count;
+    return this.#pendingByPriority.length;
   }
 
   /** Gets the lowest priority pending transaction hashes (up to limit) */
@@ -248,12 +255,10 @@ export class TxPoolIndices {
   /** Gets all pending transactions */
   getPendingTxs(): TxMetaData[] {
     const result: TxMetaData[] = [];
-    for (const hashSet of this.#pendingByPriority.values()) {
-      for (const txHash of hashSet) {
-        const meta = this.#metadata.get(txHash);
-        if (meta) {
-          result.push(meta);
-        }
+    for (const entry of this.#pendingByPriority) {
+      const meta = this.#metadata.get(entry.txHash);
+      if (meta) {
+        result.push(meta);
       }
     }
     return result;
@@ -332,13 +337,15 @@ export class TxPoolIndices {
   // METRICS
   // ============================================================================
 
-  /** Counts transactions by state */
-  countTxs(): { pending: number; protected: number; mined: number } {
+  /** Counts transactions by state and estimates total metadata memory usage */
+  countTxs(): { pending: number; protected: number; mined: number; totalMetadataBytes: number } {
     let pending = 0;
     let protected_ = 0;
     let mined = 0;
+    let totalMetadataBytes = 0;
 
     for (const meta of this.#metadata.values()) {
+      totalMetadataBytes += meta.estimatedSizeBytes;
       const state = this.getTxState(meta);
       if (state === 'pending') {
         pending++;
@@ -349,7 +356,16 @@ export class TxPoolIndices {
       }
     }
 
-    return { pending, protected: protected_, mined };
+    return { pending, protected: protected_, mined, totalMetadataBytes };
+  }
+
+  /** Returns the estimated total memory consumed by all metadata objects */
+  getTotalMetadataBytes(): number {
+    let total = 0;
+    for (const meta of this.#metadata.values()) {
+      total += meta.estimatedSizeBytes;
+    }
+    return total;
   }
 
   /** Gets all mined transactions with their block IDs */
@@ -381,13 +397,12 @@ export class TxPoolIndices {
     }
     feePayerSet.add(meta.txHash);
 
-    // Add to priority bucket
-    let prioritySet = this.#pendingByPriority.get(meta.priorityFee);
-    if (!prioritySet) {
-      prioritySet = new Set();
-      this.#pendingByPriority.set(meta.priorityFee, prioritySet);
-    }
-    prioritySet.add(meta.txHash);
+    insertIntoSortedArray(
+      this.#pendingByPriority,
+      { txHash: meta.txHash, priorityFee: meta.priorityFee, txHashBigInt: meta.txHashBigInt },
+      comparePriority,
+      false,
+    );
   }
 
   #removeFromPendingIndices(meta: TxMetaData): void {
@@ -405,13 +420,11 @@ export class TxPoolIndices {
       }
     }
 
-    // Remove from priority map
-    const hashSet = this.#pendingByPriority.get(meta.priorityFee);
-    if (hashSet) {
-      hashSet.delete(meta.txHash);
-      if (hashSet.size === 0) {
-        this.#pendingByPriority.delete(meta.priorityFee);
-      }
-    }
+    // Remove from priority array
+    removeFromSortedArray(
+      this.#pendingByPriority,
+      { txHash: meta.txHash, priorityFee: meta.priorityFee, txHashBigInt: meta.txHashBigInt },
+      comparePriority,
+    );
   }
 }

@@ -1,6 +1,8 @@
 from flask import Flask, render_template_string, request, Response, redirect
 from flask_compress import Compress
 from flask_httpauth import HTTPBasicAuth
+import boto3
+from botocore.exceptions import ClientError
 import gzip
 import json
 import os
@@ -9,6 +11,7 @@ import requests
 import shlex
 import subprocess
 import threading
+import time as _time
 import uuid
 from ansi2html import Ansi2HTMLConverter
 from pathlib import Path
@@ -18,51 +21,108 @@ from rk_core import (
     YELLOW, BLUE, GREEN, RED, PURPLE, BOLD, RESET,
     hyperlink, r, get_section_data, get_list_as_string
 )
+S3_LOGS_BUCKET = os.getenv('S3_LOGS_BUCKET', 'aztec-ci-artifacts')
+S3_LOGS_PREFIX = os.getenv('S3_LOGS_PREFIX', 'logs')
 
-LOGS_DISK_PATH = os.getenv('LOGS_DISK_PATH', '/logs-disk')
-DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD', 'password')
+_s3 = boto3.client('s3', region_name='us-east-2')
+DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD', '')
+CI_METRICS_PORT = int(os.getenv('CI_METRICS_PORT', '8081'))
+CI_METRICS_URL = os.getenv('CI_METRICS_URL', f'http://localhost:{CI_METRICS_PORT}')
+
 app = Flask(__name__)
 Compress(app)
 auth = HTTPBasicAuth()
 
-def read_from_disk(key):
-    """Read log from disk as fallback when Redis key not found."""
+# Start the ci-metrics server as a subprocess (once across all workers).
+# Uses a file lock so only the first gunicorn worker to import this module
+# actually spawns the process; the rest skip silently.
+import fcntl
+import signal
+
+_ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ci-metrics')
+if not os.path.isdir(_ci_metrics_dir):
+    _ci_metrics_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ci-metrics')
+if os.path.isdir(_ci_metrics_dir):
+    _lock_path = f'/tmp/ci-metrics-{CI_METRICS_PORT}.lock'
     try:
-        # Use first 4 chars as subdirectory
+        _lock_fd = open(_lock_path, 'w')
+        fcntl.flock(_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        # We hold the lock — kill stale process and spawn fresh one
+        try:
+            out = subprocess.check_output(
+                ['lsof', '-ti', f':{CI_METRICS_PORT}'], stderr=subprocess.DEVNULL, text=True)
+            for pid in out.strip().split('\n'):
+                if pid:
+                    os.kill(int(pid), signal.SIGTERM)
+            _time.sleep(0.5)
+        except (subprocess.CalledProcessError, OSError):
+            pass
+        _ci_metrics_env = {**os.environ, 'CI_METRICS_PORT': str(CI_METRICS_PORT)}
+        subprocess.Popen(
+            ['gunicorn', '-w', '1', '-b', f'0.0.0.0:{CI_METRICS_PORT}',
+             '--timeout', '120', 'app:app'],
+            cwd=_ci_metrics_dir,
+            env=_ci_metrics_env,
+        )
+        print(f"[rk.py] ci-metrics server started on port {CI_METRICS_PORT}")
+        # Hold the lock until this process exits so other workers skip
+    except OSError:
+        # Another worker already holds the lock — nothing to do
+        pass
+
+# Conditional auth decorator - only require auth if password is set
+def optional_auth(f):
+    if DASHBOARD_PASSWORD:
+        return auth.login_required(f)
+    return f
+
+
+def read_from_s3(key):
+    """Read log from S3 (fallback when Redis and disk both miss)."""
+    try:
         prefix = key[:4]
-        log_file = f"/logs-disk/{prefix}/{key}.log.gz"
-        log_file = f"{LOGS_DISK_PATH}/{prefix}/{key}.log.gz"
-        if os.path.exists(log_file):
-            with gzip.open(log_file, 'rb') as f:
-                return f.read().decode('utf-8', errors='replace')
+        s3_key = f"{S3_LOGS_PREFIX}/{prefix}/{key}.log.gz"
+        obj = _s3.get_object(Bucket=S3_LOGS_BUCKET, Key=s3_key)
+        return gzip.decompress(obj['Body'].read()).decode('utf-8', errors='replace')
+    except ClientError as e:
+        if e.response['Error']['Code'] != 'NoSuchKey':
+            print(f"S3 error reading {key}: {e}")
     except Exception as e:
-        print(f"Error reading from disk: {e}")
+        print(f"Error reading from S3: {e}")
     return None
 
-def read_breakdown_from_disk(runtime, flow_name, sha):
-    """Read benchmark breakdown JSON from disk."""
+def read_breakdown_from_s3(runtime, flow_name, sha):
+    """Read benchmark breakdown from S3."""
+    breakdown_name = f"{runtime}-{flow_name}-{sha}"
+    s3_prefix = f"{S3_LOGS_PREFIX}/bench/bb-breakdown"
+
+    # Exact match
     try:
-        # Breakdown files are stored in {LOGS_DISK_PATH}/bench/bb-breakdown/
-        # Format: <runtime>-<flow_name>-<sha>.log.gz
-        # SHA can be 7-40 chars (prefix or full)
-        breakdown_dir = f"{LOGS_DISK_PATH}/bench/bb-breakdown"
-
-        # First try exact match
-        breakdown_file = f"{breakdown_dir}/{runtime}-{flow_name}-{sha}.log.gz"
-        if os.path.exists(breakdown_file):
-            with gzip.open(breakdown_file, 'rb') as f:
-                return f.read().decode('utf-8', errors='replace')
-
-        # If not found, search for files starting with the SHA prefix
-        if os.path.exists(breakdown_dir):
-            prefix = f"{runtime}-{flow_name}-{sha}"
-            for filename in os.listdir(breakdown_dir):
-                if filename.startswith(prefix) and filename.endswith('.log.gz'):
-                    breakdown_file = os.path.join(breakdown_dir, filename)
-                    with gzip.open(breakdown_file, 'rb') as f:
-                        return f.read().decode('utf-8', errors='replace')
+        s3_key = f"{s3_prefix}/{breakdown_name}.log.gz"
+        obj = _s3.get_object(Bucket=S3_LOGS_BUCKET, Key=s3_key)
+        return gzip.decompress(obj['Body'].read()).decode('utf-8', errors='replace')
+    except ClientError as e:
+        if e.response['Error']['Code'] != 'NoSuchKey':
+            print(f"S3 error reading breakdown {breakdown_name}: {e}")
     except Exception as e:
-        print(f"Error reading breakdown from disk: {e}")
+        print(f"Error reading breakdown from S3: {e}")
+
+    # Prefix search (SHA may be a prefix)
+    try:
+        list_prefix = f"{s3_prefix}/{breakdown_name}"
+        paginator = _s3.get_paginator('list_objects_v2')
+        for page in paginator.paginate(Bucket=S3_LOGS_BUCKET, Prefix=list_prefix):
+            for obj in page.get('Contents', []):
+                key = obj['Key']
+                if key.endswith('.log.gz'):
+                    try:
+                        resp = _s3.get_object(Bucket=S3_LOGS_BUCKET, Key=key)
+                        return gzip.decompress(resp['Body'].read()).decode('utf-8', errors='replace')
+                    except Exception:
+                        pass
+    except Exception as e:
+        print(f"S3 prefix search failed for breakdown {breakdown_name}: {e}")
+
     return None
 
 @auth.verify_password
@@ -76,7 +136,7 @@ _github_status_lock = threading.Lock()
 
 def convert_to_ocs8(text):
     # Replace URLs not already part of an OCS8 link using negative lookbehind.
-    pattern = r'(?<!\x1b\]8;;)(https?://[\w_.\-/]+)'
+    pattern = r'(?<!\x1b\]8;;)(https?://[\w_.\-/:?=&%#+@~]+)'
     def replace_link(match):
         url = match.group(0)
         return hyperlink(url, url)
@@ -144,6 +204,13 @@ def root() -> str:
         f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=staging', 'staging')}\n"
         f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=next', 'next')}\n"
         f"{hyperlink('/chonk-breakdowns', 'chonk breakdowns')}\n"
+        f"{RESET}"
+        f"\n"
+        f"CI Metrics:\n"
+        f"\n{YELLOW}"
+        f"{hyperlink('/cost-overview', 'cost overview (AWS + GCP)')}\n"
+        f"{hyperlink('/namespace-billing', 'namespace billing')}\n"
+        f"{hyperlink('/ci-insights', 'ci insights')}\n"
         f"{RESET}"
     )
 
@@ -308,7 +375,7 @@ TEMPLATE = """
 """
 
 @app.route('/')
-@auth.login_required
+@optional_auth
 def show_root():
     return render_template_string(
         TEMPLATE,
@@ -318,7 +385,7 @@ def show_root():
     )
 
 @app.route('/section/<section>')
-@auth.login_required
+@optional_auth
 def show_section(section):
     return render_template_string(
         TEMPLATE,
@@ -329,14 +396,14 @@ def show_section(section):
     )
 
 @app.route('/list/<key>')
-@auth.login_required
+@optional_auth
 def get_list(key):
     value = get_list_as_string(key)
     follow = request.args.get('follow', 'top')
     return render_template_string(TEMPLATE, value=ansi_to_html(value), follow=follow, filter_str='', filter_prop='')
 
 @app.route('/chonk-breakdowns')
-@auth.login_required
+@optional_auth
 def chonk_breakdowns():
     """Serve the chonk breakdowns viewer page."""
     breakdown_html_path = Path('chonk-breakdowns/breakdown-viewer.html')
@@ -347,46 +414,46 @@ def chonk_breakdowns():
         return "Breakdown viewer not found", 404
 
 @app.route('/api/breakdown/flows')
-@auth.login_required
+@optional_auth
 def list_available_flows():
-    """API endpoint to list available breakdown flows from disk, filtered by runtime and SHA."""
+    """API endpoint to list available breakdown flows from S3, filtered by runtime and SHA."""
     runtime = request.args.get('runtime')
     sha = request.args.get('sha')
     flows = set()
-    breakdown_dir = f"{LOGS_DISK_PATH}/bench/bb-breakdown"
+    s3_prefix = f"{S3_LOGS_PREFIX}/bench/bb-breakdown/"
 
     try:
-        if os.path.exists(breakdown_dir):
-            for filename in os.listdir(breakdown_dir):
-                if filename.endswith('.log.gz'):
-                    # Parse: runtime-flow_name-sha.log.gz
-                    parts = filename.replace('.log.gz', '').split('-', 1)
-                    if len(parts) == 2:
-                        file_runtime = parts[0]
-                        rest = parts[1]
-                        # Split from end to get SHA (7-40 chars)
-                        last_dash = rest.rfind('-')
-                        if last_dash != -1:
-                            flow_name = rest[:last_dash]
-                            file_sha = rest[last_dash + 1:]
+        paginator = _s3.get_paginator('list_objects_v2')
+        for page in paginator.paginate(Bucket=S3_LOGS_BUCKET, Prefix=s3_prefix):
+            for obj in page.get('Contents', []):
+                filename = obj['Key'][len(s3_prefix):]
+                if not filename.endswith('.log.gz'):
+                    continue
+                parts = filename.replace('.log.gz', '').split('-', 1)
+                if len(parts) == 2:
+                    file_runtime = parts[0]
+                    rest = parts[1]
+                    last_dash = rest.rfind('-')
+                    if last_dash != -1:
+                        flow_name = rest[:last_dash]
+                        file_sha = rest[last_dash + 1:]
 
-                            # Filter by runtime and SHA if provided
-                            if runtime and file_runtime != runtime:
-                                continue
-                            if sha and not file_sha.startswith(sha):
-                                continue
+                        if runtime and file_runtime != runtime:
+                            continue
+                        if sha and not file_sha.startswith(sha):
+                            continue
 
-                            flows.add(flow_name)
+                        flows.add(flow_name)
     except Exception as e:
-        print(f"Error listing flows: {e}")
+        print(f"Error listing flows from S3: {e}")
 
     return Response(json.dumps(sorted(list(flows))), mimetype='application/json')
 
 @app.route('/api/breakdown/<runtime>/<flow_name>/<sha>')
-@auth.login_required
+@optional_auth
 def get_breakdown(runtime, flow_name, sha):
-    """API endpoint to fetch breakdown JSON from disk."""
-    breakdown_data = read_breakdown_from_disk(runtime, flow_name, sha)
+    """API endpoint to fetch breakdown JSON."""
+    breakdown_data = read_breakdown_from_s3(runtime, flow_name, sha)
     if breakdown_data:
         return Response(breakdown_data, mimetype='application/json')
 
@@ -394,7 +461,7 @@ def get_breakdown(runtime, flow_name, sha):
 
 
 @app.route('/grind')
-@auth.login_required
+@optional_auth
 def trigger_grind():
     """Trigger a grind job for a flaky test."""
     from urllib.parse import urlencode as url_encode
@@ -487,8 +554,62 @@ def trigger_grind():
     # Redirect to log view.
     return redirect(f'/{run_id}')
 
-@app.route('/<key>')
+
+# ---- Reverse proxy to ci-metrics server ----
+
+_proxy_session = requests.Session()
+_HOP_BY_HOP = frozenset([
+    'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
+    'te', 'trailers', 'transfer-encoding', 'upgrade',
+])
+_STRIP_REQUEST_HEADERS = frozenset(['host'])
+
+def _proxy(path):
+    """Forward request to ci-metrics, streaming the response back.
+
+    Passes the browser's Accept-Encoding through to ci-metrics so it
+    compresses directly for the browser.  We stream the raw (still
+    compressed) bytes back without decompression.
+    """
+    url = f'{CI_METRICS_URL}/{path.lstrip("/")}'
+    try:
+        fwd_headers = {k: v for k, v in request.headers if k.lower() not in _STRIP_REQUEST_HEADERS}
+        resp = _proxy_session.request(
+            method=request.method,
+            url=url,
+            params=request.args,
+            data=request.get_data(),
+            headers=fwd_headers,
+            stream=True,
+            timeout=180,
+        )
+        # Stream raw bytes (skip requests auto-decompression)
+        headers = {k: v for k, v in resp.headers.items() if k.lower() not in _HOP_BY_HOP}
+        return Response(resp.raw.stream(8192),
+                        status=resp.status_code, headers=headers)
+    except Exception as e:
+        return Response(json.dumps({'error': f'ci-metrics unavailable: {e}'}),
+                        mimetype='application/json', status=502)
+
+@app.route('/namespace-billing')
+@app.route('/ci-health')
+@app.route('/ci-insights')
+@app.route('/cost-overview')
+@app.route('/test-timings')
+@app.route('/ci-health-report')
+@app.route('/flake-prs')
 @auth.login_required
+def proxy_dashboard():
+    return _proxy(request.path)
+
+
+@app.route('/api/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@auth.login_required
+def proxy_api(path):
+    return _proxy(f'/api/{path}')
+
+@app.route('/<key>')
+@optional_auth
 def get_value(key):
     # Check if raw text format is requested
     raw_text = key.endswith('.txt')
@@ -497,11 +618,11 @@ def get_value(key):
 
     value = r.get(key)
     if value is None:
-        # Try disk fallback
-        value = read_from_disk(key)
-        if value is None:
-            value = "Key not found"
-    else:
+        value = read_from_s3(key)
+    if value is None:
+        value = "Key not found"
+    elif isinstance(value, bytes):
+        # Redis returns raw bytes — decompress if gzip.
         try:
             if value.startswith(b"\x1f\x8b"):
                 value = gzip.decompress(value).decode()

@@ -10,9 +10,9 @@ export const MultiCallEntrypointArtifact = loadContractArtifact(MultiCallEntrypo
 let protocolContract: ProtocolContract;
 
 /** Returns the canonical deployment of the contract. */
-export async function getCanonicalMultiCallEntrypoint(): Promise<ProtocolContract> {
+export function getCanonicalMultiCallEntrypoint(): Promise<ProtocolContract> {
   if (!protocolContract) {
-    protocolContract = await makeProtocolContract('MultiCallEntrypoint', MultiCallEntrypointArtifact);
+    protocolContract = makeProtocolContract('MultiCallEntrypoint', MultiCallEntrypointArtifact);
   }
-  return protocolContract;
+  return Promise.resolve(protocolContract);
 }

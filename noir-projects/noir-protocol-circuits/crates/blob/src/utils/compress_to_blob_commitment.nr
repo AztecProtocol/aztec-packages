@@ -80,7 +80,7 @@ mod tests {
         // y^2 = x^3 + ax + b
         let reconstructed_y_squared =
             reconstructed_x.__pow(BLS12_381_Fq::from(3)).add(a.mul(reconstructed_x)).add(b);
-        let mut reconstructed_y = -(reconstructed_y_squared.__sqrt().unwrap());
+        let reconstructed_y = -(reconstructed_y_squared.__sqrt().unwrap());
 
         assert_eq(reconstructed_y, point.y);
     }

@@ -21,7 +21,7 @@ template <typename BaseField, typename CompileTimeEnabled>
 constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::from_compressed(const uint256_t& compressed) noexcept
 {
     uint256_t x_coordinate = compressed;
-    x_coordinate.data[3] = x_coordinate.data[3] & (~0x8000000000000000ULL);
+    x_coordinate.data[3] = x_coordinate.data[3] & (~UINT256_TOP_LIMB_MSB);
     bool y_bit = compressed.get_bit(255);
 
     Fq x = Fq(x_coordinate);
@@ -80,18 +80,6 @@ constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::operator*(const F
     return bb::group_elements::element(*this) * exponent;
 }
 
-template <class Fq, class Fr, class T>
-template <typename BaseField, typename CompileTimeEnabled>
-
-constexpr uint256_t affine_element<Fq, Fr, T>::compress() const noexcept
-{
-    uint256_t out(x);
-    if (uint256_t(y).get_bit(0)) {
-        out.data[3] = out.data[3] | 0x8000000000000000ULL;
-    }
-    return out;
-}
-
 template <class Fq, class Fr, class T> constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::infinity()
 {
     affine_element e{};
@@ -109,7 +97,7 @@ constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::set_infinity() co
 
 template <class Fq, class Fr, class T> constexpr void affine_element<Fq, Fr, T>::self_set_infinity() noexcept
 {
-    if constexpr (Fq::modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         // We set the value of x equal to modulus to represent inifinty
         x.data[0] = Fq::modulus.data[0];
         x.data[1] = Fq::modulus.data[1];
@@ -124,7 +112,7 @@ template <class Fq, class Fr, class T> constexpr void affine_element<Fq, Fr, T>:
 
 template <class Fq, class Fr, class T> constexpr bool affine_element<Fq, Fr, T>::is_point_at_infinity() const noexcept
 {
-    if constexpr (Fq::modulus.data[3] >= 0x4000000000000000ULL) {
+    if constexpr (Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
         // We check if the value of x is equal to modulus to represent inifinty
         return ((x.data[0] ^ Fq::modulus.data[0]) | (x.data[1] ^ Fq::modulus.data[1]) |
                 (x.data[2] ^ Fq::modulus.data[2]) | (x.data[3] ^ Fq::modulus.data[3])) == 0;
@@ -157,15 +145,9 @@ constexpr bool affine_element<Fq, Fr, T>::operator==(const affine_element& other
     return !only_one_is_infinity && (both_infinity || ((x == other.x) && (y == other.y)));
 }
 
-/**
- * Comparison operators (for std::sort)
- *
- * @details CAUTION!! Don't use this operator. It has no meaning other than for use by std::sort.
- **/
 template <class Fq, class Fr, class T>
 constexpr bool affine_element<Fq, Fr, T>::operator>(const affine_element& other) const noexcept
 {
-    // We are setting point at infinity to always be the lowest element
     if (is_point_at_infinity()) {
         return false;
     }

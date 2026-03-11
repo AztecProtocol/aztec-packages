@@ -1,36 +1,39 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { P2PClientType } from '@aztec/stdlib/p2p';
+import type { AztecNode, ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { P2PClient } from '../client/p2p_client.js';
 import type { P2PConfig } from '../config.js';
 import { AttestationPool, type AttestationPoolApi } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
-import { AztecKVTxPool, type TxPool } from '../mem_pools/tx_pool/index.js';
+import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
+import { AztecKVTxPoolV2 } from '../mem_pools/tx_pool_v2/tx_pool_v2.js';
+import { createTxValidatorForTransactionsEnteringPendingTxPool } from '../msg_validators/index.js';
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
 import { createFileStoreTxSources } from '../services/tx_collection/file_store_tx_source.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
-import { type TxSource, createNodeRpcTxSources } from '../services/tx_collection/tx_source.js';
+import { NodeRpcTxSource, type TxSource, createNodeRpcTxSources } from '../services/tx_collection/tx_source.js';
 import { TxFileStore } from '../services/tx_file_store/tx_file_store.js';
 import { configureP2PClientAddresses, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
 
-export type P2PClientDeps<T extends P2PClientType> = {
-  txPool?: TxPool;
+export type P2PClientDeps = {
+  txPool?: TxPoolV2;
   store?: AztecAsyncKVStore;
   attestationPool?: AttestationPoolApi;
   logger?: Logger;
   txCollectionNodeSources?: TxSource[];
-  p2pServiceFactory?: (...args: Parameters<(typeof LibP2PService)['new']>) => Promise<LibP2PService<T>>;
+  rpcTxProviders?: AztecNode[];
+  p2pServiceFactory?: (...args: Parameters<(typeof LibP2PService)['new']>) => Promise<LibP2PService>;
 };
 
 export const P2P_STORE_NAME = 'p2p';
@@ -38,8 +41,7 @@ export const P2P_ARCHIVE_STORE_NAME = 'p2p-archive';
 export const P2P_PEER_STORE_NAME = 'p2p-peers';
 export const P2P_ATTESTATION_STORE_NAME = 'p2p-attestation';
 
-export async function createP2PClient<T extends P2PClientType>(
-  clientType: T,
+export async function createP2PClient(
   inputConfig: P2PConfig & DataStoreConfig & ChainConfig,
   archiver: L2BlockSource & ContractDataSource,
   proofVerifier: ClientProtocolCircuitVerifier,
@@ -48,7 +50,7 @@ export async function createP2PClient<T extends P2PClientType>(
   packageVersion: string,
   dateProvider: DateProvider = new DateProvider(),
   telemetry: TelemetryClient = getTelemetryClient(),
-  deps: P2PClientDeps<T> = {},
+  deps: P2PClientDeps = {},
 ) {
   const config = await configureP2PClientAddresses({
     ...inputConfig,
@@ -70,19 +72,46 @@ export async function createP2PClient<T extends P2PClientType>(
   const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 1, config, bindings);
   const l1Constants = await archiver.getL1Constants();
 
-  const mempools: MemPools = {
-    txPool:
-      deps.txPool ??
-      new AztecKVTxPool(store, archive, worldStateSynchronizer, telemetry, {
+  const rollupAddress = inputConfig.l1Contracts.rollupAddress.toString().toLowerCase().replace(/^0x/, '');
+  const txFileStoreBasePath = `aztec-${inputConfig.l1ChainId}-${inputConfig.rollupVersion}-0x${rollupAddress}`;
+
+  const txPool =
+    deps.txPool ??
+    new AztecKVTxPoolV2(
+      store,
+      archive,
+      {
+        l2BlockSource: archiver,
+        worldStateSynchronizer,
+        createTxValidator: async () => {
+          // We accept transactions if they are not expired by the next slot and block number (checked based on the ExpirationTimestamp field)
+          const currentBlockNumber = await archiver.getBlockNumber();
+          const { ts: nextSlotTimestamp } = epochCache.getEpochAndSlotInNextL1Slot();
+          return createTxValidatorForTransactionsEnteringPendingTxPool(
+            worldStateSynchronizer,
+            nextSlotTimestamp,
+            BlockNumber(currentBlockNumber + 1),
+          );
+        },
+      },
+      telemetry,
+      {
         maxPendingTxCount: config.maxPendingTxCount,
         archivedTxLimit: config.archivedTxLimit,
-      }),
+        minTxPoolAgeMs: config.minTxPoolAgeMs,
+        dropTransactionsProbability: config.dropTransactionsProbability,
+        priceBumpPercentage: config.priceBumpPercentage,
+      },
+      dateProvider,
+    );
+
+  const mempools: MemPools = {
+    txPool,
     attestationPool: deps.attestationPool ?? new AttestationPool(attestationStore, telemetry),
   };
 
-  const p2pService = await createP2PService<T>(
+  const p2pService = await createP2PService(
     config,
-    clientType,
     archiver,
     proofVerifier,
     worldStateSynchronizer,
@@ -98,6 +127,7 @@ export async function createP2PClient<T extends P2PClientType>(
 
   const nodeSources = [
     ...createNodeRpcTxSources(config.txCollectionNodeRpcUrls, config),
+    ...(deps.rpcTxProviders ?? []).map((node, i) => new NodeRpcTxSource(node, `node-rpc-provider-${i}`)),
     ...(deps.txCollectionNodeSources ?? []),
   ];
   if (nodeSources.length > 0) {
@@ -108,7 +138,9 @@ export async function createP2PClient<T extends P2PClientType>(
 
   const fileStoreSources = await createFileStoreTxSources(
     config.txCollectionFileStoreUrls,
+    txFileStoreBasePath,
     logger.createChild('file-store-tx-source'),
+    telemetry,
   );
   if (fileStoreSources.length > 0) {
     logger.info(`Using ${fileStoreSources.length} file store sources for tx collection.`, {
@@ -128,25 +160,30 @@ export async function createP2PClient<T extends P2PClientType>(
     logger.createChild('tx-collection'),
   );
 
-  const txFileStore = await TxFileStore.create(mempools.txPool, config, logger.createChild('tx-file-store'), telemetry);
+  const txFileStore = await TxFileStore.create(
+    mempools.txPool,
+    config,
+    txFileStoreBasePath,
+    logger.createChild('tx-file-store'),
+    telemetry,
+  );
 
   return new P2PClient(
-    clientType,
     store,
     archiver,
     mempools,
     p2pService,
     txCollection,
     txFileStore,
+    epochCache,
     config,
     dateProvider,
     telemetry,
   );
 }
 
-async function createP2PService<T extends P2PClientType>(
+async function createP2PService(
   config: P2PConfig & DataStoreConfig,
-  clientType: T,
   archiver: L2BlockSource & ContractDataSource,
   proofVerifier: ClientProtocolCircuitVerifier,
   worldStateSynchronizer: WorldStateSynchronizer,
@@ -154,7 +191,7 @@ async function createP2PService<T extends P2PClientType>(
   store: AztecAsyncKVStore,
   peerStore: AztecLMDBStoreV2,
   mempools: MemPools,
-  p2pServiceFactory: P2PClientDeps<T>['p2pServiceFactory'],
+  p2pServiceFactory: P2PClientDeps['p2pServiceFactory'],
   packageVersion: string,
   logger: Logger,
   telemetry: TelemetryClient,
@@ -170,7 +207,7 @@ async function createP2PService<T extends P2PClientType>(
   const peerIdPrivateKey = await getPeerIdPrivateKey(config, store, logger);
   const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey.getValue());
 
-  const p2pService = await (p2pServiceFactory ?? LibP2PService.new<T>)(clientType, config, peerId, {
+  const p2pService = await (p2pServiceFactory ?? LibP2PService.new)(config, peerId, {
     packageVersion,
     mempools,
     l2BlockSource: archiver,

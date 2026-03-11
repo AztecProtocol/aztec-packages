@@ -4,7 +4,8 @@ import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { TxHash, type TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
 import { times } from '@aztec/foundation/collection';
-import type { TestWallet } from '@aztec/test-wallet/server';
+
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 // submits a set of transactions to the provided Wallet
 export const submitTxsTo = async (
@@ -18,7 +19,7 @@ export const submitTxsTo = async (
     times(numTxs, async () => {
       const accountManager = await wallet.createSchnorrAccount(Fr.random(), Fr.random(), GrumpkinScalar.random());
       const deployMethod = await accountManager.getDeployMethod();
-      const txHash = await deployMethod.send({ from: submitter, wait: NO_WAIT });
+      const { txHash } = await deployMethod.send({ from: submitter, wait: NO_WAIT });
 
       logger.info(`Tx sent with hash ${txHash}`);
       const receipt: TxReceipt = await wallet.getTxReceipt(txHash);

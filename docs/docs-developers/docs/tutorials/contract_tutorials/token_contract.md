@@ -23,7 +23,7 @@ This is an intermediate tutorial that assumes you have:
 - Completed the [Counter Contract tutorial](./counter_contract.md)
 - A Running Aztec local network (see the Counter tutorial for setup)
 - Basic understanding of Aztec.nr syntax and structure
-- Aztec toolchain installed (`bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix/)`)
+- Aztec toolchain installed (`VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)`)
 
 If you haven't completed the Counter Contract tutorial, please do so first as we'll skip the basic setup steps covered there.
 
@@ -39,8 +39,8 @@ We'll create BOB tokens with:
 Let's create a simple yarn + aztec.nr project:
 
 ```bash
-mkdir bob_token_contract
-cd bob_token_contract
+mkdir bob_token
+cd bob_token
 yarn init
 # This is to ensure yarn uses node_modules instead of pnp for dependency installation
 yarn config set nodeLinker node-modules
@@ -50,7 +50,7 @@ aztec init
 
 ## Contract structure
 
-We have a messy, but working structure. In `src/main.nr` we even have a proto-contract. Let's replace it with a simple starting point:
+The `aztec init` command created a workspace with two crates: a `bob_token_contract` crate for your smart contract code and a `bob_token_test` crate for Noir tests. In `bob_token_contract/src/main.nr` we even have a proto-contract. Let's replace it with a simple starting point:
 
 ```rust
 #include_code start /docs/examples/contracts/bob_token_contract/src/main.nr raw
@@ -60,7 +60,7 @@ We have a messy, but working structure. In `src/main.nr` we even have a proto-co
 
 The `#[aztec]` macro transforms our contract code to work with Aztec's privacy protocol.
 
-Let's import the Aztec.nr library by adding it to our dependencies in `Nargo.toml`:
+Let's make sure the Aztec.nr library is listed in our dependencies in `bob_token_contract/Nargo.toml`:
 
 ```toml
 [package]
@@ -254,7 +254,7 @@ In this case, all that the network sees (including Giggle) is just "something ha
 
 ### Updating Storage for Privacy
 
-For something like balances, you can use a simple library called `easy_private_state` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../foundational-topics/state_management.md). For now, let's just import the library in `Nargo.toml`:
+For something like balances, you can use a simple library called `easy_private_state` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../foundational-topics/state_management.md). For now, let's just import the library in `bob_token_contract/Nargo.toml`:
 
 ```toml
 [dependencies]
@@ -425,7 +425,13 @@ The BOB token shows how blockchain can enable new models of corporate benefits t
 - How to implement access control across execution contexts
 - How to build real-world privacy solutions on Aztec
 
+## Going Further: The AIP-20 Token Standard
+
+The BOB token you built in this tutorial implements a simplified version of the patterns formalized in **AIP-20**, Aztec's fungible token standard. AIP-20 extends these patterns with commitment-based transfers for DeFi composability, recursive note consumption for large balances, and tokenized vault support (AIP-4626).
+
+Read the full [AIP-20 standard reference](../../aztec-nr/standards/aip-20.md) for details, or explore all [Aztec Contract Standards](../../aztec-nr/standards/index.md).
+
 ### Continue Your Journey
 
-- Explore [cross-chain communication](../../aztec-nr/framework-description/ethereum-aztec-messaging/index.md) to integrate with existing health systems
+- Explore [cross-chain communication](../../foundational-topics/ethereum-aztec-messaging/index.md) to integrate with existing health systems
 - Learn about [account abstraction](../../foundational-topics/accounts/index.md) for recovery mechanisms

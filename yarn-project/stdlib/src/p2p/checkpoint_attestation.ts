@@ -96,7 +96,12 @@ export class CheckpointAttestation extends Gossipable {
       // Create a temporary CheckpointProposal to recover the proposer address.
       // We need to use CheckpointProposal because it has a different getPayloadToSign()
       // implementation than ConsensusPayload (uses serializeToBuffer vs ABI encoding).
-      const proposal = new CheckpointProposal(this.payload.header, this.payload.archive, this.proposerSignature);
+      const proposal = new CheckpointProposal(
+        this.payload.header,
+        this.payload.archive,
+        this.payload.feeAssetPriceModifier,
+        this.proposerSignature,
+      );
       // Cache the proposer for later use
       this.proposer = proposal.getSender();
     }

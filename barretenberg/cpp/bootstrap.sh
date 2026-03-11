@@ -7,6 +7,7 @@ else
   export native_preset=${NATIVE_PRESET:-clang20-no-avm}
 fi
 export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+export native_build_dir=$(scripts/native-preset-build-dir)
 
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
@@ -34,6 +35,13 @@ function inject_version {
   # Version starts immediately after the sentinel
   local version_offset=$((sentinel_offset + ${#sentinel}))
   printf "$version\0" | dd of="$binary" bs=1 seek=$version_offset conv=notrunc 2>/dev/null
+
+  # Re-sign after modifying the binary.
+  if [[ "$(os)" == "macos" ]]; then
+    codesign -s - -f "$binary" 2>/dev/null || true
+  elif llvm-objdump --macho --private-header "$binary" &>/dev/null; then
+    ldid -S "$binary"
+  fi
 }
 
 # Define build commands for each preset
@@ -54,6 +62,7 @@ function build_preset() {
 function build_native_objects {
   set -eu
   if ! cache_exists barretenberg-$native_preset-$hash.zst; then
+    (flock -x 200 && cd src/barretenberg/nodejs_module && yarn --immutable) 200>/tmp/bb-yarn.lock
     cmake --preset "$native_preset"
     targets=$(cmake --build --preset "$native_preset" --target help | awk -F: '$1 ~ /(_objects|_tests|_bench|_gen|.a)$/ && $1 !~ /^cmake_/{print $1}' | tr '\n' ' ')
     cmake --build --preset "$native_preset" --target $targets nodejs_module
@@ -68,12 +77,13 @@ function build_native {
     build_preset $native_preset
     # Build bb-external for barretenberg-rs FFI backend (not part of default targets)
     cmake --build --preset $native_preset --target bb-external
-    cache_upload barretenberg-$native_preset-$hash.zst build/{bin,lib}
+    cache_upload barretenberg-$native_preset-$hash.zst ${native_build_dir}/{bin,lib}
   fi
   # Always inject version (even for cached binaries) to ensure correct version on release
-  inject_version build/bin/bb
-  if [ -f build/bin/bb-avm ]; then
-    inject_version build/bin/bb-avm
+  inject_version $native_build_dir/bin/bb
+
+  if [ -f $native_build_dir/bin/bb-avm ]; then
+    inject_version $native_build_dir/bin/bb-avm
   fi
 }
 
@@ -85,6 +95,7 @@ function build_cross_objects {
   set -eu
   target=$1
   if ! cache_exists barretenberg-$target-$hash.zst; then
+    (flock -x 200 && cd src/barretenberg/nodejs_module && yarn --immutable) 200>/tmp/bb-yarn.lock
     build_preset zig-$target --target barretenberg nodejs_module vm2_stub circuit_checker honk
   fi
 }
@@ -94,24 +105,37 @@ function build_cross_objects {
 function build_cross {
   set -eu
   target=$1
-  is_macos=${2:-false}
   if ! cache_download barretenberg-$target-$hash.zst; then
+    (flock -x 200 && cd src/barretenberg/nodejs_module && yarn --immutable) 200>/tmp/bb-yarn.lock
     build_preset zig-$target --target bb --target nodejs_module --target bb-external
     cache_upload barretenberg-$target-$hash.zst build-zig-$target/{bin,lib}
   fi
   # Always inject version (even for cached binaries) to ensure correct version on release
   inject_version build-zig-$target/bin/bb
-  # Code sign for macOS after version injection (must be last modification to binary)
-  if [ "$is_macos" == "true" ]; then
-    ldid -S build-zig-$target/bin/bb
-  fi
 }
 
-# Build for iOS (must run on macOS with Xcode installed)
-# Arg is preset name: ios-arm64 or ios-sim-arm64
+# Build static library (.a) for iOS using Zig cross-compilation from Linux.
+# Only produces static libraries (bb-external) — Zig cannot link iOS executables
+# due to lack of TBD/dylib support. Requires iOS SDK headers (downloaded automatically).
+# Arg is preset name: zig-arm64-ios or zig-arm64-ios-sim
 function build_ios {
   set -eu
   preset=$1
+  # Download iOS SDK if not present
+  bash scripts/download-ios-sdk.sh
+  if ! cache_download barretenberg-$preset-$hash.zst; then
+    build_preset $preset --target bb-external
+    cache_upload barretenberg-$preset-$hash.zst build-$preset/lib
+  fi
+}
+
+# Build static library (.a) for Android using Zig cross-compilation from Linux.
+# Only produces static libraries (bb-external). Requires Android sysroot headers (downloaded automatically).
+# Arg is preset name: zig-arm64-android or zig-x86_64-android
+function build_android {
+  set -eu
+  preset=$1
+  bash scripts/download-android-sysroot.sh
   if ! cache_download barretenberg-$preset-$hash.zst; then
     build_preset $preset --target bb-external
     cache_upload barretenberg-$preset-$hash.zst build-$preset/lib
@@ -217,8 +241,8 @@ function build_release_dir {
   mkdir build-release
 
   # Version is injected in build_native/build_cross (always, even for cached binaries)
-  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build/bin bb
-  tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C build/bin bb-avm
+  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C $native_build_dir/bin bb
+  tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C $native_build_dir/bin bb-avm
 
   tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
   tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
@@ -235,8 +259,8 @@ function build_release_dir {
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-zig-amd64-macos/bin bb
 
   # Package static libraries for FFI bindings
-  if [ -f build/lib/libbb-external.a ]; then
-    tar -czf build-release/barretenberg-static-amd64-linux.tar.gz -C build/lib libbb-external.a
+  if [ -f $native_build_dir/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-static-amd64-linux.tar.gz -C $native_build_dir/lib libbb-external.a
   fi
   if [ -f build-zig-arm64-linux/lib/libbb-external.a ]; then
     tar -czf build-release/barretenberg-static-arm64-linux.tar.gz -C build-zig-arm64-linux/lib libbb-external.a
@@ -248,16 +272,24 @@ function build_release_dir {
     tar -czf build-release/barretenberg-static-arm64-darwin.tar.gz -C build-zig-arm64-macos/lib libbb-external.a
   fi
 
-  # Package iOS static libraries (built on macOS runners)
-  if [ -f build-ios-arm64/lib/libbb-external.a ]; then
-    tar -czf build-release/barretenberg-static-arm64-ios.tar.gz -C build-ios-arm64/lib libbb-external.a
+  # Package iOS static libraries (cross-compiled with Zig from Linux)
+  if [ -f build-zig-arm64-ios/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-static-arm64-ios.tar.gz -C build-zig-arm64-ios/lib libbb-external.a
   fi
-  if [ -f build-ios-sim-arm64/lib/libbb-external.a ]; then
-    tar -czf build-release/barretenberg-static-arm64-ios-sim.tar.gz -C build-ios-sim-arm64/lib libbb-external.a
+  if [ -f build-zig-arm64-ios-sim/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-static-arm64-ios-sim.tar.gz -C build-zig-arm64-ios-sim/lib libbb-external.a
+  fi
+
+  # Package Android static libraries (cross-compiled with Zig from Linux)
+  if [ -f build-zig-arm64-android/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-static-arm64-android.tar.gz -C build-zig-arm64-android/lib libbb-external.a
+  fi
+  if [ -f build-zig-x86_64-android/lib/libbb-external.a ]; then
+    tar -czf build-release/barretenberg-static-x86_64-android.tar.gz -C build-zig-x86_64-android/lib libbb-external.a
   fi
 }
 
-export -f build_preset build_native_objects build_cross_objects build_native build_cross build_ios build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version
+export -f build_preset build_native_objects build_cross_objects build_native build_cross build_ios build_android build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version
 
 function build {
   echo_header "bb cpp build"
@@ -267,17 +299,22 @@ function build {
     rm -rf build*
   fi
 
-  (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
-
   if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
+    # Download mobile SDKs before parallel builds (shared across presets)
+    bash scripts/download-ios-sdk.sh
+    bash scripts/download-android-sysroot.sh
     # Perform release builds of bb and napi module, for all architectures.
     parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: \
       "build_native" \
       "build_wasm" \
       "build_wasm_threads" \
       "build_cross arm64-linux" \
-      "build_cross amd64-macos true" \
-      "build_cross arm64-macos true"
+      "build_cross amd64-macos" \
+      "build_cross arm64-macos" \
+      "build_ios zig-arm64-ios" \
+      "build_ios zig-arm64-ios-sim" \
+      "build_android zig-arm64-android" \
+      "build_android zig-x86_64-android"
     build_release_dir
   else
     builds=(
@@ -289,7 +326,9 @@ function build {
       builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
     fi
     if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
-      builds+=("build_cross arm64-macos true" build_smt_verification)
+      bash scripts/download-ios-sdk.sh
+      bash scripts/download-android-sysroot.sh
+      builds+=("build_cross arm64-macos" build_smt_verification "build_ios zig-arm64-ios" "build_ios zig-arm64-ios-sim" "build_android zig-arm64-android" "build_android zig-x86_64-android")
     fi
     parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: "${builds[@]}"
   fi
@@ -306,7 +345,7 @@ function build_with_makefile {
 
 function test_cmds_native {
   # E.g. build, build-debug or build-coverage
-  cd $(scripts/native-preset-build-dir)
+  cd $native_build_dir
 
   for bin in ./bin/*_tests; do
     local bin_name=$(basename $bin)
@@ -384,20 +423,21 @@ function build_bench {
       "build_preset $native_preset --target ultra_honk_bench --target chonk_bench --target bb --target honk_solidity_proof_gen" \
       "build_preset wasm-threads --target ultra_honk_bench --target chonk_bench --target bb"
     cache_upload barretenberg-benchmarks-$hash.zst \
-      {build,build-wasm-threads}/bin/{ultra_honk_bench,chonk_bench,bb}
+      ${native_build_dir}/bin/{ultra_honk_bench,chonk_bench,bb} \
+      build-wasm-threads/bin/{ultra_honk_bench,chonk_bench,bb}
   fi
 }
 
 function bench_cmds {
   prefix="$hash:CPUS=8"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk build/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk_zk build/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk build/bin/chonk_bench ChonkBench/Full/5$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk $native_build_dir/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk_zk $native_build_dir/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk $native_build_dir/bin/chonk_bench ChonkBench/Full/5$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk_zk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/chonk build-wasm-threads/bin/chonk_bench ChonkBench/Full/5$"
   prefix="$hash:CPUS=1"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk_verify build/bin/chonk_bench VerificationOnly$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk_verify $native_build_dir/bin/chonk_bench VerificationOnly$"
 }
 
 # Runs benchmarks sharded over machine cores.

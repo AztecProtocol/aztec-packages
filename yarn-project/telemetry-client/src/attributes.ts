@@ -128,6 +128,9 @@ export const NODEJS_EVENT_LOOP_STATE = 'nodejs.eventloop.state';
 
 export const TOPIC_NAME = 'aztec.gossip.topic_name';
 
+/** The reason a transaction was evicted from the tx pool */
+export const TX_POOL_EVICTION_REASON = 'aztec.mempool.eviction_reason';
+
 export const TX_COLLECTION_METHOD = 'aztec.tx_collection.method';
 
 /** Scope of L1 transaction (sequencer, prover, or other) */
@@ -139,8 +142,20 @@ export const IS_COMMITTEE_MEMBER = 'aztec.is_committee_member';
 /** Fisherman fee analysis strategy identifier */
 export const FISHERMAN_FEE_STRATEGY_ID = 'aztec.fisherman.strategy_id';
 
+/** Whether the analyzed block reached 100% blob capacity */
+export const BLOCK_FULL = 'aztec.block_full';
+
 /** The L1 transaction target for block proposal */
 export const L1_BLOCK_PROPOSAL_TX_TARGET = 'aztec.l1.block_proposal_tx_target';
 
 /** Whether tracing methods were used to extract block proposal data */
 export const L1_BLOCK_PROPOSAL_USED_TRACE = 'aztec.l1.block_proposal_used_trace';
+
+/** HA signer duty type (e.g., BLOCK_PROPOSAL, CHECKPOINT_ATTESTATION) */
+export const HA_DUTY_TYPE = 'aztec.ha_signer.duty_type';
+
+/** HA signer node identifier */
+export const HA_NODE_ID = 'aztec.ha_signer.node_id';
+
+/** The address of an attester (validator) participating in consensus */
+export const ATTESTER_ADDRESS = 'aztec.attester.address';

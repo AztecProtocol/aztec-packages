@@ -5,8 +5,8 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { describe, jest } from '@jest/globals';
@@ -52,7 +52,7 @@ describe('world-state integration', () => {
       worldStateBlockCheckIntervalMS: 20,
       worldStateBlockRequestBatchSize: 5,
       worldStateDbMapSizeKb: 1024 * 1024,
-      worldStateBlockHistory: 0,
+      worldStateCheckpointHistory: 0,
     };
 
     archiver = new MockPrefilledArchiver(checkpoints);

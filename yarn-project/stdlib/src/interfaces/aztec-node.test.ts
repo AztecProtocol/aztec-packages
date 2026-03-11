@@ -16,7 +16,7 @@ import times from 'lodash.times';
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import type { DataInBlock } from '../block/in_block.js';
-import { BlockHash, type BlockParameter, CommitteeAttestation, L2Block } from '../block/index.js';
+import { type BlockData, BlockHash, type BlockParameter, CommitteeAttestation, L2Block } from '../block/index.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
@@ -115,8 +115,8 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([1n, expect.any(SiblingPath)]);
   });
 
-  it('getL1ToL2MessageBlock', async () => {
-    const response = await context.client.getL1ToL2MessageBlock(Fr.random());
+  it('getL1ToL2MessageCheckpoint', async () => {
+    const response = await context.client.getL1ToL2MessageCheckpoint(Fr.random());
     expect(response).toEqual(5);
   });
 
@@ -207,6 +207,11 @@ describe('AztecNodeApiSchema', () => {
   it('getCheckpointedBlockNumber', async () => {
     const response = await context.client.getCheckpointedBlockNumber();
     expect(response).toBe(BlockNumber(1));
+  });
+
+  it('getCheckpointNumber', async () => {
+    const response = await context.client.getCheckpointNumber();
+    expect(response).toBe(CheckpointNumber(1));
   });
 
   it('isReady', async () => {
@@ -360,7 +365,7 @@ describe('AztecNodeApiSchema', () => {
             count: 1,
             total: 1,
           },
-          history: [{ slot: SlotNumber(1), status: 'block-mined' }],
+          history: [{ slot: SlotNumber(1), status: 'checkpoint-mined' }],
         },
       },
       lastProcessedSlot: SlotNumber(20),
@@ -407,7 +412,7 @@ describe('AztecNodeApiSchema', () => {
         totalSlots: 5,
         missedAttestations: { currentStreak: 0, count: 0, total: 1 },
         missedProposals: { currentStreak: 0, count: 0, total: 1 },
-        history: [{ slot: SlotNumber(1), status: 'block-mined' }],
+        history: [{ slot: SlotNumber(1), status: 'checkpoint-mined' }],
       },
       allTimeProvenPerformance: [],
       lastProcessedSlot: SlotNumber(10),
@@ -578,9 +583,9 @@ class MockAztecNode implements AztecNode {
     expect(noteHash).toBeInstanceOf(Fr);
     return Promise.resolve(MembershipWitness.random(NOTE_HASH_TREE_HEIGHT));
   }
-  getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<BlockNumber | undefined> {
+  getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined> {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
-    return Promise.resolve(BlockNumber(5));
+    return Promise.resolve(CheckpointNumber(5));
   }
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
@@ -637,6 +642,12 @@ class MockAztecNode implements AztecNode {
   getBlockHeaderByArchive(_archive: Fr): Promise<BlockHeader | undefined> {
     return Promise.resolve(BlockHeader.empty());
   }
+  getBlockData(_number: BlockNumber): Promise<BlockData | undefined> {
+    return Promise.resolve(undefined);
+  }
+  getBlockDataByArchive(_archive: Fr): Promise<BlockData | undefined> {
+    return Promise.resolve(undefined);
+  }
   getCurrentMinFees(): Promise<GasFees> {
     return Promise.resolve(GasFees.empty());
   }
@@ -651,6 +662,9 @@ class MockAztecNode implements AztecNode {
   }
   getCheckpointedBlockNumber(): Promise<BlockNumber> {
     return Promise.resolve(BlockNumber(1));
+  }
+  getCheckpointNumber(): Promise<CheckpointNumber> {
+    return Promise.resolve(CheckpointNumber(1));
   }
   isReady(): Promise<boolean> {
     return Promise.resolve(true);
@@ -668,6 +682,7 @@ class MockAztecNode implements AztecNode {
         L1ContractsNames.map(name => [name, EthAddress.random()]),
       ) as L1ContractAddresses,
       protocolContractAddresses: Object.fromEntries(protocolContracts) as ProtocolContractAddresses,
+      realProofs: true,
     };
   }
   getBlocks(from: number, limit: number): Promise<L2Block[]> {

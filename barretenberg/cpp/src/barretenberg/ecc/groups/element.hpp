@@ -59,7 +59,6 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
 
     constexpr element dbl() const noexcept;
     constexpr void self_dbl() noexcept;
-    constexpr void self_mixed_add_or_sub(const affine_element<Fq, Fr, Params>& other, uint64_t predicate) noexcept;
 
     constexpr element operator+(const element& other) const noexcept;
     constexpr element operator+(const affine_element<Fq, Fr, Params>& other) const noexcept;
@@ -128,31 +127,6 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
 
     template <typename = typename std::enable_if<Params::can_hash_to_curve>>
     static element random_coordinates_on_curve(numeric::RNG* engine = nullptr) noexcept;
-    // {
-    //     bool found_one = false;
-    //     Fq yy;
-    //     Fq x;
-    //     Fq y;
-    //     Fq t0;
-    //     while (!found_one) {
-    //         x = Fq::random_element(engine);
-    //         yy = x.sqr() * x + Params::b;
-    //         if constexpr (Params::has_a) {
-    //             yy += (x * Params::a);
-    //         }
-    //         y = yy.sqrt();
-    //         t0 = y.sqr();
-    //         found_one = (yy == t0);
-    //     }
-    //     return { x, y, Fq::one() };
-    // }
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/908) point at inifinty isn't handled
-    // To reenable this do NOT do use MSGPACK_FIELDS macro below, instead follow the logic in affine_element
-    // MSGPACK_FIELDS(x, y, z);
-
-    static void conditional_negate_affine(const affine_element<Fq, Fr, Params>& in,
-                                          affine_element<Fq, Fr, Params>& out,
-                                          uint64_t predicate) noexcept;
 
     friend std::ostream& operator<<(std::ostream& os, const element& a)
     {
@@ -165,60 +139,6 @@ template <class Fq, class Fr, class Params> std::ostream& operator<<(std::ostrea
 {
     return os << "x:" << e.x << " y:" << e.y << " z:" << e.z;
 }
-
-// constexpr element<Fq, Fr, Params>::one = element<Fq, Fr, Params>{ Params::one_x, Params::one_y, Fq::one() };
-// constexpr element<Fq, Fr, Params>::point_at_infinity = one.set_infinity();
-// constexpr element<Fq, Fr, Params>::curve_b = Params::b;
-
-/**
- * @brief Memory layout policy for batch affine operations with parallel arrays
- * @details Layout: (lhs[i], rhs[i]) -> rhs[i] with sequential output (no prefetch needed)
- */
-struct ParallelArrayPolicy {
-    static constexpr bool ENABLE_PREFETCH = false;
-
-    template <typename AffineElement> static constexpr size_t lhs_index(size_t i) noexcept { return i; }
-
-    template <typename AffineElement> static constexpr size_t rhs_index(size_t i) noexcept { return i; }
-
-    template <typename AffineElement>
-    static constexpr size_t output_index(size_t i, [[maybe_unused]] size_t num_pairs) noexcept
-    {
-        return i;
-    }
-};
-
-/**
- * @brief Memory layout policy for batch affine operations with interleaved arrays
- * @details Layout: (points[2i], points[2i+1]) -> points[num_pairs+i] (non-sequential, needs prefetch)
- */
-struct InterleavedArrayPolicy {
-    static constexpr bool ENABLE_PREFETCH = true;
-
-    template <typename AffineElement> static constexpr size_t lhs_index(size_t i) noexcept { return i * 2; }
-
-    template <typename AffineElement> static constexpr size_t rhs_index(size_t i) noexcept { return (i * 2) + 1; }
-
-    template <typename AffineElement> static constexpr size_t output_index(size_t i, size_t num_pairs) noexcept
-    {
-        return num_pairs + i;
-    }
-
-    template <typename AffineElement, typename Fq>
-    static void prefetch_iteration(const AffineElement* base_points,
-                                   const Fq* scratch,
-                                   size_t i,
-                                   size_t num_pairs) noexcept
-    {
-        if (i >= 1) {
-            size_t prev = i - 1;
-            __builtin_prefetch(&base_points[prev * 2]);
-            __builtin_prefetch(&base_points[(prev * 2) + 1]);
-            __builtin_prefetch(&base_points[num_pairs + prev]);
-            __builtin_prefetch(&scratch[prev]);
-        }
-    }
-};
 
 } // namespace bb::group_elements
 

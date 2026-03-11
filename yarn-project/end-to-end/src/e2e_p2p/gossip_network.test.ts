@@ -4,7 +4,6 @@ import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash } from '@aztec/aztec.js/tx';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
-import type { ProverNode } from '@aztec/prover-node';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
@@ -31,6 +30,8 @@ const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 const NUM_VALIDATORS = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 4500;
+const AZTEC_SLOT_DURATION = 36;
+const AZTEC_EPOCH_DURATION = 4;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gossip-'));
 
@@ -49,7 +50,7 @@ const qosAlerts: AlertConfig[] = [
 describe('e2e_p2p_network', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
-  let proverNode: ProverNode;
+  let proverAztecNode: AztecNodeService;
   let monitoringNode: AztecNodeService;
 
   beforeEach(async () => {
@@ -62,8 +63,8 @@ describe('e2e_p2p_network', () => {
       startProverNode: false, // we'll start our own using p2p
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
-        aztecSlotDuration: 36,
-        aztecEpochDuration: 4,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        aztecEpochDuration: AZTEC_EPOCH_DURATION,
         slashingRoundSizeInEpochs: 2,
         slashingQuorum: 5,
         listenAddress: '127.0.0.1',
@@ -75,7 +76,7 @@ describe('e2e_p2p_network', () => {
   });
 
   afterEach(async () => {
-    await tryStop(proverNode);
+    await tryStop(proverAztecNode);
     await tryStop(monitoringNode);
     await t.stopNodes(nodes);
     await t.teardown();
@@ -119,7 +120,7 @@ describe('e2e_p2p_network', () => {
 
     // create a prover node that uses p2p only (not rpc) to gather txs to test prover tx collection
     t.logger.warn(`Creating prover node`);
-    proverNode = await createProverNode(
+    ({ proverNode: proverAztecNode } = await createProverNode(
       t.ctx.aztecNodeConfig,
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
@@ -128,8 +129,7 @@ describe('e2e_p2p_network', () => {
       t.prefilledPublicData,
       `${DATA_DIR}-prover`,
       shouldCollectMetrics(),
-    );
-    await proverNode.start();
+    ));
 
     t.logger.warn(`Creating non validator node`);
     const monitoringNodeConfig: AztecNodeConfig = { ...t.ctx.aztecNodeConfig, alwaysReexecuteBlockProposals: true };
@@ -213,7 +213,7 @@ describe('e2e_p2p_network', () => {
         return provenBlock > 0;
       },
       'proven block',
-      120,
+      SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecProofSubmissionEpochs * AZTEC_EPOCH_DURATION * AZTEC_SLOT_DURATION,
     );
   });
 });

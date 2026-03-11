@@ -6,6 +6,7 @@
 
 #include "./eccvm_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
@@ -19,6 +20,7 @@ namespace bb {
 template <typename Flavor>
 typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_to_ipa_opening()
 {
+    BB_BENCH_NAME("ECCVMVerifier::reduce");
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve, Flavor::HasZK>;
     using Shplonk = ShplonkVerifier_<Curve>;
@@ -48,12 +50,16 @@ typename ECCVMVerifier_<Flavor>::ReductionResult ECCVMVerifier_<Flavor>::reduce_
     auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
 
     auto beta_sqr = beta * beta;
+    auto beta_quartic = beta_sqr * beta_sqr;
     relation_parameters.gamma = gamma;
     relation_parameters.beta = beta;
-    relation_parameters.beta_sqr = beta * beta;
+    relation_parameters.beta_sqr = beta_sqr;
     relation_parameters.beta_cube = beta_sqr * beta;
-    relation_parameters.eccvm_set_permutation_delta =
-        gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
+    relation_parameters.beta_quartic = beta_quartic;
+    auto first_term_tag = beta_quartic; // FIRST_TERM_TAG (= 1) * beta_quartic
+    relation_parameters.eccvm_set_permutation_delta = (gamma + first_term_tag) * (gamma + beta_sqr + first_term_tag) *
+                                                      (gamma + beta_sqr + beta_sqr + first_term_tag) *
+                                                      (gamma + beta_sqr + beta_sqr + beta_sqr + first_term_tag);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
 
     // Get commitment to permutation and lookup grand products
@@ -241,6 +247,12 @@ template <typename Flavor> void ECCVMVerifier_<Flavor>::compute_accumulated_resu
     FF v_squared = v * v;
     FF v_cubed = v_squared * v;
     FF v_fourth = v_cubed * v;
+
+    // OriginTag false positive: translation_masking_term_eval is bound by the masking term
+    // commitments (fixed before batching_challenge_v) and batching_challenge_v itself.
+    if constexpr (IsRecursive) {
+        translation_masking_term_eval.set_origin_tag(batching_challenge_v.get_origin_tag());
+    }
 
     FF batched_eval_minus_masking = translation_evaluations.op + v * translation_evaluations.Px +
                                     v_squared * translation_evaluations.Py + v_cubed * translation_evaluations.z1 +

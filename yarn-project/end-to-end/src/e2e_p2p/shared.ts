@@ -6,12 +6,13 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { TxHash } from '@aztec/aztec.js/tx';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
+import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import type {
   EmpireSlashingProposerContract,
   RollupContract,
   TallySlashingProposerContract,
 } from '@aztec/ethereum/contracts';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync, unique } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -22,9 +23,10 @@ import { getPXEConfig, getPXEConfig as getRpcConfig } from '@aztec/pxe/server';
 import { getRoundForOffense } from '@aztec/slasher';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
-import { type ProvenTx, TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { submitTxsTo } from '../shared/submit-transactions.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
+import { type ProvenTx, proveInteraction } from '../test-wallet/utils.js';
 
 // submits a set of transactions to the provided Private eXecution Environment (PXE)
 export const submitComplexTxsTo = async (
@@ -40,7 +42,7 @@ export const submitComplexTxsTo = async (
   const spamCount = 15;
   for (let i = 0; i < numTxs; i++) {
     const method = spamContract.methods.spam(seed + BigInt(i * spamCount), spamCount, !!opts.callPublic);
-    const txHash = await method.send({ from, wait: NO_WAIT });
+    const { txHash } = await method.send({ from, wait: NO_WAIT });
     logger.info(`Tx sent with hash ${txHash.toString()}`);
     txs.push(txHash);
   }
@@ -147,6 +149,48 @@ export async function awaitCommitteeExists({
   );
   logger.warn(`Committee has been formed`, { committee: committee!.map(c => c.toString()) });
   return committee!.map(c => c.toString() as `0x${string}`);
+}
+
+/**
+ * Advance epochs until we find one where the target proposer is selected for at least one slot.
+ * With N validators and M slots per epoch, a specific proposer may not be selected in any given epoch.
+ * For example, with 4 validators and 2 slots/epoch, there is about a 44% chance per epoch.
+ */
+export async function awaitEpochWithProposer({
+  epochCache,
+  cheatCodes,
+  targetProposer,
+  logger,
+  maxAttempts = 20,
+}: {
+  epochCache: EpochCacheInterface;
+  cheatCodes: RollupCheatCodes;
+  targetProposer: EthAddress;
+  logger: Logger;
+  maxAttempts?: number;
+}): Promise<void> {
+  const { epochDuration } = await cheatCodes.getConfig();
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const currentEpoch = await cheatCodes.getEpoch();
+    const startSlot = Number(currentEpoch) * Number(epochDuration);
+    const endSlot = startSlot + Number(epochDuration);
+
+    logger.info(`Checking epoch ${currentEpoch} (slots ${startSlot}-${endSlot - 1}) for proposer ${targetProposer}`);
+
+    for (let s = startSlot; s < endSlot; s++) {
+      const proposer = await epochCache.getProposerAttesterAddressInSlot(SlotNumber(s));
+      if (proposer && proposer.equals(targetProposer)) {
+        logger.warn(`Found target proposer ${targetProposer} in slot ${s} of epoch ${currentEpoch}`);
+        return;
+      }
+    }
+
+    logger.info(`Target proposer not found in epoch ${currentEpoch}, advancing to next epoch`);
+    await cheatCodes.advanceToNextEpoch();
+  }
+
+  throw new Error(`Target proposer ${targetProposer} not found in any slot after ${maxAttempts} epoch attempts`);
 }
 
 export async function awaitOffenseDetected({

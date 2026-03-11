@@ -51,7 +51,7 @@ module "web3signer" {
   VALIDATOR_HA_REPLICAS                    = tonumber(var.VALIDATOR_HA_REPLICAS)
   VALIDATOR_MNEMONIC_START_INDEX           = tonumber(var.VALIDATOR_MNEMONIC_START_INDEX)
   VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX = tonumber(var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX)
-  VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY   = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+  VALIDATOR_PUBLISHERS_PER_REPLICA         = var.VALIDATOR_PUBLISHERS_PER_REPLICA
   PROVER_COUNT                             = tonumber(var.PROVER_REPLICAS)
   PUBLISHERS_PER_PROVER                    = tonumber(var.PROVER_PUBLISHERS_PER_PROVER)
   PROVER_PUBLISHER_MNEMONIC_START_INDEX    = tonumber(var.PROVER_PUBLISHER_MNEMONIC_START_INDEX)
@@ -84,6 +84,11 @@ locals {
     tag        = split(":", var.AZTEC_DOCKER_IMAGE)[1]
   }
 
+  prover_agent_image = var.PROVER_AGENT_DOCKER_IMAGE != "" ? {
+    repository = split(":", var.PROVER_AGENT_DOCKER_IMAGE)[0]
+    tag        = split(":", var.PROVER_AGENT_DOCKER_IMAGE)[1]
+  } : local.aztec_image
+
   # Detect local kind context (e.g., "kind-kind") to gate Service types
   is_kind = can(regex("^kind", var.K8S_CLUSTER_CONTEXT))
 
@@ -108,11 +113,20 @@ locals {
     "global.testAccounts"                                      = var.TEST_ACCOUNTS
   }
 
+  common_inline_values = yamlencode({
+    global = merge(
+      length(var.L1_CONSENSUS_HOST_API_KEYS) > 0 ? {
+        l1ConsensusHostApiKeys = join(",", var.L1_CONSENSUS_HOST_API_KEYS)
+      } : {},
+      length(var.L1_CONSENSUS_HOST_API_KEY_HEADERS) > 0 ? {
+        l1ConsensusHostApiKeyHeaders = join(",", var.L1_CONSENSUS_HOST_API_KEY_HEADERS)
+      } : {}
+    )
+  })
+
   common_list_settings = {
-    "global.l1ExecutionUrls"              = var.L1_RPC_URLS
-    "global.l1ConsensusUrls"              = var.L1_CONSENSUS_HOST_URLS
-    "global.l1ConsensusHostApiKeys"       = var.L1_CONSENSUS_HOST_API_KEYS
-    "global.l1ConsensusHostApiKeyHeaders" = var.L1_CONSENSUS_HOST_API_KEY_HEADERS
+    "global.l1ExecutionUrls" = var.L1_RPC_URLS
+    "global.l1ConsensusUrls" = var.L1_CONSENSUS_HOST_URLS
   }
 
   # Generate a set of _external_ host ports to use for P2P
@@ -143,6 +157,9 @@ locals {
         service = {
           p2p = { publicIP = var.P2P_PUBLIC_IP }
         }
+        node = {
+          logLevel = var.LOG_LEVEL
+        }
         # spread validator pods to different nodes to avoid having two validators with the same attester keys on the same physical node
         topologySpreadConstraints = [{
           maxSkew           = 1
@@ -168,7 +185,7 @@ locals {
     "validator.mnemonic"                                       = var.VALIDATOR_MNEMONIC
     "validator.mnemonicStartIndex"                             = var.VALIDATOR_MNEMONIC_START_INDEX
     "validator.validatorsPerNode"                              = var.VALIDATORS_PER_NODE
-    "validator.publishersPerValidatorKey"                      = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+    "validator.publishersPerReplica"                            = var.VALIDATOR_PUBLISHERS_PER_REPLICA
     "validator.publisherMnemonicStartIndex"                    = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
     "validator.replicaCount"                                   = var.VALIDATOR_REPLICAS
     "validator.sentinel.enabled"                               = var.SENTINEL_ENABLED
@@ -191,12 +208,15 @@ locals {
     "validator.node.env.KEY_INDEX_START"                       = var.VALIDATOR_MNEMONIC_START_INDEX
     "validator.node.env.PUBLISHER_KEY_INDEX_START"             = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
     "validator.node.env.VALIDATORS_PER_NODE"                   = var.VALIDATORS_PER_NODE
-    "validator.node.env.PUBLISHERS_PER_VALIDATOR_KEY"          = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+    "validator.node.env.VALIDATOR_PUBLISHERS_PER_REPLICA"       = var.VALIDATOR_PUBLISHERS_PER_REPLICA
     "validator.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
     "validator.node.env.SEQ_MIN_TX_PER_BLOCK"                  = var.SEQ_MIN_TX_PER_BLOCK
     "validator.node.env.SEQ_MAX_TX_PER_BLOCK"                  = var.SEQ_MAX_TX_PER_BLOCK
+    "validator.node.env.SEQ_MAX_TX_PER_CHECKPOINT"             = var.SEQ_MAX_TX_PER_CHECKPOINT
     "validator.node.env.SEQ_BLOCK_DURATION_MS"                 = var.SEQ_BLOCK_DURATION_MS
+    "validator.node.env.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" = var.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT
     "validator.node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"         = var.SEQ_BUILD_CHECKPOINT_IF_EMPTY
+    "validator.node.env.SEQ_ENFORCE_TIME_TABLE"                = var.SEQ_ENFORCE_TIME_TABLE
     "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"    = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
     "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE
     "validator.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" = var.VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
@@ -204,16 +224,17 @@ locals {
     "validator.node.env.P2P_MAX_TX_POOL_SIZE"                  = var.P2P_MAX_TX_POOL_SIZE
     "validator.node.env.PROVER_TEST_VERIFICATION_DELAY_MS"     = var.PROVER_TEST_VERIFICATION_DELAY_MS
     "validator.node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"         = var.DEBUG_P2P_INSTRUMENT_MESSAGES
-    "validator.node.logLevel"                                  = var.LOG_LEVEL
     "validator.node.secret.envEnabled"                         = true
     "validator.node.secret.mnemonic"                           = var.VALIDATOR_MNEMONIC
     "validator.node.secret.mnemonicIndex"                      = var.VALIDATOR_MNEMONIC_START_INDEX
     "validator.node.env.P2P_GOSSIPSUB_D"                       = var.P2P_GOSSIPSUB_D
     "validator.node.env.P2P_GOSSIPSUB_DLO"                     = var.P2P_GOSSIPSUB_DLO
     "validator.node.env.P2P_GOSSIPSUB_DHI"                     = var.P2P_GOSSIPSUB_DHI
-    "validator.node.env.P2P_DROP_TX"                           = var.P2P_DROP_TX
     "validator.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
-    "validator.node.env.WS_NUM_HISTORIC_BLOCKS"                = var.WS_NUM_HISTORIC_BLOCKS
+    "validator.node.env.WS_NUM_HISTORIC_CHECKPOINTS"           = var.WS_NUM_HISTORIC_CHECKPOINTS
+    "validator.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
+    "validator.node.env.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT"   = var.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT
+    "validator.node.adminApiKeyHash"                            = var.ADMIN_API_KEY_HASH
   }
 
   # Note: nonsensitive() is required here because helm_releases is used in for_each,
@@ -237,7 +258,7 @@ locals {
         local.validator_ha_settings,
         {
           "validator.node.env.VALIDATOR_HA_REPLICA_INDEX" = tostring(idx)
-          "validator.node.env.PUBLISHER_KEY_INDEX_START"  = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX + (idx * (var.VALIDATORS_PER_NODE * var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY * var.VALIDATOR_REPLICAS))
+          "validator.node.env.PUBLISHER_KEY_INDEX_START"  = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX + (idx * (var.VALIDATOR_PUBLISHERS_PER_REPLICA * var.VALIDATOR_REPLICAS))
           "validator.service.p2p.announcePort"            = local.p2p_port_validators[idx]
           "validator.service.p2p.port"                    = local.p2p_port_validators[idx]
         }
@@ -298,8 +319,21 @@ locals {
           service = {
             p2p = { publicIP = var.P2P_PUBLIC_IP }
           }
+          node = {
+            logLevel = var.LOG_LEVEL
+          }
         }
-      })], local.is_kind ? [yamlencode({
+        broker = {
+          node = {
+            logLevel = var.LOG_LEVEL
+          }
+        }
+        agent = {
+          node = {
+            logLevel = var.LOG_LEVEL
+          }
+        }
+        })], local.is_kind ? [yamlencode({
         agent = {
           nodeSelector = null
           affinity     = null
@@ -311,7 +345,6 @@ locals {
           "node.mnemonic"                                       = var.PROVER_MNEMONIC
           "node.mnemonicStartIndex"                             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
           "node.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
-          "node.node.logLevel"                                  = var.LOG_LEVEL
           "node.node.env.PROVER_FAILED_PROOF_STORE"             = var.PROVER_FAILED_PROOF_STORE
           "node.node.env.PROVER_PROOF_STORE"                    = var.PROVER_PROOF_STORE
           "node.node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"     = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
@@ -325,9 +358,11 @@ locals {
           "node.node.secret.mnemonic"                           = var.PROVER_MNEMONIC
           "node.node.secret.mnemonicIndex"                      = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
           "broker.node.proverRealProofs"                        = var.PROVER_REAL_PROOFS
-          "broker.node.logLevel"                                = var.LOG_LEVEL
           "broker.node.env.BOOTSTRAP_NODES"                     = "asdf"
           "broker.node.env.PROVER_BROKER_DEBUG_REPLAY_ENABLED"  = var.PROVER_BROKER_DEBUG_REPLAY_ENABLED
+          "agent.node.image.repository"                         = local.prover_agent_image.repository
+          "agent.node.image.tag"                                = local.prover_agent_image.tag
+          "agent.node.env.CRS_PATH"                             = "/usr/src/crs"
           "agent.node.proverRealProofs"                         = var.PROVER_REAL_PROOFS
           "agent.node.env.PROVER_AGENT_POLL_INTERVAL_MS"        = var.PROVER_AGENT_POLL_INTERVAL_MS
           "agent.replicaCount"                                  = var.PROVER_REPLICAS
@@ -337,7 +372,6 @@ locals {
           "agent.node.env.PROVER_AGENT_PROOF_TYPES"             = join(",", var.PROVER_AGENT_PROOF_TYPES)
           "agent.node.env.PROVER_PROOF_STORE"                   = var.PROVER_PROOF_STORE
           "agent.node.otelIncludeMetrics"                       = var.PROVER_AGENT_INCLUDE_METRICS
-          "agent.node.logLevel"                                 = var.LOG_LEVEL
           "node.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAGE
           "node.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" = var.PROVER_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
           "node.node.env.P2P_MAX_TX_POOL_SIZE"                  = var.P2P_MAX_TX_POOL_SIZE
@@ -346,9 +380,9 @@ locals {
           "node.node.env.P2P_GOSSIPSUB_D"                       = var.P2P_GOSSIPSUB_D
           "node.node.env.P2P_GOSSIPSUB_DLO"                     = var.P2P_GOSSIPSUB_DLO
           "node.node.env.P2P_GOSSIPSUB_DHI"                     = var.P2P_GOSSIPSUB_DHI
-          "node.node.env.P2P_DROP_TX"                           = var.P2P_DROP_TX
           "node.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
-          "node.node.env.WS_NUM_HISTORIC_BLOCKS"                = var.WS_NUM_HISTORIC_BLOCKS
+          "node.node.env.WS_NUM_HISTORIC_CHECKPOINTS"           = var.WS_NUM_HISTORIC_CHECKPOINTS
+          "node.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
           "node.service.p2p.nodePortEnabled"                    = var.P2P_NODEPORT_ENABLED
           "node.service.p2p.announcePort"                       = local.p2p_port_prover
           "node.service.p2p.port"                               = local.p2p_port_prover
@@ -371,7 +405,7 @@ locals {
         "rpc.yaml",
         "rpc-resources-${var.RPC_RESOURCE_PROFILE}.yaml"
       ]
-      inline_values = var.RPC_INGRESS_ENABLED ? [yamlencode({
+      inline_values = concat(var.RPC_INGRESS_ENABLED ? [yamlencode({
         service = {
           p2p = { publicIP = var.P2P_PUBLIC_IP }
           rpc = {
@@ -402,10 +436,13 @@ locals {
             type    = local.is_kind ? "ClusterIP" : "LoadBalancer"
           }
         }
-      })]
+        })], var.FISHERMAN_MODE ? [yamlencode({
+        node = {
+          logLevel = var.FISHERMAN_LOG_LEVEL
+        }
+      })] : [])
 
       custom_settings = merge({
-        "nodeType"                    = "rpc"
         "replicaCount"                = var.RPC_REPLICAS
         "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
         "service.p2p.announcePort"    = local.p2p_port_rpc
@@ -425,9 +462,11 @@ locals {
         "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
         "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
         "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
-        "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
-        "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
+        "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
+        "node.env.TX_FILE_STORE_ENABLED"              = var.TX_FILE_STORE_ENABLED
+        "node.env.TX_FILE_STORE_URL"                  = var.TX_FILE_STORE_URL
+        "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
         },
         # Only set RPC mnemonic config in fisherman mode)
         var.FISHERMAN_MODE ? {
@@ -436,7 +475,6 @@ locals {
           "node.secret.mnemonic"         = var.FISHERMAN_MNEMONIC
           "node.secret.mnemonicIndex"    = var.FISHERMAN_MNEMONIC_START_INDEX
           "node.env.KEY_INDEX_START"     = var.FISHERMAN_MNEMONIC_START_INDEX
-          "node.logLevel"                = var.FISHERMAN_LOG_LEVEL
           "node.env.VALIDATORS_PER_NODE" = "1"
           "node.preStartScript"          = "source /scripts/get-private-key.sh"
         } : {}
@@ -479,9 +517,9 @@ locals {
         "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
         "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
         "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
-        "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
-        "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
+        "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
+        "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -518,9 +556,9 @@ locals {
         "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
         "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
         "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
-        "node.env.P2P_DROP_TX"                        = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
-        "node.env.WS_NUM_HISTORIC_BLOCKS"             = var.WS_NUM_HISTORIC_BLOCKS
+        "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
+        "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -554,9 +592,8 @@ locals {
         "node.env.P2P_GOSSIPSUB_D"                   = var.P2P_GOSSIPSUB_D
         "node.env.P2P_GOSSIPSUB_DLO"                 = var.P2P_GOSSIPSUB_DLO
         "node.env.P2P_GOSSIPSUB_DHI"                 = var.P2P_GOSSIPSUB_DHI
-        "node.env.P2P_DROP_TX"                       = var.P2P_DROP_TX
         "node.env.P2P_DROP_TX_CHANCE"                = var.P2P_DROP_TX_CHANCE
-        "node.env.WS_NUM_HISTORIC_BLOCKS"            = var.WS_NUM_HISTORIC_BLOCKS
+        "node.env.WS_NUM_HISTORIC_CHECKPOINTS"       = var.WS_NUM_HISTORIC_CHECKPOINTS
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -576,6 +613,7 @@ locals {
         "bot.replicaCount"       = var.BOT_TRANSFERS_REPLICAS
         "bot.txIntervalSeconds"  = var.BOT_TRANSFERS_TX_INTERVAL_SECONDS
         "bot.followChain"        = var.BOT_TRANSFERS_FOLLOW_CHAIN
+        "bot.pxeSyncChainTip"    = var.BOT_TRANSFERS_PXE_SYNC_CHAIN_TIP
         "bot.botPrivateKey"      = var.BOT_TRANSFERS_L2_PRIVATE_KEY
         "bot.nodeUrl"            = local.internal_rpc_url
         "bot.mnemonic"           = var.BOT_MNEMONIC
@@ -599,10 +637,35 @@ locals {
         "bot.replicaCount"       = var.BOT_SWAPS_REPLICAS
         "bot.txIntervalSeconds"  = var.BOT_SWAPS_TX_INTERVAL_SECONDS
         "bot.followChain"        = var.BOT_SWAPS_FOLLOW_CHAIN
+        "bot.pxeSyncChainTip"    = var.BOT_SWAPS_PXE_SYNC_CHAIN_TIP
         "bot.botPrivateKey"      = var.BOT_SWAPS_L2_PRIVATE_KEY
         "bot.nodeUrl"            = local.internal_rpc_url
         "bot.mnemonic"           = var.BOT_MNEMONIC
         "bot.mnemonicStartIndex" = var.BOT_SWAPS_MNEMONIC_START_INDEX
+      }
+      boot_node_host_path  = ""
+      bootstrap_nodes_path = ""
+      wait                 = false
+    } : null
+
+    # Optional: cross-chain message bots
+    bot_cross_chain = var.BOT_CROSS_CHAIN_REPLICAS > 0 ? {
+      name  = "${var.RELEASE_PREFIX}-bot-cross-chain"
+      chart = "aztec-bot"
+      values = [
+        "common.yaml",
+        "bot-cross-chain.yaml",
+        "bot-resources-${var.BOT_RESOURCE_PROFILE}.yaml",
+      ]
+      custom_settings = {
+        "bot.replicaCount"       = var.BOT_CROSS_CHAIN_REPLICAS
+        "bot.txIntervalSeconds"  = var.BOT_CROSS_CHAIN_TX_INTERVAL_SECONDS
+        "bot.followChain"        = var.BOT_CROSS_CHAIN_FOLLOW_CHAIN
+        "bot.pxeSyncChainTip"    = var.BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP
+        "bot.botPrivateKey"      = var.BOT_CROSS_CHAIN_L2_PRIVATE_KEY
+        "bot.nodeUrl"            = local.internal_rpc_url
+        "bot.mnemonic"           = var.BOT_MNEMONIC
+        "bot.mnemonicStartIndex" = var.BOT_CROSS_CHAIN_MNEMONIC_START_INDEX
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
@@ -631,6 +694,7 @@ resource "helm_release" "releases" {
 
   values = concat(
     [for v in each.value.values : file("./values/${v}")],
+    [local.common_inline_values],
     lookup(each.value, "inline_values", [])
   )
 

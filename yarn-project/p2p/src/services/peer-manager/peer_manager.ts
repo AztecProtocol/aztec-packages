@@ -515,7 +515,8 @@ export class PeerManager implements PeerManagerInterface {
       ...this.peerScoring.getStats(),
     });
 
-    this.metrics.recordPeerCount(healthyConnections.length);
+    this.metrics.recordPeerCount(connections.length);
+    this.metrics.recordHealthyPeerCount(healthyConnections.length);
 
     // Exit if no peers to connect
     if (peersToConnect <= 0) {

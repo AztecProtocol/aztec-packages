@@ -4,16 +4,15 @@ import { SecretValue } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { P2PClientType } from '@aztec/stdlib/p2p';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
 import { createP2PClient } from '../client/index.js';
 import type { P2PClient } from '../client/p2p_client.js';
 import type { P2PConfig } from '../config.js';
 import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import type { TxPool } from '../mem_pools/tx_pool/index.js';
+import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
 import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from './get-ports.js';
 import { makeEnrs } from './make-enrs.js';
@@ -22,7 +21,7 @@ import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from './reqresp
 
 export interface MakeTestP2PClientOptions {
   mockAttestationPool: AttestationPool;
-  mockTxPool: TxPool;
+  mockTxPool: TxPoolV2;
   mockEpochCache: EpochCache;
   mockWorldState: WorldStateSynchronizer;
   alwaysTrueVerifier?: boolean;
@@ -98,7 +97,6 @@ export async function makeTestP2PClient(
   const kvStore = await openTmpStore('test');
 
   const client = await createP2PClient(
-    P2PClientType.Full,
     config,
     l2BlockSource,
     proofVerifier,
@@ -108,7 +106,7 @@ export async function makeTestP2PClient(
     undefined,
     undefined,
     {
-      txPool: mockTxPool as unknown as TxPool,
+      txPool: mockTxPool as unknown as TxPoolV2,
       attestationPool: mockAttestationPool as unknown as AttestationPool,
       store: kvStore,
       logger,

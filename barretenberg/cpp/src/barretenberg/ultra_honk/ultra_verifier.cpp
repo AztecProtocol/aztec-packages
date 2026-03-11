@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Completed, auditors: [Sergei], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -8,6 +8,7 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
@@ -140,6 +141,13 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     // Compute log_n first (needed for proof layout calculation)
     const size_t log_n = compute_log_n();
 
+    // Guard against proof size underflow before deriving num_public_inputs
+    const size_t min_proof_size = ProofLength::Honk<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(log_n);
+    BB_ASSERT_GTE(proof.size(),
+                  min_proof_size,
+                  "Proof size too small. Got " + std::to_string(proof.size()) + " field elements, but need at least " +
+                      std::to_string(min_proof_size) + " (excluding public inputs) for log_n=" + std::to_string(log_n));
+
     // Derive num_public_inputs from proof size using centralized proof layout
     const size_t num_public_inputs = ProofLength::Honk<Flavor>::derive_num_public_inputs(proof.size(), log_n);
 
@@ -224,6 +232,7 @@ template <typename Flavor, class IO>
 typename UltraVerifier_<Flavor, IO>::Output UltraVerifier_<Flavor, IO>::verify_proof(
     const typename UltraVerifier_<Flavor, IO>::Proof& proof)
 {
+    BB_BENCH_NAME("UltraVerifier::verify_proof");
     // Step 1: Split proof if needed
     Proof honk_proof;
     Proof ipa_proof;

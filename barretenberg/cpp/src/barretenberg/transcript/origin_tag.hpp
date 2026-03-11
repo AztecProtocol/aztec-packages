@@ -16,6 +16,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include <atomic>
 #include <cstddef>
 #include <iterator>
 #include <ostream>
@@ -36,36 +37,42 @@ template <typename T> constexpr bool is_iterable_v = is_iterable<T>::value;
     const size_t parent_id = 0;                                                                                        \
     [[maybe_unused]] const auto clear_tag = OriginTag::constant();    /* A tag representing a constant value */        \
     [[maybe_unused]] const auto constant_tag = OriginTag::constant(); /* Alias for clear_tag */                        \
-    const auto submitted_value_origin_tag = OriginTag(                                                                 \
+    [[maybe_unused]] const auto submitted_value_origin_tag = OriginTag(                                                \
         parent_id, /*round_id=*/0, /*is_submitted=*/true); /*A tag describing a value submitted in the 0th round*/     \
-    const auto next_submitted_value_origin_tag = OriginTag(                                                            \
+    [[maybe_unused]] const auto next_submitted_value_origin_tag = OriginTag(                                           \
         parent_id, /*round_id=*/1, /*is_submitted=*/true); /*A tag describing a value submitted in the 1st round*/     \
-    const auto challenge_origin_tag = OriginTag(                                                                       \
+    [[maybe_unused]] const auto challenge_origin_tag = OriginTag(                                                      \
         parent_id, /*round_id=*/0, /*is_submitted=*/false); /*A tag describing a challenge derived in the 0th round*/  \
-    const auto next_challenge_tag = OriginTag(                                                                         \
+    [[maybe_unused]] const auto next_challenge_tag = OriginTag(                                                        \
         parent_id, /*round_id=*/1, /*is_submitted=*/false); /*A tag describing a challenge derived in the 1st round*/  \
-    const auto first_two_merged_tag =                                                                                  \
+    [[maybe_unused]] const auto first_two_merged_tag =                                                                 \
         OriginTag(submitted_value_origin_tag,                                                                          \
                   challenge_origin_tag); /*A tag describing a value constructed from values submitted by the prover in \
                                             the 0th round and challenges from the same round */                        \
-    const auto first_and_third_merged_tag =                                                                            \
+    [[maybe_unused]] const auto first_and_third_merged_tag =                                                           \
         OriginTag(submitted_value_origin_tag,                                                                          \
                   next_challenge_tag); /* A tag describing a value constructed from values submitted in the 0th round  \
                                           and challenges computed in the 1st round*/                                   \
-    const auto first_second_third_merged_tag = OriginTag(                                                              \
+    [[maybe_unused]] const auto first_second_third_merged_tag = OriginTag(                                             \
         first_two_merged_tag, next_challenge_tag); /* A tag describing a value computed from values submitted in the   \
                                                       0th round and challenges generated in the 0th and 1st round*/    \
-    const auto first_to_fourth_merged_tag =                                                                            \
+    [[maybe_unused]] const auto first_to_fourth_merged_tag =                                                           \
         OriginTag(first_second_third_merged_tag,                                                                       \
                   next_submitted_value_origin_tag); /* A tag describing a value computed from values submitted in the  \
                                  0th and 1st round and challenges generated in the 0th and 1st round*/                 \
-    const auto instant_death_tag = OriginTag::poisoned(); /* A tag that causes an abort on any arithmetic*/
+    [[maybe_unused]] const auto instant_death_tag =                                                                    \
+        OriginTag::poisoned(); /* A tag that causes an abort on any arithmetic*/
 
 namespace bb {
 
 void check_round_provenance(const uint256_t& provenance_a, const uint256_t& provenance_b);
 #ifndef AZTEC_NO_ORIGIN_TAGS
 struct OriginTag {
+
+    // Unique per-object ID for debugging: when a tag merge fails, the error message includes
+    // the IDs of both tags so you can trace which specific field elements were involved.
+    static inline std::atomic<uint64_t> next_tag_id{ 0 };
+    uint64_t tag_id = next_tag_id.fetch_add(1, std::memory_order_relaxed);
 
     static constexpr size_t CONSTANT = static_cast<size_t>(-1);
     static constexpr size_t FREE_WITNESS = static_cast<size_t>(-2);
@@ -95,7 +102,7 @@ struct OriginTag {
     OriginTag& operator=(const OriginTag& other) = default;
     OriginTag& operator=(OriginTag&& other) noexcept
     {
-
+        tag_id = other.tag_id;
         transcript_index = other.transcript_index;
         round_provenance = other.round_provenance;
         instant_death = other.instant_death;
@@ -203,8 +210,8 @@ struct OriginTag {
 };
 inline std::ostream& operator<<(std::ostream& os, OriginTag const& v)
 {
-    return os << "{ transcript_idx: " << v.transcript_index << ", round_prov: " << v.round_provenance
-              << ", instadeath: " << v.instant_death << " }";
+    return os << "{ id: " << v.tag_id << ", transcript_idx: " << v.transcript_index
+              << ", round_prov: " << v.round_provenance << ", instadeath: " << v.instant_death << " }";
 }
 
 #else

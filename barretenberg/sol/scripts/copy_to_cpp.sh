@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Script to copy Solidity verifier files into the C++ honk_contract.hpp file
 # This automates the manual process of copying verifier contracts
@@ -154,6 +154,7 @@ build_verifier() {
 
     # Process core files
     process_sol_file "$SOL_SRC_DIR/../interfaces/IVerifier.sol" "$output_file"
+    process_sol_file "$SOL_SRC_DIR/Errors.sol" "$output_file"
     process_sol_file "$SOL_SRC_DIR/Fr.sol" "$output_file"
     process_sol_file "$SOL_SRC_DIR/HonkTypes.sol" "$output_file"
 

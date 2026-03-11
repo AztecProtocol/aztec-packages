@@ -57,6 +57,12 @@ function compile {
   local program_hash=$(dump_fail "$program_hash_cmd")
   echo_stderr "Hash preimage: $NOIR_HASH-$program_hash"
   local hash=$(hash_str "$NOIR_HASH-$program_hash" $(cache_content_hash "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
+  # Note: an edge case: If you change the name of a circuit public input, but don't change any of the
+  # circuit's bytecode, then this bootstrap script will not re-compile the circuits. You can force a
+  # re-compilation by temporarily replacing $NOIR_HASH on the above two lines with:
+  # `$NOIR_HASH-$program_hash-$circuits_hash"`
+  # We don't want to include `-$circuits_hash"` ordinarily, because it would force unnecessary
+  # rebuilds when tests / comments are changed.
 
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
@@ -143,6 +149,15 @@ export -f hex_to_fields_json compile
 
 function build {
   set -eu
+
+  # If pinned-build.tar.gz exists, use it instead of compiling.
+  if [ -f pinned-build.tar.gz ]; then
+    echo_stderr "Using pinned-build.tar.gz instead of compiling."
+    rm -rf target
+    mkdir -p target
+    tar xzf pinned-build.tar.gz -C target
+    return
+  fi
 
   if [[ -z NOIR_PROTOCOL_CIRCUITS_SKIP_CHECK_WARNINGS ]]; then
     echo_stderr "Checking libraries for warnings..."
@@ -236,6 +251,15 @@ function bench {
   rm -rf bench-out && mkdir -p bench-out
 
   bench_cmds | STRICT_SCHEDULING=1 parallelize
+}
+
+function pin-build {
+  # Force a real build by removing any existing pinned archive.
+  rm -f pinned-build.tar.gz
+  build
+  echo_stderr "Creating pinned-build.tar.gz from target..."
+  tar czf pinned-build.tar.gz -C target .
+  echo_stderr "Done. pinned-build.tar.gz created. Commit it to pin these artifacts."
 }
 
 case "$cmd" in

@@ -61,10 +61,6 @@ template <typename Curve_> class KZG {
         // future we might need to adjust this to use the incoming alternative to work queue (i.e. variation of
         // pthreads) or even the work queue itself
         prover_trancript->send_to_verifier("KZG:W", quotient_commitment);
-
-        // Masking challenge is used in the recursive setting to perform batch_mul. This is not used
-        // by the prover directly, we just need it for consistent transcript state with the verifier.
-        prover_trancript->template get_challenge<Fr>("KZG:masking_challenge");
     };
 
     /**
@@ -133,8 +129,17 @@ template <typename Curve_> class KZG {
     {
         auto quotient_commitment = transcript->template receive_from_prover<Commitment>("KZG:W");
 
-        // This challenge is used to compute offset generators in the batch_mul call below
-        const Fr masking_challenge = transcript->template get_challenge<Fr>("KZG:masking_challenge");
+        // OriginTag suppression: The tag system flags patterns like A*α + B where A, B are
+        // prover-supplied and α is a challenge derived without hashing them. The quotient commitment
+        // W is prover-supplied and scaled by z in C + W·z, so it triggers this pattern.
+        // This is a false positive: the pairing check e(C + W·z, [1]₂) · e(−W, [x]₂) = 1 forces W
+        // to be the honest quotient commitment, so the prover cannot tamper with it.
+        // We assign W the tag of z (evaluation_point): the challenge it is scaled by,
+        // so the tag system does not flag the multiplication.
+        if constexpr (Curve::is_stdlib_type) {
+            const auto challenge_tag = batch_opening_claim.evaluation_point.get_origin_tag();
+            quotient_commitment.set_origin_tag(challenge_tag);
+        }
 
         // The pairing check can be expressed as
         // e(C + [W]₁ ⋅ z, [1]₂) * e(−[W]₁, [X]₂) = 1, where C = ∑ commitmentsᵢ ⋅ scalarsᵢ.
@@ -153,8 +158,7 @@ template <typename Curve_> class KZG {
         P_0 = GroupElement::batch_mul(batch_opening_claim.commitments,
                                       batch_opening_claim.scalars,
                                       /*max_num_bits=*/0,
-                                      /*with_edgecases=*/true,
-                                      /*masking_scalar=*/masking_challenge);
+                                      /*with_edgecases=*/true);
         auto P_1 = -quotient_commitment;
 
         return PairingPointsType(P_0, P_1);

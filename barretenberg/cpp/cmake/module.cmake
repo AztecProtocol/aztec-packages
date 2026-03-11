@@ -112,6 +112,12 @@ function(barretenberg_module_with_sources MODULE_NAME)
         list(APPEND lib_targets ${MODULE_NAME})
 
         set(MODULE_LINK_NAME ${MODULE_NAME})
+    elseif(MODULE_DEPENDENCIES AND NOT BENCH_SOURCE_FILES AND NOT FUZZERS_SOURCE_FILES)
+        # Header-only module with dependencies: create an INTERFACE library
+        # so dependents can still reference this module by name.
+        add_library(${MODULE_NAME} INTERFACE)
+        target_link_libraries(${MODULE_NAME} INTERFACE ${MODULE_DEPENDENCIES})
+        set(MODULE_LINK_NAME ${MODULE_NAME})
     endif()
 
     # Test files - only build if TEST_SOURCE_FILES was provided
@@ -198,7 +204,7 @@ function(barretenberg_module_with_sources MODULE_NAME)
         endif()
         if(NOT WASM)
             # Currently haven't found a way to easily wrap the calls in wasmtime when run from ctest.
-            gtest_discover_tests(${MODULE_NAME}_tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR} TEST_FILTER -*_SKIP_CI*)
+            gtest_discover_tests(${MODULE_NAME}_tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR} TEST_FILTER -*_SKIP_CI* DISCOVERY_TIMEOUT 30)
         endif()
     endif()
 

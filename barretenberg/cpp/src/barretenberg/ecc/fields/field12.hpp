@@ -262,6 +262,7 @@ template <typename quadratic_field, typename base_field, typename Fq12Params> cl
         };
     }
 
+    // Montgomery form conversions produced outputs where the components are all in strict/reduced form.
     constexpr field12 to_montgomery_form()
     {
         return {
@@ -270,7 +271,7 @@ template <typename quadratic_field, typename base_field, typename Fq12Params> cl
         };
     }
 
-    constexpr field12 from_montgomery_form()
+    constexpr field12 from_montgomery_form() const
     {
         return {
             c0.from_montgomery_form(),

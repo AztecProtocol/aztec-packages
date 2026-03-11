@@ -15,13 +15,13 @@ import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import type { CircuitName } from '@aztec/stdlib/stats';
 import { TX_ERROR_INVALID_PROOF } from '@aztec/stdlib/tx';
-import { ProvenTx, proveInteraction } from '@aztec/test-wallet/server';
 
 import TOML from '@iarna/toml';
 import '@jest/globals';
 import { type GetContractReturnType, getContract } from 'viem';
 
 import { FullProverTest } from '../fixtures/e2e_prover_test.js';
+import { ProvenTx, proveInteraction } from '../test-wallet/utils.js';
 
 // Set a very long 15 minute timeout.
 const TIMEOUT = 900_000;
@@ -87,12 +87,14 @@ describe('full_prover', () => {
       );
 
       // Create the two transactions
-      const privateBalance = await provenAsset.methods.balance_of_private(sender).simulate({ from: sender });
+      const { result: privateBalance } = await provenAsset.methods
+        .balance_of_private(sender)
+        .simulate({ from: sender });
       const privateSendAmount = privateBalance / 10n;
       expect(privateSendAmount).toBeGreaterThan(0n);
       const privateInteraction = provenAsset.methods.transfer(recipient, privateSendAmount);
 
-      const publicBalance = await provenAsset.methods.balance_of_public(sender).simulate({ from: sender });
+      const { result: publicBalance } = await provenAsset.methods.balance_of_public(sender).simulate({ from: sender });
       const publicSendAmount = publicBalance / 10n;
       expect(publicSendAmount).toBeGreaterThan(0n);
       const publicInteraction = provenAsset.methods.transfer_in_public(sender, recipient, publicSendAmount, 0);
@@ -180,12 +182,12 @@ describe('full_prover', () => {
       return;
     }
     // Create the two transactions
-    const privateBalance = await provenAsset.methods.balance_of_private(sender).simulate({ from: sender });
+    const { result: privateBalance } = await provenAsset.methods.balance_of_private(sender).simulate({ from: sender });
     const privateSendAmount = privateBalance / 20n;
     expect(privateSendAmount).toBeGreaterThan(0n);
     const firstPrivateInteraction = provenAsset.methods.transfer(recipient, privateSendAmount);
 
-    const publicBalance = await provenAsset.methods.balance_of_public(sender).simulate({ from: sender });
+    const { result: publicBalance } = await provenAsset.methods.balance_of_public(sender).simulate({ from: sender });
     const publicSendAmount = publicBalance / 10n;
     expect(publicSendAmount).toBeGreaterThan(0n);
     const publicInteraction = provenAsset.methods.transfer_in_public(sender, recipient, publicSendAmount, 0);
@@ -327,7 +329,7 @@ describe('full_prover', () => {
               data.constants,
               data.gasUsed.add(new Gas(i + 1, 0)),
               data.feePayer,
-              data.includeByTimestamp,
+              data.expirationTimestamp,
               data.forPublic,
               data.forRollup,
             ),

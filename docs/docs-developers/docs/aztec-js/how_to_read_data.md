@@ -7,9 +7,11 @@ description: How to read data from contracts including simulating functions, rea
 
 This guide shows you how to read data from Aztec contracts in TypeScript, including simulating function calls, reading raw logs, and retrieving typed events.
 
+import { General } from '@site/src/components/Snippets/general_snippets';
+
 ## Prerequisites
 
-- [Connected to a network](./how_to_connect_to_local_network.md) with a `TestWallet` instance and funded accounts
+- <General.AztecJSPrerequisites />
 - A deployed contract instance (see [How to Deploy a Contract](./how_to_deploy_contract.md))
 
 ## Simulating functions
@@ -22,7 +24,7 @@ The `from` option specifies which address context to use for the simulation. Thi
 
 ### Basic simulation
 
-#include_code simulate_function yarn-project/end-to-end/src/composed/docs_examples.test.ts typescript
+#include_code simulate_function docs/examples/ts/aztecjs_connection/index.ts typescript
 
 ### Handling return values
 
@@ -80,12 +82,12 @@ Simulation runs locally without generating proofs. No correctness guarantees are
 
 Contracts emit data in two forms you can read:
 
-| Aspect             | Logs                        | Events                                                    |
-| ------------------ | --------------------------- | --------------------------------------------------------- |
-| **What**           | Raw field arrays (untyped)  | Decoded domain objects with type info                     |
-| **Storage**        | Archiver (node-level)       | PXE (client-level) for private events                     |
+| Aspect             | Logs                        | Events                                             |
+| ------------------ | --------------------------- | -------------------------------------------------- |
+| **What**           | Raw field arrays (untyped)  | Decoded domain objects with type info              |
+| **Storage**        | Archiver (node-level)       | PXE (client-level) for private events              |
 | **API**            | `aztecNode.getPublicLogs()` | `wallet.getPrivateEvents()` or `getPublicEvents()` |
-| **Type awareness** | None - raw `Fr[]` data      | Requires ABI metadata to decode                           |
+| **Type awareness** | None - raw `Fr[]` data      | Requires ABI metadata to decode                    |
 
 **Logs** are the low-level transport layer, while **events** are the semantic application layer decoded using ABI metadata from your contract.
 

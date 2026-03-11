@@ -90,7 +90,7 @@ describe('Utility Execution test suite', () => {
     capsuleStore.readCapsuleArray.mockImplementation((address, slot) => {
       return Promise.resolve(capsuleArrays.get(`${address.toString()}:${slot.toString()}`) ?? []);
     });
-    acirSimulator = new ContractFunctionSimulator(
+    acirSimulator = new ContractFunctionSimulator({
       contractStore,
       noteStore,
       keyStore,
@@ -103,7 +103,7 @@ describe('Utility Execution test suite', () => {
       privateEventStore,
       simulator,
       contractSyncService,
-    );
+    });
 
     const ownerPartialAddress = Fr.random();
     ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, ownerPartialAddress);
@@ -205,10 +205,10 @@ describe('Utility Execution test suite', () => {
         globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(syncedBlockNumber) }),
       });
 
-      utilityExecutionOracle = new UtilityExecutionOracle(
+      utilityExecutionOracle = new UtilityExecutionOracle({
         contractAddress,
-        [],
-        [],
+        authWitnesses: [],
+        capsules: [],
         anchorBlockHeader,
         contractStore,
         noteStore,
@@ -219,13 +219,14 @@ describe('Utility Execution test suite', () => {
         senderAddressBookStore,
         capsuleStore,
         privateEventStore,
-        'test-job-id',
-      );
+        jobId: 'test-job-id',
+        scopes: 'ALL_SCOPES',
+      });
     });
 
     describe('Respects synced block number', () => {
       it('throws when getting block for future block number', async () => {
-        await expect(utilityExecutionOracle.utilityGetBlockHeader(BlockNumber(syncedBlockNumber + 1))).rejects.toThrow(
+        await expect(utilityExecutionOracle.getBlockHeader(BlockNumber(syncedBlockNumber + 1))).rejects.toThrow(
           `Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`,
         );
       });

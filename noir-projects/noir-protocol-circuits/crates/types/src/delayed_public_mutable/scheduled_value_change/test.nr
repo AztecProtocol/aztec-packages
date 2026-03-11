@@ -31,59 +31,60 @@ unconstrained fn test_get_scheduled() {
 
 unconstrained fn assert_time_horizon_invariants(
     value_change: &mut ScheduledValueChange<Field>,
-    historical_timestamp: u64,
+    anchor_block_timestamp: u64,
     time_horizon: u64,
 ) {
     // The current value should not change at the time horizon (but it might later).
-    let current_at_historical = value_change.get_current_at(historical_timestamp);
-    assert_eq(current_at_historical, value_change.get_current_at(time_horizon));
+    let current_at_anchor = value_change.get_current_at(anchor_block_timestamp);
+    assert_eq(current_at_anchor, value_change.get_current_at(time_horizon));
 
-    // The earliest a new change could be scheduled in would be the immediate next timestamp to the historical one. This
-    // should result in the new timestamp of change landing *after* the time horizon, and the current value still not
-    // changing at the previously determined time_horizon.
+    // The earliest a new change could be scheduled is in the beginning of the next block following the anchor block
+    // and since blocks within the same checkpoint can share timestamps, the smallest timestamp of a block following
+    // the anchor block is "anchor_block_timestamp". This should result in the new timestamp of change landing
+    // *after* the time horizon, and the current value still not changing at the previously determined time_horizon.
     let new = value_change.pre + value_change.post; // Make sure it's different to both pre and post
     value_change.schedule_change(
         new,
-        historical_timestamp + 1,
-        TEST_DELAY,
-        historical_timestamp + 1 + TEST_DELAY,
+        anchor_block_timestamp,
+        TEST_DELAY + 1,
+        anchor_block_timestamp + TEST_DELAY + 1,
     );
 
     assert(value_change.timestamp_of_change > time_horizon);
-    assert_eq(current_at_historical, value_change.get_current_at(time_horizon));
+    assert_eq(current_at_anchor, value_change.get_current_at(time_horizon));
 }
 
 #[test]
 unconstrained fn test_get_time_horizon_change_in_past() {
-    let historical_timestamp = 100;
+    let anchor_block_timestamp = 100;
     let timestamp_of_change = 50;
 
     let mut value_change: ScheduledValueChange<Field> =
         ScheduledValueChange::new(1, 2, timestamp_of_change);
 
-    let time_horizon = value_change.get_time_horizon(historical_timestamp, TEST_DELAY);
-    assert_eq(time_horizon, historical_timestamp + TEST_DELAY);
+    let time_horizon = value_change.get_time_horizon(anchor_block_timestamp, TEST_DELAY);
+    assert_eq(time_horizon, anchor_block_timestamp + TEST_DELAY);
 
-    assert_time_horizon_invariants(&mut value_change, historical_timestamp, time_horizon);
+    assert_time_horizon_invariants(&mut value_change, anchor_block_timestamp, time_horizon);
 }
 
 #[test]
 unconstrained fn test_get_time_horizon_change_in_immediate_past() {
-    let historical_timestamp = 100;
+    let anchor_block_timestamp = 100;
     let timestamp_of_change = 100;
 
     let mut value_change: ScheduledValueChange<Field> =
         ScheduledValueChange::new(1, 2, timestamp_of_change);
 
-    let time_horizon = value_change.get_time_horizon(historical_timestamp, TEST_DELAY);
-    assert_eq(time_horizon, historical_timestamp + TEST_DELAY);
+    let time_horizon = value_change.get_time_horizon(anchor_block_timestamp, TEST_DELAY);
+    assert_eq(time_horizon, anchor_block_timestamp + TEST_DELAY);
 
-    assert_time_horizon_invariants(&mut value_change, historical_timestamp, time_horizon);
+    assert_time_horizon_invariants(&mut value_change, anchor_block_timestamp, time_horizon);
 }
 
 #[test]
 unconstrained fn test_get_time_horizon_change_in_near_future() {
-    let historical_timestamp = 100;
+    let anchor_block_timestamp = 100;
     let timestamp_of_change = 120;
 
     let mut value_change: ScheduledValueChange<Field> =
@@ -92,38 +93,38 @@ unconstrained fn test_get_time_horizon_change_in_near_future() {
     // Note that this is the only scenario in which the timestamp of change informs the time horizon.
     // This may result in privacy leaks when interacting with applications that have a scheduled change
     // in the near future.
-    let time_horizon = value_change.get_time_horizon(historical_timestamp, TEST_DELAY);
+    let time_horizon = value_change.get_time_horizon(anchor_block_timestamp, TEST_DELAY);
     assert_eq(time_horizon, timestamp_of_change - 1);
 
-    assert_time_horizon_invariants(&mut value_change, historical_timestamp, time_horizon);
+    assert_time_horizon_invariants(&mut value_change, anchor_block_timestamp, time_horizon);
 }
 
 #[test]
 unconstrained fn test_get_time_horizon_change_in_far_future() {
-    let historical_timestamp = 100;
+    let anchor_block_timestamp = 100;
     let timestamp_of_change = 500;
 
     let mut value_change: ScheduledValueChange<Field> =
         ScheduledValueChange::new(1, 2, timestamp_of_change);
 
-    let time_horizon = value_change.get_time_horizon(historical_timestamp, TEST_DELAY);
-    assert_eq(time_horizon, historical_timestamp + TEST_DELAY);
+    let time_horizon = value_change.get_time_horizon(anchor_block_timestamp, TEST_DELAY);
+    assert_eq(time_horizon, anchor_block_timestamp + TEST_DELAY);
 
-    assert_time_horizon_invariants(&mut value_change, historical_timestamp, time_horizon);
+    assert_time_horizon_invariants(&mut value_change, anchor_block_timestamp, time_horizon);
 }
 
 #[test]
 unconstrained fn test_get_time_horizon_n0_delay() {
-    let historical_timestamp = 100;
+    let anchor_block_timestamp = 100;
     let timestamp_of_change = 50;
 
-    let mut value_change: ScheduledValueChange<Field> =
+    let value_change: ScheduledValueChange<Field> =
         ScheduledValueChange::new(1, 2, timestamp_of_change);
 
-    let time_horizon = value_change.get_time_horizon(historical_timestamp, 0);
-    // Since the time horizon equals the historical timestamp, it is not possible to read the current value in
-    // private since the transaction `include_by_timestamp` property would equal an already mined timestamp.
-    assert_eq(time_horizon, historical_timestamp);
+    let time_horizon = value_change.get_time_horizon(anchor_block_timestamp, 0);
+    // Since the time horizon equals the anchor block timestamp, it is not possible to read the current value in
+    // private since the transaction `expiration_timestamp` property would equal an already mined timestamp.
+    assert_eq(time_horizon, anchor_block_timestamp);
 }
 
 #[test]

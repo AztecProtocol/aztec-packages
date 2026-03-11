@@ -15,3 +15,10 @@ export enum PeerErrorSeverity {
    */
   HighToleranceError = 'HighToleranceError',
 }
+
+/** Severities ordered from mildest to harshest. */
+export const PeerErrorSeverityByHarshness = [
+  PeerErrorSeverity.HighToleranceError,
+  PeerErrorSeverity.MidToleranceError,
+  PeerErrorSeverity.LowToleranceError,
+] as const;

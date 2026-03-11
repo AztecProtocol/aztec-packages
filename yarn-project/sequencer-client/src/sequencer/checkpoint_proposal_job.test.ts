@@ -1,9 +1,3 @@
-import {
-  NUM_BLOCK_END_BLOB_FIELDS,
-  NUM_CHECKPOINT_END_MARKER_FIELDS,
-  NUM_FIRST_BLOCK_END_BLOB_FIELDS,
-} from '@aztec/blob-lib/encoding';
-import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import {
   BlockNumber,
@@ -24,7 +18,7 @@ import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestation, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
-import { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { Checkpoint, type CheckpointData, L1PublishedData } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
@@ -84,7 +78,7 @@ describe('CheckpointProposalJob', () => {
   let job: TestCheckpointProposalJob;
 
   let timetable: SequencerTimetable;
-  let l1Constants: L1RollupConstants;
+  let l1Constants: L1RollupConstants & { rollupManaLimit: number };
   let config: ResolvedSequencerConfig;
 
   let lastBlockNumber: BlockNumber;
@@ -147,6 +141,7 @@ describe('CheckpointProposalJob', () => {
       epochDuration: 16,
       proofSubmissionEpochs: 4,
       targetCommitteeSize: 48,
+      rollupManaLimit: Infinity,
     };
 
     dateProvider = new TestDateProvider();
@@ -196,7 +191,9 @@ describe('CheckpointProposalJob', () => {
     p2p.broadcastProposal.mockResolvedValue(undefined);
 
     worldState = mockDeep<WorldStateSynchronizer>();
-    const mockFork = mock<MerkleTreeWriteOperations>({ [Symbol.dispose]: jest.fn() });
+    const mockFork = mock<MerkleTreeWriteOperations>({
+      [Symbol.asyncDispose]: jest.fn().mockReturnValue(Promise.resolve()) as () => Promise<void>,
+    });
     worldState.fork.mockResolvedValue(mockFork);
 
     // Create fake CheckpointsBuilder and CheckpointBuilder
@@ -216,7 +213,7 @@ describe('CheckpointProposalJob', () => {
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue(Array(4).fill(Fr.ZERO));
 
     l2BlockSource = mock<L2BlockSource>();
-    l2BlockSource.getCheckpointsForEpoch.mockResolvedValue([]);
+    l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);
 
     blockSink = mock<L2BlockSink>();
     blockSink.addBlock.mockResolvedValue(undefined);
@@ -237,12 +234,12 @@ describe('CheckpointProposalJob', () => {
       },
     );
     validatorClient.createCheckpointProposal.mockImplementation(
-      async (checkpointHeader, archiveRoot, lastBlockInfo) => {
+      async (checkpointHeader, archiveRoot, feeAssetPriceModifier, lastBlockInfo) => {
         if (!lastBlockInfo) {
-          return new CheckpointProposal(checkpointHeader, archiveRoot, mockedSig);
+          return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, mockedSig);
         }
         const txHashes = await Promise.all((lastBlockInfo.txs ?? []).map((tx: Tx) => tx.getTxHash()));
-        return new CheckpointProposal(checkpointHeader, archiveRoot, mockedSig, {
+        return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, mockedSig, {
           blockHeader: lastBlockInfo.blockHeader,
           indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
           txHashes,
@@ -254,6 +251,7 @@ describe('CheckpointProposalJob', () => {
     validatorClient.signAttestationsAndSigners.mockImplementation(() => Promise.resolve(getSignatures()[0].signature));
     validatorClient.getCoinbaseForAttestor.mockReturnValue(coinbase);
     validatorClient.getFeeRecipientForAttestor.mockReturnValue(feeRecipient);
+    validatorClient.getValidatorAddresses.mockReturnValue([attestorAddress]);
 
     slasherClient = mock<SlasherClientInterface>();
     slasherClient.getProposerActions.mockResolvedValue([]);
@@ -369,6 +367,7 @@ describe('CheckpointProposalJob', () => {
     it('passes previous checkpoint out hashes when there are earlier checkpoints in the epoch', async () => {
       // Create two previous checkpoints in the same epoch
       const previousCheckpoints = await timesAsync(2, i => Checkpoint.random(CheckpointNumber(i + 1)));
+      const previousCheckpointsData: CheckpointData[] = previousCheckpoints.map(c => toCheckpointData(c));
 
       // Update job to be for checkpoint 3
       checkpointNumber = CheckpointNumber(3);
@@ -383,7 +382,7 @@ describe('CheckpointProposalJob', () => {
       );
 
       // Mock l2BlockSource to return the previous checkpoints
-      l2BlockSource.getCheckpointsForEpoch.mockResolvedValue(previousCheckpoints);
+      l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue(previousCheckpointsData);
 
       // Build block successfully
       const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
@@ -419,8 +418,12 @@ describe('CheckpointProposalJob', () => {
         }),
       );
 
-      // Mock l2BlockSource to return all three checkpoints
-      l2BlockSource.getCheckpointsForEpoch.mockResolvedValue([previousCheckpoint, currentCheckpoint, futureCheckpoint]);
+      // Mock l2BlockSource to return all three checkpoints as data
+      l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue([
+        toCheckpointData(previousCheckpoint),
+        toCheckpointData(currentCheckpoint),
+        toCheckpointData(futureCheckpoint),
+      ]);
 
       // Build block successfully
       const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
@@ -462,7 +465,7 @@ describe('CheckpointProposalJob', () => {
 
     // Set up p2p mocks
     p2p.getPendingTxCount.mockResolvedValue(txs.length);
-    p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+    p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
     // Create blocks with incrementing block numbers
     const blocks: Awaited<ReturnType<typeof makeBlock>>[] = [];
@@ -685,7 +688,7 @@ describe('CheckpointProposalJob', () => {
       const block = await makeBlock(txs, globalVariables);
 
       p2p.getPendingTxCount.mockResolvedValue(10);
-      p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+      p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
       checkpointBuilder.seedBlocks([block], [txs]);
 
@@ -744,7 +747,7 @@ describe('CheckpointProposalJob', () => {
       const block = await makeBlock(txs, globalVariables);
 
       p2p.getPendingTxCount.mockResolvedValue(10);
-      p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+      p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
       checkpointBuilder.seedBlocks([block], [txs]);
 
@@ -759,53 +762,6 @@ describe('CheckpointProposalJob', () => {
 
       // waitUntilTimeInSlot should NOT be called since the only block is the last block
       expect(waitSpy).not.toHaveBeenCalled();
-    });
-
-    it('tracks remaining blob field capacity across multiple blocks', async () => {
-      jest
-        .spyOn(job.getTimetable(), 'canStartNextBlock')
-        .mockReturnValueOnce({ canStart: true, deadline: 10, isLastBlock: false })
-        .mockReturnValueOnce({ canStart: true, deadline: 18, isLastBlock: true })
-        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
-
-      const txs = await Promise.all([makeTx(1, chainId), makeTx(2, chainId), makeTx(3, chainId)]);
-
-      p2p.getPendingTxCount.mockResolvedValue(10);
-      p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
-
-      // Create 2 blocks - block 1 has 2 txs, block 2 has 1 tx
-      const block1 = await makeBlock(txs.slice(0, 2), globalVariables);
-      const globalVariables2 = new GlobalVariables(
-        chainId,
-        version,
-        BlockNumber(newBlockNumber + 1),
-        SlotNumber(newSlotNumber),
-        0n,
-        coinbase,
-        feeRecipient,
-        gasFees,
-      );
-      const block2 = await makeBlock([txs[2]], globalVariables2);
-
-      checkpointBuilder.seedBlocks([block1, block2], [txs.slice(0, 2), [txs[2]]]);
-      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block2));
-
-      await job.execute();
-
-      // Verify blob field limits were correctly calculated
-      expect(checkpointBuilder.buildBlockCalls).toHaveLength(2);
-
-      const initialCapacity = BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB - NUM_CHECKPOINT_END_MARKER_FIELDS;
-
-      // Block 1 (first in checkpoint): gets initial capacity - first block overhead (7)
-      const block1MaxBlobFields = initialCapacity - NUM_FIRST_BLOCK_END_BLOB_FIELDS;
-      expect(checkpointBuilder.buildBlockCalls[0].opts.maxBlobFields).toBe(block1MaxBlobFields);
-
-      // Block 2: gets remaining capacity - subsequent block overhead (6)
-      const block1BlobFieldsUsed = block1.body.txEffects.reduce((sum, tx) => sum + tx.getNumBlobFields(), 0);
-      const remainingAfterBlock1 = block1MaxBlobFields - block1BlobFieldsUsed;
-      const block2MaxBlobFields = remainingAfterBlock1 - NUM_BLOCK_END_BLOB_FIELDS;
-      expect(checkpointBuilder.buildBlockCalls[1].opts.maxBlobFields).toBe(block2MaxBlobFields);
     });
   });
 
@@ -825,12 +781,11 @@ describe('CheckpointProposalJob', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
         buildDeadline: undefined,
         blockTimestamp: 0n,
-        remainingBlobFields: 1,
         txHashesAlreadyIncluded: new Set<string>(),
       });
 
       expect(checkpoint).toBeUndefined();
-      expect(p2p.deleteTxs).toHaveBeenCalledWith(failedTxs.map(ftx => ftx.tx.txHash));
+      expect(p2p.handleFailedExecution).toHaveBeenCalledWith(failedTxs.map(ftx => ftx.tx.txHash));
     });
 
     it('does not build a block if checkpoint builder fails with invalid txs', async () => {
@@ -847,12 +802,11 @@ describe('CheckpointProposalJob', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
         buildDeadline: undefined,
         blockTimestamp: 0n,
-        remainingBlobFields: 1,
         txHashesAlreadyIncluded: new Set<string>(),
       });
 
       expect(checkpoint).toBeUndefined();
-      expect(p2p.deleteTxs).toHaveBeenCalledWith(failedTxs.map(ftx => ftx.tx.txHash));
+      expect(p2p.handleFailedExecution).toHaveBeenCalledWith(failedTxs.map(ftx => ftx.tx.txHash));
     });
   });
 
@@ -867,7 +821,7 @@ describe('CheckpointProposalJob', () => {
 
       const txs = await Promise.all([makeTx(1, chainId)]);
       p2p.getPendingTxCount.mockResolvedValue(txs.length);
-      p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+      p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
       const checkpoint = await job.execute();
 
@@ -880,7 +834,7 @@ describe('CheckpointProposalJob', () => {
       // Mock minimal txs (less than minTxsPerBlock)
       p2p.getPendingTxCount.mockResolvedValue(1);
       const txs = await Promise.all([makeTx(1, chainId)]);
-      p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+      p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
       const block = await makeBlock(txs, globalVariables);
       checkpointBuilder.seedBlocks([block], [txs]);
@@ -904,7 +858,7 @@ describe('CheckpointProposalJob', () => {
       const block = await makeBlock(txs, globalVariables);
 
       p2p.getPendingTxCount.mockResolvedValue(txs.length);
-      p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+      p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
       checkpointBuilder.seedBlocks([block], [txs]);
 
@@ -922,7 +876,7 @@ describe('CheckpointProposalJob', () => {
     it('handles block build failure gracefully', async () => {
       const txs = await Promise.all([makeTx(1, chainId)]);
       p2p.getPendingTxCount.mockResolvedValue(txs.length);
-      p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+      p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 
       // Set up MockCheckpointBuilder to throw on build
       checkpointBuilder.errorOnBuild = new Error('Block build failed');
@@ -1108,9 +1062,22 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
       indexWithinCheckpoint: IndexWithinCheckpoint;
       buildDeadline: Date | undefined;
       txHashesAlreadyIncluded: Set<string>;
-      remainingBlobFields: number;
     },
-  ): Promise<{ block: L2Block; usedTxs: Tx[]; remainingBlobFields: number } | { error: Error } | undefined> {
+  ): Promise<{ block: L2Block; usedTxs: Tx[] } | { error: Error } | undefined> {
     return super.buildSingleBlock(checkpointBuilder, opts);
   }
+}
+
+/** Creates a CheckpointData from a Checkpoint for testing. */
+function toCheckpointData(checkpoint: Checkpoint): CheckpointData {
+  return {
+    checkpointNumber: checkpoint.number,
+    header: checkpoint.header,
+    archive: checkpoint.archive,
+    checkpointOutHash: checkpoint.getCheckpointOutHash(),
+    startBlock: BlockNumber(checkpoint.blocks[0]?.number ?? 1),
+    blockCount: checkpoint.blocks.length,
+    attestations: [],
+    l1: L1PublishedData.random(),
+  };
 }

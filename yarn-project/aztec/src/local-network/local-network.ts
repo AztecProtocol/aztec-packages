@@ -18,13 +18,17 @@ import type { LogFn } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
+import { SequencerState } from '@aztec/sequencer-client';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
   getConfigEnvVars as getTelemetryClientConfig,
   initTelemetryClient,
 } from '@aztec/telemetry-client';
-import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet/server';
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
+import { deployFundedSchnorrAccounts } from '@aztec/wallets/testing';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type Hex, createPublicClient, fallback, http as httpViemTransport } from 'viem';
@@ -35,6 +39,7 @@ import { createAccountLogs } from '../cli/util.js';
 import { DefaultMnemonic } from '../mnemonic.js';
 import { AnvilTestWatcher } from '../testing/anvil_test_watcher.js';
 import { EpochTestSettler } from '../testing/epoch_test_settler.js';
+import { getTokenAllowedSetupFunctions } from '../testing/token_allowed_setup.js';
 import { getBananaFPCAddress, setupBananaFPC } from './banana_fpc.js';
 import { getSponsoredFPCAddress } from './sponsored_fpc.js';
 
@@ -98,18 +103,25 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
     logger.warn(`Multiple L1 RPC URLs provided. Local networks will only use the first one: ${l1RpcUrl}`);
   }
 
+  // The local network deploys a banana FPC with Token contracts, so include Token entries
+  // in the setup allowlist so FPC-based fee payments work out of the box.
+  const tokenAllowList = await getTokenAllowedSetupFunctions();
+
   const aztecNodeConfig: AztecNodeConfig = {
     ...getConfigEnvVars(),
     ...config,
+    txPublicSetupAllowListExtend: [...tokenAllowList, ...(config.txPublicSetupAllowListExtend ?? [])],
   };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
   if (
-    aztecNodeConfig.publisherPrivateKeys == undefined ||
-    !aztecNodeConfig.publisherPrivateKeys.length ||
-    aztecNodeConfig.publisherPrivateKeys[0].getValue() === NULL_KEY
+    aztecNodeConfig.sequencerPublisherPrivateKeys == undefined ||
+    !aztecNodeConfig.sequencerPublisherPrivateKeys.length ||
+    aztecNodeConfig.sequencerPublisherPrivateKeys[0].getValue() === NULL_KEY
   ) {
     const privKey = hdAccount.getHdKey().privateKey;
-    aztecNodeConfig.publisherPrivateKeys = [new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const)];
+    aztecNodeConfig.sequencerPublisherPrivateKeys = [
+      new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const),
+    ];
   }
   if (!aztecNodeConfig.validatorPrivateKeys?.getValue().length) {
     const privKey = hdAccount.getHdKey().privateKey;
@@ -133,9 +145,12 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
 
   const bananaFPC = await getBananaFPCAddress(initialAccounts);
   const sponsoredFPC = await getSponsoredFPCAddress();
-  const fundedAddresses = initialAccounts.length
-    ? [...initialAccounts.map(a => a.address), bananaFPC, sponsoredFPC]
-    : [];
+  const prefundAddresses = (aztecNodeConfig.prefundAddresses ?? []).map(a => AztecAddress.fromString(a));
+  const fundedAddresses = [
+    ...initialAccounts.map(a => a.address),
+    ...(initialAccounts.length ? [bananaFPC, sponsoredFPC] : []),
+    ...prefundAddresses,
+  ];
   const { genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(fundedAddresses);
 
   const dateProvider = new TestDateProvider();
@@ -177,6 +192,21 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   const blobClient = createBlobClient();
   const node = await createAztecNode(aztecNodeConfig, { telemetry, blobClient, dateProvider }, { prefilledPublicData });
 
+  // Now that the node is up, let the watcher check for pending txs so it can skip unfilled slots faster when
+  // transactions are waiting in the mempool. Also let it check if the sequencer is actively building, to avoid
+  // warping time out from under an in-progress block.
+  watcher?.setGetPendingTxCount(() => node.getPendingTxCount());
+  const sequencer = node.getSequencer()?.getSequencer();
+  if (sequencer) {
+    const idleStates: Set<string> = new Set([
+      SequencerState.STOPPED,
+      SequencerState.STOPPING,
+      SequencerState.IDLE,
+      SequencerState.SYNCHRONIZING,
+    ]);
+    watcher?.setIsSequencerBuilding(() => !idleStates.has(sequencer.getState()));
+  }
+
   let epochTestSettler: EpochTestSettler | undefined;
   if (!aztecNodeConfig.p2pEnabled) {
     epochTestSettler = new EpochTestSettler(
@@ -190,16 +220,14 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
   }
 
   if (initialAccounts.length) {
-    const PXEConfig = { proverEnabled: aztecNodeConfig.realProofs };
-    const wallet = await TestWallet.create(node, PXEConfig);
+    const wallet = await EmbeddedWallet.create(node, {
+      pxeConfig: { proverEnabled: aztecNodeConfig.realProofs },
+      ephemeral: true,
+    });
 
     userLog('Setting up funded test accounts...');
     const accountManagers = await deployFundedSchnorrAccounts(wallet, initialAccounts);
-    const accountsWithSecrets = accountManagers.map((manager, i) => ({
-      account: manager,
-      secretKey: initialAccounts[i].secret,
-    }));
-    const accLogs = await createAccountLogs(accountsWithSecrets, wallet);
+    const accLogs = await createAccountLogs(accountManagers, wallet);
     userLog(accLogs.join(''));
 
     await setupBananaFPC(initialAccounts, wallet, userLog);
@@ -225,7 +253,12 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
  */
 export async function createAztecNode(
   config: Partial<AztecNodeConfig> = {},
-  deps: { telemetry?: TelemetryClient; blobClient?: BlobClientInterface; dateProvider?: DateProvider } = {},
+  deps: {
+    telemetry?: TelemetryClient;
+    blobClient?: BlobClientInterface;
+    dateProvider?: DateProvider;
+    proverBroker?: ProvingJobBroker;
+  } = {},
   options: { prefilledPublicData?: PublicDataTreeLeaf[] } = {},
 ) {
   // TODO(#12272): will clean this up. This is criminal.
@@ -235,6 +268,10 @@ export async function createAztecNode(
     ...config,
     l1Contracts: { ...l1Contracts, ...config.l1Contracts },
   };
-  const node = await AztecNodeService.createAndSync(aztecNodeConfig, deps, options);
+  const node = await AztecNodeService.createAndSync(
+    aztecNodeConfig,
+    { ...deps, proverNodeDeps: { broker: deps.proverBroker } },
+    options,
+  );
   return node;
 }

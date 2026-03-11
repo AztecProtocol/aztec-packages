@@ -6,16 +6,9 @@
 
 #pragma once
 
-#include "../bigfield/bigfield.hpp"
 #include "../bigfield/goblin_field.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
-#include "../field/field.hpp"
-#include "../memory/rom_table.hpp"
-#include "../memory/twin_rom_table.hpp"
-#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
-#include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
-#include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb::stdlib::element_goblin {
@@ -49,21 +42,20 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     goblin_element(const typename NativeGroup::affine_element& input)
         : _x(input.x)
         , _y(input.y)
-        , _is_infinity(input.is_point_at_infinity())
-    {}
+    {
+        // ECCVM requires points at infinity to be represented by (0, 0) coordinates
+        if (input.is_point_at_infinity()) {
+            _x = Fq(bb::fq(0));
+            _y = Fq(bb::fq(0));
+        }
+    }
 
-    // Construct a goblin biggroup element from its coordinates
-    // The on-curve check is skipped as it is performed in ECCVM (assert_on_curve is unused)
+    // Construct a goblin biggroup element from its coordinates.
+    // The on-curve check is skipped as it is performed in ECCVM (assert_on_curve is unused).
+    // Point-at-infinity is represented by (0, 0) coordinates, enforced by ECCVM.
     goblin_element(const Fq& x, const Fq& y, [[maybe_unused]] bool assert_on_curve = true)
         : _x(x)
         , _y(y)
-        , _is_infinity(false)
-    {}
-
-    goblin_element(const Fq& x, const Fq& y, const bool_ct is_infinity, [[maybe_unused]] bool assert_on_curve = true)
-        : _x(x)
-        , _y(y)
-        , _is_infinity(is_infinity)
     {}
 
     goblin_element(const goblin_element& other) = default;
@@ -73,19 +65,17 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     ~goblin_element() = default;
 
     /**
-     * @brief Asserts that two goblin elements are equal (i.e., x, y coordinates and infinity flag are all equal).
+     * @brief Asserts that two goblin elements are equal (i.e., x, y coordinates are equal).
      *
      * @param other
      * @param msg
      *
-     * @details Note that checking the coordinates as well as the infinity flag opens up the possibility of honest
-     * prover unable to satisfy constraints if both points are at infinity but have different x, y. This is not a
-     * problem in practice as we should never have multiple representations of the point at infinity in a circuit.
+     * @details ECCVM ensures that point-at-infinity is canonically represented as (0, 0),
+     * so comparing coordinates is sufficient.
      */
     void incomplete_assert_equal(const goblin_element& other,
                                  const std::string msg = "goblin_element::incomplete_assert_equal") const
     {
-        is_point_at_infinity().assert_equal(other.is_point_at_infinity(), msg + " (infinity flag)");
         _x.assert_equal(other._x, msg + " (x coordinate)");
         _y.assert_equal(other._y, msg + " (y coordinate)");
     }
@@ -93,19 +83,15 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     static goblin_element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
         goblin_element out;
-        // ECCVM requires points at infinity to be represented by 0-value x/y coords
+
+        // ECCVM requires points at infinity to be represented by (0, 0) coordinates
         if (input.is_point_at_infinity()) {
-            Fq x = Fq::from_witness(ctx, bb::fq(0));
-            Fq y = Fq::from_witness(ctx, bb::fq(0));
-            out._x = x;
-            out._y = y;
+            out._x = Fq::from_witness(ctx, bb::fq(0));
+            out._y = Fq::from_witness(ctx, bb::fq(0));
         } else {
-            Fq x = Fq::from_witness(ctx, input.x);
-            Fq y = Fq::from_witness(ctx, input.y);
-            out._x = x;
-            out._y = y;
+            out._x = Fq::from_witness(ctx, input.x);
+            out._y = Fq::from_witness(ctx, input.y);
         }
-        out.set_point_at_infinity(witness_t<Builder>(ctx, input.is_point_at_infinity()));
         out.set_free_witness_tag();
         return out;
     }
@@ -147,15 +133,15 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return goblin_element(x_fq, y_fq);
     }
 
-    static goblin_element point_at_infinity(Builder* ctx)
+    /**
+     * @brief Creates a constant point at infinity with canonical (0, 0) coordinates.
+     * @note For witness infinity points, use from_witness(ctx, affine_element::infinity()) instead.
+     */
+    static goblin_element constant_infinity([[maybe_unused]] Builder* ctx)
     {
-        Fr zero = Fr::from_witness_index(ctx, ctx->zero_idx());
-        zero.unset_free_witness_tag();
-        Fq x_fq(zero, zero);
-        Fq y_fq(zero, zero);
-        goblin_element result(x_fq, y_fq);
-        result.set_point_at_infinity(true);
-        return result;
+        Fq x_fq(ctx, uint256_t(0));
+        Fq y_fq(ctx, uint256_t(0));
+        return goblin_element(x_fq, y_fq);
     }
 
     goblin_element checked_unconditional_add(const goblin_element& other) const { return operator+(other); }
@@ -207,12 +193,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
 
         Fq result_x(x_lo, x_hi);
         Fq result_y(y_lo, y_hi);
-        goblin_element result(result_x, result_y);
 
-        // if the output is at infinity, this is represented by x/y coordinates being zero
-        // because they are all 136-bit, we can do a cheap zerocheck by first summing the limbs
-        auto op2_is_infinity = (x_lo.add_two(x_hi, y_lo) + y_hi).is_zero();
-        result.set_point_at_infinity(op2_is_infinity);
+        goblin_element result(result_x, result_y);
         {
             ecc_op_tuple op_tuple3 = builder->queue_ecc_eq();
             auto x_lo = Fr::from_witness_index(builder, op_tuple3.x_lo);
@@ -234,7 +216,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     goblin_element operator-() const
     {
         auto builder = get_context();
-        return point_at_infinity(builder) - *this;
+        return constant_infinity(builder) - *this;
     }
 
     goblin_element operator+=(const goblin_element& other)
@@ -274,8 +256,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         goblin_element result(*this);
         result._x = Fq::conditional_assign(predicate, other._x, result._x);
         result._y = Fq::conditional_assign(predicate, other._y, result._y);
-        result._is_infinity =
-            bool_ct::conditional_assign(predicate, other.is_point_at_infinity(), result.is_point_at_infinity());
         return result;
     }
 
@@ -296,15 +276,12 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         auto builder = get_context();
         return batch_mul({ *this }, { Fr(builder, 2) });
     }
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1291) max_num_bits is unused; could implement and
-    // use this to optimize other operations. interface compatible with biggroup.hpp, the final parameter
-    // handle_edge_cases is not needed as this is always done in the eccvm
+    //  interface compatible with biggroup.hpp, the final parameter
+    //  handle_edge_cases is not needed as this is always done in the eccvm
     static goblin_element batch_mul(const std::vector<goblin_element>& points,
                                     const std::vector<Fr>& scalars,
                                     const size_t max_num_bits = 0,
-                                    const bool handle_edge_cases = false,
-                                    const Fr& masking_scalar = Fr(1));
+                                    const bool handle_edge_cases = false);
 
     // we use this data structure to add together a sequence of points.
     // By tracking the previous values of x_1, y_1, \lambda, we can avoid
@@ -314,7 +291,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         bb::fq x_val = _x.get_value().lo;
         bb::fq y_val = _y.get_value().lo;
         auto result = typename NativeGroup::affine_element(x_val, y_val);
-        if (is_point_at_infinity().get_value()) {
+        // ECCVM represents point-at-infinity as (0, 0)
+        if (x_val == 0 && y_val == 0) {
             result.self_set_infinity();
         }
         return result;
@@ -348,35 +326,15 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return nullptr;
     }
 
-    bool_ct is_point_at_infinity() const { return _is_infinity; }
-    void set_point_at_infinity(const bool_ct& is_infinity) { _is_infinity = is_infinity; }
-    /**
-     * @brief Enforce x and y coordinates of a point to be (0,0) in the case of point at infinity
-     *
-     * @details We need to have a standard witness in Noir and the point at infinity can have non-zero random
-     * coefficients when we get it as output from our optimized algorithms. This function returns a (0,0) point, if
-     * it is a point at infinity
-     */
-    goblin_element get_standard_form() const
-    {
-        const bool_ct is_infinity = is_point_at_infinity();
-        goblin_element result(*this);
-        const Fq zero = Fq::zero();
-        result._x = Fq::conditional_assign(is_infinity, zero, result._x);
-        result._y = Fq::conditional_assign(is_infinity, zero, result._y);
-        return result;
-    }
+    // ECCVM guarantees infinity is canonically (0, 0), so no normalization needed.
+    goblin_element get_standard_form() const { return *this; }
 
-    OriginTag get_origin_tag() const
-    {
-        return OriginTag(_x.get_origin_tag(), _y.get_origin_tag(), _is_infinity.get_origin_tag());
-    }
+    OriginTag get_origin_tag() const { return OriginTag(_x.get_origin_tag(), _y.get_origin_tag()); }
 
     void set_origin_tag(const OriginTag& tag) const
     {
         _x.set_origin_tag(tag);
         _y.set_origin_tag(tag);
-        _is_infinity.set_origin_tag(tag);
     }
 
     /**
@@ -386,7 +344,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     {
         _x.set_free_witness_tag();
         _y.set_free_witness_tag();
-        _is_infinity.set_free_witness_tag();
     }
 
     /**
@@ -396,7 +353,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     {
         _x.unset_free_witness_tag();
         _y.unset_free_witness_tag();
-        _is_infinity.unset_free_witness_tag();
     }
     /**
      * @brief Set the witness indices representing the goblin element to public
@@ -423,7 +379,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
   private:
     Fq _x;
     Fq _y;
-    bool_ct _is_infinity;
 };
 
 using BiggroupGoblin = goblin_element<bb::MegaCircuitBuilder,

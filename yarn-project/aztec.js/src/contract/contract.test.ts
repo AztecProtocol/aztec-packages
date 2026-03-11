@@ -11,7 +11,7 @@ import type {
   TxHash,
   TxReceipt,
   TxSimulationResult,
-  UtilitySimulationResult,
+  UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -31,7 +31,7 @@ describe('Contract Class', () => {
   const _mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockTxSimulationResult = { type: 'TxSimulationResult', result: 1n } as any as TxSimulationResult;
-  const mockUtilityResultValue = { result: [new Fr(42)] } as any as UtilitySimulationResult;
+  const mockUtilityResultValue = { result: [new Fr(42)] } as any as UtilityExecutionResult;
 
   const defaultArtifact: ContractArtifact = {
     name: 'FooContract',
@@ -110,6 +110,73 @@ describe('Contract Class', () => {
         debugSymbols: '',
         errorTypes: {},
       },
+      {
+        name: 'optionEcho',
+        isInitializer: false,
+        functionType: FunctionType.PRIVATE,
+        isOnlySelf: false,
+        isStatic: false,
+        parameters: [
+          {
+            name: 'value',
+            type: {
+              kind: 'struct',
+              path: 'std::option::Option',
+              fields: [
+                {
+                  name: '_is_some',
+                  type: {
+                    kind: 'boolean',
+                  },
+                },
+                {
+                  name: '_value',
+                  type: {
+                    kind: 'field',
+                  },
+                },
+              ],
+            },
+            visibility: 'private',
+          },
+        ],
+        returnTypes: [],
+        errorTypes: {},
+        bytecode: Buffer.alloc(8, 0xfd),
+        verificationKey: Buffer.alloc(4064).toString('base64'),
+        debugSymbols: '',
+      },
+      {
+        name: 'mixedParams',
+        isInitializer: false,
+        functionType: FunctionType.PRIVATE,
+        isOnlySelf: false,
+        isStatic: false,
+        parameters: [
+          {
+            name: 'optValue',
+            type: {
+              kind: 'struct',
+              path: 'std::option::Option',
+              fields: [
+                { name: '_is_some', type: { kind: 'boolean' } },
+                { name: '_value', type: { kind: 'field' } },
+              ],
+            },
+            visibility: 'private',
+          },
+          {
+            name: 'aField',
+            type: { kind: 'field' },
+            visibility: 'private',
+          },
+        ],
+        returnTypes: [],
+        errorTypes: {},
+        bytecode: Buffer.alloc(8, 0xfe),
+        verificationKey: Buffer.alloc(4064).toString('base64'),
+        debugSymbols: '',
+      },
     ],
     nonDispatchPublicFunctions: [],
     outputs: {
@@ -136,15 +203,15 @@ describe('Contract Class', () => {
     wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);
     account.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.registerContract.mockResolvedValue(contractInstance);
-    wallet.sendTx.mockResolvedValue(mockTxReceipt);
-    wallet.simulateUtility.mockResolvedValue(mockUtilityResultValue);
+    wallet.sendTx.mockResolvedValue({ receipt: mockTxReceipt, offchainEffects: [], offchainMessages: [] });
+    wallet.executeUtility.mockResolvedValue(mockUtilityResultValue);
   });
 
   it('should create and send a contract method tx', async () => {
     const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
     const param0 = 12;
     const param1 = 345n;
-    const receipt = await fooContract.methods.bar(param0, param1).send({ from: account.getAddress() });
+    const { receipt } = await fooContract.methods.bar(param0, param1).send({ from: account.getAddress() });
 
     expect(receipt).toBe(mockTxReceipt);
     expect(wallet.sendTx).toHaveBeenCalledTimes(1);
@@ -152,12 +219,56 @@ describe('Contract Class', () => {
 
   it('should call view on a utility function', async () => {
     const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
-    const result = await fooContract.methods.qux(123n).simulate({ from: account.getAddress() });
-    expect(wallet.simulateUtility).toHaveBeenCalledTimes(1);
-    expect(wallet.simulateUtility).toHaveBeenCalledWith(
+    const { result } = await fooContract.methods.qux(123n).simulate({ from: account.getAddress() });
+    expect(wallet.executeUtility).toHaveBeenCalledTimes(1);
+    expect(wallet.executeUtility).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'qux', to: contractAddress }),
-      [],
+      expect.objectContaining({ scope: account.getAddress() }),
     );
     expect(result).toBe(42n);
+  });
+
+  it('allows nullish values for Option parameters', () => {
+    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+
+    expect(() => fooContract.methods.optionEcho(undefined)).not.toThrow();
+    expect(() => fooContract.methods.optionEcho(null)).not.toThrow();
+  });
+
+  it('still rejects nullish values for non-Option parameters', () => {
+    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+
+    expect(() => fooContract.methods.bar(undefined, 123n)).toThrow(
+      'Null or undefined arguments are only allowed for Option<T> parameters in bar(value: Field, value: Field). Received: (undefined, 123n).',
+    );
+    expect(() => fooContract.methods.qux(null)).toThrow(
+      'Null or undefined arguments are only allowed for Option<T> parameters in qux(value: Field). Received: (null).',
+    );
+  });
+
+  it('rejects nullish non-Option param even when Option param is valid', () => {
+    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+
+    expect(() => fooContract.methods.mixedParams({ w: 1n }, undefined)).toThrow(
+      'Null or undefined arguments are only allowed for Option<T> parameters in mixedParams(optValue: Option<Field>, aField: Field). Received: ({ w: 1n }, undefined).',
+    );
+  });
+
+  // Check basic formatting of null/undefined related errors
+  it.each([
+    ['undefined', undefined, 'undefined'],
+    ['null', null, 'null'],
+    ['number', 42, '42'],
+    ['bigint', 123n, '123n'],
+    ['string', 'hello', 'hello'],
+    ['boolean', true, 'true'],
+    ['symbol', Symbol('test'), 'Symbol(test)'],
+    ['object', { a: 1n, b: 'x' }, '{ a: 1n, b: x }'],
+    ['array', [1n, 2n], '[1n, 2n]'],
+  ])('formats %s argument in error message', (_label, value, expectedFormatted) => {
+    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+
+    // pass the test value first and undefined second to trigger the error whose message we want to test for
+    expect(() => fooContract.methods.bar(value, undefined)).toThrow(`Received: (${expectedFormatted}, undefined).`);
   });
 });

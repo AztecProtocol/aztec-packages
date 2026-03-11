@@ -2,9 +2,8 @@ use types::{
     abis::{gas::Gas, kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs},
     constants::{
         AVM_EMITNOTEHASH_BASE_L2_GAS, AVM_EMITNULLIFIER_BASE_L2_GAS, AVM_SENDL2TOL1MSG_BASE_L2_GAS,
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS,
-        L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH,
-        L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
+        DA_GAS_PER_FIELD, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_CONTRACT_CLASS_LOG,
+        L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
     },
     traits::Empty,
 };
@@ -88,7 +87,13 @@ pub fn meter_gas_used(public_inputs: PrivateKernelCircuitPublicInputs, is_for_pu
         public_inputs.constants.tx_context.gas_settings.teardown_gas_limits
     };
 
-    let metered_da_gas = metered_da_fields * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+    let metered_da_gas = metered_da_fields * DA_GAS_PER_FIELD;
 
-    Gas::tx_overhead() + Gas::new(metered_da_gas, metered_l2_gas) + teardown_gas
+    let overhead = if is_for_public {
+        Gas::public_tx_overhead()
+    } else {
+        Gas::private_tx_overhead()
+    };
+
+    overhead + Gas::new(metered_da_gas, metered_l2_gas) + teardown_gas
 }

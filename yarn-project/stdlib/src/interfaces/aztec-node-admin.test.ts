@@ -85,6 +85,10 @@ describe('AztecNodeAdminApiSchema', () => {
       epochOrSlot: expect.any(BigInt),
     });
   });
+
+  it('reloadKeystore', async () => {
+    await context.client.reloadKeystore();
+  });
 });
 
 class MockAztecNodeAdmin implements AztecNodeAdmin {
@@ -172,6 +176,7 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       pollingIntervalMs: 50,
       signingTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
+      dataStoreMapSizeKb: 128 * 1024 * 1024,
       l1Contracts: {
         rollupAddress: EthAddress.random(),
       },
@@ -187,6 +192,9 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
     return Promise.resolve();
   }
   resumeSync(): Promise<void> {
+    return Promise.resolve();
+  }
+  reloadKeystore(): Promise<void> {
     return Promise.resolve();
   }
 }

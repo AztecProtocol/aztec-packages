@@ -17,12 +17,12 @@ import { InboxAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-art
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract, parseEther, toFunctionSelector } from 'viem';
 
 import { type EndToEndContext, ensureAccountContractsPublished } from '../fixtures/utils.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { CrossChainTestHarness } from './cross_chain_test_harness.js';
 
 // PSA: This tests works on forked mainnet. There is a dump of the data in `dumpedState` such that we
@@ -130,7 +130,9 @@ export const uniswapL1L2TestSuite = (
         client: l1Client,
       });
       // deploy l2 uniswap contract and attach to portal
-      uniswapL2Contract = await UniswapContract.deploy(wallet, uniswapPortalAddress).send({ from: ownerAddress });
+      ({ contract: uniswapL2Contract } = await UniswapContract.deploy(wallet, uniswapPortalAddress).send({
+        from: ownerAddress,
+      }));
 
       const registryAddress = (await aztecNode.getNodeInfo()).l1ContractAddresses.registryAddress;
 
@@ -195,7 +197,7 @@ export const uniswapL1L2TestSuite = (
       logger.info('Withdrawing weth to L1 and sending message to swap to dai');
       const [secretForDepositingSwappedDai, secretHashForDepositingSwappedDai] = await generateClaimSecret();
 
-      const l2UniswapInteractionReceipt = await uniswapL2Contract.methods
+      const { receipt: l2UniswapInteractionReceipt } = await uniswapL2Contract.methods
         .swap_private(
           wethCrossChainHarness.l2Token.address,
           wethCrossChainHarness.l2Bridge.address,
@@ -787,7 +789,7 @@ export const uniswapL1L2TestSuite = (
       logger.info('Withdrawing weth to L1 and sending message to swap to dai');
 
       const [, secretHashForDepositingSwappedDai] = await generateClaimSecret();
-      const withdrawReceipt = await uniswapL2Contract.methods
+      const { receipt: withdrawReceipt } = await uniswapL2Contract.methods
         .swap_private(
           wethCrossChainHarness.l2Token.address,
           wethCrossChainHarness.l2Bridge.address,
@@ -915,7 +917,7 @@ export const uniswapL1L2TestSuite = (
 
       // Call swap_public on L2
       const secretHashForDepositingSwappedDai = Fr.random();
-      const withdrawReceipt = await uniswapL2Contract.methods
+      const { receipt: withdrawReceipt } = await uniswapL2Contract.methods
         .swap_public(
           ownerAddress,
           wethCrossChainHarness.l2Bridge.address,

@@ -76,15 +76,15 @@ struct ecc_op_tuple {
     bool return_is_infinity;
 };
 
-// Embedded curve point addition: (x1, y1) + sign_coefficient * (x2, y2) = (x3, y3)
-template <typename FF> struct ecc_add_gate_ {
+// Embedded curve point addition/subtraction: (x1, y1) ± (x2, y2) = (x3, y3)
+struct ecc_add_gate_ {
     uint32_t x1;
     uint32_t y1;
     uint32_t x2;
     uint32_t y2;
     uint32_t x3;
     uint32_t y3;
-    FF sign_coefficient;
+    bool is_addition; // else, subtraction
 };
 
 // Embedded curve point doubling: 2 * (x1, y1) = (x3, y3)

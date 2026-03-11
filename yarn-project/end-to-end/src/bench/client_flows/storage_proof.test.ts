@@ -4,7 +4,6 @@ import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { StorageProofTestContract } from '@aztec/noir-test-contracts.js/StorageProofTest';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
@@ -12,6 +11,7 @@ import {
   buildStorageProofCapsules,
   loadStorageProofArgs,
 } from '../../e2e_storage_proof/fixtures/storage_proof_fixture.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { captureProfile } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
@@ -34,7 +34,7 @@ describe('Storage proof benchmark', () => {
     await t.applyFPCSetup();
     await t.applyDeploySponsoredFPC();
 
-    const deployed = await StorageProofTestContract.deploy(t.adminWallet).send({
+    const { receipt: deployed } = await StorageProofTestContract.deploy(t.adminWallet).send({
       from: t.adminAddress,
       wait: { returnReceipt: true },
     });
@@ -106,7 +106,7 @@ describe('Storage proof benchmark', () => {
           );
 
           if (process.env.SANITY_CHECKS) {
-            const tx = await interaction.send(options);
+            const { receipt: tx } = await interaction.send(options);
             expect(tx.transactionFee!).toBeGreaterThan(0n);
             expect(tx.hasExecutionSucceeded()).toBe(true);
           }

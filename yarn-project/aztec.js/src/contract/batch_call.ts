@@ -1,16 +1,13 @@
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
-import {
-  ExecutionPayload,
-  TxSimulationResult,
-  UtilitySimulationResult,
-  mergeExecutionPayloads,
-} from '@aztec/stdlib/tx';
+import { ExecutionPayload, TxSimulationResult, UtilityExecutionResult, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import type { BatchedMethod, Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import {
   type RequestInteractionOptions,
   type SimulateInteractionOptions,
+  emptyOffchainOutput,
+  extractOffchainOutput,
   toSimulateOptions,
 } from './interaction_options.js';
 
@@ -42,9 +39,9 @@ export class BatchCall extends BaseContractInteraction {
   }
 
   /**
-   * Simulates the batch, supporting private, public and utility functions. Although this is a single
+   * Simulates/executes the batch, supporting private, public and utility functions. Although this is a single
    * interaction with the wallet, private and public functions will be grouped into a single ExecutionPayload
-   * that the wallet will simulate as a single transaction. Utility function calls will simply be executed
+   * that the wallet will simulate as a single transaction. Utility function calls will be executed
    * one by one.
    * @param options - An optional object containing additional configuration for the interaction.
    * @returns The results of all the interactions that make up the batch
@@ -81,8 +78,8 @@ export class BatchCall extends BaseContractInteraction {
     // Add utility calls to batch
     for (const [call] of utility) {
       batchRequests.push({
-        name: 'simulateUtility' as const,
-        args: [call, options?.authWitnesses],
+        name: 'executeUtility' as const,
+        args: [call, { scope: options.from, authWitnesses: options.authWitnesses }],
       });
     }
 
@@ -111,9 +108,12 @@ export class BatchCall extends BaseContractInteraction {
     for (let i = 0; i < utility.length; i++) {
       const [call, resultIndex] = utility[i];
       const wrappedResult = batchResults[i];
-      if (wrappedResult.name === 'simulateUtility') {
-        const rawReturnValues = (wrappedResult.result as UtilitySimulationResult).result;
-        results[resultIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
+      if (wrappedResult.name === 'executeUtility') {
+        const rawReturnValues = (wrappedResult.result as UtilityExecutionResult).result;
+        results[resultIndex] = {
+          result: rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [],
+          ...emptyOffchainOutput(),
+        };
       }
     }
 
@@ -132,7 +132,10 @@ export class BatchCall extends BaseContractInteraction {
               ? simulatedTx.getPrivateReturnValues()?.nested?.[resultIndex].values
               : simulatedTx.getPublicReturnValues()?.[resultIndex].values;
 
-          results[callIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
+          results[callIndex] = {
+            result: rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [],
+            ...extractOffchainOutput(simulatedTx.offchainEffects),
+          };
         });
       }
     }

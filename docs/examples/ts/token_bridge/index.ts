@@ -13,7 +13,7 @@ import {
   computeSecretHash,
 } from "@aztec/stdlib/hash";
 import { computeL2ToL1MembershipWitness } from "@aztec/stdlib/messaging";
-import { TestWallet } from "@aztec/test-wallet/server";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { decodeEventLog, pad } from "@aztec/viem";
 import { foundry } from "@aztec/viem/chains";
 import NFTPortal from "../../../target/solidity/nft_bridge/NFTPortal.sol/NFTPortal.json" with { type: "json" };
@@ -29,7 +29,7 @@ const ownerEthAddress = l1Client.account.address;
 // Setup L2 using Aztec's local network and one of its initial accounts
 console.log("Setting up L2...\n");
 const node = createAztecNodeClient("http://localhost:8080");
-const aztecWallet = await TestWallet.create(node);
+const aztecWallet = await EmbeddedWallet.create(node);
 const [accData] = await getInitialTestAccountsData();
 const account = await aztecWallet.createSchnorrAccount(
   accData.secret,
@@ -69,11 +69,11 @@ console.log(`NFTPortal: ${portalAddress}\n`);
 // docs:start:deploy_l2_contracts
 console.log("Deploying L2 contracts...\n");
 
-const l2Nft = await NFTPunkContract.deploy(aztecWallet, account.address).send({
+const { contract: l2Nft } = await NFTPunkContract.deploy(aztecWallet, account.address).send({
   from: account.address,
 });
 
-const l2Bridge = await NFTBridgeContract.deploy(
+const { contract: l2Bridge } = await NFTBridgeContract.deploy(
   aztecWallet,
   l2Nft.address,
 ).send({ from: account.address });
@@ -202,7 +202,7 @@ const messageLeafIndex = new Fr(messageSentLogs[0].decoded.args.index);
 
 // docs:start:mine_blocks
 async function mine2Blocks(
-  aztecWallet: TestWallet,
+  aztecWallet: EmbeddedWallet,
   accountAddress: AztecAddress,
 ) {
   await NFTPunkContract.deploy(aztecWallet, accountAddress).send({
@@ -222,7 +222,7 @@ await mine2Blocks(aztecWallet, account.address);
 
 // Check notes before claiming (should be 0)
 console.log("Checking notes before claim...");
-const notesBefore = await l2Nft.methods
+const { result: notesBefore } = await l2Nft.methods
   .notes_of(account.address)
   .simulate({ from: account.address });
 console.log(`   Notes count: ${notesBefore}`);
@@ -235,7 +235,7 @@ console.log("NFT claimed on L2\n");
 
 // Check notes after claiming (should be 1)
 console.log("Checking notes after claim...");
-const notesAfterClaim = await l2Nft.methods
+const { result: notesAfterClaim } = await l2Nft.methods
   .notes_of(account.address)
   .simulate({ from: account.address });
 console.log(`   Notes count: ${notesAfterClaim}\n`);
@@ -249,7 +249,7 @@ await mine2Blocks(aztecWallet, account.address);
 
 const recipientEthAddress = EthAddress.fromString(ownerEthAddress);
 
-const exitReceipt = await l2Bridge.methods
+const { receipt: exitReceipt } = await l2Bridge.methods
   .exit(new Fr(Number(tokenId)), recipientEthAddress)
   .send({ from: account.address });
 
@@ -257,7 +257,7 @@ console.log(`Exit message sent (block: ${exitReceipt.blockNumber})\n`);
 
 // Check notes after burning (should be 0 again)
 console.log("Checking notes after burn...");
-const notesAfterBurn = await l2Nft.methods
+const { result: notesAfterBurn } = await l2Nft.methods
   .notes_of(account.address)
   .simulate({ from: account.address });
 console.log(`   Notes count: ${notesAfterBurn}\n`);

@@ -21,7 +21,6 @@ using namespace bb::crypto::merkle_tree;
 namespace {
 using StoreType = ContentAddressedCachedTreeStore<bb::fr>;
 
-using Pedersen = ContentAddressedAppendOnlyTree<StoreType, PedersenHashPolicy>;
 using Poseidon2 = ContentAddressedAppendOnlyTree<StoreType, Poseidon2HashPolicy>;
 
 const size_t TREE_DEPTH = 32;

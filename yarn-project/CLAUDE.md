@@ -24,6 +24,25 @@ Prefer native tools over bash equivalents—they don't require permissions and p
 - **Grep** instead of `grep`, `rg` for searching content
 - **Edit/Write** instead of `sed`, `awk`, `echo >` for modifying files
 
+## Bash Command Rules
+
+**NEVER `cd` before running a command.** The working directory is already `yarn-project`. Run commands directly:
+
+```bash
+# GOOD
+yarn build
+yarn workspace @aztec/sequencer-client test src/file.test.ts
+git diff HEAD
+
+# BAD — never do this
+cd /home/santiago/Projects/aztec-3/yarn-project && yarn build
+cd /home/santiago/Projects/aztec-3 && git diff HEAD
+```
+
+Git commands work from any subdirectory of a repo—there is no need to `cd` to the git root. The Bash tool already runs in `yarn-project`, so never prefix commands with `cd` to `yarn-project` or the git root.
+
+**NEVER append `; echo "EXIT: $?"` or similar** to any command. The Bash tool already reports exit codes directly.
+
 ## Essential Workflow
 
 ### When to Run Bootstrap
@@ -75,7 +94,7 @@ For long-running tests or verbose output, redirect to a temp file and use native
 yarn workspace @aztec/<package-name> test src/file.test.ts > /tmp/test-output.log 2>&1
 ```
 
-Then use **Read** or **Grep** to examine `/tmp/test-output.log`. Never use `| tail` or `| head` to limit output—use native tools instead. Never append `; echo "EXIT: $?"` or similar—the Bash tool already reports exit codes directly.
+Then use **Read** or **Grep** to examine `/tmp/test-output.log`. Never use `| tail` or `| head` to limit output—use native tools instead.
 
 ### End-to-End Tests
 
@@ -109,6 +128,10 @@ LOG_LEVEL='info; debug:sequencer,archiver' yarn workspace @aztec/<package-name> 
 ## Format & Lint
 
 **IMPORTANT**: These commands are run from the root of `yarn-project`, NOT the git root.
+
+### Style
+
+- **Line width**: 120 characters (`printWidth: 120` in `.prettierrc.json`). Wrap comments and code at 120, not 80.
 
 ### Format
 
@@ -201,6 +224,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
 
 - **Primary development**: `next` branch (default PR target)
 - **Production**: `master` branch
+- **Merge trains**: Some teams use `merge-train/*` branches (e.g., `merge-train/barretenberg`, `merge-train/spartan`) to batch PRs before merging into `next`. If the current branch targets a `merge-train/*` branch, use that as the base -- not `next`. See the `merge-trains` skill for details.
 - **Backport**: Fix in release branch -> forward-port to `next`
 - **Forward-port**: Fix in `next` -> backport if needed
 
@@ -232,15 +256,13 @@ For PRs with multiple commits that should be preserved (e.g., porting multiple P
 
 ### Fixing PRs
 
-When fixing an existing PR (CI failures, review feedback, etc.), always amend the existing commit - never create new commits.
+PRs are squashed to a single commit on merge, so during development just create normal commits. Only amend when explicitly asked or when using the `/fix-pr` skill on a PR targeting `next`.
 
 ```bash
 git add .
-git commit --amend --no-edit
-git push --force-with-lease
+git commit -m "fix: address review feedback"
+git push
 ```
-
-This keeps the PR as a single commit. CI enforces PRs have a single commit.
 
 ### Breaking Changes
 

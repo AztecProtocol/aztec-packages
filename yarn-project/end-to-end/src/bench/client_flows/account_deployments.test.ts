@@ -4,10 +4,10 @@ import { publishContractClass } from '@aztec/aztec.js/deployment';
 import type { DeployAccountOptions, Wallet } from '@aztec/aztec.js/wallet';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { captureProfile } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
@@ -91,8 +91,8 @@ describe('Deployment benchmark', () => {
 
           if (process.env.SANITY_CHECKS) {
             // Ensure we paid a fee
-            const tx = await deploymentInteraction.send({ ...options, wait: { returnReceipt: true } });
-            expect(tx.transactionFee!).toBeGreaterThan(0n);
+            const { receipt } = await deploymentInteraction.send({ ...options, wait: { returnReceipt: true } });
+            expect(receipt.transactionFee!).toBeGreaterThan(0n);
           }
         });
       }

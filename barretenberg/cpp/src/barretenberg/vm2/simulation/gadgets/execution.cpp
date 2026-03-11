@@ -13,7 +13,7 @@
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/data_copy_events.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
-#include "barretenberg/vm2/simulation/events/emit_unencrypted_log_event.hpp"
+#include "barretenberg/vm2/simulation/events/emit_public_log_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/events/get_contract_instance_event.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
@@ -28,7 +28,7 @@
 #include "barretenberg/vm2/simulation/interfaces/data_copy.hpp"
 #include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
 #include "barretenberg/vm2/simulation/interfaces/ecc.hpp"
-#include "barretenberg/vm2/simulation/interfaces/emit_unencrypted_log.hpp"
+#include "barretenberg/vm2/simulation/interfaces/emit_public_log.hpp"
 #include "barretenberg/vm2/simulation/interfaces/execution_components.hpp"
 #include "barretenberg/vm2/simulation/interfaces/get_contract_instance.hpp"
 #include "barretenberg/vm2/simulation/interfaces/gt.hpp"
@@ -1605,7 +1605,7 @@ void Execution::to_radix_be(ContextInterface& context,
 }
 
 /**
- * @brief EMITUNENCRYPTEDLOG execution opcode handler: Emit an unencrypted log.
+ * @brief EMITPUBLICLOG execution opcode handler: Emit a public log.
  *
  * @param context The context.
  * @param log_size_offset The resolved address of the log size value.
@@ -1614,16 +1614,16 @@ void Execution::to_radix_be(ContextInterface& context,
  * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
  *        - tag of the memory value at log_size_offset is not U32.
  * @throws OutOfGasException if the gas limit is exceeded.
- * @throws OpcodeExecutionException if the unencrypted log emission operation fails:
+ * @throws OpcodeExecutionException if the public log emission operation fails:
  *        - memory read out of bounds.
  *        - number of log fields exceeds the maximum allowed.
  *        - tags of the log memory values are not FF.
  *        - The current context is static.
  */
-void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress log_size_offset, MemoryAddress log_offset)
+void Execution::emit_public_log(ContextInterface& context, MemoryAddress log_size_offset, MemoryAddress log_offset)
 {
-    BB_BENCH_NAME("Execution::emit_unencrypted_log");
-    constexpr auto opcode = ExecutionOpCode::EMITUNENCRYPTEDLOG;
+    BB_BENCH_NAME("Execution::emit_public_log");
+    constexpr auto opcode = ExecutionOpCode::EMITPUBLICLOG;
     auto& memory = context.get_memory();
 
     const auto& log_size = memory.get(log_size_offset);
@@ -1634,10 +1634,9 @@ void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress lo
 
     // Call the dedicated opcode component to emit the log
     try {
-        emit_unencrypted_log_component.emit_unencrypted_log(
-            memory, context, context.get_address(), log_offset, log_size_int);
-    } catch (const EmitUnencryptedLogException& e) {
-        throw OpcodeExecutionException("EmitUnencryptedLog Exception: " + std::string(e.what()));
+        emit_public_log_component.emit_public_log(memory, context, context.get_address(), log_offset, log_size_int);
+    } catch (const EmitPublicLogException& e) {
+        throw OpcodeExecutionException("EmitPublicLog Exception: " + std::string(e.what()));
     }
 }
 
@@ -1897,7 +1896,7 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
         .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = parent_context.get_written_public_data_slots_tree_snapshot(),
         // Non-tree-tracked side effects
-        .numUnencryptedLogFields = side_effects.get_num_unencrypted_log_fields(),
+        .numPublicLogFields = side_effects.get_num_public_log_fields(),
         .numL2ToL1Messages = static_cast<uint32_t>(side_effects.l2_to_l1_messages.size()),
     });
 
@@ -2119,8 +2118,8 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::TORADIXBE:
         call_with_operands(&Execution::to_radix_be, context, resolved_operands);
         break;
-    case ExecutionOpCode::EMITUNENCRYPTEDLOG:
-        call_with_operands(&Execution::emit_unencrypted_log, context, resolved_operands);
+    case ExecutionOpCode::EMITPUBLICLOG:
+        call_with_operands(&Execution::emit_public_log, context, resolved_operands);
         break;
     case ExecutionOpCode::SENDL2TOL1MSG:
         call_with_operands(&Execution::send_l2_to_l1_msg, context, resolved_operands);

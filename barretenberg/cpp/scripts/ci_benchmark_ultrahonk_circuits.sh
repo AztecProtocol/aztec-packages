@@ -129,52 +129,7 @@ EOF
 # Extract component timings from hierarchical breakdown if available
 if [[ -f "$output/benchmark_breakdown.json" ]]; then
   echo "Extracting component timings from hierarchical breakdown..."
-
-  # Use Python to extract key component timings
-  # The breakdown JSON format is: { "operation_name": [{"parent": "...", "time": nanoseconds, ...}], ... }
-  python3 << PYTHON_SCRIPT
-import json
-import sys
-
-try:
-    with open("$output/benchmark_breakdown.json", "r") as f:
-        data = json.load(f)
-
-    benchmarks = []
-
-    # Key components to track (case-insensitive matching)
-    key_components = ["sumcheck", "pcs", "pippenger", "commitment", "circuit", "oink", "compute"]
-
-    for op_name, entries in data.items():
-        # Check if this is a key component we want to track
-        if any(comp.lower() in op_name.lower() for comp in key_components):
-            # Sum up all timings for this operation (there may be multiple entries with different parents)
-            total_time_ns = sum(entry.get("time", 0) for entry in entries)
-            time_ms = total_time_ns / 1_000_000
-
-            # Create a safe benchmark name (replace special chars)
-            safe_name = op_name.replace("::", "_").replace(" ", "_")
-
-            benchmarks.append({
-                "name": f"$name_path/{safe_name}_ms",
-                "unit": "ms",
-                "value": round(time_ms, 2),
-                "extra": f"stacked:$name_path/components"
-            })
-
-    # Append to existing benchmarks file
-    with open("$output/benchmarks.bench.json", "r") as f:
-        existing = json.load(f)
-
-    existing.extend(benchmarks)
-
-    with open("$output/benchmarks.bench.json", "w") as f:
-        json.dump(existing, f, indent=2)
-
-    print(f"Extracted {len(benchmarks)} component timings")
-except Exception as e:
-    print(f"Warning: Could not extract component timings: {e}", file=sys.stderr)
-PYTHON_SCRIPT
+  python3 scripts/extract_component_benchmarks.py "$output" "$name_path"
 fi
 
 echo "Benchmark complete. Results in $output/"
@@ -194,13 +149,13 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; the
     tmp_breakdown_file="/tmp/benchmark_breakdown_ultrahonk_${circuit_name}_cpus${cpus}_$$.json"
     cp "$output/benchmark_breakdown.json" "$tmp_breakdown_file"
 
-    # Upload to disk
+    # Upload to S3
     disk_key="ultrahonk-${circuit_name}-cpus${cpus}-${current_sha}"
     {
-      cat "$tmp_breakdown_file" | gzip | cache_disk_transfer_to "bench/ultrahonk-breakdown" "$disk_key"
+      cat "$tmp_breakdown_file" | gzip | cache_s3_transfer_to "bench/ultrahonk-breakdown" "$disk_key"
       rm -f "$tmp_breakdown_file"
     } &
 
-    echo "Uploaded benchmark breakdown to disk: bench/ultrahonk-breakdown/$disk_key"
+    echo "Uploaded benchmark breakdown to S3: bench/ultrahonk-breakdown/$disk_key"
   fi
 fi

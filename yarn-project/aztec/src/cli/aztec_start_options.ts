@@ -12,7 +12,6 @@ import {
   isBooleanConfigValue,
   omitConfigMappings,
 } from '@aztec/foundation/config';
-import { dataConfigMappings } from '@aztec/kv-store/config';
 import { sharedNodeConfigMappings } from '@aztec/node-lib/config';
 import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p/config';
 import { proverAgentConfigMappings, proverBrokerConfigMappings } from '@aztec/prover-client/broker/config';
@@ -20,6 +19,7 @@ import { proverNodeConfigMappings } from '@aztec/prover-node/config';
 import { allPxeConfigMappings } from '@aztec/pxe/config';
 import { sequencerClientConfigMappings } from '@aztec/sequencer-client/config';
 import { chainConfigMappings, nodeRpcConfigMappings } from '@aztec/stdlib/config';
+import { dataConfigMappings } from '@aztec/stdlib/kv-store';
 import { telemetryClientConfigMappings } from '@aztec/telemetry-client/config';
 import { worldStateConfigMappings } from '@aztec/world-state/config';
 
@@ -105,8 +105,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       env: 'NETWORK',
     },
 
-    configToFlag('--auto-update', sharedNodeConfigMappings.autoUpdate),
-    configToFlag('--auto-update-url', sharedNodeConfigMappings.autoUpdateUrl),
+    configToFlag('--enable-version-check', sharedNodeConfigMappings.enableVersionCheck),
 
     configToFlag('--sync-mode', sharedNodeConfigMappings.syncMode),
     configToFlag('--snapshots-urls', sharedNodeConfigMappings.snapshotsUrls),
@@ -143,6 +142,30 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       parseVal: val => parseInt(val, 10),
     },
     {
+      flag: '--admin-api-key-hash <value>',
+      description:
+        'SHA-256 hex hash of a pre-generated admin API key. When set, the node uses this hash for authentication instead of auto-generating a key.',
+      defaultValue: undefined,
+      env: 'AZTEC_ADMIN_API_KEY_HASH',
+    },
+    {
+      flag: '--disable-admin-api-key',
+      description:
+        'Disable API key authentication on the admin RPC endpoint. By default, a key is auto-generated, displayed once, and its hash is persisted.',
+      defaultValue: false,
+      env: 'AZTEC_DISABLE_ADMIN_API_KEY',
+      // undefined means the flag was passed without a value (boolean toggle), treat as true.
+      parseVal: val => val === undefined || val === 'true' || val === '1',
+    },
+    {
+      flag: '--reset-admin-api-key',
+      description:
+        'Force-generate a new admin API key, replacing any previously persisted key hash. The new key is displayed once at startup.',
+      defaultValue: false,
+      env: 'AZTEC_RESET_ADMIN_API_KEY',
+      parseVal: val => val === 'true' || val === '1',
+    },
+    {
       flag: '--api-prefix <value>',
       description: 'Prefix for API routes on any service that is started',
       defaultValue: '',
@@ -170,7 +193,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   'WORLD STATE': [
     configToFlag('--world-state-data-directory', worldStateConfigMappings.worldStateDataDirectory),
     configToFlag('--world-state-db-map-size-kb', worldStateConfigMappings.worldStateDbMapSizeKb),
-    configToFlag('--world-state-block-history', worldStateConfigMappings.worldStateBlockHistory),
+    configToFlag('--world-state-checkpoint-history', worldStateConfigMappings.worldStateCheckpointHistory),
   ],
   // We can't easily auto-generate node options as they're parts of modules defined below
   'AZTEC NODE': [
@@ -222,12 +245,8 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       'proverNode',
       omitConfigMappings(proverNodeConfigMappings, [
         // filter out options passed separately
-        ...getKeys(archiverConfigMappings),
         ...getKeys(proverBrokerConfigMappings),
         ...getKeys(proverAgentConfigMappings),
-        ...getKeys(p2pConfigMappings),
-        ...getKeys(worldStateConfigMappings),
-        ...getKeys(sharedNodeConfigMappings),
       ]),
     ),
   ],

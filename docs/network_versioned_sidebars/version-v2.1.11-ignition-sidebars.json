@@ -36,8 +36,7 @@
       },
       "items": [
         "operators/setup/registering_sequencer",
-        "operators/setup/become_a_staking_provider",
-        "operators/setup/high_availability_sequencers"
+        "operators/setup/become_a_staking_provider"
       ]
     },
     {

@@ -120,7 +120,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     coinbase: EthAddress,
     feeRecipient: AztecAddress,
     slotNumber: SlotNumber,
-  ): Promise<CheckpointGlobalVariables & { timestamp: bigint }> {
+  ): Promise<CheckpointGlobalVariables> {
     const { chainId, version } = this;
 
     const timestamp = getTimestampForSlot(slotNumber, {

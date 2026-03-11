@@ -9,6 +9,7 @@
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -187,7 +188,7 @@ std::vector<std::pair<C, FF>> insert_tree_state(const TxContextEvent& prev_state
 
 /**
  * @brief Populate the columns for the accounting of the side effect states.
- *        Side effects are the unencrypted log fields and the L2 to L1 messages.
+ *        Side effects are the public log fields and the L2 to L1 messages.
  *
  * @param prev_state The previous TxContextEvent.
  * @param next_state The next TxContextEvent.
@@ -197,9 +198,9 @@ std::vector<std::pair<C, FF>> insert_side_effect_states(const TxContextEvent& pr
                                                         const TxContextEvent& next_state)
 {
     return {
-        { C::tx_prev_num_unencrypted_log_fields, prev_state.numUnencryptedLogFields },
+        { C::tx_prev_num_public_log_fields, prev_state.numPublicLogFields },
         { C::tx_prev_num_l2_to_l1_messages, prev_state.numL2ToL1Messages },
-        { C::tx_next_num_unencrypted_log_fields, next_state.numUnencryptedLogFields },
+        { C::tx_next_num_public_log_fields, next_state.numPublicLogFields },
         { C::tx_next_num_l2_to_l1_messages, next_state.numL2ToL1Messages },
     };
 }
@@ -370,13 +371,15 @@ std::vector<std::pair<C, FF>> handle_nullifier_append(const PrivateAppendTreeEve
 {
     uint32_t remaining_nullifiers = MAX_NULLIFIERS_PER_TX - state_before.tree_states.nullifier_tree.counter;
 
-    return {
-        { C::tx_leaf_value, event.leaf_value },
-        { C::tx_nullifier_limit_error, remaining_nullifiers > 0 ? 0 : 1 },
-        { C::tx_remaining_side_effects_inv, remaining_nullifiers }, // Will be inverted in batch later
-        { C::tx_should_try_nullifier_append, 1 },
-        { C::tx_should_nullifier_append, remaining_nullifiers > 0 ? 1 : 0 },
-    };
+    return { { C::tx_leaf_value, event.leaf_value },
+             { C::tx_nullifier_limit_error, remaining_nullifiers > 0 ? 0 : 1 },
+             { C::tx_remaining_side_effects_inv, remaining_nullifiers }, // Will be inverted in batch later
+             { C::tx_should_try_nullifier_append, 1 },
+             { C::tx_should_nullifier_append, remaining_nullifiers > 0 ? 1 : 0 },
+             { C::tx_write_nullifier_pi_offset,
+               AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX +
+                   state_before.tree_states.nullifier_tree.counter },
+             { C::tx_nullifier_tree_height, NULLIFIER_TREE_HEIGHT } };
 }
 
 /**
@@ -476,7 +479,7 @@ std::vector<std::pair<C, FF>> handle_cleanup()
         // Public data write counter is handled by the public data check trace due to squashing.
         { C::tx_array_length_l2_to_l1_messages_pi_offset,
           AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX },
-        { C::tx_fields_length_unencrypted_logs_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX },
+        { C::tx_fields_length_public_logs_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX },
     };
 }
 
@@ -742,8 +745,7 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_context_public_inputs_write_nullifier_count_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_tx_context_public_inputs_write_l2_to_l1_message_count_settings,
              InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_tx_context_public_inputs_write_unencrypted_log_count_settings,
-             InteractionType::LookupIntoIndexedByRow>()
+        .add<lookup_tx_context_public_inputs_write_public_log_count_settings, InteractionType::LookupIntoIndexedByRow>()
         .add<lookup_tx_context_restore_state_on_revert_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

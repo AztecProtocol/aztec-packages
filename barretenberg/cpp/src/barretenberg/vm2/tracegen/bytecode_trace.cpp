@@ -1,16 +1,10 @@
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <memory>
-#include <ranges>
-#include <stdexcept>
 #include <vector>
 
-#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
@@ -20,12 +14,26 @@
 #include "barretenberg/vm2/generated/relations/perms_bc_hashing.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
 
 namespace bb::avm2::tracegen {
 
+/**
+ * @brief Process bytecode decomposition events and populate the relevant columns in the trace.
+ *  Corresponds to bc_decomposition.pil.
+ *
+ *  This trace is non memory-aware and does not handle any errors. It populates the columns with bytecode values
+ *  in a stream or 'sliding window' of DECOMPOSE_WINDOW_SIZE = MAX_INSTRUCTION_SIZE = 37 individual bytes, range
+ *  checking each byte. It enforces the size of the bytecode by decrementing the bytes_remaining counter.
+ *  The trace additionally constrains the bytecode as fields by packing in 31 byte segments. These fields are used
+ *  by the hashing trace to enforce correctness of the bytecode id (= hashed public bytecode commitment).
+ *
+ * @param events The container of bytecode decomposition events to process.
+ * @param trace The trace container.
+ */
 void BytecodeTraceBuilder::process_decomposition(
     const simulation::EventEmitterInterface<simulation::BytecodeDecompositionEvent>::Container& events,
     TraceContainer& trace)
@@ -52,7 +60,7 @@ void BytecodeTraceBuilder::process_decomposition(
             const bool is_windows_eq_remaining = remaining == DECOMPOSE_WINDOW_SIZE;
 
             // Check that we still expect the max public bytecode in bytes to fit within 24 bits (i.e. <= 0xffffff).
-            static_assert(MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS * 32 <= 0xffffff);
+            static_assert(MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS * 31 <= 0xffffff);
 
             // We set the decomposition in bytes, and other values.
             trace.set(row + i,
@@ -60,11 +68,12 @@ void BytecodeTraceBuilder::process_decomposition(
                           { C::bc_decomposition_sel, 1 },
                           { C::bc_decomposition_id, id },
                           { C::bc_decomposition_pc, i },
+                          { C::bc_decomposition_start, i == 0 ? 1 : 0 },
                           { C::bc_decomposition_last_of_contract, is_last ? 1 : 0 },
                           { C::bc_decomposition_bytes_remaining, remaining },
                           { C::bc_decomposition_bytes_to_read, bytes_to_read },
                           { C::bc_decomposition_sel_windows_gt_remaining, DECOMPOSE_WINDOW_SIZE > remaining ? 1 : 0 },
-                          { C::bc_decomposition_is_windows_eq_remaining, is_windows_eq_remaining ? 1 : 0 },
+                          { C::bc_decomposition_sel_windows_eq_remaining, is_windows_eq_remaining ? 1 : 0 },
                           // Inverses will be calculated in batch later.
                           { C::bc_decomposition_bytes_rem_inv, remaining },
                           { C::bc_decomposition_bytes_rem_min_one_inv, is_last ? 0 : FF(remaining - 1) },
@@ -116,15 +125,21 @@ void BytecodeTraceBuilder::process_decomposition(
             // We need to read uint256_ts because reading FFs messes up the order of the bytes.
             uint256_t as_int = 0;
             if (bytecode_len - i >= 32) {
+                // If we have more than 31 bytes remaining, we read 32 bytes directly from the bytecode
+                // vector starting at byte i:
                 as_int = from_buffer<uint256_t>(bytecode, i);
             } else {
+                // Otherwise, we pad the final bytes with zeros to 32:
                 std::vector<uint8_t> tail(bytecode.begin() + static_cast<ssize_t>(i), bytecode.end());
                 tail.resize(32, 0);
                 as_int = from_buffer<uint256_t>(tail, 0);
             }
+            // We shift to form a 31 byte int:
             return as_int >> 8;
         };
         for (uint32_t i = 0; i < bytecode_len; i += 31) {
+            // Set the packed field and related columns. Note that the multipermutation columns (sel_packed_read)
+            // are set separately by the MultiPermutationBuilder.
             trace.set(row + i,
                       { {
                           { C::bc_decomposition_sel_packed, 1 },
@@ -132,6 +147,8 @@ void BytecodeTraceBuilder::process_decomposition(
                           { C::bc_decomposition_next_packed_pc, i },
                           { C::bc_decomposition_next_packed_pc_min_pc_inv, 0 },
                       } });
+            // At each row until the next packed field, set the next pc and inverse required for the zero check
+            // (#[PC_IS_PACKED]):
             for (uint32_t j = i + 1; j < std::min(bytecode_len, i + 31); j++) {
                 trace.set(
                     row + j,
@@ -160,8 +177,8 @@ void BytecodeTraceBuilder::process_hashing(
 
     for (const auto& event : events) {
         const auto id = event.bytecode_id;
-        // Note that bytecode fields from the BytecodeHashingEvent do not contain the prepended separator
-        std::vector<FF> fields = { DOM_SEP__PUBLIC_BYTECODE };
+        // Note that bytecode fields from the BytecodeHashingEvent do not contain the prepended field length | separator
+        std::vector<FF> fields = { simulation::compute_public_bytecode_first_field(event.bytecode_length) };
         fields.reserve(1 + event.bytecode_fields.size());
         fields.insert(fields.end(), event.bytecode_fields.begin(), event.bytecode_fields.end());
         auto bytecode_field_at = [&fields](size_t i) -> FF { return i < fields.size() ? fields[i] : 0; };
@@ -181,6 +198,8 @@ void BytecodeTraceBuilder::process_hashing(
                           { C::bc_hashing_sel_not_start, !start_of_bytecode },
                           { C::bc_hashing_latch, end_of_bytecode },
                           { C::bc_hashing_bytecode_id, id },
+                          { C::bc_hashing_size_in_bytes,
+                            event.bytecode_length }, // Note: only needs to be constrained at start
                           { C::bc_hashing_input_len, fields.size() },
                           { C::bc_hashing_rounds_rem, num_rounds },
                           { C::bc_hashing_pc_index, pc_index },
@@ -193,13 +212,19 @@ void BytecodeTraceBuilder::process_hashing(
                           { C::bc_hashing_sel_not_padding_2, end_of_bytecode && padding_amount > 0 ? 0 : 1 },
                           { C::bc_hashing_output_hash, output_hash } } });
             if (end_of_bytecode) {
-                // TODO(MW): Cleanup: below sets the pc at which the final field starts.
-                // It can't just be pc_index + 31 * padding_amount because we 'skip' 31 bytes at start == 1 to force
-                // the first field to be the separator:
+                // Below sets the pc at which the final field starts. We only use/constrain it at latch == 1.
+                // Note: It can't just be pc_index + 31 * padding_amount because we 'skip' 31 bytes at start == 1 to
+                // force the first field to be the separator.
+                FF pc_at_final_field =
+                    padding_amount == 2
+                        // Two padding fields => we are currently at the final field:
+                        ? pc_index
+                        // One padding field => the final field starts at pc_index_1
+                        // No padding fields => the final field starts at pc_index_2 (= pc_index_1 + 31):
+                        : pc_index_1 + (31 * (1 - padding_amount));
                 trace.set(row,
                           { {
-                              { C::bc_hashing_pc_at_final_field,
-                                padding_amount == 2 ? pc_index : pc_index_1 + (31 * (1 - padding_amount)) },
+                              { C::bc_hashing_pc_at_final_field, pc_at_final_field },
                           } });
             }
             pc_index = pc_index_1 + 62;
@@ -209,34 +234,57 @@ void BytecodeTraceBuilder::process_hashing(
     }
 }
 
+/**
+ * @brief Process bytecode retrieval events and populate the relevant columns in the trace.
+ *  Corresponds to bc_retrieval.pil.
+ *
+ *  This trace is non memory-aware and uses a single row per retrieval event to prove success or failure
+ *  of bytecode retrieval. It largely delegates checks to other traces via lookups (see bc_retrieval.pil).
+ *  It handles two possible errors:
+ *      - INSTANCE_NOT_FOUND: the contract at the given address is not deployed.
+ *      - TOO_MANY_BYTECODES: we have reached the limit of the number of bytecodes to retrieve for this tx.
+ *
+ * @param events The container of bytecode retrieval events to process.
+ * @param trace The trace container.
+ */
 void BytecodeTraceBuilder::process_retrieval(
     const simulation::EventEmitterInterface<simulation::BytecodeRetrievalEvent>::Container& events,
     TraceContainer& trace)
 {
     using C = Column;
 
-    uint32_t row = 1;
+    uint32_t row = 0;
     for (const auto& event : events) {
+        // Since the maximum is (currently) 21 and we prove incrementation of next_available_leaf_index
+        // at each row, the use of uint64 should be safe and never underflow.
         uint64_t remaining_bytecodes = MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS +
                                        AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE -
                                        event.retrieved_bytecodes_snapshot_before.next_available_leaf_index;
-        bool error = event.instance_not_found_error || event.limit_error;
+        bool error = event.error.has_value();
+        if (event.error == simulation::BytecodeRetrievalEventError::TOO_MANY_BYTECODES) {
+            BB_ASSERT(event.is_new_class == true & remaining_bytecodes == 0,
+                      "TOO_MANY_BYTECODES error incorrectly set for bytecode retrieval");
+        }
         trace.set(
             row,
             { {
                 { C::bc_retrieval_sel, 1 },
                 { C::bc_retrieval_bytecode_id, event.bytecode_id },
                 { C::bc_retrieval_address, event.address },
-                { C::bc_retrieval_error, error },
 
                 // Contract instance members (for lookup into contract_instance_retrieval)
                 { C::bc_retrieval_current_class_id, event.current_class_id },
+
+                // Contract class members (for lookup into class_id_derivation)
+                { C::bc_retrieval_artifact_hash, event.contract_class.artifact_hash },
+                { C::bc_retrieval_private_functions_root, event.contract_class.private_functions_root },
 
                 // Tree context (for lookup into contract_instance_retrieval)
                 { C::bc_retrieval_public_data_tree_root, event.public_data_tree_root },
                 { C::bc_retrieval_nullifier_tree_root, event.nullifier_root },
 
-                // Retrieved bytecodes tree state
+                // Retrieved bytecodes tree context (for lookup into indexed_tree_check)
+                { C::bc_retrieval_retrieved_bytecodes_tree_height, AVM_RETRIEVED_BYTECODES_TREE_HEIGHT },
                 { C::bc_retrieval_prev_retrieved_bytecodes_tree_root, event.retrieved_bytecodes_snapshot_before.root },
                 { C::bc_retrieval_prev_retrieved_bytecodes_tree_size,
                   event.retrieved_bytecodes_snapshot_before.next_available_leaf_index },
@@ -245,18 +293,16 @@ void BytecodeTraceBuilder::process_retrieval(
                   event.retrieved_bytecodes_snapshot_after.next_available_leaf_index },
 
                 // Instance existence determined by shared contract instance retrieval
-                { C::bc_retrieval_instance_exists, !event.instance_not_found_error },
+                { C::bc_retrieval_instance_exists,
+                  event.error == simulation::BytecodeRetrievalEventError::INSTANCE_NOT_FOUND ? 0 : 1 },
 
-                // Limit handling
-                { C::bc_retrieval_no_remaining_bytecodes, remaining_bytecodes == 0 },
-                { C::bc_retrieval_remaining_bytecodes_inv, remaining_bytecodes }, // Will be inverted in batch later.
+                // Error handling
+                { C::bc_retrieval_error, error ? 1 : 0 },
                 { C::bc_retrieval_is_new_class, event.is_new_class },
-                { C::bc_retrieval_should_retrieve, !error },
-
-                // Contract class for bytecode operations
-                { C::bc_retrieval_artifact_hash, event.contract_class.artifact_hash },
-                { C::bc_retrieval_private_functions_root, event.contract_class.private_functions_root },
-
+                { C::bc_retrieval_should_retrieve, error ? 0 : 1 },
+                // Too many bytecodes handling
+                { C::bc_retrieval_no_remaining_bytecodes, remaining_bytecodes == 0 ? 1 : 0 },
+                { C::bc_retrieval_remaining_bytecodes_inv, remaining_bytecodes }, // Will be inverted in batch later.
             } });
         row++;
     }
@@ -282,9 +328,14 @@ void BytecodeTraceBuilder::process_instruction_fetching(
     for (const auto& event : events) {
         const auto bytecode_id = event.bytecode_id;
         const auto bytecode_size = event.bytecode->size();
+        // To match column PARSING_ERROR_EXCEPT_TAG_ERROR:
+        const bool parsing_error_non_tag = event.error == PC_OUT_OF_RANGE || event.error == OPCODE_OUT_OF_RANGE ||
+                                           event.error == INSTRUCTION_OUT_OF_RANGE;
 
         auto get_operand = [&](size_t i) -> FF {
-            return i < event.instruction.operands.size() ? static_cast<FF>(event.instruction.operands[i]) : 0;
+            return i < event.instruction.operands.size() && !parsing_error_non_tag
+                       ? static_cast<FF>(event.instruction.operands[i])
+                       : 0;
         };
         auto bytecode_at = [&](size_t i) -> uint8_t { return i < bytecode_size ? (*event.bytecode)[i] : 0; };
 
@@ -438,11 +489,12 @@ void BytecodeTraceBuilder::process_instruction_fetching(
 const InteractionDefinition BytecodeTraceBuilder::interactions =
     InteractionDefinition()
         // Bytecode Hashing
+        .add<perm_bc_hashing_bytecode_length_bytes_settings, InteractionType::Permutation>()
         .add<lookup_bc_hashing_check_final_bytes_remaining_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>()
         // Bytecode Retrieval
-        .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupGeneric>()
         .add<lookup_bc_retrieval_contract_instance_retrieval_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupGeneric>()
         .add<lookup_bc_retrieval_is_new_class_check_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_retrieval_retrieved_bytecodes_insertion_settings, InteractionType::LookupSequential>()
         // Bytecode Decomposition

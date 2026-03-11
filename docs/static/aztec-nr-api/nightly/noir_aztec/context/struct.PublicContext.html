@@ -219,20 +219,23 @@ added benefit of the nullifier being emittable from a private function.</p>
 <p>An example is to check whether a contract has been published: we emit a nullifier that is deterministic and
 which has a <em>public</em> preimage.</p>
 <h4>Public vs Private</h4>
-<p>In general, it is unsafe to check for nullifier non-existence in private, as that will not consider the
+<p>In general, one should not attempt to prove nullifier non-existence in private, as that will not consider the
 possibility of the nullifier having been emitted in any transaction between the anchor block and the inclusion
 block. Private functions instead prove existence via
 <a href="../../noir_aztec/context/struct.PrivateContext.html#assert_nullifier_exists"><code>crate::context::PrivateContext::assert_nullifier_exists</code></a>
 and 'prove' non-existence by <em>emitting</em> the nullifer, which would cause the transaction to fail if the
 nullifier existed.</p>
-<p>This is not the case in public functions, which do have access to the tip of the blockchain and so can reliably
-prove whether a nullifier exists or not.</p>
+<p>This is not the case in public functions, which <strong>do</strong> have access to the tip of the blockchain and so can
+reliably prove whether a nullifier exists or not.</p>
 <h4>Safety</h4>
 <p>While it is safe to rely on this function's return value to determine if a nullifier exists or not, it is often
 <strong>not</strong> safe to infer additional information from that. In particular, it is <strong>unsafe</strong> to infer that the
 existence of a nullifier emitted from a private function implies that all other side-effects of said private
 execution have been completed, more concretely that any enqueued public calls have been executed.</p>
-<p>This is because all private transaction effects are committed <em>before</em> enqueued public functions are run (in
+<p>For example, if a function in contract <code>A</code> privately emits nullifier <code>X</code> and then enqueues public function <code>Y</code>,
+then it is <strong>unsafe</strong> for a contract <code>B</code> to infer that <code>Y</code> has alredy executed simply because <code>X</code> exists.</p>
+<p>This is because <strong>all</strong> private transaction effects are committed <em>before</em> enqueued public functions are run
+(in
 order to not reveal detailed timing information about the transaction), so it is possible to observe a
 nullifier that was emitted alongside the enqueuing of a public call <strong>before</strong> said call has been completed.</p>
 <h4>Cost</h4>

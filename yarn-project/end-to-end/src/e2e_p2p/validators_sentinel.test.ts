@@ -103,7 +103,7 @@ describe('e2e_p2p_validators_sentinel', () => {
             initialSlot &&
             lastProcessedSlot &&
             lastProcessedSlot - initialSlot >= blockCount - 1 &&
-            Object.values(stats).some(stat => stat.history.some(h => h.status === 'block-mined')) &&
+            Object.values(stats).some(stat => stat.history.some(h => h.status === 'checkpoint-mined')) &&
             Object.values(stats).some(stat => stat.history.some(h => h.status === 'attestation-sent')) &&
             stats[offlineValidator.toString().toLowerCase()] &&
             stats[offlineValidator.toString().toLowerCase()].history.length > 0 &&
@@ -132,7 +132,7 @@ describe('e2e_p2p_validators_sentinel', () => {
 
     it('collects stats on a block builder', () => {
       const [proposerValidator, proposerStats] = Object.entries(stats.stats).find(([_, v]) =>
-        v?.history?.some(h => h.status === 'block-mined'),
+        v?.history?.some(h => h.status === 'checkpoint-mined'),
       )!;
       t.logger.info(`Asserting stats for proposer validator ${proposerValidator}`);
       expect(proposerStats).toBeDefined();
@@ -156,7 +156,7 @@ describe('e2e_p2p_validators_sentinel', () => {
     it('starts a sentinel on a fresh node', async () => {
       const checkpointNumber = t.monitor.checkpointNumber;
       const nodeIndex = NUM_NODES + 1;
-      const newNode = await createNode(
+      additionalNode = await createNode(
         t.ctx.aztecNodeConfig,
         t.ctx.dateProvider,
         BOOT_NODE_UDP_PORT + nodeIndex + 1,
@@ -173,13 +173,13 @@ describe('e2e_p2p_validators_sentinel', () => {
 
       t.logger.info(`Waiting for sentinel to collect history`);
       await retryUntil(
-        () => newNode.getValidatorsStats().then(s => Object.keys(s.stats).length > 1),
+        () => additionalNode!.getValidatorsStats().then(s => Object.keys(s.stats).length > 1),
         'sentinel stats',
         AZTEC_SLOT_DURATION * 2,
         1,
       );
 
-      const stats = await newNode.getValidatorsStats();
+      const stats = await additionalNode!.getValidatorsStats();
       t.logger.info(`Collected validator stats from new node at block ${t.monitor.checkpointNumber}`, { stats });
     });
   });

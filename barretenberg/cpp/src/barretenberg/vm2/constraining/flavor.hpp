@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Completed, auditors: [Federico], commit: }
+// internal:    { status: Completed, auditors: [Federico], commit: 0e37cb8}
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -17,6 +17,7 @@
 
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
+#include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"

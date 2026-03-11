@@ -12,7 +12,7 @@ import {
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { MultiAdderArtifact } from '@aztec/ethereum/l1-artifacts';
-import { createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
+import { createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient, ViemClient } from '@aztec/ethereum/types';
 import { EpochNumber } from '@aztec/foundation/branded-types';
@@ -25,9 +25,9 @@ import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
+import { TopicType } from '@aztec/stdlib/p2p';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
-import type { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import getPort from 'get-port';
@@ -49,6 +49,7 @@ import {
   generatePrivateKeys,
 } from '../fixtures/setup_p2p_test.js';
 import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
 const BOOTSTRAP_NODE_PRIVATE_KEY = '080212208f988fc0899e4a73a5aee4d271a5f20670603a756ad8d84f2c94263a6427c591';
@@ -58,7 +59,7 @@ export const WAIT_FOR_TX_TIMEOUT = l1ContractsConfig.aztecSlotDuration * 3;
 export const SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES = {
   aztecSlotDuration: 12,
   ethereumSlotDuration: 4,
-  aztecProofSubmissionWindow: 640,
+  aztecProofSubmissionEpochs: 640,
 };
 
 export class P2PNetworkTest {
@@ -322,8 +323,9 @@ export class P2PNetworkTest {
       throw new Error('Call setupAccount before deploying spam contract');
     }
 
-    const spamContract = await SpamContract.deploy(this.wallet).send({ from: this.defaultAccountAddress! });
-    this.spamContract = spamContract;
+    ({ contract: this.spamContract } = await SpamContract.deploy(this.wallet).send({
+      from: this.defaultAccountAddress!,
+    }));
   }
 
   async removeInitialNode() {
@@ -343,7 +345,7 @@ export class P2PNetworkTest {
   }
 
   private async _sendDummyTx(l1Client: ExtendedViemWalletClient) {
-    const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client);
+    const l1TxUtils = createL1TxUtils(l1Client);
     return await l1TxUtils.sendAndMonitorTransaction({
       to: l1Client.account!.address,
       value: 1n,
@@ -406,6 +408,7 @@ export class P2PNetworkTest {
     expectedNodeCount?: number,
     timeoutSeconds = 30,
     checkIntervalSeconds = 0.1,
+    topics: TopicType[] = [TopicType.tx],
   ) {
     const nodeCount = expectedNodeCount ?? nodes.length;
     const minPeerCount = nodeCount - 1;
@@ -431,6 +434,29 @@ export class P2PNetworkTest {
     );
 
     this.logger.warn('All nodes connected to P2P mesh');
+
+    // Wait for GossipSub mesh to form for all specified topics.
+    // We only require at least 1 mesh peer per node because GossipSub
+    // stops grafting once it reaches Dlo peers and won't fill the mesh to all available peers.
+    for (const topic of topics) {
+      this.logger.warn(`Waiting for GossipSub mesh to form for ${topic} topic...`);
+      await Promise.all(
+        nodes.map(async (node, index) => {
+          const p2p = node.getP2P();
+          await retryUntil(
+            async () => {
+              const meshPeers = await p2p.getGossipMeshPeerCount(topic);
+              this.logger.debug(`Node ${index} has ${meshPeers} gossip mesh peers for ${topic} topic`);
+              return meshPeers >= 1 ? true : undefined;
+            },
+            `Node ${index} to have gossip mesh peers for ${topic} topic`,
+            timeoutSeconds,
+            checkIntervalSeconds,
+          );
+        }),
+      );
+      this.logger.warn(`All nodes have gossip mesh peers for ${topic} topic`);
+    }
   }
 
   async teardown() {

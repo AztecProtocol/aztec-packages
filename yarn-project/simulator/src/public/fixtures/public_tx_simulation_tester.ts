@@ -1,4 +1,9 @@
-import { DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT } from '@aztec/constants';
+import {
+  DEFAULT_TEARDOWN_DA_GAS_LIMIT,
+  DEFAULT_TEARDOWN_L2_GAS_LIMIT,
+  PUBLIC_TX_L2_GAS_OVERHEAD,
+  TX_DA_GAS_OVERHEAD,
+} from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -112,6 +117,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     feePayer: AztecAddress = sender,
     /* need some unique first nullifier for note-nonce computations */
     privateInsertions: TestPrivateInsertions = { nonRevertible: { nullifiers: [new Fr(420000 + this.txCount)] } },
+    gasLimits?: Gas,
   ): Promise<Tx> {
     const setupCallRequests = await asyncMap(setupCalls, call =>
       this.#createPubicCallRequestForCall(call, call.sender ?? sender),
@@ -131,9 +137,13 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       teardownCallRequest,
       feePayer,
       /*gasUsedByPrivate*/ teardownCall
-        ? new Gas(DEFAULT_TEARDOWN_DA_GAS_LIMIT, DEFAULT_TEARDOWN_L2_GAS_LIMIT)
-        : Gas.empty(),
+        ? new Gas(
+            DEFAULT_TEARDOWN_DA_GAS_LIMIT + TX_DA_GAS_OVERHEAD,
+            DEFAULT_TEARDOWN_L2_GAS_LIMIT + PUBLIC_TX_L2_GAS_OVERHEAD,
+          )
+        : new Gas(TX_DA_GAS_OVERHEAD, PUBLIC_TX_L2_GAS_OVERHEAD),
       defaultGlobals(),
+      gasLimits,
     );
   }
 
@@ -146,8 +156,9 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     /* need some unique first nullifier for note-nonce computations */
     privateInsertions?: TestPrivateInsertions,
     txLabel: string = 'unlabeledTx',
+    gasLimits?: Gas,
   ): Promise<PublicTxResult> {
-    const tx = await this.createTx(sender, setupCalls, appCalls, teardownCall, feePayer, privateInsertions);
+    const tx = await this.createTx(sender, setupCalls, appCalls, teardownCall, feePayer, privateInsertions, gasLimits);
 
     await this.setFeePayerBalance(feePayer);
 
@@ -160,6 +171,8 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       );
     }
     const avmResult = await this.simulator.simulate(tx, fullTxLabel);
+
+    await this.#recordBytecodeSizes(fullTxLabel, [...setupCalls, ...appCalls, ...(teardownCall ? [teardownCall] : [])]);
 
     // Something like this is often useful for debugging:
     //if (avmResult.revertReason) {
@@ -190,8 +203,18 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     teardownCall?: TestEnqueuedCall,
     feePayer?: AztecAddress,
     privateInsertions?: TestPrivateInsertions,
+    gasLimits?: Gas,
   ): Promise<PublicTxResult> {
-    return await this.simulateTx(sender, setupCalls, appCalls, teardownCall, feePayer, privateInsertions, txLabel);
+    return await this.simulateTx(
+      sender,
+      setupCalls,
+      appCalls,
+      teardownCall,
+      feePayer,
+      privateInsertions,
+      txLabel,
+      gasLimits,
+    );
   }
 
   /**
@@ -209,6 +232,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     teardownCall?: TestEnqueuedCall,
     feePayer?: AztecAddress,
     privateInsertions?: TestPrivateInsertions,
+    gasLimits?: Gas,
   ): Promise<PublicTxResult> {
     return await this.simulateTxWithLabel(
       txLabel,
@@ -218,6 +242,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       teardownCall,
       feePayer,
       privateInsertions,
+      gasLimits,
     );
   }
 
@@ -276,6 +301,27 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     const request = await PublicCallRequest.fromCalldata(sender, address, isStaticCall, calldata);
 
     return new PublicCallRequestWithCalldata(request, calldata);
+  }
+
+  // WARNING: Deduplicates by artifact name, so two different artifacts with the same name
+  // in a single tx would only record the first one's bytecode size.
+  async #recordBytecodeSizes(txLabel: string, calls: TestEnqueuedCall[]) {
+    const seenArtifactNames = new Set<string>();
+    for (const call of calls) {
+      const artifact = await this.contractDataSource.getContractArtifact(call.address);
+      if (!artifact || seenArtifactNames.has(artifact.name)) {
+        continue;
+      }
+      seenArtifactNames.add(artifact.name);
+      const instance = await this.contractDataSource.getContract(call.address);
+      if (!instance) {
+        continue;
+      }
+      const contractClass = await this.contractDataSource.getContractClass(instance.currentContractClassId);
+      if (contractClass) {
+        this.metrics.recordBytecodeSize(txLabel, artifact.name, contractClass.packedBytecode.length);
+      }
+    }
   }
 }
 

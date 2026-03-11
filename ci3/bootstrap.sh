@@ -4,8 +4,10 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 hash=$(cache_content_hash ^ci3)
 
 function test_cmds {
-  echo "$hash $ci3/tests/redact_test"
-  echo "$hash $ci3/semver test"
+  for f in tests/*; do
+    echo "$hash ./ci3/$f"
+  done
+  echo "$hash ./ci3/semver test"
 }
 
 function test {

@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [Raju], commit: }
+// internal:    { status: Planned, auditors: [], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -76,17 +76,6 @@ struct BlockIndexPayload {
     bool is_empty() const { return blockNumbers.empty(); }
 
     block_number_t get_min_block_number() { return blockNumbers[0]; }
-
-    bool contains(const block_number_t& blockNumber)
-    {
-        if (is_empty()) {
-            return false;
-        }
-        if (blockNumbers.size() == 1) {
-            return blockNumbers[0] == blockNumber;
-        }
-        return blockNumber >= blockNumbers[0] && blockNumber <= blockNumbers[1];
-    }
 
     void delete_block(const block_number_t& blockNumber)
     {
@@ -223,20 +212,6 @@ class LMDBTreeStore : public LMDBStoreBase {
     void write_leaf_by_hash(const fr& leafHash, const LeafType& leafData, WriteTransaction& tx);
 
     void delete_leaf_by_hash(const fr& leafHash, WriteTransaction& tx);
-
-    void write_leaf_key_by_index(const fr& leafKey, const index_t& index, WriteTransaction& tx);
-
-    template <typename TxType> bool read_leaf_key_by_index(const index_t& index, fr& leafKey, TxType& tx);
-
-    template <typename TxType>
-    void read_all_leaf_keys_after_or_equal_index(const index_t& index, std::vector<bb::fr>& leafKeys, TxType& tx);
-
-    void delete_all_leaf_keys_after_or_equal_index(const index_t& index, WriteTransaction& tx);
-
-    template <typename TxType>
-    void read_all_leaf_keys_before_or_equal_index(const index_t& index, std::vector<bb::fr>& leafKeys, TxType& tx);
-
-    void delete_all_leaf_keys_before_or_equal_index(const index_t& index, WriteTransaction& tx);
 
   private:
     std::string _name;

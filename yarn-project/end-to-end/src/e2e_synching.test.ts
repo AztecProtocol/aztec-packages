@@ -40,12 +40,12 @@ import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { AnvilTestWatcher } from '@aztec/aztec/testing';
 import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
+import { Blob } from '@aztec/blob-lib';
 import { EpochCache } from '@aztec/epoch-cache';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { EmpireSlashingProposerContract, GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
-import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
-import { SecretValue } from '@aztec/foundation/config';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -59,7 +59,6 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { TestWallet } from '@aztec/test-wallet/server';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs';
@@ -67,7 +66,8 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { getContract } from 'viem';
 
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEAndGetWallet } from './fixtures/utils.js';
+import { type EndToEndContext, setup, setupPXEAndGetWallet } from './fixtures/utils.js';
+import { TestWallet } from './test-wallet/test_wallet.js';
 
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 const START_TIME = 1893456000; // 2030 01 01 00 00
@@ -203,7 +203,7 @@ class TestVariant {
         );
         this.contractAddresses.push(accountManager.address);
         const deployMethod = await accountManager.getDeployMethod();
-        const txHash = await deployMethod.send({
+        const { txHash } = await deployMethod.send({
           from: deployAccount,
           skipClassPublication: true,
           skipInstancePublication: true,
@@ -218,7 +218,9 @@ class TestVariant {
       for (let i = 0; i < this.txCount; i++) {
         const recipient = this.accounts[(i + 1) % this.txCount];
         const tk = TokenContract.at(this.token.address, this.wallet);
-        txHashes.push(await tk.methods.transfer(recipient, 1n).send({ from: this.accounts[i], wait: NO_WAIT }));
+        txHashes.push(
+          (await tk.methods.transfer(recipient, 1n).send({ from: this.accounts[i], wait: NO_WAIT })).txHash,
+        );
       }
       return txHashes;
     } else if (this.txComplexity == TxComplexity.PublicTransfer) {
@@ -229,7 +231,7 @@ class TestVariant {
         const recipient = this.accounts[(i + 1) % this.txCount];
         const tk = TokenContract.at(this.token.address, this.wallet);
         txHashes.push(
-          await tk.methods.transfer_in_public(sender, recipient, 1n, 0).send({ from: sender, wait: NO_WAIT }),
+          (await tk.methods.transfer_in_public(sender, recipient, 1n, 0).send({ from: sender, wait: NO_WAIT })).txHash,
         );
       }
       return txHashes;
@@ -247,7 +249,7 @@ class TestVariant {
         ]);
 
         this.seed += 100n;
-        txHashes.push(await batch.send({ from: this.accounts[0], wait: NO_WAIT }));
+        txHashes.push((await batch.send({ from: this.accounts[0], wait: NO_WAIT })).txHash);
       }
       return txHashes;
     } else {
@@ -340,10 +342,16 @@ describe('e2e_synching', () => {
       variant.setWallet(wallet);
 
       // Deploy a token, such that we could use it
-      const token = await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n).send({
+      const { contract: token } = await TokenContract.deploy(
+        wallet,
+        defaultAccountAddress,
+        'TestToken',
+        'TST',
+        18n,
+      ).send({
         from: defaultAccountAddress,
       });
-      const spam = await SpamContract.deploy(wallet).send({ from: defaultAccountAddress });
+      const { contract: spam } = await SpamContract.deploy(wallet).send({ from: defaultAccountAddress });
 
       variant.setToken(token);
       variant.setSpam(spam);
@@ -407,11 +415,9 @@ describe('e2e_synching', () => {
 
     const blobClient = await createBlobClientWithFileStores(config, createLogger('test:blob-client:client'));
 
-    const sequencerPK: `0x${string}` = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
-
-    const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(
+    const l1TxUtils = createL1TxUtils(
       deployL1ContractsValues.l1Client,
-      { logger, dateProvider },
+      { logger, dateProvider, kzg: Blob.getViemKzgInstance() },
       config,
     );
     const rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
@@ -434,12 +440,7 @@ describe('e2e_synching', () => {
     const sequencerPublisherMetrics: MockProxy<SequencerPublisherMetrics> = mock<SequencerPublisherMetrics>();
     const publisher = new SequencerPublisher(
       {
-        l1RpcUrls: config.l1RpcUrls,
-        l1DebugRpcUrls: [],
-        l1Contracts: deployL1ContractsValues.l1ContractAddresses,
-        publisherPrivateKeys: [new SecretValue(sequencerPK)],
         l1ChainId: 31337,
-        viemPollingIntervalMS: 100,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
       },
       {
@@ -549,15 +550,21 @@ describe('e2e_synching', () => {
             const defaultAccountAddress = (await variant.deployAccounts(opts.initialFundedAccounts!.slice(0, 1)))[0];
 
             contracts.push(
-              await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n).send({
-                from: defaultAccountAddress,
-              }),
+              (
+                await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n).send({
+                  from: defaultAccountAddress,
+                })
+              ).contract,
             );
-            contracts.push(await SchnorrHardcodedAccountContract.deploy(wallet).send({ from: defaultAccountAddress }));
             contracts.push(
-              await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n).send({
-                from: defaultAccountAddress,
-              }),
+              (await SchnorrHardcodedAccountContract.deploy(wallet).send({ from: defaultAccountAddress })).contract,
+            );
+            contracts.push(
+              (
+                await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n).send({
+                  from: defaultAccountAddress,
+                })
+              ).contract,
             );
 
             await watcher.stop();

@@ -49,7 +49,7 @@ include "sha256.pil";
  *     of the max AVM memory address (AVM_HIGHEST_MEM_ADDRESS). This utilises the gt gadget
  *     to compare the max value of each read/write slice against AVM_HIGHEST_MEM_ADDRESS.
  * (2) INVALID_STATE_READ_TAG: If any of the state values retrieved from memory are NOT U32.
- *     This utilises the batched zero check method (https://hackmd.io/moq6viBpRJeLpWrHAogCZw#Batching-comparison-of-n-bit-numbers)
+ *     This utilises the batched zero check method (https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#batching-comparison-of-n-bit-numbers)
  * (3) INVALID_INPUT_READ_TAG: If any of the input values retrieved from memory are NOT U32.
  *     Saee table below for how this is propagated
  *
@@ -160,6 +160,10 @@ namespace sha256;
     pol commit max_mem_addr; // todo: While we do not support constants
     start * (max_mem_addr - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
 
+    // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+    // `max_state_addr`, `max_input_addr`, `max_output_addr` are sums of an address (< 2^32 by
+    // addressing resolution) and a small constant, so each is < 2^33.
+    // `max_mem_addr` = AVM_HIGHEST_MEM_ADDRESS which is < 2^32.
     pol commit max_state_addr;
     max_state_addr = start * (state_addr + 7); // We read 8 elements for the state
     #[CHECK_STATE_ADDR_IN_RANGE]

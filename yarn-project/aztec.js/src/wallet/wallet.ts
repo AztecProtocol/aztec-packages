@@ -13,6 +13,7 @@ import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, ContractInstanceWithAddressSchema } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
+import { LogId } from '@aztec/stdlib/logs';
 import { AbiDecodedSchema, type ApiSchemaFor, optional, schemas, zodFor } from '@aztec/stdlib/schemas';
 import type { ExecutionPayload, InTx } from '@aztec/stdlib/tx';
 import {
@@ -22,7 +23,7 @@ import {
   TxProfileResult,
   TxReceipt,
   TxSimulationResult,
-  UtilitySimulationResult,
+  UtilityExecutionResult,
   inTxSchema,
 } from '@aztec/stdlib/tx';
 
@@ -153,6 +154,8 @@ export type EventFilterBase = {
    * Optional. If provided, it must be greater than fromBlock.
    */
   toBlock?: BlockNumber;
+  /** Log id after which to start fetching logs. Used for pagination. */
+  afterLog?: LogId;
 };
 
 /**
@@ -226,6 +229,16 @@ export type ContractClassMetadata = {
 };
 
 /**
+ * Options for executing a utility function call.
+ */
+export type ExecuteUtilityOptions = {
+  /** The scope for the utility execution (determines which notes and keys are visible). */
+  scope: AztecAddress;
+  /** Optional auth witnesses to use during execution. */
+  authWitnesses?: AuthWitness[];
+};
+
+/**
  * The wallet interface.
  */
 export type Wallet = {
@@ -245,7 +258,7 @@ export type Wallet = {
     secretKey?: Fr,
   ): Promise<ContractInstanceWithAddress>;
   simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult>;
-  simulateUtility(call: FunctionCall, authwits?: AuthWitness[]): Promise<UtilitySimulationResult>;
+  executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions): Promise<UtilityExecutionResult>;
   profileTx(exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult>;
   sendTx<W extends InteractionWaitOptions = undefined>(
     exec: ExecutionPayload,
@@ -293,6 +306,7 @@ export const SendOptionsSchema = z.object({
   capsules: optional(z.array(Capsule.schema)),
   fee: optional(GasSettingsOptionSchema),
   wait: optional(z.union([z.literal(NO_WAIT), WaitOptsSchema])),
+  additionalScopes: optional(z.array(schemas.AztecAddress)),
 });
 
 export const SimulateOptionsSchema = z.object({
@@ -303,6 +317,7 @@ export const SimulateOptionsSchema = z.object({
   skipTxValidation: optional(z.boolean()),
   skipFeeEnforcement: optional(z.boolean()),
   includeMetadata: optional(z.boolean()),
+  additionalScopes: optional(z.array(schemas.AztecAddress)),
 });
 
 export const ProfileOptionsSchema = SimulateOptionsSchema.extend({
@@ -328,6 +343,7 @@ const EventFilterBaseSchema = z.object({
   txHash: optional(TxHash.schema),
   fromBlock: optional(BlockNumberPositiveSchema),
   toBlock: optional(BlockNumberPositiveSchema),
+  afterLog: optional(LogId.schema),
 });
 
 export const PrivateEventFilterSchema = EventFilterBaseSchema.extend({
@@ -369,6 +385,7 @@ export const ContractClassMetadataSchema = z.object({
 export const ContractFunctionPatternSchema = z.object({
   contract: z.union([schemas.AztecAddress, z.literal('*')]),
   function: z.union([z.string(), z.literal('*')]),
+  additionalScopes: optional(z.union([z.array(schemas.AztecAddress), z.literal('*')])),
 });
 
 export const AccountsCapabilitySchema = z.object({
@@ -479,6 +496,22 @@ export const WalletCapabilitiesSchema = z.object({
   expiresAt: optional(z.number()),
 });
 
+const OffchainEffectSchema = z.object({
+  data: z.array(schemas.Fr),
+  contractAddress: schemas.AztecAddress,
+});
+
+const OffchainMessageSchema = z.object({
+  recipient: schemas.AztecAddress,
+  payload: z.array(schemas.Fr),
+  contractAddress: schemas.AztecAddress,
+});
+
+const OffchainOutputSchema = z.object({
+  offchainEffects: z.array(OffchainEffectSchema),
+  offchainMessages: z.array(OffchainMessageSchema),
+});
+
 /**
  * Record of all wallet method schemas (excluding batch).
  * This is the single source of truth for method schemas - batch schemas are derived from this.
@@ -508,15 +541,26 @@ const WalletMethodSchemas = {
     .args(ContractInstanceWithAddressSchema, optional(ContractArtifactSchema), optional(schemas.Fr))
     .returns(ContractInstanceWithAddressSchema),
   simulateTx: z.function().args(ExecutionPayloadSchema, SimulateOptionsSchema).returns(TxSimulationResult.schema),
-  simulateUtility: z
+  executeUtility: z
     .function()
-    .args(FunctionCall.schema, optional(z.array(AuthWitness.schema)))
-    .returns(UtilitySimulationResult.schema),
+    .args(
+      FunctionCall.schema,
+      z.object({
+        scope: schemas.AztecAddress,
+        authWitnesses: optional(z.array(AuthWitness.schema)),
+      }),
+    )
+    .returns(UtilityExecutionResult.schema),
   profileTx: z.function().args(ExecutionPayloadSchema, ProfileOptionsSchema).returns(TxProfileResult.schema),
   sendTx: z
     .function()
     .args(ExecutionPayloadSchema, SendOptionsSchema)
-    .returns(z.union([TxHash.schema, TxReceipt.schema])),
+    .returns(
+      z.union([
+        z.object({ txHash: TxHash.schema }).merge(OffchainOutputSchema),
+        z.object({ receipt: TxReceipt.schema }).merge(OffchainOutputSchema),
+      ]),
+    ),
   createAuthWit: z.function().args(schemas.AztecAddress, MessageHashOrIntentSchema).returns(AuthWitness.schema),
   requestCapabilities: z.function().args(AppCapabilitiesSchema).returns(WalletCapabilitiesSchema),
 };

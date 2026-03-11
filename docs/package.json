@@ -3,8 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && yarn validate:redirects && docusaurus build && node scripts/append_api_docs_to_llms.js",
+    "build": "yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && yarn validate:redirects && yarn validate:api-ref-links && docusaurus build && node scripts/append_api_docs_to_llms.js",
     "validate:redirects": "./scripts/validate_redirect_targets.sh",
+    "validate:api-ref-links": "./scripts/validate_api_ref_links.sh",
     "clean": "./scripts/clean.sh",
     "dev:netlify": "yarn netlify dev",
     "generate:aztec-nr-api": "./scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh",
@@ -90,7 +91,12 @@
   "resolutions": {
     "tar-fs": "^3.1.1",
     "ws@npm:8.13.0": "npm:8.17.1",
-    "path-to-regexp@npm:^1.7.0": "npm:1.9.0"
+    "path-to-regexp@npm:^1.7.0": "npm:1.9.0",
+    "h3": "^1.15.5",
+    "node-forge": "^1.3.2",
+    "serve-handler": "^6.1.7",
+    "serialize-javascript": "^7.0.3",
+    "axios": "^1.13.5"
   },
   "packageManager": "yarn@4.5.2"
 }

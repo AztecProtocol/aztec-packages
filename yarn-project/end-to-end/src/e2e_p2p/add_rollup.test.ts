@@ -9,7 +9,7 @@ import { FeeAssetHandlerContract, RegistryContract, RollupContract } from '@azte
 import { deployRollupForUpgrade } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { L1TxUtils, createL1TxUtilsFromViemWallet } from '@aztec/ethereum/l1-tx-utils';
+import { L1TxUtils, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -25,12 +25,10 @@ import {
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import type { ProverNode } from '@aztec/prover-node';
 import { getPXEConfig } from '@aztec/pxe/server';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { computeL2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
-import { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { jest } from '@jest/globals';
@@ -44,6 +42,7 @@ import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNodes, createProverNode } from '../fixtures/setup_p2p_test.js';
 import { setupSharedBlobStorage } from '../fixtures/utils.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
@@ -65,7 +64,7 @@ jest.setTimeout(1000 * 60 * 10);
 describe('e2e_p2p_add_rollup', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
-  let proverNode: ProverNode;
+  let proverAztecNode: AztecNodeService;
   let l1TxUtils: L1TxUtils;
 
   beforeAll(async () => {
@@ -88,13 +87,13 @@ describe('e2e_p2p_add_rollup', () => {
     await t.applyBaseSetup();
     await t.removeInitialNode();
 
-    l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
+    l1TxUtils = createL1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
 
     t.ctx.watcher.setIsMarkingAsProven(false);
   });
 
   afterAll(async () => {
-    await tryStop(proverNode);
+    await tryStop(proverAztecNode);
     await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_VALIDATORS; i++) {
@@ -246,7 +245,7 @@ describe('e2e_p2p_add_rollup', () => {
 
     // create a prover node that uses p2p only (not rpc) to gather txs to test prover tx collection
     t.logger.warn(`Creating prover node`);
-    proverNode = await createProverNode(
+    ({ proverNode: proverAztecNode } = await createProverNode(
       t.ctx.aztecNodeConfig,
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
@@ -255,8 +254,7 @@ describe('e2e_p2p_add_rollup', () => {
       t.prefilledPublicData,
       `${DATA_DIR}-prover`,
       shouldCollectMetrics(),
-    );
-    await proverNode.start();
+    ));
 
     await sleep(4000);
 
@@ -287,7 +285,7 @@ describe('e2e_p2p_add_rollup', () => {
 
       const aliceAddress = aliceAccountManager.address;
 
-      const testContract = await TestContract.deploy(wallet).send({ from: aliceAddress });
+      const { contract: testContract } = await TestContract.deploy(wallet).send({ from: aliceAddress });
 
       const [secret, secretHash] = await generateClaimSecret();
 
@@ -306,7 +304,7 @@ describe('e2e_p2p_add_rollup', () => {
         // We poll isL1ToL2MessageSynced endpoint until the message is available
         await retryUntil(async () => await node.isL1ToL2MessageSynced(msgHash), 'message sync', 10);
 
-        const receipt = await testContract.methods
+        const { receipt } = await testContract.methods
           .create_l2_to_l1_message_arbitrary_recipient_private(contentOutFromRollup, ethRecipient)
           .send({ from: aliceAddress });
 
@@ -501,8 +499,8 @@ describe('e2e_p2p_add_rollup', () => {
       `Attesters new before: ${attestersBeforeNew.length}. Attesters new after: ${attestersAfterNew.length}`,
     );
 
-    // Stop the prover node.
-    await proverNode.stop();
+    // Stop the prover aztec node (which stops the prover subsystem).
+    await proverAztecNode.stop();
 
     // stop all nodes
     for (let i = 0; i < NUM_VALIDATORS; i++) {
@@ -561,7 +559,7 @@ describe('e2e_p2p_add_rollup', () => {
     );
 
     t.logger.warn(`Creating new prover node`);
-    proverNode = await createProverNode(
+    ({ proverNode: proverAztecNode } = await createProverNode(
       newConfig,
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
@@ -570,8 +568,7 @@ describe('e2e_p2p_add_rollup', () => {
       prefilledPublicData,
       `${DATA_DIR_NEW}-prover`,
       shouldCollectMetrics(),
-    );
-    await proverNode.start();
+    ));
 
     // wait a bit for peers to discover each other
     await sleep(4000);

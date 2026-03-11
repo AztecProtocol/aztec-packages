@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Script to generate auto-generated CLI documentation
 # Usage: ./scripts/cli_reference_generation/generate_cli_docs.sh [OPTIONS] <cli_name> [target_version] [output_dir]
 #
@@ -87,6 +87,12 @@ check_cli_version() {
 
   # Skip check for 'all' or 'current' targets
   if [[ "$target_ver" == "all" || "$target_ver" == "current" ]]; then
+    return 0
+  fi
+
+  # aztec-up is version-independent (it manages versions, not tied to a specific Aztec version)
+  if [[ "$cli_cmd" == "aztec-up" ]]; then
+    echo "✓ aztec-up is version-independent (skipping version check)"
     return 0
   fi
 

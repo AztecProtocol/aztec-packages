@@ -31,7 +31,7 @@ describe('e2e_pruned_blocks', () => {
   const MINT_AMOUNT = 1000n;
 
   // Don't make this value too high since we need to mine this number of empty blocks, which is relatively slow.
-  const WORLD_STATE_BLOCK_HISTORY = 2;
+  const WORLD_STATE_CHECKPOINT_HISTORY = 2;
   const EPOCH_LENGTH = 2;
   const WORLD_STATE_CHECK_INTERVAL_MS = 300;
   const ARCHIVER_POLLING_INTERVAL_MS = 300;
@@ -47,13 +47,13 @@ describe('e2e_pruned_blocks', () => {
       accounts: [admin, sender, recipient],
     } = await setup(3, {
       aztecEpochDuration: EPOCH_LENGTH,
-      worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
+      worldStateCheckpointHistory: WORLD_STATE_CHECKPOINT_HISTORY,
       worldStateBlockCheckIntervalMS: WORLD_STATE_CHECK_INTERVAL_MS,
       archiverPollingIntervalMS: ARCHIVER_POLLING_INTERVAL_MS,
       aztecProofSubmissionEpochs: 1024, // effectively do not reorg
     }));
 
-    token = await TokenContract.deploy(wallet, admin, 'TEST', '$TST', 18).send({ from: admin });
+    ({ contract: token } = await TokenContract.deploy(wallet, admin, 'TEST', '$TST', 18).send({ from: admin }));
     logger.info(`L2 token contract deployed at ${token.address}`);
   });
 
@@ -76,7 +76,9 @@ describe('e2e_pruned_blocks', () => {
     // mint transaction that the node will drop the block corresponding to the first mint, resulting in errors if PXE
     // tried to access any historical information related to it (which it shouldn't).
 
-    const firstMintReceipt = await token.methods.mint_to_private(sender, MINT_AMOUNT / 2n).send({ from: admin });
+    const { receipt: firstMintReceipt } = await token.methods
+      .mint_to_private(sender, MINT_AMOUNT / 2n)
+      .send({ from: admin });
     const firstMintTxEffect = await aztecNode.getTxEffect(firstMintReceipt.txHash);
 
     // mint_to_private should create just one new note with the minted amount
@@ -93,8 +95,9 @@ describe('e2e_pruned_blocks', () => {
     // We now mine dummy blocks, mark them as proven and wait for the node to process them, which should result in older
     // blocks (notably the one with the minted note) being pruned. Given world state prunes based on the finalized tip,
     // and we are defining the finalized tip as two epochs behind the proven one, we need to mine two extra epochs.
+    // This test assumes 1 block per checkpoint
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 0 });
-    await waitBlocks(WORLD_STATE_BLOCK_HISTORY + EPOCH_LENGTH * 2 + 1);
+    await waitBlocks(WORLD_STATE_CHECKPOINT_HISTORY + EPOCH_LENGTH * 2 + 1);
     await cheatCodes.rollup.markAsProven();
 
     // The same historical query we performed before should now fail since this block is not available anymore. We poll
@@ -121,7 +124,9 @@ describe('e2e_pruned_blocks', () => {
 
     await token.methods.transfer(recipient, MINT_AMOUNT).send({ from: sender });
 
-    expect(await token.methods.balance_of_private(recipient).simulate({ from: recipient })).toEqual(MINT_AMOUNT);
-    expect(await token.methods.balance_of_private(sender).simulate({ from: sender })).toEqual(0n);
+    expect((await token.methods.balance_of_private(recipient).simulate({ from: recipient })).result).toEqual(
+      MINT_AMOUNT,
+    );
+    expect((await token.methods.balance_of_private(sender).simulate({ from: sender })).result).toEqual(0n);
   });
 });

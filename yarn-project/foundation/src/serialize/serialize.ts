@@ -270,6 +270,22 @@ export function serializeBigInt(n: bigint, width = 32) {
 }
 
 /**
+ * Serialize a signed BigInt value into a Buffer of specified width using two's complement.
+ * @param n - The signed BigInt value to be serialized.
+ * @param width - The width (in bytes) of the output Buffer, optional with default value 32.
+ * @returns A Buffer containing the serialized signed BigInt value in big-endian format.
+ */
+export function serializeSignedBigInt(n: bigint, width = 32) {
+  const widthBits = BigInt(width * 8);
+  const max = 1n << (widthBits - 1n);
+  if (n < -max || n >= max) {
+    throw new Error(`Signed BigInt ${n.toString()} does not fit into ${width} bytes`);
+  }
+  const unsigned = n < 0n ? (1n << widthBits) + n : n;
+  return toBufferBE(unsigned, width);
+}
+
+/**
  * Deserialize a big integer from a buffer, given an offset and width.
  * Reads the specified number of bytes from the buffer starting at the offset, converts it to a big integer, and returns the deserialized result along with the number of bytes read (advanced).
  *
@@ -280,6 +296,22 @@ export function serializeBigInt(n: bigint, width = 32) {
  */
 export function deserializeBigInt(buf: Buffer, offset = 0, width = 32) {
   return { elem: toBigIntBE(buf.subarray(offset, offset + width)), adv: width };
+}
+
+/**
+ * Deserialize a signed BigInt from a buffer (two's complement).
+ * @param buf - The buffer containing the signed big integer to be deserialized.
+ * @param offset - The position in the buffer where the integer starts. Defaults to 0.
+ * @param width - The number of bytes to read from the buffer for the integer. Defaults to 32.
+ * @returns An object containing the deserialized signed bigint value ('elem') and bytes advanced ('adv').
+ */
+export function deserializeSignedBigInt(buf: Buffer, offset = 0, width = 32) {
+  const { elem, adv } = deserializeBigInt(buf, offset, width);
+  const widthBits = BigInt(width * 8);
+  const signBit = 1n << (widthBits - 1n);
+  const fullRange = 1n << widthBits;
+  const signed = elem >= signBit ? elem - fullRange : elem;
+  return { elem: signed, adv };
 }
 
 /**

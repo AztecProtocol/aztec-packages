@@ -29,6 +29,7 @@
  */
 #pragma once
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/net.hpp"
 #include "barretenberg/serialize/msgpack_apply.hpp"
 #include <array>

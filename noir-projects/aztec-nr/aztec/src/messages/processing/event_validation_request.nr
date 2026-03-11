@@ -2,7 +2,7 @@ use crate::{event::EventSelector, messages::logs::event::MAX_EVENT_SERIALIZED_LE
 use crate::protocol::{address::AztecAddress, traits::Serialize};
 
 /// Intermediate struct used to perform batch event validation by PXE. The
-/// `utilityValidateAndStoreEnqueuedNotesAndEvents` oracle expects for values of this type to be stored in a
+/// `aztec_utl_validateAndStoreEnqueuedNotesAndEvents` oracle expects for values of this type to be stored in a
 /// `CapsuleArray` at the given `base_slot`.
 #[derive(Serialize)]
 pub(crate) struct EventValidationRequest {
@@ -42,7 +42,7 @@ mod test {
             3, // randomness
             4, // serialized_event[0]
             5, // serialized_event[1]
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // serialized_event padding
+            0, 0, 0, 0, 0, 0, 0, 0, // serialized_event padding
             2, // bounded_vec_len
             6, // event_commitment
             7, // tx_hash

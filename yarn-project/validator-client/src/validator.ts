@@ -1,6 +1,7 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, getBlobsPerL1Block } from '@aztec/blob-lib';
 import type { EpochCache } from '@aztec/epoch-cache';
+import { validateFeeAssetPriceModifier } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
   CheckpointNumber,
@@ -23,7 +24,8 @@ import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol }
 import { OffenseType, WANT_TO_SLASH_EVENT, type Watcher, type WatcherEmitter } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestationsAndSigners, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
-import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import { validateCheckpoint } from '@aztec/stdlib/checkpoint';
+import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
   CreateCheckpointProposalLastBlockData,
   ITxProvider,
@@ -44,8 +46,9 @@ import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
-import { createHASigner } from '@aztec/validator-ha-signer/factory';
+import { createHASigner, createLocalSignerWithProtection } from '@aztec/validator-ha-signer/factory';
 import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
+import type { ValidatorHASigner } from '@aztec/validator-ha-signer/validator-ha-signer';
 
 import { EventEmitter } from 'events';
 import type { TypedDataDefinition } from 'viem';
@@ -76,7 +79,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private validationService: ValidationService;
   private metrics: ValidatorMetrics;
   private log: Logger;
-
   // Whether it has already registered handlers on the p2p client
   private hasRegisteredHandlers = false;
 
@@ -88,6 +90,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   private lastEpochForCommitteeUpdateLoop: EpochNumber | undefined;
   private epochCacheUpdateLoop: RunningPromise;
+  /** Tracks the last epoch in which each attester successfully submitted at least one attestation. */
+  private lastAttestedEpochByAttester: Map<string, EpochNumber> = new Map();
 
   private proposersOfInvalidBlocks: Set<string> = new Set();
 
@@ -105,6 +109,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private config: ValidatorClientFullConfig,
     private blobClient: BlobClientInterface,
+    private slashingProtectionSigner: ValidatorHASigner,
     private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
     log = createLogger('validator'),
@@ -158,6 +163,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         this.log.trace(`No committee found for slot`);
         return;
       }
+      this.metrics.setCurrentEpoch(epoch);
       if (epoch !== this.lastEpochForCommitteeUpdateLoop) {
         const me = this.getValidatorAddresses();
         const committeeSet = new Set(committee.map(v => v.toString()));
@@ -195,6 +201,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const metrics = new ValidatorMetrics(telemetry);
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
       txsPermitted: !config.disableTransactions,
+      maxTxsPerBlock: config.validateMaxTxsPerBlock,
     });
     const blockProposalHandler = new BlockProposalHandler(
       checkpointsBuilder,
@@ -210,16 +217,28 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       telemetry,
     );
 
-    let validatorKeyStore: ExtendedValidatorKeyStore = NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager);
+    const nodeKeystoreAdapter = NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager);
+    let slashingProtectionSigner: ValidatorHASigner;
     if (config.haSigningEnabled) {
+      // Multi-node HA mode: use PostgreSQL-backed distributed locking.
       // If maxStuckDutiesAgeMs is not explicitly set, compute it from Aztec slot duration
       const haConfig = {
         ...config,
         maxStuckDutiesAgeMs: config.maxStuckDutiesAgeMs ?? epochCache.getL1Constants().slotDuration * 2 * 1000,
       };
-      const { signer } = await createHASigner(haConfig);
-      validatorKeyStore = new HAKeyStore(validatorKeyStore, signer);
+      ({ signer: slashingProtectionSigner } = await createHASigner(haConfig, {
+        telemetryClient: telemetry,
+        dateProvider,
+      }));
+    } else {
+      // Single-node mode: use LMDB-backed local signing protection.
+      // This prevents double-signing if the node crashes and restarts mid-proposal.
+      ({ signer: slashingProtectionSigner } = await createLocalSignerWithProtection(config, {
+        telemetryClient: telemetry,
+        dateProvider,
+      }));
     }
+    const validatorKeyStore: ExtendedValidatorKeyStore = new HAKeyStore(nodeKeystoreAdapter, slashingProtectionSigner);
 
     const validator = new ValidatorClient(
       validatorKeyStore,
@@ -232,6 +251,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       l1ToL2MessageSource,
       config,
       blobClient,
+      slashingProtectionSigner,
       dateProvider,
       telemetry,
     );
@@ -267,6 +287,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   public updateConfig(config: Partial<ValidatorClientFullConfig>) {
     this.config = { ...this.config, ...config };
+  }
+
+  public reloadKeystore(newManager: KeystoreManager): void {
+    const newAdapter = NodeKeystoreAdapter.fromKeyStoreManager(newManager);
+    this.keyStore = new HAKeyStore(newAdapter, this.slashingProtectionSigner);
+    this.validationService = new ValidationService(this.keyStore, this.log.createChild('validation-service'));
   }
 
   public async start() {
@@ -471,6 +497,14 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return undefined;
     }
 
+    // Validate fee asset price modifier is within allowed range
+    if (!validateFeeAssetPriceModifier(proposal.feeAssetPriceModifier)) {
+      this.log.warn(
+        `Received checkpoint proposal with invalid feeAssetPriceModifier ${proposal.feeAssetPriceModifier} for slot ${slotNumber}`,
+      );
+      return undefined;
+    }
+
     // Check that I have any address in current committee before attesting
     const inCommittee = await this.epochCache.filterInCommittee(slotNumber, this.getValidatorAddresses());
     const partOfCommittee = inCommittee.length > 0;
@@ -479,11 +513,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       slotNumber,
       archive: proposal.archive.toString(),
       proposer: proposer.toString(),
-      txCount: proposal.txHashes.length,
     };
     this.log.info(`Received checkpoint proposal for slot ${slotNumber}`, {
       ...proposalInfo,
-      txHashes: proposal.txHashes.map(t => t.toString()),
       fishermanMode: this.config.fishermanMode || false,
     });
 
@@ -518,6 +550,17 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     });
 
     this.metrics.incSuccessfulAttestations(inCommittee.length);
+
+    // Track epoch participation per attester: count each (attester, epoch) pair at most once
+    const proposalEpoch = getEpochAtSlot(slotNumber, this.epochCache.getL1Constants());
+    for (const attester of inCommittee) {
+      const key = attester.toString();
+      const lastEpoch = this.lastAttestedEpochByAttester.get(key);
+      if (lastEpoch === undefined || proposalEpoch > lastEpoch) {
+        this.lastAttestedEpochByAttester.set(key, proposalEpoch);
+        this.metrics.incAttestedEpochCount(attester);
+      }
+    }
 
     // Determine which validators should attest
     let attestors: EthAddress[];
@@ -595,7 +638,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     proposalInfo: LogData,
   ): Promise<{ isValid: true } | { isValid: false; reason: string }> {
     const slot = proposal.slotNumber;
-    const timeoutSeconds = 10; // TODO(palla/mbps): This should map to the timetable settings
+
+    // Timeout block syncing at the start of the next slot
+    const config = this.checkpointsBuilder.getConfig();
+    const nextSlotTimestampSeconds = Number(getTimestampForSlot(SlotNumber(slot + 1), config));
+    const timeoutSeconds = Math.max(1, nextSlotTimestampSeconds - Math.floor(this.dateProvider.now() / 1000));
 
     // Wait for last block to sync by archive
     let lastBlockHeader: BlockHeader | undefined;
@@ -630,6 +677,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return { isValid: false, reason: 'no_blocks_for_slot' };
     }
 
+    // Ensure the last block for this slot matches the archive in the checkpoint proposal
+    if (!blocks.at(-1)?.archive.root.equals(proposal.archive)) {
+      this.log.warn(`Last block archive mismatch for checkpoint proposal`, proposalInfo);
+      return { isValid: false, reason: 'last_block_archive_mismatch' };
+    }
+
     this.log.debug(`Found ${blocks.length} blocks for slot ${slot}`, {
       ...proposalInfo,
       blockNumbers: blocks.map(b => b.number),
@@ -643,14 +696,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     // Get L1-to-L2 messages for this checkpoint
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
 
-    // Compute the previous checkpoint out hashes for the epoch.
-    // TODO: There can be a more efficient way to get the previous checkpoint out hashes without having to fetch the
-    // actual checkpoints and the blocks/txs in them.
+    // Collect the out hashes of all the checkpoints before this one in the same epoch
     const epoch = getEpochAtSlot(slot, this.epochCache.getL1Constants());
-    const previousCheckpoints = (await this.blockSource.getCheckpointsForEpoch(epoch))
-      .filter(b => b.number < checkpointNumber)
-      .sort((a, b) => a.number - b.number);
-    const previousCheckpointOutHashes = previousCheckpoints.map(c => c.getCheckpointOutHash());
+    const previousCheckpointOutHashes = (await this.blockSource.getCheckpointsDataForEpoch(epoch))
+      .filter(c => c.checkpointNumber < checkpointNumber)
+      .map(c => c.checkpointOutHash);
 
     // Fork world state at the block before the first block
     const parentBlockNumber = BlockNumber(firstBlock.number - 1);
@@ -661,6 +711,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       const checkpointBuilder = await this.checkpointsBuilder.openCheckpoint(
         checkpointNumber,
         constants,
+        proposal.feeAssetPriceModifier,
         l1ToL2Messages,
         previousCheckpointOutHashes,
         fork,
@@ -707,6 +758,20 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         return { isValid: false, reason: 'out_hash_mismatch' };
       }
 
+      // Final round of validations on the checkpoint, just in case.
+      try {
+        validateCheckpoint(computedCheckpoint, {
+          rollupManaLimit: this.checkpointsBuilder.getConfig().rollupManaLimit,
+          maxDABlockGas: this.config.validateMaxDABlockGas,
+          maxL2BlockGas: this.config.validateMaxL2BlockGas,
+          maxTxsPerBlock: this.config.validateMaxTxsPerBlock,
+          maxTxsPerCheckpoint: this.config.validateMaxTxsPerCheckpoint,
+        });
+      } catch (err) {
+        this.log.warn(`Checkpoint validation failed: ${err}`, proposalInfo);
+        return { isValid: false, reason: 'checkpoint_validation_failed' };
+      }
+
       this.log.verbose(`Checkpoint proposal validation successful for slot ${slot}`, proposalInfo);
       return { isValid: true };
     } finally {
@@ -723,6 +788,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       chainId: gv.chainId,
       version: gv.version,
       slotNumber: gv.slotNumber,
+      timestamp: gv.timestamp,
       coinbase: gv.coinbase,
       feeRecipient: gv.feeRecipient,
       gasFees: gv.gasFees,
@@ -732,7 +798,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   /**
    * Uploads blobs for a checkpoint to the filestore (fire and forget).
    */
-  private async uploadBlobsForCheckpoint(proposal: CheckpointProposalCore, proposalInfo: LogData): Promise<void> {
+  protected async uploadBlobsForCheckpoint(proposal: CheckpointProposalCore, proposalInfo: LogData): Promise<void> {
     try {
       const lastBlockHeader = await this.blockSource.getBlockHeaderByArchive(proposal.archive);
       if (!lastBlockHeader) {
@@ -747,7 +813,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       }
 
       const blobFields = blocks.flatMap(b => b.toBlobFields());
-      const blobs: Blob[] = getBlobsPerL1Block(blobFields);
+      const blobs: Blob[] = await getBlobsPerL1Block(blobFields);
       await this.blobClient.sendBlobsToFilestore(blobs);
       this.log.debug(`Uploaded ${blobs.length} blobs to filestore for checkpoint at slot ${proposal.slotNumber}`, {
         ...proposalInfo,
@@ -876,6 +942,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   async createCheckpointProposal(
     checkpointHeader: CheckpointHeader,
     archive: Fr,
+    feeAssetPriceModifier: bigint,
     lastBlockInfo: CreateCheckpointProposalLastBlockData | undefined,
     proposerAddress: EthAddress | undefined,
     options: CheckpointProposalOptions = {},
@@ -897,6 +964,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const newProposal = await this.validationService.createCheckpointProposal(
       checkpointHeader,
       archive,
+      feeAssetPriceModifier,
       lastBlockInfo,
       proposerAddress,
       options,

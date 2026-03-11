@@ -4,6 +4,7 @@ import type { L2Block, L2BlockId, L2BlockSource } from '@aztec/stdlib/block';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { BlockHeader, Tx, TxHash, TxValidator } from '@aztec/stdlib/tx';
 
+import type { TxPoolRejectionError } from './eviction/interfaces.js';
 import type { TxMetaData, TxState } from './tx_metadata.js';
 
 /**
@@ -17,6 +18,8 @@ export type AddTxsResult = {
   ignored: TxHash[];
   /** Transactions rejected because they failed validation (e.g., invalid proof, expired timestamp) */
   rejected: TxHash[];
+  /** Optional rejection errors, only present when there are rejections with structured errors. */
+  errors?: Map<string, TxPoolRejectionError>;
 };
 
 /**
@@ -37,6 +40,14 @@ export type TxPoolV2Config = {
   maxPendingTxCount: number;
   /** Maximum number of archived transactions to retain (0 = disabled) */
   archivedTxLimit: number;
+  /** Minimum age (ms) a transaction must have been in the pool before it's eligible for block building */
+  minTxPoolAgeMs: number;
+  /** Maximum number of evicted tx hashes to remember for metrics tracking */
+  evictedTxCacheSize: number;
+  /** The probability (0-1) that a transaction is discarded. 0 disables dropping. For testing purposes only. */
+  dropTransactionsProbability: number;
+  /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
+  priceBumpPercentage: bigint;
 };
 
 /**
@@ -45,6 +56,10 @@ export type TxPoolV2Config = {
 export const DEFAULT_TX_POOL_V2_CONFIG: TxPoolV2Config = {
   maxPendingTxCount: 0, // 0 = disabled
   archivedTxLimit: 0, // 0 = disabled
+  minTxPoolAgeMs: 2_000,
+  evictedTxCacheSize: 10_000,
+  dropTransactionsProbability: 0,
+  priceBumpPercentage: 10n,
 };
 
 /**
@@ -55,8 +70,8 @@ export type TxPoolV2Dependencies = {
   l2BlockSource: L2BlockSource;
   /** World state synchronizer for validating transactions after chain prunes */
   worldStateSynchronizer: WorldStateSynchronizer;
-  /** Validator for transactions entering the pending pool */
-  pendingTxValidator: TxValidator<Tx>;
+  /** Factory that creates a validator for re-validating pool transactions using metadata */
+  createTxValidator: () => Promise<TxValidator<TxMetaData>>;
 };
 
 /**
@@ -95,15 +110,15 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
    * @param opts - Optional metadata (e.g., source for logging)
    * @returns Result categorizing each transaction as accepted, rejected, or ignored
    */
-  addPendingTxs(txs: Tx[], opts?: { source?: string }): Promise<AddTxsResult>;
+  addPendingTxs(txs: Tx[], opts?: { source?: string; feeComparisonOnly?: boolean }): Promise<AddTxsResult>;
 
   /**
-   * Checks if a transaction can be added without modifying the pool.
-   * Performs the same validation as addPendingTxs but doesn't persist changes.
+   * Checks if the pool would accept a transaction without modifying state.
+   * Used as a pre-check before expensive proof verification.
    * @param tx - Transaction to check
-   * @returns Result: 'accepted', 'ignored' (if already in pool or undesirable), or 'rejected' (if validation fails)
+   * @returns 'accepted' if the pool would accept, 'ignored' if already in pool or undesirable
    */
-  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored' | 'rejected'>;
+  canAddPendingTx(tx: Tx): Promise<'accepted' | 'ignored'>;
 
   /**
    * Adds transactions as immediately protected for a given slot.
@@ -156,7 +171,7 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
    * and validates them before returning to pending.
    * @param latestBlock - The latest valid block ID after the prune
    */
-  handlePrunedBlocks(latestBlock: L2BlockId): Promise<void>;
+  handlePrunedBlocks(latestBlock: L2BlockId, options?: { deleteAllTxs?: boolean }): Promise<void>;
 
   /**
    * Handles failed transaction execution.
@@ -186,6 +201,9 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
 
   /** Gets pending transaction hashes sorted by priority (highest first) */
   getPendingTxHashes(): Promise<TxHash[]>;
+
+  /** Gets pending transaction hashes that have been in the pool long enough per minTxPoolAgeMs, sorted by priority (highest first) */
+  getEligiblePendingTxHashes(): Promise<TxHash[]>;
 
   /** Gets the count of pending transactions */
   getPendingTxCount(): Promise<number>;

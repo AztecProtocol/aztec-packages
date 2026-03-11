@@ -5,11 +5,12 @@ import { readFieldCompressedString } from '@aztec/aztec.js/utils';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { TxHash } from '@aztec/stdlib/tx';
-import { ProvenTx, TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
+import { TestWallet } from '../test-wallet/test_wallet.js';
+import { ProvenTx, proveInteraction } from '../test-wallet/utils.js';
 import { createWalletAndAztecNodeClient, deploySponsoredTestAccountsWithTokens } from './setup_test_wallets.js';
 import type { TestAccounts } from './setup_test_wallets.js';
 import {
@@ -43,7 +44,6 @@ describe('reqresp effectiveness under tx drop', () => {
     try {
       await setValidatorTxDrop({
         namespace: config.NAMESPACE,
-        enabled: false,
         probability: 0,
         logger,
       });
@@ -71,7 +71,8 @@ describe('reqresp effectiveness under tx drop', () => {
     testAccounts = await deploySponsoredTestAccountsWithTokens(wallet, aztecNode, MINT_AMOUNT, logger);
     recipient = testAccounts.recipientAddress;
     const name = readFieldCompressedString(
-      await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }),
+      (await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }))
+        .result,
     );
     expect(name).toBe(testAccounts.tokenName);
   });
@@ -100,7 +101,6 @@ describe('reqresp effectiveness under tx drop', () => {
     if (!(probability == 0)) {
       await setValidatorTxDrop({
         namespace: config.NAMESPACE,
-        enabled: true,
         probability,
         logger,
       });

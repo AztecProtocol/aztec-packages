@@ -6,6 +6,7 @@
 
 #include "merge_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
@@ -114,6 +115,7 @@ template <typename Curve>
 typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to_pairing_check(
     const Proof& proof, const InputCommitments& input_commitments)
 {
+    BB_BENCH_NAME("MergeVerifier::reduce");
     transcript->load_proof(proof);
 
     // Receive shift size from prover
@@ -181,6 +183,16 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
 
     // Receive evaluation of G at 1/κ
     evals.emplace_back(transcript->template receive_from_prover<FF>("REVERSED_BATCHED_LEFT_TABLES_EVAL"));
+
+    // OriginTag false positive: The evaluations are PCS-bound - once the table commitments
+    // are fixed and kappa is derived, the correct evaluations are uniquely determined. Tag them
+    // with kappa to reflect this constraint. The last eval (G at 1/κ) is bound by degree_check_challenges.
+    if constexpr (IsRecursive) {
+        for (auto& eval : evals) {
+            eval.set_origin_tag(kappa.get_origin_tag());
+        }
+        evals.back().set_origin_tag(degree_check_challenges.back().get_origin_tag());
+    }
 
     // Check concatenation identities
     bool concatenation_verified = check_concatenation_identities(evals, pow_kappa);

@@ -116,7 +116,7 @@ export class PrivateKernelTailCircuitPublicInputs {
     /**
      * The timestamp by which the transaction must be included in a block.
      */
-    public includeByTimestamp: UInt64,
+    public expirationTimestamp: UInt64,
 
     public forPublic?: PartialPrivateTailPublicInputsForPublic,
     public forRollup?: PartialPrivateTailPublicInputsForRollup,
@@ -146,7 +146,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       this.constants.getSize() +
       this.gasUsed.getSize() +
       this.feePayer.size +
-      8 // includeByTimestamp
+      8 // expirationTimestamp
     );
   }
 
@@ -161,7 +161,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       this.forPublic.publicTeardownCallRequest,
       this.gasUsed,
       this.feePayer,
-      this.includeByTimestamp,
+      this.expirationTimestamp,
     );
   }
 
@@ -180,7 +180,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       this.forRollup.end,
       this.gasUsed,
       this.feePayer,
-      this.includeByTimestamp,
+      this.expirationTimestamp,
     );
   }
 
@@ -232,6 +232,15 @@ export class PrivateKernelTailCircuitPublicInputs {
         )
       : this.forRollup!.end.noteHashes;
     return noteHashes.filter(n => !n.isZero());
+  }
+
+  getNonEmptyL2ToL1Msgs() {
+    const l2ToL1Msgs = this.forPublic
+      ? this.forPublic.nonRevertibleAccumulatedData.l2ToL1Msgs.concat(
+          this.forPublic.revertibleAccumulatedData.l2ToL1Msgs,
+        )
+      : this.forRollup!.end.l2ToL1Msgs;
+    return l2ToL1Msgs.filter(m => !m.isEmpty());
   }
 
   getNonEmptyNullifiers() {
@@ -298,7 +307,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       this.constants,
       this.gasUsed,
       this.feePayer,
-      bigintToUInt64BE(this.includeByTimestamp),
+      bigintToUInt64BE(this.expirationTimestamp),
       isForPublic ? this.forPublic!.toBuffer() : this.forRollup!.toBuffer(),
     );
   }

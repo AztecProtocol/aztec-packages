@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Flake PRs</title>
+  <style>
+    body { background: #0d1117; color: #c9d1d9; font-family: monospace; font-size: 14px; padding: 16px; margin: 0; }
+    a { color: #58a6ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .nav { margin: 8px 0 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .nav a { color: #58a6ff; font-size: 13px; }
+    .nav a.active { color: #fff; border-bottom: 1px solid #58a6ff; }
+    .sep { color: #333; }
+    h2 { margin: 0 0 8px; color: #e6edf3; font-size: 18px; font-weight: normal; }
+    .stats-bar { color: #8b949e; font-size: 13px; margin-bottom: 12px; }
+    .stats-bar span { color: #c9d1d9; }
+    .filter-row { margin-bottom: 16px; }
+    input#filter { background: #161b22; border: 1px solid #30363d; color: #c9d1d9;
+      font-family: monospace; font-size: 13px; padding: 6px 12px; width: 320px; }
+    input#filter:focus { outline: none; border-color: #58a6ff; }
+    .month-group { margin-bottom: 24px; }
+    .month-header { color: #8b949e; font-size: 13px; text-transform: uppercase;
+      letter-spacing: 1px; padding: 6px 0; border-bottom: 1px solid #21262d; margin-bottom: 4px; }
+    .pr-row { display: flex; align-items: center; gap: 12px; padding: 7px 4px;
+      border-bottom: 1px solid #161b22; }
+    .pr-row:hover { background: #161b22; }
+    .dot { color: #3fb950; font-size: 10px; flex-shrink: 0; }
+    .pr-num { color: #8b949e; font-size: 13px; flex-shrink: 0; min-width: 52px; }
+    .pr-num a { color: #8b949e; }
+    .pr-num a:hover { color: #58a6ff; }
+    .pr-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .kw { color: #f0883e; font-weight: bold; }
+    .pr-author { color: #8b949e; font-size: 12px; flex-shrink: 0; }
+    .pr-diff { color: #8b949e; font-size: 12px; flex-shrink: 0; white-space: nowrap; }
+    .pr-diff .add { color: #3fb950; }
+    .pr-diff .del { color: #f85149; }
+    .pr-date { color: #8b949e; font-size: 12px; flex-shrink: 0; min-width: 80px; text-align: right; }
+    .empty { color: #8b949e; padding: 24px 0; }
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <a href="/">&lt; CI</a> <span class="sep">|</span>
+    <a href="/cost-overview">cost overview</a> <span class="sep">|</span>
+    <a href="/namespace-billing">namespace billing</a> <span class="sep">|</span>
+    <a href="/ci-insights">ci insights</a> <span class="sep">|</span>
+    <a href="/flake-prs" class="active">flake prs</a> <span class="sep">|</span>
+    <a href="/commits">commits</a>
+  </div>
+
+  <h2>Flake / Deflake PRs</h2>
+  <div class="stats-bar" id="stats-bar">loading…</div>
+
+  <div class="filter-row">
+    <input id="filter" type="text" placeholder="filter by title or author…" oninput="applyFilter()" />
+  </div>
+
+  <div id="list"></div>
+
+<script>
+  let allPRs = [];
+  const KEYWORDS = ['flake', 'deflake', 'flaky'];
+
+  function highlight(text) {
+    return text.replace(new RegExp('(' + KEYWORDS.join('|') + ')', 'gi'),
+      '<span class="kw">$1</span>');
+  }
+
+  function fmtDate(str) {
+    if (!str) return '';
+    const d = new Date(str);
+    if (isNaN(d)) return str.slice(0, 10);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function monthKey(str) {
+    if (!str) return 'unknown';
+    return (str + '').slice(0, 7);
+  }
+
+  function fmtMonth(key) {
+    if (key === 'unknown') return 'Unknown';
+    const [y, m] = key.split('-');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[parseInt(m, 10) - 1]} ${y}`;
+  }
+
+  function renderList(prs) {
+    const container = document.getElementById('list');
+    if (!prs.length) {
+      container.innerHTML = '<div class="empty">No matching PRs found.</div>';
+      return;
+    }
+
+    // Group by month (from fetched_at)
+    const groups = {};
+    prs.forEach(pr => {
+      const key = monthKey(pr.fetched_at);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(pr);
+    });
+
+    const sortedKeys = Object.keys(groups).sort().reverse();
+    container.innerHTML = sortedKeys.map(key => {
+      const rows = groups[key].map(pr => {
+        const ghUrl = `https://github.com/AztecProtocol/aztec-packages/pull/${pr.pr_number}`;
+        const adds = pr.additions != null ? `<span class="add">+${pr.additions}</span>` : '';
+        const dels = pr.deletions != null ? `<span class="del">-${pr.deletions}</span>` : '';
+        const diff = (adds || dels) ? `<span class="pr-diff">${adds} ${dels}</span>` : '';
+        return `<div class="pr-row">
+          <span class="dot">●</span>
+          <span class="pr-num"><a href="${ghUrl}" target="_blank">#${pr.pr_number}</a></span>
+          <span class="pr-title" title="${pr.title}">${highlight(pr.title || '')}</span>
+          <span class="pr-author">${pr.author || ''}</span>
+          ${diff}
+          <span class="pr-date">${fmtDate(pr.fetched_at)}</span>
+        </div>`;
+      }).join('');
+      return `<div class="month-group">
+        <div class="month-header">${fmtMonth(key)} — ${groups[key].length} PRs</div>
+        ${rows}
+      </div>`;
+    }).join('');
+  }
+
+  function applyFilter() {
+    const q = document.getElementById('filter').value.trim().toLowerCase();
+    if (!q) { renderList(allPRs); return; }
+    renderList(allPRs.filter(pr =>
+      (pr.title || '').toLowerCase().includes(q) ||
+      (pr.author || '').toLowerCase().includes(q) ||
+      String(pr.pr_number).includes(q)
+    ));
+  }
+
+  async function load() {
+    try {
+      const resp = await fetch('/api/flake-prs');
+      if (!resp.ok) throw new Error(resp.statusText);
+      allPRs = await resp.json();
+
+      const authors = new Set(allPRs.map(p => p.author).filter(Boolean));
+      document.getElementById('stats-bar').innerHTML =
+        `<span>${allPRs.length}</span> PRs &middot; <span>${authors.size}</span> contributors`;
+
+      renderList(allPRs);
+    } catch (e) {
+      document.getElementById('stats-bar').textContent = 'Error loading data: ' + e.message;
+    }
+  }
+
+  load();
+</script>
+</body>
+</html>

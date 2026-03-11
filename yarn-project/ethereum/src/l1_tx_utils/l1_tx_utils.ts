@@ -1,8 +1,9 @@
+import type { BlobKzgInstance } from '@aztec/blob-lib/types';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { merge, pick } from '@aztec/foundation/collection';
 import { InterruptError, TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -13,16 +14,13 @@ import {
   type Abi,
   type BlockOverrides,
   type Hex,
-  type NonceManager,
   type PrepareTransactionRequestRequest,
   type StateOverride,
   type TransactionReceipt,
   type TransactionSerializable,
-  createNonceManager,
   formatGwei,
   serializeTransaction,
 } from 'viem';
-import { jsonRpc } from 'viem/nonce';
 
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
@@ -30,6 +28,7 @@ import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './config.js';
 import { MAX_L1_TX_LIMIT } from './constants.js';
 import type { IL1TxMetrics, IL1TxStore } from './interfaces.js';
 import { ReadOnlyL1TxUtils } from './readonly_l1_tx_utils.js';
+import { Delayer, createDelayer, wrapClientWithDelayer } from './tx_delayer.js';
 import {
   DroppedTransactionError,
   type L1BlobInputs,
@@ -45,8 +44,13 @@ import {
 const MAX_L1_TX_STATES = 32;
 
 export class L1TxUtils extends ReadOnlyL1TxUtils {
-  protected nonceManager: NonceManager;
   protected txs: L1TxState[] = [];
+  /** Last nonce successfully sent to the chain. Used as a lower bound when a fallback RPC node returns a stale count. */
+  private lastSentNonce: number | undefined;
+  /** Tx delayer for testing. Only set when enableDelayer config is true. */
+  public delayer?: Delayer;
+  /** KZG instance for blob operations. */
+  protected kzg?: BlobKzgInstance;
 
   constructor(
     public override client: ViemClient,
@@ -58,9 +62,25 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     debugMaxGasLimit: boolean = false,
     protected store?: IL1TxStore,
     protected metrics?: IL1TxMetrics,
+    kzg?: BlobKzgInstance,
+    delayer?: Delayer,
   ) {
     super(client, logger, dateProvider, config, debugMaxGasLimit);
-    this.nonceManager = createNonceManager({ source: jsonRpc() });
+    this.kzg = kzg;
+
+    // Set up delayer: use provided one or create new
+    if (config?.enableDelayer && config?.ethereumSlotDuration) {
+      this.delayer =
+        delayer ?? this.createDelayer({ ethereumSlotDuration: config.ethereumSlotDuration }, logger.getBindings());
+      this.client = wrapClientWithDelayer(this.client, this.delayer);
+      if (config.txDelayerMaxInclusionTimeIntoSlot !== undefined) {
+        this.delayer.setMaxInclusionTimeIntoSlot(config.txDelayerMaxInclusionTimeIntoSlot);
+      }
+    } else if (delayer) {
+      // Delayer provided but enableDelayer not set — just store it without wrapping
+      logger.warn('Delayer provided but enableDelayer config is not set; delayer will not be used');
+      this.delayer = delayer;
+    }
   }
 
   public get state() {
@@ -87,6 +107,11 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       this.metrics?.recordMinedTx(l1TxState, new Date(l1Timestamp));
     } else if (newState === TxUtilsState.NOT_MINED) {
       this.metrics?.recordDroppedTx(l1TxState);
+      // The tx was dropped: the chain nonce reverted to l1TxState.nonce, so our lower bound is
+      // no longer valid. Clear it so the next send fetches the real nonce from the chain.
+      if (this.lastSentNonce === l1TxState.nonce) {
+        this.lastSentNonce = undefined;
+      }
     }
 
     // Update state in the store
@@ -221,15 +246,6 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         throw new InterruptError(`Transaction sending is interrupted`);
       }
 
-      const nonce = await this.nonceManager.consume({
-        client: this.client,
-        address: account,
-        chainId: this.client.chain.id,
-      });
-
-      const baseState = { request, gasLimit, blobInputs, gasPrice, nonce };
-      const txData = this.makeTxData(baseState, { isCancelTx: false });
-
       const now = new Date(await this.getL1Timestamp());
       if (gasConfig.txTimeoutAt && now > gasConfig.txTimeoutAt) {
         throw new TimeoutError(
@@ -237,9 +253,20 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         );
       }
 
+      const chainNonce = await this.client.getTransactionCount({ address: account, blockTag: 'pending' });
+      // If a fallback RPC node returns a stale count (lower than what we last sent), use our
+      // local lower bound to avoid sending a duplicate of an already-pending transaction.
+      const nonce =
+        this.lastSentNonce !== undefined && chainNonce <= this.lastSentNonce ? this.lastSentNonce + 1 : chainNonce;
+
+      const baseState = { request, gasLimit, blobInputs, gasPrice, nonce };
+      const txData = this.makeTxData(baseState, { isCancelTx: false });
+
       // Send the new tx
       const signedRequest = await this.prepareSignedTransaction(txData);
       const txHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
+      // Update after tx is sent successfully
+      this.lastSentNonce = nonce;
 
       // Create the new state for monitoring
       const l1TxState: L1TxState = {
@@ -423,7 +450,6 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
             { nonce, account, pendingNonce, timePassed },
           );
           await this.updateState(state, TxUtilsState.NOT_MINED);
-          this.nonceManager.reset({ address: account, chainId: this.client.chain.id });
           throw new DroppedTransactionError(nonce, account);
         }
 
@@ -515,12 +541,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
     // Oh no, the transaction has timed out!
     if (isCancelTx || !gasConfig.cancelTxOnTimeout) {
-      // If this was already a cancellation tx, or we are configured to not cancel txs, we just mark it as NOT_MINED
-      // and reset the nonce manager, so the next tx that comes along can reuse the nonce if/when this tx gets dropped.
-      // This is the nastiest scenario for us, since the new tx could acquire the next nonce, but then this tx is dropped,
-      // and the new tx would never get mined. Eventually, the new tx would also drop.
       await this.updateState(state, TxUtilsState.NOT_MINED);
-      this.nonceManager.reset({ address: account, chainId: this.client.chain.id });
     } else {
       // Otherwise we fire the cancellation without awaiting to avoid blocking the caller,
       // and monitor it in the background so we can speed it up as needed.
@@ -659,7 +680,6 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         { nonce, account },
       );
       await this.updateState(state, TxUtilsState.NOT_MINED);
-      this.nonceManager.reset({ address: account, chainId: this.client.chain.id });
       return;
     }
 
@@ -671,7 +691,6 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         { nonce, account, currentNonce },
       );
       await this.updateState(state, TxUtilsState.NOT_MINED);
-      this.nonceManager.reset({ address: account, chainId: this.client.chain.id });
       return;
     }
 
@@ -731,8 +750,17 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     return Number(timestamp) * 1000;
   }
 
-  /** Makes empty blob inputs for the cancellation tx. To be overridden in L1TxUtilsWithBlobs. */
-  protected makeEmptyBlobInputs(_maxFeePerBlobGas: bigint): Required<L1BlobInputs> {
-    throw new Error('Cannot make empty blob inputs for cancellation');
+  /** Makes empty blob inputs for the cancellation tx. */
+  protected makeEmptyBlobInputs(maxFeePerBlobGas: bigint): Required<L1BlobInputs> {
+    if (!this.kzg) {
+      throw new Error('Cannot make empty blob inputs for cancellation without kzg');
+    }
+    const blobData = new Uint8Array(131072).fill(0);
+    return { blobs: [blobData], kzg: this.kzg, maxFeePerBlobGas };
+  }
+
+  /** Creates a new delayer instance. */
+  protected createDelayer(opts: { ethereumSlotDuration: bigint | number }, bindings: LoggerBindings): Delayer {
+    return createDelayer(this.dateProvider, opts, bindings);
   }
 }

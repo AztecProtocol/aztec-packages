@@ -61,8 +61,43 @@ function get_ip_for_instance {
     --output text)
 }
 
+function get_iid_for_instance {
+  iid=$(aws ec2 describe-instances \
+    --region us-east-2 \
+    --filters "Name=tag:Name,Values=$instance_name" "Name=instance-state-name,Values=running" \
+    --query "Reservations[].Instances[0].InstanceId" \
+    --output text | tr -d '\n\r' | xargs)
+}
+
 function get_latest_run_id {
   gh run list --workflow $ci3_workflow_id -b $BRANCH --limit 1 --json databaseId -q .[0].databaseId
+}
+
+# Jobs in the ci dashboards are grouped on a single line by RUN_ID.
+export RUN_ID=${RUN_ID:-$(date +%s%3N)}
+
+function multi_job_run {
+  if [[ -z "${CI_DASHBOARD:-}" ]]; then
+    if [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
+      export CI_DASHBOARD=${TARGET_BRANCH:-local}
+    else
+      export CI_DASHBOARD="prs"
+    fi
+  fi
+  export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-75}
+  export AWS_SHUTDOWN_TIME_ARM=${AWS_SHUTDOWN_TIME_ARM:-90}
+  export DENOISE=1
+  export DENOISE_WIDTH=32
+  run() {
+    [ -n "${4:-}" ] && export REF_NAME=$4
+    PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
+  }
+  export -f run
+
+  parallel --colsep ' ' --jobs 100 --termseq 'TERM,10000' \
+    --tagstring '{1}' \
+    --line-buffered --halt now,fail=1 \
+    'run {1} {2} {3} {4}' ::: "$@" | DUP=1 cache_log "CI run" $RUN_ID
 }
 
 # Jobs in the ci dashboards are grouped on a single line by RUN_ID.
@@ -72,9 +107,28 @@ case "$cmd" in
   dash)
     watch_ci -s next,prs --user --watch
     ;;
-  fast|full|full-no-test-cache|full-no-test-cache-makefile|docs|barretenberg|barretenberg-full)
+  fast|docs|barretenberg|barretenberg-full)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-$cmd"
+    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    ;;
+  socket-fix)
+    export CI_DASHBOARD="prs"
+    export JOB_ID="x-socket-fix"
+    export INSTANCE_POSTFIX="socket-fix"
+    export CPUS=16
+    bootstrap_ec2 "./bootstrap.sh ci-socket-fix $*"
+    ;;
+  full|full-no-test-cache)
+    export CI_DASHBOARD="prs"
+    export JOB_ID="x-$cmd"
+    export AWS_SHUTDOWN_TIME=75
+    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    ;;
+  barretenberg-debug)
+    export CI_DASHBOARD="nightly"
+    export JOB_ID="x-$cmd"
+    export CPUS=16
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   avm-inputs-collection|avm-check-circuit)
@@ -91,56 +145,29 @@ case "$cmd" in
       JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
     }
     export -f run
-    seq 1 ${1:-5} | parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered \
+    seq 1 ${1:-5} | parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered \
       'run $USER-x{}-full amd64 ci-full-no-test-cache'
     ;;
   merge-queue)
     # We perform full runs of all tests on multiple x86, and a single fast run on arm64.
-    if [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
-      export CI_DASHBOARD=${TARGET_BRANCH:-local}
-    else
-      export CI_DASHBOARD="prs"
-    fi
-    export DENOISE=1
-    export DENOISE_WIDTH=32
-    run() {
-      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
-    }
-    export -f run
-
-    parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x1-full amd64 ci-full-no-test-cache' \
-      'run x2-full amd64 ci-full-no-test-cache' \
-      'run x3-full amd64 ci-full-no-test-cache-makefile' \
-      'run x4-full amd64 ci-full-no-test-cache-makefile' \
-      'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
+    multi_job_run \
+      'x1-full amd64 ci-full-no-test-cache' \
+      'a1-fast arm64 ci-fast'
     ;;
   merge-queue-heavy)
     # Heavy merge queue with 10 parallel grind runs, used for merge-train/spartan PRs.
-    if [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
-      export CI_DASHBOARD=${TARGET_BRANCH:-local}
-    else
-      export CI_DASHBOARD="prs"
-    fi
-    export DENOISE=1
-    export DENOISE_WIDTH=32
-    run() {
-      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
-    }
-    export -f run
-
-    parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x1-full amd64 ci-full-no-test-cache' \
-      'run x2-full amd64 ci-full-no-test-cache' \
-      'run x3-full amd64 ci-full-no-test-cache' \
-      'run x4-full amd64 ci-full-no-test-cache' \
-      'run x5-full amd64 ci-full-no-test-cache' \
-      'run x6-full amd64 ci-full-no-test-cache' \
-      'run x7-full amd64 ci-full-no-test-cache' \
-      'run x8-full amd64 ci-full-no-test-cache' \
-      'run x9-full amd64 ci-full-no-test-cache' \
-      'run x10-full amd64 ci-full-no-test-cache' \
-      'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue heavy CI run" $RUN_ID
+    multi_job_run \
+      'x'{1..10}'-full amd64 ci-full-no-test-cache' \
+      'a1-fast arm64 ci-fast'
+    ;;
+  merge-queue-ci)
+    # 10 parallel grind runs with no build cache and dry run of release, used for merge-train/ci PRs.
+    export DRY_RUN=1
+    export NO_CACHE=1
+    multi_job_run \
+      'x'{1..10}'-full amd64 ci-full-no-test-cache' \
+      'a1-fast arm64 ci-fast' \
+      "release amd64 ci-release v0.0.1-commit.$(git rev-parse --short HEAD)"
     ;;
   grind-test)
     full_cmd="$1"
@@ -175,8 +202,9 @@ case "$cmd" in
     export CPUS=16
     run() {
       local set=$1
-      JOB_ID="x-${namespace}-${set}" INSTANCE_POSTFIX="n-deploy-${set}" \
-        bootstrap_ec2 "./bootstrap.sh ci-network-deploy $scenario ${namespace}-${set} \"$docker_image\" $set"
+      export JOB_ID="x-${namespace}-${set}"
+      export INSTANCE_POSTFIX="n-deploy-${set}"
+      bootstrap_ec2 "./bootstrap.sh ci-network-deploy $scenario ${namespace}-${set} \"$docker_image\" $set"
     }
     export -f run
     export scenario namespace docker_image
@@ -261,16 +289,9 @@ case "$cmd" in
   release)
     # Spin up ec2 instance and run the release flow.
     export CI_DASHBOARD="releases"
-    export DENOISE=1
-    export DENOISE_WIDTH=32
-    run() {
-      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-release'"
-    }
-    export -f run
-
-    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x-release amd64' \
-      'run a-release arm64' | DUP=1 cache_log "Release CI run" $RUN_ID
+    multi_job_run \
+      'x-release amd64 ci-release' \
+      'a-release arm64 ci-release'
     ;;
 
   ##################
@@ -280,21 +301,40 @@ case "$cmd" in
     # Spin up ec2 instance, clone, and drop into shell.
     # False triggers the shell on fail.
     cmd="${1:-false}"
-    exec bootstrap_ec2 "$cmd"
+    CI_USE_SSH=1 exec bootstrap_ec2 "$cmd"
     ;;
   shell-container)
     # Drop into a shell in the current running build instance container.
-    get_ip_for_instance
-    [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-    [ "$#" -eq 0 ] && set -- "zsh" || true
-    ssh -tq -F $ci3/aws/build_instance_ssh_config ubuntu@$ip \
-      "docker start aztec_build &>/dev/null || true && docker exec -it --user aztec-dev aztec_build $@"
+    if [ "${CI_USE_SSH:-0}" -eq 1 ]; then
+      get_ip_for_instance
+      [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
+      [ "$#" -eq 0 ] && set -- "zsh" || true
+      ssh -tq -F $ci3/aws/build_instance_ssh_config ubuntu@$ip \
+        "docker start aztec_build &>/dev/null || true && docker exec -it --user aztec-dev aztec_build $@"
+    else
+      get_iid_for_instance
+      [ -z "$iid" ] || [ "$iid" = "None" ] && echo "No instance found: $instance_name" && exit 1
+      [ "$#" -eq 0 ] && set -- "zsh" || true
+      aws ssm start-session \
+        --region us-east-2 \
+        --target "$iid" \
+        --document-name "AWS-StartInteractiveCommand" \
+        --parameters "{\"command\":[\"runuser -u ubuntu -- bash -c 'docker start aztec_build &>/dev/null || true && docker exec -it --user aztec-dev aztec_build $@'\"]}"
+    fi
     ;;
   shell-host)
     # Drop into a shell in the current running build host.
-    get_ip_for_instance
-    [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
+    if [ "${CI_USE_SSH:-0}" -eq 1 ]; then
+      get_ip_for_instance
+      [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
+      ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
+    else
+      get_iid_for_instance
+      [ -z "$iid" ] || [ "$iid" = "None" ] && echo "No instance found: $instance_name" && exit 1
+      aws ssm start-session \
+        --region us-east-2 \
+        --target "$iid"
+    fi
     ;;
   kill)
     existing_instance=$(aws ec2 describe-instances \

@@ -1,7 +1,13 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
-import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  EpochNumber,
+  IndexWithinCheckpoint,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { omit, times, timesParallel } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -12,6 +18,7 @@ import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type BlockData,
   CommitteeAttestation,
   CommitteeAttestationsAndSigners,
   GENESIS_CHECKPOINT_HEADER_HASH,
@@ -31,7 +38,8 @@ import {
   type WorldStateSynchronizerStatus,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { GlobalVariables, type Tx } from '@aztec/stdlib/tx';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
+import { BlockHeader, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
 
 import { expect } from '@jest/globals';
@@ -70,7 +78,9 @@ describe('sequencer', () => {
 
   let block: L2Block;
   let globalVariables: GlobalVariables;
-  let l1Constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>;
+  let l1Constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'> & {
+    rollupManaLimit: number;
+  };
 
   let sequencer: TestSequencer;
 
@@ -152,7 +162,7 @@ describe('sequencer', () => {
     );
 
     const l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
-    l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration };
+    l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration, rollupManaLimit: Infinity };
 
     epochCache = mockDeep<EpochCache>();
     epochCache.isEscapeHatchOpen.mockResolvedValue(false);
@@ -235,7 +245,13 @@ describe('sequencer', () => {
     checkpointBuilder.setBlockProvider(() => block);
 
     l2BlockSource = mock<L2BlockSource & L2BlockSink>({
-      getL2Block: mockFn().mockResolvedValue(L2Block.empty()),
+      getBlockData: mockFn().mockResolvedValue({
+        header: BlockHeader.empty(),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        blockHash: Fr.ZERO,
+        checkpointNumber: CheckpointNumber(0),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      } satisfies BlockData),
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
       getL2Tips: mockFn().mockResolvedValue({
         proposed: { number: lastBlockNumber, hash },
@@ -257,6 +273,7 @@ describe('sequencer', () => {
       getPendingChainValidationStatus: mockFn().mockResolvedValue({ valid: true }),
       getCheckpointedBlocksForEpoch: mockFn().mockResolvedValue([]),
       getCheckpointsForEpoch: mockFn().mockResolvedValue([]),
+      getCheckpointsDataForEpoch: mockFn().mockResolvedValue([]),
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
@@ -856,7 +873,7 @@ describe('sequencer', () => {
       sequencer.updateConfig({ enforceTimeTable: true, maxTxsPerBlock: 4, blockDurationMs: 500 });
 
       const txs = await timesParallel(8, i => makeTx(i * 0x10000));
-      block = await makeBlock(txs);
+      block = await makeBlock(txs.slice(0, 4));
       TestUtils.mockPendingTxs(p2p, txs);
 
       await sequencer.work();

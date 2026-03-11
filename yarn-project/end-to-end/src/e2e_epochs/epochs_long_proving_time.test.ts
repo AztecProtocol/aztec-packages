@@ -24,7 +24,12 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
     const { aztecSlotDuration } = EpochsTestContext.getSlotDurations({ aztecEpochDuration });
     const epochDurationInSeconds = aztecSlotDuration * aztecEpochDuration;
     const proverTestDelayMs = (epochDurationInSeconds * 1000 * 3) / 4;
-    test = await EpochsTestContext.setup({ aztecEpochDuration, aztecProofSubmissionEpochs: 8, proverTestDelayMs });
+    test = await EpochsTestContext.setup({
+      aztecEpochDuration,
+      aztecProofSubmissionEpochs: 1000, // Effectively don't re-org
+      proverTestDelayMs,
+      proverNodeMaxPendingJobs: 1, // We test for only a single job at once
+    });
     ({ logger, monitor, L1_BLOCK_TIME_IN_S } = test);
     logger.warn(`Initialized with prover delay set to ${proverTestDelayMs}ms (epoch is ${epochDurationInSeconds}s)`);
   });
@@ -42,7 +47,7 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
     // Wait until we hit the target proven block number, and keep an eye on how many proving jobs are run in parallel.
     let maxJobCount = 0;
     while (monitor.provenCheckpointNumber === undefined || monitor.provenCheckpointNumber < targetProvenBlockNumber) {
-      const jobs = await test.proverNodes[0].getJobs();
+      const jobs = await test.proverNodes[0].getProverNode()!.getJobs();
       if (jobs.length > maxJobCount) {
         maxJobCount = jobs.length;
         logger.info(`Updated max job count to ${maxJobCount}`, jobs);

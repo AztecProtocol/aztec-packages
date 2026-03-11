@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Determines CI mode from labels and environment variables.
-# Called by ci3.yml to set CI_MODE and related environment variables.
+# Called by ci3.yml and ci3-external.yml to set CI_MODE and related environment variables.
 # Outputs environment variables to GITHUB_ENV for use in subsequent steps.
 set -euo pipefail
 
@@ -23,7 +23,7 @@ function main {
   local target_branch
   if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ]; then
     target_branch="${MERGE_GROUP_BASE_REF:-}"
-  elif [ "${GITHUB_EVENT_NAME:-}" == "pull_request" ]; then
+  elif [ "${GITHUB_EVENT_NAME:-}" == "pull_request" ] || [ "${GITHUB_EVENT_NAME:-}" == "pull_request_target" ]; then
     target_branch="${PR_BASE_REF:-}"
   else
     target_branch="${GITHUB_REF_NAME:-}"
@@ -51,8 +51,9 @@ function main {
         local head_branch
         head_branch=$(GH_TOKEN="$GITHUB_TOKEN" gh pr view "$pr_number" --json headRefName -q '.headRefName' 2>/dev/null || true)
         if [ "$head_branch" == "merge-train/spartan" ]; then
-          echo "Merge-train/spartan PR detected, using merge-queue-heavy mode" >&2
           ci_mode="merge-queue-heavy"
+        elif [ "$head_branch" == "merge-train/ci" ]; then
+          ci_mode="merge-queue-ci"
         fi
       fi
     fi
@@ -85,6 +86,19 @@ function main {
   if [[ "$ci_mode" == "merge-queue" || "$ci_mode" == "merge-queue-heavy" || "$ci_mode" == "full" || "$ci_mode" == "full-no-test-cache" ]]; then
     echo "SHOULD_UPLOAD_BENCHMARKS=1" >> $GITHUB_ENV
   fi
+
+  # Determine the branch label for benchmark publishing.
+  # Only merge-queue runs targeting "next" publish under "next" since those represent code about to land.
+  # Everything else (ci-full PRs, merge queues for other branches) publishes under "prs"
+  # to avoid polluting the main benchmark graphs.
+  local bench_branch
+  if [[ ("$ci_mode" == "merge-queue" || "$ci_mode" == "merge-queue-heavy") && "$target_branch" == "next" ]]; then
+    bench_branch="$target_branch"
+  else
+    bench_branch="prs"
+  fi
+  echo "BENCH_BRANCH=$bench_branch" >> $GITHUB_ENV
+  echo "Bench branch: $bench_branch"
 
   # Handle no-cache label
   if has_label "no-cache"; then

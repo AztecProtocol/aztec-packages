@@ -1,7 +1,8 @@
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress, L2BlockId } from '@aztec/stdlib/block';
-import type { P2PApiFull } from '@aztec/stdlib/interfaces/server';
-import type { BlockProposal, CheckpointAttestation, CheckpointProposal, P2PClientType } from '@aztec/stdlib/p2p';
-import type { Tx, TxHash } from '@aztec/stdlib/tx';
+import type { ITxProvider, P2PClient } from '@aztec/stdlib/interfaces/server';
+import type { BlockProposal, CheckpointAttestation, CheckpointProposal, TopicType } from '@aztec/stdlib/p2p';
+import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 import type { ENR } from '@nethermindeth/enr';
@@ -47,7 +48,7 @@ export interface P2PSyncState {
 /**
  * Interface of a P2P client.
  **/
-export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & {
+export type P2P = P2PClient & {
   /**
    * Broadcasts a block proposal to other peers.
    *
@@ -101,32 +102,16 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   registerDuplicateAttestationCallback(callback: (info: DuplicateAttestationInfo) => void): void;
 
   /**
-   * Request a list of transactions from another peer by their tx hashes.
-   * @param txHashes - Hashes of the txs to query.
-   * @param pinnedPeerId - An optional peer id that will be used to request the tx from (in addition to other random peers).
-   * @returns A list of transactions or undefined if the transactions are not found.
-   */
-  requestTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId): Promise<Tx[]>;
-
-  /**
    * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
    * @param tx - The transaction.
    **/
   sendTx(tx: Tx): Promise<void>;
 
   /**
-   * Adds transactions to the pool. Does not send to peers or validate the tx.
-   * @param txs - The transactions.
-   * @returns The number of txs added to the pool. Note if the transaction already exists, it will not be added again.
+   * Handles failed transaction execution by removing txs from the pool.
+   * @param txHashes - Hashes of the transactions that failed execution.
    **/
-  addTxsToPool(txs: Tx[]): Promise<number>;
-
-  /**
-   * Deletes 'txs' from the pool, given hashes.
-   * NOT used if we use sendTx as reconcileTxPool will handle this.
-   * @param txHashes - Hashes to check.
-   **/
-  deleteTxs(txHashes: TxHash[]): Promise<void>;
+  handleFailedExecution(txHashes: TxHash[]): Promise<void>;
 
   /**
    * Returns a transaction in the transaction pool by its hash.
@@ -150,14 +135,6 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]>;
 
   /**
-   * Returns transactions in the transaction pool by hash, requesting from the network if not found.
-   * @param txHashes  - Hashes of tx to return.
-   * @param pinnedPeerId - An optional peer id that will be used to request the tx from (in addition to other random peers).
-   * @returns An array of tx or undefined.
-   */
-  getTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId | undefined): Promise<(Tx | undefined)[]>;
-
-  /**
    * Returns an archived transaction from the transaction pool by its hash.
    * @param txHash  - Hash of tx to return.
    * @returns A single tx or undefined.
@@ -174,14 +151,28 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   /** Returns an iterator over pending txs on the mempool. */
   iteratePendingTxs(): AsyncIterableIterator<Tx>;
 
+  /** Returns an iterator over pending txs that have been in the pool long enough to be eligible for block building. */
+  iterateEligiblePendingTxs(): AsyncIterableIterator<Tx>;
+
   /** Returns the number of pending txs in the mempool. */
   getPendingTxCount(): Promise<number>;
 
   /**
-   * Marks transactions as non-evictable in the pool.
-   * @param txHashes - Hashes of the transactions to mark as non-evictable.
+   * Protects existing transactions by hash for a given slot.
+   * Returns hashes of transactions that weren't found in the pool.
+   * @param txHashes - Hashes of the transactions to protect.
+   * @param blockHeader - The block header providing slot context.
+   * @returns Hashes of transactions not found in the pool.
    */
-  markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void>;
+  protectTxs(txHashes: TxHash[], blockHeader: BlockHeader): Promise<TxHash[]>;
+
+  /**
+   * Prepares the pool for a new slot.
+   * Unprotects transactions from earlier slots and validates them before
+   * returning to pending state.
+   * @param slotNumber - The slot number to prepare for
+   */
+  prepareForSlot(slotNumber: SlotNumber): Promise<void>;
 
   /**
    * Starts the p2p client.
@@ -214,10 +205,13 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   /** Identifies a p2p client. */
   isP2PClient(): true;
 
+  /** Returns the tx provider used for fetching transactions. */
+  getTxProvider(): ITxProvider;
+
   updateP2PConfig(config: Partial<P2PConfig>): Promise<void>;
 
-  /** Validates a set of txs. */
-  validate(txs: Tx[]): Promise<void>;
+  /** Validates a set of txs received in a block proposal. */
+  validateTxsReceivedInBlockProposal(txs: Tx[]): Promise<void>;
 
   /** Clears the db. */
   clear(): Promise<void>;
@@ -230,6 +224,12 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
 
   handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
 
+  /** Checks if any block proposals exist for the given slot. */
+  hasBlockProposalsForSlot(slot: SlotNumber): Promise<boolean>;
+
   /** If node running this P2P stack is validator, passes in validator address to P2P layer */
   registerThisValidatorAddresses(address: EthAddress[]): void;
+
+  /** Returns the number of peers in the GossipSub mesh for a given topic type. */
+  getGossipMeshPeerCount(topicType: TopicType): Promise<number>;
 };

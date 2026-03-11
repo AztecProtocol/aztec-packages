@@ -1,26 +1,23 @@
+// docs:start:run_recursion
 // docs:start:imports
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
 import type { FieldLike } from "@aztec/aztec.js/abi";
 import { getSponsoredFPCInstance } from "./scripts/sponsored_fpc.js";
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { ValueNotEqualContract } from "./artifacts/ValueNotEqual.js";
-import { getPXEConfig } from "@aztec/pxe/config";
-import { TestWallet } from "@aztec/test-wallet/server";
+import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
-import { rm } from "node:fs/promises";
+import { Fr } from "@aztec/aztec.js/fields";
 import assert from "node:assert";
+import fs from "node:fs";
 // docs:end:imports
 
 // docs:start:sample_data
-// Sample proof data - in production this comes from generate_data.ts
-// These are placeholder values for type-checking purposes
-const data = {
-  vkAsFields: [] as string[],
-  vkHash: "0x0",
-  proofAsFields: [] as string[],
-  publicInputs: ["2"],
-};
+if (!fs.existsSync("data.json")) {
+  console.error("data.json not found. Run 'yarn data' first to generate proof data.");
+  process.exit(1);
+}
+const data = JSON.parse(fs.readFileSync("data.json", "utf-8"));
 // docs:end:sample_data
 
 export const NODE_URL = "http://localhost:8080";
@@ -34,20 +31,11 @@ const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
 
 // Initialize wallet and connect to local network
 // The wallet manages accounts and sends transactions through the PXE
-export const setupWallet = async (): Promise<TestWallet> => {
+export const setupWallet = async (): Promise<EmbeddedWallet> => {
   try {
-    // Connect to the Aztec node (runs the rollup)
-    const aztecNode = await createAztecNodeClient(NODE_URL);
-
-    // Configure PXE (Private eXecution Environment)
-    // PXE runs on the client and handles private execution
-    const config = getPXEConfig();
-    await rm("pxe", { recursive: true, force: true });
-    config.dataDirectory = "pxe";
-    config.proverEnabled = true; // Enable proof generation
-
     // Create wallet with embedded PXE
-    const wallet = await TestWallet.create(aztecNode, config);
+    // The wallet manages accounts and connects to the node
+    let wallet = await EmbeddedWallet.create(NODE_URL);
 
     // Register the sponsored FPC so the wallet knows about it
     await wallet.registerContract(sponsoredFPC, SponsoredFPCContract.artifact);
@@ -63,22 +51,22 @@ export const setupWallet = async (): Promise<TestWallet> => {
 async function main() {
   // Step 1: Setup wallet and create account
   // Accounts in Aztec are smart contracts (account abstraction)
-  const testWallet = await setupWallet();
-  const account = await testWallet.createAccount();
-  const manager = await account.getDeployMethod();
+  const wallet = await setupWallet();
+  const manager = await wallet.createSchnorrAccount(Fr.random(), Fr.random());
 
   // Deploy the account contract
-  await manager.send({
+  const deployMethod = await manager.getDeployMethod();
+  await deployMethod.send({
     from: AztecAddress.ZERO,
     fee: { paymentMethod: sponsoredPaymentMethod },
   });
 
-  const accounts = await testWallet.getAccounts();
+  const accounts = await wallet.getAccounts();
 
   // Step 2: Deploy ValueNotEqual contract
   // Constructor args: initial counter (10), owner, VK hash
-  const valueNotEqual = await ValueNotEqualContract.deploy(
-    testWallet,
+  const { contract: valueNotEqual } = await ValueNotEqualContract.deploy(
+    wallet,
     10, // Initial counter value
     accounts[0].item, // Owner address
     data.vkHash as unknown as FieldLike, // VK hash for verification
@@ -96,9 +84,9 @@ async function main() {
 
   // Step 3: Read initial counter value
   // simulate() executes without submitting a transaction
-  let counterValue = await valueNotEqual.methods
+  let counterValue = (await valueNotEqual.methods
     .get_counter(accounts[0].item)
-    .simulate({ from: accounts[0].item });
+    .simulate({ from: accounts[0].item })).result;
   console.log(`Counter value: ${counterValue}`); // Should be 10
 
   // Step 4: Call increment() with proof data
@@ -108,7 +96,7 @@ async function main() {
   // 3. Submits the proof to the network
   // 4. Network verifies the proof
   // 5. Executes enqueued _increment_public()
-  const interaction = valueNotEqual.methods.increment(
+  const interaction = await valueNotEqual.methods.increment(
     accounts[0].item,
     data.vkAsFields as unknown as FieldLike[], // 115 field VK
     data.proofAsFields as unknown as FieldLike[], // 508 field proof
@@ -119,9 +107,9 @@ async function main() {
   await interaction.send(opts);
 
   // Step 6: Read updated counter
-  counterValue = await valueNotEqual.methods
+  counterValue = (await valueNotEqual.methods
     .get_counter(accounts[0].item)
-    .simulate({ from: accounts[0].item });
+    .simulate({ from: accounts[0].item })).result;
   console.log(`Counter value: ${counterValue}`); // Should be 11
 
   assert(counterValue === 11n, "Counter should be 11 after verification");
@@ -132,3 +120,4 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
+// docs:end:run_recursion

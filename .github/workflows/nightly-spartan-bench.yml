@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       nightly_tag:
-        description: "Nightly tag to use (e.g., 2.3.4-spartan.20251209). Leave empty to auto-detect."
+        description: "Nightly tag to use (e.g., 2.3.4-nightly.20251209). Leave empty to auto-detect."
         required: false
         type: string
 
@@ -21,7 +21,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: merge-train/spartan
+          ref: next
 
       - name: Determine nightly tag
         id: nightly-tag
@@ -30,7 +30,7 @@ jobs:
             nightly_tag="${{ inputs.nightly_tag }}"
           else
             current_version=$(jq -r '."."' .release-please-manifest.json)
-            nightly_tag="${current_version}-spartan.$(date -u +%Y%m%d)"
+            nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)"
           fi
           echo "nightly_tag=$nightly_tag" >> $GITHUB_OUTPUT
           echo "Using nightly tag: $nightly_tag"
@@ -102,23 +102,18 @@ jobs:
           fail-on-alert: false
           max-items-in-chart: 100
 
-      - name: Notify Slack on failure
+      - name: Notify Slack and dispatch ClaudeBox on failure
         if: failure() && github.event_name != 'workflow_dispatch'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          if [ -n "${SLACK_BOT_TOKEN}" ]; then
-            read -r -d '' data <<EOF || true
-            {
-              "channel": "#alerts-next-scenario",
-              "text": "Nightly Spartan Benchmarks FAILED (nightly tag ${{ steps.nightly-tag.outputs.nightly_tag }}): <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
-            }
-          EOF
-            curl -X POST https://slack.com/api/chat.postMessage \
-              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-              -H "Content-type: application/json" \
-              --data "$data"
-          fi
+          TAG="${{ steps.nightly-tag.outputs.nightly_tag }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./ci3/slack_notify_with_claudebox_kickoff "#alerts-next-scenario" \
+            "Nightly Spartan Benchmarks FAILED (nightly tag ${TAG}): <${RUN_URL}|View Run> (🤖)" \
+            "Nightly Spartan benchmarks failed (nightly tag ${TAG}). CI run: ${RUN_URL}. Investigate the benchmark failure and identify the root cause." \
+            --link "$RUN_URL"
 
   proving-benchmark:
     runs-on: ubuntu-latest
@@ -126,7 +121,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: merge-train/spartan
+          ref: next
 
       - name: Determine nightly tag
         id: nightly-tag
@@ -135,7 +130,7 @@ jobs:
             nightly_tag="${{ inputs.nightly_tag }}"
           else
             current_version=$(jq -r '."."' .release-please-manifest.json)
-            nightly_tag="${current_version}-spartan.$(date -u +%Y%m%d)"
+            nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)"
           fi
           echo "nightly_tag=$nightly_tag" >> $GITHUB_OUTPUT
           echo "Using nightly tag: $nightly_tag"
@@ -152,7 +147,7 @@ jobs:
           fi
 
       - name: Run proving benchmarks
-        timeout-minutes: 150
+        timeout-minutes: 180
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -162,7 +157,7 @@ jobs:
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           RUN_ID: ${{ github.run_id }}
-          AWS_SHUTDOWN_TIME: 150
+          AWS_SHUTDOWN_TIME: 180
           NO_SPOT: 1
         run: |
           ./.github/ci3.sh network-proving-bench prove-n-tps-fake prove-n-tps-fake "aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
@@ -205,23 +200,18 @@ jobs:
           fail-on-alert: false
           max-items-in-chart: 100
 
-      - name: Notify Slack on failure
+      - name: Notify Slack and dispatch ClaudeBox on failure
         if: failure() && github.event_name != 'workflow_dispatch'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          if [ -n "${SLACK_BOT_TOKEN}" ]; then
-            read -r -d '' data <<EOF || true
-            {
-              "channel": "#alerts-next-scenario",
-              "text": "Nightly Proving Benchmarks FAILED (nightly tag ${{ steps.nightly-tag.outputs.nightly_tag }}): <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
-            }
-          EOF
-            curl -X POST https://slack.com/api/chat.postMessage \
-              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-              -H "Content-type: application/json" \
-              --data "$data"
-          fi
+          TAG="${{ steps.nightly-tag.outputs.nightly_tag }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./ci3/slack_notify_with_claudebox_kickoff "#alerts-next-scenario" \
+            "Nightly Proving Benchmarks FAILED (nightly tag ${TAG}): <${RUN_URL}|View Run> (🤖)" \
+            "Nightly proving benchmarks failed (nightly tag ${TAG}). CI run: ${RUN_URL}. Investigate the benchmark failure and identify the root cause." \
+            --link "$RUN_URL"
 
   status:
     runs-on: ubuntu-latest

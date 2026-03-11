@@ -1,7 +1,7 @@
 # External Audit Scope: aes128
 
 Repository: https://github.com/AztecProtocol/aztec-packages
-Commit hash: TBD (link)
+Commit hash: 21476601b111f046f023474465598843e4cfd8ac
 
 ## Files to Audit
 Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`

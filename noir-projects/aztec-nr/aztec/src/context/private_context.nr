@@ -1,22 +1,21 @@
 use crate::{
     context::{inputs::PrivateContextInputs, NoteExistenceRequest, NullifierExistenceRequest, ReturnsHash},
     hash::{hash_args, hash_calldata_array},
-    keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
+    keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, public_key_domain_separators},
     messaging::process_l1_to_l2_message,
     oracle::{
         block_header::get_block_header_at,
         call_private_function::call_private_function_internal,
-        enqueue_public_function_call::{
-            is_side_effect_counter_revertible_oracle_wrapper, notify_enqueued_public_function_call,
-            notify_set_min_revertible_side_effect_counter, notify_set_public_teardown_function_call,
-        },
         execution_cache,
         key_validation_request::get_key_validation_request,
         logs::notify_created_contract_class_log,
         notes::notify_nullified_note,
         nullifiers::notify_created_nullifier,
+        public_call::validate_public_calldata,
+        tx_phase::{in_revertible_phase, notify_revertible_phase_start},
     },
 };
+use crate::logging::aztecnr_trace_log_format;
 use crate::protocol::{
     abis::{
         block_header::BlockHeader,
@@ -30,14 +29,14 @@ use crate::protocol::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_log::{PrivateLog, PrivateLogData},
         public_call_request::PublicCallRequest,
-        validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
+        validation_requests::{KeyValidationRequest, KeyValidationRequestAndSeparator},
     },
     address::{AztecAddress, EthAddress},
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
-        MAX_INCLUDE_BY_TIMESTAMP_DURATION, MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
-        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
-        MAX_NULLIFIERS_PER_CALL, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
+        MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+        MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, MAX_TX_LIFETIME,
         NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     hash::poseidon2_hash,
@@ -148,11 +147,11 @@ pub struct PrivateContext {
     pub args_hash: Field,
     pub return_hash: Field,
 
-    pub include_by_timestamp: u64,
+    pub expiration_timestamp: u64,
 
     pub(crate) note_hash_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     pub(crate) nullifier_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
-    key_validation_requests_and_generators: BoundedVec<KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
+    key_validation_requests_and_separators: BoundedVec<KeyValidationRequestAndSeparator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
     pub note_hashes: BoundedVec<Counted<NoteHash>, MAX_NOTE_HASHES_PER_CALL>,
     pub nullifiers: BoundedVec<Counted<Nullifier>, MAX_NULLIFIERS_PER_CALL>,
@@ -180,8 +179,6 @@ pub struct PrivateContext {
 
 impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
-        let max_allowed_include_by_timestamp =
-            inputs.anchor_block_header.global_variables.timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
         PrivateContext {
             inputs,
             side_effect_counter: inputs.start_side_effect_counter + 1,
@@ -189,10 +186,10 @@ impl PrivateContext {
             is_fee_payer: false,
             args_hash,
             return_hash: 0,
-            include_by_timestamp: max_allowed_include_by_timestamp,
+            expiration_timestamp: inputs.anchor_block_header.timestamp() + MAX_TX_LIFETIME,
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
-            key_validation_requests_and_generators: BoundedVec::new(),
+            key_validation_requests_and_separators: BoundedVec::new(),
             note_hashes: BoundedVec::new(),
             nullifiers: BoundedVec::new(),
             anchor_block_header: inputs.anchor_block_header,
@@ -430,7 +427,7 @@ impl PrivateContext {
     ///
     /// # Advanced
     /// * All private functions of a tx read from the same anchor block header.
-    /// * The protocol asserts that the `include_by_timestamp` of every tx is at most 24 hours beyond the timestamp of
+    /// * The protocol asserts that the `expiration_timestamp` of every tx is at most 24 hours beyond the timestamp of
     /// the tx's chosen anchor block header. This enables the network's nodes to safely prune old txs from the mempool.
     /// Therefore, the chosen block header _must_ be one from within the last 24 hours.
     ///
@@ -496,11 +493,11 @@ impl PrivateContext {
             returns_hash: self.return_hash,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
-            include_by_timestamp: self.include_by_timestamp,
+            expiration_timestamp: self.expiration_timestamp,
             note_hash_read_requests: ClaimedLengthArray::from_bounded_vec(self.note_hash_read_requests),
             nullifier_read_requests: ClaimedLengthArray::from_bounded_vec(self.nullifier_read_requests),
-            key_validation_requests_and_generators: ClaimedLengthArray::from_bounded_vec(
-                self.key_validation_requests_and_generators,
+            key_validation_requests_and_separators: ClaimedLengthArray::from_bounded_vec(
+                self.key_validation_requests_and_separators,
             ),
             note_hashes: ClaimedLengthArray::from_bounded_vec(self.note_hashes),
             nullifiers: ClaimedLengthArray::from_bounded_vec(self.nullifiers),
@@ -529,7 +526,7 @@ impl PrivateContext {
     /// balance (>= the gas limits specified in the TxContext) by the time we reach the public setup phase of the tx.
     ///
     pub fn set_as_fee_payer(&mut self) {
-        crate::protocol::debug_log::debug_log_format("Setting {0} as fee payer", [self.this_address().to_field()]);
+        aztecnr_trace_log_format!("Setting {0} as fee payer")([self.this_address().to_field()]);
         self.is_fee_payer = true;
     }
 
@@ -537,7 +534,7 @@ impl PrivateContext {
         let current_counter = self.side_effect_counter;
 
         // Safety: Kernel will validate that the claim is correct by validating the expected counters.
-        let is_revertible = unsafe { is_side_effect_counter_revertible_oracle_wrapper(current_counter) };
+        let is_revertible = unsafe { in_revertible_phase(current_counter) };
 
         if is_revertible {
             if (self.expected_revertible_side_effect_counter == 0)
@@ -578,12 +575,9 @@ impl PrivateContext {
         // Incrementing the side effect counter when ending setup ensures non ambiguity for the counter where we change
         // phases.
         self.side_effect_counter += 1;
-        // crate::protocol::debug_log::debug_log_format(
-        //     "Ending setup at counter {0}",
-        //     [self.side_effect_counter as Field]
-        // );
+        aztecnr_trace_log_format!("Ending setup at counter {0}")([self.side_effect_counter as Field]);
         self.min_revertible_side_effect_counter = self.next_counter();
-        notify_set_min_revertible_side_effect_counter(self.min_revertible_side_effect_counter);
+        notify_revertible_phase_start(self.min_revertible_side_effect_counter);
     }
 
     /// Sets a deadline (an "include-by timestamp") for when this transaction must be included in a block.
@@ -598,11 +592,11 @@ impl PrivateContext {
     /// This expiry timestamp is publicly visible. See the "Advanced" section for privacy concerns.
     ///
     /// # Arguments
-    /// * `include_by_timestamp` - Unix timestamp (seconds) deadline for inclusion. The include-by timestamp of this tx
+    /// * `expiration_timestamp` - Unix timestamp (seconds) deadline for inclusion. The include-by timestamp of this tx
     /// will be _at most_ the timestamp specified.
     ///
     /// # Advanced
-    /// * If multiple functions set differing `include_by_timestamp`s, the kernel circuits will set it to be the
+    /// * If multiple functions set differing `expiration_timestamp`s, the kernel circuits will set it to be the
     /// _minimum_ of the two. This ensures the tx expiry requirements of all functions in the tx are met.
     /// * Rollup circuits will reject expired txs.
     /// * The protocol enforces that all transactions must be included within 24 hours of their chosen anchor block's
@@ -613,14 +607,14 @@ impl PrivateContext {
     /// network as a whole. For example, if a contract interaction sets include-by to some publicly-known value (e.g.
     /// the time when a contract upgrades), then the wallet might wish to set an even lower one to avoid revealing that
     /// this tx is interacting with said contract. Ideally, all wallets should standardize on an approach in order to
-    ///   provide users with a large anonymity set -- although the exact approach
+    ///   provide users with a large privacy set -- although the exact approach
     /// will need to be discussed. Wallets that deviate from a standard might accidentally reveal which wallet each
     /// transaction originates from.
     ///
-    // docs:start:include-by-timestamp
-    pub fn set_include_by_timestamp(&mut self, include_by_timestamp: u64) {
-        // docs:end:include-by-timestamp
-        self.include_by_timestamp = std::cmp::min(self.include_by_timestamp, include_by_timestamp);
+    // docs:start:expiration-timestamp
+    pub fn set_expiration_timestamp(&mut self, expiration_timestamp: u64) {
+        // docs:end:expiration-timestamp
+        self.expiration_timestamp = std::cmp::min(self.expiration_timestamp, expiration_timestamp);
     }
 
     /// Asserts that a note has been created.
@@ -731,10 +725,10 @@ impl PrivateContext {
         self.request_sk_app(npk_m_hash, NULLIFIER_INDEX)
     }
 
-    /// Requests the app-siloed nullifier secret key (nsk_app) for the given (hashed) master nullifier public key
-    /// (npk_m), from the user's PXE.
+    /// Requests the app-siloed outgoing viewing secret key (ovsk_app) for the given (hashed) master outgoing
+    /// viewing public key (ovpk_m), from the user's PXE.
     ///
-    /// See `request_nsk_app` and `request_sk_app` for more info.
+    /// See `request_nhk_app` and `request_sk_app` for more info.
     ///
     /// The intention of the "outgoing" keypair is to provide a second secret key for all of a user's outgoing activity
     /// (i.e. for notes that a user creates, as opposed to notes that a user receives from others). The separation of
@@ -798,8 +792,11 @@ impl PrivateContext {
             let request = unsafe { get_key_validation_request(pk_m_hash, key_index) };
             assert_eq(request.pk_m.hash(), pk_m_hash, "Obtained invalid key validation request");
 
-            self.key_validation_requests_and_generators.push(
-                KeyValidationRequestAndGenerator { request, sk_app_generator: sk_generators[key_index as u32] },
+            self.key_validation_requests_and_separators.push(
+                KeyValidationRequestAndSeparator {
+                    request,
+                    key_type_domain_separator: public_key_domain_separators[key_index as u32],
+                },
             );
             self.last_key_validation_requests[key_index as u32] = Option::some(request);
             request.sk_app
@@ -1109,7 +1106,7 @@ impl PrivateContext {
         args_hash: Field,
         is_static_call: bool,
     ) -> ReturnsHash {
-        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
+        let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         let start_side_effect_counter = self.side_effect_counter;
 
         // Safety: The oracle simulates the private call and returns the value of the side effects counter after
@@ -1276,9 +1273,9 @@ impl PrivateContext {
     ) {
         let counter = self.next_counter();
 
-        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
+        let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
 
-        notify_enqueued_public_function_call(contract_address, calldata_hash, counter, is_static_call);
+        validate_public_calldata(calldata_hash);
 
         let msg_sender = if hide_msg_sender {
             NULL_MSG_SENDER_CONTRACT_ADDRESS
@@ -1347,11 +1344,9 @@ impl PrivateContext {
         is_static_call: bool,
         hide_msg_sender: bool,
     ) {
-        let counter = self.next_counter();
+        let is_static_call = is_static_call | self.inputs.call_context.is_static_call;
 
-        let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
-
-        notify_set_public_teardown_function_call(contract_address, calldata_hash, counter, is_static_call);
+        validate_public_calldata(calldata_hash);
 
         let msg_sender = if hide_msg_sender {
             NULL_MSG_SENDER_CONTRACT_ADDRESS
@@ -1460,10 +1455,10 @@ impl Empty for PrivateContext {
             is_fee_payer: false,
             args_hash: 0,
             return_hash: 0,
-            include_by_timestamp: 0,
+            expiration_timestamp: 0,
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
-            key_validation_requests_and_generators: BoundedVec::new(),
+            key_validation_requests_and_separators: BoundedVec::new(),
             note_hashes: BoundedVec::new(),
             nullifiers: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),

@@ -10,6 +10,7 @@ contracts: []
 dependencies:
   - "@aztec/aztec.js"
   - "@aztec/accounts"
-  - "@aztec/test-wallet"
+  - "@aztec/wallets"
   - "@aztec/noir-contracts.js"
   - "@aztec/stdlib"
+  - "@aztec/ethereum"

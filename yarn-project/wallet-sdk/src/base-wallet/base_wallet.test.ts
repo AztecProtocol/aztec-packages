@@ -88,6 +88,7 @@ describe('BaseWallet', () => {
       txEffect: TxEffect.empty(),
       publicReturnValues: [optimizedRv0, optimizedRv1],
       gasUsed: { totalGas: Gas.empty(), teardownGas: Gas.empty(), publicGas: Gas.empty(), billedGas: Gas.empty() },
+      debugLogs: [],
     };
     node.simulatePublicCalls.mockResolvedValue(optimizedPublicOutput);
 
@@ -98,6 +99,7 @@ describe('BaseWallet', () => {
       txEffect: TxEffect.empty(),
       publicReturnValues: [normalRv0],
       gasUsed: { totalGas: Gas.empty(), teardownGas: Gas.empty(), publicGas: Gas.empty(), billedGas: Gas.empty() },
+      debugLogs: [],
     };
     const normalResult = new TxSimulationResult(
       mock<PrivateExecutionResult>(),

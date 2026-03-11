@@ -57,7 +57,7 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
      * - Round 48: Gemini FOLD commitments -> Gemini:r challenge
      * - Round 49: Gemini evaluations -> Shplonk:nu challenge
      * - Round 50: Shplonk:Q commitment -> Shplonk:z challenge
-     * - Round 51: KZG:W commitment -> KZG:masking_challenge
+     * - Round 51: KZG:W commitment
      */
     static TranscriptManifest build_expected_decider_manifest()
     {
@@ -88,9 +88,8 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
         manifest.add_entry(LAST_FOLDING_ROUND + 3, "Shplonk:Q", frs_per_G);
         manifest.add_challenge(LAST_FOLDING_ROUND + 3, "Shplonk:z");
 
-        // Round 51: KZG:W -> KZG:masking_challenge
+        // Round 51: KZG:W
         manifest.add_entry(LAST_FOLDING_ROUND + 4, "KZG:W", frs_per_G);
-        manifest.add_challenge(LAST_FOLDING_ROUND + 4, "KZG:masking_challenge");
 
         return manifest;
     }
@@ -254,9 +253,8 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
         tamper_with_accumulator(folded_accumulator, mode);
 
         // Construct Decider proof
-        auto ck = CommitmentKey(folded_accumulator.dyadic_size);
         HypernovaDeciderProver decider_prover(prover_transcript);
-        auto decider_proof = decider_prover.construct_proof(ck, folded_accumulator);
+        auto decider_proof = decider_prover.construct_proof(folded_accumulator);
 
         // Natively verify the folding
         auto native_transcript = std::make_shared<NativeTranscript>();

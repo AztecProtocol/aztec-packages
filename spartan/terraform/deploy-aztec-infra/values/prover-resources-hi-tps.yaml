@@ -1,5 +1,4 @@
 node:
-  hostNetwork: true
   node:
     enableInspector: true
     nodeJsOptions:

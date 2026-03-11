@@ -6,15 +6,15 @@ global:
 
   l1ExecutionUrls: []
   l1ConsensusUrls: []
-  l1ConsensusHostApiKeys: []
-  l1ConsensusHostApiKeyHeaders: []
+  l1ConsensusHostApiKeys: ""
+  l1ConsensusHostApiKeyHeaders: ""
 
 validator:
   nodeType: "sequencer-node"
   mnemonic: "test test test test test test test test test test test junk"
   mnemonicStartIndex: 2000
   validatorsPerNode: 1
-  publishersPerValidatorKey: 2
+  publishersPerReplica: 4
   publisherMnemonicStartIndex: 7000
 
   persistence:
@@ -25,6 +25,8 @@ validator:
   replicaCount: 1
 
   node:
+    # Set to false in production to enable API key auth.
+    disableAdminApiKey: true
     configMap:
       envEnabled: true
     secret:

@@ -44,7 +44,7 @@ resource "helm_release" "keystore_setup" {
         }
       }
       publishers = {
-        perValidatorKey    = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+        perReplica         = var.VALIDATOR_PUBLISHERS_PER_REPLICA
         mnemonicStartIndex = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
       }
       provers = {
@@ -62,12 +62,12 @@ resource "helm_release" "keystore_setup" {
 
 resource "helm_release" "web3signer" {
   name             = "${var.RELEASE_NAME}-signer"
-  repository       = "https://ethpandaops.github.io/ethereum-helm-charts"
-  chart            = "web3signer"
-  version          = "1.0.6"
+  chart            = "${path.module}/web3signer-1.0.6.tgz"
   namespace        = var.NAMESPACE
   create_namespace = true
   upgrade_install  = true
+
+  depends_on = [helm_release.keystore_setup]
 
   values = [
     file("${path.module}/values/web3signer.yaml"),

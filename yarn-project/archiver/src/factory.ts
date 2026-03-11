@@ -7,7 +7,6 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { merge } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
@@ -15,6 +14,7 @@ import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { ArchiverEmitter } from '@aztec/stdlib/block';
 import { type ContractClassPublic, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
@@ -25,6 +25,7 @@ import { type ArchiverConfig, mapArchiverConfig } from './config.js';
 import { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
 import { ARCHIVER_DB_VERSION, KVArchiverDataStore } from './store/kv_archiver_store.js';
+import { L2TipsCache } from './store/l2_tips_cache.js';
 
 export const ARCHIVER_STORE_NAME = 'archiver';
 
@@ -84,6 +85,7 @@ export async function createArchiver(
     genesisArchiveRoot,
     slashingProposerAddress,
     targetCommitteeSize,
+    rollupManaLimit,
   ] = await Promise.all([
     rollup.getL1StartBlock(),
     rollup.getL1GenesisTime(),
@@ -91,6 +93,7 @@ export async function createArchiver(
     rollup.getGenesisArchiveTreeRoot(),
     rollup.getSlashingProposerAddress(),
     rollup.getTargetCommitteeSize(),
+    rollup.getManaLimit(),
   ] as const);
 
   const l1StartBlockHash = await publicClient
@@ -109,6 +112,7 @@ export async function createArchiver(
     proofSubmissionEpochs: Number(proofSubmissionEpochs),
     targetCommitteeSize,
     genesisArchiveRoot: Fr.fromString(genesisArchiveRoot.toString()),
+    rollupManaLimit: Number(rollupManaLimit),
   };
 
   const archiverConfig = merge(
@@ -128,13 +132,15 @@ export async function createArchiver(
   // Create the event emitter that will be shared by archiver and synchronizer
   const events = new EventEmitter() as ArchiverEmitter;
 
+  // Create L2 tips cache shared by archiver and synchronizer
+  const l2TipsCache = new L2TipsCache(archiverStore.blockStore);
+
   // Create the L1 synchronizer
   const synchronizer = new ArchiverL1Synchronizer(
     publicClient,
     debugClient,
     rollup,
     inbox,
-    { ...config.l1Contracts, slashingProposerAddress },
     archiverStore,
     archiverConfig,
     deps.blobClient,
@@ -144,6 +150,8 @@ export async function createArchiver(
     l1Constants,
     events,
     instrumentation.tracer,
+    l2TipsCache,
+    undefined, // log (use default)
   );
 
   const archiver = new Archiver(
@@ -158,6 +166,7 @@ export async function createArchiver(
     l1Constants,
     synchronizer,
     events,
+    l2TipsCache,
   );
 
   await archiver.start(opts.blockUntilSync);

@@ -3,7 +3,7 @@ import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { GeneratorIndex, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { DomainSeparator, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -45,7 +45,7 @@ describe('Keys', () => {
       initialFundedAccounts,
     } = await setup(1));
 
-    testContract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress });
+    ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
 
     secret = initialFundedAccounts[0].secret;
   });
@@ -101,7 +101,7 @@ describe('Keys', () => {
       // 3. Derive all the possible nullifiers using nhkApp
       const derivedNullifiers = await Promise.all(
         noteHashes.map(async noteHash => {
-          const innerNullifier = await poseidon2HashWithSeparator([noteHash, nhkApp], GeneratorIndex.NOTE_NULLIFIER);
+          const innerNullifier = await poseidon2HashWithSeparator([noteHash, nhkApp], DomainSeparator.NOTE_NULLIFIER);
           return siloNullifier(contractAddress, innerNullifier);
         }),
       );
@@ -125,7 +125,7 @@ describe('Keys', () => {
       const expectedOvskApp = await computeAppSecretKey(ovskM, testContract.address, 'ov');
 
       // Get the ovsk_app via the test contract
-      const ovskAppBigInt = await testContract.methods
+      const { result: ovskAppBigInt } = await testContract.methods
         .get_ovsk_app(ovpkMHash)
         .simulate({ from: defaultAccountAddress });
       const ovskApp = new Fr(ovskAppBigInt);

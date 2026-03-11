@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/polynomials/eq_polynomial.hpp"
@@ -174,6 +175,14 @@ template <typename Flavor> struct VerifierZKCorrectionHandler<Flavor, true> {
 
         // Get the claimed evaluation of the Libra multivariate evaluated at the sumcheck challenge
         libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
+
+        // OriginTag false positive: libra_evaluation is PCS-bound (verified by Shplemini opening).
+        // Once commitments are fixed and sumcheck challenges derived, the correct evaluation is determined.
+        if constexpr (IsRecursiveFlavor<Flavor>) {
+            const auto challenge_tag = multivariate_challenge.back().get_origin_tag();
+            libra_evaluation.set_origin_tag(challenge_tag);
+        }
+
         full_honk_purported_value += libra_evaluation * libra_challenge;
     }
 
@@ -573,6 +582,16 @@ template <typename Flavor> class SumcheckProver {
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round.
             partially_evaluate_in_place(partially_evaluated_polynomials, round_challenge);
+
+            if constexpr (IsTranslatorFlavor<Flavor>) {
+                if (round_idx == Flavor::LOG_MINI_CIRCUIT_SIZE - 1) {
+                    // Send mini-circuit evaluations mid-sumcheck so that they get hashed into the transcript,
+                    // ensuring the remaining LOG_N - LOG_MINI_CIRCUIT_SIZE round challenges depend on them.
+                    transcript->send_to_verifier("Sumcheck:minicircuit_evaluations",
+                                                 Flavor::get_minicircuit_evaluations(partially_evaluated_polynomials));
+                }
+            }
+
             // Prepare evaluation masking and libra structures for the next round (for ZK Flavors)
             zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
             row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
@@ -597,7 +616,14 @@ template <typename Flavor> class SumcheckProver {
         // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK, the
         // evaluations of all witnesses are masked.
         ClaimedEvaluations multivariate_evaluations = extract_claimed_evaluations(partially_evaluated_polynomials);
-        transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
+        // For Translator: send only the full-circuit evaluations (computable precomputed and minicircuit wires
+        // excluded)
+        if constexpr (IsTranslatorFlavor<Flavor>) {
+            transcript->send_to_verifier("Sumcheck:evaluations",
+                                         Flavor::get_full_circuit_evaluations(multivariate_evaluations));
+        } else {
+            transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
+        }
 
         // The evaluations of Libra uninvariates at \f$ g_0(u_0), \ldots, g_{d-1} (u_{d-1}) \f$ are added to the
         // transcript.
@@ -794,18 +820,48 @@ template <typename Flavor> class SumcheckVerifier {
         // For other flavors, we perform the sumcheck univariate consistency check
 
         bool verified = true;
+        ClaimedEvaluations purported_evaluations;
         for (size_t round_idx = 0; round_idx < virtual_log_n; round_idx++) {
             round.process_round(
                 transcript, multivariate_challenge, gate_separators, padding_indicator_array[round_idx], round_idx);
             verified = verified && !round.round_failed;
+
+            if constexpr (IsTranslatorFlavor<Flavor>) {
+                if (round_idx == Flavor::LOG_MINI_CIRCUIT_SIZE - 1) {
+                    // Receive mini-circuit evaluations mid-sumcheck so that they get hashed into the transcript,
+                    // ensuring the remaining LOG_N - LOG_MINI_CIRCUIT_SIZE round challenges depend on them.
+                    Flavor::set_minicircuit_evaluations(
+                        purported_evaluations,
+                        transcript->template receive_from_prover<std::array<FF, Flavor::NUM_MINICIRCUIT_EVALUATIONS>>(
+                            "Sumcheck:minicircuit_evaluations"));
+                }
+            }
         }
 
         // Populate claimed evaluations at the challenge
-        ClaimedEvaluations purported_evaluations;
-        auto transcript_evaluations =
-            transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
-        for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
-            eval = transcript_eval;
+        if constexpr (IsTranslatorFlavor<Flavor>) {
+            // Translator path: receive full-circuit evaluations, set them, and complete
+            // (computable precomputed selectors + L_0 scaling of minicircuit wires already placed above)
+            auto get_full_circuit_evaluations =
+                transcript->template receive_from_prover<std::array<FF, Flavor::NUM_FULL_CIRCUIT_EVALUATIONS>>(
+                    "Sumcheck:evaluations");
+            Flavor::complete_full_circuit_evaluations(
+                purported_evaluations, get_full_circuit_evaluations, std::span<const FF>(multivariate_challenge));
+        } else {
+            auto transcript_evaluations =
+                transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
+            for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
+                eval = transcript_eval;
+            }
+        }
+
+        // OriginTag false positive: The evaluations are PCS-bound - the prover committed to the
+        // polynomials before challenges were known, and the PCS opening verifies consistency.
+        if constexpr (IsRecursiveFlavor<Flavor>) {
+            const auto challenge_tag = multivariate_challenge.back().get_origin_tag();
+            for (auto& eval : purported_evaluations.get_all()) {
+                eval.set_origin_tag(challenge_tag);
+            }
         }
 
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.

@@ -1,6 +1,7 @@
 export {
   type Aliased,
   type SimulateOptions,
+  type ExecuteUtilityOptions,
   type ProfileOptions,
   type SendOptions,
   type BatchableMethods,
