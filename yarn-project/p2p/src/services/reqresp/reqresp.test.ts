@@ -488,7 +488,13 @@ describe('ReqResp', () => {
     it('should stop after max retry attempts', async () => {
       const batchSize = 12;
       const failedIndices = [10, 11];
-      nodes = await createNodes(peerScoring, 3);
+      nodes = await createNodes(peerScoring, 3, {
+        // Bump rate limits so that passing requests don't hit the real rate limiter
+        [ReqRespSubProtocol.PING]: {
+          peerLimit: { quotaTimeMs: 1000, quotaCount: 50 },
+          globalLimit: { quotaTimeMs: 1000, quotaCount: 50 },
+        },
+      });
 
       await startNodes(nodes);
       await sleep(500);
