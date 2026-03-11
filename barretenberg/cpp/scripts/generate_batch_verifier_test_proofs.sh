@@ -38,3 +38,4 @@ done
 echo ""
 echo "All proofs in: $output_dir"
 ls -1 "$output_dir"
+g
