@@ -270,6 +270,9 @@ void IPABatchProcessor::coordinator_loop()
                         .source = req.source,
                         .deferred_ipa_claim = std::move(result.deferred_ipa_claim),
                         .ipa_proof = std::move(result.ipa_proof),
+                        .mega_pcs_pairing_points = std::move(result.mega_pcs_pairing_points),
+                        .merge_pairing_points = std::move(result.merge_pairing_points),
+                        .translator_pairing_points = std::move(result.translator_pairing_points),
                         .all_checks_passed = result.all_checks_passed,
                         .error_message =
                             result.all_checks_passed ? "" : "verification failed (non-IPA checks in reduce phase)",
@@ -323,7 +326,51 @@ void IPABatchProcessor::coordinator_loop()
         }
 
         // ──────────────────────────────────────────────────────────────────────
-        // Phase 2: Batch IPA verify
+        // Phase 2: Batch BN254 pairing check
+        // ──────────────────────────────────────────────────────────────────────
+        // Aggregate all N proofs' pairing points (3 sets each: MegaZK PCS, Merge, Translator)
+        // into one pairing check using random challenges.
+
+        auto pairing_start = std::chrono::steady_clock::now();
+        NativePairingPoints aggregated_pairing_points;
+        for (size_t idx : passed_indices) {
+            auto& rr = reduce_results[idx];
+            aggregated_pairing_points.aggregate(rr.mega_pcs_pairing_points);
+            aggregated_pairing_points.aggregate(rr.merge_pairing_points);
+            aggregated_pairing_points.aggregate(rr.translator_pairing_points);
+        }
+        bool pairing_ok = aggregated_pairing_points.check();
+        auto pairing_end = std::chrono::steady_clock::now();
+        double pairing_ms = std::chrono::duration<double, std::milli>(pairing_end - pairing_start).count();
+
+        if (!pairing_ok) {
+            // Batch pairing failed — all proofs in batch are suspect, emit FAILED
+            info("IPABatchProcessor: batch pairing check FAILED for ", passed_indices.size(), " proofs");
+            for (size_t idx : passed_indices) {
+                auto& rr = reduce_results[idx];
+                double queue_ms = std::chrono::duration<double, std::milli>(reduce_start - rr.enqueue_time).count();
+                on_result_(VerifyResult{
+                    .request_id = rr.request_id,
+                    .verified = false,
+                    .status = static_cast<uint8_t>(VerifyStatus::FAILED),
+                    .error_message = "batch pairing check failed",
+                    .source = rr.source,
+                    .time_in_queue_ms = queue_ms,
+                    .time_in_verify_ms = rr.reduce_ms + pairing_ms,
+                    .time_in_sumcheck_ms = rr.reduce_ms,
+                });
+            }
+            if (shutdown_) {
+                std::lock_guard lock(mutex_);
+                if (incoming_.empty() && accumulator_.empty()) {
+                    break;
+                }
+            }
+            continue;
+        }
+
+        // ──────────────────────────────────────────────────────────────────────
+        // Phase 3: Batch IPA verify
         // ──────────────────────────────────────────────────────────────────────
 
         set_parallel_for_concurrency(num_ipa_cores_);
@@ -337,13 +384,15 @@ void IPABatchProcessor::coordinator_loop()
              passed_indices.size(),
              " proofs: reduce=",
              total_reduce_ms,
+             "ms, pairing=",
+             pairing_ms,
              "ms, IPA=",
              ipa_ms,
              "ms, result=",
              ipa_ok ? "OK" : "FAILED");
 
         // ──────────────────────────────────────────────────────────────────────
-        // Phase 3: Emit results or bisect
+        // Phase 4: Emit results or bisect
         // ──────────────────────────────────────────────────────────────────────
 
         if (ipa_ok) {

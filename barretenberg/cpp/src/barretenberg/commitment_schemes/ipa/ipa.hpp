@@ -18,9 +18,11 @@
 #include "barretenberg/stdlib/honk_verifier/ipa_accumulator.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include <atomic>
 #include <cstddef>
 #include <numeric>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -672,21 +674,52 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         BB_ASSERT(num_claims == transcripts.size());
         BB_ASSERT(num_claims > 0);
 
-        // Phase 1: Per-proof transcript processing (sequential, each proof is cheap)
+        // Phase 1: Per-proof transcript processing (parallel across proofs)
+        // Each iteration does an MSM (2*log_poly_length points) + s_vec construction,
+        // so we parallelize across proofs with work-stealing threads.
         std::vector<GroupElement> C_zeros(num_claims);
         std::vector<Fr> a_zeros(num_claims);
         std::vector<Fr> b_zeros(num_claims);
         std::vector<Fr> gen_challenges(num_claims);
         std::vector<Polynomial<Fr>> s_vecs(num_claims);
 
-        for (size_t i = 0; i < num_claims; i++) {
-            add_claim_to_hash_buffer(opening_claims[i], transcripts[i]);
-            auto data = read_transcript_data(opening_claims[i], transcripts[i]);
-            C_zeros[i] = std::move(data.C_zero);
-            b_zeros[i] = data.b_zero;
-            s_vecs[i] = std::move(data.s_vec);
-            gen_challenges[i] = data.gen_challenge;
-            a_zeros[i] = data.a_zero;
+        {
+            const size_t num_workers = std::min(num_claims, get_num_cpus());
+            std::atomic<size_t> work_index{ 0 };
+
+            auto process_claims = [&]() {
+                // Each worker is single-threaded; inner pippenger runs serially
+                set_parallel_for_concurrency(1);
+                while (true) {
+                    size_t i = work_index.fetch_add(1, std::memory_order_relaxed);
+                    if (i >= num_claims) {
+                        break;
+                    }
+                    add_claim_to_hash_buffer(opening_claims[i], transcripts[i]);
+                    auto data = read_transcript_data(opening_claims[i], transcripts[i]);
+                    C_zeros[i] = std::move(data.C_zero);
+                    b_zeros[i] = data.b_zero;
+                    s_vecs[i] = std::move(data.s_vec);
+                    gen_challenges[i] = data.gen_challenge;
+                    a_zeros[i] = data.a_zero;
+                }
+            };
+
+            if (num_workers <= 1) {
+                // Single claim: run directly without spawning threads
+                process_claims();
+            } else {
+                std::vector<std::thread> workers;
+                workers.reserve(num_workers - 1);
+                for (size_t w = 0; w < num_workers - 1; ++w) {
+                    workers.emplace_back(process_claims);
+                }
+                // Main thread also participates
+                process_claims();
+                for (auto& t : workers) {
+                    t.join();
+                }
+            }
         }
 
         // Phase 2: Batched computation using random challenge alpha

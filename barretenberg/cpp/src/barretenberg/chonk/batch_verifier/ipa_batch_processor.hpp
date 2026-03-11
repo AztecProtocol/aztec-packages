@@ -2,18 +2,21 @@
 #pragma once
 /**
  * @file ipa_batch_processor.hpp
- * @brief 3-phase trusted batch proof verification: parallel reduce → batch IPA → emit results.
+ * @brief 4-phase trusted batch proof verification: parallel reduce → batch pairing → batch IPA → emit results.
  *
  * Pipeline for trusted proofs:
- * 1. **Parallel reduce**: Run reduce_to_ipa_claim for each proof on sumcheck worker threads.
- *    Each proof produces an IPA claim + all_checks_passed flag.
- *    Proofs that fail non-IPA checks are emitted as FAILED immediately.
+ * 1. **Parallel reduce**: Run reduce_to_batch_ipa_claim for each proof on sumcheck worker threads.
+ *    Each proof produces an IPA claim, pairing points (3 sets), + all_checks_passed flag.
+ *    Proofs that fail non-IPA/non-pairing checks are emitted as FAILED immediately.
  *
- * 2. **Batch IPA verify**: Claims from passed proofs are batch-verified via a single
+ * 2. **Batch pairing check**: Aggregate all N proofs' pairing points (MegaZK PCS, Merge,
+ *    Translator — 3 sets per proof) with random challenges into ONE pairing check.
+ *
+ * 3. **Batch IPA verify**: Claims from passed proofs are batch-verified via a single
  *    IPA::batch_reduce_verify call (single large SRS MSM). Uses dedicated IPA cores
  *    via set_parallel_for_concurrency.
  *
- * 3. **Emit results / bisect**: If IPA passes, emit OK for all. If IPA fails,
+ * 4. **Emit results / bisect**: If IPA passes, emit OK for all. If IPA fails,
  *    bisect using cached claims (no re-reduction needed) to find bad proofs.
  *
  * Bad proof handling:
@@ -64,9 +67,12 @@ class IPABatchProcessor {
   private:
     using DeferredIPAClaim = ChonkNativeVerifier::DeferredIPAClaim;
 
+    using NativePairingPoints = bb::PairingPoints<curve::BN254>;
+
     /**
      * @brief Result of reduce_to_batch_ipa_claim for a single proof.
-     * Contains a DeferredIPAClaim (ECCVM Shplonk MSM not yet computed).
+     * Contains a DeferredIPAClaim (ECCVM Shplonk MSM not yet computed) and
+     * deferred pairing points (3 sets: MegaZK PCS, Merge, Translator).
      * Cached so that bisection can reuse claims without re-running reduction.
      */
     struct ReduceResult {
@@ -74,6 +80,10 @@ class IPABatchProcessor {
         std::string source;
         DeferredIPAClaim deferred_ipa_claim; // Deferred ECCVM Shplonk MSM + evaluation
         HonkProof ipa_proof;
+        // Deferred pairing points from this proof
+        NativePairingPoints mega_pcs_pairing_points;
+        NativePairingPoints merge_pairing_points;
+        NativePairingPoints translator_pairing_points;
         bool all_checks_passed = false;
         std::string error_message;
         std::chrono::steady_clock::time_point enqueue_time;

@@ -12,23 +12,29 @@
 namespace bb {
 
 /**
- * @brief Run all Chonk verification except IPA, returning a deferred batch opening claim.
+ * @brief Run all Chonk verification except IPA and pairing checks, returning deferred claims and pairing points.
+ * @details Pairing checks are deferred for batch aggregation across N proofs. Returns 3 sets of pairing points
+ * (MegaZK PCS, Merge, Translator) that the caller must aggregate and verify.
  */
 template <>
 ChonkVerifier<false>::BatchIPAReductionResult ChonkVerifier<false>::reduce_to_batch_ipa_claim(const Proof& proof)
 {
     BB_BENCH_NAME("ChonkVerifier::reduce_to_batch_ipa_claim");
-    // Step 1: Verify the Hiding kernel proof (includes pairing check)
+    // Step 1: Reduce the Hiding kernel proof to pairing check (without performing it)
     HidingKernelVerifier verifier{ vk_and_hash, transcript };
-    auto verifier_output = verifier.verify_proof(proof.mega_proof);
-    if (!verifier_output.result) {
-        info("ChonkVerifier: verification failed at MegaZK verification step");
-        return { {}, {}, false };
+    auto [pcs_pairing_points, reduction_succeeded] = verifier.reduce_to_pairing_check(proof.mega_proof);
+    if (!reduction_succeeded) {
+        info("ChonkVerifier: verification failed at MegaZK reduction step");
+        return { {}, {}, {}, {}, {}, false };
     }
 
     // Extract public inputs and kernel data
     HidingKernelIO kernel_io;
     kernel_io.reconstruct_from_public(verifier.get_public_inputs());
+
+    // Aggregate PI pairing points with PCS pairing points (same as verify_proof does)
+    NativePairingPoints mega_pairing_points = kernel_io.pairing_inputs;
+    mega_pairing_points.aggregate(pcs_pairing_points);
 
     // Step 2: Perform databus consistency check
     const Commitment calldata_commitment = verifier.get_calldata_commitment();
@@ -37,21 +43,26 @@ ChonkVerifier<false>::BatchIPAReductionResult ChonkVerifier<false>::reduce_to_ba
     vinfo("ChonkVerifier: databus consistency verified: ", databus_consistency_verified);
     if (!databus_consistency_verified) {
         info("Chonk Verifier: verification failed at databus consistency check");
-        return { {}, {}, false };
+        return { {}, {}, {}, {}, {}, false };
     }
 
-    // Step 3: Goblin verification with deferred ECCVM Shplonk MSM
+    // Step 3: Goblin verification with deferred ECCVM Shplonk MSM (pairing checks also deferred)
     MergeCommitments merge_commitments{ .t_commitments = verifier.get_ecc_op_wires(),
                                         .T_prev_commitments = kernel_io.ecc_op_tables };
     GoblinVerifier goblin_verifier{ transcript, proof.goblin_proof, merge_commitments, MergeSettings::APPEND };
     auto goblin_output = goblin_verifier.reduce_to_pairing_check_and_batch_opening_claim();
 
     if (!goblin_output.all_checks_passed) {
-        info("ChonkVerifier: chonk verification failed at Goblin checks (merge/eccvm/translator reduction + pairing)");
-        return { {}, {}, false };
+        info("ChonkVerifier: chonk verification failed at Goblin checks (merge/eccvm/translator reduction)");
+        return { {}, {}, {}, {}, {}, false };
     }
 
-    return { std::move(goblin_output.deferred_ipa_claim), std::move(goblin_output.ipa_proof), true };
+    return { std::move(goblin_output.deferred_ipa_claim),
+             std::move(goblin_output.ipa_proof),
+             std::move(mega_pairing_points),
+             std::move(goblin_output.merge_pairing_points),
+             std::move(goblin_output.translator_pairing_points),
+             true };
 }
 
 /**
@@ -61,6 +72,15 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
 {
     auto batch_result = reduce_to_batch_ipa_claim(proof);
     if (!batch_result.all_checks_passed) {
+        return { {}, {}, false };
+    }
+
+    // Aggregate and check all pairing points (not in batch mode, so check immediately)
+    NativePairingPoints aggregated = std::move(batch_result.mega_pcs_pairing_points);
+    aggregated.aggregate(batch_result.merge_pairing_points);
+    aggregated.aggregate(batch_result.translator_pairing_points);
+    if (!aggregated.check()) {
+        info("ChonkVerifier: verification failed at aggregated pairing check");
         return { {}, {}, false };
     }
 

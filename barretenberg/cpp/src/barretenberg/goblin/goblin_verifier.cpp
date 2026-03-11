@@ -30,10 +30,7 @@ typename GoblinVerifier_<Curve>::BatchReductionResult GoblinVerifier_<
             info("Goblin verification failed at Merge step");
             return BatchReductionResult();
         }
-        if (!merge_result.pairing_points.check()) {
-            info("Goblin verification failed at Merge pairing check");
-            return BatchReductionResult();
-        }
+        // Pairing check deferred for batch aggregation
     }
 
     // Step 2: Verify the ECCVM proof (deferred Shplonk MSM)
@@ -67,11 +64,7 @@ typename GoblinVerifier_<Curve>::BatchReductionResult GoblinVerifier_<
             info("Goblin verification failed at Translator step");
             return BatchReductionResult();
         }
-
-        if (!translator_result.pairing_points.check()) {
-            info("Goblin verification failed at Translator pairing check");
-            return BatchReductionResult();
-        }
+        // Pairing check deferred for batch aggregation
     }
 
     bool all_checks_passed =

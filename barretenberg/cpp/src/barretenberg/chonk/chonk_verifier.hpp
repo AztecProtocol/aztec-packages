@@ -121,9 +121,14 @@ template <bool IsRecursive> class ChonkVerifier {
      * into a single MSM. Call deferred_ipa_claim.finalize() to get the OpeningClaim.
      */
     using DeferredIPAClaim = typename GoblinVerifier::BatchReductionResult::DeferredIPAClaim;
+    using NativePairingPoints = bb::PairingPoints<curve::BN254>;
     struct BatchIPAReductionResult {
         DeferredIPAClaim deferred_ipa_claim;
         ::bb::HonkProof ipa_proof;
+        // Deferred pairing points (3 sets per proof: MegaZK PCS, Merge, Translator)
+        NativePairingPoints mega_pcs_pairing_points;
+        NativePairingPoints merge_pairing_points;
+        NativePairingPoints translator_pairing_points;
         bool all_checks_passed;
     };
 
