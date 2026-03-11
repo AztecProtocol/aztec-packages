@@ -76,6 +76,30 @@ function get_latest_run_id {
 # Jobs in the ci dashboards are grouped on a single line by RUN_ID.
 export RUN_ID=${RUN_ID:-$(date +%s%3N)}
 
+# Post a GitHub commit status for the overall CI run.
+function post_github_run_status {
+  local state=$1
+  local target_url=$2
+  local token="${GITHUB_TOKEN:-}"
+  local repo="${GITHUB_REPOSITORY:-}"
+  local sha="${COMMIT_HASH:-}"
+  [[ -z "$token" || -z "$repo" || -z "$sha" ]] && return 0
+
+  local body
+  body=$(jq -n \
+    --arg state "$state" \
+    --arg target_url "$target_url" \
+    --arg description "CI run log" \
+    --arg context "ci/run" \
+    '{state: $state, target_url: $target_url, description: $description, context: $context}')
+
+  curl -s -o /dev/null -X POST \
+    -H "Authorization: token $token" \
+    -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/repos/${repo}/statuses/${sha}" \
+    -d "$body" &
+}
+
 function multi_job_run {
   if [[ -z "${CI_DASHBOARD:-}" ]]; then
     if [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
@@ -94,10 +118,23 @@ function multi_job_run {
   }
   export -f run
 
+  # Post a GitHub commit status for the overall CI run log.
+  local run_log_url="http://ci.aztec-labs.com/$RUN_ID"
+  post_github_run_status "pending" "$run_log_url"
+
   parallel --colsep ' ' --jobs 100 --termseq 'TERM,10000' \
     --tagstring '{1}' \
     --line-buffered --halt now,fail=1 \
     'run {1} {2} {3} {4}' ::: "$@" | DUP=1 cache_log "CI run" $RUN_ID
+  local code=${PIPESTATUS[0]}
+
+  # Post final GitHub commit status for the overall run.
+  if [ "$code" -eq 0 ]; then
+    post_github_run_status "success" "$run_log_url"
+  else
+    post_github_run_status "failure" "$run_log_url"
+  fi
+  return $code
 }
 
 # Jobs in the ci dashboards are grouped on a single line by RUN_ID.

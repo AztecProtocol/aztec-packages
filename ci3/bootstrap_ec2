@@ -27,6 +27,37 @@ if [ -n "${CI_DASHBOARD:-}" ]; then
   echo "CI dashboard: http://ci.aztec-labs.com/section/$CI_DASHBOARD"
 fi
 
+# Post a GitHub commit status linking to the CI log.
+# This makes the log URL visible on the PR/commit immediately, rather than buried in CI output.
+function post_github_ci_status {
+  local state=$1
+  local token="${GITHUB_TOKEN:-}"
+  local repo="${GITHUB_REPOSITORY:-}"
+  local sha="${COMMIT_HASH:-}"
+  [[ -z "$token" || -z "$repo" || -z "$sha" ]] && return 0
+
+  local context="ci/${JOB_ID:-main}"
+  context="${context:0:255}"
+  local description="${cmd:0:140}"
+
+  local body
+  body=$(jq -n \
+    --arg state "$state" \
+    --arg target_url "$log_url" \
+    --arg description "$description" \
+    --arg context "$context" \
+    '{state: $state, target_url: $target_url, description: $description, context: $context}')
+
+  curl -s -o /dev/null -X POST \
+    -H "Authorization: token $token" \
+    -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/repos/${repo}/statuses/${sha}" \
+    -d "$body" &
+}
+
+# Post pending status immediately so the CI log link is visible on GitHub.
+post_github_ci_status "pending"
+
 if [ "$arch" == "arm64" ]; then
   cores=64
   export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME_ARM:-${AWS_SHUTDOWN_TIME:-60}}
@@ -415,5 +446,13 @@ if [ "$exit_code" -eq 155 ]; then
   echo "Spot was evicted. Retrying with on-demand instance."
   NO_SPOT=1 exec "$0" "$@"
 else
+  # Print CI log URL at the end for easy access (avoid scrolling up).
+  echo -e "CI Log: ${yellow}$log_url${reset}"
+  # Post final GitHub commit status.
+  if [ "$exit_code" -eq 0 ]; then
+    post_github_ci_status "success"
+  else
+    post_github_ci_status "failure"
+  fi
   exit "$exit_code"
 fi
