@@ -33,28 +33,52 @@ pub struct NoteHashAndNullifier {
 /// a contract. The `#[aztec]` macro automatically creates such a contract library method called
 /// `_compute_note_hash_and_nullifier`, which looks something like this:
 ///
+<<<<<<< HEAD
 /// ```
+=======
+/// This function takes a note's packed content, storage slot, note type ID, address of the emitting contract,
+/// randomness and note nonce, and attempts to compute its inner note hash (not siloed by address nor uniqued by nonce)
+/// and inner nullifier (not siloed by address).
+///
+/// ## Transient Notes
+///
+/// This function is meant to always be used on **settled** notes, i.e. those that have been inserted into the trees
+/// and for which the nonce is known. It is never invoked in the context of a transient note, as those are not involved
+/// in message processing.
+///
+/// ## Automatic Implementation
+///
+/// The [`[#aztec]`](crate::macros::aztec::aztec) macro automatically creates a correct implementation of this function
+/// for each contract by inspecting all note types in use and the storage layout. This injected function is a
+/// `#[contract_library_method]` called `_compute_note_hash_and_nullifier`, and it looks something like this:
+///
+/// ```noir
+>>>>>>> 20d6c29c81 (fix: handle bad note lengths on compute_note_hash_and_nullifier (#21271))
 /// |packed_note, owner, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
 ///     if note_type_id == MyNoteType::get_id() {
-///         assert(packed_note.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
+///         if packed_note.len() != MY_NOTE_TYPE_SERIALIZATION_LENGTH {
+///             Option::none()
+///         } else {
+///             let note = MyNoteType::unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
 ///
-///         let note = MyNoteType::unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
+///             let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
+///             let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
+///                 HintedNote {
+///                     note, contract_address, owner, randomness, storage_slot,
+///                     metadata: SettledNoteMetadata::new(note_nonce).into(),
+///                 },
+///             );
 ///
-///         let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
-///         let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
-///             HintedNote{ note, contract_address, metadata: SettledNoteMetadata::new(note_nonce).into() },
-///             storage_slot
-///         );
+///             let inner_nullifier = note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
 ///
-///         let inner_nullifier = note.compute_nullifier_unconstrained(owner, note_hash_for_nullification);
-///
-///         Option::some(
-///             aztec::messages::discovery::NoteHashAndNullifier {
-///                 note_hash, inner_nullifier
-///             }
-///         )
+///             Option::some(
+///                 aztec::messages::discovery::NoteHashAndNullifier {
+///                     note_hash, inner_nullifier
+///                 }
+///             )
+///         }
 ///     } else if note_type_id == MyOtherNoteType::get_id() {
-///           ... // Similar to above but calling MyOtherNoteType::unpack_content
+///           ... // Similar to above but calling MyOtherNoteType::unpack
 ///     } else {
 ///         Option::none() // Unknown note type ID
 ///     };
