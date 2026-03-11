@@ -40,19 +40,21 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
 ## Summary of Module
 
-The ECC curves module defines the elliptic curves used throughout Barretenberg's cryptographic operations. It implements field arithmetic, curve point operations, and pairing computations for multiple curves including BN254 (the primary curve for proof generation), Grumpkin (used for client-side IVC), secp256k1, and secp256r1 (used for ECDSA signature verification in circuits). The BN254 implementation includes extension field arithmetic (Fq, Fq2, Fq6, Fq12) required for optimal ate pairing computations, which are fundamental to the KZG polynomial commitment scheme. Each curve definition provides group elements (G1, G2 for pairing-friendly curves), scalar field operations, and curve-specific optimizations like endomorphism support for efficient scalar multiplication.
+The ECC curves module defines the elliptic curves used throughout Barretenberg's cryptographic operations. It implements field arithmetic and curve point operations for multiple curves including BN254 (the primary curve for proof generation), Grumpkin (used for client-side IVC), secp256k1, and secp256r1 (used for ECDSA signature verification in circuits). The BN254 implementation includes extension field arithmetic (Fq, Fq2, Fq6, Fq12) required for optimal ate pairing computations, which are fundamental to the KZG polynomial commitment scheme. Each curve definition provides group elements (G1, G2 for pairing-friendly curves), scalar field operations, and curve-specific optimizations like endomorphism support for efficient scalar multiplication.
 
 ## Test Files
-1. `ecc/curves/bn254/fq.test.cpp`
-2. `ecc/curves/bn254/fq2.test.cpp`
-3. `ecc/curves/bn254/fq6.test.cpp`
-4. `ecc/curves/bn254/fq12.test.cpp`
-5. `ecc/curves/bn254/fr.test.cpp`
-6. `ecc/curves/bn254/g1.test.cpp`
-7. `ecc/curves/bn254/g2.test.cpp`
-8. `ecc/curves/bn254/pairing.test.cpp`
-9. `ecc/curves/grumpkin/grumpkin.test.cpp`
-10. `ecc/curves/secp256k1/secp256k1.test.cpp`
-11. `ecc/curves/secp256r1/secp256r1.test.cpp`
+1.  `ecc/curves/bn254/fq.test.cpp`
+2.  `ecc/curves/bn254/fq2.test.cpp`
+3.  `ecc/curves/bn254/fq6.test.cpp`
+4.  `ecc/curves/bn254/fq12.test.cpp`
+5.  `ecc/curves/bn254/fr.test.cpp`
+6.  `ecc/curves/bn254/g1.test.cpp`
+7.  `ecc/curves/bn254/g2.test.cpp`
+8.  `ecc/curves/bn254/pairing.test.cpp`
+10. `ecc/curves/bn254/bn254.test.cpp`
+10. `ecc/curves/field_params_constants.test.cpp`
+11. `ecc/curves/grumpkin/grumpkin.test.cpp`
+12. `ecc/curves/secp256k1/secp256k1.test.cpp`
+13. `ecc/curves/secp256r1/secp256r1.test.cpp`
 
 ## Security Mechanisms
