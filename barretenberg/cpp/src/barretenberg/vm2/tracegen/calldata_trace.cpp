@@ -116,7 +116,6 @@ const InteractionDefinition CalldataTraceBuilder::interactions =
         .add<lookup_calldata_hashing_get_calldata_field_1_settings, InteractionType::LookupSequential>()
         .add<lookup_calldata_hashing_get_calldata_field_2_settings, InteractionType::LookupSequential>()
         .add<perm_calldata_hashing_check_final_size_settings, InteractionType::Permutation>()
-        .add<lookup_calldata_hashing_poseidon2_hash_settings,
-             InteractionType::LookupGeneric>(); // Note: using lookup generic to avoid dedup issues
+        .add<lookup_calldata_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>();
 
 } // namespace bb::avm2::tracegen
