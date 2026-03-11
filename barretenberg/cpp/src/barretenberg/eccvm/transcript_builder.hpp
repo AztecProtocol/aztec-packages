@@ -102,11 +102,6 @@ class ECCVMTranscriptBuilder {
             AffineElement(Element(offset_generator_base) * grumpkin::fq(uint256_t(1) << 124));
         return result;
     }
-    static AffineElement remove_offset_generator(const AffineElement& other)
-    {
-        return AffineElement(Element(other) - offset_generator());
-    }
-
     // maintains the state of the VM at any given "time" (i.e., at any given value of pc).
     struct VMState {
         uint32_t pc = 0;    // decreasing point counter that tracks the total number of multiplications that our virtual
