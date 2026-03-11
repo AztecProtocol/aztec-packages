@@ -149,6 +149,9 @@ export async function runReqrespTxTest(params: {
   const submittedTxs = await Promise.all(
     txBatches.map(async (batch, batchIndex) => {
       const proposerNode = nodes[proposerIndexes[batchIndex]];
+      for (const tx of batch) {
+        t.logger.info(`Tx ${tx.getTxHash().toString()} base64: ${tx.toBuffer().toString('base64')}`);
+      }
       const txHashes = batch.map(tx => tx.getTxHash().toString());
       t.logger.info(
         `Sending batch ${batchIndex} to proposer ${getNodePort(proposerIndexes[batchIndex])}: ${txHashes.join(', ')}`,
@@ -188,8 +191,16 @@ export async function runReqrespTxTest(params: {
 
   // Assert that multiple blocks were built for at least one slot
   t.logger.info('Verifying multiple blocks for at least one checkpoint');
-  const checkpoints = await nodes[0].getCheckpoints(CheckpointNumber(1), 50);
-  expect(checkpoints.length).toBeGreaterThan(0);
+  // Wait for L1 checkpoint sync, which may lag behind P2P block propagation.
+  const checkpoints = await retryUntil(
+    async () => {
+      const cps = await nodes[0].getCheckpoints(CheckpointNumber(1), 50);
+      return cps.length > 0 && cps.some(cp => cp.checkpoint.blocks.length >= 2) ? cps : undefined;
+    },
+    'waiting for multi-block checkpoint to sync from L1',
+    30,
+    1,
+  );
 
   let mbpsFound = false;
   let expectedBlockNumber = checkpoints[0].checkpoint.blocks[0].number;
