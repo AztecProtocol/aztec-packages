@@ -14,12 +14,13 @@
 
 #include "barretenberg/common/compiler_hints.hpp"
 
-// Work around an LLVM Mach-O linker bug (affects both Zig's linker and ld64.lld)
-// where __thread_bss TLS template offsets are misaligned when __thread_data is
-// also present (from Rust static libraries). Adding an alignas(16) initialized
+// Fix for https://github.com/AztecProtocol/barretenberg/issues/1275
+// Zig's Mach-O linker (https://codeberg.org/ziglang/zig/issues/31461) misaligns
+// __thread_bss TLS template offsets when __thread_data is also present (from Rust
+// static libraries), causing x86_64-macos segfaults on any thread_local requiring
+// 16-byte alignment (e.g. std::mutex). Adding an alignas(16) initialized
 // thread_local forces __thread_data alignment to 16, ensuring __thread_bss starts
-// at a 16-byte-aligned TLS template offset.
-// See: https://codeberg.org/ziglang/zig/issues/31461
+// at a correctly aligned TLS template offset.
 // NOLINTBEGIN
 alignas(16) thread_local char tls_alignment_pad[16] __attribute__((used)) = { 1 };
 // NOLINTEND
