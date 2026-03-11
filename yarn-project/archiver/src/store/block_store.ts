@@ -880,11 +880,11 @@ export class BlockStore {
     const blockNumber = BlockNumber(txEffect.l2BlockNumber);
 
     // Use existing archiver methods to determine finalization level
-    const [provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber, block] = await Promise.all([
+    const [provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber, blockData] = await Promise.all([
       this.getProvenBlockNumber(),
       this.getCheckpointedL2BlockNumber(),
       this.getFinalizedL2BlockNumber(),
-      this.getBlock(blockNumber),
+      this.getBlockData(blockNumber),
     ]);
 
     let status: TxStatus;
@@ -898,7 +898,9 @@ export class BlockStore {
       status = TxStatus.PROPOSED;
     }
 
-    const epochNumber = block ? getEpochAtSlot(block.slot, this.l1Constants) : undefined;
+    const epochNumber = blockData
+      ? getEpochAtSlot(blockData.header.globalVariables.slotNumber, this.l1Constants)
+      : undefined;
 
     return new TxReceipt(
       txHash,
