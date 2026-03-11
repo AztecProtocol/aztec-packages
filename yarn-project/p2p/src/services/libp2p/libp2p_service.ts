@@ -948,8 +948,9 @@ export class LibP2PService extends WithTracer implements P2PService {
       const secondStageValidators = this.createSecondStageMessageValidators();
       const secondStageOutcome = await this.runValidations(tx, secondStageValidators);
       if (!secondStageOutcome.allPassed) {
-        const { severity } = secondStageOutcome.failure;
+        const { severity, name } = secondStageOutcome.failure;
         this.logger.verbose(`Rejecting gossiped tx ${tx.getTxHash().toString()}: stage 2 validation failed`, {
+          validator: name,
           severity,
           source: source.toString(),
         });

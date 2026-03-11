@@ -365,7 +365,7 @@ export class TxPoolV2Impl {
 
     if (preAddResult.shouldIgnore) {
       this.#log.verbose(`canAddPendingTx: tx ${txHashStr} ignored by pre-add rule`, {
-        reason: preAddResult.reason?.message,
+        reason: preAddResult.reason?.message ?? 'no reason provided',
       });
       return 'ignored';
     }
