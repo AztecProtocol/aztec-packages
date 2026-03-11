@@ -903,14 +903,6 @@ contract TallySlashingProposer is EIP712 {
         if (escapeHatchEpochs[epochIndex]) {
           continue;
         }
-
-        // Skip validators for epochs without a valid committee (e.g. early epochs
-        // before the validator set was sampled). Without this check, indexing into
-        // an empty committee array would revert and block execution of the round.
-        if (_committees[epochIndex].length != COMMITTEE_SIZE) {
-          continue;
-        }
-
         uint256 packedVotes = tallyMatrix[i];
 
         // Skip if no votes for this validator

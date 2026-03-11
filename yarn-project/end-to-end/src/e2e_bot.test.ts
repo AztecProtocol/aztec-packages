@@ -52,6 +52,9 @@ describe('e2e_bot', () => {
 
   afterAll(() => teardown());
 
+  let privateKeyIndex = 10;
+  const getPrivateKey = () => new SecretValue(bufferToHex(getPrivateKeyFromIndex(privateKeyIndex++)!));
+
   describe('transaction-bot', () => {
     let bot: Bot;
     beforeAll(async () => {
@@ -131,11 +134,14 @@ describe('e2e_bot', () => {
 
         l1RpcUrls,
         feePaymentMethod: 'fee_juice',
-        // TODO: this should be taken from the `setup` call above
-        l1Mnemonic: new SecretValue('test test test test test test test test test test test junk'),
+        // Use a dedicated L1 account (index 7) for bridging. The default mnemonic account (index 0)
+        // is shared with the sequencer which sends L1 block proposals, causing nonce races on the
+        // approve/deposit calls in bridgeL1FeeJuice. Indices 8 and 9 are used by other tests below.
+        l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(7)!)),
         flushSetupTransactions: true,
-        // Increase fee headroom to handle fee volatility from rapid block building in tests
-        minFeePadding: 9,
+        // Increase fee headroom to handle fee volatility from rapid block building in tests.
+        // Fees can escalate >10x due to blocks built by earlier tests and bridge operations.
+        minFeePadding: 99,
       };
 
       {
@@ -171,11 +177,13 @@ describe('e2e_bot', () => {
 
         l1RpcUrls,
         feePaymentMethod: 'fee_juice',
-        // TODO: this should be taken from the `setup` call above
-        l1Mnemonic: new SecretValue('test test test test test test test test test test test junk'),
+        // See comment above — dedicated L1 account to avoid nonce races with the sequencer.
+        l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(7)!)),
         flushSetupTransactions: true,
-        // Increase fee headroom to handle fee volatility from rapid block building in tests
-        minFeePadding: 9,
+        // Increase fee headroom to handle fee volatility from rapid block building in tests.
+        // This test is especially susceptible because changing salt triggers a new bridge claim,
+        // adding more block building on top of what earlier tests already produced.
+        minFeePadding: 99,
       };
 
       {
@@ -235,7 +243,7 @@ describe('e2e_bot', () => {
         followChain: 'PROPOSED',
         botMode: 'transfer',
         senderPrivateKey: new SecretValue(Fr.random()),
-        l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(8)!)),
+        l1PrivateKey: getPrivateKey(),
         l1RpcUrls,
         flushSetupTransactions: true,
       };
@@ -258,7 +266,7 @@ describe('e2e_bot', () => {
         followChain: 'PROPOSED',
         botMode: 'crosschain',
         l1RpcUrls,
-        l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(9)!)),
+        l1PrivateKey: getPrivateKey(),
         flushSetupTransactions: true,
         l1ToL2SeedCount: 2,
       };

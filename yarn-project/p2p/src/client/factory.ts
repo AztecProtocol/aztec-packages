@@ -3,12 +3,12 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { AztecNode, ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { P2PClient } from '../client/p2p_client.js';
@@ -87,10 +87,16 @@ export async function createP2PClient(
           // We accept transactions if they are not expired by the next slot and block number (checked based on the ExpirationTimestamp field)
           const currentBlockNumber = await archiver.getBlockNumber();
           const { ts: nextSlotTimestamp } = epochCache.getEpochAndSlotInNextL1Slot();
+          const l1Constants = await archiver.getL1Constants();
           return createTxValidatorForTransactionsEnteringPendingTxPool(
             worldStateSynchronizer,
             nextSlotTimestamp,
             BlockNumber(currentBlockNumber + 1),
+            {
+              rollupManaLimit: l1Constants.rollupManaLimit,
+              maxBlockL2Gas: config.validateMaxL2BlockGas,
+              maxBlockDAGas: config.validateMaxDABlockGas,
+            },
           );
         },
       },
@@ -100,6 +106,7 @@ export async function createP2PClient(
         archivedTxLimit: config.archivedTxLimit,
         minTxPoolAgeMs: config.minTxPoolAgeMs,
         dropTransactionsProbability: config.dropTransactionsProbability,
+        priceBumpPercentage: config.priceBumpPercentage,
       },
       dateProvider,
     );

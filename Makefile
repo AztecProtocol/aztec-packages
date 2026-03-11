@@ -83,14 +83,17 @@ avm-transpiler-cross-amd64-macos:
 avm-transpiler-cross-arm64-macos:
 	$(call build,$@,avm-transpiler,build_cross arm64-macos)
 
-avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos
+avm-transpiler-cross-arm64-linux:
+	$(call build,$@,avm-transpiler,build_cross arm64-linux)
+
+avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos avm-transpiler-cross-arm64-linux
 
 #==============================================================================
 # Barretenberg
 #==============================================================================
 
 # Barretenberg - Aggregate target for all barretenberg sub-projects.
-barretenberg: bb-cpp bb-ts bb-acir bb-docs bb-sol bb-bbup bb-crs
+barretenberg: bb-cpp bb-ts bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
 
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
@@ -134,7 +137,7 @@ bb-cpp-cross-arm64-macos-objects:
 	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-macos)
 
 # Cross-compile for ARM64 Linux (release only)
-bb-cpp-cross-arm64-linux: bb-cpp-cross-arm64-linux-objects avm-transpiler-native
+bb-cpp-cross-arm64-linux: bb-cpp-cross-arm64-linux-objects avm-transpiler-cross-arm64-linux
 	$(call build,$@,barretenberg/cpp,build_cross arm64-linux)
 
 # Cross-compile for AMD64 macOS (release only)
@@ -145,7 +148,31 @@ bb-cpp-cross-amd64-macos: bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-
 bb-cpp-cross-arm64-macos: bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos
 	$(call build,$@,barretenberg/cpp,build_cross arm64-macos)
 
-bb-cpp-cross: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos
+bb-cpp-cross: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-ios-sim bb-cpp-cross-arm64-android bb-cpp-cross-x86_64-android
+
+# iOS SDK download (shared by all iOS cross-compile targets)
+bb-cpp-ios-sdk:
+	$(call run_command,$@,$(ROOT)/barretenberg/cpp,bash scripts/download-ios-sdk.sh)
+
+# Android sysroot download (shared by all Android cross-compile targets)
+bb-cpp-android-sysroot:
+	$(call run_command,$@,$(ROOT)/barretenberg/cpp,bash scripts/download-android-sysroot.sh)
+
+# Cross-compile for ARM64 iOS (release only, static lib only)
+bb-cpp-cross-arm64-ios: bb-cpp-ios-sdk
+	$(call build,$@,barretenberg/cpp,build_ios zig-arm64-ios)
+
+# Cross-compile for ARM64 iOS Simulator (release only, static lib only)
+bb-cpp-cross-arm64-ios-sim: bb-cpp-ios-sdk
+	$(call build,$@,barretenberg/cpp,build_ios zig-arm64-ios-sim)
+
+# Cross-compile for ARM64 Android (release only, static lib only)
+bb-cpp-cross-arm64-android: bb-cpp-android-sysroot
+	$(call build,$@,barretenberg/cpp,build_android zig-arm64-android)
+
+# Cross-compile for x86_64 Android (release only, static lib only)
+bb-cpp-cross-x86_64-android: bb-cpp-android-sysroot
+	$(call build,$@,barretenberg/cpp,build_android zig-x86_64-android)
 
 # GCC syntax check (CI only, non-release)
 bb-cpp-gcc:
@@ -176,6 +203,10 @@ bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native
 bb-ts-cross-copy: bb-ts bb-cpp-cross
 	$(call build,$@,barretenberg/ts,cross_copy)
 
+# BB Rust - barretenberg-rs FFI crate
+bb-rs: bb-ts bb-cpp-native
+	$(call build,$@,barretenberg/rust)
+
 # BB ACIR Tests - ACIR compatibility tests
 bb-acir: noir bb-cpp-native bb-ts
 	$(call build,$@,barretenberg/acir_tests)
@@ -185,7 +216,7 @@ bb-docs:
 	$(call build,$@,barretenberg/docs)
 
 # BB Solidity - Solidity verifier contracts
-bb-sol: bb-cpp-native
+bb-sol: bb-cpp-native bb-crs
 	$(call build,$@,barretenberg/sol)
 
 #==============================================================================
@@ -219,7 +250,10 @@ bb-docs-tests: bb-docs
 bb-bbup-tests: bb-bbup
 	$(call test,$@,barretenberg/bbup)
 
-bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests
+bb-rs-tests: bb-rs
+	$(call test,$@,barretenberg/rust)
+
+bb-tests: bb-cpp-native-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests bb-rs-tests
 
 bb-full-tests: bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests
 

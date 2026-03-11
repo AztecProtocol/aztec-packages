@@ -30,7 +30,6 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/stdlib": "workspace:*",
-    "@viem/anvil": "^0.0.10",
     "dotenv": "^16.0.3",
     "get-port": "^7.1.0",
     "jest-mock-extended": "^4.0.0",

@@ -38,7 +38,6 @@ template <class Fr, size_t domain_end> class Univariate {
 
     using value_type = Fr; // used to get the type of the elements consistently with std::array
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/714) Try out std::valarray?
     std::array<Fr, LENGTH> evaluations;
 
     Univariate() = default;
@@ -359,7 +358,6 @@ template <class Fr, size_t domain_end> class Univariate {
 
         std::copy(evaluations.begin(), evaluations.end(), result.evaluations.begin());
 
-        static constexpr Fr inverse_two = Fr(2).invert();
         if constexpr (LENGTH == 2) {
             // f = b x + c
             // f(0) = c
@@ -372,8 +370,7 @@ template <class Fr, size_t domain_end> class Univariate {
                 result.value_at(idx + 1) = result.value_at(idx) + delta;
             }
         } else if constexpr (LENGTH == 3) {
-            // Based off https://hackmd.io/@aztec-network/SyR45cmOq?type=view
-            // The technique used here is the same as the length == 3 case below.
+            static constexpr Fr inverse_two = Fr(2).invert();
             // f = a x^2 + b x + c
             // f(0) = c
             // f(1) = a + b + c
@@ -382,6 +379,8 @@ template <class Fr, size_t domain_end> class Univariate {
             // Hence, a = (f(2) + f(0) - 2f(1)) / 2
             // b = f(1) - a - f(0)
             // f(i+1) = f(i) + 2a * i + b + a
+            // Cost note: after computing a,b, extending several points costs a few adds per point (no
+            // inversions), vs the generic barycentric path.
             Fr a = (value_at(2) + value_at(0)) * inverse_two - value_at(1);
             Fr b = value_at(1) - a - value_at(0);
             Fr a2 = a + a;

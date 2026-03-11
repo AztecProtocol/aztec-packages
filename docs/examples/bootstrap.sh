@@ -77,6 +77,12 @@ function validate-ts {
   (cd ts && ./bootstrap.sh "$@")
 }
 
+function execute-examples {
+  echo_header "Executing TypeScript documentation examples"
+  local COMPOSE_DIR="$REPO_ROOT/docs/examples/ts"
+  run_compose_test "docs_examples" "docs-examples" "$COMPOSE_DIR"
+}
+
 ##############################################################################
 # CI failure handling - send Slack notifications instead of blocking the build
 ##############################################################################
@@ -204,9 +210,32 @@ case "$cmd" in
     run_step "Compile (Noir contracts)" compile
     run_step "Compile (Solidity)" compile-solidity
     run_step "TypeScript validation" validate-ts
+    run_step "Execute examples" execute-examples
 
     if [[ ${#FAILED_STEPS[@]} -gt 0 ]]; then
       send_failure_slack_message
+
+      # Print a prominent error summary at the bottom of the log
+      echo ""
+      echo "============================================================"
+      echo "  DOCS EXAMPLES FAILURE SUMMARY"
+      echo "============================================================"
+      for i in "${!FAILED_STEPS[@]}"; do
+        echo ""
+        echo "--- FAILED: ${FAILED_STEPS[$i]} ---"
+        # Extract lines containing 'error' or 'ERROR' for a concise summary
+        error_lines=$(echo "${FAILED_OUTPUTS[$i]}" | grep -i 'error' || true)
+        if [[ -n "$error_lines" ]]; then
+          echo "$error_lines"
+        else
+          # If no error lines found, show the last 20 lines of output
+          echo "${FAILED_OUTPUTS[$i]}" | tail -20
+        fi
+      done
+      echo ""
+      echo "============================================================"
+      echo ""
+
       # Block PRs on failure, but allow merge queue to proceed (may be transient infra issues)
       if [[ ! "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
         echo "ERROR: Docs examples validation failed. Failing the build."
@@ -219,6 +248,9 @@ case "$cmd" in
     ;;
   compile-solidity)
     compile-solidity
+    ;;
+  execute)
+    execute-examples
     ;;
   *)
     default_cmd_handler "$@"

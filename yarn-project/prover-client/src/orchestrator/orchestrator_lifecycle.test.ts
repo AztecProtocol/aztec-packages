@@ -29,7 +29,7 @@ describe('prover/orchestrator/lifecycle', () => {
     it('cancels proving requests', async () => {
       const prover: ServerCircuitProver = new TestCircuitProver();
       // Pass cancelJobsOnStop=true to test that cancellation actually aborts jobs
-      const orchestrator = new ProvingOrchestrator(context.worldState, prover, EthAddress.ZERO, true);
+      const orchestrator = new ProvingOrchestrator(context.worldState, prover, EthAddress.ZERO, true, 10);
 
       const spy = jest.spyOn(prover, 'getBaseParityProof');
       const deferredPromises: PromiseWithResolvers<any>[] = [];
@@ -73,7 +73,7 @@ describe('prover/orchestrator/lifecycle', () => {
     it('does not abort proving requests when cancelJobsOnStop is false (default)', async () => {
       const prover: ServerCircuitProver = new TestCircuitProver();
       // Default behavior: cancelJobsOnStop=false, jobs remain in queue for reuse
-      const orchestrator = new ProvingOrchestrator(context.worldState, prover, EthAddress.ZERO, false);
+      const orchestrator = new ProvingOrchestrator(context.worldState, prover, EthAddress.ZERO, false, 10);
 
       const spy = jest.spyOn(prover, 'getBaseParityProof');
       const deferredPromises: PromiseWithResolvers<any>[] = [];

@@ -7,6 +7,7 @@
 #include "private_execution_steps.hpp"
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include <libdeflate.h>
 
@@ -109,10 +110,10 @@ std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::load_and_decompres
 {
     BB_BENCH();
     auto raw_steps = load(input_path);
-    for (PrivateExecutionStepRaw& step : raw_steps) {
-        step.bytecode = decompress(step.bytecode.data(), step.bytecode.size());
-        step.witness = decompress(step.witness.data(), step.witness.size());
-    }
+    parallel_for(raw_steps.size(), [&](size_t i) {
+        raw_steps[i].bytecode = decompress(raw_steps[i].bytecode.data(), raw_steps[i].bytecode.size());
+        raw_steps[i].witness = decompress(raw_steps[i].witness.data(), raw_steps[i].witness.size());
+    });
     return raw_steps;
 }
 
@@ -134,12 +135,10 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
     precomputed_vks.resize(steps.size());
     function_names.resize(steps.size());
 
-    // https://github.com/AztecProtocol/barretenberg/issues/1395 multithread this once bincode is thread-safe
-    for (size_t i = 0; i < steps.size(); i++) {
+    // Parse each step's bytecode/witness in parallel (thread-safe with msgpack format)
+    parallel_for(steps.size(), [&](size_t i) {
         PrivateExecutionStepRaw step = std::move(steps[i]);
 
-        // TODO(#7371) there is a lot of copying going on in bincode. We need the generated bincode code to
-        // use spans instead of vectors.
         acir_format::AcirFormat constraints = acir_format::circuit_buf_to_acir_format(std::move(step.bytecode));
         acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_vector(std::move(step.witness));
 
@@ -150,8 +149,8 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
         } else {
             precomputed_vks[i] = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(step.vk);
         }
-        function_names[i] = step.function_name;
-    }
+        function_names[i] = std::move(step.function_name);
+    });
 }
 
 std::shared_ptr<Chonk> PrivateExecutionSteps::accumulate()

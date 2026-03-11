@@ -15,9 +15,11 @@ Therefore it is recommended to read the `aztec-nr` [guide on authwitnesses](../a
 
 :::
 
+import { General } from '@site/src/components/Snippets/general_snippets';
+
 ## Prerequisites
 
-- [Connected to a network](./how_to_connect_to_local_network.md) with a `EmbeddedWallet` instance and funded accounts
+- <General.AztecJSPrerequisites />
 - Contract with authwit validation (see [smart contract authwits](../aztec-nr/framework-description/authentication_witnesses.md))
 - Understanding of [authwit concepts](../foundational-topics/advanced/authwit.md)
 

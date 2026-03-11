@@ -20,15 +20,15 @@
 <h2>In module process_message</h2>
 <h3>Functions</h3><ul class="item-list">
 <li><a href="fn.process_message_ciphertext.html">process_message_ciphertext</a></div></li>
-<li><a href="fn.process_message_plaintext.html">process_message_plaintext</a></div></li>
 </ul>
 </nav>
 <main>
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">messages</a>::<a href="../index.html">discovery</a>::<a href="index.html">process_message</a></div>
 <h1>Function <span class="fn">process_message_ciphertext</span></h1>
-<pre><code>pub unconstrained fn process_message_ciphertext&lt;Env&gt;(
+<pre><code>pub unconstrained fn process_message_ciphertext&lt;ComputeNoteHashAndNullifierEnv, CustomMessageHandlerEnv&gt;(
     contract_address: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-    compute_note_hash_and_nullifier: <a href="../../../../noir_aztec/messages/discovery/type.ComputeNoteHashAndNullifier.html" class="type">ComputeNoteHashAndNullifier</a>&lt;Env&gt;,
+    compute_note_hash_and_nullifier: <a href="../../../../noir_aztec/messages/discovery/type.ComputeNoteHashAndNullifier.html" class="type">ComputeNoteHashAndNullifier</a>&lt;ComputeNoteHashAndNullifierEnv&gt;,
+    process_custom_message: <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../noir_aztec/messages/discovery/type.CustomMessageHandler.html" class="type">CustomMessageHandler</a>&lt;CustomMessageHandlerEnv&gt;&gt;,
     message_ciphertext: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, 15&gt;,
     message_context: <a href="../../../../noir_aztec/messages/processing/struct.MessageContext.html" class="struct">MessageContext</a>,
 )</code></pre>

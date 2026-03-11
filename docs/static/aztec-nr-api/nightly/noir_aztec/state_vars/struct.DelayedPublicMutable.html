@@ -145,22 +145,23 @@ space-efficient.</p></div>
 
 <div class="padded-description"><div class="comments">
 <p>Returns the current value.</p>
+<p>This sets the transaction's <code>expiration_timestamp</code> (see
+<a href="../../noir_aztec/context/struct.PrivateContext.html#set_expiration_timestamp"><code>PrivateContext::set_expiration_timestamp</code></a>),
+invalidating the transaction if not included before that time. See the 'Privacy' section below to learn more.</p>
 <p>If <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#schedule_value_change"><code>schedule_value_change</code></a> has never been called, then this
 returns the default empty public storage value, which is all zeroes - equivalent to <code>let t = T::unpack(std::mem::zeroed());</code>.</p>
 <p>It is not possible to detect if a <code>DelayedPublicMutable</code> has ever been initialized or not other than by testing
 for the zero sentinel value. For a more robust solution, store an <code>Option&lt;T&gt;</code> in the <code>DelayedPublicMutable</code>.</p>
 <h4>Privacy</h4>
-<p>This function does leak some privacy, though in a subtle way. Understanding this is key to understanding how to
-use <code>DelayedPublicMutable</code> in a privacy-preserving way.</p>
+<p>This function leaks information via the transaction's expiration timestamp. The degree of leakage depends on
+the delay that is set, and on whether a value change is currently scheduled.</p>
 <p>Private reads are based on a historical public storage read at the anchor block (i.e.
 <a href="../../noir_aztec/history/storage/fn.public_storage_historical_read.html"><code>crate::history::storage::public_storage_historical_read</code></a>). <code>DelayedPublicMutable</code> is able to provide
-guarantees about values read in the past remaining the state variable's current value into the future due to
+guarantees that values read in the past remain the state variable's current value into the future due to
 the existence of delays when scheduling writes. It then sets the <code>expiration_timestamp</code> property of the current
-transaction (see
-<a href="../../noir_aztec/context/struct.PrivateContext.html#set_expiration_timestamp"><code>PrivateContext::set_expiration_timestamp</code></a>) to
-ensure that the transaction can only be included in a block <strong>prior</strong> to the state variable's value changing.
-In other words, it knows some facts about the near future up until some time horizon, and then makes sure that
-it doesn't act on this knowledge past said moment.</p>
+transaction to ensure that the transaction can only be included in a block <strong>prior</strong> to the state variable's
+value changing. In other words, it knows some facts about the near future up until some time horizon, and then
+makes sure that it doesn't act on this knowledge past said moment.</p>
 <p>Because the <code>expiration_timestamp</code> property is part of the transaction's public information, any mutation to
 this value could result in transaction fingerprinting. Note that multiple contracts may set this value during a
 transaction: it is the smallest (most restrictive) timestamp that will be used.</p>
@@ -196,7 +197,7 @@ transactions are interacting with this soon-to-change variable.</p>
     <span class="comment">// do the action</span>
 }</code></pre>
 <h4>Cost</h4>
-<p>This function performs a historical public storage read (which is in the order of 4k gates), <strong>regardless of
+<p>This function performs a historical public storage read (which is ~4k gates), <strong>regardless of
 <code>T</code>'s packed length</strong>. This is because <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html#schedule_value_change"><code>DelayedPublicMutable::schedule_value_change</code></a> stores not just the
 value but also its hash: this function obtains the preimage from an oracle and proves that it matches the hash
 from public storage.</p>

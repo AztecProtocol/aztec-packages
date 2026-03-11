@@ -764,6 +764,12 @@ export const PEER_MANAGER_PEER_COUNT: MetricDefinition = {
   unit: 'peers',
   valueType: ValueType.INT,
 };
+export const PEER_MANAGER_HEALTHY_PEER_COUNT: MetricDefinition = {
+  name: 'aztec.peer_manager.healthy_peer_count',
+  description: 'Number of healthy (non-protected, non-banned) peers',
+  unit: 'peers',
+  valueType: ValueType.INT,
+};
 export const PEER_MANAGER_LOW_SCORE_DISCONNECTS: MetricDefinition = {
   name: 'aztec.peer_manager.low_score_disconnects',
   description: 'Number of peers disconnected due to low score',
@@ -1127,6 +1133,36 @@ export const PROVER_NODE_JOB_TRANSACTIONS: MetricDefinition = {
   description: 'Number of transactions in a proven epoch',
   valueType: ValueType.INT,
 };
+export const PROVER_NODE_BLOB_PROCESSING_LAST_DURATION: MetricDefinition = {
+  name: 'aztec.prover_node.blob_processing.last_duration',
+  description: 'Duration of blob processing step in epoch proving job',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_CHONK_VERIFIER_LAST_DURATION: MetricDefinition = {
+  name: 'aztec.prover_node.chonk_verifier.last_duration',
+  description: 'Duration of chonk verifier enqueuing in epoch proving job',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_BLOCK_PROCESSING_DURATION: MetricDefinition = {
+  name: 'aztec.prover_node.block_processing.duration',
+  description: 'Duration of processing a single block in epoch proving job',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_CHECKPOINT_PROCESSING_DURATION: MetricDefinition = {
+  name: 'aztec.prover_node.checkpoint_processing.duration',
+  description: 'Duration of processing a single checkpoint in epoch proving job',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_ALL_CHECKPOINTS_PROCESSING_LAST_DURATION: MetricDefinition = {
+  name: 'aztec.prover_node.all_checkpoints_processing.last_duration',
+  description: 'Duration of processing all checkpoints in epoch proving job',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
 export const PROVER_NODE_REWARDS_TOTAL: MetricDefinition = {
   name: 'aztec.prover_node.rewards_total',
   description: 'The rewards earned (total)',
@@ -1259,6 +1295,16 @@ export const VALIDATOR_ATTESTATION_FAILED_BAD_PROPOSAL_COUNT: MetricDefinition =
 export const VALIDATOR_ATTESTATION_FAILED_NODE_ISSUE_COUNT: MetricDefinition = {
   name: 'aztec.validator.attestation_failed_node_issue_count',
   description: 'The number of failed attestations due to node issues (timeout, missing data, etc.)',
+  valueType: ValueType.INT,
+};
+export const VALIDATOR_CURRENT_EPOCH: MetricDefinition = {
+  name: 'aztec.validator.current_epoch',
+  description: 'The current epoch number, reflecting total epochs elapsed since genesis',
+  valueType: ValueType.INT,
+};
+export const VALIDATOR_ATTESTED_EPOCH_COUNT: MetricDefinition = {
+  name: 'aztec.validator.attested_epoch_count',
+  description: 'The number of epochs in which this node successfully submitted at least one attestation',
   valueType: ValueType.INT,
 };
 

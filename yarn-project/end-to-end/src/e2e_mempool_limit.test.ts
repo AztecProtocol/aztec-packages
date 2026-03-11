@@ -4,7 +4,7 @@ import { TxStatus } from '@aztec/aztec.js/tx';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
-import { setup } from './fixtures/utils.js';
+import { type EndToEndContext, setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 import { proveInteraction } from './test-wallet/utils.js';
 
@@ -13,10 +13,12 @@ describe('e2e_mempool_limit', () => {
   let defaultAccountAddress: AztecAddress;
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin | undefined;
+  let teardown: EndToEndContext['teardown'];
   let token: TokenContract;
 
   beforeAll(async () => {
     ({
+      teardown,
       aztecNode,
       aztecNodeAdmin,
       wallet,
@@ -29,11 +31,13 @@ describe('e2e_mempool_limit', () => {
       throw new Error('Aztec node admin API must be available for this test');
     }
 
-    token = await TokenContract.deploy(wallet, defaultAccountAddress, 'TEST', 'T', 18).send({
+    ({ contract: token } = await TokenContract.deploy(wallet, defaultAccountAddress, 'TEST', 'T', 18).send({
       from: defaultAccountAddress,
-    });
+    }));
     await token.methods.mint_to_public(defaultAccountAddress, 10n ** 18n).send({ from: defaultAccountAddress });
   });
+
+  afterAll(() => teardown());
 
   it('should evict txs if there are too many', async () => {
     const tx1 = await proveInteraction(

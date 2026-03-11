@@ -10,7 +10,7 @@ import { RunningPromise } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
-import { GasFees } from '@aztec/stdlib/gas';
+import { type Gas, GasFees } from '@aztec/stdlib/gas';
 import { TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
@@ -90,10 +90,10 @@ const mempoolTxMinedDelayQuery = (perc: string) =>
 const mempoolAttestationMinedDelayQuery = (perc: string) =>
   `histogram_quantile(${perc}, sum(rate(aztec_mempool_attestations_mined_delay_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[1m])) by (le))`;
 
-const peerCountQuery = () => `avg(aztec_peer_manager_peer_count{k8s_namespace_name="${config.NAMESPACE}"})`;
+const peerCountQuery = () => `avg(aztec_peer_manager_peer_count_peers{k8s_namespace_name="${config.NAMESPACE}"})`;
 
-const peerConnectionDurationQuery = (perc: string) =>
-  `histogram_quantile(${perc}, sum(rate(aztec_peer_manager_peer_connection_duration_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[1m])) by (le))`;
+const peerConnectionDurationQuery = (perc: string, windowSeconds: number) =>
+  `histogram_quantile(${perc}, sum(rate(aztec_peer_manager_peer_connection_duration_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[${windowSeconds}s])) by (le))`;
 
 describe('sustained N TPS test', () => {
   jest.setTimeout(60 * 60 * 1000 * 10); // 10 hours
@@ -168,8 +168,8 @@ describe('sustained N TPS test', () => {
       try {
         const [avgCount, durationP50, durationP95] = await Promise.all([
           prometheusClient.querySingleValue(peerCountQuery()),
-          prometheusClient.querySingleValue(peerConnectionDurationQuery('0.50')),
-          prometheusClient.querySingleValue(peerConnectionDurationQuery('0.95')),
+          prometheusClient.querySingleValue(peerConnectionDurationQuery('0.50', TEST_DURATION_SECONDS + 60)),
+          prometheusClient.querySingleValue(peerConnectionDurationQuery('0.95', TEST_DURATION_SECONDS + 60)),
         ]);
         metrics.recordPeerStats(avgCount, durationP50, durationP95);
         logger.debug('Scraped peer stats', { avgCount, durationP50, durationP95 });
@@ -293,7 +293,7 @@ describe('sustained N TPS test', () => {
 
     // this function creates n + 1 accounts. We only want one for each wallet
     const localTestAccounts = await Promise.all(
-      testWallets.map(lw => deploySponsoredTestAccounts(lw.wallet, aztecNode, logger, 0)),
+      testWallets.map(lw => deploySponsoredTestAccounts(lw.wallet, aztecNode, logger, 0, { estimateGas: true })),
     );
 
     lowValueWallets = localTestAccounts.slice(0, lowValueAccounts).map(({ wallet }) => wallet);
@@ -306,23 +306,44 @@ describe('sustained N TPS test', () => {
 
     logger.info('Deploying benchmark contract...');
     const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-    benchmarkContract = await BenchmarkingContract.deploy(localTestAccounts[0].wallet).send({
+    const deployInteraction = BenchmarkingContract.deploy(localTestAccounts[0].wallet);
+    const deploySim = await deployInteraction.simulate({
       from: localTestAccounts[0].recipientAddress,
       fee: { paymentMethod: sponsor },
     });
+    logger.info('Benchmark contract deploy estimated gas', { gasLimits: deploySim.estimatedGas?.gasLimits });
+    ({ contract: benchmarkContract } = await deployInteraction.send({
+      from: localTestAccounts[0].recipientAddress,
+      fee: { paymentMethod: sponsor, gasSettings: deploySim.estimatedGas },
+    }));
     logger.info('Benchmark contract deployed', { address: benchmarkContract.address.toString() });
 
     logger.info(`Test setup complete`);
   });
+
+  let benchmarkGasEstimate: { gasLimits: Gas; teardownGasLimits: Gas } | undefined;
 
   const submitProven = async (
     wallet: TestWallet,
     maxPriorityFeesPerGas: GasFees = GasFees.empty(),
   ): Promise<ProvenTx> => {
     const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
+
+    if (!benchmarkGasEstimate) {
+      const sim = await benchmarkContract.methods.sha256_hash_1024(Array(1024).fill(42)).simulate({
+        from: (await benchmarkContract.wallet.getAccounts())[0].item,
+        fee: { paymentMethod: sponsor, estimateGas: true },
+      });
+      benchmarkGasEstimate = sim.estimatedGas;
+      logger.info('Benchmark tx estimated gas', { gasLimits: benchmarkGasEstimate?.gasLimits });
+    }
+
     const tx = await proveInteraction(wallet, benchmarkContract.methods.sha256_hash_1024(Array(1024).fill(42)), {
       from: (await wallet.getAccounts())[0].item,
-      fee: { paymentMethod: sponsor, gasSettings: { maxPriorityFeesPerGas } },
+      fee: {
+        paymentMethod: sponsor,
+        gasSettings: { maxPriorityFeesPerGas, ...benchmarkGasEstimate },
+      },
     });
 
     return tx;
@@ -384,7 +405,7 @@ describe('sustained N TPS test', () => {
       const tx = await (config.REAL_VERIFIER ? submitProven(wallet, fee) : submitUnproven(wallet, fee));
       const t1 = performance.now();
 
-      metrics.recordSentTx(tx, `high_value_${highValueTps}tps`);
+      metrics.recordSentTx(tx, 'tx_inclusion_time');
 
       const txHash = await tx.send({ wait: NO_WAIT });
       const t2 = performance.now();
@@ -461,8 +482,8 @@ describe('sustained N TPS test', () => {
         logger.warn(`Failed transaction ${idx + 1}: ${result.error}`);
       });
 
-    const highValueGroup = `high_value_${highValueTps}tps`;
-    const inclusionStats = metrics.inclusionTimeInSeconds(highValueGroup);
+    const txInclusionGroup = 'tx_inclusion_time';
+    const inclusionStats = metrics.inclusionTimeInSeconds(txInclusionGroup);
     logger.info(`Transaction inclusion summary: ${successCount} succeeded, ${failureCount} failed`);
     logger.info('Inclusion time stats', inclusionStats);
   });

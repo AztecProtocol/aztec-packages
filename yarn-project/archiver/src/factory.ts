@@ -8,7 +8,6 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { merge } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
@@ -16,6 +15,7 @@ import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { ArchiverEmitter } from '@aztec/stdlib/block';
 import { type ContractClassPublic, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
@@ -87,6 +87,7 @@ export async function createArchiver(
     genesisArchiveRoot,
     slashingProposerAddress,
     targetCommitteeSize,
+    rollupManaLimit,
   ] = await Promise.all([
     rollup.getL1StartBlock(),
     rollup.getL1GenesisTime(),
@@ -94,6 +95,7 @@ export async function createArchiver(
     rollup.getGenesisArchiveTreeRoot(),
     rollup.getSlashingProposerAddress(),
     rollup.getTargetCommitteeSize(),
+    rollup.getManaLimit(),
   ] as const);
 
   const l1StartBlockHash = await publicClient
@@ -112,6 +114,7 @@ export async function createArchiver(
     proofSubmissionEpochs: Number(proofSubmissionEpochs),
     targetCommitteeSize,
     genesisArchiveRoot: Fr.fromString(genesisArchiveRoot.toString()),
+    rollupManaLimit: Number(rollupManaLimit),
   };
 
   const archiverConfig = merge(

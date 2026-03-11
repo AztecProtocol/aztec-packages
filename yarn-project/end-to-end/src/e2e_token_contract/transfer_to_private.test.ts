@@ -22,7 +22,7 @@ describe('e2e_token_contract transfer_to_private', () => {
   });
 
   it('to self', async () => {
-    const balancePub = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+    const { result: balancePub } = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
     const amount = balancePub / 2n;
     expect(amount).toBeGreaterThan(0n);
 
@@ -34,7 +34,7 @@ describe('e2e_token_contract transfer_to_private', () => {
   });
 
   it('to someone else', async () => {
-    const balancePub = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+    const { result: balancePub } = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
     const amount = balancePub / 2n;
     expect(amount).toBeGreaterThan(0n);
 
@@ -47,7 +47,9 @@ describe('e2e_token_contract transfer_to_private', () => {
 
   describe('failure cases', () => {
     it('to self (more than balance)', async () => {
-      const balancePub = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
+      const { result: balancePub } = await asset.methods
+        .balance_of_public(adminAddress)
+        .simulate({ from: adminAddress });
       const amount = balancePub + 1n;
       expect(amount).toBeGreaterThan(0n);
 

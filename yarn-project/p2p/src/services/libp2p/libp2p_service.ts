@@ -1,5 +1,6 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
+import { maxBy } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -19,6 +20,7 @@ import {
   P2PMessage,
   type ValidationResult as P2PValidationResult,
   PeerErrorSeverity,
+  PeerErrorSeverityByHarshness,
   TopicType,
   createTopicString,
   getTopicsForConfig,
@@ -222,14 +224,12 @@ export class LibP2PService extends WithTracer implements P2PService {
       this.protocolVersion,
     );
 
-    this.blockProposalValidator = new BlockProposalValidator(epochCache, {
+    const proposalValidatorOpts = {
       txsPermitted: !config.disableTransactions,
-      maxTxsPerBlock: config.maxTxsPerBlock,
-    });
-    this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, {
-      txsPermitted: !config.disableTransactions,
-      maxTxsPerBlock: config.maxTxsPerBlock,
-    });
+      maxTxsPerBlock: config.validateMaxTxsPerBlock,
+    };
+    this.blockProposalValidator = new BlockProposalValidator(epochCache, proposalValidatorOpts);
+    this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, proposalValidatorOpts);
     this.checkpointAttestationValidator = config.fishermanMode
       ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry)
       : new CheckpointAttestationValidator(epochCache);
@@ -237,11 +237,11 @@ export class LibP2PService extends WithTracer implements P2PService {
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 
     this.blockReceivedCallback = async (block: BlockProposal): Promise<boolean> => {
-      this.logger.debug(
-        `Handler not yet registered: Block received callback not set. Received block for slot ${block.slotNumber} from peer.`,
+      this.logger.warn(
+        `Handler for block received not yet registered on P2P service. Received block ${block.blockNumber} for slot ${block.slotNumber} from peer.`,
         { p2pMessageIdentifier: await block.p2pMessageLoggingIdentifier() },
       );
-      return false;
+      return true;
     };
 
     this.checkpointReceivedCallback = (
@@ -1621,8 +1621,12 @@ export class LibP2PService extends WithTracer implements P2PService {
     nextSlotTimestamp: UInt64,
   ): Promise<Record<string, TransactionValidator>> {
     const gasFees = await this.getGasFees(currentBlockNumber);
-    const allowedInSetup = this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
+    const allowedInSetup = [
+      ...(await getDefaultAllowedSetupFunctions()),
+      ...(this.config.txPublicSetupAllowListExtend ?? []),
+    ];
     const blockNumber = BlockNumber(currentBlockNumber + 1);
+    const l1Constants = await this.archiver.getL1Constants();
 
     return createFirstStageTxValidationsForGossipedTransactions(
       nextSlotTimestamp,
@@ -1636,6 +1640,11 @@ export class LibP2PService extends WithTracer implements P2PService {
       !this.config.disableTransactions,
       allowedInSetup,
       this.logger.getBindings(),
+      {
+        rollupManaLimit: l1Constants.rollupManaLimit,
+        maxBlockL2Gas: this.config.validateMaxL2BlockGas,
+        maxBlockDAGas: this.config.validateMaxDABlockGas,
+      },
     );
   }
 
@@ -1661,8 +1670,10 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     // A promise that resolves when all validations have been run
     const allValidations = await Promise.all(validationPromises);
-    const failed = allValidations.find(x => !x.isValid);
-    if (failed) {
+    const failures = allValidations.filter(x => !x.isValid);
+    if (failures.length > 0) {
+      // Pick the most severe failure (lowest tolerance = harshest penalty)
+      const failed = maxBy(failures, f => PeerErrorSeverityByHarshness.indexOf(f.severity))!;
       return {
         allPassed: false,
         failure: {

@@ -22,6 +22,8 @@
 <li><a href="struct.MessageContext.html">MessageContext</a></div></li>
 </ul>
 <h3>Functions</h3><ul class="item-list">
+<li><a href="fn.enqueue_event_for_validation.html">enqueue_event_for_validation</a></div></li>
+<li><a href="fn.enqueue_note_for_validation.html">enqueue_note_for_validation</a></div></li>
 <li><a href="fn.validate_and_store_enqueued_notes_and_events.html">validate_and_store_enqueued_notes_and_events</a></div></li>
 </ul>
 </nav>
@@ -33,11 +35,11 @@
 )</code></pre>
 
 <div class="comments">
-<p>Validates all note and event validation requests enqueued via <code>enqueue_note_for_validation</code> and
-<code>enqueue_event_for_validation</code>, inserting them into the note database and event store respectively, making them
-queryable via <code>get_notes</code> oracle and our TS API (PXE::getPrivateEvents).</p>
-<p>This automatically clears both validation request queues, so no further work needs to be done by the caller.</p>
-</div>
+<p>Validates and stores all enqueued notes and events.</p>
+<p>Processes all requests enqueued via <a href="../../../noir_aztec/messages/processing/fn.enqueue_note_for_validation.html"><code>enqueue_note_for_validation</code></a> and <a href="../../../noir_aztec/messages/processing/fn.enqueue_event_for_validation.html"><code>enqueue_event_for_validation</code></a>, inserting
+them into the note database and event store respectively, making them queryable via <code>get_notes</code> oracle and our TS
+API (PXE::getPrivateEvents).</p>
+<p>This automatically clears both validation request queues, so no further work needs to be done by the caller.</p></div>
 </main>
 </span>
 </body>

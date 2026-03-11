@@ -58,7 +58,7 @@ void ChonkAPI::prove(const Flags& flags,
     request.vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    bbapi::ChonkStart{ .num_circuits = raw_steps.size() }.execute(request);
+    bbapi::ChonkStart{ .num_circuits = static_cast<uint32_t>(raw_steps.size()) }.execute(request);
     info("Chonk: starting with ", raw_steps.size(), " circuits");
     for (const auto& step : raw_steps) {
         bbapi::ChonkLoad{
@@ -112,6 +112,36 @@ bool ChonkAPI::verify([[maybe_unused]] const Flags& flags,
     auto vk_buffer = read_vk_file(vk_path);
 
     auto response = bbapi::ChonkVerify{ .proof = std::move(proof), .vk = std::move(vk_buffer) }.execute();
+    return response.valid;
+}
+
+bool ChonkAPI::batch_verify([[maybe_unused]] const Flags& flags, const std::filesystem::path& proofs_dir)
+{
+    BB_BENCH_NAME("ChonkAPI::batch_verify");
+
+    std::vector<ChonkProof> proofs;
+    std::vector<std::vector<uint8_t>> vks;
+
+    for (size_t i = 0;; ++i) {
+        auto proof_file = proofs_dir / ("proof_" + std::to_string(i));
+        auto vk_file = proofs_dir / ("vk_" + std::to_string(i));
+
+        if (!std::filesystem::exists(proof_file) || !std::filesystem::exists(vk_file)) {
+            break;
+        }
+
+        auto proof_fields = many_from_buffer<fr>(read_file(proof_file));
+        proofs.push_back(ChonkProof::from_field_elements(proof_fields));
+        vks.push_back(read_vk_file(vk_file));
+    }
+
+    if (proofs.empty()) {
+        throw_or_abort("batch_verify: no proof_0/vk_0 pairs found in " + proofs_dir.string());
+    }
+
+    info("ChonkAPI::batch_verify - found ", proofs.size(), " proof/vk pairs in ", proofs_dir.string());
+
+    auto response = bbapi::ChonkBatchVerify{ .proofs = std::move(proofs), .vks = std::move(vks) }.execute();
     return response.valid;
 }
 
