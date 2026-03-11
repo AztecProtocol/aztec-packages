@@ -89,6 +89,34 @@ export class BlockNotFoundError extends Error {
   }
 }
 
+<<<<<<< HEAD
+=======
+/** Thrown when a proposed block matches a block that was already checkpointed. This is expected for late proposals. */
+export class BlockAlreadyCheckpointedError extends Error {
+  constructor(public readonly blockNumber: number) {
+    super(`Block ${blockNumber} has already been checkpointed with the same content`);
+    this.name = 'BlockAlreadyCheckpointedError';
+  }
+}
+
+/** Thrown when logs are added for a tag whose last stored log has a higher block number than the new log. */
+export class OutOfOrderLogInsertionError extends Error {
+  constructor(
+    public readonly logType: 'private' | 'public',
+    public readonly tag: string,
+    public readonly lastBlockNumber: number,
+    public readonly newBlockNumber: number,
+  ) {
+    super(
+      `Out-of-order ${logType} log insertion for tag ${tag}: ` +
+        `last existing log is from block ${lastBlockNumber} but new log is from block ${newBlockNumber}`,
+    );
+    this.name = 'OutOfOrderLogInsertionError';
+  }
+}
+
+/** Thrown when a proposed block conflicts with an already checkpointed block (different content). */
+>>>>>>> b41a4df548 (fix(archiver): filter tagged log queries by block number)
 export class CannotOverwriteCheckpointedBlockError extends Error {
   constructor(
     public readonly blockNumber: number,
