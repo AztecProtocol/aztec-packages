@@ -15,6 +15,7 @@ namespace bb::avm2::simulation {
  *
  * @param cd_hash The expected calldata hash.
  * @param calldata The calldata fields to hash.
+ * @note Asserts that the computed Poseidon2 hash of the calldata (with domain separator) equals cd_hash.
  */
 void CalldataHasher::assert_calldata_hash(const FF& cd_hash, std::span<const FF> calldata)
 {
