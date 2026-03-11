@@ -1,3 +1,4 @@
+import { minBigint } from '@aztec/foundation/bigint';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import type { Tx } from '@aztec/stdlib/tx';
 
@@ -11,10 +12,12 @@ export function getPendingTxPriority(tx: Tx): string {
 }
 
 /**
- * Returns the priority of a tx.
+ * Returns the priority of a tx based on the priority fees, capped by the max fees per gas.
  */
 export function getTxPriorityFee(tx: Tx): bigint {
-  const priorityFees = tx.getGasSettings().maxPriorityFeesPerGas;
-  const totalFees = priorityFees.feePerDaGas + priorityFees.feePerL2Gas;
+  const { maxPriorityFeesPerGas: priorityFees, maxFeesPerGas } = tx.getGasSettings();
+  const totalFees =
+    minBigint(maxFeesPerGas.feePerDaGas, priorityFees.feePerDaGas) +
+    minBigint(maxFeesPerGas.feePerL2Gas, priorityFees.feePerL2Gas);
   return totalFees;
 }

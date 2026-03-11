@@ -116,7 +116,7 @@ export class TestContext {
 
     const broker = new TestBroker(proverCount, localProver);
     const facade = new BrokerCircuitProverFacade(broker);
-    const orchestrator = new TestProvingOrchestrator(ws, facade, EthAddress.ZERO);
+    const orchestrator = new TestProvingOrchestrator(ws, facade, EthAddress.ZERO, false, 10);
 
     await broker.start();
     facade.start();

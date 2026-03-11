@@ -16,15 +16,11 @@ import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
-import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { SequencerState } from '@aztec/sequencer-client';
-import { FunctionSelector, countArgumentsSize } from '@aztec/stdlib/abi';
-import type { FunctionAbi } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
-import type { AllowedElement, ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
+import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
@@ -43,42 +39,11 @@ import { createAccountLogs } from '../cli/util.js';
 import { DefaultMnemonic } from '../mnemonic.js';
 import { AnvilTestWatcher } from '../testing/anvil_test_watcher.js';
 import { EpochTestSettler } from '../testing/epoch_test_settler.js';
+import { getTokenAllowedSetupFunctions } from '../testing/token_allowed_setup.js';
 import { getBananaFPCAddress, setupBananaFPC } from './banana_fpc.js';
 import { getSponsoredFPCAddress } from './sponsored_fpc.js';
 
 const logger = createLogger('local-network');
-
-/**
- * Returns Token-specific allowlist entries for FPC-based fee payments.
- * The local network deploys a banana FPC and Token contracts, so the node must allow Token setup functions.
- */
-async function getTokenAllowedSetupFunctions(): Promise<AllowedElement[]> {
-  const tokenClassId = (await getContractClassFromArtifact(TokenContractArtifact)).id;
-  const allFunctions: FunctionAbi[] = (TokenContractArtifact.functions as FunctionAbi[]).concat(
-    TokenContractArtifact.nonDispatchPublicFunctions || [],
-  );
-  const getCalldataLength = (name: string) => {
-    const fn = allFunctions.find(f => f.name === name)!;
-    return 1 + countArgumentsSize(fn);
-  };
-  const increaseBalanceSelector = await FunctionSelector.fromSignature('_increase_public_balance((Field),u128)');
-  const transferInPublicSelector = await FunctionSelector.fromSignature(
-    'transfer_in_public((Field),(Field),u128,Field)',
-  );
-  return [
-    {
-      classId: tokenClassId,
-      selector: increaseBalanceSelector,
-      calldataLength: getCalldataLength('_increase_public_balance'),
-      onlySelf: true,
-    },
-    {
-      classId: tokenClassId,
-      selector: transferInPublicSelector,
-      calldataLength: getCalldataLength('transfer_in_public'),
-    },
-  ];
-}
 
 const localAnvil = foundry;
 

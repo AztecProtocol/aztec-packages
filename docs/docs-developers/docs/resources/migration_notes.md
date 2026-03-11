@@ -9,6 +9,21 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] `getPublicEvents` now returns an object instead of an array
+
+`getPublicEvents` now returns a `GetPublicEventsResult<T>` object with `events` and `maxLogsHit` fields instead of a plain array. This enables pagination through large result sets using the new `afterLog` filter option.
+
+```diff
+- const events = await getPublicEvents<MyEvent>(node, MyContract.events.MyEvent, filter);
++ const { events } = await getPublicEvents<MyEvent>(node, MyContract.events.MyEvent, filter);
+```
+
+The `maxLogsHit` flag indicates whether the log limit was reached, meaning more results may be available. You can use `afterLog` in the filter to fetch the next page.
+
+### [Aztec.nr] Removed `get_random_bytes`
+
+The `get_random_bytes` unconstrained function has been removed from `aztec::utils::random`. If you were using it, you can replace it with direct calls to the `random` oracle from `aztec::oracle::random` and convert to bytes yourself.
+
 ### [Aztec.js] `simulate()`, `send()`, and deploy return types changed to always return objects
 
 All SDK interaction methods now return structured objects that include offchain output alongside the primary result. This affects `.simulate()`, `.send()`, deploy `.send()`, and `Wallet.sendTx()`.

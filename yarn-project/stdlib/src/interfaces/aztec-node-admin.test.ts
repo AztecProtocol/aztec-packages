@@ -138,6 +138,7 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       proverTestDelayMs: 100,
       proverTestDelayFactor: 1,
       cancelJobsOnStop: false,
+      enqueueConcurrency: 10,
       proverAgentCount: 1,
       coinbase: EthAddress.random(),
       maxPendingTxCount: 1000,
