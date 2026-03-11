@@ -322,7 +322,7 @@ namespace calldata_hashing;
     // Note: may be able to omit end * (rounds_rem - 1) since the poseidon trace also
     // constrains this.
     #[ROUNDS_DECREMENT]
-    sel * ((1 - LATCH_CONDITION) * (rounds_rem' - rounds_rem + 1) + end * (rounds_rem - 1)) = 0;
+    (sel - end) * (rounds_rem' - rounds_rem + 1) + end * (rounds_rem - 1) = 0;
 
     // ==== POSEIDON2 HASH LOOKUP ====
 
