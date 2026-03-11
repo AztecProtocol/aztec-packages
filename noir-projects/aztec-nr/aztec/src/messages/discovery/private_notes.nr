@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+use crate::logging::{aztecnr_debug_log_format, aztecnr_warn_log_format};
+>>>>>>> 7a485d139a (fix(aztec-nr): return Option from decode functions and fix event commitment capacity (#21264))
 use crate::messages::{
     discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
     encoding::MAX_MESSAGE_CONTENT_LEN,
@@ -16,22 +20,31 @@ pub unconstrained fn process_private_note_msg<Env>(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
 ) {
-    let (note_type_id, owner, storage_slot, randomness, packed_note) =
-        decode_private_note_message(msg_metadata, msg_content);
+    let decoded = decode_private_note_message(msg_metadata, msg_content);
 
-    attempt_note_discovery(
-        contract_address,
-        tx_hash,
-        unique_note_hashes_in_tx,
-        first_nullifier_in_tx,
-        recipient,
-        compute_note_hash_and_nullifier,
-        owner,
-        storage_slot,
-        randomness,
-        note_type_id,
-        packed_note,
-    );
+    if decoded.is_some() {
+        let (note_type_id, owner, storage_slot, randomness, packed_note) = decoded.unwrap();
+
+        attempt_note_discovery(
+            contract_address,
+            tx_hash,
+            unique_note_hashes_in_tx,
+            first_nullifier_in_tx,
+            recipient,
+            compute_note_hash_and_nullifier,
+            owner,
+            storage_slot,
+            randomness,
+            note_type_id,
+            packed_note,
+        );
+    } else {
+        aztecnr_warn_log_format!(
+            "Could not decode private note message from tx {0}, ignoring",
+        )(
+            [tx_hash],
+        );
+    }
 }
 
 /// Attempts discovery of a note given information about its contents and the transaction in which it is suspected the
