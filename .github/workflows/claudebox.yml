@@ -43,6 +43,35 @@ jobs:
             repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
             -f content='eyes' || true
 
+      - name: Setup SSH tunnel to ClaudeBox
+        env:
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+        run: |
+          set -eu
+          mkdir -p ~/.ssh
+          echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+
+          # SSH tunnel: CI runner :4001 → bastion :3000 → (reverse tunnel) → claude-box :3001
+          ssh -f -N -L 4001:localhost:3000 \
+            -o StrictHostKeyChecking=no \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=3 \
+            -o ConnectTimeout=15 \
+            -i ~/.ssh/build_instance_key \
+            ubuntu@ci.aztec-labs.com
+
+          # Wait for tunnel
+          for i in $(seq 1 15); do
+            if curl -s -o /dev/null --max-time 2 http://localhost:4001/ 2>/dev/null; then
+              echo "SSH tunnel ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "ERROR: SSH tunnel failed to connect"
+          exit 1
+
       - name: Parse command
         id: parse
         env:
@@ -88,7 +117,7 @@ jobs:
       - name: Run ClaudeBox
         timeout-minutes: 120
         env:
-          CLAUDEBOX_URL: ${{ vars.CLAUDEBOX_URL }}
+          CLAUDEBOX_URL: http://localhost:4001
           CLAUDEBOX_API_SECRET: ${{ secrets.CLAUDEBOX_API_SECRET }}
           CLAUDEBOX_PROMPT: ${{ steps.parse.outputs.prompt }}
           CLAUDEBOX_LINK: ${{ steps.parse.outputs.link }}
