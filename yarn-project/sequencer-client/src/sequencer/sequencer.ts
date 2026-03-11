@@ -14,7 +14,7 @@ import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import type { BlockData, L2BlockSink, L2BlockSource, ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
-import { getSlotAtTimestamp, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
+import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
   type ResolvedSequencerConfig,
   type SequencerConfig,
@@ -281,8 +281,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     const logCtx = {
       now,
-      syncedToL1Ts: syncedTo.l1Timestamp,
-      syncedToL2Slot: getSlotAtTimestamp(syncedTo.l1Timestamp, this.l1Constants),
+      syncedToL2Slot: syncedTo.syncedL2Slot,
       slot,
       slotTs: ts,
       checkpointNumber,
@@ -475,16 +474,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * We don't check against the previous block submitted since it may have been reorg'd out.
    */
   protected async checkSync(args: { ts: bigint; slot: SlotNumber }): Promise<SequencerSyncCheckResult | undefined> {
-    // Check that the archiver and dependencies have synced to the previous L1 slot at least
+    // Check that the archiver has fully synced the L2 slot before the one we want to propose in.
     // TODO(#14766): Archiver reports L1 timestamp based on L1 blocks seen, which means that a missed L1 block will
     // cause the archiver L1 timestamp to fall behind, and cause this sequencer to start processing one L1 slot later.
-    const l1Timestamp = await this.l2BlockSource.getL1Timestamp();
-    const { slot, ts } = args;
-    if (l1Timestamp === undefined || l1Timestamp + BigInt(this.l1Constants.ethereumSlotDuration) < ts) {
+    const syncedL2Slot = await this.l2BlockSource.getSyncedL2SlotNumber();
+    const { slot } = args;
+    if (syncedL2Slot === undefined || syncedL2Slot + 1 < slot) {
       this.log.debug(`Cannot propose block at next L2 slot ${slot} due to pending sync from L1`, {
         slot,
-        ts,
-        l1Timestamp,
+        syncedL2Slot,
       });
       return undefined;
     }
@@ -524,7 +522,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         checkpointNumber: CheckpointNumber.ZERO,
         blockNumber: BlockNumber.ZERO,
         archive,
-        l1Timestamp,
+        syncedL2Slot,
         pendingChainValidationStatus,
       };
     }
@@ -541,7 +539,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       blockNumber: blockData.header.getBlockNumber(),
       checkpointNumber: blockData.checkpointNumber,
       archive: blockData.archive.root,
-      l1Timestamp,
+      syncedL2Slot,
       pendingChainValidationStatus,
     };
   }
@@ -720,7 +718,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     syncedTo: SequencerSyncCheckResult,
     currentSlot: SlotNumber,
   ): Promise<void> {
-    const { pendingChainValidationStatus, l1Timestamp } = syncedTo;
+    const { pendingChainValidationStatus, syncedL2Slot } = syncedTo;
     if (pendingChainValidationStatus.valid) {
       return;
     }
@@ -735,7 +733,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     const logData = {
       invalidL1Timestamp: invalidCheckpointTimestamp,
-      l1Timestamp,
+      syncedL2Slot,
       invalidCheckpoint: pendingChainValidationStatus.checkpoint,
       secondsBeforeInvalidatingBlockAsCommitteeMember,
       secondsBeforeInvalidatingBlockAsNonCommitteeMember,
@@ -882,6 +880,6 @@ type SequencerSyncCheckResult = {
   checkpointNumber: CheckpointNumber;
   blockNumber: BlockNumber;
   archive: Fr;
-  l1Timestamp: bigint;
+  syncedL2Slot: SlotNumber;
   pendingChainValidationStatus: ValidateCheckpointResult;
 };
