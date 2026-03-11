@@ -19,7 +19,7 @@ namespace bb {
 /**
  * @brief Commit to witnesses, compute relation parameters, and prepare for Sumcheck.
  */
-template <typename Flavor> void OinkProver<Flavor>::prove()
+template <typename Flavor> void OinkProver<Flavor>::prove(bool emit_alpha)
 {
     BB_BENCH_NAME("OinkProver::prove");
     commitment_key = CommitmentKey(prover_instance->polynomials.max_end_index());
@@ -29,7 +29,9 @@ template <typename Flavor> void OinkProver<Flavor>::prove()
     commit_to_lookup_counts_and_w4();
     commit_to_logderiv_inverses();
     commit_to_z_perm();
-    prover_instance->alpha = transcript->template get_challenge<FF>("alpha");
+    if (emit_alpha) {
+        prover_instance->alpha = transcript->template get_challenge<FF>("alpha");
+    }
 }
 
 /**

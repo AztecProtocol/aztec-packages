@@ -236,5 +236,28 @@ template <typename base_field, typename Fq6Params> class field6 {
     [[nodiscard]] constexpr bool is_zero() const { return c0.is_zero() && c1.is_zero() && c2.is_zero(); }
 
     constexpr bool operator==(const field6& other) const { return c0 == other.c0 && c1 == other.c1 && c2 == other.c2; }
+
+    /**
+     * @brief Multiply a field6 element by a0 + a1 * v.
+     *
+     * @details Algorithm 6 from https://cacr.uwaterloo.ca/techreports/2012/cacr2012-17.pdf
+     *
+     * @param a0
+     * @param a1
+     * @return constexpr field6
+     */
+    constexpr field6 sparse_mul(const base_field& a0, const base_field& a1) const
+    {
+        base_field A = a0 * c0;
+        base_field B = a1 * c1;
+        base_field C = Fq6Params::mul_by_non_residue(a1 * c2);
+        base_field D = A + C;
+        base_field E = (a0 + a1) * (c0 + c1);
+        base_field F = E - (A + B);
+        base_field G = a0 * c2;
+        base_field H = G + B;
+
+        return field6{ D, F, H };
+    }
 };
 } // namespace bb
