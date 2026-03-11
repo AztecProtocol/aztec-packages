@@ -608,10 +608,10 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
 // Define types for which the above tests will be constructed.
 using CircuitTypes = testing::Types<typename bb::stdlib::bn254<UltraCircuitBuilder>::BaseField,
-                                    typename bb::stdlib::secp256k1<UltraCircuitBuilder>::fq_ct,
-                                    typename bb::stdlib::secp256k1<UltraCircuitBuilder>::bigfr_ct,
-                                    typename bb::stdlib::secp256r1<UltraCircuitBuilder>::fq_ct,
-                                    typename bb::stdlib::secp256r1<UltraCircuitBuilder>::bigfr_ct>;
+                                    typename bb::stdlib::secp256k1<UltraCircuitBuilder>::BaseField,
+                                    typename bb::stdlib::secp256k1<UltraCircuitBuilder>::ScalarField,
+                                    typename bb::stdlib::secp256r1<UltraCircuitBuilder>::BaseField,
+                                    typename bb::stdlib::secp256r1<UltraCircuitBuilder>::ScalarField>;
 
 // Define the suite of tests.
 TYPED_TEST_SUITE(stdlib_bigfield_edge_cases, CircuitTypes);

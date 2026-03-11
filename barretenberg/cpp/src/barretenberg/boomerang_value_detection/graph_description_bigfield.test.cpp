@@ -27,8 +27,8 @@ using Builder = UltraCircuitBuilder;
 using bn254 = stdlib::bn254<Builder>;
 using fr_ct = bn254::ScalarField;
 using fq_ct = bn254::BaseField;
-using public_witness_ct = bn254::public_witness_ct;
-using witness_ct = bn254::witness_ct;
+using public_witness_ct = stdlib::public_witness_t<Builder>;
+using witness_ct = stdlib::witness_t<Builder>;
 
 /**
  * @brief Fix a bigfield element to prevent it from being identified as a variable in one gate.

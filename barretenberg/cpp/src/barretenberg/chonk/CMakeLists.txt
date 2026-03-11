@@ -1,1 +1,2 @@
 barretenberg_module(chonk goblin dsl libdeflate::libdeflate_static hypernova multilinear_batching)
+add_subdirectory(batched_honk_translator)
