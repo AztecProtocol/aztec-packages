@@ -66,7 +66,10 @@ template <typename Flavor> class OinkProver {
         , transcript(transcript)
     {}
 
-    void prove();
+    // emit_alpha: when false, skip drawing the "alpha" challenge at the end of Oink.
+    // Used by BatchedHonkTranslatorProver, which draws a single joint alpha ("Sumcheck:alpha")
+    // after both circuits' pre-sumcheck phases instead.
+    void prove(bool emit_alpha = true);
     Proof export_proof();
 
     static void add_ram_rom_memory_records_to_wire_4(ProverInstance& instance);
