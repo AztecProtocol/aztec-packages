@@ -125,7 +125,9 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
     // ZK correction: receive Libra:Sum and Libra:Challenge to set initial target sum.
     FF libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
     libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
-    FF target_total_sum = libra_total_sum * libra_challenge;
+
+    // Initialise the joint sumcheck round verifier.
+    SumcheckVerifierRound<MegaZKFlavorT> joint_round(libra_total_sum * libra_challenge);
 
     GateSeparatorPolynomial<FF> gate_sep(gate_challenges);
 

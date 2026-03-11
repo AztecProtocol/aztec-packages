@@ -12,6 +12,44 @@ include "gt.pil";
  * - register[1]: copy_offset
  * - rop[2]: dst_addr
  *
+ * PRECONDITIONS:
+ * - copy_size is bounded by 2^32
+ * - copy_offset is bounded by 2^32
+ * - dst_addr is bounded by 2^32
+ * - src_addr is bounded by 2^32
+ * - src_data_size is bounded by 2^32
+ *
+ * These are guaranteed by the execution trace:
+ * - register[0] (copy_size) is tag-checked to U32.
+ * - register[1] (copy_offset) is tag-checked to U32.
+ * - rop[2] (dst_addr) is an address operand (< AVM_MEMORY_SIZE == 2^32).
+ * - src_addr and src_data_size come from context.pil via #[DISPATCH_TO_CD_COPY] / #[DISPATCH_TO_RD_COPY]:
+ *
+ *   CALLDATACOPY (src_addr = parent_calldata_addr, src_data_size = parent_calldata_size):
+ *   - parent_calldata_addr:
+ *     - Enqueued calls: = 0 (#[CD_ADDR_ENQUEUED_CALL_IS_ZERO] in context.pil).
+ *     - Nested calls: = rop[4] of CALL/STATICCALL (#[CD_ADDR_NEXT_ROW_EXT_CALL] in context.pil).
+ *       CALL/STATICCALL have num_addresses = 5, so rop[4] (index 4 < 5) is an address (< 2^32).
+ *     - On context restore: preserved via context_stack (#[CTX_STACK_ROLLBACK], #[CTX_STACK_RETURN]).
+ *   - parent_calldata_size:
+ *     - Enqueued calls: = tx.calldata_size via #[DISPATCH_EXEC_START]. Bounded by the AVM trace
+ *       length because calldata_hashing.pil constrains it to match a calldata index (#[CHECK_FINAL_INDEX]).
+ *     - Nested calls: = register[3] of CALL/STATICCALL (#[CD_SIZE_NEXT_ROW_EXT_CALL]).
+ *       Tag-checked to U32 by the CALL/STATICCALL instruction spec.
+ *     - On context restore: preserved via context_stack.
+ *
+ *   RETURNDATACOPY (src_addr = last_child_returndata_addr, src_data_size = last_child_returndata_size):
+ *   - last_child_returndata_addr:
+ *     - Enqueued calls: = 0 (#[RD_ADDR_INIT] in context.pil).
+ *     - On child RETURN/REVERT: = rop[1] of RETURN/REVERT (#[RET_REV_RD_ADDR] in context.pil).
+ *       RETURN/REVERT have num_addresses = 2, so rop[1] (index 1 < 2) is an address (< 2^32).
+ *     - Reset to 0 on entering a new call or error (#[NEXT_RD_ADDR_IS_ZERO]).
+ *   - last_child_returndata_size:
+ *     - Enqueued calls: = 0 (#[RD_SIZE_INIT]).
+ *     - On child RETURN/REVERT: = register[0] of RETURN/REVERT (#[RET_REV_RD_SIZE]).
+ *       Tag-checked to U32 by the RETURN/REVERT instruction spec.
+ *     - Reset to 0 on entering a new call or error (#[NEXT_RD_SIZE_IS_ZERO]).
+ *
  * Memory I/O, this subtrace can potentially read and write across two different memory space ids (indicated by the context_ids)
  * All reads are performed in the src context (using the src_context_id) and writes are performed in the current executing
  * context (using dst_context_id).
@@ -219,6 +257,9 @@ namespace data_copy;
     offset_plus_size = sel_start * (offset + copy_size);
     pol commit offset_plus_size_is_gt; // @boolean (by lookup into gt)
 
+    // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+    // `offset_plus_size` = offset + copy_size (both U32, so < 2^33). `src_data_size` is U32.
+    // (All involved values are U32 by PRECONDITIONS at the top of this file.)
     #[OFFSET_PLUS_SIZE_IS_GT_DATA_SIZE]
     sel_start { offset_plus_size, src_data_size, offset_plus_size_is_gt }
     in
@@ -251,6 +292,9 @@ namespace data_copy;
     // and src_out_of_range_err == 0.
     pol commit read_addr_upper_bound;
     read_addr_upper_bound = sel_start * (src_addr + data_index_upper_bound);
+    // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+    // `read_addr_upper_bound` = src_addr + data_index_upper_bound (former is U32, latter is < 2^33, so < 2^34).
+    // `mem_size` = AVM_MEMORY_SIZE = 2^32.
     #[CHECK_SRC_ADDR_IN_RANGE]
     sel_start { read_addr_upper_bound, mem_size, src_out_of_range_err }
     in
@@ -258,6 +302,9 @@ namespace data_copy;
 
     pol commit write_addr_upper_bound;
     write_addr_upper_bound = sel_start * (dst_addr + copy_size);
+    // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+    // `write_addr_upper_bound` = dst_addr + copy_size (both U32, so < 2^33).
+    // `mem_size` = AVM_MEMORY_SIZE = 2^32.
     #[CHECK_DST_ADDR_IN_RANGE]
     sel_start { write_addr_upper_bound, mem_size, dst_out_of_range_err }
     in
@@ -299,6 +346,8 @@ namespace data_copy;
     // We need to be careful that data_index_upper_bound - offset does not underflow (i.e. when offset > data_index_upper_bound, reads_left = 0)
     // We test that condition here
     pol commit data_index_upper_bound_gt_offset; // @boolean (by lookup into gt)
+    // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
+    // `data_index_upper_bound` is at most `src_data_size` which is U32. `offset` is U32.
     #[DATA_INDEX_UPPER_BOUND_GT_OFFSET]
     sel_start_no_err { data_index_upper_bound, offset, data_index_upper_bound_gt_offset }
     in
