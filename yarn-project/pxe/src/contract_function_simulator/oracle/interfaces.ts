@@ -130,26 +130,17 @@ export interface IUtilityExecutionOracle {
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
   ): Promise<void>;
-<<<<<<< HEAD
+  utilityResolveMessageContexts(
+    contractAddress: AztecAddress,
+    messageContextRequestsArrayBaseSlot: Fr,
+    messageContextResponsesArrayBaseSlot: Fr,
+  ): Promise<void>;
   utilityStoreCapsule(contractAddress: AztecAddress, key: Fr, capsule: Fr[]): Promise<void>;
   utilityLoadCapsule(contractAddress: AztecAddress, key: Fr): Promise<Fr[] | null>;
   utilityDeleteCapsule(contractAddress: AztecAddress, key: Fr): Promise<void>;
   utilityCopyCapsule(contractAddress: AztecAddress, srcKey: Fr, dstKey: Fr, numEntries: number): Promise<void>;
   utilityAes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer>;
   utilityGetSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point>;
-=======
-  utilityResolveMessageContexts(
-    contractAddress: AztecAddress,
-    messageContextRequestsArrayBaseSlot: Fr,
-    messageContextResponsesArrayBaseSlot: Fr,
-  ): Promise<void>;
-  storeCapsule(contractAddress: AztecAddress, key: Fr, capsule: Fr[]): Promise<void>;
-  loadCapsule(contractAddress: AztecAddress, key: Fr): Promise<Fr[] | null>;
-  deleteCapsule(contractAddress: AztecAddress, key: Fr): Promise<void>;
-  copyCapsule(contractAddress: AztecAddress, srcKey: Fr, dstKey: Fr, numEntries: number): Promise<void>;
-  aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer>;
-  getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point>;
->>>>>>> b1ada99eef (feat: offchain reception (#20893))
 }
 
 /**

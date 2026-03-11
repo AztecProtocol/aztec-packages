@@ -750,11 +750,7 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
-<<<<<<< HEAD
-  async utilityStoreCapsule(
-=======
-  // eslint-disable-next-line camelcase
-  public async aztec_utl_utilityResolveMessageContexts(
+  async utilityResolveMessageContexts(
     foreignContractAddress: ForeignCallSingle,
     foreignMessageContextRequestsArrayBaseSlot: ForeignCallSingle,
     foreignMessageContextResponsesArrayBaseSlot: ForeignCallSingle,
@@ -772,9 +768,7 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
-  // eslint-disable-next-line camelcase
-  async aztec_utl_storeCapsule(
->>>>>>> b1ada99eef (feat: offchain reception (#20893))
+  async utilityStoreCapsule(
     foreignContractAddress: ForeignCallSingle,
     foreignSlot: ForeignCallSingle,
     foreignCapsule: ForeignCallArray,

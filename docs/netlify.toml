@@ -759,12 +759,6 @@
 # Add new error codes sequentially (1, 2, 3, ...).
 # =============================================================================
 
-<<<<<<< HEAD
-# Example (uncomment and modify when adding error codes):
-# [[redirects]]
-#     from = "/errors/1"
-#     to = "/developers/docs/aztec-nr/framework-description/functions/how_to_define_functions"
-=======
 [[redirects]]
     from = "/errors/1"
     # A warning that is shown when `aztec compile` is run and the contract crate contains tests
@@ -799,4 +793,3 @@
     # Aztec-nr: user-defined 'offchain_receive' is not allowed
     from = "/errors/7"
     to = "/aztec-nr-api/nightly/noir_aztec/messages/processing/offchain/fn.receive.html"
->>>>>>> b1ada99eef (feat: offchain reception (#20893))

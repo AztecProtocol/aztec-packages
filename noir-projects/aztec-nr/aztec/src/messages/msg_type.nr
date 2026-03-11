@@ -14,3 +14,19 @@ pub global PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID: u64 = 1;
 ///
 /// This message contains all information necessary in order to prove existence of the event.
 pub global PRIVATE_EVENT_MSG_TYPE_ID: u64 = 2;
+
+pub global MIN_CUSTOM_MSG_TYPE_ID: u64 = 2.pow_32(16) as u64;
+
+/// Custom message handlers must use message type IDs >= `MIN_CUSTOM_MSG_TYPE_ID`. This function offsets the provided
+/// local ID by `MIN_CUSTOM_MSG_TYPE_ID` so that users can define simple sequential IDs starting from 0 without
+/// worrying about collisions with the built-in IDs.
+///
+/// ## Example
+///
+/// ```noir
+/// global MY_MSG_TYPE: u64 = custom_msg_type_id(0);
+/// global ANOTHER_MSG_TYPE: u64 = custom_msg_type_id(1);
+/// ```
+pub fn custom_msg_type_id(local_id: u64) -> u64 {
+    MIN_CUSTOM_MSG_TYPE_ID + local_id
+}

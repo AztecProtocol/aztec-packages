@@ -59,17 +59,12 @@ describe('Oracle Version Check test suite', () => {
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
-<<<<<<< HEAD
+    messageContextService = mock<MessageContextService>();
     utilityAssertCompatibleOracleVersionSpy = jest.spyOn(
       UtilityExecutionOracle.prototype,
       'utilityAssertCompatibleOracleVersion',
     );
     utilityAssertCompatibleOracleVersionSpy.mockClear();
-=======
-    messageContextService = mock<MessageContextService>();
-    assertCompatibleOracleVersionSpy = jest.spyOn(UtilityExecutionOracle.prototype, 'assertCompatibleOracleVersion');
-    assertCompatibleOracleVersionSpy.mockClear();
->>>>>>> b1ada99eef (feat: offchain reception (#20893))
 
     aztecNode.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
     anchorBlockHeader = BlockHeader.random();
