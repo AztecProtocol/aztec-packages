@@ -89,6 +89,15 @@ export class BlockNotFoundError extends Error {
   }
 }
 
+/** Thrown when a proposed block matches a block that was already checkpointed. This is expected for late proposals. */
+export class BlockAlreadyCheckpointedError extends Error {
+  constructor(public readonly blockNumber: number) {
+    super(`Block ${blockNumber} has already been checkpointed with the same content`);
+    this.name = 'BlockAlreadyCheckpointedError';
+  }
+}
+
+/** Thrown when a proposed block conflicts with an already checkpointed block (different content). */
 export class CannotOverwriteCheckpointedBlockError extends Error {
   constructor(
     public readonly blockNumber: number,

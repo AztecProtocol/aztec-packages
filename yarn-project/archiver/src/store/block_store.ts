@@ -35,6 +35,7 @@ import {
 } from '@aztec/stdlib/tx';
 
 import {
+  BlockAlreadyCheckpointedError,
   BlockArchiveNotConsistentError,
   BlockIndexNotSequentialError,
   BlockNotFoundError,
@@ -166,6 +167,11 @@ export class BlockStore {
       // Verify we're not overwriting checkpointed blocks
       const lastCheckpointedBlockNumber = await this.getCheckpointedL2BlockNumber();
       if (!opts.force && firstBlockNumber <= lastCheckpointedBlockNumber) {
+        // Check if the proposed block matches the already-checkpointed one
+        const existingBlock = await this.getBlock(BlockNumber(firstBlockNumber));
+        if (existingBlock && existingBlock.archive.root.equals(blocks[0].archive.root)) {
+          throw new BlockAlreadyCheckpointedError(firstBlockNumber);
+        }
         throw new CannotOverwriteCheckpointedBlockError(firstBlockNumber, lastCheckpointedBlockNumber);
       }
 

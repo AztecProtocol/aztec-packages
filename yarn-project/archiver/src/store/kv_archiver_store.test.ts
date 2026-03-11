@@ -42,6 +42,7 @@ import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { type IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import {
+  BlockAlreadyCheckpointedError,
   BlockArchiveNotConsistentError,
   BlockIndexNotSequentialError,
   BlockNumberNotSequentialError,
@@ -1371,6 +1372,18 @@ describe('KVArchiverDataStore', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       });
       await expect(store.addProposedBlocks([block1])).rejects.toThrow(CannotOverwriteCheckpointedBlockError);
+    });
+
+    it('throws BlockAlreadyCheckpointedError if proposed block matches the checkpointed one', async () => {
+      const checkpoint1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 2, startBlockNumber: 1 }),
+        10,
+      );
+      await store.addCheckpoints([checkpoint1]);
+
+      // Re-propose the same block that was already checkpointed
+      const checkpointedBlock = checkpoint1.checkpoint.blocks[1];
+      await expect(store.addProposedBlocks([checkpointedBlock])).rejects.toThrow(BlockAlreadyCheckpointedError);
     });
   });
 
