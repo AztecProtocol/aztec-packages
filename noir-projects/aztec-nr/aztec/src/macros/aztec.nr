@@ -16,10 +16,6 @@ use crate::macros::{
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
 /// the `sync_state` utility function.
 ///
-<<<<<<< HEAD
-/// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
-pub comptime fn aztec(m: Module) -> Quoted {
-=======
 /// This type lets users override different parts of the default aztec-nr contract behavior, such
 /// as message handling. These are advanced features that require careful understanding of
 /// the behavior of these systems.
@@ -86,7 +82,7 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
         panic(f"#[aztec] expects 0 or 1 arguments, got {num_args}")
     };
 
->>>>>>> b1ada99eef (feat: offchain reception (#20893))
+
     // Functions that don't have #[external(...)], #[contract_library_method], or #[test] are not allowed in contracts.
     check_each_fn_macroified(m);
 
@@ -111,10 +107,6 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
     } else {
         quote {}
     };
-<<<<<<< HEAD
-    let sync_state_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { sync_state }) {
-        generate_sync_state()
-=======
     let process_custom_message_option = if config.custom_message_handler.is_some() {
         let handler = config.custom_message_handler.unwrap();
         quote { Option::some($handler) }
@@ -128,7 +120,6 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
 
     let sync_state_fn_and_abi_export = if !m.functions().any(|f| f.name() == quote { sync_state }) {
         generate_sync_state(process_custom_message_option, offchain_inbox_sync_option)
->>>>>>> b1ada99eef (feat: offchain reception (#20893))
     } else {
         quote {}
     };
@@ -356,12 +347,8 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
     }
 }
 
-<<<<<<< HEAD
-comptime fn generate_sync_state() -> Quoted {
-=======
 /// Generates the `sync_state` utility function that performs message discovery.
 comptime fn generate_sync_state(process_custom_message_option: Quoted, offchain_inbox_sync_option: Quoted) -> Quoted {
->>>>>>> b1ada99eef (feat: offchain reception (#20893))
     quote {
         pub struct sync_state_parameters {}
 
@@ -373,17 +360,12 @@ comptime fn generate_sync_state(process_custom_message_option: Quoted, offchain_
         #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
         unconstrained fn sync_state() {
             let address = aztec::context::UtilityContext::new().this_address();
-<<<<<<< HEAD
-            
-            aztec::messages::discovery::do_sync_state(address, _compute_note_hash_and_nullifier);
-=======
             aztec::messages::discovery::do_sync_state(
                 address,
                 _compute_note_hash_and_nullifier,
                 $process_custom_message_option,
                 $offchain_inbox_sync_option,
             );
->>>>>>> b1ada99eef (feat: offchain reception (#20893))
         }
     }
 }

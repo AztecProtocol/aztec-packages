@@ -12,12 +12,8 @@ use crate::{
         discovery::process_message::process_message_ciphertext,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
-<<<<<<< HEAD
-            get_private_logs, pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
-=======
             get_private_logs, MessageContext, offchain::OffchainInboxSync, OffchainMessageWithContext,
             pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
->>>>>>> b1ada99eef (feat: offchain reception (#20893))
         },
     },
     utils::array,
@@ -82,13 +78,9 @@ randomness */ Field, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 /// `compute_note_hash_and_nullifier` function.
 pub unconstrained fn do_sync_state<Env>(
     contract_address: AztecAddress,
-<<<<<<< HEAD
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
-=======
-    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<ComputeNoteHashAndNullifierEnv>,
     process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
     offchain_inbox_sync: Option<OffchainInboxSync<()>>,
->>>>>>> b1ada99eef (feat: offchain reception (#20893))
 ) {
     debug_log("Performing state synchronization");
 
