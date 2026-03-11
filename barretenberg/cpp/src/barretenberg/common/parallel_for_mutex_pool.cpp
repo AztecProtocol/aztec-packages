@@ -14,7 +14,7 @@
 
 #include "barretenberg/common/compiler_hints.hpp"
 
-// Fix for https://github.com/AztecProtocol/barretenberg/issues/1275
+// Fix for https://github.com/AztecProtocol/aztec-packages/issues/19769
 // Zig's Mach-O linker (https://codeberg.org/ziglang/zig/issues/31461) misaligns
 // __thread_bss TLS template offsets when __thread_data is also present (from Rust
 // static libraries), causing x86_64-macos segfaults on any thread_local requiring
