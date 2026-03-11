@@ -116,13 +116,13 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
      *        We already know slice1 is in the range [0, ..., 15]
      *        To check the range [8, ..., 15] we validate the most significant 2 bits (s1) are >=2
      */
-    const auto s1_shift = View(in.precompute_s1hi_shift);
-    const auto s1_shift_msb_set = (s1_shift - 2) * (s1_shift - 3);
+    const auto s1hi_shift = View(in.precompute_s1hi_shift);
+    const auto s1hi_shift_msb_set = (s1hi_shift - 2) * (s1hi_shift - 3);
     const auto scaled_transition_plus_lagrange_first = scaled_transition + scaled_lagrange_first;
-    // away from row zero, add `scaled_transition * precompute_select_shift * s1_shift_msb_set`. however,
+    // away from row zero, add `scaled_transition * precompute_select_shift * s1hi_shift_msb_set`. however,
     // `q_transition[0] == 0`, so this constraint will not turn on at the 0th row unless we add
     // `scaled_lagrange_first`.
-    std::get<20>(accumulator) += scaled_transition_plus_lagrange_first * precompute_select_shift * s1_shift_msb_set;
+    std::get<20>(accumulator) += scaled_transition_plus_lagrange_first * precompute_select_shift * s1hi_shift_msb_set;
     /**
      * @brief Convert each pair of 2-bit scalar slices into a 4-bit windowed-non-adjacent-form slice.
      * Conversion from binary -> wnaf = 2 * binary - 15.
