@@ -87,7 +87,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly capsuleStore: CapsuleStore;
   protected readonly privateEventStore: PrivateEventStore;
   protected readonly jobId: string;
-  protected log: ReturnType<typeof createLogger>;
+  protected logger: ReturnType<typeof createLogger>;
   protected readonly scopes: AccessScopes;
 
   constructor(args: UtilityExecutionOracleArgs) {
@@ -105,11 +105,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.capsuleStore = args.capsuleStore;
     this.privateEventStore = args.privateEventStore;
     this.jobId = args.jobId;
-    this.log = args.log ?? createLogger('simulator:client_view_context');
+    this.logger = args.log ?? createLogger('simulator:client_view_context');
     this.scopes = args.scopes;
   }
 
-  public utilityAssertCompatibleOracleVersion(version: number): void {
+  public assertCompatibleOracleVersion(version: number): void {
     // Alpha payload protocol contracts (ContractInstanceRegistry, ContractClassRegistry, FeeJuice) shipped with
     // committed bytecode that cannot be changed. Skip the version check for these contracts.
     // TODO(F-416): Remove this hack on v5 when protocol contracts are redeployed.
@@ -121,11 +121,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     }
   }
 
-  public utilityGetRandomField(): Fr {
+  public getRandomField(): Fr {
     return Fr.random();
   }
 
-  public utilityGetUtilityContext(): UtilityContext {
+  public getUtilityContext(): UtilityContext {
     return new UtilityContext(this.anchorBlockHeader, this.contractAddress);
   }
 
@@ -136,7 +136,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @throws If the keys are not registered in the key store.
    * @throws If scopes are defined and the account is not in the scopes.
    */
-  public async utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
+  public async getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
     // If scopes are defined, check that the key belongs to an account in the scopes.
     if (this.scopes !== 'ALL_SCOPES' && this.scopes.length > 0) {
       let hasAccess = false;
@@ -159,7 +159,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param noteHash - The note hash to find in the note hash tree.
    * @returns The membership witness containing the leaf index and sibling path
    */
-  public utilityGetNoteHashMembershipWitness(
+  public getNoteHashMembershipWitness(
     anchorBlockHash: BlockHash,
     noteHash: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
@@ -177,7 +177,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param blockHash - The block hash to find in the archive tree.
    * @returns The membership witness containing the leaf index and sibling path
    */
-  public utilityGetBlockHashMembershipWitness(
+  public getBlockHashMembershipWitness(
     anchorBlockHash: BlockHash,
     blockHash: BlockHash,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
@@ -190,7 +190,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param nullifier - Nullifier we try to find witness for.
    * @returns The nullifier membership witness (if found).
    */
-  public utilityGetNullifierMembershipWitness(
+  public getNullifierMembershipWitness(
     blockHash: BlockHash,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
@@ -206,7 +206,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
    * we are trying to prove non-inclusion for.
    */
-  public utilityGetLowNullifierMembershipWitness(
+  public getLowNullifierMembershipWitness(
     blockHash: BlockHash,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
@@ -219,7 +219,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param leafSlot - The slot of the public data tree to get the witness for.
    * @returns - The witness
    */
-  public utilityGetPublicDataWitness(blockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+  public getPublicDataWitness(blockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
     return this.aztecNode.getPublicDataWitness(blockHash, leafSlot);
   }
 
@@ -228,7 +228,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param blockNumber - The number of a block of which to get the block header.
    * @returns Block extracted from a block with block number `blockNumber`.
    */
-  public async utilityGetBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined> {
+  public async getBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined> {
     const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
     if (blockNumber > anchorBlockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
@@ -243,7 +243,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param account - The account address.
    * @returns The public keys and partial address, or `undefined` if the account is not registered.
    */
-  public async utilityTryGetPublicKeysAndPartialAddress(
+  public async tryGetPublicKeysAndPartialAddress(
     account: AztecAddress,
   ): Promise<{ publicKeys: PublicKeys; partialAddress: PartialAddress } | undefined> {
     const completeAddress = await this.addressStore.getCompleteAddress(account);
@@ -269,11 +269,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param address - Address.
    * @returns A contract instance.
    */
-  public utilityGetContractInstance(address: AztecAddress): Promise<ContractInstance> {
-    return this.getContractInstance(address);
-  }
-
-  protected async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
+  public async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
     const instance = await this.contractStore.getContractInstance(address);
     if (!instance) {
       throw new Error(`No contract instance found for address ${address.toString()}`);
@@ -287,7 +283,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param messageHash - Hash of the message to authenticate.
    * @returns Authentication witness for the requested message hash.
    */
-  public utilityGetAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
+  public getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
     return Promise.resolve(this.authWitnesses.find(w => w.requestHash.equals(messageHash))?.witness);
   }
 
@@ -313,7 +309,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param status - The status of notes to fetch.
    * @returns Array of note data.
    */
-  public async utilityGetNotes(
+  public async getNotes(
     owner: AztecAddress | undefined,
     storageSlot: Fr,
     numSelects: number,
@@ -353,7 +349,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param innerNullifier - The inner nullifier.
    * @returns A boolean indicating whether the nullifier exists in the tree or not.
    */
-  public async utilityCheckNullifierExists(innerNullifier: Fr) {
+  public async checkNullifierExists(innerNullifier: Fr) {
     const [nullifier, anchorBlockHash] = await Promise.all([
       siloNullifier(this.contractAddress, innerNullifier!),
       this.anchorBlockHeader.hash(),
@@ -372,7 +368,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @dev Contract address and secret are only used to compute the nullifier to get non-nullified messages
    * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
-  public async utilityGetL1ToL2MembershipWitness(contractAddress: AztecAddress, messageHash: Fr, secret: Fr) {
+  public async getL1ToL2MembershipWitness(contractAddress: AztecAddress, messageHash: Fr, secret: Fr) {
     const [messageIndex, siblingPath] = await getNonNullifiedL1ToL2MessageWitness(
       this.aztecNode,
       contractAddress,
@@ -390,7 +386,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param startStorageSlot - The starting storage slot.
    * @param numberOfElements - Number of elements to read from the starting storage slot.
    */
-  public async utilityStorageRead(
+  public async storageRead(
     blockHash: BlockHash,
     contractAddress: AztecAddress,
     startStorageSlot: Fr,
@@ -404,7 +400,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       slots.map(storageSlot => this.aztecNode.getPublicStorageAt(blockHash, contractAddress, storageSlot)),
     );
 
-    this.log.debug(
+    this.logger.debug(
       `Oracle storage read: slots=[${slots.map(slot => slot.toString()).join(', ')}] address=${contractAddress.toString()} values=[${values.join(', ')}]`,
     );
 
@@ -427,7 +423,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return this.contractLogger;
   }
 
-  public async utilityLog(level: number, message: string, fields: Fr[]): Promise<void> {
+  public async log(level: number, message: string, fields: Fr[]): Promise<void> {
     if (!LogLevels[level]) {
       throw new Error(`Invalid log level: ${level}`);
     }
@@ -435,7 +431,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     logContractMessage(logger, LogLevels[level], message, fields);
   }
 
-  public async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
+  public async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
     const logService = new LogService(
       this.aztecNode,
       this.anchorBlockHeader,
@@ -445,7 +441,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.senderAddressBookStore,
       this.addressStore,
       this.jobId,
-      this.log.getBindings(),
+      this.logger.getBindings(),
     );
 
     await logService.fetchTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
@@ -461,7 +457,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param noteValidationRequestsArrayBaseSlot - The base slot of capsule array containing note validation requests.
    * @param eventValidationRequestsArrayBaseSlot - The base slot of capsule array containing event validation requests.
    */
-  public async utilityValidateAndStoreEnqueuedNotesAndEvents(
+  public async validateAndStoreEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
@@ -519,7 +515,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     await this.capsuleStore.setCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, [], this.jobId);
   }
 
-  public async utilityBulkRetrieveLogs(
+  public async bulkRetrieveLogs(
     contractAddress: AztecAddress,
     logRetrievalRequestsArrayBaseSlot: Fr,
     logRetrievalResponsesArrayBaseSlot: Fr,
@@ -544,7 +540,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.senderAddressBookStore,
       this.addressStore,
       this.jobId,
-      this.log.getBindings(),
+      this.logger.getBindings(),
     );
 
     const maybeLogRetrievalResponses = await logService.bulkRetrieveLogs(logRetrievalRequests);
@@ -561,7 +557,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
   }
 
-  public utilityStoreCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
+  public storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -570,7 +566,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return Promise.resolve();
   }
 
-  public async utilityLoadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+  public async loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -582,7 +578,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
   }
 
-  public utilityDeleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+  public deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -591,12 +587,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return Promise.resolve();
   }
 
-  public utilityCopyCapsule(
-    contractAddress: AztecAddress,
-    srcSlot: Fr,
-    dstSlot: Fr,
-    numEntries: number,
-  ): Promise<void> {
+  public copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -605,7 +596,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
-  public utilityAes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
+  public aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
     const aes128 = new Aes128();
     return aes128.decryptBufferCBC(ciphertext, iv, symKey);
   }
@@ -616,11 +607,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param ephPk - The ephemeral public key to get the secret for.
    * @returns The secret for the given address.
    */
-  public utilityGetSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
-    return this.getSharedSecret(address, ephPk);
-  }
-
-  protected async getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
+  public async getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     // TODO(#12656): return an app-siloed secret
     const recipientCompleteAddress = await this.getCompleteAddressOrFail(address);
     const ivskM = await this.keyStore.getMasterSecretKey(
