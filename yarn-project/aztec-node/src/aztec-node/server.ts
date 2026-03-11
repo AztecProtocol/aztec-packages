@@ -1014,8 +1014,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       if (index === undefined) {
         return undefined;
       }
-      const blockNumber = indexToBlockNumber.get(index)!;
-      const blockHash = blockNumberToHash.get(blockNumber)!;
+      const blockNumber = indexToBlockNumber.get(index);
+      if (blockNumber === undefined) {
+        throw new Error(`Block number not found for leaf index ${index} in tree ${MerkleTreeId[treeId]}`);
+      }
+      const blockHash = blockNumberToHash.get(blockNumber);
+      if (blockHash === undefined) {
+        throw new Error(`Block hash not found for block number ${blockNumber}`);
+      }
       return {
         l2BlockNumber: blockNumber,
         l2BlockHash: new BlockHash(blockHash),

@@ -436,9 +436,6 @@ describe('aztec node', () => {
       });
 
       it('returns correct results when some leaves are not found', async () => {
-        // This is the scenario that triggered the index misalignment bug:
-        // maybeIndices has undefined gaps, so the filtered indices array is shorter
-        // than maybeIndices. The block numbers must be matched to the correct positions.
         merkleTreeOps.findLeafIndices.mockResolvedValue([undefined, 10n, 20n]);
         merkleTreeOps.getBlockNumbersForLeafIndices.mockResolvedValue([BlockNumber(1), BlockNumber(2)]);
         (merkleTreeOps as any).getLeafValue.mockImplementation((_treeId: any, index: bigint) => {
