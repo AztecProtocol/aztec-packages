@@ -24,7 +24,7 @@ constexpr fq two_inv = fq(2).invert();
  * @param a
  * @return g2Projective
  */
-inline constexpr g2Projective frobenius(const g2Projective& a)
+inline constexpr g2Projective twisted_frobenius(const g2Projective& a)
 {
     // We map a = [X : Y : Z] to its affine coordinates (X/Z, Y/Z) and then apply the Frobenius map to get
     // (\xi^{(q-1)/3} X^q/Z^q, \xi^{(q-1)/2} Y^q/Z^q). We then homogeneize again to get
@@ -105,8 +105,8 @@ constexpr void precompute_miller_lines(const g2Projective& Q, miller_lines& line
         }
     }
 
-    g2Projective Q1 = frobenius(Q);
-    g2Projective Q2 = frobenius(Q1);
+    g2Projective Q1 = twisted_frobenius(Q);
+    g2Projective Q2 = twisted_frobenius(Q1);
     Q2.y = -Q2.y;
     mixed_addition_step_for_miller_loop(Q1, work_point, lines.lines[it]);
     ++it;
