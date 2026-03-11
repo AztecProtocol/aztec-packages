@@ -7,10 +7,7 @@ pub contract Claim {
     // docs:end:history_import
     use aztec::{
         macros::{functions::{external, initializer}, storage::storage},
-        note::{
-            HintedNote, note_interface::NoteHash,
-            utils::compute_confirmed_note_hash_for_nullification,
-        },
+        note::{HintedNote, utils::compute_confirmed_note_hash_for_nullification},
         protocol::{address::AztecAddress, traits::Packable},
         state_vars::{Map, Owned, PublicImmutable, SingleUseClaim},
     };

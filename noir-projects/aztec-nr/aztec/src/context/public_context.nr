@@ -379,7 +379,7 @@ impl PublicContext {
     /// In particular, callers must ensure all nullifiers created by a contract are properly domain-separated, so that
     /// unrelated components don't interfere with one another (e.g. a transaction nullifier accidentally marking a
     /// variable as initialized). Note nullifiers should only be created via
-    /// [`PrivateContext::push_nullifier_for_note_hash`].
+    /// [`crate::context::PrivateContext::push_nullifier_for_note_hash`].
     ///
     /// ## Advanced
     ///
