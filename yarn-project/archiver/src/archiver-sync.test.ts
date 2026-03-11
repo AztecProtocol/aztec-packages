@@ -1392,7 +1392,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
       const blockAlreadySyncedFromCheckpoint = cp1.blocks[cp1.blocks.length - 1];
 
-      // Now try and add one of the blocks via the addProposedBlocks method. It should throw
+      // Now try and add one of the blocks via the addProposedBlock method. It should throw
       await expect(archiver.addBlock(blockAlreadySyncedFromCheckpoint)).rejects.toThrow();
     }, 10_000);
 
@@ -1493,8 +1493,12 @@ describe('Archiver Sync', () => {
       const { checkpoint: cp3 } = await fake.addCheckpoint(CheckpointNumber(3), { l1BlockNumber: 5010n });
 
       // Add blocks from BOTH checkpoints locally (matching the L1 checkpoints)
-      await archiverStore.addProposedBlocks(cp2.blocks, { force: true });
-      await archiverStore.addProposedBlocks(cp3.blocks, { force: true });
+      for (const block of cp2.blocks) {
+        await archiverStore.addProposedBlock(block, { force: true });
+      }
+      for (const block of cp3.blocks) {
+        await archiverStore.addProposedBlock(block, { force: true });
+      }
 
       // Verify all blocks are visible locally
       const lastBlockInCheckpoint3 = cp3.blocks[cp3.blocks.length - 1].number;

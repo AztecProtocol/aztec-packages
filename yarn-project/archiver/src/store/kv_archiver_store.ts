@@ -244,14 +244,14 @@ export class KVArchiverDataStore implements ContractDataSource {
   }
 
   /**
-   * Append new proposed blocks to the store's list.
-   * These are uncheckpointed blocks that have been proposed by the sequencer but not yet included in a checkpoint on L1.
+   * Append a new proposed block to the store.
+   * This is an uncheckpointed block that has been proposed by the sequencer but not yet included in a checkpoint on L1.
    * For checkpointed blocks (already published to L1), use addCheckpoints() instead.
-   * @param blocks - The proposed L2 blocks to be added to the store.
+   * @param block - The proposed L2 block to be added to the store.
    * @returns True if the operation is successful.
    */
-  addProposedBlocks(blocks: L2Block[], opts: { force?: boolean; checkpointNumber?: number } = {}): Promise<boolean> {
-    return this.#blockStore.addProposedBlocks(blocks, opts);
+  addProposedBlock(block: L2Block, opts: { force?: boolean } = {}): Promise<boolean> {
+    return this.#blockStore.addProposedBlock(block, opts);
   }
 
   /**
