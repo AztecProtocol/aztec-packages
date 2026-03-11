@@ -25,17 +25,6 @@ pub struct NoteHashAndNullifier {
     pub inner_nullifier: Option<Field>,
 }
 
-/// A function which takes a note's packed content, address of the emitting contract, note nonce, storage slot and note
-/// type ID and attempts to compute its note hash (not hashed by note nonce nor siloed by address) and inner nullifier
-/// (not siloed by address).
-///
-/// This function must be user-provided as its implementation requires knowledge of how note type IDs are allocated in
-/// a contract. The `#[aztec]` macro automatically creates such a contract library method called
-/// `_compute_note_hash_and_nullifier`, which looks something like this:
-///
-<<<<<<< HEAD
-/// ```
-=======
 /// This function takes a note's packed content, storage slot, note type ID, address of the emitting contract,
 /// randomness and note nonce, and attempts to compute its inner note hash (not siloed by address nor uniqued by nonce)
 /// and inner nullifier (not siloed by address).
@@ -53,7 +42,6 @@ pub struct NoteHashAndNullifier {
 /// `#[contract_library_method]` called `_compute_note_hash_and_nullifier`, and it looks something like this:
 ///
 /// ```noir
->>>>>>> 20d6c29c81 (fix: handle bad note lengths on compute_note_hash_and_nullifier (#21271))
 /// |packed_note, owner, storage_slot, note_type_id, contract_address, randomness, note_nonce| {
 ///     if note_type_id == MyNoteType::get_id() {
 ///         if packed_note.len() != MY_NOTE_TYPE_SERIALIZATION_LENGTH {
