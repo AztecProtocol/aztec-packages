@@ -42,6 +42,10 @@ export class LogService {
     this.log = createLogger('pxe:log_service', bindings);
   }
 
+  /**
+   * Retrieves logs for each request. Returns null if no log was found or if the results were ambiguous (e.g.
+   * multiple logs for the same tag, or both a public and private log).
+   */
   public async bulkRetrieveLogs(logRetrievalRequests: LogRetrievalRequest[]): Promise<(LogRetrievalResponse | null)[]> {
     return await Promise.all(
       logRetrievalRequests.map(async request => {
@@ -51,9 +55,10 @@ export class LogService {
         ]);
 
         if (publicLog !== null && privateLog !== null) {
-          throw new Error(
-            `Found both a public and private log when searching for tag ${request.tag} from contract ${request.contractAddress}`,
+          this.log.warn(
+            `Found both a public and private log for tag ${request.tag} from contract ${request.contractAddress}. This may indicate a contract bug. Returning no log for this tag.`,
           );
+          return null;
         }
 
         return publicLog ?? privateLog;
@@ -74,10 +79,10 @@ export class LogService {
     if (logsForTag.length === 0) {
       return null;
     } else if (logsForTag.length > 1) {
-      // TODO(#11627): handle this case
-      throw new Error(
-        `Got ${logsForTag.length} logs for tag ${tag} and contract ${contractAddress.toString()}. getPublicLogByTag currently only supports a single log per tag`,
+      this.log.warn(
+        `Expected at most 1 public log for tag ${tag} and contract ${contractAddress.toString()}, got ${logsForTag.length}. This may indicate a contract bug. Returning no log for this tag.`,
       );
+      return null;
     }
 
     const scopedLog = logsForTag[0];
@@ -98,10 +103,10 @@ export class LogService {
     if (logsForTag.length === 0) {
       return null;
     } else if (logsForTag.length > 1) {
-      // TODO(#11627): handle this case
-      throw new Error(
-        `Got ${logsForTag.length} logs for tag ${siloedTag}. getPrivateLogByTag currently only supports a single log per tag`,
+      this.log.warn(
+        `Expected at most 1 private log for tag ${siloedTag}, got ${logsForTag.length}. This may indicate a contract bug. Returning no log for this tag.`,
       );
+      return null;
     }
 
     const scopedLog = logsForTag[0];

@@ -31,7 +31,7 @@ use event_validation_request::EventValidationRequest;
 global PENDING_TAGGED_LOG_ARRAY_BASE_SLOT: Field =
     sha256_to_field("AZTEC_NR::PENDING_TAGGED_LOG_ARRAY_BASE_SLOT".as_bytes());
 
-global NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
+pub(crate) global NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
     "AZTEC_NR::NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT".as_bytes(),
 );
 
