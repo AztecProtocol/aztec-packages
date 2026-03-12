@@ -6,10 +6,7 @@ import { Point } from '@aztec/foundation/curves/grumpkin';
 import { LogLevels, type Logger, createLogger } from '@aztec/foundation/log';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
-<<<<<<< HEAD
-=======
 import { isProtocolContract } from '@aztec/protocol-contracts';
->>>>>>> 1019f2a65a (fix: complete legacy oracle mappings for all pinned contracts (#21404))
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
@@ -112,10 +109,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.scopes = args.scopes;
   }
 
-<<<<<<< HEAD
   public utilityAssertCompatibleOracleVersion(version: number): void {
-=======
-  public assertCompatibleOracleVersion(version: number): void {
     // TODO(F-416): Remove this hack on v5 when protocol contracts are redeployed.
     // Protocol contracts/canonical contracts shipped with committed bytecode that cannot be changed. Assert they use
     // the expected pinned version or the current one. We want to allow for both the pinned and the current versions
@@ -131,7 +125,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       return;
     }
 
->>>>>>> 1019f2a65a (fix: complete legacy oracle mappings for all pinned contracts (#21404))
     if (version !== ORACLE_VERSION) {
       throw new Error(`Incompatible oracle version. Expected version ${ORACLE_VERSION}, got ${version}.`);
     }
