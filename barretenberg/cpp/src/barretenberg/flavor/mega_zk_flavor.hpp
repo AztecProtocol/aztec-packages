@@ -68,13 +68,16 @@ template <size_t BATCH_SIZE_ = 1> class MegaZKFlavor_ : public MegaFlavor_<BATCH
     using Transcript = NativeTranscript;
     using VKAndHash = typename Base::VKAndHash;
 
-    // BS=1: repeated commitments optimization applies. BS>1: pre-batching eliminates it.
+    // BS=1: shplemini_offset=2 (Shplonk:Q + gemini_masking_poly). BS>1: offset=1 (masking is interleaved).
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
-        (BATCH_SIZE_ == 1) ? RepeatedCommitmentsData(Base::NUM_PRECOMPUTED_ENTITIES,
-                                                     Base::NUM_PRECOMPUTED_ENTITIES + Base::NUM_WITNESS_ENTITIES,
-                                                     Base::NUM_SHIFTED_ENTITIES,
-                                                     2 /* SHPLEMINI_OFFSET: Shplonk:Q + Gemini:masking_poly_comm */)
-                           : RepeatedCommitmentsData();
+        (BATCH_SIZE_ == 1)
+            ? RepeatedCommitmentsData(Base::NUM_PRECOMPUTED_ENTITIES,
+                                      Base::NUM_PRECOMPUTED_ENTITIES + Base::NUM_WITNESS_ENTITIES,
+                                      Base::NUM_SHIFTED_ENTITIES,
+                                      2 /* SHPLEMINI_OFFSET: Shplonk:Q + Gemini:masking_poly_comm */)
+            : RepeatedCommitmentsData(NUM_ALL_INTERLEAVED_COMMITMENTS - Base::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS,
+                                      NUM_ALL_INTERLEAVED_COMMITMENTS,
+                                      Base::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS);
 
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {
@@ -82,7 +85,7 @@ template <size_t BATCH_SIZE_ = 1> class MegaZKFlavor_ : public MegaFlavor_<BATCH
             return NUM_UNSHIFTED_ENTITIES + log_n + 2 + NUM_LIBRA_COMMITMENTS;
         } else {
             const size_t pcs_log_n = log_n + Base::INTERLEAVING_LOG_K;
-            return pcs_log_n + 4 + NUM_LIBRA_COMMITMENTS;
+            return NUM_ALL_INTERLEAVED_COMMITMENTS + pcs_log_n + 2 + NUM_LIBRA_COMMITMENTS;
         }
     }
 

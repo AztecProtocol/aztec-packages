@@ -272,8 +272,6 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
             round++;
         }
 
-        constexpr size_t NUM_UNSHIFTED = Flavor::NUM_ALL_INTERLEAVED_COMMITMENTS;
-        constexpr size_t NUM_SHIFTED = Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
         manifest_expected.add_entry(round, "Sumcheck:evaluations", frs_per_evals);
 
         if constexpr (Flavor::HasZK) {
@@ -291,13 +289,7 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
             manifest_expected.add_entry(round, "Libra:quotient_commitment", frs_per_G);
         }
 
-        // Batching challenges (same round as SmallSubgroupIPA entries for ZK, or evaluations round for non-ZK)
-        for (size_t i = 0; i < NUM_UNSHIFTED - 1; i++) {
-            manifest_expected.add_challenge(round, "unshifted_challenge_" + std::to_string(i));
-        }
-        for (size_t i = 0; i < NUM_SHIFTED - 1; i++) {
-            manifest_expected.add_challenge(round, "shifted_challenge_" + std::to_string(i));
-        }
+        // Single ρ challenge for batching (no separate short challenges)
         manifest_expected.add_challenge(round, "rho");
 
         round++;

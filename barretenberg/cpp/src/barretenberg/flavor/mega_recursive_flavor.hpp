@@ -173,9 +173,9 @@ template <typename BuilderType> class MultiMegaRecursiveFlavor_ : public MegaRec
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = NativeFlavor::REPEATED_COMMITMENTS;
 
     // Forward compute_lagrange_basis to native flavor
-    template <typename FF_> static auto compute_lagrange_basis(const FF_& u0, const FF_& u1)
+    template <typename FF_> static auto compute_lagrange_basis(std::span<const FF_> interleaving_challenges)
     {
-        return NativeFlavor::compute_lagrange_basis(u0, u1);
+        return NativeFlavor::compute_lagrange_basis(interleaving_challenges);
     }
 
     // Forward static group methods to the native flavor

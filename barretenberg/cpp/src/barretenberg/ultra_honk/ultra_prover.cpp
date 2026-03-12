@@ -6,7 +6,6 @@
 
 #include "ultra_prover.hpp"
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
-#include "barretenberg/commitment_schemes/interleaved_group_batching.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
@@ -14,6 +13,78 @@
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 namespace bb {
+
+/**
+ * @brief Prepare polynomial data for PCS and configure the batcher.
+ * @details For BS>1: interleaves polynomial groups into new polynomials, configures batcher with them.
+ *          For BS=1: configures batcher directly with the prover instance's polynomials.
+ *          Returns storage that must outlive the batcher (RefVectors point into it).
+ */
+template <typename Flavor>
+static auto build_pcs_polynomial_batcher(typename Flavor::ProverPolynomials&& polynomials, size_t n, size_t pcs_size)
+{
+    using Polynomial = typename Flavor::Polynomial;
+    using PolynomialBatcher = typename GeminiProver_<typename Flavor::Curve>::PolynomialBatcher;
+    constexpr size_t BATCH_SIZE = Flavor::INTERLEAVING_BATCH_SIZE;
+
+    struct Result {
+        // BS=1: heap-allocated so RefVectors survive Result move. BS>1: used as interleaving source then freed.
+        std::unique_ptr<typename Flavor::ProverPolynomials> polynomials_storage;
+        std::vector<Polynomial> unshifted_storage; // BS>1: interleaved polynomials
+        std::vector<Polynomial> shifted_storage;
+        PolynomialBatcher batcher;
+    };
+
+    Result result{ std::make_unique<typename Flavor::ProverPolynomials>(std::move(polynomials)),
+                   {},
+                   {},
+                   PolynomialBatcher(pcs_size, BATCH_SIZE) };
+
+    if constexpr (BATCH_SIZE > 1) {
+        auto unshifted_groups = Flavor::get_unshifted_groups_mut(*result.polynomials_storage);
+        auto shifted_groups = Flavor::get_to_be_shifted_groups(*result.polynomials_storage);
+
+        auto interleave = [&](const auto& group, bool shiftable) -> Polynomial {
+            Polynomial p = shiftable ? Polynomial::shiftable(pcs_size, pcs_size, BATCH_SIZE) : Polynomial(pcs_size);
+            const size_t start = shiftable ? 1 : 0;
+            for (size_t i = start; i < n; i++) {
+                for (size_t j = 0; j < BATCH_SIZE; j++) {
+                    if (j < group.size() && group[j] != nullptr) {
+                        p.at(BATCH_SIZE * i + j) = (*group[j])[i];
+                    }
+                }
+            }
+            return p;
+        };
+
+        // Process shifted groups first (they share source polys with last unshifted groups)
+        result.shifted_storage.reserve(shifted_groups.size());
+        for (const auto& group : shifted_groups) {
+            result.shifted_storage.push_back(interleave(group, /*shiftable=*/true));
+        }
+
+        // Process unshifted groups with greedy freeing of source polynomials
+        result.unshifted_storage.reserve(unshifted_groups.size());
+        for (auto& group : unshifted_groups) {
+            result.unshifted_storage.push_back(interleave(group, /*shiftable=*/false));
+            for (auto* ptr : group) {
+                if (ptr != nullptr) {
+                    *ptr = Polynomial();
+                }
+            }
+        }
+        result.polynomials_storage.reset(); // free remaining source memory
+        vinfo("interleaved polynomial groups");
+
+        result.batcher.set_unshifted(RefVector<Polynomial>(result.unshifted_storage));
+        result.batcher.set_to_be_shifted(RefVector<Polynomial>(result.shifted_storage));
+    } else {
+        result.batcher.set_unshifted(result.polynomials_storage->get_unshifted());
+        result.batcher.set_to_be_shifted(result.polynomials_storage->get_to_be_shifted());
+    }
+
+    return result;
+}
 
 template <typename Flavor>
 UltraProver_<Flavor>::UltraProver_(std::shared_ptr<ProverInstance> prover_instance,
@@ -149,51 +220,20 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_pcs()
         libra_witness_polys = small_subgroup_ipa_prover.get_witness_polynomials();
     }
 
-    // Set up polynomial batcher and prove opening
-    OpeningClaim prover_opening_claim;
-
-    if constexpr (BATCH_SIZE > 1) {
-        // Pre-batch interleaved polynomial groups into 2 polynomials
-        constexpr size_t NUM_UNSHIFTED = Flavor::NUM_ALL_INTERLEAVED_COMMITMENTS;
-        constexpr size_t NUM_SHIFTED = Flavor::NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS;
-        auto [unshifted_challenges, shifted_challenges] =
-            get_interleaved_batching_challenges<FF>(transcript, NUM_UNSHIFTED, NUM_SHIFTED);
-
-        Polynomial batched_unshifted;
-        Polynomial batched_to_be_shifted;
-        {
-            auto polys = std::move(prover_instance->polynomials);
-            auto unshifted_groups = Flavor::get_unshifted_groups_mut(polys);
-            auto shifted_groups = Flavor::get_to_be_shifted_groups(polys);
-            std::tie(batched_unshifted, batched_to_be_shifted) = batch_interleaved_polynomial_groups<FF>(
-                unshifted_groups, shifted_groups, unshifted_challenges, shifted_challenges, n, BATCH_SIZE);
-        }
-        vinfo("pre-batched interleaved groups");
-
-        PolynomialBatcher polynomial_batcher(pcs_size, BATCH_SIZE);
-        polynomial_batcher.set_unshifted(RefVector<Polynomial>(batched_unshifted));
-        polynomial_batcher.set_to_be_shifted(RefVector<Polynomial>(batched_to_be_shifted));
-
+    // Helper: run Shplemini prove on a prepared batcher
+    auto run_shplemini = [&](PolynomialBatcher& polynomial_batcher) -> OpeningClaim {
         if constexpr (Flavor::HasZK) {
-            prover_opening_claim = ShpleminiProver_<Curve>::prove(
+            return ShpleminiProver_<Curve>::prove(
                 pcs_size, polynomial_batcher, full_challenge, ck, transcript, libra_witness_polys);
         } else {
-            prover_opening_claim =
-                ShpleminiProver_<Curve>::prove(pcs_size, polynomial_batcher, full_challenge, ck, transcript);
+            return ShpleminiProver_<Curve>::prove(pcs_size, polynomial_batcher, full_challenge, ck, transcript);
         }
-    } else {
-        PolynomialBatcher polynomial_batcher(pcs_size);
-        polynomial_batcher.set_unshifted(prover_instance->polynomials.get_unshifted());
-        polynomial_batcher.set_to_be_shifted(prover_instance->polynomials.get_to_be_shifted());
+    };
 
-        if constexpr (Flavor::HasZK) {
-            prover_opening_claim = ShpleminiProver_<Curve>::prove(
-                pcs_size, polynomial_batcher, full_challenge, ck, transcript, libra_witness_polys);
-        } else {
-            prover_opening_claim =
-                ShpleminiProver_<Curve>::prove(pcs_size, polynomial_batcher, full_challenge, ck, transcript);
-        }
-    }
+    // Interleave polynomial groups (BS>1) and configure the polynomial batcher.
+    auto pcs_data = build_pcs_polynomial_batcher<Flavor>(std::move(prover_instance->polynomials), n, pcs_size);
+
+    auto prover_opening_claim = run_shplemini(pcs_data.batcher);
 
     vinfo("executed multivariate-to-univariate reduction");
     PCS::compute_opening_proof(ck, prover_opening_claim, transcript);

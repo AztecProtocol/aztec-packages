@@ -336,26 +336,6 @@ template <size_t BATCH_SIZE_ = 1> class MegaFlavor_ {
 
     static constexpr size_t SHPLEMINI_OFFSET = 1; // Shplonk:Q
 
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
-        (BATCH_SIZE_ == 1) ? RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES,
-                                                     NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES,
-                                                     NUM_SHIFTED_ENTITIES)
-                           : RepeatedCommitmentsData();
-
-    // Size of the final PCS MSM after KZG adds quotient commitment
-    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
-    {
-        if constexpr (BATCH_SIZE_ == 1) {
-            // 1 (Shplonk Q) + NUM_UNSHIFTED + (log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)
-            return NUM_UNSHIFTED_ENTITIES + log_n + 2;
-        } else {
-            // With ψ pre-batching: 1 unshifted + 1 shifted + 1 Shplonk Q + (pcs_log_n - 1) Gemini folds + 1 G1 + 1
-            // KZG W
-            const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
-            return pcs_log_n + 4;
-        }
-    }
-
     // ================================================================
     // AllValues, ProverPolynomials
     // ================================================================
@@ -576,11 +556,15 @@ template <size_t BATCH_SIZE_ = 1> class MegaFlavor_ {
     // Group accessors (delegate to free functions in mega_interleaving_entities.hpp)
     // ================================================================
 
+    // Lagrange basis for interleaving: BS=1 → {1}, BS=4 → {L₀,L₁,L₂,L₃}
     template <typename FF_>
-    static auto compute_lagrange_basis(const FF_& u0, const FF_& u1)
-        requires(BATCH_SIZE_ == 4)
+    static auto compute_lagrange_basis([[maybe_unused]] std::span<const FF_> interleaving_challenges)
     {
-        return compute_mega_lagrange_basis<BATCH_SIZE_>(u0, u1);
+        if constexpr (BATCH_SIZE_ == 1) {
+            return std::array<FF_, 1>{ FF_(1) };
+        } else {
+            return compute_mega_lagrange_basis<BATCH_SIZE_>(interleaving_challenges[0], interleaving_challenges[1]);
+        }
     }
 
     template <typename Entities>
@@ -609,6 +593,31 @@ template <size_t BATCH_SIZE_ = 1> class MegaFlavor_ {
         requires(BATCH_SIZE_ > 1)
     {
         return get_mega_shifted_groups(e);
+    }
+
+    // ================================================================
+    // REPEATED_COMMITMENTS and FINAL_PCS_MSM_SIZE
+    // (defined here because they depend on interleaved constants above)
+    // ================================================================
+
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
+        (BATCH_SIZE_ == 1)
+            ? RepeatedCommitmentsData(
+                  NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES)
+            : RepeatedCommitmentsData(NUM_ALL_INTERLEAVED_COMMITMENTS - NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS,
+                                      NUM_ALL_INTERLEAVED_COMMITMENTS,
+                                      NUM_SHIFTABLE_INTERLEAVED_COMMITMENTS);
+
+    // Size of the final PCS MSM after KZG adds quotient commitment
+    // = 1 (Shplonk Q) + NUM_COMMITMENTS (after dedup) + (pcs_log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)
+    static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
+    {
+        if constexpr (BATCH_SIZE_ == 1) {
+            return NUM_UNSHIFTED_ENTITIES + log_n + 2;
+        } else {
+            const size_t pcs_log_n = log_n + INTERLEAVING_LOG_K;
+            return NUM_ALL_INTERLEAVED_COMMITMENTS + pcs_log_n + 2;
+        }
     }
 };
 
