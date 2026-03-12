@@ -65,7 +65,7 @@ struct MsgpackSchemaPacker : msgpack::packer<msgpack::sbuffer> {
         pack_array(sizeof...(Args));
 
         // Note: if this fails to compile, check first in list of template Arg's
-        // it may need a msgpack_schema_pack specialization (particularly if it doesn't define MSGPACK_FIELDS).
+        // it may need a msgpack_schema_pack specialization (particularly if it doesn't define SERIALIZATION_FIELDS).
         (_msgpack_schema_pack(*this, *std::make_unique<Args>()), ...); /* pack schemas of all template Args */
     }
     /**

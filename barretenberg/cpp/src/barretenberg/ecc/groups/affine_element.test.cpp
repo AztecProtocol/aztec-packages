@@ -161,9 +161,21 @@ template <typename G1> class TestAffineElement : public testing::Test {
         }
     }
 
+    static void test_add_affine()
+    {
+        element lhs = element::random_element();
+        affine_element lhs_affine(lhs);
+
+        element rhs = element::random_element();
+        affine_element rhs_affine(rhs);
+
+        element expected = lhs + rhs;
+        affine_element result = lhs_affine + rhs_affine;
+        EXPECT_EQ(element(result) == expected, true);
+    }
+
     // Regression test to ensure that the point at infinity is not equal to its coordinate-wise reduction, which may lie
     // on the curve, depending on the y-coordinate.
-    // TODO(@Rumata888): add corresponding typed test class
     static void test_infinity_regression()
     {
         affine_element P;
@@ -218,6 +230,11 @@ using TestTypes = testing::Types<bb::g1, grumpkin::g1, secp256k1::g1, secp256r1:
 } // namespace
 
 TYPED_TEST_SUITE(TestAffineElement, TestTypes);
+
+TYPED_TEST(TestAffineElement, AddAffine)
+{
+    TestFixture::test_add_affine();
+}
 
 TYPED_TEST(TestAffineElement, ReadWrite)
 {

@@ -165,22 +165,27 @@ template <class T> constexpr field<T> field<T>::operator-() const noexcept
         return p - *this;
     }
 
-    // TODO(@zac-williamson): there are 3 ways we can make this more efficient
-    // 1: we subtract `p` from `*this` instead of `2p`
-    // 2: instead of `p - *this`, we use an asm block that does `p - *this` without the assembly reduction step
-    // 3: we replace `(p - *this).reduce_once()` with an assembly block that is equivalent to `p - *this`,
-    //    but we call `REDUCE_FIELD_ELEMENT` with `not_twice_modulus` instead of `twice_modulus`
-    // not sure which is faster and whether any of the above might break something!
+    // POTENTIAL MICRO-OPTIMIZATION(@zac-williamson).
     //
-    // More context below:
-    // the operator-(a, b) method's asm implementation has a sneaky was to check underflow.
-    // if `a - b` underflows we need to add in `2p`. Instead of conditional branching which would cause pipeline
-    // flushes, we add `2p` into the result of `a - b`. If the result triggers the overflow flag, then we know we are
-    // correcting an *underflow* produced from computing `a - b`. Finally...we use the overflow flag to conditionally
-    // move data into registers such that we end up with either `a - b` or `2p + (a - b)` (this is branchless). OK! So
-    // what's the problem? Well we assume that every field element lies between 0 and 2p - 1. But we are computing `2p -
-    // *this`! If *this = 0 then we exceed this bound hence the need for the extra reduction step. HOWEVER, we also know
-    // that 2p - *this won't underflow so we could skip the underflow check present in the assembly code
+    // For 254-bit fields, negation computes (2p - x).reduce_once(). The reduce_once handles the x = 0 edge case
+    // where 2p - 0 = 2p falls outside the coarse range [0, 2p).
+    //
+    // There are 3 ways we can make this more efficient:
+    //  1: we subtract `p` from `*this` instead of `2p`
+    //  2: instead of `2p - *this`, we use an asm block that does `p - *this` without the assembly reduction step
+    //  3: we replace `(2p - *this).reduce_once()` with an assembly block that is equivalent to `p - *this`, but we
+    //     call `CONDITIONAL_ADD` with `not_twice_modulus` instead of `twice_modulus`
+    //
+    // Analysis of option (1): compute (p - x) via `subtract`, which branchlessly adds 2p on underflow:
+    //   - x = 0:       p - 0 = p.                           No underflow. ✓
+    //   - x ∈ (0, p]:  p - x ∈ [0, p).                      No underflow. ✓
+    //   - x ∈ (p, 2p): p - x underflows, add 2p → 3p - x ∈ (p, 2p). ✓
+    // All results land in [0, 2p), so no reduce_once is needed.
+    //
+    // This only affects the constexpr path. The asm path (`asm_sub_with_coarse_reduction`) hardcodes 2p as its
+    // underflow correction constant, so using p as the minuend there would require a new asm block.
+    //
+    // Net saving: one conditional subtraction (reduce_once is a comparison + cmov). Micro-optimization.
     constexpr field p{ twice_modulus.data[0], twice_modulus.data[1], twice_modulus.data[2], twice_modulus.data[3] };
     return (p - *this).reduce_once();
 }
