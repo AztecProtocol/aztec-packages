@@ -9,7 +9,7 @@ import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { compactArray, pick, unique } from '@aztec/foundation/collection';
+import { chunkBy, compactArray, pick, unique } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
@@ -1100,19 +1100,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   public async getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]> {
     // Assumes `getCheckpointedBlocksForEpoch` returns blocks in ascending order of block number.
     const checkpointedBlocks = await this.blockSource.getCheckpointedBlocksForEpoch(epoch);
-    const blocksInCheckpoints: L2Block[][] = [];
-    let previousSlotNumber = SlotNumber.ZERO;
-    let checkpointIndex = -1;
-    for (const checkpointedBlock of checkpointedBlocks) {
-      const block = checkpointedBlock.block;
-      const slotNumber = block.header.globalVariables.slotNumber;
-      if (slotNumber !== previousSlotNumber) {
-        checkpointIndex++;
-        blocksInCheckpoints.push([]);
-        previousSlotNumber = slotNumber;
-      }
-      blocksInCheckpoints[checkpointIndex].push(block);
-    }
+    const blocksInCheckpoints = chunkBy(checkpointedBlocks, cb => cb.block.header.globalVariables.slotNumber).map(
+      group => group.map(cb => cb.block),
+    );
     return blocksInCheckpoints.map(blocks =>
       blocks.map(block => block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs)),
     );
