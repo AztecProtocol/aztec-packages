@@ -64,6 +64,9 @@ export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime'
     | 'maxTxsPerCheckpoint'
     | 'maxL2BlockGas'
     | 'maxDABlockGas'
+    | 'redistributeCheckpointBudget'
+    | 'perBlockAllocationMultiplier'
+    | 'maxBlocksPerCheckpoint'
   >;
 
 export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[] = [
@@ -79,6 +82,9 @@ export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[
   'maxL2BlockGas',
   'maxDABlockGas',
   'rollupManaLimit',
+  'redistributeCheckpointBudget',
+  'perBlockAllocationMultiplier',
+  'maxBlocksPerCheckpoint',
 ] as const;
 
 /** Thrown when no valid transactions are available to include in a block after processing, and this is not the first block in a checkpoint. */
