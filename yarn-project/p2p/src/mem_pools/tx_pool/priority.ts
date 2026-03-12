@@ -12,12 +12,9 @@ export function getPendingTxPriority(tx: Tx): string {
 }
 
 /**
- * Returns the priority of a tx based on the priority fees, capped by the max fees per gas.
+ * Returns the priority of a tx based on the L2 priority fee only, capped by the max fees per gas.
  */
 export function getTxPriorityFee(tx: Tx): bigint {
   const { maxPriorityFeesPerGas: priorityFees, maxFeesPerGas } = tx.getGasSettings();
-  const totalFees =
-    minBigint(maxFeesPerGas.feePerDaGas, priorityFees.feePerDaGas) +
-    minBigint(maxFeesPerGas.feePerL2Gas, priorityFees.feePerL2Gas);
-  return totalFees;
+  return minBigint(maxFeesPerGas.feePerL2Gas, priorityFees.feePerL2Gas);
 }
