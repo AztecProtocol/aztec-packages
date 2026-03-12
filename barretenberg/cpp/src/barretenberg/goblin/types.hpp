@@ -29,7 +29,7 @@ struct GoblinProof {
         return merge_proof.size() + eccvm_proof.size() + ipa_proof.size() + translator_proof.size();
     };
 
-    MSGPACK_FIELDS(merge_proof, eccvm_proof, ipa_proof, translator_proof);
+    SERIALIZATION_FIELDS(merge_proof, eccvm_proof, ipa_proof, translator_proof);
     bool operator==(const GoblinProof& other) const = default;
 };
 
