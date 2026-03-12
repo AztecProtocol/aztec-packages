@@ -17,10 +17,8 @@ namespace bb {
  * @brief Configuration for the batch verifier service.
  */
 struct BatchVerifierConfig {
-    /** Number of cores dedicated to the IPA batch MSM (Phase 2 of trusted pipeline). */
-    uint32_t num_ipa_cores = 4;
-    /** Number of worker threads for parallel reduce_to_ipa_claim (Phase 1 of trusted pipeline). */
-    uint32_t num_sumcheck_cores = 4;
+    /** Number of cores for the trusted batch pipeline (used for both reduce and IPA phases). */
+    uint32_t num_trusted_cores = 4;
     /** Number of cores (threads) dedicated to untrusted individual verification. */
     uint32_t num_untrusted_cores = 4;
     /** Number of trusted proofs to accumulate before forming a batch. */
@@ -28,7 +26,7 @@ struct BatchVerifierConfig {
     /** Maximum number of pending requests before backpressure. */
     uint32_t max_pending = 1024;
 
-    MSGPACK_FIELDS(num_ipa_cores, num_sumcheck_cores, num_untrusted_cores, trusted_batch_size, max_pending);
+    MSGPACK_FIELDS(num_trusted_cores, num_untrusted_cores, trusted_batch_size, max_pending);
     bool operator==(const BatchVerifierConfig&) const = default;
 };
 

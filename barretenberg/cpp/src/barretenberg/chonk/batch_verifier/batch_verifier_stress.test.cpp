@@ -265,7 +265,7 @@ TEST_F(RealProofStressTests, TimeToVerifyRealProofs)
 
             ResultCollector collector;
             IPABatchProcessor processor;
-            processor.start(vks, NUM_CORES, NUM_CORES, batch_size, collector.callback());
+            processor.start(vks, NUM_CORES, batch_size, collector.callback());
 
             auto t0 = std::chrono::steady_clock::now();
             for (auto& req : requests) {

@@ -126,7 +126,7 @@ TEST_F(ChonkBatchVerifierServiceTests, TrustedBatchAllValid)
 
     ResultCollector collector;
     IPABatchProcessor processor;
-    processor.start(vks, /*num_ipa_cores=*/2, /*num_sumcheck_cores=*/2, /*batch_size=*/2, collector.callback());
+    processor.start(vks, /*num_cores=*/2, /*batch_size=*/2, collector.callback());
 
     // Queue 2 copies of the valid proof
     processor.enqueue(VerifyRequest{ .request_id = 1, .proof = proof, .vk_index = 0 });
@@ -153,7 +153,7 @@ TEST_F(ChonkBatchVerifierServiceTests, TrustedBatchWithIPACorruption)
     ResultCollector collector;
     IPABatchProcessor processor;
     // batch_size=2 so both go in same batch, then bisection identifies the bad one
-    processor.start(vks, /*num_ipa_cores=*/2, /*num_sumcheck_cores=*/2, /*batch_size=*/2, collector.callback());
+    processor.start(vks, /*num_cores=*/2, /*batch_size=*/2, collector.callback());
 
     processor.enqueue(VerifyRequest{ .request_id = 1, .proof = proof, .vk_index = 0 });
     processor.enqueue(VerifyRequest{ .request_id = 2, .proof = bad_proof, .vk_index = 0 });
@@ -183,7 +183,7 @@ TEST_F(ChonkBatchVerifierServiceTests, TrustedBatchWithSumcheckCorruption)
 
     ResultCollector collector;
     IPABatchProcessor processor;
-    processor.start(vks, /*num_ipa_cores=*/2, /*num_sumcheck_cores=*/2, /*batch_size=*/2, collector.callback());
+    processor.start(vks, /*num_cores=*/2, /*batch_size=*/2, collector.callback());
 
     processor.enqueue(VerifyRequest{ .request_id = 1, .proof = proof, .vk_index = 0 });
     processor.enqueue(VerifyRequest{ .request_id = 2, .proof = bad_proof, .vk_index = 0 });
@@ -207,7 +207,7 @@ TEST_F(ChonkBatchVerifierServiceTests, TrustedBatchCancelBySource)
     ResultCollector collector;
     IPABatchProcessor processor;
     // Large batch size so proofs stay queued
-    processor.start(vks, /*num_ipa_cores=*/2, /*num_sumcheck_cores=*/2, /*batch_size=*/100, collector.callback());
+    processor.start(vks, /*num_cores=*/2, /*batch_size=*/100, collector.callback());
 
     processor.enqueue(VerifyRequest{ .request_id = 1, .proof = proof, .vk_index = 0, .source = "peer-A" });
     processor.enqueue(VerifyRequest{ .request_id = 2, .proof = proof, .vk_index = 0, .source = "peer-B" });
@@ -338,8 +338,7 @@ TEST_F(ChonkBatchVerifierServiceTests, FullServiceMixedTrustedUntrusted)
 
     ChonkBatchVerifierService service;
     BatchVerifierConfig config{
-        .num_ipa_cores = 2,
-        .num_sumcheck_cores = 2,
+        .num_trusted_cores = 2,
         .num_untrusted_cores = 1,
         .trusted_batch_size = 2,
     };
@@ -590,8 +589,7 @@ TEST_F(ChonkBatchVerifierServiceTests, DISABLED_ScaleBenchmark)
         ResultCollector collector;
         IPABatchProcessor processor;
         processor.start(vks,
-                        /*num_ipa_cores=*/NUM_CORES,
-                        /*num_sumcheck_cores=*/NUM_CORES,
+                        /*num_cores=*/NUM_CORES,
                         /*batch_size=*/NUM_PROOFS,
                         collector.callback());
 
