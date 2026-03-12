@@ -22,7 +22,6 @@ import type {
   ExecutablePrivateFunctionWithMembershipProof,
   UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { BlockHeader, TxHash, TxReceipt } from '@aztec/stdlib/tx';
@@ -71,9 +70,8 @@ export class KVArchiverDataStore implements ContractDataSource {
   constructor(
     private db: AztecAsyncKVStore,
     logsMaxPageSize: number = 1000,
-    l1Constants: Pick<L1RollupConstants, 'epochDuration'>,
   ) {
-    this.#blockStore = new BlockStore(db, l1Constants);
+    this.#blockStore = new BlockStore(db);
     this.#logStore = new LogStore(db, this.#blockStore, logsMaxPageSize);
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
@@ -246,14 +244,14 @@ export class KVArchiverDataStore implements ContractDataSource {
   }
 
   /**
-   * Append new proposed blocks to the store's list.
-   * These are uncheckpointed blocks that have been proposed by the sequencer but not yet included in a checkpoint on L1.
+   * Append a new proposed block to the store.
+   * This is an uncheckpointed block that has been proposed by the sequencer but not yet included in a checkpoint on L1.
    * For checkpointed blocks (already published to L1), use addCheckpoints() instead.
-   * @param blocks - The proposed L2 blocks to be added to the store.
+   * @param block - The proposed L2 block to be added to the store.
    * @returns True if the operation is successful.
    */
-  addProposedBlocks(blocks: L2Block[], opts: { force?: boolean; checkpointNumber?: number } = {}): Promise<boolean> {
-    return this.#blockStore.addProposedBlocks(blocks, opts);
+  addProposedBlock(block: L2Block, opts: { force?: boolean } = {}): Promise<boolean> {
+    return this.#blockStore.addProposedBlock(block, opts);
   }
 
   /**
@@ -540,6 +538,22 @@ export class KVArchiverDataStore implements ContractDataSource {
    */
   async setProvenCheckpointNumber(checkpointNumber: CheckpointNumber) {
     await this.#blockStore.setProvenCheckpointNumber(checkpointNumber);
+  }
+
+  /**
+   * Gets the number of the latest finalized checkpoint processed.
+   * @returns The number of the latest finalized checkpoint processed.
+   */
+  getFinalizedCheckpointNumber(): Promise<CheckpointNumber> {
+    return this.#blockStore.getFinalizedCheckpointNumber();
+  }
+
+  /**
+   * Stores the number of the latest finalized checkpoint processed.
+   * @param checkpointNumber - The number of the latest finalized checkpoint processed.
+   */
+  async setFinalizedCheckpointNumber(checkpointNumber: CheckpointNumber) {
+    await this.#blockStore.setFinalizedCheckpointNumber(checkpointNumber);
   }
 
   async setBlockSynchedL1BlockNumber(l1BlockNumber: bigint) {

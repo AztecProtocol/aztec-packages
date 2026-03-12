@@ -75,6 +75,7 @@ describe('Archiver Sync', () => {
       ethereumSlotDuration: DefaultL1ContractsConfig.ethereumSlotDuration,
       proofSubmissionEpochs: 1,
       targetCommitteeSize: 48,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
       genesisArchiveRoot: GENESIS_ROOT,
     };
 
@@ -94,7 +95,7 @@ describe('Archiver Sync', () => {
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
 
     // Create archiver store
-    archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_sync_test'), 1000, { epochDuration: 32 });
+    archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_sync_test'), 1000);
 
     const contractAddresses = {
       registryAddress,
@@ -1224,6 +1225,71 @@ describe('Archiver Sync', () => {
     }, 15_000);
   });
 
+  describe('finalized checkpoint', () => {
+    it('reports no finalized blocks before any checkpoint is proven', async () => {
+      fake.setL1BlockNumber(100n);
+      fake.setFinalizedL1BlockNumber(100n);
+      await archiver.syncImmediate();
+
+      const tips = await archiver.getL2Tips();
+      expect(tips.finalized.checkpoint.number).toEqual(CheckpointNumber(0));
+      expect(tips.finalized.block.number).toEqual(BlockNumber(0));
+    });
+
+    it('updates finalized checkpoint when the L1 finalized block is at or past the proven checkpoint L1 block', async () => {
+      const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 50n,
+        numL1ToL2Messages: 3,
+      });
+
+      // Sync all checkpoints
+      fake.setL1BlockNumber(100n);
+      await archiver.syncImmediate();
+
+      // Mark checkpoint 1 as proven and advance L1 so proven is registered
+      fake.markCheckpointAsProven(CheckpointNumber(1));
+      fake.setL1BlockNumber(101n);
+      await archiver.syncImmediate();
+      expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // Finalized L1 block is at or past where checkpoint 1 was published (70)
+      fake.setFinalizedL1BlockNumber(70n);
+      fake.setL1BlockNumber(102n);
+      await archiver.syncImmediate();
+
+      const tips = await archiver.getL2Tips();
+      const lastBlockInCp1 = cp1.blocks.at(-1)!.number;
+      expect(tips.finalized.checkpoint.number).toEqual(CheckpointNumber(1));
+      expect(tips.finalized.block.number).toEqual(lastBlockInCp1);
+    });
+
+    it('does not advance finalized checkpoint when finalized L1 block is before the proven checkpoint', async () => {
+      await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 50n,
+        numL1ToL2Messages: 3,
+      });
+
+      fake.setL1BlockNumber(100n);
+      await archiver.syncImmediate();
+
+      fake.markCheckpointAsProven(CheckpointNumber(1));
+      fake.setL1BlockNumber(101n);
+      await archiver.syncImmediate();
+      expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // Finalized L1 block is before where checkpoint 1 was published (70)
+      fake.setFinalizedL1BlockNumber(50n);
+      fake.setL1BlockNumber(102n);
+      await archiver.syncImmediate();
+
+      const tips = await archiver.getL2Tips();
+      expect(tips.finalized.checkpoint.number).toEqual(CheckpointNumber(0));
+      expect(tips.finalized.block.number).toEqual(BlockNumber(0));
+    });
+  });
+
   describe('checkpointing local proposed blocks', () => {
     let pruneSpy: jest.Mock;
 
@@ -1326,7 +1392,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
       const blockAlreadySyncedFromCheckpoint = cp1.blocks[cp1.blocks.length - 1];
 
-      // Now try and add one of the blocks via the addProposedBlocks method. It should throw
+      // Now try and add one of the blocks via the addProposedBlock method. It should throw
       await expect(archiver.addBlock(blockAlreadySyncedFromCheckpoint)).rejects.toThrow();
     }, 10_000);
 
@@ -1427,8 +1493,12 @@ describe('Archiver Sync', () => {
       const { checkpoint: cp3 } = await fake.addCheckpoint(CheckpointNumber(3), { l1BlockNumber: 5010n });
 
       // Add blocks from BOTH checkpoints locally (matching the L1 checkpoints)
-      await archiverStore.addProposedBlocks(cp2.blocks, { force: true });
-      await archiverStore.addProposedBlocks(cp3.blocks, { force: true });
+      for (const block of cp2.blocks) {
+        await archiverStore.addProposedBlock(block, { force: true });
+      }
+      for (const block of cp3.blocks) {
+        await archiverStore.addProposedBlock(block, { force: true });
+      }
 
       // Verify all blocks are visible locally
       const lastBlockInCheckpoint3 = cp3.blocks[cp3.blocks.length - 1].number;

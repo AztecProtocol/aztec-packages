@@ -152,7 +152,8 @@ describe('TxPoolV2', () => {
     await archiveStore.delete();
   });
 
-  const mockTxWithFee = (seed: number, fee: number) => mockTx(seed, { maxPriorityFeesPerGas: new GasFees(fee, fee) });
+  const mockTxWithFee = (seed: number, fee: number) =>
+    mockTx(seed, { maxPriorityFeesPerGas: new GasFees(fee, fee), maxFeesPerGas: new GasFees(fee, fee) });
 
   // Helper functions for string-based TxHash comparisons
   const toStrings = (hashes: TxHash[]) => hashes.map(h => h.toString());
@@ -161,6 +162,7 @@ describe('TxPoolV2', () => {
   const mockPublicTx = (seed: number, fee: number = 1) =>
     mockTx(seed, {
       maxPriorityFeesPerGas: new GasFees(fee, fee),
+      maxFeesPerGas: new GasFees(fee, fee),
       numberOfNonRevertiblePublicCallRequests: 1,
     });
 
@@ -2784,6 +2786,50 @@ describe('TxPoolV2', () => {
       expect(pending[0].toString()).toEqual(hashOf(tx2));
       expect(pending[1].toString()).toEqual(hashOf(tx3));
       expect(pending[2].toString()).toEqual(hashOf(tx1));
+    });
+
+    it('caps priority by maxFeesPerGas when maxPriorityFeesPerGas exceeds it', async () => {
+      // txGamed has absurdly high maxPriorityFeesPerGas but low maxFeesPerGas.
+      // Its effective priority should be capped by maxFeesPerGas (5 + 5 = 10).
+      const txGamed = await mockTx(1, {
+        maxPriorityFeesPerGas: new GasFees(1000, 1000),
+        maxFeesPerGas: new GasFees(5, 5),
+      });
+
+      // txHonest has properly set fees: priority 10 per dimension, max fees 10 per dimension.
+      // Its effective priority = 10 + 10 = 20.
+      const txHonest = await mockTxWithFee(2, 10);
+
+      await pool.addPendingTxs([txGamed, txHonest]);
+
+      // txHonest (effective priority 20) should rank above txGamed (effective priority 10, capped)
+      const pending = toStrings(await pool.getPendingTxHashes());
+      expect(pending[0]).toEqual(hashOf(txHonest));
+      expect(pending[1]).toEqual(hashOf(txGamed));
+    });
+
+    it('tx with maxPriorityFeesPerGas > maxFeesPerGas does not evict properly priced tx', async () => {
+      await pool.updateConfig({ maxPendingTxCount: 1 });
+
+      // txHonest has priority fee = max fee = 10 per dimension, effective priority = 20
+      const txHonest = await mockTxWithFee(1, 10);
+      await pool.addPendingTxs([txHonest]);
+      clearCallbackTracking();
+
+      // txGamed tries to game priority with huge priority fees but low max fees.
+      // Effective priority = min(1000, 5) + min(1000, 5) = 10, which is lower than txHonest's 20.
+      const txGamed = await mockTx(2, {
+        maxPriorityFeesPerGas: new GasFees(1000, 1000),
+        maxFeesPerGas: new GasFees(5, 5),
+      });
+
+      const result = await pool.addPendingTxs([txGamed]);
+
+      // txGamed should be ignored since its capped priority (10) < txHonest's priority (20)
+      expect(toStrings(result.ignored)).toContain(hashOf(txGamed));
+      expect(await pool.getPendingTxCount()).toBe(1);
+      expect(await pool.getTxStatus(txHonest.getTxHash())).toBe('pending');
+      expectNoCallbacks();
     });
 
     it('getPendingTxHashes uses tx hash as tiebreaker when fees are equal', async () => {
