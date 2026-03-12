@@ -47,9 +47,9 @@ template <bool IsRecursive = false> struct ChonkProof_ {
     // Sub-proof sizes (in field elements, excluding public inputs).
     static constexpr size_t HIDING_OINK_LENGTH = ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
 
-    // Joint proof = translator proof structure + MegaZK evaluations injected into sumcheck.
-    // The translator evals (minicircuit + full-circuit) are sent as before; MegaZK evals are added.
-    static constexpr size_t JOINT_PROOF_LENGTH = TranslatorFlavor::PROOF_LENGTH + MegaZKFlavor::NUM_ALL_ENTITIES;
+    // Joint proof = translator proof structure (with committed sumcheck) + MegaZK evaluations.
+    static constexpr size_t JOINT_PROOF_LENGTH =
+        TranslatorFlavor::COMMITTED_SUMCHECK_PROOF_LENGTH + MegaZKFlavor::NUM_ALL_ENTITIES;
 
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
         HIDING_OINK_LENGTH + MERGE_PROOF_SIZE + ECCVMFlavor::PROOF_LENGTH + IPA_PROOF_LENGTH + JOINT_PROOF_LENGTH;

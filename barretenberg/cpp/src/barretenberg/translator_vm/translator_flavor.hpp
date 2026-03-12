@@ -774,6 +774,12 @@ class TranslatorFlavor {
         /* 14. Shplonk Q commitment */ (num_frs_comm) +
         /* 15. KZG W commitment */ (num_frs_comm);
 
+    // Proof length when using committed sumcheck: each round sends a commitment + 2 scalar evaluations
+    // instead of BATCHED_RELATION_PARTIAL_LENGTH scalars.
+    static constexpr size_t COMMITTED_SUMCHECK_PROOF_LENGTH =
+        PROOF_LENGTH +
+        CONST_TRANSLATOR_LOG_N * (num_frs_comm + 2 * num_frs_fr - BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr);
+
     /**
      * @brief Partition minicircuit wire references into concatenation groups.
      * @details Takes a flat list of minicircuit wire refs (NonRangeMain followed by RangeConstraint)
