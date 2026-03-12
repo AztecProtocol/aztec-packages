@@ -30,7 +30,7 @@ import {
 import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ArchiverConfig, mapArchiverConfig } from './config.js';
-import { NoBlobBodiesFoundError } from './errors.js';
+import { BlockAlreadyCheckpointedError, NoBlobBodiesFoundError } from './errors.js';
 import { validateAndLogTraceAvailability } from './l1/validate_trace.js';
 import { ArchiverDataSourceBase } from './modules/data_source_base.js';
 import { ArchiverDataStoreUpdater } from './modules/data_store_updater.js';
@@ -242,10 +242,15 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       }
 
       try {
-        await this.updater.addProposedBlocks([block]);
+        await this.updater.addProposedBlock(block);
         this.log.debug(`Added block ${block.number} to store`);
         resolve();
       } catch (err: any) {
+        if (err instanceof BlockAlreadyCheckpointedError) {
+          this.log.debug(`Proposed block ${block.number} matches already checkpointed block, ignoring late proposal`);
+          resolve();
+          continue;
+        }
         this.log.error(`Failed to add block ${block.number} to store: ${err.message}`);
         reject(err);
       }

@@ -22,8 +22,8 @@ describe('computeBlockLimits', () => {
   describe('L2 gas', () => {
     it('derives maxL2BlockGas from rollupManaLimit when not explicitly set', () => {
       const rollupManaLimit = 1_000_000;
-      // Single block mode (maxNumberOfBlocks=1), default multiplier=2:
-      // min(1_000_000, ceil(1_000_000 / 1 * 2)) = min(1_000_000, 2_000_000) = 1_000_000
+      // Single block mode (maxNumberOfBlocks=1), default multiplier=1.2:
+      // min(1_000_000, ceil(1_000_000 / 1 * 1.2)) = min(1_000_000, 1_200_000) = 1_000_000
       const result = computeBlockLimits(makeConfig(), rollupManaLimit, 12, log);
       expect(result.maxL2BlockGas).toBe(rollupManaLimit);
     });
@@ -43,8 +43,8 @@ describe('computeBlockLimits', () => {
     const daLimit = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
 
     it('derives maxDABlockGas from DA checkpoint limit when not explicitly set', () => {
-      // Single block mode (maxNumberOfBlocks=1), default multiplier=2:
-      // min(daLimit, ceil(daLimit / 1 * 2)) = min(daLimit, daLimit * 2) = daLimit
+      // Single block mode (maxNumberOfBlocks=1), default multiplier=1.2:
+      // min(daLimit, ceil(daLimit / 1 * 1.2)) = min(daLimit, daLimit * 1.2) = daLimit
       const result = computeBlockLimits(makeConfig(), 1_000_000, 12, log);
       expect(result.maxDABlockGas).toBe(daLimit);
     });
@@ -78,14 +78,14 @@ describe('computeBlockLimits', () => {
     });
 
     it('derives maxTxsPerBlock from maxTxsPerCheckpoint when per-block not set', () => {
-      // Multi-block mode with maxNumberOfBlocks=5, multiplier=2:
-      // min(100, ceil(100 / 5 * 2)) = min(100, 40) = 40
+      // Multi-block mode with maxNumberOfBlocks=5, multiplier=1.2:
+      // min(100, ceil(100 / 5 * 1.2)) = min(100, 24) = 24
       const config = makeConfig({
         maxTxsPerCheckpoint: 100,
         blockDurationMs: 8000,
       });
       const result = computeBlockLimits(config, 1_000_000, 12, log);
-      expect(result.maxTxsPerBlock).toBe(40);
+      expect(result.maxTxsPerBlock).toBe(24);
     });
   });
 
@@ -97,14 +97,20 @@ describe('computeBlockLimits', () => {
       //   timeReservedAtEnd = 8 + 19 = 27
       //   timeAvailableForBlocks = 72 - 1 - 27 = 44
       //   maxNumberOfBlocks = floor(44 / 8) = 5
-      // With multiplier=2 and rollupManaLimit=1_000_000:
-      //   maxL2BlockGas = min(1_000_000, ceil(1_000_000 / 5 * 2)) = min(1_000_000, 400_000) = 400_000
+      // With multiplier=1.2 and rollupManaLimit=1_000_000:
+      //   maxL2BlockGas = min(1_000_000, ceil(1_000_000 / 5 * 1.2)) = min(1_000_000, 240_000) = 240_000
       const config = makeConfig({ blockDurationMs: 8000 });
       const result = computeBlockLimits(config, 1_000_000, 12, log);
-      expect(result.maxL2BlockGas).toBe(400_000);
+      expect(result.maxL2BlockGas).toBe(240_000);
 
       const daLimit = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
-      expect(result.maxDABlockGas).toBe(Math.min(daLimit, Math.ceil((daLimit / 5) * 2)));
+      expect(result.maxDABlockGas).toBe(Math.min(daLimit, Math.ceil((daLimit / 5) * 1.2)));
+    });
+
+    it('returns maxBlocksPerCheckpoint from timetable', () => {
+      const config = makeConfig({ blockDurationMs: 8000 });
+      const result = computeBlockLimits(config, 1_000_000, 12, log);
+      expect(result.maxBlocksPerCheckpoint).toBe(5);
     });
   });
 });
