@@ -852,7 +852,10 @@ export class BlockStore {
    * @param txHash - The hash of a tx we try to get the receipt for.
    * @returns The requested tx receipt (or undefined if not found).
    */
-  async getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
+  async getSettledTxReceipt(
+    txHash: TxHash,
+    l1Constants?: Pick<L1RollupConstants, 'epochDuration'>,
+  ): Promise<TxReceipt | undefined> {
     const txEffect = await this.getTxEffect(txHash);
     if (!txEffect) {
       return undefined;
@@ -879,9 +882,8 @@ export class BlockStore {
       status = TxStatus.PROPOSED;
     }
 
-    const epochNumber = blockData
-      ? getEpochAtSlot(blockData.header.globalVariables.slotNumber, this.l1Constants)
-      : undefined;
+    const epochNumber =
+      blockData && l1Constants ? getEpochAtSlot(blockData.header.globalVariables.slotNumber, l1Constants) : undefined;
 
     return new TxReceipt(
       txHash,

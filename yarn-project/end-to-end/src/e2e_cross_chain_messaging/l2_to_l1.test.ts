@@ -3,7 +3,6 @@ import { BatchCall } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { OutboxContract, RollupContract, type ViemL2ToL1Msg } from '@aztec/ethereum/contracts';
-import type { EpochNumber } from '@aztec/foundation/branded-types';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
