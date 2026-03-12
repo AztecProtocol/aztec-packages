@@ -966,58 +966,64 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     treeId: MerkleTreeId,
     leafValues: Fr[],
   ): Promise<(DataInBlock<bigint> | undefined)[]> {
-    const committedDb = await this.#getWorldState(referenceBlock);
+    const committedDb = await this.getWorldState(referenceBlock);
     const maybeIndices = await committedDb.findLeafIndices(
       treeId,
       leafValues.map(x => x.toBuffer()),
     );
-    // We filter out undefined values
-    const indices = maybeIndices.filter(x => x !== undefined) as bigint[];
+    // Filter out undefined values to query block numbers only for found leaves
+    const definedIndices = maybeIndices.filter(x => x !== undefined);
 
-    // Now we find the block numbers for the indices
-    const blockNumbers = await committedDb.getBlockNumbersForLeafIndices(treeId, indices);
+    // Now we find the block numbers for the defined indices
+    const blockNumbers = await committedDb.getBlockNumbersForLeafIndices(treeId, definedIndices);
 
-    // If any of the block numbers are undefined, we throw an error.
-    for (let i = 0; i < indices.length; i++) {
-      if (blockNumbers[i] === undefined) {
-        throw new Error(`Block number is undefined for leaf index ${indices[i]} in tree ${MerkleTreeId[treeId]}`);
+    // Build a map from leaf index to block number
+    const indexToBlockNumber = new Map<bigint, BlockNumber>();
+    for (let i = 0; i < definedIndices.length; i++) {
+      const blockNumber = blockNumbers[i];
+      if (blockNumber === undefined) {
+        throw new Error(
+          `Block number is undefined for leaf index ${definedIndices[i]} in tree ${MerkleTreeId[treeId]}`,
+        );
       }
+      indexToBlockNumber.set(definedIndices[i], blockNumber);
     }
 
     // Get unique block numbers in order to optimize num calls to getLeafValue function.
-    const uniqueBlockNumbers = [...new Set(blockNumbers.filter(x => x !== undefined))];
+    const uniqueBlockNumbers = [...new Set(indexToBlockNumber.values())];
 
-    // Now we obtain the block hashes from the archive tree by calling await `committedDb.getLeafValue(treeId, index)`
-    // (note that block number corresponds to the leaf index in the archive tree).
+    // Now we obtain the block hashes from the archive tree (block number = leaf index in archive tree).
     const blockHashes = await Promise.all(
       uniqueBlockNumbers.map(blockNumber => {
         return committedDb.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber));
       }),
     );
 
-    // If any of the block hashes are undefined, we throw an error.
+    // Build a map from block number to block hash
+    const blockNumberToHash = new Map<BlockNumber, Fr>();
     for (let i = 0; i < uniqueBlockNumbers.length; i++) {
-      if (blockHashes[i] === undefined) {
+      const blockHash = blockHashes[i];
+      if (blockHash === undefined) {
         throw new Error(`Block hash is undefined for block number ${uniqueBlockNumbers[i]}`);
       }
+      blockNumberToHash.set(uniqueBlockNumbers[i], blockHash);
     }
 
     // Create DataInBlock objects by combining indices, blockNumbers and blockHashes and return them.
-    return maybeIndices.map((index, i) => {
+    return maybeIndices.map(index => {
       if (index === undefined) {
         return undefined;
       }
-      const blockNumber = blockNumbers[i];
+      const blockNumber = indexToBlockNumber.get(index);
       if (blockNumber === undefined) {
-        return undefined;
+        throw new Error(`Block number not found for leaf index ${index} in tree ${MerkleTreeId[treeId]}`);
       }
-      const blockHashIndex = uniqueBlockNumbers.indexOf(blockNumber);
-      const blockHash = blockHashes[blockHashIndex];
-      if (!blockHash) {
-        return undefined;
+      const blockHash = blockNumberToHash.get(blockNumber);
+      if (blockHash === undefined) {
+        throw new Error(`Block hash not found for block number ${blockNumber}`);
       }
       return {
-        l2BlockNumber: BlockNumber(Number(blockNumber)),
+        l2BlockNumber: blockNumber,
         l2BlockHash: new BlockHash(blockHash),
         data: index,
       };
@@ -1028,7 +1034,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     blockHash: BlockHash,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
-    const committedDb = await this.#getWorldState(referenceBlock);
+    const committedDb = await this.getWorldState(referenceBlock);
     const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE>(MerkleTreeId.ARCHIVE, [blockHash]);
     return pathAndIndex === undefined
       ? undefined
@@ -1039,7 +1045,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     noteHash: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
-    const committedDb = await this.#getWorldState(referenceBlock);
+    const committedDb = await this.getWorldState(referenceBlock);
     const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.NOTE_HASH_TREE>(
       MerkleTreeId.NOTE_HASH_TREE,
       [noteHash],
@@ -1053,7 +1059,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     l1ToL2Message: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined> {
-    const db = await this.#getWorldState(referenceBlock);
+    const db = await this.getWorldState(referenceBlock);
     const [witness] = await db.findSiblingPaths(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, [l1ToL2Message]);
     if (!witness) {
       return undefined;
@@ -1098,7 +1104,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const db = await this.#getWorldState(referenceBlock);
+    const db = await this.getWorldState(referenceBlock);
     const [witness] = await db.findSiblingPaths(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]);
     if (!witness) {
       return undefined;
@@ -1132,7 +1138,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     referenceBlock: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const committedDb = await this.#getWorldState(referenceBlock);
+    const committedDb = await this.getWorldState(referenceBlock);
     const findResult = await committedDb.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
     if (!findResult) {
       return undefined;
@@ -1148,7 +1154,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   async getPublicDataWitness(referenceBlock: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    const committedDb = await this.#getWorldState(referenceBlock);
+    const committedDb = await this.getWorldState(referenceBlock);
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
     if (!lowLeafResult) {
       return undefined;
@@ -1163,7 +1169,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getPublicStorageAt(referenceBlock: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const committedDb = await this.#getWorldState(referenceBlock);
+    const committedDb = await this.getWorldState(referenceBlock);
     const leafSlot = await computePublicDataTreeLeafSlot(contract, slot);
 
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
@@ -1594,7 +1600,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
    * @returns An instance of a committed MerkleTreeOperations
    */
-  async #getWorldState(block: BlockParameter) {
+  protected async getWorldState(block: BlockParameter) {
     let blockSyncedTo: BlockNumber = BlockNumber.ZERO;
     try {
       // Attempt to sync the world state if necessary
@@ -1608,6 +1614,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       return this.worldStateSynchronizer.getCommitted();
     }
 
+    // Get the block number, either directly from the parameter or by quering the archiver with the block hash
+    let blockNumber: BlockNumber;
     if (BlockHash.isBlockHash(block)) {
       const initialBlockHash = await this.#getInitialHeaderHash();
       if (block.equals(initialBlockHash)) {
@@ -1621,22 +1629,31 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
           `Block hash ${block.toString()} not found when querying world state. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
         );
       }
-      const blockNumber = header.getBlockNumber();
-      this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
-      return this.worldStateSynchronizer.getSnapshot(blockNumber);
+
+      blockNumber = header.getBlockNumber();
+    } else {
+      blockNumber = block as BlockNumber;
     }
 
-    // Block number provided
-    {
-      const blockNumber = block as BlockNumber;
+    // Check it's within world state sync range
+    if (blockNumber > blockSyncedTo) {
+      throw new Error(`Queried block ${block} not yet synced by the node (node is synced upto ${blockSyncedTo}).`);
+    }
+    this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
 
-      if (blockNumber > blockSyncedTo) {
-        throw new Error(`Queried block ${block} not yet synced by the node (node is synced upto ${blockSyncedTo}).`);
+    const snapshot = this.worldStateSynchronizer.getSnapshot(blockNumber);
+
+    // Double-check world-state synced to the same block hash as was requested
+    if (BlockHash.isBlockHash(block)) {
+      const blockHash = await snapshot.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber));
+      if (!blockHash || !new BlockHash(blockHash).equals(block)) {
+        throw new Error(
+          `Block hash ${block.toString()} not found in world state at block number ${blockNumber}. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
+        );
       }
-
-      this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
-      return this.worldStateSynchronizer.getSnapshot(blockNumber);
     }
+
+    return snapshot;
   }
 
   /**
