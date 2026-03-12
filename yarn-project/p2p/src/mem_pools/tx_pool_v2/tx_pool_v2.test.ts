@@ -135,6 +135,7 @@ describe('TxPoolV2', () => {
       worldStateSynchronizer: mockWorldState,
       createTxValidator: () => Promise.resolve(alwaysValidValidator),
       checkAllowedSetupCalls: () => Promise.resolve(true),
+      blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
     });
     await pool.start();
 
@@ -545,6 +546,7 @@ describe('TxPoolV2', () => {
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(rejectingValidator),
         checkAllowedSetupCalls: () => Promise.resolve(true),
+        blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
       });
       await rejectingPool.start();
     });
@@ -661,6 +663,7 @@ describe('TxPoolV2', () => {
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(new GasLimitsValidator<TxMetaData>()),
         checkAllowedSetupCalls: () => Promise.resolve(true),
+        blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
       });
       await gasPool.start();
     });
@@ -1303,6 +1306,7 @@ describe('TxPoolV2', () => {
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(mockValidator),
           checkAllowedSetupCalls: () => Promise.resolve(true),
+          blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         });
         await poolWithValidator.start();
       });
@@ -2012,6 +2016,7 @@ describe('TxPoolV2', () => {
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(mockValidator),
         checkAllowedSetupCalls: () => Promise.resolve(true),
+        blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
       });
       await poolWithValidator.start();
     });
@@ -2352,6 +2357,7 @@ describe('TxPoolV2', () => {
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(mockValidator),
         checkAllowedSetupCalls: () => Promise.resolve(true),
+        blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
       });
       await poolWithValidator.start();
     });
@@ -4609,6 +4615,7 @@ describe('TxPoolV2', () => {
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
           checkAllowedSetupCalls: () => Promise.resolve(true),
+          blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         });
         await pool1.start();
 
@@ -4635,6 +4642,7 @@ describe('TxPoolV2', () => {
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
           checkAllowedSetupCalls: () => Promise.resolve(true),
+          blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         });
         await pool2.start();
 
@@ -4664,6 +4672,7 @@ describe('TxPoolV2', () => {
             worldStateSynchronizer: mockWorldState,
             createTxValidator: () => Promise.resolve(alwaysValidValidator),
             checkAllowedSetupCalls: () => Promise.resolve(true),
+            blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
           },
           undefined, // telemetry
           { maxPendingTxCount: 100 },
@@ -4691,6 +4700,7 @@ describe('TxPoolV2', () => {
             worldStateSynchronizer: mockWorldState,
             createTxValidator: () => Promise.resolve(alwaysValidValidator),
             checkAllowedSetupCalls: () => Promise.resolve(true),
+            blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
           },
           undefined, // telemetry
           { maxPendingTxCount: 3 },
@@ -4724,6 +4734,7 @@ describe('TxPoolV2', () => {
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
           checkAllowedSetupCalls: () => Promise.resolve(true),
+          blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         });
         await pool1.start();
 
@@ -4742,6 +4753,7 @@ describe('TxPoolV2', () => {
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
           checkAllowedSetupCalls: () => Promise.resolve(true),
+          blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         });
         await pool2.start();
 
@@ -4772,6 +4784,7 @@ describe('TxPoolV2', () => {
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
           checkAllowedSetupCalls: () => Promise.resolve(true),
+          blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         });
         await pool1.start();
 
@@ -4807,6 +4820,7 @@ describe('TxPoolV2', () => {
             worldStateSynchronizer: mockWorldState,
             createTxValidator: () => Promise.resolve(alwaysValidValidator),
             checkAllowedSetupCalls: () => Promise.resolve(true),
+            blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
           },
           undefined, // telemetry
           { maxPendingTxCount: 0 }, // No pending txs allowed
@@ -4836,6 +4850,7 @@ describe('TxPoolV2', () => {
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
           checkAllowedSetupCalls: () => Promise.resolve(true),
+          blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         });
         await pool1.start();
 
@@ -4863,6 +4878,7 @@ describe('TxPoolV2', () => {
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(selectiveValidator),
           checkAllowedSetupCalls: () => Promise.resolve(true),
+          blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         });
         await pool2.start();
 
@@ -4889,6 +4905,7 @@ describe('TxPoolV2', () => {
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
           checkAllowedSetupCalls: () => Promise.resolve(true),
+          blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         });
         await pool1.start();
 
@@ -4915,6 +4932,7 @@ describe('TxPoolV2', () => {
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
           checkAllowedSetupCalls: () => Promise.resolve(true),
+          blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         });
         await pool2.start();
 
@@ -5148,6 +5166,7 @@ describe('TxPoolV2', () => {
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
           checkAllowedSetupCalls: () => Promise.resolve(true),
+          blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         },
         undefined, // telemetry
         { minTxPoolAgeMs: 2_000 },
@@ -5247,6 +5266,7 @@ describe('TxPoolV2', () => {
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
           checkAllowedSetupCalls: () => Promise.resolve(true),
+          blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         },
         undefined,
         { minTxPoolAgeMs: 2_000 },
@@ -5484,6 +5504,7 @@ describe('TxPoolV2', () => {
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(mockValidator),
         checkAllowedSetupCalls: () => Promise.resolve(true),
+        blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
       });
       await poolWithValidator.start();
 
@@ -5551,6 +5572,7 @@ describe('TxPoolV2', () => {
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
           checkAllowedSetupCalls: () => Promise.resolve(true),
+          blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         });
         await pool1.start();
 
@@ -5586,6 +5608,7 @@ describe('TxPoolV2', () => {
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
           checkAllowedSetupCalls: () => Promise.resolve(true),
+          blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         });
         await pool2.start();
 
@@ -5621,6 +5644,7 @@ describe('TxPoolV2', () => {
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(throwingValidator),
           checkAllowedSetupCalls: () => Promise.resolve(true),
+          blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         });
         await pool1.start();
 
@@ -5647,6 +5671,7 @@ describe('TxPoolV2', () => {
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
           checkAllowedSetupCalls: () => Promise.resolve(true),
+          blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         });
         await pool2.start();
 
@@ -5676,6 +5701,7 @@ describe('TxPoolV2', () => {
         l2BlockSource: mockL2BlockSource,
         worldStateSynchronizer: mockWorldState,
         createTxValidator: () => Promise.resolve(new MaxFeePerGasValidator<TxMetaData>(blockGasFees)),
+        blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
       });
       await feePool.start();
     });
@@ -5744,10 +5770,26 @@ describe('TxPoolV2', () => {
   });
 
   describe('max fee per gas eviction after block mined', () => {
-    // The default pool already has InsufficientFeePerGasEvictionRule registered.
-    // Default mockTx uses maxFeesPerGas = GasFees(10, 10).
-    // The existing slot headers (slot1Header, slot2Header) use GasFees.empty() (0, 0),
-    // so we need a header with non-zero gas fees to trigger eviction.
+    // The eviction rule uses getCurrentMinFees to determine the fee threshold.
+    // We use a mutable variable so each test can set the projected min fees.
+    let currentMinFees = GasFees.empty();
+
+    beforeEach(async () => {
+      // Re-create the pool with a getCurrentMinFees that returns the test-controlled value
+      await pool.stop();
+      await store.delete();
+      await archiveStore.delete();
+      store = await openTmpStore('p2p');
+      archiveStore = await openTmpStore('archive');
+      currentMinFees = GasFees.empty();
+      pool = new AztecKVTxPoolV2(store, archiveStore, {
+        l2BlockSource: mockL2BlockSource,
+        worldStateSynchronizer: mockWorldState,
+        createTxValidator: () => Promise.resolve(alwaysValidValidator),
+        blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(currentMinFees) },
+      });
+      await pool.start();
+    });
 
     const makeTxWithMaxFees = async (seed: number, maxFeesPerGas: GasFees) => {
       const tx = await mockTx(seed, {
@@ -5779,7 +5821,8 @@ describe('TxPoolV2', () => {
       await pool.addPendingTxs([tx1, tx2]);
       expect(await pool.getPendingTxCount()).toBe(2);
 
-      // Mine a block with gas fees (20, 20) - higher than txs' maxFeesPerGas
+      // Set projected min fees higher than txs' maxFeesPerGas
+      currentMinFees = new GasFees(20, 20);
       const blockHeader = headerWithGasFees(new GasFees(20, 20));
       await pool.handleMinedBlock(makeEmptyBlock(blockHeader));
 
@@ -5797,7 +5840,8 @@ describe('TxPoolV2', () => {
       await pool.addPendingTxs([tx1, tx2]);
       expect(await pool.getPendingTxCount()).toBe(2);
 
-      // Mine a block with gas fees (20, 20) - lower than txs' maxFeesPerGas
+      // Set projected min fees lower than txs' maxFeesPerGas
+      currentMinFees = new GasFees(20, 20);
       const blockHeader = headerWithGasFees(new GasFees(20, 20));
       await pool.handleMinedBlock(makeEmptyBlock(blockHeader));
 
@@ -5815,7 +5859,8 @@ describe('TxPoolV2', () => {
       await pool.addPendingTxs([txLowFee, txHighFee, txBorderline]);
       expect(await pool.getPendingTxCount()).toBe(3);
 
-      // Mine a block with gas fees (20, 20)
+      // Set projected min fees to (20, 20)
+      currentMinFees = new GasFees(20, 20);
       const blockHeader = headerWithGasFees(new GasFees(20, 20));
       await pool.handleMinedBlock(makeEmptyBlock(blockHeader));
 
@@ -5834,6 +5879,7 @@ describe('TxPoolV2', () => {
       await pool.addPendingTxs([tx]);
       expect(await pool.getPendingTxCount()).toBe(1);
 
+      currentMinFees = new GasFees(20, 20);
       const blockHeader = headerWithGasFees(new GasFees(20, 20));
       await pool.handleMinedBlock(makeEmptyBlock(blockHeader));
 
@@ -5846,6 +5892,7 @@ describe('TxPoolV2', () => {
       await pool.addPendingTxs([tx]);
       expect(await pool.getPendingTxCount()).toBe(1);
 
+      currentMinFees = new GasFees(20, 20);
       const blockHeader = headerWithGasFees(new GasFees(20, 20));
       await pool.handleMinedBlock(makeEmptyBlock(blockHeader));
 
@@ -5871,7 +5918,8 @@ describe('TxPoolV2', () => {
       await pool.addProtectedTxs([tx], slot1Header);
       expect(await pool.getTxStatus(tx.getTxHash())).toBe('protected');
 
-      // Mine a block with gas fees higher than the tx's maxFeesPerGas
+      // Set projected min fees higher than the tx's maxFeesPerGas
+      currentMinFees = new GasFees(20, 20);
       const blockHeader = headerWithGasFees(new GasFees(20, 20));
       await pool.handleMinedBlock(makeEmptyBlock(blockHeader));
 

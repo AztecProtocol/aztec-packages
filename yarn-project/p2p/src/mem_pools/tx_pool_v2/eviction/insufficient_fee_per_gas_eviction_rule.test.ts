@@ -14,6 +14,8 @@ describe('InsufficientFeePerGasEvictionRule', () => {
   let rule: InsufficientFeePerGasEvictionRule;
   let deleteTxsMock: jest.MockedFunction<any>;
 
+  const blockGasFees = new GasFees(10, 20);
+
   const createPoolOps = (pendingTxs: TxMetaData[]): PoolOperations => {
     deleteTxsMock = jest.fn(() => Promise.resolve());
     return {
@@ -28,7 +30,7 @@ describe('InsufficientFeePerGasEvictionRule', () => {
 
   beforeEach(() => {
     pool = createPoolOps([]);
-    rule = new InsufficientFeePerGasEvictionRule();
+    rule = new InsufficientFeePerGasEvictionRule({ getCurrentMinFees: () => Promise.resolve(blockGasFees) });
   });
 
   describe('non-BLOCK_MINED events', () => {
@@ -152,6 +154,32 @@ describe('InsufficientFeePerGasEvictionRule', () => {
         txsEvicted: [],
       });
       expect(deleteTxsMock).not.toHaveBeenCalled();
+    });
+
+    it('uses blockMinFeesProvider to determine eviction threshold', async () => {
+      // blockMinFeesProvider returns lower projected fees (5, 10) than block header (10, 20)
+      const getCurrentMinFees = jest.fn(() => Promise.resolve(new GasFees(5, 10)));
+      rule = new InsufficientFeePerGasEvictionRule({ getCurrentMinFees });
+
+      const tx1 = stubTxMetaData('0x1111', { maxFeesPerGas: new GasFees(5, 10) }); // Sufficient for projected fees
+      const tx2 = stubTxMetaData('0x2222', { maxFeesPerGas: new GasFees(4, 10) }); // DA too low for projected fees
+
+      pool = createPoolOps([tx1, tx2]);
+
+      const context: EvictionContext = {
+        event: EvictionEvent.BLOCK_MINED,
+        block: blockHeader,
+        newNullifiers: [],
+        feePayers: [],
+      };
+
+      const result = await rule.evict(context, pool);
+
+      expect(getCurrentMinFees).toHaveBeenCalled();
+      expect(result.success).toBe(true);
+      // Only tx2 is evicted (DA fee 4 < projected 5), tx1 is kept despite block header fees being higher
+      expect(result.txsEvicted).toEqual([tx2.txHash]);
+      expect(deleteTxsMock).toHaveBeenCalledWith([tx2.txHash], 'InsufficientFeePerGas');
     });
   });
 });

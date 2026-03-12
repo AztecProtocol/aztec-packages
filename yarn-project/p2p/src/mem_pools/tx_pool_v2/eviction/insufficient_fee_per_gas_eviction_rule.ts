@@ -1,17 +1,21 @@
 import { createLogger } from '@aztec/foundation/log';
+import type { BlockMinFeesProvider } from '@aztec/stdlib/gas';
 
 import type { EvictionContext, EvictionResult, EvictionRule, PoolOperations } from './interfaces.js';
 import { EvictionEvent } from './interfaces.js';
 
 /**
  * Eviction rule that removes transactions whose maxFeesPerGas no longer meets
- * the current block's gas fees after a new block is mined.
+ * the projected minimum gas fees after a new block is mined.
+ * Uses the BlockMinFeesProvider (forward-looking) to get the projected minimum fees.
  * Only triggers on BLOCK_MINED events.
  */
 export class InsufficientFeePerGasEvictionRule implements EvictionRule {
   public readonly name = 'InsufficientFeePerGas';
 
   private log = createLogger('p2p:tx_pool_v2:insufficient_fee_per_gas_eviction_rule');
+
+  constructor(private blockMinFeesProvider: BlockMinFeesProvider) {}
 
   async evict(context: EvictionContext, pool: PoolOperations): Promise<EvictionResult> {
     if (context.event !== EvictionEvent.BLOCK_MINED) {
@@ -23,7 +27,7 @@ export class InsufficientFeePerGasEvictionRule implements EvictionRule {
     }
 
     try {
-      const { gasFees } = context.block.globalVariables;
+      const gasFees = await this.blockMinFeesProvider.getCurrentMinFees();
       const txsToEvict: string[] = [];
       const pendingTxs = pool.getPendingTxs();
 

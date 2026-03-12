@@ -1,6 +1,7 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { L2Block, L2BlockId, L2BlockSource } from '@aztec/stdlib/block';
+import type { BlockMinFeesProvider } from '@aztec/stdlib/gas';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { BlockHeader, Tx, TxHash, TxValidator } from '@aztec/stdlib/tx';
 
@@ -74,6 +75,8 @@ export type TxPoolV2Dependencies = {
   createTxValidator: () => Promise<TxValidator<TxMetaData>>;
   /** Checks whether a tx's setup-phase calls are on the allow list. Precomputed at receipt time. */
   checkAllowedSetupCalls: (tx: Tx) => Promise<boolean>;
+  /** Provides projected minimum fees for the next block. Used by eviction rules instead of stale block header fees. */
+  blockMinFeesProvider: BlockMinFeesProvider;
 };
 
 /**
