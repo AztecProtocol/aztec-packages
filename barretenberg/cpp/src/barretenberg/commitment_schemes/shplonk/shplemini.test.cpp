@@ -888,4 +888,129 @@ TYPED_TEST(ShpleminiTest, LibraConcatenatedCommitmentTamperingCausesVerification
         this, TamperedPolynomial::None, TamperedCommitment::Concatenated, /*expected_consistency_checked=*/true);
 }
 
+/**
+ * @brief Test Shplemini with interleaved polynomial commitments (shift_exponent=4).
+ * @details Opens 2 interleaved polynomials: one unshifted-only, one with both unshifted and shifted openings.
+ * Mimics the MultiHonk prover/verifier flow where polynomials are committed via interleaved Pippenger
+ * and evaluations are batched using Lagrange basis over interleaving challenges.
+ */
+TEST_F(ShpleminiKZGTest, InterleavedOpenings)
+{
+    using Fr = curve::BN254::ScalarField;
+    using Commitment = curve::BN254::AffineElement;
+    using Polynomial = bb::Polynomial<Fr>;
+    using CK = CommitmentKey<curve::BN254>;
+    using PolynomialBatcher = GeminiProver_<curve::BN254>::PolynomialBatcher;
+    using OpeningClaim = ProverOpeningClaim<curve::BN254>;
+    using ClaimBatcher = ClaimBatcher_<curve::BN254>;
+    using ClaimBatch = ClaimBatcher::Batch;
+
+    constexpr size_t BATCH_SIZE = 4;
+    const size_t interleaved_size = n * BATCH_SIZE;
+
+    // Create component polynomials: 4 unshiftable + 4 shiftable
+    auto make_polys = [&](bool shiftable) {
+        std::array<Polynomial, BATCH_SIZE> polys;
+        for (auto& p : polys) {
+            p = Polynomial(n);
+            p.at(0) = shiftable ? Fr::zero() : Fr::random_element();
+            for (size_t i = 1; i < n; i++) {
+                p.at(i) = Fr::random_element();
+            }
+        }
+        return polys;
+    };
+    auto unshiftable_polys = make_polys(false);
+    auto shiftable_polys = make_polys(true);
+
+    // Interleave: F[4i+j] = f_j[i]
+    auto interleave = [&](const std::array<Polynomial, BATCH_SIZE>& polys) {
+        Polynomial result(interleaved_size);
+        for (size_t i = 0; i < n; i++)
+            for (size_t j = 0; j < BATCH_SIZE; j++)
+                result.at(BATCH_SIZE * i + j) = polys[j][i];
+        return result;
+    };
+    Polynomial P_unshiftable = interleave(unshiftable_polys);
+    Polynomial P_shiftable = interleave(shiftable_polys);
+
+    // Commit
+    CK ck(interleaved_size);
+    Commitment C_unshiftable = ck.commit(P_unshiftable);
+    Commitment C_shiftable = ck.commit(P_shiftable);
+
+    // Sumcheck challenge + interleaving challenges
+    std::vector<Fr> sumcheck_challenge(log_n);
+    for (auto& c : sumcheck_challenge)
+        c = Fr::random_element();
+    Fr u0 = Fr::random_element();
+    Fr u1 = Fr::random_element();
+
+    // Lagrange basis: L₀=(1-u₀)(1-u₁), L₁=u₀(1-u₁), L₂=(1-u₀)u₁, L₃=u₀u₁
+    Fr mu0 = Fr::one() - u0, mu1 = Fr::one() - u1;
+    std::array<Fr, BATCH_SIZE> L = { mu0 * mu1, u0 * mu1, mu0 * u1, u0 * u1 };
+
+    // Compute batched evaluations via Lagrange basis
+    auto batch_eval = [&](const std::array<Polynomial, BATCH_SIZE>& polys, const std::vector<Fr>& challenge) {
+        Fr result = Fr::zero();
+        for (size_t j = 0; j < BATCH_SIZE; j++)
+            result += polys[j].evaluate_mle(challenge) * L[j];
+        return result;
+    };
+
+    Fr eval_unshiftable = batch_eval(unshiftable_polys, sumcheck_challenge);
+    Fr eval_shiftable = batch_eval(shiftable_polys, sumcheck_challenge);
+
+    // Shifted evals: f_shift[i] = f[i+1]
+    std::array<Polynomial, BATCH_SIZE> shifted_polys;
+    for (size_t j = 0; j < BATCH_SIZE; j++) {
+        shifted_polys[j] = Polynomial(n);
+        for (size_t i = 0; i + 1 < n; i++)
+            shifted_polys[j].at(i) = shiftable_polys[j][i + 1];
+    }
+    Fr eval_shifted = batch_eval(shifted_polys, sumcheck_challenge);
+
+    // Full challenge: [u₀, u₁] ++ sumcheck_challenge
+    std::vector<Fr> full_challenge = { u0, u1 };
+    full_challenge.insert(full_challenge.end(), sumcheck_challenge.begin(), sumcheck_challenge.end());
+
+    // --- Prover ---
+    auto prover_transcript = NativeTranscript::test_prover_init_empty();
+
+    Polynomial shiftable_for_batcher = Polynomial::shiftable(interleaved_size, interleaved_size, BATCH_SIZE);
+    for (size_t i = 1; i < n; i++)
+        for (size_t j = 0; j < BATCH_SIZE; j++)
+            shiftable_for_batcher.at(BATCH_SIZE * i + j) = shiftable_polys[j][i];
+
+    PolynomialBatcher batcher(interleaved_size, BATCH_SIZE);
+    batcher.set_unshifted(RefVector<Polynomial>{ P_unshiftable, P_shiftable });
+    batcher.set_to_be_shifted(RefVector<Polynomial>{ shiftable_for_batcher });
+
+    OpeningClaim claim =
+        ShpleminiProver_<curve::BN254>::prove(interleaved_size, batcher, full_challenge, ck, prover_transcript);
+    KZG<curve::BN254>::compute_opening_proof(ck, claim, prover_transcript);
+
+    // --- Verifier ---
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
+
+    std::array<Commitment, 2> unshifted_comms = { C_unshiftable, C_shiftable };
+    std::array<Fr, 2> unshifted_evals = { eval_unshiftable, eval_shiftable };
+    std::array<Commitment, 1> shifted_comms = { C_shiftable };
+    std::array<Fr, 1> shifted_evals = { eval_shifted };
+
+    ClaimBatcher claim_batcher{
+        .unshifted = ClaimBatch{ RefArray<Commitment, 2>(unshifted_comms), RefArray<Fr, 2>(unshifted_evals) },
+        .shifted = ClaimBatch{ RefArray<Commitment, 1>(shifted_comms), RefArray<Fr, 1>(shifted_evals) },
+        .shift_exponent = BATCH_SIZE
+    };
+
+    std::vector<Fr> padding(full_challenge.size(), Fr{ 1 });
+    auto output = ShpleminiVerifier_<curve::BN254>::compute_batch_opening_claim(
+        padding, claim_batcher, full_challenge, Commitment::one(), verifier_transcript);
+
+    auto pairing_points = KZG<curve::BN254>::reduce_verify_batch_opening_claim(std::move(output.batch_opening_claim),
+                                                                               verifier_transcript);
+    EXPECT_TRUE(pairing_points.check());
+}
+
 } // namespace bb

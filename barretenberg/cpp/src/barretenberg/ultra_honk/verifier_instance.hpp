@@ -5,40 +5,24 @@
 // =====================
 
 #pragma once
-#include <type_traits>
 
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_concepts.hpp"
-#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 
 namespace bb {
 
-// Helper to get InterleavedCommitments type if it exists, otherwise an empty struct
-template <typename Flavor, bool = IsMultiMegaFlavor<Flavor>> struct InterleavedCommitmentsHelper {
-    struct Empty {};
-    using type = Empty;
+// Resolve InterleavedCommitments type: the real type for MultiMega flavors, empty struct otherwise
+template <typename Flavor, bool = IsMultiMegaFlavor<Flavor>> struct InterleavedCommitmentsOf {
+    struct type {};
 };
-
-template <typename Flavor> struct InterleavedCommitmentsHelper<Flavor, true> {
+template <typename Flavor> struct InterleavedCommitmentsOf<Flavor, true> {
     using type = typename Flavor::InterleavedCommitments;
 };
 
-// Helper to get InterleavedPrecomputedCommitments type if it exists, otherwise an empty struct
-template <typename Flavor, bool = IsMultiMegaFlavor<Flavor>> struct InterleavedPrecomputedHelper {
-    struct Empty {};
-    using type = Empty;
-};
-
-template <typename Flavor> struct InterleavedPrecomputedHelper<Flavor, true> {
-    using type = typename Flavor::InterleavedPrecomputed;
-};
-
 /**
- * @brief The VerifierInstance encapsulates all the necessary information for a Honk Verifier to verify a
- * proof (sumcheck + Shplemini). In the context of folding, this is provided to the Hypernova verifier as an incoming
- * instance.
+ * @brief Encapsulates all information needed by a Honk verifier: VK, witness commitments, challenges.
  * @details Works with both native and recursive flavors.
  */
 template <typename Flavor_> class VerifierInstance_ {
@@ -54,22 +38,16 @@ template <typename Flavor_> class VerifierInstance_ {
 
     std::vector<FF> public_inputs;
 
-    FF alpha; // challenge whose powers batch subrelation contributions during Sumcheck
+    FF alpha;
     RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
 
     WitnessCommitments witness_commitments;
 
-    // For MultiMegaFlavor: store interleaved commitments
-    // This is only used when Flavor has InterleavedCommitments
-    using InterleavedCommitmentsType = typename InterleavedCommitmentsHelper<Flavor>::type;
-    InterleavedCommitmentsType interleaved_commitments;
+    // For MultiMega flavors (BATCH_SIZE > 1): stores interleaved witness commitments from oink
+    typename InterleavedCommitmentsOf<Flavor>::type interleaved_commitments;
 
-    // For MultiMegaFlavor: store interleaved precomputed commitments
-    using InterleavedPrecomputedType = typename InterleavedPrecomputedHelper<Flavor>::type;
-    InterleavedPrecomputedType interleaved_precomputed;
-
-    Commitment gemini_masking_commitment; // ZK only: Gemini masking polynomial commitment
+    Commitment gemini_masking_commitment; // ZK: Gemini masking polynomial commitment
 
     explicit VerifierInstance_(std::shared_ptr<VKAndHash> vk_and_hash)
         : vk_and_hash(vk_and_hash)
