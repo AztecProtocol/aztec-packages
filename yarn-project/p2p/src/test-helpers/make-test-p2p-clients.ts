@@ -5,7 +5,6 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { GasFees } from '@aztec/stdlib/gas';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
@@ -103,7 +102,6 @@ export async function makeTestP2PClient(
     proofVerifier,
     mockWorldState,
     mockEpochCache,
-    { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
     'test-p2p-client',
     undefined,
     undefined,

@@ -200,7 +200,7 @@ export type SetupOptions = {
   skipAccountDeployment?: boolean;
   /** L1 contracts deployment arguments. */
   l1ContractsArgs?: Partial<DeployAztecL1ContractsArgs>;
-  /** Wallet minimum fee padding multiplier */
+  /** Wallet minimum fee padding multiplier (defaults to 0.5, which is 50% padding). */
   walletMinFeePadding?: number;
 } & Partial<AztecNodeConfig>;
 

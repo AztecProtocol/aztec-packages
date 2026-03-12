@@ -1,8 +1,5 @@
 export const METRICS_PORT = 4318;
 
-/** Default fee multiplier applied to getCurrentMinFees in e2e tests to cover fee decay between blocks. */
-export const E2E_DEFAULT_MIN_FEE_PADDING = 15;
-
 export const shouldCollectMetrics = () => {
   if (process.env.COLLECT_METRICS) {
     return METRICS_PORT;

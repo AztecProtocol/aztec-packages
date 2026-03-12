@@ -17,7 +17,6 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { type BlockProposal, P2PMessage } from '@aztec/stdlib/p2p';
@@ -370,7 +369,6 @@ process.on('message', async msg => {
         proofVerifier as ClientProtocolCircuitVerifier,
         worldState,
         epochCache,
-        { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         'test-p2p-bench-worker',
         undefined,
         telemetry as TelemetryClient,
