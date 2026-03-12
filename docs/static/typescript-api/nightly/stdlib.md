@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v5.0.0-nightly.20260311
+Version: v5.0.0-nightly.20260312
 
 ## Quick Import Reference
 
@@ -2519,21 +2519,21 @@ Interface of classes allowing for the retrieval of L2 blocks.
 - `getCheckpoints(checkpointNumber: CheckpointNumber, limit: number) => Promise<PublishedCheckpoint[]>` - Retrieves a collection of checkpoints.
 - `getCheckpointsDataForEpoch(epochNumber: EpochNumber) => Promise<CheckpointData[]>` - Gets lightweight checkpoint metadata for a given epoch, without fetching full block data.
 - `getCheckpointsForEpoch(epochNumber: EpochNumber) => Promise<Checkpoint[]>` - Gets the checkpoints for a given epoch
-- `getFinalizedL2BlockNumber() => Promise<BlockNumber>` - Computes the finalized block number based on the proven block number. A block is considered finalized when it's 2 epochs behind the proven block. Compute proper finalized block number based on L1 finalized block.
+- `getFinalizedL2BlockNumber() => Promise<BlockNumber>` - Returns the finalized L2 block number. A block is finalized when it was proven in an L1 block that has itself been finalized on Ethereum.
 - `getGenesisValues() => Promise<{ genesisArchiveRoot: Fr }>` - Returns values for the genesis block
 - `getL1Constants() => Promise<L1RollupConstants>` - Returns the rollup constants for the current chain.
 - `getL1Timestamp() => Promise<bigint | undefined>` - Latest synced L1 timestamp.
 - `getL2Block(number: BlockNumber) => Promise<L2Block | undefined>` - Gets an L2 block by block number.
 - `getL2BlockByArchive(archive: Fr) => Promise<L2Block | undefined>` - Gets an L2 block by its archive root.
 - `getL2BlockByHash(blockHash: BlockHash) => Promise<L2Block | undefined>` - Gets an L2 block by its hash.
-- `getL2EpochNumber() => Promise<EpochNumber | undefined>` - Returns the current L2 epoch number based on the currently synced L1 timestamp.
-- `getL2SlotNumber() => Promise<SlotNumber | undefined>` - Returns the current L2 slot number based on the currently synced L1 timestamp.
 - `getL2Tips() => Promise<L2Tips>` - Returns the tips of the L2 chain.
 - `getPendingChainValidationStatus() => Promise<ValidateCheckpointResult>` - Returns the status of the pending chain validation. If the chain is invalid, reports the earliest consecutive checkpoint that is invalid, along with the reason for being invalid, which can be used to trigger an invalidation.
 - `getProvenBlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block proven seen by the block source implementation.
 - `getRegistryAddress() => Promise<EthAddress>` - Method to fetch the registry contract address at the base-layer.
 - `getRollupAddress() => Promise<EthAddress>` - Method to fetch the rollup contract address at the base-layer.
 - `getSettledTxReceipt(txHash: TxHash) => Promise<TxReceipt | undefined>` - Gets a receipt of a settled tx.
+- `getSyncedL2EpochNumber() => Promise<EpochNumber | undefined>` - Returns the last L2 epoch number that has been fully synchronized from L1. An epoch is fully synced when all its L2 slots have been fully synced.
+- `getSyncedL2SlotNumber() => Promise<SlotNumber | undefined>` - Returns the last L2 slot number that has been fully synchronized from L1. An L2 slot is fully synced when all L1 blocks that fall within its time range have been processed.
 - `getTxEffect(txHash: TxHash) => Promise<IndexedTxEffect | undefined>` - Gets a tx effect.
 - `isEpochComplete(epochNumber: EpochNumber) => Promise<boolean>` - Returns whether the given epoch is completed on L1, based on the current L1 and L2 block numbers.
 - `isPendingChainInvalid() => Promise<boolean>` - Returns whether the latest block in the pending chain on L1 is invalid (ie its attestations are incorrect). Note that invalid blocks do not get synced, so the latest block returned by the block source is always a valid one.
@@ -2569,21 +2569,21 @@ Extends: `L2BlockSource`
 - `getCheckpoints(checkpointNumber: CheckpointNumber, limit: number) => Promise<PublishedCheckpoint[]>` - Retrieves a collection of checkpoints.
 - `getCheckpointsDataForEpoch(epochNumber: EpochNumber) => Promise<CheckpointData[]>` - Gets lightweight checkpoint metadata for a given epoch, without fetching full block data.
 - `getCheckpointsForEpoch(epochNumber: EpochNumber) => Promise<Checkpoint[]>` - Gets the checkpoints for a given epoch
-- `getFinalizedL2BlockNumber() => Promise<BlockNumber>` - Computes the finalized block number based on the proven block number. A block is considered finalized when it's 2 epochs behind the proven block. Compute proper finalized block number based on L1 finalized block.
+- `getFinalizedL2BlockNumber() => Promise<BlockNumber>` - Returns the finalized L2 block number. A block is finalized when it was proven in an L1 block that has itself been finalized on Ethereum.
 - `getGenesisValues() => Promise<{ genesisArchiveRoot: Fr }>` - Returns values for the genesis block
 - `getL1Constants() => Promise<L1RollupConstants>` - Returns the rollup constants for the current chain.
 - `getL1Timestamp() => Promise<bigint | undefined>` - Latest synced L1 timestamp.
 - `getL2Block(number: BlockNumber) => Promise<L2Block | undefined>` - Gets an L2 block by block number.
 - `getL2BlockByArchive(archive: Fr) => Promise<L2Block | undefined>` - Gets an L2 block by its archive root.
 - `getL2BlockByHash(blockHash: BlockHash) => Promise<L2Block | undefined>` - Gets an L2 block by its hash.
-- `getL2EpochNumber() => Promise<EpochNumber | undefined>` - Returns the current L2 epoch number based on the currently synced L1 timestamp.
-- `getL2SlotNumber() => Promise<SlotNumber | undefined>` - Returns the current L2 slot number based on the currently synced L1 timestamp.
 - `getL2Tips() => Promise<L2Tips>` - Returns the tips of the L2 chain.
 - `getPendingChainValidationStatus() => Promise<ValidateCheckpointResult>` - Returns the status of the pending chain validation. If the chain is invalid, reports the earliest consecutive checkpoint that is invalid, along with the reason for being invalid, which can be used to trigger an invalidation.
 - `getProvenBlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block proven seen by the block source implementation.
 - `getRegistryAddress() => Promise<EthAddress>` - Method to fetch the registry contract address at the base-layer.
 - `getRollupAddress() => Promise<EthAddress>` - Method to fetch the rollup contract address at the base-layer.
 - `getSettledTxReceipt(txHash: TxHash) => Promise<TxReceipt | undefined>` - Gets a receipt of a settled tx.
+- `getSyncedL2EpochNumber() => Promise<EpochNumber | undefined>` - Returns the last L2 epoch number that has been fully synchronized from L1. An epoch is fully synced when all its L2 slots have been fully synced.
+- `getSyncedL2SlotNumber() => Promise<SlotNumber | undefined>` - Returns the last L2 slot number that has been fully synchronized from L1. An L2 slot is fully synced when all L1 blocks that fall within its time range have been processed.
 - `getTxEffect(txHash: TxHash) => Promise<IndexedTxEffect | undefined>` - Gets a tx effect.
 - `isEpochComplete(epochNumber: EpochNumber) => Promise<boolean>` - Returns whether the given epoch is completed on L1, based on the current L1 and L2 block numbers.
 - `isPendingChainInvalid() => Promise<boolean>` - Returns whether the latest block in the pending chain on L1 is invalid (ie its attestations are incorrect). Note that invalid blocks do not get synced, so the latest block returned by the block source is always a valid one.
