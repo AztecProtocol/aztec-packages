@@ -32,7 +32,7 @@ elif [[ "$REF_NAME" == "merge-train/ci" ]]; then
 elif [[ "$REF_NAME" == "merge-train/docs" ]]; then
   channel="#dev-rels"
 elif [[ "$REF_NAME" == "merge-train/fairies" ]]; then
-  channel="#team-fairies"
+  channel="C04PUD9AA4W"
 elif [[ "$REF_NAME" == "merge-train/spartan" ]]; then
   channel="#team-alpha"
 else
