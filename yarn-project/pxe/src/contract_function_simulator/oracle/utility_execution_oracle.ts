@@ -75,6 +75,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   isUtility = true as const;
 
   private contractLogger: Logger | undefined;
+  private offchainEffects: { data: Fr[] }[] = [];
 
   protected readonly contractAddress: AztecAddress;
   protected readonly authWitnesses: AuthWitness[];
@@ -661,5 +662,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
     return deriveEcdhSharedSecret(addressSecret, ephPk);
+  }
+
+  public emitOffchainEffect(data: Fr[]): Promise<void> {
+    this.offchainEffects.push({ data });
+    return Promise.resolve();
+  }
+
+  /** Returns offchain effects collected during execution. */
+  public getOffchainEffects(): { data: Fr[] }[] {
+    return this.offchainEffects;
   }
 }

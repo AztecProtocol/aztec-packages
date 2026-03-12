@@ -259,53 +259,73 @@ describe('BatchCall', () => {
     // what matches how things are done in this suite, but the fact that we need to resort to mocking so much seems
     // like a smell. We should revisit when we have more time to rethink the suite.
     it('should extract offchain messages with anchor block timestamp from mixed batch', async () => {
-      const contractAddress = await AztecAddress.random();
-      const recipient = await AztecAddress.random();
-      const msgPayload = [Fr.random(), Fr.random()];
+      const emitterContract = await AztecAddress.random();
       const anchorBlockTimestamp = 1234567890n;
 
+      const utilityRecipient = await AztecAddress.random();
+      const utilityMsgPayload = [Fr.random(), Fr.random()];
+      const utilityRawEffectData = [Fr.random(), Fr.random()];
+
+      const txRecipient = await AztecAddress.random();
+      const txMsgPayload = [Fr.random(), Fr.random()];
+      const txRawEffectData = [Fr.random(), Fr.random()];
+
       batchCall = new BatchCall(wallet, [
-        createUtilityExecutionPayload('getBalance', [Fr.random()], contractAddress),
-        createPrivateExecutionPayload('transfer', [Fr.random()], contractAddress, 1),
-        createPrivateExecutionPayload('transfer', [Fr.random()], contractAddress, 1),
+        createUtilityExecutionPayload('getBalance', [Fr.random()], emitterContract),
+        createPrivateExecutionPayload('transfer', [Fr.random()], emitterContract, 1),
+        createPrivateExecutionPayload('transfer', [Fr.random()], emitterContract, 1),
       ]);
 
-      const offchainEffects: OffchainEffect[] = [
-        {
-          data: [OFFCHAIN_MESSAGE_IDENTIFIER, recipient.toField(), ...msgPayload],
-          contractAddress: contractAddress,
-        },
-      ];
+      const utilityResult = new UtilityExecutionResult(
+        [Fr.random()],
+        [
+          {
+            data: [OFFCHAIN_MESSAGE_IDENTIFIER, utilityRecipient.toField(), ...utilityMsgPayload],
+            contractAddress: emitterContract,
+          },
+          { data: utilityRawEffectData, contractAddress: emitterContract },
+        ],
+        anchorBlockTimestamp,
+      );
 
-      const txSimResult = mockTxSimResult({ anchorBlockTimestamp, offchainEffects });
+      const txSimResult = mockTxSimResult({
+        anchorBlockTimestamp,
+        offchainEffects: [
+          {
+            data: [OFFCHAIN_MESSAGE_IDENTIFIER, txRecipient.toField(), ...txMsgPayload],
+            contractAddress: emitterContract,
+          },
+          { data: txRawEffectData, contractAddress: emitterContract },
+        ],
+      });
       txSimResult.getPrivateReturnValues.mockReturnValue({
         nested: [{ values: [Fr.random()] }, { values: [Fr.random()] }],
       } as any);
 
-      const utilityResult = UtilityExecutionResult.random();
       wallet.batch.mockResolvedValue([
         { name: 'executeUtility', result: utilityResult },
         { name: 'simulateTx', result: txSimResult },
       ] as any);
 
       const results = await batchCall.simulate({ from: await AztecAddress.random() });
-
       expect(results).toHaveLength(3);
 
-      // Utility result has empty offchain output
-      expect(results[0].offchainMessages).toEqual([]);
-      expect(results[0].offchainEffects).toEqual([]);
-
-      // Private results carry the offchain messages from the tx simulation
-      for (const idx of [1, 2]) {
-        expect(results[idx].offchainMessages).toHaveLength(1);
-        expect(results[idx].offchainMessages[0]).toEqual({
-          recipient,
-          payload: msgPayload,
-          contractAddress: contractAddress,
+      expect(results[0].offchainMessages).toEqual([
+        {
+          recipient: utilityRecipient,
+          payload: utilityMsgPayload,
+          contractAddress: emitterContract,
           anchorBlockTimestamp,
-        });
-        expect(results[idx].offchainEffects).toEqual([]);
+        },
+      ]);
+      expect(results[0].offchainEffects).toEqual([{ data: utilityRawEffectData, contractAddress: emitterContract }]);
+
+      // Both private results share the single tx-level offchain output
+      for (const idx of [1, 2]) {
+        expect(results[idx].offchainMessages).toEqual([
+          { recipient: txRecipient, payload: txMsgPayload, contractAddress: emitterContract, anchorBlockTimestamp },
+        ]);
+        expect(results[idx].offchainEffects).toEqual([{ data: txRawEffectData, contractAddress: emitterContract }]);
       }
     });
 

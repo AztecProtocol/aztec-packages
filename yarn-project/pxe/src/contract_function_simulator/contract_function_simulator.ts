@@ -319,7 +319,7 @@ export class ContractFunctionSimulator {
     anchorBlockHeader: BlockHeader,
     scopes: AccessScopes,
     jobId: string,
-  ): Promise<Fr[]> {
+  ): Promise<{ result: Fr[]; offchainEffects: { data: Fr[] }[] }> {
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
 
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
@@ -368,7 +368,10 @@ export class ContractFunctionSimulator {
         });
 
       this.log.verbose(`Utility execution for ${call.to}.${call.selector} completed`);
-      return witnessMapToFields(acirExecutionResult.returnWitness);
+      return {
+        result: witnessMapToFields(acirExecutionResult.returnWitness),
+        offchainEffects: oracle.getOffchainEffects(),
+      };
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }

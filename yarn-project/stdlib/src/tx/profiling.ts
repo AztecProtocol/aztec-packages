@@ -3,6 +3,7 @@ import { type ZodFor, optional, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
+import { AztecAddress } from '../aztec-address/index.js';
 import type { AztecNode } from '../interfaces/aztec-node.js';
 import { type PrivateExecutionStep, PrivateExecutionStepSchema } from '../kernel/private_kernel_prover_output.js';
 
@@ -160,6 +161,9 @@ export class TxProfileResult {
 export class UtilityExecutionResult {
   constructor(
     public result: Fr[],
+    public offchainEffects: { data: Fr[]; contractAddress: AztecAddress }[],
+    /** Timestamp of the anchor block used during utility execution. */
+    public anchorBlockTimestamp: bigint,
     public stats?: SimulationStats,
   ) {}
 
@@ -167,13 +171,18 @@ export class UtilityExecutionResult {
     return z
       .object({
         result: z.array(schemas.Fr),
+        offchainEffects: z.array(z.object({ data: z.array(schemas.Fr), contractAddress: AztecAddress.schema })),
+        anchorBlockTimestamp: schemas.BigInt,
         stats: optional(SimulationStatsSchema),
       })
-      .transform(({ result, stats }) => new UtilityExecutionResult(result, stats));
+      .transform(
+        ({ result, offchainEffects, anchorBlockTimestamp, stats }) =>
+          new UtilityExecutionResult(result, offchainEffects, anchorBlockTimestamp, stats),
+      );
   }
 
   static random(): UtilityExecutionResult {
-    return new UtilityExecutionResult([Fr.random()], {
+    return new UtilityExecutionResult([Fr.random()], [], 0n, {
       nodeRPCCalls: {
         perMethod: { getBlockHeader: { times: [1] } },
         roundTrips: {
