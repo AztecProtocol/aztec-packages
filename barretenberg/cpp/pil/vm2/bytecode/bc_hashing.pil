@@ -23,10 +23,10 @@ include "../precomputed.pil";
  * On each row, we also constrain the associated pc indices (pc_index, pc_index_1, pc_index_2)
  * to be incremented by 31 in a rotation, starting with pc_index_1 because the
  * first field is the separator. Layout is:
- * PC_INDEX, PC_INDEX_1, PC_INDEX_2
- *     0         0           31
- *    62        93          124
- *   155       186          217 ...
+ * ROW    pc_index, pc_index_1, pc_index_2
+ *  1          0         0           31
+ *  2         62        93          124
+ *  3        155       186          217 ...
  *
  * Each computation block is constrained to have the same bytecode_id and therefore,
  * the multi-permutation enforces that the packed fields from one block in bc_decomposition.pil
@@ -37,8 +37,6 @@ include "../precomputed.pil";
  * by the collision resistance of Poseidon2.
  *
  * PRECONDITIONS:
- * - Bytecodes must be non-empty (empty bytecode would cause input_len - 2 to
- *   underflow in #[BYTECODE_LENGTH_FIELDS]).
  * - size_in_bytes < 2^232 (enforced at the contract registration level,
  *   that MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 3000 anyway).
  *
@@ -47,8 +45,8 @@ include "../precomputed.pil";
  * Each bytecode produces ceil((num_fields + 1) / 3) rows, where num_fields is the
  * number of 31-byte packed fields from bc_decomposition and +1 accounts for the
  * prepended domain separator | length field. Rows for a single bytecode are
- * contiguous, starting from row 2 (row 1 is a zero row for shifts). The first row
- * of each bytecode group has `start == 1`; the last has `end == 1`.
+ * contiguous, starting from the second row (the first row is a zero row for shifts).
+ * The first row of each bytecode group has `start == 1`; the last has `end == 1`.
  *
  * Example (p_f = packed_fields):
  *
@@ -68,6 +66,7 @@ include "../precomputed.pil";
  * mismatch is an assertion failure in simulation and does not produce a trace row.
  *
  * INTERACTIONS:
+ * Downstream:
  * - bc_decomposition.pil: #[BYTECODE_LENGTH_BYTES] (permutation) — fetches bytecode
  *   length from the decomposition start row.
  * - bc_decomposition.pil: #[GET_PACKED_FIELD_0/1/2] (multi-permutation) — fetches
@@ -75,6 +74,7 @@ include "../precomputed.pil";
  * - poseidon2_hash.pil: #[POSEIDON2_HASH] (lookup) — delegates each round's inputs,
  *   length, round counter, and output to the Poseidon2 hash sub-trace.
  *
+ * Upstream:
  * The only upstream trace interacting with bc_hashing.pil is bc_decomposition.pil through the permutations
  * mentioned above. At high level, the execution trace retrieves bytecode_id from bc_retrieval.pil and
  * then by proceeding to instruction fetching, triggers the following interaction path:
@@ -131,17 +131,13 @@ namespace bc_hashing;
     // The PC increments by 31*3=93 each row as long as:
     // a) the row is not latched, in which case the next pc is zero
     // b) we are not at start, in which case we only read 2 fields, and => only increment pc by 31*2=62
-    // Layout is: PC_INDEX, PC_INDEX_1, PC_INDEX_2
-    //                 0         0           31
-    //                62        93          124
-    //                155       186         217 ...
-    // PC_INDEX_1 is always a multiple of 93, PC_INDEX_2 is always 31 bytes after PC_INDEX_1.
+    // See the layout depicted at the top of the file.
 
-    // PC_INDEX is zero at start, otherwise it 31 less than PC_INDEX_1.
+    // pc_index is zero at start, otherwise it 31 less than pc_index_1.
     #[PC_INCREMENTS]
     pc_index = sel_not_start * (pc_index_1 - 31);
 
-    // PC_INDEX_1 is always a multiple of 93, i.e., starts at zero and increments by 93 each row.
+    // pc_index_1 is always a multiple of 93, i.e., starts at zero and increments by 93 each row.
     #[PC_INCREMENTS_1]
     pc_index_1' = sel_not_start' * (pc_index_1 + 93);
 
@@ -264,23 +260,22 @@ namespace bc_hashing;
 
     // ==== LENGTH AND ROUND COUNTING ====
 
+    // The number of rounds (rows) remaining to completely hash the bytecode.
+    // This is required by poseidon2_hash.pil to ensure the ordering of Poseidon2 rounds is correct.
+    // Note that #[BYTECODE_LENGTH_FIELDS] links `rounds_rem` to `input_len` at the start row.
+    // Furthermore, the poseidon2_hash trace we lookup into links these values anyway.
+    pol commit rounds_rem;
+
     // The length of the hashed bytecode in fields, including the prepended field. We use it to look
     // up into poseidon2_hash to ensure that the hashed IV matches our bytecode length.
     // Note: poseidon2_hash.pil usage requires us to pass `input_len` to the lookup at the start row.
     //       We constrain `input_len` at the start row by linking it to padding value and `rounds_rem`.
     pol commit input_len;
 
-    // Note: this doesn't underflow as we don't handle empty bytecode (see PRECONDITIONS).
     // Alternatively, we could have constrained `input_len` based on `size_in_bytes` but this
     // would have required some more costly range checks.
     #[BYTECODE_LENGTH_FIELDS]
     start * (3 * rounds_rem - padding - input_len) = 0;
-
-    // The number of rounds (rows) remaining to completely hash the bytecode.
-    // This is required by poseidon2_hash.pil to ensure the ordering of Poseidon2 rounds is correct.
-    // Note that #[BYTECODE_LENGTH_FIELDS] links `rounds_rem` to `input_len` at the start row.
-    // Furthermore, the poseidon2_hash trace we lookup into links these values anyway.
-    pol commit rounds_rem;
 
     // The rounds remaining decrement by 1 each row, and must equal 1 at the end row.
     // The two branches are combined into one expression:
