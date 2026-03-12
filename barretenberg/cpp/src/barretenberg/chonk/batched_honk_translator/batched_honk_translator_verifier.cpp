@@ -127,7 +127,7 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
     libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
 
     // Initialise the joint sumcheck round verifier.
-    SumcheckVerifierRound<MegaZKFlavorT> joint_round(libra_total_sum * libra_challenge);
+    FF target_total_sum = libra_total_sum * libra_challenge;
 
     GateSeparatorPolynomial<FF> gate_sep(gate_challenges);
 
