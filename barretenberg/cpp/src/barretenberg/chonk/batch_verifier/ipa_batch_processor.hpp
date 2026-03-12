@@ -1,0 +1,106 @@
+#pragma once
+#ifndef __wasm__
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "batch_verifier_types.hpp"
+
+#include <atomic>
+#include <condition_variable>
+#include <functional>
+#include <mutex>
+#include <thread>
+#include <vector>
+
+namespace bb {
+
+/**
+ * @brief Asynchronous batch processor for Chonk IPA verification.
+ *
+ * Pipeline:
+ *   Phase 1 (parallel reduce): Work-stealing threads each run reduce_to_ipa_claim on individual proofs.
+ *   Phase 2 (batch check):     Batch IPA verification via IPA::batch_reduce_verify on all passed proofs.
+ *   Phase 3 (emit/bisect):     On success, emit OK for all. On failure, binary-search to isolate bad proofs.
+ */
+class IPABatchProcessor {
+  public:
+    using ResultCallback = std::function<void(VerifyResult)>;
+
+    /**
+     * @brief Per-proof result from the reduce phase.
+     */
+    struct ReduceResult {
+        uint64_t request_id = 0;
+        OpeningClaim<curve::Grumpkin> ipa_claim;
+        ::bb::HonkProof ipa_proof;
+        bool all_checks_passed = false;
+        std::string error_message;
+        std::chrono::steady_clock::time_point enqueue_time;
+        double reduce_ms = 0;
+    };
+
+    IPABatchProcessor() = default;
+    ~IPABatchProcessor();
+
+    IPABatchProcessor(const IPABatchProcessor&) = delete;
+    IPABatchProcessor& operator=(const IPABatchProcessor&) = delete;
+
+    /**
+     * @brief Start the coordinator thread.
+     * @param vks Verification keys indexed by VerifyRequest::vk_index
+     * @param num_cores Number of cores for parallel reduce
+     * @param batch_size Number of proofs to accumulate before batch-checking
+     * @param on_result Callback invoked for each completed verification
+     */
+    void start(std::vector<std::shared_ptr<MegaZKFlavor::VKAndHash>> vks,
+               uint32_t num_cores,
+               uint32_t batch_size,
+               ResultCallback on_result);
+
+    /**
+     * @brief Enqueue a proof for verification.
+     */
+    void enqueue(VerifyRequest request);
+
+    /**
+     * @brief Stop the processor, flushing remaining proofs.
+     */
+    void stop();
+
+  private:
+    void coordinator_loop();
+    std::vector<ReduceResult> parallel_reduce(const std::vector<VerifyRequest>& batch);
+    bool batch_check(const std::vector<ReduceResult>& results, const std::vector<size_t>& indices);
+    void bisect(std::vector<ReduceResult>& results,
+                std::vector<size_t> indices,
+                uint32_t depth,
+                std::chrono::steady_clock::time_point reduce_start);
+    void emit_ok(const std::vector<ReduceResult>& results,
+                 const std::vector<size_t>& indices,
+                 std::chrono::steady_clock::time_point reduce_start,
+                 double ipa_ms,
+                 uint32_t depth);
+
+    static double ms_since(std::chrono::steady_clock::time_point t)
+    {
+        return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t).count();
+    }
+    static double ms_between(std::chrono::steady_clock::time_point from, std::chrono::steady_clock::time_point to)
+    {
+        return std::chrono::duration<double, std::milli>(to - from).count();
+    }
+
+    std::vector<std::shared_ptr<MegaZKFlavor::VKAndHash>> vks_;
+    uint32_t num_cores_ = 1;
+    uint32_t batch_size_ = 4;
+    ResultCallback on_result_;
+
+    std::mutex mutex_;
+    std::condition_variable cv_;
+    std::vector<VerifyRequest> queue_;
+    bool shutdown_ = false;
+    std::thread coordinator_thread_;
+};
+
+} // namespace bb
+#endif // __wasm__
