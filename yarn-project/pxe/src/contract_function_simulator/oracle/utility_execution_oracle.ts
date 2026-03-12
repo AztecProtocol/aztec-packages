@@ -114,7 +114,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.scopes = args.scopes;
   }
 
-  public async assertCompatibleOracleVersion(version: number): Promise<void> {
+  public assertCompatibleOracleVersion(version: number): void {
     // TODO(F-416): Remove this hack on v5 when protocol contracts are redeployed.
     // Protocol contracts/canonical contracts and SponsoredFPC shipped with committed bytecode that cannot be changed.
     // Assert they use the expected pinned version instead of the current one.
@@ -122,17 +122,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     if (isProtocolContract(this.contractAddress)) {
       if (version !== LEGACY_ORACLE_VERSION) {
         throw new Error(
-          `Expected legacy oracle version ${LEGACY_ORACLE_VERSION} for protocol contract at ${this.contractAddress}, got ${version}.`,
+          `Expected legacy oracle version ${LEGACY_ORACLE_VERSION} for alpha payload contract at ${this.contractAddress}, got ${version}.`,
         );
-      }
-      return;
-    }
-    // SponsoredFPC does not have an easily obtainable address so we filter it based on name. This is brittle but
-    // hopefully won't cause issues before v5.
-    const contractName = await this.contractStore.getDebugContractName(this.contractAddress);
-    if (contractName === 'SponsoredFPC') {
-      if (version !== LEGACY_ORACLE_VERSION) {
-        throw new Error(`Expected legacy oracle version ${LEGACY_ORACLE_VERSION} for SponsoredFPC, got ${version}.`);
       }
       return;
     }

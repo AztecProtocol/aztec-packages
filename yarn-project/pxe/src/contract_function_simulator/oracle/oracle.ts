@@ -96,9 +96,9 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_assertCompatibleOracleVersion([version]: ACVMField[]) {
-    await this.handlerAsMisc().assertCompatibleOracleVersion(Fr.fromString(version).toNumber());
-    return [];
+  aztec_utl_assertCompatibleOracleVersion([version]: ACVMField[]) {
+    this.handlerAsMisc().assertCompatibleOracleVersion(Fr.fromString(version).toNumber());
+    return Promise.resolve([]);
   }
 
   // eslint-disable-next-line camelcase
