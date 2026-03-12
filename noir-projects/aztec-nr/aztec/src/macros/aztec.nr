@@ -5,6 +5,7 @@ use crate::{
             internal_functions::generate_call_internal_struct,
         },
         dispatch::generate_public_dispatch,
+        emit_public_init_nullifier::generate_emit_public_init_nullifier,
         internals_functions_generation::{create_fn_abi_exports, process_functions},
         notes::NOTES,
         storage::STORAGE_LAYOUT_NAME,
@@ -137,7 +138,8 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
     } else {
         quote {}
     };
-    let public_dispatch = generate_public_dispatch(m);
+    let (has_public_init_nullifier_fn, emit_public_init_nullifier_fn_body) = generate_emit_public_init_nullifier(m);
+    let public_dispatch = generate_public_dispatch(m, has_public_init_nullifier_fn);
 
     quote {
         $interface
@@ -149,6 +151,7 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
         $public_dispatch
         $sync_state_fn_and_abi_export
         $process_message_fn_and_abi_export
+        $emit_public_init_nullifier_fn_body
         $offchain_receive_fn_and_abi_export
     }
 }
