@@ -97,8 +97,6 @@ describe('e2e_deploy_contract legacy', () => {
     const badDeploy = new ContractDeployer(artifact, wallet).deploy(AztecAddress.ZERO, ...initArgs);
 
     const firstOpts: DeployOptions = {
-      skipClassPublication: true,
-      skipInstancePublication: true,
       from: defaultAccountAddress,
     };
     const secondOpts: DeployOptions = {
