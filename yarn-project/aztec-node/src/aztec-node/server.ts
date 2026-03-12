@@ -971,53 +971,59 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       treeId,
       leafValues.map(x => x.toBuffer()),
     );
-    // We filter out undefined values
-    const indices = maybeIndices.filter(x => x !== undefined) as bigint[];
+    // Filter out undefined values to query block numbers only for found leaves
+    const definedIndices = maybeIndices.filter(x => x !== undefined);
 
-    // Now we find the block numbers for the indices
-    const blockNumbers = await committedDb.getBlockNumbersForLeafIndices(treeId, indices);
+    // Now we find the block numbers for the defined indices
+    const blockNumbers = await committedDb.getBlockNumbersForLeafIndices(treeId, definedIndices);
 
-    // If any of the block numbers are undefined, we throw an error.
-    for (let i = 0; i < indices.length; i++) {
-      if (blockNumbers[i] === undefined) {
-        throw new Error(`Block number is undefined for leaf index ${indices[i]} in tree ${MerkleTreeId[treeId]}`);
+    // Build a map from leaf index to block number
+    const indexToBlockNumber = new Map<bigint, BlockNumber>();
+    for (let i = 0; i < definedIndices.length; i++) {
+      const blockNumber = blockNumbers[i];
+      if (blockNumber === undefined) {
+        throw new Error(
+          `Block number is undefined for leaf index ${definedIndices[i]} in tree ${MerkleTreeId[treeId]}`,
+        );
       }
+      indexToBlockNumber.set(definedIndices[i], blockNumber);
     }
 
     // Get unique block numbers in order to optimize num calls to getLeafValue function.
-    const uniqueBlockNumbers = [...new Set(blockNumbers.filter(x => x !== undefined))];
+    const uniqueBlockNumbers = [...new Set(indexToBlockNumber.values())];
 
-    // Now we obtain the block hashes from the archive tree by calling await `committedDb.getLeafValue(treeId, index)`
-    // (note that block number corresponds to the leaf index in the archive tree).
+    // Now we obtain the block hashes from the archive tree (block number = leaf index in archive tree).
     const blockHashes = await Promise.all(
       uniqueBlockNumbers.map(blockNumber => {
         return committedDb.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber));
       }),
     );
 
-    // If any of the block hashes are undefined, we throw an error.
+    // Build a map from block number to block hash
+    const blockNumberToHash = new Map<BlockNumber, Fr>();
     for (let i = 0; i < uniqueBlockNumbers.length; i++) {
-      if (blockHashes[i] === undefined) {
+      const blockHash = blockHashes[i];
+      if (blockHash === undefined) {
         throw new Error(`Block hash is undefined for block number ${uniqueBlockNumbers[i]}`);
       }
+      blockNumberToHash.set(uniqueBlockNumbers[i], blockHash);
     }
 
     // Create DataInBlock objects by combining indices, blockNumbers and blockHashes and return them.
-    return maybeIndices.map((index, i) => {
+    return maybeIndices.map(index => {
       if (index === undefined) {
         return undefined;
       }
-      const blockNumber = blockNumbers[i];
+      const blockNumber = indexToBlockNumber.get(index);
       if (blockNumber === undefined) {
-        return undefined;
+        throw new Error(`Block number not found for leaf index ${index} in tree ${MerkleTreeId[treeId]}`);
       }
-      const blockHashIndex = uniqueBlockNumbers.indexOf(blockNumber);
-      const blockHash = blockHashes[blockHashIndex];
-      if (!blockHash) {
-        return undefined;
+      const blockHash = blockNumberToHash.get(blockNumber);
+      if (blockHash === undefined) {
+        throw new Error(`Block hash not found for block number ${blockNumber}`);
       }
       return {
-        l2BlockNumber: BlockNumber(Number(blockNumber)),
+        l2BlockNumber: blockNumber,
         l2BlockHash: new BlockHash(blockHash),
         data: index,
       };
