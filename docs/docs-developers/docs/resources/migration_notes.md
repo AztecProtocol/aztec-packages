@@ -2948,7 +2948,7 @@ Doing the changes is as straightforward as:
 
 `UintNote` has also been updated to use the native `u128` type.
 
-### [aztec-nr] Removed `compute_note_hash_and_optionally_a_nullifer`
+### [aztec-nr] Removed `compute_note_hash_and_optionally_a_nullifier`
 
 This function is no longer mandatory for contracts, and the `#[aztec]` macro no longer injects it.
 
