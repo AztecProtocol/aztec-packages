@@ -9,6 +9,7 @@ import {
   AnchorBlockStore,
   CapsuleStore,
   ContractStore,
+  ContractSyncService,
   JobCoordinator,
   NoteService,
   NoteStore,
@@ -150,6 +151,7 @@ export class TXESession implements TXESessionStateHandler {
     private chainId: Fr,
     private version: Fr,
     private nextBlockTimestamp: bigint,
+    private contractSyncService: ContractSyncService,
   ) {}
 
   static async init(contractStore: ContractStore) {
@@ -185,6 +187,9 @@ export class TXESession implements TXESessionStateHandler {
 
     const initialJobId = jobCoordinator.beginJob();
 
+    const logger = createLogger('txe:session');
+    const contractSyncService = new ContractSyncService(stateMachine.node, contractStore, noteStore, logger);
+
     const topLevelOracleHandler = new TXEOracleTopLevelContext(
       stateMachine,
       contractStore,
@@ -201,11 +206,12 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       new Map(),
+      contractSyncService,
     );
     await topLevelOracleHandler.advanceBlocksBy(1);
 
     return new TXESession(
-      createLogger('txe:session'),
+      logger,
       stateMachine,
       topLevelOracleHandler,
       contractStore,
@@ -223,6 +229,7 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       nextBlockTimestamp,
+      contractSyncService,
     );
   }
 
@@ -309,6 +316,7 @@ export class TXESession implements TXESessionStateHandler {
       this.version,
       this.chainId,
       this.authwits,
+      this.contractSyncService,
     );
 
     this.state = { name: 'TOP_LEVEL' };
@@ -439,6 +447,7 @@ export class TXESession implements TXESessionStateHandler {
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
       messageContextService: this.stateMachine.messageContextService,
+      contractSyncService: this.contractSyncService,
       jobId: this.currentJobId,
       scopes: 'ALL_SCOPES',
     });
@@ -531,6 +540,7 @@ export class TXESession implements TXESessionStateHandler {
           capsuleStore: this.capsuleStore,
           privateEventStore: this.privateEventStore,
           messageContextService: this.stateMachine.messageContextService,
+          contractSyncService: this.contractSyncService,
           jobId: this.currentJobId,
           scopes,
         });

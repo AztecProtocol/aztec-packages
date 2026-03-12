@@ -341,6 +341,7 @@ export class ContractFunctionSimulator {
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
       messageContextService: this.messageContextService,
+      contractSyncService: this.contractSyncService,
       jobId,
       scopes,
     });

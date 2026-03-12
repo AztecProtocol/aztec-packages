@@ -560,6 +560,9 @@ export class PXE {
 
     if (wasAdded) {
       this.log.info(`Added sender:\n ${sender.toString()}`);
+      // Wipe the entire sync cache: the new sender's tagged logs could contain notes/events for any contract, so
+      // all contracts must re-sync to discover them.
+      this.contractSyncService.wipe();
     } else {
       this.log.info(`Sender:\n "${sender.toString()}"\n already registered.`);
     }
@@ -921,9 +924,9 @@ export class PXE {
         const hasOverriddenContracts = overriddenContracts !== undefined && overriddenContracts.size > 0;
         const skipKernels = hasOverriddenContracts;
 
-        // Set overridden contracts on the sync service so it knows to skip syncing them
+        // Exclude overridden contracts from sync so the sync service skips them
         if (hasOverriddenContracts) {
-          this.contractSyncService.setOverriddenContracts(jobId, overriddenContracts);
+          this.contractSyncService.setExcludedFromSync(jobId, overriddenContracts);
         }
 
         // Execution of private functions only; no proving, and no kernel logic.

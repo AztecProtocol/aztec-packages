@@ -225,6 +225,7 @@ describe('Utility Execution test suite', () => {
         capsuleStore,
         privateEventStore,
         messageContextService,
+        contractSyncService,
         jobId: 'test-job-id',
         scopes: 'ALL_SCOPES',
       });
@@ -235,6 +236,21 @@ describe('Utility Execution test suite', () => {
         await expect(utilityExecutionOracle.getBlockHeader(BlockNumber(syncedBlockNumber + 1))).rejects.toThrow(
           `Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`,
         );
+      });
+    });
+
+    describe('invalidateContractSyncCache', () => {
+      it('throws when contract address does not match', async () => {
+        const otherAddress = await AztecAddress.random();
+        expect(() => utilityExecutionOracle.invalidateContractSyncCache(otherAddress)).toThrow(
+          `Contract ${contractAddress} cannot invalidate sync cache of ${otherAddress}`,
+        );
+        expect(contractSyncService.invalidateContract).not.toHaveBeenCalled();
+      });
+
+      it('invalidates cache for own contract address', async () => {
+        await utilityExecutionOracle.invalidateContractSyncCache(contractAddress);
+        expect(contractSyncService.invalidateContract).toHaveBeenCalledWith(contractAddress);
       });
     });
 

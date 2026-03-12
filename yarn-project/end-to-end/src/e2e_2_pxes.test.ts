@@ -27,6 +27,17 @@ describe('e2e_2_pxes', () => {
   let teardownA: () => Promise<void>;
   let teardownB: () => Promise<void>;
 
+  async function setupSecondaryPXE(accountIndex: number, pxeName: string) {
+    const { wallet, teardown } = await setupPXEAndGetWallet(aztecNode, {}, undefined, pxeName);
+    const accountManager = await wallet.createSchnorrAccount(
+      initialFundedAccounts[accountIndex].secret,
+      initialFundedAccounts[accountIndex].salt,
+    );
+    const deployMethod = await accountManager.getDeployMethod();
+    await deployMethod.send({ from: AztecAddress.ZERO });
+    return { wallet, address: accountManager.address, teardown };
+  }
+
   beforeEach(async () => {
     ({
       aztecNode,
@@ -37,17 +48,7 @@ describe('e2e_2_pxes', () => {
       teardown: teardownA,
     } = await setup(1, { numberOfInitialFundedAccounts: 3 }));
 
-    // Account A is already deployed in setup
-
-    // Deploy accountB via walletB.
-    ({ wallet: walletB, teardown: teardownB } = await setupPXEAndGetWallet(aztecNode, {}, undefined, 'pxe-1'));
-    const accountBManager = await walletB.createSchnorrAccount(
-      initialFundedAccounts[1].secret,
-      initialFundedAccounts[1].salt,
-    );
-    accountBAddress = accountBManager.address;
-    const accountBDeployMethod = await accountBManager.getDeployMethod();
-    await accountBDeployMethod.send({ from: AztecAddress.ZERO });
+    ({ wallet: walletB, address: accountBAddress, teardown: teardownB } = await setupSecondaryPXE(1, 'pxe-b'));
 
     await walletA.registerSender(accountBAddress, 'accountB');
     await walletB.registerSender(accountAAddress, 'accountA');
@@ -210,5 +211,29 @@ describe('e2e_2_pxes', () => {
     await walletB.registerContract(instance, TokenContract.artifact);
     await expectTokenBalance(walletB, token, accountBAddress, transferAmount2, logger);
     await expectTokenBalance(walletB, token, sharedAccountAddress, transferAmount1 - transferAmount2, logger);
+  });
+
+  it('balance updates automatically after sender is registered', async () => {
+    const initialBalance = 500n;
+    const transferAmount = 200n;
+
+    const { contract: token, instance } = await deployToken(walletA, accountAAddress, initialBalance, logger);
+
+    // Set up a third PXE (C) that does NOT have sender A registered
+    const { wallet: walletC, address: accountCAddress, teardown: teardownC } = await setupSecondaryPXE(2, 'pxe-c');
+    await walletC.registerContract(instance, TokenContract.artifact);
+
+    // Transfer from A to C
+    const contractWithWalletA = TokenContract.at(token.address, walletA);
+    await contractWithWalletA.methods.transfer(accountCAddress, transferAmount).send({ from: accountAAddress });
+
+    // Balance is 0 because PXE C doesn't know about sender A yet
+    await expectTokenBalance(walletC, token, accountCAddress, 0n, logger);
+
+    // Register sender A on PXE C -- cache invalidation makes balance visible immediately
+    await walletC.registerSender(accountAAddress, 'accountA');
+    await expectTokenBalance(walletC, token, accountCAddress, transferAmount, logger);
+
+    await teardownC();
   });
 });

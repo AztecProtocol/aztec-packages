@@ -5,6 +5,7 @@ use crate::{
         encoding::MESSAGE_CIPHERTEXT_LEN,
         processing::{MessageContext, MessageTxContext, OffchainMessageWithContext, resolve_message_contexts},
     },
+    oracle::contract_sync::invalidate_contract_sync_cache,
     protocol::{
         address::AztecAddress,
         constants::MAX_TX_LIFETIME,
@@ -132,7 +133,7 @@ pub unconstrained fn receive(
         i += 1;
     }
 
-    // TODO: Invoke an oracle to invalidate contract sync state cache
+    invalidate_contract_sync_cache(contract_address);
 }
 
 /// Returns offchain-delivered messages to process during sync.

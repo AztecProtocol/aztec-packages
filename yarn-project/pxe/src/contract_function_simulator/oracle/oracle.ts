@@ -654,6 +654,12 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_utl_invalidateContractSyncCache([contractAddress]: ACVMField[]): Promise<ACVMField[]> {
+    await this.handlerAsUtility().invalidateContractSyncCache(AztecAddress.fromField(Fr.fromString(contractAddress)));
+    return [];
+  }
+
+  // eslint-disable-next-line camelcase
   async aztec_utl_emitOffchainEffect(data: ACVMField[]) {
     await this.handlerAsPrivate().emitOffchainEffect(data.map(Fr.fromString));
     return [];
