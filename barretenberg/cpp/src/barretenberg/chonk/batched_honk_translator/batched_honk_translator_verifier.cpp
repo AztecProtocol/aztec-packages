@@ -146,7 +146,7 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     // Per-round committed sumcheck: receive commitment and evaluations at 0 and 1,
     // draw challenge, update gate separator. Per-round sum checks are deferred to Shplemini.
-    auto receive_committed_round = [&](size_t round_idx) {
+    auto process_committed_round = [&](size_t round_idx) {
         const std::string idx = std::to_string(round_idx);
 
         round_univariate_commitments.push_back(
@@ -162,7 +162,7 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     // ==================== Real rounds 0..mega_zk_log_n-1 ====================
     for (size_t round_idx = 0; round_idx < mega_zk_log_n; round_idx++) {
-        receive_committed_round(round_idx);
+        process_committed_round(round_idx);
 
         if (round_idx == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
             TransFlavor::set_minicircuit_evaluations(
@@ -186,7 +186,7 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     // ==================== Virtual rounds mega_zk_log_n..JOINT_LOG_N-1 ====================
     for (size_t round_idx = mega_zk_log_n; round_idx < JOINT_LOG_N; round_idx++) {
-        receive_committed_round(round_idx);
+        process_committed_round(round_idx);
 
         if (round_idx == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
             TransFlavor::set_minicircuit_evaluations(

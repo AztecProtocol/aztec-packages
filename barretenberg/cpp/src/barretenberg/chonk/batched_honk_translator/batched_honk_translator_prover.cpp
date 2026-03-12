@@ -122,8 +122,8 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     using TransSumcheck = SumcheckProver<TranslatorFlavor>;
 
     joint_challenge.reserve(JOINT_LOG_N);
-    round_univariates_storage.clear();
-    round_evaluations_storage.clear();
+    round_univariates_list.clear();
+    round_evaluations_list.clear();
 
     SumcheckRoundUnivariate U_joint;
 
@@ -145,16 +145,16 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         // Transform to monomial form and commit
         Polynomial<FF> round_poly_monomial(eval_domain, std::span<FF>(U_joint.evaluations), PARTIAL_LENGTH);
         transcript->send_to_verifier("Sumcheck:univariate_comm_" + idx, univariate_ck.commit(round_poly_monomial));
-        round_univariates_storage.push_back(std::move(round_poly_monomial));
+        round_univariates_list.push_back(std::move(round_poly_monomial));
 
         // Send evaluations at 0 and 1
         transcript->send_to_verifier("Sumcheck:univariate_" + idx + "_eval_0", U_joint.value_at(0));
         transcript->send_to_verifier("Sumcheck:univariate_" + idx + "_eval_1", U_joint.value_at(1));
 
         // Store evaluations; third element (eval at challenge) populated later
-        round_evaluations_storage.push_back({ U_joint.value_at(0), U_joint.value_at(1), FF(0) });
+        round_evaluations_list.push_back({ U_joint.value_at(0), U_joint.value_at(1), FF(0) });
         if (round_idx > 0) {
-            round_evaluations_storage[round_idx - 1][2] = U_joint.value_at(0) + U_joint.value_at(1);
+            round_evaluations_list[round_idx - 1][2] = U_joint.value_at(0) + U_joint.value_at(1);
         }
 
         FF u = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
@@ -263,8 +263,8 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
 
     // Finalize committed sumcheck: populate the last round's evaluation at the final challenge.
     // This is U_{last}(u_{last}), needed by Shplemini for the opening claim.
-    round_evaluations_storage[JOINT_LOG_N - 1][2] =
-        round_univariates_storage[JOINT_LOG_N - 1].evaluate(joint_challenge.back());
+    round_evaluations_list[JOINT_LOG_N - 1][2] =
+        round_univariates_list[JOINT_LOG_N - 1].evaluate(joint_challenge.back());
 
     // Extract and send translator evaluations after all rounds.
     for (auto [eval, poly] : zip_view(trans_claimed_evals.get_all(), translator_partial.get_all())) {
@@ -331,8 +331,8 @@ void BatchedHonkTranslatorProver::execute_joint_pcs()
                                        ck,
                                        transcript,
                                        small_subgroup_ipa.get_witness_polynomials(),
-                                       round_univariates_storage,
-                                       round_evaluations_storage);
+                                       round_univariates_list,
+                                       round_evaluations_list);
 
     MegaZKFlavor::PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
 }

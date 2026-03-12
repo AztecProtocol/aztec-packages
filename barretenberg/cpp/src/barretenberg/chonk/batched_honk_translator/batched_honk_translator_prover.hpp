@@ -73,8 +73,8 @@ class BatchedHonkTranslatorProver {
     FF claimed_libra_evaluation;
 
     // Committed sumcheck: round univariates in monomial basis and their evaluations at {0, 1, challenge}
-    std::vector<Polynomial<FF>> round_univariates_storage;
-    std::vector<std::array<FF, 3>> round_evaluations_storage;
+    std::vector<Polynomial<FF>> round_univariates_list;
+    std::vector<std::array<FF, 3>> round_evaluations_list;
 
     void execute_mega_zk_oink();
     void execute_translator_oink();
