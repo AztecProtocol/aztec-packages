@@ -18,7 +18,12 @@ import {
 } from '@aztec/stdlib/block';
 import { Checkpoint, type CheckpointData, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { EmptyL1RollupConstants, type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import {
+  EmptyL1RollupConstants,
+  type L1RollupConstants,
+  getEpochAtSlot,
+  getSlotRangeForEpoch,
+} from '@aztec/stdlib/epoch-helpers';
 import { computeCheckpointOutHash } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { type BlockHeader, TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
@@ -394,6 +399,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
             txEffect.transactionFee.toBigInt(),
             await block.hash(),
             block.number,
+            getEpochAtSlot(block.slot, EmptyL1RollupConstants),
           );
         }
       }

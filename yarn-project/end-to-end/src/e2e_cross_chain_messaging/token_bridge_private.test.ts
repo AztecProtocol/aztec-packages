@@ -73,17 +73,17 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount - withdrawAmount);
 
     // Advance the epoch until the tx is proven since the messages are inserted to the outbox when the epoch is proven.
-    const epoch = await t.advanceToEpochProven(l2TxReceipt);
+    await t.advanceToEpochProven(l2TxReceipt);
 
-    const l2ToL1MessageResult = await computeL2ToL1MembershipWitness(aztecNode, epoch, l2ToL1Message);
+    const l2ToL1MessageResult = (await computeL2ToL1MembershipWitness(aztecNode, l2ToL1Message, l2TxReceipt.txHash))!;
 
     // Check balance before and after exit.
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
     await crossChainTestHarness.withdrawFundsFromBridgeOnL1(
       withdrawAmount,
-      epoch,
-      l2ToL1MessageResult!.leafIndex,
-      l2ToL1MessageResult!.siblingPath,
+      l2ToL1MessageResult.epochNumber,
+      l2ToL1MessageResult.leafIndex,
+      l2ToL1MessageResult.siblingPath,
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);
   });

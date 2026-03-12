@@ -410,8 +410,11 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param txHash - The hash of a tx we try to get the receipt for.
    * @returns The requested tx receipt (or undefined if not found).
    */
-  getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
-    return this.#blockStore.getSettledTxReceipt(txHash);
+  getSettledTxReceipt(
+    txHash: TxHash,
+    l1Constants?: Pick<L1RollupConstants, 'epochDuration'>,
+  ): Promise<TxReceipt | undefined> {
+    return this.#blockStore.getSettledTxReceipt(txHash, l1Constants);
   }
 
   /**
