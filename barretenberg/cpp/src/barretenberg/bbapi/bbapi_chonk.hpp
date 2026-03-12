@@ -249,14 +249,14 @@ struct ChonkBatchVerify {
     struct Response {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerifyResponse";
         bool valid;
-        MSGPACK_FIELDS(valid);
+        SERIALIZATION_FIELDS(valid);
         bool operator==(const Response&) const = default;
     };
 
     std::vector<ChonkProof> proofs;
     std::vector<std::vector<uint8_t>> vks;
     Response execute(const BBApiRequest& request = {}) &&;
-    MSGPACK_FIELDS(proofs, vks);
+    SERIALIZATION_FIELDS(proofs, vks);
     bool operator==(const ChonkBatchVerify&) const = default;
 };
 
