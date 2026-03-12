@@ -1,5 +1,5 @@
 #ifndef __wasm__
-#include "ipa_batch_processor.hpp"
+#include "chonk_batch_verifier.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
@@ -9,10 +9,10 @@
 
 namespace bb {
 
-void IPABatchProcessor::start(std::vector<std::shared_ptr<MegaZKFlavor::VKAndHash>> vks,
-                              uint32_t num_cores,
-                              uint32_t batch_size,
-                              ResultCallback on_result)
+void ChonkBatchVerifier::start(std::vector<std::shared_ptr<MegaZKFlavor::VKAndHash>> vks,
+                               uint32_t num_cores,
+                               uint32_t batch_size,
+                               ResultCallback on_result)
 {
     vks_ = std::move(vks);
     num_cores_ = std::max(1u, num_cores);
@@ -21,10 +21,10 @@ void IPABatchProcessor::start(std::vector<std::shared_ptr<MegaZKFlavor::VKAndHas
     shutdown_ = false;
 
     coordinator_thread_ = std::thread([this]() { coordinator_loop(); });
-    info("IPABatchProcessor started with ", num_cores_, " cores, batch_size=", batch_size_);
+    info("ChonkBatchVerifier started with ", num_cores_, " cores, batch_size=", batch_size_);
 }
 
-void IPABatchProcessor::enqueue(VerifyRequest request)
+void ChonkBatchVerifier::enqueue(VerifyRequest request)
 {
     {
         std::lock_guard lock(mutex_);
@@ -34,7 +34,7 @@ void IPABatchProcessor::enqueue(VerifyRequest request)
     cv_.notify_one();
 }
 
-void IPABatchProcessor::stop()
+void ChonkBatchVerifier::stop()
 {
     {
         std::lock_guard lock(mutex_);
@@ -44,17 +44,17 @@ void IPABatchProcessor::stop()
     if (coordinator_thread_.joinable()) {
         coordinator_thread_.join();
     }
-    info("IPABatchProcessor stopped");
+    info("ChonkBatchVerifier stopped");
 }
 
-IPABatchProcessor::~IPABatchProcessor()
+ChonkBatchVerifier::~ChonkBatchVerifier()
 {
     if (!shutdown_) {
         stop();
     }
 }
 
-void IPABatchProcessor::coordinator_loop()
+void ChonkBatchVerifier::coordinator_loop()
 {
     while (true) {
         // ── Collect a batch ──────────────────────────────────────────────
@@ -129,7 +129,7 @@ void IPABatchProcessor::coordinator_loop()
         double ipa_ms = ms_since(ipa_start);
         double reduce_ms = ms_between(reduce_start, ipa_start);
 
-        info("IPABatchProcessor: batch of ",
+        info("ChonkBatchVerifier: batch of ",
              passed_indices.size(),
              ": reduce=",
              reduce_ms,
@@ -146,7 +146,8 @@ void IPABatchProcessor::coordinator_loop()
     }
 }
 
-std::vector<IPABatchProcessor::ReduceResult> IPABatchProcessor::parallel_reduce(const std::vector<VerifyRequest>& batch)
+std::vector<ChonkBatchVerifier::ReduceResult> ChonkBatchVerifier::parallel_reduce(
+    const std::vector<VerifyRequest>& batch)
 {
     const size_t num_proofs = batch.size();
     std::vector<ReduceResult> results(num_proofs);
@@ -190,7 +191,7 @@ std::vector<IPABatchProcessor::ReduceResult> IPABatchProcessor::parallel_reduce(
     return results;
 }
 
-bool IPABatchProcessor::batch_check(const std::vector<ReduceResult>& results, const std::vector<size_t>& indices)
+bool ChonkBatchVerifier::batch_check(const std::vector<ReduceResult>& results, const std::vector<size_t>& indices)
 {
     if (indices.empty()) {
         return true;
@@ -210,10 +211,10 @@ bool IPABatchProcessor::batch_check(const std::vector<ReduceResult>& results, co
     return IPA<curve::Grumpkin>::batch_reduce_verify(ipa_vk, claims, transcripts);
 }
 
-void IPABatchProcessor::bisect(std::vector<ReduceResult>& results,
-                               std::vector<size_t> indices,
-                               uint32_t depth,
-                               std::chrono::steady_clock::time_point reduce_start)
+void ChonkBatchVerifier::bisect(std::vector<ReduceResult>& results,
+                                std::vector<size_t> indices,
+                                uint32_t depth,
+                                std::chrono::steady_clock::time_point reduce_start)
 {
     // Base case: single proof identified as the failure
     if (indices.size() == 1) {
@@ -226,7 +227,7 @@ void IPABatchProcessor::bisect(std::vector<ReduceResult>& results,
         return;
     }
 
-    info("IPABatchProcessor: bisecting ", indices.size(), " proofs at depth ", depth);
+    info("ChonkBatchVerifier: bisecting ", indices.size(), " proofs at depth ", depth);
 
     size_t mid = indices.size() / 2;
     std::vector<size_t> left(indices.begin(), indices.begin() + static_cast<ptrdiff_t>(mid));
@@ -250,11 +251,11 @@ void IPABatchProcessor::bisect(std::vector<ReduceResult>& results,
     check_half(std::move(right));
 }
 
-void IPABatchProcessor::emit_ok(const std::vector<ReduceResult>& results,
-                                const std::vector<size_t>& indices,
-                                std::chrono::steady_clock::time_point reduce_start,
-                                double ipa_ms,
-                                uint32_t depth)
+void ChonkBatchVerifier::emit_ok(const std::vector<ReduceResult>& results,
+                                 const std::vector<size_t>& indices,
+                                 std::chrono::steady_clock::time_point reduce_start,
+                                 double ipa_ms,
+                                 uint32_t depth)
 {
     for (size_t idx : indices) {
         auto& rr = results[idx];

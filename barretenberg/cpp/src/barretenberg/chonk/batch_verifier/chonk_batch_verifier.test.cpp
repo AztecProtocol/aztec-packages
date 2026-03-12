@@ -1,5 +1,5 @@
 #ifndef __wasm__
-#include "ipa_batch_processor.hpp"
+#include "chonk_batch_verifier.hpp"
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/common/test.hpp"
@@ -12,7 +12,7 @@ using namespace bb;
 
 static constexpr size_t SMALL_LOG_2_NUM_GATES = 5;
 
-class IPABatchProcessorTests : public ::testing::Test {
+class ChonkBatchVerifierTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
@@ -57,23 +57,23 @@ class IPABatchProcessorTests : public ::testing::Test {
     };
 };
 
-TEST_F(IPABatchProcessorTests, BatchOfTwoValidProofs)
+TEST_F(ChonkBatchVerifierTests, BatchOfTwoValidProofs)
 {
     auto [proof1, vk1] = generate_chonk_proof();
     auto [proof2, vk2] = generate_chonk_proof();
 
     ResultCollector collector;
-    IPABatchProcessor processor;
+    ChonkBatchVerifier verifier;
 
     // Both proofs use VK index 0 (same VK for simplicity)
-    processor.start(
+    verifier.start(
         { vk1 }, /*num_cores=*/2, /*batch_size=*/2, [&](VerifyResult r) { collector.on_result(std::move(r)); });
 
-    processor.enqueue(VerifyRequest{ .request_id = 1, .vk_index = 0, .proof = std::move(proof1) });
-    processor.enqueue(VerifyRequest{ .request_id = 2, .vk_index = 0, .proof = std::move(proof2) });
+    verifier.enqueue(VerifyRequest{ .request_id = 1, .vk_index = 0, .proof = std::move(proof1) });
+    verifier.enqueue(VerifyRequest{ .request_id = 2, .vk_index = 0, .proof = std::move(proof2) });
 
     collector.wait_for(2);
-    processor.stop();
+    verifier.stop();
 
     ASSERT_EQ(collector.results.size(), 2);
     for (auto& r : collector.results) {
@@ -82,27 +82,27 @@ TEST_F(IPABatchProcessorTests, BatchOfTwoValidProofs)
     }
 }
 
-TEST_F(IPABatchProcessorTests, FlushOnShutdown)
+TEST_F(ChonkBatchVerifierTests, FlushOnShutdown)
 {
     // Enqueue 1 proof with batch_size=4, then stop. The proof should be flushed.
     auto [proof, vk] = generate_chonk_proof();
 
     ResultCollector collector;
-    IPABatchProcessor processor;
+    ChonkBatchVerifier verifier;
 
-    processor.start(
+    verifier.start(
         { vk }, /*num_cores=*/1, /*batch_size=*/4, [&](VerifyResult r) { collector.on_result(std::move(r)); });
-    processor.enqueue(VerifyRequest{ .request_id = 42, .vk_index = 0, .proof = std::move(proof) });
+    verifier.enqueue(VerifyRequest{ .request_id = 42, .vk_index = 0, .proof = std::move(proof) });
 
     // Stop triggers flush of remaining items
-    processor.stop();
+    verifier.stop();
 
     ASSERT_EQ(collector.results.size(), 1);
     EXPECT_TRUE(collector.results[0].verified());
     EXPECT_EQ(collector.results[0].request_id, 42);
 }
 
-TEST_F(IPABatchProcessorTests, TamperedProofBisected)
+TEST_F(ChonkBatchVerifierTests, TamperedProofBisected)
 {
     BB_DISABLE_ASSERTS();
 
@@ -114,16 +114,16 @@ TEST_F(IPABatchProcessorTests, TamperedProofBisected)
     bad_proof.goblin_proof.ipa_proof[0] = bad_proof.goblin_proof.ipa_proof[0] + bb::fr(1);
 
     ResultCollector collector;
-    IPABatchProcessor processor;
+    ChonkBatchVerifier verifier;
 
-    processor.start(
+    verifier.start(
         { vk1 }, /*num_cores=*/2, /*batch_size=*/2, [&](VerifyResult r) { collector.on_result(std::move(r)); });
 
-    processor.enqueue(VerifyRequest{ .request_id = 1, .vk_index = 0, .proof = std::move(good_proof) });
-    processor.enqueue(VerifyRequest{ .request_id = 2, .vk_index = 0, .proof = std::move(bad_proof) });
+    verifier.enqueue(VerifyRequest{ .request_id = 1, .vk_index = 0, .proof = std::move(good_proof) });
+    verifier.enqueue(VerifyRequest{ .request_id = 2, .vk_index = 0, .proof = std::move(bad_proof) });
 
     collector.wait_for(2);
-    processor.stop();
+    verifier.stop();
 
     ASSERT_EQ(collector.results.size(), 2);
 
@@ -146,21 +146,21 @@ TEST_F(IPABatchProcessorTests, TamperedProofBisected)
     EXPECT_GT(bad->batch_failure_count, 0u) << "bisection should have occurred";
 }
 
-TEST_F(IPABatchProcessorTests, InvalidVkIndex)
+TEST_F(ChonkBatchVerifierTests, InvalidVkIndex)
 {
     auto [proof, vk] = generate_chonk_proof();
 
     ResultCollector collector;
-    IPABatchProcessor processor;
+    ChonkBatchVerifier verifier;
 
-    processor.start(
+    verifier.start(
         { vk }, /*num_cores=*/1, /*batch_size=*/1, [&](VerifyResult r) { collector.on_result(std::move(r)); });
 
     // vk_index=99 is out of range
-    processor.enqueue(VerifyRequest{ .request_id = 7, .vk_index = 99, .proof = std::move(proof) });
+    verifier.enqueue(VerifyRequest{ .request_id = 7, .vk_index = 99, .proof = std::move(proof) });
 
     collector.wait_for(1);
-    processor.stop();
+    verifier.stop();
 
     ASSERT_EQ(collector.results.size(), 1);
     EXPECT_FALSE(collector.results[0].verified());

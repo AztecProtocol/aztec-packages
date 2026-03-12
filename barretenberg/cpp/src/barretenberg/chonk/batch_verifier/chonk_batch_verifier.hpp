@@ -15,14 +15,15 @@
 namespace bb {
 
 /**
- * @brief Asynchronous batch processor for Chonk IPA verification.
+ * @brief Asynchronous batch verifier for Chonk IVC proofs.
  *
  * Pipeline:
- *   Phase 1 (parallel reduce): Work-stealing threads each run reduce_to_ipa_claim on individual proofs.
+ *   Phase 1 (parallel reduce): Work-stealing threads each run full non-IPA verification
+ *                               (MegaZK sumcheck, databus, Goblin merge/eccvm/translator).
  *   Phase 2 (batch check):     Batch IPA verification via IPA::batch_reduce_verify on all passed proofs.
  *   Phase 3 (emit/bisect):     On success, emit OK for all. On failure, binary-search to isolate bad proofs.
  */
-class IPABatchProcessor {
+class ChonkBatchVerifier {
   public:
     using ResultCallback = std::function<void(VerifyResult)>;
 
@@ -39,11 +40,11 @@ class IPABatchProcessor {
         double reduce_ms = 0;
     };
 
-    IPABatchProcessor() = default;
-    ~IPABatchProcessor();
+    ChonkBatchVerifier() = default;
+    ~ChonkBatchVerifier();
 
-    IPABatchProcessor(const IPABatchProcessor&) = delete;
-    IPABatchProcessor& operator=(const IPABatchProcessor&) = delete;
+    ChonkBatchVerifier(const ChonkBatchVerifier&) = delete;
+    ChonkBatchVerifier& operator=(const ChonkBatchVerifier&) = delete;
 
     /**
      * @brief Start the coordinator thread.

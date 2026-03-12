@@ -34,7 +34,7 @@ void ChonkBatchVerifierService::start(std::vector<std::shared_ptr<MegaZKFlavor::
     writer_thread_ = std::thread([this, path = fifo_path]() { writer_loop(path); });
 
     // Start the batch processor with a callback that pushes to result_queue_
-    processor_.start(std::move(vks), num_cores, config.batch_size, [this](VerifyResult result) {
+    verifier_.start(std::move(vks), num_cores, config.batch_size, [this](VerifyResult result) {
         {
             std::lock_guard lock(result_mutex_);
             result_queue_.push(std::move(result));
@@ -47,7 +47,7 @@ void ChonkBatchVerifierService::start(std::vector<std::shared_ptr<MegaZKFlavor::
 
 void ChonkBatchVerifierService::enqueue(VerifyRequest request)
 {
-    processor_.enqueue(std::move(request));
+    verifier_.enqueue(std::move(request));
 }
 
 void ChonkBatchVerifierService::stop()
@@ -57,7 +57,7 @@ void ChonkBatchVerifierService::stop()
     }
 
     // Stop the processor first (flushes remaining proofs → result_queue_)
-    processor_.stop();
+    verifier_.stop();
 
     // Signal the writer to drain and exit
     {

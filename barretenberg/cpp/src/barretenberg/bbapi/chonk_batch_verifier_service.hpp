@@ -1,7 +1,7 @@
 #pragma once
 #ifndef __wasm__
-#include "batch_verifier_types.hpp"
-#include "ipa_batch_processor.hpp"
+#include "barretenberg/chonk/batch_verifier/batch_verifier_types.hpp"
+#include "barretenberg/chonk/batch_verifier/chonk_batch_verifier.hpp"
 
 #include <condition_variable>
 #include <mutex>
@@ -14,7 +14,7 @@ namespace bb {
 /**
  * @brief FIFO-streaming batch verification service for Chonk proofs.
  *
- * Wraps IPABatchProcessor and streams results over a named pipe (FIFO)
+ * Wraps ChonkBatchVerifier and streams results over a named pipe (FIFO)
  * as size-delimited msgpack payloads: [4-byte big-endian length][msgpack payload].
  *
  * Lifecycle: start() → enqueue() × N → stop()
@@ -52,7 +52,7 @@ class ChonkBatchVerifierService {
   private:
     void writer_loop(const std::string& fifo_path);
 
-    IPABatchProcessor processor_;
+    ChonkBatchVerifier verifier_;
 
     // Result queue for the writer thread
     std::mutex result_mutex_;

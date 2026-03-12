@@ -13,9 +13,9 @@
  */
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/chonk/batch_verifier/batch_verifier_types.hpp"
-#include "barretenberg/chonk/batch_verifier/chonk_batch_verifier_service.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "chonk_batch_verifier_service.hpp"
 
 #include <string>
 #include <vector>

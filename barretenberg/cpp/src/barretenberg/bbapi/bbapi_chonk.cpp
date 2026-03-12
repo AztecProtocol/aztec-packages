@@ -1,8 +1,9 @@
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
-#include "barretenberg/chonk/chonk_batch_verifier.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/proof_compression.hpp"
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -10,6 +11,7 @@
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
@@ -172,8 +174,11 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
 
     using VerificationKey = Chonk::MegaVerificationKey;
 
-    std::vector<ChonkBatchVerifier::Input> inputs;
-    inputs.reserve(proofs.size());
+    // Phase 1: Run all non-IPA verification for each proof, collecting IPA claims
+    std::vector<OpeningClaim<curve::Grumpkin>> ipa_claims;
+    std::vector<std::shared_ptr<NativeTranscript>> ipa_transcripts;
+    ipa_claims.reserve(proofs.size());
+    ipa_transcripts.reserve(proofs.size());
 
     for (size_t i = 0; i < proofs.size(); ++i) {
         validate_vk_size<VerificationKey>(vks[i]);
@@ -187,10 +192,18 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
         }
 
         auto vk_and_hash = std::make_shared<ChonkNativeVerifier::VKAndHash>(hiding_kernel_vk);
-        inputs.push_back({ .proof = std::move(proofs[i]), .vk_and_hash = std::move(vk_and_hash) });
+        ChonkNativeVerifier verifier(vk_and_hash);
+        auto result = verifier.reduce_to_ipa_claim(std::move(proofs[i]));
+        if (!result.all_checks_passed) {
+            return { .valid = false };
+        }
+        ipa_claims.push_back(std::move(result.ipa_claim));
+        ipa_transcripts.push_back(std::make_shared<NativeTranscript>(std::move(result.ipa_proof)));
     }
 
-    const bool verified = ChonkBatchVerifier::verify(inputs);
+    // Phase 2: Batch IPA verification with single SRS MSM
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    const bool verified = IPA<curve::Grumpkin>::batch_reduce_verify(ipa_vk, ipa_claims, ipa_transcripts);
 
     return { .valid = verified };
 }
