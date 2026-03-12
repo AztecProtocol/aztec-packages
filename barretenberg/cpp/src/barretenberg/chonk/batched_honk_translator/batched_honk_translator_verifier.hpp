@@ -164,6 +164,10 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments;
     FF libra_evaluation;
     FF libra_challenge;
+
+    // Committed sumcheck data: round univariate commitments and evaluations at {0, 1, challenge}.
+    std::vector<Commitment> round_univariate_commitments;
+    std::vector<std::array<FF, 3>> round_univariate_evaluations;
 };
 
 // Type aliases.
