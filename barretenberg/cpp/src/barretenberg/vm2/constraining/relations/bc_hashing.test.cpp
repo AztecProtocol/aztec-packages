@@ -772,5 +772,46 @@ TEST_F(BytecodeHashingConstrainingTest, NegativeGhostRowInjectionBlocked)
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace), "SEL_NOT_PADDING_REQUIRES_SEL");
 }
 
+TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingPropagationMultiRow)
+{
+    // 248 bytes => 8 fields + 1 sep = 9 fields => padding = 0, 3 rounds
+    // Verify PADDING_PROPAGATION across a longer computation block.
+    std::vector<uint8_t> bytecode = random_bytes(248);
+    std::vector<FF> fields = simulation::encode_bytecode(bytecode);
+
+    TestTraceContainer trace = process_bc_hashing_trace({ fields }, { 1 }, { bytecode.size() });
+    builder.process_decomposition(
+        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
+
+    check_relation<bc_hashing>(trace, bc_hashing::SR_PADDING_PROPAGATION);
+
+    // Rows 1, 2, 3 are the three rounds. Changing padding on the middle row should break propagation.
+    trace.set(C::bc_hashing_padding, 2, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PADDING_PROPAGATION),
+                              "PADDING_PROPAGATION");
+}
+
+TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeBytecodeFieldLengthViaPadding)
+{
+    // Verify that #[BYTECODE_LENGTH_FIELDS] catches a mismatch between padding and input_len at start.
+    // Constraint: start * (3 * rounds_rem - padding - input_len) = 0
+    // 93 bytes => 3 fields + 1 sep = 4 fields => padding = 2, rounds_rem = 2, input_len = 4
+    // Check: 3 * 2 - 2 - 4 = 0 ✓
+    std::vector<uint8_t> bytecode = random_bytes(93);
+    std::vector<FF> fields = simulation::encode_bytecode(bytecode);
+
+    TestTraceContainer trace = process_bc_hashing_trace({ fields }, { 1 }, { bytecode.size() });
+    builder.process_decomposition(
+        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
+
+    check_relation<bc_hashing>(trace, bc_hashing::SR_BYTECODE_LENGTH_FIELDS);
+
+    // Corrupt padding at the start row to break the link between rounds_rem, padding, and input_len.
+    // Set padding to 0 at start (should be 2). Now 3 * 2 - 0 - 4 = 2 ≠ 0
+    trace.set(C::bc_hashing_padding, 1, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_BYTECODE_LENGTH_FIELDS),
+                              "BYTECODE_LENGTH_FIELDS");
+}
+
 } // namespace
 } // namespace bb::avm2::constraining
