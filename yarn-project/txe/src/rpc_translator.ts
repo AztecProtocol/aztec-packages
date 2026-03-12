@@ -916,6 +916,13 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_utl_invalidateContractSyncCache(foreignContractAddress: ForeignCallSingle) {
+    const contractAddress = addressFromSingle(foreignContractAddress);
+    await this.handlerAsUtility().invalidateContractSyncCache(contractAddress);
+    return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
   aztec_utl_emitOffchainEffect(_foreignData: ForeignCallArray) {
     throw new Error('Offchain effects are not yet supported in the TestEnvironment');
   }
