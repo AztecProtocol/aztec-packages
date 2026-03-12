@@ -85,6 +85,8 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
   public readonly tracer: Tracer;
 
+  private readonly instrumentation: ArchiverInstrumentation;
+
   /**
    * Creates a new instance of the Archiver.
    * @param publicClient - A client for interacting with the Ethereum node.
@@ -131,6 +133,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     super(dataStore, l1Constants);
 
     this.tracer = instrumentation.tracer;
+    this.instrumentation = instrumentation;
     this.initialSyncPromise = promiseWithResolvers();
     this.synchronizer = synchronizer;
     this.events = events;
@@ -243,6 +246,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
       try {
         await this.updater.addProposedBlock(block);
+        this.instrumentation.processNewProposedBlock(block);
         this.log.debug(`Added block ${block.number} to store`);
         resolve();
       } catch (err: any) {

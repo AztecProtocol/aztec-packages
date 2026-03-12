@@ -113,6 +113,11 @@ export class ArchiverInstrumentation {
     return this.telemetry.isEnabled();
   }
 
+  public processNewProposedBlock(block: L2Block) {
+    this.blockHeight.record(block.number, { [Attributes.STATUS]: 'proposed' });
+    this.processNewBlock(block, 'proposed');
+  }
+
   public processNewBlocks(syncTimePerBlock: number, blocks: L2Block[]) {
     this.syncDurationPerBlock.record(Math.ceil(syncTimePerBlock));
     this.blockHeight.record(Math.max(...blocks.map(b => b.number)));
@@ -120,10 +125,19 @@ export class ArchiverInstrumentation {
     this.syncBlockCount.add(blocks.length);
 
     for (const block of blocks) {
-      this.txCount.add(block.body.txEffects.length);
-      this.txsPerBlock.record(block.body.txEffects.length);
-      this.manaPerBlock.record(block.header.totalManaUsed.toNumber() / 1e6);
+      this.processNewBlock(block);
     }
+  }
+
+  /** Records per-block metrics tagged with a status (e.g. 'proposed'). */
+  private processNewBlock(block: L2Block, status?: string) {
+    let attrs = undefined;
+    if (status) {
+      attrs = { [Attributes.STATUS]: status };
+    }
+    this.txCount.add(block.body.txEffects.length, attrs);
+    this.txsPerBlock.record(block.body.txEffects.length, attrs);
+    this.manaPerBlock.record(block.header.totalManaUsed.toNumber() / 1e6, attrs);
   }
 
   public processNewMessages(count: number, syncPerMessageMs: number) {
