@@ -32,7 +32,7 @@ struct func_traits<R (T::*)(Vs...) const> : func_traits_base<R, Vs...> {};
 template <typename T> constexpr auto get_func_traits()
 {
     if constexpr (requires { &T::operator(); }) {
-        return func_traits<decltype(&T::operator())>{};
+        return func_traits<decltype(&T::operator())> {};
     } else {
         return func_traits<T>{};
     }
