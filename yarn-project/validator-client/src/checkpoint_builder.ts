@@ -118,8 +118,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
         throw new InsufficientValidTxsError(processedTxs.length, minValidTxs, failedTxs);
       }
 
-      // Commit any changes made to the fork for this block
-      // Done here so the call to CheckpointBuilder.addBlock has up to date state
+      // Commit the fork checkpoint
       await forkCheckpoint.commit();
 
       // Add block to checkpoint
