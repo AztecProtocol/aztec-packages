@@ -134,9 +134,9 @@ describe('e2e_deploy_contract private initialization', () => {
     const initArgs: InitTestCtorArgs = [owner, 42];
     const contract = await t.registerContract(wallet, InitTestContract, { initArgs });
     // TODO(#14894): It'd be nicer to be able to fail the assert with a more descriptive message.
-    await expect(
-      contract.methods.private_fn_init_check(owner, 10).send({ from: defaultAccountAddress }),
-    ).rejects.toThrow(/Cannot find the leaf for nullifier/i);
+    await expect(contract.methods.priv_init_check(owner, 10).send({ from: defaultAccountAddress })).rejects.toThrow(
+      /Cannot find the leaf for nullifier/i,
+    );
   });
 
   // A public call enqueued before the private constructor should fail the init check, even though the
@@ -145,7 +145,7 @@ describe('e2e_deploy_contract private initialization', () => {
     const { contract, initArgs } = await deployUninitialized();
     const owner = defaultAccountAddress;
     const batch = new BatchCall(wallet, [
-      contract.methods.public_fn_init_check_write_value(owner, 84),
+      contract.methods.pub_init_check(owner, 84),
       contract.methods.constructor(...initArgs),
     ]);
     await expect(batch.simulate({ from: defaultAccountAddress })).rejects.toThrow(/Not initialized/);
@@ -156,13 +156,12 @@ describe('e2e_deploy_contract private initialization', () => {
     const owner = defaultAccountAddress;
     const batch = new BatchCall(wallet, [
       contract.methods.constructor(...initArgs),
-      contract.methods.public_fn_init_check_write_value(owner, 84),
+      contract.methods.pub_init_check(owner, 84),
     ]);
     await batch.send({ from: defaultAccountAddress });
-    expect(
-      (await contract.methods.public_fn_no_init_check_read_value(owner).simulate({ from: defaultAccountAddress }))
-        .result,
-    ).toEqual(84n);
+    expect((await contract.methods.pub_no_init_check(owner).simulate({ from: defaultAccountAddress })).result).toEqual(
+      84n,
+    );
   });
 
   it('allows self-calling a noinitcheck function from a private initializer', async () => {

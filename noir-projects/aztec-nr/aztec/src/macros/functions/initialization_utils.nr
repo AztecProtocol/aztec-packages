@@ -37,20 +37,16 @@ global EMIT_PUBLIC_INIT_NULLIFIER_SELECTOR: FunctionSelector = comptime {
     unquote!(quote { FunctionSelector::from_signature($sig) })
 };
 
-// Two separate init nullifiers exist because private nullifiers are committed before public execution begins. If a
-// private initializer emitted a single nullifier and an initializer function enqueued a public call to do public
-// initialization, then other previously enqueued public functions would observe the initialization nullifier as
-// existing _before_ the public initialization code ran.
-//
-// Private initializers emit only the private nullifier, then enqueue an auto-generated external public function
-// so the public nullifier is emitted in public. Public initializers emit both nullifiers directly via
-// `mark_as_initialized_from_public_initializer`.
-
 /// Emits (only) the public initialization nullifier.
 ///
 /// This function is called by the aztec-nr auto-generated external public contract function (enqueued by private
 /// [`initializer`](crate::macros::functions::initializer) functions), and also by
 /// [`mark_as_initialized_from_public_initializer`] for public initializers.
+///
+/// # Warning
+///
+/// This should not be called manually. Incorrect use can leave the contract in a broken initialization state (e.g.
+/// emitting the public nullifier without the private one). The macro-generated code handles this automatically.
 pub fn mark_as_initialized_public(context: PublicContext) {
     let init_nullifier = compute_public_init_nullifier(context.this_address());
     context.push_nullifier(init_nullifier);
@@ -104,7 +100,7 @@ pub fn assert_is_initialized_private(context: &mut PrivateContext) {
 }
 
 // TODO(F-194): This leaks whether a contract has been initialized, since anyone who knows the address can compute this
-// nullifier and check for its existence
+// nullifier and check for its existence. It is also not domain separated.
 fn compute_private_init_nullifier(address: AztecAddress) -> Field {
     address.to_field()
 }

@@ -23,25 +23,25 @@ pub contract InitTest {
     #[external("private")]
     #[initializer]
     fn initializer_self_calling_private_not_init_checked(owner: AztecAddress, value: Field) {
-        self.call_self.private_fn_no_init_check(owner, value);
+        self.call_self.priv_no_init_check(owner, value);
     }
 
     #[external("private")]
     #[initializer]
     fn initializer_self_calling_private_init_checked(owner: AztecAddress, value: Field) {
-        self.call_self.private_fn_init_check(owner, value);
+        self.call_self.priv_init_check(owner, value);
     }
 
     #[external("private")]
     #[initializer]
     fn initializer_enqueuing_public_init_checked(owner: AztecAddress, value: Field) {
-        self.enqueue_self.public_fn_init_check_write_value(owner, value);
+        self.enqueue_self.pub_init_check(owner, value);
     }
 
     #[external("private")]
     #[initializer]
     fn initializer_calling_only_self(owner: AztecAddress, value: Field) {
-        self.call_self.private_only_self_fn(owner, value);
+        self.call_self.priv_only_self(owner, value);
     }
 
     // Tests that a public initializer cannot self-call a public function that has init checks, since the contract is
@@ -49,29 +49,29 @@ pub contract InitTest {
     #[external("public")]
     #[initializer]
     fn public_initializer_self_calling_init_checked(owner: AztecAddress, value: Field) {
-        self.call_self.public_fn_init_check_write_value(owner, value);
+        self.call_self.pub_init_check(owner, value);
     }
 
     #[external("private")]
     #[only_self]
-    fn private_only_self_fn(owner: AztecAddress, value: Field) {}
+    fn priv_only_self(owner: AztecAddress, value: Field) {}
 
     #[external("private")]
-    fn private_fn_init_check(owner: AztecAddress, value: Field) {}
+    fn priv_init_check(owner: AztecAddress, value: Field) {}
 
     #[external("private")]
     #[noinitcheck]
-    fn private_fn_no_init_check(owner: AztecAddress, value: Field) {}
+    fn priv_no_init_check(owner: AztecAddress, value: Field) {}
 
     #[external("public")]
-    fn public_fn_init_check_write_value(owner: AztecAddress, value: Field) {
+    fn pub_init_check(owner: AztecAddress, value: Field) {
         self.storage.public_values.at(owner).write(value);
     }
 
     #[external("public")]
     #[noinitcheck]
     #[view]
-    fn public_fn_no_init_check_read_value(owner: AztecAddress) -> pub Field {
+    fn pub_no_init_check(owner: AztecAddress) -> pub Field {
         self.storage.public_values.at(owner).read()
     }
 }
