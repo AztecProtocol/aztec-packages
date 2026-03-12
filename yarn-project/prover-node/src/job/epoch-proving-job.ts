@@ -165,9 +165,6 @@ export class EpochProvingJob implements Traceable {
       const previousBlockHeaders = this.gatherPreviousBlockHeaders();
 
       const allCheckpointsTimer = new Timer();
-<<<<<<< HEAD
-      await asyncPool(this.config.parallelBlockLimit ?? 32, this.checkpoints, async checkpoint => {
-=======
 
       const parallelism = this.config.parallelBlockLimit
         ? this.config.parallelBlockLimit
@@ -176,7 +173,6 @@ export class EpochProvingJob implements Traceable {
           : this.checkpoints.length;
 
       await asyncPool(parallelism, this.checkpoints, async checkpoint => {
->>>>>>> origin/v4
         this.checkState();
         const checkpointTimer = new Timer();
 
