@@ -14,9 +14,9 @@ include "../precomputed.pil";
  *
  * We fetch bytecode as packed field elements from bc_decomposition.pil.
  * A selector in bc_decomposition.pil is activated at pc == 0, 31, 62, ... for every
- * bytecode. In the bc_decomposition subtrace, we reconstruct the corresponding field
- * element. Finally, we copy through a multi-permutation based on the selector these
- * field elements to here (bc_hashing.pil) and then proceed to hashing.
+ * bytecode. When this selector is on, we reconstruct the corresponding field
+ * element in the subtrace. Finally, we copy these field elements through a
+ * multi-permutation based on the selector to here and then proceed to hashing.
  *
  * In this subtrace, each computation block (per bytecode) lays out the "packed fields"
  * obtained from bc_decomposition.pil over 3 columns: packed_fields_0, packed_fields_1, packed_fields_2.
@@ -76,7 +76,7 @@ include "../precomputed.pil";
  *   length, round counter, and output to the Poseidon2 hash sub-trace.
  *
  * The only upstream trace interacting with bc_hashing.pil is bc_decomposition.pil through the permutations
- * mentioned above. At highe level, the execution trace retrieves bytecode_id from bc_retrieval.pil and
+ * mentioned above. At high level, the execution trace retrieves bytecode_id from bc_retrieval.pil and
  * then by proceeding to instruction fetching, triggers the following interaction path:
  * execution.pil --> instr_fetching.pil --> bc_decomposition.pil <-> bc_hashing.pil --> poseidon2_hash.pil
  *
@@ -136,7 +136,6 @@ namespace bc_hashing;
     //                62        93          124
     //                155       186         217 ...
     // PC_INDEX_1 is always a multiple of 93, PC_INDEX_2 is always 31 bytes after PC_INDEX_1.
-    // PC_INDEX is zero at start, otherwise it 31 less than PC_INDEX_1.
 
     // PC_INDEX is zero at start, otherwise it 31 less than PC_INDEX_1.
     #[PC_INCREMENTS]
@@ -186,7 +185,7 @@ namespace bc_hashing;
 
     // Fetch the packed field elements from bc_decomposition via multi-permutation.
     // Each round consumes 3 fields at pc_index, pc_index_1, pc_index_2. Field 0 is
-    // skipped at start (where it is forced to the separator via #[START_IS_FIRST_FIELD]).
+    // skipped at start (where it is forced to be the separator via #[START_IS_FIRST_FIELD]).
     // Fields 1 and 2 are skipped when they are padding (sel_not_padding_X = 0).
     #[GET_PACKED_FIELD_0]
     sel_not_start { pc_index, bytecode_id, packed_fields_0 }

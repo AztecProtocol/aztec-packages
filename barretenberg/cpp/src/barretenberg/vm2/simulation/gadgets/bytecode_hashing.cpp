@@ -10,8 +10,8 @@
 namespace bb::avm2::simulation {
 
 /**
- * @brief Verify that the given bytecode commitment matches the expected @p bytecode_id
- *        which is a Poseidon2 hash of the bytecode with some metadata information.
+ * @brief Verify that the given @p bytecode_id matches the expected bytecode commitment
+ *        which is a Poseidon2 hash of the bytecode prepended by metadata information.
  *
  * Encodes the bytecode as field elements, prepends a domain-separated length field,
  * and hashes via Poseidon2. Asserts the result matches the expected @p bytecode_id

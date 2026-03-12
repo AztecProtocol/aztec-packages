@@ -208,7 +208,7 @@ void BytecodeTraceBuilder::process_hashing(
             bool end_of_bytecode = i == num_rounds - 1;
             // When we start the bytecode, we want to look up field 1 at pc = 0 in the decomposition trace, since we
             // force field 0 to be the separator.
-            // Layouts is: PC_INDEX, PC_INDEX_1, PC_INDEX_2
+            // Layout is: PC_INDEX, PC_INDEX_1, PC_INDEX_2
             //                 0         0           31
             //                62        93          124
             uint32_t pc_index_1 = 93 * static_cast<uint32_t>(i);
