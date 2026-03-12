@@ -130,11 +130,7 @@ impl<let NUM_VALUES: u32, let NUM_U32_VALUES: u32> HashedValueTester<NUM_VALUES,
 
 #[test]
 fn hashed_values_match_derived() {
-<<<<<<< HEAD
-    let mut tester = HashedValueTester::<50, 43>::new();
-=======
-    let mut tester = HashedValueTester::<52, 45>::new();
->>>>>>> cee97a1ba4 (feat!: auto-enqueue public init nullifier for contracts with public functions (#20775))
+    let mut tester = HashedValueTester::<51, 44>::new();
 
     // -----------------
     // Domain separators

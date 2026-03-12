@@ -713,12 +713,8 @@ pub global DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 623934423;
 // TODO: consider moving these to aztec-nr
 
 pub global DOM_SEP__INITIALIZATION_NULLIFIER: u32 = 1653084894;
-<<<<<<< HEAD
-=======
 pub global DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER: u32 = 3342006647;
 
-/// Domain separator for L1 to L2 message secret hashes.
->>>>>>> cee97a1ba4 (feat!: auto-enqueue public init nullifier for contracts with public functions (#20775))
 pub global DOM_SEP__SECRET_HASH: u32 = 4199652938;
 pub global DOM_SEP__TX_NULLIFIER: u32 = 1025801951;
 pub global DOM_SEP__SIGNATURE_PAYLOAD: u32 = 463525807;
