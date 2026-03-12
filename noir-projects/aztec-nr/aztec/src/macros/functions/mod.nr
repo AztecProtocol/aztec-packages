@@ -67,10 +67,9 @@ use initialization_utils::EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME;
 /// ## How It Works
 ///
 /// Initializers emit nullifiers to mark the contract as initialized. Two separate nullifiers are used (a private init
-/// nullifier and a public init nullifier) because private nullifiers are committed before public execution begins: if
-/// a
-/// single nullifier were used, public functions enqueued by the initializer would see it as existing *before* the
-/// public initialization code had a chance to run.
+/// nullifier and a public init nullifier) because private nullifiers are committed before public execution
+/// begins: if a single nullifier were used, public functions enqueued by the initializer would see it as
+/// existing *before* the public initialization code had a chance to run.
 ///
 /// - **Private initializers** emit the private init nullifier. For contracts that also have external public functions,
 ///   they auto-enqueue a call to an auto-generated public function that emits the public init nullifier during public
