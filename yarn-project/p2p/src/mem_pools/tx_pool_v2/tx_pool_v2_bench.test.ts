@@ -141,6 +141,7 @@ describe('TxPoolV2: benchmarks', () => {
       l2BlockSource: mockL2BlockSource,
       worldStateSynchronizer: mockWorldState,
       createTxValidator: () => Promise.resolve(alwaysValidValidator),
+      checkAllowedSetupCalls: () => Promise.resolve(true),
     });
     await pool.start();
     const cleanup = async () => {
@@ -495,6 +496,7 @@ describe('TxPoolV2: benchmarks', () => {
           l2BlockSource: mockL2BlockSource,
           worldStateSynchronizer: mockWorldState,
           createTxValidator: () => Promise.resolve(alwaysValidValidator),
+          checkAllowedSetupCalls: () => Promise.resolve(true),
         });
         await pool1.start();
 
@@ -512,6 +514,7 @@ describe('TxPoolV2: benchmarks', () => {
             l2BlockSource: mockL2BlockSource,
             worldStateSynchronizer: mockWorldState,
             createTxValidator: () => Promise.resolve(alwaysValidValidator),
+            checkAllowedSetupCalls: () => Promise.resolve(true),
           });
 
           const startTime = performance.now();
