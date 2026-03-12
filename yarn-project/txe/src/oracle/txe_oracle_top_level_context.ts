@@ -116,12 +116,15 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.logger.debug('Entering Top Level Context');
   }
 
-  assertCompatibleOracleVersion(version: number): void {
+  assertCompatibleOracleVersion(version: number): Promise<void> {
     if (version !== ORACLE_VERSION) {
-      throw new Error(
-        `Incompatible oracle version. TXE is using version '${ORACLE_VERSION}', but got a request for '${version}'.`,
+      return Promise.reject(
+        new Error(
+          `Incompatible oracle version. TXE is using version '${ORACLE_VERSION}', but got a request for '${version}'.`,
+        ),
       );
     }
+    return Promise.resolve();
   }
 
   // This is typically only invoked in private contexts, but it is convenient to also have it in top-level for testing
