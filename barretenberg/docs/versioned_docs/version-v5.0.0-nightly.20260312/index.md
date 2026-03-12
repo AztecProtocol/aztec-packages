@@ -117,5 +117,3 @@ Barretenberg is organized into several key modules:
 - [Noir Documentation](https://noir-lang.org/docs)
 - [Aztec Protocol](https://aztec.network/)
 - [Awesome Noir](https://github.com/noir-lang/awesome-noir) - Collection of resources, tools and examples
-
-<!-- Cache invalidation comment -->
