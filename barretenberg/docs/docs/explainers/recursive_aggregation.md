@@ -166,7 +166,7 @@ In this example, a regulator could verify that taxes were paid for a specific pu
 
 At the time of writing, verifying recursive proofs is surprisingly fast. This is because most of the time is spent on generating the verification key that will be used to generate the next proof. So you are able to cache the verification key and reuse it later.
 
-Currently, Noir JS packages don't expose the functionality of loading proving and verification keys, but that feature exists in the underlying `bb.js` package.
+You can load and cache verification keys using the `bb.js` API — see the [browser guide](../how_to_guides/on-the-browser.md#getting-verification-keys-vk) for details.
 
 ## How can I try it
 
