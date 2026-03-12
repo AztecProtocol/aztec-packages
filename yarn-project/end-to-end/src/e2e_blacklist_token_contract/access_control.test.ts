@@ -23,7 +23,7 @@ describe('e2e_blacklist_token_contract access control', () => {
 
     await t.crossTimestampOfChange();
 
-    expect(await t.asset.methods.get_roles(t.adminAddress).simulate({ from: t.adminAddress })).toEqual(
+    expect((await t.asset.methods.get_roles(t.adminAddress).simulate({ from: t.adminAddress })).result).toEqual(
       adminMinterRole.toNoirStruct(),
     );
   });
@@ -34,7 +34,7 @@ describe('e2e_blacklist_token_contract access control', () => {
 
     await t.crossTimestampOfChange();
 
-    expect(await t.asset.methods.get_roles(t.otherAddress).simulate({ from: t.adminAddress })).toEqual(
+    expect((await t.asset.methods.get_roles(t.otherAddress).simulate({ from: t.adminAddress })).result).toEqual(
       adminRole.toNoirStruct(),
     );
   });
@@ -45,7 +45,7 @@ describe('e2e_blacklist_token_contract access control', () => {
 
     await t.crossTimestampOfChange();
 
-    expect(await t.asset.methods.get_roles(t.otherAddress).simulate({ from: t.adminAddress })).toEqual(
+    expect((await t.asset.methods.get_roles(t.otherAddress).simulate({ from: t.adminAddress })).result).toEqual(
       noRole.toNoirStruct(),
     );
   });
@@ -58,7 +58,7 @@ describe('e2e_blacklist_token_contract access control', () => {
 
     await t.crossTimestampOfChange();
 
-    expect(await t.asset.methods.get_roles(t.blacklistedAddress).simulate({ from: t.adminAddress })).toEqual(
+    expect((await t.asset.methods.get_roles(t.blacklistedAddress).simulate({ from: t.adminAddress })).result).toEqual(
       blacklistRole.toNoirStruct(),
     );
   });

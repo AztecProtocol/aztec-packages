@@ -36,11 +36,16 @@ export interface IBlockFactory extends ProcessedTxHandler {
 }
 
 export interface PublicProcessorLimits {
+  /** Maximum number of txs to process. */
   maxTransactions?: number;
-  maxBlockSize?: number;
+  /** L2 and DA gas limits. */
   maxBlockGas?: Gas;
+  /** Maximum number of blob fields allowed. */
   maxBlobFields?: number;
+  /** Deadline for processing the txs. Processor will stop as soon as it hits this time. */
   deadline?: Date;
+  /** Whether this processor is building a proposal (as opposed to re-executing one). Skipping txs due to gas or blob limits is only done during proposal building. */
+  isBuildingProposal?: boolean;
 }
 
 export interface PublicProcessorValidator {
@@ -48,11 +53,17 @@ export interface PublicProcessorValidator {
   nullifierCache?: { addNullifiers: (nullifiers: Buffer[]) => void };
 }
 
-export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'> &
+export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'rollupManaLimit'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
   Pick<
     SequencerConfig,
-    'txPublicSetupAllowListExtend' | 'fakeProcessingDelayPerTxMs' | 'fakeThrowAfterProcessingTxCount'
+    | 'txPublicSetupAllowListExtend'
+    | 'fakeProcessingDelayPerTxMs'
+    | 'fakeThrowAfterProcessingTxCount'
+    | 'maxTxsPerBlock'
+    | 'maxTxsPerCheckpoint'
+    | 'maxL2BlockGas'
+    | 'maxDABlockGas'
   >;
 
 export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[] = [
@@ -63,6 +74,11 @@ export const FullNodeBlockBuilderConfigKeys: (keyof FullNodeBlockBuilderConfig)[
   'txPublicSetupAllowListExtend',
   'fakeProcessingDelayPerTxMs',
   'fakeThrowAfterProcessingTxCount',
+  'maxTxsPerBlock',
+  'maxTxsPerCheckpoint',
+  'maxL2BlockGas',
+  'maxDABlockGas',
+  'rollupManaLimit',
 ] as const;
 
 /** Thrown when no valid transactions are available to include in a block after processing, and this is not the first block in a checkpoint. */
@@ -76,12 +92,10 @@ export class NoValidTxsError extends Error {
 /** Result of building a block within a checkpoint. */
 export type BuildBlockInCheckpointResult = {
   block: L2Block;
-  publicGas: Gas;
   publicProcessorDuration: number;
   numTxs: number;
   failedTxs: FailedTx[];
   usedTxs: Tx[];
-  usedTxBlobFields: number;
 };
 
 /** Interface for building blocks within a checkpoint context. */

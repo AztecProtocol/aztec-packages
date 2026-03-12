@@ -129,20 +129,28 @@ export async function deploySponsoredTestAccountsWithTokens(
 }
 
 async function deployAccountWithDiagnostics(
-  account: { getDeployMethod: () => Promise<{ send: (opts: any) => any }>; address: any },
+  account: { getDeployMethod: () => Promise<{ simulate: (opts: any) => any; send: (opts: any) => any }>; address: any },
   paymentMethod: SponsoredFeePaymentMethod,
   aztecNode: AztecNode,
   logger: Logger,
   accountLabel: string,
+  estimateGas?: boolean,
 ): Promise<void> {
   const deployMethod = await account.getDeployMethod();
   let txHash;
   try {
-    txHash = await deployMethod.send({
+    let gasSettings;
+    if (estimateGas) {
+      const sim = await deployMethod.simulate({ from: AztecAddress.ZERO, fee: { paymentMethod } });
+      gasSettings = sim.estimatedGas;
+      logger.info(`${accountLabel} estimated gas: DA=${gasSettings.gasLimits.daGas} L2=${gasSettings.gasLimits.l2Gas}`);
+    }
+    const deployResult = await deployMethod.send({
       from: AztecAddress.ZERO,
-      fee: { paymentMethod },
+      fee: { paymentMethod, gasSettings },
       wait: NO_WAIT,
     });
+    txHash = deployResult.txHash;
     await waitForTx(aztecNode, txHash, { timeout: 2400 });
     logger.info(`${accountLabel} deployed at ${account.address}`);
   } catch (error) {
@@ -164,18 +172,29 @@ async function deployAccountWithDiagnostics(
 }
 
 async function deployAccountsInBatches(
-  accounts: { getDeployMethod: () => Promise<{ send: (opts: any) => any }>; address: any }[],
+  accounts: {
+    getDeployMethod: () => Promise<{ simulate: (opts: any) => any; send: (opts: any) => any }>;
+    address: any;
+  }[],
   paymentMethod: SponsoredFeePaymentMethod,
   aztecNode: AztecNode,
   logger: Logger,
   labelPrefix: string,
   batchSize = 2,
+  estimateGas?: boolean,
 ): Promise<void> {
   for (let i = 0; i < accounts.length; i += batchSize) {
     const batch = accounts.slice(i, i + batchSize);
     await Promise.all(
       batch.map((account, idx) =>
-        deployAccountWithDiagnostics(account, paymentMethod, aztecNode, logger, `${labelPrefix}${i + idx + 1}`),
+        deployAccountWithDiagnostics(
+          account,
+          paymentMethod,
+          aztecNode,
+          logger,
+          `${labelPrefix}${i + idx + 1}`,
+          estimateGas,
+        ),
       ),
     );
   }
@@ -186,6 +205,7 @@ export async function deploySponsoredTestAccounts(
   aztecNode: AztecNode,
   logger: Logger,
   numberOfFundedWallets = 1,
+  opts?: { estimateGas?: boolean },
 ): Promise<TestAccountsWithoutTokens> {
   const [recipient, ...funded] = await generateSchnorrAccounts(numberOfFundedWallets + 1);
   const recipientAccount = await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
@@ -195,8 +215,23 @@ export async function deploySponsoredTestAccounts(
 
   const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
 
-  await deployAccountWithDiagnostics(recipientAccount, paymentMethod, aztecNode, logger, 'Recipient account');
-  await deployAccountsInBatches(fundedAccounts, paymentMethod, aztecNode, logger, 'Funded account ', 2);
+  await deployAccountWithDiagnostics(
+    recipientAccount,
+    paymentMethod,
+    aztecNode,
+    logger,
+    'Recipient account',
+    opts?.estimateGas,
+  );
+  await deployAccountsInBatches(
+    fundedAccounts,
+    paymentMethod,
+    aztecNode,
+    logger,
+    'Funded account ',
+    2,
+    opts?.estimateGas,
+  );
 
   return {
     aztecNode,
@@ -278,7 +313,7 @@ async function bridgeL1FeeJuice(
   const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
 
   const isSynced = async () =>
-    (await aztecNode.getL1ToL2MessageBlock(Fr.fromHexString(claim.messageHash))) !== undefined;
+    (await aztecNode.getL1ToL2MessageCheckpoint(Fr.fromHexString(claim.messageHash))) !== undefined;
   await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 0.5);
 
   log.info(`Created a claim for ${amount} L1 fee juice to ${recipient}.`, claim);
@@ -310,13 +345,9 @@ async function deployTokenAndMint(
   logger: Logger,
 ) {
   logger.verbose(`Deploying TokenContract...`);
-  const { contract: tokenContract } = await TokenContract.deploy(
-    wallet,
-    admin,
-    TOKEN_NAME,
-    TOKEN_SYMBOL,
-    TOKEN_DECIMALS,
-  ).send({
+  const {
+    receipt: { contract: tokenContract },
+  } = await TokenContract.deploy(wallet, admin, TOKEN_NAME, TOKEN_SYMBOL, TOKEN_DECIMALS).send({
     from: admin,
     fee: {
       paymentMethod,

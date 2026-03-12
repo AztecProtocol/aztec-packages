@@ -21,6 +21,7 @@ import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { TestDateProvider } from '@aztec/foundation/timer';
+import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { type AttestationInfo, getAttestationInfoFromPublishedCheckpoint } from '@aztec/stdlib/block';
 import type { ValidatorClient } from '@aztec/validator-client';
@@ -321,7 +322,7 @@ describe('HA Full Setup', () => {
     const sender = ownerAddress;
 
     logger.info(`Deploying contract from ${sender}`);
-    const receipt = await deployer.deploy(ownerAddress, sender, 1).send({
+    const { receipt } = await deployer.deploy(ownerAddress, sender, 1).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(BigInt(1)),
       skipClassPublication: true,
@@ -442,7 +443,7 @@ describe('HA Full Setup', () => {
     // Send a transaction to trigger block building which will also trigger voting
     logger.info('Sending transaction to trigger block building...');
     const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-    const receipt = await deployer.deploy(ownerAddress, ownerAddress, 42).send({
+    const { receipt } = await deployer.deploy(ownerAddress, ownerAddress, 42).send({
       from: ownerAddress,
       contractAddressSalt: Fr.random(),
       wait: { returnReceipt: true },
@@ -480,28 +481,32 @@ describe('HA Full Setup', () => {
       0.2, // interval in seconds (200ms)
     );
 
-    // Get L1 round info to determine which slots have actually landed on L1.
-    // We anchor the comparison on L1's lastSignalSlot since:
-    // - The DB may have duties for future slots that haven't been published to L1 yet
-    // - L1 may have signals from earlier slots in the round before the governance payload was set in the DB
-    const roundInfo = await governanceProposer.getRoundInfo(
-      deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-      round,
-    );
-    const lastSignalSlot = Number(roundInfo.lastSignalSlot);
-
-    // Re-query L1 vote count after getting lastSignalSlot in case more votes landed between the poll and getRoundInfo:
-    // the retryUntil may return a stale count if more votes land between the poll and getRoundInfo
-    const l1VoteCount = Number(
-      await governanceProposer.getPayloadSignals(
-        deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-        round,
-        mockGovernancePayload.toString(),
-      ),
-    );
+    // Read lastSignalSlot and l1VoteCount from the same L1 block to get a consistent snapshot.
+    const rollupAddr = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString() as `0x${string}`;
+    const govProposerAddr =
+      deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString() as `0x${string}`;
+    const snapshotBlock = await deployL1ContractsValues.l1Client.getBlockNumber();
+    const [roundData, l1VoteCountBig] = await Promise.all([
+      deployL1ContractsValues.l1Client.readContract({
+        address: govProposerAddr,
+        abi: GovernanceProposerAbi,
+        functionName: 'getRoundData',
+        args: [rollupAddr, round],
+        blockNumber: snapshotBlock,
+      }),
+      deployL1ContractsValues.l1Client.readContract({
+        address: govProposerAddr,
+        abi: GovernanceProposerAbi,
+        functionName: 'signalCount',
+        args: [rollupAddr, round, mockGovernancePayload.toString() as `0x${string}`],
+        blockNumber: snapshotBlock,
+      }),
+    ]);
+    const lastSignalSlot = Number(roundData.lastSignalSlot);
+    const l1VoteCount = Number(l1VoteCountBig);
     expect(l1VoteCount).toBeGreaterThan(0);
     logger.info(
-      `L1 round ${round} info: lastSignalSlot=${lastSignalSlot}, l1VoteCount=${l1VoteCount}, payloadWithMostSignals=${roundInfo.payloadWithMostSignals}`,
+      `L1 round ${round} info: lastSignalSlot=${lastSignalSlot}, l1VoteCount=${l1VoteCount}, payloadWithMostSignals=${roundData.payloadWithMostSignals} (snapshot at L1 block ${snapshotBlock})`,
     );
 
     // Query governance vote duties only for slots that have actually landed on L1 (up to lastSignalSlot)
@@ -604,12 +609,12 @@ describe('HA Full Setup', () => {
         skipInstancePublication: true,
         wait: { returnReceipt: true },
       });
-      expect(receipt.blockNumber).toBeDefined();
-      const [block] = await aztecNode.getCheckpointedBlocks(receipt.blockNumber!, 1);
+      expect(receipt.receipt.blockNumber).toBeDefined();
+      const [block] = await aztecNode.getCheckpointedBlocks(receipt.receipt.blockNumber!, 1);
       const [cp] = await aztecNode.getCheckpoints(block!.checkpointNumber, 1);
       const att = cp.attestations.filter(a => !a.signature.isEmpty());
       expect(att.length).toBeGreaterThanOrEqual(quorum);
-      logger.info(`Phase 2: block ${receipt.blockNumber}, ${att.length} attestations (quorum ${quorum})`);
+      logger.info(`Phase 2: block ${receipt.receipt.blockNumber}, ${att.length} attestations (quorum ${quorum})`);
     } finally {
       // Restore each node's saved initial keystore so subsequent tests see original state
       for (let i = 0; i < NODE_COUNT; i++) {
@@ -642,7 +647,7 @@ describe('HA Full Setup', () => {
       logger.info(`Active nodes: ${haNodeServices.length - killedNodes.length}/${NODE_COUNT}`);
 
       const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-      const receipt = await deployer.deploy(ownerAddress, ownerAddress, i + 100).send({
+      const { receipt } = await deployer.deploy(ownerAddress, ownerAddress, i + 100).send({
         from: ownerAddress,
         contractAddressSalt: new Fr(BigInt(i + 100)),
         skipClassPublication: true,

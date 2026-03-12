@@ -640,9 +640,9 @@ nullifier deterministic but random-looking. This function enables that flow.</p>
 </div><code id="request_ovsk_app" class="code-header">pub fn <a href="#request_ovsk_app"><span class="fn">request_ovsk_app</span></a>(&mut self, ovpk_m_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Requests the app-siloed nullifier secret key (nsk_app) for the given (hashed) master nullifier public key
-(npk_m), from the user's PXE.</p>
-<p>See <code>request_nsk_app</code> and <code>request_sk_app</code> for more info.</p>
+<p>Requests the app-siloed outgoing viewing secret key (ovsk_app) for the given (hashed) master outgoing
+viewing public key (ovpk_m), from the user's PXE.</p>
+<p>See <code>request_nhk_app</code> and <code>request_sk_app</code> for more info.</p>
 <p>The intention of the &quot;outgoing&quot; keypair is to provide a second secret key for all of a user's outgoing activity
 (i.e. for notes that a user creates, as opposed to notes that a user receives from others). The separation of
 incoming and outgoing data was a distinction made by zcash, with the intention of enabling a user to optionally

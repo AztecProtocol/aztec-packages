@@ -30,6 +30,13 @@
 <h1>Function <span class="fn">event</span></h1>
 <pre><code>pub comptime fn event(s: <a href="../../../std/primitive.TypeDefinition.html" class="primitive">TypeDefinition</a>) -> <a href="../../../std/primitive.Quoted.html" class="primitive">Quoted</a></code></pre>
 
+<div class="comments">
+<p>Generates the core event functionality for a struct, including the
+<a href="../../../noir_aztec/event/event_interface/trait.EventInterface.html"><code>EventInterface</code></a> implementation (which provides the event type
+id) and a <a href="../../../serde/serialization/trait.Serialize.html"><code>Serialize</code></a> implementation if one is not already provided.</p>
+<h2>Requirements</h2>
+<p>The event struct must not exceed
+<a href="../../../noir_aztec/messages/logs/event/global.MAX_EVENT_SERIALIZED_LEN.html"><code>MAX_EVENT_SERIALIZED_LEN</code></a> when serialized.</p></div>
 </main>
 </span>
 </body>

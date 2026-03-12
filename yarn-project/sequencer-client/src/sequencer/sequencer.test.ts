@@ -78,7 +78,10 @@ describe('sequencer', () => {
 
   let block: L2Block;
   let globalVariables: GlobalVariables;
-  let l1Constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>;
+  let l1Constants: Pick<
+    L1RollupConstants,
+    'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration' | 'rollupManaLimit'
+  >;
 
   let sequencer: TestSequencer;
 
@@ -160,7 +163,7 @@ describe('sequencer', () => {
     );
 
     const l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
-    l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration };
+    l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration, rollupManaLimit: Number.MAX_SAFE_INTEGER };
 
     epochCache = mockDeep<EpochCache>();
     epochCache.isEscapeHatchOpen.mockResolvedValue(false);
@@ -272,6 +275,7 @@ describe('sequencer', () => {
       getCheckpointedBlocksForEpoch: mockFn().mockResolvedValue([]),
       getCheckpointsForEpoch: mockFn().mockResolvedValue([]),
       getCheckpointsDataForEpoch: mockFn().mockResolvedValue([]),
+      getSyncedL2SlotNumber: mockFn().mockResolvedValue(SlotNumber(Number.MAX_SAFE_INTEGER)),
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
@@ -396,14 +400,16 @@ describe('sequencer', () => {
       expectPublisherProposeL2Block();
     });
 
-    it('builds a block only when synced to previous L1 slot', async () => {
+    it('builds a block only when synced to previous L2 slot', async () => {
       await setupSingleTxBlock();
 
-      l2BlockSource.getL1Timestamp.mockResolvedValue(1000n - BigInt(ethereumSlotDuration) - 1n);
+      // Archiver reports it hasn't synced any slot yet, so sequencer should not propose
+      l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(undefined);
       await sequencer.work();
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
 
-      l2BlockSource.getL1Timestamp.mockResolvedValue(1000n - BigInt(ethereumSlotDuration));
+      // Archiver reports synced to slot 0, which satisfies syncedL2Slot + 1 >= slot (slot=1)
+      l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(0));
       await sequencer.work();
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalled();
     });
@@ -871,7 +877,7 @@ describe('sequencer', () => {
       sequencer.updateConfig({ enforceTimeTable: true, maxTxsPerBlock: 4, blockDurationMs: 500 });
 
       const txs = await timesParallel(8, i => makeTx(i * 0x10000));
-      block = await makeBlock(txs);
+      block = await makeBlock(txs.slice(0, 4));
       TestUtils.mockPendingTxs(p2p, txs);
 
       await sequencer.work();

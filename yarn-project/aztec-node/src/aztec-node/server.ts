@@ -271,10 +271,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     config.l1Contracts = { ...config.l1Contracts, ...l1ContractsAddresses };
 
     const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
-    const [l1GenesisTime, slotDuration, rollupVersionFromRollup] = await Promise.all([
+    const [l1GenesisTime, slotDuration, rollupVersionFromRollup, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
       rollupContract.getVersion(),
+      rollupContract.getManaLimit().then(Number),
     ] as const);
 
     config.rollupVersion ??= Number(rollupVersionFromRollup);
@@ -345,9 +346,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We'll accumulate sentinel watchers here
     const watchers: Watcher[] = [];
 
-    // Create FullNodeCheckpointsBuilder for block proposal handling and tx validation
+    // Create FullNodeCheckpointsBuilder for block proposal handling and tx validation.
+    // Override maxTxsPerCheckpoint with the validator-specific limit if set.
     const validatorCheckpointsBuilder = new FullNodeCheckpointsBuilder(
-      { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
+      {
+        ...config,
+        l1GenesisTime,
+        slotDuration: Number(slotDuration),
+        rollupManaLimit,
+        maxTxsPerCheckpoint: config.validateMaxTxsPerCheckpoint,
+      },
       worldStateSynchronizer,
       archiver,
       dateProvider,
@@ -380,22 +388,24 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
           await validatorClient.registerHandlers();
         }
       }
+    }
 
-      // If there's no validator client but alwaysReexecuteBlockProposals is enabled,
-      // create a BlockProposalHandler to reexecute block proposals for monitoring
-      if (!validatorClient && config.alwaysReexecuteBlockProposals) {
-        log.info('Setting up block proposal reexecution for monitoring');
-        createBlockProposalHandler(config, {
-          checkpointsBuilder: validatorCheckpointsBuilder,
-          worldState: worldStateSynchronizer,
-          epochCache,
-          blockSource: archiver,
-          l1ToL2MessageSource: archiver,
-          p2pClient,
-          dateProvider,
-          telemetry,
-        }).registerForReexecution(p2pClient);
-      }
+    // If there's no validator client, create a BlockProposalHandler to handle block proposals
+    // for monitoring or reexecution. Reexecution (default) allows us to follow the pending chain,
+    // while non-reexecution is used for validating the proposals and collecting their txs.
+    if (!validatorClient) {
+      const reexecute = !!config.alwaysReexecuteBlockProposals;
+      log.info(`Setting up block proposal handler` + (reexecute ? ' with reexecution of proposals' : ''));
+      createBlockProposalHandler(config, {
+        checkpointsBuilder: validatorCheckpointsBuilder,
+        worldState: worldStateSynchronizer,
+        epochCache,
+        blockSource: archiver,
+        l1ToL2MessageSource: archiver,
+        p2pClient,
+        dateProvider,
+        telemetry,
+      }).register(p2pClient, reexecute);
     }
 
     // Start world state and wait for it to sync to the archiver.
@@ -484,7 +494,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
       // Create and start the sequencer client
       const checkpointsBuilder = new CheckpointsBuilder(
-        { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
+        { ...config, l1GenesisTime, slotDuration: Number(slotDuration), rollupManaLimit },
         worldStateSynchronizer,
         archiver,
         dateProvider,
@@ -742,6 +752,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return await this.blockSource.getCheckpointedL2BlockNumber();
   }
 
+  public getCheckpointNumber(): Promise<CheckpointNumber> {
+    return this.blockSource.getCheckpointNumber();
+  }
+
   /**
    * Method to fetch the version of the package.
    * @returns The node package version
@@ -957,53 +971,59 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       treeId,
       leafValues.map(x => x.toBuffer()),
     );
-    // We filter out undefined values
-    const indices = maybeIndices.filter(x => x !== undefined) as bigint[];
+    // Filter out undefined values to query block numbers only for found leaves
+    const definedIndices = maybeIndices.filter(x => x !== undefined);
 
-    // Now we find the block numbers for the indices
-    const blockNumbers = await committedDb.getBlockNumbersForLeafIndices(treeId, indices);
+    // Now we find the block numbers for the defined indices
+    const blockNumbers = await committedDb.getBlockNumbersForLeafIndices(treeId, definedIndices);
 
-    // If any of the block numbers are undefined, we throw an error.
-    for (let i = 0; i < indices.length; i++) {
-      if (blockNumbers[i] === undefined) {
-        throw new Error(`Block number is undefined for leaf index ${indices[i]} in tree ${MerkleTreeId[treeId]}`);
+    // Build a map from leaf index to block number
+    const indexToBlockNumber = new Map<bigint, BlockNumber>();
+    for (let i = 0; i < definedIndices.length; i++) {
+      const blockNumber = blockNumbers[i];
+      if (blockNumber === undefined) {
+        throw new Error(
+          `Block number is undefined for leaf index ${definedIndices[i]} in tree ${MerkleTreeId[treeId]}`,
+        );
       }
+      indexToBlockNumber.set(definedIndices[i], blockNumber);
     }
 
     // Get unique block numbers in order to optimize num calls to getLeafValue function.
-    const uniqueBlockNumbers = [...new Set(blockNumbers.filter(x => x !== undefined))];
+    const uniqueBlockNumbers = [...new Set(indexToBlockNumber.values())];
 
-    // Now we obtain the block hashes from the archive tree by calling await `committedDb.getLeafValue(treeId, index)`
-    // (note that block number corresponds to the leaf index in the archive tree).
+    // Now we obtain the block hashes from the archive tree (block number = leaf index in archive tree).
     const blockHashes = await Promise.all(
       uniqueBlockNumbers.map(blockNumber => {
         return committedDb.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber));
       }),
     );
 
-    // If any of the block hashes are undefined, we throw an error.
+    // Build a map from block number to block hash
+    const blockNumberToHash = new Map<BlockNumber, Fr>();
     for (let i = 0; i < uniqueBlockNumbers.length; i++) {
-      if (blockHashes[i] === undefined) {
+      const blockHash = blockHashes[i];
+      if (blockHash === undefined) {
         throw new Error(`Block hash is undefined for block number ${uniqueBlockNumbers[i]}`);
       }
+      blockNumberToHash.set(uniqueBlockNumbers[i], blockHash);
     }
 
     // Create DataInBlock objects by combining indices, blockNumbers and blockHashes and return them.
-    return maybeIndices.map((index, i) => {
+    return maybeIndices.map(index => {
       if (index === undefined) {
         return undefined;
       }
-      const blockNumber = blockNumbers[i];
+      const blockNumber = indexToBlockNumber.get(index);
       if (blockNumber === undefined) {
-        return undefined;
+        throw new Error(`Block number not found for leaf index ${index} in tree ${MerkleTreeId[treeId]}`);
       }
-      const blockHashIndex = uniqueBlockNumbers.indexOf(blockNumber);
-      const blockHash = blockHashes[blockHashIndex];
-      if (!blockHash) {
-        return undefined;
+      const blockHash = blockNumberToHash.get(blockNumber);
+      if (blockHash === undefined) {
+        throw new Error(`Block hash not found for block number ${blockNumber}`);
       }
       return {
-        l2BlockNumber: BlockNumber(Number(blockNumber)),
+        l2BlockNumber: blockNumber,
         l2BlockHash: new BlockHash(blockHash),
         data: index,
       };
@@ -1049,11 +1069,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return [witness.index, witness.path];
   }
 
-  public async getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<BlockNumber | undefined> {
+  public async getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined> {
     const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
-    return messageIndex
-      ? BlockNumber.fromCheckpointNumber(InboxLeaf.checkpointNumberFromIndex(messageIndex))
-      : undefined;
+    return messageIndex ? InboxLeaf.checkpointNumberFromIndex(messageIndex) : undefined;
   }
 
   /**
@@ -1275,7 +1293,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config);
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
-      const [processedTxs, failedTxs, _usedTxs, returns, _blobFields, debugLogs] = await processor.process([tx]);
+      const [processedTxs, failedTxs, _usedTxs, returns, debugLogs] = await processor.process([tx]);
       // REFACTOR: Consider returning the error rather than throwing
       if (failedTxs.length) {
         this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
@@ -1306,6 +1324,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We accept transactions if they are not expired by the next slot (checked based on the ExpirationTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const blockNumber = BlockNumber((await this.blockSource.getBlockNumber()) + 1);
+    const l1Constants = await this.blockSource.getL1Constants();
     const validator = createTxValidatorForAcceptingTxsOverRPC(
       db,
       this.contractDataSource,
@@ -1322,6 +1341,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         gasFees: await this.getCurrentMinFees(),
         skipFeeEnforcement,
         txsPermitted: !this.config.disableTransactions,
+        rollupManaLimit: l1Constants.rollupManaLimit,
+        maxBlockL2Gas: this.config.validateMaxL2BlockGas,
+        maxBlockDAGas: this.config.validateMaxDABlockGas,
       },
       this.log.getBindings(),
     );

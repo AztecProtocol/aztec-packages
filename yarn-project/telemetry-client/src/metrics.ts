@@ -1133,6 +1133,36 @@ export const PROVER_NODE_JOB_TRANSACTIONS: MetricDefinition = {
   description: 'Number of transactions in a proven epoch',
   valueType: ValueType.INT,
 };
+export const PROVER_NODE_BLOB_PROCESSING_LAST_DURATION: MetricDefinition = {
+  name: 'aztec.prover_node.blob_processing.last_duration',
+  description: 'Duration of blob processing step in epoch proving job',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_CHONK_VERIFIER_LAST_DURATION: MetricDefinition = {
+  name: 'aztec.prover_node.chonk_verifier.last_duration',
+  description: 'Duration of chonk verifier enqueuing in epoch proving job',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_BLOCK_PROCESSING_DURATION: MetricDefinition = {
+  name: 'aztec.prover_node.block_processing.duration',
+  description: 'Duration of processing a single block in epoch proving job',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_CHECKPOINT_PROCESSING_DURATION: MetricDefinition = {
+  name: 'aztec.prover_node.checkpoint_processing.duration',
+  description: 'Duration of processing a single checkpoint in epoch proving job',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_ALL_CHECKPOINTS_PROCESSING_LAST_DURATION: MetricDefinition = {
+  name: 'aztec.prover_node.all_checkpoints_processing.last_duration',
+  description: 'Duration of processing all checkpoints in epoch proving job',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
 export const PROVER_NODE_REWARDS_TOTAL: MetricDefinition = {
   name: 'aztec.prover_node.rewards_total',
   description: 'The rewards earned (total)',

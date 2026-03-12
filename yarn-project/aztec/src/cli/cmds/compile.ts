@@ -6,6 +6,7 @@ import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 
 import { readArtifactFiles } from './utils/artifacts.js';
+import { needsRecompile } from './utils/needs_recompile.js';
 import { run } from './utils/spawn.js';
 
 /** Returns paths to contract artifacts in the target directory. */
@@ -137,6 +138,11 @@ async function checkNoTestsInContracts(nargo: string, log: LogFn): Promise<void>
 
 /** Compiles Aztec Noir contracts and postprocesses artifacts. */
 async function compileAztecContract(nargoArgs: string[], log: LogFn): Promise<void> {
+  if (!(await needsRecompile())) {
+    log('No source changes detected, skipping compilation.');
+    return;
+  }
+
   const nargo = process.env.NARGO ?? 'nargo';
   const bb = process.env.BB ?? 'bb';
 

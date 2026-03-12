@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v5.0.0-nightly.20260303
+Version: v5.0.0-nightly.20260312
 
 ## Quick Import Reference
 
@@ -199,6 +199,7 @@ new BlockHeader(lastArchive: AppendOnlyTreeSnapshot, state: StateReference, spon
 - `hash() => Promise<BlockHash>`
 - `isEmpty() => boolean`
 - `static random(overrides: Partial<FieldsOf<BlockHeader>> & Partial<FieldsOf<GlobalVariables>>) => BlockHeader`
+- `recomputeHash() => Promise<BlockHash>` - Recomputes the cached hash. Used for testing when header fields are mutated via unfreeze.
 - `setHash(hashed: Fr) => void` - Manually set the hash for this block header if already computed
 - `toBuffer() => Buffer<ArrayBufferLike>`
 - `toFields() => Fr[]`
@@ -1001,6 +1002,7 @@ new L2Block(archive: AppendOnlyTreeSnapshot, header: BlockHeader, body: Body, ch
 - `timestamp: unknown`
 
 **Methods**
+- `computeDAGasUsed() => number` - Compute how much DA gas this block uses.
 - `static empty(header?: BlockHeader) => L2Block`
 - `equals(other: this) => boolean` - Checks if this block equals another block.
 - `static fromBuffer(buf: Buffer<ArrayBufferLike> | BufferReader) => L2Block` - Deserializes a block from a buffer
@@ -1619,8 +1621,8 @@ new PublicLog(contractAddress: AztecAddress, fields: Fr[])
 ```
 
 **Properties**
-- `contractAddress: AztecAddress`
-- `fields: Fr[]`
+- `readonly contractAddress: AztecAddress`
+- `readonly fields: Fr[]`
 - `static schema: unknown`
 
 **Methods**
@@ -1631,7 +1633,7 @@ new PublicLog(contractAddress: AztecAddress, fields: Fr[])
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => PublicLog`
 - `static fromFields(fields: FieldReader | Fr[]) => PublicLog`
 - `static fromPlainObject(obj: any) => PublicLog`
-- `getEmittedFields() => Fr[]`
+- `getEmittedFields() => Fr[]` - Returns the serialized log (field as in noir field and not a struct field).
 - `getEmittedFieldsWithoutTag() => Fr[]`
 - `static getFields(fields: FieldsOf<PublicLog>) => readonly []`
 - `isEmpty() => boolean`
@@ -1752,7 +1754,7 @@ new Signature(r: Buffer32, s: Buffer32, v: number)
 - `getSize() => number`
 - `isEmpty() => boolean`
 - `static isValidString(sig: string) => boolean`
-- `static random() => Signature`
+- `static random() => Signature` - Generates a random valid ECDSA signature with a low s-value by signing a random message with a random key.
 - `toBuffer() => Buffer`
 - `toJSON() => string`
 - `toString() => string`
@@ -1898,9 +1900,9 @@ new Tx(txHash: TxHash, data: PrivateKernelTailCircuitPublicInputs, chonkProof: C
 - `generateP2PMessageIdentifier() => Promise<Buffer32>`
 - `getCalldataMap() => Map<string, Fr[]>`
 - `getContractClassLogs() => ContractClassLog[]`
-- `getEstimatedPrivateTxEffectsSize() => number` - Estimates the tx size based on its private effects. Note that the actual size of the tx after processing will probably be larger, as public execution would generate more data.
 - `getGasSettings() => GasSettings`
 - `getNonRevertiblePublicCallRequestsWithCalldata() => PublicCallRequestWithCalldata[]`
+- `getPrivateTxEffectsSizeInFields() => number` - Returns the number of fields this tx's effects will occupy in the blob, based on its private side effects only. Accurate for txs without public calls. For txs with public calls, the actual size will be larger due to public execution outputs.
 - `getPublicCallRequestsWithCalldata() => PublicCallRequestWithCalldata[]`
 - `getPublicLogs(logsSource: L2LogsSource) => Promise<GetPublicLogsResponse>` - Gets public logs emitted by this tx.
 - `getRevertiblePublicCallRequestsWithCalldata() => PublicCallRequestWithCalldata[]`
@@ -2218,6 +2220,7 @@ new TxSimulationResult(privateExecutionResult: PrivateExecutionResult, publicInp
 
 **Properties**
 - `gasUsed: unknown`
+- `offchainEffects: unknown`
 - `privateExecutionResult: PrivateExecutionResult`
 - `publicInputs: PrivateKernelTailCircuitPublicInputs`
 - `publicOutput?: PublicSimulationOutput`
@@ -2225,7 +2228,7 @@ new TxSimulationResult(privateExecutionResult: PrivateExecutionResult, publicInp
 - `stats?: SimulationStats`
 
 **Methods**
-- `static from(fields: Omit<FieldsOf<TxSimulationResult>, "gasUsed">) => TxSimulationResult`
+- `static from(fields: Omit<FieldsOf<TxSimulationResult>, "gasUsed" | "offchainEffects">) => TxSimulationResult`
 - `static fromPrivateSimulationResultAndPublicOutput(privateSimulationResult: PrivateSimulationResult, publicOutput?: PublicSimulationOutput, stats?: SimulationStats) => TxSimulationResult`
 - `getPrivateReturnValues() => NestedProcessReturnValues`
 - `getPublicReturnValues() => NestedProcessReturnValues[]`
@@ -2512,24 +2515,25 @@ Interface of classes allowing for the retrieval of L2 blocks.
 - `getCheckpointedBlocks(from: BlockNumber, limit: number) => Promise<CheckpointedL2Block[]>`
 - `getCheckpointedBlocksForEpoch(epochNumber: EpochNumber) => Promise<CheckpointedL2Block[]>` - Returns all checkpointed blocks for a given epoch.
 - `getCheckpointedL2BlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block checkpointed seen by the block source implementation.
+- `getCheckpointNumber() => Promise<CheckpointNumber>` - Gets the number of the latest L2 checkpoint processed by the block source implementation.
 - `getCheckpoints(checkpointNumber: CheckpointNumber, limit: number) => Promise<PublishedCheckpoint[]>` - Retrieves a collection of checkpoints.
 - `getCheckpointsDataForEpoch(epochNumber: EpochNumber) => Promise<CheckpointData[]>` - Gets lightweight checkpoint metadata for a given epoch, without fetching full block data.
 - `getCheckpointsForEpoch(epochNumber: EpochNumber) => Promise<Checkpoint[]>` - Gets the checkpoints for a given epoch
-- `getFinalizedL2BlockNumber() => Promise<BlockNumber>` - Computes the finalized block number based on the proven block number. A block is considered finalized when it's 2 epochs behind the proven block. Compute proper finalized block number based on L1 finalized block.
+- `getFinalizedL2BlockNumber() => Promise<BlockNumber>` - Returns the finalized L2 block number. A block is finalized when it was proven in an L1 block that has itself been finalized on Ethereum.
 - `getGenesisValues() => Promise<{ genesisArchiveRoot: Fr }>` - Returns values for the genesis block
 - `getL1Constants() => Promise<L1RollupConstants>` - Returns the rollup constants for the current chain.
 - `getL1Timestamp() => Promise<bigint | undefined>` - Latest synced L1 timestamp.
 - `getL2Block(number: BlockNumber) => Promise<L2Block | undefined>` - Gets an L2 block by block number.
 - `getL2BlockByArchive(archive: Fr) => Promise<L2Block | undefined>` - Gets an L2 block by its archive root.
 - `getL2BlockByHash(blockHash: BlockHash) => Promise<L2Block | undefined>` - Gets an L2 block by its hash.
-- `getL2EpochNumber() => Promise<EpochNumber | undefined>` - Returns the current L2 epoch number based on the currently synced L1 timestamp.
-- `getL2SlotNumber() => Promise<SlotNumber | undefined>` - Returns the current L2 slot number based on the currently synced L1 timestamp.
 - `getL2Tips() => Promise<L2Tips>` - Returns the tips of the L2 chain.
 - `getPendingChainValidationStatus() => Promise<ValidateCheckpointResult>` - Returns the status of the pending chain validation. If the chain is invalid, reports the earliest consecutive checkpoint that is invalid, along with the reason for being invalid, which can be used to trigger an invalidation.
 - `getProvenBlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block proven seen by the block source implementation.
 - `getRegistryAddress() => Promise<EthAddress>` - Method to fetch the registry contract address at the base-layer.
 - `getRollupAddress() => Promise<EthAddress>` - Method to fetch the rollup contract address at the base-layer.
 - `getSettledTxReceipt(txHash: TxHash) => Promise<TxReceipt | undefined>` - Gets a receipt of a settled tx.
+- `getSyncedL2EpochNumber() => Promise<EpochNumber | undefined>` - Returns the last L2 epoch number that has been fully synchronized from L1. An epoch is fully synced when all its L2 slots have been fully synced.
+- `getSyncedL2SlotNumber() => Promise<SlotNumber | undefined>` - Returns the last L2 slot number that has been fully synchronized from L1. An L2 slot is fully synced when all L1 blocks that fall within its time range have been processed.
 - `getTxEffect(txHash: TxHash) => Promise<IndexedTxEffect | undefined>` - Gets a tx effect.
 - `isEpochComplete(epochNumber: EpochNumber) => Promise<boolean>` - Returns whether the given epoch is completed on L1, based on the current L1 and L2 block numbers.
 - `isPendingChainInvalid() => Promise<boolean>` - Returns whether the latest block in the pending chain on L1 is invalid (ie its attestations are incorrect). Note that invalid blocks do not get synced, so the latest block returned by the block source is always a valid one.
@@ -2561,24 +2565,25 @@ Extends: `L2BlockSource`
 - `getCheckpointedBlocks(from: BlockNumber, limit: number) => Promise<CheckpointedL2Block[]>`
 - `getCheckpointedBlocksForEpoch(epochNumber: EpochNumber) => Promise<CheckpointedL2Block[]>` - Returns all checkpointed blocks for a given epoch.
 - `getCheckpointedL2BlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block checkpointed seen by the block source implementation.
+- `getCheckpointNumber() => Promise<CheckpointNumber>` - Gets the number of the latest L2 checkpoint processed by the block source implementation.
 - `getCheckpoints(checkpointNumber: CheckpointNumber, limit: number) => Promise<PublishedCheckpoint[]>` - Retrieves a collection of checkpoints.
 - `getCheckpointsDataForEpoch(epochNumber: EpochNumber) => Promise<CheckpointData[]>` - Gets lightweight checkpoint metadata for a given epoch, without fetching full block data.
 - `getCheckpointsForEpoch(epochNumber: EpochNumber) => Promise<Checkpoint[]>` - Gets the checkpoints for a given epoch
-- `getFinalizedL2BlockNumber() => Promise<BlockNumber>` - Computes the finalized block number based on the proven block number. A block is considered finalized when it's 2 epochs behind the proven block. Compute proper finalized block number based on L1 finalized block.
+- `getFinalizedL2BlockNumber() => Promise<BlockNumber>` - Returns the finalized L2 block number. A block is finalized when it was proven in an L1 block that has itself been finalized on Ethereum.
 - `getGenesisValues() => Promise<{ genesisArchiveRoot: Fr }>` - Returns values for the genesis block
 - `getL1Constants() => Promise<L1RollupConstants>` - Returns the rollup constants for the current chain.
 - `getL1Timestamp() => Promise<bigint | undefined>` - Latest synced L1 timestamp.
 - `getL2Block(number: BlockNumber) => Promise<L2Block | undefined>` - Gets an L2 block by block number.
 - `getL2BlockByArchive(archive: Fr) => Promise<L2Block | undefined>` - Gets an L2 block by its archive root.
 - `getL2BlockByHash(blockHash: BlockHash) => Promise<L2Block | undefined>` - Gets an L2 block by its hash.
-- `getL2EpochNumber() => Promise<EpochNumber | undefined>` - Returns the current L2 epoch number based on the currently synced L1 timestamp.
-- `getL2SlotNumber() => Promise<SlotNumber | undefined>` - Returns the current L2 slot number based on the currently synced L1 timestamp.
 - `getL2Tips() => Promise<L2Tips>` - Returns the tips of the L2 chain.
 - `getPendingChainValidationStatus() => Promise<ValidateCheckpointResult>` - Returns the status of the pending chain validation. If the chain is invalid, reports the earliest consecutive checkpoint that is invalid, along with the reason for being invalid, which can be used to trigger an invalidation.
 - `getProvenBlockNumber() => Promise<BlockNumber>` - Gets the number of the latest L2 block proven seen by the block source implementation.
 - `getRegistryAddress() => Promise<EthAddress>` - Method to fetch the registry contract address at the base-layer.
 - `getRollupAddress() => Promise<EthAddress>` - Method to fetch the rollup contract address at the base-layer.
 - `getSettledTxReceipt(txHash: TxHash) => Promise<TxReceipt | undefined>` - Gets a receipt of a settled tx.
+- `getSyncedL2EpochNumber() => Promise<EpochNumber | undefined>` - Returns the last L2 epoch number that has been fully synchronized from L1. An epoch is fully synced when all its L2 slots have been fully synced.
+- `getSyncedL2SlotNumber() => Promise<SlotNumber | undefined>` - Returns the last L2 slot number that has been fully synchronized from L1. An L2 slot is fully synced when all L1 blocks that fall within its time range have been processed.
 - `getTxEffect(txHash: TxHash) => Promise<IndexedTxEffect | undefined>` - Gets a tx effect.
 - `isEpochComplete(epochNumber: EpochNumber) => Promise<boolean>` - Returns whether the given epoch is completed on L1, based on the current L1 and L2 block numbers.
 - `isPendingChainInvalid() => Promise<boolean>` - Returns whether the latest block in the pending chain on L1 is invalid (ie its attestations are incorrect). Note that invalid blocks do not get synced, so the latest block returned by the block source is always a valid one.
@@ -2724,6 +2729,12 @@ Formats a buffer as an array of fields. Splits the input into 31-byte chunks, an
 function bufferFromFields(fields: Fr[]) => Buffer
 ```
 Recovers a buffer from an array of fields.
+
+### canBeMappedFromNullOrUndefined
+```typescript
+function canBeMappedFromNullOrUndefined(abiType: AbiType) => boolean
+```
+Returns whether `null` or `undefined` can be mapped to a valid ABI value for this type.
 
 ### collectNested
 ```typescript
@@ -3249,6 +3260,12 @@ function isFunctionSelectorStruct(abiType: AbiType) => boolean
 ```
 Returns whether the ABI type is an Function Selector defined in Aztec.nr.
 
+### isOptionStruct
+```typescript
+function isOptionStruct(abiType: AbiType) => boolean
+```
+Returns whether the ABI type is Noir's std::option::Option lowered to a struct.
+
 ### isPublicKeysStruct
 ```typescript
 function isPublicKeysStruct(abiType: AbiType) => boolean
@@ -3432,7 +3449,7 @@ A named type.
 
 ### AbiDecoded
 ```typescript
-type AbiDecoded = bigint | boolean | string | AztecAddress | AbiDecoded[] | {}
+type AbiDecoded = bigint | boolean | string | AztecAddress | AbiDecoded[] | {} | undefined
 ```
 The type of our decoded ABI.
 
@@ -3592,6 +3609,7 @@ Represents the data generated as part of contract deployment.
 ```typescript
 type EventMetadataDefinition = unknown
 ```
+Metadata for a contract event, used to decode emitted event logs back into structured data.
 
 ### ExecutablePrivateFunctionWithMembershipProof
 ```typescript
@@ -3942,6 +3960,26 @@ type TX_ERROR_INVALID_PROOF = "Invalid proof"
 ### TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED
 ```typescript
 type TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED = "Setup function not on allow list"
+```
+
+### TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT
+```typescript
+type TX_ERROR_SETUP_FUNCTION_UNKNOWN_CONTRACT = "Setup function targets unknown contract"
+```
+
+### TX_ERROR_SETUP_NULL_MSG_SENDER
+```typescript
+type TX_ERROR_SETUP_NULL_MSG_SENDER = "Setup function called with null msg sender"
+```
+
+### TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER
+```typescript
+type TX_ERROR_SETUP_ONLY_SELF_WRONG_SENDER = "Setup only_self function called with incorrect msg_sender"
+```
+
+### TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH
+```typescript
+type TX_ERROR_SETUP_WRONG_CALLDATA_LENGTH = "Setup function called with wrong calldata length"
 ```
 
 ### TX_ERROR_SIZE_ABOVE_LIMIT

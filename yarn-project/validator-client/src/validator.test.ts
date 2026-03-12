@@ -25,7 +25,6 @@ import { OffenseType, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
-import { Gas } from '@aztec/stdlib/gas';
 import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
@@ -110,6 +109,7 @@ describe('ValidatorClient', () => {
       slotDuration: 24,
       l1ChainId: 1,
       rollupVersion: 1,
+      rollupManaLimit: 200_000_000,
     });
     worldState = mock<WorldStateSynchronizer>();
     epochCache = mock<EpochCache>();
@@ -121,6 +121,8 @@ describe('ValidatorClient', () => {
     blockSource.getCheckpointedBlocksForEpoch.mockResolvedValue([]);
     blockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);
     blockSource.getBlocksForSlot.mockResolvedValue([]);
+    blockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(Number.MAX_SAFE_INTEGER));
+    blockSource.syncImmediate.mockResolvedValue(undefined);
     epochCache.isEscapeHatchOpenAtSlot.mockResolvedValue(false);
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     txProvider = mock<TxProvider>();
@@ -154,6 +156,7 @@ describe('ValidatorClient', () => {
       pollingIntervalMs: 1000,
       signingTimeoutMs: 1000,
       maxStuckDutiesAgeMs: 72000,
+      dataStoreMapSizeKb: 1024 * 1024,
     };
 
     keyStoreManager = new KeystoreManager(makeKeyStore({ attester: validatorPrivateKeys.map(key => key as Hex<32>) }));
@@ -311,6 +314,7 @@ describe('ValidatorClient', () => {
       worldState.fork.mockResolvedValue({
         close: () => Promise.resolve(),
         [Symbol.asyncDispose]: () => Promise.resolve(),
+        getTreeInfo: () => Promise.resolve({ root: proposal.blockHeader.lastArchive.root.toBuffer() }),
       } as never);
     };
 
@@ -366,9 +370,7 @@ describe('ValidatorClient', () => {
         publicProcessorDuration: 0,
         numTxs: proposal.txHashes.length,
         failedTxs: [],
-        publicGas: Gas.empty(),
         usedTxs: [],
-        usedTxBlobFields: 0,
         block: {
           header: clonedBlockHeader,
           body: { txEffects: times(proposal.txHashes.length, () => TxEffect.empty()) },
@@ -530,6 +532,7 @@ describe('ValidatorClient', () => {
       blockSource.getBlockDataByArchive.mockResolvedValueOnce(undefined);
       blockSource.getBlockDataByArchive.mockResolvedValueOnce(undefined);
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
+      // Direct call returns undefined, then retryUntil: 2 undefined + 1 success = 4 total
       expect(blockSource.getBlockDataByArchive).toHaveBeenCalledTimes(4);
       expect(isValid).toBe(true);
     });
@@ -618,6 +621,7 @@ describe('ValidatorClient', () => {
     });
 
     it('should return false if the transactions are not available', async () => {
+      enableReexecution();
       txProvider.getTxsForBlockProposal.mockImplementation(proposal =>
         Promise.resolve({
           txs: [],
@@ -694,6 +698,7 @@ describe('ValidatorClient', () => {
       // L1 messages for the checkpoint) will catch it.
 
       it('should return false if global variables do not match parent for non-first block in checkpoint', async () => {
+        enableReexecution();
         // Create a proposal with indexWithinCheckpoint > 0 (non-first block in checkpoint)
         const parentSlotNumber = 100;
         const parentBlockNumber = 10;
@@ -1045,7 +1050,7 @@ describe('ValidatorClient', () => {
     it('should preserve HA signer and wrap new adapter in HAKeyStore after reload', () => {
       // Simulate HA mode by setting the haSigner and wrapping in HAKeyStore
       const mockHASigner = { nodeId: 'test-ha-node' };
-      (validatorClient as any).haSigner = mockHASigner;
+      (validatorClient as any).slashingProtectionSigner = mockHASigner;
       (validatorClient as any).keyStore = haKeyStore;
 
       const newCoinbase = EthAddress.random();

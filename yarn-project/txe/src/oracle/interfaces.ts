@@ -24,18 +24,18 @@ import type { UInt64 } from '@aztec/stdlib/types';
 export interface IAvmExecutionOracle {
   isAvm: true;
 
-  avmOpcodeAddress(): Promise<AztecAddress>;
-  avmOpcodeSender(): Promise<AztecAddress>;
-  avmOpcodeBlockNumber(): Promise<BlockNumber>;
-  avmOpcodeTimestamp(): Promise<bigint>;
-  avmOpcodeIsStaticCall(): Promise<boolean>;
-  avmOpcodeChainId(): Promise<Fr>;
-  avmOpcodeVersion(): Promise<Fr>;
-  avmOpcodeEmitNullifier(nullifier: Fr): Promise<void>;
-  avmOpcodeEmitNoteHash(noteHash: Fr): Promise<void>;
-  avmOpcodeNullifierExists(siloedNullifier: Fr): Promise<boolean>;
-  avmOpcodeStorageWrite(slot: Fr, value: Fr): Promise<void>;
-  avmOpcodeStorageRead(slot: Fr, contractAddress: AztecAddress): Promise<Fr>;
+  address(): Promise<AztecAddress>;
+  sender(): Promise<AztecAddress>;
+  blockNumber(): Promise<BlockNumber>;
+  timestamp(): Promise<bigint>;
+  isStaticCall(): Promise<boolean>;
+  chainId(): Promise<Fr>;
+  version(): Promise<Fr>;
+  emitNullifier(nullifier: Fr): Promise<void>;
+  emitNoteHash(noteHash: Fr): Promise<void>;
+  nullifierExists(siloedNullifier: Fr): Promise<boolean>;
+  storageWrite(slot: Fr, value: Fr): Promise<void>;
+  storageRead(slot: Fr, contractAddress: AztecAddress): Promise<Fr>;
 }
 
 /**
@@ -44,27 +44,23 @@ export interface IAvmExecutionOracle {
 export interface ITxeExecutionOracle {
   isTxe: true;
 
-  txeGetDefaultAddress(): AztecAddress;
-  txeGetNextBlockNumber(): Promise<BlockNumber>;
-  txeGetNextBlockTimestamp(): Promise<UInt64>;
-  txeAdvanceBlocksBy(blocks: number): Promise<void>;
-  txeAdvanceTimestampBy(duration: UInt64): void;
-  txeDeploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, foreignSecret: Fr): Promise<void>;
-  txeCreateAccount(secret: Fr): Promise<CompleteAddress>;
-  txeAddAccount(
-    artifact: ContractArtifact,
-    instance: ContractInstanceWithAddress,
-    secret: Fr,
-  ): Promise<CompleteAddress>;
-  txeAddAuthWitness(address: AztecAddress, messageHash: Fr): Promise<void>;
-  txeGetLastBlockTimestamp(): Promise<bigint>;
-  txeGetLastTxEffects(): Promise<{
+  getDefaultAddress(): AztecAddress;
+  getNextBlockNumber(): Promise<BlockNumber>;
+  getNextBlockTimestamp(): Promise<UInt64>;
+  advanceBlocksBy(blocks: number): Promise<void>;
+  advanceTimestampBy(duration: UInt64): void;
+  deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, foreignSecret: Fr): Promise<void>;
+  createAccount(secret: Fr): Promise<CompleteAddress>;
+  addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr): Promise<CompleteAddress>;
+  addAuthWitness(address: AztecAddress, messageHash: Fr): Promise<void>;
+  getLastBlockTimestamp(): Promise<bigint>;
+  getLastTxEffects(): Promise<{
     txHash: TxHash;
     noteHashes: Fr[];
     nullifiers: Fr[];
   }>;
-  txeGetPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress): Promise<Fr[][]>;
-  txePrivateCallNewFlow(
+  getPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress): Promise<Fr[][]>;
+  privateCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
@@ -73,13 +69,13 @@ export interface ITxeExecutionOracle {
     isStaticCall: boolean,
     jobId: string,
   ): Promise<Fr[]>;
-  txeExecuteUtilityFunction(
+  executeUtilityFunction(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],
     jobId: string,
   ): Promise<Fr[]>;
-  txePublicCallNewFlow(
+  publicCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress,
     calldata: Fr[],

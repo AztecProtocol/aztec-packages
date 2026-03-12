@@ -130,9 +130,10 @@ export class ReadOnlyL1TxUtils {
     const numBlocks = Math.ceil(gasConfig.stallTimeMs! / BLOCK_TIME_MS);
     for (let i = 0; i < numBlocks; i++) {
       // each block can go up 12.5% from previous baseFee
-      maxFeePerGas = (maxFeePerGas * (1_000n + 125n)) / 1_000n;
+      // ceil, (a+b-1)/b, to avoid truncation at small values (e.g. 1 wei blob base fee)
+      maxFeePerGas = (maxFeePerGas * (1_000n + 125n) + 999n) / 1_000n;
       // same for blob gas fee
-      maxFeePerBlobGas = (maxFeePerBlobGas * (1_000n + 125n)) / 1_000n;
+      maxFeePerBlobGas = (maxFeePerBlobGas * (1_000n + 125n) + 999n) / 1_000n;
     }
 
     if (attempt > 0) {
@@ -242,13 +243,16 @@ export class ReadOnlyL1TxUtils {
     const gasConfig = { ...this.config, ..._gasConfig };
     let initialEstimate = 0n;
     if (_blobInputs) {
-      // @note requests with blobs also require maxFeePerBlobGas to be set
+      // @note requests with blobs also require maxFeePerBlobGas to be set.
+      // Use 2x buffer for maxFeePerBlobGas to avoid stale fees and to pass EIP-4844 validation (even if it is a gas estimation call).
+      // 1. maxFeePerBlobGas >= blobBaseFee
+      // 2. account balance >= gas * maxFeePerGas + maxFeePerBlobGas * blobCount + value
       const gasPrice = await this.getGasPrice(gasConfig, true, 0);
       initialEstimate = await this.client.estimateGas({
         account,
         ...request,
         ..._blobInputs,
-        maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
+        maxFeePerBlobGas: gasPrice.maxFeePerBlobGas! * 2n,
         gas: MAX_L1_TX_LIMIT,
         blockTag: 'latest',
       });

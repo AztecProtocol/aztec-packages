@@ -791,3 +791,8 @@
     from = "/errors/5"
     to = "/aztec-nr-api/nightly/noir_aztec/macros/events/fn.event.html"
 
+[[redirects]]
+    # Aztec-nr: direct invocation of contract functions is not supported
+    from = "/errors/6"
+    to = "/developers/docs/aztec-nr/framework-description/calling_contracts"
+

@@ -27,6 +27,7 @@
 <li><a href="#create_contract_account">create_contract_account</a></li>
 <li><a href="#create_light_account">create_light_account</a></li>
 <li><a href="#deploy">deploy</a></li>
+<li><a href="#deploy_opts">deploy_opts</a></li>
 <li><a href="#discover_note">discover_note</a></li>
 <li><a href="#discover_note_at">discover_note_at</a></li>
 <li><a href="#execute_utility">execute_utility</a></li>
@@ -50,6 +51,7 @@
 </ul>
 <h2>In module test_environment</h2>
 <h3>Structs</h3><ul class="item-list">
+<li><a href="struct.DeployOptions.html">DeployOptions</a></div></li>
 <li><a href="struct.PrivateContextOptions.html">PrivateContextOptions</a></div></li>
 <li><a href="struct.TestEnvironment.html">TestEnvironment</a></div></li>
 </ul>
@@ -305,6 +307,16 @@ path relative to the current workspace:</p>
 <pre><code><span class="kw">let</span> my_contract = TestEnvironment::new().deploy(<span class="string">"MyContract"</span>).with_public_initializer(
   PublicInitContract::interface().public_init_fn(init_args)
 );</code></pre></div>
+</div><code id="deploy_opts" class="code-header">pub unconstrained fn <a href="#deploy_opts"><span class="fn">deploy_opts</span></a>&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    &mut self,
+    opts: <a href="../../../../noir_aztec/test/helpers/test_environment/struct.DeployOptions.html" class="struct">DeployOptions</a>,
+    path: <a href="../../../../std/primitive.str.html" class="primitive">str</a>&lt;N&gt;,
+) -> <a href="../../../../noir_aztec/test/helpers/utils/struct.ContractDeployment.html" class="struct">ContractDeployment</a>&lt;N&gt;</code>
+
+<div class="padded-description"><div class="comments">
+<p>Variant of <code>deploy</code> which allows specifying configuration values via <code>DeployOptions</code>, such as a custom salt
+or secret. If not specified, the salt and secret default to values from internal counters.</p>
+</div>
 </div><code id="call_private" class="code-header">pub unconstrained fn <a href="#call_private"><span class="fn">call_private</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     _self: Self,
     from: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
