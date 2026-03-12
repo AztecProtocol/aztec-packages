@@ -5,11 +5,11 @@ import { Blob } from '@aztec/blob-lib';
 import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
-import { getPublicClient } from '@aztec/ethereum/client';
+import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { compactArray, pick, unique } from '@aztec/foundation/collection';
+import { chunkBy, compactArray, pick, unique } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { BadRequestError } from '@aztec/foundation/json-rpc';
@@ -113,7 +113,7 @@ import {
 } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { createPublicClient, fallback, http } from 'viem';
+import { createPublicClient } from 'viem';
 
 import { createSentinel } from '../sentinel/factory.js';
 import { Sentinel } from '../sentinel/sentinel.js';
@@ -257,7 +257,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const publicClient = createPublicClient({
       chain: ethereumChain.chainInfo,
-      transport: fallback(config.l1RpcUrls.map((url: string) => http(url, { batch: false }))),
+      transport: makeL1HttpTransport(config.l1RpcUrls, { timeout: config.l1HttpTimeoutMS }),
       pollingInterval: config.viemPollingIntervalMS,
     });
 
@@ -793,18 +793,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     page?: number,
     referenceBlock?: BlockHash,
   ): Promise<TxScopedL2Log[][]> {
+    let upToBlockNumber: BlockNumber | undefined;
     if (referenceBlock) {
       const initialBlockHash = await this.#getInitialHeaderHash();
-      if (!referenceBlock.equals(initialBlockHash)) {
+      if (referenceBlock.equals(initialBlockHash)) {
+        upToBlockNumber = BlockNumber(0);
+      } else {
         const header = await this.blockSource.getBlockHeaderByHash(referenceBlock);
         if (!header) {
           throw new Error(
             `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
           );
         }
+        upToBlockNumber = header.globalVariables.blockNumber;
       }
     }
-    return this.logsSource.getPrivateLogsByTags(tags, page);
+    return this.logsSource.getPrivateLogsByTags(tags, page, upToBlockNumber);
   }
 
   public async getPublicLogsByTagsFromContract(
@@ -813,18 +817,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     page?: number,
     referenceBlock?: BlockHash,
   ): Promise<TxScopedL2Log[][]> {
+    let upToBlockNumber: BlockNumber | undefined;
     if (referenceBlock) {
       const initialBlockHash = await this.#getInitialHeaderHash();
-      if (!referenceBlock.equals(initialBlockHash)) {
+      if (referenceBlock.equals(initialBlockHash)) {
+        upToBlockNumber = BlockNumber(0);
+      } else {
         const header = await this.blockSource.getBlockHeaderByHash(referenceBlock);
         if (!header) {
           throw new Error(
             `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
           );
         }
+        upToBlockNumber = header.globalVariables.blockNumber;
       }
     }
-    return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags, page);
+    return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags, page, upToBlockNumber);
   }
 
   /**
@@ -1092,19 +1100,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   public async getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]> {
     // Assumes `getCheckpointedBlocksForEpoch` returns blocks in ascending order of block number.
     const checkpointedBlocks = await this.blockSource.getCheckpointedBlocksForEpoch(epoch);
-    const blocksInCheckpoints: L2Block[][] = [];
-    let previousSlotNumber = SlotNumber.ZERO;
-    let checkpointIndex = -1;
-    for (const checkpointedBlock of checkpointedBlocks) {
-      const block = checkpointedBlock.block;
-      const slotNumber = block.header.globalVariables.slotNumber;
-      if (slotNumber !== previousSlotNumber) {
-        checkpointIndex++;
-        blocksInCheckpoints.push([]);
-        previousSlotNumber = slotNumber;
-      }
-      blocksInCheckpoints[checkpointIndex].push(block);
-    }
+    const blocksInCheckpoints = chunkBy(checkpointedBlocks, cb => cb.block.header.globalVariables.slotNumber).map(
+      group => group.map(cb => cb.block),
+    );
     return blocksInCheckpoints.map(blocks =>
       blocks.map(block => block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs)),
     );
