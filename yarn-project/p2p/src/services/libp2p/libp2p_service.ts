@@ -237,11 +237,11 @@ export class LibP2PService extends WithTracer implements P2PService {
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 
     this.blockReceivedCallback = async (block: BlockProposal): Promise<boolean> => {
-      this.logger.debug(
-        `Handler not yet registered: Block received callback not set. Received block for slot ${block.slotNumber} from peer.`,
+      this.logger.warn(
+        `Handler for block received not yet registered on P2P service. Received block ${block.blockNumber} for slot ${block.slotNumber} from peer.`,
         { p2pMessageIdentifier: await block.p2pMessageLoggingIdentifier() },
       );
-      return false;
+      return true;
     };
 
     this.checkpointReceivedCallback = (
@@ -754,6 +754,9 @@ export class LibP2PService extends WithTracer implements P2PService {
     if (!validator || !validator.addMessage(msgId)) {
       this.instrumentation.incMessagePrevalidationStatus(false, topicType);
       this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Ignore);
+      if (topicType === TopicType.tx) {
+        this.logger.verbose(`Ignoring already-seen tx gossip message`, { msgId, source: source.toString() });
+      }
       return { result: false, topicType };
     }
 
@@ -923,6 +926,11 @@ export class LibP2PService extends WithTracer implements P2PService {
           severity = await this.handleDoubleSpendFailure(tx, txBlockNumber);
         }
 
+        this.logger.verbose(`Rejecting gossiped tx ${tx.getTxHash().toString()}: stage 1 validation failed`, {
+          validator: name,
+          severity,
+          source: source.toString(),
+        });
         this.peerManager.penalizePeer(source, severity);
         return { result: TopicValidatorResult.Reject };
       }
@@ -930,6 +938,9 @@ export class LibP2PService extends WithTracer implements P2PService {
       // Pool pre-check: see if the pool would accept this tx before doing expensive proof verification
       const canAdd = await this.mempools.txPool.canAddPendingTx(tx);
       if (canAdd === 'ignored') {
+        this.logger.verbose(`Ignoring gossiped tx ${tx.getTxHash().toString()}: pool pre-check returned ignored`, {
+          source: source.toString(),
+        });
         return { result: TopicValidatorResult.Ignore, obj: tx };
       }
 
@@ -937,7 +948,12 @@ export class LibP2PService extends WithTracer implements P2PService {
       const secondStageValidators = this.createSecondStageMessageValidators();
       const secondStageOutcome = await this.runValidations(tx, secondStageValidators);
       if (!secondStageOutcome.allPassed) {
-        const { severity } = secondStageOutcome.failure;
+        const { severity, name } = secondStageOutcome.failure;
+        this.logger.verbose(`Rejecting gossiped tx ${tx.getTxHash().toString()}: stage 2 validation failed`, {
+          validator: name,
+          severity,
+          source: source.toString(),
+        });
         this.peerManager.penalizePeer(source, severity);
         return { result: TopicValidatorResult.Reject };
       }
@@ -949,7 +965,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       const wasAccepted = addResult.accepted.some(h => h.equals(txHash));
       const wasIgnored = addResult.ignored.some(h => h.equals(txHash));
 
-      this.logger.trace(`Validate propagated tx`, {
+      this.logger.verbose(`Validate propagated tx ${txHash.toString()}`, {
         wasAccepted,
         wasIgnored,
         [Attributes.P2P_ID]: source.toString(),
@@ -1192,7 +1208,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     // Note: Validators do NOT attest to individual blocks, only to checkpoint proposals.
     const isValid = await this.blockReceivedCallback(block, sender);
     if (!isValid) {
-      this.logger.warn(`Block proposal validation failed for block ${block.blockNumber}`, block.toBlockInfo());
+      this.logger.info(`Block proposal validation failed for block ${block.blockNumber}`, block.toBlockInfo());
     }
   }
 

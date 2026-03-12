@@ -98,6 +98,8 @@
     "systeminformation": "^5.31.0",
     "node-forge": "^1.3.2",
     "koa": "^2.16.4",
-    "serialize-javascript": "^7.0.3"
+    "serialize-javascript": "^7.0.3",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "jws": "^4.0.1"
   }
 }

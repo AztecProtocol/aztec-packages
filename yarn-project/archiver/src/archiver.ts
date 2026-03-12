@@ -22,16 +22,15 @@ import {
 import { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
   type L1RollupConstants,
-  getEpochNumberAtTimestamp,
+  getEpochAtSlot,
   getSlotAtNextL1Block,
-  getSlotAtTimestamp,
   getSlotRangeForEpoch,
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
 import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ArchiverConfig, mapArchiverConfig } from './config.js';
-import { NoBlobBodiesFoundError } from './errors.js';
+import { BlockAlreadyCheckpointedError, NoBlobBodiesFoundError } from './errors.js';
 import { validateAndLogTraceAvailability } from './l1/validate_trace.js';
 import { ArchiverDataSourceBase } from './modules/data_source_base.js';
 import { ArchiverDataStoreUpdater } from './modules/data_store_updater.js';
@@ -243,10 +242,15 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       }
 
       try {
-        await this.updater.addProposedBlocks([block]);
+        await this.updater.addProposedBlock(block);
         this.log.debug(`Added block ${block.number} to store`);
         resolve();
       } catch (err: any) {
+        if (err instanceof BlockAlreadyCheckpointedError) {
+          this.log.debug(`Proposed block ${block.number} matches already checkpointed block, ignoring late proposal`);
+          resolve();
+          continue;
+        }
         this.log.error(`Failed to add block ${block.number} to store: ${err.message}`);
         reject(err);
       }
@@ -338,16 +342,35 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     return Promise.resolve(this.synchronizer.getL1Timestamp());
   }
 
-  public getL2SlotNumber(): Promise<SlotNumber | undefined> {
+  public getSyncedL2SlotNumber(): Promise<SlotNumber | undefined> {
     const l1Timestamp = this.synchronizer.getL1Timestamp();
-    return Promise.resolve(l1Timestamp === undefined ? undefined : getSlotAtTimestamp(l1Timestamp, this.l1Constants));
+    if (l1Timestamp === undefined) {
+      return Promise.resolve(undefined);
+    }
+    // The synced slot is the last L2 slot whose all L1 blocks have been processed.
+    // If the next L1 block (at l1Timestamp + ethereumSlotDuration) falls in slot N,
+    // then we've fully synced slot N-1.
+    const nextL1BlockSlot = getSlotAtNextL1Block(l1Timestamp, this.l1Constants);
+    if (Number(nextL1BlockSlot) === 0) {
+      return Promise.resolve(undefined);
+    }
+    return Promise.resolve(SlotNumber(nextL1BlockSlot - 1));
   }
 
-  public getL2EpochNumber(): Promise<EpochNumber | undefined> {
-    const l1Timestamp = this.synchronizer.getL1Timestamp();
-    return Promise.resolve(
-      l1Timestamp === undefined ? undefined : getEpochNumberAtTimestamp(l1Timestamp, this.l1Constants),
-    );
+  public async getSyncedL2EpochNumber(): Promise<EpochNumber | undefined> {
+    const syncedSlot = await this.getSyncedL2SlotNumber();
+    if (syncedSlot === undefined) {
+      return undefined;
+    }
+    // An epoch is fully synced when all its slots are synced.
+    // We check if syncedSlot is the last slot of its epoch; if so, that epoch is fully synced.
+    // Otherwise, only the previous epoch is fully synced.
+    const epoch = getEpochAtSlot(syncedSlot, this.l1Constants);
+    const [, endSlot] = getSlotRangeForEpoch(epoch, this.l1Constants);
+    if (syncedSlot >= endSlot) {
+      return epoch;
+    }
+    return Number(epoch) > 0 ? EpochNumber(Number(epoch) - 1) : undefined;
   }
 
   public async isEpochComplete(epochNumber: EpochNumber): Promise<boolean> {
@@ -455,11 +478,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       this.log.info(`Rolling back proven L2 checkpoint to ${targetCheckpointNumber}`);
       await this.updater.setProvenCheckpointNumber(targetCheckpointNumber);
     }
-    // TODO(palla/reorg): Set the finalized block when we add support for it.
-    // const currentFinalizedBlock = currentBlocks.finalized.block.number;
-    // if (targetL2BlockNumber < currentFinalizedBlock) {
-    //   this.log.info(`Rolling back finalized L2 checkpoint to ${targetCheckpointNumber}`);
-    //   await this.updater.setFinalizedCheckpointNumber(targetCheckpointNumber);
-    // }
+    const currentFinalizedBlock = currentBlocks.finalized.block.number;
+    if (targetL2BlockNumber < currentFinalizedBlock) {
+      this.log.info(`Rolling back finalized L2 checkpoint to ${targetCheckpointNumber}`);
+      await this.updater.setFinalizedCheckpointNumber(targetCheckpointNumber);
+    }
   }
 }

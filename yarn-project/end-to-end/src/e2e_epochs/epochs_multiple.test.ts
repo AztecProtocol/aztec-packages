@@ -4,14 +4,12 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 
 import { jest } from '@jest/globals';
 
-import type { EndToEndContext } from '../fixtures/utils.js';
 import { EpochsTestContext, WORLD_STATE_CHECKPOINT_HISTORY } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 15);
 
 // Assumes one block per checkpoint
 describe('e2e_epochs/epochs_multiple', () => {
-  let context: EndToEndContext;
   let rollup: RollupContract;
   let logger: Logger;
 
@@ -19,7 +17,7 @@ describe('e2e_epochs/epochs_multiple', () => {
 
   beforeEach(async () => {
     test = await EpochsTestContext.setup();
-    ({ context, rollup, logger } = test);
+    ({ rollup, logger } = test);
   });
 
   afterEach(async () => {
@@ -48,11 +46,13 @@ describe('e2e_epochs/epochs_multiple', () => {
       await test.waitForNodeToSync(epochEndBlockNumber, 'proven');
       await test.verifyHistoricBlock(epochEndBlockNumber, true);
 
-      // Check that finalized blocks are purged from world state
-      // Right now finalization means a checkpoint is two L2 epochs deep. If this rule changes then this test needs to be updated.
-      // This test is setup as 1 block per checkpoint
+      // Check that finalized blocks are purged from world state.
+      // Anvil is started with --slots-in-an-epoch 1, so 'finalized' = latest - 2. By the time
+      // we reach this point the proof has been on L1 for many blocks, so the finalized L1 block
+      // is past the proof submission block, making finalized checkpoint == proven checkpoint.
+      // This test is setup as 1 block per checkpoint.
       const provenBlockNumber = epochEndBlockNumber;
-      const finalizedBlockNumber = Math.max(provenBlockNumber - context.config.aztecEpochDuration * 2, 0);
+      const finalizedBlockNumber = provenBlockNumber;
       const expectedOldestHistoricBlock = Math.max(finalizedBlockNumber - WORLD_STATE_CHECKPOINT_HISTORY + 1, 1);
       const expectedBlockRemoved = expectedOldestHistoricBlock - 1;
       await test.waitForNodeToSync(BlockNumber(expectedOldestHistoricBlock), 'historic');
