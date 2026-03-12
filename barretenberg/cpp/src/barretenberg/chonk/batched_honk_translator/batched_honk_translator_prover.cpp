@@ -279,14 +279,13 @@ void BatchedHonkTranslatorProver::execute_joint_pcs()
 
     PolynomialBatcher polynomial_batcher(joint_circuit_size, max_end_index);
 
-    // Combine unshifted polynomials: translator first (its masking poly at position 0 for Shplemini offset=2),
-    // then MegaZK (no masking poly — translator provides the joint masking poly).
-    auto trans_unshifted = translator_key->proving_key->polynomials.get_pcs_unshifted();
+    // Combine unshifted polynomials from both circuits.
     auto mega_zk_unshifted = mega_zk_inst->polynomials.get_unshifted();
-    auto joint_unshifted = concatenate(trans_unshifted, mega_zk_unshifted);
+    auto trans_unshifted = translator_key->proving_key->polynomials.get_pcs_unshifted();
+    auto joint_unshifted = concatenate(mega_zk_unshifted, trans_unshifted);
     polynomial_batcher.set_unshifted(joint_unshifted);
 
-    // Combine shifted polynomials: MegaZK first, then translator.
+    // Combine shifted polynomials from both circuits.
     auto mega_zk_shifted = mega_zk_inst->polynomials.get_to_be_shifted();
     auto trans_shifted = translator_key->proving_key->polynomials.get_pcs_to_be_shifted();
     auto joint_shifted = concatenate(mega_zk_shifted, trans_shifted);

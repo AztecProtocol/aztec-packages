@@ -454,6 +454,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
+    maxNotePackedLen: number,
+    maxEventSerializedLen: number,
   ) {
     // TODO(#10727): allow other contracts to store notes
     if (!this.contractAddress.equals(contractAddress)) {
@@ -464,11 +466,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     // faster as we don't need to wait for the network round-trip.
     const noteValidationRequests = (
       await this.capsuleStore.readCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, this.jobId)
-    ).map(NoteValidationRequest.fromFields);
+    ).map(fields => NoteValidationRequest.fromFields(fields, maxNotePackedLen));
 
     const eventValidationRequests = (
       await this.capsuleStore.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, this.jobId)
-    ).map(EventValidationRequest.fromFields);
+    ).map(fields => EventValidationRequest.fromFields(fields, maxEventSerializedLen));
 
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
     const noteStorePromises = noteValidationRequests.map(request =>

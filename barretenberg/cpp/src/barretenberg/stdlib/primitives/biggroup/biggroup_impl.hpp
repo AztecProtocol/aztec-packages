@@ -948,8 +948,7 @@ template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul_internal(const std::vector<element>& _points,
                                                                 const std::vector<Fr>& _scalars,
                                                                 const size_t max_num_bits,
-                                                                const bool with_edgecases,
-                                                                const Fr& masking_scalar)
+                                                                const bool with_edgecases)
 {
     // Sanity check input sizes
     BB_ASSERT_GT(_points.size(), 0ULL, "biggroup batch_mul: no points provided for batch multiplication");
@@ -1001,19 +1000,11 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul_internal(const std::vecto
     points = new_points;
     scalars = new_scalars;
 
-    // If with_edgecases is false, masking_scalar must be constant and equal to 1 (as it is unused).
-    if (!with_edgecases) {
-        BB_ASSERT_EQ(
-            masking_scalar.is_constant() && masking_scalar.get_value() == 1,
-            true,
-            "biggroup batch_mul: masking_scalar must be constant (and equal to 1) when with_edgecases is false");
-    }
-
     if (with_edgecases && !points.empty()) {
-        // If points are linearly dependent, we randomise them using a masking scalar.
+        // If points are linearly dependent, we randomise them using a free-witness offset generator.
         // We do this to ensure that the x-coordinates of the points are all distinct. This is required
         // while creating the ROM lookup table with the points.
-        std::tie(points, scalars) = mask_points(points, scalars, masking_scalar);
+        std::tie(points, scalars) = mask_points(points, scalars);
     }
 
     BB_ASSERT_EQ(
@@ -1115,10 +1106,9 @@ template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element>& points,
                                                        const std::vector<Fr>& scalars,
                                                        const size_t max_num_bits,
-                                                       const bool with_edgecases,
-                                                       const Fr& masking_scalar)
+                                                       const bool with_edgecases)
 {
-    element result = batch_mul_internal(points, scalars, max_num_bits, with_edgecases, masking_scalar);
+    element result = batch_mul_internal(points, scalars, max_num_bits, with_edgecases);
     return result.get_standard_form();
 }
 

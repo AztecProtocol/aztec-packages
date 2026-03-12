@@ -24,7 +24,7 @@ Phase 2: verify(joint_proof, translator_params...)  →  ReductionResult (pairin
 
 ### Phase 1 — MegaZK Oink
 
-`OinkProver<MegaZKFlavor>` runs the pre-sumcheck phase (wire commitments, permutation grand products, relation parameters). The proof segment is exported as `hiding_oink_proof`.
+`OinkProver<MegaZKFlavor>` runs the pre-sumcheck phase (wire commitments, permutation grand products, relation parameters). The proof segment is exported as `mega_zk_proof`.
 
 The verifier's `verify_mega_zk_oink()` returns an `OinkResult` containing:
 - Public inputs (the `HidingKernelIO`)
@@ -82,7 +82,7 @@ Two ranges are identified:
 
 ```cpp
 struct Proof {
-    HonkProof hiding_oink_proof;           // Hiding kernel Oink only
+    HonkProof mega_zk_proof;              // MegaZK Oink only
     HonkProof translator_and_joint_proof; // Translator Oink + joint sumcheck + joint PCS
 };
 ```
@@ -101,7 +101,7 @@ The split allows the `ChonkVerifier` to interleave merge and ECCVM verification 
 | `BatchedHonkTranslatorRecursiveVerifier` | `stdlib::bn254<Builder>` | In-circuit (used in `ChonkVerifier<true>`) |
 
 Public API:
-1. `verify_mega_zk_oink(hiding_oink_proof)` → `OinkResult`
+1. `verify_mega_zk_oink(mega_zk_proof)` → `OinkResult`
 2. `verify(joint_proof, eval_x, batch_v, accum_result, op_queue_comms)` → `ReductionResult`
 
 Internally, `verify()` delegates to:

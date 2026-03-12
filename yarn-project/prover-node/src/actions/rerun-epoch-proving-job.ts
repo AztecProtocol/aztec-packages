@@ -30,7 +30,7 @@ export async function rerunEpochProvingJob(
   const telemetry = getTelemetryClient();
   const metrics = new ProverNodeJobMetrics(telemetry.getMeter('prover-job'), telemetry.getTracer('prover-job'));
   const worldState = await createWorldState(config);
-  const archiver = await createArchiverStore(config, { epochDuration: config.aztecEpochDuration });
+  const archiver = await createArchiverStore(config);
   const publicProcessorFactory = new PublicProcessorFactory(archiver, undefined, undefined, log.getBindings());
 
   const publisher = { submitEpochProof: () => Promise.resolve(true) };

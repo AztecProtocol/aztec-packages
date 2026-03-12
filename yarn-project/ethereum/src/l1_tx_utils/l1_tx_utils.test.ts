@@ -454,6 +454,50 @@ describe('L1TxUtils', () => {
       }
     });
 
+    it('bumps gas fees correctly at very low wei values (ceiling division)', async () => {
+      await cheatCodes.setNextBlockBaseFeePerGas(1n);
+      await cheatCodes.evmMine();
+
+      const originalGetBlobBaseFee = l1Client.getBlobBaseFee;
+      l1Client.getBlobBaseFee = () => Promise.resolve(1n);
+
+      const originalEstimate = l1Client.estimateMaxPriorityFeePerGas;
+      l1Client.estimateMaxPriorityFeePerGas = () => Promise.resolve(0n);
+
+      try {
+        gasUtils.updateConfig({
+          ...defaultL1TxUtilsConfig,
+          stallTimeMs: 12_000,
+          priorityFeeBumpPercentage: 0,
+          minimumPriorityFeePerGas: 0,
+        });
+
+        const gasPrice = await gasUtils['getGasPrice'](undefined, true);
+
+        // With ceiling division: (1n * 1125n + 999n) / 1000n = 2n
+        expect(gasPrice.maxFeePerGas).toBe(2n);
+        expect(gasPrice.maxFeePerBlobGas).toBe(2n);
+
+        // Verify compounding works across multiple iterations
+        gasUtils.updateConfig({
+          ...defaultL1TxUtilsConfig,
+          stallTimeMs: 24_000,
+          priorityFeeBumpPercentage: 0,
+          minimumPriorityFeePerGas: 0,
+        });
+
+        const gasPrice2 = await gasUtils['getGasPrice'](undefined, true);
+
+        // Iteration 1: ceil(1 * 1125 / 1000) = 2
+        // Iteration 2: ceil(2 * 1125 / 1000) = ceil(2.25) = 3
+        expect(gasPrice2.maxFeePerGas).toBe(3n);
+        expect(gasPrice2.maxFeePerBlobGas).toBe(3n);
+      } finally {
+        l1Client.getBlobBaseFee = originalGetBlobBaseFee;
+        l1Client.estimateMaxPriorityFeePerGas = originalEstimate;
+      }
+    });
+
     it('calculates correct gas prices for retry attempts', async () => {
       await cheatCodes.setNextBlockBaseFeePerGas(WEI_CONST);
       await cheatCodes.evmMine();

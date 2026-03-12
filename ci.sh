@@ -76,15 +76,32 @@ function get_latest_run_id {
 # Jobs in the ci dashboards are grouped on a single line by RUN_ID.
 export RUN_ID=${RUN_ID:-$(date +%s%3N)}
 
-# Delegate to SSM (default) or SSH based on CI_USE_SSH.
-function bootstrap_remote {
-  if [ "${CI_USE_SSH:-0}" -eq 1 ]; then
-    bootstrap_ec2 "$@"
-  else
-    bootstrap_ssm "$@"
+function multi_job_run {
+  if [[ -z "${CI_DASHBOARD:-}" ]]; then
+    if [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
+      export CI_DASHBOARD=${TARGET_BRANCH:-local}
+    else
+      export CI_DASHBOARD="prs"
+    fi
   fi
+  export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-75}
+  export AWS_SHUTDOWN_TIME_ARM=${AWS_SHUTDOWN_TIME_ARM:-90}
+  export DENOISE=1
+  export DENOISE_WIDTH=32
+  run() {
+    [ -n "${4:-}" ] && export REF_NAME=$4
+    PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
+  }
+  export -f run
+
+  parallel --colsep ' ' --jobs 100 --termseq 'TERM,10000' \
+    --tagstring '{1}' \
+    --line-buffered --halt now,fail=1 \
+    'run {1} {2} {3} {4}' ::: "$@" | DUP=1 cache_log "CI run" $RUN_ID
 }
-export -f bootstrap_remote
+
+# Jobs in the ci dashboards are grouped on a single line by RUN_ID.
+export RUN_ID=${RUN_ID:-$(date +%s%3N)}
 
 case "$cmd" in
   dash)
@@ -93,31 +110,31 @@ case "$cmd" in
   fast|docs|barretenberg|barretenberg-full)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-$cmd"
-    bootstrap_remote "./bootstrap.sh ci-$cmd"
+    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   socket-fix)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-socket-fix"
     export INSTANCE_POSTFIX="socket-fix"
     export CPUS=16
-    bootstrap_remote "./bootstrap.sh ci-socket-fix $*"
+    bootstrap_ec2 "./bootstrap.sh ci-socket-fix $*"
     ;;
   full|full-no-test-cache)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-$cmd"
     export AWS_SHUTDOWN_TIME=75
-    bootstrap_remote "./bootstrap.sh ci-$cmd"
+    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   barretenberg-debug)
     export CI_DASHBOARD="nightly"
     export JOB_ID="x-$cmd"
     export CPUS=16
-    bootstrap_remote "./bootstrap.sh ci-$cmd"
+    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   avm-inputs-collection|avm-check-circuit)
     export CI_DASHBOARD="nightly"
     export JOB_ID="x-$cmd"
-    bootstrap_remote "./bootstrap.sh ci-$cmd"
+    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   grind)
     # Grind a default of 5 times.
@@ -125,7 +142,7 @@ case "$cmd" in
     export DENOISE=1
     export DENOISE_WIDTH=32
     run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_remote './bootstrap.sh $3'"
+      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
     }
     export -f run
     seq 1 ${1:-5} | parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered \
@@ -133,57 +150,24 @@ case "$cmd" in
     ;;
   merge-queue)
     # We perform full runs of all tests on multiple x86, and a single fast run on arm64.
-    if [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
-      export CI_DASHBOARD=${TARGET_BRANCH:-local}
-    else
-      export CI_DASHBOARD="prs"
-    fi
-    export AWS_SHUTDOWN_TIME=75
-    export AWS_SHUTDOWN_TIME_ARM=90
-    export DENOISE=1
-    export DENOISE_WIDTH=32
-    run() {
-      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_remote './bootstrap.sh $3'"
-    }
-    export -f run
-
-    # Specify jobs as maybe we only have a couple of cpus.
-    parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x1-full amd64 ci-full-no-test-cache' \
-      'run x2-full amd64 ci-full-no-test-cache' \
-      'run x3-full amd64 ci-full-no-test-cache' \
-      'run x4-full amd64 ci-full-no-test-cache' \
-      'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
+    multi_job_run \
+      'x1-full amd64 ci-full-no-test-cache' \
+      'a1-fast arm64 ci-fast'
     ;;
   merge-queue-heavy)
     # Heavy merge queue with 10 parallel grind runs, used for merge-train/spartan PRs.
-    if [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
-      export CI_DASHBOARD=${TARGET_BRANCH:-local}
-    else
-      export CI_DASHBOARD="prs"
-    fi
-    export AWS_SHUTDOWN_TIME=75
-    export AWS_SHUTDOWN_TIME_ARM=90
-    export DENOISE=1
-    export DENOISE_WIDTH=32
-    run() {
-      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_remote './bootstrap.sh $3'"
-    }
-    export -f run
-
-    # Specify jobs as maybe we only have a couple of cpus.
-    parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x1-full amd64 ci-full-no-test-cache' \
-      'run x2-full amd64 ci-full-no-test-cache' \
-      'run x3-full amd64 ci-full-no-test-cache' \
-      'run x4-full amd64 ci-full-no-test-cache' \
-      'run x5-full amd64 ci-full-no-test-cache' \
-      'run x6-full amd64 ci-full-no-test-cache' \
-      'run x7-full amd64 ci-full-no-test-cache' \
-      'run x8-full amd64 ci-full-no-test-cache' \
-      'run x9-full amd64 ci-full-no-test-cache' \
-      'run x10-full amd64 ci-full-no-test-cache' \
-      'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue heavy CI run" $RUN_ID
+    multi_job_run \
+      'x'{1..10}'-full amd64 ci-full-no-test-cache' \
+      'a1-fast arm64 ci-fast'
+    ;;
+  merge-queue-ci)
+    # 10 parallel grind runs with no build cache and dry run of release, used for merge-train/ci PRs.
+    export DRY_RUN=1
+    export NO_CACHE=1
+    multi_job_run \
+      'x'{1..10}'-full amd64 ci-full-no-test-cache' \
+      'a1-fast arm64 ci-fast' \
+      "release amd64 ci-release v0.0.1-commit.$(git rev-parse --short HEAD)"
     ;;
   grind-test)
     full_cmd="$1"
@@ -199,7 +183,7 @@ case "$cmd" in
     export JOB_ID="grind-test-$test_hash"
     export INSTANCE_POSTFIX=$JOB_ID
     export CPUS=${CPUS:-192}
-    bootstrap_remote "./bootstrap.sh ci-grind-test $(printf %q "$full_cmd") $timeout $jobs_pct $memsuspend_pct $commit" | DUP=1 cache_log "Grind test CI run" $RUN_ID
+    bootstrap_ec2 "./bootstrap.sh ci-grind-test $(printf %q "$full_cmd") $timeout $jobs_pct $memsuspend_pct $commit" | DUP=1 cache_log "Grind test CI run" $RUN_ID
     ;;
   ##########################################
   # NETWORK DEPLOYMENTS WITH BENCHES/TESTS #
@@ -220,7 +204,7 @@ case "$cmd" in
       local set=$1
       export JOB_ID="x-${namespace}-${set}"
       export INSTANCE_POSTFIX="n-deploy-${set}"
-      bootstrap_remote "./bootstrap.sh ci-network-deploy $scenario ${namespace}-${set} \"$docker_image\" $set"
+      bootstrap_ec2 "./bootstrap.sh ci-network-deploy $scenario ${namespace}-${set} \"$docker_image\" $set"
     }
     export -f run
     export scenario namespace docker_image
@@ -240,7 +224,7 @@ case "$cmd" in
     # Enough for the build, which should have a lot of caching, and the test harness.
     # Resources are on GCP.
     export CPUS=16
-    bootstrap_remote "./bootstrap.sh ci-network-deploy $*"
+    bootstrap_ec2 "./bootstrap.sh ci-network-deploy $*"
     ;;
   network-tests)
     # Args: <scenario> <namespace>
@@ -251,7 +235,7 @@ case "$cmd" in
     # Enough for the build, which should have a lot of caching, and the test harness.
     # Resources are on GCP.
     export CPUS=16
-    bootstrap_remote "./bootstrap.sh ci-network-tests $*"
+    bootstrap_ec2 "./bootstrap.sh ci-network-tests $*"
     ;;
   network-bench)
     # Args: <scenario> <namespace> [docker_image]
@@ -262,7 +246,7 @@ case "$cmd" in
     # Enough for the build, which should have a lot of caching, and the test harness.
     # Resources are on GCP.
     export CPUS=16
-    bootstrap_remote "./bootstrap.sh ci-network-bench $*"
+    bootstrap_ec2 "./bootstrap.sh ci-network-bench $*"
     ;;
   network-proving-bench)
     # Args: <scenario> <namespace> [docker_image]
@@ -270,7 +254,15 @@ case "$cmd" in
     export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-proving-bench" CPUS=16
     export INSTANCE_POSTFIX="n-proving-bench"
-    bootstrap_remote "./bootstrap.sh ci-network-proving-bench $*"
+    bootstrap_ec2 "./bootstrap.sh ci-network-proving-bench $*"
+    ;;
+  network-block-capacity-bench)
+    # Args: <scenario> <namespace> [docker_image]
+    # Deploys network and runs block capacity benchmarks.
+    export CI_DASHBOARD="network"
+    export JOB_ID="x-${2:?namespace is required}-network-block-capacity-bench" CPUS=16
+    export INSTANCE_POSTFIX="n-block-cap-bench"
+    bootstrap_ec2 "./bootstrap.sh ci-network-block-capacity-bench $*"
     ;;
   network-teardown)
     # Args: <scenario> <namespace>
@@ -278,7 +270,7 @@ case "$cmd" in
     export JOB_ID="x-${2:?namespace is required}-network-teardown"
     export CPUS=4
     export INSTANCE_POSTFIX="n-teardown"
-    bootstrap_remote "./bootstrap.sh ci-network-teardown $*"
+    bootstrap_ec2 "./bootstrap.sh ci-network-teardown $*"
     ;;
 
   network-tests-kind)
@@ -287,7 +279,7 @@ case "$cmd" in
     export AWS_SHUTDOWN_TIME=180 # 3 hours for KIND tests
     export CPUS=192
     export INSTANCE_POSTFIX="n-kind"
-    bootstrap_remote "./bootstrap.sh ci-network-kind-tests"
+    bootstrap_ec2 "./bootstrap.sh ci-network-kind-tests"
     ;;
   deploy-rollup-upgrade)
     # Env vars: NETWORK, GCP_PROJECT_ID (for GCP secrets)
@@ -296,7 +288,7 @@ case "$cmd" in
     export JOB_ID="x-deploy-rollup-upgrade"
     export CPUS=8
     export INSTANCE_POSTFIX="rollup-upgrade"
-    bootstrap_remote "./bootstrap.sh ci-deploy-rollup-upgrade $*"
+    bootstrap_ec2 "./bootstrap.sh ci-deploy-rollup-upgrade $*"
     ;;
 
   ############
@@ -305,17 +297,9 @@ case "$cmd" in
   release)
     # Spin up ec2 instance and run the release flow.
     export CI_DASHBOARD="releases"
-    export AWS_SHUTDOWN_TIME=75
-    export DENOISE=1
-    export DENOISE_WIDTH=32
-    run() {
-      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_remote './bootstrap.sh ci-release'"
-    }
-    export -f run
-
-    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x-release amd64' \
-      'run a-release arm64' | DUP=1 cache_log "Release CI run" $RUN_ID
+    multi_job_run \
+      'x-release amd64 ci-release' \
+      'a-release arm64 ci-release'
     ;;
 
   ##################
@@ -325,7 +309,7 @@ case "$cmd" in
     # Spin up ec2 instance, clone, and drop into shell.
     # False triggers the shell on fail.
     cmd="${1:-false}"
-    exec bootstrap_ec2 "$cmd"
+    CI_USE_SSH=1 exec bootstrap_ec2 "$cmd"
     ;;
   shell-container)
     # Drop into a shell in the current running build instance container.
@@ -437,7 +421,7 @@ case "$cmd" in
   ########################
   # BENCHMARK PROCESSING #
   ########################
-  gh-bench|gh-deploy-bench|gh-spartan-bench|gh-spartan-proving-bench)
+  gh-bench|gh-deploy-bench|gh-spartan-bench|gh-spartan-proving-bench|gh-spartan-block-capacity-bench)
     cache_download ${cmd#gh-}-$(git rev-parse HEAD^{tree}).tar.gz
     ;;
 
