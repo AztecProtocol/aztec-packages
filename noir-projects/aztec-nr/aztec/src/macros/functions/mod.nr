@@ -71,6 +71,10 @@ use initialization_utils::EMIT_PUBLIC_INIT_NULLIFIER_FN_NAME;
 /// begins: if a single nullifier were used, public functions enqueued by the initializer would see it as
 /// existing *before* the public initialization code had a chance to run.
 ///
+/// The private init nullifier is computed from the contract address and the contract's `init_hash`. This means that
+/// address knowledge alone is insufficient to check whether a contract has been initialized, preventing a privacy
+/// leak for fully private contracts.
+///
 /// - **Private initializers** emit the private init nullifier. For contracts that also have external public functions,
 ///   they auto-enqueue a call to an auto-generated public function that emits the public init nullifier during public
 ///   execution. This function name is reserved and cannot be used by contract developers.

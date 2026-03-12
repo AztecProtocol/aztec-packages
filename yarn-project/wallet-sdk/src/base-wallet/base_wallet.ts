@@ -50,7 +50,7 @@ import {
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
-import { siloNullifier } from '@aztec/stdlib/hash';
+import { computeSiloedPrivateInitNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import {
   BlockHeader,
@@ -473,15 +473,22 @@ export abstract class BaseWallet implements Wallet {
 
   async getContractMetadata(address: AztecAddress) {
     const instance = await this.pxe.getContractInstance(address);
-    const initNullifier = await siloNullifier(address, address.toField());
-    const publiclyRegisteredContract = await this.aztecNode.getContract(address);
-    const initNullifierMembershipWitness = await this.aztecNode.getNullifierMembershipWitness('latest', initNullifier);
+    const publiclyRegisteredContractPromise = this.aztecNode.getContract(address);
+    // The private init nullifier is derived from init_hash, which is only available when the PXE has the contract
+    // instance. Without it, we report the contract as not initialized.
+    let isContractInitialized = false;
+    if (instance) {
+      const initNullifier = await computeSiloedPrivateInitNullifier(address, instance.initializationHash);
+      const witness = await this.aztecNode.getNullifierMembershipWitness('latest', initNullifier);
+      isContractInitialized = !!witness;
+    }
+    const publiclyRegisteredContract = await publiclyRegisteredContractPromise;
     const isContractUpdated =
       publiclyRegisteredContract &&
       !publiclyRegisteredContract.currentContractClassId.equals(publiclyRegisteredContract.originalContractClassId);
     return {
       instance: instance ?? undefined,
-      isContractInitialized: !!initNullifierMembershipWitness,
+      isContractInitialized,
       isContractPublished: !!publiclyRegisteredContract,
       isContractUpdated: !!isContractUpdated,
       updatedContractClassId: isContractUpdated ? publiclyRegisteredContract.currentContractClassId : undefined,

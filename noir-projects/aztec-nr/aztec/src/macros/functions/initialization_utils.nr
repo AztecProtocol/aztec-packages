@@ -1,7 +1,9 @@
 use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
-    constants::{DOM_SEP__INITIALIZER, DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER},
+    constants::{
+        DOM_SEP__INITIALIZER, DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER, DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER,
+    },
     hash::poseidon2_hash_with_separator,
     traits::ToField,
 };
@@ -53,7 +55,9 @@ pub fn mark_as_initialized_public(context: PublicContext) {
 }
 
 fn mark_as_initialized_private(context: &mut PrivateContext) {
-    let init_nullifier = compute_private_init_nullifier((*context).this_address());
+    let address = (*context).this_address();
+    let instance = get_contract_instance(address);
+    let init_nullifier = compute_private_init_nullifier(address, instance.initialization_hash);
     context.push_nullifier(init_nullifier);
 }
 
@@ -74,7 +78,12 @@ pub fn mark_as_initialized_from_private_initializer(context: &mut PrivateContext
 /// Called by public [`initializer`](crate::macros::functions::initializer) macros, since public initializers must set
 /// both so that both private and public functions see the contract as initialized.
 pub fn mark_as_initialized_from_public_initializer(context: PublicContext) {
-    let private_nullifier = compute_private_init_nullifier(context.this_address());
+    let address = context.this_address();
+    // `get_contract_instance_initialization_hash_avm` returns None when there is no deployed contract instance at the
+    // given address. This cannot happen here because we're querying `this_address()`, i.e. the contract that is
+    // currently executing, which by definition must have been deployed.
+    let init_hash = get_contract_instance_initialization_hash_avm(address).unwrap();
+    let private_nullifier = compute_private_init_nullifier(address, init_hash);
     context.push_nullifier(private_nullifier);
     mark_as_initialized_public(context);
 }
@@ -94,15 +103,22 @@ pub fn assert_is_initialized_public(context: PublicContext) {
 ///
 /// Checks that the private initialization nullifier exists.
 pub fn assert_is_initialized_private(context: &mut PrivateContext) {
-    let init_nullifier = compute_private_init_nullifier(context.this_address());
-    let nullifier_existence_request = compute_nullifier_existence_request(init_nullifier, context.this_address());
+    let address = context.this_address();
+    let instance = get_contract_instance(address);
+    let init_nullifier = compute_private_init_nullifier(address, instance.initialization_hash);
+    let nullifier_existence_request = compute_nullifier_existence_request(init_nullifier, address);
     context.assert_nullifier_exists(nullifier_existence_request);
 }
 
-// TODO(F-194): This leaks whether a contract has been initialized, since anyone who knows the address can compute this
-// nullifier and check for its existence. It is also not domain separated.
-fn compute_private_init_nullifier(address: AztecAddress) -> Field {
-    address.to_field()
+/// Computes the private initialization nullifier for a contract.
+///
+/// Includes `init_hash` so that address knowledge alone is insufficient to determine whether
+/// a contract has been initialized (for fully private contracts whose `init_hash` is not public).
+pub(crate) fn compute_private_init_nullifier(address: AztecAddress, init_hash: Field) -> Field {
+    poseidon2_hash_with_separator(
+        [address.to_field(), init_hash],
+        DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER,
+    )
 }
 
 fn compute_public_init_nullifier(address: AztecAddress) -> Field {

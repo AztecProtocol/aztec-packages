@@ -5,7 +5,7 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import { ProtocolContractAddress } from '@aztec/aztec.js/protocol';
 import type { TxHash } from '@aztec/aztec.js/tx';
 import type { LogFn } from '@aztec/foundation/log';
-import { siloNullifier } from '@aztec/stdlib/hash';
+import { computeSiloedPrivateInitNullifier, siloNullifier } from '@aztec/stdlib/hash';
 import { NoteDao } from '@aztec/stdlib/note';
 
 import type { CLIWallet } from '../utils/wallet.js';
@@ -149,14 +149,28 @@ async function getKnownNullifiers(wallet: CLIWallet, artifactMap: ArtifactMap) {
   const initNullifiers: Record<string, AztecAddress> = {};
   const deployNullifiers: Record<string, AztecAddress> = {};
   const classNullifiers: Record<string, string> = {};
-  for (const contract of knownContracts) {
-    initNullifiers[(await siloNullifier(contract, contract.toField())).toString()] = contract;
-    deployNullifiers[(await siloNullifier(deployerAddress, contract.toField())).toString()] = contract;
-  }
-  for (const artifact of Object.values(artifactMap)) {
-    classNullifiers[(await siloNullifier(classRegistryAddress, artifact.classId)).toString()] =
-      `${artifact.name}Class<${artifact.classId}>`;
-  }
+
+  await Promise.all([
+    ...knownContracts.map(async contract => {
+      const [metadata, deployNullifier] = await Promise.all([
+        wallet.getContractMetadata(contract),
+        siloNullifier(deployerAddress, contract.toField()),
+      ]);
+      if (metadata.instance) {
+        const siloedInitNullifier = await computeSiloedPrivateInitNullifier(
+          contract,
+          metadata.instance.initializationHash,
+        );
+        initNullifiers[siloedInitNullifier.toString()] = contract;
+      }
+      deployNullifiers[deployNullifier.toString()] = contract;
+    }),
+    ...Object.values(artifactMap).map(async artifact => {
+      classNullifiers[(await siloNullifier(classRegistryAddress, artifact.classId)).toString()] =
+        `${artifact.name}Class<${artifact.classId}>`;
+    }),
+  ]);
+
   return { initNullifiers, deployNullifiers, classNullifiers };
 }
 

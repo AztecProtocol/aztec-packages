@@ -59,6 +59,20 @@ export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Promi
 }
 
 /**
+ * Computes the private initialization nullifier for a contract, given its address and initialization hash.
+ * @param contract - The contract address.
+ * @param initializationHash - The contract's initialization hash.
+ * @returns The siloed private initialization nullifier.
+ */
+export async function computeSiloedPrivateInitNullifier(contract: AztecAddress, initializationHash: Fr): Promise<Fr> {
+  const innerNullifier = await poseidon2HashWithSeparator(
+    [contract, initializationHash],
+    DomainSeparator.PRIVATE_INITIALIZATION_NULLIFIER,
+  );
+  return siloNullifier(contract, innerNullifier);
+}
+
+/**
  * Computes the protocol nullifier, which is the hash of the initial tx request siloed with the null msg sender address.
  * @param txRequestHash - The hash of the initial tx request.
  * @returns The siloed value of the protocol nullifier.
