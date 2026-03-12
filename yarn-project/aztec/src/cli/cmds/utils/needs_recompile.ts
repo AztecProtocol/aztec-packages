@@ -77,6 +77,7 @@ async function collectCrateDirs(startCrateDir: string): Promise<string[]> {
 
     const members = (parsed.workspace as Record<string, any>)?.members as string[] | undefined;
 
+    // A Nargo.toml is either a workspace root (has workspace.members) or a single crate (has dependencies).
     if (Array.isArray(members)) {
       // The crate is a workspace root and has members defined so we visit the members
       for (const member of members) {

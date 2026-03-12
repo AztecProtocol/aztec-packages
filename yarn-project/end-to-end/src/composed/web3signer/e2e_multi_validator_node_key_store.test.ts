@@ -1,7 +1,7 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT, waitForProven } from '@aztec/aztec.js/contracts';
-import { ContractDeployer } from '@aztec/aztec.js/deployment';
+import { ContractDeployer, publishContractClass } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
@@ -314,6 +314,9 @@ describe('e2e_multi_validator_node', () => {
       config.ethereumSlotDuration * 3,
       1,
     );
+
+    const publishClass = await publishContractClass(wallet, StatefulTestContractArtifact);
+    await publishClass.send({ from: ownerAddress });
   });
 
   afterEach(async () => {
@@ -327,7 +330,6 @@ describe('e2e_multi_validator_node', () => {
       from: ownerAddress,
       contractAddressSalt,
       skipClassPublication: true,
-      skipInstancePublication: true,
       wait: NO_WAIT,
     });
   };
