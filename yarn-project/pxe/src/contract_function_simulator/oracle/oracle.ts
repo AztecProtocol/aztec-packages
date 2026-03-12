@@ -86,25 +86,17 @@ export class Oracle {
     });
 
     // Build callback object and return it
-    return oracleNames.reduce((acc, name) => {
+    const callback = oracleNames.reduce((acc, name) => {
       const method = this[name as keyof Omit<Oracle, (typeof excludedProps)[number]>];
       acc[name] = method.bind(this);
       return acc;
     }, {} as ACIRCallback);
-<<<<<<< HEAD
-  }
-
-  utilityAssertCompatibleOracleVersion([version]: ACVMField[]) {
-    this.handlerAsMisc().utilityAssertCompatibleOracleVersion(Fr.fromString(version).toNumber());
-=======
 
     return { ...callback, ...buildLegacyOracleCallbacks(this) };
   }
 
-  // eslint-disable-next-line camelcase
-  aztec_utl_assertCompatibleOracleVersion([version]: ACVMField[]) {
-    this.handlerAsMisc().assertCompatibleOracleVersion(Fr.fromString(version).toNumber());
->>>>>>> 1019f2a65a (fix: complete legacy oracle mappings for all pinned contracts (#21404))
+  utilityAssertCompatibleOracleVersion([version]: ACVMField[]) {
+    this.handlerAsMisc().utilityAssertCompatibleOracleVersion(Fr.fromString(version).toNumber());
     return Promise.resolve([]);
   }
 
@@ -113,7 +105,6 @@ export class Oracle {
     return Promise.resolve([toACVMField(val)]);
   }
 
-<<<<<<< HEAD
   privateStoreInExecutionCache(values: ACVMField[], [hash]: ACVMField[]): Promise<ACVMField[]> {
     this.handlerAsPrivate().privateStoreInExecutionCache(values.map(Fr.fromString), Fr.fromString(hash));
     return Promise.resolve([]);
@@ -121,17 +112,6 @@ export class Oracle {
 
   async privateLoadFromExecutionCache([returnsHash]: ACVMField[]): Promise<ACVMField[][]> {
     const values = await this.handlerAsPrivate().privateLoadFromExecutionCache(Fr.fromString(returnsHash));
-=======
-  // eslint-disable-next-line camelcase
-  aztec_prv_storeInExecutionCache(values: ACVMField[], [hash]: ACVMField[]): Promise<ACVMField[]> {
-    this.handlerAsPrivate().storeInExecutionCache(values.map(Fr.fromString), Fr.fromString(hash));
-    return Promise.resolve([]);
-  }
-
-  // eslint-disable-next-line camelcase
-  async aztec_prv_loadFromExecutionCache([returnsHash]: ACVMField[]): Promise<ACVMField[][]> {
-    const values = await this.handlerAsPrivate().loadFromExecutionCache(Fr.fromString(returnsHash));
->>>>>>> 1019f2a65a (fix: complete legacy oracle mappings for all pinned contracts (#21404))
     return [values.map(toACVMField)];
   }
 
@@ -440,12 +420,7 @@ export class Oracle {
     return Promise.resolve([]);
   }
 
-<<<<<<< HEAD
   async utilityLog(
-=======
-  // eslint-disable-next-line camelcase
-  async aztec_utl_log(
->>>>>>> 1019f2a65a (fix: complete legacy oracle mappings for all pinned contracts (#21404))
     level: ACVMField[],
     message: ACVMField[],
     _ignoredFieldsSize: ACVMField[],
@@ -576,12 +551,7 @@ export class Oracle {
     return [];
   }
 
-<<<<<<< HEAD
   async utilityLoadCapsule(
-=======
-  // eslint-disable-next-line camelcase
-  async aztec_utl_loadCapsule(
->>>>>>> 1019f2a65a (fix: complete legacy oracle mappings for all pinned contracts (#21404))
     [contractAddress]: ACVMField[],
     [slot]: ACVMField[],
     [tSize]: ACVMField[],
