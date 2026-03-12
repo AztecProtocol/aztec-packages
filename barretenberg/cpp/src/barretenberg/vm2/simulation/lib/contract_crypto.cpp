@@ -13,6 +13,7 @@ using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
  *        31 bytes of the @p bytecode. The field encoding is performed in big-endian order, i.e.,
  *        the ith field element is
  *        2^240 * bytecode[31*i] + 2^232 * bytecode[31*i + 1] + ... + 2^8 * bytecode[31*i + 30] + bytecode[31*i + 31].
+ * @note This function follows TS `bufferAsFields`.
  *
  * @param bytecode The bytecode to encode.
  * @return std::vector<FF> The encoded bytecode.

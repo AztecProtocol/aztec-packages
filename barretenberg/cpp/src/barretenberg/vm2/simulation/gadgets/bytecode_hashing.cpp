@@ -33,7 +33,7 @@ void BytecodeHasher::assert_public_bytecode_commitment(const BytecodeId& bytecod
 
     FF hash = hasher.hash(inputs);
     // This will throw an unexpected exception if it fails.
-    BB_ASSERT_EQ(hash, bytecode_id, "Bytecode ID hash mismatch");
+    BB_ASSERT_EQ(hash, bytecode_id, "Public bytecode commitment hash mismatch");
 
     events.emit({ .bytecode_id = bytecode_id,
                   .bytecode_length_in_bytes = static_cast<uint32_t>(bytecode_length_in_bytes),

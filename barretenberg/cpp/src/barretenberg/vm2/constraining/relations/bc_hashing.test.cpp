@@ -496,7 +496,7 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativePaddingOver)
     // Padding computation will fail:
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_PADDING_COMPUTATION),
                               "PADDING_COMPUTATION");
-    // ...setting it to that padding = 2, set fields_1 ==0, and input_len = 4 will make all relations to pass...
+    // If we set padding = 2, fields_1 = 0, and input_len = 4, all relations will pass.
     trace.set(Column::bc_hashing_padding, 2, 2);
     trace.set(Column::bc_hashing_padding, 1, 2);
     trace.set(Column::bc_hashing_packed_fields_1, 2, 0);
@@ -570,10 +570,10 @@ TEST_F(BytecodeHashingConstrainingTestTraceHelper, NegativeOutputHash)
     check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_poseidon2_hash_settings>(trace);
 
     // Change any of the output_hash values
-    // trace.set(Column::bc_hashing_bytecode_id, 2, 123);
-    // EXPECT_THROW_WITH_MESSAGE(
-    //     (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_poseidon2_hash_settings>(trace)),
-    //     "LOOKUP_BC_HASHING_POSEIDON2_HASH");
+    trace.set(Column::bc_hashing_bytecode_id, 2, 123);
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_poseidon2_hash_settings>(trace)),
+        "LOOKUP_BC_HASHING_POSEIDON2_HASH");
 }
 
 TEST_F(BytecodeHashingConstrainingTest, NegativeSingleBytecodeHashIncrements)

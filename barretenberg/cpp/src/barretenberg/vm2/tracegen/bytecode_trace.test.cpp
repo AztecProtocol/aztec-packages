@@ -660,6 +660,7 @@ TEST(BytecodeTraceGenTest, BasicHashing)
                       ROW_FIELD_EQ(bc_hashing_sel_not_start, 0),
                       ROW_FIELD_EQ(bc_hashing_sel_not_padding_1, 1),
                       ROW_FIELD_EQ(bc_hashing_sel_not_padding_2, 1),
+                      ROW_FIELD_EQ(bc_hashing_padding, 2),
                       ROW_FIELD_EQ(bc_hashing_end, 0),
                       ROW_FIELD_EQ(bc_hashing_bytecode_id, FF(0xdeadbeef)),
                       ROW_FIELD_EQ(bc_hashing_pc_index, 0),
@@ -680,6 +681,7 @@ TEST(BytecodeTraceGenTest, BasicHashing)
                       ROW_FIELD_EQ(bc_hashing_sel_not_start, 1),
                       ROW_FIELD_EQ(bc_hashing_sel_not_padding_1, 0),
                       ROW_FIELD_EQ(bc_hashing_sel_not_padding_2, 0),
+                      ROW_FIELD_EQ(bc_hashing_padding, 2),
                       ROW_FIELD_EQ(bc_hashing_end, 1),
                       ROW_FIELD_EQ(bc_hashing_bytecode_id, FF(0xdeadbeef)),
                       ROW_FIELD_EQ(bc_hashing_pc_index, 62),
@@ -688,6 +690,7 @@ TEST(BytecodeTraceGenTest, BasicHashing)
                       ROW_FIELD_EQ(bc_hashing_packed_fields_0, 30),
                       ROW_FIELD_EQ(bc_hashing_packed_fields_1, 0),
                       ROW_FIELD_EQ(bc_hashing_packed_fields_2, 0),
+                      ROW_FIELD_EQ(bc_hashing_size_in_bytes, 93),
                       ROW_FIELD_EQ(bc_hashing_input_len, 4),
                       ROW_FIELD_EQ(bc_hashing_rounds_rem, 1)));
 }
