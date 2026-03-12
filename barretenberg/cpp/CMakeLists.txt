@@ -9,6 +9,13 @@ project(
     LANGUAGES CXX C
 )
 
+# === Platform Guard Reference ===
+# __wasm__  : Compiler-defined for WebAssembly. Guards threading, file I/O, networking.
+# _WIN32    : Compiler-defined for Windows. Guards POSIX APIs (mmap, signals, IPC).
+# BB_LITE   : CMake option. Excludes server-side subsystems (lmdb, world_state, ipc, nodejs_module).
+#             Enabled for: iOS, Android, Windows cross-compiles.
+# WASM      : CMake variable mirroring __wasm__ for CMake-level logic.
+
 # Add doxygen build command
 find_package(Doxygen)
 if (DOXYGEN_FOUND)
@@ -38,7 +45,7 @@ option(ENABLE_PIC "Builds with position independent code" OFF)
 option(SYNTAX_ONLY "only check syntax (-fsyntax-only)" OFF)
 option(ENABLE_WASM_BENCH "Enable BB_BENCH benchmarking support in WASM builds (dev only, not for releases)" OFF)
 option(AVM "enable building of vm2 module and bb-avm" ON)
-option(MOBILE "Build for mobile (excludes lmdb, world_state, vm2, nodejs_module)" OFF)
+option(BB_LITE "Exclude server-side subsystems: lmdb, world_state, ipc, nodejs_module" OFF)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
     message(STATUS "Compiling for ARM.")
@@ -160,7 +167,7 @@ include(cmake/nlohmann_json.cmake)
 include(cmake/httplib.cmake)
 include(cmake/libdeflate.cmake)
 
-if (NOT WASM AND NOT MOBILE)
+if (NOT WASM AND NOT BB_LITE)
     include(cmake/lmdb.cmake)
 endif()
 

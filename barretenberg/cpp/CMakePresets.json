@@ -552,8 +552,8 @@
         "CMAKE_SYSTEM_NAME": "Windows",
         "CMAKE_SYSTEM_PROCESSOR": "x86_64",
         "TARGET_ARCH": "skylake",
-        "MOBILE": "ON",
-        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/x86_64-pc-windows-gnu/release/libavm_transpiler.a"
+        "BB_LITE": "ON",
+        "AVM_TRANSPILER_LIB": ""
       }
     },
     {
@@ -569,7 +569,7 @@
         "CMAKE_SYSTEM_NAME": "Generic",
         "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
         "HAVE_STD_REGEX": "ON",
-        "MOBILE": "ON"
+        "BB_LITE": "ON"
       }
     },
     {
@@ -585,7 +585,7 @@
         "CMAKE_SYSTEM_NAME": "Generic",
         "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
         "HAVE_STD_REGEX": "ON",
-        "MOBILE": "ON"
+        "BB_LITE": "ON"
       }
     },
     {
@@ -601,7 +601,7 @@
         "CMAKE_SYSTEM_NAME": "Generic",
         "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
         "HAVE_STD_REGEX": "ON",
-        "MOBILE": "ON"
+        "BB_LITE": "ON"
       }
     },
     {
@@ -617,7 +617,7 @@
         "CMAKE_SYSTEM_NAME": "Generic",
         "CMAKE_TRY_COMPILE_TARGET_TYPE": "STATIC_LIBRARY",
         "HAVE_STD_REGEX": "ON",
-        "MOBILE": "ON"
+        "BB_LITE": "ON"
       }
     }
   ],
@@ -686,7 +686,13 @@
     {
       "name": "asan-fast",
       "inherits": "default",
-      "configurePreset": "asan-fast"
+      "configurePreset": "asan-fast",
+      "targets": [
+        "commitment_schemes_recursion_tests",
+        "chonk_tests",
+        "ultra_honk_tests",
+        "dsl_tests"
+      ]
     },
     {
       "name": "gcc",
@@ -783,6 +789,17 @@
       ]
     },
     {
+      "name": "wasm-threads-bench",
+      "configurePreset": "wasm-threads",
+      "inheritConfigureEnvironment": true,
+      "jobs": 0,
+      "targets": [
+        "ultra_honk_bench",
+        "chonk_bench",
+        "bb"
+      ]
+    },
+    {
       "name": "xray",
       "configurePreset": "xray",
       "inherits": "default"
@@ -790,47 +807,56 @@
     {
       "name": "zig-amd64-linux",
       "configurePreset": "zig-amd64-linux",
-      "inheritConfigureEnvironment": true
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb", "nodejs_module", "bb-external"]
     },
     {
       "name": "zig-arm64-linux",
       "configurePreset": "zig-arm64-linux",
-      "inheritConfigureEnvironment": true
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb", "nodejs_module", "bb-external"]
     },
     {
       "name": "zig-amd64-macos",
       "configurePreset": "zig-amd64-macos",
-      "inheritConfigureEnvironment": true
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb", "nodejs_module", "bb-external"]
     },
     {
       "name": "zig-arm64-macos",
       "configurePreset": "zig-arm64-macos",
-      "inheritConfigureEnvironment": true
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb", "nodejs_module", "bb-external"]
     },
     {
       "name": "zig-amd64-windows",
       "configurePreset": "zig-amd64-windows",
-      "inheritConfigureEnvironment": true
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb", "bb-external"]
     },
     {
       "name": "zig-arm64-ios",
       "configurePreset": "zig-arm64-ios",
-      "inheritConfigureEnvironment": true
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb-external"]
     },
     {
       "name": "zig-arm64-ios-sim",
       "configurePreset": "zig-arm64-ios-sim",
-      "inheritConfigureEnvironment": true
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb-external"]
     },
     {
       "name": "zig-arm64-android",
       "configurePreset": "zig-arm64-android",
-      "inheritConfigureEnvironment": true
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb-external"]
     },
     {
       "name": "zig-x86_64-android",
       "configurePreset": "zig-x86_64-android",
-      "inheritConfigureEnvironment": true
+      "inheritConfigureEnvironment": true,
+      "targets": ["bb-external"]
     }
   ],
   "testPresets": [

@@ -28,18 +28,13 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
     endif()
 
+    # These flags are needed for all Clang variants (Apple Clang, Zig-wrapped Clang, etc.)
+    add_compile_options(-Wno-missing-field-initializers)
+    add_compile_options(-Wno-deprecated-declarations)
+
     if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 18)
         # We target clang20 and need this, eventually warning should be fixed or this will be unconditional.
         add_compile_options(-Wno-vla-cxx-extension)
-        # This gets in the way of a partial object initialization (i.e. MyClass my_class{ .my_member = init_value })
-        add_compile_options(-Wno-missing-field-initializers)
-        # CLI11.hpp
-        add_compile_options(-Wno-deprecated-declarations)
-    endif()
-    if(MOBILE)
-        # iOS builds use Apple Clang which has stricter defaults but doesn't support -Wno-vla-cxx-extension
-        add_compile_options(-Wno-missing-field-initializers)
-        add_compile_options(-Wno-deprecated-declarations)
     endif()
 endif()
 
@@ -120,11 +115,11 @@ add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm2_stub)
 add_subdirectory(barretenberg/wasi)
 
-if(NOT MOBILE)
+if(NOT BB_LITE)
     add_subdirectory(barretenberg/lmdblib)
 endif()
 
-if(NOT FUZZING AND NOT WASM AND NOT MOBILE)
+if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     # Fuzzing preset cannot be built with world_state as world_state cannot compile with MULTITHREADING=OFF
     # Mobile builds exclude these modules that require LMDB or aren't needed on mobile
     add_subdirectory(barretenberg/world_state)
@@ -202,7 +197,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:translator_vm_objects>
     $<TARGET_OBJECTS:ultra_honk_objects>)
 
-if(NOT WASM AND NOT FUZZING AND NOT MOBILE)
+if(NOT WASM AND NOT FUZZING AND NOT BB_LITE)
     # enable merkle trees and lmdb (not for mobile builds)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:crypto_merkle_tree_objects>)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:lmdblib_objects>)
