@@ -48,7 +48,9 @@ export class FastTxCollection {
   }
 
   public async stop() {
-    this.requests.forEach(request => request.promise.reject(new AbortError(`Stopped collection service`)));
+    this.requests.forEach(request => {
+      request.requestTracker.cancel();
+    });
     await Promise.resolve();
   }
 
@@ -75,10 +77,7 @@ export class FastTxCollection {
         ? { ...input.blockProposal.toBlockInfo(), blockNumber: input.blockNumber }
         : { ...input.block.toBlockInfo() };
 
-    // This promise is used to await for the collection to finish during the main collectFast method.
-    // It gets resolved in `foundTxs` when all txs have been collected, or rejected if the request is aborted or hits the deadline.
     const promise = promiseWithResolvers<void>();
-    const timeoutTimer = setTimeout(() => promise.reject(new TimeoutError(`Timed out while collecting txs`)), timeout);
 
     const request: FastCollectionRequest = {
       ...input,
@@ -89,7 +88,6 @@ export class FastTxCollection {
     };
 
     const [duration] = await elapsed(() => this.collectFast(request, { ...opts }));
-    clearTimeout(timeoutTimer);
 
     this.log.verbose(
       `Collected ${request.requestTracker.collectedTxs.length} txs out of ${txHashes.length} for ${input.type} at slot ${blockInfo.slotNumber}`,
@@ -121,7 +119,7 @@ export class FastTxCollection {
       // as we have collected all txs, whatever the source.
       const nodeCollectionPromise = this.collectFastFromNodes(request, opts);
       const waitBeforeReqResp = sleep(this.config.txCollectionFastNodesTimeoutBeforeReqRespMs);
-      await Promise.race([request.promise.promise, waitBeforeReqResp]);
+      await Promise.race([request.promise.promise, request.requestTracker.cancellationToken, waitBeforeReqResp]);
 
       // If we have collected all txs, we can stop here
       if (request.requestTracker.allFetched()) {
@@ -132,7 +130,7 @@ export class FastTxCollection {
       // Start blasting reqresp for the remaining txs. Note that node collection keeps running in parallel.
       // We stop when we have collected all txs, timed out, or both node collection and reqresp have given up.
       const collectionPromise = Promise.allSettled([this.collectFastViaReqResp(request, opts), nodeCollectionPromise]);
-      await Promise.race([collectionPromise, request.promise.promise]);
+      await Promise.race([collectionPromise, request.requestTracker.cancellationToken, request.promise.promise]);
     } catch (err) {
       // Log and swallow all errors
       const logCtx = {
@@ -149,7 +147,7 @@ export class FastTxCollection {
       }
     } finally {
       // Ensure no unresolved promises and remove the request from the set
-      request.promise.resolve();
+      request.requestTracker.cancel();
       this.requests.delete(request);
     }
   }
@@ -183,7 +181,10 @@ export class FastTxCollection {
     opts: { deadline: Date },
   ) {
     const notFinished = () =>
-      this.dateProvider.now() <= +opts.deadline && !request.requestTracker.allFetched() && this.requests.has(request);
+      !request.requestTracker.cancelled &&
+      this.dateProvider.now() <= +opts.deadline &&
+      !request.requestTracker.allFetched() &&
+      this.requests.has(request);
 
     const maxParallelRequests = this.config.txCollectionFastMaxParallelRequestsPerNode;
     const maxBatchSize = this.config.txCollectionNodeRpcMaxBatchSize;
@@ -347,13 +348,11 @@ export class FastTxCollection {
             type: request.type,
           });
         }
-        // If we found all txs for this request, we resolve the promise
         if (request.requestTracker.allFetched()) {
           this.log.trace(`All txs found for fast collection request`, {
             ...request.blockInfo,
             type: request.type,
           });
-          request.promise.resolve();
         }
       }
     }
@@ -367,7 +366,6 @@ export class FastTxCollection {
     for (const request of this.requests) {
       if (request.blockInfo.blockNumber <= blockNumber) {
         request.requestTracker.cancel();
-        request.promise.reject(new AbortError(`Stopped collecting txs up to block ${blockNumber}`));
         this.requests.delete(request);
       }
     }
@@ -381,7 +379,6 @@ export class FastTxCollection {
     for (const request of this.requests) {
       if (request.blockInfo.blockNumber > blockNumber) {
         request.requestTracker.cancel();
-        request.promise.reject(new AbortError(`Stopped collecting txs after block ${blockNumber}`));
         this.requests.delete(request);
       }
     }
