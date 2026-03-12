@@ -669,7 +669,6 @@ template <class Params_> struct alignas(32) field {
     // Only meaningful for "small" moduli (<=254 bits) which use the coarse representation.
     // The bound is strictly less than 2p: every coarse-reduction path (asm and generic) subtracts 2p
     // when the result is >= 2p, so the output is always in [0, 2p).
-    // Skips the check when the MSB of data[3] is set, as this indicates a point-at-infinity sentinel.
     // Not constexpr in debug builds (BB_ASSERT_DEBUG uses std::ostringstream).
     // Callers must guard with `if (!std::is_constant_evaluated())` in constexpr functions.
 #ifdef NDEBUG
@@ -678,10 +677,6 @@ template <class Params_> struct alignas(32) field {
     void assert_coarse_form() const noexcept
     {
         if constexpr (modulus.data[3] < MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
-            // Skip check for point-at-infinity sentinel (MSB set in top limb).
-            if ((data[3] >> 63) != 0) {
-                return;
-            }
             uint256_t val{ data[0], data[1], data[2], data[3] };
             BB_ASSERT_DEBUG(val < twice_modulus, "field element >= 2p (coarse form violated)");
         }
